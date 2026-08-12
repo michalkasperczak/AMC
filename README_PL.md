@@ -2,7 +2,7 @@
 
 To pierwszy demonstracyjny prototyp aplikacji sterowanej globalnym prefiksem. Sprawdza architekturę klawiatury, sesji, list, komunikatów dostępności, profili oraz importu i eksportu. Nie łączy się jeszcze z prawdziwymi kontami TIDAL, Apple Music ani WiiM.
 
-Ten README opisuje zachowanie gotowego prototypu `0.1.0-alpha.12`. Zatwierdzony kierunek dalszego rozwoju, docelowa architektura oraz nowa mapa skrótów znajdują się w [`MEDIA_CONTROLLER_PL.md`](MEDIA_CONTROLLER_PL.md). Zmiany opisane w planie nie muszą być jeszcze zaimplementowane w bieżącym pliku EXE.
+Ten README opisuje zachowanie gotowego prototypu `0.1.0-alpha.13`. Zatwierdzony kierunek dalszego rozwoju, docelowa architektura oraz pełna mapa skrótów znajdują się w [`MEDIA_CONTROLLER_PL.md`](MEDIA_CONTROLLER_PL.md).
 
 ## Najprostsze uruchomienie — bez wpisywania poleceń
 
@@ -21,7 +21,7 @@ W razie błędu skrypt automatycznie otwiera w Notatniku plik `build-log.txt` ze
 - PowerShell 5.1 lub nowszy;
 - do testów dostępności: NVDA, JAWS albo Narrator.
 
-Środowisko, w którym przygotowano źródła, nie zawiera zestawu .NET SDK. Projekt został sprawdzony statycznie, ale przed pierwszym użyciem trzeba go zbudować i uruchomić na Windows. Najprościej zrobić to powyższym plikiem uruchamianym z Eksploratora.
+Projekt jest budowany i sprawdzany automatycznymi testami rdzenia na Windows. Najprościej uruchomić go powyższym plikiem z Eksploratora.
 
 ## Budowanie i uruchamianie
 
@@ -53,24 +53,33 @@ Wynik znajdzie się w `publish\win-x64`.
 
 ## Domyślne działanie prototypu
 
-Domyślny globalny prefiks to `Ctrl+Alt+Windows+F12`. Zastąpił wcześniejsze kombinacje kolidujące z NVDA albo systemowym skrótem Narratora. Warstwa globalna pozostaje eksperymentalna i w etapie `alpha.12` rozwój koncentruje się na aktywnym oknie programu. Po prefiksie:
+Domyślny globalny prefiks to `Ctrl+Alt+Windows+F12`. Zastąpił wcześniejsze kombinacje kolidujące z NVDA albo systemowym skrótem Narratora. Warstwa globalna pozostaje eksperymentalna, a w `alpha.13` otrzymała uzgodnioną mapę. Po prefiksie:
 
-- `Ctrl+1` — TIDAL;
-- `Ctrl+2` — Apple Music;
-- `Ctrl+3` — WiiM;
-- `Ctrl+0` — lista sesji;
+- `1` — TIDAL;
+- `2` — Apple Music;
+- `3` — WiiM;
+- `4–9` — następne przypisane sesje, jeśli istnieją;
+- `0` — lista sesji;
 - `Page Up` i `Page Down` — poprzednia i następna sesja;
 - strzałki w lewo i w prawo — 10 sekund wstecz lub naprzód;
 - strzałki w górę i w dół — głośność o 5%;
 - `Ctrl+E`, `Ctrl+R`, `Ctrl+T` — odpowiednio czas upłynięty, pozostały i całkowity;
-- `F` i `Shift+F` — Ulubione i zmiana stanu Ulubionych;
-- `P` i `Shift+P` — Playlisty i zmiana przynależności.
+- `U` i `Shift+U` — Ulubione i zmiana stanu Ulubionych;
+- `L` i `Shift+L` — Biblioteka i zmiana przynależności;
+- `P` i `Shift+P` — Playlisty i zmiana przynależności;
+- `Q` i `Shift+Q` — Kolejka i dodanie albo usunięcie elementu;
+- `A` — Albumy; `Shift+A` pozostaje wolne;
+- `K` — filtr bieżącej listy, `Shift+K` — przyszła paleta poleceń;
+- `F` — wyszukiwanie w bieżącej usłudze, `Shift+F` — wyszukiwanie globalne;
+- `D` — pobieranie wewnątrz usługi, `Shift+D` — eksperymentalne pobieranie na dysk.
 
-Gdy okno AMC jest aktywne, `Ctrl+1–9` przełącza sesję bez globalnego prefiksu, `Ctrl+0` otwiera listę sesji, a `Ctrl+Page Up` i `Ctrl+Page Down` wybierają poprzednią lub następną sesję. Lokalne skróty widoków to: `Ctrl+P` — Playlisty, `Ctrl+L` — Biblioteka i `Ctrl+Q` — Kolejka. Działają również wtedy, gdy fokus przypadkowo albo celowo znajduje się w filtrze. `Ctrl+Z` cofa kolejno zmiany przynależności do Ulubionych, Biblioteki i Kolejki oraz stan „Odtwórz jako następne”; przywrócony element jest ponownie zaznaczany, jeśli znajduje się w bieżącym widoku. W polu filtra `Ctrl+Z` zachowuje standardowe znaczenie cofania edycji tekstu. Polecenie jest także dostępne w menu **Edycja**. Po wyczerpaniu historii cofania fokus pozostaje na liście. `Ctrl+N` i `Ctrl+A` są zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko; widoki Teraz odtwarzane i Albumy pozostają dostępne w menu.
+Gdy okno AMC jest aktywne, `Ctrl+1–9` przełącza sesję bez globalnego prefiksu, `Ctrl+0` otwiera listę sesji, a `Ctrl+Page Up` i `Ctrl+Page Down` wybierają poprzednią lub następną sesję. Lokalne skróty widoków to `Ctrl+U` — Ulubione, `Ctrl+P` — Playlisty, `Ctrl+L` — Biblioteka, `Ctrl+Q` — Kolejka oraz `Ctrl+Shift+A` — Albumy. Skróty widoków działają również wtedy, gdy fokus znajduje się w filtrze. `Ctrl+K` przechodzi do filtra bieżących danych, `Ctrl+F` otwiera demonstracyjny widok wyszukiwania w bieżącej usłudze, a `Ctrl+Shift+F` — we wszystkich usługach. `Ctrl+Shift+K` jest zarezerwowane dla palety poleceń i obecnie podaje jednoznaczny komunikat o jej niedostępności. Na liście `Ctrl+Shift+U` zmienia stan Ulubionych.
+
+`Ctrl+Z` cofa kolejno zmiany przynależności do Ulubionych, Biblioteki i Kolejki oraz stan „Odtwórz jako następne”; przywrócony element jest ponownie zaznaczany, jeśli znajduje się w bieżącym widoku. W polu filtra `Ctrl+Z` zachowuje standardowe znaczenie cofania edycji tekstu. Polecenie jest także dostępne w menu **Edycja**. Zachowanie zgłoszone po testach `alpha.12` wymaga jeszcze doprecyzowania i kolejnej poprawki. `Ctrl+N` i `Ctrl+A` pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko. Wpisywanie pojedynczych i kolejnych liter bez modyfikatorów na liście nadal służy szybkiemu przechodzeniu do pasującego elementu i nie uruchamia poleceń.
 
 Pusta lista zatrzymuje klawisze strzałek i podaje komunikat „lista jest pusta”, zamiast przenosić fokus do przycisków lub menu. Demonstracyjna Biblioteka zawiera po uruchomieniu dwa utwory.
 
-Prefiks, czas oczekiwania i wszystkie polecenia można zmienić w ustawieniach. Można też wybrać, czy po uruchomieniu program ma otwierać listę multimediów, czy listę sesji. Profil wbudowany jest chroniony; próba zmiany skrótu automatycznie tworzy jego edytowalną kopię.
+Prefiks, czas oczekiwania i wszystkie polecenia można zmienić w ustawieniach. Można też wybrać, czy po uruchomieniu program ma otwierać listę multimediów, czy listę sesji. Chroniony profil wbudowany jest odświeżany wraz z wersją programu; edytowalne profile użytkownika zachowują własne przypisania.
 
 ## Kolejność odczytu list
 
@@ -108,7 +117,7 @@ Docelowy mechanizm powinien:
 
 - Wszystkie trzy usługi są obecnie sesjami demonstracyjnymi.
 - Otwieranie oficjalnych aplikacji jest tylko komunikatem demonstracyjnym.
-- Nie ma pobierania muzyki ani obsługi DRM.
+- Pobieranie muzyki i obsługa DRM nie są jeszcze zaimplementowane; skróty `D` i `Shift+D` tylko podają komunikaty.
 - Aktualizator nie pobiera jeszcze pakietów.
 - Pierwszym celem jest Windows. macOS, VoiceOver i Siri pozostają etapem późniejszym.
 - `Ctrl+Alt+Windows+F12` jest prefiksem prototypu; został pomyślnie zarejestrowany na komputerze testowym, ale kombinacje z Windows należy sprawdzać na każdym docelowym komputerze.

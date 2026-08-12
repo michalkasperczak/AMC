@@ -13,6 +13,7 @@ public interface IApplicationActions
 {
     MediaItem? SelectedItem { get; }
     void ShowCurrentSession(string viewName);
+    void ShowFilter();
     void ShowSessionList();
     void ShowPlaylistManager();
     void ShowItemInformation(bool extended);
@@ -111,6 +112,18 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.Help:
                 application.ShowHelp();
+                return new(true);
+            case CommandIds.FilterCurrent:
+                application.ShowFilter();
+                return new(true);
+            case CommandIds.CommandPalette:
+                announcements.Announce("Paleta poleceń nie jest jeszcze dostępna w tym prototypie");
+                return new(true);
+            case CommandIds.DownloadInService:
+                announcements.Announce("Pobieranie wewnątrz usługi nie jest jeszcze dostępne w tym prototypie");
+                return new(true);
+            case CommandIds.DownloadToDisk:
+                announcements.Announce("Pobieranie na dysk nie jest jeszcze dostępne w tym prototypie");
                 return new(true);
             case CommandIds.ViewFavorites: return ShowView("Ulubione");
             case CommandIds.ViewPlaylists: return ShowView("Playlisty");

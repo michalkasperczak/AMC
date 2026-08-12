@@ -73,7 +73,7 @@ if errorlevel 1 exit /b 20
 
 echo.
 echo Przywracanie składników projektu...
-"%AMC_DOTNET%" restore AccessibleMediaController.sln
+"%AMC_DOTNET%" restore AccessibleMediaController.sln -p:NuGetAudit=false
 if errorlevel 1 exit /b 21
 
 echo.
@@ -88,7 +88,7 @@ if errorlevel 1 exit /b 23
 
 echo.
 echo Tworzenie samowystarczalnej wersji dla Windows x64...
-"%AMC_DOTNET%" publish src\AccessibleMediaController.Windows\AccessibleMediaController.Windows.csproj --configuration Release --runtime win-x64 --self-contained true --output "%AMC_OUTPUT%" -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+"%AMC_DOTNET%" publish src\AccessibleMediaController.Windows\AccessibleMediaController.Windows.csproj --configuration Release --runtime win-x64 --self-contained true --output "%AMC_OUTPUT%" -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:NuGetAudit=false
 if errorlevel 1 exit /b 24
 
 echo.

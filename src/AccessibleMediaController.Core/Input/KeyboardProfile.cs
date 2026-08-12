@@ -45,11 +45,11 @@ public sealed class KeyboardProfile
         void Bind(string chord, string command) =>
             profile.Bindings[KeyChord.Parse(chord).Canonical] = command;
 
-        Bind("Ctrl+1", CommandIds.SessionSlot(1));
-        Bind("Ctrl+2", CommandIds.SessionSlot(2));
-        Bind("Ctrl+3", CommandIds.SessionSlot(3));
-        for (var slot = 4; slot <= 9; slot++) Bind($"Ctrl+{slot}", CommandIds.SessionSlot(slot));
-        Bind("Ctrl+0", CommandIds.SessionList);
+        Bind("1", CommandIds.SessionSlot(1));
+        Bind("2", CommandIds.SessionSlot(2));
+        Bind("3", CommandIds.SessionSlot(3));
+        for (var slot = 4; slot <= 9; slot++) Bind($"{slot}", CommandIds.SessionSlot(slot));
+        Bind("0", CommandIds.SessionList);
         Bind("PageUp", CommandIds.SessionPrevious);
         Bind("PageDown", CommandIds.SessionNext);
 
@@ -71,12 +71,14 @@ public sealed class KeyboardProfile
         Bind("Ctrl+R", CommandIds.TimeRemaining);
         Bind("Ctrl+T", CommandIds.TimeTotal);
 
-        Bind("F", CommandIds.ViewFavorites);
-        Bind("Shift+F", CommandIds.ToggleFavorite);
+        Bind("U", CommandIds.ViewFavorites);
+        Bind("Shift+U", CommandIds.ToggleFavorite);
         Bind("P", CommandIds.ViewPlaylists);
         Bind("Shift+P", CommandIds.ManagePlaylists);
-        Bind("S", CommandIds.SearchCurrent);
-        Bind("Shift+S", CommandIds.SearchAll);
+        Bind("F", CommandIds.SearchCurrent);
+        Bind("Shift+F", CommandIds.SearchAll);
+        Bind("K", CommandIds.FilterCurrent);
+        Bind("Shift+K", CommandIds.CommandPalette);
         Bind("L", CommandIds.ViewLibrary);
         Bind("Shift+L", CommandIds.ToggleLibrary);
         Bind("Q", CommandIds.ViewQueue);
@@ -91,7 +93,8 @@ public sealed class KeyboardProfile
         Bind("I", CommandIds.ItemInformation);
         Bind("Shift+I", CommandIds.ExtendedInformation);
         Bind("O", CommandIds.ViewOutputs);
-        Bind("D", CommandIds.ViewDownloads);
+        Bind("D", CommandIds.DownloadInService);
+        Bind("Shift+D", CommandIds.DownloadToDisk);
         Bind("F1", CommandIds.Help);
 
         return profile;

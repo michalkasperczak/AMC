@@ -30,6 +30,8 @@ public static class CommandIds
     public const string ManagePlaylists = "action.playlists.manageMembership";
     public const string SearchCurrent = "view.search.current";
     public const string SearchAll = "view.search.all";
+    public const string FilterCurrent = "view.filter.current";
+    public const string CommandPalette = "view.commandPalette";
     public const string ViewLibrary = "view.library";
     public const string ToggleLibrary = "action.library.toggle";
     public const string ViewQueue = "view.queue";
@@ -46,6 +48,8 @@ public static class CommandIds
     public const string ExtendedInformation = "view.extendedInformation";
     public const string ViewOutputs = "view.outputs";
     public const string ViewDownloads = "view.downloads";
+    public const string DownloadInService = "action.download.inService";
+    public const string DownloadToDisk = "action.download.toDisk";
     public const string Help = "view.help";
 
     public static string SessionSlot(int slot) => $"session.slot.{slot}";

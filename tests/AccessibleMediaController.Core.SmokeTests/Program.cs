@@ -9,6 +9,7 @@ var tests = new (string Name, Action Test)[]
 {
     ("Normalizacja skrótów", TestKeyChords),
     ("Domyślny profil", TestDefaultProfile),
+    ("Odświeżanie profilu wbudowanego", TestBuiltInProfileRefresh),
     ("Czytelne nazwy poleceń", TestCommandCatalog),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Migracja starszych ustawień", TestLegacyStateMigration),
@@ -56,11 +57,53 @@ static void TestDefaultProfile()
     Equal(StartupTarget.MediaList, settings.StartupTarget);
 
     var profile = KeyboardProfile.CreateDefault();
-    Equal(CommandIds.SessionSlot(1), profile.Resolve(KeyChord.Parse("Ctrl+1")));
-    Equal(CommandIds.ToggleFavorite, profile.Resolve(KeyChord.Parse("Shift+F")));
+    Equal(CommandIds.SessionSlot(1), profile.Resolve(KeyChord.Parse("1")));
+    True(profile.Resolve(KeyChord.Parse("Ctrl+1")) is null, "Po prefiksie cyfra nie powinna wymagać Control.");
+    Equal(CommandIds.ViewFavorites, profile.Resolve(KeyChord.Parse("U")));
+    Equal(CommandIds.ToggleFavorite, profile.Resolve(KeyChord.Parse("Shift+U")));
+    Equal(CommandIds.ViewAlbums, profile.Resolve(KeyChord.Parse("A")));
+    True(profile.Resolve(KeyChord.Parse("Shift+A")) is null, "Shift+A pozostaje nieprzypisane.");
+    Equal(CommandIds.FilterCurrent, profile.Resolve(KeyChord.Parse("K")));
+    Equal(CommandIds.CommandPalette, profile.Resolve(KeyChord.Parse("Shift+K")));
+    Equal(CommandIds.SearchCurrent, profile.Resolve(KeyChord.Parse("F")));
+    Equal(CommandIds.SearchAll, profile.Resolve(KeyChord.Parse("Shift+F")));
+    Equal(CommandIds.DownloadInService, profile.Resolve(KeyChord.Parse("D")));
+    Equal(CommandIds.DownloadToDisk, profile.Resolve(KeyChord.Parse("Shift+D")));
     Equal(CommandIds.TimeElapsed, profile.Resolve(KeyChord.Parse("Ctrl+E")));
     Equal(CommandIds.TimeRemaining, profile.Resolve(KeyChord.Parse("Ctrl+R")));
     Equal(CommandIds.TimeTotal, profile.Resolve(KeyChord.Parse("Ctrl+T")));
+}
+
+static void TestBuiltInProfileRefresh()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-profile-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var statePath = Path.Combine(directory, "state.json");
+        var store = new ConfigurationStore(statePath);
+        var state = ConfigurationStore.CreateDefaultState();
+        var oldBuiltIn = state.KeyboardProfiles.Single(profile => profile.Id == "default");
+        oldBuiltIn.Bindings.Clear();
+        oldBuiltIn.Bindings[KeyChord.Parse("Ctrl+1").Canonical] = CommandIds.SessionSlot(1);
+
+        var custom = oldBuiltIn.CreateEditableCopy("Własny stary profil");
+        state.KeyboardProfiles.Add(custom);
+        state.Settings.ActiveKeyboardProfileId = custom.Id;
+        store.Save(state);
+
+        var loaded = store.LoadOrCreate();
+        var refreshedBuiltIn = loaded.KeyboardProfiles.Single(profile => profile.Id == "default");
+        var retainedCustom = loaded.KeyboardProfiles.Single(profile => profile.Id == custom.Id);
+        Equal(CommandIds.SessionSlot(1), refreshedBuiltIn.Resolve(KeyChord.Parse("1")));
+        True(refreshedBuiltIn.Resolve(KeyChord.Parse("Ctrl+1")) is null, "Profil wbudowany powinien otrzymać nową mapę.");
+        Equal(CommandIds.SessionSlot(1), retainedCustom.Resolve(KeyChord.Parse("Ctrl+1")));
+        Equal(custom.Id, loaded.Settings.ActiveKeyboardProfileId);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
 }
 
 static void TestCommandCatalog()
@@ -404,6 +447,7 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
 {
     public MediaItem? SelectedItem { get; } = selectedItem;
     public void ShowCurrentSession(string viewName) { }
+    public void ShowFilter() { }
     public void ShowSessionList() { }
     public void ShowPlaylistManager() { }
     public void ShowItemInformation(bool extended) { }

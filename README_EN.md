@@ -2,7 +2,7 @@
 
 This is the first demonstration prototype of the global-prefix media controller. It validates the keyboard, session, list, accessibility-message, profile, import and export architecture. It does not yet connect to real TIDAL, Apple Music or WiiM accounts.
 
-This README describes the released `0.1.0-alpha.12` prototype. The approved development direction, target architecture and revised keyboard map are recorded in [`MEDIA_CONTROLLER_EN.md`](MEDIA_CONTROLLER_EN.md). Plan items are not necessarily implemented in the current executable yet.
+This README describes the `0.1.0-alpha.13` prototype. The approved development direction, target architecture and complete keyboard map are recorded in [`MEDIA_CONTROLLER_EN.md`](MEDIA_CONTROLLER_EN.md).
 
 ## Simplest start — no commands to type
 
@@ -21,7 +21,7 @@ If the build fails, the script automatically opens `build-log.txt` in Notepad wi
 - PowerShell 5.1 or later;
 - NVDA, JAWS or Narrator for accessibility testing.
 
-The environment used to prepare the sources does not include the .NET SDK. The project has been checked statically, but must be built and run on Windows before first use. The simplest route is the File Explorer launcher described above.
+The project is built on Windows and checked with automated core smoke tests. The simplest route is the File Explorer launcher described above.
 
 ## Build and run
 
@@ -50,22 +50,31 @@ The output is written to `publish\win-x64`.
 
 ## Prototype defaults
 
-The default global prefix is `Ctrl+Alt+Windows+F12`. It replaced earlier combinations that conflicted with NVDA or the Windows Narrator shortcut. The global layer remains experimental; alpha.12 focuses on the active application window. After the prefix:
+The default global prefix is `Ctrl+Alt+Windows+F12`. It replaced earlier combinations that conflicted with NVDA or the Windows Narrator shortcut. The global layer remains experimental and alpha.13 introduces the approved key map. After the prefix:
 
-- `Ctrl+1`, `Ctrl+2`, `Ctrl+3` select TIDAL, Apple Music and WiiM;
-- `Ctrl+0` opens the session list;
+- `1`, `2`, `3` select TIDAL, Apple Music and WiiM;
+- `4–9` select later assigned sessions when available;
+- `0` opens the session list;
 - `Page Up` and `Page Down` select the previous or next session;
 - Left and Right seek by 10 seconds;
 - Up and Down change volume by 5%;
 - `Ctrl+E`, `Ctrl+R`, `Ctrl+T` announce elapsed, remaining and total time;
-- `F` and `Shift+F` open Favorites and toggle favorite state;
-- `P` and `Shift+P` open Playlists and manage membership.
+- `U` and `Shift+U` open Favorites and toggle favorite state;
+- `L` and `Shift+L` open Library and toggle membership;
+- `P` and `Shift+P` open Playlists and manage membership;
+- `Q` and `Shift+Q` open Queue and add or remove the item;
+- `A` opens Albums while `Shift+A` remains unassigned;
+- `K` filters the current list and `Shift+K` is reserved for the command palette;
+- `F` searches the current service and `Shift+F` performs a global search;
+- `D` downloads within a service and `Shift+D` is the experimental download-to-disk command.
 
-While the AMC window is active, `Ctrl+1–9` selects a session without the global prefix, `Ctrl+0` opens the session list, and `Ctrl+Page Up` or `Ctrl+Page Down` selects the previous or next session. Local view shortcuts are `Ctrl+P` for Playlists, `Ctrl+L` for Library, and `Ctrl+Q` for Queue, including while focus is in the filter box. `Ctrl+Z` successively undoes membership changes in Favorites, Library and Queue as well as the Play Next state; a restored item is selected again when it belongs to the current view. Inside the filter box, `Ctrl+Z` retains the standard text-editing Undo behavior. The command is also available from the **Edit** menu, and focus remains on the list when the undo history is exhausted. `Ctrl+N` and `Ctrl+A` are reserved for the standard New and Select All actions; Now Playing and Albums remain available from the menu. Empty lists contain directional navigation and announce that they are empty instead of moving focus to action buttons or the menu. The demonstration Library initially contains two tracks.
+While the AMC window is active, `Ctrl+1–9` selects a session without the global prefix, `Ctrl+0` opens the session list, and `Ctrl+Page Up` or `Ctrl+Page Down` selects the previous or next session. Local view shortcuts are `Ctrl+U` for Favorites, `Ctrl+P` for Playlists, `Ctrl+L` for Library, `Ctrl+Q` for Queue and `Ctrl+Shift+A` for Albums, including while focus is in the filter box. `Ctrl+K` focuses the current-data filter. `Ctrl+F` opens a demonstration current-service search view, `Ctrl+Shift+F` opens a demonstration global-search view, and `Ctrl+Shift+K` announces that the future command palette is unavailable. On the list, `Ctrl+Shift+U` toggles favorite state.
+
+`Ctrl+Z` successively undoes membership changes in Favorites, Library and Queue as well as the Play Next state; a restored item is selected again when it belongs to the current view. Inside the filter box, `Ctrl+Z` retains the standard text-editing Undo behavior. The command is also available from the **Edit** menu. Behavior reported after alpha.12 testing still needs a precise reproduction and another correction. `Ctrl+N` and `Ctrl+A` remain reserved for the standard New and Select All actions. Typing one or more unmodified letters on the list continues to jump to a matching item and never runs a command. Empty lists contain directional navigation and announce that they are empty instead of moving focus to action buttons or the menu. The demonstration Library initially contains two tracks.
 
 On the **Lists and reading** tab, `Alt+Up/Down` moves the selected field, keeps focus on the selected row, and announces its new relationship and the full order. The current-order preview precedes the movement buttons. **Add to queue** and **Play next** act as toggles; repeating the command removes the item and the context-menu label reflects its current state. Their default announcements include the affected item name and customized templates are preserved during migration. Before removal, focus is anchored on the list control and restored after WPF layout finishes; it then moves to the nearest item or remains on the empty list. In the main window, `Escape` clears an active filter and returns focus to the media list; without a filter it still returns from the filter box or a main action button to the list. Menus keep their standard hierarchical behavior, with each `Escape` closing one level.
 
-The prefix, timeout and every command are configurable. Users can also choose whether startup opens the media list or the session list. The built-in profile is protected; editing it automatically creates a user-editable copy.
+The prefix, timeout and every command are configurable. Users can also choose whether startup opens the media list or the session list. The protected built-in profile is refreshed with the application version; editable user profiles retain their own mappings.
 
 ## Import and export
 
@@ -89,7 +98,7 @@ The final updater should provide a self-contained per-user installation, update 
 
 - All three services are demonstration sessions.
 - Opening official applications is only a demonstration announcement.
-- There is no music downloading or DRM handling.
+- Music downloading and DRM handling are not implemented; `D` and `Shift+D` only announce that the commands are unavailable.
 - The updater does not yet download packages.
 - Windows is the first target. macOS, VoiceOver and Siri are later stages.
 - `Ctrl+Alt+Windows+F12` is the prototype prefix. It registered successfully on the test computer, but Windows-key combinations must be verified on every target computer.

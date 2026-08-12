@@ -38,6 +38,8 @@ public static class CommandCatalog
             CommandIds.ManagePlaylists => "Zmień przynależność do playlist",
             CommandIds.SearchCurrent => "Szukaj w bieżącej usłudze",
             CommandIds.SearchAll => "Szukaj we wszystkich usługach",
+            CommandIds.FilterCurrent => "Filtruj bieżącą listę",
+            CommandIds.CommandPalette => "Paleta poleceń",
             CommandIds.ViewLibrary => "Pokaż bibliotekę",
             CommandIds.ToggleLibrary => "Dodaj lub usuń z biblioteki",
             CommandIds.ViewQueue => "Pokaż kolejkę",
@@ -54,6 +56,8 @@ public static class CommandCatalog
             CommandIds.ExtendedInformation => "Rozszerzone informacje o elemencie",
             CommandIds.ViewOutputs => "Pokaż wyjścia i urządzenia",
             CommandIds.ViewDownloads => "Pokaż pobrane",
+            CommandIds.DownloadInService => "Pobierz wewnątrz usługi",
+            CommandIds.DownloadToDisk => "Pobierz na dysk",
             CommandIds.Help => "Pomoc dotycząca skrótów",
             _ => commandId
         };

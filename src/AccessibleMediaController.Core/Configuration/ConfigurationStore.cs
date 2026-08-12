@@ -16,7 +16,6 @@ public sealed class ConfigurationStore(string statePath)
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
         Converters = { new JsonStringEnumConverter() }
     };
 
@@ -101,9 +100,26 @@ public sealed class ConfigurationStore(string statePath)
 
     private static void EnsureBuiltInProfile(PersistedState state)
     {
-        if (state.KeyboardProfiles.All(profile => profile.Id != "default"))
+        var builtInIndex = state.KeyboardProfiles.FindIndex(profile => profile.Id == "default");
+        if (builtInIndex < 0)
         {
             state.KeyboardProfiles.Insert(0, KeyboardProfile.CreateDefault());
+        }
+        else
+        {
+            // The protected built-in profile follows the application version.
+            // Editable copies created by the user retain their own bindings.
+            state.KeyboardProfiles[builtInIndex] = KeyboardProfile.CreateDefault();
+        }
+
+        foreach (var profile in state.KeyboardProfiles)
+        {
+            var normalizedBindings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var binding in profile.Bindings)
+            {
+                normalizedBindings[KeyChord.Parse(binding.Key).Canonical] = binding.Value;
+            }
+            profile.Bindings = normalizedBindings;
         }
 
         if (state.KeyboardProfiles.All(profile => profile.Id != state.Settings.ActiveKeyboardProfileId))

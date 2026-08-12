@@ -69,6 +69,12 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         FocusMediaList();
     }
 
+    public void ShowFilter()
+    {
+        Activate();
+        FocusFilter();
+    }
+
     public void ShowSessionList()
     {
         var dialog = new SessionSelectionWindow(_sessions, _state.Settings) { Owner = this };
@@ -106,12 +112,16 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     {
         MessageBox.Show(
             "Domyślny prefiks: Ctrl+Alt+Windows+F12.\n\n" +
-            "Po prefiksie: Ctrl+1–3 wybiera sesję, Page Up i Page Down ją zmieniają, " +
-            "strzałki sterują czasem i głośnością, Ctrl+E/R/T podaje czas, F otwiera ulubione, " +
-            "Shift+F zmienia stan ulubionych, P otwiera playlisty.\n\n" +
+            "Po prefiksie: 1–9 wybiera sesję, 0 otwiera ich listę, Page Up i Page Down zmieniają sesję, " +
+            "strzałki sterują czasem i głośnością, Ctrl+E/R/T podaje czas. " +
+            "U otwiera Ulubione, Shift+U zmienia stan ulubionych, A otwiera Albumy, P otwiera Playlisty. " +
+            "K filtruje bieżącą listę, F wyszukuje w bieżącej usłudze; warianty z Shift otwierają " +
+            "paletę poleceń i wyszukiwanie globalne.\n\n" +
             "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+0 otwiera listę sesji, " +
             "Ctrl+Page Up i Ctrl+Page Down zmieniają sesję. " +
-            "Ctrl+P/L/Q otwiera odpowiednio: Playlisty, Bibliotekę i Kolejkę. " +
+            "Ctrl+U/P/L/Q otwiera odpowiednio: Ulubione, Playlisty, Bibliotekę i Kolejkę, " +
+            "a Ctrl+Shift+A otwiera Albumy. Ctrl+K filtruje listę, Ctrl+F wyszukuje w bieżącej usłudze, " +
+            "Ctrl+Shift+F wyszukuje globalnie, a Ctrl+Shift+K otwiera paletę poleceń. " +
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
             "W oknie: Enter wykonuje działanie podstawowe, Alt+Enter pokazuje informacje, " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
@@ -545,15 +555,17 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             return;
         }
 
+        if (TryHandleLocalNavigationShortcut(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.FocusedElement is System.Windows.Controls.TextBox)
         {
             if (e.Key is Key.Enter or Key.Down)
             {
                 FocusFilterResults();
-                e.Handled = true;
-            }
-            else if (TryHandleLocalViewShortcut(e))
-            {
                 e.Handled = true;
             }
             return;
@@ -567,15 +579,6 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             // producing an additional English "Undo" announcement.
             e.Handled = true;
             UndoLastMembershipChange();
-        }
-        else if (TryHandleLocalViewShortcut(e))
-        {
-            e.Handled = true;
-        }
-        else if (modifiers == ModifierKeys.Control && e.Key == Key.F)
-        {
-            FocusFilter();
-            e.Handled = true;
         }
         else if (modifiers == ModifierKeys.Control && e.Key == Key.OemComma)
         {
@@ -619,7 +622,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             OpenOfficialApplication();
             e.Handled = true;
         }
-        else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.F)
+        else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.U)
         {
             ExecuteCommand(CommandIds.ToggleFavorite);
             e.Handled = true;
@@ -698,14 +701,19 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         return false;
     }
 
-    private bool TryHandleLocalViewShortcut(KeyEventArgs e)
+    private bool TryHandleLocalNavigationShortcut(KeyEventArgs e)
     {
-        if (Keyboard.Modifiers != ModifierKeys.Control) return false;
-        var commandId = e.Key switch
+        var commandId = (Keyboard.Modifiers, e.Key) switch
         {
-            Key.L => CommandIds.ViewLibrary,
-            Key.P => CommandIds.ViewPlaylists,
-            Key.Q => CommandIds.ViewQueue,
+            (ModifierKeys.Control, Key.U) => CommandIds.ViewFavorites,
+            (ModifierKeys.Control, Key.P) => CommandIds.ViewPlaylists,
+            (ModifierKeys.Control, Key.L) => CommandIds.ViewLibrary,
+            (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
+            (ModifierKeys.Control, Key.K) => CommandIds.FilterCurrent,
+            (ModifierKeys.Control, Key.F) => CommandIds.SearchCurrent,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.A) => CommandIds.ViewAlbums,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.F) => CommandIds.SearchAll,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.K) => CommandIds.CommandPalette,
             _ => null
         };
         if (commandId is null) return false;
@@ -792,6 +800,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     {
         FocusFilter();
     }
+    private void SearchCurrent_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SearchCurrent);
+    private void SearchAll_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SearchAll);
+    private void CommandPalette_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.CommandPalette);
     private void Help_Click(object sender, RoutedEventArgs e) => ShowHelp();
     private void Exit_Click(object sender, RoutedEventArgs e) => Close();
 

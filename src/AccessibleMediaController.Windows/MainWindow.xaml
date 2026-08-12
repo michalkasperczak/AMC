@@ -29,13 +29,16 @@
             </MenuItem>
             <MenuItem Header="_Widok">
                 <MenuItem Header="_Teraz odtwarzane" Click="NowPlayingView_Click" />
-                <MenuItem Header="_Ulubione" InputGestureText="prefiks, F" Click="FavoritesView_Click" />
+                <MenuItem Header="_Ulubione" InputGestureText="Ctrl+U" Click="FavoritesView_Click" />
                 <MenuItem Header="_Playlisty" InputGestureText="Ctrl+P" Click="PlaylistsView_Click" />
                 <MenuItem Header="_Biblioteka" InputGestureText="Ctrl+L" Click="LibraryView_Click" />
-                <MenuItem Header="_Albumy" Click="AlbumsView_Click" />
+                <MenuItem Header="_Albumy" InputGestureText="Ctrl+Shift+A" Click="AlbumsView_Click" />
                 <MenuItem Header="_Kolejka" InputGestureText="Ctrl+Q" Click="QueueView_Click" />
                 <Separator />
-                <MenuItem Header="_Filtruj listę" InputGestureText="Ctrl+F" Click="Filter_Click" />
+                <MenuItem Header="_Filtruj listę" InputGestureText="Ctrl+K" Click="Filter_Click" />
+                <MenuItem Header="_Szukaj w bieżącej usłudze" InputGestureText="Ctrl+F" Click="SearchCurrent_Click" />
+                <MenuItem Header="Szukaj _globalnie" InputGestureText="Ctrl+Shift+F" Click="SearchAll_Click" />
+                <MenuItem Header="_Paleta poleceń" InputGestureText="Ctrl+Shift+K" Click="CommandPalette_Click" />
             </MenuItem>
             <MenuItem Header="_Pomoc">
                 <MenuItem Header="_Skróty prototypu" InputGestureText="F1" Click="Help_Click" />
@@ -85,7 +88,7 @@
                     <MenuItem x:Name="PlayNextMenuItem" Header="Odtwórz jako następne" InputGestureText="Ctrl+Shift+Enter" Click="PlayNext_Click" />
                     <MenuItem x:Name="QueueMenuItem" Header="Dodaj do kolejki" InputGestureText="Shift+Enter" Click="Queue_Click" />
                     <Separator />
-                    <MenuItem Header="Dodaj do ulubionych lub usuń" InputGestureText="Ctrl+Shift+F" Click="Favorite_Click" />
+                    <MenuItem Header="Dodaj do ulubionych lub usuń" InputGestureText="Ctrl+Shift+U" Click="Favorite_Click" />
                     <MenuItem Header="Zmień przynależność do playlist…" InputGestureText="Ctrl+Shift+P" Click="Playlists_Click" />
                     <Separator />
                     <MenuItem Header="Informacje" InputGestureText="Alt+Enter" Click="Information_Click" />
