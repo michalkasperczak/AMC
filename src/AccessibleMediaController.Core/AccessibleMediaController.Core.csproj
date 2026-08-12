@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>AccessibleMediaController.Core</RootNamespace>
+    <AssemblyName>AccessibleMediaController.Core</AssemblyName>
+    <Version>0.1.0-alpha.1</Version>
+  </PropertyGroup>
+</Project>

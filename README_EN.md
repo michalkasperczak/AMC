@@ -1,0 +1,100 @@
+# Accessible Media Controller — Windows prototype
+
+This is the first demonstration prototype of the global-prefix media controller. It validates the keyboard, session, list, accessibility-message, profile, import and export architecture. It does not yet connect to real TIDAL, Apple Music or WiiM accounts.
+
+## Simplest start — no commands to type
+
+1. Extract the complete archive to a regular folder.
+2. In File Explorer, select `ZBUDUJ_I_URUCHOM.cmd` and press Enter or double-click it.
+3. Wait for the result message. After a successful build, the application starts automatically.
+
+The file checks for the .NET 8 SDK. If it is missing, it attempts to install the official Microsoft package with Windows Package Manager (`winget`), then restores dependencies, builds the project, runs the checks, and creates a self-contained version in `publish\win-x64`. The first run may take several minutes, requires an Internet connection, and may display a Windows installation consent prompt.
+
+If the build fails, the script automatically opens `build-log.txt` in Notepad with the details. No terminal commands need to be typed.
+
+## Build requirements
+
+- Windows 10 or Windows 11;
+- .NET 8 SDK — `ZBUDUJ_I_URUCHOM.cmd` can install it automatically;
+- PowerShell 5.1 or later;
+- NVDA, JAWS or Narrator for accessibility testing.
+
+The environment used to prepare the sources does not include the .NET SDK. The project has been checked statically, but must be built and run on Windows before first use. The simplest route is the File Explorer launcher described above.
+
+## Build and run
+
+The commands below are only for people who prefer a manual build. For regular use, `ZBUDUJ_I_URUCHOM.cmd` is enough.
+
+From PowerShell in the project directory:
+
+```powershell
+dotnet build AccessibleMediaController.sln
+dotnet run --project src/AccessibleMediaController.Windows
+```
+
+Run dependency-free core smoke tests:
+
+```powershell
+dotnet run --project tests/AccessibleMediaController.Core.SmokeTests
+```
+
+Create a self-contained Windows x64 build including the .NET runtime:
+
+```powershell
+.\build.ps1 -Publish
+```
+
+The output is written to `publish\win-x64`.
+
+## Prototype defaults
+
+The default global prefix is `Ctrl+Alt+Windows+F12`. It replaced earlier combinations that conflicted with NVDA or the Windows Narrator shortcut. The global layer remains experimental; alpha.10 focuses on the active application window. After the prefix:
+
+- `Ctrl+1`, `Ctrl+2`, `Ctrl+3` select TIDAL, Apple Music and WiiM;
+- `Ctrl+0` opens the session list;
+- `Page Up` and `Page Down` select the previous or next session;
+- Left and Right seek by 10 seconds;
+- Up and Down change volume by 5%;
+- `Ctrl+E`, `Ctrl+R`, `Ctrl+T` announce elapsed, remaining and total time;
+- `F` and `Shift+F` open Favorites and toggle favorite state;
+- `P` and `Shift+P` open Playlists and manage membership.
+
+While the AMC window is active, `Ctrl+1–9` selects a session without the global prefix, `Ctrl+0` opens the session list, and `Ctrl+Page Up` or `Ctrl+Page Down` selects the previous or next session. Local view shortcuts are `Ctrl+P` for Playlists, `Ctrl+L` for Library, and `Ctrl+Q` for Queue, including while focus is in the filter box. `Ctrl+N` and `Ctrl+A` are reserved for the standard New and Select All actions; Now Playing and Albums remain available from the menu. Empty lists contain directional navigation and announce that they are empty instead of moving focus to action buttons or the menu. The demonstration Library initially contains two tracks.
+
+On the **Lists and reading** tab, `Alt+Up/Down` moves the selected field, keeps focus on the selected row, and announces its new relationship and the full order. The current-order preview precedes the movement buttons. **Add to queue** and **Play next** act as toggles; repeating the command removes the item and the context-menu label reflects its current state. Their default announcements include the affected item name and customized templates are preserved during migration. Before removal, focus is anchored on the list control and restored after WPF layout finishes; it then moves to the nearest item or remains on the empty list. Pressing `Escape` on a main action button returns focus to the last selected media-list item.
+
+The prefix, timeout and every command are configurable. Users can also choose whether startup opens the media list or the session list. The built-in profile is protected; editing it automatically creates a user-editable copy.
+
+## Import and export
+
+The program recognizes three file types:
+
+- `*.amckeys.json` — one keyboard map;
+- `*.amcsettings.json` — application settings without keyboard maps;
+- `*.amcbackup.json` — complete backup containing settings, profiles, sessions and message templates.
+
+Passwords, tokens and login data are never exported.
+
+The working configuration is stored in `%AppData%\AccessibleMediaController\state.json`.
+
+## Updates
+
+The project includes a separate update-service interface plus settings for channel, background download and installation on exit. No update server is configured yet.
+
+The final updater should provide a self-contained per-user installation, update the application and service adapters, verify signatures and SHA-256, install atomically with rollback, preserve configuration and credentials, and avoid stealing focus or interrupting playback.
+
+## Current limitations
+
+- All three services are demonstration sessions.
+- Opening official applications is only a demonstration announcement.
+- There is no music downloading or DRM handling.
+- The updater does not yet download packages.
+- Windows is the first target. macOS, VoiceOver and Siri are later stages.
+- `Ctrl+Alt+Windows+F12` is the prototype prefix. It registered successfully on the test computer, but Windows-key combinations must be verified on every target computer.
+
+## Structure
+
+- `src/AccessibleMediaController.Core` — commands, profiles, configuration, sessions and update interface;
+- `src/AccessibleMediaController.Windows` — WPF, UI Automation, global prefix and accessible windows;
+- `tests/AccessibleMediaController.Core.SmokeTests` — dependency-free logic checks;
+- `MEDIA_CONTROLLER_PL.md` and `MEDIA_CONTROLLER_EN.md` — complete concept specification.

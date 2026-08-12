@@ -1,0 +1,183 @@
+<Window x:Class="AccessibleMediaController.Windows.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        Title="Ustawienia" Width="760" Height="610" MinWidth="660" MinHeight="500"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Width="105" Margin="0,0,8,0" Content="_Zapisz" IsDefault="True" Click="Save_Click" />
+            <Button Width="105" Content="_Anuluj" IsCancel="True" />
+        </StackPanel>
+
+        <TabControl x:Name="SettingsTabs" automation:AutomationProperties.Name="Kategorie ustawień">
+            <TabItem Header="_Ogólne">
+                <StackPanel Margin="12">
+                    <TextBlock Margin="0,0,0,12" TextWrapping="Wrap"
+                               Text="Tutaj znajdują się podstawowe ustawienia działającego prototypu. Funkcje planowane są wyraźnie oznaczone i nie można ich jeszcze zmieniać." />
+                    <Label Target="{Binding ElementName=LanguageText}">_Język interfejsu:</Label>
+                    <TextBox x:Name="LanguageText" Margin="0,0,0,12" IsReadOnly="True"
+                             Text="Polski — zmiana języka jest planowana"
+                             automation:AutomationProperties.Name="Język interfejsu"
+                             automation:AutomationProperties.HelpText="Obecnie dostępny jest język polski." />
+                    <Label Target="{Binding ElementName=StartupTargetCombo}">_Wyświetlaj po uruchomieniu:</Label>
+                    <ComboBox x:Name="StartupTargetCombo" Margin="0,0,0,12" SelectedIndex="0"
+                               automation:AutomationProperties.Name="Wyświetlaj po uruchomieniu">
+                        <ComboBoxItem Tag="MediaList">Multimedia</ComboBoxItem>
+                        <ComboBoxItem Tag="SessionList">Sesje</ComboBoxItem>
+                    </ComboBox>
+                    <TextBlock Margin="0,4,0,6" FontWeight="SemiBold" Text="Prefiks globalny" />
+                    <Label Target="{Binding ElementName=PrefixBox}">Globalny _prefiks:</Label>
+                    <TextBox x:Name="PrefixBox" Margin="0,0,0,12"
+                             automation:AutomationProperties.HelpText="Domyślnie: Ctrl+Alt+Windows+F12" />
+                    <Label Target="{Binding ElementName=TimeoutBox}">_Czas na następny klawisz po prefiksie:</Label>
+                    <TextBox x:Name="TimeoutBox" Width="180" HorizontalAlignment="Left"
+                             automation:AutomationProperties.Name="Czas na następny klawisz po prefiksie, w milisekundach"
+                             automation:AutomationProperties.HelpText="3000 milisekund oznacza 3 sekundy." />
+                    <TextBlock Margin="0,4,0,0" Text="Wartość jest podawana w milisekundach; 3000 oznacza 3 sekundy."
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </TabItem>
+
+            <TabItem Header="_Profile klawiatury">
+                <DockPanel Margin="12">
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock Margin="0,0,0,8" TextWrapping="Wrap"
+                                   Text="Profil wbudowany jest tylko do odczytu. Zmiana przypisania automatycznie utworzy jego edytowalną kopię." />
+                        <Label Target="{Binding ElementName=ProfileCombo}">_Profil:</Label>
+                        <ComboBox x:Name="ProfileCombo" DisplayMemberPath="Name" Margin="0,0,0,8"
+                                  SelectionChanged="ProfileCombo_SelectionChanged" />
+                        <WrapPanel Margin="0,0,0,10">
+                            <Button Margin="0,0,8,8" Content="_Aktywuj" Click="ActivateProfile_Click" />
+                            <Button Margin="0,0,8,8" Content="Utwórz _kopię…" Click="DuplicateProfile_Click" />
+                            <Button Margin="0,0,8,8" Content="Zmień _nazwę…" Click="RenameProfile_Click" />
+                            <Button Margin="0,0,8,8" Content="_Usuń profil" Click="DeleteProfile_Click" />
+                            <Button Margin="0,0,8,8" Content="_Importuj mapę…" Click="ImportKeyboardMap_Click" />
+                            <Button Margin="0,0,8,8" Content="_Eksportuj mapę…" Click="ExportKeyboardMap_Click" />
+                        </WrapPanel>
+                        <TextBlock x:Name="ActiveProfileText" Margin="0,0,0,8" />
+                    </StackPanel>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,8,0,0">
+                        <Button Margin="0,0,8,0" Content="_Zmień skrót…" Click="ChangeBinding_Click" />
+                        <Button Content="Usuń _przypisanie" Click="RemoveBinding_Click" />
+                    </StackPanel>
+                    <ListBox x:Name="BindingsList" DisplayMemberPath="Label"
+                             automation:AutomationProperties.Name="Przypisania wybranego profilu" />
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="_Listy i odczyt">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Margin="0,0,0,10" TextWrapping="Wrap"
+                               Text="Ustaw kolejność informacji odczytywanych dla każdego elementu listy. Pola bez wartości, na przykład brak wykonawcy przy playliście, są pomijane." />
+                    <ListBox x:Name="ListFieldOrderList" Grid.Row="1" DisplayMemberPath="Label"
+                              KeyboardNavigation.TabIndex="0"
+                              automation:AutomationProperties.Name="Kolejność informacji o elemencie"
+                              automation:AutomationProperties.HelpText="Alt+Strzałka w górę lub w dół zmienia położenie zaznaczonego pola."
+                              SelectionChanged="ListFieldOrderList_SelectionChanged"
+                              PreviewKeyDown="ListFieldOrderList_PreviewKeyDown" />
+                    <WrapPanel Grid.Row="3" Margin="0,10,0,10">
+                        <Button MinWidth="105" Margin="0,0,8,8" Content="_Wyżej" Click="MoveFieldUp_Click"
+                                KeyboardNavigation.TabIndex="2"
+                                automation:AutomationProperties.HelpText="Skrót na liście: Alt+Strzałka w górę." />
+                        <Button MinWidth="105" Margin="0,0,8,8" Content="_Niżej" Click="MoveFieldDown_Click"
+                                KeyboardNavigation.TabIndex="3"
+                                automation:AutomationProperties.HelpText="Skrót na liście: Alt+Strzałka w dół." />
+                        <Button MinWidth="155" Margin="0,0,8,8" Content="Przywróć _domyślną" Click="RestoreFieldOrder_Click"
+                                KeyboardNavigation.TabIndex="4" />
+                    </WrapPanel>
+                    <Border Grid.Row="2" Margin="0,10,0,0" BorderThickness="1" BorderBrush="Gray" Padding="8">
+                        <StackPanel>
+                            <TextBlock FontWeight="SemiBold" Text="Aktualna kolejność:" />
+                            <TextBox x:Name="ListFieldPreviewText" Margin="0,4,0,0" Padding="0"
+                                     KeyboardNavigation.TabIndex="1"
+                                     IsReadOnly="True" BorderThickness="0" Background="Transparent"
+                                     TextWrapping="Wrap" AcceptsReturn="False"
+                                     automation:AutomationProperties.Name="Podgląd kolejności odczytu"
+                                     automation:AutomationProperties.HelpText="Nazwy pól w kolejności, w której będą odczytywane." />
+                        </StackPanel>
+                    </Border>
+                    <controls:AccessibleStatusTextBlock x:Name="ListOrderStatus" Grid.Row="4" Margin="0,8,0,0"
+                        automation:AutomationProperties.Name="Wynik zmiany kolejności"
+                        automation:AutomationProperties.LiveSetting="Assertive"
+                        Text="Gotowy do zmiany kolejności" TextWrapping="Wrap" />
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="_Import i eksport">
+                <StackPanel Margin="12">
+                    <TextBlock FontWeight="SemiBold" Text="Konfiguracja bez map klawiszy" />
+                    <WrapPanel Margin="0,8,0,18">
+                        <Button Margin="0,0,8,0" Content="Importuj _konfigurację…" Click="ImportConfiguration_Click" />
+                        <Button Content="Eksportuj k_onfigurację…" Click="ExportConfiguration_Click" />
+                    </WrapPanel>
+                    <TextBlock FontWeight="SemiBold" Text="Pełna kopia ustawień" />
+                    <WrapPanel Margin="0,8,0,18">
+                        <Button Margin="0,0,8,0" Content="Importuj pełną _kopię…" Click="ImportFullBackup_Click" />
+                        <Button Content="Eksportuj _wszystko…" Click="ExportFullBackup_Click" />
+                    </WrapPanel>
+                    <TextBlock TextWrapping="Wrap"
+                               Text="Pełna kopia obejmuje ustawienia, wszystkie profile klawiatury, kolejność sesji i szablony komunikatów. Hasła, tokeny oraz dane logowania nigdy nie są eksportowane." />
+                </StackPanel>
+            </TabItem>
+
+            <TabItem Header="_Komunikaty">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <CheckBox x:Name="MessagesEnabledCheck" Grid.Row="0" Margin="0,0,0,10"
+                              Content="_Włącz komunikaty dostępności" />
+                    <TextBlock Grid.Row="1" Margin="0,0,0,8" TextWrapping="Wrap"
+                               Text="Wybierz zdarzenie z listy, a następnie zmień jego tekst w osobnym polu. Pusty tekst wyłącza dany komunikat." />
+                    <DockPanel Grid.Row="2">
+                        <Label DockPanel.Dock="Top" Target="{Binding ElementName=MessageTemplatesList}">_Zdarzenie:</Label>
+                        <ListBox x:Name="MessageTemplatesList" DisplayMemberPath="EventLabel"
+                                 automation:AutomationProperties.Name="Zdarzenia komunikatów" />
+                    </DockPanel>
+                    <Label Grid.Row="3" Margin="0,8,0,0" Target="{Binding ElementName=MessageTemplateText}">_Tekst szablonu:</Label>
+                    <TextBox x:Name="MessageTemplateText" Grid.Row="4" MinHeight="42" TextWrapping="Wrap"
+                             Text="{Binding SelectedItem.Template, ElementName=MessageTemplatesList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             automation:AutomationProperties.Name="Tekst szablonu wybranego komunikatu"
+                             automation:AutomationProperties.HelpText="Dostępne znaczniki zależą od zdarzenia, na przykład item, slot, service albo value, zapisane w nawiasach klamrowych." />
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="_Aktualizacje (planowane)">
+                <StackPanel Margin="12">
+                    <TextBlock Margin="0,0,0,12" TextWrapping="Wrap" FontWeight="SemiBold"
+                               Text="Ta sekcja jest makietą następnego etapu. Serwer aktualizacji nie jest jeszcze skonfigurowany, dlatego poniższe opcje są nieaktywne." />
+                    <StackPanel IsEnabled="False">
+                        <CheckBox x:Name="UpdateCheckAutomatically" Margin="0,0,0,8"
+                                  Content="Automatycznie _sprawdzaj aktualizacje w tle" />
+                        <CheckBox x:Name="UpdateDownloadAutomatically" Margin="0,0,0,8"
+                                  Content="Automatycznie _pobieraj podpisane pakiety" />
+                        <CheckBox x:Name="UpdateInstallOnExit" Margin="0,0,0,8"
+                                  Content="Instaluj przy _zamykaniu lub następnym uruchomieniu" />
+                        <CheckBox x:Name="UpdateMetered" Margin="0,0,0,12"
+                                  Content="Zezwalaj na pobieranie przez połączenia _taryfowe" />
+                        <Label Target="{Binding ElementName=UpdateChannelCombo}">_Kanał aktualizacji:</Label>
+                        <ComboBox x:Name="UpdateChannelCombo" Width="220" HorizontalAlignment="Left" SelectedIndex="0">
+                            <ComboBoxItem Tag="stable">Stabilny</ComboBoxItem>
+                            <ComboBoxItem Tag="beta">Beta</ComboBoxItem>
+                        </ComboBox>
+                    </StackPanel>
+                    <TextBlock Margin="0,16,0,0" TextWrapping="Wrap"
+                               Text="Docelowe pakiety będą podpisywane, sprawdzane i instalowane z możliwością wycofania." />
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

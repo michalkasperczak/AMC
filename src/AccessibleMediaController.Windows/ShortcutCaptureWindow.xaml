@@ -1,0 +1,19 @@
+<Window x:Class="AccessibleMediaController.Windows.ShortcutCaptureWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="Zmiana skrótu" Width="500" Height="260"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <StackPanel Margin="18">
+        <TextBlock x:Name="CommandText" FontWeight="SemiBold" Margin="0,0,0,12"
+                   automation:AutomationProperties.HeadingLevel="Level1" />
+        <TextBlock Text="Naciśnij nową kombinację. Sam Escape anuluje." TextWrapping="Wrap" Margin="0,0,0,12" />
+        <TextBox x:Name="CapturedText" IsReadOnly="True" FontSize="18" Margin="0,0,0,18"
+                 automation:AutomationProperties.Name="Przechwycony skrót" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Width="95" Margin="0,0,8,0" Content="_OK" IsDefault="True" Click="Ok_Click" />
+            <Button Width="95" Content="_Anuluj" IsCancel="True" />
+        </StackPanel>
+    </StackPanel>
+</Window>
