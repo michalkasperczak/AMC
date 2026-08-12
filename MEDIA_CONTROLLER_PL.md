@@ -200,6 +200,7 @@ Kolejność informacji w dostępnej etykiecie elementu jest konfigurowalna. Uży
 | `Shift+Enter` | dodaj zaznaczenie do kolejki |
 | `Ctrl+Shift+Enter` | odtwórz jako następne |
 | `Backspace` lub `Delete` | usuń element z bieżącej playlisty, kolejki, ulubionych albo biblioteki, jeśli działanie jest jednoznaczne |
+| `Ctrl+Z` | cofnij ostatnią zmianę przynależności; w polu tekstowym cofnij edycję tekstu |
 | `Alt+Strzałka w lewo` | poprzedni widok |
 | `Alt+Strzałka w prawo` | następny widok, jeśli istnieje |
 | `Alt+Enter` | informacje o elemencie |
@@ -250,6 +251,7 @@ Wstępna propozycja:
 | `Ctrl+D` | pobierz offline wewnątrz usługi, jeśli obsługiwane |
 | `Ctrl+Shift+D` | pobierz do pliku lokalnego; funkcja eksperymentalna, domyślnie wyłączona |
 | `Backspace` lub `Delete` | usuń z bieżącej playlisty, kolejki, ulubionych lub biblioteki; z potwierdzeniem albo możliwością cofnięcia |
+| `Ctrl+Z` | cofnij ostatnią zmianę przynależności do Ulubionych, Biblioteki lub Kolejki albo stan „Odtwórz jako następne” |
 | `Ctrl+Shift+O` | otwórz element w oficjalnej aplikacji usługi |
 | `F2` | zmień nazwę playlisty, jeśli obsługiwane |
 | `Ctrl+A` | zaznacz wszystkie elementy, jeśli widok pozwala |

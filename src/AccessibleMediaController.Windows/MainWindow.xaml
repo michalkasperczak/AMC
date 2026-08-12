@@ -19,6 +19,9 @@
                 <Separator />
                 <MenuItem Header="_Zakończ" InputGestureText="Alt+F4" Click="Exit_Click" />
             </MenuItem>
+            <MenuItem Header="_Edycja">
+                <MenuItem Header="_Cofnij ostatnią zmianę" InputGestureText="Ctrl+Z" Click="Undo_Click" />
+            </MenuItem>
             <MenuItem Header="_Sesja">
                 <MenuItem Header="_Lista sesji…" InputGestureText="Ctrl+0" Click="Sessions_Click" />
                 <MenuItem Header="Poprzednia sesja" InputGestureText="Ctrl+Page Up" Click="PreviousSession_Click" />

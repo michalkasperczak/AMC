@@ -200,6 +200,7 @@ The order of information in an item's accessible label is configurable. A user m
 | `Shift+Enter` | add the selection to the queue |
 | `Ctrl+Shift+Enter` | play next |
 | `Backspace` or `Delete` | remove from the current playlist, queue, Favorites or library when the action is unambiguous |
+| `Ctrl+Z` | undo the last membership change; inside a text field, undo text editing |
 | `Alt+Left Arrow` | previous view |
 | `Alt+Right Arrow` | next view when available |
 | `Alt+Enter` | item information |
@@ -250,6 +251,7 @@ Initial proposal:
 | `Ctrl+D` | download offline within the service when supported |
 | `Ctrl+Shift+D` | download to a local file; experimental and disabled by default |
 | `Backspace` or `Delete` | remove from the current playlist, queue, Favorites or library, with confirmation or Undo |
+| `Ctrl+Z` | undo the last membership change in Favorites, Library or Queue, or the Play Next state |
 | `Ctrl+Shift+O` | open the item in the official service application |
 | `F2` | rename a playlist when supported |
 | `Ctrl+A` | select all items when the view permits it |

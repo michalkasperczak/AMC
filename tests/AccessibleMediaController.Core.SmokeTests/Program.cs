@@ -17,6 +17,7 @@ var tests = new (string Name, Action Test)[]
     ("Migracja krótkich komunikatów alpha.7", TestVersion4MessageMigration),
     ("Migracja komunikatów z nazwą elementu alpha.8", TestVersion5MessageMigration),
     ("Przełączanie sesji", TestSessions),
+    ("Cofanie zmian przynależności", TestMembershipHistory),
     ("Krótkie komunikaty czasu", TestTimeCommands),
     ("Trzy rodzaje eksportu", TestExports)
 };
@@ -293,6 +294,37 @@ static void TestSessions()
     Equal(false, manager.Current.ToggleQueue(manager.Current.CurrentItem));
     Equal(true, manager.Current.TogglePlayNext(manager.Current.CurrentItem));
     Equal(false, manager.Current.TogglePlayNext(manager.Current.CurrentItem));
+}
+
+static void TestMembershipHistory()
+{
+    var item = new MediaItem
+    {
+        Title = "Element do przywrócenia",
+        IsFavorite = true,
+        IsInLibrary = true,
+        IsInQueue = true,
+        IsPlayNext = true
+    };
+    var history = new MediaMembershipHistory();
+    var originalState = MediaMembershipState.From(item);
+
+    item.IsInLibrary = false;
+    item.IsInQueue = false;
+    item.IsPlayNext = false;
+    history.Record("tidal", item, originalState, "Przywrócono element");
+    Equal(1, history.Count);
+
+    var undo = history.Undo();
+    True(undo is not null, "Historia powinna zwrócić ostatnią zmianę.");
+    Equal("tidal", undo!.SessionId);
+    Equal("Przywrócono element", undo.Announcement);
+    Equal(originalState, MediaMembershipState.From(item));
+    Equal(0, history.Count);
+    True(history.Undo() is null, "Pusta historia nie powinna zwracać zmiany.");
+
+    history.Record("tidal", item, MediaMembershipState.From(item), "Bez zmiany");
+    Equal(0, history.Count);
 }
 
 static void TestTimeCommands()

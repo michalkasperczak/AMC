@@ -25,6 +25,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private List<MediaItemRow> _unfilteredItems = [];
     private readonly Stack<string> _backHistory = [];
     private readonly Stack<string> _forwardHistory = [];
+    private readonly MediaMembershipHistory _membershipHistory = new();
     private bool _initialFocusApplied;
     private bool _deferAnnouncements;
     private string? _deferredAnnouncement;
@@ -114,6 +115,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
             "W oknie: Enter wykonuje działanie podstawowe, Alt+Enter pokazuje informacje, " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
+            "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
             "Escape na głównym przycisku wraca do ostatnio zaznaczonego elementu listy.",
             "Skróty prototypu",
             MessageBoxButton.OK,
@@ -137,6 +139,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void RebuildCore()
     {
+        _membershipHistory.Clear();
         _sessions = new SessionManager(_state.Settings);
         _router = new CommandRouter(_sessions, _state.Settings, this, this);
     }
@@ -166,17 +169,14 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             return false;
         }
 
-        var oldSession = _sessions.Current.Id;
-        var result = _router.Execute(commandId);
-        if (_sessions.Current.Id != oldSession) RefreshCurrentView(false);
-        return result.KeepPrefixActive;
+        return ExecuteCommand(commandId).KeepPrefixActive;
     }
 
     private KeyboardProfile ActiveKeyboardProfile() =>
         _state.KeyboardProfiles.FirstOrDefault(profile => profile.Id == _state.Settings.ActiveKeyboardProfileId)
         ?? _state.KeyboardProfiles[0];
 
-    private void ExecuteCommand(string commandId)
+    private CommandExecutionResult ExecuteCommand(string commandId)
     {
         var oldSession = _sessions.Current.Id;
         var previousIndex = MediaList.SelectedIndex;
@@ -185,19 +185,35 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             or CommandIds.ToggleLibrary
             or CommandIds.AddQueue
             or CommandIds.TogglePlayNext;
+        var changedSession = changesListMembership ? _sessions.Current : null;
+        var changedItem = changesListMembership
+            ? SelectedItem ?? _sessions.Current.CurrentItem
+            : null;
+        MediaMembershipState? previousMembership = changedItem is null
+            ? null
+            : MediaMembershipState.From(changedItem);
         if (changesListMembership && restoreListFocus) AnchorMediaListFocus();
         if (changesListMembership)
         {
             _deferredAnnouncement = null;
             _deferAnnouncements = true;
         }
+        CommandExecutionResult result;
         try
         {
-            _router.Execute(commandId);
+            result = _router.Execute(commandId);
         }
         finally
         {
             _deferAnnouncements = false;
+        }
+        if (changedSession is not null && changedItem is not null && previousMembership is { } previous)
+        {
+            _membershipHistory.Record(
+                changedSession.Id,
+                changedItem,
+                previous,
+                BuildUndoAnnouncement(commandId, changedItem, previous));
         }
         if (_sessions.Current.Id != oldSession || changesListMembership)
         {
@@ -211,6 +227,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
                 () => Announce(announcement),
                 DispatcherPriority.ContextIdle);
         }
+        return result;
     }
 
     private void RefreshCurrentView(bool announceSummary, int? fallbackIndex = null)
@@ -321,14 +338,25 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         var item = SelectedItem;
         if (item is null) return;
         var previousIndex = MediaList.SelectedIndex;
+        var previousMembership = MediaMembershipState.From(item);
+        string undoAnnouncement;
         AnchorMediaListFocus();
 
-        if (_currentView == "Ulubione") item.IsFavorite = false;
-        else if (_currentView == "Biblioteka") item.IsInLibrary = false;
+        if (_currentView == "Ulubione")
+        {
+            item.IsFavorite = false;
+            undoAnnouncement = $"Przywrócono w ulubionych: {item.Title}";
+        }
+        else if (_currentView == "Biblioteka")
+        {
+            item.IsInLibrary = false;
+            undoAnnouncement = $"Przywrócono w bibliotece: {item.Title}";
+        }
         else if (_currentView == "Kolejka")
         {
             item.IsInQueue = false;
             item.IsPlayNext = false;
+            undoAnnouncement = $"Przywrócono w kolejce: {item.Title}";
         }
         else
         {
@@ -337,12 +365,77 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         }
 
         var title = item.Title;
+        _membershipHistory.Record(
+            _sessions.Current.Id,
+            item,
+            previousMembership,
+            undoAnnouncement);
         RefreshCurrentView(false, previousIndex);
         RestoreMediaListFocusAfterRefresh();
         var announcement = MediaList.Items.Count == 0
             ? $"Usunięto: {title}. Lista jest pusta"
             : $"Usunięto: {title}";
         Dispatcher.BeginInvoke(() => Announce(announcement), DispatcherPriority.ContextIdle);
+    }
+
+    private static string BuildUndoAnnouncement(
+        string commandId,
+        MediaItem item,
+        MediaMembershipState previousState) => commandId switch
+        {
+            CommandIds.ToggleFavorite when previousState.IsFavorite =>
+                $"Przywrócono w ulubionych: {item.Title}",
+            CommandIds.ToggleFavorite =>
+                $"Cofnięto dodanie do ulubionych: {item.Title}",
+            CommandIds.ToggleLibrary when previousState.IsInLibrary =>
+                $"Przywrócono w bibliotece: {item.Title}",
+            CommandIds.ToggleLibrary =>
+                $"Cofnięto dodanie do biblioteki: {item.Title}",
+            CommandIds.AddQueue when previousState.IsInQueue =>
+                $"Przywrócono w kolejce: {item.Title}",
+            CommandIds.AddQueue =>
+                $"Cofnięto dodanie do kolejki: {item.Title}",
+            CommandIds.TogglePlayNext when previousState.IsPlayNext =>
+                $"Przywrócono jako następne: {item.Title}",
+            CommandIds.TogglePlayNext =>
+                $"Cofnięto odtwarzanie jako następne: {item.Title}",
+            _ => $"Cofnięto ostatnią zmianę: {item.Title}"
+        };
+
+    private void UndoLastMembershipChange()
+    {
+        var restoreListFocus = MediaList.IsKeyboardFocusWithin
+            || Keyboard.FocusedElement is MenuItem
+            || Keyboard.FocusedElement is Button;
+        if (restoreListFocus) AnchorMediaListFocus();
+
+        var undo = _membershipHistory.Undo();
+        if (undo is null)
+        {
+            Announce("Brak zmian do cofnięcia");
+            return;
+        }
+
+        if (_sessions.Current.Id == undo.SessionId)
+        {
+            RefreshCurrentView(false);
+            SelectMediaItem(undo.Item.Id);
+            if (restoreListFocus) RestoreMediaListFocusAfterRefresh();
+        }
+
+        Dispatcher.BeginInvoke(
+            () => Announce(undo.Announcement),
+            DispatcherPriority.ContextIdle);
+    }
+
+    private void SelectMediaItem(string itemId)
+    {
+        var row = MediaList.Items
+            .OfType<MediaItemRow>()
+            .FirstOrDefault(candidate => candidate.Item.Id == itemId);
+        if (row is null) return;
+        MediaList.SelectedItem = row;
+        MediaList.ScrollIntoView(row);
     }
 
     private void OpenSettings()
@@ -453,7 +546,12 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         }
 
         var modifiers = Keyboard.Modifiers;
-        if (TryHandleLocalViewShortcut(e))
+        if (modifiers == ModifierKeys.Control && e.Key == Key.Z)
+        {
+            UndoLastMembershipChange();
+            e.Handled = true;
+        }
+        else if (TryHandleLocalViewShortcut(e))
         {
             e.Handled = true;
         }
@@ -643,6 +741,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void Information_Click(object sender, RoutedEventArgs e) => ShowItemInformation(false);
     private void OfficialApp_Click(object sender, RoutedEventArgs e) => OpenOfficialApplication();
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelected();
+    private void Undo_Click(object sender, RoutedEventArgs e) => UndoLastMembershipChange();
     private void Settings_Click(object sender, RoutedEventArgs e) => OpenSettings();
     private void Sessions_Click(object sender, RoutedEventArgs e) => ShowSessionList();
     private void MediaContextMenu_Opened(object sender, RoutedEventArgs e)

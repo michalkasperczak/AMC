@@ -51,7 +51,7 @@ Wynik znajdzie się w `publish\win-x64`.
 
 ## Domyślne działanie prototypu
 
-Domyślny globalny prefiks to `Ctrl+Alt+Windows+F12`. Zastąpił wcześniejsze kombinacje kolidujące z NVDA albo systemowym skrótem Narratora. Warstwa globalna pozostaje eksperymentalna i w etapie `alpha.10` rozwój koncentruje się na aktywnym oknie programu. Po prefiksie:
+Domyślny globalny prefiks to `Ctrl+Alt+Windows+F12`. Zastąpił wcześniejsze kombinacje kolidujące z NVDA albo systemowym skrótem Narratora. Warstwa globalna pozostaje eksperymentalna i w etapie `alpha.11` rozwój koncentruje się na aktywnym oknie programu. Po prefiksie:
 
 - `Ctrl+1` — TIDAL;
 - `Ctrl+2` — Apple Music;
@@ -64,7 +64,7 @@ Domyślny globalny prefiks to `Ctrl+Alt+Windows+F12`. Zastąpił wcześniejsze k
 - `F` i `Shift+F` — Ulubione i zmiana stanu Ulubionych;
 - `P` i `Shift+P` — Playlisty i zmiana przynależności.
 
-Gdy okno AMC jest aktywne, `Ctrl+1–9` przełącza sesję bez globalnego prefiksu, `Ctrl+0` otwiera listę sesji, a `Ctrl+Page Up` i `Ctrl+Page Down` wybierają poprzednią lub następną sesję. Lokalne skróty widoków to: `Ctrl+P` — Playlisty, `Ctrl+L` — Biblioteka i `Ctrl+Q` — Kolejka. Działają również wtedy, gdy fokus przypadkowo albo celowo znajduje się w filtrze. `Ctrl+N` i `Ctrl+A` są zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko; widoki Teraz odtwarzane i Albumy pozostają dostępne w menu.
+Gdy okno AMC jest aktywne, `Ctrl+1–9` przełącza sesję bez globalnego prefiksu, `Ctrl+0` otwiera listę sesji, a `Ctrl+Page Up` i `Ctrl+Page Down` wybierają poprzednią lub następną sesję. Lokalne skróty widoków to: `Ctrl+P` — Playlisty, `Ctrl+L` — Biblioteka i `Ctrl+Q` — Kolejka. Działają również wtedy, gdy fokus przypadkowo albo celowo znajduje się w filtrze. `Ctrl+Z` cofa kolejno zmiany przynależności do Ulubionych, Biblioteki i Kolejki oraz stan „Odtwórz jako następne”; przywrócony element jest ponownie zaznaczany, jeśli znajduje się w bieżącym widoku. W polu filtra `Ctrl+Z` zachowuje standardowe znaczenie cofania edycji tekstu. Polecenie jest także dostępne w menu **Edycja**. `Ctrl+N` i `Ctrl+A` są zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko; widoki Teraz odtwarzane i Albumy pozostają dostępne w menu.
 
 Pusta lista zatrzymuje klawisze strzałek i podaje komunikat „lista jest pusta”, zamiast przenosić fokus do przycisków lub menu. Demonstracyjna Biblioteka zawiera po uruchomieniu dwa utwory.
 

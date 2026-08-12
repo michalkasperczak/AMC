@@ -48,7 +48,7 @@ The output is written to `publish\win-x64`.
 
 ## Prototype defaults
 
-The default global prefix is `Ctrl+Alt+Windows+F12`. It replaced earlier combinations that conflicted with NVDA or the Windows Narrator shortcut. The global layer remains experimental; alpha.10 focuses on the active application window. After the prefix:
+The default global prefix is `Ctrl+Alt+Windows+F12`. It replaced earlier combinations that conflicted with NVDA or the Windows Narrator shortcut. The global layer remains experimental; alpha.11 focuses on the active application window. After the prefix:
 
 - `Ctrl+1`, `Ctrl+2`, `Ctrl+3` select TIDAL, Apple Music and WiiM;
 - `Ctrl+0` opens the session list;
@@ -59,7 +59,7 @@ The default global prefix is `Ctrl+Alt+Windows+F12`. It replaced earlier combina
 - `F` and `Shift+F` open Favorites and toggle favorite state;
 - `P` and `Shift+P` open Playlists and manage membership.
 
-While the AMC window is active, `Ctrl+1–9` selects a session without the global prefix, `Ctrl+0` opens the session list, and `Ctrl+Page Up` or `Ctrl+Page Down` selects the previous or next session. Local view shortcuts are `Ctrl+P` for Playlists, `Ctrl+L` for Library, and `Ctrl+Q` for Queue, including while focus is in the filter box. `Ctrl+N` and `Ctrl+A` are reserved for the standard New and Select All actions; Now Playing and Albums remain available from the menu. Empty lists contain directional navigation and announce that they are empty instead of moving focus to action buttons or the menu. The demonstration Library initially contains two tracks.
+While the AMC window is active, `Ctrl+1–9` selects a session without the global prefix, `Ctrl+0` opens the session list, and `Ctrl+Page Up` or `Ctrl+Page Down` selects the previous or next session. Local view shortcuts are `Ctrl+P` for Playlists, `Ctrl+L` for Library, and `Ctrl+Q` for Queue, including while focus is in the filter box. `Ctrl+Z` successively undoes membership changes in Favorites, Library and Queue as well as the Play Next state; a restored item is selected again when it belongs to the current view. Inside the filter box, `Ctrl+Z` retains the standard text-editing Undo behavior. The command is also available from the **Edit** menu. `Ctrl+N` and `Ctrl+A` are reserved for the standard New and Select All actions; Now Playing and Albums remain available from the menu. Empty lists contain directional navigation and announce that they are empty instead of moving focus to action buttons or the menu. The demonstration Library initially contains two tracks.
 
 On the **Lists and reading** tab, `Alt+Up/Down` moves the selected field, keeps focus on the selected row, and announces its new relationship and the full order. The current-order preview precedes the movement buttons. **Add to queue** and **Play next** act as toggles; repeating the command removes the item and the context-menu label reflects its current state. Their default announcements include the affected item name and customized templates are preserved during migration. Before removal, focus is anchored on the list control and restored after WPF layout finishes; it then moves to the nearest item or remains on the empty list. Pressing `Escape` on a main action button returns focus to the last selected media-list item.
 
