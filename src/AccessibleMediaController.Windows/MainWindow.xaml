@@ -77,10 +77,11 @@
         <ListBox x:Name="MediaList"
                  ItemsSource="{Binding}"
                  DisplayMemberPath="Label"
-                 IsTextSearchEnabled="True"
+                 IsTextSearchEnabled="False"
                  TextSearch.TextPath="Label"
                  KeyboardNavigation.DirectionalNavigation="Contained"
                  KeyboardNavigation.TabNavigation="Once"
+                 PreviewTextInput="MediaList_PreviewTextInput"
                  MouseDoubleClick="MediaList_MouseDoubleClick">
             <ListBox.ContextMenu>
                 <ContextMenu Opened="MediaContextMenu_Opened" Closed="MediaContextMenu_Closed">

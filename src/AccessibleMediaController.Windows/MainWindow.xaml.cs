@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -29,6 +30,13 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private bool _initialFocusApplied;
     private bool _deferAnnouncements;
     private string? _deferredAnnouncement;
+    private HwndSource? _windowSource;
+    private string _typeAheadText = string.Empty;
+    private DateTime _lastTypeAheadInputUtc;
+
+    private const int WmKeyDown = 0x0100;
+    private const int VirtualKeyZ = 0x5A;
+    private static readonly TimeSpan TypeAheadTimeout = TimeSpan.FromMilliseconds(1200);
 
     public MainWindow(PersistedState state, ConfigurationStore store)
     {
@@ -64,9 +72,16 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     public void ShowCurrentSession(string viewName)
     {
-        NavigateTo(viewName, true);
+        var isSearchView = IsSearchView(viewName);
+        NavigateTo(viewName, !isSearchView);
         Activate();
         FocusMediaList();
+        if (isSearchView)
+        {
+            Dispatcher.BeginInvoke(
+                () => Announce(viewName),
+                DispatcherPriority.ContextIdle);
+        }
     }
 
     public void ShowFilter()
@@ -139,6 +154,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         try
         {
             var handle = new WindowInteropHelper(this).Handle;
+            _windowSource = HwndSource.FromHwnd(handle);
+            _windowSource?.AddHook(WindowMessageHook);
             _prefixService = new GlobalPrefixService(handle, HandleGlobalChord, PrefixActivated);
             RegisterConfiguredPrefix();
         }
@@ -262,6 +279,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void ApplyFilter(string? preferredItemId = null, int? fallbackIndex = null)
     {
+        ResetTypeAhead();
         var query = FilterBox.Text.Trim();
         var filteredItems = string.IsNullOrEmpty(query)
             ? _unfilteredItems
@@ -525,6 +543,32 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         RefreshCurrentView(true);
     }
 
+    private static bool IsSearchView(string viewName) =>
+        viewName is "Wyszukiwanie" or "Wyszukiwanie we wszystkich usługach";
+
+    private IntPtr WindowMessageHook(
+        IntPtr hwnd,
+        int message,
+        IntPtr wParam,
+        IntPtr lParam,
+        ref bool handled)
+    {
+        if (message != WmKeyDown
+            || wParam.ToInt32() != VirtualKeyZ
+            || Keyboard.Modifiers != ModifierKeys.Control
+            || Keyboard.FocusedElement is System.Windows.Controls.TextBox)
+        {
+            return IntPtr.Zero;
+        }
+
+        // The normal WPF PreviewKeyDown handler proved too late to suppress the
+        // built-in English "Undo" UIA notification on the test machine. Catch
+        // Ctrl+Z at the window-message boundary, but leave text-box Undo intact.
+        handled = true;
+        Dispatcher.BeginInvoke(UndoLastMembershipChange, DispatcherPriority.Input);
+        return IntPtr.Zero;
+    }
+
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (TryHandleLocalSessionShortcut(e))
@@ -748,11 +792,84 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             FilterBox.Clear();
             StatusText.Text = "Filtr wyczyszczony";
         }
+        else if (IsSearchView(_currentView) && _backHistory.Count > 0)
+        {
+            _forwardHistory.Push(_currentView);
+            _currentView = _backHistory.Pop();
+            RefreshCurrentView(false);
+            StatusText.Text = $"Powrót do widoku: {_currentView}";
+        }
         RestoreMediaListFocusAfterRefresh();
+    }
+
+    private void MediaList_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        if (Keyboard.Modifiers is not (ModifierKeys.None or ModifierKeys.Shift)
+            || string.IsNullOrEmpty(e.Text)
+            || !e.Text.All(char.IsLetterOrDigit)
+            || MediaList.Items.Count == 0)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        if (now - _lastTypeAheadInputUtc > TypeAheadTimeout) ResetTypeAhead();
+        _lastTypeAheadInputUtc = now;
+
+        var continuedText = _typeAheadText + e.Text;
+        var continuedStart = _typeAheadText.Length == 0
+            ? MediaList.SelectedIndex + 1
+            : Math.Max(MediaList.SelectedIndex, 0);
+        var matchIndex = FindTypeAheadMatch(continuedText, continuedStart);
+
+        // If the accumulated phrase no longer matches, immediately begin a new
+        // phrase with the latest letter. This makes repeated searches reliable
+        // without forcing the user to wait for an invisible timeout.
+        if (matchIndex < 0)
+        {
+            continuedText = e.Text;
+            matchIndex = FindTypeAheadMatch(continuedText, MediaList.SelectedIndex + 1);
+        }
+
+        _typeAheadText = continuedText;
+        e.Handled = true;
+        if (matchIndex < 0) return;
+
+        MediaList.SelectedIndex = matchIndex;
+        MediaList.ScrollIntoView(MediaList.SelectedItem);
+        FocusMediaList();
+    }
+
+    private int FindTypeAheadMatch(string query, int startIndex)
+    {
+        if (MediaList.Items.Count == 0) return -1;
+        var compareInfo = CultureInfo.CurrentCulture.CompareInfo;
+        var firstIndex = ((startIndex % MediaList.Items.Count) + MediaList.Items.Count) % MediaList.Items.Count;
+        for (var offset = 0; offset < MediaList.Items.Count; offset++)
+        {
+            var index = (firstIndex + offset) % MediaList.Items.Count;
+            if (MediaList.Items[index] is not MediaItemRow row) continue;
+            if (compareInfo.IsPrefix(
+                    row.Label.TrimStart(),
+                    query,
+                    CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace))
+            {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private void ResetTypeAhead()
+    {
+        _typeAheadText = string.Empty;
+        _lastTypeAheadInputUtc = default;
     }
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
+        _windowSource?.RemoveHook(WindowMessageHook);
+        _windowSource = null;
         _prefixService?.Dispose();
         _store.Save(_state);
     }
