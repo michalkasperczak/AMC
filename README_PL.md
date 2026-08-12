@@ -2,6 +2,8 @@
 
 To pierwszy demonstracyjny prototyp aplikacji sterowanej globalnym prefiksem. Sprawdza architekturę klawiatury, sesji, list, komunikatów dostępności, profili oraz importu i eksportu. Nie łączy się jeszcze z prawdziwymi kontami TIDAL, Apple Music ani WiiM.
 
+Ten README opisuje zachowanie gotowego prototypu `0.1.0-alpha.12`. Zatwierdzony kierunek dalszego rozwoju, docelowa architektura oraz nowa mapa skrótów znajdują się w [`MEDIA_CONTROLLER_PL.md`](MEDIA_CONTROLLER_PL.md). Zmiany opisane w planie nie muszą być jeszcze zaimplementowane w bieżącym pliku EXE.
+
 ## Najprostsze uruchomienie — bez wpisywania poleceń
 
 1. Rozpakuj całą paczkę do zwykłego folderu.

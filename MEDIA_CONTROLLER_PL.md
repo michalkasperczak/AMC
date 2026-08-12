@@ -1,12 +1,12 @@
 # Dostępny kontroler multimedialny — koncepcja projektu
 
-Wersja dokumentu: 0.3, szkic do dyskusji
+Wersja dokumentu: 0.4, aktualny plan projektu
 
-Data: 7 sierpnia 2026 r.
+Data aktualizacji: 12 sierpnia 2026 r.
 
 ## 1. Cel projektu
 
-Projekt zakłada stworzenie dostępnej aplikacji działającej przede wszystkim w tle. Jej głównym sposobem obsługi będzie konfigurowalny prefiks klawiaturowy, po którym użytkownik wybiera sesję albo wykonuje polecenie w bieżącej sesji.
+Projekt zakłada stworzenie dostępnego kontrolera multimediów z jednym wspólnym rdzeniem poleceń, sesji i usług oraz kilkoma równorzędnymi sposobami obsługi. Program ma działać zarówno przez klasyczne okno, jak i przez konfigurowalny prefiks klawiaturowy używany bez przechodzenia do okna.
 
 Pierwsze planowane integracje:
 
@@ -14,16 +14,19 @@ Pierwsze planowane integracje:
 - Apple Music;
 - WiiM.
 
-Aplikacja nie będzie w pierwszej wersji zastępować Foobara2000 ani Free Radia. Możliwość dołączenia kolejnych modułów ma pozostać otwarta.
+W dalszej kolejności planowane są Spotify, Sonos, Bluesound/BluOS oraz urządzenia korzystające z platformy Frontier Smart. Architektura ma również przewidywać radio internetowe i lokalne multimedia. Standardowe odtwarzanie lokalne nie będzie wymagać foobar2000; później może powstać jego opcjonalny adapter dla wyspecjalizowanych formatów, DSP lub urządzeń. Rozwiązania Free Radio mogą posłużyć jako materiał i mechanizm odniesienia po sprawdzeniu kodu oraz licencji.
 
-Program nie będzie wtyczką NVDA. Pierwsza wersja powstaje wyłącznie dla Windows i ma działać z NVDA, JAWS-em oraz Narratorem. Architektura nie powinna niepotrzebnie blokować późniejszego wydania dla macOS, ale skróty macOS, VoiceOver, Siri i pozostałe elementy platformy Apple zostaną zaprojektowane dopiero po dopracowaniu wersji windowsowej. Bezpośrednia integracja z konkretnym czytnikiem ekranu może być kiedyś dodatkiem, ale nie podstawą działania.
+Program nie będzie zależny od NVDA. Pierwsza wersja okna powstaje dla Windows w WPF i ma działać przez UI Automation z NVDA, JAWS-em oraz Narratorem. Opcjonalna wtyczka NVDA zostanie zbudowana później jako mały klient, a nie jako miejsce wykonywania logiki usług.
+
+Docelowa wersja dla macOS otrzyma natywny interfejs Swift/AppKit korzystający z NSAccessibility i VoiceOver. Wspólna logika pozostanie w wieloplatformowym rdzeniu .NET, udostępnianym interfejsom przez stabilną granicę poleceń i zdarzeń. Skróty i globalny prefiks będą miały osobną implementację właściwą dla danego systemu.
 
 ## 2. Model hybrydowy
 
-Aplikacja będzie połączeniem dwóch sposobów obsługi:
+Aplikacja będzie połączeniem trzech sposobów obsługi:
 
 1. **Warstwa prefiksowa** do szybkich operacji wykonywanych w tle.
 2. **Proste dostępne okna** do przeglądania wyników wyszukiwania, albumów, playlist, biblioteki i ustawień.
+3. **Opcjonalne cienkie integracje**, przede wszystkim wtyczka NVDA, korzystające z tego samego uruchomionego rdzenia.
 
 Nie planujemy na początku rozbudowanego, stale otwartego interfejsu. Złożone dane muszą jednak być prezentowane w normalnym oknie, ponieważ nie da się wygodnie przejrzeć kilkudziesięciu albumów lub playlist samymi komunikatami głosowymi.
 
@@ -32,7 +35,13 @@ Każda operacja aplikacji będzie wewnętrznym poleceniem, które można wywoła
 - w warstwie prefiksowej;
 - lokalnym skrótem w oknie;
 - z menu kontekstowego;
-- w przyszłości przez opcjonalną wtyczkę lub zewnętrzny interfejs sterowania.
+- w przyszłości przez opcjonalną wtyczkę NVDA, natywny interfejs macOS lub zewnętrzny interfejs sterowania.
+
+Wtyczka NVDA nie zawiera adapterów usług, bibliotek odtwarzania ani tokenów. Wysyła krótkie polecenia do lokalnego procesu AMC i odbiera zdarzenia oraz tekst komunikatów. Nie jest to wywoływanie terminala. Na Windows komunikacja będzie odbywać się przez lokalny named pipe, a na macOS przez lokalny mechanizm właściwy dla systemu, np. Unix domain socket lub natywny most.
+
+Rdzeń działa tylko wtedy, gdy jest potrzebny. Może uruchomić się wraz z oknem albo na żądanie wtyczki, działać bez widocznego okna w zasobniku i zakończyć się na wyraźne polecenie użytkownika. Automatyczny start z systemem pozostaje ustawieniem opcjonalnym.
+
+Na macOS normalne, dostępne okno pozostaje obowiązkowe, a prefiks jest jedynie dodatkową drogą sterowania. Zewnętrzne narzędzia automatyzacji, np. Keyboard Maestro, mogą w przyszłości korzystać z publicznego polecenia lub adresu `amc://`, ale nie są wymagane do działania programu.
 
 ## 3. Prefiks aplikacji
 
@@ -67,21 +76,21 @@ Microsoft zastrzega, że skróty zawierające klawisz Windows są przeznaczone d
 
 ### 4.1. Wybieranie sesji
 
-Po prefiksie kombinacje `Ctrl+cyfra` będą bezpośrednio przełączać usługę. Kolejność usług jest konfigurowalna. Cyfry nie zależą od języka i nie zajmują liter potrzebnych do poleceń.
+Po prefiksie same cyfry będą bezpośrednio przełączać sesję. W aktywnym oknie odpowiadają im skróty `Ctrl+cyfra`. Kolejność sesji jest konfigurowalna. Cyfry nie zależą od języka i nie zajmują liter potrzebnych do poleceń.
 
 Proponowane ustawienia domyślne:
 
 | Polecenie po prefiksie | Sesja lub działanie |
 | --- | --- |
-| `Ctrl+1` | TIDAL |
-| `Ctrl+2` | Apple Music |
-| `Ctrl+3` | WiiM |
-| `Ctrl+4–9` | kolejne usługi lub urządzenia |
-| `Ctrl+0` | lista wszystkich sesji |
+| `1` | TIDAL |
+| `2` | Apple Music |
+| `3` | WiiM |
+| `4–9` | kolejne usługi lub urządzenia |
+| `0` | lista wszystkich sesji |
 | `Page Up` | poprzednia dostępna sesja |
 | `Page Down` | następna dostępna sesja |
 
-Po zmianie aplikacja przekazuje krótki komunikat, np. „3, WiiM”. Jeśli miejsce nie zostało przypisane, mówi „Sesja 4 nieprzypisana”. Bezpośrednie skróty `Ctrl+litera`, np. `Ctrl+W`, mogą zostać ustawione przez użytkownika jako dodatkowe aliasy, ale nie są potrzebne w profilu domyślnym.
+Po zmianie aplikacja przekazuje krótki komunikat, np. „3, WiiM”. Jeśli miejsce nie zostało przypisane, mówi „Sesja 4 nieprzypisana”. W aktywnym oknie `Ctrl+1–9` wybiera sesję, `Ctrl+0` otwiera ich listę, a `Ctrl+Page Up` i `Ctrl+Page Down` przechodzą do poprzedniej i następnej sesji.
 
 ### 4.2. Zapamiętywanie sesji
 
@@ -91,10 +100,10 @@ Po zmianie aplikacja przekazuje krótki komunikat, np. „3, WiiM”. Jeśli mie
 
 Przykłady:
 
-- prefiks, `Ctrl+1` — zmień sesję na TIDAL;
-- prefiks, `S` — wyszukaj w aktualnej sesji, czyli w TIDAL-u;
-- prefiks, `Ctrl+3`, `Spacja` — zmień sesję na WiiM i włącz albo zatrzymaj odtwarzanie;
-- prefiks, `Ctrl+2`, `P` — zmień sesję na Apple Music i otwórz playlisty.
+- prefiks, `1` — zmień sesję na TIDAL;
+- prefiks, `F` — wyszukaj w aktualnej sesji, czyli w TIDAL-u;
+- prefiks, `3`, `Spacja` — zmień sesję na WiiM i włącz albo zatrzymaj odtwarzanie;
+- prefiks, `2`, `P` — zmień sesję na Apple Music i otwórz playlisty.
 
 Do rozstrzygnięcia pozostaje, czy ostatnia sesja ma być pamiętana po ponownym uruchomieniu programu. Bezpieczniejszy wariant to przywrócenie sesji i ogłoszenie jej przy pierwszym użyciu prefiksu.
 
@@ -102,37 +111,46 @@ Do rozstrzygnięcia pozostaje, czy ostatnia sesja ma być pamiętana po ponownym
 
 ### 5.1. Ogólna reguła
 
-- `litera` otwiera widok, listę albo kategorię;
-- `Shift+litera` wykonuje powiązaną czynność dotyczącą aktualnego lub zaznaczonego elementu;
+- w aktywnym oknie podstawowym skrótem polecenia jest zwykle `Ctrl+litera`;
+- po prefiksie odpowiada mu ta sama litera bez `Ctrl`;
+- `Shift` oznacza działanie powiązane, rozszerzony zakres albo czynność dotyczącą aktualnego elementu;
 - nie każda litera musi od razu mieć wersję z Shiftem;
 - wszystkie przypisania można zmienić w ustawieniach.
 
 Wersja z Shiftem nie powinna wykonywać nieodwracalnej operacji bez potwierdzenia.
 
-Program może zmieniać język interfejsu i komunikatów, ale nie powinien automatycznie zmieniać przypisań klawiszy. Domyślny zestaw będzie wspólny dla wszystkich języków, np. `F` pozostaje skrótem Ulubionych również w wersji polskiej. Chroni to pamięć mięśniową i ułatwia korzystanie z dokumentacji w różnych językach. Użytkownik nadal może zbudować własny profil.
+Prefiks zastępuje więc `Ctrl`, zamiast wymagać po sobie kolejnej kombinacji z `Ctrl`. Pozostawia to kombinacje takie jak `Ctrl+E`, `Ctrl+R` i `Ctrl+T` wewnątrz warstwy dla dodatkowych poleceń informacyjnych. Obsługa okna i prefiksu wywołuje te same identyfikatory poleceń w rdzeniu, więc nie powiela logiki funkcji.
 
-### 5.2. Wstępna mapa
+Program może zmieniać język interfejsu i komunikatów, ale nie powinien automatycznie zmieniać przypisań klawiszy. Domyślny zestaw pozostaje stabilny, a użytkownik może zbudować własny profil. Dopuszczamy czytelne polskie skojarzenie `U` — Ulubione obok utrwalonego `L` — Library/Biblioteka; ważniejsze od językowej czystości są brak konfliktów i pamięć mięśniowa.
 
-| Klawisz po prefiksie | Funkcja | `Shift+klawisz` | Funkcja powiązana |
-| --- | --- | --- | --- |
-| `F` | Ulubione / Favorites | `Shift+F` | przełącz stan: dodaj do ulubionych albo usuń z ulubionych |
-| `P` | Playlisty | `Shift+P` | otwórz wybór playlist i zmień przynależność elementu |
-| `S` | Wyszukiwanie w bieżącej sesji | `Shift+S` | wyszukiwanie we wszystkich obsługiwanych usługach, przyszłościowo |
-| `L` | Biblioteka | `Shift+L` | dodaj element do biblioteki albo go z niej usuń |
-| `Q` | Kolejka | `Shift+Q` | dodaj element do kolejki |
-| `A` | Albumy | `Shift+A` | dodaj wskazany album do biblioteki, jeśli usługa to umożliwia |
-| `R` | Radio utworu, wykonawcy lub rekomendacje | `Shift+R` | uruchom radio na podstawie wskazanego elementu |
-| `M` | Miksy i rekomendacje | `Shift+M` | funkcja do ustalenia; na razie nieprzypisana |
-| `H` | Historia | `Shift+H` | na razie nieprzypisana |
-| `N` | Teraz odtwarzane | `Shift+N` | otwórz aktualny element w oficjalnej aplikacji usługi |
-| `I` | Informacje o elemencie | `Shift+I` | rozszerzone informacje, np. wykonawcy i autorzy |
-| `O` | Wyjścia i urządzenia | `Shift+O` | otwórz wybór wyjścia dla bieżącej sesji |
-| `D` | Pobrane / offline | `Shift+D` | pobierz wewnątrz usługi, tylko jeśli istnieje oficjalne wsparcie |
-| `?` lub `F1` | Pomoc bieżącej warstwy | — | — |
+### 5.2. Zatwierdzona mapa podstawowa
 
-`Shift+F` działa jako przełącznik, jeśli adapter usługi potrafi pewnie odczytać aktualny stan. Program mówi odpowiednio „Dodano do ulubionych” albo „Usunięto z ulubionych”. Jeśli stan jest nieznany, aplikacja nie może zgadywać i powinna otworzyć menu z jednoznacznymi czynnościami.
+| Funkcja | Skrót w oknie | Klawisz po prefiksie |
+| --- | --- | --- |
+| Biblioteka | `Ctrl+L` | `L` |
+| dodaj do biblioteki albo usuń z niej | `Ctrl+Shift+L` | `Shift+L` |
+| Ulubione | `Ctrl+U` | `U` |
+| dodaj do Ulubionych albo usuń z nich | `Ctrl+Shift+U` | `Shift+U` |
+| Playlisty | `Ctrl+P` | `P` |
+| wybór playlist i zmiana przynależności | `Ctrl+Shift+P` | `Shift+P` |
+| Kolejka | `Ctrl+Q` | `Q` |
+| dodaj do kolejki | `Ctrl+Shift+Q` | `Shift+Q` |
+| filtr aktualnie załadowanej listy | `Ctrl+K` | `K` |
+| paleta wszystkich poleceń AMC | `Ctrl+Shift+K` | `Shift+K` |
+| wyszukiwanie w bieżącej usłudze lub źródle | `Ctrl+F` | `F` |
+| wyszukiwanie we wszystkich włączonych usługach i źródłach | `Ctrl+Shift+F` | `Shift+F` |
+| pobierz lub zachowaj wewnątrz usługi | `Ctrl+D` | `D` |
+| pobierz na dysk, jeśli zezwala na to usługa | `Ctrl+Shift+D` | `Shift+D` |
 
-Funkcje pobierania nie należą do podstawowej wersji. `D` i powiązane kombinacje pozostają rezerwacją projektu do czasu sprawdzenia możliwości i zasad konkretnej usługi.
+Filtr działa tylko na danych już znajdujących się w bieżącej liście i nie wysyła zapytania do usługi. Wyszukiwanie bieżące może odpytać aktualną usługę, a wyszukiwanie globalne scala wyniki ze wszystkich włączonych źródeł. Paleta poleceń jest dostępną, filtrowalną listą funkcji, także tych bez przypisanego skrótu.
+
+`Shift+U` działa jako przełącznik tylko wtedy, gdy adapter potrafi pewnie odczytać aktualny stan. Program mówi odpowiednio „Dodano do ulubionych” albo „Usunięto z ulubionych”. Jeśli stan jest nieznany, aplikacja nie może zgadywać i powinna otworzyć menu z jednoznacznymi czynnościami.
+
+Albumy pozostają dostępne w menu i palecie poleceń, ale nie mają jeszcze skrótu domyślnego. `Ctrl+A` zachowuje standardowe „Zaznacz wszystko”, zwykłe litery na liście służą do szybkiej nawigacji, `L` zajmuje Biblioteka, a `B` pozostaje rezerwą dla możliwych przyszłych Zakładek/Bookmarks. Nie przypisujemy Albumom klawisza tylko po to, aby wypełnić mapę.
+
+Pozostałe zatwierdzone wcześniej polecenia warstwy zachowują litery `R` — Radio, `M` — Miksy, `H` — Historia, `N` — Teraz odtwarzane, `I` — Informacje i `O` — Wyjścia. Ich odpowiedniki okienne mają docelowo używać `Ctrl` oraz tej samej litery, o ile nie narusza to standardowego działania pola tekstowego lub systemu. Każdy konflikt rozstrzyga edytor mapy, a polecenie może pozostać bez skrótu i być dostępne z menu oraz palety.
+
+Funkcje pobierania nie należą do podstawowej wersji. Są aktywowane osobno dla każdego adaptera dopiero po sprawdzeniu oficjalnych możliwości, licencji i zasad danej usługi. Pobieranie na dysk jest eksperymentalne i domyślnie wyłączone.
 
 ### 5.3. Informacje o czasie
 
@@ -164,11 +182,13 @@ Propozycja dla warstwy prefiksowej:
 | `Shift+Strzałka w górę` | zwiększ głośność o 1% |
 | `Shift+Strzałka w dół` | zmniejsz głośność o 1% |
 | `Ctrl+Home` | początek utworu |
-| `Ctrl+End` | koniec utworu, jeśli usługa pozwala; w przeciwnym razie brak działania |
+| `Ctrl+End` | przejdź w pobliże końca utworu, domyślnie 10 sekund przed końcem |
 | `Page Up` | poprzednia sesja |
 | `Page Down` | następna sesja |
 
 Polecenia nieobsługiwane przez daną sesję nie mogą być po cichu ignorowane. Program powinien powiedzieć np. „Przewijanie niedostępne dla WiiM”.
+
+Odstęp używany przez polecenie przejścia w pobliże końca jest konfigurowalny. Program nie ustawia pozycji na dokładnym końcu, ponieważ mogłoby to natychmiast przełączyć utwór.
 
 Strzałki po prefiksie służą wyłącznie do sterowania globalnego. W aktywnym oknie listy zwykłe strzałki nawigują po elementach bez używania prefiksu.
 
@@ -194,7 +214,7 @@ Kolejność informacji w dostępnej etykiecie elementu jest konfigurowalna. Uży
 | `Strzałki w górę/dół` | poprzedni / następny element |
 | `Home`, `End` | pierwszy / ostatni element |
 | `Page Up`, `Page Down` | przewijanie listy stronami |
-| wpisywanie liter | przejście do elementu zaczynającego się od podanego ciągu; powtarzanie litery przechodzi między dopasowaniami |
+| wpisywanie liter | szybkie przejście do elementu zaczynającego się od wpisanego ciągu; kolejne szybko wpisane litery budują frazę, a powtarzanie jednej litery przechodzi między dopasowaniami |
 | `Enter` | otwórz wykonawcę, album lub playlistę; na utworze wykonaj domyślną czynność |
 | `Ctrl+Enter` | odtwórz zaznaczenie teraz |
 | `Shift+Enter` | dodaj zaznaczenie do kolejki |
@@ -208,6 +228,8 @@ Kolejność informacji w dostępnej etykiecie elementu jest konfigurowalna. Uży
 | `Klawisz aplikacji` lub `Shift+F10` | menu kontekstowe |
 
 Enter wykonuje działanie podstawowe zależne od rodzaju elementu: odtwarza utwór, stację lub preset, natomiast na albumie, playliście albo wykonawcy otwiera zawartość. `Ctrl+Enter` odtwarza natychmiast również cały album lub playlistę. `Alt+Enter`, zgodnie z typowym zachowaniem menedżerów plików, pozostaje informacją lub właściwościami elementu; nie służy do otwierania zewnętrznej aplikacji.
+
+Zwykłe litery na liście nigdy nie wykonują poleceń AMC. Pozostają nawigacją po nazwach elementów. Polecenia jednoliterowe działają dopiero po prawidłowym aktywowaniu globalnej warstwy prefiksowej.
 
 ### 7.3. Przeładowywanie
 
@@ -237,14 +259,21 @@ W ustawieniach można później wskazać playlistę domyślną, np. „Do odsłu
 
 Skróty lokalne są niezależne od warstwy prefiksowej, ale wywołują te same wewnętrzne polecenia.
 
-Wstępna propozycja:
+Zatwierdzone przypisania podstawowe:
 
 | Skrót lokalny | Działanie |
 | --- | --- |
-| `Ctrl+F` | znajdź lub filtruj bieżącą listę |
+| `Ctrl+K` | filtruj tylko aktualnie załadowaną listę |
+| `Ctrl+F` | wyszukaj w bieżącej usłudze lub źródle |
+| `Ctrl+Shift+F` | wyszukaj we wszystkich włączonych usługach i źródłach |
+| `Ctrl+Shift+K` | otwórz paletę poleceń AMC |
+| `Ctrl+L` | otwórz Bibliotekę |
+| `Ctrl+U` | otwórz Ulubione |
+| `Ctrl+P` | otwórz Playlisty |
+| `Ctrl+Q` | otwórz Kolejkę |
 | `Ctrl+C` | kopiuj nazwę wybranego elementu |
 | `Ctrl+Shift+C` | kopiuj łącze do elementu w usłudze |
-| `Ctrl+Shift+F` | dodaj do ulubionych albo usuń z ulubionych |
+| `Ctrl+Shift+U` | dodaj do Ulubionych albo usuń z Ulubionych |
 | `Ctrl+Shift+P` | otwórz wybór playlist i zmień przynależność |
 | `Ctrl+Shift+Q` | dodaj do kolejki |
 | `Ctrl+Shift+L` | dodaj do biblioteki |
@@ -257,6 +286,8 @@ Wstępna propozycja:
 | `Ctrl+A` | zaznacz wszystkie elementy, jeśli widok pozwala |
 
 Każdy skrót lokalny jest zmienny. Polecenia pobierania nie powinny być aktywne, dopóki odpowiedni moduł nie zostanie świadomie włączony.
+
+`Ctrl+1–9` wybiera sesję, `Ctrl+0` otwiera listę sesji, a `Ctrl+Page Up` i `Ctrl+Page Down` wybierają poprzednią lub następną sesję. Albumy nie mają jeszcze skrótu lokalnego.
 
 ## 10. Menu kontekstowe
 
@@ -291,6 +322,8 @@ Ustawienia muszą umożliwiać zmianę wszystkiego:
 - zachowania klawisza Enter dla każdego typu elementu;
 - domyślnej playlisty;
 - pamiętania ostatniej sesji.
+
+Domyślna mapa zachowuje symetrię: `Ctrl+klawisz` w aktywnym oknie odpowiada `klawiszowi` po prefiksie, a `Ctrl+Shift+klawisz` odpowiada `Shift+klawiszowi`. Wyjątki, w szczególności informacyjne `Ctrl+E`, `Ctrl+R` i `Ctrl+T` wewnątrz warstwy, są jawnie opisane i sprawdzane pod kątem konfliktów.
 
 Język interfejsu jest ustawieniem niezależnym od profilu skrótów. Zmiana języka nie może samodzielnie przemeblować klawiatury. W pierwszej wersji powstaje wyłącznie profil Windows; profil macOS zostanie zaprojektowany razem z późniejszym wydaniem dla tej platformy.
 
@@ -349,55 +382,99 @@ Przy operacjach globalnych warto podawać usługę, jeżeli istnieje ryzyko pomy
 
 ## 13. Architektura funkcjonalna
 
-Program powinien rozdzielać:
+### 13.1. Jeden rdzeń, wiele klientów
 
-- **silnik poleceń** — jednolite identyfikatory funkcji;
-- **silnik prefiksu** — przechwytywanie sekwencji i timeout;
-- **menedżer sesji** — TIDAL, Apple Music, WiiM;
-- **adaptery usług** — tłumaczenie wspólnych poleceń na API konkretnej usługi;
-- **okno przeglądania** — wspólna lista dla wszystkich usług;
-- **system komunikatów dostępności**;
-- **ustawienia i profile skrótów**;
-- **system aktualizacji aplikacji i adapterów usług**.
+Docelowy podział rozwiązania:
 
-Adapter usługi deklaruje swoje możliwości. Dzięki temu aplikacja wie, że np. WiiM obsługuje głośność i presety, ale nie obsługuje dodawania albumu do biblioteki.
+- **AMC.Core (.NET)** — niezależne od interfejsu modele, stabilne identyfikatory poleceń, sesje, kolejka, Ulubione, Biblioteka, odtwarzanie, konfiguracja, historia cofania i komunikaty domenowe;
+- **AMC.Host (.NET)** — działający proces utrzymujący stan, połączenia, adaptery, autoryzację, pamięć podręczną i lokalny interfejs komunikacyjny;
+- **AMC.Windows (WPF)** — natywne okno Windows, UI Automation, menu, listy, fokus, globalny prefiks i zasobnik;
+- **AMC.NVDA (Python)** — opcjonalna cienka wtyczka rejestrująca gesty NVDA, wysyłająca polecenia do AMC.Host i prezentująca odpowiedzi; bez adapterów, dużych bibliotek i danych logowania;
+- **AMC.macOS (Swift/AppKit)** — przyszłe natywne okno, NSAccessibility, VoiceOver, menu i właściwa dla macOS implementacja skrótów;
+- **AMC.Adapters.*** — niezależne moduły usług muzycznych, urządzeń, radia i lokalnego odtwarzania;
+- **AMC.Update** — aktualizacja aplikacji i zgodnych adapterów.
+
+WPF pozostaje warstwą tylko dla Windows. Wspólny rdzeń .NET nie odwołuje się do WPF, NVDA ani API dostępności konkretnego systemu. Natywny klient macOS nie musi bezpośrednio ładować klas .NET; komunikuje się z hostem przez wersjonowany kontrakt poleceń i zdarzeń. Jeżeli później pomiary uzasadnią bezpośredni most binarny, można go dodać bez zmiany modelu poleceń.
+
+FastSMRW jest wzorcem architektonicznym: jeden przenośny rdzeń, cienkie natywne interfejsy i opcjonalna warstwa sterowania bez przechodzenia do okna. AMC wykorzystuje tę zasadę, lecz zachowuje własną technologię, kontrakt i mapę poleceń.
+
+Interfejsy przekazują polecenia, np. `favorites.toggle`, `session.next` albo `search.current`, a host publikuje zdarzenia stanu i gotowe dane do przedstawienia. Nie wykonuje się poleceń terminala. Lokalna komunikacja ma być asynchroniczna, wersjonowana, ograniczona do bieżącego użytkownika i odporna na rozłączenie klienta.
+
+Opóźnienie lokalnego IPC nie jest elementem krytycznym wobec czasu zapytań sieciowych i odpowiedzi urządzeń. Interfejs może przechowywać wyłącznie mały, niesekretny obraz ostatniego stanu potrzebny do natychmiastowego odczytu. Tokeny i sekrety pozostają w hoście, w systemowym magazynie poświadczeń: Windows Credential Manager lub macOS Keychain.
+
+### 13.2. Adaptery i możliwości
+
+Każdy adapter deklaruje możliwości zamiast udawać identyczność usług. Przykładowe możliwości to wyszukiwanie, Ulubione, Biblioteka, playlisty, kolejka, pobieranie wewnątrz usługi, legalny eksport na dysk, przewijanie, głośność, presety, grupowanie urządzeń i zdarzenia czasu rzeczywistego. Niedostępne polecenie jest wyłączone albo kończy się jednoznacznym komunikatem.
+
+Rozróżniamy:
+
+- **źródła i katalogi** — TIDAL, Spotify, Apple Music, radio internetowe i biblioteka lokalna;
+- **urządzenia i cele odtwarzania** — lokalny komputer, WiiM, Sonos, Bluesound/BluOS i Frontier Smart;
+- **sesję** — aktualne połączenie źródła, konta, kolejki i celu odtwarzania, np. „TIDAL na WiiM w salonie”.
+
+Pierwsze realne logowania otwierają systemową przeglądarkę i używają oficjalnych metod danej usługi. Rdzeń musi obsługiwać OAuth z PKCE, kod powrotu, odświeżanie tokenu, anulowanie, wylogowanie i utratę uprawnień. Integracje wymagające sekretu lub publicznego adresu zwrotnego mogą potrzebować małego, kontrolowanego zaplecza internetowego. Apple Music może mieć różne szczegóły integracji na Windows i macOS, ale przedstawia rdzeniowi ten sam zestaw możliwości.
+
+Lokalne urządzenia mogą wymagać wykrywania w sieci przez mDNS, SSDP/UPnP albo HTTP. Wykrywanie, autoryzacja i sterowanie urządzeniem nie należą do interfejsu okna ani do wtyczki NVDA.
+
+### 13.3. Lokalne multimedia i radio
+
+Lokalny moduł odtwarzania obejmuje docelowo otwieranie plików i folderów, metadane, Bibliotekę, kolejkę, podstawowe popularne formaty, wybór urządzenia, odtwarzanie bez przerw i ReplayGain. Na Windows domyślne wyjście dźwięku powinno pracować w trybie współdzielonym, aby nie wyciszać NVDA i pozostałych dźwięków. Tryb wyłączny może pojawić się później jako funkcja zaawansowana z wyraźnym ostrzeżeniem.
+
+Radio internetowe jest osobnym adapterem rdzenia i korzysta z tych samych sesji, Ulubionych, historii oraz poleceń transportowych. Powinno obsłużyć bezpośrednie strumienie, M3U/PLS, metadane stacji, ponawianie po zerwaniu i wyszukiwanie. Mechanizmy Free Radio można wykorzystać po analizie kodu i licencji, bez przenoszenia całego odtwarzania do procesu NVDA.
+
+### 13.4. Testowanie i odpowiedzialność
+
+- logika rdzenia ma testy jednostkowe bez uruchamiania okna;
+- kontrakt klient–host ma testy zgodności i wersjonowania;
+- adaptery mają testy kontraktowe na atrapach oraz oddzielne, świadomie uruchamiane testy prawdziwych kont i urządzeń;
+- mapy skrótów są sprawdzane automatycznie pod kątem duplikatów, poleceń bez mapowania i kolizji z rezerwacjami standardowymi;
+- WPF przechodzi testy klawiatury, UI Automation, fokusu i komunikatów z NVDA, JAWS-em i Narratorem;
+- wersja macOS przechodzi osobne testy z VoiceOver i narzędziami dostępności Apple;
+- awaria adaptera nie może zawiesić czytnika ekranu ani uszkodzić konfiguracji pozostałych usług.
 
 Docelowa dystrybucja powinna być samowystarczalna i zawierać wymagane środowisko uruchomieniowe. Aktualizator działa dla bieżącego użytkownika bez uprawnień administratora, sprawdza aktualizacje w tle, pobiera wyłącznie podpisane pakiety, weryfikuje ich sumy SHA-256, instaluje atomowo i pozwala wrócić do poprzedniej wersji. Aktualizacja nie może nadpisywać profili, konfiguracji ani danych logowania, kraść fokusu czy przerywać odtwarzania. Użytkownik wybiera kanał stabilny albo beta oraz może wyłączyć automatyczne sprawdzanie, pobieranie lub instalację.
 
 ## 14. Zakres pierwszej wersji
 
-Pierwszy prototyp powinien zawierać:
+Obecny prototyp Windows powinien najpierw ustabilizować:
 
 1. Rejestrowany i zmienny prefiks.
 2. Warstwę poleceń z timeoutem i anulowaniem.
 3. Trzy przykładowe sesje, początkowo nawet jako moduły demonstracyjne.
-4. Przełączanie sesji przez `Ctrl+1–9`, lista sesji pod `Ctrl+0` oraz zmiana kolejna przez `Page Up` i `Page Down`.
+4. Przełączanie sesji po prefiksie przez `1–9`, listę sesji pod `0` i zmianę kolejną przez `Page Up` i `Page Down`, z lustrzanymi skrótami `Ctrl` w aktywnym oknie.
 5. Konfigurowalne mapowanie kilku poleceń literowych.
 6. Komunikaty przez systemową dostępność i widoczne pole stanu.
 7. Jedno wspólne okno listy z Enterem, powrotem i menu kontekstowym.
-8. Edytor skrótów lub przynajmniej plik konfiguracyjny, zanim powstanie pełne Settings.
+8. Edytor skrótów, wykrywanie konfliktów i dostępną paletę poleceń.
 9. Krótkie, edytowalne szablony komunikatów, w tym osobne polecenia czasu upłyniętego, pozostałego i całkowitego.
 10. Zmienne profile klawiatury z chronionym profilem domyślnym.
 11. Trzy rodzaje importu i eksportu: mapa klawiszy, konfiguracja oraz pełna kopia.
 12. Interfejs systemu automatycznych aktualizacji, początkowo bez serwera dystrybucyjnego.
+13. Oddzielenie rdzenia od WPF oraz przygotowanie kontraktu dla przyszłego AMC.Host.
 
 Pierwszy prototyp i pierwsze działające wydanie dotyczą wyłącznie Windows. Wersja dla macOS, VoiceOver i ewentualna obsługa Siri są etapem późniejszym.
 
-Następna kolejność integracji:
+Planowana kolejność dalszych etapów:
 
-1. WiiM jako prosty test komend, głośności i presetów.
-2. TIDAL: logowanie, wyszukiwanie, albumy, ulubione i playlisty.
-3. Apple Music: przygotowany adapter i dokumentacja przekazania osobie utrzymującej konto Apple Developer.
+1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.
+2. Wydzielenie AMC.Host i lokalnego kontraktu polecenie–zdarzenie z adapterem demonstracyjnym.
+3. WiiM jako pierwszy realny test wykrywania, komend, głośności i presetów.
+4. Pierwsze logowanie OAuth i adapter katalogowy: TIDAL albo Spotify.
+5. Cienka wtyczka NVDA korzystająca wyłącznie z kontraktu hosta.
+6. Radio internetowe i podstawowe lokalne multimedia.
+7. Apple Music oraz kolejne urządzenia: Sonos, Bluesound/BluOS i Frontier Smart.
+8. Natywny prototyp macOS w Swift/AppKit po ustabilizowaniu kontraktu i zachowania wersji Windows.
 
 ## 15. Otwarte decyzje
 
-1. Ostateczny prefiks domyślny.
-2. Czas wygaśnięcia warstwy.
+1. Skrót domyślny do widoku Albumy. `Ctrl+A` i `A` są wykluczone, `L` zajmuje Biblioteka, a `B` pozostaje rezerwą dla możliwych Zakładek/Bookmarks.
+2. Ostateczny prefiks domyślny i czas wygaśnięcia warstwy.
 3. Czy aplikacja pamięta sesję po ponownym uruchomieniu.
 4. Czy istnieje od początku playlista „Do odsłuchu”.
 5. Które komunikaty mają być mówione, a które sygnalizowane dźwiękiem.
-6. Czy pobieranie lokalne w ogóle należy do projektu.
-7. Nazwa aplikacji.
+6. Dokładny zakres lokalnego odtwarzania, radia i opcjonalnej integracji z foobar2000.
+7. Domyślny odstęp polecenia „w pobliże końca”; roboczo 10 sekund.
+8. Ostateczna nazwa aplikacji i identyfikatory pakietów na poszczególnych platformach.
 
 ## 16. Zasada dalszej pracy
 

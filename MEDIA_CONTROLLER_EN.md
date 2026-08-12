@@ -1,12 +1,12 @@
 # Accessible Media Controller — Project Concept
 
-Document version: 0.3, discussion draft
+Document version: 0.4, current project plan
 
-Date: 7 August 2026
+Updated: 12 August 2026
 
 ## 1. Project goal
 
-The project is an accessible application designed to run primarily in the background. Its main interaction model is a configurable keyboard prefix followed by either a session selector or a command executed in the current session.
+The project is an accessible media controller with one shared core for commands, sessions and services and several equal interaction methods. It will work through both a classic window and a configurable keyboard prefix used without switching to the window.
 
 The first planned integrations are:
 
@@ -14,16 +14,19 @@ The first planned integrations are:
 - Apple Music;
 - WiiM.
 
-The first version will not replace foobar2000 or Free Radio. The architecture should remain open to additional modules.
+Spotify, Sonos, Bluesound/BluOS and devices based on Frontier Smart are planned for later stages. The architecture will also accommodate internet radio and local media. Standard local playback will not require foobar2000; an optional adapter may later expose its specialised formats, DSP or hardware support. Free Radio may be used as a design and implementation reference after its code and licence have been reviewed.
 
-The program will not be an NVDA add-on. The first version will target Windows only and should work with NVDA, JAWS and Narrator. The architecture should not unnecessarily prevent a later macOS edition, but macOS bindings, VoiceOver, Siri and other Apple-platform elements will be designed only after the Windows version has been refined. Direct integration with a particular screen reader may later be offered as an optional extension, but it must not be the foundation of the application.
+The program will not depend on NVDA. The first windowed version targets Windows using WPF and UI Automation and must work with NVDA, JAWS and Narrator. An optional NVDA add-on will be built later as a small client rather than as the home of service logic.
+
+A future macOS edition will have a native Swift/AppKit interface using NSAccessibility and VoiceOver. Shared logic will remain in the cross-platform .NET core and will be exposed through a stable command/event boundary. Shortcuts and the global prefix will have platform-specific implementations.
 
 ## 2. Hybrid interaction model
 
-The application combines two methods of interaction:
+The application combines three methods of interaction:
 
 1. A **prefix command layer** for quick background operations.
 2. **Simple accessible windows** for browsing search results, albums, playlists, the library and settings.
+3. **Optional thin integrations**, primarily an NVDA add-on, using the same running core.
 
 The initial product is not intended to have a large interface that remains open at all times. Complex data must nevertheless appear in a normal window because speech messages alone are not suitable for browsing dozens of albums or playlists.
 
@@ -32,7 +35,13 @@ Every application operation will be represented by an internal command that can 
 - the prefix layer;
 - a local shortcut in a window;
 - a context menu;
-- a future optional plug-in or external control interface.
+- a future optional NVDA add-on, native macOS client or external control interface.
+
+The NVDA add-on does not contain service adapters, playback libraries or tokens. It sends short commands to a local AMC process and receives events and announcement text. No terminal command is involved. Windows will use a local named pipe; macOS will use a suitable local mechanism such as a Unix domain socket or native bridge.
+
+The core runs only when needed. It can start with the window or on demand from the add-on, remain available without a visible window through the system tray, and stop on an explicit user command. Starting with the operating system remains optional.
+
+On macOS, a normal accessible window remains mandatory and the prefix is only an additional control path. External automation tools such as Keyboard Maestro may later call a public command or an `amc://` URL, but they are not required for the application to work.
 
 ## 3. Application prefix
 
@@ -67,21 +76,21 @@ Microsoft states that shortcuts containing the Windows key are reserved for oper
 
 ### 4.1. Selecting a session
 
-After the prefix, `Ctrl+digit` combinations directly select services. Service order is configurable. Digits are language-independent and preserve plain letters for commands.
+After the prefix, plain digits directly select sessions. In the active window their counterparts are `Ctrl+digit`. Session order is configurable. Digits are language-independent and preserve letters for commands.
 
 Proposed defaults:
 
 | Command after the prefix | Session or action |
 | --- | --- |
-| `Ctrl+1` | TIDAL |
-| `Ctrl+2` | Apple Music |
-| `Ctrl+3` | WiiM |
-| `Ctrl+4–9` | additional services or devices |
-| `Ctrl+0` | list all sessions |
+| `1` | TIDAL |
+| `2` | Apple Music |
+| `3` | WiiM |
+| `4–9` | additional services or devices |
+| `0` | list all sessions |
 | `Page Up` | previous available session |
 | `Page Down` | next available session |
 
-After a change, the application gives a short message such as “3, WiiM”. If a slot is unused, it says “Session 4 unassigned”. Direct `Ctrl+letter` bindings such as `Ctrl+W` may be configured as optional aliases, but are not required in the default profile.
+After a change, the application gives a short message such as “3, WiiM”. If a slot is unused, it says “Session 4 unassigned”. In the active window, `Ctrl+1–9` selects a session, `Ctrl+0` opens the session list, and `Ctrl+Page Up` / `Ctrl+Page Down` move to the previous or next session.
 
 ### 4.2. Session persistence
 
@@ -91,10 +100,10 @@ After a change, the application gives a short message such as “3, WiiM”. If 
 
 Examples:
 
-- prefix, `Ctrl+1` — select TIDAL;
-- prefix, `S` — search the current session, which is TIDAL;
-- prefix, `Ctrl+3`, `Space` — select WiiM and play or pause;
-- prefix, `Ctrl+2`, `P` — select Apple Music and open Playlists.
+- prefix, `1` — select TIDAL;
+- prefix, `F` — search the current session, which is TIDAL;
+- prefix, `3`, `Space` — select WiiM and play or pause;
+- prefix, `2`, `P` — select Apple Music and open Playlists.
 
 It remains to be decided whether the session persists across application restarts. A safe option is to restore the previous session but announce it on first use of the prefix.
 
@@ -102,37 +111,46 @@ It remains to be decided whether the session persists across application restart
 
 ### 5.1. General rule
 
-- `letter` opens a view, list or category;
-- `Shift+letter` performs the associated action on the current or selected item;
+- in the active window, the primary binding is usually `Ctrl+letter`;
+- after the prefix, the same letter without `Ctrl` invokes the command;
+- `Shift` means a related action, expanded scope, or an operation on the current item;
 - not every letter needs an immediate Shift variant;
 - every assignment is editable in Settings.
 
 A Shift command must not perform an irreversible operation without confirmation.
 
-The program may change the interface and message language, but it should not automatically remap shortcuts. The default binding set is shared across languages; for example, `F` remains the Favorites command in the Polish interface. This preserves muscle memory and makes bilingual documentation easier to use. Users may still create custom profiles.
+The prefix therefore replaces `Ctrl` instead of requiring another Ctrl chord after activation. This preserves combinations such as `Ctrl+E`, `Ctrl+R` and `Ctrl+T` inside the layer for additional information commands. Window and prefix input invoke the same command identifiers in the core and do not duplicate feature logic.
 
-### 5.2. Initial command map
+The program may change the interface and message language, but it should not automatically remap shortcuts. The default set remains stable and users can create custom profiles. The Polish mnemonic `U` for Ulubione/Favorites is accepted alongside the established `L` for Library; avoiding conflicts and preserving muscle memory matter more than using one language for every mnemonic.
 
-| Key after the prefix | Function | `Shift+key` | Related function |
-| --- | --- | --- | --- |
-| `F` | Favorites | `Shift+F` | toggle: add to or remove from Favorites |
-| `P` | Playlists | `Shift+P` | open playlist selection and change item membership |
-| `S` | Search the current session | `Shift+S` | search all supported services, future feature |
-| `L` | Library | `Shift+L` | add the item to or remove it from the library |
-| `Q` | Queue | `Shift+Q` | add the item to the queue |
-| `A` | Albums | `Shift+A` | add the selected album to the library when supported |
-| `R` | Track/artist radio or recommendations | `Shift+R` | start radio from the selected item |
-| `M` | Mixes and recommendations | `Shift+M` | to be decided; initially unassigned |
-| `H` | History | `Shift+H` | initially unassigned |
-| `N` | Now Playing | `Shift+N` | open the current item in the official service application |
-| `I` | Item information | `Shift+I` | extended information such as performers and credits |
-| `O` | Outputs and devices | `Shift+O` | open output selection for the current session |
-| `D` | Downloads / offline content | `Shift+D` | download within the service only when officially supported |
-| `?` or `F1` | Current-layer help | — | — |
+### 5.2. Approved primary map
 
-`Shift+F` is a toggle when the service adapter can reliably determine the current state. The program says either “Added to Favorites” or “Removed from Favorites”. If the state is unknown, the application must not guess and should instead present explicit menu actions.
+| Function | Window shortcut | Key after the prefix |
+| --- | --- | --- |
+| Library | `Ctrl+L` | `L` |
+| add to or remove from Library | `Ctrl+Shift+L` | `Shift+L` |
+| Favorites | `Ctrl+U` | `U` |
+| add to or remove from Favorites | `Ctrl+Shift+U` | `Shift+U` |
+| Playlists | `Ctrl+P` | `P` |
+| choose playlists and change membership | `Ctrl+Shift+P` | `Shift+P` |
+| Queue | `Ctrl+Q` | `Q` |
+| add to queue | `Ctrl+Shift+Q` | `Shift+Q` |
+| filter the currently loaded list | `Ctrl+K` | `K` |
+| AMC command palette | `Ctrl+Shift+K` | `Shift+K` |
+| search the current service or source | `Ctrl+F` | `F` |
+| search all enabled services and sources | `Ctrl+Shift+F` | `Shift+F` |
+| download or retain inside the service | `Ctrl+D` | `D` |
+| download to disk when the service permits it | `Ctrl+Shift+D` | `Shift+D` |
 
-Downloading is not part of the core first version. `D` and related bindings remain design reservations until the capabilities and rules of each service are verified.
+Filtering only processes data already present in the current list and sends no service request. Current search may query the active service, while global search merges results from all enabled sources. The command palette is an accessible, filterable list that also contains commands with no shortcut.
+
+`Shift+U` is a toggle only when the adapter can reliably determine current state. The program says either “Added to Favorites” or “Removed from Favorites”. If state is unknown, the application must not guess and should present explicit menu actions.
+
+Albums remain available through the menu and command palette but currently have no default shortcut. `Ctrl+A` retains the standard Select All action, ordinary letters in a list provide quick navigation, `L` belongs to Library, and `B` is reserved for possible future Bookmarks. Albums will not receive an arbitrary key merely to fill the map.
+
+Other previously approved layer commands retain `R` for Radio, `M` for Mixes, `H` for History, `N` for Now Playing, `I` for Information and `O` for Outputs. Their window counterparts should eventually use `Ctrl` plus the same letter when doing so does not break standard text or system behaviour. The keymap editor resolves conflicts, and a command may remain unbound while still being available through the menu and palette.
+
+Downloads are not part of the core first version. They are enabled per adapter only after the official capabilities, licence and service rules have been checked. Download-to-disk remains experimental and disabled by default.
 
 ### 5.3. Time information
 
@@ -164,11 +182,13 @@ Proposed prefix-layer bindings:
 | `Shift+Up Arrow` | increase volume by 1% |
 | `Shift+Down Arrow` | decrease volume by 1% |
 | `Ctrl+Home` | beginning of the track |
-| `Ctrl+End` | end of the track when supported; otherwise do nothing |
+| `Ctrl+End` | move near the end of the track, 10 seconds before the end by default |
 | `Page Up` | previous session |
 | `Page Down` | next session |
 
 Commands unsupported by a session must not be silently ignored. The program should say, for example, “Seeking is not available for WiiM”.
+
+The offset for moving near the end is configurable. The application does not seek to the exact end because doing so could immediately advance to the next track.
 
 Prefix-layer arrows are reserved for global playback control. In an active list window, ordinary arrow keys navigate items without the prefix.
 
@@ -194,7 +214,7 @@ The order of information in an item's accessible label is configurable. A user m
 | `Up/Down Arrow` | previous / next item |
 | `Home`, `End` | first / last item |
 | `Page Up`, `Page Down` | move by pages |
-| typing letters | move to an item beginning with the typed sequence; repeat one letter to cycle through matches |
+| typing letters | quickly move to an item beginning with the typed sequence; letters typed in quick succession build a phrase, while repeating one letter cycles through matches |
 | `Enter` | open an artist, album or playlist; perform the default action on a track |
 | `Ctrl+Enter` | play the selection now |
 | `Shift+Enter` | add the selection to the queue |
@@ -208,6 +228,8 @@ The order of information in an item's accessible label is configurable. A user m
 | `Application key` or `Shift+F10` | context menu |
 
 Enter performs the primary action for the item type: it plays a track, station or preset, while opening the contents of an album, playlist or artist. `Ctrl+Enter` also plays a whole album or playlist immediately. Consistent with file-manager conventions, `Alt+Enter` remains Item Information or Properties; it does not open an external application.
+
+Plain letters in a list never execute AMC commands. They remain name navigation. Single-letter commands work only after the global prefix layer has been successfully activated.
 
 ### 7.3. Reloading
 
@@ -237,14 +259,21 @@ Settings may later define a default playlist such as “Listen Later”. A separ
 
 Local shortcuts are independent of the prefix layer but invoke the same internal commands.
 
-Initial proposal:
+Approved primary bindings:
 
 | Local shortcut | Action |
 | --- | --- |
-| `Ctrl+F` | find or filter the current list |
+| `Ctrl+K` | filter only the currently loaded list |
+| `Ctrl+F` | search the current service or source |
+| `Ctrl+Shift+F` | search all enabled services and sources |
+| `Ctrl+Shift+K` | open the AMC command palette |
+| `Ctrl+L` | open Library |
+| `Ctrl+U` | open Favorites |
+| `Ctrl+P` | open Playlists |
+| `Ctrl+Q` | open Queue |
 | `Ctrl+C` | copy the selected item's display name |
 | `Ctrl+Shift+C` | copy the item's service link |
-| `Ctrl+Shift+F` | add to or remove from Favorites |
+| `Ctrl+Shift+U` | add to or remove from Favorites |
 | `Ctrl+Shift+P` | open playlist selection and change membership |
 | `Ctrl+Shift+Q` | add to the queue |
 | `Ctrl+Shift+L` | add to the library |
@@ -257,6 +286,8 @@ Initial proposal:
 | `Ctrl+A` | select all items when the view permits it |
 
 Every local shortcut is configurable. Download commands must not be active until their corresponding module is deliberately enabled.
+
+`Ctrl+1–9` selects a session, `Ctrl+0` opens the session list, and `Ctrl+Page Up` / `Ctrl+Page Down` select the previous or next session. Albums do not yet have a local shortcut.
 
 ## 10. Context menu
 
@@ -291,6 +322,8 @@ Settings must allow every binding and behaviour to be changed:
 - Enter behaviour for each item type;
 - default playlist;
 - persistence of the last session.
+
+The default map is symmetrical: `Ctrl+key` in the active window corresponds to `key` after the prefix, while `Ctrl+Shift+key` corresponds to `Shift+key`. Exceptions, particularly the information commands `Ctrl+E`, `Ctrl+R` and `Ctrl+T` inside the layer, are explicitly documented and checked for conflicts.
 
 Interface language is independent of the shortcut profile. Changing language must not rearrange the keyboard. The first version provides only a Windows profile; a macOS profile will be designed with the later macOS edition.
 
@@ -349,55 +382,99 @@ Global operations should include the service name when confusion is possible, fo
 
 ## 13. Functional architecture
 
-The program should separate:
+### 13.1. One core, multiple clients
 
-- the **command engine** — stable function identifiers;
-- the **prefix engine** — sequence capture and timeout;
-- the **session manager** — TIDAL, Apple Music and WiiM;
-- **service adapters** — translation of common commands into service-specific API operations;
-- the **browser window** — a common list component for every service;
-- the **accessibility message system**;
-- **settings and shortcut profiles**;
-- an **update system for the application and service adapters**.
+Target solution layout:
 
-Each service adapter declares its capabilities. The application can therefore know that WiiM supports volume and presets but does not support adding an album to a library.
+- **AMC.Core (.NET)** — UI-independent models, stable command identifiers, sessions, queue, Favorites, Library, playback, configuration, undo history and domain messages;
+- **AMC.Host (.NET)** — a running process that owns state, connections, adapters, authentication, cache and the local communication endpoint;
+- **AMC.Windows (WPF)** — native Windows window, UI Automation, menus, lists, focus, global prefix and system tray;
+- **AMC.NVDA (Python)** — an optional thin add-on that registers NVDA gestures, sends commands to AMC.Host and presents replies, without adapters, large libraries or login data;
+- **AMC.macOS (Swift/AppKit)** — a future native window, NSAccessibility, VoiceOver, menus and macOS-specific shortcut implementation;
+- **AMC.Adapters.*** — independent modules for music services, devices, radio and local playback;
+- **AMC.Update** — updates for the application and compatible adapters.
+
+WPF remains Windows-only. The shared .NET core has no dependency on WPF, NVDA or a platform-specific accessibility API. The native macOS client does not need to load .NET classes directly; it communicates with the host through a versioned command/event contract. A direct binary bridge can be added later if measurements justify it, without changing the command model.
+
+FastSMRW is an architectural reference: one portable core, thin native front ends and an optional control layer that does not require switching to the window. AMC adopts that principle while retaining its own technology, contract and command map.
+
+Clients submit commands such as `favorites.toggle`, `session.next` or `search.current`; the host publishes state events and presentation-ready data. No terminal command is executed. Local communication is asynchronous, versioned, restricted to the current user and resilient to client disconnects.
+
+Local IPC latency is negligible compared with service requests and device responses. A client may retain only a small non-secret snapshot of the last state for immediate reading. Tokens and secrets remain in the host and the operating-system credential store: Windows Credential Manager or macOS Keychain.
+
+### 13.2. Adapters and capabilities
+
+Each adapter declares capabilities instead of pretending that all services are identical. Examples include search, Favorites, Library, playlists, queue, in-service downloads, legal export to disk, seeking, volume, presets, grouping and real-time events. An unavailable command is disabled or produces an explicit message.
+
+The model distinguishes:
+
+- **sources and catalogues** — TIDAL, Spotify, Apple Music, internet radio and the local library;
+- **devices and playback targets** — the local computer, WiiM, Sonos, Bluesound/BluOS and Frontier Smart;
+- a **session** — the current combination of source, account, queue and playback target, for example “TIDAL on living-room WiiM”.
+
+Initial real authentication opens the system browser and uses the service's official method. The core must support OAuth with PKCE, callback handling, token refresh, cancellation, sign-out and revoked permissions. Integrations that require a secret or public callback may need a small controlled web backend. Apple Music may have different platform details on Windows and macOS while exposing the same capability set to the core.
+
+Local devices may require discovery through mDNS, SSDP/UPnP or HTTP. Device discovery, authentication and control do not belong in the window UI or NVDA add-on.
+
+### 13.3. Local media and radio
+
+The local playback module will eventually cover files and folders, metadata, Library, queue, common formats, output selection, gapless playback and ReplayGain. Shared audio output is the Windows default so that NVDA and other system sounds are not muted. Exclusive output may later appear as an advanced feature with an explicit warning.
+
+Internet radio is a separate core adapter and uses the same sessions, Favorites, history and transport commands. It should support direct streams, M3U/PLS, station metadata, reconnect and search. Free Radio mechanisms may be reused after code and licence review without moving the full playback engine into the NVDA process.
+
+### 13.4. Testing and responsibility
+
+- core logic has unit tests that do not launch a window;
+- the client–host contract has compatibility and versioning tests;
+- adapters have contract tests against fakes and separate, deliberately invoked tests using real accounts and devices;
+- keymaps are automatically checked for duplicates, unbound commands and conflicts with standard reservations;
+- WPF receives keyboard, UI Automation, focus and announcement testing with NVDA, JAWS and Narrator;
+- macOS receives separate VoiceOver and Apple accessibility-tool testing;
+- an adapter failure must not hang the screen reader or damage configuration for other services.
 
 The final distribution should be self-contained and include its required runtime. The updater runs per user without administrator rights, checks in the background, downloads signed packages only, verifies SHA-256, installs atomically and supports rollback. Updating must not overwrite profiles, configuration or login data, steal focus or interrupt playback. The user selects Stable or Beta and may disable automatic checking, downloading or installation.
 
 ## 14. First-version scope
 
-The first prototype should contain:
+The current Windows prototype should first stabilise:
 
 1. A registered and configurable prefix.
 2. A command layer with timeout and cancellation.
 3. Three sample sessions, initially even as demonstration modules.
-4. Session selection with `Ctrl+1–9`, a session list on `Ctrl+0`, and sequential switching with `Page Up` and `Page Down`.
+4. Session selection after the prefix with `1–9`, session list on `0`, and sequential switching with `Page Up` and `Page Down`, mirrored by `Ctrl` shortcuts in the active window.
 5. Configurable mapping for a small set of letter commands.
 6. Messages through system accessibility plus a visible status area.
 7. One common list window with Enter, Back and a context menu.
-8. A shortcut editor or at least a configuration file before full Settings is implemented.
+8. A shortcut editor, conflict detection and an accessible command palette.
 9. Brief editable message templates, including separate elapsed, remaining and total time commands.
 10. Switchable keyboard profiles with a protected default profile.
 11. Three import and export types: keyboard map, configuration and complete backup.
 12. An automatic-update interface, initially without a distribution server.
+13. Separation of the core from WPF and preparation of the future AMC.Host contract.
 
 The first prototype and initial working release target Windows only. macOS, VoiceOver and possible Siri support are later stages.
 
-Proposed integration order:
+Planned sequence of later stages:
 
-1. WiiM as a straightforward test of commands, volume and presets.
-2. TIDAL: authentication, search, albums, Favorites and playlists.
-3. Apple Music: a prepared adapter and handoff documentation for the person maintaining an Apple Developer account.
+1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.
+2. Extract AMC.Host and a local command–event contract with a demonstration adapter.
+3. Use WiiM as the first real test of discovery, commands, volume and presets.
+4. Add the first OAuth login and catalogue adapter: TIDAL or Spotify.
+5. Add a thin NVDA add-on using only the host contract.
+6. Add internet radio and basic local media.
+7. Add Apple Music and further devices: Sonos, Bluesound/BluOS and Frontier Smart.
+8. Build a native Swift/AppKit macOS prototype after the contract and Windows behaviour have stabilised.
 
 ## 15. Open decisions
 
-1. Final default prefix.
-2. Command-layer timeout.
+1. Default shortcut for Albums. `Ctrl+A` and `A` are excluded, `L` belongs to Library, and `B` remains reserved for possible Bookmarks.
+2. Final default prefix and command-layer timeout.
 3. Whether the application remembers the session after restart.
 4. Whether a “Listen Later” playlist exists from the beginning.
 5. Which messages use speech and which use earcons.
-6. Whether local downloading belongs in the project at all.
-7. Application name.
+6. Exact scope of local playback, radio and optional foobar2000 integration.
+7. Default offset for “near the end”; currently 10 seconds.
+8. Final application name and package identifiers on each platform.
 
 ## 16. Ongoing documentation rule
 
