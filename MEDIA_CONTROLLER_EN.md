@@ -141,12 +141,13 @@ The program may change the interface and message language, but it should not aut
 | search all enabled services and sources | `Ctrl+Shift+F` | `Shift+F` |
 | download or retain inside the service | `Ctrl+D` | `D` |
 | download to disk when the service permits it | `Ctrl+Shift+D` | `Shift+D` |
+| Albums | `Ctrl+Shift+A` | `A` |
 
 Filtering only processes data already present in the current list and sends no service request. Current search may query the active service, while global search merges results from all enabled sources. The command palette is an accessible, filterable list that also contains commands with no shortcut.
 
 `Shift+U` is a toggle only when the adapter can reliably determine current state. The program says either “Added to Favorites” or “Removed from Favorites”. If state is unknown, the application must not guess and should present explicit menu actions.
 
-Albums remain available through the menu and command palette but currently have no default shortcut. `Ctrl+A` retains the standard Select All action, ordinary letters in a list provide quick navigation, `L` belongs to Library, and `B` is reserved for possible future Bookmarks. Albums will not receive an arbitrary key merely to fill the map.
+Albums are an important and frequently used view, so they receive a shortcut. This is a deliberate exception to full symmetry: the prefix layer uses plain `A`, while the window uses `Ctrl+Shift+A`, because `Ctrl+A` must retain the standard Select All action. `Ctrl+Alt+A` is avoided because `Ctrl+Alt` can act as AltGr and conflict with typing the Polish character “ą”. `L` remains Library, `B` remains reserved for possible future Bookmarks, and `Shift+A` after the prefix is currently unassigned.
 
 Other previously approved layer commands retain `R` for Radio, `M` for Mixes, `H` for History, `N` for Now Playing, `I` for Information and `O` for Outputs. Their window counterparts should eventually use `Ctrl` plus the same letter when doing so does not break standard text or system behaviour. The keymap editor resolves conflicts, and a command may remain unbound while still being available through the menu and palette.
 
@@ -271,6 +272,7 @@ Approved primary bindings:
 | `Ctrl+U` | open Favorites |
 | `Ctrl+P` | open Playlists |
 | `Ctrl+Q` | open Queue |
+| `Ctrl+Shift+A` | open Albums |
 | `Ctrl+C` | copy the selected item's display name |
 | `Ctrl+Shift+C` | copy the item's service link |
 | `Ctrl+Shift+U` | add to or remove from Favorites |
@@ -287,7 +289,7 @@ Approved primary bindings:
 
 Every local shortcut is configurable. Download commands must not be active until their corresponding module is deliberately enabled.
 
-`Ctrl+1–9` selects a session, `Ctrl+0` opens the session list, and `Ctrl+Page Up` / `Ctrl+Page Down` select the previous or next session. Albums do not yet have a local shortcut.
+`Ctrl+1–9` selects a session, `Ctrl+0` opens the session list, and `Ctrl+Page Up` / `Ctrl+Page Down` select the previous or next session.
 
 ## 10. Context menu
 
@@ -323,7 +325,7 @@ Settings must allow every binding and behaviour to be changed:
 - default playlist;
 - persistence of the last session.
 
-The default map is symmetrical: `Ctrl+key` in the active window corresponds to `key` after the prefix, while `Ctrl+Shift+key` corresponds to `Shift+key`. Exceptions, particularly the information commands `Ctrl+E`, `Ctrl+R` and `Ctrl+T` inside the layer, are explicitly documented and checked for conflicts.
+The default map is symmetrical: `Ctrl+key` in the active window corresponds to `key` after the prefix, while `Ctrl+Shift+key` corresponds to `Shift+key`. Explicit exceptions are Albums — `Ctrl+Shift+A` in the window and `A` after the prefix because of standard `Ctrl+A` — and the information commands `Ctrl+E`, `Ctrl+R` and `Ctrl+T` inside the layer. Every exception is documented and checked for conflicts.
 
 Interface language is independent of the shortcut profile. Changing language must not rearrange the keyboard. The first version provides only a Windows profile; a macOS profile will be designed with the later macOS edition.
 
@@ -467,14 +469,13 @@ Planned sequence of later stages:
 
 ## 15. Open decisions
 
-1. Default shortcut for Albums. `Ctrl+A` and `A` are excluded, `L` belongs to Library, and `B` remains reserved for possible Bookmarks.
-2. Final default prefix and command-layer timeout.
-3. Whether the application remembers the session after restart.
-4. Whether a “Listen Later” playlist exists from the beginning.
-5. Which messages use speech and which use earcons.
-6. Exact scope of local playback, radio and optional foobar2000 integration.
-7. Default offset for “near the end”; currently 10 seconds.
-8. Final application name and package identifiers on each platform.
+1. Final default prefix and command-layer timeout.
+2. Whether the application remembers the session after restart.
+3. Whether a “Listen Later” playlist exists from the beginning.
+4. Which messages use speech and which use earcons.
+5. Exact scope of local playback, radio and optional foobar2000 integration.
+6. Default offset for “near the end”; currently 10 seconds.
+7. Final application name and package identifiers on each platform.
 
 ## 16. Ongoing documentation rule
 

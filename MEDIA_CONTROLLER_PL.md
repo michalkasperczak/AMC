@@ -141,12 +141,13 @@ Program może zmieniać język interfejsu i komunikatów, ale nie powinien autom
 | wyszukiwanie we wszystkich włączonych usługach i źródłach | `Ctrl+Shift+F` | `Shift+F` |
 | pobierz lub zachowaj wewnątrz usługi | `Ctrl+D` | `D` |
 | pobierz na dysk, jeśli zezwala na to usługa | `Ctrl+Shift+D` | `Shift+D` |
+| Albumy | `Ctrl+Shift+A` | `A` |
 
 Filtr działa tylko na danych już znajdujących się w bieżącej liście i nie wysyła zapytania do usługi. Wyszukiwanie bieżące może odpytać aktualną usługę, a wyszukiwanie globalne scala wyniki ze wszystkich włączonych źródeł. Paleta poleceń jest dostępną, filtrowalną listą funkcji, także tych bez przypisanego skrótu.
 
 `Shift+U` działa jako przełącznik tylko wtedy, gdy adapter potrafi pewnie odczytać aktualny stan. Program mówi odpowiednio „Dodano do ulubionych” albo „Usunięto z ulubionych”. Jeśli stan jest nieznany, aplikacja nie może zgadywać i powinna otworzyć menu z jednoznacznymi czynnościami.
 
-Albumy pozostają dostępne w menu i palecie poleceń, ale nie mają jeszcze skrótu domyślnego. `Ctrl+A` zachowuje standardowe „Zaznacz wszystko”, zwykłe litery na liście służą do szybkiej nawigacji, `L` zajmuje Biblioteka, a `B` pozostaje rezerwą dla możliwych przyszłych Zakładek/Bookmarks. Nie przypisujemy Albumom klawisza tylko po to, aby wypełnić mapę.
+Albumy są ważnym i często używanym widokiem, dlatego otrzymują skrót. Jest to świadomy wyjątek od pełnej symetrii: po prefiksie używamy prostego `A`, a w oknie `Ctrl+Shift+A`, ponieważ `Ctrl+A` bezwzględnie zachowuje standardowe „Zaznacz wszystko”. Nie używamy `Ctrl+Alt+A`, gdyż `Ctrl+Alt` może odpowiadać AltGr i kolidować z wpisywaniem polskiego znaku „ą”. `L` pozostaje Biblioteką, a `B` rezerwą dla możliwych przyszłych Zakładek/Bookmarks. `Shift+A` po prefiksie pozostaje na razie nieprzypisane.
 
 Pozostałe zatwierdzone wcześniej polecenia warstwy zachowują litery `R` — Radio, `M` — Miksy, `H` — Historia, `N` — Teraz odtwarzane, `I` — Informacje i `O` — Wyjścia. Ich odpowiedniki okienne mają docelowo używać `Ctrl` oraz tej samej litery, o ile nie narusza to standardowego działania pola tekstowego lub systemu. Każdy konflikt rozstrzyga edytor mapy, a polecenie może pozostać bez skrótu i być dostępne z menu oraz palety.
 
@@ -271,6 +272,7 @@ Zatwierdzone przypisania podstawowe:
 | `Ctrl+U` | otwórz Ulubione |
 | `Ctrl+P` | otwórz Playlisty |
 | `Ctrl+Q` | otwórz Kolejkę |
+| `Ctrl+Shift+A` | otwórz Albumy |
 | `Ctrl+C` | kopiuj nazwę wybranego elementu |
 | `Ctrl+Shift+C` | kopiuj łącze do elementu w usłudze |
 | `Ctrl+Shift+U` | dodaj do Ulubionych albo usuń z Ulubionych |
@@ -287,7 +289,7 @@ Zatwierdzone przypisania podstawowe:
 
 Każdy skrót lokalny jest zmienny. Polecenia pobierania nie powinny być aktywne, dopóki odpowiedni moduł nie zostanie świadomie włączony.
 
-`Ctrl+1–9` wybiera sesję, `Ctrl+0` otwiera listę sesji, a `Ctrl+Page Up` i `Ctrl+Page Down` wybierają poprzednią lub następną sesję. Albumy nie mają jeszcze skrótu lokalnego.
+`Ctrl+1–9` wybiera sesję, `Ctrl+0` otwiera listę sesji, a `Ctrl+Page Up` i `Ctrl+Page Down` wybierają poprzednią lub następną sesję.
 
 ## 10. Menu kontekstowe
 
@@ -323,7 +325,7 @@ Ustawienia muszą umożliwiać zmianę wszystkiego:
 - domyślnej playlisty;
 - pamiętania ostatniej sesji.
 
-Domyślna mapa zachowuje symetrię: `Ctrl+klawisz` w aktywnym oknie odpowiada `klawiszowi` po prefiksie, a `Ctrl+Shift+klawisz` odpowiada `Shift+klawiszowi`. Wyjątki, w szczególności informacyjne `Ctrl+E`, `Ctrl+R` i `Ctrl+T` wewnątrz warstwy, są jawnie opisane i sprawdzane pod kątem konfliktów.
+Domyślna mapa zachowuje symetrię: `Ctrl+klawisz` w aktywnym oknie odpowiada `klawiszowi` po prefiksie, a `Ctrl+Shift+klawisz` odpowiada `Shift+klawiszowi`. Jawne wyjątki to Albumy — `Ctrl+Shift+A` w oknie i `A` po prefiksie ze względu na standardowe `Ctrl+A` — oraz informacyjne `Ctrl+E`, `Ctrl+R` i `Ctrl+T` wewnątrz warstwy. Wszystkie wyjątki są opisane i sprawdzane pod kątem konfliktów.
 
 Język interfejsu jest ustawieniem niezależnym od profilu skrótów. Zmiana języka nie może samodzielnie przemeblować klawiatury. W pierwszej wersji powstaje wyłącznie profil Windows; profil macOS zostanie zaprojektowany razem z późniejszym wydaniem dla tej platformy.
 
@@ -467,14 +469,13 @@ Planowana kolejność dalszych etapów:
 
 ## 15. Otwarte decyzje
 
-1. Skrót domyślny do widoku Albumy. `Ctrl+A` i `A` są wykluczone, `L` zajmuje Biblioteka, a `B` pozostaje rezerwą dla możliwych Zakładek/Bookmarks.
-2. Ostateczny prefiks domyślny i czas wygaśnięcia warstwy.
-3. Czy aplikacja pamięta sesję po ponownym uruchomieniu.
-4. Czy istnieje od początku playlista „Do odsłuchu”.
-5. Które komunikaty mają być mówione, a które sygnalizowane dźwiękiem.
-6. Dokładny zakres lokalnego odtwarzania, radia i opcjonalnej integracji z foobar2000.
-7. Domyślny odstęp polecenia „w pobliże końca”; roboczo 10 sekund.
-8. Ostateczna nazwa aplikacji i identyfikatory pakietów na poszczególnych platformach.
+1. Ostateczny prefiks domyślny i czas wygaśnięcia warstwy.
+2. Czy aplikacja pamięta sesję po ponownym uruchomieniu.
+3. Czy istnieje od początku playlista „Do odsłuchu”.
+4. Które komunikaty mają być mówione, a które sygnalizowane dźwiękiem.
+5. Dokładny zakres lokalnego odtwarzania, radia i opcjonalnej integracji z foobar2000.
+6. Domyślny odstęp polecenia „w pobliże końca”; roboczo 10 sekund.
+7. Ostateczna nazwa aplikacji i identyfikatory pakietów na poszczególnych platformach.
 
 ## 16. Zasada dalszej pracy
 
