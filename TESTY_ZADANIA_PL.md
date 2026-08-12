@@ -34,5 +34,6 @@ Oczekiwany wynik: program krótko wyjaśnia działanie filtra, wpisywanie ograni
 1. W filtrze wpisz tekst i naciśnij `Escape`.
 2. Ponownie wejdź do filtra, pozostaw go pusty i naciśnij `Escape`.
 3. Przejdź klawiszem Tab na dowolny główny przycisk i naciśnij `Escape`.
+4. Otwórz menu z podmenu i naciskaj `Escape`.
 
-Oczekiwany wynik: za każdym razem wystarcza jedno naciśnięcie. Aktywny filtr zostaje wyczyszczony, a fokus wraca do listy. Bez filtra Escape również wraca do listy.
+Oczekiwany wynik: w filtrze i na przycisku wystarcza jedno naciśnięcie. Aktywny filtr zostaje wyczyszczony, a fokus wraca do listy. Menu działa standardowo — każde naciśnięcie Escape wychodzi o jeden poziom.

@@ -116,7 +116,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "W oknie: Enter wykonuje działanie podstawowe, Alt+Enter pokazuje informacje, " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
-            "Escape w głównym oknie zawsze wraca do listy; aktywny filtr jest wtedy czyszczony.",
+            "Escape w filtrze lub na głównym przycisku wraca do listy; aktywny filtr jest wtedy czyszczony. " +
+            "W menu Escape standardowo wychodzi o jeden poziom.",
             "Skróty prototypu",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
@@ -530,6 +531,13 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
         if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Escape)
         {
+            // Menus retain their standard hierarchical Escape behavior: close
+            // one submenu level at a time and restore the previous focus.
+            if (MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem)
+            {
+                return;
+            }
+
             // One predictable Escape rule for the whole main window: clear an
             // active filter, if any, and return to the media list.
             e.Handled = true;
