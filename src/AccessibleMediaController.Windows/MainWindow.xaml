@@ -52,7 +52,7 @@
             <Label Target="{Binding ElementName=FilterBox}" Padding="0,0,0,3">_Filtruj listę:</Label>
             <TextBox x:Name="FilterBox" Margin="0,0,0,8"
                      automation:AutomationProperties.Name="Filtruj listę"
-                     automation:AutomationProperties.HelpText="Wpisz tekst. Enter lub strzałka w dół przechodzi do wyników. Escape czyści filtr."
+                     automation:AutomationProperties.HelpText="Wpisz tekst. Enter lub strzałka w dół przechodzi do wyników. Escape czyści filtr i wraca do listy."
                      TextChanged="FilterBox_TextChanged" />
         </StackPanel>
 
@@ -80,7 +80,7 @@
                  KeyboardNavigation.TabNavigation="Once"
                  MouseDoubleClick="MediaList_MouseDoubleClick">
             <ListBox.ContextMenu>
-                <ContextMenu Opened="MediaContextMenu_Opened">
+                <ContextMenu Opened="MediaContextMenu_Opened" Closed="MediaContextMenu_Closed">
                     <MenuItem Header="Odtwórz teraz" InputGestureText="Ctrl+Enter" Click="Play_Click" />
                     <MenuItem x:Name="PlayNextMenuItem" Header="Odtwórz jako następne" InputGestureText="Ctrl+Shift+Enter" Click="PlayNext_Click" />
                     <MenuItem x:Name="QueueMenuItem" Header="Dodaj do kolejki" InputGestureText="Shift+Enter" Click="Queue_Click" />

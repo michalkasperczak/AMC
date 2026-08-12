@@ -116,7 +116,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "W oknie: Enter wykonuje działanie podstawowe, Alt+Enter pokazuje informacje, " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
-            "Escape na głównym przycisku wraca do ostatnio zaznaczonego elementu listy.",
+            "Escape w głównym oknie zawsze wraca do listy; aktywny filtr jest wtedy czyszczony.",
             "Skróty prototypu",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
@@ -404,15 +404,18 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void UndoLastMembershipChange()
     {
-        var restoreListFocus = MediaList.IsKeyboardFocusWithin
-            || Keyboard.FocusedElement is MenuItem
-            || Keyboard.FocusedElement is Button;
-        if (restoreListFocus) AnchorMediaListFocus();
+        // Ctrl+Z is a list command everywhere except inside the filter editor.
+        // Anchor unconditionally so an empty undo history cannot leave focus on
+        // an action button or allow WPF to move it into the main menu.
+        AnchorMediaListFocus();
 
         var undo = _membershipHistory.Undo();
         if (undo is null)
         {
-            Announce("Brak zmian do cofnięcia");
+            RestoreMediaListFocusAfterRefresh();
+            Dispatcher.BeginInvoke(
+                () => Announce("Brak zmian do cofnięcia"),
+                DispatcherPriority.ContextIdle);
             return;
         }
 
@@ -420,8 +423,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         {
             RefreshCurrentView(false);
             SelectMediaItem(undo.Item.Id);
-            if (restoreListFocus) RestoreMediaListFocusAfterRefresh();
         }
+        RestoreMediaListFocusAfterRefresh();
 
         Dispatcher.BeginInvoke(
             () => Announce(undo.Announcement),
@@ -525,15 +528,18 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             return;
         }
 
+        if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Escape)
+        {
+            // One predictable Escape rule for the whole main window: clear an
+            // active filter, if any, and return to the media list.
+            e.Handled = true;
+            ReturnToMediaListFromEscape();
+            return;
+        }
+
         if (Keyboard.FocusedElement is System.Windows.Controls.TextBox)
         {
-            if (e.Key == Key.Escape)
-            {
-                FilterBox.Clear();
-                FocusMediaList();
-                e.Handled = true;
-            }
-            else if (e.Key is Key.Enter or Key.Down)
+            if (e.Key is Key.Enter or Key.Down)
             {
                 FocusFilterResults();
                 e.Handled = true;
@@ -548,29 +554,19 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         var modifiers = Keyboard.Modifiers;
         if (modifiers == ModifierKeys.Control && e.Key == Key.Z)
         {
-            UndoLastMembershipChange();
+            // Mark the keystroke handled before changing focus or raising the
+            // live-region message, preventing WPF's built-in Undo command from
+            // producing an additional English "Undo" announcement.
             e.Handled = true;
+            UndoLastMembershipChange();
         }
         else if (TryHandleLocalViewShortcut(e))
         {
             e.Handled = true;
         }
-        else if (modifiers == ModifierKeys.None && e.Key == Key.Escape && FilterBox.Text.Length > 0)
-        {
-            FilterBox.Clear();
-            FocusMediaList();
-            e.Handled = true;
-        }
-        else if (modifiers == ModifierKeys.None && e.Key == Key.Escape
-                 && Keyboard.FocusedElement is Button)
-        {
-            FocusMediaList();
-            e.Handled = true;
-        }
         else if (modifiers == ModifierKeys.Control && e.Key == Key.F)
         {
-            FilterBox.Focus();
-            FilterBox.SelectAll();
+            FocusFilter();
             e.Handled = true;
         }
         else if (modifiers == ModifierKeys.Control && e.Key == Key.OemComma)
@@ -719,6 +715,26 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         FocusMediaList();
     }
 
+    private void FocusFilter()
+    {
+        FilterBox.Focus();
+        FilterBox.SelectAll();
+        Dispatcher.BeginInvoke(
+            () => Announce("Filtr listy. Wpisz tekst. Enter lub strzałka w dół przechodzi do wyników. Escape czyści filtr i wraca do listy"),
+            DispatcherPriority.ContextIdle);
+    }
+
+    private void ReturnToMediaListFromEscape()
+    {
+        AnchorMediaListFocus();
+        if (FilterBox.Text.Length > 0)
+        {
+            FilterBox.Clear();
+            StatusText.Text = "Filtr wyczyszczony";
+        }
+        RestoreMediaListFocusAfterRefresh();
+    }
+
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         _prefixService?.Dispose();
@@ -754,6 +770,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             ? "Usuń z kolejki"
             : "Dodaj do kolejki";
     }
+    private void MediaContextMenu_Closed(object sender, RoutedEventArgs e) =>
+        Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.Loaded);
     private void PreviousSession_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SessionPrevious);
     private void NextSession_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SessionNext);
     private void NowPlayingView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewNowPlaying);
@@ -764,8 +782,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void AlbumsView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewAlbums);
     private void Filter_Click(object sender, RoutedEventArgs e)
     {
-        FilterBox.Focus();
-        FilterBox.SelectAll();
+        FocusFilter();
     }
     private void Help_Click(object sender, RoutedEventArgs e) => ShowHelp();
     private void Exit_Click(object sender, RoutedEventArgs e) => Close();
