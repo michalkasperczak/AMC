@@ -1,51 +1,52 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-014`
-- Tytuł zestawu: Cofanie, wyszukiwanie i powtarzana nawigacja literami
-- Wersja programu: `0.1.0-alpha.14`
-- Utworzono: 2026-08-12 22:08:34, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-12_220834_0.1.0-alpha.14.md`
+- Numer zestawu: `AMC-TEST-015`
+- Tytuł zestawu: Powrót z wyszukiwania, fokus po Delete i rozbudowana lista
+- Wersja programu: `0.1.0-alpha.15`
+- Utworzono: 2026-08-13 21:11:09, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-13_211109_0.1.0-alpha.15.md`
 
-Najważniejsze są trzy pierwsze zadania. Globalnego prefiksu w tej wersji nie trzeba ponownie sprawdzać.
+Najważniejsze są trzy pierwsze zadania. Skrótów menu kontekstowego i globalnego prefiksu nie trzeba ponownie sprawdzać.
 
-## AMC-014-01 — Ctrl+Z bez „Undo” i z rzeczywistym cofnięciem
+## AMC-015-01 — Escape po wyszukiwaniu
 
-1. Na liście zmień stan Ulubionych skrótem `Ctrl+Shift+U`.
-2. Naciśnij `Ctrl+Z` i sprawdź stan elementu, fokus oraz cały komunikat NVDA.
-3. Powtórz dla Biblioteki (`Ctrl+Shift+L`) i Kolejki (`Ctrl+Shift+Q`).
-4. Po wyczerpaniu historii naciśnij `Ctrl+Z` jeszcze raz.
-5. Wpisz kilka znaków w polu filtra i sprawdź tam `Ctrl+Z`.
+1. Otwórz zwykły widok, na przykład Bibliotekę.
+2. Naciśnij `Ctrl+F`, a następnie `Escape`.
+3. Sprawdź, czy NVDA podaje listę multimediów oraz zaznaczony element.
+4. Powtórz po `Ctrl+Shift+F`.
 
-Oczekiwany wynik: zmiana jest rzeczywiście cofnięta, NVDA podaje tylko właściwy polski komunikat, a fokus pozostaje na liście. W pustej historii słychać „Brak zmian do cofnięcia”. W polu filtra działa zwykłe cofanie edycji tekstu.
+Oczekiwany wynik: `Ctrl+F` podaje „Wyszukiwanie”, a `Ctrl+Shift+F` — „Szukaj we wszystkich usługach”. Jedno naciśnięcie `Escape` wraca do wcześniejszej listy. NVDA podaje „Lista multimediów” i aktualny element, a fokus pozwala od razu nawigować strzałkami.
 
-## AMC-014-02 — Wejście do wyszukiwania i Escape
+## AMC-015-02 — Delete bez utraty fokusu
 
-1. Otwórz dowolny zwykły widok, na przykład Albumy albo Bibliotekę.
-2. Naciśnij `Ctrl+F`, a potem `Escape`.
-3. Powtórz używając `Ctrl+Shift+F`.
+1. W zwykłym widoku, w którym usuwanie nie jest dostępne, naciśnij `Delete`.
+2. Po komunikacie użyj strzałki w dół i otwórz menu kontekstowe.
+3. Przejdź do Ulubionych skrótem `Ctrl+U`, usuń element klawiszem `Delete`, a potem przywróć go przez `Ctrl+Z`.
+4. Powtórz w Bibliotece (`Ctrl+L`) i Kolejce (`Ctrl+Q`).
 
-Oczekiwany wynik: wejście podaje nazwę odpowiedniego trybu wyszukiwania, ale nie czyta czasu trwania ani liczby elementów poprzedniego widoku. `Escape` wraca do wcześniejszej listy, ustawia fokus na jej elemencie i NVDA odczytuje ten element. Nie jest potrzebne drugie naciśnięcie `Escape`.
+Oczekiwany wynik: w zwykłym widoku słychać „Usuwanie jest dostępne tylko w widokach Ulubione, Biblioteka i Kolejka”, ale fokus pozostaje na elemencie listy i nie przechodzi do menu Plik. W trzech obsługiwanych widokach element znika, fokus pozostaje na liście, a `Ctrl+Z` przywraca zmianę.
 
-## AMC-014-03 — Kolejne sekwencje liter na liście
+## AMC-015-03 — Nawigacja literami na liście 17 elementów
 
-1. Na liście wpisz szybko kilka liter początku nazwy elementu.
-2. Bez używania filtra rozpocznij inną sekwencję liter; sprawdź także nową sekwencję po krótkiej przerwie.
-3. Naciskaj wielokrotnie tę samą literę, jeżeli kilka elementów zaczyna się od niej.
-4. Powróć literami do elementu odnalezionego wcześniej.
+1. W zwykłym widoku sprawdź, czy lista zawiera 17 zróżnicowanych elementów.
+2. Naciśnij szybko `Z`, `I`, `E`, aby przejść do „Zielonego horyzontu”.
+3. Naciskaj wielokrotnie `B`, aby przechodzić między „Brzegiem ciszy” i „Błękitną godziną”.
+4. To samo sprawdź literą `C` dla „Ciepłego deszczu” i „Ciszy o świcie”.
+5. Po krótkiej przerwie rozpocznij inną sekwencję i wróć do jednego z wcześniejszych elementów.
 
-Oczekiwany wynik: każda kolejna sekwencja działa, również po wcześniejszym wyszukaniu innego elementu. Gdy złożony ciąg przestaje pasować, ostatnia litera od razu rozpoczyna nowe wyszukiwanie. Powtarzanie jednej litery przechodzi po kolejnych pasujących elementach.
+Oczekiwany wynik: sekwencje przechodzą do właściwych elementów, a powtarzanie jednej litery przechodzi po kolejnych pasujących pozycjach. Test zawsze zaczyna się z tym samym zestawem nazw.
 
-## AMC-014-04 — Regresja filtra i głównych widoków
+## AMC-015-04 — Kontrola Ctrl+Z i możliwego konfliktu NVDA
 
-1. Użyj `Ctrl+K`, wpisz fragment nazwy i przejdź strzałką w dół do wyników.
+1. Zmień stan Ulubionych skrótem `Ctrl+Shift+U`, a następnie naciśnij `Ctrl+Z`.
+2. Zapisz dokładnie, czy stan został cofnięty i co powiedział NVDA.
+3. Jeżeli wystąpi dodatkowy albo błędny komunikat, powtórz próbę po jednorazowym uruchomieniu NVDA z wyłączonymi dodatkami.
+
+Oczekiwany wynik AMC: zmiana zostaje cofnięta. Jeżeli problem znika tylko bez dodatków NVDA, źródłem jest konflikt dodatku, a nie mechanizm cofania AMC.
+
+## AMC-015-05 — Krótka regresja filtra
+
+1. Naciśnij `Ctrl+K`, wpisz fragment nazwy i przejdź strzałką w dół do wyników.
 2. Naciśnij `Escape`.
-3. Sprawdź `Ctrl+U`, `Ctrl+Shift+A`, `Ctrl+L` i `Ctrl+Q`.
 
-Oczekiwany wynik: filtr nadal działa i po `Escape` wraca na listę. Skróty głównych widoków zachowują działanie z wersji alpha.13.
-
-## AMC-014-05 — Skróty w menu kontekstowym
-
-1. Ustaw fokus na elemencie listy multimediów i otwórz menu kontekstowe.
-2. Przejdź strzałkami przez wszystkie jego pozycje.
-
-Oczekiwany wynik: NVDA podaje przy każdej pozycji przypisany skrót, między innymi `Ctrl+Enter`, `Shift+Enter`, `Ctrl+Shift+U`, `Alt+Enter` i `Delete`.
+Oczekiwany wynik: filtr działa, `Escape` czyści go jednym krokiem i fokus pozostaje na liście.

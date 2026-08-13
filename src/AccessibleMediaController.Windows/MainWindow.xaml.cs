@@ -364,8 +364,24 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void RemoveSelected()
     {
+        if (_currentView is not ("Ulubione" or "Biblioteka" or "Kolejka"))
+        {
+            RestoreMediaListFocusAfterRefresh();
+            Dispatcher.BeginInvoke(
+                () => Announce("Usuwanie jest dostępne tylko w widokach Ulubione, Biblioteka i Kolejka"),
+                DispatcherPriority.ContextIdle);
+            return;
+        }
+
         var item = SelectedItem;
-        if (item is null) return;
+        if (item is null)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            Dispatcher.BeginInvoke(
+                () => Announce("Brak elementu do usunięcia"),
+                DispatcherPriority.ContextIdle);
+            return;
+        }
         var previousIndex = MediaList.SelectedIndex;
         var previousMembership = MediaMembershipState.From(item);
         string undoAnnouncement;
@@ -389,10 +405,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         }
         else
         {
-            Announce("Usuwanie jest niedostępne w tym widoku");
-            return;
+            throw new InvalidOperationException($"Nieobsługiwany widok usuwania: {_currentView}");
         }
-
         var title = item.Title;
         _membershipHistory.Record(
             _sessions.Current.Id,
@@ -544,7 +558,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     }
 
     private static bool IsSearchView(string viewName) =>
-        viewName is "Wyszukiwanie" or "Wyszukiwanie we wszystkich usługach";
+        viewName is "Wyszukiwanie" or "Szukaj we wszystkich usługach";
 
     private IntPtr WindowMessageHook(
         IntPtr hwnd,
@@ -786,6 +800,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void ReturnToMediaListFromEscape()
     {
+        var returnedFromSearch = false;
         AnchorMediaListFocus();
         if (FilterBox.Text.Length > 0)
         {
@@ -798,8 +813,21 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             _currentView = _backHistory.Pop();
             RefreshCurrentView(false);
             StatusText.Text = $"Powrót do widoku: {_currentView}";
+            returnedFromSearch = true;
         }
         RestoreMediaListFocusAfterRefresh();
+        if (returnedFromSearch)
+        {
+            Dispatcher.BeginInvoke(AnnounceFocusedMediaItem, DispatcherPriority.ContextIdle);
+        }
+    }
+
+    private void AnnounceFocusedMediaItem()
+    {
+        var message = SelectedItem is { } item
+            ? $"Lista multimediów. {FormatItem(item)}"
+            : "Lista multimediów. Brak elementów";
+        Announce(message);
     }
 
     private void MediaList_PreviewTextInput(object sender, TextCompositionEventArgs e)

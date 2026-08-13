@@ -332,7 +332,11 @@ static void TestSessions()
     Equal("TIDAL", manager.Current.DisplayName);
     Equal("WiiM", manager.SelectSlot(3)?.DisplayName);
     Equal("Apple Music", manager.MoveSession(-1).DisplayName);
+    Equal(17, manager.Current.Items.Count);
     Equal(2, manager.Current.Items.Count(item => item.IsInLibrary));
+    True(manager.Current.Items.Count(item => item.Title.StartsWith('B')) >= 2, "Dane demonstracyjne powinny umożliwiać powtarzanie litery B.");
+    True(manager.Current.Items.Count(item => item.Title.StartsWith('C')) >= 2, "Dane demonstracyjne powinny umożliwiać powtarzanie litery C.");
+    True(manager.Current.Items.Any(item => item.IsInQueue), "Kolejka demonstracyjna nie powinna być pusta.");
     Equal(true, manager.Current.ToggleQueue(manager.Current.CurrentItem));
     Equal(false, manager.Current.ToggleQueue(manager.Current.CurrentItem));
     Equal(true, manager.Current.TogglePlayNext(manager.Current.CurrentItem));
