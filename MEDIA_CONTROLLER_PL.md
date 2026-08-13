@@ -1,8 +1,8 @@
 # Dostępny kontroler multimedialny — koncepcja projektu
 
-Wersja dokumentu: 0.4, aktualny plan projektu
+Wersja dokumentu: 0.5, aktualny plan projektu
 
-Data aktualizacji: 12 sierpnia 2026 r.
+Data aktualizacji: 13 sierpnia 2026 r.
 
 ## 1. Cel projektu
 
@@ -440,7 +440,51 @@ Radio internetowe jest osobnym adapterem rdzenia i korzysta z tych samych sesji,
 - wersja macOS przechodzi osobne testy z VoiceOver i narzędziami dostępności Apple;
 - awaria adaptera nie może zawiesić czytnika ekranu ani uszkodzić konfiguracji pozostałych usług.
 
-Docelowa dystrybucja powinna być samowystarczalna i zawierać wymagane środowisko uruchomieniowe. Aktualizator działa dla bieżącego użytkownika bez uprawnień administratora, sprawdza aktualizacje w tle, pobiera wyłącznie podpisane pakiety, weryfikuje ich sumy SHA-256, instaluje atomowo i pozwala wrócić do poprzedniej wersji. Aktualizacja nie może nadpisywać profili, konfiguracji ani danych logowania, kraść fokusu czy przerywać odtwarzania. Użytkownik wybiera kanał stabilny albo beta oraz może wyłączyć automatyczne sprawdzanie, pobieranie lub instalację.
+### 13.5. Dystrybucja, biblioteki, komponenty i aktualizacje
+
+Obecny pojedynczy plik EXE ma około 162 MB przede wszystkim dlatego, że jest publikacją samowystarczalną i zawiera środowisko .NET. Nie zawiera jeszcze przyszłych usług ani pełnego zestawu kodeków. Rozdzielenie go na wiele plików może zmniejszyć sam plik startowy, ale nie musi zmniejszyć całego miejsca zajętego przez instalację. Priorytetem jest niezawodne uruchomienie bez ręcznego instalowania bibliotek, a oszczędność transferu uzyskujemy przez aktualizacje różnicowe i opcjonalne komponenty.
+
+Przyjmujemy następujący model dla Windows:
+
+1. Podstawowym wydaniem instalowanym jest podpisany pakiet MSIX z małym plikiem App Installer. Instalacja odbywa się dla bieżącego użytkownika, bez ręcznego kopiowania bibliotek. App Installer sprawdza aktualizacje przy uruchomieniu i w tle, a MSIX pobiera tylko zmienione bloki pakietu. Osobny eksperyment techniczny musi potwierdzić działanie WPF, globalnego przechwytywania klawiatury, AMC.Host, IPC, OAuth i zasobnika po zapakowaniu.
+2. Paczka przenośna pozostaje wariantem dodatkowym dla zaawansowanych użytkowników. Jest samowystarczalna, ale nie instaluje po cichu aktualizacji systemowych i wyraźnie informuje, kto odpowiada za jej aktualność.
+3. Wydanie publiczne przechodzi na bieżącą wersję LTS .NET. Według stanu na datę tego dokumentu wsparcie .NET 8 kończy się 10 listopada 2026 r., a .NET 10 LTS trwa do 14 listopada 2028 r., dlatego migracja do .NET 10 następuje przed pierwszym wydaniem publicznym. Samowystarczalny pakiet otrzymuje poprawki środowiska wraz z aktualizacją AMC.
+4. Kanały Stabilny i Beta mają osobne tożsamości oraz metadane. Przejście między kanałami jest świadomą czynnością użytkownika, a nie przypadkową zmianą wersji.
+
+Pakiet aplikacji zawiera zgodny zestaw: AMC.Windows, AMC.Host, AMC.Core, wbudowane adaptery podstawowe oraz właściwe środowisko .NET. Niezależnie aktualizowane komponenty to adaptery usług i urządzeń, opcjonalny silnik lokalnego odtwarzania, opcjonalne kodeki, dane katalogowe niewymagające sekretów oraz cienka wtyczka NVDA. Każdy komponent ma manifest zawierający co najmniej:
+
+- stabilny identyfikator i wersję;
+- platformę i architekturę;
+- minimalną i maksymalną zgodną wersję API hosta;
+- zależności oraz informację, czy komponent jest wymagany;
+- rozmiar, sumę SHA-256 i podpisane metadane;
+- licencję, źródło kodu i listę składników zewnętrznych;
+- kanał wydania i informację o krytyczności aktualizacji.
+
+Aplikacja użytkownika nigdy nie uruchamia `dotnet restore`, NuGet, skryptu instalacyjnego ani komendy pobranej z Internetu. Biblioteki NuGet są wybierane podczas budowania wydania, mają przypięte wersje i pliki `packages.lock.json`, a CI używa trybu zablokowanego, audytu podatności, inwentarza licencji i SBOM. Wydanie powstaje wyłącznie z przejrzanego, powtarzalnego zestawu zależności.
+
+Repozytorium komponentów używa dojrzałej implementacji modelu TUF albo rozwiązania o równoważnych własnościach, zamiast własnego protokołu kryptograficznego. Klucz zaufania jest wbudowany w podpisaną aplikację, klucze główne pozostają offline, a klucze wydawnicze można odwołać i wymienić. HTTPS jest obowiązkowy, lecz nie zastępuje podpisu. Same sumy SHA-256 wykrywają uszkodzenie, ale dopiero podpisane i terminowe metadane chronią również przed podstawieniem, cofnięciem, zamrożeniem oraz pomieszaniem wersji komponentów.
+
+Aktualizacja przebiega następująco:
+
+1. sprawdzenie podpisanych metadanych w tle, bez komunikatu mówionego;
+2. wybranie całego zgodnego zestawu dla platformy, kanału i wersji API;
+3. pobranie do katalogu tymczasowego z limitem rozmiaru, wznowieniem i poszanowaniem połączenia taryfowego;
+4. weryfikacja podpisów, wersji, rozmiarów, SHA-256, zależności i licencji przed udostępnieniem plików;
+5. przygotowanie nowej wersji obok aktywnej, bez nadpisywania działających bibliotek;
+6. aktywacja po zamknięciu aplikacji albo w wybranym przez użytkownika terminie; nigdy w trakcie odtwarzania;
+7. test zdrowia AMC.Host po uruchomieniu i automatyczny powrót do poprzedniej wersji, jeśli nowa nie wystartuje lub nie odpowie;
+8. zachowanie co najmniej jednej poprzedniej działającej wersji i uporządkowanie starszych plików dopiero po pomyślnym starcie.
+
+Konfiguracja, biblioteka użytkownika, pamięć podręczna i poświadczenia są oddzielone od plików programu. Aktualizacja nie może ich usuwać ani zastępować. Konfiguracja ma wersjonowany schemat i migrację jednokierunkową z kopią bezpieczeństwa. Wtyczka NVDA jest przygotowywana osobno i aktywowana dopiero przy bezpiecznym ponownym uruchomieniu NVDA; aktualizator nie podmienia plików wewnątrz działającego czytnika ekranu.
+
+W zakresie kodeków na Windows najpierw wykrywamy i wykorzystujemy możliwości Media Foundation oraz kodeki legalnie zainstalowane w systemie. AMC nie instaluje globalnych „codec packów” i nie zastępuje systemowych bibliotek. Brakujący format może otrzymać opcjonalny, izolowany komponent AMC. Jeżeli wybierzemy FFmpeg, będzie to jawny pakiet DLL z dokładnie określoną konfiguracją LGPL, bez części GPL i `nonfree`, z wymaganymi informacjami licencyjnymi, odpowiadającym kodem źródłowym i niezależną aktualizacją. Własny silnik lub kodek użytkownika może być funkcją zaawansowaną, uruchamianą poza procesem głównym i wyraźnie oznaczoną jako składnik niezarządzany przez AMC.
+
+Aktualizacje domyślnie sprawdzają się i pobierają w tle, ale instalują przy bezpiecznym zamknięciu. Nie kradną fokusu, nie przerywają mowy ani odtwarzania i nie wyświetlają powtarzających się okien. Użytkownik może wyłączyć automatyczne pobieranie, wybrać kanał, odroczyć instalację i sprawdzić dostępny dziennik: wersja, rozmiar, składniki, wynik weryfikacji i powód ewentualnego cofnięcia. Krytyczne wydanie bezpieczeństwa może wymagać aktualizacji, lecz zawsze komunikuje to jednoznacznie w dostępnym oknie.
+
+Na macOS klient, host i składniki platformowe otrzymają osobno podpisaną i notaryzowaną dystrybucję zgodną z mechanizmami Apple. Wspólny pozostaje format manifestu komponentów i reguły zgodności, natomiast instalacja i podpis platformowy są natywne dla systemu.
+
+Podstawy techniczne tej decyzji: [tryby publikowania .NET](https://learn.microsoft.com/en-us/dotnet/core/deploying/), [cykl wsparcia .NET](https://dotnet.microsoft.com/en-us/platform/support/policy), [MSIX i aktualizacje różnicowe](https://learn.microsoft.com/en-us/windows/msix/overview), [automatyczne aktualizacje App Installer](https://learn.microsoft.com/pl-pl/windows/msix/app-installer/auto-update-and-repair--overview), [specyfikacja TUF](https://theupdateframework.github.io/specification/latest/), [blokowanie zależności NuGet](https://learn.microsoft.com/en-us/nuget/consume-packages/package-references-in-project-files), [kodeki obsługiwane przez Windows](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/supported-codecs) oraz [wymagania licencyjne FFmpeg](https://ffmpeg.org/legal.html).
 
 ## 14. Zakres pierwszej wersji
 
@@ -457,7 +501,7 @@ Obecny prototyp Windows powinien najpierw ustabilizować:
 9. Krótkie, edytowalne szablony komunikatów, w tym osobne polecenia czasu upłyniętego, pozostałego i całkowitego.
 10. Zmienne profile klawiatury z chronionym profilem domyślnym.
 11. Trzy rodzaje importu i eksportu: mapa klawiszy, konfiguracja oraz pełna kopia.
-12. Interfejs systemu automatycznych aktualizacji, początkowo bez serwera dystrybucyjnego.
+12. Interfejs systemu automatycznych aktualizacji, podpisany manifest demonstracyjny i test atomowego powrotu, początkowo bez publicznego serwera dystrybucyjnego.
 13. Oddzielenie rdzenia od WPF oraz przygotowanie kontraktu dla przyszłego AMC.Host.
 
 Pierwszy prototyp i pierwsze działające wydanie dotyczą wyłącznie Windows. Wersja dla macOS, VoiceOver i ewentualna obsługa Siri są etapem późniejszym.
@@ -465,13 +509,14 @@ Pierwszy prototyp i pierwsze działające wydanie dotyczą wyłącznie Windows. 
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.
-2. Wydzielenie AMC.Host i lokalnego kontraktu polecenie–zdarzenie z adapterem demonstracyjnym.
-3. WiiM jako pierwszy realny test wykrywania, komend, głośności i presetów.
-4. Pierwsze logowanie OAuth i adapter katalogowy: TIDAL albo Spotify.
-5. Cienka wtyczka NVDA korzystająca wyłącznie z kontraktu hosta.
-6. Radio internetowe i podstawowe lokalne multimedia.
-7. Apple Music oraz kolejne urządzenia: Sonos, Bluesound/BluOS i Frontier Smart.
-8. Natywny prototyp macOS w Swift/AppKit po ustabilizowaniu kontraktu i zachowania wersji Windows.
+2. Eksperyment dystrybucji MSIX/App Installer, migracja do .NET 10 LTS oraz prototyp podpisanego manifestu komponentów i powrotu po błędzie.
+3. Wydzielenie AMC.Host i lokalnego kontraktu polecenie–zdarzenie z adapterem demonstracyjnym.
+4. WiiM jako pierwszy realny test wykrywania, komend, głośności i presetów.
+5. Pierwsze logowanie OAuth i adapter katalogowy: TIDAL albo Spotify.
+6. Cienka wtyczka NVDA korzystająca wyłącznie z kontraktu hosta.
+7. Radio internetowe i podstawowe lokalne multimedia.
+8. Apple Music oraz kolejne urządzenia: Sonos, Bluesound/BluOS i Frontier Smart.
+9. Natywny prototyp macOS w Swift/AppKit po ustabilizowaniu kontraktu i zachowania wersji Windows.
 
 ## 15. Otwarte decyzje
 

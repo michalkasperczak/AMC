@@ -1,8 +1,8 @@
 # Accessible Media Controller — Project Concept
 
-Document version: 0.4, current project plan
+Document version: 0.5, current project plan
 
-Updated: 12 August 2026
+Updated: 13 August 2026
 
 ## 1. Project goal
 
@@ -440,7 +440,51 @@ Internet radio is a separate core adapter and uses the same sessions, Favorites,
 - macOS receives separate VoiceOver and Apple accessibility-tool testing;
 - an adapter failure must not hang the screen reader or damage configuration for other services.
 
-The final distribution should be self-contained and include its required runtime. The updater runs per user without administrator rights, checks in the background, downloads signed packages only, verifies SHA-256, installs atomically and supports rollback. Updating must not overwrite profiles, configuration or login data, steal focus or interrupt playback. The user selects Stable or Beta and may disable automatic checking, downloading or installation.
+### 13.5. Distribution, libraries, components and updates
+
+The current single EXE is about 162 MB primarily because it is a self-contained publication that includes the .NET runtime. It does not yet contain future services or a complete codec set. Splitting it into many files can make the launcher smaller without necessarily reducing the total installed footprint. Reliable startup without manual library installation takes priority; differential updates and optional components reduce network transfer.
+
+The Windows model is:
+
+1. The primary installed release is a signed MSIX package with a small App Installer file. Installation is per user and requires no manual library copying. App Installer checks on launch and in the background, while MSIX downloads only changed package blocks. A separate technical spike must validate packaged WPF, global keyboard capture, AMC.Host, IPC, OAuth and the tray integration.
+2. A portable package remains an additional option for advanced users. It is self-contained but does not silently install system-managed updates and clearly states who is responsible for keeping it current.
+3. The public release targets the current .NET LTS. As of this document date, .NET 8 support ends on 10 November 2026 and .NET 10 LTS is supported through 14 November 2028, so migration to .NET 10 happens before the first public release. The self-contained package receives runtime security fixes through AMC releases.
+4. Stable and Beta have separate identities and metadata. Switching channels is an explicit user action rather than an accidental version change.
+
+The application package contains one compatible set: AMC.Windows, AMC.Host, AMC.Core, essential built-in adapters and the required .NET runtime. Independently updated components include service and device adapters, an optional local playback engine, optional codecs, non-secret catalogue data and the thin NVDA add-on. Every component manifest contains at least:
+
+- a stable identifier and version;
+- platform and architecture;
+- minimum and maximum compatible host API versions;
+- dependencies and required/optional status;
+- size, SHA-256 and signed metadata;
+- licence, source location and external-component inventory;
+- release channel and update criticality.
+
+The user application never runs `dotnet restore`, NuGet, an installer script or a command downloaded from the Internet. NuGet libraries are selected during release builds, use pinned versions and `packages.lock.json`, and CI uses locked restore, vulnerability audit, licence inventory and an SBOM. A release is produced only from a reviewed, reproducible dependency set.
+
+The component repository uses a mature TUF implementation, or a solution with equivalent properties, rather than a home-grown cryptographic protocol. A trusted root is embedded in the signed application, root keys remain offline, and release keys can be revoked and rotated. HTTPS is mandatory but does not replace signatures. SHA-256 alone detects corruption; signed and timely metadata also protects against substitution, rollback, freeze and mix-and-match attacks.
+
+The update sequence is:
+
+1. check signed metadata in the background without a spoken announcement;
+2. choose a complete compatible set for the platform, channel and API version;
+3. download into a temporary directory with size limits, resume and metered-network awareness;
+4. verify signatures, versions, sizes, SHA-256, dependencies and licences before exposing files;
+5. stage the new version beside the active version without overwriting loaded libraries;
+6. activate after application exit or at the user's chosen time, never during playback;
+7. health-check AMC.Host and automatically roll back if the new version fails to start or respond;
+8. retain at least one previous working version and clean older files only after a successful start.
+
+Configuration, the user's library, cache and credentials stay separate from program files. Updates must not remove or replace them. Configuration uses a versioned schema and one-way migration with a safety copy. The NVDA add-on is staged separately and activated only after a safe NVDA restart; the updater does not replace files inside a running screen reader.
+
+For codecs on Windows, AMC first detects and uses Media Foundation capabilities and codecs legitimately installed in the operating system. AMC does not install global codec packs or replace system libraries. A missing format may be supplied by an optional isolated AMC component. If FFmpeg is selected, it is a clearly identified DLL package built to a documented LGPL configuration without GPL or `nonfree` parts, accompanied by the required licence information, corresponding source and an independent update path. A user-supplied engine or codec may be an advanced feature, run outside the main process and clearly marked as unmanaged by AMC.
+
+Updates check and download in the background by default but install at a safe shutdown. They do not steal focus, interrupt speech or playback, or show repeated dialogs. Users may disable automatic download, select a channel, defer installation and inspect an accessible log containing version, size, components, verification result and rollback reason. A critical security release may require updating, but it must always explain this clearly in an accessible window.
+
+On macOS, the client, host and platform components receive a separately signed and notarized distribution that follows Apple mechanisms. Component manifest and compatibility rules remain shared, while installation and platform signing are native to the operating system.
+
+Technical basis for this decision: [.NET publishing modes](https://learn.microsoft.com/en-us/dotnet/core/deploying/), [.NET support policy](https://dotnet.microsoft.com/en-us/platform/support/policy), [MSIX and differential updates](https://learn.microsoft.com/en-us/windows/msix/overview), [App Installer automatic updates](https://learn.microsoft.com/en-us/windows/msix/app-installer/auto-update-and-repair--overview), [the TUF specification](https://theupdateframework.github.io/specification/latest/), [NuGet dependency locking](https://learn.microsoft.com/en-us/nuget/consume-packages/package-references-in-project-files), [Windows codec support](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/supported-codecs) and [FFmpeg licensing requirements](https://ffmpeg.org/legal.html).
 
 ## 14. First-version scope
 
@@ -457,7 +501,7 @@ The current Windows prototype should first stabilise:
 9. Brief editable message templates, including separate elapsed, remaining and total time commands.
 10. Switchable keyboard profiles with a protected default profile.
 11. Three import and export types: keyboard map, configuration and complete backup.
-12. An automatic-update interface, initially without a distribution server.
+12. An automatic-update interface, a signed demonstration manifest and an atomic-rollback test, initially without a public distribution server.
 13. Separation of the core from WPF and preparation of the future AMC.Host contract.
 
 The first prototype and initial working release target Windows only. macOS, VoiceOver and possible Siri support are later stages.
@@ -465,13 +509,14 @@ The first prototype and initial working release target Windows only. macOS, Voic
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.
-2. Extract AMC.Host and a local command–event contract with a demonstration adapter.
-3. Use WiiM as the first real test of discovery, commands, volume and presets.
-4. Add the first OAuth login and catalogue adapter: TIDAL or Spotify.
-5. Add a thin NVDA add-on using only the host contract.
-6. Add internet radio and basic local media.
-7. Add Apple Music and further devices: Sonos, Bluesound/BluOS and Frontier Smart.
-8. Build a native Swift/AppKit macOS prototype after the contract and Windows behaviour have stabilised.
+2. Run an MSIX/App Installer distribution spike, migrate to .NET 10 LTS and prototype signed component metadata and failure rollback.
+3. Extract AMC.Host and a local command–event contract with a demonstration adapter.
+4. Use WiiM as the first real test of discovery, commands, volume and presets.
+5. Add the first OAuth login and catalogue adapter: TIDAL or Spotify.
+6. Add a thin NVDA add-on using only the host contract.
+7. Add internet radio and basic local media.
+8. Add Apple Music and further devices: Sonos, Bluesound/BluOS and Frontier Smart.
+9. Build a native Swift/AppKit macOS prototype after the contract and Windows behaviour have stabilised.
 
 ## 15. Open decisions
 
