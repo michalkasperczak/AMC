@@ -8,6 +8,8 @@
 
 Najważniejsze są trzy pierwsze zadania. Skrótów menu kontekstowego i globalnego prefiksu nie trzeba ponownie sprawdzać.
 
+W lokalnie zainstalowanym dodatku **NVDA global commands extension 14.1.2** funkcja **Clipboard command announcement** przechwytuje `Ctrl+Z`, wypowiada „Undo”, a następnie przekazuje klawisz aplikacji. Jest to pierwszy podejrzany w diagnostyce zadania AMC-015-04.
+
 ## AMC-015-01 — Escape po wyszukiwaniu
 
 1. Otwórz zwykły widok, na przykład Bibliotekę.
@@ -40,9 +42,11 @@ Oczekiwany wynik: sekwencje przechodzą do właściwych elementów, a powtarzani
 
 1. Zmień stan Ulubionych skrótem `Ctrl+Shift+U`, a następnie naciśnij `Ctrl+Z`.
 2. Zapisz dokładnie, czy stan został cofnięty i co powiedział NVDA.
-3. Jeżeli wystąpi dodatkowy albo błędny komunikat, powtórz próbę po jednorazowym uruchomieniu NVDA z wyłączonymi dodatkami.
+3. Jeżeli wystąpi angielskie „Undo”, w ustawieniach dodatku **NVDA global commands extension** przejdź do kategorii **Features's installation** i ustaw **Clipboard command announcement** na **Do not install**.
+4. Uruchom ponownie NVDA zgodnie z prośbą dodatku i powtórz próbę.
+5. Dopiero jeżeli problem nadal występuje, powtórz test po jednorazowym uruchomieniu NVDA ze wszystkimi dodatkami wyłączonymi.
 
-Oczekiwany wynik AMC: zmiana zostaje cofnięta. Jeżeli problem znika tylko bez dodatków NVDA, źródłem jest konflikt dodatku, a nie mechanizm cofania AMC.
+Oczekiwany wynik AMC: zmiana zostaje cofnięta. Jeżeli angielskie „Undo” znika po wyłączeniu funkcji **Clipboard command announcement**, konflikt jest jednoznacznie rozpoznany i nie wymaga dalszych zmian mechanizmu AMC.
 
 ## AMC-015-05 — Krótka regresja filtra
 
