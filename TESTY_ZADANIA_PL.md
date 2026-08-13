@@ -42,3 +42,10 @@ Oczekiwany wynik: każda kolejna sekwencja działa, również po wcześniejszym 
 3. Sprawdź `Ctrl+U`, `Ctrl+Shift+A`, `Ctrl+L` i `Ctrl+Q`.
 
 Oczekiwany wynik: filtr nadal działa i po `Escape` wraca na listę. Skróty głównych widoków zachowują działanie z wersji alpha.13.
+
+## AMC-014-05 — Skróty w menu kontekstowym
+
+1. Ustaw fokus na elemencie listy multimediów i otwórz menu kontekstowe.
+2. Przejdź strzałkami przez wszystkie jego pozycje.
+
+Oczekiwany wynik: NVDA podaje przy każdej pozycji przypisany skrót, między innymi `Ctrl+Enter`, `Shift+Enter`, `Ctrl+Shift+U`, `Alt+Enter` i `Delete`.

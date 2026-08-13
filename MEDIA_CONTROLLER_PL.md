@@ -57,10 +57,16 @@ Ponowne naciśnięcie samego prefiksu może informować o bieżącej sesji, np. 
 
 ### 3.2. Wybór prefiksu
 
-Prefiks pozostaje konfigurowalny. Od prototypu `0.1.0-alpha.5` wartością domyślną dla Windows jest `Ctrl+Alt+Windows+F12`, pomyślnie zarejestrowany na komputerze testowym. Zastąpił kombinację z klawiszem Enter, która nakładała się na systemowy skrót Narratora. Rozważane możliwości:
+Prefiks pozostaje konfigurowalny. Obecny prototyp używa `Ctrl+Alt+Windows+F12`, ale nie jest to wybór docelowy. Implementacja docelowa dla Windows ma wykrywać prefiks przez niskopoziomowe, fizyczne przechwycenie klawiatury, a nie oferować użytkownikowi wybór między kilkoma technicznymi trybami rejestracji. Pozwala to rozróżnić zwykły `Enter` od `Numerycznego Entera` na podstawie kodu skanowania i znacznika klawisza rozszerzonego oraz jednakowo obsługiwać stan Num Lock.
+
+Użytkownik może przypisać dowolną obsługiwaną kombinację fizycznych klawiszy. Pusta wartość wyłącza globalny prefiks bez wyłączania skrótów działających w aktywnym oknie. Po wykryciu skonfigurowanej kombinacji AMC zatrzymuje jej zdarzenia, aby nie uruchamiała równocześnie polecenia w programie znajdującym się pod fokusem. Program musi jednak wykrywać i jasno zgłaszać przypadki, w których system, program działający z wyższymi uprawnieniami albo czytnik ekranu przejął kombinację wcześniej.
+
+Głównymi kandydatami na przyszłą wartość domyślną są `Ctrl+Numeryczny Enter` oraz sam `Numeryczny Enter`. Pierwszy wariant mniej ingeruje w zwykłe zatwierdzanie w innych programach; drugi jest szybszy, lecz globalnie odbiera numerycznemu Enterowi jego standardowe znaczenie. Ostateczny wybór wymaga testów z NVDA, JAWS-em, Ditto i popularnymi menedżerami schowka. Rozważane możliwości:
 
 | Kandydat | Zalety | Ryzyko |
 | --- | --- | --- |
+| `Ctrl+Numeryczny Enter` | krótki, fizycznie charakterystyczny i mniej inwazyjny | wymaga niskopoziomowego rozróżnienia obu Enterów |
+| `Numeryczny Enter` | bardzo szybki i wygodny jedną ręką | przejmuje standardowe zatwierdzanie tym klawiszem we wszystkich programach |
 | `Ctrl+Alt+Windows+F12` | rozpoznawalny i bez konfliktu na komputerze testowym | cztery klawisze; wymaga testu rejestracji |
 | `Ctrl+Alt+Spacja` | stosunkowo krótki | możliwy konflikt z innymi aplikacjami lub metodami wprowadzania |
 | `Ctrl+Shift+Windows+Spacja` | wyraźnie odróżnia aplikację od Free Radia | długi; kombinacje z Windows mogą być zarezerwowane przez system |
@@ -68,7 +74,7 @@ Prefiks pozostaje konfigurowalny. Od prototypu `0.1.0-alpha.5` wartością domy�
 | `Ctrl+Shift+Windows+P` | łatwe skojarzenie z prefiksem | cztery klawisze |
 | `F13–F24` | bardzo małe ryzyko konfliktu | wymaga klawiatury programowalnej lub mapowania dodatkowego klawisza |
 
-Ustawienia powinny zawierać funkcję „Sprawdź prefiks”. Program zapisze kombinację dopiero po udanej rejestracji i ostrzeże, jeżeli skrót jest już zajęty.
+Ustawienia powinny zawierać funkcję „Sprawdź prefiks”. Program zapisze kombinację dopiero po udanym teście fizycznego rozpoznania i ostrzeże, jeżeli skrót jest już zajęty lub nie dociera do AMC.
 
 Microsoft zastrzega, że skróty zawierające klawisz Windows są przeznaczone dla systemu operacyjnego, dlatego nie wolno zakładać, że każda taka kombinacja będzie dostępna. Program musi sprawdzać ją na konkretnym komputerze: <https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey>.
 
@@ -469,7 +475,7 @@ Planowana kolejność dalszych etapów:
 
 ## 15. Otwarte decyzje
 
-1. Ostateczny prefiks domyślny i czas wygaśnięcia warstwy.
+1. Czy domyślnym prefiksem ma być `Ctrl+Numeryczny Enter`, czy sam `Numeryczny Enter`, oraz jaki ma być czas wygaśnięcia warstwy.
 2. Czy aplikacja pamięta sesję po ponownym uruchomieniu.
 3. Czy istnieje od początku playlista „Do odsłuchu”.
 4. Które komunikaty mają być mówione, a które sygnalizowane dźwiękiem.

@@ -57,10 +57,16 @@ Pressing the prefix again may announce the current session, for example “TIDAL
 
 ### 3.2. Choosing the prefix
 
-The prefix remains configurable. Starting with prototype `0.1.0-alpha.5`, the Windows default is `Ctrl+Alt+Windows+F12`. It registered successfully on the test computer and replaced the Enter-based combination that overlapped with the Windows Narrator shortcut. Candidates include:
+The prefix remains configurable. The current prototype uses `Ctrl+Alt+Windows+F12`, but this is not the final choice. The target Windows implementation detects the prefix through low-level physical keyboard capture and does not expose a choice between multiple technical registration modes. This makes it possible to distinguish the main `Enter` from `Numpad Enter` through the scan code and extended-key flag, and to handle Num Lock consistently.
+
+The user may assign any supported physical key combination. An empty value disables the global prefix without disabling shortcuts in the active application window. Once AMC detects the configured combination, it suppresses its events so that the focused application does not execute another command at the same time. The application must still detect and clearly report cases where the operating system, a higher-integrity process or a screen reader captures the combination before AMC receives it.
+
+The main candidates for the future default are `Ctrl+Numpad Enter` and bare `Numpad Enter`. The former interferes less with ordinary confirmation in other applications; the latter is faster but globally removes the standard meaning of Numpad Enter. The final choice requires testing with NVDA, JAWS, Ditto and popular clipboard managers. Candidates include:
 
 | Candidate | Advantage | Risk |
 | --- | --- | --- |
+| `Ctrl+Numpad Enter` | short, physically distinctive and less intrusive | requires low-level distinction between the two Enter keys |
+| `Numpad Enter` | very fast and convenient with one hand | takes over standard confirmation by that key in every application |
 | `Ctrl+Alt+Windows+F12` | distinctive and did not conflict on the test computer | four keys; requires a registration test |
 | `Ctrl+Alt+Space` | relatively short | possible conflict with other applications or input methods |
 | `Ctrl+Shift+Windows+Space` | clearly separates the application from Free Radio | long; Windows combinations may be reserved by the operating system |
@@ -68,7 +74,7 @@ The prefix remains configurable. Starting with prototype `0.1.0-alpha.5`, the Wi
 | `Ctrl+Shift+Windows+P` | easy association with “prefix” | four keys |
 | `F13–F24` | very low conflict risk | requires a programmable keyboard or a remapped extra key |
 
-Settings should provide a “Test prefix” function. The program saves the binding only after successful registration and warns if it is already in use.
+Settings should provide a “Test prefix” function. The program saves the binding only after a successful physical-detection test and warns if it is already in use or does not reach AMC.
 
 Microsoft states that shortcuts containing the Windows key are reserved for operating-system use, so availability cannot be assumed. The application must test the actual combination on the current computer: <https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey>.
 
@@ -469,7 +475,7 @@ Planned sequence of later stages:
 
 ## 15. Open decisions
 
-1. Final default prefix and command-layer timeout.
+1. Whether the default prefix is `Ctrl+Numpad Enter` or bare `Numpad Enter`, and the command-layer timeout.
 2. Whether the application remembers the session after restart.
 3. Whether a “Listen Later” playlist exists from the beginning.
 4. Which messages use speech and which use earcons.
