@@ -19,6 +19,11 @@ public sealed class SessionManager
     public DemoMediaSession? SelectSlot(int slot)
     {
         if (!_settings.SessionSlots.TryGetValue(slot, out var sessionId)) return null;
+        return SelectSession(sessionId);
+    }
+
+    public DemoMediaSession? SelectSession(string sessionId)
+    {
         var session = Sessions.FirstOrDefault(candidate => candidate.Id == sessionId);
         if (session is null) return null;
         Current = session;

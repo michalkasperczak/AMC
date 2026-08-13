@@ -2,7 +2,7 @@
 
 This is the first demonstration prototype of the global-prefix media controller. It validates the keyboard, session, list, accessibility-message, profile, import and export architecture. It does not yet connect to real TIDAL, Apple Music or WiiM accounts.
 
-This README describes the `0.1.0-alpha.14` prototype. The approved development direction, target architecture and complete keyboard map are recorded in [`MEDIA_CONTROLLER_EN.md`](MEDIA_CONTROLLER_EN.md).
+This README describes the current prototype. Its single version number is stored in `Directory.Build.props`, so the core, Windows UI and published program always receive the same version. The approved development direction, target architecture and complete keyboard map are recorded in [`MEDIA_CONTROLLER_EN.md`](MEDIA_CONTROLLER_EN.md).
 
 ## Simplest start — no commands to type
 
@@ -10,7 +10,7 @@ This README describes the `0.1.0-alpha.14` prototype. The approved development d
 2. In File Explorer, select `ZBUDUJ_I_URUCHOM.cmd` and press Enter or double-click it.
 3. Wait for the result message. After a successful build, the application starts automatically.
 
-The file checks for the .NET 8 SDK. If it is missing, it attempts to install the official Microsoft package with Windows Package Manager (`winget`), then restores dependencies, builds the project, runs the checks, and creates a self-contained version in `publish\win-x64`. The first run may take several minutes, requires an Internet connection, and may display a Windows installation consent prompt.
+The file checks for the .NET 8 SDK. If it is missing, it attempts to install the official Microsoft package with Windows Package Manager (`winget`), then restores dependencies, builds the project, runs the checks, and creates one self-contained `publish\AccessibleMediaController-<version>.exe` file. The first run may take several minutes, requires an Internet connection, and may display a Windows installation consent prompt.
 
 If the build fails, the script automatically opens `build-log.txt` in Notepad with the details. No terminal commands need to be typed.
 
@@ -46,7 +46,7 @@ Create a self-contained Windows x64 build including the .NET runtime:
 .\build.ps1 -Publish
 ```
 
-The output is written to `publish\win-x64`.
+The output is written to one `publish\AccessibleMediaController-<version>.exe` file.
 
 ## Prototype defaults
 
@@ -68,9 +68,9 @@ The default global prefix is `Ctrl+Alt+Windows+F12`. It replaced earlier combina
 - `F` searches the current service and `Shift+F` performs a global search;
 - `D` downloads within a service and `Shift+D` is the experimental download-to-disk command.
 
-While the AMC window is active, `Ctrl+1–9` selects a session without the global prefix, `Ctrl+0` opens the session list, and `Ctrl+Page Up` or `Ctrl+Page Down` selects the previous or next session. Local view shortcuts are `Ctrl+U` for Favorites, `Ctrl+P` for Playlists, `Ctrl+L` for Library, `Ctrl+Q` for Queue and `Ctrl+Shift+A` for Albums, including while focus is in the filter box. `Ctrl+K` focuses the current-data filter. `Ctrl+F` opens a demonstration current-service search view, `Ctrl+Shift+F` opens a demonstration global-search view, and `Ctrl+Shift+K` announces that the future command palette is unavailable. On the list, `Ctrl+Shift+U` toggles favorite state.
+While the AMC window is active, `Ctrl+1–9` selects a session without the global prefix, `Ctrl+0` opens the session list, and `Ctrl+Page Up` or `Ctrl+Page Down` selects the previous or next session. Local view shortcuts are `Ctrl+U` for Favorites, `Ctrl+P` for Playlists, `Ctrl+L` for Library, `Ctrl+Q` for Queue and `Ctrl+Shift+A` for Albums, including while focus is in the filter box. `Ctrl+K` focuses a filter that only narrows the already loaded list. `Ctrl+F` opens a separate current-service search window and `Ctrl+Shift+F` opens the all-services search window. Enter submits the query, another Enter opens the selected result, and Escape closes the window. `Ctrl+Shift+K` announces that the future command palette is unavailable. On the list, `Ctrl+Shift+U` toggles favorite state.
 
-`Ctrl+Z` successively undoes membership changes in Favorites, Library and Queue as well as the Play Next state; a restored item is selected again when it belongs to the current view. Inside the filter box, `Ctrl+Z` retains the standard text-editing Undo behavior. The command is also available from the **Edit** menu. Behavior reported after alpha.12 testing still needs a precise reproduction and another correction. `Ctrl+N` and `Ctrl+A` remain reserved for the standard New and Select All actions. Typing one or more unmodified letters on the list continues to jump to a matching item and never runs a command. Empty lists contain directional navigation and announce that they are empty instead of moving focus to action buttons or the menu. The demonstration Library initially contains two tracks.
+`Ctrl+Z` successively undoes membership changes in Favorites, Library and Queue as well as the Play Next state; a restored item is selected again when it belongs to the current view. Inside the filter box, `Ctrl+Z` retains the standard text-editing Undo behavior. The command is also available from the **Edit** menu. The extra English “Undo” has been traced to the NVDA Global Commands Extension's Clipboard command announcement feature rather than AMC. `Ctrl+N` and `Ctrl+A` remain reserved for the standard New and Select All actions. Typing one or more unmodified letters on the list continues to jump to a matching item and never runs a command. Empty lists contain directional navigation and announce that they are empty instead of moving focus to action buttons or the menu. The Now Playing view contains 17 fixed items for type-ahead tests; the demonstration Library intentionally contains only its two member tracks.
 
 On the **Lists and reading** tab, `Alt+Up/Down` moves the selected field, keeps focus on the selected row, and announces its new relationship and the full order. The current-order preview precedes the movement buttons. **Add to queue** and **Play next** act as toggles; repeating the command removes the item and the context-menu label reflects its current state. Their default announcements include the affected item name and customized templates are preserved during migration. Before removal, focus is anchored on the list control and restored after WPF layout finishes; it then moves to the nearest item or remains on the empty list. In the main window, `Escape` clears an active filter and returns focus to the media list; without a filter it still returns from the filter box or a main action button to the list. Menus keep their standard hierarchical behavior, with each `Escape` closing one level.
 

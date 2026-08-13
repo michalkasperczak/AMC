@@ -1,5 +1,7 @@
 <Project>
   <PropertyGroup>
+    <Version>0.1.0-alpha.16</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

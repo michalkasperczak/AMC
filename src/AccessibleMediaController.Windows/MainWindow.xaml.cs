@@ -72,16 +72,34 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     public void ShowCurrentSession(string viewName)
     {
-        var isSearchView = IsSearchView(viewName);
-        NavigateTo(viewName, !isSearchView);
+        if (IsSearchView(viewName))
+        {
+            ShowSearch(string.Equals(viewName, "Szukaj we wszystkich usługach", StringComparison.Ordinal));
+            return;
+        }
+
+        NavigateTo(viewName, true);
         Activate();
         FocusMediaList();
-        if (isSearchView)
+    }
+
+    private void ShowSearch(bool allServices)
+    {
+        Activate();
+        var dialog = new SearchWindow(_sessions, allServices, FormatItem) { Owner = this };
+        if (dialog.ShowDialog() == true && dialog.SelectedResult is { } result)
         {
+            _sessions.SelectSession(result.SessionId);
+            NavigateTo("Teraz odtwarzane", false);
+            SelectMediaItem(result.Item.Id);
+            RestoreMediaListFocusAfterRefresh();
             Dispatcher.BeginInvoke(
-                () => Announce(viewName),
+                () => Announce($"Wynik wyszukiwania. {FormatItem(result.Item)}"),
                 DispatcherPriority.ContextIdle);
+            return;
         }
+
+        RestoreMediaListFocusAfterRefresh();
     }
 
     public void ShowFilter()
@@ -135,8 +153,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+0 otwiera listę sesji, " +
             "Ctrl+Page Up i Ctrl+Page Down zmieniają sesję. " +
             "Ctrl+U/P/L/Q otwiera odpowiednio: Ulubione, Playlisty, Bibliotekę i Kolejkę, " +
-            "a Ctrl+Shift+A otwiera Albumy. Ctrl+K filtruje listę, Ctrl+F wyszukuje w bieżącej usłudze, " +
-            "Ctrl+Shift+F wyszukuje globalnie, a Ctrl+Shift+K otwiera paletę poleceń. " +
+            "a Ctrl+Shift+A otwiera Albumy. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
+            "wyszukiwania w bieżącej usłudze, Ctrl+Shift+F otwiera wyszukiwanie globalne, " +
+            "a Ctrl+Shift+K otwiera paletę poleceń. " +
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
             "W oknie: Enter wykonuje działanie podstawowe, Alt+Enter pokazuje informacje, " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
@@ -558,7 +577,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     }
 
     private static bool IsSearchView(string viewName) =>
-        viewName is "Wyszukiwanie" or "Szukaj we wszystkich usługach";
+        viewName is "Szukaj w bieżącej usłudze" or "Szukaj we wszystkich usługach";
 
     private IntPtr WindowMessageHook(
         IntPtr hwnd,
@@ -800,34 +819,13 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void ReturnToMediaListFromEscape()
     {
-        var returnedFromSearch = false;
         AnchorMediaListFocus();
         if (FilterBox.Text.Length > 0)
         {
             FilterBox.Clear();
             StatusText.Text = "Filtr wyczyszczony";
         }
-        else if (IsSearchView(_currentView) && _backHistory.Count > 0)
-        {
-            _forwardHistory.Push(_currentView);
-            _currentView = _backHistory.Pop();
-            RefreshCurrentView(false);
-            StatusText.Text = $"Powrót do widoku: {_currentView}";
-            returnedFromSearch = true;
-        }
         RestoreMediaListFocusAfterRefresh();
-        if (returnedFromSearch)
-        {
-            Dispatcher.BeginInvoke(AnnounceFocusedMediaItem, DispatcherPriority.ContextIdle);
-        }
-    }
-
-    private void AnnounceFocusedMediaItem()
-    {
-        var message = SelectedItem is { } item
-            ? $"Lista multimediów. {FormatItem(item)}"
-            : "Lista multimediów. Brak elementów";
-        Announce(message);
     }
 
     private void MediaList_PreviewTextInput(object sender, TextCompositionEventArgs e)

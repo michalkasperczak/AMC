@@ -506,6 +506,8 @@ Obecny prototyp Windows powinien najpierw ustabilizować:
 
 Pierwszy prototyp i pierwsze działające wydanie dotyczą wyłącznie Windows. Wersja dla macOS, VoiceOver i ewentualna obsługa Siri są etapem późniejszym.
 
+Stan `alpha.16`: filtr i wyszukiwanie są już rozdzielone — `Ctrl+K` zawęża bieżącą listę, a `Ctrl+F` i `Ctrl+Shift+F` otwierają osobne okna zapytania oraz wyników. Rdzeń i interfejs pobierają jeden numer wersji z `Directory.Build.props`, a publikacja przenośna powstaje jako pojedynczy, jednoznacznie nazwany plik EXE. Do zamknięcia pierwszego etapu pozostają przede wszystkim dostępna paleta poleceń, niskopoziomowe przechwycenie konfigurowalnego prefiksu i test kandydatów z NVDA, JAWS-em oraz menedżerami schowka. Obecne wyszukiwanie korzysta z katalogu demonstracyjnego; prawdziwe zapytania sieciowe pojawią się dopiero z adapterami usług.
+
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.

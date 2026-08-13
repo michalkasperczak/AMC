@@ -2,7 +2,7 @@
 
 To pierwszy demonstracyjny prototyp aplikacji sterowanej globalnym prefiksem. Sprawdza architekturę klawiatury, sesji, list, komunikatów dostępności, profili oraz importu i eksportu. Nie łączy się jeszcze z prawdziwymi kontami TIDAL, Apple Music ani WiiM.
 
-Ten README opisuje zachowanie gotowego prototypu `0.1.0-alpha.14`. Zatwierdzony kierunek dalszego rozwoju, docelowa architektura oraz pełna mapa skrótów znajdują się w [`MEDIA_CONTROLLER_PL.md`](MEDIA_CONTROLLER_PL.md).
+Ten README opisuje zachowanie bieżącego prototypu. Wspólny numer wersji jest zapisany w `Directory.Build.props`, dzięki czemu rdzeń, okno i publikowany program zawsze otrzymują ten sam numer. Zatwierdzony kierunek dalszego rozwoju, docelowa architektura oraz pełna mapa skrótów znajdują się w [`MEDIA_CONTROLLER_PL.md`](MEDIA_CONTROLLER_PL.md).
 
 ## Najprostsze uruchomienie — bez wpisywania poleceń
 
@@ -10,7 +10,7 @@ Ten README opisuje zachowanie gotowego prototypu `0.1.0-alpha.14`. Zatwierdzony 
 2. W Eksploratorze plików wybierz `ZBUDUJ_I_URUCHOM.cmd` i naciśnij Enter albo kliknij go dwukrotnie.
 3. Zaczekaj na komunikat. Po udanym zbudowaniu aplikacja otworzy się automatycznie.
 
-Plik sam sprawdza .NET 8 SDK. Jeśli go nie ma, próbuje zainstalować oficjalny pakiet Microsoft za pomocą Menedżera pakietów Windows (`winget`), a następnie przywraca składniki, kompiluje projekt, uruchamia testy i tworzy samowystarczalną wersję w `publish\win-x64`. Pierwsze uruchomienie może potrwać kilka minut, wymaga połączenia z Internetem i może wyświetlić systemową prośbę o zgodę na instalację.
+Plik sam sprawdza .NET 8 SDK. Jeśli go nie ma, próbuje zainstalować oficjalny pakiet Microsoft za pomocą Menedżera pakietów Windows (`winget`), a następnie przywraca składniki, kompiluje projekt, uruchamia testy i tworzy pojedynczy samowystarczalny plik `publish\AccessibleMediaController-<wersja>.exe`. Pierwsze uruchomienie może potrwać kilka minut, wymaga połączenia z Internetem i może wyświetlić systemową prośbę o zgodę na instalację.
 
 W razie błędu skrypt automatycznie otwiera w Notatniku plik `build-log.txt` ze szczegółami. Nie trzeba wpisywać żadnych poleceń w terminalu.
 
@@ -49,7 +49,7 @@ Samowystarczalna wersja dla Windows x64, zawierająca środowisko .NET:
 .\build.ps1 -Publish
 ```
 
-Wynik znajdzie się w `publish\win-x64`.
+Wynik znajdzie się w pojedynczym pliku `publish\AccessibleMediaController-<wersja>.exe`.
 
 ## Domyślne działanie prototypu
 
@@ -73,11 +73,11 @@ Domyślny globalny prefiks to `Ctrl+Alt+Windows+F12`. Zastąpił wcześniejsze k
 - `F` — wyszukiwanie w bieżącej usłudze, `Shift+F` — wyszukiwanie globalne;
 - `D` — pobieranie wewnątrz usługi, `Shift+D` — eksperymentalne pobieranie na dysk.
 
-Gdy okno AMC jest aktywne, `Ctrl+1–9` przełącza sesję bez globalnego prefiksu, `Ctrl+0` otwiera listę sesji, a `Ctrl+Page Up` i `Ctrl+Page Down` wybierają poprzednią lub następną sesję. Lokalne skróty widoków to `Ctrl+U` — Ulubione, `Ctrl+P` — Playlisty, `Ctrl+L` — Biblioteka, `Ctrl+Q` — Kolejka oraz `Ctrl+Shift+A` — Albumy. Skróty widoków działają również wtedy, gdy fokus znajduje się w filtrze. `Ctrl+K` przechodzi do filtra bieżących danych, `Ctrl+F` otwiera demonstracyjny widok wyszukiwania w bieżącej usłudze, a `Ctrl+Shift+F` — we wszystkich usługach. `Ctrl+Shift+K` jest zarezerwowane dla palety poleceń i obecnie podaje jednoznaczny komunikat o jej niedostępności. Na liście `Ctrl+Shift+U` zmienia stan Ulubionych.
+Gdy okno AMC jest aktywne, `Ctrl+1–9` przełącza sesję bez globalnego prefiksu, `Ctrl+0` otwiera listę sesji, a `Ctrl+Page Up` i `Ctrl+Page Down` wybierają poprzednią lub następną sesję. Lokalne skróty widoków to `Ctrl+U` — Ulubione, `Ctrl+P` — Playlisty, `Ctrl+L` — Biblioteka, `Ctrl+Q` — Kolejka oraz `Ctrl+Shift+A` — Albumy. Skróty widoków działają również wtedy, gdy fokus znajduje się w filtrze. `Ctrl+K` przechodzi do filtra już załadowanej listy. `Ctrl+F` otwiera osobne okno wyszukiwania w bieżącej usłudze, a `Ctrl+Shift+F` — we wszystkich usługach. W polu wyszukiwania Enter wykonuje zapytanie, kolejny Enter otwiera wybrany wynik, a Escape zamyka okno. `Ctrl+Shift+K` jest zarezerwowane dla palety poleceń i obecnie podaje jednoznaczny komunikat o jej niedostępności. Na liście `Ctrl+Shift+U` zmienia stan Ulubionych.
 
-`Ctrl+Z` cofa kolejno zmiany przynależności do Ulubionych, Biblioteki i Kolejki oraz stan „Odtwórz jako następne”; przywrócony element jest ponownie zaznaczany, jeśli znajduje się w bieżącym widoku. W `alpha.14` skrót jest przechwytywany przed standardową obsługą WPF, aby nie powstawał dodatkowy angielski komunikat „Undo”. W polu filtra `Ctrl+Z` zachowuje standardowe znaczenie cofania edycji tekstu. Polecenie jest także dostępne w menu **Edycja**. `Ctrl+N` i `Ctrl+A` pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko. Wpisywanie pojedynczych i kolejnych liter bez modyfikatorów na liście przechodzi do pasującego elementu i nie uruchamia poleceń. Nowa sekwencja zaczyna się po krótkiej przerwie albo od razu wtedy, gdy dotychczasowy ciąg z następną literą nie daje dopasowania; ponawianie jednej litery przechodzi przez kolejne pasujące pozycje.
+`Ctrl+Z` cofa kolejno zmiany przynależności do Ulubionych, Biblioteki i Kolejki oraz stan „Odtwórz jako następne”; przywrócony element jest ponownie zaznaczany, jeśli znajduje się w bieżącym widoku. W polu filtra `Ctrl+Z` zachowuje standardowe znaczenie cofania edycji tekstu. Polecenie jest także dostępne w menu **Edycja**. Dodatkowe angielskie „Undo” zostało przypisane funkcji **Clipboard command announcement** dodatku NVDA Global Commands Extension, a nie mechanizmowi AMC. `Ctrl+N` i `Ctrl+A` pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko. Wpisywanie pojedynczych i kolejnych liter bez modyfikatorów na liście przechodzi do pasującego elementu i nie uruchamia poleceń. Nowa sekwencja zaczyna się po krótkiej przerwie albo od razu wtedy, gdy dotychczasowy ciąg z następną literą nie daje dopasowania; ponawianie jednej litery przechodzi przez kolejne pasujące pozycje.
 
-Pusta lista zatrzymuje klawisze strzałek i podaje komunikat „lista jest pusta”, zamiast przenosić fokus do przycisków lub menu. Demonstracyjna Biblioteka zawiera po uruchomieniu dwa utwory.
+Pusta lista zatrzymuje klawisze strzałek i podaje komunikat „lista jest pusta”, zamiast przenosić fokus do przycisków lub menu. Widok „Teraz odtwarzane” ma 17 stałych elementów przeznaczonych do testowania nawigacji literami. Demonstracyjna Biblioteka celowo zawiera tylko dwa utwory należące do biblioteki.
 
 Prefiks, czas oczekiwania i wszystkie polecenia można zmienić w ustawieniach. Można też wybrać, czy po uruchomieniu program ma otwierać listę multimediów, czy listę sesji. Chroniony profil wbudowany jest odświeżany wraz z wersją programu; edytowalne profile użytkownika zachowują własne przypisania.
 

@@ -6,7 +6,6 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <RootNamespace>AccessibleMediaController.Windows</RootNamespace>
     <AssemblyName>AccessibleMediaController</AssemblyName>
-    <Version>0.1.0-alpha.15</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AccessibleMediaController.Core\AccessibleMediaController.Core.csproj" />

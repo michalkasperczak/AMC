@@ -127,7 +127,7 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.ViewFavorites: return ShowView("Ulubione");
             case CommandIds.ViewPlaylists: return ShowView("Playlisty");
-            case CommandIds.SearchCurrent: return ShowView("Wyszukiwanie");
+            case CommandIds.SearchCurrent: return ShowView("Szukaj w bieżącej usłudze");
             case CommandIds.SearchAll: return ShowView("Szukaj we wszystkich usługach");
             case CommandIds.ViewLibrary: return ShowView("Biblioteka");
             case CommandIds.ViewQueue: return ShowView("Kolejka");

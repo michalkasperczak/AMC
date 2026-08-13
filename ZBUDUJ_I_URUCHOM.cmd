@@ -4,8 +4,8 @@ chcp 65001 >nul
 
 set "AMC_ROOT=%~dp0"
 set "AMC_LOG=%AMC_ROOT%build-log.txt"
-set "AMC_OUTPUT=%AMC_ROOT%publish\win-x64"
-set "AMC_EXE=%AMC_OUTPUT%\AccessibleMediaController.exe"
+set "AMC_OUTPUT=%AMC_ROOT%publish\.staging-win-x64"
+set "AMC_EXE="
 set "AMC_DOTNET="
 
 cd /d "%AMC_ROOT%"
@@ -19,13 +19,17 @@ title Dostepny kontroler multimedialny - budowanie
 call :BUILD >> "%AMC_LOG%" 2>&1
 if errorlevel 1 goto BUILD_FAILED
 
+for /f "usebackq delims=" %%V in (`powershell.exe -NoProfile -Command "[xml]$p=Get-Content -LiteralPath '%AMC_ROOT%Directory.Build.props'; $p.Project.PropertyGroup.Version"`) do set "AMC_VERSION=%%V"
+if not defined AMC_VERSION goto BUILD_FAILED
+set "AMC_EXE=%AMC_ROOT%publish\AccessibleMediaController-%AMC_VERSION%.exe"
+
 if not exist "%AMC_EXE%" (
     >> "%AMC_LOG%" echo BLAD: po budowaniu nie znaleziono pliku "%AMC_EXE%".
     goto BUILD_FAILED
 )
 
 start "" "%AMC_EXE%"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('Program został zbudowany i uruchomiony. Gotowa wersja znajduje się w folderze publish\win-x64.', 'Dostępny kontroler multimedialny') | Out-Null" >nul 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('Program został zbudowany i uruchomiony. Gotowa wersja jest pojedynczym plikiem EXE w folderze publish.', 'Dostępny kontroler multimedialny') | Out-Null" >nul 2>&1
 exit /b 0
 
 :BUILD_FAILED
@@ -90,6 +94,12 @@ echo.
 echo Tworzenie samowystarczalnej wersji dla Windows x64...
 "%AMC_DOTNET%" publish src\AccessibleMediaController.Windows\AccessibleMediaController.Windows.csproj --configuration Release --runtime win-x64 --self-contained true --output "%AMC_OUTPUT%" -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:NuGetAudit=false
 if errorlevel 1 exit /b 24
+
+for /f "usebackq delims=" %%V in (`powershell.exe -NoProfile -Command "[xml]$p=Get-Content -LiteralPath '%AMC_ROOT%Directory.Build.props'; $p.Project.PropertyGroup.Version"`) do set "AMC_VERSION=%%V"
+if not defined AMC_VERSION exit /b 25
+copy /y "%AMC_OUTPUT%\AccessibleMediaController.exe" "%AMC_ROOT%publish\AccessibleMediaController-%AMC_VERSION%.exe" >nul
+if errorlevel 1 exit /b 26
+rd /s /q "%AMC_OUTPUT%"
 
 echo.
 echo Budowanie zakończone pomyślnie.

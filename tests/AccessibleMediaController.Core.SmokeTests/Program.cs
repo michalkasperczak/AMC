@@ -18,6 +18,7 @@ var tests = new (string Name, Action Test)[]
     ("Migracja krótkich komunikatów alpha.7", TestVersion4MessageMigration),
     ("Migracja komunikatów z nazwą elementu alpha.8", TestVersion5MessageMigration),
     ("Przełączanie sesji", TestSessions),
+    ("Wyszukiwanie w katalogu", TestCatalogSearch),
     ("Cofanie zmian przynależności", TestMembershipHistory),
     ("Krótkie komunikaty czasu", TestTimeCommands),
     ("Trzy rodzaje eksportu", TestExports)
@@ -332,6 +333,8 @@ static void TestSessions()
     Equal("TIDAL", manager.Current.DisplayName);
     Equal("WiiM", manager.SelectSlot(3)?.DisplayName);
     Equal("Apple Music", manager.MoveSession(-1).DisplayName);
+    Equal("TIDAL", manager.SelectSession("tidal")?.DisplayName);
+    Equal("tidal", settings.LastSessionId);
     Equal(17, manager.Current.Items.Count);
     Equal(2, manager.Current.Items.Count(item => item.IsInLibrary));
     True(manager.Current.Items.Count(item => item.Title.StartsWith('B')) >= 2, "Dane demonstracyjne powinny umożliwiać powtarzanie litery B.");
@@ -341,6 +344,21 @@ static void TestSessions()
     Equal(false, manager.Current.ToggleQueue(manager.Current.CurrentItem));
     Equal(true, manager.Current.TogglePlayNext(manager.Current.CurrentItem));
     Equal(false, manager.Current.TogglePlayNext(manager.Current.CurrentItem));
+}
+
+static void TestCatalogSearch()
+{
+    var manager = new SessionManager(new AppSettings());
+    var currentResults = MediaCatalogSearch.Search([manager.Current], "brzeg ciszy");
+    Equal(1, currentResults.Count);
+    Equal("Brzeg ciszy", currentResults[0].Item.Title);
+    Equal("TIDAL", currentResults[0].Session.DisplayName);
+
+    var globalResults = MediaCatalogSearch.Search(manager.Sessions, "zielony horyzont");
+    Equal(3, globalResults.Count);
+    True(globalResults.Any(result => result.Session.DisplayName == "Apple Music"), "Wyniki globalne powinny zawierać Apple Music.");
+    Equal(0, MediaCatalogSearch.Search(manager.Sessions, "nieistniejący wynik").Count);
+    Equal(0, MediaCatalogSearch.Search(manager.Sessions, "   ").Count);
 }
 
 static void TestMembershipHistory()

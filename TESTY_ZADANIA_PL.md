@@ -1,56 +1,58 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-015`
-- Tytuł zestawu: Powrót z wyszukiwania, fokus po Delete i rozbudowana lista
-- Wersja programu: `0.1.0-alpha.15`
-- Utworzono: 2026-08-13 21:11:09, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-13_211109_0.1.0-alpha.15.md`
+- Numer zestawu: `AMC-TEST-016`
+- Tytuł zestawu: Prawdziwe wyszukiwanie, rozdzielenie filtra i stabilna lista
+- Wersja programu: `0.1.0-alpha.16`
+- Utworzono: 2026-08-13 23:21:52, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-13_232152_0.1.0-alpha.16.md`
 
-Najważniejsze są trzy pierwsze zadania. Skrótów menu kontekstowego i globalnego prefiksu nie trzeba ponownie sprawdzać.
+Najważniejsze są pierwsze trzy zadania. Do testu nawigacji literami używaj widoku **Teraz odtwarzane**, ponieważ zawiera 17 pozycji. Biblioteka celowo zawiera tylko dwa należące do niej utwory.
 
-W lokalnie zainstalowanym dodatku **NVDA global commands extension 14.1.2** funkcja **Clipboard command announcement** przechwytuje `Ctrl+Z`, wypowiada „Undo”, a następnie przekazuje klawisz aplikacji. Jest to pierwszy podejrzany w diagnostyce zadania AMC-015-04.
+## AMC-016-01 — Wyszukiwanie w bieżącej usłudze
 
-## AMC-015-01 — Escape po wyszukiwaniu
+1. Na głównej liście TIDAL naciśnij `Ctrl+F`.
+2. Sprawdź tytuł okna i początkowy fokus.
+3. Wpisz `Brzeg` i naciśnij Enter.
+4. Sprawdź odczyt liczby wyników i fokus na liście wyników.
+5. Naciśnij Enter na „Brzeg ciszy”.
 
-1. Otwórz zwykły widok, na przykład Bibliotekę.
-2. Naciśnij `Ctrl+F`, a następnie `Escape`.
-3. Sprawdź, czy NVDA podaje listę multimediów oraz zaznaczony element.
-4. Powtórz po `Ctrl+Shift+F`.
+Oczekiwany wynik: otwiera się osobne okno „Szukaj w usłudze TIDAL”, a fokus trafia do pola „Wyszukiwany tekst”. Pierwszy Enter wykonuje wyszukiwanie i przechodzi na wynik. Drugi Enter zamyka okno, wraca do głównej listy „Teraz odtwarzane” i zaznacza „Brzeg ciszy”.
 
-Oczekiwany wynik: `Ctrl+F` podaje „Wyszukiwanie”, a `Ctrl+Shift+F` — „Szukaj we wszystkich usługach”. Jedno naciśnięcie `Escape` wraca do wcześniejszej listy. NVDA podaje „Lista multimediów” i aktualny element, a fokus pozwala od razu nawigować strzałkami.
+## AMC-016-02 — Anulowanie i brak wyników
 
-## AMC-015-02 — Delete bez utraty fokusu
+1. Naciśnij `Ctrl+F`, wpisz tekst, którego nie ma, i naciśnij Enter.
+2. Sprawdź komunikat i położenie fokusu.
+3. Naciśnij Escape.
+4. Otwórz wyszukiwanie ponownie i od razu naciśnij Escape.
 
-1. W zwykłym widoku, w którym usuwanie nie jest dostępne, naciśnij `Delete`.
-2. Po komunikacie użyj strzałki w dół i otwórz menu kontekstowe.
-3. Przejdź do Ulubionych skrótem `Ctrl+U`, usuń element klawiszem `Delete`, a potem przywróć go przez `Ctrl+Z`.
-4. Powtórz w Bibliotece (`Ctrl+L`) i Kolejce (`Ctrl+Q`).
+Oczekiwany wynik: przy braku dopasowania słychać „Brak wyników. Zmień wyszukiwany tekst”, a tekst pozostaje zaznaczony do poprawy. Escape zamyka okno jednym krokiem i przywraca fokus głównej liście bez zmiany widoku.
 
-Oczekiwany wynik: w zwykłym widoku słychać „Usuwanie jest dostępne tylko w widokach Ulubione, Biblioteka i Kolejka”, ale fokus pozostaje na elemencie listy i nie przechodzi do menu Plik. W trzech obsługiwanych widokach element znika, fokus pozostaje na liście, a `Ctrl+Z` przywraca zmianę.
+## AMC-016-03 — Wyszukiwanie globalne i zmiana sesji
 
-## AMC-015-03 — Nawigacja literami na liście 17 elementów
+1. Będąc w TIDAL-u, naciśnij `Ctrl+Shift+F`.
+2. Wpisz `Zielony horyzont` i naciśnij Enter.
+3. Przejrzyj wyniki strzałkami; powinny zawierać nazwę usługi.
+4. Wybierz wynik z Apple Music i naciśnij Enter.
 
-1. W zwykłym widoku sprawdź, czy lista zawiera 17 zróżnicowanych elementów.
-2. Naciśnij szybko `Z`, `I`, `E`, aby przejść do „Zielonego horyzontu”.
-3. Naciskaj wielokrotnie `B`, aby przechodzić między „Brzegiem ciszy” i „Błękitną godziną”.
-4. To samo sprawdź literą `C` dla „Ciepłego deszczu” i „Ciszy o świcie”.
-5. Po krótkiej przerwie rozpocznij inną sekwencję i wróć do jednego z wcześniejszych elementów.
+Oczekiwany wynik: okno nazywa się „Szukaj we wszystkich usługach”. Lista zawiera osobne wyniki TIDAL, Apple Music i WiiM. Otwarcie wyniku Apple Music przełącza główną sesję na Apple Music i zaznacza „Zielony horyzont”.
 
-Oczekiwany wynik: sekwencje przechodzą do właściwych elementów, a powtarzanie jednej litery przechodzi po kolejnych pasujących pozycjach. Test zawsze zaczyna się z tym samym zestawem nazw.
+## AMC-016-04 — Różnica między filtrem a wyszukiwaniem
 
-## AMC-015-04 — Kontrola Ctrl+Z i możliwego konfliktu NVDA
+1. Naciśnij `Ctrl+K`, wpisz `B` i sprawdź zachowanie.
+2. Naciśnij Escape.
+3. Naciśnij `Ctrl+F`, wpisz `B` i naciśnij Enter.
 
-1. Zmień stan Ulubionych skrótem `Ctrl+Shift+U`, a następnie naciśnij `Ctrl+Z`.
-2. Zapisz dokładnie, czy stan został cofnięty i co powiedział NVDA.
-3. Jeżeli wystąpi angielskie „Undo”, w ustawieniach dodatku **NVDA global commands extension** przejdź do kategorii **Features's installation** i ustaw **Clipboard command announcement** na **Do not install**.
-4. Uruchom ponownie NVDA zgodnie z prośbą dodatku i powtórz próbę.
-5. Dopiero jeżeli problem nadal występuje, powtórz test po jednorazowym uruchomieniu NVDA ze wszystkimi dodatkami wyłączonymi.
+Oczekiwany wynik: `Ctrl+K` nie otwiera nowego okna i od razu zawęża wyłącznie bieżącą, załadowaną listę. `Ctrl+F` otwiera osobne okno i wykonuje zapytanie dopiero po Enterze. W prototypie wyszukiwanie korzysta jeszcze z katalogu demonstracyjnego; później ten sam interfejs odpytuje prawdziwą usługę.
 
-Oczekiwany wynik AMC: zmiana zostaje cofnięta. Jeżeli angielskie „Undo” znika po wyłączeniu funkcji **Clipboard command announcement**, konflikt jest jednoznacznie rozpoznany i nie wymaga dalszych zmian mechanizmu AMC.
+## AMC-016-05 — Nawigacja literami we właściwym widoku
 
-## AMC-015-05 — Krótka regresja filtra
+1. Z menu **Widok** otwórz **Teraz odtwarzane** i sprawdź, że lista ma 17 pozycji.
+2. Naciśnij szybko `Z`, `I`, `E`.
+3. Po krótkiej przerwie naciskaj pojedyncze `B`, za każdym razem czekając na odczyt elementu.
+4. Powtórz z literą `C`.
 
-1. Naciśnij `Ctrl+K`, wpisz fragment nazwy i przejdź strzałką w dół do wyników.
-2. Naciśnij `Escape`.
+Oczekiwany wynik: `ZIE` przechodzi do „Zielonego horyzontu”. Kolejne pojedyncze `B` przechodzą między „Brzegiem ciszy” i „Błękitną godziną”, a `C` — między „Ciepłym deszczem” i „Ciszą o świcie”. Elementy nie znikają; przejście do Biblioteki pokazuje tylko jej dwa elementy i nie zmienia katalogu „Teraz odtwarzane”.
 
-Oczekiwany wynik: filtr działa, `Escape` czyści go jednym krokiem i fokus pozostaje na liście.
+## Następne funkcje po tym zestawie
+
+Po ustabilizowaniu wyszukiwania kolejny mały etap obejmie dostępną paletę poleceń pod `Ctrl+Shift+K`. Równolegle w planie pozostają niskopoziomowy, konfigurowalny prefiks z testem `Ctrl+Numeryczny Enter`, porządek instalacji i aktualizacji, wydzielenie AMC.Host, WiiM jako pierwszy realny adapter oraz późniejsze logowanie OAuth do usług. Tych tematów nie dokładamy naraz do testu alpha.16, ale pozostają zapisane w `MEDIA_CONTROLLER_PL.md`.
