@@ -1,116 +1,55 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-021`
-- Tytuł zestawu: Wyniki wyszukiwania, kontekst usług i fokus Ustawień
-- Wersja programu: `0.1.0-alpha.21`
-- Utworzono: 2026-08-14 21:46:19, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-14_214619_0.1.0-alpha.21.md`
+- Numer zestawu: `AMC-TEST-022`
+- Tytuł zestawu: Jednorazowy odczyt usługi i znaczenie tytułów okien
+- Wersja programu: `0.1.0-alpha.22`
+- Utworzono: 2026-08-14 23:38:14, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-14_233814_0.1.0-alpha.22.md`
 
-Ten zestaw sprawdza tylko zmiany po alpha.19. Najważniejsze są dokładne wypowiedzi NVDA i ich kolejność.
+Alpha.21 potwierdziła pozostałe poprawki. Ten krótki zestaw sprawdza tylko kolejność powrotu z wyszukiwania globalnego i doprecyzowaną semantykę tytułów.
 
-## AMC-021-01 — Wynik bez zbędnego prefiksu
-
-1. W Ustawieniach wyłącz szczegółowe podpowiedzi klawiatury.
-2. Przełącz się do TIDAL skrótem `Ctrl+1`.
-3. Naciśnij `Ctrl+F`, wpisz `Ciepły deszcz` i naciśnij Enter.
-4. Zapisz pierwszą pełną wypowiedź NVDA.
-5. Wyszukaj `demonstracyjny` i przejdź strzałką na drugi wynik.
-
-Oczekiwane wyniki:
-
-- odczyt zaczyna się od wykonawcy albo tytułu, zgodnie z ustawioną kolejnością pól;
-- nie występuje początkowe „Wyniki wyszukiwania”;
-- pozycja natywnej listy, np. „1 z 1” albo „2 z 3”, nadal jest czytana dokładnie raz;
-- zwykły Enter na wyniku nadal wraca do głównej listy i nie uruchamia odtwarzania.
-
-## AMC-021-02 — Skrócona pomoc szczegółowa
-
-1. Włącz opcję **Pokazuj szczegółowe podpowiedzi klawiatury przy polach i listach**.
-2. Przez `Ctrl+F` wyszukaj `Ciepły deszcz`.
-3. Zapisz pełną wypowiedź wyniku.
-4. Wyłącz szczegółowe podpowiedzi i powtórz próbę.
-
-Oczekiwane wyniki:
-
-- w trybie szczegółowym po elemencie i pozycji występuje tylko: „Strzałki wybierają wynik. Enter otwiera. Escape zamyka okno”;
-- nie są powtarzane skróty kolejki, następnego utworu, Ulubionych ani informacji;
-- w trybie krótkim instrukcji nie ma.
-
-## AMC-021-03 — Usługa w lokalnych działaniach bezpośrednich
+## AMC-022-01 — Zwykły Enter i usługa po elemencie
 
 1. Przełącz się do TIDAL skrótem `Ctrl+1`.
-2. Przez `Ctrl+F` wyszukaj `Brzeg ciszy`.
-3. Na wyniku naciśnij `Shift+Enter`, a następnie naciśnij go drugi raz, aby przywrócić stan Kolejki.
-4. Na tym samym wyniku naciśnij dwukrotnie `Ctrl+Shift+U`, aby sprawdzić Ulubione i przywrócić stan.
-5. Naciśnij `Alt+Enter` i sprawdź treść okna Informacje.
-6. Za każdym razem zapisz komunikat oraz sprawdź, czy okno wyników pozostało otwarte.
+2. Naciśnij `Ctrl+Shift+F`, wyszukaj `Zielony horyzont` i strzałką wybierz wynik Apple Music.
+3. Otwórz wynik zwykłym Enter.
+4. Zapisz dokładnie całą kolejność wypowiedzi NVDA po powrocie.
+5. Odczytaj tytuł głównego okna.
 
 Oczekiwane wyniki:
 
-- każdy komunikat kończy się nazwą `TIDAL`, także w wyszukiwaniu bieżącej usługi;
-- komunikat zawiera nazwę elementu;
-- okno Informacje zawiera osobny wiersz „Usługa: TIDAL”;
-- fokus pozostaje na wyniku i można od razu wykonać kolejne działanie.
+- fokus najpierw odczytuje zaznaczony element „Zielony horyzont” wraz z jego polami i pozycją;
+- dopiero później słychać osobny, jednorazowy komunikat „Usługa: Apple Music”;
+- komunikat nie powtarza tytułu elementu ani nazwy widoku;
+- ponieważ zwykły Enter w wyszukiwaniu tylko otwiera wynik, tytuł głównego okna nadal wskazuje dotychczas odtwarzany element Apple Music, a nie „Zielony horyzont”.
 
-## AMC-021-04 — Tytuł głównego okna i Kolejka
+## AMC-022-02 — Działanie bezpośrednie, Escape i usługa
 
-1. Zamknij wyszukiwanie, przejdź do „Ciepłego deszczu” na głównej liście i naciśnij `Ctrl+Enter`.
-2. Odczytaj tytuł głównego okna poleceniem NVDA do odczytu tytułu.
-3. Naciśnij `Ctrl+Q`, przejdź na „Nocny pociąg” i zapisz wypowiedź pozycji Kolejki.
-4. Ponownie odczytaj tytuł głównego okna.
-
-Oczekiwane wyniki:
-
-- tytuł zaczyna się od „Ciepły deszcz — TIDAL” i dopiero potem podaje widok oraz AMC;
-- po przejściu do Kolejki tytuł nadal zaczyna się od bieżącego utworu i usługi, a widok zmienia się na „Kolejka”;
-- etykieta „Nocnego pociągu” zawiera `TIDAL` przed informacją o pozycji na liście.
-
-## AMC-021-05 — Jednoznaczny powrót z wyszukiwania globalnego
-
-1. Będąc w TIDAL-u, naciśnij `Ctrl+Shift+F` i wyszukaj `Zielony horyzont`.
-2. Strzałką wybierz wynik Apple Music i otwórz go zwykłym Enter.
-3. Zapisz kolejno wypowiedź elementu po odzyskaniu fokusu i późniejszy komunikat kontekstu.
-4. Odczytaj tytuł głównego okna.
-5. Powtórz wyszukiwanie globalne, wybierz wynik WiiM, użyj `Ctrl+Enter`, a następnie Escape.
+1. Otwórz ponownie wyszukiwanie globalne i wyszukaj `Zielony horyzont`.
+2. Wybierz wynik WiiM i naciśnij `Ctrl+Enter`.
+3. Potwierdź, że wyniki pozostały otwarte i że komunikat działania zawiera WiiM.
+4. Naciśnij Escape i zapisz całą kolejność wypowiedzi po powrocie.
+5. Odczytaj tytuł głównego okna.
 
 Oczekiwane wyniki:
 
-- zwykły Enter wraca na „Zielony horyzont” w głównej liście Apple Music;
-- komunikat kontekstu podaje w tej kolejności: „Zielony horyzont, Apple Music, Teraz odtwarzane”;
-- tytuł głównego okna zaczyna się od bieżącego utworu i usługi;
-- `Ctrl+Enter` pozostawia wyniki otwarte i mówi „Odtwarzanie: Zielony horyzont, WiiM”;
-- po Escape fokus wraca do właściwego elementu sesji WiiM.
+- `Ctrl+Enter` mówi „Odtwarzanie: Zielony horyzont, WiiM” i nie zamyka wyników;
+- po Escape najpierw czytany jest element głównej listy, a następnie „Usługa: WiiM”;
+- nazwa usługi nie zostaje przykryta kolejnym odczytem fokusu;
+- tytuł głównego okna zaczyna się od „Zielony horyzont — WiiM”, ponieważ tym razem utwór został uruchomiony.
 
-## AMC-021-06 — Początkowy fokus Ustawień
+## AMC-022-03 — Tytuł wyszukiwania i tytuł odtwarzania
 
-1. Na głównej liście zaznacz „Brzeg ciszy”.
-2. Otwórz Ustawienia skrótem `Ctrl+,` i zapisz pierwszą pełną wypowiedź NVDA.
-3. Naciśnij strzałkę w prawo dwa razy, zapisując nazwy kolejnych kategorii.
-4. Naciśnij Tab i sprawdź, czy fokus przechodzi do pierwszej kontrolki wybranej karty.
-5. Naciśnij `Shift+Tab` i sprawdź powrót do nagłówka karty.
+1. W głównym oknie WiiM uruchom `Ctrl+F` i odczytaj tytuł okna.
+2. Zamknij wyszukiwanie Escape i ponownie odczytaj tytuł głównego okna.
+3. Przejdź do Kolejki skrótem `Ctrl+Q` i jeszcze raz odczytaj tytuł.
 
 Oczekiwane wyniki:
 
-- pierwszym elementem fokusu jest zaznaczona karta „Ogólne”, a nie Zapisz, Anuluj ani kontrolka o niejasnej nazwie;
-- NVDA podaje rolę karty i jej pozycję wśród kategorii;
-- strzałki zmieniają karty, a Tab wchodzi do zawartości wybranej karty;
-- fokus nie pozostaje w głównym oknie pod oknem modalnym.
-
-## AMC-021-07 — Powrót z Ustawień
-
-1. Na dowolnej kontrolce Ustawień naciśnij Escape.
-2. Sprawdź pierwszą pozycję odczytaną po zamknięciu.
-3. Otwórz Ustawienia ponownie, przejdź do dowolnej opcji i wybierz Zapisz skrótem `Alt+Z`.
-4. Zapisz kolejno odczyt elementu listy i komunikat o zapisaniu.
-5. Otwórz Ustawienia z menu aplikacji i anuluj je, aby sprawdzić również wariant menu.
-
-Oczekiwane wyniki:
-
-- Escape zamyka wyłącznie Ustawienia i przywraca fokus na „Brzeg ciszy” albo ostatnio zaznaczony element;
-- Zapisz również przywraca fokus do głównej listy;
-- „Zapisano ustawienia” następuje po przywróceniu listy, nie przed nim;
-- otwarcie z menu nie pozostawia fokusu w menu po zamknięciu Ustawień.
+- w wyszukiwaniu tytuł brzmi „Szukaj w usłudze WiiM — AMC”, ponieważ opisuje zakres aktualnego okna;
+- po zamknięciu tytuł główny ponownie zaczyna się od aktualnie odtwarzanego elementu i usługi;
+- przejście do Kolejki zmienia tylko człon widoku, nie nazwę aktualnie odtwarzanego elementu.
 
 ## Następne funkcje po tym zestawie
 
-Po zatwierdzeniu tych poprawek następny mały etap to lokalna historia wyszukiwania: osobna dla każdej usługi i dla zakresu globalnego, do 20 unikatowych zapytań, z wyborem strzałką w dół przy pustym polu. Następnie powstanie dostępna paleta poleceń pod `Ctrl+Shift+K`. Nadal pozostają: niskopoziomowy konfigurowalny prefiks i test kandydatów z NVDA, JAWS-em oraz menedżerami schowka, instalator i bezpieczne aktualizacje, AMC.Host, WiiM oraz pierwsze logowanie OAuth.
+Po zatwierdzeniu kolejności powrotu następnym małym etapem będzie lokalna historia wyszukiwania: osobna dla każdej usługi i zakresu globalnego, do 20 unikatowych zapytań, wybierana strzałką w dół przy pustym polu. Następnie powstanie dostępna paleta poleceń pod `Ctrl+Shift+K`. Nadal pozostają niskopoziomowy konfigurowalny prefiks, instalator i bezpieczne aktualizacje, AMC.Host, WiiM oraz pierwsze logowanie OAuth.

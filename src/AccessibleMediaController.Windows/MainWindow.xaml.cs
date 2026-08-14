@@ -111,22 +111,23 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             NavigateTo("Teraz odtwarzane", false);
             SelectMediaItem(result.Item.Id);
             RestoreMediaListFocusAfterRefresh();
-            if (allServices) AnnounceSearchReturnContext(result.Item);
+            if (allServices) AnnounceSearchReturnContext();
             return;
         }
 
         RestoreMediaListFocusAfterRefresh();
         if (allServices && _sessions.Current.Id != sessionBeforeSearch)
         {
-            AnnounceSearchReturnContext(SelectedItem ?? _sessions.Current.CurrentItem);
+            AnnounceSearchReturnContext();
         }
     }
 
-    private void AnnounceSearchReturnContext(MediaItem item)
+    private void AnnounceSearchReturnContext()
     {
+        var serviceName = _sessions.Current.DisplayName;
         Dispatcher.BeginInvoke(
-            () => Announce($"{item.Title}, {_sessions.Current.DisplayName}, {_currentView}"),
-            DispatcherPriority.ContextIdle);
+            () => Announce($"Usługa: {serviceName}"),
+            DispatcherPriority.ApplicationIdle);
     }
 
     public void ShowFilter()
