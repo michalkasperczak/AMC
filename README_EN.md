@@ -4,28 +4,26 @@ This is the first demonstration prototype of the global-prefix media controller.
 
 This README describes the current prototype. Its single version number is stored in `Directory.Build.props`, so the core, Windows UI and published program always receive the same version. The approved development direction, target architecture and complete keyboard map are recorded in [`MEDIA_CONTROLLER_EN.md`](MEDIA_CONTROLLER_EN.md).
 
-## Simplest start — no commands to type
+## Simplest way to run a published build
 
-1. Extract the complete archive to a regular folder.
-2. In File Explorer, select `ZBUDUJ_I_URUCHOM.cmd` and press Enter or double-click it.
-3. Wait for the result message. After a successful build, the application starts automatically.
+1. Open the `publish` folder.
+2. Select `AccessibleMediaController-<version>.exe` with the highest version number.
+3. Press Enter or double-click it.
 
-The file checks for the .NET 8 SDK. If it is missing, it attempts to install the official Microsoft package with Windows Package Manager (`winget`), then restores dependencies, builds the project, runs the checks, and creates one self-contained `publish\AccessibleMediaController-<version>.exe` file. The first run may take several minutes, requires an Internet connection, and may display a Windows installation consent prompt.
-
-If the build fails, the script automatically opens `build-log.txt` in Notepad with the details. No terminal commands need to be typed.
+The published file is self-contained and includes the required .NET runtime. A user testing the ready build does not need to install the SDK or build the project.
 
 ## Build requirements
 
 - Windows 10 or Windows 11;
-- .NET 8 SDK — `ZBUDUJ_I_URUCHOM.cmd` can install it automatically;
+- .NET 8 SDK installed by the person building the project;
 - PowerShell 5.1 or later;
 - NVDA, JAWS or Narrator for accessibility testing.
 
-The project is built on Windows and checked with automated core smoke tests. The simplest route is the File Explorer launcher described above.
+The project is built on Windows and checked with automated core smoke tests. Normal testing uses the ready EXE from the `publish` folder.
 
 ## Build and run
 
-The commands below are only for people who prefer a manual build. For regular use, `ZBUDUJ_I_URUCHOM.cmd` is enough.
+The commands below are for project contributors and people preparing a new published build.
 
 From PowerShell in the project directory:
 

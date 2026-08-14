@@ -4,28 +4,26 @@ To pierwszy demonstracyjny prototyp aplikacji sterowanej globalnym prefiksem. Sp
 
 Ten README opisuje zachowanie bieżącego prototypu. Wspólny numer wersji jest zapisany w `Directory.Build.props`, dzięki czemu rdzeń, okno i publikowany program zawsze otrzymują ten sam numer. Zatwierdzony kierunek dalszego rozwoju, docelowa architektura oraz pełna mapa skrótów znajdują się w [`MEDIA_CONTROLLER_PL.md`](MEDIA_CONTROLLER_PL.md).
 
-## Najprostsze uruchomienie — bez wpisywania poleceń
+## Najprostsze uruchomienie gotowej wersji
 
-1. Rozpakuj całą paczkę do zwykłego folderu.
-2. W Eksploratorze plików wybierz `ZBUDUJ_I_URUCHOM.cmd` i naciśnij Enter albo kliknij go dwukrotnie.
-3. Zaczekaj na komunikat. Po udanym zbudowaniu aplikacja otworzy się automatycznie.
+1. Otwórz folder `publish`.
+2. Wybierz plik `AccessibleMediaController-<wersja>.exe` z najwyższym numerem wersji.
+3. Naciśnij Enter albo kliknij go dwukrotnie.
 
-Plik sam sprawdza .NET 8 SDK. Jeśli go nie ma, próbuje zainstalować oficjalny pakiet Microsoft za pomocą Menedżera pakietów Windows (`winget`), a następnie przywraca składniki, kompiluje projekt, uruchamia testy i tworzy pojedynczy samowystarczalny plik `publish\AccessibleMediaController-<wersja>.exe`. Pierwsze uruchomienie może potrwać kilka minut, wymaga połączenia z Internetem i może wyświetlić systemową prośbę o zgodę na instalację.
-
-W razie błędu skrypt automatycznie otwiera w Notatniku plik `build-log.txt` ze szczegółami. Nie trzeba wpisywać żadnych poleceń w terminalu.
+Publikowany plik jest samowystarczalny i zawiera wymagane środowisko .NET. Użytkownik testujący gotową wersję nie musi instalować SDK ani budować projektu.
 
 ## Wymagania do zbudowania
 
 - Windows 10 lub Windows 11;
-- .NET 8 SDK — plik `ZBUDUJ_I_URUCHOM.cmd` może go doinstalować automatycznie;
+- .NET 8 SDK zainstalowany przez osobę budującą projekt;
 - PowerShell 5.1 lub nowszy;
 - do testów dostępności: NVDA, JAWS albo Narrator.
 
-Projekt jest budowany i sprawdzany automatycznymi testami rdzenia na Windows. Najprościej uruchomić go powyższym plikiem z Eksploratora.
+Projekt jest budowany na Windows i sprawdzany automatycznymi testami rdzenia. Do zwykłego testowania służy gotowy plik EXE z folderu `publish`.
 
 ## Budowanie i uruchamianie
 
-Poniższe polecenia są przeznaczone tylko dla osób, które wolą budowanie ręczne. Do zwykłego użycia wystarczy `ZBUDUJ_I_URUCHOM.cmd`.
+Poniższe polecenia są przeznaczone dla osób rozwijających projekt lub przygotowujących nową publikację.
 
 W PowerShellu, w katalogu projektu:
 

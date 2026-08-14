@@ -31,4 +31,4 @@ Data przeglądu: 2026-08-14. Zakres: wszystkie zapisane pliki `WYNIKI_*.md` od a
 - Globalny prefiks wymaga niskopoziomowego, konfigurowalnego przechwytywania oraz testów kandydatów, w tym `Ctrl+Numeryczny Enter`, z NVDA, JAWS-em i menedżerami schowka.
 - `Ctrl+Shift+K` jest zarezerwowane dla dostępnej palety poleceń, która nie została jeszcze zaimplementowana.
 - AMC.Host, adapter WiiM, pierwsze logowanie OAuth oraz bezpieczny instalator i aktualizator komponentów pozostają kolejnymi etapami po ustabilizowaniu okna.
-- W drzewie roboczym brakuje `ZBUDUJ_I_URUCHOM.cmd`, choć dokumentacja nadal go opisuje. Usunięcie nie zostało włączone do zmian alpha.19; przed publikacją trzeba świadomie wybrać przywrócenie programu uruchamiającego albo usunięcie odwołań z dokumentacji.
+- Rozwiązano w alpha.21: `ZBUDUJ_I_URUCHOM.cmd` został świadomie usunięty jako zbędny. README kieruje użytkownika do gotowego EXE, a osoby rozwijające projekt do `build.ps1`.
