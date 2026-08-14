@@ -288,6 +288,20 @@ Search history will be local and separated by scope: one history for each servic
 
 After the shared metadata model is extended, plain Left and Right Arrow on result lists and other browsing lists will move through available fields for the focused resource, such as title, artist, album, composer, year and service. The adapter declares available fields and the UI skips missing values. This is one cross-view mechanism rather than a separate implementation for every service.
 
+### 7.5. Long lists and data paging
+
+Letter navigation keeps the existing semantic rule: it searches the primary name appropriate to the current view, such as track title, artist name or album title, independently of the screen reader's configured field order. Letters operate only among already loaded items. Full service-catalogue lookup remains the job of `Ctrl+F`, so typing a letter never launches a series of unpredictable network requests.
+
+Long catalogues and result sets are fetched in pages, provisionally 100–200 items at a time. An adapter translates the service-specific mechanism into one shared page result: items, an opaque continuation token, whether another page exists, and an optional total result count. The UI does not assume that a service knows the total or supports numbered pages.
+
+On the final loaded item, plain Down Arrow or Page Down starts fetching the next page. Focus remains on the same item, identified by its stable ID, while loading. AMC briefly announces “Loading more items” and then, for example, “Loaded 100 more, 200 total”; the next Down Arrow reaches the first newly appended item. A failed fetch does not change selection and ends with an accessible message that permits retrying.
+
+A real **Load more** button may follow the list as a Tab-accessible alternative. It is not a fake media row inside the list, never participates in letter navigation, and disappears or becomes unavailable when no further data exists. Activating the button moves focus to the first newly appended item after loading succeeds.
+
+Loading more appends to the existing collection rather than unnecessarily replacing the entire list source. Updates are batched and the screen reader receives only the final state. When item order is unchanged, only labels are updated. Focus and scroll position are restored by stable ID rather than a raw row number. When a total is known, the message may say “200 of 1,843 loaded”; otherwise, “200 loaded, more available”.
+
+[WinZapp_Python](https://github.com/gabrielhhaber/WinZapp_Python) is the behavioural reference for stable focus, paging and batched accessibility events. AMC implements these ideas independently in .NET and WPF; it neither copies GPL-3.0 code nor changes technology because of this reference.
+
 ## 8. Playlist selection
 
 `Shift+P` in the prefix layer, or the local Manage Playlists command, opens a small modal window containing:

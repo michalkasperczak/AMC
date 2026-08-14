@@ -288,6 +288,20 @@ Historia wyszukiwania będzie lokalna i rozdzielona według zakresu: osobno dla 
 
 Po rozszerzeniu wspólnego modelu metadanych zwykłe strzałki w lewo i w prawo na listach wyników i pozostałych listach będą przechodziły po dostępnych polach bieżącego zasobu, np. tytule, wykonawcy, albumie, kompozytorze, roku i usłudze. Adapter deklaruje dostępne pola, a interfejs pomija brakujące wartości. Mechanizm ma być wspólny dla wszystkich widoków, a nie implementowany osobno dla każdej usługi.
 
+### 7.5. Długie listy i porcjowanie danych
+
+Nawigacja literami zachowuje obecną regułę semantyczną: przeszukuje główną nazwę właściwą dla bieżącego widoku, np. tytuł utworu, nazwę wykonawcy albo tytuł albumu, niezależnie od kolejności pól odczytywanych przez czytnik ekranu. Litery działają tylko wśród elementów już załadowanych. Pełne przeszukiwanie katalogu usługi pozostaje zadaniem `Ctrl+F`, dzięki czemu wpisanie litery nie wywołuje serii nieprzewidywalnych zapytań sieciowych.
+
+Długie katalogi i wyniki są pobierane porcjami, roboczo po 100–200 elementów. Adapter tłumaczy mechanizm konkretnej usługi na wspólny wynik strony: elementy, nieprzezroczysty znacznik kontynuacji, informację, czy istnieje następna strona, oraz opcjonalną liczbę wszystkich wyników. Interfejs nie zakłada, że usługa zna sumę ani że obsługuje numery stron.
+
+Na ostatnim załadowanym elemencie zwykła strzałka w dół albo Page Down rozpoczyna pobieranie następnej porcji. W trakcie fokus pozostaje na tym samym elemencie identyfikowanym trwałym ID. Program mówi krótko „Ładowanie kolejnych elementów”, a po sukcesie np. „Załadowano 100 kolejnych, 200 łącznie”; następna strzałka przechodzi już do pierwszego nowego elementu. Nieudane pobranie nie zmienia zaznaczenia i kończy się dostępnym komunikatem z możliwością ponowienia.
+
+Po liście może znajdować się prawdziwy przycisk **Załaduj więcej** jako alternatywa dostępna Tabem. Nie jest on udawanym elementem multimedialnym wewnątrz listy, nie uczestniczy w nawigacji literami i znika albo staje się niedostępny, gdy nie ma dalszych danych. Po użyciu przycisku fokus przechodzi na pierwszy nowo dodany element.
+
+Doładowanie dopisuje elementy do istniejącej kolekcji zamiast bez potrzeby zastępować całe źródło listy. Aktualizacje są grupowane, a czytnik ekranu otrzymuje tylko końcowy stan. Jeżeli elementy nie zmieniły kolejności, aktualizowane są wyłącznie ich etykiety. Fokus i pozycja przewijania są przywracane według trwałego ID, nie surowego numeru wiersza. Gdy całkowita liczba jest znana, komunikat może brzmieć „200 z 1843 załadowanych”; w przeciwnym razie „200 załadowanych, więcej dostępnych”.
+
+Inspiracją dla stabilności fokusu, porcjowania i grupowania zdarzeń jest [WinZapp_Python](https://github.com/gabrielhhaber/WinZapp_Python). Zachowanie implementujemy niezależnie w .NET i WPF; nie kopiujemy kodu projektu objętego GPL-3.0 ani nie zmieniamy z tego powodu technologii AMC.
+
 ## 8. Wybór playlisty
 
 `Shift+P` w warstwie albo lokalne polecenie zarządzania playlistami otwiera niewielkie modalne okno:
