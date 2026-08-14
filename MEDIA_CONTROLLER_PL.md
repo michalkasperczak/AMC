@@ -473,6 +473,10 @@ Radio internetowe jest osobnym adapterem rdzenia i korzysta z tych samych sesji,
 - wersja macOS przechodzi osobne testy z VoiceOver i narzędziami dostępności Apple;
 - awaria adaptera nie może zawiesić czytnika ekranu ani uszkodzić konfiguracji pozostałych usług.
 
+Most NVDA może być używany wyłącznie jako oddzielne, opcjonalne narzędzie deweloperskie. Nie jest składnikiem AMC ani wydania dla użytkownika. Profil testowy jest domyślnie wyłączony, nasłuchuje tylko na `127.0.0.1`, wymaga losowego tokenu bez wartości domyślnej i udostępnia jedynie odczyt tytułu okna, fokusu oraz obiektu nawigatora. Nie wolno mu przesuwać fokusu, mówić, wyświetlać komunikatów, czytać logu, przeładowywać dodatków ani restartować NVDA. Raport nie utrwala wartości i opisów pól, bieżącego wiersza ani logu czytnika.
+
+Taki most daje pojedynczy zrzut informacji rozpoznawanych przez NVDA; nie przechwytuje wypowiedzi i nie dowodzi poprawności kolejności Tab, skrótów, trybu przeglądania lub brajla. Dlatego pozostaje uzupełnieniem testów UI Automation i ręcznej macierzy NVDA, JAWS oraz Narrator. Publiczny projekt `nvda-mcp-bridge` 0.2.0 jest tylko punktem odniesienia: przed ewentualnym użyciem wymaga utwardzenia, a jego kod GPL-2.0 pozostaje poza kodem i dystrybucją AMC.
+
 ### 13.5. Dystrybucja, biblioteki, komponenty i aktualizacje
 
 Obecny pojedynczy plik EXE ma około 162 MB przede wszystkim dlatego, że jest publikacją samowystarczalną i zawiera środowisko .NET. Nie zawiera jeszcze przyszłych usług ani pełnego zestawu kodeków. Rozdzielenie go na wiele plików może zmniejszyć sam plik startowy, ale nie musi zmniejszyć całego miejsca zajętego przez instalację. Priorytetem jest niezawodne uruchomienie bez ręcznego instalowania bibliotek, a oszczędność transferu uzyskujemy przez aktualizacje różnicowe i opcjonalne komponenty.

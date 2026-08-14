@@ -473,6 +473,10 @@ Internet radio is a separate core adapter and uses the same sessions, Favorites,
 - macOS receives separate VoiceOver and Apple accessibility-tool testing;
 - an adapter failure must not hang the screen reader or damage configuration for other services.
 
+An NVDA bridge may be used only as a separate optional development tool. It is not an AMC component and is not shipped to users. The test profile is disabled by default, listens only on `127.0.0.1`, requires a random token with no default value, and exposes only window-title, focus-object and navigator-object reads. It must not move focus, speak, display messages, read logs, reload add-ons or restart NVDA. Reports never persist field values or descriptions, the current line or the screen-reader log.
+
+Such a bridge provides a single snapshot of information recognized by NVDA; it does not capture spoken output or prove Tab order, shortcuts, browse mode or braille behaviour. It therefore supplements UI Automation tests and the manual NVDA, JAWS and Narrator matrix. The public `nvda-mcp-bridge` 0.2.0 project is only a reference: it requires hardening before use, and its GPL-2.0 code remains outside AMC source and distribution.
+
 ### 13.5. Distribution, libraries, components and updates
 
 The current single EXE is about 162 MB primarily because it is a self-contained publication that includes the .NET runtime. It does not yet contain future services or a complete codec set. Splitting it into many files can make the launcher smaller without necessarily reducing the total installed footprint. Reliable startup without manual library installation takes priority; differential updates and optional components reduce network transfer.

@@ -43,6 +43,9 @@ dotnet run --project tests/AccessibleMediaController.Core.SmokeTests
 Po każdej większej zmianie wykonaj także testy ręczne opisane w
 [`TESTY_ZADANIA_PL.md`](TESTY_ZADANIA_PL.md). Ten stały plik jest aktualizowany dla bieżącej wersji i zawiera ponumerowane zadania z tytułami. Wyniki wpisuj do nowego, niepowtarzalnego pliku w folderze `wyniki-testow`; jego nazwa zawiera datę, godzinę oraz wersję programu.
 
+Opcjonalny, bezpieczny klient smoke testu NVDA znajduje się w
+[`tests/accessibility/nvda`](tests/accessibility/nvda). Nie instaluje dodatku i akceptuje wyłącznie utwardzony, lokalny profil mostu tylko do odczytu. Nie zastępuje testów ręcznych ani UI Automation.
+
 Samowystarczalna wersja dla Windows x64, zawierająca środowisko .NET:
 
 ```powershell
@@ -127,4 +130,5 @@ Docelowy mechanizm powinien:
 - `src/AccessibleMediaController.Core` — polecenia, profile, konfiguracja, sesje i interfejs aktualizacji;
 - `src/AccessibleMediaController.Windows` — WPF, UI Automation, globalny prefiks i dostępne okna;
 - `tests/AccessibleMediaController.Core.SmokeTests` — proste testy logiki bez zewnętrznych pakietów;
+- `tests/accessibility/nvda` — opcjonalny, chroniony klient smoke testu NVDA;
 - `MEDIA_CONTROLLER_PL.md` i `MEDIA_CONTROLLER_EN.md` — pełna specyfikacja koncepcji.

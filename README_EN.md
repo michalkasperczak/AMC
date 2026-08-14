@@ -40,6 +40,8 @@ Run dependency-free core smoke tests:
 dotnet run --project tests/AccessibleMediaController.Core.SmokeTests
 ```
 
+An optional guarded NVDA smoke-test client is available in `tests/accessibility/nvda`. It installs no add-on and accepts only a hardened, loopback-only, read-only bridge profile. It supplements rather than replaces manual and UI Automation testing.
+
 Create a self-contained Windows x64 build including the .NET runtime:
 
 ```powershell
@@ -108,4 +110,5 @@ The final updater should provide a self-contained per-user installation, update 
 - `src/AccessibleMediaController.Core` — commands, profiles, configuration, sessions and update interface;
 - `src/AccessibleMediaController.Windows` — WPF, UI Automation, global prefix and accessible windows;
 - `tests/AccessibleMediaController.Core.SmokeTests` — dependency-free logic checks;
+- `tests/accessibility/nvda` — optional guarded NVDA smoke-test client;
 - `MEDIA_CONTROLLER_PL.md` and `MEDIA_CONTROLLER_EN.md` — complete concept specification.
