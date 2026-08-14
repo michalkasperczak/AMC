@@ -506,7 +506,7 @@ The current Windows prototype should first stabilise:
 
 The first prototype and initial working release target Windows only. macOS, VoiceOver and possible Siri support are later stages.
 
-State of `alpha.16`: filtering and searching are now separate—`Ctrl+K` narrows the current list, while `Ctrl+F` and `Ctrl+Shift+F` open dedicated query and results windows. The core and UI take one version from `Directory.Build.props`, and the portable publication is produced as one unambiguously named EXE. The main remaining first-stage work is an accessible command palette, low-level capture of a configurable prefix, and candidate-prefix testing with NVDA, JAWS and clipboard managers. Search currently uses the demonstration catalogue; real network queries arrive with service adapters.
+State of `alpha.17`: filtering and searching are separate—`Ctrl+K` narrows the current list, while `Ctrl+F` and `Ctrl+Shift+F` open dedicated query and results windows. A result can be opened or directly played, queued, marked Play Next or Favorite, and inspected. Type-ahead always matches the item title regardless of the configured field-reading order. The core and UI take one version from `Directory.Build.props`, and the portable publication is produced as one unambiguously named EXE. The main remaining first-stage work is an accessible command palette, low-level capture of a configurable prefix, and candidate-prefix testing with NVDA, JAWS and clipboard managers. Search currently uses the demonstration catalogue; real network queries arrive with service adapters.
 
 Planned sequence of later stages:
 

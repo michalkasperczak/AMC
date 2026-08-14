@@ -22,6 +22,22 @@ public sealed class DemoMediaSession
 
     public void TogglePlayback() => IsPlaying = !IsPlaying;
 
+    public bool SelectItem(MediaItem item)
+    {
+        var index = Items.FindIndex(candidate => candidate.Id == item.Id);
+        if (index < 0) return false;
+        if (index != _currentIndex) Position = TimeSpan.Zero;
+        _currentIndex = index;
+        return true;
+    }
+
+    public bool Play(MediaItem item)
+    {
+        if (!SelectItem(item)) return false;
+        IsPlaying = true;
+        return true;
+    }
+
     public void Move(int direction)
     {
         _currentIndex = (_currentIndex + direction + Items.Count) % Items.Count;

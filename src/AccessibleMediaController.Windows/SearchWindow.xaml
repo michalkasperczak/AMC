@@ -30,8 +30,32 @@
 
         <ListBox x:Name="ResultsList" DisplayMemberPath="Label"
                  automation:AutomationProperties.Name="Wyniki wyszukiwania"
-                 automation:AutomationProperties.HelpText="Enter otwiera wybrany wynik. Escape zamyka okno."
+                 automation:AutomationProperties.HelpText="Enter otwiera wynik. Control Enter odtwarza teraz. Shift Enter dodaje do kolejki. Control Shift Enter przełącza odtwarzanie jako następne. Control Shift U przełącza ulubione. Alt Enter pokazuje informacje."
                  PreviewKeyDown="ResultsList_PreviewKeyDown"
-                 MouseDoubleClick="ResultsList_MouseDoubleClick" />
+                 MouseDoubleClick="ResultsList_MouseDoubleClick">
+            <ListBox.ContextMenu>
+                <ContextMenu Closed="ResultsContextMenu_Closed">
+                    <MenuItem Header="_Otwórz" InputGestureText="Enter"
+                              automation:AutomationProperties.AcceleratorKey="Enter"
+                              Click="Open_Click" />
+                    <MenuItem Header="Odtwórz _teraz" InputGestureText="Ctrl+Enter"
+                              automation:AutomationProperties.AcceleratorKey="Control+Enter"
+                              Click="Play_Click" />
+                    <MenuItem Header="Odtwórz jako _następne" InputGestureText="Ctrl+Shift+Enter"
+                              automation:AutomationProperties.AcceleratorKey="Control+Shift+Enter"
+                              Click="PlayNext_Click" />
+                    <MenuItem Header="Dodaj do _kolejki" InputGestureText="Shift+Enter"
+                              automation:AutomationProperties.AcceleratorKey="Shift+Enter"
+                              Click="Queue_Click" />
+                    <Separator />
+                    <MenuItem Header="Dodaj lub usuń z _ulubionych" InputGestureText="Ctrl+Shift+U"
+                              automation:AutomationProperties.AcceleratorKey="Control+Shift+U"
+                              Click="Favorite_Click" />
+                    <MenuItem Header="_Informacje" InputGestureText="Alt+Enter"
+                              automation:AutomationProperties.AcceleratorKey="Alt+Enter"
+                              Click="Information_Click" />
+                </ContextMenu>
+            </ListBox.ContextMenu>
+        </ListBox>
     </DockPanel>
 </Window>

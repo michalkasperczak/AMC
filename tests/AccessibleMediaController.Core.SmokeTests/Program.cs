@@ -109,6 +109,7 @@ static void TestBuiltInProfileRefresh()
 
 static void TestCommandCatalog()
 {
+    Equal("Odtwórz wybrany element teraz", CommandCatalog.GetDisplayName(CommandIds.PlaySelected));
     Equal("Dodaj lub usuń z ulubionych", CommandCatalog.GetDisplayName(CommandIds.ToggleFavorite));
     Equal("Dodaj lub usuń z kolejki", CommandCatalog.GetDisplayName(CommandIds.AddQueue));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
@@ -344,6 +345,10 @@ static void TestSessions()
     Equal(false, manager.Current.ToggleQueue(manager.Current.CurrentItem));
     Equal(true, manager.Current.TogglePlayNext(manager.Current.CurrentItem));
     Equal(false, manager.Current.TogglePlayNext(manager.Current.CurrentItem));
+    var selected = manager.Current.Items.First(item => item.Title == "Brzeg ciszy");
+    True(manager.Current.Play(selected), "Wybrany element powinien dać się odtworzyć.");
+    Equal(selected, manager.Current.CurrentItem);
+    True(manager.Current.IsPlaying, "Odtwarzanie wybranego elementu powinno uruchomić sesję.");
 }
 
 static void TestCatalogSearch()
@@ -404,6 +409,10 @@ static void TestTimeCommands()
     Equal("1:23", sink.LastMessage);
     router.Execute(CommandIds.TimeTotal);
     True(!sink.LastMessage.Contains("czas", StringComparison.OrdinalIgnoreCase), "Komunikat czasu powinien zawierać tylko wartość.");
+    router.Execute(CommandIds.PlaySelected);
+    Equal("Odtwarzanie: Pierwszy utwór demonstracyjny", sink.LastMessage);
+    router.Execute(CommandIds.PlayPause);
+    Equal("Pauza: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.AddQueue);
     Equal("Dodano do kolejki: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.AddQueue);

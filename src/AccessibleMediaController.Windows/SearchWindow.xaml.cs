@@ -37,6 +37,7 @@ public partial class SearchWindow : Window
     }
 
     public SearchResult? SelectedResult { get; private set; }
+    public SearchResultAction SelectedAction { get; private set; } = SearchResultAction.Open;
 
     private void RunSearch()
     {
@@ -84,7 +85,7 @@ public partial class SearchWindow : Window
         Keyboard.Focus(item);
     }
 
-    private void OpenSelected()
+    private void CompleteSelected(SearchResultAction action)
     {
         if (ResultsList.SelectedItem is not SearchResultRow row)
         {
@@ -94,6 +95,7 @@ public partial class SearchWindow : Window
         }
 
         SelectedResult = new SearchResult(row.SessionId, row.Item);
+        SelectedAction = action;
         DialogResult = true;
     }
 
@@ -113,14 +115,41 @@ public partial class SearchWindow : Window
 
     private void ResultsList_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Enter) return;
-        OpenSelected();
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var modifiers = Keyboard.Modifiers;
+        SearchResultAction? action = null;
+
+        if (key == Key.Enter && modifiers == ModifierKeys.None)
+            action = SearchResultAction.Open;
+        else if (key == Key.Enter && modifiers == ModifierKeys.Control)
+            action = SearchResultAction.Play;
+        else if (key == Key.Enter && modifiers == ModifierKeys.Shift)
+            action = SearchResultAction.Queue;
+        else if (key == Key.Enter && modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+            action = SearchResultAction.PlayNext;
+        else if (key == Key.U && modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+            action = SearchResultAction.Favorite;
+        else if (key == Key.Enter && modifiers == ModifierKeys.Alt)
+            action = SearchResultAction.Information;
+
+        if (action is null) return;
+        CompleteSelected(action.Value);
         e.Handled = true;
     }
 
     private void Search_Click(object sender, RoutedEventArgs e) => RunSearch();
-    private void Open_Click(object sender, RoutedEventArgs e) => OpenSelected();
-    private void ResultsList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => OpenSelected();
+    private void Open_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Open);
+    private void Play_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Play);
+    private void PlayNext_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.PlayNext);
+    private void Queue_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Queue);
+    private void Favorite_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Favorite);
+    private void Information_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Information);
+    private void ResultsList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => CompleteSelected(SearchResultAction.Open);
+
+    private void ResultsContextMenu_Closed(object sender, RoutedEventArgs e)
+    {
+        Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
+    }
 
     public sealed record SearchResult(string SessionId, MediaItem Item);
 
@@ -131,4 +160,14 @@ public partial class SearchWindow : Window
     {
         public override string ToString() => Label;
     }
+}
+
+public enum SearchResultAction
+{
+    Open,
+    Play,
+    PlayNext,
+    Queue,
+    Favorite,
+    Information
 }

@@ -81,6 +81,7 @@
                  TextSearch.TextPath="Label"
                  KeyboardNavigation.DirectionalNavigation="Contained"
                  KeyboardNavigation.TabNavigation="Once"
+                 PreviewKeyDown="MediaList_PreviewKeyDown"
                  PreviewTextInput="MediaList_PreviewTextInput"
                  MouseDoubleClick="MediaList_MouseDoubleClick">
             <ListBox.ContextMenu>

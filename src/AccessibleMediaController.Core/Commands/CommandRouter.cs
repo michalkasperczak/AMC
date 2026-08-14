@@ -50,7 +50,18 @@ public sealed class CommandRouter(
                 return new(true, true);
             case CommandIds.PlayPause:
                 current.TogglePlayback();
-                announcements.Announce(current.IsPlaying ? "Odtwarzanie" : "Pauza");
+                announcements.Announce(current.IsPlaying
+                    ? $"Odtwarzanie: {current.CurrentItem.Title}"
+                    : $"Pauza: {current.CurrentItem.Title}");
+                return new(true);
+            case CommandIds.PlaySelected:
+                var selectedToPlay = application.SelectedItem ?? current.CurrentItem;
+                if (!current.Play(selectedToPlay))
+                {
+                    announcements.Announce("Nie można odtworzyć wybranego elementu w tej sesji");
+                    return new(false);
+                }
+                announcements.Announce($"Odtwarzanie: {selectedToPlay.Title}");
                 return new(true);
             case CommandIds.Previous:
                 current.Move(-1);

@@ -93,9 +93,24 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             NavigateTo("Teraz odtwarzane", false);
             SelectMediaItem(result.Item.Id);
             RestoreMediaListFocusAfterRefresh();
-            Dispatcher.BeginInvoke(
-                () => Announce($"Wynik wyszukiwania. {FormatItem(result.Item)}"),
-                DispatcherPriority.ContextIdle);
+            switch (dialog.SelectedAction)
+            {
+                case SearchResultAction.Play:
+                    ExecuteCommand(CommandIds.PlaySelected);
+                    break;
+                case SearchResultAction.PlayNext:
+                    ExecuteCommand(CommandIds.TogglePlayNext);
+                    break;
+                case SearchResultAction.Queue:
+                    ExecuteCommand(CommandIds.AddQueue);
+                    break;
+                case SearchResultAction.Favorite:
+                    ExecuteCommand(CommandIds.ToggleFavorite);
+                    break;
+                case SearchResultAction.Information:
+                    ShowItemInformation(false);
+                    break;
+            }
             return;
         }
 
@@ -373,8 +388,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         if (item is null) return;
         if (item.Kind is MediaItemKind.Track or MediaItemKind.Station)
         {
-            ExecuteCommand(CommandIds.PlayPause);
-            Announce(FormatItem(item));
+            ExecuteCommand(CommandIds.PlaySelected);
             return;
         }
         NavigateTo(item.Title, false);
@@ -739,7 +753,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         else if (e.Key == Key.Enter)
         {
             if (modifiers == ModifierKeys.None) ActivateSelected();
-            else if (modifiers == ModifierKeys.Control) ExecuteCommand(CommandIds.PlayPause);
+            else if (modifiers == ModifierKeys.Control) ExecuteCommand(CommandIds.PlaySelected);
             else if (modifiers == ModifierKeys.Shift) ExecuteCommand(CommandIds.AddQueue);
             else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift)) ExecuteCommand(CommandIds.TogglePlayNext);
             e.Handled = true;
@@ -828,6 +842,29 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         RestoreMediaListFocusAfterRefresh();
     }
 
+    private void MediaList_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers is not (ModifierKeys.None or ModifierKeys.Shift)) return;
+
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var text = TypeAheadTextFromKey(key);
+        if (text is null) return;
+
+        RunTypeAhead(text);
+        e.Handled = true;
+    }
+
+    private static string? TypeAheadTextFromKey(Key key)
+    {
+        if (key is >= Key.A and <= Key.Z)
+            return ((char)('A' + ((int)key - (int)Key.A))).ToString();
+        if (key is >= Key.D0 and <= Key.D9)
+            return ((char)('0' + ((int)key - (int)Key.D0))).ToString();
+        if (key is >= Key.NumPad0 and <= Key.NumPad9)
+            return ((char)('0' + ((int)key - (int)Key.NumPad0))).ToString();
+        return null;
+    }
+
     private void MediaList_PreviewTextInput(object sender, TextCompositionEventArgs e)
     {
         if (Keyboard.Modifiers is not (ModifierKeys.None or ModifierKeys.Shift)
@@ -838,11 +875,19 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             return;
         }
 
+        RunTypeAhead(e.Text);
+        e.Handled = true;
+    }
+
+    private void RunTypeAhead(string input)
+    {
+        if (MediaList.Items.Count == 0) return;
+
         var now = DateTime.UtcNow;
         if (now - _lastTypeAheadInputUtc > TypeAheadTimeout) ResetTypeAhead();
         _lastTypeAheadInputUtc = now;
 
-        var continuedText = _typeAheadText + e.Text;
+        var continuedText = _typeAheadText + input;
         var continuedStart = _typeAheadText.Length == 0
             ? MediaList.SelectedIndex + 1
             : Math.Max(MediaList.SelectedIndex, 0);
@@ -853,12 +898,11 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         // without forcing the user to wait for an invisible timeout.
         if (matchIndex < 0)
         {
-            continuedText = e.Text;
+            continuedText = input;
             matchIndex = FindTypeAheadMatch(continuedText, MediaList.SelectedIndex + 1);
         }
 
         _typeAheadText = continuedText;
-        e.Handled = true;
         if (matchIndex < 0) return;
 
         MediaList.SelectedIndex = matchIndex;
@@ -876,7 +920,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             var index = (firstIndex + offset) % MediaList.Items.Count;
             if (MediaList.Items[index] is not MediaItemRow row) continue;
             if (compareInfo.IsPrefix(
-                    row.Label.TrimStart(),
+                    row.Item.Title.TrimStart(),
                     query,
                     CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace))
             {
@@ -908,7 +952,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             : $"Wyniki filtrowania: {MediaList.Items.Count}";
     }
     private void MediaList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => ActivateSelected();
-    private void Play_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlayPause);
+    private void Play_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaySelected);
     private void PlayNext_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.TogglePlayNext);
     private void Queue_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddQueue);
     private void Favorite_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleFavorite);
