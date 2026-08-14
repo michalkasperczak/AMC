@@ -497,6 +497,8 @@ Radio internetowe jest osobnym adapterem rdzenia i korzysta z tych samych sesji,
 - wersja macOS przechodzi osobne testy z VoiceOver i narzędziami dostępności Apple;
 - awaria adaptera nie może zawiesić czytnika ekranu ani uszkodzić konfiguracji pozostałych usług.
 
+Ręczny arkusz wyników zawiera jedną instrukcję u góry, że w polu „Status” można wpisać `OK`, `Błąd` albo `Pominięto`; wariantów tych nie powtarzamy przy każdym zadaniu. Każde puste pole przeznaczone do uzupełnienia, także „Status”, kończy się dwukropkiem i dokładnie jedną zwykłą spacją, aby po przejściu na koniec wiersza można było od razu pisać.
+
 Most NVDA może być używany wyłącznie jako oddzielne, opcjonalne narzędzie deweloperskie. Nie jest składnikiem AMC ani wydania dla użytkownika. Profil testowy jest domyślnie wyłączony, nasłuchuje tylko na `127.0.0.1`, wymaga losowego tokenu bez wartości domyślnej i udostępnia jedynie odczyt tytułu okna, fokusu oraz obiektu nawigatora. Nie wolno mu przesuwać fokusu, mówić, wyświetlać komunikatów, czytać logu, przeładowywać dodatków ani restartować NVDA. Raport nie utrwala wartości i opisów pól, bieżącego wiersza ani logu czytnika.
 
 Taki most daje pojedynczy zrzut informacji rozpoznawanych przez NVDA; nie przechwytuje wypowiedzi i nie dowodzi poprawności kolejności Tab, skrótów, trybu przeglądania lub brajla. Dlatego pozostaje uzupełnieniem testów UI Automation i ręcznej macierzy NVDA, JAWS oraz Narrator. Publiczny projekt `nvda-mcp-bridge` 0.2.0 jest tylko punktem odniesienia: przed ewentualnym użyciem wymaga utwardzenia, a jego kod GPL-2.0 pozostaje poza kodem i dystrybucją AMC.
