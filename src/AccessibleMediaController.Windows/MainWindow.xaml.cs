@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
@@ -35,6 +36,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private HwndSource? _windowSource;
     private string _typeAheadText = string.Empty;
     private DateTime _lastTypeAheadInputUtc;
+    private string? _searchReturnItemId;
+    private string? _searchReturnServiceName;
+    private ListBoxItem? _searchReturnContainer;
 
     private const int WmKeyDown = 0x0100;
     private const int VirtualKeyZ = 0x5A;
@@ -94,6 +98,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void ShowSearch(bool allServices)
     {
+        ClearSearchReturnContext();
         Activate();
         var sessionBeforeSearch = _sessions.Current.Id;
         var dialog = new SearchWindow(
@@ -110,24 +115,16 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             _sessions.SelectSession(result.SessionId);
             NavigateTo("Teraz odtwarzane", false);
             SelectMediaItem(result.Item.Id);
+            if (allServices) PrepareSearchReturnContext(result.Item.Id);
             RestoreMediaListFocusAfterRefresh();
-            if (allServices) AnnounceSearchReturnContext();
             return;
         }
 
-        RestoreMediaListFocusAfterRefresh();
         if (allServices && _sessions.Current.Id != sessionBeforeSearch)
         {
-            AnnounceSearchReturnContext();
+            PrepareSearchReturnContext((SelectedItem ?? _sessions.Current.CurrentItem).Id);
         }
-    }
-
-    private void AnnounceSearchReturnContext()
-    {
-        var serviceName = _sessions.Current.DisplayName;
-        Dispatcher.BeginInvoke(
-            () => Announce($"Usługa: {serviceName}"),
-            DispatcherPriority.ApplicationIdle);
+        RestoreMediaListFocusAfterRefresh();
     }
 
     public void ShowFilter()
@@ -358,12 +355,49 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         MediaList.UpdateLayout();
         if (MediaList.ItemContainerGenerator.ContainerFromItem(MediaList.SelectedItem) is ListBoxItem item)
         {
+            ApplySearchReturnContext(item);
             item.Focus();
             Keyboard.Focus(item);
             return;
         }
         MediaList.Focus();
         Keyboard.Focus(MediaList);
+    }
+
+    private void PrepareSearchReturnContext(string itemId)
+    {
+        ClearSearchReturnContext();
+        _searchReturnItemId = itemId;
+        _searchReturnServiceName = _sessions.Current.DisplayName;
+    }
+
+    private void ApplySearchReturnContext(ListBoxItem container)
+    {
+        if (_searchReturnItemId is null
+            || _searchReturnServiceName is null
+            || container.Content is not MediaItemRow row
+            || row.Item.Id != _searchReturnItemId)
+        {
+            return;
+        }
+
+        AutomationProperties.SetName(container, $"{row.Label}, {_searchReturnServiceName}");
+        _searchReturnContainer = container;
+    }
+
+    private void ClearSearchReturnContext()
+    {
+        _searchReturnContainer?.ClearValue(AutomationProperties.NameProperty);
+        _searchReturnContainer = null;
+        _searchReturnItemId = null;
+        _searchReturnServiceName = null;
+    }
+
+    private void MediaList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_searchReturnContainer is null) return;
+        if (SelectedItem?.Id == _searchReturnItemId) return;
+        ClearSearchReturnContext();
     }
 
     private void AnchorMediaListFocus()

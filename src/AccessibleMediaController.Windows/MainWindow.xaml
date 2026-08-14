@@ -80,6 +80,7 @@
                  TextSearch.TextPath="NavigationText"
                  KeyboardNavigation.DirectionalNavigation="Contained"
                  KeyboardNavigation.TabNavigation="Once"
+                 SelectionChanged="MediaList_SelectionChanged"
                  PreviewKeyDown="MediaList_PreviewKeyDown"
                  PreviewTextInput="MediaList_PreviewTextInput"
                  MouseDoubleClick="MediaList_MouseDoubleClick">
