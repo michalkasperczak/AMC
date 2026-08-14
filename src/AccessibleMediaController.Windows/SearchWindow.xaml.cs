@@ -52,8 +52,9 @@ public partial class SearchWindow : Window
         var results = MediaCatalogSearch.Search(_sourceSessions, query)
             .Select(result => new SearchResultRow(
                 result.Session.Id,
-                result.Item,
-                _allServices
+                 result.Item,
+                 result.Item.PrimaryText,
+                 _allServices
                     ? $"{_formatItem(result.Item)}, {result.Session.DisplayName}"
                     : _formatItem(result.Item)))
             .ToList();
@@ -156,6 +157,7 @@ public partial class SearchWindow : Window
     private sealed record SearchResultRow(
         string SessionId,
         MediaItem Item,
+        string NavigationText,
         string Label)
     {
         public override string ToString() => Label;

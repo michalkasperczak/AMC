@@ -214,6 +214,37 @@ Reasons:
 
 The order of information in an item's accessible label is configurable. A user may choose title, artist, duration and item type, or put the artist before the title. Fields without a value are skipped. The same order applies to lists and current-item announcements and remains independent from the keyboard profile.
 
+### 7.1.1. Identity, primary name and navigation key
+
+Each row separates three values that must never be conflated:
+
+1. **Technical identity** targets the correct resource when an action is performed.
+2. **Semantic primary name** is the default basis for sorting and type-ahead.
+3. **Accessible label** contains fields announced by the screen reader in the user's configured order.
+
+No title, artist name or other presentation text is guaranteed to be unique. A resource key includes at least the adapter identifier, account or library namespace, resource kind and provider-native identifier. A separate occurrence key includes the list context and occurrence identifier or position because one track can appear more than once in a queue or playlist. Identical titles from TIDAL, Apple Music and Spotify remain separate results; service and kind are announced as disambiguating metadata but never replace technical identity.
+
+Every view has an explicit presentation descriptor: accepted resource kinds, primary name, available sort fields, current sort, type-ahead key and duplicate disambiguators. Defaults are:
+
+| View or resource kind | Default type-ahead key |
+| --- | --- |
+| tracks, Queue, History and Now Playing | track title |
+| artists | artist name |
+| albums and releases | album title; artist and year disambiguate duplicates |
+| playlists and mixes | playlist or mix name |
+| radio stations and presets | station or preset name |
+| shows and podcasts | show name |
+| episodes, chapters and music videos | episode, chapter or video title |
+| audiobooks | audiobook title |
+| devices, rooms and groups | user-assigned name |
+| audio inputs and outputs | accessible input or output name |
+| single-kind search results | the primary name appropriate to that kind |
+| mixed or global results | each result's primary name; kind and service disambiguate rows |
+
+The field-reading order never changes the navigation key. Sorting by a text field changes the key by default—for example, “Sort: artist. Type-ahead: artist”. Numeric or temporal sorting such as duration, track number or date added retains the primary name unless the user explicitly chooses otherwise. A missing field falls back to the primary name instead of removing the row from type-ahead.
+
+A search query may inspect several fields and aliases, while navigation through the returned results uses one predictable key from the rules above. A service adapter declares available fields and capabilities; the UI never assumes that all services expose identical resource kinds or metadata.
+
 ### 7.2. Navigation
 
 | Key in the window | Action |
@@ -236,7 +267,7 @@ The order of information in an item's accessible label is configurable. A user m
 
 Enter performs the primary action for the item type: it plays a track, station or preset, while opening the contents of an album, playlist or artist. `Ctrl+Enter` also plays a whole album or playlist immediately. Consistent with file-manager conventions, `Alt+Enter` remains Item Information or Properties; it does not open an external application.
 
-Plain letters in a list never execute AMC commands. They remain name navigation. Single-letter commands work only after the global prefix layer has been successfully activated.
+Plain letters in a list never execute AMC commands. They navigate using the current view's explicit key. Single-letter commands work only after the global prefix layer has been successfully activated.
 
 ### 7.3. Reloading
 
@@ -414,6 +445,8 @@ Local IPC latency is negligible compared with service requests and device respon
 
 Each adapter declares capabilities instead of pretending that all services are identical. Examples include search, Favorites, Library, playlists, queue, in-service downloads, legal export to disk, seeking, volume, presets, grouping and real-time events. An unavailable command is disabled or produces an explicit message.
 
+The resource-kind catalogue remains extensible. In addition to the current track, album, artist, playlist, station and device, it anticipates shows or podcasts, episodes, audiobooks, chapters, music videos, mixes, presets, inputs, outputs, rooms and device groups. This reflects real service differences: Spotify exposes shows, episodes and audiobooks among other kinds; Apple Music also exposes music videos and stations; TIDAL has its own catalogue resources for tracks, albums, artists and playlists; and WiiM exposes devices, groups, inputs, queues and presets. An unknown future kind retains its native identifier and primary name and can be presented as a generic item without losing identity.
+
 The model distinguishes:
 
 - **sources and catalogues** — TIDAL, Spotify, Apple Music, internet radio and the local library;
@@ -506,7 +539,7 @@ The current Windows prototype should first stabilise:
 
 The first prototype and initial working release target Windows only. macOS, VoiceOver and possible Siri support are later stages.
 
-State of `alpha.17`: filtering and searching are separate—`Ctrl+K` narrows the current list, while `Ctrl+F` and `Ctrl+Shift+F` open dedicated query and results windows. A result can be opened or directly played, queued, marked Play Next or Favorite, and inspected. Type-ahead always matches the item title regardless of the configured field-reading order. The core and UI take one version from `Directory.Build.props`, and the portable publication is produced as one unambiguously named EXE. The main remaining first-stage work is an accessible command palette, low-level capture of a configurable prefix, and candidate-prefix testing with NVDA, JAWS and clipboard managers. Search currently uses the demonstration catalogue; real network queries arrive with service adapters.
+State of `alpha.17`: filtering and searching are separate—`Ctrl+K` narrows the current list, while `Ctrl+F` and `Ctrl+Shift+F` open dedicated query and results windows. A result can be opened or directly played, queued, marked Play Next or Favorite, and inspected. Type-ahead uses the resource's semantic primary name rather than the first field of the accessible label; this is the title in the current track list. The core and UI take one version from `Directory.Build.props`, and the portable publication is produced as one unambiguously named EXE. The main remaining first-stage work is an accessible command palette, low-level capture of a configurable prefix, and candidate-prefix testing with NVDA, JAWS and clipboard managers. Search currently uses the demonstration catalogue; real network queries arrive with service adapters.
 
 Planned sequence of later stages:
 

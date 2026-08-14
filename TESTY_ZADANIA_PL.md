@@ -15,13 +15,16 @@ Najważniejsze są zadania 1–4. Każdy oczekiwany rezultat jest zapisany w oso
 3. Naciśnij szybko kolejno `Z`, `I`, `E`.
 4. Po krótkiej przerwie naciskaj pojedyncze `B`, za każdym razem czekając na odczyt elementu.
 5. Powtórz sprawdzenie z literą `C`.
+6. Naciśnij `A`, a po przerwie naciskaj `D`, aby sprawdzić również album, playlistę i utwór na liście mieszanej.
 
 Oczekiwane wyniki:
 
 - `ZIE` przechodzi do „Zielonego horyzontu”.
 - Kolejne pojedyncze `B` przechodzą między „Brzegiem ciszy” i „Błękitną godziną”.
 - Kolejne pojedyncze `C` przechodzą między „Ciepłym deszczem” i „Ciszą o świcie”.
-- Dopasowanie zawsze korzysta z tytułu, mimo że NVDA najpierw odczytuje wykonawcę.
+- `A` przechodzi do „Albumu demonstracyjnego”, a nie do utworu wykonawczyni Anny Kowalskiej.
+- Powtarzanie `D` przechodzi między „Drugim utworem demonstracyjnym” i playlistą „Do odsłuchu”.
+- Dopasowanie korzysta z głównej nazwy semantycznej elementu, mimo że NVDA najpierw odczytuje wykonawcę.
 - Litery nie wpisują się do filtra i nie uruchamiają poleceń.
 
 ## AMC-017-02 — Jednoznaczne otwarcie wyniku i Enter na liście głównej

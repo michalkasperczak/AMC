@@ -78,7 +78,7 @@
                  ItemsSource="{Binding}"
                  DisplayMemberPath="Label"
                  IsTextSearchEnabled="False"
-                 TextSearch.TextPath="Label"
+                 TextSearch.TextPath="NavigationText"
                  KeyboardNavigation.DirectionalNavigation="Contained"
                  KeyboardNavigation.TabNavigation="Once"
                  PreviewKeyDown="MediaList_PreviewKeyDown"

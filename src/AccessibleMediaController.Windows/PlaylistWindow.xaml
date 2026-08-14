@@ -12,7 +12,8 @@
             <Button Width="95" Margin="0,0,8,0" Content="_Zapisz" IsDefault="True" Click="Save_Click" />
             <Button Width="95" Content="_Anuluj" IsCancel="True" />
         </StackPanel>
-        <ListBox x:Name="PlaylistList" automation:AutomationProperties.Name="Playlisty">
+        <ListBox x:Name="PlaylistList" TextSearch.TextPath="Name"
+                 automation:AutomationProperties.Name="Playlisty">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <CheckBox Content="{Binding Name}" IsChecked="{Binding ContainsItem}" />

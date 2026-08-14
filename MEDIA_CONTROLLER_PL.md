@@ -214,6 +214,37 @@ Powody:
 
 Kolejność informacji w dostępnej etykiecie elementu jest konfigurowalna. Użytkownik może ustawić na przykład tytuł, wykonawcę, czas trwania i typ elementu albo wykonawcę przed tytułem. Pola bez wartości są pomijane. Ta sama kolejność obowiązuje na listach i w komunikatach o bieżącym elemencie; pozostaje niezależna od profilu klawiatury.
 
+### 7.1.1. Tożsamość, główna nazwa i klucz nawigacji
+
+Każdy wiersz rozdziela trzy informacje, których nie wolno utożsamiać:
+
+1. **Tożsamość techniczna** służy do wykonania działania na właściwym zasobie.
+2. **Główna nazwa semantyczna** służy domyślnie do sortowania i nawigacji wpisywanymi literami.
+3. **Dostępna etykieta** zawiera pola odczytywane przez NVDA w kolejności wybranej przez użytkownika.
+
+Żaden tytuł, wykonawca ani inny tekst prezentacyjny nie jest gwarantowanie unikatowy. Klucz zasobu musi być złożony co najmniej z identyfikatora adaptera, przestrzeni konta lub biblioteki, rodzaju zasobu i natywnego identyfikatora usługi. Osobny klucz wystąpienia zawiera kontekst listy oraz identyfikator albo pozycję wystąpienia, ponieważ ten sam utwór może wystąpić kilka razy w kolejce lub playliście. Identyczne tytuły z TIDAL-u, Apple Music i Spotify pozostają trzema wynikami; nazwa usługi i typ są czytane jako informacje rozróżniające, ale nie zastępują tożsamości technicznej.
+
+Każdy widok otrzymuje jawny opis prezentacji: dopuszczalne rodzaje elementów, główną nazwę, dostępne pola sortowania, aktualne sortowanie, klucz nawigacji literowej i pola rozróżniające duplikaty. Domyślne reguły są następujące:
+
+| Widok lub rodzaj elementu | Domyślny klucz nawigacji literowej |
+| --- | --- |
+| utwory, kolejka, historia i „Teraz odtwarzane” | tytuł utworu |
+| wykonawcy | nazwa wykonawcy |
+| albumy i wydania | tytuł albumu; wykonawca i rok rozróżniają duplikaty |
+| playlisty i miksy | nazwa playlisty lub miksu |
+| stacje radiowe i presety | nazwa stacji albo presetu |
+| audycje i podcasty | nazwa audycji |
+| odcinki, rozdziały i teledyski | tytuł odcinka, rozdziału albo teledysku |
+| audiobooki | tytuł audiobooka |
+| urządzenia, pomieszczenia i grupy | nazwa nadana przez użytkownika |
+| wejścia i wyjścia audio | dostępna nazwa wejścia albo wyjścia |
+| wyniki jednego rodzaju | główna nazwa właściwa dla tego rodzaju |
+| wyniki mieszane lub globalne | główna nazwa każdego wyniku; typ i usługa rozróżniają pozycje |
+
+Kolejność pól odczytu nigdy nie zmienia klucza nawigacji. Zmiana sortowania według pola tekstowego domyślnie zmienia również klucz nawigacji, na przykład „Sortowanie: wykonawca. Nawigacja literowa: wykonawca”. Przy sortowaniu liczbowym lub czasowym, takim jak czas trwania, numer ścieżki albo data dodania, nawigacja pozostaje przy głównej nazwie, chyba że użytkownik jawnie wybierze inaczej. Brak pola w danym wyniku powoduje powrót do głównej nazwy, a nie pominięcie elementu.
+
+Zapytanie wyszukiwania może sprawdzać wiele pól i aliasów, natomiast nawigacja po już otrzymanych wynikach używa jednego przewidywalnego klucza opisanego powyżej. Adapter usługi przekazuje dostępne pola i możliwości; interfejs nie zakłada, że każda usługa oferuje identyczne typy albo metadane.
+
 ### 7.2. Nawigacja
 
 | Klawisz w oknie | Działanie |
@@ -236,7 +267,7 @@ Kolejność informacji w dostępnej etykiecie elementu jest konfigurowalna. Uży
 
 Enter wykonuje działanie podstawowe zależne od rodzaju elementu: odtwarza utwór, stację lub preset, natomiast na albumie, playliście albo wykonawcy otwiera zawartość. `Ctrl+Enter` odtwarza natychmiast również cały album lub playlistę. `Alt+Enter`, zgodnie z typowym zachowaniem menedżerów plików, pozostaje informacją lub właściwościami elementu; nie służy do otwierania zewnętrznej aplikacji.
 
-Zwykłe litery na liście nigdy nie wykonują poleceń AMC. Pozostają nawigacją po nazwach elementów. Polecenia jednoliterowe działają dopiero po prawidłowym aktywowaniu globalnej warstwy prefiksowej.
+Zwykłe litery na liście nigdy nie wykonują poleceń AMC. Pozostają nawigacją według jawnego klucza bieżącego widoku. Polecenia jednoliterowe działają dopiero po prawidłowym aktywowaniu globalnej warstwy prefiksowej.
 
 ### 7.3. Przeładowywanie
 
@@ -414,6 +445,8 @@ Opóźnienie lokalnego IPC nie jest elementem krytycznym wobec czasu zapytań si
 
 Każdy adapter deklaruje możliwości zamiast udawać identyczność usług. Przykładowe możliwości to wyszukiwanie, Ulubione, Biblioteka, playlisty, kolejka, pobieranie wewnątrz usługi, legalny eksport na dysk, przewijanie, głośność, presety, grupowanie urządzeń i zdarzenia czasu rzeczywistego. Niedostępne polecenie jest wyłączone albo kończy się jednoznacznym komunikatem.
 
+Katalog rodzajów zasobów pozostaje rozszerzalny. Oprócz obecnych utworu, albumu, wykonawcy, playlisty, stacji i urządzenia przewiduje audycję lub podcast, odcinek, audiobook, rozdział, teledysk, miks, preset, wejście, wyjście, pomieszczenie i grupę urządzeń. Wynika to z rzeczywistych różnic usług: Spotify udostępnia między innymi audycje, odcinki i audiobooki, Apple Music także teledyski i stacje, TIDAL własne zasoby katalogowe utworów, albumów, wykonawców i playlist, a WiiM urządzenia, grupy, wejścia, kolejki i presety. Nieznany przyszły rodzaj zachowuje natywny identyfikator oraz główną nazwę i może być pokazany jako ogólny element bez utraty tożsamości.
+
 Rozróżniamy:
 
 - **źródła i katalogi** — TIDAL, Spotify, Apple Music, radio internetowe i biblioteka lokalna;
@@ -506,7 +539,7 @@ Obecny prototyp Windows powinien najpierw ustabilizować:
 
 Pierwszy prototyp i pierwsze działające wydanie dotyczą wyłącznie Windows. Wersja dla macOS, VoiceOver i ewentualna obsługa Siri są etapem późniejszym.
 
-Stan `alpha.17`: filtr i wyszukiwanie są rozdzielone — `Ctrl+K` zawęża bieżącą listę, a `Ctrl+F` i `Ctrl+Shift+F` otwierają osobne okna zapytania oraz wyników. Wynik można otworzyć albo bezpośrednio odtworzyć, dodać do kolejki, oznaczyć jako następny lub Ulubiony i wyświetlić jego informacje. Nawigacja wpisywanymi literami zawsze dopasowuje tytuł, niezależnie od ustawionej kolejności odczytu pól. Rdzeń i interfejs pobierają jeden numer wersji z `Directory.Build.props`, a publikacja przenośna powstaje jako pojedynczy, jednoznacznie nazwany plik EXE. Do zamknięcia pierwszego etapu pozostają przede wszystkim dostępna paleta poleceń, niskopoziomowe przechwycenie konfigurowalnego prefiksu i test kandydatów z NVDA, JAWS-em oraz menedżerami schowka. Obecne wyszukiwanie korzysta z katalogu demonstracyjnego; prawdziwe zapytania sieciowe pojawią się dopiero z adapterami usług.
+Stan `alpha.17`: filtr i wyszukiwanie są rozdzielone — `Ctrl+K` zawęża bieżącą listę, a `Ctrl+F` i `Ctrl+Shift+F` otwierają osobne okna zapytania oraz wyników. Wynik można otworzyć albo bezpośrednio odtworzyć, dodać do kolejki, oznaczyć jako następny lub Ulubiony i wyświetlić jego informacje. Nawigacja wpisywanymi literami korzysta z głównej nazwy semantycznej elementu, a nie z pierwszego pola dostępnej etykiety; w obecnej liście utworów jest nią tytuł. Rdzeń i interfejs pobierają jeden numer wersji z `Directory.Build.props`, a publikacja przenośna powstaje jako pojedynczy, jednoznacznie nazwany plik EXE. Do zamknięcia pierwszego etapu pozostają przede wszystkim dostępna paleta poleceń, niskopoziomowe przechwycenie konfigurowalnego prefiksu i test kandydatów z NVDA, JAWS-em oraz menedżerami schowka. Obecne wyszukiwanie korzysta z katalogu demonstracyjnego; prawdziwe zapytania sieciowe pojawią się dopiero z adapterami usług.
 
 Planowana kolejność dalszych etapów:
 

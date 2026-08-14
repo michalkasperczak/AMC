@@ -349,6 +349,10 @@ static void TestSessions()
     True(manager.Current.Play(selected), "Wybrany element powinien dać się odtworzyć.");
     Equal(selected, manager.Current.CurrentItem);
     True(manager.Current.IsPlaying, "Odtwarzanie wybranego elementu powinno uruchomić sesję.");
+    var album = manager.Current.Items.First(item => item.Kind == MediaItemKind.Album);
+    Equal("Album demonstracyjny", album.PrimaryText);
+    var playlist = manager.Current.Items.First(item => item.Kind == MediaItemKind.Playlist);
+    Equal("Do odsłuchu", playlist.PrimaryText);
 }
 
 static void TestCatalogSearch()

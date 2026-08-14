@@ -12,7 +12,7 @@
             <Button Width="95" Margin="0,0,8,0" Content="_Wybierz" IsDefault="True" Click="Select_Click" />
             <Button Width="95" Content="_Anuluj" IsCancel="True" />
         </StackPanel>
-        <ListBox x:Name="SessionList" DisplayMemberPath="Label"
+        <ListBox x:Name="SessionList" DisplayMemberPath="Label" TextSearch.TextPath="Name"
                  automation:AutomationProperties.Name="Sesje"
                  MouseDoubleClick="SessionList_MouseDoubleClick" />
     </DockPanel>

@@ -22,6 +22,11 @@ public sealed class MediaItem
     public bool IsInQueue { get; set; }
     public bool IsPlayNext { get; set; }
 
+    // Title currently stores the semantic primary name for every resource kind:
+    // a track title, album title, playlist name, artist name, station name or
+    // device name. Keep this separate from the configurable accessible label.
+    public string PrimaryText => Title;
+
     public string AccessibleLabel => string.IsNullOrWhiteSpace(Artist)
         ? $"{Title}, {KindLabel}"
         : $"{Title}, {Artist}, {KindLabel}";

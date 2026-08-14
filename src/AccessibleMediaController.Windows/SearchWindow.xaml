@@ -29,6 +29,7 @@
         </StackPanel>
 
         <ListBox x:Name="ResultsList" DisplayMemberPath="Label"
+                 TextSearch.TextPath="NavigationText"
                  automation:AutomationProperties.Name="Wyniki wyszukiwania"
                  automation:AutomationProperties.HelpText="Enter otwiera wynik. Control Enter odtwarza teraz. Shift Enter dodaje do kolejki. Control Shift Enter przełącza odtwarzanie jako następne. Control Shift U przełącza ulubione. Alt Enter pokazuje informacje."
                  PreviewKeyDown="ResultsList_PreviewKeyDown"

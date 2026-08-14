@@ -301,7 +301,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         if (_currentView == "Ulubione") items = items.Where(item => item.IsFavorite);
         if (_currentView == "Biblioteka") items = items.Where(item => item.IsInLibrary);
         if (_currentView == "Kolejka") items = items.Where(item => item.IsInQueue || item.IsPlayNext);
-        _unfilteredItems = items.Select(item => new MediaItemRow(item, FormatItem(item))).ToList();
+        _unfilteredItems = items
+            .Select(item => new MediaItemRow(item, FormatItem(item), item.PrimaryText))
+            .ToList();
         ApplyFilter(preferredItemId, fallbackIndex);
 
         if (announceSummary)
@@ -920,7 +922,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             var index = (firstIndex + offset) % MediaList.Items.Count;
             if (MediaList.Items[index] is not MediaItemRow row) continue;
             if (compareInfo.IsPrefix(
-                    row.Item.Title.TrimStart(),
+                    row.NavigationText.TrimStart(),
                     query,
                     CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace))
             {
@@ -999,7 +1001,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         Announce(result.Error ?? "Brak aktualizacji");
     }
 
-    private sealed record MediaItemRow(MediaItem Item, string Label)
+    private sealed record MediaItemRow(MediaItem Item, string Label, string NavigationText)
     {
         public override string ToString() => Label;
     }
