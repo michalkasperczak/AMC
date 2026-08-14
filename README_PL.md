@@ -86,6 +86,8 @@ Pusta lista zatrzymuje klawisze strzałek i podaje komunikat „lista jest pusta
 
 Opcjonalna szczegółowa pomoc wyniku wyszukiwania jest celowo krótka: wymienia tylko strzałki, Enter i Escape. Pozostałe działania są dostępne w menu kontekstowym i dokumentacji, ale nie wydłużają każdego odczytu wyniku.
 
+Po otwarciu Ustawień fokus zawsze trafia na zaznaczoną kartę „Ogólne”. Strzałki w lewo i w prawo zmieniają kategorię, a Tab przechodzi do kontrolek wybranej karty. Zarówno Zapisz, jak i Anuluj przywracają fokus do zaznaczonego elementu głównej listy; komunikat o zapisaniu jest podawany dopiero po przywróceniu listy.
+
 Prefiks, czas oczekiwania i wszystkie polecenia można zmienić w ustawieniach. Można też wybrać, czy po uruchomieniu program ma otwierać listę multimediów, czy listę sesji. Chroniony profil wbudowany jest odświeżany wraz z wersją programu; edytowalne profile użytkownika zachowują własne przypisania.
 
 ## Kolejność odczytu list

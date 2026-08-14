@@ -4,7 +4,8 @@
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
         xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
         Title="Ustawienia" Width="760" Height="610" MinWidth="660" MinHeight="500"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        ContentRendered="Window_ContentRendered">
     <DockPanel Margin="12">
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Width="105" Margin="0,0,8,0" Content="_Zapisz" IsDefault="True" Click="Save_Click" />

@@ -536,21 +536,28 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void OpenSettings()
     {
         var dialog = new SettingsWindow(_state, _store) { Owner = this };
-        if (dialog.ShowDialog() != true || dialog.ResultState is null) return;
+        if (dialog.ShowDialog() != true || dialog.ResultState is null)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
         _state = dialog.ResultState;
         _store.Save(_state);
         ApplyDetailedHints();
         RebuildCore();
         RefreshCurrentView(false);
+        string announcement;
         try
         {
             RegisterConfiguredPrefix();
-            Announce("Zapisano ustawienia");
+            announcement = "Zapisano ustawienia";
         }
         catch (Exception exception)
         {
-            Announce($"Ustawienia zapisane, ale prefiks jest niedostępny: {exception.Message}");
+            announcement = $"Ustawienia zapisane, ale prefiks jest niedostępny: {exception.Message}";
         }
+        RestoreMediaListFocusAfterRefresh();
+        Dispatcher.BeginInvoke(() => Announce(announcement), DispatcherPriority.ContextIdle);
     }
 
     private static string FormatDurationWords(TimeSpan duration)

@@ -1,14 +1,14 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-020`
-- Tytuł zestawu: Krótsze wyniki, nazwa usługi i kontekst głównego okna
-- Wersja programu: `0.1.0-alpha.20`
-- Utworzono: 2026-08-14 21:35:18, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-14_213518_0.1.0-alpha.20.md`
+- Numer zestawu: `AMC-TEST-021`
+- Tytuł zestawu: Wyniki wyszukiwania, kontekst usług i fokus Ustawień
+- Wersja programu: `0.1.0-alpha.21`
+- Utworzono: 2026-08-14 21:46:19, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-14_214619_0.1.0-alpha.21.md`
 
 Ten zestaw sprawdza tylko zmiany po alpha.19. Najważniejsze są dokładne wypowiedzi NVDA i ich kolejność.
 
-## AMC-020-01 — Wynik bez zbędnego prefiksu
+## AMC-021-01 — Wynik bez zbędnego prefiksu
 
 1. W Ustawieniach wyłącz szczegółowe podpowiedzi klawiatury.
 2. Przełącz się do TIDAL skrótem `Ctrl+1`.
@@ -23,7 +23,7 @@ Oczekiwane wyniki:
 - pozycja natywnej listy, np. „1 z 1” albo „2 z 3”, nadal jest czytana dokładnie raz;
 - zwykły Enter na wyniku nadal wraca do głównej listy i nie uruchamia odtwarzania.
 
-## AMC-020-02 — Skrócona pomoc szczegółowa
+## AMC-021-02 — Skrócona pomoc szczegółowa
 
 1. Włącz opcję **Pokazuj szczegółowe podpowiedzi klawiatury przy polach i listach**.
 2. Przez `Ctrl+F` wyszukaj `Ciepły deszcz`.
@@ -36,7 +36,7 @@ Oczekiwane wyniki:
 - nie są powtarzane skróty kolejki, następnego utworu, Ulubionych ani informacji;
 - w trybie krótkim instrukcji nie ma.
 
-## AMC-020-03 — Usługa w lokalnych działaniach bezpośrednich
+## AMC-021-03 — Usługa w lokalnych działaniach bezpośrednich
 
 1. Przełącz się do TIDAL skrótem `Ctrl+1`.
 2. Przez `Ctrl+F` wyszukaj `Brzeg ciszy`.
@@ -52,7 +52,7 @@ Oczekiwane wyniki:
 - okno Informacje zawiera osobny wiersz „Usługa: TIDAL”;
 - fokus pozostaje na wyniku i można od razu wykonać kolejne działanie.
 
-## AMC-020-04 — Tytuł głównego okna i Kolejka
+## AMC-021-04 — Tytuł głównego okna i Kolejka
 
 1. Zamknij wyszukiwanie, przejdź do „Ciepłego deszczu” na głównej liście i naciśnij `Ctrl+Enter`.
 2. Odczytaj tytuł głównego okna poleceniem NVDA do odczytu tytułu.
@@ -65,7 +65,7 @@ Oczekiwane wyniki:
 - po przejściu do Kolejki tytuł nadal zaczyna się od bieżącego utworu i usługi, a widok zmienia się na „Kolejka”;
 - etykieta „Nocnego pociągu” zawiera `TIDAL` przed informacją o pozycji na liście.
 
-## AMC-020-05 — Jednoznaczny powrót z wyszukiwania globalnego
+## AMC-021-05 — Jednoznaczny powrót z wyszukiwania globalnego
 
 1. Będąc w TIDAL-u, naciśnij `Ctrl+Shift+F` i wyszukaj `Zielony horyzont`.
 2. Strzałką wybierz wynik Apple Music i otwórz go zwykłym Enter.
@@ -80,6 +80,36 @@ Oczekiwane wyniki:
 - tytuł głównego okna zaczyna się od bieżącego utworu i usługi;
 - `Ctrl+Enter` pozostawia wyniki otwarte i mówi „Odtwarzanie: Zielony horyzont, WiiM”;
 - po Escape fokus wraca do właściwego elementu sesji WiiM.
+
+## AMC-021-06 — Początkowy fokus Ustawień
+
+1. Na głównej liście zaznacz „Brzeg ciszy”.
+2. Otwórz Ustawienia skrótem `Ctrl+,` i zapisz pierwszą pełną wypowiedź NVDA.
+3. Naciśnij strzałkę w prawo dwa razy, zapisując nazwy kolejnych kategorii.
+4. Naciśnij Tab i sprawdź, czy fokus przechodzi do pierwszej kontrolki wybranej karty.
+5. Naciśnij `Shift+Tab` i sprawdź powrót do nagłówka karty.
+
+Oczekiwane wyniki:
+
+- pierwszym elementem fokusu jest zaznaczona karta „Ogólne”, a nie Zapisz, Anuluj ani kontrolka o niejasnej nazwie;
+- NVDA podaje rolę karty i jej pozycję wśród kategorii;
+- strzałki zmieniają karty, a Tab wchodzi do zawartości wybranej karty;
+- fokus nie pozostaje w głównym oknie pod oknem modalnym.
+
+## AMC-021-07 — Powrót z Ustawień
+
+1. Na dowolnej kontrolce Ustawień naciśnij Escape.
+2. Sprawdź pierwszą pozycję odczytaną po zamknięciu.
+3. Otwórz Ustawienia ponownie, przejdź do dowolnej opcji i wybierz Zapisz skrótem `Alt+Z`.
+4. Zapisz kolejno odczyt elementu listy i komunikat o zapisaniu.
+5. Otwórz Ustawienia z menu aplikacji i anuluj je, aby sprawdzić również wariant menu.
+
+Oczekiwane wyniki:
+
+- Escape zamyka wyłącznie Ustawienia i przywraca fokus na „Brzeg ciszy” albo ostatnio zaznaczony element;
+- Zapisz również przywraca fokus do głównej listy;
+- „Zapisano ustawienia” następuje po przywróceniu listy, nie przed nim;
+- otwarcie z menu nie pozostawia fokusu w menu po zamknięciu Ustawień.
 
 ## Następne funkcje po tym zestawie
 

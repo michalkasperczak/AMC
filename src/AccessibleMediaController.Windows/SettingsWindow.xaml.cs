@@ -20,6 +20,7 @@ public partial class SettingsWindow : Window
     private readonly ObservableCollection<BindingRow> _bindingRows = [];
     private readonly ObservableCollection<MessageTemplateRow> _messageRows = [];
     private readonly ObservableCollection<MediaFieldRow> _mediaFieldRows = [];
+    private bool _initialFocusApplied;
 
     public SettingsWindow(PersistedState state, ConfigurationStore store)
     {
@@ -35,6 +36,26 @@ public partial class SettingsWindow : Window
     public PersistedState? ResultState { get; private set; }
 
     private KeyboardProfile? SelectedProfile => ProfileCombo.SelectedItem as KeyboardProfile;
+
+    private void Window_ContentRendered(object? sender, EventArgs e)
+    {
+        if (_initialFocusApplied) return;
+        _initialFocusApplied = true;
+        Dispatcher.BeginInvoke(FocusSelectedSettingsTab, DispatcherPriority.ContextIdle);
+    }
+
+    private void FocusSelectedSettingsTab()
+    {
+        if (SettingsTabs.SelectedItem is TabItem selectedTab)
+        {
+            selectedTab.Focus();
+            Keyboard.Focus(selectedTab);
+            return;
+        }
+
+        SettingsTabs.Focus();
+        Keyboard.Focus(SettingsTabs);
+    }
 
     private void LoadControls()
     {
