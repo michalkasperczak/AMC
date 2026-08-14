@@ -95,6 +95,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void ShowSearch(bool allServices)
     {
         Activate();
+        var sessionBeforeSearch = _sessions.Current.Id;
         var dialog = new SearchWindow(
             _sessions,
             allServices,
@@ -110,10 +111,22 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             NavigateTo("Teraz odtwarzane", false);
             SelectMediaItem(result.Item.Id);
             RestoreMediaListFocusAfterRefresh();
+            if (allServices) AnnounceSearchReturnContext();
             return;
         }
 
         RestoreMediaListFocusAfterRefresh();
+        if (allServices && _sessions.Current.Id != sessionBeforeSearch)
+        {
+            AnnounceSearchReturnContext();
+        }
+    }
+
+    private void AnnounceSearchReturnContext()
+    {
+        Dispatcher.BeginInvoke(
+            () => Announce($"{_sessions.Current.DisplayName}, {_currentView}"),
+            DispatcherPriority.ContextIdle);
     }
 
     public void ShowFilter()

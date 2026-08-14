@@ -12,6 +12,7 @@ public partial class SearchWindow : Window
     private readonly bool _allServices;
     private readonly Func<MediaItem, string> _formatItem;
     private readonly Func<SearchResult, SearchResultAction, bool, string?> _executeAction;
+    private readonly string _resultHelpText;
 
     public SearchWindow(
         SessionManager sessions,
@@ -21,10 +22,13 @@ public partial class SearchWindow : Window
         bool detailedHints)
     {
         InitializeComponent();
-        Title = allServices
+        var modeName = allServices
             ? "Szukaj we wszystkich usługach"
             : $"Szukaj w usłudze {sessions.Current.DisplayName}";
-        HeadingText.Text = Title;
+        Title = $"{modeName} — AMC";
+        HeadingText.Text = modeName;
+        AutomationProperties.SetName(this, Title);
+        AutomationProperties.SetName(SearchBox, $"{modeName}. Wyszukiwany tekst");
         ScopeText.Text = allServices
             ? "Wyniki mogą pochodzić ze wszystkich włączonych usług."
             : $"Zakres: {sessions.Current.DisplayName}.";
@@ -33,15 +37,15 @@ public partial class SearchWindow : Window
         _allServices = allServices;
         _formatItem = formatItem;
         _executeAction = executeAction;
+        _resultHelpText = detailedHints
+            ? "Strzałki wybierają wynik. Enter otwiera. Control Enter odtwarza teraz. Shift Enter dodaje do kolejki. Control Shift Enter przełącza odtwarzanie jako następne. Control Shift U przełącza ulubione. Alt Enter pokazuje informacje. Escape zamyka okno."
+            : string.Empty;
 
         if (detailedHints)
         {
             AutomationProperties.SetHelpText(
                 SearchBox,
                 "Wpisz tekst i naciśnij Enter, aby rozpocząć wyszukiwanie. Escape zamyka okno.");
-            AutomationProperties.SetHelpText(
-                ResultsList,
-                "Enter otwiera wynik. Control Enter odtwarza teraz. Shift Enter dodaje do kolejki. Control Shift Enter przełącza odtwarzanie jako następne. Control Shift U przełącza ulubione. Alt Enter pokazuje informacje.");
         }
 
         Loaded += (_, _) =>
@@ -71,7 +75,8 @@ public partial class SearchWindow : Window
                 result.Item.PrimaryText,
                 _allServices
                     ? $"{_formatItem(result.Item)}, {result.Session.DisplayName}"
-                    : _formatItem(result.Item)))
+                    : _formatItem(result.Item),
+                _resultHelpText))
             .ToList();
         ResultsList.ItemsSource = results;
         if (results.Count == 0)
@@ -87,7 +92,9 @@ public partial class SearchWindow : Window
         ResultsList.ScrollIntoView(ResultsList.SelectedItem);
         ResultsList.Focus();
         Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.Loaded);
-        SearchStatus.Announce(results.Count == 1 ? "1 wynik" : $"{results.Count} wyników");
+        // The focused ListBoxItem already exposes its label and position (for example
+        // "1 z 3"). Keep the visible count without raising a second live announcement.
+        SearchStatus.Text = results.Count == 1 ? "1 wynik" : $"{results.Count} wyników";
     }
 
     private void FocusSelectedResult()
@@ -182,7 +189,8 @@ public partial class SearchWindow : Window
         string SessionId,
         MediaItem Item,
         string NavigationText,
-        string Label)
+        string Label,
+        string Hint)
     {
         public override string ToString() => Label;
     }

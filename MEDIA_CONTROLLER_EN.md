@@ -278,6 +278,16 @@ Plain letters in a list never execute AMC commands. They navigate using the curr
 - Returning to a previous view restores the previously selected item.
 - Refreshing must not unnecessarily return focus to the beginning of the list.
 
+### 7.4. Search and query history
+
+`Ctrl+F` opens current-service search and `Ctrl+Shift+F` opens global search. The window title and the edit field's accessible name always include the scope, so a screen reader identifies the mode even when it does not announce the title bar correctly. Enter in the field submits the query and focuses the first result; another Enter opens that result. Direct actions keep the results open. Returning from a global result announces the current service and view.
+
+After a successful query, the native list exposes the result label and its position, for example, “1 of 3”. The visible result count is not raised as a separate live announcement. When detailed hints are enabled, the keyboard instruction is help text on the selected item, so it follows the result name instead of preceding it. No results remains an explicit announcement.
+
+Search history will be local and separated by scope: one history for each service and another for global search. With an empty field, Down Arrow will open up to 20 most recent unique queries, newest first. Arrows only select a query and Enter submits it; selection alone never starts a search. Repeating a query moves it to the beginning instead of creating a duplicate. The user can clear history and disable recording. History contains no tokens, is not synchronized, and is not included in exports without separate informed consent.
+
+After the shared metadata model is extended, plain Left and Right Arrow on result lists and other browsing lists will move through available fields for the focused resource, such as title, artist, album, composer, year and service. The adapter declares available fields and the UI skips missing values. This is one cross-view mechanism rather than a separate implementation for every service.
+
 ## 8. Playlist selection
 
 `Shift+P` in the prefix layer, or the local Manage Playlists command, opens a small modal window containing:
@@ -543,7 +553,7 @@ The current Windows prototype should first stabilise:
 
 The first prototype and initial working release target Windows only. macOS, VoiceOver and possible Siri support are later stages.
 
-State of `alpha.18`: filtering and searching are separate—`Ctrl+K` narrows the current list, while `Ctrl+F` and `Ctrl+Shift+F` open dedicated query and results windows. Plain Enter opens a result and returns to the main list, while direct actions keep the results window open; global-search action messages identify the service. Enter on the current track alternates playback and pause, while `Ctrl+Enter` always means Play now. Detailed keyboard instructions for the filter and both search scopes form one option that is off by default. Type-ahead uses the resource's semantic primary name rather than the first field of the accessible label; this is the title in the current track list. The core and UI take one version from `Directory.Build.props`, and the portable publication is produced as one unambiguously named EXE. The main remaining first-stage work is an accessible command palette, low-level capture of a configurable prefix, and candidate-prefix testing with NVDA, JAWS and clipboard managers. Search currently uses the demonstration catalogue; real network queries arrive with service adapters.
+State of `alpha.19`: filtering and searching are separate—`Ctrl+K` narrows the current list, while `Ctrl+F` and `Ctrl+Shift+F` open dedicated query and results windows. The search scope is part of both the title and the edit field's accessible name. Plain Enter opens a result and returns to the main list, while direct actions keep the results window open; global-search action messages identify the service and returning announces the current service and view. A result no longer receives a duplicate result-count announcement, and an optional detailed instruction is exposed as item help text. Enter on the current track alternates playback and pause, while `Ctrl+Enter` always means Play now. A session has one active playback pipeline: selecting another track replaces the previous one and never overlaps audio; on the same track the command ensures playback and does not act as Pause. Detailed keyboard instructions for the filter and both search scopes form one option that is off by default. Type-ahead uses the resource's semantic primary name rather than the first field of the accessible label; this is the title in the current track list. The core and UI take one version from `Directory.Build.props`, and the portable publication is produced as one unambiguously named EXE. The main remaining first-stage work is an accessible command palette, low-level capture of a configurable prefix, and candidate-prefix testing with NVDA, JAWS and clipboard managers. Search currently uses the demonstration catalogue; real network queries arrive with service adapters.
 
 Planned sequence of later stages:
 
