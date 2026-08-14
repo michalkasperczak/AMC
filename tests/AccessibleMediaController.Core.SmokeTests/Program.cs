@@ -352,6 +352,8 @@ static void TestSessions()
     True(manager.Current.Play(selected), "Wybrany element powinien dać się odtworzyć.");
     Equal(selected, manager.Current.CurrentItem);
     True(manager.Current.IsPlaying, "Odtwarzanie wybranego elementu powinno uruchomić sesję.");
+    True(manager.Current.Play(selected), "Ponowne polecenie odtwarzania nie powinno przełączać na pauzę.");
+    True(manager.Current.IsPlaying, "Polecenie odtwarzania ma pozostać jednoznaczne także dla bieżącego elementu.");
     True(manager.Current.Activate(selected), "Ponowne otwarcie bieżącego elementu powinno być obsłużone.");
     Equal(false, manager.Current.IsPlaying);
     True(manager.Current.Activate(selected), "Kolejne otwarcie bieżącego elementu powinno wznowić odtwarzanie.");

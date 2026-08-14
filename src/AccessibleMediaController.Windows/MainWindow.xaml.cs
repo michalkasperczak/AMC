@@ -111,21 +111,21 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             NavigateTo("Teraz odtwarzane", false);
             SelectMediaItem(result.Item.Id);
             RestoreMediaListFocusAfterRefresh();
-            if (allServices) AnnounceSearchReturnContext();
+            if (allServices) AnnounceSearchReturnContext(result.Item);
             return;
         }
 
         RestoreMediaListFocusAfterRefresh();
         if (allServices && _sessions.Current.Id != sessionBeforeSearch)
         {
-            AnnounceSearchReturnContext();
+            AnnounceSearchReturnContext(SelectedItem ?? _sessions.Current.CurrentItem);
         }
     }
 
-    private void AnnounceSearchReturnContext()
+    private void AnnounceSearchReturnContext(MediaItem item)
     {
         Dispatcher.BeginInvoke(
-            () => Announce($"{_sessions.Current.DisplayName}, {_currentView}"),
+            () => Announce($"{item.Title}, {_sessions.Current.DisplayName}, {_currentView}"),
             DispatcherPriority.ContextIdle);
     }
 
@@ -158,7 +158,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     public void ShowItemInformation(bool extended)
     {
         var item = SelectedItem ?? _sessions.Current.CurrentItem;
-        var text = $"{item.KindLabel}: {item.Title}\nWykonawca: {item.Artist}\nCzas: {CommandRouter.FormatTime(item.Duration)}";
+        var text = $"{item.KindLabel}: {item.Title}\nWykonawca: {item.Artist}\nCzas: {CommandRouter.FormatTime(item.Duration)}\nUsługa: {_sessions.Current.DisplayName}";
         if (extended) text += $"\nIdentyfikator demonstracyjny: {item.Id}";
         MessageBox.Show(text, "Informacje o elemencie", MessageBoxButton.OK, MessageBoxImage.Information);
     }
@@ -301,6 +301,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
                 () => Announce(announcement),
                 DispatcherPriority.ContextIdle);
         }
+        UpdateWindowTitle();
         return result;
     }
 
@@ -309,12 +310,13 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         var preferredItemId = SelectedItem?.Id;
         SessionHeading.Text = _sessions.Current.DisplayName;
         ViewHeading.Text = _currentView;
+        UpdateWindowTitle();
         IEnumerable<MediaItem> items = _sessions.Current.Items;
         if (_currentView == "Ulubione") items = items.Where(item => item.IsFavorite);
         if (_currentView == "Biblioteka") items = items.Where(item => item.IsInLibrary);
         if (_currentView == "Kolejka") items = items.Where(item => item.IsInQueue || item.IsPlayNext);
         _unfilteredItems = items
-            .Select(item => new MediaItemRow(item, FormatItem(item), item.PrimaryText))
+            .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
             .ToList();
         ApplyFilter(preferredItemId, fallbackIndex);
 
@@ -605,6 +607,17 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         RefreshCurrentView(true);
     }
 
+    private string FormatListItem(MediaItem item) =>
+        _currentView == "Kolejka"
+            ? $"{FormatItem(item)}, {_sessions.Current.DisplayName}"
+            : FormatItem(item);
+
+    private void UpdateWindowTitle()
+    {
+        var session = _sessions.Current;
+        Title = $"{session.CurrentItem.Title} — {session.DisplayName} — {_currentView} — AMC";
+    }
+
     private static bool IsSearchView(string viewName) =>
         viewName is "Szukaj w bieżącej usłudze" or "Szukaj we wszystkich usługach";
 
@@ -871,7 +884,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private string? ExecuteSearchResultAction(
         SearchWindow.SearchResult result,
         SearchResultAction action,
-        bool includeService)
+        bool _)
     {
         var session = _sessions.SelectSession(result.SessionId);
         if (session is null) return "Wybrana sesja nie jest już dostępna";
@@ -909,7 +922,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
         var announcement = _capturedAnnouncement;
         _capturedAnnouncement = null;
-        if (includeService && !string.IsNullOrWhiteSpace(announcement))
+        if (!string.IsNullOrWhiteSpace(announcement))
         {
             announcement = $"{announcement}, {session.DisplayName}";
         }

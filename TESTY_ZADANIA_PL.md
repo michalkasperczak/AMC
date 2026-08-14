@@ -1,98 +1,86 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-019`
-- Tytuł zestawu: Zakres wyszukiwania, krótkie wyniki i kontekst sesji
-- Wersja programu: `0.1.0-alpha.19`
-- Utworzono: 2026-08-14 18:31:15, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-14_183115_0.1.0-alpha.19.md`
+- Numer zestawu: `AMC-TEST-020`
+- Tytuł zestawu: Krótsze wyniki, nazwa usługi i kontekst głównego okna
+- Wersja programu: `0.1.0-alpha.20`
+- Utworzono: 2026-08-14 21:35:18, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-14_213518_0.1.0-alpha.20.md`
 
-Najważniejsze są zadania 1–5. Wpisuj możliwie dokładnie pierwszą wypowiedź NVDA — zwłaszcza jej kolejność.
+Ten zestaw sprawdza tylko zmiany po alpha.19. Najważniejsze są dokładne wypowiedzi NVDA i ich kolejność.
 
-## AMC-019-01 — Jednoznaczny tryb wyszukiwania
+## AMC-020-01 — Wynik bez zbędnego prefiksu
 
-1. W TIDAL-u, na głównej liście, naciśnij `Ctrl+F`.
-2. Zapisz pierwszą pełną wypowiedź NVDA, a potem zamknij okno Escape.
-3. Naciśnij `Ctrl+Shift+F` i ponownie zapisz pierwszą wypowiedź.
-
-Oczekiwane wyniki:
-
-- bieżący zakres zawiera „Szukaj w usłudze TIDAL”;
-- zakres globalny zawiera „Szukaj we wszystkich usługach”;
-- nazwa trybu jest związana z polem „Wyszukiwany tekst”, więc nie ginie nawet wtedy, gdy NVDA nie odczyta osobno belki tytułu;
-- nie jest podawany czas ani liczba elementów poprzedniego widoku.
-
-## AMC-019-02 — Wynik bez powtórzonej liczby
-
-1. Wyłącz szczegółowe podpowiedzi w **Ustawieniach**, na karcie **Komunikaty**.
-2. Naciśnij `Ctrl+F`, wpisz `Ciepły deszcz` i naciśnij Enter.
-3. Zapisz dokładnie komunikat NVDA.
-4. Wróć do pola wyszukiwania, wpisz `demonstracyjny` i naciśnij Enter.
+1. W Ustawieniach wyłącz szczegółowe podpowiedzi klawiatury.
+2. Przełącz się do TIDAL skrótem `Ctrl+1`.
+3. Naciśnij `Ctrl+F`, wpisz `Ciepły deszcz` i naciśnij Enter.
+4. Zapisz pierwszą pełną wypowiedź NVDA.
+5. Wyszukaj `demonstracyjny` i przejdź strzałką na drugi wynik.
 
 Oczekiwane wyniki:
 
-- fokus przechodzi na pierwszy wynik;
-- NVDA podaje etykietę elementu i pozycję natywnej listy, np. „1 z 1” albo „1 z N”;
-- po tym nie występuje dodatkowy komunikat na żywo „1 wynik” ani „N wyników”;
-- liczba wyników pozostaje widoczna dla użytkownika widzącego;
-- drugi Enter na wyniku nadal go otwiera, zamiast ponownie uruchamiać zapytanie.
+- odczyt zaczyna się od wykonawcy albo tytułu, zgodnie z ustawioną kolejnością pól;
+- nie występuje początkowe „Wyniki wyszukiwania”;
+- pozycja natywnej listy, np. „1 z 1” albo „2 z 3”, nadal jest czytana dokładnie raz;
+- zwykły Enter na wyniku nadal wraca do głównej listy i nie uruchamia odtwarzania.
 
-## AMC-019-03 — Kolejność szczegółowej podpowiedzi
+## AMC-020-02 — Skrócona pomoc szczegółowa
 
 1. Włącz opcję **Pokazuj szczegółowe podpowiedzi klawiatury przy polach i listach**.
-2. Wyszukaj `Ciepły deszcz` przez `Ctrl+F`.
-3. Zapisz kolejność: nazwa elementu, pozycja na liście i instrukcja klawiszowa.
-4. Wyłącz opcję i powtórz próbę.
+2. Przez `Ctrl+F` wyszukaj `Ciepły deszcz`.
+3. Zapisz pełną wypowiedź wyniku.
+4. Wyłącz szczegółowe podpowiedzi i powtórz próbę.
 
 Oczekiwane wyniki:
 
-- w trybie szczegółowym najpierw jest czytany wynik i jego pozycja, a dopiero potem pomoc o strzałkach, Enterze, Escape i działaniach bezpośrednich;
-- pomoc jest własnością wyniku, a nie całej listy odczytaną przed elementem;
-- w trybie krótkim instrukcja nie występuje;
-- ważny komunikat o braku wyników pozostaje dostępny w obu trybach.
+- w trybie szczegółowym po elemencie i pozycji występuje tylko: „Strzałki wybierają wynik. Enter otwiera. Escape zamyka okno”;
+- nie są powtarzane skróty kolejki, następnego utworu, Ulubionych ani informacji;
+- w trybie krótkim instrukcji nie ma.
 
-## AMC-019-04 — Kontekst po wyszukiwaniu globalnym
+## AMC-020-03 — Usługa w lokalnych działaniach bezpośrednich
 
-1. Będąc w TIDAL-u, naciśnij `Ctrl+Shift+F`, wyszukaj `Zielony horyzont` i wybierz wynik Apple Music.
-2. Otwórz go zwykłym Enter.
-3. Sprawdź fokus oraz komunikat po powrocie do głównego okna.
-4. Powtórz wyszukiwanie, na wyniku Apple Music naciśnij `Ctrl+Enter`, a potem Escape.
-
-Oczekiwane wyniki:
-
-- zwykły Enter wraca do głównej listy na wybranym elemencie;
-- po powrocie słychać „Apple Music, Teraz odtwarzane”;
-- działanie `Ctrl+Enter` pozostawia wyniki otwarte i podaje usługę;
-- Escape po działaniu wraca na właściwy element głównej listy i również jednoznacznie podaje zmienioną sesję;
-- komunikat kontekstu następuje po przywróceniu fokusu, a nie przed odczytaniem elementu.
-
-## AMC-019-05 — Jeden tor odtwarzania
-
-1. Na „Brzegu ciszy” naciśnij zwykły Enter trzy razy.
-2. Naciśnij na nim dwa razy `Ctrl+Enter`.
-3. Przejdź na „Ciepły deszcz” i naciśnij `Ctrl+Enter`.
+1. Przełącz się do TIDAL skrótem `Ctrl+1`.
+2. Przez `Ctrl+F` wyszukaj `Brzeg ciszy`.
+3. Na wyniku naciśnij `Shift+Enter`, a następnie naciśnij go drugi raz, aby przywrócić stan Kolejki.
+4. Na tym samym wyniku naciśnij dwukrotnie `Ctrl+Shift+U`, aby sprawdzić Ulubione i przywrócić stan.
+5. Naciśnij `Alt+Enter` i sprawdź treść okna Informacje.
+6. Za każdym razem zapisz komunikat oraz sprawdź, czy okno wyników pozostało otwarte.
 
 Oczekiwane wyniki:
 
-- zwykły Enter mówi kolejno „Odtwarzanie”, „Pauza”, „Odtwarzanie”;
-- każde `Ctrl+Enter` mówi „Odtwarzanie”, nigdy „Pauza”;
-- wybranie „Ciepłego deszczu” zastępuje bieżący element tej sesji;
-- aplikacja nie sugeruje równoległego nakładania utworów;
-- fokus pozostaje na zaznaczonym elemencie.
+- każdy komunikat kończy się nazwą `TIDAL`, także w wyszukiwaniu bieżącej usługi;
+- komunikat zawiera nazwę elementu;
+- okno Informacje zawiera osobny wiersz „Usługa: TIDAL”;
+- fokus pozostaje na wyniku i można od razu wykonać kolejne działanie.
 
-## AMC-019-06 — Regresja Escape, Alt+F4 i braku wyników
+## AMC-020-04 — Tytuł głównego okna i Kolejka
 
-1. Wyszukaj nieistniejący tekst i sprawdź komunikat oraz zaznaczenie pola.
-2. Zamknij wyszukiwanie Escape.
-3. Otwórz je ponownie i zamknij `Alt+F4`.
-4. Sprawdź, czy w obu przypadkach wracasz na listę główną.
+1. Zamknij wyszukiwanie, przejdź do „Ciepłego deszczu” na głównej liście i naciśnij `Ctrl+Enter`.
+2. Odczytaj tytuł głównego okna poleceniem NVDA do odczytu tytułu.
+3. Naciśnij `Ctrl+Q`, przejdź na „Nocny pociąg” i zapisz wypowiedź pozycji Kolejki.
+4. Ponownie odczytaj tytuł głównego okna.
 
 Oczekiwane wyniki:
 
-- słychać „Brak wyników. Zmień wyszukiwany tekst”, a tekst jest zaznaczony do poprawy;
-- Escape i `Alt+F4` zamykają tylko okno wyszukiwania;
-- fokus wraca na listę główną;
-- `Alt+F4` użyte dopiero w oknie głównym zamyka aplikację.
+- tytuł zaczyna się od „Ciepły deszcz — TIDAL” i dopiero potem podaje widok oraz AMC;
+- po przejściu do Kolejki tytuł nadal zaczyna się od bieżącego utworu i usługi, a widok zmienia się na „Kolejka”;
+- etykieta „Nocnego pociągu” zawiera `TIDAL` przed informacją o pozycji na liście.
+
+## AMC-020-05 — Jednoznaczny powrót z wyszukiwania globalnego
+
+1. Będąc w TIDAL-u, naciśnij `Ctrl+Shift+F` i wyszukaj `Zielony horyzont`.
+2. Strzałką wybierz wynik Apple Music i otwórz go zwykłym Enter.
+3. Zapisz kolejno wypowiedź elementu po odzyskaniu fokusu i późniejszy komunikat kontekstu.
+4. Odczytaj tytuł głównego okna.
+5. Powtórz wyszukiwanie globalne, wybierz wynik WiiM, użyj `Ctrl+Enter`, a następnie Escape.
+
+Oczekiwane wyniki:
+
+- zwykły Enter wraca na „Zielony horyzont” w głównej liście Apple Music;
+- komunikat kontekstu podaje w tej kolejności: „Zielony horyzont, Apple Music, Teraz odtwarzane”;
+- tytuł głównego okna zaczyna się od bieżącego utworu i usługi;
+- `Ctrl+Enter` pozostawia wyniki otwarte i mówi „Odtwarzanie: Zielony horyzont, WiiM”;
+- po Escape fokus wraca do właściwego elementu sesji WiiM.
 
 ## Następne funkcje po tym zestawie
 
-Następne małe funkcje to historia wyszukiwania oraz dostępna paleta poleceń pod `Ctrl+Shift+K`. Historia ma być lokalna, osobna dla usługi i zakresu globalnego, ograniczona do 20 unikatowych zapytań; strzałka w dół przy pustym polu wybierze historię, a Enter wykona zapytanie. Strzałki lewo i prawo do przeglądania metadanych zostaną dodane dopiero po rozszerzeniu wspólnego modelu pól. Nadal pozostają: niskopoziomowy konfigurowalny prefiks, instalator i bezpieczne aktualizacje, AMC.Host, WiiM oraz pierwsze logowanie OAuth.
+Po zatwierdzeniu tych poprawek następny mały etap to lokalna historia wyszukiwania: osobna dla każdej usługi i dla zakresu globalnego, do 20 unikatowych zapytań, z wyborem strzałką w dół przy pustym polu. Następnie powstanie dostępna paleta poleceń pod `Ctrl+Shift+K`. Nadal pozostają: niskopoziomowy konfigurowalny prefiks i test kandydatów z NVDA, JAWS-em oraz menedżerami schowka, instalator i bezpieczne aktualizacje, AMC.Host, WiiM oraz pierwsze logowanie OAuth.

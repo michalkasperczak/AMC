@@ -38,7 +38,7 @@ public partial class SearchWindow : Window
         _formatItem = formatItem;
         _executeAction = executeAction;
         _resultHelpText = detailedHints
-            ? "Strzałki wybierają wynik. Enter otwiera. Control Enter odtwarza teraz. Shift Enter dodaje do kolejki. Control Shift Enter przełącza odtwarzanie jako następne. Control Shift U przełącza ulubione. Alt Enter pokazuje informacje. Escape zamyka okno."
+            ? "Strzałki wybierają wynik. Enter otwiera. Escape zamyka okno."
             : string.Empty;
 
         if (detailedHints)
