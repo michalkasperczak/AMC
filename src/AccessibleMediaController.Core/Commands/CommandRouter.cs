@@ -63,6 +63,17 @@ public sealed class CommandRouter(
                 }
                 announcements.Announce($"Odtwarzanie: {selectedToPlay.Title}");
                 return new(true);
+            case CommandIds.ActivateSelected:
+                var selectedToActivate = application.SelectedItem ?? current.CurrentItem;
+                if (!current.Activate(selectedToActivate))
+                {
+                    announcements.Announce("Nie można otworzyć wybranego elementu w tej sesji");
+                    return new(false);
+                }
+                announcements.Announce(current.IsPlaying
+                    ? $"Odtwarzanie: {selectedToActivate.Title}"
+                    : $"Pauza: {selectedToActivate.Title}");
+                return new(true);
             case CommandIds.Previous:
                 current.Move(-1);
                 announcements.Announce(FormatItem(current.CurrentItem));
@@ -100,10 +111,12 @@ public sealed class CommandRouter(
                 AnnounceTemplate("time.total", "{total}", ("total", FormatTime(current.CurrentItem.Duration)));
                 return new(true);
             case CommandIds.ToggleFavorite:
-                var favorite = current.ToggleFavorite(application.SelectedItem ?? current.CurrentItem);
+                var favoriteItem = application.SelectedItem ?? current.CurrentItem;
+                var favorite = current.ToggleFavorite(favoriteItem);
                 AnnounceTemplate(
                     favorite ? "favorite.added" : "favorite.removed",
-                    favorite ? "Dodano do ulubionych" : "Usunięto z ulubionych");
+                    favorite ? "Dodano do ulubionych: {item}" : "Usunięto z ulubionych: {item}",
+                    ("item", favoriteItem.Title));
                 return new(true);
             case CommandIds.ToggleLibrary:
                 var library = current.ToggleLibrary(application.SelectedItem ?? current.CurrentItem);

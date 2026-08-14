@@ -1,108 +1,98 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-017`
-- Tytuł zestawu: Nawigacja po tytułach i bezpośrednie działania w wyszukiwaniu
-- Wersja programu: `0.1.0-alpha.17`
-- Utworzono: 2026-08-14 13:06:40, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-14_130640_0.1.0-alpha.17.md`
+- Numer zestawu: `AMC-TEST-018`
+- Tytuł zestawu: Odtwarzanie, trwałe wyniki wyszukiwania i szczegółowe podpowiedzi
+- Wersja programu: `0.1.0-alpha.18`
+- Utworzono: 2026-08-14 16:12:39, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-14_161239_0.1.0-alpha.18.md`
 
-Najważniejsze są zadania 1–4. Każdy oczekiwany rezultat jest zapisany w osobnym podpunkcie, aby można go było sprawdzać kolejno z NVDA.
+Najważniejsze są zadania 1–5. Wpisuj wynik przy każdym podpunkcie, zwłaszcza gdy NVDA mówi coś więcej niż tekst oczekiwany.
 
-## AMC-017-01 — Nawigacja literami niezależna od kolejności odczytu
+## AMC-018-01 — Enter przełącza odtwarzanie i pauzę
 
-1. W ustawieniach, na karcie **Listy i odczyt**, ustaw **Wykonawcę** przed **Tytułem**.
-2. Wróć do widoku **Teraz odtwarzane** w sesji TIDAL; lista powinna mieć 17 pozycji.
-3. Naciśnij szybko kolejno `Z`, `I`, `E`.
-4. Po krótkiej przerwie naciskaj pojedyncze `B`, za każdym razem czekając na odczyt elementu.
-5. Powtórz sprawdzenie z literą `C`.
-6. Naciśnij `A`, a po przerwie naciskaj `D`, aby sprawdzić również album, playlistę i utwór na liście mieszanej.
+1. Uruchom TIDAL i widok **Teraz odtwarzane**.
+2. Wybierz „Brzeg ciszy” i naciśnij Enter trzy razy, czekając za każdym razem na komunikat.
+3. Przejdź do „Ciepłego deszczu” i naciśnij Enter.
+4. Na „Ciepłym deszczu” naciśnij dwa razy `Ctrl+Enter`.
 
 Oczekiwane wyniki:
 
-- `ZIE` przechodzi do „Zielonego horyzontu”.
-- Kolejne pojedyncze `B` przechodzą między „Brzegiem ciszy” i „Błękitną godziną”.
-- Kolejne pojedyncze `C` przechodzą między „Ciepłym deszczem” i „Ciszą o świcie”.
-- `A` przechodzi do „Albumu demonstracyjnego”, a nie do utworu wykonawczyni Anny Kowalskiej.
-- Powtarzanie `D` przechodzi między „Drugim utworem demonstracyjnym” i playlistą „Do odsłuchu”.
-- Dopasowanie korzysta z głównej nazwy semantycznej elementu, mimo że NVDA najpierw odczytuje wykonawcę.
-- Litery nie wpisują się do filtra i nie uruchamiają poleceń.
+- kolejne zwykłe naciśnięcia Enter na „Brzegu ciszy” mówią kolejno: „Odtwarzanie”, „Pauza”, „Odtwarzanie”;
+- Enter na innym utworze uruchamia ten utwór, zamiast pauzować poprzedni;
+- `Ctrl+Enter` zawsze oznacza „Odtwórz teraz”, więc nie przełącza na pauzę;
+- po każdym komunikacie fokus pozostaje na właściwym elemencie listy.
 
-## AMC-017-02 — Jednoznaczne otwarcie wyniku i Enter na liście głównej
+## AMC-018-02 — Działania nie zamykają wyników wyszukiwania
 
-1. W TIDAL-u naciśnij `Ctrl+F`.
-2. Wpisz `Brzeg` i naciśnij Enter.
-3. Na wyniku „Brzeg ciszy” naciśnij Enter.
-4. Po powrocie do listy głównej naciśnij jeszcze raz Enter.
+1. Naciśnij `Ctrl+F`, wpisz `Ciepły deszcz` i naciśnij Enter.
+2. Naciśnij kolejno `Ctrl+Enter`, `Shift+Enter`, `Ctrl+Shift+Enter` i `Ctrl+Shift+U`.
+3. Po każdym działaniu sprawdź strzałkami, czy nadal jesteś na liście wyników.
+4. Naciśnij `Alt+Enter`, zamknij informacje i sprawdź fokus.
+5. Otwórz menu kontekstowe, zamknij je Escape i sprawdź fokus.
+6. Dopiero zwykłym Enter otwórz wynik i wróć do głównej listy.
 
 Oczekiwane wyniki:
 
-- Pierwszy Enter wykonuje wyszukiwanie i przenosi fokus na wynik.
-- Drugi Enter zamyka okno wyszukiwania, wraca do widoku „Teraz odtwarzane” i zaznacza „Brzeg ciszy”.
-- Po powrocie element nie jest odczytywany przez dodatkowy komunikat aplikacji drugi raz.
-- Trzeci Enter uruchamia wybrany utwór i podaje jednoznacznie „Odtwarzanie: Brzeg ciszy”.
-- Enter nie przełącza przypadkowo pauzy na wcześniej odtwarzanym utworze.
+- żadne działanie z modyfikatorem nie zamyka okna wyszukiwania;
+- fokus pozostaje na „Ciepłym deszczu”;
+- komunikaty kolejki, „jako następne” i Ulubionych zawierają nazwę „Ciepły deszcz”;
+- `Alt+Enter` pokazuje właściwy element, a po zamknięciu informacji wraca do wyniku;
+- menu kontekstowe nadal odczytuje skróty;
+- dopiero zwykły Enter zamyka wyszukiwanie, przechodzi do głównej listy i zaznacza wynik bez jego automatycznego odtworzenia.
 
-## AMC-017-03 — Jeden wynik pozostaje do świadomego wyboru
+## AMC-018-03 — Wyszukiwanie globalne podaje usługę
 
-1. Naciśnij `Ctrl+F`.
-2. Wpisz `Ciepły deszcz` i naciśnij Enter.
-3. Nie naciskaj jeszcze żadnego działania; sprawdź, gdzie znajduje się fokus.
+1. W TIDAL-u naciśnij `Ctrl+Shift+F` i wyszukaj `Zielony horyzont`.
+2. Wybierz wynik z Apple Music i naciśnij `Ctrl+Enter`.
+3. Sprawdź komunikat i użyj strzałek.
 4. Naciśnij Escape.
 
 Oczekiwane wyniki:
 
-- Po znalezieniu jednego wyniku okno nie zamyka się automatycznie.
-- Fokus znajduje się na jedynym wyniku, dzięki czemu można wybrać działanie.
-- Samo wyszukanie nie rozpoczyna odtwarzania.
-- Escape anuluje wybór i przywraca fokus głównej liście.
+- komunikat zawiera „Odtwarzanie: Zielony horyzont” oraz „Apple Music”;
+- po `Ctrl+Enter` wyszukiwanie pozostaje otwarte i fokus jest na wyniku Apple Music;
+- Escape wraca do głównej listy;
+- główna sesja to Apple Music, a „Zielony horyzont” pozostaje zaznaczony i odtwarzany.
 
-## AMC-017-04 — Bezpośrednie działania na wyniku wyszukiwania
+## AMC-018-04 — Krótkie i szczegółowe podpowiedzi
 
-Każde działanie sprawdź osobno: ponownie otwórz `Ctrl+F`, wyszukaj `Ciepły deszcz`, a następnie użyj wskazanego skrótu na wyniku.
-
-1. `Ctrl+Enter` — odtwórz teraz.
-2. `Shift+Enter` — dodaj do kolejki.
-3. `Ctrl+Shift+Enter` — odtwórz jako następne.
-4. `Ctrl+Shift+U` — dodaj lub usuń z Ulubionych.
-5. `Alt+Enter` — pokaż informacje.
-6. Otwórz menu kontekstowe na wyniku i sprawdź nazwy oraz odczytane skróty tych działań.
+1. Otwórz **Ustawienia**, kartę **Komunikaty** i sprawdź opcję **Pokazuj szczegółowe podpowiedzi klawiatury przy polach i listach**.
+2. Przy opcji wyłączonej użyj `Ctrl+K`, `Ctrl+F` i `Ctrl+Shift+F`.
+3. Włącz opcję, zapisz ustawienia i powtórz te trzy próby.
+4. Ponownie wyłącz opcję i zapisz.
 
 Oczekiwane wyniki:
 
-- Każdy skrót działa bez potrzeby wcześniejszego powrotu do listy głównej.
-- Po `Ctrl+Enter` słychać nazwę rzeczywiście uruchomionego utworu.
-- Działania kolejki, „Odtwórz jako następne” i Ulubionych podają nazwę zmienianego elementu.
-- `Alt+Enter` otwiera informacje o właściwym wyniku.
-- Menu kontekstowe zawiera widoczne dla NVDA skróty klawiszowe.
-- Po zamknięciu menu bez wyboru fokus pozostaje na wyniku.
+- opcja jest domyślnie wyłączona;
+- w trybie krótkim NVDA nie powtarza przy każdym wyniku instrukcji o Enterze, Escape i wszystkich skrótach;
+- w trybie szczegółowym filtr i oba zakresy wyszukiwania otrzymują pełne podpowiedzi;
+- ustawienie działa wspólnie dla wszystkich tych wariantów i pozostaje zachowane po ponownym otwarciu ustawień.
 
-## AMC-017-05 — Wyszukiwanie globalne i zmiana sesji
+## AMC-018-05 — Escape oraz Alt+F4
 
-1. Będąc w TIDAL-u, naciśnij `Ctrl+Shift+F`.
-2. Wpisz `Zielony horyzont` i naciśnij Enter.
-3. Wybierz wynik z Apple Music.
-4. Naciśnij `Ctrl+Enter`.
+1. Otwórz wyszukiwanie przez `Ctrl+F`, a następnie naciśnij Escape.
+2. Otwórz wyszukiwanie ponownie i naciśnij `Alt+F4`.
+3. W głównym oknie naciśnij `Alt+F4`.
 
 Oczekiwane wyniki:
 
-- Każdy wynik zawiera nazwę usługi.
-- `Ctrl+Enter` zamyka wyszukiwanie i przełącza główną sesję na Apple Music.
-- Zaznaczony i odtwarzany jest „Zielony horyzont” z Apple Music.
-- Słychać jeden jasny komunikat o rozpoczęciu odtwarzania.
+- Escape zamyka tylko wyszukiwanie i wraca na główną listę;
+- `Alt+F4` w wyszukiwaniu również zamyka tylko aktywne okno podrzędne — jest to standardowe zachowanie Windows;
+- `Alt+F4` w głównym oknie zamyka całą aplikację;
+- żaden z tych skrótów nie pozostawia niewidocznego okna ani procesu blokującego prefiks.
 
-## AMC-017-06 — Brak wyników i anulowanie
+## AMC-018-06 — Brak wyników po skróceniu podpowiedzi
 
-1. Naciśnij `Ctrl+F`, wpisz tekst, którego nie ma, i naciśnij Enter.
-2. Sprawdź komunikat i zaznaczenie tekstu.
-3. Naciśnij Escape.
+1. Przy wyłączonych szczegółowych podpowiedziach wyszukaj nieistniejący tekst.
+2. Sprawdź komunikat, zaznaczenie tekstu i Escape.
 
 Oczekiwane wyniki:
 
-- Słychać „Brak wyników. Zmień wyszukiwany tekst”.
-- Wpisany tekst pozostaje zaznaczony do poprawy.
-- Escape zamyka okno jednym krokiem.
-- Fokus wraca do głównej listy bez zmiany widoku.
+- nadal słychać „Brak wyników. Zmień wyszukiwany tekst”;
+- tekst pozostaje zaznaczony do poprawy;
+- wyłączenie instrukcji klawiszowych nie wyłącza ważnych komunikatów o wyniku i błędzie;
+- Escape wraca do listy głównej.
 
 ## Następne funkcje po tym zestawie
 
-Jeżeli alpha.17 przejdzie testy, następnym małym etapem będzie dostępna paleta poleceń pod `Ctrl+Shift+K`. W planie nadal pozostają: niskopoziomowy konfigurowalny prefiks i test `Ctrl+Numeryczny Enter`, instalator oraz bezpieczne aktualizacje komponentów, wydzielenie AMC.Host, WiiM jako pierwszy prawdziwy adapter, a później logowanie OAuth do usług. Nie dokładamy tych tematów jednocześnie do testu alpha.17; pozostają zapisane w `MEDIA_CONTROLLER_PL.md`.
+Po zatwierdzeniu alpha.18 następnym małym etapem pozostaje dostępna paleta poleceń pod `Ctrl+Shift+K`. W dalszym planie są nadal: niskopoziomowy konfigurowalny prefiks i próby z `Ctrl+Numeryczny Enter`, instalator i bezpieczne aktualizacje komponentów, AMC.Host, WiiM jako pierwszy prawdziwy adapter oraz logowanie OAuth do usług.

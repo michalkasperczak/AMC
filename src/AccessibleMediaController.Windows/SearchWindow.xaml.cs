@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Input;
 using System.Windows.Threading;
 using AccessibleMediaController.Core.Sessions;
@@ -10,11 +11,14 @@ public partial class SearchWindow : Window
     private readonly IReadOnlyList<DemoMediaSession> _sourceSessions;
     private readonly bool _allServices;
     private readonly Func<MediaItem, string> _formatItem;
+    private readonly Func<SearchResult, SearchResultAction, bool, string?> _executeAction;
 
     public SearchWindow(
         SessionManager sessions,
         bool allServices,
-        Func<MediaItem, string> formatItem)
+        Func<MediaItem, string> formatItem,
+        Func<SearchResult, SearchResultAction, bool, string?> executeAction,
+        bool detailedHints)
     {
         InitializeComponent();
         Title = allServices
@@ -28,6 +32,17 @@ public partial class SearchWindow : Window
         _sourceSessions = allServices ? sessions.Sessions : [sessions.Current];
         _allServices = allServices;
         _formatItem = formatItem;
+        _executeAction = executeAction;
+
+        if (detailedHints)
+        {
+            AutomationProperties.SetHelpText(
+                SearchBox,
+                "Wpisz tekst i naciśnij Enter, aby rozpocząć wyszukiwanie. Escape zamyka okno.");
+            AutomationProperties.SetHelpText(
+                ResultsList,
+                "Enter otwiera wynik. Control Enter odtwarza teraz. Shift Enter dodaje do kolejki. Control Shift Enter przełącza odtwarzanie jako następne. Control Shift U przełącza ulubione. Alt Enter pokazuje informacje.");
+        }
 
         Loaded += (_, _) =>
         {
@@ -52,9 +67,9 @@ public partial class SearchWindow : Window
         var results = MediaCatalogSearch.Search(_sourceSessions, query)
             .Select(result => new SearchResultRow(
                 result.Session.Id,
-                 result.Item,
-                 result.Item.PrimaryText,
-                 _allServices
+                result.Item,
+                result.Item.PrimaryText,
+                _allServices
                     ? $"{_formatItem(result.Item)}, {result.Session.DisplayName}"
                     : _formatItem(result.Item)))
             .ToList();
@@ -95,7 +110,16 @@ public partial class SearchWindow : Window
             return;
         }
 
-        SelectedResult = new SearchResult(row.SessionId, row.Item);
+        var result = new SearchResult(row.SessionId, row.Item);
+        if (action != SearchResultAction.Open)
+        {
+            var announcement = _executeAction(result, action, _allServices);
+            if (!string.IsNullOrWhiteSpace(announcement)) SearchStatus.Announce(announcement);
+            Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
+            return;
+        }
+
+        SelectedResult = result;
         SelectedAction = action;
         DialogResult = true;
     }

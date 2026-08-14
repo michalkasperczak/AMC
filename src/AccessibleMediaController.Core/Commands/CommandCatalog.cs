@@ -15,6 +15,7 @@ public static class CommandCatalog
         {
             CommandIds.PlayPause => "Odtwarzaj lub wstrzymaj",
             CommandIds.PlaySelected => "Odtwórz wybrany element teraz",
+            CommandIds.ActivateSelected => "Otwórz lub przełącz odtwarzanie wybranego elementu",
             CommandIds.Previous => "Poprzedni element",
             CommandIds.Next => "Następny element",
             CommandIds.SeekBackward10 => "Cofnij o 10 sekund",

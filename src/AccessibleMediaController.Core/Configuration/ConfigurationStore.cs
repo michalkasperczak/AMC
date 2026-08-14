@@ -7,7 +7,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 6;
+    public const int CurrentSchemaVersion = 7;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -182,6 +182,14 @@ public sealed class ConfigurationStore(string statePath)
             ReplaceTemplateIfDefault(settings, "queue.removed", "Usunięto z kolejki", "Usunięto z kolejki: {item}");
             ReplaceTemplateIfDefault(settings, "playNext.added", "Odtwarzaj jako następne", "Odtwarzaj jako następne: {item}");
             ReplaceTemplateIfDefault(settings, "playNext.removed", "Usunięto z następnych", "Usunięto z następnych: {item}");
+        }
+
+        if (schemaVersion < 7)
+        {
+            ReplaceTemplateIfDefault(settings, "favorite.added", "Dodano do ulubionych", "Dodano do ulubionych: {item}");
+            ReplaceTemplateIfDefault(settings, "favorite.removed", "Usunięto z ulubionych", "Usunięto z ulubionych: {item}");
+            settings.Messages.Templates.TryAdd("favorite.added", "Dodano do ulubionych: {item}");
+            settings.Messages.Templates.TryAdd("favorite.removed", "Usunięto z ulubionych: {item}");
         }
     }
 

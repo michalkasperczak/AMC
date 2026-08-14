@@ -30,6 +30,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private bool _initialFocusApplied;
     private bool _deferAnnouncements;
     private string? _deferredAnnouncement;
+    private bool _captureAnnouncements;
+    private string? _capturedAnnouncement;
     private HwndSource? _windowSource;
     private string _typeAheadText = string.Empty;
     private DateTime _lastTypeAheadInputUtc;
@@ -43,6 +45,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         InitializeComponent();
         _state = state;
         _store = store;
+        ApplyDetailedHints();
         RebuildCore();
         RefreshCurrentView(false);
     }
@@ -54,6 +57,12 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         if (!Dispatcher.CheckAccess())
         {
             Dispatcher.Invoke(() => Announce(message));
+            return;
+        }
+        if (_captureAnnouncements)
+        {
+            StatusText.Text = message;
+            if (_state.Settings.Messages.Enabled) _capturedAnnouncement = message;
             return;
         }
         if (_deferAnnouncements)
@@ -86,31 +95,21 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void ShowSearch(bool allServices)
     {
         Activate();
-        var dialog = new SearchWindow(_sessions, allServices, FormatItem) { Owner = this };
+        var dialog = new SearchWindow(
+            _sessions,
+            allServices,
+            FormatItem,
+            ExecuteSearchResultAction,
+            _state.Settings.Messages.DetailedHints)
+        {
+            Owner = this
+        };
         if (dialog.ShowDialog() == true && dialog.SelectedResult is { } result)
         {
             _sessions.SelectSession(result.SessionId);
             NavigateTo("Teraz odtwarzane", false);
             SelectMediaItem(result.Item.Id);
             RestoreMediaListFocusAfterRefresh();
-            switch (dialog.SelectedAction)
-            {
-                case SearchResultAction.Play:
-                    ExecuteCommand(CommandIds.PlaySelected);
-                    break;
-                case SearchResultAction.PlayNext:
-                    ExecuteCommand(CommandIds.TogglePlayNext);
-                    break;
-                case SearchResultAction.Queue:
-                    ExecuteCommand(CommandIds.AddQueue);
-                    break;
-                case SearchResultAction.Favorite:
-                    ExecuteCommand(CommandIds.ToggleFavorite);
-                    break;
-                case SearchResultAction.Information:
-                    ShowItemInformation(false);
-                    break;
-            }
             return;
         }
 
@@ -390,7 +389,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         if (item is null) return;
         if (item.Kind is MediaItemKind.Track or MediaItemKind.Station)
         {
-            ExecuteCommand(CommandIds.PlaySelected);
+            ExecuteCommand(CommandIds.ActivateSelected);
             return;
         }
         NavigateTo(item.Title, false);
@@ -525,6 +524,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         if (dialog.ShowDialog() != true || dialog.ResultState is null) return;
         _state = dialog.ResultState;
         _store.Save(_state);
+        ApplyDetailedHints();
         RebuildCore();
         RefreshCurrentView(false);
         try
@@ -828,9 +828,20 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     {
         FilterBox.Focus();
         FilterBox.SelectAll();
+        var announcement = _state.Settings.Messages.DetailedHints
+            ? "Filtr listy. Wpisz tekst. Enter lub strzałka w dół przechodzi do wyników. Escape czyści filtr i wraca do listy"
+            : "Filtr listy";
         Dispatcher.BeginInvoke(
-            () => Announce("Filtr listy. Wpisz tekst. Enter lub strzałka w dół przechodzi do wyników. Escape czyści filtr i wraca do listy"),
+            () => Announce(announcement),
             DispatcherPriority.ContextIdle);
+    }
+
+    private void ApplyDetailedHints()
+    {
+        var helpText = _state.Settings.Messages.DetailedHints
+            ? "Wpisz tekst. Enter lub strzałka w dół przechodzi do wyników. Escape czyści filtr i wraca do listy."
+            : string.Empty;
+        System.Windows.Automation.AutomationProperties.SetHelpText(FilterBox, helpText);
     }
 
     private void ReturnToMediaListFromEscape()
@@ -842,6 +853,54 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             StatusText.Text = "Filtr wyczyszczony";
         }
         RestoreMediaListFocusAfterRefresh();
+    }
+
+    private string? ExecuteSearchResultAction(
+        SearchWindow.SearchResult result,
+        SearchResultAction action,
+        bool includeService)
+    {
+        var session = _sessions.SelectSession(result.SessionId);
+        if (session is null) return "Wybrana sesja nie jest już dostępna";
+
+        NavigateTo("Teraz odtwarzane", false);
+        SelectMediaItem(result.Item.Id);
+
+        _capturedAnnouncement = null;
+        _captureAnnouncements = true;
+        try
+        {
+            switch (action)
+            {
+                case SearchResultAction.Play:
+                    ExecuteCommand(CommandIds.PlaySelected);
+                    break;
+                case SearchResultAction.PlayNext:
+                    ExecuteCommand(CommandIds.TogglePlayNext);
+                    break;
+                case SearchResultAction.Queue:
+                    ExecuteCommand(CommandIds.AddQueue);
+                    break;
+                case SearchResultAction.Favorite:
+                    ExecuteCommand(CommandIds.ToggleFavorite);
+                    break;
+                case SearchResultAction.Information:
+                    ShowItemInformation(false);
+                    break;
+            }
+        }
+        finally
+        {
+            _captureAnnouncements = false;
+        }
+
+        var announcement = _capturedAnnouncement;
+        _capturedAnnouncement = null;
+        if (includeService && !string.IsNullOrWhiteSpace(announcement))
+        {
+            announcement = $"{announcement}, {session.DisplayName}";
+        }
+        return announcement;
     }
 
     private void MediaList_PreviewKeyDown(object sender, KeyEventArgs e)

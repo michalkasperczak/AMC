@@ -393,7 +393,7 @@ Every message should be:
 
 Windows UI Automation is the primary mechanism for the first version. The program must not require NVDA. The macOS Accessibility API will be addressed only when work on the Mac edition begins.
 
-Default messages should be brief. The first version will not provide separate Brief, Normal and Detailed profiles. Instead, the user can edit each message template, disable it, or restore its default.
+Default messages should be brief. The first version will not provide separate Brief, Normal and Detailed profiles. Instead, the user can edit each message template, disable it, or restore its default. A separate global detailed-keyboard-hints option covers the filter plus current-service and global search; it is off by default and does not alter event-message templates.
 
 Message settings:
 
@@ -408,7 +408,7 @@ Message settings:
 Examples of brief messages:
 
 - “TIDAL”.
-- “Added to Favorites”.
+- “Added to Favorites: Edge of Silence”.
 - “Already in Favorites”.
 - “Added to: Listen Later”.
 - “WiiM volume: 35%”.
@@ -543,7 +543,7 @@ The current Windows prototype should first stabilise:
 
 The first prototype and initial working release target Windows only. macOS, VoiceOver and possible Siri support are later stages.
 
-State of `alpha.17`: filtering and searching are separate—`Ctrl+K` narrows the current list, while `Ctrl+F` and `Ctrl+Shift+F` open dedicated query and results windows. A result can be opened or directly played, queued, marked Play Next or Favorite, and inspected. Type-ahead uses the resource's semantic primary name rather than the first field of the accessible label; this is the title in the current track list. The core and UI take one version from `Directory.Build.props`, and the portable publication is produced as one unambiguously named EXE. The main remaining first-stage work is an accessible command palette, low-level capture of a configurable prefix, and candidate-prefix testing with NVDA, JAWS and clipboard managers. Search currently uses the demonstration catalogue; real network queries arrive with service adapters.
+State of `alpha.18`: filtering and searching are separate—`Ctrl+K` narrows the current list, while `Ctrl+F` and `Ctrl+Shift+F` open dedicated query and results windows. Plain Enter opens a result and returns to the main list, while direct actions keep the results window open; global-search action messages identify the service. Enter on the current track alternates playback and pause, while `Ctrl+Enter` always means Play now. Detailed keyboard instructions for the filter and both search scopes form one option that is off by default. Type-ahead uses the resource's semantic primary name rather than the first field of the accessible label; this is the title in the current track list. The core and UI take one version from `Directory.Build.props`, and the portable publication is produced as one unambiguously named EXE. The main remaining first-stage work is an accessible command palette, low-level capture of a configurable prefix, and candidate-prefix testing with NVDA, JAWS and clipboard managers. Search currently uses the demonstration catalogue; real network queries arrive with service adapters.
 
 Planned sequence of later stages:
 

@@ -46,6 +46,7 @@ public partial class SettingsWindow : Window
         SelectComboByTag(StartupTargetCombo, _workingState.Settings.StartupTarget.ToString());
 
         MessagesEnabledCheck.IsChecked = _workingState.Settings.Messages.Enabled;
+        DetailedHintsCheck.IsChecked = _workingState.Settings.Messages.DetailedHints;
         _messageRows.Clear();
         foreach (var pair in _workingState.Settings.Messages.Templates
                      .OrderBy(pair => MessageTemplateSortOrder(pair.Key))
@@ -79,6 +80,7 @@ public partial class SettingsWindow : Window
         _workingState.Settings.PrefixTimeoutMilliseconds = timeout;
 
         _workingState.Settings.Messages.Enabled = MessagesEnabledCheck.IsChecked == true;
+        _workingState.Settings.Messages.DetailedHints = DetailedHintsCheck.IsChecked == true;
         _workingState.Settings.Messages.Templates = _messageRows.ToDictionary(
             row => row.EventId,
             row => row.Template ?? string.Empty,

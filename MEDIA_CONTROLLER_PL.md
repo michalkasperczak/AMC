@@ -393,7 +393,7 @@ Każdy komunikat powinien być jednocześnie:
 
 Podstawą pierwszej wersji jest UI Automation w Windows. Program nie może wymagać NVDA do działania. Accessibility API w macOS zostanie opracowane dopiero przy rozpoczęciu prac nad wydaniem dla Maca.
 
-Domyślne komunikaty mają być krótkie. W pierwszej wersji nie wprowadzamy osobnych profili „krótki”, „normalny” i „szczegółowy”. Zamiast nich użytkownik może edytować szablon każdego komunikatu, wyłączyć go albo przywrócić ustawienie domyślne.
+Domyślne komunikaty mają być krótkie. W pierwszej wersji nie wprowadzamy osobnych profili „krótki”, „normalny” i „szczegółowy”. Zamiast nich użytkownik może edytować szablon każdego komunikatu, wyłączyć go albo przywrócić ustawienie domyślne. Oddzielna globalna opcja szczegółowych podpowiedzi klawiatury obejmuje filtr oraz wyszukiwanie bieżące i globalne; jest domyślnie wyłączona i nie zmienia treści komunikatów zdarzeń.
 
 Ustawienia komunikatów:
 
@@ -408,7 +408,7 @@ Ustawienia komunikatów:
 Przykłady komunikatów krótkich:
 
 - „TIDAL”.
-- „Dodano do ulubionych”.
+- „Dodano do ulubionych: Brzeg ciszy”.
 - „Już w ulubionych”.
 - „Dodano do: Do odsłuchu”.
 - „Głośność WiiM: 35%”.
@@ -543,7 +543,7 @@ Obecny prototyp Windows powinien najpierw ustabilizować:
 
 Pierwszy prototyp i pierwsze działające wydanie dotyczą wyłącznie Windows. Wersja dla macOS, VoiceOver i ewentualna obsługa Siri są etapem późniejszym.
 
-Stan `alpha.17`: filtr i wyszukiwanie są rozdzielone — `Ctrl+K` zawęża bieżącą listę, a `Ctrl+F` i `Ctrl+Shift+F` otwierają osobne okna zapytania oraz wyników. Wynik można otworzyć albo bezpośrednio odtworzyć, dodać do kolejki, oznaczyć jako następny lub Ulubiony i wyświetlić jego informacje. Nawigacja wpisywanymi literami korzysta z głównej nazwy semantycznej elementu, a nie z pierwszego pola dostępnej etykiety; w obecnej liście utworów jest nią tytuł. Rdzeń i interfejs pobierają jeden numer wersji z `Directory.Build.props`, a publikacja przenośna powstaje jako pojedynczy, jednoznacznie nazwany plik EXE. Do zamknięcia pierwszego etapu pozostają przede wszystkim dostępna paleta poleceń, niskopoziomowe przechwycenie konfigurowalnego prefiksu i test kandydatów z NVDA, JAWS-em oraz menedżerami schowka. Obecne wyszukiwanie korzysta z katalogu demonstracyjnego; prawdziwe zapytania sieciowe pojawią się dopiero z adapterami usług.
+Stan `alpha.18`: filtr i wyszukiwanie są rozdzielone — `Ctrl+K` zawęża bieżącą listę, a `Ctrl+F` i `Ctrl+Shift+F` otwierają osobne okna zapytania oraz wyników. Zwykły Enter otwiera wynik i wraca do listy głównej, natomiast działania bezpośrednie pozostawiają okno wyników otwarte; w wyszukiwaniu globalnym ich komunikaty wskazują usługę. Enter na bieżącym utworze przełącza odtwarzanie i pauzę, a `Ctrl+Enter` zawsze oznacza „odtwórz teraz”. Szczegółowe instrukcje klawiszowe filtra oraz obu zakresów wyszukiwania są jedną opcją, domyślnie wyłączoną. Nawigacja wpisywanymi literami korzysta z głównej nazwy semantycznej elementu, a nie z pierwszego pola dostępnej etykiety; w obecnej liście utworów jest nią tytuł. Rdzeń i interfejs pobierają jeden numer wersji z `Directory.Build.props`, a publikacja przenośna powstaje jako pojedynczy, jednoznacznie nazwany plik EXE. Do zamknięcia pierwszego etapu pozostają przede wszystkim dostępna paleta poleceń, niskopoziomowe przechwycenie konfigurowalnego prefiksu i test kandydatów z NVDA, JAWS-em oraz menedżerami schowka. Obecne wyszukiwanie korzysta z katalogu demonstracyjnego; prawdziwe zapytania sieciowe pojawią się dopiero z adapterami usług.
 
 Planowana kolejność dalszych etapów:
 

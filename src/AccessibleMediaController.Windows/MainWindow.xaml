@@ -55,7 +55,6 @@
             <Label Target="{Binding ElementName=FilterBox}" Padding="0,0,0,3">_Filtruj listę:</Label>
             <TextBox x:Name="FilterBox" Margin="0,0,0,8"
                      automation:AutomationProperties.Name="Filtruj listę"
-                     automation:AutomationProperties.HelpText="Wpisz tekst. Enter lub strzałka w dół przechodzi do wyników. Escape czyści filtr i wraca do listy."
                      TextChanged="FilterBox_TextChanged" />
         </StackPanel>
 

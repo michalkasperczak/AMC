@@ -17,6 +17,7 @@ var tests = new (string Name, Action Test)[]
     ("Migracja komunikatów alpha.5", TestVersion3MessageMigration),
     ("Migracja krótkich komunikatów alpha.7", TestVersion4MessageMigration),
     ("Migracja komunikatów z nazwą elementu alpha.8", TestVersion5MessageMigration),
+    ("Migracja nazw w komunikatach Ulubionych alpha.18", TestVersion6FavoriteMessageMigration),
     ("Przełączanie sesji", TestSessions),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
     ("Cofanie zmian przynależności", TestMembershipHistory),
@@ -55,6 +56,7 @@ static void TestDefaultProfile()
     var settings = new AppSettings();
     Equal("Ctrl+Alt+Windows+F12", settings.PrefixChord);
     Equal(true, settings.Messages.Enabled);
+    Equal(false, settings.Messages.DetailedHints);
     Equal(StartupTarget.MediaList, settings.StartupTarget);
 
     var profile = KeyboardProfile.CreateDefault();
@@ -110,6 +112,7 @@ static void TestBuiltInProfileRefresh()
 static void TestCommandCatalog()
 {
     Equal("Odtwórz wybrany element teraz", CommandCatalog.GetDisplayName(CommandIds.PlaySelected));
+    Equal("Otwórz lub przełącz odtwarzanie wybranego elementu", CommandCatalog.GetDisplayName(CommandIds.ActivateSelected));
     Equal("Dodaj lub usuń z ulubionych", CommandCatalog.GetDisplayName(CommandIds.ToggleFavorite));
     Equal("Dodaj lub usuń z kolejki", CommandCatalog.GetDisplayName(CommandIds.AddQueue));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
@@ -349,10 +352,50 @@ static void TestSessions()
     True(manager.Current.Play(selected), "Wybrany element powinien dać się odtworzyć.");
     Equal(selected, manager.Current.CurrentItem);
     True(manager.Current.IsPlaying, "Odtwarzanie wybranego elementu powinno uruchomić sesję.");
+    True(manager.Current.Activate(selected), "Ponowne otwarcie bieżącego elementu powinno być obsłużone.");
+    Equal(false, manager.Current.IsPlaying);
+    True(manager.Current.Activate(selected), "Kolejne otwarcie bieżącego elementu powinno wznowić odtwarzanie.");
+    Equal(true, manager.Current.IsPlaying);
     var album = manager.Current.Items.First(item => item.Kind == MediaItemKind.Album);
     Equal("Album demonstracyjny", album.PrimaryText);
     var playlist = manager.Current.Items.First(item => item.Kind == MediaItemKind.Playlist);
     Equal("Do odsłuchu", playlist.PrimaryText);
+}
+
+static void TestVersion6FavoriteMessageMigration()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-v6-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var statePath = Path.Combine(directory, "state.json");
+        var store = new ConfigurationStore(statePath);
+        store.Save(ConfigurationStore.CreateDefaultState());
+
+        var document = JsonNode.Parse(File.ReadAllText(statePath))?.AsObject()
+            ?? throw new InvalidOperationException("Nie udało się utworzyć testowej konfiguracji alpha.17.");
+        document["schemaVersion"] = 6;
+        var templates = document["settings"]?["messages"]?["templates"]?.AsObject()
+            ?? throw new InvalidOperationException("Brak szablonów komunikatów w konfiguracji alpha.17.");
+        templates["favorite.added"] = "Dodano do ulubionych";
+        templates["favorite.removed"] = "Usunięto z ulubionych";
+        File.WriteAllText(statePath, document.ToJsonString());
+
+        var loaded = store.LoadOrCreate();
+        Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
+        Equal("Dodano do ulubionych: {item}", loaded.Settings.Messages.Templates["favorite.added"]);
+        Equal("Usunięto z ulubionych: {item}", loaded.Settings.Messages.Templates["favorite.removed"]);
+
+        document["schemaVersion"] = 6;
+        templates["favorite.added"] = "Moje ulubione: {item}";
+        File.WriteAllText(statePath, document.ToJsonString());
+        loaded = store.LoadOrCreate();
+        Equal("Moje ulubione: {item}", loaded.Settings.Messages.Templates["favorite.added"]);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
 }
 
 static void TestCatalogSearch()
@@ -417,6 +460,14 @@ static void TestTimeCommands()
     Equal("Odtwarzanie: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.PlayPause);
     Equal("Pauza: Pierwszy utwór demonstracyjny", sink.LastMessage);
+    router.Execute(CommandIds.ActivateSelected);
+    Equal("Odtwarzanie: Pierwszy utwór demonstracyjny", sink.LastMessage);
+    router.Execute(CommandIds.ActivateSelected);
+    Equal("Pauza: Pierwszy utwór demonstracyjny", sink.LastMessage);
+    router.Execute(CommandIds.ToggleFavorite);
+    Equal("Usunięto z ulubionych: Pierwszy utwór demonstracyjny", sink.LastMessage);
+    router.Execute(CommandIds.ToggleFavorite);
+    Equal("Dodano do ulubionych: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.AddQueue);
     Equal("Dodano do kolejki: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.AddQueue);
@@ -435,6 +486,7 @@ static void TestExports()
     {
         var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
         var state = ConfigurationStore.CreateDefaultState();
+        state.Settings.Messages.DetailedHints = true;
         var mapPath = Path.Combine(directory, "map.amckeys.json");
         var settingsPath = Path.Combine(directory, "settings.amcsettings.json");
         var backupPath = Path.Combine(directory, "all.amcbackup.json");
@@ -447,6 +499,7 @@ static void TestExports()
         var importedSettings = store.ImportConfiguration(settingsPath, "default");
         Equal("default", importedSettings.ActiveKeyboardProfileId);
         Equal(MediaItemField.Title, importedSettings.Lists.FieldOrder[0]);
+        Equal(true, importedSettings.Messages.DetailedHints);
 
         store.ExportFullBackup(backupPath, state);
         var importedBackup = store.ImportFullBackup(backupPath);

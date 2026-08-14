@@ -54,6 +54,7 @@ public sealed class UpdateSettings
 public sealed class MessageSettings
 {
     public bool Enabled { get; set; } = true;
+    public bool DetailedHints { get; set; }
     public bool SessionMessages { get; set; } = true;
     public bool PlaybackMessages { get; set; } = true;
     public bool VolumeMessages { get; set; } = true;
@@ -69,8 +70,8 @@ public sealed class MessageSettings
             {
                 ["session.changed"] = "{slot}, {service}",
                 ["session.unassigned"] = "Sesja {slot} nieprzypisana",
-                ["favorite.added"] = "Dodano do ulubionych",
-                ["favorite.removed"] = "Usunięto z ulubionych",
+                ["favorite.added"] = "Dodano do ulubionych: {item}",
+                ["favorite.removed"] = "Usunięto z ulubionych: {item}",
                 ["queue.added"] = "Dodano do kolejki: {item}",
                 ["queue.removed"] = "Usunięto z kolejki: {item}",
                 ["playNext.added"] = "Odtwarzaj jako następne: {item}",
@@ -87,7 +88,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 6;
+    public int SchemaVersion { get; set; } = 7;
     public AppSettings Settings { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];
 }
