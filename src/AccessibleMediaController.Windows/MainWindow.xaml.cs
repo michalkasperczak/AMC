@@ -261,6 +261,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         var oldSession = _sessions.Current.Id;
         var previousIndex = MediaList.SelectedIndex;
         var restoreListFocus = MediaList.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem;
+        var navigatesSession = commandId is CommandIds.SessionPrevious or CommandIds.SessionNext
+            || commandId.StartsWith("session.slot.", StringComparison.Ordinal);
+        var mergeSessionAnnouncementWithFocus = navigatesSession && restoreListFocus;
         var changesListMembership = commandId is CommandIds.ToggleFavorite
             or CommandIds.ToggleLibrary
             or CommandIds.AddQueue
@@ -273,7 +276,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             ? null
             : MediaMembershipState.From(changedItem);
         if (changesListMembership && restoreListFocus) AnchorMediaListFocus();
-        if (changesListMembership)
+        if (changesListMembership || mergeSessionAnnouncementWithFocus)
         {
             _deferredAnnouncement = null;
             _deferAnnouncements = true;
@@ -295,9 +298,18 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
                 previous,
                 BuildUndoAnnouncement(commandId, changedItem, previous));
         }
-        if (_sessions.Current.Id != oldSession || changesListMembership)
+        var sessionChanged = _sessions.Current.Id != oldSession;
+        if (sessionChanged || changesListMembership)
         {
             RefreshCurrentView(changesListMembership ? previousIndex : null);
+            if (sessionChanged
+                && mergeSessionAnnouncementWithFocus
+                && _state.Settings.Messages.Enabled
+                && _deferredAnnouncement is { } sessionContext)
+            {
+                PrepareSelectedItemFocusContext(sessionContext);
+                _deferredAnnouncement = null;
+            }
             if (restoreListFocus) RestoreMediaListFocusAfterRefresh();
         }
         if (_deferredAnnouncement is { } announcement)
@@ -378,15 +390,20 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void PrepareViewFocusContext(string viewName)
     {
+        PrepareSelectedItemFocusContext(viewName);
+    }
+
+    private void PrepareSelectedItemFocusContext(string prefix)
+    {
         ClearFocusContext();
         if (SelectedItem is { } item)
         {
             _focusContextItemId = item.Id;
-            _focusContextPrefix = viewName;
+            _focusContextPrefix = prefix;
             return;
         }
 
-        AutomationProperties.SetName(MediaList, $"{viewName}, lista pusta");
+        AutomationProperties.SetName(MediaList, $"{prefix}, lista pusta");
     }
 
     private void ApplyFocusContext(ListBoxItem container)
