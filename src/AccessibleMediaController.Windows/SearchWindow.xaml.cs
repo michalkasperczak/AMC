@@ -24,11 +24,11 @@ public partial class SearchWindow : Window
         InitializeComponent();
         var modeName = allServices
             ? "Szukaj we wszystkich usługach"
-            : $"Szukaj w usłudze {sessions.Current.DisplayName}";
+            : $"Szukaj w {sessions.Current.DisplayName}";
         Title = $"{modeName} — AMC";
         HeadingText.Text = modeName;
         AutomationProperties.SetName(this, Title);
-        AutomationProperties.SetName(SearchBox, $"{modeName}. Wyszukiwany tekst");
+        AutomationProperties.SetName(SearchBox, modeName);
         ScopeText.Text = allServices
             ? "Wyniki mogą pochodzić ze wszystkich włączonych usług."
             : $"Zakres: {sessions.Current.DisplayName}.";

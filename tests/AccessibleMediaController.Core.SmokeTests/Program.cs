@@ -148,6 +148,12 @@ static void TestMediaItemFormatting()
     Equal(
         "Do odsłuchu, 2:46:00, playlista",
         MediaItemFormatter.Format(withoutArtist, ListDisplaySettings.CreateDefaultFieldOrder()));
+
+    var homogeneousFields = ListDisplaySettings.CreateDefaultFieldOrder()
+        .Where(field => field != MediaItemField.Kind);
+    Equal(
+        "Do odsłuchu, 2:46:00",
+        MediaItemFormatter.Format(withoutArtist, homogeneousFields));
 }
 
 static void TestLegacyStateMigration()

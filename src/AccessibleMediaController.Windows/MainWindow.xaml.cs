@@ -318,8 +318,10 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         UpdateWindowTitle();
         IEnumerable<MediaItem> items = _sessions.Current.Items;
         if (_currentView == "Ulubione") items = items.Where(item => item.IsFavorite);
+        if (_currentView == "Playlisty") items = items.Where(item => item.Kind == MediaItemKind.Playlist);
         if (_currentView == "Biblioteka") items = items.Where(item => item.IsInLibrary);
         if (_currentView == "Kolejka") items = items.Where(item => item.IsInQueue || item.IsPlayNext);
+        if (_currentView == "Albumy") items = items.Where(item => item.Kind == MediaItemKind.Album);
         _unfilteredItems = items
             .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
             .ToList();
@@ -388,7 +390,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             return;
         }
 
-        AutomationProperties.SetName(container, $"{row.Label}, {_searchReturnServiceName}");
+        AutomationProperties.SetName(container, $"{_searchReturnServiceName}, {row.Label}");
         _searchReturnContainer = container;
     }
 
@@ -618,8 +620,15 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             : $"{count} elementów";
     }
 
-    private string FormatItem(MediaItem item) =>
-        MediaItemFormatter.Format(item, _state.Settings.Lists.FieldOrder);
+    private string FormatItem(MediaItem item) => FormatItem(item, true);
+
+    private string FormatItem(MediaItem item, bool includeKind)
+    {
+        var fields = includeKind
+            ? _state.Settings.Lists.FieldOrder
+            : _state.Settings.Lists.FieldOrder.Where(field => field != MediaItemField.Kind);
+        return MediaItemFormatter.Format(item, fields);
+    }
 
     private void NavigateTo(string viewName, bool announceSummary)
     {
@@ -656,10 +665,11 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         RefreshCurrentView(true);
     }
 
-    private string FormatListItem(MediaItem item) =>
-        _currentView == "Kolejka"
-            ? $"{FormatItem(item)}, {_sessions.Current.DisplayName}"
-            : FormatItem(item);
+    private string FormatListItem(MediaItem item)
+    {
+        var homogeneousView = _currentView is "Albumy" or "Playlisty";
+        return FormatItem(item, !homogeneousView);
+    }
 
     private void UpdateWindowTitle()
     {
