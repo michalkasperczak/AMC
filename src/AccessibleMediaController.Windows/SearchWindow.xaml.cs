@@ -56,6 +56,7 @@ public partial class SearchWindow : Window
     }
 
     public SearchResult? SelectedResult { get; private set; }
+    public SearchResult? LastDirectActionResult { get; private set; }
     public SearchResultAction SelectedAction { get; private set; } = SearchResultAction.Open;
 
     private void RunSearch()
@@ -121,6 +122,7 @@ public partial class SearchWindow : Window
         if (action != SearchResultAction.Open)
         {
             var announcement = _executeAction(result, action, _allServices);
+            LastDirectActionResult = result;
             if (!string.IsNullOrWhiteSpace(announcement)) SearchStatus.Announce(announcement);
             Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
             return;

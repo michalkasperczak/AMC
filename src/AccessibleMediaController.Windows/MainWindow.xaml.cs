@@ -120,7 +120,14 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             return;
         }
 
-        if (allServices && _sessions.Current.Id != sessionBeforeSearch)
+        if (allServices && dialog.LastDirectActionResult is { } lastDirectResult)
+        {
+            _sessions.SelectSession(lastDirectResult.SessionId);
+            NavigateTo("Teraz odtwarzane", false);
+            SelectMediaItem(lastDirectResult.Item.Id);
+            PrepareSearchReturnContext(lastDirectResult.Item.Id);
+        }
+        else if (allServices && _sessions.Current.Id != sessionBeforeSearch)
         {
             PrepareSearchReturnContext((SelectedItem ?? _sessions.Current.CurrentItem).Id);
         }
