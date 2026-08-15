@@ -36,9 +36,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private HwndSource? _windowSource;
     private string _typeAheadText = string.Empty;
     private DateTime _lastTypeAheadInputUtc;
-    private string? _searchReturnItemId;
-    private string? _searchReturnServiceName;
-    private ListBoxItem? _searchReturnContainer;
+    private string? _focusContextItemId;
+    private string? _focusContextPrefix;
+    private ListBoxItem? _focusContextContainer;
 
     private const int WmKeyDown = 0x0100;
     private const int VirtualKeyZ = 0x5A;
@@ -51,7 +51,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         _store = store;
         ApplyDetailedHints();
         RebuildCore();
-        RefreshCurrentView(false);
+        RefreshCurrentView();
     }
 
     public MediaItem? SelectedItem => (MediaList.SelectedItem as MediaItemRow)?.Item;
@@ -91,14 +91,15 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             return;
         }
 
-        NavigateTo(viewName, true);
+        NavigateTo(viewName);
+        PrepareViewFocusContext(viewName);
         Activate();
         FocusMediaList();
     }
 
     private void ShowSearch(bool allServices)
     {
-        ClearSearchReturnContext();
+        ClearFocusContext();
         Activate();
         var sessionBeforeSearch = _sessions.Current.Id;
         var dialog = new SearchWindow(
@@ -113,7 +114,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         if (dialog.ShowDialog() == true && dialog.SelectedResult is { } result)
         {
             _sessions.SelectSession(result.SessionId);
-            NavigateTo("Teraz odtwarzane", false);
+            NavigateTo("Teraz odtwarzane");
             SelectMediaItem(result.Item.Id);
             if (allServices) PrepareSearchReturnContext(result.Item.Id);
             RestoreMediaListFocusAfterRefresh();
@@ -123,7 +124,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         if (allServices && dialog.LastDirectActionResult is { } lastDirectResult)
         {
             _sessions.SelectSession(lastDirectResult.SessionId);
-            NavigateTo("Teraz odtwarzane", false);
+            NavigateTo("Teraz odtwarzane");
             SelectMediaItem(lastDirectResult.Item.Id);
             PrepareSearchReturnContext(lastDirectResult.Item.Id);
         }
@@ -296,7 +297,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         }
         if (_sessions.Current.Id != oldSession || changesListMembership)
         {
-            RefreshCurrentView(false, changesListMembership ? previousIndex : null);
+            RefreshCurrentView(changesListMembership ? previousIndex : null);
             if (restoreListFocus) RestoreMediaListFocusAfterRefresh();
         }
         if (_deferredAnnouncement is { } announcement)
@@ -310,8 +311,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         return result;
     }
 
-    private void RefreshCurrentView(bool announceSummary, int? fallbackIndex = null)
+    private void RefreshCurrentView(int? fallbackIndex = null)
     {
+        ClearFocusContext();
         var preferredItemId = SelectedItem?.Id;
         SessionHeading.Text = _sessions.Current.DisplayName;
         ViewHeading.Text = _currentView;
@@ -326,12 +328,6 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
             .ToList();
         ApplyFilter(preferredItemId, fallbackIndex);
-
-        if (announceSummary)
-        {
-            var duration = TimeSpan.FromTicks(_unfilteredItems.Sum(row => row.Item.Duration.Ticks));
-            Announce($"{_currentView}. {FormatItemCount(_unfilteredItems.Count)}, {FormatDurationWords(duration)}");
-        }
     }
 
     private void ApplyFilter(string? preferredItemId = null, int? fallbackIndex = null)
@@ -364,7 +360,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         MediaList.UpdateLayout();
         if (MediaList.ItemContainerGenerator.ContainerFromItem(MediaList.SelectedItem) is ListBoxItem item)
         {
-            ApplySearchReturnContext(item);
+            ApplyFocusContext(item);
             item.Focus();
             Keyboard.Focus(item);
             return;
@@ -375,38 +371,52 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void PrepareSearchReturnContext(string itemId)
     {
-        ClearSearchReturnContext();
-        _searchReturnItemId = itemId;
-        _searchReturnServiceName = _sessions.Current.DisplayName;
+        ClearFocusContext();
+        _focusContextItemId = itemId;
+        _focusContextPrefix = _sessions.Current.DisplayName;
     }
 
-    private void ApplySearchReturnContext(ListBoxItem container)
+    private void PrepareViewFocusContext(string viewName)
     {
-        if (_searchReturnItemId is null
-            || _searchReturnServiceName is null
+        ClearFocusContext();
+        if (SelectedItem is { } item)
+        {
+            _focusContextItemId = item.Id;
+            _focusContextPrefix = viewName;
+            return;
+        }
+
+        AutomationProperties.SetName(MediaList, $"{viewName}, lista pusta");
+    }
+
+    private void ApplyFocusContext(ListBoxItem container)
+    {
+        if (_focusContextItemId is null
+            || _focusContextPrefix is null
             || container.Content is not MediaItemRow row
-            || row.Item.Id != _searchReturnItemId)
+            || row.Item.Id != _focusContextItemId)
         {
             return;
         }
 
-        AutomationProperties.SetName(container, $"{_searchReturnServiceName}, {row.Label}");
-        _searchReturnContainer = container;
+        AutomationProperties.SetName(container, $"{_focusContextPrefix}, {row.Label}");
+        _focusContextContainer = container;
     }
 
-    private void ClearSearchReturnContext()
+    private void ClearFocusContext()
     {
-        _searchReturnContainer?.ClearValue(AutomationProperties.NameProperty);
-        _searchReturnContainer = null;
-        _searchReturnItemId = null;
-        _searchReturnServiceName = null;
+        _focusContextContainer?.ClearValue(AutomationProperties.NameProperty);
+        MediaList.ClearValue(AutomationProperties.NameProperty);
+        _focusContextContainer = null;
+        _focusContextItemId = null;
+        _focusContextPrefix = null;
     }
 
     private void MediaList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_searchReturnContainer is null) return;
-        if (SelectedItem?.Id == _searchReturnItemId) return;
-        ClearSearchReturnContext();
+        if (_focusContextContainer is null) return;
+        if (SelectedItem?.Id == _focusContextItemId) return;
+        ClearFocusContext();
     }
 
     private void AnchorMediaListFocus()
@@ -451,7 +461,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             ExecuteCommand(CommandIds.ActivateSelected);
             return;
         }
-        NavigateTo(item.Title, false);
+        NavigateTo(item.Title);
         Announce($"{item.KindLabel}: {item.Title}. {FormatItemCount(_unfilteredItems.Count)}, {FormatDurationWords(item.Duration)}");
     }
 
@@ -506,7 +516,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             item,
             previousMembership,
             undoAnnouncement);
-        RefreshCurrentView(false, previousIndex);
+        RefreshCurrentView(previousIndex);
         RestoreMediaListFocusAfterRefresh();
         var announcement = MediaList.Items.Count == 0
             ? $"Usunięto: {title}. Lista jest pusta"
@@ -557,7 +567,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
         if (_sessions.Current.Id == undo.SessionId)
         {
-            RefreshCurrentView(false);
+            RefreshCurrentView();
             SelectMediaItem(undo.Item.Id);
         }
         RestoreMediaListFocusAfterRefresh();
@@ -589,7 +599,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         _store.Save(_state);
         ApplyDetailedHints();
         RebuildCore();
-        RefreshCurrentView(false);
+        RefreshCurrentView();
         string announcement;
         try
         {
@@ -630,7 +640,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         return MediaItemFormatter.Format(item, fields);
     }
 
-    private void NavigateTo(string viewName, bool announceSummary)
+    private void NavigateTo(string viewName)
     {
         if (!string.Equals(viewName, _currentView, StringComparison.Ordinal))
         {
@@ -638,7 +648,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             _forwardHistory.Clear();
             _currentView = viewName;
         }
-        RefreshCurrentView(announceSummary);
+        RefreshCurrentView();
     }
 
     private void NavigateBack()
@@ -650,7 +660,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         }
         _forwardHistory.Push(_currentView);
         _currentView = _backHistory.Pop();
-        RefreshCurrentView(true);
+        RefreshCurrentView();
+        PrepareViewFocusContext(_currentView);
+        RestoreMediaListFocusAfterRefresh();
     }
 
     private void NavigateForward()
@@ -662,7 +674,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         }
         _backHistory.Push(_currentView);
         _currentView = _forwardHistory.Pop();
-        RefreshCurrentView(true);
+        RefreshCurrentView();
+        PrepareViewFocusContext(_currentView);
+        RestoreMediaListFocusAfterRefresh();
     }
 
     private string FormatListItem(MediaItem item)
@@ -948,7 +962,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         var session = _sessions.SelectSession(result.SessionId);
         if (session is null) return "Wybrana sesja nie jest już dostępna";
 
-        NavigateTo("Teraz odtwarzane", false);
+        NavigateTo("Teraz odtwarzane");
         SelectMediaItem(result.Item.Id);
 
         _capturedAnnouncement = null;

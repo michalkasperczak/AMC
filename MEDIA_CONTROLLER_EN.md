@@ -149,7 +149,7 @@ The program may change the interface and message language, but it should not aut
 | download to disk when the service permits it | `Ctrl+Shift+D` | `Shift+D` |
 | Albums | `Ctrl+Shift+A` | `A` |
 
-Filtering only processes data already present in the current list and sends no service request. Current search may query the active service, while global search merges results from all enabled sources. The command palette is an accessible, filterable list that also contains commands with no shortcut.
+Filtering only processes data already present in the current list and sends no service request. Current search may query the active service, while global search queries all enabled sources that permit combined presentation. An adapter may require a separate results view; this applies to the real TIDAL adapter, whose content must not be mixed into one list with similar services. The command palette is an accessible, filterable list that also contains commands with no shortcut.
 
 `Shift+U` is a toggle only when the adapter can reliably determine current state. The program says either “Added to Favorites” or “Removed from Favorites”. If state is unknown, the application must not guess and should present explicit menu actions.
 
@@ -241,7 +241,7 @@ Every view has an explicit presentation descriptor: accepted resource kinds, pri
 | single-kind search results | the primary name appropriate to that kind |
 | mixed or global results | each result's primary name; kind and service disambiguate rows |
 
-The presentation descriptor also decides whether kind and service are announced. A homogeneous list does not repeat its kind on every row: an opened album omits “track”, and the Albums view omits “album”. A mixed list retains the kind. A single-session list does not repeat the service; a global search result places it after the item fields. After plain Enter is pressed or global Search is closed with Escape, the destination service becomes a one-time prefix of the first main-list label, for example, “TIDAL, Anna Kowalska, Edge of Silence”. Further navigation does not repeat the service.
+The presentation descriptor also decides whether kind and service are announced. A homogeneous list does not repeat its kind on every row: an opened album omits “track”, and the Albums view omits “album”. A mixed list retains the kind. A single-session list does not repeat the service; a combined search result from services that permit aggregation places it after the item fields. An adapter that requires isolation, in particular TIDAL, opens a separate results list. After plain Enter is pressed or global Search is closed with Escape, the destination service becomes a one-time prefix of the first main-list label, for example, “TIDAL, Anna Kowalska, Edge of Silence”. Further navigation does not repeat the service.
 
 Favorites belong to a specific adapter, account or local library in the current session. `Ctrl+U` shows that session's Favorites and rows do not repeat the service. The first stage does not create separate “global AMC Favorites”. The model still retains the full source key so that a future optional view can aggregate native Favorites from several services without copying them between accounts; such a view will announce the service on every result.
 
@@ -286,7 +286,7 @@ Plain letters in a list never execute AMC commands. They navigate using the curr
 
 ### 7.4. Search and query history
 
-`Ctrl+F` opens current-service search and `Ctrl+Shift+F` opens global search. The window title and the edit field's accessible name identify the scope concisely: “Search TIDAL” or “Search all services”. Enter in the field submits the query and focuses the first result; another Enter opens that result. Direct actions keep the results open, and their announcements always end with the service name. After plain Enter is pressed, main-list focus exposes the service and selected item as one announcement. The same rule applies when global Search is closed with Escape after a direct action, even if the selected service was already active. The service name is a temporary prefix of that item's accessible name and disappears after the selection changes.
+`Ctrl+F` opens current-service search and `Ctrl+Shift+F` opens global search. The window title and the edit field's accessible name identify the scope concisely: “Search TIDAL” or “Search all services”. Enter in the field submits the query and focuses the first result; another Enter opens that result. Direct actions keep the results open, and their announcements always end with the service name. After plain Enter is pressed, main-list focus exposes the service and selected item as one announcement. The same rule applies when global Search is closed with Escape after a direct action, even if the selected service was already active. The service name is a temporary prefix of that item's accessible name and disappears after the selection changes. Global search is an orchestrating operation, not a promise of one mixed list: an adapter declares combined results, isolated results or no search. TIDAL results are presented separately with required attribution.
 
 After a successful query, the native list exposes the result label and its position, for example, “1 of 3”, without an added “Search results” prefix. The visible result count is not raised as a separate live announcement. When detailed hints are enabled, short help about arrows, Enter and Escape is attached to the selected item, so it follows the result name instead of preceding it. Direct actions remain discoverable through the context menu and documentation. No results remains an explicit announcement.
 
@@ -487,11 +487,25 @@ Initial real authentication opens the system browser and uses the service's offi
 
 Local devices may require discovery through mDNS, SSDP/UPnP or HTTP. Device discovery, authentication and control do not belong in the window UI or NVDA add-on.
 
+#### 13.2.1. Official integration scope
+
+The catalogue source and playback target are independent adapters. Selecting WiiM, BluOS or Sonos exposes the devices, inputs, presets and playback state made available by that ecosystem; it does not automatically expose every service catalogue shown by the manufacturer's own app. A session combines both sides only when an official playback handoff exists, for example “Spotify on living-room WiiM”.
+
+- **WiiM**: its public local HTTPS API covers device information, playback status and metadata, transport, seek, volume, mute, repeat, EQ, alarms, inputs, outputs and 12 presets. It identifies Spotify Connect and TIDAL Connect modes but does not document service catalogue browsing or WiiM Home's universal search. The first WiiM adapter is therefore a device and preset adapter, not a substitute TIDAL API. [HTTP API for WiiM Products](https://www.wiimhome.com/pdf/HTTP%20API%20for%20WiiM%20Products.pdf), [WiiM Home App User Guide](https://wiimhome.com/pdf/WiiM%20Home%20App%20User%20Guide.pdf).
+- **BluOS/Bluesound**: its local HTTP/XML API additionally exposes browsing and search of player-configured sources, including TIDAL, pagination, contextual actions, Favorites, queue management, presets and groups. It is the first candidate for a device session that can intermediate both catalogue access and playback. [BluOS Custom Integration API 1.7](https://bluos.io/wp-content/uploads/2025/06/BluOS-Custom-Integration-API_v1.7.pdf).
+- **Spotify**: the Web API covers search, library, playlists, queue, current playback and Spotify Connect devices, including playback transfer and transport control. Player functions require Premium, and restricted devices reject commands. The first real OAuth implementation uses Authorization Code with PKCE and handles Development Mode limits and reauthorization. [Spotify Web API](https://developer.spotify.com/documentation/web-api), [Spotify scopes](https://developer.spotify.com/documentation/web-api/concepts/scopes), [Spotify quota modes](https://developer.spotify.com/documentation/web-api/concepts/quota-modes).
+- **Apple Music**: Apple Music API exposes the catalogue and personal library, search, albums, songs, artists, playlists, videos, stations, ratings and Favorites, recommendations and history. Playback uses native MusicKit for Swift on macOS; MusicKit on the Web requires a separate accessibility and integration experiment on Windows. [Apple Music API](https://developer.apple.com/documentation/applemusicapi), [MusicKit](https://developer.apple.com/musickit/).
+- **TIDAL**: its API and OAuth 2.1 can expose catalogue and authorized user resources, while playback must use the official TIDAL Player module. Public TIDAL Connect is limited to device partners. TIDAL remains an important separate AMC module, but requires isolated, attributed results, an Open in TIDAL action, minimal data retention and Production Mode review. AMC does not mix TIDAL content with similar services or expose recording or stream export. [TIDAL authorization](https://developer.tidal.com/documentation/api-sdk/api-sdk-authorization), [TIDAL Developer Terms](https://developer.tidal.com/documentation/guidelines/guidelines-developer-terms), [TIDAL Design Guidelines](https://developer.tidal.com/documentation/guidelines/guidelines-design-guidelines), [TIDAL Connect](https://developer.tidal.com/documentation/connect).
+- **Sonos**: its OAuth cloud Control API discovers households, groups and players, reports state, controls playback, seek and volume, and loads Sonos Favorites and playlists. It does not replace catalogue APIs for existing music services, needs a public HTTPS callback and has a higher integration cost. It stays in scope after WiiM, Spotify, TIDAL, BluOS, Apple Music, radio and local media. [Sonos Control API](https://docs.sonos.com/reference/about-control-api), [Sonos authorization](https://docs.sonos.com/docs/authorize).
+- **Frontier Smart**: the manufacturer confirms NetRemote API and SDK access for hardware partners but does not publish a complete supported consumer integration reference. A stable adapter requires partner access; any community adapter is explicitly experimental. [Frontier AURIA](https://www.frontiersmart.com/product/auria/), [Frontier customer area](https://www.frontiersmart.com/customer-area/).
+
+Each adapter separately declares search scope, result-presentation policy, Favorites read/write, Library, playlists, playback, queue operations, playback targets, transport, seek, volume, inputs, presets, groups, in-service offline storage and legal export. The UI never guesses unavailable capabilities.
+
 ### 13.3. Local media and radio
 
 The local playback module will eventually cover files and folders, metadata, Library, queue, common formats, output selection, gapless playback and ReplayGain. Shared audio output is the Windows default so that NVDA and other system sounds are not muted. Exclusive output may later appear as an advanced feature with an explicit warning.
 
-Internet radio is a separate core adapter and uses the same sessions, Favorites, history and transport commands. It should support direct streams, M3U/PLS, station metadata, reconnect and search. Free Radio mechanisms may be reused after code and licence review without moving the full playback engine into the NVDA process.
+Internet radio is a separate core adapter and uses the same sessions, Favorites, history and transport commands. It should support direct streams, M3U/PLS, station metadata, reconnect and search. Free Radio mechanisms may be reused after code and licence review without moving the full playback engine into the NVDA process. Radio recording may be a deliberately started local private-use feature: it records an available direct stream without bypassing DRM, never starts automatically, does not apply to TIDAL, Spotify or Apple Music, and leaves compliance with applicable local law to the user.
 
 ### 13.4. Testing and responsibility
 
@@ -575,17 +589,22 @@ The first prototype and initial working release target Windows only. macOS, Voic
 
 State of `alpha.25`: filtering and searching are separate—`Ctrl+K` narrows the current list, while `Ctrl+F` and `Ctrl+Shift+F` open dedicated query and results windows. The local field and title say “Search TIDAL”, or the corresponding service name, while the global variant says “Search all services”. After plain Enter is pressed, the service name becomes a temporary prefix of the main-list item's accessible name, so the whole context is read in one focus announcement. After a direct action, Search remembers the specific last result; Escape applies the same one-time label even if the service did not change relative to when Search was opened. Moving to another item removes the prefix. Global results still place the service after the item fields. Albums and Playlists are homogeneous views: they filter the relevant resource kind and omit the repeated words “album” and “playlist”; Library, Favorites and other mixed views retain the kind. Favorites belong to the current service or local library and Queue belongs to the active playback session, so ordinary rows in those views do not repeat the service. A result is read without a “Search results” prefix or a duplicate count announcement; optional item help mentions only arrows, Enter and Escape. The main-window title starts with the currently playing item, service and view; merely opening another result without playback does not change it. Settings opens with focus on the General tab; Save and Cancel restore focus to the selected item in the main list. Enter on the current track alternates playback and pause, while `Ctrl+Enter` always means Play now; a core test verifies that repeating Play does not toggle Pause. Type-ahead uses the resource's semantic primary name rather than the first field of the accessible label. The core and UI take one version from `Directory.Build.props`, and the portable publication is produced as one unambiguously named EXE. The main remaining first-stage work is local search history, an accessible command palette, low-level capture of a configurable prefix, and candidate-prefix testing with NVDA, JAWS and clipboard managers. Search currently uses the demonstration catalogue; real network queries arrive with service adapters.
 
+State of `alpha.26`: entering Albums, Playlists, Favorites, Library or Queue, and using view history, no longer raises a separate Status live-region summary. The first item receives a one-time view-name prefix, for example “Albums, Strange”, while an empty list is named “Favorites, empty list”. Moving to another item removes the prefix. Integration decisions now separate source from playback target, retain real TIDAL as an important isolated-results module, begin real adapters with WiiM and Spotify, use BluOS's broader device-side capabilities, and defer the higher-cost Sonos integration. Radio includes deliberately started recording of direct streams for private use.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.
 2. Run an MSIX/App Installer distribution spike, migrate to .NET 10 LTS and prototype signed component metadata and failure rollback.
 3. Extract AMC.Host and a local command–event contract with a demonstration adapter.
-4. Use WiiM as the first real test of discovery, commands, volume and presets.
-5. Add the first OAuth login and catalogue adapter: TIDAL or Spotify.
-6. Add a thin NVDA add-on using only the host contract.
-7. Add internet radio and basic local media.
-8. Add Apple Music and further devices: Sonos, Bluesound/BluOS and Frontier Smart.
-9. Build a native Swift/AppKit macOS prototype after the contract and Windows behaviour have stabilised.
+4. Use WiiM as the first real test of discovery, commands, volume, inputs and presets.
+5. Use Spotify for the first OAuth login, catalogue and Connect playback-transfer test.
+6. Add TIDAL as a separate catalogue adapter with an isolated results view and official playback module.
+7. Add a thin NVDA add-on using only the host contract.
+8. Add internet radio, deliberate direct-stream recording and basic local media.
+9. Add BluOS/Bluesound as a richer adapter for devices and player-configured sources.
+10. Add Apple Music and the native MusicKit path for macOS.
+11. Build a native Swift/AppKit macOS prototype after the contract and Windows behaviour have stabilised.
+12. Add Frontier Smart after supported API access; keep Sonos as a later standalone cloud integration.
 
 ## 15. Open decisions
 
