@@ -21,6 +21,7 @@ var tests = new (string Name, Action Test)[]
     ("Przełączanie sesji", TestSessions),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
     ("Historia wyszukiwania", TestSearchHistory),
+    ("Paleta poleceń", TestCommandPalette),
     ("Cofanie zmian przynależności", TestMembershipHistory),
     ("Krótkie komunikaty czasu", TestTimeCommands),
     ("Trzy rodzaje eksportu", TestExports)
@@ -487,6 +488,28 @@ static void TestSearchHistory()
     }
 }
 
+static void TestCommandPalette()
+{
+    var profile = KeyboardProfile.CreateDefault();
+    var entries = CommandPaletteSearch.CreateEntries(profile);
+
+    True(entries.Count >= 40, "Paleta powinna zawierać pełny katalog poleceń.");
+    True(entries.All(entry => entry.CommandId != CommandIds.CommandPalette), "Paleta nie powinna uruchamiać samej siebie.");
+    Equal(9, entries.Count(entry => entry.CommandId.StartsWith("session.slot.", StringComparison.Ordinal)));
+
+    var favorites = entries.Single(entry => entry.CommandId == CommandIds.ViewFavorites);
+    Equal("U", favorites.PrefixShortcut);
+    True(favorites.Label.Contains("prefiks U", StringComparison.Ordinal), "Etykieta powinna podawać aktywny skrót po prefiksie.");
+
+    var remaining = CommandPaletteSearch.Filter(entries, "czas pozostaly");
+    Equal(1, remaining.Count);
+    Equal(CommandIds.TimeRemaining, remaining[0].CommandId);
+
+    var shiftedFavorite = CommandPaletteSearch.Filter(entries, "shift u");
+    True(shiftedFavorite.Any(entry => entry.CommandId == CommandIds.ToggleFavorite), "Powinno dać się filtrować także po skrócie.");
+    Equal(0, CommandPaletteSearch.Filter(entries, "polecenie-którego-nie-ma").Count);
+}
+
 static void TestMembershipHistory()
 {
     var item = new MediaItem
@@ -550,6 +573,8 @@ static void TestTimeCommands()
     Equal("Odtwarzaj jako następne: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.TogglePlayNext);
     Equal("Usunięto z następnych: Pierwszy utwór demonstracyjny", sink.LastMessage);
+    router.Execute(CommandIds.CommandPalette);
+    True(actions.CommandPaletteShown, "Router powinien otworzyć paletę poleceń przez interfejs aplikacji.");
 }
 
 static void TestExports()
@@ -608,10 +633,12 @@ sealed class FakeSink : IAnnouncementSink
 sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
 {
     public MediaItem? SelectedItem { get; } = selectedItem;
+    public bool CommandPaletteShown { get; private set; }
     public void ShowCurrentSession(string viewName) { }
     public void ShowFilter() { }
     public void ShowSessionList() { }
     public void ShowPlaylistManager() { }
+    public void ShowCommandPalette() => CommandPaletteShown = true;
     public void ShowItemInformation(bool extended) { }
     public void OpenOfficialApplication() { }
     public void ShowHelp() { }

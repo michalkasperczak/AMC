@@ -597,6 +597,8 @@ State of `alpha.27`: switching sessions from the list with `Ctrl+1–9` or `Ctrl
 
 State of `alpha.28`: Search has persistent local history separated per service and for the global scope. Each scope keeps at most 20 unique newest-first queries; repeating an existing query moves it to the front. Down from an empty field begins history browsing, further Down presses move to older entries, and Up returns through newer entries to an empty field. History belongs to the complete state backup but not to the ordinary configuration export. The next small UI stage remains the accessible command palette on `Ctrl+Shift+K`.
 
+State of `alpha.29`: `Ctrl+Shift+K`, or prefix then `Shift+K`, opens an accessible command palette. The edit field filters while typing, Down moves to the native list, Enter executes the selected command, and Escape returns to the main list. The palette also includes unbound commands, exposes active prefix-profile shortcuts and accepts multi-fragment searches without requiring Polish diacritics. Playback remains unambiguous: Enter on the current playing track toggles Pause, while `Ctrl+Enter` always enforces Play.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.

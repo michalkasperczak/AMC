@@ -1,0 +1,41 @@
+<Window x:Class="AccessibleMediaController.Windows.CommandPaletteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        Title="Paleta poleceń — AMC"
+        Width="640" Height="480" MinWidth="500" MinHeight="340"
+        WindowStartupLocation="CenterOwner"
+        ContentRendered="Window_ContentRendered"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Top">
+            <Label Target="{Binding ElementName=CommandFilterBox}">_Filtruj polecenia:</Label>
+            <TextBox x:Name="CommandFilterBox" Margin="0,0,0,8"
+                     automation:AutomationProperties.Name="Filtr poleceń"
+                     automation:AutomationProperties.HelpText="Wpisuj fragmenty nazwy polecenia. Strzałka w dół przechodzi do listy, Enter wykonuje wybrane polecenie, Escape zamyka paletę."
+                     TextChanged="CommandFilterBox_TextChanged"
+                     PreviewKeyDown="CommandFilterBox_PreviewKeyDown" />
+            <controls:AccessibleStatusTextBlock x:Name="PaletteStatus" Margin="0,0,0,8"
+                                                Text="Polecenia AMC"
+                                                TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="_Wykonaj" MinWidth="100" Margin="0,0,8,0"
+                    Click="Execute_Click" />
+            <Button Content="_Anuluj" MinWidth="100" IsCancel="True" />
+        </StackPanel>
+
+        <ListBox x:Name="CommandsList"
+                 DisplayMemberPath="Label"
+                 automation:AutomationProperties.Name="Polecenia"
+                 automation:AutomationProperties.HelpText="Strzałki wybierają polecenie. Enter wykonuje. Escape zamyka paletę."
+                 KeyboardNavigation.DirectionalNavigation="Contained"
+                 KeyboardNavigation.TabNavigation="Once"
+                 PreviewKeyDown="CommandsList_PreviewKeyDown"
+                 PreviewTextInput="CommandsList_PreviewTextInput"
+                 MouseDoubleClick="CommandsList_MouseDoubleClick" />
+    </DockPanel>
+</Window>

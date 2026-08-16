@@ -16,6 +16,7 @@ public interface IApplicationActions
     void ShowFilter();
     void ShowSessionList();
     void ShowPlaylistManager();
+    void ShowCommandPalette();
     void ShowItemInformation(bool extended);
     void OpenOfficialApplication();
     void ShowHelp();
@@ -141,7 +142,7 @@ public sealed class CommandRouter(
                 application.ShowFilter();
                 return new(true);
             case CommandIds.CommandPalette:
-                announcements.Announce("Paleta poleceń nie jest jeszcze dostępna w tym prototypie");
+                application.ShowCommandPalette();
                 return new(true);
             case CommandIds.DownloadInService:
                 announcements.Announce("Pobieranie wewnątrz usługi nie jest jeszcze dostępne w tym prototypie");

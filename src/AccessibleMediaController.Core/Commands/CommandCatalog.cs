@@ -2,6 +2,22 @@ namespace AccessibleMediaController.Core.Commands;
 
 public static class CommandCatalog
 {
+    private static readonly string[] DefinedCommandIds = typeof(CommandIds)
+        .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+        .Where(field => field.IsLiteral && field.FieldType == typeof(string))
+        .Select(field => field.GetRawConstantValue() as string)
+        .Where(commandId => !string.IsNullOrWhiteSpace(commandId))
+        .Cast<string>()
+        .ToArray();
+
+    public static IReadOnlyList<string> GetAllCommandIds()
+    {
+        return DefinedCommandIds
+            .Concat(Enumerable.Range(1, 9).Select(CommandIds.SessionSlot))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
     public static string GetDisplayName(string commandId)
     {
         const string sessionSlotPrefix = "session.slot.";

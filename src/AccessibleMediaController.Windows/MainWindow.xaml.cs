@@ -168,6 +168,25 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         }
     }
 
+    public void ShowCommandPalette()
+    {
+        ClearFocusContext();
+        var entries = CommandPaletteSearch.CreateEntries(ActiveKeyboardProfile());
+        var dialog = new CommandPaletteWindow(entries) { Owner = this };
+        if (dialog.ShowDialog() == true && dialog.SelectedCommandId is { } commandId)
+        {
+            Activate();
+            FocusMediaList();
+            Dispatcher.BeginInvoke(
+                () => ExecuteCommand(commandId),
+                DispatcherPriority.ContextIdle);
+            return;
+        }
+
+        Activate();
+        RestoreMediaListFocusAfterRefresh();
+    }
+
     public void ShowItemInformation(bool extended)
     {
         var item = SelectedItem ?? _sessions.Current.CurrentItem;
