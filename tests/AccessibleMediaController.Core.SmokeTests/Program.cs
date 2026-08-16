@@ -500,6 +500,8 @@ static void TestCommandPalette()
     var favorites = entries.Single(entry => entry.CommandId == CommandIds.ViewFavorites);
     Equal("U", favorites.PrefixShortcut);
     True(favorites.Label.Contains("prefiks U", StringComparison.Ordinal), "Etykieta powinna podawać aktywny skrót po prefiksie.");
+    Equal(favorites.Label, favorites.ToString());
+    True(!favorites.ToString().Contains("CommandId", StringComparison.Ordinal), "Lista nie może ujawniać technicznych nazw pól obiektu.");
 
     var remaining = CommandPaletteSearch.Filter(entries, "czas pozostaly");
     Equal(1, remaining.Count);

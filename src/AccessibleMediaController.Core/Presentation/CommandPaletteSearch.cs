@@ -13,6 +13,8 @@ public sealed record CommandPaletteEntry(
     public string Label => PrefixShortcut is null
         ? DisplayName
         : $"{DisplayName}, prefiks {PrefixShortcut}";
+
+    public override string ToString() => Label;
 }
 
 public static class CommandPaletteSearch

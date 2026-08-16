@@ -31,7 +31,6 @@
         <ListBox x:Name="CommandsList"
                  DisplayMemberPath="Label"
                  automation:AutomationProperties.Name="Polecenia"
-                 automation:AutomationProperties.HelpText="Strzałki wybierają polecenie. Enter wykonuje. Escape zamyka paletę."
                  KeyboardNavigation.DirectionalNavigation="Contained"
                  KeyboardNavigation.TabNavigation="Once"
                  PreviewKeyDown="CommandsList_PreviewKeyDown"
