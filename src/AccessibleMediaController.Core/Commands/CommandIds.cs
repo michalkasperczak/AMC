@@ -53,5 +53,32 @@ public static class CommandIds
     public const string DownloadToDisk = "action.download.toDisk";
     public const string Help = "view.help";
 
+    public const string SettingsGeneral = "settings.general";
+    public const string SettingsLanguage = "settings.language";
+    public const string SettingsStartupTarget = "settings.startupTarget";
+    public const string SettingsPrefix = "settings.prefix";
+    public const string SettingsPrefixTimeout = "settings.prefixTimeout";
+    public const string SettingsKeyboardProfile = "settings.keyboardProfile";
+    public const string SettingsActivateKeyboardProfile = "settings.keyboardProfile.activate";
+    public const string SettingsDuplicateKeyboardProfile = "settings.keyboardProfile.duplicate";
+    public const string SettingsRenameKeyboardProfile = "settings.keyboardProfile.rename";
+    public const string SettingsDeleteKeyboardProfile = "settings.keyboardProfile.delete";
+    public const string SettingsImportKeyboardMap = "settings.keyboardMap.import";
+    public const string SettingsExportKeyboardMap = "settings.keyboardMap.export";
+    public const string SettingsKeyboardBindings = "settings.keyboardBindings";
+    public const string SettingsChangeKeyboardBinding = "settings.keyboardBinding.change";
+    public const string SettingsRemoveKeyboardBinding = "settings.keyboardBinding.remove";
+    public const string SettingsListFieldOrder = "settings.listFieldOrder";
+    public const string SettingsImportExport = "settings.importExport";
+    public const string SettingsImportConfiguration = "settings.configuration.import";
+    public const string SettingsExportConfiguration = "settings.configuration.export";
+    public const string SettingsImportFullBackup = "settings.fullBackup.import";
+    public const string SettingsExportFullBackup = "settings.fullBackup.export";
+    public const string SettingsMessages = "settings.messages";
+    public const string SettingsToggleMessages = "settings.messages.toggle";
+    public const string SettingsToggleDetailedHints = "settings.detailedHints.toggle";
+    public const string SettingsMessageTemplates = "settings.messageTemplates";
+    public const string SettingsUpdates = "settings.updates";
+
     public static string SessionSlot(int slot) => $"session.slot.{slot}";
 }

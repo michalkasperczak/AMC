@@ -83,6 +83,16 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         StatusText.Announce(message);
     }
 
+    private void AnnounceEssential(string message)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.Invoke(() => AnnounceEssential(message));
+            return;
+        }
+        StatusText.Announce(message);
+    }
+
     public void ShowCurrentSession(string viewName)
     {
         if (IsSearchView(viewName))
@@ -171,7 +181,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     public void ShowCommandPalette()
     {
         ClearFocusContext();
-        var entries = CommandPaletteSearch.CreateEntries(ActiveKeyboardProfile());
+        var entries = CommandPaletteSearch.CreateEntries(ActiveKeyboardProfile(), _state.Settings);
         var dialog = new CommandPaletteWindow(entries) { Owner = this };
         if (dialog.ShowDialog() == true && dialog.SelectedCommandId is { } commandId)
         {
@@ -225,6 +235,27 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "Skróty prototypu",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
+    }
+
+    public void ShowSettings(SettingsTarget target) => OpenSettings(target);
+
+    public void ToggleAccessibilityMessages()
+    {
+        _state.Settings.Messages.Enabled = !_state.Settings.Messages.Enabled;
+        _store.Save(_state);
+        AnnounceEssential(_state.Settings.Messages.Enabled
+            ? "Komunikaty dostępności włączone"
+            : "Komunikaty dostępności wyłączone");
+    }
+
+    public void ToggleDetailedHints()
+    {
+        _state.Settings.Messages.DetailedHints = !_state.Settings.Messages.DetailedHints;
+        ApplyDetailedHints();
+        _store.Save(_state);
+        AnnounceEssential(_state.Settings.Messages.DetailedHints
+            ? "Szczegółowe podpowiedzi klawiatury włączone"
+            : "Szczegółowe podpowiedzi klawiatury wyłączone");
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -631,9 +662,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         MediaList.ScrollIntoView(row);
     }
 
-    private void OpenSettings()
+    private void OpenSettings(SettingsTarget initialTarget = SettingsTarget.General)
     {
-        var dialog = new SettingsWindow(_state, _store) { Owner = this };
+        var dialog = new SettingsWindow(_state, _store, initialTarget) { Owner = this };
         if (dialog.ShowDialog() != true || dialog.ResultState is null)
         {
             RestoreMediaListFocusAfterRefresh();

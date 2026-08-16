@@ -602,6 +602,8 @@ State of `alpha.29`: `Ctrl+Shift+K`, or prefix then `Shift+K`, opens an accessib
 
 State of `alpha.30`: “Play or pause” replaces the former “Play now”. `Ctrl+Enter`, the button and the first context-menu item use one selection-aware toggling rule, while `Space` independently controls current playback. The palette exposes both the window shortcut and the prefix-layer shortcut. Typing from the list first extends the phrase, then tries the new character as a fresh query, and clears the filter when neither form matches.
 
+State of `alpha.31`: the palette exposes every active Settings destination, including exact controls for keyboard profiles, bindings, list fields, import, export, messages and planned updates. Navigation without changing a value is the default safety rule. The only deliberate exceptions are direct toggles for accessibility messages and detailed keyboard hints. Each dynamic label states the current value and Enter action, the value is persisted immediately, and a forced confirmation bypasses the global suppression of ordinary messages.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.

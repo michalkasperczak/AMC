@@ -20,12 +20,17 @@ public partial class SettingsWindow : Window
     private readonly ObservableCollection<BindingRow> _bindingRows = [];
     private readonly ObservableCollection<MessageTemplateRow> _messageRows = [];
     private readonly ObservableCollection<MediaFieldRow> _mediaFieldRows = [];
+    private readonly SettingsTarget _initialTarget;
     private bool _initialFocusApplied;
 
-    public SettingsWindow(PersistedState state, ConfigurationStore store)
+    public SettingsWindow(
+        PersistedState state,
+        ConfigurationStore store,
+        SettingsTarget initialTarget = SettingsTarget.General)
     {
         InitializeComponent();
         _store = store;
+        _initialTarget = initialTarget;
         _workingState = store.CloneState(state);
         BindingsList.ItemsSource = _bindingRows;
         MessageTemplatesList.ItemsSource = _messageRows;
@@ -41,20 +46,53 @@ public partial class SettingsWindow : Window
     {
         if (_initialFocusApplied) return;
         _initialFocusApplied = true;
-        Dispatcher.BeginInvoke(FocusSelectedSettingsTab, DispatcherPriority.ContextIdle);
+        Dispatcher.BeginInvoke(ApplyInitialFocus, DispatcherPriority.ContextIdle);
     }
 
-    private void FocusSelectedSettingsTab()
+    private void ApplyInitialFocus()
     {
-        if (SettingsTabs.SelectedItem is TabItem selectedTab)
+        var (tab, target) = ResolveInitialFocus(_initialTarget);
+        SettingsTabs.SelectedItem = tab;
+        SettingsTabs.UpdateLayout();
+        if (target.Focus())
         {
-            selectedTab.Focus();
-            Keyboard.Focus(selectedTab);
+            Keyboard.Focus(target);
             return;
         }
 
-        SettingsTabs.Focus();
-        Keyboard.Focus(SettingsTabs);
+        tab.Focus();
+        Keyboard.Focus(tab);
+    }
+
+    private (TabItem Tab, FrameworkElement Target) ResolveInitialFocus(SettingsTarget target)
+    {
+        return target switch
+        {
+            SettingsTarget.Language => (GeneralTab, LanguageText),
+            SettingsTarget.StartupTarget => (GeneralTab, StartupTargetCombo),
+            SettingsTarget.Prefix => (GeneralTab, PrefixBox),
+            SettingsTarget.PrefixTimeout => (GeneralTab, TimeoutBox),
+            SettingsTarget.KeyboardProfile => (KeyboardProfilesTab, ProfileCombo),
+            SettingsTarget.ActivateKeyboardProfile => (KeyboardProfilesTab, ActivateProfileButton),
+            SettingsTarget.DuplicateKeyboardProfile => (KeyboardProfilesTab, DuplicateProfileButton),
+            SettingsTarget.RenameKeyboardProfile => (KeyboardProfilesTab, RenameProfileButton),
+            SettingsTarget.DeleteKeyboardProfile => (KeyboardProfilesTab, DeleteProfileButton),
+            SettingsTarget.ImportKeyboardMap => (KeyboardProfilesTab, ImportKeyboardMapButton),
+            SettingsTarget.ExportKeyboardMap => (KeyboardProfilesTab, ExportKeyboardMapButton),
+            SettingsTarget.KeyboardBindings => (KeyboardProfilesTab, BindingsList),
+            SettingsTarget.ChangeKeyboardBinding => (KeyboardProfilesTab, ChangeBindingButton),
+            SettingsTarget.RemoveKeyboardBinding => (KeyboardProfilesTab, RemoveBindingButton),
+            SettingsTarget.ListFieldOrder => (ListsTab, ListFieldOrderList),
+            SettingsTarget.ImportExport => (ImportExportTab, ImportExportTab),
+            SettingsTarget.ImportConfiguration => (ImportExportTab, ImportConfigurationButton),
+            SettingsTarget.ExportConfiguration => (ImportExportTab, ExportConfigurationButton),
+            SettingsTarget.ImportFullBackup => (ImportExportTab, ImportFullBackupButton),
+            SettingsTarget.ExportFullBackup => (ImportExportTab, ExportFullBackupButton),
+            SettingsTarget.Messages => (MessagesTab, MessagesTab),
+            SettingsTarget.MessageTemplates => (MessagesTab, MessageTemplatesList),
+            SettingsTarget.Updates => (UpdatesTab, UpdatesTab),
+            _ => (GeneralTab, GeneralTab)
+        };
     }
 
     private void LoadControls()

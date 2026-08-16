@@ -118,6 +118,7 @@ static void TestCommandCatalog()
     Equal("Odtwórz lub wstrzymaj", CommandCatalog.GetDisplayName(CommandIds.ActivateSelected));
     Equal("Dodaj lub usuń z ulubionych", CommandCatalog.GetDisplayName(CommandIds.ToggleFavorite));
     Equal("Dodaj lub usuń z kolejki", CommandCatalog.GetDisplayName(CommandIds.AddQueue));
+    Equal("Ustawienia: szablony komunikatów", CommandCatalog.GetDisplayName(CommandIds.SettingsMessageTemplates));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
     Equal("nieznane.polecenie", CommandCatalog.GetDisplayName("nieznane.polecenie"));
 }
@@ -492,7 +493,10 @@ static void TestSearchHistory()
 static void TestCommandPalette()
 {
     var profile = KeyboardProfile.CreateDefault();
-    var entries = CommandPaletteSearch.CreateEntries(profile);
+    var settings = new AppSettings();
+    settings.Messages.Enabled = true;
+    settings.Messages.DetailedHints = false;
+    var entries = CommandPaletteSearch.CreateEntries(profile, settings);
 
     True(entries.Count >= 40, "Paleta powinna zawierać pełny katalog poleceń.");
     True(entries.All(entry => entry.CommandId != CommandIds.CommandPalette), "Paleta nie powinna uruchamiać samej siebie.");
@@ -516,6 +520,33 @@ static void TestCommandPalette()
 
     Equal("p", CommandPaletteSearch.ContinueOrRestartListQuery(entries, "sesja", "p"));
     Equal(string.Empty, CommandPaletteSearch.ContinueOrRestartListQuery(entries, "sesja", "§"));
+
+    var messages = entries.Single(entry => entry.CommandId == CommandIds.SettingsToggleMessages);
+    Equal("Komunikaty dostępności: włączone. Enter: wyłącz", messages.DisplayName);
+    var hints = entries.Single(entry => entry.CommandId == CommandIds.SettingsToggleDetailedHints);
+    Equal("Szczegółowe podpowiedzi klawiatury: wyłączone. Enter: włącz", hints.DisplayName);
+    Equal("Ctrl+,", entries.Single(entry => entry.CommandId == CommandIds.SettingsGeneral).LocalShortcut);
+    True(
+        entries.Any(entry => entry.CommandId == CommandIds.SettingsImportFullBackup),
+        "Paleta powinna udostępniać wszystkie bezpieczne wejścia do ustawień.");
+    True(
+        CommandPaletteSearch.Filter(entries, "szablony komunikatow")
+            .Any(entry => entry.CommandId == CommandIds.SettingsMessageTemplates),
+        "Ustawienia powinny być wyszukiwalne bez polskich znaków.");
+    True(
+        CommandPaletteSearch.Filter(entries, "ustawienia")
+            .Any(entry => entry.CommandId == CommandIds.SettingsToggleMessages),
+        "Wspólne wyszukiwanie ustawień powinno obejmować także bezpośrednie przełączniki.");
+
+    settings.Messages.Enabled = false;
+    settings.Messages.DetailedHints = true;
+    var changedEntries = CommandPaletteSearch.CreateEntries(profile, settings);
+    Equal(
+        "Komunikaty dostępności: wyłączone. Enter: włącz",
+        changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsToggleMessages).DisplayName);
+    Equal(
+        "Szczegółowe podpowiedzi klawiatury: włączone. Enter: wyłącz",
+        changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsToggleDetailedHints).DisplayName);
 }
 
 static void TestMembershipHistory()
@@ -585,6 +616,12 @@ static void TestTimeCommands()
     Equal("Usunięto z następnych: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.CommandPalette);
     True(actions.CommandPaletteShown, "Router powinien otworzyć paletę poleceń przez interfejs aplikacji.");
+    router.Execute(CommandIds.SettingsMessageTemplates);
+    Equal(SettingsTarget.MessageTemplates, actions.LastSettingsTarget);
+    router.Execute(CommandIds.SettingsToggleMessages);
+    True(actions.MessagesToggled, "Router powinien przekazać przełączenie komunikatów do aplikacji.");
+    router.Execute(CommandIds.SettingsToggleDetailedHints);
+    True(actions.DetailedHintsToggled, "Router powinien przekazać przełączenie szczegółowych podpowiedzi do aplikacji.");
 }
 
 static void TestExports()
@@ -644,6 +681,9 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
 {
     public MediaItem? SelectedItem { get; } = selectedItem;
     public bool CommandPaletteShown { get; private set; }
+    public SettingsTarget? LastSettingsTarget { get; private set; }
+    public bool MessagesToggled { get; private set; }
+    public bool DetailedHintsToggled { get; private set; }
     public void ShowCurrentSession(string viewName) { }
     public void ShowFilter() { }
     public void ShowSessionList() { }
@@ -652,4 +692,7 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
     public void ShowItemInformation(bool extended) { }
     public void OpenOfficialApplication() { }
     public void ShowHelp() { }
+    public void ShowSettings(SettingsTarget target) => LastSettingsTarget = target;
+    public void ToggleAccessibilityMessages() => MessagesToggled = true;
+    public void ToggleDetailedHints() => DetailedHintsToggled = true;
 }

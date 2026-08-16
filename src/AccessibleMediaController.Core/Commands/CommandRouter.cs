@@ -20,6 +20,9 @@ public interface IApplicationActions
     void ShowItemInformation(bool extended);
     void OpenOfficialApplication();
     void ShowHelp();
+    void ShowSettings(SettingsTarget target);
+    void ToggleAccessibilityMessages();
+    void ToggleDetailedHints();
 }
 
 public readonly record struct CommandExecutionResult(bool Handled, bool KeepPrefixActive = false);
@@ -35,6 +38,24 @@ public sealed class CommandRouter(
         if (commandId.StartsWith("session.slot.", StringComparison.Ordinal))
         {
             return SelectSessionSlot(commandId);
+        }
+
+        if (TryGetSettingsTarget(commandId, out var settingsTarget))
+        {
+            application.ShowSettings(settingsTarget);
+            return new(true);
+        }
+
+        if (commandId == CommandIds.SettingsToggleMessages)
+        {
+            application.ToggleAccessibilityMessages();
+            return new(true);
+        }
+
+        if (commandId == CommandIds.SettingsToggleDetailedHints)
+        {
+            application.ToggleDetailedHints();
+            return new(true);
         }
 
         var current = sessions.Current;
@@ -179,6 +200,41 @@ public sealed class CommandRouter(
                 announcements.Announce("Nieprzypisane polecenie");
                 return new(false);
         }
+    }
+
+    private static bool TryGetSettingsTarget(string commandId, out SettingsTarget target)
+    {
+        SettingsTarget? resolved = commandId switch
+        {
+            CommandIds.SettingsGeneral => SettingsTarget.General,
+            CommandIds.SettingsLanguage => SettingsTarget.Language,
+            CommandIds.SettingsStartupTarget => SettingsTarget.StartupTarget,
+            CommandIds.SettingsPrefix => SettingsTarget.Prefix,
+            CommandIds.SettingsPrefixTimeout => SettingsTarget.PrefixTimeout,
+            CommandIds.SettingsKeyboardProfile => SettingsTarget.KeyboardProfile,
+            CommandIds.SettingsActivateKeyboardProfile => SettingsTarget.ActivateKeyboardProfile,
+            CommandIds.SettingsDuplicateKeyboardProfile => SettingsTarget.DuplicateKeyboardProfile,
+            CommandIds.SettingsRenameKeyboardProfile => SettingsTarget.RenameKeyboardProfile,
+            CommandIds.SettingsDeleteKeyboardProfile => SettingsTarget.DeleteKeyboardProfile,
+            CommandIds.SettingsImportKeyboardMap => SettingsTarget.ImportKeyboardMap,
+            CommandIds.SettingsExportKeyboardMap => SettingsTarget.ExportKeyboardMap,
+            CommandIds.SettingsKeyboardBindings => SettingsTarget.KeyboardBindings,
+            CommandIds.SettingsChangeKeyboardBinding => SettingsTarget.ChangeKeyboardBinding,
+            CommandIds.SettingsRemoveKeyboardBinding => SettingsTarget.RemoveKeyboardBinding,
+            CommandIds.SettingsListFieldOrder => SettingsTarget.ListFieldOrder,
+            CommandIds.SettingsImportExport => SettingsTarget.ImportExport,
+            CommandIds.SettingsImportConfiguration => SettingsTarget.ImportConfiguration,
+            CommandIds.SettingsExportConfiguration => SettingsTarget.ExportConfiguration,
+            CommandIds.SettingsImportFullBackup => SettingsTarget.ImportFullBackup,
+            CommandIds.SettingsExportFullBackup => SettingsTarget.ExportFullBackup,
+            CommandIds.SettingsMessages => SettingsTarget.Messages,
+            CommandIds.SettingsMessageTemplates => SettingsTarget.MessageTemplates,
+            CommandIds.SettingsUpdates => SettingsTarget.Updates,
+            _ => null
+        };
+
+        target = resolved ?? default;
+        return resolved.HasValue;
     }
 
     private CommandExecutionResult SelectSessionSlot(string commandId)

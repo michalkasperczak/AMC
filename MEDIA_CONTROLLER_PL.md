@@ -604,6 +604,8 @@ Stan `alpha.29`: `Ctrl+Shift+K` oraz `Shift+K` po prefiksie otwierają dostępn�
 
 Stan `alpha.30`: polecenie „Odtwórz lub wstrzymaj” zastępuje wcześniejsze „Odtwórz teraz”. `Ctrl+Enter`, przycisk i pierwsza pozycja menu kontekstowego stosują jedną regułę przełączającą do zaznaczenia, a `Spacja` steruje niezależnie aktualnym odtwarzaniem. Paleta podaje skrót okna i skrót po prefiksie. Podczas pisania z fokusem na liście próbuje najpierw przedłużyć frazę, potem rozpocząć nową od wpisanego znaku, a jeśli żaden wariant nie pasuje — czyści filtr.
 
+Stan `alpha.31`: paleta udostępnia wszystkie działające cele okna Ustawienia, włącznie z dokładnymi kontrolkami profili klawiatury, przypisań, list, importu, eksportu, komunikatów i planowanych aktualizacji. Domyślną zasadą bezpieczeństwa jest nawigacja bez zmiany wartości. Wyjątkiem są dwa świadomie dopuszczone przełączniki: komunikaty dostępności oraz szczegółowe podpowiedzi klawiatury. Dynamiczna nazwa podaje stan i skutek Entera, wartość jest od razu zapisywana, a wymuszone potwierdzenie zmiany omija globalne wyłączenie zwykłych komunikatów.
+
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.

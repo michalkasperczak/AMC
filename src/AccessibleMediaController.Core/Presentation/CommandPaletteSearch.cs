@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using AccessibleMediaController.Core.Commands;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
 
 namespace AccessibleMediaController.Core.Presentation;
@@ -31,7 +32,9 @@ public sealed record CommandPaletteEntry(
 
 public static class CommandPaletteSearch
 {
-    public static IReadOnlyList<CommandPaletteEntry> CreateEntries(KeyboardProfile profile)
+    public static IReadOnlyList<CommandPaletteEntry> CreateEntries(
+        KeyboardProfile profile,
+        AppSettings settings)
     {
         var shortcuts = profile.Bindings
             .GroupBy(pair => pair.Value, StringComparer.Ordinal)
@@ -46,11 +49,25 @@ public static class CommandPaletteSearch
             .Where(commandId => commandId != CommandIds.CommandPalette)
             .Select(commandId => new CommandPaletteEntry(
                 commandId,
-                CommandCatalog.GetDisplayName(commandId),
+                GetDisplayName(commandId, settings),
                 GetLocalShortcut(commandId),
                 shortcuts.GetValueOrDefault(commandId)))
             .OrderBy(entry => entry.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
+    }
+
+    private static string GetDisplayName(string commandId, AppSettings settings)
+    {
+        return commandId switch
+        {
+            CommandIds.SettingsToggleMessages => settings.Messages.Enabled
+                ? "Komunikaty dostępności: włączone. Enter: wyłącz"
+                : "Komunikaty dostępności: wyłączone. Enter: włącz",
+            CommandIds.SettingsToggleDetailedHints => settings.Messages.DetailedHints
+                ? "Szczegółowe podpowiedzi klawiatury: włączone. Enter: wyłącz"
+                : "Szczegółowe podpowiedzi klawiatury: wyłączone. Enter: włącz",
+            _ => CommandCatalog.GetDisplayName(commandId)
+        };
     }
 
     public static string ContinueOrRestartListQuery(
@@ -99,6 +116,7 @@ public static class CommandPaletteSearch
             CommandIds.ItemInformation => "Alt+Enter",
             CommandIds.OpenOfficialApp => "Ctrl+Shift+O",
             CommandIds.Help => "F1",
+            CommandIds.SettingsGeneral => "Ctrl+,",
             _ => null
         };
     }
@@ -114,7 +132,10 @@ public static class CommandPaletteSearch
         return entries
             .Where(entry =>
             {
-                var searchableLabel = FoldForSearch(entry.Label);
+                var searchableText = entry.CommandId.StartsWith("settings.", StringComparison.Ordinal)
+                    ? $"{entry.Label} ustawienia"
+                    : entry.Label;
+                var searchableLabel = FoldForSearch(searchableText);
                 return tokens.All(token => searchableLabel.Contains(token, StringComparison.Ordinal));
             })
             .ToArray();
