@@ -3,7 +3,6 @@ namespace AccessibleMediaController.Core.Commands;
 public static class CommandIds
 {
     public const string PlayPause = "transport.playPause";
-    public const string PlaySelected = "transport.playSelected";
     public const string ActivateSelected = "transport.activateSelected";
     public const string Previous = "transport.previous";
     public const string Next = "transport.next";

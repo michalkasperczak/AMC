@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.Presentation;
 
@@ -101,6 +102,7 @@ public sealed class ConfigurationStore(string statePath)
 
     private static void EnsureBuiltInProfile(PersistedState state)
     {
+        const string legacyPlaySelectedCommandId = "transport.playSelected";
         var builtInIndex = state.KeyboardProfiles.FindIndex(profile => profile.Id == "default");
         if (builtInIndex < 0)
         {
@@ -118,7 +120,10 @@ public sealed class ConfigurationStore(string statePath)
             var normalizedBindings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var binding in profile.Bindings)
             {
-                normalizedBindings[KeyChord.Parse(binding.Key).Canonical] = binding.Value;
+                normalizedBindings[KeyChord.Parse(binding.Key).Canonical] =
+                    string.Equals(binding.Value, legacyPlaySelectedCommandId, StringComparison.OrdinalIgnoreCase)
+                        ? CommandIds.ActivateSelected
+                        : binding.Value;
             }
             profile.Bindings = normalizedBindings;
         }

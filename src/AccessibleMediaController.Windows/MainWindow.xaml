@@ -60,7 +60,7 @@
 
         <StackPanel DockPanel.Dock="Bottom">
             <WrapPanel Margin="0,8,0,8">
-                <Button MinWidth="105" Margin="0,0,8,0" Content="_Odtwórz" Click="Play_Click" />
+                <Button MinWidth="175" Margin="0,0,8,0" Content="Odtwórz lub _wstrzymaj" Click="ToggleSelectedPlayback_Click" />
                 <Button MinWidth="175" Margin="0,0,8,0" Content="Zmień stan _ulubionych" Click="Favorite_Click" />
                 <Button MinWidth="145" Margin="0,0,8,0" Content="Zmień _playlisty…" Click="Playlists_Click" />
                 <Button MinWidth="120" Content="U_stawienia…" Click="Settings_Click" />
@@ -86,8 +86,8 @@
                  MouseDoubleClick="MediaList_MouseDoubleClick">
             <ListBox.ContextMenu>
                 <ContextMenu Opened="MediaContextMenu_Opened" Closed="MediaContextMenu_Closed">
-                    <MenuItem Header="Odtwórz teraz" InputGestureText="Ctrl+Enter"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Enter" Click="Play_Click" />
+                    <MenuItem Header="Odtwórz lub wstrzymaj" InputGestureText="Ctrl+Enter"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+Enter" Click="ToggleSelectedPlayback_Click" />
                     <MenuItem x:Name="PlayNextMenuItem" Header="Odtwórz jako następne" InputGestureText="Ctrl+Shift+Enter"
                               automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+Enter" Click="PlayNext_Click" />
                     <MenuItem x:Name="QueueMenuItem" Header="Dodaj do kolejki" InputGestureText="Shift+Enter"

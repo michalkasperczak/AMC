@@ -42,9 +42,9 @@
                     <MenuItem Header="_Otwórz" InputGestureText="Enter"
                               automation:AutomationProperties.AcceleratorKey="Enter"
                               Click="Open_Click" />
-                    <MenuItem Header="Odtwórz _teraz" InputGestureText="Ctrl+Enter"
+                    <MenuItem Header="Odtwórz lub _wstrzymaj" InputGestureText="Ctrl+Enter"
                               automation:AutomationProperties.AcceleratorKey="Control+Enter"
-                              Click="Play_Click" />
+                              Click="TogglePlayback_Click" />
                     <MenuItem Header="Odtwórz jako _następne" InputGestureText="Ctrl+Shift+Enter"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+Enter"
                               Click="PlayNext_Click" />

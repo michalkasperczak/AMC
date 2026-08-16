@@ -1,84 +1,79 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-029`
-- Tytuł zestawu: Dostępna paleta poleceń
-- Wersja programu: `0.1.0-alpha.29`
-- Utworzono: 2026-08-16 19:10:09, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-16_191009_0.1.0-alpha.29.md`
+- Numer zestawu: `AMC-TEST-030`
+- Tytuł zestawu: Odtwarzanie, Spacja i skróty w palecie
+- Wersja programu: `0.1.0-alpha.30`
+- Utworzono: 2026-08-16 21:28, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-16_2128_0.1.0-alpha.30.md`
 
-W pliku wyników po dwukropku wpisz `OK`, jeżeli zadanie działa, albo krótko opisz problem. Nie trzeba powtarzać wariantów odpowiedzi przy każdym zadaniu.
+W pliku wyników po dwukropku wpisz krótko, co się wydarzyło. Jeżeli wszystko działa, wystarczy `OK`. Nie trzeba przed każdym zadaniem wybierać wariantu odpowiedzi.
 
-Alpha.29 uruchamia paletę wszystkich poleceń pod `Ctrl+Shift+K`. Paleta filtruje podczas pisania, pokazuje skróty aktywnego profilu po prefiksie i pozwala wykonywać również polecenia, które nie mają osobnego skrótu.
+## AMC-030-01 — Enter jako działanie podstawowe
 
-## AMC-029-01 — Otwarcie, fokus i wykonanie polecenia
+1. Na głównej liście wybierz utwór, który nie jest odtwarzany, i naciśnij Enter trzy razy.
+2. Wybierz album albo playlistę i naciśnij Enter.
 
-1. Na głównej liście naciśnij `Ctrl+Shift+K`.
-2. Sprawdź, gdzie znajduje się fokus i co odczytuje NVDA.
-3. Wpisz `ulubione`.
-4. Naciśnij strzałkę w dół i wybierz polecenie „Pokaż ulubione”.
-5. Naciśnij Enter.
+Oczekiwane:
 
-Oczekiwane wyniki:
+- pierwszy Enter na utworze uruchamia go, drugi wstrzymuje, a trzeci wznawia;
+- Enter na albumie albo playliście otwiera zawartość zamiast przełączać pauzę.
 
-- otwiera się okno „Paleta poleceń — AMC”, a fokus jest w polu „Filtr poleceń”;
-- wpisywanie nie przenosi fokusu i od razu zawęża listę;
-- strzałka w dół przechodzi na natywną listę poleceń;
-- wiersz zawiera nazwę polecenia oraz „prefiks U”;
-- Enter zamyka paletę, otwiera Ulubione i ustawia fokus na głównej liście.
+## AMC-030-02 — Ctrl+Enter bez otwierania
 
-## AMC-029-02 — Wyszukiwanie bez polskich znaków
+1. Na utworze naciśnij `Ctrl+Enter` trzy razy.
+2. Otwórz wyszukiwanie przez `Ctrl+F`, wykonaj zapytanie i na wyniku naciśnij `Ctrl+Enter` trzy razy.
 
-1. Otwórz paletę przez `Ctrl+Shift+K`.
-2. Wpisz dokładnie `czas pozostaly`, bez litery „ł”.
-3. Jeżeli pozostało jedno właściwe polecenie, naciśnij Enter bez przechodzenia na listę.
+Oczekiwane:
 
-Oczekiwane wyniki:
+- polecenie kolejno uruchamia, wstrzymuje i wznawia zaznaczony utwór;
+- w wyszukiwaniu wynik nie jest otwierany na głównej liście, a okno wyników i fokus pozostają na miejscu;
+- nazwa czynności brzmi „Odtwórz lub wstrzymaj”, bez słowa „zaznaczenie”.
 
-- paleta znajduje „Czas pozostały” mimo braku polskiego znaku;
-- Enter bezpośrednio z pola wykonuje zaznaczone polecenie;
-- paleta się zamyka, a AMC podaje pozostały czas tylko raz.
+## AMC-030-03 — Spacja steruje tym, co gra
 
-## AMC-029-03 — Nawigacja między polem i listą
+1. Uruchom utwór A.
+2. Samą strzałką przejdź na inny utwór B, ale go nie uruchamiaj.
+3. Naciśnij Spację dwa razy.
+4. Naciśnij `Ctrl+Enter` na utworze B, a potem Spację.
 
-1. Otwórz paletę i wpisz `sesja`.
-2. Naciśnij strzałkę w dół, a następnie poruszaj się po wynikach strzałkami.
-3. Na pierwszym wyniku naciśnij strzałkę w górę.
-4. Ponownie przejdź na listę i zacznij wpisywać literę lub krótki fragment nazwy.
+Oczekiwane:
 
-Oczekiwane wyniki:
+- pierwsza Spacja wstrzymuje utwór A, a druga go wznawia, mimo że zaznaczony jest B;
+- `Ctrl+Enter` przełącza odtwarzanie na B;
+- kolejna Spacja wstrzymuje B.
 
-- NVDA czyta kolejne polecenia i ich pozycje bez nakładającego się komunikatu o liczbie wyników;
-- strzałka w górę z pierwszego wyniku wraca do pola filtra;
-- rozpoczęcie pisania na liście przenosi wpisywany tekst do filtra i odświeża wyniki;
-- fokus nie ginie poza oknem palety.
+## AMC-030-04 — Paleta podaje oba rodzaje skrótów
 
-## AMC-029-04 — Brak wyniku i Escape
+1. Naciśnij `Ctrl+Shift+K`, a następnie strzałkę w dół.
+2. Odszukaj „Pokaż ulubione” i „Odtwórz lub wstrzymaj”.
+3. Sprawdź pełny odczyt obu wierszy przez NVDA.
 
-1. Otwórz paletę i wpisz `polecenie którego nie ma 029`.
-2. Naciśnij Enter.
-3. Następnie naciśnij Escape.
+Oczekiwane:
 
-Oczekiwane wyniki:
+- „Pokaż ulubione” podaje `Ctrl+U` oraz „prefiks U”;
+- „Odtwórz lub wstrzymaj” podaje `Ctrl+Enter`;
+- nie pojawiają się techniczne nazwy `CommandId` ani zapis obiektu `CommandPaletteEntry`.
 
-- widoczny jest stan „Brak pasujących poleceń”;
-- Enter podaje krótko „Brak polecenia do wykonania” i pozostawia fokus w filtrze;
-- Escape zamyka paletę i jednoznacznie przywraca fokus do głównej listy;
-- aplikacja nie zamyka się i nie wykonuje przypadkowego polecenia.
+## AMC-030-05 — Pisanie z listy palety
 
-## AMC-029-05 — Doprecyzowanie Enter i Ctrl+Enter
+1. Otwórz paletę i przejdź strzałką w dół na listę.
+2. Wpisz literę `Z`, a następnie `U`.
+3. Ponownie przejdź na listę i wpisz `X`, dla którego nie powinno być dopasowania.
 
-1. Na głównej liście wybierz utwór, który obecnie nie jest odtwarzany, i naciśnij Enter.
-2. Nie zmieniając zaznaczenia, naciśnij Enter drugi raz, a następnie trzeci raz.
-3. Naciśnij `Ctrl+Enter` dwa razy.
-4. Otwórz wyszukiwanie, zwykłym Enterem otwórz wynik na głównej liście i sprawdź Enter na tym elemencie.
+Oczekiwane:
 
-Oczekiwane wyniki:
+- gdy ciąg `ZU` nie pasuje, ale samo `U` pasuje, filtr zaczyna nowe wyszukiwanie od `U`;
+- po znaku bez dopasowania filtr zostaje wyczyszczony i wraca pełna lista;
+- komunikat „Polecenia, lista” może pojawić się przy wejściu na listę, ale nie jest powtarzany przy każdym ruchu.
 
-- pierwszy Enter na nowym utworze mówi „Odtwarzanie”;
-- drugi Enter na tym samym odtwarzanym utworze rzeczywiście włącza pauzę, a trzeci wznawia;
-- każde `Ctrl+Enter` mówi „Odtwarzanie” i nigdy nie przełącza na pauzę;
-- zwykły Enter na wyniku wyszukiwania tylko otwiera go na liście; późniejszy Enter stosuje powyższą zasadę zależnie od faktycznego stanu tego utworu.
+## AMC-030-06 — Regresja pozostałych działań
 
-## Następny etap
+1. Sprawdź na elemencie menu kontekstowe przez klawisz aplikacji lub `Shift+F10`.
+2. Uruchom „Odtwórz lub wstrzymaj”, „Dodaj do kolejki” i „Odtwórz jako następne”.
+3. Zamknij menu Escape i sprawdź fokus.
 
-Po zatwierdzeniu palety kolejnym etapem pierwszej fazy będzie niskopoziomowe, konfigurowalne przechwytywanie prefiksu oraz test kandydatów z NVDA, JAWS-em i menedżerami schowka. Osobną decyzją ustawień listy pozostaje możliwość całkowitego wyłączenia pola czasu trwania.
+Oczekiwane:
+
+- każda pozycja ma widoczny i czytany skrót;
+- polecenia działają na zaznaczonym elemencie;
+- Escape zamyka menu o jeden poziom i przywraca fokus do tego samego elementu listy.

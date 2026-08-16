@@ -216,7 +216,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "wyszukiwania w bieżącej usłudze, Ctrl+Shift+F otwiera wyszukiwanie globalne, " +
             "a Ctrl+Shift+K otwiera paletę poleceń. " +
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
-            "W oknie: Enter wykonuje działanie podstawowe, Alt+Enter pokazuje informacje, " +
+            "W oknie: Enter wykonuje działanie podstawowe. Ctrl+Enter odtwarza lub wstrzymuje zaznaczony element bez otwierania, " +
+            "a Spacja przełącza odtwarzanie elementu faktycznie grającego, niezależnie od zaznaczenia. Alt+Enter pokazuje informacje, " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
             "Escape w filtrze lub na głównym przycisku wraca do listy; aktywny filtr jest wtedy czyszczony. " +
@@ -894,10 +895,15 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             RemoveSelected();
             e.Handled = true;
         }
+        else if (modifiers == ModifierKeys.None && e.Key == Key.Space)
+        {
+            ExecuteCommand(CommandIds.PlayPause);
+            e.Handled = true;
+        }
         else if (e.Key == Key.Enter)
         {
             if (modifiers == ModifierKeys.None) ActivateSelected();
-            else if (modifiers == ModifierKeys.Control) ExecuteCommand(CommandIds.PlaySelected);
+            else if (modifiers == ModifierKeys.Control) ExecuteCommand(CommandIds.ActivateSelected);
             else if (modifiers == ModifierKeys.Shift) ExecuteCommand(CommandIds.AddQueue);
             else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift)) ExecuteCommand(CommandIds.TogglePlayNext);
             e.Handled = true;
@@ -1014,8 +1020,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         {
             switch (action)
             {
-                case SearchResultAction.Play:
-                    ExecuteCommand(CommandIds.PlaySelected);
+                case SearchResultAction.TogglePlayback:
+                    ExecuteCommand(CommandIds.ActivateSelected);
                     break;
                 case SearchResultAction.PlayNext:
                     ExecuteCommand(CommandIds.TogglePlayNext);
@@ -1155,7 +1161,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             : $"Wyniki filtrowania: {MediaList.Items.Count}";
     }
     private void MediaList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => ActivateSelected();
-    private void Play_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaySelected);
+    private void ToggleSelectedPlayback_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ActivateSelected);
     private void PlayNext_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.TogglePlayNext);
     private void Queue_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddQueue);
     private void Favorite_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleFavorite);

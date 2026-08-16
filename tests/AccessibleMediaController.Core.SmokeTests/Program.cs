@@ -93,6 +93,7 @@ static void TestBuiltInProfileRefresh()
         oldBuiltIn.Bindings[KeyChord.Parse("Ctrl+1").Canonical] = CommandIds.SessionSlot(1);
 
         var custom = oldBuiltIn.CreateEditableCopy("Własny stary profil");
+        custom.Bindings[KeyChord.Parse("Ctrl+Enter").Canonical] = "transport.playSelected";
         state.KeyboardProfiles.Add(custom);
         state.Settings.ActiveKeyboardProfileId = custom.Id;
         store.Save(state);
@@ -103,6 +104,7 @@ static void TestBuiltInProfileRefresh()
         Equal(CommandIds.SessionSlot(1), refreshedBuiltIn.Resolve(KeyChord.Parse("1")));
         True(refreshedBuiltIn.Resolve(KeyChord.Parse("Ctrl+1")) is null, "Profil wbudowany powinien otrzymać nową mapę.");
         Equal(CommandIds.SessionSlot(1), retainedCustom.Resolve(KeyChord.Parse("Ctrl+1")));
+        Equal(CommandIds.ActivateSelected, retainedCustom.Resolve(KeyChord.Parse("Ctrl+Enter")));
         Equal(custom.Id, loaded.Settings.ActiveKeyboardProfileId);
     }
     finally
@@ -113,8 +115,7 @@ static void TestBuiltInProfileRefresh()
 
 static void TestCommandCatalog()
 {
-    Equal("Odtwórz wybrany element teraz", CommandCatalog.GetDisplayName(CommandIds.PlaySelected));
-    Equal("Otwórz lub przełącz odtwarzanie wybranego elementu", CommandCatalog.GetDisplayName(CommandIds.ActivateSelected));
+    Equal("Odtwórz lub wstrzymaj", CommandCatalog.GetDisplayName(CommandIds.ActivateSelected));
     Equal("Dodaj lub usuń z ulubionych", CommandCatalog.GetDisplayName(CommandIds.ToggleFavorite));
     Equal("Dodaj lub usuń z kolejki", CommandCatalog.GetDisplayName(CommandIds.AddQueue));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
@@ -498,7 +499,9 @@ static void TestCommandPalette()
     Equal(9, entries.Count(entry => entry.CommandId.StartsWith("session.slot.", StringComparison.Ordinal)));
 
     var favorites = entries.Single(entry => entry.CommandId == CommandIds.ViewFavorites);
+    Equal("Ctrl+U", favorites.LocalShortcut);
     Equal("U", favorites.PrefixShortcut);
+    True(favorites.Label.Contains("Ctrl+U", StringComparison.Ordinal), "Etykieta powinna podawać skrót działający w oknie.");
     True(favorites.Label.Contains("prefiks U", StringComparison.Ordinal), "Etykieta powinna podawać aktywny skrót po prefiksie.");
     Equal(favorites.Label, favorites.ToString());
     True(!favorites.ToString().Contains("CommandId", StringComparison.Ordinal), "Lista nie może ujawniać technicznych nazw pól obiektu.");
@@ -510,6 +513,9 @@ static void TestCommandPalette()
     var shiftedFavorite = CommandPaletteSearch.Filter(entries, "shift u");
     True(shiftedFavorite.Any(entry => entry.CommandId == CommandIds.ToggleFavorite), "Powinno dać się filtrować także po skrócie.");
     Equal(0, CommandPaletteSearch.Filter(entries, "polecenie-którego-nie-ma").Count);
+
+    Equal("p", CommandPaletteSearch.ContinueOrRestartListQuery(entries, "sesja", "p"));
+    Equal(string.Empty, CommandPaletteSearch.ContinueOrRestartListQuery(entries, "sesja", "§"));
 }
 
 static void TestMembershipHistory()
@@ -555,14 +561,16 @@ static void TestTimeCommands()
     Equal("1:23", sink.LastMessage);
     router.Execute(CommandIds.TimeTotal);
     True(!sink.LastMessage.Contains("czas", StringComparison.OrdinalIgnoreCase), "Komunikat czasu powinien zawierać tylko wartość.");
-    router.Execute(CommandIds.PlaySelected);
+    router.Execute(CommandIds.ActivateSelected);
+    Equal("Odtwarzanie: Pierwszy utwór demonstracyjny", sink.LastMessage);
+    router.Execute(CommandIds.ActivateSelected);
+    Equal("Pauza: Pierwszy utwór demonstracyjny", sink.LastMessage);
+    router.Execute(CommandIds.ActivateSelected);
     Equal("Odtwarzanie: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.PlayPause);
     Equal("Pauza: Pierwszy utwór demonstracyjny", sink.LastMessage);
-    router.Execute(CommandIds.ActivateSelected);
+    router.Execute(CommandIds.PlayPause);
     Equal("Odtwarzanie: Pierwszy utwór demonstracyjny", sink.LastMessage);
-    router.Execute(CommandIds.ActivateSelected);
-    Equal("Pauza: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.ToggleFavorite);
     Equal("Usunięto z ulubionych: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.ToggleFavorite);

@@ -55,15 +55,6 @@ public sealed class CommandRouter(
                     ? $"Odtwarzanie: {current.CurrentItem.Title}"
                     : $"Pauza: {current.CurrentItem.Title}");
                 return new(true);
-            case CommandIds.PlaySelected:
-                var selectedToPlay = application.SelectedItem ?? current.CurrentItem;
-                if (!current.Play(selectedToPlay))
-                {
-                    announcements.Announce("Nie można odtworzyć wybranego elementu w tej sesji");
-                    return new(false);
-                }
-                announcements.Announce($"Odtwarzanie: {selectedToPlay.Title}");
-                return new(true);
             case CommandIds.ActivateSelected:
                 var selectedToActivate = application.SelectedItem ?? current.CurrentItem;
                 if (!current.Activate(selectedToActivate))

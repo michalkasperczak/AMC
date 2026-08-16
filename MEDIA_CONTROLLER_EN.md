@@ -260,7 +260,8 @@ A search query may inspect several fields and aliases, while navigation through 
 | `Page Up`, `Page Down` | move by pages |
 | typing letters | quickly move to an item beginning with the typed sequence; letters typed in quick succession build a phrase, while repeating one letter cycles through matches |
 | `Enter` | open an artist, album or playlist; perform the default action on a track |
-| `Ctrl+Enter` | play the selection now |
+| `Ctrl+Enter` | play or pause the selection without opening it |
+| `Space` | pause or resume what is actually playing, independently of the selection |
 | `Shift+Enter` | add the selection to the queue |
 | `Ctrl+Shift+Enter` | play next |
 | `Backspace` or `Delete` | remove from the current playlist, queue, Favorites or library when the action is unambiguous |
@@ -271,7 +272,7 @@ A search query may inspect several fields and aliases, while navigation through 
 | `Ctrl+Shift+O` | open the item in the official service application |
 | `Application key` or `Shift+F10` | context menu |
 
-Enter performs the primary action for the item type: it plays a track, station or preset, while opening the contents of an album, playlist or artist. `Ctrl+Enter` also plays a whole album or playlist immediately. Consistent with file-manager conventions, `Alt+Enter` remains Item Information or Properties; it does not open an external application.
+Enter performs the primary action for the item type: it toggles playback of a track, station or preset, while opening the contents of an album, playlist or artist. `Ctrl+Enter` invokes “Play or pause” without opening: it starts a new selection, pauses the current one, or resumes it. In the future the same rule will play a whole album or playlist without opening it. `Space` controls what is actually playing and does not depend on the current selection. Consistent with file-manager conventions, `Alt+Enter` remains Item Information or Properties; it does not open an external application.
 
 Plain letters in a list never execute AMC commands. They navigate using the current view's explicit key. Single-letter commands work only after the global prefix layer has been successfully activated.
 
@@ -362,7 +363,7 @@ Every local shortcut is configurable. Download commands must not be active until
 
 A context menu is required. It should display only actions available for the selected item type and current service, while preserving a stable and predictable order:
 
-1. Play now.
+1. Play or pause.
 2. Play next.
 3. Add to queue.
 4. Show album, playlist or artist contents — when applicable.
@@ -598,6 +599,8 @@ State of `alpha.27`: switching sessions from the list with `Ctrl+1–9` or `Ctrl
 State of `alpha.28`: Search has persistent local history separated per service and for the global scope. Each scope keeps at most 20 unique newest-first queries; repeating an existing query moves it to the front. Down from an empty field begins history browsing, further Down presses move to older entries, and Up returns through newer entries to an empty field. History belongs to the complete state backup but not to the ordinary configuration export. The next small UI stage remains the accessible command palette on `Ctrl+Shift+K`.
 
 State of `alpha.29`: `Ctrl+Shift+K`, or prefix then `Shift+K`, opens an accessible command palette. The edit field filters while typing, Down moves to the native list, Enter executes the selected command, and Escape returns to the main list. The palette also includes unbound commands, exposes active prefix-profile shortcuts and accepts multi-fragment searches without requiring Polish diacritics. Playback remains unambiguous: Enter on the current playing track toggles Pause, while `Ctrl+Enter` always enforces Play.
+
+State of `alpha.30`: “Play or pause” replaces the former “Play now”. `Ctrl+Enter`, the button and the first context-menu item use one selection-aware toggling rule, while `Space` independently controls current playback. The palette exposes both the window shortcut and the prefix-layer shortcut. Typing from the list first extends the phrase, then tries the new character as a fresh query, and clears the filter when neither form matches.
 
 Planned sequence of later stages:
 

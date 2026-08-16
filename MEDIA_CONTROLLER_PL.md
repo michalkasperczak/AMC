@@ -260,7 +260,8 @@ Zapytanie wyszukiwania może sprawdzać wiele pól i aliasów, natomiast nawigac
 | `Page Up`, `Page Down` | przewijanie listy stronami |
 | wpisywanie liter | szybkie przejście do elementu zaczynającego się od wpisanego ciągu; kolejne szybko wpisane litery budują frazę, a powtarzanie jednej litery przechodzi między dopasowaniami |
 | `Enter` | otwórz wykonawcę, album lub playlistę; na utworze wykonaj domyślną czynność |
-| `Ctrl+Enter` | odtwórz zaznaczenie teraz |
+| `Ctrl+Enter` | odtwórz lub wstrzymaj zaznaczenie bez otwierania |
+| `Spacja` | wstrzymaj lub wznów element faktycznie odtwarzany, niezależnie od zaznaczenia |
 | `Shift+Enter` | dodaj zaznaczenie do kolejki |
 | `Ctrl+Shift+Enter` | odtwórz jako następne |
 | `Backspace` lub `Delete` | usuń element z bieżącej playlisty, kolejki, ulubionych albo biblioteki, jeśli działanie jest jednoznaczne |
@@ -271,7 +272,7 @@ Zapytanie wyszukiwania może sprawdzać wiele pól i aliasów, natomiast nawigac
 | `Ctrl+Shift+O` | otwórz element w oficjalnej aplikacji usługi |
 | `Klawisz aplikacji` lub `Shift+F10` | menu kontekstowe |
 
-Enter wykonuje działanie podstawowe zależne od rodzaju elementu: odtwarza utwór, stację lub preset, natomiast na albumie, playliście albo wykonawcy otwiera zawartość. `Ctrl+Enter` odtwarza natychmiast również cały album lub playlistę. `Alt+Enter`, zgodnie z typowym zachowaniem menedżerów plików, pozostaje informacją lub właściwościami elementu; nie służy do otwierania zewnętrznej aplikacji.
+Enter wykonuje działanie podstawowe zależne od rodzaju elementu: na utworze, stacji lub presecie przełącza odtwarzanie zaznaczenia, natomiast na albumie, playliście albo wykonawcy otwiera zawartość. `Ctrl+Enter` wykonuje „Odtwórz lub wstrzymaj” bez otwierania: uruchamia nowe zaznaczenie, wstrzymuje bieżące albo je wznawia. Docelowo ta sama reguła uruchomi cały album lub playlistę bez wchodzenia do środka. `Spacja` steruje tym, co faktycznie gra, i nie zależy od położenia zaznaczenia. `Alt+Enter`, zgodnie z typowym zachowaniem menedżerów plików, pozostaje informacją lub właściwościami elementu; nie służy do otwierania zewnętrznej aplikacji.
 
 Zwykłe litery na liście nigdy nie wykonują poleceń AMC. Pozostają nawigacją według jawnego klucza bieżącego widoku. Polecenia jednoliterowe działają dopiero po prawidłowym aktywowaniu globalnej warstwy prefiksowej.
 
@@ -362,7 +363,7 @@ Każdy skrót lokalny jest zmienny. Polecenia pobierania nie powinny być aktywn
 
 Menu kontekstowe jest obowiązkowe. Powinno pokazywać tylko funkcje dostępne dla rodzaju elementu i bieżącej usługi, ale zachowywać stałą, przewidywalną kolejność:
 
-1. Odtwórz teraz.
+1. Odtwórz lub wstrzymaj.
 2. Odtwórz jako następne.
 3. Dodaj do kolejki.
 4. Pokaż zawartość albumu, playlisty albo wykonawcy — jeśli dotyczy.
@@ -600,6 +601,8 @@ Stan `alpha.27`: zmiana sesji z listy przez `Ctrl+1–9` albo `Ctrl+Page Up/Page
 Stan `alpha.28`: wyszukiwanie ma trwałą lokalną historię oddzielną dla każdej usługi i zakresu globalnego. Każdy zakres przechowuje maksymalnie 20 unikatowych zapytań w kolejności od najnowszego; ponowienie istniejącego zapytania przenosi je na początek. Strzałka w dół przy pustym polu rozpoczyna przeglądanie historii, dalsze naciśnięcia przechodzą do starszych wpisów, a strzałka w górę wraca przez nowsze do pustego pola. Historia jest częścią pełnej kopii stanu, ale nie zwykłego eksportu konfiguracji. Następnym małym etapem interfejsu pozostaje dostępna paleta poleceń pod `Ctrl+Shift+K`.
 
 Stan `alpha.29`: `Ctrl+Shift+K` oraz `Shift+K` po prefiksie otwierają dostępną paletę poleceń. Pole tekstowe filtruje podczas pisania, strzałka w dół przechodzi do natywnej listy, Enter wykonuje zaznaczone polecenie, a Escape wraca do głównej listy. Paleta obejmuje także polecenia bez skrótu, pokazuje skróty aktywnego profilu po prefiksie i pozwala wyszukiwać wieloma fragmentami bez wpisywania polskich znaków. Zasada odtwarzania pozostaje jednoznaczna: Enter na bieżącym, już odtwarzanym utworze przełącza pauzę, natomiast `Ctrl+Enter` zawsze wymusza odtwarzanie.
+
+Stan `alpha.30`: polecenie „Odtwórz lub wstrzymaj” zastępuje wcześniejsze „Odtwórz teraz”. `Ctrl+Enter`, przycisk i pierwsza pozycja menu kontekstowego stosują jedną regułę przełączającą do zaznaczenia, a `Spacja` steruje niezależnie aktualnym odtwarzaniem. Paleta podaje skrót okna i skrót po prefiksie. Podczas pisania z fokusem na liście próbuje najpierw przedłużyć frazę, potem rozpocząć nową od wpisanego znaku, a jeśli żaden wariant nie pasuje — czyści filtr.
 
 Planowana kolejność dalszych etapów:
 

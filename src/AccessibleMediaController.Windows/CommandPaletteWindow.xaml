@@ -35,6 +35,12 @@
                  KeyboardNavigation.TabNavigation="Once"
                  PreviewKeyDown="CommandsList_PreviewKeyDown"
                  PreviewTextInput="CommandsList_PreviewTextInput"
-                 MouseDoubleClick="CommandsList_MouseDoubleClick" />
+                 MouseDoubleClick="CommandsList_MouseDoubleClick">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
     </DockPanel>
 </Window>

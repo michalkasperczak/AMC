@@ -248,7 +248,7 @@ public partial class SearchWindow : Window
         if (key == Key.Enter && modifiers == ModifierKeys.None)
             action = SearchResultAction.Open;
         else if (key == Key.Enter && modifiers == ModifierKeys.Control)
-            action = SearchResultAction.Play;
+            action = SearchResultAction.TogglePlayback;
         else if (key == Key.Enter && modifiers == ModifierKeys.Shift)
             action = SearchResultAction.Queue;
         else if (key == Key.Enter && modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
@@ -265,7 +265,7 @@ public partial class SearchWindow : Window
 
     private void Search_Click(object sender, RoutedEventArgs e) => RunSearch();
     private void Open_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Open);
-    private void Play_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Play);
+    private void TogglePlayback_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.TogglePlayback);
     private void PlayNext_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.PlayNext);
     private void Queue_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Queue);
     private void Favorite_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Favorite);
@@ -293,7 +293,7 @@ public partial class SearchWindow : Window
 public enum SearchResultAction
 {
     Open,
-    Play,
+    TogglePlayback,
     PlayNext,
     Queue,
     Favorite,
