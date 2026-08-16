@@ -604,6 +604,8 @@ State of `alpha.30`: “Play or pause” replaces the former “Play now”. `Ct
 
 State of `alpha.31`: the palette exposes every active Settings destination, including exact controls for keyboard profiles, bindings, list fields, import, export, messages and planned updates. Navigation without changing a value is the default safety rule. The only deliberate exceptions are direct toggles for accessibility messages and detailed keyboard hints. Each dynamic label states the current value and Enter action, the value is persisted immediately, and a forced confirmation bypasses the global suppression of ordinary messages.
 
+State of `alpha.32`: the message-event list exposes friendly event names only through UI Automation. Raw template text and placeholders are presented in the separate edit field, preventing NVDA from appending `{slot}` or `{service}` to a list-item name while preserving full template editing.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.

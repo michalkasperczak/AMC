@@ -606,6 +606,8 @@ Stan `alpha.30`: polecenie „Odtwórz lub wstrzymaj” zastępuje wcześniejsze
 
 Stan `alpha.31`: paleta udostępnia wszystkie działające cele okna Ustawienia, włącznie z dokładnymi kontrolkami profili klawiatury, przypisań, list, importu, eksportu, komunikatów i planowanych aktualizacji. Domyślną zasadą bezpieczeństwa jest nawigacja bez zmiany wartości. Wyjątkiem są dwa świadomie dopuszczone przełączniki: komunikaty dostępności oraz szczegółowe podpowiedzi klawiatury. Dynamiczna nazwa podaje stan i skutek Entera, wartość jest od razu zapisywana, a wymuszone potwierdzenie zmiany omija globalne wyłączenie zwykłych komunikatów.
 
+Stan `alpha.32`: lista zdarzeń komunikatów udostępnia przez UI Automation wyłącznie przyjazne nazwy zdarzeń. Surowy tekst i znaczniki szablonu są prezentowane dopiero w osobnym polu edycji, dzięki czemu NVDA nie dopisuje `{slot}` ani `{service}` do nazwy elementu listy, a możliwość pełnej edycji pozostaje zachowana.
+
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.

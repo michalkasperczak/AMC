@@ -527,6 +527,9 @@ public partial class SettingsWindow : Window
             _ => EventId
         };
         public string? Template { get; set; } = template;
-        public override string ToString() => $"{EventLabel}: {Template}";
+        // WPF exposes ToString() as the UI Automation name for data items even
+        // when DisplayMemberPath is set. Keep technical placeholders in the
+        // separate edit box, but expose only the friendly event name in the list.
+        public override string ToString() => EventLabel;
     }
 }
