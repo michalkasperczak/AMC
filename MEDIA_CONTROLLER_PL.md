@@ -597,6 +597,8 @@ Stan `alpha.26`: przejście do Albumów, Playlist, Ulubionych, Biblioteki i Kole
 
 Stan `alpha.27`: zmiana sesji z listy przez `Ctrl+1–9` albo `Ctrl+Page Up/Page Down` nie ściga się już z odczytem fokusu. Numer sesji i nazwa usługi stają się jednorazowym prefiksem zaznaczonego elementu, a po przejściu strzałką znikają. Czas podany w etykiecie pozostaje czasem samego elementu; osobne podsumowanie liczby i łącznego czasu listy nie jest wysyłane. Ewentualne ukrywanie czasu elementu będzie decyzją ustawień pól listy, a nie częścią mechanizmu komunikatów o widoku.
 
+Stan `alpha.28`: wyszukiwanie ma trwałą lokalną historię oddzielną dla każdej usługi i zakresu globalnego. Każdy zakres przechowuje maksymalnie 20 unikatowych zapytań w kolejności od najnowszego; ponowienie istniejącego zapytania przenosi je na początek. Strzałka w dół przy pustym polu rozpoczyna przeglądanie historii, dalsze naciśnięcia przechodzą do starszych wpisów, a strzałka w górę wraca przez nowsze do pustego pola. Historia jest częścią pełnej kopii stanu, ale nie zwykłego eksportu konfiguracji. Następnym małym etapem interfejsu pozostaje dostępna paleta poleceń pod `Ctrl+Shift+K`.
+
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.

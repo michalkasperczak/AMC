@@ -595,6 +595,8 @@ State of `alpha.26`: entering Albums, Playlists, Favorites, Library or Queue, an
 
 State of `alpha.27`: switching sessions from the list with `Ctrl+1–9` or `Ctrl+Page Up/Page Down` no longer races with the focus announcement. The session slot and service name become a one-time prefix of the selected item and disappear after arrow navigation. A duration in the label remains the duration of that item; no separate list-count and aggregate-duration summary is sent. Hiding item duration, if desired, is a list-field setting decision rather than part of view-announcement logic.
 
+State of `alpha.28`: Search has persistent local history separated per service and for the global scope. Each scope keeps at most 20 unique newest-first queries; repeating an existing query moves it to the front. Down from an empty field begins history browsing, further Down presses move to older entries, and Up returns through newer entries to an empty field. History belongs to the complete state backup but not to the ordinary configuration export. The next small UI stage remains the accessible command palette on `Ctrl+Shift+K`.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.

@@ -88,7 +88,14 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 7;
+    public int SchemaVersion { get; set; } = 8;
     public AppSettings Settings { get; set; } = new();
+    public SearchHistorySettings SearchHistory { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];
+}
+
+public sealed class SearchHistorySettings
+{
+    public Dictionary<string, List<string>> Entries { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
 }

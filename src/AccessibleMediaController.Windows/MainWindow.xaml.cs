@@ -102,11 +102,18 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         ClearFocusContext();
         Activate();
         var sessionBeforeSearch = _sessions.Current.Id;
+        var searchHistory = new SearchQueryHistory(_state.SearchHistory);
+        var searchHistoryScope = allServices
+            ? SearchQueryHistory.GlobalScope
+            : _sessions.Current.Id;
         var dialog = new SearchWindow(
             _sessions,
             allServices,
             FormatItem,
             ExecuteSearchResultAction,
+            searchHistory,
+            searchHistoryScope,
+            () => _store.Save(_state),
             _state.Settings.Messages.DetailedHints)
         {
             Owner = this

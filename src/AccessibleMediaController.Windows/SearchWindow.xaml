@@ -13,7 +13,8 @@
             <Label Target="{Binding ElementName=SearchBox}">_Wyszukiwany tekst:</Label>
             <TextBox x:Name="SearchBox" Margin="0,0,0,8"
                      automation:AutomationProperties.Name="Wyszukiwany tekst"
-                     PreviewKeyDown="SearchBox_PreviewKeyDown" />
+                     PreviewKeyDown="SearchBox_PreviewKeyDown"
+                     TextChanged="SearchBox_TextChanged" />
             <controls:AccessibleStatusTextBlock x:Name="SearchStatus" Margin="0,0,0,8"
                                                 Text="Wpisz tekst i naciśnij Enter"
                                                 TextWrapping="Wrap"

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Input;
 using System.Windows.Threading;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sessions;
 
 namespace AccessibleMediaController.Windows;
@@ -13,12 +14,21 @@ public partial class SearchWindow : Window
     private readonly Func<MediaItem, string> _formatItem;
     private readonly Func<SearchResult, SearchResultAction, bool, string?> _executeAction;
     private readonly string _resultHelpText;
+    private readonly SearchQueryHistory _searchHistory;
+    private readonly string _searchHistoryScope;
+    private readonly Action _persistSearchHistory;
+    private bool _isApplyingHistory;
+    private bool _isBrowsingHistory;
+    private int _historyIndex = -1;
 
     public SearchWindow(
         SessionManager sessions,
         bool allServices,
         Func<MediaItem, string> formatItem,
         Func<SearchResult, SearchResultAction, bool, string?> executeAction,
+        SearchQueryHistory searchHistory,
+        string searchHistoryScope,
+        Action persistSearchHistory,
         bool detailedHints)
     {
         InitializeComponent();
@@ -37,6 +47,9 @@ public partial class SearchWindow : Window
         _allServices = allServices;
         _formatItem = formatItem;
         _executeAction = executeAction;
+        _searchHistory = searchHistory;
+        _searchHistoryScope = searchHistoryScope;
+        _persistSearchHistory = persistSearchHistory;
         _resultHelpText = detailedHints
             ? "Strzałki wybierają wynik. Enter otwiera. Escape zamyka okno."
             : string.Empty;
@@ -45,7 +58,7 @@ public partial class SearchWindow : Window
         {
             AutomationProperties.SetHelpText(
                 SearchBox,
-                "Wpisz tekst i naciśnij Enter, aby rozpocząć wyszukiwanie. Escape zamyka okno.");
+                "Wpisz tekst i naciśnij Enter, aby rozpocząć wyszukiwanie. Przy pustym polu strzałka w dół wybiera historię. Escape zamyka okno.");
         }
 
         Loaded += (_, _) =>
@@ -68,6 +81,12 @@ public partial class SearchWindow : Window
             SearchBox.Focus();
             return;
         }
+
+        if (_searchHistory.Record(_searchHistoryScope, query))
+        {
+            _persistSearchHistory();
+        }
+        ResetHistoryBrowsing();
 
         var results = MediaCatalogSearch.Search(_sourceSessions, query)
             .Select(result => new SearchResultRow(
@@ -140,11 +159,84 @@ public partial class SearchWindow : Window
             RunSearch();
             e.Handled = true;
         }
+        else if (e.Key == Key.Down
+                 && (SearchBox.Text.Length == 0 || _isBrowsingHistory)
+                 && BrowseHistory(1))
+        {
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Up && _isBrowsingHistory && BrowseHistory(-1))
+        {
+            e.Handled = true;
+        }
         else if (e.Key == Key.Down && ResultsList.Items.Count > 0)
         {
             FocusSelectedResult();
             e.Handled = true;
         }
+    }
+
+    private bool BrowseHistory(int direction)
+    {
+        var entries = _searchHistory.GetEntries(_searchHistoryScope);
+        if (entries.Count == 0)
+        {
+            if (SearchBox.Text.Length == 0)
+            {
+                SearchStatus.Announce("Historia wyszukiwania jest pusta");
+                return true;
+            }
+            return false;
+        }
+
+        if (!_isBrowsingHistory)
+        {
+            if (SearchBox.Text.Length != 0 || direction < 0) return false;
+            _isBrowsingHistory = true;
+            _historyIndex = 0;
+        }
+        else
+        {
+            _historyIndex += direction;
+            if (_historyIndex < 0)
+            {
+                ApplyHistoryText(string.Empty);
+                ResetHistoryBrowsing();
+                SearchStatus.Text = "Puste pole wyszukiwania";
+                return true;
+            }
+            _historyIndex = Math.Min(_historyIndex, entries.Count - 1);
+        }
+
+        ApplyHistoryText(entries[_historyIndex]);
+        SearchStatus.Text = $"{_historyIndex + 1} z {entries.Count} w historii";
+        return true;
+    }
+
+    private void ApplyHistoryText(string text)
+    {
+        _isApplyingHistory = true;
+        try
+        {
+            SearchBox.Text = text;
+            SearchBox.CaretIndex = text.Length;
+            SearchBox.SelectAll();
+        }
+        finally
+        {
+            _isApplyingHistory = false;
+        }
+    }
+
+    private void ResetHistoryBrowsing()
+    {
+        _isBrowsingHistory = false;
+        _historyIndex = -1;
+    }
+
+    private void SearchBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (!_isApplyingHistory) ResetHistoryBrowsing();
     }
 
     private void ResultsList_PreviewKeyDown(object sender, KeyEventArgs e)

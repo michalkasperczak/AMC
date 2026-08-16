@@ -20,6 +20,7 @@ var tests = new (string Name, Action Test)[]
     ("Migracja nazw w komunikatach Ulubionych alpha.18", TestVersion6FavoriteMessageMigration),
     ("Przełączanie sesji", TestSessions),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
+    ("Historia wyszukiwania", TestSearchHistory),
     ("Cofanie zmian przynależności", TestMembershipHistory),
     ("Krótkie komunikaty czasu", TestTimeCommands),
     ("Trzy rodzaje eksportu", TestExports)
@@ -419,6 +420,71 @@ static void TestCatalogSearch()
     True(globalResults.Any(result => result.Session.DisplayName == "Apple Music"), "Wyniki globalne powinny zawierać Apple Music.");
     Equal(0, MediaCatalogSearch.Search(manager.Sessions, "nieistniejący wynik").Count);
     Equal(0, MediaCatalogSearch.Search(manager.Sessions, "   ").Count);
+}
+
+static void TestSearchHistory()
+{
+    var settings = new SearchHistorySettings();
+    var history = new SearchQueryHistory(settings);
+
+    True(history.Record("tidal", "  Brzeg ciszy  "), "Pierwsze zapytanie powinno zostać zapisane.");
+    True(history.Record(SearchQueryHistory.GlobalScope, "zielony horyzont"), "Zakres globalny powinien mieć osobną historię.");
+    Equal("Brzeg ciszy", history.GetEntries("TIDAL")[0]);
+    Equal("zielony horyzont", history.GetEntries(SearchQueryHistory.GlobalScope)[0]);
+    Equal(1, history.GetEntries("tidal").Count);
+
+    True(history.Record("tidal", "BRZEG CISZY"), "Nowszy zapis powinien zaktualizować pisownię duplikatu.");
+    Equal(1, history.GetEntries("tidal").Count);
+    Equal("BRZEG CISZY", history.GetEntries("tidal")[0]);
+    True(!history.Record("tidal", "BRZEG CISZY"), "Identyczne najnowsze zapytanie nie powinno zmieniać historii.");
+
+    for (var index = 0; index < 25; index++)
+    {
+        history.Record("tidal", $"Zapytanie {index}");
+    }
+    Equal(SearchQueryHistory.MaxEntriesPerScope, history.GetEntries("tidal").Count);
+    Equal("Zapytanie 24", history.GetEntries("tidal")[0]);
+    Equal("Zapytanie 5", history.GetEntries("tidal")[^1]);
+
+    var duplicateScopes = new SearchHistorySettings
+    {
+        Entries = new Dictionary<string, List<string>>
+        {
+            ["tidal"] = Enumerable.Range(0, 15).Select(index => $"Pierwsza {index}").ToList(),
+            ["TIDAL"] = Enumerable.Range(0, 15).Select(index => $"Druga {index}").ToList()
+        }
+    };
+    var normalizedHistory = new SearchQueryHistory(duplicateScopes);
+    Equal(SearchQueryHistory.MaxEntriesPerScope, normalizedHistory.GetEntries("tidal").Count);
+
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-search-history-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var statePath = Path.Combine(directory, "state.json");
+        var store = new ConfigurationStore(statePath);
+        var state = ConfigurationStore.CreateDefaultState();
+        state.SearchHistory = settings;
+        store.Save(state);
+
+        var loaded = store.LoadOrCreate();
+        var loadedHistory = new SearchQueryHistory(loaded.SearchHistory);
+        Equal("Zapytanie 24", loadedHistory.GetEntries("tidal")[0]);
+        Equal("zielony horyzont", loadedHistory.GetEntries(SearchQueryHistory.GlobalScope)[0]);
+
+        var document = JsonNode.Parse(File.ReadAllText(statePath))?.AsObject()
+            ?? throw new InvalidOperationException("Nie udało się odczytać testowej historii.");
+        document["schemaVersion"] = 7;
+        document.Remove("searchHistory");
+        File.WriteAllText(statePath, document.ToJsonString());
+        loaded = store.LoadOrCreate();
+        Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
+        Equal(0, new SearchQueryHistory(loaded.SearchHistory).GetEntries("tidal").Count);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
 }
 
 static void TestMembershipHistory()
