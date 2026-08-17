@@ -662,6 +662,8 @@ State of `alpha.45`: the final local player mapping uses `Ctrl+J` for an entered
 
 State of `alpha.46`: the separate almost invisible compatibility window from `alpha.44–45` is removed completely because manual testing showed it taking over NVDA's startup context and blocking reading and keyboard input until `Alt+F4` closed it. A status bar must not be implemented as another top-level or helper window. The main window exposes its own client-area bounds to automation, while the real status bar remains an embedded, non-live control. `NVDA+End` is a compatibility test rather than a usability dependency: Playback and the command palette always contain “Read playback status”, which announces service, state, title, time, volume and bitrate without moving focus.
 
+State of `alpha.47`: the status-bar container no longer duplicates its label's full accessible name. The single announcement is ordered for a quick parameter check: bitrate, state, position and total duration, volume, title, and service last. The explicit “Read playback status” command uses the same formatting.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.

@@ -72,7 +72,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     public MainWindow(PersistedState state, ConfigurationStore store)
     {
         InitializeComponent();
-        const string initialStatus = "Pauza, czas 0:00, głośność 0%, przepływność: brak danych";
+        const string initialStatus = "Przepływność brak danych, pauza, 0:00, głośność 0%";
         _playbackStatusLabel = new System.Windows.Forms.ToolStripStatusLabel
         {
             AccessibleName = initialStatus,
@@ -83,15 +83,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         };
         _playbackStatusBar = new System.Windows.Forms.StatusStrip
         {
-            AccessibleName = initialStatus,
             AccessibleRole = System.Windows.Forms.AccessibleRole.StatusBar,
             AutoSize = false,
             CanOverflow = false,
             Dock = System.Windows.Forms.DockStyle.Fill,
             GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden,
             SizingGrip = false,
-            TabStop = false,
-            Text = initialStatus
+            TabStop = false
         };
         _playbackStatusBar.Items.Add(_playbackStatusLabel);
         PlaybackStatusHost.Child = _playbackStatusBar;
@@ -320,8 +318,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var text = BuildPlaybackStatusText();
         _playbackStatusLabel.Text = text;
         _playbackStatusLabel.AccessibleName = text;
-        _playbackStatusBar.Text = text;
-        _playbackStatusBar.AccessibleName = text;
     }
 
     private string BuildPlaybackStatusText()
@@ -336,7 +332,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var bitrate = item.BitrateKbps is int bitrateKbps
             ? item.IsBitrateEstimated ? $"około {bitrateKbps} kb/s" : $"{bitrateKbps} kb/s"
             : "brak danych";
-        return $"{session.DisplayName}, {state}, {item.Title}, {time}, głośność {session.Volume}%, przepływność {bitrate}";
+        return $"Przepływność {bitrate}, {state.ToLowerInvariant()}, {time}, głośność {session.Volume}%, {item.Title}, {session.DisplayName}";
     }
 
     public void AnnouncePlaybackStatus()

@@ -664,6 +664,8 @@ Stan `alpha.45`: ostateczna lokalna mapa odtwarzacza używa `Ctrl+J` dla wpisane
 
 Stan `alpha.46`: osobne, prawie niewidoczne okno zgodności z `alpha.44–45` zostaje całkowicie usunięte, ponieważ w ręcznym teście przejmowało kontekst NVDA przy starcie i blokowało odczyt oraz klawiaturę do czasu zamknięcia przez `Alt+F4`. Nie wolno realizować paska stanu dodatkowym oknem nadrzędnym ani pomocniczym. Główne okno zgłasza automatyzacji granice własnego obszaru klienta, a rzeczywisty pasek pozostaje jego wewnętrzną kontrolką bez aktywnych komunikatów. `NVDA+End` pozostaje testem zgodności, nie warunkiem używalności: menu Odtwarzanie i paleta zawierają zawsze dostępne polecenie „Odczytaj stan odtwarzania”, które mówi usługę, stan, tytuł, czas, głośność i przepływność bez przesuwania fokusu.
 
+Stan `alpha.47`: kontener paska nie powiela już pełnej nazwy dostępnościowej swojej etykiety. Jeden komunikat ma kolejność zoptymalizowaną pod szybkie pytanie o parametry: przepływność, stan, pozycja z czasem całkowitym, głośność, tytuł i na końcu usługa. To samo formatowanie stosuje jawne polecenie „Odczytaj stan odtwarzania”.
+
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.

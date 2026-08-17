@@ -1,59 +1,55 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-046`
-- Tytuł zestawu: Regresja fokusu NVDA i bezpieczny odczyt stanu
-- Wersja programu: `0.1.0-alpha.46`
-- Utworzono: 2026-08-17 23:05, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_2305_0.1.0-alpha.46.md`
+- Numer zestawu: `AMC-TEST-047`
+- Tytuł zestawu: Pojedynczy i uporządkowany odczyt paska
+- Wersja programu: `0.1.0-alpha.47`
+- Utworzono: 2026-08-17 23:29, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_2329_0.1.0-alpha.47.md`
 
 W pliku wyników po dwukropku wpisz krótko, co się wydarzyło. Jeżeli wszystko działa, wystarczy `OK`. Nie trzeba przed każdym zadaniem wybierać wariantu odpowiedzi.
 
-## AMC-046-01 — Uruchomienie i fokus NVDA
+## AMC-047-01 — Pojedynczy odczyt NVDA+End
 
-1. Uruchom program i niczego nie naciskaj przez kilka sekund.
-2. Odczytaj zaznaczony element i przejdź po liście strzałkami.
-3. Wypróbuj `Ctrl+K`, `F6` i Escape.
-4. Sprawdź Alt+Tab, ale nie naciskaj jeszcze `Alt+F4`.
-
-Oczekiwane:
-
-- fokus znajduje się na liście, a NVDA nie pozostaje na samym komunikacie „pasek stanu”;
-- odczyt, strzałki i skróty działają od pierwszej chwili;
-- w Alt+Tab istnieje tylko jedno okno AMC i nie ma pomocniczego okna paska.
-
-## AMC-046-02 — NVDA+End bez blokowania aplikacji
-
-1. Naciśnij `NVDA+End` w zwykłym rozmiarze okna.
-2. Zmaksymalizuj okno i powtórz próbę.
-3. Przywróć rozmiar, przesuń okno i sprawdź jeszcze raz.
-4. Po każdej próbie użyj strzałki oraz jednego skrótu AMC.
+1. Uruchom program i naciśnij `NVDA+End`.
+2. Powtórz próbę podczas pauzy i odtwarzania.
+3. Zmaksymalizuj okno i sprawdź jeszcze raz.
 
 Oczekiwane:
 
-- NVDA próbuje odczytać wewnętrzny pasek i, jeśli go odnajdzie, podaje usługę, stan, tytuł, czas, głośność i przepływność;
-- niezależnie od wyniku `NVDA+End` aplikacja nie blokuje się, fokus się nie przenosi, a skróty nadal działają;
-- zapisz dokładnie, co mówi NVDA, jeżeli paska nadal nie odnajduje.
+- pełny tekst paska jest czytany dokładnie jeden raz;
+- NVDA nie powtarza tego samego zestawu danych dla kontenera i etykiety;
+- odczyt nie przenosi fokusu i nie blokuje programu.
 
-## AMC-046-03 — Odczytaj stan odtwarzania
+## AMC-047-02 — Kolejność danych paska
+
+1. Odtwórz lokalny plik o znanym czasie.
+2. Przejdź w dowolne miejsce utworu i naciśnij `NVDA+End`.
+
+Oczekiwane:
+
+- kolejność brzmi: „Przepływność…, odtwarzanie albo pauza, pozycja z czasem całkowitym, głośność, tytuł, usługa”;
+- długi tytuł nie opóźnia informacji o przepływności, czasie i głośności;
+- przy braku danych początek brzmi „Przepływność brak danych”.
+
+## AMC-047-03 — Polecenie odczytu stanu
 
 1. Z menu Odtwarzanie wybierz „Odczytaj stan odtwarzania”.
-2. Otwórz `Ctrl+Shift+K`, wyszukaj „stan odtwarzania” i wykonaj polecenie.
-3. Powtórz podczas odtwarzania lokalnego pliku, jeśli jest załadowany.
+2. Wykonaj to samo polecenie z palety `Ctrl+Shift+K`.
 
 Oczekiwane:
 
-- polecenie podaje usługę, odtwarzanie albo pauzę, tytuł, czas, głośność i przepływność;
-- fokus pozostaje w dotychczasowym miejscu;
-- polecenie działa także wtedy, gdy zwykłe automatyczne komunikaty odtwarzacza są wyciszone.
+- oba sposoby podają te same dane w tej samej kolejności co pasek;
+- komunikat występuje tylko raz;
+- fokus pozostaje na wcześniejszej kontrolce.
 
-## AMC-046-04 — Brak regresji skoków
+## AMC-047-04 — Fokus i skróty po odczycie
 
-1. Otwórz odtwarzacz klawiszem `F6` dla elementu o znanym czasie.
-2. Sprawdź `Ctrl+J`, `Ctrl+Shift+J` oraz cyfrę `5`.
-3. Wpisz wartość czasu większą niż czas trwania.
+1. Po `NVDA+End` przejdź strzałką po liście.
+2. Otwórz odtwarzacz przez `F6` i sprawdź `Ctrl+J` oraz `Ctrl+Shift+J`.
+3. Wróć Escape na listę.
 
 Oczekiwane:
 
-- oba okna skoku i skok cyfrą działają wyłącznie w odtwarzaczu;
-- błędna wartość jest oznajmiona, a fokus pozostaje w polu;
-- usunięcie pomocniczego paska nie zmienia działania odtwarzacza.
+- lista i wszystkie skróty działają bez dodatkowego `Alt+F4`;
+- odtwarzacz zachowuje prawidłowe skoki;
+- Escape wraca do wcześniejszego elementu listy.
