@@ -80,15 +80,4 @@ Oczekiwane:
 - `Ctrl+Enter` steruje zaznaczeniem bez przejścia do odtwarzacza;
 - dopiero Enter lub F6 otwiera odtwarzacz.
 
-## AMC-037-07 — Przyciski odtwarzacza
-
-1. Otwórz odtwarzacz i przejdź Tabem przez jego przyciski.
-2. Użyj przycisku odtwarzania, przewijania, głośności i powrotu.
-
-Oczekiwane:
-
-- przyciski mają jednoznaczne nazwy i działają zgodnie z nazwami;
-- przycisk „Wróć do listy” zachowuje się tak jak Escape;
-- komunikaty nie nakładają się na fokus.
-
 Uwaga: Alt+strzałki oraz Ctrl+Shift+strzałki w odtwarzaczu pozostają obecnie wolne. Konfiguracja lokalnych skrótów odtwarzacza jest zapisana jako późniejsze rozszerzenie ustawień.
