@@ -28,6 +28,7 @@ public interface IApplicationActions
     void OpenLocalFolder();
     void ShowSeekToTime();
     void ShowSeekToPercentage();
+    void AnnouncePlaybackStatus();
 }
 
 public readonly record struct CommandExecutionResult(bool Handled, bool KeepPrefixActive = false);
@@ -97,6 +98,9 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.SeekToPercentage:
                 application.ShowSeekToPercentage();
+                return new(true);
+            case CommandIds.PlaybackStatus:
+                application.AnnouncePlaybackStatus();
                 return new(true);
             case CommandIds.PlayPause:
                 current.TogglePlayback();

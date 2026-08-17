@@ -26,6 +26,7 @@ public static class CommandIds
     public const string TimeElapsed = "information.timeElapsed";
     public const string TimeRemaining = "information.timeRemaining";
     public const string TimeTotal = "information.timeTotal";
+    public const string PlaybackStatus = "information.playbackStatus";
 
     public const string SessionList = "session.list";
     public const string SessionPrevious = "session.previous";

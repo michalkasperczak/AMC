@@ -1,4 +1,4 @@
-<Window x:Class="AccessibleMediaController.Windows.MainWindow"
+<controls:AccessibleWindow x:Class="AccessibleMediaController.Windows.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
@@ -51,6 +51,9 @@
                           automation:AutomationProperties.Name="Skocz do procentu, Ctrl+Shift+J, tylko w odtwarzaczu"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+J"
                           Click="SeekToPercentage_Click" />
+                <Separator />
+                <MenuItem Header="_Odczytaj stan odtwarzania"
+                          Click="PlaybackStatus_Click" />
             </MenuItem>
             <MenuItem Header="_Widok">
                 <MenuItem Header="_Teraz odtwarzane" InputGestureText="F6"
@@ -175,4 +178,4 @@
         </Grid>
         </DockPanel>
     </DockPanel>
-</Window>
+</controls:AccessibleWindow>

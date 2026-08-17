@@ -139,6 +139,7 @@ static void TestCommandCatalog()
     Equal("Otwórz folder z plikami audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Skocz do czasu", CommandCatalog.GetDisplayName(CommandIds.SeekToTime));
     Equal("Skocz do procentu", CommandCatalog.GetDisplayName(CommandIds.SeekToPercentage));
+    Equal("Odczytaj stan odtwarzania", CommandCatalog.GetDisplayName(CommandIds.PlaybackStatus));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
     Equal("Przejdź do 50% utworu", CommandCatalog.GetDisplayName(CommandIds.SeekPercent(50)));
     True(CommandIds.TryParseSeekPercent(CommandIds.SeekPercent(90), out var percent), "Identyfikator skoku procentowego powinien być rozpoznawany.");
@@ -667,6 +668,7 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
     Equal("Ctrl+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToTime).LocalShortcut);
     Equal("Ctrl+Shift+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToPercentage).LocalShortcut);
+    True(entries.Any(entry => entry.CommandId == CommandIds.PlaybackStatus), "Paleta powinna zawierać odczyt stanu odtwarzania.");
     Equal("Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward10).LocalShortcut);
     Equal("Shift+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward30).LocalShortcut);
     Equal("Ctrl+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward60).LocalShortcut);
@@ -887,6 +889,8 @@ static void TestTimeCommands()
     True(actions.SeekToTimeShown, "Router powinien otworzyć okno skoku do czasu.");
     router.Execute(CommandIds.SeekToPercentage);
     True(actions.SeekToPercentageShown, "Router powinien otworzyć okno skoku do procentu.");
+    router.Execute(CommandIds.PlaybackStatus);
+    True(actions.PlaybackStatusAnnounced, "Router powinien zlecić odczyt stanu odtwarzania.");
     router.Execute(CommandIds.SettingsMessageTemplates);
     Equal(SettingsTarget.MessageTemplates, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsPercentageSeekAnnouncement);
@@ -1014,6 +1018,7 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
     public bool SeekMessagesToggled { get; private set; }
     public bool SeekToTimeShown { get; private set; }
     public bool SeekToPercentageShown { get; private set; }
+    public bool PlaybackStatusAnnounced { get; private set; }
     public void ShowCurrentSession(string viewName) { }
     public void ShowFilter() { }
     public void ShowSessionList() { }
@@ -1030,6 +1035,7 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
     public void OpenLocalFolder() { }
     public void ShowSeekToTime() => SeekToTimeShown = true;
     public void ShowSeekToPercentage() => SeekToPercentageShown = true;
+    public void AnnouncePlaybackStatus() => PlaybackStatusAnnounced = true;
 }
 
 sealed class FakeMediaOutput : IMediaOutput

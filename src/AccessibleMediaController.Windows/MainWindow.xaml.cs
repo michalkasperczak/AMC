@@ -15,12 +15,13 @@ using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Updates;
+using AccessibleMediaController.Windows.Controls;
 using AccessibleMediaController.Windows.Services;
 using Microsoft.Win32;
 
 namespace AccessibleMediaController.Windows;
 
-public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
+public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicationActions
 {
     private PersistedState _state;
     private readonly ConfigurationStore _store;
@@ -53,7 +54,6 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private string? _playerReturnItemId;
     private readonly System.Windows.Forms.StatusStrip _playbackStatusBar;
     private readonly System.Windows.Forms.ToolStripStatusLabel _playbackStatusLabel;
-    private NativeStatusBarLocator? _nativeStatusBarLocator;
 
     private const int WmKeyDown = 0x0100;
     private const int VirtualKeyE = 0x45;
@@ -317,6 +317,15 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void UpdatePlaybackStatusBar()
     {
+        var text = BuildPlaybackStatusText();
+        _playbackStatusLabel.Text = text;
+        _playbackStatusLabel.AccessibleName = text;
+        _playbackStatusBar.Text = text;
+        _playbackStatusBar.AccessibleName = text;
+    }
+
+    private string BuildPlaybackStatusText()
+    {
         var session = _sessions.Current;
         var item = session.CurrentItem;
         var position = session.Position;
@@ -327,12 +336,14 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         var bitrate = item.BitrateKbps is int bitrateKbps
             ? item.IsBitrateEstimated ? $"około {bitrateKbps} kb/s" : $"{bitrateKbps} kb/s"
             : "brak danych";
-        var text = $"{session.DisplayName}, {state}, {item.Title}, {time}, głośność {session.Volume}%, przepływność {bitrate}";
-        _playbackStatusLabel.Text = text;
-        _playbackStatusLabel.AccessibleName = text;
-        _playbackStatusBar.Text = text;
-        _playbackStatusBar.AccessibleName = text;
-        _nativeStatusBarLocator?.SetText(text);
+        return $"{session.DisplayName}, {state}, {item.Title}, {time}, głośność {session.Volume}%, przepływność {bitrate}";
+    }
+
+    public void AnnouncePlaybackStatus()
+    {
+        var text = BuildPlaybackStatusText();
+        UpdatePlaybackStatusBar();
+        AnnounceEssential(text);
     }
 
     public void ShowSeekToTime()
@@ -609,16 +620,6 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     {
         base.OnSourceInitialized(e);
         var handle = new WindowInteropHelper(this).Handle;
-        try
-        {
-            _nativeStatusBarLocator = new NativeStatusBarLocator(handle);
-            UpdatePlaybackStatusBar();
-        }
-        catch (Exception exception)
-        {
-            StatusText.Text = $"Punkt zgodności paska stanu niedostępny: {exception.Message}";
-        }
-
         try
         {
             _windowSource = HwndSource.FromHwnd(handle);
@@ -1236,24 +1237,6 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         }
     }
 
-    protected override void OnLocationChanged(EventArgs e)
-    {
-        base.OnLocationChanged(e);
-        _nativeStatusBarLocator?.UpdatePosition();
-    }
-
-    protected override void OnStateChanged(EventArgs e)
-    {
-        base.OnStateChanged(e);
-        _nativeStatusBarLocator?.UpdatePosition();
-    }
-
-    protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
-    {
-        base.OnRenderSizeChanged(sizeInfo);
-        _nativeStatusBarLocator?.UpdatePosition();
-    }
-
     private void UpdateWindowTitle()
     {
         var session = _sessions.Current;
@@ -1789,8 +1772,6 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         _windowSource?.RemoveHook(WindowMessageHook);
         _windowSource = null;
         _prefixService?.Dispose();
-        _nativeStatusBarLocator?.Dispose();
-        _nativeStatusBarLocator = null;
         _localOutput.Dispose();
         _store.Save(_state);
     }
@@ -1810,6 +1791,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void PlayerVolumeUp_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.VolumeUp5);
     private void SeekToTime_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekToTime);
     private void SeekToPercentage_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekToPercentage);
+    private void PlaybackStatus_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaybackStatus);
     private void PlayerBack_Click(object sender, RoutedEventArgs e) => ReturnFromPlayerToList();
     private void ToggleSelectedPlayback_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ActivateSelected);
     private void PlayNext_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.TogglePlayNext);

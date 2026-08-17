@@ -56,6 +56,7 @@ public static class CommandCatalog
             CommandIds.TimeElapsed => "Czas od początku",
             CommandIds.TimeRemaining => "Czas pozostały",
             CommandIds.TimeTotal => "Czas całkowity",
+            CommandIds.PlaybackStatus => "Odczytaj stan odtwarzania",
             CommandIds.SessionList => "Lista sesji",
             CommandIds.SessionPrevious => "Poprzednia sesja",
             CommandIds.SessionNext => "Następna sesja",

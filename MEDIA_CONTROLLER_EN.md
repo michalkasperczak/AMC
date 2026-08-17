@@ -660,6 +660,8 @@ State of `alpha.44`: inspection of NVDA's implementation shows that, without an 
 
 State of `alpha.45`: the final local player mapping uses `Ctrl+J` for an entered time and `Ctrl+Shift+J` for an entered percentage. Both commands and the digit seeks are player-only. On a list the keys are not captured; selecting a seek command from the menu or palette explains that `F6` opens the player. `F6` is the common Now Playing entry for local media, streaming, radio and device sessions, although duration-dependent seeking remains unavailable for a live source with no known duration.
 
+State of `alpha.46`: the separate almost invisible compatibility window from `alpha.44–45` is removed completely because manual testing showed it taking over NVDA's startup context and blocking reading and keyboard input until `Alt+F4` closed it. A status bar must not be implemented as another top-level or helper window. The main window exposes its own client-area bounds to automation, while the real status bar remains an embedded, non-live control. `NVDA+End` is a compatibility test rather than a usability dependency: Playback and the command palette always contain “Read playback status”, which announces service, state, title, time, volume and bitrate without moving focus.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.
