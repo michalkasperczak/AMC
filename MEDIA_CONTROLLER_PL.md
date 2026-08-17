@@ -197,7 +197,13 @@ Polecenia nieobsługiwane przez daną sesję nie mogą być po cichu ignorowane.
 
 Odstęp używany przez polecenie przejścia w pobliże końca jest konfigurowalny. Program nie ustawia pozycji na dokładnym końcu, ponieważ mogłoby to natychmiast przełączyć utwór.
 
-Po prefiksie wszystkie strzałki służą sterowaniu globalnemu. W aktywnym oknie głównej listy góra/dół nadal nawigują po elementach, natomiast lewo/prawo sterują pozycją odtwarzania. Modyfikatory umożliwiają regulację głośności i większy skok bez odbierania podstawowej nawigacji pionowej.
+Po prefiksie wszystkie strzałki służą sterowaniu globalnemu. Na zwykłej liście wszystkie strzałki zachowują natywne działanie listy i pozostają dostępne dla przyszłego zaznaczania oraz pracy z playlistami. Bez prefiksu strzałki transportowe działają dopiero w widoku odtwarzacza.
+
+### 6.1. Widok odtwarzacza
+
+Odtwarzacz jest widokiem wewnątrz głównego okna, a nie osobnym oknem modalnym. Enter na utworze lub stacji zapewnia odtwarzanie elementu i otwiera ten widok; jeżeli element już gra, nie przełącza go na pauzę. `Ctrl+Enter` zachowuje działanie bezpośrednie na liście i nie otwiera odtwarzacza. `F6`, polecenie „Teraz odtwarzane” albo `N` po prefiksie pokazuje odtwarzacz bez uruchamiania nowego zaznaczenia. Escape wraca dokładnie do wcześniejszego widoku i elementu, nie zatrzymując dźwięku.
+
+W odtwarzaczu lewo/prawo przewija o 10 sekund, Shift+lewo/prawo o minutę, góra/dół zmienia głośność o 5%, Shift+góra/dół o 1%, Home przechodzi na początek, a End w pobliże końca. Tab przechodzi przez rzeczywiste przyciski odtwarzania, przewijania, głośności i powrotu. Funkcje zależne od możliwości sesji, np. nagrywanie radia, pojawią się później jako warunkowe kontrolki i polecenia; nie otrzymują jeszcze stałego skrótu.
 
 Planowane jest osobne polecenie „Skocz do miejsca”, przyjmujące czas bezwzględny, oraz wariant przejścia do procentu długości. Docelowe skróty, w tym możliwe `J` i `Shift+J` po prefiksie, pozostają do sprawdzenia razem z całą warstwą prefiksową. Polecenia nie będą wiązane na stałe przed testem konfliktów.
 
@@ -351,12 +357,13 @@ Zatwierdzone przypisania podstawowe:
 | `Ctrl+Shift+L` | dodaj do biblioteki |
 | `Ctrl+O` | otwórz jeden lub wiele lokalnych plików audio |
 | `Ctrl+Shift+O` | otwórz folder z plikami audio wraz z podfolderami |
-| `Strzałka w lewo/prawo` | cofnij albo przewiń o 10 sekund |
-| `Shift+Strzałka w lewo/prawo` | cofnij albo przewiń o minutę |
-| `Ctrl+Strzałka w górę/dół` | zmień głośność o 5% |
-| `Ctrl+Shift+Strzałka w górę/dół` | zmień głośność o 1% |
-| `Ctrl+Home` | przejdź na początek utworu |
-| `Ctrl+End` | przejdź 10 sekund przed końcem utworu |
+| `F6` | otwórz widok odtwarzacza |
+| `Strzałka w lewo/prawo` w odtwarzaczu | cofnij albo przewiń o 10 sekund |
+| `Shift+Strzałka w lewo/prawo` w odtwarzaczu | cofnij albo przewiń o minutę |
+| `Strzałka w górę/dół` w odtwarzaczu | zmień głośność o 5% |
+| `Shift+Strzałka w górę/dół` w odtwarzaczu | zmień głośność o 1% |
+| `Home` w odtwarzaczu | przejdź na początek utworu |
+| `End` w odtwarzaczu | przejdź 10 sekund przed końcem utworu |
 | `Ctrl+E`, `Ctrl+R`, `Ctrl+T` | podaj czas od początku, pozostały albo całkowity |
 | `Ctrl+D` | pobierz offline wewnątrz usługi, jeśli obsługiwane |
 | `Ctrl+Shift+D` | pobierz do pliku lokalnego; funkcja eksperymentalna, domyślnie wyłączona |
@@ -625,6 +632,8 @@ Stan `alpha.33`: `Ctrl+O` i menu Plik otwierają wiele lokalnych plików audio w
 Stan `alpha.34`: `Ctrl+Shift+O` otwiera folder z plikami audio wraz z dostępnymi podfolderami bez samoczynnego odtwarzania. Odkrywanie odbywa się poza wątkiem interfejsu, pomija niedostępne katalogi i łącza mogące tworzyć pętle, filtruje rozpoznane rozszerzenia i zachowuje naturalną kolejność numerowanych nazw. Wersja wprowadziła też lokalne `Ctrl+E`, `Ctrl+R` i `Ctrl+T`, ale ręczny test NVDA wykazał, że standardowa obsługa WPF nie odbiera ich niezawodnie; naprawa przechodzi do `alpha.35`. Skrót oficjalnej aplikacji usługi pozostaje celowo nieustalony do czasu przeglądu całego prefiksu. Wynik testu `alpha.33` potwierdził potrzebę osobnego wyciszania komunikatów transportowych; możliwość ta pozostaje zaplanowaną kategorią ustawień komunikatów.
 
 Stan `alpha.35`: po nieudanym teście standardowej obsługi WPF polecenia `Ctrl+E`, `Ctrl+R` i `Ctrl+T` są przechwytywane wcześniej, na granicy komunikatów okna, z zachowaniem zwykłych poleceń edycji w polach tekstowych. Główna lista obsługuje bez prefiksu przewijanie lewo/prawo, minutowe skoki z Shiftem, głośność pod Ctrl+góra/dół oraz początek i okolice końca. Paleta pokazuje te działające skróty. Zwykłe góra/dół pozostają nawigacją po liście, a „Otwórz w oficjalnej aplikacji” nie ogłasza już zajętego `Ctrl+Shift+O` w menu kontekstowym.
+
+Stan `alpha.36`: eksperymentalne skróty transportowe `alpha.35` zostały wycofane ze zwykłej listy i przeniesione do pierwszego dostępnego widoku odtwarzacza w tym samym oknie. Enter otwiera odtwarzacz, `Ctrl+Enter` działa na liście, F6 pokazuje bieżące odtwarzanie, a Escape przywraca wcześniejszy element. Odtwarzacz udostępnia prawdziwe przyciski oraz okresowo aktualizowane dane tytułu, wykonawcy, sesji, stanu i czasu bez automatycznego wypowiadania każdej sekundy. Tytuł i dostępna nazwa głównego okna zawierają pełny numer wersji.
 
 Planowana kolejność dalszych etapów:
 

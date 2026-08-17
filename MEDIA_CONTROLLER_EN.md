@@ -197,7 +197,13 @@ Commands unsupported by a session must not be silently ignored. The program shou
 
 The offset for moving near the end is configurable. The application does not seek to the exact end because doing so could immediately advance to the next track.
 
-After the prefix, all arrow keys control global playback. In the active main list, plain Up/Down still navigate items, while Left/Right control playback position. Modifiers provide volume control and larger seeks without taking away vertical list navigation.
+After the prefix, all arrow keys control global playback. In an ordinary list, every arrow key retains native list behaviour and remains available for future selection and playlist operations. Without the prefix, transport arrows work only in the player view.
+
+### 6.1. Player view
+
+The player is a view inside the main window rather than a separate modal window. Enter on a track or station ensures that the item is playing and opens this view; an already playing item is not toggled to pause. `Ctrl+Enter` retains its direct list action and does not open the player. `F6`, the Now Playing command, or prefix then `N` shows the player without starting the current selection. Escape returns to the exact previous view and item without stopping audio.
+
+In the player, Left/Right seeks by 10 seconds, Shift+Left/Right by one minute, Up/Down changes volume by 5%, Shift+Up/Down by 1%, Home seeks to the beginning and End near the end. Tab moves through real play, seek, volume and return buttons. Session-dependent capabilities such as radio recording will later appear as conditional controls and commands and have no fixed shortcut yet.
 
 A separate “Jump to position” command accepting an absolute time and a variant accepting a percentage are planned. Final bindings, including possible `J` and `Shift+J` prefix commands, remain subject to the complete prefix conflict review.
 
@@ -351,12 +357,13 @@ Approved primary bindings:
 | `Ctrl+Shift+L` | add to the library |
 | `Ctrl+O` | open one or more local audio files |
 | `Ctrl+Shift+O` | open a folder of audio files, including subfolders |
-| `Left/Right Arrow` | seek backward or forward by 10 seconds |
-| `Shift+Left/Right Arrow` | seek backward or forward by one minute |
-| `Ctrl+Up/Down Arrow` | change volume by 5% |
-| `Ctrl+Shift+Up/Down Arrow` | change volume by 1% |
-| `Ctrl+Home` | seek to the beginning |
-| `Ctrl+End` | seek to 10 seconds before the end |
+| `F6` | open the player view |
+| `Left/Right Arrow` in the player | seek backward or forward by 10 seconds |
+| `Shift+Left/Right Arrow` in the player | seek backward or forward by one minute |
+| `Up/Down Arrow` in the player | change volume by 5% |
+| `Shift+Up/Down Arrow` in the player | change volume by 1% |
+| `Home` in the player | seek to the beginning |
+| `End` in the player | seek to 10 seconds before the end |
 | `Ctrl+E`, `Ctrl+R`, `Ctrl+T` | report elapsed, remaining or total time |
 | `Ctrl+D` | download offline within the service when supported |
 | `Ctrl+Shift+D` | download to a local file; experimental and disabled by default |
@@ -623,6 +630,8 @@ State of `alpha.33`: `Ctrl+O` and the File menu open multiple local audio files 
 State of `alpha.34`: `Ctrl+Shift+O` opens a folder and available subfolders without starting playback. Discovery runs away from the UI thread, skips inaccessible directories and reparse-point loops, filters recognised extensions and naturally orders numbered names. The version also introduced local `Ctrl+E`, `Ctrl+R` and `Ctrl+T`, but manual NVDA testing showed that standard WPF handling did not receive them reliably; the fix moves to `alpha.35`. The official-service-application shortcut is deliberately unset until the whole prefix is reviewed. `Alpha.33` feedback confirmed the need for separately suppressible transport announcements; that remains a planned message-settings category.
 
 State of `alpha.35`: after standard WPF key handling failed manual testing, `Ctrl+E`, `Ctrl+R` and `Ctrl+T` are captured earlier at the window-message boundary while text boxes retain normal editing commands. The main list handles Left/Right seeking, Shift minute seeks, Ctrl+Up/Down volume and beginning/near-end commands without the prefix. The palette exposes these active shortcuts. Plain Up/Down remains list navigation, and the context menu no longer announces the occupied `Ctrl+Shift+O` for “Open in official application”.
+
+State of `alpha.36`: the experimental `alpha.35` transport bindings are removed from ordinary lists and moved into the first accessible player view in the same window. Enter opens the player, `Ctrl+Enter` acts in place, F6 shows current playback, and Escape restores the previous item. The player exposes real buttons and periodically updates title, artist, session, state and time without automatically speaking every second. The main window title and accessible name contain the full version number.
 
 Planned sequence of later stages:
 

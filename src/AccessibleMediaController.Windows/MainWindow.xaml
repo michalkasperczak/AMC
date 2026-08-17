@@ -37,7 +37,8 @@
                 <MenuItem Header="Następna sesja" InputGestureText="Ctrl+Page Down" Click="NextSession_Click" />
             </MenuItem>
             <MenuItem Header="_Widok">
-                <MenuItem Header="_Teraz odtwarzane" Click="NowPlayingView_Click" />
+                <MenuItem Header="_Teraz odtwarzane" InputGestureText="F6"
+                          automation:AutomationProperties.AcceleratorKey="F6" Click="NowPlayingView_Click" />
                 <MenuItem Header="_Ulubione" InputGestureText="Ctrl+U" Click="FavoritesView_Click" />
                 <MenuItem Header="_Playlisty" InputGestureText="Ctrl+P" Click="PlaylistsView_Click" />
                 <MenuItem Header="_Biblioteka" InputGestureText="Ctrl+L" Click="LibraryView_Click" />
@@ -55,7 +56,7 @@
             </MenuItem>
         </Menu>
 
-        <StackPanel DockPanel.Dock="Top">
+        <StackPanel x:Name="BrowserHeaderPanel" DockPanel.Dock="Top">
             <TextBlock x:Name="SessionHeading" FontSize="20" FontWeight="SemiBold"
                        automation:AutomationProperties.HeadingLevel="Level1"
                        automation:AutomationProperties.Name="Bieżąca sesja" />
@@ -68,7 +69,7 @@
         </StackPanel>
 
         <StackPanel DockPanel.Dock="Bottom">
-            <WrapPanel Margin="0,8,0,8">
+            <WrapPanel x:Name="BrowserActionPanel" Margin="0,8,0,8">
                 <Button MinWidth="175" Margin="0,0,8,0" Content="Odtwórz lub _wstrzymaj" Click="ToggleSelectedPlayback_Click" />
                 <Button MinWidth="175" Margin="0,0,8,0" Content="Zmień stan _ulubionych" Click="Favorite_Click" />
                 <Button MinWidth="145" Margin="0,0,8,0" Content="Zmień _playlisty…" Click="Playlists_Click" />
@@ -82,6 +83,7 @@
             </Border>
         </StackPanel>
 
+        <Grid>
         <ListBox x:Name="MediaList"
                  ItemsSource="{Binding}"
                  DisplayMemberPath="Label"
@@ -115,5 +117,39 @@
                 </ContextMenu>
             </ListBox.ContextMenu>
         </ListBox>
+
+        <Border x:Name="PlayerPanel" Visibility="Collapsed"
+                BorderThickness="1" BorderBrush="Gray" Padding="18"
+                automation:AutomationProperties.Name="Odtwarzacz">
+            <StackPanel>
+                <TextBlock Text="Odtwarzacz" FontSize="20" FontWeight="SemiBold"
+                           automation:AutomationProperties.HeadingLevel="Level1" />
+                <TextBlock x:Name="PlayerTitleText" Margin="0,14,0,0" FontSize="24"
+                           TextWrapping="Wrap"
+                           automation:AutomationProperties.HeadingLevel="Level2" />
+                <TextBlock x:Name="PlayerArtistText" Margin="0,5,0,0" FontSize="16"
+                           TextWrapping="Wrap" />
+                <TextBlock x:Name="PlayerSessionText" Margin="0,5,0,0" />
+                <TextBlock x:Name="PlayerStateText" Margin="0,12,0,0" FontWeight="SemiBold" />
+                <TextBlock x:Name="PlayerTimeText" Margin="0,4,0,14" FontSize="16" />
+                <WrapPanel>
+                    <Button x:Name="PlayerPlayPauseButton" MinWidth="145" Margin="0,0,8,8"
+                            Content="_Odtwórz" Click="PlayerPlayPause_Click" />
+                    <Button MinWidth="135" Margin="0,0,8,8" Content="_Cofnij 10 sekund"
+                            Click="PlayerBackward_Click" />
+                    <Button MinWidth="145" Margin="0,0,8,8" Content="_Przewiń 10 sekund"
+                            Click="PlayerForward_Click" />
+                    <Button MinWidth="125" Margin="0,0,8,8" Content="C_iszej"
+                            Click="PlayerVolumeDown_Click" />
+                    <Button MinWidth="125" Margin="0,0,8,8" Content="_Głośniej"
+                            Click="PlayerVolumeUp_Click" />
+                    <Button MinWidth="145" Margin="0,0,8,8" Content="_Wróć do listy"
+                            Click="PlayerBack_Click" />
+                </WrapPanel>
+                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
+                           Text="Strzałki sterują czasem i głośnością. Spacja wstrzymuje lub wznawia. Escape wraca do listy." />
+            </StackPanel>
+        </Border>
+        </Grid>
     </DockPanel>
 </Window>

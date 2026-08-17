@@ -593,9 +593,10 @@ static void TestCommandPalette()
     True(!favorites.ToString().Contains("CommandId", StringComparison.Ordinal), "Lista nie może ujawniać technicznych nazw pól obiektu.");
     Equal("Ctrl+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFiles).LocalShortcut);
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
-    Equal("Left", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward10).LocalShortcut);
-    Equal("Ctrl+Up", entries.Single(entry => entry.CommandId == CommandIds.VolumeUp5).LocalShortcut);
+    Equal("Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward10).LocalShortcut);
+    Equal("Up (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.VolumeUp5).LocalShortcut);
     Equal("Ctrl+E", entries.Single(entry => entry.CommandId == CommandIds.TimeElapsed).LocalShortcut);
+    Equal("F6", entries.Single(entry => entry.CommandId == CommandIds.ViewNowPlaying).LocalShortcut);
     True(
         entries.Single(entry => entry.CommandId == CommandIds.OpenOfficialApp).LocalShortcut is null,
         "Otwieranie w oficjalnej aplikacji nie powinno kolidować ze skrótem folderu.");

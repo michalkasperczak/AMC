@@ -1,61 +1,82 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-035`
-- Tytuł zestawu: Transport lokalny bez prefiksu
-- Wersja programu: `0.1.0-alpha.35`
-- Utworzono: 2026-08-17 13:35, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_1335_0.1.0-alpha.35.md`
+- Numer zestawu: `AMC-TEST-036`
+- Tytuł zestawu: Dostępny odtwarzacz w głównym oknie
+- Wersja programu: `0.1.0-alpha.36`
+- Utworzono: 2026-08-17 13:49, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_1349_0.1.0-alpha.36.md`
 
 W pliku wyników po dwukropku wpisz krótko, co się wydarzyło. Jeżeli wszystko działa, wystarczy `OK`. Nie trzeba przed każdym zadaniem wybierać wariantu odpowiedzi.
 
-Otwórz przez `Ctrl+O` plik trwający co najmniej dwie minuty i uruchom go Enterem. Wszystkie skróty w tym zestawie naciskaj z fokusem na głównej liście, bez globalnego prefiksu.
+Do prób transportu otwórz przez `Ctrl+O` plik trwający co najmniej dwie minuty. Jeżeli to możliwe, dodaj także drugi plik, aby sprawdzić zwykłą nawigację po liście.
 
-## AMC-035-01 — Informacje o czasie
+## AMC-036-01 — Numer wersji i otwarcie odtwarzacza
 
-1. Naciśnij `Ctrl+E`, `Ctrl+R` i `Ctrl+T`.
-2. Po kilku sekundach ponownie naciśnij `Ctrl+E`.
-
-Oczekiwane:
-
-- NVDA podaje czas od początku, pozostały i całkowity;
-- drugi czas od początku jest późniejszy od pierwszego;
-- żaden skrót nie zatrzymuje dźwięku ani nie przenosi fokusu.
-
-## AMC-035-02 — Przewijanie strzałkami
-
-1. Naciśnij strzałkę w prawo i sprawdź `Ctrl+E`.
-2. Naciśnij strzałkę w lewo i ponownie sprawdź czas.
-3. Naciśnij `Shift+strzałka w prawo`, a następnie `Shift+strzałka w lewo`.
+1. Odczytaj tytuł głównego okna.
+2. Na wybranym pliku naciśnij Enter.
 
 Oczekiwane:
 
-- zwykłe strzałki zmieniają pozycję o około 10 sekund;
-- warianty z Shiftem zmieniają pozycję o około minutę;
-- program podaje nową pozycję, a zaznaczenie pozostaje na tym samym pliku.
+- tytuł zawiera pełny numer `AMC 0.1.0-alpha.36`;
+- dźwięk zostaje uruchomiony, a w tym samym oknie pojawia się odtwarzacz;
+- NVDA podaje odtwarzacz, tytuł, sesję i stan bez otwierania drugiego okna.
 
-## AMC-035-03 — Lista i głośność
+## AMC-036-02 — Sterowanie w odtwarzaczu
 
-1. Jeśli lista zawiera kilka plików, użyj zwykłych strzałek w górę i w dół.
-2. Naciśnij `Ctrl+strzałka w górę`, a następnie `Ctrl+strzałka w dół`.
-3. Sprawdź także `Ctrl+Shift+strzałka w górę` i `Ctrl+Shift+strzałka w dół`.
-
-Oczekiwane:
-
-- góra/dół bez modyfikatorów nadal zmieniają zaznaczony plik;
-- warianty z Ctrl zmieniają głośność o 5%, a z Ctrl+Shift o 1%;
-- głośność NVDA nie jest zmieniana.
-
-## AMC-035-04 — Początek, okolice końca i paleta
-
-1. Naciśnij `Ctrl+Home`, a potem `Ctrl+E`.
-2. Naciśnij `Ctrl+End`, a potem ponownie `Ctrl+E`.
-3. W palecie `Ctrl+Shift+K` wyszukaj polecenia czasu, przewijania oraz głośności.
+1. Naciśnij prawo, lewo, `Shift+prawo` i `Shift+lewo`.
+2. Sprawdź głośność przez góra/dół oraz `Shift+góra/dół`.
+3. Sprawdź Home, End oraz `Ctrl+E`, `Ctrl+R` i `Ctrl+T`.
 
 Oczekiwane:
 
-- `Ctrl+Home` przechodzi do `0:00`;
-- `Ctrl+End` przechodzi około 10 sekund przed końcem, nie uruchamiając od razu następnego pliku;
-- paleta podaje działające skróty okna;
-- „Otwórz w oficjalnej aplikacji” nie podaje już zajętego `Ctrl+Shift+O`.
+- lewo/prawo przewija o około 10 sekund, a wariant z Shiftem o około minutę;
+- góra/dół zmienia głośność o 5%, a wariant z Shiftem o 1%;
+- Home przechodzi na początek, a End około 10 sekund przed końcem;
+- polecenia czasu podają właściwe wartości, a upływ każdej sekundy nie jest automatycznie wypowiadany.
 
-Uwaga: „Skocz do miejsca” oraz osobne wyciszanie komunikatów transportowych są zapisane jako następne funkcje. Najpierw ten test ma potwierdzić niezawodność podstawowych poleceń czasu i przewijania.
+## AMC-036-03 — Przyciski i odtwarzanie
+
+1. Przejdź Tabem przez przyciski odtwarzacza.
+2. Użyj przycisku „Odtwórz lub wstrzymaj”, jednego przycisku przewijania i jednego przycisku głośności.
+
+Oczekiwane:
+
+- każdy przycisk ma krótką, jednoznaczną nazwę;
+- działania przycisków i odpowiadających im skrótów dotyczą tego samego odtwarzania;
+- fokus pozostaje w odtwarzaczu.
+
+## AMC-036-04 — Escape i zwykła lista
+
+1. W odtwarzaczu naciśnij Escape.
+2. Sprawdź zaznaczenie oraz dźwięk.
+3. Użyj wszystkich strzałek na zwykłej liście.
+
+Oczekiwane:
+
+- Escape wraca dokładnie do wcześniejszego pliku i widoku, a odtwarzanie trwa dalej;
+- strzałki na liście zachowują naturalne działanie listy i nie przewijają nagrania ani nie zmieniają głośności.
+
+## AMC-036-05 — Ctrl+Enter i F6
+
+1. Na liście naciśnij `Ctrl+Enter` i sprawdź, czy fokus pozostał na liście.
+2. Naciśnij F6, a następnie Escape.
+3. Opcjonalnie otwórz odtwarzacz poleceniem „Teraz odtwarzane” z palety albo klawiszem `N` po prefiksie.
+
+Oczekiwane:
+
+- `Ctrl+Enter` przełącza odtwarzanie zaznaczenia bez otwierania odtwarzacza;
+- F6 otwiera odtwarzacz bez zmiany zaznaczonego elementu;
+- Escape ponownie przywraca tę samą listę i pozycję.
+
+## AMC-036-06 — Powrót przyciskiem
+
+1. Otwórz odtwarzacz F6.
+2. Tabem przejdź do przycisku „Wróć do listy” i go użyj.
+
+Oczekiwane:
+
+- przycisk działa tak jak Escape;
+- fokus wraca do zapamiętanego elementu;
+- tytuł okna nadal zawiera numer wersji.
+
+Uwaga: odtwarzacz jest częścią głównego okna, nie osobnym oknem modalnym. Dodatkowe funkcje zależne od rodzaju źródła, na przykład nagrywanie radia, pozostają na późniejszy etap.

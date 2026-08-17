@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -26,7 +27,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private SessionManager _sessions = null!;
     private CommandRouter _router = null!;
     private GlobalPrefixService? _prefixService;
-    private string _currentView = "Teraz odtwarzane";
+    private const string DefaultBrowserView = "Multimedia";
+    private const string PlayerViewName = "Teraz odtwarzane";
+    private string _currentView = DefaultBrowserView;
     private List<MediaItemRow> _unfilteredItems = [];
     private readonly Stack<string> _backHistory = [];
     private readonly Stack<string> _forwardHistory = [];
@@ -44,6 +47,10 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private ListBoxItem? _focusContextContainer;
     private readonly WindowsMediaOutput _localOutput = new();
     private readonly List<MediaItem> _localItems = [];
+    private readonly DispatcherTimer _playerUiTimer;
+    private bool _playerViewActive;
+    private string _playerReturnView = DefaultBrowserView;
+    private string? _playerReturnItemId;
 
     private const int WmKeyDown = 0x0100;
     private const int VirtualKeyE = 0x45;
@@ -51,10 +58,21 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private const int VirtualKeyT = 0x54;
     private const int VirtualKeyZ = 0x5A;
     private static readonly TimeSpan TypeAheadTimeout = TimeSpan.FromMilliseconds(1200);
+    private static readonly string AppDisplayVersion =
+        typeof(MainWindow).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion.Split('+')[0]
+        ?? typeof(MainWindow).Assembly.GetName().Version?.ToString()
+        ?? "wersja nieznana";
 
     public MainWindow(PersistedState state, ConfigurationStore store)
     {
         InitializeComponent();
+        _playerUiTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _playerUiTimer.Tick += PlayerUiTimer_Tick;
         _state = state;
         _store = store;
         _localOutput.DurationAvailable += LocalOutput_DurationAvailable;
@@ -106,8 +124,15 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     public void ShowCurrentSession(string viewName)
     {
+        if (string.Equals(viewName, PlayerViewName, StringComparison.Ordinal))
+        {
+            ShowPlayerView();
+            return;
+        }
+
         if (IsSearchView(viewName))
         {
+            HidePlayerForBrowserNavigation();
             ShowSearch(string.Equals(viewName, "Szukaj we wszystkich usługach", StringComparison.Ordinal));
             return;
         }
@@ -142,7 +167,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         if (dialog.ShowDialog() == true && dialog.SelectedResult is { } result)
         {
             _sessions.SelectSession(result.SessionId);
-            NavigateTo("Teraz odtwarzane");
+            NavigateTo(DefaultBrowserView);
             SelectMediaItem(result.Item.Id);
             if (allServices) PrepareSearchReturnContext(result.Item.Id);
             RestoreMediaListFocusAfterRefresh();
@@ -152,7 +177,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         if (allServices && dialog.LastDirectActionResult is { } lastDirectResult)
         {
             _sessions.SelectSession(lastDirectResult.SessionId);
-            NavigateTo("Teraz odtwarzane");
+            NavigateTo(DefaultBrowserView);
             SelectMediaItem(lastDirectResult.Item.Id);
             PrepareSearchReturnContext(lastDirectResult.Item.Id);
         }
@@ -165,9 +190,101 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     public void ShowFilter()
     {
+        HidePlayerForBrowserNavigation();
         Activate();
         FocusFilter();
     }
+
+    private void ShowPlayerView()
+    {
+        if (!_playerViewActive)
+        {
+            _playerReturnView = _currentView;
+            _playerReturnItemId = SelectedItem?.Id;
+            _playerViewActive = true;
+            BrowserHeaderPanel.Visibility = Visibility.Collapsed;
+            BrowserActionPanel.Visibility = Visibility.Collapsed;
+            MediaList.Visibility = Visibility.Collapsed;
+            PlayerPanel.Visibility = Visibility.Visible;
+        }
+
+        UpdatePlayerView(true);
+        UpdateWindowTitle();
+        _playerUiTimer.Start();
+        Activate();
+        Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.ContextIdle);
+    }
+
+    private void ReturnFromPlayerToList()
+    {
+        if (!_playerViewActive) return;
+        _playerViewActive = false;
+        _playerUiTimer.Stop();
+        PlayerPanel.Visibility = Visibility.Collapsed;
+        BrowserHeaderPanel.Visibility = Visibility.Visible;
+        BrowserActionPanel.Visibility = Visibility.Visible;
+        MediaList.Visibility = Visibility.Visible;
+
+        if (!string.Equals(_currentView, _playerReturnView, StringComparison.Ordinal))
+        {
+            _currentView = _playerReturnView;
+            RefreshCurrentView();
+        }
+        if (_playerReturnItemId is { } itemId) SelectMediaItem(itemId);
+        UpdateWindowTitle();
+        RestoreMediaListFocusAfterRefresh();
+    }
+
+    private void HidePlayerForBrowserNavigation()
+    {
+        if (!_playerViewActive) return;
+        _playerViewActive = false;
+        _playerUiTimer.Stop();
+        PlayerPanel.Visibility = Visibility.Collapsed;
+        BrowserHeaderPanel.Visibility = Visibility.Visible;
+        BrowserActionPanel.Visibility = Visibility.Visible;
+        MediaList.Visibility = Visibility.Visible;
+    }
+
+    private void FocusPlayerView()
+    {
+        UpdatePlayerView(true);
+        PlayerPlayPauseButton.Focus();
+        Keyboard.Focus(PlayerPlayPauseButton);
+    }
+
+    private void UpdatePlayerView(bool updateAccessibleName = false)
+    {
+        if (!_playerViewActive) return;
+        var session = _sessions.Current;
+        var item = session.CurrentItem;
+        var position = session.Position;
+        var duration = item.Duration;
+        var state = session.IsPlaying ? "Odtwarzanie" : "Pauza";
+
+        PlayerTitleText.Text = item.Title;
+        PlayerArtistText.Text = string.IsNullOrWhiteSpace(item.Artist)
+            ? item.KindLabel
+            : item.Artist;
+        PlayerSessionText.Text = session.DisplayName;
+        PlayerStateText.Text = state;
+        PlayerTimeText.Text = duration > TimeSpan.Zero
+            ? $"{CommandRouter.FormatTime(position)} z {CommandRouter.FormatTime(duration)}"
+            : CommandRouter.FormatTime(position);
+        PlayerPlayPauseButton.Content = session.IsPlaying ? "_Wstrzymaj" : "_Odtwórz";
+
+        if (!updateAccessibleName) return;
+        var artist = string.IsNullOrWhiteSpace(item.Artist) ? item.KindLabel : item.Artist;
+        var action = session.IsPlaying ? "Wstrzymaj" : "Odtwórz";
+        AutomationProperties.SetName(
+            PlayerPlayPauseButton,
+            $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}. {action}");
+        AutomationProperties.SetHelpText(
+            PlayerPlayPauseButton,
+            "Strzałki sterują czasem i głośnością. Escape wraca do listy.");
+    }
+
+    private void PlayerUiTimer_Tick(object? sender, EventArgs e) => UpdatePlayerView();
 
     public void ShowSessionList()
     {
@@ -240,11 +357,12 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "wyszukiwania w bieżącej usłudze, Ctrl+Shift+F otwiera wyszukiwanie globalne, " +
             "a Ctrl+Shift+K otwiera paletę poleceń. " +
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
-            "W oknie: Enter wykonuje działanie podstawowe. Ctrl+Enter odtwarza lub wstrzymuje zaznaczony element bez otwierania, " +
-            "a Spacja przełącza odtwarzanie elementu faktycznie grającego, niezależnie od zaznaczenia. Alt+Enter pokazuje informacje, " +
-            "strzałki w lewo i w prawo przewijają o 10 sekund, a z Shiftem o minutę. " +
-            "Ctrl+strzałki w górę i w dół zmieniają głośność; Ctrl+Home i Ctrl+End przechodzą na początek i w pobliże końca. " +
-            "Ctrl+E, Ctrl+R i Ctrl+T podają czas od początku, pozostały i całkowity. " +
+            "W oknie: Enter na utworze lub stacji rozpoczyna odtwarzanie i otwiera odtwarzacz. " +
+            "Ctrl+Enter odtwarza lub wstrzymuje zaznaczony element bez opuszczania listy, a Spacja steruje elementem faktycznie grającym. " +
+            "F6 otwiera odtwarzacz. W odtwarzaczu strzałki w lewo i w prawo przewijają o 10 sekund, z Shiftem o minutę, " +
+            "strzałki w górę i w dół zmieniają głośność, Home i End przechodzą na początek i w pobliże końca, " +
+            "a Escape wraca do wcześniejszej listy. Ctrl+E, Ctrl+R i Ctrl+T podają czas od początku, pozostały i całkowity. " +
+            "Alt+Enter pokazuje informacje. " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
             "Escape w filtrze lub na głównym przycisku wraca do listy; aktywny filtr jest wtedy czyszczony. " +
@@ -357,7 +475,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             _localOutput,
             4);
         _sessions.SelectSession(session.Id);
-        NavigateTo("Teraz odtwarzane");
+        NavigateTo(DefaultBrowserView);
 
         var selected = addedItems.FirstOrDefault()
             ?? session.Items.FirstOrDefault(item => string.Equals(
@@ -426,6 +544,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void LocalOutput_DurationAvailable(object? sender, MediaDurationAvailableEventArgs e)
     {
         e.Item.Duration = e.Duration;
+        if (_playerViewActive) UpdatePlayerView();
         // Do not rebuild the focused list when asynchronous metadata arrives.
         // Commands use the new duration immediately; the row is reformatted on
         // the next ordinary refresh without causing an extra focus event.
@@ -434,6 +553,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void LocalOutput_PlaybackFailed(object? sender, MediaOutputFailedEventArgs e)
     {
         _sessions.FindSession("local")?.MarkPlaybackFailed();
+        if (_playerViewActive) UpdatePlayerView(true);
         UpdateWindowTitle();
         var title = e.Item?.Title ?? "plik";
         Announce($"Nie można odtworzyć: {title}. {e.Message}");
@@ -442,6 +562,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void LocalOutput_PlaybackEnded(object? sender, MediaPlaybackEndedEventArgs e)
     {
         _sessions.FindSession("local")?.MarkPlaybackEnded();
+        if (_playerViewActive) UpdatePlayerView(true);
         UpdateWindowTitle();
         Announce($"Koniec: {e.Item.Title}");
     }
@@ -541,6 +662,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
                 () => Announce(announcement),
                 DispatcherPriority.ContextIdle);
         }
+        if (_playerViewActive) UpdatePlayerView();
         UpdateWindowTitle();
         return result;
     }
@@ -589,6 +711,11 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void FocusMediaList()
     {
+        if (_playerViewActive)
+        {
+            FocusPlayerView();
+            return;
+        }
         if (MediaList.Items.Count > 0 && MediaList.SelectedIndex < 0) MediaList.SelectedIndex = 0;
         if (MediaList.SelectedItem is not null) MediaList.ScrollIntoView(MediaList.SelectedItem);
         MediaList.UpdateLayout();
@@ -697,7 +824,12 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         if (item is null) return;
         if (item.Kind is MediaItemKind.Track or MediaItemKind.Station)
         {
-            ExecuteCommand(CommandIds.ActivateSelected);
+            var session = _sessions.Current;
+            if (session.CurrentItem.Id != item.Id || !session.IsPlaying)
+            {
+                session.Play(item);
+            }
+            ShowPlayerView();
             return;
         }
         NavigateTo(item.Title);
@@ -891,6 +1023,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void NavigateTo(string viewName)
     {
+        HidePlayerForBrowserNavigation();
         if (!string.Equals(viewName, _currentView, StringComparison.Ordinal))
         {
             _backHistory.Push(_currentView);
@@ -902,6 +1035,11 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void NavigateBack()
     {
+        if (_playerViewActive)
+        {
+            ReturnFromPlayerToList();
+            return;
+        }
         if (_backHistory.Count == 0)
         {
             Announce("Brak poprzedniego widoku");
@@ -916,6 +1054,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void NavigateForward()
     {
+        if (_playerViewActive) return;
         if (_forwardHistory.Count == 0)
         {
             Announce("Brak następnego widoku");
@@ -937,7 +1076,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void UpdateWindowTitle()
     {
         var session = _sessions.Current;
-        Title = $"{session.CurrentItem.Title} — {session.DisplayName} — {_currentView} — AMC";
+        var area = _playerViewActive ? "Odtwarzacz" : _currentView;
+        Title = $"{session.CurrentItem.Title} — {session.DisplayName} — {area} — AMC {AppDisplayVersion}";
+        AutomationProperties.SetName(this, Title);
     }
 
     private static bool IsSearchView(string viewName) =>
@@ -989,12 +1130,29 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             return;
         }
 
+        if (e.Key == Key.F6 && Keyboard.Modifiers is ModifierKeys.None or ModifierKeys.Shift)
+        {
+            if (_playerViewActive && Keyboard.Modifiers == ModifierKeys.Shift)
+                ReturnFromPlayerToList();
+            else
+                ShowPlayerView();
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Escape)
         {
             // Menus retain their standard hierarchical Escape behavior: close
             // one submenu level at a time and restore the previous focus.
             if (MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem)
             {
+                return;
+            }
+
+            if (_playerViewActive)
+            {
+                e.Handled = true;
+                ReturnFromPlayerToList();
                 return;
             }
 
@@ -1011,8 +1169,15 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             return;
         }
 
-        if (TryHandleWindowTransportShortcut(e))
+        if (TryHandlePlayerTransportShortcut(e))
         {
+            e.Handled = true;
+            return;
+        }
+
+        if (_playerViewActive && Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Space)
+        {
+            ExecuteCommand(CommandIds.PlayPause);
             e.Handled = true;
             return;
         }
@@ -1228,9 +1393,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             DispatcherPriority.ContextIdle);
     }
 
-    private bool TryHandleWindowTransportShortcut(KeyEventArgs e)
+    private bool TryHandlePlayerTransportShortcut(KeyEventArgs e)
     {
-        if (!MediaList.IsKeyboardFocusWithin || MediaList.Items.Count == 0) return false;
+        if (!_playerViewActive || !PlayerPanel.IsKeyboardFocusWithin) return false;
 
         var commandId = (Keyboard.Modifiers, e.Key) switch
         {
@@ -1238,12 +1403,12 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             (ModifierKeys.None, Key.Right) => CommandIds.SeekForward10,
             (ModifierKeys.Shift, Key.Left) => CommandIds.SeekBackward60,
             (ModifierKeys.Shift, Key.Right) => CommandIds.SeekForward60,
-            (ModifierKeys.Control, Key.Up) => CommandIds.VolumeUp5,
-            (ModifierKeys.Control, Key.Down) => CommandIds.VolumeDown5,
-            (ModifierKeys.Control | ModifierKeys.Shift, Key.Up) => CommandIds.VolumeUp1,
-            (ModifierKeys.Control | ModifierKeys.Shift, Key.Down) => CommandIds.VolumeDown1,
-            (ModifierKeys.Control, Key.Home) => CommandIds.TrackStart,
-            (ModifierKeys.Control, Key.End) => CommandIds.TrackEnd,
+            (ModifierKeys.None, Key.Up) => CommandIds.VolumeUp5,
+            (ModifierKeys.None, Key.Down) => CommandIds.VolumeDown5,
+            (ModifierKeys.Shift, Key.Up) => CommandIds.VolumeUp1,
+            (ModifierKeys.Shift, Key.Down) => CommandIds.VolumeDown1,
+            (ModifierKeys.None, Key.Home) => CommandIds.TrackStart,
+            (ModifierKeys.None, Key.End) => CommandIds.TrackEnd,
             _ => null
         };
         if (commandId is null) return false;
@@ -1278,7 +1443,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         var session = _sessions.SelectSession(result.SessionId);
         if (session is null) return "Wybrana sesja nie jest już dostępna";
 
-        NavigateTo("Teraz odtwarzane");
+        NavigateTo(DefaultBrowserView);
         SelectMediaItem(result.Item.Id);
 
         _capturedAnnouncement = null;
@@ -1414,6 +1579,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
+        _playerUiTimer.Stop();
+        _playerUiTimer.Tick -= PlayerUiTimer_Tick;
         _windowSource?.RemoveHook(WindowMessageHook);
         _windowSource = null;
         _prefixService?.Dispose();
@@ -1429,6 +1596,12 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             : $"Wyniki filtrowania: {MediaList.Items.Count}";
     }
     private void MediaList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => ActivateSelected();
+    private void PlayerPlayPause_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlayPause);
+    private void PlayerBackward_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekBackward10);
+    private void PlayerForward_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekForward10);
+    private void PlayerVolumeDown_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.VolumeDown5);
+    private void PlayerVolumeUp_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.VolumeUp5);
+    private void PlayerBack_Click(object sender, RoutedEventArgs e) => ReturnFromPlayerToList();
     private void ToggleSelectedPlayback_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ActivateSelected);
     private void PlayNext_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.TogglePlayNext);
     private void Queue_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddQueue);
