@@ -143,6 +143,9 @@ public sealed class CommandRouter(
             case CommandIds.VolumeDown5: return Volume(current, -5);
             case CommandIds.VolumeUp1: return Volume(current, 1);
             case CommandIds.VolumeDown1: return Volume(current, -1);
+            case CommandIds.PlaybackRateDown: return PlaybackRate(current, -1);
+            case CommandIds.PlaybackRateUp: return PlaybackRate(current, 1);
+            case CommandIds.PlaybackRateReset: return ResetPlaybackRate(current);
             case CommandIds.TrackStart:
                 current.SetPosition(TimeSpan.Zero);
                 if (settings.Messages.SeekMessages && settings.Messages.ArrowSeekMessages) announcements.Announce("0:00");
@@ -355,6 +358,34 @@ public sealed class CommandRouter(
             AnnounceTemplate("volume.changed", "{value}%", ("value", session.Volume.ToString()));
         }
         return new(true);
+    }
+
+    private CommandExecutionResult PlaybackRate(DemoMediaSession session, int direction)
+    {
+        if (!session.ChangePlaybackRate(direction))
+        {
+            announcements.Announce("Regulacja prędkości jest niedostępna w tej sesji");
+            return new(true);
+        }
+        announcements.Announce(FormatPlaybackRate(session.PlaybackRate));
+        return new(true);
+    }
+
+    private CommandExecutionResult ResetPlaybackRate(DemoMediaSession session)
+    {
+        if (!session.SetPlaybackRate(1d))
+        {
+            announcements.Announce("Regulacja prędkości jest niedostępna w tej sesji");
+            return new(true);
+        }
+        announcements.Announce("Prędkość normalna");
+        return new(true);
+    }
+
+    public static string FormatPlaybackRate(double playbackRate)
+    {
+        if (Math.Abs(playbackRate - 1d) < 0.001d) return "Prędkość normalna";
+        return $"Prędkość {playbackRate.ToString("0.##", System.Globalization.CultureInfo.CurrentCulture)} razy";
     }
 
     private CommandExecutionResult ShowView(string name)

@@ -20,14 +20,20 @@ if ($Publish) {
 
     $publishRoot = Join-Path $root "publish"
     $staging = Join-Path $publishRoot ".staging-win-x64"
-    $program = Join-Path $publishRoot "AccessibleMediaController-$version.exe"
+    $packageDirectory = Join-Path $publishRoot "AccessibleMediaController-$version"
+    $program = Join-Path $packageDirectory "AccessibleMediaController-$version.exe"
     $resolvedRoot = [IO.Path]::GetFullPath($root)
     $resolvedStaging = [IO.Path]::GetFullPath($staging)
+    $resolvedPackageDirectory = [IO.Path]::GetFullPath($packageDirectory)
     if (-not $resolvedStaging.StartsWith($resolvedRoot, [StringComparison]::OrdinalIgnoreCase)) {
         throw "Nieprawidłowy katalog tymczasowy publikacji."
     }
+    if (-not $resolvedPackageDirectory.StartsWith($resolvedRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Nieprawidłowy katalog gotowego programu."
+    }
 
     if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
+    if (Test-Path -LiteralPath $packageDirectory) { Remove-Item -LiteralPath $packageDirectory -Recurse -Force }
     try {
         dotnet publish src/AccessibleMediaController.Windows/AccessibleMediaController.Windows.csproj `
             --configuration Release `
@@ -38,10 +44,18 @@ if ($Publish) {
             -p:IncludeNativeLibrariesForSelfExtract=true `
             -p:NuGetAudit=false
         if ($LASTEXITCODE -ne 0) { throw "Nie udało się utworzyć wersji samowystarczalnej." }
+        New-Item -ItemType Directory -Path $packageDirectory | Out-Null
         Copy-Item -LiteralPath (Join-Path $staging "AccessibleMediaController.exe") -Destination $program -Force
+        foreach ($fileName in @("SoundTouch.Net.dll", "SoundTouch.Net.NAudioSupport.dll", "THIRD_PARTY_NOTICES.md")) {
+            $sourceFile = Join-Path $staging $fileName
+            if (-not (Test-Path -LiteralPath $sourceFile)) { throw "Brak składnika publikacji: $fileName" }
+            Copy-Item -LiteralPath $sourceFile -Destination (Join-Path $packageDirectory $fileName) -Force
+        }
+        Copy-Item -LiteralPath (Join-Path $staging "licenses") -Destination (Join-Path $packageDirectory "licenses") -Recurse -Force
     }
     finally {
         if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
     }
-    Write-Host "Gotowy program: $program"
+    Write-Host "Gotowy pakiet: $packageDirectory"
+    Write-Host "Program: $program"
 }

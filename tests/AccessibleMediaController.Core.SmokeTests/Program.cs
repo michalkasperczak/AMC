@@ -140,6 +140,8 @@ static void TestCommandCatalog()
     Equal("Skocz do czasu", CommandCatalog.GetDisplayName(CommandIds.SeekToTime));
     Equal("Skocz do procentu", CommandCatalog.GetDisplayName(CommandIds.SeekToPercentage));
     Equal("Odczytaj stan odtwarzania", CommandCatalog.GetDisplayName(CommandIds.PlaybackStatus));
+    Equal("Zwiększ prędkość odtwarzania", CommandCatalog.GetDisplayName(CommandIds.PlaybackRateUp));
+    Equal("Przywróć normalną prędkość odtwarzania", CommandCatalog.GetDisplayName(CommandIds.PlaybackRateReset));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
     Equal("Przejdź do 50% utworu", CommandCatalog.GetDisplayName(CommandIds.SeekPercent(50)));
     True(CommandIds.TryParseSeekPercent(CommandIds.SeekPercent(90), out var percent), "Identyfikator skoku procentowego powinien być rozpoznawany.");
@@ -427,6 +429,8 @@ static void TestLocalPlaybackBoundary()
     Equal(1, output.PlayCount);
     Equal(item, output.LastItem);
     Equal(35, output.Volume);
+    Equal(1d, output.PlaybackRate);
+    True(session.SupportsPlaybackRate, "Lokalne wyjście powinno udostępniać regulację prędkości.");
 
     session.TogglePlayback();
     Equal(1, output.PauseCount);
@@ -440,6 +444,14 @@ static void TestLocalPlaybackBoundary()
     Equal(TimeSpan.FromSeconds(40), output.Position);
     session.ChangeVolume(5);
     Equal(40, output.Volume);
+    True(session.ChangePlaybackRate(1), "Przyspieszenie powinno zostać przekazane do wyjścia audio.");
+    Equal(1.25d, session.PlaybackRate);
+    Equal(1.25d, output.PlaybackRate);
+    True(session.ChangePlaybackRate(-1), "Zwolnienie powinno zostać przekazane do wyjścia audio.");
+    Equal(1d, output.PlaybackRate);
+    True(session.SetPlaybackRate(2d), "Ustawienie najwyższej prędkości powinno być obsłużone.");
+    Equal(2d, output.PlaybackRate);
+    True(session.SetPlaybackRate(1d), "Przywrócenie normalnej prędkości powinno być obsłużone.");
 
     session.AddItems([item]);
     Equal(1, session.Items.Count);
@@ -673,6 +685,9 @@ static void TestCommandPalette()
     Equal("Shift+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward30).LocalShortcut);
     Equal("Ctrl+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward60).LocalShortcut);
     Equal("Up (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.VolumeUp5).LocalShortcut);
+    Equal("Shift+, (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PlaybackRateDown).LocalShortcut);
+    Equal("Shift+. (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PlaybackRateUp).LocalShortcut);
+    Equal("Ctrl+. (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PlaybackRateReset).LocalShortcut);
     Equal("Ctrl+Shift+E", entries.Single(entry => entry.CommandId == CommandIds.TimeElapsed).LocalShortcut);
     Equal("F6", entries.Single(entry => entry.CommandId == CommandIds.ViewNowPlaying).LocalShortcut);
     Equal("0 (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekPercent(0)).LocalShortcut);
@@ -688,6 +703,7 @@ static void TestCommandPalette()
 
     var shiftedFavorite = CommandPaletteSearch.Filter(entries, "shift u");
     True(shiftedFavorite.Any(entry => entry.CommandId == CommandIds.ToggleFavorite), "Powinno dać się filtrować także po skrócie.");
+    Equal(3, CommandPaletteSearch.Filter(entries, "predkosc").Count);
     Equal(0, CommandPaletteSearch.Filter(entries, "polecenie-którego-nie-ma").Count);
 
     Equal("p", CommandPaletteSearch.ContinueOrRestartListQuery(entries, "sesja", "p"));
@@ -1041,20 +1057,24 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
 sealed class FakeMediaOutput : IMediaOutput
 {
     public TimeSpan Position { get; set; }
+    public bool SupportsPlaybackRate => true;
     public int PlayCount { get; private set; }
     public int PauseCount { get; private set; }
     public int Volume { get; private set; }
+    public double PlaybackRate { get; private set; } = 1d;
     public MediaItem? LastItem { get; private set; }
 
-    public void Play(MediaItem item, TimeSpan position, int volume)
+    public void Play(MediaItem item, TimeSpan position, int volume, double playbackRate)
     {
         LastItem = item;
         Position = position;
         Volume = volume;
+        PlaybackRate = playbackRate;
         PlayCount++;
     }
 
     public void Pause() => PauseCount++;
     public void Seek(TimeSpan position) => Position = position;
     public void SetVolume(int volume) => Volume = volume;
+    public void SetPlaybackRate(double playbackRate) => PlaybackRate = playbackRate;
 }

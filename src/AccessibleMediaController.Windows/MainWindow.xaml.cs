@@ -291,6 +291,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : item.Artist;
         PlayerSessionText.Text = session.DisplayName;
         PlayerStateText.Text = state;
+        PlayerSpeedText.Text = $"Prędkość: {FormatPlaybackRateMultiplier(session.PlaybackRate)}";
         PlayerTimeText.Text = duration > TimeSpan.Zero
             ? $"{CommandRouter.FormatTime(position)} z {CommandRouter.FormatTime(duration)}"
             : CommandRouter.FormatTime(position);
@@ -301,10 +302,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var action = session.IsPlaying ? "Wstrzymaj" : "Odtwórz";
         AutomationProperties.SetName(
             PlayerPlayPauseButton,
-            $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}. {action}");
+            $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}");
         AutomationProperties.SetHelpText(
             PlayerPlayPauseButton,
-            "Strzałki sterują czasem i głośnością. Escape wraca do listy.");
+            "Strzałki sterują czasem i głośnością. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Escape wraca do listy.");
     }
 
     private void PlayerUiTimer_Tick(object? sender, EventArgs e)
@@ -333,8 +334,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? item.IsBitrateEstimated ? $"około {bitrateKbps} kb/s" : $"{bitrateKbps} kb/s"
             : "brak danych";
         var volume = includeVolume ? $", głośność {session.Volume}%" : string.Empty;
-        return $"Przepływność {bitrate}, {state.ToLowerInvariant()}, {time}{volume}, {item.Title}, {session.DisplayName}";
+        var playbackRate = Math.Abs(session.PlaybackRate - 1d) < 0.001d
+            ? string.Empty
+            : $", {CommandRouter.FormatPlaybackRate(session.PlaybackRate).ToLowerInvariant()}";
+        return $"Przepływność {bitrate}, {state.ToLowerInvariant()}{playbackRate}, {time}{volume}, {item.Title}, {session.DisplayName}";
     }
+
+    private static string FormatPlaybackRateMultiplier(double playbackRate) =>
+        $"{playbackRate.ToString("0.00", CultureInfo.CurrentCulture)} razy";
 
     public void AnnouncePlaybackStatus()
     {
@@ -470,9 +477,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "F6 otwiera odtwarzacz. W odtwarzaczu strzałki w lewo i w prawo przewijają o 10 sekund, z Shiftem o 30 sekund, a z Ctrl o minutę, " +
             "strzałki w górę i w dół zmieniają głośność, Home i End przechodzą na początek i w pobliże końca, " +
             "a cyfry od 0 do 9 przechodzą odpowiednio do 0, 10, 20 i kolejnych procent długości utworu oraz domyślnie oznajmiają tylko procent. " +
+            "Shift+przecinek zmniejsza prędkość, Shift+kropka ją zwiększa, a Ctrl+kropka przywraca 1,00 razy; tempo zmienia się bez zmiany wysokości dźwięku. " +
             "Escape wraca do wcześniejszej listy. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
             "Ctrl+Shift+G chwilowo włącza lub wyłącza wszystkie automatyczne komunikaty odtwarzacza; ich kategorie wybiera się osobno w Ustawieniach. " +
-            "NVDA+End odczytuje pasek stanu z bieżącym czasem, głośnością i przepływnością. " +
+            "NVDA+End odczytuje pasek stanu z bieżącym czasem i przepływnością. " +
             "Alt+Enter pokazuje informacje. " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
@@ -637,6 +645,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var previousLocalItemId = previousLocal?.CurrentItem.Id;
         var previousLocalPosition = previousLocal?.Position ?? TimeSpan.Zero;
         var previousLocalVolume = previousLocal?.Volume ?? 35;
+        var previousLocalPlaybackRate = previousLocal?.PlaybackRate ?? 1d;
         var previousLocalWasPlaying = previousLocal?.IsPlaying == true;
         _membershipHistory.Clear();
         _sessions = new SessionManager(_state.Settings);
@@ -652,6 +661,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (previousItem is not null) local.SelectItem(previousItem);
             local.SetVolume(previousLocalVolume);
             local.SetPosition(previousLocalPosition);
+            local.SetPlaybackRate(previousLocalPlaybackRate);
             if (previousLocalWasPlaying) local.Play(local.CurrentItem);
             if (string.Equals(previousSessionId, "local", StringComparison.Ordinal)
                 || string.Equals(_state.Settings.LastSessionId, "local", StringComparison.Ordinal))
@@ -1592,6 +1602,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.None, Key.Down) => CommandIds.VolumeDown5,
             (ModifierKeys.Shift, Key.Up) => CommandIds.VolumeUp1,
             (ModifierKeys.Shift, Key.Down) => CommandIds.VolumeDown1,
+            (ModifierKeys.Shift, Key.OemComma) => CommandIds.PlaybackRateDown,
+            (ModifierKeys.Shift, Key.OemPeriod) => CommandIds.PlaybackRateUp,
+            (ModifierKeys.Control, Key.OemPeriod) => CommandIds.PlaybackRateReset,
             (ModifierKeys.None, Key.Home) => CommandIds.TrackStart,
             (ModifierKeys.None, Key.End) => CommandIds.TrackEnd,
             _ => null
@@ -1786,6 +1799,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PlayerForward_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekForward10);
     private void PlayerVolumeDown_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.VolumeDown5);
     private void PlayerVolumeUp_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.VolumeUp5);
+    private void PlaybackRateDown_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaybackRateDown);
+    private void PlaybackRateUp_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaybackRateUp);
+    private void PlaybackRateReset_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaybackRateReset);
     private void SeekToTime_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekToTime);
     private void SeekToPercentage_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekToPercentage);
     private void PlaybackStatus_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaybackStatus);

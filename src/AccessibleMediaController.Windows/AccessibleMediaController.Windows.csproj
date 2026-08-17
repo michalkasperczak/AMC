@@ -10,7 +10,36 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AccessibleMediaController.Core\AccessibleMediaController.Core.csproj" />
+    <PackageReference Include="NAudio" Version="2.2.1" GeneratePathProperty="true" />
+    <PackageReference Include="SoundTouch.Net" Version="2.3.2" GeneratePathProperty="true" />
+    <PackageReference Include="SoundTouch.Net.NAudioSupport.Core" Version="2.3.2" />
     <Using Remove="System.Drawing" />
     <Using Remove="System.Windows.Forms" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\THIRD_PARTY_NOTICES.md"
+          Link="THIRD_PARTY_NOTICES.md"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+    <None Include="$(PkgNAudio)\license.txt"
+          Link="licenses\NAudio-MIT.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+    <None Include="$(PkgSoundTouch_Net)\LICENSE\LICENSE"
+          Link="licenses\SoundTouch.Net-LGPL-2.1.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+  </ItemGroup>
+  <Target Name="ExcludeReplaceableSoundTouchAssembliesFromSingleFile"
+          BeforeTargets="_ComputeFilesToBundle">
+    <ItemGroup>
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)"
+                             Condition="'%(Filename)' == 'SoundTouch.Net' Or '%(Filename)' == 'SoundTouch.Net.NAudioSupport'">
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 </Project>

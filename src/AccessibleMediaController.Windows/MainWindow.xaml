@@ -52,6 +52,19 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+J"
                           Click="SeekToPercentage_Click" />
                 <Separator />
+                <MenuItem Header="_Wolniej" InputGestureText="Shift+,"
+                          automation:AutomationProperties.Name="Zmniejsz prędkość odtwarzania, Shift+przecinek, w odtwarzaczu"
+                          automation:AutomationProperties.AcceleratorKey="Shift+,"
+                          Click="PlaybackRateDown_Click" />
+                <MenuItem Header="_Szybciej" InputGestureText="Shift+."
+                          automation:AutomationProperties.Name="Zwiększ prędkość odtwarzania, Shift+kropka, w odtwarzaczu"
+                          automation:AutomationProperties.AcceleratorKey="Shift+."
+                          Click="PlaybackRateUp_Click" />
+                <MenuItem Header="Prędkość _normalna" InputGestureText="Ctrl+."
+                          automation:AutomationProperties.Name="Przywróć normalną prędkość odtwarzania, Ctrl+kropka, w odtwarzaczu"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+."
+                          Click="PlaybackRateReset_Click" />
+                <Separator />
                 <MenuItem Header="_Odczytaj stan odtwarzania"
                           Click="PlaybackStatus_Click" />
             </MenuItem>
@@ -149,6 +162,7 @@
                            TextWrapping="Wrap" />
                 <TextBlock x:Name="PlayerSessionText" Margin="0,5,0,0" />
                 <TextBlock x:Name="PlayerStateText" Margin="0,12,0,0" FontWeight="SemiBold" />
+                <TextBlock x:Name="PlayerSpeedText" Margin="0,4,0,0" />
                 <TextBlock x:Name="PlayerTimeText" Margin="0,4,0,14" FontSize="16" />
                 <WrapPanel>
                     <Button x:Name="PlayerPlayPauseButton" MinWidth="145" Margin="0,0,8,8"
@@ -161,6 +175,15 @@
                             Click="PlayerVolumeDown_Click" />
                     <Button MinWidth="125" Margin="0,0,8,8" Content="_Głośniej"
                             Click="PlayerVolumeUp_Click" />
+                    <Button MinWidth="125" Margin="0,0,8,8" Content="W_olniej"
+                            automation:AutomationProperties.AcceleratorKey="Shift+,"
+                            Click="PlaybackRateDown_Click" />
+                    <Button MinWidth="125" Margin="0,0,8,8" Content="S_zybciej"
+                            automation:AutomationProperties.AcceleratorKey="Shift+."
+                            Click="PlaybackRateUp_Click" />
+                    <Button MinWidth="165" Margin="0,0,8,8" Content="Prędkość _normalna"
+                            automation:AutomationProperties.AcceleratorKey="Ctrl+."
+                            Click="PlaybackRateReset_Click" />
                     <Button MinWidth="145" Margin="0,0,8,8" Content="Skocz do _czasu…"
                             automation:AutomationProperties.AcceleratorKey="Ctrl+J"
                             Click="SeekToTime_Click" />
@@ -171,7 +194,7 @@
                             Click="PlayerBack_Click" />
                 </WrapPanel>
                 <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
-                           Text="Strzałki sterują czasem i głośnością. Spacja wstrzymuje lub wznawia. Escape wraca do listy." />
+                           Text="Strzałki sterują czasem i głośnością. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Spacja wstrzymuje lub wznawia. Escape wraca do listy." />
             </StackPanel>
         </Border>
         </Grid>

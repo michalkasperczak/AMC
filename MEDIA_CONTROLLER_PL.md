@@ -1,8 +1,8 @@
 # Dostępny kontroler multimedialny — koncepcja projektu
 
-Wersja dokumentu: 0.5, aktualny plan projektu
+Wersja dokumentu: 0.6, aktualny plan projektu
 
-Data aktualizacji: 13 sierpnia 2026 r.
+Data aktualizacji: 17 sierpnia 2026 r.
 
 ## 1. Cel projektu
 
@@ -206,6 +206,18 @@ Odtwarzacz jest widokiem wewnątrz głównego okna, a nie osobnym oknem modalnym
 W odtwarzaczu lewo/prawo przewija o 10 sekund, Shift+lewo/prawo o 30 sekund, Ctrl+lewo/prawo o minutę, góra/dół zmienia głośność o 5%, Shift+góra/dół o 1%, Home przechodzi na początek, a End w pobliże końca. Cyfry `0–9` przechodzą odpowiednio do `0%, 10%, …, 90%` czasu trwania; obejmuje to blok numeryczny przy włączonym Num Lock. Domyślnym komunikatem skoku jest sam procent. Użytkownik może zamiast niego wybrać czas albo procent i czas. Skrót działa wyłącznie w odtwarzaczu, więc cyfry na liście nadal służą jej natywnej nawigacji, a `Ctrl+cyfra` wybiera sesję. Przy nieznanym czasie trwania skok procentowy jest niedostępny. Alt+strzałki oraz Ctrl+Shift+strzałki pozostają wolne do czasu ustalenia potrzeb. Tab przechodzi przez rzeczywiste przyciski odtwarzania, przewijania, głośności i powrotu. Funkcje zależne od możliwości sesji, np. nagrywanie radia, pojawią się później jako warunkowe kontrolki i polecenia; nie otrzymują jeszcze stałego skrótu. Docelowo przypisania odtwarzacza będą konfigurowalne obok profilu prefiksu.
 
 `Ctrl+J` otwiera osobne okno „Skocz do czasu”. Sama liczba oznacza minuty, dwie części — minuty i sekundy, a trzy — godziny, minuty i sekundy. `Ctrl+Shift+J` otwiera „Skocz do procentu” i przyjmuje wartość `0–100`. Oba skróty działają wyłącznie w odtwarzaczu, podobnie jak szybkie skoki cyframi. Wybranie tych poleceń z menu lub palety poza odtwarzaczem podaje wskazówkę użycia `F6` i nie zmienia pozycji. Rozdzielenie zapobiega zgadywaniu, czy `35` oznacza minuty, czy procent. Ewentualne odpowiedniki po prefiksie pozostają do sprawdzenia razem z całą warstwą.
+
+Regulacja tempa korzysta z mapy zgodnej z YouTube: `Shift+,` zwalnia, `Shift+.` przyspiesza, a `Ctrl+.` przywraca normalne 1,00×. Pierwszy zakres to 0,50–2,00× co 0,25. Zmiana dotyczy tempa, nie wysokości dźwięku. Wartość należy do sesji odtwarzania i pozostaje aktywna przy zmianie utworu; adapter, który nie zapewnia tej funkcji, ma ją jawnie zgłosić jako niedostępną. Skróty okienne działają w odtwarzaczu, a ewentualne przypisania po prefiksie pozostają osobną decyzją mapy.
+
+### 6.2. Pozycje wznowienia, Zakładki i zasoby globalne
+
+Następny etap lokalnego odtwarzania zapisuje pozycję pliku na podstawie znormalizowanej ścieżki oraz odcisku obejmującego co najmniej rozmiar i datę modyfikacji. Stan ma być zapisywany okresowo i przy prawidłowym zamknięciu, bez modyfikowania samego pliku. Automatyczne wznowienie będzie ustawieniem; rozsądny wariant domyślny to wznawianie dłuższych nagrań i podcastów, a nie każdej krótkiej piosenki. Streaming zachowuje własną pozycję tylko wtedy, gdy oficjalny adapter usługi ją udostępnia; AMC nie będzie tworzyć ukrytej, pozornej synchronizacji.
+
+Zakładka jest lokalnym rekordem AMC wskazującym stabilny identyfikator źródła, element, pozycję i opcjonalną nazwę. Może więc wskazywać plik lokalny albo pozycję w materiale streamingowym, jeśli adapter potrafi ponownie otworzyć ten sam element i przewinąć go. Zakładki są z natury globalnym indeksem aplikacji, ale nie kopiują ani nie przejmują treści usługi.
+
+Ulubione i playlisty pozostają własnością konkretnej usługi albo lokalnej biblioteki, ponieważ ich stan, uprawnienia i identyfikatory pochodzą z danego adaptera. AMC może udostępnić globalny widok „Wszystkie ulubione” jako agregację odsyłaczy oraz własne „Kolekcje AMC” mieszające odsyłacze z wielu usług, lecz nie będzie przedstawiać ich jako jednej zsynchronizowanej listy ulubionych w serwisach. Kolejka jest związana z aktywnym celem odtwarzania; globalne dodawanie ma sens dopiero wtedy, gdy host potrafi niezawodnie przekazać kolejny element między usługami lub urządzeniami.
+
+Na Windows domyślnym wyjściem pozostaje współdzielone WASAPI, aby AMC współistniał z NVDA. Tryb wyłączny, bit-perfect i natywne DSD nie wchodzą do podstawowego toru. Ewentualny późniejszy tryb zaawansowany musi być jawny, odwracalny i nie może po cichu odbierać dźwięku czytnikowi ekranu. foobar2000 może kiedyś działać jako zewnętrzny adapter; jego komponentów nie traktujemy jako bibliotek możliwych do bezpośredniego wbudowania bez osobno sprawdzonych źródeł i licencji.
 
 ## 7. Okno przeglądania
 
@@ -668,6 +680,8 @@ Stan `alpha.47`: kontener paska nie powiela już pełnej nazwy dostępnościowej
 
 Stan `alpha.48`: odczyt paska pomija głośność i zachowuje kolejność: przepływność, stan, pozycja z czasem całkowitym, tytuł, usługa. Jawne polecenie pełnego stanu nadal może podać głośność. Wspólna kontrolka komunikatów używa jednego zdarzenia powiadomienia UI Automation z tekstem komunikatu; usunięto równoległe `LiveRegionChanged`, które mogło zamiast treści sporadycznie wywołać statyczną nazwę „Stan programu”. Nazwa automatyzacji tej kontrolki jest teraz jej aktualnym tekstem, więc także ręczne badanie obiektu nie ujawnia technicznej etykiety.
 
+Stan `alpha.49`: lokalny tor został przeniesiony na NAudio 2.2.1, współdzielone WASAPI i SoundTouch.Net 2.3.2. `Shift+,` oraz `Shift+.` wybierają 0,50–2,00× co 0,25, a `Ctrl+.` przywraca normalną wartość. SoundTouch zmienia tempo niezależnie od wysokości. Stan jest własnością sesji i przetrwa zmianę utworu oraz przebudowę rdzenia po zapisaniu ustawień. Sesje bez wspieranego wyjścia zgłaszają niedostępność. Ze względu na LGPL biblioteki SoundTouch pozostają wymiennymi plikami obok EXE, razem z pełnym tekstem licencji i wskazaniem źródeł; NAudio jest objęte licencją MIT. Publikacja jest od tej wersji jednoznacznie nazwanym folderem, nie pojedynczym plikiem. Podstawa techniczna: [NAudio](https://github.com/naudio/NAudio), [SoundTouch.Net](https://github.com/owoudenberg/soundtouch.net), [skróty YouTube](https://support.google.com/youtube/answer/7631406).
+
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.
@@ -690,7 +704,7 @@ Planowana kolejność dalszych etapów:
 2. Czy aplikacja pamięta sesję po ponownym uruchomieniu.
 3. Czy istnieje od początku playlista „Do odsłuchu”.
 4. Które komunikaty mają być mówione, a które sygnalizowane dźwiękiem.
-5. Dokładny zakres lokalnego odtwarzania, radia i opcjonalnej integracji z foobar2000.
+5. Kryterium automatycznego wznowienia krótkich utworów i długich nagrań oraz szczegóły globalnego widoku Zakładek.
 6. Domyślny odstęp polecenia „w pobliże końca”; roboczo 10 sekund.
 7. Ostateczna nazwa aplikacji i identyfikatory pakietów na poszczególnych platformach.
 

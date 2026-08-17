@@ -4,6 +4,7 @@ namespace AccessibleMediaController.Core.Sessions;
 
 public sealed class DemoMediaSession
 {
+    private static readonly double[] PlaybackRates = [0.50d, 0.75d, 1.00d, 1.25d, 1.50d, 1.75d, 2.00d];
     private int _currentIndex;
     private TimeSpan _position;
     private readonly IMediaOutput? _output;
@@ -28,6 +29,8 @@ public sealed class DemoMediaSession
     public MediaItem CurrentItem => Items[_currentIndex];
     public bool IsPlaying { get; private set; }
     public int Volume { get; private set; } = 35;
+    public double PlaybackRate { get; private set; } = 1d;
+    public bool SupportsPlaybackRate => _output?.SupportsPlaybackRate == true;
     public TimeSpan Position => _output?.Position ?? _position;
 
     public void TogglePlayback()
@@ -41,7 +44,7 @@ public sealed class DemoMediaSession
         }
 
         IsPlaying = true;
-        _output?.Play(CurrentItem, _position, Volume);
+        _output?.Play(CurrentItem, _position, Volume, PlaybackRate);
     }
 
     public bool SelectItem(MediaItem item)
@@ -57,7 +60,7 @@ public sealed class DemoMediaSession
     {
         if (!SelectItem(item)) return false;
         IsPlaying = true;
-        _output?.Play(CurrentItem, _position, Volume);
+        _output?.Play(CurrentItem, _position, Volume, PlaybackRate);
         return true;
     }
 
@@ -75,7 +78,7 @@ public sealed class DemoMediaSession
         _currentIndex = index;
         _position = TimeSpan.Zero;
         IsPlaying = true;
-        _output?.Play(CurrentItem, _position, Volume);
+        _output?.Play(CurrentItem, _position, Volume, PlaybackRate);
         return true;
     }
 
@@ -110,6 +113,29 @@ public sealed class DemoMediaSession
     {
         Volume = Math.Clamp(volume, 0, 100);
         _output?.SetVolume(Volume);
+    }
+
+    public bool ChangePlaybackRate(int direction)
+    {
+        if (!SupportsPlaybackRate || direction == 0) return false;
+        var currentIndex = Array.FindIndex(
+            PlaybackRates,
+            rate => Math.Abs(rate - PlaybackRate) < 0.001d);
+        if (currentIndex < 0)
+        {
+            currentIndex = Array.FindLastIndex(PlaybackRates, rate => rate < PlaybackRate);
+        }
+        var nextIndex = Math.Clamp(currentIndex + Math.Sign(direction), 0, PlaybackRates.Length - 1);
+        return SetPlaybackRate(PlaybackRates[nextIndex]);
+    }
+
+    public bool SetPlaybackRate(double playbackRate)
+    {
+        if (!SupportsPlaybackRate) return false;
+        var resolved = PlaybackRates.MinBy(rate => Math.Abs(rate - playbackRate));
+        PlaybackRate = resolved;
+        _output!.SetPlaybackRate(resolved);
+        return true;
     }
 
     public void AddItems(IEnumerable<MediaItem> items)

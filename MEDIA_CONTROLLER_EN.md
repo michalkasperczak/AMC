@@ -1,8 +1,8 @@
 # Accessible Media Controller — Project Concept
 
-Document version: 0.5, current project plan
+Document version: 0.6, current project plan
 
-Updated: 13 August 2026
+Updated: 17 August 2026
 
 ## 1. Project goal
 
@@ -206,6 +206,18 @@ The player is a view inside the main window rather than a separate modal window.
 In the player, Left/Right seeks by 10 seconds, Shift+Left/Right by 30 seconds, Ctrl+Left/Right by one minute, Up/Down changes volume by 5%, Shift+Up/Down by 1%, Home seeks to the beginning and End near the end. Digits `0–9` seek to `0%, 10%, …, 90%` of the duration; this includes numpad digits with Num Lock enabled. The default digit-seek announcement is the percentage alone; the user may select time or percentage and time instead. The binding is player-only, so digits retain native item navigation on lists and `Ctrl+digit` selects a session. Percentage seeking is unavailable when duration is unknown. Alt+Arrow and Ctrl+Shift+Arrow remain unassigned until a concrete need is agreed. Tab moves through real play, seek, volume and return buttons. Session-dependent capabilities such as radio recording will later appear as conditional controls and commands and have no fixed shortcut yet. Player bindings will eventually be configurable alongside the prefix profile.
 
 `Ctrl+J` opens a separate Jump to time dialog. A number alone means minutes, two parts mean minutes and seconds, and three mean hours, minutes and seconds. `Ctrl+Shift+J` opens Jump to percentage and accepts `0–100`. Both shortcuts work only in the player, like the quick digit seeks. Selecting either command from the menu or palette outside the player announces the `F6` instruction and leaves the position unchanged. This split avoids guessing whether `35` means minutes or percent. Prefix equivalents remain subject to the complete prefix conflict review.
+
+Playback tempo follows YouTube's map: `Shift+,` slows down, `Shift+.` speeds up, and `Ctrl+.` restores normal 1.00×. The initial range is 0.50–2.00× in 0.25 steps. Tempo changes independently of pitch. The value belongs to the playback session and remains active when its track changes; an adapter that cannot provide this capability must explicitly report it as unavailable. The window shortcuts operate in the player, while any prefix-layer bindings remain a separate keyboard-map decision.
+
+### 6.2. Resume positions, Bookmarks and global resources
+
+The next local-playback stage stores a file position against a normalized path and a fingerprint containing at least file size and modification time. State is written periodically and on a clean shutdown without modifying the media file. Automatic resume will be a preference; a sensible default is to resume long recordings and podcasts rather than every short song. Streaming retains a position only when the official adapter exposes it; AMC does not invent hidden synchronization.
+
+A Bookmark is a local AMC record containing a stable source identifier, item identifier, position and optional label. It can therefore point to a local file or to a streaming position when the adapter can reopen the same item and seek. Bookmarks form a global application index, but they neither copy nor take ownership of provider content.
+
+Favorites and playlists remain owned by a specific service or the local library because their state, permissions and identifiers come from that adapter. AMC may expose an aggregated **All Favorites** view and AMC-owned **Collections** containing references from several services, but it will not claim that these are one synchronized provider Favorites list. Queue belongs to the active playback target; global insertion is meaningful only when the host can reliably hand the next item across services or devices.
+
+Shared-mode WASAPI remains the Windows default so AMC can coexist with NVDA. Exclusive, bit-perfect and native DSD output are not part of the base path. Any later advanced mode must be explicit, reversible and must never silently take the screen reader's audio. foobar2000 may later act as an external adapter; its components are not treated as embeddable libraries without separately verified source and licensing.
 
 ## 7. Browser window
 
@@ -666,6 +678,8 @@ State of `alpha.47`: the status-bar container no longer duplicates its label's f
 
 State of `alpha.48`: the status-bar reading omits volume and keeps this order: bitrate, state, position and total duration, title, service. The explicit full-status command can still include volume. The shared announcement control now raises one UI Automation notification carrying the message text; the parallel `LiveRegionChanged` event is removed because it could intermittently expose the static “Program status” name instead. The control's automation name is its current text, so manual object inspection does not expose that technical label either.
 
+State of `alpha.49`: local playback moves to NAudio 2.2.1, shared-mode WASAPI and SoundTouch.Net 2.3.2. `Shift+,` and `Shift+.` select 0.50–2.00× in 0.25 steps, and `Ctrl+.` restores normal speed. SoundTouch changes tempo independently of pitch. Rate is session state and survives a track change and the core rebuild performed after saving settings. Sessions without a supporting output report unavailability. To comply with LGPL replacement requirements, the SoundTouch assemblies remain separate files beside the EXE together with the complete licence text and source reference; NAudio is MIT-licensed. Publication is therefore a clearly versioned folder rather than a single file. Technical basis: [NAudio](https://github.com/naudio/NAudio), [SoundTouch.Net](https://github.com/owoudenberg/soundtouch.net), [YouTube shortcuts](https://support.google.com/youtube/answer/7631406).
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.
@@ -688,7 +702,7 @@ Planned sequence of later stages:
 2. Whether the application remembers the session after restart.
 3. Whether a “Listen Later” playlist exists from the beginning.
 4. Which messages use speech and which use earcons.
-5. Exact scope of local playback, radio and optional foobar2000 integration.
+5. The automatic-resume threshold for short songs versus long recordings, and the detailed global Bookmarks view.
 6. Default offset for “near the end”; currently 10 seconds.
 7. Final application name and package identifiers on each platform.
 

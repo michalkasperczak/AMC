@@ -10,8 +10,10 @@ namespace AccessibleMediaController.Core.Playback;
 public interface IMediaOutput
 {
     TimeSpan Position { get; }
-    void Play(MediaItem item, TimeSpan position, int volume);
+    bool SupportsPlaybackRate { get; }
+    void Play(MediaItem item, TimeSpan position, int volume, double playbackRate);
     void Pause();
     void Seek(TimeSpan position);
     void SetVolume(int volume);
+    void SetPlaybackRate(double playbackRate);
 }

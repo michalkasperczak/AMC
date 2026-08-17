@@ -18,6 +18,9 @@ public static class CommandIds
     public const string VolumeDown5 = "transport.volumeDown5";
     public const string VolumeUp1 = "transport.volumeUp1";
     public const string VolumeDown1 = "transport.volumeDown1";
+    public const string PlaybackRateDown = "transport.playbackRate.down";
+    public const string PlaybackRateUp = "transport.playbackRate.up";
+    public const string PlaybackRateReset = "transport.playbackRate.reset";
     public const string TrackStart = "transport.trackStart";
     public const string TrackEnd = "transport.trackEnd";
     public const string SeekToTime = "transport.seekToTime";

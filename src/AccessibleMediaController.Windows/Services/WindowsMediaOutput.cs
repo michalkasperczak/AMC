@@ -1,7 +1,8 @@
-using System.Windows;
-using System.Windows.Media;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
+using NAudio.CoreAudioApi;
+using NAudio.Wave;
+using SoundTouch.Net.NAudioSupport;
 
 namespace AccessibleMediaController.Windows.Services;
 
@@ -23,34 +24,38 @@ public sealed class MediaPlaybackEndedEventArgs(MediaItem item) : EventArgs
 }
 
 /// <summary>
-/// Windows implementation of the platform-neutral media-output boundary.
-/// System.Windows.Media.MediaPlayer uses the codecs and shared audio path
-/// available in Windows, so the first prototype does not install a codec pack
-/// and does not take exclusive control away from a screen reader.
+/// Windows output based on NAudio, shared WASAPI and SoundTouch. Shared mode
+/// coexists with screen readers. SoundTouch changes tempo independently of
+/// pitch, so speech and music do not move to a higher or lower key.
 /// </summary>
 public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
 {
-    private readonly MediaPlayer _player = new();
+    private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
+    private WasapiOut? _outputDevice;
+    private AudioFileReader? _reader;
+    private SoundTouchWaveStream? _tempoStream;
     private MediaItem? _currentItem;
     private TimeSpan _pendingPosition;
-    private bool _isOpen;
-    private bool _playWhenOpened;
+    private double _playbackRate = 1d;
     private bool _disposed;
-
-    public WindowsMediaOutput()
-    {
-        _player.MediaOpened += Player_MediaOpened;
-        _player.MediaEnded += Player_MediaEnded;
-        _player.MediaFailed += Player_MediaFailed;
-    }
 
     public event EventHandler<MediaDurationAvailableEventArgs>? DurationAvailable;
     public event EventHandler<MediaOutputFailedEventArgs>? PlaybackFailed;
     public event EventHandler<MediaPlaybackEndedEventArgs>? PlaybackEnded;
 
-    public TimeSpan Position => _isOpen ? _player.Position : _pendingPosition;
+    public bool SupportsPlaybackRate => true;
 
-    public void Play(MediaItem item, TimeSpan position, int volume)
+    public TimeSpan Position
+    {
+        get
+        {
+            if (_tempoStream is null) return _pendingPosition;
+            var position = _tempoStream.CurrentTime;
+            return position < TimeSpan.Zero ? TimeSpan.Zero : position;
+        }
+    }
+
+    public void Play(MediaItem item, TimeSpan position, int volume, double playbackRate)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (string.IsNullOrWhiteSpace(item.Source))
@@ -58,90 +63,145 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             throw new InvalidOperationException("Element nie zawiera lokalnego źródła dźwięku.");
         }
 
-        _player.Volume = Math.Clamp(volume, 0, 100) / 100d;
         _pendingPosition = position < TimeSpan.Zero ? TimeSpan.Zero : position;
-        _playWhenOpened = true;
+        _playbackRate = Math.Clamp(playbackRate, 0.50d, 2.00d);
 
-        if (_isOpen
-            && _currentItem is not null
-            && string.Equals(_currentItem.Source, item.Source, StringComparison.OrdinalIgnoreCase))
+        try
         {
-            _player.Position = _pendingPosition;
-            _player.Play();
-            return;
-        }
+            if (_outputDevice is not null
+                && _tempoStream is not null
+                && _currentItem is not null
+                && string.Equals(_currentItem.Source, item.Source, StringComparison.OrdinalIgnoreCase))
+            {
+                SeekInternal(_pendingPosition);
+                SetVolume(volume);
+                SetPlaybackRate(_playbackRate);
+                _outputDevice.Play();
+                return;
+            }
 
-        _isOpen = false;
-        _currentItem = item;
-        _player.Open(new Uri(item.Source, UriKind.Absolute));
+            ClosePipeline();
+            _currentItem = item;
+            _reader = new AudioFileReader(item.Source);
+            _tempoStream = new SoundTouchWaveStream(_reader)
+            {
+                Tempo = _playbackRate,
+                Pitch = 1d,
+                Rate = 1d
+            };
+            _outputDevice = new WasapiOut(AudioClientShareMode.Shared, true, 120);
+            _outputDevice.PlaybackStopped += OutputDevice_PlaybackStopped;
+            _outputDevice.Init(_tempoStream);
+            SeekInternal(_pendingPosition);
+            SetVolume(volume);
+            DurationAvailable?.Invoke(
+                this,
+                new MediaDurationAvailableEventArgs(item, _tempoStream.TotalTime));
+            _outputDevice.Play();
+        }
+        catch (Exception exception)
+        {
+            ClosePipeline();
+            RaisePlaybackFailed(item, exception.Message);
+        }
     }
 
     public void Pause()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _playWhenOpened = false;
-        if (_isOpen)
-        {
-            _pendingPosition = _player.Position;
-            _player.Pause();
-        }
+        if (_outputDevice is null) return;
+        _pendingPosition = Position;
+        _outputDevice.Pause();
     }
 
     public void Seek(TimeSpan position)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _pendingPosition = position < TimeSpan.Zero ? TimeSpan.Zero : position;
-        if (_isOpen) _player.Position = _pendingPosition;
+        SeekInternal(_pendingPosition);
     }
 
     public void SetVolume(int volume)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _player.Volume = Math.Clamp(volume, 0, 100) / 100d;
-    }
-
-    private void Player_MediaOpened(object? sender, EventArgs e)
-    {
-        _isOpen = true;
-        _player.Position = _pendingPosition;
-        if (_currentItem is not null && _player.NaturalDuration.HasTimeSpan)
+        if (_outputDevice is not null)
         {
-            DurationAvailable?.Invoke(
-                this,
-                new MediaDurationAvailableEventArgs(_currentItem, _player.NaturalDuration.TimeSpan));
-        }
-        if (_playWhenOpened) _player.Play();
-    }
-
-    private void Player_MediaEnded(object? sender, EventArgs e)
-    {
-        _playWhenOpened = false;
-        _pendingPosition = TimeSpan.Zero;
-        if (_currentItem is not null)
-        {
-            PlaybackEnded?.Invoke(this, new MediaPlaybackEndedEventArgs(_currentItem));
+            _outputDevice.Volume = Math.Clamp(volume, 0, 100) / 100f;
         }
     }
 
-    private void Player_MediaFailed(object? sender, ExceptionEventArgs e)
+    public void SetPlaybackRate(double playbackRate)
     {
-        _isOpen = false;
-        _playWhenOpened = false;
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _playbackRate = Math.Clamp(playbackRate, 0.50d, 2.00d);
+        if (_tempoStream is null) return;
+        _tempoStream.Tempo = _playbackRate;
+        _tempoStream.Pitch = 1d;
+        _tempoStream.Rate = 1d;
+    }
+
+    private void SeekInternal(TimeSpan position)
+    {
+        if (_tempoStream is null) return;
+        var resolved = position < TimeSpan.Zero ? TimeSpan.Zero : position;
+        if (_tempoStream.TotalTime > TimeSpan.Zero && resolved > _tempoStream.TotalTime)
+        {
+            resolved = _tempoStream.TotalTime;
+        }
+        _tempoStream.CurrentTime = resolved;
+        _pendingPosition = resolved;
+    }
+
+    private void OutputDevice_PlaybackStopped(object? sender, StoppedEventArgs e)
+    {
+        if (_disposed) return;
+        if (e.Exception is not null)
+        {
+            RaisePlaybackFailed(_currentItem, e.Exception.Message);
+            return;
+        }
+
         _pendingPosition = TimeSpan.Zero;
-        PlaybackFailed?.Invoke(
-            this,
-            new MediaOutputFailedEventArgs(
-                _currentItem,
-                e.ErrorException?.Message ?? "Nieznany błąd odtwarzania"));
+        if (_currentItem is { } item)
+        {
+            RaiseOnCapturedContext(() => PlaybackEnded?.Invoke(this, new MediaPlaybackEndedEventArgs(item)));
+        }
+    }
+
+    private void RaisePlaybackFailed(MediaItem? item, string message) =>
+        RaiseOnCapturedContext(
+            () => PlaybackFailed?.Invoke(this, new MediaOutputFailedEventArgs(item, message)));
+
+    private void RaiseOnCapturedContext(Action action)
+    {
+        if (_synchronizationContext is null || SynchronizationContext.Current == _synchronizationContext)
+        {
+            action();
+            return;
+        }
+        _synchronizationContext.Post(_ => action(), null);
+    }
+
+    private void ClosePipeline()
+    {
+        if (_outputDevice is not null)
+        {
+            _outputDevice.PlaybackStopped -= OutputDevice_PlaybackStopped;
+            _outputDevice.Stop();
+            _outputDevice.Dispose();
+        }
+        _outputDevice = null;
+
+        // SoundTouchWaveStream owns and disposes the AudioFileReader.
+        _tempoStream?.Dispose();
+        _tempoStream = null;
+        _reader = null;
     }
 
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        _player.MediaOpened -= Player_MediaOpened;
-        _player.MediaEnded -= Player_MediaEnded;
-        _player.MediaFailed -= Player_MediaFailed;
-        _player.Close();
+        ClosePipeline();
     }
 }
