@@ -1,55 +1,56 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-047`
-- Tytuł zestawu: Pojedynczy i uporządkowany odczyt paska
-- Wersja programu: `0.1.0-alpha.47`
-- Utworzono: 2026-08-17 23:29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_2329_0.1.0-alpha.47.md`
+- Numer zestawu: `AMC-TEST-048`
+- Tytuł zestawu: Pasek bez głośności i komunikaty bez nazwy technicznej
+- Wersja programu: `0.1.0-alpha.48`
+- Utworzono: 2026-08-17 23:36, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_2336_0.1.0-alpha.48.md`
 
 W pliku wyników po dwukropku wpisz krótko, co się wydarzyło. Jeżeli wszystko działa, wystarczy `OK`. Nie trzeba przed każdym zadaniem wybierać wariantu odpowiedzi.
 
-## AMC-047-01 — Pojedynczy odczyt NVDA+End
+## AMC-048-01 — Pasek bez głośności
 
-1. Uruchom program i naciśnij `NVDA+End`.
-2. Powtórz próbę podczas pauzy i odtwarzania.
-3. Zmaksymalizuj okno i sprawdź jeszcze raz.
-
-Oczekiwane:
-
-- pełny tekst paska jest czytany dokładnie jeden raz;
-- NVDA nie powtarza tego samego zestawu danych dla kontenera i etykiety;
-- odczyt nie przenosi fokusu i nie blokuje programu.
-
-## AMC-047-02 — Kolejność danych paska
-
-1. Odtwórz lokalny plik o znanym czasie.
-2. Przejdź w dowolne miejsce utworu i naciśnij `NVDA+End`.
+1. Odtwórz lokalny plik i naciśnij `NVDA+End`.
+2. Powtórz podczas pauzy oraz po zmianie pozycji.
 
 Oczekiwane:
 
-- kolejność brzmi: „Przepływność…, odtwarzanie albo pauza, pozycja z czasem całkowitym, głośność, tytuł, usługa”;
-- długi tytuł nie opóźnia informacji o przepływności, czasie i głośności;
-- przy braku danych początek brzmi „Przepływność brak danych”.
-
-## AMC-047-03 — Polecenie odczytu stanu
-
-1. Z menu Odtwarzanie wybierz „Odczytaj stan odtwarzania”.
-2. Wykonaj to samo polecenie z palety `Ctrl+Shift+K`.
-
-Oczekiwane:
-
-- oba sposoby podają te same dane w tej samej kolejności co pasek;
-- komunikat występuje tylko raz;
+- pasek mówi jeden raz: przepływność, stan, pozycję z czasem całkowitym, tytuł i usługę;
+- pasek nie podaje głośności;
 - fokus pozostaje na wcześniejszej kontrolce.
 
-## AMC-047-04 — Fokus i skróty po odczycie
+## AMC-048-02 — Regulacja głośności bez „Stan programu”
 
-1. Po `NVDA+End` przejdź strzałką po liście.
-2. Otwórz odtwarzacz przez `F6` i sprawdź `Ctrl+J` oraz `Ctrl+Shift+J`.
-3. Wróć Escape na listę.
+1. W odtwarzaczu kilka razy zmień głośność strzałkami góra i dół.
+2. Powtórz z wyłączonymi automatycznymi komunikatami przez `Ctrl+Shift+G`.
+3. Włącz komunikaty ponownie.
 
 Oczekiwane:
 
-- lista i wszystkie skróty działają bez dodatkowego `Alt+F4`;
-- odtwarzacz zachowuje prawidłowe skoki;
-- Escape wraca do wcześniejszego elementu listy.
+- przy włączonych komunikatach NVDA mówi właściwą wartość głośności tylko raz;
+- przy wyłączonych komunikatach zmiana jest cicha;
+- w żadnym wariancie nie pojawia się „Stan programu”.
+
+## AMC-048-03 — Powrót z okna skoku i palety
+
+1. W odtwarzaczu otwórz `Ctrl+J`, wpisz poprawny czas i zatwierdź.
+2. Otwórz `Ctrl+Shift+J`, wpisz nieprawidłowy procent, a następnie popraw go i zatwierdź.
+3. Otwórz paletę `Ctrl+Shift+K`, wyszukaj polecenie skoku i wykonaj je.
+4. Zamknij kolejne okno Escape i kontynuuj nawigację.
+
+Oczekiwane:
+
+- odczytywany jest właściwy czas, procent albo konkretny błąd;
+- po powrocie fokus trafia do oczekiwanego miejsca;
+- nie pojawia się sam komunikat „Stan programu”.
+
+## AMC-048-04 — Jawny pełny odczyt stanu
+
+1. Z menu Odtwarzanie wybierz „Odczytaj stan odtwarzania”.
+2. Powtórz polecenie z palety.
+
+Oczekiwane:
+
+- jawne polecenie podaje pełny stan, łącznie z głośnością;
+- komunikat jest jeden i zawiera rzeczywiste dane;
+- fokus nie zmienia miejsca.

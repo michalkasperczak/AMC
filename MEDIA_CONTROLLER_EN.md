@@ -664,6 +664,8 @@ State of `alpha.46`: the separate almost invisible compatibility window from `al
 
 State of `alpha.47`: the status-bar container no longer duplicates its label's full accessible name. The single announcement is ordered for a quick parameter check: bitrate, state, position and total duration, volume, title, and service last. The explicit “Read playback status” command uses the same formatting.
 
+State of `alpha.48`: the status-bar reading omits volume and keeps this order: bitrate, state, position and total duration, title, service. The explicit full-status command can still include volume. The shared announcement control now raises one UI Automation notification carrying the message text; the parallel `LiveRegionChanged` event is removed because it could intermittently expose the static “Program status” name instead. The control's automation name is its current text, so manual object inspection does not expose that technical label either.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.

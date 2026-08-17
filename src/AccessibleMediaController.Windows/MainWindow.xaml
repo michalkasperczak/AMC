@@ -96,7 +96,6 @@
             </WrapPanel>
             <Border BorderThickness="1" BorderBrush="Gray" Padding="6">
                 <controls:AccessibleStatusTextBlock x:Name="StatusText"
-                    automation:AutomationProperties.Name="Stan programu"
                     automation:AutomationProperties.LiveSetting="Assertive"
                     Text="Gotowy" TextWrapping="Wrap" />
             </Border>

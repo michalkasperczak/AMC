@@ -666,6 +666,8 @@ Stan `alpha.46`: osobne, prawie niewidoczne okno zgodności z `alpha.44–45` zo
 
 Stan `alpha.47`: kontener paska nie powiela już pełnej nazwy dostępnościowej swojej etykiety. Jeden komunikat ma kolejność zoptymalizowaną pod szybkie pytanie o parametry: przepływność, stan, pozycja z czasem całkowitym, głośność, tytuł i na końcu usługa. To samo formatowanie stosuje jawne polecenie „Odczytaj stan odtwarzania”.
 
+Stan `alpha.48`: odczyt paska pomija głośność i zachowuje kolejność: przepływność, stan, pozycja z czasem całkowitym, tytuł, usługa. Jawne polecenie pełnego stanu nadal może podać głośność. Wspólna kontrolka komunikatów używa jednego zdarzenia powiadomienia UI Automation z tekstem komunikatu; usunięto równoległe `LiveRegionChanged`, które mogło zamiast treści sporadycznie wywołać statyczną nazwę „Stan programu”. Nazwa automatyzacji tej kontrolki jest teraz jej aktualnym tekstem, więc także ręczne badanie obiektu nie ujawnia technicznej etykiety.
+
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.

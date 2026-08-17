@@ -12,7 +12,8 @@ public sealed class AccessibleStatusTextBlock : TextBlock
     {
         Text = message;
         var peer = UIElementAutomationPeer.FromElement(this) ?? UIElementAutomationPeer.CreatePeerForElement(this);
-        peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
+        // A notification carries the actual message. Raising LiveRegionChanged as
+        // well makes some screen readers announce the region's static name first.
         peer?.RaiseNotificationEvent(
             AutomationNotificationKind.ActionCompleted,
             AutomationNotificationProcessing.ImportantMostRecent,
@@ -24,5 +25,11 @@ public sealed class AccessibleStatusTextBlock : TextBlock
     {
         protected override string GetClassNameCore() => "StatusText";
         protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Text;
+
+        protected override string GetNameCore()
+        {
+            var currentText = ((AccessibleStatusTextBlock)Owner).Text;
+            return string.IsNullOrWhiteSpace(currentText) ? base.GetNameCore() : currentText;
+        }
     }
 }

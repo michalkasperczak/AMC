@@ -72,7 +72,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     public MainWindow(PersistedState state, ConfigurationStore store)
     {
         InitializeComponent();
-        const string initialStatus = "Przepływność brak danych, pauza, 0:00, głośność 0%";
+        const string initialStatus = "Przepływność brak danych, pauza, 0:00";
         _playbackStatusLabel = new System.Windows.Forms.ToolStripStatusLabel
         {
             AccessibleName = initialStatus,
@@ -320,7 +320,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _playbackStatusLabel.AccessibleName = text;
     }
 
-    private string BuildPlaybackStatusText()
+    private string BuildPlaybackStatusText(bool includeVolume = false)
     {
         var session = _sessions.Current;
         var item = session.CurrentItem;
@@ -332,12 +332,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var bitrate = item.BitrateKbps is int bitrateKbps
             ? item.IsBitrateEstimated ? $"około {bitrateKbps} kb/s" : $"{bitrateKbps} kb/s"
             : "brak danych";
-        return $"Przepływność {bitrate}, {state.ToLowerInvariant()}, {time}, głośność {session.Volume}%, {item.Title}, {session.DisplayName}";
+        var volume = includeVolume ? $", głośność {session.Volume}%" : string.Empty;
+        return $"Przepływność {bitrate}, {state.ToLowerInvariant()}, {time}{volume}, {item.Title}, {session.DisplayName}";
     }
 
     public void AnnouncePlaybackStatus()
     {
-        var text = BuildPlaybackStatusText();
+        var text = BuildPlaybackStatusText(includeVolume: true);
         UpdatePlaybackStatusBar();
         AnnounceEssential(text);
     }
