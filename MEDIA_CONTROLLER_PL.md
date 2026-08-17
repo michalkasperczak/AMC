@@ -205,7 +205,7 @@ Odtwarzacz jest widokiem wewnątrz głównego okna, a nie osobnym oknem modalnym
 
 W odtwarzaczu lewo/prawo przewija o 10 sekund, Shift+lewo/prawo o 30 sekund, Ctrl+lewo/prawo o minutę, góra/dół zmienia głośność o 5%, Shift+góra/dół o 1%, Home przechodzi na początek, a End w pobliże końca. Cyfry `0–9` przechodzą odpowiednio do `0%, 10%, …, 90%` czasu trwania; obejmuje to blok numeryczny przy włączonym Num Lock. Domyślnym komunikatem skoku jest sam procent. Użytkownik może zamiast niego wybrać czas albo procent i czas. Skrót działa wyłącznie w odtwarzaczu, więc cyfry na liście nadal służą jej natywnej nawigacji, a `Ctrl+cyfra` wybiera sesję. Przy nieznanym czasie trwania skok procentowy jest niedostępny. Alt+strzałki oraz Ctrl+Shift+strzałki pozostają wolne do czasu ustalenia potrzeb. Tab przechodzi przez rzeczywiste przyciski odtwarzania, przewijania, głośności i powrotu. Funkcje zależne od możliwości sesji, np. nagrywanie radia, pojawią się później jako warunkowe kontrolki i polecenia; nie otrzymują jeszcze stałego skrótu. Docelowo przypisania odtwarzacza będą konfigurowalne obok profilu prefiksu.
 
-`Ctrl+G` otwiera osobne okno „Skocz do czasu”. Sama liczba oznacza minuty, dwie części — minuty i sekundy, a trzy — godziny, minuty i sekundy. „Skocz do procentu” jest osobnym poleceniem przyjmującym `0–100`; nie ma jeszcze stałego skrótu, lecz działa z menu Odtwarzanie, przycisku i palety. Rozdzielenie zapobiega zgadywaniu, czy `35` oznacza minuty, czy procent. Ewentualne odpowiedniki po prefiksie pozostają do sprawdzenia razem z całą warstwą i nie są jeszcze wiązane na stałe.
+`Ctrl+J` otwiera osobne okno „Skocz do czasu”. Sama liczba oznacza minuty, dwie części — minuty i sekundy, a trzy — godziny, minuty i sekundy. `Ctrl+Shift+J` otwiera „Skocz do procentu” i przyjmuje wartość `0–100`. Oba skróty działają wyłącznie w odtwarzaczu, podobnie jak szybkie skoki cyframi. Wybranie tych poleceń z menu lub palety poza odtwarzaczem podaje wskazówkę użycia `F6` i nie zmienia pozycji. Rozdzielenie zapobiega zgadywaniu, czy `35` oznacza minuty, czy procent. Ewentualne odpowiedniki po prefiksie pozostają do sprawdzenia razem z całą warstwą.
 
 ## 7. Okno przeglądania
 
@@ -366,8 +366,8 @@ Zatwierdzone przypisania podstawowe:
 | `Home` w odtwarzaczu | przejdź na początek utworu |
 | `End` w odtwarzaczu | przejdź 10 sekund przed końcem utworu |
 | `0–9` w odtwarzaczu | przejdź do 0–90% czasu trwania co 10% |
-| `Ctrl+G` | wpisz dokładny czas i przejdź do niego |
-| brak domyślnego skrótu | wpisz procent od 0 do 100 i przejdź do niego |
+| `Ctrl+J` w odtwarzaczu | wpisz dokładny czas i przejdź do niego |
+| `Ctrl+Shift+J` w odtwarzaczu | wpisz procent od 0 do 100 i przejdź do niego |
 | `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | podaj czas od początku, pozostały albo całkowity |
 | `Ctrl+Shift+G` | chwilowo włącz lub wyłącz wszystkie automatyczne komunikaty odtwarzacza |
 | `Ctrl+D` | pobierz offline wewnątrz usługi, jeśli obsługiwane |
@@ -659,6 +659,8 @@ Stan `alpha.42`: pasek stanu został przeniesiony z wewnętrznego panelu z margi
 Stan `alpha.43`: po negatywnym teście NVDA pasek WPF został zastąpiony natywnym paskiem stanu Windows osadzonym przy dolnej krawędzi. Dokładny skok do czasu i procentu jest poleceniem globalnym bieżącej sesji odtwarzania, dostępnym także podczas pracy na liście; cyfry `0–9` pozostają lokalne dla odtwarzacza. Walidacja okna skoku wywołuje aktywne oznajmienie błędu, zaznacza wadliwą wartość i nie przenosi fokusu z pola.
 
 Stan `alpha.44`: analiza kodu NVDA wykazała, że bez modułu aplikacji `NVDA+End` bada wyłącznie obiekt w lewym dolnym pikselu granic okna. Natywny pasek osadzony wewnątrz WPF nadal nie obejmował ramki. Warstwa Windows tworzy więc nieaktywujący, niemal przezroczysty obiekt `msctls_statusbar32` obejmujący możliwe dolne lewe granice Win32 i DWM. Obiekt ma bieżący tekst paska, pozostaje poza nawigacją i jest przemieszczany razem z oknem.
+
+Stan `alpha.45`: ostateczna lokalna mapa odtwarzacza używa `Ctrl+J` dla wpisanego czasu i `Ctrl+Shift+J` dla wpisanego procentu. Oba polecenia oraz skoki cyframi działają tylko w odtwarzaczu. Na liście skróty nie są przechwytywane, a wybranie polecenia skoku z menu lub palety podaje, że `F6` otwiera odtwarzacz. `F6` jest wspólnym wejściem „Teraz odtwarzane” dla multimediów lokalnych, streamingu, radia i sesji urządzeń; skoki zależne od długości pozostają niedostępne dla transmisji bez znanego czasu.
 
 Planowana kolejność dalszych etapów:
 

@@ -43,11 +43,13 @@
                 <MenuItem Header="Następna sesja" InputGestureText="Ctrl+Page Down" Click="NextSession_Click" />
             </MenuItem>
             <MenuItem Header="_Odtwarzanie">
-                <MenuItem Header="Skocz do _czasu…" InputGestureText="Ctrl+G"
-                          automation:AutomationProperties.Name="Skocz do czasu, Ctrl+G"
-                          automation:AutomationProperties.AcceleratorKey="Ctrl+G"
+                <MenuItem Header="Skocz do _czasu…" InputGestureText="Ctrl+J"
+                          automation:AutomationProperties.Name="Skocz do czasu, Ctrl+J, tylko w odtwarzaczu"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+J"
                           Click="SeekToTime_Click" />
-                <MenuItem Header="Skocz do _procentu…"
+                <MenuItem Header="Skocz do _procentu…" InputGestureText="Ctrl+Shift+J"
+                          automation:AutomationProperties.Name="Skocz do procentu, Ctrl+Shift+J, tylko w odtwarzaczu"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+J"
                           Click="SeekToPercentage_Click" />
             </MenuItem>
             <MenuItem Header="_Widok">
@@ -158,8 +160,10 @@
                     <Button MinWidth="125" Margin="0,0,8,8" Content="_Głośniej"
                             Click="PlayerVolumeUp_Click" />
                     <Button MinWidth="145" Margin="0,0,8,8" Content="Skocz do _czasu…"
+                            automation:AutomationProperties.AcceleratorKey="Ctrl+J"
                             Click="SeekToTime_Click" />
                     <Button MinWidth="155" Margin="0,0,8,8" Content="Skocz do _procentu…"
+                            automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+J"
                             Click="SeekToPercentage_Click" />
                     <Button MinWidth="145" Margin="0,0,8,8" Content="_Wróć do listy"
                             Click="PlayerBack_Click" />

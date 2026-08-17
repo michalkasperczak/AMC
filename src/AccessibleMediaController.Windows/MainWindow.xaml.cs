@@ -335,9 +335,24 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         _nativeStatusBarLocator?.SetText(text);
     }
 
-    public void ShowSeekToTime() => ShowSeekPositionDialog(SeekInputMode.Time);
+    public void ShowSeekToTime()
+    {
+        if (!EnsurePlayerViewForSeek()) return;
+        ShowSeekPositionDialog(SeekInputMode.Time);
+    }
 
-    public void ShowSeekToPercentage() => ShowSeekPositionDialog(SeekInputMode.Percentage);
+    public void ShowSeekToPercentage()
+    {
+        if (!EnsurePlayerViewForSeek()) return;
+        ShowSeekPositionDialog(SeekInputMode.Percentage);
+    }
+
+    private bool EnsurePlayerViewForSeek()
+    {
+        if (_playerViewActive) return true;
+        Announce("Skok jest dostępny tylko w odtwarzaczu. Naciśnij F6");
+        return false;
+    }
 
     private void ShowSeekPositionDialog(SeekInputMode mode)
     {
@@ -1540,7 +1555,6 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
             (ModifierKeys.Control, Key.K) => CommandIds.FilterCurrent,
             (ModifierKeys.Control, Key.F) => CommandIds.SearchCurrent,
-            (ModifierKeys.Control, Key.G) => CommandIds.SeekToTime,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.A) => CommandIds.ViewAlbums,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.F) => CommandIds.SearchAll,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.G) => CommandIds.SettingsToggleSeekMessages,
@@ -1586,6 +1600,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
         var commandId = (Keyboard.Modifiers, e.Key) switch
         {
+            (ModifierKeys.Control, Key.J) => CommandIds.SeekToTime,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.J) => CommandIds.SeekToPercentage,
             (ModifierKeys.None, Key.Left) => CommandIds.SeekBackward10,
             (ModifierKeys.None, Key.Right) => CommandIds.SeekForward10,
             (ModifierKeys.Shift, Key.Left) => CommandIds.SeekBackward30,

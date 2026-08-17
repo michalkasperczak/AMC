@@ -205,7 +205,7 @@ The player is a view inside the main window rather than a separate modal window.
 
 In the player, Left/Right seeks by 10 seconds, Shift+Left/Right by 30 seconds, Ctrl+Left/Right by one minute, Up/Down changes volume by 5%, Shift+Up/Down by 1%, Home seeks to the beginning and End near the end. Digits `0–9` seek to `0%, 10%, …, 90%` of the duration; this includes numpad digits with Num Lock enabled. The default digit-seek announcement is the percentage alone; the user may select time or percentage and time instead. The binding is player-only, so digits retain native item navigation on lists and `Ctrl+digit` selects a session. Percentage seeking is unavailable when duration is unknown. Alt+Arrow and Ctrl+Shift+Arrow remain unassigned until a concrete need is agreed. Tab moves through real play, seek, volume and return buttons. Session-dependent capabilities such as radio recording will later appear as conditional controls and commands and have no fixed shortcut yet. Player bindings will eventually be configurable alongside the prefix profile.
 
-`Ctrl+G` opens a separate Jump to time dialog. A number alone means minutes, two parts mean minutes and seconds, and three mean hours, minutes and seconds. Jump to percentage is a separate `0–100` command; it has no fixed shortcut yet but is available from the Playback menu, a button and the command palette. This split avoids guessing whether `35` means minutes or percent. Prefix equivalents remain subject to the complete prefix conflict review.
+`Ctrl+J` opens a separate Jump to time dialog. A number alone means minutes, two parts mean minutes and seconds, and three mean hours, minutes and seconds. `Ctrl+Shift+J` opens Jump to percentage and accepts `0–100`. Both shortcuts work only in the player, like the quick digit seeks. Selecting either command from the menu or palette outside the player announces the `F6` instruction and leaves the position unchanged. This split avoids guessing whether `35` means minutes or percent. Prefix equivalents remain subject to the complete prefix conflict review.
 
 ## 7. Browser window
 
@@ -366,8 +366,8 @@ Approved primary bindings:
 | `Home` in the player | seek to the beginning |
 | `End` in the player | seek to 10 seconds before the end |
 | `0–9` in the player | seek to 0–90% of the duration in 10% steps |
-| `Ctrl+G` | enter and seek to an exact time |
-| no default shortcut | enter and seek to a percentage from 0 to 100 |
+| `Ctrl+J` in the player | enter and seek to an exact time |
+| `Ctrl+Shift+J` in the player | enter a percentage from 0 to 100 and seek to it |
 | `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | report elapsed, remaining or total time |
 | `Ctrl+Shift+G` | temporarily toggle all automatic player feedback |
 | `Ctrl+D` | download offline within the service when supported |
@@ -657,6 +657,8 @@ State of `alpha.42`: the status bar moves from an inset panel to the actual bott
 State of `alpha.43`: after the negative NVDA test, the WPF bar is replaced by a native Windows status bar hosted at the bottom edge. Exact time and percentage are global commands for the current playback session and remain available while browsing a list; digits `0–9` stay local to the player. Seek-dialog validation raises an active error notification, selects the invalid value and keeps focus in the edit field.
 
 State of `alpha.44`: inspection of NVDA's implementation shows that, without an app module, `NVDA+End` probes only the object at the lower-left pixel of the window bounds. A native bar hosted inside WPF still did not cover the frame. The Windows layer therefore creates a non-activating, almost transparent `msctls_statusbar32` object across the possible Win32 and DWM lower-left bounds. It carries the current bar text, remains outside navigation and follows the owner window.
+
+State of `alpha.45`: the final local player mapping uses `Ctrl+J` for an entered time and `Ctrl+Shift+J` for an entered percentage. Both commands and the digit seeks are player-only. On a list the keys are not captured; selecting a seek command from the menu or palette explains that `F6` opens the player. `F6` is the common Now Playing entry for local media, streaming, radio and device sessions, although duration-dependent seeking remains unavailable for a live source with no known duration.
 
 Planned sequence of later stages:
 
