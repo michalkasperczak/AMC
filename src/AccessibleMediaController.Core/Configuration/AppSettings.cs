@@ -55,6 +55,7 @@ public sealed class MessageSettings
 {
     public bool Enabled { get; set; } = true;
     public bool DetailedHints { get; set; }
+    public bool SeekMessages { get; set; } = true;
     public bool SessionMessages { get; set; } = true;
     public bool PlaybackMessages { get; set; } = true;
     public bool VolumeMessages { get; set; } = true;

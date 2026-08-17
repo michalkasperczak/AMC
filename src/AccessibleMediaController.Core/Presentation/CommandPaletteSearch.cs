@@ -66,6 +66,9 @@ public static class CommandPaletteSearch
             CommandIds.SettingsToggleDetailedHints => settings.Messages.DetailedHints
                 ? "Szczegółowe podpowiedzi klawiatury: włączone. Enter: wyłącz"
                 : "Szczegółowe podpowiedzi klawiatury: wyłączone. Enter: włącz",
+            CommandIds.SettingsToggleSeekMessages => settings.Messages.SeekMessages
+                ? "Odczyt pozycji po przewijaniu: włączony. Enter: wyłącz"
+                : "Odczyt pozycji po przewijaniu: wyłączony. Enter: włącz",
             _ => CommandCatalog.GetDisplayName(commandId)
         };
     }
@@ -134,6 +137,7 @@ public static class CommandPaletteSearch
             CommandIds.OpenLocalFiles => "Ctrl+O",
             CommandIds.OpenLocalFolder => "Ctrl+Shift+O",
             CommandIds.SettingsGeneral => "Ctrl+,",
+            CommandIds.SettingsToggleSeekMessages => "Ctrl+Shift+G",
             _ => null
         };
     }

@@ -1,83 +1,68 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-037`
-- Tytuł zestawu: Sterowanie z listy i stan odtwarzanego elementu
-- Wersja programu: `0.1.0-alpha.37`
-- Utworzono: 2026-08-17 14:52, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_1452_0.1.0-alpha.37.md`
+- Numer zestawu: `AMC-TEST-038`
+- Tytuł zestawu: Wyciszanie informacji po przewijaniu
+- Wersja programu: `0.1.0-alpha.38`
+- Utworzono: 2026-08-17 15:27, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_1527_0.1.0-alpha.38.md`
 
 W pliku wyników po dwukropku wpisz krótko, co się wydarzyło. Jeżeli wszystko działa, wystarczy `OK`. Nie trzeba przed każdym zadaniem wybierać wariantu odpowiedzi.
 
-Do prób odtwarzania otwórz przez `Ctrl+O` co najmniej dwa pliki, w tym jeden trwający ponad dwie minuty.
+Otwórz plik trwający ponad dwie minuty i przejdź Enterem do odtwarzacza.
 
-## AMC-037-01 — Pierwsza zmiana sesji
+## AMC-038-01 — Szybkie wyłączenie
 
-1. Zaraz po uruchomieniu użyj kolejno dwóch przypisanych skrótów `Ctrl+cyfra`.
-2. Powtórz przełączanie po kilku sekundach.
-
-Oczekiwane:
-
-- za pierwszym i kolejnym razem NVDA podaje numer sesji, usługę oraz element;
-- nie pojawia się „Stan programu” ani „Stan programu, Stan programu”;
-- fokus pozostaje na liście.
-
-## AMC-037-02 — Odtwarzany i wstrzymany element
-
-1. Na pierwszym pliku naciśnij `Ctrl+Enter`.
-2. Przejdź strzałką na drugi plik, a następnie wróć na pierwszy.
-3. Wstrzymaj odtwarzanie Spacją i ponownie odczytaj pierwszy plik.
+1. Naciśnij `Ctrl+Shift+G`.
+2. Użyj kilka razy lewo/prawo, `Shift+lewo/prawo` i `Ctrl+lewo/prawo`.
+3. Sprawdź także Home i End.
 
 Oczekiwane:
 
-- aktywny plik jest oznaczony na liście słowem „Odtwarzany”;
-- po pauzie ten sam plik jest oznaczony słowem „Wstrzymany”;
-- zaznaczenie nie jest samoczynnie przenoszone do bieżącego pliku.
+- skrót mówi raz „Odczyt pozycji po przewijaniu wyłączony”;
+- wszystkie polecenia nadal zmieniają pozycję;
+- po każdym przewinięciu program nie wypowiada liczby sekund ani czasu.
 
-## AMC-037-03 — F6 i zapamiętane miejsce
+## AMC-038-02 — Czas na żądanie
 
-1. Uruchom pierwszy plik, po czym przejdź zaznaczeniem na drugi bez jego odtwarzania.
-2. Naciśnij F6, a potem Escape.
-
-Oczekiwane:
-
-- F6 pokazuje odtwarzacz pierwszego pliku;
-- Escape wraca do drugiego, ostatnio przeglądanego pliku;
-- pierwszy plik nadal gra i pozostaje oznaczony jako „Odtwarzany”.
-
-## AMC-037-04 — Skróty czasu
-
-1. Na liście sprawdź `Ctrl+Shift+E`, `Ctrl+Shift+R` i `Ctrl+Shift+T`.
-2. Powtórz je w odtwarzaczu otwartym klawiszem F6.
+1. Przy wyłączonym odczycie przewijaj strzałkami.
+2. Naciśnij `Ctrl+Shift+E`, `Ctrl+Shift+R` i `Ctrl+Shift+T`.
 
 Oczekiwane:
 
-- skróty podają odpowiednio czas od początku, pozostały i całkowity;
-- działają niezawodnie zarówno na liście, jak i w odtwarzaczu;
-- dawne skróty `Ctrl+E/R/T` nie są już prezentowane w palecie jako skróty okna.
+- automatyczne informacje pozostają ciche;
+- każde z trzech jawnych poleceń czasu nadal podaje aktualną wartość.
 
-## AMC-037-05 — Trzy kroki przewijania
+## AMC-038-03 — Ponowne włączenie
 
-1. W odtwarzaczu sprawdź lewo/prawo.
-2. Sprawdź `Shift+lewo/prawo`.
-3. Sprawdź `Ctrl+lewo/prawo`.
+1. Naciśnij ponownie `Ctrl+Shift+G`.
+2. Użyj strzałki w prawo.
 
 Oczekiwane:
 
-- bez modyfikatora pozycja zmienia się o około 10 sekund;
-- z Shiftem — o około 30 sekund;
-- z Ctrl — o około minutę;
-- zwykłe strzałki na liście nadal nie sterują transportem.
+- skrót potwierdza włączenie odczytu;
+- po przewinięciu program znowu podaje nową pozycję.
 
-## AMC-037-06 — Sterowanie bez otwierania odtwarzacza
+## AMC-038-04 — Ustawienia i paleta
 
-1. Wróć Escape do listy i ustaw zaznaczenie na innym pliku niż odtwarzany.
-2. Spacją wstrzymaj i wznów bieżące odtwarzanie.
-3. `Ctrl+Enter` uruchom zaznaczony plik i sprawdź, czy lista pozostała otwarta.
+1. Otwórz Ustawienia i kartę „Komunikaty”.
+2. Sprawdź checkbox „Oznajmiaj pozycję po przewijaniu”.
+3. W palecie `Ctrl+Shift+K` wyszukaj „pozycja przewijanie”.
 
 Oczekiwane:
 
-- Spacja steruje tym, co faktycznie gra, niezależnie od zaznaczenia;
-- `Ctrl+Enter` steruje zaznaczeniem bez przejścia do odtwarzacza;
-- dopiero Enter lub F6 otwiera odtwarzacz.
+- checkbox istnieje, ma zrozumiałą pomoc i odpowiada stanowi skrótu;
+- paleta podaje aktualny stan, działanie Entera oraz `Ctrl+Shift+G`;
+- Enter w palecie przełącza opcję i potwierdza zmianę.
 
-Uwaga: Alt+strzałki oraz Ctrl+Shift+strzałki w odtwarzaczu pozostają obecnie wolne. Konfiguracja lokalnych skrótów odtwarzacza jest zapisana jako późniejsze rozszerzenie ustawień.
+## AMC-038-05 — Zapamiętanie ustawienia
+
+1. Pozostaw odczyt pozycji wyłączony i zamknij AMC.
+2. Uruchom ponownie alpha.38, otwórz plik i odtwarzacz, a następnie użyj strzałki.
+
+Oczekiwane:
+
+- po ponownym uruchomieniu przewijanie nadal jest ciche;
+- `Ctrl+Shift+E/R/T` nadal odczytuje czas;
+- `Ctrl+Shift+G` może od razu przywrócić automatyczny odczyt.
+
+Uwaga: opcja nie wycisza komunikatów odtwarzania, pauzy, błędów ani głośności. Dotyczy wyłącznie czasu automatycznie podawanego po zmianie pozycji.

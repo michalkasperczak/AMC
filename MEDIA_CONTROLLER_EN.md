@@ -366,6 +366,7 @@ Approved primary bindings:
 | `Home` in the player | seek to the beginning |
 | `End` in the player | seek to 10 seconds before the end |
 | `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | report elapsed, remaining or total time |
+| `Ctrl+Shift+G` | toggle automatic position feedback after seeking |
 | `Ctrl+D` | download offline within the service when supported |
 | `Ctrl+Shift+D` | download to a local file; experimental and disabled by default |
 | `Backspace` or `Delete` | remove from the current playlist, queue, Favorites or library, with confirmation or Undo |
@@ -442,7 +443,7 @@ Every message should be:
 
 Windows UI Automation is the primary mechanism for the first version. The program must not require NVDA. The macOS Accessibility API will be addressed only when work on the Mac edition begins.
 
-Default messages should be brief. The first version will not provide separate Brief, Normal and Detailed profiles. Instead, the user can edit each message template, disable it, or restore its default. A separate global detailed-keyboard-hints option covers the filter plus current-service and global search; it is off by default, does not alter event-message templates, and mentions only arrows, Enter and Escape on search results.
+Default messages should be brief. The first version will not provide separate Brief, Normal and Detailed profiles. Instead, the user can edit each message template, disable it, or restore its default. A separate global detailed-keyboard-hints option covers the filter plus current-service and global search; it is off by default, does not alter event-message templates, and mentions only arrows, Enter and Escape on search results. An independent seek-position feedback option allows repeated Arrow seeking without speaking every value and does not suppress time information explicitly requested by the user.
 
 Message settings:
 
@@ -635,6 +636,8 @@ State of `alpha.35`: after standard WPF key handling failed manual testing, `Ctr
 State of `alpha.36`: the experimental `alpha.35` transport bindings are removed from ordinary lists and moved into the first accessible player view in the same window. Enter opens the player, `Ctrl+Enter` acts in place, F6 shows current playback, and Escape restores the previous item. The player exposes real buttons and periodically updates title, artist, session, state and time without automatically speaking every second. The main window title and accessible name contain the full version number.
 
 State of `alpha.37`: Escape from the player preserves the last browsed position, while the current item is marked “Playing” or “Paused” in the list. Session switching no longer updates the hidden Status live region before its merged focus announcement. Local time information moves to `Ctrl+Shift+E/R/T`; prefix-layer `Ctrl+E/R/T` remain unchanged. The player seeks by 10 seconds without a modifier, 30 seconds with Shift and one minute with Ctrl. Ordinary lists still retain every arrow, while Space, `Ctrl+Enter` and the prefix provide playback control without opening the player.
+
+State of `alpha.38`: the “Announce position after seeking” option on the Messages tab separates automatic seek feedback from explicit time commands. Disabling it covers transport Arrows, Home and End, while `Ctrl+Shift+E/R/T` still respond. The state persists, appears as a safe command-palette toggle, and can be switched directly with `Ctrl+Shift+G`, which always gives a brief confirmation.
 
 Planned sequence of later stages:
 

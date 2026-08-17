@@ -106,6 +106,7 @@ public partial class SettingsWindow : Window
 
         MessagesEnabledCheck.IsChecked = _workingState.Settings.Messages.Enabled;
         DetailedHintsCheck.IsChecked = _workingState.Settings.Messages.DetailedHints;
+        SeekMessagesCheck.IsChecked = _workingState.Settings.Messages.SeekMessages;
         _messageRows.Clear();
         foreach (var pair in _workingState.Settings.Messages.Templates
                      .OrderBy(pair => MessageTemplateSortOrder(pair.Key))
@@ -140,6 +141,7 @@ public partial class SettingsWindow : Window
 
         _workingState.Settings.Messages.Enabled = MessagesEnabledCheck.IsChecked == true;
         _workingState.Settings.Messages.DetailedHints = DetailedHintsCheck.IsChecked == true;
+        _workingState.Settings.Messages.SeekMessages = SeekMessagesCheck.IsChecked == true;
         _workingState.Settings.Messages.Templates = _messageRows.ToDictionary(
             row => row.EventId,
             row => row.Template ?? string.Empty,

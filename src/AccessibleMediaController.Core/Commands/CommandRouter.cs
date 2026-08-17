@@ -23,6 +23,7 @@ public interface IApplicationActions
     void ShowSettings(SettingsTarget target);
     void ToggleAccessibilityMessages();
     void ToggleDetailedHints();
+    void ToggleSeekMessages();
     void OpenLocalFiles();
     void OpenLocalFolder();
 }
@@ -57,6 +58,12 @@ public sealed class CommandRouter(
         if (commandId == CommandIds.SettingsToggleDetailedHints)
         {
             application.ToggleDetailedHints();
+            return new(true);
+        }
+
+        if (commandId == CommandIds.SettingsToggleSeekMessages)
+        {
+            application.ToggleSeekMessages();
             return new(true);
         }
 
@@ -115,12 +122,12 @@ public sealed class CommandRouter(
             case CommandIds.VolumeDown1: return Volume(current, -1);
             case CommandIds.TrackStart:
                 current.SetPosition(TimeSpan.Zero);
-                announcements.Announce("0:00");
+                if (settings.Messages.SeekMessages) announcements.Announce("0:00");
                 return new(true);
             case CommandIds.TrackEnd:
                 var nearEnd = Max(TimeSpan.Zero, current.CurrentItem.Duration - TimeSpan.FromSeconds(10));
                 current.SetPosition(nearEnd);
-                announcements.Announce(FormatTime(nearEnd));
+                if (settings.Messages.SeekMessages) announcements.Announce(FormatTime(nearEnd));
                 return new(true);
             case CommandIds.TimeElapsed:
                 AnnounceTemplate("time.elapsed", "{elapsed}", ("elapsed", FormatTime(current.Position)));
@@ -282,7 +289,7 @@ public sealed class CommandRouter(
     private CommandExecutionResult Seek(DemoMediaSession session, int seconds)
     {
         session.Seek(TimeSpan.FromSeconds(seconds));
-        announcements.Announce(FormatTime(session.Position));
+        if (settings.Messages.SeekMessages) announcements.Announce(FormatTime(session.Position));
         return new(true);
     }
 

@@ -63,6 +63,7 @@ static void TestDefaultProfile()
     Equal("Ctrl+Alt+Windows+F12", settings.PrefixChord);
     Equal(true, settings.Messages.Enabled);
     Equal(false, settings.Messages.DetailedHints);
+    Equal(true, settings.Messages.SeekMessages);
     Equal(StartupTarget.MediaList, settings.StartupTarget);
 
     var profile = KeyboardProfile.CreateDefault();
@@ -618,6 +619,9 @@ static void TestCommandPalette()
     Equal("Komunikaty dostępności: włączone. Enter: wyłącz", messages.DisplayName);
     var hints = entries.Single(entry => entry.CommandId == CommandIds.SettingsToggleDetailedHints);
     Equal("Szczegółowe podpowiedzi klawiatury: wyłączone. Enter: włącz", hints.DisplayName);
+    var seekMessages = entries.Single(entry => entry.CommandId == CommandIds.SettingsToggleSeekMessages);
+    Equal("Odczyt pozycji po przewijaniu: włączony. Enter: wyłącz", seekMessages.DisplayName);
+    Equal("Ctrl+Shift+G", seekMessages.LocalShortcut);
     Equal("Ctrl+,", entries.Single(entry => entry.CommandId == CommandIds.SettingsGeneral).LocalShortcut);
     True(
         entries.Any(entry => entry.CommandId == CommandIds.SettingsImportFullBackup),
@@ -633,6 +637,7 @@ static void TestCommandPalette()
 
     settings.Messages.Enabled = false;
     settings.Messages.DetailedHints = true;
+    settings.Messages.SeekMessages = false;
     var changedEntries = CommandPaletteSearch.CreateEntries(profile, settings);
     Equal(
         "Komunikaty dostępności: wyłączone. Enter: włącz",
@@ -640,6 +645,9 @@ static void TestCommandPalette()
     Equal(
         "Szczegółowe podpowiedzi klawiatury: włączone. Enter: wyłącz",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsToggleDetailedHints).DisplayName);
+    Equal(
+        "Odczyt pozycji po przewijaniu: wyłączony. Enter: włącz",
+        changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsToggleSeekMessages).DisplayName);
 }
 
 static void TestMembershipHistory()
@@ -685,12 +693,18 @@ static void TestTimeCommands()
     Equal("1:23", sink.LastMessage);
     router.Execute(CommandIds.TimeTotal);
     True(!sink.LastMessage.Contains("czas", StringComparison.OrdinalIgnoreCase), "Komunikat czasu powinien zawierać tylko wartość.");
+    settings.Messages.SeekMessages = false;
+    var messageBeforeSilentSeek = sink.LastMessage;
     router.Execute(CommandIds.SeekForward30);
     Equal(TimeSpan.FromSeconds(113), sessions.Current.Position);
+    Equal(messageBeforeSilentSeek, sink.LastMessage);
     router.Execute(CommandIds.SeekBackward30);
     Equal(TimeSpan.FromSeconds(83), sessions.Current.Position);
     router.Execute(CommandIds.TrackEnd);
     Equal(sessions.Current.CurrentItem.Duration - TimeSpan.FromSeconds(10), sessions.Current.Position);
+    Equal(messageBeforeSilentSeek, sink.LastMessage);
+    router.Execute(CommandIds.TimeElapsed);
+    Equal(CommandRouter.FormatTime(sessions.Current.Position), sink.LastMessage);
     router.Execute(CommandIds.ActivateSelected);
     Equal("Odtwarzanie: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.ActivateSelected);
@@ -721,6 +735,8 @@ static void TestTimeCommands()
     True(actions.MessagesToggled, "Router powinien przekazać przełączenie komunikatów do aplikacji.");
     router.Execute(CommandIds.SettingsToggleDetailedHints);
     True(actions.DetailedHintsToggled, "Router powinien przekazać przełączenie szczegółowych podpowiedzi do aplikacji.");
+    router.Execute(CommandIds.SettingsToggleSeekMessages);
+    True(actions.SeekMessagesToggled, "Router powinien przekazać przełączenie odczytu przewijania do aplikacji.");
 }
 
 static void TestExports()
@@ -732,9 +748,13 @@ static void TestExports()
         var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
         var state = ConfigurationStore.CreateDefaultState();
         state.Settings.Messages.DetailedHints = true;
+        state.Settings.Messages.SeekMessages = false;
         var mapPath = Path.Combine(directory, "map.amckeys.json");
         var settingsPath = Path.Combine(directory, "settings.amcsettings.json");
         var backupPath = Path.Combine(directory, "all.amcbackup.json");
+
+        store.Save(state);
+        Equal(false, store.LoadOrCreate().Settings.Messages.SeekMessages);
 
         store.ExportKeyboardMap(mapPath, state.KeyboardProfiles[0]);
         var importedProfile = store.ImportKeyboardMap(mapPath);
@@ -745,11 +765,13 @@ static void TestExports()
         Equal("default", importedSettings.ActiveKeyboardProfileId);
         Equal(MediaItemField.Title, importedSettings.Lists.FieldOrder[0]);
         Equal(true, importedSettings.Messages.DetailedHints);
+        Equal(false, importedSettings.Messages.SeekMessages);
 
         store.ExportFullBackup(backupPath, state);
         var importedBackup = store.ImportFullBackup(backupPath);
         Equal(3, importedBackup.Settings.SessionSlots.Count);
         Equal(1, importedBackup.KeyboardProfiles.Count);
+        Equal(false, importedBackup.Settings.Messages.SeekMessages);
     }
     finally
     {
@@ -783,6 +805,7 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
     public SettingsTarget? LastSettingsTarget { get; private set; }
     public bool MessagesToggled { get; private set; }
     public bool DetailedHintsToggled { get; private set; }
+    public bool SeekMessagesToggled { get; private set; }
     public void ShowCurrentSession(string viewName) { }
     public void ShowFilter() { }
     public void ShowSessionList() { }
@@ -794,6 +817,7 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
     public void ShowSettings(SettingsTarget target) => LastSettingsTarget = target;
     public void ToggleAccessibilityMessages() => MessagesToggled = true;
     public void ToggleDetailedHints() => DetailedHintsToggled = true;
+    public void ToggleSeekMessages() => SeekMessagesToggled = true;
     public void OpenLocalFiles() { }
     public void OpenLocalFolder() { }
 }

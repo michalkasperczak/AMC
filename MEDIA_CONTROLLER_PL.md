@@ -366,6 +366,7 @@ Zatwierdzone przypisania podstawowe:
 | `Home` w odtwarzaczu | przejdź na początek utworu |
 | `End` w odtwarzaczu | przejdź 10 sekund przed końcem utworu |
 | `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | podaj czas od początku, pozostały albo całkowity |
+| `Ctrl+Shift+G` | włącz lub wyłącz automatyczny odczyt pozycji po przewijaniu |
 | `Ctrl+D` | pobierz offline wewnątrz usługi, jeśli obsługiwane |
 | `Ctrl+Shift+D` | pobierz do pliku lokalnego; funkcja eksperymentalna, domyślnie wyłączona |
 | `Backspace` lub `Delete` | usuń z bieżącej playlisty, kolejki, ulubionych lub biblioteki; z potwierdzeniem albo możliwością cofnięcia |
@@ -442,7 +443,7 @@ Każdy komunikat powinien być jednocześnie:
 
 Podstawą pierwszej wersji jest UI Automation w Windows. Program nie może wymagać NVDA do działania. Accessibility API w macOS zostanie opracowane dopiero przy rozpoczęciu prac nad wydaniem dla Maca.
 
-Domyślne komunikaty mają być krótkie. W pierwszej wersji nie wprowadzamy osobnych profili „krótki”, „normalny” i „szczegółowy”. Zamiast nich użytkownik może edytować szablon każdego komunikatu, wyłączyć go albo przywrócić ustawienie domyślne. Oddzielna globalna opcja szczegółowych podpowiedzi klawiatury obejmuje filtr oraz wyszukiwanie bieżące i globalne; jest domyślnie wyłączona, nie zmienia treści komunikatów zdarzeń, a na wynikach wymienia tylko strzałki, Enter i Escape.
+Domyślne komunikaty mają być krótkie. W pierwszej wersji nie wprowadzamy osobnych profili „krótki”, „normalny” i „szczegółowy”. Zamiast nich użytkownik może edytować szablon każdego komunikatu, wyłączyć go albo przywrócić ustawienie domyślne. Oddzielna globalna opcja szczegółowych podpowiedzi klawiatury obejmuje filtr oraz wyszukiwanie bieżące i globalne; jest domyślnie wyłączona, nie zmienia treści komunikatów zdarzeń, a na wynikach wymienia tylko strzałki, Enter i Escape. Niezależna opcja odczytu pozycji po przewijaniu pozwala seryjnie używać strzałek bez wypowiadania każdej wartości; nie wycisza informacji o czasie wywołanych na żądanie.
 
 Ustawienia komunikatów:
 
@@ -637,6 +638,8 @@ Stan `alpha.35`: po nieudanym teście standardowej obsługi WPF polecenia `Ctrl+
 Stan `alpha.36`: eksperymentalne skróty transportowe `alpha.35` zostały wycofane ze zwykłej listy i przeniesione do pierwszego dostępnego widoku odtwarzacza w tym samym oknie. Enter otwiera odtwarzacz, `Ctrl+Enter` działa na liście, F6 pokazuje bieżące odtwarzanie, a Escape przywraca wcześniejszy element. Odtwarzacz udostępnia prawdziwe przyciski oraz okresowo aktualizowane dane tytułu, wykonawcy, sesji, stanu i czasu bez automatycznego wypowiadania każdej sekundy. Tytuł i dostępna nazwa głównego okna zawierają pełny numer wersji.
 
 Stan `alpha.37`: Escape z odtwarzacza zachowuje pozycję ostatnio przeglądaną, a bieżący element jest oznaczany na liście jako „Odtwarzany” lub „Wstrzymany”. Zmiana sesji nie aktualizuje już ukrytego obszaru „Stan programu” przed scalonym komunikatem fokusowym. Lokalne informacje o czasie przechodzą na `Ctrl+Shift+E/R/T`; prefiksowe `Ctrl+E/R/T` pozostają bez zmian. Odtwarzacz przewija o 10 sekund bez modyfikatora, o 30 sekund z Shiftem i o minutę z Ctrl. Zwykła lista nadal zachowuje wszystkie strzałki, a Spacja, `Ctrl+Enter` i prefiks umożliwiają sterowanie bez otwierania odtwarzacza.
+
+Stan `alpha.38`: opcja „Oznajmiaj pozycję po przewijaniu” na karcie Komunikaty oddziela automatyczną informację po przewijaniu od jawnych poleceń czasu. Wyłączenie obejmuje strzałki transportowe, Home i End, ale `Ctrl+Shift+E/R/T` nadal odpowiada. Stan jest trwały, dostępny jako bezpieczny przełącznik palety i przełączany bezpośrednio przez `Ctrl+Shift+G` z wymuszonym krótkim potwierdzeniem.
 
 Planowana kolejność dalszych etapów:
 

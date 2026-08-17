@@ -136,6 +136,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -145,15 +146,18 @@
                     <CheckBox x:Name="DetailedHintsCheck" Grid.Row="1" Margin="0,0,0,10"
                               Content="Pokazuj _szczegółowe podpowiedzi klawiatury przy polach i listach"
                               automation:AutomationProperties.HelpText="Domyślnie wyłączone. Dotyczy filtra oraz wyszukiwania bieżącego i globalnego." />
-                    <TextBlock Grid.Row="2" Margin="0,0,0,8" TextWrapping="Wrap"
+                    <CheckBox x:Name="SeekMessagesCheck" Grid.Row="2" Margin="0,0,0,10"
+                              Content="Oznajmiaj _pozycję po przewijaniu"
+                              automation:AutomationProperties.HelpText="Skrót Ctrl+Shift+G. Wyłączenie nie wycisza poleceń Ctrl+Shift+E, R i T odczytujących czas na żądanie." />
+                    <TextBlock Grid.Row="3" Margin="0,0,0,8" TextWrapping="Wrap"
                                Text="Wybierz zdarzenie z listy, a następnie zmień jego tekst w osobnym polu. Pusty tekst wyłącza dany komunikat." />
-                    <DockPanel Grid.Row="3">
+                    <DockPanel Grid.Row="4">
                         <Label DockPanel.Dock="Top" Target="{Binding ElementName=MessageTemplatesList}">_Zdarzenie:</Label>
                         <ListBox x:Name="MessageTemplatesList" DisplayMemberPath="EventLabel"
                                  automation:AutomationProperties.Name="Zdarzenia komunikatów" />
                     </DockPanel>
-                    <Label Grid.Row="4" Margin="0,8,0,0" Target="{Binding ElementName=MessageTemplateText}">_Tekst szablonu:</Label>
-                    <TextBox x:Name="MessageTemplateText" Grid.Row="5" MinHeight="42" TextWrapping="Wrap"
+                    <Label Grid.Row="5" Margin="0,8,0,0" Target="{Binding ElementName=MessageTemplateText}">_Tekst szablonu:</Label>
+                    <TextBox x:Name="MessageTemplateText" Grid.Row="6" MinHeight="42" TextWrapping="Wrap"
                              Text="{Binding SelectedItem.Template, ElementName=MessageTemplatesList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              automation:AutomationProperties.Name="Tekst szablonu wybranego komunikatu"
                              automation:AutomationProperties.HelpText="Dostępne znaczniki zależą od zdarzenia, na przykład item, slot, service albo value, zapisane w nawiasach klamrowych." />

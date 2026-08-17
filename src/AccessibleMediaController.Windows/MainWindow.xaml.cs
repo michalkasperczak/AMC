@@ -54,6 +54,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private const int WmKeyDown = 0x0100;
     private const int VirtualKeyE = 0x45;
+    private const int VirtualKeyG = 0x47;
     private const int VirtualKeyR = 0x52;
     private const int VirtualKeyT = 0x54;
     private const int VirtualKeyZ = 0x5A;
@@ -360,6 +361,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "F6 otwiera odtwarzacz. W odtwarzaczu strzałki w lewo i w prawo przewijają o 10 sekund, z Shiftem o 30 sekund, a z Ctrl o minutę, " +
             "strzałki w górę i w dół zmieniają głośność, Home i End przechodzą na początek i w pobliże końca, " +
             "a Escape wraca do wcześniejszej listy. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
+            "Ctrl+Shift+G włącza lub wyłącza automatyczny odczyt pozycji po przewijaniu. " +
             "Alt+Enter pokazuje informacje. " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
@@ -389,6 +391,15 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         AnnounceEssential(_state.Settings.Messages.DetailedHints
             ? "Szczegółowe podpowiedzi klawiatury włączone"
             : "Szczegółowe podpowiedzi klawiatury wyłączone");
+    }
+
+    public void ToggleSeekMessages()
+    {
+        _state.Settings.Messages.SeekMessages = !_state.Settings.Messages.SeekMessages;
+        _store.Save(_state);
+        AnnounceEssential(_state.Settings.Messages.SeekMessages
+            ? "Odczyt pozycji po przewijaniu włączony"
+            : "Odczyt pozycji po przewijaniu wyłączony");
     }
 
     public void OpenLocalFiles()
@@ -1116,6 +1127,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         {
             (ModifierKeys.Control, VirtualKeyZ) => UndoLastMembershipChange,
             (ModifierKeys.Control | ModifierKeys.Shift, VirtualKeyE) => () => ExecuteCommand(CommandIds.TimeElapsed),
+            (ModifierKeys.Control | ModifierKeys.Shift, VirtualKeyG) => () => ExecuteCommand(CommandIds.SettingsToggleSeekMessages),
             (ModifierKeys.Control | ModifierKeys.Shift, VirtualKeyR) => () => ExecuteCommand(CommandIds.TimeRemaining),
             (ModifierKeys.Control | ModifierKeys.Shift, VirtualKeyT) => () => ExecuteCommand(CommandIds.TimeTotal),
             _ => null
@@ -1377,6 +1389,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             (ModifierKeys.Control, Key.F) => CommandIds.SearchCurrent,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.A) => CommandIds.ViewAlbums,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.F) => CommandIds.SearchAll,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.G) => CommandIds.SettingsToggleSeekMessages,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.K) => CommandIds.CommandPalette,
             _ => null
         };
