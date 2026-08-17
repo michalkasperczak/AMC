@@ -96,6 +96,8 @@ In `alpha.38`, the **Messages** tab includes an **Announce position after seekin
 
 In `alpha.39`, digits `0–9` in the player seek to `0%, 10%, …, 90%` of the track duration. Numpad digits work with Num Lock enabled. Digits keep their native item-navigation behaviour on ordinary lists, while `Ctrl+digit` still selects a session. Percentage seeking follows the seek-announcement preference; when duration is unknown, AMC reports that the action is unavailable instead of guessing.
 
+In `alpha.40`, a digit seek announces only its percentage by default, for example “50%”; the exact position remains available through `Ctrl+Shift+E`. The **Messages** tab offers **Percentage only**, **Time only**, and **Percentage and time**. The existing toggle and `Ctrl+Shift+G` now cover automatic time and volume feedback. Disabling them does not silence playback, pause, errors, or explicit time commands.
+
 The current demonstration catalogue may present combined test results. A real TIDAL adapter will be an isolated module: `Ctrl+Shift+F` may initiate its query, but TIDAL content will not be mixed into one list with content from similar services. AMC opens a separate, attributed TIDAL results view while retaining the shared commands.
 
 The planned YouTube module starts with public search and the official visible player, without account synchronisation. OAuth is only required later for deliberately added user-specific features. AMC will not download, isolate audio from, or record content played from YouTube, and unstable extractors will not become part of the core. The browsing experience may resemble podcasts, but playback remains in the official YouTube player.

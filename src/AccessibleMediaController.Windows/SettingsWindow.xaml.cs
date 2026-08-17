@@ -89,6 +89,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.ImportFullBackup => (ImportExportTab, ImportFullBackupButton),
             SettingsTarget.ExportFullBackup => (ImportExportTab, ExportFullBackupButton),
             SettingsTarget.Messages => (MessagesTab, MessagesTab),
+            SettingsTarget.PercentageSeekAnnouncement => (MessagesTab, PercentageSeekAnnouncementCombo),
             SettingsTarget.MessageTemplates => (MessagesTab, MessageTemplatesList),
             SettingsTarget.Updates => (UpdatesTab, UpdatesTab),
             _ => (GeneralTab, GeneralTab)
@@ -106,7 +107,11 @@ public partial class SettingsWindow : Window
 
         MessagesEnabledCheck.IsChecked = _workingState.Settings.Messages.Enabled;
         DetailedHintsCheck.IsChecked = _workingState.Settings.Messages.DetailedHints;
-        SeekMessagesCheck.IsChecked = _workingState.Settings.Messages.SeekMessages;
+        SeekMessagesCheck.IsChecked = _workingState.Settings.Messages.SeekMessages
+            && _workingState.Settings.Messages.VolumeMessages;
+        SelectComboByTag(
+            PercentageSeekAnnouncementCombo,
+            _workingState.Settings.Messages.PercentageSeekAnnouncement.ToString());
         _messageRows.Clear();
         foreach (var pair in _workingState.Settings.Messages.Templates
                      .OrderBy(pair => MessageTemplateSortOrder(pair.Key))
@@ -141,7 +146,15 @@ public partial class SettingsWindow : Window
 
         _workingState.Settings.Messages.Enabled = MessagesEnabledCheck.IsChecked == true;
         _workingState.Settings.Messages.DetailedHints = DetailedHintsCheck.IsChecked == true;
-        _workingState.Settings.Messages.SeekMessages = SeekMessagesCheck.IsChecked == true;
+        var announcePlayerChanges = SeekMessagesCheck.IsChecked == true;
+        _workingState.Settings.Messages.SeekMessages = announcePlayerChanges;
+        _workingState.Settings.Messages.VolumeMessages = announcePlayerChanges;
+        if (Enum.TryParse<PercentageSeekAnnouncementMode>(
+                SelectedTag(PercentageSeekAnnouncementCombo, nameof(PercentageSeekAnnouncementMode.Percent)),
+                out var percentageSeekAnnouncement))
+        {
+            _workingState.Settings.Messages.PercentageSeekAnnouncement = percentageSeekAnnouncement;
+        }
         _workingState.Settings.Messages.Templates = _messageRows.ToDictionary(
             row => row.EventId,
             row => row.Template ?? string.Empty,

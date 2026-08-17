@@ -24,6 +24,7 @@ public enum SettingsTarget
     ImportFullBackup,
     ExportFullBackup,
     Messages,
+    PercentageSeekAnnouncement,
     MessageTemplates,
     Updates
 }

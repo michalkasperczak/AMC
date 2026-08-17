@@ -110,7 +110,8 @@ public static class CommandCatalog
             CommandIds.SettingsMessages => "Ustawienia: komunikaty",
             CommandIds.SettingsToggleMessages => "Przełącz komunikaty dostępności",
             CommandIds.SettingsToggleDetailedHints => "Przełącz szczegółowe podpowiedzi klawiatury",
-            CommandIds.SettingsToggleSeekMessages => "Przełącz odczyt pozycji po przewijaniu",
+            CommandIds.SettingsToggleSeekMessages => "Przełącz automatyczne komunikaty czasu i głośności",
+            CommandIds.SettingsPercentageSeekAnnouncement => "Ustawienia: komunikat po skoku cyfrą",
             CommandIds.SettingsMessageTemplates => "Ustawienia: szablony komunikatów",
             CommandIds.SettingsUpdates => "Ustawienia: aktualizacje, planowane",
             _ => commandId

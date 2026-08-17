@@ -8,7 +8,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 8;
+    public const int CurrentSchemaVersion = 9;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -203,6 +203,13 @@ public sealed class ConfigurationStore(string statePath)
             ReplaceTemplateIfDefault(settings, "favorite.removed", "Usunięto z ulubionych", "Usunięto z ulubionych: {item}");
             settings.Messages.Templates.TryAdd("favorite.added", "Dodano do ulubionych: {item}");
             settings.Messages.Templates.TryAdd("favorite.removed", "Usunięto z ulubionych: {item}");
+        }
+
+        if (schemaVersion < 9)
+        {
+            // Alpha.40 broadens the existing seek-feedback switch to include
+            // volume feedback. Preserve the user's previous on/off choice.
+            settings.Messages.VolumeMessages = settings.Messages.SeekMessages;
         }
     }
 

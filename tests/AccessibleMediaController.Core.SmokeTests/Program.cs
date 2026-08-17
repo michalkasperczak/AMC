@@ -20,6 +20,7 @@ var tests = new (string Name, Action Test)[]
     ("Migracja krótkich komunikatów alpha.7", TestVersion4MessageMigration),
     ("Migracja komunikatów z nazwą elementu alpha.8", TestVersion5MessageMigration),
     ("Migracja nazw w komunikatach Ulubionych alpha.18", TestVersion6FavoriteMessageMigration),
+    ("Migracja wspólnego wyciszenia alpha.40", TestVersion9PlayerMessageMigration),
     ("Przełączanie sesji", TestSessions),
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
@@ -64,6 +65,8 @@ static void TestDefaultProfile()
     Equal(true, settings.Messages.Enabled);
     Equal(false, settings.Messages.DetailedHints);
     Equal(true, settings.Messages.SeekMessages);
+    Equal(true, settings.Messages.VolumeMessages);
+    Equal(PercentageSeekAnnouncementMode.Percent, settings.Messages.PercentageSeekAnnouncement);
     Equal(StartupTarget.MediaList, settings.StartupTarget);
 
     var profile = KeyboardProfile.CreateDefault();
@@ -125,6 +128,8 @@ static void TestCommandCatalog()
     Equal("Dodaj lub usuń z ulubionych", CommandCatalog.GetDisplayName(CommandIds.ToggleFavorite));
     Equal("Dodaj lub usuń z kolejki", CommandCatalog.GetDisplayName(CommandIds.AddQueue));
     Equal("Ustawienia: szablony komunikatów", CommandCatalog.GetDisplayName(CommandIds.SettingsMessageTemplates));
+    Equal("Ustawienia: komunikat po skoku cyfrą", CommandCatalog.GetDisplayName(CommandIds.SettingsPercentageSeekAnnouncement));
+    Equal("Przełącz automatyczne komunikaty czasu i głośności", CommandCatalog.GetDisplayName(CommandIds.SettingsToggleSeekMessages));
     Equal("Otwórz lokalne pliki audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
     Equal("Otwórz folder z plikami audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
@@ -497,6 +502,32 @@ static void TestVersion6FavoriteMessageMigration()
     }
 }
 
+static void TestVersion9PlayerMessageMigration()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-v9-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var statePath = Path.Combine(directory, "state.json");
+        var store = new ConfigurationStore(statePath);
+        var state = ConfigurationStore.CreateDefaultState();
+        state.SchemaVersion = 8;
+        state.Settings.Messages.SeekMessages = false;
+        state.Settings.Messages.VolumeMessages = true;
+        store.Save(state);
+
+        var loaded = store.LoadOrCreate();
+        Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
+        Equal(false, loaded.Settings.Messages.SeekMessages);
+        Equal(false, loaded.Settings.Messages.VolumeMessages);
+        Equal(PercentageSeekAnnouncementMode.Percent, loaded.Settings.Messages.PercentageSeekAnnouncement);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
 static void TestCatalogSearch()
 {
     var manager = new SessionManager(new AppSettings());
@@ -627,8 +658,11 @@ static void TestCommandPalette()
     var hints = entries.Single(entry => entry.CommandId == CommandIds.SettingsToggleDetailedHints);
     Equal("Szczegółowe podpowiedzi klawiatury: wyłączone. Enter: włącz", hints.DisplayName);
     var seekMessages = entries.Single(entry => entry.CommandId == CommandIds.SettingsToggleSeekMessages);
-    Equal("Odczyt pozycji po przewijaniu: włączony. Enter: wyłącz", seekMessages.DisplayName);
+    Equal("Automatyczne komunikaty czasu i głośności: włączone. Enter: wyłącz", seekMessages.DisplayName);
     Equal("Ctrl+Shift+G", seekMessages.LocalShortcut);
+    Equal(
+        "Komunikat po skoku cyfrą: tylko procent",
+        entries.Single(entry => entry.CommandId == CommandIds.SettingsPercentageSeekAnnouncement).DisplayName);
     Equal("Ctrl+,", entries.Single(entry => entry.CommandId == CommandIds.SettingsGeneral).LocalShortcut);
     True(
         entries.Any(entry => entry.CommandId == CommandIds.SettingsImportFullBackup),
@@ -645,6 +679,8 @@ static void TestCommandPalette()
     settings.Messages.Enabled = false;
     settings.Messages.DetailedHints = true;
     settings.Messages.SeekMessages = false;
+    settings.Messages.VolumeMessages = false;
+    settings.Messages.PercentageSeekAnnouncement = PercentageSeekAnnouncementMode.PercentAndTime;
     var changedEntries = CommandPaletteSearch.CreateEntries(profile, settings);
     Equal(
         "Komunikaty dostępności: wyłączone. Enter: włącz",
@@ -653,8 +689,11 @@ static void TestCommandPalette()
         "Szczegółowe podpowiedzi klawiatury: włączone. Enter: wyłącz",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsToggleDetailedHints).DisplayName);
     Equal(
-        "Odczyt pozycji po przewijaniu: wyłączony. Enter: włącz",
+        "Automatyczne komunikaty czasu i głośności: wyłączone. Enter: włącz",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsToggleSeekMessages).DisplayName);
+    Equal(
+        "Komunikat po skoku cyfrą: procent i czas",
+        changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsPercentageSeekAnnouncement).DisplayName);
 }
 
 static void TestMembershipHistory()
@@ -701,7 +740,11 @@ static void TestTimeCommands()
     router.Execute(CommandIds.TimeTotal);
     True(!sink.LastMessage.Contains("czas", StringComparison.OrdinalIgnoreCase), "Komunikat czasu powinien zawierać tylko wartość.");
     settings.Messages.SeekMessages = false;
+    settings.Messages.VolumeMessages = false;
     var messageBeforeSilentSeek = sink.LastMessage;
+    router.Execute(CommandIds.VolumeUp5);
+    Equal(40, sessions.Current.Volume);
+    Equal(messageBeforeSilentSeek, sink.LastMessage);
     router.Execute(CommandIds.SeekForward30);
     Equal(TimeSpan.FromSeconds(113), sessions.Current.Position);
     Equal(messageBeforeSilentSeek, sink.LastMessage);
@@ -721,14 +764,23 @@ static void TestTimeCommands()
     router.Execute(CommandIds.TimeElapsed);
     Equal(CommandRouter.FormatTime(sessions.Current.Position), sink.LastMessage);
     settings.Messages.SeekMessages = true;
+    settings.Messages.VolumeMessages = true;
     router.Execute(CommandIds.SeekPercent(90));
     Equal(
         TimeSpan.FromTicks((long)Math.Round(sessions.Current.CurrentItem.Duration.Ticks * 0.9d)),
         sessions.Current.Position);
-    Equal(CommandRouter.FormatTime(sessions.Current.Position), sink.LastMessage);
+    Equal("90%", sink.LastMessage);
     router.Execute(CommandIds.SeekPercent(0));
     Equal(TimeSpan.Zero, sessions.Current.Position);
-    Equal("0:00", sink.LastMessage);
+    Equal("0%", sink.LastMessage);
+    settings.Messages.PercentageSeekAnnouncement = PercentageSeekAnnouncementMode.Time;
+    router.Execute(CommandIds.SeekPercent(50));
+    Equal(CommandRouter.FormatTime(sessions.Current.Position), sink.LastMessage);
+    settings.Messages.PercentageSeekAnnouncement = PercentageSeekAnnouncementMode.PercentAndTime;
+    router.Execute(CommandIds.SeekPercent(20));
+    Equal($"20%, {CommandRouter.FormatTime(sessions.Current.Position)}", sink.LastMessage);
+    router.Execute(CommandIds.VolumeDown5);
+    Equal("35%", sink.LastMessage);
     router.Execute(CommandIds.ActivateSelected);
     Equal("Odtwarzanie: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.ActivateSelected);
@@ -755,6 +807,8 @@ static void TestTimeCommands()
     True(actions.CommandPaletteShown, "Router powinien otworzyć paletę poleceń przez interfejs aplikacji.");
     router.Execute(CommandIds.SettingsMessageTemplates);
     Equal(SettingsTarget.MessageTemplates, actions.LastSettingsTarget);
+    router.Execute(CommandIds.SettingsPercentageSeekAnnouncement);
+    Equal(SettingsTarget.PercentageSeekAnnouncement, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsToggleMessages);
     True(actions.MessagesToggled, "Router powinien przekazać przełączenie komunikatów do aplikacji.");
     router.Execute(CommandIds.SettingsToggleDetailedHints);
@@ -773,12 +827,16 @@ static void TestExports()
         var state = ConfigurationStore.CreateDefaultState();
         state.Settings.Messages.DetailedHints = true;
         state.Settings.Messages.SeekMessages = false;
+        state.Settings.Messages.VolumeMessages = false;
+        state.Settings.Messages.PercentageSeekAnnouncement = PercentageSeekAnnouncementMode.PercentAndTime;
         var mapPath = Path.Combine(directory, "map.amckeys.json");
         var settingsPath = Path.Combine(directory, "settings.amcsettings.json");
         var backupPath = Path.Combine(directory, "all.amcbackup.json");
 
         store.Save(state);
         Equal(false, store.LoadOrCreate().Settings.Messages.SeekMessages);
+        Equal(false, store.LoadOrCreate().Settings.Messages.VolumeMessages);
+        Equal(PercentageSeekAnnouncementMode.PercentAndTime, store.LoadOrCreate().Settings.Messages.PercentageSeekAnnouncement);
 
         store.ExportKeyboardMap(mapPath, state.KeyboardProfiles[0]);
         var importedProfile = store.ImportKeyboardMap(mapPath);
@@ -790,12 +848,16 @@ static void TestExports()
         Equal(MediaItemField.Title, importedSettings.Lists.FieldOrder[0]);
         Equal(true, importedSettings.Messages.DetailedHints);
         Equal(false, importedSettings.Messages.SeekMessages);
+        Equal(false, importedSettings.Messages.VolumeMessages);
+        Equal(PercentageSeekAnnouncementMode.PercentAndTime, importedSettings.Messages.PercentageSeekAnnouncement);
 
         store.ExportFullBackup(backupPath, state);
         var importedBackup = store.ImportFullBackup(backupPath);
         Equal(3, importedBackup.Settings.SessionSlots.Count);
         Equal(1, importedBackup.KeyboardProfiles.Count);
         Equal(false, importedBackup.Settings.Messages.SeekMessages);
+        Equal(false, importedBackup.Settings.Messages.VolumeMessages);
+        Equal(PercentageSeekAnnouncementMode.PercentAndTime, importedBackup.Settings.Messages.PercentageSeekAnnouncement);
     }
     finally
     {

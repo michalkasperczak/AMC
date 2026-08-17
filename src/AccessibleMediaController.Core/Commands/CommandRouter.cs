@@ -251,6 +251,7 @@ public sealed class CommandRouter(
             CommandIds.SettingsImportFullBackup => SettingsTarget.ImportFullBackup,
             CommandIds.SettingsExportFullBackup => SettingsTarget.ExportFullBackup,
             CommandIds.SettingsMessages => SettingsTarget.Messages,
+            CommandIds.SettingsPercentageSeekAnnouncement => SettingsTarget.PercentageSeekAnnouncement,
             CommandIds.SettingsMessageTemplates => SettingsTarget.MessageTemplates,
             CommandIds.SettingsUpdates => SettingsTarget.Updates,
             _ => null
@@ -309,14 +310,25 @@ public sealed class CommandRouter(
 
         var position = TimeSpan.FromTicks((long)Math.Round(duration.Ticks * (percent / 100d)));
         session.SetPosition(position);
-        if (settings.Messages.SeekMessages) announcements.Announce(FormatTime(position));
+        if (settings.Messages.SeekMessages)
+        {
+            announcements.Announce(settings.Messages.PercentageSeekAnnouncement switch
+            {
+                PercentageSeekAnnouncementMode.Time => FormatTime(position),
+                PercentageSeekAnnouncementMode.PercentAndTime => $"{percent}%, {FormatTime(position)}",
+                _ => $"{percent}%"
+            });
+        }
         return new(true);
     }
 
     private CommandExecutionResult Volume(DemoMediaSession session, int delta)
     {
         session.ChangeVolume(delta);
-        AnnounceTemplate("volume.changed", "{value}%", ("value", session.Volume.ToString()));
+        if (settings.Messages.VolumeMessages)
+        {
+            AnnounceTemplate("volume.changed", "{value}%", ("value", session.Volume.ToString()));
+        }
         return new(true);
     }
 

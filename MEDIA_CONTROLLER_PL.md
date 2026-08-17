@@ -203,7 +203,7 @@ Po prefiksie wszystkie strzałki służą sterowaniu globalnemu. Na zwykłej li�
 
 Odtwarzacz jest widokiem wewnątrz głównego okna, a nie osobnym oknem modalnym. Enter na utworze lub stacji zapewnia odtwarzanie elementu i otwiera ten widok; jeżeli element już gra, nie przełącza go na pauzę. `Ctrl+Enter` zachowuje działanie bezpośrednie na liście i nie otwiera odtwarzacza. `F6`, polecenie „Teraz odtwarzane” albo `N` po prefiksie pokazuje odtwarzacz bez uruchamiania nowego zaznaczenia. Escape wraca dokładnie do wcześniejszego widoku i elementu, nie zatrzymując dźwięku ani nie przenosząc zaznaczenia do bieżącego utworu. Na listach bieżący utwór otrzymuje dostępny początek „Odtwarzany” albo „Wstrzymany”, dzięki czemu jego stan można rozpoznać bez opuszczania przeglądanej pozycji.
 
-W odtwarzaczu lewo/prawo przewija o 10 sekund, Shift+lewo/prawo o 30 sekund, Ctrl+lewo/prawo o minutę, góra/dół zmienia głośność o 5%, Shift+góra/dół o 1%, Home przechodzi na początek, a End w pobliże końca. Cyfry `0–9` przechodzą odpowiednio do `0%, 10%, …, 90%` czasu trwania; obejmuje to blok numeryczny przy włączonym Num Lock. Skrót działa wyłącznie w odtwarzaczu, więc cyfry na liście nadal służą jej natywnej nawigacji, a `Ctrl+cyfra` wybiera sesję. Przy nieznanym czasie trwania skok procentowy jest niedostępny. Alt+strzałki oraz Ctrl+Shift+strzałki pozostają wolne do czasu ustalenia potrzeb. Tab przechodzi przez rzeczywiste przyciski odtwarzania, przewijania, głośności i powrotu. Funkcje zależne od możliwości sesji, np. nagrywanie radia, pojawią się później jako warunkowe kontrolki i polecenia; nie otrzymują jeszcze stałego skrótu. Docelowo przypisania odtwarzacza będą konfigurowalne obok profilu prefiksu.
+W odtwarzaczu lewo/prawo przewija o 10 sekund, Shift+lewo/prawo o 30 sekund, Ctrl+lewo/prawo o minutę, góra/dół zmienia głośność o 5%, Shift+góra/dół o 1%, Home przechodzi na początek, a End w pobliże końca. Cyfry `0–9` przechodzą odpowiednio do `0%, 10%, …, 90%` czasu trwania; obejmuje to blok numeryczny przy włączonym Num Lock. Domyślnym komunikatem skoku jest sam procent. Użytkownik może zamiast niego wybrać czas albo procent i czas. Skrót działa wyłącznie w odtwarzaczu, więc cyfry na liście nadal służą jej natywnej nawigacji, a `Ctrl+cyfra` wybiera sesję. Przy nieznanym czasie trwania skok procentowy jest niedostępny. Alt+strzałki oraz Ctrl+Shift+strzałki pozostają wolne do czasu ustalenia potrzeb. Tab przechodzi przez rzeczywiste przyciski odtwarzania, przewijania, głośności i powrotu. Funkcje zależne od możliwości sesji, np. nagrywanie radia, pojawią się później jako warunkowe kontrolki i polecenia; nie otrzymują jeszcze stałego skrótu. Docelowo przypisania odtwarzacza będą konfigurowalne obok profilu prefiksu.
 
 Nadal planowane jest osobne polecenie „Skocz do miejsca”, przyjmujące czas bezwzględny. Wariant procentowy ma już lokalną mapę cyfr w odtwarzaczu. Ewentualne odpowiedniki po prefiksie, w tym możliwe `J` dla czasu wpisywanego ręcznie, pozostają do sprawdzenia razem z całą warstwą prefiksową i nie będą wiązane na stałe przed testem konfliktów.
 
@@ -367,7 +367,7 @@ Zatwierdzone przypisania podstawowe:
 | `End` w odtwarzaczu | przejdź 10 sekund przed końcem utworu |
 | `0–9` w odtwarzaczu | przejdź do 0–90% czasu trwania co 10% |
 | `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | podaj czas od początku, pozostały albo całkowity |
-| `Ctrl+Shift+G` | włącz lub wyłącz automatyczny odczyt pozycji po przewijaniu |
+| `Ctrl+Shift+G` | włącz lub wyłącz automatyczne komunikaty czasu i głośności |
 | `Ctrl+D` | pobierz offline wewnątrz usługi, jeśli obsługiwane |
 | `Ctrl+Shift+D` | pobierz do pliku lokalnego; funkcja eksperymentalna, domyślnie wyłączona |
 | `Backspace` lub `Delete` | usuń z bieżącej playlisty, kolejki, ulubionych lub biblioteki; z potwierdzeniem albo możliwością cofnięcia |
@@ -444,7 +444,7 @@ Każdy komunikat powinien być jednocześnie:
 
 Podstawą pierwszej wersji jest UI Automation w Windows. Program nie może wymagać NVDA do działania. Accessibility API w macOS zostanie opracowane dopiero przy rozpoczęciu prac nad wydaniem dla Maca.
 
-Domyślne komunikaty mają być krótkie. W pierwszej wersji nie wprowadzamy osobnych profili „krótki”, „normalny” i „szczegółowy”. Zamiast nich użytkownik może edytować szablon każdego komunikatu, wyłączyć go albo przywrócić ustawienie domyślne. Oddzielna globalna opcja szczegółowych podpowiedzi klawiatury obejmuje filtr oraz wyszukiwanie bieżące i globalne; jest domyślnie wyłączona, nie zmienia treści komunikatów zdarzeń, a na wynikach wymienia tylko strzałki, Enter i Escape. Niezależna opcja odczytu pozycji po przewijaniu pozwala seryjnie używać strzałek bez wypowiadania każdej wartości; nie wycisza informacji o czasie wywołanych na żądanie.
+Domyślne komunikaty mają być krótkie. W pierwszej wersji nie wprowadzamy osobnych profili „krótki”, „normalny” i „szczegółowy”. Zamiast nich użytkownik może edytować szablon każdego komunikatu, wyłączyć go albo przywrócić ustawienie domyślne. Oddzielna globalna opcja szczegółowych podpowiedzi klawiatury obejmuje filtr oraz wyszukiwanie bieżące i globalne; jest domyślnie wyłączona, nie zmienia treści komunikatów zdarzeń, a na wynikach wymienia tylko strzałki, Enter i Escape. Niezależna opcja automatycznych komunikatów czasu i głośności pozwala seryjnie używać strzałek oraz cyfr bez wypowiadania każdej wartości. Nie wycisza informacji o czasie wywołanych na żądanie, odtwarzania, pauzy ani komunikatów o błędzie lub niedostępności. Dla skoku cyfrą można niezależnie wybrać sam procent, sam czas albo obie wartości.
 
 Ustawienia komunikatów:
 
@@ -647,6 +647,8 @@ Stan `alpha.37`: Escape z odtwarzacza zachowuje pozycję ostatnio przeglądaną,
 Stan `alpha.38`: opcja „Oznajmiaj pozycję po przewijaniu” na karcie Komunikaty oddziela automatyczną informację po przewijaniu od jawnych poleceń czasu. Wyłączenie obejmuje strzałki transportowe, Home i End, ale `Ctrl+Shift+E/R/T` nadal odpowiada. Stan jest trwały, dostępny jako bezpieczny przełącznik palety i przełączany bezpośrednio przez `Ctrl+Shift+G` z wymuszonym krótkim potwierdzeniem.
 
 Stan `alpha.39`: cyfry `0–9` w widoku odtwarzacza przechodzą do `0–90%` czasu trwania. Działają także cyfry numeryczne przy włączonym Num Lock, nie zmieniając znaczenia cyfr na listach ani `Ctrl+cyfra` dla sesji. Skok respektuje ustawienie automatycznego odczytu pozycji, a brak znanego czasu trwania kończy się jednoznacznym komunikatem. Paleta poleceń pokazuje wszystkie dziesięć pozycji procentowych. W planie adapterów zapisano oficjalną integrację YouTube bez synchronizacji konta w pierwszym etapie i bez pobierania, ekstrakcji dźwięku lub nagrywania treści YouTube.
+
+Stan `alpha.40`: domyślnym komunikatem po skoku cyfrą jest sam procent. Karta Komunikaty pozwala wybrać sam procent, sam czas albo procent i czas, a paleta prowadzi bezpośrednio do tej kontrolki. `Ctrl+Shift+G` i wspólny checkbox wyciszają zarówno automatyczne wartości czasu, jak i wartości głośności po zmianie. Odtwarzanie, pauza, komunikaty błędów i polecenia czasu na żądanie pozostają słyszalne.
 
 Planowana kolejność dalszych etapów:
 

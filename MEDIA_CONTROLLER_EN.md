@@ -203,7 +203,7 @@ After the prefix, all arrow keys control global playback. In an ordinary list, e
 
 The player is a view inside the main window rather than a separate modal window. Enter on a track or station ensures that the item is playing and opens this view; an already playing item is not toggled to pause. `Ctrl+Enter` retains its direct list action and does not open the player. `F6`, the Now Playing command, or prefix then `N` shows the player without starting the current selection. Escape returns to the exact previous view and item without stopping audio or moving the selection to the current track. In lists, the current track gains an accessible “Playing” or “Paused” prefix so its state can be identified without abandoning the browsed position.
 
-In the player, Left/Right seeks by 10 seconds, Shift+Left/Right by 30 seconds, Ctrl+Left/Right by one minute, Up/Down changes volume by 5%, Shift+Up/Down by 1%, Home seeks to the beginning and End near the end. Digits `0–9` seek to `0%, 10%, …, 90%` of the duration; this includes numpad digits with Num Lock enabled. The binding is player-only, so digits retain native item navigation on lists and `Ctrl+digit` selects a session. Percentage seeking is unavailable when duration is unknown. Alt+Arrow and Ctrl+Shift+Arrow remain unassigned until a concrete need is agreed. Tab moves through real play, seek, volume and return buttons. Session-dependent capabilities such as radio recording will later appear as conditional controls and commands and have no fixed shortcut yet. Player bindings will eventually be configurable alongside the prefix profile.
+In the player, Left/Right seeks by 10 seconds, Shift+Left/Right by 30 seconds, Ctrl+Left/Right by one minute, Up/Down changes volume by 5%, Shift+Up/Down by 1%, Home seeks to the beginning and End near the end. Digits `0–9` seek to `0%, 10%, …, 90%` of the duration; this includes numpad digits with Num Lock enabled. The default digit-seek announcement is the percentage alone; the user may select time or percentage and time instead. The binding is player-only, so digits retain native item navigation on lists and `Ctrl+digit` selects a session. Percentage seeking is unavailable when duration is unknown. Alt+Arrow and Ctrl+Shift+Arrow remain unassigned until a concrete need is agreed. Tab moves through real play, seek, volume and return buttons. Session-dependent capabilities such as radio recording will later appear as conditional controls and commands and have no fixed shortcut yet. Player bindings will eventually be configurable alongside the prefix profile.
 
 A separate “Jump to position” command accepting an absolute time remains planned. The percentage variant now has a local digit map in the player. Possible prefix equivalents, including `J` for a manually entered time, remain subject to the complete prefix conflict review.
 
@@ -367,7 +367,7 @@ Approved primary bindings:
 | `End` in the player | seek to 10 seconds before the end |
 | `0–9` in the player | seek to 0–90% of the duration in 10% steps |
 | `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | report elapsed, remaining or total time |
-| `Ctrl+Shift+G` | toggle automatic position feedback after seeking |
+| `Ctrl+Shift+G` | toggle automatic time and volume feedback |
 | `Ctrl+D` | download offline within the service when supported |
 | `Ctrl+Shift+D` | download to a local file; experimental and disabled by default |
 | `Backspace` or `Delete` | remove from the current playlist, queue, Favorites or library, with confirmation or Undo |
@@ -444,7 +444,7 @@ Every message should be:
 
 Windows UI Automation is the primary mechanism for the first version. The program must not require NVDA. The macOS Accessibility API will be addressed only when work on the Mac edition begins.
 
-Default messages should be brief. The first version will not provide separate Brief, Normal and Detailed profiles. Instead, the user can edit each message template, disable it, or restore its default. A separate global detailed-keyboard-hints option covers the filter plus current-service and global search; it is off by default, does not alter event-message templates, and mentions only arrows, Enter and Escape on search results. An independent seek-position feedback option allows repeated Arrow seeking without speaking every value and does not suppress time information explicitly requested by the user.
+Default messages should be brief. The first version will not provide separate Brief, Normal and Detailed profiles. Instead, the user can edit each message template, disable it, or restore its default. A separate global detailed-keyboard-hints option covers the filter plus current-service and global search; it is off by default, does not alter event-message templates, and mentions only arrows, Enter and Escape on search results. An independent automatic-time-and-volume option allows repeated Arrow and digit use without speaking every value. It does not suppress explicitly requested time, playback, pause, errors or unavailable messages. Digit seeking separately offers percentage only, time only, or both values.
 
 Message settings:
 
@@ -645,6 +645,8 @@ State of `alpha.37`: Escape from the player preserves the last browsed position,
 State of `alpha.38`: the “Announce position after seeking” option on the Messages tab separates automatic seek feedback from explicit time commands. Disabling it covers transport Arrows, Home and End, while `Ctrl+Shift+E/R/T` still respond. The state persists, appears as a safe command-palette toggle, and can be switched directly with `Ctrl+Shift+G`, which always gives a brief confirmation.
 
 State of `alpha.39`: digits `0–9` in the player seek to `0–90%` of the duration. Numpad digits also work with Num Lock enabled, without changing digit behaviour on lists or `Ctrl+digit` session selection. The seek respects the automatic-position-announcement setting, and unknown duration produces an explicit unavailable message. The command palette exposes all ten percentage positions. The adapter plan now records an official YouTube integration without initial account synchronisation and without downloading, audio extraction or recording of YouTube content.
+
+State of `alpha.40`: the default digit-seek announcement is the percentage alone. The Messages tab selects percentage only, time only, or percentage and time, and the command palette opens that control directly. `Ctrl+Shift+G` and the shared checkbox silence both automatic time values and volume values after a change. Playback, pause, error messages and explicit time commands remain audible.
 
 Planned sequence of later stages:
 

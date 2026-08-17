@@ -84,6 +84,7 @@ public static class CommandIds
     public const string SettingsToggleMessages = "settings.messages.toggle";
     public const string SettingsToggleDetailedHints = "settings.detailedHints.toggle";
     public const string SettingsToggleSeekMessages = "settings.seekMessages.toggle";
+    public const string SettingsPercentageSeekAnnouncement = "settings.percentageSeekAnnouncement";
     public const string SettingsMessageTemplates = "settings.messageTemplates";
     public const string SettingsUpdates = "settings.updates";
 

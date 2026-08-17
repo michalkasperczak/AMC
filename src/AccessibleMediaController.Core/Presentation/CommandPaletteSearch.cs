@@ -66,12 +66,21 @@ public static class CommandPaletteSearch
             CommandIds.SettingsToggleDetailedHints => settings.Messages.DetailedHints
                 ? "Szczegółowe podpowiedzi klawiatury: włączone. Enter: wyłącz"
                 : "Szczegółowe podpowiedzi klawiatury: wyłączone. Enter: włącz",
-            CommandIds.SettingsToggleSeekMessages => settings.Messages.SeekMessages
-                ? "Odczyt pozycji po przewijaniu: włączony. Enter: wyłącz"
-                : "Odczyt pozycji po przewijaniu: wyłączony. Enter: włącz",
+            CommandIds.SettingsToggleSeekMessages => settings.Messages.SeekMessages && settings.Messages.VolumeMessages
+                ? "Automatyczne komunikaty czasu i głośności: włączone. Enter: wyłącz"
+                : "Automatyczne komunikaty czasu i głośności: wyłączone. Enter: włącz",
+            CommandIds.SettingsPercentageSeekAnnouncement =>
+                $"Komunikat po skoku cyfrą: {GetPercentageSeekAnnouncementName(settings.Messages.PercentageSeekAnnouncement)}",
             _ => CommandCatalog.GetDisplayName(commandId)
         };
     }
+
+    private static string GetPercentageSeekAnnouncementName(PercentageSeekAnnouncementMode mode) => mode switch
+    {
+        PercentageSeekAnnouncementMode.Time => "tylko czas",
+        PercentageSeekAnnouncementMode.PercentAndTime => "procent i czas",
+        _ => "tylko procent"
+    };
 
     public static string ContinueOrRestartListQuery(
         IReadOnlyList<CommandPaletteEntry> entries,

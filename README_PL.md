@@ -102,6 +102,8 @@ W `alpha.38` karta **Komunikaty** zawiera opcję **Oznajmiaj pozycję po przewij
 
 W `alpha.39` cyfry `0–9` w odtwarzaczu przechodzą odpowiednio do `0%, 10%, …, 90%` długości utworu. Działają także klawisze bloku numerycznego przy włączonym Num Lock. Na zwykłej liście cyfry zachowują nawigację po elementach, a `Ctrl+cyfra` nadal wybiera sesję. Skoki procentowe respektują ustawienie odczytu pozycji; przy nieznanym czasie trwania program zgłasza niedostępność zamiast zgadywać.
 
+W `alpha.40` skok cyfrą domyślnie oznajmia tylko procent, np. „50%”; dokładny czas pozostaje dostępny przez `Ctrl+Shift+E`. W Ustawieniach na karcie **Komunikaty** można wybrać: **Tylko procent**, **Tylko czas** albo **Procent i czas**. Dotychczasowy przełącznik i `Ctrl+Shift+G` obejmują teraz automatyczne komunikaty czasu oraz głośności. Ich wyłączenie nie ucisza odtwarzania, pauzy, błędów ani jawnych poleceń czasu.
+
 Obecny katalog demonstracyjny może pokazywać wspólne wyniki testowe. Prawdziwy adapter TIDAL będzie modułem izolowanym: `Ctrl+Shift+F` może uruchomić jego zapytanie, ale treści TIDAL nie zostaną wymieszane na jednej liście z treściami podobnych usług. AMC otworzy osobny, oznaczony widok wyników TIDAL i zachowa działanie wszystkich wspólnych skrótów.
 
 Planowany moduł YouTube zacznie od publicznego wyszukiwania i oficjalnego, widocznego odtwarzacza bez synchronizacji konta. Logowanie OAuth będzie potrzebne dopiero dla funkcji użytkownika, jeśli kiedyś świadomie je dodamy. AMC nie będzie pobierać, wyodrębniać dźwięku ani nagrywać materiałów odtwarzanych z YouTube; niestabilne ekstraktory nie staną się częścią rdzenia. Interfejs może być podobny do podcastów, lecz źródłem pozostaje oficjalny odtwarzacz YouTube.

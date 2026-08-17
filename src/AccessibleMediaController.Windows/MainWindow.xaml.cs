@@ -360,9 +360,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "Ctrl+Enter odtwarza lub wstrzymuje zaznaczony element bez opuszczania listy, a Spacja steruje elementem faktycznie grającym. " +
             "F6 otwiera odtwarzacz. W odtwarzaczu strzałki w lewo i w prawo przewijają o 10 sekund, z Shiftem o 30 sekund, a z Ctrl o minutę, " +
             "strzałki w górę i w dół zmieniają głośność, Home i End przechodzą na początek i w pobliże końca, " +
-            "a cyfry od 0 do 9 przechodzą odpowiednio do 0, 10, 20 i kolejnych procent długości utworu. " +
+            "a cyfry od 0 do 9 przechodzą odpowiednio do 0, 10, 20 i kolejnych procent długości utworu oraz domyślnie oznajmiają tylko procent. " +
             "Escape wraca do wcześniejszej listy. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
-            "Ctrl+Shift+G włącza lub wyłącza automatyczny odczyt pozycji po przewijaniu. " +
+            "Ctrl+Shift+G włącza lub wyłącza automatyczne komunikaty czasu i głośności. " +
             "Alt+Enter pokazuje informacje. " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
@@ -396,11 +396,13 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     public void ToggleSeekMessages()
     {
-        _state.Settings.Messages.SeekMessages = !_state.Settings.Messages.SeekMessages;
+        var enabled = !(_state.Settings.Messages.SeekMessages && _state.Settings.Messages.VolumeMessages);
+        _state.Settings.Messages.SeekMessages = enabled;
+        _state.Settings.Messages.VolumeMessages = enabled;
         _store.Save(_state);
-        AnnounceEssential(_state.Settings.Messages.SeekMessages
-            ? "Odczyt pozycji po przewijaniu włączony"
-            : "Odczyt pozycji po przewijaniu wyłączony");
+        AnnounceEssential(enabled
+            ? "Automatyczne komunikaty czasu i głośności włączone"
+            : "Automatyczne komunikaty czasu i głośności wyłączone");
     }
 
     public void OpenLocalFiles()
