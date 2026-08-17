@@ -1,24 +1,31 @@
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Playback;
 
 namespace AccessibleMediaController.Core.Sessions;
 
 public sealed class SessionManager
 {
     private readonly AppSettings _settings;
+    private readonly List<DemoMediaSession> _sessions;
+    private readonly Dictionary<int, string> _sessionSlots;
 
     public SessionManager(AppSettings settings)
     {
         _settings = settings;
-        Sessions = CreateDemoSessions();
-        Current = Sessions.FirstOrDefault(session => session.Id == settings.LastSessionId) ?? Sessions[0];
+        _sessions = CreateDemoSessions().ToList();
+        _sessionSlots = new Dictionary<int, string>(settings.SessionSlots);
+        var remembered = Sessions.FirstOrDefault(session => session.Id == settings.LastSessionId);
+        Current = remembered ?? Sessions[0];
+        if (remembered is null) _settings.LastSessionId = Current.Id;
     }
 
-    public IReadOnlyList<DemoMediaSession> Sessions { get; }
+    public IReadOnlyList<DemoMediaSession> Sessions => _sessions;
+    public IReadOnlyDictionary<int, string> SessionSlots => _sessionSlots;
     public DemoMediaSession Current { get; private set; }
 
     public DemoMediaSession? SelectSlot(int slot)
     {
-        if (!_settings.SessionSlots.TryGetValue(slot, out var sessionId)) return null;
+        if (!_sessionSlots.TryGetValue(slot, out var sessionId)) return null;
         return SelectSession(sessionId);
     }
 
@@ -38,6 +45,44 @@ public sealed class SessionManager
         Current = Sessions[index];
         _settings.LastSessionId = Current.Id;
         return Current;
+    }
+
+    public DemoMediaSession? FindSession(string sessionId) =>
+        _sessions.FirstOrDefault(session => session.Id == sessionId);
+
+    public int? FindSlot(string sessionId)
+    {
+        var pair = _sessionSlots.FirstOrDefault(pair =>
+            string.Equals(pair.Value, sessionId, StringComparison.Ordinal));
+        return pair.Key > 0 ? pair.Key : null;
+    }
+
+    public (DemoMediaSession Session, int? Slot) AddOrUpdateTransientSession(
+        string id,
+        string displayName,
+        IEnumerable<MediaItem> items,
+        IMediaOutput output,
+        int preferredSlot)
+    {
+        var session = FindSession(id);
+        if (session is null)
+        {
+            session = new DemoMediaSession(id, displayName, items, output);
+            _sessions.Add(session);
+        }
+        else
+        {
+            session.AddItems(items);
+        }
+
+        var existingSlot = FindSlot(id);
+        if (existingSlot.HasValue) return (session, existingSlot);
+
+        var slot = Enumerable.Range(Math.Clamp(preferredSlot, 1, 9), 10 - Math.Clamp(preferredSlot, 1, 9))
+            .Concat(Enumerable.Range(1, Math.Clamp(preferredSlot, 1, 9) - 1))
+            .FirstOrDefault(candidate => !_sessionSlots.ContainsKey(candidate));
+        if (slot > 0) _sessionSlots[slot] = id;
+        return (session, slot > 0 ? slot : null);
     }
 
     private static IReadOnlyList<DemoMediaSession> CreateDemoSessions()

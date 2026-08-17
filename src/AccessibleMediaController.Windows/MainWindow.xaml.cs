@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -13,6 +14,7 @@ using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Updates;
 using AccessibleMediaController.Windows.Services;
+using Microsoft.Win32;
 
 namespace AccessibleMediaController.Windows;
 
@@ -39,6 +41,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private string? _focusContextItemId;
     private string? _focusContextPrefix;
     private ListBoxItem? _focusContextContainer;
+    private readonly WindowsMediaOutput _localOutput = new();
+    private readonly List<MediaItem> _localItems = [];
 
     private const int WmKeyDown = 0x0100;
     private const int VirtualKeyZ = 0x5A;
@@ -49,6 +53,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         InitializeComponent();
         _state = state;
         _store = store;
+        _localOutput.DurationAvailable += LocalOutput_DurationAvailable;
+        _localOutput.PlaybackFailed += LocalOutput_PlaybackFailed;
+        _localOutput.PlaybackEnded += LocalOutput_PlaybackEnded;
         ApplyDetailedHints();
         RebuildCore();
         RefreshCurrentView();
@@ -160,7 +167,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     public void ShowSessionList()
     {
-        var dialog = new SessionSelectionWindow(_sessions, _state.Settings) { Owner = this };
+        var dialog = new SessionSelectionWindow(_sessions) { Owner = this };
         if (dialog.ShowDialog() == true && dialog.SelectedSlot is int slot)
         {
             ExecuteCommand(CommandIds.SessionSlot(slot));
@@ -201,6 +208,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     {
         var item = SelectedItem ?? _sessions.Current.CurrentItem;
         var text = $"{item.KindLabel}: {item.Title}\nWykonawca: {item.Artist}\nCzas: {CommandRouter.FormatTime(item.Duration)}\nUsługa: {_sessions.Current.DisplayName}";
+        if (!string.IsNullOrWhiteSpace(item.Source)) text += $"\nPlik: {item.Source}";
         if (extended) text += $"\nIdentyfikator demonstracyjny: {item.Id}";
         MessageBox.Show(text, "Informacje o elemencie", MessageBoxButton.OK, MessageBoxImage.Information);
     }
@@ -221,6 +229,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "paletę poleceń i wyszukiwanie globalne.\n\n" +
             "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+0 otwiera listę sesji, " +
             "Ctrl+Page Up i Ctrl+Page Down zmieniają sesję. " +
+            "Ctrl+O otwiera lokalne pliki audio i tworzy dla nich tymczasową sesję. " +
             "Ctrl+U/P/L/Q otwiera odpowiednio: Ulubione, Playlisty, Bibliotekę i Kolejkę, " +
             "a Ctrl+Shift+A otwiera Albumy. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
             "wyszukiwania w bieżącej usłudze, Ctrl+Shift+F otwiera wyszukiwanie globalne, " +
@@ -258,6 +267,62 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             : "Szczegółowe podpowiedzi klawiatury wyłączone");
     }
 
+    public void OpenLocalFiles()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Otwórz lokalne pliki audio",
+            Filter = "Pliki audio|*.mp3;*.wav;*.m4a;*.aac;*.flac;*.wma;*.ogg;*.opus|Wszystkie pliki|*.*",
+            Multiselect = true,
+            CheckFileExists = true
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        var knownPaths = _localItems
+            .Select(item => item.Source)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var addedItems = dialog.FileNames
+            .Where(path => knownPaths.Add(path))
+            .Select(path => new MediaItem
+            {
+                Id = $"local-{Guid.NewGuid():N}",
+                Title = Path.GetFileNameWithoutExtension(path),
+                Kind = MediaItemKind.Track,
+                Source = path,
+                IsInLibrary = true
+            })
+            .ToList();
+        _localItems.AddRange(addedItems);
+
+        var (session, slot) = _sessions.AddOrUpdateTransientSession(
+            "local",
+            "Lokalne multimedia",
+            addedItems,
+            _localOutput,
+            4);
+        _sessions.SelectSession(session.Id);
+        NavigateTo("Teraz odtwarzane");
+
+        var selected = addedItems.FirstOrDefault()
+            ?? session.Items.FirstOrDefault(item => string.Equals(
+                item.Source,
+                dialog.FileNames.FirstOrDefault(),
+                StringComparison.OrdinalIgnoreCase))
+            ?? session.CurrentItem;
+        SelectMediaItem(selected.Id);
+        var countText = addedItems.Count == 0
+            ? "pliki były już na liście"
+            : $"dodano {FormatFileCount(addedItems.Count)}";
+        var slotText = slot is > 0 ? $", sesja {slot}" : string.Empty;
+        PrepareSelectedItemFocusContext($"Lokalne multimedia{slotText}, {countText}");
+        RestoreMediaListFocusAfterRefresh();
+    }
+
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
@@ -277,9 +342,57 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     private void RebuildCore()
     {
+        var previousSessionId = _sessions is null ? null : _sessions.Current.Id;
+        var previousLocal = _sessions?.FindSession("local");
+        var previousLocalItemId = previousLocal?.CurrentItem.Id;
+        var previousLocalPosition = previousLocal?.Position ?? TimeSpan.Zero;
+        var previousLocalVolume = previousLocal?.Volume ?? 35;
+        var previousLocalWasPlaying = previousLocal?.IsPlaying == true;
         _membershipHistory.Clear();
         _sessions = new SessionManager(_state.Settings);
+        if (_localItems.Count > 0)
+        {
+            var (local, _) = _sessions.AddOrUpdateTransientSession(
+                "local",
+                "Lokalne multimedia",
+                _localItems,
+                _localOutput,
+                4);
+            var previousItem = local.Items.FirstOrDefault(item => item.Id == previousLocalItemId);
+            if (previousItem is not null) local.SelectItem(previousItem);
+            local.SetVolume(previousLocalVolume);
+            local.SetPosition(previousLocalPosition);
+            if (previousLocalWasPlaying) local.Play(local.CurrentItem);
+            if (string.Equals(previousSessionId, "local", StringComparison.Ordinal)
+                || string.Equals(_state.Settings.LastSessionId, "local", StringComparison.Ordinal))
+            {
+                _sessions.SelectSession("local");
+            }
+        }
         _router = new CommandRouter(_sessions, _state.Settings, this, this);
+    }
+
+    private void LocalOutput_DurationAvailable(object? sender, MediaDurationAvailableEventArgs e)
+    {
+        e.Item.Duration = e.Duration;
+        // Do not rebuild the focused list when asynchronous metadata arrives.
+        // Commands use the new duration immediately; the row is reformatted on
+        // the next ordinary refresh without causing an extra focus event.
+    }
+
+    private void LocalOutput_PlaybackFailed(object? sender, MediaOutputFailedEventArgs e)
+    {
+        _sessions.FindSession("local")?.MarkPlaybackFailed();
+        UpdateWindowTitle();
+        var title = e.Item?.Title ?? "plik";
+        Announce($"Nie można odtworzyć: {title}. {e.Message}");
+    }
+
+    private void LocalOutput_PlaybackEnded(object? sender, MediaPlaybackEndedEventArgs e)
+    {
+        _sessions.FindSession("local")?.MarkPlaybackEnded();
+        UpdateWindowTitle();
+        Announce($"Koniec: {e.Item.Title}");
     }
 
     private void RegisterConfiguredPrefix()
@@ -715,6 +828,16 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         return MediaItemFormatter.Format(item, fields);
     }
 
+    private static string FormatFileCount(int count)
+    {
+        if (count == 1) return "1 plik";
+        var lastTwoDigits = count % 100;
+        var lastDigit = count % 10;
+        return lastDigit is >= 2 and <= 4 && lastTwoDigits is not (>= 12 and <= 14)
+            ? $"{count} pliki"
+            : $"{count} plików";
+    }
+
     private void NavigateTo(string viewName)
     {
         if (!string.Equals(viewName, _currentView, StringComparison.Ordinal))
@@ -824,6 +947,13 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
         if (TryHandleLocalNavigationShortcut(e))
         {
+            e.Handled = true;
+            return;
+        }
+
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.O)
+        {
+            OpenLocalFiles();
             e.Handled = true;
             return;
         }
@@ -1181,6 +1311,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         _windowSource?.RemoveHook(WindowMessageHook);
         _windowSource = null;
         _prefixService?.Dispose();
+        _localOutput.Dispose();
         _store.Save(_state);
     }
 
@@ -1202,6 +1333,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelected();
     private void Undo_Click(object sender, RoutedEventArgs e) => UndoLastMembershipChange();
     private void Settings_Click(object sender, RoutedEventArgs e) => OpenSettings();
+    private void OpenLocalFiles_Click(object sender, RoutedEventArgs e) => OpenLocalFiles();
     private void Sessions_Click(object sender, RoutedEventArgs e) => ShowSessionList();
     private void MediaContextMenu_Opened(object sender, RoutedEventArgs e)
     {

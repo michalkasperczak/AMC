@@ -116,6 +116,7 @@ public static class CommandPaletteSearch
             CommandIds.ItemInformation => "Alt+Enter",
             CommandIds.OpenOfficialApp => "Ctrl+Shift+O",
             CommandIds.Help => "F1",
+            CommandIds.OpenLocalFiles => "Ctrl+O",
             CommandIds.SettingsGeneral => "Ctrl+,",
             _ => null
         };

@@ -1,15 +1,25 @@
+using AccessibleMediaController.Core.Playback;
+
 namespace AccessibleMediaController.Core.Sessions;
 
 public sealed class DemoMediaSession
 {
     private int _currentIndex;
+    private TimeSpan _position;
+    private readonly IMediaOutput? _output;
 
-    public DemoMediaSession(string id, string displayName, IEnumerable<MediaItem> items)
+    public DemoMediaSession(
+        string id,
+        string displayName,
+        IEnumerable<MediaItem> items,
+        IMediaOutput? output = null)
     {
         Id = id;
         DisplayName = displayName;
         Items = items.ToList();
         if (Items.Count == 0) throw new ArgumentException("Sesja demonstracyjna wymaga elementów.", nameof(items));
+        _output = output;
+        _position = output is null ? TimeSpan.FromSeconds(83) : TimeSpan.Zero;
     }
 
     public string Id { get; }
@@ -18,15 +28,27 @@ public sealed class DemoMediaSession
     public MediaItem CurrentItem => Items[_currentIndex];
     public bool IsPlaying { get; private set; }
     public int Volume { get; private set; } = 35;
-    public TimeSpan Position { get; private set; } = TimeSpan.FromSeconds(83);
+    public TimeSpan Position => _output?.Position ?? _position;
 
-    public void TogglePlayback() => IsPlaying = !IsPlaying;
+    public void TogglePlayback()
+    {
+        if (IsPlaying)
+        {
+            _position = Position;
+            IsPlaying = false;
+            _output?.Pause();
+            return;
+        }
+
+        IsPlaying = true;
+        _output?.Play(CurrentItem, _position, Volume);
+    }
 
     public bool SelectItem(MediaItem item)
     {
         var index = Items.FindIndex(candidate => candidate.Id == item.Id);
         if (index < 0) return false;
-        if (index != _currentIndex) Position = TimeSpan.Zero;
+        if (index != _currentIndex) _position = TimeSpan.Zero;
         _currentIndex = index;
         return true;
     }
@@ -35,6 +57,7 @@ public sealed class DemoMediaSession
     {
         if (!SelectItem(item)) return false;
         IsPlaying = true;
+        _output?.Play(CurrentItem, _position, Volume);
         return true;
     }
 
@@ -50,15 +73,16 @@ public sealed class DemoMediaSession
         }
 
         _currentIndex = index;
-        Position = TimeSpan.Zero;
+        _position = TimeSpan.Zero;
         IsPlaying = true;
+        _output?.Play(CurrentItem, _position, Volume);
         return true;
     }
 
     public void Move(int direction)
     {
         _currentIndex = (_currentIndex + direction + Items.Count) % Items.Count;
-        Position = TimeSpan.Zero;
+        _position = TimeSpan.Zero;
     }
 
     public void Seek(TimeSpan delta)
@@ -66,15 +90,54 @@ public sealed class DemoMediaSession
         var next = Position + delta;
         if (next < TimeSpan.Zero) next = TimeSpan.Zero;
         if (CurrentItem.Duration > TimeSpan.Zero && next > CurrentItem.Duration) next = CurrentItem.Duration;
-        Position = next;
+        _position = next;
+        _output?.Seek(next);
     }
 
     public void SetPosition(TimeSpan position)
     {
-        Position = position < TimeSpan.Zero ? TimeSpan.Zero : position;
+        _position = position < TimeSpan.Zero ? TimeSpan.Zero : position;
+        _output?.Seek(_position);
     }
 
-    public void ChangeVolume(int delta) => Volume = Math.Clamp(Volume + delta, 0, 100);
+    public void ChangeVolume(int delta)
+    {
+        Volume = Math.Clamp(Volume + delta, 0, 100);
+        _output?.SetVolume(Volume);
+    }
+
+    public void SetVolume(int volume)
+    {
+        Volume = Math.Clamp(volume, 0, 100);
+        _output?.SetVolume(Volume);
+    }
+
+    public void AddItems(IEnumerable<MediaItem> items)
+    {
+        var knownSources = Items
+            .Where(item => !string.IsNullOrWhiteSpace(item.Source))
+            .Select(item => item.Source!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in items)
+        {
+            if (item.Source is { Length: > 0 } source && !knownSources.Add(source)) continue;
+            Items.Add(item);
+        }
+    }
+
+    public void MarkPlaybackEnded()
+    {
+        IsPlaying = false;
+        _position = TimeSpan.Zero;
+        _output?.Seek(TimeSpan.Zero);
+    }
+
+    public void MarkPlaybackFailed()
+    {
+        IsPlaying = false;
+        _position = TimeSpan.Zero;
+        _output?.Seek(TimeSpan.Zero);
+    }
 
     public bool ToggleFavorite(MediaItem item)
     {

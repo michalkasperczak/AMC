@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
+using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
 
@@ -19,6 +20,7 @@ var tests = new (string Name, Action Test)[]
     ("Migracja komunikatów z nazwą elementu alpha.8", TestVersion5MessageMigration),
     ("Migracja nazw w komunikatach Ulubionych alpha.18", TestVersion6FavoriteMessageMigration),
     ("Przełączanie sesji", TestSessions),
+    ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
     ("Historia wyszukiwania", TestSearchHistory),
     ("Paleta poleceń", TestCommandPalette),
@@ -119,6 +121,7 @@ static void TestCommandCatalog()
     Equal("Dodaj lub usuń z ulubionych", CommandCatalog.GetDisplayName(CommandIds.ToggleFavorite));
     Equal("Dodaj lub usuń z kolejki", CommandCatalog.GetDisplayName(CommandIds.AddQueue));
     Equal("Ustawienia: szablony komunikatów", CommandCatalog.GetDisplayName(CommandIds.SettingsMessageTemplates));
+    Equal("Otwórz lokalne pliki audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
     Equal("nieznane.polecenie", CommandCatalog.GetDisplayName("nieznane.polecenie"));
 }
@@ -372,6 +375,55 @@ static void TestSessions()
     Equal("Album demonstracyjny", album.PrimaryText);
     var playlist = manager.Current.Items.First(item => item.Kind == MediaItemKind.Playlist);
     Equal("Do odsłuchu", playlist.PrimaryText);
+
+    settings.LastSessionId = "nieistniejąca";
+    manager = new SessionManager(settings);
+    Equal("tidal", settings.LastSessionId);
+}
+
+static void TestLocalPlaybackBoundary()
+{
+    var output = new FakeMediaOutput();
+    var item = new MediaItem
+    {
+        Id = "local-1",
+        Title = "Plik testowy",
+        Source = @"C:\Muzyka\plik-testowy.mp3"
+    };
+    var manager = new SessionManager(new AppSettings());
+    var (session, slot) = manager.AddOrUpdateTransientSession(
+        "local",
+        "Lokalne multimedia",
+        [item],
+        output,
+        4);
+
+    Equal(4, slot);
+    Equal(session, manager.SelectSlot(4));
+    Equal(TimeSpan.Zero, session.Position);
+    True(session.Activate(item), "Lokalny element powinien uruchamiać wyjście dźwięku.");
+    Equal(1, output.PlayCount);
+    Equal(item, output.LastItem);
+    Equal(35, output.Volume);
+
+    session.TogglePlayback();
+    Equal(1, output.PauseCount);
+    Equal(false, session.IsPlaying);
+    session.TogglePlayback();
+    Equal(2, output.PlayCount);
+    Equal(true, session.IsPlaying);
+
+    output.Position = TimeSpan.FromSeconds(30);
+    session.Seek(TimeSpan.FromSeconds(10));
+    Equal(TimeSpan.FromSeconds(40), output.Position);
+    session.ChangeVolume(5);
+    Equal(40, output.Volume);
+
+    session.AddItems([item]);
+    Equal(1, session.Items.Count);
+    session.MarkPlaybackEnded();
+    Equal(false, session.IsPlaying);
+    Equal(TimeSpan.Zero, session.Position);
 }
 
 static void TestVersion6FavoriteMessageMigration()
@@ -509,6 +561,7 @@ static void TestCommandPalette()
     True(favorites.Label.Contains("prefiks U", StringComparison.Ordinal), "Etykieta powinna podawać aktywny skrót po prefiksie.");
     Equal(favorites.Label, favorites.ToString());
     True(!favorites.ToString().Contains("CommandId", StringComparison.Ordinal), "Lista nie może ujawniać technicznych nazw pól obiektu.");
+    Equal("Ctrl+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFiles).LocalShortcut);
 
     var remaining = CommandPaletteSearch.Filter(entries, "czas pozostaly");
     Equal(1, remaining.Count);
@@ -695,4 +748,26 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
     public void ShowSettings(SettingsTarget target) => LastSettingsTarget = target;
     public void ToggleAccessibilityMessages() => MessagesToggled = true;
     public void ToggleDetailedHints() => DetailedHintsToggled = true;
+    public void OpenLocalFiles() { }
+}
+
+sealed class FakeMediaOutput : IMediaOutput
+{
+    public TimeSpan Position { get; set; }
+    public int PlayCount { get; private set; }
+    public int PauseCount { get; private set; }
+    public int Volume { get; private set; }
+    public MediaItem? LastItem { get; private set; }
+
+    public void Play(MediaItem item, TimeSpan position, int volume)
+    {
+        LastItem = item;
+        Position = position;
+        Volume = volume;
+        PlayCount++;
+    }
+
+    public void Pause() => PauseCount++;
+    public void Seek(TimeSpan position) => Position = position;
+    public void SetVolume(int volume) => Volume = volume;
 }

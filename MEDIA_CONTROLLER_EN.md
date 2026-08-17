@@ -508,6 +508,8 @@ Each adapter separately declares search scope, result-presentation policy, Favor
 
 The local playback module will eventually cover files and folders, metadata, Library, queue, common formats, output selection, gapless playback and ReplayGain. Shared audio output is the Windows default so that NVDA and other system sounds are not muted. Exclusive output may later appear as an advanced feature with an explicit warning.
 
+The first step implemented in `alpha.33` separates a platform-neutral media-output interface in the core from the Windows implementation. `Ctrl+O` loads files into a non-persistent local session, while the Windows system player provides playback, pause, position and volume through shared output. This is not yet the complete Library: folders, list persistence, gapless playback, ReplayGain, output selection and optional codecs remain later stages.
+
 Internet radio is a separate core adapter and uses the same sessions, Favorites, history and transport commands. It should support direct streams, M3U/PLS, station metadata, reconnect and search. Free Radio mechanisms may be reused after code and licence review without moving the full playback engine into the NVDA process. Radio recording may be a deliberately started local private-use feature: it records an available direct stream without bypassing DRM, never starts automatically, does not apply to TIDAL, Spotify or Apple Music, and leaves compliance with applicable local law to the user.
 
 ### 13.4. Testing and responsibility
@@ -605,6 +607,8 @@ State of `alpha.30`: “Play or pause” replaces the former “Play now”. `Ct
 State of `alpha.31`: the palette exposes every active Settings destination, including exact controls for keyboard profiles, bindings, list fields, import, export, messages and planned updates. Navigation without changing a value is the default safety rule. The only deliberate exceptions are direct toggles for accessibility messages and detailed keyboard hints. Each dynamic label states the current value and Enter action, the value is persisted immediately, and a forced confirmation bypasses the global suppression of ordinary messages.
 
 State of `alpha.32`: the message-event list exposes friendly event names only through UI Automation. Raw template text and placeholders are presented in the separate edit field, preventing NVDA from appending `{slot}` or `{service}` to a list-item name while preserving full template editing.
+
+State of `alpha.33`: `Ctrl+O` and the File menu open multiple local audio files in a temporary session assigned to the first free slot starting at 4. Selection alone never starts sound. Enter, `Ctrl+Enter`, Space, seek, volume and time-information commands control real Windows audio output. The `IMediaOutput` boundary stays in the core and `WindowsMediaOutput` stays in the platform layer, so extracting AMC.Host later does not require moving playback logic into WPF.
 
 Planned sequence of later stages:
 

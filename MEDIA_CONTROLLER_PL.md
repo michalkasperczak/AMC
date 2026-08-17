@@ -508,6 +508,8 @@ Adapter deklaruje osobno co najmniej: zakres wyszukiwania, politykę prezentacji
 
 Lokalny moduł odtwarzania obejmuje docelowo otwieranie plików i folderów, metadane, Bibliotekę, kolejkę, podstawowe popularne formaty, wybór urządzenia, odtwarzanie bez przerw i ReplayGain. Na Windows domyślne wyjście dźwięku powinno pracować w trybie współdzielonym, aby nie wyciszać NVDA i pozostałych dźwięków. Tryb wyłączny może pojawić się później jako funkcja zaawansowana z wyraźnym ostrzeżeniem.
 
+Pierwszy krok wdrożony w `alpha.33` rozdziela neutralny interfejs wyjścia dźwięku w rdzeniu od implementacji Windows. `Ctrl+O` ładuje pliki do nietrwałej sesji lokalnej, a systemowy odtwarzacz Windows realizuje odtwarzanie, pauzę, pozycję i głośność w trybie współdzielonym. Nie jest to jeszcze pełna Biblioteka: foldery, zapis listy, odtwarzanie bez przerw, ReplayGain, wybór urządzenia i opcjonalne kodeki pozostają późniejszymi etapami.
+
 Radio internetowe jest osobnym adapterem rdzenia i korzysta z tych samych sesji, Ulubionych, historii oraz poleceń transportowych. Powinno obsłużyć bezpośrednie strumienie, M3U/PLS, metadane stacji, ponawianie po zerwaniu i wyszukiwanie. Mechanizmy Free Radio można wykorzystać po analizie kodu i licencji, bez przenoszenia całego odtwarzania do procesu NVDA. Nagrywanie radia może być świadomie uruchamianą funkcją lokalną do prywatnego użytku: zapisuje dostępny bezpośredni strumień bez obchodzenia DRM, nie uruchamia się automatycznie, nie dotyczy TIDAL, Spotify ani Apple Music i pozostawia użytkownikowi odpowiedzialność za zgodność z prawem właściwym dla miejsca użycia.
 
 ### 13.4. Testowanie i odpowiedzialność
@@ -607,6 +609,8 @@ Stan `alpha.30`: polecenie „Odtwórz lub wstrzymaj” zastępuje wcześniejsze
 Stan `alpha.31`: paleta udostępnia wszystkie działające cele okna Ustawienia, włącznie z dokładnymi kontrolkami profili klawiatury, przypisań, list, importu, eksportu, komunikatów i planowanych aktualizacji. Domyślną zasadą bezpieczeństwa jest nawigacja bez zmiany wartości. Wyjątkiem są dwa świadomie dopuszczone przełączniki: komunikaty dostępności oraz szczegółowe podpowiedzi klawiatury. Dynamiczna nazwa podaje stan i skutek Entera, wartość jest od razu zapisywana, a wymuszone potwierdzenie zmiany omija globalne wyłączenie zwykłych komunikatów.
 
 Stan `alpha.32`: lista zdarzeń komunikatów udostępnia przez UI Automation wyłącznie przyjazne nazwy zdarzeń. Surowy tekst i znaczniki szablonu są prezentowane dopiero w osobnym polu edycji, dzięki czemu NVDA nie dopisuje `{slot}` ani `{service}` do nazwy elementu listy, a możliwość pełnej edycji pozostaje zachowana.
+
+Stan `alpha.33`: `Ctrl+O` i menu Plik otwierają wiele lokalnych plików audio w tymczasowej sesji, przypisywanej do pierwszego wolnego miejsca od 4. Sam wybór nie uruchamia dźwięku. Enter, `Ctrl+Enter`, Spacja, przewijanie, głośność i informacje o czasie sterują rzeczywistym wyjściem Windows. Granica `IMediaOutput` pozostaje w rdzeniu, a implementacja `WindowsMediaOutput` w warstwie systemowej, dzięki czemu późniejsze wydzielenie AMC.Host nie wymaga przenoszenia logiki do WPF.
 
 Planowana kolejność dalszych etapów:
 

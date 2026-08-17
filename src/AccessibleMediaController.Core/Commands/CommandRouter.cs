@@ -23,6 +23,7 @@ public interface IApplicationActions
     void ShowSettings(SettingsTarget target);
     void ToggleAccessibilityMessages();
     void ToggleDetailedHints();
+    void OpenLocalFiles();
 }
 
 public readonly record struct CommandExecutionResult(bool Handled, bool KeepPrefixActive = false);
@@ -70,6 +71,9 @@ public sealed class CommandRouter(
             case CommandIds.SessionNext:
                 AnnounceSession(sessions.MoveSession(1));
                 return new(true, true);
+            case CommandIds.OpenLocalFiles:
+                application.OpenLocalFiles();
+                return new(true);
             case CommandIds.PlayPause:
                 current.TogglePlayback();
                 announcements.Announce(current.IsPlaying
@@ -253,13 +257,13 @@ public sealed class CommandRouter(
 
     private void AnnounceSession(DemoMediaSession session, int? slot = null)
     {
-        var resolvedSlot = slot ?? settings.SessionSlots.FirstOrDefault(pair => pair.Value == session.Id).Key;
-        if (resolvedSlot > 0)
+        var resolvedSlot = slot ?? sessions.FindSlot(session.Id);
+        if (resolvedSlot is > 0)
         {
             AnnounceTemplate(
                 "session.changed",
                 "{slot}, {service}",
-                ("slot", resolvedSlot.ToString()),
+                ("slot", resolvedSlot.Value.ToString()),
                 ("service", session.DisplayName));
         }
         else

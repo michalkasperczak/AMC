@@ -1,16 +1,15 @@
 using System.Windows;
 using System.Windows.Input;
-using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sessions;
 
 namespace AccessibleMediaController.Windows;
 
 public partial class SessionSelectionWindow : Window
 {
-    public SessionSelectionWindow(SessionManager sessions, AppSettings settings)
+    public SessionSelectionWindow(SessionManager sessions)
     {
         InitializeComponent();
-        SessionList.ItemsSource = settings.SessionSlots
+        SessionList.ItemsSource = sessions.SessionSlots
             .OrderBy(pair => pair.Key)
             .Select(pair => new SessionRow(
                 pair.Key,

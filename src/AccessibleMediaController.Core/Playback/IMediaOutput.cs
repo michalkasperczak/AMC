@@ -1,0 +1,17 @@
+using AccessibleMediaController.Core.Sessions;
+
+namespace AccessibleMediaController.Core.Playback;
+
+/// <summary>
+/// Platform-neutral boundary between session logic and the component that
+/// produces sound. Service adapters and the future AMC.Host can implement the
+/// same contract without moving playback code into the WPF interface.
+/// </summary>
+public interface IMediaOutput
+{
+    TimeSpan Position { get; }
+    void Play(MediaItem item, TimeSpan position, int volume);
+    void Pause();
+    void Seek(TimeSpan position);
+    void SetVolume(int volume);
+}

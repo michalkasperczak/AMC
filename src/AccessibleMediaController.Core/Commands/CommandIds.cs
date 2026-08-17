@@ -52,6 +52,7 @@ public static class CommandIds
     public const string DownloadInService = "action.download.inService";
     public const string DownloadToDisk = "action.download.toDisk";
     public const string Help = "view.help";
+    public const string OpenLocalFiles = "local.openFiles";
 
     public const string SettingsGeneral = "settings.general";
     public const string SettingsLanguage = "settings.language";

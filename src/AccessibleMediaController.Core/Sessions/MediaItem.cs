@@ -16,7 +16,8 @@ public sealed class MediaItem
     public string Title { get; init; } = string.Empty;
     public string Artist { get; init; } = string.Empty;
     public MediaItemKind Kind { get; init; } = MediaItemKind.Track;
-    public TimeSpan Duration { get; init; }
+    public TimeSpan Duration { get; set; }
+    public string? Source { get; init; }
     public bool IsFavorite { get; set; }
     public bool IsInLibrary { get; set; }
     public bool IsInQueue { get; set; }

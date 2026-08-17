@@ -76,6 +76,7 @@ public static class CommandCatalog
             CommandIds.DownloadInService => "Pobierz wewnątrz usługi",
             CommandIds.DownloadToDisk => "Pobierz na dysk",
             CommandIds.Help => "Pomoc dotycząca skrótów",
+            CommandIds.OpenLocalFiles => "Otwórz lokalne pliki audio",
             CommandIds.SettingsGeneral => "Ustawienia: ogólne",
             CommandIds.SettingsLanguage => "Ustawienia: język interfejsu",
             CommandIds.SettingsStartupTarget => "Ustawienia: widok po uruchomieniu",
