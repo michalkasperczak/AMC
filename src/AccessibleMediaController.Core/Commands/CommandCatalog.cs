@@ -35,6 +35,8 @@ public static class CommandCatalog
             CommandIds.Next => "Następny element",
             CommandIds.SeekBackward10 => "Cofnij o 10 sekund",
             CommandIds.SeekForward10 => "Przewiń o 10 sekund",
+            CommandIds.SeekBackward30 => "Cofnij o 30 sekund",
+            CommandIds.SeekForward30 => "Przewiń o 30 sekund",
             CommandIds.SeekBackward60 => "Cofnij o minutę",
             CommandIds.SeekForward60 => "Przewiń o minutę",
             CommandIds.VolumeUp5 => "Głośniej o 5%",

@@ -1,82 +1,94 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-036`
-- Tytuł zestawu: Dostępny odtwarzacz w głównym oknie
-- Wersja programu: `0.1.0-alpha.36`
-- Utworzono: 2026-08-17 13:49, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_1349_0.1.0-alpha.36.md`
+- Numer zestawu: `AMC-TEST-037`
+- Tytuł zestawu: Sterowanie z listy i stan odtwarzanego elementu
+- Wersja programu: `0.1.0-alpha.37`
+- Utworzono: 2026-08-17 14:52, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_1452_0.1.0-alpha.37.md`
 
 W pliku wyników po dwukropku wpisz krótko, co się wydarzyło. Jeżeli wszystko działa, wystarczy `OK`. Nie trzeba przed każdym zadaniem wybierać wariantu odpowiedzi.
 
-Do prób transportu otwórz przez `Ctrl+O` plik trwający co najmniej dwie minuty. Jeżeli to możliwe, dodaj także drugi plik, aby sprawdzić zwykłą nawigację po liście.
+Do prób odtwarzania otwórz przez `Ctrl+O` co najmniej dwa pliki, w tym jeden trwający ponad dwie minuty.
 
-## AMC-036-01 — Numer wersji i otwarcie odtwarzacza
+## AMC-037-01 — Pierwsza zmiana sesji
 
-1. Odczytaj tytuł głównego okna.
-2. Na wybranym pliku naciśnij Enter.
-
-Oczekiwane:
-
-- tytuł zawiera pełny numer `AMC 0.1.0-alpha.36`;
-- dźwięk zostaje uruchomiony, a w tym samym oknie pojawia się odtwarzacz;
-- NVDA podaje odtwarzacz, tytuł, sesję i stan bez otwierania drugiego okna.
-
-## AMC-036-02 — Sterowanie w odtwarzaczu
-
-1. Naciśnij prawo, lewo, `Shift+prawo` i `Shift+lewo`.
-2. Sprawdź głośność przez góra/dół oraz `Shift+góra/dół`.
-3. Sprawdź Home, End oraz `Ctrl+E`, `Ctrl+R` i `Ctrl+T`.
+1. Zaraz po uruchomieniu użyj kolejno dwóch przypisanych skrótów `Ctrl+cyfra`.
+2. Powtórz przełączanie po kilku sekundach.
 
 Oczekiwane:
 
-- lewo/prawo przewija o około 10 sekund, a wariant z Shiftem o około minutę;
-- góra/dół zmienia głośność o 5%, a wariant z Shiftem o 1%;
-- Home przechodzi na początek, a End około 10 sekund przed końcem;
-- polecenia czasu podają właściwe wartości, a upływ każdej sekundy nie jest automatycznie wypowiadany.
+- za pierwszym i kolejnym razem NVDA podaje numer sesji, usługę oraz element;
+- nie pojawia się „Stan programu” ani „Stan programu, Stan programu”;
+- fokus pozostaje na liście.
 
-## AMC-036-03 — Przyciski i odtwarzanie
+## AMC-037-02 — Odtwarzany i wstrzymany element
 
-1. Przejdź Tabem przez przyciski odtwarzacza.
-2. Użyj przycisku „Odtwórz lub wstrzymaj”, jednego przycisku przewijania i jednego przycisku głośności.
-
-Oczekiwane:
-
-- każdy przycisk ma krótką, jednoznaczną nazwę;
-- działania przycisków i odpowiadających im skrótów dotyczą tego samego odtwarzania;
-- fokus pozostaje w odtwarzaczu.
-
-## AMC-036-04 — Escape i zwykła lista
-
-1. W odtwarzaczu naciśnij Escape.
-2. Sprawdź zaznaczenie oraz dźwięk.
-3. Użyj wszystkich strzałek na zwykłej liście.
+1. Na pierwszym pliku naciśnij `Ctrl+Enter`.
+2. Przejdź strzałką na drugi plik, a następnie wróć na pierwszy.
+3. Wstrzymaj odtwarzanie Spacją i ponownie odczytaj pierwszy plik.
 
 Oczekiwane:
 
-- Escape wraca dokładnie do wcześniejszego pliku i widoku, a odtwarzanie trwa dalej;
-- strzałki na liście zachowują naturalne działanie listy i nie przewijają nagrania ani nie zmieniają głośności.
+- aktywny plik jest oznaczony na liście słowem „Odtwarzany”;
+- po pauzie ten sam plik jest oznaczony słowem „Wstrzymany”;
+- zaznaczenie nie jest samoczynnie przenoszone do bieżącego pliku.
 
-## AMC-036-05 — Ctrl+Enter i F6
+## AMC-037-03 — F6 i zapamiętane miejsce
 
-1. Na liście naciśnij `Ctrl+Enter` i sprawdź, czy fokus pozostał na liście.
-2. Naciśnij F6, a następnie Escape.
-3. Opcjonalnie otwórz odtwarzacz poleceniem „Teraz odtwarzane” z palety albo klawiszem `N` po prefiksie.
-
-Oczekiwane:
-
-- `Ctrl+Enter` przełącza odtwarzanie zaznaczenia bez otwierania odtwarzacza;
-- F6 otwiera odtwarzacz bez zmiany zaznaczonego elementu;
-- Escape ponownie przywraca tę samą listę i pozycję.
-
-## AMC-036-06 — Powrót przyciskiem
-
-1. Otwórz odtwarzacz F6.
-2. Tabem przejdź do przycisku „Wróć do listy” i go użyj.
+1. Uruchom pierwszy plik, po czym przejdź zaznaczeniem na drugi bez jego odtwarzania.
+2. Naciśnij F6, a potem Escape.
 
 Oczekiwane:
 
-- przycisk działa tak jak Escape;
-- fokus wraca do zapamiętanego elementu;
-- tytuł okna nadal zawiera numer wersji.
+- F6 pokazuje odtwarzacz pierwszego pliku;
+- Escape wraca do drugiego, ostatnio przeglądanego pliku;
+- pierwszy plik nadal gra i pozostaje oznaczony jako „Odtwarzany”.
 
-Uwaga: odtwarzacz jest częścią głównego okna, nie osobnym oknem modalnym. Dodatkowe funkcje zależne od rodzaju źródła, na przykład nagrywanie radia, pozostają na późniejszy etap.
+## AMC-037-04 — Skróty czasu
+
+1. Na liście sprawdź `Ctrl+Shift+E`, `Ctrl+Shift+R` i `Ctrl+Shift+T`.
+2. Powtórz je w odtwarzaczu otwartym klawiszem F6.
+
+Oczekiwane:
+
+- skróty podają odpowiednio czas od początku, pozostały i całkowity;
+- działają niezawodnie zarówno na liście, jak i w odtwarzaczu;
+- dawne skróty `Ctrl+E/R/T` nie są już prezentowane w palecie jako skróty okna.
+
+## AMC-037-05 — Trzy kroki przewijania
+
+1. W odtwarzaczu sprawdź lewo/prawo.
+2. Sprawdź `Shift+lewo/prawo`.
+3. Sprawdź `Ctrl+lewo/prawo`.
+
+Oczekiwane:
+
+- bez modyfikatora pozycja zmienia się o około 10 sekund;
+- z Shiftem — o około 30 sekund;
+- z Ctrl — o około minutę;
+- zwykłe strzałki na liście nadal nie sterują transportem.
+
+## AMC-037-06 — Sterowanie bez otwierania odtwarzacza
+
+1. Wróć Escape do listy i ustaw zaznaczenie na innym pliku niż odtwarzany.
+2. Spacją wstrzymaj i wznów bieżące odtwarzanie.
+3. `Ctrl+Enter` uruchom zaznaczony plik i sprawdź, czy lista pozostała otwarta.
+
+Oczekiwane:
+
+- Spacja steruje tym, co faktycznie gra, niezależnie od zaznaczenia;
+- `Ctrl+Enter` steruje zaznaczeniem bez przejścia do odtwarzacza;
+- dopiero Enter lub F6 otwiera odtwarzacz.
+
+## AMC-037-07 — Przyciski odtwarzacza
+
+1. Otwórz odtwarzacz i przejdź Tabem przez jego przyciski.
+2. Użyj przycisku odtwarzania, przewijania, głośności i powrotu.
+
+Oczekiwane:
+
+- przyciski mają jednoznaczne nazwy i działają zgodnie z nazwami;
+- przycisk „Wróć do listy” zachowuje się tak jak Escape;
+- komunikaty nie nakładają się na fokus.
+
+Uwaga: Alt+strzałki oraz Ctrl+Shift+strzałki w odtwarzaczu pozostają obecnie wolne. Konfiguracja lokalnych skrótów odtwarzacza jest zapisana jako późniejsze rozszerzenie ustawień.

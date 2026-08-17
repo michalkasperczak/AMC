@@ -94,14 +94,12 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         }
         if (_captureAnnouncements)
         {
-            StatusText.Text = message;
             if (_state.Settings.Messages.Enabled) _capturedAnnouncement = message;
             return;
         }
         if (_deferAnnouncements)
         {
             _deferredAnnouncement = message;
-            StatusText.Text = message;
             return;
         }
         if (!_state.Settings.Messages.Enabled)
@@ -359,9 +357,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
             "W oknie: Enter na utworze lub stacji rozpoczyna odtwarzanie i otwiera odtwarzacz. " +
             "Ctrl+Enter odtwarza lub wstrzymuje zaznaczony element bez opuszczania listy, a Spacja steruje elementem faktycznie grającym. " +
-            "F6 otwiera odtwarzacz. W odtwarzaczu strzałki w lewo i w prawo przewijają o 10 sekund, z Shiftem o minutę, " +
+            "F6 otwiera odtwarzacz. W odtwarzaczu strzałki w lewo i w prawo przewijają o 10 sekund, z Shiftem o 30 sekund, a z Ctrl o minutę, " +
             "strzałki w górę i w dół zmieniają głośność, Home i End przechodzą na początek i w pobliże końca, " +
-            "a Escape wraca do wcześniejszej listy. Ctrl+E, Ctrl+R i Ctrl+T podają czas od początku, pozostały i całkowity. " +
+            "a Escape wraca do wcześniejszej listy. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
             "Alt+Enter pokazuje informacje. " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
@@ -553,6 +551,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void LocalOutput_PlaybackFailed(object? sender, MediaOutputFailedEventArgs e)
     {
         _sessions.FindSession("local")?.MarkPlaybackFailed();
+        RefreshPlaybackIndicators();
         if (_playerViewActive) UpdatePlayerView(true);
         UpdateWindowTitle();
         var title = e.Item?.Title ?? "plik";
@@ -562,6 +561,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void LocalOutput_PlaybackEnded(object? sender, MediaPlaybackEndedEventArgs e)
     {
         _sessions.FindSession("local")?.MarkPlaybackEnded();
+        RefreshPlaybackIndicators();
         if (_playerViewActive) UpdatePlayerView(true);
         UpdateWindowTitle();
         Announce($"Koniec: {e.Item.Title}");
@@ -662,6 +662,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
                 () => Announce(announcement),
                 DispatcherPriority.ContextIdle);
         }
+        RefreshPlaybackIndicators();
         if (_playerViewActive) UpdatePlayerView();
         UpdateWindowTitle();
         return result;
@@ -829,6 +830,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             {
                 session.Play(item);
             }
+            RefreshPlaybackIndicators();
             ShowPlayerView();
             return;
         }
@@ -1070,7 +1072,19 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private string FormatListItem(MediaItem item)
     {
         var homogeneousView = _currentView is "Albumy" or "Playlisty";
-        return FormatItem(item, !homogeneousView);
+        var label = FormatItem(item, !homogeneousView);
+        var session = _sessions.Current;
+        if (!string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal)) return label;
+        if (session.IsPlaying) return $"Odtwarzany, {label}";
+        return session.Position > TimeSpan.Zero ? $"Wstrzymany, {label}" : label;
+    }
+
+    private void RefreshPlaybackIndicators()
+    {
+        foreach (var row in _unfilteredItems)
+        {
+            row.UpdateLabel(FormatListItem(row.Item));
+        }
     }
 
     private void UpdateWindowTitle()
@@ -1092,18 +1106,18 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         ref bool handled)
     {
         if (message != WmKeyDown
-            || Keyboard.Modifiers != ModifierKeys.Control
             || Keyboard.FocusedElement is System.Windows.Controls.TextBox)
         {
             return IntPtr.Zero;
         }
 
-        Action? action = wParam.ToInt32() switch
+        var modifiers = Keyboard.Modifiers;
+        Action? action = (modifiers, wParam.ToInt32()) switch
         {
-            VirtualKeyZ => UndoLastMembershipChange,
-            VirtualKeyE => () => ExecuteCommand(CommandIds.TimeElapsed),
-            VirtualKeyR => () => ExecuteCommand(CommandIds.TimeRemaining),
-            VirtualKeyT => () => ExecuteCommand(CommandIds.TimeTotal),
+            (ModifierKeys.Control, VirtualKeyZ) => UndoLastMembershipChange,
+            (ModifierKeys.Control | ModifierKeys.Shift, VirtualKeyE) => () => ExecuteCommand(CommandIds.TimeElapsed),
+            (ModifierKeys.Control | ModifierKeys.Shift, VirtualKeyR) => () => ExecuteCommand(CommandIds.TimeRemaining),
+            (ModifierKeys.Control | ModifierKeys.Shift, VirtualKeyT) => () => ExecuteCommand(CommandIds.TimeTotal),
             _ => null
         };
         if (action is null) return IntPtr.Zero;
@@ -1272,17 +1286,17 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             ExecuteCommand(CommandIds.ToggleLibrary);
             e.Handled = true;
         }
-        else if (modifiers == ModifierKeys.Control && e.Key == Key.E)
+        else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.E)
         {
             ExecuteCommand(CommandIds.TimeElapsed);
             e.Handled = true;
         }
-        else if (modifiers == ModifierKeys.Control && e.Key == Key.R)
+        else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.R)
         {
             ExecuteCommand(CommandIds.TimeRemaining);
             e.Handled = true;
         }
-        else if (modifiers == ModifierKeys.Control && e.Key == Key.T)
+        else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.T)
         {
             ExecuteCommand(CommandIds.TimeTotal);
             e.Handled = true;
@@ -1401,8 +1415,10 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         {
             (ModifierKeys.None, Key.Left) => CommandIds.SeekBackward10,
             (ModifierKeys.None, Key.Right) => CommandIds.SeekForward10,
-            (ModifierKeys.Shift, Key.Left) => CommandIds.SeekBackward60,
-            (ModifierKeys.Shift, Key.Right) => CommandIds.SeekForward60,
+            (ModifierKeys.Shift, Key.Left) => CommandIds.SeekBackward30,
+            (ModifierKeys.Shift, Key.Right) => CommandIds.SeekForward30,
+            (ModifierKeys.Control, Key.Left) => CommandIds.SeekBackward60,
+            (ModifierKeys.Control, Key.Right) => CommandIds.SeekForward60,
             (ModifierKeys.None, Key.Up) => CommandIds.VolumeUp5,
             (ModifierKeys.None, Key.Down) => CommandIds.VolumeDown5,
             (ModifierKeys.Shift, Key.Up) => CommandIds.VolumeUp1,
@@ -1651,8 +1667,21 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         Announce(result.Error ?? "Brak aktualizacji");
     }
 
-    private sealed record MediaItemRow(MediaItem Item, string Label, string NavigationText)
+    private sealed class MediaItemRow(MediaItem item, string label, string navigationText) : INotifyPropertyChanged
     {
+        public MediaItem Item { get; } = item;
+        public string Label { get; private set; } = label;
+        public string NavigationText { get; } = navigationText;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public void UpdateLabel(string label)
+        {
+            if (string.Equals(Label, label, StringComparison.Ordinal)) return;
+            Label = label;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Label)));
+        }
+
         public override string ToString() => Label;
     }
 }

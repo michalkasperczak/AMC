@@ -594,8 +594,10 @@ static void TestCommandPalette()
     Equal("Ctrl+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFiles).LocalShortcut);
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
     Equal("Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward10).LocalShortcut);
+    Equal("Shift+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward30).LocalShortcut);
+    Equal("Ctrl+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward60).LocalShortcut);
     Equal("Up (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.VolumeUp5).LocalShortcut);
-    Equal("Ctrl+E", entries.Single(entry => entry.CommandId == CommandIds.TimeElapsed).LocalShortcut);
+    Equal("Ctrl+Shift+E", entries.Single(entry => entry.CommandId == CommandIds.TimeElapsed).LocalShortcut);
     Equal("F6", entries.Single(entry => entry.CommandId == CommandIds.ViewNowPlaying).LocalShortcut);
     True(
         entries.Single(entry => entry.CommandId == CommandIds.OpenOfficialApp).LocalShortcut is null,
@@ -683,6 +685,10 @@ static void TestTimeCommands()
     Equal("1:23", sink.LastMessage);
     router.Execute(CommandIds.TimeTotal);
     True(!sink.LastMessage.Contains("czas", StringComparison.OrdinalIgnoreCase), "Komunikat czasu powinien zawierać tylko wartość.");
+    router.Execute(CommandIds.SeekForward30);
+    Equal(TimeSpan.FromSeconds(113), sessions.Current.Position);
+    router.Execute(CommandIds.SeekBackward30);
+    Equal(TimeSpan.FromSeconds(83), sessions.Current.Position);
     router.Execute(CommandIds.TrackEnd);
     Equal(sessions.Current.CurrentItem.Duration - TimeSpan.FromSeconds(10), sessions.Current.Position);
     router.Execute(CommandIds.ActivateSelected);

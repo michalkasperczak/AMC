@@ -201,9 +201,9 @@ Po prefiksie wszystkie strzałki służą sterowaniu globalnemu. Na zwykłej li�
 
 ### 6.1. Widok odtwarzacza
 
-Odtwarzacz jest widokiem wewnątrz głównego okna, a nie osobnym oknem modalnym. Enter na utworze lub stacji zapewnia odtwarzanie elementu i otwiera ten widok; jeżeli element już gra, nie przełącza go na pauzę. `Ctrl+Enter` zachowuje działanie bezpośrednie na liście i nie otwiera odtwarzacza. `F6`, polecenie „Teraz odtwarzane” albo `N` po prefiksie pokazuje odtwarzacz bez uruchamiania nowego zaznaczenia. Escape wraca dokładnie do wcześniejszego widoku i elementu, nie zatrzymując dźwięku.
+Odtwarzacz jest widokiem wewnątrz głównego okna, a nie osobnym oknem modalnym. Enter na utworze lub stacji zapewnia odtwarzanie elementu i otwiera ten widok; jeżeli element już gra, nie przełącza go na pauzę. `Ctrl+Enter` zachowuje działanie bezpośrednie na liście i nie otwiera odtwarzacza. `F6`, polecenie „Teraz odtwarzane” albo `N` po prefiksie pokazuje odtwarzacz bez uruchamiania nowego zaznaczenia. Escape wraca dokładnie do wcześniejszego widoku i elementu, nie zatrzymując dźwięku ani nie przenosząc zaznaczenia do bieżącego utworu. Na listach bieżący utwór otrzymuje dostępny początek „Odtwarzany” albo „Wstrzymany”, dzięki czemu jego stan można rozpoznać bez opuszczania przeglądanej pozycji.
 
-W odtwarzaczu lewo/prawo przewija o 10 sekund, Shift+lewo/prawo o minutę, góra/dół zmienia głośność o 5%, Shift+góra/dół o 1%, Home przechodzi na początek, a End w pobliże końca. Tab przechodzi przez rzeczywiste przyciski odtwarzania, przewijania, głośności i powrotu. Funkcje zależne od możliwości sesji, np. nagrywanie radia, pojawią się później jako warunkowe kontrolki i polecenia; nie otrzymują jeszcze stałego skrótu.
+W odtwarzaczu lewo/prawo przewija o 10 sekund, Shift+lewo/prawo o 30 sekund, Ctrl+lewo/prawo o minutę, góra/dół zmienia głośność o 5%, Shift+góra/dół o 1%, Home przechodzi na początek, a End w pobliże końca. Alt+strzałki oraz Ctrl+Shift+strzałki pozostają wolne do czasu ustalenia potrzeb. Tab przechodzi przez rzeczywiste przyciski odtwarzania, przewijania, głośności i powrotu. Funkcje zależne od możliwości sesji, np. nagrywanie radia, pojawią się później jako warunkowe kontrolki i polecenia; nie otrzymują jeszcze stałego skrótu. Docelowo przypisania odtwarzacza będą konfigurowalne obok profilu prefiksu.
 
 Planowane jest osobne polecenie „Skocz do miejsca”, przyjmujące czas bezwzględny, oraz wariant przejścia do procentu długości. Docelowe skróty, w tym możliwe `J` i `Shift+J` po prefiksie, pozostają do sprawdzenia razem z całą warstwą prefiksową. Polecenia nie będą wiązane na stałe przed testem konfliktów.
 
@@ -359,12 +359,13 @@ Zatwierdzone przypisania podstawowe:
 | `Ctrl+Shift+O` | otwórz folder z plikami audio wraz z podfolderami |
 | `F6` | otwórz widok odtwarzacza |
 | `Strzałka w lewo/prawo` w odtwarzaczu | cofnij albo przewiń o 10 sekund |
-| `Shift+Strzałka w lewo/prawo` w odtwarzaczu | cofnij albo przewiń o minutę |
+| `Shift+Strzałka w lewo/prawo` w odtwarzaczu | cofnij albo przewiń o 30 sekund |
+| `Ctrl+Strzałka w lewo/prawo` w odtwarzaczu | cofnij albo przewiń o minutę |
 | `Strzałka w górę/dół` w odtwarzaczu | zmień głośność o 5% |
 | `Shift+Strzałka w górę/dół` w odtwarzaczu | zmień głośność o 1% |
 | `Home` w odtwarzaczu | przejdź na początek utworu |
 | `End` w odtwarzaczu | przejdź 10 sekund przed końcem utworu |
-| `Ctrl+E`, `Ctrl+R`, `Ctrl+T` | podaj czas od początku, pozostały albo całkowity |
+| `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | podaj czas od początku, pozostały albo całkowity |
 | `Ctrl+D` | pobierz offline wewnątrz usługi, jeśli obsługiwane |
 | `Ctrl+Shift+D` | pobierz do pliku lokalnego; funkcja eksperymentalna, domyślnie wyłączona |
 | `Backspace` lub `Delete` | usuń z bieżącej playlisty, kolejki, ulubionych lub biblioteki; z potwierdzeniem albo możliwością cofnięcia |
@@ -634,6 +635,8 @@ Stan `alpha.34`: `Ctrl+Shift+O` otwiera folder z plikami audio wraz z dostępnym
 Stan `alpha.35`: po nieudanym teście standardowej obsługi WPF polecenia `Ctrl+E`, `Ctrl+R` i `Ctrl+T` są przechwytywane wcześniej, na granicy komunikatów okna, z zachowaniem zwykłych poleceń edycji w polach tekstowych. Główna lista obsługuje bez prefiksu przewijanie lewo/prawo, minutowe skoki z Shiftem, głośność pod Ctrl+góra/dół oraz początek i okolice końca. Paleta pokazuje te działające skróty. Zwykłe góra/dół pozostają nawigacją po liście, a „Otwórz w oficjalnej aplikacji” nie ogłasza już zajętego `Ctrl+Shift+O` w menu kontekstowym.
 
 Stan `alpha.36`: eksperymentalne skróty transportowe `alpha.35` zostały wycofane ze zwykłej listy i przeniesione do pierwszego dostępnego widoku odtwarzacza w tym samym oknie. Enter otwiera odtwarzacz, `Ctrl+Enter` działa na liście, F6 pokazuje bieżące odtwarzanie, a Escape przywraca wcześniejszy element. Odtwarzacz udostępnia prawdziwe przyciski oraz okresowo aktualizowane dane tytułu, wykonawcy, sesji, stanu i czasu bez automatycznego wypowiadania każdej sekundy. Tytuł i dostępna nazwa głównego okna zawierają pełny numer wersji.
+
+Stan `alpha.37`: Escape z odtwarzacza zachowuje pozycję ostatnio przeglądaną, a bieżący element jest oznaczany na liście jako „Odtwarzany” lub „Wstrzymany”. Zmiana sesji nie aktualizuje już ukrytego obszaru „Stan programu” przed scalonym komunikatem fokusowym. Lokalne informacje o czasie przechodzą na `Ctrl+Shift+E/R/T`; prefiksowe `Ctrl+E/R/T` pozostają bez zmian. Odtwarzacz przewija o 10 sekund bez modyfikatora, o 30 sekund z Shiftem i o minutę z Ctrl. Zwykła lista nadal zachowuje wszystkie strzałki, a Spacja, `Ctrl+Enter` i prefiks umożliwiają sterowanie bez otwierania odtwarzacza.
 
 Planowana kolejność dalszych etapów:
 

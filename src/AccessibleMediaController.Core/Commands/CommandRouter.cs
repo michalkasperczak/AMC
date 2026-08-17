@@ -105,6 +105,8 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.SeekBackward10: return Seek(current, -10);
             case CommandIds.SeekForward10: return Seek(current, 10);
+            case CommandIds.SeekBackward30: return Seek(current, -30);
+            case CommandIds.SeekForward30: return Seek(current, 30);
             case CommandIds.SeekBackward60: return Seek(current, -60);
             case CommandIds.SeekForward60: return Seek(current, 60);
             case CommandIds.VolumeUp5: return Volume(current, 5);

@@ -8,6 +8,8 @@ public static class CommandIds
     public const string Next = "transport.next";
     public const string SeekBackward10 = "transport.seekBackward10";
     public const string SeekForward10 = "transport.seekForward10";
+    public const string SeekBackward30 = "transport.seekBackward30";
+    public const string SeekForward30 = "transport.seekForward30";
     public const string SeekBackward60 = "transport.seekBackward60";
     public const string SeekForward60 = "transport.seekForward60";
     public const string VolumeUp5 = "transport.volumeUp5";
