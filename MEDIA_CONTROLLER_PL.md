@@ -656,6 +656,8 @@ Stan `alpha.41`: nadrzędne `Ctrl+Shift+G` zachowuje osobne wybory komunikatów 
 
 Stan `alpha.42`: pasek stanu został przeniesiony z wewnętrznego panelu z marginesem na rzeczywistą dolną krawędź okna, zgodnie ze sposobem lokalizowania go przez `NVDA+End`. Bezpośredni element paska udostępnia aktualizowany tekst przez UI Automation. `Ctrl+G` otwiera skok do wpisanego czasu, a osobne polecenie przyjmuje procent `0–100`; oba są obecne w menu Odtwarzanie, odtwarzaczu i palecie.
 
+Stan `alpha.43`: po negatywnym teście NVDA pasek WPF został zastąpiony natywnym paskiem stanu Windows osadzonym przy dolnej krawędzi. Dokładny skok do czasu i procentu jest poleceniem globalnym bieżącej sesji odtwarzania, dostępnym także podczas pracy na liście; cyfry `0–9` pozostają lokalne dla odtwarzacza. Walidacja okna skoku wywołuje aktywne oznajmienie błędu, zaznacza wadliwą wartość i nie przenosi fokusu z pola.
+
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.

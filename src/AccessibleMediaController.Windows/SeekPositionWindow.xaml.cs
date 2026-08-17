@@ -41,7 +41,7 @@ public partial class SeekPositionWindow : Window
             ValueLabel.Content = "_Procent:";
             InstructionsText.Text = "Wpisz liczbę od 0 do 100. Znak procentu jest opcjonalny.";
             AutomationProperties.SetName(ValueBox, "Procent docelowy");
-            AutomationProperties.SetHelpText(ValueBox, "Wpisz liczbę od 0 do 100, na przykład 35 albo 35%. ");
+            AutomationProperties.SetHelpText(ValueBox, "Wpisz liczbę od 0 do 100, na przykład 35 albo 35%.");
         }
     }
 
@@ -85,7 +85,8 @@ public partial class SeekPositionWindow : Window
 
     private void ShowError(string message)
     {
-        ErrorText.Text = message;
+        ErrorText.Announce(message);
+        AutomationProperties.SetHelpText(ValueBox, message);
         ValueBox.Focus();
         Keyboard.Focus(ValueBox);
         ValueBox.SelectAll();

@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
         xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"
         Title="Dostępny kontroler multimedialny — prototyp"
         Width="820" Height="560" MinWidth="640" MinHeight="420"
         WindowStartupLocation="CenterScreen"
@@ -11,15 +12,9 @@
         PreviewKeyDown="Window_PreviewKeyDown"
         Closing="Window_Closing">
     <DockPanel>
-        <StatusBar x:Name="PlaybackStatusBar" DockPanel.Dock="Bottom"
-                   automation:AutomationProperties.Name="Stan odtwarzania"
-                   automation:AutomationProperties.HelpText="NVDA+End odczytuje bieżący pasek stanu.">
-            <StatusBarItem x:Name="PlaybackStatusItem" HorizontalContentAlignment="Stretch"
-                           automation:AutomationProperties.Name="Pauza, czas 0:00, głośność 0%, przepływność: brak danych">
-                <TextBlock x:Name="PlaybackStatusText" TextWrapping="NoWrap"
-                           Text="Pauza, czas 0:00, głośność 0%, przepływność: brak danych" />
-            </StatusBarItem>
-        </StatusBar>
+        <wfi:WindowsFormsHost x:Name="PlaybackStatusHost" DockPanel.Dock="Bottom"
+                              Height="24" Focusable="False"
+                              KeyboardNavigation.IsTabStop="False" />
 
         <DockPanel Margin="12">
         <Menu x:Name="MainMenu" DockPanel.Dock="Top" Margin="0,0,0,8"

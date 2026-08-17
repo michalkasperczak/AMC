@@ -654,6 +654,8 @@ State of `alpha.41`: master `Ctrl+Shift+G` preserves separate choices for digit-
 
 State of `alpha.42`: the status bar moves from an inset panel to the actual bottom edge of the window, matching how `NVDA+End` locates it. Its direct child exposes the changing text through UI Automation. `Ctrl+G` opens an exact-time input and a separate command accepts a `0–100` percentage; both appear in the Playback menu, player and command palette.
 
+State of `alpha.43`: after the negative NVDA test, the WPF bar is replaced by a native Windows status bar hosted at the bottom edge. Exact time and percentage are global commands for the current playback session and remain available while browsing a list; digits `0–9` stay local to the player. Seek-dialog validation raises an active error notification, selects the invalid value and keeps focus in the edit field.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.

@@ -51,6 +51,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private bool _playerViewActive;
     private string _playerReturnView = DefaultBrowserView;
     private string? _playerReturnItemId;
+    private readonly System.Windows.Forms.StatusStrip _playbackStatusBar;
+    private readonly System.Windows.Forms.ToolStripStatusLabel _playbackStatusLabel;
 
     private const int WmKeyDown = 0x0100;
     private const int VirtualKeyE = 0x45;
@@ -69,6 +71,29 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     public MainWindow(PersistedState state, ConfigurationStore store)
     {
         InitializeComponent();
+        const string initialStatus = "Pauza, czas 0:00, głośność 0%, przepływność: brak danych";
+        _playbackStatusLabel = new System.Windows.Forms.ToolStripStatusLabel
+        {
+            AccessibleName = initialStatus,
+            AccessibleRole = System.Windows.Forms.AccessibleRole.StaticText,
+            Spring = true,
+            Text = initialStatus,
+            TextAlign = System.Drawing.ContentAlignment.MiddleLeft
+        };
+        _playbackStatusBar = new System.Windows.Forms.StatusStrip
+        {
+            AccessibleName = initialStatus,
+            AccessibleRole = System.Windows.Forms.AccessibleRole.StatusBar,
+            AutoSize = false,
+            CanOverflow = false,
+            Dock = System.Windows.Forms.DockStyle.Fill,
+            GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden,
+            SizingGrip = false,
+            TabStop = false,
+            Text = initialStatus
+        };
+        _playbackStatusBar.Items.Add(_playbackStatusLabel);
+        PlaybackStatusHost.Child = _playbackStatusBar;
         _playerUiTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromSeconds(1)
@@ -302,8 +327,10 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             ? item.IsBitrateEstimated ? $"około {bitrateKbps} kb/s" : $"{bitrateKbps} kb/s"
             : "brak danych";
         var text = $"{session.DisplayName}, {state}, {item.Title}, {time}, głośność {session.Volume}%, przepływność {bitrate}";
-        PlaybackStatusText.Text = text;
-        AutomationProperties.SetName(PlaybackStatusItem, text);
+        _playbackStatusLabel.Text = text;
+        _playbackStatusLabel.AccessibleName = text;
+        _playbackStatusBar.Text = text;
+        _playbackStatusBar.AccessibleName = text;
     }
 
     public void ShowSeekToTime() => ShowSeekPositionDialog(SeekInputMode.Time);
