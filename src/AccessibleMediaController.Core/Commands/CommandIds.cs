@@ -20,6 +20,8 @@ public static class CommandIds
     public const string VolumeDown1 = "transport.volumeDown1";
     public const string TrackStart = "transport.trackStart";
     public const string TrackEnd = "transport.trackEnd";
+    public const string SeekToTime = "transport.seekToTime";
+    public const string SeekToPercentage = "transport.seekToPercentage";
 
     public const string TimeElapsed = "information.timeElapsed";
     public const string TimeRemaining = "information.timeRemaining";

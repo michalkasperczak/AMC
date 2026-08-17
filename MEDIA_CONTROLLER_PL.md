@@ -205,7 +205,7 @@ Odtwarzacz jest widokiem wewnątrz głównego okna, a nie osobnym oknem modalnym
 
 W odtwarzaczu lewo/prawo przewija o 10 sekund, Shift+lewo/prawo o 30 sekund, Ctrl+lewo/prawo o minutę, góra/dół zmienia głośność o 5%, Shift+góra/dół o 1%, Home przechodzi na początek, a End w pobliże końca. Cyfry `0–9` przechodzą odpowiednio do `0%, 10%, …, 90%` czasu trwania; obejmuje to blok numeryczny przy włączonym Num Lock. Domyślnym komunikatem skoku jest sam procent. Użytkownik może zamiast niego wybrać czas albo procent i czas. Skrót działa wyłącznie w odtwarzaczu, więc cyfry na liście nadal służą jej natywnej nawigacji, a `Ctrl+cyfra` wybiera sesję. Przy nieznanym czasie trwania skok procentowy jest niedostępny. Alt+strzałki oraz Ctrl+Shift+strzałki pozostają wolne do czasu ustalenia potrzeb. Tab przechodzi przez rzeczywiste przyciski odtwarzania, przewijania, głośności i powrotu. Funkcje zależne od możliwości sesji, np. nagrywanie radia, pojawią się później jako warunkowe kontrolki i polecenia; nie otrzymują jeszcze stałego skrótu. Docelowo przypisania odtwarzacza będą konfigurowalne obok profilu prefiksu.
 
-Nadal planowane jest osobne polecenie „Skocz do miejsca”, przyjmujące czas bezwzględny. Wariant procentowy ma już lokalną mapę cyfr w odtwarzaczu. Ewentualne odpowiedniki po prefiksie, w tym możliwe `J` dla czasu wpisywanego ręcznie, pozostają do sprawdzenia razem z całą warstwą prefiksową i nie będą wiązane na stałe przed testem konfliktów.
+`Ctrl+G` otwiera osobne okno „Skocz do czasu”. Sama liczba oznacza minuty, dwie części — minuty i sekundy, a trzy — godziny, minuty i sekundy. „Skocz do procentu” jest osobnym poleceniem przyjmującym `0–100`; nie ma jeszcze stałego skrótu, lecz działa z menu Odtwarzanie, przycisku i palety. Rozdzielenie zapobiega zgadywaniu, czy `35` oznacza minuty, czy procent. Ewentualne odpowiedniki po prefiksie pozostają do sprawdzenia razem z całą warstwą i nie są jeszcze wiązane na stałe.
 
 ## 7. Okno przeglądania
 
@@ -366,6 +366,8 @@ Zatwierdzone przypisania podstawowe:
 | `Home` w odtwarzaczu | przejdź na początek utworu |
 | `End` w odtwarzaczu | przejdź 10 sekund przed końcem utworu |
 | `0–9` w odtwarzaczu | przejdź do 0–90% czasu trwania co 10% |
+| `Ctrl+G` | wpisz dokładny czas i przejdź do niego |
+| brak domyślnego skrótu | wpisz procent od 0 do 100 i przejdź do niego |
 | `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | podaj czas od początku, pozostały albo całkowity |
 | `Ctrl+Shift+G` | chwilowo włącz lub wyłącz wszystkie automatyczne komunikaty odtwarzacza |
 | `Ctrl+D` | pobierz offline wewnątrz usługi, jeśli obsługiwane |
@@ -651,6 +653,8 @@ Stan `alpha.39`: cyfry `0–9` w widoku odtwarzacza przechodzą do `0–90%` cza
 Stan `alpha.40`: domyślnym komunikatem po skoku cyfrą jest sam procent. Karta Komunikaty pozwala wybrać sam procent, sam czas albo procent i czas, a paleta prowadzi bezpośrednio do tej kontrolki. `Ctrl+Shift+G` i wspólny checkbox wyciszają zarówno automatyczne wartości czasu, jak i wartości głośności po zmianie. Odtwarzanie, pauza, komunikaty błędów i polecenia czasu na żądanie pozostają słyszalne.
 
 Stan `alpha.41`: nadrzędne `Ctrl+Shift+G` zachowuje osobne wybory komunikatów skoków cyframi, przewijania strzałkami, głośności i odtwarzania/pauzy. Każda kategoria ma własny checkbox i wejście w palecie. Na dole głównego okna działa pasek stanu bez automatycznej mowy, odczytywany przez `NVDA+End`: usługa, stan, tytuł, pozycja z czasem całkowitym, głośność i przepływność. Lokalna przepływność jest oznaczonym przybliżeniem; brak metadanych nie jest zastępowany wymyśloną wartością.
+
+Stan `alpha.42`: pasek stanu został przeniesiony z wewnętrznego panelu z marginesem na rzeczywistą dolną krawędź okna, zgodnie ze sposobem lokalizowania go przez `NVDA+End`. Bezpośredni element paska udostępnia aktualizowany tekst przez UI Automation. `Ctrl+G` otwiera skok do wpisanego czasu, a osobne polecenie przyjmuje procent `0–100`; oba są obecne w menu Odtwarzanie, odtwarzaczu i palecie.
 
 Planowana kolejność dalszych etapów:
 

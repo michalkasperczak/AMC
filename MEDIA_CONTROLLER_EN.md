@@ -205,7 +205,7 @@ The player is a view inside the main window rather than a separate modal window.
 
 In the player, Left/Right seeks by 10 seconds, Shift+Left/Right by 30 seconds, Ctrl+Left/Right by one minute, Up/Down changes volume by 5%, Shift+Up/Down by 1%, Home seeks to the beginning and End near the end. Digits `0–9` seek to `0%, 10%, …, 90%` of the duration; this includes numpad digits with Num Lock enabled. The default digit-seek announcement is the percentage alone; the user may select time or percentage and time instead. The binding is player-only, so digits retain native item navigation on lists and `Ctrl+digit` selects a session. Percentage seeking is unavailable when duration is unknown. Alt+Arrow and Ctrl+Shift+Arrow remain unassigned until a concrete need is agreed. Tab moves through real play, seek, volume and return buttons. Session-dependent capabilities such as radio recording will later appear as conditional controls and commands and have no fixed shortcut yet. Player bindings will eventually be configurable alongside the prefix profile.
 
-A separate “Jump to position” command accepting an absolute time remains planned. The percentage variant now has a local digit map in the player. Possible prefix equivalents, including `J` for a manually entered time, remain subject to the complete prefix conflict review.
+`Ctrl+G` opens a separate Jump to time dialog. A number alone means minutes, two parts mean minutes and seconds, and three mean hours, minutes and seconds. Jump to percentage is a separate `0–100` command; it has no fixed shortcut yet but is available from the Playback menu, a button and the command palette. This split avoids guessing whether `35` means minutes or percent. Prefix equivalents remain subject to the complete prefix conflict review.
 
 ## 7. Browser window
 
@@ -366,6 +366,8 @@ Approved primary bindings:
 | `Home` in the player | seek to the beginning |
 | `End` in the player | seek to 10 seconds before the end |
 | `0–9` in the player | seek to 0–90% of the duration in 10% steps |
+| `Ctrl+G` | enter and seek to an exact time |
+| no default shortcut | enter and seek to a percentage from 0 to 100 |
 | `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | report elapsed, remaining or total time |
 | `Ctrl+Shift+G` | temporarily toggle all automatic player feedback |
 | `Ctrl+D` | download offline within the service when supported |
@@ -649,6 +651,8 @@ State of `alpha.39`: digits `0–9` in the player seek to `0–90%` of the durat
 State of `alpha.40`: the default digit-seek announcement is the percentage alone. The Messages tab selects percentage only, time only, or percentage and time, and the command palette opens that control directly. `Ctrl+Shift+G` and the shared checkbox silence both automatic time values and volume values after a change. Playback, pause, error messages and explicit time commands remain audible.
 
 State of `alpha.41`: master `Ctrl+Shift+G` preserves separate choices for digit-seek, Arrow-seek, volume and playback/pause messages. Each category has its own checkbox and command-palette entry. A non-live status bar at the bottom of the main window is read through `NVDA+End`: service, state, title, position and total duration, volume and bitrate. Local bitrate is marked as an estimate; missing metadata is never replaced by an invented value.
+
+State of `alpha.42`: the status bar moves from an inset panel to the actual bottom edge of the window, matching how `NVDA+End` locates it. Its direct child exposes the changing text through UI Automation. `Ctrl+G` opens an exact-time input and a separate command accepts a `0–100` percentage; both appear in the Playback menu, player and command palette.
 
 Planned sequence of later stages:
 

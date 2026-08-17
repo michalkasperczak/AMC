@@ -136,6 +136,7 @@ public static class CommandPaletteSearch
             CommandIds.VolumeDown1 => "Shift+Down (odtwarzacz)",
             CommandIds.TrackStart => "Home (odtwarzacz)",
             CommandIds.TrackEnd => "End (odtwarzacz)",
+            CommandIds.SeekToTime => "Ctrl+G",
             CommandIds.TimeElapsed => "Ctrl+Shift+E",
             CommandIds.TimeRemaining => "Ctrl+Shift+R",
             CommandIds.TimeTotal => "Ctrl+Shift+T",

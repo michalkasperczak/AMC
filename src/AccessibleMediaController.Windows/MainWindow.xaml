@@ -10,7 +10,18 @@
         Activated="Window_Activated"
         PreviewKeyDown="Window_PreviewKeyDown"
         Closing="Window_Closing">
-    <DockPanel Margin="12">
+    <DockPanel>
+        <StatusBar x:Name="PlaybackStatusBar" DockPanel.Dock="Bottom"
+                   automation:AutomationProperties.Name="Stan odtwarzania"
+                   automation:AutomationProperties.HelpText="NVDA+End odczytuje bieżący pasek stanu.">
+            <StatusBarItem x:Name="PlaybackStatusItem" HorizontalContentAlignment="Stretch"
+                           automation:AutomationProperties.Name="Pauza, czas 0:00, głośność 0%, przepływność: brak danych">
+                <TextBlock x:Name="PlaybackStatusText" TextWrapping="NoWrap"
+                           Text="Pauza, czas 0:00, głośność 0%, przepływność: brak danych" />
+            </StatusBarItem>
+        </StatusBar>
+
+        <DockPanel Margin="12">
         <Menu x:Name="MainMenu" DockPanel.Dock="Top" Margin="0,0,0,8"
               KeyboardNavigation.IsTabStop="False"
               KeyboardNavigation.TabNavigation="None">
@@ -35,6 +46,14 @@
                 <MenuItem Header="_Lista sesji…" InputGestureText="Ctrl+0" Click="Sessions_Click" />
                 <MenuItem Header="Poprzednia sesja" InputGestureText="Ctrl+Page Up" Click="PreviousSession_Click" />
                 <MenuItem Header="Następna sesja" InputGestureText="Ctrl+Page Down" Click="NextSession_Click" />
+            </MenuItem>
+            <MenuItem Header="_Odtwarzanie">
+                <MenuItem Header="Skocz do _czasu…" InputGestureText="Ctrl+G"
+                          automation:AutomationProperties.Name="Skocz do czasu, Ctrl+G"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+G"
+                          Click="SeekToTime_Click" />
+                <MenuItem Header="Skocz do _procentu…"
+                          Click="SeekToPercentage_Click" />
             </MenuItem>
             <MenuItem Header="_Widok">
                 <MenuItem Header="_Teraz odtwarzane" InputGestureText="F6"
@@ -81,14 +100,6 @@
                     automation:AutomationProperties.LiveSetting="Assertive"
                     Text="Gotowy" TextWrapping="Wrap" />
             </Border>
-            <StatusBar x:Name="PlaybackStatusBar" Margin="0,4,0,0"
-                       automation:AutomationProperties.Name="Pasek stanu odtwarzania"
-                       automation:AutomationProperties.HelpText="NVDA+End odczytuje bieżący pasek stanu.">
-                <StatusBarItem HorizontalContentAlignment="Stretch">
-                    <TextBlock x:Name="PlaybackStatusText" TextWrapping="NoWrap"
-                               Text="Pauza, czas 0:00, głośność 0%, przepływność: brak danych" />
-                </StatusBarItem>
-            </StatusBar>
         </StackPanel>
 
         <Grid>
@@ -151,6 +162,10 @@
                             Click="PlayerVolumeDown_Click" />
                     <Button MinWidth="125" Margin="0,0,8,8" Content="_Głośniej"
                             Click="PlayerVolumeUp_Click" />
+                    <Button MinWidth="145" Margin="0,0,8,8" Content="Skocz do _czasu…"
+                            Click="SeekToTime_Click" />
+                    <Button MinWidth="155" Margin="0,0,8,8" Content="Skocz do _procentu…"
+                            Click="SeekToPercentage_Click" />
                     <Button MinWidth="145" Margin="0,0,8,8" Content="_Wróć do listy"
                             Click="PlayerBack_Click" />
                 </WrapPanel>
@@ -159,5 +174,6 @@
             </StackPanel>
         </Border>
         </Grid>
+        </DockPanel>
     </DockPanel>
 </Window>

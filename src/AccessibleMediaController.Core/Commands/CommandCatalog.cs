@@ -51,6 +51,8 @@ public static class CommandCatalog
             CommandIds.VolumeDown1 => "Ciszej o 1%",
             CommandIds.TrackStart => "Początek utworu",
             CommandIds.TrackEnd => "Koniec utworu",
+            CommandIds.SeekToTime => "Skocz do czasu",
+            CommandIds.SeekToPercentage => "Skocz do procentu",
             CommandIds.TimeElapsed => "Czas od początku",
             CommandIds.TimeRemaining => "Czas pozostały",
             CommandIds.TimeTotal => "Czas całkowity",

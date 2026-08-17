@@ -303,7 +303,43 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             : "brak danych";
         var text = $"{session.DisplayName}, {state}, {item.Title}, {time}, głośność {session.Volume}%, przepływność {bitrate}";
         PlaybackStatusText.Text = text;
-        AutomationProperties.SetName(PlaybackStatusBar, text);
+        AutomationProperties.SetName(PlaybackStatusItem, text);
+    }
+
+    public void ShowSeekToTime() => ShowSeekPositionDialog(SeekInputMode.Time);
+
+    public void ShowSeekToPercentage() => ShowSeekPositionDialog(SeekInputMode.Percentage);
+
+    private void ShowSeekPositionDialog(SeekInputMode mode)
+    {
+        var session = _sessions.Current;
+        var duration = session.CurrentItem.Duration;
+        if (duration <= TimeSpan.Zero)
+        {
+            Announce(mode == SeekInputMode.Time
+                ? "Skok do czasu niedostępny: czas trwania jest nieznany"
+                : "Skok procentowy niedostępny: czas trwania jest nieznany");
+            return;
+        }
+
+        var dialog = new SeekPositionWindow(mode, duration) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+
+        if (mode == SeekInputMode.Time)
+        {
+            session.SetPosition(dialog.Position);
+            Announce(CommandRouter.FormatTime(dialog.Position));
+        }
+        else
+        {
+            var position = TimeSpan.FromTicks(
+                (long)Math.Round(duration.Ticks * (dialog.Percentage / 100d)));
+            session.SetPosition(position);
+            Announce($"{dialog.Percentage}%, {CommandRouter.FormatTime(position)}");
+        }
+
+        if (_playerViewActive) UpdatePlayerView();
+        UpdatePlaybackStatusBar();
     }
 
     public void ShowSessionList()
@@ -1447,6 +1483,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
             (ModifierKeys.Control, Key.K) => CommandIds.FilterCurrent,
             (ModifierKeys.Control, Key.F) => CommandIds.SearchCurrent,
+            (ModifierKeys.Control, Key.G) => CommandIds.SeekToTime,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.A) => CommandIds.ViewAlbums,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.F) => CommandIds.SearchAll,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.G) => CommandIds.SettingsToggleSeekMessages,
@@ -1696,6 +1733,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void PlayerForward_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekForward10);
     private void PlayerVolumeDown_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.VolumeDown5);
     private void PlayerVolumeUp_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.VolumeUp5);
+    private void SeekToTime_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekToTime);
+    private void SeekToPercentage_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekToPercentage);
     private void PlayerBack_Click(object sender, RoutedEventArgs e) => ReturnFromPlayerToList();
     private void ToggleSelectedPlayback_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ActivateSelected);
     private void PlayNext_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.TogglePlayNext);

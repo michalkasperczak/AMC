@@ -30,6 +30,7 @@ var tests = new (string Name, Action Test)[]
     ("Paleta poleceń", TestCommandPalette),
     ("Cofanie zmian przynależności", TestMembershipHistory),
     ("Krótkie komunikaty czasu", TestTimeCommands),
+    ("Skok wpisanym czasem i procentem", TestSeekInputParser),
     ("Trzy rodzaje eksportu", TestExports)
 };
 
@@ -136,6 +137,8 @@ static void TestCommandCatalog()
     Equal("Przełącz automatyczne komunikaty odtwarzacza", CommandCatalog.GetDisplayName(CommandIds.SettingsToggleSeekMessages));
     Equal("Otwórz lokalne pliki audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
     Equal("Otwórz folder z plikami audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
+    Equal("Skocz do czasu", CommandCatalog.GetDisplayName(CommandIds.SeekToTime));
+    Equal("Skocz do procentu", CommandCatalog.GetDisplayName(CommandIds.SeekToPercentage));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
     Equal("Przejdź do 50% utworu", CommandCatalog.GetDisplayName(CommandIds.SeekPercent(50)));
     True(CommandIds.TryParseSeekPercent(CommandIds.SeekPercent(90), out var percent), "Identyfikator skoku procentowego powinien być rozpoznawany.");
@@ -662,6 +665,8 @@ static void TestCommandPalette()
     True(!favorites.ToString().Contains("CommandId", StringComparison.Ordinal), "Lista nie może ujawniać technicznych nazw pól obiektu.");
     Equal("Ctrl+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFiles).LocalShortcut);
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
+    Equal("Ctrl+G", entries.Single(entry => entry.CommandId == CommandIds.SeekToTime).LocalShortcut);
+    True(entries.Any(entry => entry.CommandId == CommandIds.SeekToPercentage), "Paleta powinna zawierać skok do procentu.");
     Equal("Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward10).LocalShortcut);
     Equal("Shift+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward30).LocalShortcut);
     Equal("Ctrl+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward60).LocalShortcut);
@@ -878,6 +883,10 @@ static void TestTimeCommands()
     Equal("Usunięto z następnych: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.CommandPalette);
     True(actions.CommandPaletteShown, "Router powinien otworzyć paletę poleceń przez interfejs aplikacji.");
+    router.Execute(CommandIds.SeekToTime);
+    True(actions.SeekToTimeShown, "Router powinien otworzyć okno skoku do czasu.");
+    router.Execute(CommandIds.SeekToPercentage);
+    True(actions.SeekToPercentageShown, "Router powinien otworzyć okno skoku do procentu.");
     router.Execute(CommandIds.SettingsMessageTemplates);
     Equal(SettingsTarget.MessageTemplates, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsPercentageSeekAnnouncement);
@@ -896,6 +905,24 @@ static void TestTimeCommands()
     True(actions.DetailedHintsToggled, "Router powinien przekazać przełączenie szczegółowych podpowiedzi do aplikacji.");
     router.Execute(CommandIds.SettingsToggleSeekMessages);
     True(actions.SeekMessagesToggled, "Router powinien przekazać przełączenie odczytu przewijania do aplikacji.");
+}
+
+static void TestSeekInputParser()
+{
+    True(SeekInputParser.TryParseTime("35", out var minutes, out _), "Sama liczba powinna oznaczać minuty.");
+    Equal(TimeSpan.FromMinutes(35), minutes);
+    True(SeekInputParser.TryParseTime("1:35", out var minuteSeconds, out _), "Format minuty:sekundy powinien działać.");
+    Equal(TimeSpan.FromSeconds(95), minuteSeconds);
+    True(SeekInputParser.TryParseTime("1:02:30", out var hourTime, out _), "Format godziny:minuty:sekundy powinien działać.");
+    Equal(new TimeSpan(1, 2, 30), hourTime);
+    True(!SeekInputParser.TryParseTime("1:60", out _, out _), "Sekundy 60 nie mogą być przyjęte.");
+    True(!SeekInputParser.TryParseTime("-1", out _, out _), "Czas ujemny nie może być przyjęty.");
+
+    True(SeekInputParser.TryParsePercentage("35", out var percent, out _), "Procent bez znaku powinien działać.");
+    Equal(35, percent);
+    True(SeekInputParser.TryParsePercentage("100%", out percent, out _), "Procent ze znakiem powinien działać.");
+    Equal(100, percent);
+    True(!SeekInputParser.TryParsePercentage("101", out _, out _), "Procent ponad 100 nie może być przyjęty.");
 }
 
 static void TestExports()
@@ -985,6 +1012,8 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
     public bool MessagesToggled { get; private set; }
     public bool DetailedHintsToggled { get; private set; }
     public bool SeekMessagesToggled { get; private set; }
+    public bool SeekToTimeShown { get; private set; }
+    public bool SeekToPercentageShown { get; private set; }
     public void ShowCurrentSession(string viewName) { }
     public void ShowFilter() { }
     public void ShowSessionList() { }
@@ -999,6 +1028,8 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
     public void ToggleSeekMessages() => SeekMessagesToggled = true;
     public void OpenLocalFiles() { }
     public void OpenLocalFolder() { }
+    public void ShowSeekToTime() => SeekToTimeShown = true;
+    public void ShowSeekToPercentage() => SeekToPercentageShown = true;
 }
 
 sealed class FakeMediaOutput : IMediaOutput
