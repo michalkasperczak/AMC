@@ -199,6 +199,8 @@ The offset for moving near the end is configurable. The application does not see
 
 Prefix-layer arrows are reserved for global playback control. In an active list window, ordinary arrow keys navigate items without the prefix.
 
+A separate “Jump to position” command accepting an absolute time and a variant accepting a percentage are planned. Final bindings, including possible `J` and `Shift+J` prefix commands, remain subject to the complete prefix conflict review.
+
 ## 7. Browser window
 
 ### 7.1. Lists rather than trees
@@ -269,7 +271,7 @@ A search query may inspect several fields and aliases, while navigation through 
 | `Alt+Left Arrow` | previous view |
 | `Alt+Right Arrow` | next view when available |
 | `Alt+Enter` | item information |
-| `Ctrl+Shift+O` | open the item in the official service application |
+| no default binding | open the item in the official service application; the command remains in the context menu and palette until the prefix is reviewed |
 | `Application key` or `Shift+F10` | context menu |
 
 Enter performs the primary action for the item type: it toggles playback of a track, station or preset, while opening the contents of an album, playlist or artist. `Ctrl+Enter` invokes “Play or pause” without opening: it starts a new selection, pauses the current one, or resumes it. In the future the same rule will play a whole album or playlist without opening it. `Space` controls what is actually playing and does not depend on the current selection. Consistent with file-manager conventions, `Alt+Enter` remains Item Information or Properties; it does not open an external application.
@@ -347,11 +349,12 @@ Approved primary bindings:
 | `Ctrl+Shift+P` | open playlist selection and change membership |
 | `Ctrl+Shift+Q` | add to the queue |
 | `Ctrl+Shift+L` | add to the library |
+| `Ctrl+O` | open one or more local audio files |
+| `Ctrl+Shift+O` | open a folder of audio files, including subfolders |
 | `Ctrl+D` | download offline within the service when supported |
 | `Ctrl+Shift+D` | download to a local file; experimental and disabled by default |
 | `Backspace` or `Delete` | remove from the current playlist, queue, Favorites or library, with confirmation or Undo |
 | `Ctrl+Z` | undo the last membership change in Favorites, Library or Queue, or the Play Next state |
-| `Ctrl+Shift+O` | open the item in the official service application |
 | `F2` | rename a playlist when supported |
 | `Ctrl+A` | select all items when the view permits it |
 
@@ -508,7 +511,7 @@ Each adapter separately declares search scope, result-presentation policy, Favor
 
 The local playback module will eventually cover files and folders, metadata, Library, queue, common formats, output selection, gapless playback and ReplayGain. Shared audio output is the Windows default so that NVDA and other system sounds are not muted. Exclusive output may later appear as an advanced feature with an explicit warning.
 
-The first step implemented in `alpha.33` separates a platform-neutral media-output interface in the core from the Windows implementation. `Ctrl+O` loads files into a non-persistent local session, while the Windows system player provides playback, pause, position and volume through shared output. This is not yet the complete Library: folders, list persistence, gapless playback, ReplayGain, output selection and optional codecs remain later stages.
+The first step implemented in `alpha.33` separates a platform-neutral media-output interface in the core from the Windows implementation. `Ctrl+O` loads files into a non-persistent local session, while the Windows system player provides playback, pause, position and volume through shared output. `Alpha.34` adds recursive folder opening through `Ctrl+Shift+O`, natural name ordering, duplicate suppression, and local `Ctrl+E`, `Ctrl+R` and `Ctrl+T`. This is not yet the complete Library: list persistence, gapless playback, ReplayGain, output selection and optional codecs remain later stages.
 
 Internet radio is a separate core adapter and uses the same sessions, Favorites, history and transport commands. It should support direct streams, M3U/PLS, station metadata, reconnect and search. Free Radio mechanisms may be reused after code and licence review without moving the full playback engine into the NVDA process. Radio recording may be a deliberately started local private-use feature: it records an available direct stream without bypassing DRM, never starts automatically, does not apply to TIDAL, Spotify or Apple Music, and leaves compliance with applicable local law to the user.
 
@@ -609,6 +612,8 @@ State of `alpha.31`: the palette exposes every active Settings destination, incl
 State of `alpha.32`: the message-event list exposes friendly event names only through UI Automation. Raw template text and placeholders are presented in the separate edit field, preventing NVDA from appending `{slot}` or `{service}` to a list-item name while preserving full template editing.
 
 State of `alpha.33`: `Ctrl+O` and the File menu open multiple local audio files in a temporary session assigned to the first free slot starting at 4. Selection alone never starts sound. Enter, `Ctrl+Enter`, Space, seek, volume and time-information commands control real Windows audio output. The `IMediaOutput` boundary stays in the core and `WindowsMediaOutput` stays in the platform layer, so extracting AMC.Host later does not require moving playback logic into WPF.
+
+State of `alpha.34`: `Ctrl+Shift+O` opens a folder and available subfolders without starting playback. Discovery runs away from the UI thread, skips inaccessible directories and reparse-point loops, filters recognised extensions and naturally orders numbered names. `Ctrl+E`, `Ctrl+R` and `Ctrl+T` report time directly while the main list is focused. The official-service-application shortcut is deliberately unset until the whole prefix is reviewed. `Alpha.33` feedback confirmed the need for separately suppressible transport announcements; that remains a planned message-settings category.
 
 Planned sequence of later stages:
 

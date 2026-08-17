@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
+using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
@@ -21,6 +22,7 @@ var tests = new (string Name, Action Test)[]
     ("Migracja nazw w komunikatach Ulubionych alpha.18", TestVersion6FavoriteMessageMigration),
     ("Przełączanie sesji", TestSessions),
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
+    ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
     ("Historia wyszukiwania", TestSearchHistory),
     ("Paleta poleceń", TestCommandPalette),
@@ -70,6 +72,7 @@ static void TestDefaultProfile()
     Equal(CommandIds.ToggleFavorite, profile.Resolve(KeyChord.Parse("Shift+U")));
     Equal(CommandIds.ViewAlbums, profile.Resolve(KeyChord.Parse("A")));
     True(profile.Resolve(KeyChord.Parse("Shift+A")) is null, "Shift+A pozostaje nieprzypisane.");
+    True(profile.Resolve(KeyChord.Parse("Shift+N")) is null, "Skrót oficjalnej aplikacji pozostaje do ustalenia.");
     Equal(CommandIds.FilterCurrent, profile.Resolve(KeyChord.Parse("K")));
     Equal(CommandIds.CommandPalette, profile.Resolve(KeyChord.Parse("Shift+K")));
     Equal(CommandIds.SearchCurrent, profile.Resolve(KeyChord.Parse("F")));
@@ -122,6 +125,7 @@ static void TestCommandCatalog()
     Equal("Dodaj lub usuń z kolejki", CommandCatalog.GetDisplayName(CommandIds.AddQueue));
     Equal("Ustawienia: szablony komunikatów", CommandCatalog.GetDisplayName(CommandIds.SettingsMessageTemplates));
     Equal("Otwórz lokalne pliki audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
+    Equal("Otwórz folder z plikami audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
     Equal("nieznane.polecenie", CommandCatalog.GetDisplayName("nieznane.polecenie"));
 }
@@ -426,6 +430,32 @@ static void TestLocalPlaybackBoundary()
     Equal(TimeSpan.Zero, session.Position);
 }
 
+static void TestLocalAudioFileDiscovery()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-local-folder-tests-{Guid.NewGuid():N}");
+    var nested = Path.Combine(directory, "Z Album 2");
+    Directory.CreateDirectory(nested);
+    try
+    {
+        File.WriteAllText(Path.Combine(directory, "Utwór 10.mp3"), string.Empty);
+        File.WriteAllText(Path.Combine(directory, "Utwór 2.FLAC"), string.Empty);
+        File.WriteAllText(Path.Combine(directory, "okładka.jpg"), string.Empty);
+        File.WriteAllText(Path.Combine(nested, "01 Intro.opus"), string.Empty);
+
+        var files = LocalAudioFileDiscovery.FindFiles(directory);
+        Equal(3, files.Count);
+        Equal("Utwór 2.FLAC", Path.GetFileName(files[0]));
+        Equal("Utwór 10.mp3", Path.GetFileName(files[1]));
+        Equal("01 Intro.opus", Path.GetFileName(files[2]));
+        True(LocalAudioFileDiscovery.IsAudioFile("nagranie.aiff"), "AIFF powinien być rozpoznawany.");
+        True(!LocalAudioFileDiscovery.IsAudioFile("okładka.jpg"), "Obraz nie może trafić na listę audio.");
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
 static void TestVersion6FavoriteMessageMigration()
 {
     var directory = Path.Combine(Path.GetTempPath(), $"amc-v6-tests-{Guid.NewGuid():N}");
@@ -562,6 +592,10 @@ static void TestCommandPalette()
     Equal(favorites.Label, favorites.ToString());
     True(!favorites.ToString().Contains("CommandId", StringComparison.Ordinal), "Lista nie może ujawniać technicznych nazw pól obiektu.");
     Equal("Ctrl+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFiles).LocalShortcut);
+    Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
+    True(
+        entries.Single(entry => entry.CommandId == CommandIds.OpenOfficialApp).LocalShortcut is null,
+        "Otwieranie w oficjalnej aplikacji nie powinno kolidować ze skrótem folderu.");
 
     var remaining = CommandPaletteSearch.Filter(entries, "czas pozostaly");
     Equal(1, remaining.Count);
@@ -749,6 +783,7 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
     public void ToggleAccessibilityMessages() => MessagesToggled = true;
     public void ToggleDetailedHints() => DetailedHintsToggled = true;
     public void OpenLocalFiles() { }
+    public void OpenLocalFolder() { }
 }
 
 sealed class FakeMediaOutput : IMediaOutput

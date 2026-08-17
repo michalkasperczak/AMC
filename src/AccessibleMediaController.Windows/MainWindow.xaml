@@ -15,7 +15,14 @@
               KeyboardNavigation.IsTabStop="False"
               KeyboardNavigation.TabNavigation="None">
             <MenuItem Header="_Plik">
-                <MenuItem Header="_Otwórz pliki audio…" InputGestureText="Ctrl+O" Click="OpenLocalFiles_Click" />
+                <MenuItem Header="_Otwórz pliki audio…" InputGestureText="Ctrl+O"
+                          automation:AutomationProperties.Name="Otwórz pliki audio, Ctrl+O"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+O"
+                          Click="OpenLocalFiles_Click" />
+                <MenuItem Header="Otwórz _folder z plikami audio…" InputGestureText="Ctrl+Shift+O"
+                          automation:AutomationProperties.Name="Otwórz folder z plikami audio, Ctrl+Shift+O"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+O"
+                          Click="OpenLocalFolder_Click" />
                 <Separator />
                 <MenuItem Header="_Ustawienia…" InputGestureText="Ctrl+," Click="Settings_Click" />
                 <Separator />

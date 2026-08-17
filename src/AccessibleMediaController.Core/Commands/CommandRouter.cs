@@ -24,6 +24,7 @@ public interface IApplicationActions
     void ToggleAccessibilityMessages();
     void ToggleDetailedHints();
     void OpenLocalFiles();
+    void OpenLocalFolder();
 }
 
 public readonly record struct CommandExecutionResult(bool Handled, bool KeepPrefixActive = false);
@@ -73,6 +74,9 @@ public sealed class CommandRouter(
                 return new(true, true);
             case CommandIds.OpenLocalFiles:
                 application.OpenLocalFiles();
+                return new(true);
+            case CommandIds.OpenLocalFolder:
+                application.OpenLocalFolder();
                 return new(true);
             case CommandIds.PlayPause:
                 current.TogglePlayback();

@@ -10,6 +10,7 @@ using System.Windows.Threading;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
+using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Updates;
@@ -229,7 +230,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "paletę poleceń i wyszukiwanie globalne.\n\n" +
             "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+0 otwiera listę sesji, " +
             "Ctrl+Page Up i Ctrl+Page Down zmieniają sesję. " +
-            "Ctrl+O otwiera lokalne pliki audio i tworzy dla nich tymczasową sesję. " +
+            "Ctrl+O otwiera lokalne pliki audio, a Ctrl+Shift+O otwiera folder wraz z podfolderami. " +
+            "Oba polecenia tworzą tymczasową sesję bez automatycznego odtwarzania. " +
             "Ctrl+U/P/L/Q otwiera odpowiednio: Ulubione, Playlisty, Bibliotekę i Kolejkę, " +
             "a Ctrl+Shift+A otwiera Albumy. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
             "wyszukiwania w bieżącej usłudze, Ctrl+Shift+F otwiera wyszukiwanie globalne, " +
@@ -272,7 +274,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         var dialog = new OpenFileDialog
         {
             Title = "Otwórz lokalne pliki audio",
-            Filter = "Pliki audio|*.mp3;*.wav;*.m4a;*.aac;*.flac;*.wma;*.ogg;*.opus|Wszystkie pliki|*.*",
+            Filter = LocalAudioFileDiscovery.DialogFilter,
             Multiselect = true,
             CheckFileExists = true
         };
@@ -282,11 +284,54 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             return;
         }
 
+        AddLocalFiles(dialog.FileNames);
+    }
+
+    public async void OpenLocalFolder()
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Otwórz folder z plikami audio",
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        AnnounceEssential("Wczytywanie folderu");
+        IReadOnlyList<string> fileNames;
+        try
+        {
+            fileNames = await Task.Run(() => LocalAudioFileDiscovery.FindFiles(dialog.FolderName));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            AnnounceEssential($"Nie można otworzyć folderu: {exception.Message}");
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        if (fileNames.Count == 0)
+        {
+            AnnounceEssential("W folderze nie znaleziono obsługiwanych plików audio");
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        AddLocalFiles(fileNames);
+    }
+
+    private void AddLocalFiles(IEnumerable<string> fileNames)
+    {
+        var paths = fileNames.ToArray();
+
         var knownPaths = _localItems
             .Select(item => item.Source)
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var addedItems = dialog.FileNames
+        var addedItems = paths
             .Where(path => knownPaths.Add(path))
             .Select(path => new MediaItem
             {
@@ -311,7 +356,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         var selected = addedItems.FirstOrDefault()
             ?? session.Items.FirstOrDefault(item => string.Equals(
                 item.Source,
-                dialog.FileNames.FirstOrDefault(),
+                paths.FirstOrDefault(),
                 StringComparison.OrdinalIgnoreCase))
             ?? session.CurrentItem;
         SelectMediaItem(selected.Id);
@@ -951,6 +996,13 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             return;
         }
 
+        if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.O)
+        {
+            OpenLocalFolder();
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.O)
         {
             OpenLocalFiles();
@@ -1014,11 +1066,6 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             ShowItemInformation(false);
             e.Handled = true;
         }
-        else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.O)
-        {
-            OpenOfficialApplication();
-            e.Handled = true;
-        }
         else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.U)
         {
             ExecuteCommand(CommandIds.ToggleFavorite);
@@ -1037,6 +1084,21 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.L)
         {
             ExecuteCommand(CommandIds.ToggleLibrary);
+            e.Handled = true;
+        }
+        else if (modifiers == ModifierKeys.Control && e.Key == Key.E)
+        {
+            ExecuteCommand(CommandIds.TimeElapsed);
+            e.Handled = true;
+        }
+        else if (modifiers == ModifierKeys.Control && e.Key == Key.R)
+        {
+            ExecuteCommand(CommandIds.TimeRemaining);
+            e.Handled = true;
+        }
+        else if (modifiers == ModifierKeys.Control && e.Key == Key.T)
+        {
+            ExecuteCommand(CommandIds.TimeTotal);
             e.Handled = true;
         }
         else if (modifiers == ModifierKeys.Control && e.Key == Key.C && SelectedItem is not null)
@@ -1334,6 +1396,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void Undo_Click(object sender, RoutedEventArgs e) => UndoLastMembershipChange();
     private void Settings_Click(object sender, RoutedEventArgs e) => OpenSettings();
     private void OpenLocalFiles_Click(object sender, RoutedEventArgs e) => OpenLocalFiles();
+    private void OpenLocalFolder_Click(object sender, RoutedEventArgs e) => OpenLocalFolder();
     private void Sessions_Click(object sender, RoutedEventArgs e) => ShowSessionList();
     private void MediaContextMenu_Opened(object sender, RoutedEventArgs e)
     {

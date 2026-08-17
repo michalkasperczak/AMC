@@ -199,6 +199,8 @@ Odstęp używany przez polecenie przejścia w pobliże końca jest konfigurowaln
 
 Strzałki po prefiksie służą wyłącznie do sterowania globalnego. W aktywnym oknie listy zwykłe strzałki nawigują po elementach bez używania prefiksu.
 
+Planowane jest osobne polecenie „Skocz do miejsca”, przyjmujące czas bezwzględny, oraz wariant przejścia do procentu długości. Docelowe skróty, w tym możliwe `J` i `Shift+J` po prefiksie, pozostają do sprawdzenia razem z całą warstwą prefiksową. Polecenia nie będą wiązane na stałe przed testem konfliktów.
+
 ## 7. Okno przeglądania
 
 ### 7.1. Lista zamiast drzewa
@@ -269,7 +271,7 @@ Zapytanie wyszukiwania może sprawdzać wiele pól i aliasów, natomiast nawigac
 | `Alt+Strzałka w lewo` | poprzedni widok |
 | `Alt+Strzałka w prawo` | następny widok, jeśli istnieje |
 | `Alt+Enter` | informacje o elemencie |
-| `Ctrl+Shift+O` | otwórz element w oficjalnej aplikacji usługi |
+| brak domyślnego skrótu | otwórz element w oficjalnej aplikacji usługi; polecenie pozostaje w menu kontekstowym i palecie do czasu uporządkowania prefiksu |
 | `Klawisz aplikacji` lub `Shift+F10` | menu kontekstowe |
 
 Enter wykonuje działanie podstawowe zależne od rodzaju elementu: na utworze, stacji lub presecie przełącza odtwarzanie zaznaczenia, natomiast na albumie, playliście albo wykonawcy otwiera zawartość. `Ctrl+Enter` wykonuje „Odtwórz lub wstrzymaj” bez otwierania: uruchamia nowe zaznaczenie, wstrzymuje bieżące albo je wznawia. Docelowo ta sama reguła uruchomi cały album lub playlistę bez wchodzenia do środka. `Spacja` steruje tym, co faktycznie gra, i nie zależy od położenia zaznaczenia. `Alt+Enter`, zgodnie z typowym zachowaniem menedżerów plików, pozostaje informacją lub właściwościami elementu; nie służy do otwierania zewnętrznej aplikacji.
@@ -347,11 +349,12 @@ Zatwierdzone przypisania podstawowe:
 | `Ctrl+Shift+P` | otwórz wybór playlist i zmień przynależność |
 | `Ctrl+Shift+Q` | dodaj do kolejki |
 | `Ctrl+Shift+L` | dodaj do biblioteki |
+| `Ctrl+O` | otwórz jeden lub wiele lokalnych plików audio |
+| `Ctrl+Shift+O` | otwórz folder z plikami audio wraz z podfolderami |
 | `Ctrl+D` | pobierz offline wewnątrz usługi, jeśli obsługiwane |
 | `Ctrl+Shift+D` | pobierz do pliku lokalnego; funkcja eksperymentalna, domyślnie wyłączona |
 | `Backspace` lub `Delete` | usuń z bieżącej playlisty, kolejki, ulubionych lub biblioteki; z potwierdzeniem albo możliwością cofnięcia |
 | `Ctrl+Z` | cofnij ostatnią zmianę przynależności do Ulubionych, Biblioteki lub Kolejki albo stan „Odtwórz jako następne” |
-| `Ctrl+Shift+O` | otwórz element w oficjalnej aplikacji usługi |
 | `F2` | zmień nazwę playlisty, jeśli obsługiwane |
 | `Ctrl+A` | zaznacz wszystkie elementy, jeśli widok pozwala |
 
@@ -508,7 +511,7 @@ Adapter deklaruje osobno co najmniej: zakres wyszukiwania, politykę prezentacji
 
 Lokalny moduł odtwarzania obejmuje docelowo otwieranie plików i folderów, metadane, Bibliotekę, kolejkę, podstawowe popularne formaty, wybór urządzenia, odtwarzanie bez przerw i ReplayGain. Na Windows domyślne wyjście dźwięku powinno pracować w trybie współdzielonym, aby nie wyciszać NVDA i pozostałych dźwięków. Tryb wyłączny może pojawić się później jako funkcja zaawansowana z wyraźnym ostrzeżeniem.
 
-Pierwszy krok wdrożony w `alpha.33` rozdziela neutralny interfejs wyjścia dźwięku w rdzeniu od implementacji Windows. `Ctrl+O` ładuje pliki do nietrwałej sesji lokalnej, a systemowy odtwarzacz Windows realizuje odtwarzanie, pauzę, pozycję i głośność w trybie współdzielonym. Nie jest to jeszcze pełna Biblioteka: foldery, zapis listy, odtwarzanie bez przerw, ReplayGain, wybór urządzenia i opcjonalne kodeki pozostają późniejszymi etapami.
+Pierwszy krok wdrożony w `alpha.33` rozdziela neutralny interfejs wyjścia dźwięku w rdzeniu od implementacji Windows. `Ctrl+O` ładuje pliki do nietrwałej sesji lokalnej, a systemowy odtwarzacz Windows realizuje odtwarzanie, pauzę, pozycję i głośność w trybie współdzielonym. `Alpha.34` dodaje rekursywne otwieranie folderu przez `Ctrl+Shift+O`, naturalne porządkowanie nazw, pomijanie duplikatów oraz lokalne `Ctrl+E`, `Ctrl+R` i `Ctrl+T`. Nie jest to jeszcze pełna Biblioteka: zapis listy, odtwarzanie bez przerw, ReplayGain, wybór urządzenia i opcjonalne kodeki pozostają późniejszymi etapami.
 
 Radio internetowe jest osobnym adapterem rdzenia i korzysta z tych samych sesji, Ulubionych, historii oraz poleceń transportowych. Powinno obsłużyć bezpośrednie strumienie, M3U/PLS, metadane stacji, ponawianie po zerwaniu i wyszukiwanie. Mechanizmy Free Radio można wykorzystać po analizie kodu i licencji, bez przenoszenia całego odtwarzania do procesu NVDA. Nagrywanie radia może być świadomie uruchamianą funkcją lokalną do prywatnego użytku: zapisuje dostępny bezpośredni strumień bez obchodzenia DRM, nie uruchamia się automatycznie, nie dotyczy TIDAL, Spotify ani Apple Music i pozostawia użytkownikowi odpowiedzialność za zgodność z prawem właściwym dla miejsca użycia.
 
@@ -611,6 +614,8 @@ Stan `alpha.31`: paleta udostępnia wszystkie działające cele okna Ustawienia,
 Stan `alpha.32`: lista zdarzeń komunikatów udostępnia przez UI Automation wyłącznie przyjazne nazwy zdarzeń. Surowy tekst i znaczniki szablonu są prezentowane dopiero w osobnym polu edycji, dzięki czemu NVDA nie dopisuje `{slot}` ani `{service}` do nazwy elementu listy, a możliwość pełnej edycji pozostaje zachowana.
 
 Stan `alpha.33`: `Ctrl+O` i menu Plik otwierają wiele lokalnych plików audio w tymczasowej sesji, przypisywanej do pierwszego wolnego miejsca od 4. Sam wybór nie uruchamia dźwięku. Enter, `Ctrl+Enter`, Spacja, przewijanie, głośność i informacje o czasie sterują rzeczywistym wyjściem Windows. Granica `IMediaOutput` pozostaje w rdzeniu, a implementacja `WindowsMediaOutput` w warstwie systemowej, dzięki czemu późniejsze wydzielenie AMC.Host nie wymaga przenoszenia logiki do WPF.
+
+Stan `alpha.34`: `Ctrl+Shift+O` otwiera folder z plikami audio wraz z dostępnymi podfolderami bez samoczynnego odtwarzania. Odkrywanie odbywa się poza wątkiem interfejsu, pomija niedostępne katalogi i łącza mogące tworzyć pętle, filtruje rozpoznane rozszerzenia i zachowuje naturalną kolejność numerowanych nazw. `Ctrl+E`, `Ctrl+R` i `Ctrl+T` podają czas także bez prefiksu, gdy fokus znajduje się na głównej liście. Skrót oficjalnej aplikacji usługi pozostaje celowo nieustalony do czasu przeglądu całego prefiksu. Wynik testu `alpha.33` potwierdził potrzebę osobnego wyciszania komunikatów transportowych; możliwość ta pozostaje zaplanowaną kategorią ustawień komunikatów.
 
 Planowana kolejność dalszych etapów:
 

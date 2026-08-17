@@ -1,81 +1,70 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-033`
-- Tytuł zestawu: Pierwsze rzeczywiste odtwarzanie lokalne
-- Wersja programu: `0.1.0-alpha.33`
-- Utworzono: 2026-08-17 00:38, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_0038_0.1.0-alpha.33.md`
+- Numer zestawu: `AMC-TEST-034`
+- Tytuł zestawu: Otwieranie folderów i lokalne informacje o czasie
+- Wersja programu: `0.1.0-alpha.34`
+- Utworzono: 2026-08-17 12:48, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_1248_0.1.0-alpha.34.md`
 
 W pliku wyników po dwukropku wpisz krótko, co się wydarzyło. Jeżeli wszystko działa, wystarczy `OK`. Nie trzeba przed każdym zadaniem wybierać wariantu odpowiedzi.
 
-Do próby wybierz jeden lub kilka zwykłych, krótkich plików audio, najlepiej MP3, WAV, M4A albo FLAC. Test nie zmienia ani nie usuwa wybranych plików.
+Do pierwszej próby wybierz niewielki folder zawierający kilka plików audio. Dobrze, jeśli ma podfolder oraz pliki o nazwach podobnych do `Utwór 2` i `Utwór 10`. Program nie zmienia ani nie usuwa wybranych plików.
 
-## AMC-033-01 — Otwarcie bez samoczynnego odtwarzania
+## AMC-034-01 — Otwieranie całego folderu
 
-1. Uruchom AMC i naciśnij `Ctrl+O`.
-2. Wybierz jeden plik audio i zatwierdź okno systemowe.
-
-Oczekiwane:
-
-- plik nie zaczyna grać samoczynnie;
-- fokus wraca na jego pozycję w sesji `Lokalne multimedia`;
-- NVDA podaje nazwę sesji, miejsce sesji, informację o dodaniu pliku oraz tytuł jako jedną wypowiedź fokusową.
-
-## AMC-033-02 — Odtwarzanie, pauza i Spacja
-
-1. Na pliku naciśnij Enter i sprawdź rzeczywisty dźwięk.
-2. Naciśnij ponownie Enter, a następnie `Ctrl+Enter`.
-3. Przejdź na inną pozycję, jeśli jest dostępna, i naciśnij Spację.
+1. Uruchom AMC i naciśnij `Ctrl+Shift+O`.
+2. Wybierz folder zawierający pliki audio i zatwierdź okno systemowe.
 
 Oczekiwane:
 
-- pierwsze użycie Entera uruchamia plik, drugie wstrzymuje, a `Ctrl+Enter` wznawia;
-- Spacja steruje plikiem, który faktycznie gra, niezależnie od zaznaczenia;
-- komunikaty `Odtwarzanie` i `Pauza` odpowiadają słyszanemu stanowi.
+- program krótko podaje `Wczytywanie folderu`;
+- wczytuje rozpoznane pliki z folderu i podfolderów, ale nie rozpoczyna odtwarzania;
+- fokus wraca na pierwszy dodany element w sesji `Lokalne multimedia`;
+- numerowane nazwy występują w naturalnej kolejności, np. `Utwór 2` przed `Utwór 10`.
 
-## AMC-033-03 — Czas, przewijanie i głośność
+## AMC-034-02 — Pliki, folder i duplikaty
 
-1. Podczas odtwarzania użyj prefiksu, a następnie `Ctrl+E`, `Ctrl+R` i `Ctrl+T`.
-2. Użyj prefiksu i strzałki w prawo, a następnie sprawdź czas od początku.
-3. Użyj prefiksu i strzałek w górę oraz w dół.
-
-Oczekiwane:
-
-- czasy odpowiadają prawdziwemu plikowi i zmieniają się podczas odtwarzania;
-- strzałka w prawo rzeczywiście przesuwa dźwięk o około 10 sekund;
-- zmiana głośności wpływa na plik, nie wycisza NVDA i jest potwierdzana wartością procentową.
-
-## AMC-033-04 — Kilka plików i sesja 4
-
-1. Ponownie naciśnij `Ctrl+O` i wybierz kilka plików, w tym jeden już wcześniej dodany.
-2. Sprawdź listę sesji przez `Ctrl+0`, a następnie `Ctrl+4`.
+1. Naciśnij `Ctrl+O` i wybierz plik znajdujący się już we wczytanym folderze.
+2. Ponownie otwórz ten sam folder przez `Ctrl+Shift+O`.
 
 Oczekiwane:
 
-- nowe pliki są dopisywane, a ten sam plik nie tworzy duplikatu;
-- `Lokalne multimedia` występują jako sesja 4, jeśli miejsce 4 było wolne;
-- `Ctrl+4` wraca do listy lokalnej i nie uruchamia dźwięku samoczynnie.
+- ten sam plik nie tworzy kolejnych pozycji;
+- program informuje, że pliki były już na liście;
+- sesja lokalna i zaznaczenie pozostają dostępne.
 
-## AMC-033-05 — Paleta i menu Plik
+## AMC-034-03 — Menu Plik i paleta poleceń
 
-1. W palecie `Ctrl+Shift+K` wyszukaj `otwórz lokalne pliki audio`.
-2. Sprawdź, czy pozycja podaje `Ctrl+O`, i zamknij paletę.
-3. Otwórz menu Plik i odszukaj `Otwórz pliki audio`.
-
-Oczekiwane:
-
-- polecenie jest dostępne i czytelne w obu miejscach;
-- samo przechodzenie po menu ani palecie nie otwiera okna plików.
-
-## AMC-033-06 — Zakończenie i błąd formatu
-
-1. Pozwól krótkiemu plikowi dojść do końca albo wybierz celowo nieobsługiwany plik przez wariant `Wszystkie pliki`.
-2. Po komunikacie spróbuj ponownie otworzyć i odtworzyć prawidłowy plik.
+1. Otwórz menu Plik i przejdź przez `Otwórz pliki audio` oraz `Otwórz folder z plikami audio`.
+2. Otwórz paletę `Ctrl+Shift+K` i wyszukaj kolejno oba polecenia.
+3. Wyszukaj także `Otwórz w oficjalnej aplikacji`.
 
 Oczekiwane:
 
-- po naturalnym końcu słychać krótki komunikat `Koniec`;
-- błąd formatu jest komunikatem, a nie zawieszeniem lub zamknięciem AMC;
-- po błędzie prawidłowy plik nadal można odtworzyć.
+- NVDA podaje `Ctrl+O` przy plikach i `Ctrl+Shift+O` przy folderze zarówno w menu, jak i w palecie;
+- polecenie oficjalnej aplikacji nadal istnieje, ale nie podaje `Ctrl+Shift+O`;
+- samo przechodzenie po pozycjach niczego nie otwiera.
 
-Uwaga: w tej wersji lista lokalnych plików jest tymczasowa i znika po zamknięciu AMC. To zachowanie zaplanowane dla pierwszego testu toru dźwięku.
+## AMC-034-04 — Czas bez globalnego prefiksu
+
+1. Uruchom odtwarzanie lokalnego pliku Enterem.
+2. Będąc na głównej liście, naciśnij bez prefiksu `Ctrl+E`, `Ctrl+R` i `Ctrl+T`.
+
+Oczekiwane:
+
+- program podaje kolejno czas od początku, czas pozostały i czas całkowity;
+- wartości dotyczą rzeczywiście odtwarzanego pliku;
+- skróty nie przenoszą fokusu i nie zatrzymują dźwięku.
+
+## AMC-034-05 — Folder bez audio i dalsza praca
+
+1. Przez `Ctrl+Shift+O` wybierz niewielki folder, w którym nie ma plików audio.
+2. Następnie otwórz poprawny plik przez `Ctrl+O` i uruchom go Enterem.
+
+Oczekiwane:
+
+- program podaje `W folderze nie znaleziono obsługiwanych plików audio`;
+- nie tworzy pustych pozycji i nie zawiesza się;
+- po komunikacie nadal można normalnie otworzyć i odtworzyć plik.
+
+Uwaga: zwykłe strzałki góra/dół w głównym oknie nadal nawigują po liście. Sterowanie czasem i głośnością strzałkami pozostaje w tej wersji w warstwie prefiksowej. Lista lokalna nadal znika po zamknięciu AMC.
