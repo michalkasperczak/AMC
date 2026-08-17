@@ -68,6 +68,11 @@ public sealed class CommandRouter(
         }
 
         var current = sessions.Current;
+        if (CommandIds.TryParseSeekPercent(commandId, out var percent))
+        {
+            return SeekPercent(current, percent);
+        }
+
         switch (commandId)
         {
             case CommandIds.SessionList:
@@ -290,6 +295,21 @@ public sealed class CommandRouter(
     {
         session.Seek(TimeSpan.FromSeconds(seconds));
         if (settings.Messages.SeekMessages) announcements.Announce(FormatTime(session.Position));
+        return new(true);
+    }
+
+    private CommandExecutionResult SeekPercent(DemoMediaSession session, int percent)
+    {
+        var duration = session.CurrentItem.Duration;
+        if (duration <= TimeSpan.Zero)
+        {
+            announcements.Announce("Skok procentowy niedostępny: czas trwania jest nieznany");
+            return new(true);
+        }
+
+        var position = TimeSpan.FromTicks((long)Math.Round(duration.Ticks * (percent / 100d)));
+        session.SetPosition(position);
+        if (settings.Messages.SeekMessages) announcements.Announce(FormatTime(position));
         return new(true);
     }
 

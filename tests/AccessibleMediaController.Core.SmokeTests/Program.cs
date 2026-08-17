@@ -128,6 +128,10 @@ static void TestCommandCatalog()
     Equal("Otwórz lokalne pliki audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
     Equal("Otwórz folder z plikami audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
+    Equal("Przejdź do 50% utworu", CommandCatalog.GetDisplayName(CommandIds.SeekPercent(50)));
+    True(CommandIds.TryParseSeekPercent(CommandIds.SeekPercent(90), out var percent), "Identyfikator skoku procentowego powinien być rozpoznawany.");
+    Equal(90, percent);
+    Equal(10, CommandCatalog.GetAllCommandIds().Count(commandId => CommandIds.TryParseSeekPercent(commandId, out _)));
     Equal("nieznane.polecenie", CommandCatalog.GetDisplayName("nieznane.polecenie"));
 }
 
@@ -600,6 +604,9 @@ static void TestCommandPalette()
     Equal("Up (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.VolumeUp5).LocalShortcut);
     Equal("Ctrl+Shift+E", entries.Single(entry => entry.CommandId == CommandIds.TimeElapsed).LocalShortcut);
     Equal("F6", entries.Single(entry => entry.CommandId == CommandIds.ViewNowPlaying).LocalShortcut);
+    Equal("0 (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekPercent(0)).LocalShortcut);
+    Equal("9 (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekPercent(90)).LocalShortcut);
+    Equal(10, entries.Count(entry => CommandIds.TryParseSeekPercent(entry.CommandId, out _)));
     True(
         entries.Single(entry => entry.CommandId == CommandIds.OpenOfficialApp).LocalShortcut is null,
         "Otwieranie w oficjalnej aplikacji nie powinno kolidować ze skrótem folderu.");
@@ -705,6 +712,23 @@ static void TestTimeCommands()
     Equal(messageBeforeSilentSeek, sink.LastMessage);
     router.Execute(CommandIds.TimeElapsed);
     Equal(CommandRouter.FormatTime(sessions.Current.Position), sink.LastMessage);
+    var messageBeforePercentSeek = sink.LastMessage;
+    router.Execute(CommandIds.SeekPercent(50));
+    Equal(
+        TimeSpan.FromTicks((long)Math.Round(sessions.Current.CurrentItem.Duration.Ticks * 0.5d)),
+        sessions.Current.Position);
+    Equal(messageBeforePercentSeek, sink.LastMessage);
+    router.Execute(CommandIds.TimeElapsed);
+    Equal(CommandRouter.FormatTime(sessions.Current.Position), sink.LastMessage);
+    settings.Messages.SeekMessages = true;
+    router.Execute(CommandIds.SeekPercent(90));
+    Equal(
+        TimeSpan.FromTicks((long)Math.Round(sessions.Current.CurrentItem.Duration.Ticks * 0.9d)),
+        sessions.Current.Position);
+    Equal(CommandRouter.FormatTime(sessions.Current.Position), sink.LastMessage);
+    router.Execute(CommandIds.SeekPercent(0));
+    Equal(TimeSpan.Zero, sessions.Current.Position);
+    Equal("0:00", sink.LastMessage);
     router.Execute(CommandIds.ActivateSelected);
     Equal("Odtwarzanie: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.ActivateSelected);

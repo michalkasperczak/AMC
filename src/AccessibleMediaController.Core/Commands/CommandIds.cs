@@ -2,6 +2,8 @@ namespace AccessibleMediaController.Core.Commands;
 
 public static class CommandIds
 {
+    private const string SeekPercentPrefix = "transport.seekPercent.";
+
     public const string PlayPause = "transport.playPause";
     public const string ActivateSelected = "transport.activateSelected";
     public const string Previous = "transport.previous";
@@ -86,4 +88,23 @@ public static class CommandIds
     public const string SettingsUpdates = "settings.updates";
 
     public static string SessionSlot(int slot) => $"session.slot.{slot}";
+
+    public static string SeekPercent(int percent)
+    {
+        if (percent is < 0 or > 90 || percent % 10 != 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(percent), "Procent musi należeć do zakresu 0–90 i być wielokrotnością 10.");
+        }
+
+        return $"{SeekPercentPrefix}{percent}";
+    }
+
+    public static bool TryParseSeekPercent(string commandId, out int percent)
+    {
+        percent = 0;
+        return commandId.StartsWith(SeekPercentPrefix, StringComparison.Ordinal)
+            && int.TryParse(commandId.AsSpan(SeekPercentPrefix.Length), out percent)
+            && percent is >= 0 and <= 90
+            && percent % 10 == 0;
+    }
 }

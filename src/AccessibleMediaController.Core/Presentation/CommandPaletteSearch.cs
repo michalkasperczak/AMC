@@ -88,6 +88,11 @@ public static class CommandPaletteSearch
 
     private static string? GetLocalShortcut(string commandId)
     {
+        if (CommandIds.TryParseSeekPercent(commandId, out var percent))
+        {
+            return $"{percent / 10} (odtwarzacz)";
+        }
+
         const string sessionSlotPrefix = "session.slot.";
         if (commandId.StartsWith(sessionSlotPrefix, StringComparison.Ordinal)
             && int.TryParse(commandId.AsSpan(sessionSlotPrefix.Length), out var slot)

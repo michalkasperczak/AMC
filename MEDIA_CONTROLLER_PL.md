@@ -203,9 +203,9 @@ Po prefiksie wszystkie strzałki służą sterowaniu globalnemu. Na zwykłej li�
 
 Odtwarzacz jest widokiem wewnątrz głównego okna, a nie osobnym oknem modalnym. Enter na utworze lub stacji zapewnia odtwarzanie elementu i otwiera ten widok; jeżeli element już gra, nie przełącza go na pauzę. `Ctrl+Enter` zachowuje działanie bezpośrednie na liście i nie otwiera odtwarzacza. `F6`, polecenie „Teraz odtwarzane” albo `N` po prefiksie pokazuje odtwarzacz bez uruchamiania nowego zaznaczenia. Escape wraca dokładnie do wcześniejszego widoku i elementu, nie zatrzymując dźwięku ani nie przenosząc zaznaczenia do bieżącego utworu. Na listach bieżący utwór otrzymuje dostępny początek „Odtwarzany” albo „Wstrzymany”, dzięki czemu jego stan można rozpoznać bez opuszczania przeglądanej pozycji.
 
-W odtwarzaczu lewo/prawo przewija o 10 sekund, Shift+lewo/prawo o 30 sekund, Ctrl+lewo/prawo o minutę, góra/dół zmienia głośność o 5%, Shift+góra/dół o 1%, Home przechodzi na początek, a End w pobliże końca. Alt+strzałki oraz Ctrl+Shift+strzałki pozostają wolne do czasu ustalenia potrzeb. Tab przechodzi przez rzeczywiste przyciski odtwarzania, przewijania, głośności i powrotu. Funkcje zależne od możliwości sesji, np. nagrywanie radia, pojawią się później jako warunkowe kontrolki i polecenia; nie otrzymują jeszcze stałego skrótu. Docelowo przypisania odtwarzacza będą konfigurowalne obok profilu prefiksu.
+W odtwarzaczu lewo/prawo przewija o 10 sekund, Shift+lewo/prawo o 30 sekund, Ctrl+lewo/prawo o minutę, góra/dół zmienia głośność o 5%, Shift+góra/dół o 1%, Home przechodzi na początek, a End w pobliże końca. Cyfry `0–9` przechodzą odpowiednio do `0%, 10%, …, 90%` czasu trwania; obejmuje to blok numeryczny przy włączonym Num Lock. Skrót działa wyłącznie w odtwarzaczu, więc cyfry na liście nadal służą jej natywnej nawigacji, a `Ctrl+cyfra` wybiera sesję. Przy nieznanym czasie trwania skok procentowy jest niedostępny. Alt+strzałki oraz Ctrl+Shift+strzałki pozostają wolne do czasu ustalenia potrzeb. Tab przechodzi przez rzeczywiste przyciski odtwarzania, przewijania, głośności i powrotu. Funkcje zależne od możliwości sesji, np. nagrywanie radia, pojawią się później jako warunkowe kontrolki i polecenia; nie otrzymują jeszcze stałego skrótu. Docelowo przypisania odtwarzacza będą konfigurowalne obok profilu prefiksu.
 
-Planowane jest osobne polecenie „Skocz do miejsca”, przyjmujące czas bezwzględny, oraz wariant przejścia do procentu długości. Docelowe skróty, w tym możliwe `J` i `Shift+J` po prefiksie, pozostają do sprawdzenia razem z całą warstwą prefiksową. Polecenia nie będą wiązane na stałe przed testem konfliktów.
+Nadal planowane jest osobne polecenie „Skocz do miejsca”, przyjmujące czas bezwzględny. Wariant procentowy ma już lokalną mapę cyfr w odtwarzaczu. Ewentualne odpowiedniki po prefiksie, w tym możliwe `J` dla czasu wpisywanego ręcznie, pozostają do sprawdzenia razem z całą warstwą prefiksową i nie będą wiązane na stałe przed testem konfliktów.
 
 ## 7. Okno przeglądania
 
@@ -365,6 +365,7 @@ Zatwierdzone przypisania podstawowe:
 | `Shift+Strzałka w górę/dół` w odtwarzaczu | zmień głośność o 1% |
 | `Home` w odtwarzaczu | przejdź na początek utworu |
 | `End` w odtwarzaczu | przejdź 10 sekund przed końcem utworu |
+| `0–9` w odtwarzaczu | przejdź do 0–90% czasu trwania co 10% |
 | `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | podaj czas od początku, pozostały albo całkowity |
 | `Ctrl+Shift+G` | włącz lub wyłącz automatyczny odczyt pozycji po przewijaniu |
 | `Ctrl+D` | pobierz offline wewnątrz usługi, jeśli obsługiwane |
@@ -518,6 +519,10 @@ Lokalne urządzenia mogą wymagać wykrywania w sieci przez mDNS, SSDP/UPnP albo
 - **TIDAL**: API i OAuth 2.1 mogą dostarczyć katalog oraz zasoby użytkownika w granicach przyznanych zakresów, ale odtwarzanie musi używać oficjalnego modułu TIDAL Player. Publiczne TIDAL Connect jest przeznaczone dla partnerów sprzętowych. Adapter pozostaje ważnym, osobnym modułem AMC, lecz wymaga prezentacji treści TIDAL w izolowanym widoku, oznaczenia marki, przycisku otwarcia w TIDAL, minimalnego przechowywania danych i formalnego sprawdzenia trybu produkcyjnego. Nie łączymy treści TIDAL z podobnymi usługami w jednej liście i nie udostępniamy nagrywania ani eksportu strumienia. [TIDAL authorization](https://developer.tidal.com/documentation/api-sdk/api-sdk-authorization), [TIDAL Developer Terms](https://developer.tidal.com/documentation/guidelines/guidelines-developer-terms), [TIDAL Design Guidelines](https://developer.tidal.com/documentation/guidelines/guidelines-design-guidelines), [TIDAL Connect](https://developer.tidal.com/documentation/connect).
 Warstwa przypominająca dostępnego klienta WhatsApp, która opakowuje TIDAL Web i naprawia samą nawigację klawiaturą, jest technicznie możliwa tylko jako ostrożny eksperyment. Nie może automatycznie wydobywać katalogu, playlist ani historii z DOM, ponieważ oficjalne zasady zabraniają scrapingu i automatycznego indeksowania TIDAL. Dopuszczalnym awaryjnym wariantem AMC pozostaje otwarcie oficjalnego odtwarzacza WWW i zapewnienie użytkownikowi przejścia do niego; właściwy adapter korzysta z oficjalnego API i modułu Player. Eksperymentalnej nakładki dostępnościowej nie traktujemy jako podstawowego adaptera bez pisemnego potwierdzenia TIDAL.
 
+- **YouTube**: pierwszy adapter działa na żądanie i nie synchronizuje konta. Publiczne wyszukiwanie filmów, transmisji i playlist korzysta z YouTube Data API oraz klucza projektu; OAuth pojawia się dopiero wtedy, gdy użytkownik świadomie zechce funkcji dotyczących własnego konta. Odtwarzanie i sterowanie transportem korzysta z widocznego oficjalnego IFrame Player API. AMC przedstawia metadane, wyniki i polecenia w dostępnym interfejsie przypominającym podcasty, ale nie ukrywa odtwarzacza w tle. Zgodnie z zasadami API moduł nie pobiera materiałów, nie oddziela dźwięku i nie nagrywa fragmentów filmów ani transmisji. Nagrywanie pozostaje wyłącznie funkcją źródeł, które jawnie na to pozwalają, np. bezpośredniego strumienia radiowego lub własnego pliku. [YouTube Data API](https://developers.google.com/youtube/v3/getting-started), [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference), [YouTube API Services Developer Policies](https://developers.google.com/youtube/terms/developer-policies).
+
+  Narzędzia ekstrakcyjne, takie jak yt-dlp, nie stają się wbudowanym adapterem AMC. Ich obsługa YouTube wymaga częstych poprawek wskutek zmian odtwarzacza, JavaScriptu i tokenów PO, może tracić formaty bez ostrzeżenia i przy użyciu ciasteczek konta niesie ryzyko ograniczenia konta. Oznacza to zarówno większy koszt utrzymania, jak i sprzeczność z zasadami oficjalnego klienta YouTube. [Kanały wydań yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/README.md#update-channels), [uwagi o ekstraktorze YouTube](https://github.com/yt-dlp/yt-dlp/wiki/Extractors).
+
 - **Sonos**: chmurowe Control API z OAuth pozwala odkrywać gospodarstwa domowe, grupy i odtwarzacze, odczytywać stan, sterować transportem, przewijaniem i głośnością oraz uruchamiać Sonos Favorites i playlisty Sonos. Nie zastępuje katalogowego API istniejących usług muzycznych, wymaga publicznego zwrotnego adresu HTTPS i ma większy koszt integracyjny. Sonos pozostaje w planie, ale po WiiM, Spotify, TIDAL, BluOS, Apple Music, radiu i multimediach lokalnych. [Sonos Control API](https://docs.sonos.com/reference/about-control-api), [Sonos authorization](https://docs.sonos.com/docs/authorize).
 - **Frontier Smart**: producent potwierdza NetRemote API, SDK i możliwość budowania własnych aplikacji przez partnerów sprzętowych, ale nie publikuje kompletnej wspieranej dokumentacji konsumenckiej. Stabilny adapter wymaga dostępu partnerskiego; ewentualny adapter społecznościowy musi być osobno oznaczony jako eksperymentalny i nie może być podstawą pierwszego wydania. [Frontier AURIA](https://www.frontiersmart.com/product/auria/), [Frontier customer area](https://www.frontiersmart.com/customer-area/).
 
@@ -641,6 +646,8 @@ Stan `alpha.37`: Escape z odtwarzacza zachowuje pozycję ostatnio przeglądaną,
 
 Stan `alpha.38`: opcja „Oznajmiaj pozycję po przewijaniu” na karcie Komunikaty oddziela automatyczną informację po przewijaniu od jawnych poleceń czasu. Wyłączenie obejmuje strzałki transportowe, Home i End, ale `Ctrl+Shift+E/R/T` nadal odpowiada. Stan jest trwały, dostępny jako bezpieczny przełącznik palety i przełączany bezpośrednio przez `Ctrl+Shift+G` z wymuszonym krótkim potwierdzeniem.
 
+Stan `alpha.39`: cyfry `0–9` w widoku odtwarzacza przechodzą do `0–90%` czasu trwania. Działają także cyfry numeryczne przy włączonym Num Lock, nie zmieniając znaczenia cyfr na listach ani `Ctrl+cyfra` dla sesji. Skok respektuje ustawienie automatycznego odczytu pozycji, a brak znanego czasu trwania kończy się jednoznacznym komunikatem. Paleta poleceń pokazuje wszystkie dziesięć pozycji procentowych. W planie adapterów zapisano oficjalną integrację YouTube bez synchronizacji konta w pierwszym etapie i bez pobierania, ekstrakcji dźwięku lub nagrywania treści YouTube.
+
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.
@@ -651,10 +658,11 @@ Planowana kolejność dalszych etapów:
 6. TIDAL jako osobny adapter katalogowy z izolowanym widokiem wyników oraz oficjalnym modułem odtwarzania.
 7. Cienka wtyczka NVDA korzystająca wyłącznie z kontraktu hosta.
 8. Radio internetowe, świadome nagrywanie bezpośrednich strumieni i podstawowe lokalne multimedia.
-9. BluOS/Bluesound jako rozbudowany adapter urządzenia i źródeł skonfigurowanych na odtwarzaczu.
-10. Apple Music i natywna ścieżka MusicKit dla macOS.
-11. Natywny prototyp macOS w Swift/AppKit po ustabilizowaniu kontraktu i zachowania wersji Windows.
-12. Frontier Smart po uzyskaniu wspieranego API; Sonos jako późniejsza, osobna integracja chmurowa.
+9. YouTube jako oficjalny adapter publicznego wyszukiwania i widocznego odtwarzacza, początkowo bez synchronizacji konta.
+10. BluOS/Bluesound jako rozbudowany adapter urządzenia i źródeł skonfigurowanych na odtwarzaczu.
+11. Apple Music i natywna ścieżka MusicKit dla macOS.
+12. Natywny prototyp macOS w Swift/AppKit po ustabilizowaniu kontraktu i zachowania wersji Windows.
+13. Frontier Smart po uzyskaniu wspieranego API; Sonos jako późniejsza, osobna integracja chmurowa.
 
 ## 15. Otwarte decyzje
 

@@ -360,7 +360,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "Ctrl+Enter odtwarza lub wstrzymuje zaznaczony element bez opuszczania listy, a Spacja steruje elementem faktycznie grającym. " +
             "F6 otwiera odtwarzacz. W odtwarzaczu strzałki w lewo i w prawo przewijają o 10 sekund, z Shiftem o 30 sekund, a z Ctrl o minutę, " +
             "strzałki w górę i w dół zmieniają głośność, Home i End przechodzą na początek i w pobliże końca, " +
-            "a Escape wraca do wcześniejszej listy. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
+            "a cyfry od 0 do 9 przechodzą odpowiednio do 0, 10, 20 i kolejnych procent długości utworu. " +
+            "Escape wraca do wcześniejszej listy. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
             "Ctrl+Shift+G włącza lub wyłącza automatyczny odczyt pozycji po przewijaniu. " +
             "Alt+Enter pokazuje informacje. " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
@@ -1350,15 +1351,27 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         if (Keyboard.Modifiers != ModifierKeys.Control) return false;
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        var isTopRowDigit = key is >= Key.D0 and <= Key.D9;
-        var isNumberPadDigit = key is >= Key.NumPad0 and <= Key.NumPad9;
-        if (!isTopRowDigit && !isNumberPadDigit) return false;
-
-        var slot = isTopRowDigit
-            ? (int)key - (int)Key.D0
-            : (int)key - (int)Key.NumPad0;
+        if (!TryGetDigitKey(key, out var slot)) return false;
         ExecuteCommand(slot == 0 ? CommandIds.SessionList : CommandIds.SessionSlot(slot));
         return true;
+    }
+
+    private static bool TryGetDigitKey(Key key, out int digit)
+    {
+        if (key is >= Key.D0 and <= Key.D9)
+        {
+            digit = (int)key - (int)Key.D0;
+            return true;
+        }
+
+        if (key is >= Key.NumPad0 and <= Key.NumPad9)
+        {
+            digit = (int)key - (int)Key.NumPad0;
+            return true;
+        }
+
+        digit = 0;
+        return false;
     }
 
     private bool TryHandleLocalSessionNavigation(KeyEventArgs e)
@@ -1423,6 +1436,12 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private bool TryHandlePlayerTransportShortcut(KeyEventArgs e)
     {
         if (!_playerViewActive || !PlayerPanel.IsKeyboardFocusWithin) return false;
+
+        if (Keyboard.Modifiers == ModifierKeys.None && TryGetDigitKey(e.Key, out var digit))
+        {
+            ExecuteCommand(CommandIds.SeekPercent(digit * 10));
+            return true;
+        }
 
         var commandId = (Keyboard.Modifiers, e.Key) switch
         {

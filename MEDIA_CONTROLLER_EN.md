@@ -203,9 +203,9 @@ After the prefix, all arrow keys control global playback. In an ordinary list, e
 
 The player is a view inside the main window rather than a separate modal window. Enter on a track or station ensures that the item is playing and opens this view; an already playing item is not toggled to pause. `Ctrl+Enter` retains its direct list action and does not open the player. `F6`, the Now Playing command, or prefix then `N` shows the player without starting the current selection. Escape returns to the exact previous view and item without stopping audio or moving the selection to the current track. In lists, the current track gains an accessible “Playing” or “Paused” prefix so its state can be identified without abandoning the browsed position.
 
-In the player, Left/Right seeks by 10 seconds, Shift+Left/Right by 30 seconds, Ctrl+Left/Right by one minute, Up/Down changes volume by 5%, Shift+Up/Down by 1%, Home seeks to the beginning and End near the end. Alt+Arrow and Ctrl+Shift+Arrow remain unassigned until a concrete need is agreed. Tab moves through real play, seek, volume and return buttons. Session-dependent capabilities such as radio recording will later appear as conditional controls and commands and have no fixed shortcut yet. Player bindings will eventually be configurable alongside the prefix profile.
+In the player, Left/Right seeks by 10 seconds, Shift+Left/Right by 30 seconds, Ctrl+Left/Right by one minute, Up/Down changes volume by 5%, Shift+Up/Down by 1%, Home seeks to the beginning and End near the end. Digits `0–9` seek to `0%, 10%, …, 90%` of the duration; this includes numpad digits with Num Lock enabled. The binding is player-only, so digits retain native item navigation on lists and `Ctrl+digit` selects a session. Percentage seeking is unavailable when duration is unknown. Alt+Arrow and Ctrl+Shift+Arrow remain unassigned until a concrete need is agreed. Tab moves through real play, seek, volume and return buttons. Session-dependent capabilities such as radio recording will later appear as conditional controls and commands and have no fixed shortcut yet. Player bindings will eventually be configurable alongside the prefix profile.
 
-A separate “Jump to position” command accepting an absolute time and a variant accepting a percentage are planned. Final bindings, including possible `J` and `Shift+J` prefix commands, remain subject to the complete prefix conflict review.
+A separate “Jump to position” command accepting an absolute time remains planned. The percentage variant now has a local digit map in the player. Possible prefix equivalents, including `J` for a manually entered time, remain subject to the complete prefix conflict review.
 
 ## 7. Browser window
 
@@ -365,6 +365,7 @@ Approved primary bindings:
 | `Shift+Up/Down Arrow` in the player | change volume by 1% |
 | `Home` in the player | seek to the beginning |
 | `End` in the player | seek to 10 seconds before the end |
+| `0–9` in the player | seek to 0–90% of the duration in 10% steps |
 | `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | report elapsed, remaining or total time |
 | `Ctrl+Shift+G` | toggle automatic position feedback after seeking |
 | `Ctrl+D` | download offline within the service when supported |
@@ -518,6 +519,10 @@ The catalogue source and playback target are independent adapters. Selecting Wii
 - **TIDAL**: its API and OAuth 2.1 can expose catalogue and authorized user resources, while playback must use the official TIDAL Player module. Public TIDAL Connect is limited to device partners. TIDAL remains an important separate AMC module, but requires isolated, attributed results, an Open in TIDAL action, minimal data retention and Production Mode review. AMC does not mix TIDAL content with similar services or expose recording or stream export. [TIDAL authorization](https://developer.tidal.com/documentation/api-sdk/api-sdk-authorization), [TIDAL Developer Terms](https://developer.tidal.com/documentation/guidelines/guidelines-developer-terms), [TIDAL Design Guidelines](https://developer.tidal.com/documentation/guidelines/guidelines-design-guidelines), [TIDAL Connect](https://developer.tidal.com/documentation/connect).
 A layer similar to an accessible WhatsApp client, wrapping TIDAL Web and improving keyboard navigation, is technically possible only as a cautious experiment. It must not automatically extract the catalogue, playlists or listening history from the DOM because the official terms prohibit scraping and automated indexing of TIDAL. AMC may provide an emergency action that opens the official web player and transfers the user to it; the proper adapter uses the official API and Player module. An experimental accessibility overlay is not treated as the primary adapter without written confirmation from TIDAL.
 
+- **YouTube**: the first adapter is on demand and does not synchronise an account. Public video, live-stream and playlist search uses the YouTube Data API with a project key; OAuth is introduced only if the user deliberately wants account-specific features later. Playback and transport use the visible official IFrame Player API. AMC presents metadata, results and commands in a podcast-like accessible interface but does not hide the player in the background. Under the API policies, the module does not download content, separate audio, or record parts of videos or live streams. Recording remains limited to sources that explicitly permit it, such as a direct radio stream or a user-owned local file. [YouTube Data API](https://developers.google.com/youtube/v3/getting-started), [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference), [YouTube API Services Developer Policies](https://developers.google.com/youtube/terms/developer-policies).
+
+  Extraction tools such as yt-dlp do not become a built-in AMC adapter. Their YouTube support needs frequent fixes as the player, JavaScript and PO-token requirements change; formats may disappear without warning, and account cookies can expose an account to restrictions. This creates both a high maintenance cost and a conflict with official YouTube client policies. [yt-dlp update channels](https://github.com/yt-dlp/yt-dlp/blob/master/README.md#update-channels), [YouTube extractor notes](https://github.com/yt-dlp/yt-dlp/wiki/Extractors).
+
 - **Sonos**: its OAuth cloud Control API discovers households, groups and players, reports state, controls playback, seek and volume, and loads Sonos Favorites and playlists. It does not replace catalogue APIs for existing music services, needs a public HTTPS callback and has a higher integration cost. It stays in scope after WiiM, Spotify, TIDAL, BluOS, Apple Music, radio and local media. [Sonos Control API](https://docs.sonos.com/reference/about-control-api), [Sonos authorization](https://docs.sonos.com/docs/authorize).
 - **Frontier Smart**: the manufacturer confirms NetRemote API and SDK access for hardware partners but does not publish a complete supported consumer integration reference. A stable adapter requires partner access; any community adapter is explicitly experimental. [Frontier AURIA](https://www.frontiersmart.com/product/auria/), [Frontier customer area](https://www.frontiersmart.com/customer-area/).
 
@@ -639,6 +644,8 @@ State of `alpha.37`: Escape from the player preserves the last browsed position,
 
 State of `alpha.38`: the “Announce position after seeking” option on the Messages tab separates automatic seek feedback from explicit time commands. Disabling it covers transport Arrows, Home and End, while `Ctrl+Shift+E/R/T` still respond. The state persists, appears as a safe command-palette toggle, and can be switched directly with `Ctrl+Shift+G`, which always gives a brief confirmation.
 
+State of `alpha.39`: digits `0–9` in the player seek to `0–90%` of the duration. Numpad digits also work with Num Lock enabled, without changing digit behaviour on lists or `Ctrl+digit` session selection. The seek respects the automatic-position-announcement setting, and unknown duration produces an explicit unavailable message. The command palette exposes all ten percentage positions. The adapter plan now records an official YouTube integration without initial account synchronisation and without downloading, audio extraction or recording of YouTube content.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.
@@ -649,10 +656,11 @@ Planned sequence of later stages:
 6. Add TIDAL as a separate catalogue adapter with an isolated results view and official playback module.
 7. Add a thin NVDA add-on using only the host contract.
 8. Add internet radio, deliberate direct-stream recording and basic local media.
-9. Add BluOS/Bluesound as a richer adapter for devices and player-configured sources.
-10. Add Apple Music and the native MusicKit path for macOS.
-11. Build a native Swift/AppKit macOS prototype after the contract and Windows behaviour have stabilised.
-12. Add Frontier Smart after supported API access; keep Sonos as a later standalone cloud integration.
+9. Add YouTube as an official public-search and visible-player adapter, initially without account synchronisation.
+10. Add BluOS/Bluesound as a richer adapter for devices and player-configured sources.
+11. Add Apple Music and the native MusicKit path for macOS.
+12. Build a native Swift/AppKit macOS prototype after the contract and Windows behaviour have stabilised.
+13. Add Frontier Smart after supported API access; keep Sonos as a later standalone cloud integration.
 
 ## 15. Open decisions
 

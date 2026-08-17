@@ -14,12 +14,18 @@ public static class CommandCatalog
     {
         return DefinedCommandIds
             .Concat(Enumerable.Range(1, 9).Select(CommandIds.SessionSlot))
+            .Concat(Enumerable.Range(0, 10).Select(digit => CommandIds.SeekPercent(digit * 10)))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
     }
 
     public static string GetDisplayName(string commandId)
     {
+        if (CommandIds.TryParseSeekPercent(commandId, out var percent))
+        {
+            return $"Przejdź do {percent}% utworu";
+        }
+
         const string sessionSlotPrefix = "session.slot.";
         if (commandId.StartsWith(sessionSlotPrefix, StringComparison.Ordinal)
             && int.TryParse(commandId.AsSpan(sessionSlotPrefix.Length), out var slot))
