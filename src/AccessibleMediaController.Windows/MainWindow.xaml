@@ -81,6 +81,14 @@
                     automation:AutomationProperties.LiveSetting="Assertive"
                     Text="Gotowy" TextWrapping="Wrap" />
             </Border>
+            <StatusBar x:Name="PlaybackStatusBar" Margin="0,4,0,0"
+                       automation:AutomationProperties.Name="Pasek stanu odtwarzania"
+                       automation:AutomationProperties.HelpText="NVDA+End odczytuje bieżący pasek stanu.">
+                <StatusBarItem HorizontalContentAlignment="Stretch">
+                    <TextBlock x:Name="PlaybackStatusText" TextWrapping="NoWrap"
+                               Text="Pauza, czas 0:00, głośność 0%, przepływność: brak danych" />
+                </StatusBarItem>
+            </StatusBar>
         </StackPanel>
 
         <Grid>

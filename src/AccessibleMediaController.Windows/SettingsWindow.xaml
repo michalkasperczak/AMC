@@ -148,9 +148,17 @@
                               Content="Pokazuj _szczegółowe podpowiedzi klawiatury przy polach i listach"
                               automation:AutomationProperties.HelpText="Domyślnie wyłączone. Dotyczy filtra oraz wyszukiwania bieżącego i globalnego." />
                     <CheckBox x:Name="SeekMessagesCheck" Grid.Row="2" Margin="0,0,0,10"
-                              Content="Oznajmiaj zmiany _czasu i głośności"
-                              automation:AutomationProperties.HelpText="Skrót Ctrl+Shift+G. Wyłączenie ucisza automatyczny czas po przewijaniu oraz głośność po strzałkach. Nie wycisza odtwarzania, pauzy, błędów ani czasu odczytywanego na żądanie." />
+                              Content="Włącz _automatyczne komunikaty odtwarzacza"
+                              automation:AutomationProperties.HelpText="Nadrzędny przełącznik, skrót Ctrl+Shift+G. Wyłączenie chwilowo ucisza zaznaczone niżej kategorie, ale nie zmienia ich wyboru i nie wycisza błędów ani czasu odczytywanego na żądanie." />
                     <StackPanel Grid.Row="3" Margin="0,0,0,10">
+                        <CheckBox x:Name="PercentageSeekMessagesCheck" Margin="18,0,0,6"
+                                  Content="Oznajmiaj skoki _cyframi" />
+                        <CheckBox x:Name="ArrowSeekMessagesCheck" Margin="18,0,0,6"
+                                  Content="Oznajmiaj przewijanie _strzałkami, Home i End" />
+                        <CheckBox x:Name="VolumeMessagesCheck" Margin="18,0,0,6"
+                                  Content="Oznajmiaj zmiany _głośności" />
+                        <CheckBox x:Name="PlaybackMessagesCheck" Margin="18,0,0,8"
+                                  Content="Oznajmiaj _odtwarzanie i pauzę" />
                         <Label Target="{Binding ElementName=PercentageSeekAnnouncementCombo}">Po skoku _cyfrą oznajmiaj:</Label>
                         <ComboBox x:Name="PercentageSeekAnnouncementCombo" Width="260" HorizontalAlignment="Left"
                                   automation:AutomationProperties.HelpText="Dotyczy cyfr od 0 do 9 w widoku odtwarzacza.">

@@ -8,7 +8,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 9;
+    public const int CurrentSchemaVersion = 10;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -210,6 +210,14 @@ public sealed class ConfigurationStore(string statePath)
             // Alpha.40 broadens the existing seek-feedback switch to include
             // volume feedback. Preserve the user's previous on/off choice.
             settings.Messages.VolumeMessages = settings.Messages.SeekMessages;
+        }
+
+        if (schemaVersion < 10)
+        {
+            // Alpha.41 keeps the previous switch as a non-destructive master
+            // and introduces independent categories beneath it.
+            settings.Messages.ArrowSeekMessages = true;
+            settings.Messages.PercentageSeekMessages = true;
         }
     }
 

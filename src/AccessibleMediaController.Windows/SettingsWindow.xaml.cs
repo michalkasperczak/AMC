@@ -89,6 +89,10 @@ public partial class SettingsWindow : Window
             SettingsTarget.ImportFullBackup => (ImportExportTab, ImportFullBackupButton),
             SettingsTarget.ExportFullBackup => (ImportExportTab, ExportFullBackupButton),
             SettingsTarget.Messages => (MessagesTab, MessagesTab),
+            SettingsTarget.ArrowSeekMessages => (MessagesTab, ArrowSeekMessagesCheck),
+            SettingsTarget.PercentageSeekMessages => (MessagesTab, PercentageSeekMessagesCheck),
+            SettingsTarget.VolumeMessages => (MessagesTab, VolumeMessagesCheck),
+            SettingsTarget.PlaybackMessages => (MessagesTab, PlaybackMessagesCheck),
             SettingsTarget.PercentageSeekAnnouncement => (MessagesTab, PercentageSeekAnnouncementCombo),
             SettingsTarget.MessageTemplates => (MessagesTab, MessageTemplatesList),
             SettingsTarget.Updates => (UpdatesTab, UpdatesTab),
@@ -107,8 +111,11 @@ public partial class SettingsWindow : Window
 
         MessagesEnabledCheck.IsChecked = _workingState.Settings.Messages.Enabled;
         DetailedHintsCheck.IsChecked = _workingState.Settings.Messages.DetailedHints;
-        SeekMessagesCheck.IsChecked = _workingState.Settings.Messages.SeekMessages
-            && _workingState.Settings.Messages.VolumeMessages;
+        SeekMessagesCheck.IsChecked = _workingState.Settings.Messages.SeekMessages;
+        ArrowSeekMessagesCheck.IsChecked = _workingState.Settings.Messages.ArrowSeekMessages;
+        PercentageSeekMessagesCheck.IsChecked = _workingState.Settings.Messages.PercentageSeekMessages;
+        VolumeMessagesCheck.IsChecked = _workingState.Settings.Messages.VolumeMessages;
+        PlaybackMessagesCheck.IsChecked = _workingState.Settings.Messages.PlaybackMessages;
         SelectComboByTag(
             PercentageSeekAnnouncementCombo,
             _workingState.Settings.Messages.PercentageSeekAnnouncement.ToString());
@@ -146,9 +153,11 @@ public partial class SettingsWindow : Window
 
         _workingState.Settings.Messages.Enabled = MessagesEnabledCheck.IsChecked == true;
         _workingState.Settings.Messages.DetailedHints = DetailedHintsCheck.IsChecked == true;
-        var announcePlayerChanges = SeekMessagesCheck.IsChecked == true;
-        _workingState.Settings.Messages.SeekMessages = announcePlayerChanges;
-        _workingState.Settings.Messages.VolumeMessages = announcePlayerChanges;
+        _workingState.Settings.Messages.SeekMessages = SeekMessagesCheck.IsChecked == true;
+        _workingState.Settings.Messages.ArrowSeekMessages = ArrowSeekMessagesCheck.IsChecked == true;
+        _workingState.Settings.Messages.PercentageSeekMessages = PercentageSeekMessagesCheck.IsChecked == true;
+        _workingState.Settings.Messages.VolumeMessages = VolumeMessagesCheck.IsChecked == true;
+        _workingState.Settings.Messages.PlaybackMessages = PlaybackMessagesCheck.IsChecked == true;
         if (Enum.TryParse<PercentageSeekAnnouncementMode>(
                 SelectedTag(PercentageSeekAnnouncementCombo, nameof(PercentageSeekAnnouncementMode.Percent)),
                 out var percentageSeekAnnouncement))

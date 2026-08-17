@@ -367,7 +367,7 @@ Zatwierdzone przypisania podstawowe:
 | `End` w odtwarzaczu | przejdź 10 sekund przed końcem utworu |
 | `0–9` w odtwarzaczu | przejdź do 0–90% czasu trwania co 10% |
 | `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | podaj czas od początku, pozostały albo całkowity |
-| `Ctrl+Shift+G` | włącz lub wyłącz automatyczne komunikaty czasu i głośności |
+| `Ctrl+Shift+G` | chwilowo włącz lub wyłącz wszystkie automatyczne komunikaty odtwarzacza |
 | `Ctrl+D` | pobierz offline wewnątrz usługi, jeśli obsługiwane |
 | `Ctrl+Shift+D` | pobierz do pliku lokalnego; funkcja eksperymentalna, domyślnie wyłączona |
 | `Backspace` lub `Delete` | usuń z bieżącej playlisty, kolejki, ulubionych lub biblioteki; z potwierdzeniem albo możliwością cofnięcia |
@@ -444,7 +444,7 @@ Każdy komunikat powinien być jednocześnie:
 
 Podstawą pierwszej wersji jest UI Automation w Windows. Program nie może wymagać NVDA do działania. Accessibility API w macOS zostanie opracowane dopiero przy rozpoczęciu prac nad wydaniem dla Maca.
 
-Domyślne komunikaty mają być krótkie. W pierwszej wersji nie wprowadzamy osobnych profili „krótki”, „normalny” i „szczegółowy”. Zamiast nich użytkownik może edytować szablon każdego komunikatu, wyłączyć go albo przywrócić ustawienie domyślne. Oddzielna globalna opcja szczegółowych podpowiedzi klawiatury obejmuje filtr oraz wyszukiwanie bieżące i globalne; jest domyślnie wyłączona, nie zmienia treści komunikatów zdarzeń, a na wynikach wymienia tylko strzałki, Enter i Escape. Niezależna opcja automatycznych komunikatów czasu i głośności pozwala seryjnie używać strzałek oraz cyfr bez wypowiadania każdej wartości. Nie wycisza informacji o czasie wywołanych na żądanie, odtwarzania, pauzy ani komunikatów o błędzie lub niedostępności. Dla skoku cyfrą można niezależnie wybrać sam procent, sam czas albo obie wartości.
+Domyślne komunikaty mają być krótkie. W pierwszej wersji nie wprowadzamy osobnych profili „krótki”, „normalny” i „szczegółowy”. Zamiast nich użytkownik może edytować szablon każdego komunikatu, wyłączyć go albo przywrócić ustawienie domyślne. Oddzielna globalna opcja szczegółowych podpowiedzi klawiatury obejmuje filtr oraz wyszukiwanie bieżące i globalne; jest domyślnie wyłączona, nie zmienia treści komunikatów zdarzeń, a na wynikach wymienia tylko strzałki, Enter i Escape. Automatyczne komunikaty odtwarzacza mają nadrzędny przełącznik pod `Ctrl+Shift+G` oraz cztery zachowywane niezależnie kategorie: skoki cyframi, przewijanie strzałkami, głośność i odtwarzanie/pauzę. Nadrzędne wyciszenie nie zmienia zaznaczenia kategorii. Nie obejmuje informacji o czasie wywołanych na żądanie ani komunikatów o błędzie lub niedostępności. Dla skoku cyfrą można dodatkowo wybrać sam procent, sam czas albo obie wartości.
 
 Ustawienia komunikatów:
 
@@ -649,6 +649,8 @@ Stan `alpha.38`: opcja „Oznajmiaj pozycję po przewijaniu” na karcie Komunik
 Stan `alpha.39`: cyfry `0–9` w widoku odtwarzacza przechodzą do `0–90%` czasu trwania. Działają także cyfry numeryczne przy włączonym Num Lock, nie zmieniając znaczenia cyfr na listach ani `Ctrl+cyfra` dla sesji. Skok respektuje ustawienie automatycznego odczytu pozycji, a brak znanego czasu trwania kończy się jednoznacznym komunikatem. Paleta poleceń pokazuje wszystkie dziesięć pozycji procentowych. W planie adapterów zapisano oficjalną integrację YouTube bez synchronizacji konta w pierwszym etapie i bez pobierania, ekstrakcji dźwięku lub nagrywania treści YouTube.
 
 Stan `alpha.40`: domyślnym komunikatem po skoku cyfrą jest sam procent. Karta Komunikaty pozwala wybrać sam procent, sam czas albo procent i czas, a paleta prowadzi bezpośrednio do tej kontrolki. `Ctrl+Shift+G` i wspólny checkbox wyciszają zarówno automatyczne wartości czasu, jak i wartości głośności po zmianie. Odtwarzanie, pauza, komunikaty błędów i polecenia czasu na żądanie pozostają słyszalne.
+
+Stan `alpha.41`: nadrzędne `Ctrl+Shift+G` zachowuje osobne wybory komunikatów skoków cyframi, przewijania strzałkami, głośności i odtwarzania/pauzy. Każda kategoria ma własny checkbox i wejście w palecie. Na dole głównego okna działa pasek stanu bez automatycznej mowy, odczytywany przez `NVDA+End`: usługa, stan, tytuł, pozycja z czasem całkowitym, głośność i przepływność. Lokalna przepływność jest oznaczonym przybliżeniem; brak metadanych nie jest zastępowany wymyśloną wartością.
 
 Planowana kolejność dalszych etapów:
 

@@ -92,9 +92,12 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.PlayPause:
                 current.TogglePlayback();
-                announcements.Announce(current.IsPlaying
-                    ? $"Odtwarzanie: {current.CurrentItem.Title}"
-                    : $"Pauza: {current.CurrentItem.Title}");
+                if (settings.Messages.SeekMessages && settings.Messages.PlaybackMessages)
+                {
+                    announcements.Announce(current.IsPlaying
+                        ? $"Odtwarzanie: {current.CurrentItem.Title}"
+                        : $"Pauza: {current.CurrentItem.Title}");
+                }
                 return new(true);
             case CommandIds.ActivateSelected:
                 var selectedToActivate = application.SelectedItem ?? current.CurrentItem;
@@ -103,9 +106,12 @@ public sealed class CommandRouter(
                     announcements.Announce("Nie można otworzyć wybranego elementu w tej sesji");
                     return new(false);
                 }
-                announcements.Announce(current.IsPlaying
-                    ? $"Odtwarzanie: {selectedToActivate.Title}"
-                    : $"Pauza: {selectedToActivate.Title}");
+                if (settings.Messages.SeekMessages && settings.Messages.PlaybackMessages)
+                {
+                    announcements.Announce(current.IsPlaying
+                        ? $"Odtwarzanie: {selectedToActivate.Title}"
+                        : $"Pauza: {selectedToActivate.Title}");
+                }
                 return new(true);
             case CommandIds.Previous:
                 current.Move(-1);
@@ -127,12 +133,12 @@ public sealed class CommandRouter(
             case CommandIds.VolumeDown1: return Volume(current, -1);
             case CommandIds.TrackStart:
                 current.SetPosition(TimeSpan.Zero);
-                if (settings.Messages.SeekMessages) announcements.Announce("0:00");
+                if (settings.Messages.SeekMessages && settings.Messages.ArrowSeekMessages) announcements.Announce("0:00");
                 return new(true);
             case CommandIds.TrackEnd:
                 var nearEnd = Max(TimeSpan.Zero, current.CurrentItem.Duration - TimeSpan.FromSeconds(10));
                 current.SetPosition(nearEnd);
-                if (settings.Messages.SeekMessages) announcements.Announce(FormatTime(nearEnd));
+                if (settings.Messages.SeekMessages && settings.Messages.ArrowSeekMessages) announcements.Announce(FormatTime(nearEnd));
                 return new(true);
             case CommandIds.TimeElapsed:
                 AnnounceTemplate("time.elapsed", "{elapsed}", ("elapsed", FormatTime(current.Position)));
@@ -251,6 +257,10 @@ public sealed class CommandRouter(
             CommandIds.SettingsImportFullBackup => SettingsTarget.ImportFullBackup,
             CommandIds.SettingsExportFullBackup => SettingsTarget.ExportFullBackup,
             CommandIds.SettingsMessages => SettingsTarget.Messages,
+            CommandIds.SettingsArrowSeekMessages => SettingsTarget.ArrowSeekMessages,
+            CommandIds.SettingsPercentageSeekMessages => SettingsTarget.PercentageSeekMessages,
+            CommandIds.SettingsVolumeMessages => SettingsTarget.VolumeMessages,
+            CommandIds.SettingsPlaybackMessages => SettingsTarget.PlaybackMessages,
             CommandIds.SettingsPercentageSeekAnnouncement => SettingsTarget.PercentageSeekAnnouncement,
             CommandIds.SettingsMessageTemplates => SettingsTarget.MessageTemplates,
             CommandIds.SettingsUpdates => SettingsTarget.Updates,
@@ -295,7 +305,10 @@ public sealed class CommandRouter(
     private CommandExecutionResult Seek(DemoMediaSession session, int seconds)
     {
         session.Seek(TimeSpan.FromSeconds(seconds));
-        if (settings.Messages.SeekMessages) announcements.Announce(FormatTime(session.Position));
+        if (settings.Messages.SeekMessages && settings.Messages.ArrowSeekMessages)
+        {
+            announcements.Announce(FormatTime(session.Position));
+        }
         return new(true);
     }
 
@@ -310,7 +323,7 @@ public sealed class CommandRouter(
 
         var position = TimeSpan.FromTicks((long)Math.Round(duration.Ticks * (percent / 100d)));
         session.SetPosition(position);
-        if (settings.Messages.SeekMessages)
+        if (settings.Messages.SeekMessages && settings.Messages.PercentageSeekMessages)
         {
             announcements.Announce(settings.Messages.PercentageSeekAnnouncement switch
             {
@@ -325,7 +338,7 @@ public sealed class CommandRouter(
     private CommandExecutionResult Volume(DemoMediaSession session, int delta)
     {
         session.ChangeVolume(delta);
-        if (settings.Messages.VolumeMessages)
+        if (settings.Messages.SeekMessages && settings.Messages.VolumeMessages)
         {
             AnnounceTemplate("volume.changed", "{value}%", ("value", session.Volume.ToString()));
         }

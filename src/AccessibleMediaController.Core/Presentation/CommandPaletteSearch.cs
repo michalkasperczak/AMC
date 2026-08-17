@@ -66,9 +66,17 @@ public static class CommandPaletteSearch
             CommandIds.SettingsToggleDetailedHints => settings.Messages.DetailedHints
                 ? "Szczegółowe podpowiedzi klawiatury: włączone. Enter: wyłącz"
                 : "Szczegółowe podpowiedzi klawiatury: wyłączone. Enter: włącz",
-            CommandIds.SettingsToggleSeekMessages => settings.Messages.SeekMessages && settings.Messages.VolumeMessages
-                ? "Automatyczne komunikaty czasu i głośności: włączone. Enter: wyłącz"
-                : "Automatyczne komunikaty czasu i głośności: wyłączone. Enter: włącz",
+            CommandIds.SettingsToggleSeekMessages => settings.Messages.SeekMessages
+                ? "Automatyczne komunikaty odtwarzacza: włączone. Enter: wyłącz"
+                : "Automatyczne komunikaty odtwarzacza: wyłączone. Enter: włącz",
+            CommandIds.SettingsArrowSeekMessages =>
+                $"Komunikaty przewijania strzałkami: {OnOff(settings.Messages.ArrowSeekMessages)}. Enter: ustawienia",
+            CommandIds.SettingsPercentageSeekMessages =>
+                $"Komunikaty skoków cyframi: {OnOff(settings.Messages.PercentageSeekMessages)}. Enter: ustawienia",
+            CommandIds.SettingsVolumeMessages =>
+                $"Komunikaty zmian głośności: {OnOff(settings.Messages.VolumeMessages)}. Enter: ustawienia",
+            CommandIds.SettingsPlaybackMessages =>
+                $"Komunikaty odtwarzania i pauzy: {OnOff(settings.Messages.PlaybackMessages)}. Enter: ustawienia",
             CommandIds.SettingsPercentageSeekAnnouncement =>
                 $"Komunikat po skoku cyfrą: {GetPercentageSeekAnnouncementName(settings.Messages.PercentageSeekAnnouncement)}",
             _ => CommandCatalog.GetDisplayName(commandId)
@@ -81,6 +89,8 @@ public static class CommandPaletteSearch
         PercentageSeekAnnouncementMode.PercentAndTime => "procent i czas",
         _ => "tylko procent"
     };
+
+    private static string OnOff(bool enabled) => enabled ? "włączone" : "wyłączone";
 
     public static string ContinueOrRestartListQuery(
         IReadOnlyList<CommandPaletteEntry> entries,

@@ -63,6 +63,8 @@ public sealed class MessageSettings
     public bool Enabled { get; set; } = true;
     public bool DetailedHints { get; set; }
     public bool SeekMessages { get; set; } = true;
+    public bool ArrowSeekMessages { get; set; } = true;
+    public bool PercentageSeekMessages { get; set; } = true;
     public PercentageSeekAnnouncementMode PercentageSeekAnnouncement { get; set; } = PercentageSeekAnnouncementMode.Percent;
     public bool SessionMessages { get; set; } = true;
     public bool PlaybackMessages { get; set; } = true;
@@ -97,7 +99,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 9;
+    public int SchemaVersion { get; set; } = 10;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];

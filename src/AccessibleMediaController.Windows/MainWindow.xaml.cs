@@ -82,6 +82,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         ApplyDetailedHints();
         RebuildCore();
         RefreshCurrentView();
+        UpdatePlaybackStatusBar();
+        _playerUiTimer.Start();
     }
 
     public MediaItem? SelectedItem => (MediaList.SelectedItem as MediaItemRow)?.Item;
@@ -218,7 +220,6 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     {
         if (!_playerViewActive) return;
         _playerViewActive = false;
-        _playerUiTimer.Stop();
         PlayerPanel.Visibility = Visibility.Collapsed;
         BrowserHeaderPanel.Visibility = Visibility.Visible;
         BrowserActionPanel.Visibility = Visibility.Visible;
@@ -238,7 +239,6 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     {
         if (!_playerViewActive) return;
         _playerViewActive = false;
-        _playerUiTimer.Stop();
         PlayerPanel.Visibility = Visibility.Collapsed;
         BrowserHeaderPanel.Visibility = Visibility.Visible;
         BrowserActionPanel.Visibility = Visibility.Visible;
@@ -283,7 +283,28 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "Strzałki sterują czasem i głośnością. Escape wraca do listy.");
     }
 
-    private void PlayerUiTimer_Tick(object? sender, EventArgs e) => UpdatePlayerView();
+    private void PlayerUiTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_playerViewActive) UpdatePlayerView();
+        UpdatePlaybackStatusBar();
+    }
+
+    private void UpdatePlaybackStatusBar()
+    {
+        var session = _sessions.Current;
+        var item = session.CurrentItem;
+        var position = session.Position;
+        var state = session.IsPlaying ? "Odtwarzanie" : "Pauza";
+        var time = item.Duration > TimeSpan.Zero
+            ? $"{CommandRouter.FormatTime(position)} z {CommandRouter.FormatTime(item.Duration)}"
+            : $"{CommandRouter.FormatTime(position)}, czas całkowity nieznany";
+        var bitrate = item.BitrateKbps is int bitrateKbps
+            ? item.IsBitrateEstimated ? $"około {bitrateKbps} kb/s" : $"{bitrateKbps} kb/s"
+            : "brak danych";
+        var text = $"{session.DisplayName}, {state}, {item.Title}, {time}, głośność {session.Volume}%, przepływność {bitrate}";
+        PlaybackStatusText.Text = text;
+        AutomationProperties.SetName(PlaybackStatusBar, text);
+    }
 
     public void ShowSessionList()
     {
@@ -362,7 +383,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "strzałki w górę i w dół zmieniają głośność, Home i End przechodzą na początek i w pobliże końca, " +
             "a cyfry od 0 do 9 przechodzą odpowiednio do 0, 10, 20 i kolejnych procent długości utworu oraz domyślnie oznajmiają tylko procent. " +
             "Escape wraca do wcześniejszej listy. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
-            "Ctrl+Shift+G włącza lub wyłącza automatyczne komunikaty czasu i głośności. " +
+            "Ctrl+Shift+G chwilowo włącza lub wyłącza wszystkie automatyczne komunikaty odtwarzacza; ich kategorie wybiera się osobno w Ustawieniach. " +
+            "NVDA+End odczytuje pasek stanu z bieżącym czasem, głośnością i przepływnością. " +
             "Alt+Enter pokazuje informacje. " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
@@ -396,13 +418,12 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
 
     public void ToggleSeekMessages()
     {
-        var enabled = !(_state.Settings.Messages.SeekMessages && _state.Settings.Messages.VolumeMessages);
+        var enabled = !_state.Settings.Messages.SeekMessages;
         _state.Settings.Messages.SeekMessages = enabled;
-        _state.Settings.Messages.VolumeMessages = enabled;
         _store.Save(_state);
         AnnounceEssential(enabled
-            ? "Automatyczne komunikaty czasu i głośności włączone"
-            : "Automatyczne komunikaty czasu i głośności wyłączone");
+            ? "Automatyczne komunikaty odtwarzacza włączone"
+            : "Automatyczne komunikaty odtwarzacza wyłączone");
     }
 
     public void OpenLocalFiles()
@@ -556,7 +577,28 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private void LocalOutput_DurationAvailable(object? sender, MediaDurationAvailableEventArgs e)
     {
         e.Item.Duration = e.Duration;
+        if (e.Item.Source is { Length: > 0 } path)
+        {
+            try
+            {
+                e.Item.BitrateKbps = LocalAudioFileDiscovery.EstimateBitrateKbps(
+                    new FileInfo(path).Length,
+                    e.Duration);
+                e.Item.IsBitrateEstimated = e.Item.BitrateKbps.HasValue;
+            }
+            catch (IOException)
+            {
+                e.Item.BitrateKbps = null;
+                e.Item.IsBitrateEstimated = false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                e.Item.BitrateKbps = null;
+                e.Item.IsBitrateEstimated = false;
+            }
+        }
         if (_playerViewActive) UpdatePlayerView();
+        UpdatePlaybackStatusBar();
         // Do not rebuild the focused list when asynchronous metadata arrives.
         // Commands use the new duration immediately; the row is reformatted on
         // the next ordinary refresh without causing an extra focus event.
@@ -567,6 +609,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         _sessions.FindSession("local")?.MarkPlaybackFailed();
         RefreshPlaybackIndicators();
         if (_playerViewActive) UpdatePlayerView(true);
+        UpdatePlaybackStatusBar();
         UpdateWindowTitle();
         var title = e.Item?.Title ?? "plik";
         Announce($"Nie można odtworzyć: {title}. {e.Message}");
@@ -577,6 +620,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         _sessions.FindSession("local")?.MarkPlaybackEnded();
         RefreshPlaybackIndicators();
         if (_playerViewActive) UpdatePlayerView(true);
+        UpdatePlaybackStatusBar();
         UpdateWindowTitle();
         Announce($"Koniec: {e.Item.Title}");
     }
@@ -678,6 +722,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         }
         RefreshPlaybackIndicators();
         if (_playerViewActive) UpdatePlayerView();
+        UpdatePlaybackStatusBar();
         UpdateWindowTitle();
         return result;
     }

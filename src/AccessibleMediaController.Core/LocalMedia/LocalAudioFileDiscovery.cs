@@ -16,6 +16,14 @@ public static class LocalAudioFileDiscovery
     public static bool IsAudioFile(string path) =>
         AudioExtensions.Contains(Path.GetExtension(path));
 
+    public static int? EstimateBitrateKbps(long fileSizeBytes, TimeSpan duration)
+    {
+        if (fileSizeBytes <= 0 || duration <= TimeSpan.Zero) return null;
+        var kilobitsPerSecond = fileSizeBytes * 8d / duration.TotalSeconds / 1000d;
+        if (!double.IsFinite(kilobitsPerSecond) || kilobitsPerSecond <= 0) return null;
+        return Math.Max(1, (int)Math.Round(Math.Min(kilobitsPerSecond, int.MaxValue)));
+    }
+
     public static IReadOnlyList<string> FindFiles(string folderPath)
     {
         var options = new EnumerationOptions

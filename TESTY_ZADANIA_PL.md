@@ -1,68 +1,66 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-040`
-- Tytuł zestawu: Komunikaty czasu, procentu i głośności
-- Wersja programu: `0.1.0-alpha.40`
-- Utworzono: 2026-08-17 16:03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_1603_0.1.0-alpha.40.md`
+- Numer zestawu: `AMC-TEST-041`
+- Tytuł zestawu: Osobne komunikaty i pasek stanu
+- Wersja programu: `0.1.0-alpha.41`
+- Utworzono: 2026-08-17 18:44, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_1844_0.1.0-alpha.41.md`
 
 W pliku wyników po dwukropku wpisz krótko, co się wydarzyło. Jeżeli wszystko działa, wystarczy `OK`. Nie trzeba przed każdym zadaniem wybierać wariantu odpowiedzi.
 
-Otwórz plik o znanym czasie trwania i przejdź Enterem do odtwarzacza.
+## AMC-041-01 — Procenty bez komunikatów strzałek
 
-## AMC-040-01 — Domyślny komunikat procentowy
-
-1. Upewnij się, że automatyczne komunikaty są włączone skrótem `Ctrl+Shift+G`.
-2. Naciśnij kolejno `2`, `5` i `9`.
-
-Oczekiwane:
-
-- program mówi tylko `20%`, `50%` i `90%`;
-- nie dopowiada automatycznie czasu;
-- `Ctrl+Shift+E` nadal podaje dokładną bieżącą pozycję.
-
-## AMC-040-02 — Trzy warianty w Ustawieniach
-
-1. Otwórz Ustawienia, kartę „Komunikaty”.
-2. Znajdź listę „Po skoku cyfrą oznajmiaj”.
-3. Sprawdź kolejno „Tylko czas” oraz „Procent i czas”, zapisując ustawienia i używając cyfry w odtwarzaczu.
+1. W Ustawieniach → Komunikaty włącz nadrzędne komunikaty odtwarzacza.
+2. Zaznacz „Oznajmiaj skoki cyframi”, a odznacz „Oznajmiaj przewijanie strzałkami, Home i End”.
+3. W odtwarzaczu naciśnij `2`, `5`, strzałkę w prawo, `Shift+lewo`, Home i End.
 
 Oczekiwane:
 
-- „Tylko czas” podaje np. `2:10` bez procentu;
-- „Procent i czas” podaje np. `50%, 2:10`;
-- wybrany wariant zostaje zapamiętany po ponownym uruchomieniu programu.
+- cyfry mówią `20%` i `50%` albo wariant wybrany na liście;
+- strzałki, Home i End zmieniają pozycję bez automatycznej wypowiedzi;
+- `Ctrl+Shift+E` nadal podaje aktualny czas.
 
-## AMC-040-03 — Wspólne wyciszenie czasu i głośności
+## AMC-041-02 — Głośność oraz odtwarzanie i pauza
 
-1. Naciśnij `Ctrl+Shift+G`, aby wyłączyć automatyczne komunikaty.
-2. Użyj cyfr, strzałek lewo/prawo oraz góra/dół i Shift+góra/dół.
-3. Sprawdź pozycję przez `Ctrl+Shift+E`.
-
-Oczekiwane:
-
-- pozycja i głośność nadal się zmieniają;
-- program nie wypowiada automatycznie czasu, procentu skoku ani wartości głośności;
-- `Ctrl+Shift+E` nadal odpowiada.
-
-## AMC-040-04 — Komunikaty pozostające aktywne
-
-1. Pozostaw automatyczne komunikaty wyłączone.
-2. Użyj Spacji dwa razy.
+1. Osobno włącz i wyłącz „Oznajmiaj zmiany głośności”. Sprawdź górę/dół.
+2. Osobno włącz i wyłącz „Oznajmiaj odtwarzanie i pauzę”. Sprawdź Spację.
 
 Oczekiwane:
 
-- nadal słychać „Pauza” oraz „Odtwarzanie” z tytułem;
-- wyciszenie czasu i głośności nie wyłącza ważnych komunikatów stanu.
+- każda grupa może mówić albo pozostać cicha niezależnie od procentów i strzałek;
+- wyłączenie komunikatu nie blokuje zmiany głośności, odtwarzania ani pauzy.
 
-## AMC-040-05 — Paleta i fokus ustawienia
+## AMC-041-03 — Nadrzędne wyciszenie zachowuje wybór
 
-1. Otwórz paletę przez `Ctrl+Shift+K`.
-2. Wyszukaj „czas głośność” i sprawdź przełącznik.
-3. Ponownie otwórz paletę, wyszukaj „skoku cyfrą” i naciśnij Enter.
+1. Pozostaw komunikaty cyfr włączone, a strzałek wyłączone.
+2. Naciśnij `Ctrl+Shift+G`, sprawdź cyfrę, a następnie naciśnij `Ctrl+Shift+G` ponownie.
+3. Ponownie sprawdź cyfrę i strzałkę.
 
 Oczekiwane:
 
-- przełącznik podaje bieżący stan oraz `Ctrl+Shift+G`;
-- polecenie skoku cyfrą podaje wybrany wariant;
-- Enter otwiera kartę „Komunikaty” z fokusem na liście trzech wariantów.
+- po pierwszym skrócie wszystkie cztery automatyczne kategorie są chwilowo ciche;
+- po drugim cyfra znowu mówi, a strzałka nadal milczy;
+- skrót nie zaznacza ponownie wyłączonych wcześniej kategorii.
+
+## AMC-041-04 — Pasek stanu i NVDA+End
+
+1. Pozostań w głównym oknie na sesji demonstracyjnej.
+2. Naciśnij `NVDA+End`, następnie zmień pozycję lub głośność i ponownie naciśnij `NVDA+End`.
+
+Oczekiwane:
+
+- NVDA odczytuje usługę, stan, tytuł, pozycję i czas całkowity, głośność oraz przepływność;
+- dla demonstracji przepływność może być „brak danych”;
+- pasek aktualizuje wartości, ale nie mówi sam co sekundę.
+
+## AMC-041-05 — Plik lokalny, przepływność i paleta
+
+1. Otwórz lokalny plik audio, uruchom go i po chwili naciśnij `NVDA+End`.
+2. Otwórz paletę `Ctrl+Shift+K` i wyszukaj kolejno „skoki cyframi”, „strzałkami”, „głośności” oraz „pauzy”.
+
+Oczekiwane:
+
+- pasek podaje czas pliku i „przepływność około … kb/s”; gdy system nie zna jeszcze czasu, uczciwie mówi „brak danych”;
+- paleta pokazuje stan każdej kategorii i Enter ustawia fokus na odpowiednim checkboxie karty Komunikaty.
+
+Uwaga: komunikaty błędów i niedostępności nie należą do czterech automatycznych kategorii i pozostają słyszalne.

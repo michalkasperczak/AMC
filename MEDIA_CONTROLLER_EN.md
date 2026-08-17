@@ -367,7 +367,7 @@ Approved primary bindings:
 | `End` in the player | seek to 10 seconds before the end |
 | `0–9` in the player | seek to 0–90% of the duration in 10% steps |
 | `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | report elapsed, remaining or total time |
-| `Ctrl+Shift+G` | toggle automatic time and volume feedback |
+| `Ctrl+Shift+G` | temporarily toggle all automatic player feedback |
 | `Ctrl+D` | download offline within the service when supported |
 | `Ctrl+Shift+D` | download to a local file; experimental and disabled by default |
 | `Backspace` or `Delete` | remove from the current playlist, queue, Favorites or library, with confirmation or Undo |
@@ -444,7 +444,7 @@ Every message should be:
 
 Windows UI Automation is the primary mechanism for the first version. The program must not require NVDA. The macOS Accessibility API will be addressed only when work on the Mac edition begins.
 
-Default messages should be brief. The first version will not provide separate Brief, Normal and Detailed profiles. Instead, the user can edit each message template, disable it, or restore its default. A separate global detailed-keyboard-hints option covers the filter plus current-service and global search; it is off by default, does not alter event-message templates, and mentions only arrows, Enter and Escape on search results. An independent automatic-time-and-volume option allows repeated Arrow and digit use without speaking every value. It does not suppress explicitly requested time, playback, pause, errors or unavailable messages. Digit seeking separately offers percentage only, time only, or both values.
+Default messages should be brief. The first version will not provide separate Brief, Normal and Detailed profiles. Instead, the user can edit each message template, disable it, or restore its default. A separate global detailed-keyboard-hints option covers the filter plus current-service and global search; it is off by default, does not alter event-message templates, and mentions only arrows, Enter and Escape on search results. Automatic player feedback has a `Ctrl+Shift+G` master switch plus four independently retained categories: digit seeking, Arrow seeking, volume, and playback/pause. Master mute does not alter those category selections. It does not cover explicit time queries, errors or unavailable messages. Digit seeking additionally offers percentage only, time only, or both values.
 
 Message settings:
 
@@ -647,6 +647,8 @@ State of `alpha.38`: the “Announce position after seeking” option on the Mes
 State of `alpha.39`: digits `0–9` in the player seek to `0–90%` of the duration. Numpad digits also work with Num Lock enabled, without changing digit behaviour on lists or `Ctrl+digit` session selection. The seek respects the automatic-position-announcement setting, and unknown duration produces an explicit unavailable message. The command palette exposes all ten percentage positions. The adapter plan now records an official YouTube integration without initial account synchronisation and without downloading, audio extraction or recording of YouTube content.
 
 State of `alpha.40`: the default digit-seek announcement is the percentage alone. The Messages tab selects percentage only, time only, or percentage and time, and the command palette opens that control directly. `Ctrl+Shift+G` and the shared checkbox silence both automatic time values and volume values after a change. Playback, pause, error messages and explicit time commands remain audible.
+
+State of `alpha.41`: master `Ctrl+Shift+G` preserves separate choices for digit-seek, Arrow-seek, volume and playback/pause messages. Each category has its own checkbox and command-palette entry. A non-live status bar at the bottom of the main window is read through `NVDA+End`: service, state, title, position and total duration, volume and bitrate. Local bitrate is marked as an estimate; missing metadata is never replaced by an invented value.
 
 Planned sequence of later stages:
 
