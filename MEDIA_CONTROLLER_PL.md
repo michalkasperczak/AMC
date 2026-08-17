@@ -197,7 +197,7 @@ Polecenia nieobsługiwane przez daną sesję nie mogą być po cichu ignorowane.
 
 Odstęp używany przez polecenie przejścia w pobliże końca jest konfigurowalny. Program nie ustawia pozycji na dokładnym końcu, ponieważ mogłoby to natychmiast przełączyć utwór.
 
-Strzałki po prefiksie służą wyłącznie do sterowania globalnego. W aktywnym oknie listy zwykłe strzałki nawigują po elementach bez używania prefiksu.
+Po prefiksie wszystkie strzałki służą sterowaniu globalnemu. W aktywnym oknie głównej listy góra/dół nadal nawigują po elementach, natomiast lewo/prawo sterują pozycją odtwarzania. Modyfikatory umożliwiają regulację głośności i większy skok bez odbierania podstawowej nawigacji pionowej.
 
 Planowane jest osobne polecenie „Skocz do miejsca”, przyjmujące czas bezwzględny, oraz wariant przejścia do procentu długości. Docelowe skróty, w tym możliwe `J` i `Shift+J` po prefiksie, pozostają do sprawdzenia razem z całą warstwą prefiksową. Polecenia nie będą wiązane na stałe przed testem konfliktów.
 
@@ -351,6 +351,13 @@ Zatwierdzone przypisania podstawowe:
 | `Ctrl+Shift+L` | dodaj do biblioteki |
 | `Ctrl+O` | otwórz jeden lub wiele lokalnych plików audio |
 | `Ctrl+Shift+O` | otwórz folder z plikami audio wraz z podfolderami |
+| `Strzałka w lewo/prawo` | cofnij albo przewiń o 10 sekund |
+| `Shift+Strzałka w lewo/prawo` | cofnij albo przewiń o minutę |
+| `Ctrl+Strzałka w górę/dół` | zmień głośność o 5% |
+| `Ctrl+Shift+Strzałka w górę/dół` | zmień głośność o 1% |
+| `Ctrl+Home` | przejdź na początek utworu |
+| `Ctrl+End` | przejdź 10 sekund przed końcem utworu |
+| `Ctrl+E`, `Ctrl+R`, `Ctrl+T` | podaj czas od początku, pozostały albo całkowity |
 | `Ctrl+D` | pobierz offline wewnątrz usługi, jeśli obsługiwane |
 | `Ctrl+Shift+D` | pobierz do pliku lokalnego; funkcja eksperymentalna, domyślnie wyłączona |
 | `Backspace` lub `Delete` | usuń z bieżącej playlisty, kolejki, ulubionych lub biblioteki; z potwierdzeniem albo możliwością cofnięcia |
@@ -615,7 +622,9 @@ Stan `alpha.32`: lista zdarzeń komunikatów udostępnia przez UI Automation wy�
 
 Stan `alpha.33`: `Ctrl+O` i menu Plik otwierają wiele lokalnych plików audio w tymczasowej sesji, przypisywanej do pierwszego wolnego miejsca od 4. Sam wybór nie uruchamia dźwięku. Enter, `Ctrl+Enter`, Spacja, przewijanie, głośność i informacje o czasie sterują rzeczywistym wyjściem Windows. Granica `IMediaOutput` pozostaje w rdzeniu, a implementacja `WindowsMediaOutput` w warstwie systemowej, dzięki czemu późniejsze wydzielenie AMC.Host nie wymaga przenoszenia logiki do WPF.
 
-Stan `alpha.34`: `Ctrl+Shift+O` otwiera folder z plikami audio wraz z dostępnymi podfolderami bez samoczynnego odtwarzania. Odkrywanie odbywa się poza wątkiem interfejsu, pomija niedostępne katalogi i łącza mogące tworzyć pętle, filtruje rozpoznane rozszerzenia i zachowuje naturalną kolejność numerowanych nazw. `Ctrl+E`, `Ctrl+R` i `Ctrl+T` podają czas także bez prefiksu, gdy fokus znajduje się na głównej liście. Skrót oficjalnej aplikacji usługi pozostaje celowo nieustalony do czasu przeglądu całego prefiksu. Wynik testu `alpha.33` potwierdził potrzebę osobnego wyciszania komunikatów transportowych; możliwość ta pozostaje zaplanowaną kategorią ustawień komunikatów.
+Stan `alpha.34`: `Ctrl+Shift+O` otwiera folder z plikami audio wraz z dostępnymi podfolderami bez samoczynnego odtwarzania. Odkrywanie odbywa się poza wątkiem interfejsu, pomija niedostępne katalogi i łącza mogące tworzyć pętle, filtruje rozpoznane rozszerzenia i zachowuje naturalną kolejność numerowanych nazw. Wersja wprowadziła też lokalne `Ctrl+E`, `Ctrl+R` i `Ctrl+T`, ale ręczny test NVDA wykazał, że standardowa obsługa WPF nie odbiera ich niezawodnie; naprawa przechodzi do `alpha.35`. Skrót oficjalnej aplikacji usługi pozostaje celowo nieustalony do czasu przeglądu całego prefiksu. Wynik testu `alpha.33` potwierdził potrzebę osobnego wyciszania komunikatów transportowych; możliwość ta pozostaje zaplanowaną kategorią ustawień komunikatów.
+
+Stan `alpha.35`: po nieudanym teście standardowej obsługi WPF polecenia `Ctrl+E`, `Ctrl+R` i `Ctrl+T` są przechwytywane wcześniej, na granicy komunikatów okna, z zachowaniem zwykłych poleceń edycji w polach tekstowych. Główna lista obsługuje bez prefiksu przewijanie lewo/prawo, minutowe skoki z Shiftem, głośność pod Ctrl+góra/dół oraz początek i okolice końca. Paleta pokazuje te działające skróty. Zwykłe góra/dół pozostają nawigacją po liście, a „Otwórz w oficjalnej aplikacji” nie ogłasza już zajętego `Ctrl+Shift+O` w menu kontekstowym.
 
 Planowana kolejność dalszych etapów:
 

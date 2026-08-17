@@ -116,8 +116,9 @@ public sealed class CommandRouter(
                 announcements.Announce("0:00");
                 return new(true);
             case CommandIds.TrackEnd:
-                current.SetPosition(current.CurrentItem.Duration);
-                announcements.Announce(FormatTime(current.CurrentItem.Duration));
+                var nearEnd = Max(TimeSpan.Zero, current.CurrentItem.Duration - TimeSpan.FromSeconds(10));
+                current.SetPosition(nearEnd);
+                announcements.Announce(FormatTime(nearEnd));
                 return new(true);
             case CommandIds.TimeElapsed:
                 AnnounceTemplate("time.elapsed", "{elapsed}", ("elapsed", FormatTime(current.Position)));

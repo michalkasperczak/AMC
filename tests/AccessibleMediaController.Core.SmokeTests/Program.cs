@@ -593,6 +593,9 @@ static void TestCommandPalette()
     True(!favorites.ToString().Contains("CommandId", StringComparison.Ordinal), "Lista nie może ujawniać technicznych nazw pól obiektu.");
     Equal("Ctrl+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFiles).LocalShortcut);
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
+    Equal("Left", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward10).LocalShortcut);
+    Equal("Ctrl+Up", entries.Single(entry => entry.CommandId == CommandIds.VolumeUp5).LocalShortcut);
+    Equal("Ctrl+E", entries.Single(entry => entry.CommandId == CommandIds.TimeElapsed).LocalShortcut);
     True(
         entries.Single(entry => entry.CommandId == CommandIds.OpenOfficialApp).LocalShortcut is null,
         "Otwieranie w oficjalnej aplikacji nie powinno kolidować ze skrótem folderu.");
@@ -679,6 +682,8 @@ static void TestTimeCommands()
     Equal("1:23", sink.LastMessage);
     router.Execute(CommandIds.TimeTotal);
     True(!sink.LastMessage.Contains("czas", StringComparison.OrdinalIgnoreCase), "Komunikat czasu powinien zawierać tylko wartość.");
+    router.Execute(CommandIds.TrackEnd);
+    Equal(sessions.Current.CurrentItem.Duration - TimeSpan.FromSeconds(10), sessions.Current.Position);
     router.Execute(CommandIds.ActivateSelected);
     Equal("Odtwarzanie: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.ActivateSelected);

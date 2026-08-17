@@ -197,7 +197,7 @@ Commands unsupported by a session must not be silently ignored. The program shou
 
 The offset for moving near the end is configurable. The application does not seek to the exact end because doing so could immediately advance to the next track.
 
-Prefix-layer arrows are reserved for global playback control. In an active list window, ordinary arrow keys navigate items without the prefix.
+After the prefix, all arrow keys control global playback. In the active main list, plain Up/Down still navigate items, while Left/Right control playback position. Modifiers provide volume control and larger seeks without taking away vertical list navigation.
 
 A separate “Jump to position” command accepting an absolute time and a variant accepting a percentage are planned. Final bindings, including possible `J` and `Shift+J` prefix commands, remain subject to the complete prefix conflict review.
 
@@ -351,6 +351,13 @@ Approved primary bindings:
 | `Ctrl+Shift+L` | add to the library |
 | `Ctrl+O` | open one or more local audio files |
 | `Ctrl+Shift+O` | open a folder of audio files, including subfolders |
+| `Left/Right Arrow` | seek backward or forward by 10 seconds |
+| `Shift+Left/Right Arrow` | seek backward or forward by one minute |
+| `Ctrl+Up/Down Arrow` | change volume by 5% |
+| `Ctrl+Shift+Up/Down Arrow` | change volume by 1% |
+| `Ctrl+Home` | seek to the beginning |
+| `Ctrl+End` | seek to 10 seconds before the end |
+| `Ctrl+E`, `Ctrl+R`, `Ctrl+T` | report elapsed, remaining or total time |
 | `Ctrl+D` | download offline within the service when supported |
 | `Ctrl+Shift+D` | download to a local file; experimental and disabled by default |
 | `Backspace` or `Delete` | remove from the current playlist, queue, Favorites or library, with confirmation or Undo |
@@ -613,7 +620,9 @@ State of `alpha.32`: the message-event list exposes friendly event names only th
 
 State of `alpha.33`: `Ctrl+O` and the File menu open multiple local audio files in a temporary session assigned to the first free slot starting at 4. Selection alone never starts sound. Enter, `Ctrl+Enter`, Space, seek, volume and time-information commands control real Windows audio output. The `IMediaOutput` boundary stays in the core and `WindowsMediaOutput` stays in the platform layer, so extracting AMC.Host later does not require moving playback logic into WPF.
 
-State of `alpha.34`: `Ctrl+Shift+O` opens a folder and available subfolders without starting playback. Discovery runs away from the UI thread, skips inaccessible directories and reparse-point loops, filters recognised extensions and naturally orders numbered names. `Ctrl+E`, `Ctrl+R` and `Ctrl+T` report time directly while the main list is focused. The official-service-application shortcut is deliberately unset until the whole prefix is reviewed. `Alpha.33` feedback confirmed the need for separately suppressible transport announcements; that remains a planned message-settings category.
+State of `alpha.34`: `Ctrl+Shift+O` opens a folder and available subfolders without starting playback. Discovery runs away from the UI thread, skips inaccessible directories and reparse-point loops, filters recognised extensions and naturally orders numbered names. The version also introduced local `Ctrl+E`, `Ctrl+R` and `Ctrl+T`, but manual NVDA testing showed that standard WPF handling did not receive them reliably; the fix moves to `alpha.35`. The official-service-application shortcut is deliberately unset until the whole prefix is reviewed. `Alpha.33` feedback confirmed the need for separately suppressible transport announcements; that remains a planned message-settings category.
+
+State of `alpha.35`: after standard WPF key handling failed manual testing, `Ctrl+E`, `Ctrl+R` and `Ctrl+T` are captured earlier at the window-message boundary while text boxes retain normal editing commands. The main list handles Left/Right seeking, Shift minute seeks, Ctrl+Up/Down volume and beginning/near-end commands without the prefix. The palette exposes these active shortcuts. Plain Up/Down remains list navigation, and the context menu no longer announces the occupied `Ctrl+Shift+O` for “Open in official application”.
 
 Planned sequence of later stages:
 

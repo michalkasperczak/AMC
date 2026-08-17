@@ -109,8 +109,7 @@
                     <Separator />
                     <MenuItem Header="Informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.AcceleratorKey="Alt+Enter" Click="Information_Click" />
-                    <MenuItem Header="Otwórz w oficjalnej aplikacji" InputGestureText="Ctrl+Shift+O"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+O" Click="OfficialApp_Click" />
+                    <MenuItem Header="Otwórz w oficjalnej aplikacji" Click="OfficialApp_Click" />
                     <MenuItem Header="Usuń z bieżącego widoku" InputGestureText="Delete"
                               automation:AutomationProperties.AcceleratorKey="Delete" Click="Remove_Click" />
                 </ContextMenu>

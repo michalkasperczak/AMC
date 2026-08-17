@@ -46,6 +46,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private readonly List<MediaItem> _localItems = [];
 
     private const int WmKeyDown = 0x0100;
+    private const int VirtualKeyE = 0x45;
+    private const int VirtualKeyR = 0x52;
+    private const int VirtualKeyT = 0x54;
     private const int VirtualKeyZ = 0x5A;
     private static readonly TimeSpan TypeAheadTimeout = TimeSpan.FromMilliseconds(1200);
 
@@ -239,6 +242,9 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
             "W oknie: Enter wykonuje działanie podstawowe. Ctrl+Enter odtwarza lub wstrzymuje zaznaczony element bez otwierania, " +
             "a Spacja przełącza odtwarzanie elementu faktycznie grającego, niezależnie od zaznaczenia. Alt+Enter pokazuje informacje, " +
+            "strzałki w lewo i w prawo przewijają o 10 sekund, a z Shiftem o minutę. " +
+            "Ctrl+strzałki w górę i w dół zmieniają głośność; Ctrl+Home i Ctrl+End przechodzą na początek i w pobliże końca. " +
+            "Ctrl+E, Ctrl+R i Ctrl+T podają czas od początku, pozostały i całkowity. " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
             "Escape w filtrze lub na głównym przycisku wraca do listy; aktywny filtr jest wtedy czyszczony. " +
@@ -945,18 +951,27 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         ref bool handled)
     {
         if (message != WmKeyDown
-            || wParam.ToInt32() != VirtualKeyZ
             || Keyboard.Modifiers != ModifierKeys.Control
             || Keyboard.FocusedElement is System.Windows.Controls.TextBox)
         {
             return IntPtr.Zero;
         }
 
-        // The normal WPF PreviewKeyDown handler proved too late to suppress the
-        // built-in English "Undo" UIA notification on the test machine. Catch
-        // Ctrl+Z at the window-message boundary, but leave text-box Undo intact.
+        Action? action = wParam.ToInt32() switch
+        {
+            VirtualKeyZ => UndoLastMembershipChange,
+            VirtualKeyE => () => ExecuteCommand(CommandIds.TimeElapsed),
+            VirtualKeyR => () => ExecuteCommand(CommandIds.TimeRemaining),
+            VirtualKeyT => () => ExecuteCommand(CommandIds.TimeTotal),
+            _ => null
+        };
+        if (action is null) return IntPtr.Zero;
+
+        // These commands are caught at the window-message boundary so that
+        // framework commands and screen-reader event ordering cannot consume
+        // them before AMC. Text boxes retain their standard editing commands.
         handled = true;
-        Dispatcher.BeginInvoke(UndoLastMembershipChange, DispatcherPriority.Input);
+        Dispatcher.BeginInvoke(action, DispatcherPriority.Input);
         return IntPtr.Zero;
     }
 
@@ -991,6 +1006,12 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         }
 
         if (TryHandleLocalNavigationShortcut(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (TryHandleWindowTransportShortcut(e))
         {
             e.Handled = true;
             return;
@@ -1205,6 +1226,29 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         Dispatcher.BeginInvoke(
             () => Announce(announcement),
             DispatcherPriority.ContextIdle);
+    }
+
+    private bool TryHandleWindowTransportShortcut(KeyEventArgs e)
+    {
+        if (!MediaList.IsKeyboardFocusWithin || MediaList.Items.Count == 0) return false;
+
+        var commandId = (Keyboard.Modifiers, e.Key) switch
+        {
+            (ModifierKeys.None, Key.Left) => CommandIds.SeekBackward10,
+            (ModifierKeys.None, Key.Right) => CommandIds.SeekForward10,
+            (ModifierKeys.Shift, Key.Left) => CommandIds.SeekBackward60,
+            (ModifierKeys.Shift, Key.Right) => CommandIds.SeekForward60,
+            (ModifierKeys.Control, Key.Up) => CommandIds.VolumeUp5,
+            (ModifierKeys.Control, Key.Down) => CommandIds.VolumeDown5,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.Up) => CommandIds.VolumeUp1,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.Down) => CommandIds.VolumeDown1,
+            (ModifierKeys.Control, Key.Home) => CommandIds.TrackStart,
+            (ModifierKeys.Control, Key.End) => CommandIds.TrackEnd,
+            _ => null
+        };
+        if (commandId is null) return false;
+        ExecuteCommand(commandId);
+        return true;
     }
 
     private void ApplyDetailedHints()
