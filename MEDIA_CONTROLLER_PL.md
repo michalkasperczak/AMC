@@ -148,6 +148,8 @@ Program może zmieniać język interfejsu i komunikatów, ale nie powinien autom
 | pobierz lub zachowaj wewnątrz usługi | `Ctrl+D` | `D` |
 | pobierz na dysk, jeśli zezwala na to usługa | `Ctrl+Shift+D` | `Shift+D` |
 | Albumy | `Ctrl+Shift+A` | `A` |
+| informacje o bieżącym lub zaznaczonym elemencie | `Ctrl+I` | `I` |
+| pełny stan odtwarzania | `Ctrl+Shift+I` | `Shift+I` |
 
 Filtr działa tylko na danych już znajdujących się w bieżącej liście i nie wysyła zapytania do usługi. Wyszukiwanie bieżące może odpytać aktualną usługę, a wyszukiwanie globalne odpytuje wszystkie włączone źródła, które zezwalają na wspólną prezentację. Adapter może wymagać osobnego widoku wyników; dotyczy to między innymi prawdziwego adaptera TIDAL, którego treści nie wolno mieszać na jednej liście z treściami podobnych usług. Paleta poleceń jest dostępną, filtrowalną listą funkcji, także tych bez przypisanego skrótu.
 
@@ -155,7 +157,7 @@ Filtr działa tylko na danych już znajdujących się w bieżącej liście i nie
 
 Albumy są ważnym i często używanym widokiem, dlatego otrzymują skrót. Jest to świadomy wyjątek od pełnej symetrii: po prefiksie używamy prostego `A`, a w oknie `Ctrl+Shift+A`, ponieważ `Ctrl+A` bezwzględnie zachowuje standardowe „Zaznacz wszystko”. Nie używamy `Ctrl+Alt+A`, gdyż `Ctrl+Alt` może odpowiadać AltGr i kolidować z wpisywaniem polskiego znaku „ą”. `L` pozostaje Biblioteką, a `B` rezerwą dla możliwych przyszłych Zakładek/Bookmarks. `Shift+A` po prefiksie pozostaje na razie nieprzypisane.
 
-Pozostałe zatwierdzone wcześniej polecenia warstwy zachowują litery `R` — Radio, `M` — Miksy, `H` — Historia, `N` — Teraz odtwarzane, `I` — Informacje i `O` — Wyjścia. Ich odpowiedniki okienne mają docelowo używać `Ctrl` oraz tej samej litery, o ile nie narusza to standardowego działania pola tekstowego lub systemu. Każdy konflikt rozstrzyga edytor mapy, a polecenie może pozostać bez skrótu i być dostępne z menu oraz palety.
+Pozostałe zatwierdzone wcześniej polecenia warstwy zachowują litery `R` — Radio, `M` — Miksy, `H` — Historia, `N` — Teraz odtwarzane i `O` — Wyjścia. `I` podaje informacje o elemencie, a `Shift+I` pełny stan odtwarzania; w oknie odpowiadają im `Ctrl+I` i `Ctrl+Shift+I`. Rozszerzone informacje techniczne pozostają w menu i palecie bez stałego skrótu. Każdy konflikt rozstrzyga edytor mapy, a polecenie może pozostać bez skrótu i być dostępne z menu oraz palety.
 
 Funkcje pobierania nie należą do podstawowej wersji. Są aktywowane osobno dla każdego adaptera dopiero po sprawdzeniu oficjalnych możliwości, licencji i zasad danej usługi. Pobieranie na dysk jest eksperymentalne i domyślnie wyłączone.
 
@@ -681,6 +683,8 @@ Stan `alpha.47`: kontener paska nie powiela już pełnej nazwy dostępnościowej
 Stan `alpha.48`: odczyt paska pomija głośność i zachowuje kolejność: przepływność, stan, pozycja z czasem całkowitym, tytuł, usługa. Jawne polecenie pełnego stanu nadal może podać głośność. Wspólna kontrolka komunikatów używa jednego zdarzenia powiadomienia UI Automation z tekstem komunikatu; usunięto równoległe `LiveRegionChanged`, które mogło zamiast treści sporadycznie wywołać statyczną nazwę „Stan programu”. Nazwa automatyzacji tej kontrolki jest teraz jej aktualnym tekstem, więc także ręczne badanie obiektu nie ujawnia technicznej etykiety.
 
 Stan `alpha.49`: lokalny tor został przeniesiony na NAudio 2.2.1, współdzielone WASAPI i SoundTouch.Net 2.3.2. `Shift+,` oraz `Shift+.` wybierają 0,50–2,00× co 0,25, a `Ctrl+.` przywraca normalną wartość. SoundTouch zmienia tempo niezależnie od wysokości. Stan jest własnością sesji i przetrwa zmianę utworu oraz przebudowę rdzenia po zapisaniu ustawień. Sesje bez wspieranego wyjścia zgłaszają niedostępność. Ze względu na LGPL biblioteki SoundTouch pozostają wymiennymi plikami obok EXE, razem z pełnym tekstem licencji i wskazaniem źródeł; NAudio jest objęte licencją MIT. Publikacja jest od tej wersji jednoznacznie nazwanym folderem, nie pojedynczym plikiem. Podstawa techniczna: [NAudio](https://github.com/naudio/NAudio), [SoundTouch.Net](https://github.com/owoudenberg/soundtouch.net), [skróty YouTube](https://support.google.com/youtube/answer/7631406).
+
+Stan `alpha.50`: pasek stanu rozpoczyna się bez zbędnego słowa „przepływność”, np. „około 192 kb/s, 48 kHz”. Bitrate pozostaje oznaczonym przybliżeniem, gdy wynika z wielkości pliku i czasu, natomiast częstotliwość próbkowania pochodzi bezpośrednio z formatu źródłowego NAudio. `Ctrl+I` i prefiksowe `I` otwierają informacje o elemencie. `Ctrl+Shift+I` i prefiksowe `Shift+I` odczytują pełny stan odtwarzania. Rozszerzone informacje techniczne pozostają w menu i palecie bez stałego skrótu.
 
 Planowana kolejność dalszych etapów:
 

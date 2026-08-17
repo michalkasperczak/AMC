@@ -65,7 +65,8 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+."
                           Click="PlaybackRateReset_Click" />
                 <Separator />
-                <MenuItem Header="_Odczytaj stan odtwarzania"
+                <MenuItem Header="_Odczytaj stan odtwarzania" InputGestureText="Ctrl+Shift+I"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+I"
                           Click="PlaybackStatus_Click" />
             </MenuItem>
             <MenuItem Header="_Widok">
@@ -140,8 +141,9 @@
                     <MenuItem Header="Zmień przynależność do playlist…" InputGestureText="Ctrl+Shift+P"
                               automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+P" Click="Playlists_Click" />
                     <Separator />
-                    <MenuItem Header="Informacje" InputGestureText="Alt+Enter"
-                              automation:AutomationProperties.AcceleratorKey="Alt+Enter" Click="Information_Click" />
+                    <MenuItem Header="Informacje" InputGestureText="Ctrl+I"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+I" Click="Information_Click" />
+                    <MenuItem Header="Rozszerzone informacje" Click="ExtendedInformation_Click" />
                     <MenuItem Header="Otwórz w oficjalnej aplikacji" Click="OfficialApp_Click" />
                     <MenuItem Header="Usuń z bieżącego widoku" InputGestureText="Delete"
                               automation:AutomationProperties.AcceleratorKey="Delete" Click="Remove_Click" />

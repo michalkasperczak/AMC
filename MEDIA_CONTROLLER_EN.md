@@ -148,6 +148,8 @@ The program may change the interface and message language, but it should not aut
 | download or retain inside the service | `Ctrl+D` | `D` |
 | download to disk when the service permits it | `Ctrl+Shift+D` | `Shift+D` |
 | Albums | `Ctrl+Shift+A` | `A` |
+| information about the current or selected item | `Ctrl+I` | `I` |
+| full playback status | `Ctrl+Shift+I` | `Shift+I` |
 
 Filtering only processes data already present in the current list and sends no service request. Current search may query the active service, while global search queries all enabled sources that permit combined presentation. An adapter may require a separate results view; this applies to the real TIDAL adapter, whose content must not be mixed into one list with similar services. The command palette is an accessible, filterable list that also contains commands with no shortcut.
 
@@ -155,7 +157,7 @@ Filtering only processes data already present in the current list and sends no s
 
 Albums are an important and frequently used view, so they receive a shortcut. This is a deliberate exception to full symmetry: the prefix layer uses plain `A`, while the window uses `Ctrl+Shift+A`, because `Ctrl+A` must retain the standard Select All action. `Ctrl+Alt+A` is avoided because `Ctrl+Alt` can act as AltGr and conflict with typing the Polish character “ą”. `L` remains Library, `B` remains reserved for possible future Bookmarks, and `Shift+A` after the prefix is currently unassigned.
 
-Other previously approved layer commands retain `R` for Radio, `M` for Mixes, `H` for History, `N` for Now Playing, `I` for Information and `O` for Outputs. Their window counterparts should eventually use `Ctrl` plus the same letter when doing so does not break standard text or system behaviour. The keymap editor resolves conflicts, and a command may remain unbound while still being available through the menu and palette.
+Other previously approved layer commands retain `R` for Radio, `M` for Mixes, `H` for History, `N` for Now Playing and `O` for Outputs. `I` reports item information and `Shift+I` reports full playback status; their window counterparts are `Ctrl+I` and `Ctrl+Shift+I`. Extended technical information remains available in the menu and palette without a fixed shortcut. The keymap editor resolves conflicts, and a command may remain unbound while still being available through the menu and palette.
 
 Downloads are not part of the core first version. They are enabled per adapter only after the official capabilities, licence and service rules have been checked. Download-to-disk remains experimental and disabled by default.
 
@@ -679,6 +681,8 @@ State of `alpha.47`: the status-bar container no longer duplicates its label's f
 State of `alpha.48`: the status-bar reading omits volume and keeps this order: bitrate, state, position and total duration, title, service. The explicit full-status command can still include volume. The shared announcement control now raises one UI Automation notification carrying the message text; the parallel `LiveRegionChanged` event is removed because it could intermittently expose the static “Program status” name instead. The control's automation name is its current text, so manual object inspection does not expose that technical label either.
 
 State of `alpha.49`: local playback moves to NAudio 2.2.1, shared-mode WASAPI and SoundTouch.Net 2.3.2. `Shift+,` and `Shift+.` select 0.50–2.00× in 0.25 steps, and `Ctrl+.` restores normal speed. SoundTouch changes tempo independently of pitch. Rate is session state and survives a track change and the core rebuild performed after saving settings. Sessions without a supporting output report unavailability. To comply with LGPL replacement requirements, the SoundTouch assemblies remain separate files beside the EXE together with the complete licence text and source reference; NAudio is MIT-licensed. Publication is therefore a clearly versioned folder rather than a single file. Technical basis: [NAudio](https://github.com/naudio/NAudio), [SoundTouch.Net](https://github.com/owoudenberg/soundtouch.net), [YouTube shortcuts](https://support.google.com/youtube/answer/7631406).
+
+State of `alpha.50`: the status bar begins directly with audio values instead of the redundant word “bitrate”, for example “about 192 kb/s, 48 kHz”. Bitrate remains explicitly estimated when derived from file size and duration, while sample rate comes directly from NAudio's source format. `Ctrl+I` and prefix `I` open item information. `Ctrl+Shift+I` and prefix `Shift+I` report full playback status. Extended technical information remains in the menu and command palette without a fixed shortcut.
 
 Planned sequence of later stages:
 

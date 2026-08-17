@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
@@ -14,6 +15,7 @@ var tests = new (string Name, Action Test)[]
     ("Odświeżanie profilu wbudowanego", TestBuiltInProfileRefresh),
     ("Czytelne nazwy poleceń", TestCommandCatalog),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
+    ("Zwięzłe parametry audio", TestAudioParametersFormatting),
     ("Migracja starszych ustawień", TestLegacyStateMigration),
     ("Migracja ustawień alpha.4", TestVersion2StateMigration),
     ("Migracja komunikatów alpha.5", TestVersion3MessageMigration),
@@ -88,6 +90,8 @@ static void TestDefaultProfile()
     Equal(CommandIds.SearchAll, profile.Resolve(KeyChord.Parse("Shift+F")));
     Equal(CommandIds.DownloadInService, profile.Resolve(KeyChord.Parse("D")));
     Equal(CommandIds.DownloadToDisk, profile.Resolve(KeyChord.Parse("Shift+D")));
+    Equal(CommandIds.ItemInformation, profile.Resolve(KeyChord.Parse("I")));
+    Equal(CommandIds.PlaybackStatus, profile.Resolve(KeyChord.Parse("Shift+I")));
     Equal(CommandIds.TimeElapsed, profile.Resolve(KeyChord.Parse("Ctrl+E")));
     Equal(CommandIds.TimeRemaining, profile.Resolve(KeyChord.Parse("Ctrl+R")));
     Equal(CommandIds.TimeTotal, profile.Resolve(KeyChord.Parse("Ctrl+T")));
@@ -185,6 +189,30 @@ static void TestMediaItemFormatting()
     Equal(
         "Do odsłuchu, 2:46:00",
         MediaItemFormatter.Format(withoutArtist, homogeneousFields));
+}
+
+static void TestAudioParametersFormatting()
+{
+    var polish = CultureInfo.GetCultureInfo("pl-PL");
+    var exact = new MediaItem
+    {
+        BitrateKbps = 192,
+        SampleRateHz = 48_000
+    };
+    Equal("192 kb/s, 48 kHz", AudioParametersFormatter.Format(exact, polish));
+
+    var estimated = new MediaItem
+    {
+        BitrateKbps = 322,
+        IsBitrateEstimated = true,
+        SampleRateHz = 44_100
+    };
+    Equal("około 322 kb/s, 44,1 kHz", AudioParametersFormatter.Format(estimated, polish));
+
+    Equal(
+        "96 kHz",
+        AudioParametersFormatter.Format(new MediaItem { SampleRateHz = 96_000 }, polish));
+    Equal("brak danych audio", AudioParametersFormatter.Format(new MediaItem(), polish));
 }
 
 static void TestLegacyStateMigration()
@@ -680,7 +708,15 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
     Equal("Ctrl+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToTime).LocalShortcut);
     Equal("Ctrl+Shift+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToPercentage).LocalShortcut);
-    True(entries.Any(entry => entry.CommandId == CommandIds.PlaybackStatus), "Paleta powinna zawierać odczyt stanu odtwarzania.");
+    var itemInformation = entries.Single(entry => entry.CommandId == CommandIds.ItemInformation);
+    Equal("Ctrl+I", itemInformation.LocalShortcut);
+    Equal("I", itemInformation.PrefixShortcut);
+    var playbackStatus = entries.Single(entry => entry.CommandId == CommandIds.PlaybackStatus);
+    Equal("Ctrl+Shift+I", playbackStatus.LocalShortcut);
+    Equal("Shift+I", playbackStatus.PrefixShortcut);
+    True(
+        entries.Single(entry => entry.CommandId == CommandIds.ExtendedInformation).PrefixShortcut is null,
+        "Rozszerzone informacje pozostają w menu i palecie bez stałego skrótu prefiksowego.");
     Equal("Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward10).LocalShortcut);
     Equal("Shift+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward30).LocalShortcut);
     Equal("Ctrl+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward60).LocalShortcut);

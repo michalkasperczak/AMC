@@ -19,6 +19,7 @@ public sealed class MediaItem
     public TimeSpan Duration { get; set; }
     public int? BitrateKbps { get; set; }
     public bool IsBitrateEstimated { get; set; }
+    public int? SampleRateHz { get; set; }
     public string? Source { get; init; }
     public bool IsFavorite { get; set; }
     public bool IsInLibrary { get; set; }

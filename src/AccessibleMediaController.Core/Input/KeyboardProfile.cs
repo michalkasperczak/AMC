@@ -90,7 +90,7 @@ public sealed class KeyboardProfile
         Bind("H", CommandIds.ViewHistory);
         Bind("N", CommandIds.ViewNowPlaying);
         Bind("I", CommandIds.ItemInformation);
-        Bind("Shift+I", CommandIds.ExtendedInformation);
+        Bind("Shift+I", CommandIds.PlaybackStatus);
         Bind("O", CommandIds.ViewOutputs);
         Bind("D", CommandIds.DownloadInService);
         Bind("Shift+D", CommandIds.DownloadToDisk);

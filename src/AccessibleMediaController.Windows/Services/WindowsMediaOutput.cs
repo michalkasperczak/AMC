@@ -6,10 +6,14 @@ using SoundTouch.Net.NAudioSupport;
 
 namespace AccessibleMediaController.Windows.Services;
 
-public sealed class MediaDurationAvailableEventArgs(MediaItem item, TimeSpan duration) : EventArgs
+public sealed class MediaDurationAvailableEventArgs(
+    MediaItem item,
+    TimeSpan duration,
+    int sampleRateHz) : EventArgs
 {
     public MediaItem Item { get; } = item;
     public TimeSpan Duration { get; } = duration;
+    public int SampleRateHz { get; } = sampleRateHz;
 }
 
 public sealed class MediaOutputFailedEventArgs(MediaItem? item, string message) : EventArgs
@@ -82,8 +86,9 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
 
             ClosePipeline();
             _currentItem = item;
-            _reader = new AudioFileReader(item.Source);
-            _tempoStream = new SoundTouchWaveStream(_reader)
+            var reader = new AudioFileReader(item.Source);
+            _reader = reader;
+            _tempoStream = new SoundTouchWaveStream(reader)
             {
                 Tempo = _playbackRate,
                 Pitch = 1d,
@@ -96,7 +101,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             SetVolume(volume);
             DurationAvailable?.Invoke(
                 this,
-                new MediaDurationAvailableEventArgs(item, _tempoStream.TotalTime));
+                new MediaDurationAvailableEventArgs(
+                    item,
+                    _tempoStream.TotalTime,
+                    reader.WaveFormat.SampleRate));
             _outputDevice.Play();
         }
         catch (Exception exception)

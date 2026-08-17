@@ -72,7 +72,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     public MainWindow(PersistedState state, ConfigurationStore store)
     {
         InitializeComponent();
-        const string initialStatus = "Przepływność brak danych, pauza, 0:00";
+        const string initialStatus = "Brak danych audio, pauza, 0:00";
         _playbackStatusLabel = new System.Windows.Forms.ToolStripStatusLabel
         {
             AccessibleName = initialStatus,
@@ -330,14 +330,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var time = item.Duration > TimeSpan.Zero
             ? $"{CommandRouter.FormatTime(position)} z {CommandRouter.FormatTime(item.Duration)}"
             : $"{CommandRouter.FormatTime(position)}, czas całkowity nieznany";
-        var bitrate = item.BitrateKbps is int bitrateKbps
-            ? item.IsBitrateEstimated ? $"około {bitrateKbps} kb/s" : $"{bitrateKbps} kb/s"
-            : "brak danych";
+        var audioParameters = AudioParametersFormatter.Format(item);
         var volume = includeVolume ? $", głośność {session.Volume}%" : string.Empty;
         var playbackRate = Math.Abs(session.PlaybackRate - 1d) < 0.001d
             ? string.Empty
             : $", {CommandRouter.FormatPlaybackRate(session.PlaybackRate).ToLowerInvariant()}";
-        return $"Przepływność {bitrate}, {state.ToLowerInvariant()}{playbackRate}, {time}{volume}, {item.Title}, {session.DisplayName}";
+        return $"{audioParameters}, {state.ToLowerInvariant()}{playbackRate}, {time}{volume}, {item.Title}, {session.DisplayName}";
     }
 
     private static string FormatPlaybackRateMultiplier(double playbackRate) =>
@@ -442,7 +440,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void ShowItemInformation(bool extended)
     {
-        var item = SelectedItem ?? _sessions.Current.CurrentItem;
+        var item = _playerViewActive
+            ? _sessions.Current.CurrentItem
+            : SelectedItem ?? _sessions.Current.CurrentItem;
         var text = $"{item.KindLabel}: {item.Title}\nWykonawca: {item.Artist}\nCzas: {CommandRouter.FormatTime(item.Duration)}\nUsługa: {_sessions.Current.DisplayName}";
         if (!string.IsNullOrWhiteSpace(item.Source)) text += $"\nPlik: {item.Source}";
         if (extended) text += $"\nIdentyfikator demonstracyjny: {item.Id}";
@@ -462,7 +462,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "strzałki sterują czasem i głośnością, Ctrl+E/R/T podaje czas. " +
             "U otwiera Ulubione, Shift+U zmienia stan ulubionych, A otwiera Albumy, P otwiera Playlisty. " +
             "K filtruje bieżącą listę, F wyszukuje w bieżącej usłudze; warianty z Shift otwierają " +
-            "paletę poleceń i wyszukiwanie globalne.\n\n" +
+            "paletę poleceń i wyszukiwanie globalne. I otwiera informacje o elemencie, a Shift+I odczytuje stan odtwarzania.\n\n" +
             "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+0 otwiera listę sesji, " +
             "Ctrl+Page Up i Ctrl+Page Down zmieniają sesję. " +
             "Ctrl+O otwiera lokalne pliki audio, a Ctrl+Shift+O otwiera folder wraz z podfolderami. " +
@@ -480,8 +480,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Shift+przecinek zmniejsza prędkość, Shift+kropka ją zwiększa, a Ctrl+kropka przywraca 1,00 razy; tempo zmienia się bez zmiany wysokości dźwięku. " +
             "Escape wraca do wcześniejszej listy. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
             "Ctrl+Shift+G chwilowo włącza lub wyłącza wszystkie automatyczne komunikaty odtwarzacza; ich kategorie wybiera się osobno w Ustawieniach. " +
-            "NVDA+End odczytuje pasek stanu z bieżącym czasem i przepływnością. " +
-            "Alt+Enter pokazuje informacje. " +
+            "NVDA+End odczytuje pasek stanu z bieżącym czasem i parametrami audio. " +
+            "Ctrl+I pokazuje informacje o elemencie, a Ctrl+Shift+I odczytuje pełny stan odtwarzania. " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
             "Escape w filtrze lub na głównym przycisku wraca do listy; aktywny filtr jest wtedy czyszczony. " +
@@ -675,6 +675,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void LocalOutput_DurationAvailable(object? sender, MediaDurationAvailableEventArgs e)
     {
         e.Item.Duration = e.Duration;
+        e.Item.SampleRateHz = e.SampleRateHz > 0 ? e.SampleRateHz : null;
         if (e.Item.Source is { Length: > 0 } path)
         {
             try
@@ -1545,9 +1546,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
             (ModifierKeys.Control, Key.K) => CommandIds.FilterCurrent,
             (ModifierKeys.Control, Key.F) => CommandIds.SearchCurrent,
+            (ModifierKeys.Control, Key.I) => CommandIds.ItemInformation,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.A) => CommandIds.ViewAlbums,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.F) => CommandIds.SearchAll,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.G) => CommandIds.SettingsToggleSeekMessages,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.I) => CommandIds.PlaybackStatus,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.K) => CommandIds.CommandPalette,
             _ => null
         };
@@ -1812,6 +1815,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Favorite_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleFavorite);
     private void Playlists_Click(object sender, RoutedEventArgs e) => ShowPlaylistManager();
     private void Information_Click(object sender, RoutedEventArgs e) => ShowItemInformation(false);
+    private void ExtendedInformation_Click(object sender, RoutedEventArgs e) => ShowItemInformation(true);
     private void OfficialApp_Click(object sender, RoutedEventArgs e) => OpenOfficialApplication();
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelected();
     private void Undo_Click(object sender, RoutedEventArgs e) => UndoLastMembershipChange();
