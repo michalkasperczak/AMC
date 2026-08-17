@@ -656,6 +656,8 @@ State of `alpha.42`: the status bar moves from an inset panel to the actual bott
 
 State of `alpha.43`: after the negative NVDA test, the WPF bar is replaced by a native Windows status bar hosted at the bottom edge. Exact time and percentage are global commands for the current playback session and remain available while browsing a list; digits `0–9` stay local to the player. Seek-dialog validation raises an active error notification, selects the invalid value and keeps focus in the edit field.
 
+State of `alpha.44`: inspection of NVDA's implementation shows that, without an app module, `NVDA+End` probes only the object at the lower-left pixel of the window bounds. A native bar hosted inside WPF still did not cover the frame. The Windows layer therefore creates a non-activating, almost transparent `msctls_statusbar32` object across the possible Win32 and DWM lower-left bounds. It carries the current bar text, remains outside navigation and follows the owner window.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.

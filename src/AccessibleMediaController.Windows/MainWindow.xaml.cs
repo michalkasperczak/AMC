@@ -53,6 +53,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     private string? _playerReturnItemId;
     private readonly System.Windows.Forms.StatusStrip _playbackStatusBar;
     private readonly System.Windows.Forms.ToolStripStatusLabel _playbackStatusLabel;
+    private NativeStatusBarLocator? _nativeStatusBarLocator;
 
     private const int WmKeyDown = 0x0100;
     private const int VirtualKeyE = 0x45;
@@ -331,6 +332,7 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         _playbackStatusLabel.AccessibleName = text;
         _playbackStatusBar.Text = text;
         _playbackStatusBar.AccessibleName = text;
+        _nativeStatusBarLocator?.SetText(text);
     }
 
     public void ShowSeekToTime() => ShowSeekPositionDialog(SeekInputMode.Time);
@@ -591,9 +593,19 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
+        var handle = new WindowInteropHelper(this).Handle;
         try
         {
-            var handle = new WindowInteropHelper(this).Handle;
+            _nativeStatusBarLocator = new NativeStatusBarLocator(handle);
+            UpdatePlaybackStatusBar();
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Punkt zgodności paska stanu niedostępny: {exception.Message}";
+        }
+
+        try
+        {
             _windowSource = HwndSource.FromHwnd(handle);
             _windowSource?.AddHook(WindowMessageHook);
             _prefixService = new GlobalPrefixService(handle, HandleGlobalChord, PrefixActivated);
@@ -1209,6 +1221,24 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         }
     }
 
+    protected override void OnLocationChanged(EventArgs e)
+    {
+        base.OnLocationChanged(e);
+        _nativeStatusBarLocator?.UpdatePosition();
+    }
+
+    protected override void OnStateChanged(EventArgs e)
+    {
+        base.OnStateChanged(e);
+        _nativeStatusBarLocator?.UpdatePosition();
+    }
+
+    protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
+    {
+        base.OnRenderSizeChanged(sizeInfo);
+        _nativeStatusBarLocator?.UpdatePosition();
+    }
+
     private void UpdateWindowTitle()
     {
         var session = _sessions.Current;
@@ -1743,6 +1773,8 @@ public partial class MainWindow : Window, IAnnouncementSink, IApplicationActions
         _windowSource?.RemoveHook(WindowMessageHook);
         _windowSource = null;
         _prefixService?.Dispose();
+        _nativeStatusBarLocator?.Dispose();
+        _nativeStatusBarLocator = null;
         _localOutput.Dispose();
         _store.Save(_state);
     }

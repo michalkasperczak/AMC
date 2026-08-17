@@ -1,45 +1,44 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-043`
-- Tytuł zestawu: Natywny pasek stanu i globalne skoki
-- Wersja programu: `0.1.0-alpha.43`
-- Utworzono: 2026-08-17 21:48, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_2148_0.1.0-alpha.43.md`
+- Numer zestawu: `AMC-TEST-044`
+- Tytuł zestawu: Punkt zgodności NVDA+End
+- Wersja programu: `0.1.0-alpha.44`
+- Utworzono: 2026-08-17 22:00, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-17_2200_0.1.0-alpha.44.md`
 
 W pliku wyników po dwukropku wpisz krótko, co się wydarzyło. Jeżeli wszystko działa, wystarczy `OK`. Nie trzeba przed każdym zadaniem wybierać wariantu odpowiedzi.
 
-## AMC-043-01 — Natywny pasek stanu
+## AMC-044-01 — NVDA+End w różnych rozmiarach okna
 
-1. W głównym oknie pozostaw zaznaczenie na zwykłej liście.
-2. Naciśnij `NVDA+End` w sesji demonstracyjnej.
-3. Otwórz lokalny plik, zacznij odtwarzanie i ponownie naciśnij `NVDA+End`.
+1. W głównym oknie naciśnij `NVDA+End` przy zwykłym rozmiarze okna.
+2. Zmaksymalizuj okno i ponownie naciśnij `NVDA+End`.
+3. Przywróć rozmiar, przesuń okno i wykonaj próbę po raz trzeci.
 
 Oczekiwane:
 
-- NVDA odnajduje pasek stanu w obu przypadkach;
-- czyta usługę, stan, tytuł, pozycję, czas całkowity, głośność i przepływność;
-- lokalny pasek aktualizuje czas, a dla źródła bez danych mówi „przepływność brak danych”.
+- w każdym położeniu NVDA odnajduje pasek stanu;
+- odczytuje usługę, stan, tytuł, czas, głośność i przepływność;
+- przesuwanie i maksymalizacja nie powodują dodatkowych komunikatów ani utraty fokusu.
 
-## AMC-043-02 — Błąd wpisanego czasu i procentu
+## AMC-044-02 — Aktualizacja i brak ingerencji punktu zgodności
+
+1. Otwórz lokalny plik, rozpocznij odtwarzanie i naciśnij `NVDA+End`.
+2. Odczekaj kilka sekund, zmień głośność i ponownie odczytaj pasek.
+3. Przejdź Tab i Shift+Tab przez główne kontrolki oraz użyj Alt+Tab.
+
+Oczekiwane:
+
+- ponowny odczyt zawiera nowszy czas i głośność;
+- punkt zgodności nie otrzymuje fokusu i nie pojawia się w kolejności Tab;
+- Alt+Tab pokazuje tylko główne okno AMC, bez osobnego okna paska.
+
+## AMC-044-03 — Oznajmienie błędu skoku
 
 1. Naciśnij `Ctrl+G`, wpisz `1:60` i zatwierdź.
-2. Otwórz „Skocz do procentu”, wpisz `101` i zatwierdź.
+2. Popraw zaznaczoną wartość i zatwierdź ponownie.
 
 Oczekiwane:
 
-- każda przyczyna błędu jest od razu oznajmiona;
-- fokus pozostaje w polu, a błędna wartość jest zaznaczona do zastąpienia;
-- po wpisaniu poprawnej wartości skok działa.
-
-## AMC-043-03 — Skoki podczas pracy na liście
-
-1. Uruchom lokalny plik i wróć Escape na listę.
-2. Nie otwierając odtwarzacza, użyj `Ctrl+G` i wpisz poprawny czas.
-3. Nadal na liście otwórz paletę `Ctrl+Shift+K`, wyszukaj „Skocz do procentu” i wpisz `50`.
-4. Naciśnij na liście zwykłą cyfrę bez modyfikatora.
-
-Oczekiwane:
-
-- oba dokładne skoki sterują aktualnie odtwarzanym plikiem bez otwierania odtwarzacza;
-- cyfra na zwykłej liście nie przewija utworu;
-- po wejściu do odtwarzacza cyfry `0–9` nadal wykonują szybkie skoki `0–90%`.
+- NVDA od razu mówi przyczynę błędu;
+- fokus pozostaje w polu, a błędna wartość jest zaznaczona;
+- poprawna wartość wykonuje skok.

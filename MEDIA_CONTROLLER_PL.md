@@ -658,6 +658,8 @@ Stan `alpha.42`: pasek stanu został przeniesiony z wewnętrznego panelu z margi
 
 Stan `alpha.43`: po negatywnym teście NVDA pasek WPF został zastąpiony natywnym paskiem stanu Windows osadzonym przy dolnej krawędzi. Dokładny skok do czasu i procentu jest poleceniem globalnym bieżącej sesji odtwarzania, dostępnym także podczas pracy na liście; cyfry `0–9` pozostają lokalne dla odtwarzacza. Walidacja okna skoku wywołuje aktywne oznajmienie błędu, zaznacza wadliwą wartość i nie przenosi fokusu z pola.
 
+Stan `alpha.44`: analiza kodu NVDA wykazała, że bez modułu aplikacji `NVDA+End` bada wyłącznie obiekt w lewym dolnym pikselu granic okna. Natywny pasek osadzony wewnątrz WPF nadal nie obejmował ramki. Warstwa Windows tworzy więc nieaktywujący, niemal przezroczysty obiekt `msctls_statusbar32` obejmujący możliwe dolne lewe granice Win32 i DWM. Obiekt ma bieżący tekst paska, pozostaje poza nawigacją i jest przemieszczany razem z oknem.
+
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.
