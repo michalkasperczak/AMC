@@ -365,7 +365,7 @@ Approved primary bindings:
 | `Ctrl+Q` | open Queue |
 | `Ctrl+Shift+A` | open Albums |
 | `Ctrl+C` | copy the selected item's display name |
-| `Ctrl+Shift+C` | copy the item's service link |
+| `Ctrl+Shift+C` | copy the complete local path or the item's public service link |
 | `Ctrl+Shift+U` | add to or remove from Favorites |
 | `Ctrl+Shift+P` | open playlist selection and change membership |
 | `Ctrl+Shift+Q` | add to the queue |
@@ -690,6 +690,8 @@ State of `alpha.50`: the status bar begins directly with audio values instead of
 State of `alpha.51`: the status bar removes “about” and omits the entire audio-parameter segment when the source provides none. `Ctrl+I`, `Ctrl+Shift+I`, prefix `I` and `Shift+I`, and the three old information commands are removed. One `Alt+Enter` **Properties and information** command replaces them with accessible text and does not expose tokens or signed URLs. Filter and search do not open from the player, while current-item actions remain available. View, filter, selection and player-active state are remembered per session. Escape returns to the location from which F6 or the player was most recently invoked. The radio plan now includes M3U/M3U8, PLS, XSPF and VRadio Favorites import/export.
 
 State of `alpha.52`: Queue is the logical union of queued and Play Next state, but every removal command clears both so an item cannot remain visible with a contradictory “added” message. Ordinary lists support extended `Shift+Arrow` selection; membership, playlist and Delete actions cover the whole selection and history records one undoable batch. Natural end of a local file chooses Play Next, then Queue, then the following item in the loaded list, without wrapping the last item. Volume is software gain inside AMC before shared WASAPI and does not control NVDA's audio session. Session switching also reports the restored view. The main title deliberately continues to begin with the currently playing item rather than the browser selection; its later view segment distinguishes Queue, Favorites, and other surfaces.
+
+State of `alpha.53`: `Alt+Enter` information is a row list rather than a multiline edit control because manual NVDA testing could not reliably read the previous control. The first row is the title; the redundant and confusing Basic information heading is removed. `Ctrl+Shift+C` distinguishes a complete local path from a service's canonical public link. The data model keeps that public link separate from a potentially private or short-lived playback source. `Alt+Left/Right` history works throughout the main browser and explicitly announces Back or Forward plus its destination; it remains experimental and can be removed if another test finds that it adds more complexity than value.
 
 Planned sequence of later stages:
 

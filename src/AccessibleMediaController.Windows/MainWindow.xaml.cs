@@ -507,7 +507,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             string.Join(Environment.NewLine,
             new string?[]
             {
-                "Podstawowe informacje",
                 $"Tytuł: {item.Title}",
                 string.IsNullOrWhiteSpace(item.Artist) ? null : $"Wykonawca: {item.Artist}",
                 $"Rodzaj: {item.KindLabel}",
@@ -1505,7 +1504,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         navigation.CurrentView = _currentView;
         RestoreFilterForCurrentView(navigation);
         RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
-        PrepareViewFocusContext(_currentView);
+        PrepareViewFocusContext($"Wstecz, {_currentView}");
         RestoreMediaListFocusAfterRefresh();
     }
 
@@ -1525,7 +1524,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         navigation.CurrentView = _currentView;
         RestoreFilterForCurrentView(navigation);
         RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
-        PrepareViewFocusContext(_currentView);
+        PrepareViewFocusContext($"Naprzód, {_currentView}");
         RestoreMediaListFocusAfterRefresh();
     }
 
@@ -1677,6 +1676,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (Keyboard.Modifiers == ModifierKeys.Alt
+            && Keyboard.FocusedElement is not MenuItem
+            && !MainMenu.IsKeyboardFocusWithin
+            && e.SystemKey is Key.Left or Key.Right)
+        {
+            if (e.SystemKey == Key.Left) NavigateBack();
+            else NavigateForward();
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.FocusedElement is System.Windows.Controls.TextBox)
         {
             if (e.Key is Key.Enter or Key.Down)
@@ -1688,7 +1698,37 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var modifiers = Keyboard.Modifiers;
-        if (modifiers == ModifierKeys.Control && e.Key == Key.Z)
+        var itemCommandsAvailable = _playerViewActive || MediaList.IsKeyboardFocusWithin;
+        if (itemCommandsAvailable
+            && modifiers == ModifierKeys.Control
+            && e.Key == Key.C
+            && ActionItem is { } nameItem)
+        {
+            Clipboard.SetText(nameItem.Title);
+            Announce("Skopiowano nazwę");
+            e.Handled = true;
+        }
+        else if (itemCommandsAvailable
+                 && modifiers == (ModifierKeys.Control | ModifierKeys.Shift)
+                 && e.Key == Key.C
+                 && ActionItem is { } locationItem)
+        {
+            if (TryGetLocalPath(locationItem.Source, out var localPath))
+            {
+                Clipboard.SetText(localPath);
+                Announce("Skopiowano pełną ścieżkę");
+            }
+            else
+            {
+                var publicUri = string.IsNullOrWhiteSpace(locationItem.PublicUri)
+                    ? $"demo://{_sessions.Current.Id}/{locationItem.Id}"
+                    : locationItem.PublicUri;
+                Clipboard.SetText(publicUri);
+                Announce("Skopiowano łącze do elementu");
+            }
+            e.Handled = true;
+        }
+        else if (modifiers == ModifierKeys.Control && e.Key == Key.Z)
         {
             // Mark the keystroke handled before changing focus or raising the
             // live-region message, preventing WPF's built-in Undo command from
@@ -1718,16 +1758,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             return;
         }
-        else if (modifiers == ModifierKeys.Alt && e.SystemKey == Key.Left)
-        {
-            NavigateBack();
-            e.Handled = true;
-        }
-        else if (modifiers == ModifierKeys.Alt && e.SystemKey == Key.Right)
-        {
-            NavigateForward();
-            e.Handled = true;
-        }
         else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.E)
         {
             ExecuteCommand(CommandIds.TimeElapsed);
@@ -1741,18 +1771,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.T)
         {
             ExecuteCommand(CommandIds.TimeTotal);
-            e.Handled = true;
-        }
-        else if (modifiers == ModifierKeys.Control && e.Key == Key.C && SelectedItem is not null)
-        {
-            Clipboard.SetText(SelectedItem.Title);
-            Announce("Skopiowano nazwę");
-            e.Handled = true;
-        }
-        else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.C && SelectedItem is not null)
-        {
-            Clipboard.SetText($"demo://{_sessions.Current.Id}/{SelectedItem.Id}");
-            Announce("Skopiowano łącze demonstracyjne");
             e.Handled = true;
         }
         else if (modifiers == ModifierKeys.None && e.Key is Key.Delete or Key.Back)

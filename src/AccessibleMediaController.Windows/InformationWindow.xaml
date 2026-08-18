@@ -17,12 +17,11 @@
             <Button MinWidth="105" IsDefault="True" IsCancel="True"
                     Content="_Zamknij" Click="Close_Click" />
         </StackPanel>
-        <TextBox x:Name="InformationTextBox"
-                 IsReadOnly="True"
-                 AcceptsReturn="True"
-                 TextWrapping="Wrap"
-                 VerticalScrollBarVisibility="Auto"
-                 HorizontalScrollBarVisibility="Auto"
+        <ListBox x:Name="InformationList"
+                 SelectionMode="Extended"
+                 IsTextSearchEnabled="False"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
                  automation:AutomationProperties.Name="Właściwości i informacje" />
     </DockPanel>
 </controls:AccessibleWindow>

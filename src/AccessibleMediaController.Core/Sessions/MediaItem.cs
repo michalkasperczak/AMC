@@ -21,6 +21,7 @@ public sealed class MediaItem
     public bool IsBitrateEstimated { get; set; }
     public int? SampleRateHz { get; set; }
     public string? Source { get; init; }
+    public string? PublicUri { get; init; }
     public bool IsFavorite { get; set; }
     public bool IsInLibrary { get; set; }
     public bool IsInQueue { get; set; }
@@ -29,6 +30,8 @@ public sealed class MediaItem
     // Title currently stores the semantic primary name for every resource kind:
     // a track title, album title, playlist name, artist name, station name or
     // device name. Keep this separate from the configurable accessible label.
+    // PublicUri is the canonical shareable service link. Source may instead be
+    // a local path, a temporary stream URL or another private playback handle.
     public string PrimaryText => Title;
 
     public string AccessibleLabel => string.IsNullOrWhiteSpace(Artist)
