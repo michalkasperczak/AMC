@@ -18,11 +18,17 @@ public readonly record struct MediaMembershipState(
     }
 }
 
+public sealed record MediaMembershipUndoItem(
+    MediaItem Item,
+    MediaMembershipState PreviousState);
+
 public sealed record MediaMembershipUndo(
     string SessionId,
-    MediaItem Item,
-    MediaMembershipState PreviousState,
-    string Announcement);
+    IReadOnlyList<MediaMembershipUndoItem> Items,
+    string Announcement)
+{
+    public MediaItem Item => Items[0].Item;
+}
 
 public sealed class MediaMembershipHistory
 {
@@ -36,17 +42,30 @@ public sealed class MediaMembershipHistory
         string sessionId,
         MediaItem item,
         MediaMembershipState previousState,
+        string announcement) =>
+        RecordBatch(sessionId, [(item, previousState)], announcement);
+
+    public void RecordBatch(
+        string sessionId,
+        IEnumerable<(MediaItem Item, MediaMembershipState PreviousState)> items,
         string announcement)
     {
-        if (MediaMembershipState.From(item) == previousState) return;
-        _entries.Push(new MediaMembershipUndo(sessionId, item, previousState, announcement));
+        var changedItems = items
+            .Where(entry => MediaMembershipState.From(entry.Item) != entry.PreviousState)
+            .Select(entry => new MediaMembershipUndoItem(entry.Item, entry.PreviousState))
+            .ToArray();
+        if (changedItems.Length == 0) return;
+        _entries.Push(new MediaMembershipUndo(sessionId, changedItems, announcement));
     }
 
     public MediaMembershipUndo? Undo()
     {
         if (_entries.Count == 0) return null;
         var entry = _entries.Pop();
-        entry.PreviousState.ApplyTo(entry.Item);
+        foreach (var item in entry.Items)
+        {
+            item.PreviousState.ApplyTo(item.Item);
+        }
         return entry;
     }
 }

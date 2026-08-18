@@ -1,118 +1,121 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-051`
-- Tytuł zestawu: Odtwarzacz jako osobny widok, informacje i pamięć sesji
-- Wersja programu: `0.1.0-alpha.51`
-- Utworzono: 2026-08-18 16:18, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-18_1618_0.1.0-alpha.51.md`
+- Numer zestawu: `AMC-TEST-052`
+- Tytuł zestawu: Kolejka, ciągłe odtwarzanie, wiele elementów i izolacja głośności
+- Wersja programu: `0.1.0-alpha.52`
+- Utworzono: 2026-08-18 21:30, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-18_2130_0.1.0-alpha.52.md`
 
 W pliku wyników po dwukropku wpisz krótko, co się wydarzyło. Jeżeli wszystko działa, wystarczy `OK`. Nie trzeba przed każdym zadaniem wybierać wariantu odpowiedzi.
 
-## AMC-051-01 — Krótki pasek stanu
+## AMC-052-01 — Jednoznaczne usuwanie z Kolejki
 
-1. Otwórz lokalny plik, rozpocznij odtwarzanie i naciśnij `NVDA+End`.
-2. Wstrzymaj, zmień prędkość na 1,50 razy i ponownie odczytaj pasek.
-3. Przejdź do demonstracyjnej sesji bez parametrów audio i odczytaj pasek.
-
-Oczekiwane:
-
-- pasek lokalnego pliku ma kolejność: wartości audio, stan, czas, tytuł, usługa;
-- mówi np. „322 kb/s, 48 kHz”, bez słów „przepływność” i „około”;
-- głośność nie występuje, a zmieniona prędkość występuje po stanie;
-- przy braku parametrów komunikat zaczyna się od stanu, bez „brak danych audio”;
-- pasek nie przejmuje fokusu i nie wywołuje automatycznej wypowiedzi co sekundę.
-
-## AMC-051-02 — Jedno okno Właściwości i informacje
-
-1. Na liście zaznacz element inny niż odtwarzany i naciśnij `Alt+Enter`.
-2. Czytaj tekst strzałkami oraz Home i End, użyj `Ctrl+A` i `Ctrl+C`.
-3. Zamknij okno Enterem, otwórz ponownie i zamknij Escape.
-4. W odtwarzaczu użyj `Alt+Enter`.
+1. Na liście Multimedia zaznacz plik i naciśnij `Ctrl+Shift+Enter`, aby ustawić „Odtwórz jako następne”.
+2. Otwórz Kolejkę przez `Ctrl+Q`, ustaw fokus na tym pliku i naciśnij `Shift+Enter`.
+3. Wróć do Multimedia, dodaj plik zwykłym `Shift+Enter`, ponownie otwórz Kolejkę i usuń go klawiszem Delete.
+4. Przechodź między ostatnimi widokami przez `Alt+strzałka w lewo/prawo` i powtórz dodanie oraz usunięcie.
 
 Oczekiwane:
 
-- na liście dane dotyczą zaznaczenia, a w odtwarzaczu faktycznie bieżącego elementu;
-- okno zawiera zrozumiałe sekcje Element, Odtwarzanie, Techniczne i Źródło, jeśli są dla nich dane;
-- dla pliku lokalnego są ścieżka, format i rozmiar; nie ma technicznych tokenów ani adresów podpisanych;
-- tekst jest dostępny do czytania, zaznaczania i kopiowania;
-- Enter i Escape zamykają okno, a fokus wraca dokładnie do listy albo odtwarzacza.
+- element ustawiony jako następny daje się usunąć z Kolejki od razu;
+- program mówi „Usunięto z kolejki”, a nie „Dodano do kolejki”;
+- po usunięciu element nie wraca przez historię widoków;
+- menu kontekstowe pokazuje czynność zgodną z rzeczywistym stanem.
 
-## AMC-051-03 — Usunięcie starych poleceń informacji
+## AMC-052-02 — Zaznaczanie wielu elementów
 
-1. Na liście naciśnij `Ctrl+I`, a potem `Ctrl+Shift+I`.
-2. W odtwarzaczu naciśnij te same skróty oraz zwykłe `I`.
-3. Otwórz paletę `Ctrl+Shift+K` i wyszukaj „właściwości”, „informacje” oraz „stan odtwarzania”.
-4. Sprawdź menu Odtwarzanie i menu kontekstowe listy.
-
-Oczekiwane:
-
-- stare skróty nie uruchamiają dawnych okien ani dodatkowego odczytu stanu;
-- zwykłe `I` nie zmienia głośności i nie naciska przycisku;
-- paleta i menu zawierają jedno polecenie „Właściwości i informacje, Alt+Enter”;
-- nie ma osobnych poleceń „Informacje”, „Rozszerzone informacje” ani „Odczytaj stan odtwarzania”.
-
-## AMC-051-04 — Działania na bieżącym utworze w odtwarzaczu
-
-1. Uruchom element, wejdź do odtwarzacza i użyj `Shift+Enter`.
-2. Użyj kolejno `Ctrl+Shift+U`, `Ctrl+Shift+L`, `Ctrl+Shift+P` i `Ctrl+Shift+Enter`.
-3. Wróć Escape i sprawdź Kolejkę, Ulubione oraz Bibliotekę.
-4. Powtórz wybrane przełączniki, aby usunąć element.
+1. Na liście co najmniej trzech plików ustaw fokus na pierwszym.
+2. Przytrzymaj Shift i dwa razy naciśnij strzałkę w dół, następnie raz strzałkę w górę.
+3. Na dwóch zaznaczonych elementach użyj `Shift+Enter`, `Ctrl+Shift+U` oraz `Ctrl+Shift+L`.
+4. Sprawdź odpowiednio Kolejkę, Ulubione i Bibliotekę.
 
 Oczekiwane:
 
-- wszystkie działania dotyczą utworu widocznego w odtwarzaczu, a nie ukrytego zaznaczenia listy;
-- `Shift+Enter` rzeczywiście dodaje lub usuwa z kolejki;
-- skróty Ulubionych, Biblioteki, playlist i „odtwarzaj jako następne” działają i podają krótkie potwierdzenie;
-- ponowne wykonanie przełącznika odwraca stan bez utraty fokusu.
+- Shift+strzałki rozszerzają i zmniejszają zaznaczenie zgodnie ze standardową listą Windows;
+- każde polecenie obejmuje wszystkie zaznaczone elementy i podaje ich liczbę;
+- żaden niezaznaczony element nie zmienia stanu;
+- zwykłe strzałki wracają do pojedynczego zaznaczenia.
 
-## AMC-051-05 — Granica odtwarzacza i wyszukiwania
+## AMC-052-03 — Zbiorowe usuwanie i jedno cofnięcie
 
-1. Będąc w odtwarzaczu, naciśnij kolejno `Ctrl+K`, `Ctrl+F` i `Ctrl+Shift+F`.
-2. Następnie użyj `Ctrl+U`, `Ctrl+P`, `Ctrl+L`, `Ctrl+Q` i `Ctrl+Shift+A`, za każdym razem wracając do odtwarzacza przez `F6`.
-
-Oczekiwane:
-
-- filtr i oba wyszukiwania nie otwierają okna ani pola nad odtwarzaczem;
-- każde z nich krótko mówi „Wyszukiwanie jest dostępne na listach”;
-- skróty widoków świadomie opuszczają odtwarzacz i pokazują żądaną listę;
-- F6 zawsze wraca do odtwarzacza bieżącej sesji.
-
-## AMC-051-06 — Escape wraca do ostatniego miejsca
-
-1. Uruchom utwór z Multimedia i wróć Escape.
-2. Wejdź do Ulubionych, ustaw fokus na wybranym elemencie i naciśnij `F6`.
-3. Naciśnij Escape.
-4. Powtórz z Biblioteką albo Kolejką oraz z aktywnym filtrem.
+1. Dodaj co najmniej trzy pliki do Kolejki.
+2. W Kolejce zaznacz dwa sąsiednie przez Shift+strzałkę i naciśnij Delete.
+3. Naciśnij raz `Ctrl+Z`.
+4. Powtórz zbiorcze usunięcie i cofnięcie w Ulubionych albo Bibliotece.
 
 Oczekiwane:
 
-- Escape po F6 wraca do listy i elementu, z których F6 użyto ostatnio, nie do pierwotnego miejsca uruchomienia utworu;
-- wraca także właściwy filtr danego widoku;
-- dźwięk trwa, a zaznaczenie nie jest przestawiane na bieżący utwór.
+- Delete usuwa oba zaznaczone elementy;
+- jedno `Ctrl+Z` przywraca całą operację zbiorową, nie tylko jeden element;
+- przywrócone elementy są ponownie zaznaczone, jeśli występują w bieżącym widoku;
+- fokus pozostaje na liście również wtedy, gdy usunięcie chwilowo ją opróżni.
 
-## AMC-051-07 — Osobna pamięć każdej sesji
+## AMC-052-04 — Izolacja głośności od NVDA i systemu
 
-1. W TIDAL ustaw widok Ulubione, filtr i konkretny element, a następnie otwórz odtwarzacz przez F6.
-2. Przejdź do Apple Music, ustaw inny widok i element, pozostawiając zwykłą listę.
-3. Kilka razy przełączaj `Ctrl+1` i `Ctrl+2`.
-4. Zamknij AMC przez `Alt+F4`, uruchom ponownie i ponów przełączanie.
-
-Oczekiwane:
-
-- TIDAL wraca do odtwarzacza, a Apple Music do własnej listy;
-- po Escape w TIDAL wracają jego Ulubione, filtr i element;
-- Apple Music zachowuje własny widok, filtr i element, bez kopiowania stanu TIDAL;
-- zapis przetrwa prawidłowe zamknięcie i ponowne uruchomienie programu.
-
-## AMC-051-08 — Regresja najważniejszych funkcji
-
-1. Sprawdź otwieranie pliku i folderu, Enter, `Ctrl+Enter`, Spację, przewijanie, cyfry, skoki do czasu i procentu oraz prędkość.
-2. Sprawdź filtr na liście, wyszukiwanie bieżące i globalne oraz bezpośrednie dodanie wyniku do kolejki.
-3. Sprawdź paletę poleceń, ustawienia, Ctrl+Z, menu kontekstowe i zamknięcie `Alt+F4`.
+1. Uruchom dłuższy lokalny plik i otwórz odtwarzacz.
+2. Zanotuj głośność NVDA oraz systemową głośność wyjścia.
+3. Zmień głośność AMC strzałkami w górę/dół oraz Shift+strzałkami od minimum do wyraźnie wyższej wartości.
+4. W trakcie zmian wywołuj mowę NVDA i ponownie sprawdź jego oraz systemową głośność.
 
 Oczekiwane:
 
-- wcześniejsze funkcje działają bez regresji;
-- wyszukiwanie globalne nadal może znaleźć plik lokalny i wykonać na nim działanie;
-- nie pojawiają się techniczne identyfikatory, „Stan programu”, podwójne komunikaty ani utrata fokusu;
-- główne okno zamyka aplikację, a nie zachowuje się jak Escape.
+- zmienia się wyłącznie głośność odtwarzanego pliku w AMC;
+- NVDA mówi cały czas z tą samą głośnością;
+- suwak główny systemu i głośność innych aplikacji nie zmieniają się;
+- przewijanie i regulacja prędkości nadal działają.
+
+## AMC-052-05 — Automatyczna kontynuacja listy
+
+1. Otwórz folder zawierający co najmniej trzy krótkie pliki w znanej kolejności.
+2. Uruchom pierwszy i pozwól mu zakończyć się naturalnie.
+3. Powtórz, wcześniej ustawiając inny plik jako „Odtwórz jako następne”.
+4. Powtórz z elementem dodanym tylko do zwykłej Kolejki.
+5. Pozwól zakończyć się ostatniemu elementowi bez dalszej kolejki.
+
+Oczekiwane:
+
+- bez kolejki zaczyna się następny plik załadowanej listy;
+- „Odtwórz jako następne” ma pierwszeństwo, a zwykła Kolejka drugie;
+- wykorzystany wpis znika z Kolejki w odpowiednim momencie;
+- ostatni plik nie zapętla listy i program oznajmia jego koniec.
+
+## AMC-052-06 — Zmiana sesji podaje przywrócony widok
+
+1. Ustaw TIDAL w Bibliotece, Apple Music w Kolejce, a Lokalne multimedia w Ulubionych.
+2. W każdej sesji pozostaw inne zaznaczenie.
+3. Przełączaj `Ctrl+1`, `Ctrl+2` i numer lokalnej sesji, a następnie `Ctrl+Page Up/Page Down`.
+4. W jednej sesji pozostaw odtwarzacz i wróć do niej po przełączeniu.
+
+Oczekiwane:
+
+- NVDA podaje numer lub nazwę sesji, usługę, przywrócony widok i zaznaczony element w jednej wypowiedzi;
+- przykładowo słychać „TIDAL, Biblioteka” albo „Apple Music, Kolejka”, nie samą usługę;
+- sesja pozostawiona w odtwarzaczu jest oznajmiana jako Odtwarzacz;
+- każdy widok i fokus pozostają niezależne.
+
+## AMC-052-07 — Właściwości bez „element element”
+
+1. Z listy otwórz `Alt+Enter` i czytaj od początku strzałkami.
+2. Użyj „Kopiuj wszystko” i porównaj skopiowany tekst z odczytem.
+3. Zamknij okno, uruchom odtwarzacz i powtórz.
+
+Oczekiwane:
+
+- pierwsza linia brzmi „Podstawowe informacje”, a nie „element element”;
+- dalsze sekcje i wartości są czytane po kolei bez technicznych nazw kontrolek;
+- kopiowanie nadal zwraca pełne, prawidłowe dane;
+- fokus wraca do poprzedniej listy albo odtwarzacza.
+
+## AMC-052-08 — Tytuł okna i regresja
+
+1. Odtwórz jeden plik, a na liście zaznacz inny.
+2. Przejdź kolejno do Ulubionych, Kolejki i Biblioteki i odczytaj tytuł okna.
+3. Wstrzymaj oraz zmień odtwarzany plik, ponownie odczytując tytuł.
+4. Sprawdź pasek `NVDA+End`, czas, skoki, prędkość, wyszukiwanie, paletę, menu i `Alt+F4`.
+
+Oczekiwane:
+
+- początek tytułu jest nazwą aktualnie odtwarzanego lub wstrzymanego elementu, a nie bieżącego zaznaczenia;
+- dalsza część zawsze odpowiada usłudze i rzeczywistemu widokowi: Ulubione, Kolejka albo Biblioteka;
+- zmiana bieżącego utworu aktualizuje początek tytułu;
+- nie wracają podwójne komunikaty, techniczne identyfikatory, problemy z fokusem ani wcześniejsze regresje.

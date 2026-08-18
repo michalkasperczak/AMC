@@ -689,6 +689,8 @@ State of `alpha.50`: the status bar begins directly with audio values instead of
 
 State of `alpha.51`: the status bar removes “about” and omits the entire audio-parameter segment when the source provides none. `Ctrl+I`, `Ctrl+Shift+I`, prefix `I` and `Shift+I`, and the three old information commands are removed. One `Alt+Enter` **Properties and information** command replaces them with accessible text and does not expose tokens or signed URLs. Filter and search do not open from the player, while current-item actions remain available. View, filter, selection and player-active state are remembered per session. Escape returns to the location from which F6 or the player was most recently invoked. The radio plan now includes M3U/M3U8, PLS, XSPF and VRadio Favorites import/export.
 
+State of `alpha.52`: Queue is the logical union of queued and Play Next state, but every removal command clears both so an item cannot remain visible with a contradictory “added” message. Ordinary lists support extended `Shift+Arrow` selection; membership, playlist and Delete actions cover the whole selection and history records one undoable batch. Natural end of a local file chooses Play Next, then Queue, then the following item in the loaded list, without wrapping the last item. Volume is software gain inside AMC before shared WASAPI and does not control NVDA's audio session. Session switching also reports the restored view. The main title deliberately continues to begin with the currently playing item rather than the browser selection; its later view segment distinguishes Queue, Favorites, and other surfaces.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.

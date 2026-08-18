@@ -51,6 +51,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly DispatcherTimer _playerUiTimer;
     private bool _playerViewActive;
     private bool _restoringSessionNavigation;
+    private string? _playerFocusContextPrefix;
     private readonly System.Windows.Forms.StatusStrip _playbackStatusBar;
     private readonly System.Windows.Forms.ToolStripStatusLabel _playbackStatusLabel;
 
@@ -113,6 +114,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     public MediaItem? ActionItem => _playerViewActive
         ? _sessions.Current.CurrentItem
         : SelectedItem ?? _sessions.Current.CurrentItem;
+    public IReadOnlyList<MediaItem> ActionItems
+    {
+        get
+        {
+            if (_playerViewActive) return [_sessions.Current.CurrentItem];
+            var selected = MediaList.SelectedItems
+                .OfType<MediaItemRow>()
+                .Select(row => row.Item)
+                .DistinctBy(item => item.Id)
+                .ToArray();
+            return selected.Length > 0 ? selected : [ActionItem ?? _sessions.Current.CurrentItem];
+        }
+    }
 
     public void Announce(string message)
     {
@@ -327,9 +341,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!updateAccessibleName) return;
         var artist = string.IsNullOrWhiteSpace(item.Artist) ? item.KindLabel : item.Artist;
         var action = session.IsPlaying ? "Wstrzymaj" : "Odtwórz";
+        var focusContext = _playerFocusContextPrefix;
+        _playerFocusContextPrefix = null;
         AutomationProperties.SetName(
             PlayerPlayPauseButton,
-            $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}");
+            focusContext is null
+                ? $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}"
+                : $"{focusContext}, Odtwarzacz, {item.Title}, {artist}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}");
         AutomationProperties.SetHelpText(
             PlayerPlayPauseButton,
             "Strzałki sterują czasem i głośnością. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Escape wraca do listy.");
@@ -438,11 +456,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void ShowPlaylistManager()
     {
-        var item = ActionItem ?? _sessions.Current.CurrentItem;
-        var dialog = new PlaylistWindow(item) { Owner = this };
+        var items = ActionItems;
+        var dialog = new PlaylistWindow(items) { Owner = this };
         if (dialog.ShowDialog() == true)
         {
-            Announce($"Zapisano zmiany playlist dla: {item.Title}");
+            var target = items.Count == 1 ? items[0].Title : FormatItemCount(items.Count);
+            Announce($"Zapisano zmiany playlist dla: {target}");
         }
     }
 
@@ -488,7 +507,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             string.Join(Environment.NewLine,
             new string?[]
             {
-                "Element",
+                "Podstawowe informacje",
                 $"Tytuł: {item.Title}",
                 string.IsNullOrWhiteSpace(item.Artist) ? null : $"Wykonawca: {item.Artist}",
                 $"Rodzaj: {item.KindLabel}",
@@ -913,12 +932,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void LocalOutput_PlaybackEnded(object? sender, MediaPlaybackEndedEventArgs e)
     {
-        _sessions.FindSession("local")?.MarkPlaybackEnded();
-        RefreshPlaybackIndicators();
+        var localSession = _sessions.FindSession("local");
+        var nextItem = localSession?.ContinueAfterPlaybackEnded(e.Item);
+        if (string.Equals(_currentView, "Kolejka", StringComparison.Ordinal))
+        {
+            var restoreListFocus = !_playerViewActive && MediaList.IsKeyboardFocusWithin;
+            var previousIndex = MediaList.SelectedIndex;
+            if (restoreListFocus) AnchorMediaListFocus();
+            RefreshCurrentView(previousIndex);
+            if (restoreListFocus) RestoreMediaListFocusAfterRefresh();
+        }
+        else
+        {
+            RefreshPlaybackIndicators();
+        }
         if (_playerViewActive) UpdatePlayerView(true);
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();
-        Announce($"Koniec: {e.Item.Title}");
+        Announce(nextItem is null
+            ? $"Koniec: {e.Item.Title}"
+            : $"Odtwarzanie: {nextItem.Title}");
     }
 
     private void RegisterConfiguredPrefix()
@@ -961,18 +994,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var restoreListFocus = MediaList.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem;
         var navigatesSession = commandId is CommandIds.SessionPrevious or CommandIds.SessionNext
             || commandId.StartsWith("session.slot.", StringComparison.Ordinal);
-        var mergeSessionAnnouncementWithFocus = navigatesSession && restoreListFocus;
+        var mergeSessionAnnouncementWithFocus = navigatesSession;
         var changesListMembership = commandId is CommandIds.ToggleFavorite
             or CommandIds.ToggleLibrary
             or CommandIds.AddQueue
             or CommandIds.TogglePlayNext;
         var changedSession = changesListMembership ? _sessions.Current : null;
-        var changedItem = changesListMembership
-            ? ActionItem ?? _sessions.Current.CurrentItem
-            : null;
-        MediaMembershipState? previousMembership = changedItem is null
-            ? null
-            : MediaMembershipState.From(changedItem);
+        var changedItems = changesListMembership ? ActionItems.ToArray() : [];
+        var previousMemberships = changedItems
+            .Select(item => (Item: item, Previous: MediaMembershipState.From(item)))
+            .ToArray();
         if (changesListMembership && restoreListFocus) AnchorMediaListFocus();
         if (changesListMembership || mergeSessionAnnouncementWithFocus)
         {
@@ -988,13 +1019,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             _deferAnnouncements = false;
         }
-        if (changedSession is not null && changedItem is not null && previousMembership is { } previous)
+        if (changedSession is not null)
         {
-            _membershipHistory.Record(
+            var undoAnnouncement = previousMemberships.Length == 1
+                ? BuildUndoAnnouncement(
+                    commandId,
+                    previousMemberships[0].Item,
+                    previousMemberships[0].Previous)
+                : $"Cofnięto zmianę dla: {FormatItemCount(previousMemberships.Length)}";
+            _membershipHistory.RecordBatch(
                 changedSession.Id,
-                changedItem,
-                previous,
-                BuildUndoAnnouncement(commandId, changedItem, previous));
+                previousMemberships,
+                undoAnnouncement);
         }
         var sessionChanged = _sessions.Current.Id != oldSession;
         if (sessionChanged)
@@ -1004,16 +1040,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (changesListMembership)
         {
             RefreshCurrentView(changesListMembership ? previousIndex : null);
+            if (!_playerViewActive && changedItems.Length > 1)
+            {
+                SelectMediaItems(changedItems.Select(item => item.Id));
+            }
         }
         if (sessionChanged || changesListMembership)
         {
             if (sessionChanged
                 && mergeSessionAnnouncementWithFocus
-                && !_playerViewActive
-                && _state.Settings.Messages.Enabled
                 && _deferredAnnouncement is { } sessionContext)
             {
-                PrepareSelectedItemFocusContext(sessionContext);
+                if (_playerViewActive)
+                {
+                    _playerFocusContextPrefix = sessionContext;
+                }
+                else
+                {
+                    PrepareSelectedItemFocusContext($"{sessionContext}, {_currentView}");
+                }
                 _deferredAnnouncement = null;
             }
             if (sessionChanged)
@@ -1225,8 +1270,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var item = SelectedItem;
-        if (item is null)
+        var items = MediaList.SelectedItems
+            .OfType<MediaItemRow>()
+            .Select(row => row.Item)
+            .DistinctBy(item => item.Id)
+            .ToArray();
+        if (items.Length == 0)
         {
             RestoreMediaListFocusAfterRefresh();
             Dispatcher.BeginInvoke(
@@ -1235,41 +1284,46 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         var previousIndex = MediaList.SelectedIndex;
-        var previousMembership = MediaMembershipState.From(item);
-        string undoAnnouncement;
+        var previousMemberships = items
+            .Select(item => (Item: item, Previous: MediaMembershipState.From(item)))
+            .ToArray();
         AnchorMediaListFocus();
 
-        if (_currentView == "Ulubione")
+        foreach (var item in items)
         {
-            item.IsFavorite = false;
-            undoAnnouncement = $"Przywrócono w ulubionych: {item.Title}";
+            if (_currentView == "Ulubione")
+            {
+                item.IsFavorite = false;
+            }
+            else if (_currentView == "Biblioteka")
+            {
+                item.IsInLibrary = false;
+            }
+            else if (_currentView == "Kolejka")
+            {
+                item.IsInQueue = false;
+                item.IsPlayNext = false;
+            }
         }
-        else if (_currentView == "Biblioteka")
-        {
-            item.IsInLibrary = false;
-            undoAnnouncement = $"Przywrócono w bibliotece: {item.Title}";
-        }
-        else if (_currentView == "Kolejka")
-        {
-            item.IsInQueue = false;
-            item.IsPlayNext = false;
-            undoAnnouncement = $"Przywrócono w kolejce: {item.Title}";
-        }
-        else
-        {
-            throw new InvalidOperationException($"Nieobsługiwany widok usuwania: {_currentView}");
-        }
-        var title = item.Title;
-        _membershipHistory.Record(
+        var undoAnnouncement = items.Length == 1
+            ? _currentView switch
+            {
+                "Ulubione" => $"Przywrócono w ulubionych: {items[0].Title}",
+                "Biblioteka" => $"Przywrócono w bibliotece: {items[0].Title}",
+                "Kolejka" => $"Przywrócono w kolejce: {items[0].Title}",
+                _ => throw new InvalidOperationException($"Nieobsługiwany widok usuwania: {_currentView}")
+            }
+            : $"Przywrócono w widoku {_currentView}: {FormatItemCount(items.Length)}";
+        _membershipHistory.RecordBatch(
             _sessions.Current.Id,
-            item,
-            previousMembership,
+            previousMemberships,
             undoAnnouncement);
         RefreshCurrentView(previousIndex);
         RestoreMediaListFocusAfterRefresh();
+        var removedLabel = items.Length == 1 ? items[0].Title : FormatItemCount(items.Length);
         var announcement = MediaList.Items.Count == 0
-            ? $"Usunięto: {title}. Lista jest pusta"
-            : $"Usunięto: {title}";
+            ? $"Usunięto: {removedLabel}. Lista jest pusta"
+            : $"Usunięto: {removedLabel}";
         Dispatcher.BeginInvoke(() => Announce(announcement), DispatcherPriority.ContextIdle);
     }
 
@@ -1286,7 +1340,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 $"Przywrócono w bibliotece: {item.Title}",
             CommandIds.ToggleLibrary =>
                 $"Cofnięto dodanie do biblioteki: {item.Title}",
-            CommandIds.AddQueue when previousState.IsInQueue =>
+            CommandIds.AddQueue when previousState.IsInQueue || previousState.IsPlayNext =>
                 $"Przywrócono w kolejce: {item.Title}",
             CommandIds.AddQueue =>
                 $"Cofnięto dodanie do kolejki: {item.Title}",
@@ -1317,7 +1371,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_sessions.Current.Id == undo.SessionId)
         {
             RefreshCurrentView();
-            SelectMediaItem(undo.Item.Id);
+            SelectMediaItems(undo.Items.Select(item => item.Item.Id));
         }
         RestoreMediaListFocusAfterRefresh();
 
@@ -1334,6 +1388,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (row is null) return;
         MediaList.SelectedItem = row;
         MediaList.ScrollIntoView(row);
+    }
+
+    private void SelectMediaItems(IEnumerable<string> itemIds)
+    {
+        var ids = itemIds.ToHashSet(StringComparer.Ordinal);
+        var rows = MediaList.Items
+            .OfType<MediaItemRow>()
+            .Where(row => ids.Contains(row.Item.Id))
+            .ToArray();
+        if (rows.Length == 0) return;
+
+        MediaList.SelectedItems.Clear();
+        foreach (var row in rows) MediaList.SelectedItems.Add(row);
+        MediaList.ScrollIntoView(rows[0]);
     }
 
     private void OpenSettings(SettingsTarget initialTarget = SettingsTarget.General)
@@ -2062,11 +2130,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Sessions_Click(object sender, RoutedEventArgs e) => ShowSessionList();
     private void MediaContextMenu_Opened(object sender, RoutedEventArgs e)
     {
-        var item = SelectedItem;
-        PlayNextMenuItem.Header = item?.IsPlayNext == true
+        var items = ActionItems;
+        PlayNextMenuItem.Header = items.Count > 0 && items.All(item => item.IsPlayNext)
             ? "Usuń z odtwarzanych jako następne"
             : "Odtwórz jako następne";
-        QueueMenuItem.Header = item?.IsInQueue == true
+        QueueMenuItem.Header = items.Count > 0 && items.All(item => item.IsInQueue || item.IsPlayNext)
             ? "Usuń z kolejki"
             : "Dodaj do kolejki";
     }

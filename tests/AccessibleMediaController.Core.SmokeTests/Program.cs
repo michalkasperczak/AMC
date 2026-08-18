@@ -32,6 +32,7 @@ var tests = new (string Name, Action Test)[]
     ("Pamięć widoków sesji", TestSessionNavigationPersistence),
     ("Paleta poleceń", TestCommandPalette),
     ("Cofanie zmian przynależności", TestMembershipHistory),
+    ("Zbiorowe zmiany przynależności", TestBatchMembershipCommands),
     ("Krótkie komunikaty czasu", TestTimeCommands),
     ("Skok wpisanym czasem i procentem", TestSeekInputParser),
     ("Trzy rodzaje eksportu", TestExports)
@@ -420,6 +421,9 @@ static void TestSessions()
     Equal(false, manager.Current.ToggleQueue(manager.Current.CurrentItem));
     Equal(true, manager.Current.TogglePlayNext(manager.Current.CurrentItem));
     Equal(false, manager.Current.TogglePlayNext(manager.Current.CurrentItem));
+    Equal(true, manager.Current.TogglePlayNext(manager.Current.CurrentItem));
+    Equal(false, manager.Current.ToggleQueue(manager.Current.CurrentItem));
+    Equal(false, manager.Current.CurrentItem.IsPlayNext);
     var selected = manager.Current.Items.First(item => item.Title == "Brzeg ciszy");
     True(manager.Current.Play(selected), "Wybrany element powinien dać się odtworzyć.");
     Equal(selected, manager.Current.CurrentItem);
@@ -490,9 +494,37 @@ static void TestLocalPlaybackBoundary()
 
     session.AddItems([item]);
     Equal(1, session.Items.Count);
-    session.MarkPlaybackEnded();
+    var nextItem = new MediaItem
+    {
+        Id = "local-2",
+        Title = "Następny plik",
+        Source = @"C:\Muzyka\następny-plik.mp3"
+    };
+    session.AddItems([nextItem]);
+    Equal(2, session.Items.Count);
+    True(session.Play(item), "Pierwszy plik powinien ponownie rozpocząć odtwarzanie.");
+    Equal(nextItem, session.ContinueAfterPlaybackEnded(item));
+    Equal(nextItem, session.CurrentItem);
+    Equal(true, session.IsPlaying);
+    Equal(nextItem, output.LastItem);
+    True(session.ContinueAfterPlaybackEnded(nextItem) is null, "Ostatni plik nie powinien zapętlać listy.");
     Equal(false, session.IsPlaying);
     Equal(TimeSpan.Zero, session.Position);
+
+    var natural = new MediaItem { Id = "natural", Title = "Naturalny następny", Source = @"C:\Muzyka\naturalny.mp3" };
+    var queued = new MediaItem { Id = "queued", Title = "Z kolejki", Source = @"C:\Muzyka\kolejka.mp3", IsInQueue = true };
+    var playNext = new MediaItem { Id = "play-next", Title = "Jako następny", Source = @"C:\Muzyka\jako-następny.mp3", IsPlayNext = true };
+    var prioritySession = new DemoMediaSession(
+        "priority",
+        "Priorytety",
+        [item, natural, queued, playNext],
+        output);
+    True(prioritySession.Play(item), "Test priorytetów powinien rozpocząć pierwszy element.");
+    Equal(playNext, prioritySession.ContinueAfterPlaybackEnded(item));
+    Equal(queued, prioritySession.ContinueAfterPlaybackEnded(playNext));
+    Equal(natural, prioritySession.ContinueAfterPlaybackEnded(queued));
+    True(prioritySession.ContinueAfterPlaybackEnded(natural) is null, "Po powrocie do naturalnej listy wykorzystana kolejka nie powinna zagrać drugi raz.");
+    True(!playNext.IsPlayNext && !queued.IsInQueue, "Wykorzystane stany kolejki powinny zostać wyczyszczone.");
 }
 
 static void TestLocalAudioFileDiscovery()
@@ -881,6 +913,52 @@ static void TestMembershipHistory()
 
     history.Record("tidal", item, MediaMembershipState.From(item), "Bez zmiany");
     Equal(0, history.Count);
+
+    var second = new MediaItem { Title = "Drugi element", IsFavorite = true };
+    var firstBeforeBatch = MediaMembershipState.From(item);
+    var secondBeforeBatch = MediaMembershipState.From(second);
+    item.IsFavorite = false;
+    second.IsFavorite = false;
+    history.RecordBatch(
+        "tidal",
+        [(item, firstBeforeBatch), (second, secondBeforeBatch)],
+        "Przywrócono dwa elementy");
+    Equal(1, history.Count);
+    var batchUndo = history.Undo();
+    Equal(2, batchUndo!.Items.Count);
+    True(item.IsFavorite && second.IsFavorite, "Jedno cofnięcie powinno przywrócić całą zmianę zbiorową.");
+}
+
+static void TestBatchMembershipCommands()
+{
+    var settings = new AppSettings();
+    var sessions = new SessionManager(settings);
+    var first = sessions.Current.Items[0];
+    var second = sessions.Current.Items[1];
+    first.IsFavorite = false;
+    second.IsFavorite = false;
+    first.IsInQueue = false;
+    second.IsInQueue = false;
+    first.IsPlayNext = false;
+    second.IsPlayNext = false;
+    var sink = new FakeSink();
+    var actions = new FakeActions(first, [first, second]);
+    var router = new CommandRouter(sessions, settings, sink, actions);
+
+    router.Execute(CommandIds.ToggleFavorite);
+    Equal(true, first.IsFavorite);
+    Equal(true, second.IsFavorite);
+    True(sink.LastMessage.Contains("2 elementy", StringComparison.Ordinal), "Komunikat powinien podawać liczbę elementów.");
+    router.Execute(CommandIds.ToggleFavorite);
+    Equal(false, first.IsFavorite);
+    Equal(false, second.IsFavorite);
+
+    router.Execute(CommandIds.AddQueue);
+    Equal(true, first.IsInQueue);
+    Equal(true, second.IsInQueue);
+    router.Execute(CommandIds.AddQueue);
+    Equal(false, first.IsInQueue);
+    Equal(false, second.IsInQueue);
 }
 
 static void TestTimeCommands()
@@ -1106,10 +1184,11 @@ sealed class FakeSink : IAnnouncementSink
     public void Announce(string message) => LastMessage = message;
 }
 
-sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
+sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actionItems = null) : IApplicationActions
 {
     public MediaItem? SelectedItem { get; } = selectedItem;
     public MediaItem? ActionItem => SelectedItem;
+    public IReadOnlyList<MediaItem> ActionItems => actionItems ?? (SelectedItem is null ? [] : [SelectedItem]);
     public bool CommandPaletteShown { get; private set; }
     public SettingsTarget? LastSettingsTarget { get; private set; }
     public bool MessagesToggled { get; private set; }

@@ -2,6 +2,7 @@ using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 using SoundTouch.Net.NAudioSupport;
 
 namespace AccessibleMediaController.Windows.Services;
@@ -38,6 +39,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     private WasapiOut? _outputDevice;
     private AudioFileReader? _reader;
     private SoundTouchWaveStream? _tempoStream;
+    private VolumeSampleProvider? _volumeProvider;
     private MediaItem? _currentItem;
     private TimeSpan _pendingPosition;
     private double _playbackRate = 1d;
@@ -94,9 +96,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 Pitch = 1d,
                 Rate = 1d
             };
+            _volumeProvider = new VolumeSampleProvider(_tempoStream.ToSampleProvider());
             _outputDevice = new WasapiOut(AudioClientShareMode.Shared, true, 120);
             _outputDevice.PlaybackStopped += OutputDevice_PlaybackStopped;
-            _outputDevice.Init(_tempoStream);
+            _outputDevice.Init(_volumeProvider.ToWaveProvider());
             SeekInternal(_pendingPosition);
             SetVolume(volume);
             DurationAvailable?.Invoke(
@@ -132,9 +135,9 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     public void SetVolume(int volume)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_outputDevice is not null)
+        if (_volumeProvider is not null)
         {
-            _outputDevice.Volume = Math.Clamp(volume, 0, 100) / 100f;
+            _volumeProvider.Volume = Math.Clamp(volume, 0, 100) / 100f;
         }
     }
 
@@ -203,6 +206,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         // SoundTouchWaveStream owns and disposes the AudioFileReader.
         _tempoStream?.Dispose();
         _tempoStream = null;
+        _volumeProvider = null;
         _reader = null;
     }
 

@@ -8,6 +8,8 @@ public sealed class DemoMediaSession
     private int _currentIndex;
     private TimeSpan _position;
     private readonly IMediaOutput? _output;
+    private int? _resumeAfterQueueIndex;
+    private readonly HashSet<string> _playedQueueItemIds = new(StringComparer.Ordinal);
 
     public DemoMediaSession(
         string id,
@@ -58,6 +60,7 @@ public sealed class DemoMediaSession
 
     public bool Play(MediaItem item)
     {
+        ResetQueueDiversion();
         if (!SelectItem(item)) return false;
         IsPlaying = true;
         _output?.Play(CurrentItem, _position, Volume, PlaybackRate);
@@ -75,6 +78,7 @@ public sealed class DemoMediaSession
             return true;
         }
 
+        ResetQueueDiversion();
         _currentIndex = index;
         _position = TimeSpan.Zero;
         IsPlaying = true;
@@ -155,13 +159,70 @@ public sealed class DemoMediaSession
     {
         IsPlaying = false;
         _position = TimeSpan.Zero;
+        ResetQueueDiversion();
         _output?.Seek(TimeSpan.Zero);
+    }
+
+    public MediaItem? ContinueAfterPlaybackEnded(MediaItem endedItem)
+    {
+        if (!string.Equals(CurrentItem.Id, endedItem.Id, StringComparison.Ordinal)) return null;
+
+        IsPlaying = false;
+        _position = TimeSpan.Zero;
+        endedItem.IsInQueue = false;
+        endedItem.IsPlayNext = false;
+
+        var next = Items.FirstOrDefault(item =>
+            item.Id != endedItem.Id && item.IsPlayNext);
+        if (next is not null)
+        {
+            next.IsPlayNext = false;
+        }
+        else
+        {
+            next = Items.FirstOrDefault(item =>
+                item.Id != endedItem.Id && item.IsInQueue);
+            if (next is not null) next.IsInQueue = false;
+        }
+
+        if (next is not null)
+        {
+            _resumeAfterQueueIndex ??= Math.Min(_currentIndex + 1, Items.Count);
+            _playedQueueItemIds.Add(next.Id);
+        }
+        else if (_resumeAfterQueueIndex is int resumeIndex)
+        {
+            next = Items
+                .Skip(resumeIndex)
+                .FirstOrDefault(item =>
+                    item.Id != endedItem.Id && !_playedQueueItemIds.Contains(item.Id));
+            _resumeAfterQueueIndex = null;
+        }
+        else if (_currentIndex + 1 < Items.Count)
+        {
+            next = Items
+                .Skip(_currentIndex + 1)
+                .FirstOrDefault(item => !_playedQueueItemIds.Contains(item.Id));
+        }
+
+        if (next is null)
+        {
+            ResetQueueDiversion();
+            _output?.Seek(TimeSpan.Zero);
+            return null;
+        }
+
+        _currentIndex = Items.FindIndex(item => item.Id == next.Id);
+        IsPlaying = true;
+        _output?.Play(CurrentItem, TimeSpan.Zero, Volume, PlaybackRate);
+        return CurrentItem;
     }
 
     public void MarkPlaybackFailed()
     {
         IsPlaying = false;
         _position = TimeSpan.Zero;
+        ResetQueueDiversion();
         _output?.Seek(TimeSpan.Zero);
     }
 
@@ -179,13 +240,21 @@ public sealed class DemoMediaSession
 
     public bool ToggleQueue(MediaItem item)
     {
-        item.IsInQueue = !item.IsInQueue;
-        return item.IsInQueue;
+        var add = !item.IsInQueue && !item.IsPlayNext;
+        item.IsInQueue = add;
+        if (!add) item.IsPlayNext = false;
+        return add;
     }
 
     public bool TogglePlayNext(MediaItem item)
     {
         item.IsPlayNext = !item.IsPlayNext;
         return item.IsPlayNext;
+    }
+
+    private void ResetQueueDiversion()
+    {
+        _resumeAfterQueueIndex = null;
+        _playedQueueItemIds.Clear();
     }
 }

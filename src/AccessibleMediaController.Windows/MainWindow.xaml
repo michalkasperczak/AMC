@@ -117,6 +117,7 @@
 
         <Grid>
         <ListBox x:Name="MediaList"
+                 SelectionMode="Extended"
                  ItemsSource="{Binding}"
                  DisplayMemberPath="Label"
                  IsTextSearchEnabled="False"

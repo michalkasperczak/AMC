@@ -6,10 +6,11 @@ namespace AccessibleMediaController.Windows;
 
 public partial class PlaylistWindow : Window
 {
-    public PlaylistWindow(MediaItem item)
+    public PlaylistWindow(IReadOnlyList<MediaItem> items)
     {
         InitializeComponent();
-        DescriptionText.Text = $"Zmień playlisty dla: {item.Title}. Spacja zmienia stan, Enter zapisuje.";
+        var target = items.Count == 1 ? items[0].Title : $"{items.Count} elementów";
+        DescriptionText.Text = $"Zmień playlisty dla: {target}. Spacja zmienia stan, Enter zapisuje.";
         PlaylistList.ItemsSource = new List<PlaylistChoice>
         {
             new("Do odsłuchu", true),

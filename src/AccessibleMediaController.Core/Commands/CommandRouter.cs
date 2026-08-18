@@ -13,6 +13,7 @@ public interface IApplicationActions
 {
     MediaItem? SelectedItem { get; }
     MediaItem? ActionItem { get; }
+    IReadOnlyList<MediaItem> ActionItems { get; }
     void ShowCurrentSession(string viewName);
     void ShowFilter();
     void ShowSessionList();
@@ -168,16 +169,21 @@ public sealed class CommandRouter(
                 AnnounceTemplate("time.total", "{total}", ("total", FormatTime(current.CurrentItem.Duration)));
                 return new(true);
             case CommandIds.ToggleFavorite:
-                var favoriteItem = application.ActionItem ?? current.CurrentItem;
-                var favorite = current.ToggleFavorite(favoriteItem);
+                var favoriteItems = ResolveActionItems(current);
+                var favorite = !favoriteItems.All(item => item.IsFavorite);
+                foreach (var item in favoriteItems) item.IsFavorite = favorite;
                 AnnounceTemplate(
                     favorite ? "favorite.added" : "favorite.removed",
                     favorite ? "Dodano do ulubionych: {item}" : "Usunięto z ulubionych: {item}",
-                    ("item", favoriteItem.Title));
+                    ("item", FormatActionItems(favoriteItems)));
                 return new(true);
             case CommandIds.ToggleLibrary:
-                var library = current.ToggleLibrary(application.ActionItem ?? current.CurrentItem);
-                announcements.Announce(library ? "Dodano do biblioteki" : "Usunięto z biblioteki");
+                var libraryItems = ResolveActionItems(current);
+                var library = !libraryItems.All(item => item.IsInLibrary);
+                foreach (var item in libraryItems) item.IsInLibrary = library;
+                announcements.Announce(library
+                    ? $"Dodano do biblioteki: {FormatActionItems(libraryItems)}"
+                    : $"Usunięto z biblioteki: {FormatActionItems(libraryItems)}");
                 return new(true);
             case CommandIds.ManagePlaylists:
                 application.ShowPlaylistManager();
@@ -214,22 +220,28 @@ public sealed class CommandRouter(
             case CommandIds.ViewOutputs: return ShowView("Wyjścia i urządzenia");
             case CommandIds.ViewDownloads: return ShowView("Pobrane");
             case CommandIds.AddQueue:
-                var queueItem = application.ActionItem ?? current.CurrentItem;
-                var queued = current.ToggleQueue(queueItem);
+                var queueItems = ResolveActionItems(current);
+                var queued = !queueItems.All(item => item.IsInQueue || item.IsPlayNext);
+                foreach (var item in queueItems)
+                {
+                    item.IsInQueue = queued;
+                    if (!queued) item.IsPlayNext = false;
+                }
                 AnnounceTemplate(
                     queued ? "queue.added" : "queue.removed",
                     queued ? "Dodano do kolejki: {item}" : "Usunięto z kolejki: {item}",
-                    ("item", queueItem.Title));
+                    ("item", FormatActionItems(queueItems)));
                 return new(true);
             case CommandIds.TogglePlayNext:
-                var playNextItem = application.ActionItem ?? current.CurrentItem;
-                var playNext = current.TogglePlayNext(playNextItem);
+                var playNextItems = ResolveActionItems(current);
+                var playNext = !playNextItems.All(item => item.IsPlayNext);
+                foreach (var item in playNextItems) item.IsPlayNext = playNext;
                 AnnounceTemplate(
                     playNext ? "playNext.added" : "playNext.removed",
                     playNext
                         ? "Odtwarzaj jako następne: {item}"
                         : "Usunięto z następnych: {item}",
-                    ("item", playNextItem.Title));
+                    ("item", FormatActionItems(playNextItems)));
                 return new(true);
             case CommandIds.StartRadio:
                 announcements.Announce("Uruchamianie radia — demonstracja");
@@ -389,6 +401,21 @@ public sealed class CommandRouter(
     }
 
     private static TimeSpan Max(TimeSpan first, TimeSpan second) => first >= second ? first : second;
+
+    private IReadOnlyList<MediaItem> ResolveActionItems(DemoMediaSession session) =>
+        application.ActionItems.Count > 0
+            ? application.ActionItems
+            : [application.ActionItem ?? session.CurrentItem];
+
+    private static string FormatActionItems(IReadOnlyList<MediaItem> items)
+    {
+        if (items.Count == 1) return items[0].Title;
+        var lastTwoDigits = items.Count % 100;
+        var lastDigit = items.Count % 10;
+        return lastDigit is >= 2 and <= 4 && lastTwoDigits is not (>= 12 and <= 14)
+            ? $"{items.Count} elementy"
+            : $"{items.Count} elementów";
+    }
 
     private string FormatItem(MediaItem item) =>
         MediaItemFormatter.Format(item, settings.Lists.FieldOrder);
