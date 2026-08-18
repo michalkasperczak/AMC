@@ -12,12 +12,13 @@ public interface IAnnouncementSink
 public interface IApplicationActions
 {
     MediaItem? SelectedItem { get; }
+    MediaItem? ActionItem { get; }
     void ShowCurrentSession(string viewName);
     void ShowFilter();
     void ShowSessionList();
     void ShowPlaylistManager();
     void ShowCommandPalette();
-    void ShowItemInformation(bool extended);
+    void ShowItemProperties();
     void OpenOfficialApplication();
     void ShowHelp();
     void ShowSettings(SettingsTarget target);
@@ -28,7 +29,6 @@ public interface IApplicationActions
     void OpenLocalFolder();
     void ShowSeekToTime();
     void ShowSeekToPercentage();
-    void AnnouncePlaybackStatus();
 }
 
 public readonly record struct CommandExecutionResult(bool Handled, bool KeepPrefixActive = false);
@@ -99,8 +99,8 @@ public sealed class CommandRouter(
             case CommandIds.SeekToPercentage:
                 application.ShowSeekToPercentage();
                 return new(true);
-            case CommandIds.PlaybackStatus:
-                application.AnnouncePlaybackStatus();
+            case CommandIds.ItemProperties:
+                application.ShowItemProperties();
                 return new(true);
             case CommandIds.PlayPause:
                 current.TogglePlayback();
@@ -112,7 +112,7 @@ public sealed class CommandRouter(
                 }
                 return new(true);
             case CommandIds.ActivateSelected:
-                var selectedToActivate = application.SelectedItem ?? current.CurrentItem;
+                var selectedToActivate = application.ActionItem ?? current.CurrentItem;
                 if (!current.Activate(selectedToActivate))
                 {
                     announcements.Announce("Nie można otworzyć wybranego elementu w tej sesji");
@@ -168,7 +168,7 @@ public sealed class CommandRouter(
                 AnnounceTemplate("time.total", "{total}", ("total", FormatTime(current.CurrentItem.Duration)));
                 return new(true);
             case CommandIds.ToggleFavorite:
-                var favoriteItem = application.SelectedItem ?? current.CurrentItem;
+                var favoriteItem = application.ActionItem ?? current.CurrentItem;
                 var favorite = current.ToggleFavorite(favoriteItem);
                 AnnounceTemplate(
                     favorite ? "favorite.added" : "favorite.removed",
@@ -176,17 +176,11 @@ public sealed class CommandRouter(
                     ("item", favoriteItem.Title));
                 return new(true);
             case CommandIds.ToggleLibrary:
-                var library = current.ToggleLibrary(application.SelectedItem ?? current.CurrentItem);
+                var library = current.ToggleLibrary(application.ActionItem ?? current.CurrentItem);
                 announcements.Announce(library ? "Dodano do biblioteki" : "Usunięto z biblioteki");
                 return new(true);
             case CommandIds.ManagePlaylists:
                 application.ShowPlaylistManager();
-                return new(true);
-            case CommandIds.ItemInformation:
-                application.ShowItemInformation(false);
-                return new(true);
-            case CommandIds.ExtendedInformation:
-                application.ShowItemInformation(true);
                 return new(true);
             case CommandIds.OpenOfficialApp:
                 application.OpenOfficialApplication();
@@ -220,7 +214,7 @@ public sealed class CommandRouter(
             case CommandIds.ViewOutputs: return ShowView("Wyjścia i urządzenia");
             case CommandIds.ViewDownloads: return ShowView("Pobrane");
             case CommandIds.AddQueue:
-                var queueItem = application.SelectedItem ?? current.CurrentItem;
+                var queueItem = application.ActionItem ?? current.CurrentItem;
                 var queued = current.ToggleQueue(queueItem);
                 AnnounceTemplate(
                     queued ? "queue.added" : "queue.removed",
@@ -228,7 +222,7 @@ public sealed class CommandRouter(
                     ("item", queueItem.Title));
                 return new(true);
             case CommandIds.TogglePlayNext:
-                var playNextItem = application.SelectedItem ?? current.CurrentItem;
+                var playNextItem = application.ActionItem ?? current.CurrentItem;
                 var playNext = current.TogglePlayNext(playNextItem);
                 AnnounceTemplate(
                     playNext ? "playNext.added" : "playNext.removed",

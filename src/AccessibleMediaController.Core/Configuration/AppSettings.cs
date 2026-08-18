@@ -99,9 +99,10 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 10;
+    public int SchemaVersion { get; set; } = 11;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
+    public SessionNavigationSettings SessionNavigation { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];
 }
 
@@ -109,4 +110,20 @@ public sealed class SearchHistorySettings
 {
     public Dictionary<string, List<string>> Entries { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class SessionNavigationSettings
+{
+    public Dictionary<string, SessionNavigationState> Sessions { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class SessionNavigationState
+{
+    public string CurrentView { get; set; } = "Multimedia";
+    public Dictionary<string, string?> SelectedItemIds { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> Filters { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    public bool PlayerActive { get; set; }
 }

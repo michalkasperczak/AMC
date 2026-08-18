@@ -29,7 +29,7 @@ public static class CommandIds
     public const string TimeElapsed = "information.timeElapsed";
     public const string TimeRemaining = "information.timeRemaining";
     public const string TimeTotal = "information.timeTotal";
-    public const string PlaybackStatus = "information.playbackStatus";
+    public const string ItemProperties = "information.itemProperties";
 
     public const string SessionList = "session.list";
     public const string SessionPrevious = "session.previous";
@@ -55,8 +55,6 @@ public static class CommandIds
     public const string ViewHistory = "view.history";
     public const string ViewNowPlaying = "view.nowPlaying";
     public const string OpenOfficialApp = "action.openOfficialApp";
-    public const string ItemInformation = "view.itemInformation";
-    public const string ExtendedInformation = "view.extendedInformation";
     public const string ViewOutputs = "view.outputs";
     public const string ViewDownloads = "view.downloads";
     public const string DownloadInService = "action.download.inService";

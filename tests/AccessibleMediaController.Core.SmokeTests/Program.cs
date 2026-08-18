@@ -29,6 +29,7 @@ var tests = new (string Name, Action Test)[]
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
     ("Historia wyszukiwania", TestSearchHistory),
+    ("Pamięć widoków sesji", TestSessionNavigationPersistence),
     ("Paleta poleceń", TestCommandPalette),
     ("Cofanie zmian przynależności", TestMembershipHistory),
     ("Krótkie komunikaty czasu", TestTimeCommands),
@@ -90,8 +91,8 @@ static void TestDefaultProfile()
     Equal(CommandIds.SearchAll, profile.Resolve(KeyChord.Parse("Shift+F")));
     Equal(CommandIds.DownloadInService, profile.Resolve(KeyChord.Parse("D")));
     Equal(CommandIds.DownloadToDisk, profile.Resolve(KeyChord.Parse("Shift+D")));
-    Equal(CommandIds.ItemInformation, profile.Resolve(KeyChord.Parse("I")));
-    Equal(CommandIds.PlaybackStatus, profile.Resolve(KeyChord.Parse("Shift+I")));
+    True(profile.Resolve(KeyChord.Parse("I")) is null, "I nie powinno mieć polecenia informacyjnego po prefiksie.");
+    True(profile.Resolve(KeyChord.Parse("Shift+I")) is null, "Shift+I nie powinno mieć polecenia informacyjnego po prefiksie.");
     Equal(CommandIds.TimeElapsed, profile.Resolve(KeyChord.Parse("Ctrl+E")));
     Equal(CommandIds.TimeRemaining, profile.Resolve(KeyChord.Parse("Ctrl+R")));
     Equal(CommandIds.TimeTotal, profile.Resolve(KeyChord.Parse("Ctrl+T")));
@@ -112,6 +113,8 @@ static void TestBuiltInProfileRefresh()
 
         var custom = oldBuiltIn.CreateEditableCopy("Własny stary profil");
         custom.Bindings[KeyChord.Parse("Ctrl+Enter").Canonical] = "transport.playSelected";
+        custom.Bindings[KeyChord.Parse("I").Canonical] = "view.itemInformation";
+        custom.Bindings[KeyChord.Parse("Shift+I").Canonical] = "information.playbackStatus";
         state.KeyboardProfiles.Add(custom);
         state.Settings.ActiveKeyboardProfileId = custom.Id;
         store.Save(state);
@@ -123,6 +126,8 @@ static void TestBuiltInProfileRefresh()
         True(refreshedBuiltIn.Resolve(KeyChord.Parse("Ctrl+1")) is null, "Profil wbudowany powinien otrzymać nową mapę.");
         Equal(CommandIds.SessionSlot(1), retainedCustom.Resolve(KeyChord.Parse("Ctrl+1")));
         Equal(CommandIds.ActivateSelected, retainedCustom.Resolve(KeyChord.Parse("Ctrl+Enter")));
+        True(retainedCustom.Resolve(KeyChord.Parse("I")) is null, "Usunięte polecenie informacji nie może pozostać w profilu.");
+        True(retainedCustom.Resolve(KeyChord.Parse("Shift+I")) is null, "Usunięty odczyt stanu nie może pozostać w profilu.");
         Equal(custom.Id, loaded.Settings.ActiveKeyboardProfileId);
     }
     finally
@@ -143,7 +148,7 @@ static void TestCommandCatalog()
     Equal("Otwórz folder z plikami audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Skocz do czasu", CommandCatalog.GetDisplayName(CommandIds.SeekToTime));
     Equal("Skocz do procentu", CommandCatalog.GetDisplayName(CommandIds.SeekToPercentage));
-    Equal("Odczytaj stan odtwarzania", CommandCatalog.GetDisplayName(CommandIds.PlaybackStatus));
+    Equal("Właściwości i informacje", CommandCatalog.GetDisplayName(CommandIds.ItemProperties));
     Equal("Zwiększ prędkość odtwarzania", CommandCatalog.GetDisplayName(CommandIds.PlaybackRateUp));
     Equal("Przywróć normalną prędkość odtwarzania", CommandCatalog.GetDisplayName(CommandIds.PlaybackRateReset));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
@@ -208,11 +213,13 @@ static void TestAudioParametersFormatting()
         SampleRateHz = 44_100
     };
     Equal("około 322 kb/s, 44,1 kHz", AudioParametersFormatter.Format(estimated, polish));
+    Equal("322 kb/s, 44,1 kHz", AudioParametersFormatter.FormatCompact(estimated, polish));
 
     Equal(
         "96 kHz",
         AudioParametersFormatter.Format(new MediaItem { SampleRateHz = 96_000 }, polish));
     Equal("brak danych audio", AudioParametersFormatter.Format(new MediaItem(), polish));
+    Equal(string.Empty, AudioParametersFormatter.FormatCompact(new MediaItem(), polish));
 }
 
 static void TestLegacyStateMigration()
@@ -685,6 +692,49 @@ static void TestSearchHistory()
     }
 }
 
+static void TestSessionNavigationPersistence()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-navigation-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.SessionNavigation.Sessions["tidal"] = new SessionNavigationState
+        {
+            CurrentView = "Ulubione",
+            PlayerActive = true,
+            SelectedItemIds = new Dictionary<string, string?>
+            {
+                ["Ulubione"] = "tidal-14"
+            },
+            Filters = new Dictionary<string, string>
+            {
+                ["Ulubione"] = "północ"
+            }
+        };
+        state.SessionNavigation.Sessions["appleMusic"] = new SessionNavigationState
+        {
+            CurrentView = "Albumy",
+            PlayerActive = false
+        };
+
+        store.Save(state);
+        var loaded = store.LoadOrCreate();
+        var tidal = loaded.SessionNavigation.Sessions["TIDAL"];
+        Equal("Ulubione", tidal.CurrentView);
+        Equal(true, tidal.PlayerActive);
+        Equal("tidal-14", tidal.SelectedItemIds["ulubione"]);
+        Equal("północ", tidal.Filters["ULUBIONE"]);
+        Equal("Albumy", loaded.SessionNavigation.Sessions["appleMusic"].CurrentView);
+        Equal(false, loaded.SessionNavigation.Sessions["appleMusic"].PlayerActive);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
 static void TestCommandPalette()
 {
     var profile = KeyboardProfile.CreateDefault();
@@ -708,15 +758,11 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
     Equal("Ctrl+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToTime).LocalShortcut);
     Equal("Ctrl+Shift+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToPercentage).LocalShortcut);
-    var itemInformation = entries.Single(entry => entry.CommandId == CommandIds.ItemInformation);
-    Equal("Ctrl+I", itemInformation.LocalShortcut);
-    Equal("I", itemInformation.PrefixShortcut);
-    var playbackStatus = entries.Single(entry => entry.CommandId == CommandIds.PlaybackStatus);
-    Equal("Ctrl+Shift+I", playbackStatus.LocalShortcut);
-    Equal("Shift+I", playbackStatus.PrefixShortcut);
-    True(
-        entries.Single(entry => entry.CommandId == CommandIds.ExtendedInformation).PrefixShortcut is null,
-        "Rozszerzone informacje pozostają w menu i palecie bez stałego skrótu prefiksowego.");
+    var itemProperties = entries.Single(entry => entry.CommandId == CommandIds.ItemProperties);
+    Equal("Alt+Enter", itemProperties.LocalShortcut);
+    True(itemProperties.PrefixShortcut is null, "Właściwości nie mają skrótu prefiksowego.");
+    True(entries.All(entry => entry.CommandId != "view.itemInformation"), "Stare polecenie informacji nie może być w palecie.");
+    True(entries.All(entry => entry.CommandId != "information.playbackStatus"), "Stary odczyt stanu nie może być w palecie.");
     Equal("Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward10).LocalShortcut);
     Equal("Shift+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward30).LocalShortcut);
     Equal("Ctrl+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward60).LocalShortcut);
@@ -941,8 +987,8 @@ static void TestTimeCommands()
     True(actions.SeekToTimeShown, "Router powinien otworzyć okno skoku do czasu.");
     router.Execute(CommandIds.SeekToPercentage);
     True(actions.SeekToPercentageShown, "Router powinien otworzyć okno skoku do procentu.");
-    router.Execute(CommandIds.PlaybackStatus);
-    True(actions.PlaybackStatusAnnounced, "Router powinien zlecić odczyt stanu odtwarzania.");
+    router.Execute(CommandIds.ItemProperties);
+    True(actions.ItemPropertiesShown, "Router powinien otworzyć jedno okno właściwości i informacji.");
     router.Execute(CommandIds.SettingsMessageTemplates);
     Equal(SettingsTarget.MessageTemplates, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsPercentageSeekAnnouncement);
@@ -1063,6 +1109,7 @@ sealed class FakeSink : IAnnouncementSink
 sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
 {
     public MediaItem? SelectedItem { get; } = selectedItem;
+    public MediaItem? ActionItem => SelectedItem;
     public bool CommandPaletteShown { get; private set; }
     public SettingsTarget? LastSettingsTarget { get; private set; }
     public bool MessagesToggled { get; private set; }
@@ -1070,13 +1117,13 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
     public bool SeekMessagesToggled { get; private set; }
     public bool SeekToTimeShown { get; private set; }
     public bool SeekToPercentageShown { get; private set; }
-    public bool PlaybackStatusAnnounced { get; private set; }
+    public bool ItemPropertiesShown { get; private set; }
     public void ShowCurrentSession(string viewName) { }
     public void ShowFilter() { }
     public void ShowSessionList() { }
     public void ShowPlaylistManager() { }
     public void ShowCommandPalette() => CommandPaletteShown = true;
-    public void ShowItemInformation(bool extended) { }
+    public void ShowItemProperties() => ItemPropertiesShown = true;
     public void OpenOfficialApplication() { }
     public void ShowHelp() { }
     public void ShowSettings(SettingsTarget target) => LastSettingsTarget = target;
@@ -1087,7 +1134,6 @@ sealed class FakeActions(MediaItem selectedItem) : IApplicationActions
     public void OpenLocalFolder() { }
     public void ShowSeekToTime() => SeekToTimeShown = true;
     public void ShowSeekToPercentage() => SeekToPercentageShown = true;
-    public void AnnouncePlaybackStatus() => PlaybackStatusAnnounced = true;
 }
 
 sealed class FakeMediaOutput : IMediaOutput

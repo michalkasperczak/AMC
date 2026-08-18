@@ -32,8 +32,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const string PlayerViewName = "Teraz odtwarzane";
     private string _currentView = DefaultBrowserView;
     private List<MediaItemRow> _unfilteredItems = [];
-    private readonly Stack<string> _backHistory = [];
-    private readonly Stack<string> _forwardHistory = [];
+    private readonly Dictionary<string, SessionViewHistory> _viewHistories =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly MediaMembershipHistory _membershipHistory = new();
     private bool _initialFocusApplied;
     private bool _deferAnnouncements;
@@ -50,8 +50,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly List<MediaItem> _localItems = [];
     private readonly DispatcherTimer _playerUiTimer;
     private bool _playerViewActive;
-    private string _playerReturnView = DefaultBrowserView;
-    private string? _playerReturnItemId;
+    private bool _restoringSessionNavigation;
     private readonly System.Windows.Forms.StatusStrip _playbackStatusBar;
     private readonly System.Windows.Forms.ToolStripStatusLabel _playbackStatusLabel;
 
@@ -72,7 +71,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     public MainWindow(PersistedState state, ConfigurationStore store)
     {
         InitializeComponent();
-        const string initialStatus = "Brak danych audio, pauza, 0:00";
+        const string initialStatus = "pauza, 0:00";
         _playbackStatusLabel = new System.Windows.Forms.ToolStripStatusLabel
         {
             AccessibleName = initialStatus,
@@ -105,12 +104,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _localOutput.PlaybackEnded += LocalOutput_PlaybackEnded;
         ApplyDetailedHints();
         RebuildCore();
-        RefreshCurrentView();
+        RestoreCurrentSessionNavigationState();
         UpdatePlaybackStatusBar();
         _playerUiTimer.Start();
     }
 
     public MediaItem? SelectedItem => (MediaList.SelectedItem as MediaItemRow)?.Item;
+    public MediaItem? ActionItem => _playerViewActive
+        ? _sessions.Current.CurrentItem
+        : SelectedItem ?? _sessions.Current.CurrentItem;
 
     public void Announce(string message)
     {
@@ -157,7 +159,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (IsSearchView(viewName))
         {
-            HidePlayerForBrowserNavigation();
+            if (_playerViewActive)
+            {
+                Announce("Wyszukiwanie jest dostępne na listach");
+                return;
+            }
             ShowSearch(string.Equals(viewName, "Szukaj we wszystkich usługach", StringComparison.Ordinal));
             return;
         }
@@ -191,9 +197,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         };
         if (dialog.ShowDialog() == true && dialog.SelectedResult is { } result)
         {
-            _sessions.SelectSession(result.SessionId);
-            NavigateTo(DefaultBrowserView);
-            SelectMediaItem(result.Item.Id);
+            SelectSessionBrowserItem(result.SessionId, result.Item.Id);
             if (allServices) PrepareSearchReturnContext(result.Item.Id);
             RestoreMediaListFocusAfterRefresh();
             return;
@@ -201,9 +205,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (allServices && dialog.LastDirectActionResult is { } lastDirectResult)
         {
-            _sessions.SelectSession(lastDirectResult.SessionId);
-            NavigateTo(DefaultBrowserView);
-            SelectMediaItem(lastDirectResult.Item.Id);
+            SelectSessionBrowserItem(lastDirectResult.SessionId, lastDirectResult.Item.Id);
             PrepareSearchReturnContext(lastDirectResult.Item.Id);
         }
         else if (allServices && _sessions.Current.Id != sessionBeforeSearch)
@@ -213,9 +215,35 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreMediaListFocusAfterRefresh();
     }
 
+    private DemoMediaSession? SelectSessionBrowserItem(string sessionId, string itemId)
+    {
+        CaptureCurrentSessionNavigationState();
+        var session = _sessions.SelectSession(sessionId);
+        if (session is null) return null;
+
+        var navigation = GetSessionNavigationState(session.Id);
+        navigation.CurrentView = DefaultBrowserView;
+        navigation.PlayerActive = false;
+        navigation.SelectedItemIds[DefaultBrowserView] = itemId;
+        _currentView = DefaultBrowserView;
+        _playerViewActive = false;
+        PlayerPanel.Visibility = Visibility.Collapsed;
+        BrowserHeaderPanel.Visibility = Visibility.Visible;
+        BrowserActionPanel.Visibility = Visibility.Visible;
+        MediaList.Visibility = Visibility.Visible;
+        RestoreFilterForCurrentView(navigation);
+        RefreshCurrentView(preferredItemId: itemId);
+        SelectMediaItem(itemId);
+        return session;
+    }
+
     public void ShowFilter()
     {
-        HidePlayerForBrowserNavigation();
+        if (_playerViewActive)
+        {
+            Announce("Wyszukiwanie jest dostępne na listach");
+            return;
+        }
         Activate();
         FocusFilter();
     }
@@ -224,14 +252,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (!_playerViewActive)
         {
-            _playerReturnView = _currentView;
-            _playerReturnItemId = SelectedItem?.Id;
+            CaptureCurrentSessionNavigationState();
             _playerViewActive = true;
             BrowserHeaderPanel.Visibility = Visibility.Collapsed;
             BrowserActionPanel.Visibility = Visibility.Collapsed;
             MediaList.Visibility = Visibility.Collapsed;
             PlayerPanel.Visibility = Visibility.Visible;
         }
+        GetSessionNavigationState(_sessions.Current.Id).PlayerActive = true;
 
         UpdatePlayerView(true);
         UpdateWindowTitle();
@@ -248,13 +276,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         BrowserHeaderPanel.Visibility = Visibility.Visible;
         BrowserActionPanel.Visibility = Visibility.Visible;
         MediaList.Visibility = Visibility.Visible;
-
-        if (!string.Equals(_currentView, _playerReturnView, StringComparison.Ordinal))
-        {
-            _currentView = _playerReturnView;
-            RefreshCurrentView();
-        }
-        if (_playerReturnItemId is { } itemId) SelectMediaItem(itemId);
+        var navigation = GetSessionNavigationState(_sessions.Current.Id);
+        navigation.PlayerActive = false;
+        _currentView = navigation.CurrentView;
+        RestoreFilterForCurrentView(navigation);
+        RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
         UpdateWindowTitle();
         RestoreMediaListFocusAfterRefresh();
     }
@@ -267,6 +293,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         BrowserHeaderPanel.Visibility = Visibility.Visible;
         BrowserActionPanel.Visibility = Visibility.Visible;
         MediaList.Visibility = Visibility.Visible;
+        GetSessionNavigationState(_sessions.Current.Id).PlayerActive = false;
     }
 
     private void FocusPlayerView()
@@ -321,7 +348,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _playbackStatusLabel.AccessibleName = text;
     }
 
-    private string BuildPlaybackStatusText(bool includeVolume = false)
+    private string BuildPlaybackStatusText()
     {
         var session = _sessions.Current;
         var item = session.CurrentItem;
@@ -330,23 +357,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var time = item.Duration > TimeSpan.Zero
             ? $"{CommandRouter.FormatTime(position)} z {CommandRouter.FormatTime(item.Duration)}"
             : $"{CommandRouter.FormatTime(position)}, czas całkowity nieznany";
-        var audioParameters = AudioParametersFormatter.Format(item);
-        var volume = includeVolume ? $", głośność {session.Volume}%" : string.Empty;
-        var playbackRate = Math.Abs(session.PlaybackRate - 1d) < 0.001d
-            ? string.Empty
-            : $", {CommandRouter.FormatPlaybackRate(session.PlaybackRate).ToLowerInvariant()}";
-        return $"{audioParameters}, {state.ToLowerInvariant()}{playbackRate}, {time}{volume}, {item.Title}, {session.DisplayName}";
+        var parts = new List<string>();
+        var audioParameters = AudioParametersFormatter.FormatCompact(item);
+        if (!string.IsNullOrWhiteSpace(audioParameters)) parts.Add(audioParameters);
+        var playbackState = state.ToLowerInvariant();
+        if (Math.Abs(session.PlaybackRate - 1d) >= 0.001d)
+        {
+            playbackState += $", {CommandRouter.FormatPlaybackRate(session.PlaybackRate).ToLowerInvariant()}";
+        }
+        parts.Add(playbackState);
+        parts.Add(time);
+        parts.Add(item.Title);
+        parts.Add(session.DisplayName);
+        return string.Join(", ", parts);
     }
 
     private static string FormatPlaybackRateMultiplier(double playbackRate) =>
         $"{playbackRate.ToString("0.00", CultureInfo.CurrentCulture)} razy";
-
-    public void AnnouncePlaybackStatus()
-    {
-        var text = BuildPlaybackStatusText(includeVolume: true);
-        UpdatePlaybackStatusBar();
-        AnnounceEssential(text);
-    }
 
     public void ShowSeekToTime()
     {
@@ -411,7 +438,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void ShowPlaylistManager()
     {
-        var item = SelectedItem ?? _sessions.Current.CurrentItem;
+        var item = ActionItem ?? _sessions.Current.CurrentItem;
         var dialog = new PlaylistWindow(item) { Owner = this };
         if (dialog.ShowDialog() == true)
         {
@@ -438,15 +465,122 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreMediaListFocusAfterRefresh();
     }
 
-    public void ShowItemInformation(bool extended)
+    public void ShowItemProperties()
     {
-        var item = _playerViewActive
-            ? _sessions.Current.CurrentItem
-            : SelectedItem ?? _sessions.Current.CurrentItem;
-        var text = $"{item.KindLabel}: {item.Title}\nWykonawca: {item.Artist}\nCzas: {CommandRouter.FormatTime(item.Duration)}\nUsługa: {_sessions.Current.DisplayName}";
-        if (!string.IsNullOrWhiteSpace(item.Source)) text += $"\nPlik: {item.Source}";
-        if (extended) text += $"\nIdentyfikator demonstracyjny: {item.Id}";
-        MessageBox.Show(text, "Informacje o elemencie", MessageBoxButton.OK, MessageBoxImage.Information);
+        var item = ActionItem ?? _sessions.Current.CurrentItem;
+        var activeOwner = Application.Current.Windows
+            .OfType<Window>()
+            .FirstOrDefault(window => window.IsActive) ?? this;
+        var dialog = new InformationWindow(BuildItemPropertiesText(item)) { Owner = activeOwner };
+        dialog.ShowDialog();
+        if (!ReferenceEquals(activeOwner, this)) return;
+        Activate();
+        if (_playerViewActive) FocusPlayerView();
+        else RestoreMediaListFocusAfterRefresh();
+    }
+
+    private string BuildItemPropertiesText(MediaItem item)
+    {
+        var session = _sessions.Current;
+        var isCurrent = string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal);
+        var sections = new List<string>
+        {
+            string.Join(Environment.NewLine,
+            new string?[]
+            {
+                "Element",
+                $"Tytuł: {item.Title}",
+                string.IsNullOrWhiteSpace(item.Artist) ? null : $"Wykonawca: {item.Artist}",
+                $"Rodzaj: {item.KindLabel}",
+                item.Duration > TimeSpan.Zero ? $"Czas: {CommandRouter.FormatTime(item.Duration)}" : null,
+                $"Usługa: {session.DisplayName}"
+            }.Where(value => value is not null).Select(value => value!))
+        };
+
+        var playbackLines = new List<string>
+        {
+            "Odtwarzanie",
+            $"Aktualnie odtwarzany: {(isCurrent ? "tak" : "nie")}",
+            $"Ulubiony: {(item.IsFavorite ? "tak" : "nie")}",
+            $"W bibliotece: {(item.IsInLibrary ? "tak" : "nie")}",
+            $"W kolejce: {(item.IsInQueue ? "tak" : "nie")}",
+            $"Odtwarzaj jako następne: {(item.IsPlayNext ? "tak" : "nie")}",
+        };
+        if (isCurrent)
+        {
+            playbackLines.Insert(2, $"Stan: {(session.IsPlaying ? "odtwarzanie" : "pauza")}");
+            playbackLines.Insert(3, $"Pozycja: {CommandRouter.FormatTime(session.Position)}");
+            playbackLines.Insert(4, $"Prędkość: {FormatPlaybackRateMultiplier(session.PlaybackRate)}");
+            playbackLines.Insert(5, $"Głośność: {session.Volume}%");
+        }
+        sections.Add(string.Join(Environment.NewLine, playbackLines));
+
+        var technicalLines = new List<string> { "Techniczne" };
+        if (item.BitrateKbps is int bitrate)
+        {
+            technicalLines.Add($"Bitrate: {bitrate} kb/s{(item.IsBitrateEstimated ? " (wartość obliczona)" : string.Empty)}");
+        }
+        if (item.SampleRateHz is int sampleRate && sampleRate > 0)
+        {
+            technicalLines.Add($"Częstotliwość próbkowania: {(sampleRate / 1000d).ToString("0.#", CultureInfo.CurrentCulture)} kHz");
+        }
+        string? localPath = null;
+        if (TryGetLocalPath(item.Source, out var resolvedPath))
+        {
+            localPath = resolvedPath;
+            var extension = Path.GetExtension(localPath).TrimStart('.');
+            if (!string.IsNullOrWhiteSpace(extension))
+            {
+                technicalLines.Add($"Format: {extension.ToUpperInvariant()}");
+            }
+            try
+            {
+                technicalLines.Add($"Rozmiar: {FormatFileSize(new FileInfo(localPath).Length)}");
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // File details can disappear between opening the list and the dialog.
+            }
+        }
+        if (technicalLines.Count > 1) sections.Add(string.Join(Environment.NewLine, technicalLines));
+
+        if (localPath is not null)
+        {
+            sections.Add($"Źródło{Environment.NewLine}Plik: {localPath}");
+        }
+        else
+        {
+            sections.Add($"Źródło{Environment.NewLine}Usługa: {session.DisplayName}");
+        }
+
+        return string.Join(Environment.NewLine + Environment.NewLine, sections);
+    }
+
+    private static bool TryGetLocalPath(string? source, out string localPath)
+    {
+        localPath = string.Empty;
+        if (string.IsNullOrWhiteSpace(source)
+            || Uri.TryCreate(source, UriKind.Absolute, out var uri) && !uri.IsFile)
+        {
+            return false;
+        }
+
+        if (!Path.IsPathFullyQualified(source)) return false;
+        localPath = source;
+        return true;
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB"];
+        var value = (double)Math.Max(0, bytes);
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1)
+        {
+            value /= 1024;
+            unit++;
+        }
+        return $"{value.ToString(unit == 0 ? "0" : "0.##", CultureInfo.CurrentCulture)} {units[unit]}";
     }
 
     public void OpenOfficialApplication()
@@ -462,7 +596,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "strzałki sterują czasem i głośnością, Ctrl+E/R/T podaje czas. " +
             "U otwiera Ulubione, Shift+U zmienia stan ulubionych, A otwiera Albumy, P otwiera Playlisty. " +
             "K filtruje bieżącą listę, F wyszukuje w bieżącej usłudze; warianty z Shift otwierają " +
-            "paletę poleceń i wyszukiwanie globalne. I otwiera informacje o elemencie, a Shift+I odczytuje stan odtwarzania.\n\n" +
+            "paletę poleceń i wyszukiwanie globalne.\n\n" +
             "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+0 otwiera listę sesji, " +
             "Ctrl+Page Up i Ctrl+Page Down zmieniają sesję. " +
             "Ctrl+O otwiera lokalne pliki audio, a Ctrl+Shift+O otwiera folder wraz z podfolderami. " +
@@ -481,7 +615,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Escape wraca do wcześniejszej listy. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
             "Ctrl+Shift+G chwilowo włącza lub wyłącza wszystkie automatyczne komunikaty odtwarzacza; ich kategorie wybiera się osobno w Ustawieniach. " +
             "NVDA+End odczytuje pasek stanu z bieżącym czasem i parametrami audio. " +
-            "Ctrl+I pokazuje informacje o elemencie, a Ctrl+Shift+I odczytuje pełny stan odtwarzania. " +
+            "Alt+Enter otwiera jedno dostępne okno Właściwości i informacje. " +
+            "Ctrl+K, Ctrl+F i Ctrl+Shift+F nie opuszczają odtwarzacza; wyszukiwanie jest dostępne po powrocie do listy. " +
+            "Skróty widoków opuszczają odtwarzacz, a F6 wraca do niego. " +
             "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
             "Escape w filtrze lub na głównym przycisku wraca do listy; aktywny filtr jest wtedy czyszczony. " +
@@ -603,8 +739,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             addedItems,
             _localOutput,
             4);
-        _sessions.SelectSession(session.Id);
-        NavigateTo(DefaultBrowserView);
 
         var selected = addedItems.FirstOrDefault()
             ?? session.Items.FirstOrDefault(item => string.Equals(
@@ -612,7 +746,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 paths.FirstOrDefault(),
                 StringComparison.OrdinalIgnoreCase))
             ?? session.CurrentItem;
-        SelectMediaItem(selected.Id);
+        SelectSessionBrowserItem(session.Id, selected.Id);
         var countText = addedItems.Count == 0
             ? "pliki były już na liście"
             : $"dodano {FormatFileCount(addedItems.Count)}";
@@ -670,6 +804,69 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
         }
         _router = new CommandRouter(_sessions, _state.Settings, this, this);
+    }
+
+    private SessionNavigationState GetSessionNavigationState(string sessionId)
+    {
+        if (!_state.SessionNavigation.Sessions.TryGetValue(sessionId, out var navigation))
+        {
+            navigation = new SessionNavigationState();
+            _state.SessionNavigation.Sessions[sessionId] = navigation;
+        }
+        return navigation;
+    }
+
+    private SessionViewHistory GetSessionViewHistory(string sessionId)
+    {
+        if (!_viewHistories.TryGetValue(sessionId, out var history))
+        {
+            history = new SessionViewHistory();
+            _viewHistories[sessionId] = history;
+        }
+        return history;
+    }
+
+    private void CaptureCurrentSessionNavigationState()
+    {
+        if (_sessions is null || _restoringSessionNavigation) return;
+        var navigation = GetSessionNavigationState(_sessions.Current.Id);
+        navigation.CurrentView = _currentView;
+        navigation.PlayerActive = _playerViewActive;
+        navigation.Filters[_currentView] = FilterBox.Text;
+        if (SelectedItem is { } selected)
+        {
+            navigation.SelectedItemIds[_currentView] = selected.Id;
+        }
+    }
+
+    private void RestoreCurrentSessionNavigationState()
+    {
+        var navigation = GetSessionNavigationState(_sessions.Current.Id);
+        _currentView = string.IsNullOrWhiteSpace(navigation.CurrentView)
+            ? DefaultBrowserView
+            : navigation.CurrentView;
+        RestoreFilterForCurrentView(navigation);
+        RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
+        _playerViewActive = navigation.PlayerActive;
+        BrowserHeaderPanel.Visibility = _playerViewActive ? Visibility.Collapsed : Visibility.Visible;
+        BrowserActionPanel.Visibility = _playerViewActive ? Visibility.Collapsed : Visibility.Visible;
+        MediaList.Visibility = _playerViewActive ? Visibility.Collapsed : Visibility.Visible;
+        PlayerPanel.Visibility = _playerViewActive ? Visibility.Visible : Visibility.Collapsed;
+        if (_playerViewActive) UpdatePlayerView(true);
+        UpdateWindowTitle();
+    }
+
+    private void RestoreFilterForCurrentView(SessionNavigationState navigation)
+    {
+        _restoringSessionNavigation = true;
+        try
+        {
+            FilterBox.Text = navigation.Filters.GetValueOrDefault(_currentView) ?? string.Empty;
+        }
+        finally
+        {
+            _restoringSessionNavigation = false;
+        }
     }
 
     private void LocalOutput_DurationAvailable(object? sender, MediaDurationAvailableEventArgs e)
@@ -759,6 +956,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private CommandExecutionResult ExecuteCommand(string commandId)
     {
         var oldSession = _sessions.Current.Id;
+        CaptureCurrentSessionNavigationState();
         var previousIndex = MediaList.SelectedIndex;
         var restoreListFocus = MediaList.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem;
         var navigatesSession = commandId is CommandIds.SessionPrevious or CommandIds.SessionNext
@@ -770,7 +968,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.TogglePlayNext;
         var changedSession = changesListMembership ? _sessions.Current : null;
         var changedItem = changesListMembership
-            ? SelectedItem ?? _sessions.Current.CurrentItem
+            ? ActionItem ?? _sessions.Current.CurrentItem
             : null;
         MediaMembershipState? previousMembership = changedItem is null
             ? null
@@ -799,18 +997,34 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 BuildUndoAnnouncement(commandId, changedItem, previous));
         }
         var sessionChanged = _sessions.Current.Id != oldSession;
-        if (sessionChanged || changesListMembership)
+        if (sessionChanged)
+        {
+            RestoreCurrentSessionNavigationState();
+        }
+        else if (changesListMembership)
         {
             RefreshCurrentView(changesListMembership ? previousIndex : null);
+        }
+        if (sessionChanged || changesListMembership)
+        {
             if (sessionChanged
                 && mergeSessionAnnouncementWithFocus
+                && !_playerViewActive
                 && _state.Settings.Messages.Enabled
                 && _deferredAnnouncement is { } sessionContext)
             {
                 PrepareSelectedItemFocusContext(sessionContext);
                 _deferredAnnouncement = null;
             }
-            if (restoreListFocus) RestoreMediaListFocusAfterRefresh();
+            if (sessionChanged)
+            {
+                if (_playerViewActive) Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.Loaded);
+                else RestoreMediaListFocusAfterRefresh();
+            }
+            else if (restoreListFocus)
+            {
+                RestoreMediaListFocusAfterRefresh();
+            }
         }
         if (_deferredAnnouncement is { } announcement)
         {
@@ -826,10 +1040,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return result;
     }
 
-    private void RefreshCurrentView(int? fallbackIndex = null)
+    private void RefreshCurrentView(int? fallbackIndex = null, string? preferredItemId = null)
     {
         ClearFocusContext();
-        var preferredItemId = SelectedItem?.Id;
+        preferredItemId ??= SelectedItem?.Id;
         SessionHeading.Text = _sessions.Current.DisplayName;
         ViewHeading.Text = _currentView;
         UpdateWindowTitle();
@@ -939,6 +1153,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void MediaList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (!_restoringSessionNavigation && !_playerViewActive && SelectedItem is { } selected)
+        {
+            GetSessionNavigationState(_sessions.Current.Id).SelectedItemIds[_currentView] = selected.Id;
+        }
         if (_focusContextContainer is null) return;
         if (SelectedItem?.Id == _focusContextItemId) return;
         ClearFocusContext();
@@ -1130,7 +1348,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _store.Save(_state);
         ApplyDetailedHints();
         RebuildCore();
-        RefreshCurrentView();
+        RestoreCurrentSessionNavigationState();
         string announcement;
         try
         {
@@ -1183,14 +1401,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void NavigateTo(string viewName)
     {
+        CaptureCurrentSessionNavigationState();
         HidePlayerForBrowserNavigation();
+        var navigation = GetSessionNavigationState(_sessions.Current.Id);
+        var history = GetSessionViewHistory(_sessions.Current.Id);
         if (!string.Equals(viewName, _currentView, StringComparison.Ordinal))
         {
-            _backHistory.Push(_currentView);
-            _forwardHistory.Clear();
+            history.Back.Push(_currentView);
+            history.Forward.Clear();
             _currentView = viewName;
         }
-        RefreshCurrentView();
+        navigation.CurrentView = _currentView;
+        navigation.PlayerActive = false;
+        RestoreFilterForCurrentView(navigation);
+        RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
     }
 
     private void NavigateBack()
@@ -1200,14 +1424,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ReturnFromPlayerToList();
             return;
         }
-        if (_backHistory.Count == 0)
+        var navigation = GetSessionNavigationState(_sessions.Current.Id);
+        var history = GetSessionViewHistory(_sessions.Current.Id);
+        CaptureCurrentSessionNavigationState();
+        if (history.Back.Count == 0)
         {
             Announce("Brak poprzedniego widoku");
             return;
         }
-        _forwardHistory.Push(_currentView);
-        _currentView = _backHistory.Pop();
-        RefreshCurrentView();
+        history.Forward.Push(_currentView);
+        _currentView = history.Back.Pop();
+        navigation.CurrentView = _currentView;
+        RestoreFilterForCurrentView(navigation);
+        RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
         PrepareViewFocusContext(_currentView);
         RestoreMediaListFocusAfterRefresh();
     }
@@ -1215,14 +1444,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void NavigateForward()
     {
         if (_playerViewActive) return;
-        if (_forwardHistory.Count == 0)
+        var navigation = GetSessionNavigationState(_sessions.Current.Id);
+        var history = GetSessionViewHistory(_sessions.Current.Id);
+        CaptureCurrentSessionNavigationState();
+        if (history.Forward.Count == 0)
         {
             Announce("Brak następnego widoku");
             return;
         }
-        _backHistory.Push(_currentView);
-        _currentView = _forwardHistory.Pop();
-        RefreshCurrentView();
+        history.Back.Push(_currentView);
+        _currentView = history.Forward.Pop();
+        navigation.CurrentView = _currentView;
+        RestoreFilterForCurrentView(navigation);
+        RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
         PrepareViewFocusContext(_currentView);
         RestoreMediaListFocusAfterRefresh();
     }
@@ -1355,6 +1589,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (TryHandleItemActionShortcut(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.O)
         {
             OpenLocalFolder();
@@ -1418,31 +1658,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (modifiers == ModifierKeys.Alt && e.SystemKey == Key.Right)
         {
             NavigateForward();
-            e.Handled = true;
-        }
-        else if (modifiers == ModifierKeys.Alt && e.SystemKey == Key.Enter)
-        {
-            ShowItemInformation(false);
-            e.Handled = true;
-        }
-        else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.U)
-        {
-            ExecuteCommand(CommandIds.ToggleFavorite);
-            e.Handled = true;
-        }
-        else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.P)
-        {
-            ShowPlaylistManager();
-            e.Handled = true;
-        }
-        else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.Q)
-        {
-            ExecuteCommand(CommandIds.AddQueue);
-            e.Handled = true;
-        }
-        else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.L)
-        {
-            ExecuteCommand(CommandIds.ToggleLibrary);
             e.Handled = true;
         }
         else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.E)
@@ -1546,11 +1761,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
             (ModifierKeys.Control, Key.K) => CommandIds.FilterCurrent,
             (ModifierKeys.Control, Key.F) => CommandIds.SearchCurrent,
-            (ModifierKeys.Control, Key.I) => CommandIds.ItemInformation,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.A) => CommandIds.ViewAlbums,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.F) => CommandIds.SearchAll,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.G) => CommandIds.SettingsToggleSeekMessages,
-            (ModifierKeys.Control | ModifierKeys.Shift, Key.I) => CommandIds.PlaybackStatus,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.K) => CommandIds.CommandPalette,
             _ => null
         };
@@ -1617,6 +1830,32 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return true;
     }
 
+    private bool TryHandleItemActionShortcut(KeyEventArgs e)
+    {
+        if (!_playerViewActive && !MediaList.IsKeyboardFocusWithin) return false;
+
+        var modifiers = Keyboard.Modifiers;
+        if (modifiers == ModifierKeys.Alt && e.SystemKey == Key.Enter)
+        {
+            ExecuteCommand(CommandIds.ItemProperties);
+            return true;
+        }
+
+        var commandId = (modifiers, e.Key) switch
+        {
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.U) => CommandIds.ToggleFavorite,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.P) => CommandIds.ManagePlaylists,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.Q) => CommandIds.AddQueue,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.L) => CommandIds.ToggleLibrary,
+            (ModifierKeys.Shift, Key.Enter) => CommandIds.AddQueue,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.Enter) => CommandIds.TogglePlayNext,
+            _ => null
+        };
+        if (commandId is null) return false;
+        ExecuteCommand(commandId);
+        return true;
+    }
+
     private void ApplyDetailedHints()
     {
         var helpText = _state.Settings.Messages.DetailedHints
@@ -1641,11 +1880,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         SearchResultAction action,
         bool _)
     {
-        var session = _sessions.SelectSession(result.SessionId);
+        var session = SelectSessionBrowserItem(result.SessionId, result.Item.Id);
         if (session is null) return "Wybrana sesja nie jest już dostępna";
-
-        NavigateTo(DefaultBrowserView);
-        SelectMediaItem(result.Item.Id);
 
         _capturedAnnouncement = null;
         _captureAnnouncements = true;
@@ -1666,7 +1902,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     ExecuteCommand(CommandIds.ToggleFavorite);
                     break;
                 case SearchResultAction.Information:
-                    ShowItemInformation(false);
+                    ShowItemProperties();
                     break;
             }
         }
@@ -1780,6 +2016,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
+        CaptureCurrentSessionNavigationState();
         _playerUiTimer.Stop();
         _playerUiTimer.Tick -= PlayerUiTimer_Tick;
         _windowSource?.RemoveHook(WindowMessageHook);
@@ -1791,6 +2028,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void FilterBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
     {
+        if (_restoringSessionNavigation) return;
+        GetSessionNavigationState(_sessions.Current.Id).Filters[_currentView] = FilterBox.Text;
         ApplyFilter(SelectedItem?.Id);
         StatusText.Text = string.IsNullOrWhiteSpace(FilterBox.Text)
             ? "Gotowy"
@@ -1807,15 +2046,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PlaybackRateReset_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaybackRateReset);
     private void SeekToTime_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekToTime);
     private void SeekToPercentage_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekToPercentage);
-    private void PlaybackStatus_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaybackStatus);
     private void PlayerBack_Click(object sender, RoutedEventArgs e) => ReturnFromPlayerToList();
     private void ToggleSelectedPlayback_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ActivateSelected);
     private void PlayNext_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.TogglePlayNext);
     private void Queue_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddQueue);
     private void Favorite_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleFavorite);
     private void Playlists_Click(object sender, RoutedEventArgs e) => ShowPlaylistManager();
-    private void Information_Click(object sender, RoutedEventArgs e) => ShowItemInformation(false);
-    private void ExtendedInformation_Click(object sender, RoutedEventArgs e) => ShowItemInformation(true);
+    private void Information_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemProperties);
     private void OfficialApp_Click(object sender, RoutedEventArgs e) => OpenOfficialApplication();
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelected();
     private void Undo_Click(object sender, RoutedEventArgs e) => UndoLastMembershipChange();
@@ -1845,7 +2082,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void AlbumsView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewAlbums);
     private void Filter_Click(object sender, RoutedEventArgs e)
     {
-        FocusFilter();
+        ShowFilter();
     }
     private void SearchCurrent_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SearchCurrent);
     private void SearchAll_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SearchAll);
@@ -1875,5 +2112,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         public override string ToString() => Label;
+    }
+
+    private sealed class SessionViewHistory
+    {
+        public Stack<string> Back { get; } = [];
+        public Stack<string> Forward { get; } = [];
     }
 }

@@ -65,9 +65,9 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+."
                           Click="PlaybackRateReset_Click" />
                 <Separator />
-                <MenuItem Header="_Odczytaj stan odtwarzania" InputGestureText="Ctrl+Shift+I"
-                          automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+I"
-                          Click="PlaybackStatus_Click" />
+                <MenuItem Header="_Właściwości i informacje" InputGestureText="Alt+Enter"
+                          automation:AutomationProperties.AcceleratorKey="Alt+Enter"
+                          Click="Information_Click" />
             </MenuItem>
             <MenuItem Header="_Widok">
                 <MenuItem Header="_Teraz odtwarzane" InputGestureText="F6"
@@ -141,9 +141,8 @@
                     <MenuItem Header="Zmień przynależność do playlist…" InputGestureText="Ctrl+Shift+P"
                               automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+P" Click="Playlists_Click" />
                     <Separator />
-                    <MenuItem Header="Informacje" InputGestureText="Ctrl+I"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+I" Click="Information_Click" />
-                    <MenuItem Header="Rozszerzone informacje" Click="ExtendedInformation_Click" />
+                    <MenuItem Header="Właściwości i informacje" InputGestureText="Alt+Enter"
+                              automation:AutomationProperties.AcceleratorKey="Alt+Enter" Click="Information_Click" />
                     <MenuItem Header="Otwórz w oficjalnej aplikacji" Click="OfficialApp_Click" />
                     <MenuItem Header="Usuń z bieżącego widoku" InputGestureText="Delete"
                               automation:AutomationProperties.AcceleratorKey="Delete" Click="Remove_Click" />
@@ -173,14 +172,14 @@
                             Click="PlayerBackward_Click" />
                     <Button MinWidth="145" Margin="0,0,8,8" Content="_Przewiń 10 sekund"
                             Click="PlayerForward_Click" />
-                    <Button MinWidth="125" Margin="0,0,8,8" Content="C_iszej"
+                    <Button MinWidth="125" Margin="0,0,8,8" Content="_Ciszej"
                             Click="PlayerVolumeDown_Click" />
                     <Button MinWidth="125" Margin="0,0,8,8" Content="_Głośniej"
                             Click="PlayerVolumeUp_Click" />
-                    <Button MinWidth="125" Margin="0,0,8,8" Content="W_olniej"
+                    <Button MinWidth="125" Margin="0,0,8,8" Content="_Wolniej"
                             automation:AutomationProperties.AcceleratorKey="Shift+,"
                             Click="PlaybackRateDown_Click" />
-                    <Button MinWidth="125" Margin="0,0,8,8" Content="S_zybciej"
+                    <Button MinWidth="125" Margin="0,0,8,8" Content="_Szybciej"
                             automation:AutomationProperties.AcceleratorKey="Shift+."
                             Click="PlaybackRateUp_Click" />
                     <Button MinWidth="165" Margin="0,0,8,8" Content="Prędkość _normalna"

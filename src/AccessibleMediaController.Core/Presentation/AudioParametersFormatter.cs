@@ -26,4 +26,24 @@ public static class AudioParametersFormatter
 
         return parts.Count > 0 ? string.Join(", ", parts) : "brak danych audio";
     }
+
+    public static string FormatCompact(MediaItem item, CultureInfo? culture = null)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        culture ??= CultureInfo.CurrentCulture;
+
+        var parts = new List<string>(2);
+        if (item.BitrateKbps is int bitrateKbps)
+        {
+            parts.Add($"{bitrateKbps} kb/s");
+        }
+
+        if (item.SampleRateHz is int sampleRateHz && sampleRateHz > 0)
+        {
+            var sampleRateKHz = sampleRateHz / 1000d;
+            parts.Add($"{sampleRateKHz.ToString("0.#", culture)} kHz");
+        }
+
+        return string.Join(", ", parts);
+    }
 }

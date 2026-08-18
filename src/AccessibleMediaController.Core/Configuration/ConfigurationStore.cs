@@ -8,7 +8,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 10;
+    public const int CurrentSchemaVersion = 11;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -38,6 +38,7 @@ public sealed class ConfigurationStore(string statePath)
     public void Save(PersistedState state)
     {
         NormalizeSearchHistory(state);
+        NormalizeSessionNavigation(state);
         ValidateState(state);
         var directory = Path.GetDirectoryName(statePath);
         if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
@@ -103,6 +104,12 @@ public sealed class ConfigurationStore(string statePath)
     private static void EnsureBuiltInProfile(PersistedState state)
     {
         const string legacyPlaySelectedCommandId = "transport.playSelected";
+        string[] removedInformationCommandIds =
+        [
+            "information.playbackStatus",
+            "view.itemInformation",
+            "view.extendedInformation"
+        ];
         var builtInIndex = state.KeyboardProfiles.FindIndex(profile => profile.Id == "default");
         if (builtInIndex < 0)
         {
@@ -120,6 +127,10 @@ public sealed class ConfigurationStore(string statePath)
             var normalizedBindings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var binding in profile.Bindings)
             {
+                if (removedInformationCommandIds.Contains(binding.Value, StringComparer.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
                 normalizedBindings[KeyChord.Parse(binding.Key).Canonical] =
                     string.Equals(binding.Value, legacyPlaySelectedCommandId, StringComparison.OrdinalIgnoreCase)
                         ? CommandIds.ActivateSelected
@@ -138,6 +149,7 @@ public sealed class ConfigurationStore(string statePath)
     {
         MigrateSettings(state.Settings, state.SchemaVersion);
         NormalizeSearchHistory(state);
+        NormalizeSessionNavigation(state);
         state.SchemaVersion = CurrentSchemaVersion;
     }
 
@@ -145,6 +157,27 @@ public sealed class ConfigurationStore(string statePath)
     {
         state.SearchHistory ??= new SearchHistorySettings();
         new SearchQueryHistory(state.SearchHistory).Normalize();
+    }
+
+    private static void NormalizeSessionNavigation(PersistedState state)
+    {
+        state.SessionNavigation ??= new SessionNavigationSettings();
+        state.SessionNavigation.Sessions = new Dictionary<string, SessionNavigationState>(
+            state.SessionNavigation.Sessions ?? new Dictionary<string, SessionNavigationState>(),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var session in state.SessionNavigation.Sessions.Values)
+        {
+            session.CurrentView = string.IsNullOrWhiteSpace(session.CurrentView)
+                ? "Multimedia"
+                : session.CurrentView;
+            session.SelectedItemIds = new Dictionary<string, string?>(
+                session.SelectedItemIds ?? new Dictionary<string, string?>(),
+                StringComparer.OrdinalIgnoreCase);
+            session.Filters = new Dictionary<string, string>(
+                session.Filters ?? new Dictionary<string, string>(),
+                StringComparer.OrdinalIgnoreCase);
+        }
     }
 
     private static void MigrateSettings(AppSettings settings, int schemaVersion)
