@@ -30,6 +30,7 @@ var tests = new (string Name, Action Test)[]
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
     ("Historia wyszukiwania", TestSearchHistory),
     ("Pamięć widoków sesji", TestSessionNavigationPersistence),
+    ("Pamięć lokalnej biblioteki", TestLocalMediaPersistence),
     ("Paleta poleceń", TestCommandPalette),
     ("Cofanie zmian przynależności", TestMembershipHistory),
     ("Zbiorowe zmiany przynależności", TestBatchMembershipCommands),
@@ -760,6 +761,57 @@ static void TestSessionNavigationPersistence()
         Equal("północ", tidal.Filters["ULUBIONE"]);
         Equal("Albumy", loaded.SessionNavigation.Sessions["appleMusic"].CurrentView);
         Equal(false, loaded.SessionNavigation.Sessions["appleMusic"].PlayerActive);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
+static void TestLocalMediaPersistence()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-local-state-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.LocalMedia.CurrentItemId = "local-1";
+        state.LocalMedia.Volume = 47;
+        state.LocalMedia.PlaybackRate = 1.50d;
+        state.LocalMedia.Items.Add(new LocalMediaItemSettings
+        {
+            Id = "local-1",
+            Title = "Długie nagranie",
+            Path = @"C:\Muzyka\długie.aac",
+            DurationTicks = TimeSpan.FromMinutes(90).Ticks,
+            ResumePositionTicks = TimeSpan.FromMinutes(17).Ticks,
+            FileLength = 123456,
+            LastWriteUtcTicks = 987654,
+            IsFavorite = true,
+            IsInLibrary = true,
+            IsInQueue = true
+        });
+
+        store.Save(state);
+        var loaded = store.LoadOrCreate();
+        Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
+        Equal("local-1", loaded.LocalMedia.CurrentItemId);
+        Equal(47, loaded.LocalMedia.Volume);
+        Equal(1.50d, loaded.LocalMedia.PlaybackRate);
+        Equal(1, loaded.LocalMedia.Items.Count);
+        var item = loaded.LocalMedia.Items[0];
+        Equal("Długie nagranie", item.Title);
+        Equal(TimeSpan.FromMinutes(17).Ticks, item.ResumePositionTicks);
+        Equal(true, item.IsFavorite);
+        Equal(true, item.IsInQueue);
+
+        var output = new FakeMediaOutput();
+        var media = new MediaItem { Id = item.Id, Title = item.Title, Source = item.Path };
+        var session = new DemoMediaSession("local", "Lokalne multimedia", [media], output);
+        session.SetRememberedPosition(item.Id, TimeSpan.FromTicks(item.ResumePositionTicks));
+        session.TogglePlayback();
+        Equal(TimeSpan.FromMinutes(17), output.Position);
     }
     finally
     {

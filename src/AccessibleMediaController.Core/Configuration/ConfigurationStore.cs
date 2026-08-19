@@ -8,7 +8,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 11;
+    public const int CurrentSchemaVersion = 12;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -39,10 +39,20 @@ public sealed class ConfigurationStore(string statePath)
     {
         NormalizeSearchHistory(state);
         NormalizeSessionNavigation(state);
+        NormalizeLocalMedia(state);
         ValidateState(state);
         var directory = Path.GetDirectoryName(statePath);
         if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-        File.WriteAllText(statePath, JsonSerializer.Serialize(state, JsonOptions));
+        var temporaryPath = $"{statePath}.tmp";
+        File.WriteAllText(temporaryPath, JsonSerializer.Serialize(state, JsonOptions));
+        if (File.Exists(statePath))
+        {
+            File.Replace(temporaryPath, statePath, $"{statePath}.bak", true);
+        }
+        else
+        {
+            File.Move(temporaryPath, statePath);
+        }
     }
 
     public void ExportKeyboardMap(string path, KeyboardProfile profile)
@@ -150,6 +160,7 @@ public sealed class ConfigurationStore(string statePath)
         MigrateSettings(state.Settings, state.SchemaVersion);
         NormalizeSearchHistory(state);
         NormalizeSessionNavigation(state);
+        NormalizeLocalMedia(state);
         state.SchemaVersion = CurrentSchemaVersion;
     }
 
@@ -177,6 +188,41 @@ public sealed class ConfigurationStore(string statePath)
             session.Filters = new Dictionary<string, string>(
                 session.Filters ?? new Dictionary<string, string>(),
                 StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private static void NormalizeLocalMedia(PersistedState state)
+    {
+        state.LocalMedia ??= new LocalMediaSettings();
+        state.LocalMedia.Items = (state.LocalMedia.Items ?? [])
+            .Where(item => !string.IsNullOrWhiteSpace(item.Path))
+            .GroupBy(item => item.Path, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+        state.LocalMedia.Volume = Math.Clamp(state.LocalMedia.Volume, 0, 100);
+        state.LocalMedia.PlaybackRate = Math.Clamp(state.LocalMedia.PlaybackRate, 0.50d, 2.00d);
+
+        var knownIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var item in state.LocalMedia.Items)
+        {
+            if (string.IsNullOrWhiteSpace(item.Id) || !knownIds.Add(item.Id))
+            {
+                item.Id = $"local-{Guid.NewGuid():N}";
+                knownIds.Add(item.Id);
+            }
+            if (string.IsNullOrWhiteSpace(item.Title)) item.Title = Path.GetFileNameWithoutExtension(item.Path);
+            item.DurationTicks = Math.Max(0, item.DurationTicks);
+            item.ResumePositionTicks = Math.Max(0, item.ResumePositionTicks);
+            if (item.DurationTicks > 0)
+            {
+                item.ResumePositionTicks = Math.Min(item.ResumePositionTicks, item.DurationTicks);
+            }
+        }
+
+        if (state.LocalMedia.CurrentItemId is { Length: > 0 } currentItemId
+            && state.LocalMedia.Items.All(item => !string.Equals(item.Id, currentItemId, StringComparison.Ordinal)))
+        {
+            state.LocalMedia.CurrentItemId = null;
         }
     }
 

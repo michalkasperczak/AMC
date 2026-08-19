@@ -214,7 +214,7 @@ Regulacja tempa korzysta z mapy zgodnej z YouTube: `Shift+,` zwalnia, `Shift+.` 
 
 ### 6.2. Pozycje wznowienia, Zakładki i zasoby globalne
 
-Następny etap lokalnego odtwarzania zapisuje pozycję pliku na podstawie znormalizowanej ścieżki oraz odcisku obejmującego co najmniej rozmiar i datę modyfikacji. Stan ma być zapisywany okresowo i przy prawidłowym zamknięciu, bez modyfikowania samego pliku. Automatyczne wznowienie będzie ustawieniem; rozsądny wariant domyślny to wznawianie dłuższych nagrań i podcastów, a nie każdej krótkiej piosenki. Streaming zachowuje własną pozycję tylko wtedy, gdy oficjalny adapter usługi ją udostępnia; AMC nie będzie tworzyć ukrytej, pozornej synchronizacji.
+Od `alpha.57` lokalne pozycje są zapisywane osobno dla każdego pliku razem z odciskiem obejmującym rozmiar i datę modyfikacji. Stan jest utrwalany nie częściej niż co 15 sekund oraz przy prawidłowym zamknięciu, bez modyfikowania samego pliku. Ponowne wybranie pliku rozpoczyna go od zapamiętanej pozycji, ale start programu nigdy sam nie uruchamia dźwięku. Późniejsze ustawienie określi, czy krótkie utwory muzyczne mają wznawiać się tak samo jak długie nagrania i podcasty. Streaming zachowuje własną pozycję tylko wtedy, gdy oficjalny adapter usługi ją udostępnia; AMC nie będzie tworzyć ukrytej, pozornej synchronizacji.
 
 Zakładka jest lokalnym rekordem AMC wskazującym stabilny identyfikator źródła, element, pozycję i opcjonalną nazwę. Może więc wskazywać plik lokalny albo pozycję w materiale streamingowym, jeśli adapter potrafi ponownie otworzyć ten sam element i przewinąć go. Zakładki są z natury globalnym indeksem aplikacji, ale nie kopiują ani nie przejmują treści usługi.
 
@@ -701,6 +701,8 @@ Stan `alpha.55`: wspólne właściwości są uporządkowane jako: identyfikacja 
 
 Stan `alpha.56`: prefiks fokusu po historii ma kolejność **kierunek → docelowy widok → sesja**, np. „Wstecz, Kolejka, Lokalne multimedia”. `MessageSettings.HistoryMessages` steruje wyłącznie dodatkowymi komunikatami Wstecz/Naprzód i komunikatem braku historii; nie zmienia stosów ani działania skrótów. Opcja ma checkbox na karcie Komunikaty, własny cel ustawień i wpis palety poleceń, dlatego podlega także eksportowi konfiguracji. Nadrzędne `Messages.Enabled` ma pierwszeństwo. Nie łączymy jej z `SeekMessages`, ponieważ ten przełącznik jest nadrzędny wyłącznie dla automatycznych komunikatów transportu odtwarzacza. Pełny odczyt obiektu odtwarzacza przez polecenie przeglądu NVDA pozostaje celowo bogaty i nie jest automatycznym komunikatem aplikacji.
 
+Stan `alpha.57`: po wyłączeniu `HistoryMessages` historia nadal podaje **docelowy widok → sesję → element**, lecz pomija tylko słowa Wstecz/Naprzód; wyłączenie nadrzędnego `Messages.Enabled` usuwa cały dodatkowy kontekst. Tytuł głównego okna ma stabilną kolejność **moduł → aktualnie odtwarzany lub wstrzymany element → sesja → aplikacja i wersja**. Lokalna biblioteka, przynależności, bieżący plik, głośność, tempo i pozycje wszystkich plików są trwałą częścią stanu i pełnej kopii zapasowej. Odcisk pliku zapobiega wznowieniu podmienionej treści, a przywrócenie stanu nie rozpoczyna automatycznie odtwarzania. Dane pozostają w AppData niezależnie od przenośnego folderu programu; MSIX/App Installer jest nadal osobnym etapem dystrybucji. Próbka surowego AAC/ADTS 48 kHz została poprawnie rozpoznana i zdekodowana przez aktualny tor NAudio–SoundTouch; ręczny test aplikacji rozstrzygnie, czy zgłoszony brak dźwięku dotyczył konkretnego pliku albo działania interfejsu.
+
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.
@@ -720,10 +722,10 @@ Planowana kolejność dalszych etapów:
 ## 15. Otwarte decyzje
 
 1. Czy domyślnym prefiksem ma być `Ctrl+Numeryczny Enter`, czy sam `Numeryczny Enter`, oraz jaki ma być czas wygaśnięcia warstwy.
-2. Czy aplikacja pamięta sesję po ponownym uruchomieniu.
+2. Czy przywracanie pozycji krótkich utworów ma być domyślne, czy ograniczone do dłuższych nagrań i podcastów.
 3. Czy istnieje od początku playlista „Do odsłuchu”.
 4. Które komunikaty mają być mówione, a które sygnalizowane dźwiękiem.
-5. Kryterium automatycznego wznowienia krótkich utworów i długich nagrań oraz szczegóły globalnego widoku Zakładek.
+5. Szczegóły globalnego widoku Zakładek, ich nazw i eksportu.
 6. Domyślny odstęp polecenia „w pobliże końca”; roboczo 10 sekund.
 7. Ostateczna nazwa aplikacji i identyfikatory pakietów na poszczególnych platformach.
 

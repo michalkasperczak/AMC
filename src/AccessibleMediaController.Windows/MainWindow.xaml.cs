@@ -52,6 +52,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool _playerViewActive;
     private bool _restoringSessionNavigation;
     private string? _playerFocusContextPrefix;
+    private DateTime _lastLocalStateSaveUtc;
+    private long _lastSavedLocalPositionTicks = -1;
     private readonly System.Windows.Forms.StatusStrip _playbackStatusBar;
     private readonly System.Windows.Forms.ToolStripStatusLabel _playbackStatusLabel;
 
@@ -100,6 +102,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _playerUiTimer.Tick += PlayerUiTimer_Tick;
         _state = state;
         _store = store;
+        LoadPersistedLocalMedia();
         _localOutput.DurationAvailable += LocalOutput_DurationAvailable;
         _localOutput.PlaybackFailed += LocalOutput_PlaybackFailed;
         _localOutput.PlaybackEnded += LocalOutput_PlaybackEnded;
@@ -357,6 +360,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
+        SaveLocalMediaStateIfDue();
     }
 
     private void UpdatePlaybackStatusBar()
@@ -771,7 +775,134 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : $"dodano {FormatFileCount(addedItems.Count)}";
         var slotText = slot is > 0 ? $", sesja {slot}" : string.Empty;
         PrepareSelectedItemFocusContext($"Lokalne multimedia{slotText}, {countText}");
+        TrySaveLocalMediaState(true);
         RestoreMediaListFocusAfterRefresh();
+    }
+
+    private void LoadPersistedLocalMedia()
+    {
+        foreach (var saved in _state.LocalMedia.Items)
+        {
+            _localItems.Add(new MediaItem
+            {
+                Id = saved.Id,
+                Title = saved.Title,
+                Kind = MediaItemKind.Track,
+                Duration = TimeSpan.FromTicks(saved.DurationTicks),
+                BitrateKbps = saved.BitrateKbps,
+                IsBitrateEstimated = saved.IsBitrateEstimated,
+                SampleRateHz = saved.SampleRateHz,
+                Source = saved.Path,
+                IsFavorite = saved.IsFavorite,
+                IsInLibrary = saved.IsInLibrary,
+                IsInQueue = saved.IsInQueue,
+                IsPlayNext = saved.IsPlayNext
+            });
+        }
+    }
+
+    private void CaptureLocalMediaState()
+    {
+        var local = _sessions?.FindSession("local");
+        if (local is not null) local.RememberCurrentPosition();
+
+        var savedById = _state.LocalMedia.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        var rememberedPositions = local?.RememberedPositions;
+        _state.LocalMedia.Items = _localItems.Select(item =>
+        {
+            savedById.TryGetValue(item.Id, out var previous);
+            var (fileLength, lastWriteUtcTicks) = previous is null
+                ? GetFileFingerprint(item.Source)
+                : (previous.FileLength, previous.LastWriteUtcTicks);
+            var position = rememberedPositions?.GetValueOrDefault(item.Id)
+                ?? (previous is null ? TimeSpan.Zero : TimeSpan.FromTicks(previous.ResumePositionTicks));
+            return new LocalMediaItemSettings
+            {
+                Id = item.Id,
+                Title = item.Title,
+                Path = item.Source ?? string.Empty,
+                DurationTicks = item.Duration.Ticks,
+                BitrateKbps = item.BitrateKbps,
+                IsBitrateEstimated = item.IsBitrateEstimated,
+                SampleRateHz = item.SampleRateHz,
+                IsFavorite = item.IsFavorite,
+                IsInLibrary = item.IsInLibrary,
+                IsInQueue = item.IsInQueue,
+                IsPlayNext = item.IsPlayNext,
+                ResumePositionTicks = Math.Max(0, position.Ticks),
+                FileLength = fileLength,
+                LastWriteUtcTicks = lastWriteUtcTicks
+            };
+        }).ToList();
+
+        if (local is not null)
+        {
+            _state.LocalMedia.CurrentItemId = local.CurrentItem.Id;
+            _state.LocalMedia.Volume = local.Volume;
+            _state.LocalMedia.PlaybackRate = local.PlaybackRate;
+        }
+    }
+
+    private void SaveLocalMediaState()
+    {
+        CaptureCurrentSessionNavigationState();
+        CaptureLocalMediaState();
+        _store.Save(_state);
+        var local = _sessions.FindSession("local");
+        _lastSavedLocalPositionTicks = local?.Position.Ticks ?? 0;
+        _lastLocalStateSaveUtc = DateTime.UtcNow;
+    }
+
+    private bool TrySaveLocalMediaState(bool announceFailure)
+    {
+        try
+        {
+            SaveLocalMediaState();
+            return true;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            if (announceFailure)
+            {
+                AnnounceEssential($"Nie udało się zapisać stanu lokalnych multimediów: {exception.Message}");
+            }
+            return false;
+        }
+    }
+
+    private void SaveLocalMediaStateIfDue()
+    {
+        var local = _sessions.FindSession("local");
+        if (local is null) return;
+        var currentTicks = local.Position.Ticks;
+        if (currentTicks == _lastSavedLocalPositionTicks) return;
+        if (DateTime.UtcNow - _lastLocalStateSaveUtc < TimeSpan.FromSeconds(15)) return;
+
+        TrySaveLocalMediaState(false);
+    }
+
+    private static (long? FileLength, long? LastWriteUtcTicks) GetFileFingerprint(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return (null, null);
+        try
+        {
+            var file = new FileInfo(path);
+            return file.Exists ? (file.Length, file.LastWriteTimeUtc.Ticks) : (null, null);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return (null, null);
+        }
+    }
+
+    private static bool CanRestorePosition(LocalMediaItemSettings saved)
+    {
+        if (saved.ResumePositionTicks <= 0) return false;
+        var (fileLength, lastWriteUtcTicks) = GetFileFingerprint(saved.Path);
+        if (!fileLength.HasValue || !lastWriteUtcTicks.HasValue) return true;
+        return (!saved.FileLength.HasValue || saved.FileLength == fileLength)
+            && (!saved.LastWriteUtcTicks.HasValue || saved.LastWriteUtcTicks == lastWriteUtcTicks);
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -794,6 +925,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void RebuildCore()
     {
         var previousSessionId = _sessions is null ? null : _sessions.Current.Id;
+        var desiredSessionId = previousSessionId ?? _state.Settings.LastSessionId;
         var previousLocal = _sessions?.FindSession("local");
         var previousLocalItemId = previousLocal?.CurrentItem.Id;
         var previousLocalPosition = previousLocal?.Position ?? TimeSpan.Zero;
@@ -810,14 +942,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 _localItems,
                 _localOutput,
                 4);
-            var previousItem = local.Items.FirstOrDefault(item => item.Id == previousLocalItemId);
-            if (previousItem is not null) local.SelectItem(previousItem);
-            local.SetVolume(previousLocalVolume);
-            local.SetPosition(previousLocalPosition);
-            local.SetPlaybackRate(previousLocalPlaybackRate);
+            foreach (var saved in _state.LocalMedia.Items.Where(CanRestorePosition))
+            {
+                local.SetRememberedPosition(saved.Id, TimeSpan.FromTicks(saved.ResumePositionTicks));
+            }
+            var restoredItemId = previousLocalItemId ?? _state.LocalMedia.CurrentItemId;
+            var restoredItem = local.Items.FirstOrDefault(item => item.Id == restoredItemId);
+            if (restoredItem is not null) local.SelectItem(restoredItem);
+            local.SetVolume(previousLocal?.Volume ?? _state.LocalMedia.Volume);
+            if (previousLocal is not null) local.SetPosition(previousLocalPosition);
+            local.SetPlaybackRate(previousLocal?.PlaybackRate ?? _state.LocalMedia.PlaybackRate);
             if (previousLocalWasPlaying) local.Play(local.CurrentItem);
-            if (string.Equals(previousSessionId, "local", StringComparison.Ordinal)
-                || string.Equals(_state.Settings.LastSessionId, "local", StringComparison.Ordinal))
+            if (string.Equals(desiredSessionId, "local", StringComparison.Ordinal))
             {
                 _sessions.SelectSession("local");
             }
@@ -914,6 +1050,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
+        TrySaveLocalMediaState(false);
         // Do not rebuild the focused list when asynchronous metadata arrives.
         // Commands use the new duration immediately; the row is reformatted on
         // the next ordinary refresh without causing an extra focus event.
@@ -926,6 +1063,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_playerViewActive) UpdatePlayerView(true);
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();
+        TrySaveLocalMediaState(false);
         var title = e.Item?.Title ?? "plik";
         Announce($"Nie można odtworzyć: {title}. {e.Message}");
     }
@@ -949,6 +1087,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_playerViewActive) UpdatePlayerView(true);
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();
+        TrySaveLocalMediaState(false);
         Announce(nextItem is null
             ? $"Koniec: {e.Item.Title}"
             : $"Odtwarzanie: {nextItem.Title}");
@@ -1082,6 +1221,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();
+        if (changesListMembership && string.Equals(changedSession?.Id, "local", StringComparison.Ordinal))
+        {
+            TrySaveLocalMediaState(false);
+        }
         return result;
     }
 
@@ -1318,6 +1461,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _sessions.Current.Id,
             previousMemberships,
             undoAnnouncement);
+        if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            TrySaveLocalMediaState(false);
+        }
         RefreshCurrentView(previousIndex);
         RestoreMediaListFocusAfterRefresh();
         var removedLabel = items.Length == 1 ? items[0].Title : FormatItemCount(items.Length);
@@ -1373,6 +1520,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RefreshCurrentView();
             SelectMediaItems(undo.Items.Select(item => item.Item.Id));
         }
+        if (string.Equals(undo.SessionId, "local", StringComparison.Ordinal))
+        {
+            TrySaveLocalMediaState(false);
+        }
         RestoreMediaListFocusAfterRefresh();
 
         Dispatcher.BeginInvoke(
@@ -1406,6 +1557,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void OpenSettings(SettingsTarget initialTarget = SettingsTarget.General)
     {
+        TrySaveLocalMediaState(false);
         var dialog = new SettingsWindow(_state, _store, initialTarget) { Owner = this };
         if (dialog.ShowDialog() != true || dialog.ResultState is null)
         {
@@ -1540,8 +1692,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void PrepareHistoryFocusContext(string direction)
     {
-        if (!HistoryMessagesEnabled) return;
-        PrepareViewFocusContext($"{direction}, {_currentView}, {_sessions.Current.DisplayName}");
+        if (!_state.Settings.Messages.Enabled) return;
+        var context = $"{_currentView}, {_sessions.Current.DisplayName}";
+        PrepareViewFocusContext(HistoryMessagesEnabled ? $"{direction}, {context}" : context);
     }
 
     private string FormatListItem(MediaItem item)
@@ -1566,7 +1719,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var session = _sessions.Current;
         var area = _playerViewActive ? "Odtwarzacz" : _currentView;
-        Title = $"{session.CurrentItem.Title} — {session.DisplayName} — {area} — AMC {AppDisplayVersion}";
+        Title = $"{area} — {session.CurrentItem.Title} — {session.DisplayName} — AMC {AppDisplayVersion}";
         AutomationProperties.SetName(this, Title);
     }
 
@@ -2106,6 +2259,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         CaptureCurrentSessionNavigationState();
+        CaptureLocalMediaState();
         _playerUiTimer.Stop();
         _playerUiTimer.Tick -= PlayerUiTimer_Tick;
         _windowSource?.RemoveHook(WindowMessageHook);

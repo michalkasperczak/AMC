@@ -214,7 +214,7 @@ Playback tempo follows YouTube's map: `Shift+,` slows down, `Shift+.` speeds up,
 
 ### 6.2. Resume positions, Bookmarks and global resources
 
-The next local-playback stage stores a file position against a normalized path and a fingerprint containing at least file size and modification time. State is written periodically and on a clean shutdown without modifying the media file. Automatic resume will be a preference; a sensible default is to resume long recordings and podcasts rather than every short song. Streaming retains a position only when the official adapter exposes it; AMC does not invent hidden synchronization.
+Starting with `alpha.57`, a separate local position is stored for every file together with a fingerprint containing file size and modification time. State is written no more often than once every 15 seconds and on a clean shutdown without modifying the media file. Selecting a file again starts it at its remembered position, but application startup never starts audio automatically. A later preference will decide whether short music tracks resume in the same way as long recordings and podcasts. Streaming retains a position only when the official adapter exposes it; AMC does not invent hidden synchronization.
 
 A Bookmark is a local AMC record containing a stable source identifier, item identifier, position and optional label. It can therefore point to a local file or to a streaming position when the adapter can reopen the same item and seek. Bookmarks form a global application index, but they neither copy nor take ownership of provider content.
 
@@ -699,6 +699,8 @@ State of `alpha.55`: shared properties are ordered as identity/source, **In appl
 
 State of `alpha.56`: the history focus prefix is ordered as **direction → destination view → session**, for example “Back, Queue, Local media”. `MessageSettings.HistoryMessages` controls only the added Back/Forward feedback and the empty-history message; it does not alter the stacks or shortcuts. The option has a checkbox on Messages, its own settings target and a command-palette entry, so configuration export includes it. The master `Messages.Enabled` takes precedence. It is intentionally independent of `SeekMessages`, whose scope is automatic player transport feedback. Explicit NVDA object review of the player remains intentionally rich and is not an automatic application announcement.
 
+State of `alpha.57`: when `HistoryMessages` is disabled, history still exposes **destination view → session → item** and removes only the Back/Forward word; disabling the master `Messages.Enabled` switch removes the complete additional context. The main-window title has the stable order **module → playing or paused item → session → application and version**. The local library, memberships, current file, volume, rate and per-file positions are durable state and part of a full backup. A file fingerprint prevents resuming replaced content, while restoration never starts playback automatically. User data remains in AppData independently of the portable application folder; MSIX/App Installer remains a separate distribution stage. A raw 48 kHz AAC/ADTS sample was successfully recognized and decoded by the current NAudio–SoundTouch pipeline; a manual application test will determine whether the reported silence was specific to a file or an interface action.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.
@@ -718,10 +720,10 @@ Planned sequence of later stages:
 ## 15. Open decisions
 
 1. Whether the default prefix is `Ctrl+Numpad Enter` or bare `Numpad Enter`, and the command-layer timeout.
-2. Whether the application remembers the session after restart.
+2. Whether restoring short-track positions is the default or is limited to long recordings and podcasts.
 3. Whether a “Listen Later” playlist exists from the beginning.
 4. Which messages use speech and which use earcons.
-5. The automatic-resume threshold for short songs versus long recordings, and the detailed global Bookmarks view.
+5. The detailed global Bookmarks view, its naming and export.
 6. Default offset for “near the end”; currently 10 seconds.
 7. Final application name and package identifiers on each platform.
 

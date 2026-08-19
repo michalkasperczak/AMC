@@ -100,10 +100,11 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 11;
+    public int SchemaVersion { get; set; } = 12;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public SessionNavigationSettings SessionNavigation { get; set; } = new();
+    public LocalMediaSettings LocalMedia { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];
 }
 
@@ -127,4 +128,30 @@ public sealed class SessionNavigationState
     public Dictionary<string, string> Filters { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
     public bool PlayerActive { get; set; }
+}
+
+public sealed class LocalMediaSettings
+{
+    public List<LocalMediaItemSettings> Items { get; set; } = [];
+    public string? CurrentItemId { get; set; }
+    public int Volume { get; set; } = 35;
+    public double PlaybackRate { get; set; } = 1d;
+}
+
+public sealed class LocalMediaItemSettings
+{
+    public string Id { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public long DurationTicks { get; set; }
+    public int? BitrateKbps { get; set; }
+    public bool IsBitrateEstimated { get; set; }
+    public int? SampleRateHz { get; set; }
+    public bool IsFavorite { get; set; }
+    public bool IsInLibrary { get; set; } = true;
+    public bool IsInQueue { get; set; }
+    public bool IsPlayNext { get; set; }
+    public long ResumePositionTicks { get; set; }
+    public long? FileLength { get; set; }
+    public long? LastWriteUtcTicks { get; set; }
 }
