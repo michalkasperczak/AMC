@@ -177,8 +177,15 @@ public sealed class ConfigurationStore(string statePath)
         state.PlaybackHistory ??= new PlaybackHistorySettings();
         var history = new PlaybackHistory(state.PlaybackHistory);
         history.Normalize();
+        var localItemIds = state.LocalMedia.Items
+            .Select(item => item.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        history.Remove(
+            "local",
+            history.GetItemIds("local").Where(itemId => !localItemIds.Contains(itemId)));
         if (history.GetItemIds("local").Count == 0
-            && !string.IsNullOrWhiteSpace(state.LocalMedia?.CurrentItemId))
+            && !string.IsNullOrWhiteSpace(state.LocalMedia?.CurrentItemId)
+            && localItemIds.Contains(state.LocalMedia.CurrentItemId))
         {
             history.Record("local", state.LocalMedia.CurrentItemId);
         }

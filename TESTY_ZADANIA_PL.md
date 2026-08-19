@@ -1,12 +1,40 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-060`
-- Tytuł zestawu: Historia odtwarzania, skróty lokalne i bezpieczny Kosz
-- Wersja programu: `0.1.0-alpha.60`
+- Numer zestawu: `AMC-TEST-061`
+- Tytuł zestawu: Systemowe Otwórz w, usuwanie w odtwarzaczu i czyszczenie historii
+- Wersja programu: `0.1.0-alpha.61`
 - Utworzono: 2026-08-19, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.60.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.61.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 61
+
+### AMC-061-01 — Prawa strzałka i systemowe Otwórz w
+
+Na pliku lokalnym naciśnij prawą strzałkę w głównej liście, Bibliotece i Historii odtwarzania.
+
+Oczekiwane: bez otwierania menu AMC pojawia się bezpośrednio systemowy wybór aplikacji. Można jednorazowo otworzyć plik np. w foobar2000; ewentualna opcja zmiany aplikacji domyślnej zależy od wersji Windows.
+
+### AMC-061-02 — Shift+Delete w odtwarzaczu
+
+Odtwórz kopię pliku testowego, naciśnij `Shift+Delete`, najpierw wybierz Nie, a przy drugiej próbie Tak.
+
+Oczekiwane: po Nie odtwarzanie i plik pozostają. Po Tak AMC zatrzymuje i zwalnia plik, przenosi go do Kosza, usuwa wpis i pozostawia działający odtwarzacz z następnym dostępnym elementem albo przechodzi do innej sesji, gdy lokalna była pusta.
+
+### AMC-061-03 — Usunięty plik a Historia odtwarzania
+
+Odtwórz plik, usuń go przez `Shift+Delete`, otwórz `Ctrl+H`, uruchom AMC ponownie i sprawdź historię ponownie.
+
+Oczekiwane: usunięty element nie jest widoczny i nie wraca po restarcie. `Alt+góra/dół` również go pomija.
+
+### AMC-061-04 — Krótka regresja
+
+Sprawdź lewą strzałkę, `Ctrl+Shift+E/R/T`, zwykły `Delete` z `Ctrl+Z`, kopiowanie i naturalne przejście do następnego pliku.
+
+Oczekiwane: zachowanie alpha 60 pozostaje bez zmian.
+
+## Poprzedni zestaw regresyjny alpha 60
 
 ## AMC-060-01 — Start, ostatnio odtwarzany i F6
 

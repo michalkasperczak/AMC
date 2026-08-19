@@ -703,6 +703,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
             "W oknie: Enter na utworze lub stacji rozpoczyna odtwarzanie i otwiera odtwarzacz. " +
             "Ctrl+Enter odtwarza lub wstrzymuje zaznaczony element bez opuszczania listy, a Spacja steruje elementem faktycznie grającym. " +
+            "Na listach Plików lokalnych lewa strzałka podaje krótkie informacje, a prawa od razu otwiera systemowe Otwórz w. " +
             "F6 otwiera odtwarzacz. W odtwarzaczu strzałki w lewo i w prawo przewijają o 10 sekund, z Shiftem o 30 sekund, a z Ctrl o minutę, " +
             "strzałki w górę i w dół zmieniają głośność, Home i End przechodzą na początek i w pobliże końca, " +
             "a cyfry od 0 do 9 przechodzą odpowiednio do 0, 10, 20 i kolejnych procent długości utworu oraz domyślnie oznajmiają tylko procent. " +
@@ -715,7 +716,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+K, Ctrl+F i Ctrl+Shift+F nie opuszczają odtwarzacza; wyszukiwanie jest dostępne po powrocie do listy. " +
             "Skróty widoków opuszczają odtwarzacz, a F6 wraca do niego. " +
             "Ctrl+C kopiuje nazwy wszystkich zaznaczonych elementów, po jednej w wierszu; Ctrl+Shift+C kopiuje pełne ścieżki i fizyczne pliki lokalne. " +
-            "Delete lub Backspace usuwa z bieżącego widoku, a w głównym katalogu lokalnym usuwa tylko wpis z AMC. Shift+Delete po potwierdzeniu przenosi lokalne pliki do systemowego Kosza. " +
+            "Delete lub Backspace usuwa z bieżącego widoku, a w głównym katalogu lokalnym usuwa tylko wpis z AMC. Shift+Delete na liście albo w odtwarzaczu po potwierdzeniu zatrzymuje plik i przenosi go do systemowego Kosza. " +
             "Alt+strzałka w lewo i w prawo przechodzi po osobnej historii widoków. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
             "Escape w filtrze lub na głównym przycisku wraca do listy; aktywny filtr jest wtedy czyszczony. " +
@@ -915,6 +916,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _state.LocalMedia.CurrentItemId = local.CurrentItem.Id;
             _state.LocalMedia.Volume = local.Volume;
             _state.LocalMedia.PlaybackRate = local.PlaybackRate;
+        }
+        else
+        {
+            _state.LocalMedia.CurrentItemId = null;
         }
     }
 
@@ -1838,9 +1843,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var items = MediaList.SelectedItems
-            .OfType<MediaItemRow>()
-            .Select(row => row.Item)
+        IEnumerable<MediaItem> candidateItems = _playerViewActive
+            ? [_sessions.Current.CurrentItem]
+            : MediaList.SelectedItems
+                .OfType<MediaItemRow>()
+                .Select(row => row.Item);
+        var items = candidateItems
             .Where(item => TryGetLocalPath(item.Source, out _))
             .DistinctBy(item => item.Id)
             .ToArray();
@@ -1896,6 +1904,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (removed.Count > 0)
         {
             _playbackHistory.Remove("local", removed.Select(item => item.Id));
+            _playbackHistoryCursors.Remove("local");
             RemoveLocalCatalogItems(
                 removed,
                 MediaList.SelectedIndex,
@@ -2202,6 +2211,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ReturnFromPlayerToList();
             else
                 ShowPlayerView();
+            e.Handled = true;
+            return;
+        }
+
+        if (_playerViewActive
+            && Keyboard.Modifiers == ModifierKeys.Shift
+            && e.Key == Key.Delete)
+        {
+            MoveSelectedLocalFilesToRecycleBin();
             e.Handled = true;
             return;
         }
@@ -2632,11 +2650,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             else
             {
-                MediaList.ContextMenu!.PlacementTarget = MediaList;
-                MediaList.ContextMenu.IsOpen = true;
-                Dispatcher.BeginInvoke(
-                    () => PlaybackMenuItem.Focus(),
-                    DispatcherPriority.Loaded);
+                OpenLocalWithApplication();
             }
             e.Handled = true;
             return;
@@ -2861,6 +2875,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerOpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         PlayerOpenWithApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         PlayerOfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
+        PlayerRecycleMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static void SetContextMenuItemPresentation(

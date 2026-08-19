@@ -774,10 +774,17 @@ static void TestPlaybackHistory()
     {
         var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
         var state = ConfigurationStore.CreateDefaultState();
+        state.LocalMedia.Items =
+        [
+            new LocalMediaItemSettings { Id = "b", Title = "B", Path = "B.mp3" }
+        ];
+        history.Record("local", "usunięty");
         state.PlaybackHistory = settings;
         store.Save(state);
         var loaded = store.LoadOrCreate();
-        Equal("b", new PlaybackHistory(loaded.PlaybackHistory).GetItemIds("local")[0]);
+        var loadedHistory = new PlaybackHistory(loaded.PlaybackHistory).GetItemIds("local");
+        Equal(1, loadedHistory.Count);
+        Equal("b", loadedHistory[0]);
     }
     finally
     {
