@@ -697,6 +697,8 @@ State of `alpha.54`: after manual testing, the row list is replaced with a nativ
 
 State of `alpha.55`: shared properties are ordered as identity/source, **In application**, and **Technical**. The first contains title, artist, kind, service and local path; the second contains current playback and all membership state; the third contains duration, format, size, bitrate and sample rate. Context menus no longer rely on a separate accelerator attribute that NVDA omitted when reviewing the current focus. The shortcut is part of the item's accessible name while the visual `InputGestureText` remains unchanged. View history is defined as session-local: each service has independent Back and Forward stacks, and session changes use only the dedicated session commands. History feedback names the session so the boundary is audible.
 
+State of `alpha.56`: the history focus prefix is ordered as **direction → destination view → session**, for example “Back, Queue, Local media”. `MessageSettings.HistoryMessages` controls only the added Back/Forward feedback and the empty-history message; it does not alter the stacks or shortcuts. The option has a checkbox on Messages, its own settings target and a command-palette entry, so configuration export includes it. The master `Messages.Enabled` takes precedence. It is intentionally independent of `SeekMessages`, whose scope is automatic player transport feedback. Explicit NVDA object review of the player remains intentionally rich and is not an automatic application announcement.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.

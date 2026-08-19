@@ -278,6 +278,7 @@ public sealed class CommandRouter(
             CommandIds.SettingsImportFullBackup => SettingsTarget.ImportFullBackup,
             CommandIds.SettingsExportFullBackup => SettingsTarget.ExportFullBackup,
             CommandIds.SettingsMessages => SettingsTarget.Messages,
+            CommandIds.SettingsHistoryMessages => SettingsTarget.HistoryMessages,
             CommandIds.SettingsArrowSeekMessages => SettingsTarget.ArrowSeekMessages,
             CommandIds.SettingsPercentageSeekMessages => SettingsTarget.PercentageSeekMessages,
             CommandIds.SettingsVolumeMessages => SettingsTarget.VolumeMessages,

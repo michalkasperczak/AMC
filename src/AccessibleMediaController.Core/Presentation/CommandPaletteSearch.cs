@@ -69,6 +69,8 @@ public static class CommandPaletteSearch
             CommandIds.SettingsToggleSeekMessages => settings.Messages.SeekMessages
                 ? "Automatyczne komunikaty odtwarzacza: włączone. Enter: wyłącz"
                 : "Automatyczne komunikaty odtwarzacza: wyłączone. Enter: włącz",
+            CommandIds.SettingsHistoryMessages =>
+                $"Komunikaty historii widoków: {OnOff(settings.Messages.HistoryMessages)}. Enter: ustawienia",
             CommandIds.SettingsArrowSeekMessages =>
                 $"Komunikaty przewijania strzałkami: {OnOff(settings.Messages.ArrowSeekMessages)}. Enter: ustawienia",
             CommandIds.SettingsPercentageSeekMessages =>

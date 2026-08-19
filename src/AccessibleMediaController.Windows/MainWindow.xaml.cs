@@ -1497,7 +1497,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CaptureCurrentSessionNavigationState();
         if (history.Back.Count == 0)
         {
-            Announce($"Brak poprzedniego widoku w sesji {_sessions.Current.DisplayName}");
+            if (HistoryMessagesEnabled)
+            {
+                Announce($"Brak poprzedniego widoku w sesji {_sessions.Current.DisplayName}");
+            }
             return;
         }
         history.Forward.Push(_currentView);
@@ -1505,7 +1508,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         navigation.CurrentView = _currentView;
         RestoreFilterForCurrentView(navigation);
         RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
-        PrepareViewFocusContext($"Wstecz, {_sessions.Current.DisplayName}, {_currentView}");
+        PrepareHistoryFocusContext("Wstecz");
         RestoreMediaListFocusAfterRefresh();
     }
 
@@ -1517,7 +1520,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CaptureCurrentSessionNavigationState();
         if (history.Forward.Count == 0)
         {
-            Announce($"Brak następnego widoku w sesji {_sessions.Current.DisplayName}");
+            if (HistoryMessagesEnabled)
+            {
+                Announce($"Brak następnego widoku w sesji {_sessions.Current.DisplayName}");
+            }
             return;
         }
         history.Back.Push(_currentView);
@@ -1525,8 +1531,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         navigation.CurrentView = _currentView;
         RestoreFilterForCurrentView(navigation);
         RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
-        PrepareViewFocusContext($"Naprzód, {_sessions.Current.DisplayName}, {_currentView}");
+        PrepareHistoryFocusContext("Naprzód");
         RestoreMediaListFocusAfterRefresh();
+    }
+
+    private bool HistoryMessagesEnabled =>
+        _state.Settings.Messages.Enabled && _state.Settings.Messages.HistoryMessages;
+
+    private void PrepareHistoryFocusContext(string direction)
+    {
+        if (!HistoryMessagesEnabled) return;
+        PrepareViewFocusContext($"{direction}, {_currentView}, {_sessions.Current.DisplayName}");
     }
 
     private string FormatListItem(MediaItem item)

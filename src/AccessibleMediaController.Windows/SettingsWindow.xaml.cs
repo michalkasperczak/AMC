@@ -89,6 +89,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.ImportFullBackup => (ImportExportTab, ImportFullBackupButton),
             SettingsTarget.ExportFullBackup => (ImportExportTab, ExportFullBackupButton),
             SettingsTarget.Messages => (MessagesTab, MessagesTab),
+            SettingsTarget.HistoryMessages => (MessagesTab, HistoryMessagesCheck),
             SettingsTarget.ArrowSeekMessages => (MessagesTab, ArrowSeekMessagesCheck),
             SettingsTarget.PercentageSeekMessages => (MessagesTab, PercentageSeekMessagesCheck),
             SettingsTarget.VolumeMessages => (MessagesTab, VolumeMessagesCheck),
@@ -112,6 +113,7 @@ public partial class SettingsWindow : Window
         MessagesEnabledCheck.IsChecked = _workingState.Settings.Messages.Enabled;
         DetailedHintsCheck.IsChecked = _workingState.Settings.Messages.DetailedHints;
         SeekMessagesCheck.IsChecked = _workingState.Settings.Messages.SeekMessages;
+        HistoryMessagesCheck.IsChecked = _workingState.Settings.Messages.HistoryMessages;
         ArrowSeekMessagesCheck.IsChecked = _workingState.Settings.Messages.ArrowSeekMessages;
         PercentageSeekMessagesCheck.IsChecked = _workingState.Settings.Messages.PercentageSeekMessages;
         VolumeMessagesCheck.IsChecked = _workingState.Settings.Messages.VolumeMessages;
@@ -154,6 +156,7 @@ public partial class SettingsWindow : Window
         _workingState.Settings.Messages.Enabled = MessagesEnabledCheck.IsChecked == true;
         _workingState.Settings.Messages.DetailedHints = DetailedHintsCheck.IsChecked == true;
         _workingState.Settings.Messages.SeekMessages = SeekMessagesCheck.IsChecked == true;
+        _workingState.Settings.Messages.HistoryMessages = HistoryMessagesCheck.IsChecked == true;
         _workingState.Settings.Messages.ArrowSeekMessages = ArrowSeekMessagesCheck.IsChecked == true;
         _workingState.Settings.Messages.PercentageSeekMessages = PercentageSeekMessagesCheck.IsChecked == true;
         _workingState.Settings.Messages.VolumeMessages = VolumeMessagesCheck.IsChecked == true;

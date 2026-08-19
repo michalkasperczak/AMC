@@ -112,6 +112,7 @@ public static class CommandCatalog
             CommandIds.SettingsImportFullBackup => "Ustawienia: importuj pełną kopię",
             CommandIds.SettingsExportFullBackup => "Ustawienia: eksportuj pełną kopię",
             CommandIds.SettingsMessages => "Ustawienia: komunikaty",
+            CommandIds.SettingsHistoryMessages => "Ustawienia: komunikaty historii widoków",
             CommandIds.SettingsToggleMessages => "Przełącz komunikaty dostępności",
             CommandIds.SettingsToggleDetailedHints => "Przełącz szczegółowe podpowiedzi klawiatury",
             CommandIds.SettingsToggleSeekMessages => "Przełącz automatyczne komunikaty odtwarzacza",

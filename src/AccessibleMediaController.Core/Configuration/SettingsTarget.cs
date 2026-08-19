@@ -24,6 +24,7 @@ public enum SettingsTarget
     ImportFullBackup,
     ExportFullBackup,
     Messages,
+    HistoryMessages,
     ArrowSeekMessages,
     PercentageSeekMessages,
     VolumeMessages,

@@ -138,6 +138,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -150,7 +151,10 @@
                     <CheckBox x:Name="SeekMessagesCheck" Grid.Row="2" Margin="0,0,0,10"
                               Content="Włącz _automatyczne komunikaty odtwarzacza"
                               automation:AutomationProperties.HelpText="Nadrzędny przełącznik, skrót Ctrl+Shift+G. Wyłączenie chwilowo ucisza zaznaczone niżej kategorie, ale nie zmienia ich wyboru i nie wycisza błędów ani czasu odczytywanego na żądanie." />
-                    <StackPanel Grid.Row="3" Margin="0,0,0,10">
+                    <CheckBox x:Name="HistoryMessagesCheck" Grid.Row="3" Margin="0,0,0,10"
+                              Content="Oznajmiaj kierunek _historii widoków"
+                              automation:AutomationProperties.HelpText="Steruje słowami Wstecz i Naprzód oraz nazwą docelowego widoku i sesji. Nie wyłącza samego działania Alt+strzałka w lewo lub w prawo." />
+                    <StackPanel Grid.Row="4" Margin="0,0,0,10">
                         <CheckBox x:Name="PercentageSeekMessagesCheck" Margin="18,0,0,6"
                                   Content="Oznajmiaj skoki _cyframi" />
                         <CheckBox x:Name="ArrowSeekMessagesCheck" Margin="18,0,0,6"
@@ -167,15 +171,15 @@
                             <ComboBoxItem Tag="PercentAndTime">Procent i czas</ComboBoxItem>
                         </ComboBox>
                     </StackPanel>
-                    <TextBlock Grid.Row="4" Margin="0,0,0,8" TextWrapping="Wrap"
+                    <TextBlock Grid.Row="5" Margin="0,0,0,8" TextWrapping="Wrap"
                                Text="Wybierz zdarzenie z listy, a następnie zmień jego tekst w osobnym polu. Pusty tekst wyłącza dany komunikat." />
-                    <DockPanel Grid.Row="5">
+                    <DockPanel Grid.Row="6">
                         <Label DockPanel.Dock="Top" Target="{Binding ElementName=MessageTemplatesList}">_Zdarzenie:</Label>
                         <ListBox x:Name="MessageTemplatesList" DisplayMemberPath="EventLabel"
                                  automation:AutomationProperties.Name="Zdarzenia komunikatów" />
                     </DockPanel>
-                    <Label Grid.Row="6" Margin="0,8,0,0" Target="{Binding ElementName=MessageTemplateText}">_Tekst szablonu:</Label>
-                    <TextBox x:Name="MessageTemplateText" Grid.Row="7" MinHeight="42" TextWrapping="Wrap"
+                    <Label Grid.Row="7" Margin="0,8,0,0" Target="{Binding ElementName=MessageTemplateText}">_Tekst szablonu:</Label>
+                    <TextBox x:Name="MessageTemplateText" Grid.Row="8" MinHeight="42" TextWrapping="Wrap"
                              Text="{Binding SelectedItem.Template, ElementName=MessageTemplatesList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              automation:AutomationProperties.Name="Tekst szablonu wybranego komunikatu"
                              automation:AutomationProperties.HelpText="Dostępne znaczniki zależą od zdarzenia, na przykład item, slot, service albo value, zapisane w nawiasach klamrowych." />

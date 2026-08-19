@@ -1,66 +1,61 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-055`
-- Tytuł zestawu: Kolejność właściwości, pełny odczyt menu i historia sesji
-- Wersja programu: `0.1.0-alpha.55`
-- Utworzono: 2026-08-19 14:07, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-19_1407_0.1.0-alpha.55.md`
+- Numer zestawu: `AMC-TEST-056`
+- Tytuł zestawu: Kolejność historii i wyłączanie jej komunikatów
+- Wersja programu: `0.1.0-alpha.56`
+- Utworzono: 2026-08-19 14:40, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-19_1440_0.1.0-alpha.56.md`
 
 W pliku wyników po dwukropku wpisz krótko, co się wydarzyło. Jeżeli wszystko działa, wystarczy `OK`. Nie trzeba przed każdym zadaniem wybierać wariantu odpowiedzi.
 
-## AMC-055-01 — Trzy części właściwości
+## AMC-056-01 — Kierunek, widok, sesja
 
-1. Na lokalnym pliku otwórz `Alt+Enter`.
-2. Przeczytaj cały tekst strzałkami.
-3. Powtórz dla elementu demonstracyjnej usługi.
-
-Oczekiwane:
-
-- początek zawiera tytuł, wykonawcę, rodzaj, usługę i — lokalnie — pełną ścieżkę;
-- dalej występuje nagłówek „W aplikacji”, a pod nim odtwarzanie, Ulubione, Biblioteka, Kolejka i „Odtwórz jako następne”;
-- ostatnia sekcja „Techniczne” zaczyna się od czasu, następnie podaje dostępny format, rozmiar, bitrate i częstotliwość;
-- nie ma powtórzonej ścieżki ani zbędnego nagłówka „Podstawowe informacje”.
-
-## AMC-055-02 — Skrót przy pierwszym i ponownym odczycie menu
-
-1. Na liście otwórz menu kontekstowe.
-2. Przechodź po pozycjach strzałkami i zwróć uwagę, czy nazwa wraz ze skrótem jest wypowiadana tylko raz.
-3. Na każdej z kilku pozycji użyj polecenia NVDA odczytującego ponownie bieżący fokus lub wiersz.
-4. Powtórz w menu kontekstowym odtwarzacza.
-5. Sprawdź pozycje zmieniające nazwę, np. „Dodaj do ulubionych” i po wykonaniu „Usuń z ulubionych”.
+1. W Lokalnych multimediach przejdź kolejno do Biblioteki, Ulubionych i Kolejki.
+2. Użyj `Alt+strzałka w lewo`, a potem `Alt+strzałka w prawo`.
+3. Powtórz w TIDAL lub Apple Music.
 
 Oczekiwane:
 
-- zwykłe wejście strzałką mówi opcję i skrót jeden raz;
-- ponowny odczyt fokusu również mówi opcję i skrót;
-- dynamiczna nazwa „Dodaj” albo „Usuń” zawsze ma właściwy skrót;
-- pozycja bez skrótu, np. otwarcie w oficjalnej aplikacji, nie otrzymuje sztucznego skrótu.
+- komunikat ma kolejność „Wstecz, nazwa widoku, nazwa sesji” albo „Naprzód, nazwa widoku, nazwa sesji”;
+- przykładowe brzmienie to „Wstecz, Kolejka, Lokalne multimedia”, a nie „Wstecz, Lokalne multimedia, Kolejka”;
+- historie sesji nadal nie mieszają się ze sobą.
 
-## AMC-055-03 — Historia osobna dla sesji
+## AMC-056-02 — Osobne wyłączenie komunikatów historii
 
-1. W TIDAL przejdź kolejno do Biblioteki, Ulubionych i Kolejki.
-2. Przełącz się do Apple Music i przejdź do Albumów oraz Biblioteki.
-3. W Apple Music użyj `Alt+strzałka w lewo`, potem `Alt+strzałka w prawo`.
-4. Wróć do TIDAL i ponownie użyj obu kierunków historii.
-5. W sesji bez wcześniejszego widoku spróbuj przejść wstecz.
-
-Oczekiwane:
-
-- historia Apple Music porusza się wyłącznie między widokami Apple Music;
-- po powrocie do TIDAL zachowana jest osobna historia TIDAL;
-- komunikaty zawierają „Wstecz” albo „Naprzód”, nazwę sesji i nazwę widoku;
-- brak historii jest zgłaszany wraz z nazwą bieżącej sesji;
-- historia nigdy nie zmienia usługi.
-
-## AMC-055-04 — Krótka regresja właściwości i menu
-
-1. W `Alt+Enter` zaznacz fragment tekstu znakami i słowami, skopiuj go, użyj „Kopiuj wszystko” i wyjdź Escape’em.
-2. W menu listy zaznacz dwa elementy i zmień ich stan kolejki lub Ulubionych.
-3. W odtwarzaczu otwórz właściwości i skopiuj nazwę oraz pełną ścieżkę.
+1. Otwórz Ustawienia, kartę Komunikaty.
+2. Odznacz „Oznajmiaj kierunek historii widoków”, zapisz i ponownie użyj historii.
+3. Sprawdź także próbę przejścia w kierunku, w którym nie ma wcześniejszego widoku.
+4. Zamknij i uruchom AMC ponownie; sprawdź, czy ustawienie zostało zapamiętane.
+5. Włącz opcję ponownie.
 
 Oczekiwane:
 
-- tekstowe zaznaczanie i oba rodzaje kopiowania z `alpha.54` nadal działają;
-- działania listy zachowują wybór wieloelementowy;
-- działania odtwarzacza dotyczą faktycznie odtwarzanego elementu;
-- po zamknięciu okna albo menu fokus wraca do właściwego miejsca.
+- `Alt+lewo/prawo` nadal zmienia widok, lecz nie dodaje słów „Wstecz” ani „Naprzód” i nie mówi komunikatu o braku historii;
+- NVDA odczytuje zwykły element docelowej listy;
+- ustawienie przetrwa ponowne uruchomienie;
+- ponowne zaznaczenie przywraca pełny komunikat historii.
+
+## AMC-056-03 — Ustawienie w palecie i przełącznik nadrzędny
+
+1. Otwórz paletę poleceń `Ctrl+Shift+K` i wyszukaj „historia widoków”.
+2. Sprawdź, czy pozycja podaje bieżący stan włączone/wyłączone i otwiera właściwy checkbox w Ustawieniach.
+3. Wyłącz nadrzędne „Włącz komunikaty dostępności” i sprawdź historię.
+4. Włącz komunikaty dostępności ponownie.
+
+Oczekiwane:
+
+- paleta pokazuje „Komunikaty historii widoków” wraz z rzeczywistym stanem;
+- Enter przechodzi bezpośrednio do odpowiedniej opcji;
+- wyłączenie wszystkich komunikatów ucisza także kierunek historii;
+- ustawienie „Automatyczne komunikaty odtwarzacza” pozostaje niezależne od historii.
+
+## AMC-056-04 — Pełny odczyt odtwarzacza bez regresji
+
+1. Otwórz odtwarzacz i użyj polecenia NVDA odczytującego bieżący obiekt lub wiersz.
+2. Sprawdź zwykłą nawigację po przyciskach i menu kontekstowe.
+
+Oczekiwane:
+
+- pełny odczyt może nadal zawierać tytuł, rodzaj, usługę, stan, prędkość, bieżący przycisk i instrukcję;
+- tekst nie jest automatycznie powtarzany przy każdej zwykłej zmianie przycisku;
+- sterowanie, właściwości i menu odtwarzacza działają jak w `alpha.55`.

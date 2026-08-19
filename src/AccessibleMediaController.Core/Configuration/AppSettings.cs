@@ -67,6 +67,7 @@ public sealed class MessageSettings
     public bool PercentageSeekMessages { get; set; } = true;
     public PercentageSeekAnnouncementMode PercentageSeekAnnouncement { get; set; } = PercentageSeekAnnouncementMode.Percent;
     public bool SessionMessages { get; set; } = true;
+    public bool HistoryMessages { get; set; } = true;
     public bool PlaybackMessages { get; set; } = true;
     public bool VolumeMessages { get; set; } = true;
     public bool LoadingMessages { get; set; } = true;

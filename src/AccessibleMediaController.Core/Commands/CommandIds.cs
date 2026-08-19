@@ -85,6 +85,7 @@ public static class CommandIds
     public const string SettingsImportFullBackup = "settings.fullBackup.import";
     public const string SettingsExportFullBackup = "settings.fullBackup.export";
     public const string SettingsMessages = "settings.messages";
+    public const string SettingsHistoryMessages = "settings.historyMessages";
     public const string SettingsToggleMessages = "settings.messages.toggle";
     public const string SettingsToggleDetailedHints = "settings.detailedHints.toggle";
     public const string SettingsToggleSeekMessages = "settings.seekMessages.toggle";
