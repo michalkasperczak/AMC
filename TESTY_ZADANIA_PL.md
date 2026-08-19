@@ -1,12 +1,34 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-063`
-- Tytuł zestawu: Wznowienie po restarcie, systemowe Otwórz w i bezpieczne Delete
-- Wersja programu: `0.1.0-alpha.63`
+- Numer zestawu: `AMC-TEST-064`
+- Tytuł zestawu: Stabilny fokus po wycofaniu systemowego Otwórz w
+- Wersja programu: `0.1.0-alpha.64`
 - Utworzono: 2026-08-19, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.63.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.64.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 64
+
+### AMC-064-01 — Prawa strzałka nie gubi fokusu
+
+Na pliku lokalnym naciśnij prawą strzałkę, potem strzałkę w dół i w górę.
+
+Oczekiwane: nie pojawia się systemowe okno ani cisza spowodowana utratą fokusu. NVDA pozostaje na liście, a zwykła nawigacja nadal czyta elementy.
+
+### AMC-064-02 — Menu pliku lokalnego
+
+Otwórz menu kontekstowe pliku na liście i w odtwarzaczu.
+
+Oczekiwane: nie ma pozycji „Otwórz w…”. „Otwórz w domyślnej aplikacji” pozostaje dostępne. `Delete` w odtwarzaczu nadal usuwa tylko wpis AMC, a `Shift+Delete` jest dostępne wyłącznie na liście.
+
+### AMC-064-03 — Krótka regresja alpha 63
+
+Sprawdź wznowienie pozycji po restarcie, lewą strzałkę z `kb/s`, `Delete` w odtwarzaczu i `Ctrl+Z`.
+
+Oczekiwane: wszystkie potwierdzone funkcje `alpha.63` działają bez zmian.
+
+## Poprzedni zestaw regresyjny alpha 63
 
 ## Nowości alpha 63
 
@@ -16,11 +38,11 @@ Odtwórz dłuższy plik, przejdź co najmniej minutę od początku, wstrzymaj i 
 
 Oczekiwane: AMC nie uruchamia dźwięku samoczynnie, ale od razu pokazuje i podaje zapisaną pozycję. Pierwsze wznowienie zaczyna się z tego miejsca, a nie od `0:00`.
 
-### AMC-063-02 — Prawa strzałka bez skojarzenia pliku
+### AMC-063-02 — Prawa strzałka bez skojarzenia pliku — historyczne, wycofane w alpha 64
 
 Na lokalnym pliku naciśnij prawą strzałkę. Najlepiej sprawdzić także rozszerzenie, dla którego Windows nie ma poprawnej aplikacji domyślnej.
 
-Oczekiwane: pojawia się systemowa lista aplikacji bez błędu o braku skojarzenia. Wybrana aplikacja jednorazowo otwiera plik. Windows 10 i nowszy może wymagać osobnych Ustawień do trwałej zmiany programu domyślnego.
+Ręczny test wykazał utratę czytelnego fokusu NVDA. Aktualne wymaganie opisuje `AMC-064-01`.
 
 ### AMC-063-03 — Delete w lokalnym odtwarzaczu
 
