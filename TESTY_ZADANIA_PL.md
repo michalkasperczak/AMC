@@ -1,12 +1,34 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-064`
-- Tytuł zestawu: Stabilny fokus po wycofaniu systemowego Otwórz w
-- Wersja programu: `0.1.0-alpha.64`
+- Numer zestawu: `AMC-TEST-065`
+- Tytuł zestawu: Odroczone Otwórz w i porównanie dwóch wejść
+- Wersja programu: `0.1.0-alpha.65`
 - Utworzono: 2026-08-19, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.64.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.65.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 65
+
+### AMC-065-01 — Otwórz w przez menu
+
+Na pliku lokalnym otwórz menu kontekstowe, wybierz „Otwórz w…” i odczekaj chwilę.
+
+Oczekiwane: systemowy wybór aplikacji otrzymuje fokus, NVDA odczytuje jego kontrolki i można wskazać program albo anulować. Po zamknięciu fokus wraca do tego samego pliku w AMC.
+
+### AMC-065-02 — Otwórz w prawą strzałką
+
+Na tym samym pliku naciśnij prawą strzałkę i odczekaj chwilę.
+
+Oczekiwane: wynik jest taki sam jak z menu. Jeżeli działa menu, ale nie strzałka, zapisz dokładnie tę różnicę — wtedy zachowamy funkcję tylko w menu.
+
+### AMC-065-03 — Anulowanie i regresja
+
+Anuluj systemowe okno przez `Escape`, sprawdź nawigację listy, lewą strzałkę, pamiętanie pozycji i `Delete` w odtwarzaczu.
+
+Oczekiwane: `Escape` nie zamyka AMC, fokus wraca na listę, a potwierdzone funkcje `alpha.63–64` pozostają bez zmian.
+
+## Poprzedni zestaw regresyjny alpha 64
 
 ## Nowości alpha 64
 

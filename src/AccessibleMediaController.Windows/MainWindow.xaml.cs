@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -703,6 +704,31 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    private void QueueOpenLocalWithApplication()
+    {
+        if (ActionItem is not { } item || !TryGetLocalPath(item.Source, out var localPath)) return;
+
+        // Do not open the modal shell picker from inside PreviewKeyDown or a
+        // menu Click stack. Let WPF finish the input and focus transition so
+        // screen readers receive the picker's native focus event.
+        Dispatcher.BeginInvoke(
+            () => OpenLocalWithApplication(localPath),
+            DispatcherPriority.ContextIdle);
+    }
+
+    private void OpenLocalWithApplication(string localPath)
+    {
+        try
+        {
+            WindowsOpenWithDialog.Show(new WindowInteropHelper(this).Handle, localPath);
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or Win32Exception or IOException or ExternalException)
+        {
+            AnnounceEssential($"Nie można otworzyć listy aplikacji: {exception.Message}");
+        }
+    }
+
     public void ShowHelp()
     {
         MessageBox.Show(
@@ -723,7 +749,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
             "W oknie: Enter na utworze lub stacji rozpoczyna odtwarzanie i otwiera odtwarzacz. " +
             "Ctrl+Enter odtwarza lub wstrzymuje zaznaczony element bez opuszczania listy, a Spacja steruje elementem faktycznie grającym. " +
-            "Na listach Plików lokalnych lewa strzałka podaje krótkie informacje. " +
+            "Na listach Plików lokalnych lewa strzałka podaje krótkie informacje, a prawa otwiera systemowe Otwórz w. " +
             "F6 otwiera odtwarzacz. W odtwarzaczu strzałki w lewo i w prawo przewijają o 10 sekund, z Shiftem o 30 sekund, a z Ctrl o minutę, " +
             "strzałki w górę i w dół zmieniają głośność, Home i End przechodzą na początek i w pobliże końca, " +
             "a cyfry od 0 do 9 przechodzą odpowiednio do 0, 10, 20 i kolejnych procent długości utworu oraz domyślnie oznajmiają tylko procent. " +
@@ -2700,6 +2726,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (Keyboard.Modifiers == ModifierKeys.None
+            && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+            && SelectedItem is not null
+            && key == Key.Right)
+        {
+            e.Handled = true;
+            QueueOpenLocalWithApplication();
+            return;
+        }
+
         if (Keyboard.Modifiers is not (ModifierKeys.None or ModifierKeys.Shift)) return;
 
         var text = TypeAheadTextFromKey(key);
@@ -2837,6 +2873,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void CopyName_Click(object sender, RoutedEventArgs e) => CopyActionItemName();
     private void CopyLocation_Click(object sender, RoutedEventArgs e) => CopyActionItemLocation();
     private void OpenDefaultApplication_Click(object sender, RoutedEventArgs e) => OpenLocalInDefaultApplication();
+    private void OpenWithApplication_Click(object sender, RoutedEventArgs e) => QueueOpenLocalWithApplication();
     private void OfficialApp_Click(object sender, RoutedEventArgs e) => OpenOfficialApplication();
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelected();
     private void Recycle_Click(object sender, RoutedEventArgs e) => MoveSelectedLocalFilesToRecycleBin();
@@ -2878,6 +2915,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         SetContextMenuItemPresentation(CopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
         var localItem = actionItem is not null && TryGetLocalPath(actionItem.Source, out _);
         OpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
+        OpenWithApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         OfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
         RecycleMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         var removeLabel = localItem && string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
@@ -2916,6 +2954,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         SetContextMenuItemPresentation(PlayerCopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
         var localItem = TryGetLocalPath(item.Source, out _);
         PlayerOpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
+        PlayerOpenWithApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         PlayerOfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
         PlayerRemoveLocalItemMenuItem.Visibility = localItem
             && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)

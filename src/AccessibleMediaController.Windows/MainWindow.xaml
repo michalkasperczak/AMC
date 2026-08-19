@@ -163,6 +163,8 @@
                               Click="CopyLocation_Click" />
                     <MenuItem x:Name="OpenDefaultApplicationMenuItem" Header="Otwórz w domyślnej aplikacji"
                               Click="OpenDefaultApplication_Click" />
+                    <MenuItem x:Name="OpenWithApplicationMenuItem" Header="Otwórz w…"
+                              Click="OpenWithApplication_Click" />
                     <MenuItem x:Name="OfficialApplicationMenuItem" Header="Otwórz w oficjalnej aplikacji"
                               Click="OfficialApp_Click" />
                     <MenuItem x:Name="RemoveMenuItem" Header="Usuń z bieżącego widoku" InputGestureText="Delete"
@@ -217,6 +219,8 @@
                               Click="CopyLocation_Click" />
                     <MenuItem x:Name="PlayerOpenDefaultApplicationMenuItem" Header="Otwórz w domyślnej aplikacji"
                               Click="OpenDefaultApplication_Click" />
+                    <MenuItem x:Name="PlayerOpenWithApplicationMenuItem" Header="Otwórz w…"
+                              Click="OpenWithApplication_Click" />
                     <MenuItem x:Name="PlayerOfficialApplicationMenuItem" Header="Otwórz w oficjalnej aplikacji"
                               Click="OfficialApp_Click" />
                     <MenuItem x:Name="PlayerRemoveLocalItemMenuItem" Header="Usuń z AMC, pozostaw plik na dysku" InputGestureText="Delete"
