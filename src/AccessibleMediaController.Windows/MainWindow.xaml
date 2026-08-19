@@ -130,29 +130,39 @@
                  MouseDoubleClick="MediaList_MouseDoubleClick">
             <ListBox.ContextMenu>
                 <ContextMenu Opened="MediaContextMenu_Opened" Closed="MediaContextMenu_Closed">
-                    <MenuItem Header="Odtwórz lub wstrzymaj" InputGestureText="Ctrl+Enter"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Enter" Click="ToggleSelectedPlayback_Click" />
+                    <MenuItem x:Name="PlaybackMenuItem" Header="Odtwórz lub wstrzymaj" InputGestureText="Ctrl+Enter"
+                              automation:AutomationProperties.Name="Odtwórz lub wstrzymaj, Ctrl+Enter"
+                              Click="ToggleSelectedPlayback_Click" />
                     <MenuItem x:Name="PlayNextMenuItem" Header="Odtwórz jako następne" InputGestureText="Ctrl+Shift+Enter"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+Enter" Click="PlayNext_Click" />
+                              automation:AutomationProperties.Name="Odtwórz jako następne, Ctrl+Shift+Enter"
+                              Click="PlayNext_Click" />
                     <MenuItem x:Name="QueueMenuItem" Header="Dodaj do kolejki" InputGestureText="Shift+Enter"
-                              automation:AutomationProperties.AcceleratorKey="Shift+Enter" Click="Queue_Click" />
+                              automation:AutomationProperties.Name="Dodaj do kolejki, Shift+Enter"
+                              Click="Queue_Click" />
                     <Separator />
                     <MenuItem x:Name="FavoriteMenuItem" Header="Dodaj do ulubionych" InputGestureText="Ctrl+Shift+U"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+U" Click="Favorite_Click" />
+                              automation:AutomationProperties.Name="Dodaj do ulubionych, Ctrl+Shift+U"
+                              Click="Favorite_Click" />
                     <MenuItem x:Name="LibraryMenuItem" Header="Dodaj do biblioteki" InputGestureText="Ctrl+Shift+L"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+L" Click="Library_Click" />
+                              automation:AutomationProperties.Name="Dodaj do biblioteki, Ctrl+Shift+L"
+                              Click="Library_Click" />
                     <MenuItem Header="Zmień przynależność do playlist…" InputGestureText="Ctrl+Shift+P"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+P" Click="Playlists_Click" />
+                              automation:AutomationProperties.Name="Zmień przynależność do playlist, Ctrl+Shift+P"
+                              Click="Playlists_Click" />
                     <Separator />
                     <MenuItem Header="Właściwości i informacje" InputGestureText="Alt+Enter"
-                              automation:AutomationProperties.AcceleratorKey="Alt+Enter" Click="Information_Click" />
+                              automation:AutomationProperties.Name="Właściwości i informacje, Alt+Enter"
+                              Click="Information_Click" />
                     <MenuItem Header="Kopiuj nazwę" InputGestureText="Ctrl+C"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+C" Click="CopyName_Click" />
+                              automation:AutomationProperties.Name="Kopiuj nazwę, Ctrl+C"
+                              Click="CopyName_Click" />
                     <MenuItem x:Name="CopyLocationMenuItem" Header="Kopiuj ścieżkę lub łącze" InputGestureText="Ctrl+Shift+C"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+C" Click="CopyLocation_Click" />
+                              automation:AutomationProperties.Name="Kopiuj ścieżkę lub łącze, Ctrl+Shift+C"
+                              Click="CopyLocation_Click" />
                     <MenuItem Header="Otwórz w oficjalnej aplikacji" Click="OfficialApp_Click" />
                     <MenuItem Header="Usuń z bieżącego widoku" InputGestureText="Delete"
-                              automation:AutomationProperties.AcceleratorKey="Delete" Click="Remove_Click" />
+                              automation:AutomationProperties.Name="Usuń z bieżącego widoku, Delete"
+                              Click="Remove_Click" />
                 </ContextMenu>
             </ListBox.ContextMenu>
         </ListBox>
@@ -163,25 +173,34 @@
             <Border.ContextMenu>
                 <ContextMenu Opened="PlayerContextMenu_Opened">
                     <MenuItem x:Name="PlayerPlayPauseMenuItem" Header="Odtwórz lub wstrzymaj" InputGestureText="Spacja"
-                              automation:AutomationProperties.AcceleratorKey="Spacja" Click="PlayerPlayPause_Click" />
+                              automation:AutomationProperties.Name="Odtwórz lub wstrzymaj, Spacja"
+                              Click="PlayerPlayPause_Click" />
                     <MenuItem x:Name="PlayerPlayNextMenuItem" Header="Odtwórz jako następne" InputGestureText="Ctrl+Shift+Enter"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+Enter" Click="PlayNext_Click" />
+                              automation:AutomationProperties.Name="Odtwórz jako następne, Ctrl+Shift+Enter"
+                              Click="PlayNext_Click" />
                     <MenuItem x:Name="PlayerQueueMenuItem" Header="Dodaj do kolejki" InputGestureText="Shift+Enter"
-                              automation:AutomationProperties.AcceleratorKey="Shift+Enter" Click="Queue_Click" />
+                              automation:AutomationProperties.Name="Dodaj do kolejki, Shift+Enter"
+                              Click="Queue_Click" />
                     <Separator />
                     <MenuItem x:Name="PlayerFavoriteMenuItem" Header="Dodaj do ulubionych" InputGestureText="Ctrl+Shift+U"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+U" Click="Favorite_Click" />
+                              automation:AutomationProperties.Name="Dodaj do ulubionych, Ctrl+Shift+U"
+                              Click="Favorite_Click" />
                     <MenuItem x:Name="PlayerLibraryMenuItem" Header="Dodaj do biblioteki" InputGestureText="Ctrl+Shift+L"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+L" Click="Library_Click" />
+                              automation:AutomationProperties.Name="Dodaj do biblioteki, Ctrl+Shift+L"
+                              Click="Library_Click" />
                     <MenuItem Header="Zmień przynależność do playlist…" InputGestureText="Ctrl+Shift+P"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+P" Click="Playlists_Click" />
+                              automation:AutomationProperties.Name="Zmień przynależność do playlist, Ctrl+Shift+P"
+                              Click="Playlists_Click" />
                     <Separator />
                     <MenuItem Header="Właściwości i informacje" InputGestureText="Alt+Enter"
-                              automation:AutomationProperties.AcceleratorKey="Alt+Enter" Click="Information_Click" />
+                              automation:AutomationProperties.Name="Właściwości i informacje, Alt+Enter"
+                              Click="Information_Click" />
                     <MenuItem Header="Kopiuj nazwę" InputGestureText="Ctrl+C"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+C" Click="CopyName_Click" />
+                              automation:AutomationProperties.Name="Kopiuj nazwę, Ctrl+C"
+                              Click="CopyName_Click" />
                     <MenuItem x:Name="PlayerCopyLocationMenuItem" Header="Kopiuj ścieżkę lub łącze" InputGestureText="Ctrl+Shift+C"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+C" Click="CopyLocation_Click" />
+                              automation:AutomationProperties.Name="Kopiuj ścieżkę lub łącze, Ctrl+Shift+C"
+                              Click="CopyLocation_Click" />
                     <MenuItem Header="Otwórz w oficjalnej aplikacji" Click="OfficialApp_Click" />
                 </ContextMenu>
             </Border.ContextMenu>

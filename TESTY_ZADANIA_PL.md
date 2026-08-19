@@ -1,76 +1,66 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-054`
-- Tytuł zestawu: Tekstowe właściwości i menu kontekstowe odtwarzacza
-- Wersja programu: `0.1.0-alpha.54`
-- Utworzono: 2026-08-19 11:02, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_2026-08-19_1102_0.1.0-alpha.54.md`
+- Numer zestawu: `AMC-TEST-055`
+- Tytuł zestawu: Kolejność właściwości, pełny odczyt menu i historia sesji
+- Wersja programu: `0.1.0-alpha.55`
+- Utworzono: 2026-08-19 14:07, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_2026-08-19_1407_0.1.0-alpha.55.md`
 
 W pliku wyników po dwukropku wpisz krótko, co się wydarzyło. Jeżeli wszystko działa, wystarczy `OK`. Nie trzeba przed każdym zadaniem wybierać wariantu odpowiedzi.
 
-## AMC-054-01 — Właściwości jako zwykły tekst
+## AMC-055-01 — Trzy części właściwości
 
-1. Na lokalnym pliku naciśnij `Alt+Enter`.
-2. Użyj strzałek w lewo i w prawo, `Ctrl+strzałka w lewo/prawo`, strzałek w górę i w dół, Home i End.
-3. Zaznacz kilka znaków przez `Shift+strzałka`, słowo przez `Ctrl+Shift+strzałka` i kilka wierszy przez `Shift+strzałka w dół`.
-4. Skopiuj każdy wybrany fragment przez `Ctrl+C` i wklej do edytora.
-5. Sprawdź `Ctrl+A`, `Ctrl+C`, a potem zamknij okno Escape.
+1. Na lokalnym pliku otwórz `Alt+Enter`.
+2. Przeczytaj cały tekst strzałkami.
+3. Powtórz dla elementu demonstracyjnej usługi.
 
 Oczekiwane:
 
-- fokus trafia do wielowierszowego tekstu tylko do odczytu;
-- NVDA pozwala poruszać się po znakach, słowach i wierszach, a zaznaczenie nie jest ograniczone do całych pozycji listy;
-- standardowe kopiowanie zwraca dokładnie zaznaczony fragment;
-- Escape zamyka okno i przywraca listę albo odtwarzacz.
+- początek zawiera tytuł, wykonawcę, rodzaj, usługę i — lokalnie — pełną ścieżkę;
+- dalej występuje nagłówek „W aplikacji”, a pod nim odtwarzanie, Ulubione, Biblioteka, Kolejka i „Odtwórz jako następne”;
+- ostatnia sekcja „Techniczne” zaczyna się od czasu, następnie podaje dostępny format, rozmiar, bitrate i częstotliwość;
+- nie ma powtórzonej ścieżki ani zbędnego nagłówka „Podstawowe informacje”.
 
-## AMC-054-02 — Kopiuj wszystko bez zamykania
+## AMC-055-02 — Skrót przy pierwszym i ponownym odczycie menu
 
-1. W oknie `Alt+Enter` przejdź Tabem do „Kopiuj wszystko” i naciśnij Enter.
-2. Sprawdź, czy NVDA mówi „Skopiowano wszystkie informacje”.
-3. Upewnij się, że okno nadal jest otwarte, i wklej schowek do edytora.
-4. Wróć do tekstu, naciśnij sam Enter, a następnie Escape.
-
-Oczekiwane:
-
-- przycisk kopiuje pełny tekst wraz z podziałem na sekcje;
-- Enter nie zamyka okna ani na przycisku kopiowania, ani w tekście;
-- dopiero Escape lub przycisk „Zamknij” zamyka dialog.
-
-## AMC-054-03 — Kolejność informacji i ścieżka
-
-1. Otwórz właściwości lokalnego pliku.
-2. Przeczytaj pierwsze wiersze od tytułu do czasu.
-3. Powtórz w demonstracyjnej sesji TIDAL albo Apple Music.
+1. Na liście otwórz menu kontekstowe.
+2. Przechodź po pozycjach strzałkami i zwróć uwagę, czy nazwa wraz ze skrótem jest wypowiadana tylko raz.
+3. Na każdej z kilku pozycji użyj polecenia NVDA odczytującego ponownie bieżący fokus lub wiersz.
+4. Powtórz w menu kontekstowym odtwarzacza.
+5. Sprawdź pozycje zmieniające nazwę, np. „Dodaj do ulubionych” i po wykonaniu „Usuń z ulubionych”.
 
 Oczekiwane:
 
-- dla pliku lokalnego pełna linia „Plik: litera dysku…nazwa” występuje bezpośrednio po „Usługa: Lokalne multimedia”, a nie dopiero na końcu;
-- informacje techniczne nadal zawierają dostępny format, rozmiar, bitrate i częstotliwość;
-- usługa nie pokazuje prywatnego ani tymczasowego adresu strumienia.
+- zwykłe wejście strzałką mówi opcję i skrót jeden raz;
+- ponowny odczyt fokusu również mówi opcję i skrót;
+- dynamiczna nazwa „Dodaj” albo „Usuń” zawsze ma właściwy skrót;
+- pozycja bez skrótu, np. otwarcie w oficjalnej aplikacji, nie otrzymuje sztucznego skrótu.
 
-## AMC-054-04 — Menu kontekstowe odtwarzacza
+## AMC-055-03 — Historia osobna dla sesji
 
-1. Odtwórz lokalny plik i pozostań w odtwarzaczu.
-2. Na przycisku odtwarzacza otwórz menu klawiszem Aplikacji albo `Shift+F10`.
-3. Przejrzyj wszystkie pozycje i wykonaj po jednej: Ulubione, Biblioteka, Kolejka oraz kopiowanie pełnej ścieżki.
-4. Ponownie otwieraj menu po każdej zmianie.
-5. Uruchom „Właściwości i informacje”, zamknij je Escape i sprawdź fokus.
-
-Oczekiwane:
-
-- menu otwiera się z dowolnego przycisku odtwarzacza;
-- zawiera odtwarzanie/pauzę, „Odtwórz jako następne”, Kolejkę, Ulubione, Bibliotekę, playlisty, informacje, oba rodzaje kopiowania i otwarcie oficjalnej aplikacji;
-- etykiety mówią „Dodaj” albo „Usuń” zgodnie z bieżącym stanem;
-- zamknięcie menu lub właściwości przywraca fokus do odtwarzacza.
-
-## AMC-054-05 — Menu listy i krótka regresja historii
-
-1. Na liście otwórz menu kontekstowe i sprawdź nową pozycję Biblioteki oraz kopiowanie nazwy i ścieżki lub łącza.
-2. Zaznacz dwa elementy Shiftem i sprawdź, czy stanowe działania nadal obejmują oba.
-3. Przejdź kolejno do Biblioteki, Ulubionych i Kolejki; użyj `Alt+strzałka w lewo`, a potem `Alt+strzałka w prawo`.
+1. W TIDAL przejdź kolejno do Biblioteki, Ulubionych i Kolejki.
+2. Przełącz się do Apple Music i przejdź do Albumów oraz Biblioteki.
+3. W Apple Music użyj `Alt+strzałka w lewo`, potem `Alt+strzałka w prawo`.
+4. Wróć do TIDAL i ponownie użyj obu kierunków historii.
+5. W sesji bez wcześniejszego widoku spróbuj przejść wstecz.
 
 Oczekiwane:
 
-- menu listy zachowuje działanie zbiorowe, a kopiowanie dotyczy bieżącego elementu;
-- historia mówi kierunek i docelowy widok oraz nie uruchamia się wewnątrz menu;
-- jeśli historia mimo tego pozostaje myląca, zapisz to w uwagach — funkcja nadal jest eksperymentalna.
+- historia Apple Music porusza się wyłącznie między widokami Apple Music;
+- po powrocie do TIDAL zachowana jest osobna historia TIDAL;
+- komunikaty zawierają „Wstecz” albo „Naprzód”, nazwę sesji i nazwę widoku;
+- brak historii jest zgłaszany wraz z nazwą bieżącej sesji;
+- historia nigdy nie zmienia usługi.
+
+## AMC-055-04 — Krótka regresja właściwości i menu
+
+1. W `Alt+Enter` zaznacz fragment tekstu znakami i słowami, skopiuj go, użyj „Kopiuj wszystko” i wyjdź Escape’em.
+2. W menu listy zaznacz dwa elementy i zmień ich stan kolejki lub Ulubionych.
+3. W odtwarzaczu otwórz właściwości i skopiuj nazwę oraz pełną ścieżkę.
+
+Oczekiwane:
+
+- tekstowe zaznaczanie i oba rodzaje kopiowania z `alpha.54` nadal działają;
+- działania listy zachowują wybór wieloelementowy;
+- działania odtwarzacza dotyczą faktycznie odtwarzanego elementu;
+- po zamknięciu okna albo menu fokus wraca do właściwego miejsca.

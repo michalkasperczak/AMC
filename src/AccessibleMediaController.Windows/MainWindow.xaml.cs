@@ -514,14 +514,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 string.IsNullOrWhiteSpace(item.Artist) ? null : $"Wykonawca: {item.Artist}",
                 $"Rodzaj: {item.KindLabel}",
                 $"Usługa: {session.DisplayName}",
-                localPath is null ? null : $"Plik: {localPath}",
-                item.Duration > TimeSpan.Zero ? $"Czas: {CommandRouter.FormatTime(item.Duration)}" : null
+                localPath is null ? null : $"Plik: {localPath}"
             }.Where(value => value is not null).Select(value => value!))
         };
 
         var playbackLines = new List<string>
         {
-            "Odtwarzanie",
+            "W aplikacji",
             $"Aktualnie odtwarzany: {(isCurrent ? "tak" : "nie")}",
             $"Ulubiony: {(item.IsFavorite ? "tak" : "nie")}",
             $"W bibliotece: {(item.IsInLibrary ? "tak" : "nie")}",
@@ -538,13 +537,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         sections.Add(string.Join(Environment.NewLine, playbackLines));
 
         var technicalLines = new List<string> { "Techniczne" };
-        if (item.BitrateKbps is int bitrate)
+        if (item.Duration > TimeSpan.Zero)
         {
-            technicalLines.Add($"Bitrate: {bitrate} kb/s{(item.IsBitrateEstimated ? " (wartość obliczona)" : string.Empty)}");
-        }
-        if (item.SampleRateHz is int sampleRate && sampleRate > 0)
-        {
-            technicalLines.Add($"Częstotliwość próbkowania: {(sampleRate / 1000d).ToString("0.#", CultureInfo.CurrentCulture)} kHz");
+            technicalLines.Add($"Czas: {CommandRouter.FormatTime(item.Duration)}");
         }
         if (localPath is not null)
         {
@@ -561,6 +556,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 // File details can disappear between opening the list and the dialog.
             }
+        }
+        if (item.BitrateKbps is int bitrate)
+        {
+            technicalLines.Add($"Bitrate: {bitrate} kb/s{(item.IsBitrateEstimated ? " (wartość obliczona)" : string.Empty)}");
+        }
+        if (item.SampleRateHz is int sampleRate && sampleRate > 0)
+        {
+            technicalLines.Add($"Częstotliwość próbkowania: {(sampleRate / 1000d).ToString("0.#", CultureInfo.CurrentCulture)} kHz");
         }
         if (technicalLines.Count > 1) sections.Add(string.Join(Environment.NewLine, technicalLines));
 
@@ -1494,7 +1497,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CaptureCurrentSessionNavigationState();
         if (history.Back.Count == 0)
         {
-            Announce("Brak poprzedniego widoku");
+            Announce($"Brak poprzedniego widoku w sesji {_sessions.Current.DisplayName}");
             return;
         }
         history.Forward.Push(_currentView);
@@ -1502,7 +1505,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         navigation.CurrentView = _currentView;
         RestoreFilterForCurrentView(navigation);
         RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
-        PrepareViewFocusContext($"Wstecz, {_currentView}");
+        PrepareViewFocusContext($"Wstecz, {_sessions.Current.DisplayName}, {_currentView}");
         RestoreMediaListFocusAfterRefresh();
     }
 
@@ -1514,7 +1517,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CaptureCurrentSessionNavigationState();
         if (history.Forward.Count == 0)
         {
-            Announce("Brak następnego widoku");
+            Announce($"Brak następnego widoku w sesji {_sessions.Current.DisplayName}");
             return;
         }
         history.Back.Push(_currentView);
@@ -1522,7 +1525,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         navigation.CurrentView = _currentView;
         RestoreFilterForCurrentView(navigation);
         RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
-        PrepareViewFocusContext($"Naprzód, {_currentView}");
+        PrepareViewFocusContext($"Naprzód, {_sessions.Current.DisplayName}, {_currentView}");
         RestoreMediaListFocusAfterRefresh();
     }
 
@@ -2137,44 +2140,74 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void MediaContextMenu_Opened(object sender, RoutedEventArgs e)
     {
         var items = ActionItems;
-        PlayNextMenuItem.Header = items.Count > 0 && items.All(item => item.IsPlayNext)
+        var actionItem = ActionItem;
+        var playbackLabel = actionItem is not null
+            && string.Equals(actionItem.Id, _sessions.Current.CurrentItem.Id, StringComparison.Ordinal)
+            && _sessions.Current.IsPlaying
+                ? "Wstrzymaj"
+                : "Odtwórz";
+        SetContextMenuItemPresentation(PlaybackMenuItem, playbackLabel, "Ctrl+Enter");
+        var playNextLabel = items.Count > 0 && items.All(item => item.IsPlayNext)
             ? "Usuń z odtwarzanych jako następne"
             : "Odtwórz jako następne";
-        QueueMenuItem.Header = items.Count > 0 && items.All(item => item.IsInQueue || item.IsPlayNext)
+        SetContextMenuItemPresentation(PlayNextMenuItem, playNextLabel, "Ctrl+Shift+Enter");
+        var queueLabel = items.Count > 0 && items.All(item => item.IsInQueue || item.IsPlayNext)
             ? "Usuń z kolejki"
             : "Dodaj do kolejki";
-        FavoriteMenuItem.Header = items.Count > 0 && items.All(item => item.IsFavorite)
+        SetContextMenuItemPresentation(QueueMenuItem, queueLabel, "Shift+Enter");
+        var favoriteLabel = items.Count > 0 && items.All(item => item.IsFavorite)
             ? "Usuń z ulubionych"
             : "Dodaj do ulubionych";
-        LibraryMenuItem.Header = items.Count > 0 && items.All(item => item.IsInLibrary)
+        SetContextMenuItemPresentation(FavoriteMenuItem, favoriteLabel, "Ctrl+Shift+U");
+        var libraryLabel = items.Count > 0 && items.All(item => item.IsInLibrary)
             ? "Usuń z biblioteki"
             : "Dodaj do biblioteki";
-        CopyLocationMenuItem.Header = ActionItem is { } item && TryGetLocalPath(item.Source, out _)
+        SetContextMenuItemPresentation(LibraryMenuItem, libraryLabel, "Ctrl+Shift+L");
+        var copyLocationLabel = actionItem is not null && TryGetLocalPath(actionItem.Source, out _)
             ? "Kopiuj pełną ścieżkę"
             : "Kopiuj łącze do elementu";
+        SetContextMenuItemPresentation(CopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
     }
     private void MediaContextMenu_Closed(object sender, RoutedEventArgs e) =>
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.Loaded);
     private void PlayerContextMenu_Opened(object sender, RoutedEventArgs e)
     {
         var item = _sessions.Current.CurrentItem;
-        PlayerPlayPauseMenuItem.Header = _sessions.Current.IsPlaying ? "Wstrzymaj" : "Odtwórz";
-        PlayerPlayNextMenuItem.Header = item.IsPlayNext
+        SetContextMenuItemPresentation(
+            PlayerPlayPauseMenuItem,
+            _sessions.Current.IsPlaying ? "Wstrzymaj" : "Odtwórz",
+            "Spacja");
+        var playNextLabel = item.IsPlayNext
             ? "Usuń z odtwarzanych jako następne"
             : "Odtwórz jako następne";
-        PlayerQueueMenuItem.Header = item.IsInQueue || item.IsPlayNext
+        SetContextMenuItemPresentation(PlayerPlayNextMenuItem, playNextLabel, "Ctrl+Shift+Enter");
+        var queueLabel = item.IsInQueue || item.IsPlayNext
             ? "Usuń z kolejki"
             : "Dodaj do kolejki";
-        PlayerFavoriteMenuItem.Header = item.IsFavorite
+        SetContextMenuItemPresentation(PlayerQueueMenuItem, queueLabel, "Shift+Enter");
+        var favoriteLabel = item.IsFavorite
             ? "Usuń z ulubionych"
             : "Dodaj do ulubionych";
-        PlayerLibraryMenuItem.Header = item.IsInLibrary
+        SetContextMenuItemPresentation(PlayerFavoriteMenuItem, favoriteLabel, "Ctrl+Shift+U");
+        var libraryLabel = item.IsInLibrary
             ? "Usuń z biblioteki"
             : "Dodaj do biblioteki";
-        PlayerCopyLocationMenuItem.Header = TryGetLocalPath(item.Source, out _)
+        SetContextMenuItemPresentation(PlayerLibraryMenuItem, libraryLabel, "Ctrl+Shift+L");
+        var copyLocationLabel = TryGetLocalPath(item.Source, out _)
             ? "Kopiuj pełną ścieżkę"
             : "Kopiuj łącze do elementu";
+        SetContextMenuItemPresentation(PlayerCopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
     }
+
+    private static void SetContextMenuItemPresentation(
+        MenuItem menuItem,
+        string label,
+        string shortcut)
+    {
+        menuItem.Header = label;
+        AutomationProperties.SetName(menuItem, $"{label}, {shortcut}");
+    }
+
     private void CopyActionItemName()
     {
         if (ActionItem is not { } item) return;
