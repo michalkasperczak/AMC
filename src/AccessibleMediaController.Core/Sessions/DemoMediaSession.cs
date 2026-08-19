@@ -101,6 +101,21 @@ public sealed class DemoMediaSession
         _position = _rememberedPositions.GetValueOrDefault(CurrentItem.Id);
     }
 
+    public bool PlayRelative(int direction)
+    {
+        if (direction == 0) return false;
+        var nextIndex = _currentIndex + Math.Sign(direction);
+        if (nextIndex < 0 || nextIndex >= Items.Count) return false;
+
+        ResetQueueDiversion();
+        RememberCurrentPosition();
+        _currentIndex = nextIndex;
+        _position = _rememberedPositions.GetValueOrDefault(CurrentItem.Id);
+        IsPlaying = true;
+        _output?.Play(CurrentItem, _position, Volume, PlaybackRate);
+        return true;
+    }
+
     public void Seek(TimeSpan delta)
     {
         var next = Position + delta;

@@ -127,12 +127,20 @@ public sealed class CommandRouter(
                 }
                 return new(true);
             case CommandIds.Previous:
-                current.Move(-1);
-                announcements.Announce(FormatItem(current.CurrentItem));
+                if (!current.PlayRelative(-1))
+                {
+                    announcements.Announce("To pierwszy element");
+                    return new(false);
+                }
+                announcements.Announce($"Odtwarzanie: {FormatItem(current.CurrentItem)}");
                 return new(true);
             case CommandIds.Next:
-                current.Move(1);
-                announcements.Announce(FormatItem(current.CurrentItem));
+                if (!current.PlayRelative(1))
+                {
+                    announcements.Announce("To ostatni element");
+                    return new(false);
+                }
+                announcements.Announce($"Odtwarzanie: {FormatItem(current.CurrentItem)}");
                 return new(true);
             case CommandIds.SeekBackward10: return Seek(current, -10);
             case CommandIds.SeekForward10: return Seek(current, 10);

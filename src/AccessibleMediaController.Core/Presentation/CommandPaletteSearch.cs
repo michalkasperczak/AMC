@@ -126,6 +126,8 @@ public static class CommandPaletteSearch
         {
             CommandIds.PlayPause => "Space",
             CommandIds.ActivateSelected => "Ctrl+Enter",
+            CommandIds.Previous => "PageUp (odtwarzacz)",
+            CommandIds.Next => "PageDown (odtwarzacz)",
             CommandIds.SeekBackward10 => "Left (odtwarzacz)",
             CommandIds.SeekForward10 => "Right (odtwarzacz)",
             CommandIds.SeekBackward30 => "Shift+Left (odtwarzacz)",

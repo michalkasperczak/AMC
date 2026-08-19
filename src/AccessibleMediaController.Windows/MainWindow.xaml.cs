@@ -353,7 +353,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : $"{focusContext}, Odtwarzacz, {item.Title}, {artist}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}");
         AutomationProperties.SetHelpText(
             PlayerPlayPauseButton,
-            "Strzałki sterują czasem i głośnością. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Escape wraca do listy.");
+            "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Escape wraca do listy.");
     }
 
     private void PlayerUiTimer_Tick(object? sender, EventArgs e)
@@ -446,6 +446,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
+        if (string.Equals(session.Id, "local", StringComparison.Ordinal))
+        {
+            TrySaveLocalMediaState(false);
+        }
     }
 
     public void ShowSessionList()
@@ -1221,7 +1225,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();
-        if (changesListMembership && string.Equals(changedSession?.Id, "local", StringComparison.Ordinal))
+        var savesPlaybackBoundary = commandId is CommandIds.PlayPause
+            or CommandIds.ActivateSelected
+            or CommandIds.Previous
+            or CommandIds.Next;
+        if ((changesListMembership && string.Equals(changedSession?.Id, "local", StringComparison.Ordinal))
+            || (savesPlaybackBoundary && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)))
         {
             TrySaveLocalMediaState(false);
         }
@@ -1381,6 +1390,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!_initialFocusApplied) return;
         if (Keyboard.FocusedElement is not null and not Menu and not MenuItem) return;
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.ContextIdle);
+    }
+
+    private void Window_Deactivated(object? sender, EventArgs e)
+    {
+        // Persist when the user switches away or a modal dialog opens. This
+        // supplements the timer without writing after every repeated seek.
+        if (IsLoaded) TrySaveLocalMediaState(false);
     }
 
     private void ActivateSelected()
@@ -1719,7 +1735,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var session = _sessions.Current;
         var area = _playerViewActive ? "Odtwarzacz" : _currentView;
-        Title = $"{area} — {session.CurrentItem.Title} — {session.DisplayName} — AMC {AppDisplayVersion}";
+        Title = $"{session.CurrentItem.Title} — {area} — {session.DisplayName} — AMC {AppDisplayVersion}";
         AutomationProperties.SetName(this, Title);
     }
 
@@ -1912,6 +1928,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else if (!MediaList.IsKeyboardFocusWithin)
         {
+            if (_playerViewActive
+                && (modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                // Consume otherwise unassigned Control combinations inside the
+                // player so framework focus navigation cannot expose a random
+                // heading or button (for example after Ctrl+W).
+                e.Handled = true;
+            }
             return;
         }
         else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.E)
@@ -2048,6 +2072,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var commandId = (Keyboard.Modifiers, e.Key) switch
         {
+            (ModifierKeys.None, Key.PageUp) => CommandIds.Previous,
+            (ModifierKeys.None, Key.PageDown) => CommandIds.Next,
             (ModifierKeys.Control, Key.J) => CommandIds.SeekToTime,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.J) => CommandIds.SeekToPercentage,
             (ModifierKeys.None, Key.Left) => CommandIds.SeekBackward10,
@@ -2067,7 +2093,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.None, Key.End) => CommandIds.TrackEnd,
             _ => null
         };
-        if (commandId is null) return false;
+        if (commandId is null)
+        {
+            // Do not let unsupported arrow combinations invoke WPF spatial
+            // focus navigation between player buttons. They have no transport
+            // meaning until AMC assigns one explicitly.
+            return e.Key is Key.Left or Key.Right or Key.Up or Key.Down or Key.PageUp or Key.PageDown
+                && Keyboard.Modifiers != ModifierKeys.None;
+        }
         ExecuteCommand(commandId);
         return true;
     }
@@ -2280,6 +2313,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
     private void MediaList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => ActivateSelected();
     private void PlayerPlayPause_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlayPause);
+    private void PlayerPrevious_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.Previous);
+    private void PlayerNext_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.Next);
     private void PlayerBackward_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekBackward10);
     private void PlayerForward_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekForward10);
     private void PlayerVolumeDown_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.VolumeDown5);

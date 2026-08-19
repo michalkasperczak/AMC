@@ -503,6 +503,13 @@ static void TestLocalPlaybackBoundary()
     };
     session.AddItems([nextItem]);
     Equal(2, session.Items.Count);
+    True(session.PlayRelative(1), "Page Down powinien uruchomić następny plik.");
+    Equal(nextItem, session.CurrentItem);
+    Equal(true, session.IsPlaying);
+    True(!session.PlayRelative(1), "Następny plik nie powinien zapętlać końca listy.");
+    True(session.PlayRelative(-1), "Page Up powinien uruchomić poprzedni plik.");
+    Equal(item, session.CurrentItem);
+    True(!session.PlayRelative(-1), "Poprzedni plik nie powinien zapętlać początku listy.");
     True(session.Play(item), "Pierwszy plik powinien ponownie rozpocząć odtwarzanie.");
     Equal(nextItem, session.ContinueAfterPlaybackEnded(item));
     Equal(nextItem, session.CurrentItem);
@@ -842,6 +849,8 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
     Equal("Ctrl+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToTime).LocalShortcut);
     Equal("Ctrl+Shift+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToPercentage).LocalShortcut);
+    Equal("PageUp (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.Previous).LocalShortcut);
+    Equal("PageDown (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.Next).LocalShortcut);
     var itemProperties = entries.Single(entry => entry.CommandId == CommandIds.ItemProperties);
     Equal("Alt+Enter", itemProperties.LocalShortcut);
     True(itemProperties.PrefixShortcut is null, "Właściwości nie mają skrótu prefiksowego.");

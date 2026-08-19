@@ -9,6 +9,7 @@
         WindowStartupLocation="CenterScreen"
         ContentRendered="Window_ContentRendered"
         Activated="Window_Activated"
+        Deactivated="Window_Deactivated"
         PreviewKeyDown="Window_PreviewKeyDown"
         Closing="Window_Closing">
     <DockPanel>
@@ -175,6 +176,12 @@
                     <MenuItem x:Name="PlayerPlayPauseMenuItem" Header="Odtwórz lub wstrzymaj" InputGestureText="Spacja"
                               automation:AutomationProperties.Name="Odtwórz lub wstrzymaj, Spacja"
                               Click="PlayerPlayPause_Click" />
+                    <MenuItem Header="Poprzedni utwór" InputGestureText="Page Up"
+                              automation:AutomationProperties.Name="Poprzedni utwór, Page Up"
+                              Click="PlayerPrevious_Click" />
+                    <MenuItem Header="Następny utwór" InputGestureText="Page Down"
+                              automation:AutomationProperties.Name="Następny utwór, Page Down"
+                              Click="PlayerNext_Click" />
                     <MenuItem x:Name="PlayerPlayNextMenuItem" Header="Odtwórz jako następne" InputGestureText="Ctrl+Shift+Enter"
                               automation:AutomationProperties.Name="Odtwórz jako następne, Ctrl+Shift+Enter"
                               Click="PlayNext_Click" />
@@ -219,6 +226,12 @@
                 <WrapPanel>
                     <Button x:Name="PlayerPlayPauseButton" MinWidth="145" Margin="0,0,8,8"
                             Content="_Odtwórz" Click="PlayerPlayPause_Click" />
+                    <Button MinWidth="145" Margin="0,0,8,8" Content="_Poprzedni utwór"
+                            automation:AutomationProperties.AcceleratorKey="Page Up"
+                            Click="PlayerPrevious_Click" />
+                    <Button MinWidth="145" Margin="0,0,8,8" Content="_Następny utwór"
+                            automation:AutomationProperties.AcceleratorKey="Page Down"
+                            Click="PlayerNext_Click" />
                     <Button MinWidth="135" Margin="0,0,8,8" Content="_Cofnij 10 sekund"
                             Click="PlayerBackward_Click" />
                     <Button MinWidth="145" Margin="0,0,8,8" Content="_Przewiń 10 sekund"
@@ -246,7 +259,7 @@
                             Click="PlayerBack_Click" />
                 </WrapPanel>
                 <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
-                           Text="Strzałki sterują czasem i głośnością. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Spacja wstrzymuje lub wznawia. Escape wraca do listy." />
+                           Text="Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Spacja wstrzymuje lub wznawia. Escape wraca do listy." />
             </StackPanel>
         </Border>
         </Grid>

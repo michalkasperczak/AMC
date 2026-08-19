@@ -1,6 +1,8 @@
+using System.IO;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
 using NAudio.CoreAudioApi;
+using NAudio.Vorbis;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using SoundTouch.Net.NAudioSupport;
@@ -37,7 +39,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
 {
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     private WasapiOut? _outputDevice;
-    private AudioFileReader? _reader;
+    private WaveStream? _reader;
     private SoundTouchWaveStream? _tempoStream;
     private VolumeSampleProvider? _volumeProvider;
     private MediaItem? _currentItem;
@@ -88,7 +90,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
 
             ClosePipeline();
             _currentItem = item;
-            var reader = new AudioFileReader(item.Source);
+            var reader = CreateReader(item.Source);
             _reader = reader;
             _tempoStream = new SoundTouchWaveStream(reader)
             {
@@ -115,6 +117,15 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             ClosePipeline();
             RaisePlaybackFailed(item, exception.Message);
         }
+    }
+
+    private static WaveStream CreateReader(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".ogg", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".oga", StringComparison.OrdinalIgnoreCase)
+                ? new VorbisWaveReader(path)
+                : new AudioFileReader(path);
     }
 
     public void Pause()
