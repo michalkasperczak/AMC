@@ -128,6 +128,32 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 : new AudioFileReader(path);
     }
 
+    public static bool TryReadMetadata(
+        string path,
+        out TimeSpan duration,
+        out int sampleRateHz)
+    {
+        duration = TimeSpan.Zero;
+        sampleRateHz = 0;
+        try
+        {
+            using var reader = CreateReader(path);
+            duration = reader.TotalTime;
+            sampleRateHz = reader.WaveFormat.SampleRate;
+            return duration > TimeSpan.Zero || sampleRateHz > 0;
+        }
+        catch (Exception exception) when (
+            exception is IOException
+                or UnauthorizedAccessException
+                or InvalidDataException
+                or NotSupportedException
+                or ArgumentException
+                or System.Runtime.InteropServices.COMException)
+        {
+            return false;
+        }
+    }
+
     public void Pause()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

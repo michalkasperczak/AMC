@@ -709,6 +709,8 @@ State of `alpha.60`: every session has persistent playback history capped at 500
 
 State of `alpha.61`: Right Arrow is now a direct shortcut for the Windows `openas` picker rather than a replacement for AMC's context menu; Left still speaks quick information. `Shift+Delete` is available on both the list and the player. In the latter it targets the actually open item, confirms intent, stops playback, and releases the file handle before the Recycle Bin operation. Deletion clears both persistent identifiers and the active `Alt+Up/Down` snapshot. Local state clears `CurrentItemId` when its session no longer exists, and history normalization retains only identifiers present in the local catalogue. Recycle Bin latency can come from the synchronous Windows shell and iCloud synchronization; destructive work is not moved to a background thread without a separate design for cancellation, duplicate-command locking, and shell prompts.
 
+State of `alpha.62`: Left Arrow fills missing metadata for only the selected file. The probe uses the same NAudio/Vorbis reader selection as playback without starting audio. Average bitrate is estimated as file bits divided by duration, so VBR reports an average rather than an instantaneous value. Duration, sample rate, and `kb/s` are persisted in local state. A failed probe does not suppress extension, artist, or size. The main window explicitly handles `Alt+F4` before the player layer and calls `Close`; because the player is a view rather than another window, closing is not two-stage. A modal dialog keeps standard Windows behavior, so its own `Alt+F4` closes that dialog first.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.

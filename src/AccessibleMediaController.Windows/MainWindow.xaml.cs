@@ -621,22 +621,59 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void AnnounceQuickLocalInformation(MediaItem item)
     {
         if (!TryGetLocalPath(item.Source, out var localPath)) return;
+        var metadataChanged = false;
+        if ((item.Duration <= TimeSpan.Zero
+                || item.BitrateKbps is null
+                || item.SampleRateHz is null)
+            && WindowsMediaOutput.TryReadMetadata(localPath, out var duration, out var sampleRateHz))
+        {
+            if (item.Duration <= TimeSpan.Zero && duration > TimeSpan.Zero)
+            {
+                item.Duration = duration;
+                metadataChanged = true;
+            }
+            if (item.SampleRateHz is null && sampleRateHz > 0)
+            {
+                item.SampleRateHz = sampleRateHz;
+                metadataChanged = true;
+            }
+        }
+
         var details = new List<string>();
         var extension = Path.GetExtension(localPath).TrimStart('.');
         if (!string.IsNullOrWhiteSpace(extension)) details.Add(extension.ToUpperInvariant());
         if (!string.IsNullOrWhiteSpace(item.Artist)) details.Add(item.Artist);
         if (item.Duration > TimeSpan.Zero) details.Add(CommandRouter.FormatTime(item.Duration));
-        var audio = AudioParametersFormatter.FormatCompact(item, CultureInfo.CurrentCulture);
-        if (!string.IsNullOrWhiteSpace(audio)) details.Add(audio);
         try
         {
             var file = new FileInfo(localPath);
-            if (file.Exists) details.Add(FormatFileSize(file.Length));
+            if (file.Exists)
+            {
+                if (item.BitrateKbps is null && item.Duration > TimeSpan.Zero)
+                {
+                    item.BitrateKbps = LocalAudioFileDiscovery.EstimateBitrateKbps(
+                        file.Length,
+                        item.Duration);
+                    item.IsBitrateEstimated = item.BitrateKbps.HasValue;
+                    metadataChanged |= item.BitrateKbps.HasValue;
+                }
+                details.Add(FormatFileSize(file.Length));
+            }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             // The other cached details remain useful if the file is temporarily unavailable.
         }
+
+        var audio = AudioParametersFormatter.FormatCompact(item, CultureInfo.CurrentCulture);
+        if (!string.IsNullOrWhiteSpace(audio))
+        {
+            var sizeIndex = details.Count > 0 && details[^1].EndsWith("B", StringComparison.Ordinal)
+                ? details.Count - 1
+                : details.Count;
+            details.Insert(sizeIndex, audio);
+        }
+        if (metadataChanged) TrySaveLocalMediaState(false);
 
         Announce(details.Count == 0
             ? $"{item.Title}: brak zapisanych informacji technicznych"
@@ -719,6 +756,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Delete lub Backspace usuwa z bieżącego widoku, a w głównym katalogu lokalnym usuwa tylko wpis z AMC. Shift+Delete na liście albo w odtwarzaczu po potwierdzeniu zatrzymuje plik i przenosi go do systemowego Kosza. " +
             "Alt+strzałka w lewo i w prawo przechodzi po osobnej historii widoków. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
+            "Alt+F4 zawsze zamyka całe główne okno i aplikację, również z widoku odtwarzacza. " +
             "Escape w filtrze lub na głównym przycisku wraca do listy; aktywny filtr jest wtedy czyszczony. " +
             "W menu Escape standardowo wychodzi o jeden poziom.",
             "Skróty prototypu",
@@ -2193,6 +2231,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        var windowKey = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (Keyboard.Modifiers == ModifierKeys.Alt && windowKey == Key.F4)
+        {
+            e.Handled = true;
+            Close();
+            return;
+        }
+
         if (TryHandleLocalSessionShortcut(e))
         {
             e.Handled = true;

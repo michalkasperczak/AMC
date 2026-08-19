@@ -711,6 +711,8 @@ Stan `alpha.60`: każda sesja ma zapisywaną na dysku historię odtwarzania o ma
 
 Stan `alpha.61`: prawa strzałka jest bezpośrednim skrótem systemowego `openas`, a nie zamiennikiem menu kontekstowego AMC. Lewa nadal podaje krótkie informacje. `Shift+Delete` jest dostępne na liście i w odtwarzaczu; w drugim przypadku działa na faktycznie otwartym elemencie, potwierdza zamiar, zatrzymuje tor i zwalnia uchwyt przed operacją Kosza. Usuwanie czyści trwałą listę identyfikatorów oraz migawkę `Alt+góra/dół`. Stan lokalny zeruje `CurrentItemId`, gdy sesja przestaje istnieć, a normalizacja historii pozostawia tylko identyfikatory obecne w lokalnym katalogu. Opóźnienie samego Kosza może wynikać z synchronicznej powłoki Windows i synchronizacji iCloud; nie przenosimy destrukcyjnej operacji na wątek tła bez osobnego projektu anulowania, blokady ponownego polecenia i obsługi komunikatów powłoki.
 
+Stan `alpha.62`: szybka informacja pod lewą strzałką uzupełnia brakujące metadane wyłącznie zaznaczonego pliku. Tor używa tego samego wyboru czytnika NAudio/Vorbis co odtwarzanie, lecz nie uruchamia dźwięku. Średni bitrate jest szacowany jako rozmiar w bitach podzielony przez czas, więc dla VBR opisuje średnią, a nie chwilową wartość. Czas, częstotliwość i `kb/s` są zapisywane w stanie lokalnym. Niepowodzenie próby nie blokuje odczytu rozszerzenia, wykonawcy i rozmiaru. Główne okno jawnie przechwytuje `Alt+F4` przed warstwą odtwarzacza i wykonuje `Close`; widok odtwarzacza nie jest osobnym oknem, dlatego nie ma dwuetapowego zamykania. Dialog modalny nadal zachowuje standard Windows i jego własne `Alt+F4` zamyka najpierw ten dialog.
+
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.

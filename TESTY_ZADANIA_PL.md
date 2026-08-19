@@ -1,12 +1,34 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-061`
-- Tytuł zestawu: Systemowe Otwórz w, usuwanie w odtwarzaczu i czyszczenie historii
-- Wersja programu: `0.1.0-alpha.61`
+- Numer zestawu: `AMC-TEST-062`
+- Tytuł zestawu: Bitrate pod lewą strzałką i jednoetapowe Alt+F4
+- Wersja programu: `0.1.0-alpha.62`
 - Utworzono: 2026-08-19, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.61.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.62.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 62
+
+### AMC-062-01 — Bitrate pliku wcześniej odtwarzanego
+
+Na liście zaznacz odtwarzany wcześniej plik i naciśnij lewą strzałkę.
+
+Oczekiwane: komunikat zawiera rozszerzenie, czas, wartość `kb/s`, dostępne `kHz` i rozmiar.
+
+### AMC-062-02 — Bitrate pliku jeszcze nieodtwarzanego
+
+Dodaj nowy plik, nie uruchamiaj go i od razu naciśnij lewą strzałkę. Powtórz ją drugi raz.
+
+Oczekiwane: AMC odczytuje metadane tylko tego pliku i podaje średni bitrate w `kb/s`. Druga próba korzysta z zapisanego wyniku. Nie rozpoczyna się odtwarzanie ani skanowanie całej listy.
+
+### AMC-062-03 — Alt+F4 z odtwarzacza
+
+Otwórz odtwarzacz przez `F6` i naciśnij `Alt+F4`.
+
+Oczekiwane: cała aplikacja zamyka się od razu i zapisuje stan; nie następuje najpierw powrót do listy. Po ponownym uruchomieniu `Escape` i `Shift+F6` nadal wracają tylko do listy.
+
+## Poprzedni zestaw regresyjny alpha 61
 
 ## Nowości alpha 61
 
