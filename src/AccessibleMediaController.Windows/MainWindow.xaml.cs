@@ -502,6 +502,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var session = _sessions.Current;
         var isCurrent = string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal);
+        var localPath = TryGetLocalPath(item.Source, out var resolvedPath)
+            ? resolvedPath
+            : null;
         var sections = new List<string>
         {
             string.Join(Environment.NewLine,
@@ -510,8 +513,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 $"Tytuł: {item.Title}",
                 string.IsNullOrWhiteSpace(item.Artist) ? null : $"Wykonawca: {item.Artist}",
                 $"Rodzaj: {item.KindLabel}",
-                item.Duration > TimeSpan.Zero ? $"Czas: {CommandRouter.FormatTime(item.Duration)}" : null,
-                $"Usługa: {session.DisplayName}"
+                $"Usługa: {session.DisplayName}",
+                localPath is null ? null : $"Plik: {localPath}",
+                item.Duration > TimeSpan.Zero ? $"Czas: {CommandRouter.FormatTime(item.Duration)}" : null
             }.Where(value => value is not null).Select(value => value!))
         };
 
@@ -542,10 +546,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             technicalLines.Add($"Częstotliwość próbkowania: {(sampleRate / 1000d).ToString("0.#", CultureInfo.CurrentCulture)} kHz");
         }
-        string? localPath = null;
-        if (TryGetLocalPath(item.Source, out var resolvedPath))
+        if (localPath is not null)
         {
-            localPath = resolvedPath;
             var extension = Path.GetExtension(localPath).TrimStart('.');
             if (!string.IsNullOrWhiteSpace(extension))
             {
@@ -562,13 +564,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (technicalLines.Count > 1) sections.Add(string.Join(Environment.NewLine, technicalLines));
 
-        if (localPath is not null)
+        if (localPath is null && !string.IsNullOrWhiteSpace(item.PublicUri))
         {
-            sections.Add($"Źródło{Environment.NewLine}Plik: {localPath}");
-        }
-        else
-        {
-            sections.Add($"Źródło{Environment.NewLine}Usługa: {session.DisplayName}");
+            sections.Add($"Źródło{Environment.NewLine}Łącze publiczne: {item.PublicUri}");
         }
 
         return string.Join(Environment.NewLine + Environment.NewLine, sections);
@@ -1702,30 +1700,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (itemCommandsAvailable
             && modifiers == ModifierKeys.Control
             && e.Key == Key.C
-            && ActionItem is { } nameItem)
+            && ActionItem is not null)
         {
-            Clipboard.SetText(nameItem.Title);
-            Announce("Skopiowano nazwę");
+            CopyActionItemName();
             e.Handled = true;
         }
         else if (itemCommandsAvailable
                  && modifiers == (ModifierKeys.Control | ModifierKeys.Shift)
                  && e.Key == Key.C
-                 && ActionItem is { } locationItem)
+                 && ActionItem is not null)
         {
-            if (TryGetLocalPath(locationItem.Source, out var localPath))
-            {
-                Clipboard.SetText(localPath);
-                Announce("Skopiowano pełną ścieżkę");
-            }
-            else
-            {
-                var publicUri = string.IsNullOrWhiteSpace(locationItem.PublicUri)
-                    ? $"demo://{_sessions.Current.Id}/{locationItem.Id}"
-                    : locationItem.PublicUri;
-                Clipboard.SetText(publicUri);
-                Announce("Skopiowano łącze do elementu");
-            }
+            CopyActionItemLocation();
             e.Handled = true;
         }
         else if (modifiers == ModifierKeys.Control && e.Key == Key.Z)
@@ -2137,8 +2122,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PlayNext_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.TogglePlayNext);
     private void Queue_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddQueue);
     private void Favorite_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleFavorite);
+    private void Library_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleLibrary);
     private void Playlists_Click(object sender, RoutedEventArgs e) => ShowPlaylistManager();
     private void Information_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemProperties);
+    private void CopyName_Click(object sender, RoutedEventArgs e) => CopyActionItemName();
+    private void CopyLocation_Click(object sender, RoutedEventArgs e) => CopyActionItemLocation();
     private void OfficialApp_Click(object sender, RoutedEventArgs e) => OpenOfficialApplication();
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelected();
     private void Undo_Click(object sender, RoutedEventArgs e) => UndoLastMembershipChange();
@@ -2155,9 +2143,61 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         QueueMenuItem.Header = items.Count > 0 && items.All(item => item.IsInQueue || item.IsPlayNext)
             ? "Usuń z kolejki"
             : "Dodaj do kolejki";
+        FavoriteMenuItem.Header = items.Count > 0 && items.All(item => item.IsFavorite)
+            ? "Usuń z ulubionych"
+            : "Dodaj do ulubionych";
+        LibraryMenuItem.Header = items.Count > 0 && items.All(item => item.IsInLibrary)
+            ? "Usuń z biblioteki"
+            : "Dodaj do biblioteki";
+        CopyLocationMenuItem.Header = ActionItem is { } item && TryGetLocalPath(item.Source, out _)
+            ? "Kopiuj pełną ścieżkę"
+            : "Kopiuj łącze do elementu";
     }
     private void MediaContextMenu_Closed(object sender, RoutedEventArgs e) =>
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.Loaded);
+    private void PlayerContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        var item = _sessions.Current.CurrentItem;
+        PlayerPlayPauseMenuItem.Header = _sessions.Current.IsPlaying ? "Wstrzymaj" : "Odtwórz";
+        PlayerPlayNextMenuItem.Header = item.IsPlayNext
+            ? "Usuń z odtwarzanych jako następne"
+            : "Odtwórz jako następne";
+        PlayerQueueMenuItem.Header = item.IsInQueue || item.IsPlayNext
+            ? "Usuń z kolejki"
+            : "Dodaj do kolejki";
+        PlayerFavoriteMenuItem.Header = item.IsFavorite
+            ? "Usuń z ulubionych"
+            : "Dodaj do ulubionych";
+        PlayerLibraryMenuItem.Header = item.IsInLibrary
+            ? "Usuń z biblioteki"
+            : "Dodaj do biblioteki";
+        PlayerCopyLocationMenuItem.Header = TryGetLocalPath(item.Source, out _)
+            ? "Kopiuj pełną ścieżkę"
+            : "Kopiuj łącze do elementu";
+    }
+    private void CopyActionItemName()
+    {
+        if (ActionItem is not { } item) return;
+        Clipboard.SetText(item.Title);
+        Announce("Skopiowano nazwę");
+    }
+
+    private void CopyActionItemLocation()
+    {
+        if (ActionItem is not { } item) return;
+        if (TryGetLocalPath(item.Source, out var localPath))
+        {
+            Clipboard.SetText(localPath);
+            Announce("Skopiowano pełną ścieżkę");
+            return;
+        }
+
+        var publicUri = string.IsNullOrWhiteSpace(item.PublicUri)
+            ? $"demo://{_sessions.Current.Id}/{item.Id}"
+            : item.PublicUri;
+        Clipboard.SetText(publicUri);
+        Announce("Skopiowano łącze do elementu");
+    }
     private void PreviousSession_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SessionPrevious);
     private void NextSession_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SessionNext);
     private void NowPlayingView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewNowPlaying);

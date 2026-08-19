@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
         xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"
         Title="Właściwości i informacje"
         Width="650" Height="500" MinWidth="460" MinHeight="320"
         WindowStartupLocation="CenterOwner"
@@ -10,18 +11,18 @@
         ContentRendered="Window_ContentRendered"
         PreviewKeyDown="Window_PreviewKeyDown">
     <DockPanel Margin="12">
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
-                    HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button MinWidth="105" Margin="0,0,8,0" Content="_Kopiuj wszystko"
-                    Click="Copy_Click" />
-            <Button MinWidth="105" IsDefault="True" IsCancel="True"
-                    Content="_Zamknij" Click="Close_Click" />
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <controls:AccessibleStatusTextBlock x:Name="CopyStatusText"
+                                                MinHeight="1"
+                                                automation:AutomationProperties.LiveSetting="Assertive" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button MinWidth="105" Margin="0,0,8,0" Content="_Kopiuj wszystko"
+                        automation:AutomationProperties.HelpText="Kopiuje pełną treść i pozostawia to okno otwarte"
+                        Click="Copy_Click" />
+                <Button MinWidth="105" IsCancel="True"
+                        Content="_Zamknij" Click="Close_Click" />
+            </StackPanel>
         </StackPanel>
-        <ListBox x:Name="InformationList"
-                 SelectionMode="Extended"
-                 IsTextSearchEnabled="False"
-                 ScrollViewer.VerticalScrollBarVisibility="Auto"
-                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                 automation:AutomationProperties.Name="Właściwości i informacje" />
+        <wfi:WindowsFormsHost x:Name="InformationHost" />
     </DockPanel>
 </controls:AccessibleWindow>

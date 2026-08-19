@@ -6,8 +6,24 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $root
 
-dotnet restore AccessibleMediaController.sln -p:NuGetAudit=false
+function Remove-GeneratedNuGetSyncDuplicates {
+    foreach ($searchRoot in @((Join-Path $root "src"), (Join-Path $root "tests"))) {
+        if (-not (Test-Path -LiteralPath $searchRoot)) { continue }
+        $objectDirectories = Get-ChildItem -LiteralPath $searchRoot -Directory -Filter "obj" -Recurse
+        foreach ($objectDirectory in $objectDirectories) {
+            Get-ChildItem -LiteralPath $objectDirectory.FullName -File -Recurse |
+                Where-Object {
+                    $_.Name -match '(\.nuget\.(g|dgspec)|project\.(assets|packagespec|nuget)) \d+\.(props|targets|json|cache)$'
+                } |
+                Remove-Item -Force
+        }
+    }
+}
+
+Remove-GeneratedNuGetSyncDuplicates
+dotnet restore AccessibleMediaController.sln --runtime win-x64 -p:NuGetAudit=false
 if ($LASTEXITCODE -ne 0) { throw "Nie udało się przywrócić składników projektu." }
+Remove-GeneratedNuGetSyncDuplicates
 dotnet build AccessibleMediaController.sln --configuration Release --no-restore
 if ($LASTEXITCODE -ne 0) { throw "Nie udało się skompilować projektu." }
 dotnet run --project tests/AccessibleMediaController.Core.SmokeTests --configuration Release --no-build
@@ -39,6 +55,7 @@ if ($Publish) {
             --configuration Release `
             --runtime win-x64 `
             --self-contained true `
+            --no-restore `
             --output $staging `
             -p:PublishSingleFile=true `
             -p:IncludeNativeLibrariesForSelfExtract=true `
@@ -55,6 +72,7 @@ if ($Publish) {
     }
     finally {
         if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
+        Remove-GeneratedNuGetSyncDuplicates
     }
     Write-Host "Gotowy pakiet: $packageDirectory"
     Write-Host "Program: $program"

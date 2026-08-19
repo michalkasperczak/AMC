@@ -7,60 +7,64 @@ namespace AccessibleMediaController.Windows;
 public partial class InformationWindow : AccessibleWindow
 {
     private readonly string _information;
-    private readonly string[] _lines;
+    private readonly System.Windows.Forms.RichTextBox _informationBox;
 
     public InformationWindow(string information)
     {
         InitializeComponent();
         _information = information;
-        _lines = information
-            .Split(["\r\n", "\n"], StringSplitOptions.None)
-            .Where(line => !string.IsNullOrWhiteSpace(line))
-            .ToArray();
-        InformationList.ItemsSource = _lines;
+        _informationBox = new System.Windows.Forms.RichTextBox
+        {
+            AccessibleName = "Właściwości i informacje",
+            AccessibleDescription = "Tekst tylko do odczytu. Można poruszać się po znakach, słowach i wierszach oraz zaznaczać fragmenty.",
+            BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle,
+            DetectUrls = false,
+            Dock = System.Windows.Forms.DockStyle.Fill,
+            HideSelection = false,
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.Vertical,
+            ShortcutsEnabled = true,
+            TabStop = true,
+            Text = information,
+            WordWrap = true
+        };
+        _informationBox.KeyDown += InformationBox_KeyDown;
+        InformationHost.Child = _informationBox;
     }
 
     private void Window_ContentRendered(object? sender, EventArgs e)
     {
-        if (_lines.Length > 0) InformationList.SelectedIndex = 0;
-        InformationList.Focus();
-        Keyboard.Focus(InformationList);
-        if (InformationList.SelectedItem is not null)
-        {
-            InformationList.ScrollIntoView(InformationList.SelectedItem);
-        }
+        _informationBox.Select(0, 0);
+        _informationBox.Focus();
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.A)
-        {
-            InformationList.SelectAll();
-            e.Handled = true;
-            return;
-        }
-
-        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.C)
-        {
-            var selectedLines = InformationList.SelectedItems.Cast<string>().ToArray();
-            if (selectedLines.Length > 0)
-            {
-                Clipboard.SetText(string.Join(Environment.NewLine, selectedLines));
-            }
-            e.Handled = true;
-            return;
-        }
-
-        if (Keyboard.Modifiers == ModifierKeys.None && e.Key is Key.Escape or Key.Enter)
+        if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Escape)
         {
             e.Handled = true;
             Close();
         }
     }
 
+    private void InformationBox_KeyDown(object? sender, System.Windows.Forms.KeyEventArgs e)
+    {
+        if (e.Modifiers != System.Windows.Forms.Keys.None
+            || e.KeyCode != System.Windows.Forms.Keys.Escape)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        e.SuppressKeyPress = true;
+        Dispatcher.BeginInvoke(Close);
+    }
+
     private void Copy_Click(object sender, RoutedEventArgs e)
     {
         Clipboard.SetText(_information);
+        CopyStatusText.Announce("Skopiowano wszystkie informacje");
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
