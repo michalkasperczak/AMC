@@ -1,96 +1,96 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-058`
-- Tytuł zestawu: Jedna instancja, OGG i sterowanie odtwarzaczem
-- Wersja programu: `0.1.0-alpha.58`
+- Numer zestawu: `AMC-TEST-059`
+- Tytuł zestawu: Pliki lokalne, schowek plikowy i bezpieczne usuwanie
+- Wersja programu: `0.1.0-alpha.59`
 - Utworzono: 2026-08-19, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.58.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.59.md`
 
 W pliku wyników po dwukropku wpisz krótko, co się wydarzyło. Jeżeli wszystko działa, wystarczy `OK`. Nie trzeba przed każdym zadaniem wybierać wariantu odpowiedzi.
 
-## AMC-058-01 — Ponowne uruchomienie AMC
+## AMC-059-01 — Nazwa sesji i tytuł domyślnej listy
 
-1. Uruchom AMC i pozostaw otwarte główne okno.
-2. Uruchom ten sam plik EXE drugi raz.
-3. Otwórz Ustawienia, pozostaw je otwarte i jeszcze raz uruchom EXE.
-
-Oczekiwane:
-
-- nie powstaje drugie niezależne okno AMC;
-- przy pierwszej próbie wraca istniejące główne okno;
-- przy drugiej próbie wraca istniejące okno Ustawień, a fokus nie przechodzi pod dialog;
-- odtwarzanie i zapisany stan nie są przerywane.
-
-## AMC-058-02 — Tytuł: element, moduł, sesja
-
-1. Przejdź w Lokalnych multimediach do Biblioteki, Ulubionych, Kolejki i odtwarzacza.
-2. W każdym miejscu odczytaj tytuł głównego okna.
-3. Przesuń fokus na inny plik bez rozpoczynania jego odtwarzania.
+1. Otwórz kilka plików lokalnych i wróć na ich główną listę.
+2. Odczytaj bieżący element, tytuł okna i komunikat po przełączeniu sesji.
+3. Przejdź do Kolejki lub Ulubionych i powtórz odczyt.
 
 Oczekiwane:
 
-- tytuł ma kolejność „aktualny element, moduł, sesja, AMC i wersja”;
-- przesuwanie fokusu po liście nie podmienia aktualnego elementu w tytule.
+- program mówi „Pliki lokalne”, bez powtórzenia „multimedia, lokalne multimedia”;
+- na głównej liście tytuł ma postać „nazwa — Pliki lokalne — AMC 0.1.0-alpha.59”;
+- w konkretnym module pozostaje kolejność „nazwa — Kolejka lub Ulubione — Pliki lokalne — AMC”.
 
-## AMC-058-03 — OGG/Vorbis
+## AMC-059-02 — Krótkie informacje pod lewą strzałką
 
-1. Otwórz plik `Nextfest pr3_2026-04-18_17-00.ogg`.
-2. Uruchom go, przewiń, zmień prędkość i odczytaj pasek stanu.
-
-Oczekiwane:
-
-- plik odtwarza się i ma czas około `1:00:10`;
-- pasek podaje `48 kHz`, przewijanie i tempo działają;
-- nie pojawia się komunikat o nieobsługiwanym strumieniu Media Foundation.
-
-## AMC-058-04 — Poprzedni i następny utwór
-
-1. Otwórz odtwarzacz na środkowym pliku lokalnej listy.
-2. Naciśnij `Page Down`, a następnie `Page Up`.
-3. Spróbuj `Page Up` na pierwszym i `Page Down` na ostatnim elemencie.
-4. Sprawdź przyciski oraz menu kontekstowe odtwarzacza.
+1. Na głównej liście Plików lokalnych zaznacz MP3, OGG i inny dostępny format.
+2. Na każdym naciśnij `Strzałkę w lewo`.
+3. Powtórz próbę w Kolejce albo Ulubionych.
 
 Oczekiwane:
 
-- `Page Up` uruchamia poprzedni, a `Page Down` następny plik;
-- początek i koniec listy nie zapętlają się;
-- przyciski i menu mają te same działania oraz czytelne skróty.
+- na głównej liście NVDA podaje zwięźle dostępne dane, np. format, czas, kb/s, kHz i rozmiar;
+- brakująca wartość jest pomijana, a program nie zawiesza się na odczytywaniu pliku;
+- w innych widokach boczne strzałki nie wykonują tych lokalnych działań.
 
-## AMC-058-05 — Niezdefiniowane kombinacje odtwarzacza
+## AMC-059-03 — Menu pod prawą strzałką
 
-W odtwarzaczu sprawdź `Ctrl+Down`, `Ctrl+W`, `Ctrl+Shift+Left`, `Ctrl+Shift+Right` oraz `Shift+Page Up/Down`.
-
-Oczekiwane:
-
-- fokus nie przeskakuje do „Wróć do listy”, nagłówka „Odtwarzacz” ani przycisku przewijania;
-- te jeszcze nieprzypisane kombinacje nie wykonują przypadkowego działania i nie ogłaszają mylącego przycisku.
-
-## AMC-058-06 — Trwałość pozycji
-
-1. Uruchom `Tyfloprzegląd 20260811 — kopia.mp3` i skocz do wyraźnie rozpoznawalnego czasu.
-2. Wstrzymaj, przełącz się do innego okna, zamknij AMC i uruchom je ponownie.
-3. Ponownie uruchom ten sam plik.
+1. Na głównej liście Plików lokalnych naciśnij `Strzałkę w prawo`.
+2. Przejrzyj menu strzałkami.
+3. Sprawdź „Otwórz w domyślnej aplikacji” i „Otwórz w…”.
 
 Oczekiwane:
 
-- plik wznawia się od zapisanego miejsca;
-- AMC nie zaczyna odtwarzania samoczynnie przy starcie;
-- zapis działa także wtedy, gdy od pauzy do zamknięcia minęło mniej niż 15 sekund.
+- otwiera się menu działań zaznaczonego elementu i fokus trafia do menu;
+- pozycje otwierania są dostępne tylko dla lokalnego pliku;
+- „Otwórz w…” pokazuje systemowy wybór aplikacji, a po zamknięciu menu fokus wraca na listę.
 
-## AMC-058-07 — Ustawienia i liczba okien
+## AMC-059-04 — Plik i ścieżka w jednym schowku
 
-1. Otwórz kolejno Wyszukiwanie, Paletę poleceń, Właściwości i Ustawienia.
-2. Sprawdź przełączanie `Alt+Tab` i zachowanie Escape lub Anuluj.
-3. W Ustawieniach przejdź Tabem na checkbox i włącz lub wyłącz go spacją; następnie zapisz Enterem.
+1. Zaznacz plik i naciśnij `Ctrl+Shift+C`.
+2. Wklej do zwykłego edytora tekstu.
+3. W Total Commanderze albo Eksploratorze przejdź do innego folderu i naciśnij `Ctrl+V`.
 
 Oczekiwane:
 
-- tylko główne AMC ma osobny przycisk na pasku zadań;
-- każdy dialog zatrzymuje fokus do zakończenia krótkiego zadania i wraca do właściwego miejsca;
-- Tab podaje stan checkboxa, spacja go zmienia, Enter zapisuje cały dialog z dowolnej kontrolki, a Escape anuluje.
+- edytor otrzymuje pełną ścieżkę tekstową;
+- menedżer plików kopiuje fizyczny plik tak, jak po standardowym `Ctrl+C` w Eksploratorze;
+- AMC mówi „Skopiowano plik i pełną ścieżkę”.
 
-## AMC-058-08 — Podstawowa regresja
+## AMC-059-05 — Wiele plików w schowku
 
-Sprawdź wyrywkowo listy, zaznaczanie wielu elementów, Ulubione, Bibliotekę, Kolejkę, filtr, wyszukiwanie, `Alt+Enter`, kopiowanie ścieżki, pasek stanu, zmianę głośności i naturalne przejście do kolejnego pliku.
+Zaznacz co najmniej dwa pliki, naciśnij `Ctrl+Shift+C`, a następnie wklej do edytora i do pustego folderu.
 
-Oczekiwane: funkcje wersji 57 nadal działają, a głośność AMC nie zmienia głośności NVDA ani systemu.
+Oczekiwane:
+
+- edytor otrzymuje osobne ścieżki w osobnych wierszach;
+- menedżer plików kopiuje wszystkie zaznaczone pliki;
+- `Ctrl+C` nadal kopiuje wyłącznie nazwę elementu.
+
+## AMC-059-06 — Delete i Ctrl+Z
+
+1. Zaznacz plik na głównej liście i naciśnij `Delete`.
+2. Sprawdź plik w Eksploratorze lub Total Commanderze.
+3. Naciśnij `Ctrl+Z`, a potem zamknij i uruchom AMC ponownie.
+
+Oczekiwane:
+
+- wpis znika tylko z AMC, a plik pozostaje na dysku;
+- `Ctrl+Z` przywraca wpis w jego miejscu;
+- przywrócenie pozostaje zapisane po ponownym uruchomieniu.
+
+## AMC-059-07 — Usunięcie całej sesji i bieżącego pliku
+
+1. Uruchom jeden z dwóch testowych plików, wróć do listy i zaznacz oba.
+2. Naciśnij `Delete`, a następnie `Ctrl+Z`.
+
+Oczekiwane:
+
+- bieżące odtwarzanie zostaje wstrzymane, a fizyczne pliki pozostają;
+- pusta sesja znika bez błędu, a AMC przechodzi do innej sesji;
+- `Ctrl+Z` przywraca Pliki lokalne, kolejność i zapamiętane pozycje.
+
+## AMC-059-08 — Chronologia cofania i regresja
+
+Zmień Ulubione, usuń wpis z AMC i dwa razy użyj `Ctrl+Z`. Następnie sprawdź wyrywkowo OGG, `Page Up/Down`, pamięć pozycji, Bibliotekę, Kolejkę, `Alt+Enter`, pasek i naturalne przejście do następnego pliku.
+
+Oczekiwane: cofnięcia działają od najnowszej operacji niezależnie od jej rodzaju, a funkcje wersji 58 nadal działają.

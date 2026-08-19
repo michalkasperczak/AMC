@@ -25,7 +25,8 @@ public sealed record MediaMembershipUndoItem(
 public sealed record MediaMembershipUndo(
     string SessionId,
     IReadOnlyList<MediaMembershipUndoItem> Items,
-    string Announcement)
+    string Announcement,
+    long Sequence = 0)
 {
     public MediaItem Item => Items[0].Item;
 }
@@ -42,21 +43,25 @@ public sealed class MediaMembershipHistory
         string sessionId,
         MediaItem item,
         MediaMembershipState previousState,
-        string announcement) =>
-        RecordBatch(sessionId, [(item, previousState)], announcement);
+        string announcement,
+        long sequence = 0) =>
+        RecordBatch(sessionId, [(item, previousState)], announcement, sequence);
 
     public void RecordBatch(
         string sessionId,
         IEnumerable<(MediaItem Item, MediaMembershipState PreviousState)> items,
-        string announcement)
+        string announcement,
+        long sequence = 0)
     {
         var changedItems = items
             .Where(entry => MediaMembershipState.From(entry.Item) != entry.PreviousState)
             .Select(entry => new MediaMembershipUndoItem(entry.Item, entry.PreviousState))
             .ToArray();
         if (changedItems.Length == 0) return;
-        _entries.Push(new MediaMembershipUndo(sessionId, changedItems, announcement));
+        _entries.Push(new MediaMembershipUndo(sessionId, changedItems, announcement, sequence));
     }
+
+    public MediaMembershipUndo? Peek() => _entries.Count == 0 ? null : _entries.Peek();
 
     public MediaMembershipUndo? Undo()
     {

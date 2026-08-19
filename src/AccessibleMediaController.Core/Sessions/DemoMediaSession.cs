@@ -2,6 +2,8 @@ using AccessibleMediaController.Core.Playback;
 
 namespace AccessibleMediaController.Core.Sessions;
 
+public sealed record RemovedMediaItem(MediaItem Item, int Index);
+
 public sealed class DemoMediaSession
 {
     private static readonly double[] PlaybackRates = [0.50d, 0.75d, 1.00d, 1.25d, 1.50d, 1.75d, 2.00d];
@@ -196,6 +198,57 @@ public sealed class DemoMediaSession
             if (item.Source is { Length: > 0 } source && !knownSources.Add(source)) continue;
             Items.Add(item);
         }
+    }
+
+    public IReadOnlyList<RemovedMediaItem> RemoveItems(IEnumerable<string> itemIds)
+    {
+        var ids = itemIds.ToHashSet(StringComparer.Ordinal);
+        var removed = Items
+            .Select((item, index) => new RemovedMediaItem(item, index))
+            .Where(entry => ids.Contains(entry.Item.Id))
+            .ToArray();
+        if (removed.Length == 0 || removed.Length >= Items.Count) return [];
+
+        RememberCurrentPosition();
+        var currentId = CurrentItem.Id;
+        var currentRemoved = ids.Contains(currentId);
+        var oldCurrentIndex = _currentIndex;
+        if (currentRemoved && IsPlaying)
+        {
+            IsPlaying = false;
+            _output?.Pause();
+        }
+
+        foreach (var entry in removed.OrderByDescending(entry => entry.Index))
+        {
+            Items.RemoveAt(entry.Index);
+            _playedQueueItemIds.Remove(entry.Item.Id);
+        }
+
+        _currentIndex = currentRemoved
+            ? Math.Min(oldCurrentIndex, Items.Count - 1)
+            : Items.FindIndex(item => string.Equals(item.Id, currentId, StringComparison.Ordinal));
+        if (_currentIndex < 0) _currentIndex = 0;
+        _position = _rememberedPositions.GetValueOrDefault(CurrentItem.Id);
+        ResetQueueDiversion();
+        return removed;
+    }
+
+    public void RestoreItems(IEnumerable<RemovedMediaItem> removedItems)
+    {
+        var entries = removedItems
+            .Where(entry => Items.All(item => !string.Equals(item.Id, entry.Item.Id, StringComparison.Ordinal)))
+            .OrderBy(entry => entry.Index)
+            .ToArray();
+        if (entries.Length == 0) return;
+
+        var currentId = CurrentItem.Id;
+        foreach (var entry in entries)
+        {
+            Items.Insert(Math.Clamp(entry.Index, 0, Items.Count), entry.Item);
+        }
+        _currentIndex = Items.FindIndex(item => string.Equals(item.Id, currentId, StringComparison.Ordinal));
+        if (_currentIndex < 0) _currentIndex = 0;
     }
 
     public void MarkPlaybackEnded()

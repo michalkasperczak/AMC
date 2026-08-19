@@ -1,4 +1,6 @@
+using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -35,6 +37,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly Dictionary<string, SessionViewHistory> _viewHistories =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly MediaMembershipHistory _membershipHistory = new();
+    private readonly Stack<LocalCatalogUndo> _localCatalogHistory = [];
+    private long _undoSequence;
     private bool _initialFocusApplied;
     private bool _deferAnnouncements;
     private string? _deferredAnnouncement;
@@ -610,9 +614,69 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return $"{value.ToString(unit == 0 ? "0" : "0.##", CultureInfo.CurrentCulture)} {units[unit]}";
     }
 
+    private void AnnounceQuickLocalInformation(MediaItem item)
+    {
+        if (!TryGetLocalPath(item.Source, out var localPath)) return;
+        var details = new List<string>();
+        var extension = Path.GetExtension(localPath).TrimStart('.');
+        if (!string.IsNullOrWhiteSpace(extension)) details.Add(extension.ToUpperInvariant());
+        if (!string.IsNullOrWhiteSpace(item.Artist)) details.Add(item.Artist);
+        if (item.Duration > TimeSpan.Zero) details.Add(CommandRouter.FormatTime(item.Duration));
+        var audio = AudioParametersFormatter.FormatCompact(item, CultureInfo.CurrentCulture);
+        if (!string.IsNullOrWhiteSpace(audio)) details.Add(audio);
+        try
+        {
+            var file = new FileInfo(localPath);
+            if (file.Exists) details.Add(FormatFileSize(file.Length));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // The other cached details remain useful if the file is temporarily unavailable.
+        }
+
+        Announce(details.Count == 0
+            ? $"{item.Title}: brak zapisanych informacji technicznych"
+            : $"{item.Title}: {string.Join(", ", details)}");
+    }
+
     public void OpenOfficialApplication()
     {
+        if (ActionItem is { } localItem && TryGetLocalPath(localItem.Source, out _))
+        {
+            OpenLocalInDefaultApplication();
+            return;
+        }
         Announce($"{_sessions.Current.DisplayName}: otwieranie zewnętrzne nie jest jeszcze połączone");
+    }
+
+    private void OpenLocalInDefaultApplication()
+    {
+        if (ActionItem is not { } item || !TryGetLocalPath(item.Source, out var localPath)) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(localPath) { UseShellExecute = true });
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or Win32Exception or IOException)
+        {
+            AnnounceEssential($"Nie można otworzyć pliku: {exception.Message}");
+        }
+    }
+
+    private void OpenLocalWithApplication()
+    {
+        if (ActionItem is not { } item || !TryGetLocalPath(item.Source, out var localPath)) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(localPath)
+            {
+                UseShellExecute = true,
+                Verb = "openas"
+            });
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or Win32Exception or IOException)
+        {
+            AnnounceEssential($"Nie można otworzyć listy aplikacji: {exception.Message}");
+        }
     }
 
     public void ShowHelp()
@@ -762,7 +826,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var (session, slot) = _sessions.AddOrUpdateTransientSession(
             "local",
-            "Lokalne multimedia",
+            "Pliki lokalne",
             addedItems,
             _localOutput,
             4);
@@ -778,7 +842,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? "pliki były już na liście"
             : $"dodano {FormatFileCount(addedItems.Count)}";
         var slotText = slot is > 0 ? $", sesja {slot}" : string.Empty;
-        PrepareSelectedItemFocusContext($"Lokalne multimedia{slotText}, {countText}");
+        PrepareSelectedItemFocusContext($"Pliki lokalne{slotText}, {countText}");
         TrySaveLocalMediaState(true);
         RestoreMediaListFocusAfterRefresh();
     }
@@ -937,12 +1001,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var previousLocalPlaybackRate = previousLocal?.PlaybackRate ?? 1d;
         var previousLocalWasPlaying = previousLocal?.IsPlaying == true;
         _membershipHistory.Clear();
+        _localCatalogHistory.Clear();
+        _undoSequence = 0;
         _sessions = new SessionManager(_state.Settings);
         if (_localItems.Count > 0)
         {
             var (local, _) = _sessions.AddOrUpdateTransientSession(
                 "local",
-                "Lokalne multimedia",
+                "Pliki lokalne",
                 _localItems,
                 _localOutput,
                 4);
@@ -1173,7 +1239,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _membershipHistory.RecordBatch(
                 changedSession.Id,
                 previousMemberships,
-                undoAnnouncement);
+                undoAnnouncement,
+                ++_undoSequence);
         }
         var sessionChanged = _sessions.Current.Id != oldSession;
         if (sessionChanged)
@@ -1200,7 +1267,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 }
                 else
                 {
-                    PrepareSelectedItemFocusContext($"{sessionContext}, {_currentView}");
+                    PrepareSelectedItemFocusContext(
+                        string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
+                            ? sessionContext
+                            : $"{_currentView}, {sessionContext}");
                 }
                 _deferredAnnouncement = null;
             }
@@ -1420,15 +1490,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void RemoveSelected()
     {
-        if (_currentView is not ("Ulubione" or "Biblioteka" or "Kolejka"))
-        {
-            RestoreMediaListFocusAfterRefresh();
-            Dispatcher.BeginInvoke(
-                () => Announce("Usuwanie jest dostępne tylko w widokach Ulubione, Biblioteka i Kolejka"),
-                DispatcherPriority.ContextIdle);
-            return;
-        }
-
         var items = MediaList.SelectedItems
             .OfType<MediaItemRow>()
             .Select(row => row.Item)
@@ -1443,6 +1504,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         var previousIndex = MediaList.SelectedIndex;
+
+        if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+            && string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal))
+        {
+            RemoveLocalCatalogItems(items, previousIndex);
+            return;
+        }
+
+        if (_currentView is not ("Ulubione" or "Biblioteka" or "Kolejka"))
+        {
+            RestoreMediaListFocusAfterRefresh();
+            Dispatcher.BeginInvoke(
+                () => Announce("Usuwanie jest dostępne w lokalnym katalogu oraz w widokach Ulubione, Biblioteka i Kolejka"),
+                DispatcherPriority.ContextIdle);
+            return;
+        }
+
         var previousMemberships = items
             .Select(item => (Item: item, Previous: MediaMembershipState.From(item)))
             .ToArray();
@@ -1476,7 +1554,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _membershipHistory.RecordBatch(
             _sessions.Current.Id,
             previousMemberships,
-            undoAnnouncement);
+            undoAnnouncement,
+            ++_undoSequence);
         if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
             TrySaveLocalMediaState(false);
@@ -1521,6 +1600,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // an action button or allow WPF to move it into the main menu.
         AnchorMediaListFocus();
 
+        var membershipCandidate = _membershipHistory.Peek();
+        var catalogCandidate = _localCatalogHistory.TryPeek(out var localUndo) ? localUndo : null;
+        if (catalogCandidate is not null
+            && (membershipCandidate is null || catalogCandidate.Sequence > membershipCandidate.Sequence))
+        {
+            UndoLocalCatalogRemoval(_localCatalogHistory.Pop());
+            return;
+        }
+
         var undo = _membershipHistory.Undo();
         if (undo is null)
         {
@@ -1545,6 +1633,58 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Dispatcher.BeginInvoke(
             () => Announce(undo.Announcement),
             DispatcherPriority.ContextIdle);
+    }
+
+    private void UndoLocalCatalogRemoval(LocalCatalogUndo undo)
+    {
+        var local = _sessions.FindSession("local");
+        var restoredDetachedSession = false;
+        if (local is null && undo.DetachedSession is not null)
+        {
+            local = _sessions.RestoreTransientSession(undo.DetachedSession, makeCurrent: true);
+            restoredDetachedSession = true;
+        }
+        if (local is null)
+        {
+            _localCatalogHistory.Push(undo);
+            RestoreMediaListFocusAfterRefresh();
+            Dispatcher.BeginInvoke(
+                () => Announce("Nie można przywrócić plików: sesja lokalna jest niedostępna"),
+                DispatcherPriority.ContextIdle);
+            return;
+        }
+
+        foreach (var entry in undo.CatalogItems.OrderBy(entry => entry.Index))
+        {
+            if (_localItems.All(item => !string.Equals(item.Id, entry.Item.Id, StringComparison.Ordinal)))
+            {
+                _localItems.Insert(Math.Clamp(entry.Index, 0, _localItems.Count), entry.Item);
+            }
+        }
+        if (!restoredDetachedSession)
+        {
+            local.RestoreItems(undo.SessionItems);
+            if (undo.DetachedSession is { Session: { } detached })
+            {
+                foreach (var entry in undo.SessionItems)
+                {
+                    if (detached.RememberedPositions.TryGetValue(entry.Item.Id, out var position))
+                    {
+                        local.SetRememberedPosition(entry.Item.Id, position);
+                    }
+                }
+            }
+        }
+
+        if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            if (restoredDetachedSession) RestoreCurrentSessionNavigationState();
+            else RefreshCurrentView();
+            SelectMediaItems(undo.CatalogItems.Select(entry => entry.Item.Id));
+        }
+        TrySaveLocalMediaState(false);
+        RestoreMediaListFocusAfterRefresh();
+        Dispatcher.BeginInvoke(() => Announce(undo.Announcement), DispatcherPriority.ContextIdle);
     }
 
     private void SelectMediaItem(string itemId)
@@ -1597,6 +1737,79 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         RestoreMediaListFocusAfterRefresh();
         Dispatcher.BeginInvoke(() => Announce(announcement), DispatcherPriority.ContextIdle);
+    }
+
+    private void RemoveLocalCatalogItems(IReadOnlyList<MediaItem> items, int previousIndex)
+    {
+        var session = _sessions.Current;
+        CaptureCurrentSessionNavigationState();
+        var catalogEntries = items
+            .Select(item => new RemovedMediaItem(item, _localItems.FindIndex(candidate => candidate.Id == item.Id)))
+            .Where(entry => entry.Index >= 0)
+            .OrderBy(entry => entry.Index)
+            .ToArray();
+        if (catalogEntries.Length == 0) return;
+
+        var wasPlaying = session.IsPlaying;
+        var currentRemoved = items.Any(item => string.Equals(item.Id, session.CurrentItem.Id, StringComparison.Ordinal));
+        var removeWholeSession = items.Count >= session.Items.Count;
+        AnchorMediaListFocus();
+        RemovedSessionRegistration? detachedSession = null;
+        IReadOnlyList<RemovedMediaItem> sessionEntries;
+        if (removeWholeSession)
+        {
+            session.RememberCurrentPosition();
+            if (session.IsPlaying) session.TogglePlayback();
+            sessionEntries = session.Items
+                .Select((item, index) => new RemovedMediaItem(item, index))
+                .ToArray();
+            detachedSession = _sessions.RemoveTransientSession(session.Id);
+        }
+        else
+        {
+            sessionEntries = session.RemoveItems(items.Select(item => item.Id));
+        }
+        if (sessionEntries.Count == 0 || removeWholeSession && detachedSession is null)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            Dispatcher.BeginInvoke(
+                () => Announce("Nie udało się usunąć zaznaczonych plików z AMC"),
+                DispatcherPriority.ContextIdle);
+            return;
+        }
+
+        foreach (var entry in catalogEntries.OrderByDescending(entry => entry.Index))
+        {
+            _localItems.RemoveAt(entry.Index);
+        }
+        _localCatalogHistory.Push(new LocalCatalogUndo(
+            ++_undoSequence,
+            catalogEntries,
+            sessionEntries,
+            items.Count == 1
+                ? $"Przywrócono w AMC: {items[0].Title}"
+                : $"Przywrócono w AMC: {FormatItemCount(items.Count)}",
+            detachedSession));
+
+        if (detachedSession is not null)
+        {
+            RestoreCurrentSessionNavigationState();
+        }
+        else
+        {
+            RefreshCurrentView(previousIndex);
+        }
+        TrySaveLocalMediaState(false);
+        RefreshPlaybackIndicators();
+        UpdatePlaybackStatusBar();
+        UpdateWindowTitle();
+        RestoreMediaListFocusAfterRefresh();
+
+        var removedLabel = items.Count == 1 ? items[0].Title : FormatItemCount(items.Count);
+        var playbackNote = wasPlaying && currentRemoved ? ". Odtwarzanie wstrzymano" : string.Empty;
+        Dispatcher.BeginInvoke(
+            () => Announce($"Usunięto z AMC: {removedLabel}. Pliki pozostały na dysku{playbackNote}"),
+            DispatcherPriority.ContextIdle);
     }
 
     private static string FormatDurationWords(TimeSpan duration)
@@ -1709,7 +1922,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PrepareHistoryFocusContext(string direction)
     {
         if (!_state.Settings.Messages.Enabled) return;
-        var context = $"{_currentView}, {_sessions.Current.DisplayName}";
+        var context = string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
+            ? _sessions.Current.DisplayName
+            : $"{_currentView}, {_sessions.Current.DisplayName}";
         PrepareViewFocusContext(HistoryMessagesEnabled ? $"{direction}, {context}" : context);
     }
 
@@ -1735,7 +1950,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var session = _sessions.Current;
         var area = _playerViewActive ? "Odtwarzacz" : _currentView;
-        Title = $"{session.CurrentItem.Title} — {area} — {session.DisplayName} — AMC {AppDisplayVersion}";
+        Title = !_playerViewActive && string.Equals(area, DefaultBrowserView, StringComparison.Ordinal)
+            ? $"{session.CurrentItem.Title} — {session.DisplayName} — AMC {AppDisplayVersion}"
+            : $"{session.CurrentItem.Title} — {area} — {session.DisplayName} — AMC {AppDisplayVersion}";
         AutomationProperties.SetName(this, Title);
     }
 
@@ -2197,9 +2414,31 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void MediaList_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (Keyboard.Modifiers == ModifierKeys.None
+            && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+            && string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
+            && SelectedItem is { } localItem
+            && key is Key.Left or Key.Right)
+        {
+            if (key == Key.Left)
+            {
+                AnnounceQuickLocalInformation(localItem);
+            }
+            else
+            {
+                MediaList.ContextMenu!.PlacementTarget = MediaList;
+                MediaList.ContextMenu.IsOpen = true;
+                Dispatcher.BeginInvoke(
+                    () => PlaybackMenuItem.Focus(),
+                    DispatcherPriority.Loaded);
+            }
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.Modifiers is not (ModifierKeys.None or ModifierKeys.Shift)) return;
 
-        var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var text = TypeAheadTextFromKey(key);
         if (text is null) return;
 
@@ -2334,6 +2573,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Information_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemProperties);
     private void CopyName_Click(object sender, RoutedEventArgs e) => CopyActionItemName();
     private void CopyLocation_Click(object sender, RoutedEventArgs e) => CopyActionItemLocation();
+    private void OpenDefaultApplication_Click(object sender, RoutedEventArgs e) => OpenLocalInDefaultApplication();
+    private void OpenWithApplication_Click(object sender, RoutedEventArgs e) => OpenLocalWithApplication();
     private void OfficialApp_Click(object sender, RoutedEventArgs e) => OpenOfficialApplication();
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelected();
     private void Undo_Click(object sender, RoutedEventArgs e) => UndoLastMembershipChange();
@@ -2371,6 +2612,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? "Kopiuj pełną ścieżkę"
             : "Kopiuj łącze do elementu";
         SetContextMenuItemPresentation(CopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
+        var localItem = actionItem is not null && TryGetLocalPath(actionItem.Source, out _);
+        OpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
+        OpenWithApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
+        OfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
+        var removeLabel = localItem && string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
+            ? "Usuń z AMC, pozostaw plik na dysku"
+            : "Usuń z bieżącego widoku";
+        SetContextMenuItemPresentation(RemoveMenuItem, removeLabel, "Delete");
     }
     private void MediaContextMenu_Closed(object sender, RoutedEventArgs e) =>
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.Loaded);
@@ -2401,6 +2650,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? "Kopiuj pełną ścieżkę"
             : "Kopiuj łącze do elementu";
         SetContextMenuItemPresentation(PlayerCopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
+        var localItem = TryGetLocalPath(item.Source, out _);
+        PlayerOpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
+        PlayerOpenWithApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
+        PlayerOfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private static void SetContextMenuItemPresentation(
@@ -2421,14 +2674,29 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void CopyActionItemLocation()
     {
-        if (ActionItem is not { } item) return;
-        if (TryGetLocalPath(item.Source, out var localPath))
+        var items = ActionItems;
+        if (items.Count == 0) return;
+        var localPaths = items
+            .Select(item => TryGetLocalPath(item.Source, out var path) ? path : null)
+            .Where(path => path is not null)
+            .Select(path => path!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (localPaths.Length == items.Count)
         {
-            Clipboard.SetText(localPath);
-            Announce("Skopiowano pełną ścieżkę");
+            var fileDropList = new StringCollection();
+            fileDropList.AddRange(localPaths);
+            var data = new System.Windows.DataObject();
+            data.SetData(DataFormats.UnicodeText, string.Join(Environment.NewLine, localPaths));
+            data.SetFileDropList(fileDropList);
+            Clipboard.SetDataObject(data, true);
+            Announce(localPaths.Length == 1
+                ? "Skopiowano plik i pełną ścieżkę"
+                : $"Skopiowano pliki i pełne ścieżki: {FormatFileCount(localPaths.Length)}");
             return;
         }
 
+        var item = ActionItem ?? items[0];
         var publicUri = string.IsNullOrWhiteSpace(item.PublicUri)
             ? $"demo://{_sessions.Current.Id}/{item.Id}"
             : item.PublicUri;
@@ -2482,4 +2750,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         public Stack<string> Back { get; } = [];
         public Stack<string> Forward { get; } = [];
     }
+
+    private sealed record LocalCatalogUndo(
+        long Sequence,
+        IReadOnlyList<RemovedMediaItem> CatalogItems,
+        IReadOnlyList<RemovedMediaItem> SessionItems,
+        string Announcement,
+        RemovedSessionRegistration? DetachedSession = null);
 }

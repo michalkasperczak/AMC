@@ -457,7 +457,7 @@ static void TestLocalPlaybackBoundary()
     var manager = new SessionManager(new AppSettings());
     var (session, slot) = manager.AddOrUpdateTransientSession(
         "local",
-        "Lokalne multimedia",
+        "Pliki lokalne",
         [item],
         output,
         4);
@@ -503,6 +503,15 @@ static void TestLocalPlaybackBoundary()
     };
     session.AddItems([nextItem]);
     Equal(2, session.Items.Count);
+    var removed = session.RemoveItems([item.Id]);
+    Equal(1, removed.Count);
+    Equal(nextItem, session.CurrentItem);
+    Equal(1, session.Items.Count);
+    Equal(0, session.RemoveItems([nextItem.Id]).Count);
+    session.RestoreItems(removed);
+    Equal(2, session.Items.Count);
+    Equal(item, session.Items[0]);
+    True(session.SelectItem(item), "Przywrócony plik powinien dać się ponownie wybrać.");
     True(session.PlayRelative(1), "Page Down powinien uruchomić następny plik.");
     Equal(nextItem, session.CurrentItem);
     Equal(true, session.IsPlaying);
@@ -533,6 +542,12 @@ static void TestLocalPlaybackBoundary()
     Equal(natural, prioritySession.ContinueAfterPlaybackEnded(queued));
     True(prioritySession.ContinueAfterPlaybackEnded(natural) is null, "Po powrocie do naturalnej listy wykorzystana kolejka nie powinna zagrać drugi raz.");
     True(!playNext.IsPlayNext && !queued.IsInQueue, "Wykorzystane stany kolejki powinny zostać wyczyszczone.");
+
+    var detached = manager.RemoveTransientSession("local");
+    True(detached is not null, "Pusta lokalna sesja powinna dać się odłączyć od menedżera.");
+    True(manager.FindSession("local") is null, "Odłączona sesja nie może pozostać na liście.");
+    Equal(session, manager.RestoreTransientSession(detached!, makeCurrent: true));
+    Equal(session, manager.Current);
 }
 
 static void TestLocalAudioFileDiscovery()
@@ -815,7 +830,7 @@ static void TestLocalMediaPersistence()
 
         var output = new FakeMediaOutput();
         var media = new MediaItem { Id = item.Id, Title = item.Title, Source = item.Path };
-        var session = new DemoMediaSession("local", "Lokalne multimedia", [media], output);
+        var session = new DemoMediaSession("local", "Pliki lokalne", [media], output);
         session.SetRememberedPosition(item.Id, TimeSpan.FromTicks(item.ResumePositionTicks));
         session.TogglePlayback();
         Equal(TimeSpan.FromMinutes(17), output.Position);

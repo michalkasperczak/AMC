@@ -3,6 +3,8 @@ using AccessibleMediaController.Core.Playback;
 
 namespace AccessibleMediaController.Core.Sessions;
 
+public sealed record RemovedSessionRegistration(DemoMediaSession Session, int Index, bool WasCurrent);
+
 public sealed class SessionManager
 {
     private readonly AppSettings _settings;
@@ -83,6 +85,36 @@ public sealed class SessionManager
             .FirstOrDefault(candidate => !_sessionSlots.ContainsKey(candidate));
         if (slot > 0) _sessionSlots[slot] = id;
         return (session, slot > 0 ? slot : null);
+    }
+
+    public RemovedSessionRegistration? RemoveTransientSession(string sessionId)
+    {
+        var index = _sessions.FindIndex(session => string.Equals(session.Id, sessionId, StringComparison.Ordinal));
+        if (index < 0 || _sessions.Count <= 1) return null;
+
+        var session = _sessions[index];
+        var wasCurrent = ReferenceEquals(Current, session);
+        _sessions.RemoveAt(index);
+        if (wasCurrent)
+        {
+            Current = _sessions[Math.Min(index, _sessions.Count - 1)];
+            _settings.LastSessionId = Current.Id;
+        }
+        return new RemovedSessionRegistration(session, index, wasCurrent);
+    }
+
+    public DemoMediaSession RestoreTransientSession(RemovedSessionRegistration registration, bool makeCurrent)
+    {
+        var existing = FindSession(registration.Session.Id);
+        if (existing is not null) return existing;
+
+        _sessions.Insert(Math.Clamp(registration.Index, 0, _sessions.Count), registration.Session);
+        if (makeCurrent || registration.WasCurrent)
+        {
+            Current = registration.Session;
+            _settings.LastSessionId = Current.Id;
+        }
+        return registration.Session;
     }
 
     private static IReadOnlyList<DemoMediaSession> CreateDemoSessions()
