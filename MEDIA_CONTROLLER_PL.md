@@ -713,6 +713,10 @@ Stan `alpha.61`: prawa strzałka jest bezpośrednim skrótem systemowego `openas
 
 Stan `alpha.62`: szybka informacja pod lewą strzałką uzupełnia brakujące metadane wyłącznie zaznaczonego pliku. Tor używa tego samego wyboru czytnika NAudio/Vorbis co odtwarzanie, lecz nie uruchamia dźwięku. Średni bitrate jest szacowany jako rozmiar w bitach podzielony przez czas, więc dla VBR opisuje średnią, a nie chwilową wartość. Czas, częstotliwość i `kb/s` są zapisywane w stanie lokalnym. Niepowodzenie próby nie blokuje odczytu rozszerzenia, wykonawcy i rozmiaru. Główne okno jawnie przechwytuje `Alt+F4` przed warstwą odtwarzacza i wykonuje `Close`; widok odtwarzacza nie jest osobnym oknem, dlatego nie ma dwuetapowego zamykania. Dialog modalny nadal zachowuje standard Windows i jego własne `Alt+F4` zamyka najpierw ten dialog.
 
+Stan `alpha.63`: zapamiętana pozycja lokalnego pliku jest stanem sesji także wtedy, gdy po ponownym uruchomieniu dekoder nie otworzył jeszcze żadnego źródła. Odczyt czasu, F6 i pierwsze wznowienie korzystają więc z zapisanej pozycji zamiast z technicznego zera pustego wyjścia audio. Prawa strzałka wywołuje bezpośrednio udokumentowane systemowe okno `SHOpenWithDialog`, niezależne od istniejącego skojarzenia rozszerzenia. W Windows 10 i nowszym okno służy do jednorazowego otwarcia pliku; zmianą aplikacji domyślnej zarządzają Ustawienia systemu. Fizyczne `Shift+Delete` pozostaje wyłącznie na listach. W lokalnym odtwarzaczu `Delete` usuwa bieżący rekord z AMC, pozostawia plik na dysku, wstrzymuje go i podaje następny element albo docelową sesję. Operację można cofnąć przez `Ctrl+Z`.
+
+Katalog lokalny i kolejność: Biblioteka nie jest playlistą ani kopią jednego folderu, lecz katalogiem źródeł z trwałą tożsamością, ścieżką i widokami. Domyślna kolejność powinna wynikać z wybranego sortowania, np. tytułu, wykonawcy, albumu, folderu, daty dodania albo ostatniego odtworzenia. `Alt+strzałka w górę/dół` będzie ręcznie przesuwać elementy playlisty; nie zmieni kolejności plików na dysku. Ręczne układanie Biblioteki zostanie dodane tylko jako jawny tryb „Kolejność własna”, jeżeli testy wykażą taką potrzebę. Dzięki temu te same klawisze nie udają sortowania w widoku wykonawców lub albumów.
+
 Planowana kolejność dalszych etapów:
 
 1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.
@@ -738,6 +742,8 @@ Planowana kolejność dalszych etapów:
 5. Szczegóły globalnego widoku Zakładek, ich nazw i eksportu.
 6. Domyślny odstęp polecenia „w pobliże końca”; roboczo 10 sekund.
 7. Ostateczna nazwa aplikacji i identyfikatory pakietów na poszczególnych platformach.
+8. Ostateczna semantyka F2: rekomendacją dla pliku lokalnego jest rzeczywista zmiana nazwy na dysku wraz z atomową aktualizacją ścieżek AMC; osobny alias wyświetlany w AMC powinien powstać dopiero wtedy, gdy będzie potrzebny także dla źródeł strumieniowych.
+9. Czy Biblioteka potrzebuje opcjonalnego trybu „Kolejność własna”, czy wystarczą trwałe sposoby sortowania i ręczna kolejność playlist.
 
 ## 16. Zasada dalszej pracy
 

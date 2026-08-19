@@ -1,12 +1,46 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-062`
-- Tytuł zestawu: Bitrate pod lewą strzałką i jednoetapowe Alt+F4
-- Wersja programu: `0.1.0-alpha.62`
+- Numer zestawu: `AMC-TEST-063`
+- Tytuł zestawu: Wznowienie po restarcie, systemowe Otwórz w i bezpieczne Delete
+- Wersja programu: `0.1.0-alpha.63`
 - Utworzono: 2026-08-19, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.62.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.63.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 63
+
+### AMC-063-01 — Pozycja ostatniego pliku po ponownym uruchomieniu
+
+Odtwórz dłuższy plik, przejdź co najmniej minutę od początku, wstrzymaj i zamknij AMC przez `Alt+F4`. Uruchom ponownie, użyj `F6`, a następnie `Ctrl+Shift+E`. Wznów odtwarzanie.
+
+Oczekiwane: AMC nie uruchamia dźwięku samoczynnie, ale od razu pokazuje i podaje zapisaną pozycję. Pierwsze wznowienie zaczyna się z tego miejsca, a nie od `0:00`.
+
+### AMC-063-02 — Prawa strzałka bez skojarzenia pliku
+
+Na lokalnym pliku naciśnij prawą strzałkę. Najlepiej sprawdzić także rozszerzenie, dla którego Windows nie ma poprawnej aplikacji domyślnej.
+
+Oczekiwane: pojawia się systemowa lista aplikacji bez błędu o braku skojarzenia. Wybrana aplikacja jednorazowo otwiera plik. Windows 10 i nowszy może wymagać osobnych Ustawień do trwałej zmiany programu domyślnego.
+
+### AMC-063-03 — Delete w lokalnym odtwarzaczu
+
+Otwórz kopię pliku testowego w odtwarzaczu i naciśnij `Delete`. Sprawdź dysk, wypowiedź NVDA i następny element. Następnie naciśnij `Ctrl+Z`.
+
+Oczekiwane: plik pozostaje na dysku. AMC usuwa tylko swój wpis, wstrzymuje usuwany element, podaje następny element albo sesję, a `Ctrl+Z` przywraca wpis.
+
+### AMC-063-04 — Fizyczne usuwanie tylko na liście
+
+W odtwarzaczu naciśnij `Shift+Delete`, a potem otwórz jego menu kontekstowe. Następnie wróć na listę i użyj `Shift+Delete` na kopii pliku testowego.
+
+Oczekiwane: w odtwarzaczu skrót niczego fizycznie nie usuwa i nie ma pozycji przenoszenia do Kosza. Na liście pozostaje dotychczasowe pytanie potwierdzające i systemowy Kosz.
+
+### AMC-063-05 — Krótka regresja
+
+Sprawdź lewą strzałkę z `kb/s`, `Alt+F4` z odtwarzacza, `Ctrl+Shift+E/R/T`, OGG i zmianę prędkości.
+
+Oczekiwane: zachowanie `alpha.62` pozostaje bez zmian.
+
+## Poprzedni zestaw regresyjny alpha 62
 
 ## Nowości alpha 62
 
@@ -38,11 +72,11 @@ Na pliku lokalnym naciśnij prawą strzałkę w głównej liście, Bibliotece i 
 
 Oczekiwane: bez otwierania menu AMC pojawia się bezpośrednio systemowy wybór aplikacji. Można jednorazowo otworzyć plik np. w foobar2000; ewentualna opcja zmiany aplikacji domyślnej zależy od wersji Windows.
 
-### AMC-061-02 — Shift+Delete w odtwarzaczu
+### AMC-061-02 — Shift+Delete w odtwarzaczu — historyczne, wycofane w alpha 63
 
 Odtwórz kopię pliku testowego, naciśnij `Shift+Delete`, najpierw wybierz Nie, a przy drugiej próbie Tak.
 
-Oczekiwane: po Nie odtwarzanie i plik pozostają. Po Tak AMC zatrzymuje i zwalnia plik, przenosi go do Kosza, usuwa wpis i pozostawia działający odtwarzacz z następnym dostępnym elementem albo przechodzi do innej sesji, gdy lokalna była pusta.
+To zachowanie było testowane w `alpha.61–62`, lecz zostało świadomie wycofane. Aktualne wymaganie opisuje `AMC-063-04`.
 
 ### AMC-061-03 — Usunięty plik a Historia odtwarzania
 

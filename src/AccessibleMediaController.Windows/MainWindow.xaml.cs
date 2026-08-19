@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -708,13 +709,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (ActionItem is not { } item || !TryGetLocalPath(item.Source, out var localPath)) return;
         try
         {
-            Process.Start(new ProcessStartInfo(localPath)
-            {
-                UseShellExecute = true,
-                Verb = "openas"
-            });
+            WindowsOpenWithDialog.Show(new WindowInteropHelper(this).Handle, localPath);
         }
-        catch (Exception exception) when (exception is InvalidOperationException or Win32Exception or IOException)
+        catch (Exception exception) when (
+            exception is InvalidOperationException or Win32Exception or IOException or ExternalException)
         {
             AnnounceEssential($"Nie można otworzyć listy aplikacji: {exception.Message}");
         }
@@ -753,7 +751,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+K, Ctrl+F i Ctrl+Shift+F nie opuszczają odtwarzacza; wyszukiwanie jest dostępne po powrocie do listy. " +
             "Skróty widoków opuszczają odtwarzacz, a F6 wraca do niego. " +
             "Ctrl+C kopiuje nazwy wszystkich zaznaczonych elementów, po jednej w wierszu; Ctrl+Shift+C kopiuje pełne ścieżki i fizyczne pliki lokalne. " +
-            "Delete lub Backspace usuwa z bieżącego widoku, a w głównym katalogu lokalnym usuwa tylko wpis z AMC. Shift+Delete na liście albo w odtwarzaczu po potwierdzeniu zatrzymuje plik i przenosi go do systemowego Kosza. " +
+            "Delete lub Backspace usuwa z bieżącego widoku, a w głównym katalogu lokalnym usuwa tylko wpis z AMC. W odtwarzaczu lokalnym Delete również usuwa tylko wpis z AMC i pozostawia plik na dysku. Shift+Delete działa wyłącznie na listach i po potwierdzeniu przenosi zaznaczone pliki do systemowego Kosza. " +
             "Alt+strzałka w lewo i w prawo przechodzi po osobnej historii widoków. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
             "Alt+F4 zawsze zamyka całe główne okno i aplikację, również z widoku odtwarzacza. " +
@@ -1881,12 +1879,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        IEnumerable<MediaItem> candidateItems = _playerViewActive
-            ? [_sessions.Current.CurrentItem]
-            : MediaList.SelectedItems
-                .OfType<MediaItemRow>()
-                .Select(row => row.Item);
-        var items = candidateItems
+        var items = MediaList.SelectedItems
+            .OfType<MediaItemRow>()
+            .Select(row => row.Item)
             .Where(item => TryGetLocalPath(item.Source, out _))
             .DistinctBy(item => item.Id)
             .ToArray();
@@ -1966,7 +1961,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IReadOnlyList<MediaItem> items,
         int previousIndex,
         bool recordUndo = true,
-        bool filesRemainOnDisk = true)
+        bool filesRemainOnDisk = true,
+        bool announceNextItem = false)
     {
         var session = _sessions.Current;
         CaptureCurrentSessionNavigationState();
@@ -2037,12 +2033,36 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var removedLabel = items.Count == 1 ? items[0].Title : FormatItemCount(items.Count);
         var playbackNote = wasPlaying && currentRemoved ? ". Odtwarzanie wstrzymano" : string.Empty;
+        var nextItemNote = announceNextItem
+            ? detachedSession is null
+                ? $". Następny element: {session.CurrentItem.Title}"
+                : $". Przejście do sesji: {_sessions.Current.DisplayName}"
+            : string.Empty;
+        var retainedOnDisk = items.Count == 1 ? "Plik pozostał na dysku" : "Pliki pozostały na dysku";
         var actionAnnouncement = filesRemainOnDisk
-            ? $"Usunięto z AMC: {removedLabel}. Pliki pozostały na dysku{playbackNote}"
-            : $"Przeniesiono do Kosza i usunięto z AMC: {removedLabel}{playbackNote}";
+            ? $"Usunięto z AMC: {removedLabel}. {retainedOnDisk}{playbackNote}{nextItemNote}"
+            : $"Przeniesiono do Kosza i usunięto z AMC: {removedLabel}{playbackNote}{nextItemNote}";
         Dispatcher.BeginInvoke(
             () => Announce(actionAnnouncement),
             DispatcherPriority.ContextIdle);
+    }
+
+    private void RemoveCurrentLocalItemFromPlayer()
+    {
+        if (!_playerViewActive
+            || !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+            || !TryGetLocalPath(_sessions.Current.CurrentItem.Source, out _))
+        {
+            return;
+        }
+
+        var item = _sessions.Current.CurrentItem;
+        var previousIndex = _sessions.Current.Items.FindIndex(
+            candidate => string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
+        RemoveLocalCatalogItems(
+            [item],
+            Math.Max(previousIndex, 0),
+            announceNextItem: true);
     }
 
     private static string FormatDurationWords(TimeSpan duration)
@@ -2262,10 +2282,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         if (_playerViewActive
-            && Keyboard.Modifiers == ModifierKeys.Shift
+            && Keyboard.Modifiers == ModifierKeys.None
             && e.Key == Key.Delete)
         {
-            MoveSelectedLocalFilesToRecycleBin();
+            RemoveCurrentLocalItemFromPlayer();
             e.Handled = true;
             return;
         }
@@ -2843,6 +2863,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void OfficialApp_Click(object sender, RoutedEventArgs e) => OpenOfficialApplication();
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelected();
     private void Recycle_Click(object sender, RoutedEventArgs e) => MoveSelectedLocalFilesToRecycleBin();
+    private void PlayerRemoveLocalItem_Click(object sender, RoutedEventArgs e) => RemoveCurrentLocalItemFromPlayer();
     private void Undo_Click(object sender, RoutedEventArgs e) => UndoLastMembershipChange();
     private void Settings_Click(object sender, RoutedEventArgs e) => OpenSettings();
     private void OpenLocalFiles_Click(object sender, RoutedEventArgs e) => OpenLocalFiles();
@@ -2921,7 +2942,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerOpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         PlayerOpenWithApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         PlayerOfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
-        PlayerRecycleMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
+        PlayerRemoveLocalItemMenuItem.Visibility = localItem
+            && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
     }
 
     private static void SetContextMenuItemPresentation(

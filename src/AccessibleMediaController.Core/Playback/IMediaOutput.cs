@@ -9,6 +9,12 @@ namespace AccessibleMediaController.Core.Playback;
 /// </summary>
 public interface IMediaOutput
 {
+    /// <summary>
+    /// Identifier of the item currently loaded by the platform output. A
+    /// session uses this to distinguish a decoder position from a remembered
+    /// position restored before any file has been opened.
+    /// </summary>
+    string? LoadedItemId { get; }
     TimeSpan Position { get; }
     bool SupportsPlaybackRate { get; }
     void Play(MediaItem item, TimeSpan position, int volume, double playbackRate);

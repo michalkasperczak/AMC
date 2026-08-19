@@ -223,9 +223,9 @@
                               Click="OpenWithApplication_Click" />
                     <MenuItem x:Name="PlayerOfficialApplicationMenuItem" Header="Otwórz w oficjalnej aplikacji"
                               Click="OfficialApp_Click" />
-                    <MenuItem x:Name="PlayerRecycleMenuItem" Header="Przenieś plik do Kosza" InputGestureText="Shift+Delete"
-                              automation:AutomationProperties.Name="Przenieś plik do Kosza, Shift+Delete"
-                              Click="Recycle_Click" />
+                    <MenuItem x:Name="PlayerRemoveLocalItemMenuItem" Header="Usuń z AMC, pozostaw plik na dysku" InputGestureText="Delete"
+                              automation:AutomationProperties.Name="Usuń z AMC, pozostaw plik na dysku, Delete"
+                              Click="PlayerRemoveLocalItem_Click" />
                 </ContextMenu>
             </Border.ContextMenu>
             <StackPanel>

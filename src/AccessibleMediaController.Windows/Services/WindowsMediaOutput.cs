@@ -51,6 +51,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     public event EventHandler<MediaOutputFailedEventArgs>? PlaybackFailed;
     public event EventHandler<MediaPlaybackEndedEventArgs>? PlaybackEnded;
 
+    public string? LoadedItemId => _currentItem?.Id;
     public bool SupportsPlaybackRate => true;
 
     public TimeSpan Position

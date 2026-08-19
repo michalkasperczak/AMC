@@ -36,7 +36,10 @@ public sealed class DemoMediaSession
     public int Volume { get; private set; } = 35;
     public double PlaybackRate { get; private set; } = 1d;
     public bool SupportsPlaybackRate => _output?.SupportsPlaybackRate == true;
-    public TimeSpan Position => _output?.Position ?? _position;
+    public TimeSpan Position => _output is not null
+        && string.Equals(_output.LoadedItemId, CurrentItem.Id, StringComparison.Ordinal)
+            ? _output.Position
+            : _position;
     public IReadOnlyDictionary<string, TimeSpan> RememberedPositions => _rememberedPositions;
 
     public void TogglePlayback()

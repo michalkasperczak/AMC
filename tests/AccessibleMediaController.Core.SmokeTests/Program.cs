@@ -878,6 +878,7 @@ static void TestLocalMediaPersistence()
         var media = new MediaItem { Id = item.Id, Title = item.Title, Source = item.Path };
         var session = new DemoMediaSession("local", "Pliki lokalne", [media], output);
         session.SetRememberedPosition(item.Id, TimeSpan.FromTicks(item.ResumePositionTicks));
+        Equal(TimeSpan.FromMinutes(17), session.Position);
         session.TogglePlayback();
         Equal(TimeSpan.FromMinutes(17), output.Position);
     }
@@ -1340,6 +1341,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
 
 sealed class FakeMediaOutput : IMediaOutput
 {
+    public string? LoadedItemId => LastItem?.Id;
     public TimeSpan Position { get; set; }
     public bool SupportsPlaybackRate => true;
     public int PlayCount { get; private set; }

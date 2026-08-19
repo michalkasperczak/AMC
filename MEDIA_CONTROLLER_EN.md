@@ -711,6 +711,10 @@ State of `alpha.61`: Right Arrow is now a direct shortcut for the Windows `opena
 
 State of `alpha.62`: Left Arrow fills missing metadata for only the selected file. The probe uses the same NAudio/Vorbis reader selection as playback without starting audio. Average bitrate is estimated as file bits divided by duration, so VBR reports an average rather than an instantaneous value. Duration, sample rate, and `kb/s` are persisted in local state. A failed probe does not suppress extension, artist, or size. The main window explicitly handles `Alt+F4` before the player layer and calls `Close`; because the player is a view rather than another window, closing is not two-stage. A modal dialog keeps standard Windows behavior, so its own `Alt+F4` closes that dialog first.
 
+State of `alpha.63`: a remembered local-file position remains session state even when the decoder has not opened a source after application restart. Time queries, F6 and the first resume therefore use the stored position instead of the empty audio output's technical zero. Right Arrow now calls the documented Windows `SHOpenWithDialog` directly and no longer depends on an existing extension association. On Windows 10 and later this dialog opens one file with the selected application; default-app changes are managed by Windows Settings. Physical `Shift+Delete` remains list-only. In the local player, `Delete` removes the current record from AMC, leaves the file on disk, pauses it and announces the next item or destination session. `Ctrl+Z` can undo this catalogue operation.
+
+Local catalogue and ordering: the Library is neither a playlist nor a mirror of one folder. It is a catalogue of sources with stable identity, path and derived views. Its default order should come from a selected sort mode such as title, artist, album, folder, date added or last played. `Alt+Up/Down` will manually reorder playlist entries and will not reorder disk files. Manual Library ordering will be added only as an explicit Custom order mode if testing demonstrates a need, avoiding a false ordering affordance in artist and album views.
+
 Planned sequence of later stages:
 
 1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.
@@ -736,6 +740,8 @@ Planned sequence of later stages:
 5. The detailed global Bookmarks view, its naming and export.
 6. Default offset for “near the end”; currently 10 seconds.
 7. Final application name and package identifiers on each platform.
+8. Final F2 semantics: the recommendation for a local file is a real on-disk rename with atomic AMC path updates; a separate AMC display alias should be introduced only if it is also needed for streaming sources.
+9. Whether the Library needs an optional Custom order mode, or persistent sorting plus manual playlist ordering is sufficient.
 
 ## 16. Ongoing documentation rule
 
