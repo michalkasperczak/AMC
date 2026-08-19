@@ -78,6 +78,7 @@
                 <MenuItem Header="_Biblioteka" InputGestureText="Ctrl+L" Click="LibraryView_Click" />
                 <MenuItem Header="_Albumy" InputGestureText="Ctrl+Shift+A" Click="AlbumsView_Click" />
                 <MenuItem Header="_Kolejka" InputGestureText="Ctrl+Q" Click="QueueView_Click" />
+                <MenuItem Header="_Historia odtwarzania" InputGestureText="Ctrl+H" Click="HistoryView_Click" />
                 <Separator />
                 <MenuItem Header="_Filtruj listę" InputGestureText="Ctrl+K" Click="Filter_Click" />
                 <MenuItem Header="_Szukaj w bieżącej usłudze" InputGestureText="Ctrl+F" Click="SearchCurrent_Click" />
@@ -169,6 +170,9 @@
                     <MenuItem x:Name="RemoveMenuItem" Header="Usuń z bieżącego widoku" InputGestureText="Delete"
                               automation:AutomationProperties.Name="Usuń z bieżącego widoku, Delete"
                               Click="Remove_Click" />
+                    <MenuItem x:Name="RecycleMenuItem" Header="Przenieś plik do Kosza" InputGestureText="Shift+Delete"
+                              automation:AutomationProperties.Name="Przenieś plik do Kosza, Shift+Delete"
+                              Click="Recycle_Click" />
                 </ContextMenu>
             </ListBox.ContextMenu>
         </ListBox>

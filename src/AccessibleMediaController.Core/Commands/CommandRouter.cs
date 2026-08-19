@@ -223,7 +223,7 @@ public sealed class CommandRouter(
             case CommandIds.ViewAlbums: return ShowView("Albumy");
             case CommandIds.ViewRadio: return ShowView("Radio i rekomendacje");
             case CommandIds.ViewMixes: return ShowView("Miksy");
-            case CommandIds.ViewHistory: return ShowView("Historia");
+            case CommandIds.ViewHistory: return ShowView("Historia odtwarzania");
             case CommandIds.ViewNowPlaying: return ShowView("Teraz odtwarzane");
             case CommandIds.ViewOutputs: return ShowView("Wyjścia i urządzenia");
             case CommandIds.ViewDownloads: return ShowView("Pobrane");

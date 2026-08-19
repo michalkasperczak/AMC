@@ -158,6 +158,7 @@ public static class CommandPaletteSearch
             CommandIds.ViewLibrary => "Ctrl+L",
             CommandIds.ToggleLibrary => "Ctrl+Shift+L",
             CommandIds.ViewQueue => "Ctrl+Q",
+            CommandIds.ViewHistory => "Ctrl+H",
             CommandIds.AddQueue => "Shift+Enter",
             CommandIds.TogglePlayNext => "Ctrl+Shift+Enter",
             CommandIds.ViewAlbums => "Ctrl+Shift+A",

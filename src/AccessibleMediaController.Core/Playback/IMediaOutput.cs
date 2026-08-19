@@ -13,6 +13,7 @@ public interface IMediaOutput
     bool SupportsPlaybackRate { get; }
     void Play(MediaItem item, TimeSpan position, int volume, double playbackRate);
     void Pause();
+    void Stop();
     void Seek(TimeSpan position);
     void SetVolume(int volume);
     void SetPlaybackRate(double playbackRate);

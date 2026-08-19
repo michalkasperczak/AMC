@@ -8,7 +8,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 12;
+    public const int CurrentSchemaVersion = 13;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -40,6 +40,7 @@ public sealed class ConfigurationStore(string statePath)
         NormalizeSearchHistory(state);
         NormalizeSessionNavigation(state);
         NormalizeLocalMedia(state);
+        NormalizePlaybackHistory(state);
         ValidateState(state);
         var directory = Path.GetDirectoryName(statePath);
         if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
@@ -161,6 +162,7 @@ public sealed class ConfigurationStore(string statePath)
         NormalizeSearchHistory(state);
         NormalizeSessionNavigation(state);
         NormalizeLocalMedia(state);
+        NormalizePlaybackHistory(state);
         state.SchemaVersion = CurrentSchemaVersion;
     }
 
@@ -168,6 +170,18 @@ public sealed class ConfigurationStore(string statePath)
     {
         state.SearchHistory ??= new SearchHistorySettings();
         new SearchQueryHistory(state.SearchHistory).Normalize();
+    }
+
+    private static void NormalizePlaybackHistory(PersistedState state)
+    {
+        state.PlaybackHistory ??= new PlaybackHistorySettings();
+        var history = new PlaybackHistory(state.PlaybackHistory);
+        history.Normalize();
+        if (history.GetItemIds("local").Count == 0
+            && !string.IsNullOrWhiteSpace(state.LocalMedia?.CurrentItemId))
+        {
+            history.Record("local", state.LocalMedia.CurrentItemId);
+        }
     }
 
     private static void NormalizeSessionNavigation(PersistedState state)

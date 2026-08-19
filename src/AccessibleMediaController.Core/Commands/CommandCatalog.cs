@@ -80,7 +80,7 @@ public static class CommandCatalog
             CommandIds.ViewRadio => "Pokaż radio i rekomendacje",
             CommandIds.StartRadio => "Uruchom radio na podstawie elementu",
             CommandIds.ViewMixes => "Pokaż miksy",
-            CommandIds.ViewHistory => "Pokaż historię",
+            CommandIds.ViewHistory => "Pokaż historię odtwarzania",
             CommandIds.ViewNowPlaying => "Pokaż teraz odtwarzane",
             CommandIds.OpenOfficialApp => "Otwórz w oficjalnej aplikacji",
             CommandIds.ViewOutputs => "Pokaż wyjścia i urządzenia",

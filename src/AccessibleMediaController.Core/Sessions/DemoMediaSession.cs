@@ -54,6 +54,13 @@ public sealed class DemoMediaSession
         _output?.Play(CurrentItem, _position, Volume, PlaybackRate);
     }
 
+    public void StopPlayback()
+    {
+        RememberCurrentPosition();
+        IsPlaying = false;
+        _output?.Stop();
+    }
+
     public bool SelectItem(MediaItem item)
     {
         var index = Items.FindIndex(candidate => candidate.Id == item.Id);

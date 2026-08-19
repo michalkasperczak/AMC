@@ -27,6 +27,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 {
     private PersistedState _state;
     private readonly ConfigurationStore _store;
+    private PlaybackHistory _playbackHistory;
     private SessionManager _sessions = null!;
     private CommandRouter _router = null!;
     private GlobalPrefixService? _prefixService;
@@ -35,6 +36,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private string _currentView = DefaultBrowserView;
     private List<MediaItemRow> _unfilteredItems = [];
     private readonly Dictionary<string, SessionViewHistory> _viewHistories =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PlaybackHistoryCursor> _playbackHistoryCursors =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly MediaMembershipHistory _membershipHistory = new();
     private readonly Stack<LocalCatalogUndo> _localCatalogHistory = [];
@@ -106,6 +109,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _playerUiTimer.Tick += PlayerUiTimer_Tick;
         _state = state;
         _store = store;
+        _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
         LoadPersistedLocalMedia();
         _localOutput.DurationAvailable += LocalOutput_DurationAvailable;
         _localOutput.PlaybackFailed += LocalOutput_PlaybackFailed;
@@ -693,7 +697,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+O otwiera lokalne pliki audio, a Ctrl+Shift+O otwiera folder wraz z podfolderami. " +
             "Oba polecenia tworzą tymczasową sesję bez automatycznego odtwarzania. " +
             "Ctrl+U/P/L/Q otwiera odpowiednio: Ulubione, Playlisty, Bibliotekę i Kolejkę, " +
-            "a Ctrl+Shift+A otwiera Albumy. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
+            "Ctrl+H otwiera trwałą Historię odtwarzania, a Ctrl+Shift+A otwiera Albumy. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
             "wyszukiwania w bieżącej usłudze, Ctrl+Shift+F otwiera wyszukiwanie globalne, " +
             "a Ctrl+Shift+K otwiera paletę poleceń. " +
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
@@ -703,13 +707,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "strzałki w górę i w dół zmieniają głośność, Home i End przechodzą na początek i w pobliże końca, " +
             "a cyfry od 0 do 9 przechodzą odpowiednio do 0, 10, 20 i kolejnych procent długości utworu oraz domyślnie oznajmiają tylko procent. " +
             "Shift+przecinek zmniejsza prędkość, Shift+kropka ją zwiększa, a Ctrl+kropka przywraca 1,00 razy; tempo zmienia się bez zmiany wysokości dźwięku. " +
-            "Escape wraca do wcześniejszej listy. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
+            "Escape wraca do wcześniejszej listy. Alt+strzałka w dół przechodzi do starszego odtwarzanego elementu, a Alt+strzałka w górę do nowszego; pozycje są pamiętane. " +
+            "Page Up i Page Down nadal wybierają poprzedni lub następny element listy źródłowej, a nie historii. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
             "Ctrl+Shift+G chwilowo włącza lub wyłącza wszystkie automatyczne komunikaty odtwarzacza; ich kategorie wybiera się osobno w Ustawieniach. " +
             "NVDA+End odczytuje pasek stanu z bieżącym czasem i parametrami audio. " +
             "Alt+Enter otwiera jedno dostępne okno Właściwości i informacje. " +
             "Ctrl+K, Ctrl+F i Ctrl+Shift+F nie opuszczają odtwarzacza; wyszukiwanie jest dostępne po powrocie do listy. " +
             "Skróty widoków opuszczają odtwarzacz, a F6 wraca do niego. " +
-            "Delete lub Backspace usuwa z bieżącego widoku, Alt+Strzałka w lewo wraca. " +
+            "Ctrl+C kopiuje nazwy wszystkich zaznaczonych elementów, po jednej w wierszu; Ctrl+Shift+C kopiuje pełne ścieżki i fizyczne pliki lokalne. " +
+            "Delete lub Backspace usuwa z bieżącego widoku, a w głównym katalogu lokalnym usuwa tylko wpis z AMC. Shift+Delete po potwierdzeniu przenosi lokalne pliki do systemowego Kosza. " +
+            "Alt+strzałka w lewo i w prawo przechodzi po osobnej historii widoków. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
             "Escape w filtrze lub na głównym przycisku wraca do listy; aktywny filtr jest wtedy czyszczony. " +
             "W menu Escape standardowo wychodzi o jeden poziom.",
@@ -950,6 +957,74 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         TrySaveLocalMediaState(false);
     }
 
+    private void RecordPlayback(
+        DemoMediaSession session,
+        MediaItem item,
+        bool resetHistoryNavigation = true)
+    {
+        if (resetHistoryNavigation) _playbackHistoryCursors.Remove(session.Id);
+        if (!_playbackHistory.Record(session.Id, item.Id)) return;
+        try
+        {
+            _store.Save(_state);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            // Playback remains available even if history cannot be persisted.
+        }
+    }
+
+    private void NavigatePlaybackHistory(int direction)
+    {
+        var session = _sessions.Current;
+        var itemsById = session.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        if (!_playbackHistoryCursors.TryGetValue(session.Id, out var cursor))
+        {
+            var itemIds = _playbackHistory.GetItemIds(session.Id)
+                .Where(itemsById.ContainsKey)
+                .ToArray();
+            var currentIndex = Array.FindIndex(
+                itemIds,
+                itemId => string.Equals(itemId, session.CurrentItem.Id, StringComparison.Ordinal));
+            cursor = new PlaybackHistoryCursor(itemIds, currentIndex);
+            _playbackHistoryCursors[session.Id] = cursor;
+        }
+        if (cursor.ItemIds.Count == 0)
+        {
+            Announce("Historia odtwarzania jest pusta");
+            return;
+        }
+
+        var targetIndex = cursor.Index < 0
+            ? (direction > 0 ? 0 : -1)
+            : cursor.Index + Math.Sign(direction);
+        while (targetIndex >= 0
+               && targetIndex < cursor.ItemIds.Count
+               && !itemsById.ContainsKey(cursor.ItemIds[targetIndex]))
+        {
+            targetIndex += Math.Sign(direction);
+        }
+        if (targetIndex < 0 || targetIndex >= cursor.ItemIds.Count)
+        {
+            Announce(direction > 0
+                ? "Brak starszego elementu w historii"
+                : "Brak nowszego elementu w historii");
+            return;
+        }
+
+        cursor.Index = targetIndex;
+        var target = itemsById[cursor.ItemIds[targetIndex]];
+        session.Play(target);
+        RecordPlayback(session, target, resetHistoryNavigation: false);
+        RefreshPlaybackIndicators();
+        UpdatePlayerView(true);
+        UpdatePlaybackStatusBar();
+        UpdateWindowTitle();
+        if (string.Equals(session.Id, "local", StringComparison.Ordinal)) TrySaveLocalMediaState(false);
+        Announce($"Historia: {target.Title}");
+    }
+
     private static (long? FileLength, long? LastWriteUtcTicks) GetFileFingerprint(string? path)
     {
         if (string.IsNullOrWhiteSpace(path)) return (null, null);
@@ -1002,6 +1077,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var previousLocalWasPlaying = previousLocal?.IsPlaying == true;
         _membershipHistory.Clear();
         _localCatalogHistory.Clear();
+        _playbackHistoryCursors.Clear();
         _undoSequence = 0;
         _sessions = new SessionManager(_state.Settings);
         if (_localItems.Count > 0)
@@ -1142,6 +1218,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var localSession = _sessions.FindSession("local");
         var nextItem = localSession?.ContinueAfterPlaybackEnded(e.Item);
+        if (localSession is not null && nextItem is not null) RecordPlayback(localSession, nextItem);
         if (string.Equals(_currentView, "Kolejka", StringComparison.Ordinal))
         {
             var restoreListFocus = !_playerViewActive && MediaList.IsKeyboardFocusWithin;
@@ -1270,7 +1347,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     PrepareSelectedItemFocusContext(
                         string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
                             ? sessionContext
-                            : $"{_currentView}, {sessionContext}");
+                            : $"{sessionContext}, {_currentView}");
                 }
                 _deferredAnnouncement = null;
             }
@@ -1299,6 +1376,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.ActivateSelected
             or CommandIds.Previous
             or CommandIds.Next;
+        if (savesPlaybackBoundary && result.Handled && _sessions.Current.IsPlaying)
+        {
+            RecordPlayback(_sessions.Current, _sessions.Current.CurrentItem);
+        }
         if ((changesListMembership && string.Equals(changedSession?.Id, "local", StringComparison.Ordinal))
             || (savesPlaybackBoundary && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)))
         {
@@ -1320,6 +1401,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_currentView == "Biblioteka") items = items.Where(item => item.IsInLibrary);
         if (_currentView == "Kolejka") items = items.Where(item => item.IsInQueue || item.IsPlayNext);
         if (_currentView == "Albumy") items = items.Where(item => item.Kind == MediaItemKind.Album);
+        if (_currentView == "Historia odtwarzania")
+        {
+            var itemsById = _sessions.Current.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
+            items = _playbackHistory.GetItemIds(_sessions.Current.Id)
+                .Select(itemId => itemsById.GetValueOrDefault(itemId))
+                .Where(item => item is not null)
+                .Select(item => item!);
+        }
         _unfilteredItems = items
             .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
             .ToList();
@@ -1479,6 +1568,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (session.CurrentItem.Id != item.Id || !session.IsPlaying)
             {
                 session.Play(item);
+                RecordPlayback(session, item);
             }
             RefreshPlaybackIndicators();
             ShowPlayerView();
@@ -1721,6 +1811,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         _state = dialog.ResultState;
+        _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
         _store.Save(_state);
         ApplyDetailedHints();
         RebuildCore();
@@ -1739,7 +1830,96 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Dispatcher.BeginInvoke(() => Announce(announcement), DispatcherPriority.ContextIdle);
     }
 
-    private void RemoveLocalCatalogItems(IReadOnlyList<MediaItem> items, int previousIndex)
+    private void MoveSelectedLocalFilesToRecycleBin()
+    {
+        if (!string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            Announce("Przenoszenie do Kosza jest dostępne tylko dla plików lokalnych");
+            return;
+        }
+
+        var items = MediaList.SelectedItems
+            .OfType<MediaItemRow>()
+            .Select(row => row.Item)
+            .Where(item => TryGetLocalPath(item.Source, out _))
+            .DistinctBy(item => item.Id)
+            .ToArray();
+        if (items.Length == 0)
+        {
+            Announce("Brak pliku do przeniesienia do Kosza");
+            return;
+        }
+
+        var label = items.Length == 1 ? items[0].Title : FormatFileCount(items.Length);
+        var confirmation = MessageBox.Show(
+            $"Przenieść do Kosza: {label}?\n\nPliki zostaną usunięte z AMC. Tej operacji nie można cofnąć skrótem Ctrl+Z; można użyć systemowego Kosza.",
+            "Przenieś pliki do Kosza",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        var session = _sessions.Current;
+        if (items.Any(item => string.Equals(item.Id, session.CurrentItem.Id, StringComparison.Ordinal)))
+        {
+            session.StopPlayback();
+        }
+
+        var removed = new List<MediaItem>();
+        var failures = new List<string>();
+        foreach (var item in items)
+        {
+            if (!TryGetLocalPath(item.Source, out var path)) continue;
+            try
+            {
+                if (File.Exists(path))
+                {
+                    Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(
+                        path,
+                        Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                        Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin,
+                        Microsoft.VisualBasic.FileIO.UICancelOption.ThrowException);
+                }
+                removed.Add(item);
+            }
+            catch (Exception exception) when (
+                exception is IOException or UnauthorizedAccessException or ArgumentException or OperationCanceledException)
+            {
+                failures.Add($"{item.Title}: {exception.Message}");
+            }
+        }
+
+        if (removed.Count > 0)
+        {
+            _playbackHistory.Remove("local", removed.Select(item => item.Id));
+            RemoveLocalCatalogItems(
+                removed,
+                MediaList.SelectedIndex,
+                recordUndo: false,
+                filesRemainOnDisk: false);
+        }
+        else
+        {
+            RestoreMediaListFocusAfterRefresh();
+        }
+
+        if (failures.Count > 0)
+        {
+            Dispatcher.BeginInvoke(
+                () => AnnounceEssential($"Nie przeniesiono do Kosza: {string.Join("; ", failures)}"),
+                DispatcherPriority.ContextIdle);
+        }
+    }
+
+    private void RemoveLocalCatalogItems(
+        IReadOnlyList<MediaItem> items,
+        int previousIndex,
+        bool recordUndo = true,
+        bool filesRemainOnDisk = true)
     {
         var session = _sessions.Current;
         CaptureCurrentSessionNavigationState();
@@ -1782,14 +1962,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             _localItems.RemoveAt(entry.Index);
         }
-        _localCatalogHistory.Push(new LocalCatalogUndo(
-            ++_undoSequence,
-            catalogEntries,
-            sessionEntries,
-            items.Count == 1
-                ? $"Przywrócono w AMC: {items[0].Title}"
-                : $"Przywrócono w AMC: {FormatItemCount(items.Count)}",
-            detachedSession));
+        if (recordUndo)
+        {
+            _localCatalogHistory.Push(new LocalCatalogUndo(
+                ++_undoSequence,
+                catalogEntries,
+                sessionEntries,
+                items.Count == 1
+                    ? $"Przywrócono w AMC: {items[0].Title}"
+                    : $"Przywrócono w AMC: {FormatItemCount(items.Count)}",
+                detachedSession));
+        }
 
         if (detachedSession is not null)
         {
@@ -1807,8 +1990,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var removedLabel = items.Count == 1 ? items[0].Title : FormatItemCount(items.Count);
         var playbackNote = wasPlaying && currentRemoved ? ". Odtwarzanie wstrzymano" : string.Empty;
+        var actionAnnouncement = filesRemainOnDisk
+            ? $"Usunięto z AMC: {removedLabel}. Pliki pozostały na dysku{playbackNote}"
+            : $"Przeniesiono do Kosza i usunięto z AMC: {removedLabel}{playbackNote}";
         Dispatcher.BeginInvoke(
-            () => Announce($"Usunięto z AMC: {removedLabel}. Pliki pozostały na dysku{playbackNote}"),
+            () => Announce(actionAnnouncement),
             DispatcherPriority.ContextIdle);
     }
 
@@ -1933,9 +2119,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var homogeneousView = _currentView is "Albumy" or "Playlisty";
         var label = FormatItem(item, !homogeneousView);
         var session = _sessions.Current;
-        if (!string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal)) return label;
-        if (session.IsPlaying) return $"Odtwarzany, {label}";
-        return session.Position > TimeSpan.Zero ? $"Wstrzymany, {label}" : label;
+        var isCurrent = string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal);
+        if (isCurrent && session.IsPlaying) return $"Odtwarzany, {label}";
+        if (isCurrent && session.Position > TimeSpan.Zero) return $"Wstrzymany, {label}";
+        var lastPlayedId = _playbackHistory.GetItemIds(session.Id).FirstOrDefault();
+        return string.Equals(lastPlayedId, item.Id, StringComparison.Ordinal)
+            ? $"Ostatnio odtwarzany, {label}"
+            : label;
     }
 
     private void RefreshPlaybackIndicators()
@@ -2170,6 +2360,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ExecuteCommand(CommandIds.TimeTotal);
             e.Handled = true;
         }
+        else if (modifiers == ModifierKeys.Shift && e.Key == Key.Delete)
+        {
+            MoveSelectedLocalFilesToRecycleBin();
+            e.Handled = true;
+        }
         else if (modifiers == ModifierKeys.None && e.Key is Key.Delete or Key.Back)
         {
             RemoveSelected();
@@ -2242,12 +2437,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.P) => CommandIds.ViewPlaylists,
             (ModifierKeys.Control, Key.L) => CommandIds.ViewLibrary,
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
+            (ModifierKeys.Control, Key.H) => CommandIds.ViewHistory,
             (ModifierKeys.Control, Key.K) => CommandIds.FilterCurrent,
             (ModifierKeys.Control, Key.F) => CommandIds.SearchCurrent,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.A) => CommandIds.ViewAlbums,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.F) => CommandIds.SearchAll,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.G) => CommandIds.SettingsToggleSeekMessages,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.K) => CommandIds.CommandPalette,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.E) => CommandIds.TimeElapsed,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.R) => CommandIds.TimeRemaining,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.T) => CommandIds.TimeTotal,
             _ => null
         };
         if (commandId is null) return false;
@@ -2281,13 +2480,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (!_playerViewActive || !PlayerPanel.IsKeyboardFocusWithin) return false;
 
-        if (Keyboard.Modifiers == ModifierKeys.None && TryGetDigitKey(e.Key, out var digit))
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (Keyboard.Modifiers == ModifierKeys.Alt && key is Key.Up or Key.Down)
+        {
+            NavigatePlaybackHistory(key == Key.Down ? 1 : -1);
+            return true;
+        }
+
+        if (Keyboard.Modifiers == ModifierKeys.None && TryGetDigitKey(key, out var digit))
         {
             ExecuteCommand(CommandIds.SeekPercent(digit * 10));
             return true;
         }
 
-        var commandId = (Keyboard.Modifiers, e.Key) switch
+        var commandId = (Keyboard.Modifiers, key) switch
         {
             (ModifierKeys.None, Key.PageUp) => CommandIds.Previous,
             (ModifierKeys.None, Key.PageDown) => CommandIds.Next,
@@ -2315,7 +2521,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             // Do not let unsupported arrow combinations invoke WPF spatial
             // focus navigation between player buttons. They have no transport
             // meaning until AMC assigns one explicitly.
-            return e.Key is Key.Left or Key.Right or Key.Up or Key.Down or Key.PageUp or Key.PageDown
+            return key is Key.Left or Key.Right or Key.Up or Key.Down or Key.PageUp or Key.PageDown
                 && Keyboard.Modifiers != ModifierKeys.None;
         }
         ExecuteCommand(commandId);
@@ -2417,7 +2623,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (Keyboard.Modifiers == ModifierKeys.None
             && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
-            && string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
             && SelectedItem is { } localItem
             && key is Key.Left or Key.Right)
         {
@@ -2577,6 +2782,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void OpenWithApplication_Click(object sender, RoutedEventArgs e) => OpenLocalWithApplication();
     private void OfficialApp_Click(object sender, RoutedEventArgs e) => OpenOfficialApplication();
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelected();
+    private void Recycle_Click(object sender, RoutedEventArgs e) => MoveSelectedLocalFilesToRecycleBin();
     private void Undo_Click(object sender, RoutedEventArgs e) => UndoLastMembershipChange();
     private void Settings_Click(object sender, RoutedEventArgs e) => OpenSettings();
     private void OpenLocalFiles_Click(object sender, RoutedEventArgs e) => OpenLocalFiles();
@@ -2616,6 +2822,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         OpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         OpenWithApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         OfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
+        RecycleMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         var removeLabel = localItem && string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
             ? "Usuń z AMC, pozostaw plik na dysku"
             : "Usuń z bieżącego widoku";
@@ -2667,9 +2874,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void CopyActionItemName()
     {
-        if (ActionItem is not { } item) return;
-        Clipboard.SetText(item.Title);
-        Announce("Skopiowano nazwę");
+        var items = ActionItems;
+        if (items.Count == 0) return;
+        Clipboard.SetText(string.Join(Environment.NewLine, items.Select(item => item.Title)));
+        Announce(items.Count == 1
+            ? "Skopiowano nazwę"
+            : $"Skopiowano nazwy: {FormatItemCount(items.Count)}");
     }
 
     private void CopyActionItemLocation()
@@ -2710,6 +2920,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PlaylistsView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewPlaylists);
     private void LibraryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewLibrary);
     private void QueueView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewQueue);
+    private void HistoryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewHistory);
     private void AlbumsView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewAlbums);
     private void Filter_Click(object sender, RoutedEventArgs e)
     {
@@ -2749,6 +2960,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         public Stack<string> Back { get; } = [];
         public Stack<string> Forward { get; } = [];
+    }
+
+    private sealed class PlaybackHistoryCursor(IReadOnlyList<string> itemIds, int index)
+    {
+        public IReadOnlyList<string> ItemIds { get; } = itemIds;
+        public int Index { get; set; } = index;
     }
 
     private sealed record LocalCatalogUndo(

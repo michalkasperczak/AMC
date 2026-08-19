@@ -136,6 +136,14 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         _outputDevice.Pause();
     }
 
+    public void Stop()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _pendingPosition = Position;
+        ClosePipeline();
+        _currentItem = null;
+    }
+
     public void Seek(TimeSpan position)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

@@ -29,6 +29,7 @@ var tests = new (string Name, Action Test)[]
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
     ("Historia wyszukiwania", TestSearchHistory),
+    ("Historia odtwarzania", TestPlaybackHistory),
     ("Pamięć widoków sesji", TestSessionNavigationPersistence),
     ("Pamięć lokalnej biblioteki", TestLocalMediaPersistence),
     ("Paleta poleceń", TestCommandPalette),
@@ -478,6 +479,10 @@ static void TestLocalPlaybackBoundary()
     session.TogglePlayback();
     Equal(2, output.PlayCount);
     Equal(true, session.IsPlaying);
+    session.StopPlayback();
+    Equal(1, output.StopCount);
+    Equal(false, session.IsPlaying);
+    session.TogglePlayback();
 
     output.Position = TimeSpan.FromSeconds(30);
     session.Seek(TimeSpan.FromSeconds(10));
@@ -747,6 +752,39 @@ static void TestSearchHistory()
     }
 }
 
+static void TestPlaybackHistory()
+{
+    var settings = new PlaybackHistorySettings();
+    var history = new PlaybackHistory(settings);
+    True(history.Record("local", "a"), "Pierwszy plik powinien trafić do historii.");
+    True(history.Record("local", "b"), "Nowszy plik powinien trafić na początek.");
+    True(history.Record("local", "a"), "Ponowne odtworzenie powinno przenieść plik na początek.");
+    Equal("a", history.GetItemIds("local")[0]);
+    Equal("b", history.GetItemIds("local")[1]);
+    Equal(2, history.GetItemIds("local").Count);
+    True(!history.Record("local", "a"), "Powtórzenie najnowszego wpisu nie powinno zmieniać historii.");
+
+    history.Remove("local", ["a"]);
+    Equal(1, history.GetItemIds("local").Count);
+    Equal("b", history.GetItemIds("local")[0]);
+
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-playback-history-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.PlaybackHistory = settings;
+        store.Save(state);
+        var loaded = store.LoadOrCreate();
+        Equal("b", new PlaybackHistory(loaded.PlaybackHistory).GetItemIds("local")[0]);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
 static void TestSessionNavigationPersistence()
 {
     var directory = Path.Combine(Path.GetTempPath(), $"amc-navigation-tests-{Guid.NewGuid():N}");
@@ -822,6 +860,7 @@ static void TestLocalMediaPersistence()
         Equal(47, loaded.LocalMedia.Volume);
         Equal(1.50d, loaded.LocalMedia.PlaybackRate);
         Equal(1, loaded.LocalMedia.Items.Count);
+        Equal("local-1", new PlaybackHistory(loaded.PlaybackHistory).GetItemIds("local")[0]);
         var item = loaded.LocalMedia.Items[0];
         Equal("Długie nagranie", item.Title);
         Equal(TimeSpan.FromMinutes(17).Ticks, item.ResumePositionTicks);
@@ -862,6 +901,7 @@ static void TestCommandPalette()
     True(!favorites.ToString().Contains("CommandId", StringComparison.Ordinal), "Lista nie może ujawniać technicznych nazw pól obiektu.");
     Equal("Ctrl+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFiles).LocalShortcut);
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
+    Equal("Ctrl+H", entries.Single(entry => entry.CommandId == CommandIds.ViewHistory).LocalShortcut);
     Equal("Ctrl+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToTime).LocalShortcut);
     Equal("Ctrl+Shift+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToPercentage).LocalShortcut);
     Equal("PageUp (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.Previous).LocalShortcut);
@@ -1297,6 +1337,7 @@ sealed class FakeMediaOutput : IMediaOutput
     public bool SupportsPlaybackRate => true;
     public int PlayCount { get; private set; }
     public int PauseCount { get; private set; }
+    public int StopCount { get; private set; }
     public int Volume { get; private set; }
     public double PlaybackRate { get; private set; } = 1d;
     public MediaItem? LastItem { get; private set; }
@@ -1311,6 +1352,7 @@ sealed class FakeMediaOutput : IMediaOutput
     }
 
     public void Pause() => PauseCount++;
+    public void Stop() => StopCount++;
     public void Seek(TimeSpan position) => Position = position;
     public void SetVolume(int volume) => Volume = volume;
     public void SetPlaybackRate(double playbackRate) => PlaybackRate = playbackRate;
