@@ -27,6 +27,7 @@ public enum SettingsTarget
     HistoryMessages,
     ArrowSeekMessages,
     PercentageSeekMessages,
+    BookmarkNavigationMessages,
     VolumeMessages,
     PlaybackMessages,
     PercentageSeekAnnouncement,

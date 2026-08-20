@@ -8,7 +8,7 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
 {
     public const int MaxEntries = 5000;
     private static readonly TimeSpan DuplicateTolerance = TimeSpan.FromSeconds(1);
-    private static readonly TimeSpan NavigationTolerance = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan NavigationTolerance = TimeSpan.FromSeconds(2);
 
     public IReadOnlyList<BookmarkEntry> GetAll() => settings.Entries
         .OrderByDescending(entry => entry.CreatedUtcTicks)
@@ -69,6 +69,26 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
         return direction > 0
             ? entries.FirstOrDefault(entry => entry.PositionTicks > currentPosition.Ticks + NavigationTolerance.Ticks)
             : entries.LastOrDefault(entry => entry.PositionTicks < currentPosition.Ticks - NavigationTolerance.Ticks);
+    }
+
+    public BookmarkEntry? FindAdjacent(
+        string sessionId,
+        string itemId,
+        string anchorBookmarkId,
+        int direction)
+    {
+        if (direction == 0 || string.IsNullOrWhiteSpace(anchorBookmarkId)) return null;
+        var entries = GetForItem(sessionId, itemId);
+        var anchorIndex = -1;
+        for (var index = 0; index < entries.Count; index++)
+        {
+            if (!string.Equals(entries[index].Id, anchorBookmarkId, StringComparison.Ordinal)) continue;
+            anchorIndex = index;
+            break;
+        }
+        if (anchorIndex < 0) return null;
+        var targetIndex = anchorIndex + Math.Sign(direction);
+        return targetIndex >= 0 && targetIndex < entries.Count ? entries[targetIndex] : null;
     }
 
     public int Remove(IEnumerable<string> bookmarkIds)

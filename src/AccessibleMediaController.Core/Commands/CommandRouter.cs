@@ -301,6 +301,7 @@ public sealed class CommandRouter(
             CommandIds.SettingsHistoryMessages => SettingsTarget.HistoryMessages,
             CommandIds.SettingsArrowSeekMessages => SettingsTarget.ArrowSeekMessages,
             CommandIds.SettingsPercentageSeekMessages => SettingsTarget.PercentageSeekMessages,
+            CommandIds.SettingsBookmarkNavigationMessages => SettingsTarget.BookmarkNavigationMessages,
             CommandIds.SettingsVolumeMessages => SettingsTarget.VolumeMessages,
             CommandIds.SettingsPlaybackMessages => SettingsTarget.PlaybackMessages,
             CommandIds.SettingsPercentageSeekAnnouncement => SettingsTarget.PercentageSeekAnnouncement,

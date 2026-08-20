@@ -122,6 +122,7 @@ public static class CommandCatalog
             CommandIds.SettingsToggleSeekMessages => "Przełącz automatyczne komunikaty odtwarzacza",
             CommandIds.SettingsArrowSeekMessages => "Ustawienia: komunikaty przewijania strzałkami",
             CommandIds.SettingsPercentageSeekMessages => "Ustawienia: komunikaty skoków cyframi",
+            CommandIds.SettingsBookmarkNavigationMessages => "Ustawienia: komunikaty nawigacji po zakładkach",
             CommandIds.SettingsVolumeMessages => "Ustawienia: komunikaty zmian głośności",
             CommandIds.SettingsPlaybackMessages => "Ustawienia: komunikaty odtwarzania i pauzy",
             CommandIds.SettingsPercentageSeekAnnouncement => "Ustawienia: komunikat po skoku cyfrą",

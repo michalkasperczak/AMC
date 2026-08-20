@@ -92,6 +92,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.HistoryMessages => (MessagesTab, HistoryMessagesCheck),
             SettingsTarget.ArrowSeekMessages => (MessagesTab, ArrowSeekMessagesCheck),
             SettingsTarget.PercentageSeekMessages => (MessagesTab, PercentageSeekMessagesCheck),
+            SettingsTarget.BookmarkNavigationMessages => (MessagesTab, BookmarkNavigationMessagesCheck),
             SettingsTarget.VolumeMessages => (MessagesTab, VolumeMessagesCheck),
             SettingsTarget.PlaybackMessages => (MessagesTab, PlaybackMessagesCheck),
             SettingsTarget.PercentageSeekAnnouncement => (MessagesTab, PercentageSeekAnnouncementCombo),
@@ -116,6 +117,7 @@ public partial class SettingsWindow : Window
         HistoryMessagesCheck.IsChecked = _workingState.Settings.Messages.HistoryMessages;
         ArrowSeekMessagesCheck.IsChecked = _workingState.Settings.Messages.ArrowSeekMessages;
         PercentageSeekMessagesCheck.IsChecked = _workingState.Settings.Messages.PercentageSeekMessages;
+        BookmarkNavigationMessagesCheck.IsChecked = _workingState.Settings.Messages.BookmarkNavigationMessages;
         VolumeMessagesCheck.IsChecked = _workingState.Settings.Messages.VolumeMessages;
         PlaybackMessagesCheck.IsChecked = _workingState.Settings.Messages.PlaybackMessages;
         SelectComboByTag(
@@ -159,6 +161,7 @@ public partial class SettingsWindow : Window
         _workingState.Settings.Messages.HistoryMessages = HistoryMessagesCheck.IsChecked == true;
         _workingState.Settings.Messages.ArrowSeekMessages = ArrowSeekMessagesCheck.IsChecked == true;
         _workingState.Settings.Messages.PercentageSeekMessages = PercentageSeekMessagesCheck.IsChecked == true;
+        _workingState.Settings.Messages.BookmarkNavigationMessages = BookmarkNavigationMessagesCheck.IsChecked == true;
         _workingState.Settings.Messages.VolumeMessages = VolumeMessagesCheck.IsChecked == true;
         _workingState.Settings.Messages.PlaybackMessages = PlaybackMessagesCheck.IsChecked == true;
         if (Enum.TryParse<PercentageSeekAnnouncementMode>(

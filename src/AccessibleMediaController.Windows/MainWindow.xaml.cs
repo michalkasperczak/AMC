@@ -41,6 +41,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, PlaybackHistoryCursor> _playbackHistoryCursors =
         new(StringComparer.OrdinalIgnoreCase);
+    private BookmarkNavigationCursor? _bookmarkNavigationCursor;
     private readonly MediaMembershipHistory _membershipHistory = new();
     private readonly Stack<LocalCatalogUndo> _localCatalogHistory = [];
     private long _undoSequence;
@@ -73,6 +74,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const int VirtualKeyT = 0x54;
     private const int VirtualKeyZ = 0x5A;
     private static readonly TimeSpan TypeAheadTimeout = TimeSpan.FromMilliseconds(1200);
+    private static readonly TimeSpan BookmarkNavigationContinuationWindow = TimeSpan.FromSeconds(5);
     private static readonly string AppDisplayVersion =
         typeof(MainWindow).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
@@ -318,11 +320,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var session = _sessions.Current;
-        var bookmark = _bookmarkIndex.FindRelative(
-            session.Id,
-            session.CurrentItem.Id,
-            session.Position,
-            direction);
+        var itemId = session.CurrentItem.Id;
+        BookmarkEntry? bookmark = null;
+        var now = DateTime.UtcNow;
+        if (_bookmarkNavigationCursor is { } cursor
+            && string.Equals(cursor.SessionId, session.Id, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(cursor.ItemId, itemId, StringComparison.Ordinal)
+            && now - cursor.LastNavigationUtc <= BookmarkNavigationContinuationWindow)
+        {
+            bookmark = _bookmarkIndex.FindAdjacent(session.Id, itemId, cursor.BookmarkId, direction);
+        }
+        else
+        {
+            bookmark = _bookmarkIndex.FindRelative(session.Id, itemId, session.Position, direction);
+        }
         if (bookmark is null)
         {
             Announce(direction < 0
@@ -332,11 +343,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var position = TimeSpan.FromTicks(bookmark.PositionTicks);
+        _bookmarkNavigationCursor = new BookmarkNavigationCursor(
+            session.Id,
+            itemId,
+            bookmark.Id,
+            now);
         session.SetPosition(position);
         UpdatePlayerView();
         UpdatePlaybackStatusBar();
         if (string.Equals(session.Id, "local", StringComparison.Ordinal)) TrySaveLocalMediaState(false);
-        Announce($"Zakładka: {CommandRouter.FormatTime(position)}");
+        if (_state.Settings.Messages.SeekMessages
+            && _state.Settings.Messages.BookmarkNavigationMessages)
+        {
+            Announce($"Zakładka: {CommandRouter.FormatTime(position)}");
+        }
     }
 
     private void ShowPlayerView()
@@ -1366,6 +1386,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private CommandExecutionResult ExecuteCommand(string commandId)
     {
+        if (commandId is not CommandIds.PreviousBookmark and not CommandIds.NextBookmark)
+        {
+            _bookmarkNavigationCursor = null;
+        }
         var oldSession = _sessions.Current.Id;
         CaptureCurrentSessionNavigationState();
         var previousIndex = MediaList.SelectedIndex;
@@ -3224,6 +3248,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         public IReadOnlyList<string> ItemIds { get; } = itemIds;
         public int Index { get; set; } = index;
     }
+
+    private sealed record BookmarkNavigationCursor(
+        string SessionId,
+        string ItemId,
+        string BookmarkId,
+        DateTime LastNavigationUtc);
 
     private sealed record LocalCatalogUndo(
         long Sequence,

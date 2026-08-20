@@ -1,12 +1,46 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-068`
-- Tytuł zestawu: Trwałe zakładki
-- Wersja programu: `0.1.0-alpha.68`
+- Numer zestawu: `AMC-TEST-069`
+- Tytuł zestawu: Sekwencyjna nawigacja i wyciszanie zakładek
+- Wersja programu: `0.1.0-alpha.69`
 - Utworzono: 2026-08-20, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.68.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.69.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 69
+
+### AMC-069-01 — Kilka poprzednich zakładek podczas odtwarzania
+
+W jednym dłuższym pliku utwórz co najmniej cztery zakładki. Odtwarzaj plik za ostatnią z nich i kilka razy dość szybko naciśnij `Shift+Page Up`.
+
+Oczekiwane: każde naciśnięcie przechodzi do wcześniejszej zakładki. Odtwarzanie nie powoduje ponownego wyboru tej samej pozycji i nie następuje przejście do innego pliku.
+
+### AMC-069-02 — Kilka następnych zakładek
+
+Po dojściu do pierwszej zakładki kilka razy naciśnij `Shift+Page Down`.
+
+Oczekiwane: każde naciśnięcie przechodzi do następnej zakładki w prawidłowej kolejności. Za ostatnią słychać komunikat o braku następnej zakładki.
+
+### AMC-069-03 — Powrót do rzeczywistej pozycji
+
+Przejdź do zakładki, następnie użyj zwykłego przewijania, skoku cyfrą albo `Ctrl+J`, po czym ponownie naciśnij `Shift+Page Up` lub `Shift+Page Down`.
+
+Oczekiwane: po innym poleceniu AMC wybiera zakładkę względem nowej, rzeczywistej pozycji, a nie względem starej sekwencji.
+
+### AMC-069-04 — Cicha nawigacja
+
+Otwórz Ustawienia → Komunikaty i wyłącz „Oznajmiaj nawigację po zakładkach”. Wróć do odtwarzacza i użyj `Shift+Page Up/Down`.
+
+Oczekiwane: po udanym skoku nie pojawia się automatyczny komunikat „Zakładka” z czasem, ale pozycja naprawdę się zmienia. `Ctrl+Shift+E` nadal odczytuje czas na żądanie. Na krańcu pozostaje komunikat o braku dalszej zakładki.
+
+### AMC-069-05 — Paleta i trwałość ustawienia
+
+W palecie `Ctrl+Shift+K` wyszukaj „komunikaty nawigacji po zakładkach”, naciśnij Enter i sprawdź, czy fokus trafia na właściwy checkbox. Zapisz ustawienia i ponownie uruchom AMC.
+
+Oczekiwane: paleta podaje bieżący stan opcji, ustawienie jest zachowane po restarcie, a `B` nadal dodaje zakładkę i `Ctrl+B` otwiera ich listę.
+
+## Poprzedni zestaw regresyjny alpha 68
 
 ## Nowości alpha 68
 

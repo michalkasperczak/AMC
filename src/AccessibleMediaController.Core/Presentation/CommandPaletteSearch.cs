@@ -75,6 +75,8 @@ public static class CommandPaletteSearch
                 $"Komunikaty przewijania strzałkami: {OnOff(settings.Messages.ArrowSeekMessages)}. Enter: ustawienia",
             CommandIds.SettingsPercentageSeekMessages =>
                 $"Komunikaty skoków cyframi: {OnOff(settings.Messages.PercentageSeekMessages)}. Enter: ustawienia",
+            CommandIds.SettingsBookmarkNavigationMessages =>
+                $"Komunikaty nawigacji po zakładkach: {OnOff(settings.Messages.BookmarkNavigationMessages)}. Enter: ustawienia",
             CommandIds.SettingsVolumeMessages =>
                 $"Komunikaty zmian głośności: {OnOff(settings.Messages.VolumeMessages)}. Enter: ustawienia",
             CommandIds.SettingsPlaybackMessages =>

@@ -8,7 +8,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 14;
+    public const int CurrentSchemaVersion = 15;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -326,6 +326,11 @@ public sealed class ConfigurationStore(string statePath)
             // and introduces independent categories beneath it.
             settings.Messages.ArrowSeekMessages = true;
             settings.Messages.PercentageSeekMessages = true;
+        }
+
+        if (schemaVersion < 15)
+        {
+            settings.Messages.BookmarkNavigationMessages = true;
         }
     }
 

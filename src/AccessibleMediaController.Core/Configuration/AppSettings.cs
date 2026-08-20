@@ -65,6 +65,7 @@ public sealed class MessageSettings
     public bool SeekMessages { get; set; } = true;
     public bool ArrowSeekMessages { get; set; } = true;
     public bool PercentageSeekMessages { get; set; } = true;
+    public bool BookmarkNavigationMessages { get; set; } = true;
     public PercentageSeekAnnouncementMode PercentageSeekAnnouncement { get; set; } = PercentageSeekAnnouncementMode.Percent;
     public bool SessionMessages { get; set; } = true;
     public bool HistoryMessages { get; set; } = true;
@@ -100,7 +101,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 14;
+    public int SchemaVersion { get; set; } = 15;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();

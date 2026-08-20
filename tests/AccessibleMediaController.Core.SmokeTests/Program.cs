@@ -76,6 +76,7 @@ static void TestDefaultProfile()
     Equal(true, settings.Messages.SeekMessages);
     Equal(true, settings.Messages.ArrowSeekMessages);
     Equal(true, settings.Messages.PercentageSeekMessages);
+    Equal(true, settings.Messages.BookmarkNavigationMessages);
     Equal(true, settings.Messages.VolumeMessages);
     Equal(true, settings.Messages.PlaybackMessages);
     Equal(PercentageSeekAnnouncementMode.Percent, settings.Messages.PercentageSeekAnnouncement);
@@ -813,10 +814,18 @@ static void TestBookmarks()
     True(!duplicate.Added, "Druga zakładka w tej samej sekundzie nie powinna tworzyć duplikatu.");
     var second = index.Add("local", "Pliki lokalne", item, TimeSpan.FromMinutes(25), now.AddMinutes(1));
     True(second.Added, "Zakładka w innym miejscu powinna zostać dodana.");
-    Equal(2, index.GetForItem("local", item.Id).Count);
+    var third = index.Add("local", "Pliki lokalne", item, TimeSpan.FromMinutes(40), now.AddMinutes(2));
+    True(third.Added, "Trzecia zakładka powinna zostać dodana.");
+    Equal(3, index.GetForItem("local", item.Id).Count);
     Equal(first.Entry.Id, index.FindRelative("local", item.Id, TimeSpan.FromMinutes(20), -1)?.Id);
     Equal(second.Entry.Id, index.FindRelative("local", item.Id, TimeSpan.FromMinutes(20), 1)?.Id);
-    Equal(second.Entry.Id, index.GetAll()[0].Id);
+    Equal(first.Entry.Id, index.FindRelative("local", item.Id, TimeSpan.FromMinutes(25).Add(TimeSpan.FromMilliseconds(400)), -1)?.Id);
+    Equal(second.Entry.Id, index.FindAdjacent("local", item.Id, third.Entry.Id, -1)?.Id);
+    Equal(first.Entry.Id, index.FindAdjacent("local", item.Id, second.Entry.Id, -1)?.Id);
+    Equal(third.Entry.Id, index.FindAdjacent("local", item.Id, second.Entry.Id, 1)?.Id);
+    Equal(null, index.FindAdjacent("local", item.Id, first.Entry.Id, -1)?.Id);
+    Equal(null, index.FindAdjacent("local", item.Id, third.Entry.Id, 1)?.Id);
+    Equal(third.Entry.Id, index.GetAll()[0].Id);
 
     var directory = Path.Combine(Path.GetTempPath(), $"amc-bookmark-tests-{Guid.NewGuid():N}");
     Directory.CreateDirectory(directory);
@@ -827,7 +836,7 @@ static void TestBookmarks()
         state.Bookmarks = settings;
         store.Save(state);
         var loaded = store.LoadOrCreate();
-        Equal(2, new BookmarkIndex(loaded.Bookmarks).GetAll().Count);
+        Equal(3, new BookmarkIndex(loaded.Bookmarks).GetAll().Count);
         Equal("Długie nagranie", loaded.Bookmarks.Entries[0].ItemTitle);
     }
     finally
@@ -836,7 +845,7 @@ static void TestBookmarks()
     }
 
     Equal(1, index.Remove([first.Entry.Id]));
-    Equal(1, index.GetAll().Count);
+    Equal(2, index.GetAll().Count);
 }
 
 static void TestSessionNavigationPersistence()
@@ -1014,6 +1023,9 @@ static void TestCommandPalette()
         "Komunikaty skoków cyframi: włączone. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsPercentageSeekMessages).DisplayName);
     Equal(
+        "Komunikaty nawigacji po zakładkach: włączone. Enter: ustawienia",
+        entries.Single(entry => entry.CommandId == CommandIds.SettingsBookmarkNavigationMessages).DisplayName);
+    Equal(
         "Komunikaty zmian głośności: włączone. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsVolumeMessages).DisplayName);
     Equal(
@@ -1040,6 +1052,7 @@ static void TestCommandPalette()
     settings.Messages.SeekMessages = false;
     settings.Messages.ArrowSeekMessages = false;
     settings.Messages.PercentageSeekMessages = false;
+    settings.Messages.BookmarkNavigationMessages = false;
     settings.Messages.VolumeMessages = false;
     settings.Messages.PlaybackMessages = false;
     settings.Messages.PercentageSeekAnnouncement = PercentageSeekAnnouncementMode.PercentAndTime;
@@ -1056,6 +1069,9 @@ static void TestCommandPalette()
     Equal(
         "Komunikaty przewijania strzałkami: wyłączone. Enter: ustawienia",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsArrowSeekMessages).DisplayName);
+    Equal(
+        "Komunikaty nawigacji po zakładkach: wyłączone. Enter: ustawienia",
+        changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsBookmarkNavigationMessages).DisplayName);
     Equal(
         "Komunikat po skoku cyfrą: procent i czas",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsPercentageSeekAnnouncement).DisplayName);
@@ -1252,6 +1268,8 @@ static void TestTimeCommands()
     Equal(SettingsTarget.ArrowSeekMessages, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsPercentageSeekMessages);
     Equal(SettingsTarget.PercentageSeekMessages, actions.LastSettingsTarget);
+    router.Execute(CommandIds.SettingsBookmarkNavigationMessages);
+    Equal(SettingsTarget.BookmarkNavigationMessages, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsVolumeMessages);
     Equal(SettingsTarget.VolumeMessages, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsPlaybackMessages);
@@ -1294,6 +1312,7 @@ static void TestExports()
         state.Settings.Messages.SeekMessages = false;
         state.Settings.Messages.ArrowSeekMessages = false;
         state.Settings.Messages.PercentageSeekMessages = true;
+        state.Settings.Messages.BookmarkNavigationMessages = false;
         state.Settings.Messages.VolumeMessages = false;
         state.Settings.Messages.PlaybackMessages = false;
         state.Settings.Messages.PercentageSeekAnnouncement = PercentageSeekAnnouncementMode.PercentAndTime;
@@ -1315,6 +1334,7 @@ static void TestExports()
         Equal(false, store.LoadOrCreate().Settings.Messages.SeekMessages);
         Equal(false, store.LoadOrCreate().Settings.Messages.ArrowSeekMessages);
         Equal(true, store.LoadOrCreate().Settings.Messages.PercentageSeekMessages);
+        Equal(false, store.LoadOrCreate().Settings.Messages.BookmarkNavigationMessages);
         Equal(false, store.LoadOrCreate().Settings.Messages.VolumeMessages);
         Equal(false, store.LoadOrCreate().Settings.Messages.PlaybackMessages);
         Equal(PercentageSeekAnnouncementMode.PercentAndTime, store.LoadOrCreate().Settings.Messages.PercentageSeekAnnouncement);
@@ -1331,6 +1351,7 @@ static void TestExports()
         Equal(false, importedSettings.Messages.SeekMessages);
         Equal(false, importedSettings.Messages.ArrowSeekMessages);
         Equal(true, importedSettings.Messages.PercentageSeekMessages);
+        Equal(false, importedSettings.Messages.BookmarkNavigationMessages);
         Equal(false, importedSettings.Messages.VolumeMessages);
         Equal(false, importedSettings.Messages.PlaybackMessages);
         Equal(PercentageSeekAnnouncementMode.PercentAndTime, importedSettings.Messages.PercentageSeekAnnouncement);
@@ -1342,6 +1363,7 @@ static void TestExports()
         Equal(false, importedBackup.Settings.Messages.SeekMessages);
         Equal(false, importedBackup.Settings.Messages.ArrowSeekMessages);
         Equal(true, importedBackup.Settings.Messages.PercentageSeekMessages);
+        Equal(false, importedBackup.Settings.Messages.BookmarkNavigationMessages);
         Equal(false, importedBackup.Settings.Messages.VolumeMessages);
         Equal(false, importedBackup.Settings.Messages.PlaybackMessages);
         Equal(PercentageSeekAnnouncementMode.PercentAndTime, importedBackup.Settings.Messages.PercentageSeekAnnouncement);

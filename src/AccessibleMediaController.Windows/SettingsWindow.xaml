@@ -159,6 +159,9 @@
                                   Content="Oznajmiaj skoki _cyframi" />
                         <CheckBox x:Name="ArrowSeekMessagesCheck" Margin="18,0,0,6"
                                   Content="Oznajmiaj przewijanie _strzałkami, Home i End" />
+                        <CheckBox x:Name="BookmarkNavigationMessagesCheck" Margin="18,0,0,6"
+                                  Content="Oznajmiaj nawigację po _zakładkach"
+                                  automation:AutomationProperties.HelpText="Steruje komunikatem z czasem po Shift+Page Up i Shift+Page Down. Nie wyłącza samej nawigacji ani komunikatu o braku dalszej zakładki." />
                         <CheckBox x:Name="VolumeMessagesCheck" Margin="18,0,0,6"
                                   Content="Oznajmiaj zmiany _głośności" />
                         <CheckBox x:Name="PlaybackMessagesCheck" Margin="18,0,0,8"
