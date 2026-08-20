@@ -38,7 +38,7 @@
                 </Style>
             </ListBox.ItemContainerStyle>
             <ListBox.ContextMenu>
-                <ContextMenu Closed="ResultsContextMenu_Closed">
+                <ContextMenu Opened="ResultsContextMenu_Opened" Closed="ResultsContextMenu_Closed">
                     <MenuItem Header="_Otwórz" InputGestureText="Enter"
                               automation:AutomationProperties.AcceleratorKey="Enter"
                               Click="Open_Click" />
@@ -58,6 +58,16 @@
                     <MenuItem Header="_Informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.AcceleratorKey="Alt+Enter"
                               Click="Information_Click" />
+                    <Separator />
+                    <MenuItem Header="Kopiuj _nazwę" InputGestureText="Ctrl+C"
+                              automation:AutomationProperties.AcceleratorKey="Control+C"
+                              Click="CopyName_Click" />
+                    <MenuItem Header="Kopiuj ścieżkę lub łącze" InputGestureText="Ctrl+Shift+C"
+                              automation:AutomationProperties.AcceleratorKey="Control+Shift+C"
+                              Click="CopyLocation_Click" />
+                    <MenuItem x:Name="CutResultMenuItem" Header="Wytnij plik do przeniesienia" InputGestureText="Ctrl+X"
+                              automation:AutomationProperties.AcceleratorKey="Control+X"
+                              Click="CutFile_Click" />
                 </ContextMenu>
             </ListBox.ContextMenu>
         </ListBox>

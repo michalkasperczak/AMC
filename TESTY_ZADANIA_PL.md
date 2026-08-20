@@ -1,12 +1,70 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-071`
-- Tytuł zestawu: Kolejność i fokus Zakładek
-- Wersja programu: `0.1.0-alpha.71`
+- Numer zestawu: `AMC-TEST-072`
+- Tytuł zestawu: Informacje i kopiowanie Zakładek
+- Wersja programu: `0.1.0-alpha.72`
 - Utworzono: 2026-08-20, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.71.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.72.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 72
+
+### AMC-072-01 — Globalna kolejność informacji
+
+Otwórz `Ctrl+B` i przejdź po kilku zakładkach należących do jednego oraz do różnych plików.
+
+Oczekiwane: każdy wiersz zaczyna się od nazwy pliku lub materiału, następnie podaje datę utworzenia zakładki, pozycję w materiale, opcjonalną nazwę, sesję i słowo „zakładka”. Kilka zakładek tego samego pliku pozostaje ułożonych według pozycji w nagraniu, a nie według daty utworzenia.
+
+### AMC-072-02 — Krótka nawigacja w odtwarzaczu
+
+W otwartym materiale użyj `Shift+Page Up/Down` najpierw dla zwykłej, a potem nazwanej zakładki.
+
+Oczekiwane: zwykła zakładka podaje tylko czas. Nazwana podaje nazwę i czas. Nie powtarza tytułu pliku ani daty utworzenia.
+
+### AMC-072-03 — Kopiowanie jednej zakładki
+
+Na liście `Ctrl+B` wybierz zakładkę i naciśnij `Ctrl+C`, po czym wklej zawartość do edytora tekstu.
+
+Oczekiwane: skopiowany jest pełny opis widocznego wiersza — razem z datą i czasem — a nie sam tytuł pliku źródłowego.
+
+### AMC-072-04 — Kopiowanie kilku zakładek
+
+Zaznacz kilka sąsiednich zakładek przez `Shift+strzałka`, naciśnij `Ctrl+C` i wklej wynik.
+
+Oczekiwane: każda zaznaczona zakładka znajduje się w osobnym wierszu, w tej samej kolejności co na liście.
+
+### AMC-072-05 — Powrót i fokus
+
+Z listy Zakładek otwórz rekord Enterem, a następnie wróć przez Escape.
+
+Oczekiwane: fokus wraca do tego samego rekordu i strzałki od razu działają. Nie pojawia się dodatkowy widok ani filtr.
+
+### AMC-072-06 — Dwa sposoby kopiowania w wyszukiwaniu
+
+W `Ctrl+F` i `Ctrl+Shift+F` wybierz lokalny wynik. Naciśnij `Ctrl+C`, wklej do edytora, następnie naciśnij `Ctrl+Shift+C` i wklej w folderze testowym albo menedżerze plików.
+
+Oczekiwane: `Ctrl+C` kopiuje samą nazwę. `Ctrl+Shift+C` kopiuje prawdziwy plik oraz pełną ścieżkę. Okno wyszukiwania pozostaje otwarte, a fokus wraca na ten sam wynik. Dla wyniku usługowego `Ctrl+Shift+C` kopiuje łącze, nie fikcyjny plik.
+
+### AMC-072-07 — Wycinanie lokalnego pliku
+
+Na dowolnej zwykłej liście sesji Pliki lokalne wybierz niepotrzebny plik testowy, naciśnij `Ctrl+X`, przejdź do pustego folderu i naciśnij tam `Ctrl+V`.
+
+Oczekiwane: samo `Ctrl+X` niczego nie usuwa. `Ctrl+V` przenosi prawdziwy plik. Po powrocie do AMC program wykrywa brak starej ścieżki, usuwa nieaktualny wpis i podaje jednoznaczny komunikat.
+
+### AMC-072-08 — Anulowane wycinanie
+
+Na lokalnej liście naciśnij `Ctrl+X`, ale nie wklejaj pliku. Wróć do AMC i dalej nawiguj.
+
+Oczekiwane: plik pozostaje na dysku i na liście. `Ctrl+X` bez późniejszego `Ctrl+V` nie powoduje utraty danych.
+
+### AMC-072-09 — Wycinanie z wyszukiwania
+
+Wyszukaj lokalny plik przez `Ctrl+F` albo `Ctrl+Shift+F`, naciśnij `Ctrl+X`, wklej go do folderu testowego, wróć do wyszukiwania i zamknij je Escape.
+
+Oczekiwane: plik jest przeniesiony przez system. Po zamknięciu wyszukiwania AMC porządkuje swój katalog. `Ctrl+X` dla wyniku TIDAL-a, Apple Music lub WiiM nie tworzy fikcyjnego pliku i zgłasza, że funkcja dotyczy tylko plików lokalnych.
+
+## Poprzedni zestaw regresyjny alpha 71
 
 ## Nowości alpha 71
 

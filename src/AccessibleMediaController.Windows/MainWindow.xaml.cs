@@ -58,6 +58,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private ListBoxItem? _focusContextContainer;
     private readonly WindowsMediaOutput _localOutput = new();
     private readonly List<MediaItem> _localItems = [];
+    private readonly Dictionary<string, string> _pendingExternalMoves =
+        new(StringComparer.Ordinal);
     private readonly DispatcherTimer _playerUiTimer;
     private bool _playerViewActive;
     private bool _restoringSessionNavigation;
@@ -391,10 +393,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_state.Settings.Messages.SeekMessages
             && _state.Settings.Messages.BookmarkNavigationMessages)
         {
-            var bookmarkName = string.IsNullOrWhiteSpace(bookmark.Name)
-                ? "Zakładka"
-                : $"Zakładka {bookmark.Name}";
-            Announce($"{bookmarkName}: {CommandRouter.FormatTime(position)}");
+            var time = CommandRouter.FormatTime(position);
+            Announce(string.IsNullOrWhiteSpace(bookmark.Name)
+                ? time
+                : $"{bookmark.Name}, {time}");
         }
     }
 
@@ -1593,18 +1595,31 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Id = bookmark.ItemId,
             Title = bookmark.ItemTitle
         };
-        var displayName = string.IsNullOrWhiteSpace(bookmark.Name) ? bookmark.ItemTitle : bookmark.Name;
         var rowItem = new MediaItem
         {
             Id = $"bookmark:{bookmark.Id}",
-            Title = displayName
+            Title = bookmark.ItemTitle
         };
         var sessionName = string.IsNullOrWhiteSpace(bookmark.SessionName)
             ? bookmark.SessionId
             : bookmark.SessionName;
-        var itemPart = string.IsNullOrWhiteSpace(bookmark.Name) ? string.Empty : $", {bookmark.ItemTitle}";
-        var label = $"{displayName}{itemPart}, {CommandRouter.FormatTime(TimeSpan.FromTicks(bookmark.PositionTicks))}, {sessionName}, zakładka";
-        return new MediaItemRow(rowItem, label, displayName, targetItem, bookmark);
+        var namePart = string.IsNullOrWhiteSpace(bookmark.Name) ? string.Empty : $", {bookmark.Name}";
+        var label = $"{bookmark.ItemTitle}, {FormatBookmarkCreatedDate(bookmark.CreatedUtcTicks)}, {CommandRouter.FormatTime(TimeSpan.FromTicks(bookmark.PositionTicks))}{namePart}, {sessionName}, zakładka";
+        return new MediaItemRow(rowItem, label, bookmark.ItemTitle, targetItem, bookmark);
+    }
+
+    private static string FormatBookmarkCreatedDate(long utcTicks)
+    {
+        if (utcTicks <= 0) return "data utworzenia nieznana";
+        try
+        {
+            var localDate = new DateTime(utcTicks, DateTimeKind.Utc).ToLocalTime();
+            return $"utworzono {localDate.ToString("d MMMM yyyy", CultureInfo.GetCultureInfo("pl-PL"))}";
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return "data utworzenia nieznana";
+        }
     }
 
     private void ApplyFilter(string? preferredItemId = null, int? fallbackIndex = null)
@@ -1738,6 +1753,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void Window_Activated(object? sender, EventArgs e)
     {
+        ReconcileCompletedExternalMoves();
         if (!_initialFocusApplied) return;
         if (Keyboard.FocusedElement is not null and not Menu and not MenuItem) return;
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.ContextIdle);
@@ -2594,6 +2610,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var itemCommandsAvailable = _playerViewActive || MediaList.IsKeyboardFocusWithin;
         if (itemCommandsAvailable
             && modifiers == ModifierKeys.Control
+            && e.Key == Key.X
+            && MediaList.IsKeyboardFocusWithin)
+        {
+            Announce(CutLocalFilesForExternalMove(ActionItems));
+            e.Handled = true;
+        }
+        else if (itemCommandsAvailable
+            && modifiers == ModifierKeys.Control
             && e.Key == Key.C
             && ActionItem is not null)
         {
@@ -2892,6 +2916,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         SearchResultAction action,
         bool _)
     {
+        if (action == SearchResultAction.CopyName)
+        {
+            _pendingExternalMoves.Clear();
+            Clipboard.SetText(result.Item.Title);
+            return "Skopiowano nazwę";
+        }
+        if (action == SearchResultAction.CopyLocation)
+        {
+            return CopyItemLocations([result.Item], result.SessionId);
+        }
+        if (action == SearchResultAction.CutFile)
+        {
+            return CutLocalFilesForExternalMove([result.Item], fromSearch: true);
+        }
+
         var session = SelectSessionBrowserItem(result.SessionId, result.Item.Id);
         if (session is null) return "Wybrana sesja nie jest już dostępna";
 
@@ -3090,6 +3129,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Information_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemProperties);
     private void CopyName_Click(object sender, RoutedEventArgs e) => CopyActionItemName();
     private void CopyLocation_Click(object sender, RoutedEventArgs e) => CopyActionItemLocation();
+    private void CutFiles_Click(object sender, RoutedEventArgs e) =>
+        Announce(CutLocalFilesForExternalMove(ActionItems));
     private void OpenDefaultApplication_Click(object sender, RoutedEventArgs e) => OpenLocalInDefaultApplication();
     private void OfficialApp_Click(object sender, RoutedEventArgs e) => OpenOfficialApplication();
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelected();
@@ -3130,9 +3171,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? "Kopiuj pełną ścieżkę"
             : "Kopiuj łącze do elementu";
         SetContextMenuItemPresentation(CopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
-        var localItem = SelectedBookmark is null
-            && actionItem is not null
-            && TryGetLocalPath(actionItem.Source, out _);
+        var localItems = SelectedBookmark is null
+            && items.Count > 0
+            && items.All(item => TryGetLocalPath(item.Source, out var path) && File.Exists(path));
+        CutFilesMenuItem.Visibility = localItems ? Visibility.Visible : Visibility.Collapsed;
+        var localItem = localItems && actionItem is not null;
         OpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         OfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
         RecycleMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
@@ -3192,8 +3235,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void CopyActionItemName()
     {
+        if (!_playerViewActive && string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
+        {
+            var selectedRows = MediaList.Items
+                .OfType<MediaItemRow>()
+                .Where(row => MediaList.SelectedItems.Contains(row))
+                .ToArray();
+            if (selectedRows.Length == 0) return;
+            _pendingExternalMoves.Clear();
+            Clipboard.SetText(string.Join(Environment.NewLine, selectedRows.Select(row => row.Label)));
+            Announce(selectedRows.Length == 1
+                ? "Skopiowano zakładkę"
+                : $"Skopiowano zakładki: {selectedRows.Length}");
+            return;
+        }
+
         var items = ActionItems;
         if (items.Count == 0) return;
+        _pendingExternalMoves.Clear();
         Clipboard.SetText(string.Join(Environment.NewLine, items.Select(item => item.Title)));
         Announce(items.Count == 1
             ? "Skopiowano nazwę"
@@ -3202,8 +3261,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void CopyActionItemLocation()
     {
-        var items = ActionItems;
-        if (items.Count == 0) return;
+        var message = CopyItemLocations(ActionItems, _sessions.Current.Id);
+        if (message.Length > 0) Announce(message);
+    }
+
+    private string CopyItemLocations(IReadOnlyList<MediaItem> items, string sessionId)
+    {
+        if (items.Count == 0) return string.Empty;
+        _pendingExternalMoves.Clear();
         var localPaths = items
             .Select(item => TryGetLocalPath(item.Source, out var path) ? path : null)
             .Where(path => path is not null)
@@ -3218,18 +3283,92 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             data.SetData(DataFormats.UnicodeText, string.Join(Environment.NewLine, localPaths));
             data.SetFileDropList(fileDropList);
             Clipboard.SetDataObject(data, true);
-            Announce(localPaths.Length == 1
+            return localPaths.Length == 1
                 ? "Skopiowano plik i pełną ścieżkę"
-                : $"Skopiowano pliki i pełne ścieżki: {FormatFileCount(localPaths.Length)}");
-            return;
+                : $"Skopiowano pliki i pełne ścieżki: {FormatFileCount(localPaths.Length)}";
         }
 
-        var item = ActionItem ?? items[0];
+        var item = items[0];
         var publicUri = string.IsNullOrWhiteSpace(item.PublicUri)
-            ? $"demo://{_sessions.Current.Id}/{item.Id}"
+            ? $"demo://{sessionId}/{item.Id}"
             : item.PublicUri;
         Clipboard.SetText(publicUri);
-        Announce("Skopiowano łącze do elementu");
+        return "Skopiowano łącze do elementu";
+    }
+
+    private string CutLocalFilesForExternalMove(
+        IReadOnlyList<MediaItem> items,
+        bool fromSearch = false)
+    {
+        if (items.Count == 0) return "Brak pliku do wycięcia";
+        if (!fromSearch
+            && !_playerViewActive
+            && string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
+        {
+            return "Wycinanie plików nie działa na liście zakładek";
+        }
+
+        var localFiles = items
+            .Select(item => (Item: item, Path: TryGetLocalPath(item.Source, out var path) ? path : null))
+            .ToArray();
+        if (localFiles.Any(entry => entry.Path is null || !File.Exists(entry.Path)))
+        {
+            return "Wycinanie jest dostępne tylko dla istniejących plików lokalnych";
+        }
+
+        var paths = localFiles
+            .Select(entry => entry.Path!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var fileDropList = new StringCollection();
+        fileDropList.AddRange(paths);
+        var data = new System.Windows.DataObject();
+        data.SetData(DataFormats.UnicodeText, string.Join(Environment.NewLine, paths));
+        data.SetFileDropList(fileDropList);
+        data.SetData("Preferred DropEffect", new MemoryStream(BitConverter.GetBytes(2)));
+        Clipboard.SetDataObject(data, true);
+        _pendingExternalMoves.Clear();
+        foreach (var entry in localFiles)
+        {
+            _pendingExternalMoves[entry.Item.Id] = entry.Path!;
+        }
+        return paths.Length == 1
+            ? "Plik gotowy do przeniesienia. Wklej go w folderze docelowym"
+            : $"Pliki gotowe do przeniesienia: {FormatFileCount(paths.Length)}. Wklej je w folderze docelowym";
+    }
+
+    private void ReconcileCompletedExternalMoves()
+    {
+        if (_pendingExternalMoves.Count == 0 || _sessions is null) return;
+        var movedIds = _pendingExternalMoves
+            .Where(entry => !File.Exists(entry.Value))
+            .Select(entry => entry.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        if (movedIds.Count == 0) return;
+
+        var movedItems = _localItems
+            .Where(item => movedIds.Contains(item.Id))
+            .ToArray();
+        foreach (var id in movedIds) _pendingExternalMoves.Remove(id);
+        if (movedItems.Length == 0) return;
+
+        var localSession = _sessions.FindSession("local");
+        if (localSession is not null
+            && movedIds.Contains(localSession.CurrentItem.Id))
+        {
+            if (localSession.IsPlaying) localSession.StopPlayback();
+            localSession.SetPosition(TimeSpan.Zero);
+        }
+        CaptureCurrentSessionNavigationState();
+        _localItems.RemoveAll(item => movedIds.Contains(item.Id));
+        _playbackHistory.Remove("local", movedIds);
+        TrySaveLocalMediaState(true);
+        RebuildCore();
+        RestoreCurrentSessionNavigationState();
+        var message = movedItems.Length == 1
+            ? $"Plik przeniesiono poza AMC i usunięto nieaktualny wpis: {movedItems[0].Title}"
+            : $"Pliki przeniesiono poza AMC i usunięto nieaktualne wpisy: {FormatFileCount(movedItems.Length)}";
+        Dispatcher.BeginInvoke(() => AnnounceEssential(message), DispatcherPriority.ContextIdle);
     }
     private void PreviousSession_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SessionPrevious);
     private void NextSession_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SessionNext);

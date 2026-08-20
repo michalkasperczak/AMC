@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Input;
@@ -141,7 +142,12 @@ public partial class SearchWindow : Window
         if (action != SearchResultAction.Open)
         {
             var announcement = _executeAction(result, action, _allServices);
-            LastDirectActionResult = result;
+            if (action is not (SearchResultAction.CopyName
+                or SearchResultAction.CopyLocation
+                or SearchResultAction.CutFile))
+            {
+                LastDirectActionResult = result;
+            }
             if (!string.IsNullOrWhiteSpace(announcement)) SearchStatus.Announce(announcement);
             Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
             return;
@@ -257,6 +263,12 @@ public partial class SearchWindow : Window
             action = SearchResultAction.Favorite;
         else if (key == Key.Enter && modifiers == ModifierKeys.Alt)
             action = SearchResultAction.Information;
+        else if (key == Key.C && modifiers == ModifierKeys.Control)
+            action = SearchResultAction.CopyName;
+        else if (key == Key.C && modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+            action = SearchResultAction.CopyLocation;
+        else if (key == Key.X && modifiers == ModifierKeys.Control)
+            action = SearchResultAction.CutFile;
 
         if (action is null) return;
         CompleteSelected(action.Value);
@@ -270,11 +282,31 @@ public partial class SearchWindow : Window
     private void Queue_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Queue);
     private void Favorite_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Favorite);
     private void Information_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Information);
+    private void CopyName_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.CopyName);
+    private void CopyLocation_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.CopyLocation);
+    private void CutFile_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.CutFile);
     private void ResultsList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => CompleteSelected(SearchResultAction.Open);
+
+    private void ResultsContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        var localFile = ResultsList.SelectedItem is SearchResultRow row
+            && IsExistingLocalFile(row.Item);
+        CutResultMenuItem.Visibility = localFile ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private void ResultsContextMenu_Closed(object sender, RoutedEventArgs e)
     {
         Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
+    }
+
+    private static bool IsExistingLocalFile(MediaItem item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Source)) return false;
+        if (Uri.TryCreate(item.Source, UriKind.Absolute, out var uri) && uri.IsFile)
+        {
+            return File.Exists(uri.LocalPath);
+        }
+        return Path.IsPathFullyQualified(item.Source) && File.Exists(item.Source);
     }
 
     public sealed record SearchResult(string SessionId, MediaItem Item);
@@ -297,5 +329,8 @@ public enum SearchResultAction
     PlayNext,
     Queue,
     Favorite,
-    Information
+    Information,
+    CopyName,
+    CopyLocation,
+    CutFile
 }
