@@ -1,12 +1,54 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-075`
-- Tytuł zestawu: Spójna szybka informacja w listach i wyszukiwaniu
-- Wersja programu: `0.1.0-alpha.75`
+- Numer zestawu: `AMC-TEST-076`
+- Tytuł zestawu: Bezpieczny Kosz dla plików lokalnych i iCloud
+- Wersja programu: `0.1.0-alpha.76`
 - Utworzono: 2026-08-20, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.75.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.76.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 76
+
+Do tych prób użyj wyłącznie niepotrzebnych kopii plików, które można później odzyskać z systemowego Kosza.
+
+### AMC-076-01 — Rezygnacja z potwierdzenia
+
+Zaznacz testowy plik lokalny, naciśnij `Shift+Delete`, a w pytaniu wybierz „Nie”.
+
+Oczekiwane: plik pozostaje na dysku i w AMC, a fokus wraca do listy.
+
+### AMC-076-02 — Plik iCloud
+
+Zaznacz niepotrzebną kopię pliku znajdującą się w iCloud Drive i potwierdź `Shift+Delete`.
+
+Oczekiwane: plik trafia do systemowego Kosza i znika z katalogu AMC. Nie pojawia się okno „Nieoczekiwany błąd”, a aplikacja pozostaje uruchomiona.
+
+### AMC-076-03 — Plik aktualnie odtwarzany
+
+Uruchom testowy plik, wróć do listy, zaznacz go i wykonaj `Shift+Delete`.
+
+Oczekiwane: AMC najpierw zamyka odtwarzanie i zwalnia plik, a następnie przenosi go do Kosza. Lista przechodzi do następnego dostępnego elementu i podaje wynik.
+
+### AMC-076-04 — Kilka plików
+
+Zaznacz Shiftem dwie lub trzy niepotrzebne kopie, także z iCloud Drive, i potwierdź `Shift+Delete`.
+
+Oczekiwane: wszystkie przeniesione pliki znikają z AMC i można je znaleźć w Koszu. Program nie zawiesza się podczas odświeżania listy.
+
+### AMC-076-05 — Kontrolowany błąd
+
+Jeśli któryś plik jest zablokowany albo niedostępny, spróbuj go przenieść do Kosza.
+
+Oczekiwane: AMC pozostaje uruchomiony, nie usuwa błędnego rekordu i podaje nazwę pliku, opis oraz kod `0x...`. Inne prawidłowo przetworzone elementy mogą zostać usunięte.
+
+### AMC-076-06 — Delete pozostawia plik
+
+Na osobnej kopii użyj zwykłego `Delete` albo Backspace.
+
+Oczekiwane: znika tylko rekord AMC, natomiast fizyczny plik nadal istnieje w swoim folderze. Znaczenie zwykłego Delete nie zmieniło się.
+
+## Poprzedni zestaw regresyjny alpha 75
 
 ## Nowości alpha 75
 

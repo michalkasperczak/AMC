@@ -2192,18 +2192,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 if (File.Exists(path))
                 {
-                    Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(
-                        path,
-                        Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
-                        Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin,
-                        Microsoft.VisualBasic.FileIO.UICancelOption.ThrowException);
+                    WindowsRecycleBin.MoveFile(path, new WindowInteropHelper(this).Handle);
                 }
                 removed.Add(item);
             }
-            catch (Exception exception) when (
-                exception is IOException or UnauthorizedAccessException or ArgumentException or OperationCanceledException)
+            catch (Exception exception) when (WindowsRecycleBin.IsExpectedFailure(exception))
             {
-                failures.Add($"{item.Title}: {exception.Message}");
+                failures.Add($"{item.Title}: {exception.Message} (kod 0x{exception.HResult:X8})");
             }
         }
 
