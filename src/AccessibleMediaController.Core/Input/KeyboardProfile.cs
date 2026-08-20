@@ -88,6 +88,8 @@ public sealed class KeyboardProfile
         Bind("Shift+R", CommandIds.StartRadio);
         Bind("M", CommandIds.ViewMixes);
         Bind("H", CommandIds.ViewHistory);
+        Bind("B", CommandIds.ViewBookmarks);
+        Bind("Shift+B", CommandIds.AddBookmark);
         Bind("N", CommandIds.ViewNowPlaying);
         Bind("O", CommandIds.ViewOutputs);
         Bind("D", CommandIds.DownloadInService);

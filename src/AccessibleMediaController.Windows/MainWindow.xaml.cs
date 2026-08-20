@@ -28,11 +28,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private PersistedState _state;
     private readonly ConfigurationStore _store;
     private PlaybackHistory _playbackHistory;
+    private BookmarkIndex _bookmarkIndex;
     private SessionManager _sessions = null!;
     private CommandRouter _router = null!;
     private GlobalPrefixService? _prefixService;
     private const string DefaultBrowserView = "Multimedia";
     private const string PlayerViewName = "Teraz odtwarzane";
+    private const string BookmarkViewName = "Zakładki";
     private string _currentView = DefaultBrowserView;
     private List<MediaItemRow> _unfilteredItems = [];
     private readonly Dictionary<string, SessionViewHistory> _viewHistories =
@@ -110,6 +112,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _state = state;
         _store = store;
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
+        _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);
         LoadPersistedLocalMedia();
         _localOutput.DurationAvailable += LocalOutput_DurationAvailable;
         _localOutput.PlaybackFailed += LocalOutput_PlaybackFailed;
@@ -122,9 +125,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     public MediaItem? SelectedItem => (MediaList.SelectedItem as MediaItemRow)?.Item;
+    private BookmarkEntry? SelectedBookmark => (MediaList.SelectedItem as MediaItemRow)?.Bookmark;
     public MediaItem? ActionItem => _playerViewActive
         ? _sessions.Current.CurrentItem
-        : SelectedItem ?? _sessions.Current.CurrentItem;
+        : (MediaList.SelectedItem as MediaItemRow)?.ActionItem ?? _sessions.Current.CurrentItem;
+    private DemoMediaSession ActionSession => !_playerViewActive && SelectedBookmark is { } bookmark
+        ? _sessions.FindSession(bookmark.SessionId) ?? _sessions.Current
+        : _sessions.Current;
     public IReadOnlyList<MediaItem> ActionItems
     {
         get
@@ -132,8 +139,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (_playerViewActive) return [_sessions.Current.CurrentItem];
             var selected = MediaList.SelectedItems
                 .OfType<MediaItemRow>()
-                .Select(row => row.Item)
-                .DistinctBy(item => item.Id)
+                .Select(row => row.ActionItem)
+                .Distinct()
                 .ToArray();
             return selected.Length > 0 ? selected : [ActionItem ?? _sessions.Current.CurrentItem];
         }
@@ -273,6 +280,65 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         FocusFilter();
     }
 
+    public void AddBookmark()
+    {
+        if (!_playerViewActive)
+        {
+            Announce("Zakładkę można dodać w otwartym odtwarzaczu");
+            return;
+        }
+
+        var session = ActionSession;
+        var item = session.CurrentItem;
+        if (item.Duration <= TimeSpan.Zero)
+        {
+            Announce("Nie można dodać zakładki: czas trwania materiału jest nieznany");
+            return;
+        }
+
+        var result = _bookmarkIndex.Add(
+            session.Id,
+            session.DisplayName,
+            item,
+            session.Position,
+            DateTime.UtcNow);
+        _store.Save(_state);
+        var time = CommandRouter.FormatTime(TimeSpan.FromTicks(result.Entry.PositionTicks));
+        Announce(result.Added
+            ? $"Dodano zakładkę: {time}"
+            : $"Zakładka już istnieje: {time}");
+    }
+
+    public void NavigateBookmark(int direction)
+    {
+        if (!_playerViewActive)
+        {
+            Announce("Nawigacja po zakładkach działa w otwartym odtwarzaczu");
+            return;
+        }
+
+        var session = _sessions.Current;
+        var bookmark = _bookmarkIndex.FindRelative(
+            session.Id,
+            session.CurrentItem.Id,
+            session.Position,
+            direction);
+        if (bookmark is null)
+        {
+            Announce(direction < 0
+                ? "Brak poprzedniej zakładki w tym materiale"
+                : "Brak następnej zakładki w tym materiale");
+            return;
+        }
+
+        var position = TimeSpan.FromTicks(bookmark.PositionTicks);
+        session.SetPosition(position);
+        UpdatePlayerView();
+        UpdatePlaybackStatusBar();
+        if (string.Equals(session.Id, "local", StringComparison.Ordinal)) TrySaveLocalMediaState(false);
+        Announce($"Zakładka: {CommandRouter.FormatTime(position)}");
+    }
+
     private void ShowPlayerView()
     {
         if (!_playerViewActive)
@@ -361,7 +427,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : $"{focusContext}, Odtwarzacz, {item.Title}, {artist}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}");
         AutomationProperties.SetHelpText(
             PlayerPlayPauseButton,
-            "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Escape wraca do listy.");
+            "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. B dodaje zakładkę, Shift+Page Up i Shift+Page Down przechodzą po zakładkach. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Escape wraca do listy.");
     }
 
     private void PlayerUiTimer_Tick(object? sender, EventArgs e)
@@ -516,7 +582,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private string BuildItemPropertiesText(MediaItem item)
     {
-        var session = _sessions.Current;
+        var session = ActionSession;
         var isCurrent = string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal);
         var localPath = TryGetLocalPath(item.Source, out var resolvedPath)
             ? resolvedPath
@@ -687,7 +753,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             OpenLocalInDefaultApplication();
             return;
         }
-        Announce($"{_sessions.Current.DisplayName}: otwieranie zewnętrzne nie jest jeszcze połączone");
+        Announce($"{ActionSession.DisplayName}: otwieranie zewnętrzne nie jest jeszcze połączone");
     }
 
     private void OpenLocalInDefaultApplication()
@@ -709,7 +775,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Domyślny prefiks: Ctrl+Alt+Windows+F12.\n\n" +
             "Po prefiksie: 1–9 wybiera sesję, 0 otwiera ich listę, Page Up i Page Down zmieniają sesję, " +
             "strzałki sterują czasem i głośnością, Ctrl+E/R/T podaje czas. " +
-            "U otwiera Ulubione, Shift+U zmienia stan ulubionych, A otwiera Albumy, P otwiera Playlisty. " +
+            "U otwiera Ulubione, Shift+U zmienia stan ulubionych, B otwiera Zakładki, Shift+B dodaje zakładkę w odtwarzaczu, A otwiera Albumy, P otwiera Playlisty. " +
             "K filtruje bieżącą listę, F wyszukuje w bieżącej usłudze; warianty z Shift otwierają " +
             "paletę poleceń i wyszukiwanie globalne.\n\n" +
             "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+0 otwiera listę sesji, " +
@@ -717,7 +783,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+O otwiera lokalne pliki audio, a Ctrl+Shift+O otwiera folder wraz z podfolderami. " +
             "Oba polecenia tworzą tymczasową sesję bez automatycznego odtwarzania. " +
             "Ctrl+U/P/L/Q otwiera odpowiednio: Ulubione, Playlisty, Bibliotekę i Kolejkę, " +
-            "Ctrl+H otwiera trwałą Historię odtwarzania, a Ctrl+Shift+A otwiera Albumy. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
+            "Ctrl+H otwiera trwałą Historię odtwarzania, Ctrl+B otwiera globalną listę Zakładek, a Ctrl+Shift+A otwiera Albumy. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
             "wyszukiwania w bieżącej usłudze, Ctrl+Shift+F otwiera wyszukiwanie globalne, " +
             "a Ctrl+Shift+K otwiera paletę poleceń. " +
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
@@ -729,7 +795,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "a cyfry od 0 do 9 przechodzą odpowiednio do 0, 10, 20 i kolejnych procent długości utworu oraz domyślnie oznajmiają tylko procent. " +
             "Shift+przecinek zmniejsza prędkość, Shift+kropka ją zwiększa, a Ctrl+kropka przywraca 1,00 razy; tempo zmienia się bez zmiany wysokości dźwięku. " +
             "Escape wraca do wcześniejszej listy. Alt+strzałka w dół przechodzi do starszego odtwarzanego elementu, a Alt+strzałka w górę do nowszego; pozycje są pamiętane. " +
-            "Page Up i Page Down nadal wybierają poprzedni lub następny element listy źródłowej, a nie historii. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
+            "Page Up i Page Down nadal wybierają poprzedni lub następny element listy źródłowej, a nie historii. B dodaje szybką zakładkę w bieżącym miejscu, Shift+Page Up i Shift+Page Down przechodzą do poprzedniej lub następnej zakładki w tym samym materiale. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
             "Ctrl+Shift+G chwilowo włącza lub wyłącza wszystkie automatyczne komunikaty odtwarzacza; ich kategorie wybiera się osobno w Ustawieniach. " +
             "NVDA+End odczytuje pasek stanu z bieżącym czasem i parametrami audio. " +
             "Alt+Enter otwiera jedno dostępne okno Właściwości i informacje. " +
@@ -1311,7 +1377,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.ToggleLibrary
             or CommandIds.AddQueue
             or CommandIds.TogglePlayNext;
-        var changedSession = changesListMembership ? _sessions.Current : null;
+        var changedSession = changesListMembership ? ActionSession : null;
         var changedItems = changesListMembership ? ActionItems.ToArray() : [];
         var previousMemberships = changedItems
             .Select(item => (Item: item, Previous: MediaMembershipState.From(item)))
@@ -1418,9 +1484,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         ClearFocusContext();
         preferredItemId ??= SelectedItem?.Id;
-        SessionHeading.Text = _sessions.Current.DisplayName;
+        SessionHeading.Text = string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal)
+            ? "Wszystkie sesje"
+            : _sessions.Current.DisplayName;
         ViewHeading.Text = _currentView;
         UpdateWindowTitle();
+        if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
+        {
+            _unfilteredItems = _bookmarkIndex.GetAll()
+                .Select(CreateBookmarkRow)
+                .ToList();
+            ApplyFilter(preferredItemId, fallbackIndex);
+            return;
+        }
+
         IEnumerable<MediaItem> items = _sessions.Current.Items;
         if (_currentView == "Ulubione") items = items.Where(item => item.IsFavorite);
         if (_currentView == "Playlisty") items = items.Where(item => item.Kind == MediaItemKind.Playlist);
@@ -1439,6 +1516,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
             .ToList();
         ApplyFilter(preferredItemId, fallbackIndex);
+    }
+
+    private MediaItemRow CreateBookmarkRow(BookmarkEntry bookmark)
+    {
+        var targetSession = _sessions.FindSession(bookmark.SessionId);
+        var targetItem = targetSession?.Items.FirstOrDefault(item =>
+            string.Equals(item.Id, bookmark.ItemId, StringComparison.Ordinal));
+        targetItem ??= new MediaItem
+        {
+            Id = bookmark.ItemId,
+            Title = bookmark.ItemTitle
+        };
+        var rowItem = new MediaItem
+        {
+            Id = $"bookmark:{bookmark.Id}",
+            Title = bookmark.ItemTitle
+        };
+        var sessionName = string.IsNullOrWhiteSpace(bookmark.SessionName)
+            ? bookmark.SessionId
+            : bookmark.SessionName;
+        var label = $"{bookmark.ItemTitle}, {CommandRouter.FormatTime(TimeSpan.FromTicks(bookmark.PositionTicks))}, {sessionName}, zakładka";
+        return new MediaItemRow(rowItem, label, bookmark.ItemTitle, targetItem, bookmark);
     }
 
     private void ApplyFilter(string? preferredItemId = null, int? fallbackIndex = null)
@@ -1586,6 +1685,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ActivateSelected()
     {
+        if (SelectedBookmark is { } bookmark)
+        {
+            ActivateBookmark(bookmark, SelectedItem?.Id);
+            return;
+        }
+
         var item = SelectedItem;
         if (item is null) return;
         if (item.Kind is MediaItemKind.Track or MediaItemKind.Station)
@@ -1604,8 +1709,44 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Announce($"{item.KindLabel}: {item.Title}. {FormatItemCount(_unfilteredItems.Count)}, {FormatDurationWords(item.Duration)}");
     }
 
+    private void ActivateBookmark(BookmarkEntry bookmark, string? bookmarkRowId)
+    {
+        var session = _sessions.FindSession(bookmark.SessionId);
+        var item = session?.Items.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, bookmark.ItemId, StringComparison.Ordinal));
+        if (session is null || item is null)
+        {
+            Announce($"Materiał zakładki jest obecnie niedostępny: {bookmark.ItemTitle}");
+            return;
+        }
+
+        CaptureCurrentSessionNavigationState();
+        _sessions.SelectSession(session.Id);
+        var navigation = GetSessionNavigationState(session.Id);
+        _currentView = BookmarkViewName;
+        navigation.CurrentView = BookmarkViewName;
+        navigation.PlayerActive = false;
+        if (!string.IsNullOrWhiteSpace(bookmarkRowId))
+        {
+            navigation.SelectedItemIds[BookmarkViewName] = bookmarkRowId;
+        }
+        session.Play(item);
+        var target = TimeSpan.FromTicks(bookmark.PositionTicks);
+        if (item.Duration > TimeSpan.Zero && target > item.Duration) target = item.Duration;
+        session.SetPosition(target);
+        RecordPlayback(session, item);
+        if (string.Equals(session.Id, "local", StringComparison.Ordinal)) TrySaveLocalMediaState(false);
+        ShowPlayerView();
+    }
+
     private void RemoveSelected()
     {
+        if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
+        {
+            RemoveSelectedBookmarks();
+            return;
+        }
+
         var items = MediaList.SelectedItems
             .OfType<MediaItemRow>()
             .Select(row => row.Item)
@@ -1838,6 +1979,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         _state = dialog.ResultState;
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
+        _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);
         _store.Save(_state);
         ApplyDetailedHints();
         RebuildCore();
@@ -1854,6 +1996,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         RestoreMediaListFocusAfterRefresh();
         Dispatcher.BeginInvoke(() => Announce(announcement), DispatcherPriority.ContextIdle);
+    }
+
+    private void RemoveSelectedBookmarks()
+    {
+        var rows = MediaList.SelectedItems
+            .OfType<MediaItemRow>()
+            .Where(row => row.Bookmark is not null)
+            .ToArray();
+        if (rows.Length == 0)
+        {
+            Announce("Brak zakładki do usunięcia");
+            return;
+        }
+
+        var previousIndex = MediaList.SelectedIndex;
+        AnchorMediaListFocus();
+        var removed = _bookmarkIndex.Remove(rows.Select(row => row.Bookmark!.Id));
+        _store.Save(_state);
+        RefreshCurrentView(previousIndex);
+        RestoreMediaListFocusAfterRefresh();
+        var message = removed == 1 ? "Usunięto zakładkę" : $"Usunięto zakładki: {removed}";
+        Dispatcher.BeginInvoke(() => Announce(message), DispatcherPriority.ContextIdle);
     }
 
     private void MoveSelectedLocalFilesToRecycleBin()
@@ -2184,6 +2348,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         foreach (var row in _unfilteredItems)
         {
+            if (row.Bookmark is not null) continue;
             row.UpdateLabel(FormatListItem(row.Item));
         }
     }
@@ -2431,7 +2596,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else if (modifiers == ModifierKeys.Shift && e.Key == Key.Delete)
         {
-            MoveSelectedLocalFilesToRecycleBin();
+            if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
+                Announce("Shift+Delete nie usuwa pliku z listy zakładek. Delete usuwa samą zakładkę");
+            else
+                MoveSelectedLocalFilesToRecycleBin();
             e.Handled = true;
         }
         else if (modifiers == ModifierKeys.None && e.Key is Key.Delete or Key.Back)
@@ -2446,7 +2614,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else if (e.Key == Key.Enter)
         {
-            if (modifiers == ModifierKeys.None) ActivateSelected();
+            if (modifiers == ModifierKeys.None
+                || (modifiers == ModifierKeys.Control
+                    && string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal)))
+            {
+                ActivateSelected();
+            }
             else if (modifiers == ModifierKeys.Control) ExecuteCommand(CommandIds.ActivateSelected);
             else if (modifiers == ModifierKeys.Shift) ExecuteCommand(CommandIds.AddQueue);
             else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift)) ExecuteCommand(CommandIds.TogglePlayNext);
@@ -2507,6 +2680,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.L) => CommandIds.ViewLibrary,
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
             (ModifierKeys.Control, Key.H) => CommandIds.ViewHistory,
+            (ModifierKeys.Control, Key.B) => CommandIds.ViewBookmarks,
             (ModifierKeys.Control, Key.K) => CommandIds.FilterCurrent,
             (ModifierKeys.Control, Key.F) => CommandIds.SearchCurrent,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.A) => CommandIds.ViewAlbums,
@@ -2564,6 +2738,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var commandId = (Keyboard.Modifiers, key) switch
         {
+            (ModifierKeys.None, Key.B) => CommandIds.AddBookmark,
+            (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
+            (ModifierKeys.Shift, Key.PageDown) => CommandIds.NextBookmark,
             (ModifierKeys.None, Key.PageUp) => CommandIds.Previous,
             (ModifierKeys.None, Key.PageDown) => CommandIds.Next,
             (ModifierKeys.Control, Key.J) => CommandIds.SeekToTime,
@@ -2827,7 +3004,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void SeekToTime_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekToTime);
     private void SeekToPercentage_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekToPercentage);
     private void PlayerBack_Click(object sender, RoutedEventArgs e) => ReturnFromPlayerToList();
-    private void ToggleSelectedPlayback_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ActivateSelected);
+    private void AddBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddBookmark);
+    private void BookmarksView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewBookmarks);
+    private void PreviousBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PreviousBookmark);
+    private void NextBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.NextBookmark);
+    private void ToggleSelectedPlayback_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedBookmark is not null) ActivateSelected();
+        else ExecuteCommand(CommandIds.ActivateSelected);
+    }
     private void PlayNext_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.TogglePlayNext);
     private void Queue_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddQueue);
     private void Favorite_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleFavorite);
@@ -2876,13 +3061,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? "Kopiuj pełną ścieżkę"
             : "Kopiuj łącze do elementu";
         SetContextMenuItemPresentation(CopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
-        var localItem = actionItem is not null && TryGetLocalPath(actionItem.Source, out _);
+        var localItem = SelectedBookmark is null
+            && actionItem is not null
+            && TryGetLocalPath(actionItem.Source, out _);
         OpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         OfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
         RecycleMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
-        var removeLabel = localItem && string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
-            ? "Usuń z AMC, pozostaw plik na dysku"
-            : "Usuń z bieżącego widoku";
+        var removeLabel = SelectedBookmark is not null
+            ? "Usuń zakładkę"
+            : localItem && string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
+                ? "Usuń z AMC, pozostaw plik na dysku"
+                : "Usuń z bieżącego widoku";
         SetContextMenuItemPresentation(RemoveMenuItem, removeLabel, "Delete");
     }
     private void MediaContextMenu_Closed(object sender, RoutedEventArgs e) =>
@@ -2981,6 +3170,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void LibraryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewLibrary);
     private void QueueView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewQueue);
     private void HistoryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewHistory);
+    private void BookmarksViewMenu_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewBookmarks);
     private void AlbumsView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewAlbums);
     private void Filter_Click(object sender, RoutedEventArgs e)
     {
@@ -2998,9 +3188,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Announce(result.Error ?? "Brak aktualizacji");
     }
 
-    private sealed class MediaItemRow(MediaItem item, string label, string navigationText) : INotifyPropertyChanged
+    private sealed class MediaItemRow(
+        MediaItem item,
+        string label,
+        string navigationText,
+        MediaItem? actionItem = null,
+        BookmarkEntry? bookmark = null) : INotifyPropertyChanged
     {
         public MediaItem Item { get; } = item;
+        public MediaItem ActionItem { get; } = actionItem ?? item;
+        public BookmarkEntry? Bookmark { get; } = bookmark;
         public string Label { get; private set; } = label;
         public string NavigationText { get; } = navigationText;
 

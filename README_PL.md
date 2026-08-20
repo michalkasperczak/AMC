@@ -158,6 +158,8 @@ W `alpha.66`, po negatywnym teście obu wejść `alpha.65`, „Otwórz w…” j
 
 W `alpha.67` „Otwórz w…” zostaje definitywnie usunięte po negatywnych testach wszystkich trzech wariantów. Prawa strzałka zachowuje zwykłe działanie listy, a menu lokalnego pliku nadal zawiera stabilne „Otwórz w domyślnej aplikacji”. Zmianą skojarzeń zarządza Windows poza AMC. Pozostałe funkcje i plan rozwoju `alpha.66` pozostają bez zmian.
 
+W `alpha.68` działają trwałe Zakładki. W otwartym odtwarzaczu `B` zapisuje bieżące miejsce, `Shift+Page Up` i `Shift+Page Down` przechodzą po zakładkach tego samego materiału, a `Ctrl+B` otwiera wspólną listę zakładek ze wszystkich sesji. Każdy wiersz podaje tytuł, czas i usługę; Enter wybiera właściwą sesję, rozpoczyna materiał i ustawia zapisaną pozycję. `Delete` usuwa wyłącznie zakładkę, a `Shift+Delete` jest w tym widoku blokowany, aby nie skasować pliku. Zakładki są zapisywane w `state.json` i w pełnej kopii `*.amcbackup.json`. Na zwykłych listach pojedyncze `B` nadal służy nawigacji literowej. `Ctrl+Shift+B` pozostaje zarezerwowane dla późniejszej zakładki nazwanej.
+
 Obecny katalog demonstracyjny może pokazywać wspólne wyniki testowe. Prawdziwy adapter TIDAL będzie modułem izolowanym: `Ctrl+Shift+F` może uruchomić jego zapytanie, ale treści TIDAL nie zostaną wymieszane na jednej liście z treściami podobnych usług. AMC otworzy osobny, oznaczony widok wyników TIDAL i zachowa działanie wszystkich wspólnych skrótów.
 
 Planowany moduł YouTube zacznie od publicznego wyszukiwania i oficjalnego, widocznego odtwarzacza bez synchronizacji konta. Jego lokalna Biblioteka obejmie wyłącznie materiały świadomie dodane do Ulubionych, własne playlisty AMC i lokalną historię odtwarzania; nie kopiujemy całego konta ani pełnego interfejsu YouTube. Logowanie OAuth pozostaje nieobowiązkowym późniejszym rozszerzeniem, jeżeli pojawi się realna potrzeba subskrypcji, playlist lub polubień z konta. Oficjalny adapter nie będzie pobierać, wyodrębniać dźwięku ani nagrywać materiałów odtwarzanych z YouTube. Ewentualne eksperymentalne narzędzia zapisu pozostaną osobnym, izolowanym i niezależnie aktualizowanym modułem dla źródeł, które na zapis pozwalają; nie staną się częścią rdzenia ani warunkiem działania YouTube. Interfejs może być podobny do podcastów, lecz źródłem pozostaje oficjalny odtwarzacz YouTube.
@@ -186,7 +188,7 @@ Program rozróżnia trzy rodzaje plików:
 
 - `*.amckeys.json` — pojedyncza mapa klawiszy;
 - `*.amcsettings.json` — konfiguracja bez map klawiatury;
-- `*.amcbackup.json` — pełna kopia: ustawienia, profile klawiatury, sesje i szablony komunikatów.
+- `*.amcbackup.json` — pełna kopia: ustawienia, profile klawiatury, sesje, zakładki i szablony komunikatów.
 
 Żaden eksport nie zawiera haseł, tokenów ani danych logowania.
 

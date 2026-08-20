@@ -30,6 +30,8 @@ public interface IApplicationActions
     void OpenLocalFolder();
     void ShowSeekToTime();
     void ShowSeekToPercentage();
+    void AddBookmark();
+    void NavigateBookmark(int direction);
 }
 
 public readonly record struct CommandExecutionResult(bool Handled, bool KeepPrefixActive = false);
@@ -99,6 +101,15 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.SeekToPercentage:
                 application.ShowSeekToPercentage();
+                return new(true);
+            case CommandIds.AddBookmark:
+                application.AddBookmark();
+                return new(true);
+            case CommandIds.PreviousBookmark:
+                application.NavigateBookmark(-1);
+                return new(true);
+            case CommandIds.NextBookmark:
+                application.NavigateBookmark(1);
                 return new(true);
             case CommandIds.ItemProperties:
                 application.ShowItemProperties();
@@ -224,6 +235,7 @@ public sealed class CommandRouter(
             case CommandIds.ViewRadio: return ShowView("Radio i rekomendacje");
             case CommandIds.ViewMixes: return ShowView("Miksy");
             case CommandIds.ViewHistory: return ShowView("Historia odtwarzania");
+            case CommandIds.ViewBookmarks: return ShowView("Zakładki");
             case CommandIds.ViewNowPlaying: return ShowView("Teraz odtwarzane");
             case CommandIds.ViewOutputs: return ShowView("Wyjścia i urządzenia");
             case CommandIds.ViewDownloads: return ShowView("Pobrane");

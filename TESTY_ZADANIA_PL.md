@@ -1,12 +1,64 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-067`
-- Tytuł zestawu: Ostateczne usunięcie niedostępnego Otwórz w
-- Wersja programu: `0.1.0-alpha.67`
+- Numer zestawu: `AMC-TEST-068`
+- Tytuł zestawu: Trwałe zakładki
+- Wersja programu: `0.1.0-alpha.68`
 - Utworzono: 2026-08-20, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.67.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.68.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 68
+
+### AMC-068-01 — Dodawanie szybkich zakładek
+
+Otwórz dłuższy plik w odtwarzaczu. Przejdź mniej więcej do 2 minut i naciśnij `B`, potem przejdź do innego miejsca i ponownie naciśnij `B`.
+
+Oczekiwane: program krótko mówi „Dodano zakładkę” oraz czas. Nie otwiera się żadne dodatkowe okno, odtwarzanie i fokus pozostają w odtwarzaczu.
+
+### AMC-068-02 — Duplikat w tym samym miejscu
+
+Bez zmiany pozycji naciśnij `B` ponownie.
+
+Oczekiwane: program mówi, że zakładka już istnieje; lista nie otrzymuje drugiego wpisu w tej samej sekundzie.
+
+### AMC-068-03 — Nawigacja wewnątrz jednego materiału
+
+W tym samym pliku użyj kilka razy `Shift+Page Up` i `Shift+Page Down`, także przed pierwszą i za ostatnią zakładką.
+
+Oczekiwane: skróty ustawiają dokładne zapisane miejsca i czytają czas. Nie otwierają innego pliku. Na krańcach pojawia się jednoznaczny komunikat o braku poprzedniej albo następnej zakładki.
+
+### AMC-068-04 — Globalna lista Ctrl+B
+
+Dodaj zakładki w co najmniej dwóch sesjach, następnie naciśnij `Ctrl+B`. Nawiguj strzałkami, wpisz początkową literę tytułu i sprawdź filtr `Ctrl+K`.
+
+Oczekiwane: zwykła dostępna lista zawiera zakładki ze wszystkich sesji. Każdy wiersz podaje kolejno tytuł, czas, usługę i słowo „zakładka”. Nawigacja literowa oraz filtr działają jak na innych listach.
+
+### AMC-068-05 — Otwarcie zakładki z innej sesji
+
+Na globalnej liście wybierz zakładkę należącą do innej sesji i naciśnij Enter. Potem naciśnij `Escape`.
+
+Oczekiwane: AMC przełącza właściwą sesję, otwiera materiał i ustawia zapisany czas. `Escape` wraca do globalnej listy na tej samej zakładce.
+
+### AMC-068-06 — Bezpieczne usuwanie
+
+Na liście Zakładek naciśnij najpierw `Shift+Delete`, a następnie zwykły `Delete`. Sprawdź, czy plik nadal istnieje na dysku.
+
+Oczekiwane: `Shift+Delete` wyjaśnia, że z tego widoku nie usuwa pliku. `Delete` usuwa tylko wybraną zakładkę i ustawia fokus na sąsiednim wpisie. Źródłowy plik pozostaje bez zmian.
+
+### AMC-068-07 — Zapis po ponownym uruchomieniu
+
+Pozostaw kilka zakładek, zamknij AMC przez `Alt+F4`, uruchom ponownie i naciśnij `Ctrl+B`.
+
+Oczekiwane: wszystkie pozostawione zakładki, ich czasy i sesje są zachowane. Program nie rozpoczyna odtwarzania samoczynnie.
+
+### AMC-068-08 — B na zwykłej liście i krótka regresja
+
+Wróć do zwykłej listy mediów i naciśnij `B`. Sprawdź też lewą strzałkę, wznowienie pozycji, `Page Up/Down`, `Alt+góra/dół`, OGG i `Delete` w odtwarzaczu.
+
+Oczekiwane: na zwykłej liście `B` nadal przechodzi do tytułu zaczynającego się na B, zamiast tworzyć zakładkę. Pozostałe potwierdzone funkcje nie zmieniają się. `Ctrl+Shift+B` jest na razie celowo wolne i zarezerwowane dla zakładki nazwanej.
+
+## Poprzedni zestaw regresyjny alpha 67
 
 ## Nowości alpha 67
 

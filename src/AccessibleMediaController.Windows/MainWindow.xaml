@@ -44,6 +44,17 @@
                 <MenuItem Header="Następna sesja" InputGestureText="Ctrl+Page Down" Click="NextSession_Click" />
             </MenuItem>
             <MenuItem Header="_Odtwarzanie">
+                <MenuItem Header="Dodaj _zakładkę" InputGestureText="B"
+                          automation:AutomationProperties.Name="Dodaj zakładkę w bieżącym miejscu, B, tylko w odtwarzaczu"
+                          automation:AutomationProperties.AcceleratorKey="B"
+                          Click="AddBookmark_Click" />
+                <MenuItem Header="Poprzednia zakładka" InputGestureText="Shift+Page Up"
+                          automation:AutomationProperties.Name="Poprzednia zakładka, Shift+Page Up, tylko w odtwarzaczu"
+                          Click="PreviousBookmark_Click" />
+                <MenuItem Header="Następna zakładka" InputGestureText="Shift+Page Down"
+                          automation:AutomationProperties.Name="Następna zakładka, Shift+Page Down, tylko w odtwarzaczu"
+                          Click="NextBookmark_Click" />
+                <Separator />
                 <MenuItem Header="Skocz do _czasu…" InputGestureText="Ctrl+J"
                           automation:AutomationProperties.Name="Skocz do czasu, Ctrl+J, tylko w odtwarzaczu"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+J"
@@ -79,6 +90,7 @@
                 <MenuItem Header="_Albumy" InputGestureText="Ctrl+Shift+A" Click="AlbumsView_Click" />
                 <MenuItem Header="_Kolejka" InputGestureText="Ctrl+Q" Click="QueueView_Click" />
                 <MenuItem Header="_Historia odtwarzania" InputGestureText="Ctrl+H" Click="HistoryView_Click" />
+                <MenuItem Header="_Zakładki" InputGestureText="Ctrl+B" Click="BookmarksViewMenu_Click" />
                 <Separator />
                 <MenuItem Header="_Filtruj listę" InputGestureText="Ctrl+K" Click="Filter_Click" />
                 <MenuItem Header="_Szukaj w bieżącej usłudze" InputGestureText="Ctrl+F" Click="SearchCurrent_Click" />
@@ -189,6 +201,12 @@
                     <MenuItem Header="Następny utwór" InputGestureText="Page Down"
                               automation:AutomationProperties.Name="Następny utwór, Page Down"
                               Click="PlayerNext_Click" />
+                    <MenuItem Header="Dodaj zakładkę" InputGestureText="B"
+                              automation:AutomationProperties.Name="Dodaj zakładkę w bieżącym miejscu, B"
+                              Click="AddBookmark_Click" />
+                    <MenuItem Header="Pokaż zakładki" InputGestureText="Ctrl+B"
+                              automation:AutomationProperties.Name="Pokaż zakładki, Ctrl+B"
+                              Click="BookmarksView_Click" />
                     <MenuItem x:Name="PlayerPlayNextMenuItem" Header="Odtwórz jako następne" InputGestureText="Ctrl+Shift+Enter"
                               automation:AutomationProperties.Name="Odtwórz jako następne, Ctrl+Shift+Enter"
                               Click="PlayNext_Click" />
@@ -268,11 +286,17 @@
                     <Button MinWidth="155" Margin="0,0,8,8" Content="Skocz do _procentu…"
                             automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+J"
                             Click="SeekToPercentage_Click" />
+                    <Button MinWidth="145" Margin="0,0,8,8" Content="Dodaj _zakładkę"
+                            automation:AutomationProperties.AcceleratorKey="B"
+                            Click="AddBookmark_Click" />
+                    <Button MinWidth="145" Margin="0,0,8,8" Content="Pokaż za_kładki"
+                            automation:AutomationProperties.AcceleratorKey="Ctrl+B"
+                            Click="BookmarksView_Click" />
                     <Button MinWidth="145" Margin="0,0,8,8" Content="_Wróć do listy"
                             Click="PlayerBack_Click" />
                 </WrapPanel>
                 <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
-                           Text="Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Spacja wstrzymuje lub wznawia. Escape wraca do listy." />
+                           Text="Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. B dodaje zakładkę, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach bieżącego materiału. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Spacja wstrzymuje lub wznawia. Escape wraca do listy." />
             </StackPanel>
         </Border>
         </Grid>

@@ -30,6 +30,7 @@ var tests = new (string Name, Action Test)[]
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
     ("Historia wyszukiwania", TestSearchHistory),
     ("Historia odtwarzania", TestPlaybackHistory),
+    ("Trwałe zakładki", TestBookmarks),
     ("Pamięć widoków sesji", TestSessionNavigationPersistence),
     ("Pamięć lokalnej biblioteki", TestLocalMediaPersistence),
     ("Paleta poleceń", TestCommandPalette),
@@ -86,6 +87,8 @@ static void TestDefaultProfile()
     Equal(CommandIds.ViewFavorites, profile.Resolve(KeyChord.Parse("U")));
     Equal(CommandIds.ToggleFavorite, profile.Resolve(KeyChord.Parse("Shift+U")));
     Equal(CommandIds.ViewAlbums, profile.Resolve(KeyChord.Parse("A")));
+    Equal(CommandIds.ViewBookmarks, profile.Resolve(KeyChord.Parse("B")));
+    Equal(CommandIds.AddBookmark, profile.Resolve(KeyChord.Parse("Shift+B")));
     True(profile.Resolve(KeyChord.Parse("Shift+A")) is null, "Shift+A pozostaje nieprzypisane.");
     True(profile.Resolve(KeyChord.Parse("Shift+N")) is null, "Skrót oficjalnej aplikacji pozostaje do ustalenia.");
     Equal(CommandIds.FilterCurrent, profile.Resolve(KeyChord.Parse("K")));
@@ -792,6 +795,50 @@ static void TestPlaybackHistory()
     }
 }
 
+static void TestBookmarks()
+{
+    var settings = new BookmarkSettings();
+    var index = new BookmarkIndex(settings);
+    var item = new MediaItem
+    {
+        Id = "local-1",
+        Title = "Długie nagranie",
+        Duration = TimeSpan.FromMinutes(90)
+    };
+    var now = new DateTime(2026, 8, 20, 12, 0, 0, DateTimeKind.Utc);
+
+    var first = index.Add("local", "Pliki lokalne", item, TimeSpan.FromMinutes(10), now);
+    True(first.Added, "Pierwsza zakładka powinna zostać dodana.");
+    var duplicate = index.Add("local", "Pliki lokalne", item, TimeSpan.FromMinutes(10).Add(TimeSpan.FromMilliseconds(400)), now.AddSeconds(1));
+    True(!duplicate.Added, "Druga zakładka w tej samej sekundzie nie powinna tworzyć duplikatu.");
+    var second = index.Add("local", "Pliki lokalne", item, TimeSpan.FromMinutes(25), now.AddMinutes(1));
+    True(second.Added, "Zakładka w innym miejscu powinna zostać dodana.");
+    Equal(2, index.GetForItem("local", item.Id).Count);
+    Equal(first.Entry.Id, index.FindRelative("local", item.Id, TimeSpan.FromMinutes(20), -1)?.Id);
+    Equal(second.Entry.Id, index.FindRelative("local", item.Id, TimeSpan.FromMinutes(20), 1)?.Id);
+    Equal(second.Entry.Id, index.GetAll()[0].Id);
+
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-bookmark-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.Bookmarks = settings;
+        store.Save(state);
+        var loaded = store.LoadOrCreate();
+        Equal(2, new BookmarkIndex(loaded.Bookmarks).GetAll().Count);
+        Equal("Długie nagranie", loaded.Bookmarks.Entries[0].ItemTitle);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+
+    Equal(1, index.Remove([first.Entry.Id]));
+    Equal(1, index.GetAll().Count);
+}
+
 static void TestSessionNavigationPersistence()
 {
     var directory = Path.Combine(Path.GetTempPath(), $"amc-navigation-tests-{Guid.NewGuid():N}");
@@ -910,6 +957,12 @@ static void TestCommandPalette()
     Equal("Ctrl+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFiles).LocalShortcut);
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
     Equal("Ctrl+H", entries.Single(entry => entry.CommandId == CommandIds.ViewHistory).LocalShortcut);
+    var bookmarks = entries.Single(entry => entry.CommandId == CommandIds.ViewBookmarks);
+    Equal("Ctrl+B", bookmarks.LocalShortcut);
+    Equal("B", bookmarks.PrefixShortcut);
+    Equal("B (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.AddBookmark).LocalShortcut);
+    Equal("Shift+PageUp (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PreviousBookmark).LocalShortcut);
+    Equal("Shift+PageDown (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.NextBookmark).LocalShortcut);
     Equal("Ctrl+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToTime).LocalShortcut);
     Equal("Ctrl+Shift+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToPercentage).LocalShortcut);
     Equal("PageUp (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.Previous).LocalShortcut);
@@ -1244,6 +1297,16 @@ static void TestExports()
         state.Settings.Messages.VolumeMessages = false;
         state.Settings.Messages.PlaybackMessages = false;
         state.Settings.Messages.PercentageSeekAnnouncement = PercentageSeekAnnouncementMode.PercentAndTime;
+        state.Bookmarks.Entries.Add(new BookmarkEntry
+        {
+            Id = "bookmark-1",
+            SessionId = "tidal",
+            SessionName = "TIDAL",
+            ItemId = "tidal-1",
+            ItemTitle = "Pierwszy utwór demonstracyjny",
+            PositionTicks = TimeSpan.FromMinutes(2).Ticks,
+            CreatedUtcTicks = DateTime.UtcNow.Ticks
+        });
         var mapPath = Path.Combine(directory, "map.amckeys.json");
         var settingsPath = Path.Combine(directory, "settings.amcsettings.json");
         var backupPath = Path.Combine(directory, "all.amcbackup.json");
@@ -1282,6 +1345,8 @@ static void TestExports()
         Equal(false, importedBackup.Settings.Messages.VolumeMessages);
         Equal(false, importedBackup.Settings.Messages.PlaybackMessages);
         Equal(PercentageSeekAnnouncementMode.PercentAndTime, importedBackup.Settings.Messages.PercentageSeekAnnouncement);
+        Equal(1, importedBackup.Bookmarks.Entries.Count);
+        Equal("tidal-1", importedBackup.Bookmarks.Entries[0].ItemId);
     }
     finally
     {
@@ -1321,6 +1386,8 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public bool SeekToTimeShown { get; private set; }
     public bool SeekToPercentageShown { get; private set; }
     public bool ItemPropertiesShown { get; private set; }
+    public bool BookmarkAdded { get; private set; }
+    public int BookmarkNavigationDirection { get; private set; }
     public void ShowCurrentSession(string viewName) { }
     public void ShowFilter() { }
     public void ShowSessionList() { }
@@ -1337,6 +1404,8 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void OpenLocalFolder() { }
     public void ShowSeekToTime() => SeekToTimeShown = true;
     public void ShowSeekToPercentage() => SeekToPercentageShown = true;
+    public void AddBookmark() => BookmarkAdded = true;
+    public void NavigateBookmark(int direction) => BookmarkNavigationDirection = direction;
 }
 
 sealed class FakeMediaOutput : IMediaOutput

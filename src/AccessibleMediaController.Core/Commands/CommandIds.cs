@@ -53,6 +53,10 @@ public static class CommandIds
     public const string StartRadio = "action.radio.start";
     public const string ViewMixes = "view.mixes";
     public const string ViewHistory = "view.history";
+    public const string ViewBookmarks = "view.bookmarks";
+    public const string AddBookmark = "action.bookmark.add";
+    public const string PreviousBookmark = "transport.bookmark.previous";
+    public const string NextBookmark = "transport.bookmark.next";
     public const string ViewNowPlaying = "view.nowPlaying";
     public const string OpenOfficialApp = "action.openOfficialApp";
     public const string ViewOutputs = "view.outputs";
