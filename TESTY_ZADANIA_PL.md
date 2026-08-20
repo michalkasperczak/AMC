@@ -1,12 +1,58 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-073`
-- Tytuł zestawu: Zbiorczy schowek i wklejanie plików
-- Wersja programu: `0.1.0-alpha.73`
+- Numer zestawu: `AMC-TEST-074`
+- Tytuł zestawu: Przejściowy widok Zakładek i jednoznaczne Shift+Page
+- Wersja programu: `0.1.0-alpha.74`
 - Utworzono: 2026-08-20, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.73.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.74.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 74
+
+### AMC-074-01 — Shift+Page na zwykłej liście
+
+Na liście Multimedia, Biblioteka albo Ulubione naciśnij `Shift+Page Down`, a następnie `Shift+Page Up`.
+
+Oczekiwane: jest to standardowe rozszerzone zaznaczanie większego zakresu listy. Widok nie zmienia się na Zakładki, nie pojawia się lista zakładek i tytuł okna nie zawiera słowa „Zakładki”.
+
+### AMC-074-02 — Jawne otwarcie Zakładek
+
+Zapamiętaj sesję, widok i zaznaczony element, a następnie naciśnij `Ctrl+B`.
+
+Oczekiwane: dopiero ten skrót otwiera globalny widok Zakładek. NVDA podaje kontekst Zakładek i aktywnej sesji.
+
+### AMC-074-03 — Dwustopniowy powrót
+
+Na liście Zakładek otwórz wybraną zakładkę Enterem. W odtwarzaczu naciśnij Escape, a potem ponownie Escape.
+
+Oczekiwane: pierwszy Escape wraca do tej samej zakładki na liście Zakładek. Drugi wraca do zapamiętanej sesji, poprzedniego widoku i możliwie tego samego zaznaczonego elementu.
+
+### AMC-074-04 — Powrót między sesjami
+
+Otwórz `Ctrl+B` z sesji Pliki lokalne, ale wybierz zakładkę należącą do innej sesji. Po jej otwarciu wróć dwukrotnie przez Escape.
+
+Oczekiwane: pierwszy powrót prowadzi do rekordu Zakładek, drugi do pierwotnej sesji Pliki lokalne i miejsca sprzed `Ctrl+B`.
+
+### AMC-074-05 — Escape i filtr Zakładek
+
+W widoku Zakładek wpisz tekst do filtra. Naciśnij Escape dwa razy.
+
+Oczekiwane: pierwszy Escape jedynie czyści filtr i pozostawia Zakładki otwarte. Drugi zamyka przejściowy widok i przywraca listę źródłową.
+
+### AMC-074-06 — Nawigacja zakładek w odtwarzaczu
+
+Otwórz materiał zawierający kilka zakładek i użyj `Shift+Page Up/Down` w odtwarzaczu.
+
+Oczekiwane: skróty przechodzą wyłącznie po zakładkach tego materiału. Nie otwierają globalnej listy Zakładek.
+
+### AMC-074-07 — Ponowne uruchomienie
+
+Zakończ AMC, będąc na globalnej liście Zakładek, i uruchom program ponownie. Osobno wykonaj próbę, kończąc pracę w otwartym odtwarzaczu.
+
+Oczekiwane: sama lista Zakładek nie jest po starcie przywracana bez ostrzeżenia — pojawia się podstawowa lista sesji. Odtwarzacz może zostać przywrócony; Escape prowadzi wtedy do zwykłej listy, a nie do niespodziewanego widoku Zakładek.
+
+## Poprzedni zestaw regresyjny alpha 73
 
 ## Nowości alpha 73
 

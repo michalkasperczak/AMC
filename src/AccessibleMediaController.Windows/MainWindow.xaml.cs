@@ -42,6 +42,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly Dictionary<string, PlaybackHistoryCursor> _playbackHistoryCursors =
         new(StringComparer.OrdinalIgnoreCase);
     private BookmarkNavigationCursor? _bookmarkNavigationCursor;
+    private BookmarkReturnContext? _bookmarkReturnContext;
     private readonly MediaMembershipHistory _membershipHistory = new();
     private readonly Stack<LocalCatalogUndo> _localCatalogHistory = [];
     private long _undoSequence;
@@ -115,6 +116,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _playerUiTimer.Tick += PlayerUiTimer_Tick;
         _state = state;
         _store = store;
+        NormalizeTransientBookmarkViewsAtStartup();
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
         _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);
         LoadPersistedLocalMedia();
@@ -126,6 +128,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreCurrentSessionNavigationState();
         UpdatePlaybackStatusBar();
         _playerUiTimer.Start();
+    }
+
+    private void NormalizeTransientBookmarkViewsAtStartup()
+    {
+        foreach (var navigation in _state.SessionNavigation.Sessions.Values)
+        {
+            if (string.Equals(navigation.CurrentView, BookmarkViewName, StringComparison.Ordinal))
+            {
+                navigation.CurrentView = DefaultBrowserView;
+            }
+        }
     }
 
     public MediaItem? SelectedItem => (MediaList.SelectedItem as MediaItemRow)?.Item;
@@ -204,6 +217,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (string.Equals(viewName, BookmarkViewName, StringComparison.Ordinal)
+            && !string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
+        {
+            _bookmarkReturnContext = new BookmarkReturnContext(
+                _sessions.Current.Id,
+                _currentView,
+                SelectedItem?.Id);
+        }
         NavigateTo(viewName);
         PrepareViewFocusContext(viewName);
         Activate();
@@ -1748,6 +1769,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Dispatcher.BeginInvoke(ShowSessionList, DispatcherPriority.ContextIdle);
             return;
         }
+        if (!_playerViewActive)
+        {
+            var context = string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
+                ? _sessions.Current.DisplayName
+                : $"{_currentView}, {_sessions.Current.DisplayName}";
+            PrepareViewFocusContext(context);
+        }
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.ContextIdle);
     }
 
@@ -2915,7 +2943,59 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             FilterBox.Clear();
             StatusText.Text = "Filtr wyczyszczony";
+            RestoreMediaListFocusAfterRefresh();
+            return;
         }
+        if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
+        {
+            LeaveBookmarkView();
+            return;
+        }
+        RestoreMediaListFocusAfterRefresh();
+    }
+
+    private void LeaveBookmarkView()
+    {
+        var bookmarkNavigation = GetSessionNavigationState(_sessions.Current.Id);
+        bookmarkNavigation.Filters[BookmarkViewName] = FilterBox.Text;
+        if (SelectedItem is { } selectedBookmark)
+        {
+            bookmarkNavigation.SelectedItemIds[BookmarkViewName] = selectedBookmark.Id;
+        }
+        bookmarkNavigation.CurrentView = DefaultBrowserView;
+        bookmarkNavigation.PlayerActive = false;
+
+        var returnContext = _bookmarkReturnContext;
+        _bookmarkReturnContext = null;
+        var returnSession = returnContext is null
+            ? _sessions.Current
+            : _sessions.SelectSession(returnContext.SessionId) ?? _sessions.Current;
+        var returnNavigation = GetSessionNavigationState(returnSession.Id);
+        var returnView = returnContext?.ViewName;
+        if (string.IsNullOrWhiteSpace(returnView)
+            || string.Equals(returnView, BookmarkViewName, StringComparison.Ordinal))
+        {
+            returnView = DefaultBrowserView;
+        }
+
+        _currentView = returnView;
+        returnNavigation.CurrentView = returnView;
+        returnNavigation.PlayerActive = false;
+        var history = GetSessionViewHistory(returnSession.Id);
+        if (history.Back.Count > 0
+            && string.Equals(history.Back.Peek(), returnView, StringComparison.Ordinal))
+        {
+            history.Back.Pop();
+        }
+        history.Forward.Clear();
+        RestoreFilterForCurrentView(returnNavigation);
+        var preferredItemId = returnContext?.SelectedItemId
+            ?? returnNavigation.SelectedItemIds.GetValueOrDefault(returnView);
+        RefreshCurrentView(preferredItemId: preferredItemId);
+        var focusContext = string.Equals(returnView, DefaultBrowserView, StringComparison.Ordinal)
+            ? returnSession.DisplayName
+            : $"{returnView}, {returnSession.DisplayName}";
+        PrepareViewFocusContext(focusContext);
         RestoreMediaListFocusAfterRefresh();
     }
 
@@ -3614,6 +3694,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string ItemId,
         string BookmarkId,
         DateTime LastNavigationUtc);
+
+    private sealed record BookmarkReturnContext(
+        string SessionId,
+        string ViewName,
+        string? SelectedItemId);
 
     private sealed record LocalCatalogUndo(
         long Sequence,
