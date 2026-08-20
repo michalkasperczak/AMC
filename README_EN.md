@@ -4,6 +4,8 @@ This is the first demonstration prototype of the global-prefix media controller.
 
 This README describes the current prototype. Its single version number is stored in `Directory.Build.props`, so the core, Windows UI and published program always receive the same version. The approved development direction, target architecture and complete keyboard map are recorded in [`MEDIA_CONTROLLER_EN.md`](MEDIA_CONTROLLER_EN.md).
 
+The active working repository should reside on an ordinary local NTFS volume outside iCloud Drive, Google Drive, OneDrive and other synchronized directories. GitHub stores source history, while atomic user-data backups may be exported to cloud storage. On the primary test computer the canonical project path is `D:\Projekty Codex\Accessible Multimedia Controller`.
+
 ## Simplest way to run a published build
 
 1. Open the `publish` folder.

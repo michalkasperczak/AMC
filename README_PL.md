@@ -4,6 +4,8 @@ To pierwszy demonstracyjny prototyp aplikacji sterowanej globalnym prefiksem. Sp
 
 Ten README opisuje zachowanie bieżącego prototypu. Wspólny numer wersji jest zapisany w `Directory.Build.props`, dzięki czemu rdzeń, okno i publikowany program zawsze otrzymują ten sam numer. Zatwierdzony kierunek dalszego rozwoju, docelowa architektura oraz pełna mapa skrótów znajdują się w [`MEDIA_CONTROLLER_PL.md`](MEDIA_CONTROLLER_PL.md).
 
+Aktywne repozytorium robocze powinno znajdować się na zwykłym lokalnym woluminie NTFS, poza iCloud Drive, Google Drive, OneDrive i innymi katalogami synchronizowanymi. GitHub przechowuje historię kodu, natomiast atomowe kopie danych użytkownika mogą być eksportowane do chmury. Na głównym komputerze testowym stałą ścieżką projektu jest `D:\Projekty Codex\Accessible Multimedia Controller`.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

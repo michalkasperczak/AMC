@@ -332,6 +332,34 @@ Loading more appends to the existing collection rather than unnecessarily replac
 
 [WinZapp_Python](https://github.com/gabrielhhaber/WinZapp_Python) is the behavioural reference for stable focus, paging and batched accessibility events. AMC implements these ideas independently in .NET and WPF; it neither copies GPL-3.0 code nor changes technology because of this reference.
 
+### 7.6. Local Library and real folders
+
+The local Library separates the **AMC catalogue** from physical storage. Reference mode is the default: AMC stores a stable record and canonical path but neither copies nor renames the file and creates no hidden private copy. `Ctrl+O` adds selected files this way. The current `Ctrl+Shift+O` performs a one-time recursive folder import; its target form will also register that folder as a persistent **Library source** that can be watched and rescanned.
+
+A user may register several sources: an ordinary local directory, external drive, network share, or folder managed by iCloud Drive or OneDrive. AMC does not implement its own synchronization for such a source. The cloud provider transfers data, while the local adapter recognizes file availability and Cloud Files placeholders. Indexing alone should not hydrate an entire cloud collection; playback may request the selected file and must announce waiting or failure. Reparse points are controlled so scanning cannot enter cycles.
+
+The **Folders** view mirrors the real hierarchy without a problematic multi-level TreeView. It is a standard list for the current level: directories and files are ordinary rows, Enter enters a directory or opens a file, Backspace or an explicit Parent Folder command goes up one level, and type-ahead searches only the visible level. The flat **Library** remains a parallel view of all records. Albums, Artists and Genres are derived from available tags but never replace Folders or hide files with incomplete metadata.
+
+Removing a Library source removes only AMC references owned solely by that source and never deletes the physical directory. `Delete` removes an AMC record, while confirmed `Shift+Delete` uses the system Recycle Bin. An external rename or move triggers controlled rematching by file identity and fingerprint; a title alone is never an identifier. An optional **managed AMC Library** may later copy or move imports into one selected directory as an explicitly enabled mode. That directory may also live in cloud storage, but synchronization remains the provider's job rather than AMC's.
+
+The index database, live state and working files remain local in AppData and are never opened concurrently by a cloud synchronizer. Atomic exports of settings, playlists, bookmarks and full AMC backups may be stored in cloud folders. The source repository, `.git`, `obj`, `bin` and active publish directory also remain outside synchronized folders; GitHub provides source history.
+
+### 7.7. Consistency contract for lists, search and adapters
+
+One interface semantics applies to local files, radio, podcasts, devices and streaming services. An adapter supplies data and declares capabilities; it does not invent its own shortcuts, field order or focus behavior. The shared presentation layer builds ordinary lists, search results, context menus, the command palette and announcements.
+
+The contract includes at least:
+
+- identical meanings for Enter, `Ctrl+Enter`, Space, Escape, the context menu, copying, Queue, Favorites, Library and playlists wherever the adapter declares that capability;
+- the same semantic primary name, type-ahead, multi-selection, focus restoration and paging in both the main list and search results;
+- the same configurable field order; a missing value is omitted rather than replaced with a guessed value;
+- Left Arrow as shared concise information, `Alt+Enter` as full properties, and `Ctrl+C` plus `Ctrl+Shift+C` as the title and public location or real local file respectively;
+- direct actions in Search that keep the window open when the same action exists in the main list;
+- service attribution in mixed and global results without unnecessary repetition in a homogeneous single-session list;
+- shared announcements for loading, no data, unavailable capability, failure, partial success and list boundaries.
+
+Consistency never means pretending that capabilities are identical. If a service does not return bitrate, cannot seek, has no queue or requires isolated results, its adapter explicitly declares that absence or limitation. The UI retains the same binding and responds “Unavailable in this service”, or hides the unavailable action according to user preference; it never performs a different operation under that key. Every real adapter must pass the shared contract tests for lists, search, focus, announcements, errors, paging and every declared action before entering a stable release.
+
 ## 8. Playlist selection
 
 `Shift+P` in the prefix layer, or the local Manage Playlists command, opens a small modal window containing:

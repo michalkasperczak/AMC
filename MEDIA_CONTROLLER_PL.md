@@ -332,6 +332,34 @@ Doładowanie dopisuje elementy do istniejącej kolekcji zamiast bez potrzeby zas
 
 Inspiracją dla stabilności fokusu, porcjowania i grupowania zdarzeń jest [WinZapp_Python](https://github.com/gabrielhhaber/WinZapp_Python). Zachowanie implementujemy niezależnie w .NET i WPF; nie kopiujemy kodu projektu objętego GPL-3.0 ani nie zmieniamy z tego powodu technologii AMC.
 
+### 7.6. Lokalna Biblioteka i prawdziwe foldery
+
+Lokalna Biblioteka rozdziela **katalog AMC** od fizycznego miejsca przechowywania. Domyślny tryb jest referencyjny: AMC zapisuje stabilny rekord i kanoniczną ścieżkę, ale nie kopiuje pliku, nie zmienia jego nazwy i nie tworzy ukrytej własnej kopii. `Ctrl+O` dodaje wskazane pliki w ten sposób. Obecne `Ctrl+Shift+O` wykonuje jednorazowy import folderu wraz z podfolderami; docelowo to samo polecenie pozwoli zarejestrować folder jako trwałe **źródło Biblioteki**, obserwowane i możliwe do ponownego przeskanowania.
+
+Użytkownik może zarejestrować wiele źródeł: zwykły katalog lokalny, dysk zewnętrzny, udział sieciowy albo folder zarządzany przez iCloud Drive lub OneDrive. AMC nie implementuje własnej synchronizacji takiego źródła. Dostawca chmurowy odpowiada za przesyłanie, a adapter lokalny rozpoznaje dostępność pliku i placeholder Cloud Files. Samo indeksowanie nie powinno pobierać całej kolekcji z chmury; odtworzenie może zażądać pobrania konkretnego pliku i musi oznajmić oczekiwanie albo błąd. Punkty ponownej analizy są kontrolowane, aby skan nie wchodził w pętle.
+
+Widok **Foldery** odzwierciedla rzeczywistą hierarchię bez używania problematycznego wielopoziomowego TreeView. Jest zwykłą listą bieżącego poziomu: foldery i pliki są normalnymi wierszami, Enter wchodzi do folderu albo otwiera plik, Backspace lub jawne polecenie „Folder nadrzędny” wraca o poziom, a litery przeszukują wyłącznie widoczny poziom. Płaska **Biblioteka** pozostaje równoległym widokiem wszystkich rekordów. Albumy, Wykonawcy i Gatunki powstają z dostępnych tagów, lecz nie zastępują Folderów i nie ukrywają plików bez kompletnych metadanych.
+
+Usunięcie źródła Biblioteki usuwa z AMC jedynie odwołania należące wyłącznie do tego źródła i nigdy nie kasuje katalogu na dysku. `Delete` usuwa rekord z AMC, natomiast `Shift+Delete` po potwierdzeniu używa systemowego Kosza. Przeniesienie lub zmiana nazwy poza AMC uruchamia kontrolowane ponowne dopasowanie na podstawie tożsamości pliku i odcisku; sam tytuł nie jest identyfikatorem. Opcjonalna **zarządzana Biblioteka AMC**, kopiująca lub przenosząca importowane pliki do jednego wskazanego katalogu, może powstać później jako świadomie włączany tryb. Jej katalog również może znajdować się w chmurze, ale synchronizację nadal wykonuje dostawca, nie AMC.
+
+Baza indeksu, aktywny stan i pliki robocze pozostają lokalne w AppData i nie są otwierane równocześnie przez synchronizator chmurowy. Do chmury można zapisywać atomowe eksporty ustawień, playlist, zakładek oraz pełne kopie AMC. Repozytorium źródłowe, `.git`, `obj`, `bin` i bieżący katalog publikacji także pozostają poza folderami synchronizowanymi; historię kodu zapewnia GitHub.
+
+### 7.7. Kontrakt spójności list, wyszukiwania i adapterów
+
+Jedna semantyka interfejsu obowiązuje lokalne pliki, radio, podcasty, urządzenia i usługi streamingowe. Adapter dostarcza dane oraz deklaruje możliwości; nie tworzy własnych skrótów, kolejności odczytu ani odmiennego zachowania fokusu. Wspólna warstwa prezentacji buduje zwykłe listy, wyniki wyszukiwania, menu kontekstowe, paletę poleceń i komunikaty.
+
+Kontrakt obejmuje co najmniej:
+
+- te same znaczenia Enter, `Ctrl+Enter`, Spacji, Escape, menu kontekstowego, kopiowania, Kolejki, Ulubionych, Biblioteki i playlist wszędzie, gdzie adapter deklaruje daną możliwość;
+- tę samą główną nazwę semantyczną, nawigację literową, zaznaczanie wielokrotne, przywracanie fokusu i porcjowanie zarówno na liście głównej, jak i w wynikach;
+- tę samą konfigurowalną kolejność pól; brakująca wartość jest pomijana, a nie zastępowana zgadywaną wartością;
+- strzałkę w lewo jako wspólną krótką informację, `Alt+Enter` jako pełne właściwości oraz `Ctrl+C` i `Ctrl+Shift+C` jako odpowiednio nazwę i publiczną lokalizację albo prawdziwy plik lokalny;
+- działania bezpośrednie w wyszukiwaniu bez zamykania okna, jeśli ta sama czynność jest dostępna na liście głównej;
+- nazwę usługi w wynikach mieszanych i globalnych, ale bez jej zbędnego powtarzania na jednorodnej liście jednej sesji;
+- wspólne komunikaty ładowania, braku danych, niedostępnej możliwości, błędu, częściowego sukcesu i końca listy.
+
+Spójność nie oznacza udawania identycznych możliwości. Jeśli usługa nie zwraca bitrate, nie pozwala przewijać, nie ma kolejki albo wymaga izolowanych wyników, adapter jawnie deklaruje brak lub ograniczenie. Interfejs zachowuje ten sam skrót i odpowiada „Niedostępne w tej usłudze” albo ukrywa nieosiągalną czynność zgodnie z ustawieniem użytkownika; nie wykonuje innego polecenia pod tym samym klawiszem. Każdy prawdziwy adapter musi przejść wspólne testy kontraktowe dla listy, wyszukiwania, fokusu, komunikatów, błędów, stronicowania i wszystkich zadeklarowanych działań przed włączeniem do stabilnego wydania.
+
 ## 8. Wybór playlisty
 
 `Shift+P` w warstwie albo lokalne polecenie zarządzania playlistami otwiera niewielkie modalne okno:
