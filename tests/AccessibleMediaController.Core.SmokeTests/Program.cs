@@ -833,6 +833,21 @@ static void TestBookmarks()
     Equal(null, index.FindAdjacent("local", item.Id, third.Entry.Id, 1)?.Id);
     Equal(third.Entry.Id, index.GetAll()[0].Id);
 
+    var early = index.Add("local", "Pliki lokalne", item, TimeSpan.FromMinutes(5), now.AddMinutes(5));
+    var otherItem = new MediaItem
+    {
+        Id = "apple-1",
+        Title = "Inny materiał",
+        Duration = TimeSpan.FromMinutes(30)
+    };
+    var other = index.Add("appleMusic", "Apple Music", otherItem, TimeSpan.FromMinutes(1), now.AddMinutes(6));
+    var display = index.GetForDisplay("local", item.Id);
+    Equal(early.Entry.Id, display[0].Id);
+    Equal(first.Entry.Id, display[1].Id);
+    Equal(second.Entry.Id, display[2].Id);
+    Equal(third.Entry.Id, display[3].Id);
+    Equal(other.Entry.Id, display[4].Id);
+
     var directory = Path.Combine(Path.GetTempPath(), $"amc-bookmark-tests-{Guid.NewGuid():N}");
     Directory.CreateDirectory(directory);
     try
@@ -842,8 +857,8 @@ static void TestBookmarks()
         state.Bookmarks = settings;
         store.Save(state);
         var loaded = store.LoadOrCreate();
-        Equal(3, new BookmarkIndex(loaded.Bookmarks).GetAll().Count);
-        Equal("Długie nagranie", loaded.Bookmarks.Entries[0].ItemTitle);
+        Equal(5, new BookmarkIndex(loaded.Bookmarks).GetAll().Count);
+        Equal("Długie nagranie", loaded.Bookmarks.Entries.Single(entry => entry.Id == first.Entry.Id).ItemTitle);
         Equal("Ważny fragment", loaded.Bookmarks.Entries.Single(entry => entry.Id == second.Entry.Id).Name);
     }
     finally
@@ -852,7 +867,7 @@ static void TestBookmarks()
     }
 
     Equal(1, index.Remove([first.Entry.Id]));
-    Equal(2, index.GetAll().Count);
+    Equal(4, index.GetAll().Count);
 }
 
 static void TestSessionNavigationPersistence()

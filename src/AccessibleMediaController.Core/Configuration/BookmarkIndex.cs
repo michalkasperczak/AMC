@@ -15,6 +15,16 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
         .ThenBy(entry => entry.Id, StringComparer.Ordinal)
         .ToArray();
 
+    public IReadOnlyList<BookmarkEntry> GetForDisplay(string currentSessionId, string currentItemId) =>
+        settings.Entries
+            .OrderBy(entry => IsCurrentItem(entry, currentSessionId, currentItemId) ? 0 : 1)
+            .ThenBy(entry => entry.SessionName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(entry => entry.ItemTitle, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(entry => entry.PositionTicks)
+            .ThenBy(entry => entry.CreatedUtcTicks)
+            .ThenBy(entry => entry.Id, StringComparer.Ordinal)
+            .ToArray();
+
     public IReadOnlyList<BookmarkEntry> GetForItem(string sessionId, string itemId) => settings.Entries
         .Where(entry => string.Equals(entry.SessionId, sessionId, StringComparison.OrdinalIgnoreCase)
             && string.Equals(entry.ItemId, itemId, StringComparison.Ordinal))
@@ -135,4 +145,11 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
         var normalized = string.Join(' ', name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         return normalized.Length <= 200 ? normalized : normalized[..200].TrimEnd();
     }
+
+    private static bool IsCurrentItem(
+        BookmarkEntry entry,
+        string currentSessionId,
+        string currentItemId) =>
+        string.Equals(entry.SessionId, currentSessionId, StringComparison.OrdinalIgnoreCase)
+        && string.Equals(entry.ItemId, currentItemId, StringComparison.Ordinal);
 }

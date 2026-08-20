@@ -415,7 +415,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdateWindowTitle();
         _playerUiTimer.Start();
         Activate();
-        Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.ContextIdle);
+        Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.Loaded);
     }
 
     private void ReturnFromPlayerToList()
@@ -1554,7 +1554,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdateWindowTitle();
         if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
         {
-            _unfilteredItems = _bookmarkIndex.GetAll()
+            _unfilteredItems = _bookmarkIndex.GetForDisplay(
+                    _sessions.Current.Id,
+                    _sessions.Current.CurrentItem.Id)
                 .Select(CreateBookmarkRow)
                 .ToList();
             ApplyFilter(preferredItemId, fallbackIndex);

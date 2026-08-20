@@ -1,12 +1,46 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-070`
-- Tytuł zestawu: Nazwane zakładki
-- Wersja programu: `0.1.0-alpha.70`
+- Numer zestawu: `AMC-TEST-071`
+- Tytuł zestawu: Kolejność i fokus Zakładek
+- Wersja programu: `0.1.0-alpha.71`
 - Utworzono: 2026-08-20, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.70.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.71.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 71
+
+### AMC-071-01 — Kolejność niezależna od dodawania
+
+W jednym pliku dodaj zakładki nie po kolei, na przykład najpierw w `10:00`, potem w `2:00`, a na końcu w `6:00`. Otwórz `Ctrl+B`.
+
+Oczekiwane: zakładki tego pliku występują jako `2:00`, `6:00`, `10:00`, niezależnie od kolejności ich utworzenia.
+
+### AMC-071-02 — Kilka materiałów i sesji
+
+Utwórz zakładki w dwóch plikach albo sesjach, wróć do jednego z nich i otwórz `Ctrl+B`.
+
+Oczekiwane: bieżący materiał znajduje się pierwszy i ma rosnący czas. Pozostałe zakładki są pogrupowane według sesji i tytułu; czasy różnych plików nie są przemieszane w jedną wspólną oś.
+
+### AMC-071-03 — Enter z listy do odtwarzacza
+
+Na liście `Ctrl+B` wybierz zakładkę i naciśnij Enter. Od razu użyj NVDA+strzałka w górę albo Spacji.
+
+Oczekiwane: fokus jest na głównym przycisku odtwarzacza. NVDA czyta obiekt odtwarzacza, a Spacja wstrzymuje lub wznawia; nic nie pozostaje zablokowane na ukrytej liście.
+
+### AMC-071-04 — Escape do tej samej zakładki
+
+Po otwarciu zakładki Enterem naciśnij Escape, a następnie strzałkę w dół i w górę.
+
+Oczekiwane: fokus wraca do tej samej zakładki na liście `Ctrl+B`, a obie strzałki natychmiast czytają sąsiednie rekordy.
+
+### AMC-071-05 — Krótka regresja nazw
+
+Dodaj szybką zakładkę przez `B`, nazwaną przez `Ctrl+Shift+B`, przejdź po nich `Shift+Page Up/Down` i sprawdź wyciszenie komunikatów.
+
+Oczekiwane: funkcje alpha.69–70 działają bez zmian, nazwy są trwałe i nie powstają duplikaty w tej samej sekundzie.
+
+## Poprzedni zestaw regresyjny alpha 70
 
 ## Nowości alpha 70
 
