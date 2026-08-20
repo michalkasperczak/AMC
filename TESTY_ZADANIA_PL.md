@@ -1,12 +1,34 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-065`
-- Tytuł zestawu: Odroczone Otwórz w i porównanie dwóch wejść
-- Wersja programu: `0.1.0-alpha.65`
-- Utworzono: 2026-08-19, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.65.md`
+- Numer zestawu: `AMC-TEST-066`
+- Tytuł zestawu: Otwórz w przez osobny proces powłoki
+- Wersja programu: `0.1.0-alpha.66`
+- Utworzono: 2026-08-20, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.66.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 66
+
+### AMC-066-01 — Osobny proces z menu
+
+Na pliku lokalnym otwórz menu kontekstowe i wybierz „Otwórz w…”.
+
+Oczekiwane: systemowy wybór aplikacji staje się aktywnym oknem i NVDA odczytuje jego kontrolki. Po `Escape` fokus wraca do AMC.
+
+### AMC-066-02 — Osobny proces prawą strzałką
+
+Na tym samym pliku naciśnij prawą strzałkę.
+
+Oczekiwane: działanie i fokus są takie same jak z menu. Jeżeli ponownie wystąpi cisza lub konieczność użycia `Alt+Tab`, uznajemy mechanizm za niezgodny i usuwamy funkcję.
+
+### AMC-066-03 — Regresja
+
+Sprawdź lewą strzałkę, wznowienie pozycji po restarcie, `Delete` w odtwarzaczu oraz `Shift+Delete` na liście.
+
+Oczekiwane: pozostałe funkcje nie zmieniają się.
+
+## Poprzedni zestaw regresyjny alpha 65
 
 ## Nowości alpha 65
 

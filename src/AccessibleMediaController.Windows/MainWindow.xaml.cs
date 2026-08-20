@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -720,10 +719,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         try
         {
-            WindowsOpenWithDialog.Show(new WindowInteropHelper(this).Handle, localPath);
+            WindowsOpenWithDialog.Show(localPath);
         }
         catch (Exception exception) when (
-            exception is InvalidOperationException or Win32Exception or IOException or ExternalException)
+            exception is InvalidOperationException or Win32Exception or IOException)
         {
             AnnounceEssential($"Nie można otworzyć listy aplikacji: {exception.Message}");
         }

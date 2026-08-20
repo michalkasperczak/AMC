@@ -1,42 +1,32 @@
-using System.Runtime.InteropServices;
+using System.Diagnostics;
+using System.IO;
 
 namespace AccessibleMediaController.Windows.Services;
 
 /// <summary>
-/// Opens the native Windows application picker without requiring an existing
-/// file association.
+/// Opens the Windows application picker in a separate shell process. Running
+/// it out of process lets Windows establish foreground focus independently of
+/// the WPF input stack and gives screen readers a normal native focus event.
 /// </summary>
 internal static class WindowsOpenWithDialog
 {
-    public static void Show(nint ownerHandle, string filePath)
+    public static void Show(string filePath)
     {
-        var info = new OpenAsInfo
+        var systemDirectory = Environment.GetFolderPath(Environment.SpecialFolder.System);
+        var rundll32Path = Path.Combine(systemDirectory, "rundll32.exe");
+        if (!File.Exists(rundll32Path))
         {
-            FilePath = filePath,
-            FileClass = null,
-            Flags = OpenAsInfoFlags.Execute
+            throw new FileNotFoundException("Nie znaleziono systemowego programu rundll32.exe.", rundll32Path);
+        }
+
+        var startInfo = new ProcessStartInfo(rundll32Path)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true
         };
-        Marshal.ThrowExceptionForHR(SHOpenWithDialog(ownerHandle, ref info));
+        startInfo.ArgumentList.Add("shell32.dll,OpenAs_RunDLL");
+        startInfo.ArgumentList.Add(filePath);
+        using var process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Windows nie uruchomił listy aplikacji.");
     }
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct OpenAsInfo
-    {
-        [MarshalAs(UnmanagedType.LPWStr)]
-        public string FilePath;
-
-        [MarshalAs(UnmanagedType.LPWStr)]
-        public string? FileClass;
-
-        public OpenAsInfoFlags Flags;
-    }
-
-    [Flags]
-    private enum OpenAsInfoFlags : uint
-    {
-        Execute = 0x00000004
-    }
-
-    [DllImport("shell32.dll")]
-    private static extern int SHOpenWithDialog(nint ownerHandle, ref OpenAsInfo openAsInfo);
 }
