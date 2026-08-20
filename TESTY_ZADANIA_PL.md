@@ -1,12 +1,46 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-074`
-- Tytuł zestawu: Przejściowy widok Zakładek i jednoznaczne Shift+Page
-- Wersja programu: `0.1.0-alpha.74`
+- Numer zestawu: `AMC-TEST-075`
+- Tytuł zestawu: Spójna szybka informacja w listach i wyszukiwaniu
+- Wersja programu: `0.1.0-alpha.75`
 - Utworzono: 2026-08-20, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.74.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.75.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 75
+
+### AMC-075-01 — Lokalny wynik wyszukiwania
+
+W sesji Pliki lokalne wykonaj `Ctrl+F`, wybierz znaleziony plik i naciśnij strzałkę w lewo.
+
+Oczekiwane: NVDA podaje krótką informację o wyniku, zawierającą wszystkie dostępne dane, w tym format, czas, bitrate w kb/s, częstotliwość w kHz i rozmiar. Fokus pozostaje na tym samym wyniku, a okno wyszukiwania nie zamyka się.
+
+### AMC-075-02 — Spójność ze zwykłą listą
+
+Otwórz ten sam plik na zwykłej liście i ponownie naciśnij strzałkę w lewo.
+
+Oczekiwane: zakres i kolejność informacji są takie same jak w wyszukiwaniu. Dopuszczalne jest uzupełnienie wcześniej nieznanego parametru po pierwszym odczytaniu metadanych.
+
+### AMC-075-03 — Wyszukiwanie globalne
+
+Użyj `Ctrl+Shift+F`, znajdź plik lokalny i naciśnij strzałkę w lewo.
+
+Oczekiwane: szybka informacja działa również w globalnych wynikach i nie przełącza sesji ani widoku.
+
+### AMC-075-04 — Sesja streamingowa
+
+Na zwykłej liście i w wynikach wyszukiwania sesji demonstracyjnej naciśnij strzałkę w lewo.
+
+Oczekiwane: AMC podaje te dane, które posiada, w tym bitrate i kHz, jeśli adapter je zwrócił. Nie szacuje nieznanych parametrów streamingu. Jeśli nie ma żadnych danych technicznych, mówi o ich braku.
+
+### AMC-075-05 — Regresja schowka
+
+Na lokalnym pliku sprawdź `Ctrl+C` w edytorze tekstowym oraz `Ctrl+Shift+C` przez wklejenie do folderu i do edytora.
+
+Oczekiwane: pierwszy skrót kopiuje nazwę. Drugi przekazuje prawdziwy plik oraz pełną ścieżkę tekstową.
+
+## Poprzedni zestaw regresyjny alpha 74
 
 ## Nowości alpha 74
 

@@ -244,6 +244,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _sessions,
             allServices,
             FormatItem,
+            BuildQuickMediaInformation,
             ExecuteSearchResultAction,
             searchHistory,
             searchHistoryScope,
@@ -766,11 +767,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return $"{value.ToString(unit == 0 ? "0" : "0.##", CultureInfo.CurrentCulture)} {units[unit]}";
     }
 
-    private void AnnounceQuickLocalInformation(MediaItem item)
+    private string BuildQuickMediaInformation(MediaItem item)
     {
-        if (!TryGetLocalPath(item.Source, out var localPath)) return;
+        var isLocal = TryGetLocalPath(item.Source, out var localPath);
         var metadataChanged = false;
-        if ((item.Duration <= TimeSpan.Zero
+        if (isLocal
+            && (item.Duration <= TimeSpan.Zero
                 || item.BitrateKbps is null
                 || item.SampleRateHz is null)
             && WindowsMediaOutput.TryReadMetadata(localPath, out var duration, out var sampleRateHz))
@@ -788,29 +790,35 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var details = new List<string>();
-        var extension = Path.GetExtension(localPath).TrimStart('.');
-        if (!string.IsNullOrWhiteSpace(extension)) details.Add(extension.ToUpperInvariant());
+        if (isLocal)
+        {
+            var extension = Path.GetExtension(localPath).TrimStart('.');
+            if (!string.IsNullOrWhiteSpace(extension)) details.Add(extension.ToUpperInvariant());
+        }
         if (!string.IsNullOrWhiteSpace(item.Artist)) details.Add(item.Artist);
         if (item.Duration > TimeSpan.Zero) details.Add(CommandRouter.FormatTime(item.Duration));
-        try
+        if (isLocal)
         {
-            var file = new FileInfo(localPath);
-            if (file.Exists)
+            try
             {
-                if (item.BitrateKbps is null && item.Duration > TimeSpan.Zero)
+                var file = new FileInfo(localPath);
+                if (file.Exists)
                 {
-                    item.BitrateKbps = LocalAudioFileDiscovery.EstimateBitrateKbps(
-                        file.Length,
-                        item.Duration);
-                    item.IsBitrateEstimated = item.BitrateKbps.HasValue;
-                    metadataChanged |= item.BitrateKbps.HasValue;
+                    if (item.BitrateKbps is null && item.Duration > TimeSpan.Zero)
+                    {
+                        item.BitrateKbps = LocalAudioFileDiscovery.EstimateBitrateKbps(
+                            file.Length,
+                            item.Duration);
+                        item.IsBitrateEstimated = item.BitrateKbps.HasValue;
+                        metadataChanged |= item.BitrateKbps.HasValue;
+                    }
+                    details.Add(FormatFileSize(file.Length));
                 }
-                details.Add(FormatFileSize(file.Length));
             }
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // The other cached details remain useful if the file is temporarily unavailable.
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // The other cached details remain useful if the file is temporarily unavailable.
+            }
         }
 
         var audio = AudioParametersFormatter.FormatCompact(item, CultureInfo.CurrentCulture);
@@ -823,9 +831,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (metadataChanged) TrySaveLocalMediaState(false);
 
-        Announce(details.Count == 0
+        return details.Count == 0
             ? $"{item.Title}: brak zapisanych informacji technicznych"
-            : $"{item.Title}: {string.Join(", ", details)}");
+            : $"{item.Title}: {string.Join(", ", details)}";
+    }
+
+    private void AnnounceQuickMediaInformation(MediaItem item)
+    {
+        Announce(BuildQuickMediaInformation(item));
     }
 
     public void OpenOfficialApplication()
@@ -3063,11 +3076,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (Keyboard.Modifiers == ModifierKeys.None
-            && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
-            && SelectedItem is { } localItem
+            && SelectedItem is { } item
             && key == Key.Left)
         {
-            AnnounceQuickLocalInformation(localItem);
+            AnnounceQuickMediaInformation(item);
             e.Handled = true;
             return;
         }

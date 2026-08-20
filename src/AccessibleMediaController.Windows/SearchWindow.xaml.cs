@@ -12,6 +12,7 @@ public partial class SearchWindow : Window
     private readonly IReadOnlyList<DemoMediaSession> _sourceSessions;
     private readonly bool _allServices;
     private readonly Func<MediaItem, string> _formatItem;
+    private readonly Func<MediaItem, string> _formatQuickInformation;
     private readonly Func<IReadOnlyList<SearchResult>, SearchResultAction, bool, string?> _executeAction;
     private readonly string _resultHelpText;
     private readonly SearchQueryHistory _searchHistory;
@@ -25,6 +26,7 @@ public partial class SearchWindow : Window
         SessionManager sessions,
         bool allServices,
         Func<MediaItem, string> formatItem,
+        Func<MediaItem, string> formatQuickInformation,
         Func<IReadOnlyList<SearchResult>, SearchResultAction, bool, string?> executeAction,
         SearchQueryHistory searchHistory,
         string searchHistoryScope,
@@ -46,6 +48,7 @@ public partial class SearchWindow : Window
         _sourceSessions = allServices ? sessions.Sessions : [sessions.Current];
         _allServices = allServices;
         _formatItem = formatItem;
+        _formatQuickInformation = formatQuickInformation;
         _executeAction = executeAction;
         _searchHistory = searchHistory;
         _searchHistoryScope = searchHistoryScope;
@@ -259,6 +262,15 @@ public partial class SearchWindow : Window
             SearchStatus.Announce(key == Key.X
                 ? "Wycinanie plików nie działa na liście wyników wyszukiwania"
                 : "Wklejanie plików nie działa na liście wyników wyszukiwania");
+            Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
+            e.Handled = true;
+            return;
+        }
+        if (modifiers == ModifierKeys.None
+            && key == Key.Left
+            && ResultsList.SelectedItem is SearchResultRow selectedRow)
+        {
+            SearchStatus.Announce(_formatQuickInformation(selectedRow.Item));
             Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
             e.Handled = true;
             return;
