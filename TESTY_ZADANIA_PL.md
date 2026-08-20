@@ -1,12 +1,34 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-066`
-- Tytuł zestawu: Otwórz w przez osobny proces powłoki
-- Wersja programu: `0.1.0-alpha.66`
+- Numer zestawu: `AMC-TEST-067`
+- Tytuł zestawu: Ostateczne usunięcie niedostępnego Otwórz w
+- Wersja programu: `0.1.0-alpha.67`
 - Utworzono: 2026-08-20, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.66.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.67.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 67
+
+### AMC-067-01 — Prawa strzałka i fokus listy
+
+Na lokalnym pliku naciśnij prawą strzałkę, potem strzałkę w dół i w górę.
+
+Oczekiwane: nie otwiera się żadne okno systemowe, fokus pozostaje na liście, a NVDA nadal czyta kolejne elementy.
+
+### AMC-067-02 — Menu lokalnego pliku
+
+Otwórz menu kontekstowe na liście i w odtwarzaczu.
+
+Oczekiwane: nie ma pozycji „Otwórz w…”. Pozostaje „Otwórz w domyślnej aplikacji” oraz właściwe działania AMC.
+
+### AMC-067-03 — Regresja
+
+Sprawdź lewą strzałkę, wznowienie pozycji po restarcie, `Delete` w odtwarzaczu i `Shift+Delete` na liście.
+
+Oczekiwane: pozostałe funkcje działają bez zmian.
+
+## Poprzedni zestaw regresyjny alpha 66
 
 ## Nowości alpha 66
 
