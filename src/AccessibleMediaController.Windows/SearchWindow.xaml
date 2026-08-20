@@ -28,7 +28,7 @@
             <Button Width="100" Content="_Anuluj" IsCancel="True" />
         </StackPanel>
 
-        <ListBox x:Name="ResultsList" DisplayMemberPath="Label"
+        <ListBox x:Name="ResultsList" DisplayMemberPath="Label" SelectionMode="Extended"
                  TextSearch.TextPath="NavigationText"
                  PreviewKeyDown="ResultsList_PreviewKeyDown"
                  MouseDoubleClick="ResultsList_MouseDoubleClick">
@@ -65,9 +65,6 @@
                     <MenuItem Header="Kopiuj ścieżkę lub łącze" InputGestureText="Ctrl+Shift+C"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+C"
                               Click="CopyLocation_Click" />
-                    <MenuItem x:Name="CutResultMenuItem" Header="Wytnij plik do przeniesienia" InputGestureText="Ctrl+X"
-                              automation:AutomationProperties.AcceleratorKey="Control+X"
-                              Click="CutFile_Click" />
                 </ContextMenu>
             </ListBox.ContextMenu>
         </ListBox>

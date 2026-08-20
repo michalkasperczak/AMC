@@ -2610,6 +2610,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var itemCommandsAvailable = _playerViewActive || MediaList.IsKeyboardFocusWithin;
         if (itemCommandsAvailable
             && modifiers == ModifierKeys.Control
+            && e.Key == Key.V
+            && MediaList.IsKeyboardFocusWithin)
+        {
+            PasteClipboardFilesIntoCurrentView();
+            e.Handled = true;
+        }
+        else if (itemCommandsAvailable
+            && modifiers == ModifierKeys.Control
             && e.Key == Key.X
             && MediaList.IsKeyboardFocusWithin)
         {
@@ -2912,25 +2920,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     private string? ExecuteSearchResultAction(
-        SearchWindow.SearchResult result,
+        IReadOnlyList<SearchWindow.SearchResult> results,
         SearchResultAction action,
         bool _)
     {
+        if (results.Count == 0) return "Brak zaznaczonego wyniku";
         if (action == SearchResultAction.CopyName)
         {
             _pendingExternalMoves.Clear();
-            Clipboard.SetText(result.Item.Title);
-            return "Skopiowano nazwę";
+            Clipboard.SetText(string.Join(Environment.NewLine, results.Select(result => result.Item.Title)));
+            return results.Count == 1
+                ? "Skopiowano nazwę"
+                : $"Skopiowano nazwy: {FormatItemCount(results.Count)}";
         }
         if (action == SearchResultAction.CopyLocation)
         {
-            return CopyItemLocations([result.Item], result.SessionId);
-        }
-        if (action == SearchResultAction.CutFile)
-        {
-            return CutLocalFilesForExternalMove([result.Item], fromSearch: true);
+            return CopySearchResultLocations(results);
         }
 
+        var result = results[0];
         var session = SelectSessionBrowserItem(result.SessionId, result.Item.Id);
         if (session is null) return "Wybrana sesja nie jest już dostępna";
 
@@ -3131,6 +3139,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void CopyLocation_Click(object sender, RoutedEventArgs e) => CopyActionItemLocation();
     private void CutFiles_Click(object sender, RoutedEventArgs e) =>
         Announce(CutLocalFilesForExternalMove(ActionItems));
+    private void PasteFiles_Click(object sender, RoutedEventArgs e) =>
+        PasteClipboardFilesIntoCurrentView();
     private void OpenDefaultApplication_Click(object sender, RoutedEventArgs e) => OpenLocalInDefaultApplication();
     private void OfficialApp_Click(object sender, RoutedEventArgs e) => OpenOfficialApplication();
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelected();
@@ -3175,6 +3185,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && items.Count > 0
             && items.All(item => TryGetLocalPath(item.Source, out var path) && File.Exists(path));
         CutFilesMenuItem.Visibility = localItems ? Visibility.Visible : Visibility.Collapsed;
+        PasteFilesMenuItem.Visibility = CanPasteFilesIntoCurrentView()
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         var localItem = localItems && actionItem is not null;
         OpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         OfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
@@ -3296,13 +3309,176 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return "Skopiowano łącze do elementu";
     }
 
-    private string CutLocalFilesForExternalMove(
-        IReadOnlyList<MediaItem> items,
-        bool fromSearch = false)
+    private string CopySearchResultLocations(IReadOnlyList<SearchWindow.SearchResult> results)
+    {
+        _pendingExternalMoves.Clear();
+        var clipboardEntries = results
+            .Select(result =>
+            {
+                var localPath = TryGetLocalPath(result.Item.Source, out var path)
+                    && File.Exists(path)
+                        ? path
+                        : null;
+                var text = localPath
+                    ?? (string.IsNullOrWhiteSpace(result.Item.PublicUri)
+                        ? $"demo://{result.SessionId}/{result.Item.Id}"
+                        : result.Item.PublicUri);
+                return (LocalPath: localPath, Text: text);
+            })
+            .ToArray();
+        var localPaths = clipboardEntries
+            .Select(entry => entry.LocalPath)
+            .Where(path => path is not null)
+            .Select(path => path!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var serviceCount = clipboardEntries.Count(entry => entry.LocalPath is null);
+        var text = string.Join(Environment.NewLine, clipboardEntries.Select(entry => entry.Text));
+
+        if (localPaths.Length > 0)
+        {
+            var fileDropList = new StringCollection();
+            fileDropList.AddRange(localPaths);
+            var data = new System.Windows.DataObject();
+            data.SetData(DataFormats.UnicodeText, text);
+            data.SetFileDropList(fileDropList);
+            Clipboard.SetDataObject(data, true);
+        }
+        else
+        {
+            Clipboard.SetText(text);
+        }
+
+        if (localPaths.Length > 0 && serviceCount > 0)
+        {
+            return $"Skopiowano pliki: {localPaths.Length}; łącza: {serviceCount}";
+        }
+        if (localPaths.Length > 0)
+        {
+            return localPaths.Length == 1
+                ? "Skopiowano plik i pełną ścieżkę"
+                : $"Skopiowano pliki i pełne ścieżki: {FormatFileCount(localPaths.Length)}";
+        }
+        return results.Count == 1
+            ? "Skopiowano łącze do elementu"
+            : $"Skopiowano łącza: {results.Count}";
+    }
+
+    private bool CanPasteFilesIntoCurrentView() =>
+        !_playerViewActive
+        && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+        && _currentView is DefaultBrowserView or "Biblioteka" or "Kolejka" or "Ulubione";
+
+    private void PasteClipboardFilesIntoCurrentView()
+    {
+        if (!CanPasteFilesIntoCurrentView())
+        {
+            Announce("Pliki można wkleić w lokalnych widokach Multimedia, Biblioteka, Kolejka lub Ulubione");
+            return;
+        }
+        StringCollection clipboardFiles;
+        try
+        {
+            if (!Clipboard.ContainsFileDropList())
+            {
+                Announce("Schowek nie zawiera plików");
+                return;
+            }
+            clipboardFiles = Clipboard.GetFileDropList();
+        }
+        catch (Exception exception) when (exception is System.Runtime.InteropServices.COMException or InvalidOperationException)
+        {
+            Announce($"Nie można odczytać plików ze schowka: {exception.Message}");
+            return;
+        }
+
+        var existingPaths = clipboardFiles
+            .Cast<string>()
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var audioPaths = existingPaths
+            .Where(LocalAudioFileDiscovery.IsAudioFile)
+            .ToArray();
+        var skippedCount = clipboardFiles.Count - audioPaths.Length;
+        if (audioPaths.Length == 0)
+        {
+            Announce("Schowek nie zawiera obsługiwanych plików audio");
+            return;
+        }
+
+        var knownByPath = _localItems
+            .Where(item => TryGetLocalPath(item.Source, out _))
+            .GroupBy(
+                item => TryGetLocalPath(item.Source, out var path) ? path : item.Source!,
+                StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.First(),
+                StringComparer.OrdinalIgnoreCase);
+        var targetItems = new List<MediaItem>();
+        var addedItems = new List<MediaItem>();
+        foreach (var path in audioPaths)
+        {
+            if (!knownByPath.TryGetValue(path, out var item))
+            {
+                item = new MediaItem
+                {
+                    Id = $"local-{Guid.NewGuid():N}",
+                    Title = Path.GetFileNameWithoutExtension(path),
+                    Kind = MediaItemKind.Track,
+                    Source = path,
+                    IsInLibrary = true
+                };
+                knownByPath[path] = item;
+                _localItems.Add(item);
+                addedItems.Add(item);
+            }
+
+            item.IsInLibrary = true;
+            if (string.Equals(_currentView, "Kolejka", StringComparison.Ordinal)) item.IsInQueue = true;
+            if (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)) item.IsFavorite = true;
+            targetItems.Add(item);
+        }
+
+        var localSession = _sessions.FindSession("local");
+        if (localSession is null)
+        {
+            Announce("Sesja Pliki lokalne nie jest dostępna");
+            return;
+        }
+        localSession.AddItems(addedItems);
+        _pendingExternalMoves.Clear();
+        var copiedFiles = new StringCollection();
+        copiedFiles.AddRange(audioPaths);
+        var copiedData = new System.Windows.DataObject();
+        copiedData.SetData(DataFormats.UnicodeText, string.Join(Environment.NewLine, audioPaths));
+        copiedData.SetFileDropList(copiedFiles);
+        Clipboard.SetDataObject(copiedData, true);
+
+        RefreshCurrentView(preferredItemId: targetItems[0].Id);
+        SelectMediaItems(targetItems.Select(item => item.Id));
+        TrySaveLocalMediaState(true);
+        RestoreMediaListFocusAfterRefresh();
+
+        var destination = _currentView switch
+        {
+            "Kolejka" => "do kolejki",
+            "Ulubione" => "do ulubionych",
+            "Biblioteka" => "do biblioteki",
+            _ => "do multimediów lokalnych"
+        };
+        var newPart = addedItems.Count > 0
+            ? $" Nowe w AMC: {FormatFileCount(addedItems.Count)}."
+            : " Wszystkie pliki były już w AMC.";
+        var skippedPart = skippedCount > 0 ? $" Pominięto: {skippedCount}." : string.Empty;
+        Announce($"Dodano ze schowka {destination}: {FormatFileCount(targetItems.Count)}.{newPart}{skippedPart} Pliki pozostały w swoich folderach");
+    }
+
+    private string CutLocalFilesForExternalMove(IReadOnlyList<MediaItem> items)
     {
         if (items.Count == 0) return "Brak pliku do wycięcia";
-        if (!fromSearch
-            && !_playerViewActive
+        if (!_playerViewActive
             && string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
         {
             return "Wycinanie plików nie działa na liście zakładek";

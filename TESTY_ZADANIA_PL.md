@@ -1,12 +1,70 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-072`
-- Tytuł zestawu: Informacje i kopiowanie Zakładek
-- Wersja programu: `0.1.0-alpha.72`
+- Numer zestawu: `AMC-TEST-073`
+- Tytuł zestawu: Zbiorczy schowek i wklejanie plików
+- Wersja programu: `0.1.0-alpha.73`
 - Utworzono: 2026-08-20, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.72.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.73.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 73
+
+### AMC-073-01 — Zaznaczanie wyników wyszukiwania
+
+Wykonaj `Ctrl+F` albo `Ctrl+Shift+F`, a na wynikach użyj `Shift+strzałka w dół` kilka razy.
+
+Oczekiwane: lista zachowuje się jak standardowa lista wielokrotnego wyboru i zaznacza kolejne wyniki. Nawigacja bez Shifta nadal wybiera pojedynczy wynik.
+
+### AMC-073-02 — Zbiorcze kopiowanie nazw
+
+Zaznacz kilka wyników i naciśnij `Ctrl+C`, następnie wklej do edytora tekstu.
+
+Oczekiwane: każda nazwa znajduje się w osobnym wierszu i zachowana jest kolejność widoczna na liście.
+
+### AMC-073-03 — Zbiorcze kopiowanie plików
+
+W wyszukiwaniu sesji Pliki lokalne zaznacz kilka wyników, naciśnij `Ctrl+Shift+C` i wklej w pustym folderze testowym.
+
+Oczekiwane: system wkleja wszystkie zaznaczone prawdziwe pliki. W schowku tekstowym dostępne są również ich pełne ścieżki.
+
+### AMC-073-04 — Wyniki z różnych usług
+
+Wyszukaj we wszystkich usługach, zaznacz wyniki lokalne i usługowe, po czym użyj `Ctrl+Shift+C` i wklej tekst do edytora.
+
+Oczekiwane: lokalne pozycje mają pełne ścieżki, a usługowe — łącza. Jeśli wklejasz do folderu, system przekazuje tylko rzeczywiste pliki lokalne.
+
+### AMC-073-05 — Blokada wycinania w wyszukiwaniu
+
+Na wynikach naciśnij `Ctrl+X`, a potem `Ctrl+V`.
+
+Oczekiwane: program jednoznacznie informuje, że wycinanie i wklejanie nie działają na liście wyników. W polu wyszukiwania `Ctrl+X`, `Ctrl+C` i `Ctrl+V` nadal standardowo edytują tekst.
+
+### AMC-073-06 — Wklejanie do lokalnej biblioteki
+
+Skopiuj w Eksploratorze jeden lub kilka obsługiwanych plików audio. W AMC przejdź do sesji Pliki lokalne, do widoku Multimedia lub Biblioteka, i naciśnij `Ctrl+V`.
+
+Oczekiwane: pliki pojawiają się w AMC i są zaznaczone. Fizycznie pozostają w swoich dotychczasowych folderach. Ponowne wklejenie nie tworzy duplikatów.
+
+### AMC-073-07 — Wklejanie do Kolejki i Ulubionych
+
+Skopiuj plik spoza katalogu AMC. Wklej go najpierw w widoku Kolejka, a inny w widoku Ulubione.
+
+Oczekiwane: pierwszy zostaje dodany do katalogu i kolejki, drugi do katalogu i ulubionych. Oba są dostępne również w lokalnych Multimediach.
+
+### AMC-073-08 — Niedozwolone cele
+
+Spróbuj wkleić plik w Historii odtwarzania, Zakładkach, odtwarzaczu i sesji demonstracyjnej.
+
+Oczekiwane: żaden plik nie jest dodawany, a komunikat wskazuje dozwolone lokalne widoki.
+
+### AMC-073-09 — Wytnij, a następnie wklej wewnątrz AMC
+
+Na zwykłej lokalnej liście naciśnij `Ctrl+X`, następnie przejdź do Kolejki lub Ulubionych i naciśnij `Ctrl+V`. Potem spróbuj wkleić ten sam schowek do folderu w Eksploratorze.
+
+Oczekiwane: AMC dodaje przynależność, ale nie przenosi pliku. Późniejsze wklejenie w Eksploratorze działa jak kopiowanie, a nie przenoszenie źródła.
+
+## Poprzedni zestaw regresyjny alpha 72
 
 ## Nowości alpha 72
 

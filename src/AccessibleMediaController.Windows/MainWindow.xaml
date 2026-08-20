@@ -180,6 +180,9 @@
                     <MenuItem x:Name="CutFilesMenuItem" Header="Wytnij pliki do przeniesienia" InputGestureText="Ctrl+X"
                               automation:AutomationProperties.Name="Wytnij pliki do przeniesienia, Ctrl+X"
                               Click="CutFiles_Click" />
+                    <MenuItem x:Name="PasteFilesMenuItem" Header="Wklej pliki ze schowka" InputGestureText="Ctrl+V"
+                              automation:AutomationProperties.Name="Wklej pliki ze schowka, Ctrl+V"
+                              Click="PasteFiles_Click" />
                     <MenuItem x:Name="OpenDefaultApplicationMenuItem" Header="Otwórz w domyślnej aplikacji"
                               Click="OpenDefaultApplication_Click" />
                     <MenuItem x:Name="OfficialApplicationMenuItem" Header="Otwórz w oficjalnej aplikacji"

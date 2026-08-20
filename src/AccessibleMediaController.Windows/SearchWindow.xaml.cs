@@ -1,4 +1,3 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Input;
@@ -13,7 +12,7 @@ public partial class SearchWindow : Window
     private readonly IReadOnlyList<DemoMediaSession> _sourceSessions;
     private readonly bool _allServices;
     private readonly Func<MediaItem, string> _formatItem;
-    private readonly Func<SearchResult, SearchResultAction, bool, string?> _executeAction;
+    private readonly Func<IReadOnlyList<SearchResult>, SearchResultAction, bool, string?> _executeAction;
     private readonly string _resultHelpText;
     private readonly SearchQueryHistory _searchHistory;
     private readonly string _searchHistoryScope;
@@ -26,7 +25,7 @@ public partial class SearchWindow : Window
         SessionManager sessions,
         bool allServices,
         Func<MediaItem, string> formatItem,
-        Func<SearchResult, SearchResultAction, bool, string?> executeAction,
+        Func<IReadOnlyList<SearchResult>, SearchResultAction, bool, string?> executeAction,
         SearchQueryHistory searchHistory,
         string searchHistoryScope,
         Action persistSearchHistory,
@@ -141,10 +140,16 @@ public partial class SearchWindow : Window
         var result = new SearchResult(row.SessionId, row.Item);
         if (action != SearchResultAction.Open)
         {
-            var announcement = _executeAction(result, action, _allServices);
+            var results = action is SearchResultAction.CopyName or SearchResultAction.CopyLocation
+                ? ResultsList.Items
+                    .OfType<SearchResultRow>()
+                    .Where(candidate => ResultsList.SelectedItems.Contains(candidate))
+                    .Select(candidate => new SearchResult(candidate.SessionId, candidate.Item))
+                    .ToArray()
+                : [result];
+            var announcement = _executeAction(results, action, _allServices);
             if (action is not (SearchResultAction.CopyName
-                or SearchResultAction.CopyLocation
-                or SearchResultAction.CutFile))
+                or SearchResultAction.CopyLocation))
             {
                 LastDirectActionResult = result;
             }
@@ -249,6 +254,15 @@ public partial class SearchWindow : Window
     {
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var modifiers = Keyboard.Modifiers;
+        if (modifiers == ModifierKeys.Control && key is Key.X or Key.V)
+        {
+            SearchStatus.Announce(key == Key.X
+                ? "Wycinanie plików nie działa na liście wyników wyszukiwania"
+                : "Wklejanie plików nie działa na liście wyników wyszukiwania");
+            Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
+            e.Handled = true;
+            return;
+        }
         SearchResultAction? action = null;
 
         if (key == Key.Enter && modifiers == ModifierKeys.None)
@@ -267,8 +281,6 @@ public partial class SearchWindow : Window
             action = SearchResultAction.CopyName;
         else if (key == Key.C && modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
             action = SearchResultAction.CopyLocation;
-        else if (key == Key.X && modifiers == ModifierKeys.Control)
-            action = SearchResultAction.CutFile;
 
         if (action is null) return;
         CompleteSelected(action.Value);
@@ -284,29 +296,17 @@ public partial class SearchWindow : Window
     private void Information_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Information);
     private void CopyName_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.CopyName);
     private void CopyLocation_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.CopyLocation);
-    private void CutFile_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.CutFile);
     private void ResultsList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => CompleteSelected(SearchResultAction.Open);
 
     private void ResultsContextMenu_Opened(object sender, RoutedEventArgs e)
     {
-        var localFile = ResultsList.SelectedItem is SearchResultRow row
-            && IsExistingLocalFile(row.Item);
-        CutResultMenuItem.Visibility = localFile ? Visibility.Visible : Visibility.Collapsed;
+        // The event is kept to make context-menu focus behavior symmetrical
+        // with the main list. Clipboard commands operate on all selected rows.
     }
 
     private void ResultsContextMenu_Closed(object sender, RoutedEventArgs e)
     {
         Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
-    }
-
-    private static bool IsExistingLocalFile(MediaItem item)
-    {
-        if (string.IsNullOrWhiteSpace(item.Source)) return false;
-        if (Uri.TryCreate(item.Source, UriKind.Absolute, out var uri) && uri.IsFile)
-        {
-            return File.Exists(uri.LocalPath);
-        }
-        return Path.IsPathFullyQualified(item.Source) && File.Exists(item.Source);
     }
 
     public sealed record SearchResult(string SessionId, MediaItem Item);
@@ -331,6 +331,5 @@ public enum SearchResultAction
     Favorite,
     Information,
     CopyName,
-    CopyLocation,
-    CutFile
+    CopyLocation
 }
