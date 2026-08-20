@@ -55,6 +55,7 @@ public static class CommandIds
     public const string ViewHistory = "view.history";
     public const string ViewBookmarks = "view.bookmarks";
     public const string AddBookmark = "action.bookmark.add";
+    public const string AddNamedBookmark = "action.bookmark.addNamed";
     public const string PreviousBookmark = "transport.bookmark.previous";
     public const string NextBookmark = "transport.bookmark.next";
     public const string ViewNowPlaying = "view.nowPlaying";

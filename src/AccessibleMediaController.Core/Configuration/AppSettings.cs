@@ -101,7 +101,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 15;
+    public int SchemaVersion { get; set; } = 16;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -135,6 +135,7 @@ public sealed class BookmarkEntry
     public string SessionName { get; set; } = string.Empty;
     public string ItemId { get; set; } = string.Empty;
     public string ItemTitle { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
     public long PositionTicks { get; set; }
     public long CreatedUtcTicks { get; set; } = DateTime.UtcNow.Ticks;
 }

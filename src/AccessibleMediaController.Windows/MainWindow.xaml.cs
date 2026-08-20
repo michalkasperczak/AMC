@@ -311,6 +311,42 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : $"Zakładka już istnieje: {time}");
     }
 
+    public void AddNamedBookmark()
+    {
+        if (!_playerViewActive)
+        {
+            Announce("Nazwaną zakładkę można dodać w otwartym odtwarzaczu");
+            return;
+        }
+
+        var session = ActionSession;
+        var item = session.CurrentItem;
+        if (item.Duration <= TimeSpan.Zero)
+        {
+            Announce("Nie można dodać zakładki: czas trwania materiału jest nieznany");
+            return;
+        }
+
+        var position = session.Position;
+        var dialog = new BookmarkNameWindow(item.Title, position) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+
+        var result = _bookmarkIndex.Add(
+            session.Id,
+            session.DisplayName,
+            item,
+            position,
+            DateTime.UtcNow,
+            dialog.BookmarkName);
+        _store.Save(_state);
+        var time = CommandRouter.FormatTime(TimeSpan.FromTicks(result.Entry.PositionTicks));
+        Announce(result.Added
+            ? $"Dodano zakładkę {result.Entry.Name}: {time}"
+            : result.NameChanged
+                ? $"Nadano nazwę zakładce {result.Entry.Name}: {time}"
+                : $"Zakładka {result.Entry.Name} już istnieje: {time}");
+    }
+
     public void NavigateBookmark(int direction)
     {
         if (!_playerViewActive)
@@ -355,7 +391,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_state.Settings.Messages.SeekMessages
             && _state.Settings.Messages.BookmarkNavigationMessages)
         {
-            Announce($"Zakładka: {CommandRouter.FormatTime(position)}");
+            var bookmarkName = string.IsNullOrWhiteSpace(bookmark.Name)
+                ? "Zakładka"
+                : $"Zakładka {bookmark.Name}";
+            Announce($"{bookmarkName}: {CommandRouter.FormatTime(position)}");
         }
     }
 
@@ -447,7 +486,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : $"{focusContext}, Odtwarzacz, {item.Title}, {artist}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}");
         AutomationProperties.SetHelpText(
             PlayerPlayPauseButton,
-            "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. B dodaje zakładkę, Shift+Page Up i Shift+Page Down przechodzą po zakładkach. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Escape wraca do listy.");
+            "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Escape wraca do listy.");
     }
 
     private void PlayerUiTimer_Tick(object? sender, EventArgs e)
@@ -803,7 +842,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+O otwiera lokalne pliki audio, a Ctrl+Shift+O otwiera folder wraz z podfolderami. " +
             "Oba polecenia tworzą tymczasową sesję bez automatycznego odtwarzania. " +
             "Ctrl+U/P/L/Q otwiera odpowiednio: Ulubione, Playlisty, Bibliotekę i Kolejkę, " +
-            "Ctrl+H otwiera trwałą Historię odtwarzania, Ctrl+B otwiera globalną listę Zakładek, a Ctrl+Shift+A otwiera Albumy. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
+            "Ctrl+H otwiera trwałą Historię odtwarzania, Ctrl+B otwiera globalną listę Zakładek, Ctrl+Shift+B dodaje nazwaną zakładkę w odtwarzaczu, a Ctrl+Shift+A otwiera Albumy. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
             "wyszukiwania w bieżącej usłudze, Ctrl+Shift+F otwiera wyszukiwanie globalne, " +
             "a Ctrl+Shift+K otwiera paletę poleceń. " +
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
@@ -815,7 +854,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "a cyfry od 0 do 9 przechodzą odpowiednio do 0, 10, 20 i kolejnych procent długości utworu oraz domyślnie oznajmiają tylko procent. " +
             "Shift+przecinek zmniejsza prędkość, Shift+kropka ją zwiększa, a Ctrl+kropka przywraca 1,00 razy; tempo zmienia się bez zmiany wysokości dźwięku. " +
             "Escape wraca do wcześniejszej listy. Alt+strzałka w dół przechodzi do starszego odtwarzanego elementu, a Alt+strzałka w górę do nowszego; pozycje są pamiętane. " +
-            "Page Up i Page Down nadal wybierają poprzedni lub następny element listy źródłowej, a nie historii. B dodaje szybką zakładkę w bieżącym miejscu, Shift+Page Up i Shift+Page Down przechodzą do poprzedniej lub następnej zakładki w tym samym materiale. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
+            "Page Up i Page Down nadal wybierają poprzedni lub następny element listy źródłowej, a nie historii. B dodaje szybką zakładkę w bieżącym miejscu, Ctrl+Shift+B dodaje zakładkę z nazwą, a Shift+Page Up i Shift+Page Down przechodzą do poprzedniej lub następnej zakładki w tym samym materiale. Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T podają czas od początku, pozostały i całkowity. " +
             "Ctrl+Shift+G chwilowo włącza lub wyłącza wszystkie automatyczne komunikaty odtwarzacza; ich kategorie wybiera się osobno w Ustawieniach. " +
             "NVDA+End odczytuje pasek stanu z bieżącym czasem i parametrami audio. " +
             "Alt+Enter otwiera jedno dostępne okno Właściwości i informacje. " +
@@ -1552,16 +1591,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Id = bookmark.ItemId,
             Title = bookmark.ItemTitle
         };
+        var displayName = string.IsNullOrWhiteSpace(bookmark.Name) ? bookmark.ItemTitle : bookmark.Name;
         var rowItem = new MediaItem
         {
             Id = $"bookmark:{bookmark.Id}",
-            Title = bookmark.ItemTitle
+            Title = displayName
         };
         var sessionName = string.IsNullOrWhiteSpace(bookmark.SessionName)
             ? bookmark.SessionId
             : bookmark.SessionName;
-        var label = $"{bookmark.ItemTitle}, {CommandRouter.FormatTime(TimeSpan.FromTicks(bookmark.PositionTicks))}, {sessionName}, zakładka";
-        return new MediaItemRow(rowItem, label, bookmark.ItemTitle, targetItem, bookmark);
+        var itemPart = string.IsNullOrWhiteSpace(bookmark.Name) ? string.Empty : $", {bookmark.ItemTitle}";
+        var label = $"{displayName}{itemPart}, {CommandRouter.FormatTime(TimeSpan.FromTicks(bookmark.PositionTicks))}, {sessionName}, zakładka";
+        return new MediaItemRow(rowItem, label, displayName, targetItem, bookmark);
     }
 
     private void ApplyFilter(string? preferredItemId = null, int? fallbackIndex = null)
@@ -2705,6 +2746,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
             (ModifierKeys.Control, Key.H) => CommandIds.ViewHistory,
             (ModifierKeys.Control, Key.B) => CommandIds.ViewBookmarks,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.B) => CommandIds.AddNamedBookmark,
             (ModifierKeys.Control, Key.K) => CommandIds.FilterCurrent,
             (ModifierKeys.Control, Key.F) => CommandIds.SearchCurrent,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.A) => CommandIds.ViewAlbums,
@@ -3029,6 +3071,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void SeekToPercentage_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekToPercentage);
     private void PlayerBack_Click(object sender, RoutedEventArgs e) => ReturnFromPlayerToList();
     private void AddBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddBookmark);
+    private void AddNamedBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddNamedBookmark);
     private void BookmarksView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewBookmarks);
     private void PreviousBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PreviousBookmark);
     private void NextBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.NextBookmark);

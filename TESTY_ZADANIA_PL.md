@@ -1,12 +1,46 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-069`
-- Tytuł zestawu: Sekwencyjna nawigacja i wyciszanie zakładek
-- Wersja programu: `0.1.0-alpha.69`
+- Numer zestawu: `AMC-TEST-070`
+- Tytuł zestawu: Nazwane zakładki
+- Wersja programu: `0.1.0-alpha.70`
 - Utworzono: 2026-08-20, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.69.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.70.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 70
+
+### AMC-070-01 — Dodanie nazwanej zakładki
+
+Otwórz plik w odtwarzaczu, przejdź do wybranego miejsca i naciśnij `Ctrl+Shift+B`. Wpisz nazwę, na przykład „Początek rozmowy”, i zatwierdź Enterem.
+
+Oczekiwane: fokus trafia bezpośrednio do pola „Nazwa zakładki”. Enter zapisuje, Escape anuluje, a po zatwierdzeniu AMC podaje nazwę i czas bez zatrzymywania odtwarzania.
+
+### AMC-070-02 — Nazwanie istniejącej szybkiej zakładki
+
+Dodaj szybką zakładkę klawiszem `B`. Bez przewijania naciśnij `Ctrl+Shift+B`, wpisz nazwę i zatwierdź.
+
+Oczekiwane: istniejąca zakładka otrzymuje nazwę. Na liście nie pojawia się drugi wpis z tym samym czasem.
+
+### AMC-070-03 — Globalna lista nazw
+
+Dodaj kilka nazwanych i kilka szybkich zakładek, po czym otwórz `Ctrl+B`. Nawiguj strzałkami, użyj pierwszej litery nazwy i filtra `Ctrl+K`.
+
+Oczekiwane: nazwana pozycja jest czytana w kolejności: nazwa zakładki, tytuł materiału, czas, sesja, zakładka. Wpis bez nazwy zachowuje krótszy dotychczasowy format. Nazwa działa w nawigacji literowej i filtrze.
+
+### AMC-070-04 — Nawigacja i wyciszenie
+
+Przejdź po nazwanych zakładkach przez `Shift+Page Up/Down`, potem wyłącz „Oznajmiaj nawigację po zakładkach” i powtórz test.
+
+Oczekiwane: przy włączonej opcji AMC podaje nazwę oraz czas osiągniętej zakładki. Przy wyłączonej przechodzi prawidłowo, lecz bez automatycznego komunikatu. `Ctrl+Shift+E` nadal podaje czas na żądanie.
+
+### AMC-070-05 — Trwałość i pełna kopia
+
+Zamknij i uruchom AMC ponownie, sprawdź nazwy przez `Ctrl+B`. Opcjonalnie wykonaj pełny eksport i import na danych testowych.
+
+Oczekiwane: nazwy, czasy i powiązania z materiałami pozostają zachowane. Eksport samych ustawień nadal nie zawiera zakładek.
+
+## Poprzedni zestaw regresyjny alpha 69
 
 ## Nowości alpha 69
 

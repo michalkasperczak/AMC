@@ -83,6 +83,7 @@ public static class CommandCatalog
             CommandIds.ViewHistory => "Pokaż historię odtwarzania",
             CommandIds.ViewBookmarks => "Pokaż zakładki",
             CommandIds.AddBookmark => "Dodaj zakładkę w bieżącym miejscu",
+            CommandIds.AddNamedBookmark => "Dodaj nazwaną zakładkę w bieżącym miejscu",
             CommandIds.PreviousBookmark => "Poprzednia zakładka w bieżącym materiale",
             CommandIds.NextBookmark => "Następna zakładka w bieżącym materiale",
             CommandIds.ViewNowPlaying => "Pokaż teraz odtwarzane",

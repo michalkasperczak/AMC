@@ -2,7 +2,7 @@ using AccessibleMediaController.Core.Sessions;
 
 namespace AccessibleMediaController.Core.Configuration;
 
-public readonly record struct BookmarkAddResult(BookmarkEntry Entry, bool Added);
+public readonly record struct BookmarkAddResult(BookmarkEntry Entry, bool Added, bool NameChanged = false);
 
 public sealed class BookmarkIndex(BookmarkSettings settings)
 {
@@ -27,7 +27,8 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
         string sessionName,
         MediaItem item,
         TimeSpan position,
-        DateTime utcNow)
+        DateTime utcNow,
+        string? name = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
         ArgumentNullException.ThrowIfNull(item);
@@ -35,9 +36,16 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
         var clamped = position < TimeSpan.Zero ? TimeSpan.Zero : position;
         if (item.Duration > TimeSpan.Zero && clamped > item.Duration) clamped = item.Duration;
         var roundedTicks = TimeSpan.FromSeconds(Math.Round(clamped.TotalSeconds)).Ticks;
+        var normalizedName = NormalizeName(name);
         var existing = GetForItem(sessionId, item.Id).FirstOrDefault(entry =>
             Math.Abs(entry.PositionTicks - roundedTicks) <= DuplicateTolerance.Ticks);
-        if (existing is not null) return new BookmarkAddResult(existing, false);
+        if (existing is not null)
+        {
+            var nameChanged = normalizedName.Length > 0
+                && !string.Equals(existing.Name, normalizedName, StringComparison.CurrentCulture);
+            if (nameChanged) existing.Name = normalizedName;
+            return new BookmarkAddResult(existing, false, nameChanged);
+        }
 
         var entry = new BookmarkEntry
         {
@@ -45,6 +53,7 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
             SessionName = string.IsNullOrWhiteSpace(sessionName) ? sessionId : sessionName,
             ItemId = item.Id,
             ItemTitle = item.Title,
+            Name = normalizedName,
             PositionTicks = roundedTicks,
             CreatedUtcTicks = utcNow.ToUniversalTime().Ticks
         };
@@ -108,6 +117,7 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
                 if (string.IsNullOrWhiteSpace(entry.Id)) entry.Id = Guid.NewGuid().ToString("N");
                 if (string.IsNullOrWhiteSpace(entry.SessionName)) entry.SessionName = entry.SessionId;
                 if (string.IsNullOrWhiteSpace(entry.ItemTitle)) entry.ItemTitle = entry.ItemId;
+                entry.Name = NormalizeName(entry.Name);
                 entry.PositionTicks = Math.Max(0, entry.PositionTicks);
                 entry.CreatedUtcTicks = Math.Max(0, entry.CreatedUtcTicks);
                 return entry;
@@ -117,5 +127,12 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
             .OrderByDescending(entry => entry.CreatedUtcTicks)
             .Take(MaxEntries)
             .ToList();
+    }
+
+    private static string NormalizeName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return string.Empty;
+        var normalized = string.Join(' ', name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return normalized.Length <= 200 ? normalized : normalized[..200].TrimEnd();
     }
 }

@@ -163,6 +163,7 @@ public static class CommandPaletteSearch
             CommandIds.ViewHistory => "Ctrl+H",
             CommandIds.ViewBookmarks => "Ctrl+B",
             CommandIds.AddBookmark => "B (odtwarzacz)",
+            CommandIds.AddNamedBookmark => "Ctrl+Shift+B (odtwarzacz)",
             CommandIds.PreviousBookmark => "Shift+PageUp (odtwarzacz)",
             CommandIds.NextBookmark => "Shift+PageDown (odtwarzacz)",
             CommandIds.AddQueue => "Shift+Enter",

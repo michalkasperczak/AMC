@@ -23,8 +23,8 @@ Obliczanie skrótu może potrwać przy dużych nagraniach, dlatego będzie wykon
 
 ## Format
 
-Koperta JSON otrzyma numer schematu, rodzaj `bookmarks`, datę eksportu oraz rekordy materiałów i pozycji. Dla każdego materiału zapisze przyjazny tytuł, typ źródła, stabilny identyfikator lub lokalny odcisk treści oraz opcjonalną dawną ścieżkę jako podpowiedź. Pozycje zachowają czas, datę utworzenia i przyszłą opcjonalną nazwę zakładki.
+Koperta JSON otrzyma numer schematu, rodzaj `bookmarks`, datę eksportu oraz rekordy materiałów i pozycji. Dla każdego materiału zapisze przyjazny tytuł, typ źródła, stabilny identyfikator lub lokalny odcisk treści oraz opcjonalną dawną ścieżkę jako podpowiedź. Pozycje zachowają czas, datę utworzenia i opcjonalną nazwę zakładki działającą od `alpha.70`.
 
 ## Zakres wersji
 
-`alpha.69` nie dodaje jeszcze przycisków osobnego importu i eksportu. Zakładki nadal znajdują się w `state.json` oraz pełnej kopii `*.amcbackup.json`. Ten dokument ustala bezpieczny format następnego etapu i wyklucza zawodne dopasowanie tylko po nazwie lub ścieżce.
+`alpha.70` nie dodaje jeszcze przycisków osobnego importu i eksportu. Zakładki wraz z nazwami znajdują się w `state.json` oraz pełnej kopii `*.amcbackup.json`. Ten dokument ustala bezpieczny format następnego etapu i wyklucza zawodne dopasowanie tylko po nazwie lub ścieżce.

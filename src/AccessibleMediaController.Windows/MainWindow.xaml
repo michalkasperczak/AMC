@@ -48,6 +48,10 @@
                           automation:AutomationProperties.Name="Dodaj zakładkę w bieżącym miejscu, B, tylko w odtwarzaczu"
                           automation:AutomationProperties.AcceleratorKey="B"
                           Click="AddBookmark_Click" />
+                <MenuItem Header="Dodaj _nazwaną zakładkę…" InputGestureText="Ctrl+Shift+B"
+                          automation:AutomationProperties.Name="Dodaj nazwaną zakładkę w bieżącym miejscu, Ctrl+Shift+B, tylko w odtwarzaczu"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+B"
+                          Click="AddNamedBookmark_Click" />
                 <MenuItem Header="Poprzednia zakładka" InputGestureText="Shift+Page Up"
                           automation:AutomationProperties.Name="Poprzednia zakładka, Shift+Page Up, tylko w odtwarzaczu"
                           Click="PreviousBookmark_Click" />
@@ -204,6 +208,9 @@
                     <MenuItem Header="Dodaj zakładkę" InputGestureText="B"
                               automation:AutomationProperties.Name="Dodaj zakładkę w bieżącym miejscu, B"
                               Click="AddBookmark_Click" />
+                    <MenuItem Header="Dodaj nazwaną zakładkę…" InputGestureText="Ctrl+Shift+B"
+                              automation:AutomationProperties.Name="Dodaj nazwaną zakładkę w bieżącym miejscu, Ctrl+Shift+B"
+                              Click="AddNamedBookmark_Click" />
                     <MenuItem Header="Pokaż zakładki" InputGestureText="Ctrl+B"
                               automation:AutomationProperties.Name="Pokaż zakładki, Ctrl+B"
                               Click="BookmarksView_Click" />
@@ -289,6 +296,9 @@
                     <Button MinWidth="145" Margin="0,0,8,8" Content="Dodaj _zakładkę"
                             automation:AutomationProperties.AcceleratorKey="B"
                             Click="AddBookmark_Click" />
+                    <Button MinWidth="180" Margin="0,0,8,8" Content="Dodaj _nazwaną zakładkę…"
+                            automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+B"
+                            Click="AddNamedBookmark_Click" />
                     <Button MinWidth="145" Margin="0,0,8,8" Content="Pokaż za_kładki"
                             automation:AutomationProperties.AcceleratorKey="Ctrl+B"
                             Click="BookmarksView_Click" />
@@ -296,7 +306,7 @@
                             Click="PlayerBack_Click" />
                 </WrapPanel>
                 <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
-                           Text="Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. B dodaje zakładkę, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach bieżącego materiału. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Spacja wstrzymuje lub wznawia. Escape wraca do listy." />
+                           Text="Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach bieżącego materiału. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Spacja wstrzymuje lub wznawia. Escape wraca do listy." />
             </StackPanel>
         </Border>
         </Grid>

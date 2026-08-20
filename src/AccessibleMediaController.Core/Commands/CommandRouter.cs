@@ -31,6 +31,7 @@ public interface IApplicationActions
     void ShowSeekToTime();
     void ShowSeekToPercentage();
     void AddBookmark();
+    void AddNamedBookmark();
     void NavigateBookmark(int direction);
 }
 
@@ -104,6 +105,9 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.AddBookmark:
                 application.AddBookmark();
+                return new(true);
+            case CommandIds.AddNamedBookmark:
+                application.AddNamedBookmark();
                 return new(true);
             case CommandIds.PreviousBookmark:
                 application.NavigateBookmark(-1);

@@ -816,6 +816,12 @@ static void TestBookmarks()
     True(second.Added, "Zakładka w innym miejscu powinna zostać dodana.");
     var third = index.Add("local", "Pliki lokalne", item, TimeSpan.FromMinutes(40), now.AddMinutes(2));
     True(third.Added, "Trzecia zakładka powinna zostać dodana.");
+    var named = index.Add("local", "Pliki lokalne", item, TimeSpan.FromMinutes(25), now.AddMinutes(3), "  Ważny   fragment  ");
+    True(!named.Added, "Nazwanie istniejącej pozycji nie powinno tworzyć duplikatu.");
+    True(named.NameChanged, "Istniejąca szybka zakładka powinna otrzymać nazwę.");
+    Equal("Ważny fragment", named.Entry.Name);
+    var sameName = index.Add("local", "Pliki lokalne", item, TimeSpan.FromMinutes(25), now.AddMinutes(4), "Ważny fragment");
+    True(!sameName.NameChanged, "Ponowne zapisanie tej samej nazwy nie powinno zgłaszać zmiany.");
     Equal(3, index.GetForItem("local", item.Id).Count);
     Equal(first.Entry.Id, index.FindRelative("local", item.Id, TimeSpan.FromMinutes(20), -1)?.Id);
     Equal(second.Entry.Id, index.FindRelative("local", item.Id, TimeSpan.FromMinutes(20), 1)?.Id);
@@ -838,6 +844,7 @@ static void TestBookmarks()
         var loaded = store.LoadOrCreate();
         Equal(3, new BookmarkIndex(loaded.Bookmarks).GetAll().Count);
         Equal("Długie nagranie", loaded.Bookmarks.Entries[0].ItemTitle);
+        Equal("Ważny fragment", loaded.Bookmarks.Entries.Single(entry => entry.Id == second.Entry.Id).Name);
     }
     finally
     {
@@ -970,6 +977,7 @@ static void TestCommandPalette()
     Equal("Ctrl+B", bookmarks.LocalShortcut);
     Equal("B", bookmarks.PrefixShortcut);
     Equal("B (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.AddBookmark).LocalShortcut);
+    Equal("Ctrl+Shift+B (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.AddNamedBookmark).LocalShortcut);
     Equal("Shift+PageUp (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PreviousBookmark).LocalShortcut);
     Equal("Shift+PageDown (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.NextBookmark).LocalShortcut);
     Equal("Ctrl+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToTime).LocalShortcut);
@@ -1260,6 +1268,8 @@ static void TestTimeCommands()
     True(actions.SeekToPercentageShown, "Router powinien otworzyć okno skoku do procentu.");
     router.Execute(CommandIds.ItemProperties);
     True(actions.ItemPropertiesShown, "Router powinien otworzyć jedno okno właściwości i informacji.");
+    router.Execute(CommandIds.AddNamedBookmark);
+    True(actions.NamedBookmarkAdded, "Router powinien przekazać dodanie nazwanej zakładki do aplikacji.");
     router.Execute(CommandIds.SettingsMessageTemplates);
     Equal(SettingsTarget.MessageTemplates, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsPercentageSeekAnnouncement);
@@ -1409,6 +1419,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public bool SeekToPercentageShown { get; private set; }
     public bool ItemPropertiesShown { get; private set; }
     public bool BookmarkAdded { get; private set; }
+    public bool NamedBookmarkAdded { get; private set; }
     public int BookmarkNavigationDirection { get; private set; }
     public void ShowCurrentSession(string viewName) { }
     public void ShowFilter() { }
@@ -1427,6 +1438,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ShowSeekToTime() => SeekToTimeShown = true;
     public void ShowSeekToPercentage() => SeekToPercentageShown = true;
     public void AddBookmark() => BookmarkAdded = true;
+    public void AddNamedBookmark() => NamedBookmarkAdded = true;
     public void NavigateBookmark(int direction) => BookmarkNavigationDirection = direction;
 }
 
