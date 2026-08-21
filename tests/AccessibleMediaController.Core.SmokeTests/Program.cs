@@ -29,6 +29,7 @@ var tests = new (string Name, Action Test)[]
     ("Pusta sesja lokalna", TestEmptyLocalSession),
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
+    ("Ponowne włączanie folderu do biblioteki", TestLocalLibraryImport),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
     ("Historia wyszukiwania", TestSearchHistory),
     ("Historia odtwarzania", TestPlaybackHistory),
@@ -205,6 +206,34 @@ static void TestMediaItemFormatting()
     Equal(
         "Do odsłuchu, 2:46:00",
         MediaItemFormatter.Format(withoutArtist, homogeneousFields));
+}
+
+static void TestLocalLibraryImport()
+{
+    var existingPath = @"D:\Nagrania\istniejący.mp3";
+    var newPath = @"D:\Nagrania\nowy.ogg";
+    var existing = new MediaItem
+    {
+        Id = "local-existing",
+        Title = "Istniejący",
+        Source = existingPath,
+        IsInLibrary = false
+    };
+    var catalog = new List<MediaItem> { existing };
+
+    var first = LocalLibraryImporter.Import(catalog, [existingPath, newPath, existingPath]);
+    Equal(2, first.ImportedItems.Count);
+    Equal(1, first.AddedItems.Count);
+    Equal(1, first.RestoredItems.Count);
+    Equal(true, existing.IsInLibrary);
+    Equal(2, catalog.Count);
+    Equal(true, catalog.Single(item => item.Source == newPath).IsInLibrary);
+
+    var second = LocalLibraryImporter.Import(catalog, [existingPath, newPath]);
+    Equal(2, second.ImportedItems.Count);
+    Equal(0, second.AddedItems.Count);
+    Equal(0, second.RestoredItems.Count);
+    Equal(2, catalog.Count);
 }
 
 static void TestAudioParametersFormatting()

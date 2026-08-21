@@ -1,12 +1,48 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-078`
-- Tytuł zestawu: Poprawiona pusta sesja lokalna i wczytywanie folderów
-- Wersja programu: `0.1.0-alpha.78`
+- Numer zestawu: `AMC-TEST-079`
+- Tytuł zestawu: Jedna biblioteka lokalna w widoku płaskim i folderowym
+- Wersja programu: `0.1.0-alpha.79`
 - Utworzono: 2026-08-21, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.78.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.79.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Poprawki alpha 79
+
+Do testu fizycznego kasowania używaj wyłącznie niepotrzebnych kopii plików. Zwykły `Delete` nie powinien w tym zestawie usuwać niczego z dysku.
+
+### AMC-079-01 — Folder jako źródło Biblioteki
+
+W pustej albo dotychczasowej sesji Pliki lokalne naciśnij `Ctrl+Shift+O` i wybierz folder zawierający rozpoznane pliki w katalogu głównym oraz podfolderach. Po zakończeniu skanowania naciśnij `Ctrl+L`.
+
+Oczekiwane: Foldery pokazują rzeczywistą hierarchię, natomiast Biblioteka pokazuje płaską alfabetyczną listę wszystkich wczytanych plików. Nie pojawia się dawna, niezależna biblioteka ani duplikaty.
+
+### AMC-079-02 — Ponowne włączenie znanego pliku
+
+W Bibliotece usuń zwykłym `Delete` jeden plik, upewnij się, że zniknął z `Ctrl+L`, a następnie ponownie wybierz jego źródło przez `Ctrl+Shift+O` i wróć do Biblioteki.
+
+Oczekiwane: znany plik wraca do Biblioteki bez powstania drugiego rekordu. Komunikat rozróżnia przywrócenie od dodania nowego pliku.
+
+### AMC-079-03 — Delete na pliku w Folderach
+
+W widoku Foldery zaznacz plik należący do Biblioteki i naciśnij `Delete`. Następnie sprawdź `Ctrl+L`, wróć do Folderów i użyj `Ctrl+Z`.
+
+Oczekiwane: program mówi, że usunął plik z Biblioteki i pozostawił go w folderze. Plik znika z płaskiej Biblioteki, ale nadal istnieje na dysku i pozostaje widoczny w swoim fizycznym folderze. `Ctrl+Z` przywraca jego przynależność do Biblioteki.
+
+### AMC-079-04 — Delete na wierszu folderu
+
+Zaznacz podfolder albo wiersz źródła i naciśnij `Delete`.
+
+Oczekiwane: nic nie zostaje usunięte. AMC wyjaśnia, że Delete nie usuwa folderu ani źródła, Enter otwiera folder, a zarządzanie źródłami będzie osobnym poleceniem.
+
+### AMC-079-05 — Rozdzielenie Delete i Shift+Delete
+
+Na niepotrzebnej kopii pliku porównaj `Delete` oraz `Shift+Delete` z potwierdzeniem.
+
+Oczekiwane: `Delete` zmienia tylko przynależność w AMC. Dopiero `Shift+Delete` pyta o potwierdzenie i przenosi fizyczny plik do systemowego Kosza.
+
+## Poprzedni zestaw regresyjny alpha 78
 
 ## Poprawki alpha 78
 

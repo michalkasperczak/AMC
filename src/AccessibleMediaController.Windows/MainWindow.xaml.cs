@@ -921,7 +921,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+K, Ctrl+F i Ctrl+Shift+F nie opuszczają odtwarzacza; wyszukiwanie jest dostępne po powrocie do listy. " +
             "Skróty widoków opuszczają odtwarzacz, a F6 wraca do niego. " +
             "Ctrl+C kopiuje nazwy wszystkich zaznaczonych elementów, po jednej w wierszu; Ctrl+Shift+C kopiuje pełne ścieżki i fizyczne pliki lokalne. " +
-            "Delete lub Backspace usuwa z bieżącego widoku, a w głównym katalogu lokalnym usuwa tylko wpis z AMC. W odtwarzaczu lokalnym Delete również usuwa tylko wpis z AMC i pozostawia plik na dysku. Shift+Delete działa wyłącznie na listach i po potwierdzeniu przenosi zaznaczone pliki do systemowego Kosza. " +
+            "Delete lub Backspace usuwa z bieżącego widoku. W lokalnej Bibliotece i na pliku w widoku Foldery usuwa tylko wpis z Biblioteki AMC, a plik pozostawia na dysku; na wierszu folderu nie usuwa niczego. W odtwarzaczu lokalnym Delete również usuwa tylko wpis z AMC i pozostawia plik na dysku. Shift+Delete działa wyłącznie na listach i po potwierdzeniu przenosi zaznaczone pliki do systemowego Kosza. " +
             "Alt+strzałka w lewo i w prawo przechodzi po osobnej historii widoków. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
             "Alt+F4 zawsze zamyka całe główne okno i aplikację, również z widoku odtwarzacza. " +
@@ -1040,23 +1040,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void AddLocalFiles(IEnumerable<string> fileNames, string? folderSourcePath = null)
     {
         var paths = fileNames.ToArray();
-
-        var knownPaths = _localItems
-            .Select(item => item.Source)
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var addedItems = paths
-            .Where(path => knownPaths.Add(path))
-            .Select(path => new MediaItem
-            {
-                Id = $"local-{Guid.NewGuid():N}",
-                Title = Path.GetFileNameWithoutExtension(path),
-                Kind = MediaItemKind.Track,
-                Source = path,
-                IsInLibrary = true
-            })
-            .ToList();
-        _localItems.AddRange(addedItems);
+        var import = LocalLibraryImporter.Import(_localItems, paths);
+        var addedItems = import.AddedItems;
 
         var (session, slot) = _sessions.AddOrUpdateTransientSession(
             "local",
@@ -1065,11 +1050,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _localOutput,
             1);
 
-        var selected = addedItems.FirstOrDefault()
-            ?? session.Items.FirstOrDefault(item => string.Equals(
-                item.Source,
-                paths.FirstOrDefault(),
-                StringComparison.OrdinalIgnoreCase))
+        var selected = import.ImportedItems.FirstOrDefault()
             ?? session.CurrentItem;
         SelectSessionBrowserItem(session.Id, selected.Id);
         LocalFolderSourceSettings? folderSource = null;
@@ -1080,9 +1061,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             NavigateTo(FolderViewName);
             SelectMediaItem(selected.Id);
         }
-        var countText = addedItems.Count == 0
-            ? "pliki były już na liście"
-            : $"dodano {FormatFileCount(addedItems.Count)}";
+        var countParts = new List<string>();
+        if (addedItems.Count > 0) countParts.Add($"dodano {FormatFileCount(addedItems.Count)}");
+        if (import.RestoredItems.Count > 0)
+            countParts.Add($"przywrócono w bibliotece {FormatFileCount(import.RestoredItems.Count)}");
+        var countText = countParts.Count == 0
+            ? "pliki były już w bibliotece"
+            : string.Join(", ", countParts);
         var slotText = slot is > 0 ? $", sesja {slot}" : string.Empty;
         PrepareSelectedItemFocusContext(folderSource is null
             ? $"Pliki lokalne{slotText}, {countText}"
@@ -1679,7 +1664,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IEnumerable<MediaItem> items = _sessions.Current.Items;
         if (_currentView == "Ulubione") items = items.Where(item => item.IsFavorite);
         if (_currentView == "Playlisty") items = items.Where(item => item.Kind == MediaItemKind.Playlist);
-        if (_currentView == "Biblioteka") items = items.Where(item => item.IsInLibrary);
+        if (_currentView == "Biblioteka")
+        {
+            items = items.Where(item => item.IsInLibrary);
+            if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+            {
+                items = items
+                    .OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(item => item.Source, StringComparer.OrdinalIgnoreCase);
+            }
+        }
         if (_currentView == "Kolejka") items = items.Where(item => item.IsInQueue || item.IsPlayNext);
         if (_currentView == "Albumy") items = items.Where(item => item.Kind == MediaItemKind.Album);
         if (_currentView == "Historia odtwarzania")
@@ -2087,8 +2081,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var items = MediaList.SelectedItems
+        var selectedRows = MediaList.SelectedItems
             .OfType<MediaItemRow>()
+            .ToArray();
+        if (string.Equals(_currentView, FolderViewName, StringComparison.Ordinal)
+            && selectedRows.Any(row => row.FolderPath is not null))
+        {
+            RestoreMediaListFocusAfterRefresh();
+            Dispatcher.BeginInvoke(
+                () => Announce("Delete nie usuwa folderu ani źródła. Enter otwiera folder; zarządzanie źródłami będzie osobnym poleceniem"),
+                DispatcherPriority.ContextIdle);
+            return;
+        }
+
+        var items = selectedRows
             .Select(row => row.Item)
             .DistinctBy(item => item.Id)
             .ToArray();
@@ -2109,13 +2115,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        if (_currentView is not ("Ulubione" or "Biblioteka" or "Kolejka"))
+        if (_currentView is not ("Ulubione" or "Biblioteka" or "Kolejka" or FolderViewName))
         {
             RestoreMediaListFocusAfterRefresh();
             Dispatcher.BeginInvoke(
-                () => Announce("Usuwanie jest dostępne w lokalnym katalogu oraz w widokach Ulubione, Biblioteka i Kolejka"),
+                () => Announce("Usuwanie jest dostępne w lokalnym katalogu oraz w widokach Foldery, Ulubione, Biblioteka i Kolejka"),
                 DispatcherPriority.ContextIdle);
             return;
+        }
+
+        if (string.Equals(_currentView, FolderViewName, StringComparison.Ordinal))
+        {
+            items = items.Where(item => item.IsInLibrary).ToArray();
+            if (items.Length == 0)
+            {
+                RestoreMediaListFocusAfterRefresh();
+                Dispatcher.BeginInvoke(
+                    () => Announce("Zaznaczone pliki są już poza biblioteką. Pozostają dostępne w swoich folderach"),
+                    DispatcherPriority.ContextIdle);
+                return;
+            }
         }
 
         var previousMemberships = items
@@ -2129,7 +2148,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 item.IsFavorite = false;
             }
-            else if (_currentView == "Biblioteka")
+            else if (_currentView is "Biblioteka" or FolderViewName)
             {
                 item.IsInLibrary = false;
             }
@@ -2144,6 +2163,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 "Ulubione" => $"Przywrócono w ulubionych: {items[0].Title}",
                 "Biblioteka" => $"Przywrócono w bibliotece: {items[0].Title}",
+                FolderViewName => $"Przywrócono w bibliotece: {items[0].Title}",
                 "Kolejka" => $"Przywrócono w kolejce: {items[0].Title}",
                 _ => throw new InvalidOperationException($"Nieobsługiwany widok usuwania: {_currentView}")
             }
@@ -2160,9 +2180,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RefreshCurrentView(previousIndex);
         RestoreMediaListFocusAfterRefresh();
         var removedLabel = items.Length == 1 ? items[0].Title : FormatItemCount(items.Length);
-        var announcement = MediaList.Items.Count == 0
-            ? $"Usunięto: {removedLabel}. Lista jest pusta"
-            : $"Usunięto: {removedLabel}";
+        var announcement = string.Equals(_currentView, FolderViewName, StringComparison.Ordinal)
+            ? items.Length == 1
+                ? $"Usunięto z biblioteki: {removedLabel}. Plik pozostaje w folderze"
+                : $"Usunięto z biblioteki: {removedLabel}. Pliki pozostają w folderach"
+            : MediaList.Items.Count == 0
+                ? $"Usunięto: {removedLabel}. Lista jest pusta"
+                : $"Usunięto: {removedLabel}";
         Dispatcher.BeginInvoke(() => Announce(announcement), DispatcherPriority.ContextIdle);
     }
 
@@ -3468,6 +3492,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var items = ActionItems;
         var actionItem = ActionItem;
+        var folderNavigationRow = !_playerViewActive
+            && string.Equals(_currentView, FolderViewName, StringComparison.Ordinal)
+            && (MediaList.SelectedItem as MediaItemRow)?.FolderPath is not null;
         var playbackLabel = actionItem is not null
             && string.Equals(actionItem.Id, _sessions.Current.CurrentItem.Id, StringComparison.Ordinal)
             && _sessions.Current.IsPlaying
@@ -3505,12 +3532,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         OpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         OfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
         RecycleMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
-        var removeLabel = SelectedBookmark is not null
+        var removeLabel = folderNavigationRow
+            ? "Folder nawigacyjny — użyj Enter"
+            : SelectedBookmark is not null
             ? "Usuń zakładkę"
             : localItem && string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
                 ? "Usuń z AMC, pozostaw plik na dysku"
+                : localItem && string.Equals(_currentView, FolderViewName, StringComparison.Ordinal)
+                    ? "Usuń z biblioteki, pozostaw plik w folderze"
                 : "Usuń z bieżącego widoku";
         SetContextMenuItemPresentation(RemoveMenuItem, removeLabel, "Delete");
+        RemoveMenuItem.IsEnabled = !folderNavigationRow
+            && (!string.Equals(_currentView, FolderViewName, StringComparison.Ordinal)
+                || items.Any(item => item.IsInLibrary));
     }
     private void MediaContextMenu_Closed(object sender, RoutedEventArgs e) =>
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.Loaded);
