@@ -1,12 +1,78 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-079`
-- Tytuł zestawu: Jedna biblioteka lokalna w widoku płaskim i folderowym
-- Wersja programu: `0.1.0-alpha.79`
+- Numer zestawu: `AMC-TEST-080`
+- Tytuł zestawu: Synchronizowane źródła lokalnej Biblioteki
+- Wersja programu: `0.1.0-alpha.80`
 - Utworzono: 2026-08-21, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.79.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.80.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 80
+
+Do prób z kasowaniem i zmianą nazwy przygotuj osobny folder oraz niepotrzebne kopie plików. Nie wykonuj `Shift+Delete` na jedynym egzemplarzu nagrania.
+
+### AMC-080-01 — Kilka źródeł i dwa układy Biblioteki
+
+Dodaj przez `Ctrl+Shift+O` co najmniej dwa różne foldery, najlepiej z podfolderami. Użyj `Alt+1`, `Alt+2`, a potem `Ctrl+L`.
+
+Oczekiwane: `Alt+1` pokazuje **Foldery Biblioteki** z osobnymi źródłami, `Alt+2` jedną alfabetyczną listę **Wszystkie pliki**, a `Ctrl+L` wraca do ostatnio wybranego układu. Są to dwa widoki tych samych rekordów, bez duplikatów.
+
+### AMC-080-02 — Automatyczne dodanie pliku
+
+Przy uruchomionym AMC skopiuj z zewnątrz nowy rozpoznawany plik audio do jednego ze źródeł i odczekaj około dwóch sekund. Sprawdź oba układy.
+
+Oczekiwane: plik pojawia się bez ponownego wybierania folderu i bez przejęcia fokusu. Jeśli obserwator danego nośnika nie działa, `F5` dodaje plik po pełnym skanowaniu.
+
+### AMC-080-03 — Brak pliku i jego powrót
+
+Przenieś testowy plik poza źródło bez używania AMC. Sprawdź listę, a następnie umieść go z powrotem dokładnie pod tą samą ścieżką i naciśnij `F5`, jeśli zmiana nie pojawi się samoczynnie.
+
+Oczekiwane: brakujący plik znika z aktywnych list, lecz AMC nie usuwa jego historii, zakładek ani zapamiętanej pozycji. Po powrocie pojawia się jako ten sam rekord.
+
+### AMC-080-04 — Trwałe wykluczenie przez Delete
+
+Zaznacz testowy plik i naciśnij zwykły `Delete`. Potem użyj `F5`, przełącz `Alt+1` i `Alt+2`, zakończ AMC i uruchom je ponownie.
+
+Oczekiwane: plik pozostaje na dysku, ale nie wraca do Biblioteki po skanowaniu ani restarcie. W osobnej próbie wykonanej bezpośrednio po Delete `Ctrl+Z` przywraca go od razu.
+
+### AMC-080-05 — Niedostępne całe źródło
+
+Jeśli masz bezpieczny testowy folder na nośniku odłączanym, zarejestruj go, zamknij AMC, odłącz nośnik i uruchom program. Alternatywnie tymczasowo zmień nazwę folderu przy zamkniętym AMC. Użyj `F5`.
+
+Oczekiwane: AMC zgłasza jedno niedostępne źródło, ale nie uznaje go za pusty folder i nie kasuje jego danych. Po ponownym udostępnieniu źródła rekordy wracają.
+
+### AMC-080-06 — Zmiana nazwy podczas działania
+
+Przy uruchomionym AMC zmień poza programem nazwę testowego pliku, a potem nazwę jego folderu. Wcześniej można dodać zakładkę lub zapamiętać pozycję odtwarzania.
+
+Oczekiwane: lista aktualizuje nazwę i ścieżkę, nie tworzy duplikatu, a stan rekordu pozostaje. Ruch wykonany przy zamkniętym AMC nie jest jeszcze gwarantowany jako ten sam rekord i stanowi znane ograniczenie tej wersji.
+
+### AMC-080-07 — Plik aktualnie odtwarzany staje się niedostępny
+
+Odtwórz niepotrzebną kopię, a następnie przenieś ją poza źródło w Eksploratorze lub innym menedżerze plików.
+
+Oczekiwane: AMC zatrzymuje własny tor, informuje, który plik stał się niedostępny, nie blokuje NVDA i pozostawia pozostałe elementy aktywne.
+
+### AMC-080-08 — Nawigacja po znakach specjalnych
+
+Umieść w jednym widocznym poziomie kopie o nazwach zaczynających się np. od `!`, `@`, `#` albo cyfry. Sprawdź wpisywanie znaków oraz `Shift+cyfrę` właściwą dla polskiego układu klawiatury, a następnie `Alt+1` i `Alt+2`.
+
+Oczekiwane: znaki specjalne uczestniczą w nawigacji po nazwach; `Alt+1/2` przełącza układ i nie przechwytuje `Shift+cyfr`.
+
+### AMC-080-09 — Wyszukiwanie po synchronizacji
+
+Wyklucz jeden plik Delete, przenieś drugi poza źródło, dodaj trzeci i wykonaj `Ctrl+F` dla ich nazw.
+
+Oczekiwane: wyszukiwanie lokalne znajduje nowy aktywny plik, ale nie zwraca wykluczonego ani niedostępnego.
+
+### AMC-080-10 — Regresja działań i fokusu
+
+W obu układach sprawdź Enter, Escape, `Ctrl+C`, `Ctrl+Shift+C`, Ulubione, Kolejkę, zakładki, `Alt+Enter`, zaznaczanie Shiftem oraz menu kontekstowe. Uruchom też pełne `F5` z fokusem wewnątrz listy.
+
+Oczekiwane: stan jest wspólny w obu układach, fokus pozostaje na logicznie tym samym elemencie, a odświeżenie nie otwiera filtra ani nie przenosi fokusu na pasek stanu.
+
+## Poprzedni zestaw regresyjny alpha 79
 
 ## Poprawki alpha 79
 

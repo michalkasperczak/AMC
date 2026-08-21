@@ -30,6 +30,7 @@ public static class LocalLibraryImporter
         {
             if (knownByPath.TryGetValue(path, out var existing))
             {
+                existing.IsAvailable = true;
                 if (!existing.IsInLibrary)
                 {
                     existing.IsInLibrary = true;
@@ -45,7 +46,8 @@ public static class LocalLibraryImporter
                 Title = Path.GetFileNameWithoutExtension(path),
                 Kind = MediaItemKind.Track,
                 Source = path,
-                IsInLibrary = true
+                IsInLibrary = true,
+                IsAvailable = true
             };
             catalog.Add(item);
             knownByPath[path] = item;

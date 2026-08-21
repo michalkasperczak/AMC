@@ -222,6 +222,45 @@ public sealed class DemoMediaSession
         }
     }
 
+    public void ReplaceItems(IEnumerable<MediaItem> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        var replacement = items
+            .DistinctBy(item => item.Id, StringComparer.Ordinal)
+            .ToList();
+        var previousCurrentId = HasItems ? CurrentItem.Id : null;
+        if (HasItems) RememberCurrentPosition();
+        var previousWasPlaying = IsPlaying;
+
+        Items.Clear();
+        Items.AddRange(replacement);
+        if (!HasItems)
+        {
+            if (previousWasPlaying) _output?.Stop();
+            IsPlaying = false;
+            _currentIndex = 0;
+            _position = TimeSpan.Zero;
+            ResetQueueDiversion();
+            return;
+        }
+
+        var restoredIndex = previousCurrentId is null
+            ? -1
+            : Items.FindIndex(item => string.Equals(item.Id, previousCurrentId, StringComparison.Ordinal));
+        if (restoredIndex >= 0)
+        {
+            _currentIndex = restoredIndex;
+            _position = _rememberedPositions.GetValueOrDefault(CurrentItem.Id);
+            return;
+        }
+
+        if (previousWasPlaying) _output?.Stop();
+        IsPlaying = false;
+        _currentIndex = 0;
+        _position = _rememberedPositions.GetValueOrDefault(CurrentItem.Id);
+        ResetQueueDiversion();
+    }
+
     public IReadOnlyList<RemovedMediaItem> RemoveItems(IEnumerable<string> itemIds)
     {
         var ids = itemIds.ToHashSet(StringComparer.Ordinal);

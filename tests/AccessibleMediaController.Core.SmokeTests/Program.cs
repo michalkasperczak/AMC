@@ -30,6 +30,9 @@ var tests = new (string Name, Action Test)[]
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Ponowne włączanie folderu do biblioteki", TestLocalLibraryImport),
+    ("Synchronizacja źródeł lokalnej biblioteki", TestLocalLibrarySynchronization),
+    ("Integracyjny cykl zmian folderu", TestLocalFolderSynchronizationCycle),
+    ("Migracja biblioteki alpha.79", TestVersion17LocalLibraryMigration),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
     ("Historia wyszukiwania", TestSearchHistory),
     ("Historia odtwarzania", TestPlaybackHistory),
@@ -156,7 +159,9 @@ static void TestCommandCatalog()
     Equal("Przełącz automatyczne komunikaty odtwarzacza", CommandCatalog.GetDisplayName(CommandIds.SettingsToggleSeekMessages));
     Equal("Otwórz lokalne pliki audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
     Equal("Otwórz folder z plikami audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
-    Equal("Pokaż foldery lokalne", CommandCatalog.GetDisplayName(CommandIds.ViewFolders));
+    Equal("Biblioteka lokalna: pokaż foldery", CommandCatalog.GetDisplayName(CommandIds.ViewFolders));
+    Equal("Biblioteka lokalna: pokaż wszystkie pliki", CommandCatalog.GetDisplayName(CommandIds.ViewAllLocalFiles));
+    Equal("Odśwież źródła biblioteki lokalnej", CommandCatalog.GetDisplayName(CommandIds.RefreshLocalLibrary));
     Equal("Ustawienia: kolejność sesji i skrótów Ctrl+1–9", CommandCatalog.GetDisplayName(CommandIds.SettingsSessionOrder));
     Equal("Skocz do czasu", CommandCatalog.GetDisplayName(CommandIds.SeekToTime));
     Equal("Skocz do procentu", CommandCatalog.GetDisplayName(CommandIds.SeekToPercentage));
@@ -234,6 +239,137 @@ static void TestLocalLibraryImport()
     Equal(0, second.AddedItems.Count);
     Equal(0, second.RestoredItems.Count);
     Equal(2, catalog.Count);
+}
+
+static void TestLocalLibrarySynchronization()
+{
+    var root = Path.Combine(Path.GetTempPath(), $"amc-sync-root-{Guid.NewGuid():N}");
+    var unavailableRoot = Path.Combine(Path.GetTempPath(), $"amc-sync-offline-{Guid.NewGuid():N}");
+    var keepPath = Path.Combine(root, "Album", "zostaje.mp3");
+    var missingPath = Path.Combine(root, "znika.flac");
+    var excludedPath = Path.Combine(root, "pomijany.ogg");
+    var newPath = Path.Combine(root, "nowy.wav");
+    var manualPath = Path.Combine(Path.GetTempPath(), "pojedynczy.aac");
+    var offlinePath = Path.Combine(unavailableRoot, "offline.mp3");
+    var keep = new MediaItem { Id = "keep", Title = "Zostaje", Source = keepPath, IsInLibrary = true };
+    var missing = new MediaItem { Id = "missing", Title = "Znika", Source = missingPath, IsInLibrary = true };
+    var excluded = new MediaItem { Id = "excluded", Title = "Pomijany", Source = excludedPath, IsInLibrary = true };
+    var manual = new MediaItem { Id = "manual", Title = "Pojedynczy", Source = manualPath, IsInLibrary = true };
+    var offline = new MediaItem { Id = "offline", Title = "Offline", Source = offlinePath, IsInLibrary = true };
+    var catalog = new List<MediaItem> { keep, missing, excluded, manual, offline };
+
+    var first = LocalLibrarySynchronizer.Synchronize(
+        catalog,
+        [root],
+        [keepPath, excludedPath, newPath],
+        [excludedPath]);
+    Equal(1, first.AddedItems.Count);
+    Equal(false, missing.IsAvailable);
+    Equal(false, excluded.IsInLibrary);
+    Equal(true, excluded.IsAvailable);
+    Equal(true, manual.IsAvailable);
+    Equal(true, offline.IsAvailable);
+    Equal(6, catalog.Count);
+    Equal(true, catalog.Single(item => item.Source == newPath).IsInLibrary);
+
+    var second = LocalLibrarySynchronizer.Synchronize(
+        catalog,
+        [root],
+        [keepPath, missingPath, excludedPath, newPath],
+        [excludedPath]);
+    Equal(0, second.AddedItems.Count);
+    Equal(true, missing.IsAvailable);
+    Equal(true, missing.IsInLibrary);
+    Equal(false, excluded.IsInLibrary);
+    Equal(6, catalog.Count);
+}
+
+static void TestLocalFolderSynchronizationCycle()
+{
+    var root = Path.Combine(Path.GetTempPath(), $"amc-sync-cycle-{Guid.NewGuid():N}");
+    var nested = Path.Combine(root, "Audycje");
+    Directory.CreateDirectory(nested);
+    try
+    {
+        var firstPath = Path.Combine(root, "pierwszy.mp3");
+        var secondPath = Path.Combine(nested, "drugi.flac");
+        File.WriteAllBytes(firstPath, [1, 2, 3]);
+        var catalog = new List<MediaItem>();
+
+        var firstScan = LocalAudioFileDiscovery.FindFiles(root);
+        var first = LocalLibrarySynchronizer.Synchronize(catalog, [root], firstScan, []);
+        Equal(1, first.AddedItems.Count);
+        Equal(true, catalog.Single().IsAvailable);
+
+        File.WriteAllBytes(secondPath, [4, 5, 6]);
+        var secondScan = LocalAudioFileDiscovery.FindFiles(root);
+        var second = LocalLibrarySynchronizer.Synchronize(catalog, [root], secondScan, []);
+        Equal(1, second.AddedItems.Count);
+        Equal(2, catalog.Count(item => item.IsAvailable && item.IsInLibrary));
+
+        File.Delete(firstPath);
+        var thirdScan = LocalAudioFileDiscovery.FindFiles(root);
+        var third = LocalLibrarySynchronizer.Synchronize(catalog, [root], thirdScan, []);
+        Equal(1, third.BecameUnavailableItems.Count);
+        Equal(false, catalog.Single(item => item.Source == firstPath).IsAvailable);
+        Equal(true, catalog.Single(item => item.Source == secondPath).IsAvailable);
+    }
+    finally
+    {
+        Directory.Delete(root, true);
+    }
+}
+
+static void TestVersion17LocalLibraryMigration()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-v17-library-tests-{Guid.NewGuid():N}");
+    var source = Path.Combine(directory, "Muzyka");
+    Directory.CreateDirectory(source);
+    try
+    {
+        var statePath = Path.Combine(directory, "state.json");
+        var store = new ConfigurationStore(statePath);
+        var state = ConfigurationStore.CreateDefaultState();
+        var path = Path.Combine(source, "wykluczony.mp3");
+        state.LocalMedia.FolderSources.Add(new LocalFolderSourceSettings
+        {
+            Id = "source",
+            Path = source,
+            DisplayName = "Muzyka"
+        });
+        state.LocalMedia.Items.Add(new LocalMediaItemSettings
+        {
+            Id = "excluded",
+            Title = "Wykluczony",
+            Path = path,
+            IsInLibrary = false
+        });
+        state.SessionNavigation.Sessions["local"] = new SessionNavigationState
+        {
+            CurrentView = "Biblioteka"
+        };
+        store.Save(state);
+
+        var document = JsonNode.Parse(File.ReadAllText(statePath))!.AsObject();
+        document["schemaVersion"] = 17;
+        var localMedia = document["localMedia"]!.AsObject();
+        localMedia.Remove("excludedPaths");
+        localMedia.Remove("libraryView");
+        localMedia["items"]![0]!.AsObject().Remove("isAvailable");
+        File.WriteAllText(statePath, document.ToJsonString());
+
+        var loaded = store.LoadOrCreate();
+        Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
+        Equal("Wszystkie pliki", loaded.LocalMedia.LibraryView);
+        Equal("Wszystkie pliki", loaded.SessionNavigation.Sessions["local"].CurrentView);
+        Equal(1, loaded.LocalMedia.ExcludedPaths.Count);
+        Equal(Path.GetFullPath(path), loaded.LocalMedia.ExcludedPaths[0]);
+        Equal(true, loaded.LocalMedia.Items[0].IsAvailable);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
 }
 
 static void TestAudioParametersFormatting()
@@ -656,6 +792,13 @@ static void TestEmptyLocalSession()
     Equal(item, session.CurrentItem);
     True(session.Activate(item), "Plik dodany do pustej sesji powinien dać się odtworzyć.");
     Equal(1, output.PlayCount);
+    session.ReplaceItems([]);
+    Equal(false, session.HasItems);
+    Equal(false, session.IsPlaying);
+    Equal(1, output.StopCount);
+    session.ReplaceItems([item]);
+    Equal(true, session.HasItems);
+    Equal(item, session.CurrentItem);
 }
 
 static void TestLocalAudioFileDiscovery()
@@ -1030,6 +1173,8 @@ static void TestLocalMediaPersistence()
             DisplayName = "Nagrania"
         });
         state.LocalMedia.CurrentFolderPath = directory;
+        state.LocalMedia.LibraryView = "Foldery";
+        state.LocalMedia.ExcludedPaths.Add(@"C:\Muzyka\pomijany.mp3");
         state.LocalMedia.Items.Add(new LocalMediaItemSettings
         {
             Id = "local-1",
@@ -1052,6 +1197,8 @@ static void TestLocalMediaPersistence()
         Equal(1.50d, loaded.LocalMedia.PlaybackRate);
         Equal(1, loaded.LocalMedia.Items.Count);
         Equal(1, loaded.LocalMedia.FolderSources.Count);
+        Equal("Foldery", loaded.LocalMedia.LibraryView);
+        Equal(Path.GetFullPath(@"C:\Muzyka\pomijany.mp3"), loaded.LocalMedia.ExcludedPaths[0]);
         Equal("Nagrania", loaded.LocalMedia.FolderSources[0].DisplayName);
         Equal(Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory)), loaded.LocalMedia.CurrentFolderPath);
         Equal("local-1", new PlaybackHistory(loaded.PlaybackHistory).GetItemIds("local")[0]);
@@ -1060,6 +1207,7 @@ static void TestLocalMediaPersistence()
         Equal(TimeSpan.FromMinutes(17).Ticks, item.ResumePositionTicks);
         Equal(true, item.IsFavorite);
         Equal(true, item.IsInQueue);
+        Equal(true, item.IsAvailable);
 
         var output = new FakeMediaOutput();
         var media = new MediaItem { Id = item.Id, Title = item.Title, Source = item.Path };
@@ -1133,6 +1281,9 @@ static void TestCommandPalette()
     True(
         entries.Single(entry => entry.CommandId == CommandIds.OpenOfficialApp).LocalShortcut is null,
         "Otwieranie w oficjalnej aplikacji nie powinno kolidować ze skrótem folderu.");
+    Equal("Alt+1 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.ViewFolders).LocalShortcut);
+    Equal("Alt+2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.ViewAllLocalFiles).LocalShortcut);
+    Equal("F5 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RefreshLocalLibrary).LocalShortcut);
 
     var remaining = CommandPaletteSearch.Filter(entries, "czas pozostaly");
     Equal(1, remaining.Count);
@@ -1391,6 +1542,8 @@ static void TestTimeCommands()
     Equal("Usunięto z następnych: Pierwszy utwór demonstracyjny", sink.LastMessage);
     router.Execute(CommandIds.CommandPalette);
     True(actions.CommandPaletteShown, "Router powinien otworzyć paletę poleceń przez interfejs aplikacji.");
+    router.Execute(CommandIds.RefreshLocalLibrary);
+    True(actions.LocalLibraryRefreshed, "Router powinien przekazać ręczne odświeżenie lokalnej biblioteki.");
     router.Execute(CommandIds.SeekToTime);
     True(actions.SeekToTimeShown, "Router powinien otworzyć okno skoku do czasu.");
     router.Execute(CommandIds.SeekToPercentage);
@@ -1549,6 +1702,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public bool ItemPropertiesShown { get; private set; }
     public bool BookmarkAdded { get; private set; }
     public bool NamedBookmarkAdded { get; private set; }
+    public bool LocalLibraryRefreshed { get; private set; }
     public int BookmarkNavigationDirection { get; private set; }
     public void ShowCurrentSession(string viewName) { }
     public void ShowFilter() { }
@@ -1564,6 +1718,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ToggleSeekMessages() => SeekMessagesToggled = true;
     public void OpenLocalFiles() { }
     public void OpenLocalFolder() { }
+    public void RefreshLocalLibrary() => LocalLibraryRefreshed = true;
     public void ShowSeekToTime() => SeekToTimeShown = true;
     public void ShowSeekToPercentage() => SeekToPercentageShown = true;
     public void AddBookmark() => BookmarkAdded = true;

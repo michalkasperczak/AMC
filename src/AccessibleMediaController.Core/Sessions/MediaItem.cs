@@ -14,17 +14,18 @@ public enum MediaItemKind
 public sealed class MediaItem
 {
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
-    public string Title { get; init; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
     public string Artist { get; init; } = string.Empty;
     public MediaItemKind Kind { get; init; } = MediaItemKind.Track;
     public TimeSpan Duration { get; set; }
     public int? BitrateKbps { get; set; }
     public bool IsBitrateEstimated { get; set; }
     public int? SampleRateHz { get; set; }
-    public string? Source { get; init; }
+    public string? Source { get; set; }
     public string? PublicUri { get; init; }
     public bool IsFavorite { get; set; }
     public bool IsInLibrary { get; set; }
+    public bool IsAvailable { get; set; } = true;
     public bool IsInQueue { get; set; }
     public bool IsPlayNext { get; set; }
 

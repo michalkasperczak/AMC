@@ -91,8 +91,15 @@
                 <MenuItem Header="_Ulubione" InputGestureText="Ctrl+U" Click="FavoritesView_Click" />
                 <MenuItem Header="_Playlisty" InputGestureText="Ctrl+P" Click="PlaylistsView_Click" />
                 <MenuItem Header="_Biblioteka" InputGestureText="Ctrl+L" Click="LibraryView_Click" />
-                <MenuItem Header="_Foldery lokalne" Click="FoldersView_Click"
-                          automation:AutomationProperties.Name="Foldery lokalne" />
+                <MenuItem Header="Foldery _Biblioteki" InputGestureText="Alt+1" Click="FoldersView_Click"
+                          automation:AutomationProperties.Name="Foldery Biblioteki, Alt+1"
+                          automation:AutomationProperties.AcceleratorKey="Alt+1" />
+                <MenuItem Header="_Wszystkie pliki lokalne" InputGestureText="Alt+2" Click="AllLocalFilesView_Click"
+                          automation:AutomationProperties.Name="Wszystkie pliki lokalne, Alt+2"
+                          automation:AutomationProperties.AcceleratorKey="Alt+2" />
+                <MenuItem Header="_Odśwież źródła lokalne" InputGestureText="F5" Click="RefreshLocalLibrary_Click"
+                          automation:AutomationProperties.Name="Odśwież źródła biblioteki lokalnej, F5"
+                          automation:AutomationProperties.AcceleratorKey="F5" />
                 <MenuItem Header="_Albumy" InputGestureText="Ctrl+Shift+A" Click="AlbumsView_Click" />
                 <MenuItem Header="_Kolejka" InputGestureText="Ctrl+Q" Click="QueueView_Click" />
                 <MenuItem Header="_Historia odtwarzania" InputGestureText="Ctrl+H" Click="HistoryView_Click" />

@@ -10,6 +10,8 @@ Since `alpha.78`, the **Local Files** session exists from startup even when its 
 
 Since `alpha.79`, a registered folder is unambiguously a **Library source**. `Ctrl+Shift+O` includes every recognised file from that folder and its subfolders in the flat Library, including known records that had previously been removed from it; **Folders** is only a hierarchical view of the same records. Delete on a file in Folders removes its Library membership while leaving the physical file visible in its real folder. Delete on a folder row removes nothing, while physically moving a file to the Recycle Bin still requires `Shift+Delete` and confirmation.
 
+Since `alpha.80`, sources synchronize at startup, after file-system changes and on demand with `F5`. New files are added, missing files become unavailable without losing history, bookmarks or resume positions, and a file restored to the same path returns to the active Library. Delete creates a persistent exclusion, so rescanning or restarting cannot silently add the file again; immediate `Ctrl+Z` removes that exclusion. `Alt+1` opens **Library Folders**, `Alt+2` opens flat **All files**, and `Ctrl+L` returns to whichever layout was used most recently. `Shift+digits` remains available for type-ahead names beginning with punctuation.
+
 The active working repository should reside on an ordinary local NTFS volume outside iCloud Drive, Google Drive, OneDrive and other synchronized directories. GitHub stores source history, while atomic user-data backups may be exported to cloud storage. On the primary test computer the canonical project path is `D:\Projekty Codex\Accessible Multimedia Controller`.
 
 ## Simplest way to run a published build

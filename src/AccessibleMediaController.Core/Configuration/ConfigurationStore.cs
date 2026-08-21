@@ -8,7 +8,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 17;
+    public const int CurrentSchemaVersion = 18;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -40,7 +40,7 @@ public sealed class ConfigurationStore(string statePath)
         NormalizeSessionSlots(state.Settings);
         NormalizeSearchHistory(state);
         NormalizeSessionNavigation(state);
-        NormalizeLocalMedia(state);
+        NormalizeLocalMedia(state, state.SchemaVersion);
         NormalizePlaybackHistory(state);
         NormalizeBookmarks(state);
         ValidateState(state);
@@ -160,10 +160,11 @@ public sealed class ConfigurationStore(string statePath)
 
     private static void MigrateState(PersistedState state)
     {
+        var sourceSchemaVersion = state.SchemaVersion;
         MigrateSettings(state.Settings, state.SchemaVersion);
         NormalizeSearchHistory(state);
         NormalizeSessionNavigation(state);
-        NormalizeLocalMedia(state);
+        NormalizeLocalMedia(state, sourceSchemaVersion);
         NormalizePlaybackHistory(state);
         NormalizeBookmarks(state);
         state.SchemaVersion = CurrentSchemaVersion;
@@ -221,7 +222,7 @@ public sealed class ConfigurationStore(string statePath)
         }
     }
 
-    private static void NormalizeLocalMedia(PersistedState state)
+    private static void NormalizeLocalMedia(PersistedState state, int schemaVersion)
     {
         state.LocalMedia ??= new LocalMediaSettings();
         state.LocalMedia.Items = (state.LocalMedia.Items ?? [])
@@ -246,6 +247,48 @@ public sealed class ConfigurationStore(string statePath)
             .GroupBy(source => source.Path, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToList();
+        state.LocalMedia.LibraryView = state.LocalMedia.LibraryView is "Foldery" or "Wszystkie pliki"
+            ? state.LocalMedia.LibraryView
+            : "Foldery";
+        state.LocalMedia.ExcludedPaths = (state.LocalMedia.ExcludedPaths ?? [])
+            .Select(NormalizeFilePath)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (schemaVersion < 18)
+        {
+            foreach (var item in state.LocalMedia.Items.Where(item => !item.IsInLibrary))
+            {
+                var path = NormalizeFilePath(item.Path);
+                if (path.Length > 0
+                    && state.LocalMedia.FolderSources.Any(source => IsSameOrDescendant(path, source.Path))
+                    && !state.LocalMedia.ExcludedPaths.Contains(path, StringComparer.OrdinalIgnoreCase))
+                {
+                    state.LocalMedia.ExcludedPaths.Add(path);
+                }
+            }
+
+            if (state.SessionNavigation.Sessions.TryGetValue("local", out var navigation))
+            {
+                if (string.Equals(navigation.CurrentView, "Biblioteka", StringComparison.Ordinal))
+                {
+                    state.LocalMedia.LibraryView = "Wszystkie pliki";
+                    navigation.CurrentView = "Wszystkie pliki";
+                }
+                else if (string.Equals(navigation.CurrentView, "Foldery", StringComparison.Ordinal))
+                {
+                    state.LocalMedia.LibraryView = "Foldery";
+                }
+                else if (string.Equals(navigation.CurrentView, "Multimedia", StringComparison.Ordinal))
+                {
+                    state.LocalMedia.LibraryView = state.LocalMedia.FolderSources.Count > 0
+                        ? "Foldery"
+                        : "Wszystkie pliki";
+                    navigation.CurrentView = state.LocalMedia.LibraryView;
+                }
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(state.LocalMedia.CurrentFolderPath))
         {
@@ -266,6 +309,7 @@ public sealed class ConfigurationStore(string statePath)
                 knownIds.Add(item.Id);
             }
             if (string.IsNullOrWhiteSpace(item.Title)) item.Title = Path.GetFileNameWithoutExtension(item.Path);
+            item.Path = NormalizeFilePath(item.Path);
             item.DurationTicks = Math.Max(0, item.DurationTicks);
             item.ResumePositionTicks = Math.Max(0, item.ResumePositionTicks);
             if (item.DurationTicks > 0)
@@ -444,6 +488,18 @@ public sealed class ConfigurationStore(string statePath)
         try
         {
             return Path.TrimEndingDirectorySeparator(Path.GetFullPath(path.Trim()));
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return string.Empty;
+        }
+    }
+
+    private static string NormalizeFilePath(string path)
+    {
+        try
+        {
+            return Path.GetFullPath(path.Trim());
         }
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
         {

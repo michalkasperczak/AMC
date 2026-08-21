@@ -28,6 +28,7 @@ public interface IApplicationActions
     void ToggleSeekMessages();
     void OpenLocalFiles();
     void OpenLocalFolder();
+    void RefreshLocalLibrary();
     void ShowSeekToTime();
     void ShowSeekToPercentage();
     void AddBookmark();
@@ -98,6 +99,9 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.OpenLocalFolder:
                 application.OpenLocalFolder();
+                return new(true);
+            case CommandIds.RefreshLocalLibrary:
+                application.RefreshLocalLibrary();
                 return new(true);
             case CommandIds.SeekToTime:
                 application.ShowSeekToTime();
@@ -237,6 +241,7 @@ public sealed class CommandRouter(
             case CommandIds.SearchAll: return ShowView("Szukaj we wszystkich usługach");
             case CommandIds.ViewLibrary: return ShowView("Biblioteka");
             case CommandIds.ViewFolders: return ShowView("Foldery");
+            case CommandIds.ViewAllLocalFiles: return ShowView("Wszystkie pliki");
             case CommandIds.ViewQueue: return ShowView("Kolejka");
             case CommandIds.ViewAlbums: return ShowView("Albumy");
             case CommandIds.ViewRadio: return ShowView("Radio i rekomendacje");

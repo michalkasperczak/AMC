@@ -147,7 +147,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 17;
+    public int SchemaVersion { get; set; } = 18;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -206,6 +206,8 @@ public sealed class LocalMediaSettings
 {
     public List<LocalMediaItemSettings> Items { get; set; } = [];
     public List<LocalFolderSourceSettings> FolderSources { get; set; } = [];
+    public List<string> ExcludedPaths { get; set; } = [];
+    public string LibraryView { get; set; } = "Foldery";
     public string? CurrentFolderPath { get; set; }
     public string? CurrentItemId { get; set; }
     public int Volume { get; set; } = 35;
@@ -230,6 +232,7 @@ public sealed class LocalMediaItemSettings
     public int? SampleRateHz { get; set; }
     public bool IsFavorite { get; set; }
     public bool IsInLibrary { get; set; } = true;
+    public bool IsAvailable { get; set; } = true;
     public bool IsInQueue { get; set; }
     public bool IsPlayNext { get; set; }
     public long ResumePositionTicks { get; set; }

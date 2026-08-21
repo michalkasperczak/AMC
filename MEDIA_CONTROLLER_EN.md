@@ -334,13 +334,13 @@ Loading more appends to the existing collection rather than unnecessarily replac
 
 ### 7.6. Local Library and real folders
 
-The local Library separates the **AMC catalogue** from physical storage. Reference mode is the default: AMC stores a stable record and canonical path but neither copies nor renames the file and creates no hidden private copy. `Ctrl+O` adds selected files this way. `Ctrl+Shift+O` registers the selected folder as a persistent **Library source** and includes every recognised file from it and its subfolders. Reopening a source creates no duplicate but restores known records that had previously been removed from the Library. Watching for changes and an explicit rescan command remain later stages.
+The local Library separates the **AMC catalogue** from physical storage. Reference mode is the default: AMC stores a stable record and canonical path but neither copies nor renames the file and creates no hidden private copy. `Ctrl+O` adds selected files this way. `Ctrl+Shift+O` registers the selected folder as a persistent **Library source** and includes every recognised file from it and its subfolders. Sources synchronize at startup, after file-system events and explicitly through `F5`. A missing file is marked unavailable rather than deleted from the catalogue, preserving its history, bookmarks and resume position.
 
 A user may register several sources: an ordinary local directory, external drive, network share, or folder managed by iCloud Drive or OneDrive. AMC does not implement its own synchronization for such a source. The cloud provider transfers data, while the local adapter recognizes file availability and Cloud Files placeholders. Indexing alone should not hydrate an entire cloud collection; playback may request the selected file and must announce waiting or failure. Reparse points are controlled so scanning cannot enter cycles.
 
 The **Folders** view mirrors the real hierarchy without a problematic multi-level TreeView. It is a standard list for the current level: directories and files are ordinary rows, Enter enters a directory or opens a file, Backspace or an explicit Parent Folder command goes up one level, and type-ahead searches only the visible level. The flat **Library** remains a parallel view of all records. Albums, Artists and Genres are derived from available tags but never replace Folders or hide files with incomplete metadata.
 
-Removing a Library source removes only AMC references owned solely by that source and never deletes the physical directory. `Delete` removes an AMC record, while confirmed `Shift+Delete` uses the system Recycle Bin. An external rename or move triggers controlled rematching by file identity and fingerprint; a title alone is never an identifier. An optional **managed AMC Library** may later copy or move imports into one selected directory as an explicitly enabled mode. That directory may also live in cloud storage, but synchronization remains the provider's job rather than AMC's.
+Removing a Library source removes only AMC references owned solely by that source and never deletes the physical directory. `Delete` excludes a record from the active Library and persists that exclusion, while confirmed `Shift+Delete` uses the system Recycle Bin. Restoring a file at the same path restores the same record's availability. A rename or move observed while AMC is running preserves record identity; fingerprint matching for a move performed while the application is closed remains a later stage. An optional **managed AMC Library** may later copy or move imports into one selected directory as an explicitly enabled mode. That directory may also live in cloud storage, but synchronization remains the provider's job rather than AMC's.
 
 The index database, live state and working files remain local in AppData and are never opened concurrently by a cloud synchronizer. Atomic exports of settings, playlists, bookmarks and full AMC backups may be stored in cloud folders. The source repository, `.git`, `obj`, `bin` and active publish directory also remain outside synchronized folders; GitHub provides source history.
 
@@ -400,6 +400,9 @@ Approved primary bindings:
 | `Ctrl+Shift+L` | add to the library |
 | `Ctrl+O` | open one or more local audio files |
 | `Ctrl+Shift+O` | open a folder of audio files, including subfolders |
+| `Alt+1` on a local list | show Library Folders |
+| `Alt+2` on a local list | show the flat All files list |
+| `F5` in the local session | rescan every available source |
 | `F6` | open the player view |
 | `Left/Right Arrow` in the player | seek backward or forward by 10 seconds |
 | `Shift+Left/Right Arrow` in the player | seek backward or forward by 30 seconds |
@@ -803,6 +806,8 @@ State of `alpha.77`: `Ctrl+Shift+O` registers the selected directory as a persis
 Correction in `alpha.78`: the logical Local Files session is created at startup even when it contains no media. Its assigned shortcut therefore always resolves, while item-dependent commands report an empty session. Choosing a source through `Ctrl+Shift+O` switches to the local Folders view and persists the source before asynchronous discovery begins, so another service's demonstration list is no longer left visible during scanning.
 
 Correction in `alpha.79`: Folders and Library are not separate data catalogues. A registered folder is a Library source, Folders presents its physical hierarchy, and `Ctrl+L` presents a flat alphabetical set of the same records. Repeating `Ctrl+Shift+O` restores known files that had previously been removed from the Library. Delete on a file in Folders removes only Library membership and leaves the file on disk; `Ctrl+Z` restores membership. Delete on a folder row removes neither the source nor the directory. Source management will use a separate unambiguous command, while the physical Recycle Bin remains exclusive to confirmed `Shift+Delete`.
+
+Correction in `alpha.80`: Delete stores a persistent exclusion, so the watcher, `F5` and restarting cannot silently add an item again; immediate `Ctrl+Z` removes the exclusion. Sources are scanned at startup and watched while AMC runs. An unavailable source is not mistaken for an empty folder, while missing files retain their data and return when they reappear at the same path. `Alt+1` selects Library Folders, `Alt+2` selects flat All files, `Ctrl+L` opens the last local layout, and `F5` forces a complete scan. Shift plus a digit is not a view shortcut: the punctuation produced by the keyboard layout participates in type-ahead navigation.
 
 Local Library priority: a real **Folders** hierarchy will be the primary view because a user's collection may not contain complete tags. A flat Library remains as a parallel view of every imported file. Artist, Album and Genre views may later be derived from metadata but are not a usability prerequisite. Favorites, Queue, History, Playlists and Bookmarks reference the same records regardless of source view.
 
