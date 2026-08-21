@@ -33,6 +33,7 @@ var tests = new (string Name, Action Test)[]
     ("Synchronizacja źródeł lokalnej biblioteki", TestLocalLibrarySynchronization),
     ("Integracyjny cykl zmian folderu", TestLocalFolderSynchronizationCycle),
     ("Migracja biblioteki alpha.79", TestVersion17LocalLibraryMigration),
+    ("Naprawa pustego źródła po alpha.80", TestVersion18EmptySourceMigration),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
     ("Historia wyszukiwania", TestSearchHistory),
     ("Historia odtwarzania", TestPlaybackHistory),
@@ -344,6 +345,13 @@ static void TestVersion17LocalLibraryMigration()
             Path = path,
             IsInLibrary = false
         });
+        state.LocalMedia.Items.Add(new LocalMediaItemSettings
+        {
+            Id = "included",
+            Title = "Pozostawiony",
+            Path = Path.Combine(source, "pozostawiony.mp3"),
+            IsInLibrary = true
+        });
         state.SessionNavigation.Sessions["local"] = new SessionNavigationState
         {
             CurrentView = "Biblioteka"
@@ -355,7 +363,7 @@ static void TestVersion17LocalLibraryMigration()
         var localMedia = document["localMedia"]!.AsObject();
         localMedia.Remove("excludedPaths");
         localMedia.Remove("libraryView");
-        localMedia["items"]![0]!.AsObject().Remove("isAvailable");
+        foreach (var item in localMedia["items"]!.AsArray()) item!.AsObject().Remove("isAvailable");
         File.WriteAllText(statePath, document.ToJsonString());
 
         var loaded = store.LoadOrCreate();
@@ -365,6 +373,52 @@ static void TestVersion17LocalLibraryMigration()
         Equal(1, loaded.LocalMedia.ExcludedPaths.Count);
         Equal(Path.GetFullPath(path), loaded.LocalMedia.ExcludedPaths[0]);
         Equal(true, loaded.LocalMedia.Items[0].IsAvailable);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
+static void TestVersion18EmptySourceMigration()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-v18-empty-source-{Guid.NewGuid():N}");
+    var source = Path.Combine(directory, "iCloud");
+    Directory.CreateDirectory(source);
+    try
+    {
+        var statePath = Path.Combine(directory, "state.json");
+        var store = new ConfigurationStore(statePath);
+        var state = ConfigurationStore.CreateDefaultState();
+        state.LocalMedia.FolderSources.Add(new LocalFolderSourceSettings
+        {
+            Id = "cloud-source",
+            Path = source,
+            DisplayName = "iCloud"
+        });
+        foreach (var name in new[] { "pierwszy.mp3", "drugi.m4a" })
+        {
+            var path = Path.Combine(source, name);
+            state.LocalMedia.Items.Add(new LocalMediaItemSettings
+            {
+                Id = name,
+                Title = Path.GetFileNameWithoutExtension(name),
+                Path = path,
+                IsInLibrary = false,
+                IsAvailable = true
+            });
+            state.LocalMedia.ExcludedPaths.Add(path);
+        }
+        store.Save(state);
+
+        var document = JsonNode.Parse(File.ReadAllText(statePath))!.AsObject();
+        document["schemaVersion"] = 18;
+        File.WriteAllText(statePath, document.ToJsonString());
+
+        var loaded = store.LoadOrCreate();
+        Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
+        Equal(0, loaded.LocalMedia.ExcludedPaths.Count);
+        Equal(true, loaded.LocalMedia.Items.All(item => item.IsInLibrary));
     }
     finally
     {
@@ -592,6 +646,17 @@ static void TestSessions()
     True(manager.Current.Items.Count(item => item.Title.StartsWith('B')) >= 2, "Dane demonstracyjne powinny umożliwiać powtarzanie litery B.");
     True(manager.Current.Items.Count(item => item.Title.StartsWith('C')) >= 2, "Dane demonstracyjne powinny umożliwiać powtarzanie litery C.");
     True(manager.Current.Items.Any(item => item.IsInQueue), "Kolejka demonstracyjna nie powinna być pusta.");
+    var tidalQueueIds = manager.Current.Items
+        .Where(item => item.IsInQueue || item.IsPlayNext)
+        .Select(item => item.Id)
+        .ToArray();
+    Equal("Apple Music", manager.SelectSession("appleMusic")?.DisplayName);
+    Equal("TIDAL", manager.SelectSession("tidal")?.DisplayName);
+    Equal(
+        string.Join('|', tidalQueueIds),
+        string.Join('|', manager.Current.Items
+            .Where(item => item.IsInQueue || item.IsPlayNext)
+            .Select(item => item.Id)));
     Equal(true, manager.Current.ToggleQueue(manager.Current.CurrentItem));
     Equal(false, manager.Current.ToggleQueue(manager.Current.CurrentItem));
     Equal(true, manager.Current.TogglePlayNext(manager.Current.CurrentItem));

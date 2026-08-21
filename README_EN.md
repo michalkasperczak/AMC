@@ -12,6 +12,8 @@ Since `alpha.79`, a registered folder is unambiguously a **Library source**. `Ct
 
 Since `alpha.80`, sources synchronize at startup, after file-system changes and on demand with `F5`. New files are added, missing files become unavailable without losing history, bookmarks or resume positions, and a file restored to the same path returns to the active Library. Delete creates a persistent exclusion, so rescanning or restarting cannot silently add the file again; immediate `Ctrl+Z` removes that exclusion. `Alt+1` opens **Library Folders**, `Alt+2` opens flat **All files**, and `Ctrl+L` returns to whichever layout was used most recently. `Shift+digits` remains available for type-ahead names beginning with punctuation.
 
+Since `alpha.81`, discovery distinguishes real directory links from Cloud Files placeholder files and directories. iCloud sources can therefore be indexed without opening and hydrating every recording, while symbolic links and junctions still cannot introduce traversal loops. A one-time migration repairs a source whose complete legacy catalogue was accidentally excluded by alpha.80. Switching from `Alt+2` to `Alt+1` now opens the selected file's actual directory and retains its selection; a standalone file outside registered sources maps to the Folders root.
+
 The active working repository should reside on an ordinary local NTFS volume outside iCloud Drive, Google Drive, OneDrive and other synchronized directories. GitHub stores source history, while atomic user-data backups may be exported to cloud storage. On the primary test computer the canonical project path is `D:\Projekty Codex\Accessible Multimedia Controller`.
 
 ## Simplest way to run a published build

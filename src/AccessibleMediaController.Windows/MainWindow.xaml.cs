@@ -269,6 +269,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RestoreCurrentSessionNavigationState();
         }
 
+        if (string.Equals(viewName, FolderViewName, StringComparison.Ordinal)
+            && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+            && string.Equals(_currentView, AllLocalFilesViewName, StringComparison.Ordinal)
+            && SelectedItem is { Source.Length: > 0 } selectedFlatItem
+            && TryGetLocalPath(selectedFlatItem.Source, out var selectedPath))
+        {
+            var source = _state.LocalMedia.FolderSources
+                .Where(candidate => IsSameOrDescendantPath(selectedPath, candidate.Path))
+                .OrderByDescending(candidate => candidate.Path.Length)
+                .FirstOrDefault();
+            _state.LocalMedia.CurrentFolderPath = source is null
+                ? null
+                : Path.GetDirectoryName(selectedPath);
+            var navigation = GetSessionNavigationState("local");
+            navigation.SelectedItemIds[FolderViewName] = selectedFlatItem.Id;
+            navigation.Filters[FolderViewName] = string.Empty;
+        }
+
         if (viewName is FolderViewName or AllLocalFilesViewName)
         {
             _state.LocalMedia.LibraryView = viewName;

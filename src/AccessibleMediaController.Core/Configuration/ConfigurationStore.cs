@@ -8,7 +8,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 18;
+    public const int CurrentSchemaVersion = 19;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -287,6 +287,32 @@ public sealed class ConfigurationStore(string statePath)
                         : "Wszystkie pliki";
                     navigation.CurrentView = state.LocalMedia.LibraryView;
                 }
+            }
+        }
+
+        if (schemaVersion < 19)
+        {
+            // Alpha.80 could turn every legacy record below a newly registered
+            // source into an exclusion. An entirely excluded source is not a
+            // useful migrated state and made Cloud Files folders look empty.
+            foreach (var source in state.LocalMedia.FolderSources)
+            {
+                var sourceItems = state.LocalMedia.Items
+                    .Where(item => IsSameOrDescendant(NormalizeFilePath(item.Path), source.Path))
+                    .ToArray();
+                if (sourceItems.Length == 0
+                    || sourceItems.Any(item => item.IsInLibrary)
+                    || sourceItems.Any(item => !state.LocalMedia.ExcludedPaths.Contains(
+                        NormalizeFilePath(item.Path), StringComparer.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                var sourcePaths = sourceItems
+                    .Select(item => NormalizeFilePath(item.Path))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                state.LocalMedia.ExcludedPaths.RemoveAll(sourcePaths.Contains);
+                foreach (var item in sourceItems) item.IsInLibrary = true;
             }
         }
 

@@ -28,18 +28,91 @@ public static class LocalAudioFileDiscovery
     {
         var options = new EnumerationOptions
         {
-            RecurseSubdirectories = true,
+            RecurseSubdirectories = false,
             IgnoreInaccessible = true,
             ReturnSpecialDirectories = false,
-            AttributesToSkip = FileAttributes.ReparsePoint
+            AttributesToSkip = 0
         };
 
-        return Directory
-            .EnumerateFiles(folderPath, "*", options)
-            .Where(IsAudioFile)
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folderPath));
+        var pending = new Stack<string>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var files = new List<string>();
+        pending.Push(root);
+
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            if (!visited.Add(current)) continue;
+
+            FileSystemInfo[] entries;
+            try
+            {
+                entries = new DirectoryInfo(current)
+                    .EnumerateFileSystemInfos("*", options)
+                    .ToArray();
+            }
+            catch (Exception exception) when (
+                exception is IOException
+                    or UnauthorizedAccessException
+                    or ArgumentException
+                    or DirectoryNotFoundException)
+            {
+                continue;
+            }
+
+            foreach (var entry in entries)
+            {
+                FileAttributes attributes;
+                try
+                {
+                    attributes = entry.Attributes;
+                }
+                catch (Exception exception) when (
+                    exception is IOException
+                        or UnauthorizedAccessException
+                        or FileNotFoundException)
+                {
+                    continue;
+                }
+
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    if (IsSymbolicDirectory(entry, attributes)) continue;
+                    pending.Push(entry.FullName);
+                    continue;
+                }
+
+                // Cloud Files placeholders (including iCloud) are reparse-point
+                // files. Reading only their path and attributes indexes them
+                // without opening or hydrating the audio payload.
+                if (IsAudioFile(entry.FullName)) files.Add(entry.FullName);
+            }
+        }
+
+        return files
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(path => Path.GetRelativePath(folderPath, path), NaturalPathComparer.Instance)
+            .OrderBy(path => Path.GetRelativePath(root, path), NaturalPathComparer.Instance)
             .ToArray();
+    }
+
+    private static bool IsSymbolicDirectory(FileSystemInfo entry, FileAttributes attributes)
+    {
+        if ((attributes & FileAttributes.ReparsePoint) == 0) return false;
+        try
+        {
+            // Cloud-provider directories have ReparsePoint but no LinkTarget.
+            // Symbolic links and junctions expose a target and are skipped to
+            // prevent cycles and accidental traversal outside the source.
+            return entry.LinkTarget is not null;
+        }
+        catch (Exception exception) when (
+            exception is IOException
+                or UnauthorizedAccessException
+                or NotSupportedException)
+        {
+            return true;
+        }
     }
 
     private sealed class NaturalPathComparer : IComparer<string>

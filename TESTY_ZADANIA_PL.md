@@ -1,12 +1,40 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-080`
-- Tytuł zestawu: Synchronizowane źródła lokalnej Biblioteki
-- Wersja programu: `0.1.0-alpha.80`
+- Numer zestawu: `AMC-TEST-081`
+- Tytuł zestawu: Foldery iCloud i przejście z płaskiej Biblioteki
+- Wersja programu: `0.1.0-alpha.81`
 - Utworzono: 2026-08-21, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.80.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.81.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Poprawki alpha 81
+
+### AMC-081-01 — Naprawa źródła Sideloads
+
+Uruchom alfę 81 na dotychczasowym stanie i otwórz Foldery Biblioteki przez `Alt+1`. Wejdź do źródła `Sideloads`.
+
+Oczekiwane: jednorazowa migracja usuwa błędne zbiorowe wykluczenie z alfy 80, źródło nie jest puste i pokazuje rozpoznane pliki oraz podfoldery. Samo indeksowanie nie powinno rozpoczynać odtwarzania ani pobierania wszystkich nagrań z iCloud.
+
+### AMC-081-02 — Alt+2 do Alt+1
+
+W `Alt+2` zaznacz plik znajdujący się kilka poziomów pod jednym ze źródeł, a następnie naciśnij `Alt+1`.
+
+Oczekiwane: AMC otwiera folder nadrzędny tego pliku, pozostawia fokus na tym samym pliku i odczytuje położenie w Folderach. Dla pliku dodanego pojedynczo przez `Ctrl+O`, który nie leży w żadnym źródle, `Alt+1` przechodzi do głównego poziomu Folderów i zachowuje zaznaczenie na samodzielnym pliku.
+
+### AMC-081-03 — Placeholder iCloud i F5
+
+W źródle iCloud sprawdź plik dostępny tylko jako placeholder, następnie naciśnij `F5`.
+
+Oczekiwane: plik pozostaje w Bibliotece, skanowanie nie uznaje `ReparsePoint` za dowiązanie i nie uruchamia pobierania treści. Prawdziwe dowiązania katalogów nie są przeszukiwane.
+
+### AMC-081-04 — Kolejki poszczególnych sesji
+
+Dodaj element do Kolejki w WiiM lub innej demonstracyjnej sesji. Otwórz lokalny folder przez `Ctrl+Shift+O`, sprawdź lokalną Kolejkę, a potem wróć do poprzedniej sesji i ponownie otwórz jej Kolejkę.
+
+Oczekiwane: po otwarciu folderu aktywna jest sesja Pliki lokalne, której Kolejka może być pusta. Powrót do poprzedniej sesji pokazuje jej wcześniejszą Kolejkę; samo skanowanie lokalnego źródła jej nie czyści.
+
+## Poprzedni zestaw regresyjny alpha 80
 
 ## Nowości alpha 80
 
