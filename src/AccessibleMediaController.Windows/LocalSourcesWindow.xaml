@@ -1,0 +1,42 @@
+<Window x:Class="AccessibleMediaController.Windows.LocalSourcesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="Źródła Biblioteki lokalnej" Width="720" Height="500" MinWidth="600" MinHeight="390"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBlock Text="Źródła Biblioteki lokalnej" FontSize="18" FontWeight="SemiBold"
+                       automation:AutomationProperties.HeadingLevel="Level1" />
+            <TextBlock Margin="0,5,0,0" TextWrapping="Wrap"
+                       Text="Każdy folder jest automatycznie synchronizowany z Biblioteką. Odłączenie źródła nie usuwa plików z dysku ani zapisanych danych AMC." />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <TextBlock x:Name="OperationStatusText" Margin="0,0,0,8" TextWrapping="Wrap"
+                       automation:AutomationProperties.Name="Wynik operacji"
+                       automation:AutomationProperties.LiveSetting="Assertive" />
+            <WrapPanel HorizontalAlignment="Left">
+                <Button x:Name="AddSourceButton" Margin="0,0,8,8" Content="_Dodaj folder…" Click="AddSource_Click" />
+                <Button x:Name="RefreshSelectedButton" Margin="0,0,8,8" Content="Odśwież _wybrane" Click="RefreshSelected_Click" />
+                <Button x:Name="RefreshAllButton" Margin="0,0,8,8" Content="Odśwież w_szystkie" Click="RefreshAll_Click" />
+                <Button x:Name="DetachSourceButton" Margin="0,0,8,8" Content="_Odłącz źródło…" Click="DetachSource_Click" />
+                <Button x:Name="ExportBackupButton" Margin="0,0,8,8" Content="Eksportuj pełną _kopię AMC…" Click="ExportBackup_Click" />
+                <Button Margin="0,0,0,8" Content="_Zamknij" IsCancel="True" />
+            </WrapPanel>
+        </StackPanel>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ListBox x:Name="SourcesList" DisplayMemberPath="Label" TextSearch.TextPath="DisplayName"
+                     automation:AutomationProperties.Name="Źródła folderowe Biblioteki"
+                     SelectionChanged="SourcesList_SelectionChanged" />
+            <TextBlock x:Name="SourceDetailsText" Grid.Row="1" Margin="0,10,0,0" TextWrapping="Wrap"
+                       automation:AutomationProperties.Name="Szczegóły wybranego źródła" />
+        </Grid>
+    </DockPanel>
+</Window>

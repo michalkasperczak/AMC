@@ -32,6 +32,7 @@ var tests = new (string Name, Action Test)[]
     ("Ponowne włączanie folderu do biblioteki", TestLocalLibraryImport),
     ("Synchronizacja źródeł lokalnej biblioteki", TestLocalLibrarySynchronization),
     ("Integracyjny cykl zmian folderu", TestLocalFolderSynchronizationCycle),
+    ("Bezpieczne zarządzanie źródłami Biblioteki", TestLocalFolderSourcePolicy),
     ("Migracja biblioteki alpha.79", TestVersion17LocalLibraryMigration),
     ("Naprawa pustego źródła po alpha.80", TestVersion18EmptySourceMigration),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
@@ -163,6 +164,7 @@ static void TestCommandCatalog()
     Equal("Biblioteka lokalna: pokaż foldery", CommandCatalog.GetDisplayName(CommandIds.ViewFolders));
     Equal("Biblioteka lokalna: pokaż wszystkie pliki", CommandCatalog.GetDisplayName(CommandIds.ViewAllLocalFiles));
     Equal("Odśwież źródła biblioteki lokalnej", CommandCatalog.GetDisplayName(CommandIds.RefreshLocalLibrary));
+    Equal("Zarządzaj źródłami biblioteki lokalnej", CommandCatalog.GetDisplayName(CommandIds.ManageLocalSources));
     Equal("Ustawienia: kolejność sesji i skrótów Ctrl+1–9", CommandCatalog.GetDisplayName(CommandIds.SettingsSessionOrder));
     Equal("Skocz do czasu", CommandCatalog.GetDisplayName(CommandIds.SeekToTime));
     Equal("Skocz do procentu", CommandCatalog.GetDisplayName(CommandIds.SeekToPercentage));
@@ -1609,6 +1611,8 @@ static void TestTimeCommands()
     True(actions.CommandPaletteShown, "Router powinien otworzyć paletę poleceń przez interfejs aplikacji.");
     router.Execute(CommandIds.RefreshLocalLibrary);
     True(actions.LocalLibraryRefreshed, "Router powinien przekazać ręczne odświeżenie lokalnej biblioteki.");
+    router.Execute(CommandIds.ManageLocalSources);
+    True(actions.LocalSourceManagerShown, "Router powinien otworzyć menedżer źródeł Biblioteki.");
     router.Execute(CommandIds.SeekToTime);
     True(actions.SeekToTimeShown, "Router powinien otworzyć okno skoku do czasu.");
     router.Execute(CommandIds.SeekToPercentage);
@@ -1657,6 +1661,49 @@ static void TestSeekInputParser()
     True(!SeekInputParser.TryParsePercentage("101", out _, out _), "Procent ponad 100 nie może być przyjęty.");
 }
 
+static void TestLocalFolderSourcePolicy()
+{
+    var root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "AMC-library"));
+    var child = Path.Combine(root, "Podcasty");
+    var parent = Directory.GetParent(root)?.FullName ?? Path.GetPathRoot(root)!;
+    var sources = new List<LocalFolderSourceSettings>
+    {
+        new() { Id = "source-1", DisplayName = "Biblioteka", Path = root }
+    };
+
+    Equal(
+        LocalFolderSourceConflictKind.SameSource,
+        LocalFolderSourcePolicy.FindConflict(sources, root)!.Kind);
+    Equal(
+        LocalFolderSourceConflictKind.CoveredByExistingSource,
+        LocalFolderSourcePolicy.FindConflict(sources, child)!.Kind);
+    Equal(
+        LocalFolderSourceConflictKind.ContainsExistingSource,
+        LocalFolderSourcePolicy.FindConflict(sources, parent)!.Kind);
+
+    var items = new List<LocalMediaItemSettings>
+    {
+        new() { Id = "one", Path = Path.Combine(root, "one.mp3"), IsInLibrary = true, IsAvailable = true },
+        new() { Id = "two", Path = Path.Combine(root, "two.ogg"), IsInLibrary = true, IsAvailable = false },
+        new() { Id = "three", Path = Path.Combine(root, "three.wav"), IsInLibrary = false, IsAvailable = true }
+    };
+    var statuses = LocalFolderSourcePolicy.BuildStatuses(
+        sources,
+        items,
+        [items[2].Path],
+        _ => false);
+    Equal(1, statuses.Count);
+    Equal(false, statuses[0].IsReachable);
+    Equal(1, statuses[0].ActiveItemCount);
+    Equal(1, statuses[0].UnavailableItemCount);
+    Equal(1, statuses[0].ExcludedItemCount);
+
+    True(LocalFolderSourcePolicy.DetachSource(sources, "source-1"), "Źródło powinno dać się odłączyć.");
+    Equal(0, sources.Count);
+    Equal(3, items.Count);
+    Equal(true, items[0].IsInLibrary);
+}
+
 static void TestExports()
 {
     var directory = Path.Combine(Path.GetTempPath(), $"amc-tests-{Guid.NewGuid():N}");
@@ -1682,6 +1729,21 @@ static void TestExports()
             ItemTitle = "Pierwszy utwór demonstracyjny",
             PositionTicks = TimeSpan.FromMinutes(2).Ticks,
             CreatedUtcTicks = DateTime.UtcNow.Ticks
+        });
+        state.LocalMedia.FolderSources.Add(new LocalFolderSourceSettings
+        {
+            Id = "local-source",
+            DisplayName = "Nagrania",
+            Path = Path.Combine(directory, "Nagrania")
+        });
+        state.LocalMedia.Items.Add(new LocalMediaItemSettings
+        {
+            Id = "local-item",
+            Title = "Audycja",
+            Path = Path.Combine(directory, "Nagrania", "audycja.mp3"),
+            IsInLibrary = true,
+            IsAvailable = false,
+            ResumePositionTicks = TimeSpan.FromMinutes(12).Ticks
         });
         var mapPath = Path.Combine(directory, "map.amckeys.json");
         var settingsPath = Path.Combine(directory, "settings.amcsettings.json");
@@ -1726,6 +1788,10 @@ static void TestExports()
         Equal(PercentageSeekAnnouncementMode.PercentAndTime, importedBackup.Settings.Messages.PercentageSeekAnnouncement);
         Equal(1, importedBackup.Bookmarks.Entries.Count);
         Equal("tidal-1", importedBackup.Bookmarks.Entries[0].ItemId);
+        Equal(1, importedBackup.LocalMedia.FolderSources.Count);
+        Equal("local-source", importedBackup.LocalMedia.FolderSources[0].Id);
+        Equal(1, importedBackup.LocalMedia.Items.Count);
+        Equal(TimeSpan.FromMinutes(12).Ticks, importedBackup.LocalMedia.Items[0].ResumePositionTicks);
     }
     finally
     {
@@ -1768,6 +1834,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public bool BookmarkAdded { get; private set; }
     public bool NamedBookmarkAdded { get; private set; }
     public bool LocalLibraryRefreshed { get; private set; }
+    public bool LocalSourceManagerShown { get; private set; }
     public int BookmarkNavigationDirection { get; private set; }
     public void ShowCurrentSession(string viewName) { }
     public void ShowFilter() { }
@@ -1784,6 +1851,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void OpenLocalFiles() { }
     public void OpenLocalFolder() { }
     public void RefreshLocalLibrary() => LocalLibraryRefreshed = true;
+    public void ShowLocalSourceManager() => LocalSourceManagerShown = true;
     public void ShowSeekToTime() => SeekToTimeShown = true;
     public void ShowSeekToPercentage() => SeekToPercentageShown = true;
     public void AddBookmark() => BookmarkAdded = true;

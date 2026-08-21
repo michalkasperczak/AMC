@@ -16,6 +16,8 @@ Since `alpha.81`, discovery distinguishes real directory links from Cloud Files 
 
 Since `alpha.82`, fallback Cloud Files attribute detection also covers OneDrive when a provider rejects a link-target query. Mirrored Google Drive behaves like an ordinary folder, while streamed Google Drive is a source on a virtual drive: AMC indexes names without opening payloads, does not force bulk downloads, and retains records while Drive for desktop or its drive is temporarily unavailable. File watching is an enhancement; startup scanning and `F5` remain available for file systems that do not support it.
 
+Since `alpha.83`, **File → Manage Library sources** and the command palette open an accessible source manager. Its list announces reachability, active, unavailable and excluded file counts, and the full path. It can add a folder, rescan one or all sources, safely detach a source, and export a complete AMC backup. Detaching disables future automatic synchronization only: it never deletes disk files, catalog records, favorites, queue state, history, bookmarks, or resume positions. New roots cannot duplicate, contain, or sit below another registered root. The existing `.amcbackup.json` format is now explicitly described as including the local catalog, roots, exclusions and all of the user data above, while still excluding passwords and tokens.
+
 The active working repository should reside on an ordinary local NTFS volume outside iCloud Drive, Google Drive, OneDrive and other synchronized directories. GitHub stores source history, while atomic user-data backups may be exported to cloud storage. On the primary test computer the canonical project path is `D:\Projekty Codex\Accessible Multimedia Controller`.
 
 ## Simplest way to run a published build

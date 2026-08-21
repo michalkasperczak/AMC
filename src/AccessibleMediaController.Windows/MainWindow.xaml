@@ -30,6 +30,9 @@
                           automation:AutomationProperties.Name="Otwórz folder z plikami audio, Ctrl+Shift+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+O"
                           Click="OpenLocalFolder_Click" />
+                <MenuItem Header="_Zarządzaj źródłami Biblioteki…"
+                          automation:AutomationProperties.Name="Zarządzaj źródłami Biblioteki lokalnej"
+                          Click="ManageLocalSources_Click" />
                 <Separator />
                 <MenuItem Header="_Ustawienia…" InputGestureText="Ctrl+," Click="Settings_Click" />
                 <Separator />

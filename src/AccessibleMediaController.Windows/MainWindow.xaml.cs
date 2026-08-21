@@ -1064,7 +1064,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var folderSource = RegisterLocalFolderSource(dialog.FolderName);
+        if (!TryRegisterLocalFolderSource(
+                dialog.FolderName,
+                out var folderSource,
+                out _,
+                out var registrationMessage))
+        {
+            AnnounceEssential(registrationMessage);
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
         ShowLocalFolderWhileLoading(folderSource);
         TrySaveLocalMediaState(true);
         AnnounceEssential($"Wczytywanie folderu: {folderSource.DisplayName}");
@@ -1143,7 +1152,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         LocalFolderSourceSettings? folderSource = null;
         if (!string.IsNullOrWhiteSpace(folderSourcePath))
         {
-            folderSource = RegisterLocalFolderSource(folderSourcePath);
+            if (!TryRegisterLocalFolderSource(
+                    folderSourcePath,
+                    out folderSource,
+                    out _,
+                    out var registrationMessage))
+            {
+                throw new InvalidOperationException(registrationMessage);
+            }
             _state.LocalMedia.CurrentFolderPath = folderSource.Path;
             _state.LocalMedia.LibraryView = FolderViewName;
             NavigateTo(FolderViewName);
@@ -1194,22 +1210,42 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _state.LocalMedia.ExcludedPaths.RemoveAll(path => normalized.Contains(path));
     }
 
-    private LocalFolderSourceSettings RegisterLocalFolderSource(string path)
+    private bool TryRegisterLocalFolderSource(
+        string path,
+        out LocalFolderSourceSettings source,
+        out bool added,
+        out string message)
     {
         var normalizedPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
-        var existing = _state.LocalMedia.FolderSources.FirstOrDefault(source =>
-            string.Equals(source.Path, normalizedPath, StringComparison.OrdinalIgnoreCase));
-        if (existing is not null) return existing;
+        var conflict = LocalFolderSourcePolicy.FindConflict(_state.LocalMedia.FolderSources, normalizedPath);
+        if (conflict is { Kind: LocalFolderSourceConflictKind.SameSource })
+        {
+            source = conflict.ExistingSource;
+            added = false;
+            message = $"Źródło „{source.DisplayName}” było już zarejestrowane";
+            return true;
+        }
+        if (conflict is not null)
+        {
+            source = null!;
+            added = false;
+            message = conflict.Kind == LocalFolderSourceConflictKind.CoveredByExistingSource
+                ? $"Nie dodano folderu. Jest już objęty źródłem „{conflict.ExistingSource.DisplayName}”: {conflict.ExistingSource.Path}"
+                : $"Nie dodano folderu. Obejmowałby istniejące źródło „{conflict.ExistingSource.DisplayName}”: {conflict.ExistingSource.Path}";
+            return false;
+        }
 
         var displayName = Path.GetFileName(normalizedPath);
-        var source = new LocalFolderSourceSettings
+        source = new LocalFolderSourceSettings
         {
             Id = Guid.NewGuid().ToString("N"),
             Path = normalizedPath,
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? normalizedPath : displayName
         };
         _state.LocalMedia.FolderSources.Add(source);
-        return source;
+        added = true;
+        message = $"Dodano źródło „{source.DisplayName}”";
+        return true;
     }
 
     public async void RefreshLocalLibrary()
@@ -1217,7 +1253,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         await SynchronizeLocalSourcesAsync(announceResult: true);
     }
 
-    private async Task SynchronizeLocalSourcesAsync(bool announceResult)
+    private async Task SynchronizeLocalSourcesAsync(
+        bool announceResult,
+        IReadOnlyCollection<string>? sourceIds = null)
     {
         if (_localSourceSyncInProgress)
         {
@@ -1225,7 +1263,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var sources = _state.LocalMedia.FolderSources.ToArray();
+        var sources = _state.LocalMedia.FolderSources
+            .Where(source => sourceIds is null
+                || sourceIds.Count == 0
+                || sourceIds.Contains(source.Id, StringComparer.Ordinal))
+            .ToArray();
         if (sources.Length == 0)
         {
             if (announceResult) Announce("Brak zarejestrowanych źródeł folderowych");
@@ -2784,6 +2826,88 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         RestoreMediaListFocusAfterRefresh();
         Dispatcher.BeginInvoke(() => Announce(announcement), DispatcherPriority.ContextIdle);
+    }
+
+    public void ShowLocalSourceManager()
+    {
+        TrySaveLocalMediaState(false);
+        var dialog = new LocalSourcesWindow(
+            BuildLocalSourceStatuses,
+            AddManagedLocalSourceAsync,
+            RefreshManagedLocalSourcesAsync,
+            DetachManagedLocalSource,
+            ExportFullBackup)
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
+        RestoreMediaListFocusAfterRefresh();
+    }
+
+    private IReadOnlyList<LocalFolderSourceStatus> BuildLocalSourceStatuses()
+    {
+        CaptureLocalMediaState();
+        return LocalFolderSourcePolicy.BuildStatuses(
+                _state.LocalMedia.FolderSources,
+                _state.LocalMedia.Items,
+                _state.LocalMedia.ExcludedPaths)
+            .OrderBy(status => status.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(status => status.Path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private async Task<LocalSourceActionResult> AddManagedLocalSourceAsync(string path)
+    {
+        if (!TryRegisterLocalFolderSource(path, out var source, out var added, out var message))
+        {
+            return new(message);
+        }
+
+        TrySaveLocalMediaState(true);
+        await SynchronizeLocalSourcesAsync(announceResult: false, [source.Id]);
+        return new(
+            added
+                ? $"{message}. Folder został zsynchronizowany z Biblioteką."
+                : $"{message}. Źródło zostało ponownie przeskanowane.",
+            source.Id);
+    }
+
+    private async Task<LocalSourceActionResult> RefreshManagedLocalSourcesAsync(
+        IReadOnlyCollection<string> sourceIds)
+    {
+        await SynchronizeLocalSourcesAsync(announceResult: false, sourceIds);
+        return new(sourceIds.Count == 0
+            ? "Odświeżono wszystkie źródła Biblioteki. Niedostępne źródła nie spowodowały usunięcia zapisanych rekordów."
+            : "Odświeżono wybrane źródło Biblioteki. Niedostępność źródła nie powoduje usunięcia zapisanych rekordów.",
+            sourceIds.Count == 1 ? sourceIds.First() : null);
+    }
+
+    private LocalSourceActionResult DetachManagedLocalSource(string sourceId)
+    {
+        var source = _state.LocalMedia.FolderSources.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, sourceId, StringComparison.Ordinal));
+        if (source is null) return new("Źródło nie jest już zarejestrowane.");
+
+        if (!string.IsNullOrWhiteSpace(_state.LocalMedia.CurrentFolderPath)
+            && LocalFolderSourcePolicy.IsSameOrDescendant(_state.LocalMedia.CurrentFolderPath, source.Path))
+        {
+            _state.LocalMedia.CurrentFolderPath = null;
+        }
+        LocalFolderSourcePolicy.DetachSource(_state.LocalMedia.FolderSources, sourceId);
+        ConfigureLocalSourceWatchers();
+        if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) && !_playerViewActive)
+        {
+            RefreshCurrentView();
+        }
+        TrySaveLocalMediaState(true);
+        return new($"Odłączono źródło „{source.DisplayName}”. Pliki na dysku i wszystkie zapisane dane AMC pozostały bez zmian.");
+    }
+
+    private void ExportFullBackup(string path)
+    {
+        CaptureCurrentSessionNavigationState();
+        CaptureLocalMediaState();
+        _store.ExportFullBackup(path, _state);
     }
 
     private void RemoveSelectedBookmarks()
@@ -4413,6 +4537,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void FoldersView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewFolders);
     private void AllLocalFilesView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewAllLocalFiles);
     private void RefreshLocalLibrary_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.RefreshLocalLibrary);
+    private void ManageLocalSources_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageLocalSources);
     private void QueueView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewQueue);
     private void HistoryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewHistory);
     private void BookmarksViewMenu_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewBookmarks);

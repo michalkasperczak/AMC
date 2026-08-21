@@ -47,6 +47,7 @@ public static class CommandIds
     public const string ViewFolders = "view.folders";
     public const string ViewAllLocalFiles = "view.local.allFiles";
     public const string RefreshLocalLibrary = "local.library.refresh";
+    public const string ManageLocalSources = "local.library.manageSources";
     public const string ToggleLibrary = "action.library.toggle";
     public const string ViewQueue = "view.queue";
     public const string AddQueue = "action.queue.add";

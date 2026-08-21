@@ -1,12 +1,54 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-082`
-- Tytuł zestawu: Bezpieczne źródła iCloud, OneDrive i Google Drive
-- Wersja programu: `0.1.0-alpha.82`
+- Numer zestawu: `AMC-TEST-083`
+- Tytuł zestawu: Menedżer i kopia bezpieczeństwa Biblioteki
+- Wersja programu: `0.1.0-alpha.83`
 - Utworzono: 2026-08-21, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.82.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.83.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 83
+
+Do prób odłączania wybierz źródło, które można później bezpiecznie dodać ponownie. **Odłącz źródło** nie może usuwać żadnego pliku z dysku.
+
+### AMC-083-01 — Fokus i zawartość menedżera
+
+Otwórz **Plik → Zarządzaj źródłami Biblioteki**. Sprawdź pierwszą kontrolkę, nawigację strzałkami i Tabem oraz Escape.
+
+Oczekiwane: fokus zaczyna na zwykłej liście źródeł. Każdy wpis podaje nazwę, dostępność, liczby aktywnych, niedostępnych i wykluczonych plików oraz ścieżkę. Tab prowadzi do przycisków, Escape zamyka tylko menedżer, a fokus wraca do głównej listy AMC.
+
+### AMC-083-02 — Odśwież jedno i wszystkie źródła
+
+W menedżerze wybierz źródło i użyj **Odśwież wybrane**, następnie **Odśwież wszystkie**.
+
+Oczekiwane: operacje kończą się czytelnym komunikatem, lista zachowuje zaznaczenie, NVDA nie traci fokusu, a niedostępne źródło nie powoduje skasowania zapisanych rekordów.
+
+### AMC-083-03 — Ochrona przed nakładającymi się folderami
+
+Mając zarejestrowane źródło, spróbuj dodać ponownie tę samą ścieżkę, jej podfolder, a następnie folder nadrzędny obejmujący istniejące źródło.
+
+Oczekiwane: ta sama ścieżka jest jedynie ponownie skanowana. Podfolder i folder nadrzędny nie tworzą drugiego źródła; AMC jednoznacznie podaje, z którym istniejącym źródłem wystąpił konflikt.
+
+### AMC-083-04 — Bezpieczne odłączenie
+
+Zanotuj liczbę plików i stan przykładowego źródła, wybierz **Odłącz źródło**, przeczytaj całe pytanie i zatwierdź. Sprawdź dysk, `Alt+1`, `Alt+2`, Ulubione, Kolejkę, Historię oraz Zakładki. Uruchom AMC ponownie.
+
+Oczekiwane: źródło znika tylko z listy automatycznej synchronizacji. Żaden plik na dysku nie zostaje usunięty. Rekordy i ich relacje pozostają dostępne jako pliki dodane pojedynczo także po restarcie. Jeśli bieżący poziom Folderów należał do odłączonego źródła, AMC bezpiecznie wraca na główny poziom.
+
+### AMC-083-05 — Pełna kopia AMC
+
+W menedżerze wybierz **Eksportuj pełną kopię AMC**. Zapisz plik `.amcbackup.json` w bezpiecznym miejscu. Sprawdź też opis w **Ustawienia → Import i eksport**.
+
+Oczekiwane: komunikat potwierdza eksport katalogu Biblioteki, źródeł, wykluczeń, Ulubionych, kolejek, historii, zakładek, pozycji i ustawień. Opis w Ustawieniach wymienia te dane i zaznacza brak haseł oraz tokenów. Sam eksport niczego nie zmienia w Bibliotece.
+
+### AMC-083-06 — Paleta i regresja chmur
+
+Otwórz `Ctrl+Shift+K`, wyszukaj „źródła biblioteki” i uruchom polecenie. Potem wykonaj `F5`, `Alt+1`, `Alt+2` oraz wyrywkowy test źródła iCloud, OneDrive albo Google Drive.
+
+Oczekiwane: paleta otwiera ten sam menedżer. Dotychczasowa nawigacja, bezpieczne skanowanie chmury, kopiowanie, odtwarzanie i kolejki działają bez regresji.
+
+## Poprzedni zestaw regresyjny alpha 82
 
 ## Poprawki alpha 82
 
