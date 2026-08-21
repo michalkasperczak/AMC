@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -20,6 +21,7 @@ public partial class SettingsWindow : Window
     private readonly ObservableCollection<BindingRow> _bindingRows = [];
     private readonly ObservableCollection<MessageTemplateRow> _messageRows = [];
     private readonly ObservableCollection<MediaFieldRow> _mediaFieldRows = [];
+    private readonly ObservableCollection<SessionOrderRow> _sessionOrderRows = [];
     private readonly SettingsTarget _initialTarget;
     private bool _initialFocusApplied;
 
@@ -35,6 +37,7 @@ public partial class SettingsWindow : Window
         BindingsList.ItemsSource = _bindingRows;
         MessageTemplatesList.ItemsSource = _messageRows;
         ListFieldOrderList.ItemsSource = _mediaFieldRows;
+        SessionOrderList.ItemsSource = _sessionOrderRows;
         LoadControls();
     }
 
@@ -70,6 +73,7 @@ public partial class SettingsWindow : Window
         {
             SettingsTarget.Language => (GeneralTab, LanguageText),
             SettingsTarget.StartupTarget => (GeneralTab, StartupTargetCombo),
+            SettingsTarget.SessionOrder => (GeneralTab, SessionOrderList),
             SettingsTarget.Prefix => (GeneralTab, PrefixBox),
             SettingsTarget.PrefixTimeout => (GeneralTab, TimeoutBox),
             SettingsTarget.KeyboardProfile => (KeyboardProfilesTab, ProfileCombo),
@@ -82,7 +86,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.KeyboardBindings => (KeyboardProfilesTab, BindingsList),
             SettingsTarget.ChangeKeyboardBinding => (KeyboardProfilesTab, ChangeBindingButton),
             SettingsTarget.RemoveKeyboardBinding => (KeyboardProfilesTab, RemoveBindingButton),
-            SettingsTarget.ListFieldOrder => (ListsTab, ListFieldOrderList),
+            SettingsTarget.ListFieldOrder => (MessagesTab, ListFieldOrderList),
             SettingsTarget.ImportExport => (ImportExportTab, ImportExportTab),
             SettingsTarget.ImportConfiguration => (ImportExportTab, ImportConfigurationButton),
             SettingsTarget.ExportConfiguration => (ImportExportTab, ExportConfigurationButton),
@@ -139,6 +143,7 @@ public partial class SettingsWindow : Window
         SelectComboByTag(UpdateChannelCombo, _workingState.Settings.Updates.Channel);
 
         RefreshProfiles(_workingState.Settings.ActiveKeyboardProfileId);
+        LoadSessionOrder();
         LoadMediaFieldOrder();
     }
 
@@ -181,6 +186,69 @@ public partial class SettingsWindow : Window
         _workingState.Settings.Updates.AllowMeteredConnection = UpdateMetered.IsChecked == true;
         _workingState.Settings.Updates.Channel = SelectedTag(UpdateChannelCombo, "stable");
         _workingState.Settings.Lists.FieldOrder = _mediaFieldRows.Select(row => row.Field).ToList();
+        _workingState.Settings.SessionSlots = _sessionOrderRows
+            .Select((row, index) => (Slot: index + 1, row.SessionId))
+            .ToDictionary(entry => entry.Slot, entry => entry.SessionId);
+    }
+
+    private void LoadSessionOrder()
+    {
+        _sessionOrderRows.Clear();
+        var normalized = SessionSlotOrder.Normalize(_workingState.Settings.SessionSlots);
+        foreach (var pair in normalized.OrderBy(pair => pair.Key))
+        {
+            _sessionOrderRows.Add(new SessionOrderRow(
+                pair.Value,
+                SessionSlotOrder.GetDisplayName(pair.Value),
+                pair.Key));
+        }
+        if (_sessionOrderRows.Count > 0) SessionOrderList.SelectedIndex = 0;
+    }
+
+    private void MoveSession(int direction)
+    {
+        var index = SessionOrderList.SelectedIndex;
+        if (index < 0) return;
+        var newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= _sessionOrderRows.Count)
+        {
+            SessionOrderStatus.Announce(direction < 0
+                ? "Ta sesja jest już pierwsza"
+                : "Ta sesja jest już ostatnia");
+            return;
+        }
+
+        var moved = _sessionOrderRows[index];
+        SessionOrderList.Focus();
+        Keyboard.Focus(SessionOrderList);
+        _sessionOrderRows.Move(index, newIndex);
+        UpdateSessionOrderSlots();
+        SessionOrderList.SelectedIndex = newIndex;
+        SessionOrderList.ScrollIntoView(moved);
+        FocusSelectedSessionOrderItem();
+        SessionOrderStatus.Announce($"{moved.DisplayName}: Ctrl+{moved.Slot}");
+    }
+
+    private void UpdateSessionOrderSlots()
+    {
+        for (var index = 0; index < _sessionOrderRows.Count; index++)
+        {
+            _sessionOrderRows[index].Slot = index + 1;
+        }
+    }
+
+    private void FocusSelectedSessionOrderItem()
+    {
+        SessionOrderList.UpdateLayout();
+        if (SessionOrderList.ItemContainerGenerator.ContainerFromItem(SessionOrderList.SelectedItem)
+            is ListBoxItem item)
+        {
+            item.Focus();
+            Keyboard.Focus(item);
+            return;
+        }
+        SessionOrderList.Focus();
+        Keyboard.Focus(SessionOrderList);
     }
 
     private void LoadMediaFieldOrder()
@@ -315,6 +383,31 @@ public partial class SettingsWindow : Window
             MoveMediaField(1);
             e.Handled = true;
         }
+    }
+    private void SessionOrderList_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Alt) return;
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.Up)
+        {
+            MoveSession(-1);
+            e.Handled = true;
+        }
+        else if (key == Key.Down)
+        {
+            MoveSession(1);
+            e.Handled = true;
+        }
+    }
+    private void MoveSessionUp_Click(object sender, RoutedEventArgs e) => MoveSession(-1);
+    private void MoveSessionDown_Click(object sender, RoutedEventArgs e) => MoveSession(1);
+
+    private void RestoreSessionOrder_Click(object sender, RoutedEventArgs e)
+    {
+        _workingState.Settings.SessionSlots = SessionSlotOrder.CreateDefault();
+        LoadSessionOrder();
+        FocusSelectedSessionOrderItem();
+        SessionOrderStatus.Announce("Przywrócono domyślną kolejność: Ctrl+1 Pliki lokalne, Ctrl+2 WiiM, Ctrl+3 TIDAL, Ctrl+4 Apple Music");
     }
     private void MoveFieldUp_Click(object sender, RoutedEventArgs e) => MoveMediaField(-1);
     private void MoveFieldDown_Click(object sender, RoutedEventArgs e) => MoveMediaField(1);
@@ -533,6 +626,27 @@ public partial class SettingsWindow : Window
     private sealed record MediaFieldRow(MediaItemField Field)
     {
         public string Label => MediaItemFormatter.GetFieldDisplayName(Field);
+        public override string ToString() => Label;
+    }
+
+    private sealed class SessionOrderRow(string sessionId, string displayName, int slot) : INotifyPropertyChanged
+    {
+        private int _slot = slot;
+        public string SessionId { get; } = sessionId;
+        public string DisplayName { get; } = displayName;
+        public int Slot
+        {
+            get => _slot;
+            set
+            {
+                if (_slot == value) return;
+                _slot = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Slot)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Label)));
+            }
+        }
+        public string Label => $"{Slot}, {DisplayName}, Ctrl+{Slot}";
+        public event PropertyChangedEventHandler? PropertyChanged;
         public override string ToString() => Label;
     }
 

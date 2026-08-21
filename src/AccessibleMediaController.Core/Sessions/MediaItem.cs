@@ -7,7 +7,8 @@ public enum MediaItemKind
     Playlist,
     Artist,
     Station,
-    Device
+    Device,
+    Folder
 }
 
 public sealed class MediaItem
@@ -46,6 +47,7 @@ public sealed class MediaItem
         MediaItemKind.Artist => "wykonawca",
         MediaItemKind.Station => "stacja",
         MediaItemKind.Device => "urządzenie",
+        MediaItemKind.Folder => "folder",
         _ => "element"
     };
 

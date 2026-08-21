@@ -91,6 +91,8 @@
                 <MenuItem Header="_Ulubione" InputGestureText="Ctrl+U" Click="FavoritesView_Click" />
                 <MenuItem Header="_Playlisty" InputGestureText="Ctrl+P" Click="PlaylistsView_Click" />
                 <MenuItem Header="_Biblioteka" InputGestureText="Ctrl+L" Click="LibraryView_Click" />
+                <MenuItem Header="_Foldery lokalne" Click="FoldersView_Click"
+                          automation:AutomationProperties.Name="Foldery lokalne" />
                 <MenuItem Header="_Albumy" InputGestureText="Ctrl+Shift+A" Click="AlbumsView_Click" />
                 <MenuItem Header="_Kolejka" InputGestureText="Ctrl+Q" Click="QueueView_Click" />
                 <MenuItem Header="_Historia odtwarzania" InputGestureText="Ctrl+H" Click="HistoryView_Click" />

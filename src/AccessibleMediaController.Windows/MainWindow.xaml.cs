@@ -35,6 +35,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const string DefaultBrowserView = "Multimedia";
     private const string PlayerViewName = "Teraz odtwarzane";
     private const string BookmarkViewName = "Zakładki";
+    private const string FolderViewName = "Foldery";
     private string _currentView = DefaultBrowserView;
     private List<MediaItemRow> _unfilteredItems = [];
     private readonly Dictionary<string, SessionViewHistory> _viewHistories =
@@ -215,6 +216,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             ShowSearch(string.Equals(viewName, "Szukaj we wszystkich usługach", StringComparison.Ordinal));
             return;
+        }
+
+        if (string.Equals(viewName, FolderViewName, StringComparison.Ordinal)
+            && !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            var local = _sessions.FindSession("local");
+            if (local is null)
+            {
+                Announce("Foldery są dostępne po otwarciu lokalnego folderu z plikami audio");
+                return;
+            }
+            CaptureCurrentSessionNavigationState();
+            _sessions.SelectSession(local.Id);
+            RestoreCurrentSessionNavigationState();
         }
 
         if (string.Equals(viewName, BookmarkViewName, StringComparison.Ordinal)
@@ -873,10 +888,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "U otwiera Ulubione, Shift+U zmienia stan ulubionych, B otwiera Zakładki, Shift+B dodaje zakładkę w odtwarzaczu, A otwiera Albumy, P otwiera Playlisty. " +
             "K filtruje bieżącą listę, F wyszukuje w bieżącej usłudze; warianty z Shift otwierają " +
             "paletę poleceń i wyszukiwanie globalne.\n\n" +
-            "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+0 otwiera listę sesji, " +
+            "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+0 otwiera listę sesji, a kolejność można zmienić w Ustawieniach Ogólnych. " +
             "Ctrl+Page Up i Ctrl+Page Down zmieniają sesję. " +
-            "Ctrl+O otwiera lokalne pliki audio, a Ctrl+Shift+O otwiera folder wraz z podfolderami. " +
-            "Oba polecenia tworzą tymczasową sesję bez automatycznego odtwarzania. " +
+            "Ctrl+O otwiera lokalne pliki audio, a Ctrl+Shift+O rejestruje trwałe źródło folderu wraz z podfolderami i otwiera widok Foldery. " +
+            "Enter wchodzi do folderu, a Backspace wraca o poziom wyżej. Żadne z tych poleceń nie uruchamia dźwięku automatycznie. " +
             "Ctrl+U/P/L/Q otwiera odpowiednio: Ulubione, Playlisty, Bibliotekę i Kolejkę, " +
             "Ctrl+H otwiera trwałą Historię odtwarzania, Ctrl+B otwiera globalną listę Zakładek, Ctrl+Shift+B dodaje nazwaną zakładkę w odtwarzaczu, a Ctrl+Shift+A otwiera Albumy. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
             "wyszukiwania w bieżącej usłudze, Ctrl+Shift+F otwiera wyszukiwanie globalne, " +
@@ -990,10 +1005,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        AddLocalFiles(fileNames);
+        AddLocalFiles(fileNames, dialog.FolderName);
     }
 
-    private void AddLocalFiles(IEnumerable<string> fileNames)
+    private void AddLocalFiles(IEnumerable<string> fileNames, string? folderSourcePath = null)
     {
         var paths = fileNames.ToArray();
 
@@ -1019,7 +1034,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Pliki lokalne",
             addedItems,
             _localOutput,
-            4);
+            1);
 
         var selected = addedItems.FirstOrDefault()
             ?? session.Items.FirstOrDefault(item => string.Equals(
@@ -1028,13 +1043,41 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 StringComparison.OrdinalIgnoreCase))
             ?? session.CurrentItem;
         SelectSessionBrowserItem(session.Id, selected.Id);
+        LocalFolderSourceSettings? folderSource = null;
+        if (!string.IsNullOrWhiteSpace(folderSourcePath))
+        {
+            folderSource = RegisterLocalFolderSource(folderSourcePath);
+            _state.LocalMedia.CurrentFolderPath = folderSource.Path;
+            NavigateTo(FolderViewName);
+            SelectMediaItem(selected.Id);
+        }
         var countText = addedItems.Count == 0
             ? "pliki były już na liście"
             : $"dodano {FormatFileCount(addedItems.Count)}";
         var slotText = slot is > 0 ? $", sesja {slot}" : string.Empty;
-        PrepareSelectedItemFocusContext($"Pliki lokalne{slotText}, {countText}");
+        PrepareSelectedItemFocusContext(folderSource is null
+            ? $"Pliki lokalne{slotText}, {countText}"
+            : $"Foldery, {folderSource.DisplayName}{slotText}, {countText}");
         TrySaveLocalMediaState(true);
         RestoreMediaListFocusAfterRefresh();
+    }
+
+    private LocalFolderSourceSettings RegisterLocalFolderSource(string path)
+    {
+        var normalizedPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        var existing = _state.LocalMedia.FolderSources.FirstOrDefault(source =>
+            string.Equals(source.Path, normalizedPath, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null) return existing;
+
+        var displayName = Path.GetFileName(normalizedPath);
+        var source = new LocalFolderSourceSettings
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Path = normalizedPath,
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? normalizedPath : displayName
+        };
+        _state.LocalMedia.FolderSources.Add(source);
+        return source;
     }
 
     private void LoadPersistedLocalMedia()
@@ -1274,7 +1317,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 "Pliki lokalne",
                 _localItems,
                 _localOutput,
-                4);
+                1);
             foreach (var saved in _state.LocalMedia.Items.Where(CanRestorePosition))
             {
                 local.SetRememberedPosition(saved.Id, TimeSpan.FromTicks(saved.ResumePositionTicks));
@@ -1599,6 +1642,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (string.Equals(_currentView, FolderViewName, StringComparison.Ordinal))
+        {
+            _unfilteredItems = CreateFolderRows();
+            ApplyFilter(preferredItemId, fallbackIndex);
+            return;
+        }
+
         IEnumerable<MediaItem> items = _sessions.Current.Items;
         if (_currentView == "Ulubione") items = items.Where(item => item.IsFavorite);
         if (_currentView == "Playlisty") items = items.Where(item => item.Kind == MediaItemKind.Playlist);
@@ -1617,6 +1667,99 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
             .ToList();
         ApplyFilter(preferredItemId, fallbackIndex);
+    }
+
+    private List<MediaItemRow> CreateFolderRows()
+    {
+        if (!string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            ViewHeading.Text = FolderViewName;
+            return [];
+        }
+
+        var sources = _state.LocalMedia.FolderSources
+            .OrderBy(source => source.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(source => source.Path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var currentPath = _state.LocalMedia.CurrentFolderPath;
+        if (string.IsNullOrWhiteSpace(currentPath))
+        {
+            ViewHeading.Text = "Foldery — źródła";
+            return sources.Select(source => CreateFolderRow(source.Path, source.DisplayName)).ToList();
+        }
+
+        var sourceRoot = sources
+            .Where(source => IsSameOrDescendantPath(currentPath, source.Path))
+            .OrderByDescending(source => source.Path.Length)
+            .FirstOrDefault();
+        if (sourceRoot is null)
+        {
+            _state.LocalMedia.CurrentFolderPath = null;
+            ViewHeading.Text = "Foldery — źródła";
+            return sources.Select(source => CreateFolderRow(source.Path, source.DisplayName)).ToList();
+        }
+
+        ViewHeading.Text = $"Foldery — {GetFolderDisplayName(currentPath)}";
+        var childFolders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var directFiles = new List<MediaItem>();
+        foreach (var item in _localItems)
+        {
+            if (!TryGetLocalPath(item.Source, out var itemPath)
+                || !IsSameOrDescendantPath(itemPath, currentPath))
+            {
+                continue;
+            }
+
+            var parent = Path.GetDirectoryName(itemPath);
+            if (string.Equals(parent, currentPath, StringComparison.OrdinalIgnoreCase))
+            {
+                directFiles.Add(item);
+                continue;
+            }
+
+            var relative = Path.GetRelativePath(currentPath, itemPath);
+            var firstSeparator = relative.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
+            if (firstSeparator <= 0) continue;
+            var childName = relative[..firstSeparator];
+            var childPath = Path.Combine(currentPath, childName);
+            childFolders.TryAdd(childPath, childName);
+        }
+
+        var rows = childFolders
+            .OrderBy(pair => pair.Value, StringComparer.CurrentCultureIgnoreCase)
+            .Select(pair => CreateFolderRow(pair.Key, pair.Value))
+            .ToList();
+        rows.AddRange(directFiles
+            .OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
+            .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText)));
+        return rows;
+    }
+
+    private static MediaItemRow CreateFolderRow(string path, string displayName)
+    {
+        var item = new MediaItem
+        {
+            Id = FolderRowId(path),
+            Title = displayName,
+            Kind = MediaItemKind.Folder,
+            Source = path
+        };
+        return new MediaItemRow(item, $"{displayName}, folder", displayName, folderPath: path);
+    }
+
+    private static string FolderRowId(string path) => $"folder:{path.ToUpperInvariant()}";
+
+    private static string GetFolderDisplayName(string path)
+    {
+        var displayName = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
+        return string.IsNullOrWhiteSpace(displayName) ? path : displayName;
+    }
+
+    private static bool IsSameOrDescendantPath(string candidate, string root)
+    {
+        if (string.Equals(candidate, root, StringComparison.OrdinalIgnoreCase)) return true;
+        var rootWithSeparator = Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar;
+        return candidate.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase);
     }
 
     private MediaItemRow CreateBookmarkRow(BookmarkEntry bookmark)
@@ -1815,7 +1958,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var item = SelectedItem;
+        var row = MediaList.SelectedItem as MediaItemRow;
+        if (row?.FolderPath is { } folderPath)
+        {
+            OpenFolderPath(folderPath);
+            return;
+        }
+
+        var item = row?.Item;
         if (item is null) return;
         if (item.Kind is MediaItemKind.Track or MediaItemKind.Station)
         {
@@ -1831,6 +1981,45 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         NavigateTo(item.Title);
         Announce($"{item.KindLabel}: {item.Title}. {FormatItemCount(_unfilteredItems.Count)}, {FormatDurationWords(item.Duration)}");
+    }
+
+    private void OpenFolderPath(string folderPath)
+    {
+        _state.LocalMedia.CurrentFolderPath = folderPath;
+        GetSessionNavigationState("local").Filters[FolderViewName] = string.Empty;
+        RestoreFilterForCurrentView(GetSessionNavigationState("local"));
+        RefreshCurrentView();
+        PrepareViewFocusContext($"Foldery, {GetFolderDisplayName(folderPath)}");
+        TrySaveLocalMediaState(false);
+        RestoreMediaListFocusAfterRefresh();
+    }
+
+    private void NavigateToParentFolder()
+    {
+        var currentPath = _state.LocalMedia.CurrentFolderPath;
+        if (string.IsNullOrWhiteSpace(currentPath))
+        {
+            Announce("To jest lista źródeł folderów");
+            return;
+        }
+
+        var source = _state.LocalMedia.FolderSources
+            .Where(candidate => IsSameOrDescendantPath(currentPath, candidate.Path))
+            .OrderByDescending(candidate => candidate.Path.Length)
+            .FirstOrDefault();
+        var exitedFolderId = FolderRowId(currentPath);
+        _state.LocalMedia.CurrentFolderPath = source is null
+            || string.Equals(currentPath, source.Path, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : Path.GetDirectoryName(currentPath);
+        GetSessionNavigationState("local").Filters[FolderViewName] = string.Empty;
+        RestoreFilterForCurrentView(GetSessionNavigationState("local"));
+        RefreshCurrentView(preferredItemId: exitedFolderId);
+        PrepareViewFocusContext(_state.LocalMedia.CurrentFolderPath is null
+            ? "Foldery, źródła"
+            : $"Foldery, {GetFolderDisplayName(_state.LocalMedia.CurrentFolderPath)}");
+        TrySaveLocalMediaState(false);
+        RestoreMediaListFocusAfterRefresh();
     }
 
     private void ActivateBookmark(BookmarkEntry bookmark, string? bookmarkRowId)
@@ -2737,6 +2926,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 MoveSelectedLocalFilesToRecycleBin();
             e.Handled = true;
         }
+        else if (modifiers == ModifierKeys.None
+                 && e.Key == Key.Back
+                 && string.Equals(_currentView, FolderViewName, StringComparison.Ordinal))
+        {
+            NavigateToParentFolder();
+            e.Handled = true;
+        }
         else if (modifiers == ModifierKeys.None && e.Key is Key.Delete or Key.Back)
         {
             RemoveSelected();
@@ -3074,7 +3270,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && SelectedItem is { } item
             && key == Key.Left)
         {
-            AnnounceQuickMediaInformation(item);
+            if ((MediaList.SelectedItem as MediaItemRow)?.FolderPath is { } folderPath)
+                Announce($"{item.Title}: {folderPath}");
+            else
+                AnnounceQuickMediaInformation(item);
             e.Handled = true;
             return;
         }
@@ -3639,6 +3838,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void FavoritesView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewFavorites);
     private void PlaylistsView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewPlaylists);
     private void LibraryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewLibrary);
+    private void FoldersView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewFolders);
     private void QueueView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewQueue);
     private void HistoryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewHistory);
     private void BookmarksViewMenu_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewBookmarks);
@@ -3664,11 +3864,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string label,
         string navigationText,
         MediaItem? actionItem = null,
-        BookmarkEntry? bookmark = null) : INotifyPropertyChanged
+        BookmarkEntry? bookmark = null,
+        string? folderPath = null) : INotifyPropertyChanged
     {
         public MediaItem Item { get; } = item;
         public MediaItem ActionItem { get; } = actionItem ?? item;
         public BookmarkEntry? Bookmark { get; } = bookmark;
+        public string? FolderPath { get; } = folderPath;
         public string Label { get; private set; } = label;
         public string NavigationText { get; } = navigationText;
 

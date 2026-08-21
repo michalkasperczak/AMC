@@ -25,15 +25,61 @@ public sealed class AppSettings
     public string ActiveKeyboardProfileId { get; set; } = "default";
     public bool RememberLastSession { get; set; } = true;
     public string LastSessionId { get; set; } = "tidal";
-    public Dictionary<int, string> SessionSlots { get; set; } = new()
-    {
-        [1] = "tidal",
-        [2] = "appleMusic",
-        [3] = "wiim"
-    };
+    public Dictionary<int, string> SessionSlots { get; set; } = SessionSlotOrder.CreateDefault();
     public ListDisplaySettings Lists { get; set; } = new();
     public MessageSettings Messages { get; set; } = MessageSettings.CreateDefault();
     public UpdateSettings Updates { get; set; } = new();
+}
+
+public static class SessionSlotOrder
+{
+    private static readonly (string Id, string DisplayName)[] KnownSessions =
+    [
+        ("local", "Pliki lokalne"),
+        ("wiim", "WiiM"),
+        ("tidal", "TIDAL"),
+        ("appleMusic", "Apple Music")
+    ];
+
+    public static IReadOnlyList<string> DefaultSessionIds =>
+        KnownSessions.Select(session => session.Id).ToArray();
+
+    public static Dictionary<int, string> CreateDefault() => new()
+    {
+        [1] = "local",
+        [2] = "wiim",
+        [3] = "tidal",
+        [4] = "appleMusic"
+    };
+
+    public static Dictionary<int, string> Normalize(IReadOnlyDictionary<int, string>? slots)
+    {
+        var orderedIds = (slots ?? new Dictionary<int, string>())
+            .Where(pair => pair.Key is >= 1 and <= 9 && !string.IsNullOrWhiteSpace(pair.Value))
+            .OrderBy(pair => pair.Key)
+            .Select(pair => pair.Value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(9)
+            .ToList();
+
+        foreach (var session in KnownSessions)
+        {
+            if (orderedIds.Count >= 9) break;
+            if (!orderedIds.Contains(session.Id, StringComparer.OrdinalIgnoreCase))
+            {
+                orderedIds.Add(session.Id);
+            }
+        }
+
+        return orderedIds
+            .Select((sessionId, index) => (Slot: index + 1, SessionId: sessionId))
+            .ToDictionary(entry => entry.Slot, entry => entry.SessionId);
+    }
+
+    public static string GetDisplayName(string sessionId) =>
+        KnownSessions.FirstOrDefault(session =>
+            string.Equals(session.Id, sessionId, StringComparison.OrdinalIgnoreCase)).DisplayName
+        ?? sessionId;
 }
 
 public sealed class ListDisplaySettings
@@ -101,7 +147,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 16;
+    public int SchemaVersion { get; set; } = 17;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -159,9 +205,18 @@ public sealed class SessionNavigationState
 public sealed class LocalMediaSettings
 {
     public List<LocalMediaItemSettings> Items { get; set; } = [];
+    public List<LocalFolderSourceSettings> FolderSources { get; set; } = [];
+    public string? CurrentFolderPath { get; set; }
     public string? CurrentItemId { get; set; }
     public int Volume { get; set; } = 35;
     public double PlaybackRate { get; set; } = 1d;
+}
+
+public sealed class LocalFolderSourceSettings
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Path { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
 }
 
 public sealed class LocalMediaItemSettings

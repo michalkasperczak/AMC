@@ -58,6 +58,14 @@ public static class CommandPaletteSearch
 
     private static string GetDisplayName(string commandId, AppSettings settings)
     {
+        const string sessionSlotPrefix = "session.slot.";
+        if (commandId.StartsWith(sessionSlotPrefix, StringComparison.Ordinal)
+            && int.TryParse(commandId.AsSpan(sessionSlotPrefix.Length), out var slot)
+            && settings.SessionSlots.TryGetValue(slot, out var sessionId))
+        {
+            return $"Wybierz sesję {slot}: {SessionSlotOrder.GetDisplayName(sessionId)}";
+        }
+
         return commandId switch
         {
             CommandIds.SettingsToggleMessages => settings.Messages.Enabled

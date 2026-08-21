@@ -14,6 +14,7 @@
 
         <TabControl x:Name="SettingsTabs" automation:AutomationProperties.Name="Kategorie ustawień">
             <TabItem x:Name="GeneralTab" Header="_Ogólne">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="12">
                     <TextBlock Margin="0,0,0,12" TextWrapping="Wrap"
                                Text="Tutaj znajdują się podstawowe ustawienia działającego prototypu. Funkcje planowane są wyraźnie oznaczone i nie można ich jeszcze zmieniać." />
@@ -28,6 +29,25 @@
                         <ComboBoxItem Tag="MediaList">Multimedia</ComboBoxItem>
                         <ComboBoxItem Tag="SessionList">Sesje</ComboBoxItem>
                     </ComboBox>
+                    <GroupBox Header="Kolejność sesji i skróty Ctrl+1–9" Margin="0,2,0,14">
+                        <StackPanel Margin="8">
+                            <TextBlock Margin="0,0,0,8" TextWrapping="Wrap"
+                                       Text="Kolejność na tej liście określa skróty Ctrl+1–9 oraz przechodzenie przez sesje skrótami Ctrl+Page Up i Ctrl+Page Down." />
+                            <ListBox x:Name="SessionOrderList" Height="120" DisplayMemberPath="Label"
+                                     automation:AutomationProperties.Name="Kolejność sesji i skrótów Control od 1 do 9"
+                                     automation:AutomationProperties.HelpText="Alt+Strzałka w górę lub w dół zmienia położenie zaznaczonej sesji."
+                                     PreviewKeyDown="SessionOrderList_PreviewKeyDown" />
+                            <WrapPanel Margin="0,8,0,0">
+                                <Button MinWidth="105" Margin="0,0,8,8" Content="Przenieś _wyżej" Click="MoveSessionUp_Click" />
+                                <Button MinWidth="105" Margin="0,0,8,8" Content="Przenieś _niżej" Click="MoveSessionDown_Click" />
+                                <Button MinWidth="155" Margin="0,0,8,8" Content="Przywróć _domyślną" Click="RestoreSessionOrder_Click" />
+                            </WrapPanel>
+                            <controls:AccessibleStatusTextBlock x:Name="SessionOrderStatus" Margin="0,2,0,0"
+                                automation:AutomationProperties.Name="Wynik zmiany kolejności sesji"
+                                automation:AutomationProperties.LiveSetting="Assertive"
+                                Text="Gotowy do zmiany kolejności sesji" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </GroupBox>
                     <TextBlock Margin="0,4,0,6" FontWeight="SemiBold" Text="Prefiks globalny" />
                     <Label Target="{Binding ElementName=PrefixBox}">Globalny _prefiks:</Label>
                     <TextBox x:Name="PrefixBox" Margin="0,0,0,12"
@@ -39,6 +59,7 @@
                     <TextBlock Margin="0,4,0,0" Text="Wartość jest podawana w milisekundach; 3000 oznacza 3 sekundy."
                                TextWrapping="Wrap" />
                 </StackPanel>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem x:Name="KeyboardProfilesTab" Header="_Profile klawiatury">
@@ -68,51 +89,6 @@
                 </DockPanel>
             </TabItem>
 
-            <TabItem x:Name="ListsTab" Header="_Listy i odczyt">
-                <Grid Margin="12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <TextBlock Margin="0,0,0,10" TextWrapping="Wrap"
-                               Text="Ustaw kolejność informacji odczytywanych dla każdego elementu listy. Pola bez wartości, na przykład brak wykonawcy przy playliście, są pomijane." />
-                    <ListBox x:Name="ListFieldOrderList" Grid.Row="1" DisplayMemberPath="Label"
-                              KeyboardNavigation.TabIndex="0"
-                              automation:AutomationProperties.Name="Kolejność informacji o elemencie"
-                              automation:AutomationProperties.HelpText="Alt+Strzałka w górę lub w dół zmienia położenie zaznaczonego pola."
-                              SelectionChanged="ListFieldOrderList_SelectionChanged"
-                              PreviewKeyDown="ListFieldOrderList_PreviewKeyDown" />
-                    <WrapPanel Grid.Row="3" Margin="0,10,0,10">
-                        <Button MinWidth="105" Margin="0,0,8,8" Content="_Wyżej" Click="MoveFieldUp_Click"
-                                KeyboardNavigation.TabIndex="2"
-                                automation:AutomationProperties.HelpText="Skrót na liście: Alt+Strzałka w górę." />
-                        <Button MinWidth="105" Margin="0,0,8,8" Content="_Niżej" Click="MoveFieldDown_Click"
-                                KeyboardNavigation.TabIndex="3"
-                                automation:AutomationProperties.HelpText="Skrót na liście: Alt+Strzałka w dół." />
-                        <Button MinWidth="155" Margin="0,0,8,8" Content="Przywróć _domyślną" Click="RestoreFieldOrder_Click"
-                                KeyboardNavigation.TabIndex="4" />
-                    </WrapPanel>
-                    <Border Grid.Row="2" Margin="0,10,0,0" BorderThickness="1" BorderBrush="Gray" Padding="8">
-                        <StackPanel>
-                            <TextBlock FontWeight="SemiBold" Text="Aktualna kolejność:" />
-                            <TextBox x:Name="ListFieldPreviewText" Margin="0,4,0,0" Padding="0"
-                                     KeyboardNavigation.TabIndex="1"
-                                     IsReadOnly="True" BorderThickness="0" Background="Transparent"
-                                     TextWrapping="Wrap" AcceptsReturn="False"
-                                     automation:AutomationProperties.Name="Podgląd kolejności odczytu"
-                                     automation:AutomationProperties.HelpText="Nazwy pól w kolejności, w której będą odczytywane." />
-                        </StackPanel>
-                    </Border>
-                    <controls:AccessibleStatusTextBlock x:Name="ListOrderStatus" Grid.Row="4" Margin="0,8,0,0"
-                        automation:AutomationProperties.Name="Wynik zmiany kolejności"
-                        automation:AutomationProperties.LiveSetting="Assertive"
-                        Text="Gotowy do zmiany kolejności" TextWrapping="Wrap" />
-                </Grid>
-            </TabItem>
-
             <TabItem x:Name="ImportExportTab" Header="_Import i eksport">
                 <StackPanel Margin="12">
                     <TextBlock FontWeight="SemiBold" Text="Konfiguracja bez map klawiszy" />
@@ -131,62 +107,67 @@
             </TabItem>
 
             <TabItem x:Name="MessagesTab" Header="_Komunikaty">
-                <Grid Margin="12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <CheckBox x:Name="MessagesEnabledCheck" Grid.Row="0" Margin="0,0,0,10"
-                              Content="_Włącz komunikaty dostępności" />
-                    <CheckBox x:Name="DetailedHintsCheck" Grid.Row="1" Margin="0,0,0,10"
-                              Content="Pokazuj _szczegółowe podpowiedzi klawiatury przy polach i listach"
-                              automation:AutomationProperties.HelpText="Domyślnie wyłączone. Dotyczy filtra oraz wyszukiwania bieżącego i globalnego." />
-                    <CheckBox x:Name="SeekMessagesCheck" Grid.Row="2" Margin="0,0,0,10"
-                              Content="Włącz _automatyczne komunikaty odtwarzacza"
-                              automation:AutomationProperties.HelpText="Nadrzędny przełącznik, skrót Ctrl+Shift+G. Wyłączenie chwilowo ucisza zaznaczone niżej kategorie, ale nie zmienia ich wyboru i nie wycisza błędów ani czasu odczytywanego na żądanie." />
-                    <CheckBox x:Name="HistoryMessagesCheck" Grid.Row="3" Margin="0,0,0,10"
-                              Content="Oznajmiaj kierunek _historii widoków"
-                              automation:AutomationProperties.HelpText="Steruje słowami Wstecz i Naprzód oraz nazwą docelowego widoku i sesji. Nie wyłącza samego działania Alt+strzałka w lewo lub w prawo." />
-                    <StackPanel Grid.Row="4" Margin="0,0,0,10">
-                        <CheckBox x:Name="PercentageSeekMessagesCheck" Margin="18,0,0,6"
-                                  Content="Oznajmiaj skoki _cyframi" />
-                        <CheckBox x:Name="ArrowSeekMessagesCheck" Margin="18,0,0,6"
-                                  Content="Oznajmiaj przewijanie _strzałkami, Home i End" />
-                        <CheckBox x:Name="BookmarkNavigationMessagesCheck" Margin="18,0,0,6"
-                                  Content="Oznajmiaj nawigację po _zakładkach"
-                                  automation:AutomationProperties.HelpText="Steruje komunikatem z czasem po Shift+Page Up i Shift+Page Down. Nie wyłącza samej nawigacji ani komunikatu o braku dalszej zakładki." />
-                        <CheckBox x:Name="VolumeMessagesCheck" Margin="18,0,0,6"
-                                  Content="Oznajmiaj zmiany _głośności" />
-                        <CheckBox x:Name="PlaybackMessagesCheck" Margin="18,0,0,8"
-                                  Content="Oznajmiaj _odtwarzanie i pauzę" />
-                        <Label Target="{Binding ElementName=PercentageSeekAnnouncementCombo}">Po skoku _cyfrą oznajmiaj:</Label>
-                        <ComboBox x:Name="PercentageSeekAnnouncementCombo" Width="260" HorizontalAlignment="Left"
-                                  automation:AutomationProperties.HelpText="Dotyczy cyfr od 0 do 9 w widoku odtwarzacza.">
-                            <ComboBoxItem Tag="Percent">Tylko procent</ComboBoxItem>
-                            <ComboBoxItem Tag="Time">Tylko czas</ComboBoxItem>
-                            <ComboBoxItem Tag="PercentAndTime">Procent i czas</ComboBoxItem>
-                        </ComboBox>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12">
+                        <GroupBox Header="Odczytywanie elementów list" Margin="0,0,0,12">
+                            <StackPanel Margin="8">
+                                <TextBlock Margin="0,0,0,8" TextWrapping="Wrap"
+                                           Text="Ustaw kolejność informacji odczytywanych dla każdego elementu listy. Pola bez wartości są pomijane." />
+                                <ListBox x:Name="ListFieldOrderList" Height="115" DisplayMemberPath="Label"
+                                          automation:AutomationProperties.Name="Kolejność informacji o elemencie"
+                                          automation:AutomationProperties.HelpText="Alt+Strzałka w górę lub w dół zmienia położenie zaznaczonego pola."
+                                          SelectionChanged="ListFieldOrderList_SelectionChanged"
+                                          PreviewKeyDown="ListFieldOrderList_PreviewKeyDown" />
+                                <Border Margin="0,8,0,0" BorderThickness="1" BorderBrush="Gray" Padding="8">
+                                    <TextBox x:Name="ListFieldPreviewText" Padding="0" IsReadOnly="True"
+                                             BorderThickness="0" Background="Transparent" TextWrapping="Wrap"
+                                             automation:AutomationProperties.Name="Podgląd kolejności odczytu" />
+                                </Border>
+                                <WrapPanel Margin="0,8,0,4">
+                                    <Button MinWidth="105" Margin="0,0,8,8" Content="_Wyżej" Click="MoveFieldUp_Click" />
+                                    <Button MinWidth="105" Margin="0,0,8,8" Content="_Niżej" Click="MoveFieldDown_Click" />
+                                    <Button MinWidth="155" Margin="0,0,8,8" Content="Przywróć _domyślną" Click="RestoreFieldOrder_Click" />
+                                </WrapPanel>
+                                <controls:AccessibleStatusTextBlock x:Name="ListOrderStatus"
+                                    automation:AutomationProperties.Name="Wynik zmiany kolejności"
+                                    automation:AutomationProperties.LiveSetting="Assertive"
+                                    Text="Gotowy do zmiany kolejności" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Komunikaty dostępności">
+                            <StackPanel Margin="8">
+                                <CheckBox x:Name="MessagesEnabledCheck" Margin="0,0,0,10" Content="_Włącz komunikaty dostępności" />
+                                <CheckBox x:Name="DetailedHintsCheck" Margin="0,0,0,10"
+                                          Content="Pokazuj _szczegółowe podpowiedzi klawiatury przy polach i listach" />
+                                <CheckBox x:Name="SeekMessagesCheck" Margin="0,0,0,10"
+                                          Content="Włącz _automatyczne komunikaty odtwarzacza" />
+                                <CheckBox x:Name="HistoryMessagesCheck" Margin="0,0,0,10"
+                                          Content="Oznajmiaj kierunek _historii widoków" />
+                                <CheckBox x:Name="PercentageSeekMessagesCheck" Margin="18,0,0,6" Content="Oznajmiaj skoki _cyframi" />
+                                <CheckBox x:Name="ArrowSeekMessagesCheck" Margin="18,0,0,6" Content="Oznajmiaj przewijanie _strzałkami, Home i End" />
+                                <CheckBox x:Name="BookmarkNavigationMessagesCheck" Margin="18,0,0,6" Content="Oznajmiaj nawigację po _zakładkach" />
+                                <CheckBox x:Name="VolumeMessagesCheck" Margin="18,0,0,6" Content="Oznajmiaj zmiany _głośności" />
+                                <CheckBox x:Name="PlaybackMessagesCheck" Margin="18,0,0,8" Content="Oznajmiaj _odtwarzanie i pauzę" />
+                                <Label Target="{Binding ElementName=PercentageSeekAnnouncementCombo}">Po skoku _cyfrą oznajmiaj:</Label>
+                                <ComboBox x:Name="PercentageSeekAnnouncementCombo" Width="260" HorizontalAlignment="Left">
+                                    <ComboBoxItem Tag="Percent">Tylko procent</ComboBoxItem>
+                                    <ComboBoxItem Tag="Time">Tylko czas</ComboBoxItem>
+                                    <ComboBoxItem Tag="PercentAndTime">Procent i czas</ComboBoxItem>
+                                </ComboBox>
+                                <TextBlock Margin="0,12,0,8" TextWrapping="Wrap"
+                                           Text="Wybierz zdarzenie z listy, a następnie zmień jego tekst. Pusty tekst wyłącza dany komunikat." />
+                                <Label Target="{Binding ElementName=MessageTemplatesList}">_Zdarzenie:</Label>
+                                <ListBox x:Name="MessageTemplatesList" Height="130" DisplayMemberPath="EventLabel"
+                                         automation:AutomationProperties.Name="Zdarzenia komunikatów" />
+                                <Label Margin="0,8,0,0" Target="{Binding ElementName=MessageTemplateText}">_Tekst szablonu:</Label>
+                                <TextBox x:Name="MessageTemplateText" MinHeight="42" TextWrapping="Wrap"
+                                         Text="{Binding SelectedItem.Template, ElementName=MessageTemplatesList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         automation:AutomationProperties.Name="Tekst szablonu wybranego komunikatu" />
+                            </StackPanel>
+                        </GroupBox>
                     </StackPanel>
-                    <TextBlock Grid.Row="5" Margin="0,0,0,8" TextWrapping="Wrap"
-                               Text="Wybierz zdarzenie z listy, a następnie zmień jego tekst w osobnym polu. Pusty tekst wyłącza dany komunikat." />
-                    <DockPanel Grid.Row="6">
-                        <Label DockPanel.Dock="Top" Target="{Binding ElementName=MessageTemplatesList}">_Zdarzenie:</Label>
-                        <ListBox x:Name="MessageTemplatesList" DisplayMemberPath="EventLabel"
-                                 automation:AutomationProperties.Name="Zdarzenia komunikatów" />
-                    </DockPanel>
-                    <Label Grid.Row="7" Margin="0,8,0,0" Target="{Binding ElementName=MessageTemplateText}">_Tekst szablonu:</Label>
-                    <TextBox x:Name="MessageTemplateText" Grid.Row="8" MinHeight="42" TextWrapping="Wrap"
-                             Text="{Binding SelectedItem.Template, ElementName=MessageTemplatesList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             automation:AutomationProperties.Name="Tekst szablonu wybranego komunikatu"
-                             automation:AutomationProperties.HelpText="Dostępne znaczniki zależą od zdarzenia, na przykład item, slot, service albo value, zapisane w nawiasach klamrowych." />
-                </Grid>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem x:Name="UpdatesTab" Header="_Aktualizacje (planowane)">

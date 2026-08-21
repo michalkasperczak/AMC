@@ -44,6 +44,7 @@ public static class CommandIds
     public const string FilterCurrent = "view.filter.current";
     public const string CommandPalette = "view.commandPalette";
     public const string ViewLibrary = "view.library";
+    public const string ViewFolders = "view.folders";
     public const string ToggleLibrary = "action.library.toggle";
     public const string ViewQueue = "view.queue";
     public const string AddQueue = "action.queue.add";
@@ -71,6 +72,7 @@ public static class CommandIds
     public const string SettingsGeneral = "settings.general";
     public const string SettingsLanguage = "settings.language";
     public const string SettingsStartupTarget = "settings.startupTarget";
+    public const string SettingsSessionOrder = "settings.sessionOrder";
     public const string SettingsPrefix = "settings.prefix";
     public const string SettingsPrefixTimeout = "settings.prefixTimeout";
     public const string SettingsKeyboardProfile = "settings.keyboardProfile";

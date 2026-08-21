@@ -15,7 +15,9 @@ public sealed class SessionManager
     {
         _settings = settings;
         _sessions = CreateDemoSessions().ToList();
-        _sessionSlots = new Dictionary<int, string>(settings.SessionSlots);
+        _sessionSlots = SessionSlotOrder.Normalize(settings.SessionSlots);
+        settings.SessionSlots = new Dictionary<int, string>(_sessionSlots);
+        ReorderSessionsBySlots();
         var remembered = Sessions.FirstOrDefault(session => session.Id == settings.LastSessionId);
         Current = remembered ?? Sessions[0];
         if (remembered is null) _settings.LastSessionId = Current.Id;
@@ -78,12 +80,21 @@ public sealed class SessionManager
         }
 
         var existingSlot = FindSlot(id);
-        if (existingSlot.HasValue) return (session, existingSlot);
+        if (existingSlot.HasValue)
+        {
+            ReorderSessionsBySlots();
+            return (session, existingSlot);
+        }
 
         var slot = Enumerable.Range(Math.Clamp(preferredSlot, 1, 9), 10 - Math.Clamp(preferredSlot, 1, 9))
             .Concat(Enumerable.Range(1, Math.Clamp(preferredSlot, 1, 9) - 1))
             .FirstOrDefault(candidate => !_sessionSlots.ContainsKey(candidate));
-        if (slot > 0) _sessionSlots[slot] = id;
+        if (slot > 0)
+        {
+            _sessionSlots[slot] = id;
+            _settings.SessionSlots = new Dictionary<int, string>(_sessionSlots);
+        }
+        ReorderSessionsBySlots();
         return (session, slot > 0 ? slot : null);
     }
 
@@ -109,12 +120,30 @@ public sealed class SessionManager
         if (existing is not null) return existing;
 
         _sessions.Insert(Math.Clamp(registration.Index, 0, _sessions.Count), registration.Session);
+        ReorderSessionsBySlots();
         if (makeCurrent || registration.WasCurrent)
         {
             Current = registration.Session;
             _settings.LastSessionId = Current.Id;
         }
         return registration.Session;
+    }
+
+    private void ReorderSessionsBySlots()
+    {
+        var order = _sessionSlots.ToDictionary(
+            pair => pair.Value,
+            pair => pair.Key,
+            StringComparer.OrdinalIgnoreCase);
+        _sessions.Sort((left, right) =>
+        {
+            var leftOrder = order.GetValueOrDefault(left.Id, int.MaxValue);
+            var rightOrder = order.GetValueOrDefault(right.Id, int.MaxValue);
+            var comparison = leftOrder.CompareTo(rightOrder);
+            return comparison != 0
+                ? comparison
+                : string.Compare(left.DisplayName, right.DisplayName, StringComparison.CurrentCultureIgnoreCase);
+        });
     }
 
     private static IReadOnlyList<DemoMediaSession> CreateDemoSessions()

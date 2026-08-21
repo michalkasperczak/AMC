@@ -5,6 +5,7 @@ public enum SettingsTarget
     General,
     Language,
     StartupTarget,
+    SessionOrder,
     Prefix,
     PrefixTimeout,
     KeyboardProfile,

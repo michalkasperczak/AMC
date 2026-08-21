@@ -25,6 +25,7 @@ var tests = new (string Name, Action Test)[]
     ("Migracja wspólnego wyciszenia alpha.40", TestVersion9PlayerMessageMigration),
     ("Migracja kategorii komunikatów alpha.41", TestVersion10PlayerMessageMigration),
     ("Przełączanie sesji", TestSessions),
+    ("Konfigurowana kolejność sesji", TestSessionOrder),
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
@@ -153,6 +154,8 @@ static void TestCommandCatalog()
     Equal("Przełącz automatyczne komunikaty odtwarzacza", CommandCatalog.GetDisplayName(CommandIds.SettingsToggleSeekMessages));
     Equal("Otwórz lokalne pliki audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
     Equal("Otwórz folder z plikami audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
+    Equal("Pokaż foldery lokalne", CommandCatalog.GetDisplayName(CommandIds.ViewFolders));
+    Equal("Ustawienia: kolejność sesji i skrótów Ctrl+1–9", CommandCatalog.GetDisplayName(CommandIds.SettingsSessionOrder));
     Equal("Skocz do czasu", CommandCatalog.GetDisplayName(CommandIds.SeekToTime));
     Equal("Skocz do procentu", CommandCatalog.GetDisplayName(CommandIds.SeekToPercentage));
     Equal("Właściwości i informacje", CommandCatalog.GetDisplayName(CommandIds.ItemProperties));
@@ -414,7 +417,7 @@ static void TestSessions()
     var settings = new AppSettings();
     var manager = new SessionManager(settings);
     Equal("TIDAL", manager.Current.DisplayName);
-    Equal("WiiM", manager.SelectSlot(3)?.DisplayName);
+    Equal("WiiM", manager.SelectSlot(2)?.DisplayName);
     Equal("Apple Music", manager.MoveSession(-1).DisplayName);
     Equal("TIDAL", manager.SelectSession("tidal")?.DisplayName);
     Equal("tidal", settings.LastSessionId);
@@ -447,7 +450,39 @@ static void TestSessions()
 
     settings.LastSessionId = "nieistniejąca";
     manager = new SessionManager(settings);
-    Equal("tidal", settings.LastSessionId);
+    Equal("wiim", settings.LastSessionId);
+}
+
+static void TestSessionOrder()
+{
+    var defaults = SessionSlotOrder.CreateDefault();
+    Equal("local", defaults[1]);
+    Equal("wiim", defaults[2]);
+    Equal("tidal", defaults[3]);
+    Equal("appleMusic", defaults[4]);
+
+    var settings = new AppSettings
+    {
+        LastSessionId = "tidal",
+        SessionSlots = new Dictionary<int, string>
+        {
+            [1] = "appleMusic",
+            [2] = "tidal",
+            [3] = "wiim",
+            [4] = "local"
+        }
+    };
+    var manager = new SessionManager(settings);
+    Equal("TIDAL", manager.Current.DisplayName);
+    Equal("Apple Music", manager.MoveSession(-1).DisplayName);
+    Equal("TIDAL", manager.MoveSession(1).DisplayName);
+
+    var local = new MediaItem { Id = "local-order", Title = "Lokalny", Source = @"C:\Muzyka\lokalny.mp3" };
+    var (localSession, slot) = manager.AddOrUpdateTransientSession(
+        "local", "Pliki lokalne", [local], new FakeMediaOutput(), 1);
+    Equal(4, slot);
+    Equal(localSession, manager.SelectSlot(4));
+    Equal("Pliki lokalne", manager.Sessions[^1].DisplayName);
 }
 
 static void TestLocalPlaybackBoundary()
@@ -467,8 +502,8 @@ static void TestLocalPlaybackBoundary()
         output,
         4);
 
-    Equal(4, slot);
-    Equal(session, manager.SelectSlot(4));
+    Equal(1, slot);
+    Equal(session, manager.SelectSlot(1));
     Equal(TimeSpan.Zero, session.Position);
     True(session.Activate(item), "Lokalny element powinien uruchamiać wyjście dźwięku.");
     Equal(1, output.PlayCount);
@@ -924,6 +959,13 @@ static void TestLocalMediaPersistence()
         state.LocalMedia.CurrentItemId = "local-1";
         state.LocalMedia.Volume = 47;
         state.LocalMedia.PlaybackRate = 1.50d;
+        state.LocalMedia.FolderSources.Add(new LocalFolderSourceSettings
+        {
+            Id = "folder-1",
+            Path = directory,
+            DisplayName = "Nagrania"
+        });
+        state.LocalMedia.CurrentFolderPath = directory;
         state.LocalMedia.Items.Add(new LocalMediaItemSettings
         {
             Id = "local-1",
@@ -945,6 +987,9 @@ static void TestLocalMediaPersistence()
         Equal(47, loaded.LocalMedia.Volume);
         Equal(1.50d, loaded.LocalMedia.PlaybackRate);
         Equal(1, loaded.LocalMedia.Items.Count);
+        Equal(1, loaded.LocalMedia.FolderSources.Count);
+        Equal("Nagrania", loaded.LocalMedia.FolderSources[0].DisplayName);
+        Equal(Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory)), loaded.LocalMedia.CurrentFolderPath);
         Equal("local-1", new PlaybackHistory(loaded.PlaybackHistory).GetItemIds("local")[0]);
         var item = loaded.LocalMedia.Items[0];
         Equal("Długie nagranie", item.Title);
@@ -977,6 +1022,9 @@ static void TestCommandPalette()
     True(entries.Count >= 40, "Paleta powinna zawierać pełny katalog poleceń.");
     True(entries.All(entry => entry.CommandId != CommandIds.CommandPalette), "Paleta nie powinna uruchamiać samej siebie.");
     Equal(9, entries.Count(entry => entry.CommandId.StartsWith("session.slot.", StringComparison.Ordinal)));
+    Equal(
+        "Wybierz sesję 1: Pliki lokalne",
+        entries.Single(entry => entry.CommandId == CommandIds.SessionSlot(1)).DisplayName);
 
     var favorites = entries.Single(entry => entry.CommandId == CommandIds.ViewFavorites);
     Equal("Ctrl+U", favorites.LocalShortcut);
@@ -987,6 +1035,8 @@ static void TestCommandPalette()
     True(!favorites.ToString().Contains("CommandId", StringComparison.Ordinal), "Lista nie może ujawniać technicznych nazw pól obiektu.");
     Equal("Ctrl+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFiles).LocalShortcut);
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
+    True(entries.Any(entry => entry.CommandId == CommandIds.ViewFolders), "Paleta powinna zawierać widok folderów.");
+    True(entries.Any(entry => entry.CommandId == CommandIds.SettingsSessionOrder), "Paleta powinna zawierać ustawienia kolejności sesji.");
     Equal("Ctrl+H", entries.Single(entry => entry.CommandId == CommandIds.ViewHistory).LocalShortcut);
     var bookmarks = entries.Single(entry => entry.CommandId == CommandIds.ViewBookmarks);
     Equal("Ctrl+B", bookmarks.LocalShortcut);
@@ -1383,7 +1433,7 @@ static void TestExports()
 
         store.ExportFullBackup(backupPath, state);
         var importedBackup = store.ImportFullBackup(backupPath);
-        Equal(3, importedBackup.Settings.SessionSlots.Count);
+        Equal(4, importedBackup.Settings.SessionSlots.Count);
         Equal(1, importedBackup.KeyboardProfiles.Count);
         Equal(false, importedBackup.Settings.Messages.SeekMessages);
         Equal(false, importedBackup.Settings.Messages.ArrowSeekMessages);

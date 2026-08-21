@@ -21,12 +21,12 @@ function Remove-GeneratedNuGetSyncDuplicates {
 }
 
 Remove-GeneratedNuGetSyncDuplicates
-dotnet restore AccessibleMediaController.sln --runtime win-x64 -p:NuGetAudit=false
+dotnet restore AccessibleMediaController.sln --runtime win-x64 -p:NuGetAudit=false --disable-build-servers
 if ($LASTEXITCODE -ne 0) { throw "Nie udało się przywrócić składników projektu." }
 Remove-GeneratedNuGetSyncDuplicates
-dotnet build AccessibleMediaController.sln --configuration Release --no-restore
+dotnet build AccessibleMediaController.sln --configuration Release --no-restore --disable-build-servers
 if ($LASTEXITCODE -ne 0) { throw "Nie udało się skompilować projektu." }
-dotnet run --project tests/AccessibleMediaController.Core.SmokeTests --configuration Release --no-build
+dotnet run --project tests/AccessibleMediaController.Core.SmokeTests --configuration Release --no-build --disable-build-servers
 if ($LASTEXITCODE -ne 0) { throw "Testy kontrolne nie powiodły się." }
 
 if ($Publish) {
@@ -56,6 +56,7 @@ if ($Publish) {
             --runtime win-x64 `
             --self-contained true `
             --no-restore `
+            --disable-build-servers `
             --output $staging `
             -p:PublishSingleFile=true `
             -p:IncludeNativeLibrariesForSelfExtract=true `

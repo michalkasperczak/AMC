@@ -234,6 +234,7 @@ public sealed class CommandRouter(
             case CommandIds.SearchCurrent: return ShowView("Szukaj w bieżącej usłudze");
             case CommandIds.SearchAll: return ShowView("Szukaj we wszystkich usługach");
             case CommandIds.ViewLibrary: return ShowView("Biblioteka");
+            case CommandIds.ViewFolders: return ShowView("Foldery");
             case CommandIds.ViewQueue: return ShowView("Kolejka");
             case CommandIds.ViewAlbums: return ShowView("Albumy");
             case CommandIds.ViewRadio: return ShowView("Radio i rekomendacje");
@@ -283,6 +284,7 @@ public sealed class CommandRouter(
             CommandIds.SettingsGeneral => SettingsTarget.General,
             CommandIds.SettingsLanguage => SettingsTarget.Language,
             CommandIds.SettingsStartupTarget => SettingsTarget.StartupTarget,
+            CommandIds.SettingsSessionOrder => SettingsTarget.SessionOrder,
             CommandIds.SettingsPrefix => SettingsTarget.Prefix,
             CommandIds.SettingsPrefixTimeout => SettingsTarget.PrefixTimeout,
             CommandIds.SettingsKeyboardProfile => SettingsTarget.KeyboardProfile,

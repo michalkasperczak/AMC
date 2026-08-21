@@ -8,7 +8,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 16;
+    public const int CurrentSchemaVersion = 17;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -37,6 +37,7 @@ public sealed class ConfigurationStore(string statePath)
 
     public void Save(PersistedState state)
     {
+        NormalizeSessionSlots(state.Settings);
         NormalizeSearchHistory(state);
         NormalizeSessionNavigation(state);
         NormalizeLocalMedia(state);
@@ -230,6 +231,31 @@ public sealed class ConfigurationStore(string statePath)
             .ToList();
         state.LocalMedia.Volume = Math.Clamp(state.LocalMedia.Volume, 0, 100);
         state.LocalMedia.PlaybackRate = Math.Clamp(state.LocalMedia.PlaybackRate, 0.50d, 2.00d);
+        state.LocalMedia.FolderSources = (state.LocalMedia.FolderSources ?? [])
+            .Where(source => !string.IsNullOrWhiteSpace(source.Path))
+            .Select(source =>
+            {
+                source.Path = NormalizeFolderPath(source.Path);
+                source.Id = string.IsNullOrWhiteSpace(source.Id) ? Guid.NewGuid().ToString("N") : source.Id;
+                source.DisplayName = string.IsNullOrWhiteSpace(source.DisplayName)
+                    ? GetFolderDisplayName(source.Path)
+                    : source.DisplayName.Trim();
+                return source;
+            })
+            .Where(source => !string.IsNullOrWhiteSpace(source.Path))
+            .GroupBy(source => source.Path, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+
+        if (!string.IsNullOrWhiteSpace(state.LocalMedia.CurrentFolderPath))
+        {
+            state.LocalMedia.CurrentFolderPath = NormalizeFolderPath(state.LocalMedia.CurrentFolderPath);
+            if (!state.LocalMedia.FolderSources.Any(source =>
+                    IsSameOrDescendant(state.LocalMedia.CurrentFolderPath, source.Path)))
+            {
+                state.LocalMedia.CurrentFolderPath = null;
+            }
+        }
 
         var knownIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var item in state.LocalMedia.Items)
@@ -257,6 +283,12 @@ public sealed class ConfigurationStore(string statePath)
 
     private static void MigrateSettings(AppSettings settings, int schemaVersion)
     {
+        if (schemaVersion < 17 && IsLegacyDefaultSessionOrder(settings.SessionSlots))
+        {
+            settings.SessionSlots = SessionSlotOrder.CreateDefault();
+        }
+        NormalizeSessionSlots(settings);
+
         if (schemaVersion < 2
             && string.Equals(
                 KeyChord.Parse(settings.PrefixChord).Canonical,
@@ -383,6 +415,53 @@ public sealed class ConfigurationStore(string statePath)
         {
             throw new InvalidDataException("Kolejność informacji na listach jest nieprawidłowa.");
         }
+
+        if (settings.SessionSlots is null
+            || settings.SessionSlots.Count == 0
+            || settings.SessionSlots.Keys.Any(slot => slot is < 1 or > 9)
+            || settings.SessionSlots.Values.Any(string.IsNullOrWhiteSpace)
+            || settings.SessionSlots.Values.Distinct(StringComparer.OrdinalIgnoreCase).Count()
+                != settings.SessionSlots.Count)
+        {
+            throw new InvalidDataException("Kolejność sesji jest nieprawidłowa.");
+        }
+    }
+
+    private static void NormalizeSessionSlots(AppSettings settings)
+    {
+        settings.SessionSlots = SessionSlotOrder.Normalize(settings.SessionSlots);
+    }
+
+    private static bool IsLegacyDefaultSessionOrder(IReadOnlyDictionary<int, string>? slots) =>
+        slots is not null
+        && slots.Count == 3
+        && string.Equals(slots.GetValueOrDefault(1), "tidal", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(slots.GetValueOrDefault(2), "appleMusic", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(slots.GetValueOrDefault(3), "wiim", StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeFolderPath(string path)
+    {
+        try
+        {
+            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(path.Trim()));
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return string.Empty;
+        }
+    }
+
+    private static string GetFolderDisplayName(string path)
+    {
+        var name = Path.GetFileName(path);
+        return string.IsNullOrWhiteSpace(name) ? path : name;
+    }
+
+    private static bool IsSameOrDescendant(string candidate, string root)
+    {
+        if (string.Equals(candidate, root, StringComparison.OrdinalIgnoreCase)) return true;
+        var rootWithSeparator = root + Path.DirectorySeparatorChar;
+        return candidate.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase);
     }
 
     private static T Read<T>(string path, string expectedKind) where T : IExportEnvelope

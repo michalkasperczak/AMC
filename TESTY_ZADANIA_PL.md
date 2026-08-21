@@ -1,12 +1,72 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-076`
-- Tytuł zestawu: Bezpieczny Kosz dla plików lokalnych i iCloud
-- Wersja programu: `0.1.0-alpha.76`
-- Utworzono: 2026-08-20, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.76.md`
+- Numer zestawu: `AMC-TEST-077`
+- Tytuł zestawu: Foldery, kolejność sesji i połączone ustawienia odczytu
+- Wersja programu: `0.1.0-alpha.77`
+- Utworzono: 2026-08-21, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.77.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 77
+
+Do testu Folderów najlepiej wybrać katalog zawierający co najmniej dwa pliki audio w katalogu głównym i dwa różne podfoldery. Zwykłe otwieranie folderu niczego fizycznie nie przenosi ani nie usuwa.
+
+### AMC-077-01 — Domyślne miejsca sesji
+
+Po pierwszym uruchomieniu tej wersji sprawdź `Ctrl+1`, `Ctrl+2`, `Ctrl+3` i `Ctrl+4`.
+
+Oczekiwane: jeśli istnieje sesja lokalna, `Ctrl+1` wybiera Pliki lokalne; dalej są WiiM, TIDAL i Apple Music. Program podaje numer, usługę oraz zapamiętany widok tej sesji. Brak sesji lokalnej jest zgłaszany jako nieprzypisane miejsce, bez błędu.
+
+### AMC-077-02 — Zmiana kolejności sesji
+
+Otwórz `Ctrl+,`, kartę Ogólne i listę „Kolejność sesji i skrótów Ctrl+1–9”. Przesuń wybraną sesję `Alt+strzałka w górę` albo przyciskiem, zapisz ustawienia i sprawdź odpowiednie `Ctrl+cyfra`.
+
+Oczekiwane: po każdym przesunięciu NVDA podaje nowy numer. Po zapisaniu skrót wybiera właściwą sesję, lista `Ctrl+0` ma tę samą kolejność, a `Ctrl+Page Up/Page Down` przechodzi według niej.
+
+### AMC-077-03 — Trwałość kolejności
+
+Zakończ AMC po zmianie kolejności i uruchom je ponownie.
+
+Oczekiwane: własna kolejność oraz znaczenie `Ctrl+1–9` pozostają zachowane. Przycisk „Przywróć domyślną” odtwarza kolejność: Pliki lokalne, WiiM, TIDAL, Apple Music.
+
+### AMC-077-04 — Połączona karta Komunikaty
+
+W Ustawieniach odszukaj kartę Komunikaty i sekcję „Odczytywanie elementów list”. Zmień kolejność pól `Alt+strzałka w górę/w dół`, zapisz i sprawdź zwykłą listę.
+
+Oczekiwane: nie ma osobnej, dublującej karty „Listy i odczyt”. Kolejność pól, podgląd, przyciski oraz wszystkie dotychczasowe ustawienia komunikatów są dostępne i działają. Paleta poleceń nadal potrafi ustawić fokus bezpośrednio na kolejności odczytu i na kolejności sesji.
+
+### AMC-077-05 — Rejestracja źródła folderu
+
+Naciśnij `Ctrl+Shift+O` i wybierz przygotowany katalog.
+
+Oczekiwane: program niczego automatycznie nie odtwarza, rejestruje źródło i pokazuje widok Foldery. Na jednym poziomie podfoldery są przed plikami, a NVDA czyta każdy podfolder jako „folder”.
+
+### AMC-077-06 — Nawigacja po poziomach
+
+W widoku Foldery otwórz podfolder Enterem, uruchom plik Enterem, wróć Escape z odtwarzacza, a następnie użyj Backspace.
+
+Oczekiwane: Enter na folderze schodzi dokładnie o poziom, Enter na pliku otwiera wspólny odtwarzacz, Escape wraca do tego samego poziomu i elementu, a Backspace wraca do folderu nadrzędnego. Na liście źródeł Backspace jedynie informuje, że wyżej przejść nie można.
+
+### AMC-077-07 — Litery, filtr i wyszukiwanie
+
+W podfolderze użyj kilku liter, następnie `Ctrl+K`; na końcu wykonaj `Ctrl+F` dla nazwy pliku znajdującego się w innym podfolderze.
+
+Oczekiwane: litery i filtr dotyczą tylko widocznego poziomu. Wyszukiwanie obejmuje całą sesję Pliki lokalne i może znaleźć rekord spoza bieżącego folderu. Strzałka w lewo na pliku nadal podaje dostępne parametry techniczne.
+
+### AMC-077-08 — Pamięć Folderów i Biblioteki
+
+Pozostaw fokus wewnątrz podfolderu, zakończ AMC i uruchom ponownie. Następnie otwórz płaską Bibliotekę przez `Ctrl+L` i wróć do Folderów z menu Widok albo palety.
+
+Oczekiwane: źródło oraz poziom folderu są pamiętane. Biblioteka nadal zawiera wszystkie zaimportowane pliki w płaskim zestawieniu, a powrót do Folderów nie tworzy duplikatów.
+
+### AMC-077-09 — Regresja lokalnych działań
+
+Na pliku dostępnym przez Foldery sprawdź odtwarzanie, zakładkę, `Ctrl+C`, `Ctrl+Shift+C`, Ulubione, Kolejkę i informacje `Alt+Enter`.
+
+Oczekiwane: rekord jest tym samym elementem co w Bibliotece, więc odtwarzanie, pozycja, zakładki i stany przynależności są wspólne. Kopiowanie nazwy i fizycznego pliku działa jak dotychczas.
+
+## Poprzedni zestaw regresyjny alpha 76
 
 ## Nowości alpha 76
 
