@@ -77,8 +77,10 @@ public sealed class CommandRouter(
         var current = sessions.Current;
         if (CommandIds.TryParseSeekPercent(commandId, out var percent))
         {
+            if (!current.HasItems) return MissingMediaItem(current);
             return SeekPercent(current, percent);
         }
+        if (!current.HasItems && RequiresMediaItem(commandId)) return MissingMediaItem(current);
 
         switch (commandId)
         {
@@ -429,6 +431,24 @@ public sealed class CommandRouter(
     }
 
     private static TimeSpan Max(TimeSpan first, TimeSpan second) => first >= second ? first : second;
+
+    private CommandExecutionResult MissingMediaItem(DemoMediaSession session)
+    {
+        announcements.Announce($"Brak elementów w sesji {session.DisplayName}");
+        return new(false);
+    }
+
+    private static bool RequiresMediaItem(string commandId) => commandId is
+        CommandIds.PlayPause or CommandIds.ActivateSelected
+        or CommandIds.Previous or CommandIds.Next
+        or CommandIds.SeekBackward10 or CommandIds.SeekForward10
+        or CommandIds.SeekBackward30 or CommandIds.SeekForward30
+        or CommandIds.SeekBackward60 or CommandIds.SeekForward60
+        or CommandIds.TrackStart or CommandIds.TrackEnd
+        or CommandIds.TimeElapsed or CommandIds.TimeRemaining or CommandIds.TimeTotal
+        or CommandIds.ToggleFavorite or CommandIds.ToggleLibrary
+        or CommandIds.AddQueue or CommandIds.TogglePlayNext
+        or CommandIds.PlaybackRateDown or CommandIds.PlaybackRateUp or CommandIds.PlaybackRateReset;
 
     private IReadOnlyList<MediaItem> ResolveActionItems(DemoMediaSession session) =>
         application.ActionItems.Count > 0

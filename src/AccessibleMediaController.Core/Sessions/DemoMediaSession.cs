@@ -13,6 +13,7 @@ public sealed class DemoMediaSession
     private readonly Dictionary<string, TimeSpan> _rememberedPositions = new(StringComparer.Ordinal);
     private int? _resumeAfterQueueIndex;
     private readonly HashSet<string> _playedQueueItemIds = new(StringComparer.Ordinal);
+    private readonly MediaItem _emptyItem;
 
     public DemoMediaSession(
         string id,
@@ -23,7 +24,11 @@ public sealed class DemoMediaSession
         Id = id;
         DisplayName = displayName;
         Items = items.ToList();
-        if (Items.Count == 0) throw new ArgumentException("Sesja demonstracyjna wymaga elementów.", nameof(items));
+        _emptyItem = new MediaItem
+        {
+            Id = $"{id}-empty",
+            Title = $"Brak elementów w sesji {displayName}"
+        };
         _output = output;
         _position = output is null ? TimeSpan.FromSeconds(83) : TimeSpan.Zero;
     }
@@ -31,7 +36,8 @@ public sealed class DemoMediaSession
     public string Id { get; }
     public string DisplayName { get; }
     public List<MediaItem> Items { get; }
-    public MediaItem CurrentItem => Items[_currentIndex];
+    public bool HasItems => Items.Count > 0;
+    public MediaItem CurrentItem => HasItems ? Items[_currentIndex] : _emptyItem;
     public bool IsPlaying { get; private set; }
     public int Volume { get; private set; } = 35;
     public double PlaybackRate { get; private set; } = 1d;
@@ -44,6 +50,7 @@ public sealed class DemoMediaSession
 
     public void TogglePlayback()
     {
+        if (!HasItems) return;
         if (IsPlaying)
         {
             _position = Position;
@@ -59,6 +66,7 @@ public sealed class DemoMediaSession
 
     public void StopPlayback()
     {
+        if (!HasItems) return;
         RememberCurrentPosition();
         IsPlaying = false;
         _output?.Stop();
@@ -108,6 +116,7 @@ public sealed class DemoMediaSession
 
     public void Move(int direction)
     {
+        if (!HasItems) return;
         RememberCurrentPosition();
         _currentIndex = (_currentIndex + direction + Items.Count) % Items.Count;
         _position = _rememberedPositions.GetValueOrDefault(CurrentItem.Id);
@@ -115,7 +124,7 @@ public sealed class DemoMediaSession
 
     public bool PlayRelative(int direction)
     {
-        if (direction == 0) return false;
+        if (!HasItems || direction == 0) return false;
         var nextIndex = _currentIndex + Math.Sign(direction);
         if (nextIndex < 0 || nextIndex >= Items.Count) return false;
 
@@ -130,6 +139,7 @@ public sealed class DemoMediaSession
 
     public void Seek(TimeSpan delta)
     {
+        if (!HasItems) return;
         var next = Position + delta;
         if (next < TimeSpan.Zero) next = TimeSpan.Zero;
         if (CurrentItem.Duration > TimeSpan.Zero && next > CurrentItem.Duration) next = CurrentItem.Duration;
@@ -140,6 +150,7 @@ public sealed class DemoMediaSession
 
     public void SetPosition(TimeSpan position)
     {
+        if (!HasItems) return;
         _position = position < TimeSpan.Zero ? TimeSpan.Zero : position;
         _rememberedPositions[CurrentItem.Id] = _position;
         _output?.Seek(_position);
@@ -157,6 +168,7 @@ public sealed class DemoMediaSession
 
     public void RememberCurrentPosition()
     {
+        if (!HasItems) return;
         var position = Position;
         _position = position < TimeSpan.Zero ? TimeSpan.Zero : position;
         _rememberedPositions[CurrentItem.Id] = _position;
@@ -263,6 +275,7 @@ public sealed class DemoMediaSession
 
     public void MarkPlaybackEnded()
     {
+        if (!HasItems) return;
         IsPlaying = false;
         _position = TimeSpan.Zero;
         _rememberedPositions[CurrentItem.Id] = TimeSpan.Zero;
@@ -272,7 +285,7 @@ public sealed class DemoMediaSession
 
     public MediaItem? ContinueAfterPlaybackEnded(MediaItem endedItem)
     {
-        if (!string.Equals(CurrentItem.Id, endedItem.Id, StringComparison.Ordinal)) return null;
+        if (!HasItems || !string.Equals(CurrentItem.Id, endedItem.Id, StringComparison.Ordinal)) return null;
 
         IsPlaying = false;
         _position = TimeSpan.Zero;
@@ -329,6 +342,7 @@ public sealed class DemoMediaSession
 
     public void MarkPlaybackFailed()
     {
+        if (!HasItems) return;
         IsPlaying = false;
         _position = TimeSpan.Zero;
         ResetQueueDiversion();

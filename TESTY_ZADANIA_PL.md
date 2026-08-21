@@ -1,12 +1,34 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-077`
-- Tytuł zestawu: Foldery, kolejność sesji i połączone ustawienia odczytu
-- Wersja programu: `0.1.0-alpha.77`
+- Numer zestawu: `AMC-TEST-078`
+- Tytuł zestawu: Poprawiona pusta sesja lokalna i wczytywanie folderów
+- Wersja programu: `0.1.0-alpha.78`
 - Utworzono: 2026-08-21, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.77.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.78.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Poprawki alpha 78
+
+### AMC-078-01 — Pusta sesja lokalna
+
+Uruchom AMC bez dodawania plików i naciśnij `Ctrl+1`. Następnie spróbuj F6 albo polecenia odtwarzania.
+
+Oczekiwane: `Ctrl+1` wybiera „Pliki lokalne” i pustą listę, a nie sesję nieprzypisaną ani listę demonstracyjną. Polecenie wymagające pliku mówi „Brak elementów w sesji Pliki lokalne” i nie otwiera fikcyjnego odtwarzacza.
+
+### AMC-078-02 — Wczytywanie folderu z innej sesji
+
+Przejdź do TIDAL, Apple Music albo WiiM, naciśnij `Ctrl+Shift+O` i wybierz folder zawierający pliki audio, najlepiej także podfoldery.
+
+Oczekiwane: po zatwierdzeniu wyboru program natychmiast przechodzi do „Pliki lokalne — Foldery” i mówi nazwę wczytywanego folderu. Podczas skanowania nie pokazuje demonstracyjnych utworów poprzedniej usługi. Po zakończeniu wyświetla prawdziwe podfoldery i pliki.
+
+### AMC-078-03 — Pusty folder i trwałość źródła
+
+Wybierz `Ctrl+Shift+O` pusty katalog, a potem zakończ i ponownie uruchom AMC.
+
+Oczekiwane: program informuje, że nie znaleziono obsługiwanych plików, ale pozostaje w lokalnym widoku i nie wraca do danych demonstracyjnych. Źródło folderu i przypisanie `Ctrl+1` pozostają zapisane.
+
+## Poprzedni zestaw regresyjny alpha 77
 
 ## Nowości alpha 77
 
@@ -16,7 +38,7 @@ Do testu Folderów najlepiej wybrać katalog zawierający co najmniej dwa pliki 
 
 Po pierwszym uruchomieniu tej wersji sprawdź `Ctrl+1`, `Ctrl+2`, `Ctrl+3` i `Ctrl+4`.
 
-Oczekiwane: jeśli istnieje sesja lokalna, `Ctrl+1` wybiera Pliki lokalne; dalej są WiiM, TIDAL i Apple Music. Program podaje numer, usługę oraz zapamiętany widok tej sesji. Brak sesji lokalnej jest zgłaszany jako nieprzypisane miejsce, bez błędu.
+Oczekiwane w bieżącej wersji: `Ctrl+1` zawsze wybiera Pliki lokalne, także z pustą listą; dalej są WiiM, TIDAL i Apple Music. Program podaje numer, usługę oraz zapamiętany widok tej sesji.
 
 ### AMC-077-02 — Zmiana kolejności sesji
 

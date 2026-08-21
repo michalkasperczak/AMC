@@ -145,8 +145,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     public MediaItem? SelectedItem => (MediaList.SelectedItem as MediaItemRow)?.Item;
     private BookmarkEntry? SelectedBookmark => (MediaList.SelectedItem as MediaItemRow)?.Bookmark;
     public MediaItem? ActionItem => _playerViewActive
-        ? _sessions.Current.CurrentItem
-        : (MediaList.SelectedItem as MediaItemRow)?.ActionItem ?? _sessions.Current.CurrentItem;
+        ? (_sessions.Current.HasItems ? _sessions.Current.CurrentItem : null)
+        : (MediaList.SelectedItem as MediaItemRow)?.ActionItem
+            ?? (_sessions.Current.HasItems ? _sessions.Current.CurrentItem : null);
     private DemoMediaSession ActionSession => !_playerViewActive && SelectedBookmark is { } bookmark
         ? _sessions.FindSession(bookmark.SessionId) ?? _sessions.Current
         : _sessions.Current;
@@ -160,7 +161,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 .Select(row => row.ActionItem)
                 .Distinct()
                 .ToArray();
-            return selected.Length > 0 ? selected : [ActionItem ?? _sessions.Current.CurrentItem];
+            if (selected.Length > 0) return selected;
+            return ActionItem is { } actionItem ? [actionItem] : [];
         }
     }
 
@@ -439,6 +441,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ShowPlayerView()
     {
+        if (!_sessions.Current.HasItems)
+        {
+            AnnounceEssential($"Brak elementów w sesji {_sessions.Current.DisplayName}");
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
         if (!_playerViewActive)
         {
             CaptureCurrentSessionNavigationState();
@@ -985,7 +994,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        AnnounceEssential("Wczytywanie folderu");
+        var folderSource = RegisterLocalFolderSource(dialog.FolderName);
+        ShowLocalFolderWhileLoading(folderSource);
+        TrySaveLocalMediaState(true);
+        AnnounceEssential($"Wczytywanie folderu: {folderSource.DisplayName}");
         IReadOnlyList<string> fileNames;
         try
         {
@@ -1006,6 +1018,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         AddLocalFiles(fileNames, dialog.FolderName);
+    }
+
+    private void ShowLocalFolderWhileLoading(LocalFolderSourceSettings folderSource)
+    {
+        CaptureCurrentSessionNavigationState();
+        _sessions.SelectSession("local");
+        _state.LocalMedia.CurrentFolderPath = folderSource.Path;
+        var navigation = GetSessionNavigationState("local");
+        navigation.CurrentView = FolderViewName;
+        navigation.PlayerActive = false;
+        navigation.Filters[FolderViewName] = string.Empty;
+        _currentView = FolderViewName;
+        HidePlayerForBrowserNavigation();
+        RestoreFilterForCurrentView(navigation);
+        RefreshCurrentView();
+        PrepareViewFocusContext($"Foldery, {folderSource.DisplayName}, wczytywanie");
+        RestoreMediaListFocusAfterRefresh();
     }
 
     private void AddLocalFiles(IEnumerable<string> fileNames, string? folderSourcePath = null)
@@ -1136,7 +1165,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             };
         }).ToList();
 
-        if (local is not null)
+        if (local is not null && local.HasItems)
         {
             _state.LocalMedia.CurrentItemId = local.CurrentItem.Id;
             _state.LocalMedia.Volume = local.Volume;
@@ -1302,22 +1331,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var previousLocal = _sessions?.FindSession("local");
         var previousLocalItemId = previousLocal?.CurrentItem.Id;
         var previousLocalPosition = previousLocal?.Position ?? TimeSpan.Zero;
-        var previousLocalVolume = previousLocal?.Volume ?? 35;
-        var previousLocalPlaybackRate = previousLocal?.PlaybackRate ?? 1d;
         var previousLocalWasPlaying = previousLocal?.IsPlaying == true;
         _membershipHistory.Clear();
         _localCatalogHistory.Clear();
         _playbackHistoryCursors.Clear();
         _undoSequence = 0;
         _sessions = new SessionManager(_state.Settings);
+        var (local, _) = _sessions.AddOrUpdateTransientSession(
+            "local",
+            "Pliki lokalne",
+            _localItems,
+            _localOutput,
+            1);
         if (_localItems.Count > 0)
         {
-            var (local, _) = _sessions.AddOrUpdateTransientSession(
-                "local",
-                "Pliki lokalne",
-                _localItems,
-                _localOutput,
-                1);
             foreach (var saved in _state.LocalMedia.Items.Where(CanRestorePosition))
             {
                 local.SetRememberedPosition(saved.Id, TimeSpan.FromTicks(saved.ResumePositionTicks));
@@ -1325,14 +1352,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var restoredItemId = previousLocalItemId ?? _state.LocalMedia.CurrentItemId;
             var restoredItem = local.Items.FirstOrDefault(item => item.Id == restoredItemId);
             if (restoredItem is not null) local.SelectItem(restoredItem);
-            local.SetVolume(previousLocal?.Volume ?? _state.LocalMedia.Volume);
             if (previousLocal is not null) local.SetPosition(previousLocalPosition);
-            local.SetPlaybackRate(previousLocal?.PlaybackRate ?? _state.LocalMedia.PlaybackRate);
-            if (previousLocalWasPlaying) local.Play(local.CurrentItem);
-            if (string.Equals(desiredSessionId, "local", StringComparison.Ordinal))
-            {
-                _sessions.SelectSession("local");
-            }
+        }
+        local.SetVolume(previousLocal?.Volume ?? _state.LocalMedia.Volume);
+        local.SetPlaybackRate(previousLocal?.PlaybackRate ?? _state.LocalMedia.PlaybackRate);
+        if (previousLocalWasPlaying && local.HasItems) local.Play(local.CurrentItem);
+        if (string.Equals(desiredSessionId, "local", StringComparison.Ordinal))
+        {
+            _sessions.SelectSession("local");
         }
         _router = new CommandRouter(_sessions, _state.Settings, this, this);
     }

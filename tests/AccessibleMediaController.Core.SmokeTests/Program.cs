@@ -26,6 +26,7 @@ var tests = new (string Name, Action Test)[]
     ("Migracja kategorii komunikatów alpha.41", TestVersion10PlayerMessageMigration),
     ("Przełączanie sesji", TestSessions),
     ("Konfigurowana kolejność sesji", TestSessionOrder),
+    ("Pusta sesja lokalna", TestEmptyLocalSession),
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
@@ -592,6 +593,40 @@ static void TestLocalPlaybackBoundary()
     True(manager.FindSession("local") is null, "Odłączona sesja nie może pozostać na liście.");
     Equal(session, manager.RestoreTransientSession(detached!, makeCurrent: true));
     Equal(session, manager.Current);
+}
+
+static void TestEmptyLocalSession()
+{
+    var output = new FakeMediaOutput();
+    var manager = new SessionManager(new AppSettings());
+    var (session, slot) = manager.AddOrUpdateTransientSession(
+        "local",
+        "Pliki lokalne",
+        [],
+        output,
+        1);
+
+    Equal(1, slot);
+    Equal(session, manager.SelectSlot(1));
+    Equal(false, session.HasItems);
+    Equal("Brak elementów w sesji Pliki lokalne", session.CurrentItem.Title);
+    session.TogglePlayback();
+    session.Move(1);
+    session.Seek(TimeSpan.FromSeconds(10));
+    Equal(0, output.PlayCount);
+    Equal(false, session.IsPlaying);
+
+    var item = new MediaItem
+    {
+        Id = "local-after-empty",
+        Title = "Dodany po uruchomieniu",
+        Source = @"C:\Muzyka\dodany.mp3"
+    };
+    session.AddItems([item]);
+    Equal(true, session.HasItems);
+    Equal(item, session.CurrentItem);
+    True(session.Activate(item), "Plik dodany do pustej sesji powinien dać się odtworzyć.");
+    Equal(1, output.PlayCount);
 }
 
 static void TestLocalAudioFileDiscovery()
