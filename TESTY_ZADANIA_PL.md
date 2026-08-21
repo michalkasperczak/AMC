@@ -1,12 +1,40 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-081`
-- Tytuł zestawu: Foldery iCloud i przejście z płaskiej Biblioteki
-- Wersja programu: `0.1.0-alpha.81`
+- Numer zestawu: `AMC-TEST-082`
+- Tytuł zestawu: Bezpieczne źródła iCloud, OneDrive i Google Drive
+- Wersja programu: `0.1.0-alpha.82`
 - Utworzono: 2026-08-21, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.81.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.82.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Poprawki alpha 82
+
+### AMC-082-01 — OneDrive bez masowego pobierania
+
+Przez `Ctrl+Shift+O` dodaj niewielki folder OneDrive zawierający kilka plików audio dostępnych lokalnie i, jeśli masz takie dane testowe, kilka pozycji „tylko online”.
+
+Oczekiwane: AMC pokazuje nazwy obu rodzajów plików, nie pomija folderu z atrybutem Cloud Files i nie rozpoczyna samoczynnego odtwarzania ani pobierania całej zawartości.
+
+### AMC-082-02 — Google Drive Mirror
+
+Jeżeli używasz trybu lustrzanego Google Drive, dodaj niewielki folder z plikami audio i wykonaj `F5`.
+
+Oczekiwane: źródło zachowuje się jak zwykły folder lokalny, bez duplikatów i bez specjalnych komunikatów chmurowych.
+
+### AMC-082-03 — Google Drive Stream albo niedostępny dysk
+
+Jeżeli używasz trybu strumieniowanego, dodaj folder z wirtualnego dysku Google Drive, zamknij AMC, zatrzymaj Google Drive for desktop, uruchom AMC i użyj `F5`. Następnie ponownie uruchom Google Drive i odśwież źródła. Jeśli nie masz trybu Stream, test można pominąć.
+
+Oczekiwane: podczas niedostępności AMC nie usuwa rekordów, historii, zakładek ani pozycji. Informuje o niedostępnym źródle. Po powrocie dysku te same rekordy stają się dostępne bez duplikatów.
+
+### AMC-082-04 — Regresja iCloud i Alt+1
+
+Powtórz test `Sideloads` oraz przejście z zaznaczonego pliku w `Alt+2` do `Alt+1`.
+
+Oczekiwane: `Sideloads` nadal pokazuje 317 zapisanych plików audio, a `Alt+1` prowadzi do folderu zaznaczonego elementu.
+
+## Poprzedni zestaw regresyjny alpha 81
 
 ## Poprawki alpha 81
 

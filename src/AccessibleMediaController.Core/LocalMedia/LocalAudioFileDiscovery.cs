@@ -4,6 +4,13 @@ namespace AccessibleMediaController.Core.LocalMedia;
 
 public static class LocalAudioFileDiscovery
 {
+    // Windows SDK attributes not exposed by every target framework's enum.
+    private const FileAttributes RecallOnOpen = (FileAttributes)0x00040000;
+    private const FileAttributes Pinned = (FileAttributes)0x00080000;
+    private const FileAttributes Unpinned = (FileAttributes)0x00100000;
+    private const FileAttributes RecallOnDataAccess = (FileAttributes)0x00400000;
+    private const FileAttributes CloudPlaceholderAttributes =
+        FileAttributes.Offline | RecallOnOpen | RecallOnDataAccess | Pinned | Unpinned;
     private static readonly HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".mp3", ".mp2", ".wav", ".m4a", ".aac", ".flac", ".wma",
@@ -111,7 +118,11 @@ public static class LocalAudioFileDiscovery
                 or UnauthorizedAccessException
                 or NotSupportedException)
         {
-            return true;
+            // Some Cloud Files providers reject LinkTarget queries even though
+            // directory enumeration is safe and does not hydrate file data.
+            // Unknown reparse points remain excluded; known placeholder flags
+            // provide a conservative fallback for OneDrive and similar roots.
+            return (attributes & CloudPlaceholderAttributes) == 0;
         }
     }
 

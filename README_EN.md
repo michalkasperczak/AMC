@@ -14,6 +14,8 @@ Since `alpha.80`, sources synchronize at startup, after file-system changes and 
 
 Since `alpha.81`, discovery distinguishes real directory links from Cloud Files placeholder files and directories. iCloud sources can therefore be indexed without opening and hydrating every recording, while symbolic links and junctions still cannot introduce traversal loops. A one-time migration repairs a source whose complete legacy catalogue was accidentally excluded by alpha.80. Switching from `Alt+2` to `Alt+1` now opens the selected file's actual directory and retains its selection; a standalone file outside registered sources maps to the Folders root.
 
+Since `alpha.82`, fallback Cloud Files attribute detection also covers OneDrive when a provider rejects a link-target query. Mirrored Google Drive behaves like an ordinary folder, while streamed Google Drive is a source on a virtual drive: AMC indexes names without opening payloads, does not force bulk downloads, and retains records while Drive for desktop or its drive is temporarily unavailable. File watching is an enhancement; startup scanning and `F5` remain available for file systems that do not support it.
+
 The active working repository should reside on an ordinary local NTFS volume outside iCloud Drive, Google Drive, OneDrive and other synchronized directories. GitHub stores source history, while atomic user-data backups may be exported to cloud storage. On the primary test computer the canonical project path is `D:\Projekty Codex\Accessible Multimedia Controller`.
 
 ## Simplest way to run a published build
