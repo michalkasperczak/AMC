@@ -103,6 +103,8 @@ public static class CommandCatalog
             CommandIds.SettingsLanguage => "Ustawienia: język interfejsu",
             CommandIds.SettingsStartupTarget => "Ustawienia: widok po uruchomieniu",
             CommandIds.SettingsSessionOrder => "Ustawienia: kolejność sesji i skrótów Ctrl+1–9",
+            CommandIds.SettingsPausePlaybackWhenLeavingPlayer => "Ustawienia: wstrzymuj po wyjściu z odtwarzacza",
+            CommandIds.SettingsRememberLocalPlaybackPositions => "Ustawienia: domyślnie pamiętaj pozycje lokalnych plików",
             CommandIds.SettingsPrefix => "Ustawienia: globalny prefiks",
             CommandIds.SettingsPrefixTimeout => "Ustawienia: czas oczekiwania po prefiksie",
             CommandIds.SettingsKeyboardProfile => "Ustawienia: profil klawiatury",

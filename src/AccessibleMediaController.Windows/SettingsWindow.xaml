@@ -29,6 +29,16 @@
                         <ComboBoxItem Tag="MediaList">Multimedia</ComboBoxItem>
                         <ComboBoxItem Tag="SessionList">Sesje</ComboBoxItem>
                     </ComboBox>
+                    <GroupBox Header="Odtwarzanie" Margin="0,2,0,14">
+                        <StackPanel Margin="8">
+                            <CheckBox x:Name="PausePlaybackWhenLeavingPlayerCheck" Margin="0,0,0,8"
+                                      Content="_Wstrzymuj odtwarzanie po wyjściu z odtwarzacza"
+                                      automation:AutomationProperties.HelpText="Dotyczy Escape, Shift+F6, przycisku Wróć do listy i bezpośredniego przejścia do innego widoku. Zwykła lista zachowuje zwykłe działanie klawiszy." />
+                            <CheckBox x:Name="RememberLocalPlaybackPositionsCheck"
+                                      Content="Domyślnie _pamiętaj pozycje lokalnych plików"
+                                      automation:AutomationProperties.HelpText="Dla każdego źródła folderowego można wybrać inne zachowanie w oknie Źródła Biblioteki lokalnej." />
+                        </StackPanel>
+                    </GroupBox>
                     <GroupBox Header="Kolejność sesji i skróty Ctrl+1–9" Margin="0,2,0,14">
                         <StackPanel Margin="8">
                             <TextBlock Margin="0,0,0,8" TextWrapping="Wrap"

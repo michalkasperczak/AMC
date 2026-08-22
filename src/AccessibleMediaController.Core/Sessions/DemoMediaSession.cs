@@ -10,6 +10,7 @@ public sealed class DemoMediaSession
     private int _currentIndex;
     private TimeSpan _position;
     private readonly IMediaOutput? _output;
+    private readonly Func<MediaItem, bool> _rememberPosition;
     private readonly Dictionary<string, TimeSpan> _rememberedPositions = new(StringComparer.Ordinal);
     private int? _resumeAfterQueueIndex;
     private readonly HashSet<string> _playedQueueItemIds = new(StringComparer.Ordinal);
@@ -19,7 +20,8 @@ public sealed class DemoMediaSession
         string id,
         string displayName,
         IEnumerable<MediaItem> items,
-        IMediaOutput? output = null)
+        IMediaOutput? output = null,
+        Func<MediaItem, bool>? rememberPosition = null)
     {
         Id = id;
         DisplayName = displayName;
@@ -30,6 +32,7 @@ public sealed class DemoMediaSession
             Title = $"Brak elementów w sesji {displayName}"
         };
         _output = output;
+        _rememberPosition = rememberPosition ?? (_ => true);
         _position = output is null ? TimeSpan.FromSeconds(83) : TimeSpan.Zero;
     }
 
@@ -79,7 +82,7 @@ public sealed class DemoMediaSession
         if (index != _currentIndex)
         {
             RememberCurrentPosition();
-            _position = _rememberedPositions.GetValueOrDefault(item.Id);
+            _position = RememberedPosition(item);
         }
         _currentIndex = index;
         return true;
@@ -108,7 +111,7 @@ public sealed class DemoMediaSession
         ResetQueueDiversion();
         RememberCurrentPosition();
         _currentIndex = index;
-        _position = _rememberedPositions.GetValueOrDefault(item.Id);
+        _position = RememberedPosition(item);
         IsPlaying = true;
         _output?.Play(CurrentItem, _position, Volume, PlaybackRate);
         return true;
@@ -119,7 +122,7 @@ public sealed class DemoMediaSession
         if (!HasItems) return;
         RememberCurrentPosition();
         _currentIndex = (_currentIndex + direction + Items.Count) % Items.Count;
-        _position = _rememberedPositions.GetValueOrDefault(CurrentItem.Id);
+        _position = RememberedPosition(CurrentItem);
     }
 
     public bool PlayRelative(int direction)
@@ -131,7 +134,7 @@ public sealed class DemoMediaSession
         ResetQueueDiversion();
         RememberCurrentPosition();
         _currentIndex = nextIndex;
-        _position = _rememberedPositions.GetValueOrDefault(CurrentItem.Id);
+        _position = RememberedPosition(CurrentItem);
         IsPlaying = true;
         _output?.Play(CurrentItem, _position, Volume, PlaybackRate);
         return true;
@@ -144,7 +147,7 @@ public sealed class DemoMediaSession
         if (next < TimeSpan.Zero) next = TimeSpan.Zero;
         if (CurrentItem.Duration > TimeSpan.Zero && next > CurrentItem.Duration) next = CurrentItem.Duration;
         _position = next;
-        _rememberedPositions[CurrentItem.Id] = next;
+        StoreRememberedPosition(CurrentItem, next);
         _output?.Seek(next);
     }
 
@@ -152,18 +155,25 @@ public sealed class DemoMediaSession
     {
         if (!HasItems) return;
         _position = position < TimeSpan.Zero ? TimeSpan.Zero : position;
-        _rememberedPositions[CurrentItem.Id] = _position;
+        StoreRememberedPosition(CurrentItem, _position);
         _output?.Seek(_position);
     }
 
     public void SetRememberedPosition(string itemId, TimeSpan position)
     {
         if (Items.All(item => !string.Equals(item.Id, itemId, StringComparison.Ordinal))) return;
-        _rememberedPositions[itemId] = position < TimeSpan.Zero ? TimeSpan.Zero : position;
+        var item = Items.FirstOrDefault(candidate => string.Equals(candidate.Id, itemId, StringComparison.Ordinal));
+        if (item is null) return;
+        StoreRememberedPosition(item, position < TimeSpan.Zero ? TimeSpan.Zero : position);
         if (string.Equals(CurrentItem.Id, itemId, StringComparison.Ordinal))
         {
-            _position = _rememberedPositions[itemId];
+            _position = RememberedPosition(item);
         }
+    }
+
+    public void ClearRememberedPosition(string itemId)
+    {
+        _rememberedPositions.Remove(itemId);
     }
 
     public void RememberCurrentPosition()
@@ -171,7 +181,7 @@ public sealed class DemoMediaSession
         if (!HasItems) return;
         var position = Position;
         _position = position < TimeSpan.Zero ? TimeSpan.Zero : position;
-        _rememberedPositions[CurrentItem.Id] = _position;
+        StoreRememberedPosition(CurrentItem, _position);
     }
 
     public void ChangeVolume(int delta)
@@ -250,14 +260,14 @@ public sealed class DemoMediaSession
         if (restoredIndex >= 0)
         {
             _currentIndex = restoredIndex;
-            _position = _rememberedPositions.GetValueOrDefault(CurrentItem.Id);
+            _position = RememberedPosition(CurrentItem);
             return;
         }
 
         if (previousWasPlaying) _output?.Stop();
         IsPlaying = false;
         _currentIndex = 0;
-        _position = _rememberedPositions.GetValueOrDefault(CurrentItem.Id);
+        _position = RememberedPosition(CurrentItem);
         ResetQueueDiversion();
     }
 
@@ -290,7 +300,7 @@ public sealed class DemoMediaSession
             ? Math.Min(oldCurrentIndex, Items.Count - 1)
             : Items.FindIndex(item => string.Equals(item.Id, currentId, StringComparison.Ordinal));
         if (_currentIndex < 0) _currentIndex = 0;
-        _position = _rememberedPositions.GetValueOrDefault(CurrentItem.Id);
+        _position = RememberedPosition(CurrentItem);
         ResetQueueDiversion();
         return removed;
     }
@@ -317,7 +327,7 @@ public sealed class DemoMediaSession
         if (!HasItems) return;
         IsPlaying = false;
         _position = TimeSpan.Zero;
-        _rememberedPositions[CurrentItem.Id] = TimeSpan.Zero;
+        StoreRememberedPosition(CurrentItem, TimeSpan.Zero);
         ResetQueueDiversion();
         _output?.Seek(TimeSpan.Zero);
     }
@@ -328,7 +338,7 @@ public sealed class DemoMediaSession
 
         IsPlaying = false;
         _position = TimeSpan.Zero;
-        _rememberedPositions[endedItem.Id] = TimeSpan.Zero;
+        StoreRememberedPosition(endedItem, TimeSpan.Zero);
         endedItem.IsInQueue = false;
         endedItem.IsPlayNext = false;
 
@@ -373,7 +383,7 @@ public sealed class DemoMediaSession
         }
 
         _currentIndex = Items.FindIndex(item => item.Id == next.Id);
-        _rememberedPositions[CurrentItem.Id] = TimeSpan.Zero;
+        StoreRememberedPosition(CurrentItem, TimeSpan.Zero);
         IsPlaying = true;
         _output?.Play(CurrentItem, TimeSpan.Zero, Volume, PlaybackRate);
         return CurrentItem;
@@ -418,5 +428,22 @@ public sealed class DemoMediaSession
     {
         _resumeAfterQueueIndex = null;
         _playedQueueItemIds.Clear();
+    }
+
+    private TimeSpan RememberedPosition(MediaItem item) =>
+        _rememberPosition(item)
+            ? _rememberedPositions.GetValueOrDefault(item.Id)
+            : TimeSpan.Zero;
+
+    private void StoreRememberedPosition(MediaItem item, TimeSpan position)
+    {
+        if (_rememberPosition(item))
+        {
+            _rememberedPositions[item.Id] = position;
+        }
+        else
+        {
+            _rememberedPositions.Remove(item.Id);
+        }
     }
 }

@@ -66,12 +66,13 @@ public sealed class SessionManager
         string displayName,
         IEnumerable<MediaItem> items,
         IMediaOutput output,
-        int preferredSlot)
+        int preferredSlot,
+        Func<MediaItem, bool>? rememberPosition = null)
     {
         var session = FindSession(id);
         if (session is null)
         {
-            session = new DemoMediaSession(id, displayName, items, output);
+            session = new DemoMediaSession(id, displayName, items, output, rememberPosition);
             _sessions.Add(session);
         }
         else

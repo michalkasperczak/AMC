@@ -21,15 +21,23 @@ public sealed record LocalFolderSourceStatus(
     int ActiveItemCount,
     int UnavailableItemCount,
     int ExcludedItemCount,
+    ResumePositionMode ResumePositionMode,
     string? OverlapWarning)
 {
+    public string ResumePositionLabel => ResumePositionMode switch
+    {
+        ResumePositionMode.Remember => "pozycja pamiętana",
+        ResumePositionMode.StartFromBeginning => "zawsze od początku",
+        _ => "pozycja według ustawienia ogólnego"
+    };
+
     public string Label
     {
         get
         {
             var availability = IsReachable ? "dostępne" : "niedostępne — rekordy zachowane";
             var warning = string.IsNullOrWhiteSpace(OverlapWarning) ? string.Empty : $", uwaga: {OverlapWarning}";
-            return $"{DisplayName}, {availability}, aktywne {ActiveItemCount}, niedostępne {UnavailableItemCount}, wykluczone {ExcludedItemCount}{warning}, {Path}";
+            return $"{DisplayName}, {availability}, {ResumePositionLabel}, aktywne {ActiveItemCount}, niedostępne {UnavailableItemCount}, wykluczone {ExcludedItemCount}{warning}, {Path}";
         }
     }
 }
@@ -100,6 +108,7 @@ public static class LocalFolderSourcePolicy
                 sourceItems.Count(item => item.IsInLibrary && item.IsAvailable),
                 sourceItems.Count(item => item.IsInLibrary && !item.IsAvailable),
                 exclusionArray.Count(path => IsSameOrDescendant(path, root)),
+                source.ResumePositionMode,
                 DescribeOverlap(conflict));
         }).ToArray();
     }

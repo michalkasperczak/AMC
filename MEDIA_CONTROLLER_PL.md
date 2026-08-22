@@ -817,6 +817,8 @@ Korekta `alpha.82`: klasyfikacja katalogu najpierw sprawdza prawdziwy cel dowią
 
 Korekta `alpha.83`: źródła folderowe mają osobny, dostępny menedżer wywoływany z menu Plik albo palety poleceń. Stan każdego źródła obejmuje osiągalność folderu, aktywne, niedostępne i trwale wykluczone rekordy oraz pełną ścieżkę. Rejestracja odrzuca źródła identyczne, zagnieżdżone i wzajemnie obejmujące się, aby jeden plik nie miał niejednoznacznego źródła nadrzędnego. Bezpieczne odłączenie usuwa wyłącznie wpis automatycznej synchronizacji; rekordy katalogu i wszystkie ich relacje pozostają, a pliki na dysku nie są dotykane. Pełna kopia `.amcbackup.json` jest pojedynczym formatem zabezpieczenia: zawiera katalog lokalny, źródła, wykluczenia, Ulubione, kolejki, historię, zakładki, pozycje i ustawienia, bez poświadczeń. Nie tworzymy drugiego formatu kopii katalogu, który mógłby rozjechać się z pełnym stanem.
 
+Korekta `alpha.84`: widok odtwarzacza jest granicą sterowania transportem. Domyślnie `Escape`, `Shift+F6`, przycisk powrotu oraz bezpośrednia nawigacja do widoku wstrzymują audio i odsłaniają zwykłą listę; ustawienie ogólne pozwala świadomie pozostawić odtwarzanie w tle. Wstrzymanie nie oznacza wyzerowania. Osobna zasada określa trwałe wznowienie lokalnych plików: ustawienie ogólne jest domyślnie włączone, a każde źródło folderowe może je odziedziczyć albo wymusić pamiętanie lub start od początku. Pliki dodane pojedynczo dziedziczą zasadę ogólną. Lista nie przejmuje skrótów głośności ani przewijania.
+
 Priorytet lokalnej Biblioteki: podstawowym widokiem będzie rzeczywista hierarchia **Folderów**, ponieważ kolekcja użytkownika nie musi mieć kompletnych tagów. Płaska Biblioteka pozostaje równoległym zestawieniem wszystkich zaimportowanych plików. Widoki Wykonawców, Albumów i Gatunków mogą później powstać z metadanych, lecz nie są warunkiem używalności. Ulubione, Kolejka, Historia, Playlisty i Zakładki wskazują te same rekordy niezależnie od widoku źródłowego.
 
 Prosty montaż audio jest etapem późniejszym po Zakładkach i Folderach. Pierwszy zakres obejmie niedestrukcyjne punkty A–B, odsłuch zaznaczenia i zapis fragmentu jako nowego pliku. Następnie lista fragmentów pozwoli utworzyć nowy plik z kilku źródeł. Oryginały nie będą nadpisywane. Bezstratne cięcie i łączenie będzie używać dojrzałych narzędzi właściwych dla formatu; ponowne kodowanie musi być jawne, a operacja zapisywana przez plik tymczasowy i atomowe ukończenie.
@@ -844,7 +846,7 @@ Planowana kolejność dalszych etapów:
 ## 15. Otwarte decyzje
 
 1. Czy domyślnym prefiksem ma być `Ctrl+Numeryczny Enter`, czy sam `Numeryczny Enter`, oraz jaki ma być czas wygaśnięcia warstwy.
-2. Czy przywracanie pozycji krótkich utworów ma być domyślne, czy ograniczone do dłuższych nagrań i podcastów.
+2. Czy poza zasadą ogólną i nadpisaniem dla źródła folderowego potrzebne będzie jeszcze nadpisanie dla pojedynczego pliku.
 3. Czy istnieje od początku playlista „Do odsłuchu”.
 4. Które komunikaty mają być mówione, a które sygnalizowane dźwiękiem.
 5. Edycja nazw istniejących zakładek; tworzenie nazwanych zakładek działa od `alpha.70`, a podstawowy globalny widok i eksport pełnej kopii od `alpha.68`.

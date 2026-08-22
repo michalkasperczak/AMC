@@ -74,6 +74,8 @@ public partial class SettingsWindow : Window
             SettingsTarget.Language => (GeneralTab, LanguageText),
             SettingsTarget.StartupTarget => (GeneralTab, StartupTargetCombo),
             SettingsTarget.SessionOrder => (GeneralTab, SessionOrderList),
+            SettingsTarget.PausePlaybackWhenLeavingPlayer => (GeneralTab, PausePlaybackWhenLeavingPlayerCheck),
+            SettingsTarget.RememberLocalPlaybackPositions => (GeneralTab, RememberLocalPlaybackPositionsCheck),
             SettingsTarget.Prefix => (GeneralTab, PrefixBox),
             SettingsTarget.PrefixTimeout => (GeneralTab, TimeoutBox),
             SettingsTarget.KeyboardProfile => (KeyboardProfilesTab, ProfileCombo),
@@ -114,6 +116,8 @@ public partial class SettingsWindow : Window
             ? "Polski — zmiana języka jest planowana"
             : _workingState.Settings.InterfaceLanguage;
         SelectComboByTag(StartupTargetCombo, _workingState.Settings.StartupTarget.ToString());
+        PausePlaybackWhenLeavingPlayerCheck.IsChecked = _workingState.Settings.PausePlaybackWhenLeavingPlayer;
+        RememberLocalPlaybackPositionsCheck.IsChecked = _workingState.Settings.RememberLocalPlaybackPositions;
 
         MessagesEnabledCheck.IsChecked = _workingState.Settings.Messages.Enabled;
         DetailedHintsCheck.IsChecked = _workingState.Settings.Messages.DetailedHints;
@@ -154,6 +158,8 @@ public partial class SettingsWindow : Window
             _workingState.Settings.StartupTarget = startupTarget;
         }
         _workingState.Settings.PrefixChord = KeyChord.Parse(PrefixBox.Text).Canonical;
+        _workingState.Settings.PausePlaybackWhenLeavingPlayer = PausePlaybackWhenLeavingPlayerCheck.IsChecked == true;
+        _workingState.Settings.RememberLocalPlaybackPositions = RememberLocalPlaybackPositionsCheck.IsChecked == true;
         if (!int.TryParse(TimeoutBox.Text, out var timeout) || timeout is < 250 or > 30000)
         {
             throw new InvalidDataException("Czas prefiksu musi mieścić się między 250 a 30000 ms.");

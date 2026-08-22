@@ -28,6 +28,7 @@ var tests = new (string Name, Action Test)[]
     ("Konfigurowana kolejność sesji", TestSessionOrder),
     ("Pusta sesja lokalna", TestEmptyLocalSession),
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
+    ("Polityka pamiętania pozycji", TestResumePositionPolicy),
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Ponowne włączanie folderu do biblioteki", TestLocalLibraryImport),
     ("Synchronizacja źródeł lokalnej biblioteki", TestLocalLibrarySynchronization),
@@ -89,6 +90,8 @@ static void TestDefaultProfile()
     Equal(true, settings.Messages.PlaybackMessages);
     Equal(PercentageSeekAnnouncementMode.Percent, settings.Messages.PercentageSeekAnnouncement);
     Equal(StartupTarget.MediaList, settings.StartupTarget);
+    Equal(true, settings.PausePlaybackWhenLeavingPlayer);
+    Equal(true, settings.RememberLocalPlaybackPositions);
 
     var profile = KeyboardProfile.CreateDefault();
     Equal(CommandIds.SessionSlot(1), profile.Resolve(KeyChord.Parse("1")));
@@ -166,6 +169,8 @@ static void TestCommandCatalog()
     Equal("Odśwież źródła biblioteki lokalnej", CommandCatalog.GetDisplayName(CommandIds.RefreshLocalLibrary));
     Equal("Zarządzaj źródłami biblioteki lokalnej", CommandCatalog.GetDisplayName(CommandIds.ManageLocalSources));
     Equal("Ustawienia: kolejność sesji i skrótów Ctrl+1–9", CommandCatalog.GetDisplayName(CommandIds.SettingsSessionOrder));
+    Equal("Ustawienia: wstrzymuj po wyjściu z odtwarzacza", CommandCatalog.GetDisplayName(CommandIds.SettingsPausePlaybackWhenLeavingPlayer));
+    Equal("Ustawienia: domyślnie pamiętaj pozycje lokalnych plików", CommandCatalog.GetDisplayName(CommandIds.SettingsRememberLocalPlaybackPositions));
     Equal("Skocz do czasu", CommandCatalog.GetDisplayName(CommandIds.SeekToTime));
     Equal("Skocz do procentu", CommandCatalog.GetDisplayName(CommandIds.SeekToPercentage));
     Equal("Właściwości i informacje", CommandCatalog.GetDisplayName(CommandIds.ItemProperties));
@@ -480,6 +485,8 @@ static void TestLegacyStateMigration()
         Equal("Ctrl+Alt+Windows+F12", loaded.Settings.PrefixChord);
         Equal(true, loaded.Settings.Messages.Enabled);
         Equal(StartupTarget.MediaList, loaded.Settings.StartupTarget);
+        Equal(true, loaded.Settings.PausePlaybackWhenLeavingPlayer);
+        Equal(true, loaded.Settings.RememberLocalPlaybackPositions);
         Equal(MediaItemField.Title, loaded.Settings.Lists.FieldOrder[0]);
         Equal(4, loaded.Settings.Lists.FieldOrder.Count);
     }
@@ -866,6 +873,46 @@ static void TestEmptyLocalSession()
     session.ReplaceItems([item]);
     Equal(true, session.HasItems);
     Equal(item, session.CurrentItem);
+}
+
+static void TestResumePositionPolicy()
+{
+    var output = new FakeMediaOutput();
+    var music = new MediaItem
+    {
+        Id = "music",
+        Title = "Muzyka od początku",
+        Source = @"C:\Muzyka\utwor.mp3"
+    };
+    var podcast = new MediaItem
+    {
+        Id = "podcast",
+        Title = "Podcast ze wznowieniem",
+        Source = @"C:\Podcasty\odcinek.mp3"
+    };
+    var session = new DemoMediaSession(
+        "local",
+        "Pliki lokalne",
+        [music, podcast],
+        output,
+        item => string.Equals(item.Id, podcast.Id, StringComparison.Ordinal));
+
+    True(session.Play(music), "Plik muzyczny powinien się uruchomić.");
+    output.Position = TimeSpan.FromSeconds(25);
+    session.TogglePlayback();
+    Equal(false, session.IsPlaying);
+    session.TogglePlayback();
+    Equal(TimeSpan.FromSeconds(25), output.Position);
+    True(!session.RememberedPositions.ContainsKey(music.Id),
+        "Pauza ma zachować bieżące miejsce tylko w sesji, bez trwałego zapisu muzyki.");
+
+    True(session.Play(podcast), "Podcast powinien dać się wybrać.");
+    session.SetPosition(TimeSpan.FromMinutes(12));
+    True(session.Play(music), "Powrót do muzyki powinien być możliwy.");
+    Equal(TimeSpan.Zero, session.Position);
+    True(session.Play(podcast), "Powrót do podcastu powinien być możliwy.");
+    Equal(TimeSpan.FromMinutes(12), session.Position);
+    Equal(TimeSpan.FromMinutes(12), session.RememberedPositions[podcast.Id]);
 }
 
 static void TestLocalAudioFileDiscovery()
@@ -1635,6 +1682,10 @@ static void TestTimeCommands()
     Equal(SettingsTarget.VolumeMessages, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsPlaybackMessages);
     Equal(SettingsTarget.PlaybackMessages, actions.LastSettingsTarget);
+    router.Execute(CommandIds.SettingsPausePlaybackWhenLeavingPlayer);
+    Equal(SettingsTarget.PausePlaybackWhenLeavingPlayer, actions.LastSettingsTarget);
+    router.Execute(CommandIds.SettingsRememberLocalPlaybackPositions);
+    Equal(SettingsTarget.RememberLocalPlaybackPositions, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsToggleMessages);
     True(actions.MessagesToggled, "Router powinien przekazać przełączenie komunikatów do aplikacji.");
     router.Execute(CommandIds.SettingsToggleDetailedHints);
@@ -1668,7 +1719,13 @@ static void TestLocalFolderSourcePolicy()
     var parent = Directory.GetParent(root)?.FullName ?? Path.GetPathRoot(root)!;
     var sources = new List<LocalFolderSourceSettings>
     {
-        new() { Id = "source-1", DisplayName = "Biblioteka", Path = root }
+        new()
+        {
+            Id = "source-1",
+            DisplayName = "Biblioteka",
+            Path = root,
+            ResumePositionMode = ResumePositionMode.StartFromBeginning
+        }
     };
 
     Equal(
@@ -1697,6 +1754,9 @@ static void TestLocalFolderSourcePolicy()
     Equal(1, statuses[0].ActiveItemCount);
     Equal(1, statuses[0].UnavailableItemCount);
     Equal(1, statuses[0].ExcludedItemCount);
+    Equal(ResumePositionMode.StartFromBeginning, statuses[0].ResumePositionMode);
+    True(statuses[0].Label.Contains("zawsze od początku", StringComparison.Ordinal),
+        "Lista źródeł powinna podawać politykę pamiętania pozycji.");
 
     True(LocalFolderSourcePolicy.DetachSource(sources, "source-1"), "Źródło powinno dać się odłączyć.");
     Equal(0, sources.Count);
@@ -1720,6 +1780,8 @@ static void TestExports()
         state.Settings.Messages.VolumeMessages = false;
         state.Settings.Messages.PlaybackMessages = false;
         state.Settings.Messages.PercentageSeekAnnouncement = PercentageSeekAnnouncementMode.PercentAndTime;
+        state.Settings.PausePlaybackWhenLeavingPlayer = false;
+        state.Settings.RememberLocalPlaybackPositions = false;
         state.Bookmarks.Entries.Add(new BookmarkEntry
         {
             Id = "bookmark-1",
@@ -1734,7 +1796,8 @@ static void TestExports()
         {
             Id = "local-source",
             DisplayName = "Nagrania",
-            Path = Path.Combine(directory, "Nagrania")
+            Path = Path.Combine(directory, "Nagrania"),
+            ResumePositionMode = ResumePositionMode.Remember
         });
         state.LocalMedia.Items.Add(new LocalMediaItemSettings
         {
@@ -1757,6 +1820,8 @@ static void TestExports()
         Equal(false, store.LoadOrCreate().Settings.Messages.VolumeMessages);
         Equal(false, store.LoadOrCreate().Settings.Messages.PlaybackMessages);
         Equal(PercentageSeekAnnouncementMode.PercentAndTime, store.LoadOrCreate().Settings.Messages.PercentageSeekAnnouncement);
+        Equal(false, store.LoadOrCreate().Settings.PausePlaybackWhenLeavingPlayer);
+        Equal(false, store.LoadOrCreate().Settings.RememberLocalPlaybackPositions);
 
         store.ExportKeyboardMap(mapPath, state.KeyboardProfiles[0]);
         var importedProfile = store.ImportKeyboardMap(mapPath);
@@ -1774,6 +1839,8 @@ static void TestExports()
         Equal(false, importedSettings.Messages.VolumeMessages);
         Equal(false, importedSettings.Messages.PlaybackMessages);
         Equal(PercentageSeekAnnouncementMode.PercentAndTime, importedSettings.Messages.PercentageSeekAnnouncement);
+        Equal(false, importedSettings.PausePlaybackWhenLeavingPlayer);
+        Equal(false, importedSettings.RememberLocalPlaybackPositions);
 
         store.ExportFullBackup(backupPath, state);
         var importedBackup = store.ImportFullBackup(backupPath);
@@ -1785,6 +1852,9 @@ static void TestExports()
         Equal(false, importedBackup.Settings.Messages.BookmarkNavigationMessages);
         Equal(false, importedBackup.Settings.Messages.VolumeMessages);
         Equal(false, importedBackup.Settings.Messages.PlaybackMessages);
+        Equal(false, importedBackup.Settings.PausePlaybackWhenLeavingPlayer);
+        Equal(false, importedBackup.Settings.RememberLocalPlaybackPositions);
+        Equal(ResumePositionMode.Remember, importedBackup.LocalMedia.FolderSources[0].ResumePositionMode);
         Equal(PercentageSeekAnnouncementMode.PercentAndTime, importedBackup.Settings.Messages.PercentageSeekAnnouncement);
         Equal(1, importedBackup.Bookmarks.Entries.Count);
         Equal("tidal-1", importedBackup.Bookmarks.Entries[0].ItemId);

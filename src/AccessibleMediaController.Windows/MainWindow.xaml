@@ -323,7 +323,7 @@
                     <Button MinWidth="145" Margin="0,0,8,8" Content="_Wróć do listy"
                             Click="PlayerBack_Click" />
                 </WrapPanel>
-                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
+                <TextBlock x:Name="PlayerHelpText" Margin="0,8,0,0" TextWrapping="Wrap"
                            Text="Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach bieżącego materiału. Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. Spacja wstrzymuje lub wznawia. Escape wraca do listy." />
             </StackPanel>
         </Border>

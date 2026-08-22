@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Controls;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.LocalMedia;
 using Microsoft.Win32;
 
@@ -13,6 +15,7 @@ public partial class LocalSourcesWindow : Window
     private readonly Func<string, Task<LocalSourceActionResult>> _addSource;
     private readonly Func<IReadOnlyCollection<string>, Task<LocalSourceActionResult>> _refreshSources;
     private readonly Func<string, LocalSourceActionResult> _detachSource;
+    private readonly Func<string, ResumePositionMode, LocalSourceActionResult> _setResumePositionMode;
     private readonly Action<string> _exportBackup;
 
     public LocalSourcesWindow(
@@ -20,6 +23,7 @@ public partial class LocalSourcesWindow : Window
         Func<string, Task<LocalSourceActionResult>> addSource,
         Func<IReadOnlyCollection<string>, Task<LocalSourceActionResult>> refreshSources,
         Func<string, LocalSourceActionResult> detachSource,
+        Func<string, ResumePositionMode, LocalSourceActionResult> setResumePositionMode,
         Action<string> exportBackup)
     {
         InitializeComponent();
@@ -27,6 +31,7 @@ public partial class LocalSourcesWindow : Window
         _addSource = addSource;
         _refreshSources = refreshSources;
         _detachSource = detachSource;
+        _setResumePositionMode = setResumePositionMode;
         _exportBackup = exportBackup;
         ReloadStatuses();
         Loaded += (_, _) => SourcesList.Focus();
@@ -113,6 +118,29 @@ public partial class LocalSourcesWindow : Window
         }
     }
 
+    private void SaveResumePositionMode_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedStatus is not { } status
+            || ResumePositionModeCombo.SelectedItem is not ComboBoxItem selected
+            || !Enum.TryParse<ResumePositionMode>(selected.Tag?.ToString(), out var mode))
+        {
+            return;
+        }
+
+        try
+        {
+            var result = _setResumePositionMode(status.Id, mode);
+            OperationStatusText.Text = result.Message;
+            ReloadStatuses(result.SelectedSourceId ?? status.Id);
+            ResumePositionModeCombo.Focus();
+            Keyboard.Focus(ResumePositionModeCombo);
+        }
+        catch (Exception exception)
+        {
+            OperationStatusText.Text = $"Nie można zapisać ustawienia pozycji: {exception.Message}";
+        }
+    }
+
     private async Task RunAsync(Func<Task<LocalSourceActionResult>> operation)
     {
         SetBusy(true);
@@ -140,6 +168,8 @@ public partial class LocalSourcesWindow : Window
         ExportBackupButton.IsEnabled = !busy;
         RefreshSelectedButton.IsEnabled = !busy && SelectedStatus is not null;
         DetachSourceButton.IsEnabled = !busy && SelectedStatus is not null;
+        ResumePositionModeCombo.IsEnabled = !busy && SelectedStatus is not null;
+        SaveResumePositionModeButton.IsEnabled = !busy && SelectedStatus is not null;
         if (busy) OperationStatusText.Text = "Trwa operacja…";
     }
 
@@ -151,10 +181,20 @@ public partial class LocalSourcesWindow : Window
         var status = SelectedStatus;
         RefreshSelectedButton.IsEnabled = status is not null;
         DetachSourceButton.IsEnabled = status is not null;
+        ResumePositionModeCombo.IsEnabled = status is not null;
+        SaveResumePositionModeButton.IsEnabled = status is not null;
+        ResumePositionModeCombo.SelectedItem = ResumePositionModeCombo.Items
+            .OfType<ComboBoxItem>()
+            .FirstOrDefault(item => string.Equals(
+                item.Tag?.ToString(),
+                status?.ResumePositionMode.ToString(),
+                StringComparison.OrdinalIgnoreCase))
+            ?? ResumePositionModeCombo.Items.OfType<ComboBoxItem>().FirstOrDefault();
         SourceDetailsText.Text = status is null
             ? "Brak zarejestrowanych źródeł. Dodaj folder, aby objąć go automatyczną synchronizacją."
             : $"{(status.IsReachable ? "Źródło dostępne" : "Źródło chwilowo niedostępne; rekordy pozostają w AMC")}. "
               + $"Aktywne pliki: {status.ActiveItemCount}. Niedostępne: {status.UnavailableItemCount}. Wykluczone: {status.ExcludedItemCount}. "
+              + $"Pamiętanie pozycji: {status.ResumePositionLabel}. "
               + (string.IsNullOrWhiteSpace(status.OverlapWarning) ? string.Empty : $"Uwaga: {status.OverlapWarning}. ")
               + $"Ścieżka: {status.Path}";
     }

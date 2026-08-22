@@ -6,6 +6,8 @@ public enum SettingsTarget
     Language,
     StartupTarget,
     SessionOrder,
+    PausePlaybackWhenLeavingPlayer,
+    RememberLocalPlaybackPositions,
     Prefix,
     PrefixTimeout,
     KeyboardProfile,

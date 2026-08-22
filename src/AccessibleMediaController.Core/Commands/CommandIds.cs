@@ -76,6 +76,8 @@ public static class CommandIds
     public const string SettingsLanguage = "settings.language";
     public const string SettingsStartupTarget = "settings.startupTarget";
     public const string SettingsSessionOrder = "settings.sessionOrder";
+    public const string SettingsPausePlaybackWhenLeavingPlayer = "settings.playback.pauseWhenLeavingPlayer";
+    public const string SettingsRememberLocalPlaybackPositions = "settings.playback.rememberLocalPositions";
     public const string SettingsPrefix = "settings.prefix";
     public const string SettingsPrefixTimeout = "settings.prefixTimeout";
     public const string SettingsKeyboardProfile = "settings.keyboardProfile";

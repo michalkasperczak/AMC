@@ -1,12 +1,52 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-083`
-- Tytuł zestawu: Menedżer i kopia bezpieczeństwa Biblioteki
-- Wersja programu: `0.1.0-alpha.83`
-- Utworzono: 2026-08-21, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.83.md`
+- Numer zestawu: `AMC-TEST-084`
+- Tytuł zestawu: Wyjście z odtwarzacza i pamiętanie pozycji
+- Wersja programu: `0.1.0-alpha.84`
+- Utworzono: 2026-08-22, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.84.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 84
+
+### AMC-084-01 — Domyślny Escape
+
+Odtwórz lokalny plik, przejdź do odtwarzacza, odczekaj kilkanaście sekund i naciśnij `Escape`.
+
+Oczekiwane: dźwięk zostaje wstrzymany, a fokus wraca na listę do logicznie tego samego elementu. Zwykłe strzałki listy nadal służą do nawigacji i nie sterują czasem ani głośnością.
+
+### AMC-084-02 — Wznowienie zapamiętywanego pliku
+
+Przy domyślnie zaznaczonej opcji **Pamiętaj pozycje lokalnych plików** odtwórz dłuższe nagranie, wyjdź `Escape`, wróć przez `F6` i uruchom odtwarzanie. Powtórz po ponownym uruchomieniu AMC.
+
+Oczekiwane: `Escape` zatrzymuje dźwięk, lecz nie zeruje zapamiętanego miejsca. Wznowienie zaczyna się od ostatniej pozycji także po restarcie.
+
+### AMC-084-03 — Folder muzyczny zawsze od początku
+
+Otwórz **Plik → Zarządzaj źródłami Biblioteki**, wybierz bezpieczny folder z muzyką, ustaw **Pamiętanie pozycji w wybranym źródle** na **Zawsze od początku** i zapisz. Odtwórz plik z tego folderu, wyjdź `Escape`, wróć do niego i uruchom ponownie.
+
+Oczekiwane: menedżer i jego lista czytelnie podają nową zasadę. Po `Escape` plik z tego źródła rozpoczyna się od `0:00`; stara pozycja nie wraca także po restarcie.
+
+### AMC-084-04 — Nadpisanie ustawienia ogólnego
+
+Wyłącz w Ustawieniach ogólnych **Domyślnie pamiętaj pozycje lokalnych plików**. Dla jednego folderu ustaw jednak **Pamiętaj pozycję**, a dla drugiego pozostaw **Używaj ustawienia ogólnego**. Sprawdź po jednym pliku z każdego folderu.
+
+Oczekiwane: pierwszy folder wznawia miejsce mimo wyłączonej zasady ogólnej, drugi zaczyna od początku. Plik dodany pojedynczo przez `Ctrl+O` korzysta z zasady ogólnej.
+
+### AMC-084-05 — Opcjonalne granie po wyjściu
+
+Odznacz **Wstrzymuj odtwarzanie po wyjściu z odtwarzacza**, rozpocznij odtwarzanie i naciśnij `Escape`. Potem ponownie włącz tę opcję.
+
+Oczekiwane: przy wyłączonej opcji lista się pojawia, ale dźwięk trwa. Po ponownym włączeniu `Escape`, `Shift+F6`, przycisk **Wróć do listy** oraz bezpośrednie przejście do widoku wstrzymują dźwięk.
+
+### AMC-084-06 — Paleta, fokus i regresja
+
+W palecie `Ctrl+Shift+K` wyszukaj obie nowe opcje ustawień. Sprawdź fokus po Zapisz i Anuluj, przełączanie sesji z otwartego odtwarzacza, `Page Up/Down`, przewijanie i głośność w odtwarzaczu oraz zwykłą nawigację listy.
+
+Oczekiwane: paleta otwiera Ustawienia na właściwym polu wyboru. Opuszczana sesja zostaje wstrzymana zgodnie z opcją, NVDA nie traci fokusu, a dotychczasowe skróty listy i odtwarzacza nie mają regresji.
+
+## Poprzedni zestaw regresyjny alpha 83
 
 ## Nowości alpha 83
 

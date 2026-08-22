@@ -8,7 +8,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 19;
+    public const int CurrentSchemaVersion = 20;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -241,6 +241,10 @@ public sealed class ConfigurationStore(string statePath)
                 source.DisplayName = string.IsNullOrWhiteSpace(source.DisplayName)
                     ? GetFolderDisplayName(source.Path)
                     : source.DisplayName.Trim();
+                if (!Enum.IsDefined(source.ResumePositionMode))
+                {
+                    source.ResumePositionMode = ResumePositionMode.Inherit;
+                }
                 return source;
             })
             .Where(source => !string.IsNullOrWhiteSpace(source.Path))

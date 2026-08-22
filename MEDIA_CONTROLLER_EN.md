@@ -815,6 +815,8 @@ Correction in `alpha.82`: directory classification checks a real link target fir
 
 Correction in `alpha.83`: folder roots have a dedicated accessible manager opened from the File menu or command palette. Each status exposes reachability, active, unavailable and persistently excluded records, plus the full path. Registration rejects identical, nested and mutually containing roots so a file cannot have ambiguous ownership. Safe detachment removes only the automatic synchronization registration; catalog records and every relationship remain untouched, and no disk file is changed. The single `.amcbackup.json` safety format includes the local catalog, roots, exclusions, favorites, queues, history, bookmarks, resume positions and settings, but no credentials. A second catalog-only backup format is intentionally avoided.
 
+Correction in `alpha.84`: the player view is the transport-control boundary. By default, `Escape`, `Shift+F6`, the back button and direct navigation to another view pause audio and reveal the ordinary list; a General setting can deliberately allow background playback instead. Pausing does not itself mean resetting. A separate policy controls durable local-file resume positions: the global default is enabled, and each registered folder source may inherit it or force remembering or starting from the beginning. Individually added files inherit the global rule. Ordinary lists do not acquire seeking or volume shortcuts.
+
 Local Library priority: a real **Folders** hierarchy will be the primary view because a user's collection may not contain complete tags. A flat Library remains as a parallel view of every imported file. Artist, Album and Genre views may later be derived from metadata but are not a usability prerequisite. Favorites, Queue, History, Playlists and Bookmarks reference the same records regardless of source view.
 
 Simple audio assembly is a later stage after Bookmarks and Folders. Its first scope is nondestructive A–B markers, selection preview and exporting the selection to a new file. A segment list can then create a new output from several sources. Originals are never overwritten. Lossless cutting and joining will use mature format-specific tools; transcoding must be explicit, and output must be completed through a temporary file and atomic finalization.
@@ -842,7 +844,7 @@ Planned sequence of later stages:
 ## 15. Open decisions
 
 1. Whether the default prefix is `Ctrl+Numpad Enter` or bare `Numpad Enter`, and the command-layer timeout.
-2. Whether restoring short-track positions is the default or is limited to long recordings and podcasts.
+2. Whether an individual-file override is needed in addition to the global rule and folder-source override.
 3. Whether a “Listen Later” playlist exists from the beginning.
 4. Which messages use speech and which use earcons.
 5. Editing existing bookmark names; named-bookmark creation works since `alpha.70`, while the global view and full-backup export work since `alpha.68`.

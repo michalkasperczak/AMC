@@ -17,6 +17,17 @@
             <TextBlock x:Name="OperationStatusText" Margin="0,0,0,8" TextWrapping="Wrap"
                        automation:AutomationProperties.Name="Wynik operacji"
                        automation:AutomationProperties.LiveSetting="Assertive" />
+            <Label Target="{Binding ElementName=ResumePositionModeCombo}">Pamiętanie _pozycji w wybranym źródle:</Label>
+            <WrapPanel Margin="0,0,0,8">
+                <ComboBox x:Name="ResumePositionModeCombo" MinWidth="245" Margin="0,0,8,0"
+                          automation:AutomationProperties.Name="Pamiętanie pozycji w wybranym źródle">
+                    <ComboBoxItem Tag="Inherit">Używaj ustawienia ogólnego</ComboBoxItem>
+                    <ComboBoxItem Tag="Remember">Pamiętaj pozycję</ComboBoxItem>
+                    <ComboBoxItem Tag="StartFromBeginning">Zawsze od początku</ComboBoxItem>
+                </ComboBox>
+                <Button x:Name="SaveResumePositionModeButton" Content="_Zapisz dla źródła"
+                        Click="SaveResumePositionMode_Click" />
+            </WrapPanel>
             <WrapPanel HorizontalAlignment="Left">
                 <Button x:Name="AddSourceButton" Margin="0,0,8,8" Content="_Dodaj folder…" Click="AddSource_Click" />
                 <Button x:Name="RefreshSelectedButton" Margin="0,0,8,8" Content="Odśwież _wybrane" Click="RefreshSelected_Click" />

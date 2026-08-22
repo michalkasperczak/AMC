@@ -296,6 +296,8 @@ public sealed class CommandRouter(
             CommandIds.SettingsLanguage => SettingsTarget.Language,
             CommandIds.SettingsStartupTarget => SettingsTarget.StartupTarget,
             CommandIds.SettingsSessionOrder => SettingsTarget.SessionOrder,
+            CommandIds.SettingsPausePlaybackWhenLeavingPlayer => SettingsTarget.PausePlaybackWhenLeavingPlayer,
+            CommandIds.SettingsRememberLocalPlaybackPositions => SettingsTarget.RememberLocalPlaybackPositions,
             CommandIds.SettingsPrefix => SettingsTarget.Prefix,
             CommandIds.SettingsPrefixTimeout => SettingsTarget.PrefixTimeout,
             CommandIds.SettingsKeyboardProfile => SettingsTarget.KeyboardProfile,

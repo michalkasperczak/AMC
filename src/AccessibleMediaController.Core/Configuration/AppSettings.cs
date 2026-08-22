@@ -15,6 +15,13 @@ public enum PercentageSeekAnnouncementMode
     PercentAndTime
 }
 
+public enum ResumePositionMode
+{
+    Inherit,
+    Remember,
+    StartFromBeginning
+}
+
 public sealed class AppSettings
 {
     public string InterfaceLanguage { get; set; } = "pl-PL";
@@ -24,6 +31,8 @@ public sealed class AppSettings
     public StartupTarget StartupTarget { get; set; } = StartupTarget.MediaList;
     public string ActiveKeyboardProfileId { get; set; } = "default";
     public bool RememberLastSession { get; set; } = true;
+    public bool PausePlaybackWhenLeavingPlayer { get; set; } = true;
+    public bool RememberLocalPlaybackPositions { get; set; } = true;
     public string LastSessionId { get; set; } = "tidal";
     public Dictionary<int, string> SessionSlots { get; set; } = SessionSlotOrder.CreateDefault();
     public ListDisplaySettings Lists { get; set; } = new();
@@ -147,7 +156,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 19;
+    public int SchemaVersion { get; set; } = 20;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -219,6 +228,7 @@ public sealed class LocalFolderSourceSettings
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Path { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
+    public ResumePositionMode ResumePositionMode { get; set; } = ResumePositionMode.Inherit;
 }
 
 public sealed class LocalMediaItemSettings
