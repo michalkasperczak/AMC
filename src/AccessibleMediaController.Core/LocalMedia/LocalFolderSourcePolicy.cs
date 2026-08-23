@@ -40,6 +40,10 @@ public sealed record LocalFolderSourceStatus(
             return $"{DisplayName}, {availability}, {ResumePositionLabel}, aktywne {ActiveItemCount}, niedostępne {UnavailableItemCount}, wykluczone {ExcludedItemCount}{warning}, {Path}";
         }
     }
+
+    // WPF UI Automation uses ToString() as the accessible name of a data item
+    // even when DisplayMemberPath is set. Never expose the record dump to NVDA.
+    public override string ToString() => Label;
 }
 
 /// <summary>

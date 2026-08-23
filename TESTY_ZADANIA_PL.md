@@ -1,12 +1,28 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-084`
-- Tytuł zestawu: Wyjście z odtwarzacza i pamiętanie pozycji
-- Wersja programu: `0.1.0-alpha.84`
-- Utworzono: 2026-08-22, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.84.md`
+- Numer zestawu: `AMC-TEST-085`
+- Tytuł zestawu: Czytelne źródła Biblioteki
+- Wersja programu: `0.1.0-alpha.85`
+- Utworzono: 2026-08-23, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.85.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Poprawka alpha 85
+
+### AMC-085-01 — Nazwy źródeł bez danych technicznych
+
+Otwórz **Plik → Zarządzaj źródłami Biblioteki** i przejdź strzałkami po wszystkich źródłach.
+
+Oczekiwane: NVDA czyta wyłącznie przygotowaną etykietę, na przykład nazwę `Sideloads`, dostępność, zasadę pamiętania pozycji, liczby plików i ścieżkę. Nie może czytać `LocalFolderSourceStatus`, `Id`, `DisplayName`, `IsReachable`, nazw innych pól programistycznych ani nawiasów technicznego rekordu.
+
+### AMC-085-02 — Szczegóły, ustawienie i fokus
+
+Na wybranym źródle przejdź Tabem do szczegółów oraz ustawienia pamiętania pozycji, zmień wartość i wybierz **Zapisz dla źródła**. Wróć Shift+Tabem do listy.
+
+Oczekiwane: lista nadal ma krótką czytelną etykietę, szczegóły zawierają pełną ścieżkę, zapis nie gubi wyboru, a fokus można przewidywalnie przywrócić do listy.
+
+## Poprzedni zestaw regresyjny alpha 84
 
 ## Nowości alpha 84
 

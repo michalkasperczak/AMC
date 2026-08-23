@@ -1757,6 +1757,9 @@ static void TestLocalFolderSourcePolicy()
     Equal(ResumePositionMode.StartFromBeginning, statuses[0].ResumePositionMode);
     True(statuses[0].Label.Contains("zawsze od początku", StringComparison.Ordinal),
         "Lista źródeł powinna podawać politykę pamiętania pozycji.");
+    Equal(statuses[0].Label, statuses[0].ToString());
+    True(!statuses[0].ToString().Contains(nameof(LocalFolderSourceStatus), StringComparison.Ordinal),
+        "Nazwa dostępnościowa źródła nie może ujawniać technicznego zapisu rekordu.");
 
     True(LocalFolderSourcePolicy.DetachSource(sources, "source-1"), "Źródło powinno dać się odłączyć.");
     Equal(0, sources.Count);
