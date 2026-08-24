@@ -1,0 +1,34 @@
+<Window x:Class="AccessibleMediaController.Windows.ItemPlaybackOptionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="Opcje odtwarzania elementu" Width="610" Height="390"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="18">
+        <TextBlock x:Name="ItemTitleText" Margin="0,0,0,14" FontSize="18"
+                   FontWeight="SemiBold" TextWrapping="Wrap"
+                   automation:AutomationProperties.HeadingLevel="Level1" />
+
+        <Label Target="{Binding ElementName=ResumeModeBox}">_Pozycja po ponownym otwarciu:</Label>
+        <ComboBox x:Name="ResumeModeBox" Margin="0,0,0,14"
+                  DisplayMemberPath="Label"
+                  automation:AutomationProperties.Name="Pozycja po ponownym otwarciu" />
+
+        <Label Target="{Binding ElementName=PlaybackRateBox}">_Prędkość tego elementu:</Label>
+        <ComboBox x:Name="PlaybackRateBox" Margin="0,0,0,14"
+                  DisplayMemberPath="Label"
+                  automation:AutomationProperties.Name="Prędkość tego elementu" />
+
+        <Label Target="{Binding ElementName=OutputDeviceBox}">_Urządzenie audio dla elementu:</Label>
+        <ComboBox x:Name="OutputDeviceBox" Margin="0,0,0,6" IsEnabled="False"
+                  automation:AutomationProperties.Name="Urządzenie audio dla elementu"
+                  automation:AutomationProperties.HelpText="Wybór urządzenia zostanie włączony po dodaniu listy wyjść audio." />
+        <TextBlock Margin="0,0,0,16" TextWrapping="Wrap"
+                   Text="Obecnie AMC używa bezpiecznego, współdzielonego domyślnego wyjścia Windows. Miejsce dla urządzenia elementu jest już wydzielone; wybór oraz EQ dojdą wraz z modułem wyjść audio." />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Width="105" Margin="0,0,8,0" Content="_Zapisz" IsDefault="True" Click="Save_Click" />
+            <Button Width="105" Content="_Anuluj" IsCancel="True" />
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -20,6 +20,7 @@ public interface IApplicationActions
     void ShowPlaylistManager();
     void ShowCommandPalette();
     void ShowItemProperties();
+    void ShowItemPlaybackOptions();
     void OpenOfficialApplication();
     void ShowHelp();
     void ShowSettings(SettingsTarget target);
@@ -142,6 +143,9 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.ItemProperties:
                 application.ShowItemProperties();
+                return new(true);
+            case CommandIds.ItemPlaybackOptions:
+                application.ShowItemPlaybackOptions();
                 return new(true);
             case CommandIds.PlayPause:
                 current.TogglePlayback();
@@ -473,6 +477,7 @@ public sealed class CommandRouter(
         or CommandIds.SeekBackward60 or CommandIds.SeekForward60
         or CommandIds.TrackStart or CommandIds.TrackEnd
         or CommandIds.TimeElapsed or CommandIds.TimeRemaining or CommandIds.TimeTotal
+        or CommandIds.ItemProperties or CommandIds.ItemPlaybackOptions
         or CommandIds.ToggleFavorite or CommandIds.ToggleLibrary
         or CommandIds.AddQueue or CommandIds.TogglePlayNext
         or CommandIds.PlaybackRateDown or CommandIds.PlaybackRateUp or CommandIds.PlaybackRateReset;

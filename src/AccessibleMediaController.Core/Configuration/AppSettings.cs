@@ -156,12 +156,13 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 20;
+    public int SchemaVersion { get; set; } = 23;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
     public BookmarkSettings Bookmarks { get; set; } = new();
     public SessionNavigationSettings SessionNavigation { get; set; } = new();
+    public CollectionOrderSettings CollectionOrders { get; set; } = new();
     public LocalMediaSettings LocalMedia { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];
 }
@@ -208,7 +209,15 @@ public sealed class SessionNavigationState
         new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, string> Filters { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
+    public string PlaybackContextView { get; set; } = "Multimedia";
+    public List<string> PlaybackContextItemIds { get; set; } = [];
     public bool PlayerActive { get; set; }
+}
+
+public sealed class CollectionOrderSettings
+{
+    public Dictionary<string, List<string>> FavoriteItemIdsBySession { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed class LocalMediaSettings
@@ -247,6 +256,9 @@ public sealed class LocalMediaItemSettings
     public bool IsAvailable { get; set; } = true;
     public bool IsInQueue { get; set; }
     public bool IsPlayNext { get; set; }
+    public ResumePositionMode ResumePositionMode { get; set; } = ResumePositionMode.Inherit;
+    public double? PlaybackRateOverride { get; set; }
+    public string? OutputDeviceId { get; set; }
     public long ResumePositionTicks { get; set; }
     public long? FileLength { get; set; }
     public long? LastWriteUtcTicks { get; set; }

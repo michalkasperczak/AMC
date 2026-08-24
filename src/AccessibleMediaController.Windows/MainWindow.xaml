@@ -51,12 +51,12 @@
                           automation:AutomationProperties.AcceleratorKey="Shift+F2"
                           Click="RenameLocalFile_Click" />
                 <Separator />
-                <MenuItem Header="Przenieś _wyżej w kolejności własnej" InputGestureText="Alt+Up"
-                          automation:AutomationProperties.Name="Przenieś wyżej w kolejności własnej, Alt+strzałka w górę"
+                <MenuItem Header="Przenieś _wyżej na liście" InputGestureText="Alt+Up"
+                          automation:AutomationProperties.Name="Przenieś wyżej na bieżącej liście, Alt+strzałka w górę"
                           automation:AutomationProperties.AcceleratorKey="Alt+Up"
                           Click="MoveLocalItemUp_Click" />
-                <MenuItem Header="Przenieś _niżej w kolejności własnej" InputGestureText="Alt+Down"
-                          automation:AutomationProperties.Name="Przenieś niżej w kolejności własnej, Alt+strzałka w dół"
+                <MenuItem Header="Przenieś _niżej na liście" InputGestureText="Alt+Down"
+                          automation:AutomationProperties.Name="Przenieś niżej na bieżącej liście, Alt+strzałka w dół"
                           automation:AutomationProperties.AcceleratorKey="Alt+Down"
                           Click="MoveLocalItemDown_Click" />
             </MenuItem>
@@ -106,6 +106,9 @@
                 <MenuItem Header="_Właściwości i informacje" InputGestureText="Alt+Enter"
                           automation:AutomationProperties.AcceleratorKey="Alt+Enter"
                           Click="Information_Click" />
+                <MenuItem Header="_Opcje odtwarzania elementu…" InputGestureText="Alt+Shift+Enter"
+                          automation:AutomationProperties.AcceleratorKey="Alt+Shift+Enter"
+                          Click="ItemPlaybackOptions_Click" />
             </MenuItem>
             <MenuItem Header="_Widok">
                 <MenuItem Header="_Teraz odtwarzane" InputGestureText="F6"
@@ -205,6 +208,13 @@
                     <MenuItem Header="Właściwości i informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.Name="Właściwości i informacje, Alt+Enter"
                               Click="Information_Click" />
+                    <MenuItem x:Name="ItemPlaybackOptionsMenuItem" Header="Opcje odtwarzania elementu" InputGestureText="Alt+Shift+Enter"
+                              automation:AutomationProperties.Name="Opcje odtwarzania elementu, Alt+Shift+Enter"
+                              Click="ItemPlaybackOptions_Click" />
+                    <MenuItem x:Name="GoToAlbumMenuItem" Header="Przejdź do albumu"
+                              Click="GoToAlbum_Click" />
+                    <MenuItem x:Name="GoToArtistMenuItem" Header="Przejdź do wykonawcy"
+                              Click="GoToArtist_Click" />
                     <MenuItem Header="Kopiuj nazwę" InputGestureText="Ctrl+C"
                               automation:AutomationProperties.Name="Kopiuj nazwę, Ctrl+C"
                               Click="CopyName_Click" />
@@ -218,10 +228,10 @@
                               automation:AutomationProperties.Name="Zmień nazwę pliku na dysku, Shift+F2"
                               Click="RenameLocalFile_Click" />
                     <MenuItem x:Name="MoveLocalItemUpMenuItem" Header="Przenieś wyżej" InputGestureText="Alt+Up"
-                              automation:AutomationProperties.Name="Przenieś wyżej w kolejności własnej, Alt+strzałka w górę"
+                              automation:AutomationProperties.Name="Przenieś wyżej na bieżącej liście, Alt+strzałka w górę"
                               Click="MoveLocalItemUp_Click" />
                     <MenuItem x:Name="MoveLocalItemDownMenuItem" Header="Przenieś niżej" InputGestureText="Alt+Down"
-                              automation:AutomationProperties.Name="Przenieś niżej w kolejności własnej, Alt+strzałka w dół"
+                              automation:AutomationProperties.Name="Przenieś niżej na bieżącej liście, Alt+strzałka w dół"
                               Click="MoveLocalItemDown_Click" />
                     <MenuItem x:Name="CutFilesMenuItem" Header="Wytnij pliki do przeniesienia" InputGestureText="Ctrl+X"
                               automation:AutomationProperties.Name="Wytnij pliki do przeniesienia, Ctrl+X"
@@ -286,6 +296,13 @@
                     <MenuItem Header="Właściwości i informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.Name="Właściwości i informacje, Alt+Enter"
                               Click="Information_Click" />
+                    <MenuItem x:Name="PlayerItemPlaybackOptionsMenuItem" Header="Opcje odtwarzania elementu" InputGestureText="Alt+Shift+Enter"
+                              automation:AutomationProperties.Name="Opcje odtwarzania elementu, Alt+Shift+Enter"
+                              Click="ItemPlaybackOptions_Click" />
+                    <MenuItem x:Name="PlayerGoToAlbumMenuItem" Header="Przejdź do albumu"
+                              Click="GoToAlbum_Click" />
+                    <MenuItem x:Name="PlayerGoToArtistMenuItem" Header="Przejdź do wykonawcy"
+                              Click="GoToArtist_Click" />
                     <MenuItem Header="Kopiuj nazwę" InputGestureText="Ctrl+C"
                               automation:AutomationProperties.Name="Kopiuj nazwę, Ctrl+C"
                               Click="CopyName_Click" />

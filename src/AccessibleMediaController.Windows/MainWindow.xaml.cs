@@ -808,6 +808,60 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else RestoreMediaListFocusAfterRefresh();
     }
 
+    public void ShowItemPlaybackOptions()
+    {
+        var item = ActionItem ?? _sessions.Current.CurrentItem;
+        if (!string.Equals(ActionSession.Id, "local", StringComparison.Ordinal)
+            || !TryGetLocalPath(item.Source, out _))
+        {
+            Announce("Opcje elementu zostaną udostępnione przez adapter tej usługi. Obecnie działają dla plików lokalnych");
+            return;
+        }
+
+        CaptureLocalMediaState();
+        var saved = FindLocalItemSettings(item);
+        if (saved is null)
+        {
+            Announce("Nie można odnaleźć ustawień tego pliku w Bibliotece");
+            return;
+        }
+
+        var dialog = new ItemPlaybackOptionsWindow(
+            item.Title,
+            saved.ResumePositionMode,
+            saved.PlaybackRateOverride)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+
+        saved.ResumePositionMode = dialog.SelectedResumePositionMode;
+        saved.PlaybackRateOverride = dialog.SelectedPlaybackRateOverride;
+        var local = _sessions.FindSession("local");
+        if (local is not null
+            && string.Equals(local.CurrentItem.Id, item.Id, StringComparison.Ordinal))
+        {
+            if (!ShouldRememberLocalPosition(item)) local.ClearRememberedPosition(item.Id);
+            local.ApplyPlaybackRateForCurrentItem();
+        }
+        TrySaveLocalMediaState(true);
+        if (_playerViewActive) UpdatePlayerView(true);
+        UpdatePlaybackStatusBar();
+        Announce($"Zapisano opcje elementu: {item.Title}");
+        RestoreItemActionFocus();
+    }
+
+    private void RestoreItemActionFocus()
+    {
+        Activate();
+        if (_playerViewActive) FocusPlayerView();
+        else RestoreMediaListFocusAfterRefresh();
+    }
+
     private string BuildItemPropertiesText(MediaItem item)
     {
         var session = ActionSession;
@@ -843,6 +897,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             playbackLines.Insert(3, $"Pozycja: {CommandRouter.FormatTime(session.Position)}");
             playbackLines.Insert(4, $"Prędkość: {FormatPlaybackRateMultiplier(session.PlaybackRate)}");
             playbackLines.Insert(5, $"Głośność: {session.Volume}%");
+        }
+        if (localPath is not null)
+        {
+            var saved = FindLocalItemSettings(item);
+            playbackLines.Add($"Wznawianie: {FormatResumePositionMode(saved?.ResumePositionMode ?? ResumePositionMode.Inherit, item)}");
+            playbackLines.Add($"Prędkość elementu: {FormatItemPlaybackRate(saved?.PlaybackRateOverride)}");
+            playbackLines.Add("Wyjście audio: domyślne urządzenie systemowe, tryb współdzielony");
         }
         sections.Add(string.Join(Environment.NewLine, playbackLines));
 
@@ -1602,6 +1663,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 IsAvailable = item.IsAvailable,
                 IsInQueue = item.IsInQueue,
                 IsPlayNext = item.IsPlayNext,
+                ResumePositionMode = previous?.ResumePositionMode ?? ResumePositionMode.Inherit,
+                PlaybackRateOverride = previous?.PlaybackRateOverride,
+                OutputDeviceId = previous?.OutputDeviceId,
                 ResumePositionTicks = Math.Max(0, position.Ticks),
                 FileLength = fileLength,
                 LastWriteUtcTicks = lastWriteUtcTicks
@@ -1612,7 +1676,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             _state.LocalMedia.CurrentItemId = local.CurrentItem.Id;
             _state.LocalMedia.Volume = local.Volume;
-            _state.LocalMedia.PlaybackRate = local.PlaybackRate;
+            if (FindLocalItemSettings(local.CurrentItem)?.PlaybackRateOverride is null)
+            {
+                _state.LocalMedia.PlaybackRate = local.PlaybackRate;
+            }
         }
         else
         {
@@ -1751,7 +1818,33 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     private bool ShouldRememberLocalPosition(MediaItem item) =>
-        ShouldRememberLocalPosition(item.Source);
+        FindLocalItemSettings(item)?.ResumePositionMode switch
+        {
+            ResumePositionMode.Remember => true,
+            ResumePositionMode.StartFromBeginning => false,
+            _ => ShouldRememberLocalPosition(item.Source)
+        };
+
+    private LocalMediaItemSettings? FindLocalItemSettings(MediaItem item) =>
+        _state.LocalMedia.Items.FirstOrDefault(saved =>
+            string.Equals(saved.Id, item.Id, StringComparison.Ordinal));
+
+    private double? GetLocalPlaybackRateOverride(MediaItem item) =>
+        FindLocalItemSettings(item)?.PlaybackRateOverride;
+
+    private string FormatResumePositionMode(ResumePositionMode mode, MediaItem item) => mode switch
+    {
+        ResumePositionMode.Remember => "pamiętaj dla tego elementu",
+        ResumePositionMode.StartFromBeginning => "zawsze od początku dla tego elementu",
+        _ => ShouldRememberLocalPosition(item.Source)
+            ? "według folderu lub ustawienia ogólnego — pamiętaj"
+            : "według folderu lub ustawienia ogólnego — od początku"
+    };
+
+    private static string FormatItemPlaybackRate(double? playbackRate) =>
+        playbackRate.HasValue
+            ? FormatPlaybackRateMultiplier(playbackRate.Value)
+            : "według prędkości sesji";
 
     private bool ShouldRememberLocalPosition(string? path)
     {
@@ -1808,7 +1901,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ActiveLocalItems(),
             _localOutput,
             1,
-            ShouldRememberLocalPosition);
+            ShouldRememberLocalPosition,
+            GetLocalPlaybackRateOverride);
         if (local.HasItems)
         {
             foreach (var saved in _state.LocalMedia.Items
@@ -1828,7 +1922,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
         }
         local.SetVolume(previousLocal?.Volume ?? _state.LocalMedia.Volume);
-        local.SetPlaybackRate(previousLocal?.PlaybackRate ?? _state.LocalMedia.PlaybackRate);
+        local.SetDefaultPlaybackRate(_state.LocalMedia.PlaybackRate);
+        local.ApplyPlaybackRateForCurrentItem();
+        RestorePlaybackContext(local);
         if (previousLocalWasPlaying
             && previousLocalItemId is not null
             && local.Items.Any(item => string.Equals(item.Id, previousLocalItemId, StringComparison.Ordinal)))
@@ -1840,6 +1936,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _sessions.SelectSession("local");
         }
         _router = new CommandRouter(_sessions, _state.Settings, this, this);
+        foreach (var session in _sessions.Sessions.Where(session =>
+                     !string.Equals(session.Id, "local", StringComparison.Ordinal)))
+        {
+            RestorePlaybackContext(session);
+        }
+    }
+
+    private void RestorePlaybackContext(DemoMediaSession session)
+    {
+        var navigation = GetSessionNavigationState(session.Id);
+        if (navigation.PlaybackContextItemIds.Count > 0)
+        {
+            session.SetPlaybackContext(navigation.PlaybackContextItemIds);
+        }
     }
 
     private IEnumerable<MediaItem> ActiveLocalItems() =>
@@ -2052,6 +2162,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _bookmarkNavigationCursor = null;
         }
         var sessionBeforeCommand = _sessions.Current;
+        if (commandId == CommandIds.ActivateSelected
+            && !_playerViewActive
+            && ActionItem is { } selectedForPlayback)
+        {
+            PreparePlaybackContextForCurrentView(sessionBeforeCommand, selectedForPlayback);
+        }
         var oldSession = sessionBeforeCommand.Id;
         CaptureCurrentSessionNavigationState();
         var previousIndex = MediaList.SelectedIndex;
@@ -2178,6 +2294,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.ActivateSelected
             or CommandIds.Previous
             or CommandIds.Next;
+        if (commandId is CommandIds.PlaybackRateDown
+            or CommandIds.PlaybackRateUp
+            or CommandIds.PlaybackRateReset
+            && result.Handled
+            && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            var localItemSettings = FindLocalItemSettings(_sessions.Current.CurrentItem);
+            if (localItemSettings?.PlaybackRateOverride is not null)
+            {
+                localItemSettings.PlaybackRateOverride = _sessions.Current.PlaybackRate;
+            }
+            else
+            {
+                _state.LocalMedia.PlaybackRate = _sessions.Current.PlaybackRate;
+                _sessions.Current.SetDefaultPlaybackRate(_state.LocalMedia.PlaybackRate);
+            }
+            TrySaveLocalMediaState(false);
+        }
         if (savesPlaybackBoundary && result.Handled && _sessions.Current.IsPlaying)
         {
             RecordPlayback(_sessions.Current, _sessions.Current.CurrentItem);
@@ -2285,7 +2419,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         IEnumerable<MediaItem> items = _sessions.Current.Items;
-        if (_currentView == "Ulubione") items = items.Where(item => item.IsFavorite);
+        if (_currentView == "Ulubione")
+        {
+            var favoriteItems = items.Where(item => item.IsFavorite).ToArray();
+            var favoriteOrder = EnsureFavoriteOrder(_sessions.Current, favoriteItems);
+            items = LocalLibraryManualOrder.Order(favoriteItems, favoriteOrder);
+        }
         if (_currentView == "Playlisty") items = items.Where(item => item.Kind == MediaItemKind.Playlist);
         if (_currentView == "Biblioteka")
         {
@@ -2395,6 +2534,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             initializeAlphabetically: true);
     }
 
+    private List<string> EnsureFavoriteOrder(
+        DemoMediaSession session,
+        IEnumerable<MediaItem>? favoriteItems = null)
+    {
+        var items = (favoriteItems ?? session.Items.Where(item => item.IsFavorite)).ToArray();
+        var stored = _state.CollectionOrders.FavoriteItemIdsBySession.GetValueOrDefault(session.Id);
+        var normalized = LocalLibraryManualOrder.Normalize(stored, items);
+        _state.CollectionOrders.FavoriteItemIdsBySession[session.Id] = normalized;
+        return normalized;
+    }
+
     private IReadOnlyList<LocalAlbumGroup> InferLocalAlbums() =>
         LocalAlbumInference.Infer(
             ActiveLocalItems(),
@@ -2422,11 +2572,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void MoveLocalLibrarySelection(int direction)
     {
-        if (_playerViewActive
-            || !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
-            || !string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal))
+        var isCustomLocalOrder = !_playerViewActive
+            && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+            && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal);
+        var isFavoriteOrder = !_playerViewActive
+            && string.Equals(_currentView, "Ulubione", StringComparison.Ordinal);
+        if (!isCustomLocalOrder && !isFavoriteOrder)
         {
-            Announce("Ręczne przenoszenie działa w widoku Kolejność własna. Naciśnij Alt+3");
+            Announce("Ręczne przenoszenie działa w Kolejności własnej oraz w Ulubionych");
             return;
         }
         if (!string.IsNullOrWhiteSpace(FilterBox.Text))
@@ -2437,7 +2590,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var selectedIds = MediaList.SelectedItems
             .OfType<MediaItemRow>()
-            .Where(row => row.Item.Kind == MediaItemKind.Track)
             .Select(row => row.Item.Id)
             .ToArray();
         if (selectedIds.Length == 0)
@@ -2446,13 +2598,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        EnsureLocalCustomOrder();
+        IList<string> storedOrder;
+        if (isCustomLocalOrder)
+        {
+            EnsureLocalCustomOrder();
+            storedOrder = _state.LocalMedia.CustomOrderItemIds;
+        }
+        else
+        {
+            storedOrder = EnsureFavoriteOrder(_sessions.Current);
+        }
         var visibleIds = _unfilteredItems
-            .Where(row => row.Item.Kind == MediaItemKind.Track)
             .Select(row => row.Item.Id)
             .ToArray();
         var result = LocalLibraryManualOrder.MoveVisibleBlock(
-            _state.LocalMedia.CustomOrderItemIds,
+            storedOrder,
             visibleIds,
             selectedIds,
             direction);
@@ -2461,8 +2621,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce(result switch
             {
                 ManualOrderMoveResult.Boundary => direction < 0
-                    ? "To początek kolejności własnej"
-                    : "To koniec kolejności własnej",
+                    ? "To początek tej listy"
+                    : "To koniec tej listy",
                 ManualOrderMoveResult.NonContiguousSelection =>
                     "Do wspólnego przeniesienia zaznacz ciągły blok elementów",
                 _ => "Nie można zmienić kolejności zaznaczenia"
@@ -2473,7 +2633,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var primaryId = selectedIds[0];
         RefreshCurrentView(preferredItemId: primaryId);
         SelectMediaItems(selectedIds);
-        TrySaveLocalMediaState(true);
+        if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            TrySaveLocalMediaState(true);
+        }
+        else
+        {
+            _store.Save(_state);
+        }
         PrepareSelectedItemFocusContext(direction < 0 ? "Przeniesiono wyżej" : "Przeniesiono niżej");
         RestoreMediaListFocusAfterRefresh();
     }
@@ -2720,6 +2887,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (item.Kind is MediaItemKind.Track or MediaItemKind.Station)
         {
             var session = _sessions.Current;
+            PreparePlaybackContextForCurrentView(session, item);
             if (session.CurrentItem.Id != item.Id || !session.IsPlaying)
             {
                 session.Play(item);
@@ -2733,12 +2901,78 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Announce($"{item.KindLabel}: {item.Title}. {FormatItemCount(_unfilteredItems.Count)}, {FormatDurationWords(item.Duration)}");
     }
 
+    private void PreparePlaybackContextForCurrentView(DemoMediaSession session, MediaItem selectedItem)
+    {
+        if (_playerViewActive
+            || _currentView is BookmarkViewName or "Historia odtwarzania")
+        {
+            return;
+        }
+
+        var sessionIds = session.Items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        var itemIds = _unfilteredItems
+            .Where(row => row.FolderPath is null && row.AlbumFolderPath is null)
+            .Select(row => row.ActionItem)
+            .Where(item => item.Kind is MediaItemKind.Track or MediaItemKind.Station)
+            .Select(item => item.Id)
+            .Where(sessionIds.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (!itemIds.Contains(selectedItem.Id, StringComparer.Ordinal)) return;
+
+        session.SetPlaybackContext(itemIds);
+        var navigation = GetSessionNavigationState(session.Id);
+        navigation.PlaybackContextView = CurrentViewDisplayName();
+        navigation.PlaybackContextItemIds = itemIds;
+    }
+
     private void OpenLocalAlbum(string folderPath, string albumTitle)
     {
         _currentLocalAlbumPath = folderPath;
         _currentLocalAlbumTitle = albumTitle;
         NavigateTo(LocalAlbumContentsViewName);
         PrepareViewFocusContext($"Album, {albumTitle}");
+        RestoreMediaListFocusAfterRefresh();
+    }
+
+    private LocalAlbumGroup? FindRelatedLocalAlbum(MediaItem? item)
+    {
+        if (item is null || !string.Equals(ActionSession.Id, "local", StringComparison.Ordinal))
+        {
+            return null;
+        }
+        return InferLocalAlbums().FirstOrDefault(album =>
+            album.Tracks.Any(track => string.Equals(track.Id, item.Id, StringComparison.Ordinal)));
+    }
+
+    private void GoToRelatedAlbum()
+    {
+        var album = FindRelatedLocalAlbum(ActionItem);
+        if (album is null)
+        {
+            Announce("Dla tego elementu nie znaleziono powiązanego albumu");
+            return;
+        }
+        OpenLocalAlbum(album.FolderPath, album.Title);
+    }
+
+    private void GoToRelatedArtist()
+    {
+        var album = FindRelatedLocalAlbum(ActionItem);
+        var artistFolder = album is null || string.IsNullOrWhiteSpace(album.Artist)
+            ? null
+            : Directory.GetParent(album.FolderPath)?.FullName;
+        if (album is null || string.IsNullOrWhiteSpace(artistFolder))
+        {
+            Announce("Dla tego elementu nie znaleziono powiązanego folderu wykonawcy");
+            return;
+        }
+
+        _state.LocalMedia.CurrentFolderPath = artistFolder;
+        NavigateTo(FolderViewName);
+        SelectMediaItem(FolderRowId(album.FolderPath));
+        PrepareViewFocusContext($"Wykonawca, {album.Artist}");
+        TrySaveLocalMediaState(false);
         RestoreMediaListFocusAfterRefresh();
     }
 
@@ -4109,8 +4343,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (MediaList.IsKeyboardFocusWithin
             && Keyboard.Modifiers == ModifierKeys.Alt
-            && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
-            && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
+            && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+                || string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+                   && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal))
             && key is Key.Up or Key.Down)
         {
             ExecuteCommand(key == Key.Up
@@ -4280,6 +4515,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!_playerViewActive && !MediaList.IsKeyboardFocusWithin) return false;
 
         var modifiers = Keyboard.Modifiers;
+        if (modifiers == (ModifierKeys.Alt | ModifierKeys.Shift) && e.SystemKey == Key.Enter)
+        {
+            ExecuteCommand(CommandIds.ItemPlaybackOptions);
+            return true;
+        }
         if (modifiers == ModifierKeys.Alt && e.SystemKey == Key.Enter)
         {
             ExecuteCommand(CommandIds.ItemProperties);
@@ -4624,6 +4864,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Library_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleLibrary);
     private void Playlists_Click(object sender, RoutedEventArgs e) => ShowPlaylistManager();
     private void Information_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemProperties);
+    private void ItemPlaybackOptions_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemPlaybackOptions);
+    private void GoToAlbum_Click(object sender, RoutedEventArgs e) => GoToRelatedAlbum();
+    private void GoToArtist_Click(object sender, RoutedEventArgs e) => GoToRelatedArtist();
     private void CopyName_Click(object sender, RoutedEventArgs e) => CopyActionItemName();
     private void CopyLocation_Click(object sender, RoutedEventArgs e) => CopyActionItemLocation();
     private void CutFiles_Click(object sender, RoutedEventArgs e) =>
@@ -4688,6 +4931,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         FavoriteMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
         LibraryMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
         CopyLocationMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
+        ItemPlaybackOptionsMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
+        var relatedAlbum = FindRelatedLocalAlbum(actionItem);
+        GoToAlbumMenuItem.Visibility = relatedAlbum is null ? Visibility.Collapsed : Visibility.Visible;
+        GoToArtistMenuItem.Visibility = relatedAlbum is not null
+            && !string.IsNullOrWhiteSpace(relatedAlbum.Artist)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         var localItems = SelectedBookmark is null
             && items.Count > 0
             && items.All(item => TryGetLocalPath(item.Source, out var path) && File.Exists(path));
@@ -4708,10 +4958,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? Visibility.Visible
             : Visibility.Collapsed;
         var movableCustomOrderItems = !_playerViewActive
-            && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
-            && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
-            && items.Count > 0
-            && items.All(item => item.Kind == MediaItemKind.Track);
+            && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+                || string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+                   && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal))
+            && items.Count > 0;
         MoveLocalItemUpMenuItem.Visibility = movableCustomOrderItems
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -4776,6 +5026,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : "Kopiuj łącze do elementu";
         SetContextMenuItemPresentation(PlayerCopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
         var localItem = TryGetLocalPath(item.Source, out _);
+        PlayerItemPlaybackOptionsMenuItem.Visibility = Visibility.Visible;
+        var relatedAlbum = FindRelatedLocalAlbum(item);
+        PlayerGoToAlbumMenuItem.Visibility = relatedAlbum is null ? Visibility.Collapsed : Visibility.Visible;
+        PlayerGoToArtistMenuItem.Visibility = relatedAlbum is not null
+            && !string.IsNullOrWhiteSpace(relatedAlbum.Artist)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         PlayerOpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         PlayerOfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
         PlayerRemoveLocalItemMenuItem.Visibility = localItem

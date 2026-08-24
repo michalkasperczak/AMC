@@ -1,14 +1,70 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-088`
-- Tytuł zestawu: Lokalne Albumy z folderów
-- Wersja programu: `0.1.0-alpha.88`
-- Utworzono: 2026-08-24, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.88.md`
+- Numer zestawu: `AMC-TEST-089`
+- Tytuł zestawu: Kontekst odtwarzania, Ulubione i opcje elementu
+- Wersja programu: `0.1.0-alpha.89`
+- Utworzono: 2026-08-25, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.89.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
 
-## Nowości alpha 88
+## Nowości alpha 89
+
+### AMC-089-01 — Ręczna kolejność Ulubionych
+
+Otwórz `Ctrl+U`, zaznacz jeden element, a potem ciągły blok dwóch elementów i użyj `Alt+strzałka w górę/w dół`. Przejdź do innego widoku, wróć do Ulubionych i uruchom AMC ponownie.
+
+Oczekiwane: element lub blok przesuwa się o jeden wiersz, fokus i zaznaczenie zostają zachowane, a kolejność przetrwa zmianę widoku i restart. Przy aktywnym filtrze przesuwanie jest zablokowane jasnym komunikatem.
+
+### AMC-089-02 — Ulubione jako kontekst odtwarzania
+
+W Ulubionych uruchom element, otwórz odtwarzacz i użyj `Page Up` oraz `Page Down`. Pozwól też jednemu krótkiemu plikowi zakończyć się naturalnie.
+
+Oczekiwane: poprzedni, następny i automatycznie uruchomiony element pochodzą z kolejności Ulubionych, a nie z pierwotnego folderu ani płaskiej Biblioteki. Na początku i końcu lista nie zapętla się.
+
+### AMC-089-03 — Kontekst albumu, folderu i kolejności własnej
+
+Powtórz nawigację `Page Up/Page Down` po uruchomieniu elementu kolejno z otwartego Albumu, konkretnego Folderu i `Alt+3`. Po uruchomieniu utworu przejdź bez odtwarzania do innego widoku, wróć `F6` i wybierz następny plik.
+
+Oczekiwane: każdy start ustanawia kolejność bieżącej nieprzefiltrowanej listy. Samo przeglądanie innego widoku nie zmienia kontekstu. Filtr `Ctrl+K` nie ogranicza odtwarzania do chwilowych wyników.
+
+### AMC-089-04 — Kolejka ma pierwszeństwo i wraca do listy
+
+Uruchom element ze środka Ulubionych albo albumu, dodaj inny element jako następny lub do Kolejki i pozwól obu zakończyć się kolejno.
+
+Oczekiwane: najpierw odtwarza się element jawnie dodany do Kolejki, a potem AMC wraca do elementu następującego po pierwotnym utworze w zapamiętanym kontekście. Element kolejki nie jest odtwarzany drugi raz.
+
+### AMC-089-05 — Opcje elementu Alt+Shift+Enter
+
+Na lokalnym pliku naciśnij `Alt+Shift+Enter`. Ustaw „Zawsze od początku” oraz prędkość inną niż sesji, zapisz i odtwórz plik. Przejdź do innego pliku i wróć. Następnie zmień wariant na „Pamiętaj pozycję”, zatrzymaj materiał w środku i uruchom program ponownie.
+
+Oczekiwane: okno ma zwykłe dostępne pola, Zapisz i Anuluj, a fokus wraca do listy lub odtwarzacza. Prędkość nadpisania działa tylko dla wybranego pliku, inny plik wraca do prędkości sesji. Reguła od początku nie wznawia pozycji; reguła pamiętania ją zachowuje.
+
+### AMC-089-06 — Informacje i przyszłe wyjście audio
+
+Po zapisaniu opcji naciśnij `Alt+Enter`, przeczytaj sekcję „W aplikacji”, a następnie ponownie otwórz `Alt+Shift+Enter`.
+
+Oczekiwane: `Alt+Enter` pozostaje tekstem tylko do odczytu i podaje skuteczną regułę wznawiania, prędkość elementu oraz domyślne wyjście współdzielone. W opcjach urządzenie jest jednoznacznie nieaktywne, a okno nie udaje, że zmiana wyjścia lub EQ jest już zaimplementowana.
+
+### AMC-089-07 — Alias tytułu i kolejność albumu
+
+W albumie z plikami `01`, `02` i `03` zmień przez `F2` nazwy widoczne w Bibliotece tak, aby nie zaczynały się cyframi. Otwórz album ponownie i przejdź po nim także przez `Page Down`.
+
+Oczekiwane: NVDA czyta własne aliasy, ale kolejność albumu nadal jest 01, 02, 03 według rzeczywistych nazw plików. `F2` nie zmienia pliku na dysku.
+
+### AMC-089-08 — Przejdź do albumu i wykonawcy
+
+Na utworze rozpoznanego albumu w Ulubionych, Kolejce albo odtwarzaczu otwórz menu kontekstowe. Wybierz kolejno „Przejdź do albumu” i „Przejdź do wykonawcy”.
+
+Oczekiwane: pierwsze polecenie otwiera zawartość właściwego albumu, drugie — folder wykonawcy z fokusem na folderze albumu. Polecenia nie pojawiają się dla luźnego pliku bez rozpoznanej relacji. Obowiązuje zwykła reguła opuszczania odtwarzacza, w tym ustawienie pauzy po Escape lub przejściu do listy.
+
+### AMC-089-09 — Widoki bez ręcznego sortowania
+
+Spróbuj `Alt+strzałka w górę/w dół` w Folderach (`Alt+1`), Wszystkich plikach (`Alt+2`), Albumie, Historii i wynikach wyszukiwania.
+
+Oczekiwane: żaden z tych widoków nie zmienia kolejności. Foldery odpowiadają dyskowi, Wszystkie pliki są alfabetyczne, Album respektuje numery ścieżek, a Historia i wyszukiwanie zachowują własną semantykę.
+
+## Poprzedni zestaw alpha 88
 
 ### AMC-088-01 — Album z numerowanych plików
 

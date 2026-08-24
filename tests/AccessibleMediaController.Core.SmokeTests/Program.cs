@@ -28,6 +28,7 @@ var tests = new (string Name, Action Test)[]
     ("Konfigurowana kolejność sesji", TestSessionOrder),
     ("Pusta sesja lokalna", TestEmptyLocalSession),
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
+    ("Kontekst listy odtwarzania", TestPlaybackContext),
     ("Polityka pamiętania pozycji", TestResumePositionPolicy),
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Ponowne włączanie folderu do biblioteki", TestLocalLibraryImport),
@@ -174,8 +175,8 @@ static void TestCommandCatalog()
     Equal("Zarządzaj źródłami biblioteki lokalnej", CommandCatalog.GetDisplayName(CommandIds.ManageLocalSources));
     Equal("Zmień nazwę w Bibliotece", CommandCatalog.GetDisplayName(CommandIds.RenameLibraryItem));
     Equal("Zmień nazwę pliku na dysku", CommandCatalog.GetDisplayName(CommandIds.RenameLocalFile));
-    Equal("Przenieś wyżej w kolejności własnej", CommandCatalog.GetDisplayName(CommandIds.MoveLocalLibraryItemUp));
-    Equal("Przenieś niżej w kolejności własnej", CommandCatalog.GetDisplayName(CommandIds.MoveLocalLibraryItemDown));
+    Equal("Przenieś wyżej na bieżącej liście", CommandCatalog.GetDisplayName(CommandIds.MoveLocalLibraryItemUp));
+    Equal("Przenieś niżej na bieżącej liście", CommandCatalog.GetDisplayName(CommandIds.MoveLocalLibraryItemDown));
     Equal("Ustawienia: kolejność sesji i skrótów Ctrl+1–9", CommandCatalog.GetDisplayName(CommandIds.SettingsSessionOrder));
     Equal("Ustawienia: wstrzymuj po wyjściu z odtwarzacza", CommandCatalog.GetDisplayName(CommandIds.SettingsPausePlaybackWhenLeavingPlayer));
     Equal("Ustawienia: domyślnie pamiętaj pozycje lokalnych plików", CommandCatalog.GetDisplayName(CommandIds.SettingsRememberLocalPlaybackPositions));
@@ -923,6 +924,47 @@ static void TestEmptyLocalSession()
     Equal(item, session.CurrentItem);
 }
 
+static void TestPlaybackContext()
+{
+    var output = new FakeMediaOutput();
+    var first = new MediaItem { Id = "first", Title = "Pierwszy" };
+    var second = new MediaItem { Id = "second", Title = "Drugi" };
+    var third = new MediaItem { Id = "third", Title = "Trzeci" };
+    var fourth = new MediaItem { Id = "fourth", Title = "Czwarty" };
+    var rateOverrides = new Dictionary<string, double?>
+    {
+        [third.Id] = 1.50d
+    };
+    var session = new DemoMediaSession(
+        "context",
+        "Kontekst",
+        [first, second, third, fourth],
+        output,
+        playbackRateOverride: item => rateOverrides.GetValueOrDefault(item.Id));
+    session.SetDefaultPlaybackRate(1.25d);
+    session.SetPlaybackContext([second.Id, fourth.Id]);
+
+    True(session.Play(second), "Element kontekstu powinien się uruchomić.");
+    Equal(1.25d, session.PlaybackRate);
+    True(session.PlayRelative(1), "Page Down powinien użyć kolejności bieżącego kontekstu.");
+    Equal(fourth, session.CurrentItem);
+    True(!session.PlayRelative(1), "Kontekst nie może przejść do elementu spoza listy.");
+    True(session.PlayRelative(-1), "Page Up powinien wrócić w tym samym kontekście.");
+    Equal(second, session.CurrentItem);
+    Equal(fourth, session.ContinueAfterPlaybackEnded(second));
+    True(session.ContinueAfterPlaybackEnded(fourth) is null,
+        "Automatyczna kontynuacja powinna zakończyć się wraz z kontekstem.");
+
+    second.IsInQueue = true;
+    session.SetPlaybackContext([first.Id, third.Id, fourth.Id]);
+    True(session.Play(first), "Pierwszy element nowego kontekstu powinien się uruchomić.");
+    Equal(second, session.ContinueAfterPlaybackEnded(first));
+    Equal(third, session.ContinueAfterPlaybackEnded(second));
+    Equal(1.50d, session.PlaybackRate);
+    Equal(fourth, session.ContinueAfterPlaybackEnded(third));
+    Equal(1.25d, session.PlaybackRate);
+}
+
 static void TestResumePositionPolicy()
 {
     var output = new FakeMediaOutput();
@@ -1293,7 +1335,9 @@ static void TestSessionNavigationPersistence()
             Filters = new Dictionary<string, string>
             {
                 ["Ulubione"] = "północ"
-            }
+            },
+            PlaybackContextView = "Ulubione",
+            PlaybackContextItemIds = ["tidal-1", "tidal-14"]
         };
         state.SessionNavigation.Sessions["appleMusic"] = new SessionNavigationState
         {
@@ -1308,6 +1352,9 @@ static void TestSessionNavigationPersistence()
         Equal(true, tidal.PlayerActive);
         Equal("tidal-14", tidal.SelectedItemIds["ulubione"]);
         Equal("północ", tidal.Filters["ULUBIONE"]);
+        Equal("Ulubione", tidal.PlaybackContextView);
+        True(tidal.PlaybackContextItemIds.SequenceEqual(["tidal-1", "tidal-14"]),
+            "Kontekst odtwarzania powinien przetrwać ponowne uruchomienie.");
         Equal("Albumy", loaded.SessionNavigation.Sessions["appleMusic"].CurrentView);
         Equal(false, loaded.SessionNavigation.Sessions["appleMusic"].PlayerActive);
     }
@@ -1338,6 +1385,7 @@ static void TestLocalMediaPersistence()
         state.LocalMedia.LibraryView = "Foldery";
         state.LocalMedia.CustomOrderItemIds.Add("local-1");
         state.LocalMedia.ExcludedPaths.Add(@"C:\Muzyka\pomijany.mp3");
+        state.CollectionOrders.FavoriteItemIdsBySession["local"] = ["local-1"];
         state.LocalMedia.Items.Add(new LocalMediaItemSettings
         {
             Id = "local-1",
@@ -1350,7 +1398,10 @@ static void TestLocalMediaPersistence()
             LastWriteUtcTicks = 987654,
             IsFavorite = true,
             IsInLibrary = true,
-            IsInQueue = true
+            IsInQueue = true,
+            ResumePositionMode = ResumePositionMode.Remember,
+            PlaybackRateOverride = 1.75d,
+            OutputDeviceId = "default"
         });
 
         store.Save(state);
@@ -1374,6 +1425,10 @@ static void TestLocalMediaPersistence()
         Equal(true, item.IsFavorite);
         Equal(true, item.IsInQueue);
         Equal(true, item.IsAvailable);
+        Equal(ResumePositionMode.Remember, item.ResumePositionMode);
+        Equal(1.75d, item.PlaybackRateOverride);
+        Equal("default", item.OutputDeviceId);
+        Equal("local-1", loaded.CollectionOrders.FavoriteItemIdsBySession["LOCAL"].Single());
 
         var output = new FakeMediaOutput();
         var media = new MediaItem { Id = item.Id, Title = item.Title, Source = item.Path };
@@ -1559,8 +1614,8 @@ static void TestCommandPalette()
     Equal("Alt+1 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.ViewFolders).LocalShortcut);
     Equal("Alt+2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.ViewAllLocalFiles).LocalShortcut);
     Equal("Alt+3 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.ViewCustomLocalOrder).LocalShortcut);
-    Equal("Alt+Up (kolejność własna)", entries.Single(entry => entry.CommandId == CommandIds.MoveLocalLibraryItemUp).LocalShortcut);
-    Equal("Alt+Down (kolejność własna)", entries.Single(entry => entry.CommandId == CommandIds.MoveLocalLibraryItemDown).LocalShortcut);
+    Equal("Alt+Up (kolejność własna lub Ulubione)", entries.Single(entry => entry.CommandId == CommandIds.MoveLocalLibraryItemUp).LocalShortcut);
+    Equal("Alt+Down (kolejność własna lub Ulubione)", entries.Single(entry => entry.CommandId == CommandIds.MoveLocalLibraryItemDown).LocalShortcut);
     Equal("F5 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RefreshLocalLibrary).LocalShortcut);
     Equal("Ctrl+F5", entries.Single(entry => entry.CommandId == CommandIds.ManageLocalSources).LocalShortcut);
     Equal("F2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RenameLibraryItem).LocalShortcut);
@@ -2079,6 +2134,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public bool SeekToTimeShown { get; private set; }
     public bool SeekToPercentageShown { get; private set; }
     public bool ItemPropertiesShown { get; private set; }
+    public bool ItemPlaybackOptionsShown { get; private set; }
     public bool BookmarkAdded { get; private set; }
     public bool NamedBookmarkAdded { get; private set; }
     public bool LocalLibraryRefreshed { get; private set; }
@@ -2093,6 +2149,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ShowPlaylistManager() { }
     public void ShowCommandPalette() => CommandPaletteShown = true;
     public void ShowItemProperties() => ItemPropertiesShown = true;
+    public void ShowItemPlaybackOptions() => ItemPlaybackOptionsShown = true;
     public void OpenOfficialApplication() { }
     public void ShowHelp() { }
     public void ShowSettings(SettingsTarget target) => LastSettingsTarget = target;

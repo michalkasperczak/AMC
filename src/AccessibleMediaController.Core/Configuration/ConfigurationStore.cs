@@ -10,7 +10,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 22;
+    public const int CurrentSchemaVersion = 23;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -221,7 +221,27 @@ public sealed class ConfigurationStore(string statePath)
             session.Filters = new Dictionary<string, string>(
                 session.Filters ?? new Dictionary<string, string>(),
                 StringComparer.OrdinalIgnoreCase);
+            session.PlaybackContextView = string.IsNullOrWhiteSpace(session.PlaybackContextView)
+                ? "Multimedia"
+                : session.PlaybackContextView;
+            session.PlaybackContextItemIds = (session.PlaybackContextItemIds ?? [])
+                .Where(itemId => !string.IsNullOrWhiteSpace(itemId))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
         }
+
+        state.CollectionOrders ??= new CollectionOrderSettings();
+        state.CollectionOrders.FavoriteItemIdsBySession = new Dictionary<string, List<string>>(
+            (state.CollectionOrders.FavoriteItemIdsBySession
+                ?? new Dictionary<string, List<string>>())
+            .ToDictionary(
+                pair => pair.Key,
+                pair => (pair.Value ?? [])
+                    .Where(itemId => !string.IsNullOrWhiteSpace(itemId))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase),
+            StringComparer.OrdinalIgnoreCase);
     }
 
     private static void NormalizeLocalMedia(PersistedState state, int schemaVersion)
@@ -344,6 +364,14 @@ public sealed class ConfigurationStore(string statePath)
             item.Path = NormalizeFilePath(item.Path);
             item.DurationTicks = Math.Max(0, item.DurationTicks);
             item.ResumePositionTicks = Math.Max(0, item.ResumePositionTicks);
+            if (!Enum.IsDefined(item.ResumePositionMode))
+            {
+                item.ResumePositionMode = ResumePositionMode.Inherit;
+            }
+            if (item.PlaybackRateOverride.HasValue)
+            {
+                item.PlaybackRateOverride = Math.Clamp(item.PlaybackRateOverride.Value, 0.50d, 2.00d);
+            }
             if (item.DurationTicks > 0)
             {
                 item.ResumePositionTicks = Math.Min(item.ResumePositionTicks, item.DurationTicks);
