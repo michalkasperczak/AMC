@@ -1,14 +1,52 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-086`
-- Tytuł zestawu: Menedżer i dwie bezpieczne zmiany nazwy
-- Wersja programu: `0.1.0-alpha.86`
+- Numer zestawu: `AMC-TEST-087`
+- Tytuł zestawu: Kolejność własna i bezpieczny filtr
+- Wersja programu: `0.1.0-alpha.87`
 - Utworzono: 2026-08-24, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.86.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.87.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
 
-## Nowości alpha 86
+## Nowości alpha 87
+
+### AMC-087-01 — Trzy układy Biblioteki
+
+Na lokalnej liście użyj kolejno `Alt+1`, `Alt+2` i `Alt+3`, a potem `Ctrl+L`. Sprawdź menu Widok i paletę `Ctrl+Shift+K`.
+
+Oczekiwane: `Alt+1` otwiera Foldery Biblioteki, `Alt+2` — Wszystkie pliki alfabetycznie, a `Alt+3` — Kolejność własną. `Ctrl+L` wraca do ostatniego z tych układów. NVDA podaje nazwę układu bez technicznych identyfikatorów.
+
+### AMC-087-02 — Przesuwanie jednego pliku
+
+W Kolejności własnej zaznacz plik znajdujący się z dala od początku i końca. Naciśnij `Alt+strzałka w górę`, a następnie `Alt+strzałka w dół`.
+
+Oczekiwane: plik przesuwa się dokładnie o jedną pozycję, pozostaje zaznaczony, a NVDA mówi krótko „Przeniesiono wyżej” albo „Przeniesiono niżej”. Nazwa i pełna ścieżka z `Ctrl+Shift+C` nie zmieniają się.
+
+### AMC-087-03 — Zaznaczenie wielu elementów i granice
+
+Zaznacz Shiftem dwa lub trzy sąsiadujące pliki i przesuń je w górę oraz w dół. Spróbuj także przejść poza początek lub koniec listy. Jeśli wygodnie, sprawdź nieciągłe zaznaczenie myszą lub klawiaturą wspomagającą.
+
+Oczekiwane: ciągły blok zachowuje kolejność wewnętrzną i przesuwa się razem. Na granicy AMC mówi o początku albo końcu. Nieciągłe zaznaczenie nie jest przestawiane i otrzymuje jasny komunikat.
+
+### AMC-087-04 — Trwałość i nowe pliki
+
+Zmień kolejność kilku pozycji, przejdź do `Alt+2`, wróć przez `Alt+3`, uruchom AMC ponownie i ponownie wybierz `Alt+3`. Następnie dodaj bezpieczny plik przez `Ctrl+O` albo do źródła i użyj `F5`.
+
+Oczekiwane: ręczny porządek przetrwa zmianę widoku i restart. `Alt+2` pozostaje alfabetyczne i nie przejmuje ręcznych zmian. Nowy plik zostaje dopisany na końcu Kolejności własnej.
+
+### AMC-087-05 — Filtr nie zostaje ukrytą pułapką
+
+W `Alt+3` naciśnij `Ctrl+K`, wpisz fragment nazwy i spróbuj `Alt+strzałka w górę`. Następnie naciśnij Escape. Powtórz filtr i zamiast Escape przejdź do `Alt+2`, `Alt+1`, innego folderu oraz innej sesji; wróć za każdym razem do wcześniejszego miejsca. Na końcu zamknij AMC z aktywnym filtrem i uruchom ponownie.
+
+Oczekiwane: przy filtrze przesuwanie jest zablokowane. Escape czyści filtr i od razu przenosi fokus na pełną listę. Zmiana widoku, folderu albo sesji również usuwa filtr; nie wraca on po powrocie ani po restarcie.
+
+### AMC-087-06 — Delete, wklejanie i regresja
+
+W Kolejności własnej sprawdź Delete na bezpiecznym rekordzie i natychmiastowe `Ctrl+Z`. Wklej lokalny plik przez `Ctrl+V`, sprawdź menu kontekstowe oraz wyrywkowo Enter, Escape, `Ctrl+C`, `Ctrl+Shift+C`, F2, Shift+F2, wyszukiwanie i odtwarzacz.
+
+Oczekiwane: Delete usuwa wyłącznie przynależność do Biblioteki i pozostawia plik na dysku, a `Ctrl+Z` przywraca rekord. Wklejony nowy plik trafia na koniec Kolejności własnej. Wyszukiwanie nie pozwala przestawiać wyników, a dotychczasowe funkcje nie mają regresji.
+
+## Poprzedni zestaw alpha 86
 
 Do prób `Shift+F2` użyj kopii pliku, którego utrata nie będzie problemem. AMC nie nadpisuje istniejącego pliku, ale test dotyczy rzeczywistej nazwy na dysku.
 

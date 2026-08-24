@@ -32,6 +32,7 @@ public interface IApplicationActions
     void ShowLocalSourceManager();
     void RenameLibraryItem();
     void RenameLocalFile();
+    void MoveLocalLibrarySelection(int direction);
     void ShowSeekToTime();
     void ShowSeekToPercentage();
     void AddBookmark();
@@ -114,6 +115,12 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.RenameLocalFile:
                 application.RenameLocalFile();
+                return new(true);
+            case CommandIds.MoveLocalLibraryItemUp:
+                application.MoveLocalLibrarySelection(-1);
+                return new(true);
+            case CommandIds.MoveLocalLibraryItemDown:
+                application.MoveLocalLibrarySelection(1);
                 return new(true);
             case CommandIds.SeekToTime:
                 application.ShowSeekToTime();
@@ -254,6 +261,7 @@ public sealed class CommandRouter(
             case CommandIds.ViewLibrary: return ShowView("Biblioteka");
             case CommandIds.ViewFolders: return ShowView("Foldery");
             case CommandIds.ViewAllLocalFiles: return ShowView("Wszystkie pliki");
+            case CommandIds.ViewCustomLocalOrder: return ShowView("Kolejność własna");
             case CommandIds.ViewQueue: return ShowView("Kolejka");
             case CommandIds.ViewAlbums: return ShowView("Albumy");
             case CommandIds.ViewRadio: return ShowView("Radio i rekomendacje");

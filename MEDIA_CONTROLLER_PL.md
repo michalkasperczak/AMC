@@ -401,7 +401,9 @@ Zatwierdzone przypisania podstawowe:
 | `Ctrl+O` | otwórz jeden lub wiele lokalnych plików audio |
 | `Ctrl+Shift+O` | otwórz folder z plikami audio wraz z podfolderami |
 | `Alt+1` na liście lokalnej | pokaż Foldery Biblioteki |
-| `Alt+2` na liście lokalnej | pokaż płaską listę Wszystkie pliki |
+| `Alt+2` na liście lokalnej | pokaż Wszystkie pliki alfabetycznie |
+| `Alt+3` na liście lokalnej | pokaż trwałą Kolejność własną |
+| `Alt+Strzałka w górę/w dół` w Kolejności własnej | przesuń plik albo ciągły zaznaczony blok o jedną pozycję |
 | `F5` w sesji lokalnej | ponownie przeskanuj wszystkie dostępne źródła |
 | `Ctrl+F5` | otwórz Menedżera Biblioteki lokalnej |
 | `F2` na lokalnej liście | zmień tylko trwałą nazwę wyświetlaną w AMC |
@@ -825,13 +827,17 @@ Korekta `alpha.85`: każdy model danych używany bezpośrednio jako element dost
 
 Rozstrzygnięcie `alpha.86`: `F5` odświeża lokalne źródła, a `Ctrl+F5` otwiera Menedżera Biblioteki. `F2` na lokalnej liście ustawia trwały alias katalogowy i nie zmienia ścieżki; wpisanie ponownie nazwy pliku bez rozszerzenia usuwa rozróżnienie aliasu. `Shift+F2` wykonuje rzeczywistą zmianę nazwy na dysku, zawsze zachowując rozszerzenie i stabilny identyfikator rekordu. Aktualizacja ścieżki zachowuje stany przynależności, Historię, Zakładki i pozycję wznowienia. Operacja nie nadpisuje istniejącego celu i zwalnia wcześniej załadowany plik przez bezpieczne zatrzymanie wyjścia audio.
 
+Rozstrzygnięcie `alpha.87`: Biblioteka lokalna rozdziela układ danych od sortowania. `Alt+1` pokazuje rzeczywiste Foldery, `Alt+2` zawsze wylicza widok Wszystkie pliki alfabetycznie, a `Alt+3` pokazuje zapisaną Kolejność własną. `Alt+strzałka w górę/w dół` działa wyłącznie w trzecim widoku i przenosi pojedynczy element albo ciągły blok; przy aktywnym filtrze jest blokowane, aby ukryte rekordy nie zmieniły pozycji w sposób nieprzewidywalny. Pierwsza Kolejność własna startuje alfabetycznie, później zachowuje ręczne zmiany, a nowe rekordy dopisuje na końcu. Jest metadanym AMC i nie modyfikuje systemu plików. W przyszłych adapterach to samo polecenie może zmienić porządek po stronie usługi tylko wtedy, gdy jej oficjalne API jawnie wspiera taką operację; w pozostałych widokach nie udajemy zapisu zdalnego.
+
+Filtr `Ctrl+K` jest krótkotrwałym zawężeniem bieżącego kontekstu, nie sposobem sortowania ani zapytaniem do usługi. Escape usuwa go i jednym krokiem przywraca fokus listy. Przejście do innego widoku, folderu albo sesji również czyści filtr, a AMC nie przywraca go po restarcie. Wyniki wyszukiwania pozostają osobnym oknem i nie oferują ręcznego przestawiania rekordów.
+
 Priorytet lokalnej Biblioteki: podstawowym widokiem będzie rzeczywista hierarchia **Folderów**, ponieważ kolekcja użytkownika nie musi mieć kompletnych tagów. Płaska Biblioteka pozostaje równoległym zestawieniem wszystkich zaimportowanych plików. Widoki Wykonawców, Albumów i Gatunków mogą później powstać z metadanych, lecz nie są warunkiem używalności. Ulubione, Kolejka, Historia, Playlisty i Zakładki wskazują te same rekordy niezależnie od widoku źródłowego.
 
 Prosty montaż audio jest etapem późniejszym po Zakładkach i Folderach. Pierwszy zakres obejmie niedestrukcyjne punkty A–B, odsłuch zaznaczenia i zapis fragmentu jako nowego pliku. Następnie lista fragmentów pozwoli utworzyć nowy plik z kilku źródeł. Oryginały nie będą nadpisywane. Bezstratne cięcie i łączenie będzie używać dojrzałych narzędzi właściwych dla formatu; ponowne kodowanie musi być jawne, a operacja zapisywana przez plik tymczasowy i atomowe ukończenie.
 
 Opcjonalny pilot NVDA inspirowany Free Radio będzie cienką wtyczką wysyłającą wspólne polecenia do rdzenia AMC. Nie skopiuje pełnej, zagnieżdżonej Biblioteki: obsłuży transport, głośność, sesje, presety radiowe i płaskie widoki Kolejki, Ulubionych oraz Historii, a złożone Foldery i wyszukiwanie otworzy w głównym oknie na odpowiednim elemencie. Bezpieczny profil prefiksowy pozostaje podstawą; bezpośredni profil `Ctrl+Windows` będzie opcjonalny i będzie mógł przejmować systemowe gesty tylko po świadomym włączeniu.
 
-Katalog lokalny i kolejność: Biblioteka nie jest playlistą ani kopią jednego folderu, lecz katalogiem źródeł z trwałą tożsamością, ścieżką i widokami. Domyślna kolejność powinna wynikać z wybranego sortowania, np. tytułu, wykonawcy, albumu, folderu, daty dodania albo ostatniego odtworzenia. `Alt+strzałka w górę/dół` będzie ręcznie przesuwać elementy playlisty; nie zmieni kolejności plików na dysku. Ręczne układanie Biblioteki zostanie dodane tylko jako jawny tryb „Kolejność własna”, jeżeli testy wykażą taką potrzebę. Dzięki temu te same klawisze nie udają sortowania w widoku wykonawców lub albumów.
+Katalog lokalny i kolejność: Biblioteka nie jest playlistą ani kopią jednego folderu, lecz katalogiem źródeł z trwałą tożsamością, ścieżką i widokami. Porządki wyliczane, takie jak tytuł, wykonawca, album, folder, data dodania albo ostatnie odtworzenie, pozostają deterministycznymi sposobami sortowania. Osobna Kolejność własna jest zapisem użytkownika i nie zmienia kolejności plików na dysku. Te same klawisze nie udają ręcznego sortowania w widokach wykonawców, albumów ani wyników wyszukiwania.
 
 Planowana kolejność dalszych etapów:
 
@@ -858,7 +864,6 @@ Planowana kolejność dalszych etapów:
 5. Edycja nazw istniejących zakładek; tworzenie nazwanych zakładek działa od `alpha.70`, a podstawowy globalny widok i eksport pełnej kopii od `alpha.68`.
 6. Domyślny odstęp polecenia „w pobliże końca”; roboczo 10 sekund.
 7. Ostateczna nazwa aplikacji i identyfikatory pakietów na poszczególnych platformach.
-8. Czy Biblioteka potrzebuje opcjonalnego trybu „Kolejność własna”, czy wystarczą trwałe sposoby sortowania i ręczna kolejność playlist.
 
 ## 16. Zasada dalszej pracy
 

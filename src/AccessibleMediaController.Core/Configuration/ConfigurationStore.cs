@@ -2,13 +2,15 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Input;
+using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Presentation;
+using AccessibleMediaController.Core.Sessions;
 
 namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 21;
+    public const int CurrentSchemaVersion = 22;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -251,7 +253,7 @@ public sealed class ConfigurationStore(string statePath)
             .GroupBy(source => source.Path, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToList();
-        state.LocalMedia.LibraryView = state.LocalMedia.LibraryView is "Foldery" or "Wszystkie pliki"
+        state.LocalMedia.LibraryView = state.LocalMedia.LibraryView is "Foldery" or "Wszystkie pliki" or "Kolejność własna"
             ? state.LocalMedia.LibraryView
             : "Foldery";
         state.LocalMedia.ExcludedPaths = (state.LocalMedia.ExcludedPaths ?? [])
@@ -347,6 +349,16 @@ public sealed class ConfigurationStore(string statePath)
                 item.ResumePositionTicks = Math.Min(item.ResumePositionTicks, item.DurationTicks);
             }
         }
+
+        state.LocalMedia.CustomOrderItemIds = LocalLibraryManualOrder.Normalize(
+            state.LocalMedia.CustomOrderItemIds,
+            state.LocalMedia.Items.Select(item => new MediaItem
+            {
+                Id = item.Id,
+                Title = item.Title,
+                Source = item.Path
+            }),
+            initializeAlphabetically: true);
 
         if (state.LocalMedia.CurrentItemId is { Length: > 0 } currentItemId
             && state.LocalMedia.Items.All(item => !string.Equals(item.Id, currentItemId, StringComparison.Ordinal)))

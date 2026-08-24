@@ -35,6 +35,7 @@ var tests = new (string Name, Action Test)[]
     ("Bezpieczna zmiana nazwy lokalnego pliku", TestLocalFileRenamePolicy),
     ("Integracyjny cykl zmian folderu", TestLocalFolderSynchronizationCycle),
     ("Bezpieczne zarządzanie źródłami Biblioteki", TestLocalFolderSourcePolicy),
+    ("Trwała kolejność własna Biblioteki", TestLocalLibraryManualOrder),
     ("Migracja biblioteki alpha.79", TestVersion17LocalLibraryMigration),
     ("Naprawa pustego źródła po alpha.80", TestVersion18EmptySourceMigration),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
@@ -167,10 +168,13 @@ static void TestCommandCatalog()
     Equal("Otwórz folder z plikami audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Biblioteka lokalna: pokaż foldery", CommandCatalog.GetDisplayName(CommandIds.ViewFolders));
     Equal("Biblioteka lokalna: pokaż wszystkie pliki", CommandCatalog.GetDisplayName(CommandIds.ViewAllLocalFiles));
+    Equal("Biblioteka lokalna: pokaż kolejność własną", CommandCatalog.GetDisplayName(CommandIds.ViewCustomLocalOrder));
     Equal("Odśwież źródła biblioteki lokalnej", CommandCatalog.GetDisplayName(CommandIds.RefreshLocalLibrary));
     Equal("Zarządzaj źródłami biblioteki lokalnej", CommandCatalog.GetDisplayName(CommandIds.ManageLocalSources));
     Equal("Zmień nazwę w Bibliotece", CommandCatalog.GetDisplayName(CommandIds.RenameLibraryItem));
     Equal("Zmień nazwę pliku na dysku", CommandCatalog.GetDisplayName(CommandIds.RenameLocalFile));
+    Equal("Przenieś wyżej w kolejności własnej", CommandCatalog.GetDisplayName(CommandIds.MoveLocalLibraryItemUp));
+    Equal("Przenieś niżej w kolejności własnej", CommandCatalog.GetDisplayName(CommandIds.MoveLocalLibraryItemDown));
     Equal("Ustawienia: kolejność sesji i skrótów Ctrl+1–9", CommandCatalog.GetDisplayName(CommandIds.SettingsSessionOrder));
     Equal("Ustawienia: wstrzymuj po wyjściu z odtwarzacza", CommandCatalog.GetDisplayName(CommandIds.SettingsPausePlaybackWhenLeavingPlayer));
     Equal("Ustawienia: domyślnie pamiętaj pozycje lokalnych plików", CommandCatalog.GetDisplayName(CommandIds.SettingsRememberLocalPlaybackPositions));
@@ -1331,6 +1335,7 @@ static void TestLocalMediaPersistence()
         });
         state.LocalMedia.CurrentFolderPath = directory;
         state.LocalMedia.LibraryView = "Foldery";
+        state.LocalMedia.CustomOrderItemIds.Add("local-1");
         state.LocalMedia.ExcludedPaths.Add(@"C:\Muzyka\pomijany.mp3");
         state.LocalMedia.Items.Add(new LocalMediaItemSettings
         {
@@ -1356,6 +1361,7 @@ static void TestLocalMediaPersistence()
         Equal(1, loaded.LocalMedia.Items.Count);
         Equal(1, loaded.LocalMedia.FolderSources.Count);
         Equal("Foldery", loaded.LocalMedia.LibraryView);
+        Equal("local-1", loaded.LocalMedia.CustomOrderItemIds.Single());
         Equal(Path.GetFullPath(@"C:\Muzyka\pomijany.mp3"), loaded.LocalMedia.ExcludedPaths[0]);
         Equal("Nagrania", loaded.LocalMedia.FolderSources[0].DisplayName);
         Equal(Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory)), loaded.LocalMedia.CurrentFolderPath);
@@ -1380,6 +1386,56 @@ static void TestLocalMediaPersistence()
     {
         Directory.Delete(directory, true);
     }
+}
+
+static void TestLocalLibraryManualOrder()
+{
+    var alpha = new MediaItem { Id = "a", Title = "Alfa", Source = @"C:\Muzyka\a.mp3" };
+    var bravo = new MediaItem { Id = "b", Title = "Brawo", Source = @"C:\Muzyka\b.mp3" };
+    var charlie = new MediaItem { Id = "c", Title = "Charlie", Source = @"C:\Muzyka\c.mp3" };
+    var delta = new MediaItem { Id = "d", Title = "Delta", Source = @"C:\Muzyka\d.mp3" };
+
+    var initialized = LocalLibraryManualOrder.Normalize(
+        [],
+        [charlie, alpha, bravo],
+        initializeAlphabetically: true);
+    True(initialized.SequenceEqual(["a", "b", "c"]), "Pierwsze otwarcie powinno utworzyć porządek alfabetyczny.");
+
+    var normalized = LocalLibraryManualOrder.Normalize(
+        ["c", "brak", "c"],
+        [alpha, bravo, charlie, delta]);
+    True(normalized.SequenceEqual(["c", "a", "b", "d"]), "Należy zachować znaną kolejność, usunąć duplikaty i dopisać nowe elementy.");
+    True(
+        LocalLibraryManualOrder.Order([alpha, bravo, charlie, delta], normalized)
+            .Select(item => item.Id)
+            .SequenceEqual(["c", "a", "b", "d"]),
+        "Widok powinien respektować zapisaną kolejność.");
+
+    var singleMove = new List<string> { "a", "b", "c", "d" };
+    Equal(
+        ManualOrderMoveResult.Moved,
+        LocalLibraryManualOrder.MoveVisibleBlock(singleMove, ["a", "b", "c", "d"], ["b"], 1));
+    True(singleMove.SequenceEqual(["a", "c", "b", "d"]), "Pojedynczy element powinien przesunąć się o jeden wiersz.");
+
+    var blockMove = new List<string> { "a", "b", "c", "d" };
+    Equal(
+        ManualOrderMoveResult.Moved,
+        LocalLibraryManualOrder.MoveVisibleBlock(blockMove, ["a", "b", "c", "d"], ["b", "c"], -1));
+    True(blockMove.SequenceEqual(["b", "c", "a", "d"]), "Ciągłe zaznaczenie powinno przenieść się jako jeden blok.");
+    Equal(
+        ManualOrderMoveResult.Boundary,
+        LocalLibraryManualOrder.MoveVisibleBlock(blockMove, ["b", "c", "a", "d"], ["b", "c"], -1));
+    Equal(
+        ManualOrderMoveResult.NonContiguousSelection,
+        LocalLibraryManualOrder.MoveVisibleBlock(blockMove, ["b", "c", "a", "d"], ["b", "a"], 1));
+
+    var orderWithHiddenItems = new List<string> { "a", "ukryty-1", "b", "ukryty-2", "c" };
+    Equal(
+        ManualOrderMoveResult.Moved,
+        LocalLibraryManualOrder.MoveVisibleBlock(orderWithHiddenItems, ["a", "b", "c"], ["b"], 1));
+    True(
+        orderWithHiddenItems.SequenceEqual(["a", "ukryty-1", "c", "ukryty-2", "b"]),
+        "Przenoszenie nie powinno gubić pozycji chwilowo niewidocznych plików.");
 }
 
 static void TestCommandPalette()
@@ -1442,6 +1498,9 @@ static void TestCommandPalette()
         "Otwieranie w oficjalnej aplikacji nie powinno kolidować ze skrótem folderu.");
     Equal("Alt+1 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.ViewFolders).LocalShortcut);
     Equal("Alt+2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.ViewAllLocalFiles).LocalShortcut);
+    Equal("Alt+3 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.ViewCustomLocalOrder).LocalShortcut);
+    Equal("Alt+Up (kolejność własna)", entries.Single(entry => entry.CommandId == CommandIds.MoveLocalLibraryItemUp).LocalShortcut);
+    Equal("Alt+Down (kolejność własna)", entries.Single(entry => entry.CommandId == CommandIds.MoveLocalLibraryItemDown).LocalShortcut);
     Equal("F5 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RefreshLocalLibrary).LocalShortcut);
     Equal("Ctrl+F5", entries.Single(entry => entry.CommandId == CommandIds.ManageLocalSources).LocalShortcut);
     Equal("F2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RenameLibraryItem).LocalShortcut);
@@ -1712,6 +1771,10 @@ static void TestTimeCommands()
     True(actions.LibraryItemRenameShown, "Router powinien otworzyć zmianę nazwy w Bibliotece.");
     router.Execute(CommandIds.RenameLocalFile);
     True(actions.LocalFileRenameShown, "Router powinien otworzyć zmianę nazwy pliku na dysku.");
+    router.Execute(CommandIds.MoveLocalLibraryItemUp);
+    Equal(-1, actions.LocalLibraryMoveDirection);
+    router.Execute(CommandIds.MoveLocalLibraryItemDown);
+    Equal(1, actions.LocalLibraryMoveDirection);
     router.Execute(CommandIds.SeekToTime);
     True(actions.SeekToTimeShown, "Router powinien otworzyć okno skoku do czasu.");
     router.Execute(CommandIds.SeekToPercentage);
@@ -1962,6 +2025,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public bool LocalSourceManagerShown { get; private set; }
     public bool LibraryItemRenameShown { get; private set; }
     public bool LocalFileRenameShown { get; private set; }
+    public int LocalLibraryMoveDirection { get; private set; }
     public int BookmarkNavigationDirection { get; private set; }
     public void ShowCurrentSession(string viewName) { }
     public void ShowFilter() { }
@@ -1981,6 +2045,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ShowLocalSourceManager() => LocalSourceManagerShown = true;
     public void RenameLibraryItem() => LibraryItemRenameShown = true;
     public void RenameLocalFile() => LocalFileRenameShown = true;
+    public void MoveLocalLibrarySelection(int direction) => LocalLibraryMoveDirection = direction;
     public void ShowSeekToTime() => SeekToTimeShown = true;
     public void ShowSeekToPercentage() => SeekToPercentageShown = true;
     public void AddBookmark() => BookmarkAdded = true;

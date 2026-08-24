@@ -401,7 +401,9 @@ Approved primary bindings:
 | `Ctrl+O` | open one or more local audio files |
 | `Ctrl+Shift+O` | open a folder of audio files, including subfolders |
 | `Alt+1` on a local list | show Library Folders |
-| `Alt+2` on a local list | show the flat All files list |
+| `Alt+2` on a local list | show All files alphabetically |
+| `Alt+3` on a local list | show persistent Custom order |
+| `Alt+Up/Down` in Custom order | move a file or a contiguous selected block by one position |
 | `F5` in the local session | rescan every available source |
 | `Ctrl+F5` | open the local Library Manager |
 | `F2` on a local list | change only the persistent title displayed by AMC |
@@ -823,13 +825,17 @@ Correction in `alpha.85`: every data model used directly as an accessible list i
 
 Decision in `alpha.86`: `F5` refreshes local sources and `Ctrl+F5` opens Library Manager. On a local list, `F2` sets a persistent catalogue alias without changing the path; entering the file name without its extension again removes the alias distinction. `Shift+F2` performs a real on-disk rename while always preserving the extension and stable record identity. The path update retains membership states, History, Bookmarks and resume position. The operation never overwrites an existing target and releases a previously loaded file through a safe audio-output stop.
 
+Decision in `alpha.87`: the local Library separates data layout from sorting. `Alt+1` shows real Folders, `Alt+2` always derives All files alphabetically, and `Alt+3` shows persisted Custom order. `Alt+Up/Down` works only in the third view and moves one item or a contiguous block; an active filter blocks it so hidden records cannot move unpredictably. The first Custom order starts alphabetically, then retains manual edits and appends new records. It is AMC metadata and never modifies the file system. A future service adapter may route the same command to a remote order only when the official API explicitly supports it; other views must not pretend to persist remote changes.
+
+The `Ctrl+K` filter is a short-lived narrowing of the current context, not sorting and not a service query. Escape removes it and restores list focus in one step. Moving to another view, folder or session also clears it, and AMC never restores it after restart. Search results remain a separate window and do not offer manual reordering.
+
 Local Library priority: a real **Folders** hierarchy will be the primary view because a user's collection may not contain complete tags. A flat Library remains as a parallel view of every imported file. Artist, Album and Genre views may later be derived from metadata but are not a usability prerequisite. Favorites, Queue, History, Playlists and Bookmarks reference the same records regardless of source view.
 
 Simple audio assembly is a later stage after Bookmarks and Folders. Its first scope is nondestructive A–B markers, selection preview and exporting the selection to a new file. A segment list can then create a new output from several sources. Originals are never overwritten. Lossless cutting and joining will use mature format-specific tools; transcoding must be explicit, and output must be completed through a temporary file and atomic finalization.
 
 An optional NVDA controller inspired by Free Radio will be a thin add-on sending shared commands to the AMC core. It will not duplicate the complete nested Library: it will cover transport, volume, sessions, radio presets and flat Queue, Favorites and History views, while complex Folders and search open the main window on the relevant item. The safe prefix profile remains the default; a direct `Ctrl+Windows` profile is optional and may take over system gestures only after explicit enablement.
 
-Local catalogue and ordering: the Library is neither a playlist nor a mirror of one folder. It is a catalogue of sources with stable identity, path and derived views. Its default order should come from a selected sort mode such as title, artist, album, folder, date added or last played. `Alt+Up/Down` will manually reorder playlist entries and will not reorder disk files. Manual Library ordering will be added only as an explicit Custom order mode if testing demonstrates a need, avoiding a false ordering affordance in artist and album views.
+Local catalogue and ordering: the Library is neither a playlist nor a mirror of one folder. It is a catalogue of sources with stable identity, path and derived views. Derived orders such as title, artist, album, folder, date added or last played remain deterministic sort modes. Separate Custom order is user metadata and never changes disk-file order. The same keys do not pretend to reorder artist, album or search-result views.
 
 Planned sequence of later stages:
 
@@ -856,7 +862,6 @@ Planned sequence of later stages:
 5. Editing existing bookmark names; named-bookmark creation works since `alpha.70`, while the global view and full-backup export work since `alpha.68`.
 6. Default offset for “near the end”; currently 10 seconds.
 7. Final application name and package identifiers on each platform.
-8. Whether the Library needs an optional Custom order mode, or persistent sorting plus manual playlist ordering is sufficient.
 
 ## 16. Ongoing documentation rule
 

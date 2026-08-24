@@ -216,6 +216,7 @@ public sealed class LocalMediaSettings
     public List<LocalMediaItemSettings> Items { get; set; } = [];
     public List<LocalFolderSourceSettings> FolderSources { get; set; } = [];
     public List<string> ExcludedPaths { get; set; } = [];
+    public List<string> CustomOrderItemIds { get; set; } = [];
     public string LibraryView { get; set; } = "Foldery";
     public string? CurrentFolderPath { get; set; }
     public string? CurrentItemId { get; set; }
