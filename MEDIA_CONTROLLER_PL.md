@@ -403,6 +403,9 @@ Zatwierdzone przypisania podstawowe:
 | `Alt+1` na liście lokalnej | pokaż Foldery Biblioteki |
 | `Alt+2` na liście lokalnej | pokaż płaską listę Wszystkie pliki |
 | `F5` w sesji lokalnej | ponownie przeskanuj wszystkie dostępne źródła |
+| `Ctrl+F5` | otwórz Menedżera Biblioteki lokalnej |
+| `F2` na lokalnej liście | zmień tylko trwałą nazwę wyświetlaną w AMC |
+| `Shift+F2` na lokalnej liście | zmień rzeczywistą nazwę pliku na dysku, zachowując rozszerzenie i dane AMC |
 | `F6` | otwórz widok odtwarzacza |
 | `Strzałka w lewo/prawo` w odtwarzaczu | cofnij albo przewiń o 10 sekund |
 | `Shift+Strzałka w lewo/prawo` w odtwarzaczu | cofnij albo przewiń o 30 sekund |
@@ -420,7 +423,6 @@ Zatwierdzone przypisania podstawowe:
 | `Ctrl+Shift+D` | pobierz do pliku lokalnego; funkcja eksperymentalna, domyślnie wyłączona |
 | `Backspace` lub `Delete` | usuń z bieżącej playlisty, kolejki, ulubionych lub biblioteki; z potwierdzeniem albo możliwością cofnięcia |
 | `Ctrl+Z` | cofnij ostatnią zmianę przynależności do Ulubionych, Biblioteki lub Kolejki albo stan „Odtwórz jako następne” |
-| `F2` | zmień nazwę playlisty, jeśli obsługiwane |
 | `Ctrl+A` | zaznacz wszystkie elementy, jeśli widok pozwala |
 
 Każdy skrót lokalny jest zmienny. Polecenia pobierania nie powinny być aktywne, dopóki odpowiedni moduł nie zostanie świadomie włączony.
@@ -821,6 +823,8 @@ Korekta `alpha.84`: widok odtwarzacza jest granicą sterowania transportem. Domy
 
 Korekta `alpha.85`: każdy model danych używany bezpośrednio jako element dostępnej listy musi zwracać przyjazną etykietę także przez `ToString()`, ponieważ WPF UI Automation może pominąć `DisplayMemberPath`. Menedżer źródeł nie ujawnia już NVDA nazwy klasy, identyfikatora ani nazw właściwości rekordu.
 
+Rozstrzygnięcie `alpha.86`: `F5` odświeża lokalne źródła, a `Ctrl+F5` otwiera Menedżera Biblioteki. `F2` na lokalnej liście ustawia trwały alias katalogowy i nie zmienia ścieżki; wpisanie ponownie nazwy pliku bez rozszerzenia usuwa rozróżnienie aliasu. `Shift+F2` wykonuje rzeczywistą zmianę nazwy na dysku, zawsze zachowując rozszerzenie i stabilny identyfikator rekordu. Aktualizacja ścieżki zachowuje stany przynależności, Historię, Zakładki i pozycję wznowienia. Operacja nie nadpisuje istniejącego celu i zwalnia wcześniej załadowany plik przez bezpieczne zatrzymanie wyjścia audio.
+
 Priorytet lokalnej Biblioteki: podstawowym widokiem będzie rzeczywista hierarchia **Folderów**, ponieważ kolekcja użytkownika nie musi mieć kompletnych tagów. Płaska Biblioteka pozostaje równoległym zestawieniem wszystkich zaimportowanych plików. Widoki Wykonawców, Albumów i Gatunków mogą później powstać z metadanych, lecz nie są warunkiem używalności. Ulubione, Kolejka, Historia, Playlisty i Zakładki wskazują te same rekordy niezależnie od widoku źródłowego.
 
 Prosty montaż audio jest etapem późniejszym po Zakładkach i Folderach. Pierwszy zakres obejmie niedestrukcyjne punkty A–B, odsłuch zaznaczenia i zapis fragmentu jako nowego pliku. Następnie lista fragmentów pozwoli utworzyć nowy plik z kilku źródeł. Oryginały nie będą nadpisywane. Bezstratne cięcie i łączenie będzie używać dojrzałych narzędzi właściwych dla formatu; ponowne kodowanie musi być jawne, a operacja zapisywana przez plik tymczasowy i atomowe ukończenie.
@@ -854,8 +858,7 @@ Planowana kolejność dalszych etapów:
 5. Edycja nazw istniejących zakładek; tworzenie nazwanych zakładek działa od `alpha.70`, a podstawowy globalny widok i eksport pełnej kopii od `alpha.68`.
 6. Domyślny odstęp polecenia „w pobliże końca”; roboczo 10 sekund.
 7. Ostateczna nazwa aplikacji i identyfikatory pakietów na poszczególnych platformach.
-8. Ostateczna semantyka F2: rekomendacją dla pliku lokalnego jest rzeczywista zmiana nazwy na dysku wraz z atomową aktualizacją ścieżek AMC; osobny alias wyświetlany w AMC powinien powstać dopiero wtedy, gdy będzie potrzebny także dla źródeł strumieniowych.
-9. Czy Biblioteka potrzebuje opcjonalnego trybu „Kolejność własna”, czy wystarczą trwałe sposoby sortowania i ręczna kolejność playlist.
+8. Czy Biblioteka potrzebuje opcjonalnego trybu „Kolejność własna”, czy wystarczą trwałe sposoby sortowania i ręczna kolejność playlist.
 
 ## 16. Zasada dalszej pracy
 

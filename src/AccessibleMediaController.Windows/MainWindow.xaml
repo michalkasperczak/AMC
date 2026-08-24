@@ -30,8 +30,9 @@
                           automation:AutomationProperties.Name="Otwórz folder z plikami audio, Ctrl+Shift+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+O"
                           Click="OpenLocalFolder_Click" />
-                <MenuItem Header="_Zarządzaj źródłami Biblioteki…"
-                          automation:AutomationProperties.Name="Zarządzaj źródłami Biblioteki lokalnej"
+                <MenuItem Header="_Zarządzaj źródłami Biblioteki…" InputGestureText="Ctrl+F5"
+                          automation:AutomationProperties.Name="Zarządzaj źródłami Biblioteki lokalnej, Ctrl+F5"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
                           Click="ManageLocalSources_Click" />
                 <Separator />
                 <MenuItem Header="_Ustawienia…" InputGestureText="Ctrl+," Click="Settings_Click" />
@@ -40,6 +41,15 @@
             </MenuItem>
             <MenuItem Header="_Edycja">
                 <MenuItem Header="_Cofnij ostatnią zmianę" InputGestureText="Ctrl+Z" Click="Undo_Click" />
+                <Separator />
+                <MenuItem Header="Zmień nazwę w _Bibliotece…" InputGestureText="F2"
+                          automation:AutomationProperties.Name="Zmień nazwę w Bibliotece, F2, lista lokalna"
+                          automation:AutomationProperties.AcceleratorKey="F2"
+                          Click="RenameLibraryItem_Click" />
+                <MenuItem Header="Zmień nazwę pliku na _dysku…" InputGestureText="Shift+F2"
+                          automation:AutomationProperties.Name="Zmień nazwę pliku na dysku, Shift+F2, lista lokalna"
+                          automation:AutomationProperties.AcceleratorKey="Shift+F2"
+                          Click="RenameLocalFile_Click" />
             </MenuItem>
             <MenuItem Header="_Sesja">
                 <MenuItem Header="_Lista sesji…" InputGestureText="Ctrl+0" Click="Sessions_Click" />
@@ -189,6 +199,12 @@
                     <MenuItem x:Name="CopyLocationMenuItem" Header="Kopiuj ścieżkę lub łącze" InputGestureText="Ctrl+Shift+C"
                               automation:AutomationProperties.Name="Kopiuj ścieżkę lub łącze, Ctrl+Shift+C"
                               Click="CopyLocation_Click" />
+                    <MenuItem x:Name="RenameLibraryItemMenuItem" Header="Zmień nazwę w Bibliotece" InputGestureText="F2"
+                              automation:AutomationProperties.Name="Zmień nazwę w Bibliotece, F2"
+                              Click="RenameLibraryItem_Click" />
+                    <MenuItem x:Name="RenameLocalFileMenuItem" Header="Zmień nazwę pliku na dysku" InputGestureText="Shift+F2"
+                              automation:AutomationProperties.Name="Zmień nazwę pliku na dysku, Shift+F2"
+                              Click="RenameLocalFile_Click" />
                     <MenuItem x:Name="CutFilesMenuItem" Header="Wytnij pliki do przeniesienia" InputGestureText="Ctrl+X"
                               automation:AutomationProperties.Name="Wytnij pliki do przeniesienia, Ctrl+X"
                               Click="CutFiles_Click" />

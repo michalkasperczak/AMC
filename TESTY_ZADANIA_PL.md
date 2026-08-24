@@ -1,12 +1,48 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-085`
-- Tytuł zestawu: Czytelne źródła Biblioteki
-- Wersja programu: `0.1.0-alpha.85`
-- Utworzono: 2026-08-23, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.85.md`
+- Numer zestawu: `AMC-TEST-086`
+- Tytuł zestawu: Menedżer i dwie bezpieczne zmiany nazwy
+- Wersja programu: `0.1.0-alpha.86`
+- Utworzono: 2026-08-24, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.86.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 86
+
+Do prób `Shift+F2` użyj kopii pliku, którego utrata nie będzie problemem. AMC nie nadpisuje istniejącego pliku, ale test dotyczy rzeczywistej nazwy na dysku.
+
+### AMC-086-01 — F5 i Ctrl+F5
+
+Na lokalnej liście naciśnij `F5`, a następnie `Ctrl+F5`. Sprawdź też polecenia „Odśwież źródła” i „Zarządzaj źródłami” w palecie `Ctrl+Shift+K`.
+
+Oczekiwane: `F5` skanuje źródła, `Ctrl+F5` otwiera Menedżera Biblioteki, a oba polecenia są czytelnie opisane wraz ze skrótami. Po zamknięciu menedżera fokus wraca do listy.
+
+### AMC-086-02 — F2 zmienia tylko nazwę w AMC
+
+Zaznacz jeden lokalny plik, zapamiętaj jego pełną ścieżkę przez `Ctrl+Shift+C`, naciśnij `F2` i wpisz własną nazwę. Sprawdź ten element w Bibliotece, Ulubionych, Kolejce, Historii i Zakładkach, jeśli występuje, a następnie uruchom AMC ponownie i użyj `F5`.
+
+Oczekiwane: wszędzie pojawia się nowa nazwa, lecz ścieżka i nazwa pliku na dysku pozostają bez zmian. Nazwa przetrwa restart oraz skan źródeł. Wpisanie później nazwy pliku bez rozszerzenia wyłącza alias i przywraca zwykłe zachowanie.
+
+### AMC-086-03 — Shift+F2 zmienia plik na dysku
+
+Na bezpiecznej kopii naciśnij `Shift+F2`, podaj nową nazwę bez rozszerzenia i zatwierdź. Sprawdź `Ctrl+Shift+C`, odtwarzanie, zapamiętaną pozycję, Ulubione, Kolejkę i Zakładki. Powtórz próbę na pliku wcześniej załadowanym do odtwarzacza.
+
+Oczekiwane: rozszerzenie nie zmienia się ani nie dubluje, plik ma nową ścieżkę, a jego stabilny rekord i powiązane dane pozostają. Jeśli plik był załadowany, AMC zatrzymuje odtwarzanie, zwalnia uchwyt i zachowuje pozycję do wznowienia.
+
+### AMC-086-04 — Ochrona nazwy i fokus
+
+Spróbuj wpisać pustą nazwę, nazwę z niedozwolonym znakiem, nazwę zarezerwowaną Windows, np. `CON`, oraz nazwę już istniejącego pliku. Anuluj oba okna klawiszem Escape. Sprawdź również F2 przy zaznaczeniu wielu elementów, na folderze oraz w innej sesji.
+
+Oczekiwane: AMC niczego nie nadpisuje i podaje jasny powód odmowy. Escape nie zmienia danych. Zmiana nazwy wymaga jednego pliku lokalnego, a po każdym oknie fokus wraca na ten plik.
+
+### AMC-086-05 — Menu i regresja list
+
+Na pliku lokalnym otwórz menu **Edycja**, menu kontekstowe i paletę poleceń. Potem wyrywkowo sprawdź Enter, Escape, `Alt+1/2`, `Ctrl+C`, `Ctrl+Shift+C`, Delete, `Shift+Delete`, wyszukiwanie i odtwarzacz.
+
+Oczekiwane: obie operacje zmiany nazwy są dostępne z opisanymi skrótami, natomiast dotychczasowe działania nie zmieniły znaczenia. `F2` i `Shift+F2` nie przejmują klawiszy w polach tekstowych ani w odtwarzaczu.
+
+## Poprzedni zestaw alpha 85
 
 ## Poprawka alpha 85
 

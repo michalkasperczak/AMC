@@ -15,6 +15,7 @@ public sealed class MediaItem
 {
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
     public string Title { get; set; } = string.Empty;
+    public bool HasCustomTitle { get; set; }
     public string Artist { get; init; } = string.Empty;
     public MediaItemKind Kind { get; init; } = MediaItemKind.Track;
     public TimeSpan Duration { get; set; }

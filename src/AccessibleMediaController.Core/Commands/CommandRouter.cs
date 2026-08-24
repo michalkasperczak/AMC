@@ -30,6 +30,8 @@ public interface IApplicationActions
     void OpenLocalFolder();
     void RefreshLocalLibrary();
     void ShowLocalSourceManager();
+    void RenameLibraryItem();
+    void RenameLocalFile();
     void ShowSeekToTime();
     void ShowSeekToPercentage();
     void AddBookmark();
@@ -106,6 +108,12 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.ManageLocalSources:
                 application.ShowLocalSourceManager();
+                return new(true);
+            case CommandIds.RenameLibraryItem:
+                application.RenameLibraryItem();
+                return new(true);
+            case CommandIds.RenameLocalFile:
+                application.RenameLocalFile();
                 return new(true);
             case CommandIds.SeekToTime:
                 application.ShowSeekToTime();

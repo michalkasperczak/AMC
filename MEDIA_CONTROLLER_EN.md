@@ -403,6 +403,9 @@ Approved primary bindings:
 | `Alt+1` on a local list | show Library Folders |
 | `Alt+2` on a local list | show the flat All files list |
 | `F5` in the local session | rescan every available source |
+| `Ctrl+F5` | open the local Library Manager |
+| `F2` on a local list | change only the persistent title displayed by AMC |
+| `Shift+F2` on a local list | rename the real file on disk while preserving its extension and AMC data |
 | `F6` | open the player view |
 | `Left/Right Arrow` in the player | seek backward or forward by 10 seconds |
 | `Shift+Left/Right Arrow` in the player | seek backward or forward by 30 seconds |
@@ -420,7 +423,6 @@ Approved primary bindings:
 | `Ctrl+Shift+D` | download to a local file; experimental and disabled by default |
 | `Backspace` or `Delete` | remove from the current playlist, queue, Favorites or library, with confirmation or Undo |
 | `Ctrl+Z` | undo the last membership change in Favorites, Library or Queue, or the Play Next state |
-| `F2` | rename a playlist when supported |
 | `Ctrl+A` | select all items when the view permits it |
 
 Every local shortcut is configurable. Download commands must not be active until their corresponding module is deliberately enabled.
@@ -819,6 +821,8 @@ Correction in `alpha.84`: the player view is the transport-control boundary. By 
 
 Correction in `alpha.85`: every data model used directly as an accessible list item must also return its friendly label from `ToString()`, because WPF UI Automation may ignore `DisplayMemberPath`. The source manager no longer exposes the class name, identifier or record property names to NVDA.
 
+Decision in `alpha.86`: `F5` refreshes local sources and `Ctrl+F5` opens Library Manager. On a local list, `F2` sets a persistent catalogue alias without changing the path; entering the file name without its extension again removes the alias distinction. `Shift+F2` performs a real on-disk rename while always preserving the extension and stable record identity. The path update retains membership states, History, Bookmarks and resume position. The operation never overwrites an existing target and releases a previously loaded file through a safe audio-output stop.
+
 Local Library priority: a real **Folders** hierarchy will be the primary view because a user's collection may not contain complete tags. A flat Library remains as a parallel view of every imported file. Artist, Album and Genre views may later be derived from metadata but are not a usability prerequisite. Favorites, Queue, History, Playlists and Bookmarks reference the same records regardless of source view.
 
 Simple audio assembly is a later stage after Bookmarks and Folders. Its first scope is nondestructive A–B markers, selection preview and exporting the selection to a new file. A segment list can then create a new output from several sources. Originals are never overwritten. Lossless cutting and joining will use mature format-specific tools; transcoding must be explicit, and output must be completed through a temporary file and atomic finalization.
@@ -852,8 +856,7 @@ Planned sequence of later stages:
 5. Editing existing bookmark names; named-bookmark creation works since `alpha.70`, while the global view and full-backup export work since `alpha.68`.
 6. Default offset for “near the end”; currently 10 seconds.
 7. Final application name and package identifiers on each platform.
-8. Final F2 semantics: the recommendation for a local file is a real on-disk rename with atomic AMC path updates; a separate AMC display alias should be introduced only if it is also needed for streaming sources.
-9. Whether the Library needs an optional Custom order mode, or persistent sorting plus manual playlist ordering is sufficient.
+8. Whether the Library needs an optional Custom order mode, or persistent sorting plus manual playlist ordering is sufficient.
 
 ## 16. Ongoing documentation rule
 

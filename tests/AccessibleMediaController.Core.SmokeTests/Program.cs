@@ -32,6 +32,7 @@ var tests = new (string Name, Action Test)[]
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Ponowne włączanie folderu do biblioteki", TestLocalLibraryImport),
     ("Synchronizacja źródeł lokalnej biblioteki", TestLocalLibrarySynchronization),
+    ("Bezpieczna zmiana nazwy lokalnego pliku", TestLocalFileRenamePolicy),
     ("Integracyjny cykl zmian folderu", TestLocalFolderSynchronizationCycle),
     ("Bezpieczne zarządzanie źródłami Biblioteki", TestLocalFolderSourcePolicy),
     ("Migracja biblioteki alpha.79", TestVersion17LocalLibraryMigration),
@@ -168,6 +169,8 @@ static void TestCommandCatalog()
     Equal("Biblioteka lokalna: pokaż wszystkie pliki", CommandCatalog.GetDisplayName(CommandIds.ViewAllLocalFiles));
     Equal("Odśwież źródła biblioteki lokalnej", CommandCatalog.GetDisplayName(CommandIds.RefreshLocalLibrary));
     Equal("Zarządzaj źródłami biblioteki lokalnej", CommandCatalog.GetDisplayName(CommandIds.ManageLocalSources));
+    Equal("Zmień nazwę w Bibliotece", CommandCatalog.GetDisplayName(CommandIds.RenameLibraryItem));
+    Equal("Zmień nazwę pliku na dysku", CommandCatalog.GetDisplayName(CommandIds.RenameLocalFile));
     Equal("Ustawienia: kolejność sesji i skrótów Ctrl+1–9", CommandCatalog.GetDisplayName(CommandIds.SettingsSessionOrder));
     Equal("Ustawienia: wstrzymuj po wyjściu z odtwarzacza", CommandCatalog.GetDisplayName(CommandIds.SettingsPausePlaybackWhenLeavingPlayer));
     Equal("Ustawienia: domyślnie pamiętaj pozycje lokalnych plików", CommandCatalog.GetDisplayName(CommandIds.SettingsRememberLocalPlaybackPositions));
@@ -259,7 +262,14 @@ static void TestLocalLibrarySynchronization()
     var newPath = Path.Combine(root, "nowy.wav");
     var manualPath = Path.Combine(Path.GetTempPath(), "pojedynczy.aac");
     var offlinePath = Path.Combine(unavailableRoot, "offline.mp3");
-    var keep = new MediaItem { Id = "keep", Title = "Zostaje", Source = keepPath, IsInLibrary = true };
+    var keep = new MediaItem
+    {
+        Id = "keep",
+        Title = "Własna nazwa AMC",
+        HasCustomTitle = true,
+        Source = keepPath,
+        IsInLibrary = true
+    };
     var missing = new MediaItem { Id = "missing", Title = "Znika", Source = missingPath, IsInLibrary = true };
     var excluded = new MediaItem { Id = "excluded", Title = "Pomijany", Source = excludedPath, IsInLibrary = true };
     var manual = new MediaItem { Id = "manual", Title = "Pojedynczy", Source = manualPath, IsInLibrary = true };
@@ -279,6 +289,8 @@ static void TestLocalLibrarySynchronization()
     Equal(true, offline.IsAvailable);
     Equal(6, catalog.Count);
     Equal(true, catalog.Single(item => item.Source == newPath).IsInLibrary);
+    Equal("Własna nazwa AMC", keep.Title);
+    Equal(true, keep.HasCustomTitle);
 
     var second = LocalLibrarySynchronizer.Synchronize(
         catalog,
@@ -290,6 +302,37 @@ static void TestLocalLibrarySynchronization()
     Equal(true, missing.IsInLibrary);
     Equal(false, excluded.IsInLibrary);
     Equal(6, catalog.Count);
+}
+
+static void TestLocalFileRenamePolicy()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-rename-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var current = Path.Combine(directory, "stara nazwa.mp3");
+        File.WriteAllBytes(current, [1, 2, 3]);
+        True(
+            LocalFileRenamePolicy.TryBuildTargetPath(current, "nowa nazwa", out var target, out var error),
+            $"Poprawna nazwa powinna zostać przyjęta: {error}");
+        Equal(Path.Combine(directory, "nowa nazwa.mp3"), target);
+        True(
+            LocalFileRenamePolicy.TryBuildTargetPath(current, "nowa nazwa.mp3", out var targetWithExtension, out _),
+            "Wpisanie dotychczasowego rozszerzenia nie powinno go dublować.");
+        Equal(target, targetWithExtension);
+        True(!LocalFileRenamePolicy.TryBuildTargetPath(current, "CON", out _, out _),
+            "Nazwa zarezerwowana przez Windows musi zostać odrzucona.");
+        True(!LocalFileRenamePolicy.TryBuildTargetPath(current, "folder\\plik", out _, out _),
+            "Nazwa nie może zawierać ścieżki.");
+
+        File.WriteAllBytes(target, [4, 5, 6]);
+        True(!LocalFileRenamePolicy.TryBuildTargetPath(current, "nowa nazwa", out _, out _),
+            "Istniejący plik docelowy musi zostać ochroniony przed nadpisaniem.");
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
 }
 
 static void TestLocalFolderSynchronizationCycle()
@@ -1293,6 +1336,7 @@ static void TestLocalMediaPersistence()
         {
             Id = "local-1",
             Title = "Długie nagranie",
+            HasCustomTitle = true,
             Path = @"C:\Muzyka\długie.aac",
             DurationTicks = TimeSpan.FromMinutes(90).Ticks,
             ResumePositionTicks = TimeSpan.FromMinutes(17).Ticks,
@@ -1318,6 +1362,7 @@ static void TestLocalMediaPersistence()
         Equal("local-1", new PlaybackHistory(loaded.PlaybackHistory).GetItemIds("local")[0]);
         var item = loaded.LocalMedia.Items[0];
         Equal("Długie nagranie", item.Title);
+        Equal(true, item.HasCustomTitle);
         Equal(TimeSpan.FromMinutes(17).Ticks, item.ResumePositionTicks);
         Equal(true, item.IsFavorite);
         Equal(true, item.IsInQueue);
@@ -1398,6 +1443,9 @@ static void TestCommandPalette()
     Equal("Alt+1 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.ViewFolders).LocalShortcut);
     Equal("Alt+2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.ViewAllLocalFiles).LocalShortcut);
     Equal("F5 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RefreshLocalLibrary).LocalShortcut);
+    Equal("Ctrl+F5", entries.Single(entry => entry.CommandId == CommandIds.ManageLocalSources).LocalShortcut);
+    Equal("F2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RenameLibraryItem).LocalShortcut);
+    Equal("Shift+F2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RenameLocalFile).LocalShortcut);
 
     var remaining = CommandPaletteSearch.Filter(entries, "czas pozostaly");
     Equal(1, remaining.Count);
@@ -1660,6 +1708,10 @@ static void TestTimeCommands()
     True(actions.LocalLibraryRefreshed, "Router powinien przekazać ręczne odświeżenie lokalnej biblioteki.");
     router.Execute(CommandIds.ManageLocalSources);
     True(actions.LocalSourceManagerShown, "Router powinien otworzyć menedżer źródeł Biblioteki.");
+    router.Execute(CommandIds.RenameLibraryItem);
+    True(actions.LibraryItemRenameShown, "Router powinien otworzyć zmianę nazwy w Bibliotece.");
+    router.Execute(CommandIds.RenameLocalFile);
+    True(actions.LocalFileRenameShown, "Router powinien otworzyć zmianę nazwy pliku na dysku.");
     router.Execute(CommandIds.SeekToTime);
     True(actions.SeekToTimeShown, "Router powinien otworzyć okno skoku do czasu.");
     router.Execute(CommandIds.SeekToPercentage);
@@ -1908,6 +1960,8 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public bool NamedBookmarkAdded { get; private set; }
     public bool LocalLibraryRefreshed { get; private set; }
     public bool LocalSourceManagerShown { get; private set; }
+    public bool LibraryItemRenameShown { get; private set; }
+    public bool LocalFileRenameShown { get; private set; }
     public int BookmarkNavigationDirection { get; private set; }
     public void ShowCurrentSession(string viewName) { }
     public void ShowFilter() { }
@@ -1925,6 +1979,8 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void OpenLocalFolder() { }
     public void RefreshLocalLibrary() => LocalLibraryRefreshed = true;
     public void ShowLocalSourceManager() => LocalSourceManagerShown = true;
+    public void RenameLibraryItem() => LibraryItemRenameShown = true;
+    public void RenameLocalFile() => LocalFileRenameShown = true;
     public void ShowSeekToTime() => SeekToTimeShown = true;
     public void ShowSeekToPercentage() => SeekToPercentageShown = true;
     public void AddBookmark() => BookmarkAdded = true;

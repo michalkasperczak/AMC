@@ -48,6 +48,8 @@ public static class CommandIds
     public const string ViewAllLocalFiles = "view.local.allFiles";
     public const string RefreshLocalLibrary = "local.library.refresh";
     public const string ManageLocalSources = "local.library.manageSources";
+    public const string RenameLibraryItem = "local.library.renameItem";
+    public const string RenameLocalFile = "local.file.rename";
     public const string ToggleLibrary = "action.library.toggle";
     public const string ViewQueue = "view.queue";
     public const string AddQueue = "action.queue.add";

@@ -1470,7 +1470,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
 
             item.Source = replacement;
-            item.Title = Path.GetFileNameWithoutExtension(replacement);
+            if (!item.HasCustomTitle)
+            {
+                UpdateLocalItemTitle(item, Path.GetFileNameWithoutExtension(replacement), false);
+            }
             item.IsAvailable = true;
             changed = true;
         }
@@ -1531,6 +1534,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 Id = saved.Id,
                 Title = saved.Title,
+                HasCustomTitle = saved.HasCustomTitle,
                 Kind = MediaItemKind.Track,
                 Duration = TimeSpan.FromTicks(saved.DurationTicks),
                 BitrateKbps = saved.BitrateKbps,
@@ -1567,6 +1571,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 Id = item.Id,
                 Title = item.Title,
+                HasCustomTitle = item.HasCustomTitle,
                 Path = item.Source ?? string.Empty,
                 DurationTicks = item.Duration.Ticks,
                 BitrateKbps = item.BitrateKbps,
@@ -2916,6 +2921,137 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreMediaListFocusAfterRefresh();
     }
 
+    public void RenameLibraryItem()
+    {
+        if (!TryGetSingleLocalRenameItem(requireExistingFile: false, out var item, out var path)) return;
+        var dialog = new RenameLocalItemWindow(item.Title, renameOnDisk: false) { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        var newTitle = dialog.NewName;
+        if (string.Equals(item.Title, newTitle, StringComparison.CurrentCulture))
+        {
+            RestoreMediaListFocusAfterRefresh();
+            Announce("Nazwa w Bibliotece nie została zmieniona");
+            return;
+        }
+
+        var fileTitle = Path.GetFileNameWithoutExtension(path);
+        UpdateLocalItemTitle(
+            item,
+            newTitle,
+            !string.Equals(newTitle, fileTitle, StringComparison.CurrentCulture));
+        RefreshCurrentView(preferredItemId: item.Id);
+        TrySaveLocalMediaState(true);
+        RestoreMediaListFocusAfterRefresh();
+        Dispatcher.BeginInvoke(
+            () => Announce($"Zmieniono nazwę w Bibliotece: {newTitle}"),
+            DispatcherPriority.ContextIdle);
+    }
+
+    public void RenameLocalFile()
+    {
+        if (!TryGetSingleLocalRenameItem(requireExistingFile: true, out var item, out var path)) return;
+        var dialog = new RenameLocalItemWindow(
+            Path.GetFileNameWithoutExtension(path),
+            renameOnDisk: true)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        if (!LocalFileRenamePolicy.TryBuildTargetPath(path, dialog.NewName, out var targetPath, out var error))
+        {
+            RestoreMediaListFocusAfterRefresh();
+            AnnounceEssential($"Nie zmieniono nazwy pliku: {error}");
+            return;
+        }
+
+        var localSession = _sessions.FindSession("local");
+        var stoppedLoadedFile = string.Equals(_localOutput.LoadedItemId, item.Id, StringComparison.Ordinal);
+        if (stoppedLoadedFile && localSession is not null)
+        {
+            localSession.StopPlayback();
+        }
+
+        try
+        {
+            File.Move(path, targetPath);
+            ApplyRenamedLocalPath(path, targetPath);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            AnnounceEssential($"Nie można zmienić nazwy pliku: {exception.Message}");
+            return;
+        }
+
+        RefreshCurrentView(preferredItemId: item.Id);
+        UpdatePlaybackStatusBar();
+        TrySaveLocalMediaState(true);
+        RestoreMediaListFocusAfterRefresh();
+        var stoppedMessage = stoppedLoadedFile ? ". Odtwarzanie zatrzymano, a pozycję zapamiętano" : string.Empty;
+        Dispatcher.BeginInvoke(
+            () => AnnounceEssential($"Zmieniono nazwę pliku na dysku: {Path.GetFileName(targetPath)}{stoppedMessage}"),
+            DispatcherPriority.ContextIdle);
+    }
+
+    private bool TryGetSingleLocalRenameItem(
+        bool requireExistingFile,
+        out MediaItem item,
+        out string path)
+    {
+        item = null!;
+        path = string.Empty;
+        if (_playerViewActive
+            || !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+            || SelectedBookmark is not null)
+        {
+            Announce("Zmiana nazwy jest dostępna na listach Plików lokalnych");
+            return false;
+        }
+
+        var items = ActionItems;
+        if (items.Count != 1)
+        {
+            Announce("Do zmiany nazwy wybierz jeden plik lokalny");
+            return false;
+        }
+
+        item = items[0];
+        if (item.Kind != MediaItemKind.Track || !TryGetLocalPath(item.Source, out path))
+        {
+            Announce("Wybrany element nie jest plikiem lokalnym");
+            return false;
+        }
+        if (requireExistingFile && !File.Exists(path))
+        {
+            Announce("Nie można zmienić nazwy: plik jest obecnie niedostępny");
+            return false;
+        }
+        return true;
+    }
+
+    private void UpdateLocalItemTitle(MediaItem item, string title, bool hasCustomTitle)
+    {
+        item.Title = title;
+        item.HasCustomTitle = hasCustomTitle;
+        foreach (var bookmark in _state.Bookmarks.Entries.Where(bookmark =>
+                     string.Equals(bookmark.SessionId, "local", StringComparison.OrdinalIgnoreCase)
+                     && string.Equals(bookmark.ItemId, item.Id, StringComparison.Ordinal)))
+        {
+            bookmark.ItemTitle = title;
+        }
+    }
+
     private IReadOnlyList<LocalFolderSourceStatus> BuildLocalSourceStatuses()
     {
         CaptureLocalMediaState();
@@ -3703,6 +3839,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (_playerViewActive || Keyboard.FocusedElement is System.Windows.Controls.TextBox) return false;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (Keyboard.Modifiers == ModifierKeys.Control && key == Key.F5)
+        {
+            ExecuteCommand(CommandIds.ManageLocalSources);
+            return true;
+        }
         if (Keyboard.Modifiers == ModifierKeys.Alt && key == Key.D1)
         {
             ExecuteCommand(CommandIds.ViewFolders);
@@ -3718,6 +3859,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
             ExecuteCommand(CommandIds.RefreshLocalLibrary);
+            return true;
+        }
+        if (MediaList.IsKeyboardFocusWithin
+            && key == Key.F2
+            && Keyboard.Modifiers is ModifierKeys.None or ModifierKeys.Shift)
+        {
+            ExecuteCommand(Keyboard.Modifiers == ModifierKeys.Shift
+                ? CommandIds.RenameLocalFile
+                : CommandIds.RenameLibraryItem);
             return true;
         }
         return false;
@@ -4194,6 +4344,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PasteFiles_Click(object sender, RoutedEventArgs e) =>
         PasteClipboardFilesIntoCurrentView();
     private void OpenDefaultApplication_Click(object sender, RoutedEventArgs e) => OpenLocalInDefaultApplication();
+    private void RenameLibraryItem_Click(object sender, RoutedEventArgs e) => RenameLibraryItem();
+    private void RenameLocalFile_Click(object sender, RoutedEventArgs e) => RenameLocalFile();
     private void OfficialApp_Click(object sender, RoutedEventArgs e) => OpenOfficialApplication();
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelected();
     private void Recycle_Click(object sender, RoutedEventArgs e) => MoveSelectedLocalFilesToRecycleBin();
@@ -4244,6 +4396,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? Visibility.Visible
             : Visibility.Collapsed;
         var localItem = localItems && actionItem is not null;
+        var localRenameItem = SelectedBookmark is null
+            && items.Count == 1
+            && actionItem?.Kind == MediaItemKind.Track
+            && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+            && TryGetLocalPath(actionItem.Source, out _);
+        RenameLibraryItemMenuItem.Visibility = localRenameItem
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        RenameLocalFileMenuItem.Visibility = localRenameItem && localItem
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         OpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         OfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
         RecycleMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;

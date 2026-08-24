@@ -235,6 +235,7 @@ public sealed class LocalMediaItemSettings
 {
     public string Id { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
+    public bool HasCustomTitle { get; set; }
     public string Path { get; set; } = string.Empty;
     public long DurationTicks { get; set; }
     public int? BitrateKbps { get; set; }

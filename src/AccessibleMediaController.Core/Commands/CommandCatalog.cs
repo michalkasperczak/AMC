@@ -76,6 +76,8 @@ public static class CommandCatalog
             CommandIds.ViewAllLocalFiles => "Biblioteka lokalna: pokaż wszystkie pliki",
             CommandIds.RefreshLocalLibrary => "Odśwież źródła biblioteki lokalnej",
             CommandIds.ManageLocalSources => "Zarządzaj źródłami biblioteki lokalnej",
+            CommandIds.RenameLibraryItem => "Zmień nazwę w Bibliotece",
+            CommandIds.RenameLocalFile => "Zmień nazwę pliku na dysku",
             CommandIds.ToggleLibrary => "Dodaj lub usuń z biblioteki",
             CommandIds.ViewQueue => "Pokaż kolejkę",
             CommandIds.AddQueue => "Dodaj lub usuń z kolejki",
