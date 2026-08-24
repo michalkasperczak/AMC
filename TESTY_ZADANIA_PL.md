@@ -1,14 +1,52 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-087`
-- Tytuł zestawu: Kolejność własna i bezpieczny filtr
-- Wersja programu: `0.1.0-alpha.87`
+- Numer zestawu: `AMC-TEST-088`
+- Tytuł zestawu: Lokalne Albumy z folderów
+- Wersja programu: `0.1.0-alpha.88`
 - Utworzono: 2026-08-24, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.87.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.88.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
 
-## Nowości alpha 87
+## Nowości alpha 88
+
+### AMC-088-01 — Album z numerowanych plików
+
+W zarejestrowanym źródle przygotuj lub znajdź układ `Wykonawca\Album\01…`, `02…`, `10…`. Naciśnij `Ctrl+Shift+A`.
+
+Oczekiwane: lista Albumy zawiera nazwę folderu albumu, nazwę folderu wykonawcy i poprawną liczbę utworów. Nie pojawia się ścieżka techniczna ani nazwa klasy programu.
+
+### AMC-088-02 — Wejście, kolejność i powrót
+
+Naciśnij Enter na rozpoznanym albumie, przejdź po utworach, uruchom jeden z nich i wróć z odtwarzacza. Następnie naciśnij Escape na liście utworów albumu.
+
+Oczekiwane: pliki są w kolejności 01, 02, …, 10, niezależnie od zwykłego porządku tekstowego. Powrót z odtwarzacza prowadzi do tego samego utworu, a Escape z listy utworów do wcześniej zaznaczonego albumu.
+
+### AMC-088-03 — Brak fałszywych albumów
+
+Sprawdź folder z jednym plikiem, folder kilku plików bez numerów oraz nagrania zaczynające się od roku, np. `2026-08-24…`.
+
+Oczekiwane: żaden z tych folderów nie pojawia się samoczynnie jako Album. AMC nie otwiera plików tylko po to, aby przeprowadzić klasyfikację, i nie wymusza pobrania całego źródła chmurowego.
+
+### AMC-088-04 — Filtr i nawigacja literowa
+
+Na liście Albumy wpisz pierwsze litery nazwy albumu, następnie użyj `Ctrl+K`, wpisz fragment nazwy i naciśnij Escape. Powtórz filtr wewnątrz albumu.
+
+Oczekiwane: nawigacja literowa korzysta z nazwy albumu. Filtr dotyczy tylko aktualnego poziomu; Escape najpierw czyści aktywny filtr, a dopiero następny Escape opuszcza zawartość albumu.
+
+### AMC-088-05 — Menu kontenera i działania utworu
+
+Otwórz menu kontekstowe na wierszu albumu, a potem na utworze wewnątrz. Na bezpiecznym utworze sprawdź `Ctrl+C`, `Ctrl+Shift+C`, F2, Delete i natychmiastowe `Ctrl+Z`.
+
+Oczekiwane: sam album oferuje otwarcie i informacje, ale nie udaje pliku ani elementu możliwego do dodania do kolejki. Utwór zachowuje zwykłe działania Biblioteki. Delete pozostawia plik na dysku, a `Ctrl+Z` przywraca go do Albumu.
+
+### AMC-088-06 — Restart i inne sesje
+
+Zamknij AMC będąc wewnątrz albumu, uruchom program ponownie i naciśnij `Ctrl+Shift+A`. Sprawdź też Albumy w demonstracyjnej sesji streamingowej.
+
+Oczekiwane: start nie otwiera osieroconego ani technicznie nazwanego poziomu; lokalnie pojawia się lista Albumów. Istniejący album demonstracyjny innej usługi nadal jest widoczny i nie podlega lokalnej heurystyce folderów.
+
+## Poprzedni zestaw alpha 87
 
 ### AMC-087-01 — Trzy układy Biblioteki
 

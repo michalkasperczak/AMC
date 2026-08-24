@@ -38,6 +38,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const string FolderViewName = "Foldery";
     private const string AllLocalFilesViewName = "Wszystkie pliki";
     private const string CustomLocalOrderViewName = "Kolejność własna";
+    private const string LocalAlbumContentsViewName = "Album";
+    private string? _currentLocalAlbumPath;
+    private string? _currentLocalAlbumTitle;
     private string _currentView = DefaultBrowserView;
     private List<MediaItemRow> _unfilteredItems = [];
     private readonly Dictionary<string, SessionViewHistory> _viewHistories =
@@ -159,6 +162,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (navigation.CurrentView is DefaultBrowserView or "Biblioteka")
         {
             navigation.CurrentView = _state.LocalMedia.LibraryView;
+        }
+        if (string.Equals(navigation.CurrentView, LocalAlbumContentsViewName, StringComparison.Ordinal))
+        {
+            navigation.CurrentView = "Albumy";
         }
     }
 
@@ -1015,8 +1022,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+Page Up i Ctrl+Page Down zmieniają sesję. " +
             "Ctrl+O dodaje lokalne pliki audio, a Ctrl+Shift+O rejestruje synchronizowane źródło Biblioteki wraz z podfolderami. " +
             "W lokalnej Bibliotece Alt+1 pokazuje Foldery, Alt+2 Wszystkie pliki alfabetycznie, a Alt+3 Kolejność własną. W Kolejności własnej Alt+strzałka w górę lub w dół przenosi jeden element albo ciągły zaznaczony blok; aktywny filtr trzeba wcześniej wyczyścić. F5 wykonuje pełne odświeżenie źródeł. Enter wchodzi do folderu, a Backspace wraca o poziom wyżej. Żadne z tych poleceń nie uruchamia dźwięku automatycznie. " +
-            "Ctrl+U/P/L/Q otwiera odpowiednio: Ulubione, Playlisty, Bibliotekę i Kolejkę, " +
-            "Ctrl+H otwiera trwałą Historię odtwarzania, Ctrl+B otwiera globalną listę Zakładek, Ctrl+Shift+B dodaje nazwaną zakładkę w odtwarzaczu, a Ctrl+Shift+A otwiera Albumy. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
+            "Ctrl+Shift+A otwiera Albumy; lokalnie numerowane pliki w folderze mogą utworzyć album nawet bez kompletnych tagów. Enter otwiera jego utwory, a Escape wraca do Albumów. Ctrl+U/P/L/Q otwiera odpowiednio: Ulubione, Playlisty, Bibliotekę i Kolejkę, " +
+            "Ctrl+H otwiera trwałą Historię odtwarzania, Ctrl+B otwiera globalną listę Zakładek, a Ctrl+Shift+B dodaje nazwaną zakładkę w odtwarzaczu. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
             "wyszukiwania w bieżącej usłudze, Ctrl+Shift+F otwiera wyszukiwanie globalne, " +
             "a Ctrl+Shift+K otwiera paletę poleceń. " +
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
@@ -2190,7 +2197,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         SessionHeading.Text = string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal)
             ? "Wszystkie sesje"
             : _sessions.Current.DisplayName;
-        ViewHeading.Text = _currentView;
+        ViewHeading.Text = CurrentViewDisplayName();
         UpdateWindowTitle();
         if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
         {
@@ -2231,6 +2238,46 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _unfilteredItems = LocalLibraryManualOrder.Order(
                     ActiveLocalItems(),
                     _state.LocalMedia.CustomOrderItemIds)
+                .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
+                .ToList();
+            ApplyFilter(preferredItemId, fallbackIndex);
+            return;
+        }
+
+        if (string.Equals(_currentView, "Albumy", StringComparison.Ordinal)
+            && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            ViewHeading.Text = "Biblioteka — Albumy";
+            _unfilteredItems = InferLocalAlbums()
+                .Select(album =>
+                {
+                    var item = new MediaItem
+                    {
+                        Id = album.Id,
+                        Title = album.Title,
+                        Artist = album.Artist,
+                        Kind = MediaItemKind.Album,
+                        Duration = album.Duration,
+                        IsInLibrary = true
+                    };
+                    var label = $"{FormatListItem(item)}, {FormatTrackCount(album.Tracks.Count)}";
+                    return new MediaItemRow(
+                        item,
+                        label,
+                        item.PrimaryText,
+                        albumFolderPath: album.FolderPath);
+                })
+                .ToList();
+            ApplyFilter(preferredItemId, fallbackIndex);
+            return;
+        }
+
+        if (string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal)
+            && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            ViewHeading.Text = CurrentViewDisplayName();
+            _unfilteredItems = LocalAlbumInference.OrderTracks(
+                    ActiveLocalItems().Where(item => IsDirectChildOfAlbum(item, _currentLocalAlbumPath)))
                 .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
                 .ToList();
             ApplyFilter(preferredItemId, fallbackIndex);
@@ -2347,6 +2394,31 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _localItems,
             initializeAlphabetically: true);
     }
+
+    private IReadOnlyList<LocalAlbumGroup> InferLocalAlbums() =>
+        LocalAlbumInference.Infer(
+            ActiveLocalItems(),
+            _state.LocalMedia.FolderSources.Select(source => source.Path));
+
+    private static bool IsDirectChildOfAlbum(MediaItem item, string? albumPath)
+    {
+        if (string.IsNullOrWhiteSpace(albumPath)
+            || !TryGetLocalPath(item.Source, out var itemPath))
+        {
+            return false;
+        }
+        return string.Equals(
+            Path.GetDirectoryName(itemPath),
+            albumPath,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FormatTrackCount(int count) => count switch
+    {
+        1 => "1 utwór",
+        _ when count % 10 is >= 2 and <= 4 && count % 100 is not (>= 12 and <= 14) => $"{count} utwory",
+        _ => $"{count} utworów"
+    };
 
     public void MoveLocalLibrarySelection(int direction)
     {
@@ -2632,6 +2704,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var row = MediaList.SelectedItem as MediaItemRow;
+        if (row?.AlbumFolderPath is { } albumFolderPath)
+        {
+            OpenLocalAlbum(albumFolderPath, row.Item.Title);
+            return;
+        }
         if (row?.FolderPath is { } folderPath)
         {
             OpenFolderPath(folderPath);
@@ -2654,6 +2731,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         NavigateTo(item.Title);
         Announce($"{item.KindLabel}: {item.Title}. {FormatItemCount(_unfilteredItems.Count)}, {FormatDurationWords(item.Duration)}");
+    }
+
+    private void OpenLocalAlbum(string folderPath, string albumTitle)
+    {
+        _currentLocalAlbumPath = folderPath;
+        _currentLocalAlbumTitle = albumTitle;
+        NavigateTo(LocalAlbumContentsViewName);
+        PrepareViewFocusContext($"Album, {albumTitle}");
+        RestoreMediaListFocusAfterRefresh();
     }
 
     private void OpenFolderPath(string folderPath)
@@ -2736,6 +2822,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var selectedRows = MediaList.SelectedItems
             .OfType<MediaItemRow>()
             .ToArray();
+        if (selectedRows.Any(row => row.AlbumFolderPath is not null))
+        {
+            RestoreMediaListFocusAfterRefresh();
+            Dispatcher.BeginInvoke(
+                () => Announce("Album jest widokiem folderu. Otwórz go Enterem, aby usuwać pojedyncze utwory z Biblioteki"),
+                DispatcherPriority.ContextIdle);
+            return;
+        }
         if (string.Equals(_currentView, FolderViewName, StringComparison.Ordinal)
             && selectedRows.Any(row => row.FolderPath is not null))
         {
@@ -2767,16 +2861,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        if (_currentView is not ("Ulubione" or "Biblioteka" or "Kolejka" or FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName))
+        if (_currentView is not ("Ulubione" or "Biblioteka" or "Kolejka" or FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName))
         {
             RestoreMediaListFocusAfterRefresh();
             Dispatcher.BeginInvoke(
-                () => Announce("Usuwanie jest dostępne w widokach Foldery Biblioteki, Wszystkie pliki, Kolejność własna, Ulubione, Biblioteka i Kolejka"),
+                () => Announce("Usuwanie jest dostępne w widokach Foldery Biblioteki, Wszystkie pliki, Kolejność własna, utwory albumu, Ulubione, Biblioteka i Kolejka"),
                 DispatcherPriority.ContextIdle);
             return;
         }
 
-        if (_currentView is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName)
+        if (_currentView is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName)
         {
             items = items.Where(item => item.IsInLibrary).ToArray();
             if (items.Length == 0)
@@ -2800,7 +2894,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 item.IsFavorite = false;
             }
-            else if (_currentView is "Biblioteka" or FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName)
+            else if (_currentView is "Biblioteka" or FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName)
             {
                 item.IsInLibrary = false;
             }
@@ -2818,6 +2912,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 FolderViewName => $"Przywrócono w bibliotece: {items[0].Title}",
                 AllLocalFilesViewName => $"Przywrócono w bibliotece: {items[0].Title}",
                 CustomLocalOrderViewName => $"Przywrócono w bibliotece: {items[0].Title}",
+                LocalAlbumContentsViewName => $"Przywrócono w bibliotece: {items[0].Title}",
                 "Kolejka" => $"Przywrócono w kolejce: {items[0].Title}",
                 _ => throw new InvalidOperationException($"Nieobsługiwany widok usuwania: {_currentView}")
             }
@@ -2829,7 +2924,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ++_undoSequence);
         if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
-            if (_currentView is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName)
+            if (_currentView is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName)
             {
                 AddLocalExclusions(items);
                 RefreshLocalSessionItems();
@@ -2839,7 +2934,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RefreshCurrentView(previousIndex);
         RestoreMediaListFocusAfterRefresh();
         var removedLabel = items.Length == 1 ? items[0].Title : FormatItemCount(items.Length);
-        var announcement = _currentView is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName
+        var announcement = _currentView is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName
             ? items.Length == 1
                 ? $"Usunięto z biblioteki: {removedLabel}. Plik pozostaje w folderze"
                 : $"Usunięto z biblioteki: {removedLabel}. Pliki pozostają w folderach"
@@ -3629,9 +3724,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PrepareHistoryFocusContext(string direction)
     {
         if (!_state.Settings.Messages.Enabled) return;
+        var viewName = CurrentViewDisplayName();
         var context = string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
             ? _sessions.Current.DisplayName
-            : $"{_currentView}, {_sessions.Current.DisplayName}";
+            : $"{viewName}, {_sessions.Current.DisplayName}";
         PrepareViewFocusContext(HistoryMessagesEnabled ? $"{direction}, {context}" : context);
     }
 
@@ -3661,12 +3757,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void UpdateWindowTitle()
     {
         var session = _sessions.Current;
-        var area = _playerViewActive ? "Odtwarzacz" : _currentView;
+        var area = _playerViewActive ? "Odtwarzacz" : CurrentViewDisplayName();
         Title = !_playerViewActive && string.Equals(area, DefaultBrowserView, StringComparison.Ordinal)
             ? $"{session.CurrentItem.Title} — {session.DisplayName} — AMC {AppDisplayVersion}"
             : $"{session.CurrentItem.Title} — {area} — {session.DisplayName} — AMC {AppDisplayVersion}";
         AutomationProperties.SetName(this, Title);
     }
+
+    private string CurrentViewDisplayName() =>
+        string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal)
+            ? string.IsNullOrWhiteSpace(_currentLocalAlbumTitle)
+                ? "Album"
+                : $"Album — {_currentLocalAlbumTitle}"
+            : _currentView;
 
     private static bool IsSearchView(string viewName) =>
         viewName is "Szukaj w bieżącej usłudze" or "Szukaj we wszystkich usługach";
@@ -3923,7 +4026,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else if (modifiers == ModifierKeys.Shift && e.Key == Key.Delete)
         {
-            if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
+            if ((MediaList.SelectedItem as MediaItemRow)?.AlbumFolderPath is not null)
+                Announce("Album jest widokiem folderu. Otwórz go Enterem, aby przenosić pojedyncze pliki do Kosza");
+            else if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
                 Announce("Shift+Delete nie usuwa pliku z listy zakładek. Delete usuwa samą zakładkę");
             else
                 MoveSelectedLocalFilesToRecycleBin();
@@ -3948,6 +4053,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else if (e.Key == Key.Enter)
         {
+            if ((MediaList.SelectedItem as MediaItemRow)?.AlbumFolderPath is not null
+                && modifiers != ModifierKeys.None)
+            {
+                Announce("Album otwiera zwykły Enter. Działania kolejki, Ulubionych i Biblioteki są dostępne po otwarciu jego utworów");
+                e.Handled = true;
+                return;
+            }
             if (modifiers == ModifierKeys.None
                 || (modifiers == ModifierKeys.Control
                     && string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal)))
@@ -4174,6 +4286,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return true;
         }
 
+        if (!_playerViewActive
+            && (MediaList.SelectedItem as MediaItemRow)?.AlbumFolderPath is not null
+            && (modifiers, e.Key) is
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.U)
+                or (ModifierKeys.Control | ModifierKeys.Shift, Key.P)
+                or (ModifierKeys.Control | ModifierKeys.Shift, Key.Q)
+                or (ModifierKeys.Control | ModifierKeys.Shift, Key.L)
+                or (ModifierKeys.Shift, Key.Enter)
+                or (ModifierKeys.Control | ModifierKeys.Shift, Key.Enter))
+        {
+            Announce("Otwórz album Enterem, aby wykonać działanie na jego utworach");
+            return true;
+        }
+
         var commandId = (modifiers, e.Key) switch
         {
             (ModifierKeys.Control | ModifierKeys.Shift, Key.U) => CommandIds.ToggleFavorite,
@@ -4211,6 +4337,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
         {
             LeaveBookmarkView();
+            return;
+        }
+        if (string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal))
+        {
+            NavigateBack();
             return;
         }
         RestoreMediaListFocusAfterRefresh();
@@ -4480,7 +4611,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void NextBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.NextBookmark);
     private void ToggleSelectedPlayback_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedBookmark is not null) ActivateSelected();
+        if (SelectedBookmark is not null
+            || (!_playerViewActive && SelectedItem?.Kind is not (MediaItemKind.Track or MediaItemKind.Station)))
+        {
+            ActivateSelected();
+        }
         else ExecuteCommand(CommandIds.ActivateSelected);
     }
     private void PlayNext_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.TogglePlayNext);
@@ -4515,10 +4650,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var items = ActionItems;
         var actionItem = ActionItem;
+        var localAlbumContainer = !_playerViewActive
+            && (MediaList.SelectedItem as MediaItemRow)?.AlbumFolderPath is not null;
         var folderNavigationRow = !_playerViewActive
             && string.Equals(_currentView, FolderViewName, StringComparison.Ordinal)
             && (MediaList.SelectedItem as MediaItemRow)?.FolderPath is not null;
-        var playbackLabel = actionItem is not null
+        var playbackLabel = localAlbumContainer
+            ? "Otwórz album"
+            : actionItem is not null
             && string.Equals(actionItem.Id, _sessions.Current.CurrentItem.Id, StringComparison.Ordinal)
             && _sessions.Current.IsPlaying
                 ? "Wstrzymaj"
@@ -4544,6 +4683,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? "Kopiuj pełną ścieżkę"
             : "Kopiuj łącze do elementu";
         SetContextMenuItemPresentation(CopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
+        PlayNextMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
+        QueueMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
+        FavoriteMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
+        LibraryMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
+        CopyLocationMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
         var localItems = SelectedBookmark is null
             && items.Count > 0
             && items.All(item => TryGetLocalPath(item.Source, out var path) && File.Exists(path));
@@ -4577,7 +4721,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         MoveLocalItemUpMenuItem.IsEnabled = string.IsNullOrWhiteSpace(FilterBox.Text);
         MoveLocalItemDownMenuItem.IsEnabled = string.IsNullOrWhiteSpace(FilterBox.Text);
         OpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
-        OfficialApplicationMenuItem.Visibility = localItem ? Visibility.Collapsed : Visibility.Visible;
+        OfficialApplicationMenuItem.Visibility = localItem || localAlbumContainer
+            ? Visibility.Collapsed
+            : Visibility.Visible;
         RecycleMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         var removeLabel = folderNavigationRow
             ? "Folder nawigacyjny — użyj Enter"
@@ -4591,8 +4737,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     ? "Wyklucz z biblioteki, pozostaw plik na dysku"
                 : localItem && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
                     ? "Wyklucz z biblioteki, pozostaw plik na dysku"
+                : localItem && string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal)
+                    ? "Wyklucz z biblioteki, pozostaw plik na dysku"
                 : "Usuń z bieżącego widoku";
         SetContextMenuItemPresentation(RemoveMenuItem, removeLabel, "Delete");
+        RemoveMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
         RemoveMenuItem.IsEnabled = !folderNavigationRow
             && (_currentView is not (FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName)
                 || items.Any(item => item.IsInLibrary));
@@ -5005,12 +5154,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string navigationText,
         MediaItem? actionItem = null,
         BookmarkEntry? bookmark = null,
-        string? folderPath = null) : INotifyPropertyChanged
+        string? folderPath = null,
+        string? albumFolderPath = null) : INotifyPropertyChanged
     {
         public MediaItem Item { get; } = item;
         public MediaItem ActionItem { get; } = actionItem ?? item;
         public BookmarkEntry? Bookmark { get; } = bookmark;
         public string? FolderPath { get; } = folderPath;
+        public string? AlbumFolderPath { get; } = albumFolderPath;
         public string Label { get; private set; } = label;
         public string NavigationText { get; } = navigationText;
 

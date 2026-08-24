@@ -36,6 +36,7 @@ var tests = new (string Name, Action Test)[]
     ("Integracyjny cykl zmian folderu", TestLocalFolderSynchronizationCycle),
     ("Bezpieczne zarządzanie źródłami Biblioteki", TestLocalFolderSourcePolicy),
     ("Trwała kolejność własna Biblioteki", TestLocalLibraryManualOrder),
+    ("Albumy rozpoznawane ze struktury folderów", TestLocalAlbumInference),
     ("Migracja biblioteki alpha.79", TestVersion17LocalLibraryMigration),
     ("Naprawa pustego źródła po alpha.80", TestVersion18EmptySourceMigration),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
@@ -1436,6 +1437,65 @@ static void TestLocalLibraryManualOrder()
     True(
         orderWithHiddenItems.SequenceEqual(["a", "ukryty-1", "c", "ukryty-2", "b"]),
         "Przenoszenie nie powinno gubić pozycji chwilowo niewidocznych plików.");
+}
+
+static void TestLocalAlbumInference()
+{
+    var root = Path.GetFullPath(@"C:\Muzyka");
+    var albumFolder = Path.Combine(root, "Anna Kowalska", "Pierwszy album");
+    var first = new MediaItem
+    {
+        Id = "track-1",
+        Title = "01 Początek",
+        Source = Path.Combine(albumFolder, "01 - Początek.mp3"),
+        Duration = TimeSpan.FromMinutes(2)
+    };
+    var second = new MediaItem
+    {
+        Id = "track-2",
+        Title = "02 Środek",
+        Source = Path.Combine(albumFolder, "02. Środek.flac"),
+        Duration = TimeSpan.FromMinutes(3)
+    };
+    var tenth = new MediaItem
+    {
+        Id = "track-10",
+        Title = "10 Koniec",
+        Source = Path.Combine(albumFolder, "10_Koniec.ogg"),
+        Duration = TimeSpan.FromMinutes(4)
+    };
+
+    var albums = LocalAlbumInference.Infer([tenth, second, first], [root]);
+    Equal(1, albums.Count);
+    var album = albums[0];
+    Equal("Pierwszy album", album.Title);
+    Equal("Anna Kowalska", album.Artist);
+    Equal(albumFolder, album.FolderPath);
+    Equal(TimeSpan.FromMinutes(9), album.Duration);
+    True(
+        album.Tracks.Select(track => track.Id).SequenceEqual(["track-1", "track-2", "track-10"]),
+        "Ścieżki powinny być uporządkowane według numerów z nazw.");
+
+    True(LocalAlbumInference.TryGetTrackNumber(first.Source, out var firstNumber) && firstNumber == 1,
+        "Należy rozpoznać numer z początku nazwy.");
+    True(!LocalAlbumInference.TryGetTrackNumber(@"C:\Muzyka\2026-08-24 nagranie.mp3", out _),
+        "Rok i data nie mogą udawać numeru ścieżki.");
+    True(!LocalAlbumInference.TryGetTrackNumber(@"C:\Muzyka\01Początek.mp3", out _),
+        "Cyfry bez separatora nie powinny klasyfikować zwykłej nazwy.");
+
+    var looseFolder = Path.Combine(root, "Nagrania");
+    var loose = LocalAlbumInference.Infer(
+        [
+            new MediaItem { Id = "loose-1", Title = "Poranek", Source = Path.Combine(looseFolder, "Poranek.mp3") },
+            new MediaItem { Id = "loose-2", Title = "Wieczór", Source = Path.Combine(looseFolder, "Wieczór.mp3") }
+        ],
+        [root]);
+    Equal(0, loose.Count);
+
+    var single = LocalAlbumInference.Infer([first], [root]);
+    Equal(0, single.Count);
+    var directAlbum = LocalAlbumInference.Infer([first, second], [albumFolder]);
+    Equal(string.Empty, directAlbum.Single().Artist);
 }
 
 static void TestCommandPalette()
