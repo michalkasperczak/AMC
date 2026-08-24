@@ -64,6 +64,12 @@ Spróbuj `Alt+strzałka w górę/w dół` w Folderach (`Alt+1`), Wszystkich plik
 
 Oczekiwane: żaden z tych widoków nie zmienia kolejności. Foldery odpowiadają dyskowi, Wszystkie pliki są alfabetyczne, Album respektuje numery ścieżek, a Historia i wyszukiwanie zachowują własną semantykę.
 
+### AMC-089-10 — Backspace jest tylko poziomem nadrzędnym
+
+Sprawdź `Backspace` kolejno: na pliku w Folderach, w podfolderze, wewnątrz Albumu, w otwartym odtwarzaczu, na najwyższym poziomie Ulubionych oraz podczas edycji filtra. Osobno sprawdź `Delete` na bezpiecznym elemencie.
+
+Oczekiwane: `Backspace` nie usuwa żadnego elementu. W Folderach idzie do rodzica, z Albumu do listy Albumów, z odtwarzacza do poprzedniej listy, a na poziomie głównym podaje brak rodzica. W polu filtra usuwa znak. Dopiero `Delete` wykonuje właściwe usuwanie z bieżącego widoku.
+
 ## Poprzedni zestaw alpha 88
 
 ### AMC-088-01 — Album z numerowanych plików
@@ -550,9 +556,9 @@ Oczekiwane: AMC pozostaje uruchomiony, nie usuwa błędnego rekordu i podaje naz
 
 ### AMC-076-06 — Delete pozostawia plik
 
-Na osobnej kopii użyj zwykłego `Delete` albo Backspace.
+Na osobnej kopii użyj zwykłego `Delete`.
 
-Oczekiwane: znika tylko rekord AMC, natomiast fizyczny plik nadal istnieje w swoim folderze. Znaczenie zwykłego Delete nie zmieniło się.
+Oczekiwane: znika tylko rekord AMC, natomiast fizyczny plik nadal istnieje w swoim folderze. `Backspace` nie usuwa rekordu i przechodzi do poziomu nadrzędnego.
 
 ## Poprzedni zestaw regresyjny alpha 75
 

@@ -287,7 +287,8 @@ A search query may inspect several fields and aliases, while navigation through 
 | `Space` | pause or resume what is actually playing, independently of the selection |
 | `Shift+Enter` | add the selection to the queue |
 | `Ctrl+Shift+Enter` | play next |
-| `Backspace` or `Delete` | remove from the current playlist, queue, Favorites or library when the action is unambiguous |
+| `Delete` | remove from the current playlist, queue, Favorites or library when the action is unambiguous |
+| `Backspace` | move up one level; never remove an item |
 | `Ctrl+Z` | undo the last membership change; inside a text field, undo text editing |
 | `Alt+Left Arrow` | previous view |
 | `Alt+Right Arrow` | next view when available |
@@ -423,7 +424,8 @@ Approved primary bindings:
 | `Ctrl+Shift+G` | temporarily toggle all automatic player feedback |
 | `Ctrl+D` | download offline within the service when supported |
 | `Ctrl+Shift+D` | download to a local file; experimental and disabled by default |
-| `Backspace` or `Delete` | remove from the current playlist, queue, Favorites or library, with confirmation or Undo |
+| `Delete` | remove from the current playlist, queue, Favorites or library, with confirmation or Undo |
+| `Backspace` | move to the parent level; inside a text field, delete a character |
 | `Ctrl+Z` | undo the last membership change in Favorites, Library or Queue, or the Play Next state |
 | `Ctrl+A` | select all items when the view permits it |
 
@@ -838,6 +840,8 @@ Decision in `alpha.89`: view order and playback order are separate, explicit con
 Item options are separate from information. `Alt+Enter` remains read-only text, while `Alt+Shift+Enter` opens editable **Item playback options**. Local resume policy is hierarchical: global setting, folder-source override, individual-item override. Playback rate has a session rule plus an optional item override; moving to another item restores that item's value or the session value. Per-item output and EQ have reserved model space but stay disabled until the output layer can enumerate devices and switch shared WASAPI safely without losing NVDA speech.
 
 “Go to album” and “Go to artist” are relationship navigation rather than text searches. For a local file, `alpha.89` uses its inferred album directory and parent artist directory. An `F2` title alias does not alter the disk file or album sort key: AMC may display a clean title without `01`, while sequence still follows the physical file-name number. A streaming adapter will later supply stable related album and artist identifiers. Matching a local file to a service catalogue remains a separate, more expensive on-demand feature.
+
+`Backspace` has hierarchical semantics and is independent of removal. `Delete` removes from the current collection, while `Shift+Delete` is a separate confirmed operation on the physical file. `Backspace` moves to the parent: the parent directory, the Albums list from album contents, the source list from the player, or the parent of a future service container. It changes nothing at a top level. Text fields retain normal character deletion. `Alt+Left/Right` visited-view history may follow a different path and remains a separate mechanism.
 
 Local Library priority: a real **Folders** hierarchy will be the primary view because a user's collection may not contain complete tags. A flat Library remains as a parallel view of every imported file. Artist, Album and Genre views may later be derived from metadata but are not a usability prerequisite. Favorites, Queue, History, Playlists and Bookmarks reference the same records regardless of source view.
 

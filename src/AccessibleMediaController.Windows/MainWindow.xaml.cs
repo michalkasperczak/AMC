@@ -1103,7 +1103,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+K, Ctrl+F i Ctrl+Shift+F nie opuszczają odtwarzacza; wyszukiwanie jest dostępne po powrocie do listy. " +
             "Skróty widoków opuszczają odtwarzacz, a F6 wraca do niego. " +
             "Ctrl+C kopiuje nazwy wszystkich zaznaczonych elementów, po jednej w wierszu; Ctrl+Shift+C kopiuje pełne ścieżki i fizyczne pliki lokalne. " +
-            "Delete lub Backspace usuwa z bieżącego widoku. W lokalnej Bibliotece i na pliku w widoku Foldery usuwa tylko wpis z Biblioteki AMC, a plik pozostawia na dysku; na wierszu folderu nie usuwa niczego. W odtwarzaczu lokalnym Delete również usuwa tylko wpis z AMC i pozostawia plik na dysku. Shift+Delete działa wyłącznie na listach i po potwierdzeniu przenosi zaznaczone pliki do systemowego Kosza. " +
+            "Delete usuwa z bieżącego widoku. W lokalnej Bibliotece i na pliku w widoku Foldery usuwa tylko wpis z Biblioteki AMC, a plik pozostawia na dysku; na wierszu folderu nie usuwa niczego. W odtwarzaczu lokalnym Delete również usuwa tylko wpis z AMC i pozostawia plik na dysku. Shift+Delete działa wyłącznie na listach i po potwierdzeniu przenosi zaznaczone pliki do systemowego Kosza. Backspace nigdy nie usuwa: wraca do poziomu nadrzędnego, a w polu tekstowym kasuje znak. " +
             "Alt+strzałka w lewo i w prawo przechodzi po osobnej historii widoków. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
             "Alt+F4 zawsze zamyka całe główne okno i aplikację, również z widoku odtwarzacza. " +
@@ -2987,6 +2987,49 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreMediaListFocusAfterRefresh();
     }
 
+    private void NavigateToParentLevel()
+    {
+        if (_playerViewActive)
+        {
+            ReturnFromPlayerToList();
+            return;
+        }
+        if (string.Equals(_currentView, FolderViewName, StringComparison.Ordinal))
+        {
+            NavigateToParentFolder();
+            return;
+        }
+        if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
+        {
+            LeaveBookmarkView();
+            return;
+        }
+        if (string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal)
+            || !IsTopLevelBrowserView(_currentView))
+        {
+            NavigateBack();
+            return;
+        }
+        Announce("To najwyższy poziom tego widoku");
+    }
+
+    private static bool IsTopLevelBrowserView(string viewName) => viewName is
+        DefaultBrowserView
+        or FolderViewName
+        or AllLocalFilesViewName
+        or CustomLocalOrderViewName
+        or "Biblioteka"
+        or "Ulubione"
+        or "Playlisty"
+        or "Kolejka"
+        or "Albumy"
+        or "Historia odtwarzania"
+        or BookmarkViewName
+        or "Radio i rekomendacje"
+        or "Miksy"
+        or "Wyjścia i urządzenia"
+        or "Pobrane";
+
     private void NavigateToParentFolder()
     {
         var currentPath = _state.LocalMedia.CurrentFolderPath;
@@ -4117,6 +4160,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (Keyboard.Modifiers == ModifierKeys.None
+            && e.Key == Key.Back
+            && Keyboard.FocusedElement is not System.Windows.Controls.TextBox)
+        {
+            if (MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem)
+            {
+                return;
+            }
+            e.Handled = true;
+            NavigateToParentLevel();
+            return;
+        }
+
         if (TryHandlePlayerTransportShortcut(e))
         {
             e.Handled = true;
@@ -4268,14 +4324,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 MoveSelectedLocalFilesToRecycleBin();
             e.Handled = true;
         }
-        else if (modifiers == ModifierKeys.None
-                 && e.Key == Key.Back
-                 && string.Equals(_currentView, FolderViewName, StringComparison.Ordinal))
-        {
-            NavigateToParentFolder();
-            e.Handled = true;
-        }
-        else if (modifiers == ModifierKeys.None && e.Key is Key.Delete or Key.Back)
+        else if (modifiers == ModifierKeys.None && e.Key == Key.Delete)
         {
             RemoveSelected();
             e.Handled = true;

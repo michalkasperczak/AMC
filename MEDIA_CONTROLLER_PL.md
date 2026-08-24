@@ -287,7 +287,8 @@ Zapytanie wyszukiwania może sprawdzać wiele pól i aliasów, natomiast nawigac
 | `Spacja` | wstrzymaj lub wznów element faktycznie odtwarzany, niezależnie od zaznaczenia |
 | `Shift+Enter` | dodaj zaznaczenie do kolejki |
 | `Ctrl+Shift+Enter` | odtwórz jako następne |
-| `Backspace` lub `Delete` | usuń element z bieżącej playlisty, kolejki, ulubionych albo biblioteki, jeśli działanie jest jednoznaczne |
+| `Delete` | usuń element z bieżącej playlisty, kolejki, ulubionych albo biblioteki, jeśli działanie jest jednoznaczne |
+| `Backspace` | przejdź o poziom wyżej; nigdy nie usuwaj elementu |
 | `Ctrl+Z` | cofnij ostatnią zmianę przynależności; w polu tekstowym cofnij edycję tekstu |
 | `Alt+Strzałka w lewo` | poprzedni widok |
 | `Alt+Strzałka w prawo` | następny widok, jeśli istnieje |
@@ -423,7 +424,8 @@ Zatwierdzone przypisania podstawowe:
 | `Ctrl+Shift+G` | chwilowo włącz lub wyłącz wszystkie automatyczne komunikaty odtwarzacza |
 | `Ctrl+D` | pobierz offline wewnątrz usługi, jeśli obsługiwane |
 | `Ctrl+Shift+D` | pobierz do pliku lokalnego; funkcja eksperymentalna, domyślnie wyłączona |
-| `Backspace` lub `Delete` | usuń z bieżącej playlisty, kolejki, ulubionych lub biblioteki; z potwierdzeniem albo możliwością cofnięcia |
+| `Delete` | usuń z bieżącej playlisty, kolejki, ulubionych lub biblioteki; z potwierdzeniem albo możliwością cofnięcia |
+| `Backspace` | przejdź do poziomu nadrzędnego; w polu tekstowym usuń znak |
 | `Ctrl+Z` | cofnij ostatnią zmianę przynależności do Ulubionych, Biblioteki lub Kolejki albo stan „Odtwórz jako następne” |
 | `Ctrl+A` | zaznacz wszystkie elementy, jeśli widok pozwala |
 
@@ -840,6 +842,8 @@ Rozstrzygnięcie `alpha.89`: kolejność widoku i kolejność odtwarzania są od
 Opcje elementu są oddzielone od informacji. `Alt+Enter` pozostaje tekstem tylko do odczytu, natomiast `Alt+Shift+Enter` otwiera edytowalne **Opcje odtwarzania elementu**. Lokalna reguła wznowienia ma hierarchię: ustawienie ogólne, nadpisanie źródła folderowego, nadpisanie pojedynczego elementu. Prędkość ma regułę sesji oraz opcjonalne nadpisanie elementu; przejście do kolejnego elementu przywraca jego własną wartość albo wartość sesji. Wybór urządzenia elementu i EQ mają zarezerwowane miejsce w tym samym modelu, lecz nie są uaktywniane, dopóki warstwa wyjść nie potrafi bezpiecznie wyliczyć urządzeń i przełączyć współdzielonego WASAPI bez utraty dźwięku NVDA.
 
 Relacje „Przejdź do albumu” i „Przejdź do wykonawcy” są poleceniami nawigacyjnymi, a nie wyszukiwaniem tekstowym. Dla lokalnego pliku `alpha.89` wykorzystuje rozpoznany folder albumu i jego nadrzędny folder wykonawcy. Alias tytułu ustawiony przez `F2` nie zmienia pliku ani klucza sortowania albumu: etykieta w AMC może nie zawierać `01`, ale kolejność nadal wynika z numeru rzeczywistej nazwy na dysku. Adapter streamingowy ma później dostarczyć stabilne identyfikatory powiązanego albumu i wykonawcy. Dopasowanie lokalnego pliku do katalogu usługi pozostaje osobną, kosztowniejszą funkcją na żądanie.
+
+Semantyka `Backspace` jest hierarchiczna i niezależna od usuwania. `Delete` usuwa z bieżącej kolekcji, a `Shift+Delete` wykonuje odrębne, potwierdzane działanie na fizycznym pliku. `Backspace` przechodzi do rodzica: folderu nadrzędnego, listy albumów z zawartości albumu, listy źródłowej z odtwarzacza albo poziomu nadrzędnego przyszłego kontenera usługi. Na poziomie głównym niczego nie zmienia. Pola edycyjne zachowują systemowe kasowanie znaku. Historia widoków `Alt+lewo/prawo` może prowadzić inną drogą niż rodzic i pozostaje osobnym mechanizmem.
 
 Priorytet lokalnej Biblioteki: podstawowym widokiem będzie rzeczywista hierarchia **Folderów**, ponieważ kolekcja użytkownika nie musi mieć kompletnych tagów. Płaska Biblioteka pozostaje równoległym zestawieniem wszystkich zaimportowanych plików. Widoki Wykonawców, Albumów i Gatunków mogą później powstać z metadanych, lecz nie są warunkiem używalności. Ulubione, Kolejka, Historia, Playlisty i Zakładki wskazują te same rekordy niezależnie od widoku źródłowego.
 
