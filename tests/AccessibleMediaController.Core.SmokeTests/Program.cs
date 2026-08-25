@@ -1381,6 +1381,12 @@ static void TestLocalMediaPersistence()
             Path = directory,
             DisplayName = "Nagrania"
         });
+        state.LocalMedia.FolderPlaybackOptions.Add(new LocalFolderPlaybackSettings
+        {
+            Path = Path.Combine(directory, "Podcasty"),
+            ResumePositionMode = ResumePositionMode.Remember,
+            PlaybackRateOverride = 1.75d
+        });
         state.LocalMedia.CurrentFolderPath = directory;
         state.LocalMedia.LibraryView = "Foldery";
         state.LocalMedia.CustomOrderItemIds.Add("local-1");
@@ -1412,10 +1418,17 @@ static void TestLocalMediaPersistence()
         Equal(1.50d, loaded.LocalMedia.PlaybackRate);
         Equal(1, loaded.LocalMedia.Items.Count);
         Equal(1, loaded.LocalMedia.FolderSources.Count);
+        Equal(1, loaded.LocalMedia.FolderPlaybackOptions.Count);
         Equal("Foldery", loaded.LocalMedia.LibraryView);
         Equal("local-1", loaded.LocalMedia.CustomOrderItemIds.Single());
         Equal(Path.GetFullPath(@"C:\Muzyka\pomijany.mp3"), loaded.LocalMedia.ExcludedPaths[0]);
         Equal("Nagrania", loaded.LocalMedia.FolderSources[0].DisplayName);
+        var folderOptions = loaded.LocalMedia.FolderPlaybackOptions[0];
+        Equal(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(directory, "Podcasty"))),
+            folderOptions.Path);
+        Equal(ResumePositionMode.Remember, folderOptions.ResumePositionMode);
+        Equal(1.75d, folderOptions.PlaybackRateOverride);
         Equal(Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory)), loaded.LocalMedia.CurrentFolderPath);
         Equal("local-1", new PlaybackHistory(loaded.PlaybackHistory).GetItemIds("local")[0]);
         var item = loaded.LocalMedia.Items[0];

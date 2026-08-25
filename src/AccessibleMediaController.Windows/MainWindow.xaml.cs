@@ -810,8 +810,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void ShowItemPlaybackOptions()
     {
+        var selectedRow = _playerViewActive ? null : MediaList.SelectedItem as MediaItemRow;
+        var folderPath = selectedRow?.FolderPath ?? selectedRow?.AlbumFolderPath;
+        if (string.Equals(ActionSession.Id, "local", StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(folderPath))
+        {
+            ShowFolderPlaybackOptions(folderPath, selectedRow!.Item.Title);
+            return;
+        }
+
         var item = ActionItem ?? _sessions.Current.CurrentItem;
         if (!string.Equals(ActionSession.Id, "local", StringComparison.Ordinal)
+            || item.Kind != MediaItemKind.Track
             || !TryGetLocalPath(item.Source, out _))
         {
             Announce("Opcje elementu zostaną udostępnione przez adapter tej usługi. Obecnie działają dla plików lokalnych");
@@ -852,6 +862,71 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_playerViewActive) UpdatePlayerView(true);
         UpdatePlaybackStatusBar();
         Announce($"Zapisano opcje elementu: {item.Title}");
+        RestoreItemActionFocus();
+    }
+
+    private void ShowFolderPlaybackOptions(string folderPath, string folderTitle)
+    {
+        var normalizedPath = NormalizeLocalFolderPath(folderPath);
+        if (normalizedPath.Length == 0)
+        {
+            Announce("Nie można rozpoznać ścieżki tego folderu");
+            return;
+        }
+
+        var saved = FindExactFolderPlaybackSettings(normalizedPath);
+        var dialog = new ItemPlaybackOptionsWindow(
+            $"Folder: {folderTitle}",
+            saved?.ResumePositionMode ?? ResumePositionMode.Inherit,
+            saved?.PlaybackRateOverride,
+            folderTarget: true)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+
+        CaptureLocalMediaState();
+        saved ??= new LocalFolderPlaybackSettings { Path = normalizedPath };
+        saved.ResumePositionMode = dialog.SelectedResumePositionMode;
+        saved.PlaybackRateOverride = dialog.SelectedPlaybackRateOverride;
+        var hasOverride = saved.ResumePositionMode != ResumePositionMode.Inherit
+            || saved.PlaybackRateOverride.HasValue
+            || saved.OutputDeviceId is not null;
+        var existingIndex = _state.LocalMedia.FolderPlaybackOptions.FindIndex(option =>
+            string.Equals(NormalizeLocalFolderPath(option.Path), normalizedPath, StringComparison.OrdinalIgnoreCase));
+        if (hasOverride && existingIndex < 0)
+        {
+            _state.LocalMedia.FolderPlaybackOptions.Add(saved);
+        }
+        else if (!hasOverride && existingIndex >= 0)
+        {
+            _state.LocalMedia.FolderPlaybackOptions.RemoveAt(existingIndex);
+        }
+
+        var local = _sessions.FindSession("local");
+        if (local is not null)
+        {
+            foreach (var localItem in local.Items.Where(item =>
+                         TryGetLocalPath(item.Source, out var path)
+                         && LocalFolderSourcePolicy.IsSameOrDescendant(path, normalizedPath)
+                         && !ShouldRememberLocalPosition(item)))
+            {
+                local.ClearRememberedPosition(localItem.Id);
+            }
+            if (TryGetLocalPath(local.CurrentItem.Source, out var currentPath)
+                && LocalFolderSourcePolicy.IsSameOrDescendant(currentPath, normalizedPath))
+            {
+                local.ApplyPlaybackRateForCurrentItem();
+            }
+        }
+        TrySaveLocalMediaState(true);
+        if (_playerViewActive) UpdatePlayerView(true);
+        UpdatePlaybackStatusBar();
+        Announce($"Zapisano opcje folderu: {folderTitle}");
         RestoreItemActionFocus();
     }
 
@@ -902,7 +977,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             var saved = FindLocalItemSettings(item);
             playbackLines.Add($"Wznawianie: {FormatResumePositionMode(saved?.ResumePositionMode ?? ResumePositionMode.Inherit, item)}");
-            playbackLines.Add($"Prędkość elementu: {FormatItemPlaybackRate(saved?.PlaybackRateOverride)}");
+            playbackLines.Add($"Prędkość elementu: {FormatItemPlaybackRate(item, saved)}");
             playbackLines.Add("Wyjście audio: domyślne urządzenie systemowe, tryb współdzielony");
         }
         sections.Add(string.Join(Environment.NewLine, playbackLines));
@@ -1637,10 +1712,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         EnsureLocalCustomOrder();
 
         var savedById = _state.LocalMedia.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        var savedByPath = _state.LocalMedia.Items
+            .Where(item => !string.IsNullOrWhiteSpace(item.Path))
+            .GroupBy(item => NormalizeLocalFilePath(item.Path), StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Key.Length > 0)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var rememberedPositions = local?.RememberedPositions;
         _state.LocalMedia.Items = _localItems.Select(item =>
         {
             savedById.TryGetValue(item.Id, out var previous);
+            if (previous is null
+                && TryGetLocalPath(item.Source, out var itemPath))
+            {
+                savedByPath.TryGetValue(NormalizeLocalFilePath(itemPath), out previous);
+            }
             var (fileLength, lastWriteUtcTicks) = previous is null
                 ? GetFileFingerprint(item.Source)
                 : (previous.FileLength, previous.LastWriteUtcTicks);
@@ -1825,12 +1910,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _ => ShouldRememberLocalPosition(item.Source)
         };
 
-    private LocalMediaItemSettings? FindLocalItemSettings(MediaItem item) =>
-        _state.LocalMedia.Items.FirstOrDefault(saved =>
+    private LocalMediaItemSettings? FindLocalItemSettings(MediaItem item)
+    {
+        var byId = _state.LocalMedia.Items.FirstOrDefault(saved =>
             string.Equals(saved.Id, item.Id, StringComparison.Ordinal));
+        if (byId is not null || !TryGetLocalPath(item.Source, out var itemPath)) return byId;
+        var normalizedItemPath = NormalizeLocalFilePath(itemPath);
+        return _state.LocalMedia.Items.FirstOrDefault(saved =>
+            string.Equals(
+                NormalizeLocalFilePath(saved.Path),
+                normalizedItemPath,
+                StringComparison.OrdinalIgnoreCase));
+    }
 
     private double? GetLocalPlaybackRateOverride(MediaItem item) =>
-        FindLocalItemSettings(item)?.PlaybackRateOverride;
+        FindLocalItemSettings(item)?.PlaybackRateOverride
+        ?? GetFolderPlaybackRateOverride(item.Source);
 
     private string FormatResumePositionMode(ResumePositionMode mode, MediaItem item) => mode switch
     {
@@ -1841,16 +1936,35 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : "według folderu lub ustawienia ogólnego — od początku"
     };
 
-    private static string FormatItemPlaybackRate(double? playbackRate) =>
-        playbackRate.HasValue
-            ? FormatPlaybackRateMultiplier(playbackRate.Value)
-            : "według prędkości sesji";
+    private string FormatItemPlaybackRate(MediaItem item, LocalMediaItemSettings? saved)
+    {
+        if (saved?.PlaybackRateOverride is double itemRate)
+        {
+            return $"{FormatPlaybackRateMultiplier(itemRate)} — dla tego elementu";
+        }
+        if (GetFolderPlaybackRateOverride(item.Source) is double folderRate)
+        {
+            return $"{FormatPlaybackRateMultiplier(folderRate)} — według folderu";
+        }
+        return "według prędkości sesji";
+    }
 
     private bool ShouldRememberLocalPosition(string? path)
     {
         if (!TryGetLocalPath(path, out var localPath))
         {
             return _state.Settings.RememberLocalPlaybackPositions;
+        }
+
+        var folderMode = _state.LocalMedia.FolderPlaybackOptions
+            .Where(option => option.ResumePositionMode != ResumePositionMode.Inherit
+                && LocalFolderSourcePolicy.IsSameOrDescendant(localPath, option.Path))
+            .OrderByDescending(option => option.Path.Length)
+            .Select(option => (ResumePositionMode?)option.ResumePositionMode)
+            .FirstOrDefault();
+        if (folderMode.HasValue)
+        {
+            return folderMode.Value == ResumePositionMode.Remember;
         }
 
         var source = _state.LocalMedia.FolderSources
@@ -1863,6 +1977,45 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ResumePositionMode.StartFromBeginning => false,
             _ => _state.Settings.RememberLocalPlaybackPositions
         };
+    }
+
+    private double? GetFolderPlaybackRateOverride(string? path)
+    {
+        if (!TryGetLocalPath(path, out var localPath)) return null;
+        return _state.LocalMedia.FolderPlaybackOptions
+            .Where(option => option.PlaybackRateOverride.HasValue
+                && LocalFolderSourcePolicy.IsSameOrDescendant(localPath, option.Path))
+            .OrderByDescending(option => option.Path.Length)
+            .Select(option => option.PlaybackRateOverride)
+            .FirstOrDefault();
+    }
+
+    private LocalFolderPlaybackSettings? FindExactFolderPlaybackSettings(string folderPath) =>
+        _state.LocalMedia.FolderPlaybackOptions.FirstOrDefault(option =>
+            string.Equals(
+                NormalizeLocalFolderPath(option.Path),
+                folderPath,
+                StringComparison.OrdinalIgnoreCase));
+
+    private static string NormalizeLocalFilePath(string path)
+    {
+        try
+        {
+            return Path.GetFullPath(path.Trim());
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return string.Empty;
+        }
+    }
+
+    private static string NormalizeLocalFolderPath(string path)
+    {
+        var normalized = NormalizeLocalFilePath(path);
+        return normalized.Length == 0
+            ? string.Empty
+            : Path.TrimEndingDirectorySeparator(normalized);
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -4980,7 +5133,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         FavoriteMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
         LibraryMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
         CopyLocationMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
-        ItemPlaybackOptionsMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
+        ItemPlaybackOptionsMenuItem.Visibility = Visibility.Visible;
         var relatedAlbum = FindRelatedLocalAlbum(actionItem);
         GoToAlbumMenuItem.Visibility = relatedAlbum is null ? Visibility.Collapsed : Visibility.Visible;
         GoToArtistMenuItem.Visibility = relatedAlbum is not null

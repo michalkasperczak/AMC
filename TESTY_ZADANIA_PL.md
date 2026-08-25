@@ -1,12 +1,40 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-089`
-- Tytuł zestawu: Kontekst odtwarzania, Ulubione i opcje elementu
-- Wersja programu: `0.1.0-alpha.89`
+- Numer zestawu: `AMC-TEST-090`
+- Tytuł zestawu: Opcje odtwarzania plików i folderów
+- Wersja programu: `0.1.0-alpha.90`
 - Utworzono: 2026-08-25, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.89.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.90.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 90
+
+### AMC-090-01 — Opcje pojedynczego pliku
+
+W Folderach, Wszystkich plikach i Ulubionych wybierz ten sam plik lokalny i naciśnij `Alt+Shift+Enter`. Zmień pamiętanie pozycji lub prędkość, zapisz, ponownie otwórz opcje i uruchom plik.
+
+Oczekiwane: za każdym razem otwiera się okno ustawień tego pliku; nie pojawia się komunikat „Nie można odnaleźć ustawień tego pliku w Bibliotece”. Wartość jest zachowana po zmianie widoku i ponownym uruchomieniu AMC.
+
+### AMC-090-02 — Opcje folderu i albumu
+
+W widoku Foldery zaznacz źródło, potem zwykły podfolder, a w widoku Albumy zaznacz album. Na każdym użyj `Alt+Shift+Enter`, ustaw inną prędkość albo regułę pozycji i zapisz.
+
+Oczekiwane: otwiera się dostępne okno „Opcje odtwarzania folderu”. Ustawienie obejmuje pliki znajdujące się poniżej wybranego folderu lub w albumie, ale nie zmienia plików ani układu katalogów.
+
+### AMC-090-03 — Hierarchia nadpisań
+
+Ustaw prędkość dla folderu nadrzędnego, inną dla jego podfolderu i trzecią dla jednego pliku. Odtwórz kolejno plik z nadpisaniem, drugi plik z podfolderu oraz plik tylko z folderu nadrzędnego. Następnie wybierz „według…” na jednym z poziomów.
+
+Oczekiwane: obowiązuje kolejność `plik > najbliższy folder > folder nadrzędny > sesja`. Wybranie dziedziczenia usuwa tylko bieżące nadpisanie i odsłania wartość wyższego poziomu.
+
+### AMC-090-04 — Fokus, zapis i regresja Backspace
+
+Anuluj i zapisz opcje z pliku oraz folderu, używając klawiatury i NVDA. Po zamknięciu okna sprawdź fokus. Następnie użyj `Backspace` i `Delete` na bezpiecznych elementach.
+
+Oczekiwane: fokus wraca na ten sam wiersz listy, program nie zaczyna sam odtwarzać, `Backspace` przechodzi do rodzica i niczego nie usuwa, a `Delete` zachowuje swoje dotychczasowe znaczenie.
+
+## Poprzedni zestaw alpha 89
 
 ## Nowości alpha 89
 

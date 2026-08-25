@@ -9,17 +9,17 @@
                    FontWeight="SemiBold" TextWrapping="Wrap"
                    automation:AutomationProperties.HeadingLevel="Level1" />
 
-        <Label Target="{Binding ElementName=ResumeModeBox}">_Pozycja po ponownym otwarciu:</Label>
+        <Label x:Name="ResumeModeLabel" Target="{Binding ElementName=ResumeModeBox}">_Pozycja po ponownym otwarciu:</Label>
         <ComboBox x:Name="ResumeModeBox" Margin="0,0,0,14"
                   DisplayMemberPath="Label"
                   automation:AutomationProperties.Name="Pozycja po ponownym otwarciu" />
 
-        <Label Target="{Binding ElementName=PlaybackRateBox}">_Prędkość tego elementu:</Label>
+        <Label x:Name="PlaybackRateLabel" Target="{Binding ElementName=PlaybackRateBox}">_Prędkość tego elementu:</Label>
         <ComboBox x:Name="PlaybackRateBox" Margin="0,0,0,14"
                   DisplayMemberPath="Label"
                   automation:AutomationProperties.Name="Prędkość tego elementu" />
 
-        <Label Target="{Binding ElementName=OutputDeviceBox}">_Urządzenie audio dla elementu:</Label>
+        <Label x:Name="OutputDeviceLabel" Target="{Binding ElementName=OutputDeviceBox}">_Urządzenie audio dla elementu:</Label>
         <ComboBox x:Name="OutputDeviceBox" Margin="0,0,0,6" IsEnabled="False"
                   automation:AutomationProperties.Name="Urządzenie audio dla elementu"
                   automation:AutomationProperties.HelpText="Wybór urządzenia zostanie włączony po dodaniu listy wyjść audio." />

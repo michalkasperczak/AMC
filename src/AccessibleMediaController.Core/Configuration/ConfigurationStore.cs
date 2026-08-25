@@ -10,7 +10,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore(string statePath)
 {
-    public const int CurrentSchemaVersion = 23;
+    public const int CurrentSchemaVersion = 24;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -272,6 +272,34 @@ public sealed class ConfigurationStore(string statePath)
             .Where(source => !string.IsNullOrWhiteSpace(source.Path))
             .GroupBy(source => source.Path, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
+            .ToList();
+        state.LocalMedia.FolderPlaybackOptions = (state.LocalMedia.FolderPlaybackOptions ?? [])
+            .Where(option => !string.IsNullOrWhiteSpace(option.Path))
+            .Select(option =>
+            {
+                option.Path = NormalizeFolderPath(option.Path);
+                if (!Enum.IsDefined(option.ResumePositionMode))
+                {
+                    option.ResumePositionMode = ResumePositionMode.Inherit;
+                }
+                if (option.PlaybackRateOverride.HasValue)
+                {
+                    option.PlaybackRateOverride = Math.Clamp(
+                        option.PlaybackRateOverride.Value,
+                        0.50d,
+                        2.00d);
+                }
+                option.OutputDeviceId = string.IsNullOrWhiteSpace(option.OutputDeviceId)
+                    ? null
+                    : option.OutputDeviceId.Trim();
+                return option;
+            })
+            .Where(option => !string.IsNullOrWhiteSpace(option.Path))
+            .GroupBy(option => option.Path, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .Where(option => option.ResumePositionMode != ResumePositionMode.Inherit
+                || option.PlaybackRateOverride.HasValue
+                || option.OutputDeviceId is not null)
             .ToList();
         state.LocalMedia.LibraryView = state.LocalMedia.LibraryView is "Foldery" or "Wszystkie pliki" or "Kolejność własna"
             ? state.LocalMedia.LibraryView
