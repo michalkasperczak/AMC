@@ -215,6 +215,8 @@ Od `alpha.90` `Alt+Shift+Enter` działa również na folderze i albumie. Ustawie
 
 W `alpha.91` wszystkie zapisy do schowka mają wspólną obsługę chwilowej blokady Windows. `Ctrl+C`, `Ctrl+Shift+C`, kopiowanie z wyszukiwania i właściwości oraz `Ctrl+X` wykonują kilka krótkich ponowień, gdy NVDA, Total Commander, Ditto albo inny menedżer schowka właśnie odczytuje jego zawartość. Sukces jest oznajmiany dopiero po rzeczywistym zapisaniu danych. Jeżeli blokada nie ustąpi, AMC pozostaje responsywny i podaje jednoznaczny komunikat z kodem systemowym zamiast milczeć albo zgubić kolejne skróty.
 
+W `alpha.92` pola wyboru w **Opcjach odtwarzania elementu lub folderu** przekazują do UI Automation wyłącznie etykiety przeznaczone dla użytkownika. NVDA nie powinien już odczytywać nazw klas ani zapisów takich jak `ResumeChoice { Value = ... }`; dotyczy to zarówno reguł pamiętania pozycji, jak i prędkości.
+
 Od `alpha.89` `Delete` jest jedynym klawiszem usuwania. `Backspace` nigdy nie usuwa elementu: w Folderach otwiera folder nadrzędny, wewnątrz albumu lub innego kontenera wraca o jeden poziom, a w odtwarzaczu wraca do listy z zastosowaniem zwykłej reguły pauzy. W polach tekstowych zachowuje standardowe kasowanie znaku, a na najwyższym poziomie listy podaje, że nie ma poziomu nadrzędnego. `Alt+strzałka w lewo/prawo` pozostaje historią odwiedzonych widoków i nie zastępuje semantyki rodzica.
 
 Obecny katalog demonstracyjny może pokazywać wspólne wyniki testowe. Prawdziwy adapter TIDAL będzie modułem izolowanym: `Ctrl+Shift+F` może uruchomić jego zapytanie, ale treści TIDAL nie zostaną wymieszane na jednej liście z treściami podobnych usług. AMC otworzy osobny, oznaczony widok wyników TIDAL i zachowa działanie wszystkich wspólnych skrótów.

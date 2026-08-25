@@ -74,6 +74,13 @@ public partial class ItemPlaybackOptionsWindow : Window
 
     private void Save_Click(object sender, RoutedEventArgs e) => DialogResult = true;
 
-    private sealed record ResumeChoice(ResumePositionMode Value, string Label);
-    private sealed record RateChoice(double? Value, string Label);
+    private sealed record ResumeChoice(ResumePositionMode Value, string Label)
+    {
+        public override string ToString() => Label;
+    }
+
+    private sealed record RateChoice(double? Value, string Label)
+    {
+        public override string ToString() => Label;
+    }
 }

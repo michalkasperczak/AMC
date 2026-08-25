@@ -208,6 +208,8 @@ From `alpha.90`, `Alt+Shift+Enter` also works on a folder or album. Folder setti
 
 In `alpha.91`, every clipboard write shares handling for temporary Windows clipboard contention. `Ctrl+C`, `Ctrl+Shift+C`, copying from search and properties, and `Ctrl+X` retry briefly while NVDA, Total Commander, Ditto or another clipboard manager is reading the clipboard. Success is announced only after data has actually been stored. If contention persists, AMC remains responsive and reports a clear message with the system error code instead of failing silently or losing later shortcuts.
 
+In `alpha.92`, selection fields in **Item or folder playback options** expose only their user-facing labels to UI Automation. NVDA should no longer announce class names or representations such as `ResumeChoice { Value = ... }`; the fix covers both resume-policy and playback-rate choices.
+
 From `alpha.89`, `Delete` is the only removal key. `Backspace` never deletes an item: in Folders it opens the parent directory, inside an album or another container it moves up one level, and in the player it returns to the list while applying the normal pause policy. Text fields retain ordinary character deletion, while a top-level list announces that no parent level exists. `Alt+Left/Right` remains visited-view history and does not replace parent semantics.
 
 The current demonstration catalogue may present combined test results. A real TIDAL adapter will be an isolated module: `Ctrl+Shift+F` may initiate its query, but TIDAL content will not be mixed into one list with content from similar services. AMC opens a separate, attributed TIDAL results view while retaining the shared commands.

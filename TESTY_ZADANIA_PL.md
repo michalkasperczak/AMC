@@ -1,12 +1,28 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-091`
-- Tytuł zestawu: Odporne kopiowanie do schowka
-- Wersja programu: `0.1.0-alpha.91`
+- Numer zestawu: `AMC-TEST-092`
+- Tytuł zestawu: Czytelne opcje odtwarzania
+- Wersja programu: `0.1.0-alpha.92`
 - Utworzono: 2026-08-25, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.91.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.92.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 92
+
+### AMC-092-01 — Reguła pozycji bez nazw technicznych
+
+Naciśnij `Alt+Shift+Enter` kolejno na pliku, folderze i albumie. Rozwiń pole pozycji i przejdź strzałkami po wszystkich wariantach.
+
+Oczekiwane: NVDA czyta wyłącznie pełne etykiety, np. „Według folderu nadrzędnego lub ustawienia ogólnego” oraz „Pamiętaj pozycję plików w tym folderze”. Nie pojawiają się `ResumeChoice`, `Value`, `Label`, nawiasy klamrowe ani nazwy enumów.
+
+### AMC-092-02 — Prędkość i fokus
+
+W tym samym oknie przejdź do pola prędkości, odczytaj wszystkie wartości, zapisz jedną, ponownie otwórz okno i anuluj.
+
+Oczekiwane: NVDA czyta tylko „Według…” albo wartość typu „1,25 razy”. Zapisana pozycja jest zaznaczona po ponownym otwarciu, a Zapisz i Anuluj przywracają fokus do właściwego elementu listy lub odtwarzacza.
+
+## Poprzedni zestaw alpha 91
 
 ## Nowości alpha 91
 
