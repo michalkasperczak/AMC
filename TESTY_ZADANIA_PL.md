@@ -1,12 +1,34 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-090`
-- Tytuł zestawu: Opcje odtwarzania plików i folderów
-- Wersja programu: `0.1.0-alpha.90`
+- Numer zestawu: `AMC-TEST-091`
+- Tytuł zestawu: Odporne kopiowanie do schowka
+- Wersja programu: `0.1.0-alpha.91`
 - Utworzono: 2026-08-25, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.90.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.91.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 91
+
+### AMC-091-01 — Szybkie powtórzenie Ctrl+Shift+C
+
+Na istniejącym pliku lokalnym naciśnij szybko dwa albo trzy razy `Ctrl+Shift+C`. Wklej wynik najpierw do edytora tekstowego, a potem do pustego folderu w Eksploratorze lub Total Commanderze.
+
+Oczekiwane: AMC za każdym razem pozostaje responsywny, podaje sukces dopiero po zapisaniu schowka, tekst zawiera pełną ścieżkę, a menedżer plików otrzymuje prawdziwy plik. Fokus i zaznaczenie nie zmieniają się.
+
+### AMC-091-02 — Nazwy i wiele zaznaczonych plików
+
+Zaznacz Shiftem kilka plików. Naciśnij szybko dwukrotnie `Ctrl+C`, sprawdź wszystkie nazwy w edytorze, a następnie powtórz próbę z `Ctrl+Shift+C` i wklejeniem plików.
+
+Oczekiwane: żaden drugi skrót nie wyłącza dalszego kopiowania. `Ctrl+C` daje wszystkie nazwy w osobnych wierszach, a `Ctrl+Shift+C` wszystkie ścieżki oraz wszystkie istniejące pliki.
+
+### AMC-091-03 — Wyszukiwanie, właściwości i menedżer schowka
+
+Powtórz kopiowanie z wyników `Ctrl+F`, z globalnych wyników oraz przyciskiem „Kopiuj wszystko” w `Alt+Enter`. Jeśli używasz Ditto lub podobnego programu, pozostaw go włączonego.
+
+Oczekiwane: wszystkie miejsca mają tę samą odporność. Chwilowe zajęcie schowka powoduje krótkie ponowienie, a trwałe zajęcie daje komunikat „Schowek jest zajęty przez inną aplikację” z kodem, bez zawieszenia AMC.
+
+## Poprzedni zestaw alpha 90
 
 ## Nowości alpha 90
 

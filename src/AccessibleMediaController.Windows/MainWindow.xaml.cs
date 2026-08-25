@@ -4843,7 +4843,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (action == SearchResultAction.CopyName)
         {
             _pendingExternalMoves.Clear();
-            Clipboard.SetText(string.Join(Environment.NewLine, results.Select(result => result.Item.Title)));
+            if (!ClipboardRetry.TrySetText(
+                    string.Join(Environment.NewLine, results.Select(result => result.Item.Title)),
+                    out var clipboardError))
+            {
+                return clipboardError;
+            }
             return results.Count == 1
                 ? "Skopiowano nazwę"
                 : $"Skopiowano nazwy: {FormatItemCount(results.Count)}";
@@ -5262,7 +5267,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 .ToArray();
             if (selectedRows.Length == 0) return;
             _pendingExternalMoves.Clear();
-            Clipboard.SetText(string.Join(Environment.NewLine, selectedRows.Select(row => row.Label)));
+            if (!ClipboardRetry.TrySetText(
+                    string.Join(Environment.NewLine, selectedRows.Select(row => row.Label)),
+                    out var bookmarkClipboardError))
+            {
+                Announce(bookmarkClipboardError);
+                return;
+            }
             Announce(selectedRows.Length == 1
                 ? "Skopiowano zakładkę"
                 : $"Skopiowano zakładki: {selectedRows.Length}");
@@ -5272,7 +5283,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var items = ActionItems;
         if (items.Count == 0) return;
         _pendingExternalMoves.Clear();
-        Clipboard.SetText(string.Join(Environment.NewLine, items.Select(item => item.Title)));
+        if (!ClipboardRetry.TrySetText(
+                string.Join(Environment.NewLine, items.Select(item => item.Title)),
+                out var nameClipboardError))
+        {
+            Announce(nameClipboardError);
+            return;
+        }
         Announce(items.Count == 1
             ? "Skopiowano nazwę"
             : $"Skopiowano nazwy: {FormatItemCount(items.Count)}");
@@ -5301,7 +5318,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var data = new System.Windows.DataObject();
             data.SetData(DataFormats.UnicodeText, string.Join(Environment.NewLine, localPaths));
             data.SetFileDropList(fileDropList);
-            Clipboard.SetDataObject(data, true);
+            if (!ClipboardRetry.TrySetDataObject(data, out var fileClipboardError)) return fileClipboardError;
             return localPaths.Length == 1
                 ? "Skopiowano plik i pełną ścieżkę"
                 : $"Skopiowano pliki i pełne ścieżki: {FormatFileCount(localPaths.Length)}";
@@ -5311,7 +5328,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var publicUri = string.IsNullOrWhiteSpace(item.PublicUri)
             ? $"demo://{sessionId}/{item.Id}"
             : item.PublicUri;
-        Clipboard.SetText(publicUri);
+        if (!ClipboardRetry.TrySetText(publicUri, out var uriClipboardError)) return uriClipboardError;
         return "Skopiowano łącze do elementu";
     }
 
@@ -5348,11 +5365,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var data = new System.Windows.DataObject();
             data.SetData(DataFormats.UnicodeText, text);
             data.SetFileDropList(fileDropList);
-            Clipboard.SetDataObject(data, true);
+            if (!ClipboardRetry.TrySetDataObject(data, out var fileClipboardError)) return fileClipboardError;
         }
         else
         {
-            Clipboard.SetText(text);
+            if (!ClipboardRetry.TrySetText(text, out var textClipboardError)) return textClipboardError;
         }
 
         if (localPaths.Length > 0 && serviceCount > 0)
@@ -5463,7 +5480,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var copiedData = new System.Windows.DataObject();
         copiedData.SetData(DataFormats.UnicodeText, string.Join(Environment.NewLine, audioPaths));
         copiedData.SetFileDropList(copiedFiles);
-        Clipboard.SetDataObject(copiedData, true);
+        var clipboardRefreshError = ClipboardRetry.TrySetDataObject(copiedData, out var refreshError)
+            ? string.Empty
+            : $" {refreshError}";
 
         RefreshCurrentView(preferredItemId: targetItems[0].Id);
         SelectMediaItems(targetItems.Select(item => item.Id));
@@ -5482,7 +5501,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? $" Nowe w AMC: {FormatFileCount(addedItems.Count)}."
             : " Wszystkie pliki były już w AMC.";
         var skippedPart = skippedCount > 0 ? $" Pominięto: {skippedCount}." : string.Empty;
-        Announce($"Dodano ze schowka {destination}: {FormatFileCount(targetItems.Count)}.{newPart}{skippedPart} Pliki pozostały w swoich folderach");
+        Announce($"Dodano ze schowka {destination}: {FormatFileCount(targetItems.Count)}.{newPart}{skippedPart} Pliki pozostały w swoich folderach.{clipboardRefreshError}");
     }
 
     private string CutLocalFilesForExternalMove(IReadOnlyList<MediaItem> items)
@@ -5512,7 +5531,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         data.SetData(DataFormats.UnicodeText, string.Join(Environment.NewLine, paths));
         data.SetFileDropList(fileDropList);
         data.SetData("Preferred DropEffect", new MemoryStream(BitConverter.GetBytes(2)));
-        Clipboard.SetDataObject(data, true);
+        if (!ClipboardRetry.TrySetDataObject(data, out var clipboardError)) return clipboardError;
         _pendingExternalMoves.Clear();
         foreach (var entry in localFiles)
         {

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using AccessibleMediaController.Windows.Controls;
+using AccessibleMediaController.Windows.Services;
 
 namespace AccessibleMediaController.Windows;
 
@@ -63,8 +64,12 @@ public partial class InformationWindow : AccessibleWindow
 
     private void Copy_Click(object sender, RoutedEventArgs e)
     {
-        Clipboard.SetText(_information);
-        CopyStatusText.Announce("Skopiowano wszystkie informacje");
+        if (ClipboardRetry.TrySetText(_information, out var errorMessage))
+        {
+            CopyStatusText.Announce("Skopiowano wszystkie informacje");
+            return;
+        }
+        CopyStatusText.Announce(errorMessage);
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
