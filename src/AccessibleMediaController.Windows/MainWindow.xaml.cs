@@ -84,6 +84,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly System.Windows.Forms.ToolStripStatusLabel _playbackStatusLabel;
 
     private const int WmKeyDown = 0x0100;
+    private const int VirtualKeyC = 0x43;
     private const int VirtualKeyE = 0x45;
     private const int VirtualKeyG = 0x47;
     private const int VirtualKeyR = 0x52;
@@ -4275,6 +4276,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Action? action = (modifiers, wParam.ToInt32()) switch
         {
             (ModifierKeys.Control, VirtualKeyZ) => UndoLastMembershipChange,
+            (ModifierKeys.Control | ModifierKeys.Shift, VirtualKeyC)
+                when _playerViewActive || MediaList.IsKeyboardFocusWithin => CopyActionItemLocation,
             (ModifierKeys.Control | ModifierKeys.Shift, VirtualKeyE) => () => ExecuteCommand(CommandIds.TimeElapsed),
             (ModifierKeys.Control | ModifierKeys.Shift, VirtualKeyG) => () => ExecuteCommand(CommandIds.SettingsToggleSeekMessages),
             (ModifierKeys.Control | ModifierKeys.Shift, VirtualKeyR) => () => ExecuteCommand(CommandIds.TimeRemaining),
@@ -5351,6 +5354,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void CopyActionItemLocation()
     {
+        DiagnosticLog.Info(
+            "clipboard",
+            $"Polecenie Ctrl+Shift+C; widok: {_currentView}; odtwarzacz: {_playerViewActive}; zaznaczenie: {ActionItems.Count}.");
         var message = CopyItemLocations(ActionItems, _sessions.Current.Id);
         if (message.Length > 0) Announce(message);
     }

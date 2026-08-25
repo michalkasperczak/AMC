@@ -18,12 +18,19 @@ internal static class ClipboardRetry
     {
         ArgumentNullException.ThrowIfNull(data);
         Exception? lastError = null;
-        foreach (var delay in RetryDelaysMilliseconds)
+        var dataDescription = DescribeData(data);
+        for (var attempt = 0; attempt < RetryDelaysMilliseconds.Length; attempt++)
         {
+            var delay = RetryDelaysMilliseconds[attempt];
             if (delay > 0) Thread.Sleep(delay);
             try
             {
                 Clipboard.SetDataObject(data, true);
+                DiagnosticLog.Info(
+                    "clipboard",
+                    attempt == 0
+                        ? $"Zapisano schowek: {dataDescription}."
+                        : $"Zapisano schowek po {attempt + 1} próbach: {dataDescription}.");
                 errorMessage = string.Empty;
                 return true;
             }
@@ -37,6 +44,24 @@ internal static class ClipboardRetry
             ? $" Kod 0x{external.ErrorCode:X8}."
             : string.Empty;
         errorMessage = $"Schowek jest zajęty przez inną aplikację. Spróbuj ponownie.{code}";
+        DiagnosticLog.Error(
+            "clipboard",
+            $"Nie udało się zapisać schowka po {RetryDelaysMilliseconds.Length} próbach: {dataDescription}.",
+            lastError);
         return false;
+    }
+
+    private static string DescribeData(object data)
+    {
+        if (data is not IDataObject dataObject) return data.GetType().Name;
+        try
+        {
+            var formats = dataObject.GetFormats(false);
+            return formats.Length == 0 ? "brak formatów" : string.Join(", ", formats);
+        }
+        catch (Exception exception) when (exception is ExternalException or InvalidOperationException)
+        {
+            return data.GetType().Name;
+        }
     }
 }

@@ -1,12 +1,34 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-093`
-- Tytuł zestawu: SQLite i bezpieczne pliki chmurowe
-- Wersja programu: `0.1.0-alpha.93`
+- Numer zestawu: `AMC-TEST-094`
+- Tytuł zestawu: Niezawodne kopiowanie plików
+- Wersja programu: `0.1.0-alpha.94`
 - Utworzono: 2026-08-25, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.93.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.94.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 94
+
+### AMC-094-01 — Ctrl+Shift+C na liście i w odtwarzaczu
+
+Na lokalnej liście zaznacz jeden plik i naciśnij `Ctrl+Shift+C`. Powtórz próbę z kilkoma plikami, a następnie w otwartym odtwarzaczu. Wklej do edytora tekstowego i do pustego folderu w Eksploratorze albo Total Commanderze.
+
+Oczekiwane: za każdym razem pojawia się komunikat o skopiowaniu, tekst zawiera pełne ścieżki, a menedżer plików otrzymuje fizyczne pliki. Skrót nie przestaje działać po szybkim powtórzeniu.
+
+### AMC-094-02 — Rozróżnienie konfliktu schowka
+
+Jeżeli kopiowanie znowu zawiedzie, niczego nie zamykaj i od razu zapisz, co powiedział NVDA. Log `%LocalAppData%\AccessibleMediaController\logs\amc.log` powinien zawierać sekcję `clipboard`.
+
+Oczekiwane: wpis „Polecenie Ctrl+Shift+C” dowodzi, że klawisz dotarł do AMC. Kolejny wpis mówi o udanym zapisie albo podaje wyjątek Windows po sześciu próbach. Jeżeli nie ma pierwszego wpisu, kombinację przejęła zewnętrzna aplikacja lub globalny dodatek, zanim dotarła do okna AMC.
+
+### AMC-094-03 — Pola tekstowe i regresja
+
+W polu filtra albo wyszukiwania wpisz tekst i użyj standardowych poleceń schowka. Następnie sprawdź zwykłe `Ctrl+C`, szybkie informacje, odtwarzanie pliku lokalnego oraz Bibliotekę SQLite.
+
+Oczekiwane: niski mechanizm skrótu nie przejmuje klawiszy w polach tekstowych. Pozostałe funkcje alpha 93 działają bez regresji.
+
+## Poprzedni zestaw alpha 93
 
 ## Nowości alpha 93
 
