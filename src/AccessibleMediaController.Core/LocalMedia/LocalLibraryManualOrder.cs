@@ -10,8 +10,48 @@ public enum ManualOrderMoveResult
     InvalidSelection
 }
 
+public readonly record struct ManualOrderPosition(string ItemId, int Index);
+
 public static class LocalLibraryManualOrder
 {
+    public static IReadOnlyList<ManualOrderPosition> CapturePositions(
+        IReadOnlyList<string> storedOrder,
+        IEnumerable<string> itemIds)
+    {
+        ArgumentNullException.ThrowIfNull(storedOrder);
+        ArgumentNullException.ThrowIfNull(itemIds);
+        var selected = itemIds.ToHashSet(StringComparer.Ordinal);
+        return storedOrder
+            .Select((itemId, index) => new ManualOrderPosition(itemId, index))
+            .Where(entry => selected.Contains(entry.ItemId))
+            .ToArray();
+    }
+
+    public static void RestorePositions(
+        IList<string> storedOrder,
+        IEnumerable<ManualOrderPosition> positions)
+    {
+        ArgumentNullException.ThrowIfNull(storedOrder);
+        ArgumentNullException.ThrowIfNull(positions);
+        var entries = positions
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.ItemId))
+            .GroupBy(entry => entry.ItemId, StringComparer.Ordinal)
+            .Select(group => group.OrderBy(entry => entry.Index).First())
+            .OrderBy(entry => entry.Index)
+            .ToArray();
+        if (entries.Length == 0) return;
+
+        var restoredIds = entries.Select(entry => entry.ItemId).ToHashSet(StringComparer.Ordinal);
+        for (var index = storedOrder.Count - 1; index >= 0; index--)
+        {
+            if (restoredIds.Contains(storedOrder[index])) storedOrder.RemoveAt(index);
+        }
+        foreach (var entry in entries)
+        {
+            storedOrder.Insert(Math.Clamp(entry.Index, 0, storedOrder.Count), entry.ItemId);
+        }
+    }
+
     public static List<string> Normalize(
         IEnumerable<string>? storedOrder,
         IEnumerable<MediaItem> catalog,

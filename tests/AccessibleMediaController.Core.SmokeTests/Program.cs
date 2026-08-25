@@ -1614,6 +1614,28 @@ static void TestLocalLibraryManualOrder()
     True(
         orderWithHiddenItems.SequenceEqual(["a", "ukryty-1", "c", "ukryty-2", "b"]),
         "Przenoszenie nie powinno gubić pozycji chwilowo niewidocznych plików.");
+
+    var orderBeforeRemoval = new List<string> { "a", "b", "c", "d", "e" };
+    var removedPositions = LocalLibraryManualOrder.CapturePositions(
+        orderBeforeRemoval,
+        ["b", "d"]);
+    var orderAfterSaveWithoutRemovedItems = LocalLibraryManualOrder.Normalize(
+        orderBeforeRemoval,
+        [alpha, charlie, new MediaItem { Id = "e", Title = "Echo" }]);
+    True(
+        orderAfterSaveWithoutRemovedItems.SequenceEqual(["a", "c", "e"]),
+        "Trwałe usunięcie rekordów powinno usunąć ich identyfikatory z bieżącego porządku.");
+    LocalLibraryManualOrder.RestorePositions(orderAfterSaveWithoutRemovedItems, removedPositions);
+    True(
+        orderAfterSaveWithoutRemovedItems.SequenceEqual(["a", "b", "c", "d", "e"]),
+        "Ctrl+Z powinno odtworzyć dokładne pozycje kilku usuniętych elementów.");
+
+    var withGenuinelyNewItem = LocalLibraryManualOrder.Normalize(
+        orderAfterSaveWithoutRemovedItems,
+        [alpha, bravo, charlie, delta, new MediaItem { Id = "e", Title = "Echo" }, new MediaItem { Id = "f", Title = "Foxtrot" }]);
+    True(
+        withGenuinelyNewItem.SequenceEqual(["a", "b", "c", "d", "e", "f"]),
+        "Rzeczywiście nowy plik powinien nadal trafić na koniec kolejności własnej.");
 }
 
 static void TestLocalAlbumInference()

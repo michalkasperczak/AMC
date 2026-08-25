@@ -3533,6 +3533,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 _localItems.Insert(Math.Clamp(entry.Index, 0, _localItems.Count), entry.Item);
             }
         }
+        LocalLibraryManualOrder.RestorePositions(
+            _state.LocalMedia.CustomOrderItemIds,
+            undo.CustomOrderPositions);
         RemoveLocalExclusions(undo.CatalogItems.Select(entry => entry.Item.Source ?? string.Empty));
         if (!restoredDetachedSession)
         {
@@ -3979,6 +3982,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .OrderBy(entry => entry.Index)
             .ToArray();
         if (catalogEntries.Length == 0) return;
+        EnsureLocalCustomOrder();
+        var customOrderPositions = LocalLibraryManualOrder.CapturePositions(
+            _state.LocalMedia.CustomOrderItemIds,
+            catalogEntries.Select(entry => entry.Item.Id));
         if (filesRemainOnDisk) AddLocalExclusions(items);
         else RemoveLocalExclusions(items.Select(item => item.Source ?? string.Empty));
 
@@ -4023,7 +4030,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 items.Count == 1
                     ? $"Przywrócono w AMC: {items[0].Title}"
                     : $"Przywrócono w AMC: {FormatItemCount(items.Count)}",
-                detachedSession));
+                detachedSession,
+                customOrderPositions));
         }
 
         if (detachedSession is not null)
@@ -5748,5 +5756,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IReadOnlyList<RemovedMediaItem> CatalogItems,
         IReadOnlyList<RemovedMediaItem> SessionItems,
         string Announcement,
-        RemovedSessionRegistration? DetachedSession = null);
+        RemovedSessionRegistration? DetachedSession,
+        IReadOnlyList<ManualOrderPosition> CustomOrderPositions);
 }

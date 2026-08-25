@@ -1,12 +1,34 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-094`
-- Tytuł zestawu: Niezawodne kopiowanie plików
-- Wersja programu: `0.1.0-alpha.94`
+- Numer zestawu: `AMC-TEST-095`
+- Tytuł zestawu: Przywracanie pozycji w Bibliotece
+- Wersja programu: `0.1.0-alpha.95`
 - Utworzono: 2026-08-25, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.94.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.95.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 95
+
+### AMC-095-01 — Jedno usunięcie i Ctrl+Z
+
+Otwórz `Alt+3`, wybierz plik ze środka Kolejności własnej, naciśnij `Delete`, a następnie `Ctrl+Z`.
+
+Oczekiwane: plik wraca dokładnie pomiędzy tych samych sąsiadów, jest zaznaczony i nie ląduje na końcu listy.
+
+### AMC-095-02 — Zaznaczony blok
+
+W Kolejności własnej zaznacz Shiftem dwa lub trzy sąsiednie pliki, usuń je i cofnij jednym `Ctrl+Z`.
+
+Oczekiwane: cały blok wraca na poprzednią pozycję i zachowuje wewnętrzną kolejność.
+
+### AMC-095-03 — Foldery, alfabet i nowy plik
+
+Powtórz usunięcie i cofnięcie w `Alt+1` oraz `Alt+2`. Następnie dodaj rzeczywiście nowy plik i przejdź do `Alt+3`.
+
+Oczekiwane: w Folderach plik wraca do właściwego folderu, we Wszystkich plikach do miejsca alfabetycznego, a jedynie nowy plik pojawia się na końcu Kolejności własnej.
+
+## Poprzedni zestaw alpha 94
 
 ## Nowości alpha 94
 
