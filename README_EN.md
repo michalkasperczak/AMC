@@ -210,6 +210,10 @@ In `alpha.91`, every clipboard write shares handling for temporary Windows clipb
 
 In `alpha.92`, selection fields in **Item or folder playback options** expose only their user-facing labels to UI Automation. NVDA should no longer announce class names or representations such as `ResumeChoice { Value = ... }`; the fix covers both resume-policy and playback-rate choices.
 
+In `alpha.93`, the Library catalogue, folder sources, exclusions, orders, History and Bookmarks move from the large JSON state file to a local **SQLite** database. The first launch performs a transactional migration, verifies the stored item count and retains `state.pre-sqlite-migration.json` as the pre-migration copy. The database is `%LocalAppData%\AccessibleMediaController\library.db`; settings and profiles remain in `%AppData%\AccessibleMediaController\state.json`, while the full `.amcbackup.json` export remains one portable format.
+
+Opening a decoder and disposing the previous audio pipeline now happen away from the UI thread. Scanning, Folder view, All files, Albums, quick Left-arrow information and `Alt+Enter` never open a cloud placeholder payload, so they do not download a whole folder or even the selected item. Only an explicit request to play one file may ask iCloud Drive, OneDrive or Google Drive to hydrate it. AMC announces the cloud download, keeps focus, menus and shortcuts responsive, allows cancellation, and reports a two-minute timeout instead of blocking the window. Rotating diagnostics are stored in `%LocalAppData%\AccessibleMediaController\logs`, retaining at most five files of approximately 5 MB each.
+
 From `alpha.89`, `Delete` is the only removal key. `Backspace` never deletes an item: in Folders it opens the parent directory, inside an album or another container it moves up one level, and in the player it returns to the list while applying the normal pause policy. Text fields retain ordinary character deletion, while a top-level list announces that no parent level exists. `Alt+Left/Right` remains visited-view history and does not replace parent semantics.
 
 The current demonstration catalogue may present combined test results. A real TIDAL adapter will be an isolated module: `Ctrl+Shift+F` may initiate its query, but TIDAL content will not be mixed into one list with content from similar services. AMC opens a separate, attributed TIDAL results view while retaining the shared commands.
@@ -236,7 +240,7 @@ The program recognizes three file types:
 
 Passwords, tokens and login data are never exported.
 
-The working configuration is stored in `%AppData%\AccessibleMediaController\state.json`.
+Working settings and profiles are stored in `%AppData%\AccessibleMediaController\state.json`. The local Library catalogue and its relationships are stored in `%LocalAppData%\AccessibleMediaController\library.db`. A full `.amcbackup.json` export still combines both sets into one portable file.
 
 ## Updates
 

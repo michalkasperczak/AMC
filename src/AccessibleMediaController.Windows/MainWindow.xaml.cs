@@ -64,6 +64,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private string? _focusContextPrefix;
     private ListBoxItem? _focusContextContainer;
     private readonly WindowsMediaOutput _localOutput = new();
+    private string? _cloudPreparingItemId;
     private readonly List<MediaItem> _localItems = [];
     private readonly Dictionary<string, string> _pendingExternalMoves =
         new(StringComparer.Ordinal);
@@ -99,6 +100,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public MainWindow(PersistedState state, ConfigurationStore store)
     {
+        DiagnosticLog.Info("startup", "Tworzenie głównego okna.");
         InitializeComponent();
         const string initialStatus = "pauza, 0:00";
         _playbackStatusLabel = new System.Windows.Forms.ToolStripStatusLabel
@@ -139,14 +141,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
         _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);
         LoadPersistedLocalMedia();
+        DiagnosticLog.Info("startup", $"Odtworzono w pamięci {state.LocalMedia.Items.Count} rekordów Biblioteki.");
         _localOutput.DurationAvailable += LocalOutput_DurationAvailable;
         _localOutput.PlaybackFailed += LocalOutput_PlaybackFailed;
         _localOutput.PlaybackEnded += LocalOutput_PlaybackEnded;
+        _localOutput.PlaybackPreparing += LocalOutput_PlaybackPreparing;
+        _localOutput.PlaybackStarted += LocalOutput_PlaybackStarted;
         ApplyDetailedHints();
         RebuildCore();
+        DiagnosticLog.Info("startup", "Odtworzono sesje i kontekst odtwarzania.");
         RestoreCurrentSessionNavigationState();
         UpdatePlaybackStatusBar();
         _playerUiTimer.Start();
+        DiagnosticLog.Info("startup", "Główne okno jest gotowe do pokazania.");
     }
 
     private void NormalizeLocalLibraryNavigationAtStartup()
@@ -621,7 +628,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var item = session.CurrentItem;
         var position = session.Position;
         var duration = item.Duration;
-        var state = session.IsPlaying ? "Odtwarzanie" : "Pauza";
+        var preparing = string.Equals(session.Id, "local", StringComparison.Ordinal)
+            && _localOutput.IsPreparing;
+        var state = preparing
+            ? (_cloudPreparingItemId is null ? "Otwieranie" : "Pobieranie z chmury")
+            : session.IsPlaying ? "Odtwarzanie" : "Pauza";
 
         PlayerTitleText.Text = item.Title;
         PlayerArtistText.Text = string.IsNullOrWhiteSpace(item.Artist)
@@ -633,11 +644,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerTimeText.Text = duration > TimeSpan.Zero
             ? $"{CommandRouter.FormatTime(position)} z {CommandRouter.FormatTime(duration)}"
             : CommandRouter.FormatTime(position);
-        PlayerPlayPauseButton.Content = session.IsPlaying ? "_Wstrzymaj" : "_Odtwórz";
+        PlayerPlayPauseButton.Content = preparing ? "_Anuluj" : session.IsPlaying ? "_Wstrzymaj" : "_Odtwórz";
 
         if (!updateAccessibleName) return;
         var artist = string.IsNullOrWhiteSpace(item.Artist) ? item.KindLabel : item.Artist;
-        var action = session.IsPlaying ? "Wstrzymaj" : "Odtwórz";
+        var action = preparing ? "Anuluj otwieranie" : session.IsPlaying ? "Wstrzymaj" : "Odtwórz";
         var focusContext = _playerFocusContextPrefix;
         _playerFocusContextPrefix = null;
         AutomationProperties.SetName(
@@ -677,7 +688,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var session = _sessions.Current;
         var item = session.CurrentItem;
         var position = session.Position;
-        var state = session.IsPlaying ? "Odtwarzanie" : "Pauza";
+        var preparing = string.Equals(session.Id, "local", StringComparison.Ordinal)
+            && _localOutput.IsPreparing;
+        var state = preparing
+            ? (_cloudPreparingItemId is null ? "Otwieranie" : "Pobieranie z chmury")
+            : session.IsPlaying ? "Odtwarzanie" : "Pauza";
         var time = item.Duration > TimeSpan.Zero
             ? $"{CommandRouter.FormatTime(position)} z {CommandRouter.FormatTime(item.Duration)}"
             : $"{CommandRouter.FormatTime(position)}, czas całkowity nieznany";
@@ -1002,6 +1017,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 // File details can disappear between opening the list and the dialog.
             }
+            if (CloudFileAvailability.RequiresHydration(localPath))
+            {
+                technicalLines.Add("Dostępność: plik w chmurze, pobierany dopiero przy odtwarzaniu");
+            }
         }
         if (item.BitrateKbps is int bitrate)
         {
@@ -1075,6 +1094,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             var extension = Path.GetExtension(localPath).TrimStart('.');
             if (!string.IsNullOrWhiteSpace(extension)) details.Add(extension.ToUpperInvariant());
+            if (CloudFileAvailability.RequiresHydration(localPath))
+            {
+                details.Add("plik w chmurze, pobierany przy odtwarzaniu");
+            }
         }
         if (!string.IsNullOrWhiteSpace(item.Artist)) details.Add(item.Artist);
         if (item.Duration > TimeSpan.Zero) details.Add(CommandRouter.FormatTime(item.Duration));
@@ -1882,6 +1905,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private static (long? FileLength, long? LastWriteUtcTicks) GetFileFingerprint(string? path)
     {
         if (string.IsNullOrWhiteSpace(path)) return (null, null);
+        // Reading FileInfo.Length for RecallOnDataAccess placeholders may ask a
+        // cloud provider to hydrate data. Fingerprints for those files are
+        // refreshed only after explicit playback has made the payload local.
+        if (CloudFileAvailability.GetState(path) != CloudFileState.Local) return (null, null);
         try
         {
             var file = new FileInfo(path);
@@ -2240,6 +2267,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void LocalOutput_PlaybackFailed(object? sender, MediaOutputFailedEventArgs e)
     {
+        _cloudPreparingItemId = null;
         _sessions.FindSession("local")?.MarkPlaybackFailed();
         RefreshPlaybackIndicators();
         if (_playerViewActive) UpdatePlayerView(true);
@@ -2250,8 +2278,34 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Announce($"Nie można odtworzyć: {title}. {e.Message}");
     }
 
+    private void LocalOutput_PlaybackPreparing(object? sender, MediaPlaybackPreparingEventArgs e)
+    {
+        _cloudPreparingItemId = e.CloudDownloadRequired ? e.Item.Id : null;
+        if (_playerViewActive) UpdatePlayerView(true);
+        UpdatePlaybackStatusBar();
+        if (e.CloudDownloadRequired)
+        {
+            AnnounceEssential($"Pobieranie z chmury: {e.Item.Title}. Interfejs pozostaje dostępny");
+        }
+    }
+
+    private void LocalOutput_PlaybackStarted(object? sender, MediaPlaybackStartedEventArgs e)
+    {
+        var completedCloudDownload = string.Equals(
+            _cloudPreparingItemId,
+            e.Item.Id,
+            StringComparison.Ordinal);
+        _cloudPreparingItemId = null;
+        RefreshPlaybackIndicators();
+        if (_playerViewActive) UpdatePlayerView(true);
+        UpdatePlaybackStatusBar();
+        UpdateWindowTitle();
+        if (completedCloudDownload) Announce($"Odtwarzanie: {e.Item.Title}");
+    }
+
     private void LocalOutput_PlaybackEnded(object? sender, MediaPlaybackEndedEventArgs e)
     {
+        _cloudPreparingItemId = null;
         var localSession = _sessions.FindSession("local");
         var nextItem = localSession?.ContinueAfterPlaybackEnded(e.Item);
         if (localSession is not null && nextItem is not null) RecordPlayback(localSession, nextItem);

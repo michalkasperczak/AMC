@@ -217,6 +217,10 @@ W `alpha.91` wszystkie zapisy do schowka mają wspólną obsługę chwilowej blo
 
 W `alpha.92` pola wyboru w **Opcjach odtwarzania elementu lub folderu** przekazują do UI Automation wyłącznie etykiety przeznaczone dla użytkownika. NVDA nie powinien już odczytywać nazw klas ani zapisów takich jak `ResumeChoice { Value = ... }`; dotyczy to zarówno reguł pamiętania pozycji, jak i prędkości.
 
+W `alpha.93` katalog Biblioteki, źródła folderowe, wykluczenia, kolejności, Historia i Zakładki zostały przeniesione z dużego pliku JSON do lokalnej bazy **SQLite**. Pierwsze uruchomienie wykonuje jednorazową migrację transakcyjną, sprawdza liczbę zapisanych rekordów i pozostawia plik `state.pre-sqlite-migration.json` jako kopię sprzed migracji. Baza znajduje się w `%LocalAppData%\AccessibleMediaController\library.db`; ustawienia i profile nadal są w `%AppData%\AccessibleMediaController\state.json`, a pełny eksport `.amcbackup.json` zachowuje dotychczasowy format przenośny.
+
+Otwieranie dekodera i zamykanie poprzedniego toru audio odbywa się teraz poza wątkiem interfejsu. Skanowanie, Foldery, Wszystkie pliki, Albumy, szybka informacja pod lewą strzałką i `Alt+Enter` nie otwierają treści placeholdera chmurowego, więc nie pobierają całego folderu ani nawet wybranego pliku. Dopiero jawne odtworzenie konkretnego pliku może zlecić iCloud Drive, OneDrive albo Google Drive jego pobranie. AMC oznajmia wtedy „Pobieranie z chmury”, pozostawia działające menu, fokus i skróty, pozwala anulować operację i po dwóch minutach zgłasza przekroczenie czasu zamiast blokować okno. Rotacyjne logi diagnostyczne znajdują się w `%LocalAppData%\AccessibleMediaController\logs`; przechowywanych jest najwyżej pięć plików po około 5 MB.
+
 Od `alpha.89` `Delete` jest jedynym klawiszem usuwania. `Backspace` nigdy nie usuwa elementu: w Folderach otwiera folder nadrzędny, wewnątrz albumu lub innego kontenera wraca o jeden poziom, a w odtwarzaczu wraca do listy z zastosowaniem zwykłej reguły pauzy. W polach tekstowych zachowuje standardowe kasowanie znaku, a na najwyższym poziomie listy podaje, że nie ma poziomu nadrzędnego. `Alt+strzałka w lewo/prawo` pozostaje historią odwiedzonych widoków i nie zastępuje semantyki rodzica.
 
 Obecny katalog demonstracyjny może pokazywać wspólne wyniki testowe. Prawdziwy adapter TIDAL będzie modułem izolowanym: `Ctrl+Shift+F` może uruchomić jego zapytanie, ale treści TIDAL nie zostaną wymieszane na jednej liście z treściami podobnych usług. AMC otworzy osobny, oznaczony widok wyników TIDAL i zachowa działanie wszystkich wspólnych skrótów.
@@ -251,7 +255,7 @@ Program rozróżnia trzy rodzaje plików:
 
 Żaden eksport nie zawiera haseł, tokenów ani danych logowania.
 
-Robocza konfiguracja programu jest przechowywana w `%AppData%\AccessibleMediaController\state.json`.
+Ustawienia robocze i profile programu są przechowywane w `%AppData%\AccessibleMediaController\state.json`. Lokalny katalog Biblioteki i jego relacje znajdują się w `%LocalAppData%\AccessibleMediaController\library.db`. Pełna kopia `.amcbackup.json` nadal łączy oba zbiory w jeden przenośny plik.
 
 ## Aktualizacje
 

@@ -1,12 +1,46 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-092`
-- Tytuł zestawu: Czytelne opcje odtwarzania
-- Wersja programu: `0.1.0-alpha.92`
+- Numer zestawu: `AMC-TEST-093`
+- Tytuł zestawu: SQLite i bezpieczne pliki chmurowe
+- Wersja programu: `0.1.0-alpha.93`
 - Utworzono: 2026-08-25, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.92.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.93.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 93
+
+### AMC-093-01 — Jednorazowa migracja Biblioteki do SQLite
+
+Uruchom alpha 93 na dotychczasowych danych. Sprawdź liczbę plików i źródeł oraz kilka pozycji w Bibliotece, Ulubionych, Kolejce, Historii i Zakładkach. Zamknij AMC, uruchom ponownie i sprawdź te same elementy.
+
+Oczekiwane: pierwsze uruchomienie może potrwać chwilę, lecz nic nie znika i nie powstają duplikaty. Drugie uruchomienie odczytuje ten sam stan. W `%LocalAppData%\AccessibleMediaController` istnieje `library.db`, a w `%AppData%\AccessibleMediaController` pozostaje jednorazowa kopia `state.pre-sqlite-migration.json`.
+
+### AMC-093-02 — Indeksowanie chmury bez pobierania
+
+W Menedżerze Biblioteki odśwież przez `F5` źródło zawierające pliki dostępne tylko online. Przejdź po nim przez Foldery, Wszystkie pliki i Albumy; użyj lewej strzałki oraz `Alt+Enter`, ale nie uruchamiaj odtwarzania.
+
+Oczekiwane: pliki są widoczne, interfejs i NVDA pozostają responsywne, a dostawca chmury nie rozpoczyna pobierania plików ani całego folderu. Szybka informacja i właściwości określają element jako plik w chmurze zamiast wymuszać odczyt nagłówka.
+
+### AMC-093-03 — Jawne pobranie jednego pliku
+
+Na pliku dostępnym tylko online naciśnij Enter. Podczas pobierania użyj Tabu, menu, odczytu tytułu okna i zwykłych skrótów; w osobnej próbie anuluj przez Escape albo wybierz inny lokalny utwór.
+
+Oczekiwane: AMC mówi „Pobieranie z chmury” i pozostaje dostępny. Pobierany jest tylko świadomie wybrany plik. Po ukończeniu zaczyna się odtwarzanie; po anulowaniu lub zmianie elementu spóźnione poprzednie żądanie nie może rozpocząć dźwięku.
+
+### AMC-093-04 — Brak sieci, timeout i powrót do lokalnego pliku
+
+Jeżeli możesz bezpiecznie zasymulować niedostępną chmurę, spróbuj otworzyć placeholder iCloud, OneDrive albo Google Drive. Nie czekaj na wynik, jeśli nie chcesz wykonywać pełnej próby limitu dwóch minut; sprawdź od razu anulowanie i uruchom lokalny plik.
+
+Oczekiwane: brak sieci lub przekroczenie czasu daje pojedynczy zrozumiały błąd, nie zawiesza okna i nie zamyka AMC. Lokalny plik można następnie odtworzyć normalnie.
+
+### AMC-093-05 — Log diagnostyczny i regresja audio
+
+Odtwórz kolejno dwa lub trzy lokalne pliki, użyj Page Up/Page Down, przewijania, zmiany prędkości, pauzy i zamknięcia programu. Sprawdź `%LocalAppData%\AccessibleMediaController\logs\amc.log`.
+
+Oczekiwane: wszystkie dotychczasowe funkcje audio i komunikaty NVDA działają bez regresji. Log zawiera start programu oraz etapy żądania i rozpoczęcia odtwarzania, ale nie zawiera treści plików. Pojedynczy log nie rośnie powyżej około 5 MB, a archiwów jest najwyżej cztery oprócz bieżącego.
+
+## Poprzedni zestaw alpha 92
 
 ## Nowości alpha 92
 

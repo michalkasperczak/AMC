@@ -10,3 +10,9 @@ Kod źródłowy użytej wersji SoundTouch.Net jest dostępny pod adresem:
 https://github.com/owoudenberg/soundtouch.net/tree/98e5b8fd2f8efed0ddf7c8f66b435bfb231659dc
 
 Biblioteki `SoundTouch.Net.dll` i `SoundTouch.Net.NAudioSupport.dll` są publikowane jako oddzielne, wymienne pliki obok programu.
+
+AMC korzysta również z następujących składników do lokalnego przechowywania Biblioteki:
+
+- **Microsoft.Data.Sqlite 8.0.30** — Copyright (c) .NET Foundation and Contributors, licencja MIT. Pełny tekst: `licenses/Microsoft.Data.Sqlite-MIT.txt`.
+- **SQLitePCLRaw 2.1.12** — Copyright Eric Sink, licencja Apache License 2.0. Pełny tekst: `licenses/SQLitePCLRaw-Apache-2.0.txt`.
+- **SQLite** — silnik bazy danych przekazany do domeny publicznej przez autorów. Oświadczenie: `licenses/SQLite-public-domain.txt`.

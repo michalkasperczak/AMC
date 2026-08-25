@@ -1,9 +1,12 @@
 using System.IO;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Windows.Services;
 
 namespace AccessibleMediaController.Windows;
 
@@ -14,6 +17,10 @@ public partial class App : Application
     private Mutex? _instanceMutex;
     private EventWaitHandle? _activationEvent;
     private RegisteredWaitHandle? _activationRegistration;
+    private DispatcherTimer? _uiHeartbeatTimer;
+    private Timer? _uiWatchdogTimer;
+    private long _lastUiHeartbeat;
+    private int _uiHangReported;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -30,6 +37,49 @@ public partial class App : Application
 
         base.OnStartup(e);
 
+        var localDataDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "AccessibleMediaController");
+        DiagnosticLog.Initialize(Path.Combine(localDataDirectory, "logs"));
+        _lastUiHeartbeat = Stopwatch.GetTimestamp();
+        _uiHeartbeatTimer = new DispatcherTimer(DispatcherPriority.ApplicationIdle)
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _uiHeartbeatTimer.Tick += (_, _) =>
+        {
+            Interlocked.Exchange(ref _lastUiHeartbeat, Stopwatch.GetTimestamp());
+            if (Interlocked.Exchange(ref _uiHangReported, 0) != 0)
+            {
+                DiagnosticLog.Info("ui-watchdog", "Interfejs ponownie odpowiada.");
+            }
+        };
+        _uiHeartbeatTimer.Start();
+        _uiWatchdogTimer = new Timer(
+            _ =>
+            {
+                if (Stopwatch.GetElapsedTime(Interlocked.Read(ref _lastUiHeartbeat)) < TimeSpan.FromSeconds(8)) return;
+                if (Interlocked.Exchange(ref _uiHangReported, 1) == 0)
+                {
+                    DiagnosticLog.Warning("ui-watchdog", "Interfejs nie odpowiedział przez co najmniej 8 sekund.");
+                }
+            },
+            null,
+            TimeSpan.FromSeconds(10),
+            TimeSpan.FromSeconds(3));
+        DispatcherUnhandledException += (_, args) =>
+            DiagnosticLog.Error("unhandled-ui", "Nieobsłużony wyjątek w interfejsie.", args.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+            DiagnosticLog.Error(
+                "unhandled-process",
+                $"Nieobsłużony wyjątek procesu. Zamykanie: {args.IsTerminating}.",
+                args.ExceptionObject as Exception);
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            DiagnosticLog.Error("unobserved-task", "Niezaobserwowany wyjątek zadania.", args.Exception);
+            args.SetObserved();
+        };
+
         _activationEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ActivationEventName);
         _activationRegistration = ThreadPool.RegisterWaitForSingleObject(
             _activationEvent,
@@ -44,15 +94,21 @@ public partial class App : Application
         var configurationDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "AccessibleMediaController");
-        var store = new ConfigurationStore(Path.Combine(configurationDirectory, "state.json"));
+        var store = new ConfigurationStore(
+            Path.Combine(configurationDirectory, "state.json"),
+            Path.Combine(localDataDirectory, "library.db"));
 
         PersistedState state;
         try
         {
             state = store.LoadOrCreate();
+            DiagnosticLog.Info(
+                "storage",
+                $"Załadowano Bibliotekę SQLite: {state.LocalMedia.Items.Count} elementów, {state.LocalMedia.FolderSources.Count} źródła folderowe.");
         }
         catch (Exception exception)
         {
+            DiagnosticLog.Error("storage", "Nie udało się załadować stanu aplikacji.", exception);
             MessageBox.Show(
                 $"Nie udało się odczytać konfiguracji. Program uruchomi ustawienia domyślne.\n\n{exception.Message}",
                 "Dostępny kontroler multimedialny",
@@ -64,10 +120,16 @@ public partial class App : Application
         var mainWindow = new MainWindow(state, store);
         MainWindow = mainWindow;
         mainWindow.Show();
+        DiagnosticLog.Info("startup", "Pokazano główne okno.");
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        DiagnosticLog.Info("application", $"Zamykanie AMC, kod {e.ApplicationExitCode}.");
+        _uiHeartbeatTimer?.Stop();
+        _uiHeartbeatTimer = null;
+        _uiWatchdogTimer?.Dispose();
+        _uiWatchdogTimer = null;
         _activationRegistration?.Unregister(null);
         _activationRegistration = null;
         _activationEvent?.Dispose();
@@ -79,6 +141,7 @@ public partial class App : Application
             _instanceMutex = null;
         }
         base.OnExit(e);
+        DiagnosticLog.Shutdown();
     }
 
     private static void SignalExistingInstance()

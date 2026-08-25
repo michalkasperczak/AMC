@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
@@ -38,6 +40,7 @@ var tests = new (string Name, Action Test)[]
     ("Bezpieczne zarządzanie źródłami Biblioteki", TestLocalFolderSourcePolicy),
     ("Trwała kolejność własna Biblioteki", TestLocalLibraryManualOrder),
     ("Albumy rozpoznawane ze struktury folderów", TestLocalAlbumInference),
+    ("Migracja i trwałość Biblioteki SQLite", TestSqliteLibraryMigration),
     ("Migracja biblioteki alpha.79", TestVersion17LocalLibraryMigration),
     ("Naprawa pustego źródła po alpha.80", TestVersion18EmptySourceMigration),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
@@ -387,6 +390,7 @@ static void TestVersion17LocalLibraryMigration()
         var statePath = Path.Combine(directory, "state.json");
         var store = new ConfigurationStore(statePath);
         var state = ConfigurationStore.CreateDefaultState();
+        state.SchemaVersion = 17;
         var path = Path.Combine(source, "wykluczony.mp3");
         state.LocalMedia.FolderSources.Add(new LocalFolderSourceSettings
         {
@@ -412,10 +416,8 @@ static void TestVersion17LocalLibraryMigration()
         {
             CurrentView = "Biblioteka"
         };
-        store.Save(state);
-
+        WriteLegacyState(statePath, state);
         var document = JsonNode.Parse(File.ReadAllText(statePath))!.AsObject();
-        document["schemaVersion"] = 17;
         var localMedia = document["localMedia"]!.AsObject();
         localMedia.Remove("excludedPaths");
         localMedia.Remove("libraryView");
@@ -429,6 +431,12 @@ static void TestVersion17LocalLibraryMigration()
         Equal(1, loaded.LocalMedia.ExcludedPaths.Count);
         Equal(Path.GetFullPath(path), loaded.LocalMedia.ExcludedPaths[0]);
         Equal(true, loaded.LocalMedia.Items[0].IsAvailable);
+        True(File.Exists(Path.Combine(directory, "library.db")), "Migracja powinna utworzyć bazę SQLite.");
+        True(
+            File.Exists(Path.Combine(directory, "state.pre-sqlite-migration.json")),
+            "Migracja powinna zachować źródłowy JSON.");
+        var settingsOnly = JsonNode.Parse(File.ReadAllText(statePath))!.AsObject();
+        Equal(0, settingsOnly["localMedia"]!["items"]!.AsArray().Count);
     }
     finally
     {
@@ -446,6 +454,7 @@ static void TestVersion18EmptySourceMigration()
         var statePath = Path.Combine(directory, "state.json");
         var store = new ConfigurationStore(statePath);
         var state = ConfigurationStore.CreateDefaultState();
+        state.SchemaVersion = 18;
         state.LocalMedia.FolderSources.Add(new LocalFolderSourceSettings
         {
             Id = "cloud-source",
@@ -465,16 +474,87 @@ static void TestVersion18EmptySourceMigration()
             });
             state.LocalMedia.ExcludedPaths.Add(path);
         }
-        store.Save(state);
-
-        var document = JsonNode.Parse(File.ReadAllText(statePath))!.AsObject();
-        document["schemaVersion"] = 18;
-        File.WriteAllText(statePath, document.ToJsonString());
+        WriteLegacyState(statePath, state);
 
         var loaded = store.LoadOrCreate();
         Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
         Equal(0, loaded.LocalMedia.ExcludedPaths.Count);
         Equal(true, loaded.LocalMedia.Items.All(item => item.IsInLibrary));
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
+static void WriteLegacyState(string path, PersistedState state)
+{
+    var options = new JsonSerializerOptions
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
+    };
+    File.WriteAllText(path, JsonSerializer.Serialize(state, options));
+}
+
+static void TestSqliteLibraryMigration()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-sqlite-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var statePath = Path.Combine(directory, "state.json");
+        var databasePath = Path.Combine(directory, "library.db");
+        var state = ConfigurationStore.CreateDefaultState();
+        state.SchemaVersion = 24;
+        state.LocalMedia.FolderSources.Add(new LocalFolderSourceSettings
+        {
+            Id = "source",
+            DisplayName = "Duża biblioteka",
+            Path = Path.Combine(directory, "Muzyka")
+        });
+        for (var index = 0; index < 1500; index++)
+        {
+            state.LocalMedia.Items.Add(new LocalMediaItemSettings
+            {
+                Id = $"item-{index}",
+                Title = $"Utwór {index}",
+                Path = Path.Combine(directory, "Muzyka", $"Utwór {index}.mp3"),
+                IsFavorite = index % 10 == 0,
+                IsInLibrary = true,
+                IsAvailable = true,
+                ResumePositionTicks = index
+            });
+        }
+        state.LocalMedia.CurrentItemId = "item-1499";
+        state.PlaybackHistory.ItemIdsBySession["local"] = ["item-1499", "item-1498"];
+        state.Bookmarks.Entries.Add(new BookmarkEntry
+        {
+            Id = "bookmark",
+            SessionId = "local",
+            SessionName = "Pliki lokalne",
+            ItemId = "item-1499",
+            ItemTitle = "Utwór 1499",
+            PositionTicks = 1234
+        });
+        WriteLegacyState(statePath, state);
+
+        var store = new ConfigurationStore(statePath, databasePath);
+        var migrated = store.LoadOrCreate();
+        Equal(1500, migrated.LocalMedia.Items.Count);
+        Equal("item-1499", migrated.LocalMedia.CurrentItemId);
+        Equal(2, migrated.PlaybackHistory.ItemIdsBySession["local"].Count);
+        Equal(1, migrated.Bookmarks.Entries.Count);
+        True(File.Exists(databasePath), "Brak pliku Biblioteki SQLite.");
+
+        migrated.LocalMedia.Items[1499].Title = "Zmieniony tytuł";
+        migrated.LocalMedia.Items[1499].HasCustomTitle = true;
+        store.Save(migrated);
+        var reloaded = new ConfigurationStore(statePath, databasePath).LoadOrCreate();
+        Equal(1500, reloaded.LocalMedia.Items.Count);
+        Equal("Zmieniony tytuł", reloaded.LocalMedia.Items.Single(item => item.Id == "item-1499").Title);
+        Equal(true, reloaded.LocalMedia.Items.Single(item => item.Id == "item-1499").HasCustomTitle);
     }
     finally
     {
@@ -1022,10 +1102,39 @@ static void TestLocalAudioFileDiscovery()
         Equal("Utwór 2.FLAC", Path.GetFileName(files[0]));
         Equal("Utwór 10.mp3", Path.GetFileName(files[1]));
         Equal("01 Intro.opus", Path.GetFileName(files[2]));
-    True(LocalAudioFileDiscovery.IsAudioFile("nagranie.aiff"), "AIFF powinien być rozpoznawany.");
-    True(!LocalAudioFileDiscovery.IsAudioFile("okładka.jpg"), "Obraz nie może trafić na listę audio.");
-    Equal(320, LocalAudioFileDiscovery.EstimateBitrateKbps(4_000_000, TimeSpan.FromSeconds(100)));
-    True(LocalAudioFileDiscovery.EstimateBitrateKbps(0, TimeSpan.FromSeconds(100)) is null, "Pusty plik nie ma wiarygodnej przepływności.");
+        var lockedPath = Path.Combine(directory, "Zablokowany.mp3");
+        File.WriteAllBytes(lockedPath, [1, 2, 3]);
+        using (File.Open(lockedPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            var indexedWithoutOpeningPayload = LocalAudioFileDiscovery.FindFiles(directory);
+            True(
+                indexedWithoutOpeningPayload.Contains(lockedPath, StringComparer.OrdinalIgnoreCase),
+                "Indeksowanie folderu nie może wymagać otwarcia danych pliku.");
+        }
+        Equal(CloudFileState.Local, CloudFileAvailability.GetState(lockedPath));
+        var placeholderPath = Path.Combine(directory, "Tylko online.mp3");
+        File.WriteAllBytes(placeholderPath, [1]);
+        try
+        {
+            File.SetAttributes(
+                placeholderPath,
+                File.GetAttributes(placeholderPath) | FileAttributes.Offline);
+            Equal(CloudFileState.Placeholder, CloudFileAvailability.GetState(placeholderPath));
+            True(
+                CloudFileAvailability.RequiresHydration(placeholderPath),
+                "Plik oznaczony jako Offline powinien zostać rozpoznany bez otwierania zawartości.");
+        }
+        finally
+        {
+            File.SetAttributes(placeholderPath, FileAttributes.Normal);
+        }
+        Equal(
+            CloudFileState.Unavailable,
+            CloudFileAvailability.GetState(Path.Combine(directory, "brak.mp3")));
+        True(LocalAudioFileDiscovery.IsAudioFile("nagranie.aiff"), "AIFF powinien być rozpoznawany.");
+        True(!LocalAudioFileDiscovery.IsAudioFile("okładka.jpg"), "Obraz nie może trafić na listę audio.");
+        Equal(320, LocalAudioFileDiscovery.EstimateBitrateKbps(4_000_000, TimeSpan.FromSeconds(100)));
+        True(LocalAudioFileDiscovery.EstimateBitrateKbps(0, TimeSpan.FromSeconds(100)) is null, "Pusty plik nie ma wiarygodnej przepływności.");
     }
     finally
     {

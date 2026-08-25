@@ -5,15 +5,19 @@ using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
+using Microsoft.Data.Sqlite;
 
 namespace AccessibleMediaController.Core.Configuration;
 
-public sealed class ConfigurationStore(string statePath)
+public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 24;
+    public const int CurrentSchemaVersion = 25;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
+    private readonly string statePath;
+    private readonly string migrationBackupPath;
+    private readonly LocalLibraryDatabase libraryDatabase;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -22,18 +26,67 @@ public sealed class ConfigurationStore(string statePath)
         Converters = { new JsonStringEnumConverter() }
     };
 
+    public ConfigurationStore(string statePath, string? libraryDatabasePath = null)
+    {
+        this.statePath = statePath;
+        migrationBackupPath = Path.Combine(
+            Path.GetDirectoryName(statePath) ?? string.Empty,
+            "state.pre-sqlite-migration.json");
+        libraryDatabase = new LocalLibraryDatabase(
+            libraryDatabasePath
+            ?? Path.Combine(Path.GetDirectoryName(statePath) ?? string.Empty, "library.db"));
+    }
+
     public PersistedState LoadOrCreate()
     {
-        if (!File.Exists(statePath))
-        {
-            return CreateDefaultState();
-        }
-
-        var state = JsonSerializer.Deserialize<PersistedState>(File.ReadAllText(statePath), JsonOptions)
-            ?? throw new InvalidDataException("Nie udało się odczytać konfiguracji.");
+        var state = File.Exists(statePath)
+            ? JsonSerializer.Deserialize<PersistedState>(File.ReadAllText(statePath), JsonOptions)
+                ?? throw new InvalidDataException("Nie udało się odczytać konfiguracji.")
+            : CreateDefaultState();
         MigrateState(state);
         ValidateState(state);
         EnsureBuiltInProfile(state);
+
+        try
+        {
+            if (!libraryDatabase.IsInitialized())
+            {
+                if (!HasLibraryPayload(state) && File.Exists(migrationBackupPath))
+                {
+                    var backup = JsonSerializer.Deserialize<PersistedState>(
+                        File.ReadAllText(migrationBackupPath),
+                        JsonOptions);
+                    if (backup is not null)
+                    {
+                        MigrateState(backup);
+                        CopyLibraryPayload(backup, state);
+                    }
+                }
+
+                if (File.Exists(statePath)
+                    && HasLibraryPayload(state)
+                    && !File.Exists(migrationBackupPath))
+                {
+                    File.Copy(statePath, migrationBackupPath, false);
+                }
+
+                libraryDatabase.Initialize(state);
+                WriteStateAtomically(CreateSettingsOnlyState(state));
+            }
+            else
+            {
+                libraryDatabase.LoadInto(state);
+            }
+        }
+        catch (SqliteException exception)
+        {
+            throw new InvalidDataException("Nie udało się odczytać lokalnej bazy Biblioteki SQLite.", exception);
+        }
+
+        NormalizeLocalMedia(state, state.SchemaVersion);
+        NormalizePlaybackHistory(state);
+        NormalizeBookmarks(state);
+        ValidateState(state);
         return state;
     }
 
@@ -46,18 +99,15 @@ public sealed class ConfigurationStore(string statePath)
         NormalizePlaybackHistory(state);
         NormalizeBookmarks(state);
         ValidateState(state);
-        var directory = Path.GetDirectoryName(statePath);
-        if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-        var temporaryPath = $"{statePath}.tmp";
-        File.WriteAllText(temporaryPath, JsonSerializer.Serialize(state, JsonOptions));
-        if (File.Exists(statePath))
+        try
         {
-            File.Replace(temporaryPath, statePath, $"{statePath}.bak", true);
+            libraryDatabase.Save(state);
         }
-        else
+        catch (SqliteException exception)
         {
-            File.Move(temporaryPath, statePath);
+            throw new IOException("Nie udało się zapisać lokalnej bazy Biblioteki SQLite.", exception);
         }
+        WriteStateAtomically(CreateSettingsOnlyState(state));
     }
 
     public void ExportKeyboardMap(string path, KeyboardProfile profile)
@@ -115,6 +165,50 @@ public sealed class ConfigurationStore(string statePath)
         Settings = new AppSettings(),
         KeyboardProfiles = [KeyboardProfile.CreateDefault()]
     };
+
+    private void WriteStateAtomically(PersistedState state)
+    {
+        var directory = Path.GetDirectoryName(statePath);
+        if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+        var temporaryPath = $"{statePath}.tmp";
+        File.WriteAllText(temporaryPath, JsonSerializer.Serialize(state, JsonOptions));
+        if (File.Exists(statePath))
+        {
+            File.Replace(temporaryPath, statePath, $"{statePath}.bak", true);
+        }
+        else
+        {
+            File.Move(temporaryPath, statePath);
+        }
+    }
+
+    private PersistedState CreateSettingsOnlyState(PersistedState state)
+    {
+        var copy = CloneState(state);
+        copy.LocalMedia = new LocalMediaSettings();
+        copy.Bookmarks = new BookmarkSettings();
+        copy.PlaybackHistory = new PlaybackHistorySettings();
+        copy.CollectionOrders = new CollectionOrderSettings();
+        return copy;
+    }
+
+    private static bool HasLibraryPayload(PersistedState state) =>
+        state.LocalMedia.Items.Count > 0
+        || state.LocalMedia.FolderSources.Count > 0
+        || state.LocalMedia.FolderPlaybackOptions.Count > 0
+        || state.LocalMedia.ExcludedPaths.Count > 0
+        || state.LocalMedia.CustomOrderItemIds.Count > 0
+        || state.Bookmarks.Entries.Count > 0
+        || state.PlaybackHistory.ItemIdsBySession.Count > 0
+        || state.CollectionOrders.FavoriteItemIdsBySession.Count > 0;
+
+    private static void CopyLibraryPayload(PersistedState source, PersistedState destination)
+    {
+        destination.LocalMedia = source.LocalMedia;
+        destination.Bookmarks = source.Bookmarks;
+        destination.PlaybackHistory = source.PlaybackHistory;
+        destination.CollectionOrders = source.CollectionOrders;
+    }
 
     private static void EnsureBuiltInProfile(PersistedState state)
     {
