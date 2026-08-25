@@ -218,6 +218,8 @@ In `alpha.94`, local `Ctrl+Shift+C` is additionally intercepted at the window-me
 
 In `alpha.95`, undoing removal of a local catalogue record also restores its exact position in **Custom order**. This works for one file and a selected block. Folders and All files continue to derive position from hierarchy and name, while a genuinely new file — rather than one restored by `Ctrl+Z` — is appended to Custom order.
 
+`alpha.96` extends the same guarantee to collection-only removal. Before a change, AMC records the item's position in **Favorites** or local **Custom order**; `Ctrl+Z` restores both membership and the exact position. An item from the middle is no longer treated as new and appended.
+
 From `alpha.89`, `Delete` is the only removal key. `Backspace` never deletes an item: in Folders it opens the parent directory, inside an album or another container it moves up one level, and in the player it returns to the list while applying the normal pause policy. Text fields retain ordinary character deletion, while a top-level list announces that no parent level exists. `Alt+Left/Right` remains visited-view history and does not replace parent semantics.
 
 The current demonstration catalogue may present combined test results. A real TIDAL adapter will be an isolated module: `Ctrl+Shift+F` may initiate its query, but TIDAL content will not be mixed into one list with content from similar services. AMC opens a separate, attributed TIDAL results view while retaining the shared commands.

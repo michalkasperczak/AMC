@@ -1888,6 +1888,37 @@ static void TestMembershipHistory()
     var batchUndo = history.Undo();
     Equal(2, batchUndo!.Items.Count);
     True(item.IsFavorite && second.IsFavorite, "Jedno cofnięcie powinno przywrócić całą zmianę zbiorową.");
+
+    var firstFavorite = new MediaItem { Id = "favorite-a", Title = "Pierwszy", IsFavorite = true };
+    var middleFavorite = new MediaItem { Id = "favorite-b", Title = "Środkowy", IsFavorite = true };
+    var lastFavorite = new MediaItem { Id = "favorite-c", Title = "Ostatni", IsFavorite = true };
+    var favoriteOrder = new List<string> { firstFavorite.Id, middleFavorite.Id, lastFavorite.Id };
+    var middlePosition = LocalLibraryManualOrder.CapturePositions(favoriteOrder, [middleFavorite.Id])
+        .Select(entry => new MediaMembershipOrderPosition(entry.ItemId, entry.Index))
+        .ToArray();
+    var middleBeforeRemoval = MediaMembershipState.From(middleFavorite);
+    middleFavorite.IsFavorite = false;
+    history.Record(
+        "local",
+        middleFavorite,
+        middleBeforeRemoval,
+        "Przywrócono ulubiony",
+        orderSnapshot: new MediaMembershipOrderSnapshot("favorites", middlePosition));
+    favoriteOrder = LocalLibraryManualOrder.Normalize(
+        favoriteOrder,
+        [firstFavorite, lastFavorite]);
+    True(
+        favoriteOrder.SequenceEqual([firstFavorite.Id, lastFavorite.Id]),
+        "Usunięty ulubiony znika z bieżącego porządku kolekcji.");
+    var favoriteUndo = history.Undo();
+    True(favoriteUndo?.OrderSnapshot is not null, "Historia powinna zachować pozycję w kolekcji.");
+    LocalLibraryManualOrder.RestorePositions(
+        favoriteOrder,
+        favoriteUndo!.OrderSnapshot!.Positions.Select(entry =>
+            new ManualOrderPosition(entry.ItemId, entry.Index)));
+    True(
+        favoriteOrder.SequenceEqual([firstFavorite.Id, middleFavorite.Id, lastFavorite.Id]),
+        "Ctrl+Z powinno przywrócić ulubiony dokładnie w środkowym miejscu, a nie na końcu.");
 }
 
 static void TestBatchMembershipCommands()

@@ -22,11 +22,20 @@ public sealed record MediaMembershipUndoItem(
     MediaItem Item,
     MediaMembershipState PreviousState);
 
+public readonly record struct MediaMembershipOrderPosition(
+    string ItemId,
+    int Index);
+
+public sealed record MediaMembershipOrderSnapshot(
+    string CollectionId,
+    IReadOnlyList<MediaMembershipOrderPosition> Positions);
+
 public sealed record MediaMembershipUndo(
     string SessionId,
     IReadOnlyList<MediaMembershipUndoItem> Items,
     string Announcement,
-    long Sequence = 0)
+    long Sequence = 0,
+    MediaMembershipOrderSnapshot? OrderSnapshot = null)
 {
     public MediaItem Item => Items[0].Item;
 }
@@ -44,21 +53,28 @@ public sealed class MediaMembershipHistory
         MediaItem item,
         MediaMembershipState previousState,
         string announcement,
-        long sequence = 0) =>
-        RecordBatch(sessionId, [(item, previousState)], announcement, sequence);
+        long sequence = 0,
+        MediaMembershipOrderSnapshot? orderSnapshot = null) =>
+        RecordBatch(sessionId, [(item, previousState)], announcement, sequence, orderSnapshot);
 
     public void RecordBatch(
         string sessionId,
         IEnumerable<(MediaItem Item, MediaMembershipState PreviousState)> items,
         string announcement,
-        long sequence = 0)
+        long sequence = 0,
+        MediaMembershipOrderSnapshot? orderSnapshot = null)
     {
         var changedItems = items
             .Where(entry => MediaMembershipState.From(entry.Item) != entry.PreviousState)
             .Select(entry => new MediaMembershipUndoItem(entry.Item, entry.PreviousState))
             .ToArray();
         if (changedItems.Length == 0) return;
-        _entries.Push(new MediaMembershipUndo(sessionId, changedItems, announcement, sequence));
+        _entries.Push(new MediaMembershipUndo(
+            sessionId,
+            changedItems,
+            announcement,
+            sequence,
+            orderSnapshot));
     }
 
     public MediaMembershipUndo? Peek() => _entries.Count == 0 ? null : _entries.Peek();

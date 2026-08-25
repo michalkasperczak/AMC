@@ -225,6 +225,8 @@ W `alpha.94` lokalne `Ctrl+Shift+C` jest dodatkowo przechwytywane na poziomie ko
 
 W `alpha.95` cofnięcie usunięcia lokalnego rekordu odtwarza również jego dokładną pozycję w **Kolejności własnej**. Działa to dla jednego pliku i zaznaczonego bloku. Foldery oraz Wszystkie pliki nadal wyliczają pozycję odpowiednio z hierarchii i nazwy, natomiast rzeczywiście nowy plik — nie przywracany przez `Ctrl+Z` — trafia na koniec Kolejności własnej.
 
+`alpha.96` rozszerza tę samą gwarancję na usuwanie tylko z kolekcji. Przed zmianą AMC zapisuje pozycję elementu w **Ulubionych** albo lokalnej **Kolejności własnej**, a `Ctrl+Z` odtwarza członkostwo i dokładne miejsce. Element ze środka listy nie jest już traktowany jak nowy i dopisywany na końcu.
+
 Od `alpha.89` `Delete` jest jedynym klawiszem usuwania. `Backspace` nigdy nie usuwa elementu: w Folderach otwiera folder nadrzędny, wewnątrz albumu lub innego kontenera wraca o jeden poziom, a w odtwarzaczu wraca do listy z zastosowaniem zwykłej reguły pauzy. W polach tekstowych zachowuje standardowe kasowanie znaku, a na najwyższym poziomie listy podaje, że nie ma poziomu nadrzędnego. `Alt+strzałka w lewo/prawo` pozostaje historią odwiedzonych widoków i nie zastępuje semantyki rodzica.
 
 Obecny katalog demonstracyjny może pokazywać wspólne wyniki testowe. Prawdziwy adapter TIDAL będzie modułem izolowanym: `Ctrl+Shift+F` może uruchomić jego zapytanie, ale treści TIDAL nie zostaną wymieszane na jednej liście z treściami podobnych usług. AMC otworzy osobny, oznaczony widok wyników TIDAL i zachowa działanie wszystkich wspólnych skrótów.

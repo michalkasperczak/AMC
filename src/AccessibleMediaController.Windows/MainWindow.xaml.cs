@@ -2392,6 +2392,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var previousMemberships = changedItems
             .Select(item => (Item: item, Previous: MediaMembershipState.From(item)))
             .ToArray();
+        var orderSnapshot = changesListMembership && changedSession is not null
+            ? CaptureMembershipOrderForCommand(changedSession, commandId, changedItems)
+            : null;
         if (changesListMembership && restoreListFocus) AnchorMediaListFocus();
         if (changesListMembership || mergeSessionAnnouncementWithFocus)
         {
@@ -2429,7 +2432,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 changedSession.Id,
                 previousMemberships,
                 undoAnnouncement,
-                ++_undoSequence);
+                ++_undoSequence,
+                orderSnapshot);
         }
         var sessionChanged = _sessions.Current.Id != oldSession;
         if (sessionChanged)
@@ -3371,6 +3375,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var previousMemberships = items
             .Select(item => (Item: item, Previous: MediaMembershipState.From(item)))
             .ToArray();
+        var orderSnapshot = CaptureMembershipOrderForView(
+            _sessions.Current,
+            _currentView,
+            items);
         AnchorMediaListFocus();
 
         foreach (var item in items)
@@ -3406,7 +3414,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _sessions.Current.Id,
             previousMemberships,
             undoAnnouncement,
-            ++_undoSequence);
+            ++_undoSequence,
+            orderSnapshot);
         if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
             if (_currentView is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName)
@@ -3478,6 +3487,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 DispatcherPriority.ContextIdle);
             return;
         }
+
+        RestoreMembershipOrder(undo);
 
         if (string.Equals(undo.SessionId, "local", StringComparison.Ordinal))
         {
@@ -3571,6 +3582,84 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (row is null) return;
         MediaList.SelectedItem = row;
         MediaList.ScrollIntoView(row);
+    }
+
+    private MediaMembershipOrderSnapshot? CaptureMembershipOrderForCommand(
+        DemoMediaSession session,
+        string commandId,
+        IEnumerable<MediaItem> items) => commandId switch
+        {
+            CommandIds.ToggleFavorite => CaptureFavoriteOrder(session, items),
+            CommandIds.ToggleLibrary when string.Equals(session.Id, "local", StringComparison.Ordinal) =>
+                CaptureLocalCustomOrder(items),
+            _ => null
+        };
+
+    private MediaMembershipOrderSnapshot? CaptureMembershipOrderForView(
+        DemoMediaSession session,
+        string viewName,
+        IEnumerable<MediaItem> items) => viewName switch
+        {
+            "Ulubione" => CaptureFavoriteOrder(session, items),
+            "Biblioteka" or FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName
+                when string.Equals(session.Id, "local", StringComparison.Ordinal) =>
+                CaptureLocalCustomOrder(items),
+            _ => null
+        };
+
+    private MediaMembershipOrderSnapshot CaptureFavoriteOrder(
+        DemoMediaSession session,
+        IEnumerable<MediaItem> items)
+    {
+        var order = EnsureFavoriteOrder(session);
+        return CreateMembershipOrderSnapshot("favorites", order, items);
+    }
+
+    private MediaMembershipOrderSnapshot CaptureLocalCustomOrder(IEnumerable<MediaItem> items)
+    {
+        EnsureLocalCustomOrder();
+        return CreateMembershipOrderSnapshot(
+            "local-custom",
+            _state.LocalMedia.CustomOrderItemIds,
+            items);
+    }
+
+    private static MediaMembershipOrderSnapshot CreateMembershipOrderSnapshot(
+        string collectionId,
+        IReadOnlyList<string> order,
+        IEnumerable<MediaItem> items)
+    {
+        var positions = LocalLibraryManualOrder.CapturePositions(
+                order,
+                items.Select(item => item.Id))
+            .Select(entry => new MediaMembershipOrderPosition(entry.ItemId, entry.Index))
+            .ToArray();
+        return new MediaMembershipOrderSnapshot(collectionId, positions);
+    }
+
+    private void RestoreMembershipOrder(MediaMembershipUndo undo)
+    {
+        if (undo.OrderSnapshot is not { Positions.Count: > 0 } snapshot) return;
+        var positions = snapshot.Positions
+            .Select(entry => new ManualOrderPosition(entry.ItemId, entry.Index));
+        if (string.Equals(snapshot.CollectionId, "favorites", StringComparison.Ordinal))
+        {
+            if (!_state.CollectionOrders.FavoriteItemIdsBySession.TryGetValue(
+                    undo.SessionId,
+                    out var order))
+            {
+                order = [];
+                _state.CollectionOrders.FavoriteItemIdsBySession[undo.SessionId] = order;
+            }
+            LocalLibraryManualOrder.RestorePositions(order, positions);
+            return;
+        }
+        if (string.Equals(snapshot.CollectionId, "local-custom", StringComparison.Ordinal))
+        {
+            LocalLibraryManualOrder.RestorePositions(
+                _state.LocalMedia.CustomOrderItemIds,
+                positions);
+        }
     }
 
     private void SelectMediaItems(IEnumerable<string> itemIds)
@@ -4076,6 +4165,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var session = _sessions.Current;
         var item = session.CurrentItem;
         var previous = MediaMembershipState.From(item);
+        var orderSnapshot = CaptureLocalCustomOrder([item]);
         var wasPlaying = session.IsPlaying;
         item.IsInLibrary = false;
         AddLocalExclusions([item]);
@@ -4084,7 +4174,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             item,
             previous,
             $"Przywrócono w bibliotece: {item.Title}",
-            ++_undoSequence);
+            ++_undoSequence,
+            orderSnapshot);
         RefreshLocalSessionItems();
         TrySaveLocalMediaState(false);
         if (session.HasItems)

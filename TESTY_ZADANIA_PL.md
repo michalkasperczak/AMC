@@ -1,12 +1,34 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-095`
-- Tytuł zestawu: Przywracanie pozycji w Bibliotece
-- Wersja programu: `0.1.0-alpha.95`
+- Numer zestawu: `AMC-TEST-096`
+- Tytuł zestawu: Cofanie bez przenoszenia elementu na koniec
+- Wersja programu: `0.1.0-alpha.96`
 - Utworzono: 2026-08-25, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.95.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.96.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 96
+
+### AMC-096-01 — Dokładnie zgłoszony przypadek w Ulubionych
+
+Otwórz Ulubione, wybierz element ze środka listy, zapamiętaj jego bezpośrednich sąsiadów, naciśnij `Delete`, a potem `Ctrl+Z`.
+
+Oczekiwane: element wraca pomiędzy tych samych sąsiadów, jest zaznaczony i NVDA nie podaje go jako ostatniego elementu listy.
+
+### AMC-096-02 — Kolejność własna Biblioteki
+
+Otwórz `Alt+3`, wybierz element ze środka, naciśnij `Delete` i `Ctrl+Z`. Powtórz z dwoma sąsiednimi elementami zaznaczonymi Shiftem.
+
+Oczekiwane: pojedynczy element albo cały blok wraca na dokładne wcześniejsze miejsce i zachowuje kolejność.
+
+### AMC-096-03 — Polecenie dodaj lub usuń z ulubionych
+
+Na elemencie należącym do Ulubionych użyj polecenia dodaj lub usuń z ulubionych, następnie `Ctrl+Z` i ponownie otwórz Ulubione.
+
+Oczekiwane: cofnięcie przywraca nie tylko stan Ulubiony, lecz także poprzednią pozycję elementu.
+
+## Poprzedni zestaw alpha 95
 
 ## Nowości alpha 95
 
