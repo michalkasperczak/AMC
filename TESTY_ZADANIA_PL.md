@@ -1,12 +1,52 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-097`
-- Tytuł zestawu: Trwałe i dostępne playlisty
-- Wersja programu: `0.1.0-alpha.97`
+- Numer zestawu: `AMC-TEST-098`
+- Tytuł zestawu: Trwała i odtwarzana w ustalonej kolejności Kolejka
+- Wersja programu: `0.1.0-alpha.98`
 - Utworzono: 2026-08-26, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.97.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.98.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 98
+
+### AMC-098-01 — Ręczna kolejność Kolejki
+
+Dodaj do Kolejki co najmniej cztery różne pliki, otwórz ją przez `Ctrl+Q`, zaznacz środkowy element i użyj `Alt+strzałka w górę` oraz `Alt+strzałka w dół`. Powtórz z dwoma sąsiednimi elementami zaznaczonymi Shiftem.
+
+Oczekiwane: pojedynczy element i cały blok zmieniają położenie bez utraty zaznaczenia. NVDA podaje nazwę elementu oraz nowe miejsce. Żaden plik nie znika z Kolejki ani z dysku.
+
+### AMC-098-02 — Odtwórz jako następne i zwykła Kolejka
+
+W jednej Kolejce przygotuj co najmniej dwa elementy przez `Ctrl+Shift+Enter` jako „Odtwórz jako następne” oraz dwa przez `Shift+Enter` jako zwykłą Kolejkę. Spróbuj przenosić elementy wewnątrz obu grup, a następnie zaznacz blok obejmujący obie grupy i użyj `Alt+strzałki`.
+
+Oczekiwane: elementy „Odtwórz jako następne” są na początku. Można porządkować każdą grupę osobno. Dla bloku mieszanego program niczego nie zmienia i mówi, że obie grupy należy przenosić osobno.
+
+### AMC-098-03 — Rzeczywista kolejność odtwarzania
+
+Uruchom plik, który nie należy do przygotowanej Kolejki, a następnie doprowadź go do końca albo użyj krótkich plików testowych. Obserwuj przechodzenie przez wszystkie elementy Kolejki.
+
+Oczekiwane: najpierw odtwarzają się pozycje „Odtwórz jako następne” w kolejności widocznej na liście, następnie zwykła Kolejka także w widocznej kolejności. Zużyty element znika z Kolejki i nie jest powtarzany.
+
+### AMC-098-04 — Cofanie dokładnej pozycji
+
+Przenieś element ze środka Kolejki, naciśnij `Ctrl+Z`, a potem dodaj albo usuń element przez `Shift+Enter` i ponownie użyj `Ctrl+Z`.
+
+Oczekiwane: pierwsze cofnięcie odtwarza dokładne położenie. Drugie przywraca zarówno przynależność, jak i poprzednie miejsce elementu, a fokus pozostaje na właściwym wierszu.
+
+### AMC-098-05 — Restart i odświeżenie Biblioteki
+
+Ustaw własną Kolejkę, zamknij i ponownie uruchom AMC. Następnie naciśnij `F5` w Plikach lokalnych i ponownie otwórz `Ctrl+Q`.
+
+Oczekiwane: układ Kolejki pozostaje identyczny po restarcie oraz po odświeżeniu folderów. Nie wraca do kolejności alfabetycznej ani do kolejności katalogu Biblioteki.
+
+### AMC-098-06 — Osobna Kolejka każdej sesji
+
+Ustaw inną kolejność w Plikach lokalnych i w jednej sesji demonstracyjnej, przełączając sesje przez `Ctrl+1–9` i otwierając `Ctrl+Q`.
+
+Oczekiwane: każda sesja zachowuje własne elementy i własną kolejność. Przenoszenie w jednej usłudze nie zmienia drugiej.
+
+## Poprzedni zestaw alpha 97
 
 ## Nowości alpha 97
 

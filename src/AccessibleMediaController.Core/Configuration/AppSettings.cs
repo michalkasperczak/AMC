@@ -156,7 +156,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 26;
+    public int SchemaVersion { get; set; } = 27;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -218,6 +218,8 @@ public sealed class SessionNavigationState
 public sealed class CollectionOrderSettings
 {
     public Dictionary<string, List<string>> FavoriteItemIdsBySession { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, List<string>> QueueItemIdsBySession { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
 }
 

@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 26;
+    public const int CurrentSchemaVersion = 27;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -204,6 +204,7 @@ public sealed class ConfigurationStore
         || state.Bookmarks.Entries.Count > 0
         || state.PlaybackHistory.ItemIdsBySession.Count > 0
         || state.CollectionOrders.FavoriteItemIdsBySession.Count > 0
+        || state.CollectionOrders.QueueItemIdsBySession.Count > 0
         || state.Playlists.Entries.Count > 0;
 
     private static void CopyLibraryPayload(PersistedState source, PersistedState destination)
@@ -339,6 +340,17 @@ public sealed class ConfigurationStore
         state.CollectionOrders ??= new CollectionOrderSettings();
         state.CollectionOrders.FavoriteItemIdsBySession = new Dictionary<string, List<string>>(
             (state.CollectionOrders.FavoriteItemIdsBySession
+                ?? new Dictionary<string, List<string>>())
+            .ToDictionary(
+                pair => pair.Key,
+                pair => (pair.Value ?? [])
+                    .Where(itemId => !string.IsNullOrWhiteSpace(itemId))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase),
+            StringComparer.OrdinalIgnoreCase);
+        state.CollectionOrders.QueueItemIdsBySession = new Dictionary<string, List<string>>(
+            (state.CollectionOrders.QueueItemIdsBySession
                 ?? new Dictionary<string, List<string>>())
             .ToDictionary(
                 pair => pair.Key,

@@ -14,6 +14,7 @@ public sealed class DemoMediaSession
     private readonly Dictionary<string, TimeSpan> _rememberedPositions = new(StringComparer.Ordinal);
     private int? _resumeAfterQueueIndex;
     private readonly HashSet<string> _playedQueueItemIds = new(StringComparer.Ordinal);
+    private readonly List<string> _queueItemIds = [];
     private List<string> _playbackContextItemIds;
     private readonly Func<MediaItem, double?> _playbackRateOverride;
     private readonly MediaItem _emptyItem;
@@ -57,6 +58,24 @@ public sealed class DemoMediaSession
             : _position;
     public IReadOnlyDictionary<string, TimeSpan> RememberedPositions => _rememberedPositions;
     public IReadOnlyList<string> PlaybackContextItemIds => _playbackContextItemIds;
+    public IReadOnlyList<string> QueueItemIds
+    {
+        get
+        {
+            SynchronizeQueueOrder();
+            return _queueItemIds.ToArray();
+        }
+    }
+
+    public void SetQueueOrder(IEnumerable<string> itemIds)
+    {
+        ArgumentNullException.ThrowIfNull(itemIds);
+        _queueItemIds.Clear();
+        _queueItemIds.AddRange(itemIds
+            .Where(itemId => !string.IsNullOrWhiteSpace(itemId))
+            .Distinct(StringComparer.Ordinal));
+        SynchronizeQueueOrder();
+    }
 
     public void TogglePlayback()
     {
@@ -415,7 +434,14 @@ public sealed class DemoMediaSession
         endedItem.IsInQueue = false;
         endedItem.IsPlayNext = false;
 
-        var next = Items.FirstOrDefault(item =>
+        SynchronizeQueueOrder();
+        var orderedQueue = _queueItemIds
+            .Select(itemId => Items.FirstOrDefault(item =>
+                string.Equals(item.Id, itemId, StringComparison.Ordinal)))
+            .Where(item => item is not null)
+            .Select(item => item!)
+            .ToArray();
+        var next = orderedQueue.FirstOrDefault(item =>
             item.Id != endedItem.Id && item.IsPlayNext);
         if (next is not null)
         {
@@ -423,7 +449,7 @@ public sealed class DemoMediaSession
         }
         else
         {
-            next = Items.FirstOrDefault(item =>
+            next = orderedQueue.FirstOrDefault(item =>
                 item.Id != endedItem.Id && item.IsInQueue);
             if (next is not null) next.IsInQueue = false;
         }
@@ -436,6 +462,7 @@ public sealed class DemoMediaSession
                 ? _playbackContextItemIds.Count
                 : Math.Min(contextIndex + 1, _playbackContextItemIds.Count);
             _playedQueueItemIds.Add(next.Id);
+            SynchronizeQueueOrder();
         }
         else if (_resumeAfterQueueIndex is int resumeIndex)
         {
@@ -493,13 +520,33 @@ public sealed class DemoMediaSession
         var add = !item.IsInQueue && !item.IsPlayNext;
         item.IsInQueue = add;
         if (!add) item.IsPlayNext = false;
+        SynchronizeQueueOrder();
         return add;
     }
 
     public bool TogglePlayNext(MediaItem item)
     {
         item.IsPlayNext = !item.IsPlayNext;
+        SynchronizeQueueOrder();
         return item.IsPlayNext;
+    }
+
+    private void SynchronizeQueueOrder()
+    {
+        var queuedItems = Items
+            .Where(item => item.IsInQueue || item.IsPlayNext)
+            .ToArray();
+        var queuedIds = queuedItems.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        var normalized = _queueItemIds
+            .Where(queuedIds.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var normalizedIds = normalized.ToHashSet(StringComparer.Ordinal);
+        normalized.AddRange(queuedItems
+            .Where(item => normalizedIds.Add(item.Id))
+            .Select(item => item.Id));
+        _queueItemIds.Clear();
+        _queueItemIds.AddRange(normalized);
     }
 
     private void ResetQueueDiversion()

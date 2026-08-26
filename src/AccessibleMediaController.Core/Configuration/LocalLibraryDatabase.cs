@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 /// </summary>
 internal sealed class LocalLibraryDatabase(string databasePath)
 {
-    private const int DatabaseSchemaVersion = 2;
+    private const int DatabaseSchemaVersion = 3;
     private readonly object _gate = new();
 
     public string Path { get; } = databasePath;
@@ -217,6 +217,22 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 }
             }
 
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT session_id, item_id FROM queue_order ORDER BY session_id, ordinal;";
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    var sessionId = reader.GetString(0);
+                    if (!state.CollectionOrders.QueueItemIdsBySession.TryGetValue(sessionId, out var ids))
+                    {
+                        ids = [];
+                        state.CollectionOrders.QueueItemIdsBySession[sessionId] = ids;
+                    }
+                    ids.Add(reader.GetString(1));
+                }
+            }
+
             state.Playlists = new PlaylistSettings();
             var playlistsById = new Dictionary<string, PlaylistEntry>(StringComparer.Ordinal);
             using (var command = connection.CreateCommand())
@@ -367,6 +383,12 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 item_id TEXT NOT NULL,
                 PRIMARY KEY(session_id, ordinal)
             );
+            CREATE TABLE IF NOT EXISTS queue_order (
+                session_id TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                item_id TEXT NOT NULL,
+                PRIMARY KEY(session_id, ordinal)
+            );
             CREATE TABLE IF NOT EXISTS playlists (
                 id TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL,
@@ -385,7 +407,7 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
             );
             CREATE INDEX IF NOT EXISTS ix_playlist_items_item ON playlist_items(item_id);
-            PRAGMA user_version = 2;
+            PRAGMA user_version = 3;
             """;
         command.ExecuteNonQuery();
 
@@ -405,7 +427,7 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                  {
                      "local_items", "folder_sources", "folder_playback_options",
                      "excluded_paths", "custom_order", "local_state", "bookmarks",
-                     "playback_history", "favorite_order", "playlist_items", "playlists"
+                     "playback_history", "favorite_order", "queue_order", "playlist_items", "playlists"
                  })
         {
             Execute(connection, transaction, $"DELETE FROM {table};");
@@ -498,6 +520,16 @@ internal sealed class LocalLibraryDatabase(string databasePath)
             {
                 Execute(connection, transaction,
                     "INSERT INTO favorite_order(session_id, ordinal, item_id) VALUES($session, $ordinal, $item);",
+                    ("$session", pair.Key), ("$ordinal", index), ("$item", pair.Value[index]));
+            }
+        }
+
+        foreach (var pair in state.CollectionOrders.QueueItemIdsBySession)
+        {
+            for (var index = 0; index < pair.Value.Count; index++)
+            {
+                Execute(connection, transaction,
+                    "INSERT INTO queue_order(session_id, ordinal, item_id) VALUES($session, $ordinal, $item);",
                     ("$session", pair.Key), ("$ordinal", index), ("$item", pair.Value[index]));
             }
         }

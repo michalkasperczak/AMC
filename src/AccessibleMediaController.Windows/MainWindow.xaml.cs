@@ -53,6 +53,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly MediaMembershipHistory _membershipHistory = new();
     private readonly Stack<LocalCatalogUndo> _localCatalogHistory = [];
     private readonly Stack<PlaylistStateUndo> _playlistHistory = [];
+    private readonly Stack<QueueOrderUndo> _queueOrderHistory = [];
     private long _undoSequence;
     private bool _initialFocusApplied;
     private bool _deferAnnouncements;
@@ -2343,6 +2344,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _membershipHistory.Clear();
         _localCatalogHistory.Clear();
         _playlistHistory.Clear();
+        _queueOrderHistory.Clear();
         _playbackHistoryCursors.Clear();
         _undoSequence = 0;
         _sessions = new SessionManager(_state.Settings);
@@ -2376,6 +2378,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         local.SetDefaultPlaybackRate(_state.LocalMedia.PlaybackRate);
         local.ApplyPlaybackRateForCurrentItem();
         RestorePlaybackContext(local);
+        EnsureQueueOrder(local);
         if (previousLocalWasPlaying
             && previousLocalItemId is not null
             && local.Items.Any(item => string.Equals(item.Id, previousLocalItemId, StringComparison.Ordinal)))
@@ -2391,6 +2394,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                      !string.Equals(session.Id, "local", StringComparison.Ordinal)))
         {
             RestorePlaybackContext(session);
+            EnsureQueueOrder(session);
         }
     }
 
@@ -2411,6 +2415,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var local = _sessions.FindSession("local");
         if (local is null) return;
         local.ReplaceItems(ActiveLocalItems());
+        EnsureQueueOrder(local);
     }
 
     private SessionNavigationState GetSessionNavigationState(string sessionId)
@@ -2579,6 +2584,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _cloudPreparingItemId = null;
         var localSession = _sessions.FindSession("local");
         var nextItem = localSession?.ContinueAfterPlaybackEnded(e.Item);
+        if (localSession is not null) EnsureQueueOrder(localSession);
         if (localSession is not null && nextItem is not null) RecordPlayback(localSession, nextItem);
         if (string.Equals(_currentView, "Kolejka", StringComparison.Ordinal))
         {
@@ -2679,6 +2685,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         finally
         {
             _deferAnnouncements = false;
+        }
+        if (changedSession is not null
+            && commandId is CommandIds.AddQueue or CommandIds.TogglePlayNext)
+        {
+            EnsureQueueOrder(changedSession);
         }
         if (commandId == CommandIds.ToggleLibrary
             && string.Equals(changedSession?.Id, "local", StringComparison.Ordinal))
@@ -2802,6 +2813,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             || (savesPlaybackBoundary && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)))
         {
             TrySaveLocalMediaState(false);
+        }
+        else if (changesListMembership && changedSession is not null)
+        {
+            _store.Save(_state);
         }
         return result;
     }
@@ -2947,7 +2962,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     .ThenBy(item => item.Source, StringComparer.OrdinalIgnoreCase);
             }
         }
-        if (_currentView == "Kolejka") items = items.Where(item => item.IsInQueue || item.IsPlayNext);
+        if (_currentView == "Kolejka") items = OrderedQueueItems(_sessions.Current);
         if (_currentView == "Albumy") items = items.Where(item => item.Kind == MediaItemKind.Album);
         if (_currentView == "Historia odtwarzania")
         {
@@ -3095,6 +3110,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return normalized;
     }
 
+    private List<string> EnsureQueueOrder(
+        DemoMediaSession session,
+        IEnumerable<MediaItem>? queueItems = null)
+    {
+        var items = (queueItems ?? session.Items.Where(item => item.IsInQueue || item.IsPlayNext)).ToArray();
+        var stored = _state.CollectionOrders.QueueItemIdsBySession.GetValueOrDefault(session.Id);
+        var normalized = LocalLibraryManualOrder.Normalize(stored, items);
+        _state.CollectionOrders.QueueItemIdsBySession[session.Id] = normalized;
+        session.SetQueueOrder(normalized);
+        return normalized;
+    }
+
+    private IReadOnlyList<MediaItem> OrderedQueueItems(DemoMediaSession session)
+    {
+        var items = session.Items.Where(item => item.IsInQueue || item.IsPlayNext).ToArray();
+        var stored = EnsureQueueOrder(session, items);
+        return LocalLibraryManualOrder.Order(items, stored)
+            .OrderByDescending(item => item.IsPlayNext)
+            .ToArray();
+    }
+
     private IReadOnlyList<LocalAlbumGroup> InferLocalAlbums() =>
         LocalAlbumInference.Infer(
             ActiveLocalItems(),
@@ -3127,12 +3163,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal);
         var isFavoriteOrder = !_playerViewActive
             && string.Equals(_currentView, "Ulubione", StringComparison.Ordinal);
+        var isQueueOrder = !_playerViewActive
+            && string.Equals(_currentView, "Kolejka", StringComparison.Ordinal);
         var playlistId = string.Empty;
         var isPlaylistOrder = !_playerViewActive
             && TryGetPlaylistIdFromView(_currentView, out playlistId);
-        if (!isCustomLocalOrder && !isFavoriteOrder && !isPlaylistOrder)
+        if (!isCustomLocalOrder && !isFavoriteOrder && !isQueueOrder && !isPlaylistOrder)
         {
-            Announce("Ręczne przenoszenie działa w Kolejności własnej, Ulubionych oraz otwartej playliście");
+            Announce("Ręczne przenoszenie działa w Kolejności własnej, Ulubionych, Kolejce oraz otwartej playliście");
             return;
         }
         if (!string.IsNullOrWhiteSpace(FilterBox.Text))
@@ -3141,10 +3179,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var selectedIds = MediaList.SelectedItems
+        var selectedRows = MediaList.SelectedItems
             .OfType<MediaItemRow>()
-            .Select(row => row.ActionItem.Id)
             .ToArray();
+        var selectedIds = selectedRows.Select(row => row.ActionItem.Id).ToArray();
         if (selectedIds.Length == 0)
         {
             Announce("Wybierz plik do przeniesienia");
@@ -3153,15 +3191,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         IList<string> storedOrder;
         PlaylistSettings? previousPlaylists = null;
+        IReadOnlyList<string>? previousQueueOrder = null;
         if (isCustomLocalOrder)
         {
             EnsureLocalCustomOrder();
             storedOrder = _state.LocalMedia.CustomOrderItemIds;
         }
-        else
-        if (isFavoriteOrder)
+        else if (isFavoriteOrder)
         {
             storedOrder = EnsureFavoriteOrder(_sessions.Current);
+        }
+        else if (isQueueOrder)
+        {
+            if (selectedRows.Select(row => row.ActionItem.IsPlayNext).Distinct().Count() > 1)
+            {
+                Announce("Elementy zwykłej kolejki i odtwarzane jako następne przenoś osobno");
+                return;
+            }
+            storedOrder = EnsureQueueOrder(_sessions.Current);
+            previousQueueOrder = storedOrder.ToArray();
         }
         else
         {
@@ -3171,7 +3219,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             previousPlaylists = playlists.CloneSettings();
             storedOrder = playlist.ItemIds;
         }
-        var visibleIds = _unfilteredItems
+        var visibleRows = isQueueOrder
+            ? _unfilteredItems.Where(row =>
+                row.ActionItem.IsPlayNext == selectedRows[0].ActionItem.IsPlayNext)
+            : _unfilteredItems;
+        var visibleIds = visibleRows
             .Select(row => row.ActionItem.Id)
             .ToArray();
         var result = LocalLibraryManualOrder.MoveVisibleBlock(
@@ -3193,6 +3245,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (isQueueOrder) _sessions.Current.SetQueueOrder(storedOrder);
         var primaryId = selectedIds[0];
         RefreshCurrentView(preferredItemId: primaryId);
         SelectMediaItems(selectedIds);
@@ -3202,6 +3255,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 previousPlaylists!,
                 direction < 0 ? "Cofnięto przeniesienie wyżej" : "Cofnięto przeniesienie niżej");
             SavePlaylistState();
+        }
+        else if (isQueueOrder)
+        {
+            _queueOrderHistory.Push(new QueueOrderUndo(
+                ++_undoSequence,
+                _sessions.Current.Id,
+                previousQueueOrder!,
+                selectedIds,
+                direction < 0 ? "Cofnięto przeniesienie wyżej" : "Cofnięto przeniesienie niżej"));
+            if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+                TrySaveLocalMediaState(true);
+            else
+                _store.Save(_state);
         }
         else if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
@@ -3779,6 +3845,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 item.IsPlayNext = false;
             }
         }
+        if (string.Equals(_currentView, "Kolejka", StringComparison.Ordinal))
+        {
+            EnsureQueueOrder(_sessions.Current);
+        }
         var undoAnnouncement = items.Length == 1
             ? _currentView switch
             {
@@ -3854,16 +3924,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var membershipCandidate = _membershipHistory.Peek();
         var catalogCandidate = _localCatalogHistory.TryPeek(out var localUndo) ? localUndo : null;
         var playlistCandidate = _playlistHistory.TryPeek(out var playlistUndo) ? playlistUndo : null;
+        var queueOrderCandidate = _queueOrderHistory.TryPeek(out var queueOrderUndo) ? queueOrderUndo : null;
+        if (queueOrderCandidate is not null
+            && (membershipCandidate is null || queueOrderCandidate.Sequence > membershipCandidate.Sequence)
+            && (catalogCandidate is null || queueOrderCandidate.Sequence > catalogCandidate.Sequence)
+            && (playlistCandidate is null || queueOrderCandidate.Sequence > playlistCandidate.Sequence))
+        {
+            UndoQueueOrderChange(_queueOrderHistory.Pop());
+            return;
+        }
         if (playlistCandidate is not null
             && (membershipCandidate is null || playlistCandidate.Sequence > membershipCandidate.Sequence)
-            && (catalogCandidate is null || playlistCandidate.Sequence > catalogCandidate.Sequence))
+            && (catalogCandidate is null || playlistCandidate.Sequence > catalogCandidate.Sequence)
+            && (queueOrderCandidate is null || playlistCandidate.Sequence > queueOrderCandidate.Sequence))
         {
             UndoPlaylistChange(_playlistHistory.Pop());
             return;
         }
         if (catalogCandidate is not null
             && (membershipCandidate is null || catalogCandidate.Sequence > membershipCandidate.Sequence)
-            && (playlistCandidate is null || catalogCandidate.Sequence > playlistCandidate.Sequence))
+            && (playlistCandidate is null || catalogCandidate.Sequence > playlistCandidate.Sequence)
+            && (queueOrderCandidate is null || catalogCandidate.Sequence > queueOrderCandidate.Sequence))
         {
             UndoLocalCatalogRemoval(_localCatalogHistory.Pop());
             return;
@@ -3915,6 +3996,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         EnsureCurrentPlaylistStillExists();
         RefreshCurrentView();
         SavePlaylistState();
+        RestoreMediaListFocusAfterRefresh();
+        Dispatcher.BeginInvoke(() => Announce(undo.Announcement), DispatcherPriority.ContextIdle);
+    }
+
+    private void UndoQueueOrderChange(QueueOrderUndo undo)
+    {
+        var restored = undo.PreviousOrder.ToList();
+        _state.CollectionOrders.QueueItemIdsBySession[undo.SessionId] = restored;
+        _sessions.FindSession(undo.SessionId)?.SetQueueOrder(restored);
+        if (string.Equals(_sessions.Current.Id, undo.SessionId, StringComparison.OrdinalIgnoreCase))
+        {
+            RefreshCurrentView();
+            SelectMediaItems(undo.SelectedItemIds);
+        }
+        if (string.Equals(undo.SessionId, "local", StringComparison.OrdinalIgnoreCase))
+            TrySaveLocalMediaState(false);
+        else
+            _store.Save(_state);
         RestoreMediaListFocusAfterRefresh();
         Dispatcher.BeginInvoke(() => Announce(undo.Announcement), DispatcherPriority.ContextIdle);
     }
@@ -3991,6 +4090,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IEnumerable<MediaItem> items) => commandId switch
         {
             CommandIds.ToggleFavorite => CaptureFavoriteOrder(session, items),
+            CommandIds.AddQueue or CommandIds.TogglePlayNext => CaptureQueueOrder(session, items),
             CommandIds.ToggleLibrary when string.Equals(session.Id, "local", StringComparison.Ordinal) =>
                 CaptureLocalCustomOrder(items),
             _ => null
@@ -4002,6 +4102,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IEnumerable<MediaItem> items) => viewName switch
         {
             "Ulubione" => CaptureFavoriteOrder(session, items),
+            "Kolejka" => CaptureQueueOrder(session, items),
             "Biblioteka" or FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName
                 when string.Equals(session.Id, "local", StringComparison.Ordinal) =>
                 CaptureLocalCustomOrder(items),
@@ -4025,6 +4126,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             items);
     }
 
+    private MediaMembershipOrderSnapshot CaptureQueueOrder(
+        DemoMediaSession session,
+        IEnumerable<MediaItem> items)
+    {
+        var order = EnsureQueueOrder(session);
+        return CreateMembershipOrderSnapshot("queue", order, items);
+    }
+
     private static MediaMembershipOrderSnapshot CreateMembershipOrderSnapshot(
         string collectionId,
         IReadOnlyList<string> order,
@@ -4040,7 +4149,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void RestoreMembershipOrder(MediaMembershipUndo undo)
     {
-        if (undo.OrderSnapshot is not { Positions.Count: > 0 } snapshot) return;
+        if (undo.OrderSnapshot is not { } snapshot) return;
         var positions = snapshot.Positions
             .Select(entry => new ManualOrderPosition(entry.ItemId, entry.Index));
         if (string.Equals(snapshot.CollectionId, "favorites", StringComparison.Ordinal))
@@ -4060,6 +4169,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             LocalLibraryManualOrder.RestorePositions(
                 _state.LocalMedia.CustomOrderItemIds,
                 positions);
+            return;
+        }
+        if (string.Equals(snapshot.CollectionId, "queue", StringComparison.Ordinal))
+        {
+            if (!_state.CollectionOrders.QueueItemIdsBySession.TryGetValue(
+                    undo.SessionId,
+                    out var order))
+            {
+                order = [];
+                _state.CollectionOrders.QueueItemIdsBySession[undo.SessionId] = order;
+            }
+            LocalLibraryManualOrder.RestorePositions(order, positions);
+            _sessions.FindSession(undo.SessionId)?.SetQueueOrder(order);
         }
     }
 
@@ -5133,6 +5255,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (MediaList.IsKeyboardFocusWithin
             && Keyboard.Modifiers == ModifierKeys.Alt
             && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+                || string.Equals(_currentView, "Kolejka", StringComparison.Ordinal)
                 || string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
                    && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
                 || TryGetPlaylistIdFromView(_currentView, out _))
@@ -5792,6 +5915,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : Visibility.Collapsed;
         var movableCustomOrderItems = !_playerViewActive
             && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+                || string.Equals(_currentView, "Kolejka", StringComparison.Ordinal)
                 || string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
                    && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
                 || playlistContents)
@@ -6292,6 +6416,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private sealed record PlaylistStateUndo(
         long Sequence,
         PlaylistSettings PreviousState,
+        string Announcement);
+
+    private sealed record QueueOrderUndo(
+        long Sequence,
+        string SessionId,
+        IReadOnlyList<string> PreviousOrder,
+        IReadOnlyList<string> SelectedItemIds,
         string Announcement);
 
     private sealed class SessionViewHistory

@@ -31,6 +31,7 @@ var tests = new (string Name, Action Test)[]
     ("Pusta sesja lokalna", TestEmptyLocalSession),
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
     ("Kontekst listy odtwarzania", TestPlaybackContext),
+    ("Trwała kolejność Kolejki", TestQueueOrder),
     ("Polityka pamiętania pozycji", TestResumePositionPolicy),
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Ponowne włączanie folderu do biblioteki", TestLocalLibraryImport),
@@ -529,6 +530,9 @@ static void TestSqliteLibraryMigration()
             });
         }
         state.LocalMedia.CurrentItemId = "item-1499";
+        state.LocalMedia.Items[1498].IsInQueue = true;
+        state.LocalMedia.Items[1499].IsInQueue = true;
+        state.CollectionOrders.QueueItemIdsBySession["local"] = ["item-1499", "item-1498"];
         state.PlaybackHistory.ItemIdsBySession["local"] = ["item-1499", "item-1498"];
         state.Bookmarks.Entries.Add(new BookmarkEntry
         {
@@ -547,6 +551,9 @@ static void TestSqliteLibraryMigration()
         Equal("item-1499", migrated.LocalMedia.CurrentItemId);
         Equal(2, migrated.PlaybackHistory.ItemIdsBySession["local"].Count);
         Equal(1, migrated.Bookmarks.Entries.Count);
+        True(migrated.CollectionOrders.QueueItemIdsBySession["LOCAL"].SequenceEqual(
+                ["item-1499", "item-1498"]),
+            "Migracja SQLite powinna zachować ręczny porządek Kolejki.");
         True(File.Exists(databasePath), "Brak pliku Biblioteki SQLite.");
 
         migrated.LocalMedia.Items[1499].Title = "Zmieniony tytuł";
@@ -556,6 +563,9 @@ static void TestSqliteLibraryMigration()
         Equal(1500, reloaded.LocalMedia.Items.Count);
         Equal("Zmieniony tytuł", reloaded.LocalMedia.Items.Single(item => item.Id == "item-1499").Title);
         Equal(true, reloaded.LocalMedia.Items.Single(item => item.Id == "item-1499").HasCustomTitle);
+        True(reloaded.CollectionOrders.QueueItemIdsBySession["local"].SequenceEqual(
+                ["item-1499", "item-1498"]),
+            "Ponowny odczyt SQLite powinien zachować ręczny porządek Kolejki.");
     }
     finally
     {
@@ -1046,6 +1056,34 @@ static void TestPlaybackContext()
     Equal(1.25d, session.PlaybackRate);
 }
 
+static void TestQueueOrder()
+{
+    var output = new FakeMediaOutput();
+    var start = new MediaItem { Id = "start", Title = "Początek" };
+    var firstQueued = new MediaItem { Id = "queue-1", Title = "Kolejka pierwsza", IsInQueue = true };
+    var secondQueued = new MediaItem { Id = "queue-2", Title = "Kolejka druga", IsInQueue = true };
+    var firstNext = new MediaItem { Id = "next-1", Title = "Następny pierwszy", IsPlayNext = true };
+    var secondNext = new MediaItem { Id = "next-2", Title = "Następny drugi", IsPlayNext = true };
+    var session = new DemoMediaSession(
+        "queue-order",
+        "Kolejność kolejki",
+        [start, firstQueued, secondQueued, firstNext, secondNext],
+        output);
+    session.SetQueueOrder([secondQueued.Id, "missing", secondNext.Id, firstQueued.Id, firstNext.Id]);
+    True(session.QueueItemIds.SequenceEqual(
+            [secondQueued.Id, secondNext.Id, firstQueued.Id, firstNext.Id]),
+        "Kolejność powinna odrzucić brakujące identyfikatory i zachować zapisane pozycje.");
+
+    True(session.Play(start), "Test kolejki powinien rozpocząć element źródłowy.");
+    Equal(secondNext, session.ContinueAfterPlaybackEnded(start));
+    Equal(firstNext, session.ContinueAfterPlaybackEnded(secondNext));
+    Equal(secondQueued, session.ContinueAfterPlaybackEnded(firstNext));
+    Equal(firstQueued, session.ContinueAfterPlaybackEnded(secondQueued));
+    True(session.ContinueAfterPlaybackEnded(firstQueued) is null,
+        "Po wykorzystaniu uporządkowanej kolejki odtwarzanie nie może powtarzać jej elementów.");
+    Equal(0, session.QueueItemIds.Count);
+}
+
 static void TestResumePositionPolicy()
 {
     var output = new FakeMediaOutput();
@@ -1502,6 +1540,7 @@ static void TestLocalMediaPersistence()
         state.LocalMedia.CustomOrderItemIds.Add("local-1");
         state.LocalMedia.ExcludedPaths.Add(@"C:\Muzyka\pomijany.mp3");
         state.CollectionOrders.FavoriteItemIdsBySession["local"] = ["local-1"];
+        state.CollectionOrders.QueueItemIdsBySession["local"] = ["local-1"];
         state.LocalMedia.Items.Add(new LocalMediaItemSettings
         {
             Id = "local-1",
@@ -1552,6 +1591,7 @@ static void TestLocalMediaPersistence()
         Equal(1.75d, item.PlaybackRateOverride);
         Equal("default", item.OutputDeviceId);
         Equal("local-1", loaded.CollectionOrders.FavoriteItemIdsBySession["LOCAL"].Single());
+        Equal("local-1", loaded.CollectionOrders.QueueItemIdsBySession["LOCAL"].Single());
 
         var output = new FakeMediaOutput();
         var media = new MediaItem { Id = item.Id, Title = item.Title, Source = item.Path };
@@ -2311,6 +2351,7 @@ static void TestExports()
             CreatedUtcTicks = DateTime.UtcNow.Ticks,
             ItemIds = ["local-item"]
         });
+        state.CollectionOrders.QueueItemIdsBySession["local"] = ["local-item"];
         var mapPath = Path.Combine(directory, "map.amckeys.json");
         var settingsPath = Path.Combine(directory, "settings.amcsettings.json");
         var backupPath = Path.Combine(directory, "all.amcbackup.json");
@@ -2368,6 +2409,7 @@ static void TestExports()
         Equal(1, importedBackup.Playlists.Entries.Count);
         Equal("Do odsłuchu", importedBackup.Playlists.Entries[0].Name);
         Equal("local-item", importedBackup.Playlists.Entries[0].ItemIds.Single());
+        Equal("local-item", importedBackup.CollectionOrders.QueueItemIdsBySession["LOCAL"].Single());
     }
     finally
     {
