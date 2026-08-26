@@ -1476,7 +1476,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+K, Ctrl+F i Ctrl+Shift+F nie opuszczają odtwarzacza; wyszukiwanie jest dostępne po powrocie do listy. " +
             "Skróty widoków opuszczają odtwarzacz, a F6 wraca do niego. " +
             "Ctrl+C kopiuje nazwy wszystkich zaznaczonych elementów, po jednej w wierszu; Ctrl+Shift+C kopiuje pełne ścieżki i fizyczne pliki lokalne. " +
-            "Delete usuwa z bieżącego widoku. W lokalnej Bibliotece i na pliku w widoku Foldery usuwa tylko wpis z Biblioteki AMC, a plik pozostawia na dysku; na wierszu folderu nie usuwa niczego. W odtwarzaczu lokalnym Delete również usuwa tylko wpis z AMC i pozostawia plik na dysku. Shift+Delete działa wyłącznie na listach i po potwierdzeniu przenosi zaznaczone pliki do systemowego Kosza. Backspace nigdy nie usuwa: wraca do poziomu nadrzędnego, a w polu tekstowym kasuje znak. " +
+            "Delete usuwa z bieżącego widoku. W Historii odtwarzania usuwa tylko wpis Historii, bez zmiany Biblioteki i pliku. W lokalnej Bibliotece i na pliku w widoku Foldery usuwa tylko wpis z Biblioteki AMC, a plik pozostawia na dysku; na wierszu folderu nie usuwa niczego. W odtwarzaczu lokalnym Delete również usuwa tylko wpis z AMC i pozostawia plik na dysku. Shift+Delete działa wyłącznie na listach i po potwierdzeniu przenosi zaznaczone pliki do systemowego Kosza. Backspace nigdy nie usuwa: wraca do poziomu nadrzędnego, a w polu tekstowym kasuje znak. " +
             "Alt+strzałka w lewo i w prawo przechodzi po osobnej historii widoków. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
             "Alt+F4 zawsze zamyka całe główne okno i aplikację, również z widoku odtwarzacza. " +
@@ -3800,6 +3800,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void RemoveSelected()
     {
+        if (string.Equals(_currentView, "Historia odtwarzania", StringComparison.Ordinal))
+        {
+            RemoveSelectedPlaybackHistoryEntries();
+            return;
+        }
         if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
         {
             RemoveSelectedBookmarks();
@@ -4289,6 +4294,60 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         RestoreMediaListFocusAfterRefresh();
         Dispatcher.BeginInvoke(() => Announce(announcement), DispatcherPriority.ContextIdle);
+    }
+
+    private void RemoveSelectedPlaybackHistoryEntries()
+    {
+        var itemIds = MediaList.SelectedItems
+            .OfType<MediaItemRow>()
+            .Select(row => row.Item.Id)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (itemIds.Length == 0)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            Dispatcher.BeginInvoke(
+                () => Announce("Brak wpisu Historii do usunięcia"),
+                DispatcherPriority.ContextIdle);
+            return;
+        }
+
+        var previousIndex = MediaList.SelectedIndex;
+        AnchorMediaListFocus();
+        _playbackHistory.Remove(_sessions.Current.Id, itemIds);
+        _playbackHistoryCursors.Remove(_sessions.Current.Id);
+
+        var saved = true;
+        if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            saved = TrySaveLocalMediaState(true);
+        }
+        else
+        {
+            try
+            {
+                _store.Save(_state);
+            }
+            catch (Exception exception) when (
+                exception is IOException or UnauthorizedAccessException or InvalidDataException)
+            {
+                saved = false;
+                DiagnosticLog.Error("storage", "Nie udało się zapisać Historii odtwarzania.", exception);
+            }
+        }
+
+        RefreshCurrentView(previousIndex);
+        RestoreMediaListFocusAfterRefresh();
+        var message = itemIds.Length == 1
+            ? "Usunięto wpis z Historii odtwarzania. Plik i Biblioteka pozostały bez zmian"
+            : $"Usunięto wpisy z Historii odtwarzania: {itemIds.Length}. Pliki i Biblioteka pozostały bez zmian";
+        Dispatcher.BeginInvoke(
+            () =>
+            {
+                if (saved) Announce(message);
+                else AnnounceEssential($"{message}. Nie udało się trwale zapisać zmiany");
+            },
+            DispatcherPriority.ContextIdle);
     }
 
     public void ShowLocalSourceManager()
@@ -6070,6 +6129,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ? "Usuń z playlisty"
             : SelectedBookmark is not null
             ? "Usuń zakładkę"
+            : string.Equals(_currentView, "Historia odtwarzania", StringComparison.Ordinal)
+                ? "Usuń z Historii odtwarzania"
             : localItem && string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
                 ? "Usuń z AMC, pozostaw plik na dysku"
                 : localItem && string.Equals(_currentView, FolderViewName, StringComparison.Ordinal)

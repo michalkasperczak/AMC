@@ -1539,6 +1539,15 @@ static void TestPlaybackHistory()
     Equal(1, history.GetItemIds("local").Count);
     Equal("b", history.GetItemIds("local")[0]);
 
+    history.Record("local", "c");
+    history.Record("local", "d");
+    history.Record("tidal", "stream-1");
+    history.Remove("local", ["b", "d"]);
+    Equal(1, history.GetItemIds("local").Count);
+    Equal("c", history.GetItemIds("local")[0]);
+    Equal("stream-1", history.GetItemIds("tidal")[0]);
+    history.Record("local", "b");
+
     var directory = Path.Combine(Path.GetTempPath(), $"amc-playback-history-tests-{Guid.NewGuid():N}");
     Directory.CreateDirectory(directory);
     try

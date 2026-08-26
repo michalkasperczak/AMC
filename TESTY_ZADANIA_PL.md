@@ -1,12 +1,40 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-103`
-- Tytuł zestawu: Ręczne porządkowanie niedostępnych rekordów
-- Wersja programu: `0.1.0-alpha.103`
+- Numer zestawu: `AMC-TEST-104`
+- Tytuł zestawu: Historia odtwarzania jako pełnoprawna lista
+- Wersja programu: `0.1.0-alpha.104`
 - Utworzono: 2026-08-26, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.103.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.104.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 104
+
+### AMC-104-01 — Trwała Historia w odwrotnej kolejności
+
+W sesji Pliki lokalne odtwórz kolejno trzy różne pliki, po czym naciśnij `Ctrl+H`. Zamknij i ponownie uruchom AMC, wróć przez `Ctrl+1`, `Ctrl+H`.
+
+Oczekiwane: Historia odtwarzania istnieje osobno dla tej sesji, jest trwała i pokazuje najpierw plik odtwarzany ostatnio. Ponowne odtworzenie wcześniejszego pliku przenosi go na początek bez tworzenia duplikatu.
+
+### AMC-104-02 — Delete usuwa tylko z Historii
+
+Dodaj plik do Biblioteki, Ulubionych i Kolejki, odtwórz go, a następnie w `Ctrl+H` zaznacz ten wpis i naciśnij `Delete`. Powtórz z kilkoma wpisami zaznaczonymi Shiftem.
+
+Oczekiwane: komunikat mówi o usunięciu z Historii. Wpisy znikają wyłącznie z tego widoku. Pliki pozostają na dysku oraz nadal należą do Biblioteki, Ulubionych i Kolejki. Po ponownym uruchomieniu usunięte wpisy nie wracają. Menu kontekstowe nazywa polecenie **Usuń z Historii odtwarzania**.
+
+### AMC-104-03 — Playlista i pozostałe działania z Historii
+
+Zaznacz kilka wpisów Historii i naciśnij `Ctrl+Shift+P`. Utwórz nową playlistę, zapisz zmiany i sprawdź jej zawartość. Wyrywkowo sprawdź również `Ctrl+C`, `Ctrl+Shift+C`, `Shift+Enter` i zmianę Ulubionych.
+
+Oczekiwane: nowa playlista zawiera wszystkie zaznaczone elementy, a pozostałe polecenia działają zbiorczo tak samo jak na zwykłej liście. `Alt+strzałka w górę/w dół` nie zmienia kolejności Historii, ponieważ pozostaje ona chronologiczna.
+
+### AMC-104-04 — Shift+Delete pozostaje operacją na pliku
+
+Tylko na niepotrzebnej kopii pliku lokalnego wybierz w Historii `Shift+Delete` i przeczytaj ostrzeżenie. Najpierw anuluj, a dopiero w osobnej próbie świadomie potwierdź.
+
+Oczekiwane: program wyraźnie odróżnia usunięcie wpisu `Delete` od fizycznego przeniesienia pliku do Kosza przez `Shift+Delete`. Anulowanie niczego nie zmienia; potwierdzenie usuwa plik z dysku i jego rekordy zgodnie z dotychczasową regułą.
+
+## Poprzedni zestaw alpha 103
 
 ## Nowości alpha 103
 
