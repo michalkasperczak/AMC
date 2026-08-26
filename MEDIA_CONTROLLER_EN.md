@@ -505,6 +505,25 @@ No export may contain passwords, tokens or login data. Proposed extensions are `
 
 The Settings window should provide these categories: General, Language, Prefix and Commands, Sessions and Services, Playback, Lists, Messages and Accessibility, and Advanced. `Ctrl+F` searches settings by name.
 
+### 11.1. Help menu, shortcut reference and keyboard-learning mode
+
+The target **Help** menu contains, in this order:
+
+1. **Keyboard shortcuts…** — `F1`; `?` may be an additional shortcut, but only outside text-entry controls.
+2. **Keyboard help: on/off** — `Ctrl+F1`.
+3. **Check for updates…**.
+4. **About and version…**.
+5. **Program repository…** — enabled only after an official public address has been chosen.
+6. **Support the project through PayPal…** — enabled only after the user's correct address has been supplied and verified.
+
+The current long `F1` message is temporary. It will be replaced by an ordinary modal accessible window structured like an HTML document: one level-one heading and headed sections for global keys, lists, the player, search and filtering, the local Library, playlists and Bookmarks, Settings, and the experimental prefix. A search box and section-link list come first. Tab moves through controls, Arrow keys move through entries within a section, and screen-reader heading/link navigation retains its standard accessibility semantics.
+
+Every entry presents **command → current shortcut → operating context**. Its data comes from one command catalogue and the active keyboard profile rather than manually duplicated text, so editing a binding updates Settings, the command palette and Help together. An entry may be activated with Enter like a link: Help then returns to the appropriate window and invokes exactly the same command as the palette. Capability checks, confirmations and destructive-action safeguards remain in force. Help must not bypass `CommandRouter` through a separate execution path.
+
+`Ctrl+F1` starts **Keyboard help** for the active AMC window only. In this mode, the next key combination is captured, performs no command and is described through NVDA, JAWS, Narrator and the accessible status area. The message gives the shortcut, command name, current context and any reason it is unavailable; an unassigned key is explicitly reported as having no command in that context. Pressing `Ctrl+F1` again or `Escape` leaves the mode. Entry and exit are always announced even when ordinary messages are muted. The mode never captures typing in another application and is not a global keyboard logger.
+
+The **About and version** window gives the full version, release channel, architecture and licence and allows those details to be copied. Repository and PayPal links open through the default browser only after official addresses are configured; a development build contains no invented or empty links. **Check for updates** uses the signed mechanism defined in section 13.5 and, until configured, clearly states that no release server is available yet.
+
 ## 12. Messages, speech and braille
 
 Every message should be:

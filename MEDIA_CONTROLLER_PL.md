@@ -505,6 +505,25 @@ Pełna kopia ani pozostałe eksporty nie mogą zawierać haseł, tokenów i dany
 
 Okno ustawień powinno zawierać kategorie: Ogólne, Język, Prefiks i polecenia, Sesje i usługi, Odtwarzanie, Listy, Komunikaty i dostępność oraz Zaawansowane. `Ctrl+F` wyszukuje ustawienie po nazwie.
 
+### 11.1. Menu Pomoc, spis skrótów i tryb poznawania klawiatury
+
+Docelowe menu **Pomoc** zawiera w tej kolejności:
+
+1. **Skróty klawiszowe…** — `F1`; dodatkowym skrótem może być znak `?`, ale wyłącznie poza polami tekstowymi.
+2. **Pomoc klawiatury: włącz/wyłącz** — `Ctrl+F1`.
+3. **Sprawdź aktualizacje…**.
+4. **Informacje o wersji…**.
+5. **Repozytorium programu…** — dostępne dopiero po ustaleniu oficjalnego publicznego adresu.
+6. **Wesprzyj projekt przez PayPal…** — dostępne dopiero po podaniu i sprawdzeniu właściwego adresu użytkownika.
+
+Obecny długi komunikat `F1` jest rozwiązaniem przejściowym. Zastąpi go zwykłe, modalne i dostępne okno przypominające dokument HTML: ma jeden nagłówek poziomu pierwszego, sekcje z nagłówkami dla skrótów ogólnych, list, odtwarzacza, wyszukiwania i filtrowania, Biblioteki lokalnej, playlist i Zakładek, ustawień oraz eksperymentalnego prefiksu. Na początku znajduje się pole wyszukiwania i lista odsyłaczy do sekcji. Tab przechodzi po kontrolkach, strzałki po pozycjach w sekcji, a skróty czytnika ekranu do nagłówków i odsyłaczy zachowują standardową semantykę dostępności.
+
+Każda pozycja przedstawia kolejno **polecenie → aktualny skrót → kontekst działania**. Dane pochodzą z jednego katalogu poleceń i aktywnego profilu klawiatury, a nie z ręcznie przepisanego tekstu, dzięki czemu zmiana skrótu aktualizuje jednocześnie ustawienia, paletę i pomoc. Pozycja może być aktywowana Enterem jak odsyłacz: okno Pomocy wraca wtedy do właściwego okna i wywołuje dokładnie to samo polecenie co paleta. Wszystkie ograniczenia możliwości, potwierdzenia oraz zabezpieczenia operacji destrukcyjnych pozostają aktywne. Pomoc nie może mieć osobnej drogi omijającej `CommandRouter`.
+
+`Ctrl+F1` uruchamia **Pomoc klawiatury** tylko dla aktywnego okna AMC. W tym trybie następna kombinacja jest przechwytywana, nie wykonuje żadnego polecenia i zostaje opisana przez NVDA, JAWS, Narratora oraz dostępny obszar stanu. Komunikat podaje skrót, nazwę polecenia, bieżący kontekst i ewentualny powód niedostępności; dla klawisza bez przypisania mówi wprost, że nie ma on polecenia w tym miejscu. Ponowne `Ctrl+F1` lub `Escape` wyłącza tryb. Samo wejście i wyjście zawsze jest oznajmiane, nawet przy wyciszonych zwykłych komunikatach. Tryb nie przechwytuje klawiszy wpisywanych w innym programie i nie staje się globalnym rejestratorem klawiatury.
+
+Okno **Informacje o wersji** podaje pełny numer, kanał wydania, architekturę oraz licencję, a także umożliwia skopiowanie tych danych. Odsyłacze do repozytorium i PayPal otwierają się przez domyślną przeglądarkę dopiero po skonfigurowaniu oficjalnych adresów; wersja robocza nie zawiera wymyślonych ani pustych łączy. **Sprawdź aktualizacje** używa podpisanego mechanizmu opisanego w punkcie 13.5 i przed jego konfiguracją jednoznacznie informuje, że serwer wydań nie jest jeszcze dostępny.
+
 ## 12. Komunikaty, mowa i brajl
 
 Każdy komunikat powinien być jednocześnie:
