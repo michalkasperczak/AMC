@@ -11,6 +11,8 @@
                        automation:AutomationProperties.HeadingLevel="Level1" />
             <TextBlock Margin="0,5,0,0" TextWrapping="Wrap"
                        Text="Każdy dodany folder jest automatycznie synchronizowany z Biblioteką. Odłączenie folderu nie usuwa plików z dysku ani zapisanych danych AMC." />
+            <TextBlock Margin="0,5,0,0" TextWrapping="Wrap"
+                       Text="Aktywne to pliki należące do Biblioteki i obecnie widoczne w systemie. Niedostępne to zapamiętane pliki, których ścieżka jest chwilowo nieosiągalna. Wykluczone to pliki usunięte z Biblioteki klawiszem Delete, pozostawione na dysku i pomijane przy kolejnych skanach." />
         </StackPanel>
 
         <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">

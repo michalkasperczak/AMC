@@ -35,7 +35,7 @@ public sealed record LocalFolderSourceStatus(
     {
         get
         {
-            var availability = IsReachable ? "dostępne" : "niedostępne — rekordy zachowane";
+            var availability = IsReachable ? "folder dostępny" : "folder niedostępny — rekordy zachowane";
             var warning = string.IsNullOrWhiteSpace(OverlapWarning) ? string.Empty : $", uwaga: {OverlapWarning}";
             return $"{DisplayName}, {availability}, {ResumePositionLabel}, aktywne {ActiveItemCount}, niedostępne {UnavailableItemCount}, wykluczone {ExcludedItemCount}{warning}, {Path}";
         }

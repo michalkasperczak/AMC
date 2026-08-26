@@ -2459,6 +2459,8 @@ static void TestLocalFolderSourcePolicy()
     Equal(1, statuses[0].UnavailableItemCount);
     Equal(1, statuses[0].ExcludedItemCount);
     Equal(ResumePositionMode.StartFromBeginning, statuses[0].ResumePositionMode);
+    True(statuses[0].Label.Contains("folder niedostępny", StringComparison.Ordinal),
+        "Etykieta powinna jednoznacznie odróżniać stan folderu od liczników plików.");
     True(statuses[0].Label.Contains("Zawsze od początku", StringComparison.Ordinal),
         "Lista Folderów Biblioteki powinna podawać politykę pamiętania pozycji.");
     Equal(statuses[0].Label, statuses[0].ToString());

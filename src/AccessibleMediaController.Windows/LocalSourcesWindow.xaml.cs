@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.LocalMedia;
 using Microsoft.Win32;
@@ -40,7 +41,7 @@ public partial class LocalSourcesWindow : Window
             new(ResumePositionMode.Inherit, "Zgodnie z ustawieniem globalnym")
         };
         ReloadStatuses();
-        Loaded += (_, _) => SourcesList.Focus();
+        Loaded += (_, _) => Dispatcher.BeginInvoke(FocusSelectedFolder, DispatcherPriority.ContextIdle);
     }
 
     private LocalFolderSourceStatus? SelectedStatus => SourcesList.SelectedItem as LocalFolderSourceStatus;
@@ -94,7 +95,7 @@ public partial class LocalSourcesWindow : Window
             var result = _detachSource(status.Id);
             OperationStatusText.Text = result.Message;
             ReloadStatuses(result.SelectedSourceId);
-            SourcesList.Focus();
+            FocusSelectedFolder();
         }
         catch (Exception exception)
         {
@@ -154,7 +155,7 @@ public partial class LocalSourcesWindow : Window
             var result = await operation();
             OperationStatusText.Text = result.Message;
             ReloadStatuses(result.SelectedSourceId);
-            SourcesList.Focus();
+            FocusSelectedFolder();
         }
         catch (Exception exception)
         {
@@ -199,6 +200,27 @@ public partial class LocalSourcesWindow : Window
               + $"Pamiętanie pozycji: {status.ResumePositionLabel}. "
               + (string.IsNullOrWhiteSpace(status.OverlapWarning) ? string.Empty : $"Uwaga: {status.OverlapWarning}. ")
               + $"Ścieżka: {status.Path}";
+    }
+
+    private void FocusSelectedFolder()
+    {
+        if (SourcesList.Items.Count > 0 && SourcesList.SelectedIndex < 0)
+        {
+            SourcesList.SelectedIndex = 0;
+        }
+        if (SourcesList.SelectedItem is not null)
+        {
+            SourcesList.ScrollIntoView(SourcesList.SelectedItem);
+        }
+        SourcesList.UpdateLayout();
+        if (SourcesList.ItemContainerGenerator.ContainerFromItem(SourcesList.SelectedItem) is ListBoxItem item)
+        {
+            item.Focus();
+            Keyboard.Focus(item);
+            return;
+        }
+        SourcesList.Focus();
+        Keyboard.Focus(SourcesList);
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)

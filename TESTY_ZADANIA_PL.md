@@ -1,12 +1,28 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-101`
-- Tytuł zestawu: Foldery Biblioteki i spójne ustawienia pozycji
-- Wersja programu: `0.1.0-alpha.101`
+- Numer zestawu: `AMC-TEST-102`
+- Tytuł zestawu: Fokus i objaśnienie stanów Folderów Biblioteki
+- Wersja programu: `0.1.0-alpha.102`
 - Utworzono: 2026-08-26, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.101.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.102.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 102
+
+### AMC-102-01 — Pierwszy folder odczytany po Ctrl+F5
+
+Na lokalnej liście naciśnij `Ctrl+F5` i niczego więcej nie naciskaj.
+
+Oczekiwane: fokus znajduje się na pierwszym zaznaczonym Folderze Biblioteki. NVDA odczytuje jego pełną etykietę i pozycję na liście, a nie tylko komunikat „Foldery Biblioteki, lista”. Strzałka w dół przechodzi od razu do drugiego folderu.
+
+### AMC-102-02 — Czytelne znaczenie liczników
+
+Przejdź po Folderach Biblioteki i przeczytaj tekst objaśniający oraz etykietę folderu.
+
+Oczekiwane: stan korzenia brzmi jednoznacznie „folder dostępny” albo „folder niedostępny — rekordy zachowane”. Objaśnienie rozróżnia aktywne, niedostępne i wykluczone pliki. Plik online widoczny w systemie pozostaje aktywny nawet wtedy, gdy treść zostanie pobrana dopiero przy odtwarzaniu.
+
+## Poprzedni zestaw alpha 101
 
 ## Nowości alpha 101
 
