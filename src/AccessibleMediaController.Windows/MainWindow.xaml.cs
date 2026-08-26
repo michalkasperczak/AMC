@@ -213,10 +213,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         get
         {
-            if (_playerViewActive) return _sessions.Current.HasItems ? _sessions.Current.CurrentItem : null;
+            if (_playerViewActive) return _sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null;
             var row = MediaList.SelectedItem as MediaItemRow;
             if (row?.PlaylistId is not null) return null;
-            return row?.ActionItem ?? (_sessions.Current.HasItems ? _sessions.Current.CurrentItem : null);
+            return row?.ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
         }
     }
     private DemoMediaSession ActionSession => !_playerViewActive && SelectedBookmark is { } bookmark
@@ -226,7 +226,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         get
         {
-            if (_playerViewActive) return [_sessions.Current.CurrentItem];
+            if (_playerViewActive)
+                return _sessions.Current.HasCurrentItem ? [_sessions.Current.CurrentItem] : [];
             var selected = MediaList.SelectedItems
                 .OfType<MediaItemRow>()
                 .Where(row => row.PlaylistId is null)
@@ -579,7 +580,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ShowPlayerView()
     {
-        if (!_sessions.Current.HasItems)
+        if (!_sessions.Current.HasCurrentItem)
         {
             AnnounceEssential($"Brak elementów w sesji {_sessions.Current.DisplayName}");
             RestoreMediaListFocusAfterRefresh();
@@ -644,7 +645,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ApplyPlaybackPolicyWhenLeavingPlayer(DemoMediaSession session)
     {
-        if (!_state.Settings.PausePlaybackWhenLeavingPlayer || !session.HasItems) return;
+        if (!_state.Settings.PausePlaybackWhenLeavingPlayer || !session.HasCurrentItem) return;
 
         if (session.IsPlaying) session.TogglePlayback();
         if (string.Equals(session.Id, "local", StringComparison.Ordinal)
@@ -1765,10 +1766,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var successful = scans.Where(scan => scan.Error is null).ToArray();
             var failed = scans.Where(scan => scan.Error is not null).ToArray();
             var localBeforeSync = _sessions.FindSession("local");
-            var currentLocalItemId = localBeforeSync is { HasItems: true }
+            var currentLocalItemId = localBeforeSync is { HasCurrentItem: true }
                 ? localBeforeSync.CurrentItem.Id
                 : null;
             var currentLocalWasPlaying = localBeforeSync?.IsPlaying == true;
+            MediaReplacementResult? replacementResult = null;
             var result = LocalLibrarySynchronizer.Synchronize(
                 _localItems,
                 successful.Select(scan => scan.Source.Path),
@@ -1780,7 +1782,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 var selectedId = SelectedItem?.Id;
                 var hadListFocus = MediaList.IsKeyboardFocusWithin;
                 if (hadListFocus) AnchorMediaListFocus();
-                RefreshLocalSessionItems();
+                replacementResult = RefreshLocalSessionItems();
                 if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) && !_playerViewActive)
                 {
                     RefreshCurrentView(preferredItemId: selectedId);
@@ -1788,7 +1790,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 }
                 else if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) && _playerViewActive)
                 {
-                    if (_sessions.Current.HasItems) UpdatePlayerView(true);
+                    if (_sessions.Current.HasCurrentItem) UpdatePlayerView(true);
                     else ReturnFromPlayerToList();
                     UpdatePlaybackStatusBar();
                     UpdateWindowTitle();
@@ -1804,7 +1806,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     .First(item => string.Equals(item.Id, currentLocalItemId, StringComparison.Ordinal))
                     .Title;
                 AnnounceEssential($"Plik stał się niedostępny: {unavailableTitle}"
-                    + (currentLocalWasPlaying ? ". Odtwarzanie zatrzymano" : string.Empty));
+                    + (currentLocalWasPlaying ? ". Odtwarzanie zatrzymano" : string.Empty)
+                    + (replacementResult?.SelectedSuccessor is { } successor
+                        ? $". Następny element z bieżącego widoku: {successor.Title}"
+                        : ". Brak następnego elementu w bieżącym widoku"));
             }
 
             ConfigureLocalSourceWatchers();
@@ -2053,7 +2058,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             };
         }).ToList();
 
-        if (local is not null && local.HasItems)
+        if (local is not null && local.HasCurrentItem)
         {
             _state.LocalMedia.CurrentItemId = local.CurrentItem.Id;
             _state.LocalMedia.Volume = local.Volume;
@@ -2414,12 +2419,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private IEnumerable<MediaItem> ActiveLocalItems() =>
         _localItems.Where(item => item.IsAvailable && item.IsInLibrary);
 
-    private void RefreshLocalSessionItems()
+    private MediaReplacementResult RefreshLocalSessionItems()
     {
         var local = _sessions.FindSession("local");
-        if (local is null) return;
-        local.ReplaceItems(ActiveLocalItems());
+        if (local is null) return new(false, null);
+        var result = local.ReplaceItems(ActiveLocalItems());
         EnsureQueueOrder(local);
+        return result;
     }
 
     private SessionNavigationState GetSessionNavigationState(string sessionId)
@@ -4742,20 +4748,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             $"Przywrócono w bibliotece: {item.Title}",
             ++_undoSequence,
             orderSnapshot);
-        RefreshLocalSessionItems();
+        var replacementResult = RefreshLocalSessionItems();
         TrySaveLocalMediaState(false);
-        if (session.HasItems)
+        if (session.HasCurrentItem)
         {
             UpdatePlayerView(true);
             UpdatePlaybackStatusBar();
             UpdateWindowTitle();
-            Announce($"Wykluczono z Biblioteki: {item.Title}. Następny element: {session.CurrentItem.Title}"
+            Announce($"Wykluczono z Biblioteki: {item.Title}. Następny element z bieżącego widoku: {session.CurrentItem.Title}"
                 + (wasPlaying ? ". Odtwarzanie zatrzymano" : string.Empty));
         }
         else
         {
             ReturnFromPlayerToList();
-            Announce($"Wykluczono z Biblioteki: {item.Title}. Biblioteka jest pusta");
+            Announce(replacementResult.CurrentItemRemoved && session.HasItems
+                ? $"Wykluczono z Biblioteki: {item.Title}. Brak następnego elementu w bieżącym widoku"
+                : $"Wykluczono z Biblioteki: {item.Title}. Biblioteka jest pusta");
         }
     }
 
@@ -6377,12 +6385,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var selectedId = SelectedItem?.Id;
         var hadListFocus = MediaList.IsKeyboardFocusWithin;
         if (hadListFocus) AnchorMediaListFocus();
-        RefreshLocalSessionItems();
+        var replacementResult = RefreshLocalSessionItems();
         if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
             if (_playerViewActive)
             {
-                if (_sessions.Current.HasItems) UpdatePlayerView(true);
+                if (_sessions.Current.HasCurrentItem) UpdatePlayerView(true);
                 else ReturnFromPlayerToList();
             }
             else
@@ -6397,6 +6405,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var message = movedItems.Length == 1
             ? $"Plik przeniesiono poza AMC. Zachowano historię i dane: {movedItems[0].Title}"
             : $"Pliki przeniesiono poza AMC. Zachowano historię i dane: {FormatFileCount(movedItems.Length)}";
+        if (replacementResult.CurrentItemRemoved)
+        {
+            message += replacementResult.SelectedSuccessor is { } successor
+                ? $". Następny element z bieżącego widoku: {successor.Title}"
+                : ". Brak następnego elementu w bieżącym widoku";
+        }
         Dispatcher.BeginInvoke(() => AnnounceEssential(message), DispatcherPriority.ContextIdle);
         ScheduleLocalSourceSync();
     }

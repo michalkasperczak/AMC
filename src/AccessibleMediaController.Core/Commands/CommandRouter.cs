@@ -83,7 +83,7 @@ public sealed class CommandRouter(
         var current = sessions.Current;
         if (CommandIds.TryParseSeekPercent(commandId, out var percent))
         {
-            if (!current.HasItems) return MissingMediaItem(current);
+            if (!current.HasCurrentItem) return MissingCurrentMediaItem();
             return SeekPercent(current, percent);
         }
         if (!current.HasItems && RequiresMediaItem(commandId)) return MissingMediaItem(current);
@@ -148,6 +148,7 @@ public sealed class CommandRouter(
                 application.ShowItemPlaybackOptions();
                 return new(true);
             case CommandIds.PlayPause:
+                if (!current.HasCurrentItem) return MissingCurrentMediaItem();
                 current.TogglePlayback();
                 if (settings.Messages.SeekMessages && settings.Messages.PlaybackMessages)
                 {
@@ -171,6 +172,7 @@ public sealed class CommandRouter(
                 }
                 return new(true);
             case CommandIds.Previous:
+                if (!current.HasCurrentItem) return MissingCurrentMediaItem();
                 if (!current.PlayRelative(-1))
                 {
                     announcements.Announce("To pierwszy element");
@@ -179,6 +181,7 @@ public sealed class CommandRouter(
                 announcements.Announce($"Odtwarzanie: {FormatItem(current.CurrentItem)}");
                 return new(true);
             case CommandIds.Next:
+                if (!current.HasCurrentItem) return MissingCurrentMediaItem();
                 if (!current.PlayRelative(1))
                 {
                     announcements.Announce("To ostatni element");
@@ -306,6 +309,12 @@ public sealed class CommandRouter(
                 announcements.Announce("Nieprzypisane polecenie");
                 return new(false);
         }
+    }
+
+    private CommandExecutionResult MissingCurrentMediaItem()
+    {
+        announcements.Announce("Brak następnego dostępnego elementu do odtworzenia");
+        return new(false);
     }
 
     private static bool TryGetSettingsTarget(string commandId, out SettingsTarget target)

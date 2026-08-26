@@ -33,6 +33,7 @@ var tests = new (string Name, Action Test)[]
     ("Kontekst listy odtwarzania", TestPlaybackContext),
     ("Trwała kolejność Kolejki", TestQueueOrder),
     ("Nawigacja Page Up i Page Down w Kolejce", TestQueuePlaybackNavigation),
+    ("Zniknięcie bieżącego pliku zachowuje kontekst odtwarzania", TestMissingCurrentItemRecovery),
     ("Polityka pamiętania pozycji", TestResumePositionPolicy),
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Ponowne włączanie folderu do biblioteki", TestLocalLibraryImport),
@@ -1149,6 +1150,82 @@ static void TestQueuePlaybackNavigation()
     adoption.SetPlaybackContext([adopted.Id, adoptedLater.Id], isQueueContext: true);
     True(!adopted.IsPlayNext && adoption.QueueNavigationActive,
         "Otwarcie już odtwarzanego elementu z Kolejki powinno przejąć go bez ponownego uruchamiania.");
+}
+
+static void TestMissingCurrentItemRecovery()
+{
+    var output = new FakeMediaOutput();
+    var unrelated = new MediaItem { Id = "unrelated", Title = "Pierwszy w całej Bibliotece" };
+    var first = new MediaItem { Id = "first", Title = "Bieżący" };
+    var second = new MediaItem { Id = "second", Title = "Następny z folderu" };
+    var folderSession = new DemoMediaSession(
+        "folder-recovery",
+        "Folder",
+        [unrelated, first, second],
+        output);
+    folderSession.SetPlaybackContext([first.Id, second.Id]);
+    True(folderSession.Play(first), "Bieżący plik folderu powinien się uruchomić.");
+
+    var folderResult = folderSession.ReplaceItems([unrelated, second]);
+    True(folderResult.CurrentItemRemoved, "Odświeżenie powinno rozpoznać zniknięcie bieżącego pliku.");
+    Equal(second, folderResult.SelectedSuccessor);
+    Equal(second, folderSession.CurrentItem);
+    Equal(false, folderSession.IsPlaying);
+    folderSession.TogglePlayback();
+    Equal(second, output.LastItem);
+
+    var queuedFirst = new MediaItem { Id = "queue-first", Title = "Pierwszy z Kolejki", IsInQueue = true };
+    var queuedSecond = new MediaItem { Id = "queue-second", Title = "Drugi z Kolejki", IsInQueue = true };
+    var queueSession = new DemoMediaSession(
+        "queue-recovery",
+        "Kolejka",
+        [unrelated, queuedFirst, queuedSecond],
+        output);
+    queueSession.SetQueueOrder([queuedFirst.Id, queuedSecond.Id]);
+    queueSession.SetPlaybackContext([queuedFirst.Id, queuedSecond.Id], isQueueContext: true);
+    True(queueSession.Play(queuedFirst), "Pierwszy element Kolejki powinien się uruchomić.");
+
+    var queueResult = queueSession.ReplaceItems([unrelated, queuedSecond]);
+    Equal(queuedSecond, queueResult.SelectedSuccessor);
+    Equal(queuedSecond, queueSession.CurrentItem);
+    Equal(false, queueSession.IsPlaying);
+    Equal(true, queuedSecond.IsInQueue);
+    queueSession.TogglePlayback();
+    Equal(queuedSecond, output.LastItem);
+    Equal(false, queuedSecond.IsInQueue);
+
+    var onlyQueued = new MediaItem { Id = "queue-only", Title = "Jedyny z Kolejki", IsInQueue = true };
+    var exhaustedQueue = new DemoMediaSession(
+        "queue-exhausted",
+        "Pusta Kolejka",
+        [unrelated, onlyQueued],
+        output);
+    exhaustedQueue.SetPlaybackContext([onlyQueued.Id], isQueueContext: true);
+    True(exhaustedQueue.Play(onlyQueued), "Jedyny element Kolejki powinien się uruchomić.");
+
+    var exhaustedResult = exhaustedQueue.ReplaceItems([unrelated]);
+    True(exhaustedResult.CurrentItemRemoved, "Usunięcie jedynego elementu powinno zostać rozpoznane.");
+    Equal<MediaItem?>(null, exhaustedResult.SelectedSuccessor);
+    Equal(false, exhaustedQueue.HasCurrentItem);
+    exhaustedQueue.TogglePlayback();
+    Equal(false, exhaustedQueue.IsPlaying);
+
+    var source = new MediaItem { Id = "source", Title = "Źródło" };
+    var queued = new MediaItem { Id = "diverted", Title = "Pozycja z Kolejki", IsPlayNext = true };
+    var natural = new MediaItem { Id = "natural", Title = "Dalszy plik folderu" };
+    var divertedSession = new DemoMediaSession(
+        "diversion-recovery",
+        "Powrót z Kolejki",
+        [source, queued, natural],
+        output);
+    divertedSession.SetPlaybackContext([source.Id, natural.Id]);
+    True(divertedSession.Play(source), "Plik źródłowy powinien się uruchomić.");
+    Equal(queued, divertedSession.ContinueAfterPlaybackEnded(source));
+
+    var diversionResult = divertedSession.ReplaceItems([source, natural]);
+    Equal(natural, diversionResult.SelectedSuccessor);
+    Equal(natural, divertedSession.CurrentItem);
+    Equal(false, divertedSession.QueueNavigationActive);
 }
 
 static void TestResumePositionPolicy()

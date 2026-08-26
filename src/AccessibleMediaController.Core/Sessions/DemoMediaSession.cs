@@ -3,6 +3,7 @@ using AccessibleMediaController.Core.Playback;
 namespace AccessibleMediaController.Core.Sessions;
 
 public sealed record RemovedMediaItem(MediaItem Item, int Index, int? PlaybackContextIndex = null);
+public sealed record MediaReplacementResult(bool CurrentItemRemoved, MediaItem? SelectedSuccessor);
 
 public sealed class DemoMediaSession
 {
@@ -21,6 +22,7 @@ public sealed class DemoMediaSession
     private List<string> _playbackContextItemIds;
     private readonly Func<MediaItem, double?> _playbackRateOverride;
     private readonly MediaItem _emptyItem;
+    private bool _hasCurrentItem;
 
     public DemoMediaSession(
         string id,
@@ -33,6 +35,7 @@ public sealed class DemoMediaSession
         Id = id;
         DisplayName = displayName;
         Items = items.ToList();
+        _hasCurrentItem = Items.Count > 0;
         _playbackContextItemIds = Items.Select(item => item.Id).ToList();
         _emptyItem = new MediaItem
         {
@@ -49,7 +52,8 @@ public sealed class DemoMediaSession
     public string DisplayName { get; }
     public List<MediaItem> Items { get; }
     public bool HasItems => Items.Count > 0;
-    public MediaItem CurrentItem => HasItems ? Items[_currentIndex] : _emptyItem;
+    public bool HasCurrentItem => HasItems && _hasCurrentItem;
+    public MediaItem CurrentItem => HasCurrentItem ? Items[_currentIndex] : _emptyItem;
     public bool IsPlaying { get; private set; }
     public int Volume { get; private set; } = 35;
     public double PlaybackRate { get; private set; } = 1d;
@@ -84,7 +88,7 @@ public sealed class DemoMediaSession
 
     public void TogglePlayback()
     {
-        if (!HasItems) return;
+        if (!HasCurrentItem) return;
         if (IsPlaying)
         {
             _position = Position;
@@ -94,13 +98,21 @@ public sealed class DemoMediaSession
             return;
         }
 
+        if ((_playbackContextIsQueue
+                || (_queueNavigationActive
+                    && _queueNavigationItemIds.Contains(CurrentItem.Id, StringComparer.Ordinal)))
+            && (CurrentItem.IsInQueue || CurrentItem.IsPlayNext))
+        {
+            _playedQueueItemIds.Add(CurrentItem.Id);
+            ConsumeQueueItem(CurrentItem);
+        }
         IsPlaying = true;
         _output?.Play(CurrentItem, _position, Volume, PlaybackRate);
     }
 
     public void StopPlayback()
     {
-        if (!HasItems) return;
+        if (!HasCurrentItem) return;
         RememberCurrentPosition();
         IsPlaying = false;
         _output?.Stop();
@@ -110,12 +122,13 @@ public sealed class DemoMediaSession
     {
         var index = Items.FindIndex(candidate => candidate.Id == item.Id);
         if (index < 0) return false;
-        if (index != _currentIndex)
+        if (!_hasCurrentItem || index != _currentIndex)
         {
             RememberCurrentPosition();
             _position = RememberedPosition(item);
         }
         _currentIndex = index;
+        _hasCurrentItem = true;
         return true;
     }
 
@@ -136,7 +149,7 @@ public sealed class DemoMediaSession
         var index = Items.FindIndex(candidate => candidate.Id == item.Id);
         if (index < 0) return false;
 
-        if (index == _currentIndex)
+        if (_hasCurrentItem && index == _currentIndex)
         {
             if (_playbackContextIsQueue)
             {
@@ -151,6 +164,7 @@ public sealed class DemoMediaSession
         RestoreExplicitQueueNavigation();
         RememberCurrentPosition();
         _currentIndex = index;
+        _hasCurrentItem = true;
         _position = RememberedPosition(item);
         if (_playbackContextIsQueue) ConsumeQueueItem(CurrentItem);
         ApplyPlaybackRateForItem(CurrentItem);
@@ -163,13 +177,16 @@ public sealed class DemoMediaSession
     {
         if (!HasItems) return;
         RememberCurrentPosition();
-        _currentIndex = (_currentIndex + direction + Items.Count) % Items.Count;
+        _currentIndex = _hasCurrentItem
+            ? (_currentIndex + direction + Items.Count) % Items.Count
+            : direction < 0 ? Items.Count - 1 : 0;
+        _hasCurrentItem = true;
         _position = RememberedPosition(CurrentItem);
     }
 
     public bool PlayRelative(int direction)
     {
-        if (!HasItems || direction == 0) return false;
+        if (!HasCurrentItem || direction == 0) return false;
         var usesQueueNavigation = _queueNavigationActive
             && _queueNavigationItemIds.Contains(CurrentItem.Id, StringComparer.Ordinal);
         var navigationItems = usesQueueNavigation
@@ -202,7 +219,7 @@ public sealed class DemoMediaSession
 
     public void Seek(TimeSpan delta)
     {
-        if (!HasItems) return;
+        if (!HasCurrentItem) return;
         var next = Position + delta;
         if (next < TimeSpan.Zero) next = TimeSpan.Zero;
         if (CurrentItem.Duration > TimeSpan.Zero && next > CurrentItem.Duration) next = CurrentItem.Duration;
@@ -213,7 +230,7 @@ public sealed class DemoMediaSession
 
     public void SetPosition(TimeSpan position)
     {
-        if (!HasItems) return;
+        if (!HasCurrentItem) return;
         _position = position < TimeSpan.Zero ? TimeSpan.Zero : position;
         StoreRememberedPosition(CurrentItem, _position);
         _output?.Seek(_position);
@@ -238,7 +255,7 @@ public sealed class DemoMediaSession
 
     public void RememberCurrentPosition()
     {
-        if (!HasItems) return;
+        if (!HasCurrentItem) return;
         var position = Position;
         _position = position < TimeSpan.Zero ? TimeSpan.Zero : position;
         StoreRememberedPosition(CurrentItem, _position);
@@ -287,7 +304,10 @@ public sealed class DemoMediaSession
         return SetPlaybackRate(resolved);
     }
 
-    public void ApplyPlaybackRateForCurrentItem() => ApplyPlaybackRateForItem(CurrentItem);
+    public void ApplyPlaybackRateForCurrentItem()
+    {
+        if (HasCurrentItem) ApplyPlaybackRateForItem(CurrentItem);
+    }
 
     public void SetPlaybackContext(IEnumerable<string> itemIds, bool isQueueContext = false)
     {
@@ -315,6 +335,7 @@ public sealed class DemoMediaSession
 
     public void AddItems(IEnumerable<MediaItem> items)
     {
+        var selectFirstAddedItem = Items.Count == 0;
         var contextWasWholeCatalog = PlaybackContextIsWholeCatalog();
         var knownSources = Items
             .Where(item => !string.IsNullOrWhiteSpace(item.Source))
@@ -326,17 +347,30 @@ public sealed class DemoMediaSession
             Items.Add(item);
             if (contextWasWholeCatalog) _playbackContextItemIds.Add(item.Id);
         }
+        if (selectFirstAddedItem && Items.Count > 0)
+        {
+            _currentIndex = 0;
+            _hasCurrentItem = true;
+            _position = RememberedPosition(CurrentItem);
+        }
     }
 
-    public void ReplaceItems(IEnumerable<MediaItem> items)
+    public MediaReplacementResult ReplaceItems(IEnumerable<MediaItem> items)
     {
         ArgumentNullException.ThrowIfNull(items);
         var replacement = items
             .DistinctBy(item => item.Id, StringComparer.Ordinal)
             .ToList();
-        var previousCurrentId = HasItems ? CurrentItem.Id : null;
+        var catalogPreviouslyHadItems = HasItems;
+        var previousCurrentId = HasCurrentItem ? CurrentItem.Id : null;
+        var previousPlaybackContext = _playbackContextItemIds.ToList();
+        var previousQueueNavigation = _queueNavigationItemIds.ToList();
+        var previousQueueNavigationActive = _queueNavigationActive
+            && previousCurrentId is not null
+            && previousQueueNavigation.Contains(previousCurrentId, StringComparer.Ordinal);
+        var previousResumeAfterQueueIndex = _resumeAfterQueueIndex;
         var contextWasWholeCatalog = PlaybackContextIsWholeCatalog();
-        if (HasItems) RememberCurrentPosition();
+        if (HasCurrentItem) RememberCurrentPosition();
         var previousWasPlaying = IsPlaying;
 
         Items.Clear();
@@ -348,7 +382,7 @@ public sealed class DemoMediaSession
                 .Where(knownIds.Contains)
                 .Distinct(StringComparer.Ordinal)
                 .ToList();
-        if (_playbackContextItemIds.Count == 0)
+        if (_playbackContextItemIds.Count == 0 && previousCurrentId is null && !catalogPreviouslyHadItems)
         {
             _playbackContextItemIds.AddRange(Items.Select(item => item.Id));
         }
@@ -359,9 +393,10 @@ public sealed class DemoMediaSession
             if (previousWasPlaying) _output?.Stop();
             IsPlaying = false;
             _currentIndex = 0;
+            _hasCurrentItem = false;
             _position = TimeSpan.Zero;
             ResetQueueDiversion();
-            return;
+            return new(previousCurrentId is not null, null);
         }
 
         var restoredIndex = previousCurrentId is null
@@ -370,15 +405,65 @@ public sealed class DemoMediaSession
         if (restoredIndex >= 0)
         {
             _currentIndex = restoredIndex;
+            _hasCurrentItem = true;
             _position = RememberedPosition(CurrentItem);
-            return;
+            return new(false, null);
         }
 
-        if (previousWasPlaying) _output?.Stop();
+        if (previousCurrentId is null && !catalogPreviouslyHadItems)
+        {
+            _currentIndex = 0;
+            _hasCurrentItem = true;
+            _position = RememberedPosition(CurrentItem);
+            return new(false, null);
+        }
+
+        if (previousCurrentId is not null) _output?.Stop();
         IsPlaying = false;
+        var successor = previousQueueNavigationActive
+            ? FindAvailableSuccessor(previousQueueNavigation, previousCurrentId!, knownIds, skipPlayedQueueItems: false)
+            : null;
+        var successorUsesQueueNavigation = successor is not null;
+
+        if (successor is null && previousQueueNavigationActive && !_playbackContextIsQueue
+            && previousResumeAfterQueueIndex is int resumeIndex)
+        {
+            successor = FindAvailableAtOrAfter(
+                previousPlaybackContext,
+                resumeIndex,
+                knownIds,
+                skipPlayedQueueItems: true);
+        }
+        if (successor is null && !previousQueueNavigationActive)
+        {
+            successor = FindAvailableSuccessor(
+                previousPlaybackContext,
+                previousCurrentId!,
+                knownIds,
+                skipPlayedQueueItems: true);
+        }
+
+        if (successor is not null)
+        {
+            _currentIndex = Items.FindIndex(item =>
+                string.Equals(item.Id, successor.Id, StringComparison.Ordinal));
+            _hasCurrentItem = true;
+            _position = RememberedPosition(CurrentItem);
+            ApplyPlaybackRateForItem(CurrentItem);
+            // A Queue successor remains in the waiting set until playback
+            // actually starts through TogglePlayback.
+            if (!successorUsesQueueNavigation && previousQueueNavigationActive)
+            {
+                ResetQueueDiversion();
+            }
+            return new(true, successor);
+        }
+
         _currentIndex = 0;
-        _position = RememberedPosition(CurrentItem);
+        _hasCurrentItem = false;
+        _position = TimeSpan.Zero;
         ResetQueueDiversion();
+        return new(previousCurrentId is not null, null);
     }
 
     public IReadOnlyList<RemovedMediaItem> RemoveItems(IEnumerable<string> itemIds)
@@ -399,8 +484,8 @@ public sealed class DemoMediaSession
         if (removed.Length == 0 || removed.Length >= Items.Count) return [];
 
         RememberCurrentPosition();
-        var currentId = CurrentItem.Id;
-        var currentRemoved = ids.Contains(currentId);
+        var currentId = HasCurrentItem ? CurrentItem.Id : null;
+        var currentRemoved = currentId is not null && ids.Contains(currentId);
         var oldCurrentIndex = _currentIndex;
         if (currentRemoved && IsPlaying)
         {
@@ -421,8 +506,11 @@ public sealed class DemoMediaSession
 
         _currentIndex = currentRemoved
             ? Math.Min(oldCurrentIndex, Items.Count - 1)
-            : Items.FindIndex(item => string.Equals(item.Id, currentId, StringComparison.Ordinal));
+            : currentId is null
+                ? -1
+                : Items.FindIndex(item => string.Equals(item.Id, currentId, StringComparison.Ordinal));
         if (_currentIndex < 0) _currentIndex = 0;
+        _hasCurrentItem = currentId is not null || currentRemoved;
         _position = RememberedPosition(CurrentItem);
         ResetQueueDiversion();
         return removed;
@@ -436,7 +524,7 @@ public sealed class DemoMediaSession
             .ToArray();
         if (entries.Length == 0) return;
 
-        var currentId = CurrentItem.Id;
+        var currentId = HasCurrentItem ? CurrentItem.Id : null;
         foreach (var entry in entries)
         {
             Items.Insert(Math.Clamp(entry.Index, 0, Items.Count), entry.Item);
@@ -448,13 +536,16 @@ public sealed class DemoMediaSession
                     entry.Item.Id);
             }
         }
-        _currentIndex = Items.FindIndex(item => string.Equals(item.Id, currentId, StringComparison.Ordinal));
+        _currentIndex = currentId is null
+            ? 0
+            : Items.FindIndex(item => string.Equals(item.Id, currentId, StringComparison.Ordinal));
         if (_currentIndex < 0) _currentIndex = 0;
+        if (currentId is null && Items.Count > 0) _hasCurrentItem = true;
     }
 
     public void MarkPlaybackEnded()
     {
-        if (!HasItems) return;
+        if (!HasCurrentItem) return;
         IsPlaying = false;
         _position = TimeSpan.Zero;
         StoreRememberedPosition(CurrentItem, TimeSpan.Zero);
@@ -464,7 +555,7 @@ public sealed class DemoMediaSession
 
     public MediaItem? ContinueAfterPlaybackEnded(MediaItem endedItem)
     {
-        if (!HasItems || !string.Equals(CurrentItem.Id, endedItem.Id, StringComparison.Ordinal)) return null;
+        if (!HasCurrentItem || !string.Equals(CurrentItem.Id, endedItem.Id, StringComparison.Ordinal)) return null;
 
         IsPlaying = false;
         _position = TimeSpan.Zero;
@@ -546,7 +637,7 @@ public sealed class DemoMediaSession
 
     public void MarkPlaybackFailed()
     {
-        if (!HasItems) return;
+        if (!HasCurrentItem) return;
         IsPlaying = false;
         _position = TimeSpan.Zero;
         ResetQueueDiversion();
@@ -647,6 +738,45 @@ public sealed class DemoMediaSession
             var itemId = _playbackContextItemIds[index];
             if (string.Equals(itemId, excludedItemId, StringComparison.Ordinal)
                 || _playedQueueItemIds.Contains(itemId))
+            {
+                continue;
+            }
+            var item = Items.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, itemId, StringComparison.Ordinal));
+            if (item is not null) return item;
+        }
+        return null;
+    }
+
+    private MediaItem? FindAvailableSuccessor(
+        IReadOnlyList<string> contextItemIds,
+        string currentItemId,
+        IReadOnlySet<string> knownIds,
+        bool skipPlayedQueueItems)
+    {
+        var currentIndex = contextItemIds
+            .Select((itemId, index) => (itemId, index))
+            .FirstOrDefault(entry => string.Equals(entry.itemId, currentItemId, StringComparison.Ordinal))
+            .index;
+        if (currentIndex < 0 || !contextItemIds.Contains(currentItemId, StringComparer.Ordinal)) return null;
+        return FindAvailableAtOrAfter(
+            contextItemIds,
+            currentIndex + 1,
+            knownIds,
+            skipPlayedQueueItems);
+    }
+
+    private MediaItem? FindAvailableAtOrAfter(
+        IReadOnlyList<string> contextItemIds,
+        int startIndex,
+        IReadOnlySet<string> knownIds,
+        bool skipPlayedQueueItems)
+    {
+        for (var index = Math.Max(0, startIndex); index < contextItemIds.Count; index++)
+        {
+            var itemId = contextItemIds[index];
+            if (!knownIds.Contains(itemId)
+                || (skipPlayedQueueItems && _playedQueueItemIds.Contains(itemId)))
             {
                 continue;
             }

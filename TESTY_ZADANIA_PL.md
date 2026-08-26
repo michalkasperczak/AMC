@@ -1,12 +1,40 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-099`
-- Tytuł zestawu: Czytelne „Odtwórz jako następne” i nawigacja Kolejki
-- Wersja programu: `0.1.0-alpha.99`
+- Numer zestawu: `AMC-TEST-100`
+- Tytuł zestawu: Bezpieczne zniknięcie bieżącego pliku
+- Wersja programu: `0.1.0-alpha.100`
 - Utworzono: 2026-08-26, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.99.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.100.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 100
+
+### AMC-100-01 — Plik przeniesiony z Kolejki
+
+Dodaj do Kolejki co najmniej dwa pliki i uruchom pierwszy bezpośrednio z widoku `Ctrl+Q`. Przełącz się do Total Commandera, przenieś odtwarzany plik do innego folderu, wróć do AMC i naciśnij Spację.
+
+Oczekiwane: AMC informuje o niedostępności pliku i wybiera następny element z Kolejki. Nie uruchamia niczego samoczynnie. Po Spacji gra następna pozycja Kolejki, a nie pierwszy plik folderu ani Biblioteki.
+
+### AMC-100-02 — Jedyny plik Kolejki
+
+Pozostaw w Kolejce tylko jeden plik, uruchom go z `Ctrl+Q`, a potem przenieś poza AMC w Total Commanderze. Wróć do programu i naciśnij Spację.
+
+Oczekiwane: program mówi, że w bieżącym widoku nie ma następnego elementu. Spacja nie uruchamia przypadkowego pliku. Odtwarzacz wraca do listy, z której można świadomie wybrać inny materiał.
+
+### AMC-100-03 — Plik uruchomiony z folderu
+
+Otwórz folder zawierający co najmniej trzy pliki, uruchom środkowy, a potem przenieś go poza AMC. Wróć do programu i naciśnij Spację.
+
+Oczekiwane: wybrany zostaje kolejny plik z tego samego widoku folderu. Nie jest wybierany pierwszy element płaskiej Biblioteki, Kolejki ani innego folderu.
+
+### AMC-100-04 — Automatyczne wejście i powrót z Kolejki
+
+Uruchom plik z folderu, mając co najmniej jedną pozycję w Kolejce. Po automatycznym wejściu do Kolejki przenieś bieżący plik poza AMC. Sprawdź zachowanie z jeszcze jedną pozycją Kolejki oraz bez niej.
+
+Oczekiwane: najpierw wybierana jest kolejna dostępna pozycja Kolejki. Gdy Kolejka jest wyczerpana, AMC wraca do następnego elementu wcześniejszego widoku folderu. Program nie przechodzi na początek całej Biblioteki.
+
+## Poprzedni zestaw alpha 99
 
 ## Nowości alpha 99
 
