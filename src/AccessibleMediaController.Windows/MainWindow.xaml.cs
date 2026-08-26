@@ -3251,12 +3251,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             previousPlaylists = playlists.CloneSettings();
             storedOrder = playlist.ItemIds;
         }
-        var visibleRows = isQueueOrder
+        var visibleRows = (isQueueOrder
             ? _unfilteredItems.Where(row =>
                 row.ActionItem.IsPlayNext == selectedRows[0].ActionItem.IsPlayNext)
-            : _unfilteredItems;
+            : _unfilteredItems)
+            .ToArray();
         var visibleIds = visibleRows
             .Select(row => row.ActionItem.Id)
+            .ToArray();
+        var selectedIdSet = selectedIds.ToHashSet(StringComparer.Ordinal);
+        var selectedVisibleIndices = visibleIds
+            .Select((itemId, index) => (itemId, index))
+            .Where(entry => selectedIdSet.Contains(entry.itemId))
+            .Select(entry => entry.index)
             .ToArray();
         var result = LocalLibraryManualOrder.MoveVisibleBlock(
             storedOrder,
@@ -3276,6 +3283,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             });
             return;
         }
+        var adjacentItem = selectedVisibleIndices.Length == 0
+            ? null
+            : visibleRows[direction < 0
+                ? selectedVisibleIndices[0] - 1
+                : selectedVisibleIndices[^1] + 1].ActionItem;
 
         if (isQueueOrder) _sessions.Current.SetQueueOrder(storedOrder);
         var primaryId = selectedIds[0];
@@ -3309,7 +3321,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             _store.Save(_state);
         }
-        PrepareSelectedItemFocusContext(direction < 0 ? "Przeniesiono wyżej" : "Przeniesiono niżej");
+        var movedLabel = selectedIds.Length == 1
+            ? "Przeniesiono"
+            : $"Przeniesiono {FormatItemCount(selectedIds.Length)}";
+        var directionLabel = direction < 0 ? "w górę, nad" : "w dół, pod";
+        PrepareSelectedItemFocusContext(adjacentItem is null
+            ? $"{movedLabel} {directionLabel} sąsiedni element"
+            : $"{movedLabel} {directionLabel} {adjacentItem.Title}");
         RestoreMediaListFocusAfterRefresh();
     }
 

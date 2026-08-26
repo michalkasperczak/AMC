@@ -40,6 +40,12 @@ Powtórz usunięcie bieżącego pliku przez Delete oraz fizyczne Shift+Delete po
 
 Oczekiwane: każda metoda używa tej samej reguły co przeniesienie w Total Commanderze. Następca pochodzi dokładnie z widoku, z którego uruchomiono usunięty plik; przy braku następcy Spacja nie uruchamia elementu z innej listy.
 
+### AMC-100-06 — Relacyjny komunikat ręcznego przenoszenia
+
+W Kolejności własnej, Ulubionych, Kolejce i otwartej playliście wybierz pojedynczy element i użyj `Alt+strzałki w górę`, a następnie `Alt+strzałki w dół`. Powtórz z ciągłym blokiem dwóch lub trzech pozycji.
+
+Oczekiwane: NVDA mówi odpowiednio „Przeniesiono w górę, nad [tytuł sąsiada]” albo „Przeniesiono w dół, pod [tytuł sąsiada]”, po czym odczytuje przeniesiony element. Dla bloku podawana jest również liczba przeniesionych elementów. Fokus i całe zaznaczenie pozostają na przeniesionych pozycjach.
+
 ## Poprzedni zestaw alpha 99
 
 ## Nowości alpha 99
