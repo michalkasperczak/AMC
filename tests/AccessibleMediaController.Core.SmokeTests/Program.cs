@@ -40,7 +40,7 @@ var tests = new (string Name, Action Test)[]
     ("Synchronizacja źródeł lokalnej biblioteki", TestLocalLibrarySynchronization),
     ("Bezpieczna zmiana nazwy lokalnego pliku", TestLocalFileRenamePolicy),
     ("Integracyjny cykl zmian folderu", TestLocalFolderSynchronizationCycle),
-    ("Bezpieczne zarządzanie źródłami Biblioteki", TestLocalFolderSourcePolicy),
+    ("Bezpieczne zarządzanie Folderami Biblioteki", TestLocalFolderSourcePolicy),
     ("Trwała kolejność własna Biblioteki", TestLocalLibraryManualOrder),
     ("Albumy rozpoznawane ze struktury folderów", TestLocalAlbumInference),
     ("Migracja i trwałość Biblioteki SQLite", TestSqliteLibraryMigration),
@@ -178,15 +178,15 @@ static void TestCommandCatalog()
     Equal("Biblioteka lokalna: pokaż foldery", CommandCatalog.GetDisplayName(CommandIds.ViewFolders));
     Equal("Biblioteka lokalna: pokaż wszystkie pliki", CommandCatalog.GetDisplayName(CommandIds.ViewAllLocalFiles));
     Equal("Biblioteka lokalna: pokaż kolejność własną", CommandCatalog.GetDisplayName(CommandIds.ViewCustomLocalOrder));
-    Equal("Odśwież źródła biblioteki lokalnej", CommandCatalog.GetDisplayName(CommandIds.RefreshLocalLibrary));
-    Equal("Zarządzaj źródłami biblioteki lokalnej", CommandCatalog.GetDisplayName(CommandIds.ManageLocalSources));
+    Equal("Odśwież foldery Biblioteki", CommandCatalog.GetDisplayName(CommandIds.RefreshLocalLibrary));
+    Equal("Foldery Biblioteki", CommandCatalog.GetDisplayName(CommandIds.ManageLocalSources));
     Equal("Zmień nazwę w Bibliotece", CommandCatalog.GetDisplayName(CommandIds.RenameLibraryItem));
     Equal("Zmień nazwę pliku na dysku", CommandCatalog.GetDisplayName(CommandIds.RenameLocalFile));
     Equal("Przenieś wyżej na bieżącej liście", CommandCatalog.GetDisplayName(CommandIds.MoveLocalLibraryItemUp));
     Equal("Przenieś niżej na bieżącej liście", CommandCatalog.GetDisplayName(CommandIds.MoveLocalLibraryItemDown));
     Equal("Ustawienia: kolejność sesji i skrótów Ctrl+1–9", CommandCatalog.GetDisplayName(CommandIds.SettingsSessionOrder));
     Equal("Ustawienia: wstrzymuj po wyjściu z odtwarzacza", CommandCatalog.GetDisplayName(CommandIds.SettingsPausePlaybackWhenLeavingPlayer));
-    Equal("Ustawienia: domyślnie pamiętaj pozycje lokalnych plików", CommandCatalog.GetDisplayName(CommandIds.SettingsRememberLocalPlaybackPositions));
+    Equal("Ustawienia: pamiętaj pozycję odtwarzania lokalnych plików", CommandCatalog.GetDisplayName(CommandIds.SettingsRememberLocalPlaybackPositions));
     Equal("Skocz do czasu", CommandCatalog.GetDisplayName(CommandIds.SeekToTime));
     Equal("Skocz do procentu", CommandCatalog.GetDisplayName(CommandIds.SeekToPercentage));
     Equal("Właściwości i informacje", CommandCatalog.GetDisplayName(CommandIds.ItemProperties));
@@ -2459,13 +2459,13 @@ static void TestLocalFolderSourcePolicy()
     Equal(1, statuses[0].UnavailableItemCount);
     Equal(1, statuses[0].ExcludedItemCount);
     Equal(ResumePositionMode.StartFromBeginning, statuses[0].ResumePositionMode);
-    True(statuses[0].Label.Contains("zawsze od początku", StringComparison.Ordinal),
-        "Lista źródeł powinna podawać politykę pamiętania pozycji.");
+    True(statuses[0].Label.Contains("Zawsze od początku", StringComparison.Ordinal),
+        "Lista Folderów Biblioteki powinna podawać politykę pamiętania pozycji.");
     Equal(statuses[0].Label, statuses[0].ToString());
     True(!statuses[0].ToString().Contains(nameof(LocalFolderSourceStatus), StringComparison.Ordinal),
-        "Nazwa dostępnościowa źródła nie może ujawniać technicznego zapisu rekordu.");
+        "Nazwa dostępnościowa folderu nie może ujawniać technicznego zapisu rekordu.");
 
-    True(LocalFolderSourcePolicy.DetachSource(sources, "source-1"), "Źródło powinno dać się odłączyć.");
+    True(LocalFolderSourcePolicy.DetachSource(sources, "source-1"), "Folder powinien dać się odłączyć.");
     Equal(0, sources.Count);
     Equal(3, items.Count);
     Equal(true, items[0].IsInLibrary);

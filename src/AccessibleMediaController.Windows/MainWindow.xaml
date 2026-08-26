@@ -30,8 +30,8 @@
                           automation:AutomationProperties.Name="Otwórz folder z plikami audio, Ctrl+Shift+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+O"
                           Click="OpenLocalFolder_Click" />
-                <MenuItem Header="_Zarządzaj źródłami Biblioteki…" InputGestureText="Ctrl+F5"
-                          automation:AutomationProperties.Name="Zarządzaj źródłami Biblioteki lokalnej, Ctrl+F5"
+                <MenuItem Header="_Foldery Biblioteki…" InputGestureText="Ctrl+F5"
+                          automation:AutomationProperties.Name="Foldery Biblioteki, Ctrl+F5"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
                           Click="ManageLocalSources_Click" />
                 <Separator />
@@ -125,8 +125,8 @@
                 <MenuItem Header="_Kolejność własna" InputGestureText="Alt+3" Click="CustomLocalOrderView_Click"
                           automation:AutomationProperties.Name="Kolejność własna Biblioteki lokalnej, Alt+3"
                           automation:AutomationProperties.AcceleratorKey="Alt+3" />
-                <MenuItem Header="_Odśwież źródła lokalne" InputGestureText="F5" Click="RefreshLocalLibrary_Click"
-                          automation:AutomationProperties.Name="Odśwież źródła biblioteki lokalnej, F5"
+                <MenuItem Header="_Odśwież foldery Biblioteki" InputGestureText="F5" Click="RefreshLocalLibrary_Click"
+                          automation:AutomationProperties.Name="Odśwież foldery Biblioteki, F5"
                           automation:AutomationProperties.AcceleratorKey="F5" />
                 <MenuItem Header="_Albumy" InputGestureText="Ctrl+Shift+A" Click="AlbumsView_Click" />
                 <MenuItem Header="_Kolejka" InputGestureText="Ctrl+Q" Click="QueueView_Click" />

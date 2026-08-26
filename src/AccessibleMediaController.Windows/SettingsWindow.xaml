@@ -35,8 +35,8 @@
                                       Content="_Wstrzymuj odtwarzanie po wyjściu z odtwarzacza"
                                       automation:AutomationProperties.HelpText="Dotyczy Escape, Shift+F6, przycisku Wróć do listy i bezpośredniego przejścia do innego widoku. Zwykła lista zachowuje zwykłe działanie klawiszy." />
                             <CheckBox x:Name="RememberLocalPlaybackPositionsCheck"
-                                      Content="Domyślnie _pamiętaj pozycje lokalnych plików"
-                                      automation:AutomationProperties.HelpText="Dla każdego źródła folderowego można wybrać inne zachowanie w oknie Źródła Biblioteki lokalnej." />
+                                      Content="_Pamiętaj pozycję odtwarzania lokalnych plików"
+                                      automation:AutomationProperties.HelpText="To ustawienie globalne. Dla każdego Folderu Biblioteki oraz pojedynczego elementu można wybrać inne zachowanie." />
                         </StackPanel>
                     </GroupBox>
                     <GroupBox Header="Kolejność sesji i skróty Ctrl+1–9" Margin="0,2,0,14">
@@ -112,7 +112,7 @@
                         <Button x:Name="ExportFullBackupButton" Content="Eksportuj _wszystko…" Click="ExportFullBackup_Click" />
                     </WrapPanel>
                     <TextBlock TextWrapping="Wrap"
-                               Text="Pełna kopia obejmuje katalog Biblioteki lokalnej, źródła folderowe, wykluczenia, Ulubione, kolejki, historię, zakładki, zapamiętane pozycje, ustawienia, profile klawiatury i kolejność sesji. Hasła, tokeny oraz dane logowania nigdy nie są eksportowane." />
+                               Text="Pełna kopia obejmuje katalog Biblioteki lokalnej, Foldery Biblioteki, wykluczenia, Ulubione, kolejki, historię, zakładki, zapamiętane pozycje, ustawienia, profile klawiatury i kolejność sesji. Hasła, tokeny oraz dane logowania nigdy nie są eksportowane." />
                 </StackPanel>
             </TabItem>
 

@@ -20,10 +20,10 @@ public partial class ItemPlaybackOptionsWindow : Window
         if (folderTarget)
         {
             Title = "Opcje odtwarzania folderu";
-            ResumeModeLabel.Content = "_Pozycja plików po ponownym otwarciu:";
+            ResumeModeLabel.Content = "_Pozycja odtwarzania plików:";
             PlaybackRateLabel.Content = "_Prędkość plików w folderze:";
             OutputDeviceLabel.Content = "_Urządzenie audio dla folderu:";
-            AutomationProperties.SetName(ResumeModeBox, "Pozycja plików po ponownym otwarciu");
+            AutomationProperties.SetName(ResumeModeBox, "Pozycja odtwarzania plików");
             AutomationProperties.SetName(PlaybackRateBox, "Prędkość plików w folderze");
             AutomationProperties.SetName(OutputDeviceBox, "Urządzenie audio dla folderu");
         }
@@ -32,15 +32,15 @@ public partial class ItemPlaybackOptionsWindow : Window
         ResumeChoice[] resumeChoices = folderTarget
             ?
             [
-                new ResumeChoice(ResumePositionMode.Inherit, "Według folderu nadrzędnego lub ustawienia ogólnego"),
-                new ResumeChoice(ResumePositionMode.Remember, "Pamiętaj pozycję plików w tym folderze"),
-                new ResumeChoice(ResumePositionMode.StartFromBeginning, "Pliki w tym folderze zawsze od początku")
+                new ResumeChoice(ResumePositionMode.Remember, "Pamiętaj pozycję odtwarzania"),
+                new ResumeChoice(ResumePositionMode.StartFromBeginning, "Zawsze od początku"),
+                new ResumeChoice(ResumePositionMode.Inherit, "Zgodnie z folderem nadrzędnym lub ustawieniem globalnym")
             ]
             :
             [
-                new ResumeChoice(ResumePositionMode.Inherit, "Według ustawienia folderu lub ustawienia ogólnego"),
-                new ResumeChoice(ResumePositionMode.Remember, "Pamiętaj pozycję dla tego elementu"),
-                new ResumeChoice(ResumePositionMode.StartFromBeginning, "Zawsze od początku dla tego elementu")
+                new ResumeChoice(ResumePositionMode.Remember, "Pamiętaj pozycję odtwarzania"),
+                new ResumeChoice(ResumePositionMode.StartFromBeginning, "Zawsze od początku"),
+                new ResumeChoice(ResumePositionMode.Inherit, "Zgodnie z ustawieniem folderu lub globalnym")
             ];
         ResumeModeBox.ItemsSource = resumeChoices;
         ResumeModeBox.SelectedItem = resumeChoices.First(choice => choice.Value == resumePositionMode);

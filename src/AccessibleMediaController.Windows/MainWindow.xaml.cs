@@ -1454,8 +1454,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "paletę poleceń i wyszukiwanie globalne.\n\n" +
             "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+0 otwiera listę sesji, a kolejność można zmienić w Ustawieniach Ogólnych. " +
             "Ctrl+Page Up i Ctrl+Page Down zmieniają sesję. " +
-            "Ctrl+O dodaje lokalne pliki audio, a Ctrl+Shift+O rejestruje synchronizowane źródło Biblioteki wraz z podfolderami. " +
-            "W lokalnej Bibliotece Alt+1 pokazuje Foldery, Alt+2 Wszystkie pliki alfabetycznie, a Alt+3 Kolejność własną. W Kolejności własnej Alt+strzałka w górę lub w dół przenosi jeden element albo ciągły zaznaczony blok; aktywny filtr trzeba wcześniej wyczyścić. F5 wykonuje pełne odświeżenie źródeł. Enter wchodzi do folderu, a Backspace wraca o poziom wyżej. Żadne z tych poleceń nie uruchamia dźwięku automatycznie. " +
+            "Ctrl+O dodaje lokalne pliki audio, a Ctrl+Shift+O dodaje do Biblioteki synchronizowany folder wraz z podfolderami. " +
+            "W lokalnej Bibliotece Alt+1 pokazuje Foldery, Alt+2 Wszystkie pliki alfabetycznie, a Alt+3 Kolejność własną. W Kolejności własnej Alt+strzałka w górę lub w dół przenosi jeden element albo ciągły zaznaczony blok; aktywny filtr trzeba wcześniej wyczyścić. F5 odświeża Foldery Biblioteki, a Ctrl+F5 otwiera ich ustawienia. Enter wchodzi do folderu, a Backspace wraca o poziom wyżej. Żadne z tych poleceń nie uruchamia dźwięku automatycznie. " +
             "Ctrl+Shift+A otwiera Albumy; lokalnie numerowane pliki w folderze mogą utworzyć album nawet bez kompletnych tagów. Enter otwiera jego utwory, a Escape wraca do Albumów. Ctrl+U/P/L/Q otwiera odpowiednio: Ulubione, Playlisty, Bibliotekę i Kolejkę, " +
             "Ctrl+H otwiera trwałą Historię odtwarzania, Ctrl+B otwiera globalną listę Zakładek, a Ctrl+Shift+B dodaje nazwaną zakładkę w odtwarzaczu. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
             "wyszukiwania w bieżącej usłudze, Ctrl+Shift+F otwiera wyszukiwanie globalne, " +
@@ -1707,7 +1707,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             source = conflict.ExistingSource;
             added = false;
-            message = $"Źródło „{source.DisplayName}” było już zarejestrowane";
+            message = $"Folder „{source.DisplayName}” był już dodany do Biblioteki";
             return true;
         }
         if (conflict is not null)
@@ -1715,8 +1715,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             source = null!;
             added = false;
             message = conflict.Kind == LocalFolderSourceConflictKind.CoveredByExistingSource
-                ? $"Nie dodano folderu. Jest już objęty źródłem „{conflict.ExistingSource.DisplayName}”: {conflict.ExistingSource.Path}"
-                : $"Nie dodano folderu. Obejmowałby istniejące źródło „{conflict.ExistingSource.DisplayName}”: {conflict.ExistingSource.Path}";
+                ? $"Nie dodano folderu. Należy już do Folderu Biblioteki „{conflict.ExistingSource.DisplayName}”: {conflict.ExistingSource.Path}"
+                : $"Nie dodano folderu. Obejmowałby już dodany Folder Biblioteki „{conflict.ExistingSource.DisplayName}”: {conflict.ExistingSource.Path}";
             return false;
         }
 
@@ -1729,7 +1729,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         };
         _state.LocalMedia.FolderSources.Add(source);
         added = true;
-        message = $"Dodano źródło „{source.DisplayName}”";
+        message = $"Dodano Folder Biblioteki „{source.DisplayName}”";
         return true;
     }
 
@@ -1821,7 +1821,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 if (result.RestoredItems.Count > 0) parts.Add($"ponownie dostępne {FormatFileCount(result.RestoredItems.Count)}");
                 if (result.BecameUnavailableItems.Count > 0)
                     parts.Add($"niedostępne {FormatFileCount(result.BecameUnavailableItems.Count)}");
-                if (failed.Length > 0) parts.Add($"niedostępne źródła: {failed.Length}");
+                if (failed.Length > 0) parts.Add($"niedostępne foldery: {failed.Length}");
                 Announce(parts.Count == 0
                     ? "Biblioteka lokalna jest aktualna"
                     : $"Odświeżono Bibliotekę: {string.Join(", ", parts)}");
@@ -2235,11 +2235,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private string FormatResumePositionMode(ResumePositionMode mode, MediaItem item) => mode switch
     {
-        ResumePositionMode.Remember => "pamiętaj dla tego elementu",
-        ResumePositionMode.StartFromBeginning => "zawsze od początku dla tego elementu",
-        _ => ShouldRememberLocalPosition(item.Source)
-            ? "według folderu lub ustawienia ogólnego — pamiętaj"
-            : "według folderu lub ustawienia ogólnego — od początku"
+            ResumePositionMode.Remember => "Pamiętaj pozycję odtwarzania",
+            ResumePositionMode.StartFromBeginning => "Zawsze od początku",
+            _ => ShouldRememberLocalPosition(item.Source)
+            ? "Zgodnie z ustawieniem folderu lub globalnym — pamiętaj pozycję odtwarzania"
+            : "Zgodnie z ustawieniem folderu lub globalnym — zawsze od początku"
     };
 
     private string FormatItemPlaybackRate(MediaItem item, LocalMediaItemSettings? saved)
@@ -3745,7 +3745,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var currentPath = _state.LocalMedia.CurrentFolderPath;
         if (string.IsNullOrWhiteSpace(currentPath))
         {
-            Announce("To jest lista źródeł folderów");
+            Announce("To jest lista Folderów Biblioteki");
             return;
         }
 
@@ -3762,7 +3762,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreFilterForCurrentView(GetSessionNavigationState("local"));
         RefreshCurrentView(preferredItemId: exitedFolderId);
         PrepareViewFocusContext(_state.LocalMedia.CurrentFolderPath is null
-            ? "Foldery, źródła"
+            ? "Foldery Biblioteki"
             : $"Foldery, {GetFolderDisplayName(_state.LocalMedia.CurrentFolderPath)}");
         TrySaveLocalMediaState(false);
         RestoreMediaListFocusAfterRefresh();
@@ -3833,7 +3833,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             RestoreMediaListFocusAfterRefresh();
             Dispatcher.BeginInvoke(
-                () => Announce("Delete nie usuwa folderu ani źródła. Enter otwiera folder; zarządzanie źródłami będzie osobnym poleceniem"),
+                () => Announce("Delete nie usuwa folderu. Enter otwiera folder; Folderami Biblioteki zarządza Ctrl+F5"),
                 DispatcherPriority.ContextIdle);
             return;
         }
@@ -4463,7 +4463,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return new(
             added
                 ? $"{message}. Folder został zsynchronizowany z Biblioteką."
-                : $"{message}. Źródło zostało ponownie przeskanowane.",
+                : $"{message}. Folder został ponownie przeskanowany.",
             source.Id);
     }
 
@@ -4472,8 +4472,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         await SynchronizeLocalSourcesAsync(announceResult: false, sourceIds);
         return new(sourceIds.Count == 0
-            ? "Odświeżono wszystkie źródła Biblioteki. Niedostępne źródła nie spowodowały usunięcia zapisanych rekordów."
-            : "Odświeżono wybrane źródło Biblioteki. Niedostępność źródła nie powoduje usunięcia zapisanych rekordów.",
+            ? "Odświeżono wszystkie Foldery Biblioteki. Niedostępne foldery nie spowodowały usunięcia zapisanych rekordów."
+            : "Odświeżono wybrany Folder Biblioteki. Niedostępność folderu nie powoduje usunięcia zapisanych rekordów.",
             sourceIds.Count == 1 ? sourceIds.First() : null);
     }
 
@@ -4481,7 +4481,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var source = _state.LocalMedia.FolderSources.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, sourceId, StringComparison.Ordinal));
-        if (source is null) return new("Źródło nie jest już zarejestrowane.");
+        if (source is null) return new("Folder nie należy już do Biblioteki.");
 
         if (!string.IsNullOrWhiteSpace(_state.LocalMedia.CurrentFolderPath)
             && LocalFolderSourcePolicy.IsSameOrDescendant(_state.LocalMedia.CurrentFolderPath, source.Path))
@@ -4495,7 +4495,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RefreshCurrentView();
         }
         TrySaveLocalMediaState(true);
-        return new($"Odłączono źródło „{source.DisplayName}”. Pliki na dysku i wszystkie zapisane dane AMC pozostały bez zmian.");
+        return new($"Odłączono folder „{source.DisplayName}”. Pliki na dysku i wszystkie zapisane dane AMC pozostały bez zmian.");
     }
 
     private LocalSourceActionResult SetManagedSourceResumePositionMode(
@@ -4504,7 +4504,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var source = _state.LocalMedia.FolderSources.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, sourceId, StringComparison.Ordinal));
-        if (source is null) return new("Źródło nie jest już zarejestrowane.");
+        if (source is null) return new("Folder nie należy już do Biblioteki.");
 
         source.ResumePositionMode = mode;
         ClearDisabledLocalResumePositions();
@@ -4512,11 +4512,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         TrySaveLocalMediaState(false);
         var description = mode switch
         {
-            ResumePositionMode.Remember => "pozycje będą pamiętane",
-            ResumePositionMode.StartFromBeginning => "pliki będą otwierane od początku",
-            _ => "obowiązuje ustawienie ogólne"
+            ResumePositionMode.Remember => "Pamiętaj pozycję odtwarzania",
+            ResumePositionMode.StartFromBeginning => "Zawsze od początku",
+            _ => "Zgodnie z ustawieniem globalnym"
         };
-        return new($"Źródło „{source.DisplayName}”: {description}.", source.Id);
+        return new($"Folder „{source.DisplayName}”: {description}.", source.Id);
     }
 
     private void ClearDisabledLocalResumePositions()

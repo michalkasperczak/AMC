@@ -423,7 +423,7 @@ Approved primary bindings:
 | `Alt+3` on a local list | show persistent Custom order |
 | `Alt+Up/Down` in Custom order | move a file or a contiguous selected block by one position |
 | `F5` in the local session | rescan every available source |
-| `Ctrl+F5` | open the local Library Manager |
+| `Ctrl+F5` | open Library folders |
 | `F2` on a local list | change only the persistent title displayed by AMC |
 | `Shift+F2` on a local list | rename the real file on disk while preserving its extension and AMC data |
 | `F6` | open the player view |
@@ -881,6 +881,8 @@ Correction in `alpha.99`: Play next is not a separate view or a second durable c
 The `alpha.100` safeguard preserves the pre-change playback-context snapshot for every operation that removes the current record from a session catalogue. This includes folder monitoring, clipboard cut and move, Delete, and physical Shift+Delete. The core searches only for the next available identifier in the source snapshot, whether the source was Queue, Library, a folder, album, Favorites, playlist, search results, or a future service-adapter view. It also returns correctly from an automatically entered Queue to its earlier view. A successor is selected but is not started automatically. If no successor exists, the session enters an explicit no-current-item state; Space cannot then play the first catalogue file or an item from another view.
 
 Manual reordering reports both direction and the post-move relationship to the immediate neighbour: “Moved up, above [title]” or “Moved down, below [title]”. A contiguous selected block includes its item count and the relation applies to the whole block. This rule is shared by Custom order, Favorites, Queue and editable playlists, including future service adapters that support user ordering.
+
+Terminology correction in `alpha.101`: the technical model still stores synchronization roots as folder sources, but the user interface consistently calls them **Library folders**. `Ctrl+F5` opens **Library folders**, while `F5` refreshes them. A selected folder offers **Remember playback position**, **Always start from the beginning**, and **Follow the global setting**. General Settings and `Alt+Shift+Enter` use the same names for the two explicit decisions; an inherited item or nested-folder option still states that a parent folder may take precedence over the global setting. This presentation-only change does not alter the SQLite schema or stable identifiers and requires no Library migration.
 
 “Go to album” and “Go to artist” are relationship navigation rather than text searches. For a local file, `alpha.89` uses its inferred album directory and parent artist directory. An `F2` title alias does not alter the disk file or album sort key: AMC may display a clean title without `01`, while sequence still follows the physical file-name number. A streaming adapter will later supply stable related album and artist identifiers. Matching a local file to a service catalogue remains a separate, more expensive on-demand feature.
 

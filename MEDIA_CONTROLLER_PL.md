@@ -423,7 +423,7 @@ Zatwierdzone przypisania podstawowe:
 | `Alt+3` na liście lokalnej | pokaż trwałą Kolejność własną |
 | `Alt+Strzałka w górę/w dół` w Kolejności własnej | przesuń plik albo ciągły zaznaczony blok o jedną pozycję |
 | `F5` w sesji lokalnej | ponownie przeskanuj wszystkie dostępne źródła |
-| `Ctrl+F5` | otwórz Menedżera Biblioteki lokalnej |
+| `Ctrl+F5` | otwórz Foldery Biblioteki |
 | `F2` na lokalnej liście | zmień tylko trwałą nazwę wyświetlaną w AMC |
 | `Shift+F2` na lokalnej liście | zmień rzeczywistą nazwę pliku na dysku, zachowując rozszerzenie i dane AMC |
 | `F6` | otwórz widok odtwarzacza |
@@ -883,6 +883,8 @@ Korekta `alpha.99`: „Odtwórz jako następne” nie jest osobnym widokiem ani 
 Zabezpieczenie `alpha.100`: każda operacja usuwająca bieżący rekord z katalogu sesji zachowuje migawkę kontekstu odtwarzania sprzed zmiany. Obejmuje to monitoring folderu, wycięcie i przeniesienie przez schowek, Delete i fizyczne Shift+Delete. Rdzeń szuka wyłącznie następnego dostępnego identyfikatora w źródłowej migawce — niezależnie, czy źródłem była Kolejka, Biblioteka, folder, album, Ulubione, playlista, wyniki wyszukiwania lub przyszły widok adaptera usługi — a także poprawnie wraca z automatycznie uruchomionej Kolejki do wcześniejszego widoku. Następca zostaje wybrany, ale nie uruchamia się automatycznie. Brak następcy tworzy jawny stan „brak bieżącego elementu”; Spacja nie może wtedy odtworzyć pierwszego pliku katalogu ani żadnego elementu z innego widoku.
 
 Komunikat ręcznej zmiany kolejności opisuje kierunek i relację do bezpośredniego sąsiada po operacji: „Przeniesiono w górę, nad [tytuł]” albo „Przeniesiono w dół, pod [tytuł]”. Dla ciągłego zaznaczonego bloku podawana jest liczba elementów, a relacja dotyczy całego bloku. Reguła jest wspólna dla Kolejności własnej, Ulubionych, Kolejki i edytowalnych playlist, również w przyszłych adapterach usług obsługujących porządek użytkownika.
+
+Korekta terminologii `alpha.101`: techniczny model nadal przechowuje korzenie synchronizacji jako źródła folderowe, lecz interfejs użytkownika nazywa je konsekwentnie **Folderami Biblioteki**. `Ctrl+F5` otwiera okno **Foldery Biblioteki**, a `F5` je odświeża. Dla zaznaczonego folderu dostępne są: **Pamiętaj pozycję odtwarzania**, **Zawsze od początku** i **Zgodnie z ustawieniem globalnym**. Te same dwie decyzje mają identyczne nazwy w Ustawieniach ogólnych i w `Alt+Shift+Enter`; wariant dziedziczenia pojedynczego elementu lub folderu zagnieżdżonego jawnie wskazuje, że może obowiązywać jego folder nadrzędny przed ustawieniem globalnym. Nazewnictwo interfejsu nie zmienia schematu SQLite ani stabilnych identyfikatorów, więc nie wymaga migracji Biblioteki.
 
 Relacje „Przejdź do albumu” i „Przejdź do wykonawcy” są poleceniami nawigacyjnymi, a nie wyszukiwaniem tekstowym. Dla lokalnego pliku `alpha.89` wykorzystuje rozpoznany folder albumu i jego nadrzędny folder wykonawcy. Alias tytułu ustawiony przez `F2` nie zmienia pliku ani klucza sortowania albumu: etykieta w AMC może nie zawierać `01`, ale kolejność nadal wynika z numeru rzeczywistej nazwy na dysku. Adapter streamingowy ma później dostarczyć stabilne identyfikatory powiązanego albumu i wykonawcy. Dopasowanie lokalnego pliku do katalogu usługi pozostaje osobną, kosztowniejszą funkcją na żądanie.
 

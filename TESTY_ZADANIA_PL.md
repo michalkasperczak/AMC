@@ -1,12 +1,40 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-100`
-- Tytuł zestawu: Bezpieczne zniknięcie bieżącego pliku
-- Wersja programu: `0.1.0-alpha.100`
+- Numer zestawu: `AMC-TEST-101`
+- Tytuł zestawu: Foldery Biblioteki i spójne ustawienia pozycji
+- Wersja programu: `0.1.0-alpha.101`
 - Utworzono: 2026-08-26, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.100.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.101.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 101
+
+### AMC-101-01 — Foldery Biblioteki pod Ctrl+F5
+
+Na lokalnej liście naciśnij `Ctrl+F5`, a następnie przejdź po oknie strzałkami i Tabem.
+
+Oczekiwane: tytuł, nagłówek, lista i menu używają nazwy „Foldery Biblioteki”, bez określenia „źródła Biblioteki” i bez technicznych reprezentacji obiektów. Pierwszy fokus znajduje się na liście folderów, a Escape zamyka okno i wraca do głównej listy.
+
+### AMC-101-02 — Trzy warianty dla wybranego folderu
+
+W `Ctrl+F5` wybierz folder, przejdź do pola kombi **Dla wybranego folderu** i przeczytaj wszystkie pozycje. Zapisz kolejno każdą z nich.
+
+Oczekiwane: pole zawiera „Pamiętaj pozycję odtwarzania”, „Zawsze od początku” oraz „Zgodnie z ustawieniem globalnym”. Po zapisie komunikat podaje nazwę folderu i wybraną wartość, fokus wraca do pola kombi, a ustawienie pozostaje wybrane po ponownym otwarciu okna.
+
+### AMC-101-03 — Ustawienia globalne i Alt+Shift+Enter
+
+Otwórz Ustawienia ogólne i znajdź opcję **Pamiętaj pozycję odtwarzania lokalnych plików**. Następnie anuluj Ustawienia i wywołaj `Alt+Shift+Enter` kolejno na pliku i folderze.
+
+Oczekiwane: Ustawienia jasno określają opcję jako globalną. W opcjach elementu oraz folderu występują te same krótkie warianty „Pamiętaj pozycję odtwarzania” i „Zawsze od początku”. Wariant dziedziczenia dokładnie wskazuje ustawienie folderu, folderu nadrzędnego lub globalne, zależnie od wybranego obiektu; NVDA nie czyta nazw `ResumeChoice`, `Value` ani `Label`.
+
+### AMC-101-04 — Paleta poleceń i F5
+
+Otwórz `Ctrl+Shift+K`, wyszukaj „foldery biblioteki” i wykonaj znalezione polecenie. Potem zamknij okno i naciśnij `F5`.
+
+Oczekiwane: paleta pokazuje „Foldery Biblioteki, Ctrl+F5”, a osobne polecenie nazywa się „Odśwież foldery Biblioteki, F5”. Odświeżenie mówi o folderach, nie o źródłach.
+
+## Poprzedni zestaw alpha 100
 
 ## Nowości alpha 100
 
@@ -232,7 +260,7 @@ Oczekiwane: pierwsze uruchomienie może potrwać chwilę, lecz nic nie znika i n
 
 ### AMC-093-02 — Indeksowanie chmury bez pobierania
 
-W Menedżerze Biblioteki odśwież przez `F5` źródło zawierające pliki dostępne tylko online. Przejdź po nim przez Foldery, Wszystkie pliki i Albumy; użyj lewej strzałki oraz `Alt+Enter`, ale nie uruchamiaj odtwarzania.
+W **Folderach Biblioteki** odśwież przez `F5` folder zawierający pliki dostępne tylko online. Przejdź po nim przez Foldery, Wszystkie pliki i Albumy; użyj lewej strzałki oraz `Alt+Enter`, ale nie uruchamiaj odtwarzania.
 
 Oczekiwane: pliki są widoczne, interfejs i NVDA pozostają responsywne, a dostawca chmury nie rozpoczyna pobierania plików ani całego folderu. Szybka informacja i właściwości określają element jako plik w chmurze zamiast wymuszać odczyt nagłówka.
 
@@ -262,7 +290,7 @@ Oczekiwane: wszystkie dotychczasowe funkcje audio i komunikaty NVDA działają b
 
 Naciśnij `Alt+Shift+Enter` kolejno na pliku, folderze i albumie. Rozwiń pole pozycji i przejdź strzałkami po wszystkich wariantach.
 
-Oczekiwane: NVDA czyta wyłącznie pełne etykiety, np. „Według folderu nadrzędnego lub ustawienia ogólnego” oraz „Pamiętaj pozycję plików w tym folderze”. Nie pojawiają się `ResumeChoice`, `Value`, `Label`, nawiasy klamrowe ani nazwy enumów.
+Oczekiwane: NVDA czyta wyłącznie pełne etykiety, np. „Zgodnie z folderem nadrzędnym lub ustawieniem globalnym” oraz „Pamiętaj pozycję odtwarzania”. Nie pojawiają się `ResumeChoice`, `Value`, `Label`, nawiasy klamrowe ani nazwy enumów.
 
 ### AMC-092-02 — Prędkość i fokus
 
@@ -304,7 +332,7 @@ Oczekiwane: za każdym razem otwiera się okno ustawień tego pliku; nie pojawia
 
 ### AMC-090-02 — Opcje folderu i albumu
 
-W widoku Foldery zaznacz źródło, potem zwykły podfolder, a w widoku Albumy zaznacz album. Na każdym użyj `Alt+Shift+Enter`, ustaw inną prędkość albo regułę pozycji i zapisz.
+W widoku Foldery zaznacz Folder Biblioteki, potem zwykły podfolder, a w widoku Albumy zaznacz album. Na każdym użyj `Alt+Shift+Enter`, ustaw inną prędkość albo regułę pozycji i zapisz.
 
 Oczekiwane: otwiera się dostępne okno „Opcje odtwarzania folderu”. Ustawienie obejmuje pliki znajdujące się poniżej wybranego folderu lub w albumie, ale nie zmienia plików ani układu katalogów.
 
@@ -350,7 +378,7 @@ Oczekiwane: najpierw odtwarza się element jawnie dodany do Kolejki, a potem AMC
 
 ### AMC-089-05 — Opcje elementu Alt+Shift+Enter
 
-Na lokalnym pliku naciśnij `Alt+Shift+Enter`. Ustaw „Zawsze od początku” oraz prędkość inną niż sesji, zapisz i odtwórz plik. Przejdź do innego pliku i wróć. Następnie zmień wariant na „Pamiętaj pozycję”, zatrzymaj materiał w środku i uruchom program ponownie.
+Na lokalnym pliku naciśnij `Alt+Shift+Enter`. Ustaw „Zawsze od początku” oraz prędkość inną niż sesji, zapisz i odtwórz plik. Przejdź do innego pliku i wróć. Następnie zmień wariant na „Pamiętaj pozycję odtwarzania”, zatrzymaj materiał w środku i uruchom program ponownie.
 
 Oczekiwane: okno ma zwykłe dostępne pola, Zapisz i Anuluj, a fokus wraca do listy lub odtwarzacza. Prędkość nadpisania działa tylko dla wybranego pliku, inny plik wraca do prędkości sesji. Reguła od początku nie wznawia pozycji; reguła pamiętania ją zachowuje.
 
@@ -388,7 +416,7 @@ Oczekiwane: `Backspace` nie usuwa żadnego elementu. W Folderach idzie do rodzic
 
 ### AMC-088-01 — Album z numerowanych plików
 
-W zarejestrowanym źródle przygotuj lub znajdź układ `Wykonawca\Album\01…`, `02…`, `10…`. Naciśnij `Ctrl+Shift+A`.
+W Folderze Biblioteki przygotuj lub znajdź układ `Wykonawca\Album\01…`, `02…`, `10…`. Naciśnij `Ctrl+Shift+A`.
 
 Oczekiwane: lista Albumy zawiera nazwę folderu albumu, nazwę folderu wykonawcy i poprawną liczbę utworów. Nie pojawia się ścieżka techniczna ani nazwa klasy programu.
 
@@ -402,7 +430,7 @@ Oczekiwane: pliki są w kolejności 01, 02, …, 10, niezależnie od zwykłego p
 
 Sprawdź folder z jednym plikiem, folder kilku plików bez numerów oraz nagrania zaczynające się od roku, np. `2026-08-24…`.
 
-Oczekiwane: żaden z tych folderów nie pojawia się samoczynnie jako Album. AMC nie otwiera plików tylko po to, aby przeprowadzić klasyfikację, i nie wymusza pobrania całego źródła chmurowego.
+Oczekiwane: żaden z tych folderów nie pojawia się samoczynnie jako Album. AMC nie otwiera plików tylko po to, aby przeprowadzić klasyfikację, i nie wymusza pobrania całego Folderu Biblioteki z chmury.
 
 ### AMC-088-04 — Filtr i nawigacja literowa
 
@@ -444,7 +472,7 @@ Oczekiwane: ciągły blok zachowuje kolejność wewnętrzną i przesuwa się raz
 
 ### AMC-087-04 — Trwałość i nowe pliki
 
-Zmień kolejność kilku pozycji, przejdź do `Alt+2`, wróć przez `Alt+3`, uruchom AMC ponownie i ponownie wybierz `Alt+3`. Następnie dodaj bezpieczny plik przez `Ctrl+O` albo do źródła i użyj `F5`.
+Zmień kolejność kilku pozycji, przejdź do `Alt+2`, wróć przez `Alt+3`, uruchom AMC ponownie i ponownie wybierz `Alt+3`. Następnie dodaj bezpieczny plik przez `Ctrl+O` albo do Folderu Biblioteki i użyj `F5`.
 
 Oczekiwane: ręczny porządek przetrwa zmianę widoku i restart. `Alt+2` pozostaje alfabetyczne i nie przejmuje ręcznych zmian. Nowy plik zostaje dopisany na końcu Kolejności własnej.
 
@@ -466,9 +494,9 @@ Do prób `Shift+F2` użyj kopii pliku, którego utrata nie będzie problemem. AM
 
 ### AMC-086-01 — F5 i Ctrl+F5
 
-Na lokalnej liście naciśnij `F5`, a następnie `Ctrl+F5`. Sprawdź też polecenia „Odśwież źródła” i „Zarządzaj źródłami” w palecie `Ctrl+Shift+K`.
+Na lokalnej liście naciśnij `F5`, a następnie `Ctrl+F5`. Sprawdź też polecenia „Odśwież foldery Biblioteki” i „Foldery Biblioteki” w palecie `Ctrl+Shift+K`.
 
-Oczekiwane: `F5` skanuje źródła, `Ctrl+F5` otwiera Menedżera Biblioteki, a oba polecenia są czytelnie opisane wraz ze skrótami. Po zamknięciu menedżera fokus wraca do listy.
+Oczekiwane: `F5` skanuje Foldery Biblioteki, `Ctrl+F5` otwiera ich okno, a oba polecenia są czytelnie opisane wraz ze skrótami. Po zamknięciu okna fokus wraca do listy.
 
 ### AMC-086-02 — F2 zmienia tylko nazwę w AMC
 
@@ -500,13 +528,13 @@ Oczekiwane: obie operacje zmiany nazwy są dostępne z opisanymi skrótami, nato
 
 ### AMC-085-01 — Nazwy źródeł bez danych technicznych
 
-Otwórz **Plik → Zarządzaj źródłami Biblioteki** i przejdź strzałkami po wszystkich źródłach.
+Otwórz **Plik → Foldery Biblioteki** i przejdź strzałkami po wszystkich folderach.
 
 Oczekiwane: NVDA czyta wyłącznie przygotowaną etykietę, na przykład nazwę `Sideloads`, dostępność, zasadę pamiętania pozycji, liczby plików i ścieżkę. Nie może czytać `LocalFolderSourceStatus`, `Id`, `DisplayName`, `IsReachable`, nazw innych pól programistycznych ani nawiasów technicznego rekordu.
 
 ### AMC-085-02 — Szczegóły, ustawienie i fokus
 
-Na wybranym źródle przejdź Tabem do szczegółów oraz ustawienia pamiętania pozycji, zmień wartość i wybierz **Zapisz dla źródła**. Wróć Shift+Tabem do listy.
+Na wybranym folderze przejdź Tabem do szczegółów oraz ustawienia pamiętania pozycji, zmień wartość i wybierz **Zapisz dla folderu**. Wróć Shift+Tabem do listy.
 
 Oczekiwane: lista nadal ma krótką czytelną etykietę, szczegóły zawierają pełną ścieżkę, zapis nie gubi wyboru, a fokus można przewidywalnie przywrócić do listy.
 
@@ -528,13 +556,13 @@ Oczekiwane: `Escape` zatrzymuje dźwięk, lecz nie zeruje zapamiętanego miejsca
 
 ### AMC-084-03 — Folder muzyczny zawsze od początku
 
-Otwórz **Plik → Zarządzaj źródłami Biblioteki**, wybierz bezpieczny folder z muzyką, ustaw **Pamiętanie pozycji w wybranym źródle** na **Zawsze od początku** i zapisz. Odtwórz plik z tego folderu, wyjdź `Escape`, wróć do niego i uruchom ponownie.
+Otwórz **Plik → Foldery Biblioteki**, wybierz bezpieczny folder z muzyką, ustaw **Dla wybranego folderu** na **Zawsze od początku** i zapisz. Odtwórz plik z tego folderu, wyjdź `Escape`, wróć do niego i uruchom ponownie.
 
-Oczekiwane: menedżer i jego lista czytelnie podają nową zasadę. Po `Escape` plik z tego źródła rozpoczyna się od `0:00`; stara pozycja nie wraca także po restarcie.
+Oczekiwane: okno i jego lista czytelnie podają nową zasadę. Po `Escape` plik z tego folderu rozpoczyna się od `0:00`; stara pozycja nie wraca także po restarcie.
 
 ### AMC-084-04 — Nadpisanie ustawienia ogólnego
 
-Wyłącz w Ustawieniach ogólnych **Domyślnie pamiętaj pozycje lokalnych plików**. Dla jednego folderu ustaw jednak **Pamiętaj pozycję**, a dla drugiego pozostaw **Używaj ustawienia ogólnego**. Sprawdź po jednym pliku z każdego folderu.
+Wyłącz w Ustawieniach ogólnych **Pamiętaj pozycję odtwarzania lokalnych plików**. Dla jednego folderu ustaw jednak **Pamiętaj pozycję odtwarzania**, a dla drugiego pozostaw **Zgodnie z ustawieniem globalnym**. Sprawdź po jednym pliku z każdego folderu.
 
 Oczekiwane: pierwszy folder wznawia miejsce mimo wyłączonej zasady ogólnej, drugi zaczyna od początku. Plik dodany pojedynczo przez `Ctrl+O` korzysta z zasady ogólnej.
 
@@ -554,31 +582,31 @@ Oczekiwane: paleta otwiera Ustawienia na właściwym polu wyboru. Opuszczana ses
 
 ## Nowości alpha 83
 
-Do prób odłączania wybierz źródło, które można później bezpiecznie dodać ponownie. **Odłącz źródło** nie może usuwać żadnego pliku z dysku.
+Do prób odłączania wybierz folder, który można później bezpiecznie dodać ponownie. **Odłącz folder** nie może usuwać żadnego pliku z dysku.
 
 ### AMC-083-01 — Fokus i zawartość menedżera
 
-Otwórz **Plik → Zarządzaj źródłami Biblioteki**. Sprawdź pierwszą kontrolkę, nawigację strzałkami i Tabem oraz Escape.
+Otwórz **Plik → Foldery Biblioteki**. Sprawdź pierwszą kontrolkę, nawigację strzałkami i Tabem oraz Escape.
 
 Oczekiwane: fokus zaczyna na zwykłej liście źródeł. Każdy wpis podaje nazwę, dostępność, liczby aktywnych, niedostępnych i wykluczonych plików oraz ścieżkę. Tab prowadzi do przycisków, Escape zamyka tylko menedżer, a fokus wraca do głównej listy AMC.
 
-### AMC-083-02 — Odśwież jedno i wszystkie źródła
+### AMC-083-02 — Odśwież jeden i wszystkie Foldery Biblioteki
 
-W menedżerze wybierz źródło i użyj **Odśwież wybrane**, następnie **Odśwież wszystkie**.
+W oknie **Foldery Biblioteki** wybierz folder i użyj **Odśwież wybrane**, następnie **Odśwież wszystkie**.
 
-Oczekiwane: operacje kończą się czytelnym komunikatem, lista zachowuje zaznaczenie, NVDA nie traci fokusu, a niedostępne źródło nie powoduje skasowania zapisanych rekordów.
+Oczekiwane: operacje kończą się czytelnym komunikatem, lista zachowuje zaznaczenie, NVDA nie traci fokusu, a niedostępny folder nie powoduje skasowania zapisanych rekordów.
 
 ### AMC-083-03 — Ochrona przed nakładającymi się folderami
 
-Mając zarejestrowane źródło, spróbuj dodać ponownie tę samą ścieżkę, jej podfolder, a następnie folder nadrzędny obejmujący istniejące źródło.
+Mając dodany Folder Biblioteki, spróbuj dodać ponownie tę samą ścieżkę, jej podfolder, a następnie folder nadrzędny obejmujący istniejący Folder Biblioteki.
 
-Oczekiwane: ta sama ścieżka jest jedynie ponownie skanowana. Podfolder i folder nadrzędny nie tworzą drugiego źródła; AMC jednoznacznie podaje, z którym istniejącym źródłem wystąpił konflikt.
+Oczekiwane: ta sama ścieżka jest jedynie ponownie skanowana. Podfolder i folder nadrzędny nie tworzą drugiego Folderu Biblioteki; AMC jednoznacznie podaje, z którym istniejącym folderem wystąpił konflikt.
 
 ### AMC-083-04 — Bezpieczne odłączenie
 
-Zanotuj liczbę plików i stan przykładowego źródła, wybierz **Odłącz źródło**, przeczytaj całe pytanie i zatwierdź. Sprawdź dysk, `Alt+1`, `Alt+2`, Ulubione, Kolejkę, Historię oraz Zakładki. Uruchom AMC ponownie.
+Zanotuj liczbę plików i stan przykładowego folderu, wybierz **Odłącz folder**, przeczytaj całe pytanie i zatwierdź. Sprawdź dysk, `Alt+1`, `Alt+2`, Ulubione, Kolejkę, Historię oraz Zakładki. Uruchom AMC ponownie.
 
-Oczekiwane: źródło znika tylko z listy automatycznej synchronizacji. Żaden plik na dysku nie zostaje usunięty. Rekordy i ich relacje pozostają dostępne jako pliki dodane pojedynczo także po restarcie. Jeśli bieżący poziom Folderów należał do odłączonego źródła, AMC bezpiecznie wraca na główny poziom.
+Oczekiwane: folder znika tylko z listy automatycznej synchronizacji. Żaden plik na dysku nie zostaje usunięty. Rekordy i ich relacje pozostają dostępne jako pliki dodane pojedynczo także po restarcie. Jeśli bieżący poziom Folderów należał do odłączonego folderu, AMC bezpiecznie wraca na główny poziom.
 
 ### AMC-083-05 — Pełna kopia AMC
 
@@ -588,7 +616,7 @@ Oczekiwane: komunikat potwierdza eksport katalogu Biblioteki, źródeł, wyklucz
 
 ### AMC-083-06 — Paleta i regresja chmur
 
-Otwórz `Ctrl+Shift+K`, wyszukaj „źródła biblioteki” i uruchom polecenie. Potem wykonaj `F5`, `Alt+1`, `Alt+2` oraz wyrywkowy test źródła iCloud, OneDrive albo Google Drive.
+Otwórz `Ctrl+Shift+K`, wyszukaj „foldery biblioteki” i uruchom polecenie. Potem wykonaj `F5`, `Alt+1`, `Alt+2` oraz wyrywkowy test Folderu Biblioteki z iCloud, OneDrive albo Google Drive.
 
 Oczekiwane: paleta otwiera ten sam menedżer. Dotychczasowa nawigacja, bezpieczne skanowanie chmury, kopiowanie, odtwarzanie i kolejki działają bez regresji.
 

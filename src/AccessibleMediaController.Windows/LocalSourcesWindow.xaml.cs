@@ -33,6 +33,12 @@ public partial class LocalSourcesWindow : Window
         _detachSource = detachSource;
         _setResumePositionMode = setResumePositionMode;
         _exportBackup = exportBackup;
+        ResumePositionModeCombo.ItemsSource = new ResumeChoice[]
+        {
+            new(ResumePositionMode.Remember, "Pamiętaj pozycję odtwarzania"),
+            new(ResumePositionMode.StartFromBeginning, "Zawsze od początku"),
+            new(ResumePositionMode.Inherit, "Zgodnie z ustawieniem globalnym")
+        };
         ReloadStatuses();
         Loaded += (_, _) => SourcesList.Focus();
     }
@@ -54,7 +60,7 @@ public partial class LocalSourcesWindow : Window
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "Dodaj źródło Biblioteki lokalnej",
+            Title = "Dodaj folder do Biblioteki",
             Multiselect = false
         };
         if (dialog.ShowDialog(this) != true) return;
@@ -75,9 +81,9 @@ public partial class LocalSourcesWindow : Window
         if (SelectedStatus is not { } status) return;
         var answer = MessageBox.Show(
             this,
-            $"Odłączyć źródło „{status.DisplayName}” od automatycznej synchronizacji?\n\n"
+            $"Odłączyć folder „{status.DisplayName}” od automatycznej synchronizacji?\n\n"
             + "Pliki na dysku nie zostaną usunięte. AMC zachowa wpisy Biblioteki, Ulubione, kolejkę, historię, zakładki i pozycje odtwarzania.",
-            "Bezpieczne odłączenie źródła",
+            "Bezpieczne odłączenie folderu",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question,
             MessageBoxResult.No);
@@ -92,7 +98,7 @@ public partial class LocalSourcesWindow : Window
         }
         catch (Exception exception)
         {
-            OperationStatusText.Text = $"Nie można odłączyć źródła: {exception.Message}";
+            OperationStatusText.Text = $"Nie można odłączyć folderu: {exception.Message}";
         }
     }
 
@@ -110,7 +116,7 @@ public partial class LocalSourcesWindow : Window
         try
         {
             _exportBackup(dialog.FileName);
-            OperationStatusText.Text = "Wyeksportowano pełną kopię AMC: katalog Biblioteki, źródła, zakładki, historię, pozycje, kolejki i ustawienia.";
+            OperationStatusText.Text = "Wyeksportowano pełną kopię AMC: katalog Biblioteki, foldery, zakładki, historię, pozycje, kolejki i ustawienia.";
         }
         catch (Exception exception)
         {
@@ -121,15 +127,14 @@ public partial class LocalSourcesWindow : Window
     private void SaveResumePositionMode_Click(object sender, RoutedEventArgs e)
     {
         if (SelectedStatus is not { } status
-            || ResumePositionModeCombo.SelectedItem is not ComboBoxItem selected
-            || !Enum.TryParse<ResumePositionMode>(selected.Tag?.ToString(), out var mode))
+            || ResumePositionModeCombo.SelectedItem is not ResumeChoice selected)
         {
             return;
         }
 
         try
         {
-            var result = _setResumePositionMode(status.Id, mode);
+            var result = _setResumePositionMode(status.Id, selected.Value);
             OperationStatusText.Text = result.Message;
             ReloadStatuses(result.SelectedSourceId ?? status.Id);
             ResumePositionModeCombo.Focus();
@@ -184,15 +189,12 @@ public partial class LocalSourcesWindow : Window
         ResumePositionModeCombo.IsEnabled = status is not null;
         SaveResumePositionModeButton.IsEnabled = status is not null;
         ResumePositionModeCombo.SelectedItem = ResumePositionModeCombo.Items
-            .OfType<ComboBoxItem>()
-            .FirstOrDefault(item => string.Equals(
-                item.Tag?.ToString(),
-                status?.ResumePositionMode.ToString(),
-                StringComparison.OrdinalIgnoreCase))
-            ?? ResumePositionModeCombo.Items.OfType<ComboBoxItem>().FirstOrDefault();
+            .OfType<ResumeChoice>()
+            .FirstOrDefault(item => item.Value == status?.ResumePositionMode)
+            ?? ResumePositionModeCombo.Items.OfType<ResumeChoice>().FirstOrDefault();
         SourceDetailsText.Text = status is null
-            ? "Brak zarejestrowanych źródeł. Dodaj folder, aby objąć go automatyczną synchronizacją."
-            : $"{(status.IsReachable ? "Źródło dostępne" : "Źródło chwilowo niedostępne; rekordy pozostają w AMC")}. "
+            ? "Brak Folderów Biblioteki. Dodaj folder, aby objąć go automatyczną synchronizacją."
+            : $"{(status.IsReachable ? "Folder dostępny" : "Folder chwilowo niedostępny; rekordy pozostają w AMC")}. "
               + $"Aktywne pliki: {status.ActiveItemCount}. Niedostępne: {status.UnavailableItemCount}. Wykluczone: {status.ExcludedItemCount}. "
               + $"Pamiętanie pozycji: {status.ResumePositionLabel}. "
               + (string.IsNullOrWhiteSpace(status.OverlapWarning) ? string.Empty : $"Uwaga: {status.OverlapWarning}. ")
@@ -204,5 +206,10 @@ public partial class LocalSourcesWindow : Window
         if (e.Key != Key.Escape) return;
         Close();
         e.Handled = true;
+    }
+
+    private sealed record ResumeChoice(ResumePositionMode Value, string Label)
+    {
+        public override string ToString() => Label;
     }
 }

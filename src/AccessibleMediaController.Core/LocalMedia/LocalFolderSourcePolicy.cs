@@ -26,9 +26,9 @@ public sealed record LocalFolderSourceStatus(
 {
     public string ResumePositionLabel => ResumePositionMode switch
     {
-        ResumePositionMode.Remember => "pozycja pamiętana",
-        ResumePositionMode.StartFromBeginning => "zawsze od początku",
-        _ => "pozycja według ustawienia ogólnego"
+        ResumePositionMode.Remember => "Pamiętaj pozycję odtwarzania",
+        ResumePositionMode.StartFromBeginning => "Zawsze od początku",
+        _ => "Zgodnie z ustawieniem globalnym"
     };
 
     public string Label
@@ -137,11 +137,11 @@ public static class LocalFolderSourcePolicy
     private static string? DescribeOverlap(LocalFolderSourceConflict? conflict) => conflict?.Kind switch
     {
         LocalFolderSourceConflictKind.CoveredByExistingSource =>
-            $"źródło znajduje się wewnątrz „{conflict.ExistingSource.DisplayName}”",
+            $"folder znajduje się wewnątrz „{conflict.ExistingSource.DisplayName}”",
         LocalFolderSourceConflictKind.ContainsExistingSource =>
-            $"źródło obejmuje „{conflict.ExistingSource.DisplayName}”",
+            $"folder obejmuje „{conflict.ExistingSource.DisplayName}”",
         LocalFolderSourceConflictKind.SameSource =>
-            $"powtarza źródło „{conflict.ExistingSource.DisplayName}”",
+            $"powtarza folder „{conflict.ExistingSource.DisplayName}”",
         _ => null
     };
 
