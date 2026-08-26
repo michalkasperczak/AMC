@@ -1,12 +1,52 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-096`
-- Tytuł zestawu: Cofanie bez przenoszenia elementu na koniec
-- Wersja programu: `0.1.0-alpha.96`
-- Utworzono: 2026-08-25, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.96.md`
+- Numer zestawu: `AMC-TEST-097`
+- Tytuł zestawu: Trwałe i dostępne playlisty
+- Wersja programu: `0.1.0-alpha.97`
+- Utworzono: 2026-08-26, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.97.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 97
+
+### AMC-097-01 — Tworzenie i otwieranie playlisty
+
+Naciśnij `Ctrl+P`. Na liście Playlisty użyj Insert, wpisz własną nazwę i zatwierdź. Sprawdź F2, Enter oraz powrót przez Escape i Backspace.
+
+Oczekiwane: NVDA czyta zwykłą nazwę playlisty, liczbę dostępnych elementów i ewentualny czas, bez nazw klas ani technicznych identyfikatorów. F2 zmienia nazwę, Enter otwiera zawartość, a Escape lub Backspace wraca na tę samą playlistę.
+
+### AMC-097-02 — Jedna pozycja, wiele pozycji i stan mieszany
+
+Na zwykłej liście zaznacz jeden plik i użyj `Ctrl+Shift+P`. Utwórz playlistę lub zaznacz istniejącą Spacją i zapisz Enterem. Następnie zaznacz Shiftem kilka plików, z których tylko część już należy do tej playlisty, i ponownie użyj `Ctrl+Shift+P`.
+
+Oczekiwane: lista oznajmia „zaznaczona”, „niezaznaczona” albo „stan mieszany”. Spacja ze stanu mieszanego dodaje cały blok, ponowna Spacja usuwa cały blok. Escape anuluje zmiany, a fokus wraca do wcześniejszego elementu listy.
+
+### AMC-097-03 — Filtr i zarządzanie w oknie playlist
+
+W menedżerze `Ctrl+Shift+P` naciśnij `Ctrl+K`, wpisz część nazwy, następnie Escape. Sprawdź też Insert lub `Ctrl+N`, F2 i Delete.
+
+Oczekiwane: filtr zawęża wyłącznie listę playlist; pierwszy Escape czyści niepusty filtr i wraca na listę, następny anuluje okno. Tworzenie i zmiana nazwy nie gubią fokusu. Usunięcie playlisty wymaga potwierdzenia i jasno mówi, że pliki pozostają bez zmian.
+
+### AMC-097-04 — Kolejność, odtwarzanie i usuwanie elementu
+
+Otwórz playlistę mającą co najmniej trzy utwory. Przesuń środkowy element przez `Alt+strzałka w górę/w dół`, uruchom go i sprawdź Page Up, Page Down oraz naturalny koniec pliku. Wróć do listy i naciśnij Delete na jednym utworze.
+
+Oczekiwane: kolejność jest trwała, a odtwarzanie pozostaje w playliście. Delete usuwa tylko odwołanie z playlisty, nie plik z Biblioteki ani z dysku.
+
+### AMC-097-05 — Cofanie i trwałość
+
+Kolejno zmień nazwę playlisty, jej kolejność albo przynależność elementu i po każdej czynności użyj `Ctrl+Z`. Następnie pozostaw playlistę ze zmianami, zamknij AMC i uruchom ponownie.
+
+Oczekiwane: każde cofnięcie odtwarza właściwy poprzedni stan i pozycję. Po restarcie pozostają nazwy, członkostwo i kolejność. Pełny eksport `.amcbackup.json` zawiera playlisty.
+
+### AMC-097-06 — Playlisty z wyników wyszukiwania
+
+Wyszukaj lokalny plik przez `Ctrl+F` albo `Ctrl+Shift+F`, wybierz jeden wynik lub zaznacz kilka wyników tej samej sesji i naciśnij `Ctrl+Shift+P`.
+
+Oczekiwane: okno wyszukiwania zamyka się, otwiera się menedżer playlist właściwej sesji, a zapis przypisuje wybrane wyniki. Zaznaczenie wyników z różnych sesji pozostawia wyszukiwanie otwarte i prosi o wybranie jednej usługi; nic nie zostaje omyłkowo dodane.
+
+## Poprzedni zestaw alpha 96
 
 ## Nowości alpha 96
 

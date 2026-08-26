@@ -355,7 +355,7 @@ Kontrakt obejmuje co najmniej:
 - tę samą główną nazwę semantyczną, nawigację literową, zaznaczanie wielokrotne, przywracanie fokusu i porcjowanie zarówno na liście głównej, jak i w wynikach;
 - tę samą konfigurowalną kolejność pól; brakująca wartość jest pomijana, a nie zastępowana zgadywaną wartością;
 - strzałkę w lewo jako wspólną krótką informację, `Alt+Enter` jako pełne właściwości oraz `Ctrl+C` i `Ctrl+Shift+C` jako odpowiednio nazwę i publiczną lokalizację albo prawdziwy plik lokalny;
-- działania bezpośrednie w wyszukiwaniu bez zamykania okna, jeśli ta sama czynność jest dostępna na liście głównej;
+- działania bezpośrednie w wyszukiwaniu bez zamykania okna, jeśli ta sama czynność jest dostępna na liście głównej i nie wymaga następnego okna modalnego; wybór playlist zamyka wyszukiwanie i otwiera właściwy menedżer;
 - nazwę usługi w wynikach mieszanych i globalnych, ale bez jej zbędnego powtarzania na jednorodnej liście jednej sesji;
 - wspólne komunikaty ładowania, braku danych, niedostępnej możliwości, błędu, częściowego sukcesu i końca listy.
 
@@ -363,14 +363,14 @@ Spójność nie oznacza udawania identycznych możliwości. Jeśli usługa nie z
 
 ## 8. Wybór playlisty
 
-`Shift+P` w warstwie albo lokalne polecenie zarządzania playlistami otwiera niewielkie modalne okno:
+`Shift+P` w warstwie albo lokalne `Ctrl+Shift+P` otwiera niewielkie modalne okno:
 
 - pole filtrowania;
 - lista wszystkich playlist bieżącej usługi z informacją „zawiera” albo „nie zawiera”;
-- ostatnio używane playlisty na początku, opcjonalnie;
 - Spacja przełącza przynależność elementu do wskazanej playlisty;
 - Enter zatwierdza wszystkie zmiany;
-- `Ctrl+N` tworzy nową playlistę;
+- Insert lub `Ctrl+N` tworzy nową playlistę, F2 zmienia jej nazwę, a Delete usuwa playlistę bez usuwania multimediów;
+- `Ctrl+K` przechodzi do filtra playlist; Escape najpierw czyści filtr, a przy pustym filtrze anuluje całe okno;
 - Escape anuluje;
 - po wykonaniu operacji fokus wraca dokładnie do wcześniejszego elementu.
 
@@ -837,7 +837,7 @@ Implementacja `alpha.88`: lokalne `Ctrl+Shift+A` wylicza Albumy z bezpiecznej he
 
 Rozstrzygnięcie `alpha.89`: kolejność widoku i kolejność odtwarzania są odrębnymi, jawnymi pojęciami. Uruchomienie elementu z Ulubionych, Kolejki, otwartego Albumu, bieżącego Folderu, Wszystkich plików albo Kolejności własnej zapisuje w sesji identyfikatory całej nieprzefiltrowanej listy jako **kontekst odtwarzania**. `Page Up`, `Page Down` i zdarzenie końca pliku korzystają z tego samego kontekstu. Samo przejście do innego widoku go nie zmienia; zmienia go dopiero uruchomienie elementu z nowej listy. Historia, Zakładki i wyniki wyszukiwania pozostają lokalizatorami: przechodzą do zasobu, lecz nie tworzą ukrytej playlisty wyników. Jawne „Odtwórz jako następne” i Kolejka mają pierwszeństwo, po czym odtwarzanie wraca do pozycji następującej w zapamiętanym kontekście.
 
-`Alt+strzałka w górę/w dół` ma znaczenie wyłącznie na listach o porządku użytkownika: Kolejności własnej, Ulubionych oraz w przyszłości edytowalnych Playlistach i Kolejce. W `alpha.89` działają pierwsze dwa warianty. Foldery zachowują hierarchię dysku, Wszystkie pliki — porządek alfabetyczny, Album — numer ścieżki, a Historia i wyszukiwanie — porządek wynikający z ich znaczenia. Przenoszenie nigdy nie zmienia pliku na dysku. Adapter usługi zapisuje zdalny porządek tylko wtedy, gdy oficjalne API to wspiera; w innym wypadku ewentualna kolejność AMC jest wyraźnie lokalną metadaną.
+`Alt+strzałka w górę/w dół` ma znaczenie wyłącznie na listach o porządku użytkownika: Kolejności własnej, Ulubionych, otwartej edytowalnej Playliście oraz w przyszłości Kolejce. W `alpha.97` działają pierwsze trzy warianty. Foldery zachowują hierarchię dysku, Wszystkie pliki — porządek alfabetyczny, Album — numer ścieżki, a Historia i wyszukiwanie — porządek wynikający z ich znaczenia. Przenoszenie nigdy nie zmienia pliku na dysku. Adapter usługi zapisuje zdalny porządek tylko wtedy, gdy oficjalne API to wspiera; w innym wypadku kolejność AMC jest wyraźnie lokalną metadaną.
 
 Opcje elementu są oddzielone od informacji. `Alt+Enter` pozostaje tekstem tylko do odczytu, natomiast `Alt+Shift+Enter` otwiera edytowalne **Opcje odtwarzania elementu**. Lokalna reguła wznowienia ma hierarchię: ustawienie ogólne, nadpisanie źródła folderowego, nadpisanie pojedynczego elementu. Prędkość ma regułę sesji oraz opcjonalne nadpisanie elementu; przejście do kolejnego elementu przywraca jego własną wartość albo wartość sesji. Wybór urządzenia elementu i EQ mają zarezerwowane miejsce w tym samym modelu, lecz nie są uaktywniane, dopóki warstwa wyjść nie potrafi bezpiecznie wyliczyć urządzeń i przełączyć współdzielonego WASAPI bez utraty dźwięku NVDA.
 
@@ -847,7 +847,7 @@ Operacje schowka `alpha.91` przechodzą przez jedną warstwę Windows STA. Zapis
 
 Obiekty wyboru w oknie opcji muszą mieć stabilną reprezentację tekstową równą widocznej etykiecie. Samo WPF `DisplayMemberPath` nie wystarcza dla wszystkich ścieżek UI Automation: dlatego `alpha.92` ustawia również tekst wyszukiwania oraz jawny wynik `ToString()` dla reguł pozycji i prędkości. Modelowa wartość enum lub liczba pozostaje oddzielona od komunikatu dostępnościowego.
 
-Warstwa trwałych danych `alpha.93` używa osadzonego SQLite. Tabele rozdzielają rekordy lokalne, źródła i reguły folderów, wykluczenia, własną kolejność, stan lokalnej sesji, Zakładki, Historię i porządek Ulubionych; indeksy obejmują między innymi tytuł, ścieżkę oraz przynależność do widoków. Ustawienia interfejsu, profile klawiatury, historia zapytań i nawigacja sesji pozostają w małym pliku JSON. Migracja z wcześniejszego stanu przebiega w jednej transakcji, weryfikuje liczbę elementów i zachowuje kopię wejściową. Pełny eksport pozostaje niezależny od formatu bazy i nadal może zostać zaimportowany na innym komputerze.
+Warstwa trwałych danych `alpha.93` używa osadzonego SQLite. Tabele rozdzielają rekordy lokalne, źródła i reguły folderów, wykluczenia, własną kolejność, stan lokalnej sesji, Zakładki, Historię, porządek Ulubionych, a od `alpha.97` również Playlisty i ich uporządkowane elementy; indeksy obejmują między innymi tytuł, ścieżkę oraz przynależność do widoków. Ustawienia interfejsu, profile klawiatury, historia zapytań i nawigacja sesji pozostają w małym pliku JSON. Migracja z wcześniejszego stanu przebiega w jednej transakcji, weryfikuje liczbę elementów i zachowuje kopię wejściową. Pełny eksport pozostaje niezależny od formatu bazy i nadal może zostać zaimportowany na innym komputerze.
 
 Hydratacja Cloud Files jest operacją odtwarzania, nigdy indeksowania. Skaner odczytuje wyłącznie nazwy, rozszerzenia i atrybuty; widoki oraz informacje nie otwierają zawartości placeholdera. Jawne odtworzenie jednego rekordu uruchamia przygotowanie dekodera na wątku roboczym, oznajmia stan pobierania i ma identyfikator żądania: anulowanie, zmiana utworu lub limit czasu unieważniają wynik, dzięki czemu spóźniony plik nie zacznie grać. Log procesu zapisuje etapy otwierania, błędy urządzenia, wyjątki nieobsłużone i wykryte okresy braku odpowiedzi interfejsu, ale nie jest synchronizowany do chmury.
 
@@ -856,6 +856,8 @@ Krytyczne skróty okna mogą otrzymać dodatkową obsługę na granicy komunikat
 Historia cofania pełnego usunięcia rekordu lokalnego zawiera również pozycje jego identyfikatorów w Kolejności własnej. `alpha.95` odtwarza te pozycje po ponownym wstawieniu rekordów, zamiast pozwolić normalizacji potraktować je jak nowe pliki. Pozycje wielu elementów są przywracane rosnąco, dzięki czemu zachowują wzajemny układ. Ta reguła nie zmienia dopisywania rzeczywiście nowych rekordów na końcu.
 
 Historia zmian przynależności do kolekcji przechowuje również migawkę pozycji elementów. Od `alpha.96` dotyczy to Ulubionych każdej sesji oraz lokalnej Kolejności własnej. Cofnięcie najpierw przywraca przynależność, następnie dokładne pozycje, a dopiero potem odświeża widok. Zapobiega to utracie pozycji przez normalizację listy po `Delete` i późniejsze dopisanie przywróconego elementu na końcu.
+
+Implementacja `alpha.97` definiuje playlistę jako nazwaną, uporządkowaną listę stabilnych identyfikatorów elementów należącą do jednej sesji. `Ctrl+P` pokazuje kontenery playlist; Enter otwiera zawartość, a Escape lub Backspace wraca do listy playlist. Uruchomienie utworu zapisuje całą nieprzefiltrowaną zawartość jako kontekst odtwarzania. Delete na poziomie głównym usuwa playlistę po potwierdzeniu, a wewnątrz usuwa wyłącznie wskazania na elementy. Menedżer `Ctrl+Shift+P` obsługuje jedno- i wielokrotne zaznaczenie, stan mieszany, tworzenie, zmianę nazwy, kasowanie i filtrowanie bez ujawniania technicznych reprezentacji obiektów w UI Automation. Wszystkie mutacje mają wspólną historię `Ctrl+Z`, a pełna kopia przenosi playlisty niezależnie od formatu bazy.
 
 Relacje „Przejdź do albumu” i „Przejdź do wykonawcy” są poleceniami nawigacyjnymi, a nie wyszukiwaniem tekstowym. Dla lokalnego pliku `alpha.89` wykorzystuje rozpoznany folder albumu i jego nadrzędny folder wykonawcy. Alias tytułu ustawiony przez `F2` nie zmienia pliku ani klucza sortowania albumu: etykieta w AMC może nie zawierać `01`, ale kolejność nadal wynika z numeru rzeczywistej nazwy na dysku. Adapter streamingowy ma później dostarczyć stabilne identyfikatory powiązanego albumu i wykonawcy. Dopasowanie lokalnego pliku do katalogu usługi pozostaje osobną, kosztowniejszą funkcją na żądanie.
 

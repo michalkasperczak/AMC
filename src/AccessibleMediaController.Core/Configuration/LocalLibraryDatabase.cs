@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 /// </summary>
 internal sealed class LocalLibraryDatabase(string databasePath)
 {
-    private const int DatabaseSchemaVersion = 1;
+    private const int DatabaseSchemaVersion = 2;
     private readonly object _gate = new();
 
     public string Path { get; } = databasePath;
@@ -216,6 +216,38 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                     ids.Add(reader.GetString(1));
                 }
             }
+
+            state.Playlists = new PlaylistSettings();
+            var playlistsById = new Dictionary<string, PlaylistEntry>(StringComparer.Ordinal);
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT id, session_id, name, created_utc_ticks FROM playlists ORDER BY session_id, ordinal;";
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    var playlist = new PlaylistEntry
+                    {
+                        Id = reader.GetString(0),
+                        SessionId = reader.GetString(1),
+                        Name = reader.GetString(2),
+                        CreatedUtcTicks = reader.GetInt64(3)
+                    };
+                    state.Playlists.Entries.Add(playlist);
+                    playlistsById[playlist.Id] = playlist;
+                }
+            }
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT playlist_id, item_id FROM playlist_items ORDER BY playlist_id, ordinal;";
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    if (playlistsById.TryGetValue(reader.GetString(0), out var playlist))
+                    {
+                        playlist.ItemIds.Add(reader.GetString(1));
+                    }
+                }
+            }
         }
     }
 
@@ -335,7 +367,25 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 item_id TEXT NOT NULL,
                 PRIMARY KEY(session_id, ordinal)
             );
-            PRAGMA user_version = 1;
+            CREATE TABLE IF NOT EXISTS playlists (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                name TEXT NOT NULL COLLATE AMC_PL,
+                created_utc_ticks INTEGER NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ix_playlists_session_name
+                ON playlists(session_id, name COLLATE AMC_PL);
+            CREATE TABLE IF NOT EXISTS playlist_items (
+                playlist_id TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                item_id TEXT NOT NULL,
+                PRIMARY KEY(playlist_id, ordinal),
+                UNIQUE(playlist_id, item_id),
+                FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS ix_playlist_items_item ON playlist_items(item_id);
+            PRAGMA user_version = 2;
             """;
         command.ExecuteNonQuery();
 
@@ -355,7 +405,7 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                  {
                      "local_items", "folder_sources", "folder_playback_options",
                      "excluded_paths", "custom_order", "local_state", "bookmarks",
-                     "playback_history", "favorite_order"
+                     "playback_history", "favorite_order", "playlist_items", "playlists"
                  })
         {
             Execute(connection, transaction, $"DELETE FROM {table};");
@@ -449,6 +499,23 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 Execute(connection, transaction,
                     "INSERT INTO favorite_order(session_id, ordinal, item_id) VALUES($session, $ordinal, $item);",
                     ("$session", pair.Key), ("$ordinal", index), ("$item", pair.Value[index]));
+            }
+        }
+
+        var playlistOrdinals = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var playlist in state.Playlists.Entries)
+        {
+            var ordinal = playlistOrdinals.GetValueOrDefault(playlist.SessionId);
+            playlistOrdinals[playlist.SessionId] = ordinal + 1;
+            Execute(connection, transaction,
+                "INSERT INTO playlists(id, session_id, ordinal, name, created_utc_ticks) VALUES($id, $session, $ordinal, $name, $created);",
+                ("$id", playlist.Id), ("$session", playlist.SessionId), ("$ordinal", ordinal),
+                ("$name", playlist.Name), ("$created", playlist.CreatedUtcTicks));
+            for (var itemIndex = 0; itemIndex < playlist.ItemIds.Count; itemIndex++)
+            {
+                Execute(connection, transaction,
+                    "INSERT INTO playlist_items(playlist_id, ordinal, item_id) VALUES($playlist, $ordinal, $item);",
+                    ("$playlist", playlist.Id), ("$ordinal", itemIndex), ("$item", playlist.ItemIds[itemIndex]));
             }
         }
 

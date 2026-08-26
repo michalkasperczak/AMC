@@ -220,6 +220,8 @@ In `alpha.95`, undoing removal of a local catalogue record also restores its exa
 
 `alpha.96` extends the same guarantee to collection-only removal. Before a change, AMC records the item's position in **Favorites** or local **Custom order**; `Ctrl+Z` restores both membership and the exact position. An item from the middle is no longer treated as new and appended.
 
+In `alpha.97`, Playlists are persistent per-session collections rather than demo rows. `Ctrl+P` opens them; Insert creates one, F2 renames it, Delete removes the playlist itself, and Enter opens its items. Inside a playlist, Delete removes only references, `Alt+Up/Down` stores custom order, and Page Up, Page Down plus natural continuation remain in that playlist. `Ctrl+Shift+P` on one item or a selected block opens the accessible membership manager: Space toggles membership, a mixed state denotes partial membership, `Ctrl+K` focuses its filter, Enter saves, and Escape cancels. The command is also available from search results. Creation, rename, deletion, membership and ordering participate in `Ctrl+Z`, persist in SQLite and are included in a full `.amcbackup.json`; none of these actions deletes a media file from disk.
+
 From `alpha.89`, `Delete` is the only removal key. `Backspace` never deletes an item: in Folders it opens the parent directory, inside an album or another container it moves up one level, and in the player it returns to the list while applying the normal pause policy. Text fields retain ordinary character deletion, while a top-level list announces that no parent level exists. `Alt+Left/Right` remains visited-view history and does not replace parent semantics.
 
 The current demonstration catalogue may present combined test results. A real TIDAL adapter will be an isolated module: `Ctrl+Shift+F` may initiate its query, but TIDAL content will not be mixed into one list with content from similar services. AMC opens a separate, attributed TIDAL results view while retaining the shared commands.
@@ -242,7 +244,7 @@ The program recognizes three file types:
 
 - `*.amckeys.json` — one keyboard map;
 - `*.amcsettings.json` — application settings without keyboard maps;
-- `*.amcbackup.json` — complete backup containing settings, profiles, sessions, bookmarks and message templates.
+- `*.amcbackup.json` — complete backup containing settings, profiles, sessions, bookmarks, playlists and message templates.
 
 Passwords, tokens and login data are never exported.
 

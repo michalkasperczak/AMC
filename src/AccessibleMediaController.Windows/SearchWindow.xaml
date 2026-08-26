@@ -55,6 +55,9 @@
                     <MenuItem Header="Dodaj lub usuń z _ulubionych" InputGestureText="Ctrl+Shift+U"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+U"
                               Click="Favorite_Click" />
+                    <MenuItem Header="Zarządzaj _playlistami" InputGestureText="Ctrl+Shift+P"
+                              automation:AutomationProperties.AcceleratorKey="Control+Shift+P"
+                              Click="Playlist_Click" />
                     <MenuItem Header="_Informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.AcceleratorKey="Alt+Enter"
                               Click="Information_Click" />

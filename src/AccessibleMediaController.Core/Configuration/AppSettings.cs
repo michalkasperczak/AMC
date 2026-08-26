@@ -156,13 +156,14 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 25;
+    public int SchemaVersion { get; set; } = 26;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
     public BookmarkSettings Bookmarks { get; set; } = new();
     public SessionNavigationSettings SessionNavigation { get; set; } = new();
     public CollectionOrderSettings CollectionOrders { get; set; } = new();
+    public PlaylistSettings Playlists { get; set; } = new();
     public LocalMediaSettings LocalMedia { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];
 }
@@ -218,6 +219,20 @@ public sealed class CollectionOrderSettings
 {
     public Dictionary<string, List<string>> FavoriteItemIdsBySession { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class PlaylistSettings
+{
+    public List<PlaylistEntry> Entries { get; set; } = [];
+}
+
+public sealed class PlaylistEntry
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string SessionId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public long CreatedUtcTicks { get; set; } = DateTime.UtcNow.Ticks;
+    public List<string> ItemIds { get; set; } = [];
 }
 
 public sealed class LocalMediaSettings

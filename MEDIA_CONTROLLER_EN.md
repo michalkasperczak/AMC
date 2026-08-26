@@ -355,7 +355,7 @@ The contract includes at least:
 - the same semantic primary name, type-ahead, multi-selection, focus restoration and paging in both the main list and search results;
 - the same configurable field order; a missing value is omitted rather than replaced with a guessed value;
 - Left Arrow as shared concise information, `Alt+Enter` as full properties, and `Ctrl+C` plus `Ctrl+Shift+C` as the title and public location or real local file respectively;
-- direct actions in Search that keep the window open when the same action exists in the main list;
+- direct actions in Search that keep the window open when the same action exists in the main list and needs no subsequent modal dialog; playlist selection closes Search and opens its dedicated manager;
 - service attribution in mixed and global results without unnecessary repetition in a homogeneous single-session list;
 - shared announcements for loading, no data, unavailable capability, failure, partial success and list boundaries.
 
@@ -363,14 +363,14 @@ Consistency never means pretending that capabilities are identical. If a service
 
 ## 8. Playlist selection
 
-`Shift+P` in the prefix layer, or the local Manage Playlists command, opens a small modal window containing:
+`Shift+P` in the prefix layer, or local `Ctrl+Shift+P`, opens a small modal window containing:
 
 - a filter field;
 - all playlists for the current service, each announced as “contains” or “does not contain”;
-- optionally, recently used playlists at the beginning;
 - Space to toggle membership in the selected playlist;
 - Enter to apply all changes;
-- `Ctrl+N` to create a new playlist;
+- Insert or `Ctrl+N` to create a playlist, F2 to rename it, and Delete to remove the playlist without deleting media;
+- `Ctrl+K` to focus the playlist filter; Escape first clears a non-empty filter and otherwise cancels the dialog;
 - Escape to cancel;
 - exact focus restoration after completion.
 
@@ -835,7 +835,7 @@ Implementation in `alpha.88`: local `Ctrl+Shift+A` derives Albums with a conserv
 
 Decision in `alpha.89`: view order and playback order are separate, explicit concepts. Starting an item from Favorites, Queue, an opened Album, the current Folder, All files or Custom order stores the full unfiltered list of identifiers as the session's **playback context**. `Page Up`, `Page Down` and end-of-file continuation all use that same context. Merely browsing another view does not replace it; starting an item from the new list does. History, Bookmarks and search results remain locators rather than hidden result playlists. Explicit Play next and Queue items take priority, after which playback resumes at the item following the original position in the remembered context.
 
-`Alt+Up/Down` is meaningful only on lists with user-owned order: Custom order, Favorites and, later, editable Playlists and Queue. `alpha.89` implements the first two. Folders retain disk hierarchy, All files stays alphabetical, Album follows track numbers, and History and search preserve their semantic order. Reordering never changes a disk file. A service adapter writes remote order only where the official API supports it; otherwise any AMC order must be clearly identified as local metadata.
+`Alt+Up/Down` is meaningful only on lists with user-owned order: Custom order, Favorites, an open editable Playlist and, later, Queue. `alpha.97` implements the first three. Folders retain disk hierarchy, All files stays alphabetical, Album follows track numbers, and History and search preserve their semantic order. Reordering never changes a disk file. A service adapter writes remote order only where the official API supports it; otherwise AMC order is explicitly local metadata.
 
 Item options are separate from information. `Alt+Enter` remains read-only text, while `Alt+Shift+Enter` opens editable **Item playback options**. Local resume policy is hierarchical: global setting, folder-source override, individual-item override. Playback rate has a session rule plus an optional item override; moving to another item restores that item's value or the session value. Per-item output and EQ have reserved model space but stay disabled until the output layer can enumerate devices and switch shared WASAPI safely without losing NVDA speech.
 
@@ -845,7 +845,7 @@ Clipboard operations in `alpha.91` pass through one Windows STA layer. Text, `Un
 
 Choice objects in the options dialog must have a stable textual representation equal to their visible label. WPF `DisplayMemberPath` alone does not cover every UI Automation path, so `alpha.92` also provides a text-search path and an explicit `ToString()` result for resume-policy and rate choices. The model enum or numeric value remains separate from the accessibility announcement.
 
-The `alpha.93` durable-data layer uses embedded SQLite. Separate tables hold local records, folder sources and rules, exclusions, custom order, local-session state, Bookmarks, History and Favorite order; indexes cover title, path and view membership. UI settings, keyboard profiles, query history and session navigation remain in a small JSON file. Migration from the prior state is a single transaction, verifies the item count and retains the input copy. The full export remains independent of the database format and can still be imported on another computer.
+The `alpha.93` durable-data layer uses embedded SQLite. Separate tables hold local records, folder sources and rules, exclusions, custom order, local-session state, Bookmarks, History, Favorite order and, from `alpha.97`, Playlists with their ordered items; indexes cover title, path and view membership. UI settings, keyboard profiles, query history and session navigation remain in a small JSON file. Migration from the prior state is a single transaction, verifies the item count and retains the input copy. The full export remains independent of the database format and can still be imported on another computer.
 
 Cloud Files hydration is a playback operation, never an indexing operation. The scanner reads names, extensions and attributes only; views and information commands do not open placeholder payloads. Explicit playback of one record prepares its decoder on a worker thread, announces download state and assigns a request generation: cancellation, a track change or timeout invalidates the result so a late file cannot begin playing. The process log records open stages, device failures, unhandled exceptions and detected periods of UI non-response, but is never synchronized to a cloud folder.
 
@@ -854,6 +854,8 @@ Critical window shortcuts may receive an additional handler at the Win32 message
 Undo history for complete removal of a local record also contains the identifiers' positions in Custom order. `alpha.95` restores those positions after reinserting records rather than allowing normalization to treat them as new files. Multiple positions are restored in ascending order to retain the block's internal arrangement. This does not change the rule that genuinely new records are appended.
 
 Collection-membership history also stores a snapshot of item positions. From `alpha.96`, this covers Favorites in every session and local Custom order. Undo restores membership first, then exact positions, and only then refreshes the view. This prevents list normalization after `Delete` from discarding the position and later appending the restored item.
+
+The `alpha.97` implementation defines a playlist as a named, ordered list of stable item identifiers owned by one session. `Ctrl+P` shows playlist containers; Enter opens contents, while Escape or Backspace returns to the playlist list. Starting a track records the whole unfiltered content as playback context. Delete at the top level removes the playlist after confirmation, while inside it removes references only. The `Ctrl+Shift+P` manager supports single and multiple selection, mixed membership, creation, rename, deletion and filtering without exposing technical object representations through UI Automation. Every mutation shares `Ctrl+Z` history, and a full backup carries playlists independently of the database format.
 
 “Go to album” and “Go to artist” are relationship navigation rather than text searches. For a local file, `alpha.89` uses its inferred album directory and parent artist directory. An `F2` title alias does not alter the disk file or album sort key: AMC may display a clean title without `01`, while sequence still follows the physical file-name number. A streaming adapter will later supply stable related album and artist identifiers. Matching a local file to a service catalogue remains a separate, more expensive on-demand feature.
 

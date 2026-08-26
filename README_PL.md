@@ -227,6 +227,8 @@ W `alpha.95` cofnięcie usunięcia lokalnego rekordu odtwarza również jego dok
 
 `alpha.96` rozszerza tę samą gwarancję na usuwanie tylko z kolekcji. Przed zmianą AMC zapisuje pozycję elementu w **Ulubionych** albo lokalnej **Kolejności własnej**, a `Ctrl+Z` odtwarza członkostwo i dokładne miejsce. Element ze środka listy nie jest już traktowany jak nowy i dopisywany na końcu.
 
+W `alpha.97` Playlisty są już trwałymi kolekcjami każdej sesji, a nie pozycjami demonstracyjnymi. `Ctrl+P` otwiera ich listę; Insert tworzy playlistę, F2 zmienia nazwę, Delete usuwa samą playlistę, a Enter otwiera jej elementy. W otwartej playliście Delete usuwa tylko odwołanie, `Alt+strzałka w górę/w dół` ustala własną kolejność, a Page Up, Page Down i automatyczna kontynuacja pozostają w tej playliście. `Ctrl+Shift+P` na jednej pozycji albo zaznaczonym bloku otwiera dostępny menedżer przynależności; Spacja przełącza stan, stan mieszany oznacza częściowe członkostwo, `Ctrl+K` przechodzi do filtra, Enter zapisuje, a Escape anuluje. Polecenie działa również z wyników wyszukiwania. Utworzenie, zmiana nazwy, usunięcie, członkostwo i kolejność podlegają `Ctrl+Z`, zapisują się w SQLite i wchodzą do pełnej kopii `.amcbackup.json`; żadne z tych działań nie usuwa pliku multimedialnego z dysku.
+
 Od `alpha.89` `Delete` jest jedynym klawiszem usuwania. `Backspace` nigdy nie usuwa elementu: w Folderach otwiera folder nadrzędny, wewnątrz albumu lub innego kontenera wraca o jeden poziom, a w odtwarzaczu wraca do listy z zastosowaniem zwykłej reguły pauzy. W polach tekstowych zachowuje standardowe kasowanie znaku, a na najwyższym poziomie listy podaje, że nie ma poziomu nadrzędnego. `Alt+strzałka w lewo/prawo` pozostaje historią odwiedzonych widoków i nie zastępuje semantyki rodzica.
 
 Obecny katalog demonstracyjny może pokazywać wspólne wyniki testowe. Prawdziwy adapter TIDAL będzie modułem izolowanym: `Ctrl+Shift+F` może uruchomić jego zapytanie, ale treści TIDAL nie zostaną wymieszane na jednej liście z treściami podobnych usług. AMC otworzy osobny, oznaczony widok wyników TIDAL i zachowa działanie wszystkich wspólnych skrótów.
@@ -257,7 +259,7 @@ Program rozróżnia trzy rodzaje plików:
 
 - `*.amckeys.json` — pojedyncza mapa klawiszy;
 - `*.amcsettings.json` — konfiguracja bez map klawiatury;
-- `*.amcbackup.json` — pełna kopia: ustawienia, profile klawiatury, sesje, zakładki i szablony komunikatów.
+- `*.amcbackup.json` — pełna kopia: ustawienia, profile klawiatury, sesje, zakładki, playlisty i szablony komunikatów.
 
 Żaden eksport nie zawiera haseł, tokenów ani danych logowania.
 

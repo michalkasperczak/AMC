@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 25;
+    public const int CurrentSchemaVersion = 26;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -86,6 +86,7 @@ public sealed class ConfigurationStore
         NormalizeLocalMedia(state, state.SchemaVersion);
         NormalizePlaybackHistory(state);
         NormalizeBookmarks(state);
+        NormalizePlaylists(state);
         ValidateState(state);
         return state;
     }
@@ -98,6 +99,7 @@ public sealed class ConfigurationStore
         NormalizeLocalMedia(state, state.SchemaVersion);
         NormalizePlaybackHistory(state);
         NormalizeBookmarks(state);
+        NormalizePlaylists(state);
         ValidateState(state);
         try
         {
@@ -189,6 +191,7 @@ public sealed class ConfigurationStore
         copy.Bookmarks = new BookmarkSettings();
         copy.PlaybackHistory = new PlaybackHistorySettings();
         copy.CollectionOrders = new CollectionOrderSettings();
+        copy.Playlists = new PlaylistSettings();
         return copy;
     }
 
@@ -200,7 +203,8 @@ public sealed class ConfigurationStore
         || state.LocalMedia.CustomOrderItemIds.Count > 0
         || state.Bookmarks.Entries.Count > 0
         || state.PlaybackHistory.ItemIdsBySession.Count > 0
-        || state.CollectionOrders.FavoriteItemIdsBySession.Count > 0;
+        || state.CollectionOrders.FavoriteItemIdsBySession.Count > 0
+        || state.Playlists.Entries.Count > 0;
 
     private static void CopyLibraryPayload(PersistedState source, PersistedState destination)
     {
@@ -208,6 +212,7 @@ public sealed class ConfigurationStore
         destination.Bookmarks = source.Bookmarks;
         destination.PlaybackHistory = source.PlaybackHistory;
         destination.CollectionOrders = source.CollectionOrders;
+        destination.Playlists = source.Playlists;
     }
 
     private static void EnsureBuiltInProfile(PersistedState state)
@@ -263,6 +268,7 @@ public sealed class ConfigurationStore
         NormalizeLocalMedia(state, sourceSchemaVersion);
         NormalizePlaybackHistory(state);
         NormalizeBookmarks(state);
+        NormalizePlaylists(state);
         state.SchemaVersion = CurrentSchemaVersion;
     }
 
@@ -295,6 +301,12 @@ public sealed class ConfigurationStore
     {
         state.Bookmarks ??= new BookmarkSettings();
         new BookmarkIndex(state.Bookmarks).Normalize();
+    }
+
+    private static void NormalizePlaylists(PersistedState state)
+    {
+        state.Playlists ??= new PlaylistSettings();
+        _ = new PlaylistIndex(state.Playlists);
     }
 
     private static void NormalizeSessionNavigation(PersistedState state)

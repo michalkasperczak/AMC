@@ -49,6 +49,7 @@ var tests = new (string Name, Action Test)[]
     ("Trwałe zakładki", TestBookmarks),
     ("Pamięć widoków sesji", TestSessionNavigationPersistence),
     ("Pamięć lokalnej biblioteki", TestLocalMediaPersistence),
+    ("Trwałe playlisty", TestPlaylists),
     ("Paleta poleceń", TestCommandPalette),
     ("Cofanie zmian przynależności", TestMembershipHistory),
     ("Zbiorowe zmiany przynależności", TestBatchMembershipCommands),
@@ -1566,6 +1567,92 @@ static void TestLocalMediaPersistence()
     }
 }
 
+static void TestPlaylists()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-playlist-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var state = ConfigurationStore.CreateDefaultState();
+        state.LocalMedia.Items.AddRange(
+        [
+            new LocalMediaItemSettings
+            {
+                Id = "track-a",
+                Title = "Alfa",
+                Path = Path.Combine(directory, "a.mp3"),
+                IsInLibrary = true,
+                IsAvailable = true
+            },
+            new LocalMediaItemSettings
+            {
+                Id = "track-b",
+                Title = "Bravo",
+                Path = Path.Combine(directory, "b.mp3"),
+                IsInLibrary = true,
+                IsAvailable = true
+            },
+            new LocalMediaItemSettings
+            {
+                Id = "track-c",
+                Title = "Charlie",
+                Path = Path.Combine(directory, "c.mp3"),
+                IsInLibrary = true,
+                IsAvailable = true
+            }
+        ]);
+        var playlists = new PlaylistIndex(state.Playlists);
+        var first = playlists.Create("local", "Do odsłuchu");
+        playlists.SetMembership(first.Id, ["track-a", "track-b"], true);
+        Equal(PlaylistMembershipState.Some, playlists.GetMembership(first.Id, ["track-b", "track-c"]));
+        playlists.SetMembership(first.Id, ["track-b", "track-c"], true);
+        True(first.ItemIds.SequenceEqual(["track-a", "track-b", "track-c"]),
+            "Dodanie zbiorowe powinno zachować dotychczasową kolejność i dopisać tylko brakujący element.");
+        Equal(
+            ManualOrderMoveResult.Moved,
+            playlists.MoveItems(first.Id, ["track-a", "track-b", "track-c"], ["track-c"], -1));
+        True(first.ItemIds.SequenceEqual(["track-a", "track-c", "track-b"]),
+            "Playlista powinna pozwalać przenieść element bez zmiany katalogu.");
+        playlists.SetMembership(first.Id, ["track-c"], false);
+        True(first.ItemIds.SequenceEqual(["track-a", "track-b"]),
+            "Usunięcie z playlisty nie powinno naruszyć pozostałych pozycji.");
+        playlists.Rename(first.Id, "Audycje");
+        var second = playlists.Create("local", "Muzyka");
+        playlists.SetMembership(second.Id, ["track-c"], true);
+        var duplicateRejected = false;
+        try
+        {
+            playlists.Create("LOCAL", "muzyka");
+        }
+        catch (InvalidOperationException)
+        {
+            duplicateRejected = true;
+        }
+        True(duplicateRejected, "Nazwy playlist powinny być unikatowe w obrębie sesji.");
+
+        var statePath = Path.Combine(directory, "state.json");
+        var databasePath = Path.Combine(directory, "library.db");
+        var store = new ConfigurationStore(statePath, databasePath);
+        store.Save(state);
+        var loaded = new ConfigurationStore(statePath, databasePath).LoadOrCreate();
+        var loadedPlaylists = new PlaylistIndex(loaded.Playlists).GetForSession("LOCAL");
+        Equal(2, loadedPlaylists.Count);
+        Equal("Audycje", loadedPlaylists[0].Name);
+        True(loadedPlaylists[0].ItemIds.SequenceEqual(["track-a", "track-b"]),
+            "SQLite powinien zachować kolejność elementów pierwszej playlisty.");
+        Equal("track-c", loadedPlaylists[1].ItemIds.Single());
+
+        var clone = new PlaylistIndex(loaded.Playlists).CloneSettings();
+        new PlaylistIndex(loaded.Playlists).Remove(loadedPlaylists[0].Id);
+        new PlaylistIndex(loaded.Playlists).ReplaceSession("local", clone.Entries);
+        Equal(2, new PlaylistIndex(loaded.Playlists).GetForSession("local").Count);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
 static void TestLocalLibraryManualOrder()
 {
     var alpha = new MediaItem { Id = "a", Title = "Alfa", Source = @"C:\Muzyka\a.mp3" };
@@ -2216,6 +2303,14 @@ static void TestExports()
             IsAvailable = false,
             ResumePositionTicks = TimeSpan.FromMinutes(12).Ticks
         });
+        state.Playlists.Entries.Add(new PlaylistEntry
+        {
+            Id = "playlist-1",
+            SessionId = "local",
+            Name = "Do odsłuchu",
+            CreatedUtcTicks = DateTime.UtcNow.Ticks,
+            ItemIds = ["local-item"]
+        });
         var mapPath = Path.Combine(directory, "map.amckeys.json");
         var settingsPath = Path.Combine(directory, "settings.amcsettings.json");
         var backupPath = Path.Combine(directory, "all.amcbackup.json");
@@ -2270,6 +2365,9 @@ static void TestExports()
         Equal("local-source", importedBackup.LocalMedia.FolderSources[0].Id);
         Equal(1, importedBackup.LocalMedia.Items.Count);
         Equal(TimeSpan.FromMinutes(12).Ticks, importedBackup.LocalMedia.Items[0].ResumePositionTicks);
+        Equal(1, importedBackup.Playlists.Entries.Count);
+        Equal("Do odsłuchu", importedBackup.Playlists.Entries[0].Name);
+        Equal("local-item", importedBackup.Playlists.Entries[0].ItemIds.Single());
     }
     finally
     {

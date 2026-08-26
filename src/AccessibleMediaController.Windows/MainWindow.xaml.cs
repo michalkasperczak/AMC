@@ -39,6 +39,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const string AllLocalFilesViewName = "Wszystkie pliki";
     private const string CustomLocalOrderViewName = "Kolejność własna";
     private const string LocalAlbumContentsViewName = "Album";
+    private const string PlaylistContentsViewPrefix = "Playlista:";
     private string? _currentLocalAlbumPath;
     private string? _currentLocalAlbumTitle;
     private string _currentView = DefaultBrowserView;
@@ -51,6 +52,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private BookmarkReturnContext? _bookmarkReturnContext;
     private readonly MediaMembershipHistory _membershipHistory = new();
     private readonly Stack<LocalCatalogUndo> _localCatalogHistory = [];
+    private readonly Stack<PlaylistStateUndo> _playlistHistory = [];
     private long _undoSequence;
     private bool _initialFocusApplied;
     private bool _deferAnnouncements;
@@ -137,6 +139,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _state = state;
         _store = store;
         NormalizeTransientBookmarkViewsAtStartup();
+        NormalizePlaylistViewsAtStartup();
         NormalizeLocalLibraryNavigationAtStartup();
         ClearPersistedListFiltersAtStartup();
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
@@ -188,12 +191,33 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    private void NormalizePlaylistViewsAtStartup()
+    {
+        var playlists = new PlaylistIndex(_state.Playlists);
+        foreach (var (sessionId, navigation) in _state.SessionNavigation.Sessions)
+        {
+            if (!TryGetPlaylistIdFromView(navigation.CurrentView, out var playlistId)) continue;
+            var playlist = playlists.Find(playlistId);
+            if (playlist is null
+                || !string.Equals(playlist.SessionId, sessionId, StringComparison.OrdinalIgnoreCase))
+            {
+                navigation.CurrentView = "Playlisty";
+            }
+        }
+    }
+
     public MediaItem? SelectedItem => (MediaList.SelectedItem as MediaItemRow)?.Item;
     private BookmarkEntry? SelectedBookmark => (MediaList.SelectedItem as MediaItemRow)?.Bookmark;
-    public MediaItem? ActionItem => _playerViewActive
-        ? (_sessions.Current.HasItems ? _sessions.Current.CurrentItem : null)
-        : (MediaList.SelectedItem as MediaItemRow)?.ActionItem
-            ?? (_sessions.Current.HasItems ? _sessions.Current.CurrentItem : null);
+    public MediaItem? ActionItem
+    {
+        get
+        {
+            if (_playerViewActive) return _sessions.Current.HasItems ? _sessions.Current.CurrentItem : null;
+            var row = MediaList.SelectedItem as MediaItemRow;
+            if (row?.PlaylistId is not null) return null;
+            return row?.ActionItem ?? (_sessions.Current.HasItems ? _sessions.Current.CurrentItem : null);
+        }
+    }
     private DemoMediaSession ActionSession => !_playerViewActive && SelectedBookmark is { } bookmark
         ? _sessions.FindSession(bookmark.SessionId) ?? _sessions.Current
         : _sessions.Current;
@@ -204,6 +228,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (_playerViewActive) return [_sessions.Current.CurrentItem];
             var selected = MediaList.SelectedItems
                 .OfType<MediaItemRow>()
+                .Where(row => row.PlaylistId is null)
                 .Select(row => row.ActionItem)
                 .Distinct()
                 .ToArray();
@@ -354,8 +379,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         };
         if (dialog.ShowDialog() == true && dialog.SelectedResult is { } result)
         {
-            SelectSessionBrowserItem(result.SessionId, result.Item.Id);
+            var selectedSession = SelectSessionBrowserItem(result.SessionId, result.Item.Id);
             if (allServices) PrepareSearchReturnContext(result.Item.Id);
+            if (dialog.SelectedAction == SearchResultAction.Playlist && selectedSession is not null)
+            {
+                var items = dialog.SelectedResults
+                    .Where(selected => string.Equals(
+                        selected.SessionId,
+                        selectedSession.Id,
+                        StringComparison.OrdinalIgnoreCase))
+                    .Select(selected => selected.Item)
+                    .ToArray();
+                ShowPlaylistManager(items, selectedSession);
+                return;
+            }
             RestoreMediaListFocusAfterRefresh();
             return;
         }
@@ -780,15 +817,247 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         FocusMediaList();
     }
 
-    public void ShowPlaylistManager()
+    public void ShowPlaylistManager() => ShowPlaylistManager(ActionItems, ActionSession);
+
+    private void ShowPlaylistManager(
+        IReadOnlyList<MediaItem> items,
+        DemoMediaSession session)
     {
-        var items = ActionItems;
-        var dialog = new PlaylistWindow(items) { Owner = this };
-        if (dialog.ShowDialog() == true)
+        if (items.Any(item => item.Kind is not (MediaItemKind.Track or MediaItemKind.Station)))
         {
-            var target = items.Count == 1 ? items[0].Title : FormatItemCount(items.Count);
-            Announce($"Zapisano zmiany playlist dla: {target}");
+            Announce("Do playlisty wybierz utwory albo stacje. Zawartość albumu lub folderu otwórz Enterem");
+            if (_playerViewActive) FocusPlayerView();
+            else RestoreMediaListFocusAfterRefresh();
+            return;
         }
+        var index = new PlaylistIndex(_state.Playlists);
+        var previous = index.CloneSettings();
+        var dialog = new PlaylistWindow(
+            session.Id,
+            session.DisplayName,
+            index.GetForSession(session.Id),
+            items) { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            if (_playerViewActive) FocusPlayerView();
+            else RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        index.ReplaceSession(session.Id, dialog.ResultPlaylists);
+        if (!PlaylistStatesEqual(previous, _state.Playlists))
+        {
+            RecordPlaylistUndo(previous, "Cofnięto zmiany playlist");
+            EnsureCurrentPlaylistStillExists();
+            RefreshCurrentView();
+            SavePlaylistState();
+        }
+        var target = items.Count switch
+        {
+            0 => session.DisplayName,
+            1 => items[0].Title,
+            _ => FormatItemCount(items.Count)
+        };
+        Announce($"Zapisano zmiany playlist dla: {target}");
+        if (_playerViewActive) FocusPlayerView();
+        else RestoreMediaListFocusAfterRefresh();
+    }
+
+    private static bool PlaylistStatesEqual(PlaylistSettings left, PlaylistSettings right)
+    {
+        if (left.Entries.Count != right.Entries.Count) return false;
+        for (var index = 0; index < left.Entries.Count; index++)
+        {
+            var first = left.Entries[index];
+            var second = right.Entries[index];
+            if (!string.Equals(first.Id, second.Id, StringComparison.Ordinal)
+                || !string.Equals(first.SessionId, second.SessionId, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(first.Name, second.Name, StringComparison.Ordinal)
+                || first.CreatedUtcTicks != second.CreatedUtcTicks
+                || !first.ItemIds.SequenceEqual(second.ItemIds, StringComparer.Ordinal))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void RecordPlaylistUndo(PlaylistSettings previousState, string announcement) =>
+        _playlistHistory.Push(new PlaylistStateUndo(++_undoSequence, previousState, announcement));
+
+    private void SavePlaylistState()
+    {
+        if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            TrySaveLocalMediaState(true);
+            return;
+        }
+        try
+        {
+            _store.Save(_state);
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException)
+        {
+            AnnounceEssential($"Nie udało się zapisać playlist: {exception.Message}");
+        }
+    }
+
+    private void EnsureCurrentPlaylistStillExists()
+    {
+        if (!TryGetPlaylistIdFromView(_currentView, out var playlistId)) return;
+        var playlist = new PlaylistIndex(_state.Playlists).Find(playlistId);
+        if (playlist is not null
+            && string.Equals(playlist.SessionId, _sessions.Current.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+        _currentView = "Playlisty";
+        GetSessionNavigationState(_sessions.Current.Id).CurrentView = _currentView;
+    }
+
+    private PlaylistEntry? SelectedPlaylist()
+    {
+        var playlistId = (MediaList.SelectedItem as MediaItemRow)?.PlaylistId;
+        return playlistId is null ? null : new PlaylistIndex(_state.Playlists).Find(playlistId);
+    }
+
+    private void CreatePlaylist()
+    {
+        var index = new PlaylistIndex(_state.Playlists);
+        while (true)
+        {
+            var dialog = new PlaylistNameWindow("Nowa playlista", string.Empty) { Owner = this };
+            if (dialog.ShowDialog() != true)
+            {
+                RestoreMediaListFocusAfterRefresh();
+                return;
+            }
+            var previous = index.CloneSettings();
+            try
+            {
+                var playlist = index.Create(_sessions.Current.Id, dialog.PlaylistName);
+                RecordPlaylistUndo(previous, $"Cofnięto utworzenie playlisty: {playlist.Name}");
+                if (!string.Equals(_currentView, "Playlisty", StringComparison.Ordinal))
+                {
+                    NavigateTo("Playlisty");
+                }
+                RefreshCurrentView(preferredItemId: $"playlist:{playlist.Id}");
+                SavePlaylistState();
+                PrepareSelectedItemFocusContext("Utworzono playlistę");
+                RestoreMediaListFocusAfterRefresh();
+                return;
+            }
+            catch (InvalidOperationException exception)
+            {
+                MessageBox.Show(this, exception.Message, "Nowa playlista", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+    }
+
+    private void RenameSelectedPlaylist()
+    {
+        var playlist = SelectedPlaylist();
+        if (playlist is null)
+        {
+            Announce("Wybierz playlistę do zmiany nazwy");
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+        var index = new PlaylistIndex(_state.Playlists);
+        while (true)
+        {
+            var dialog = new PlaylistNameWindow("Zmień nazwę playlisty", playlist.Name) { Owner = this };
+            if (dialog.ShowDialog() != true)
+            {
+                RestoreMediaListFocusAfterRefresh();
+                return;
+            }
+            var previous = index.CloneSettings();
+            try
+            {
+                var oldName = playlist.Name;
+                index.Rename(playlist.Id, dialog.PlaylistName);
+                RecordPlaylistUndo(previous, $"Przywrócono nazwę playlisty: {oldName}");
+                RefreshCurrentView(preferredItemId: $"playlist:{playlist.Id}");
+                SavePlaylistState();
+                PrepareSelectedItemFocusContext("Zmieniono nazwę playlisty");
+                RestoreMediaListFocusAfterRefresh();
+                return;
+            }
+            catch (InvalidOperationException exception)
+            {
+                MessageBox.Show(this, exception.Message, "Zmień nazwę playlisty", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+    }
+
+    private void DeleteSelectedPlaylist()
+    {
+        var playlist = SelectedPlaylist();
+        if (playlist is null)
+        {
+            Announce("Wybierz playlistę do usunięcia");
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+        if (MessageBox.Show(
+                this,
+                $"Usunąć playlistę „{playlist.Name}”? Pliki multimedialne pozostaną bez zmian.",
+                "Usuń playlistę",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No) != MessageBoxResult.Yes)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        var previousIndex = MediaList.SelectedIndex;
+        var index = new PlaylistIndex(_state.Playlists);
+        var previous = index.CloneSettings();
+        index.Remove(playlist.Id);
+        RecordPlaylistUndo(previous, $"Przywrócono playlistę: {playlist.Name}");
+        RefreshCurrentView(previousIndex);
+        SavePlaylistState();
+        RestoreMediaListFocusAfterRefresh();
+        Dispatcher.BeginInvoke(
+            () => Announce($"Usunięto playlistę: {playlist.Name}. Pliki pozostały bez zmian"),
+            DispatcherPriority.ContextIdle);
+    }
+
+    private void RemoveSelectedPlaylistItems(string playlistId)
+    {
+        var index = new PlaylistIndex(_state.Playlists);
+        var playlist = index.Find(playlistId);
+        if (playlist is null) return;
+        var selectedIds = MediaList.SelectedItems
+            .OfType<MediaItemRow>()
+            .Select(row => row.ActionItem.Id)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (selectedIds.Length == 0)
+        {
+            Announce("Brak elementu do usunięcia z playlisty");
+            return;
+        }
+        var previous = index.CloneSettings();
+        var selectedSet = selectedIds.ToHashSet(StringComparer.Ordinal);
+        var previousIndex = MediaList.SelectedIndex;
+        var removed = playlist.ItemIds.RemoveAll(selectedSet.Contains);
+        if (removed == 0) return;
+        RecordPlaylistUndo(
+            previous,
+            removed == 1
+                ? $"Przywrócono na playliście: {MediaList.SelectedItems.OfType<MediaItemRow>().First().ActionItem.Title}"
+                : $"Przywrócono na playliście: {FormatItemCount(removed)}");
+        RefreshCurrentView(previousIndex);
+        SavePlaylistState();
+        RestoreMediaListFocusAfterRefresh();
+        Dispatcher.BeginInvoke(
+            () => Announce(removed == 1
+                ? "Usunięto element z playlisty"
+                : $"Usunięto z playlisty: {FormatItemCount(removed)}"),
+            DispatcherPriority.ContextIdle);
     }
 
     public void ShowCommandPalette()
@@ -2073,6 +2342,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var previousLocalWasPlaying = previousLocal?.IsPlaying == true;
         _membershipHistory.Clear();
         _localCatalogHistory.Clear();
+        _playlistHistory.Clear();
         _playbackHistoryCursors.Clear();
         _undoSequence = 0;
         _sessions = new SessionManager(_state.Settings);
@@ -2590,6 +2860,35 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (string.Equals(_currentView, "Playlisty", StringComparison.Ordinal))
+        {
+            _unfilteredItems = CreatePlaylistRows();
+            ApplyFilter(preferredItemId, fallbackIndex);
+            return;
+        }
+
+        if (TryGetPlaylistIdFromView(_currentView, out var playlistId))
+        {
+            var playlist = new PlaylistIndex(_state.Playlists).Find(playlistId);
+            if (playlist is null
+                || !string.Equals(playlist.SessionId, _sessions.Current.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                _currentView = "Playlisty";
+                GetSessionNavigationState(_sessions.Current.Id).CurrentView = _currentView;
+                RefreshCurrentView(fallbackIndex: fallbackIndex);
+                return;
+            }
+            ViewHeading.Text = $"Playlista — {playlist.Name}";
+            var itemsById = _sessions.Current.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
+            _unfilteredItems = playlist.ItemIds
+                .Select(itemId => itemsById.GetValueOrDefault(itemId))
+                .Where(item => item is not null)
+                .Select(item => new MediaItemRow(item!, FormatListItem(item!), item!.PrimaryText))
+                .ToList();
+            ApplyFilter(preferredItemId, fallbackIndex);
+            return;
+        }
+
         if (string.Equals(_currentView, "Albumy", StringComparison.Ordinal)
             && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
@@ -2738,6 +3037,45 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return rows;
     }
 
+    private List<MediaItemRow> CreatePlaylistRows()
+    {
+        ViewHeading.Text = "Playlisty";
+        var itemsById = _sessions.Current.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        return new PlaylistIndex(_state.Playlists)
+            .GetForSession(_sessions.Current.Id)
+            .Select(playlist =>
+            {
+                var availableItems = playlist.ItemIds
+                    .Select(itemId => itemsById.GetValueOrDefault(itemId))
+                    .Where(item => item is not null)
+                    .Select(item => item!)
+                    .ToArray();
+                var durationTicks = availableItems.Aggregate(
+                    0L,
+                    (total, item) => item.Duration.Ticks > long.MaxValue - total
+                        ? long.MaxValue
+                        : total + item.Duration.Ticks);
+                var item = new MediaItem
+                {
+                    Id = $"playlist:{playlist.Id}",
+                    Title = playlist.Name,
+                    Kind = MediaItemKind.Playlist,
+                    Duration = TimeSpan.FromTicks(durationTicks),
+                    IsInLibrary = true
+                };
+                var availability = availableItems.Length == playlist.ItemIds.Count
+                    ? FormatItemCount(playlist.ItemIds.Count)
+                    : $"dostępne {availableItems.Length} z {playlist.ItemIds.Count}";
+                var duration = durationTicks > 0 ? $", {FormatDurationWords(item.Duration)}" : string.Empty;
+                return new MediaItemRow(
+                    item,
+                    $"{playlist.Name}, {availability}{duration}",
+                    playlist.Name,
+                    playlistId: playlist.Id);
+            })
+            .ToList();
+    }
+
     private void EnsureLocalCustomOrder()
     {
         _state.LocalMedia.CustomOrderItemIds = LocalLibraryManualOrder.Normalize(
@@ -2789,9 +3127,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal);
         var isFavoriteOrder = !_playerViewActive
             && string.Equals(_currentView, "Ulubione", StringComparison.Ordinal);
-        if (!isCustomLocalOrder && !isFavoriteOrder)
+        var playlistId = string.Empty;
+        var isPlaylistOrder = !_playerViewActive
+            && TryGetPlaylistIdFromView(_currentView, out playlistId);
+        if (!isCustomLocalOrder && !isFavoriteOrder && !isPlaylistOrder)
         {
-            Announce("Ręczne przenoszenie działa w Kolejności własnej oraz w Ulubionych");
+            Announce("Ręczne przenoszenie działa w Kolejności własnej, Ulubionych oraz otwartej playliście");
             return;
         }
         if (!string.IsNullOrWhiteSpace(FilterBox.Text))
@@ -2802,7 +3143,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var selectedIds = MediaList.SelectedItems
             .OfType<MediaItemRow>()
-            .Select(row => row.Item.Id)
+            .Select(row => row.ActionItem.Id)
             .ToArray();
         if (selectedIds.Length == 0)
         {
@@ -2811,17 +3152,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         IList<string> storedOrder;
+        PlaylistSettings? previousPlaylists = null;
         if (isCustomLocalOrder)
         {
             EnsureLocalCustomOrder();
             storedOrder = _state.LocalMedia.CustomOrderItemIds;
         }
         else
+        if (isFavoriteOrder)
         {
             storedOrder = EnsureFavoriteOrder(_sessions.Current);
         }
+        else
+        {
+            var playlists = new PlaylistIndex(_state.Playlists);
+            var playlist = playlists.Find(playlistId)
+                ?? throw new InvalidOperationException("Nie znaleziono otwartej playlisty.");
+            previousPlaylists = playlists.CloneSettings();
+            storedOrder = playlist.ItemIds;
+        }
         var visibleIds = _unfilteredItems
-            .Select(row => row.Item.Id)
+            .Select(row => row.ActionItem.Id)
             .ToArray();
         var result = LocalLibraryManualOrder.MoveVisibleBlock(
             storedOrder,
@@ -2845,7 +3196,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var primaryId = selectedIds[0];
         RefreshCurrentView(preferredItemId: primaryId);
         SelectMediaItems(selectedIds);
-        if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        if (isPlaylistOrder)
+        {
+            RecordPlaylistUndo(
+                previousPlaylists!,
+                direction < 0 ? "Cofnięto przeniesienie wyżej" : "Cofnięto przeniesienie niżej");
+            SavePlaylistState();
+        }
+        else if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
             TrySaveLocalMediaState(true);
         }
@@ -3083,6 +3441,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var row = MediaList.SelectedItem as MediaItemRow;
+        if (row?.PlaylistId is { } playlistId)
+        {
+            OpenPlaylist(playlistId, row.Item.Title);
+            return;
+        }
         if (row?.AlbumFolderPath is { } albumFolderPath)
         {
             OpenLocalAlbum(albumFolderPath, row.Item.Title);
@@ -3123,7 +3486,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var sessionIds = session.Items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
         var itemIds = _unfilteredItems
-            .Where(row => row.FolderPath is null && row.AlbumFolderPath is null)
+            .Where(row => row.FolderPath is null && row.AlbumFolderPath is null && row.PlaylistId is null)
             .Select(row => row.ActionItem)
             .Where(item => item.Kind is MediaItemKind.Track or MediaItemKind.Station)
             .Select(item => item.Id)
@@ -3136,6 +3499,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var navigation = GetSessionNavigationState(session.Id);
         navigation.PlaybackContextView = CurrentViewDisplayName();
         navigation.PlaybackContextItemIds = itemIds;
+    }
+
+    private void OpenPlaylist(string playlistId, string playlistName)
+    {
+        NavigateTo(PlaylistContentsView(playlistId));
+        PrepareViewFocusContext($"Playlista, {playlistName}");
+        RestoreMediaListFocusAfterRefresh();
     }
 
     private void OpenLocalAlbum(string folderPath, string albumTitle)
@@ -3217,6 +3587,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         if (string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal)
+            || TryGetPlaylistIdFromView(_currentView, out _)
             || !IsTopLevelBrowserView(_currentView))
         {
             NavigateBack();
@@ -3305,6 +3676,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
         {
             RemoveSelectedBookmarks();
+            return;
+        }
+        if (string.Equals(_currentView, "Playlisty", StringComparison.Ordinal)
+            && (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not null)
+        {
+            DeleteSelectedPlaylist();
+            return;
+        }
+        if (TryGetPlaylistIdFromView(_currentView, out var playlistId))
+        {
+            RemoveSelectedPlaylistItems(playlistId);
             return;
         }
 
@@ -3471,8 +3853,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var membershipCandidate = _membershipHistory.Peek();
         var catalogCandidate = _localCatalogHistory.TryPeek(out var localUndo) ? localUndo : null;
+        var playlistCandidate = _playlistHistory.TryPeek(out var playlistUndo) ? playlistUndo : null;
+        if (playlistCandidate is not null
+            && (membershipCandidate is null || playlistCandidate.Sequence > membershipCandidate.Sequence)
+            && (catalogCandidate is null || playlistCandidate.Sequence > catalogCandidate.Sequence))
+        {
+            UndoPlaylistChange(_playlistHistory.Pop());
+            return;
+        }
         if (catalogCandidate is not null
-            && (membershipCandidate is null || catalogCandidate.Sequence > membershipCandidate.Sequence))
+            && (membershipCandidate is null || catalogCandidate.Sequence > membershipCandidate.Sequence)
+            && (playlistCandidate is null || catalogCandidate.Sequence > playlistCandidate.Sequence))
         {
             UndoLocalCatalogRemoval(_localCatalogHistory.Pop());
             return;
@@ -3516,6 +3907,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Dispatcher.BeginInvoke(
             () => Announce(undo.Announcement),
             DispatcherPriority.ContextIdle);
+    }
+
+    private void UndoPlaylistChange(PlaylistStateUndo undo)
+    {
+        _state.Playlists = new PlaylistIndex(undo.PreviousState).CloneSettings();
+        EnsureCurrentPlaylistStillExists();
+        RefreshCurrentView();
+        SavePlaylistState();
+        RestoreMediaListFocusAfterRefresh();
+        Dispatcher.BeginInvoke(() => Announce(undo.Announcement), DispatcherPriority.ContextIdle);
     }
 
     private void UndoLocalCatalogRemoval(LocalCatalogUndo undo)
@@ -4110,6 +4511,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             _localItems.RemoveAt(entry.Index);
         }
+        if (!recordUndo)
+        {
+            var removedIds = catalogEntries.Select(entry => entry.Item.Id).ToHashSet(StringComparer.Ordinal);
+            foreach (var playlist in _state.Playlists.Entries)
+            {
+                playlist.ItemIds.RemoveAll(removedIds.Contains);
+            }
+        }
         if (recordUndo)
         {
             _localCatalogHistory.Push(new LocalCatalogUndo(
@@ -4333,7 +4742,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         foreach (var row in _unfilteredItems)
         {
-            if (row.Bookmark is not null) continue;
+            if (row.Bookmark is not null || row.PlaylistId is not null) continue;
             row.UpdateLabel(FormatListItem(row.Item));
         }
     }
@@ -4353,7 +4762,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? string.IsNullOrWhiteSpace(_currentLocalAlbumTitle)
                 ? "Album"
                 : $"Album — {_currentLocalAlbumTitle}"
+            : TryGetPlaylistIdFromView(_currentView, out var playlistId)
+                ? new PlaylistIndex(_state.Playlists).Find(playlistId) is { } playlist
+                    ? $"Playlista — {playlist.Name}"
+                    : "Playlista"
             : _currentView;
+
+    private static string PlaylistContentsView(string playlistId) =>
+        $"{PlaylistContentsViewPrefix}{playlistId}";
+
+    private static bool TryGetPlaylistIdFromView(string viewName, out string playlistId)
+    {
+        if (viewName.StartsWith(PlaylistContentsViewPrefix, StringComparison.Ordinal)
+            && viewName.Length > PlaylistContentsViewPrefix.Length)
+        {
+            playlistId = viewName[PlaylistContentsViewPrefix.Length..];
+            return true;
+        }
+        playlistId = string.Empty;
+        return false;
+    }
 
     private static bool IsSearchView(string viewName) =>
         viewName is "Szukaj w bieżącej usłudze" or "Szukaj we wszystkich usługach";
@@ -4645,10 +5073,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else if (e.Key == Key.Enter)
         {
-            if ((MediaList.SelectedItem as MediaItemRow)?.AlbumFolderPath is not null
+            var selectedRow = MediaList.SelectedItem as MediaItemRow;
+            if ((selectedRow?.AlbumFolderPath is not null || selectedRow?.PlaylistId is not null)
                 && modifiers != ModifierKeys.None)
             {
-                Announce("Album otwiera zwykły Enter. Działania kolejki, Ulubionych i Biblioteki są dostępne po otwarciu jego utworów");
+                Announce(selectedRow?.PlaylistId is not null
+                    ? "Playlista otwiera się zwykłym Enterem. Działania na utworach są dostępne po jej otwarciu"
+                    : "Album otwiera zwykły Enter. Działania kolejki, Ulubionych i Biblioteki są dostępne po otwarciu jego utworów");
                 e.Handled = true;
                 return;
             }
@@ -4703,7 +5134,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && Keyboard.Modifiers == ModifierKeys.Alt
             && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
                 || string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
-                   && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal))
+                   && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
+                || TryGetPlaylistIdFromView(_currentView, out _))
             && key is Key.Up or Key.Down)
         {
             ExecuteCommand(key == Key.Up
@@ -4716,6 +5148,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
             ExecuteCommand(CommandIds.RefreshLocalLibrary);
+            return true;
+        }
+        if (MediaList.IsKeyboardFocusWithin
+            && Keyboard.Modifiers == ModifierKeys.None
+            && key == Key.Insert
+            && string.Equals(_currentView, "Playlisty", StringComparison.Ordinal))
+        {
+            CreatePlaylist();
+            return true;
+        }
+        if (MediaList.IsKeyboardFocusWithin
+            && Keyboard.Modifiers == ModifierKeys.None
+            && key == Key.F2
+            && string.Equals(_currentView, "Playlisty", StringComparison.Ordinal)
+            && (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not null)
+        {
+            RenameSelectedPlaylist();
             return true;
         }
         if (MediaList.IsKeyboardFocusWithin
@@ -4937,7 +5386,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             LeaveBookmarkView();
             return;
         }
-        if (string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal))
+        if (string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal)
+            || TryGetPlaylistIdFromView(_currentView, out _))
         {
             NavigateBack();
             return;
@@ -5239,6 +5689,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void OpenDefaultApplication_Click(object sender, RoutedEventArgs e) => OpenLocalInDefaultApplication();
     private void RenameLibraryItem_Click(object sender, RoutedEventArgs e) => RenameLibraryItem();
     private void RenameLocalFile_Click(object sender, RoutedEventArgs e) => RenameLocalFile();
+    private void NewPlaylist_Click(object sender, RoutedEventArgs e) => CreatePlaylist();
+    private void RenamePlaylist_Click(object sender, RoutedEventArgs e) => RenameSelectedPlaylist();
+    private void DeletePlaylist_Click(object sender, RoutedEventArgs e) => DeleteSelectedPlaylist();
     private void MoveLocalItemUp_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.MoveLocalLibraryItemUp);
     private void MoveLocalItemDown_Click(object sender, RoutedEventArgs e) =>
@@ -5256,19 +5709,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var items = ActionItems;
         var actionItem = ActionItem;
+        var playlistContainer = !_playerViewActive
+            && (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not null;
+        var playlistContents = !_playerViewActive
+            && TryGetPlaylistIdFromView(_currentView, out _);
         var localAlbumContainer = !_playerViewActive
             && (MediaList.SelectedItem as MediaItemRow)?.AlbumFolderPath is not null;
         var folderNavigationRow = !_playerViewActive
             && string.Equals(_currentView, FolderViewName, StringComparison.Ordinal)
             && (MediaList.SelectedItem as MediaItemRow)?.FolderPath is not null;
-        var playbackLabel = localAlbumContainer
+        var playbackLabel = playlistContainer
+            ? "Otwórz playlistę"
+            : localAlbumContainer
             ? "Otwórz album"
             : actionItem is not null
             && string.Equals(actionItem.Id, _sessions.Current.CurrentItem.Id, StringComparison.Ordinal)
             && _sessions.Current.IsPlaying
                 ? "Wstrzymaj"
                 : "Odtwórz";
-        SetContextMenuItemPresentation(PlaybackMenuItem, playbackLabel, "Ctrl+Enter");
+        SetContextMenuItemPresentation(
+            PlaybackMenuItem,
+            playbackLabel,
+            localAlbumContainer || playlistContainer ? "Enter" : "Ctrl+Enter");
         var playNextLabel = items.Count > 0 && items.All(item => item.IsPlayNext)
             ? "Usuń z odtwarzanych jako następne"
             : "Odtwórz jako następne";
@@ -5289,12 +5751,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? "Kopiuj pełną ścieżkę"
             : "Kopiuj łącze do elementu";
         SetContextMenuItemPresentation(CopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
-        PlayNextMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
-        QueueMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
-        FavoriteMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
-        LibraryMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
-        CopyLocationMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
-        ItemPlaybackOptionsMenuItem.Visibility = Visibility.Visible;
+        NewPlaylistMenuItem.Visibility = string.Equals(_currentView, "Playlisty", StringComparison.Ordinal)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        RenamePlaylistMenuItem.Visibility = playlistContainer ? Visibility.Visible : Visibility.Collapsed;
+        DeletePlaylistMenuItem.Visibility = playlistContainer ? Visibility.Visible : Visibility.Collapsed;
+        PlayNextMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
+        QueueMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
+        FavoriteMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
+        LibraryMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
+        PlaylistMembershipMenuItem.Visibility = playlistContainer || localAlbumContainer || folderNavigationRow
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        CopyLocationMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
+        ItemPlaybackOptionsMenuItem.Visibility = playlistContainer ? Visibility.Collapsed : Visibility.Visible;
         var relatedAlbum = FindRelatedLocalAlbum(actionItem);
         GoToAlbumMenuItem.Visibility = relatedAlbum is null ? Visibility.Collapsed : Visibility.Visible;
         GoToArtistMenuItem.Visibility = relatedAlbum is not null
@@ -5323,7 +5793,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var movableCustomOrderItems = !_playerViewActive
             && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
                 || string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
-                   && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal))
+                   && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
+                || playlistContents)
             && items.Count > 0;
         MoveLocalItemUpMenuItem.Visibility = movableCustomOrderItems
             ? Visibility.Visible
@@ -5334,12 +5805,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         MoveLocalItemUpMenuItem.IsEnabled = string.IsNullOrWhiteSpace(FilterBox.Text);
         MoveLocalItemDownMenuItem.IsEnabled = string.IsNullOrWhiteSpace(FilterBox.Text);
         OpenDefaultApplicationMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
-        OfficialApplicationMenuItem.Visibility = localItem || localAlbumContainer
+        OfficialApplicationMenuItem.Visibility = localItem || localAlbumContainer || playlistContainer
             ? Visibility.Collapsed
             : Visibility.Visible;
         RecycleMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
         var removeLabel = folderNavigationRow
             ? "Folder nawigacyjny — użyj Enter"
+            : playlistContents
+                ? "Usuń z playlisty"
             : SelectedBookmark is not null
             ? "Usuń zakładkę"
             : localItem && string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
@@ -5354,7 +5827,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     ? "Wyklucz z biblioteki, pozostaw plik na dysku"
                 : "Usuń z bieżącego widoku";
         SetContextMenuItemPresentation(RemoveMenuItem, removeLabel, "Delete");
-        RemoveMenuItem.Visibility = localAlbumContainer ? Visibility.Collapsed : Visibility.Visible;
+        RemoveMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
         RemoveMenuItem.IsEnabled = !folderNavigationRow
             && (_currentView is not (FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName)
                 || items.Any(item => item.IsInLibrary));
@@ -5792,13 +6265,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         MediaItem? actionItem = null,
         BookmarkEntry? bookmark = null,
         string? folderPath = null,
-        string? albumFolderPath = null) : INotifyPropertyChanged
+        string? albumFolderPath = null,
+        string? playlistId = null) : INotifyPropertyChanged
     {
         public MediaItem Item { get; } = item;
         public MediaItem ActionItem { get; } = actionItem ?? item;
         public BookmarkEntry? Bookmark { get; } = bookmark;
         public string? FolderPath { get; } = folderPath;
         public string? AlbumFolderPath { get; } = albumFolderPath;
+        public string? PlaylistId { get; } = playlistId;
         public string Label { get; private set; } = label;
         public string NavigationText { get; } = navigationText;
 
@@ -5813,6 +6288,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         public override string ToString() => Label;
     }
+
+    private sealed record PlaylistStateUndo(
+        long Sequence,
+        PlaylistSettings PreviousState,
+        string Announcement);
 
     private sealed class SessionViewHistory
     {

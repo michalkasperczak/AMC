@@ -188,6 +188,15 @@
                     <MenuItem x:Name="PlaybackMenuItem" Header="Odtwórz lub wstrzymaj" InputGestureText="Ctrl+Enter"
                               automation:AutomationProperties.Name="Odtwórz lub wstrzymaj, Ctrl+Enter"
                               Click="ToggleSelectedPlayback_Click" />
+                    <MenuItem x:Name="NewPlaylistMenuItem" Header="Nowa playlista…" InputGestureText="Insert"
+                              automation:AutomationProperties.Name="Nowa playlista, Insert"
+                              Visibility="Collapsed" Click="NewPlaylist_Click" />
+                    <MenuItem x:Name="RenamePlaylistMenuItem" Header="Zmień nazwę playlisty…" InputGestureText="F2"
+                              automation:AutomationProperties.Name="Zmień nazwę playlisty, F2"
+                              Visibility="Collapsed" Click="RenamePlaylist_Click" />
+                    <MenuItem x:Name="DeletePlaylistMenuItem" Header="Usuń playlistę…" InputGestureText="Delete"
+                              automation:AutomationProperties.Name="Usuń playlistę, Delete"
+                              Visibility="Collapsed" Click="DeletePlaylist_Click" />
                     <MenuItem x:Name="PlayNextMenuItem" Header="Odtwórz jako następne" InputGestureText="Ctrl+Shift+Enter"
                               automation:AutomationProperties.Name="Odtwórz jako następne, Ctrl+Shift+Enter"
                               Click="PlayNext_Click" />
@@ -201,7 +210,7 @@
                     <MenuItem x:Name="LibraryMenuItem" Header="Dodaj do biblioteki" InputGestureText="Ctrl+Shift+L"
                               automation:AutomationProperties.Name="Dodaj do biblioteki, Ctrl+Shift+L"
                               Click="Library_Click" />
-                    <MenuItem Header="Zmień przynależność do playlist…" InputGestureText="Ctrl+Shift+P"
+                    <MenuItem x:Name="PlaylistMembershipMenuItem" Header="Zmień przynależność do playlist…" InputGestureText="Ctrl+Shift+P"
                               automation:AutomationProperties.Name="Zmień przynależność do playlist, Ctrl+Shift+P"
                               Click="Playlists_Click" />
                     <Separator />
