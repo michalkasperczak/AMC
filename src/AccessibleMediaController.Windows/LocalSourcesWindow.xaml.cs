@@ -17,6 +17,8 @@ public partial class LocalSourcesWindow : Window
     private readonly Func<IReadOnlyCollection<string>, Task<LocalSourceActionResult>> _refreshSources;
     private readonly Func<string, LocalSourceActionResult> _detachSource;
     private readonly Func<string, ResumePositionMode, LocalSourceActionResult> _setResumePositionMode;
+    private readonly Func<string, IReadOnlyList<UnavailableLocalItemRow>> _loadUnavailableItems;
+    private readonly Func<string, IReadOnlyCollection<string>, LocalSourceActionResult> _forgetUnavailableItems;
     private readonly Action<string> _exportBackup;
 
     public LocalSourcesWindow(
@@ -25,6 +27,8 @@ public partial class LocalSourcesWindow : Window
         Func<IReadOnlyCollection<string>, Task<LocalSourceActionResult>> refreshSources,
         Func<string, LocalSourceActionResult> detachSource,
         Func<string, ResumePositionMode, LocalSourceActionResult> setResumePositionMode,
+        Func<string, IReadOnlyList<UnavailableLocalItemRow>> loadUnavailableItems,
+        Func<string, IReadOnlyCollection<string>, LocalSourceActionResult> forgetUnavailableItems,
         Action<string> exportBackup)
     {
         InitializeComponent();
@@ -33,6 +37,8 @@ public partial class LocalSourcesWindow : Window
         _refreshSources = refreshSources;
         _detachSource = detachSource;
         _setResumePositionMode = setResumePositionMode;
+        _loadUnavailableItems = loadUnavailableItems;
+        _forgetUnavailableItems = forgetUnavailableItems;
         _exportBackup = exportBackup;
         ResumePositionModeCombo.ItemsSource = new ResumeChoice[]
         {
@@ -101,6 +107,35 @@ public partial class LocalSourcesWindow : Window
         {
             OperationStatusText.Text = $"Nie można odłączyć folderu: {exception.Message}";
         }
+    }
+
+    private void ReviewUnavailable_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedStatus is not { } status) return;
+        var rows = _loadUnavailableItems(status.Id);
+        if (rows.Count == 0)
+        {
+            OperationStatusText.Text = $"Folder „{status.DisplayName}” nie ma niedostępnych plików.";
+            UpdateSelectionState();
+            FocusSelectedFolder();
+            return;
+        }
+
+        var dialog = new UnavailableLocalItemsWindow(
+            status.Id,
+            status.DisplayName,
+            rows,
+            _forgetUnavailableItems)
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
+        ReloadStatuses(status.Id);
+        if (!string.IsNullOrWhiteSpace(dialog.LastResultMessage))
+        {
+            OperationStatusText.Text = dialog.LastResultMessage;
+        }
+        FocusSelectedFolder();
     }
 
     private void ExportBackup_Click(object sender, RoutedEventArgs e)
@@ -173,6 +208,7 @@ public partial class LocalSourcesWindow : Window
         RefreshAllButton.IsEnabled = !busy;
         ExportBackupButton.IsEnabled = !busy;
         RefreshSelectedButton.IsEnabled = !busy && SelectedStatus is not null;
+        ReviewUnavailableButton.IsEnabled = !busy && SelectedStatus?.UnavailableItemCount > 0;
         DetachSourceButton.IsEnabled = !busy && SelectedStatus is not null;
         ResumePositionModeCombo.IsEnabled = !busy && SelectedStatus is not null;
         SaveResumePositionModeButton.IsEnabled = !busy && SelectedStatus is not null;
@@ -186,6 +222,7 @@ public partial class LocalSourcesWindow : Window
     {
         var status = SelectedStatus;
         RefreshSelectedButton.IsEnabled = status is not null;
+        ReviewUnavailableButton.IsEnabled = status?.UnavailableItemCount > 0;
         DetachSourceButton.IsEnabled = status is not null;
         ResumePositionModeCombo.IsEnabled = status is not null;
         SaveResumePositionModeButton.IsEnabled = status is not null;

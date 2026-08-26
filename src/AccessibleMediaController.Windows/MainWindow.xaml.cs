@@ -4300,6 +4300,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RefreshManagedLocalSourcesAsync,
             DetachManagedLocalSource,
             SetManagedSourceResumePositionMode,
+            BuildUnavailableLocalItems,
+            ForgetUnavailableLocalItems,
             ExportFullBackup)
         {
             Owner = this
@@ -4449,6 +4451,38 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .OrderBy(status => status.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(status => status.Path, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private IReadOnlyList<UnavailableLocalItemRow> BuildUnavailableLocalItems(string sourceId)
+    {
+        CaptureLocalMediaState();
+        return UnavailableLocalItemPolicy.GetForFolder(_state, sourceId)
+            .Select(item => new UnavailableLocalItemRow(item.Id, item.Title, item.Path))
+            .ToArray();
+    }
+
+    private LocalSourceActionResult ForgetUnavailableLocalItems(
+        string sourceId,
+        IReadOnlyCollection<string> itemIds)
+    {
+        CaptureLocalMediaState();
+        var removed = UnavailableLocalItemPolicy.Forget(_state, sourceId, itemIds);
+        if (removed.Count == 0)
+        {
+            return new("Nie znaleziono zaznaczonych niedostępnych rekordów. Biblioteka nie została zmieniona.", sourceId);
+        }
+
+        var removedIds = removed.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        _localItems.RemoveAll(item => removedIds.Contains(item.Id));
+        _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);
+        _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
+        _playbackHistoryCursors.Remove("local");
+        TrySaveLocalMediaState(true);
+
+        var description = removed.Count == 1
+            ? $"Zapomniano w AMC: {removed[0].Title}."
+            : $"Zapomniano w AMC: {removed.Count} plików.";
+        return new($"{description} Żaden plik na dysku nie został zmieniony.", sourceId);
     }
 
     private async Task<LocalSourceActionResult> AddManagedLocalSourceAsync(string path)

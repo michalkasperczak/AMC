@@ -41,6 +41,7 @@ var tests = new (string Name, Action Test)[]
     ("Bezpieczna zmiana nazwy lokalnego pliku", TestLocalFileRenamePolicy),
     ("Integracyjny cykl zmian folderu", TestLocalFolderSynchronizationCycle),
     ("Bezpieczne zarządzanie Folderami Biblioteki", TestLocalFolderSourcePolicy),
+    ("Ręczne zapominanie niedostępnych rekordów", TestUnavailableLocalItemPolicy),
     ("Trwała kolejność własna Biblioteki", TestLocalLibraryManualOrder),
     ("Albumy rozpoznawane ze struktury folderów", TestLocalAlbumInference),
     ("Migracja i trwałość Biblioteki SQLite", TestSqliteLibraryMigration),
@@ -2471,6 +2472,109 @@ static void TestLocalFolderSourcePolicy()
     Equal(0, sources.Count);
     Equal(3, items.Count);
     Equal(true, items[0].IsInLibrary);
+}
+
+static void TestUnavailableLocalItemPolicy()
+{
+    var root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "AMC-unavailable"));
+    var otherRoot = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "AMC-other"));
+    var state = ConfigurationStore.CreateDefaultState();
+    state.LocalMedia.FolderSources.Add(new LocalFolderSourceSettings
+    {
+        Id = "folder-1",
+        DisplayName = "Nagrania",
+        Path = root
+    });
+    state.LocalMedia.FolderSources.Add(new LocalFolderSourceSettings
+    {
+        Id = "folder-2",
+        DisplayName = "Inne",
+        Path = otherRoot
+    });
+    state.LocalMedia.Items.AddRange(
+    [
+        new LocalMediaItemSettings
+        {
+            Id = "missing",
+            Title = "Brakujący",
+            Path = Path.Combine(root, "missing.mp3"),
+            IsInLibrary = true,
+            IsAvailable = false
+        },
+        new LocalMediaItemSettings
+        {
+            Id = "available",
+            Title = "Dostępny",
+            Path = Path.Combine(root, "available.mp3"),
+            IsInLibrary = true,
+            IsAvailable = true
+        },
+        new LocalMediaItemSettings
+        {
+            Id = "other-missing",
+            Title = "Inny brakujący",
+            Path = Path.Combine(otherRoot, "missing.mp3"),
+            IsInLibrary = true,
+            IsAvailable = false
+        }
+    ]);
+    state.LocalMedia.CurrentItemId = "missing";
+    state.LocalMedia.CustomOrderItemIds.AddRange(["available", "missing"]);
+    state.Bookmarks.Entries.Add(new BookmarkEntry
+    {
+        Id = "bookmark",
+        SessionId = "local",
+        ItemId = "missing",
+        ItemTitle = "Brakujący"
+    });
+    state.PlaybackHistory.ItemIdsBySession["local"] = ["missing", "available"];
+    state.CollectionOrders.FavoriteItemIdsBySession["local"] = ["missing"];
+    state.CollectionOrders.QueueItemIdsBySession["local"] = ["missing", "available"];
+    state.Playlists.Entries.Add(new PlaylistEntry
+    {
+        Id = "playlist",
+        SessionId = "local",
+        Name = "Test",
+        ItemIds = ["missing", "available"]
+    });
+    state.SessionNavigation.Sessions["local"] = new SessionNavigationState
+    {
+        SelectedItemIds = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Biblioteka"] = "missing"
+        },
+        PlaybackContextItemIds = ["available", "missing"]
+    };
+
+    var unavailable = UnavailableLocalItemPolicy.GetForFolder(state, "folder-1");
+    Equal(1, unavailable.Count);
+    Equal("missing", unavailable[0].Id);
+
+    var removed = UnavailableLocalItemPolicy.Forget(
+        state,
+        "folder-1",
+        ["missing", "available", "other-missing"]);
+    Equal(1, removed.Count);
+    Equal("missing", removed[0].Id);
+    True(state.LocalMedia.Items.All(item => item.Id != "missing"),
+        "Wybrany niedostępny rekord powinien zostać zapomniany.");
+    True(state.LocalMedia.Items.Any(item => item.Id == "available")
+        && state.LocalMedia.Items.Any(item => item.Id == "other-missing"),
+        "Dostępny plik i rekord z innego folderu muszą pozostać.");
+    Equal(null, state.LocalMedia.CurrentItemId);
+    True(state.Bookmarks.Entries.All(entry => entry.ItemId != "missing"),
+        "Zakładki zapomnianego rekordu powinny zostać usunięte.");
+    True(state.PlaybackHistory.ItemIdsBySession["local"].SequenceEqual(["available"]),
+        "Historia powinna usunąć tylko zapomniany identyfikator.");
+    True(!state.CollectionOrders.FavoriteItemIdsBySession.ContainsKey("local"),
+        "Pusty porządek Ulubionych powinien zostać usunięty.");
+    True(state.CollectionOrders.QueueItemIdsBySession["local"].SequenceEqual(["available"]),
+        "Kolejka powinna zachować pozostały identyfikator.");
+    True(state.Playlists.Entries[0].ItemIds.SequenceEqual(["available"]),
+        "Playlista powinna zachować pozostały element.");
+    Equal(null, state.SessionNavigation.Sessions["local"].SelectedItemIds["Biblioteka"]);
+    True(state.SessionNavigation.Sessions["local"].PlaybackContextItemIds.SequenceEqual(["available"]),
+        "Kontekst odtwarzania nie może przechowywać zapomnianego identyfikatora.");
 }
 
 static void TestExports()

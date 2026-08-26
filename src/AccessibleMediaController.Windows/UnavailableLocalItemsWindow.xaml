@@ -1,0 +1,34 @@
+<Window x:Class="AccessibleMediaController.Windows.UnavailableLocalItemsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Width="760" Height="510" MinWidth="620" MinHeight="390"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBlock x:Name="HeadingText" FontSize="18" FontWeight="SemiBold"
+                       automation:AutomationProperties.HeadingLevel="Level1" />
+            <TextBlock Margin="0,5,0,0" TextWrapping="Wrap"
+                       Text="To zapamiętane rekordy Biblioteki, których ścieżek AMC obecnie nie widzi. Pliki chmurowe widoczne w systemie, choć jeszcze niepobrane, nie trafiają na tę listę." />
+            <TextBlock Margin="0,5,0,0" TextWrapping="Wrap"
+                       Text="Polecenie „Zapomnij w AMC” usuwa wyłącznie dane programu i nie zmienia niczego na dysku. Jeśli plik później wróci, AMC doda go jako nowy rekord." />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <TextBlock x:Name="OperationStatusText" Margin="0,0,0,8" TextWrapping="Wrap"
+                       automation:AutomationProperties.Name="Wynik operacji"
+                       automation:AutomationProperties.LiveSetting="Assertive" />
+            <WrapPanel>
+                <Button x:Name="ForgetSelectedButton" Margin="0,0,8,0"
+                        Content="_Zapomnij zaznaczone w AMC…" Click="ForgetSelected_Click" />
+                <Button Content="_Zamknij" IsCancel="True" />
+            </WrapPanel>
+        </StackPanel>
+
+        <ListBox x:Name="UnavailableItemsList" SelectionMode="Extended"
+                 DisplayMemberPath="Label" TextSearch.TextPath="Title"
+                 automation:AutomationProperties.Name="Niedostępne pliki"
+                 SelectionChanged="UnavailableItemsList_SelectionChanged" />
+    </DockPanel>
+</Window>

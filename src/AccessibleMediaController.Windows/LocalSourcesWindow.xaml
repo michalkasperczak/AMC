@@ -31,6 +31,7 @@
                 <Button x:Name="AddSourceButton" Margin="0,0,8,8" Content="_Dodaj folder…" Click="AddSource_Click" />
                 <Button x:Name="RefreshSelectedButton" Margin="0,0,8,8" Content="Odśwież _wybrane" Click="RefreshSelected_Click" />
                 <Button x:Name="RefreshAllButton" Margin="0,0,8,8" Content="Odśwież w_szystkie" Click="RefreshAll_Click" />
+                <Button x:Name="ReviewUnavailableButton" Margin="0,0,8,8" Content="Przejrzyj _niedostępne…" Click="ReviewUnavailable_Click" />
                 <Button x:Name="DetachSourceButton" Margin="0,0,8,8" Content="_Odłącz folder…" Click="DetachSource_Click" />
                 <Button x:Name="ExportBackupButton" Margin="0,0,8,8" Content="Eksportuj pełną _kopię AMC…" Click="ExportBackup_Click" />
                 <Button Margin="0,0,0,8" Content="_Zamknij" IsCancel="True" />

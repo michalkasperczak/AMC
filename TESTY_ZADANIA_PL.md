@@ -1,12 +1,40 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-102`
-- Tytuł zestawu: Fokus i objaśnienie stanów Folderów Biblioteki
-- Wersja programu: `0.1.0-alpha.102`
+- Numer zestawu: `AMC-TEST-103`
+- Tytuł zestawu: Ręczne porządkowanie niedostępnych rekordów
+- Wersja programu: `0.1.0-alpha.103`
 - Utworzono: 2026-08-26, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.102.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.103.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 103
+
+### AMC-103-01 — Dostępna lista niedostępnych plików
+
+Otwórz `Ctrl+F5`, wybierz Folder Biblioteki mający co najmniej jeden rekord niedostępny i użyj przycisku **Przejrzyj niedostępne…**.
+
+Oczekiwane: otwiera się osobne okno, a fokus i odczyt NVDA trafiają na pierwszy plik. Każdy wiersz zawiera czytelną nazwę i pełną ścieżkę, bez nazw klas, pól `Id`, `Label` ani innych technicznych etykiet. Lista obsługuje zwykłe zaznaczanie Shiftem oraz `Ctrl+A`.
+
+### AMC-103-02 — Anulowanie jest bezpieczne
+
+Zaznacz jeden lub kilka rekordów, naciśnij `Delete` albo przycisk **Zapomnij zaznaczone w AMC…**, a w ostrzeżeniu wybierz **Nie**.
+
+Oczekiwane: komunikat wyjaśnia pełny zakres operacji i zaznacza, że dysk nie zostanie zmieniony. Po anulowaniu rekordy i wszystkie ich dane nadal istnieją.
+
+### AMC-103-03 — Potwierdzone zapomnienie w AMC
+
+Wykonaj próbę na niedostępnym rekordzie testowym, który można bezpiecznie usunąć z danych AMC. Potwierdź **Tak**, zamknij listę i ponownie odczytaj licznik wybranego folderu.
+
+Oczekiwane: rekord znika z listy, a liczba niedostępnych maleje. AMC usuwa jego powiązania z Biblioteką, Ulubionymi, Kolejką, playlistami, Historią, Zakładkami i zapamiętaną pozycją. Nie usuwa ani nie przenosi żadnego pliku na dysku. Jeżeli ten sam plik później wróci do widocznej ścieżki, synchronizacja traktuje go jak nowy rekord.
+
+### AMC-103-04 — Plik chmurowy tylko online
+
+Jeżeli masz w iCloud, OneDrive albo Google Drive plik widoczny jako placeholder, lecz niepobrany lokalnie, odśwież folder przez `F5` i otwórz listę niedostępnych.
+
+Oczekiwane: widoczny dla Windows placeholder pozostaje aktywnym plikiem Biblioteki i nie jest proponowany do zapomnienia. AMC nie pobiera całego folderu tylko po to, by utworzyć indeks.
+
+## Poprzedni zestaw alpha 102
 
 ## Nowości alpha 102
 
