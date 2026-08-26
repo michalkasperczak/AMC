@@ -13,7 +13,12 @@ public partial class SearchWindow : Window
     private readonly bool _allServices;
     private readonly Func<MediaItem, string> _formatItem;
     private readonly Func<MediaItem, string> _formatQuickInformation;
-    private readonly Func<IReadOnlyList<SearchResult>, SearchResultAction, bool, string?> _executeAction;
+    private readonly Func<
+        IReadOnlyList<SearchResult>,
+        IReadOnlyList<SearchResult>,
+        SearchResultAction,
+        bool,
+        string?> _executeAction;
     private readonly string _resultHelpText;
     private readonly SearchQueryHistory _searchHistory;
     private readonly string _searchHistoryScope;
@@ -27,7 +32,12 @@ public partial class SearchWindow : Window
         bool allServices,
         Func<MediaItem, string> formatItem,
         Func<MediaItem, string> formatQuickInformation,
-        Func<IReadOnlyList<SearchResult>, SearchResultAction, bool, string?> executeAction,
+        Func<
+            IReadOnlyList<SearchResult>,
+            IReadOnlyList<SearchResult>,
+            SearchResultAction,
+            bool,
+            string?> executeAction,
         SearchQueryHistory searchHistory,
         string searchHistoryScope,
         Action persistSearchHistory,
@@ -151,7 +161,11 @@ public partial class SearchWindow : Window
                     .Select(candidate => new SearchResult(candidate.SessionId, candidate.Item))
                     .ToArray()
                 : [result];
-            var announcement = _executeAction(results, action, _allServices);
+            var visibleResults = ResultsList.Items
+                .OfType<SearchResultRow>()
+                .Select(candidate => new SearchResult(candidate.SessionId, candidate.Item))
+                .ToArray();
+            var announcement = _executeAction(results, visibleResults, action, _allServices);
             if (action is not (SearchResultAction.CopyName
                 or SearchResultAction.CopyLocation))
             {

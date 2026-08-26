@@ -1226,6 +1226,34 @@ static void TestMissingCurrentItemRecovery()
     Equal(natural, diversionResult.SelectedSuccessor);
     Equal(natural, divertedSession.CurrentItem);
     Equal(false, divertedSession.QueueNavigationActive);
+
+    var deletedFirst = new MediaItem { Id = "deleted-first", Title = "Usuwany z widoku" };
+    var deletedNext = new MediaItem { Id = "deleted-next", Title = "Następny z tego samego widoku" };
+    var deletionSession = new DemoMediaSession(
+        "deletion-recovery",
+        "Dowolny widok",
+        [unrelated, deletedFirst, deletedNext],
+        output);
+    deletionSession.SetPlaybackContext([deletedFirst.Id, deletedNext.Id]);
+    True(deletionSession.Play(deletedFirst), "Usuwany element powinien się uruchomić.");
+    Equal(1, deletionSession.RemoveItems([deletedFirst.Id]).Count);
+    Equal(deletedNext, deletionSession.CurrentItem);
+    Equal(false, deletionSession.IsPlaying);
+    deletionSession.TogglePlayback();
+    Equal(deletedNext, output.LastItem);
+
+    var deletedOnly = new MediaItem { Id = "deleted-only", Title = "Jedyny w widoku" };
+    var exhaustedDeletion = new DemoMediaSession(
+        "deletion-exhausted",
+        "Widok bez następcy",
+        [unrelated, deletedOnly],
+        output);
+    exhaustedDeletion.SetPlaybackContext([deletedOnly.Id]);
+    True(exhaustedDeletion.Play(deletedOnly), "Jedyny element widoku powinien się uruchomić.");
+    Equal(1, exhaustedDeletion.RemoveItems([deletedOnly.Id]).Count);
+    Equal(false, exhaustedDeletion.HasCurrentItem);
+    exhaustedDeletion.TogglePlayback();
+    Equal(false, exhaustedDeletion.IsPlaying);
 }
 
 static void TestResumePositionPolicy()

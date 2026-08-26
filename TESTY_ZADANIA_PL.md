@@ -34,6 +34,12 @@ Uruchom plik z folderu, mając co najmniej jedną pozycję w Kolejce. Po automat
 
 Oczekiwane: najpierw wybierana jest kolejna dostępna pozycja Kolejki. Gdy Kolejka jest wyczerpana, AMC wraca do następnego elementu wcześniejszego widoku folderu. Program nie przechodzi na początek całej Biblioteki.
 
+### AMC-100-05 — Delete i Shift+Delete w różnych widokach
+
+Powtórz usunięcie bieżącego pliku przez Delete oraz fizyczne Shift+Delete po uruchomieniu go kolejno z Ulubionych, playlisty, albumu i płaskiej Biblioteki. Wystarczą krótkie próby na kopiach plików przeznaczonych do usunięcia.
+
+Oczekiwane: każda metoda używa tej samej reguły co przeniesienie w Total Commanderze. Następca pochodzi dokładnie z widoku, z którego uruchomiono usunięty plik; przy braku następcy Spacja nie uruchamia elementu z innej listy.
+
 ## Poprzedni zestaw alpha 99
 
 ## Nowości alpha 99

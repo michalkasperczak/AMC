@@ -60,6 +60,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private string? _deferredAnnouncement;
     private bool _captureAnnouncements;
     private string? _capturedAnnouncement;
+    private bool _preservePreparedPlaybackContext;
     private HwndSource? _windowSource;
     private string _typeAheadText = string.Empty;
     private DateTime _lastTypeAheadInputUtc;
@@ -2658,6 +2659,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var sessionBeforeCommand = _sessions.Current;
         if (commandId == CommandIds.ActivateSelected
             && !_playerViewActive
+            && !_preservePreparedPlaybackContext
             && ActionItem is { } selectedForPlayback)
         {
             PreparePlaybackContextForCurrentView(sessionBeforeCommand, selectedForPlayback);
@@ -4711,9 +4713,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var removedLabel = items.Count == 1 ? items[0].Title : FormatItemCount(items.Count);
         var playbackNote = wasPlaying && currentRemoved ? ". Odtwarzanie wstrzymano" : string.Empty;
-        var nextItemNote = announceNextItem
+        var nextItemNote = announceNextItem || currentRemoved
             ? detachedSession is null
-                ? $". Następny element: {session.CurrentItem.Title}"
+                ? session.HasCurrentItem
+                    ? $". Następny element z bieżącego widoku: {session.CurrentItem.Title}"
+                    : ". Brak następnego elementu w bieżącym widoku"
                 : $". Przejście do sesji: {_sessions.Current.DisplayName}"
             : string.Empty;
         var retainedOnDisk = items.Count == 1 ? "Plik pozostał na dysku" : "Pliki pozostały na dysku";
@@ -5622,6 +5626,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private string? ExecuteSearchResultAction(
         IReadOnlyList<SearchWindow.SearchResult> results,
+        IReadOnlyList<SearchWindow.SearchResult> visibleResults,
         SearchResultAction action,
         bool _)
     {
@@ -5655,7 +5660,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             switch (action)
             {
                 case SearchResultAction.TogglePlayback:
-                    ExecuteCommand(CommandIds.ActivateSelected);
+                    var playbackContextItemIds = visibleResults
+                        .Where(candidate => string.Equals(
+                            candidate.SessionId,
+                            session.Id,
+                            StringComparison.OrdinalIgnoreCase))
+                        .Select(candidate => candidate.Item.Id)
+                        .Distinct(StringComparer.Ordinal)
+                        .ToArray();
+                    session.SetPlaybackContext(playbackContextItemIds);
+                    _preservePreparedPlaybackContext = true;
+                    try
+                    {
+                        ExecuteCommand(CommandIds.ActivateSelected);
+                    }
+                    finally
+                    {
+                        _preservePreparedPlaybackContext = false;
+                    }
                     break;
                 case SearchResultAction.PlayNext:
                     ExecuteCommand(CommandIds.TogglePlayNext);
