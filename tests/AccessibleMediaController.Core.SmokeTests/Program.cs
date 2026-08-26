@@ -32,6 +32,7 @@ var tests = new (string Name, Action Test)[]
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
     ("Kontekst listy odtwarzania", TestPlaybackContext),
     ("Trwała kolejność Kolejki", TestQueueOrder),
+    ("Nawigacja Page Up i Page Down w Kolejce", TestQueuePlaybackNavigation),
     ("Polityka pamiętania pozycji", TestResumePositionPolicy),
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Ponowne włączanie folderu do biblioteki", TestLocalLibraryImport),
@@ -1082,6 +1083,72 @@ static void TestQueueOrder()
     True(session.ContinueAfterPlaybackEnded(firstQueued) is null,
         "Po wykorzystaniu uporządkowanej kolejki odtwarzanie nie może powtarzać jej elementów.");
     Equal(0, session.QueueItemIds.Count);
+}
+
+static void TestQueuePlaybackNavigation()
+{
+    var output = new FakeMediaOutput();
+    var first = new MediaItem { Id = "queue-a", Title = "Kolejka A", IsPlayNext = true };
+    var second = new MediaItem { Id = "queue-b", Title = "Kolejka B", IsInQueue = true };
+    var third = new MediaItem { Id = "queue-c", Title = "Kolejka C", IsInQueue = true };
+    var explicitQueue = new DemoMediaSession(
+        "explicit-queue",
+        "Jawna Kolejka",
+        [first, second, third],
+        output);
+    explicitQueue.SetQueueOrder([first.Id, second.Id, third.Id]);
+    explicitQueue.SetPlaybackContext([first.Id, second.Id, third.Id], isQueueContext: true);
+
+    True(explicitQueue.Play(first), "Pierwsza pozycja jawnej Kolejki powinna się uruchomić.");
+    True(!first.IsPlayNext && !first.IsInQueue,
+        "Bieżący element nie może pozostać jednocześnie na liście oczekujących.");
+    True(explicitQueue.QueueNavigationActive, "Odtwarzacz powinien pamiętać aktywny kontekst Kolejki.");
+    True(explicitQueue.PlayRelative(1), "Page Down powinien przejść do następnej pozycji Kolejki.");
+    Equal(second, explicitQueue.CurrentItem);
+    True(explicitQueue.PlayRelative(-1), "Page Up powinien wrócić do poprzedniej pozycji tej samej Kolejki.");
+    Equal(first, explicitQueue.CurrentItem);
+    True(explicitQueue.PlayRelative(1), "Ponowny Page Down powinien wrócić do drugiej pozycji.");
+    Equal(second, explicitQueue.CurrentItem);
+    Equal(third, explicitQueue.ContinueAfterPlaybackEnded(second));
+    True(explicitQueue.ContinueAfterPlaybackEnded(third) is null,
+        "Jawna Kolejka nie może po wyczerpaniu odtworzyć zużytej pozycji ponownie.");
+    True(explicitQueue.PlayRelative(-1),
+        "Po dojściu do końca Page Up powinien nadal pozwolić wrócić w historii Kolejki.");
+    Equal(second, explicitQueue.CurrentItem);
+
+    var source = new MediaItem { Id = "source", Title = "Źródło" };
+    var natural = new MediaItem { Id = "natural", Title = "Dalszy element Biblioteki" };
+    var next = new MediaItem { Id = "next", Title = "Następny", IsPlayNext = true };
+    var queued = new MediaItem { Id = "queued", Title = "Zwykła Kolejka", IsInQueue = true };
+    var diversion = new DemoMediaSession(
+        "queue-diversion",
+        "Wejście automatyczne",
+        [source, natural, next, queued],
+        output);
+    diversion.SetPlaybackContext([source.Id, next.Id, queued.Id, natural.Id]);
+    diversion.SetQueueOrder([queued.Id, next.Id]);
+    True(diversion.Play(source), "Źródłowy plik powinien się uruchomić.");
+    Equal(next, diversion.ContinueAfterPlaybackEnded(source));
+    True(diversion.PlayRelative(1),
+        "Page Down po automatycznym wejściu do Kolejki powinien wybrać jej kolejną pozycję.");
+    Equal(queued, diversion.CurrentItem);
+    True(diversion.PlayRelative(-1),
+        "Page Up po automatycznym wejściu powinien wrócić w Kolejce, a nie w Bibliotece.");
+    Equal(next, diversion.CurrentItem);
+    Equal(natural, diversion.ContinueAfterPlaybackEnded(next));
+
+    var adopted = new MediaItem { Id = "adopted", Title = "Już odtwarzany", IsPlayNext = true };
+    var adoptedLater = new MediaItem { Id = "adopted-later", Title = "Później", IsInQueue = true };
+    var adoption = new DemoMediaSession(
+        "queue-adoption",
+        "Przejęcie bieżącego",
+        [adopted, adoptedLater],
+        output);
+    True(adoption.Play(adopted), "Element powinien najpierw grać poza kontekstem Kolejki.");
+    True(adopted.IsPlayNext, "Samo odtworzenie poza widokiem Kolejki nie powinno zmienić przynależności.");
+    adoption.SetPlaybackContext([adopted.Id, adoptedLater.Id], isQueueContext: true);
+    True(!adopted.IsPlayNext && adoption.QueueNavigationActive,
+        "Otwarcie już odtwarzanego elementu z Kolejki powinno przejąć go bez ponownego uruchamiania.");
 }
 
 static void TestResumePositionPolicy()

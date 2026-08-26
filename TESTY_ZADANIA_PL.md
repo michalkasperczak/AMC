@@ -1,12 +1,40 @@
 ﻿# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-098`
-- Tytuł zestawu: Trwała i odtwarzana w ustalonej kolejności Kolejka
-- Wersja programu: `0.1.0-alpha.98`
+- Numer zestawu: `AMC-TEST-099`
+- Tytuł zestawu: Czytelne „Odtwórz jako następne” i nawigacja Kolejki
+- Wersja programu: `0.1.0-alpha.99`
 - Utworzono: 2026-08-26, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.98.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.99.md`
 
 Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+
+## Nowości alpha 99
+
+### AMC-099-01 — Czytelne części jednej Kolejki
+
+Oznacz dwa pliki przez `Ctrl+Shift+Enter` jako „Odtwórz jako następne”, a dwa inne dodaj przez `Shift+Enter` do zwykłej Kolejki. Naciśnij `Ctrl+Q` i przejdź po wszystkich wierszach.
+
+Oczekiwane: pierwszy komunikat podaje liczbę pozycji jako następne i pozostałych. Każda pozycja priorytetowa zaczyna się od „Następny”, zwykłe pozycje nie otrzymują zbędnego powtórzenia słowa „Kolejka”. Wszystko pozostaje jedną listą.
+
+### AMC-099-02 — Page Up i Page Down po jawnym otwarciu Kolejki
+
+W `Ctrl+Q` uruchom pierwszą pozycję Enterem. W odtwarzaczu przejdź kilka razy przez Page Down, Page Up i ponownie Page Down.
+
+Oczekiwane: oba klawisze poruszają się wyłącznie po kolejności widocznej wcześniej w Kolejce. Można wrócić do już odtworzonego elementu. Żaden pominięty ani wcześniej odtworzony plik nie uruchamia się później drugi raz samoczynnie.
+
+### AMC-099-03 — Automatyczne wejście do Kolejki
+
+Uruchom plik z Biblioteki, mając przygotowane pozycje „Odtwórz jako następne” i zwykłą Kolejkę. Pozwól pierwszemu plikowi się zakończyć, a po automatycznym rozpoczęciu pozycji Kolejki użyj Page Down i Page Up.
+
+Oczekiwane: Page Down przechodzi do następnej pozycji Kolejki, a Page Up wraca do poprzedniej pozycji Kolejki — nie do sąsiada z wcześniejszej Biblioteki. Po wykorzystaniu Kolejki automatyczna kontynuacja wraca do elementu następującego po pierwotnym pliku w Bibliotece.
+
+### AMC-099-04 — Element odtwarzany nie oczekuje drugi raz
+
+Uruchom pozycję bezpośrednio z `Ctrl+Q`, wróć Escape do listy i ponownie otwórz Kolejkę.
+
+Oczekiwane: bieżący element nie pozostaje jednocześnie na liście oczekujących. Pozostałe elementy zachowują porządek, a Page Up w odtwarzaczu nadal może wrócić do wcześniejszej pozycji dzięki historii chwilowego kontekstu.
+
+## Poprzedni zestaw alpha 98
 
 ## Nowości alpha 98
 

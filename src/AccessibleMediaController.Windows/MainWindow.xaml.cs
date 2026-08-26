@@ -351,7 +351,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 SelectedItem?.Id);
         }
         NavigateTo(viewName);
-        PrepareViewFocusContext(viewName);
+        PrepareViewFocusContext(string.Equals(viewName, "Kolejka", StringComparison.Ordinal)
+            ? QueueFocusContext()
+            : viewName);
         Activate();
         FocusMediaList();
     }
@@ -2403,7 +2405,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var navigation = GetSessionNavigationState(session.Id);
         if (navigation.PlaybackContextItemIds.Count > 0)
         {
-            session.SetPlaybackContext(navigation.PlaybackContextItemIds);
+            session.SetPlaybackContext(
+                navigation.PlaybackContextItemIds,
+                string.Equals(navigation.PlaybackContextView, "Kolejka", StringComparison.Ordinal));
         }
     }
 
@@ -2691,6 +2695,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             EnsureQueueOrder(changedSession);
         }
+        var queuePlaybackChanged = result.Handled
+            && commandId is CommandIds.ActivateSelected or CommandIds.Previous or CommandIds.Next
+            && _sessions.Current.QueueNavigationActive;
+        if (queuePlaybackChanged) EnsureQueueOrder(_sessions.Current);
         if (commandId == CommandIds.ToggleLibrary
             && string.Equals(changedSession?.Id, "local", StringComparison.Ordinal))
         {
@@ -2772,6 +2780,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 RestoreMediaListFocusAfterRefresh();
             }
         }
+        else if (queuePlaybackChanged
+                 && !_playerViewActive
+                 && string.Equals(_currentView, "Kolejka", StringComparison.Ordinal))
+        {
+            AnchorMediaListFocus();
+            RefreshCurrentView(previousIndex);
+            RestoreMediaListFocusAfterRefresh();
+        }
         if (_deferredAnnouncement is { } announcement)
         {
             _deferredAnnouncement = null;
@@ -2787,6 +2803,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.ActivateSelected
             or CommandIds.Previous
             or CommandIds.Next;
+        if (savesPlaybackBoundary && result.Handled)
+        {
+            EnsureQueueOrder(_sessions.Current);
+        }
         if (commandId is CommandIds.PlaybackRateDown
             or CommandIds.PlaybackRateUp
             or CommandIds.PlaybackRateReset
@@ -2815,6 +2835,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             TrySaveLocalMediaState(false);
         }
         else if (changesListMembership && changedSession is not null)
+        {
+            _store.Save(_state);
+        }
+        else if (savesPlaybackBoundary && result.Handled)
         {
             _store.Save(_state);
         }
@@ -3528,11 +3552,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (item.Kind is MediaItemKind.Track or MediaItemKind.Station)
         {
             var session = _sessions.Current;
+            var opensFromQueue = string.Equals(_currentView, "Kolejka", StringComparison.Ordinal);
             PreparePlaybackContextForCurrentView(session, item);
             if (session.CurrentItem.Id != item.Id || !session.IsPlaying)
             {
                 session.Play(item);
                 RecordPlayback(session, item);
+            }
+            if (opensFromQueue)
+            {
+                EnsureQueueOrder(session);
+                if (string.Equals(session.Id, "local", StringComparison.Ordinal))
+                    TrySaveLocalMediaState(false);
+                else
+                    _store.Save(_state);
             }
             RefreshPlaybackIndicators();
             ShowPlayerView();
@@ -3561,7 +3594,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .ToList();
         if (!itemIds.Contains(selectedItem.Id, StringComparer.Ordinal)) return;
 
-        session.SetPlaybackContext(itemIds);
+        session.SetPlaybackContext(
+            itemIds,
+            string.Equals(_currentView, "Kolejka", StringComparison.Ordinal));
         var navigation = GetSessionNavigationState(session.Id);
         navigation.PlaybackContextView = CurrentViewDisplayName();
         navigation.PlaybackContextItemIds = itemIds;
@@ -4846,10 +4881,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PrepareViewFocusContext(HistoryMessagesEnabled ? $"{direction}, {context}" : context);
     }
 
+    private string QueueFocusContext()
+    {
+        var items = _sessions.Current.Items
+            .Where(item => item.IsInQueue || item.IsPlayNext)
+            .ToArray();
+        var playNextCount = items.Count(item => item.IsPlayNext);
+        var regularCount = items.Length - playNextCount;
+        return $"Kolejka, jako następne {playNextCount}, pozostałe {regularCount}";
+    }
+
     private string FormatListItem(MediaItem item)
     {
         var homogeneousView = _currentView is "Albumy" or "Playlisty";
         var label = FormatItem(item, !homogeneousView);
+        if (string.Equals(_currentView, "Kolejka", StringComparison.Ordinal) && item.IsPlayNext)
+        {
+            label = $"Następny, {label}";
+        }
         var session = _sessions.Current;
         var isCurrent = string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal);
         if (isCurrent && session.IsPlaying) return $"Odtwarzany, {label}";
