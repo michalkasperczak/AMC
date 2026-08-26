@@ -2,7 +2,7 @@
 
 To pierwszy demonstracyjny prototyp aplikacji sterowanej globalnym prefiksem. Sprawdza architekturę klawiatury, sesji, list, komunikatów dostępności, profili oraz importu i eksportu. Nie łączy się jeszcze z prawdziwymi kontami TIDAL, Apple Music ani WiiM.
 
-Ten README opisuje zachowanie bieżącego prototypu. Wspólny numer wersji jest zapisany w `Directory.Build.props`, dzięki czemu rdzeń, okno i publikowany program zawsze otrzymują ten sam numer. Zatwierdzony kierunek dalszego rozwoju, docelowa architektura oraz pełna mapa skrótów znajdują się w [`MEDIA_CONTROLLER_PL.md`](MEDIA_CONTROLLER_PL.md).
+Ten README opisuje zachowanie bieżącego prototypu. Wspólny numer wersji jest zapisany w `Directory.Build.props`, dzięki czemu rdzeń, okno i publikowany program zawsze otrzymują ten sam numer. Zatwierdzony kierunek dalszego rozwoju, docelowa architektura oraz pełna mapa skrótów znajdują się w [`MEDIA_CONTROLLER_PL.md`](MEDIA_CONTROLLER_PL.md). Trwałe reguły następstwa po zniknięciu pliku i komunikatów ręcznego przenoszenia są dodatkowo zebrane jako niezmienniki w punkcie 7.8 tej specyfikacji; przyszłe adaptery i przebudowy interfejsu nie mogą ich omijać.
 
 Aktywne repozytorium robocze powinno znajdować się na zwykłym lokalnym woluminie NTFS, poza iCloud Drive, Google Drive, OneDrive i innymi katalogami synchronizowanymi. GitHub przechowuje historię kodu, natomiast atomowe kopie danych użytkownika mogą być eksportowane do chmury. Na głównym komputerze testowym stałą ścieżką projektu jest `D:\Projekty Codex\Accessible Multimedia Controller`.
 

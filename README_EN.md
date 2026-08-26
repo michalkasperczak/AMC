@@ -2,7 +2,7 @@
 
 This is the first demonstration prototype of the global-prefix media controller. It validates the keyboard, session, list, accessibility-message, profile, import and export architecture. It does not yet connect to real TIDAL, Apple Music or WiiM accounts.
 
-This README describes the current prototype. Its single version number is stored in `Directory.Build.props`, so the core, Windows UI and published program always receive the same version. The approved development direction, target architecture and complete keyboard map are recorded in [`MEDIA_CONTROLLER_EN.md`](MEDIA_CONTROLLER_EN.md).
+This README describes the current prototype. Its single version number is stored in `Directory.Build.props`, so the core, Windows UI and published program always receive the same version. The approved development direction, target architecture and complete keyboard map are recorded in [`MEDIA_CONTROLLER_EN.md`](MEDIA_CONTROLLER_EN.md). Permanent rules for successor selection after a file disappears and for manual-reorder announcements are collected as invariants in section 7.8 of that specification; future adapters and UI rewrites must not bypass them.
 
 Since `alpha.77`, session order is editable under **Settings → General**. The same order controls `Ctrl+1–9`, the session list and `Ctrl+Page Up/Page Down`; the default is Local Files, WiiM, TIDAL, Apple Music. Opening a folder with `Ctrl+Shift+O` registers a persistent source and opens the one-level-at-a-time **Folders** list: Enter enters a folder or opens a file, Backspace goes to the parent level, type-ahead and `Ctrl+K` work within the visible level, while `Ctrl+F` searches the whole local session. The former separate list-reading tab is now the **List item reading** section of **Messages**.
 

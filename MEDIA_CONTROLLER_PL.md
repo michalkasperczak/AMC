@@ -1,8 +1,8 @@
 # Dostępny kontroler multimedialny — koncepcja projektu
 
-Wersja dokumentu: 0.6, aktualny plan projektu
+Wersja dokumentu: 0.7, aktualny plan projektu
 
-Data aktualizacji: 17 sierpnia 2026 r.
+Data aktualizacji: 26 sierpnia 2026 r.
 
 ## 1. Cel projektu
 
@@ -360,6 +360,23 @@ Kontrakt obejmuje co najmniej:
 - wspólne komunikaty ładowania, braku danych, niedostępnej możliwości, błędu, częściowego sukcesu i końca listy.
 
 Spójność nie oznacza udawania identycznych możliwości. Jeśli usługa nie zwraca bitrate, nie pozwala przewijać, nie ma kolejki albo wymaga izolowanych wyników, adapter jawnie deklaruje brak lub ograniczenie. Interfejs zachowuje ten sam skrót i odpowiada „Niedostępne w tej usłudze” albo ukrywa nieosiągalną czynność zgodnie z ustawieniem użytkownika; nie wykonuje innego polecenia pod tym samym klawiszem. Każdy prawdziwy adapter musi przejść wspólne testy kontraktowe dla listy, wyszukiwania, fokusu, komunikatów, błędów, stronicowania i wszystkich zadeklarowanych działań przed włączeniem do stabilnego wydania.
+
+### 7.8. Niezmienniki kontekstu odtwarzania i ręcznej kolejności
+
+Poniższe zasady są trwałym kontraktem projektu, a nie opisem jednej wersji demonstracyjnej:
+
+- uruchomienie elementu zapamiętuje stabilną, uporządkowaną migawkę odtwarzalnego widoku źródłowego; dotyczy Biblioteki, folderu, albumu, Ulubionych, Kolejki, playlisty, bezpośredniego odtwarzania z wyników wyszukiwania oraz przyszłych widoków adapterów;
+- samo przeglądanie innego widoku nie zmienia aktywnego kontekstu; zastępuje go dopiero świadome uruchomienie elementu z nowej odtwarzalnej listy;
+- jeżeli bieżący plik zostanie wycięty, przeniesiony, wykluczony przez Delete, fizycznie usunięty przez Shift+Delete albo stanie się niedostępny wskutek synchronizacji folderu, każda ścieżka kodu stosuje ten sam algorytm odzyskiwania;
+- algorytm wybiera wyłącznie pierwszy nadal dostępny element następujący po usuniętym elemencie w zapamiętanym kontekście; nigdy nie przechodzi na pierwszy rekord całej sesji, Biblioteki, katalogu dyskowego ani innej listy;
+- wybrany następca pozostaje wstrzymany i uruchamia się dopiero po świadomym poleceniu odtwarzania, na przykład Spacji; gdy następcy nie ma, sesja ma jawny stan „brak bieżącego elementu”, a polecenie odtwarzania nie może uruchomić pliku zastępczego;
+- Kolejka zachowuje dodatkowy kontekst chwilowy: najpierw wybiera dalszą pozycję Kolejki, a po jej wyczerpaniu wraca do następnego elementu wcześniejszego widoku; Kolejka uruchomiona bezpośrednio kończy się bez przechodzenia do innej kolekcji;
+- Historia odtwarzania i lista Zakładek pozostają odsyłaczami semantycznymi zgodnie z ich osobnymi zasadami; samo otwarcie odsyłacza nie zamienia ich automatycznie w kolejkę kolejnych plików;
+- `Alt+strzałka w górę/w dół` zmienia wyłącznie listy mające porządek użytkownika. Po powodzeniu komunikat podaje kierunek i sąsiada po operacji: „Przeniesiono w górę, nad [tytuł]” albo „Przeniesiono w dół, pod [tytuł]”; dla ciągłego bloku podaje również liczbę elementów;
+- komunikat granicy, nieciągłego zaznaczenia albo niedozwolonego mieszania części Kolejki nie może sugerować, że kolejność została zmieniona; po powodzeniu fokus i całe zaznaczenie pozostają na przeniesionym elemencie lub bloku;
+- adapter usługi musi używać stabilnych identyfikatorów i tej wspólnej logiki. Jeżeli zdalne API nie obsługuje zmiany kolejności, AMC nie udaje operacji i jasno zgłasza ograniczenie.
+
+Każda modyfikacja odświeżania katalogu, usuwania, schowka, Kolejki, list lub adapterów musi zachować te niezmienniki i przejść odpowiadające im testy regresji.
 
 ## 8. Wybór playlisty
 

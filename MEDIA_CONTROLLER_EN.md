@@ -1,8 +1,8 @@
 # Accessible Media Controller — Project Concept
 
-Document version: 0.6, current project plan
+Document version: 0.7, current project plan
 
-Updated: 17 August 2026
+Updated: 26 August 2026
 
 ## 1. Project goal
 
@@ -360,6 +360,23 @@ The contract includes at least:
 - shared announcements for loading, no data, unavailable capability, failure, partial success and list boundaries.
 
 Consistency never means pretending that capabilities are identical. If a service does not return bitrate, cannot seek, has no queue or requires isolated results, its adapter explicitly declares that absence or limitation. The UI retains the same binding and responds “Unavailable in this service”, or hides the unavailable action according to user preference; it never performs a different operation under that key. Every real adapter must pass the shared contract tests for lists, search, focus, announcements, errors, paging and every declared action before entering a stable release.
+
+### 7.8. Playback-context and manual-order invariants
+
+The following rules are permanent project contracts rather than notes for one prototype release:
+
+- starting an item stores a stable ordered snapshot of its playable source view; this applies to Library, folder, album, Favorites, Queue, playlist, direct playback from search results and future adapter views;
+- merely browsing another view does not change the active context; only deliberately starting an item from a new playable list replaces it;
+- if the current file is cut, moved, excluded by Delete, physically removed by Shift+Delete or becomes unavailable during folder synchronization, every code path uses the same recovery algorithm;
+- recovery selects only the first still-available item after the removed item in the remembered context; it never falls back to the first record of the session, Library, disk catalogue or another list;
+- the selected successor remains paused until an explicit playback command such as Space; when no successor exists, the session has an explicit no-current-item state and playback cannot start a substitute file;
+- Queue retains an additional temporary context: it first selects the next Queue entry and, after an automatically entered Queue is exhausted, resumes with the next item of the earlier source view; a directly opened Queue ends without crossing into another collection;
+- Playback History and the Bookmarks list remain semantic links under their separately approved rules; opening such a link does not automatically turn that list into a next-file queue;
+- `Alt+Up/Down` changes only user-ordered lists. On success, the announcement states direction and the post-move neighbour: “Moved up, above [title]” or “Moved down, below [title]”; a contiguous block also reports its item count;
+- boundary, non-contiguous-selection and mixed-Queue-group messages must never imply that an order change succeeded; after success, focus and the entire selection remain on the moved item or block;
+- a service adapter must use stable identifiers and this shared logic. If the remote API cannot reorder items, AMC reports that limitation rather than pretending the operation succeeded.
+
+Every change to catalogue refresh, removal, clipboard handling, Queue, lists or adapters must preserve these invariants and pass their regression tests.
 
 ## 8. Playlist selection
 
