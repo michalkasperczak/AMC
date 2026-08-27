@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using AccessibleMediaController.Windows.Services;
 using NAudio.Wave;
 using NLayer.NAudioSupport;
@@ -50,9 +52,17 @@ try
     TestWaveMetadataAndDamagedContainers();
     TestRadioBrowserSearchMapping();
     TestRadioMp3Recording();
+    TestLegacyIcyMp3Stream();
     foreach (var mediaPath in args)
     {
-        TestFormatMetadata(mediaPath);
+        if (mediaPath.StartsWith("--radio-url=", StringComparison.OrdinalIgnoreCase))
+        {
+            TestLiveLegacyRadio(mediaPath["--radio-url=".Length..]);
+        }
+        else
+        {
+            TestFormatMetadata(mediaPath);
+        }
     }
     return 0;
 }
@@ -291,6 +301,97 @@ static void TestRadioMp3Recording()
     {
         if (Directory.Exists(directory)) Directory.Delete(directory, true);
     }
+}
+
+static void TestLegacyIcyMp3Stream()
+{
+    var mp3Path = Path.Combine(Path.GetTempPath(), $"amc-icy-source-{Guid.NewGuid():N}.mp3");
+    byte[] mp3;
+    try
+    {
+        var format = new WaveFormat(44_100, 16, 2);
+        using (var recorder = RadioMp3Recorder.Start(mp3Path, format))
+        {
+            var pcm = new byte[format.AverageBytesPerSecond];
+            for (var frame = 0; frame < format.SampleRate; frame++)
+            {
+                var sample = (short)(Math.Sin(2 * Math.PI * 440 * frame / format.SampleRate) * short.MaxValue * 0.1);
+                var offset = frame * format.BlockAlign;
+                BinaryPrimitives.WriteInt16LittleEndian(pcm.AsSpan(offset, 2), sample);
+                BinaryPrimitives.WriteInt16LittleEndian(pcm.AsSpan(offset + 2, 2), sample);
+            }
+            recorder.Write(pcm, 0, pcm.Length);
+            recorder.Stop();
+        }
+        mp3 = File.ReadAllBytes(mp3Path);
+    }
+    finally
+    {
+        if (File.Exists(mp3Path)) File.Delete(mp3Path);
+    }
+
+    var listener = new TcpListener(IPAddress.Loopback, 0);
+    listener.Start();
+    var endpoint = (IPEndPoint)listener.LocalEndpoint;
+    var releaseServer = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    var server = Task.Run(async () =>
+    {
+        using var connection = await listener.AcceptTcpClientAsync();
+        await using var stream = connection.GetStream();
+        var request = new byte[4_096];
+        var requestLength = 0;
+        while (requestLength < request.Length)
+        {
+            var read = await stream.ReadAsync(request.AsMemory(requestLength, 1));
+            if (read == 0) throw new EndOfStreamException("Klient nie wysłał pełnego żądania.");
+            requestLength += read;
+            if (requestLength >= 4
+                && request[requestLength - 4] == '\r'
+                && request[requestLength - 3] == '\n'
+                && request[requestLength - 2] == '\r'
+                && request[requestLength - 1] == '\n') break;
+        }
+        var header = Encoding.ASCII.GetBytes(
+            "ICY 200 OK\r\n" +
+            "Content-Type: audio/mpeg\r\n" +
+            "icy-name: Stacja testowa\r\n\r\n");
+        await stream.WriteAsync(header);
+        await stream.WriteAsync(mp3);
+        await stream.FlushAsync();
+        await releaseServer.Task;
+    });
+
+    try
+    {
+        using var reader = LegacyIcyMp3StreamReader.OpenAsync(
+                $"http://127.0.0.1:{endpoint.Port}/;.mp3",
+                CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+        Assert(reader.WaveFormat.SampleRate == 44_100, "Strumień ICY podał złą częstotliwość.");
+        Assert(reader.WaveFormat.Encoding == WaveFormatEncoding.IeeeFloat,
+            "Strumień ICY nie został znormalizowany do bezpiecznego formatu float.");
+        var buffer = new byte[16_384];
+        Assert(reader.Read(buffer, 0, buffer.Length) > 0, "Strumień ICY nie zwrócił dźwięku.");
+        releaseServer.TrySetResult();
+        Assert(server.Wait(TimeSpan.FromSeconds(2)), "Testowy serwer ICY nie zakończył odpowiedzi.");
+        Console.WriteLine("OK: starszy strumień radiowy ICY MP3");
+    }
+    finally
+    {
+        releaseServer.TrySetResult();
+        listener.Stop();
+    }
+}
+
+static void TestLiveLegacyRadio(string source)
+{
+    using var reader = LegacyIcyMp3StreamReader.OpenAsync(source, CancellationToken.None)
+        .GetAwaiter()
+        .GetResult();
+    var buffer = new byte[Math.Max(16_384, reader.WaveFormat.AverageBytesPerSecond / 10)];
+    Assert(reader.Read(buffer, 0, buffer.Length) > 0, "Internetowy strumień ICY nie zwrócił dźwięku.");
+    Console.WriteLine($"OK: internetowy strumień ICY MP3, {reader.WaveFormat}");
 }
 
 static void TestCompleteOutputChainMonitor()

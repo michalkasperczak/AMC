@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Security.Authentication;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
 using NAudio.CoreAudioApi;
@@ -135,7 +136,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         {
             var resolvedSource = await RadioStreamResolver.ResolveAsync(item.Source!, CancellationToken.None)
                 .ConfigureAwait(false);
-            var reader = new MediaFoundationReader(resolvedSource);
+            var openedReader = await OpenReaderAsync(resolvedSource).ConfigureAwait(false);
+            var reader = openedReader.Reader;
             var buffer = new RadioTimeshiftWaveProvider(
                 reader.WaveFormat,
                 _timeshiftMinutes,
@@ -148,7 +150,14 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             var output = new WasapiOut(AudioClientShareMode.Shared, true, 180);
             output.Init(volume);
             var cancellation = new CancellationTokenSource();
-            pipeline = new RadioPipeline(item, reader, buffer, volume, output, cancellation);
+            pipeline = new RadioPipeline(
+                item,
+                reader,
+                openedReader.Lifetime,
+                buffer,
+                volume,
+                output,
+                cancellation);
 
             lock (_gate)
             {
@@ -162,7 +171,9 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             }
             output.Play();
             pipeline.CaptureTask = Task.Run(() => CaptureLoopAsync(pipeline), cancellation.Token);
-            DiagnosticLog.Info("radio", $"Rozpoczęto odbiór: {item.Title}; format {reader.WaveFormat}.");
+            DiagnosticLog.Info(
+                "radio",
+                $"Rozpoczęto odbiór: {item.Title}; format {reader.WaveFormat}; dekoder {openedReader.DecoderName}.");
             RaiseOnCapturedContext(() => PlaybackStarted?.Invoke(
                 this,
                 new MediaPlaybackStartedEventArgs(item)));
@@ -171,8 +182,10 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             or HttpRequestException
             or TaskCanceledException
             or InvalidOperationException
+            or InvalidDataException
             or NotSupportedException
             or ArgumentException
+            or AuthenticationException
             or System.Runtime.InteropServices.COMException)
         {
             if (pipeline is not null) QueueDisposal(pipeline);
@@ -191,6 +204,28 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                 "Nie udało się odtworzyć tej stacji. Sprawdź adres strumienia lub spróbuj ponownie później.");
         }
         await Task.CompletedTask.ConfigureAwait(false);
+    }
+
+    private static async Task<OpenedRadioReader> OpenReaderAsync(string source)
+    {
+        try
+        {
+            var mediaFoundation = new MediaFoundationReader(source);
+            return new OpenedRadioReader(mediaFoundation, mediaFoundation, "systemowy");
+        }
+        catch (Exception exception) when (exception is IOException
+            or InvalidOperationException
+            or NotSupportedException
+            or ArgumentException
+            or System.Runtime.InteropServices.COMException)
+        {
+            DiagnosticLog.Info(
+                "radio",
+                $"Dekoder systemowy odrzucił strumień; próba zgodności ze starszym radiem MP3 ({exception.GetType().Name}).");
+            var legacy = await LegacyIcyMp3StreamReader.OpenAsync(source, CancellationToken.None)
+                .ConfigureAwait(false);
+            return new OpenedRadioReader(legacy, legacy, "zgodności ICY MP3");
+        }
     }
 
     private async Task CaptureLoopAsync(RadioPipeline pipeline)
@@ -215,6 +250,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         }
         catch (Exception exception) when (exception is IOException
             or EndOfStreamException
+            or InvalidDataException
             or InvalidOperationException
             or System.Runtime.InteropServices.COMException)
         {
@@ -406,7 +442,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
 
     private sealed class RadioPipeline(
         MediaItem item,
-        MediaFoundationReader reader,
+        IWaveProvider reader,
+        IDisposable readerLifetime,
         RadioTimeshiftWaveProvider buffer,
         VolumeSampleProvider volume,
         WasapiOut output,
@@ -414,7 +451,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
     {
         private int _disposed;
         public MediaItem Item { get; } = item;
-        public MediaFoundationReader Reader { get; } = reader;
+        public IWaveProvider Reader { get; } = reader;
+        public IDisposable ReaderLifetime { get; } = readerLifetime;
         public RadioTimeshiftWaveProvider Buffer { get; } = buffer;
         public VolumeSampleProvider Volume { get; } = volume;
         public WasapiOut Output { get; } = output;
@@ -434,11 +472,16 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                     exception);
             }
             try { Output.Stop(); } catch (Exception) { }
-            try { Reader.Dispose(); } catch (Exception) { }
+            try { ReaderLifetime.Dispose(); } catch (Exception) { }
             try { Output.Dispose(); } catch (Exception) { }
             Cancellation.Dispose();
         }
     }
+
+    private sealed record OpenedRadioReader(
+        IWaveProvider Reader,
+        IDisposable Lifetime,
+        string DecoderName);
 
     private sealed class RadioTimeshiftWaveProvider : IWaveProvider
     {

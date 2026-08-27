@@ -10,6 +10,8 @@ Od `alpha.115` sesja **Radio internetowe** pod domyślnym `Ctrl+5` jest pierwszy
 
 Od `alpha.116` nagranie radia jest zapisywane jako MP3 zamiast WAV; docelowa jakość to 192 kb/s, a dla nietypowej częstotliwości próbkowania system wybiera najbliższy obsługiwany bitrate. AMC koduje dekodowany dźwięk przez systemowy Windows Media Foundation, więc działa tak samo dla źródłowego MP3, AAC, OGG i innych strumieni obsługiwanych przez odtwarzacz, bez instalowania FFmpeg lub globalnego pakietu kodeków. Podczas nagrywania powstaje ukryty plik roboczy; nazwa `.mp3` pojawia się dopiero po prawidłowym zakończeniu. Zatrzymanie, zmiana stacji i zamknięcie programu finalizują nagranie, natomiast awaria kodera usuwa niedokończone dane i nie zatrzymuje odtwarzania radia.
 
+Od `alpha.117` starsze serwery Shoutcast i Icecast zwracające odpowiedź `ICY 200 OK` mają bezpieczną ścieżkę zgodności MP3. AMC najpierw zachowuje zwykły dekoder systemowy, a po odrzuceniu takiego strumienia ponawia połączenie własnym ograniczonym klientem i zarządzanym dekoderem NLayer. Rozwiązanie nie jest wyjątkiem dla jednej stacji; obejmuje między innymi starsze bezpośrednie adresy anten Polskiego Radia, nie obniża kontroli certyfikatów HTTPS i usuwa metadane ICY z toru audio, jeśli serwer je mimo wszystko przesyła.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.
