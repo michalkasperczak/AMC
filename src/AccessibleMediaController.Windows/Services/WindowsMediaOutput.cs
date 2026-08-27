@@ -5,7 +5,6 @@ using AccessibleMediaController.Core.Sessions;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
-using NAudio.Vorbis;
 using SoundTouch.Net.NAudioSupport;
 
 namespace AccessibleMediaController.Windows.Services;
@@ -339,10 +338,19 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     private static WaveStream CreateReader(string path)
     {
         var extension = Path.GetExtension(path);
-        return extension.Equals(".ogg", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".oga", StringComparison.OrdinalIgnoreCase)
-                ? new VorbisWaveReader(path)
-                : new AudioFileReader(path);
+        if (extension.Equals(".ogg", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".oga", StringComparison.OrdinalIgnoreCase))
+        {
+            var reader = new NormalizedVorbisWaveReader(path);
+            if (reader.HasNormalizedTimeline)
+            {
+                DiagnosticLog.Info(
+                    "playback",
+                    $"Znormalizowano oś czasu fragmentu OGG; początkowa próbka: {reader.SampleOrigin}.");
+            }
+            return reader;
+        }
+        return new AudioFileReader(path);
     }
 
     public static bool TryReadMetadata(

@@ -2,7 +2,7 @@
 
 Document version: 0.7, current project plan
 
-Updated: 26 August 2026
+Updated: 27 August 2026
 
 ## 1. Project goal
 
@@ -523,6 +523,8 @@ Every entry presents **command → current shortcut → operating context**. Its
 `Ctrl+F1` starts **Keyboard help** for the active AMC window only. In this mode, the next key combination is captured, performs no command and is described through NVDA, JAWS, Narrator and the accessible status area. The message gives the shortcut, command name, current context and any reason it is unavailable; an unassigned key is explicitly reported as having no command in that context. Pressing `Ctrl+F1` again or `Escape` leaves the mode. Entry and exit are always announced even when ordinary messages are muted. The mode never captures typing in another application and is not a global keyboard logger.
 
 State in `alpha.105`: the `F1` reference, search, sections, command activation and `Ctrl+F1` Keyboard Help are implemented. While Keyboard Help is active, the global prefix is temporarily released so that it can be described without entering the layer; it is registered again on exit. Catalogue rows, section rows and list rows have explicit accessible labels and a user-facing textual representation. Informational list shortcuts that are not standalone router commands remain descriptions and never pretend to be executable actions.
+
+State in `alpha.106`: Ogg/Vorbis receives a zero-based logical timeline even when the recording is an excerpt from a continuous stream and its first audio page retains a high absolute sample number. The reader neither rewrites nor converts the source. It disables clipping against the invalid absolute NVorbis timeline, discovers the excerpt origin during a short initial decode, subtracts it from positions and the end, and rejects an evidently invalid remaining duration. This prevents endless reads and full-core CPU use after the real end. The regression test creates a small valid Ogg file with offset page positions and verifies duration, seeking and an exact stop at the end. Quick metadata and playback use the same reader and therefore the same duration.
 
 The **About and version** window gives the full version, release channel, architecture and licence and allows those details to be copied. Repository and PayPal links open through the default browser only after official addresses are configured; a development build contains no invented or empty links. **Check for updates** uses the signed mechanism defined in section 13.5 and, until configured, clearly states that no release server is available yet.
 

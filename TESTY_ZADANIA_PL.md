@@ -1,12 +1,55 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-105`
-- Tytuł zestawu: Dostępny spis skrótów i Pomoc klawiatury
-- Wersja programu: `0.1.0-alpha.105`
+- Numer zestawu: `AMC-TEST-106`
+- Tytuł zestawu: Bezpieczne odtwarzanie fragmentów OGG/Vorbis
+- Wersja programu: `0.1.0-alpha.106`
 - Utworzono: 2026-08-27, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.105.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.106.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 106
+
+### AMC-106-01 — Plik Emaus z folderu YouTubeAudio
+
+1. Otwórz plik `Emaus - 2026-08-27 11-30.ogg` z folderu `Sideloads\YouTubeAudio`.
+2. Sprawdź pasek odtwarzacza, informacje o czasie i szybką informację pod strzałką w lewo.
+3. Pozostaw odtwarzanie przez co najmniej minutę i poruszaj się po przyciskach odtwarzacza.
+
+Oczekiwane: czas wynosi około `5:06`, a nie setki dni. AMC i NVDA pozostają responsywne, nie znika główne okno i proces nie obciąża stale całego rdzenia procesora.
+
+### AMC-106-02 — Przewijanie fragmentu transmisji
+
+W pliku Emaus sprawdź cyfry `0`, `5` i `9`, `Ctrl+J` z wartością `4:30`, strzałki oraz powrót na początek klawiszem Home.
+
+Oczekiwane: wszystkie pozycje liczą się od początku pięciominutowego fragmentu. Skok nie trafia w absolutny czas źródłowej transmisji, nie zawiesza programu i nie wychodzi poza koniec pliku.
+
+### AMC-106-03 — Rzeczywisty koniec i następny element
+
+Przejdź blisko końca pliku Emaus i pozwól mu dojść do końca w odtwarzalnym widoku, na przykład folderze albo playliście z następnym elementem.
+
+Oczekiwane: koniec zostaje rozpoznany jeden raz. Nie powstaje pętla dekodera; dalsze zachowanie wynika z bieżącego kontekstu odtwarzania i zachowuje ustaloną kolejność.
+
+### AMC-106-04 — Zwykłe pliki OGG i pozostałe formaty
+
+Otwórz zwykły plik OGG, na przykład `Nextfest`, oraz po jednym MP3 i AAC. Sprawdź czas, przewijanie, tempo, pauzę i zmianę elementu.
+
+Oczekiwane: zwykłe OGG nadal ma prawidłowy czas i przewijanie, a zmiana czytnika OGG nie powoduje regresji MP3 ani AAC.
+
+### AMC-106-05 — Zamknięcie po odtwarzaniu OGG
+
+Podczas odtwarzania Emaus zamknij AMC przez `Alt+F4`, po czym uruchom je ponownie.
+
+Oczekiwane: pierwsza instancja kończy się, nie pozostawia procesu bez okna, a ponowne uruchomienie odtwarza stan bez automatycznego uruchamiania błędnej pętli.
+
+## Krótka regresja alpha 106
+
+- `F1`, `?` i `Ctrl+F1` nadal działają jak w alpha 105.
+- Lista, odtwarzacz, Historia i playlisty zachowują fokus oraz ustalone skróty.
+- Szybka informacja o OGG i `Alt+Enter` pokazują ten sam rzeczywisty czas.
+- Plik tymczasowy z rozszerzeniem `.converting` nie staje się pozycją audio Biblioteki.
+
+## Poprzedni zestaw alpha 105
 
 ## Nowości alpha 105
 

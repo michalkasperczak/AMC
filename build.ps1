@@ -28,6 +28,8 @@ dotnet build AccessibleMediaController.sln --configuration Release --no-restore 
 if ($LASTEXITCODE -ne 0) { throw "Nie udało się skompilować projektu." }
 dotnet run --project tests/AccessibleMediaController.Core.SmokeTests --configuration Release --no-build --disable-build-servers
 if ($LASTEXITCODE -ne 0) { throw "Testy kontrolne nie powiodły się." }
+dotnet run --project tests/AccessibleMediaController.Windows.SmokeTests --configuration Release --no-build --disable-build-servers
+if ($LASTEXITCODE -ne 0) { throw "Test odtwarzania OGG nie powiódł się." }
 
 if ($Publish) {
     [xml]$buildProperties = Get-Content -LiteralPath (Join-Path $root "Directory.Build.props")

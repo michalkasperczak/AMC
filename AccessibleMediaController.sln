@@ -8,6 +8,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AccessibleMediaController.W
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AccessibleMediaController.Core.SmokeTests", "tests\AccessibleMediaController.Core.SmokeTests\AccessibleMediaController.Core.SmokeTests.csproj", "{B5C76118-5C90-4808-B3B4-56CBE3CE9003}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AccessibleMediaController.Windows.SmokeTests", "tests\AccessibleMediaController.Windows.SmokeTests\AccessibleMediaController.Windows.SmokeTests.csproj", "{C6D87229-6D01-4A19-A4C5-67DCF4CE9004}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,5 +28,9 @@ Global
 		{B5C76118-5C90-4808-B3B4-56CBE3CE9003}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B5C76118-5C90-4808-B3B4-56CBE3CE9003}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B5C76118-5C90-4808-B3B4-56CBE3CE9003}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C6D87229-6D01-4A19-A4C5-67DCF4CE9004}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C6D87229-6D01-4A19-A4C5-67DCF4CE9004}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C6D87229-6D01-4A19-A4C5-67DCF4CE9004}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C6D87229-6D01-4A19-A4C5-67DCF4CE9004}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
