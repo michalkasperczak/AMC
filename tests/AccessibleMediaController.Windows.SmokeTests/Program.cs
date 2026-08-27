@@ -1,5 +1,7 @@
 using System.Buffers.Binary;
+using System.Diagnostics;
 using AccessibleMediaController.Windows.Services;
+using NAudio.Wave;
 
 const string FixtureBase64 = """
 T2dnUwACAAAAAAAAAAC43PvDAAAAAHCxeIUBHgF2b3JiaXMAAAAAAUAfAAAAAAAAgFcAAAAAAACZAU9nZ1MAAAAAAAAAAAAAuNz7wwEAAABjSiSUCz////////////+1A3ZvcmJpcwwAAABMYXZmNjIuMy4xMDABAAAAHwAAAGVuY29kZXI9TGF2YzYyLjExLjEwMCBsaWJ2b3JiaXMBBXZvcmJpcxJCQ1YBAAABAAxSFCElGVNKYwiVUlIpBR1jUFtHHWPUOUYhZBBTiEkZpXtPKpVYSsgRUlgpRR1TTFNJlVKWKUUdYxRTSCFT1jFloXMUS4ZJCSVsTa50FkvomWOWMUYdY85aSp1j1jFFHWNSUkmhcxg6ZiVkFDpGxehifDA6laJCKL7H3lLpLYWKW4q91xpT6y2EGEtpwQhhc+211dxKasUYY4wxxsXiUyiC0JBVAAABAABABAFCQ1YBAAoAAMJQDEVRgNCQVQBABgCAABRFcRTHcRxHkiTLAkJDVgEAQAAAAgAAKI7hKJIjSZJkWZZlWZameZaouaov+64u667t6roOhIasBADIAAAYhiGH3knMkFOQSSYpVcw5CKH1DjnlFGTSUsaYYoxRzpBTDDEFMYbQKYUQ1E45pQwiCENInWTOIEs96OBi5zgQGrIiAIgCAACMQYwhxpBzDEoGIXKOScggRM45KZ2UTEoorbSWSQktldYi55yUTkompbQWUsuklNZCKwUAAAQ4AAAEWAiFhqwIAKIAABCDkFJIKcSUYk4xh5RSjinHkFLMOcWYcowx6CBUzDHIHIRIKcUYc0455iBkDCrmHIQMMgEAAAEOAAABFkKhISsCgDgBAIMkaZqlaaJoaZooeqaoqqIoqqrleabpmaaqeqKpqqaquq6pqq5seZ5peqaoqp4pqqqpqq5rqqrriqpqy6ar2rbpqrbsyrJuu7Ks256qyrapurJuqq5tu7Js664s27rkearqmabreqbpuqrr2rLqurLtmabriqor26bryrLryratyrKua6bpuqKr2q6purLtyq5tu7Ks+6br6rbqyrquyrLu27au+7KtC7vourauyq6uq7Ks67It67Zs20LJ81TVM03X9UzTdVXXtW3VdW1bM03XNV1XlkXVdWXVlXVddWVb90zTdU1XlWXTVWVZlWXddmVXl0XXtW1Vln1ddWVfl23d92VZ133TdXVblWXbV2VZ92Vd94VZt33dU1VbN11X103X1X1b131htm3fF11X11XZ1oVVlnXf1n1lmHWdMLqurqu27OuqLOu+ruvGMOu6MKy6bfyurQvDq+vGseu+rty+j2rbvvDqtjG8um4cu7Abv+37xrGpqm2brqvrpivrumzrvm/runGMrqvrqiz7uurKvm/ruvDrvi8Mo+vquirLurDasq/Lui4Mu64bw2rbwu7aunDMsi4Mt+8rx68LQ9W2heHVdaOr28ZvC8PSN3a+AACAAQcAgAATykChISsCgDgBAAYhCBVjECrGIIQQUgohpFQxBiFjDkrGHJQQSkkhlNIqxiBkjknIHJMQSmiplNBKKKWlUEpLoZTWUmotptRaDKG0FEpprZTSWmopttRSbBVjEDLnpGSOSSiltFZKaSlzTErGoKQOQiqlpNJKSa1lzknJoKPSOUippNJSSam1UEproZTWSkqxpdJKba3FGkppLaTSWkmptdRSba21WiPGIGSMQcmck1JKSamU0lrmnJQOOiqZg5JKKamVklKsmJPSQSglg4xKSaW1kkoroZTWSkqxhVJaa63VmFJLNZSSWkmpxVBKa621GlMrNYVQUgultBZKaa21VmtqLbZQQmuhpBZLKjG1FmNtrcUYSmmtpBJbKanFFluNrbVYU0s1lpJibK3V2EotOdZaa0ot1tJSjK21mFtMucVYaw0ltBZKaa2U0lpKrcXWWq2hlNZKKrGVklpsrdXYWow1lNJiKSm1kEpsrbVYW2w1ppZibLHVWFKLMcZYc0u11ZRai621WEsrNcYYa2415VIAAMCAAwBAgAlloNCQlQBAFAAAYAxjjEFoFHLMOSmNUs45JyVzDkIIKWXOQQghpc45CKW01DkHoZSUQikppRRbKCWl1losAACgwAEAIMAGTYnFAQoNWQkARAEAIMYoxRiExiClGIPQGKMUYxAqpRhzDkKlFGPOQcgYc85BKRljzkEnJYQQQimlhBBCKKWUAgAAChwAAAJs0JRYHKDQkBUBQBQAAGAMYgwxhiB0UjopEYRMSielkRJaCylllkqKJcbMWomtxNhICa2F1jJrJcbSYkatxFhiKgAA7MABAOzAQig0ZCUAkAcAQBijFGPOOWcQYsw5CCE0CDHmHIQQKsaccw5CCBVjzjkHIYTOOecghBBC55xzEEIIoYMQQgillNJBCCGEUkrpIIQQQimldBBCCKGUUgoAACpwAAAIsFFkc4KRoEJDVgIAeQAAgDFKOSclpUYpxiCkFFujFGMQUmqtYgxCSq3FWDEGIaXWYuwgpNRajLV2EFJqLcZaQ0qtxVhrziGl1mKsNdfUWoy15tx7ai3GWnPOuQAA3AUHALADG0U2JxgJKjRkJQCQBwBAIKQUY4w5h5RijDHnnENKMcaYc84pxhhzzjnnFGOMOeecc4wx55xzzjnGmHPOOeecc84556CDkDnnnHPQQeicc845CCF0zjnnHIQQCgAAKnAAAAiwUWRzgpGgQkNWAgDhAACAMZRSSimllFJKqKOUUkoppZRSAiGllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimVUkoppZRSSimllFJKKaUAIN8KBwD/BxtnWEk6KxwNLjRkJQAQDgAAGMMYhIw5JyWlhjEIpXROSkklNYxBKKVzElJKKYPQWmqlpNJSShmElGILIZWUWgqltFZrKam1lFIoKcUaS0qppdYy5ySkklpLrbaYOQelpNZaaq3FEEJKsbXWUmuxdVJSSa211lptLaSUWmstxtZibCWlllprqcXWWkyptRZbSy3G1mJLrcXYYosxxhoLAOBucACASLBxhpWks8LR4EJDVgIAIQEABDJKOeecgxBCCCFSijHnoIMQQgghREox5pyDEEIIIYSMMecghBBCCKGUkDHmHIQQQgghhFI65yCEUEoJpZRSSucchBBCCKWUUkoJIYQQQiillFJKKSGEEEoppZRSSiklhBBCKKWUUkoppYQQQiillFJKKaWUEEIopZRSSimllBJCCKGUUkoppZRSQgillFJKKaWUUkooIYRSSimllFJKCSWUUkoppZRSSikhlFJKKaWUUkoppQAAgAMHAIAAI+gko8oibDThwgMQAAAAAgACTACBAYKCUQgChBEIAAAAAAAIAPgAAEgKgIiIaOYMDhASFBYYGhweICIkAAAAAAAAAAAAAAAABE9nZ1MABMADAAAAAAAAuNz7wwIAAAA/BbY+BTgUEhQjipUZ81O9AoBfTIZAZUAKGamKVqd3pxvYDz80TdNaaw3cSDfSdV3XdV3XdV2VNVjDYY7oiI7o7wSSlpndjVcA8FQBAAAAhBRyaT6lAJaWmX0brwBAVQAAAICQQioDNJKWmd2NVwDwWQUAAABirIh35xcKhstQWc0rAPSdGQByAGSIhp6Gv12MkxDV2lKimaT3PfLd2wU=
@@ -37,16 +39,86 @@ try
     Assert(totalRead == reader.Length, "Czytnik nie zatrzymał się dokładnie na końcu fragmentu.");
 
     Console.WriteLine("OK: normalizacja osi czasu fragmentu OGG/Vorbis");
+
+    TestGuardDoesNotBlockPositionReads();
+    TestCompleteOutputChainMonitor();
+    TestGuardRejectsAbsurdDuration();
+    foreach (var mediaPath in args)
+    {
+        TestFormatMetadata(mediaPath);
+    }
     return 0;
 }
+
 catch (Exception exception)
 {
-    Console.Error.WriteLine($"BŁĄD: normalizacja osi czasu fragmentu OGG/Vorbis: {exception}");
+    Console.Error.WriteLine($"BŁĄD: testy dekoderów Windows: {exception}");
     return 1;
 }
 finally
 {
     if (File.Exists(path)) File.Delete(path);
+}
+
+static void TestGuardDoesNotBlockPositionReads()
+{
+    using var inner = new BlockingWaveStream();
+    using var guarded = new GuardedWaveStream(inner, "blokujacy-test.wav");
+    var readTask = Task.Run(() => guarded.Read(new byte[4_096], 0, 4_096));
+    Assert(inner.ReadStarted.Wait(TimeSpan.FromSeconds(1)), "Testowy dekoder nie rozpoczął odczytu.");
+
+    var stopwatch = Stopwatch.StartNew();
+    _ = guarded.Position;
+    stopwatch.Stop();
+    Assert(stopwatch.Elapsed < TimeSpan.FromMilliseconds(100),
+        "Odczyt pozycji czekał na zablokowany dekoder.");
+    Assert(guarded.IsReadStalled(TimeSpan.Zero), "Nie wykryto zatrzymanego odczytu dekodera.");
+
+    inner.AllowReadToFinish.Set();
+    Assert(readTask.Wait(TimeSpan.FromSeconds(1)), "Nie zakończono testowego odczytu.");
+    Console.WriteLine("OK: nadzór dekodera nie blokuje odczytu pozycji");
+}
+
+static void TestGuardRejectsAbsurdDuration()
+{
+    using var inner = new FixedDurationWaveStream(TimeSpan.FromDays(31));
+    try
+    {
+        using var _ = new GuardedWaveStream(inner, "nieprawidlowa-dlugosc.wav");
+        throw new InvalidOperationException("Zaakceptowano absurdalny czas trwania pliku.");
+    }
+    catch (InvalidDataException)
+    {
+        Console.WriteLine("OK: odrzucono absurdalny czas trwania dla wspólnej ścieżki formatów");
+    }
+}
+
+static void TestCompleteOutputChainMonitor()
+{
+    var inner = new BlockingSampleProvider();
+    var monitor = new DecoderReadMonitorSampleProvider(inner);
+    var readTask = Task.Run(() => monitor.Read(new float[1_024], 0, 1_024));
+    Assert(inner.ReadStarted.Wait(TimeSpan.FromSeconds(1)), "Końcowy tor dźwięku nie rozpoczął odczytu.");
+    Assert(monitor.IsReadStalled(TimeSpan.Zero), "Nie wykryto zatrzymania pełnego toru dźwięku.");
+    inner.AllowReadToFinish.Set();
+    Assert(readTask.Wait(TimeSpan.FromSeconds(1)), "Nie zakończono testu pełnego toru dźwięku.");
+    inner.Dispose();
+    Console.WriteLine("OK: nadzór obejmuje pełny tor dekodera i zmiany prędkości");
+}
+
+static void TestFormatMetadata(string mediaPath)
+{
+    Assert(File.Exists(mediaPath), $"Nie istnieje plik testowy: {mediaPath}");
+    var result = WindowsMediaOutput.TryReadMetadataAsync(
+            mediaPath,
+            TimeSpan.FromSeconds(5))
+        .GetAwaiter()
+        .GetResult();
+    Assert(!result.TimedOut, $"Odczyt formatu przekroczył limit: {mediaPath}");
+    Assert(result.Success, $"Nie odczytano formatu: {mediaPath}");
+    Assert(result.Duration > TimeSpan.Zero, $"Format nie podał czasu: {mediaPath}");
+    Assert(result.SampleRateHz > 0, $"Format nie podał częstotliwości: {mediaPath}");
+    Console.WriteLine($"OK: {Path.GetExtension(mediaPath).ToUpperInvariant()}, {result.Duration}, {result.SampleRateHz} Hz");
 }
 
 static void Assert(bool condition, string message)
@@ -112,4 +184,83 @@ static uint CalculateOggChecksum(ReadOnlySpan<byte> page)
         }
     }
     return checksum;
+}
+
+sealed class BlockingWaveStream : WaveStream
+{
+    private readonly WaveFormat _format = WaveFormat.CreateIeeeFloatWaveFormat(48_000, 2);
+    private long _position;
+
+    public ManualResetEventSlim ReadStarted { get; } = new(false);
+    public ManualResetEventSlim AllowReadToFinish { get; } = new(false);
+    public override WaveFormat WaveFormat => _format;
+    public override long Length => _format.AverageBytesPerSecond * 60L;
+    public override long Position
+    {
+        get => _position;
+        set => _position = Math.Clamp(value, 0, Length);
+    }
+    public override void Flush()
+    {
+    }
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        ReadStarted.Set();
+        if (!AllowReadToFinish.Wait(TimeSpan.FromSeconds(5)))
+            throw new TimeoutException("Testowy odczyt nie został zwolniony.");
+        return 0;
+    }
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+    public override void SetLength(long value) => throw new NotSupportedException();
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            AllowReadToFinish.Set();
+            ReadStarted.Dispose();
+            AllowReadToFinish.Dispose();
+        }
+        base.Dispose(disposing);
+    }
+}
+
+sealed class FixedDurationWaveStream(TimeSpan duration) : WaveStream
+{
+    private readonly WaveFormat _format = WaveFormat.CreateIeeeFloatWaveFormat(48_000, 2);
+    private long _position;
+    public override WaveFormat WaveFormat => _format;
+    public override long Length => checked((long)(duration.TotalSeconds * _format.AverageBytesPerSecond));
+    public override long Position
+    {
+        get => _position;
+        set => _position = Math.Clamp(value, 0, Length);
+    }
+    public override void Flush()
+    {
+    }
+    public override int Read(byte[] buffer, int offset, int count) => 0;
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+    public override void SetLength(long value) => throw new NotSupportedException();
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+}
+
+sealed class BlockingSampleProvider : ISampleProvider, IDisposable
+{
+    public ManualResetEventSlim ReadStarted { get; } = new(false);
+    public ManualResetEventSlim AllowReadToFinish { get; } = new(false);
+    public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(48_000, 2);
+    public int Read(float[] buffer, int offset, int count)
+    {
+        ReadStarted.Set();
+        if (!AllowReadToFinish.Wait(TimeSpan.FromSeconds(5)))
+            throw new TimeoutException("Testowy tor dźwięku nie został zwolniony.");
+        return 0;
+    }
+    public void Dispose()
+    {
+        AllowReadToFinish.Set();
+        ReadStarted.Dispose();
+        AllowReadToFinish.Dispose();
+    }
 }

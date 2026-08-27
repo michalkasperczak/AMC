@@ -41,6 +41,12 @@ public sealed class MediaPlaybackStartedEventArgs(MediaItem item) : EventArgs
     public MediaItem Item { get; } = item;
 }
 
+public readonly record struct MediaMetadataReadResult(
+    bool Success,
+    TimeSpan Duration,
+    int SampleRateHz,
+    bool TimedOut);
+
 /// <summary>
 /// Windows output based on NAudio, shared WASAPI and SoundTouch. Opening and
 /// disposing pipelines happens away from the WPF dispatcher. This is essential
@@ -53,6 +59,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     {
         public required MediaItem Item { get; init; }
         public required WasapiOut Output { get; init; }
+        public required GuardedWaveStream DecoderGuard { get; init; }
+        public required DecoderReadMonitorSampleProvider OutputReadMonitor { get; init; }
         public required SoundTouchWaveStream TempoStream { get; init; }
         public required VolumeSampleProvider VolumeProvider { get; init; }
         public required EventHandler<StoppedEventArgs> StoppedHandler { get; init; }
@@ -60,6 +68,12 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
 
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     private readonly object _gate = new();
+    private readonly HashSet<string> _quarantinedSources = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte>
+        MetadataTimeoutSources = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Task<MediaMetadataReadResult>>
+        MetadataReadTasks = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan DecoderStallTimeout = TimeSpan.FromSeconds(8);
     private PlaybackPipeline? _pipeline;
     private MediaItem? _requestedItem;
     private TimeSpan _pendingPosition;
@@ -107,7 +121,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             if (pipeline is null) return pending;
             try
             {
-                var position = pipeline.TempoStream.CurrentTime;
+                var position = pipeline.DecoderGuard.CachedCurrentTime;
                 return position < TimeSpan.Zero ? TimeSpan.Zero : position;
             }
             catch (ObjectDisposedException)
@@ -129,8 +143,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         var resolvedRate = Math.Clamp(playbackRate, 0.50d, 2.00d);
         var resolvedVolume = Math.Clamp(volume, 0, 100);
         PlaybackPipeline? reusable;
+        bool sourceQuarantined;
         lock (_gate)
         {
+            sourceQuarantined = _quarantinedSources.Contains(item.Source);
             reusable = _pipeline is not null
                 && string.Equals(_pipeline.Item.Source, item.Source, StringComparison.OrdinalIgnoreCase)
                 ? _pipeline
@@ -139,6 +155,15 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             _pendingPosition = resolvedPosition;
             _playbackRate = resolvedRate;
             _volume = resolvedVolume;
+        }
+
+        if (sourceQuarantined)
+        {
+            DiagnosticLog.Warning("decoder-watchdog", $"Zablokowano ponowne otwarcie pliku po zatrzymaniu dekodera: {item.Source}.");
+            RaisePlaybackFailed(
+                item,
+                "Ten plik wcześniej zatrzymał dekoder. Uruchom program ponownie po zastąpieniu lub naprawieniu pliku.");
+            return;
         }
 
         if (reusable is not null)
@@ -252,7 +277,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             pipeline.VolumeProvider.Volume = Math.Clamp(volume, 0, 100) / 100f;
             ApplyRate(pipeline, rate);
             pipeline.Output.Play();
-            var duration = pipeline.TempoStream.TotalTime;
+            _ = MonitorDecoderAsync(pipeline);
+            var duration = pipeline.DecoderGuard.TotalTime;
             var sampleRateHz = pipeline.TempoStream.WaveFormat.SampleRate;
             DiagnosticLog.Info(
                 "playback",
@@ -308,6 +334,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 Rate = 1d
             };
             var volumeProvider = new VolumeSampleProvider(tempoStream.ToSampleProvider());
+            var outputReadMonitor = new DecoderReadMonitorSampleProvider(volumeProvider);
             output = new WasapiOut(AudioClientShareMode.Shared, true, 120);
             PlaybackPipeline? pipeline = null;
             EventHandler<StoppedEventArgs> handler = (_, args) =>
@@ -318,12 +345,14 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             {
                 Item = item,
                 Output = output,
+                DecoderGuard = reader,
+                OutputReadMonitor = outputReadMonitor,
                 TempoStream = tempoStream,
                 VolumeProvider = volumeProvider,
                 StoppedHandler = handler
             };
             output.PlaybackStopped += handler;
-            output.Init(volumeProvider.ToWaveProvider());
+            output.Init(outputReadMonitor.ToWaveProvider());
             return pipeline;
         }
         catch
@@ -335,22 +364,36 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         }
     }
 
-    private static WaveStream CreateReader(string path)
+    private static GuardedWaveStream CreateReader(string path)
     {
         var extension = Path.GetExtension(path);
+        WaveStream reader;
         if (extension.Equals(".ogg", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".oga", StringComparison.OrdinalIgnoreCase))
         {
-            var reader = new NormalizedVorbisWaveReader(path);
-            if (reader.HasNormalizedTimeline)
+            var vorbisReader = new NormalizedVorbisWaveReader(path);
+            if (vorbisReader.HasNormalizedTimeline)
             {
                 DiagnosticLog.Info(
                     "playback",
-                    $"Znormalizowano oś czasu fragmentu OGG; początkowa próbka: {reader.SampleOrigin}.");
+                    $"Znormalizowano oś czasu fragmentu OGG; początkowa próbka: {vorbisReader.SampleOrigin}.");
             }
-            return reader;
+            reader = vorbisReader;
         }
-        return new AudioFileReader(path);
+        else
+        {
+            reader = new AudioFileReader(path);
+        }
+
+        try
+        {
+            return new GuardedWaveStream(reader, path);
+        }
+        catch
+        {
+            reader.Dispose();
+            throw;
+        }
     }
 
     public static bool TryReadMetadata(
@@ -379,6 +422,48 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 or System.Runtime.InteropServices.COMException)
         {
             return false;
+        }
+    }
+
+    public static async Task<MediaMetadataReadResult> TryReadMetadataAsync(
+        string path,
+        TimeSpan timeout)
+    {
+        if (MetadataTimeoutSources.ContainsKey(path))
+        {
+            return new MediaMetadataReadResult(false, TimeSpan.Zero, 0, true);
+        }
+
+        var task = MetadataReadTasks.GetOrAdd(
+            path,
+            static sourcePath => Task.Run(() =>
+            {
+                var success = TryReadMetadata(sourcePath, out var duration, out var sampleRateHz);
+                return new MediaMetadataReadResult(success, duration, sampleRateHz, false);
+            }));
+        _ = task.ContinueWith(
+            completedTask => MetadataReadTasks.TryRemove(path, out var removedTask),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+        try
+        {
+            return await task.WaitAsync(timeout).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            MetadataTimeoutSources.TryAdd(path, 0);
+            DiagnosticLog.Warning(
+                "metadata-watchdog",
+                $"Przerwano oczekiwanie na metadane po {timeout}: {path}.");
+            return new MediaMetadataReadResult(false, TimeSpan.Zero, 0, true);
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Warning(
+                "metadata-watchdog",
+                $"Odczyt metadanych nie powiódł się: {path}; {exception.Message}");
+            return new MediaMetadataReadResult(false, TimeSpan.Zero, 0, false);
         }
     }
 
@@ -434,7 +519,16 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             _pendingPosition = resolved;
             pipeline = _pipeline;
         }
-        if (pipeline is not null) SeekPipeline(pipeline, resolved);
+        if (pipeline is null) return;
+        try
+        {
+            SeekPipeline(pipeline, resolved);
+        }
+        catch (TimeoutException exception)
+        {
+            DiagnosticLog.Warning("decoder-watchdog", $"Przewijanie zatrzymane: {exception.Message}");
+            StopUnresponsivePipeline(pipeline, exception.Message);
+        }
     }
 
     public void SetVolume(int volume)
@@ -471,6 +565,51 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             resolved = pipeline.TempoStream.TotalTime;
         }
         pipeline.TempoStream.CurrentTime = resolved;
+    }
+
+    private async Task MonitorDecoderAsync(PlaybackPipeline pipeline)
+    {
+        while (true)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
+            lock (_gate)
+            {
+                if (_disposed || !ReferenceEquals(_pipeline, pipeline)) return;
+            }
+            if (!pipeline.DecoderGuard.IsReadStalled(DecoderStallTimeout)
+                && !pipeline.OutputReadMonitor.IsReadStalled(DecoderStallTimeout)) continue;
+
+            StopUnresponsivePipeline(
+                pipeline,
+                $"Dekoder nie zwrócił danych przez {DecoderStallTimeout}.");
+            return;
+        }
+    }
+
+    private void StopUnresponsivePipeline(PlaybackPipeline pipeline, string diagnosticReason)
+    {
+        var detached = false;
+        lock (_gate)
+        {
+            if (!_disposed && ReferenceEquals(_pipeline, pipeline))
+            {
+                _pendingPosition = pipeline.DecoderGuard.CachedCurrentTime;
+                _quarantinedSources.Add(pipeline.DecoderGuard.SourcePath);
+                ++_requestVersion;
+                _pipeline = null;
+                pipeline.Output.PlaybackStopped -= pipeline.StoppedHandler;
+                detached = true;
+            }
+        }
+        if (!detached) return;
+
+        DiagnosticLog.Error(
+            "decoder-watchdog",
+            $"{diagnosticReason} Element: {pipeline.Item.Title}; źródło: {pipeline.DecoderGuard.SourcePath}.");
+        QueuePipelineDisposal(pipeline);
+        RaisePlaybackFailed(
+            pipeline.Item,
+            "Dekoder przestał odpowiadać. Odtwarzanie tego pliku zostało bezpiecznie zatrzymane.");
     }
 
     private static void ApplyRate(PlaybackPipeline pipeline, double playbackRate)

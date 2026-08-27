@@ -85,6 +85,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private string? _playerFocusContextPrefix;
     private DateTime _lastLocalStateSaveUtc;
     private long _lastSavedLocalPositionTicks = -1;
+    private long _quickInformationRequestVersion;
     private readonly System.Windows.Forms.StatusStrip _playbackStatusBar;
     private readonly System.Windows.Forms.ToolStripStatusLabel _playbackStatusLabel;
 
@@ -1347,23 +1348,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var isLocal = TryGetLocalPath(item.Source, out var localPath);
         var metadataChanged = false;
-        if (isLocal
-            && (item.Duration <= TimeSpan.Zero
-                || item.BitrateKbps is null
-                || item.SampleRateHz is null)
-            && WindowsMediaOutput.TryReadMetadata(localPath, out var duration, out var sampleRateHz))
-        {
-            if (item.Duration <= TimeSpan.Zero && duration > TimeSpan.Zero)
-            {
-                item.Duration = duration;
-                metadataChanged = true;
-            }
-            if (item.SampleRateHz is null && sampleRateHz > 0)
-            {
-                item.SampleRateHz = sampleRateHz;
-                metadataChanged = true;
-            }
-        }
 
         var details = new List<string>();
         if (isLocal)
@@ -1416,8 +1400,38 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : $"{item.Title}: {string.Join(", ", details)}";
     }
 
-    private void AnnounceQuickMediaInformation(MediaItem item)
+    private async void AnnounceQuickMediaInformation(MediaItem item)
     {
+        var requestVersion = Interlocked.Increment(ref _quickInformationRequestVersion);
+        if (TryGetLocalPath(item.Source, out var localPath)
+            && (item.Duration <= TimeSpan.Zero
+                || item.BitrateKbps is null
+                || item.SampleRateHz is null))
+        {
+            var metadata = await WindowsMediaOutput.TryReadMetadataAsync(
+                localPath,
+                TimeSpan.FromSeconds(5));
+            if (requestVersion != Interlocked.Read(ref _quickInformationRequestVersion)
+                || !string.Equals(ActionItem?.Id, item.Id, StringComparison.Ordinal))
+            {
+                return;
+            }
+            if (metadata.Success)
+            {
+                var changed = false;
+                if (item.Duration <= TimeSpan.Zero && metadata.Duration > TimeSpan.Zero)
+                {
+                    item.Duration = metadata.Duration;
+                    changed = true;
+                }
+                if (item.SampleRateHz is null && metadata.SampleRateHz > 0)
+                {
+                    item.SampleRateHz = metadata.SampleRateHz;
+                    changed = true;
+                }
+                if (changed) TrySaveLocalMediaState(false);
+            }
+        }
         Announce(BuildQuickMediaInformation(item));
     }
 

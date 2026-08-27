@@ -1,12 +1,54 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-107`
-- Tytuł zestawu: Zwięzły kontekst Pomocy klawiatury
-- Wersja programu: `0.1.0-alpha.107`
+- Numer zestawu: `AMC-TEST-108`
+- Tytuł zestawu: Ogólna ochrona dekoderów i responsywności
+- Wersja programu: `0.1.0-alpha.108`
 - Utworzono: 2026-08-27, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.107.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.108.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 108
+
+### AMC-108-01 — OGG Emaus i brak zawieszenia interfejsu
+
+Otwórz `Emaus - 2026-08-27 11-30.ogg`, pozostaw odtwarzanie przez co najmniej minutę, odczytuj pasek NVDA+End, przechodź Tabem po odtwarzaczu i użyj kilku skrótów czasu.
+
+Oczekiwane: czas wynosi około `5:06`; AMC i NVDA odpowiadają przez cały test. W logu nie powstaje nowe ostrzeżenie `ui-watchdog` ani `decoder-watchdog` dla prawidłowo odtwarzanego pliku.
+
+### AMC-108-02 — Różne formaty
+
+Otwórz kolejno dostępne pliki MP3, WAV, AAC lub M4A, FLAC, WMA, zwykły OGG i AIFF. Dla każdego sprawdź start, pasek, przewijanie, zmianę prędkości, pauzę i przejście Page Up/Page Down.
+
+Oczekiwane: format obsługiwany przez system zaczyna się bez blokowania okna, pozycja zmienia się prawidłowo i koniec nie tworzy pętli. Format bez zainstalowanego dekodera, w szczególności Opus na obecnej konfiguracji Windows, może zostać odrzucony krótkim błędem, ale AMC i NVDA nadal działają.
+
+### AMC-108-03 — Lewa strzałka i brakujące dane
+
+Na świeżo dodanym lokalnym pliku, którego AMC jeszcze nie odtwarzało, naciśnij lewą strzałkę. Podczas odczytu danych przechodź po innych programach i wróć do AMC.
+
+Oczekiwane: okno nie zawiesza się. Informacja pojawia się po zakończeniu odczytu albo po pięciosekundowym limicie korzysta z już zapisanych danych. Jeżeli przed zakończeniem przejdziesz na inny element, spóźniony komunikat starego pliku nie jest wypowiadany.
+
+### AMC-108-04 — Plik chmurowy
+
+Wybierz niepobrany plik iCloud, OneDrive albo Dysku Google. Najpierw naciśnij lewą strzałkę, a następnie świadomie rozpocznij odtwarzanie.
+
+Oczekiwane: lewa strzałka nie pobiera placeholdera i nie blokuje interfejsu. Dopiero odtwarzanie może rozpocząć pobieranie. Podczas oczekiwania AMC pozostaje dostępne; po niepowodzeniu podaje błąd chmury zamiast nieskończonego oczekiwania.
+
+### AMC-108-05 — Logi watchdogów
+
+Po zwykłym użyciu sprawdź plik `%LocalAppData%\AccessibleMediaController\logs\amc.log` albo przekaż go do analizy po zauważonym problemie.
+
+Oczekiwane: zwykłe odtwarzanie nie tworzy ostrzeżeń. `ui-watchdog` oznacza brak odpowiedzi całego okna przez osiem sekund, `metadata-watchdog` przekroczenie limitu odczytu informacji, a `decoder-watchdog` zatrzymany odczyt konkretnego pliku. Żaden z tych mechanizmów nie usuwa ani nie modyfikuje materiału.
+
+## Krótka regresja alpha 108
+
+- pasek stanu, czas bieżący, pozostały i całkowity są nadal prawidłowe;
+- przewijanie, zakładki i wznowienie zachowują rzeczywistą pozycję;
+- regulacja prędkości 0,50–2,00 razy nie zmienia wysokości dźwięku;
+- `Alt+F4`, Escape oraz F6 zachowują ustalone działanie;
+- Pomoc `F1` i `Ctrl+F1` nadal używa zwięzłego kontekstu sesji.
+
+## Poprzedni zestaw alpha 107
 
 ## Nowości alpha 107
 
