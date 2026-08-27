@@ -182,6 +182,7 @@ static void TestCommandCatalog()
     Equal("Przełącz automatyczne komunikaty odtwarzacza", CommandCatalog.GetDisplayName(CommandIds.SettingsToggleSeekMessages));
     Equal("Otwórz lokalne pliki audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
     Equal("Otwórz folder z plikami audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
+    Equal("Importuj stacje radiowe z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportRadioPlaylist));
     Equal("Biblioteka lokalna: pokaż foldery", CommandCatalog.GetDisplayName(CommandIds.ViewFolders));
     Equal("Biblioteka lokalna: pokaż wszystkie pliki", CommandCatalog.GetDisplayName(CommandIds.ViewAllLocalFiles));
     Equal("Biblioteka lokalna: pokaż kolejność własną", CommandCatalog.GetDisplayName(CommandIds.ViewCustomLocalOrder));
@@ -3186,6 +3187,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ToggleSeekMessages() => SeekMessagesToggled = true;
     public void OpenLocalFiles() { }
     public void OpenLocalFolder() { }
+    public void ImportRadioPlaylist() { }
     public void RefreshLocalLibrary() => LocalLibraryRefreshed = true;
     public void ShowLocalSourceManager() => LocalSourceManagerShown = true;
     public void RenameLibraryItem() => LibraryItemRenameShown = true;

@@ -197,6 +197,7 @@ public static class CommandPaletteSearch
             CommandIds.KeyboardHelp => "Ctrl+F1",
             CommandIds.OpenLocalFiles => "Ctrl+O",
             CommandIds.OpenLocalFolder => "Ctrl+Shift+O",
+            CommandIds.ImportRadioPlaylist => "Ctrl+O (Radio internetowe)",
             CommandIds.AddRadioStation => "Insert (Biblioteka radia)",
             CommandIds.ToggleRadioRecording => "Ctrl+Alt+R (odtwarzacz radia)",
             CommandIds.RadioJumpLive => "End (odtwarzacz radia)",

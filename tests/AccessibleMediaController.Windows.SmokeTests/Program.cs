@@ -51,8 +51,11 @@ try
     TestManagedMp3Fallback();
     TestWaveMetadataAndDamagedContainers();
     TestRadioBrowserSearchMapping();
+    TestRadioPlaylistImport();
+    TestLegacyRadioContentTypes();
     TestRadioMp3Recording();
     TestLegacyIcyMp3Stream();
+    TestLegacyIcyCancellation();
     foreach (var mediaPath in args)
     {
         if (mediaPath.StartsWith("--radio-url=", StringComparison.OrdinalIgnoreCase))
@@ -247,6 +250,67 @@ static void TestRadioBrowserSearchMapping()
     Console.WriteLine("OK: wyszukiwanie i mapowanie katalogu Radio Browser");
 }
 
+static void TestRadioPlaylistImport()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-radio-import-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var m3u = Path.Combine(directory, "stacje.m3u");
+        File.WriteAllText(m3u, "#EXTM3U\n#EXTINF:-1,Radio Pierwsze\nhttps://radio.example/one.mp3\n#EXTINF:-1,Radio Drugie\nhttp://radio.example/two.aac\n");
+        var m3uResult = RadioPlaylistImporter.Import(m3u);
+        Assert(m3uResult.Stations.Count == 2, "Nie zaimportowano obu wpisów M3U.");
+        Assert(m3uResult.Stations[0].Name == "Radio Pierwsze", "Nie zachowano nazwy stacji M3U.");
+
+        var pls = Path.Combine(directory, "stacje.pls");
+        File.WriteAllText(pls, "[playlist]\nFile1=https://radio.example/live\nTitle1=Radio PLS\nNumberOfEntries=1\n");
+        var plsResult = RadioPlaylistImporter.Import(pls);
+        Assert(plsResult.Stations.Single().Name == "Radio PLS", "Nie zaimportowano nazwy PLS.");
+
+        var xspf = Path.Combine(directory, "stacje.xspf");
+        File.WriteAllText(xspf, "<playlist xmlns=\"http://xspf.org/ns/0/\"><trackList><track><title>Radio XSPF</title><location>https://radio.example/xspf</location></track></trackList></playlist>");
+        var xspfResult = RadioPlaylistImporter.Import(xspf);
+        Assert(xspfResult.Stations.Single().Name == "Radio XSPF", "Nie zaimportowano wpisu XSPF.");
+
+        var hls = Path.Combine(directory, "transmisja.m3u8");
+        File.WriteAllText(hls, "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-MEDIA-SEQUENCE:1\nsegment1.aac\n");
+        try
+        {
+            _ = RadioPlaylistImporter.Import(hls);
+            throw new InvalidOperationException("Manifest HLS został błędnie zaimportowany jako lista stacji.");
+        }
+        catch (InvalidDataException)
+        {
+        }
+
+        var json = Path.Combine(directory, "vradio.json");
+        File.WriteAllText(json, """
+            {"stations":[
+              {"name":"Radio VRadio","streams":[{"url":"https://radio.example/vradio"}]},
+              {"name":"Nieprawidłowy wpis","streams":[{"url":"tekst z prywatnymi danymi zamiast adresu"}]},
+              {"name":"Duplikat","streams":[{"url":"https://radio.example/vradio"}]}
+            ]}
+            """);
+        var jsonResult = RadioPlaylistImporter.Import(json);
+        Assert(jsonResult.Stations.Count == 1, "Importer VRadio nie usunął nieprawidłowego wpisu lub duplikatu.");
+        Assert(jsonResult.SkippedEntries == 2, "Importer VRadio podał złą liczbę pominiętych wpisów.");
+        Console.WriteLine("OK: bezpieczny import M3U, PLS, XSPF i VRadio JSON");
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
+static void TestLegacyRadioContentTypes()
+{
+    Assert(LegacyIcyMp3StreamReader.IsSupportedMp3ContentType("audio/mpeg"), "Odrzucono MIME MP3.");
+    Assert(LegacyIcyMp3StreamReader.IsSupportedMp3ContentType("audio/mp3; charset=binary"), "Odrzucono MIME audio/mp3.");
+    Assert(!LegacyIcyMp3StreamReader.IsSupportedMp3ContentType("audio/aacp"), "Awaryjny dekoder MP3 zaakceptował AAC+.");
+    Assert(!LegacyIcyMp3StreamReader.IsSupportedMp3ContentType("audio/ogg"), "Awaryjny dekoder MP3 zaakceptował OGG.");
+    Console.WriteLine("OK: awaryjny dekoder ICY nie myli AAC i OGG z MP3");
+}
+
 static void TestRadioMp3Recording()
 {
     var directory = Path.Combine(
@@ -381,6 +445,48 @@ static void TestLegacyIcyMp3Stream()
     {
         releaseServer.TrySetResult();
         listener.Stop();
+    }
+}
+
+static void TestLegacyIcyCancellation()
+{
+    var listener = new TcpListener(IPAddress.Loopback, 0);
+    listener.Start();
+    var endpoint = (IPEndPoint)listener.LocalEndpoint;
+    var server = Task.Run(async () =>
+    {
+        try
+        {
+            using var connection = await listener.AcceptTcpClientAsync();
+            await Task.Delay(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception exception) when (exception is ObjectDisposedException or SocketException)
+        {
+        }
+    });
+    try
+    {
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            using var _ = LegacyIcyMp3StreamReader.OpenAsync(
+                    $"http://127.0.0.1:{endpoint.Port}/stream",
+                    cancellation.Token)
+                .GetAwaiter()
+                .GetResult();
+            throw new InvalidOperationException("Nie anulowano oczekiwania na odpowiedź radia.");
+        }
+        catch (OperationCanceledException)
+        {
+            Assert(stopwatch.Elapsed < TimeSpan.FromSeconds(2), "Anulowanie starego połączenia radia trwało zbyt długo.");
+        }
+        Console.WriteLine("OK: szybkie przełączanie anuluje oczekiwanie na starszy strumień");
+    }
+    finally
+    {
+        listener.Stop();
+        _ = server.ContinueWith(_ => { }, TaskScheduler.Default);
     }
 }
 

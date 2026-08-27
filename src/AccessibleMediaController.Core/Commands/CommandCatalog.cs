@@ -90,6 +90,7 @@ public static class CommandCatalog
             CommandIds.ViewRadio => "Pokaż radio internetowe",
             CommandIds.StartRadio => "Uruchom radio na podstawie elementu",
             CommandIds.AddRadioStation => "Dodaj stację radiową",
+            CommandIds.ImportRadioPlaylist => "Importuj stacje radiowe z playlisty",
             CommandIds.ToggleRadioRecording => "Rozpocznij lub zakończ nagrywanie radia",
             CommandIds.RadioJumpLive => "Radio: wróć na żywo",
             CommandIds.ViewMixes => "Pokaż miksy",

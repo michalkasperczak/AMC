@@ -1780,6 +1780,111 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreMediaListFocusAfterRefresh();
     }
 
+    public async void ImportRadioPlaylist()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Importuj stacje radiowe z playlisty",
+            Filter = "Playlisty radia (*.m3u;*.m3u8;*.pls;*.xspf;*.json)|*.m3u;*.m3u8;*.pls;*.xspf;*.json|Wszystkie pliki (*.*)|*.*",
+            Multiselect = false,
+            CheckFileExists = true
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        RadioPlaylistImportResult import;
+        try
+        {
+            import = await Task.Run(() => RadioPlaylistImporter.Import(dialog.FileName));
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or InvalidDataException
+            or System.Text.Json.JsonException
+            or System.Xml.XmlException)
+        {
+            DiagnosticLog.Warning(
+                "radio-import",
+                $"Nie udało się zaimportować playlisty; błąd {exception.GetType().Name}.");
+            AnnounceEssential($"Nie można zaimportować playlisty: {exception.Message}");
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        var existingUrls = _radioItems
+            .Where(item => !string.IsNullOrWhiteSpace(item.Source))
+            .Select(item => item.Source!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var added = new List<MediaItem>();
+        var skipped = import.SkippedEntries;
+        foreach (var station in import.Stations)
+        {
+            if (!existingUrls.Add(station.StreamUrl))
+            {
+                skipped++;
+                continue;
+            }
+            added.Add(new MediaItem
+            {
+                Id = $"radio:imported:{Guid.NewGuid():N}",
+                Title = station.Name,
+                HasCustomTitle = true,
+                Kind = MediaItemKind.Station,
+                Source = station.StreamUrl,
+                PublicUri = station.StreamUrl,
+                IsInLibrary = true,
+                IsAvailable = true
+            });
+        }
+
+        if (added.Count == 0)
+        {
+            DiagnosticLog.Info("radio-import", $"Import zakończony bez nowych stacji; pominięto {skipped} pozycji.");
+            AnnounceEssential(skipped > 0
+                ? "Playlista nie zawiera nowych prawidłowych stacji"
+                : "Playlista nie zawiera stacji radiowych");
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        _radioItems.AddRange(added);
+        _sessions.FindSession("radio")?.AddItems(added);
+        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            CaptureCurrentSessionNavigationState();
+            HidePlayerForBrowserNavigation();
+            _sessions.SelectSession("radio");
+        }
+        _currentView = "Biblioteka";
+        var navigation = GetSessionNavigationState("radio");
+        navigation.CurrentView = _currentView;
+        navigation.PlayerActive = false;
+        RefreshCurrentView(preferredItemId: added[0].Id);
+        CaptureRadioState();
+        _store.Save(_state);
+        RestoreMediaListFocusAfterRefresh();
+        DiagnosticLog.Info("radio-import", $"Zaimportowano {added.Count} stacji; pominięto {skipped} pozycji.");
+        var message = $"Zaimportowano stacje: {added.Count}";
+        if (skipped > 0) message += $". Pominięto: {skipped}";
+        _ = Dispatcher.BeginInvoke(() => AnnounceEssential(message), DispatcherPriority.ContextIdle);
+    }
+
+    private void UpdateFileMenuForCurrentSession()
+    {
+        var local = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
+        var radio = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
+        OpenLocalFilesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        OpenLocalFolderMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        ManageLocalSourcesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        ImportRadioPlaylistMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        AddRadioStationMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        FileActionsSeparator.Visibility = local || radio ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     private void ShowLocalFolderWhileLoading(LocalFolderSourceSettings folderSource)
     {
         CaptureCurrentSessionNavigationState();
@@ -3458,6 +3563,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         ClearFocusContext();
         preferredItemId ??= SelectedItem?.Id;
+        UpdateFileMenuForCurrentSession();
         SessionHeading.Text = string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal)
             ? "Wszystkie sesje"
             : _sessions.Current.DisplayName;
@@ -6015,14 +6121,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.O)
         {
-            OpenLocalFolder();
+            if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)) OpenLocalFolder();
+            else Announce("Otwieranie folderu z plikami audio jest dostępne w sesji Pliki lokalne");
             e.Handled = true;
             return;
         }
 
         if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.O)
         {
-            OpenLocalFiles();
+            if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)) ImportRadioPlaylist();
+            else if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)) OpenLocalFiles();
+            else Announce("To polecenie nie jest dostępne w bieżącej sesji");
             e.Handled = true;
             return;
         }
@@ -6242,6 +6351,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return true;
         }
 
+        if (modifiers == ModifierKeys.Control && key == Key.O)
+        {
+            commandId = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                ? CommandIds.ImportRadioPlaylist
+                : CommandIds.OpenLocalFiles;
+            return true;
+        }
+        if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key == Key.O
+            && !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            commandId = string.Empty;
+            return false;
+        }
+
         if (_playerViewActive && PlayerPanel.IsKeyboardFocusWithin)
         {
             if (modifiers == ModifierKeys.None && TryGetDigitKey(key, out var digit))
@@ -6336,7 +6459,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control | ModifierKeys.Shift, Key.R) => CommandIds.TimeRemaining,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.T) => CommandIds.TimeTotal,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.O) => CommandIds.OpenLocalFolder,
-            (ModifierKeys.Control, Key.O) => CommandIds.OpenLocalFiles,
             (ModifierKeys.Control, Key.OemComma) => CommandIds.SettingsGeneral,
             (ModifierKeys.Control, Key.F5) => CommandIds.ManageLocalSources,
             (ModifierKeys.Alt, Key.D1) => CommandIds.ViewFolders,
@@ -7132,6 +7254,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Settings_Click(object sender, RoutedEventArgs e) => OpenSettings();
     private void OpenLocalFiles_Click(object sender, RoutedEventArgs e) => OpenLocalFiles();
     private void OpenLocalFolder_Click(object sender, RoutedEventArgs e) => OpenLocalFolder();
+    private void ImportRadioPlaylist_Click(object sender, RoutedEventArgs e) => ImportRadioPlaylist();
     private void AddRadioStation_Click(object sender, RoutedEventArgs e) => AddRadioStation();
     private void RadioRecording_Click(object sender, RoutedEventArgs e) => ToggleRadioRecording();
     private void Sessions_Click(object sender, RoutedEventArgs e) => ShowSessionList();

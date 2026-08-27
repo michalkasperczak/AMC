@@ -24,6 +24,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
     private readonly object _gate = new();
     private readonly int _timeshiftMinutes = Math.Clamp(timeshiftMinutes, 1, 60);
     private RadioPipeline? _pipeline;
+    private CancellationTokenSource? _preparationCancellation;
     private MediaItem? _requestedItem;
     private int _volume = 35;
     private long _requestVersion;
@@ -115,28 +116,40 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         }
 
         RadioPipeline? previous;
+        CancellationTokenSource? previousPreparation;
+        CancellationTokenSource preparationCancellation;
         long requestVersion;
         lock (_gate)
         {
             previous = DetachPipelineLocked();
+            previousPreparation = _preparationCancellation;
+            preparationCancellation = new CancellationTokenSource();
+            _preparationCancellation = preparationCancellation;
             _preparing = true;
             requestVersion = ++_requestVersion;
         }
+        CancelPreparation(previousPreparation);
         if (previous is not null) QueueDisposal(previous);
         DiagnosticLog.Info("radio", $"Łączenie ze stacją: {item.Title}.");
         PlaybackPreparing?.Invoke(this, new MediaPlaybackPreparingEventArgs(item, false));
-        _ = Task.Run(() => PrepareAndStartAsync(item, requestVersion));
-        _ = WatchPreparationTimeoutAsync(item, requestVersion);
+        _ = Task.Run(() => PrepareAndStartAsync(item, requestVersion, preparationCancellation));
+        _ = WatchPreparationTimeoutAsync(item, requestVersion, preparationCancellation);
     }
 
-    private async Task PrepareAndStartAsync(MediaItem item, long requestVersion)
+    private async Task PrepareAndStartAsync(
+        MediaItem item,
+        long requestVersion,
+        CancellationTokenSource preparationCancellation)
     {
         RadioPipeline? pipeline = null;
         try
         {
-            var resolvedSource = await RadioStreamResolver.ResolveAsync(item.Source!, CancellationToken.None)
+            var cancellationToken = preparationCancellation.Token;
+            var resolvedSource = await RadioStreamResolver.ResolveAsync(item.Source!, cancellationToken)
                 .ConfigureAwait(false);
-            var openedReader = await OpenReaderAsync(resolvedSource).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            var openedReader = await OpenReaderAsync(resolvedSource, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             var reader = openedReader.Reader;
             var buffer = new RadioTimeshiftWaveProvider(
                 reader.WaveFormat,
@@ -161,13 +174,19 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
 
             lock (_gate)
             {
-                if (_disposed || requestVersion != _requestVersion)
+                if (_disposed
+                    || requestVersion != _requestVersion
+                    || preparationCancellation.IsCancellationRequested)
                 {
                     QueueDisposal(pipeline);
                     return;
                 }
                 _pipeline = pipeline;
                 _preparing = false;
+                if (ReferenceEquals(_preparationCancellation, preparationCancellation))
+                {
+                    _preparationCancellation = null;
+                }
             }
             output.Play();
             pipeline.CaptureTask = Task.Run(() => CaptureLoopAsync(pipeline), cancellation.Token);
@@ -177,6 +196,22 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             RaiseOnCapturedContext(() => PlaybackStarted?.Invoke(
                 this,
                 new MediaPlaybackStartedEventArgs(item)));
+        }
+        catch (OperationCanceledException)
+        {
+            if (pipeline is not null) QueueDisposal(pipeline);
+            lock (_gate)
+            {
+                if (!_disposed && requestVersion == _requestVersion)
+                {
+                    _preparing = false;
+                }
+                if (ReferenceEquals(_preparationCancellation, preparationCancellation))
+                {
+                    _preparationCancellation = null;
+                }
+            }
+            DiagnosticLog.Info("radio", $"Anulowano nieaktualne łączenie ze stacją: {item.Title}.");
         }
         catch (Exception exception) when (exception is IOException
             or HttpRequestException
@@ -197,20 +232,35 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                     _preparing = false;
                     current = true;
                 }
+                if (ReferenceEquals(_preparationCancellation, preparationCancellation))
+                {
+                    _preparationCancellation = null;
+                }
             }
             DiagnosticLog.Warning("radio", $"Nie udało się otworzyć stacji {item.Title}; błąd {exception.GetType().Name}.");
             if (current) RaisePlaybackFailed(
                 item,
                 "Nie udało się odtworzyć tej stacji. Sprawdź adres strumienia lub spróbuj ponownie później.");
         }
-        await Task.CompletedTask.ConfigureAwait(false);
+        finally
+        {
+            preparationCancellation.Dispose();
+        }
     }
 
-    private static async Task<OpenedRadioReader> OpenReaderAsync(string source)
+    private static async Task<OpenedRadioReader> OpenReaderAsync(
+        string source,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
             var mediaFoundation = new MediaFoundationReader(source);
+            if (cancellationToken.IsCancellationRequested)
+            {
+                mediaFoundation.Dispose();
+                cancellationToken.ThrowIfCancellationRequested();
+            }
             return new OpenedRadioReader(mediaFoundation, mediaFoundation, "systemowy");
         }
         catch (Exception exception) when (exception is IOException
@@ -222,7 +272,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             DiagnosticLog.Info(
                 "radio",
                 $"Dekoder systemowy odrzucił strumień; próba zgodności ze starszym radiem MP3 ({exception.GetType().Name}).");
-            var legacy = await LegacyIcyMp3StreamReader.OpenAsync(source, CancellationToken.None)
+            var legacy = await LegacyIcyMp3StreamReader.OpenAsync(source, cancellationToken)
                 .ConfigureAwait(false);
             return new OpenedRadioReader(legacy, legacy, "zgodności ICY MP3");
         }
@@ -275,7 +325,10 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         await Task.CompletedTask.ConfigureAwait(false);
     }
 
-    private async Task WatchPreparationTimeoutAsync(MediaItem item, long requestVersion)
+    private async Task WatchPreparationTimeoutAsync(
+        MediaItem item,
+        long requestVersion,
+        CancellationTokenSource preparationCancellation)
     {
         await Task.Delay(PreparationTimeout).ConfigureAwait(false);
         var timedOut = false;
@@ -285,10 +338,15 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             {
                 ++_requestVersion;
                 _preparing = false;
+                if (ReferenceEquals(_preparationCancellation, preparationCancellation))
+                {
+                    _preparationCancellation = null;
+                }
                 timedOut = true;
             }
         }
         if (!timedOut) return;
+        CancelPreparation(preparationCancellation);
         DiagnosticLog.Warning("radio", $"Przekroczono czas łączenia: {item.Title}.");
         RaisePlaybackFailed(item, "Stacja nie odpowiedziała w bezpiecznym czasie.");
     }
@@ -301,12 +359,16 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
     public void Stop()
     {
         RadioPipeline? pipeline;
+        CancellationTokenSource? preparationCancellation;
         lock (_gate)
         {
             ++_requestVersion;
             _preparing = false;
+            preparationCancellation = _preparationCancellation;
+            _preparationCancellation = null;
             pipeline = DetachPipelineLocked();
         }
+        CancelPreparation(preparationCancellation);
         if (pipeline is not null) QueueDisposal(pipeline);
     }
 
@@ -404,6 +466,13 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
     private static void QueueDisposal(RadioPipeline pipeline) =>
         _ = Task.Run(() => pipeline.Dispose());
 
+    private static void CancelPreparation(CancellationTokenSource? cancellation)
+    {
+        if (cancellation is null) return;
+        try { cancellation.Cancel(); }
+        catch (ObjectDisposedException) { }
+    }
+
     private void RaisePlaybackFailed(MediaItem item, string message) =>
         RaiseOnCapturedContext(() => PlaybackFailed?.Invoke(this, new MediaOutputFailedEventArgs(item, message)));
 
@@ -429,14 +498,18 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
     public void Dispose()
     {
         RadioPipeline? pipeline;
+        CancellationTokenSource? preparationCancellation;
         lock (_gate)
         {
             if (_disposed) return;
             _disposed = true;
             ++_requestVersion;
             _preparing = false;
+            preparationCancellation = _preparationCancellation;
+            _preparationCancellation = null;
             pipeline = DetachPipelineLocked();
         }
+        CancelPreparation(preparationCancellation);
         pipeline?.Dispose();
     }
 

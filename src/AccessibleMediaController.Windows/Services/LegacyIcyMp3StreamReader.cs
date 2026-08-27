@@ -106,7 +106,7 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
 
             var headerText = await ReadHeadersAsync(buffered, timeout.Token).ConfigureAwait(false);
             var lines = headerText.Split("\r\n", StringSplitOptions.None);
-            if (lines.Length == 0 || !TryReadSuccessfulStatus(lines[0], out var legacyIcy))
+            if (lines.Length == 0 || !TryReadSuccessfulStatus(lines[0], out _))
             {
                 throw new InvalidDataException("Serwer nie zwrócił prawidłowego strumienia audio.");
             }
@@ -117,11 +117,8 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
             {
                 throw new NotSupportedException("Starszy strumień używa nieobsługiwanego kodowania fragmentowego.");
             }
-            if (!legacyIcy
-                && headers.TryGetValue("content-type", out var contentType)
-                && !contentType.Contains("mpeg", StringComparison.OrdinalIgnoreCase)
-                && !contentType.Contains("mp3", StringComparison.OrdinalIgnoreCase)
-                && !contentType.Contains("octet-stream", StringComparison.OrdinalIgnoreCase))
+            if (headers.TryGetValue("content-type", out var contentType)
+                && !IsSupportedMp3ContentType(contentType))
             {
                 throw new InvalidDataException("Awaryjny dekoder otrzymał strumień inny niż MP3.");
             }
@@ -145,6 +142,16 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
             client.Dispose();
             throw;
         }
+    }
+
+    internal static bool IsSupportedMp3ContentType(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType)) return true;
+        var mediaType = contentType.Split(';', 2)[0].Trim();
+        return mediaType.Contains("mpeg", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("mp3", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Equals("binary/octet-stream", StringComparison.OrdinalIgnoreCase);
     }
 
     public int Read(byte[] buffer, int offset, int count)

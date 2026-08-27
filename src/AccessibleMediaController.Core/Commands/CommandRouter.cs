@@ -30,6 +30,7 @@ public interface IApplicationActions
     void ToggleSeekMessages();
     void OpenLocalFiles();
     void OpenLocalFolder();
+    void ImportRadioPlaylist();
     void RefreshLocalLibrary();
     void ShowLocalSourceManager();
     void RenameLibraryItem();
@@ -105,6 +106,9 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.OpenLocalFolder:
                 application.OpenLocalFolder();
+                return new(true);
+            case CommandIds.ImportRadioPlaylist:
+                application.ImportRadioPlaylist();
                 return new(true);
             case CommandIds.RefreshLocalLibrary:
                 application.RefreshLocalLibrary();

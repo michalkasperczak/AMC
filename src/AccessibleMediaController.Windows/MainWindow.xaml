@@ -22,23 +22,29 @@
         <Menu x:Name="MainMenu" DockPanel.Dock="Top" Margin="0,0,0,8"
               KeyboardNavigation.IsTabStop="False"
               KeyboardNavigation.TabNavigation="None">
-            <MenuItem Header="_Plik">
-                <MenuItem Header="_Otwórz pliki audio…" InputGestureText="Ctrl+O"
+            <MenuItem x:Name="FileMenuItem" Header="_Plik">
+                <MenuItem x:Name="OpenLocalFilesMenuItem" Header="_Otwórz pliki audio…" InputGestureText="Ctrl+O"
                           automation:AutomationProperties.Name="Otwórz pliki audio, Ctrl+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+O"
                           Click="OpenLocalFiles_Click" />
-                <MenuItem Header="Otwórz _folder z plikami audio…" InputGestureText="Ctrl+Shift+O"
+                <MenuItem x:Name="OpenLocalFolderMenuItem" Header="Otwórz _folder z plikami audio…" InputGestureText="Ctrl+Shift+O"
                           automation:AutomationProperties.Name="Otwórz folder z plikami audio, Ctrl+Shift+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+O"
                           Click="OpenLocalFolder_Click" />
-                <MenuItem Header="_Foldery Biblioteki…" InputGestureText="Ctrl+F5"
+                <MenuItem x:Name="ManageLocalSourcesMenuItem" Header="_Foldery Biblioteki…" InputGestureText="Ctrl+F5"
                           automation:AutomationProperties.Name="Foldery Biblioteki, Ctrl+F5"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
                           Click="ManageLocalSources_Click" />
-                <MenuItem Header="Dodaj _stację radiową…" InputGestureText="Insert"
+                <MenuItem x:Name="ImportRadioPlaylistMenuItem" Header="_Importuj stacje z playlisty…" InputGestureText="Ctrl+O"
+                          automation:AutomationProperties.Name="Importuj stacje radiowe z playlisty, Ctrl+O"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+O"
+                          Visibility="Collapsed"
+                          Click="ImportRadioPlaylist_Click" />
+                <MenuItem x:Name="AddRadioStationMenuItem" Header="Dodaj _stację radiową…" InputGestureText="Insert"
                           automation:AutomationProperties.Name="Dodaj stację radiową do Biblioteki, Insert w Bibliotece radia"
+                          Visibility="Collapsed"
                           Click="AddRadioStation_Click" />
-                <Separator />
+                <Separator x:Name="FileActionsSeparator" />
                 <MenuItem Header="_Ustawienia…" InputGestureText="Ctrl+," Click="Settings_Click" />
                 <Separator />
                 <MenuItem Header="_Zakończ" InputGestureText="Alt+F4" Click="Exit_Click" />
