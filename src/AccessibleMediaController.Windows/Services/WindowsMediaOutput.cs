@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
@@ -64,6 +65,13 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         public required SoundTouchWaveStream TempoStream { get; init; }
         public required VolumeSampleProvider VolumeProvider { get; init; }
         public required EventHandler<StoppedEventArgs> StoppedHandler { get; init; }
+        public long SeekStartedTimestamp;
+        public int SeekInProgress;
+    }
+
+    private sealed class SeekWorkerState(PlaybackPipeline pipeline)
+    {
+        public PlaybackPipeline Pipeline { get; } = pipeline;
     }
 
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
@@ -74,12 +82,16 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Task<MediaMetadataReadResult>>
         MetadataReadTasks = new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan DecoderStallTimeout = TimeSpan.FromSeconds(8);
+    private static readonly TimeSpan SeekStallTimeout = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan SlowSeekLogThreshold = TimeSpan.FromSeconds(1);
     private PlaybackPipeline? _pipeline;
+    private SeekWorkerState? _seekWorker;
     private MediaItem? _requestedItem;
     private TimeSpan _pendingPosition;
     private double _playbackRate = 1d;
     private int _volume = 35;
     private long _requestVersion;
+    private long _seekRequestVersion;
     private bool _preparing;
     private bool _disposed;
 
@@ -117,6 +129,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             {
                 pipeline = _pipeline;
                 pending = _pendingPosition;
+                if (pipeline is not null && ReferenceEquals(_seekWorker?.Pipeline, pipeline))
+                {
+                    return pending;
+                }
             }
             if (pipeline is null) return pending;
             try
@@ -194,7 +210,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         }
         if (previous is not null) QueuePipelineDisposal(previous);
 
-        var requiresHydration = CloudFileAvailability.RequiresHydration(item.Source);
+        var requiresHydration = CloudFileAvailability.MayRequireRemoteAccess(item.Source);
         DiagnosticLog.Info(
             "playback",
             $"Żądanie otwarcia: {item.Title}; chmura: {requiresHydration}; źródło: {item.Source}.");
@@ -405,7 +421,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         sampleRateHz = 0;
         // Quick information must never trigger a cloud download. Metadata for
         // a placeholder is populated after the user explicitly plays it.
-        if (CloudFileAvailability.GetState(path) != CloudFileState.Local) return false;
+        if (CloudFileAvailability.MayRequireRemoteAccess(path)) return false;
         try
         {
             using var reader = CreateReader(path);
@@ -514,20 +530,121 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         var resolved = position < TimeSpan.Zero ? TimeSpan.Zero : position;
         PlaybackPipeline? pipeline;
+        SeekWorkerState? worker = null;
         lock (_gate)
         {
             _pendingPosition = resolved;
+            ++_seekRequestVersion;
             pipeline = _pipeline;
+            if (pipeline is not null && !ReferenceEquals(_seekWorker?.Pipeline, pipeline))
+            {
+                worker = new SeekWorkerState(pipeline);
+                _seekWorker = worker;
+                Interlocked.Exchange(ref pipeline.SeekStartedTimestamp, Stopwatch.GetTimestamp());
+                Volatile.Write(ref pipeline.SeekInProgress, 1);
+            }
         }
-        if (pipeline is null) return;
+        if (worker is null) return;
+        _ = Task.Run(() => ProcessSeekRequestsAsync(worker));
+    }
+
+    private async Task ProcessSeekRequestsAsync(SeekWorkerState worker)
+    {
+        var pipeline = worker.Pipeline;
+        var stopwatch = Stopwatch.StartNew();
+        var completedTarget = TimeSpan.Zero;
         try
         {
-            SeekPipeline(pipeline, resolved);
+            while (true)
+            {
+                TimeSpan target;
+                long requestVersion;
+                lock (_gate)
+                {
+                    if (_disposed
+                        || !ReferenceEquals(_pipeline, pipeline)
+                        || !ReferenceEquals(_seekWorker, worker))
+                    {
+                        return;
+                    }
+                    target = _pendingPosition;
+                    requestVersion = _seekRequestVersion;
+                }
+
+                try
+                {
+                    SeekPipeline(pipeline, target);
+                }
+                catch (TimeoutException)
+                {
+                    if (stopwatch.Elapsed >= SeekStallTimeout)
+                    {
+                        StopUnresponsivePipeline(
+                            pipeline,
+                            $"Przewijanie nie zakończyło się przez {SeekStallTimeout}.");
+                        return;
+                    }
+                    await Task.Delay(TimeSpan.FromMilliseconds(75)).ConfigureAwait(false);
+                    continue;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return;
+                }
+                catch (Exception exception) when (
+                    exception is IOException
+                        or UnauthorizedAccessException
+                        or InvalidDataException
+                        or NotSupportedException
+                        or ArgumentException
+                        or System.Runtime.InteropServices.COMException)
+                {
+                    DiagnosticLog.Error(
+                        "playback",
+                        $"Przewijanie nie powiodło się: {pipeline.Item.Title}; cel {target}.",
+                        exception);
+                    StopPipelineAfterSeekFailure(pipeline, FriendlyPlaybackError(exception));
+                    return;
+                }
+
+                lock (_gate)
+                {
+                    if (_disposed || !ReferenceEquals(_pipeline, pipeline)) return;
+                    if (requestVersion == _seekRequestVersion)
+                    {
+                        completedTarget = target;
+                        if (ReferenceEquals(_seekWorker, worker))
+                        {
+                            _seekWorker = null;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (stopwatch.Elapsed >= SlowSeekLogThreshold)
+            {
+                DiagnosticLog.Info(
+                    "playback",
+                    $"Przewinięto po doczytaniu: {pipeline.Item.Title}; cel {completedTarget}; czas {stopwatch.Elapsed}.");
+            }
         }
-        catch (TimeoutException exception)
+        finally
         {
-            DiagnosticLog.Warning("decoder-watchdog", $"Przewijanie zatrzymane: {exception.Message}");
-            StopUnresponsivePipeline(pipeline, exception.Message);
+            var newerWorkerUsesPipeline = false;
+            lock (_gate)
+            {
+                if (ReferenceEquals(_seekWorker, worker))
+                {
+                    _seekWorker = null;
+                }
+                newerWorkerUsesPipeline = ReferenceEquals(_seekWorker?.Pipeline, pipeline);
+            }
+            if (!newerWorkerUsesPipeline)
+            {
+                Volatile.Write(ref pipeline.SeekInProgress, 0);
+                Interlocked.Exchange(ref pipeline.SeekStartedTimestamp, 0);
+            }
         }
     }
 
@@ -576,6 +693,19 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             {
                 if (_disposed || !ReferenceEquals(_pipeline, pipeline)) return;
             }
+            if (Volatile.Read(ref pipeline.SeekInProgress) != 0)
+            {
+                var seekStarted = Interlocked.Read(ref pipeline.SeekStartedTimestamp);
+                if (seekStarted != 0
+                    && Stopwatch.GetElapsedTime(seekStarted) >= SeekStallTimeout)
+                {
+                    StopUnresponsivePipeline(
+                        pipeline,
+                        $"Przewijanie nie zakończyło się przez {SeekStallTimeout}.");
+                    return;
+                }
+                continue;
+            }
             if (!pipeline.DecoderGuard.IsReadStalled(DecoderStallTimeout)
                 && !pipeline.OutputReadMonitor.IsReadStalled(DecoderStallTimeout)) continue;
 
@@ -612,6 +742,27 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             "Dekoder przestał odpowiadać. Odtwarzanie tego pliku zostało bezpiecznie zatrzymane.");
     }
 
+    private void StopPipelineAfterSeekFailure(PlaybackPipeline pipeline, string userMessage)
+    {
+        var detached = false;
+        lock (_gate)
+        {
+            if (!_disposed && ReferenceEquals(_pipeline, pipeline))
+            {
+                _pendingPosition = pipeline.DecoderGuard.CachedCurrentTime;
+                ++_requestVersion;
+                _pipeline = null;
+                if (ReferenceEquals(_seekWorker?.Pipeline, pipeline)) _seekWorker = null;
+                pipeline.Output.PlaybackStopped -= pipeline.StoppedHandler;
+                detached = true;
+            }
+        }
+        if (!detached) return;
+
+        QueuePipelineDisposal(pipeline);
+        RaisePlaybackFailed(pipeline.Item, userMessage);
+    }
+
     private static void ApplyRate(PlaybackPipeline pipeline, double playbackRate)
     {
         pipeline.TempoStream.Tempo = Math.Clamp(playbackRate, 0.50d, 2.00d);
@@ -642,6 +793,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     {
         var pipeline = _pipeline;
         _pipeline = null;
+        if (ReferenceEquals(_seekWorker?.Pipeline, pipeline)) _seekWorker = null;
         if (pipeline is not null) pipeline.Output.PlaybackStopped -= pipeline.StoppedHandler;
         return pipeline;
     }

@@ -114,6 +114,7 @@ public sealed class GuardedWaveStream : WaveStream
             finally
             {
                 Monitor.Exit(_operationGate);
+                if (Volatile.Read(ref _disposeRequested) != 0) DisposeInner();
             }
         }
     }

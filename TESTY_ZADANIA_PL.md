@@ -1,12 +1,46 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-110`
-- Tytuł zestawu: Częściowy stan folderu w Kolejce i innych kolekcjach
-- Wersja programu: `0.1.0-alpha.110`
+- Numer zestawu: `AMC-TEST-111`
+- Tytuł zestawu: Responsywne przewijanie wielogodzinnych plików chmurowych
+- Wersja programu: `0.1.0-alpha.111`
 - Utworzono: 2026-08-27, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.110.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.111.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 111
+
+### AMC-111-01 — Wielogodzinny plik z Dysku Google
+
+Otwórz plik `Radio Centrum_23.lut.2026_11.27.42 AM.mp3` o czasie około `8:46:27` z `G:\Dyski współdzielone\Archiwum M\Radio Centrum`. Skocz cyfrą albo `Ctrl+J` w okolice szóstej lub siódmej godziny. Podczas ewentualnego doczytywania użyj Tabu, odczytu paska `NVDA+End` oraz jednego polecenia czasu.
+
+Oczekiwane: dźwięk może chwilę czekać na dane dostawcy, ale AMC, fokus i NVDA nie zamrażają się. Nie trzeba naciskać Escape, aby odzyskać sterowanie. Pasek od razu pokazuje żądany cel.
+
+### AMC-111-02 — Seria szybkich skoków
+
+W tym samym pliku naciśnij szybko kilka razy `Ctrl+strzałka w prawo`, potem `Shift+strzałka w prawo`, a podczas doczytywania wybierz inną cyfrę procentową.
+
+Oczekiwane: interfejs reaguje na każde polecenie, ale dekoder nie tworzy długiej kolejki wszystkich pośrednich operacji. Ostatecznie trafia do ostatniej żądanej pozycji. Komunikaty i pasek nie cofają się kolejno przez stare cele.
+
+### AMC-111-03 — Zmiana elementu podczas doczytywania
+
+Rozpocznij odległy skok w pliku chmurowym, po czym przez Page Up albo Page Down uruchom inny dostępny plik. Możesz też wyjść z odtwarzacza zgodnie z bieżącym ustawieniem Escape.
+
+Oczekiwane: nowy element działa od razu, a spóźnione zakończenie starego skoku nie zmienia jego pozycji, nie odbiera fokusu i nie uruchamia poprzedniego nagrania.
+
+### AMC-111-04 — Zwykły plik lokalny
+
+Na krótszym MP3 zapisanym poza chmurą sprawdź strzałki, cyfry, `Ctrl+J`, zakładki oraz odczyt czasu.
+
+Oczekiwane: wszystkie skoki pozostają szybkie, ich pozycje są dokładne, a odtwarzanie i zakładki nie mają regresji.
+
+### AMC-111-05 — Regresja folderu w Kolejce
+
+Powtórz skrócony scenariusz alpha 110: dodaj folder do Kolejki, odtwórz lub usuń z niej jeden plik, wróć do folderu i usuń jego pozostałą zawartość `Shift+Enter`.
+
+Oczekiwane: folder nadal proponuje usunięcie, dopóki choć jeden jego plik pozostaje w Kolejce albo „odtwarzaj jako następne”.
+
+## Poprzedni zestaw alpha 110
 
 ## Nowości alpha 110
 

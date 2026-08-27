@@ -1298,7 +1298,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 // File details can disappear between opening the list and the dialog.
             }
-            if (CloudFileAvailability.RequiresHydration(localPath))
+            if (CloudFileAvailability.MayRequireRemoteAccess(localPath))
             {
                 technicalLines.Add("Dostępność: plik w chmurze, pobierany dopiero przy odtwarzaniu");
             }
@@ -1358,7 +1358,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             var extension = Path.GetExtension(localPath).TrimStart('.');
             if (!string.IsNullOrWhiteSpace(extension)) details.Add(extension.ToUpperInvariant());
-            if (CloudFileAvailability.RequiresHydration(localPath))
+            if (CloudFileAvailability.MayRequireRemoteAccess(localPath))
             {
                 details.Add("plik w chmurze, pobierany przy odtwarzaniu");
             }
@@ -2274,7 +2274,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // Reading FileInfo.Length for RecallOnDataAccess placeholders may ask a
         // cloud provider to hydrate data. Fingerprints for those files are
         // refreshed only after explicit playback has made the payload local.
-        if (CloudFileAvailability.GetState(path) != CloudFileState.Local) return (null, null);
+        if (CloudFileAvailability.MayRequireRemoteAccess(path)) return (null, null);
         try
         {
             var file = new FileInfo(path);

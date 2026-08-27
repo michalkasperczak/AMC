@@ -1346,6 +1346,21 @@ static void TestLocalAudioFileDiscovery()
         Equal(
             CloudFileState.Unavailable,
             CloudFileAvailability.GetState(Path.Combine(directory, "brak.mp3")));
+        True(
+            CloudFileAvailability.MayRequireRemoteAccess(
+                @"G:\Dyski współdzielone\Archiwum M\Radio Centrum\audycja.mp3"),
+            "Strumieniowany Dysk Google powinien być rozpoznany bez otwierania pliku.");
+        True(
+            CloudFileAvailability.MayRequireRemoteAccess(
+                @"D:\iCloudDrive\iCloud~co~example\nagranie.mp3"),
+            "iCloud powinien być rozpoznany na podstawie bezpiecznej ścieżki.");
+        True(
+            CloudFileAvailability.MayRequireRemoteAccess(
+                @"C:\Users\Test\OneDrive - Firma\nagranie.mp3"),
+            "OneDrive powinien być rozpoznany na podstawie bezpiecznej ścieżki.");
+        True(
+            !CloudFileAvailability.MayRequireRemoteAccess(lockedPath),
+            "Zwykły lokalny plik nie powinien być uznany za chmurowy.");
         True(LocalAudioFileDiscovery.IsAudioFile("nagranie.aiff"), "AIFF powinien być rozpoznawany.");
         True(!LocalAudioFileDiscovery.IsAudioFile("okładka.jpg"), "Obraz nie może trafić na listę audio.");
         Equal(320, LocalAudioFileDiscovery.EstimateBitrateKbps(4_000_000, TimeSpan.FromSeconds(100)));

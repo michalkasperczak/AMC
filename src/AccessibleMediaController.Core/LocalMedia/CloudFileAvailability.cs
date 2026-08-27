@@ -42,4 +42,76 @@ public static class CloudFileAvailability
 
     public static bool RequiresHydration(string path) =>
         GetState(path) == CloudFileState.Placeholder;
+
+    /// <summary>
+    /// Recognizes both Cloud Files placeholders and common mounted cloud
+    /// locations. Google Drive can expose a streamed file without the Windows
+    /// placeholder attributes, even though opening or seeking it may still
+    /// require network access.
+    /// </summary>
+    public static bool MayRequireRemoteAccess(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(path)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException
+                or NotSupportedException
+                or PathTooLongException)
+        {
+            return RequiresHydration(path);
+        }
+
+        foreach (var variable in new[]
+                 {
+                     "OneDrive",
+                     "OneDriveConsumer",
+                     "OneDriveCommercial",
+                     "Dropbox"
+                 })
+        {
+            var configuredRoot = Environment.GetEnvironmentVariable(variable);
+            if (IsWithinRoot(fullPath, configuredRoot)) return true;
+        }
+
+        var segments = fullPath.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+        var knownCloudLocation = segments.Any(segment =>
+            segment.Equals("iCloudDrive", StringComparison.OrdinalIgnoreCase)
+            || segment.StartsWith("iCloud~", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("OneDrive", StringComparison.OrdinalIgnoreCase)
+            || segment.StartsWith("OneDrive - ", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("Dropbox", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("Google Drive", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("My Drive", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("Mój dysk", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("Shared drives", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("Dyski współdzielone", StringComparison.OrdinalIgnoreCase));
+        return knownCloudLocation || RequiresHydration(path);
+    }
+
+    private static bool IsWithinRoot(string fullPath, string? configuredRoot)
+    {
+        if (string.IsNullOrWhiteSpace(configuredRoot)) return false;
+        try
+        {
+            var root = Path.GetFullPath(configuredRoot)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return fullPath.Equals(root, StringComparison.OrdinalIgnoreCase)
+                || fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException
+                or NotSupportedException
+                or PathTooLongException)
+        {
+            return false;
+        }
+    }
 }
