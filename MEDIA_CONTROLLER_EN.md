@@ -714,6 +714,8 @@ The Windows model is:
 3. The public release targets the current .NET LTS. As of this document date, .NET 8 support ends on 10 November 2026 and .NET 10 LTS is supported through 14 November 2028, so migration to .NET 10 happens before the first public release. The self-contained package receives runtime security fixes through AMC releases.
 4. Stable and Beta have separate identities and metadata. Switching channels is an explicit user action rather than an accidental version change.
 
+Stage decision: until radio and local playback testing is complete, `alpha` builds remain portable and do not pretend to auto-update. The installer and updater spike happens before the first public beta and before real account sign-in is distributed. This lets us validate package identity, migration of existing `%AppData%` and `%LocalAppData%` data, global shortcuts, tray behavior, OAuth and NVDA integration without burdening current functional tests.
+
 The application package contains one compatible set: AMC.Windows, AMC.Host, AMC.Core, essential built-in adapters and the required .NET runtime. Independently updated components include service and device adapters, an optional local playback engine, optional codecs, non-secret catalogue data and the thin NVDA add-on. Every component manifest contains at least:
 
 - a stable identifier and version;
@@ -723,6 +725,8 @@ The application package contains one compatible set: AMC.Windows, AMC.Host, AMC.
 - size, SHA-256 and signed metadata;
 - licence, source location and external-component inventory;
 - release channel and update criticality.
+
+In the first public release, all mandatory executable code — UI, host, core, built-in adapters, required libraries and the self-contained .NET runtime — updates as one signed package. It is not prematurely split into independently replaceable DLLs. Safe data and optional out-of-process components may update separately; executable adapters gain that ability only after signed manifests, explicit host-API compatibility ranges, process isolation and automatic rollback exist. “Update everything” therefore cannot create a mix of incompatible core, codec and service versions.
 
 The user application never runs `dotnet restore`, NuGet, an installer script or a command downloaded from the Internet. NuGet libraries are selected during release builds, use pinned versions and `packages.lock.json`, and CI uses locked restore, vulnerability audit, licence inventory and an SBOM. A release is produced only from a reviewed, reproducible dependency set.
 
@@ -739,7 +743,11 @@ The update sequence is:
 7. health-check AMC.Host and automatically roll back if the new version fails to start or respond;
 8. retain at least one previous working version and clean older files only after a successful start.
 
+A download, signature, compatibility or staging failure leaves the current version untouched. If an update is ready while AMC or NVDA is still running, activation is deferred instead of forcing either process closed. On first start, a new version writes a health marker only after the host, database and main window open successfully; a missing marker or repeated startup failures selects the retained signed previous package. MSIX/App Installer supplies installation and differential updates, but automatic recovery from a version that installed successfully and then fails at runtime needs a separate very small and stable launcher or supervisor. That launcher is therefore a required output of the distribution spike, not an untested promise made by MSIX alone.
+
 Configuration, the user's library, cache and credentials stay separate from program files. Updates must not remove or replace them. Configuration uses a versioned schema and one-way migration with a safety copy. The NVDA add-on is staged separately and activated only after a safe NVDA restart; the updater does not replace files inside a running screen reader.
+
+Data migration is transactional and separate from program installation. Before the first schema change, configuration and database backups are created; afterwards AMC verifies the schema version, SQLite integrity and basic record counts. A migration failure exits the new version without a partial write, retains the input data and launches the previous version only when that version can still read the schema safely. Otherwise AMC does not guess: it keeps the backup and presents an accessible recovery message.
 
 For codecs on Windows, AMC first detects and uses Media Foundation capabilities and codecs legitimately installed in the operating system. AMC does not install global codec packs or replace system libraries. A missing format may be supplied by an optional isolated AMC component. If FFmpeg is selected, it is a clearly identified DLL package built to a documented LGPL configuration without GPL or `nonfree` parts, accompanied by the required licence information, corresponding source and an independent update path. A user-supplied engine or codec may be an advanced feature, run outside the main process and clearly marked as unmanaged by AMC.
 

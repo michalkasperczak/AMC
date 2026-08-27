@@ -292,6 +292,8 @@ Working settings and profiles are stored in `%AppData%\AccessibleMediaController
 
 The project includes a separate update-service interface plus settings for channel, background download and installation on exit. No update server is configured yet.
 
+`Alpha` builds remain portable for now. Before the public beta, AMC will gain a signed per-user MSIX/App Installer distribution plus a small health and rollback supervisor. Mandatory code, libraries and the .NET runtime update as one compatible set; an update never interrupts playback, replaces a running NVDA add-on or modifies user data. Failed download, verification or migration leaves the current version and a safety copy of the data usable.
+
 The planned **Help** menu provides a hierarchical accessible shortcut reference under `F1` and optional `?`, a `Ctrl+F1` keyboard-learning mode, manual update checking, full version information, a future public repository and a future verified PayPal link. The reference is generated from the active keyboard profile and shared command catalogue; activating an entry uses the same guarded path as the command palette. `Ctrl+F1` only describes the captured key and never executes its command. Development builds expose no empty links.
 
 The final updater should provide a self-contained per-user installation, update the application and service adapters, verify signatures and SHA-256, install atomically with rollback, preserve configuration and credentials, and avoid stealing focus or interrupting playback.

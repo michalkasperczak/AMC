@@ -716,6 +716,8 @@ Przyjmujemy następujący model dla Windows:
 3. Wydanie publiczne przechodzi na bieżącą wersję LTS .NET. Według stanu na datę tego dokumentu wsparcie .NET 8 kończy się 10 listopada 2026 r., a .NET 10 LTS trwa do 14 listopada 2028 r., dlatego migracja do .NET 10 następuje przed pierwszym wydaniem publicznym. Samowystarczalny pakiet otrzymuje poprawki środowiska wraz z aktualizacją AMC.
 4. Kanały Stabilny i Beta mają osobne tożsamości oraz metadane. Przejście między kanałami jest świadomą czynnością użytkownika, a nie przypadkową zmianą wersji.
 
+Decyzja etapowa: do zakończenia testów radia i lokalnego odtwarzacza wydania `alpha` pozostają przenośne i nie udają automatycznej aktualizacji. Prototyp instalatora i aktualizatora powstaje przed pierwszą publiczną betą oraz przed udostępnieniem logowania do prawdziwych kont. Pozwala to najpierw sprawdzić tożsamość pakietu, migrację obecnych danych z `%AppData%` i `%LocalAppData%`, globalne skróty, zasobnik, OAuth i współpracę z NVDA bez obciążania bieżących testów funkcjonalnych.
+
 Pakiet aplikacji zawiera zgodny zestaw: AMC.Windows, AMC.Host, AMC.Core, wbudowane adaptery podstawowe oraz właściwe środowisko .NET. Niezależnie aktualizowane komponenty to adaptery usług i urządzeń, opcjonalny silnik lokalnego odtwarzania, opcjonalne kodeki, dane katalogowe niewymagające sekretów oraz cienka wtyczka NVDA. Każdy komponent ma manifest zawierający co najmniej:
 
 - stabilny identyfikator i wersję;
@@ -725,6 +727,8 @@ Pakiet aplikacji zawiera zgodny zestaw: AMC.Windows, AMC.Host, AMC.Core, wbudowa
 - rozmiar, sumę SHA-256 i podpisane metadane;
 - licencję, źródło kodu i listę składników zewnętrznych;
 - kanał wydania i informację o krytyczności aktualizacji.
+
+W pierwszym publicznym wydaniu cały wykonywalny kod obowiązkowy — interfejs, host, rdzeń, podstawowe adaptery, wymagane biblioteki i samowystarczalne środowisko .NET — aktualizuje się jako jeden podpisany pakiet. Nie rozdzielamy go przedwcześnie na niezależnie podmieniane DLL. Osobno mogą być aktualizowane bezpieczne dane oraz opcjonalne komponenty uruchamiane poza procesem głównym; wykonywalny adapter otrzyma taką możliwość dopiero po wdrożeniu podpisanego manifestu, zakresu zgodnych wersji API, izolacji procesu i automatycznego wycofania. Dzięki temu „aktualizuj wszystko” nie oznacza pomieszania wersji rdzenia, kodeków i usług.
 
 Aplikacja użytkownika nigdy nie uruchamia `dotnet restore`, NuGet, skryptu instalacyjnego ani komendy pobranej z Internetu. Biblioteki NuGet są wybierane podczas budowania wydania, mają przypięte wersje i pliki `packages.lock.json`, a CI używa trybu zablokowanego, audytu podatności, inwentarza licencji i SBOM. Wydanie powstaje wyłącznie z przejrzanego, powtarzalnego zestawu zależności.
 
@@ -741,7 +745,11 @@ Aktualizacja przebiega następująco:
 7. test zdrowia AMC.Host po uruchomieniu i automatyczny powrót do poprzedniej wersji, jeśli nowa nie wystartuje lub nie odpowie;
 8. zachowanie co najmniej jednej poprzedniej działającej wersji i uporządkowanie starszych plików dopiero po pomyślnym starcie.
 
+Niepowodzenie pobierania, podpisu, kontroli zgodności albo przygotowania pakietu pozostawia bieżącą wersję nietkniętą. Jeżeli aktualizacja jest gotowa, lecz AMC albo NVDA nadal działa, aktywacja jest odraczana zamiast wymuszać zamknięcie procesu. Po pierwszym uruchomieniu nowa wersja zapisuje znacznik zdrowia dopiero po otwarciu hosta, bazy i głównego okna; brak znacznika lub seria awarii uruchomienia powoduje użycie zachowanego, podpisanego pakietu poprzedniej wersji. MSIX/App Installer zapewnia instalację i aktualizacje różnicowe, ale automatyczny powrót po błędzie już uruchomionej wersji wymaga osobnego, bardzo małego i stabilnego launchera lub nadzorcy — dlatego jest obowiązkowym wynikiem eksperymentu dystrybucyjnego, a nie niezweryfikowaną obietnicą samego MSIX.
+
 Konfiguracja, biblioteka użytkownika, pamięć podręczna i poświadczenia są oddzielone od plików programu. Aktualizacja nie może ich usuwać ani zastępować. Konfiguracja ma wersjonowany schemat i migrację jednokierunkową z kopią bezpieczeństwa. Wtyczka NVDA jest przygotowywana osobno i aktywowana dopiero przy bezpiecznym ponownym uruchomieniu NVDA; aktualizator nie podmienia plików wewnątrz działającego czytnika ekranu.
+
+Migracja danych jest transakcyjna i nie jest tym samym co instalacja programu. Przed pierwszą zmianą schematu powstaje kopia konfiguracji i bazy, a po migracji sprawdzane są wersja schematu, integralność SQLite i podstawowe liczniki rekordów. Awaria migracji zamyka nową wersję bez zapisu częściowego, zachowuje dane wejściowe i uruchamia poprzednią wersję tylko wtedy, gdy jej schemat nadal potrafi te dane bezpiecznie odczytać. W przeciwnym razie program nie zgaduje: pozostawia kopię i przedstawia dostępny komunikat naprawczy.
 
 W zakresie kodeków na Windows najpierw wykrywamy i wykorzystujemy możliwości Media Foundation oraz kodeki legalnie zainstalowane w systemie. AMC nie instaluje globalnych „codec packów” i nie zastępuje systemowych bibliotek. Brakujący format może otrzymać opcjonalny, izolowany komponent AMC. Jeżeli wybierzemy FFmpeg, będzie to jawny pakiet DLL z dokładnie określoną konfiguracją LGPL, bez części GPL i `nonfree`, z wymaganymi informacjami licencyjnymi, odpowiadającym kodem źródłowym i niezależną aktualizacją. Własny silnik lub kodek użytkownika może być funkcją zaawansowaną, uruchamianą poza procesem głównym i wyraźnie oznaczoną jako składnik niezarządzany przez AMC.
 

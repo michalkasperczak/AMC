@@ -307,6 +307,8 @@ Ustawienia robocze i profile programu są przechowywane w `%AppData%\AccessibleM
 
 Projekt ma oddzielony interfejs systemu aktualizacji oraz ustawienia kanału, pobierania w tle i instalacji przy zamknięciu. Serwer aktualizacji nie jest jeszcze skonfigurowany.
 
+Wersje `alpha` pozostają na razie przenośne. Przed publiczną betą powstanie instalowane wydanie dla bieżącego użytkownika jako podpisany MSIX z App Installerem oraz małym nadzorcą zdrowia i powrotu. Obowiązkowy kod, biblioteki i środowisko .NET będą aktualizowane jako jeden zgodny zestaw; aktualizacje nie przerwą odtwarzania, nie podmienią działającej wtyczki NVDA i nie zmienią danych użytkownika. Nieudane pobranie, weryfikacja lub migracja pozostawi bieżącą wersję i kopię danych w stanie używalnym.
+
 Plan menu **Pomoc** obejmuje: dostępny hierarchiczny spis skrótów pod `F1` i opcjonalnym `?`, tryb poznawania klawiatury `Ctrl+F1`, ręczne sprawdzanie aktualizacji, informacje o pełnej wersji, przyszłe publiczne repozytorium oraz przyszły sprawdzony odsyłacz PayPal. Spis będzie generowany z aktywnego profilu klawiatury i wspólnego katalogu poleceń; aktywowanie pozycji wykona ją tą samą bezpieczną drogą co paleta. `Ctrl+F1` tylko opisze przechwycony klawisz i nie wykona jego polecenia. Puste odsyłacze nie pojawią się w wersjach roboczych.
 
 Docelowy mechanizm powinien:
