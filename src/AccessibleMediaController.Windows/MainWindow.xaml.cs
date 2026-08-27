@@ -150,6 +150,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _radioOutput.PlaybackFailed += RadioOutput_PlaybackFailed;
         _radioOutput.PlaybackPreparing += RadioOutput_PlaybackPreparing;
         _radioOutput.PlaybackStarted += RadioOutput_PlaybackStarted;
+        _radioOutput.RecordingFailed += RadioOutput_RecordingFailed;
         NormalizeTransientBookmarkViewsAtStartup();
         NormalizePlaylistViewsAtStartup();
         NormalizeLocalLibraryNavigationAtStartup();
@@ -5135,11 +5136,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         catch (Exception exception) when (exception is IOException
             or UnauthorizedAccessException
             or InvalidOperationException
-            or ArgumentException)
+            or ArgumentException
+            or NotSupportedException
+            or TimeoutException
+            or System.Runtime.InteropServices.COMException)
         {
             DiagnosticLog.Error("radio-recording", "Nie udało się zmienić stanu nagrywania.", exception);
             AnnounceEssential($"Nie można nagrywać: {exception.Message}");
         }
+    }
+
+    private void RadioOutput_RecordingFailed(object? sender, EventArgs e)
+    {
+        if (_isClosing) return;
+        UpdatePlayerView();
+        AnnounceEssential("Nagrywanie MP3 zostało przerwane. Nie zapisano uszkodzonego pliku");
     }
 
     private string ResolveRadioRecordingsFolder()

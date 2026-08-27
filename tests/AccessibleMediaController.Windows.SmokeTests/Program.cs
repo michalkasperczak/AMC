@@ -49,6 +49,7 @@ try
     TestManagedMp3Fallback();
     TestWaveMetadataAndDamagedContainers();
     TestRadioBrowserSearchMapping();
+    TestRadioMp3Recording();
     foreach (var mediaPath in args)
     {
         TestFormatMetadata(mediaPath);
@@ -234,6 +235,62 @@ static void TestRadioBrowserSearchMapping()
     Assert(!station.IsInLibrary && !station.IsFavorite,
         "Wynik wyszukiwania nie może samoczynnie trafić do Biblioteki lub Ulubionych.");
     Console.WriteLine("OK: wyszukiwanie i mapowanie katalogu Radio Browser");
+}
+
+static void TestRadioMp3Recording()
+{
+    var directory = Path.Combine(
+        Path.GetTempPath(),
+        $"amc-radio-recording-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    var mp3Path = Path.Combine(directory, "radio-test.mp3");
+    try
+    {
+        var format = new WaveFormat(44_100, 16, 2);
+        using var recorder = RadioMp3Recorder.Start(mp3Path, format);
+        var pcm = new byte[format.AverageBytesPerSecond];
+        for (var frame = 0; frame < format.SampleRate; frame++)
+        {
+            var sample = (short)(Math.Sin(2 * Math.PI * 440 * frame / format.SampleRate) * short.MaxValue * 0.1);
+            var offset = frame * format.BlockAlign;
+            BinaryPrimitives.WriteInt16LittleEndian(pcm.AsSpan(offset, 2), sample);
+            BinaryPrimitives.WriteInt16LittleEndian(pcm.AsSpan(offset + 2, 2), sample);
+        }
+        recorder.Write(pcm, 0, pcm.Length);
+        var result = recorder.Stop();
+
+        Assert(result == mp3Path && File.Exists(mp3Path), "Nie opublikowano gotowego nagrania MP3.");
+        Assert(!File.Exists(mp3Path + ".amc-partial"), "Pozostał tymczasowy plik nagrania.");
+        using var reader = new MediaFoundationReader(mp3Path);
+        Assert(reader.TotalTime > TimeSpan.FromMilliseconds(500), "Nagranie MP3 ma nieprawidłowy czas.");
+        Assert(reader.WaveFormat.SampleRate == 44_100, "Nagranie MP3 ma nieprawidłową częstotliwość.");
+        using var frameStream = File.OpenRead(mp3Path);
+        var firstFrame = Mp3Frame.LoadFromStream(frameStream);
+        Assert(firstFrame?.BitRate == RadioMp3Recorder.DesiredBitRate,
+            $"Nagranie MP3 ma bitrate {firstFrame?.BitRate ?? 0} zamiast {RadioMp3Recorder.DesiredBitRate}.");
+
+        var shutdownPath = Path.Combine(directory, "zamkniecie.mp3");
+        using (var shutdownRecorder = RadioMp3Recorder.Start(shutdownPath, format))
+        {
+            shutdownRecorder.Write(pcm, 0, pcm.Length / 2);
+        }
+        Assert(File.Exists(shutdownPath) && !File.Exists(shutdownPath + ".amc-partial"),
+            "Zamykanie programu nie zakończyło nagrania MP3.");
+
+        var abortedPath = Path.Combine(directory, "przerwane.mp3");
+        using (var abortedRecorder = RadioMp3Recorder.Start(abortedPath, format))
+        {
+            abortedRecorder.Write(pcm, 0, pcm.Length / 4);
+            abortedRecorder.Abort();
+        }
+        Assert(!File.Exists(abortedPath) && !File.Exists(abortedPath + ".amc-partial"),
+            "Przerwane kodowanie pozostawiło plik udający gotowe nagranie.");
+        Console.WriteLine("OK: nagrywanie radia do prawidłowo zakończonego pliku MP3");
+    }
+    finally
+    {
+        if (Directory.Exists(directory)) Directory.Delete(directory, true);
+    }
 }
 
 static void TestCompleteOutputChainMonitor()

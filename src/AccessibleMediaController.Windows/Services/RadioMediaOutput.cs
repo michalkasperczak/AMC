@@ -32,6 +32,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
     public event EventHandler<MediaOutputFailedEventArgs>? PlaybackFailed;
     public event EventHandler<MediaPlaybackPreparingEventArgs>? PlaybackPreparing;
     public event EventHandler<MediaPlaybackStartedEventArgs>? PlaybackStarted;
+    public event EventHandler? RecordingFailed;
 
     public string? LoadedItemId
     {
@@ -138,7 +139,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             var buffer = new RadioTimeshiftWaveProvider(
                 reader.WaveFormat,
                 _timeshiftMinutes,
-                MaximumTimeshiftBytes);
+                MaximumTimeshiftBytes,
+                RaiseRecordingFailed);
             var volume = new VolumeSampleProvider(buffer.ToSampleProvider())
             {
                 Volume = Math.Clamp(_volume, 0, 100) / 100f
@@ -307,7 +309,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             var safeName = string.Concat(_pipeline.Item.Title.Select(character =>
                 Path.GetInvalidFileNameChars().Contains(character) ? '_' : character)).Trim();
             if (safeName.Length == 0) safeName = "Radio";
-            var path = Path.Combine(folder, $"{safeName} - {DateTime.Now:yyyy-MM-dd HH-mm-ss}.wav");
+            DeleteStalePartialRecordings(folder);
+            var path = UniqueRecordingPath(folder, $"{safeName} - {DateTime.Now:yyyy-MM-dd HH-mm-ss}");
             _pipeline.Buffer.StartRecording(path);
             DiagnosticLog.Info("radio-recording", $"Rozpoczęto nagrywanie: {path}.");
             return path;
@@ -335,11 +338,47 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         Uri.TryCreate(source, UriKind.Absolute, out var uri)
         && uri.Scheme is "http" or "https";
 
+    private static string UniqueRecordingPath(string folder, string baseName)
+    {
+        var path = Path.Combine(folder, baseName + ".mp3");
+        for (var suffix = 2; File.Exists(path) || File.Exists(path + ".amc-partial"); suffix++)
+        {
+            path = Path.Combine(folder, $"{baseName} ({suffix}).mp3");
+        }
+        return path;
+    }
+
+    private static void DeleteStalePartialRecordings(string folder)
+    {
+        try
+        {
+            foreach (var path in Directory.EnumerateFiles(folder, "*.mp3.amc-partial"))
+            {
+                if (File.GetLastWriteTimeUtc(path) < DateTime.UtcNow.AddDays(-1)) File.Delete(path);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            DiagnosticLog.Warning(
+                "radio-recording",
+                $"Nie można uprzątnąć starego pliku tymczasowego; błąd {exception.GetType().Name}.");
+        }
+    }
+
     private static void QueueDisposal(RadioPipeline pipeline) =>
         _ = Task.Run(() => pipeline.Dispose());
 
     private void RaisePlaybackFailed(MediaItem item, string message) =>
         RaiseOnCapturedContext(() => PlaybackFailed?.Invoke(this, new MediaOutputFailedEventArgs(item, message)));
+
+    private void RaiseRecordingFailed(Exception exception)
+    {
+        DiagnosticLog.Error(
+            "radio-recording",
+            "Nagrywanie MP3 zostało przerwane, ale odtwarzanie radia jest kontynuowane.",
+            exception);
+        RaiseOnCapturedContext(() => RecordingFailed?.Invoke(this, EventArgs.Empty));
+    }
 
     private void RaiseOnCapturedContext(Action action)
     {
@@ -353,9 +392,16 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
-        Stop();
+        RadioPipeline? pipeline;
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            ++_requestVersion;
+            _preparing = false;
+            pipeline = DetachPipelineLocked();
+        }
+        pipeline?.Dispose();
     }
 
     private sealed class RadioPipeline(
@@ -379,7 +425,14 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         {
             if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
             Cancellation.Cancel();
-            Buffer.StopRecording();
+            try { Buffer.StopRecording(); }
+            catch (Exception exception)
+            {
+                DiagnosticLog.Error(
+                    "radio-recording",
+                    "Nie udało się zakończyć nagrania MP3 podczas zamykania stacji.",
+                    exception);
+            }
             try { Output.Stop(); } catch (Exception) { }
             try { Reader.Dispose(); } catch (Exception) { }
             try { Output.Dispose(); } catch (Exception) { }
@@ -392,14 +445,20 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         private readonly object _gate = new();
         private readonly byte[] _ring;
         private readonly int _blockAlign;
+        private readonly Action<Exception> _recordingFailed;
         private long _totalWritten;
         private long _readPosition;
-        private WaveFileWriter? _recording;
+        private RadioMp3Recorder? _recording;
         private string? _recordingPath;
 
-        public RadioTimeshiftWaveProvider(WaveFormat waveFormat, int minutes, int maximumBytes)
+        public RadioTimeshiftWaveProvider(
+            WaveFormat waveFormat,
+            int minutes,
+            int maximumBytes,
+            Action<Exception> recordingFailed)
         {
             WaveFormat = waveFormat;
+            _recordingFailed = recordingFailed;
             _blockAlign = Math.Max(1, waveFormat.BlockAlign);
             var requested = (long)waveFormat.AverageBytesPerSecond * Math.Max(1, minutes) * 60;
             var capacity = (int)Math.Min(maximumBytes, Math.Max(waveFormat.AverageBytesPerSecond * 5L, requested));
@@ -452,9 +511,23 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                 count -= count % _blockAlign;
             }
 
+            RadioMp3Recorder? failedRecording = null;
+            Exception? recordingException = null;
             lock (_gate)
             {
-                _recording?.Write(buffer, offset, count);
+                try
+                {
+                    _recording?.Write(buffer, offset, count);
+                }
+                catch (Exception exception) when (exception is IOException
+                    or InvalidOperationException
+                    or ObjectDisposedException)
+                {
+                    failedRecording = _recording;
+                    recordingException = exception;
+                    _recording = null;
+                    _recordingPath = null;
+                }
                 var writeIndex = (int)(_totalWritten % _ring.Length);
                 var first = Math.Min(count, _ring.Length - writeIndex);
                 Buffer.BlockCopy(buffer, offset, _ring, writeIndex, first);
@@ -465,6 +538,11 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                 _totalWritten += count;
                 var oldest = Math.Max(0, _totalWritten - _ring.LongLength);
                 if (_readPosition < oldest) _readPosition = oldest;
+            }
+            if (failedRecording is not null && recordingException is not null)
+            {
+                failedRecording.Abort();
+                _recordingFailed(recordingException);
             }
         }
 
@@ -518,21 +596,21 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             {
                 if (_recording is not null) throw new InvalidOperationException("Nagrywanie już trwa.");
                 _recordingPath = path;
-                _recording = new WaveFileWriter(path, WaveFormat);
+                _recording = RadioMp3Recorder.Start(path, WaveFormat);
             }
         }
 
         public string? StopRecording()
         {
+            RadioMp3Recorder? recording;
             lock (_gate)
             {
                 if (_recording is null) return null;
-                var path = _recordingPath;
-                _recording.Dispose();
+                recording = _recording;
                 _recording = null;
                 _recordingPath = null;
-                return path;
             }
+            return recording.Stop();
         }
 
         private TimeSpan BytesToTime(long bytes) => WaveFormat.AverageBytesPerSecond <= 0

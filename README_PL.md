@@ -8,6 +8,8 @@ Aktywne repozytorium robocze powinno znajdować się na zwykłym lokalnym wolumi
 
 Od `alpha.115` sesja **Radio internetowe** pod domyślnym `Ctrl+5` jest pierwszym prawdziwym adapterem sieciowym AMC. `Ctrl+F` wyszukuje stacje w publicznym katalogu Radio Browser; wynik można odtworzyć, dodać do lokalnej Biblioteki, Ulubionych, Kolejki lub playlisty. `Insert` w Bibliotece dodaje własną stację, a `F2` otwiera dwa niezależne pola: nazwę i adres strumienia. Odtwarzacz ma ograniczony pamięcią timeshift, Home przechodzi do początku dostępnego bufora, End wraca na żywo, a `Ctrl+Alt+R` rozpoczyna lub kończy świadome nagrywanie WAV w folderze `Muzyka\AMC — Nagrania radia`. Obsługiwane są bezpośrednie adresy HTTP/HTTPS oraz listy M3U, M3U8, PLS i XSPF; manifest HLS pozostaje manifestem dla dekodera. Zakładki, skok procentowy i regulacja prędkości są w radiu ukryte, ponieważ nie mają trwałego znaczenia dla transmisji na żywo.
 
+Od `alpha.116` nagranie radia jest zapisywane jako MP3 zamiast WAV; docelowa jakość to 192 kb/s, a dla nietypowej częstotliwości próbkowania system wybiera najbliższy obsługiwany bitrate. AMC koduje dekodowany dźwięk przez systemowy Windows Media Foundation, więc działa tak samo dla źródłowego MP3, AAC, OGG i innych strumieni obsługiwanych przez odtwarzacz, bez instalowania FFmpeg lub globalnego pakietu kodeków. Podczas nagrywania powstaje ukryty plik roboczy; nazwa `.mp3` pojawia się dopiero po prawidłowym zakończeniu. Zatrzymanie, zmiana stacji i zamknięcie programu finalizują nagranie, natomiast awaria kodera usuwa niedokończone dane i nie zatrzymuje odtwarzania radia.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.
