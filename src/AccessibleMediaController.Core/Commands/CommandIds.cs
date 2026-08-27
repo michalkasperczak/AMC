@@ -75,6 +75,7 @@ public static class CommandIds
     public const string DownloadInService = "action.download.inService";
     public const string DownloadToDisk = "action.download.toDisk";
     public const string Help = "view.help";
+    public const string KeyboardHelp = "view.keyboardHelp";
     public const string OpenLocalFiles = "local.openFiles";
     public const string OpenLocalFolder = "local.openFolder";
 

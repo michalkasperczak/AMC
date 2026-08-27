@@ -120,7 +120,9 @@ public partial class App : Application
         var mainWindow = new MainWindow(state, store);
         MainWindow = mainWindow;
         mainWindow.Show();
-        DiagnosticLog.Info("startup", "Pokazano główne okno.");
+        DiagnosticLog.Info(
+            "startup",
+            $"Pokazano główne okno. Widoczne: {mainWindow.IsVisible}; stan: {mainWindow.WindowState}; uchwyt: {new WindowInteropHelper(mainWindow).Handle}.");
     }
 
     protected override void OnExit(ExitEventArgs e)

@@ -23,6 +23,7 @@ public interface IApplicationActions
     void ShowItemPlaybackOptions();
     void OpenOfficialApplication();
     void ShowHelp();
+    void ToggleKeyboardHelp();
     void ShowSettings(SettingsTarget target);
     void ToggleAccessibilityMessages();
     void ToggleDetailedHints();
@@ -248,6 +249,9 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.Help:
                 application.ShowHelp();
+                return new(true);
+            case CommandIds.KeyboardHelp:
+                application.ToggleKeyboardHelp();
                 return new(true);
             case CommandIds.FilterCurrent:
                 application.ShowFilter();

@@ -69,6 +69,13 @@ internal sealed class GlobalPrefixService : IDisposable
         }
     }
 
+    public void Suspend()
+    {
+        DeactivateLayer();
+        _suppressedKeys.Clear();
+        UnregisterHotKey(_windowHandle, HotKeyId);
+    }
+
     public void Dispose()
     {
         _timer.Stop();

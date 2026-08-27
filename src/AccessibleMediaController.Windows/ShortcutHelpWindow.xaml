@@ -1,0 +1,98 @@
+<Window x:Class="AccessibleMediaController.Windows.ShortcutHelpWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        Title="Skróty klawiszowe — AMC"
+        Width="820" Height="600" MinWidth="620" MinHeight="430"
+        WindowStartupLocation="CenterOwner"
+        ContentRendered="Window_ContentRendered"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="Skróty klawiszowe AMC" FontSize="22" FontWeight="SemiBold"
+                       Margin="0,0,0,10"
+                       automation:AutomationProperties.Name="Skróty klawiszowe AMC"
+                       automation:AutomationProperties.HeadingLevel="Level1" />
+            <Label Target="{Binding ElementName=ShortcutFilterBox}">_Szukaj skrótu lub polecenia:</Label>
+            <TextBox x:Name="ShortcutFilterBox" Margin="0,0,0,8"
+                     automation:AutomationProperties.Name="Szukaj skrótu lub polecenia"
+                     automation:AutomationProperties.HelpText="Wpisz fragment nazwy, skrótu albo kontekstu. Strzałka w dół przechodzi do sekcji. Escape zamyka Pomoc."
+                     TextChanged="ShortcutFilterBox_TextChanged"
+                     PreviewKeyDown="ShortcutFilterBox_PreviewKeyDown" />
+            <TextBlock Text="Wybierz sekcję, a następnie skrót. Enter na poleceniu zamyka Pomoc i wykonuje je w zwykły, bezpieczny sposób."
+                       TextWrapping="Wrap" Margin="0,0,0,10" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <controls:AccessibleStatusTextBlock x:Name="HelpStatus" Text="Gotowy" TextWrapping="Wrap"
+                                                Margin="0,0,0,8" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="ExecuteButton" Content="_Wykonaj polecenie" MinWidth="150"
+                        Margin="0,0,8,0" Click="Execute_Click" />
+                <Button Content="_Zamknij" MinWidth="100" IsCancel="True" />
+            </StackPanel>
+        </StackPanel>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0.36*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="0.64*" />
+            </Grid.ColumnDefinitions>
+
+            <DockPanel Grid.Column="0">
+                <TextBlock DockPanel.Dock="Top" Text="Sekcje" FontSize="17" FontWeight="SemiBold"
+                           Margin="0,0,0,6"
+                           automation:AutomationProperties.HeadingLevel="Level2" />
+                <ListBox x:Name="SectionsList"
+                         TextSearch.TextPath="Label"
+                         automation:AutomationProperties.Name="Sekcje skrótów"
+                         automation:AutomationProperties.HelpText="Strzałki wybierają sekcję. Enter lub strzałka w prawo przechodzi do jej skrótów."
+                         KeyboardNavigation.DirectionalNavigation="Contained"
+                         SelectionChanged="SectionsList_SelectionChanged"
+                         PreviewKeyDown="SectionsList_PreviewKeyDown">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Label}"
+                                       automation:AutomationProperties.Name="{Binding Label}" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+            </DockPanel>
+
+            <DockPanel Grid.Column="2">
+                <TextBlock x:Name="ShortcutsHeading" DockPanel.Dock="Top"
+                           Text="Skróty" FontSize="17" FontWeight="SemiBold"
+                           Margin="0,0,0,6"
+                           automation:AutomationProperties.HeadingLevel="Level2" />
+                <ListBox x:Name="ShortcutsList"
+                         TextSearch.TextPath="Label"
+                         automation:AutomationProperties.Name="Skróty w wybranej sekcji"
+                         automation:AutomationProperties.HelpText="Strzałki wybierają skrót. Enter wykonuje polecenie, jeżeli wpis jest wykonywalny. Strzałka w lewo wraca do sekcji."
+                         KeyboardNavigation.DirectionalNavigation="Contained"
+                         SelectionChanged="ShortcutsList_SelectionChanged"
+                         PreviewKeyDown="ShortcutsList_PreviewKeyDown"
+                         MouseDoubleClick="ShortcutsList_MouseDoubleClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Label}" TextWrapping="Wrap"
+                                       automation:AutomationProperties.Name="{Binding Label}" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
+                            <Setter Property="automation:AutomationProperties.HelpText" Value="Enter wykonuje to polecenie, jeżeli jest dostępne w bieżącym kontekście." />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</Window>

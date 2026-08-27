@@ -11,6 +11,7 @@
         Activated="Window_Activated"
         Deactivated="Window_Deactivated"
         PreviewKeyDown="Window_PreviewKeyDown"
+        PreviewTextInput="Window_PreviewTextInput"
         Closing="Window_Closing">
     <DockPanel>
         <wfi:WindowsFormsHost x:Name="PlaybackStatusHost" DockPanel.Dock="Bottom"
@@ -139,7 +140,16 @@
                 <MenuItem Header="_Paleta poleceń" InputGestureText="Ctrl+Shift+K" Click="CommandPalette_Click" />
             </MenuItem>
             <MenuItem Header="_Pomoc">
-                <MenuItem Header="_Skróty prototypu" InputGestureText="F1" Click="Help_Click" />
+                <MenuItem Header="_Skróty klawiszowe…" InputGestureText="F1"
+                          automation:AutomationProperties.Name="Skróty klawiszowe, F1"
+                          automation:AutomationProperties.AcceleratorKey="F1"
+                          Click="Help_Click" />
+                <MenuItem x:Name="KeyboardHelpMenuItem"
+                          Header="Pomoc _klawiatury: wyłączona" InputGestureText="Ctrl+F1"
+                          automation:AutomationProperties.Name="Pomoc klawiatury: wyłączona, Ctrl+F1"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+F1"
+                          Click="KeyboardHelp_Click" />
+                <Separator />
                 <MenuItem Header="Sprawdź _aktualizacje" Click="Updates_Click" />
             </MenuItem>
         </Menu>

@@ -1,12 +1,72 @@
-﻿# Zadania testowe AMC
+# Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-104`
-- Tytuł zestawu: Historia odtwarzania jako pełnoprawna lista
-- Wersja programu: `0.1.0-alpha.104`
-- Utworzono: 2026-08-26, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.104.md`
+- Numer zestawu: `AMC-TEST-105`
+- Tytuł zestawu: Dostępny spis skrótów i Pomoc klawiatury
+- Wersja programu: `0.1.0-alpha.105`
+- Utworzono: 2026-08-27, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.105.md`
 
-Możesz testować całkowicie opisowo. Nie trzeba wypełniać pliku ani wybierać przed każdym zadaniem wariantu „OK” lub „błąd”. Najważniejsze jest podanie użytego skrótu, miejsca w programie i tego, co powiedział NVDA.
+Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 105
+
+### AMC-105-01 — Pierwsze otwarcie spisu F1
+
+1. Na zwykłej liście naciśnij `F1`.
+2. Sprawdź pierwszą informację oraz fokus.
+3. `Tab`, `Shift+Tab`, strzałki, Enter i Escape powinny prowadzić przewidywalnie między wyszukiwaniem, sekcjami, skrótami i przyciskami.
+4. Zamknij okno, otwórz je ponownie i sprawdź, czy nie pojawiają się techniczne zapisy w rodzaju nazwy klasy, klamer albo nazw właściwości.
+
+### AMC-105-02 — Sekcje i wyszukiwanie
+
+1. Przejdź po wszystkich sekcjach spisu.
+2. Wyszukaj kolejno: `ulubione`, `czas`, `kosz`, `ctrl f1` i tekst bez polskich znaków.
+3. Sprawdź, czy wynik podaje kolejno nazwę polecenia, skrót i kontekst.
+4. Wyczyść wyszukiwanie i sprawdź powrót pełnej listy sekcji.
+
+### AMC-105-03 — Wykonanie polecenia z Pomocy
+
+1. Wyszukaj bezpieczne polecenie, na przykład „Pokaż kolejkę”.
+2. Naciśnij Enter na jego pozycji.
+3. Pomoc powinna się zamknąć, a polecenie wykonać tak samo jak z klawiatury lub palety.
+4. Otwórz F1 ponownie i naciśnij Enter na informacyjnym opisie, na przykład `Shift+Delete`; nic destrukcyjnego nie może zostać wykonane.
+
+### AMC-105-04 — Pomoc klawiatury na liście
+
+1. Naciśnij `Ctrl+F1`.
+2. Sprawdź `Ctrl+U`, `Ctrl+Shift+C`, `Delete`, `Alt+F4` i dowolny nieprzypisany skrót.
+3. Każdy klawisz ma zostać opisany wraz z bieżącym kontekstem, ale nie może wykonać działania ani zamknąć programu.
+4. Naciśnij `Escape`; tryb ma się wyłączyć.
+
+### AMC-105-05 — Pomoc klawiatury w odtwarzaczu
+
+1. Otwórz odtwarzacz i włącz `Ctrl+F1`.
+2. Sprawdź strzałki, `Shift+kropka`, cyfrę, `PageDown`, `B` i klawisz bez przypisania.
+3. Upewnij się, że czas, głośność, prędkość, plik i Zakładki nie zmieniają się w czasie opisywania.
+4. Wyłącz tryb ponownym `Ctrl+F1` i sprawdź, że zwykłe sterowanie znów działa.
+
+### AMC-105-06 — Wyciszone komunikaty i prefiks
+
+1. Wyłącz zwykłe komunikaty dostępności w Ustawieniach.
+2. Włącz i wyłącz Pomoc klawiatury; oba stany nadal muszą być oznajmione.
+3. W trybie Pomocy naciśnij skonfigurowany globalny prefiks. Ma zostać opisany, ale nie może otworzyć warstwy.
+4. Po wyjściu z Pomocy sprawdź, czy globalny prefiks znowu działa.
+
+### AMC-105-07 — Znak zapytania i pola tekstowe
+
+1. Na liście naciśnij znak `?`; powinien otworzyć spis.
+2. Zamknij spis, wejdź do filtra albo wyszukiwania i wpisz `?`.
+3. W polu tekstowym znak ma zostać wpisany i nie może otworzyć Pomocy.
+
+## Krótka regresja
+
+- `Ctrl+Shift+K`: paleta nadal ma czytelne pozycje i wykonuje polecenia.
+- `Ctrl+H`: Historia nadal działa jak w alpha 104.
+- `Ctrl+P` i `Ctrl+Shift+P`: playlisty nadal działają.
+- `F1` z odtwarzacza po zamknięciu przywraca fokus do odtwarzacza, a z listy do listy.
+- Przyciski Anuluj i Escape w Pomocy niczego nie wykonują.
+
+## Poprzedni zestaw alpha 104
 
 ## Nowości alpha 104
 

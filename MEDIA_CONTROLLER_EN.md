@@ -522,6 +522,8 @@ Every entry presents **command → current shortcut → operating context**. Its
 
 `Ctrl+F1` starts **Keyboard help** for the active AMC window only. In this mode, the next key combination is captured, performs no command and is described through NVDA, JAWS, Narrator and the accessible status area. The message gives the shortcut, command name, current context and any reason it is unavailable; an unassigned key is explicitly reported as having no command in that context. Pressing `Ctrl+F1` again or `Escape` leaves the mode. Entry and exit are always announced even when ordinary messages are muted. The mode never captures typing in another application and is not a global keyboard logger.
 
+State in `alpha.105`: the `F1` reference, search, sections, command activation and `Ctrl+F1` Keyboard Help are implemented. While Keyboard Help is active, the global prefix is temporarily released so that it can be described without entering the layer; it is registered again on exit. Catalogue rows, section rows and list rows have explicit accessible labels and a user-facing textual representation. Informational list shortcuts that are not standalone router commands remain descriptions and never pretend to be executable actions.
+
 The **About and version** window gives the full version, release channel, architecture and licence and allows those details to be copied. Repository and PayPal links open through the default browser only after official addresses are configured; a development build contains no invented or empty links. **Check for updates** uses the signed mechanism defined in section 13.5 and, until configured, clearly states that no release server is available yet.
 
 ## 12. Messages, speech and braille

@@ -522,6 +522,8 @@ Każda pozycja przedstawia kolejno **polecenie → aktualny skrót → kontekst 
 
 `Ctrl+F1` uruchamia **Pomoc klawiatury** tylko dla aktywnego okna AMC. W tym trybie następna kombinacja jest przechwytywana, nie wykonuje żadnego polecenia i zostaje opisana przez NVDA, JAWS, Narratora oraz dostępny obszar stanu. Komunikat podaje skrót, nazwę polecenia, bieżący kontekst i ewentualny powód niedostępności; dla klawisza bez przypisania mówi wprost, że nie ma on polecenia w tym miejscu. Ponowne `Ctrl+F1` lub `Escape` wyłącza tryb. Samo wejście i wyjście zawsze jest oznajmiane, nawet przy wyciszonych zwykłych komunikatach. Tryb nie przechwytuje klawiszy wpisywanych w innym programie i nie staje się globalnym rejestratorem klawiatury.
 
+Stan `alpha.105`: spis `F1`, wyszukiwanie, sekcje, wykonywanie poleceń oraz Pomoc klawiatury `Ctrl+F1` są zaimplementowane. Podczas Pomocy globalny prefiks zostaje czasowo zwolniony, aby można go było opisać bez uruchomienia warstwy; po wyjściu jest ponownie rejestrowany. Wiersze katalogu, sekcji i list mają jawne etykiety dostępności oraz tekstową reprezentację użytkową. Informacyjne skróty list, które nie są samodzielnymi poleceniami routera, pozostają opisami i nie udają wykonywalnych działań.
+
 Okno **Informacje o wersji** podaje pełny numer, kanał wydania, architekturę oraz licencję, a także umożliwia skopiowanie tych danych. Odsyłacze do repozytorium i PayPal otwierają się przez domyślną przeglądarkę dopiero po skonfigurowaniu oficjalnych adresów; wersja robocza nie zawiera wymyślonych ani pustych łączy. **Sprawdź aktualizacje** używa podpisanego mechanizmu opisanego w punkcie 13.5 i przed jego konfiguracją jednoznacznie informuje, że serwer wydań nie jest jeszcze dostępny.
 
 ## 12. Komunikaty, mowa i brajl

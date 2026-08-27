@@ -80,6 +80,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool _localSourceSyncPending;
     private bool _isClosing;
     private bool _playerViewActive;
+    private bool _keyboardHelpActive;
     private bool _restoringSessionNavigation;
     private string? _playerFocusContextPrefix;
     private DateTime _lastLocalStateSaveUtc;
@@ -1444,6 +1445,74 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     public void ShowHelp()
+    {
+        try
+        {
+            DiagnosticLog.Info("shortcut-help", "Otwieranie dostępnego spisu skrótów.");
+            ClearFocusContext();
+            var sections = ShortcutHelpCatalog.Create(ActiveKeyboardProfile(), _state.Settings);
+            var dialog = new ShortcutHelpWindow(sections) { Owner = this };
+            var accepted = dialog.ShowDialog() == true;
+            var commandId = accepted ? dialog.SelectedCommandId : null;
+
+            Activate();
+            if (_playerViewActive) FocusPlayerView();
+            else RestoreMediaListFocusAfterRefresh();
+
+            if (commandId is not null)
+            {
+                Dispatcher.BeginInvoke(
+                    () => ExecuteCommand(commandId),
+                    DispatcherPriority.ContextIdle);
+            }
+            DiagnosticLog.Info("shortcut-help", "Zamknięto dostępny spis skrótów.");
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error("shortcut-help", "Nie udało się otworzyć spisu skrótów.", exception);
+            Activate();
+            if (_playerViewActive) FocusPlayerView();
+            else RestoreMediaListFocusAfterRefresh();
+            AnnounceEssential("Nie udało się otworzyć spisu skrótów. Szczegóły zapisano w logu AMC");
+        }
+    }
+
+    public void ToggleKeyboardHelp()
+    {
+        _keyboardHelpActive = !_keyboardHelpActive;
+        if (_keyboardHelpActive)
+        {
+            _prefixService?.Suspend();
+        }
+        else
+        {
+            try
+            {
+                RegisterConfiguredPrefix();
+            }
+            catch (Exception exception)
+            {
+                DiagnosticLog.Error("keyboard-help", "Nie udało się ponownie zarejestrować prefiksu.", exception);
+                AnnounceEssential("Pomoc klawiatury wyłączona. Nie udało się ponownie włączyć globalnego prefiksu");
+                UpdateKeyboardHelpMenuItem();
+                return;
+            }
+        }
+
+        UpdateKeyboardHelpMenuItem();
+        AnnounceEssential(_keyboardHelpActive
+            ? "Pomoc klawiatury włączona. Naciśnij skrót, aby poznać jego działanie. Ctrl+F1 lub Escape wyłącza pomoc"
+            : "Pomoc klawiatury wyłączona");
+    }
+
+    private void UpdateKeyboardHelpMenuItem()
+    {
+        var state = _keyboardHelpActive ? "włączona" : "wyłączona";
+        KeyboardHelpMenuItem.Header = $"Pomoc _klawiatury: {state}";
+        AutomationProperties.SetName(KeyboardHelpMenuItem, $"Pomoc klawiatury: {state}, Ctrl+F1");
+    }
+
+    private void ShowLegacyShortcutHelpText()
     {
         MessageBox.Show(
             "Domyślny prefiks: Ctrl+Alt+Windows+F12.\n\n" +
@@ -5087,7 +5156,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IntPtr lParam,
         ref bool handled)
     {
-        if (message != WmKeyDown
+        if (_keyboardHelpActive
+            || message != WmKeyDown
             || Keyboard.FocusedElement is System.Windows.Controls.TextBox)
         {
             return IntPtr.Zero;
@@ -5118,6 +5188,32 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var windowKey = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (windowKey == Key.F1 && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            ToggleKeyboardHelp();
+            e.Handled = true;
+            return;
+        }
+
+        if (_keyboardHelpActive)
+        {
+            if (IsModifierKey(windowKey))
+            {
+                e.Handled = true;
+                return;
+            }
+            if (windowKey == Key.Escape && Keyboard.Modifiers == ModifierKeys.None)
+            {
+                ToggleKeyboardHelp();
+                e.Handled = true;
+                return;
+            }
+
+            AnnounceEssential(DescribeKeyboardShortcut(e));
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.Modifiers == ModifierKeys.Alt && windowKey == Key.F4)
         {
             e.Handled = true;
@@ -5305,7 +5401,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             OpenSettings();
             e.Handled = true;
         }
-        else if (e.Key == Key.F1)
+        else if (e.Key == Key.F1 && modifiers == ModifierKeys.None)
         {
             ShowHelp();
             e.Handled = true;
@@ -5389,6 +5485,294 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             e.Handled = true;
         }
     }
+
+    private void Window_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        if (!string.Equals(e.Text, "?", StringComparison.Ordinal)
+            || Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase
+            || Keyboard.FocusedElement is PasswordBox)
+        {
+            return;
+        }
+
+        ShowHelp();
+        e.Handled = true;
+    }
+
+    private string DescribeKeyboardShortcut(KeyEventArgs e)
+    {
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var chord = WindowsKeyMap.FromKeyEvent(e);
+        var spokenShortcut = FormatShortcutForSpeech(chord);
+        var context = KeyboardHelpContext();
+
+        if (string.Equals(
+                chord.Canonical,
+                KeyChord.Parse(_state.Settings.PrefixChord).Canonical,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{spokenShortcut}: włącz warstwę prefiksową. W trybie Pomocy warstwa nie zostanie uruchomiona. Kontekst: {context}";
+        }
+
+        if (TryDescribeDirectShortcut(key, Keyboard.Modifiers, out var directDescription))
+        {
+            return $"{spokenShortcut}: {directDescription}. Kontekst: {context}";
+        }
+
+        if (TryResolveKeyboardHelpCommand(key, Keyboard.Modifiers, out var commandId))
+        {
+            var displayName = CommandPaletteSearch
+                .CreateEntries(ActiveKeyboardProfile(), _state.Settings, includeCommandPalette: true)
+                .FirstOrDefault(entry => string.Equals(entry.CommandId, commandId, StringComparison.Ordinal))?
+                .DisplayName
+                ?? CommandCatalog.GetDisplayName(commandId);
+            var unavailable = KeyboardHelpUnavailableReason(commandId);
+            return string.IsNullOrWhiteSpace(unavailable)
+                ? $"{spokenShortcut}: {displayName}. Kontekst: {context}"
+                : $"{spokenShortcut}: {displayName}. Niedostępne: {unavailable}. Kontekst: {context}";
+        }
+
+        if (Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase)
+        {
+            return $"{spokenShortcut}: standardowe działanie pola tekstowego. Kontekst: {context}";
+        }
+
+        return $"{spokenShortcut}: brak polecenia w tym miejscu. Kontekst: {context}";
+    }
+
+    private bool TryResolveKeyboardHelpCommand(Key key, ModifierKeys modifiers, out string commandId)
+    {
+        if (modifiers == ModifierKeys.Control && TryGetDigitKey(key, out var sessionSlot))
+        {
+            commandId = sessionSlot == 0 ? CommandIds.SessionList : CommandIds.SessionSlot(sessionSlot);
+            return true;
+        }
+
+        if (_playerViewActive && PlayerPanel.IsKeyboardFocusWithin)
+        {
+            if (modifiers == ModifierKeys.None && TryGetDigitKey(key, out var digit))
+            {
+                commandId = CommandIds.SeekPercent(digit * 10);
+                return true;
+            }
+
+            commandId = (modifiers, key) switch
+            {
+                (ModifierKeys.None, Key.B) => CommandIds.AddBookmark,
+                (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
+                (ModifierKeys.Shift, Key.PageDown) => CommandIds.NextBookmark,
+                (ModifierKeys.None, Key.PageUp) => CommandIds.Previous,
+                (ModifierKeys.None, Key.PageDown) => CommandIds.Next,
+                (ModifierKeys.Control, Key.J) => CommandIds.SeekToTime,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.J) => CommandIds.SeekToPercentage,
+                (ModifierKeys.None, Key.Left) => CommandIds.SeekBackward10,
+                (ModifierKeys.None, Key.Right) => CommandIds.SeekForward10,
+                (ModifierKeys.Shift, Key.Left) => CommandIds.SeekBackward30,
+                (ModifierKeys.Shift, Key.Right) => CommandIds.SeekForward30,
+                (ModifierKeys.Control, Key.Left) => CommandIds.SeekBackward60,
+                (ModifierKeys.Control, Key.Right) => CommandIds.SeekForward60,
+                (ModifierKeys.None, Key.Up) => CommandIds.VolumeUp5,
+                (ModifierKeys.None, Key.Down) => CommandIds.VolumeDown5,
+                (ModifierKeys.Shift, Key.Up) => CommandIds.VolumeUp1,
+                (ModifierKeys.Shift, Key.Down) => CommandIds.VolumeDown1,
+                (ModifierKeys.Shift, Key.OemComma) => CommandIds.PlaybackRateDown,
+                (ModifierKeys.Shift, Key.OemPeriod) => CommandIds.PlaybackRateUp,
+                (ModifierKeys.Control, Key.OemPeriod) => CommandIds.PlaybackRateReset,
+                (ModifierKeys.None, Key.Home) => CommandIds.TrackStart,
+                (ModifierKeys.None, Key.End) => CommandIds.TrackEnd,
+                _ => string.Empty
+            };
+            if (commandId.Length > 0) return true;
+        }
+
+        if (MediaList.IsKeyboardFocusWithin
+            && modifiers == ModifierKeys.Alt
+            && key is Key.Up or Key.Down
+            && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+                || string.Equals(_currentView, "Kolejka", StringComparison.Ordinal)
+                || string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+                   && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
+                || TryGetPlaylistIdFromView(_currentView, out _)))
+        {
+            commandId = key == Key.Up
+                ? CommandIds.MoveLocalLibraryItemUp
+                : CommandIds.MoveLocalLibraryItemDown;
+            return true;
+        }
+
+        var itemCommandsAvailable = _playerViewActive || MediaList.IsKeyboardFocusWithin;
+        if (itemCommandsAvailable)
+        {
+            commandId = (modifiers, key) switch
+            {
+                (ModifierKeys.Alt | ModifierKeys.Shift, Key.Enter) => CommandIds.ItemPlaybackOptions,
+                (ModifierKeys.Alt, Key.Enter) => CommandIds.ItemProperties,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.U) => CommandIds.ToggleFavorite,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.P) => CommandIds.ManagePlaylists,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.Q) => CommandIds.AddQueue,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.L) => CommandIds.ToggleLibrary,
+                (ModifierKeys.Shift, Key.Enter) => CommandIds.AddQueue,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.Enter) => CommandIds.TogglePlayNext,
+                (ModifierKeys.Control, Key.Enter) => CommandIds.ActivateSelected,
+                _ => string.Empty
+            };
+            if (commandId.Length > 0) return true;
+        }
+
+        commandId = (modifiers, key) switch
+        {
+            (ModifierKeys.None, Key.F1) => CommandIds.Help,
+            (ModifierKeys.None, Key.F6) or (ModifierKeys.Shift, Key.F6) => CommandIds.ViewNowPlaying,
+            (ModifierKeys.Control, Key.PageUp) => CommandIds.SessionPrevious,
+            (ModifierKeys.Control, Key.PageDown) => CommandIds.SessionNext,
+            (ModifierKeys.Control, Key.U) => CommandIds.ViewFavorites,
+            (ModifierKeys.Control, Key.P) => CommandIds.ViewPlaylists,
+            (ModifierKeys.Control, Key.L) => CommandIds.ViewLibrary,
+            (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
+            (ModifierKeys.Control, Key.H) => CommandIds.ViewHistory,
+            (ModifierKeys.Control, Key.B) => CommandIds.ViewBookmarks,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.B) => CommandIds.AddNamedBookmark,
+            (ModifierKeys.Control, Key.K) => CommandIds.FilterCurrent,
+            (ModifierKeys.Control, Key.F) => CommandIds.SearchCurrent,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.A) => CommandIds.ViewAlbums,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.F) => CommandIds.SearchAll,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.G) => CommandIds.SettingsToggleSeekMessages,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.K) => CommandIds.CommandPalette,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.E) => CommandIds.TimeElapsed,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.R) => CommandIds.TimeRemaining,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.T) => CommandIds.TimeTotal,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.O) => CommandIds.OpenLocalFolder,
+            (ModifierKeys.Control, Key.O) => CommandIds.OpenLocalFiles,
+            (ModifierKeys.Control, Key.OemComma) => CommandIds.SettingsGeneral,
+            (ModifierKeys.Control, Key.F5) => CommandIds.ManageLocalSources,
+            (ModifierKeys.Alt, Key.D1) => CommandIds.ViewFolders,
+            (ModifierKeys.Alt, Key.D2) => CommandIds.ViewAllLocalFiles,
+            (ModifierKeys.Alt, Key.D3) => CommandIds.ViewCustomLocalOrder,
+            (ModifierKeys.None, Key.F5) => CommandIds.RefreshLocalLibrary,
+            (ModifierKeys.None, Key.F2) => CommandIds.RenameLibraryItem,
+            (ModifierKeys.Shift, Key.F2) => CommandIds.RenameLocalFile,
+            (ModifierKeys.None, Key.Space) => CommandIds.PlayPause,
+            _ => string.Empty
+        };
+        return commandId.Length > 0;
+    }
+
+    private bool TryDescribeDirectShortcut(Key key, ModifierKeys modifiers, out string description)
+    {
+        description = string.Empty;
+        if (modifiers == ModifierKeys.Alt && key == Key.F4)
+            description = "zamknij aplikację";
+        else if (modifiers == ModifierKeys.None && key == Key.Escape)
+            description = _playerViewActive
+                ? "wyjdź z odtwarzacza"
+                : "wyczyść filtr i wróć do listy albo zamknij bieżący poziom";
+        else if (modifiers == ModifierKeys.None && key == Key.Back)
+            description = Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase
+                ? "usuń znak przed kursorem"
+                : "wróć poziom wyżej";
+        else if (_playerViewActive && modifiers == ModifierKeys.Alt && key is Key.Up or Key.Down)
+            description = key == Key.Down
+                ? "przejdź do starszego elementu historii odtwarzania"
+                : "przejdź do nowszego elementu historii odtwarzania";
+        else if (_playerViewActive && modifiers == ModifierKeys.None && key == Key.Delete)
+            description = "usuń bieżący element z Biblioteki AMC, pozostawiając plik na dysku";
+        else if ((_playerViewActive || MediaList.IsKeyboardFocusWithin)
+                 && modifiers == ModifierKeys.Control && key == Key.C)
+            description = "kopiuj nazwy zaznaczonych elementów";
+        else if ((_playerViewActive || MediaList.IsKeyboardFocusWithin)
+                 && modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key == Key.C)
+            description = "kopiuj lokalizacje i fizyczne pliki zaznaczonych elementów";
+        else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.Control && key == Key.X)
+            description = "wytnij lokalne pliki do późniejszego przeniesienia";
+        else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.Control && key == Key.V)
+            description = "dodaj do bieżącego widoku lokalne pliki ze schowka";
+        else if (modifiers == ModifierKeys.Control && key == Key.Z)
+            description = "cofnij ostatnią zmianę Ulubionych, Biblioteki, Kolejki albo playlisty";
+        else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.Control && key == Key.A)
+            description = "zaznacz wszystkie elementy bieżącej listy";
+        else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.Shift && key == Key.Delete)
+            description = "po potwierdzeniu przenieś zaznaczone lokalne pliki do Kosza";
+        else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.None && key == Key.Delete)
+            description = "usuń zaznaczone elementy tylko z bieżącego widoku";
+        else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.None && key == Key.Left)
+            description = "podaj krótkie informacje o zaznaczonym elemencie";
+        else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.None && key is Key.Up or Key.Down)
+            description = "przejdź do poprzedniego lub następnego elementu listy";
+        else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.Shift && key is Key.Up or Key.Down)
+            description = "rozszerz zaznaczenie o poprzedni lub następny element";
+        else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.None && key == Key.Enter)
+            description = "otwórz zaznaczony element albo rozpocznij jego odtwarzanie";
+        else if (MediaList.IsKeyboardFocusWithin
+                 && modifiers == ModifierKeys.None
+                 && key == Key.Insert
+                 && string.Equals(_currentView, "Playlisty", StringComparison.Ordinal))
+            description = "utwórz playlistę";
+        else if (MediaList.IsKeyboardFocusWithin
+                 && modifiers == ModifierKeys.None
+                 && key == Key.F2
+                 && string.Equals(_currentView, "Playlisty", StringComparison.Ordinal))
+            description = "zmień nazwę wybranej playlisty";
+        else if (MediaList.IsKeyboardFocusWithin
+                 && modifiers == ModifierKeys.None
+                 && key is >= Key.A and <= Key.Z)
+            description = "szybko przejdź do elementu zaczynającego się od wpisanych liter";
+        else if (modifiers == ModifierKeys.Alt && key is Key.Left or Key.Right)
+            description = key == Key.Left ? "poprzedni widok" : "następny widok";
+
+        return description.Length > 0;
+    }
+
+    private string? KeyboardHelpUnavailableReason(string commandId)
+    {
+        var needsItem = commandId is CommandIds.ActivateSelected or CommandIds.ToggleFavorite
+            or CommandIds.ToggleLibrary or CommandIds.AddQueue or CommandIds.TogglePlayNext
+            or CommandIds.ItemProperties or CommandIds.ItemPlaybackOptions
+            or CommandIds.AddBookmark or CommandIds.AddNamedBookmark
+            or CommandIds.PreviousBookmark or CommandIds.NextBookmark;
+        if (needsItem && ActionItem is null) return "brak wybranego lub odtwarzanego elementu";
+        if (commandId.StartsWith("transport.", StringComparison.Ordinal)
+            && !_sessions.Current.HasCurrentItem)
+        {
+            return "brak bieżącego elementu multimedialnego";
+        }
+        return null;
+    }
+
+    private string KeyboardHelpContext()
+    {
+        if (Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase)
+            return "pole tekstowe";
+        if (_playerViewActive) return $"odtwarzacz, {_sessions.Current.DisplayName}";
+        if (MediaList.IsKeyboardFocusWithin) return $"{_currentView}, {_sessions.Current.DisplayName}";
+        if (MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem) return "menu AMC";
+        return "główne okno AMC";
+    }
+
+    private static string FormatShortcutForSpeech(KeyChord chord)
+    {
+        var parts = new List<string>(5);
+        if (chord.Modifiers.HasFlag(KeyModifiers.Ctrl)) parts.Add("Ctrl");
+        if (chord.Modifiers.HasFlag(KeyModifiers.Alt)) parts.Add("Alt");
+        if (chord.Modifiers.HasFlag(KeyModifiers.Shift)) parts.Add("Shift");
+        if (chord.Modifiers.HasFlag(KeyModifiers.Windows)) parts.Add("Windows");
+        parts.Add(chord.Key switch
+        {
+            "Left" => "strzałka w lewo",
+            "Right" => "strzałka w prawo",
+            "Up" => "strzałka w górę",
+            "Down" => "strzałka w dół",
+            "Space" => "Spacja",
+            "Escape" => "Escape",
+            "Backspace" => "Backspace",
+            "OemComma" => "przecinek",
+            "OemPeriod" => "kropka",
+            _ => chord.Key
+        });
+        return string.Join('+', parts);
+    }
+
+    private static bool IsModifierKey(Key key) => key is Key.LeftCtrl or Key.RightCtrl
+        or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin;
 
     private bool TryHandleLocalSessionShortcut(KeyEventArgs e)
     {
@@ -6572,6 +6956,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void SearchAll_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SearchAll);
     private void CommandPalette_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.CommandPalette);
     private void Help_Click(object sender, RoutedEventArgs e) => ShowHelp();
+    private void KeyboardHelp_Click(object sender, RoutedEventArgs e) => ToggleKeyboardHelp();
     private void Exit_Click(object sender, RoutedEventArgs e) => Close();
 
     private async void Updates_Click(object sender, RoutedEventArgs e)

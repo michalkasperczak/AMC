@@ -55,6 +55,7 @@ var tests = new (string Name, Action Test)[]
     ("Pamięć lokalnej biblioteki", TestLocalMediaPersistence),
     ("Trwałe playlisty", TestPlaylists),
     ("Paleta poleceń", TestCommandPalette),
+    ("Dostępny spis skrótów", TestShortcutHelpCatalog),
     ("Cofanie zmian przynależności", TestMembershipHistory),
     ("Zbiorowe zmiany przynależności", TestBatchMembershipCommands),
     ("Krótkie komunikaty czasu", TestTimeCommands),
@@ -2073,6 +2074,7 @@ static void TestCommandPalette()
     Equal("Ctrl+F5", entries.Single(entry => entry.CommandId == CommandIds.ManageLocalSources).LocalShortcut);
     Equal("F2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RenameLibraryItem).LocalShortcut);
     Equal("Shift+F2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RenameLocalFile).LocalShortcut);
+    Equal("Ctrl+F1", entries.Single(entry => entry.CommandId == CommandIds.KeyboardHelp).LocalShortcut);
 
     var remaining = CommandPaletteSearch.Filter(entries, "czas pozostaly");
     Equal(1, remaining.Count);
@@ -2152,6 +2154,46 @@ static void TestCommandPalette()
     Equal(
         "Komunikat po skoku cyfrą: procent i czas",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsPercentageSeekAnnouncement).DisplayName);
+}
+
+static void TestShortcutHelpCatalog()
+{
+    var sections = ShortcutHelpCatalog.Create(KeyboardProfile.CreateDefault(), new AppSettings());
+    True(sections.Count >= 8, "Pomoc powinna zachować pełną hierarchię sekcji.");
+    True(sections.All(section => section.Entries.Count > 0), "Puste sekcje nie powinny trafiać do okna Pomocy.");
+    Equal(sections[0].Label, sections[0].ToString());
+
+    var entries = sections.SelectMany(section => section.Entries).ToArray();
+    var favorites = entries.Single(entry => entry.CommandId == CommandIds.ViewFavorites);
+    True(favorites.Label.Contains("Pokaż ulubione", StringComparison.Ordinal), "Etykieta musi zawierać nazwę polecenia.");
+    True(favorites.Label.Contains("Ctrl+U", StringComparison.Ordinal), "Etykieta musi zawierać skrót okna.");
+    True(favorites.Label.Contains("po prefiksie U", StringComparison.Ordinal), "Etykieta musi zawierać aktywny skrót prefiksowy.");
+    Equal(favorites.Label, favorites.ToString());
+
+    var keyboardHelp = entries.Single(entry => entry.CommandId == CommandIds.KeyboardHelp);
+    True(keyboardHelp.CanExecute, "Pomoc klawiatury powinna być uruchamiana z listy skrótów.");
+    True(keyboardHelp.Label.Contains("Ctrl+F1", StringComparison.Ordinal), "Pomoc klawiatury musi podawać Ctrl+F1.");
+    True(entries.Single(entry => entry.CommandId == CommandIds.Help).CanExecute == false,
+        "Okno Pomocy nie powinno otwierać samo siebie.");
+    True(entries.Any(entry => entry.Shortcut == "Ctrl+C"), "Spis powinien obejmować bezpieczne kopiowanie nazw.");
+    True(entries.Any(entry => entry.Shortcut == "Shift+Delete"), "Spis powinien wyjaśniać osobną operację Kosza.");
+    True(entries.All(entry => !entry.Label.Contains("CommandId", StringComparison.Ordinal)
+        && !entry.Label.Contains("{", StringComparison.Ordinal)),
+        "Dostępne etykiety nie mogą ujawniać technicznego zapisu obiektów.");
+
+    var filtered = ShortcutHelpCatalog.Filter(sections, "pomoc klawiatury");
+    Equal(1, filtered.Count(entry => entry.CommandId == CommandIds.KeyboardHelp));
+    True(ShortcutHelpCatalog.Filter(sections, "kosza").Any(entry => entry.Shortcut == "Shift+Delete"),
+        "Wyszukiwanie musi obejmować opisy informacyjne.");
+
+    var customProfile = KeyboardProfile.CreateDefault().CreateEditableCopy("Test");
+    customProfile.Bindings.Remove("U");
+    customProfile.Bindings["Y"] = CommandIds.ViewFavorites;
+    var customFavorites = ShortcutHelpCatalog.Create(customProfile, new AppSettings())
+        .SelectMany(section => section.Entries)
+        .Single(entry => entry.CommandId == CommandIds.ViewFavorites);
+    True(customFavorites.Label.Contains("po prefiksie Y", StringComparison.Ordinal),
+        "Spis powinien od razu odzwierciedlać aktywny profil klawiatury.");
 }
 
 static void TestMembershipHistory()
@@ -2729,6 +2771,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public MediaItem? ActionItem => SelectedItem;
     public IReadOnlyList<MediaItem> ActionItems => actionItems ?? (SelectedItem is null ? [] : [SelectedItem]);
     public bool CommandPaletteShown { get; private set; }
+    public bool KeyboardHelpToggled { get; private set; }
     public SettingsTarget? LastSettingsTarget { get; private set; }
     public bool MessagesToggled { get; private set; }
     public bool DetailedHintsToggled { get; private set; }
@@ -2754,6 +2797,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ShowItemPlaybackOptions() => ItemPlaybackOptionsShown = true;
     public void OpenOfficialApplication() { }
     public void ShowHelp() { }
+    public void ToggleKeyboardHelp() => KeyboardHelpToggled = true;
     public void ShowSettings(SettingsTarget target) => LastSettingsTarget = target;
     public void ToggleAccessibilityMessages() => MessagesToggled = true;
     public void ToggleDetailedHints() => DetailedHintsToggled = true;

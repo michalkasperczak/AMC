@@ -34,7 +34,8 @@ public static class CommandPaletteSearch
 {
     public static IReadOnlyList<CommandPaletteEntry> CreateEntries(
         KeyboardProfile profile,
-        AppSettings settings)
+        AppSettings settings,
+        bool includeCommandPalette = false)
     {
         var shortcuts = profile.Bindings
             .GroupBy(pair => pair.Value, StringComparer.Ordinal)
@@ -46,7 +47,7 @@ public static class CommandPaletteSearch
                 StringComparer.Ordinal);
 
         return CommandCatalog.GetAllCommandIds()
-            .Where(commandId => commandId != CommandIds.CommandPalette)
+            .Where(commandId => includeCommandPalette || commandId != CommandIds.CommandPalette)
             .Select(commandId => new CommandPaletteEntry(
                 commandId,
                 GetDisplayName(commandId, settings),
@@ -193,6 +194,7 @@ public static class CommandPaletteSearch
             CommandIds.ItemProperties => "Alt+Enter",
             CommandIds.ItemPlaybackOptions => "Alt+Shift+Enter",
             CommandIds.Help => "F1",
+            CommandIds.KeyboardHelp => "Ctrl+F1",
             CommandIds.OpenLocalFiles => "Ctrl+O",
             CommandIds.OpenLocalFolder => "Ctrl+Shift+O",
             CommandIds.SettingsGeneral => "Ctrl+,",
