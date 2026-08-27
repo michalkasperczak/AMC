@@ -1,12 +1,46 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-113`
-- Tytuł zestawu: Odporność wszystkich kontenerów i wspólnego toru audio
-- Wersja programu: `0.1.0-alpha.113`
+- Numer zestawu: `AMC-TEST-114`
+- Tytuł zestawu: Chmury niezależne od dostawcy i ogromne lub nietypowe pliki
+- Wersja programu: `0.1.0-alpha.114`
 - Utworzono: 2026-08-27, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.113.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.114.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 114
+
+### AMC-114-01 — Placeholder niezależny od nazwy chmury
+
+W Folderach Biblioteki użyj dostępnego pliku tylko online z OneDrive, iCloud, Google Drive albo innego klienta korzystającego z mechanizmu Cloud Files. Najpierw wybierz go i użyj lewej strzałki, potem świadomie rozpocznij odtwarzanie.
+
+Oczekiwane: indeksowanie i krótka informacja nie pobierają zawartości. Program rozpoznaje stan pliku z metadanych Windows, nawet jeśli nazwa folderu nie zawiera nazwy dostawcy. Dopiero odtwarzanie może rozpocząć hydratację, a okno i NVDA pozostają dostępne.
+
+### AMC-114-02 — Ponawianie po awarii usługi chmurowej
+
+Podczas otwierania pliku tylko online chwilowo odłącz sieć albo zatrzymaj klienta chmury. Po błędzie spróbuj natychmiast kilka razy, potem przywróć dostęp i ponów po podanym czasie.
+
+Oczekiwane: AMC nie tworzy wielu równoległych, zablokowanych prób. Krótki komunikat podaje czas do ponowienia, rosnący od około 10 sekund najwyżej do 5 minut. Po udanym otwarciu ograniczenie znika; restart nie jest wymagany.
+
+### AMC-114-03 — MP3 z nietypowym początkiem
+
+Na kopiach materiałów sprawdź MP3 z bardzo dużą okładką lub tagiem ID3, z dodatkowymi bajtami przed dźwiękiem oraz plik zapisany przez nietypowy rejestrator. Jeżeli masz MP3 free-format, dodaj go do próby.
+
+Oczekiwane: aplikacja czyta tylko ograniczony fragment, odnajduje potwierdzone ramki i może ominąć wadliwy początek bez tworzenia nowej kopii pliku. Czas, pozycja i przewijanie pozostają prawidłowe. Ostrzeżenia techniczne nie są wypowiadane przez NVDA.
+
+### AMC-114-04 — MP3 większy niż 512 MiB i 4 GiB
+
+Jeżeli masz bardzo duży lokalny MP3, sprawdź start, kilka odległych skoków, zmianę prędkości oraz Page Up i Page Down. Nie kopiuj pliku specjalnie do katalogu testowego i nie używaj ważnego materiału do eksperymentalnego uszkadzania.
+
+Oczekiwane: limit 512 MiB dotyczy wyłącznie ostatniego awaryjnego NLayer, a nie zwykłego odtwarzania. Ścieżka systemowa i oczyszczony podstrumień używają pozycji 64-bitowych, nie ładują całości do pamięci i nie tworzą tymczasowej kopii.
+
+### AMC-114-05 — Uszkodzone deklaracje kontenerów
+
+Na nieistotnych kopiach sprawdź ucięty WAV, AIFF, FLAC, OGG, M4A lub AAC. Po każdej próbie uruchom od razu prawidłowy plik innego formatu.
+
+Oczekiwane: rozmiar zadeklarowany poza fizycznym końcem jest odnotowany w logu, ale okno nie blokuje się na analizie. Wadliwy tor zostaje odłączony, prawidłowy następny materiał działa, a program nie modyfikuje żadnego źródła.
+
+## Poprzedni zestaw alpha 113
 
 ## Nowości alpha 113
 

@@ -60,13 +60,52 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     private enum DecoderKind
     {
         System,
+        SanitizedSystemMp3,
         ManagedMp3,
         Vorbis
+    }
+
+    private enum Mp3DecoderMode
+    {
+        Automatic,
+        SanitizedSystem,
+        Managed
     }
 
     private readonly record struct ReaderSelection(
         GuardedWaveStream Reader,
         DecoderKind DecoderKind);
+
+    private sealed class OwnedWaveStream(WaveStream inner, IDisposable owner) : WaveStream
+    {
+        private bool _disposed;
+        public override WaveFormat WaveFormat => inner.WaveFormat;
+        public override long Length => inner.Length;
+        public override long Position
+        {
+            get => inner.Position;
+            set => inner.Position = value;
+        }
+        public override int Read(byte[] buffer, int offset, int count) =>
+            inner.Read(buffer, offset, count);
+
+        protected override void Dispose(bool disposing)
+        {
+            if (!_disposed && disposing)
+            {
+                _disposed = true;
+                try
+                {
+                    inner.Dispose();
+                }
+                finally
+                {
+                    owner.Dispose();
+                }
+            }
+            base.Dispose(disposing);
+        }
+    }
 
     private sealed class PlaybackPipeline
     {
@@ -88,9 +127,16 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         public PlaybackPipeline Pipeline { get; } = pipeline;
     }
 
+    private readonly record struct RemoteFailureState(
+        int Count,
+        DateTimeOffset LastFailure,
+        DateTimeOffset RetryAfter);
+
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     private readonly object _gate = new();
     private readonly HashSet<string> _quarantinedSources = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, RemoteFailureState> _remoteFailures =
+        new(StringComparer.OrdinalIgnoreCase);
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte>
         MetadataTimeoutSources = new(StringComparer.OrdinalIgnoreCase);
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Task<MediaMetadataReadResult>>
@@ -180,6 +226,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         var mayRequireRemoteAccess = CloudFileAvailability.MayRequireRemoteAccess(item.Source);
         PlaybackPipeline? reusable;
         bool sourceQuarantined;
+        TimeSpan? remoteRetryDelay;
         lock (_gate)
         {
             sourceQuarantined = !mayRequireRemoteAccess
@@ -187,6 +234,9 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             reusable = _pipeline is not null
                 && string.Equals(_pipeline.Item.Source, item.Source, StringComparison.OrdinalIgnoreCase)
                 ? _pipeline
+                : null;
+            remoteRetryDelay = mayRequireRemoteAccess && reusable is null
+                ? GetRemoteRetryDelayLocked(item.Source)
                 : null;
             _requestedItem = item;
             _pendingPosition = resolvedPosition;
@@ -200,6 +250,15 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             RaisePlaybackFailed(
                 item,
                 "Ten plik wcześniej zatrzymał dekoder. Uruchom program ponownie po zastąpieniu lub naprawieniu pliku.");
+            return;
+        }
+
+        if (remoteRetryDelay is { } delay)
+        {
+            var seconds = Math.Max(1, (int)Math.Ceiling(delay.TotalSeconds));
+            RaisePlaybackFailed(
+                item,
+                $"Usługa chmurowa niedawno nie odpowiedziała. Ponów próbę za {seconds} s.");
             return;
         }
 
@@ -244,7 +303,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             resolvedPosition,
             resolvedVolume,
             resolvedRate,
-            forceManagedMp3: false));
+            mp3DecoderMode: Mp3DecoderMode.Automatic));
         _ = WatchPreparationTimeoutAsync(
             item,
             requestVersion,
@@ -270,6 +329,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 {
                     _quarantinedSources.Add(item.Source);
                 }
+                else if (!string.IsNullOrWhiteSpace(item.Source))
+                {
+                    RecordRemoteFailureLocked(item.Source);
+                }
                 timedOut = true;
             }
         }
@@ -289,7 +352,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         TimeSpan requestedPosition,
         int requestedVolume,
         double requestedRate,
-        bool forceManagedMp3)
+        Mp3DecoderMode mp3DecoderMode)
     {
         PlaybackPipeline? pipeline = null;
         try
@@ -298,7 +361,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             {
                 if (_disposed || requestVersion != _requestVersion) return;
             }
-            pipeline = CreatePipeline(item, requestVersion, forceManagedMp3);
+            pipeline = CreatePipeline(item, requestVersion, mp3DecoderMode);
             TimeSpan position;
             int volume;
             double rate;
@@ -315,6 +378,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 rate = _requestedItem?.Id == item.Id ? _playbackRate : requestedRate;
                 _pipeline = pipeline;
                 _preparing = false;
+                if (pipeline.MayRequireRemoteAccess && !string.IsNullOrWhiteSpace(item.Source))
+                {
+                    _remoteFailures.Remove(item.Source);
+                }
             }
 
             SeekPipeline(pipeline, position);
@@ -350,11 +417,17 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             }
 
             var currentRequest = false;
+            var failedRemote = !string.IsNullOrWhiteSpace(item.Source)
+                && CloudFileAvailability.MayRequireRemoteAccess(item.Source);
             lock (_gate)
             {
                 if (!_disposed && requestVersion == _requestVersion)
                 {
                     _preparing = false;
+                    if (failedRemote)
+                    {
+                        RecordRemoteFailureLocked(item.Source!);
+                    }
                     currentRequest = true;
                 }
             }
@@ -366,13 +439,13 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     private PlaybackPipeline CreatePipeline(
         MediaItem item,
         long requestVersion,
-        bool forceManagedMp3)
+        Mp3DecoderMode mp3DecoderMode)
     {
         DiagnosticLog.Info("playback", $"Otwieranie dekodera: {item.Title}; żądanie {requestVersion}.");
         var mayRequireRemoteAccess = CloudFileAvailability.MayRequireRemoteAccess(item.Source!);
         var selection = CreateReader(
             item.Source!,
-            forceManagedMp3,
+            mp3DecoderMode,
             allowManagedMp3Fallback: true,
             mayRequireRemoteAccess);
         var reader = selection.Reader;
@@ -423,7 +496,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
 
     private static ReaderSelection CreateReader(
         string path,
-        bool forceManagedMp3,
+        Mp3DecoderMode mp3DecoderMode,
         bool allowManagedMp3Fallback,
         bool mayRequireRemoteAccess)
     {
@@ -482,7 +555,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         else if (extension.Equals(".mp3", StringComparison.OrdinalIgnoreCase))
         {
             Mp3StructureProbeResult? probe = null;
-            if (!mayRequireRemoteAccess)
+            try
             {
                 probe = Mp3StructureProbe.Probe(path);
                 if (!string.IsNullOrWhiteSpace(probe.Value.Warning))
@@ -492,10 +565,21 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                         $"Nietypowa struktura MP3: {path}; {probe.Value.Warning}");
                 }
             }
-
-            if (forceManagedMp3)
+            catch (Exception exception) when (
+                exception is IOException
+                    or UnauthorizedAccessException
+                    or InvalidDataException
+                    or NotSupportedException
+                    or ArgumentException)
             {
-                if (!CanUseManagedMp3Fallback(path, mayRequireRemoteAccess, probe))
+                DiagnosticLog.Warning(
+                    "mp3-probe",
+                    $"Nie udało się w sposób ograniczony sprawdzić początku MP3: {path}; {exception.Message}");
+            }
+
+            if (mp3DecoderMode == Mp3DecoderMode.Managed)
+            {
+                if (!CanUseManagedMp3Fallback(mayRequireRemoteAccess, probe))
                 {
                     throw new InvalidDataException(
                         "Nie można bezpiecznie użyć awaryjnego dekodera dla tego pliku MP3.");
@@ -505,20 +589,61 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             }
             else
             {
-                try
+                if (mp3DecoderMode == Mp3DecoderMode.SanitizedSystem)
                 {
-                    reader = new AudioFileReader(path);
+                    if (probe is not { HasConsecutiveFrames: true })
+                    {
+                        throw new InvalidDataException(
+                            "Nie można bezpiecznie utworzyć oczyszczonego strumienia tego pliku MP3.");
+                    }
+                    try
+                    {
+                        reader = CreateSanitizedMp3Reader(path, probe.Value.AudioStartOffset);
+                        decoderKind = DecoderKind.SanitizedSystemMp3;
+                    }
+                    catch (Exception exception) when (
+                        allowManagedMp3Fallback
+                        && IsDecoderFailure(exception)
+                        && CanUseManagedMp3Fallback(mayRequireRemoteAccess, probe))
+                    {
+                        DiagnosticLog.Warning(
+                            "mp3-fallback",
+                            $"Oczyszczony strumień MP3 został odrzucony; użyto dekodera zarządzanego: {path}; {exception.Message}");
+                        reader = CreateManagedMp3Reader(path);
+                        decoderKind = DecoderKind.ManagedMp3;
+                    }
                 }
-                catch (Exception exception) when (
-                    allowManagedMp3Fallback
-                    && IsDecoderFailure(exception)
-                    && CanUseManagedMp3Fallback(path, mayRequireRemoteAccess, probe))
+                else if (probe is { ShouldUseSanitizedStream: true })
                 {
-                    DiagnosticLog.Warning(
-                        "mp3-fallback",
-                        $"Dekoder systemowy odrzucił MP3; użyto dekodera zarządzanego: {path}; {exception.Message}");
-                    reader = CreateManagedMp3Reader(path);
-                    decoderKind = DecoderKind.ManagedMp3;
+                    try
+                    {
+                        reader = CreateSanitizedMp3Reader(path, probe.Value.AudioStartOffset);
+                        decoderKind = DecoderKind.SanitizedSystemMp3;
+                        DiagnosticLog.Warning(
+                            "mp3-sanitized",
+                            $"Pominięto nietypowe dane poprzedzające audio MP3: {path}; początek {probe.Value.AudioStartOffset}.");
+                    }
+                    catch (Exception sanitizedException) when (IsDecoderFailure(sanitizedException))
+                    {
+                        DiagnosticLog.Warning(
+                            "mp3-sanitized",
+                            $"Oczyszczony strumień MP3 został odrzucony: {path}; {sanitizedException.Message}");
+                        reader = CreateSystemOrManagedMp3Reader(
+                            path,
+                            allowManagedMp3Fallback,
+                            mayRequireRemoteAccess,
+                            probe,
+                            out decoderKind);
+                    }
+                }
+                else
+                {
+                    reader = CreateSystemOrManagedMp3Reader(
+                        path,
+                        allowManagedMp3Fallback,
+                        mayRequireRemoteAccess,
+                        probe,
+                        out decoderKind);
                 }
             }
         }
@@ -556,26 +681,79 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         }
     }
 
-    private static bool CanUseManagedMp3Fallback(
+    private static WaveStream CreateSystemOrManagedMp3Reader(
         string path,
+        bool allowManagedMp3Fallback,
         bool mayRequireRemoteAccess,
-        Mp3StructureProbeResult? probe)
+        Mp3StructureProbeResult? probe,
+        out DecoderKind decoderKind)
     {
-        if (mayRequireRemoteAccess || probe is not { HasConsecutiveFrames: true }) return false;
         try
         {
-            var length = new FileInfo(path).Length;
-            return length is > 0 and <= ManagedMp3FallbackMaximumBytes;
+            decoderKind = DecoderKind.System;
+            return new AudioFileReader(path);
         }
-        catch (Exception exception) when (
-            exception is IOException
-                or UnauthorizedAccessException
-                or ArgumentException
-                or NotSupportedException)
+        catch (Exception systemException) when (IsDecoderFailure(systemException))
         {
-            return false;
+            if (probe is { HasConsecutiveFrames: true })
+            {
+                try
+                {
+                    var sanitized = CreateSanitizedMp3Reader(path, probe.Value.AudioStartOffset);
+                    decoderKind = DecoderKind.SanitizedSystemMp3;
+                    DiagnosticLog.Warning(
+                        "mp3-sanitized",
+                        $"Dekoder ścieżki odrzucił MP3; użyto zweryfikowanego strumienia audio: {path}; {systemException.Message}");
+                    return sanitized;
+                }
+                catch (Exception sanitizedException) when (IsDecoderFailure(sanitizedException))
+                {
+                    DiagnosticLog.Warning(
+                        "mp3-sanitized",
+                        $"Zweryfikowany strumień MP3 także został odrzucony: {path}; {sanitizedException.Message}");
+                }
+            }
+
+            if (allowManagedMp3Fallback
+                && CanUseManagedMp3Fallback(mayRequireRemoteAccess, probe))
+            {
+                DiagnosticLog.Warning(
+                    "mp3-fallback",
+                    $"Dekoder systemowy odrzucił MP3; użyto dekodera zarządzanego: {path}; {systemException.Message}");
+                decoderKind = DecoderKind.ManagedMp3;
+                return CreateManagedMp3Reader(path);
+            }
+            throw;
         }
     }
+
+    private static WaveStream CreateSanitizedMp3Reader(string path, long audioStartOffset)
+    {
+        var source = BoundedSubrangeStream.OpenFile(path, audioStartOffset);
+        try
+        {
+            var settings = new MediaFoundationReader.MediaFoundationReaderSettings
+            {
+                RequestFloatOutput = true,
+                RepositionInRead = false,
+                SingleReaderObject = true
+            };
+            var decoder = new StreamMediaFoundationReader(source, settings);
+            return new OwnedWaveStream(decoder, source);
+        }
+        catch
+        {
+            source.Dispose();
+            throw;
+        }
+    }
+
+    private static bool CanUseManagedMp3Fallback(
+        bool mayRequireRemoteAccess,
+        Mp3StructureProbeResult? probe) =>
+        !mayRequireRemoteAccess
+        && probe is { HasConsecutiveFrames: true }
+        && probe.Value.FileLength is > 0 and <= ManagedMp3FallbackMaximumBytes;
 
     private static bool IsDecoderFailure(Exception exception) =>
         exception is IOException
@@ -598,7 +776,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         {
             using var selection = CreateReader(
                 path,
-                forceManagedMp3: false,
+                mp3DecoderMode: Mp3DecoderMode.Automatic,
                 allowManagedMp3Fallback: false,
                 mayRequireRemoteAccess: false).Reader;
             duration = selection.TotalTime;
@@ -782,7 +960,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                         "playback",
                         $"Przewijanie nie powiodło się: {pipeline.Item.Title}; cel {target}.",
                         exception);
-                    if (TryBeginManagedMp3Recovery(pipeline, exception)) return;
+                    if (TryBeginMp3Recovery(pipeline, exception)) return;
                     StopPipelineAfterSeekFailure(pipeline, FriendlyPlaybackError(exception));
                     return;
                 }
@@ -904,7 +1082,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
 
     private void StopUnresponsivePipeline(PlaybackPipeline pipeline, string diagnosticReason)
     {
-        if (TryBeginManagedMp3Recovery(pipeline, originalException: null))
+        if (TryBeginMp3Recovery(pipeline, originalException: null))
         {
             DiagnosticLog.Warning(
                 "mp3-fallback",
@@ -921,6 +1099,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 if (!pipeline.MayRequireRemoteAccess)
                 {
                     _quarantinedSources.Add(pipeline.DecoderGuard.SourcePath);
+                }
+                else
+                {
+                    RecordRemoteFailureLocked(pipeline.DecoderGuard.SourcePath);
                 }
                 ++_requestVersion;
                 _pipeline = null;
@@ -947,6 +1129,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             if (!_disposed && ReferenceEquals(_pipeline, pipeline))
             {
                 _pendingPosition = pipeline.DecoderGuard.CachedCurrentTime;
+                if (pipeline.MayRequireRemoteAccess)
+                {
+                    RecordRemoteFailureLocked(pipeline.DecoderGuard.SourcePath);
+                }
                 ++_requestVersion;
                 _pipeline = null;
                 if (ReferenceEquals(_seekWorker?.Pipeline, pipeline)) _seekWorker = null;
@@ -975,7 +1161,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         }
         if (args.Exception is not null)
         {
-            if (TryBeginManagedMp3Recovery(pipeline, args.Exception)) return;
+            if (TryBeginMp3Recovery(pipeline, args.Exception)) return;
             DiagnosticLog.Error("playback", $"Błąd toru audio: {pipeline.Item.Title}.", args.Exception);
             StopPipelineAfterPlaybackFailure(
                 pipeline,
@@ -1008,6 +1194,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 {
                     _quarantinedSources.Add(pipeline.DecoderGuard.SourcePath);
                 }
+                if (pipeline.MayRequireRemoteAccess)
+                {
+                    RecordRemoteFailureLocked(pipeline.DecoderGuard.SourcePath);
+                }
                 ++_requestVersion;
                 _pipeline = null;
                 if (ReferenceEquals(_seekWorker?.Pipeline, pipeline)) _seekWorker = null;
@@ -1021,12 +1211,12 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         RaisePlaybackFailed(pipeline.Item, userMessage);
     }
 
-    private bool TryBeginManagedMp3Recovery(
+    private bool TryBeginMp3Recovery(
         PlaybackPipeline pipeline,
         Exception? originalException)
     {
         var path = pipeline.Item.Source;
-        if (pipeline.DecoderKind != DecoderKind.System
+        if (pipeline.DecoderKind is not (DecoderKind.System or DecoderKind.SanitizedSystemMp3)
             || pipeline.MayRequireRemoteAccess
             || string.IsNullOrWhiteSpace(path)
             || !Path.GetExtension(path).Equals(".mp3", StringComparison.OrdinalIgnoreCase)
@@ -1048,7 +1238,15 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         {
             return false;
         }
-        if (!CanUseManagedMp3Fallback(path, mayRequireRemoteAccess: false, probe)) return false;
+        var recoveryMode = pipeline.DecoderKind == DecoderKind.System
+            && probe.HasConsecutiveFrames
+                ? Mp3DecoderMode.SanitizedSystem
+                : Mp3DecoderMode.Managed;
+        if (recoveryMode == Mp3DecoderMode.Managed
+            && !CanUseManagedMp3Fallback(mayRequireRemoteAccess: false, probe))
+        {
+            return false;
+        }
 
         long requestVersion;
         TimeSpan position;
@@ -1070,9 +1268,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
 
         DiagnosticLog.Warning(
             "mp3-fallback",
-            originalException is null
-                ? $"Dekoder systemowy zatrzymał postęp; ponowna próba dekoderem zarządzanym: {path}."
-                : $"Dekoder systemowy przerwał odtwarzanie; ponowna próba dekoderem zarządzanym: {path}; {originalException.Message}");
+            $"Dekoder MP3 przerwał postęp; ponowna próba trybem {recoveryMode}: {path}"
+            + (originalException is null ? "." : $"; {originalException.Message}"));
         QueuePipelineDisposal(pipeline);
         _ = Task.Run(() => PrepareAndStartPipeline(
             pipeline.Item,
@@ -1080,7 +1277,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             position,
             volume,
             rate,
-            forceManagedMp3: true));
+            mp3DecoderMode: recoveryMode));
         _ = WatchPreparationTimeoutAsync(
             pipeline.Item,
             requestVersion,
@@ -1096,6 +1293,28 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         if (ReferenceEquals(_seekWorker?.Pipeline, pipeline)) _seekWorker = null;
         if (pipeline is not null) pipeline.Output.PlaybackStopped -= pipeline.StoppedHandler;
         return pipeline;
+    }
+
+    private TimeSpan? GetRemoteRetryDelayLocked(string path)
+    {
+        if (!_remoteFailures.TryGetValue(path, out var state)) return null;
+        var remaining = state.RetryAfter - DateTimeOffset.UtcNow;
+        return remaining > TimeSpan.Zero ? remaining : null;
+    }
+
+    private void RecordRemoteFailureLocked(string path)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var previousCount = _remoteFailures.TryGetValue(path, out var previous)
+            && now - previous.LastFailure < TimeSpan.FromMinutes(30)
+                ? previous.Count
+                : 0;
+        var count = Math.Min(previousCount + 1, 6);
+        var delaySeconds = Math.Min(300, 10 * Math.Pow(3, count - 1));
+        _remoteFailures[path] = new RemoteFailureState(
+            count,
+            now,
+            now.AddSeconds(delaySeconds));
     }
 
     private static void QueuePipelineDisposal(PlaybackPipeline pipeline) =>

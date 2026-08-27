@@ -37,6 +37,7 @@ var tests = new (string Name, Action Test)[]
     ("Polityka pamiętania pozycji", TestResumePositionPolicy),
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Ograniczone sprawdzanie struktury MP3", TestMp3StructureProbe),
+    ("Strumień ogromnego pliku bez kopiowania", TestBoundedSubrangeStream),
     ("Ograniczone rozpoznawanie kontenerów multimedialnych", TestMediaContainerProbe),
     ("Ponowne włączanie folderu do biblioteki", TestLocalLibraryImport),
     ("Synchronizacja źródeł lokalnej biblioteki", TestLocalLibrarySynchronization),
@@ -1329,6 +1330,12 @@ static void TestLocalAudioFileDiscovery()
                 "Indeksowanie folderu nie może wymagać otwarcia danych pliku.");
         }
         Equal(CloudFileState.Local, CloudFileAvailability.GetState(lockedPath));
+        True(
+            CloudFileAvailability.ClassifyMetadata(FileAttributes.Normal) == CloudFileState.Local,
+            "Brak stanu Cloud Files nie może zostać pomylony z placeholderem.");
+        True(
+            CloudFileAvailability.ClassifyMetadata(FileAttributes.Normal, 0x10) == CloudFileState.Placeholder,
+            "Częściowy placeholder Cloud Files powinien zostać wykryty niezależnie od dostawcy.");
         var placeholderPath = Path.Combine(directory, "Tylko online.mp3");
         File.WriteAllBytes(placeholderPath, [1]);
         try
@@ -1422,7 +1429,66 @@ static void TestMp3StructureProbe()
 
         var id3Result = Mp3StructureProbe.Probe(id3Path);
         True(id3Result.HasConsecutiveFrames, "Nie pominięto prawidłowego znacznika ID3.");
+        Equal(30L, id3Result.DeclaredAudioStartOffset);
         Equal(30L, id3Result.AudioStartOffset);
+
+        var leadingJunkPath = Path.Combine(directory, "leading-junk.mp3");
+        var withLeadingJunk = new byte[37 + frameLength * 2];
+        Array.Fill<byte>(withLeadingJunk, 0x55, 0, 37);
+        frameHeader.CopyTo(withLeadingJunk, 37);
+        frameHeader.CopyTo(withLeadingJunk, 37 + frameLength);
+        File.WriteAllBytes(leadingJunkPath, withLeadingJunk);
+        var leadingJunkResult = Mp3StructureProbe.Probe(leadingJunkPath);
+        True(leadingJunkResult.HasConsecutiveFrames, "Nie odnaleziono MP3 po danych poprzedzających audio.");
+        Equal(37L, leadingJunkResult.AudioStartOffset);
+        True(leadingJunkResult.ShouldUseSanitizedStream, "Nietypowy początek powinien uruchamiać oczyszczony strumień.");
+
+        var invalidVersionPath = Path.Combine(directory, "invalid-id3-version.mp3");
+        var invalidVersion = new byte[10 + frameLength * 2];
+        invalidVersion[0] = (byte)'I';
+        invalidVersion[1] = (byte)'D';
+        invalidVersion[2] = (byte)'3';
+        invalidVersion[3] = 99;
+        frameHeader.CopyTo(invalidVersion, 10);
+        frameHeader.CopyTo(invalidVersion, 10 + frameLength);
+        File.WriteAllBytes(invalidVersionPath, invalidVersion);
+        var invalidVersionResult = Mp3StructureProbe.Probe(invalidVersionPath);
+        True(invalidVersionResult.HasConsecutiveFrames, "Nie odzyskano audio po nieprawidłowej wersji ID3.");
+        Equal(10L, invalidVersionResult.AudioStartOffset);
+        True(!string.IsNullOrWhiteSpace(invalidVersionResult.Warning), "Brakuje ostrzeżenia o wersji ID3.");
+
+        var freeFormatPath = Path.Combine(directory, "free-format.mp3");
+        byte[] freeFormatHeader = [0xFF, 0xFB, 0x00, 0x00];
+        var freeFormat = new byte[frameLength * 3];
+        freeFormatHeader.CopyTo(freeFormat, 0);
+        freeFormatHeader.CopyTo(freeFormat, frameLength);
+        freeFormatHeader.CopyTo(freeFormat, frameLength * 2);
+        File.WriteAllBytes(freeFormatPath, freeFormat);
+        var freeFormatResult = Mp3StructureProbe.Probe(freeFormatPath);
+        True(freeFormatResult.HasConsecutiveFrames, "Nie rozpoznano trzech ramek MP3 free-format.");
+        Equal(128, freeFormatResult.BitrateKbps);
+
+        const int largeId3Payload = 20 * 1024 * 1024;
+        var largeTagPath = Path.Combine(directory, "large-tag.mp3");
+        using (var largeTag = new FileStream(largeTagPath, FileMode.CreateNew, FileAccess.Write))
+        {
+            Span<byte> header = stackalloc byte[10];
+            "ID3"u8.CopyTo(header);
+            header[3] = 4;
+            header[6] = (byte)((largeId3Payload >> 21) & 0x7F);
+            header[7] = (byte)((largeId3Payload >> 14) & 0x7F);
+            header[8] = (byte)((largeId3Payload >> 7) & 0x7F);
+            header[9] = (byte)(largeId3Payload & 0x7F);
+            largeTag.Write(header);
+            largeTag.Position = 10L + largeId3Payload;
+            largeTag.Write(frameHeader);
+            largeTag.Position += frameLength - frameHeader.Length;
+            largeTag.Write(frameHeader);
+            largeTag.SetLength(10L + largeId3Payload + frameLength * 2L);
+        }
+        var largeTagResult = Mp3StructureProbe.Probe(largeTagPath);
+        True(largeTagResult.HasConsecutiveFrames, "Nie odczytano ramek za dużym, ale prawidłowym ID3.");
+        True(largeTagResult.HasLargeLeadingTag, "Duży ID3 nie został oznaczony do bezpiecznego pominięcia.");
 
         var damagedPath = Path.Combine(directory, "damaged.mp3");
         File.WriteAllBytes(
@@ -1442,6 +1508,27 @@ static void TestMp3StructureProbe()
     {
         Directory.Delete(directory, true);
     }
+}
+
+static void TestBoundedSubrangeStream()
+{
+    const long sourceLength = 8L * 1024 * 1024 * 1024;
+    const long origin = 5L * 1024 * 1024 * 1024 + 17;
+    using var source = new VirtualLargeReadStream(sourceLength);
+    using var window = new BoundedSubrangeStream(source, origin, 1024 * 1024);
+    Equal(1024L * 1024, window.Length);
+
+    Span<byte> first = stackalloc byte[8];
+    Equal(first.Length, window.Read(first));
+    for (var index = 0; index < first.Length; index++)
+    {
+        Equal((byte)((origin + index) & 0xFF), first[index]);
+    }
+
+    Equal(window.Length - 4, window.Seek(-4, SeekOrigin.End));
+    Span<byte> ending = stackalloc byte[16];
+    Equal(4, window.Read(ending));
+    Equal(window.Length, window.Position);
 }
 
 static void TestMediaContainerProbe()
@@ -1505,6 +1592,29 @@ static void TestMediaContainerProbe()
         var mismatch = MediaContainerProbe.Probe(mismatchPath);
         Equal(MediaContainerKind.Flac, mismatch.Kind);
         True(!string.IsNullOrWhiteSpace(mismatch.Warning), "Nie wykryto niezgodnego rozszerzenia.");
+
+        var oversizedRiffPath = Path.Combine(directory, "oversized.wav");
+        var oversizedRiff = "RIFF\0\0\0\0WAVEfmt "u8.ToArray();
+        BitConverter.GetBytes(10_000u).CopyTo(oversizedRiff, 4);
+        File.WriteAllBytes(oversizedRiffPath, oversizedRiff);
+        True(
+            MediaContainerProbe.Probe(oversizedRiffPath).Warning?.Contains("poza końcem", StringComparison.Ordinal) == true,
+            "Nie wykryto rozmiaru RIFF poza końcem pliku.");
+
+        var oversizedFlacPath = Path.Combine(directory, "oversized.flac");
+        File.WriteAllBytes(oversizedFlacPath, [(byte)'f', (byte)'L', (byte)'a', (byte)'C', 0, 0, 1, 0]);
+        True(
+            MediaContainerProbe.Probe(oversizedFlacPath).Warning?.Contains("poza koniec", StringComparison.Ordinal) == true,
+            "Nie wykryto bloku FLAC poza końcem pliku.");
+
+        var truncatedOggPath = Path.Combine(directory, "truncated.ogg");
+        var truncatedOgg = new byte[27];
+        "OggS"u8.CopyTo(truncatedOgg);
+        truncatedOgg[26] = 3;
+        File.WriteAllBytes(truncatedOggPath, truncatedOgg);
+        True(
+            MediaContainerProbe.Probe(truncatedOggPath).Warning?.Contains("segmentów", StringComparison.Ordinal) == true,
+            "Nie wykryto uciętej tablicy segmentów OGG.");
 
         True(LocalAudioFileDiscovery.IsAudioFile("nagranie.oga"), "OGA powinno być rozpoznawane.");
         True(LocalAudioFileDiscovery.IsAudioFile("nagranie.webm"), "WebM powinno być rozpoznawane.");
@@ -2987,6 +3097,48 @@ static void Equal<T>(T expected, T actual)
 static void True(bool condition, string message)
 {
     if (!condition) throw new InvalidOperationException(message);
+}
+
+sealed class VirtualLargeReadStream(long length) : Stream
+{
+    private long _position;
+    public override bool CanRead => true;
+    public override bool CanSeek => true;
+    public override bool CanWrite => false;
+    public override long Length { get; } = length;
+    public override long Position
+    {
+        get => _position;
+        set => _position = value is >= 0 && value <= Length
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value));
+    }
+    public override void Flush() { }
+    public override int Read(byte[] buffer, int offset, int count) =>
+        Read(buffer.AsSpan(offset, count));
+    public override int Read(Span<byte> buffer)
+    {
+        var count = (int)Math.Min(buffer.Length, Length - Position);
+        for (var index = 0; index < count; index++)
+        {
+            buffer[index] = (byte)((Position + index) & 0xFF);
+        }
+        Position += count;
+        return count;
+    }
+    public override long Seek(long offset, SeekOrigin origin)
+    {
+        Position = origin switch
+        {
+            SeekOrigin.Begin => offset,
+            SeekOrigin.Current => checked(Position + offset),
+            SeekOrigin.End => checked(Length + offset),
+            _ => throw new ArgumentOutOfRangeException(nameof(origin))
+        };
+        return Position;
+    }
+    public override void SetLength(long value) => throw new NotSupportedException();
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 }
 
 sealed class FakeSink : IAnnouncementSink

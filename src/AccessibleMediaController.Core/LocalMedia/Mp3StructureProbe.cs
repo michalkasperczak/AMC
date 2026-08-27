@@ -2,11 +2,19 @@ namespace AccessibleMediaController.Core.LocalMedia;
 
 public readonly record struct Mp3StructureProbeResult(
     long FileLength,
+    long DeclaredAudioStartOffset,
     long AudioStartOffset,
     bool HasConsecutiveFrames,
     int? SampleRateHz,
     int? BitrateKbps,
-    string? Warning);
+    string? Warning)
+{
+    public long LeadingJunkBytes => Math.Max(0, AudioStartOffset - DeclaredAudioStartOffset);
+    public bool HasLargeLeadingTag => DeclaredAudioStartOffset > 16L * 1024 * 1024;
+    public bool ShouldUseSanitizedStream =>
+        HasConsecutiveFrames
+        && (HasLargeLeadingTag || LeadingJunkBytes > 0 || !string.IsNullOrWhiteSpace(Warning));
+}
 
 /// <summary>
 /// Performs a bounded, read-only MP3 structure check. It reads at most the
@@ -45,6 +53,7 @@ public static class Mp3StructureProbe
             return new Mp3StructureProbeResult(
                 fileLength,
                 0,
+                0,
                 false,
                 null,
                 null,
@@ -53,14 +62,19 @@ public static class Mp3StructureProbe
 
         Span<byte> id3Header = stackalloc byte[Id3HeaderLength];
         var headerRead = ReadUpTo(stream, id3Header);
-        long audioStart = 0;
+        long declaredAudioStart = 0;
         string? warning = null;
         if (headerRead == Id3HeaderLength
             && id3Header[0] == (byte)'I'
             && id3Header[1] == (byte)'D'
             && id3Header[2] == (byte)'3')
         {
-            if ((id3Header[6] | id3Header[7] | id3Header[8] | id3Header[9]) >= 0x80)
+            var id3MajorVersion = id3Header[3];
+            if (id3MajorVersion is < 2 or > 4)
+            {
+                warning = $"Nagłówek ID3 ma nieobsługiwaną wersję {id3MajorVersion}.";
+            }
+            else if ((id3Header[6] | id3Header[7] | id3Header[8] | id3Header[9]) >= 0x80)
             {
                 warning = "Nagłówek ID3 zawiera nieprawidłowy rozmiar.";
             }
@@ -70,13 +84,16 @@ public static class Mp3StructureProbe
                     | ((long)id3Header[7] << 14)
                     | ((long)id3Header[8] << 7)
                     | id3Header[9];
-                var footerLength = (id3Header[5] & 0x10) != 0 ? Id3HeaderLength : 0;
-                audioStart = checked(Id3HeaderLength + tagPayloadLength + footerLength);
-                if (audioStart >= fileLength)
+                var footerLength = id3MajorVersion == 4 && (id3Header[5] & 0x10) != 0
+                    ? Id3HeaderLength
+                    : 0;
+                declaredAudioStart = checked(Id3HeaderLength + tagPayloadLength + footerLength);
+                if (declaredAudioStart >= fileLength)
                 {
                     return new Mp3StructureProbeResult(
                         fileLength,
-                        audioStart,
+                        declaredAudioStart,
+                        declaredAudioStart,
                         false,
                         null,
                         null,
@@ -85,35 +102,52 @@ public static class Mp3StructureProbe
             }
         }
 
-        stream.Position = Math.Clamp(audioStart, 0, fileLength);
+        stream.Position = Math.Clamp(declaredAudioStart, 0, fileLength);
         var scanLength = checked((int)Math.Min(maximumScanBytes, fileLength - stream.Position));
         var buffer = new byte[scanLength];
         var bytesRead = ReadUpTo(stream, buffer);
         for (var index = 0; index <= bytesRead - 4; index++)
         {
             if (!TryParseFrameHeader(buffer.AsSpan(index, 4), out var first)) continue;
-            var nextIndex = index + first.FrameLength;
-            if (nextIndex > bytesRead - 4) continue;
-            if (!TryParseFrameHeader(buffer.AsSpan(nextIndex, 4), out var second)) continue;
-            if (first.Version != second.Version
-                || first.Layer != second.Layer
-                || first.SampleRateHz != second.SampleRateHz)
+            int bitrateKbps;
+            if (first.FrameLength > 0)
+            {
+                var nextIndex = index + first.FrameLength;
+                if (nextIndex > bytesRead - 4) continue;
+                if (!TryParseFrameHeader(buffer.AsSpan(nextIndex, 4), out var second)) continue;
+                if (second.IsFreeFormat || !AreCompatible(first, second)) continue;
+                bitrateKbps = first.BitrateKbps;
+            }
+            else if (!TryVerifyFreeFormatSequence(
+                         buffer.AsSpan(0, bytesRead),
+                         index,
+                         first,
+                         out bitrateKbps))
             {
                 continue;
             }
 
+            var audioStart = declaredAudioStart + index;
+            if (index > 0)
+            {
+                warning = CombineWarnings(
+                    warning,
+                    $"Pominięto {index} bajtów przed pierwszą potwierdzoną ramką MP3.");
+            }
             return new Mp3StructureProbeResult(
                 fileLength,
-                audioStart + index,
+                declaredAudioStart,
+                audioStart,
                 true,
                 first.SampleRateHz,
-                first.BitrateKbps,
+                bitrateKbps,
                 warning);
         }
 
         return new Mp3StructureProbeResult(
             fileLength,
-            audioStart,
+            declaredAudioStart,
+            declaredAudioStart,
             false,
             null,
             null,
@@ -149,7 +183,7 @@ public static class Mp3StructureProbe
         var padding = (header[2] >> 1) & 0x01;
         if (versionBits == 1
             || layerBits == 0
-            || bitrateIndex is 0 or 15
+            || bitrateIndex == 15
             || sampleRateIndex == 3)
         {
             return false;
@@ -164,20 +198,87 @@ public static class Mp3StructureProbe
         };
         var layer = 4 - layerBits;
         var sampleRateHz = SampleRates(version, sampleRateIndex);
-        var bitrateKbps = Bitrate(version, layer, bitrateIndex);
-        if (sampleRateHz <= 0 || bitrateKbps <= 0) return false;
+        var bitrateKbps = bitrateIndex == 0 ? 0 : Bitrate(version, layer, bitrateIndex);
+        if (sampleRateHz <= 0) return false;
 
-        var frameLength = layer switch
+        var frameLength = bitrateIndex == 0 ? 0 : layer switch
         {
             1 => ((12 * bitrateKbps * 1_000 / sampleRateHz) + padding) * 4,
             3 when version != 1 => 72 * bitrateKbps * 1_000 / sampleRateHz + padding,
             _ => 144 * bitrateKbps * 1_000 / sampleRateHz + padding
         };
-        if (frameLength < 24) return false;
+        if (bitrateIndex != 0 && frameLength < 24) return false;
 
-        frame = new Mp3FrameHeader(version, layer, sampleRateHz, bitrateKbps, frameLength);
+        frame = new Mp3FrameHeader(
+            version,
+            layer,
+            sampleRateHz,
+            bitrateKbps,
+            frameLength,
+            padding,
+            bitrateIndex == 0);
         return true;
     }
+
+    private static bool TryVerifyFreeFormatSequence(
+        ReadOnlySpan<byte> buffer,
+        int firstOffset,
+        Mp3FrameHeader first,
+        out int bitrateKbps)
+    {
+        bitrateKbps = 0;
+        if (!first.IsFreeFormat) return false;
+
+        const int minimumFrameLength = 24;
+        const int maximumFrameLength = 8_192;
+        var maximumOffset = Math.Min(
+            buffer.Length - 4,
+            firstOffset + maximumFrameLength);
+        for (var secondOffset = firstOffset + minimumFrameLength;
+             secondOffset <= maximumOffset;
+             secondOffset++)
+        {
+            if (!TryParseFrameHeader(buffer.Slice(secondOffset, 4), out var second)
+                || !second.IsFreeFormat
+                || !AreCompatible(first, second))
+            {
+                continue;
+            }
+
+            var inferredFrameLength = secondOffset - firstOffset;
+            var thirdOffset = checked(secondOffset + inferredFrameLength);
+            if (thirdOffset > buffer.Length - 4
+                || !TryParseFrameHeader(buffer.Slice(thirdOffset, 4), out var third)
+                || !third.IsFreeFormat
+                || !AreCompatible(first, third))
+            {
+                continue;
+            }
+
+            bitrateKbps = EstimateFreeFormatBitrate(first, inferredFrameLength);
+            return bitrateKbps is >= 1 and <= 640;
+        }
+        return false;
+    }
+
+    private static int EstimateFreeFormatBitrate(Mp3FrameHeader frame, int frameLength)
+    {
+        var bitsPerSecond = frame.Layer switch
+        {
+            1 => ((frameLength / 4d) - frame.Padding) * frame.SampleRateHz / 12d,
+            3 when frame.Version != 1 => (frameLength - frame.Padding) * frame.SampleRateHz / 72d,
+            _ => (frameLength - frame.Padding) * frame.SampleRateHz / 144d
+        };
+        return (int)Math.Round(bitsPerSecond / 1_000d, MidpointRounding.AwayFromZero);
+    }
+
+    private static bool AreCompatible(Mp3FrameHeader first, Mp3FrameHeader second) =>
+        first.Version == second.Version
+        && first.Layer == second.Layer
+        && first.SampleRateHz == second.SampleRateHz;
+
+    private static string CombineWarnings(string? first, string second) =>
+        string.IsNullOrWhiteSpace(first) ? second : $"{first} {second}";
 
     private static int SampleRates(int version, int index) => version switch
     {
@@ -205,5 +306,7 @@ public static class Mp3StructureProbe
         int Layer,
         int SampleRateHz,
         int BitrateKbps,
-        int FrameLength);
+        int FrameLength,
+        int Padding,
+        bool IsFreeFormat);
 }

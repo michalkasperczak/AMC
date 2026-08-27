@@ -1,3 +1,5 @@
+using System.Buffers.Binary;
+
 namespace AccessibleMediaController.Core.LocalMedia;
 
 public enum MediaContainerKind
@@ -83,7 +85,10 @@ public static class MediaContainerProbe
         var bytesRead = ReadUpTo(stream, buffer);
         var data = buffer.AsSpan(0, bytesRead);
         var kind = Detect(data);
-        var warning = id3Warning ?? ExtensionWarning(Path.GetExtension(path), kind);
+        var warning = CombineWarnings(
+            id3Warning,
+            ExtensionWarning(Path.GetExtension(path), kind),
+            ValidateInitialStructure(data, fileLength - contentOffset, kind));
         return new MediaContainerProbeResult(
             fileLength,
             contentOffset,
@@ -109,6 +114,13 @@ public static class MediaContainerProbe
             return 0;
         }
 
+        var id3MajorVersion = header[3];
+        if (id3MajorVersion is < 2 or > 4)
+        {
+            warning = $"Nagłówek ID3 ma nieobsługiwaną wersję {id3MajorVersion}.";
+            return 0;
+        }
+
         if ((header[6] | header[7] | header[8] | header[9]) >= 0x80)
         {
             warning = "Nagłówek ID3 zawiera nieprawidłowy rozmiar.";
@@ -119,7 +131,9 @@ public static class MediaContainerProbe
             | ((long)header[7] << 14)
             | ((long)header[8] << 7)
             | header[9];
-        var footerLength = (header[5] & 0x10) != 0 ? Id3HeaderLength : 0;
+        var footerLength = id3MajorVersion == 4 && (header[5] & 0x10) != 0
+            ? Id3HeaderLength
+            : 0;
         var offset = Id3HeaderLength + payloadLength + footerLength;
         if (offset >= fileLength)
         {
@@ -210,6 +224,105 @@ public static class MediaContainerProbe
         | ((uint)bytes[1] << 16)
         | ((uint)bytes[2] << 8)
         | bytes[3];
+
+    private static string? ValidateInitialStructure(
+        ReadOnlySpan<byte> data,
+        long contentLength,
+        MediaContainerKind kind)
+    {
+        switch (kind)
+        {
+            case MediaContainerKind.Wave when data.Length >= 12:
+            case MediaContainerKind.Avi when data.Length >= 12:
+            {
+                var declaredSize = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(4, 4));
+                if (declaredSize < 4)
+                {
+                    return "Kontener RIFF deklaruje nieprawidłowy rozmiar.";
+                }
+                if (!data[..4].SequenceEqual("RF64"u8)
+                    && !data[..4].SequenceEqual("BW64"u8)
+                    && declaredSize != uint.MaxValue
+                    && (long)declaredSize + 8 > contentLength)
+                {
+                    return "Kontener RIFF deklaruje dane poza końcem pliku.";
+                }
+                break;
+            }
+            case MediaContainerKind.Aiff when data.Length >= 12:
+            {
+                var declaredSize = ReadBigEndianUInt32(data.Slice(4, 4));
+                if (declaredSize < 4 || (long)declaredSize + 8 > contentLength)
+                {
+                    return "Kontener AIFF deklaruje dane poza końcem pliku.";
+                }
+                break;
+            }
+            case MediaContainerKind.Flac:
+            {
+                if (data.Length < 8) return "Nagłówek metadanych FLAC jest ucięty.";
+                var metadataLength = (data[5] << 16) | (data[6] << 8) | data[7];
+                if (8L + metadataLength > contentLength)
+                {
+                    return "Blok metadanych FLAC wykracza poza koniec pliku.";
+                }
+                break;
+            }
+            case MediaContainerKind.OggVorbis:
+            case MediaContainerKind.OggOpus:
+            case MediaContainerKind.OggOther:
+            {
+                if (data.Length < 27) return "Pierwsza strona OGG jest ucięta.";
+                if (data[4] != 0) return "Kontener OGG ma nieobsługiwaną wersję.";
+                var segmentCount = data[26];
+                if (data.Length < 27 + segmentCount)
+                {
+                    return "Tablica segmentów pierwszej strony OGG jest ucięta.";
+                }
+                long bodyLength = 0;
+                for (var index = 0; index < segmentCount; index++) bodyLength += data[27 + index];
+                if (27L + segmentCount + bodyLength > contentLength)
+                {
+                    return "Pierwsza strona OGG wykracza poza koniec pliku.";
+                }
+                break;
+            }
+            case MediaContainerKind.Mp4 when data.Length >= 8:
+            {
+                var boxSize = ReadBigEndianUInt32(data[..4]);
+                long resolvedSize = boxSize;
+                if (boxSize == 1)
+                {
+                    if (data.Length < 16) return "Rozszerzony nagłówek MP4 jest ucięty.";
+                    var largeSize = BinaryPrimitives.ReadUInt64BigEndian(data.Slice(8, 8));
+                    if (largeSize > long.MaxValue) return "Kontener MP4 deklaruje zbyt duży blok.";
+                    resolvedSize = (long)largeSize;
+                }
+                if (resolvedSize != 0 && (resolvedSize < 8 || resolvedSize > contentLength))
+                {
+                    return "Pierwszy blok MP4 ma nieprawidłowy rozmiar.";
+                }
+                break;
+            }
+            case MediaContainerKind.AdtsAac:
+            {
+                if (data.Length < 7) return "Nagłówek ramki AAC jest ucięty.";
+                var frameLength = ((data[3] & 0x03) << 11) | (data[4] << 3) | (data[5] >> 5);
+                if (frameLength < 7 || frameLength > contentLength)
+                {
+                    return "Ramka AAC deklaruje dane poza końcem pliku.";
+                }
+                break;
+            }
+        }
+        return null;
+    }
+
+    private static string? CombineWarnings(params string?[] warnings)
+    {
+        var present = warnings.Where(value => !string.IsNullOrWhiteSpace(value)).ToArray();
+        return present.Length == 0 ? null : string.Join(" ", present);
+    }
 
     private static string? ExtensionWarning(string extension, MediaContainerKind kind)
     {

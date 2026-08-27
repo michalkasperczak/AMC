@@ -127,6 +127,27 @@ static void TestManagedMp3Fallback()
         Assert(guarded.TotalTime > TimeSpan.Zero, "Awaryjny dekoder nie podał czasu MP3.");
         var buffer = new byte[Math.Min(guarded.WaveFormat.AverageBytesPerSecond, 16_384)];
         Assert(guarded.Read(buffer, 0, buffer.Length) > 0, "Awaryjny dekoder nie zwrócił próbek.");
+
+        var sanitizedPath = Path.Combine(
+            Path.GetTempPath(),
+            $"amc-sanitized-mp3-{Guid.NewGuid():N}.mp3");
+        try
+        {
+            var unusual = new byte[37 + data.Length];
+            Array.Fill<byte>(unusual, 0x55, 0, 37);
+            data.CopyTo(unusual, 37);
+            File.WriteAllBytes(sanitizedPath, unusual);
+            var result = WindowsMediaOutput.TryReadMetadataAsync(
+                    sanitizedPath,
+                    TimeSpan.FromSeconds(3))
+                .GetAwaiter()
+                .GetResult();
+            Assert(result.Success && !result.TimedOut, "Oczyszczony strumień MP3 nie został zdekodowany.");
+        }
+        finally
+        {
+            if (File.Exists(sanitizedPath)) File.Delete(sanitizedPath);
+        }
         Console.WriteLine("OK: zarządzany dekoder awaryjny MP3");
     }
     finally
