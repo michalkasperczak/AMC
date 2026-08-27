@@ -37,6 +37,7 @@ var tests = new (string Name, Action Test)[]
     ("Polityka pamiętania pozycji", TestResumePositionPolicy),
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
     ("Ograniczone sprawdzanie struktury MP3", TestMp3StructureProbe),
+    ("Ograniczone rozpoznawanie kontenerów multimedialnych", TestMediaContainerProbe),
     ("Ponowne włączanie folderu do biblioteki", TestLocalLibraryImport),
     ("Synchronizacja źródeł lokalnej biblioteki", TestLocalLibrarySynchronization),
     ("Bezpieczna zmiana nazwy lokalnego pliku", TestLocalFileRenamePolicy),
@@ -1436,6 +1437,78 @@ static void TestMp3StructureProbe()
         True(
             !Mp3StructureProbe.Probe(junkPath).HasConsecutiveFrames,
             "Losowe dane uznano za MP3.");
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
+static void TestMediaContainerProbe()
+{
+    var directory = Path.Combine(
+        Path.GetTempPath(),
+        $"amc-container-probe-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        void Verify(string fileName, byte[] data, MediaContainerKind expected)
+        {
+            var path = Path.Combine(directory, fileName);
+            File.WriteAllBytes(path, data);
+            var result = MediaContainerProbe.Probe(path);
+            Equal(expected, result.Kind);
+            True(result.HeaderRecognized, $"Nie rozpoznano kontenera {expected}.");
+        }
+
+        Verify("wave.wav", "RIFF\0\0\0\0WAVEfmt "u8.ToArray(), MediaContainerKind.Wave);
+        Verify("broadcast.wav", "BW64\0\0\0\0WAVEds64"u8.ToArray(), MediaContainerKind.Wave);
+        Verify("audio.aiff", "FORM\0\0\0\0AIFFCOMM"u8.ToArray(), MediaContainerKind.Aiff);
+        Verify("audio.flac", "fLaC\0\0\0\0"u8.ToArray(), MediaContainerKind.Flac);
+
+        var vorbis = new byte[64];
+        "OggS"u8.CopyTo(vorbis);
+        "\x01vorbis"u8.CopyTo(vorbis.AsSpan(32));
+        Verify("audio.ogg", vorbis, MediaContainerKind.OggVorbis);
+
+        var opus = new byte[64];
+        "OggS"u8.CopyTo(opus);
+        "OpusHead"u8.CopyTo(opus.AsSpan(32));
+        Verify("audio.opus", opus, MediaContainerKind.OggOpus);
+
+        var mp4 = new byte[24];
+        mp4[3] = 24;
+        "ftypM4A "u8.CopyTo(mp4.AsSpan(4));
+        Verify("audio.m4a", mp4, MediaContainerKind.Mp4);
+        Verify(
+            "audio.wma",
+            [0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11, 0xA6, 0xD9, 0x00, 0xAA, 0x00, 0x62, 0xCE, 0x6C],
+            MediaContainerKind.Asf);
+        Verify("audio.webm", [0x1A, 0x45, 0xDF, 0xA3, 0, 0, 0, 0], MediaContainerKind.Matroska);
+        Verify("audio.aac", [0xFF, 0xF1, 0x50, 0x80, 0, 0, 0, 0], MediaContainerKind.AdtsAac);
+
+        var taggedFlac = new byte[34];
+        taggedFlac[0] = (byte)'I';
+        taggedFlac[1] = (byte)'D';
+        taggedFlac[2] = (byte)'3';
+        taggedFlac[3] = 4;
+        taggedFlac[9] = 20;
+        "fLaC"u8.CopyTo(taggedFlac.AsSpan(30));
+        var taggedPath = Path.Combine(directory, "tagged.flac");
+        File.WriteAllBytes(taggedPath, taggedFlac);
+        var taggedResult = MediaContainerProbe.Probe(taggedPath);
+        Equal(MediaContainerKind.Flac, taggedResult.Kind);
+        Equal(30L, taggedResult.ContentOffset);
+
+        var mismatchPath = Path.Combine(directory, "wrong.wav");
+        File.WriteAllBytes(mismatchPath, "fLaC\0\0\0\0"u8.ToArray());
+        var mismatch = MediaContainerProbe.Probe(mismatchPath);
+        Equal(MediaContainerKind.Flac, mismatch.Kind);
+        True(!string.IsNullOrWhiteSpace(mismatch.Warning), "Nie wykryto niezgodnego rozszerzenia.");
+
+        True(LocalAudioFileDiscovery.IsAudioFile("nagranie.oga"), "OGA powinno być rozpoznawane.");
+        True(LocalAudioFileDiscovery.IsAudioFile("nagranie.webm"), "WebM powinno być rozpoznawane.");
+        True(LocalAudioFileDiscovery.IsAudioFile("nagranie.adts"), "ADTS powinno być rozpoznawane.");
     }
     finally
     {

@@ -1,12 +1,58 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-112`
-- Tytuł zestawu: Odporność chmur, bardzo długich nagrań i nietypowych MP3
-- Wersja programu: `0.1.0-alpha.112`
+- Numer zestawu: `AMC-TEST-113`
+- Tytuł zestawu: Odporność wszystkich kontenerów i wspólnego toru audio
+- Wersja programu: `0.1.0-alpha.113`
 - Utworzono: 2026-08-27, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.112.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.113.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 113
+
+### AMC-113-01 — Podstawowa macierz formatów
+
+Odtwórz po jednym zwykłym pliku WAV, FLAC, OGG/Vorbis, M4A lub AAC, WMA, AIFF i MP3. Jeżeli masz, sprawdź również Ogg Opus, WebM albo MKA z dźwiękiem. Dla każdego użyj paska, przewijania, prędkości, pauzy, Page Up lub Page Down i wyjścia Escape.
+
+Oczekiwane: każdy obsługiwany przez bieżący Windows format korzysta z tego samego stabilnego odtwarzacza, czasu, głośności i pamięci pozycji. Brak systemowego kodeka daje krótki błąd bez zamrożenia. NVDA nie odczytuje nazw klas, kontenerów technicznych ani wyjątków.
+
+### AMC-113-02 — WAV, RF64 i długi materiał bez kompresji
+
+Sprawdź dostępny większy WAV, a jeżeli masz nagranie RF64 lub BWF zapisane jako `.wav`, również ten plik. Wykonaj kilka odległych skoków i zmian prędkości.
+
+Oczekiwane: prawidłowy plik otwiera się bez pełnego wczytywania do pamięci. Rozmiar większy niż klasyczna granica RIFF nie powoduje ujemnego czasu ani błędnego końca. Interfejs pozostaje dostępny podczas przygotowania.
+
+### AMC-113-03 — FLAC i duże metadane
+
+Otwórz FLAC z okładką lub dużą liczbą tagów oraz zwykły FLAC bez rozbudowanych metadanych. Przewiń w kilka miejsc, zatrzymaj i uruchom inny format.
+
+Oczekiwane: preflight czyta tylko początek, a Media Foundation obsługuje właściwy strumień. Zmiana pliku odłącza poprzedni tor; późny wynik ani błąd FLAC nie przejmuje ponownie odtwarzacza.
+
+### AMC-113-04 — OGG Vorbis i Ogg Opus
+
+Odtwórz zwykły OGG/Vorbis, w tym wcześniejszy fragment o przesuniętej osi czasu. Następnie, jeżeli masz, otwórz plik Ogg Opus z rozszerzeniem `.opus`, `.oga` albo `.ogg`.
+
+Oczekiwane: Vorbis korzysta z normalizowanej osi czasu i nie zapętla się za końcem. Ogg Opus nie jest błędnie otwierany czytnikiem Vorbis; jest przekazywany do systemu i albo gra, albo zostaje bezpiecznie odrzucony, zależnie od kodeków Windows.
+
+### AMC-113-05 — Pliki ucięte i błędnie nazwane
+
+Na kopiach nieistotnych materiałów przygotuj po jednym uciętym WAV, FLAC i OGG. Możesz też nadać kopii FLAC rozszerzenie `.wav` albo plikowi tekstowemu jedno z rozszerzeń multimedialnych. Nie modyfikuj ważnych oryginałów.
+
+Oczekiwane: AMC może odrzucić plik przy otwieraniu albo po rozpoczęciu dekodowania, ale zawsze zwalnia tor, zachowuje działający fokus i pozwala natychmiast otworzyć inny plik. Ponowienie nie używa pozornie działającego, uszkodzonego dekodera.
+
+### AMC-113-06 — Kontenery z obrazem i ścieżką audio
+
+Jeżeli masz MP4, MOV, 3GP, MKV, WebM, AVI albo WMV ze ścieżką audio, dodaj go przez `Ctrl+O` lub Folder Biblioteki i rozpocznij odtwarzanie.
+
+Oczekiwane: AMC odtwarza wyłącznie dźwięk i zachowuje semantykę elementu multimedialnego. Kontener bez obsługiwanej ścieżki audio kończy się zwięzłym błędem. Wideo nie otwiera dodatkowego okna i nie odbiera fokusu.
+
+### AMC-113-07 — Regresja chmury i bardzo dużego pliku
+
+Powtórz serię odległych skoków w wielogodzinnym pliku z Dysku Google, OneDrive albo iCloud. Następnie przejdź do krótkiego lokalnego WAV, OGG lub FLAC.
+
+Oczekiwane: ograniczone rozpoznanie kontenera nie powoduje pobrania całej zawartości. Chmura nadal ma dłuższe limity, skoki łączą się do ostatniego celu, a lokalny plik uruchamia się na świeżym torze.
+
+## Poprzedni zestaw alpha 112
 
 ## Nowości alpha 112
 

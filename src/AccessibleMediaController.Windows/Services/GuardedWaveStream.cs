@@ -216,10 +216,13 @@ public sealed class GuardedWaveStream : WaveStream
 /// Watches the complete sample-provider chain, including tempo processing.
 /// This catches a stall above the source reader as well as inside it.
 /// </summary>
-public sealed class DecoderReadMonitorSampleProvider(ISampleProvider inner) : ISampleProvider
+public sealed class DecoderReadMonitorSampleProvider(
+    ISampleProvider inner,
+    string? sourcePath = null) : ISampleProvider
 {
     private long _readStartedTimestamp;
     private int _readInProgress;
+    private int _invalidSampleWarningLogged;
 
     public WaveFormat WaveFormat { get; } = inner.WaveFormat;
 
@@ -240,6 +243,26 @@ public sealed class DecoderReadMonitorSampleProvider(ISampleProvider inner) : IS
             if (read < 0 || read > count)
             {
                 throw new InvalidDataException("Dekoder zwrócił nieprawidłową liczbę próbek.");
+            }
+            if (read % WaveFormat.Channels != 0)
+            {
+                throw new InvalidDataException("Dekoder zwrócił niepełną ramkę wielokanałową.");
+            }
+            var replacedInvalidSamples = false;
+            for (var index = offset; index < offset + read; index++)
+            {
+                if (float.IsFinite(buffer[index])) continue;
+                buffer[index] = 0f;
+                replacedInvalidSamples = true;
+            }
+            if (replacedInvalidSamples
+                && Interlocked.Exchange(ref _invalidSampleWarningLogged, 1) == 0)
+            {
+                DiagnosticLog.Warning(
+                    "decoder-samples",
+                    string.IsNullOrWhiteSpace(sourcePath)
+                        ? "Dekoder zwrócił nieprawidłowe próbki; zastąpiono je ciszą."
+                        : $"Dekoder zwrócił nieprawidłowe próbki; zastąpiono je ciszą: {sourcePath}.");
             }
             return read;
         }

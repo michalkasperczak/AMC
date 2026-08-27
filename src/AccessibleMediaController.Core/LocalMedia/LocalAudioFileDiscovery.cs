@@ -13,12 +13,16 @@ public static class LocalAudioFileDiscovery
         FileAttributes.Offline | RecallOnOpen | RecallOnDataAccess | Pinned | Unpinned;
     private static readonly HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".mp3", ".mp2", ".wav", ".m4a", ".aac", ".flac", ".wma",
-        ".ogg", ".opus", ".aif", ".aiff"
+        ".mp3", ".mp2", ".wav", ".wave", ".rf64", ".bwf",
+        ".m4a", ".aac", ".adts", ".flac", ".wma", ".asf",
+        ".ogg", ".oga", ".opus", ".aif", ".aiff", ".aifc",
+        ".mka", ".mkv", ".webm", ".mp4", ".m4v", ".mov",
+        ".3g2", ".3gp", ".3gp2", ".3gpp", ".avi", ".wmv",
+        ".ac3", ".eac3", ".ec3", ".amr"
     };
 
     public const string DialogFilter =
-        "Pliki audio|*.mp3;*.mp2;*.wav;*.m4a;*.aac;*.flac;*.wma;*.ogg;*.opus;*.aif;*.aiff|Wszystkie pliki|*.*";
+        "Pliki multimedialne|*.mp3;*.mp2;*.wav;*.wave;*.rf64;*.bwf;*.m4a;*.aac;*.adts;*.flac;*.wma;*.asf;*.ogg;*.oga;*.opus;*.aif;*.aiff;*.aifc;*.mka;*.mkv;*.webm;*.mp4;*.m4v;*.mov;*.3g2;*.3gp;*.3gp2;*.3gpp;*.avi;*.wmv;*.ac3;*.eac3;*.ec3;*.amr|Wszystkie pliki|*.*";
 
     public static bool IsAudioFile(string path) =>
         AudioExtensions.Contains(Path.GetExtension(path));

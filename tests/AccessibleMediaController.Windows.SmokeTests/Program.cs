@@ -43,8 +43,10 @@ try
 
     TestGuardDoesNotBlockPositionReads();
     TestCompleteOutputChainMonitor();
+    TestInvalidSamplesAreSilenced();
     TestGuardRejectsAbsurdDuration();
     TestManagedMp3Fallback();
+    TestWaveMetadataAndDamagedContainers();
     foreach (var mediaPath in args)
     {
         TestFormatMetadata(mediaPath);
@@ -114,8 +116,13 @@ static void TestManagedMp3Fallback()
 
         var builder = new Mp3FileReader.FrameDecompressorBuilder(
             waveFormat => new Mp3FrameDecompressor(waveFormat));
-        using var reader = new Mp3FileReaderBase(path, builder);
+        using var decoder = new Mp3FileReaderBase(path, builder);
+        using var reader = new WaveChannel32(decoder) { PadWithZeroes = false };
         using var guarded = new GuardedWaveStream(reader, path);
+        Assert(
+            guarded.WaveFormat.Encoding == WaveFormatEncoding.IeeeFloat
+                && guarded.WaveFormat.BitsPerSample == 32,
+            "Awaryjny dekoder nie został znormalizowany do bezpiecznych próbek float.");
         Assert(guarded.WaveFormat.SampleRate == 44_100, "Awaryjny dekoder podał złą częstotliwość.");
         Assert(guarded.TotalTime > TimeSpan.Zero, "Awaryjny dekoder nie podał czasu MP3.");
         var buffer = new byte[Math.Min(guarded.WaveFormat.AverageBytesPerSecond, 16_384)];
@@ -125,6 +132,50 @@ static void TestManagedMp3Fallback()
     finally
     {
         if (File.Exists(path)) File.Delete(path);
+    }
+}
+
+static void TestWaveMetadataAndDamagedContainers()
+{
+    var directory = Path.Combine(
+        Path.GetTempPath(),
+        $"amc-format-resilience-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var wavePath = Path.Combine(directory, "valid.wav");
+        using (var writer = new WaveFileWriter(wavePath, new WaveFormat(44_100, 16, 2)))
+        {
+            writer.Write(new byte[44_100 * 2 * 2 / 10]);
+        }
+        Assert(
+            WindowsMediaOutput.TryReadMetadata(wavePath, out var duration, out var sampleRate),
+            "Nie odczytano prawidłowego WAV.");
+        Assert(duration > TimeSpan.Zero && sampleRate == 44_100, "WAV podał błędne parametry.");
+
+        var damagedFiles = new Dictionary<string, byte[]>
+        {
+            ["cut.wav"] = "RIFF\0\0\0\0WAVE"u8.ToArray(),
+            ["cut.flac"] = "fLaC\0\0\0\0"u8.ToArray(),
+            ["cut.ogg"] = "OggS\0\0\0\0"u8.ToArray()
+        };
+        foreach (var (name, bytes) in damagedFiles)
+        {
+            var path = Path.Combine(directory, name);
+            File.WriteAllBytes(path, bytes);
+            var stopwatch = Stopwatch.StartNew();
+            var result = WindowsMediaOutput.TryReadMetadataAsync(path, TimeSpan.FromSeconds(2))
+                .GetAwaiter()
+                .GetResult();
+            stopwatch.Stop();
+            Assert(!result.Success, $"Zaakceptowano ucięty kontener: {name}.");
+            Assert(stopwatch.Elapsed < TimeSpan.FromSeconds(3), $"Ucięty kontener zablokował test: {name}.");
+        }
+        Console.WriteLine("OK: prawidłowy WAV i bezpieczne odrzucanie uciętych kontenerów");
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
     }
 }
 
@@ -139,6 +190,17 @@ static void TestCompleteOutputChainMonitor()
     Assert(readTask.Wait(TimeSpan.FromSeconds(1)), "Nie zakończono testu pełnego toru dźwięku.");
     inner.Dispose();
     Console.WriteLine("OK: nadzór obejmuje pełny tor dekodera i zmiany prędkości");
+}
+
+static void TestInvalidSamplesAreSilenced()
+{
+    var monitor = new DecoderReadMonitorSampleProvider(new InvalidSampleProvider());
+    var buffer = new float[8];
+    var read = monitor.Read(buffer, 0, buffer.Length);
+    Assert(read == buffer.Length, "Nie odczytano testowych próbek.");
+    Assert(buffer.All(float.IsFinite), "Nieprawidłowa próbka dotarła do urządzenia audio.");
+    Assert(buffer[1] == 0f && buffer[2] == 0f, "Nie zastąpiono NaN i nieskończoności ciszą.");
+    Console.WriteLine("OK: nieprawidłowe próbki są bezpiecznie zastępowane ciszą");
 }
 
 static void TestFormatMetadata(string mediaPath)
@@ -297,5 +359,18 @@ sealed class BlockingSampleProvider : ISampleProvider, IDisposable
         AllowReadToFinish.Set();
         ReadStarted.Dispose();
         AllowReadToFinish.Dispose();
+    }
+}
+
+sealed class InvalidSampleProvider : ISampleProvider
+{
+    public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(48_000, 2);
+
+    public int Read(float[] buffer, int offset, int count)
+    {
+        Array.Fill(buffer, 0.25f, offset, count);
+        if (count > 1) buffer[offset + 1] = float.NaN;
+        if (count > 2) buffer[offset + 2] = float.PositiveInfinity;
+        return count;
     }
 }
