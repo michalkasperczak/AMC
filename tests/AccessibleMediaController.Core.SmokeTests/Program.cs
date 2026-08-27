@@ -59,6 +59,7 @@ var tests = new (string Name, Action Test)[]
     ("Cofanie zmian przynależności", TestMembershipHistory),
     ("Zbiorowe zmiany przynależności", TestBatchMembershipCommands),
     ("Folder nie staje się fałszywym elementem kolekcji", TestFolderMembershipGuard),
+    ("Częściowy stan folderu w kolekcjach", TestFolderContentsMembership),
     ("Krótkie komunikaty czasu", TestTimeCommands),
     ("Skok wpisanym czasem i procentem", TestSeekInputParser),
     ("Trzy rodzaje eksportu", TestExports)
@@ -2334,6 +2335,44 @@ static void TestFolderMembershipGuard()
         True(!folder.IsFavorite && !folder.IsInLibrary && !folder.IsInQueue && !folder.IsPlayNext,
             "Sztuczny wiersz folderu nie może otrzymać stanu kolekcji.");
     }
+}
+
+static void TestFolderContentsMembership()
+{
+    var first = new MediaItem
+    {
+        Id = "folder-first",
+        Title = "Pierwszy",
+        IsInQueue = true,
+        IsPlayNext = true,
+        IsFavorite = true
+    };
+    var second = new MediaItem
+    {
+        Id = "folder-second",
+        Title = "Drugi"
+    };
+    MediaItem[] items = [first, second];
+
+    Equal(false, FolderContentsMembership.ToggleQueue(items));
+    True(items.All(item => !item.IsInQueue && !item.IsPlayNext),
+        "Częściowo wykorzystana Kolejka folderu powinna zostać całkowicie wyczyszczona.");
+    Equal(true, FolderContentsMembership.ToggleQueue(items));
+    True(items.All(item => item.IsInQueue),
+        "Całkowicie pusty stan powinien ponownie dodać zawartość folderu do Kolejki.");
+
+    first.IsPlayNext = true;
+    second.IsPlayNext = false;
+    Equal(false, FolderContentsMembership.TogglePlayNext(items));
+    True(items.All(item => !item.IsPlayNext),
+        "Częściowy stan odtwarzania jako następne powinien zostać wyczyszczony.");
+
+    Equal(false, FolderContentsMembership.ToggleFavorites(items));
+    True(items.All(item => !item.IsFavorite),
+        "Częściowy stan Ulubionych folderu powinien zostać całkowicie wyczyszczony.");
+    Equal(true, FolderContentsMembership.ToggleFavorites(items));
+    True(items.All(item => item.IsFavorite),
+        "Pusty stan powinien dodać całą zawartość folderu do Ulubionych.");
 }
 
 static void TestTimeCommands()

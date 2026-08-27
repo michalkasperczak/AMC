@@ -2811,7 +2811,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CommandExecutionResult result;
         try
         {
-            result = _router.Execute(commandId);
+            result = folderContext is not null && IsFolderCollectionToggleCommand(commandId)
+                ? ExecuteFolderCollectionToggle(commandId, folderContext.Items)
+                : _router.Execute(commandId);
         }
         finally
         {
@@ -2981,6 +2983,34 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         or CommandIds.AddQueue
         or CommandIds.TogglePlayNext
         or CommandIds.ManagePlaylists;
+
+    private static bool IsFolderCollectionToggleCommand(string commandId) => commandId is
+        CommandIds.ToggleFavorite
+        or CommandIds.AddQueue
+        or CommandIds.TogglePlayNext;
+
+    private static CommandExecutionResult ExecuteFolderCollectionToggle(
+        string commandId,
+        IReadOnlyList<MediaItem> items)
+    {
+        switch (commandId)
+        {
+            case CommandIds.ToggleFavorite:
+                FolderContentsMembership.ToggleFavorites(items);
+                return new CommandExecutionResult(true);
+
+            case CommandIds.AddQueue:
+                FolderContentsMembership.ToggleQueue(items);
+                return new CommandExecutionResult(true);
+
+            case CommandIds.TogglePlayNext:
+                FolderContentsMembership.TogglePlayNext(items);
+                return new CommandExecutionResult(true);
+
+            default:
+                return new CommandExecutionResult(false);
+        }
+    }
 
     private bool HasSelectedFolderRow() => !_playerViewActive
         && MediaList.SelectedItems
@@ -6577,7 +6607,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             PlaybackMenuItem,
             playbackLabel,
             localAlbumContainer || playlistContainer || folderNavigationRow ? "Enter" : "Ctrl+Enter");
-        var playNextLabel = membershipItems.Count > 0 && membershipItems.All(item => item.IsPlayNext)
+        var playNextActive = membershipItems.Count > 0
+            && (folderNavigationRow
+                ? membershipItems.Any(item => item.IsPlayNext)
+                : membershipItems.All(item => item.IsPlayNext));
+        var playNextLabel = playNextActive
             ? folderNavigationRow
                 ? "Usuń zawartość folderu z odtwarzanych jako następne"
                 : "Usuń z odtwarzanych jako następne"
@@ -6585,7 +6619,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ? "Odtwórz zawartość folderu jako następną"
                 : "Odtwórz jako następne";
         SetContextMenuItemPresentation(PlayNextMenuItem, playNextLabel, "Ctrl+Shift+Enter");
-        var queueLabel = membershipItems.Count > 0 && membershipItems.All(item => item.IsInQueue || item.IsPlayNext)
+        var queueActive = membershipItems.Count > 0
+            && (folderNavigationRow
+                ? membershipItems.Any(item => item.IsInQueue || item.IsPlayNext)
+                : membershipItems.All(item => item.IsInQueue || item.IsPlayNext));
+        var queueLabel = queueActive
             ? folderNavigationRow
                 ? "Usuń zawartość folderu z kolejki"
                 : "Usuń z kolejki"
@@ -6593,7 +6631,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ? "Dodaj zawartość folderu do kolejki"
                 : "Dodaj do kolejki";
         SetContextMenuItemPresentation(QueueMenuItem, queueLabel, "Shift+Enter");
-        var favoriteLabel = membershipItems.Count > 0 && membershipItems.All(item => item.IsFavorite)
+        var favoriteActive = membershipItems.Count > 0
+            && (folderNavigationRow
+                ? membershipItems.Any(item => item.IsFavorite)
+                : membershipItems.All(item => item.IsFavorite));
+        var favoriteLabel = favoriteActive
             ? folderNavigationRow
                 ? "Usuń zawartość folderu z ulubionych"
                 : "Usuń z ulubionych"

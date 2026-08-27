@@ -1,12 +1,40 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-109`
-- Tytuł zestawu: Działania na zawartości folderów
-- Wersja programu: `0.1.0-alpha.109`
+- Numer zestawu: `AMC-TEST-110`
+- Tytuł zestawu: Częściowy stan folderu w Kolejce i innych kolekcjach
+- Wersja programu: `0.1.0-alpha.110`
 - Utworzono: 2026-08-27, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.109.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.110.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 110
+
+### AMC-110-01 — Folder po odtworzeniu jednego pliku z Kolejki
+
+W Folderach dodaj cały folder do Kolejki przez `Shift+Enter`. Otwórz Kolejkę, uruchom jeden z jego plików i usuń ten plik albo inny pojedynczy plik z Kolejki. Wróć do tego folderu i naciśnij `Shift+Enter`.
+
+Oczekiwane: dopóki choć jeden plik tego folderu pozostaje w Kolejce lub w grupie „odtwarzaj jako następne”, menu i polecenie folderu proponują usunięcie. `Shift+Enter` usuwa wszystkie pozostałe pliki folderu z obu grup. Nie dodaje ponownie plików już odtworzonych ani ręcznie usuniętych.
+
+### AMC-110-02 — Ponowne dodanie całkowicie usuniętego folderu
+
+Po wykonaniu poprzedniego zadania ponownie naciśnij `Shift+Enter` na tym samym folderze i otwórz Kolejkę.
+
+Oczekiwane: kiedy żaden plik folderu nie należy już do Kolejki, polecenie ponownie dodaje całą dostępną zawartość folderu.
+
+### AMC-110-03 — Menu kontekstowe przy stanie częściowym
+
+Dodaj folder do Kolejki, usuń z Kolejki jeden jego plik, wróć do folderu i otwórz menu kontekstowe.
+
+Oczekiwane: menu mówi „Usuń zawartość folderu z kolejki”, a nie „Dodaj…”. Analogiczna zasada obowiązuje dla częściowego stanu Ulubionych i „odtwarzaj jako następne”.
+
+### AMC-110-04 — Cofnięcie częściowego usunięcia
+
+W częściowym stanie Kolejki usuń pozostałą zawartość poleceniem folderu, a następnie naciśnij `Ctrl+Z`.
+
+Oczekiwane: jedno cofnięcie odtwarza dokładnie stan sprzed polecenia folderu, bez przywracania wcześniej odtworzonego albo ręcznie usuniętego pliku.
+
+## Poprzedni zestaw alpha 109
 
 ## Nowości alpha 109
 
