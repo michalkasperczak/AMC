@@ -2343,7 +2343,7 @@ static void TestCommandPalette()
     Equal("Alt+Down (kolejność własna lub Ulubione)", entries.Single(entry => entry.CommandId == CommandIds.MoveLocalLibraryItemDown).LocalShortcut);
     Equal("F5 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RefreshLocalLibrary).LocalShortcut);
     Equal("Ctrl+F5", entries.Single(entry => entry.CommandId == CommandIds.ManageLocalSources).LocalShortcut);
-    Equal("F2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RenameLibraryItem).LocalShortcut);
+    Equal("F2 (lista lokalna lub Radio)", entries.Single(entry => entry.CommandId == CommandIds.RenameLibraryItem).LocalShortcut);
     Equal("Shift+F2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RenameLocalFile).LocalShortcut);
     Equal("Ctrl+F1", entries.Single(entry => entry.CommandId == CommandIds.KeyboardHelp).LocalShortcut);
 
@@ -3057,7 +3057,7 @@ static void TestExports()
 
         store.ExportFullBackup(backupPath, state);
         var importedBackup = store.ImportFullBackup(backupPath);
-        Equal(4, importedBackup.Settings.SessionSlots.Count);
+        Equal(5, importedBackup.Settings.SessionSlots.Count);
         Equal(1, importedBackup.KeyboardProfiles.Count);
         Equal(false, importedBackup.Settings.Messages.SeekMessages);
         Equal(false, importedBackup.Settings.Messages.ArrowSeekMessages);

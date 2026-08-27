@@ -4,7 +4,9 @@ This is the first demonstration prototype of the global-prefix media controller.
 
 This README describes the current prototype. Its single version number is stored in `Directory.Build.props`, so the core, Windows UI and published program always receive the same version. The approved development direction, target architecture and complete keyboard map are recorded in [`MEDIA_CONTROLLER_EN.md`](MEDIA_CONTROLLER_EN.md). Permanent rules for successor selection after a file disappears and for manual-reorder announcements are collected as invariants in section 7.8 of that specification; future adapters and UI rewrites must not bypass them.
 
-Since `alpha.77`, session order is editable under **Settings → General**. The same order controls `Ctrl+1–9`, the session list and `Ctrl+Page Up/Page Down`; the default is Local Files, WiiM, TIDAL, Apple Music. Opening a folder with `Ctrl+Shift+O` registers a persistent source and opens the one-level-at-a-time **Folders** list: Enter enters a folder or opens a file, Backspace goes to the parent level, type-ahead and `Ctrl+K` work within the visible level, while `Ctrl+F` searches the whole local session. The former separate list-reading tab is now the **List item reading** section of **Messages**.
+Starting with `alpha.115`, **Internet Radio** on the default `Ctrl+5` slot is AMC's first real network adapter. `Ctrl+F` searches the public Radio Browser directory; a result can be played or added to the local Library, Favorites, Queue or a playlist. `Insert` in the radio Library adds a custom station, while `F2` exposes two independent fields: station name and stream URL. The player keeps a bounded in-memory time-shift buffer: Home moves to its oldest available point, End returns to live, and `Ctrl+Alt+R` starts or stops an explicit WAV recording under `Music\AMC — Nagrania radia`. Direct HTTP/HTTPS streams and M3U, M3U8, PLS and XSPF lists are accepted; an HLS manifest remains a manifest for the decoder. Bookmarks, percentage jumps and playback speed are hidden for live radio because they have no durable broadcast meaning.
+
+Since `alpha.77`, session order is editable under **Settings → General**. The same order controls `Ctrl+1–9`, the session list and `Ctrl+Page Up/Page Down`; starting with `alpha.115`, the default is Local Files, WiiM, TIDAL, Apple Music, Internet Radio. Opening a folder with `Ctrl+Shift+O` registers a persistent source and opens the one-level-at-a-time **Folders** list: Enter enters a folder or opens a file, Backspace goes to the parent level, type-ahead and `Ctrl+K` work within the visible level, while `Ctrl+F` searches the whole local session. The former separate list-reading tab is now the **List item reading** section of **Messages**.
 
 Since `alpha.78`, the **Local Files** session exists from startup even when its library is empty, so `Ctrl+1` no longer resolves to an unassigned session. After choosing a directory with `Ctrl+Shift+O`, AMC immediately switches to the local Folders view and stays there while scanning instead of displaying another service's demonstration list.
 
@@ -296,7 +298,7 @@ The final updater should provide a self-contained per-user installation, update 
 
 ## Current limitations
 
-- TIDAL, Apple Music and WiiM remain demonstration sessions. Local files play real media and persist their catalogue and state in AppData.
+- TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.
 - Opening official applications is only a demonstration announcement.
 - Music downloading and DRM handling are not implemented; `D` and `Shift+D` only announce that the commands are unavailable.
 - The updater does not yet download packages.

@@ -69,8 +69,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private string? _focusContextPrefix;
     private ListBoxItem? _focusContextContainer;
     private readonly WindowsMediaOutput _localOutput = new();
+    private readonly RadioBrowserClient _radioCatalog = new();
+    private RadioMediaOutput _radioOutput = null!;
     private string? _cloudPreparingItemId;
     private readonly List<MediaItem> _localItems = [];
+    private readonly List<MediaItem> _radioItems = [];
     private readonly Dictionary<string, string> _pendingExternalMoves =
         new(StringComparer.Ordinal);
     private readonly DispatcherTimer _playerUiTimer;
@@ -143,13 +146,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _localSourceSyncTimer.Tick += LocalSourceSyncTimer_Tick;
         _state = state;
         _store = store;
+        _radioOutput = new RadioMediaOutput(_state.Radio.TimeshiftMinutes);
+        _radioOutput.PlaybackFailed += RadioOutput_PlaybackFailed;
+        _radioOutput.PlaybackPreparing += RadioOutput_PlaybackPreparing;
+        _radioOutput.PlaybackStarted += RadioOutput_PlaybackStarted;
         NormalizeTransientBookmarkViewsAtStartup();
         NormalizePlaylistViewsAtStartup();
         NormalizeLocalLibraryNavigationAtStartup();
+        NormalizeRadioNavigationAtStartup();
         ClearPersistedListFiltersAtStartup();
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
         _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);
         LoadPersistedLocalMedia();
+        LoadPersistedRadio();
         DiagnosticLog.Info("startup", $"Odtworzono w pamięci {state.LocalMedia.Items.Count} rekordów Biblioteki.");
         _localOutput.DurationAvailable += LocalOutput_DurationAvailable;
         _localOutput.PlaybackFailed += LocalOutput_PlaybackFailed;
@@ -182,6 +191,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(navigation.CurrentView, LocalAlbumContentsViewName, StringComparison.Ordinal))
         {
             navigation.CurrentView = "Albumy";
+        }
+    }
+
+    private void NormalizeRadioNavigationAtStartup()
+    {
+        if (!_state.SessionNavigation.Sessions.TryGetValue("radio", out var navigation))
+        {
+            _state.SessionNavigation.Sessions["radio"] = new SessionNavigationState
+            {
+                CurrentView = "Biblioteka"
+            };
+            return;
+        }
+        if (navigation.CurrentView is DefaultBrowserView or "Radio i rekomendacje")
+        {
+            navigation.CurrentView = "Biblioteka";
         }
     }
 
@@ -382,7 +407,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             searchHistory,
             searchHistoryScope,
             () => _store.Save(_state),
-            _state.Settings.Messages.DetailedHints)
+            _state.Settings.Messages.DetailedHints,
+            allServices || string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                ? PrepareRadioSearchAsync
+                : null)
         {
             Owner = this
         };
@@ -675,8 +703,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var item = session.CurrentItem;
         var position = session.Position;
         var duration = item.Duration;
+        var isRadio = string.Equals(session.Id, "radio", StringComparison.Ordinal);
         var preparing = string.Equals(session.Id, "local", StringComparison.Ordinal)
-            && _localOutput.IsPreparing;
+            ? _localOutput.IsPreparing
+            : isRadio && _radioOutput.IsPreparing;
         var state = preparing
             ? (_cloudPreparingItemId is null ? "Otwieranie" : "Pobieranie z chmury")
             : session.IsPlaying ? "Odtwarzanie" : "Pauza";
@@ -687,10 +717,34 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : item.Artist;
         PlayerSessionText.Text = session.DisplayName;
         PlayerStateText.Text = state;
+        PlayerSpeedText.Visibility = isRadio ? Visibility.Collapsed : Visibility.Visible;
         PlayerSpeedText.Text = $"Prędkość: {FormatPlaybackRateMultiplier(session.PlaybackRate)}";
-        PlayerTimeText.Text = duration > TimeSpan.Zero
+        PlayerPreviousButton.Content = isRadio ? "_Poprzednia stacja" : "_Poprzedni utwór";
+        PlayerNextButton.Content = isRadio ? "_Następna stacja" : "_Następny utwór";
+        foreach (var control in new FrameworkElement[]
+                 {
+                     PlayerRateDownButton,
+                     PlayerRateUpButton,
+                     PlayerRateResetButton,
+                     PlayerSeekTimeButton,
+                     PlayerSeekPercentButton,
+                     PlayerAddBookmarkButton,
+                     PlayerAddNamedBookmarkButton,
+                     PlayerBookmarksButton
+                 })
+        {
+            control.Visibility = isRadio ? Visibility.Collapsed : Visibility.Visible;
+        }
+        PlayerTimeText.Text = isRadio
+            ? _radioOutput.BehindLive < TimeSpan.FromSeconds(1)
+                ? $"Na żywo, bufor {CommandRouter.FormatTime(_radioOutput.BufferedDuration)}"
+                : $"{CommandRouter.FormatTime(_radioOutput.BehindLive)} za transmisją, bufor {CommandRouter.FormatTime(_radioOutput.BufferedDuration)}"
+            : duration > TimeSpan.Zero
             ? $"{CommandRouter.FormatTime(position)} z {CommandRouter.FormatTime(duration)}"
             : CommandRouter.FormatTime(position);
+        RadioRecordingButton.Visibility = isRadio ? Visibility.Visible : Visibility.Collapsed;
+        RadioRecordingButton.Content = _radioOutput.IsRecording ? "_Zakończ nagrywanie" : "_Nagrywaj radio";
+        PlayerHelpText.Text = PlayerKeyboardHelpText();
         PlayerPlayPauseButton.Content = preparing ? "_Anuluj" : session.IsPlaying ? "_Wstrzymaj" : "_Odtwórz";
 
         if (!updateAccessibleName) return;
@@ -701,20 +755,31 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AutomationProperties.SetName(
             PlayerPlayPauseButton,
             focusContext is null
-                ? $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}"
-                : $"{focusContext}, Odtwarzacz, {item.Title}, {artist}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}");
+                ? isRadio
+                    ? $"Odtwarzacz, {item.Title}, {session.DisplayName}, {state}. {action}"
+                    : $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}"
+                : isRadio
+                    ? $"{focusContext}, Odtwarzacz, {item.Title}, {state}. {action}"
+                    : $"{focusContext}, Odtwarzacz, {item.Title}, {artist}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}");
         AutomationProperties.SetHelpText(
             PlayerPlayPauseButton,
             PlayerKeyboardHelpText());
     }
 
-    private string PlayerKeyboardHelpText() =>
-        "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. "
-        + "B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach. "
-        + "Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. "
-        + (_state.Settings.PausePlaybackWhenLeavingPlayer
+    private string PlayerKeyboardHelpText()
+    {
+        var exit = _state.Settings.PausePlaybackWhenLeavingPlayer
             ? "Escape wstrzymuje odtwarzanie i wraca do listy."
-            : "Escape wraca do listy, a odtwarzanie trwa.");
+            : "Escape wraca do listy, a odtwarzanie trwa.";
+        if (string.Equals(_sessions?.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            return "Strzałki w lewo i w prawo poruszają się po buforze transmisji, Home przechodzi do początku bufora, End wraca na żywo, a strzałki w górę i w dół regulują głośność. Ctrl+Alt+R rozpoczyna lub kończy nagrywanie. Page Up i Page Down wybierają poprzednią lub następną stację. " + exit;
+        }
+        return "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. "
+            + "B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach. "
+            + "Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. "
+            + exit;
+    }
 
     private void PlayerUiTimer_Tick(object? sender, EventArgs e)
     {
@@ -735,12 +800,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var session = _sessions.Current;
         var item = session.CurrentItem;
         var position = session.Position;
+        var isRadio = string.Equals(session.Id, "radio", StringComparison.Ordinal);
         var preparing = string.Equals(session.Id, "local", StringComparison.Ordinal)
-            && _localOutput.IsPreparing;
+            ? _localOutput.IsPreparing
+            : isRadio && _radioOutput.IsPreparing;
         var state = preparing
             ? (_cloudPreparingItemId is null ? "Otwieranie" : "Pobieranie z chmury")
             : session.IsPlaying ? "Odtwarzanie" : "Pauza";
-        var time = item.Duration > TimeSpan.Zero
+        var time = isRadio
+            ? _radioOutput.BehindLive < TimeSpan.FromSeconds(1)
+                ? $"na żywo, bufor {CommandRouter.FormatTime(_radioOutput.BufferedDuration)}"
+                : $"{CommandRouter.FormatTime(_radioOutput.BehindLive)} za transmisją, bufor {CommandRouter.FormatTime(_radioOutput.BufferedDuration)}"
+            : item.Duration > TimeSpan.Zero
             ? $"{CommandRouter.FormatTime(position)} z {CommandRouter.FormatTime(item.Duration)}"
             : $"{CommandRouter.FormatTime(position)}, czas całkowity nieznany";
         var parts = new List<string>();
@@ -755,6 +826,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         parts.Add(time);
         parts.Add(item.Title);
         parts.Add(session.DisplayName);
+        if (isRadio && _radioOutput.IsRecording) parts.Insert(0, "nagrywanie");
         return string.Join(", ", parts);
     }
 
@@ -1249,6 +1321,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 string.IsNullOrWhiteSpace(item.Artist) ? null : $"Wykonawca: {item.Artist}",
                 $"Rodzaj: {item.KindLabel}",
                 $"Usługa: {session.DisplayName}",
+                string.IsNullOrWhiteSpace(item.Country) ? null : $"Kraj: {item.Country}",
+                string.IsNullOrWhiteSpace(item.Language) ? null : $"Język: {item.Language}",
+                string.IsNullOrWhiteSpace(item.Tags) ? null : $"Kategorie: {item.Tags}",
                 localPath is null ? null : $"Plik: {localPath}"
             }.Where(value => value is not null).Select(value => value!))
         };
@@ -1279,6 +1354,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         sections.Add(string.Join(Environment.NewLine, playbackLines));
 
         var technicalLines = new List<string> { "Techniczne" };
+        if (!string.IsNullOrWhiteSpace(item.Codec))
+        {
+            technicalLines.Add($"Format strumienia: {item.Codec}");
+        }
         if (item.Duration > TimeSpan.Zero)
         {
             technicalLines.Add($"Czas: {CommandRouter.FormatTime(item.Duration)}");
@@ -1313,7 +1392,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (technicalLines.Count > 1) sections.Add(string.Join(Environment.NewLine, technicalLines));
 
-        if (localPath is null && !string.IsNullOrWhiteSpace(item.PublicUri))
+        if (item.Kind == MediaItemKind.Station && !string.IsNullOrWhiteSpace(item.Source))
+        {
+            var sourceLines = new List<string> { "Źródło", $"Adres strumienia: {item.Source}" };
+            if (!string.IsNullOrWhiteSpace(item.HomepageUri))
+            {
+                sourceLines.Add($"Strona stacji: {item.HomepageUri}");
+            }
+            sections.Add(string.Join(Environment.NewLine, sourceLines));
+        }
+        else if (localPath is null && !string.IsNullOrWhiteSpace(item.PublicUri))
         {
             sections.Add($"Źródło{Environment.NewLine}Łącze publiczne: {item.PublicUri}");
         }
@@ -1364,6 +1452,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
         }
         if (!string.IsNullOrWhiteSpace(item.Artist)) details.Add(item.Artist);
+        if (!string.IsNullOrWhiteSpace(item.Country)) details.Add(item.Country);
+        if (!string.IsNullOrWhiteSpace(item.Language)) details.Add(item.Language);
+        if (!string.IsNullOrWhiteSpace(item.Codec)) details.Add(item.Codec);
         if (item.Duration > TimeSpan.Zero) details.Add(CommandRouter.FormatTime(item.Duration));
         if (isLocal)
         {
@@ -2094,6 +2185,94 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    private void LoadPersistedRadio()
+    {
+        foreach (var saved in _state.Radio.Stations)
+        {
+            _radioItems.Add(new MediaItem
+            {
+                Id = saved.Id,
+                Title = saved.Name,
+                HasCustomTitle = saved.HasCustomTitle || saved.IsCustom,
+                Kind = MediaItemKind.Station,
+                Source = saved.StreamUrl,
+                PublicUri = saved.StreamUrl,
+                HomepageUri = saved.HomepageUrl,
+                Country = saved.Country,
+                Language = saved.Language,
+                Tags = saved.Tags,
+                Codec = saved.Codec,
+                ExternalId = saved.DirectoryId,
+                BitrateKbps = saved.BitrateKbps,
+                IsFavorite = saved.IsFavorite,
+                IsInLibrary = saved.IsInLibrary,
+                IsAvailable = true,
+                IsInQueue = saved.IsInQueue,
+                IsPlayNext = saved.IsPlayNext
+            });
+        }
+    }
+
+    private void CaptureRadioState()
+    {
+        var radio = _sessions?.FindSession("radio");
+        if (radio is not null)
+        {
+            _state.Radio.CurrentItemId = radio.HasCurrentItem ? radio.CurrentItem.Id : null;
+            _state.Radio.Volume = radio.Volume;
+        }
+        _state.Radio.Stations = _radioItems.Select(item => new RadioStationSettings
+        {
+            Id = item.Id,
+            Name = item.Title,
+            StreamUrl = item.Source ?? string.Empty,
+            HomepageUrl = item.HomepageUri,
+            Country = item.Country,
+            Language = item.Language,
+            Tags = item.Tags,
+            Codec = item.Codec,
+            DirectoryId = item.ExternalId,
+            BitrateKbps = item.BitrateKbps,
+            HasCustomTitle = item.HasCustomTitle,
+            IsFavorite = item.IsFavorite,
+            IsInLibrary = item.IsInLibrary,
+            IsInQueue = item.IsInQueue,
+            IsPlayNext = item.IsPlayNext,
+            IsCustom = string.IsNullOrWhiteSpace(item.ExternalId)
+        }).ToList();
+    }
+
+    private async Task PrepareRadioSearchAsync(string query, CancellationToken cancellationToken)
+    {
+        var found = await _radioCatalog.SearchAsync(query, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        var radio = _sessions.FindSession("radio");
+        if (radio is null) return;
+
+        foreach (var candidate in found)
+        {
+            var existing = _radioItems.FirstOrDefault(item =>
+                string.Equals(item.Id, candidate.Id, StringComparison.Ordinal)
+                || string.Equals(item.Source, candidate.Source, StringComparison.OrdinalIgnoreCase));
+            if (existing is null)
+            {
+                _radioItems.Add(candidate);
+                continue;
+            }
+            if (!existing.HasCustomTitle) existing.Title = candidate.Title;
+            existing.HomepageUri = candidate.HomepageUri;
+            existing.Country = candidate.Country;
+            existing.Language = candidate.Language;
+            existing.Tags = candidate.Tags;
+            existing.Codec = candidate.Codec;
+            existing.ExternalId ??= candidate.ExternalId;
+            existing.BitrateKbps = candidate.BitrateKbps;
+        }
+        radio.AddItems(_radioItems);
+        CaptureRadioState();
+        _store.Save(_state);
+    }
+
     private void CaptureLocalMediaState()
     {
         var local = _sessions?.FindSession("local");
@@ -2165,6 +2344,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         CaptureCurrentSessionNavigationState();
         CaptureLocalMediaState();
+        CaptureRadioState();
         _store.Save(_state);
         var local = _sessions.FindSession("local");
         _lastSavedLocalPositionTicks = local?.Position.Ticks ?? 0;
@@ -2436,6 +2616,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var previousLocalItemId = previousLocal?.CurrentItem.Id;
         var previousLocalPosition = previousLocal?.Position ?? TimeSpan.Zero;
         var previousLocalWasPlaying = previousLocal?.IsPlaying == true;
+        var previousRadio = _sessions?.FindSession("radio");
+        var previousRadioItemId = previousRadio?.HasCurrentItem == true ? previousRadio.CurrentItem.Id : null;
+        var previousRadioWasPlaying = previousRadio?.IsPlaying == true;
         _membershipHistory.Clear();
         _localCatalogHistory.Clear();
         _playlistHistory.Clear();
@@ -2480,9 +2663,30 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             local.Play(local.CurrentItem);
         }
+        var (radio, _) = _sessions.AddOrUpdateTransientSession(
+            "radio",
+            "Radio internetowe",
+            _radioItems,
+            _radioOutput,
+            5,
+            _ => false);
+        if (radio.HasItems)
+        {
+            var restoredRadioId = previousRadioItemId ?? _state.Radio.CurrentItemId;
+            var restoredRadio = radio.Items.FirstOrDefault(item => item.Id == restoredRadioId);
+            if (restoredRadio is not null) radio.SelectItem(restoredRadio);
+        }
+        radio.SetVolume(previousRadio?.Volume ?? _state.Radio.Volume);
+        RestorePlaybackContext(radio);
+        EnsureQueueOrder(radio);
+        if (previousRadioWasPlaying && radio.HasCurrentItem) radio.Play(radio.CurrentItem);
         if (string.Equals(desiredSessionId, "local", StringComparison.Ordinal))
         {
             _sessions.SelectSession("local");
+        }
+        else if (string.Equals(desiredSessionId, "radio", StringComparison.Ordinal))
+        {
+            _sessions.SelectSession("radio");
         }
         _router = new CommandRouter(_sessions, _state.Settings, this, this);
         foreach (var session in _sessions.Sessions.Where(session =>
@@ -2705,6 +2909,37 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : $"Odtwarzanie: {nextItem.Title}");
     }
 
+    private void RadioOutput_PlaybackPreparing(object? sender, MediaPlaybackPreparingEventArgs e)
+    {
+        if (_state.Settings.Messages.LoadingMessages)
+        {
+            Announce($"Łączenie: {e.Item.Title}");
+        }
+        UpdatePlaybackStatusBar();
+    }
+
+    private void RadioOutput_PlaybackStarted(object? sender, MediaPlaybackStartedEventArgs e)
+    {
+        var radio = _sessions.FindSession("radio");
+        if (radio is not null && string.Equals(radio.CurrentItem.Id, e.Item.Id, StringComparison.Ordinal))
+        {
+            RecordPlayback(radio, e.Item);
+        }
+        CaptureRadioState();
+        _store.Save(_state);
+        if (_playerViewActive) UpdatePlayerView();
+        UpdatePlaybackStatusBar();
+    }
+
+    private void RadioOutput_PlaybackFailed(object? sender, MediaOutputFailedEventArgs e)
+    {
+        var radio = _sessions.FindSession("radio");
+        if (radio is not null) radio.StopPlayback();
+        if (_state.Settings.Messages.ErrorMessages) AnnounceEssential(e.Message);
+        if (_playerViewActive) UpdatePlayerView();
+        UpdatePlaybackStatusBar();
+    }
+
     private void RegisterConfiguredPrefix()
     {
         if (_prefixService is null) return;
@@ -2771,6 +3006,96 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string commandId,
         FolderContentsActionContext? folderContext)
     {
+        if (commandId == CommandIds.ViewRadio)
+        {
+            CaptureCurrentSessionNavigationState();
+            HidePlayerForBrowserNavigation();
+            var radio = _sessions.SelectSession("radio");
+            if (radio is null)
+            {
+                Announce("Sesja radia internetowego jest niedostępna");
+                return new CommandExecutionResult(false);
+            }
+            _currentView = "Biblioteka";
+            var navigation = GetSessionNavigationState("radio");
+            navigation.CurrentView = _currentView;
+            navigation.PlayerActive = false;
+            RefreshCurrentView();
+            PrepareViewFocusContext("Biblioteka, Radio internetowe");
+            RestoreMediaListFocusAfterRefresh();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.AddRadioStation)
+        {
+            AddRadioStation();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ToggleRadioRecording)
+        {
+            ToggleRadioRecording();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.RadioJumpLive)
+        {
+            if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+            {
+                Announce("Powrót na żywo jest dostępny w odtwarzaczu radia");
+                return new CommandExecutionResult(false);
+            }
+            _radioOutput.JumpToLive();
+            Announce("Na żywo");
+            UpdatePlayerView();
+            UpdatePlaybackStatusBar();
+            return new CommandExecutionResult(true);
+        }
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            if (commandId is CommandIds.AddBookmark
+                or CommandIds.AddNamedBookmark
+                or CommandIds.ViewBookmarks
+                or CommandIds.PreviousBookmark
+                or CommandIds.NextBookmark
+                or CommandIds.SeekToTime
+                or CommandIds.SeekToPercentage
+                or CommandIds.PlaybackRateDown
+                or CommandIds.PlaybackRateUp
+                or CommandIds.PlaybackRateReset
+                || commandId.StartsWith("transport.seekPercent.", StringComparison.Ordinal))
+            {
+                Announce("Ta funkcja nie dotyczy transmisji radiowej na żywo");
+                return new CommandExecutionResult(true);
+            }
+            if (commandId == CommandIds.TrackStart)
+            {
+                _sessions.Current.SetPosition(TimeSpan.Zero);
+                Announce("Najstarsze dostępne miejsce bufora");
+                return new CommandExecutionResult(true);
+            }
+            if (commandId == CommandIds.TrackEnd)
+            {
+                _radioOutput.JumpToLive();
+                Announce("Na żywo");
+                return new CommandExecutionResult(true);
+            }
+            if (commandId == CommandIds.TimeRemaining)
+            {
+                Announce(_radioOutput.BehindLive < TimeSpan.FromSeconds(1)
+                    ? "Na żywo"
+                    : $"Za transmisją: {CommandRouter.FormatTime(_radioOutput.BehindLive)}");
+                return new CommandExecutionResult(true);
+            }
+            if (commandId == CommandIds.TimeElapsed)
+            {
+                var inBuffer = _radioOutput.BufferedDuration - _radioOutput.BehindLive;
+                Announce($"Pozycja w buforze: {CommandRouter.FormatTime(inBuffer < TimeSpan.Zero ? TimeSpan.Zero : inBuffer)}");
+                return new CommandExecutionResult(true);
+            }
+            if (commandId == CommandIds.TimeTotal)
+            {
+                Announce($"Bufor: {CommandRouter.FormatTime(_radioOutput.BufferedDuration)}");
+                return new CommandExecutionResult(true);
+            }
+        }
         if (commandId is not CommandIds.PreviousBookmark and not CommandIds.NextBookmark)
         {
             _bookmarkNavigationCursor = null;
@@ -2842,6 +3167,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             RefreshLocalSessionItems();
         }
+        if (changesListMembership
+            && string.Equals(changedSession?.Id, "radio", StringComparison.Ordinal))
+        {
+            foreach (var item in changedItems)
+            {
+                if (item.IsFavorite) item.IsInLibrary = true;
+                if (!item.IsInLibrary)
+                {
+                    item.IsFavorite = false;
+                    item.IsInQueue = false;
+                    item.IsPlayNext = false;
+                }
+            }
+            CaptureRadioState();
+        }
         if (changedSession is not null)
         {
             var undoAnnouncement = previousMemberships.Length == 1
@@ -2874,6 +3214,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (string.Equals(sessionBeforeCommand.Id, "local", StringComparison.Ordinal))
             {
                 TrySaveLocalMediaState(false);
+            }
+            else if (string.Equals(sessionBeforeCommand.Id, "radio", StringComparison.Ordinal))
+            {
+                CaptureRadioState();
+                _store.Save(_state);
             }
         }
         else if (changesListMembership)
@@ -2958,6 +3303,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             TrySaveLocalMediaState(false);
         }
+        if (commandId is CommandIds.VolumeUp5 or CommandIds.VolumeDown5
+            or CommandIds.VolumeUp1 or CommandIds.VolumeDown1
+            && result.Handled
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            CaptureRadioState();
+            _store.Save(_state);
+        }
         if (savesPlaybackBoundary && result.Handled && _sessions.Current.IsPlaying)
         {
             RecordPlayback(_sessions.Current, _sessions.Current.CurrentItem);
@@ -2969,10 +3322,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else if (changesListMembership && changedSession is not null)
         {
+            if (string.Equals(changedSession.Id, "radio", StringComparison.Ordinal)) CaptureRadioState();
             _store.Save(_state);
         }
         else if (savesPlaybackBoundary && result.Handled)
         {
+            if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)) CaptureRadioState();
             _store.Save(_state);
         }
         return result;
@@ -4149,6 +4504,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             else if (_currentView is "Biblioteka" or FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName)
             {
                 item.IsInLibrary = false;
+                if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+                {
+                    item.IsFavorite = false;
+                }
             }
             else if (_currentView == "Kolejka")
             {
@@ -4187,6 +4546,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 RefreshLocalSessionItems();
             }
             TrySaveLocalMediaState(false);
+        }
+        else if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            CaptureRadioState();
+            _store.Save(_state);
         }
         RefreshCurrentView(previousIndex);
         RestoreMediaListFocusAfterRefresh();
@@ -4293,6 +4657,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(undo.SessionId, "local", StringComparison.Ordinal))
         {
             TrySaveLocalMediaState(false);
+        }
+        else if (string.Equals(undo.SessionId, "radio", StringComparison.Ordinal))
+        {
+            CaptureRadioState();
+            _store.Save(_state);
         }
         RestoreMediaListFocusAfterRefresh();
 
@@ -4616,6 +4985,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void RenameLibraryItem()
     {
+        if (string.Equals(ActionSession.Id, "radio", StringComparison.Ordinal)
+            && ActionItem?.Kind == MediaItemKind.Station)
+        {
+            EditRadioStation();
+            return;
+        }
         if (!TryGetSingleLocalRenameItem(requireExistingFile: false, out var item, out var path)) return;
         var dialog = new RenameLocalItemWindow(item.Title, renameOnDisk: false) { Owner = this };
         if (dialog.ShowDialog() != true)
@@ -4643,6 +5018,138 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Dispatcher.BeginInvoke(
             () => Announce($"Zmieniono nazwę w Bibliotece: {newTitle}"),
             DispatcherPriority.ContextIdle);
+    }
+
+    private void AddRadioStation()
+    {
+        var dialog = new RadioStationWindow { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        var duplicate = _radioItems.FirstOrDefault(item => string.Equals(
+            item.Source,
+            dialog.StreamUrl,
+            StringComparison.OrdinalIgnoreCase));
+        if (duplicate is not null)
+        {
+            duplicate.Title = dialog.StationName;
+            duplicate.HasCustomTitle = true;
+            duplicate.IsInLibrary = true;
+            RefreshCurrentView(preferredItemId: duplicate.Id);
+            CaptureRadioState();
+            _store.Save(_state);
+            RestoreMediaListFocusAfterRefresh();
+            Announce($"Zaktualizowano stację: {duplicate.Title}");
+            return;
+        }
+
+        var item = new MediaItem
+        {
+            Id = $"radio:custom:{Guid.NewGuid():N}",
+            Title = dialog.StationName,
+            HasCustomTitle = true,
+            Kind = MediaItemKind.Station,
+            Source = dialog.StreamUrl,
+            PublicUri = dialog.StreamUrl,
+            IsInLibrary = true,
+            IsAvailable = true
+        };
+        _radioItems.Add(item);
+        var radio = _sessions.FindSession("radio");
+        radio?.AddItems([item]);
+        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            CaptureCurrentSessionNavigationState();
+            _sessions.SelectSession("radio");
+        }
+        _currentView = "Biblioteka";
+        GetSessionNavigationState("radio").CurrentView = _currentView;
+        RefreshCurrentView(preferredItemId: item.Id);
+        CaptureRadioState();
+        _store.Save(_state);
+        RestoreMediaListFocusAfterRefresh();
+        Dispatcher.BeginInvoke(
+            () => Announce($"Dodano stację do Biblioteki: {item.Title}"),
+            DispatcherPriority.ContextIdle);
+    }
+
+    private void EditRadioStation()
+    {
+        var item = ActionItem;
+        if (item?.Kind != MediaItemKind.Station || string.IsNullOrWhiteSpace(item.Source))
+        {
+            Announce("Wybierz jedną stację radiową");
+            return;
+        }
+        var dialog = new RadioStationWindow(item.Title, item.Source) { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+
+        var streamChanged = !string.Equals(item.Source, dialog.StreamUrl, StringComparison.OrdinalIgnoreCase);
+        if (streamChanged && string.Equals(_radioOutput.LoadedItemId, item.Id, StringComparison.Ordinal))
+        {
+            _sessions.FindSession("radio")?.StopPlayback();
+        }
+        item.Title = dialog.StationName;
+        item.HasCustomTitle = true;
+        item.Source = dialog.StreamUrl;
+        item.PublicUri = dialog.StreamUrl;
+        item.IsInLibrary = true;
+        RefreshCurrentView(preferredItemId: item.Id);
+        CaptureRadioState();
+        _store.Save(_state);
+        RestoreItemActionFocus();
+        Dispatcher.BeginInvoke(
+            () => Announce($"Zapisano nazwę i adres stacji: {item.Title}"),
+            DispatcherPriority.ContextIdle);
+    }
+
+    private void ToggleRadioRecording()
+    {
+        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            || !_sessions.Current.HasCurrentItem)
+        {
+            Announce("Nagrywanie jest dostępne podczas odtwarzania radia internetowego");
+            return;
+        }
+        try
+        {
+            if (_radioOutput.IsRecording)
+            {
+                var savedPath = _radioOutput.StopRecording();
+                AnnounceEssential(savedPath is null
+                    ? "Nagrywanie nie było uruchomione"
+                    : $"Zakończono nagrywanie: {Path.GetFileName(savedPath)}");
+                return;
+            }
+            var folder = ResolveRadioRecordingsFolder();
+            var path = _radioOutput.StartRecording(folder);
+            AnnounceEssential($"Rozpoczęto nagrywanie: {Path.GetFileName(path)}");
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or InvalidOperationException
+            or ArgumentException)
+        {
+            DiagnosticLog.Error("radio-recording", "Nie udało się zmienić stanu nagrywania.", exception);
+            AnnounceEssential($"Nie można nagrywać: {exception.Message}");
+        }
+    }
+
+    private string ResolveRadioRecordingsFolder()
+    {
+        if (!string.IsNullOrWhiteSpace(_state.Radio.RecordingsFolder))
+        {
+            return _state.Radio.RecordingsFolder;
+        }
+        var music = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
+        return Path.Combine(music, "AMC — Nagrania radia");
     }
 
     public void RenameLocalFile()
@@ -6005,6 +6512,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (MediaList.IsKeyboardFocusWithin
             && Keyboard.Modifiers == ModifierKeys.None
             && key == Key.Insert
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal))
+        {
+            AddRadioStation();
+            return true;
+        }
+        if (MediaList.IsKeyboardFocusWithin
+            && Keyboard.Modifiers == ModifierKeys.None
+            && key == Key.Insert
             && string.Equals(_currentView, "Playlisty", StringComparison.Ordinal))
         {
             CreatePlaylist();
@@ -6023,6 +6539,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && key == Key.F2
             && Keyboard.Modifiers is ModifierKeys.None or ModifierKeys.Shift)
         {
+            if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+            {
+                if (Keyboard.Modifiers == ModifierKeys.Shift)
+                    Announce("Stacja nie jest plikiem na dysku. F2 edytuje jej nazwę i adres strumienia");
+                else
+                    EditRadioStation();
+                return true;
+            }
             ExecuteCommand(Keyboard.Modifiers == ModifierKeys.Shift
                 ? CommandIds.RenameLocalFile
                 : CommandIds.RenameLibraryItem);
@@ -6119,6 +6643,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!_playerViewActive || !PlayerPanel.IsKeyboardFocusWithin) return false;
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt) && key == Key.R)
+        {
+            ToggleRadioRecording();
+            return true;
+        }
+        if (Keyboard.Modifiers == ModifierKeys.None
+            && key == Key.End
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            _radioOutput.JumpToLive();
+            if (_state.Settings.Messages.SeekMessages)
+            {
+                Announce("Na żywo");
+            }
+            UpdatePlayerView();
+            UpdatePlaybackStatusBar();
+            return true;
+        }
         if (Keyboard.Modifiers == ModifierKeys.Alt && key is Key.Up or Key.Down)
         {
             NavigatePlaybackHistory(key == Key.Down ? 1 : -1);
@@ -6356,6 +6898,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 case SearchResultAction.Favorite:
                     ExecuteCommand(CommandIds.ToggleFavorite);
                     break;
+                case SearchResultAction.Library:
+                    ExecuteCommand(CommandIds.ToggleLibrary);
+                    break;
                 case SearchResultAction.Information:
                     ShowItemProperties();
                     break;
@@ -6501,6 +7046,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _windowSource = null;
         _prefixService?.Dispose();
         _localOutput.Dispose();
+        _radioOutput.Dispose();
+        _radioCatalog.Dispose();
         _store.Save(_state);
     }
 
@@ -6574,6 +7121,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Settings_Click(object sender, RoutedEventArgs e) => OpenSettings();
     private void OpenLocalFiles_Click(object sender, RoutedEventArgs e) => OpenLocalFiles();
     private void OpenLocalFolder_Click(object sender, RoutedEventArgs e) => OpenLocalFolder();
+    private void AddRadioStation_Click(object sender, RoutedEventArgs e) => AddRadioStation();
+    private void RadioRecording_Click(object sender, RoutedEventArgs e) => ToggleRadioRecording();
     private void Sessions_Click(object sender, RoutedEventArgs e) => ShowSessionList();
     private void MediaContextMenu_Opened(object sender, RoutedEventArgs e)
     {
@@ -6680,7 +7229,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? Visibility.Collapsed
             : Visibility.Visible;
         CopyLocationMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
-        ItemPlaybackOptionsMenuItem.Visibility = playlistContainer ? Visibility.Collapsed : Visibility.Visible;
+        ItemPlaybackOptionsMenuItem.Visibility = playlistContainer
+            || SelectedBookmark is null
+               && actionItem?.Kind == MediaItemKind.Station
+               && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
         var relatedAlbum = FindRelatedLocalAlbum(actionItem);
         GoToAlbumMenuItem.Visibility = relatedAlbum is null ? Visibility.Collapsed : Visibility.Visible;
         GoToArtistMenuItem.Visibility = relatedAlbum is not null
@@ -6700,9 +7254,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && actionItem?.Kind == MediaItemKind.Track
             && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
             && TryGetLocalPath(actionItem.Source, out _);
-        RenameLibraryItemMenuItem.Visibility = localRenameItem
+        var radioRenameItem = SelectedBookmark is null
+            && items.Count == 1
+            && actionItem?.Kind == MediaItemKind.Station
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
+        RenameLibraryItemMenuItem.Visibility = localRenameItem || radioRenameItem
             ? Visibility.Visible
             : Visibility.Collapsed;
+        if (radioRenameItem)
+            SetContextMenuItemPresentation(RenameLibraryItemMenuItem, "Edytuj nazwę i adres stacji", "F2");
+        else
+            SetContextMenuItemPresentation(RenameLibraryItemMenuItem, "Zmień nazwę w Bibliotece", "F2");
         RenameLocalFileMenuItem.Visibility = localRenameItem && localItem
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -6768,6 +7330,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? "Usuń z kolejki"
             : "Dodaj do kolejki";
         SetContextMenuItemPresentation(PlayerQueueMenuItem, queueLabel, "Shift+Enter");
+        var radioSession = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
+        PlayerRadioRecordingMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
+        PlayerAddBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
+        PlayerAddNamedBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
+        PlayerBookmarksMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
+        if (radioSession)
+        {
+            SetContextMenuItemPresentation(
+                PlayerRadioRecordingMenuItem,
+                _radioOutput.IsRecording ? "Zakończ nagrywanie radia" : "Rozpocznij nagrywanie radia",
+                "Ctrl+Alt+R");
+        }
         var favoriteLabel = item.IsFavorite
             ? "Usuń z ulubionych"
             : "Dodaj do ulubionych";
@@ -6781,7 +7355,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : "Kopiuj łącze do elementu";
         SetContextMenuItemPresentation(PlayerCopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
         var localItem = TryGetLocalPath(item.Source, out _);
-        PlayerItemPlaybackOptionsMenuItem.Visibility = Visibility.Visible;
+        PlayerItemPlaybackOptionsMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
         var relatedAlbum = FindRelatedLocalAlbum(item);
         PlayerGoToAlbumMenuItem.Visibility = relatedAlbum is null ? Visibility.Collapsed : Visibility.Visible;
         PlayerGoToArtistMenuItem.Visibility = relatedAlbum is not null

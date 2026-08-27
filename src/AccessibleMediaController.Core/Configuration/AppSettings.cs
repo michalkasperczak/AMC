@@ -47,7 +47,8 @@ public static class SessionSlotOrder
         ("local", "Pliki lokalne"),
         ("wiim", "WiiM"),
         ("tidal", "TIDAL"),
-        ("appleMusic", "Apple Music")
+        ("appleMusic", "Apple Music"),
+        ("radio", "Radio internetowe")
     ];
 
     public static IReadOnlyList<string> DefaultSessionIds =>
@@ -58,7 +59,8 @@ public static class SessionSlotOrder
         [1] = "local",
         [2] = "wiim",
         [3] = "tidal",
-        [4] = "appleMusic"
+        [4] = "appleMusic",
+        [5] = "radio"
     };
 
     public static Dictionary<int, string> Normalize(IReadOnlyDictionary<int, string>? slots)
@@ -165,6 +167,7 @@ public sealed class PersistedState
     public CollectionOrderSettings CollectionOrders { get; set; } = new();
     public PlaylistSettings Playlists { get; set; } = new();
     public LocalMediaSettings LocalMedia { get; set; } = new();
+    public RadioSettings Radio { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];
 }
 
@@ -288,4 +291,33 @@ public sealed class LocalMediaItemSettings
     public long ResumePositionTicks { get; set; }
     public long? FileLength { get; set; }
     public long? LastWriteUtcTicks { get; set; }
+}
+
+public sealed class RadioSettings
+{
+    public List<RadioStationSettings> Stations { get; set; } = [];
+    public string? CurrentItemId { get; set; }
+    public int Volume { get; set; } = 35;
+    public int TimeshiftMinutes { get; set; } = 10;
+    public string RecordingsFolder { get; set; } = string.Empty;
+}
+
+public sealed class RadioStationSettings
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = string.Empty;
+    public string StreamUrl { get; set; } = string.Empty;
+    public string? HomepageUrl { get; set; }
+    public string? Country { get; set; }
+    public string? Language { get; set; }
+    public string? Tags { get; set; }
+    public string? Codec { get; set; }
+    public string? DirectoryId { get; set; }
+    public int? BitrateKbps { get; set; }
+    public bool HasCustomTitle { get; set; }
+    public bool IsFavorite { get; set; }
+    public bool IsInLibrary { get; set; }
+    public bool IsInQueue { get; set; }
+    public bool IsPlayNext { get; set; }
+    public bool IsCustom { get; set; }
 }

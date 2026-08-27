@@ -6,6 +6,8 @@ Ten README opisuje zachowanie bieżącego prototypu. Wspólny numer wersji jest 
 
 Aktywne repozytorium robocze powinno znajdować się na zwykłym lokalnym woluminie NTFS, poza iCloud Drive, Google Drive, OneDrive i innymi katalogami synchronizowanymi. GitHub przechowuje historię kodu, natomiast atomowe kopie danych użytkownika mogą być eksportowane do chmury. Na głównym komputerze testowym stałą ścieżką projektu jest `D:\Projekty Codex\Accessible Multimedia Controller`.
 
+Od `alpha.115` sesja **Radio internetowe** pod domyślnym `Ctrl+5` jest pierwszym prawdziwym adapterem sieciowym AMC. `Ctrl+F` wyszukuje stacje w publicznym katalogu Radio Browser; wynik można odtworzyć, dodać do lokalnej Biblioteki, Ulubionych, Kolejki lub playlisty. `Insert` w Bibliotece dodaje własną stację, a `F2` otwiera dwa niezależne pola: nazwę i adres strumienia. Odtwarzacz ma ograniczony pamięcią timeshift, Home przechodzi do początku dostępnego bufora, End wraca na żywo, a `Ctrl+Alt+R` rozpoczyna lub kończy świadome nagrywanie WAV w folderze `Muzyka\AMC — Nagrania radia`. Obsługiwane są bezpośrednie adresy HTTP/HTTPS oraz listy M3U, M3U8, PLS i XSPF; manifest HLS pozostaje manifestem dla dekodera. Zakładki, skok procentowy i regulacja prędkości są w radiu ukryte, ponieważ nie mają trwałego znaczenia dla transmisji na żywo.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.
@@ -83,7 +85,7 @@ W odtwarzaczu lewo/prawo przewija o 10 sekund, Shift+lewo/prawo o 30 sekund, Ctr
 
 `Ctrl+O` albo menu **Plik → Otwórz pliki audio** otwiera jeden lub wiele lokalnych plików. `Ctrl+Shift+O` albo **Plik → Otwórz folder z plikami audio** rejestruje trwałe źródło, wczytuje rozpoznane pliki również z podfolderów i otwiera standardowy widok **Foldery**. Enter wchodzi do zaznaczonego folderu albo otwiera plik, Backspace wraca o poziom wyżej, wpisywanie liter działa w bieżącym poziomie, `Ctrl+K` go filtruje, a `Ctrl+F` nadal przeszukuje całą lokalną sesję. Płaska **Biblioteka** pozostaje dostępna równolegle. Żadne z tych poleceń nie uruchamia dźwięku automatycznie, a ponowne wczytanie tej samej ścieżki nie tworzy duplikatu.
 
-Od `alpha.77` kolejność sesji można zmieniać w **Ustawienia → Ogólne** przyciskami albo `Alt+strzałka w górę/w dół`. Pozycja określa jednocześnie `Ctrl+1–9`, listę sesji oraz kolejność `Ctrl+Page Up/Page Down`. Domyślnie jest to: Pliki lokalne, WiiM, TIDAL, Apple Music. Dawna karta **Listy i odczyt** została połączona z kartą **Komunikaty** jako sekcja **Odczytywanie elementów list**; wszystkie ustawienia i wejścia z palety poleceń pozostały dostępne.
+Od `alpha.77` kolejność sesji można zmieniać w **Ustawienia → Ogólne** przyciskami albo `Alt+strzałka w górę/w dół`. Pozycja określa jednocześnie `Ctrl+1–9`, listę sesji oraz kolejność `Ctrl+Page Up/Page Down`. Od `alpha.115` domyślnie jest to: Pliki lokalne, WiiM, TIDAL, Apple Music, Radio internetowe. Dawna karta **Listy i odczyt** została połączona z kartą **Komunikaty** jako sekcja **Odczytywanie elementów list**; wszystkie ustawienia i wejścia z palety poleceń pozostały dostępne.
 
 Od `alpha.78` sesja **Pliki lokalne** istnieje od uruchomienia także wtedy, gdy biblioteka jest pusta, dlatego `Ctrl+1` nigdy nie prowadzi już do „nieprzypisanej” sesji. Po wybraniu katalogu przez `Ctrl+Shift+O` AMC natychmiast przechodzi do lokalnego widoku Foldery i pozostaje w nim podczas skanowania, zamiast pokazywać demonstracyjną listę innej usługi.
 
@@ -319,7 +321,7 @@ Docelowy mechanizm powinien:
 
 ## Zakres i ograniczenia
 
-- TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Sesja Pliki lokalne odtwarza prawdziwe pliki i trwale zapisuje swój katalog oraz stan w AppData.
+- TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.
 - Otwieranie oficjalnych aplikacji jest tylko komunikatem demonstracyjnym.
 - Pobieranie muzyki i obsługa DRM nie są jeszcze zaimplementowane; skróty `D` i `Shift+D` tylko podają komunikaty.
 - Aktualizator nie pobiera jeszcze pakietów.

@@ -61,6 +61,9 @@ public static class CommandIds
     public const string ViewAlbums = "view.albums";
     public const string ViewRadio = "view.radio";
     public const string StartRadio = "action.radio.start";
+    public const string AddRadioStation = "radio.station.add";
+    public const string ToggleRadioRecording = "radio.recording.toggle";
+    public const string RadioJumpLive = "radio.timeshift.live";
     public const string ViewMixes = "view.mixes";
     public const string ViewHistory = "view.history";
     public const string ViewBookmarks = "view.bookmarks";

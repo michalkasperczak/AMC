@@ -172,7 +172,7 @@ public static class CommandPaletteSearch
             CommandIds.ViewCustomLocalOrder => "Alt+3 (lista lokalna)",
             CommandIds.RefreshLocalLibrary => "F5 (lista lokalna)",
             CommandIds.ManageLocalSources => "Ctrl+F5",
-            CommandIds.RenameLibraryItem => "F2 (lista lokalna)",
+            CommandIds.RenameLibraryItem => "F2 (lista lokalna lub Radio)",
             CommandIds.RenameLocalFile => "Shift+F2 (lista lokalna)",
             CommandIds.MoveLocalLibraryItemUp => "Alt+Up (kolejność własna lub Ulubione)",
             CommandIds.MoveLocalLibraryItemDown => "Alt+Down (kolejność własna lub Ulubione)",
@@ -197,6 +197,9 @@ public static class CommandPaletteSearch
             CommandIds.KeyboardHelp => "Ctrl+F1",
             CommandIds.OpenLocalFiles => "Ctrl+O",
             CommandIds.OpenLocalFolder => "Ctrl+Shift+O",
+            CommandIds.AddRadioStation => "Insert (Biblioteka radia)",
+            CommandIds.ToggleRadioRecording => "Ctrl+Alt+R (odtwarzacz radia)",
+            CommandIds.RadioJumpLive => "End (odtwarzacz radia)",
             CommandIds.SettingsGeneral => "Ctrl+,",
             CommandIds.SettingsToggleSeekMessages => "Ctrl+Shift+G",
             _ => null

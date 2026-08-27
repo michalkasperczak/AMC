@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
+using System.Net;
 using AccessibleMediaController.Windows.Services;
 using NAudio.Wave;
 using NLayer.NAudioSupport;
@@ -47,6 +48,7 @@ try
     TestGuardRejectsAbsurdDuration();
     TestManagedMp3Fallback();
     TestWaveMetadataAndDamagedContainers();
+    TestRadioBrowserSearchMapping();
     foreach (var mediaPath in args)
     {
         TestFormatMetadata(mediaPath);
@@ -200,6 +202,40 @@ static void TestWaveMetadataAndDamagedContainers()
     }
 }
 
+static void TestRadioBrowserSearchMapping()
+{
+    const string response = """
+        [{
+          "stationuuid":"abc-123",
+          "name":"Radio Testowe",
+          "url":"http://example.test/original",
+          "url_resolved":"https://example.test/live.aac",
+          "homepage":"https://example.test",
+          "country":"Polska",
+          "language":"polski",
+          "tags":"informacje,kultura",
+          "codec":"AAC",
+          "bitrate":192,
+          "votes":42,
+          "lastcheckok":1
+        }]
+        """;
+    using var client = new HttpClient(new FixedJsonHandler(response));
+    using var catalog = new RadioBrowserClient(client);
+    var stations = catalog.SearchAsync("test").GetAwaiter().GetResult();
+    Assert(stations.Count == 1, "Nie scalono powtarzającego się wyniku katalogu radia.");
+    var station = stations[0];
+    Assert(station.Title == "Radio Testowe" && station.Kind == AccessibleMediaController.Core.Sessions.MediaItemKind.Station,
+        "Nie odwzorowano nazwy lub rodzaju stacji.");
+    Assert(station.Source == "https://example.test/live.aac" && station.BitrateKbps == 192,
+        "Nie wybrano rozwiązanego strumienia lub bitrate stacji.");
+    Assert(station.Country == "Polska" && station.Language == "polski" && station.Codec == "AAC",
+        "Nie zachowano informacji katalogowych stacji.");
+    Assert(!station.IsInLibrary && !station.IsFavorite,
+        "Wynik wyszukiwania nie może samoczynnie trafić do Biblioteki lub Ulubionych.");
+    Console.WriteLine("OK: wyszukiwanie i mapowanie katalogu Radio Browser");
+}
+
 static void TestCompleteOutputChainMonitor()
 {
     var inner = new BlockingSampleProvider();
@@ -341,6 +377,17 @@ sealed class BlockingWaveStream : WaveStream
         }
         base.Dispose(disposing);
     }
+}
+
+sealed class FixedJsonHandler(string json) : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+    {
+        Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json"),
+        RequestMessage = request
+    });
 }
 
 sealed class FixedDurationWaveStream(TimeSpan duration) : WaveStream

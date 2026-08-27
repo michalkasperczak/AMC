@@ -23,7 +23,13 @@ public sealed class MediaItem
     public bool IsBitrateEstimated { get; set; }
     public int? SampleRateHz { get; set; }
     public string? Source { get; set; }
-    public string? PublicUri { get; init; }
+    public string? PublicUri { get; set; }
+    public string? HomepageUri { get; set; }
+    public string? Country { get; set; }
+    public string? Language { get; set; }
+    public string? Tags { get; set; }
+    public string? Codec { get; set; }
+    public string? ExternalId { get; set; }
     public bool IsFavorite { get; set; }
     public bool IsInLibrary { get; set; }
     public bool IsAvailable { get; set; } = true;

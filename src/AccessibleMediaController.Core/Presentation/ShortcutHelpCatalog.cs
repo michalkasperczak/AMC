@@ -38,6 +38,7 @@ public static class ShortcutHelpCatalog
         ("player", "Odtwarzacz"),
         ("search", "Wyszukiwanie i filtrowanie"),
         ("library", "Biblioteka lokalna"),
+        ("radio", "Radio internetowe"),
         ("collections", "Playlisty i Zakładki"),
         ("settings", "Ustawienia i pomoc"),
         ("prefix", "Warstwa prefiksowa")
@@ -139,6 +140,11 @@ public static class ShortcutHelpCatalog
         {
             return "library";
         }
+        if (commandId.StartsWith("radio.", StringComparison.Ordinal)
+            || commandId is CommandIds.ViewRadio or CommandIds.StartRadio)
+        {
+            return "radio";
+        }
         if (commandId is CommandIds.FilterCurrent or CommandIds.SearchCurrent
             or CommandIds.SearchAll or CommandIds.CommandPalette)
         {
@@ -176,6 +182,12 @@ public static class ShortcutHelpCatalog
 
         yield return Info("collections", "Utwórz playlistę", "Insert", "lista playlist");
         yield return Info("collections", "Zmień nazwę playlisty", "F2", "lista playlist");
+
+        yield return Info("radio", "Dodaj własną stację", "Insert", "Biblioteka radia internetowego");
+        yield return Info("radio", "Edytuj nazwę i adres strumienia", "F2", "lista stacji radia internetowego");
+        yield return Info("radio", "Cofnij lub przewiń w buforze transmisji", "Strzałka w lewo lub w prawo", "odtwarzacz radia");
+        yield return Info("radio", "Wróć do transmisji na żywo", "End", "odtwarzacz radia");
+        yield return Info("radio", "Rozpocznij lub zakończ nagrywanie", "Ctrl+Alt+R", "odtwarzacz radia");
     }
 
     private static ShortcutHelpEntry Info(

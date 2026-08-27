@@ -23,7 +23,7 @@
 
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
                     HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button Width="100" Margin="0,0,8,0" Content="_Szukaj" IsDefault="True" Click="Search_Click" />
+            <Button x:Name="SearchButton" Width="100" Margin="0,0,8,0" Content="_Szukaj" IsDefault="True" Click="Search_Click" />
             <Button Width="100" Margin="0,0,8,0" Content="_Otwórz" Click="Open_Click" />
             <Button Width="100" Content="_Anuluj" IsCancel="True" />
         </StackPanel>
@@ -55,6 +55,9 @@
                     <MenuItem Header="Dodaj lub usuń z _ulubionych" InputGestureText="Ctrl+Shift+U"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+U"
                               Click="Favorite_Click" />
+                    <MenuItem Header="Dodaj lub usuń z _Biblioteki" InputGestureText="Ctrl+Shift+L"
+                              automation:AutomationProperties.AcceleratorKey="Control+Shift+L"
+                              Click="Library_Click" />
                     <MenuItem Header="Zarządzaj _playlistami" InputGestureText="Ctrl+Shift+P"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+P"
                               Click="Playlist_Click" />

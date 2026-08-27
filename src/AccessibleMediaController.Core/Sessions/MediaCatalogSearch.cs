@@ -19,7 +19,8 @@ public static class MediaCatalogSearch
         {
             foreach (var item in session.Items)
             {
-                var searchableText = $"{item.Title} {item.Artist} {item.KindLabel} {session.DisplayName}";
+                var searchableText = $"{item.Title} {item.Artist} {item.KindLabel} {session.DisplayName} "
+                    + $"{item.Country} {item.Language} {item.Tags} {item.Codec}";
                 if (words.All(word => compareInfo.IndexOf(
                         searchableText,
                         word,

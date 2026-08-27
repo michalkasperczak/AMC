@@ -87,6 +87,7 @@ public sealed class ConfigurationStore
         NormalizePlaybackHistory(state);
         NormalizeBookmarks(state);
         NormalizePlaylists(state);
+        NormalizeRadio(state);
         ValidateState(state);
         return state;
     }
@@ -100,6 +101,7 @@ public sealed class ConfigurationStore
         NormalizePlaybackHistory(state);
         NormalizeBookmarks(state);
         NormalizePlaylists(state);
+        NormalizeRadio(state);
         ValidateState(state);
         try
         {
@@ -270,6 +272,7 @@ public sealed class ConfigurationStore
         NormalizePlaybackHistory(state);
         NormalizeBookmarks(state);
         NormalizePlaylists(state);
+        NormalizeRadio(state);
         state.SchemaVersion = CurrentSchemaVersion;
     }
 
@@ -308,6 +311,48 @@ public sealed class ConfigurationStore
     {
         state.Playlists ??= new PlaylistSettings();
         _ = new PlaylistIndex(state.Playlists);
+    }
+
+    private static void NormalizeRadio(PersistedState state)
+    {
+        state.Radio ??= new RadioSettings();
+        state.Radio.Volume = Math.Clamp(state.Radio.Volume, 0, 100);
+        state.Radio.TimeshiftMinutes = Math.Clamp(state.Radio.TimeshiftMinutes, 1, 60);
+        state.Radio.RecordingsFolder = state.Radio.RecordingsFolder?.Trim() ?? string.Empty;
+        state.Radio.Stations = (state.Radio.Stations ?? [])
+            .Where(station => Uri.TryCreate(station.StreamUrl, UriKind.Absolute, out var uri)
+                && uri.Scheme is "http" or "https")
+            .Select(station =>
+            {
+                station.Id = string.IsNullOrWhiteSpace(station.Id)
+                    ? Guid.NewGuid().ToString("N")
+                    : station.Id.Trim();
+                station.Name = string.IsNullOrWhiteSpace(station.Name)
+                    ? "Stacja bez nazwy"
+                    : station.Name.Trim();
+                station.StreamUrl = station.StreamUrl.Trim();
+                station.HomepageUrl = string.IsNullOrWhiteSpace(station.HomepageUrl)
+                    ? null
+                    : station.HomepageUrl.Trim();
+                station.Country = string.IsNullOrWhiteSpace(station.Country) ? null : station.Country.Trim();
+                station.Language = string.IsNullOrWhiteSpace(station.Language) ? null : station.Language.Trim();
+                station.Tags = string.IsNullOrWhiteSpace(station.Tags) ? null : station.Tags.Trim();
+                station.Codec = string.IsNullOrWhiteSpace(station.Codec) ? null : station.Codec.Trim();
+                station.DirectoryId = string.IsNullOrWhiteSpace(station.DirectoryId) ? null : station.DirectoryId.Trim();
+                if (station.IsFavorite) station.IsInLibrary = true;
+                return station;
+            })
+            .GroupBy(station => station.Id, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToList();
+        if (state.Radio.CurrentItemId is not null
+            && state.Radio.Stations.All(station => !string.Equals(
+                station.Id,
+                state.Radio.CurrentItemId,
+                StringComparison.Ordinal)))
+        {
+            state.Radio.CurrentItemId = null;
+        }
     }
 
     private static void NormalizeSessionNavigation(PersistedState state)

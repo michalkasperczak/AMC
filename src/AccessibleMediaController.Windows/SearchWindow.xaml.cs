@@ -23,6 +23,8 @@ public partial class SearchWindow : Window
     private readonly SearchQueryHistory _searchHistory;
     private readonly string _searchHistoryScope;
     private readonly Action _persistSearchHistory;
+    private readonly Func<string, CancellationToken, Task>? _prepareRemoteSearch;
+    private CancellationTokenSource? _searchCancellation;
     private bool _isApplyingHistory;
     private bool _isBrowsingHistory;
     private int _historyIndex = -1;
@@ -41,7 +43,8 @@ public partial class SearchWindow : Window
         SearchQueryHistory searchHistory,
         string searchHistoryScope,
         Action persistSearchHistory,
-        bool detailedHints)
+        bool detailedHints,
+        Func<string, CancellationToken, Task>? prepareRemoteSearch = null)
     {
         InitializeComponent();
         var modeName = allServices
@@ -63,6 +66,7 @@ public partial class SearchWindow : Window
         _searchHistory = searchHistory;
         _searchHistoryScope = searchHistoryScope;
         _persistSearchHistory = persistSearchHistory;
+        _prepareRemoteSearch = prepareRemoteSearch;
         _resultHelpText = detailedHints
             ? "Strzałki wybierają wynik. Enter otwiera. Escape zamyka okno."
             : string.Empty;
@@ -79,6 +83,11 @@ public partial class SearchWindow : Window
             SearchBox.Focus();
             Keyboard.Focus(SearchBox);
         };
+        Closed += (_, _) =>
+        {
+            _searchCancellation?.Cancel();
+            _searchCancellation?.Dispose();
+        };
     }
 
     public SearchResult? SelectedResult { get; private set; }
@@ -86,7 +95,7 @@ public partial class SearchWindow : Window
     public SearchResult? LastDirectActionResult { get; private set; }
     public SearchResultAction SelectedAction { get; private set; } = SearchResultAction.Open;
 
-    private void RunSearch()
+    private async void RunSearch()
     {
         var query = SearchBox.Text.Trim();
         if (query.Length == 0)
@@ -101,6 +110,31 @@ public partial class SearchWindow : Window
             _persistSearchHistory();
         }
         ResetHistoryBrowsing();
+
+        _searchCancellation?.Cancel();
+        _searchCancellation?.Dispose();
+        _searchCancellation = new CancellationTokenSource();
+        if (_prepareRemoteSearch is not null)
+        {
+            SearchButton.IsEnabled = false;
+            SearchStatus.Announce("Wyszukiwanie w katalogu radia");
+            try
+            {
+                await _prepareRemoteSearch(query, _searchCancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception)
+            {
+                SearchStatus.Announce("Katalog radia jest chwilowo niedostępny. Pokazuję zapisane stacje");
+            }
+            finally
+            {
+                SearchButton.IsEnabled = true;
+            }
+        }
 
         var results = MediaCatalogSearch.Search(_sourceSessions, query)
             .Select(result => new SearchResultRow(
@@ -125,7 +159,7 @@ public partial class SearchWindow : Window
         ResultsList.SelectedIndex = 0;
         ResultsList.ScrollIntoView(ResultsList.SelectedItem);
         ResultsList.Focus();
-        Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.Loaded);
+        _ = Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.Loaded);
         // The focused ListBoxItem already exposes its label and position (for example
         // "1 z 3"). Keep the visible count without raising a second live announcement.
         SearchStatus.Text = results.Count == 1 ? "1 wynik" : $"{results.Count} wyników";
@@ -320,6 +354,8 @@ public partial class SearchWindow : Window
             action = SearchResultAction.PlayNext;
         else if (key == Key.U && modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
             action = SearchResultAction.Favorite;
+        else if (key == Key.L && modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+            action = SearchResultAction.Library;
         else if (key == Key.P && modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
             action = SearchResultAction.Playlist;
         else if (key == Key.Enter && modifiers == ModifierKeys.Alt)
@@ -340,6 +376,7 @@ public partial class SearchWindow : Window
     private void PlayNext_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.PlayNext);
     private void Queue_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Queue);
     private void Favorite_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Favorite);
+    private void Library_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Library);
     private void Playlist_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Playlist);
     private void Information_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Information);
     private void CopyName_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.CopyName);
@@ -377,6 +414,7 @@ public enum SearchResultAction
     PlayNext,
     Queue,
     Favorite,
+    Library,
     Playlist,
     Information,
     CopyName,

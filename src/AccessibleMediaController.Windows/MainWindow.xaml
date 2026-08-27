@@ -35,6 +35,9 @@
                           automation:AutomationProperties.Name="Foldery Biblioteki, Ctrl+F5"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
                           Click="ManageLocalSources_Click" />
+                <MenuItem Header="Dodaj _stację radiową…" InputGestureText="Insert"
+                          automation:AutomationProperties.Name="Dodaj stację radiową do Biblioteki, Insert w Bibliotece radia"
+                          Click="AddRadioStation_Click" />
                 <Separator />
                 <MenuItem Header="_Ustawienia…" InputGestureText="Ctrl+," Click="Settings_Click" />
                 <Separator />
@@ -44,7 +47,7 @@
                 <MenuItem Header="_Cofnij ostatnią zmianę" InputGestureText="Ctrl+Z" Click="Undo_Click" />
                 <Separator />
                 <MenuItem Header="Zmień nazwę w _Bibliotece…" InputGestureText="F2"
-                          automation:AutomationProperties.Name="Zmień nazwę w Bibliotece, F2, lista lokalna"
+                          automation:AutomationProperties.Name="Zmień nazwę w Bibliotece albo edytuj stację, F2, lista lokalna lub Radio"
                           automation:AutomationProperties.AcceleratorKey="F2"
                           Click="RenameLibraryItem_Click" />
                 <MenuItem Header="Zmień nazwę pliku na _dysku…" InputGestureText="Shift+F2"
@@ -67,6 +70,11 @@
                 <MenuItem Header="Następna sesja" InputGestureText="Ctrl+Page Down" Click="NextSession_Click" />
             </MenuItem>
             <MenuItem Header="_Odtwarzanie">
+                <MenuItem x:Name="RadioRecordingMenuItem" Header="Rozpocznij nagrywanie radia" InputGestureText="Ctrl+Alt+R"
+                          automation:AutomationProperties.Name="Rozpocznij lub zakończ nagrywanie radia, Ctrl+Alt+R, w odtwarzaczu radia"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+R"
+                          Click="RadioRecording_Click" />
+                <Separator />
                 <MenuItem Header="Dodaj _zakładkę" InputGestureText="B"
                           automation:AutomationProperties.Name="Dodaj zakładkę w bieżącym miejscu, B, tylko w odtwarzaczu"
                           automation:AutomationProperties.AcceleratorKey="B"
@@ -286,13 +294,13 @@
                     <MenuItem Header="Następny utwór" InputGestureText="Page Down"
                               automation:AutomationProperties.Name="Następny utwór, Page Down"
                               Click="PlayerNext_Click" />
-                    <MenuItem Header="Dodaj zakładkę" InputGestureText="B"
+                    <MenuItem x:Name="PlayerAddBookmarkMenuItem" Header="Dodaj zakładkę" InputGestureText="B"
                               automation:AutomationProperties.Name="Dodaj zakładkę w bieżącym miejscu, B"
                               Click="AddBookmark_Click" />
-                    <MenuItem Header="Dodaj nazwaną zakładkę…" InputGestureText="Ctrl+Shift+B"
+                    <MenuItem x:Name="PlayerAddNamedBookmarkMenuItem" Header="Dodaj nazwaną zakładkę…" InputGestureText="Ctrl+Shift+B"
                               automation:AutomationProperties.Name="Dodaj nazwaną zakładkę w bieżącym miejscu, Ctrl+Shift+B"
                               Click="AddNamedBookmark_Click" />
-                    <MenuItem Header="Pokaż zakładki" InputGestureText="Ctrl+B"
+                    <MenuItem x:Name="PlayerBookmarksMenuItem" Header="Pokaż zakładki" InputGestureText="Ctrl+B"
                               automation:AutomationProperties.Name="Pokaż zakładki, Ctrl+B"
                               Click="BookmarksView_Click" />
                     <MenuItem x:Name="PlayerPlayNextMenuItem" Header="Odtwórz jako następne" InputGestureText="Ctrl+Shift+Enter"
@@ -301,6 +309,9 @@
                     <MenuItem x:Name="PlayerQueueMenuItem" Header="Dodaj do kolejki" InputGestureText="Shift+Enter"
                               automation:AutomationProperties.Name="Dodaj do kolejki, Shift+Enter"
                               Click="Queue_Click" />
+                    <MenuItem x:Name="PlayerRadioRecordingMenuItem" Header="Rozpocznij nagrywanie radia" InputGestureText="Ctrl+Alt+R"
+                              automation:AutomationProperties.Name="Rozpocznij lub zakończ nagrywanie radia, Ctrl+Alt+R"
+                              Click="RadioRecording_Click" />
                     <Separator />
                     <MenuItem x:Name="PlayerFavoriteMenuItem" Header="Dodaj do ulubionych" InputGestureText="Ctrl+Shift+U"
                               automation:AutomationProperties.Name="Dodaj do ulubionych, Ctrl+Shift+U"
@@ -352,10 +363,10 @@
                 <WrapPanel>
                     <Button x:Name="PlayerPlayPauseButton" MinWidth="145" Margin="0,0,8,8"
                             Content="_Odtwórz" Click="PlayerPlayPause_Click" />
-                    <Button MinWidth="145" Margin="0,0,8,8" Content="_Poprzedni utwór"
+                    <Button x:Name="PlayerPreviousButton" MinWidth="145" Margin="0,0,8,8" Content="_Poprzedni utwór"
                             automation:AutomationProperties.AcceleratorKey="Page Up"
                             Click="PlayerPrevious_Click" />
-                    <Button MinWidth="145" Margin="0,0,8,8" Content="_Następny utwór"
+                    <Button x:Name="PlayerNextButton" MinWidth="145" Margin="0,0,8,8" Content="_Następny utwór"
                             automation:AutomationProperties.AcceleratorKey="Page Down"
                             Click="PlayerNext_Click" />
                     <Button MinWidth="135" Margin="0,0,8,8" Content="_Cofnij 10 sekund"
@@ -366,30 +377,34 @@
                             Click="PlayerVolumeDown_Click" />
                     <Button MinWidth="125" Margin="0,0,8,8" Content="_Głośniej"
                             Click="PlayerVolumeUp_Click" />
-                    <Button MinWidth="125" Margin="0,0,8,8" Content="_Wolniej"
+                    <Button x:Name="PlayerRateDownButton" MinWidth="125" Margin="0,0,8,8" Content="_Wolniej"
                             automation:AutomationProperties.AcceleratorKey="Shift+,"
                             Click="PlaybackRateDown_Click" />
-                    <Button MinWidth="125" Margin="0,0,8,8" Content="_Szybciej"
+                    <Button x:Name="PlayerRateUpButton" MinWidth="125" Margin="0,0,8,8" Content="_Szybciej"
                             automation:AutomationProperties.AcceleratorKey="Shift+."
                             Click="PlaybackRateUp_Click" />
-                    <Button MinWidth="165" Margin="0,0,8,8" Content="Prędkość _normalna"
+                    <Button x:Name="PlayerRateResetButton" MinWidth="165" Margin="0,0,8,8" Content="Prędkość _normalna"
                             automation:AutomationProperties.AcceleratorKey="Ctrl+."
                             Click="PlaybackRateReset_Click" />
-                    <Button MinWidth="145" Margin="0,0,8,8" Content="Skocz do _czasu…"
+                    <Button x:Name="PlayerSeekTimeButton" MinWidth="145" Margin="0,0,8,8" Content="Skocz do _czasu…"
                             automation:AutomationProperties.AcceleratorKey="Ctrl+J"
                             Click="SeekToTime_Click" />
-                    <Button MinWidth="155" Margin="0,0,8,8" Content="Skocz do _procentu…"
+                    <Button x:Name="PlayerSeekPercentButton" MinWidth="155" Margin="0,0,8,8" Content="Skocz do _procentu…"
                             automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+J"
                             Click="SeekToPercentage_Click" />
-                    <Button MinWidth="145" Margin="0,0,8,8" Content="Dodaj _zakładkę"
+                    <Button x:Name="PlayerAddBookmarkButton" MinWidth="145" Margin="0,0,8,8" Content="Dodaj _zakładkę"
                             automation:AutomationProperties.AcceleratorKey="B"
                             Click="AddBookmark_Click" />
-                    <Button MinWidth="180" Margin="0,0,8,8" Content="Dodaj _nazwaną zakładkę…"
+                    <Button x:Name="PlayerAddNamedBookmarkButton" MinWidth="180" Margin="0,0,8,8" Content="Dodaj _nazwaną zakładkę…"
                             automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+B"
                             Click="AddNamedBookmark_Click" />
-                    <Button MinWidth="145" Margin="0,0,8,8" Content="Pokaż za_kładki"
+                    <Button x:Name="PlayerBookmarksButton" MinWidth="145" Margin="0,0,8,8" Content="Pokaż za_kładki"
                             automation:AutomationProperties.AcceleratorKey="Ctrl+B"
                             Click="BookmarksView_Click" />
+                    <Button x:Name="RadioRecordingButton" MinWidth="175" Margin="0,0,8,8"
+                            Content="_Nagrywaj radio"
+                            automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+R"
+                            Click="RadioRecording_Click" />
                     <Button MinWidth="145" Margin="0,0,8,8" Content="_Wróć do listy"
                             Click="PlayerBack_Click" />
                 </WrapPanel>
