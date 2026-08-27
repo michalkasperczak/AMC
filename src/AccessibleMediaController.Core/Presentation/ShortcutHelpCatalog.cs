@@ -171,7 +171,7 @@ public static class ShortcutHelpCatalog
         yield return Info("lists", "Usuń z bieżącego widoku", "Delete", "lista; plik na dysku pozostaje bez zmian");
         yield return Info("lists", "Przenieś pliki do Kosza", "Shift+Delete", "lokalna lista po potwierdzeniu");
         yield return Info("lists", "Wróć poziom wyżej", "Backspace", "folder, album, playlista lub Zakładki");
-        yield return Info("lists", "Krótka informacja o elemencie", "Strzałka w lewo", "lokalna lista lub wyniki wyszukiwania");
+        yield return Info("lists", "Oznajmij wielkość, bitrate i dostępne parametry elementu", "Strzałka w lewo", "lista multimediów lub wyniki wyszukiwania");
         yield return Info("lists", "Poprzedni lub następny widok", "Alt+strzałka w lewo lub w prawo", "lista multimediów");
 
         yield return Info("collections", "Utwórz playlistę", "Insert", "lista playlist");

@@ -1532,7 +1532,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+N i Ctrl+A pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko.\n\n" +
             "W oknie: Enter na utworze lub stacji rozpoczyna odtwarzanie i otwiera odtwarzacz. " +
             "Ctrl+Enter odtwarza lub wstrzymuje zaznaczony element bez opuszczania listy, a Spacja steruje elementem faktycznie grającym. " +
-            "Na listach Plików lokalnych lewa strzałka podaje krótkie informacje. " +
+            "Na listach Plików lokalnych lewa strzałka oznajmia wielkość i bitrate pliku. " +
             "F6 otwiera odtwarzacz. W odtwarzaczu strzałki w lewo i w prawo przewijają o 10 sekund, z Shiftem o 30 sekund, a z Ctrl o minutę, " +
             "strzałki w górę i w dół zmieniają głośność, Home i End przechodzą na początek i w pobliże końca, " +
             "a cyfry od 0 do 9 przechodzą odpowiednio do 0, 10, 20 i kolejnych procent długości utworu oraz domyślnie oznajmiają tylko procent. " +
@@ -5695,7 +5695,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.None && key == Key.Delete)
             description = "usuń zaznaczone elementy tylko z bieżącego widoku";
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.None && key == Key.Left)
-            description = "podaj krótkie informacje o zaznaczonym elemencie";
+            description = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+                ? "oznajmia wielkość i bitrate pliku"
+                : "oznajmia bitrate i inne dostępne parametry elementu";
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.None && key is Key.Up or Key.Down)
             description = "przejdź do poprzedniego lub następnego elementu listy";
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.Shift && key is Key.Up or Key.Down)
@@ -5740,12 +5742,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private string KeyboardHelpContext()
     {
-        if (Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase)
-            return "pole tekstowe";
-        if (_playerViewActive) return $"odtwarzacz, {_sessions.Current.DisplayName}";
-        if (MediaList.IsKeyboardFocusWithin) return $"{_currentView}, {_sessions.Current.DisplayName}";
-        if (MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem) return "menu AMC";
-        return "główne okno AMC";
+        return _sessions.Current.DisplayName;
     }
 
     private static string FormatShortcutForSpeech(KeyChord chord)

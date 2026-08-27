@@ -1,12 +1,47 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-106`
-- Tytuł zestawu: Bezpieczne odtwarzanie fragmentów OGG/Vorbis
-- Wersja programu: `0.1.0-alpha.106`
+- Numer zestawu: `AMC-TEST-107`
+- Tytuł zestawu: Zwięzły kontekst Pomocy klawiatury
+- Wersja programu: `0.1.0-alpha.107`
 - Utworzono: 2026-08-27, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.106.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.107.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 107
+
+### AMC-107-01 — Lewa strzałka w Plikach lokalnych
+
+W sesji Pliki lokalne przejdź do Folderów, włącz `Ctrl+F1` i naciśnij strzałkę w lewo.
+
+Oczekiwane: komunikat brzmi w rodzaju „Strzałka w lewo: oznajmia wielkość i bitrate pliku. Kontekst: Pliki lokalne”. Nie mówi ogólnie o krótkich informacjach i nie dodaje słowa „Foldery”.
+
+### AMC-107-02 — Kontekst po zmianie sesji
+
+Włączaj Pomoc klawiatury kolejno w Plikach lokalnych, WiiM, TIDAL i Apple Music. W każdej sesji sprawdź kilka skrótów na różnych widokach.
+
+Oczekiwane: po słowie „Kontekst” występuje tylko użytkowa nazwa aktywnej sesji. Zmiana Biblioteki na Kolejkę, Ulubione, Foldery albo odtwarzacz nie dopisuje nazwy widoku.
+
+### AMC-107-03 — Lewa strzałka poza sesją lokalną
+
+Na liście demonstracyjnej WiiM, TIDAL albo Apple Music włącz `Ctrl+F1` i naciśnij strzałkę w lewo.
+
+Oczekiwane: opis mówi o bitrate i innych dostępnych parametrach elementu. Nie obiecuje wielkości lokalnego pliku, a kontekst zawiera wyłącznie nazwę usługi.
+
+### AMC-107-04 — Spis F1
+
+Otwórz `F1`, wyszukaj „bitrate” i przejdź do wpisu lewej strzałki.
+
+Oczekiwane: wpis opisuje wielkość, bitrate i dostępne parametry, nie zawiera technicznych identyfikatorów i pozostaje tylko opisem — Enter nie wykonuje odczytu ani innego działania.
+
+## Krótka regresja alpha 107
+
+- `Ctrl+F1` nadal przechwytuje i opisuje klawisz bez wykonywania polecenia.
+- `Escape` oraz ponowne `Ctrl+F1` wyłączają Pomoc klawiatury.
+- Po wyłączeniu Pomocy lewa strzałka rzeczywiście odczytuje dane zaznaczonego elementu.
+- Plik Emaus nadal ma około `5:06` i nie zawiesza AMC.
+
+## Poprzedni zestaw alpha 106
 
 ## Nowości alpha 106
 
