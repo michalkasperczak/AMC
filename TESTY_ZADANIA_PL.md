@@ -1,12 +1,52 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-111`
-- Tytuł zestawu: Responsywne przewijanie wielogodzinnych plików chmurowych
-- Wersja programu: `0.1.0-alpha.111`
+- Numer zestawu: `AMC-TEST-112`
+- Tytuł zestawu: Odporność chmur, bardzo długich nagrań i nietypowych MP3
+- Wersja programu: `0.1.0-alpha.112`
 - Utworzono: 2026-08-27, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.111.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.112.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 112
+
+### AMC-112-01 — Wielogodzinny plik z chmury i seria skoków
+
+Otwórz plik `Radio Centrum_23.lut.2026_11.27.42 AM.mp3` z Dysku Google albo jeszcze większy dostępny materiał. Skocz kolejno w kilka odległych miejsc cyframi i `Ctrl+J`, podczas doczytywania przejdź Tabem, odczytaj pasek `NVDA+End`, zmień głośność i wróć Escape.
+
+Oczekiwane: okno, fokus i NVDA pozostają dostępne. Seria skoków kończy się w ostatnim żądanym miejscu. AMC nie wybiera przypadkowego pliku, nie wymaga odzyskiwania fokusu przez Escape i nie blokuje źródła na cały czas działania programu po chwilowym braku sieci.
+
+### AMC-112-02 — Inny dostawca chmury albo udział sieciowy
+
+Jeżeli masz możliwość, użyj pliku tylko online z OneDrive, iCloud, Dropbox, Box, Nextcloud albo udziału `\\serwer\udział`. Rozpocznij odtwarzanie, chwilowo odłącz sieć lub zatrzymaj klienta chmury, a potem przywróć dostęp i spróbuj ponownie.
+
+Oczekiwane: skan Biblioteki nie pobiera całego folderu. Próba odtwarzania może czekać na dostawcę, ale interfejs działa. Po niepowodzeniu komunikat jest krótki i pozbawiony nazw klas lub kodów; po przywróceniu dostępu ten sam plik można ponowić bez restartu AMC.
+
+### AMC-112-03 — Nietypowy lub częściowo uszkodzony MP3
+
+Sprawdź dostępne pliki z bardzo dużym tagiem lub okładką ID3, dodatkowymi danymi przed pierwszą ramką, urwanym końcem albo materiał zapisany przez nietypowy rejestrator. Jeżeli masz plik, który wcześniej zawieszał lub był odrzucany przez system, użyj właśnie jego.
+
+Oczekiwane: prawidłowy MP3 zaczyna grać, ewentualnie po jednej automatycznej próbie dekodera awaryjnego. Uszkodzony plik zostaje odrzucony bez zamrożenia i bez pętli ponowień. Po błędzie od razu można przejść do następnego pliku i używać całego okna.
+
+### AMC-112-04 — Plik tylko udający MP3
+
+Utwórz kopię małego pliku tekstowego albo innego nieaudio i nadaj jej rozszerzenie `.mp3`. Dodaj ją do Biblioteki i spróbuj odtworzyć. Nie używaj ważnego oryginału.
+
+Oczekiwane: AMC nie przestaje odpowiadać, niczego nie modyfikuje i podaje zwięzłą informację o uszkodzonym albo nieobsługiwanym formacie. Szczegóły można znaleźć tylko w `%LocalAppData%\AccessibleMediaController\logs\amc.log`.
+
+### AMC-112-05 — Bardzo długi plik lokalny
+
+Na najdłuższym dostępnym pliku lokalnym, także dłuższym niż doba, sprawdź start, pasek, czas upłynięty, pozostały i całkowity, skok do czasu, cyfry procentowe, zakładki oraz Page Up i Page Down.
+
+Oczekiwane: program akceptuje wiarygodne nagrania znacznie dłuższe niż wcześniejsza granica 30 dni, nie przepełnia obliczeń czasu i nie wczytuje całego pliku do pamięci. Nawigacja pozostaje spójna z kontekstem listy.
+
+### AMC-112-06 — Regresja formatów i Kolejki
+
+Odtwórz krótki zwykły MP3 oraz po jednym dostępnym WAV, FLAC, M4A lub AAC i OGG. Powtórz też dodanie folderu do Kolejki, odtworzenie lub usunięcie jednego pliku i usunięcie pozostałej zawartości folderu.
+
+Oczekiwane: aktualizacja NAudio nie zmienia czasu, wysokości dźwięku, prędkości, paska ani kontynuacji. Częściowy stan folderu w Kolejce nadal działa zgodnie z alfą 110.
+
+## Poprzedni zestaw alpha 111
 
 ## Nowości alpha 111
 

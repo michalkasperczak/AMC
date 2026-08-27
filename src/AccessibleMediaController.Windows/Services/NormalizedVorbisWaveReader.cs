@@ -17,7 +17,7 @@ public sealed class NormalizedVorbisWaveReader : WaveStream
     private const int MaximumProbeSeconds = 2;
     private const int MaximumProbeSampleValues = 1_048_576;
     private const int ProbeChunkSampleValues = 8_192;
-    private static readonly TimeSpan MaximumAcceptedDuration = TimeSpan.FromDays(30);
+    private static readonly TimeSpan MaximumAcceptedDuration = TimeSpan.FromDays(365);
 
     private readonly object _gate = new();
     private readonly VorbisReader _reader;

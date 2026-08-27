@@ -88,12 +88,51 @@ public static class CloudFileAvailability
             || segment.Equals("OneDrive", StringComparison.OrdinalIgnoreCase)
             || segment.StartsWith("OneDrive - ", StringComparison.OrdinalIgnoreCase)
             || segment.Equals("Dropbox", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("Box", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("Box Drive", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("pCloud Drive", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("MEGA", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("Proton Drive", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("Nextcloud", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("ownCloud", StringComparison.OrdinalIgnoreCase)
+            || segment.Equals("Sync", StringComparison.OrdinalIgnoreCase)
             || segment.Equals("Google Drive", StringComparison.OrdinalIgnoreCase)
             || segment.Equals("My Drive", StringComparison.OrdinalIgnoreCase)
             || segment.Equals("Mój dysk", StringComparison.OrdinalIgnoreCase)
             || segment.Equals("Shared drives", StringComparison.OrdinalIgnoreCase)
             || segment.Equals("Dyski współdzielone", StringComparison.OrdinalIgnoreCase));
-        return knownCloudLocation || RequiresHydration(path);
+        if (knownCloudLocation || IsNetworkLocation(fullPath)) return true;
+        try
+        {
+            var attributes = File.GetAttributes(path);
+            return (attributes & (PlaceholderAttributes | FileAttributes.ReparsePoint)) != 0;
+        }
+        catch (Exception exception) when (
+            exception is IOException
+                or UnauthorizedAccessException
+                or ArgumentException
+                or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsNetworkLocation(string fullPath)
+    {
+        if (fullPath.StartsWith("\\\\", StringComparison.Ordinal)) return true;
+        try
+        {
+            var root = Path.GetPathRoot(fullPath);
+            return !string.IsNullOrWhiteSpace(root)
+                && new DriveInfo(root).DriveType == DriveType.Network;
+        }
+        catch (Exception exception) when (
+            exception is IOException
+                or UnauthorizedAccessException
+                or ArgumentException)
+        {
+            return false;
+        }
     }
 
     private static bool IsWithinRoot(string fullPath, string? configuredRoot)

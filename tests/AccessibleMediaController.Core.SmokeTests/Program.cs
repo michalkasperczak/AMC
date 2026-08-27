@@ -36,6 +36,7 @@ var tests = new (string Name, Action Test)[]
     ("Zniknięcie bieżącego pliku zachowuje kontekst odtwarzania", TestMissingCurrentItemRecovery),
     ("Polityka pamiętania pozycji", TestResumePositionPolicy),
     ("Odkrywanie lokalnych plików audio", TestLocalAudioFileDiscovery),
+    ("Ograniczone sprawdzanie struktury MP3", TestMp3StructureProbe),
     ("Ponowne włączanie folderu do biblioteki", TestLocalLibraryImport),
     ("Synchronizacja źródeł lokalnej biblioteki", TestLocalLibrarySynchronization),
     ("Bezpieczna zmiana nazwy lokalnego pliku", TestLocalFileRenamePolicy),
@@ -1359,12 +1360,82 @@ static void TestLocalAudioFileDiscovery()
                 @"C:\Users\Test\OneDrive - Firma\nagranie.mp3"),
             "OneDrive powinien być rozpoznany na podstawie bezpiecznej ścieżki.");
         True(
+            CloudFileAvailability.MayRequireRemoteAccess(
+                @"X:\Box Drive\Archiwum\nagranie.mp3"),
+            "Box Drive powinien być rozpoznany na podstawie bezpiecznej ścieżki.");
+        True(
+            CloudFileAvailability.MayRequireRemoteAccess(
+                @"P:\Nextcloud\Archiwum\nagranie.mp3"),
+            "Nextcloud powinien być rozpoznany na podstawie bezpiecznej ścieżki.");
+        True(
+            CloudFileAvailability.MayRequireRemoteAccess(
+                @"\\serwer\udzial\Archiwum\nagranie.mp3"),
+            "Udział sieciowy powinien otrzymać bezpieczne limity dostępu zdalnego.");
+        True(
             !CloudFileAvailability.MayRequireRemoteAccess(lockedPath),
             "Zwykły lokalny plik nie powinien być uznany za chmurowy.");
         True(LocalAudioFileDiscovery.IsAudioFile("nagranie.aiff"), "AIFF powinien być rozpoznawany.");
         True(!LocalAudioFileDiscovery.IsAudioFile("okładka.jpg"), "Obraz nie może trafić na listę audio.");
         Equal(320, LocalAudioFileDiscovery.EstimateBitrateKbps(4_000_000, TimeSpan.FromSeconds(100)));
         True(LocalAudioFileDiscovery.EstimateBitrateKbps(0, TimeSpan.FromSeconds(100)) is null, "Pusty plik nie ma wiarygodnej przepływności.");
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
+static void TestMp3StructureProbe()
+{
+    var directory = Path.Combine(
+        Path.GetTempPath(),
+        $"amc-mp3-probe-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        const int frameLength = 417;
+        byte[] frameHeader = [0xFF, 0xFB, 0x90, 0x00];
+
+        var plainPath = Path.Combine(directory, "plain.mp3");
+        var plain = new byte[frameLength * 2];
+        frameHeader.CopyTo(plain, 0);
+        frameHeader.CopyTo(plain, frameLength);
+        File.WriteAllBytes(plainPath, plain);
+
+        var plainResult = Mp3StructureProbe.Probe(plainPath);
+        True(plainResult.HasConsecutiveFrames, "Nie rozpoznano dwóch kolejnych ramek MP3.");
+        Equal(0L, plainResult.AudioStartOffset);
+        Equal(44_100, plainResult.SampleRateHz);
+        Equal(128, plainResult.BitrateKbps);
+
+        var id3Path = Path.Combine(directory, "id3.mp3");
+        var withId3 = new byte[30 + frameLength * 2];
+        withId3[0] = (byte)'I';
+        withId3[1] = (byte)'D';
+        withId3[2] = (byte)'3';
+        withId3[3] = 4;
+        withId3[9] = 20;
+        frameHeader.CopyTo(withId3, 30);
+        frameHeader.CopyTo(withId3, 30 + frameLength);
+        File.WriteAllBytes(id3Path, withId3);
+
+        var id3Result = Mp3StructureProbe.Probe(id3Path);
+        True(id3Result.HasConsecutiveFrames, "Nie pominięto prawidłowego znacznika ID3.");
+        Equal(30L, id3Result.AudioStartOffset);
+
+        var damagedPath = Path.Combine(directory, "damaged.mp3");
+        File.WriteAllBytes(
+            damagedPath,
+            [(byte)'I', (byte)'D', (byte)'3', 4, 0, 0, 0, 0, 1, 0, 1, 2, 3]);
+        var damagedResult = Mp3StructureProbe.Probe(damagedPath);
+        True(!damagedResult.HasConsecutiveFrames, "Uszkodzony znacznik ID3 uznano za dźwięk.");
+        True(!string.IsNullOrWhiteSpace(damagedResult.Warning), "Brakuje bezpiecznej diagnozy uszkodzenia.");
+
+        var junkPath = Path.Combine(directory, "junk.mp3");
+        File.WriteAllBytes(junkPath, [1, 2, 3, 4, 5, 6, 7, 8]);
+        True(
+            !Mp3StructureProbe.Probe(junkPath).HasConsecutiveFrames,
+            "Losowe dane uznano za MP3.");
     }
     finally
     {

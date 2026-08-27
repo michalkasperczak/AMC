@@ -6,6 +6,7 @@ using AccessibleMediaController.Core.Sessions;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
+using NLayer.NAudioSupport;
 using SoundTouch.Net.NAudioSupport;
 
 namespace AccessibleMediaController.Windows.Services;
@@ -56,6 +57,17 @@ public readonly record struct MediaMetadataReadResult(
 /// </summary>
 public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
 {
+    private enum DecoderKind
+    {
+        System,
+        ManagedMp3,
+        Vorbis
+    }
+
+    private readonly record struct ReaderSelection(
+        GuardedWaveStream Reader,
+        DecoderKind DecoderKind);
+
     private sealed class PlaybackPipeline
     {
         public required MediaItem Item { get; init; }
@@ -65,6 +77,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         public required SoundTouchWaveStream TempoStream { get; init; }
         public required VolumeSampleProvider VolumeProvider { get; init; }
         public required EventHandler<StoppedEventArgs> StoppedHandler { get; init; }
+        public required bool MayRequireRemoteAccess { get; init; }
+        public required DecoderKind DecoderKind { get; init; }
         public long SeekStartedTimestamp;
         public int SeekInProgress;
     }
@@ -81,9 +95,14 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         MetadataTimeoutSources = new(StringComparer.OrdinalIgnoreCase);
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Task<MediaMetadataReadResult>>
         MetadataReadTasks = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly TimeSpan DecoderStallTimeout = TimeSpan.FromSeconds(8);
-    private static readonly TimeSpan SeekStallTimeout = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan LocalDecoderStallTimeout = TimeSpan.FromSeconds(8);
+    private static readonly TimeSpan RemoteDecoderStallTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan LocalSeekStallTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan RemoteSeekStallTimeout = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan LocalPreparationTimeout = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan RemotePreparationTimeout = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan SlowSeekLogThreshold = TimeSpan.FromSeconds(1);
+    private const long ManagedMp3FallbackMaximumBytes = 512L * 1024 * 1024;
     private PlaybackPipeline? _pipeline;
     private SeekWorkerState? _seekWorker;
     private MediaItem? _requestedItem;
@@ -158,11 +177,13 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         var resolvedPosition = position < TimeSpan.Zero ? TimeSpan.Zero : position;
         var resolvedRate = Math.Clamp(playbackRate, 0.50d, 2.00d);
         var resolvedVolume = Math.Clamp(volume, 0, 100);
+        var mayRequireRemoteAccess = CloudFileAvailability.MayRequireRemoteAccess(item.Source);
         PlaybackPipeline? reusable;
         bool sourceQuarantined;
         lock (_gate)
         {
-            sourceQuarantined = _quarantinedSources.Contains(item.Source);
+            sourceQuarantined = !mayRequireRemoteAccess
+                && _quarantinedSources.Contains(item.Source);
             reusable = _pipeline is not null
                 && string.Equals(_pipeline.Item.Source, item.Source, StringComparison.OrdinalIgnoreCase)
                 ? _pipeline
@@ -210,24 +231,24 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         }
         if (previous is not null) QueuePipelineDisposal(previous);
 
-        var requiresHydration = CloudFileAvailability.MayRequireRemoteAccess(item.Source);
         DiagnosticLog.Info(
             "playback",
-            $"Żądanie otwarcia: {item.Title}; chmura: {requiresHydration}; źródło: {item.Source}.");
+            $"Żądanie otwarcia: {item.Title}; dostęp zdalny: {mayRequireRemoteAccess}; źródło: {item.Source}.");
         PlaybackPreparing?.Invoke(
             this,
-            new MediaPlaybackPreparingEventArgs(item, requiresHydration));
+            new MediaPlaybackPreparingEventArgs(item, mayRequireRemoteAccess));
 
         _ = Task.Run(() => PrepareAndStartPipeline(
             item,
             requestVersion,
             resolvedPosition,
             resolvedVolume,
-            resolvedRate));
+            resolvedRate,
+            forceManagedMp3: false));
         _ = WatchPreparationTimeoutAsync(
             item,
             requestVersion,
-            requiresHydration ? TimeSpan.FromMinutes(2) : TimeSpan.FromSeconds(30));
+            mayRequireRemoteAccess ? RemotePreparationTimeout : LocalPreparationTimeout);
     }
 
     private async Task WatchPreparationTimeoutAsync(
@@ -261,7 +282,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         long requestVersion,
         TimeSpan requestedPosition,
         int requestedVolume,
-        double requestedRate)
+        double requestedRate,
+        bool forceManagedMp3)
     {
         PlaybackPipeline? pipeline = null;
         try
@@ -270,7 +292,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             {
                 if (_disposed || requestVersion != _requestVersion) return;
             }
-            pipeline = CreatePipeline(item, requestVersion);
+            pipeline = CreatePipeline(item, requestVersion, forceManagedMp3);
             TimeSpan position;
             int volume;
             double rate;
@@ -335,10 +357,19 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         }
     }
 
-    private PlaybackPipeline CreatePipeline(MediaItem item, long requestVersion)
+    private PlaybackPipeline CreatePipeline(
+        MediaItem item,
+        long requestVersion,
+        bool forceManagedMp3)
     {
         DiagnosticLog.Info("playback", $"Otwieranie dekodera: {item.Title}; żądanie {requestVersion}.");
-        var reader = CreateReader(item.Source!);
+        var mayRequireRemoteAccess = CloudFileAvailability.MayRequireRemoteAccess(item.Source!);
+        var selection = CreateReader(
+            item.Source!,
+            forceManagedMp3,
+            allowManagedMp3Fallback: true,
+            mayRequireRemoteAccess);
+        var reader = selection.Reader;
         SoundTouchWaveStream? tempoStream = null;
         WasapiOut? output = null;
         try
@@ -365,7 +396,9 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 OutputReadMonitor = outputReadMonitor,
                 TempoStream = tempoStream,
                 VolumeProvider = volumeProvider,
-                StoppedHandler = handler
+                StoppedHandler = handler,
+                MayRequireRemoteAccess = mayRequireRemoteAccess,
+                DecoderKind = selection.DecoderKind
             };
             output.PlaybackStopped += handler;
             output.Init(outputReadMonitor.ToWaveProvider());
@@ -380,10 +413,15 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         }
     }
 
-    private static GuardedWaveStream CreateReader(string path)
+    private static ReaderSelection CreateReader(
+        string path,
+        bool forceManagedMp3,
+        bool allowManagedMp3Fallback,
+        bool mayRequireRemoteAccess)
     {
         var extension = Path.GetExtension(path);
         WaveStream reader;
+        var decoderKind = DecoderKind.System;
         if (extension.Equals(".ogg", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".oga", StringComparison.OrdinalIgnoreCase))
         {
@@ -395,6 +433,50 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                     $"Znormalizowano oś czasu fragmentu OGG; początkowa próbka: {vorbisReader.SampleOrigin}.");
             }
             reader = vorbisReader;
+            decoderKind = DecoderKind.Vorbis;
+        }
+        else if (extension.Equals(".mp3", StringComparison.OrdinalIgnoreCase))
+        {
+            Mp3StructureProbeResult? probe = null;
+            if (!mayRequireRemoteAccess)
+            {
+                probe = Mp3StructureProbe.Probe(path);
+                if (!string.IsNullOrWhiteSpace(probe.Value.Warning))
+                {
+                    DiagnosticLog.Warning(
+                        "mp3-probe",
+                        $"Nietypowa struktura MP3: {path}; {probe.Value.Warning}");
+                }
+            }
+
+            if (forceManagedMp3)
+            {
+                if (!CanUseManagedMp3Fallback(path, mayRequireRemoteAccess, probe))
+                {
+                    throw new InvalidDataException(
+                        "Nie można bezpiecznie użyć awaryjnego dekodera dla tego pliku MP3.");
+                }
+                reader = CreateManagedMp3Reader(path);
+                decoderKind = DecoderKind.ManagedMp3;
+            }
+            else
+            {
+                try
+                {
+                    reader = new AudioFileReader(path);
+                }
+                catch (Exception exception) when (
+                    allowManagedMp3Fallback
+                    && IsDecoderFailure(exception)
+                    && CanUseManagedMp3Fallback(path, mayRequireRemoteAccess, probe))
+                {
+                    DiagnosticLog.Warning(
+                        "mp3-fallback",
+                        $"Dekoder systemowy odrzucił MP3; użyto dekodera zarządzanego: {path}; {exception.Message}");
+                    reader = CreateManagedMp3Reader(path);
+                    decoderKind = DecoderKind.ManagedMp3;
+                }
+            }
         }
         else
         {
@@ -403,7 +485,9 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
 
         try
         {
-            return new GuardedWaveStream(reader, path);
+            return new ReaderSelection(
+                new GuardedWaveStream(reader, path),
+                decoderKind);
         }
         catch
         {
@@ -411,6 +495,41 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             throw;
         }
     }
+
+    private static WaveStream CreateManagedMp3Reader(string path)
+    {
+        var builder = new Mp3FileReader.FrameDecompressorBuilder(
+            waveFormat => new Mp3FrameDecompressor(waveFormat));
+        return new Mp3FileReaderBase(path, builder);
+    }
+
+    private static bool CanUseManagedMp3Fallback(
+        string path,
+        bool mayRequireRemoteAccess,
+        Mp3StructureProbeResult? probe)
+    {
+        if (mayRequireRemoteAccess || probe is not { HasConsecutiveFrames: true }) return false;
+        try
+        {
+            var length = new FileInfo(path).Length;
+            return length is > 0 and <= ManagedMp3FallbackMaximumBytes;
+        }
+        catch (Exception exception) when (
+            exception is IOException
+                or UnauthorizedAccessException
+                or ArgumentException
+                or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsDecoderFailure(Exception exception) =>
+        exception is IOException
+            or InvalidDataException
+            or NotSupportedException
+            or ArgumentException
+            or System.Runtime.InteropServices.COMException;
 
     public static bool TryReadMetadata(
         string path,
@@ -424,9 +543,13 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         if (CloudFileAvailability.MayRequireRemoteAccess(path)) return false;
         try
         {
-            using var reader = CreateReader(path);
-            duration = reader.TotalTime;
-            sampleRateHz = reader.WaveFormat.SampleRate;
+            using var selection = CreateReader(
+                path,
+                forceManagedMp3: false,
+                allowManagedMp3Fallback: false,
+                mayRequireRemoteAccess: false).Reader;
+            duration = selection.TotalTime;
+            sampleRateHz = selection.WaveFormat.SampleRate;
             return duration > TimeSpan.Zero || sampleRateHz > 0;
         }
         catch (Exception exception) when (
@@ -551,6 +674,9 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     private async Task ProcessSeekRequestsAsync(SeekWorkerState worker)
     {
         var pipeline = worker.Pipeline;
+        var seekStallTimeout = pipeline.MayRequireRemoteAccess
+            ? RemoteSeekStallTimeout
+            : LocalSeekStallTimeout;
         var stopwatch = Stopwatch.StartNew();
         var completedTarget = TimeSpan.Zero;
         try
@@ -577,11 +703,11 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 }
                 catch (TimeoutException)
                 {
-                    if (stopwatch.Elapsed >= SeekStallTimeout)
+                    if (stopwatch.Elapsed >= seekStallTimeout)
                     {
                         StopUnresponsivePipeline(
                             pipeline,
-                            $"Przewijanie nie zakończyło się przez {SeekStallTimeout}.");
+                            $"Przewijanie nie zakończyło się przez {seekStallTimeout}.");
                         return;
                     }
                     await Task.Delay(TimeSpan.FromMilliseconds(75)).ConfigureAwait(false);
@@ -603,6 +729,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                         "playback",
                         $"Przewijanie nie powiodło się: {pipeline.Item.Title}; cel {target}.",
                         exception);
+                    if (TryBeginManagedMp3Recovery(pipeline, exception)) return;
                     StopPipelineAfterSeekFailure(pipeline, FriendlyPlaybackError(exception));
                     return;
                 }
@@ -686,6 +813,12 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
 
     private async Task MonitorDecoderAsync(PlaybackPipeline pipeline)
     {
+        var decoderStallTimeout = pipeline.MayRequireRemoteAccess
+            ? RemoteDecoderStallTimeout
+            : LocalDecoderStallTimeout;
+        var seekStallTimeout = pipeline.MayRequireRemoteAccess
+            ? RemoteSeekStallTimeout
+            : LocalSeekStallTimeout;
         while (true)
         {
             await Task.Delay(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
@@ -697,34 +830,45 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             {
                 var seekStarted = Interlocked.Read(ref pipeline.SeekStartedTimestamp);
                 if (seekStarted != 0
-                    && Stopwatch.GetElapsedTime(seekStarted) >= SeekStallTimeout)
+                    && Stopwatch.GetElapsedTime(seekStarted) >= seekStallTimeout)
                 {
                     StopUnresponsivePipeline(
                         pipeline,
-                        $"Przewijanie nie zakończyło się przez {SeekStallTimeout}.");
+                        $"Przewijanie nie zakończyło się przez {seekStallTimeout}.");
                     return;
                 }
                 continue;
             }
-            if (!pipeline.DecoderGuard.IsReadStalled(DecoderStallTimeout)
-                && !pipeline.OutputReadMonitor.IsReadStalled(DecoderStallTimeout)) continue;
+            if (!pipeline.DecoderGuard.IsReadStalled(decoderStallTimeout)
+                && !pipeline.OutputReadMonitor.IsReadStalled(decoderStallTimeout)) continue;
 
             StopUnresponsivePipeline(
                 pipeline,
-                $"Dekoder nie zwrócił danych przez {DecoderStallTimeout}.");
+                $"Dekoder nie zwrócił danych przez {decoderStallTimeout}.");
             return;
         }
     }
 
     private void StopUnresponsivePipeline(PlaybackPipeline pipeline, string diagnosticReason)
     {
+        if (TryBeginManagedMp3Recovery(pipeline, originalException: null))
+        {
+            DiagnosticLog.Warning(
+                "mp3-fallback",
+                $"{diagnosticReason} Uruchomiono awaryjny dekoder dla: {pipeline.Item.Title}.");
+            return;
+        }
+
         var detached = false;
         lock (_gate)
         {
             if (!_disposed && ReferenceEquals(_pipeline, pipeline))
             {
                 _pendingPosition = pipeline.DecoderGuard.CachedCurrentTime;
-                _quarantinedSources.Add(pipeline.DecoderGuard.SourcePath);
+                if (!pipeline.MayRequireRemoteAccess)
+                {
+                    _quarantinedSources.Add(pipeline.DecoderGuard.SourcePath);
+                }
                 ++_requestVersion;
                 _pipeline = null;
                 pipeline.Output.PlaybackStopped -= pipeline.StoppedHandler;
@@ -778,6 +922,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         }
         if (args.Exception is not null)
         {
+            if (TryBeginManagedMp3Recovery(pipeline, args.Exception)) return;
             DiagnosticLog.Error("playback", $"Błąd urządzenia audio: {pipeline.Item.Title}.", args.Exception);
             RaisePlaybackFailed(pipeline.Item, FriendlyPlaybackError(args.Exception));
             return;
@@ -787,6 +932,73 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         DiagnosticLog.Info("playback", $"Koniec pliku: {pipeline.Item.Title}.");
         RaiseOnCapturedContext(() =>
             PlaybackEnded?.Invoke(this, new MediaPlaybackEndedEventArgs(pipeline.Item)));
+    }
+
+    private bool TryBeginManagedMp3Recovery(
+        PlaybackPipeline pipeline,
+        Exception? originalException)
+    {
+        var path = pipeline.Item.Source;
+        if (pipeline.DecoderKind != DecoderKind.System
+            || pipeline.MayRequireRemoteAccess
+            || string.IsNullOrWhiteSpace(path)
+            || !Path.GetExtension(path).Equals(".mp3", StringComparison.OrdinalIgnoreCase)
+            || (originalException is not null && !IsDecoderFailure(originalException)))
+        {
+            return false;
+        }
+
+        Mp3StructureProbeResult probe;
+        try
+        {
+            probe = Mp3StructureProbe.Probe(path);
+        }
+        catch (Exception exception) when (
+            exception is IOException
+                or UnauthorizedAccessException
+                or ArgumentException
+                or NotSupportedException)
+        {
+            return false;
+        }
+        if (!CanUseManagedMp3Fallback(path, mayRequireRemoteAccess: false, probe)) return false;
+
+        long requestVersion;
+        TimeSpan position;
+        int volume;
+        double rate;
+        lock (_gate)
+        {
+            if (_disposed || !ReferenceEquals(_pipeline, pipeline)) return false;
+            position = pipeline.DecoderGuard.CachedCurrentTime;
+            _pendingPosition = position;
+            volume = _volume;
+            rate = _playbackRate;
+            requestVersion = ++_requestVersion;
+            _pipeline = null;
+            if (ReferenceEquals(_seekWorker?.Pipeline, pipeline)) _seekWorker = null;
+            pipeline.Output.PlaybackStopped -= pipeline.StoppedHandler;
+            _preparing = true;
+        }
+
+        DiagnosticLog.Warning(
+            "mp3-fallback",
+            originalException is null
+                ? $"Dekoder systemowy zatrzymał postęp; ponowna próba dekoderem zarządzanym: {path}."
+                : $"Dekoder systemowy przerwał odtwarzanie; ponowna próba dekoderem zarządzanym: {path}; {originalException.Message}");
+        QueuePipelineDisposal(pipeline);
+        _ = Task.Run(() => PrepareAndStartPipeline(
+            pipeline.Item,
+            requestVersion,
+            position,
+            volume,
+            rate,
+            forceManagedMp3: true));
+        _ = WatchPreparationTimeoutAsync(
+            pipeline.Item,
+            requestVersion,
+            LocalPreparationTimeout);
+        return true;
     }
 
     private PlaybackPipeline? DetachPipelineLocked()
@@ -845,7 +1057,20 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         {
             return "Nie udało się pobrać lub odczytać pliku. Sprawdź połączenie i stan usługi chmurowej.";
         }
-        return exception.Message;
+        if (exception is TimeoutException)
+        {
+            return "Dekoder nie odpowiedział w bezpiecznym czasie. Odtwarzanie zostało zatrzymane.";
+        }
+        if (exception is InvalidDataException
+            or NotSupportedException
+            or ArgumentException
+            or OverflowException
+            or OutOfMemoryException
+            or System.Runtime.InteropServices.COMException)
+        {
+            return "Plik ma nieobsługiwany albo uszkodzony format dźwięku.";
+        }
+        return "Nie udało się uruchomić odtwarzania tego pliku.";
     }
 
     public void Dispose()

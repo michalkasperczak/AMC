@@ -10,8 +10,10 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AccessibleMediaController.Core\AccessibleMediaController.Core.csproj" />
-    <PackageReference Include="NAudio" Version="2.2.1" GeneratePathProperty="true" />
+    <PackageReference Include="NAudio" Version="2.3.0" GeneratePathProperty="true" />
     <PackageReference Include="NAudio.Vorbis" Version="1.5.0" GeneratePathProperty="true" />
+    <PackageReference Include="NLayer" Version="2.0.1" GeneratePathProperty="true" />
+    <PackageReference Include="NLayer.NAudioSupport" Version="2.0.1" GeneratePathProperty="true" />
     <PackageReference Include="SoundTouch.Net" Version="2.3.2" GeneratePathProperty="true" />
     <PackageReference Include="SoundTouch.Net.NAudioSupport.Core" Version="2.3.2" />
     <Using Remove="System.Drawing" />
@@ -23,8 +25,13 @@
           CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest"
           ExcludeFromSingleFile="true" />
-    <None Include="$(PkgNAudio)\license.txt"
+    <None Include="..\..\licenses\NAudio-MIT.txt"
           Link="licenses\NAudio-MIT.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+    <None Include="..\..\licenses\NLayer-MIT.txt"
+          Link="licenses\NLayer-MIT.txt"
           CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest"
           ExcludeFromSingleFile="true" />

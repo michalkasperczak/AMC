@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Windows.Services;
 /// </summary>
 public sealed class GuardedWaveStream : WaveStream
 {
-    private static readonly TimeSpan MaximumAcceptedDuration = TimeSpan.FromDays(30);
+    private static readonly TimeSpan MaximumAcceptedDuration = TimeSpan.FromDays(365);
     private static readonly TimeSpan SeekLockTimeout = TimeSpan.FromMilliseconds(300);
     private static readonly TimeSpan DisposeLockTimeout = TimeSpan.FromSeconds(2);
 
@@ -55,7 +55,7 @@ public sealed class GuardedWaveStream : WaveStream
                 "Plik zawiera nieprawidłowy czas trwania. Odtwarzanie zatrzymano, aby program nie przestał odpowiadać.");
         }
 
-        // A duration error can be smaller than the absolute 30-day limit.
+        // A duration error can be smaller than the absolute one-year limit.
         // Reject only an unmistakably impossible ratio so very low bitrate
         // speech and long audio books remain valid.
         try
