@@ -1,12 +1,60 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-108`
-- Tytuł zestawu: Ogólna ochrona dekoderów i responsywności
-- Wersja programu: `0.1.0-alpha.108`
+- Numer zestawu: `AMC-TEST-109`
+- Tytuł zestawu: Działania na zawartości folderów
+- Wersja programu: `0.1.0-alpha.109`
 - Utworzono: 2026-08-27, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.108.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.109.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 109
+
+### AMC-109-01 — Dodanie folderu do Kolejki
+
+W widoku Foldery ustaw fokus na folderze zawierającym pliki i naciśnij `Shift+Enter`. Otwórz Kolejkę i sprawdź jej zawartość. Wróć do tego samego folderu i ponownie naciśnij `Shift+Enter`.
+
+Oczekiwane: pierwsze polecenie dodaje wszystkie dostępne, zaindeksowane pliki z folderu i podfolderów, ale nie dodaje wiersza rodzaju „folder”. Komunikat podaje nazwę folderu i liczbę plików. Drugie polecenie usuwa tę zawartość z Kolejki i również podaje jednoznaczny komunikat.
+
+### AMC-109-02 — Odtwarzaj zawartość jako następną
+
+Na folderze naciśnij `Ctrl+Shift+Enter`, otwórz Kolejkę i sprawdź pierwszą grupę elementów. Powtórz polecenie na folderze.
+
+Oczekiwane: rzeczywiste pliki są oznaczone jako odtwarzane następne w kolejności folderu. Powtórzenie usuwa ten stan. Sam folder nie występuje na liście.
+
+### AMC-109-03 — Ulubione i cofanie całej zmiany
+
+Na folderze naciśnij `Ctrl+Shift+U`, otwórz Ulubione, a następnie naciśnij `Ctrl+Z`.
+
+Oczekiwane: do Ulubionych trafiają pliki, nie folder. Jedno `Ctrl+Z` cofa całą operację, niezależnie od liczby plików.
+
+### AMC-109-04 — Playlisty folderu
+
+Na folderze naciśnij `Ctrl+Shift+P`, wybierz lub utwórz playlistę i zapisz zmiany. Otwórz playlistę.
+
+Oczekiwane: menedżer działa na wszystkich plikach folderu i podfolderów, podaje liczbę plików i nie pokazuje technicznego wiersza folderu jako utworu.
+
+### AMC-109-05 — Folder pusty i Biblioteka
+
+Jeżeli masz widoczny folder bez aktywnych plików, wywołaj na nim polecenie Kolejki. Na zwykłym folderze naciśnij `Ctrl+Shift+L`.
+
+Oczekiwane: pusty folder niczego nie zmienia. `Ctrl+Shift+L` wyjaśnia, że folder już należy do Biblioteki i że przynależność zmienia się na plikach po otwarciu folderu.
+
+### AMC-109-06 — Menu kontekstowe i fokus
+
+Otwórz menu kontekstowe na folderze. Przejdź po poleceniach, wykonaj dodanie do Kolejki, a następnie je cofnij.
+
+Oczekiwane: menu mówi „Otwórz folder” oraz jawnie nazywa działania na zawartości folderu. Po zamknięciu menu i po odświeżeniu fokus pozostaje na tym samym folderze.
+
+## Krótka regresja alpha 109
+
+- Enter otwiera folder, a Backspace wraca do folderu nadrzędnego;
+- działanie folderu nie otwiera plików i nie pobiera placeholderów chmurowych;
+- zwykły utwór nadal przełącza Kolejkę, Ulubione i „odtwarzaj jako następne” pojedynczo;
+- album i kontener playlisty nadal wymagają otwarcia Enterem;
+- ochrona dekoderów alpha 108 nadal działa.
+
+## Poprzedni zestaw alpha 108
 
 ## Nowości alpha 108
 

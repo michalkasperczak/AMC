@@ -61,6 +61,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool _captureAnnouncements;
     private string? _capturedAnnouncement;
     private bool _preservePreparedPlaybackContext;
+    private IReadOnlyList<MediaItem>? _actionItemsOverride;
     private HwndSource? _windowSource;
     private string _typeAheadText = string.Empty;
     private DateTime _lastTypeAheadInputUtc;
@@ -229,6 +230,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         get
         {
+            if (_actionItemsOverride is not null) return _actionItemsOverride;
             if (_playerViewActive)
                 return _sessions.Current.HasCurrentItem ? [_sessions.Current.CurrentItem] : [];
             var selected = MediaList.SelectedItems
@@ -859,12 +861,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RefreshCurrentView();
             SavePlaylistState();
         }
-        var target = items.Count switch
-        {
-            0 => session.DisplayName,
-            1 => items[0].Title,
-            _ => FormatItemCount(items.Count)
-        };
+        var target = TryResolveSelectedFolderContents(out var folderContext)
+            ? $"zawartość folderu {folderContext.FolderLabel}, {FormatFileCount(items.Count)}"
+            : items.Count switch
+            {
+                0 => session.DisplayName,
+                1 => items[0].Title,
+                _ => FormatItemCount(items.Count)
+            };
         Announce($"Zapisano zmiany playlist dla: {target}");
         if (_playerViewActive) FocusPlayerView();
         else RestoreMediaListFocusAfterRefresh();
@@ -1538,7 +1542,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+0 otwiera listę sesji, a kolejność można zmienić w Ustawieniach Ogólnych. " +
             "Ctrl+Page Up i Ctrl+Page Down zmieniają sesję. " +
             "Ctrl+O dodaje lokalne pliki audio, a Ctrl+Shift+O dodaje do Biblioteki synchronizowany folder wraz z podfolderami. " +
-            "W lokalnej Bibliotece Alt+1 pokazuje Foldery, Alt+2 Wszystkie pliki alfabetycznie, a Alt+3 Kolejność własną. W Kolejności własnej Alt+strzałka w górę lub w dół przenosi jeden element albo ciągły zaznaczony blok; aktywny filtr trzeba wcześniej wyczyścić. F5 odświeża Foldery Biblioteki, a Ctrl+F5 otwiera ich ustawienia. Enter wchodzi do folderu, a Backspace wraca o poziom wyżej. Żadne z tych poleceń nie uruchamia dźwięku automatycznie. " +
+            "W lokalnej Bibliotece Alt+1 pokazuje Foldery, Alt+2 Wszystkie pliki alfabetycznie, a Alt+3 Kolejność własną. W Kolejności własnej Alt+strzałka w górę lub w dół przenosi jeden element albo ciągły zaznaczony blok; aktywny filtr trzeba wcześniej wyczyścić. F5 odświeża Foldery Biblioteki, a Ctrl+F5 otwiera ich ustawienia. Enter wchodzi do folderu, a Backspace wraca o poziom wyżej. Na wierszu folderu Shift+Enter, Ctrl+Shift+Enter, Ctrl+Shift+U i Ctrl+Shift+P działają rekurencyjnie na jego zaindeksowanych plikach, nigdy na samym technicznym kontenerze. Żadne z tych poleceń nie uruchamia dźwięku automatycznie. " +
             "Ctrl+Shift+A otwiera Albumy; lokalnie numerowane pliki w folderze mogą utworzyć album nawet bez kompletnych tagów. Enter otwiera jego utwory, a Escape wraca do Albumów. Ctrl+U/P/L/Q otwiera odpowiednio: Ulubione, Playlisty, Bibliotekę i Kolejkę, " +
             "Ctrl+H otwiera trwałą Historię odtwarzania, Ctrl+B otwiera globalną listę Zakładek, a Ctrl+Shift+B dodaje nazwaną zakładkę w odtwarzaczu. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
             "wyszukiwania w bieżącej usłudze, Ctrl+Shift+F otwiera wyszukiwanie globalne, " +
@@ -2735,6 +2739,38 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private CommandExecutionResult ExecuteCommand(string commandId)
     {
+        var previousOverride = _actionItemsOverride;
+        FolderContentsActionContext? folderContext = null;
+        if (IsFolderContentsCommand(commandId)
+            && TryResolveSelectedFolderContents(out folderContext))
+        {
+            if (folderContext.Items.Count == 0)
+            {
+                Announce($"Folder {folderContext.FolderLabel} nie zawiera dostępnych plików audio");
+                return new CommandExecutionResult(true);
+            }
+            _actionItemsOverride = folderContext.Items;
+        }
+        else if (commandId == CommandIds.ToggleLibrary && HasSelectedFolderRow())
+        {
+            Announce("Folder jest już częścią Biblioteki. Otwórz go Enterem, aby zmieniać przynależność pojedynczych plików");
+            return new CommandExecutionResult(true);
+        }
+
+        try
+        {
+            return ExecuteCommandCore(commandId, folderContext);
+        }
+        finally
+        {
+            _actionItemsOverride = previousOverride;
+        }
+    }
+
+    private CommandExecutionResult ExecuteCommandCore(
+        string commandId,
+        FolderContentsActionContext? folderContext)
+    {
         if (commandId is not CommandIds.PreviousBookmark and not CommandIds.NextBookmark)
         {
             _bookmarkNavigationCursor = null;
@@ -2780,6 +2816,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         finally
         {
             _deferAnnouncements = false;
+        }
+        if (folderContext is not null && result.Handled && changesListMembership)
+        {
+            _deferredAnnouncement = BuildFolderContentsActionAnnouncement(commandId, folderContext);
         }
         if (changedSession is not null
             && commandId is CommandIds.AddQueue or CommandIds.TogglePlayNext)
@@ -2837,7 +2877,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (changesListMembership)
         {
             RefreshCurrentView(changesListMembership ? previousIndex : null);
-            if (!_playerViewActive && changedItems.Length > 1)
+            if (!_playerViewActive && changedItems.Length > 1 && folderContext is null)
             {
                 SelectMediaItems(changedItems.Select(item => item.Id));
             }
@@ -2934,6 +2974,98 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _store.Save(_state);
         }
         return result;
+    }
+
+    private static bool IsFolderContentsCommand(string commandId) => commandId is
+        CommandIds.ToggleFavorite
+        or CommandIds.AddQueue
+        or CommandIds.TogglePlayNext
+        or CommandIds.ManagePlaylists;
+
+    private bool HasSelectedFolderRow() => !_playerViewActive
+        && MediaList.SelectedItems
+            .OfType<MediaItemRow>()
+            .Any(row => row.FolderPath is not null);
+
+    private bool TryResolveSelectedFolderContents(out FolderContentsActionContext context)
+    {
+        context = default!;
+        if (_playerViewActive
+            || !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var selectedRows = MediaList.SelectedItems
+            .OfType<MediaItemRow>()
+            .ToArray();
+        if (selectedRows.Length == 0 && MediaList.SelectedItem is MediaItemRow selectedRow)
+        {
+            selectedRows = [selectedRow];
+        }
+        var folderRows = selectedRows
+            .Where(row => row.FolderPath is not null)
+            .ToArray();
+        if (folderRows.Length == 0) return false;
+
+        var activeItems = ActiveLocalItems().ToArray();
+        var resolved = new List<MediaItem>();
+        var knownIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var row in selectedRows)
+        {
+            if (row.FolderPath is { } folderPath)
+            {
+                foreach (var item in activeItems
+                             .Where(item => item.Kind is MediaItemKind.Track or MediaItemKind.Station
+                                 && TryGetLocalPath(item.Source, out var itemPath)
+                                 && IsSameOrDescendantPath(itemPath, folderPath))
+                             .OrderBy(
+                                 item => TryGetLocalPath(item.Source, out var itemPath)
+                                     ? Path.GetRelativePath(folderPath, itemPath)
+                                     : item.Title,
+                                 StringComparer.CurrentCultureIgnoreCase))
+                {
+                    if (knownIds.Add(item.Id)) resolved.Add(item);
+                }
+                continue;
+            }
+
+            var actionItem = row.ActionItem;
+            if (actionItem.Kind is MediaItemKind.Track or MediaItemKind.Station
+                && knownIds.Add(actionItem.Id))
+            {
+                resolved.Add(actionItem);
+            }
+        }
+
+        var folderLabel = folderRows.Length == 1
+            ? $"„{folderRows[0].Item.Title}”"
+            : $"{folderRows.Length} wybranych folderów";
+        context = new FolderContentsActionContext(folderLabel, resolved);
+        return true;
+    }
+
+    private static string BuildFolderContentsActionAnnouncement(
+        string commandId,
+        FolderContentsActionContext context)
+    {
+        var count = FormatFileCount(context.Items.Count);
+        return commandId switch
+        {
+            CommandIds.ToggleFavorite when context.Items.All(item => item.IsFavorite) =>
+                $"Dodano do ulubionych zawartość folderu {context.FolderLabel}: {count}",
+            CommandIds.ToggleFavorite =>
+                $"Usunięto z ulubionych zawartość folderu {context.FolderLabel}: {count}",
+            CommandIds.AddQueue when context.Items.All(item => item.IsInQueue || item.IsPlayNext) =>
+                $"Dodano do kolejki zawartość folderu {context.FolderLabel}: {count}",
+            CommandIds.AddQueue =>
+                $"Usunięto z kolejki zawartość folderu {context.FolderLabel}: {count}",
+            CommandIds.TogglePlayNext when context.Items.All(item => item.IsPlayNext) =>
+                $"Odtwarzaj jako następne zawartość folderu {context.FolderLabel}: {count}",
+            CommandIds.TogglePlayNext =>
+                $"Usunięto z następnych zawartość folderu {context.FolderLabel}: {count}",
+            _ => $"Zmieniono zawartość folderu {context.FolderLabel}: {count}"
+        };
     }
 
     private void RefreshCurrentView(int? fallbackIndex = null, string? preferredItemId = null)
@@ -6426,10 +6558,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var folderNavigationRow = !_playerViewActive
             && string.Equals(_currentView, FolderViewName, StringComparison.Ordinal)
             && (MediaList.SelectedItem as MediaItemRow)?.FolderPath is not null;
+        var membershipItems = folderNavigationRow
+            && TryResolveSelectedFolderContents(out var folderContext)
+                ? folderContext.Items
+                : items;
         var playbackLabel = playlistContainer
             ? "Otwórz playlistę"
             : localAlbumContainer
             ? "Otwórz album"
+            : folderNavigationRow
+            ? "Otwórz folder"
             : actionItem is not null
             && string.Equals(actionItem.Id, _sessions.Current.CurrentItem.Id, StringComparison.Ordinal)
             && _sessions.Current.IsPlaying
@@ -6438,18 +6576,30 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         SetContextMenuItemPresentation(
             PlaybackMenuItem,
             playbackLabel,
-            localAlbumContainer || playlistContainer ? "Enter" : "Ctrl+Enter");
-        var playNextLabel = items.Count > 0 && items.All(item => item.IsPlayNext)
-            ? "Usuń z odtwarzanych jako następne"
-            : "Odtwórz jako następne";
+            localAlbumContainer || playlistContainer || folderNavigationRow ? "Enter" : "Ctrl+Enter");
+        var playNextLabel = membershipItems.Count > 0 && membershipItems.All(item => item.IsPlayNext)
+            ? folderNavigationRow
+                ? "Usuń zawartość folderu z odtwarzanych jako następne"
+                : "Usuń z odtwarzanych jako następne"
+            : folderNavigationRow
+                ? "Odtwórz zawartość folderu jako następną"
+                : "Odtwórz jako następne";
         SetContextMenuItemPresentation(PlayNextMenuItem, playNextLabel, "Ctrl+Shift+Enter");
-        var queueLabel = items.Count > 0 && items.All(item => item.IsInQueue || item.IsPlayNext)
-            ? "Usuń z kolejki"
-            : "Dodaj do kolejki";
+        var queueLabel = membershipItems.Count > 0 && membershipItems.All(item => item.IsInQueue || item.IsPlayNext)
+            ? folderNavigationRow
+                ? "Usuń zawartość folderu z kolejki"
+                : "Usuń z kolejki"
+            : folderNavigationRow
+                ? "Dodaj zawartość folderu do kolejki"
+                : "Dodaj do kolejki";
         SetContextMenuItemPresentation(QueueMenuItem, queueLabel, "Shift+Enter");
-        var favoriteLabel = items.Count > 0 && items.All(item => item.IsFavorite)
-            ? "Usuń z ulubionych"
-            : "Dodaj do ulubionych";
+        var favoriteLabel = membershipItems.Count > 0 && membershipItems.All(item => item.IsFavorite)
+            ? folderNavigationRow
+                ? "Usuń zawartość folderu z ulubionych"
+                : "Usuń z ulubionych"
+            : folderNavigationRow
+                ? "Dodaj zawartość folderu do ulubionych"
+                : "Dodaj do ulubionych";
         SetContextMenuItemPresentation(FavoriteMenuItem, favoriteLabel, "Ctrl+Shift+U");
         var libraryLabel = items.Count > 0 && items.All(item => item.IsInLibrary)
             ? "Usuń z biblioteki"
@@ -6464,11 +6614,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : Visibility.Collapsed;
         RenamePlaylistMenuItem.Visibility = playlistContainer ? Visibility.Visible : Visibility.Collapsed;
         DeletePlaylistMenuItem.Visibility = playlistContainer ? Visibility.Visible : Visibility.Collapsed;
-        PlayNextMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
-        QueueMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
-        FavoriteMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
-        LibraryMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
-        PlaylistMembershipMenuItem.Visibility = playlistContainer || localAlbumContainer || folderNavigationRow
+        PlayNextMenuItem.Visibility = localAlbumContainer
+            || playlistContainer
+            || (folderNavigationRow && membershipItems.Count == 0)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        QueueMenuItem.Visibility = localAlbumContainer
+            || playlistContainer
+            || (folderNavigationRow && membershipItems.Count == 0)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        FavoriteMenuItem.Visibility = localAlbumContainer
+            || playlistContainer
+            || (folderNavigationRow && membershipItems.Count == 0)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        LibraryMenuItem.Visibility = localAlbumContainer || playlistContainer || folderNavigationRow
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        PlaylistMembershipMenuItem.Visibility = playlistContainer
+            || localAlbumContainer
+            || (folderNavigationRow && membershipItems.Count == 0)
             ? Visibility.Collapsed
             : Visibility.Visible;
         CopyLocationMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
@@ -7006,6 +7172,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         public override string ToString() => Label;
     }
+
+    private sealed record FolderContentsActionContext(
+        string FolderLabel,
+        IReadOnlyList<MediaItem> Items);
 
     private sealed record PlaylistStateUndo(
         long Sequence,

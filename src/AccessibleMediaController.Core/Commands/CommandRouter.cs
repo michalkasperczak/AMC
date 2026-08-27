@@ -226,6 +226,7 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.ToggleFavorite:
                 var favoriteItems = ResolveActionItems(current);
+                if (RejectFolderContainer(favoriteItems)) return new(true);
                 var favorite = !favoriteItems.All(item => item.IsFavorite);
                 foreach (var item in favoriteItems) item.IsFavorite = favorite;
                 AnnounceTemplate(
@@ -235,6 +236,7 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.ToggleLibrary:
                 var libraryItems = ResolveActionItems(current);
+                if (RejectFolderContainer(libraryItems)) return new(true);
                 var library = !libraryItems.All(item => item.IsInLibrary);
                 foreach (var item in libraryItems) item.IsInLibrary = library;
                 announcements.Announce(library
@@ -284,6 +286,7 @@ public sealed class CommandRouter(
             case CommandIds.ViewDownloads: return ShowView("Pobrane");
             case CommandIds.AddQueue:
                 var queueItems = ResolveActionItems(current);
+                if (RejectFolderContainer(queueItems)) return new(true);
                 var queued = !queueItems.All(item => item.IsInQueue || item.IsPlayNext);
                 foreach (var item in queueItems)
                 {
@@ -297,6 +300,7 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.TogglePlayNext:
                 var playNextItems = ResolveActionItems(current);
+                if (RejectFolderContainer(playNextItems)) return new(true);
                 var playNext = !playNextItems.All(item => item.IsPlayNext);
                 foreach (var item in playNextItems) item.IsPlayNext = playNext;
                 AnnounceTemplate(
@@ -499,6 +503,14 @@ public sealed class CommandRouter(
         application.ActionItems.Count > 0
             ? application.ActionItems
             : [application.ActionItem ?? session.CurrentItem];
+
+    private bool RejectFolderContainer(IReadOnlyList<MediaItem> items)
+    {
+        if (items.All(item => item.Kind != MediaItemKind.Folder)) return false;
+        announcements.Announce(
+            "Nie można dodać samego folderu. Działanie musi obejmować jego pliki, a nie wiersz folderu");
+        return true;
+    }
 
     private static string FormatActionItems(IReadOnlyList<MediaItem> items)
     {

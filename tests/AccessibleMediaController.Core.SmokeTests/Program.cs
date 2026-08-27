@@ -58,6 +58,7 @@ var tests = new (string Name, Action Test)[]
     ("Dostępny spis skrótów", TestShortcutHelpCatalog),
     ("Cofanie zmian przynależności", TestMembershipHistory),
     ("Zbiorowe zmiany przynależności", TestBatchMembershipCommands),
+    ("Folder nie staje się fałszywym elementem kolekcji", TestFolderMembershipGuard),
     ("Krótkie komunikaty czasu", TestTimeCommands),
     ("Skok wpisanym czasem i procentem", TestSeekInputParser),
     ("Trzy rodzaje eksportu", TestExports)
@@ -2302,6 +2303,37 @@ static void TestBatchMembershipCommands()
     router.Execute(CommandIds.AddQueue);
     Equal(false, first.IsInQueue);
     Equal(false, second.IsInQueue);
+}
+
+static void TestFolderMembershipGuard()
+{
+    var settings = new AppSettings();
+    var sessions = new SessionManager(settings);
+    var folder = new MediaItem
+    {
+        Id = "folder:test",
+        Title = "Testowy folder",
+        Kind = MediaItemKind.Folder,
+        Source = @"C:\Muzyka\Test"
+    };
+    var sink = new FakeSink();
+    var router = new CommandRouter(sessions, settings, sink, new FakeActions(folder));
+
+    foreach (var commandId in new[]
+             {
+                 CommandIds.ToggleFavorite,
+                 CommandIds.ToggleLibrary,
+                 CommandIds.AddQueue,
+                 CommandIds.TogglePlayNext
+             })
+    {
+        var result = router.Execute(commandId);
+        True(result.Handled, "Polecenie folderu powinno zostać bezpiecznie obsłużone.");
+        True(sink.LastMessage.Contains("folder", StringComparison.OrdinalIgnoreCase),
+            "Komunikat powinien wyjaśniać semantykę folderu.");
+        True(!folder.IsFavorite && !folder.IsInLibrary && !folder.IsInQueue && !folder.IsPlayNext,
+            "Sztuczny wiersz folderu nie może otrzymać stanu kolekcji.");
+    }
 }
 
 static void TestTimeCommands()
