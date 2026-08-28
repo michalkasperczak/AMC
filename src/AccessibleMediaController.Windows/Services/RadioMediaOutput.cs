@@ -154,6 +154,18 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                 _timeshiftMinutes,
                 MaximumTimeshiftBytes,
                 RaiseRecordingFailed);
+            // Do not announce a started station while the output still holds
+            // only silence. The first decoded portion also proves that opening
+            // the URL produced audio rather than headers followed by EOF.
+            var initialAudio = new byte[Math.Max(
+                16 * 1024,
+                reader.WaveFormat.AverageBytesPerSecond / 10)];
+            var initialRead = reader.Read(initialAudio, 0, initialAudio.Length);
+            if (initialRead <= 0)
+            {
+                throw new EndOfStreamException("Serwer nie przesłał dźwięku po otwarciu strumienia.");
+            }
+            buffer.Write(initialAudio, 0, initialRead);
             var volume = new VolumeSampleProvider(buffer.ToSampleProvider())
             {
                 Volume = Math.Clamp(_volume, 0, 100) / 100f

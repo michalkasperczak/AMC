@@ -560,11 +560,23 @@ static void TestRadioCompatibilityCandidates()
         programTwo.Count == 2 && programTwo[0].Contains(":8902/", StringComparison.Ordinal),
         "Nie wybrano zgodnego MP3 dla Programu 2.");
 
+    var programThree = RadioStreamResolver.GetPlaybackCandidates(
+        "http://stream3.polskieradio.pl:8954/;.mp3");
+    Assert(
+        programThree.Count == 2 && programThree[0] == "http://mp3.polskieradio.pl:8904/;.mp3",
+        "Nie wybrano zgodnego MP3 dla Programu 3.");
+
     var hlsProgramFour = RadioStreamResolver.GetPlaybackCandidates(
         "https://stream14.polskieradio.pl/pr4/pr4.sdp/playlist.m3u8");
     Assert(
         hlsProgramFour.Count == 2 && hlsProgramFour[0].Contains(":8906/", StringComparison.Ordinal),
         "Nie wybrano zgodnego MP3 dla HLS Programu 4.");
+
+    var chopin = RadioStreamResolver.GetPlaybackCandidates(
+        "http://stream3.polskieradio.pl:8960/;");
+    Assert(
+        chopin.Count == 2 && chopin[0] == "http://mp3.polskieradio.pl:8910/;.mp3",
+        "Nie wybrano zgodnego MP3 dla Radia Chopin.");
 
     var eska = RadioStreamResolver.GetPlaybackCandidates(
         "https://radio.stream.smcdn.pl/icradio-p/2180-1.aac/playlist.m3u8");

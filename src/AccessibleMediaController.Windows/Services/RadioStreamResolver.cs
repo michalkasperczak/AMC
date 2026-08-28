@@ -90,13 +90,15 @@ internal static partial class RadioStreamResolver
             {
                 8950 => 8900,
                 8952 => 8902,
+                8954 => 8904,
                 8956 => 8906,
+                8960 => 8910,
                 _ => 0
             };
             if (mp3Port > 0)
             {
-                return mp3Port == 8900
-                    ? "http://mp3.polskieradio.pl:8900/;.mp3"
+                return mp3Port is 8900 or 8904 or 8910
+                    ? $"http://mp3.polskieradio.pl:{mp3Port}/;.mp3"
                     : $"http://stream3.polskieradio.pl:{mp3Port}/;.mp3";
             }
         }
@@ -108,6 +110,7 @@ internal static partial class RadioStreamResolver
             {
                 "stream11.polskieradio.pl" => "http://mp3.polskieradio.pl:8900/;.mp3",
                 "stream12.polskieradio.pl" => "http://stream3.polskieradio.pl:8902/;.mp3",
+                "stream13.polskieradio.pl" => "http://mp3.polskieradio.pl:8904/;.mp3",
                 "stream14.polskieradio.pl" => "http://stream3.polskieradio.pl:8906/;.mp3",
                 "stream15.polskieradio.pl" => "http://stream3.polskieradio.pl:8080/;.mp3",
                 _ => null

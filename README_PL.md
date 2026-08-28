@@ -18,6 +18,8 @@ Od `alpha.119` bezpośrednie transmisje OGG/Vorbis, w tym Radio Emaus, mają oso
 
 Od `alpha.120` dekoder starszego radia MP3 prawidłowo scala częściowe odczyty TCP. Granica pakietu sieciowego może wypaść w środku ramki MP3 i nie oznacza końca stacji. Test kontrolny wysyła ramki celowo podzielone na małe fragmenty, a testy na żywo wymagają wielu kolejnych odczytów Jedynki, Programu 2, Czwórki i PR24. Zapobiega to sytuacji, w której AMC ogłasza rozpoczęcie odbioru, po czym po kilkudziesięciu milisekundach uznaje normalną transmisję za zakończoną.
 
+Od `alpha.121` wpis AAC+ Radia Chopin na porcie 8960 ma sprawdzony wariant MP3 192 kb/s na porcie 8910. Trójka na porcie AAC+ 8954 ma odpowiadający wariant MP3 8904, lecz 28 sierpnia 2026 oba stare wejścia nadawcy zwracały `ICY 401 Service Unavailable`; AMC próbuje oba i kończy działanie bez zawieszenia, ale nie może odtworzyć niedostępnego źródła. Uruchomienie stacji jest ogłaszane dopiero po odebraniu pierwszej dekodowanej porcji audio, a nie po samym otwarciu adresu.
+
 Ta sama wersja utrwala wielokrotne zaznaczanie wyników wyszukiwania: `Shift+strzałka w górę/dół` jawnie rozszerza albo zmniejsza ciągłe zaznaczenie, a fokus pozostaje na ruchomym końcu zakresu. `Ctrl+C` kopiuje wszystkie zaznaczone nazwy w kolejności listy. `Ctrl+Shift+C` dla plików zachowuje pełne ścieżki i `FileDrop`, natomiast dla radia i innych usług kopiuje powtarzane pary **nazwa, publiczne łącze**; zaznaczenie wielu stacji daje więc nazwę i adres każdej z nich, a nie tylko pierwszego wyniku.
 
 ## Najprostsze uruchomienie gotowej wersji
