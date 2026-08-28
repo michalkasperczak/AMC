@@ -2574,6 +2574,24 @@ static void TestBatchMembershipCommands()
     router.Execute(CommandIds.AddQueue);
     Equal(false, first.IsInQueue);
     Equal(false, second.IsInQueue);
+
+    var duplicateLogicalItem = new MediaItem
+    {
+        Id = first.Id,
+        Title = "Powtórzony wiersz tej samej stacji"
+    };
+    var duplicateSink = new FakeSink();
+    var duplicateRouter = new CommandRouter(
+        sessions,
+        settings,
+        duplicateSink,
+        new FakeActions(first, [first, duplicateLogicalItem]));
+    duplicateRouter.Execute(CommandIds.ToggleFavorite);
+    Equal(true, first.IsFavorite);
+    Equal(false, duplicateLogicalItem.IsFavorite);
+    True(
+        !duplicateSink.LastMessage.Contains("2 elementy", StringComparison.Ordinal),
+        "Dwa wiersze o tym samym identyfikatorze nie mogą zostać policzone jako dwa elementy.");
 }
 
 static void TestFolderMembershipGuard()

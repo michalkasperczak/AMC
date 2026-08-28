@@ -353,6 +353,7 @@ Kontrakt obejmuje co najmniej:
 
 - te same znaczenia Enter, `Ctrl+Enter`, Spacji, Escape, menu kontekstowego, kopiowania, Kolejki, Ulubionych, Biblioteki i playlist wszędzie, gdzie adapter deklaruje daną możliwość;
 - tę samą główną nazwę semantyczną, nawigację literową, zaznaczanie wielokrotne, przywracanie fokusu i porcjowanie zarówno na liście głównej, jak i w wynikach;
+- każde działanie zbiorcze wykonuje się na jednej migawce zaznaczenia z powierzchni, która wywołała polecenie; zaznaczenie listy ukrytej pod oknem wyszukiwania nie może zostać odziedziczone, a powtórzone wiersze tego samego identyfikatora są liczone tylko raz;
 - tę samą konfigurowalną kolejność pól; brakująca wartość jest pomijana, a nie zastępowana zgadywaną wartością;
 - strzałkę w lewo jako wspólną krótką informację, `Alt+Enter` jako pełne właściwości oraz `Ctrl+C` i `Ctrl+Shift+C` jako odpowiednio nazwę i publiczną lokalizację albo prawdziwy plik lokalny;
 - działania bezpośrednie w wyszukiwaniu bez zamykania okna, jeśli ta sama czynność jest dostępna na liście głównej i nie wymaga następnego okna modalnego; wybór playlist zamyka wyszukiwanie i otwiera właściwy menedżer;

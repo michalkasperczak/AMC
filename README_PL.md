@@ -30,6 +30,8 @@ Od `alpha.126` `Alt+1`, `Alt+2`, `Alt+3`, `F5` i `Ctrl+F5` są ściśle lokalne.
 
 Ta sama wersja utrwala wielokrotne zaznaczanie wyników wyszukiwania: `Shift+strzałka w górę/dół` jawnie rozszerza albo zmniejsza ciągłe zaznaczenie, a fokus pozostaje na ruchomym końcu zakresu. `Ctrl+C` kopiuje wszystkie zaznaczone nazwy w kolejności listy. `Ctrl+Shift+C` dla plików zachowuje pełne ścieżki i `FileDrop`, natomiast dla radia i innych usług kopiuje powtarzane pary **nazwa, publiczne łącze**; zaznaczenie wielu stacji daje więc nazwę i adres każdej z nich, a nie tylko pierwszego wyniku.
 
+Od `alpha.127` zbiorcze działanie z wyników wyszukiwania korzysta z jednej, niezmiennej migawki zaznaczenia. `Ctrl+Shift+U`, Kolejka, „Odtwarzaj jako następne” i Biblioteka obejmują dokładnie zaznaczone wyniki, a nigdy pozostawione zaznaczenie głównej listy znajdującej się pod oknem wyszukiwania. Powtórzone wiersze tej samej stacji są liczone raz według jej identyfikatora. Zaznaczenie obejmujące różne usługi jest odrzucane czytelnym komunikatem, ponieważ Ulubione, Biblioteka i Kolejka należą do konkretnych sesji. Log zapisuje tylko liczby wierszy i elementów, bez nazw oraz adresów stacji.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

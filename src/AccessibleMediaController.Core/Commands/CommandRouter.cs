@@ -506,6 +506,8 @@ public sealed class CommandRouter(
     private IReadOnlyList<MediaItem> ResolveActionItems(DemoMediaSession session) =>
         application.ActionItems.Count > 0
             ? application.ActionItems
+                .DistinctBy(item => item.Id, StringComparer.Ordinal)
+                .ToArray()
             : [application.ActionItem ?? session.CurrentItem];
 
     private bool RejectFolderContainer(IReadOnlyList<MediaItem> items)

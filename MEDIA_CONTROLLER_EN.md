@@ -353,6 +353,7 @@ The contract includes at least:
 
 - identical meanings for Enter, `Ctrl+Enter`, Space, Escape, the context menu, copying, Queue, Favorites, Library and playlists wherever the adapter declares that capability;
 - the same semantic primary name, type-ahead, multi-selection, focus restoration and paging in both the main list and search results;
+- every batch action uses one selection snapshot from the surface that invoked it; a list hidden behind Search can never leak its selection into the command, and repeated rows with the same logical identifier count only once;
 - the same configurable field order; a missing value is omitted rather than replaced with a guessed value;
 - Left Arrow as shared concise information, `Alt+Enter` as full properties, and `Ctrl+C` plus `Ctrl+Shift+C` as the title and public location or real local file respectively;
 - direct actions in Search that keep the window open when the same action exists in the main list and needs no subsequent modal dialog; playlist selection closes Search and opens its dedicated manager;

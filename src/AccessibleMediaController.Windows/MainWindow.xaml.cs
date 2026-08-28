@@ -264,7 +264,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 .OfType<MediaItemRow>()
                 .Where(row => row.PlaylistId is null)
                 .Select(row => row.ActionItem)
-                .Distinct()
+                .DistinctBy(item => item.Id, StringComparer.Ordinal)
                 .ToArray();
             if (selected.Length > 0) return selected;
             return ActionItem is { } actionItem ? [actionItem] : [];
@@ -3246,7 +3246,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.AddQueue
             or CommandIds.TogglePlayNext;
         var changedSession = changesListMembership ? ActionSession : null;
-        var changedItems = changesListMembership ? ActionItems.ToArray() : [];
+        var changedItems = changesListMembership
+            ? ActionItems
+                .DistinctBy(item => item.Id, StringComparer.Ordinal)
+                .ToArray()
+            : [];
+        if (changesListMembership)
+        {
+            var selectedRows = _playerViewActive
+                ? 1
+                : MediaList.SelectedItems
+                    .OfType<MediaItemRow>()
+                    .Count(row => row.PlaylistId is null);
+            DiagnosticLog.Info(
+                "selection",
+                $"Polecenie {commandId}; sesja: {_sessions.Current.Id}; widok: {_currentView}; " +
+                $"widoczne wiersze: {MediaList.Items.Count}; zaznaczone wiersze: {selectedRows}; " +
+                $"unikatowe elementy działania: {changedItems.Length}.");
+        }
         var previousMemberships = changedItems
             .Select(item => (Item: item, Previous: MediaMembershipState.From(item)))
             .ToArray();
@@ -3260,6 +3277,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _deferAnnouncements = true;
         }
         CommandExecutionResult result;
+        var actionItemsBeforeExecution = _actionItemsOverride;
+        if (changesListMembership) _actionItemsOverride = changedItems;
         try
         {
             result = folderContext is not null && IsFolderCollectionToggleCommand(commandId)
@@ -3268,6 +3287,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         finally
         {
+            _actionItemsOverride = actionItemsBeforeExecution;
             _deferAnnouncements = false;
         }
         if (folderContext is not null && result.Handled && changesListMembership)
@@ -7024,9 +7044,35 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return CopySearchResultLocations(results);
         }
 
+        var changesMembership = action is SearchResultAction.PlayNext
+            or SearchResultAction.Queue
+            or SearchResultAction.Favorite
+            or SearchResultAction.Library;
+        if (changesMembership
+            && results.Select(selected => selected.SessionId)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Skip(1)
+                .Any())
+        {
+            return "Dla jednego działania wybierz wyniki z tej samej usługi";
+        }
+
         var result = results[0];
         var session = SelectSessionBrowserItem(result.SessionId, result.Item.Id);
         if (session is null) return "Wybrana sesja nie jest już dostępna";
+
+        var previousActionItemsOverride = _actionItemsOverride;
+        if (changesMembership)
+        {
+            _actionItemsOverride = results
+                .Select(selected => selected.Item)
+                .DistinctBy(item => item.Id, StringComparer.Ordinal)
+                .ToArray();
+            DiagnosticLog.Info(
+                "selection",
+                $"Polecenie {action} z wyników wyszukiwania; sesja: {session.Id}; " +
+                $"zaznaczone wyniki: {results.Count}; unikatowe elementy działania: {_actionItemsOverride.Count}.");
+        }
 
         _capturedAnnouncement = null;
         _captureAnnouncements = true;
@@ -7074,6 +7120,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         finally
         {
             _captureAnnouncements = false;
+            _actionItemsOverride = previousActionItemsOverride;
         }
 
         var announcement = _capturedAnnouncement;

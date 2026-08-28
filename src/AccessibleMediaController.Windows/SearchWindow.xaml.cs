@@ -198,9 +198,27 @@ public partial class SearchWindow : Window
         var result = new SearchResult(row.SessionId, row.Item);
         if (action is not (SearchResultAction.Open or SearchResultAction.Playlist))
         {
-            var results = action is SearchResultAction.CopyName or SearchResultAction.CopyLocation
+            var results = action is SearchResultAction.CopyName
+                or SearchResultAction.CopyLocation
+                or SearchResultAction.PlayNext
+                or SearchResultAction.Queue
+                or SearchResultAction.Favorite
+                or SearchResultAction.Library
                 ? GetSelectedResults()
                 : [result];
+            if (action is SearchResultAction.PlayNext
+                    or SearchResultAction.Queue
+                    or SearchResultAction.Favorite
+                    or SearchResultAction.Library
+                && results.Select(selected => selected.SessionId)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Skip(1)
+                    .Any())
+            {
+                SearchStatus.Announce("Dla jednego działania wybierz wyniki z tej samej usługi");
+                Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
+                return;
+            }
             var visibleResults = ResultsList.Items
                 .OfType<SearchResultRow>()
                 .Select(candidate => new SearchResult(candidate.SessionId, candidate.Item))
@@ -392,6 +410,7 @@ public partial class SearchWindow : Window
             .OfType<SearchResultRow>()
             .OrderBy(row => ResultsList.Items.IndexOf(row))
             .Select(row => new SearchResult(row.SessionId, row.Item))
+            .DistinctBy(result => (result.SessionId.ToUpperInvariant(), result.Item.Id))
             .ToArray();
         if (selected.Length > 0) return selected;
         return ResultsList.SelectedItem is SearchResultRow row
