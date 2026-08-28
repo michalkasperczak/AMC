@@ -66,7 +66,7 @@ if ($Publish) {
         if ($LASTEXITCODE -ne 0) { throw "Nie udało się utworzyć wersji samowystarczalnej." }
         New-Item -ItemType Directory -Path $packageDirectory | Out-Null
         Copy-Item -LiteralPath (Join-Path $staging "AccessibleMediaController.exe") -Destination $program -Force
-        foreach ($fileName in @("SoundTouch.Net.dll", "SoundTouch.Net.NAudioSupport.dll", "THIRD_PARTY_NOTICES.md")) {
+        foreach ($fileName in @("SoundTouch.Net.dll", "SoundTouch.Net.NAudioSupport.dll", "bass.dll", "THIRD_PARTY_NOTICES.md")) {
             $sourceFile = Join-Path $staging $fileName
             if (-not (Test-Path -LiteralPath $sourceFile)) { throw "Brak składnika publikacji: $fileName" }
             Copy-Item -LiteralPath $sourceFile -Destination (Join-Path $packageDirectory $fileName) -Force

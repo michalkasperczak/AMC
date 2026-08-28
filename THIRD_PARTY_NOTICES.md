@@ -6,11 +6,14 @@ AMC korzysta z następujących składników audio:
 - **NLayer 2.0.1** i **NLayer.NAudioSupport 2.0.1** — zarządzany dekoder awaryjny MPEG Layer I, II i III, Copyright (c) Andrew Ward, Mark Heath i współtwórcy, licencja MIT. Pełny tekst: `licenses/NLayer-MIT.txt`.
 - **NAudio.Vorbis 1.5.0** i **NVorbis 0.10.4** — dekodowanie OGG/Vorbis, Copyright (c) Andrew Ward, licencja MIT. Pełne teksty: `licenses/Vorbis-components-MIT.txt`.
 - **SoundTouch.Net 2.3.2** oraz **SoundTouch.Net.NAudioSupport.Core 2.3.2** — port biblioteki SoundTouch autorstwa Olafa Woudenberga, na podstawie SoundTouch Olliego Parviainena; licencja GNU LGPL 2.1 lub nowsza. Pełny tekst: `licenses/SoundTouch.Net-LGPL-2.1.txt`.
+- **BASS 2.4** — własnościowa biblioteka Un4seen Developments używana jako opcjonalny, preferowany dekoder bezpośrednich strumieni radia internetowego. BASS jest bezpłatny wyłącznie do zastosowań niekomercyjnych. AMC nie jest sprzedawany, nie zawiera reklam, płatnych funkcji ani odsyłaczy do darowizn. Osoba wykorzystująca AMC lub jego fork komercyjnie musi usunąć BASS albo uzyskać właściwą licencję od Un4seen Developments. Pełne warunki dostarczone z biblioteką: `licenses/BASS-2.4.txt`; strona producenta: https://www.un4seen.com/bass.html.
 
 Kod źródłowy użytej wersji SoundTouch.Net jest dostępny pod adresem:
 https://github.com/owoudenberg/soundtouch.net/tree/98e5b8fd2f8efed0ddf7c8f66b435bfb231659dc
 
 Biblioteki `SoundTouch.Net.dll` i `SoundTouch.Net.NAudioSupport.dll` są publikowane jako oddzielne, wymienne pliki obok programu.
+
+Biblioteka `bass.dll` jest publikowana jako oddzielny, wymienny plik obok programu i nie jest objęta licencją kodu źródłowego AMC. Jej brak lub odrzucenie strumienia nie wyłącza radia: AMC automatycznie przechodzi do dotychczasowych dekoderów systemowych i zarządzanych.
 
 AMC korzysta również z następujących składników do lokalnego przechowywania Biblioteki:
 

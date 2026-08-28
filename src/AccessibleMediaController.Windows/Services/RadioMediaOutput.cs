@@ -145,10 +145,11 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         CancellationTokenSource preparationCancellation)
     {
         RadioPipeline? pipeline = null;
+        OpenedRadioReader? openedReader = null;
         try
         {
             var cancellationToken = preparationCancellation.Token;
-            var openedReader = await OpenFirstWorkingReaderAsync(item.Source!, cancellationToken)
+            openedReader = await OpenFirstWorkingReaderAsync(item.Source!, cancellationToken)
                 .ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             var reader = openedReader.Reader;
@@ -163,7 +164,10 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             var initialAudio = new byte[Math.Max(
                 16 * 1024,
                 reader.WaveFormat.AverageBytesPerSecond / 10)];
-            var initialRead = reader.Read(initialAudio, 0, initialAudio.Length);
+            var initialRead = ReadInitialAudio(
+                openedReader,
+                initialAudio,
+                cancellationToken);
             if (initialRead <= 0)
             {
                 throw new EndOfStreamException("Serwer nie przesłał dźwięku po otwarciu strumienia.");
@@ -176,6 +180,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             var output = new WasapiOut(AudioClientShareMode.Shared, true, 180);
             output.Init(volume);
             var cancellation = new CancellationTokenSource();
+            var decoderName = openedReader.DecoderName;
             pipeline = new RadioPipeline(
                 item,
                 reader,
@@ -184,6 +189,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                 volume,
                 output,
                 cancellation);
+            openedReader = null;
 
             lock (_gate)
             {
@@ -205,7 +211,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             pipeline.CaptureTask = Task.Run(() => CaptureLoopAsync(pipeline), cancellation.Token);
             DiagnosticLog.Info(
                 "radio",
-                $"Rozpoczęto odbiór: {item.Title}; format {reader.WaveFormat}; dekoder {openedReader.DecoderName}.");
+                $"Rozpoczęto odbiór: {item.Title}; format {reader.WaveFormat}; dekoder {decoderName}.");
             RaiseOnCapturedContext(() => PlaybackStarted?.Invoke(
                 this,
                 new MediaPlaybackStartedEventArgs(item)));
@@ -257,6 +263,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         }
         finally
         {
+            try { openedReader?.Lifetime.Dispose(); } catch (Exception) { }
             preparationCancellation.Dispose();
         }
     }
@@ -266,6 +273,12 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var preferBass = ShouldPreferBass(source);
+        if (preferBass)
+        {
+            var bass = await TryOpenBassReaderAsync(source, cancellationToken).ConfigureAwait(false);
+            if (bass is not null) return bass;
+        }
         try
         {
             var mediaFoundation = new MediaFoundationReader(source);
@@ -293,6 +306,12 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                     exception);
             }
 
+            if (!preferBass)
+            {
+                var bass = await TryOpenBassReaderAsync(source, cancellationToken).ConfigureAwait(false);
+                if (bass is not null) return bass;
+            }
+
             var legacyAudio = await LegacyIcyAudioStream.OpenAsync(source, cancellationToken)
                 .ConfigureAwait(false);
             if (legacyAudio.IsOgg)
@@ -312,6 +331,45 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                 .ConfigureAwait(false);
             return new OpenedRadioReader(legacyMp3, legacyMp3, "zgodności ICY MP3");
         }
+    }
+
+    private static async Task<OpenedRadioReader?> TryOpenBassReaderAsync(
+        string source,
+        CancellationToken cancellationToken)
+    {
+        if (!BassRadioWaveProvider.IsAvailable || RadioStreamResolver.IsHlsSource(source)) return null;
+        try
+        {
+            var bass = await BassRadioWaveProvider.OpenAsync(source, cancellationToken)
+                .ConfigureAwait(false);
+            return new OpenedRadioReader(bass, bass, "BASS");
+        }
+        catch (Exception exception) when (exception is IOException
+            or InvalidDataException
+            or NotSupportedException
+            or ArgumentException)
+        {
+            DiagnosticLog.Info(
+                "radio",
+                $"Dekoder BASS odrzucił strumień; próba pozostałych dekoderów ({exception.GetType().Name}).");
+            return null;
+        }
+    }
+
+    internal static bool ShouldPreferBass(string source)
+    {
+        if (!Uri.TryCreate(source, UriKind.Absolute, out var uri)
+            || RadioStreamResolver.IsHlsSource(source))
+        {
+            return false;
+        }
+
+        return uri.AbsolutePath.Contains("/;", StringComparison.Ordinal)
+            || uri.Host.Equals("stream3.polskieradio.pl", StringComparison.OrdinalIgnoreCase)
+            || uri.Host.Equals("mp3.polskieradio.pl", StringComparison.OrdinalIgnoreCase)
+            || uri.Host.Equals("stream.radioemaus.pl", StringComparison.OrdinalIgnoreCase)
+            || uri.Host.Equals("emkielce.pl", StringComparison.OrdinalIgnoreCase)
+            || uri.Host.Equals("194.181.177.253", StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<OpenedRadioReader> OpenFirstWorkingReaderAsync(
@@ -420,7 +478,10 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                         var initialAudio = new byte[Math.Max(
                             16 * 1024,
                             openedReader.Reader.WaveFormat.AverageBytesPerSecond / 10)];
-                        var initialRead = openedReader.Reader.Read(initialAudio, 0, initialAudio.Length);
+                        var initialRead = ReadInitialAudio(
+                            openedReader,
+                            initialAudio,
+                            pipeline.Cancellation.Token);
                         if (initialRead <= 0)
                         {
                             throw new EndOfStreamException(
@@ -488,6 +549,37 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         && expected.BitsPerSample == candidate.BitsPerSample
         && expected.Encoding == candidate.Encoding
         && expected.BlockAlign == candidate.BlockAlign;
+
+    private static int ReadInitialAudio(
+        OpenedRadioReader openedReader,
+        byte[] buffer,
+        CancellationToken cancellationToken)
+    {
+        using var cancellationRegistration = cancellationToken.Register(
+            static state =>
+            {
+                try { ((IDisposable)state!).Dispose(); }
+                catch (Exception) { }
+            },
+            openedReader.Lifetime);
+        try
+        {
+            var read = openedReader.Reader.Read(buffer, 0, buffer.Length);
+            cancellationToken.ThrowIfCancellationRequested();
+            return read;
+        }
+        catch (Exception exception) when (cancellationToken.IsCancellationRequested
+            && exception is ObjectDisposedException
+                or IOException
+                or InvalidOperationException
+                or System.Runtime.InteropServices.COMException)
+        {
+            throw new OperationCanceledException(
+                "Anulowano przygotowywanie nieaktualnej stacji.",
+                exception,
+                cancellationToken);
+        }
+    }
 
     private static bool IsRecoverableRadioException(Exception exception) =>
         exception is ObjectDisposedException

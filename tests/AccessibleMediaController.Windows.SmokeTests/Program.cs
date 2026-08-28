@@ -58,9 +58,18 @@ try
     TestRadioMp3Recording();
     TestLegacyIcyMp3Stream();
     TestLegacyIcyCancellation();
+    TestBassCancellation();
     foreach (var mediaPath in args)
     {
-        if (mediaPath.StartsWith("--radio-url=", StringComparison.OrdinalIgnoreCase))
+        if (mediaPath.StartsWith("--bass-radio-url=", StringComparison.OrdinalIgnoreCase))
+        {
+            TestLiveBassRadio(mediaPath["--bass-radio-url=".Length..]);
+        }
+        else if (mediaPath.StartsWith("--system-radio-url=", StringComparison.OrdinalIgnoreCase))
+        {
+            TestLiveSystemRadio(mediaPath["--system-radio-url=".Length..]);
+        }
+        else if (mediaPath.StartsWith("--radio-url=", StringComparison.OrdinalIgnoreCase))
         {
             TestLiveLegacyRadio(mediaPath["--radio-url=".Length..]);
         }
@@ -503,6 +512,77 @@ static void TestLegacyIcyCancellation()
     }
 }
 
+static void TestBassCancellation()
+{
+    Assert(BassRadioWaveProvider.IsAvailable, "Nie załadowano dołączonego dekodera BASS.");
+    var listener = new TcpListener(IPAddress.Loopback, 0);
+    listener.Start();
+    var endpoint = (IPEndPoint)listener.LocalEndpoint;
+    var server = Task.Run(async () =>
+    {
+        try
+        {
+            using var connection = await listener.AcceptTcpClientAsync();
+            await Task.Delay(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception exception) when (exception is ObjectDisposedException or SocketException)
+        {
+        }
+    });
+    try
+    {
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            using var _ = BassRadioWaveProvider.OpenAsync(
+                    $"http://127.0.0.1:{endpoint.Port}/stream",
+                    cancellation.Token)
+                .GetAwaiter()
+                .GetResult();
+            throw new InvalidOperationException("BASS nie anulował oczekiwania na odpowiedź radia.");
+        }
+        catch (OperationCanceledException)
+        {
+            Assert(stopwatch.Elapsed < TimeSpan.FromSeconds(2),
+                "Anulowanie połączenia BASS trwało zbyt długo.");
+        }
+        Console.WriteLine("OK: BASS jest dostępny i anuluje nieaktualne połączenie");
+    }
+    finally
+    {
+        listener.Stop();
+        _ = server.ContinueWith(_ => { }, TaskScheduler.Default);
+    }
+}
+
+static void TestLiveBassRadio(string source)
+{
+    using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+    using var reader = BassRadioWaveProvider.OpenAsync(source, cancellation.Token)
+        .GetAwaiter()
+        .GetResult();
+    var buffer = new byte[32_768];
+    var decodedBytes = 0;
+    for (var attempt = 0; attempt < 4; attempt++)
+    {
+        var read = reader.Read(buffer, 0, buffer.Length);
+        Assert(read > 0, $"BASS zakończył internetowy strumień po {decodedBytes} bajtach dźwięku.");
+        decodedBytes += read;
+    }
+    Assert(decodedBytes > 0, "BASS nie zdekodował internetowego radia.");
+    Console.WriteLine($"OK: internetowy strumień przez BASS, {reader.WaveFormat}");
+}
+
+static void TestLiveSystemRadio(string source)
+{
+    using var reader = new MediaFoundationReader(source);
+    var buffer = new byte[32_768];
+    Assert(reader.Read(buffer, 0, buffer.Length) > 0,
+        "Dekoder systemowy nie zwrócił dźwięku ze zwykłego strumienia.");
+    Console.WriteLine($"OK: zwykły strumień przez dekoder systemowy, {reader.WaveFormat}");
+}
+
 static void TestLiveLegacyRadio(string source)
 {
     using var legacyStream = LegacyIcyAudioStream.OpenAsync(source, CancellationToken.None)
@@ -588,6 +668,13 @@ static void TestRadioCompatibilityCandidates()
     var unrelated = "https://radio.example/live.mp3";
     var unchanged = RadioStreamResolver.GetPlaybackCandidates(unrelated);
     Assert(unchanged.Count == 1 && unchanged[0] == unrelated, "Zmieniono nieznany adres stacji.");
+    Assert(
+        RadioMediaOutput.ShouldPreferBass("http://mp3.polskieradio.pl:8900/;.mp3")
+        && RadioMediaOutput.ShouldPreferBass("http://stream.radioemaus.pl:8000/oggstream"),
+        "Nie wybrano BASS dla rozpoznanego starszego strumienia.");
+    Assert(
+        !RadioMediaOutput.ShouldPreferBass("https://n19a-eu.rcs.revma.com/an1ugyygzk8uv"),
+        "Zwykły strumień Radia 357 nie powinien oczekiwać najpierw na BASS.");
     Console.WriteLine("OK: bezpieczne warianty zgodności znanych stacji");
 }
 

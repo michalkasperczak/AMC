@@ -5,6 +5,7 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>AccessibleMediaController.Windows</RootNamespace>
     <AssemblyName>AccessibleMediaController</AssemblyName>
   </PropertyGroup>
@@ -55,6 +56,16 @@
           CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest"
           ExcludeFromSingleFile="true" />
+    <None Include="..\..\third_party\BASS\win-x64\bass.dll"
+          Link="bass.dll"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+    <None Include="..\..\licenses\BASS-2.4.txt"
+          Link="licenses\BASS-2.4.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
     <None Include="$(PkgSoundTouch_Net)\LICENSE\LICENSE"
           Link="licenses\SoundTouch.Net-LGPL-2.1.txt"
           CopyToOutputDirectory="PreserveNewest"
@@ -65,7 +76,7 @@
           BeforeTargets="_ComputeFilesToBundle">
     <ItemGroup>
       <ResolvedFileToPublish Update="@(ResolvedFileToPublish)"
-                             Condition="'%(Filename)' == 'SoundTouch.Net' Or '%(Filename)' == 'SoundTouch.Net.NAudioSupport'">
+                             Condition="'%(Filename)' == 'SoundTouch.Net' Or '%(Filename)' == 'SoundTouch.Net.NAudioSupport' Or '%(Filename)' == 'bass'">
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       </ResolvedFileToPublish>
     </ItemGroup>

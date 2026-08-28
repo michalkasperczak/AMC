@@ -514,7 +514,6 @@ The target **Help** menu contains, in this order:
 3. **Check for updates…**.
 4. **About and version…**.
 5. **Program repository…** — enabled only after an official public address has been chosen.
-6. **Support the project through PayPal…** — enabled only after the user's correct address has been supplied and verified.
 
 The current long `F1` message is temporary. It will be replaced by an ordinary modal accessible window structured like an HTML document: one level-one heading and headed sections for global keys, lists, the player, search and filtering, the local Library, playlists and Bookmarks, Settings, and the experimental prefix. A search box and section-link list come first. Tab moves through controls, Arrow keys move through entries within a section, and screen-reader heading/link navigation retains its standard accessibility semantics.
 
@@ -548,7 +547,7 @@ The MP3 preflight now separates the declared audio start from the first actually
 
 NVDA's `watchdog.waitForFreezeRecovery` entry means that NVDA attempted to recover from an unresponsive application or accessibility object; the watchdog is not the cause. AMC's `ui-watchdog` only records an eight-second loss and later recovery of the main-window heartbeat. `decoder-watchdog` and `metadata-watchdog` identify the actual protected media path.
 
-The **About and version** window gives the full version, release channel, architecture and licence and allows those details to be copied. Repository and PayPal links open through the default browser only after official addresses are configured; a development build contains no invented or empty links. **Check for updates** uses the signed mechanism defined in section 13.5 and, until configured, clearly states that no release server is available yet.
+The **About and version** window gives the full version, release channel, architecture and licence and allows those details to be copied. The repository link opens through the default browser only after its official address is configured; a development build contains no invented or empty links. **Check for updates** uses the signed mechanism defined in section 13.5 and, until configured, clearly states that no release server is available yet.
 
 ## 12. Messages, speech and braille
 
@@ -683,7 +682,7 @@ State of `alpha.122`: releasing a cancelled pipeline may concurrently interrupt 
 
 State of `alpha.123`: when an active stream is interrupted, the reception pipeline makes at most two automatic reconnection attempts, each using the same ordered URL-variant list as the initial start. Recovery requires the first valid decoded PCM portion. A compatible format permits atomically replacing only the network reader while preserving the time-shift buffer, WASAPI output and an active recording; a change of sample rate, channels, encoding, sample size or block alignment is rejected because it would require rebuilding the complete pipeline. Twenty seconds of continuous reception resets the counter. Changing stations or closing the application still cancels the wait immediately and a late connection cannot take control again.
 
-A technical BASS 2.4 trial against the same URLs confirmed good decoding of legacy Polish Radio ICY MP3 and Radio Emaus OGG streams, while also showing its limits: changing the decoder does not restore a source which is unavailable on the server, raw AAC may still need its correct codec, and HLS needs the separate BASSHLS component. BASS is proprietary and free only for non-commercial use. As the project plans public releases and optional PayPal support, its binaries must not enter the base package without prior licensing confirmation or the appropriate purchased licence. A possible BASS adapter therefore remains a replaceable radio engine rather than a dependency of the session core.
+A technical BASS 2.4 trial against the same URLs confirmed good decoding of legacy Polish Radio ICY MP3 and Radio Emaus OGG streams, while also showing its limits: changing the decoder does not restore a source which is unavailable on the server, raw AAC may still need its correct codec, and HLS needs the separate BASSHLS component. BASS is proprietary and free only for non-commercial use. AMC remains free and has no ads, sales, paid features or donation links, so it may distribute BASS under those terms. AMC's code remains open, but `bass.dll` does not inherit its licence; a commercial fork must remove that component or obtain a licence. The BASS adapter is a replaceable radio engine rather than a dependency of the session core, and its absence or failure activates the existing fallback path.
 
 The **Internet Radio** session owns a local Library and separate Favorites. Directory results never become Favorites automatically. `Insert` in the Library adds a custom URL; `F2` always edits the user-facing station name and stream URL as two independent fields. `Alt+Enter` includes the station name, kind, session, country, language, tags, codec, bitrate, stream URL and homepage when supplied by the directory. Internal directory identifiers never enter normal screen-reader output.
 
