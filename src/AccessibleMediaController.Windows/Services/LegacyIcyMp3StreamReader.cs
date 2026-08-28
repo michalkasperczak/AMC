@@ -408,34 +408,48 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
 
         public override int Read(byte[] buffer, int offset, int count)
         {
+            var total = 0;
             if (_prefixRemaining > 0)
             {
                 var copied = Math.Min(count, _prefixRemaining);
                 Buffer.BlockCopy(prefix, _prefixOffset, buffer, offset, copied);
                 _prefixOffset += copied;
                 _prefixRemaining -= copied;
-                _position += copied;
-                return copied;
+                total += copied;
             }
-            var read = inner.Read(buffer, offset, count);
-            _position += read;
-            return read;
+            while (total < count)
+            {
+                // NetworkStream may legally return only part of the requested
+                // MP3 frame. Mp3Frame.LoadFromStream treats such a short read
+                // as an incomplete final frame, so join packet fragments here
+                // until the request is complete or the server really closes.
+                var read = inner.Read(buffer, offset + total, count - total);
+                if (read == 0) break;
+                total += read;
+            }
+            _position += total;
+            return total;
         }
 
         public override int Read(Span<byte> buffer)
         {
+            var total = 0;
             if (_prefixRemaining > 0)
             {
                 var copied = Math.Min(buffer.Length, _prefixRemaining);
                 prefix.AsSpan(_prefixOffset, copied).CopyTo(buffer);
                 _prefixOffset += copied;
                 _prefixRemaining -= copied;
-                _position += copied;
-                return copied;
+                total += copied;
             }
-            var read = inner.Read(buffer);
-            _position += read;
-            return read;
+            while (total < buffer.Length)
+            {
+                var read = inner.Read(buffer[total..]);
+                if (read == 0) break;
+                total += read;
+            }
+            _position += total;
+            return total;
         }
 
         protected override void Dispose(bool disposing)

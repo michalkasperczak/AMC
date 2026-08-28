@@ -424,8 +424,16 @@ static void TestLegacyIcyMp3Stream()
             "Content-Type: audio/mpeg\r\n" +
             "icy-name: Stacja testowa\r\n\r\n");
         await stream.WriteAsync(header);
-        await stream.WriteAsync(mp3);
-        await stream.FlushAsync();
+        // A real radio delivers one MP3 frame across multiple TCP packets.
+        // Sending one large buffer hid a regression where a short network
+        // read was incorrectly treated as the permanent end of the station.
+        for (var offset = 0; offset < mp3.Length; offset += 257)
+        {
+            var count = Math.Min(257, mp3.Length - offset);
+            await stream.WriteAsync(mp3.AsMemory(offset, count));
+            await stream.FlushAsync();
+            await Task.Delay(1);
+        }
         await releaseServer.Task;
     });
 
@@ -527,7 +535,13 @@ static void TestLiveLegacyRadio(string source)
     using (readerLifetime)
     {
         var buffer = new byte[Math.Max(16_384, reader.WaveFormat.AverageBytesPerSecond / 10)];
-        Assert(reader.Read(buffer, 0, buffer.Length) > 0, "Internetowy strumień ICY nie zwrócił dźwięku.");
+        long decodedBytes = 0;
+        for (var index = 0; index < 12; index++)
+        {
+            var read = reader.Read(buffer, 0, buffer.Length);
+            Assert(read > 0, $"Internetowy strumień ICY zakończył się po {decodedBytes} bajtach dźwięku.");
+            decodedBytes += read;
+        }
         Console.WriteLine($"OK: internetowy strumień ICY {decoder}, {reader.WaveFormat}");
     }
 }
