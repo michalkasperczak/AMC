@@ -20,6 +20,8 @@ Od `alpha.120` dekoder starszego radia MP3 prawidłowo scala częściowe odczyty
 
 Od `alpha.121` wpis AAC+ Radia Chopin na porcie 8960 ma sprawdzony wariant MP3 192 kb/s na porcie 8910. Trójka na porcie AAC+ 8954 ma odpowiadający wariant MP3 8904, lecz 28 sierpnia 2026 oba stare wejścia nadawcy zwracały `ICY 401 Service Unavailable`; AMC próbuje oba i kończy działanie bez zawieszenia, ale nie może odtworzyć niedostępnego źródła. Uruchomienie stacji jest ogłaszane dopiero po odebraniu pierwszej dekodowanej porcji audio, a nie po samym otwarciu adresu.
 
+Od `alpha.122` zamknięcie anulowanego strumienia podczas szybkiej zmiany stacji jest traktowane jako oczekiwane zakończenie zadania odbioru. Wyjątek powstały przez równoczesne zwalnianie bufora nie trafia już jako niezaobserwowany błąd zadania i nie może wpłynąć na następną stację ani zamykanie programu.
+
 Ta sama wersja utrwala wielokrotne zaznaczanie wyników wyszukiwania: `Shift+strzałka w górę/dół` jawnie rozszerza albo zmniejsza ciągłe zaznaczenie, a fokus pozostaje na ruchomym końcu zakresu. `Ctrl+C` kopiuje wszystkie zaznaczone nazwy w kolejności listy. `Ctrl+Shift+C` dla plików zachowuje pełne ścieżki i `FileDrop`, natomiast dla radia i innych usług kopiuje powtarzane pary **nazwa, publiczne łącze**; zaznaczenie wielu stacji daje więc nazwę i adres każdej z nich, a nie tylko pierwszego wyniku.
 
 ## Najprostsze uruchomienie gotowej wersji

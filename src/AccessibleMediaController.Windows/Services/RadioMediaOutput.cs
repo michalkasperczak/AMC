@@ -370,7 +370,10 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             }
         }
         catch (Exception exception) when (pipeline.Cancellation.IsCancellationRequested
-            && exception is ObjectDisposedException or IOException or InvalidOperationException)
+            && exception is ObjectDisposedException
+                or IOException
+                or InvalidOperationException
+                or NotSupportedException)
         {
             return;
         }
@@ -378,6 +381,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             or EndOfStreamException
             or InvalidDataException
             or InvalidOperationException
+            or NotSupportedException
             or System.Runtime.InteropServices.COMException)
         {
             DiagnosticLog.Warning("radio", $"Odbiór stacji został przerwany: {pipeline.Item.Title}; błąd {exception.GetType().Name}.");
