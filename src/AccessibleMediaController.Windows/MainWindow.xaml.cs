@@ -124,6 +124,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         };
         _playbackStatusBar = new System.Windows.Forms.StatusStrip
         {
+            AccessibleName = "Pasek stanu odtwarzania",
             AccessibleRole = System.Windows.Forms.AccessibleRole.StatusBar,
             AutoSize = false,
             CanOverflow = false,
@@ -1528,6 +1529,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 if (changed) TrySaveLocalMediaState(false);
             }
         }
+        else if (string.Equals(ActionSession.Id, "radio", StringComparison.Ordinal)
+                 && item.Source is { Length: > 0 } radioSource
+                 && (item.BitrateKbps is null || item.SampleRateHz is null))
+        {
+            var metadata = await RadioMediaOutput.TryReadStreamMetadataAsync(
+                radioSource,
+                TimeSpan.FromSeconds(6));
+            if (requestVersion != Interlocked.Read(ref _quickInformationRequestVersion)
+                || !string.Equals(ActionItem?.Id, item.Id, StringComparison.Ordinal))
+            {
+                return;
+            }
+            if (metadata is not null)
+            {
+                item.BitrateKbps ??= metadata.BitrateKbps;
+                item.SampleRateHz ??= metadata.SampleRateHz;
+                item.Codec ??= metadata.Codec;
+                CaptureRadioState();
+                _store.Save(_state);
+                UpdatePlaybackStatusBar();
+            }
+        }
         Announce(BuildQuickMediaInformation(item));
     }
 
@@ -1815,33 +1838,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var existingUrls = _radioItems
-            .Where(item => !string.IsNullOrWhiteSpace(item.Source))
-            .Select(item => item.Source!)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var added = new List<MediaItem>();
-        var skipped = import.SkippedEntries;
-        foreach (var station in import.Stations)
-        {
-            if (!existingUrls.Add(station.StreamUrl))
-            {
-                skipped++;
-                continue;
-            }
-            added.Add(new MediaItem
-            {
-                Id = $"radio:imported:{Guid.NewGuid():N}",
-                Title = station.Name,
-                HasCustomTitle = true,
-                Kind = MediaItemKind.Station,
-                Source = station.StreamUrl,
-                PublicUri = station.StreamUrl,
-                IsInLibrary = true,
-                IsAvailable = true
-            });
-        }
+        var merge = RadioLibraryMerge.Apply(_radioItems, import);
+        var added = merge.Added;
+        var promoted = merge.Promoted;
+        var skipped = merge.SkippedEntries;
 
-        if (added.Count == 0)
+        if (added.Count == 0 && promoted.Count == 0)
         {
             DiagnosticLog.Info("radio-import", $"Import zakończony bez nowych stacji; pominięto {skipped} pozycji.");
             AnnounceEssential(skipped > 0
@@ -1863,12 +1865,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var navigation = GetSessionNavigationState("radio");
         navigation.CurrentView = _currentView;
         navigation.PlayerActive = false;
-        RefreshCurrentView(preferredItemId: added[0].Id);
+        RefreshCurrentView(preferredItemId: promoted.FirstOrDefault()?.Id ?? added[0].Id);
         CaptureRadioState();
         _store.Save(_state);
         RestoreMediaListFocusAfterRefresh();
-        DiagnosticLog.Info("radio-import", $"Zaimportowano {added.Count} stacji; pominięto {skipped} pozycji.");
-        var message = $"Zaimportowano stacje: {added.Count}";
+        DiagnosticLog.Info(
+            "radio-import",
+            $"Dodano {added.Count} nowych stacji; włączono w Bibliotece {promoted.Count}; pominięto {skipped} pozycji.");
+        var message = $"Dodano nowe stacje: {added.Count}. Włączono istniejące w Bibliotece: {promoted.Count}";
         if (skipped > 0) message += $". Pominięto: {skipped}";
         _ = Dispatcher.BeginInvoke(() => AnnounceEssential(message), DispatcherPriority.ContextIdle);
     }
@@ -1883,6 +1887,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ImportRadioPlaylistMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         AddRadioStationMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         FileActionsSeparator.Visibility = local || radio ? Visibility.Visible : Visibility.Collapsed;
+        FoldersViewMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        AllLocalFilesViewMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        CustomLocalOrderViewMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        RefreshLocalLibraryMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ShowLocalFolderWhileLoading(LocalFolderSourceSettings folderSource)
@@ -2310,6 +2318,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Codec = saved.Codec,
                 ExternalId = saved.DirectoryId,
                 BitrateKbps = saved.BitrateKbps,
+                SampleRateHz = saved.SampleRateHz,
                 IsFavorite = saved.IsFavorite,
                 IsInLibrary = saved.IsInLibrary,
                 IsAvailable = true,
@@ -2339,6 +2348,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Codec = item.Codec,
             DirectoryId = item.ExternalId,
             BitrateKbps = item.BitrateKbps,
+            SampleRateHz = item.SampleRateHz,
             HasCustomTitle = item.HasCustomTitle,
             IsFavorite = item.IsFavorite,
             IsInLibrary = item.IsInLibrary,
@@ -3112,6 +3122,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string commandId,
         FolderContentsActionContext? folderContext)
     {
+        if (commandId is CommandIds.ViewFolders
+                or CommandIds.ViewAllLocalFiles
+                or CommandIds.ViewCustomLocalOrder
+                or CommandIds.RefreshLocalLibrary
+                or CommandIds.ManageLocalSources
+            && !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+        {
+            Announce("To polecenie jest dostępne tylko w sesji Pliki lokalne");
+            return new CommandExecutionResult(false);
+        }
         if (commandId == CommandIds.ViewRadio)
         {
             CaptureCurrentSessionNavigationState();
@@ -6460,10 +6480,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control | ModifierKeys.Shift, Key.T) => CommandIds.TimeTotal,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.O) => CommandIds.OpenLocalFolder,
             (ModifierKeys.Control, Key.OemComma) => CommandIds.SettingsGeneral,
-            (ModifierKeys.Control, Key.F5) => CommandIds.ManageLocalSources,
-            (ModifierKeys.Alt, Key.D1) => CommandIds.ViewFolders,
-            (ModifierKeys.Alt, Key.D2) => CommandIds.ViewAllLocalFiles,
-            (ModifierKeys.Alt, Key.D3) => CommandIds.ViewCustomLocalOrder,
+            (ModifierKeys.Control, Key.F5) when string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) => CommandIds.ManageLocalSources,
+            (ModifierKeys.Alt, Key.D1) when string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) => CommandIds.ViewFolders,
+            (ModifierKeys.Alt, Key.D2) when string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) => CommandIds.ViewAllLocalFiles,
+            (ModifierKeys.Alt, Key.D3) when string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) => CommandIds.ViewCustomLocalOrder,
             (ModifierKeys.None, Key.F5) => CommandIds.RefreshLocalLibrary,
             (ModifierKeys.None, Key.F2) => CommandIds.RenameLibraryItem,
             (ModifierKeys.Shift, Key.F2) => CommandIds.RenameLocalFile,
@@ -6603,22 +6623,34 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (Keyboard.Modifiers == ModifierKeys.Control && key == Key.F5)
         {
-            ExecuteCommand(CommandIds.ManageLocalSources);
+            if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+                ExecuteCommand(CommandIds.ManageLocalSources);
+            else
+                Announce("Foldery Biblioteki są dostępne tylko w sesji Pliki lokalne");
             return true;
         }
         if (Keyboard.Modifiers == ModifierKeys.Alt && key == Key.D1)
         {
-            ExecuteCommand(CommandIds.ViewFolders);
+            if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+                ExecuteCommand(CommandIds.ViewFolders);
+            else
+                Announce("Alt+1 jest zarezerwowane dla widoku folderów w sesji Pliki lokalne");
             return true;
         }
         if (Keyboard.Modifiers == ModifierKeys.Alt && key == Key.D2)
         {
-            ExecuteCommand(CommandIds.ViewAllLocalFiles);
+            if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+                ExecuteCommand(CommandIds.ViewAllLocalFiles);
+            else
+                Announce("Alt+2 jest zarezerwowane dla listy plików w sesji Pliki lokalne");
             return true;
         }
         if (Keyboard.Modifiers == ModifierKeys.Alt && key == Key.D3)
         {
-            ExecuteCommand(CommandIds.ViewCustomLocalOrder);
+            if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+                ExecuteCommand(CommandIds.ViewCustomLocalOrder);
+            else
+                Announce("Alt+3 jest zarezerwowane dla kolejności własnej w sesji Pliki lokalne");
             return true;
         }
         if (MediaList.IsKeyboardFocusWithin

@@ -73,6 +73,10 @@ try
         {
             TestLiveLegacyRadio(mediaPath["--radio-url=".Length..]);
         }
+        else if (mediaPath.StartsWith("--hls-radio-url=", StringComparison.OrdinalIgnoreCase))
+        {
+            TestLiveHlsRadio(mediaPath["--hls-radio-url=".Length..]);
+        }
         else
         {
             TestFormatMetadata(mediaPath);
@@ -272,6 +276,22 @@ static void TestRadioPlaylistImport()
         var m3uResult = RadioPlaylistImporter.Import(m3u);
         Assert(m3uResult.Stations.Count == 2, "Nie zaimportowano obu wpisów M3U.");
         Assert(m3uResult.Stations[0].Name == "Radio Pierwsze", "Nie zachowano nazwy stacji M3U.");
+
+        var catalogStation = new AccessibleMediaController.Core.Sessions.MediaItem
+        {
+            Id = "radio:katalog",
+            Title = "Pełna nazwa katalogowa",
+            Kind = AccessibleMediaController.Core.Sessions.MediaItemKind.Station,
+            Source = "https://radio.example/one.mp3",
+            BitrateKbps = 192,
+            IsInLibrary = false
+        };
+        var merge = RadioLibraryMerge.Apply([catalogStation], m3uResult);
+        Assert(merge.Promoted.Count == 1 && merge.Added.Count == 1,
+            "Import nie włączył istniejącej stacji katalogowej do Biblioteki.");
+        Assert(catalogStation.IsInLibrary && catalogStation.Title == "Pełna nazwa katalogowa"
+               && catalogStation.BitrateKbps == 192,
+            "Scalenie importu utraciło nazwę albo parametry istniejącej stacji.");
 
         var pls = Path.Combine(directory, "stacje.pls");
         File.WriteAllText(pls, "[playlist]\nFile1=https://radio.example/live\nTitle1=Radio PLS\nNumberOfEntries=1\n");
@@ -572,6 +592,20 @@ static void TestLiveBassRadio(string source)
     }
     Assert(decodedBytes > 0, "BASS nie zdekodował internetowego radia.");
     Console.WriteLine($"OK: internetowy strumień przez BASS, {reader.WaveFormat}");
+}
+
+static void TestLiveHlsRadio(string source)
+{
+    using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+    using var reader = FfmpegRadioWaveProvider.TryOpenAsync(source, cancellation.Token)
+        .GetAwaiter()
+        .GetResult() ?? throw new InvalidOperationException("Nie znaleziono FFmpeg dla testu HLS.");
+    var buffer = new byte[32_768];
+    var read = reader.Read(buffer, 0, buffer.Length);
+    Assert(read > 0, "FFmpeg nie zwrócił dźwięku z transmisji HLS.");
+    Assert(reader.WaveFormat.SampleRate == 48_000 && reader.WaveFormat.Channels == 2,
+        "FFmpeg zwrócił nieoczekiwany format wyjściowy.");
+    Console.WriteLine($"OK: dźwięk z transmisji HLS przez FFmpeg, {reader.WaveFormat}");
 }
 
 static void TestLiveSystemRadio(string source)

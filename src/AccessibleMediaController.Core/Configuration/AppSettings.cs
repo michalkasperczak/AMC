@@ -314,6 +314,7 @@ public sealed class RadioStationSettings
     public string? Codec { get; set; }
     public string? DirectoryId { get; set; }
     public int? BitrateKbps { get; set; }
+    public int? SampleRateHz { get; set; }
     public bool HasCustomTitle { get; set; }
     public bool IsFavorite { get; set; }
     public bool IsInLibrary { get; set; }

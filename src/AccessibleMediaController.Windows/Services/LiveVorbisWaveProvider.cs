@@ -32,6 +32,10 @@ internal sealed class LiveVorbisWaveProvider : IWaveProvider, IDisposable
 
     public WaveFormat WaveFormat { get; }
 
+    public int? BitrateKbps => _reader.NominalBitrate > 0
+        ? Math.Max(1, _reader.NominalBitrate / 1000)
+        : null;
+
     public int Read(byte[] buffer, int offset, int count)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);

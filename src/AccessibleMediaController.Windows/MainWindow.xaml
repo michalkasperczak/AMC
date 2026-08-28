@@ -131,16 +131,16 @@
                 <MenuItem Header="_Ulubione" InputGestureText="Ctrl+U" Click="FavoritesView_Click" />
                 <MenuItem Header="_Playlisty" InputGestureText="Ctrl+P" Click="PlaylistsView_Click" />
                 <MenuItem Header="_Biblioteka" InputGestureText="Ctrl+L" Click="LibraryView_Click" />
-                <MenuItem Header="Foldery _Biblioteki" InputGestureText="Alt+1" Click="FoldersView_Click"
+                <MenuItem x:Name="FoldersViewMenuItem" Header="Foldery _Biblioteki" InputGestureText="Alt+1" Click="FoldersView_Click"
                           automation:AutomationProperties.Name="Foldery Biblioteki, Alt+1"
                           automation:AutomationProperties.AcceleratorKey="Alt+1" />
-                <MenuItem Header="_Wszystkie pliki alfabetycznie" InputGestureText="Alt+2" Click="AllLocalFilesView_Click"
+                <MenuItem x:Name="AllLocalFilesViewMenuItem" Header="_Wszystkie pliki alfabetycznie" InputGestureText="Alt+2" Click="AllLocalFilesView_Click"
                           automation:AutomationProperties.Name="Wszystkie pliki lokalne alfabetycznie, Alt+2"
                           automation:AutomationProperties.AcceleratorKey="Alt+2" />
-                <MenuItem Header="_Kolejność własna" InputGestureText="Alt+3" Click="CustomLocalOrderView_Click"
+                <MenuItem x:Name="CustomLocalOrderViewMenuItem" Header="_Kolejność własna" InputGestureText="Alt+3" Click="CustomLocalOrderView_Click"
                           automation:AutomationProperties.Name="Kolejność własna Biblioteki lokalnej, Alt+3"
                           automation:AutomationProperties.AcceleratorKey="Alt+3" />
-                <MenuItem Header="_Odśwież foldery Biblioteki" InputGestureText="F5" Click="RefreshLocalLibrary_Click"
+                <MenuItem x:Name="RefreshLocalLibraryMenuItem" Header="_Odśwież foldery Biblioteki" InputGestureText="F5" Click="RefreshLocalLibrary_Click"
                           automation:AutomationProperties.Name="Odśwież foldery Biblioteki, F5"
                           automation:AutomationProperties.AcceleratorKey="F5" />
                 <MenuItem Header="_Albumy" InputGestureText="Ctrl+Shift+A" Click="AlbumsView_Click" />

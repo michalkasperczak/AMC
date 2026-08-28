@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Security.Authentication;
+using System.Runtime.InteropServices;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
 using NAudio.CoreAudioApi;
@@ -89,6 +90,38 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         }
     }
 
+    internal static async Task<RadioAudioMetadata?> TryReadStreamMetadataAsync(
+        string source,
+        TimeSpan timeout)
+    {
+        if (!IsHttpStream(source) || RadioStreamResolver.IsHlsSource(source)) return null;
+        using var cancellation = new CancellationTokenSource(timeout);
+        BassRadioWaveProvider? reader = null;
+        try
+        {
+            reader = await BassRadioWaveProvider.OpenAsync(source, cancellation.Token)
+                .ConfigureAwait(false);
+            var probe = new byte[16 * 1024];
+            _ = reader.Read(probe, 0, probe.Length);
+            return new RadioAudioMetadata(
+                reader.BitrateKbps,
+                reader.WaveFormat.SampleRate,
+                null);
+        }
+        catch (Exception exception) when (exception is IOException
+            or InvalidDataException
+            or NotSupportedException
+            or ArgumentException
+            or OperationCanceledException)
+        {
+            return null;
+        }
+        finally
+        {
+            reader?.Dispose();
+        }
+    }
+
     public void Play(MediaItem item, TimeSpan position, int volume, double playbackRate)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -172,6 +205,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             {
                 throw new EndOfStreamException("Serwer nie przesłał dźwięku po otwarciu strumienia.");
             }
+            ApplyDetectedAudioMetadata(item, openedReader);
             buffer.Write(initialAudio, 0, initialRead);
             var volume = new VolumeSampleProvider(buffer.ToSampleProvider())
             {
@@ -240,7 +274,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             or NotSupportedException
             or ArgumentException
             or AuthenticationException
-            or System.Runtime.InteropServices.COMException)
+            or COMException
+            or InvalidComObjectException)
         {
             if (pipeline is not null) QueueDisposal(pipeline);
             var current = false;
@@ -273,6 +308,15 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (RadioStreamResolver.IsHlsSource(source))
+        {
+            var ffmpeg = await FfmpegRadioWaveProvider.TryOpenAsync(source, cancellationToken)
+                .ConfigureAwait(false);
+            if (ffmpeg is not null)
+            {
+                return new OpenedRadioReader(ffmpeg, ffmpeg, "FFmpeg HLS", null, "AAC");
+            }
+        }
         var preferBass = ShouldPreferBass(source);
         if (preferBass)
         {
@@ -287,13 +331,14 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                 mediaFoundation.Dispose();
                 cancellationToken.ThrowIfCancellationRequested();
             }
-            return new OpenedRadioReader(mediaFoundation, mediaFoundation, "systemowy");
+            return new OpenedRadioReader(mediaFoundation, mediaFoundation, "systemowy", null, null);
         }
         catch (Exception exception) when (exception is IOException
             or InvalidOperationException
             or NotSupportedException
             or ArgumentException
-            or System.Runtime.InteropServices.COMException)
+            or COMException
+            or InvalidComObjectException)
         {
             DiagnosticLog.Info(
                 "radio",
@@ -317,7 +362,12 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             if (legacyAudio.IsOgg)
             {
                 var vorbis = new LiveVorbisWaveProvider(legacyAudio);
-                return new OpenedRadioReader(vorbis, vorbis, "zgodności ICY OGG/Vorbis");
+                return new OpenedRadioReader(
+                    vorbis,
+                    vorbis,
+                    "zgodności ICY OGG/Vorbis",
+                    vorbis.BitrateKbps,
+                    "Vorbis");
             }
             if (legacyAudio.IsAac)
             {
@@ -329,7 +379,12 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             legacyAudio.Dispose();
             var legacyMp3 = await LegacyIcyMp3StreamReader.OpenAsync(source, cancellationToken)
                 .ConfigureAwait(false);
-            return new OpenedRadioReader(legacyMp3, legacyMp3, "zgodności ICY MP3");
+            return new OpenedRadioReader(
+                legacyMp3,
+                legacyMp3,
+                "zgodności ICY MP3",
+                legacyMp3.BitrateKbps,
+                "MP3");
         }
     }
 
@@ -342,7 +397,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         {
             var bass = await BassRadioWaveProvider.OpenAsync(source, cancellationToken)
                 .ConfigureAwait(false);
-            return new OpenedRadioReader(bass, bass, "BASS");
+            return new OpenedRadioReader(bass, bass, "BASS", bass.BitrateKbps, null);
         }
         catch (Exception exception) when (exception is IOException
             or InvalidDataException
@@ -400,7 +455,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                 or NotSupportedException
                 or ArgumentException
                 or AuthenticationException
-                or System.Runtime.InteropServices.COMException)
+                or COMException
+                or InvalidComObjectException)
             {
                 lastFailure = exception;
                 if (index + 1 < candidates.Count)
@@ -487,6 +543,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                             throw new EndOfStreamException(
                                 "Serwer nie przesłał dźwięku po ponownym połączeniu.");
                         }
+                        ApplyDetectedAudioMetadata(pipeline.Item, openedReader);
                         if (!pipeline.TryReplaceReader(
                                 openedReader.Reader,
                                 openedReader.Lifetime,
@@ -572,7 +629,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             && exception is ObjectDisposedException
                 or IOException
                 or InvalidOperationException
-                or System.Runtime.InteropServices.COMException)
+                or COMException
+                or InvalidComObjectException)
         {
             throw new OperationCanceledException(
                 "Anulowano przygotowywanie nieaktualnej stacji.",
@@ -591,7 +649,28 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             or InvalidOperationException
             or NotSupportedException
             or AuthenticationException
-            or System.Runtime.InteropServices.COMException;
+            or COMException
+            or InvalidComObjectException;
+
+    private static void ApplyDetectedAudioMetadata(MediaItem item, OpenedRadioReader reader)
+    {
+        var detectedBitrate = reader.Reader is BassRadioWaveProvider bass
+            ? bass.BitrateKbps ?? reader.BitrateKbps
+            : reader.BitrateKbps;
+        if (item.BitrateKbps is null && detectedBitrate is > 0)
+        {
+            item.BitrateKbps = detectedBitrate;
+            item.IsBitrateEstimated = false;
+        }
+        if (reader.Reader.WaveFormat.SampleRate > 0)
+        {
+            item.SampleRateHz = reader.Reader.WaveFormat.SampleRate;
+        }
+        if (string.IsNullOrWhiteSpace(item.Codec) && !string.IsNullOrWhiteSpace(reader.Codec))
+        {
+            item.Codec = reader.Codec;
+        }
+    }
 
     private async Task WatchPreparationTimeoutAsync(
         MediaItem item,
@@ -854,7 +933,9 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
     private sealed record OpenedRadioReader(
         IWaveProvider Reader,
         IDisposable Lifetime,
-        string DecoderName);
+        string DecoderName,
+        int? BitrateKbps,
+        string? Codec);
 
     private sealed class RadioTimeshiftWaveProvider : IWaveProvider
     {

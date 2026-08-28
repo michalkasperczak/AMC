@@ -62,6 +62,8 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
 
     public WaveFormat WaveFormat { get; }
 
+    public int BitrateKbps => Math.Max(1, (_firstFrame?.BitRate ?? 0) / 1000);
+
     private static Stream AlignToVerifiedFrame(Stream transport)
     {
         var prefix = new byte[MaximumFrameAlignmentBytes];

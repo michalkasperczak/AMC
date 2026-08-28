@@ -17,6 +17,7 @@ internal sealed class BassRadioWaveProvider : IWaveProvider, IDisposable
     private const uint BassStreamDecode = 0x200000;
     private const uint BassUnicode = 0x80000000;
     private const uint BassActiveStopped = 0;
+    private const uint BassAttribBitrate = 1;
     private const int BassErrorEnded = 45;
     private static readonly object InitializationGate = new();
     private static bool _initializationAttempted;
@@ -37,6 +38,22 @@ internal sealed class BassRadioWaveProvider : IWaveProvider, IDisposable
     }
 
     public WaveFormat WaveFormat { get; }
+
+    public int? BitrateKbps
+    {
+        get
+        {
+            var stream = Volatile.Read(ref _stream);
+            if (stream == 0
+                || !BassNative.ChannelGetAttribute(stream, BassAttribBitrate, out var bitrate)
+                || !float.IsFinite(bitrate)
+                || bitrate <= 0)
+            {
+                return null;
+            }
+            return Math.Max(1, (int)Math.Round(bitrate));
+        }
+    }
 
     public static bool IsAvailable
     {
@@ -217,6 +234,10 @@ internal sealed class BassRadioWaveProvider : IWaveProvider, IDisposable
 
         [DllImport("bass.dll", EntryPoint = "BASS_ChannelGetData", CallingConvention = CallingConvention.StdCall)]
         private static extern int ChannelGetDataNative(uint handle, IntPtr buffer, uint length);
+
+        [DllImport("bass.dll", EntryPoint = "BASS_ChannelGetAttribute", CallingConvention = CallingConvention.StdCall)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool ChannelGetAttribute(uint handle, uint attribute, out float value);
 
         [DllImport("bass.dll", EntryPoint = "BASS_ChannelIsActive", CallingConvention = CallingConvention.StdCall)]
         internal static extern uint ChannelIsActive(uint handle);
