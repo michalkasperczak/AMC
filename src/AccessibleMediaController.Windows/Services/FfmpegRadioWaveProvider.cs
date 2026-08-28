@@ -126,3 +126,16 @@ internal sealed class FfmpegRadioWaveProvider : IWaveProvider, IDisposable
 }
 
 internal sealed record RadioAudioMetadata(int? BitrateKbps, int? SampleRateHz, string? Codec);
+
+internal static class RadioAudioMetadataRules
+{
+    // Internet radio streams above 10 Mb/s are not credible here. This guard
+    // also repairs values written by alpha.125-alpha.127, where the BASS
+    // sample-rate attribute could be mistaken for bitrate.
+    internal const int MaximumCredibleBitrateKbps = 10_000;
+
+    internal static int? NormalizeBitrateKbps(int? bitrateKbps) =>
+        bitrateKbps is > 0 and <= MaximumCredibleBitrateKbps
+            ? bitrateKbps
+            : null;
+}

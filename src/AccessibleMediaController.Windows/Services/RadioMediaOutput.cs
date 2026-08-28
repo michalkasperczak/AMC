@@ -657,7 +657,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         var detectedBitrate = reader.Reader is BassRadioWaveProvider bass
             ? bass.BitrateKbps ?? reader.BitrateKbps
             : reader.BitrateKbps;
-        if (item.BitrateKbps is null && detectedBitrate is > 0)
+        detectedBitrate = RadioAudioMetadataRules.NormalizeBitrateKbps(detectedBitrate);
+        if (item.BitrateKbps is null && detectedBitrate is not null)
         {
             item.BitrateKbps = detectedBitrate;
             item.IsBitrateEstimated = false;

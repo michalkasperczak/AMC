@@ -17,7 +17,9 @@ internal sealed class BassRadioWaveProvider : IWaveProvider, IDisposable
     private const uint BassStreamDecode = 0x200000;
     private const uint BassUnicode = 0x80000000;
     private const uint BassActiveStopped = 0;
-    private const uint BassAttribBitrate = 1;
+    // BASS_ATTRIB_FREQ is 1. BASS_ATTRIB_BITRATE is 12; confusing the two
+    // stores a typical 44100 Hz sample rate as an impossible 44100 kb/s.
+    internal const uint BitrateAttribute = 12;
     private const int BassErrorEnded = 45;
     private static readonly object InitializationGate = new();
     private static bool _initializationAttempted;
@@ -45,13 +47,13 @@ internal sealed class BassRadioWaveProvider : IWaveProvider, IDisposable
         {
             var stream = Volatile.Read(ref _stream);
             if (stream == 0
-                || !BassNative.ChannelGetAttribute(stream, BassAttribBitrate, out var bitrate)
+                || !BassNative.ChannelGetAttribute(stream, BitrateAttribute, out var bitrate)
                 || !float.IsFinite(bitrate)
-                || bitrate <= 0)
+                || RadioAudioMetadataRules.NormalizeBitrateKbps((int)Math.Round(bitrate)) is not int normalized)
             {
                 return null;
             }
-            return Math.Max(1, (int)Math.Round(bitrate));
+            return normalized;
         }
     }
 

@@ -52,6 +52,7 @@ try
     TestWaveMetadataAndDamagedContainers();
     TestRadioBrowserSearchMapping();
     TestRadioPlaylistImport();
+    TestRadioAudioMetadataValidation();
     TestLegacyRadioContentTypes();
     TestRadioCompatibilityCandidates();
     TestRadioReconnectFormatCompatibility();
@@ -331,6 +332,19 @@ static void TestRadioPlaylistImport()
     {
         Directory.Delete(directory, true);
     }
+}
+
+static void TestRadioAudioMetadataValidation()
+{
+    Assert(BassRadioWaveProvider.BitrateAttribute == 12,
+        "Adapter BASS używa nieprawidłowego identyfikatora bitrate.");
+    Assert(RadioAudioMetadataRules.NormalizeBitrateKbps(192) == 192,
+        "Prawidłowy bitrate radia został odrzucony.");
+    Assert(RadioAudioMetadataRules.NormalizeBitrateKbps(44_100) is null,
+        "Częstotliwość próbkowania została błędnie zaakceptowana jako bitrate.");
+    Assert(RadioAudioMetadataRules.NormalizeBitrateKbps(null) is null,
+        "Brak bitrate nie powinien tworzyć wartości.");
+    Console.WriteLine("OK: walidacja bitrate radia i stała BASS");
 }
 
 static void TestLegacyRadioContentTypes()

@@ -32,6 +32,8 @@ Ta sama wersja utrwala wielokrotne zaznaczanie wyników wyszukiwania: `Shift+str
 
 Od `alpha.127` zbiorcze działanie z wyników wyszukiwania korzysta z jednej, niezmiennej migawki zaznaczenia. `Ctrl+Shift+U`, Kolejka, „Odtwarzaj jako następne” i Biblioteka obejmują dokładnie zaznaczone wyniki, a nigdy pozostawione zaznaczenie głównej listy znajdującej się pod oknem wyszukiwania. Powtórzone wiersze tej samej stacji są liczone raz według jej identyfikatora. Zaznaczenie obejmujące różne usługi jest odrzucane czytelnym komunikatem, ponieważ Ulubione, Biblioteka i Kolejka należą do konkretnych sesji. Log zapisuje tylko liczby wierszy i elementów, bez nazw oraz adresów stacji.
 
+Od `alpha.128` BASS odczytuje bitrate przez właściwy atrybut `BASS_ATTRIB_BITRATE`, a nie atrybut częstotliwości. Wartości zapisane wcześniej jako niemożliwe `44100 kb/s` są przy uruchomieniu odrzucane i mogą zostać ponownie wykryte na żądanie; 44,1 kHz pozostaje osobną częstotliwością próbkowania. Import playlisty przy zgodnym adresie tylko włącza istniejący rekord katalogowy do Biblioteki — nie zmienia jego nazwy ani bogatszych metadanych — i mówi o zachowaniu dotychczasowych nazw. Osobne rekordy tej samej rozgłośni o różnych adresach nadal pozostają osobne, aby nie połączyć przypadkiem innych anten lub wariantów jakości.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

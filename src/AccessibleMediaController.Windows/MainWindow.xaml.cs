@@ -1543,7 +1543,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             if (metadata is not null)
             {
-                item.BitrateKbps ??= metadata.BitrateKbps;
+                item.BitrateKbps ??= RadioAudioMetadataRules.NormalizeBitrateKbps(metadata.BitrateKbps);
                 item.SampleRateHz ??= metadata.SampleRateHz;
                 item.Codec ??= metadata.Codec;
                 CaptureRadioState();
@@ -1871,8 +1871,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreMediaListFocusAfterRefresh();
         DiagnosticLog.Info(
             "radio-import",
-            $"Dodano {added.Count} nowych stacji; włączono w Bibliotece {promoted.Count}; pominięto {skipped} pozycji.");
-        var message = $"Dodano nowe stacje: {added.Count}. Włączono istniejące w Bibliotece: {promoted.Count}";
+            $"Dodano {added.Count} nowych stacji; włączono w Bibliotece {promoted.Count}; zachowano dotychczasowe nazwy; pominięto {skipped} pozycji.");
+        var message = $"Dodano nowe stacje: {added.Count}. Włączono istniejące w Bibliotece: {promoted.Count}. Zachowano dotychczasowe nazwy";
         if (skipped > 0) message += $". Pominięto: {skipped}";
         _ = Dispatcher.BeginInvoke(() => AnnounceEssential(message), DispatcherPriority.ContextIdle);
     }
@@ -2317,7 +2317,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Tags = saved.Tags,
                 Codec = saved.Codec,
                 ExternalId = saved.DirectoryId,
-                BitrateKbps = saved.BitrateKbps,
+                BitrateKbps = RadioAudioMetadataRules.NormalizeBitrateKbps(saved.BitrateKbps),
                 SampleRateHz = saved.SampleRateHz,
                 IsFavorite = saved.IsFavorite,
                 IsInLibrary = saved.IsInLibrary,
@@ -2347,7 +2347,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Tags = item.Tags,
             Codec = item.Codec,
             DirectoryId = item.ExternalId,
-            BitrateKbps = item.BitrateKbps,
+            BitrateKbps = RadioAudioMetadataRules.NormalizeBitrateKbps(item.BitrateKbps),
             SampleRateHz = item.SampleRateHz,
             HasCustomTitle = item.HasCustomTitle,
             IsFavorite = item.IsFavorite,
@@ -2382,7 +2382,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             existing.Tags = candidate.Tags;
             existing.Codec = candidate.Codec;
             existing.ExternalId ??= candidate.ExternalId;
-            existing.BitrateKbps = candidate.BitrateKbps;
+            existing.BitrateKbps = RadioAudioMetadataRules.NormalizeBitrateKbps(candidate.BitrateKbps);
         }
         radio.AddItems(_radioItems);
         CaptureRadioState();
