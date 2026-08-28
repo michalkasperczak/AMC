@@ -19,7 +19,10 @@ namespace AccessibleMediaController.Windows.Services;
 public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisposable
 {
     private const int MaximumTimeshiftBytes = 256 * 1024 * 1024;
+    private const int MaximumReconnectAttempts = 2;
     private static readonly TimeSpan PreparationTimeout = TimeSpan.FromSeconds(25);
+    private static readonly TimeSpan ReconnectDelay = TimeSpan.FromMilliseconds(750);
+    private static readonly TimeSpan StableReceptionInterval = TimeSpan.FromSeconds(20);
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     private readonly object _gate = new();
     private readonly int _timeshiftMinutes = Math.Clamp(timeshiftMinutes, 1, 60);
@@ -356,54 +359,147 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
 
     private async Task CaptureLoopAsync(RadioPipeline pipeline)
     {
-        var bytes = new byte[Math.Max(16 * 1024, pipeline.Reader.WaveFormat.AverageBytesPerSecond / 4)];
-        try
+        var bytes = new byte[Math.Max(
+            16 * 1024,
+            pipeline.Buffer.WaveFormat.AverageBytesPerSecond / 4)];
+        var reconnectAttempts = 0;
+        var stableSince = Stopwatch.GetTimestamp();
+        Exception? finalFailure = null;
+        while (!pipeline.Cancellation.IsCancellationRequested)
         {
-            while (!pipeline.Cancellation.IsCancellationRequested)
+            try
             {
-                var read = pipeline.Reader.Read(bytes, 0, bytes.Length);
+                var read = pipeline.Read(bytes, 0, bytes.Length);
                 if (read <= 0)
                 {
                     throw new EndOfStreamException("Serwer zakończył strumień.");
                 }
                 pipeline.Buffer.Write(bytes, 0, read);
-            }
-        }
-        catch (Exception exception) when (pipeline.Cancellation.IsCancellationRequested
-            && exception is ObjectDisposedException
-                or IOException
-                or InvalidOperationException
-                or NotSupportedException)
-        {
-            return;
-        }
-        catch (Exception exception) when (exception is IOException
-            or EndOfStreamException
-            or InvalidDataException
-            or InvalidOperationException
-            or NotSupportedException
-            or System.Runtime.InteropServices.COMException)
-        {
-            DiagnosticLog.Warning("radio", $"Odbiór stacji został przerwany: {pipeline.Item.Title}; błąd {exception.GetType().Name}.");
-            var detached = false;
-            lock (_gate)
-            {
-                if (!_disposed && ReferenceEquals(_pipeline, pipeline))
+                if (Stopwatch.GetElapsedTime(stableSince) >= StableReceptionInterval)
                 {
-                    _pipeline = null;
-                    detached = true;
+                    reconnectAttempts = 0;
                 }
             }
-            if (detached)
+            catch (Exception exception) when (pipeline.Cancellation.IsCancellationRequested
+                && IsRecoverableRadioException(exception))
             {
-                QueueDisposal(pipeline);
-                RaisePlaybackFailed(
-                    pipeline.Item,
-                    "Połączenie ze stacją zostało przerwane. Uruchom ją ponownie, aby połączyć się jeszcze raz.");
+                return;
             }
+            catch (Exception exception) when (IsRecoverableRadioException(exception))
+            {
+                reconnectAttempts++;
+                if (reconnectAttempts > MaximumReconnectAttempts)
+                {
+                    finalFailure = exception;
+                    break;
+                }
+
+                DiagnosticLog.Warning(
+                    "radio",
+                    $"Odbiór stacji został przerwany: {pipeline.Item.Title}; "
+                    + $"automatyczna próba ponownego połączenia {reconnectAttempts} z {MaximumReconnectAttempts}; "
+                    + $"błąd {exception.GetType().Name}.");
+                try
+                {
+                    await Task.Delay(ReconnectDelay, pipeline.Cancellation.Token).ConfigureAwait(false);
+                    OpenedRadioReader? openedReader = null;
+                    try
+                    {
+                        openedReader = await OpenFirstWorkingReaderAsync(
+                                pipeline.Item.Source!,
+                                pipeline.Cancellation.Token)
+                            .ConfigureAwait(false);
+                        if (!AreCompatibleRadioFormats(
+                                pipeline.Buffer.WaveFormat,
+                                openedReader.Reader.WaveFormat))
+                        {
+                            throw new InvalidDataException(
+                                "Format stacji zmienił się podczas ponownego połączenia.");
+                        }
+
+                        var initialAudio = new byte[Math.Max(
+                            16 * 1024,
+                            openedReader.Reader.WaveFormat.AverageBytesPerSecond / 10)];
+                        var initialRead = openedReader.Reader.Read(initialAudio, 0, initialAudio.Length);
+                        if (initialRead <= 0)
+                        {
+                            throw new EndOfStreamException(
+                                "Serwer nie przesłał dźwięku po ponownym połączeniu.");
+                        }
+                        if (!pipeline.TryReplaceReader(
+                                openedReader.Reader,
+                                openedReader.Lifetime,
+                                out var previousLifetime))
+                        {
+                            return;
+                        }
+                        var decoderName = openedReader.DecoderName;
+                        openedReader = null;
+                        try { previousLifetime?.Dispose(); } catch (Exception) { }
+                        pipeline.Buffer.Write(initialAudio, 0, initialRead);
+                        stableSince = Stopwatch.GetTimestamp();
+                        DiagnosticLog.Info(
+                            "radio",
+                            $"Przywrócono odbiór: {pipeline.Item.Title}; dekoder {decoderName}.");
+                    }
+                    finally
+                    {
+                        openedReader?.Lifetime.Dispose();
+                    }
+                }
+                catch (OperationCanceledException) when (pipeline.Cancellation.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception reconnectException) when (IsRecoverableRadioException(reconnectException))
+                {
+                    finalFailure = reconnectException;
+                }
+            }
+        }
+
+        if (pipeline.Cancellation.IsCancellationRequested) return;
+        DiagnosticLog.Warning(
+            "radio",
+            $"Nie udało się przywrócić odbioru: {pipeline.Item.Title}; "
+            + $"błąd {finalFailure?.GetType().Name ?? "nieznany"}.");
+        var detached = false;
+        lock (_gate)
+        {
+            if (!_disposed && ReferenceEquals(_pipeline, pipeline))
+            {
+                _pipeline = null;
+                detached = true;
+            }
+        }
+        if (detached)
+        {
+            QueueDisposal(pipeline);
+            RaisePlaybackFailed(
+                pipeline.Item,
+                "Połączenie ze stacją zostało przerwane i nie udało się go automatycznie przywrócić.");
         }
         await Task.CompletedTask.ConfigureAwait(false);
     }
+
+    internal static bool AreCompatibleRadioFormats(WaveFormat expected, WaveFormat candidate) =>
+        expected.SampleRate == candidate.SampleRate
+        && expected.Channels == candidate.Channels
+        && expected.BitsPerSample == candidate.BitsPerSample
+        && expected.Encoding == candidate.Encoding
+        && expected.BlockAlign == candidate.BlockAlign;
+
+    private static bool IsRecoverableRadioException(Exception exception) =>
+        exception is ObjectDisposedException
+            or IOException
+            or EndOfStreamException
+            or HttpRequestException
+            or TaskCanceledException
+            or InvalidDataException
+            or InvalidOperationException
+            or NotSupportedException
+            or AuthenticationException
+            or System.Runtime.InteropServices.COMException;
 
     private async Task WatchPreparationTimeoutAsync(
         MediaItem item,
@@ -602,20 +698,52 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         WasapiOut output,
         CancellationTokenSource cancellation) : IDisposable
     {
+        private readonly object _readerGate = new();
+        private IWaveProvider _reader = reader;
+        private IDisposable? _readerLifetime = readerLifetime;
         private int _disposed;
         public MediaItem Item { get; } = item;
-        public IWaveProvider Reader { get; } = reader;
-        public IDisposable ReaderLifetime { get; } = readerLifetime;
         public RadioTimeshiftWaveProvider Buffer { get; } = buffer;
         public VolumeSampleProvider Volume { get; } = volume;
         public WasapiOut Output { get; } = output;
         public CancellationTokenSource Cancellation { get; } = cancellation;
         public Task? CaptureTask { get; set; }
 
+        public int Read(byte[] target, int offset, int count)
+        {
+            var current = Volatile.Read(ref _reader);
+            return current.Read(target, offset, count);
+        }
+
+        public bool TryReplaceReader(
+            IWaveProvider replacement,
+            IDisposable replacementLifetime,
+            out IDisposable? previousLifetime)
+        {
+            lock (_readerGate)
+            {
+                if (Volatile.Read(ref _disposed) != 0)
+                {
+                    previousLifetime = null;
+                    return false;
+                }
+                previousLifetime = _readerLifetime;
+                Volatile.Write(ref _reader, replacement);
+                _readerLifetime = replacementLifetime;
+                return true;
+            }
+        }
+
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
             Cancellation.Cancel();
+            IDisposable? currentLifetime;
+            lock (_readerGate)
+            {
+                currentLifetime = _readerLifetime;
+                _readerLifetime = null;
+            }
             try { Buffer.StopRecording(); }
             catch (Exception exception)
             {
@@ -625,7 +753,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                     exception);
             }
             try { Output.Stop(); } catch (Exception) { }
-            try { ReaderLifetime.Dispose(); } catch (Exception) { }
+            try { currentLifetime?.Dispose(); } catch (Exception) { }
             try { Output.Dispose(); } catch (Exception) { }
             Cancellation.Dispose();
         }

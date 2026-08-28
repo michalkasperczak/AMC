@@ -54,6 +54,7 @@ try
     TestRadioPlaylistImport();
     TestLegacyRadioContentTypes();
     TestRadioCompatibilityCandidates();
+    TestRadioReconnectFormatCompatibility();
     TestRadioMp3Recording();
     TestLegacyIcyMp3Stream();
     TestLegacyIcyCancellation();
@@ -588,6 +589,29 @@ static void TestRadioCompatibilityCandidates()
     var unchanged = RadioStreamResolver.GetPlaybackCandidates(unrelated);
     Assert(unchanged.Count == 1 && unchanged[0] == unrelated, "Zmieniono nieznany adres stacji.");
     Console.WriteLine("OK: bezpieczne warianty zgodności znanych stacji");
+}
+
+static void TestRadioReconnectFormatCompatibility()
+{
+    var expected = WaveFormat.CreateIeeeFloatWaveFormat(48_000, 2);
+    var same = WaveFormat.CreateIeeeFloatWaveFormat(48_000, 2);
+    var differentRate = WaveFormat.CreateIeeeFloatWaveFormat(44_100, 2);
+    var differentChannels = WaveFormat.CreateIeeeFloatWaveFormat(48_000, 1);
+    var differentEncoding = new WaveFormat(48_000, 16, 2);
+
+    Assert(
+        RadioMediaOutput.AreCompatibleRadioFormats(expected, same),
+        "Odrzucono zgodny format po ponownym połączeniu radia.");
+    Assert(
+        !RadioMediaOutput.AreCompatibleRadioFormats(expected, differentRate),
+        "Zaakceptowano zmianę częstotliwości bez przebudowy toru radia.");
+    Assert(
+        !RadioMediaOutput.AreCompatibleRadioFormats(expected, differentChannels),
+        "Zaakceptowano zmianę liczby kanałów bez przebudowy toru radia.");
+    Assert(
+        !RadioMediaOutput.AreCompatibleRadioFormats(expected, differentEncoding),
+        "Zaakceptowano zmianę kodowania bez przebudowy toru radia.");
+    Console.WriteLine("OK: bezpieczna zgodność formatu przy ponownym łączeniu radia");
 }
 
 static void TestCompleteOutputChainMonitor()

@@ -1,12 +1,40 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-114`
-- Tytuł zestawu: Chmury niezależne od dostawcy i ogromne lub nietypowe pliki
-- Wersja programu: `0.1.0-alpha.114`
-- Utworzono: 2026-08-27, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.114.md`
+- Numer zestawu: `AMC-TEST-123`
+- Tytuł zestawu: Odporność radia na chwilowe zerwanie transmisji
+- Wersja programu: `0.1.0-alpha.123`
+- Utworzono: 2026-08-28, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.123.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 123
+
+### AMC-123-01 — Stabilne stacje i szybka zmiana
+
+Uruchom kolejno Jedynkę, Dwójkę, Czwórkę, PR24, Radio Chopin i Radio Emaus. Kilka razy zmień stację szybko, również zanim poprzednia zdąży zagrać.
+
+Oczekiwane: prawidłowe stacje rozpoczynają odbiór po pojawieniu się dźwięku. Anulowane połączenie nie wraca, nie przejmuje odtwarzacza i nie tworzy dodatkowego komunikatu o błędzie. Okno i NVDA pozostają dostępne.
+
+### AMC-123-02 — Chwilowe zerwanie
+
+Podczas działania stacji na kilka sekund rozłącz sieć, po czym ją przywróć bez wybierania innej pozycji. Jeżeli nie chcesz zmieniać sieci całego komputera, ten test można pominąć.
+
+Oczekiwane: AMC najwyżej dwukrotnie próbuje przywrócić odbiór. Po szybkim powrocie sieci radio ponownie gra bez zamykania odtwarzacza i bez utraty istniejącego timeshiftu. Po wyczerpaniu prób pojawia się jeden krótki komunikat, a aplikacja nadal działa.
+
+### AMC-123-03 — Ponowne połączenie podczas nagrywania
+
+Rozpocznij `Ctrl+Alt+R`, spowoduj krótką przerwę połączenia i przywróć sieć. Następnie zakończ nagrywanie.
+
+Oczekiwane: jeżeli stacja wróci w tym samym formacie, powstaje jeden prawidłowo zakończony MP3, a przerwa może zawierać ciszę. Zmiana formatu lub brak powrotu kończy nagranie bez pozostawienia fałszywego gotowego pliku.
+
+### AMC-123-04 — Niedostępna stacja
+
+Spróbuj uruchomić Trójkę, jeżeli jej adres akurat nie odpowiada, a bezpośrednio potem wybierz działającą stację.
+
+Oczekiwane: dwa niedostępne warianty nie są przedstawiane jako działające. AMC nie zapętla prób i nie blokuje przejścia do następnej stacji. Jeżeli nadawca przywrócił już serwer, Trójka może działać normalnie.
+
+## Poprzedni zestaw alpha 114
 
 ## Nowości alpha 114
 
