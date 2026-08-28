@@ -196,6 +196,16 @@ public partial class SearchWindow : Window
         }
 
         var result = new SearchResult(row.SessionId, row.Item);
+        if (action is SearchResultAction.PlayNext
+                or SearchResultAction.Queue
+                or SearchResultAction.Playlist
+            && GetSelectedResults().Any(selected =>
+                string.Equals(selected.SessionId, "radio", StringComparison.OrdinalIgnoreCase)))
+        {
+            SearchStatus.Announce("Ta funkcja nie jest dostępna w Radiu internetowym");
+            Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
+            return;
+        }
         if (action is not (SearchResultAction.Open or SearchResultAction.Playlist))
         {
             var results = action is SearchResultAction.CopyName
@@ -461,8 +471,13 @@ public partial class SearchWindow : Window
 
     private void ResultsContextMenu_Opened(object sender, RoutedEventArgs e)
     {
-        // The event is kept to make context-menu focus behavior symmetrical
-        // with the main list. Clipboard commands operate on all selected rows.
+        var containsRadio = GetSelectedResults().Any(result =>
+            string.Equals(result.SessionId, "radio", StringComparison.OrdinalIgnoreCase));
+        var visibility = containsRadio ? Visibility.Collapsed : Visibility.Visible;
+        SearchPlayNextMenuItem.Visibility = visibility;
+        SearchQueueMenuItem.Visibility = visibility;
+        SearchQueueSeparator.Visibility = visibility;
+        SearchPlaylistMenuItem.Visibility = visibility;
     }
 
     private void ResultsContextMenu_Closed(object sender, RoutedEventArgs e)

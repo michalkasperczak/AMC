@@ -45,20 +45,20 @@
                     <MenuItem Header="Odtwórz lub _wstrzymaj" InputGestureText="Ctrl+Enter"
                               automation:AutomationProperties.AcceleratorKey="Control+Enter"
                               Click="TogglePlayback_Click" />
-                    <MenuItem Header="Odtwórz jako _następne" InputGestureText="Ctrl+Shift+Enter"
+                    <MenuItem x:Name="SearchPlayNextMenuItem" Header="Odtwórz jako _następne" InputGestureText="Ctrl+Shift+Enter"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+Enter"
                               Click="PlayNext_Click" />
-                    <MenuItem Header="Dodaj do _kolejki" InputGestureText="Shift+Enter"
+                    <MenuItem x:Name="SearchQueueMenuItem" Header="Dodaj do _kolejki" InputGestureText="Shift+Enter"
                               automation:AutomationProperties.AcceleratorKey="Shift+Enter"
                               Click="Queue_Click" />
-                    <Separator />
+                    <Separator x:Name="SearchQueueSeparator" />
                     <MenuItem Header="Dodaj lub usuń z _ulubionych" InputGestureText="Ctrl+Shift+U"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+U"
                               Click="Favorite_Click" />
                     <MenuItem Header="Dodaj lub usuń z _Biblioteki" InputGestureText="Ctrl+Shift+L"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+L"
                               Click="Library_Click" />
-                    <MenuItem Header="Zarządzaj _playlistami" InputGestureText="Ctrl+Shift+P"
+                    <MenuItem x:Name="SearchPlaylistMenuItem" Header="Zarządzaj _playlistami" InputGestureText="Ctrl+Shift+P"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+P"
                               Click="Playlist_Click" />
                     <MenuItem Header="_Informacje" InputGestureText="Alt+Enter"

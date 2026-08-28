@@ -698,8 +698,18 @@ static void TestRadioCompatibilityCandidates()
     var hlsProgramFour = RadioStreamResolver.GetPlaybackCandidates(
         "https://stream14.polskieradio.pl/pr4/pr4.sdp/playlist.m3u8");
     Assert(
-        hlsProgramFour.Count == 2 && hlsProgramFour[0].Contains(":8906/", StringComparison.Ordinal),
-        "Nie wybrano zgodnego MP3 dla HLS Programu 4.");
+        hlsProgramFour.Count == 2
+        && hlsProgramFour[0] == "https://stream14.polskieradio.pl/pr4/pr4.sdp/playlist.m3u8"
+        && hlsProgramFour[1].Contains(":8906/", StringComparison.Ordinal),
+        "HLS Programu 4 powinien poprzedzać awaryjny wariant MP3.");
+
+    var hlsProgramThree = RadioStreamResolver.GetPlaybackCandidates(
+        "https://stream13.polskieradio.pl/pr3/pr3.sdp/playlist.m3u8");
+    Assert(
+        hlsProgramThree.Count == 2
+        && hlsProgramThree[0] == "https://stream13.polskieradio.pl/pr3/pr3.sdp/playlist.m3u8"
+        && hlsProgramThree[1] == "http://mp3.polskieradio.pl:8904/;.mp3",
+        "HLS Trójki powinien poprzedzać awaryjny wariant MP3.");
 
     var chopin = RadioStreamResolver.GetPlaybackCandidates(
         "http://stream3.polskieradio.pl:8960/;");
@@ -710,8 +720,10 @@ static void TestRadioCompatibilityCandidates()
     var eska = RadioStreamResolver.GetPlaybackCandidates(
         "https://radio.stream.smcdn.pl/icradio-p/2180-1.aac/playlist.m3u8");
     Assert(
-        eska.Count == 2 && eska[0] == "http://ic2.smcdn.pl/2180-1.mp3",
-        "Nie wybrano zgodnego MP3 dla nieaktualnego wpisu Eski.");
+        eska.Count == 2
+        && eska[0] == "https://radio.stream.smcdn.pl/icradio-p/2180-1.aac/playlist.m3u8"
+        && eska[1] == "http://ic2.smcdn.pl/2180-1.mp3",
+        "HLS Eski powinien poprzedzać awaryjny wariant MP3.");
 
     var unrelated = "https://radio.example/live.mp3";
     var unchanged = RadioStreamResolver.GetPlaybackCandidates(unrelated);

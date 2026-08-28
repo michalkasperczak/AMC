@@ -2197,6 +2197,17 @@ static void TestLocalLibraryManualOrder()
         orderWithHiddenItems.SequenceEqual(["a", "ukryty-1", "c", "ukryty-2", "b"]),
         "Przenoszenie nie powinno gubić pozycji chwilowo niewidocznych plików.");
 
+    var placedBeforeTarget = new List<string> { "a", "b", "c", "d", "e" };
+    Equal(
+        ManualOrderPlacementResult.Moved,
+        LocalLibraryManualOrder.PlaceItemsBefore(placedBeforeTarget, ["b", "d"], "e"));
+    True(
+        placedBeforeTarget.SequenceEqual(["a", "c", "b", "d", "e"]),
+        "Ctrl+X i Ctrl+V powinny przenieść zaznaczone pozycje jako blok przed celem.");
+    Equal(
+        ManualOrderPlacementResult.TargetInSelection,
+        LocalLibraryManualOrder.PlaceItemsBefore(placedBeforeTarget, ["b", "d"], "b"));
+
     var orderBeforeRemoval = new List<string> { "a", "b", "c", "d", "e" };
     var removedPositions = LocalLibraryManualOrder.CapturePositions(
         orderBeforeRemoval,

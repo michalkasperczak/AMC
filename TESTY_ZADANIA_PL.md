@@ -1,12 +1,46 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-123`
-- Tytuł zestawu: Odporność radia na chwilowe zerwanie transmisji
-- Wersja programu: `0.1.0-alpha.123`
-- Utworzono: 2026-08-28, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.123.md`
+- Numer zestawu: `AMC-TEST-129`
+- Tytuł zestawu: Zakres poleceń radia, HLS Trójki i przenoszenie Ulubionych
+- Wersja programu: `0.1.0-alpha.129`
+- Utworzono: 2026-08-29, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.129.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 129
+
+### AMC-129-01 — Trójka z podstawowego HLS
+
+W Bibliotece radia wybierz `PR TRÓJKA` z adresem `https://stream13.polskieradio.pl/pr3/pr3.sdp/playlist.m3u8` i rozpocznij odtwarzanie. Po uzyskaniu dźwięku przejdź do innej stacji i wróć do Trójki.
+
+Oczekiwane: AMC najpierw używa właściwego HLS i odbiera dźwięk AAC. Starszy MP3 na porcie 8904 jest wyłącznie próbą awaryjną. Szybka zmiana stacji nie przywraca anulowanego połączenia i nie blokuje okna.
+
+### AMC-129-02 — Menu właściwe dla Radia
+
+Na zwykłej liście radia oraz w odtwarzaczu otwórz kolejno menu główne Widok i Odtwarzanie, menu kontekstowe oraz paletę `Ctrl+Shift+K`. Powtórz po otwarciu wyników `Ctrl+F`.
+
+Oczekiwane: w Radiu nie ma Kolejki, „Odtwórz jako następne”, playlist, Albumów, Zakładek, skoków procentowych ani prędkości. Pozostają Biblioteka, Ulubione, Historia, wyszukiwanie, informacje i nagrywanie. `Ctrl+Q`, `Ctrl+P`, `Shift+Enter` oraz `Ctrl+Shift+Enter` niczego nie zmieniają i podają zwięzły komunikat o niedostępności.
+
+### AMC-129-03 — Zwięzła pozycja stacji
+
+Przejdź strzałkami po Bibliotece i Ulubionych radia, zwracając uwagę na nazwę elementu i pozycję listy.
+
+Oczekiwane: NVDA czyta nazwę oraz pozycję, np. `PR TRÓJKA, 8 z 48`. Nie dodaje zbędnego słowa `stacja` bezpośrednio przed pozycją. Właściwości `Alt+Enter` nadal mogą podać rodzaj elementu.
+
+### AMC-129-04 — Przeniesienie jednej stacji przez Ctrl+X i Ctrl+V
+
+Otwórz `Ctrl+U`, wybierz stację ze środka Ulubionych i naciśnij `Ctrl+X`. Przejdź do innej stacji zwykłymi strzałkami i naciśnij `Ctrl+V`.
+
+Oczekiwane: pierwszy skrót tylko zapamiętuje stację i wyjaśnia następny krok. Drugi umieszcza ją bezpośrednio przed bieżącą stacją, odświeża listę raz, zachowuje fokus oraz zapisuje porządek po ponownym uruchomieniu. Nie zmienia systemowego schowka plików.
+
+### AMC-129-05 — Przeniesienie zaznaczonej grupy
+
+W Ulubionych zaznacz Shiftem kilka sąsiednich stacji, naciśnij `Ctrl+X`, wybierz pozycję docelową poza blokiem i naciśnij `Ctrl+V`. Powtórz z aktywnym filtrem oraz z celem należącym do przenoszonego bloku.
+
+Oczekiwane: grupa zachowuje wzajemną kolejność i jest przenoszona jednym odświeżeniem. Aktywny filtr wymaga najpierw `Escape`, a wybór celu z przenoszonej grupy niczego nie zmienia i daje jasny komunikat. `Alt+góra/dół` nadal działa jako wariant pojedynczego kroku.
+
+## Poprzedni zestaw alpha 123
 
 ## Nowości alpha 123
 

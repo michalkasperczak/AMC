@@ -52,20 +52,20 @@
             <MenuItem Header="_Edycja">
                 <MenuItem Header="_Cofnij ostatnią zmianę" InputGestureText="Ctrl+Z" Click="Undo_Click" />
                 <Separator />
-                <MenuItem Header="Zmień nazwę w _Bibliotece…" InputGestureText="F2"
+                <MenuItem x:Name="RenameLibraryItemMainMenuItem" Header="Zmień nazwę w _Bibliotece…" InputGestureText="F2"
                           automation:AutomationProperties.Name="Zmień nazwę w Bibliotece albo edytuj stację, F2, lista lokalna lub Radio"
                           automation:AutomationProperties.AcceleratorKey="F2"
                           Click="RenameLibraryItem_Click" />
-                <MenuItem Header="Zmień nazwę pliku na _dysku…" InputGestureText="Shift+F2"
+                <MenuItem x:Name="RenameLocalFileMainMenuItem" Header="Zmień nazwę pliku na _dysku…" InputGestureText="Shift+F2"
                           automation:AutomationProperties.Name="Zmień nazwę pliku na dysku, Shift+F2, lista lokalna"
                           automation:AutomationProperties.AcceleratorKey="Shift+F2"
                           Click="RenameLocalFile_Click" />
                 <Separator />
-                <MenuItem Header="Przenieś _wyżej na liście" InputGestureText="Alt+Up"
+                <MenuItem x:Name="MoveItemUpMainMenuItem" Header="Przenieś _wyżej na liście" InputGestureText="Alt+Up"
                           automation:AutomationProperties.Name="Przenieś wyżej na bieżącej liście, Alt+strzałka w górę"
                           automation:AutomationProperties.AcceleratorKey="Alt+Up"
                           Click="MoveLocalItemUp_Click" />
-                <MenuItem Header="Przenieś _niżej na liście" InputGestureText="Alt+Down"
+                <MenuItem x:Name="MoveItemDownMainMenuItem" Header="Przenieś _niżej na liście" InputGestureText="Alt+Down"
                           automation:AutomationProperties.Name="Przenieś niżej na bieżącej liście, Alt+strzałka w dół"
                           automation:AutomationProperties.AcceleratorKey="Alt+Down"
                           Click="MoveLocalItemDown_Click" />
@@ -80,57 +80,57 @@
                           automation:AutomationProperties.Name="Rozpocznij lub zakończ nagrywanie radia, Ctrl+Alt+R, w odtwarzaczu radia"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+R"
                           Click="RadioRecording_Click" />
-                <Separator />
-                <MenuItem Header="Dodaj _zakładkę" InputGestureText="B"
+                <Separator x:Name="PlaybackAfterRecordingSeparator" />
+                <MenuItem x:Name="PlaybackAddBookmarkMenuItem" Header="Dodaj _zakładkę" InputGestureText="B"
                           automation:AutomationProperties.Name="Dodaj zakładkę w bieżącym miejscu, B, tylko w odtwarzaczu"
                           automation:AutomationProperties.AcceleratorKey="B"
                           Click="AddBookmark_Click" />
-                <MenuItem Header="Dodaj _nazwaną zakładkę…" InputGestureText="Ctrl+Shift+B"
+                <MenuItem x:Name="PlaybackAddNamedBookmarkMenuItem" Header="Dodaj _nazwaną zakładkę…" InputGestureText="Ctrl+Shift+B"
                           automation:AutomationProperties.Name="Dodaj nazwaną zakładkę w bieżącym miejscu, Ctrl+Shift+B, tylko w odtwarzaczu"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+B"
                           Click="AddNamedBookmark_Click" />
-                <MenuItem Header="Poprzednia zakładka" InputGestureText="Shift+Page Up"
+                <MenuItem x:Name="PlaybackPreviousBookmarkMenuItem" Header="Poprzednia zakładka" InputGestureText="Shift+Page Up"
                           automation:AutomationProperties.Name="Poprzednia zakładka, Shift+Page Up, tylko w odtwarzaczu"
                           Click="PreviousBookmark_Click" />
-                <MenuItem Header="Następna zakładka" InputGestureText="Shift+Page Down"
+                <MenuItem x:Name="PlaybackNextBookmarkMenuItem" Header="Następna zakładka" InputGestureText="Shift+Page Down"
                           automation:AutomationProperties.Name="Następna zakładka, Shift+Page Down, tylko w odtwarzaczu"
                           Click="NextBookmark_Click" />
-                <Separator />
-                <MenuItem Header="Skocz do _czasu…" InputGestureText="Ctrl+J"
+                <Separator x:Name="PlaybackBeforeSeekSeparator" />
+                <MenuItem x:Name="PlaybackSeekTimeMenuItem" Header="Skocz do _czasu…" InputGestureText="Ctrl+J"
                           automation:AutomationProperties.Name="Skocz do czasu, Ctrl+J, tylko w odtwarzaczu"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+J"
                           Click="SeekToTime_Click" />
-                <MenuItem Header="Skocz do _procentu…" InputGestureText="Ctrl+Shift+J"
+                <MenuItem x:Name="PlaybackSeekPercentageMenuItem" Header="Skocz do _procentu…" InputGestureText="Ctrl+Shift+J"
                           automation:AutomationProperties.Name="Skocz do procentu, Ctrl+Shift+J, tylko w odtwarzaczu"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+J"
                           Click="SeekToPercentage_Click" />
-                <Separator />
-                <MenuItem Header="_Wolniej" InputGestureText="Shift+,"
+                <Separator x:Name="PlaybackBeforeRateSeparator" />
+                <MenuItem x:Name="PlaybackRateDownMenuItem" Header="_Wolniej" InputGestureText="Shift+,"
                           automation:AutomationProperties.Name="Zmniejsz prędkość odtwarzania, Shift+przecinek, w odtwarzaczu"
                           automation:AutomationProperties.AcceleratorKey="Shift+,"
                           Click="PlaybackRateDown_Click" />
-                <MenuItem Header="_Szybciej" InputGestureText="Shift+."
+                <MenuItem x:Name="PlaybackRateUpMenuItem" Header="_Szybciej" InputGestureText="Shift+."
                           automation:AutomationProperties.Name="Zwiększ prędkość odtwarzania, Shift+kropka, w odtwarzaczu"
                           automation:AutomationProperties.AcceleratorKey="Shift+."
                           Click="PlaybackRateUp_Click" />
-                <MenuItem Header="Prędkość _normalna" InputGestureText="Ctrl+."
+                <MenuItem x:Name="PlaybackRateResetMenuItem" Header="Prędkość _normalna" InputGestureText="Ctrl+."
                           automation:AutomationProperties.Name="Przywróć normalną prędkość odtwarzania, Ctrl+kropka, w odtwarzaczu"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+."
                           Click="PlaybackRateReset_Click" />
-                <Separator />
+                <Separator x:Name="PlaybackBeforeInformationSeparator" />
                 <MenuItem Header="_Właściwości i informacje" InputGestureText="Alt+Enter"
                           automation:AutomationProperties.AcceleratorKey="Alt+Enter"
                           Click="Information_Click" />
-                <MenuItem Header="_Opcje odtwarzania elementu…" InputGestureText="Alt+Shift+Enter"
+                <MenuItem x:Name="PlaybackItemOptionsMenuItem" Header="_Opcje odtwarzania elementu…" InputGestureText="Alt+Shift+Enter"
                           automation:AutomationProperties.AcceleratorKey="Alt+Shift+Enter"
                           Click="ItemPlaybackOptions_Click" />
             </MenuItem>
             <MenuItem Header="_Widok">
                 <MenuItem Header="_Teraz odtwarzane" InputGestureText="F6"
                           automation:AutomationProperties.AcceleratorKey="F6" Click="NowPlayingView_Click" />
-                <MenuItem Header="_Ulubione" InputGestureText="Ctrl+U" Click="FavoritesView_Click" />
-                <MenuItem Header="_Playlisty" InputGestureText="Ctrl+P" Click="PlaylistsView_Click" />
-                <MenuItem Header="_Biblioteka" InputGestureText="Ctrl+L" Click="LibraryView_Click" />
+                <MenuItem x:Name="FavoritesViewMenuItem" Header="_Ulubione" InputGestureText="Ctrl+U" Click="FavoritesView_Click" />
+                <MenuItem x:Name="PlaylistsViewMenuItem" Header="_Playlisty" InputGestureText="Ctrl+P" Click="PlaylistsView_Click" />
+                <MenuItem x:Name="LibraryViewMenuItem" Header="_Biblioteka" InputGestureText="Ctrl+L" Click="LibraryView_Click" />
                 <MenuItem x:Name="FoldersViewMenuItem" Header="Foldery _Biblioteki" InputGestureText="Alt+1" Click="FoldersView_Click"
                           automation:AutomationProperties.Name="Foldery Biblioteki, Alt+1"
                           automation:AutomationProperties.AcceleratorKey="Alt+1" />
@@ -143,10 +143,10 @@
                 <MenuItem x:Name="RefreshLocalLibraryMenuItem" Header="_Odśwież foldery Biblioteki" InputGestureText="F5" Click="RefreshLocalLibrary_Click"
                           automation:AutomationProperties.Name="Odśwież foldery Biblioteki, F5"
                           automation:AutomationProperties.AcceleratorKey="F5" />
-                <MenuItem Header="_Albumy" InputGestureText="Ctrl+Shift+A" Click="AlbumsView_Click" />
-                <MenuItem Header="_Kolejka" InputGestureText="Ctrl+Q" Click="QueueView_Click" />
-                <MenuItem Header="_Historia odtwarzania" InputGestureText="Ctrl+H" Click="HistoryView_Click" />
-                <MenuItem Header="_Zakładki" InputGestureText="Ctrl+B" Click="BookmarksViewMenu_Click" />
+                <MenuItem x:Name="AlbumsViewMenuItem" Header="_Albumy" InputGestureText="Ctrl+Shift+A" Click="AlbumsView_Click" />
+                <MenuItem x:Name="QueueViewMenuItem" Header="_Kolejka" InputGestureText="Ctrl+Q" Click="QueueView_Click" />
+                <MenuItem x:Name="HistoryViewMenuItem" Header="_Historia odtwarzania" InputGestureText="Ctrl+H" Click="HistoryView_Click" />
+                <MenuItem x:Name="BookmarksViewMenuItem" Header="_Zakładki" InputGestureText="Ctrl+B" Click="BookmarksViewMenu_Click" />
                 <Separator />
                 <MenuItem Header="_Filtruj listę" InputGestureText="Ctrl+K" Click="Filter_Click" />
                 <MenuItem Header="_Szukaj w bieżącej usłudze" InputGestureText="Ctrl+F" Click="SearchCurrent_Click" />
@@ -184,7 +184,7 @@
             <WrapPanel x:Name="BrowserActionPanel" Margin="0,8,0,8">
                 <Button MinWidth="175" Margin="0,0,8,0" Content="Odtwórz lub _wstrzymaj" Click="ToggleSelectedPlayback_Click" />
                 <Button MinWidth="175" Margin="0,0,8,0" Content="Zmień stan _ulubionych" Click="Favorite_Click" />
-                <Button MinWidth="145" Margin="0,0,8,0" Content="Zmień _playlisty…" Click="Playlists_Click" />
+                <Button x:Name="BrowserPlaylistsButton" MinWidth="145" Margin="0,0,8,0" Content="Zmień _playlisty…" Click="Playlists_Click" />
                 <Button MinWidth="120" Content="U_stawienia…" Click="Settings_Click" />
             </WrapPanel>
             <Border BorderThickness="1" BorderBrush="Gray" Padding="6">
@@ -325,7 +325,7 @@
                     <MenuItem x:Name="PlayerLibraryMenuItem" Header="Dodaj do biblioteki" InputGestureText="Ctrl+Shift+L"
                               automation:AutomationProperties.Name="Dodaj do biblioteki, Ctrl+Shift+L"
                               Click="Library_Click" />
-                    <MenuItem Header="Zmień przynależność do playlist…" InputGestureText="Ctrl+Shift+P"
+                    <MenuItem x:Name="PlayerPlaylistMembershipMenuItem" Header="Zmień przynależność do playlist…" InputGestureText="Ctrl+Shift+P"
                               automation:AutomationProperties.Name="Zmień przynależność do playlist, Ctrl+Shift+P"
                               Click="Playlists_Click" />
                     <Separator />

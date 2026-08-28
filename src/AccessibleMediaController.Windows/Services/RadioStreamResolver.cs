@@ -13,8 +13,13 @@ internal static partial class RadioStreamResolver
     {
         if (!Uri.TryCreate(source, UriKind.Absolute, out var uri)) return [source];
         var compatibility = TryGetCompatibilityMp3(uri);
-        return compatibility is null
-            ? [source]
+        if (compatibility is null) return [source];
+
+        // A genuine HLS address is the authoritative source.  The legacy MP3
+        // endpoints used by some Polish Radio entries are useful fallbacks,
+        // but they are intermittent and must not replace a working manifest.
+        return IsHlsSource(source)
+            ? [source, compatibility]
             : [compatibility, source];
     }
 

@@ -10,6 +10,15 @@ public enum ManualOrderMoveResult
     InvalidSelection
 }
 
+public enum ManualOrderPlacementResult
+{
+    Moved,
+    TargetInSelection,
+    TargetMissing,
+    InvalidSelection,
+    Unchanged
+}
+
 public readonly record struct ManualOrderPosition(string ItemId, int Index);
 
 public static class LocalLibraryManualOrder
@@ -152,5 +161,42 @@ public static class LocalLibraryManualOrder
             storedOrder[slots[index]] = reordered[index];
         }
         return ManualOrderMoveResult.Moved;
+    }
+
+    public static ManualOrderPlacementResult PlaceItemsBefore(
+        IList<string> storedOrder,
+        IReadOnlyCollection<string> selectedItemIds,
+        string targetItemId)
+    {
+        ArgumentNullException.ThrowIfNull(storedOrder);
+        ArgumentNullException.ThrowIfNull(selectedItemIds);
+        if (selectedItemIds.Count == 0 || string.IsNullOrWhiteSpace(targetItemId))
+        {
+            return ManualOrderPlacementResult.InvalidSelection;
+        }
+
+        var selected = selectedItemIds.ToHashSet(StringComparer.Ordinal);
+        if (selected.Contains(targetItemId)) return ManualOrderPlacementResult.TargetInSelection;
+        if (!storedOrder.Contains(targetItemId, StringComparer.Ordinal))
+            return ManualOrderPlacementResult.TargetMissing;
+
+        var moving = storedOrder.Where(selected.Contains).ToArray();
+        if (moving.Length != selected.Count) return ManualOrderPlacementResult.InvalidSelection;
+
+        var before = storedOrder.ToArray();
+        for (var index = storedOrder.Count - 1; index >= 0; index--)
+        {
+            if (selected.Contains(storedOrder[index])) storedOrder.RemoveAt(index);
+        }
+        var targetIndex = storedOrder.IndexOf(targetItemId);
+        if (targetIndex < 0) return ManualOrderPlacementResult.TargetMissing;
+        foreach (var itemId in moving)
+        {
+            storedOrder.Insert(targetIndex++, itemId);
+        }
+
+        return before.SequenceEqual(storedOrder, StringComparer.Ordinal)
+            ? ManualOrderPlacementResult.Unchanged
+            : ManualOrderPlacementResult.Moved;
     }
 }

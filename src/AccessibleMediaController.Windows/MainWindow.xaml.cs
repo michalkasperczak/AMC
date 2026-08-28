@@ -76,6 +76,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly List<MediaItem> _radioItems = [];
     private readonly Dictionary<string, string> _pendingExternalMoves =
         new(StringComparer.Ordinal);
+    private PendingInternalListMove? _pendingInternalListMove;
     private readonly DispatcherTimer _playerUiTimer;
     private readonly DispatcherTimer _localSourceSyncTimer;
     private readonly Dictionary<string, FileSystemWatcher> _localSourceWatchers =
@@ -92,6 +93,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private long _quickInformationRequestVersion;
     private readonly System.Windows.Forms.StatusStrip _playbackStatusBar;
     private readonly System.Windows.Forms.ToolStripStatusLabel _playbackStatusLabel;
+
+    private sealed record PendingInternalListMove(
+        string SessionId,
+        string ViewName,
+        IReadOnlyList<string> ItemIds);
 
     private const int WmKeyDown = 0x0100;
     private const int VirtualKeyC = 0x43;
@@ -206,7 +212,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             };
             return;
         }
-        if (navigation.CurrentView is DefaultBrowserView or "Radio i rekomendacje")
+        if (navigation.CurrentView is DefaultBrowserView
+            or "Radio i rekomendacje"
+            or "Kolejka"
+            or "Playlisty"
+            or "Albumy"
+            or BookmarkViewName
+            || TryGetPlaylistIdFromView(navigation.CurrentView, out _))
         {
             navigation.CurrentView = "Biblioteka";
         }
@@ -1148,7 +1160,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     public void ShowCommandPalette()
     {
         ClearFocusContext();
-        var entries = CommandPaletteSearch.CreateEntries(ActiveKeyboardProfile(), _state.Settings);
+        var entries = CommandPaletteSearch.CreateEntries(ActiveKeyboardProfile(), _state.Settings)
+            .Where(entry => !string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                || entry.CommandId is not (CommandIds.AddQueue
+                    or CommandIds.TogglePlayNext
+                    or CommandIds.ViewQueue
+                    or CommandIds.ViewPlaylists
+                    or CommandIds.ManagePlaylists
+                    or CommandIds.ViewAlbums
+                    or CommandIds.ViewBookmarks
+                    or CommandIds.AddBookmark
+                    or CommandIds.AddNamedBookmark
+                    or CommandIds.PreviousBookmark
+                    or CommandIds.NextBookmark
+                    or CommandIds.SeekToTime
+                    or CommandIds.SeekToPercentage
+                    or CommandIds.PlaybackRateDown
+                    or CommandIds.PlaybackRateUp
+                    or CommandIds.PlaybackRateReset))
+            .ToArray();
         var dialog = new CommandPaletteWindow(entries) { Owner = this };
         if (dialog.ShowDialog() == true && dialog.SelectedCommandId is { } commandId)
         {
@@ -1891,6 +1921,42 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AllLocalFilesViewMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         CustomLocalOrderViewMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         RefreshLocalLibraryMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        RenameLocalFileMainMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        RenameLibraryItemMainMenuItem.Header = radio
+            ? "Edytuj _nazwę i adres stacji…"
+            : "Zmień nazwę w _Bibliotece…";
+        AutomationProperties.SetName(
+            RenameLibraryItemMainMenuItem,
+            radio ? "Edytuj nazwę i adres stacji, F2" : "Zmień nazwę w Bibliotece, F2");
+        var movableView = !_playerViewActive
+            && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+                || !radio && string.Equals(_currentView, "Kolejka", StringComparison.Ordinal)
+                || local && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
+                || !radio && TryGetPlaylistIdFromView(_currentView, out _));
+        MoveItemUpMainMenuItem.Visibility = movableView ? Visibility.Visible : Visibility.Collapsed;
+        MoveItemDownMainMenuItem.Visibility = movableView ? Visibility.Visible : Visibility.Collapsed;
+
+        PlaylistsViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        AlbumsViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        QueueViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        BookmarksViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        BrowserPlaylistsButton.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+
+        RadioRecordingMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        PlaybackAfterRecordingSeparator.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        PlaybackAddBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackAddNamedBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackPreviousBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackNextBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackBeforeSeekSeparator.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackSeekTimeMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackSeekPercentageMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackBeforeRateSeparator.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackRateDownMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackRateUpMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackRateResetMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackBeforeInformationSeparator.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackItemOptionsMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void ShowLocalFolderWhileLoading(LocalFolderSourceSettings folderSource)
@@ -2322,8 +2388,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 IsFavorite = saved.IsFavorite,
                 IsInLibrary = saved.IsInLibrary,
                 IsAvailable = true,
-                IsInQueue = saved.IsInQueue,
-                IsPlayNext = saved.IsPlayNext
+                IsInQueue = false,
+                IsPlayNext = false
             });
         }
     }
@@ -2352,8 +2418,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             HasCustomTitle = item.HasCustomTitle,
             IsFavorite = item.IsFavorite,
             IsInLibrary = item.IsInLibrary,
-            IsInQueue = item.IsInQueue,
-            IsPlayNext = item.IsPlayNext,
+            IsInQueue = false,
+            IsPlayNext = false,
             IsCustom = string.IsNullOrWhiteSpace(item.ExternalId)
         }).ToList();
     }
@@ -3176,6 +3242,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
+            if (commandId is CommandIds.AddQueue
+                or CommandIds.TogglePlayNext
+                or CommandIds.ViewQueue
+                or CommandIds.ViewPlaylists
+                or CommandIds.ManagePlaylists
+                or CommandIds.ViewAlbums)
+            {
+                Announce("Ta funkcja nie jest dostępna w Radiu internetowym");
+                return new CommandExecutionResult(true);
+            }
             if (commandId is CommandIds.AddBookmark
                 or CommandIds.AddNamedBookmark
                 or CommandIds.ViewBookmarks
@@ -5925,7 +6001,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private string FormatListItem(MediaItem item)
     {
-        var homogeneousView = _currentView is "Albumy" or "Playlisty";
+        var homogeneousView = _currentView is "Albumy" or "Playlisty"
+            || string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+               && item.Kind == MediaItemKind.Station;
         var label = FormatItem(item, !homogeneousView);
         if (string.Equals(_currentView, "Kolejka", StringComparison.Ordinal) && item.IsPlayNext)
         {
@@ -6204,7 +6282,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && e.Key == Key.V
             && MediaList.IsKeyboardFocusWithin)
         {
-            PasteClipboardFilesIntoCurrentView();
+            if (!TryPasteInternalListMove()) PasteClipboardFilesIntoCurrentView();
             e.Handled = true;
         }
         else if (itemCommandsAvailable
@@ -6212,7 +6290,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && e.Key == Key.X
             && MediaList.IsKeyboardFocusWithin)
         {
-            Announce(CutLocalFilesForExternalMove(ActionItems));
+            if (!TryStartInternalListMove()) Announce(CutLocalFilesForExternalMove(ActionItems));
             e.Handled = true;
         }
         else if (itemCommandsAvailable
@@ -7043,6 +7121,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             return CopySearchResultLocations(results);
         }
+        if (action is SearchResultAction.PlayNext or SearchResultAction.Queue
+            && results.Any(result =>
+                string.Equals(result.SessionId, "radio", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "Ta funkcja nie jest dostępna w Radiu internetowym";
+        }
 
         var changesMembership = action is SearchResultAction.PlayNext
             or SearchResultAction.Queue
@@ -7311,10 +7395,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void GoToArtist_Click(object sender, RoutedEventArgs e) => GoToRelatedArtist();
     private void CopyName_Click(object sender, RoutedEventArgs e) => CopyActionItemName();
     private void CopyLocation_Click(object sender, RoutedEventArgs e) => CopyActionItemLocation();
-    private void CutFiles_Click(object sender, RoutedEventArgs e) =>
-        Announce(CutLocalFilesForExternalMove(ActionItems));
-    private void PasteFiles_Click(object sender, RoutedEventArgs e) =>
-        PasteClipboardFilesIntoCurrentView();
+    private void CutFiles_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryStartInternalListMove()) Announce(CutLocalFilesForExternalMove(ActionItems));
+    }
+    private void PasteFiles_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryPasteInternalListMove()) PasteClipboardFilesIntoCurrentView();
+    }
     private void OpenDefaultApplication_Click(object sender, RoutedEventArgs e) => OpenLocalInDefaultApplication();
     private void RenameLibraryItem_Click(object sender, RoutedEventArgs e) => RenameLibraryItem();
     private void RenameLocalFile_Click(object sender, RoutedEventArgs e) => RenameLocalFile();
@@ -7341,6 +7429,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var items = ActionItems;
         var actionItem = ActionItem;
+        var radioSession = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
         var playlistContainer = !_playerViewActive
             && (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not null;
         var playlistContents = !_playerViewActive
@@ -7418,12 +7507,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : Visibility.Collapsed;
         RenamePlaylistMenuItem.Visibility = playlistContainer ? Visibility.Visible : Visibility.Collapsed;
         DeletePlaylistMenuItem.Visibility = playlistContainer ? Visibility.Visible : Visibility.Collapsed;
-        PlayNextMenuItem.Visibility = localAlbumContainer
+        PlayNextMenuItem.Visibility = radioSession
+            || localAlbumContainer
             || playlistContainer
             || (folderNavigationRow && membershipItems.Count == 0)
             ? Visibility.Collapsed
             : Visibility.Visible;
-        QueueMenuItem.Visibility = localAlbumContainer
+        QueueMenuItem.Visibility = radioSession
+            || localAlbumContainer
             || playlistContainer
             || (folderNavigationRow && membershipItems.Count == 0)
             ? Visibility.Collapsed
@@ -7436,7 +7527,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         LibraryMenuItem.Visibility = localAlbumContainer || playlistContainer || folderNavigationRow
             ? Visibility.Collapsed
             : Visibility.Visible;
-        PlaylistMembershipMenuItem.Visibility = playlistContainer
+        PlaylistMembershipMenuItem.Visibility = radioSession
+            || playlistContainer
             || localAlbumContainer
             || (folderNavigationRow && membershipItems.Count == 0)
             ? Visibility.Collapsed
@@ -7457,10 +7549,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var localItems = SelectedBookmark is null
             && items.Count > 0
             && items.All(item => TryGetLocalPath(item.Source, out var path) && File.Exists(path));
-        CutFilesMenuItem.Visibility = localItems ? Visibility.Visible : Visibility.Collapsed;
-        PasteFilesMenuItem.Visibility = CanPasteFilesIntoCurrentView()
+        var internalRadioMove = IsInternalRadioFavoriteMoveView();
+        CutFilesMenuItem.Visibility = localItems || internalRadioMove ? Visibility.Visible : Visibility.Collapsed;
+        PasteFilesMenuItem.Visibility = CanPasteFilesIntoCurrentView() || internalRadioMove
             ? Visibility.Visible
             : Visibility.Collapsed;
+        if (internalRadioMove)
+        {
+            SetContextMenuItemPresentation(CutFilesMenuItem, "Zaznacz do przeniesienia", "Ctrl+X");
+            SetContextMenuItemPresentation(PasteFilesMenuItem, "Przenieś przed wybraną stację", "Ctrl+V");
+            PasteFilesMenuItem.IsEnabled = _pendingInternalListMove is not null;
+        }
+        else
+        {
+            SetContextMenuItemPresentation(CutFilesMenuItem, "Wytnij pliki do przeniesienia", "Ctrl+X");
+            SetContextMenuItemPresentation(PasteFilesMenuItem, "Wklej pliki ze schowka", "Ctrl+V");
+            PasteFilesMenuItem.IsEnabled = true;
+        }
         var localItem = localItems && actionItem is not null;
         var localRenameItem = SelectedBookmark is null
             && items.Count == 1
@@ -7544,6 +7649,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : "Dodaj do kolejki";
         SetContextMenuItemPresentation(PlayerQueueMenuItem, queueLabel, "Shift+Enter");
         var radioSession = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
+        PlayerPlayNextMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
+        PlayerQueueMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
+        PlayerPlaylistMembershipMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
         PlayerRadioRecordingMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
         PlayerAddBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
         PlayerAddNamedBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
@@ -7776,6 +7884,90 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string Title,
         string? LocalPath,
         string? ShareableLocation);
+
+    private bool IsInternalRadioFavoriteMoveView() =>
+        !_playerViewActive
+        && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+        && string.Equals(_currentView, "Ulubione", StringComparison.Ordinal);
+
+    private bool TryStartInternalListMove()
+    {
+        if (!IsInternalRadioFavoriteMoveView()) return false;
+        if (!string.IsNullOrWhiteSpace(FilterBox.Text))
+        {
+            Announce("Wyczyść filtr klawiszem Escape przed przenoszeniem stacji");
+            return true;
+        }
+
+        var itemIds = MediaList.SelectedItems
+            .OfType<MediaItemRow>()
+            .Where(row => row.Bookmark is null && row.PlaylistId is null)
+            .Select(row => row.ActionItem.Id)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (itemIds.Length == 0)
+        {
+            Announce("Wybierz stację do przeniesienia");
+            return true;
+        }
+
+        _pendingInternalListMove = new PendingInternalListMove(
+            _sessions.Current.Id,
+            _currentView,
+            itemIds);
+        Announce(itemIds.Length == 1
+            ? "Zaznaczono stację do przeniesienia. Wybierz miejsce i naciśnij Ctrl+V"
+            : $"Zaznaczono do przeniesienia: {itemIds.Length} stacji. Wybierz miejsce i naciśnij Ctrl+V");
+        return true;
+    }
+
+    private bool TryPasteInternalListMove()
+    {
+        if (!IsInternalRadioFavoriteMoveView()) return false;
+        if (!string.IsNullOrWhiteSpace(FilterBox.Text))
+        {
+            Announce("Wyczyść filtr klawiszem Escape przed przenoszeniem stacji");
+            return true;
+        }
+        if (_pendingInternalListMove is not { } pending
+            || !string.Equals(pending.SessionId, _sessions.Current.Id, StringComparison.Ordinal)
+            || !string.Equals(pending.ViewName, _currentView, StringComparison.Ordinal))
+        {
+            Announce("Najpierw zaznacz stację lub grupę skrótem Ctrl+X");
+            return true;
+        }
+        if (SelectedItem is not { } target)
+        {
+            Announce("Wybierz stację, przed którą chcesz przenieść zaznaczenie");
+            return true;
+        }
+
+        var order = EnsureFavoriteOrder(_sessions.Current);
+        var result = LocalLibraryManualOrder.PlaceItemsBefore(order, pending.ItemIds, target.Id);
+        if (result != ManualOrderPlacementResult.Moved)
+        {
+            Announce(result switch
+            {
+                ManualOrderPlacementResult.TargetInSelection =>
+                    "Wybierz inną stację jako miejsce docelowe",
+                ManualOrderPlacementResult.Unchanged =>
+                    "Stacje są już w tym miejscu",
+                _ => "Nie można przenieść zaznaczonych stacji"
+            });
+            return true;
+        }
+
+        _pendingInternalListMove = null;
+        CaptureRadioState();
+        _store.Save(_state);
+        RefreshCurrentView(preferredItemId: pending.ItemIds[0]);
+        SelectMediaItems(pending.ItemIds);
+        PrepareSelectedItemFocusContext(pending.ItemIds.Count == 1
+            ? $"Przeniesiono przed {target.Title}"
+            : $"Przeniesiono {pending.ItemIds.Count} stacji przed {target.Title}");
+        RestoreMediaListFocusAfterRefresh();
+        return true;
+    }
 
     private bool CanPasteFilesIntoCurrentView() =>
         !_playerViewActive
