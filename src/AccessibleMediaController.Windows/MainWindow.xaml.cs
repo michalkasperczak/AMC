@@ -7564,8 +7564,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (items.Count == 0) return string.Empty;
         _pendingExternalMoves.Clear();
-        var localPaths = items
-            .Select(item => TryGetLocalPath(item.Source, out var path) ? path : null)
+        var entries = items
+            .Select(item =>
+            {
+                var localPath = TryGetLocalPath(item.Source, out var path) ? path : null;
+                return new ClipboardMediaEntry(
+                    item.Title,
+                    localPath,
+                    localPath is null ? GetShareableLocation(item, sessionId) : null);
+            })
+            .ToArray();
+        var localPaths = entries
+            .Select(entry => entry.LocalPath)
             .Where(path => path is not null)
             .Select(path => path!)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -7583,12 +7593,33 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : $"Skopiowano pliki i pełne ścieżki: {FormatFileCount(localPaths.Length)}";
         }
 
-        var item = items[0];
-        var publicUri = string.IsNullOrWhiteSpace(item.PublicUri)
-            ? $"demo://{sessionId}/{item.Id}"
-            : item.PublicUri;
-        if (!ClipboardRetry.TrySetText(publicUri, out var uriClipboardError)) return uriClipboardError;
-        return "Skopiowano łącze do elementu";
+        var text = string.Join(
+            Environment.NewLine,
+            entries.SelectMany(entry => entry.LocalPath is not null
+                ? [entry.LocalPath]
+                : new[] { entry.Title, entry.ShareableLocation! }));
+        if (localPaths.Length > 0)
+        {
+            var fileDropList = new StringCollection();
+            fileDropList.AddRange(localPaths);
+            var data = new System.Windows.DataObject();
+            data.SetData(DataFormats.UnicodeText, text);
+            data.SetFileDropList(fileDropList);
+            if (!ClipboardRetry.TrySetDataObject(data, out var mixedClipboardError)) return mixedClipboardError;
+        }
+        else if (!ClipboardRetry.TrySetText(text, out var uriClipboardError))
+        {
+            return uriClipboardError;
+        }
+
+        var remoteCount = entries.Length - localPaths.Length;
+        if (localPaths.Length > 0)
+        {
+            return $"Skopiowano pliki: {localPaths.Length}; nazwy i łącza: {remoteCount}";
+        }
+        return remoteCount == 1
+            ? "Skopiowano nazwę i łącze"
+            : $"Skopiowano nazwy i łącza: {remoteCount}";
     }
 
     private string CopySearchResultLocations(IReadOnlyList<SearchWindow.SearchResult> results)
@@ -7601,11 +7632,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     && File.Exists(path)
                         ? path
                         : null;
-                var text = localPath
-                    ?? (string.IsNullOrWhiteSpace(result.Item.PublicUri)
-                        ? $"demo://{result.SessionId}/{result.Item.Id}"
-                        : result.Item.PublicUri);
-                return (LocalPath: localPath, Text: text);
+                return new ClipboardMediaEntry(
+                    result.Item.Title,
+                    localPath,
+                    localPath is null
+                        ? GetShareableLocation(result.Item, result.SessionId)
+                        : null);
             })
             .ToArray();
         var localPaths = clipboardEntries
@@ -7615,7 +7647,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         var serviceCount = clipboardEntries.Count(entry => entry.LocalPath is null);
-        var text = string.Join(Environment.NewLine, clipboardEntries.Select(entry => entry.Text));
+        var text = string.Join(
+            Environment.NewLine,
+            clipboardEntries.SelectMany(entry => entry.LocalPath is not null
+                ? [entry.LocalPath]
+                : new[] { entry.Title, entry.ShareableLocation! }));
 
         if (localPaths.Length > 0)
         {
@@ -7633,7 +7669,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (localPaths.Length > 0 && serviceCount > 0)
         {
-            return $"Skopiowano pliki: {localPaths.Length}; łącza: {serviceCount}";
+            return $"Skopiowano pliki: {localPaths.Length}; nazwy i łącza: {serviceCount}";
         }
         if (localPaths.Length > 0)
         {
@@ -7642,9 +7678,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : $"Skopiowano pliki i pełne ścieżki: {FormatFileCount(localPaths.Length)}";
         }
         return results.Count == 1
-            ? "Skopiowano łącze do elementu"
-            : $"Skopiowano łącza: {results.Count}";
+            ? "Skopiowano nazwę i łącze"
+            : $"Skopiowano nazwy i łącza: {results.Count}";
     }
+
+    private static string GetShareableLocation(MediaItem item, string sessionId)
+    {
+        if (!string.IsNullOrWhiteSpace(item.PublicUri)) return item.PublicUri;
+        if (Uri.TryCreate(item.Source, UriKind.Absolute, out var sourceUri)
+            && sourceUri.Scheme is "http" or "https")
+        {
+            return sourceUri.AbsoluteUri;
+        }
+        return $"demo://{sessionId}/{item.Id}";
+    }
+
+    private sealed record ClipboardMediaEntry(
+        string Title,
+        string? LocalPath,
+        string? ShareableLocation);
 
     private bool CanPasteFilesIntoCurrentView() =>
         !_playerViewActive

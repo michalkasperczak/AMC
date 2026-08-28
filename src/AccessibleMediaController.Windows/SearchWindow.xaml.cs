@@ -28,6 +28,8 @@ public partial class SearchWindow : Window
     private bool _isApplyingHistory;
     private bool _isBrowsingHistory;
     private int _historyIndex = -1;
+    private int _selectionAnchorIndex = -1;
+    private int _selectionLeadIndex = -1;
 
     public SearchWindow(
         SessionManager sessions,
@@ -157,6 +159,8 @@ public partial class SearchWindow : Window
         }
 
         ResultsList.SelectedIndex = 0;
+        _selectionAnchorIndex = 0;
+        _selectionLeadIndex = 0;
         ResultsList.ScrollIntoView(ResultsList.SelectedItem);
         ResultsList.Focus();
         _ = Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.Loaded);
@@ -167,7 +171,13 @@ public partial class SearchWindow : Window
 
     private void FocusSelectedResult()
     {
-        if (ResultsList.ItemContainerGenerator.ContainerFromItem(ResultsList.SelectedItem) is not System.Windows.Controls.ListBoxItem item)
+        var index = _selectionLeadIndex >= 0
+            && _selectionLeadIndex < ResultsList.Items.Count
+            && ResultsList.SelectedItems.Contains(ResultsList.Items[_selectionLeadIndex])
+                ? _selectionLeadIndex
+                : ResultsList.SelectedIndex;
+        if (index < 0
+            || ResultsList.ItemContainerGenerator.ContainerFromIndex(index) is not System.Windows.Controls.ListBoxItem item)
         {
             ResultsList.Focus();
             return;
@@ -189,11 +199,7 @@ public partial class SearchWindow : Window
         if (action is not (SearchResultAction.Open or SearchResultAction.Playlist))
         {
             var results = action is SearchResultAction.CopyName or SearchResultAction.CopyLocation
-                ? ResultsList.Items
-                    .OfType<SearchResultRow>()
-                    .Where(candidate => ResultsList.SelectedItems.Contains(candidate))
-                    .Select(candidate => new SearchResult(candidate.SessionId, candidate.Item))
-                    .ToArray()
+                ? GetSelectedResults()
                 : [result];
             var visibleResults = ResultsList.Items
                 .OfType<SearchResultRow>()
@@ -211,11 +217,7 @@ public partial class SearchWindow : Window
         }
 
         var selectedResults = action == SearchResultAction.Playlist
-            ? ResultsList.Items
-                .OfType<SearchResultRow>()
-                .Where(candidate => ResultsList.SelectedItems.Contains(candidate))
-                .Select(candidate => new SearchResult(candidate.SessionId, candidate.Item))
-                .ToArray()
+            ? GetSelectedResults()
             : [result];
         if (action == SearchResultAction.Playlist
             && selectedResults.Select(selected => selected.SessionId)
@@ -324,6 +326,20 @@ public partial class SearchWindow : Window
     {
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var modifiers = Keyboard.Modifiers;
+        if (modifiers == ModifierKeys.Shift && key is Key.Up or Key.Down)
+        {
+            ExtendResultSelection(key == Key.Down ? 1 : -1);
+            e.Handled = true;
+            return;
+        }
+        if (modifiers == ModifierKeys.None && key is Key.Up or Key.Down)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                _selectionAnchorIndex = ResultsList.SelectedIndex;
+                _selectionLeadIndex = ResultsList.SelectedIndex;
+            }, DispatcherPriority.ContextIdle);
+        }
         if (modifiers == ModifierKeys.Control && key is Key.X or Key.V)
         {
             SearchStatus.Announce(key == Key.X
@@ -368,6 +384,47 @@ public partial class SearchWindow : Window
         if (action is null) return;
         CompleteSelected(action.Value);
         e.Handled = true;
+    }
+
+    private SearchResult[] GetSelectedResults()
+    {
+        var selected = ResultsList.SelectedItems
+            .OfType<SearchResultRow>()
+            .OrderBy(row => ResultsList.Items.IndexOf(row))
+            .Select(row => new SearchResult(row.SessionId, row.Item))
+            .ToArray();
+        if (selected.Length > 0) return selected;
+        return ResultsList.SelectedItem is SearchResultRow row
+            ? [new SearchResult(row.SessionId, row.Item)]
+            : [];
+    }
+
+    private void ExtendResultSelection(int direction)
+    {
+        if (ResultsList.Items.Count == 0) return;
+        if (_selectionAnchorIndex < 0 || _selectionAnchorIndex >= ResultsList.Items.Count)
+        {
+            _selectionAnchorIndex = Math.Max(0, ResultsList.SelectedIndex);
+        }
+        if (_selectionLeadIndex < 0 || _selectionLeadIndex >= ResultsList.Items.Count)
+        {
+            _selectionLeadIndex = Math.Max(0, ResultsList.SelectedIndex);
+        }
+
+        _selectionLeadIndex = Math.Clamp(
+            _selectionLeadIndex + direction,
+            0,
+            ResultsList.Items.Count - 1);
+        var first = Math.Min(_selectionAnchorIndex, _selectionLeadIndex);
+        var last = Math.Max(_selectionAnchorIndex, _selectionLeadIndex);
+        ResultsList.SelectedItems.Clear();
+        for (var index = first; index <= last; index++)
+        {
+            ResultsList.SelectedItems.Add(ResultsList.Items[index]);
+        }
+
+        ResultsList.ScrollIntoView(ResultsList.Items[_selectionLeadIndex]);
+        Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
     }
 
     private void Search_Click(object sender, RoutedEventArgs e) => RunSearch();

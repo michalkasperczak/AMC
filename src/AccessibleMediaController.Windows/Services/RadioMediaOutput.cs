@@ -145,10 +145,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         try
         {
             var cancellationToken = preparationCancellation.Token;
-            var resolvedSource = await RadioStreamResolver.ResolveAsync(item.Source!, cancellationToken)
+            var openedReader = await OpenFirstWorkingReaderAsync(item.Source!, cancellationToken)
                 .ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-            var openedReader = await OpenReaderAsync(resolvedSource, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             var reader = openedReader.Reader;
             var buffer = new RadioTimeshiftWaveProvider(
@@ -271,11 +269,77 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         {
             DiagnosticLog.Info(
                 "radio",
-                $"Dekoder systemowy odrzucił strumień; próba zgodności ze starszym radiem MP3 ({exception.GetType().Name}).");
-            var legacy = await LegacyIcyMp3StreamReader.OpenAsync(source, cancellationToken)
+                $"Dekoder systemowy odrzucił strumień; rozpoznawanie starszego radia ICY ({exception.GetType().Name}).");
+
+            if (RadioStreamResolver.IsHlsSource(source))
+            {
+                throw new NotSupportedException(
+                    "Strumień HLS wymaga zgodnego wariantu albo dodatkowego komponentu dekodera.",
+                    exception);
+            }
+
+            var legacyAudio = await LegacyIcyAudioStream.OpenAsync(source, cancellationToken)
                 .ConfigureAwait(false);
-            return new OpenedRadioReader(legacy, legacy, "zgodności ICY MP3");
+            if (legacyAudio.IsOgg)
+            {
+                var vorbis = new LiveVorbisWaveProvider(legacyAudio);
+                return new OpenedRadioReader(vorbis, vorbis, "zgodności ICY OGG/Vorbis");
+            }
+            if (legacyAudio.IsAac)
+            {
+                legacyAudio.Dispose();
+                throw new NotSupportedException(
+                    "Starszy strumień ICY AAC wymaga zgodnego wariantu albo dodatkowego komponentu dekodera.");
+            }
+
+            legacyAudio.Dispose();
+            var legacyMp3 = await LegacyIcyMp3StreamReader.OpenAsync(source, cancellationToken)
+                .ConfigureAwait(false);
+            return new OpenedRadioReader(legacyMp3, legacyMp3, "zgodności ICY MP3");
         }
+    }
+
+    private static async Task<OpenedRadioReader> OpenFirstWorkingReaderAsync(
+        string source,
+        CancellationToken cancellationToken)
+    {
+        Exception? lastFailure = null;
+        var candidates = RadioStreamResolver.GetPlaybackCandidates(source);
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var resolved = await RadioStreamResolver.ResolveAsync(candidates[index], cancellationToken)
+                    .ConfigureAwait(false);
+                var reader = await OpenReaderAsync(resolved, cancellationToken).ConfigureAwait(false);
+                if (index > 0 || !string.Equals(candidates[index], source, StringComparison.OrdinalIgnoreCase))
+                {
+                    DiagnosticLog.Info("radio", "Użyto zgodnego wariantu strumienia stacji.");
+                }
+                return reader;
+            }
+            catch (Exception exception) when (exception is IOException
+                or HttpRequestException
+                or TaskCanceledException
+                or InvalidOperationException
+                or InvalidDataException
+                or NotSupportedException
+                or ArgumentException
+                or AuthenticationException
+                or System.Runtime.InteropServices.COMException)
+            {
+                lastFailure = exception;
+                if (index + 1 < candidates.Count)
+                {
+                    DiagnosticLog.Info(
+                        "radio",
+                        $"Wariant strumienia nie zadziałał; próba następnego ({exception.GetType().Name}).");
+                }
+            }
+        }
+
+        throw lastFailure ?? new InvalidDataException("Nie znaleziono obsługiwanego wariantu strumienia.");
     }
 
     private async Task CaptureLoopAsync(RadioPipeline pipeline)

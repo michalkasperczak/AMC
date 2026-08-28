@@ -9,6 +9,19 @@ internal static partial class RadioStreamResolver
     private const int MaximumPlaylistBytes = 1024 * 1024;
     private static readonly HttpClient Client = CreateClient();
 
+    public static IReadOnlyList<string> GetPlaybackCandidates(string source)
+    {
+        if (!Uri.TryCreate(source, UriKind.Absolute, out var uri)) return [source];
+        var compatibility = TryGetCompatibilityMp3(uri);
+        return compatibility is null
+            ? [source]
+            : [compatibility, source];
+    }
+
+    public static bool IsHlsSource(string source) =>
+        Uri.TryCreate(source, UriKind.Absolute, out var uri)
+        && Path.GetExtension(uri.AbsolutePath).Equals(".m3u8", StringComparison.OrdinalIgnoreCase);
+
     public static async Task<string> ResolveAsync(string source, CancellationToken cancellationToken)
     {
         var uri = new Uri(source, UriKind.Absolute);
@@ -67,6 +80,49 @@ internal static partial class RadioStreamResolver
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("AccessibleMultimediaController/0.1");
         return client;
+    }
+
+    private static string? TryGetCompatibilityMp3(Uri uri)
+    {
+        if (uri.Host.Equals("stream3.polskieradio.pl", StringComparison.OrdinalIgnoreCase))
+        {
+            var mp3Port = uri.Port switch
+            {
+                8950 => 8900,
+                8952 => 8902,
+                8956 => 8906,
+                _ => 0
+            };
+            if (mp3Port > 0)
+            {
+                return mp3Port == 8900
+                    ? "http://mp3.polskieradio.pl:8900/;.mp3"
+                    : $"http://stream3.polskieradio.pl:{mp3Port}/;.mp3";
+            }
+        }
+
+        if (uri.Host.EndsWith(".polskieradio.pl", StringComparison.OrdinalIgnoreCase)
+            && uri.AbsolutePath.EndsWith("/playlist.m3u8", StringComparison.OrdinalIgnoreCase))
+        {
+            return uri.Host.ToLowerInvariant() switch
+            {
+                "stream11.polskieradio.pl" => "http://mp3.polskieradio.pl:8900/;.mp3",
+                "stream12.polskieradio.pl" => "http://stream3.polskieradio.pl:8902/;.mp3",
+                "stream14.polskieradio.pl" => "http://stream3.polskieradio.pl:8906/;.mp3",
+                "stream15.polskieradio.pl" => "http://stream3.polskieradio.pl:8080/;.mp3",
+                _ => null
+            };
+        }
+
+        if (uri.Host.Equals("radio.stream.smcdn.pl", StringComparison.OrdinalIgnoreCase)
+            && uri.AbsolutePath.Equals(
+                "/icradio-p/2180-1.aac/playlist.m3u8",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return "http://ic2.smcdn.pl/2180-1.mp3";
+        }
+
+        return null;
     }
 
     [GeneratedRegex("(?im)^File\\d+\\s*=\\s*(.+?)\\s*$")]

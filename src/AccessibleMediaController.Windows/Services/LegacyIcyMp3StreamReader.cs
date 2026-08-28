@@ -3,6 +3,7 @@ using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Text;
+using AccessibleMediaController.Core.LocalMedia;
 using NAudio.Wave;
 using NLayer.NAudioSupport;
 
@@ -16,6 +17,7 @@ namespace AccessibleMediaController.Windows.Services;
 internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
 {
     private const int MaximumHeaderBytes = 32 * 1024;
+    private const int MaximumFrameAlignmentBytes = 8 * 1024;
     private static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(12);
     private readonly TcpClient _client;
     private readonly Stream _transport;
@@ -31,10 +33,10 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
     private LegacyIcyMp3StreamReader(TcpClient client, Stream transport)
     {
         _client = client;
-        _transport = transport;
         try
         {
-            _firstFrame = Mp3Frame.LoadFromStream(transport, true);
+            _transport = AlignToVerifiedFrame(transport);
+            _firstFrame = Mp3Frame.LoadFromStream(_transport, true);
             if (_firstFrame is null)
             {
                 throw new InvalidDataException("Strumień nie zawiera obsługiwanego dźwięku MP3.");
@@ -52,13 +54,33 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
         }
         catch
         {
-            transport.Dispose();
+            try { _transport?.Dispose(); } catch (Exception) { transport.Dispose(); }
             client.Dispose();
             throw;
         }
     }
 
     public WaveFormat WaveFormat { get; }
+
+    private static Stream AlignToVerifiedFrame(Stream transport)
+    {
+        var prefix = new byte[MaximumFrameAlignmentBytes];
+        var count = 0;
+        while (count < prefix.Length)
+        {
+            var read = transport.Read(prefix, count, prefix.Length - count);
+            if (read <= 0) break;
+            count += read;
+        }
+
+        if (Mp3StructureProbe.TryFindConsecutiveFrameOffset(prefix.AsSpan(0, count), out var offset))
+        {
+            return new PrefixReadStream(prefix, offset, count - offset, transport);
+        }
+        transport.Dispose();
+        throw new InvalidDataException(
+            "Nie znaleziono dwóch kolejnych prawidłowych ramek w strumieniu MP3.");
+    }
 
     public static async Task<LegacyIcyMp3StreamReader> OpenAsync(
         string source,
@@ -350,6 +372,70 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
             var value = inner.ReadByte();
             if (value >= 0) _position++;
             return value;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) inner.Dispose();
+            base.Dispose(disposing);
+        }
+
+        public override void Flush() => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private sealed class PrefixReadStream(
+        byte[] prefix,
+        int prefixOffset,
+        int prefixCount,
+        Stream inner) : Stream
+    {
+        private int _prefixOffset = prefixOffset;
+        private int _prefixRemaining = prefixCount;
+        private long _position;
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => _position;
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_prefixRemaining > 0)
+            {
+                var copied = Math.Min(count, _prefixRemaining);
+                Buffer.BlockCopy(prefix, _prefixOffset, buffer, offset, copied);
+                _prefixOffset += copied;
+                _prefixRemaining -= copied;
+                _position += copied;
+                return copied;
+            }
+            var read = inner.Read(buffer, offset, count);
+            _position += read;
+            return read;
+        }
+
+        public override int Read(Span<byte> buffer)
+        {
+            if (_prefixRemaining > 0)
+            {
+                var copied = Math.Min(buffer.Length, _prefixRemaining);
+                prefix.AsSpan(_prefixOffset, copied).CopyTo(buffer);
+                _prefixOffset += copied;
+                _prefixRemaining -= copied;
+                _position += copied;
+                return copied;
+            }
+            var read = inner.Read(buffer);
+            _position += read;
+            return read;
         }
 
         protected override void Dispose(bool disposing)

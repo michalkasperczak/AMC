@@ -53,6 +53,7 @@ try
     TestRadioBrowserSearchMapping();
     TestRadioPlaylistImport();
     TestLegacyRadioContentTypes();
+    TestRadioCompatibilityCandidates();
     TestRadioMp3Recording();
     TestLegacyIcyMp3Stream();
     TestLegacyIcyCancellation();
@@ -388,6 +389,9 @@ static void TestLegacyIcyMp3Stream()
             recorder.Stop();
         }
         mp3 = File.ReadAllBytes(mp3Path);
+        Assert(
+            AccessibleMediaController.Core.LocalMedia.Mp3StructureProbe.TryFindConsecutiveFrameOffset(mp3, out _),
+            "Testowy plik MP3 nie zawiera dwóch rozpoznanych ramek.");
     }
     finally
     {
@@ -492,12 +496,72 @@ static void TestLegacyIcyCancellation()
 
 static void TestLiveLegacyRadio(string source)
 {
-    using var reader = LegacyIcyMp3StreamReader.OpenAsync(source, CancellationToken.None)
+    using var legacyStream = LegacyIcyAudioStream.OpenAsync(source, CancellationToken.None)
         .GetAwaiter()
         .GetResult();
-    var buffer = new byte[Math.Max(16_384, reader.WaveFormat.AverageBytesPerSecond / 10)];
-    Assert(reader.Read(buffer, 0, buffer.Length) > 0, "Internetowy strumień ICY nie zwrócił dźwięku.");
-    Console.WriteLine($"OK: internetowy strumień ICY MP3, {reader.WaveFormat}");
+    IWaveProvider reader;
+    IDisposable readerLifetime;
+    string decoder;
+    if (legacyStream.IsOgg)
+    {
+        var vorbis = new LiveVorbisWaveProvider(legacyStream);
+        reader = vorbis;
+        readerLifetime = vorbis;
+        decoder = "OGG/Vorbis";
+    }
+    else if (legacyStream.IsAac)
+    {
+        throw new NotSupportedException("Testowany starszy strumień AAC wymaga zgodnego wariantu MP3.");
+    }
+    else
+    {
+        legacyStream.Dispose();
+        var mp3 = LegacyIcyMp3StreamReader.OpenAsync(source, CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+        reader = mp3;
+        readerLifetime = mp3;
+        decoder = "MP3";
+    }
+
+    using (readerLifetime)
+    {
+        var buffer = new byte[Math.Max(16_384, reader.WaveFormat.AverageBytesPerSecond / 10)];
+        Assert(reader.Read(buffer, 0, buffer.Length) > 0, "Internetowy strumień ICY nie zwrócił dźwięku.");
+        Console.WriteLine($"OK: internetowy strumień ICY {decoder}, {reader.WaveFormat}");
+    }
+}
+
+static void TestRadioCompatibilityCandidates()
+{
+    var programOne = RadioStreamResolver.GetPlaybackCandidates(
+        "http://stream3.polskieradio.pl:8950/;.mp3");
+    Assert(
+        programOne.Count == 2 && programOne[0] == "http://mp3.polskieradio.pl:8900/;.mp3",
+        "Nie wybrano zgodnego MP3 dla Programu 1.");
+
+    var programTwo = RadioStreamResolver.GetPlaybackCandidates(
+        "http://stream3.polskieradio.pl:8952/;.mp3");
+    Assert(
+        programTwo.Count == 2 && programTwo[0].Contains(":8902/", StringComparison.Ordinal),
+        "Nie wybrano zgodnego MP3 dla Programu 2.");
+
+    var hlsProgramFour = RadioStreamResolver.GetPlaybackCandidates(
+        "https://stream14.polskieradio.pl/pr4/pr4.sdp/playlist.m3u8");
+    Assert(
+        hlsProgramFour.Count == 2 && hlsProgramFour[0].Contains(":8906/", StringComparison.Ordinal),
+        "Nie wybrano zgodnego MP3 dla HLS Programu 4.");
+
+    var eska = RadioStreamResolver.GetPlaybackCandidates(
+        "https://radio.stream.smcdn.pl/icradio-p/2180-1.aac/playlist.m3u8");
+    Assert(
+        eska.Count == 2 && eska[0] == "http://ic2.smcdn.pl/2180-1.mp3",
+        "Nie wybrano zgodnego MP3 dla nieaktualnego wpisu Eski.");
+
+    var unrelated = "https://radio.example/live.mp3";
+    var unchanged = RadioStreamResolver.GetPlaybackCandidates(unrelated);
+    Assert(unchanged.Count == 1 && unchanged[0] == unrelated, "Zmieniono nieznany adres stacji.");
+    Console.WriteLine("OK: bezpieczne warianty zgodności znanych stacji");
 }
 
 static void TestCompleteOutputChainMonitor()

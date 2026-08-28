@@ -14,6 +14,10 @@ Od `alpha.117` starsze serwery Shoutcast i Icecast zwracające odpowiedź `ICY 2
 
 Od `alpha.118` menu **Plik** odpowiada bieżącej sesji. W **Plikach lokalnych** pokazuje otwieranie plików, folderów i Foldery Biblioteki, a w **Radiu internetowym** — **Importuj stacje z playlisty…** oraz **Dodaj stację radiową…**. `Ctrl+O` otwiera pliki w sesji lokalnej, lecz w Radiu importuje wiele stacji z lokalnego M3U/M3U8, PLS, XSPF albo eksportu VRadio JSON. Import odrzuca wpisy niebędące prawidłowymi adresami HTTP/HTTPS, duplikaty i nadmiernie duże pola, a do logu zapisuje tylko liczby — nie treść wadliwych wpisów. Szybkie przełączenie stacji anuluje poprzednią próbę połączenia. Awaryjny dekoder ICY MP3 sprawdza MIME i nie próbuje już odtwarzać AAC/AAC+ lub OGG jako fałszywego MP3.
 
+Od `alpha.119` bezpośrednie transmisje OGG/Vorbis, w tym Radio Emaus, mają osobny sekwencyjny dekoder radiowy. Starszy strumień ICY MP3 jest wyrównywany dopiero do dwóch kolejnych zgodnych ramek, dzięki czemu przypadkowe dane ze środka pierwszej ramki nie są uznawane za początek dźwięku. Dla znanych starych adresów AAC/HLS Programu 1, Programu 2, Czwórki i PR24 oraz nieaktualnego wpisu Eski AMC najpierw próbuje zgodnego wariantu MP3; testy sieciowe obejmują Program 2, Czwórkę, PR24, Eskę i Radio Emaus. Nieznane HLS i ICY AAC bez zgodnego wariantu nadal kończą się kontrolowanym komunikatem i wymagają planowanego dodatkowego komponentu dekodera — nie są zgadywane ani otwierane ścieżką, która mogłaby zawiesić aplikację.
+
+Ta sama wersja utrwala wielokrotne zaznaczanie wyników wyszukiwania: `Shift+strzałka w górę/dół` jawnie rozszerza albo zmniejsza ciągłe zaznaczenie, a fokus pozostaje na ruchomym końcu zakresu. `Ctrl+C` kopiuje wszystkie zaznaczone nazwy w kolejności listy. `Ctrl+Shift+C` dla plików zachowuje pełne ścieżki i `FileDrop`, natomiast dla radia i innych usług kopiuje powtarzane pary **nazwa, publiczne łącze**; zaznaczenie wielu stacji daje więc nazwę i adres każdej z nich, a nie tylko pierwszego wyniku.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

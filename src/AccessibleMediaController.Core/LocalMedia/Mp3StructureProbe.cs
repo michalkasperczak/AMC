@@ -154,6 +154,40 @@ public static class Mp3StructureProbe
             warning ?? $"Nie znaleziono dwóch kolejnych ramek MP3 w pierwszych {bytesRead} bajtach danych audio.");
     }
 
+    /// <summary>
+    /// Finds a verified MP3 frame boundary in a bounded memory window. Two
+    /// compatible consecutive frames are required, which avoids treating
+    /// arbitrary bytes from the middle of a live stream as an MPEG header.
+    /// </summary>
+    public static bool TryFindConsecutiveFrameOffset(ReadOnlySpan<byte> buffer, out int offset)
+    {
+        for (var index = 0; index <= buffer.Length - 4; index++)
+        {
+            if (!TryParseFrameHeader(buffer.Slice(index, 4), out var first)) continue;
+            if (first.FrameLength > 0)
+            {
+                var nextIndex = index + first.FrameLength;
+                if (nextIndex > buffer.Length - 4) continue;
+                if (!TryParseFrameHeader(buffer.Slice(nextIndex, 4), out var second)) continue;
+                if (!second.IsFreeFormat && AreCompatible(first, second))
+                {
+                    offset = index;
+                    return true;
+                }
+                continue;
+            }
+
+            if (TryVerifyFreeFormatSequence(buffer, index, first, out _))
+            {
+                offset = index;
+                return true;
+            }
+        }
+
+        offset = 0;
+        return false;
+    }
+
     private static int ReadUpTo(Stream stream, Span<byte> buffer)
     {
         var total = 0;
