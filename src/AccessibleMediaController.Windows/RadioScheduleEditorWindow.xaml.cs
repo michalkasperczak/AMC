@@ -34,7 +34,6 @@ public partial class RadioScheduleEditorWindow : Window
             .GroupBy(item => item.Id, StringComparer.Ordinal)
             .Select(group => group.First())
             .Select(item => new StationChoice(item.Id, item.Title, item.Source!))
-            .OrderBy(choice => choice.Label, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
         if (existing is not null && choices.All(choice => choice.Id != existing.StationId))
             choices.Insert(0, new StationChoice(existing.StationId, existing.StationName, existing.StreamUrl));

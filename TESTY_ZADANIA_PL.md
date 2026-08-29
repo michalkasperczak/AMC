@@ -1,12 +1,59 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-143`
-- Tytuł zestawu: Ustawienia nagrywania Radia, foldery, formaty i wybudzanie
-- Wersja programu: `0.1.0-alpha.143`
+- Numer zestawu: `AMC-TEST-144`
+- Tytuł zestawu: Zakres stacji Shift+R i widoczny stan nagrywania
+- Wersja programu: `0.1.0-alpha.144`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.143.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.144.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 144
+
+### AMC-144-01 — Shift+R w bieżącym widoku
+
+Wejdź kolejno do Biblioteki Radia, Ulubionych, Historii oraz otwartej playlisty.
+Na wybranej stacji naciśnij `Shift+R` i poruszaj się po polu Stacja strzałkami.
+
+Oczekiwane: podświetlona stacja jest wybrana od razu. Strzałki pokazują tylko
+stacje z widoku, z którego otwarto edytor, i zachowują jego kolejność. Nie ma
+obcych wyników dawnych wyszukiwań Radio Browser.
+
+### AMC-144-02 — Ręczne nagranie na listach
+
+Otwórz stację, naciśnij `R`, wróć Escapem do listy i przejdź do innego widoku,
+w którym występuje ta sama stacja.
+
+Oczekiwane: odtwarzana stacja jest czytana „Odtwarzany, Nagrywany, nazwa”. Gdy
+nie jest bieżącym elementem, ale nadal jest zapisywana, mówi „Nagrywany, nazwa”.
+Pozostałe stacje nie otrzymują tego stanu.
+
+### AMC-144-03 — Szczegóły ręcznego nagrania
+
+Podczas nagrywania naciśnij `Alt+Enter` na tej stacji w liście i w odtwarzaczu.
+Po zatrzymaniu `R` otwórz informacje ponownie.
+
+Oczekiwane: sekcja Nagrywanie podaje stan, rodzaj ręczny, godzinę rozpoczęcia,
+ręczne zakończenie, format i pełny plik. Po zakończeniu mówi, że stacja nie jest
+nagrywana, a prefiks znika ze wszystkich widoków.
+
+### AMC-144-04 — Nagranie z harmonogramu w tle
+
+Uruchom krótki plan stacji A, słuchając stacji B. Otwórz widok zawierający A i
+jej `Alt+Enter`; potem poczekaj na zakończenie planu.
+
+Oczekiwane: tylko A ma prefiks „Nagrywany”. Informacje podają start, planowane
+zakończenie, format i planowany folder. B pozostaje odtwarzana bez fałszywego
+stanu nagrywania. Po zakończeniu prefiks A znika.
+
+### AMC-144-05 — Pełny menedżer planów
+
+Otwórz `Ctrl+Alt+Shift+R`, dodaj i edytuj plan oraz sprawdź pole Stacja.
+
+Oczekiwane: dostępne są zapisane stacje Biblioteki i stacje istniejących
+planów, lecz nieużywane, ukryte wyniki Radio Browser nie zaśmiecają listy.
+
+## Poprzedni zestaw alpha 143
 
 ## Nowości alpha 143
 

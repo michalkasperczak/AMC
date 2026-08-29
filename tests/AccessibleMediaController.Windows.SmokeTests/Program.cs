@@ -64,6 +64,7 @@ try
     TestWaveMetadataAndDamagedContainers();
     TestLocalVideoAudioExtraction();
     TestRadioBrowserSearchMapping();
+    TestRadioScheduleStationScope();
     TestRadioPlaylistImport();
     TestRadioAudioMetadataValidation();
     TestRadioStreamTitleMetadata();
@@ -455,6 +456,56 @@ static void TestRadioBrowserSearchMapping()
     Assert(!station.IsInLibrary && !station.IsFavorite,
         "Wynik wyszukiwania nie może samoczynnie trafić do Biblioteki lub Ulubionych.");
     Console.WriteLine("OK: wyszukiwanie i mapowanie katalogu Radio Browser");
+}
+
+static void TestRadioScheduleStationScope()
+{
+    var selected = Station("radio:selected", "Ulubiona stacja", "https://example.invalid/selected", favorite: true);
+    var secondVisible = Station("radio:visible", "Druga widoczna", "https://example.invalid/visible");
+    var hiddenCatalog = Station("radio:catalog", "Obcy wynik katalogu", "https://example.invalid/catalog");
+    var library = Station("radio:library", "Stacja Biblioteki", "https://example.invalid/library", library: true);
+    var scheduledOnly = new RadioRecordingScheduleSettings
+    {
+        StationId = "radio:scheduled",
+        StationName = "Stacja istniejącego planu",
+        StreamUrl = "https://example.invalid/scheduled"
+    };
+
+    var direct = RadioScheduleStationSelection.ForCurrentView(
+        [selected, secondVisible],
+        selected);
+    Assert(direct.Select(item => item.Id).SequenceEqual([selected.Id, secondVisible.Id]),
+        "Shift+R nie zachował dokładnego zakresu i kolejności bieżącego widoku.");
+    Assert(direct.All(item => item.Id != hiddenCatalog.Id),
+        "Shift+R wpuścił niewidoczny wynik katalogu Radio Browser.");
+
+    var manager = RadioScheduleStationSelection.ForScheduleManager(
+        [selected, secondVisible, hiddenCatalog, library],
+        [selected],
+        selected,
+        [scheduledOnly]);
+    Assert(manager.Any(item => item.Id == selected.Id), "Menedżer zgubił widoczną stację.");
+    Assert(manager.Any(item => item.Id == library.Id), "Menedżer zgubił stację Biblioteki.");
+    Assert(manager.Any(item => item.Id == scheduledOnly.StationId), "Menedżer zgubił stację istniejącego planu.");
+    Assert(manager.All(item => item.Id != hiddenCatalog.Id),
+        "Menedżer pokazał nieużywany, ukryty wynik katalogu Radio Browser.");
+    Console.WriteLine("OK: Shift+R używa stacji z bieżącego widoku, nie całego katalogu sesji");
+
+    static MediaItem Station(
+        string id,
+        string title,
+        string source,
+        bool favorite = false,
+        bool library = false) => new()
+    {
+        Id = id,
+        Title = title,
+        Kind = MediaItemKind.Station,
+        Source = source,
+        IsFavorite = favorite,
+        IsInLibrary = library,
+        IsAvailable = true
+    };
 }
 
 static void TestRadioPlaylistImport()

@@ -407,6 +407,12 @@ Nagrywanie ręczne i zaplanowane korzysta z tego samego zdekodowanego toru co od
 
 Wybudzanie jest opcjonalne i wymaga, aby AMC pozostawał uruchomiony podczas uśpienia. Ostateczna skuteczność zależy od sprzętu, planu zasilania Windows i ustawień wybudzania, szczególnie na zasilaniu bateryjnym.
 
+## Zakres stacji i stan nagrywania w alpha 144
+
+`Shift+R` otwarty na liście nie korzysta już z całego wewnętrznego katalogu sesji. Pole stacji zawiera wyłącznie stacje z bieżącego widoku — na przykład aktualnych Ulubionych, Historii albo otwartej playlisty — w tej samej kolejności, z podświetloną stacją wybraną na początku. Dawne, niewidoczne wyniki wyszukiwania Radio Browser nie pojawiają się samoczynnie. Pełny menedżer harmonogramu zachowuje dodatkowo stacje Biblioteki i istniejących planów.
+
+Aktywnie zapisywana stacja otrzymuje na każdej liście krótki prefiks **Nagrywany**. Jeżeli jest równocześnie odtwarzana, komunikat zaczyna się od **Odtwarzany, Nagrywany**. `Alt+Enter` zawiera osobną sekcję Nagrywanie: rodzaj ręczny lub planowy, godzinę rozpoczęcia, ręczne albo planowane zakończenie, format i folder lub plik. Dzięki temu zwykła nawigacja pozostaje krótka, a dokładne dane są dostępne na żądanie. `Alt+Shift+Enter` nie został zajęty nową funkcją i zachowuje rolę opcji elementu w usługach, które je udostępniają.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.
