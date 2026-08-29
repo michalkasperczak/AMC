@@ -5,7 +5,8 @@
         xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
         Title="Ustawienia" Width="760" Height="610" MinWidth="660" MinHeight="500"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        ContentRendered="Window_ContentRendered">
+        ContentRendered="Window_ContentRendered"
+        PreviewKeyDown="Window_PreviewKeyDown">
     <DockPanel Margin="12">
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Width="105" Margin="0,0,8,0" Content="_Zapisz" IsDefault="True" Click="Save_Click" />
@@ -26,8 +27,8 @@
                     <Label Target="{Binding ElementName=StartupTargetCombo}">_Wyświetlaj po uruchomieniu:</Label>
                     <ComboBox x:Name="StartupTargetCombo" Margin="0,0,0,12" SelectedIndex="0"
                                automation:AutomationProperties.Name="Wyświetlaj po uruchomieniu">
-                        <ComboBoxItem Tag="MediaList">Multimedia</ComboBoxItem>
-                        <ComboBoxItem Tag="SessionList">Sesje</ComboBoxItem>
+                        <ComboBoxItem Tag="MediaList">Ostatnia używana sesja</ComboBoxItem>
+                        <ComboBoxItem Tag="SessionList">Lista sesji</ComboBoxItem>
                     </ComboBox>
                     <GroupBox Header="Odtwarzanie" Margin="0,2,0,14">
                         <StackPanel Margin="8">
@@ -44,9 +45,16 @@
                             <TextBlock Margin="0,0,0,8" TextWrapping="Wrap"
                                        Text="Kolejność na tej liście określa skróty Ctrl+1–9 oraz przechodzenie przez sesje skrótami Ctrl+Page Up i Ctrl+Page Down." />
                             <ListBox x:Name="SessionOrderList" Height="120" DisplayMemberPath="Label"
+                                     TextSearch.TextPath="DisplayName"
                                      automation:AutomationProperties.Name="Kolejność sesji i skrótów Control od 1 do 9"
                                      automation:AutomationProperties.HelpText="Alt+Strzałka w górę lub w dół zmienia położenie zaznaczonej sesji."
-                                     PreviewKeyDown="SessionOrderList_PreviewKeyDown" />
+                                     PreviewKeyDown="SessionOrderList_PreviewKeyDown">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                            </ListBox>
                             <WrapPanel Margin="0,8,0,0">
                                 <Button MinWidth="105" Margin="0,0,8,8" Content="Przenieś _wyżej" Click="MoveSessionUp_Click" />
                                 <Button MinWidth="105" Margin="0,0,8,8" Content="Przenieś _niżej" Click="MoveSessionDown_Click" />

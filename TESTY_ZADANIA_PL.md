@@ -1,12 +1,46 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-130`
-- Tytuł zestawu: Presety radia, dostępne łącza i parametry strumieni
-- Wersja programu: `0.1.0-alpha.130`
+- Numer zestawu: `AMC-TEST-131`
+- Tytuł zestawu: Kopiowanie presetów, lokalne wideo jako audio i stan sesji
+- Wersja programu: `0.1.0-alpha.131`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.130.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.131.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 131
+
+### AMC-131-01 — Kopiowanie jednego i wielu presetów
+
+Otwórz `Ctrl+P`. Zaznacz Shiftem kilka miejsc, w tym przynajmniej jedno puste, i sprawdź `Ctrl+C` oraz `Ctrl+Shift+C`.
+
+Oczekiwane: pierwsze polecenie kopiuje po jednej nazwie stacji w wierszu. Drugie kopiuje naprzemiennie nazwę i adres. Puste miejsca są pomijane, a zawartość i przypisania presetów nie zmieniają się.
+
+### AMC-131-02 — Plik MP4 odtwarzany jako audio
+
+Przez `Ctrl+O` dodaj MP4 zawierający dźwięk i obraz. Odtwórz go, przewiń, zmień prędkość, sprawdź lewą strzałkę i `Alt+Enter`.
+
+Oczekiwane: nie otwiera się obraz ani dodatkowe okno. Działają zwykłe funkcje odtwarzacza, a właściwości mówią „ścieżka audio z pliku wideo”. Rozmiar całego MP4 nie jest podawany jako bitrate audio.
+
+### AMC-131-03 — Pozostałe kontenery wideo
+
+Jeżeli masz dostępne pliki MOV, M4V, MKV, WebM, AVI, WMV, MPEG albo M2TS ze ścieżką audio, dodaj je pojedynczo lub przez Folder Biblioteki.
+
+Oczekiwane: pliki są indeksowane i AMC próbuje odtworzyć wyłącznie ścieżkę audio. Nieobsługiwany przez Windows kodek kończy się zwykłym komunikatem bez zawieszenia. Program nie obiecuje dźwięku w kontenerze, który nie ma ścieżki audio.
+
+### AMC-131-04 — Ostatnia sesja i jej kolejność
+
+W Ustawieniach wybierz uruchamianie ostatniej używanej sesji. Na liście kolejności sesji przesuń wybraną pozycję przez `Alt+góra/dół`, zapisz, przejdź do Radia i uruchom AMC ponownie. Powtórz z ustawieniem „Lista sesji”.
+
+Oczekiwane: ruch jest oznajmiany wraz z nowym `Ctrl+numer`. Pierwszy tryb wraca bezpośrednio do Radia i zapamiętanego widoku. Drugi otwiera listę sesji z fokusem na Radiu, a nie zawsze na pierwszej pozycji.
+
+### AMC-131-05 — Precyzyjna częstotliwość 357
+
+Na Radiu 357 użyj lewej strzałki i rozpocznij odtwarzanie.
+
+Oczekiwane: bieżący wariant, który dekoder otwiera jako 22050 Hz, jest czytany jako `22,05 kHz`, nie `22,5 kHz` ani `44,1 kHz`. Bitrate pozostaje oddzielną wartością około 128 kb/s.
+
+## Poprzedni zestaw alpha 130
 
 ## Nowości alpha 130
 

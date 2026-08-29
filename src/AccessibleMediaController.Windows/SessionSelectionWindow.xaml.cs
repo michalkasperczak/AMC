@@ -9,14 +9,29 @@ public partial class SessionSelectionWindow : Window
     public SessionSelectionWindow(SessionManager sessions)
     {
         InitializeComponent();
-        SessionList.ItemsSource = sessions.SessionSlots
+        var rows = sessions.SessionSlots
             .OrderBy(pair => pair.Key)
             .Select(pair => new SessionRow(
                 pair.Key,
+                pair.Value,
                 sessions.Sessions.FirstOrDefault(session => session.Id == pair.Value)?.DisplayName ?? "nieprzypisana"))
             .ToList();
-        SessionList.SelectedIndex = 0;
-        Loaded += (_, _) => SessionList.Focus();
+        SessionList.ItemsSource = rows;
+        var currentIndex = rows.FindIndex(row =>
+            string.Equals(row.SessionId, sessions.Current.Id, StringComparison.Ordinal));
+        SessionList.SelectedIndex = currentIndex >= 0 ? currentIndex : 0;
+        Loaded += (_, _) =>
+        {
+            SessionList.UpdateLayout();
+            if (SessionList.ItemContainerGenerator.ContainerFromIndex(SessionList.SelectedIndex)
+                is System.Windows.Controls.ListBoxItem item)
+            {
+                item.Focus();
+                Keyboard.Focus(item);
+                return;
+            }
+            SessionList.Focus();
+        };
     }
 
     public int? SelectedSlot { get; private set; }
@@ -31,7 +46,7 @@ public partial class SessionSelectionWindow : Window
     private void Select_Click(object sender, RoutedEventArgs e) => Select();
     private void SessionList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => Select();
 
-    private sealed record SessionRow(int Slot, string Name)
+    private sealed record SessionRow(int Slot, string SessionId, string Name)
     {
         public string Label => $"{Slot}, {Name}";
         public override string ToString() => Label;

@@ -14,6 +14,12 @@
         </StackPanel>
         <ListBox x:Name="SessionList" DisplayMemberPath="Label" TextSearch.TextPath="Name"
                  automation:AutomationProperties.Name="Sesje"
-                 MouseDoubleClick="SessionList_MouseDoubleClick" />
+                 MouseDoubleClick="SessionList_MouseDoubleClick">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
     </DockPanel>
 </Window>

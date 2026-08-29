@@ -40,6 +40,10 @@ Od `alpha.130` zwykłe Radio ma dwanaście lokalnych presetów AMC: `1–0`, `-`
 
 Ta sama wersja porządkuje `Alt+Enter` w Radiu: nie pokazuje Kolejki ani „Odtwarzaj jako następne”, lecz dane stacji, stan w Bibliotece i Ulubionych, parametry dźwięku oraz łącza. Tekst nadal pozwala nawigować po znakach i słowach, a osobna dostępna lista łączy otwiera Enterem adres strumienia lub stronę stacji w zewnętrznej aplikacji. Lewa strzałka wykonuje ograniczoną próbę ramek MP3/AAC i manifestu HLS; deklarowane pasmo wariantu HLS jest odczytywane bez pomylenia go z bitrate obrazu. Gdy chroniony serwer nie udostępnia parametrów osobnemu zapytaniu, znany profil 357 lub Trójki daje oznaczoną słowem „około” wartość awaryjną zamiast udawać pomiar.
 
+Od `alpha.131` lista presetów ma rozszerzone zaznaczanie. `Ctrl+C` kopiuje nazwy zajętych stacji, a `Ctrl+Shift+C` każdą nazwę wraz z adresem strumienia; puste miejsca są pomijane i żadne kopiowanie nie zmienia przypisań. Lokalne MP4, M4V, MOV, MKV, WebM, AVI, WMV, MPEG, M2TS i inne rozpoznane kontenery wideo trafiają do Biblioteki jak pozostałe multimedia i są odtwarzane wyłącznie jako dźwięk, bez otwierania obrazu. Podstawowy MP4 z AAC jest objęty próbą automatyczną; mniej typowy kodek nadal wymaga obsługi przez Windows Media Foundation. Rozmiar całego pliku wideo nie jest przedstawiany jako bitrate jego ścieżki audio. Wartość 22050 Hz zgłoszona przez dekoder jest czytana precyzyjnie jako `22,05 kHz`.
+
+Ta wersja poprawia również stan startowy: lista sesji ustawia fokus na ostatnio używanej sesji, a ustawienie „Ostatnia używana sesja” otwiera bezpośrednio jej zapamiętany widok. `Alt+strzałka w górę/w dół` działa z fokusem na liście kolejności sesji w Ustawieniach, a jej wiersze mają jawne nazwy dostępnościowe.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

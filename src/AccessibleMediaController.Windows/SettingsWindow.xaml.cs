@@ -390,9 +390,19 @@ public partial class SettingsWindow : Window
             e.Handled = true;
         }
     }
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Handled || !SessionOrderList.IsKeyboardFocusWithin) return;
+        HandleSessionOrderAltArrow(e);
+    }
     private void SessionOrderList_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (Keyboard.Modifiers != ModifierKeys.Alt) return;
+        HandleSessionOrderAltArrow(e);
+    }
+
+    private void HandleSessionOrderAltArrow(KeyEventArgs e)
+    {
+        if (!e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Alt)) return;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (key == Key.Up)
         {

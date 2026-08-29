@@ -181,8 +181,8 @@ static void TestCommandCatalog()
     Equal("Ustawienia: szablony komunikatów", CommandCatalog.GetDisplayName(CommandIds.SettingsMessageTemplates));
     Equal("Ustawienia: komunikat po skoku cyfrą", CommandCatalog.GetDisplayName(CommandIds.SettingsPercentageSeekAnnouncement));
     Equal("Przełącz automatyczne komunikaty odtwarzacza", CommandCatalog.GetDisplayName(CommandIds.SettingsToggleSeekMessages));
-    Equal("Otwórz lokalne pliki audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
-    Equal("Otwórz folder z plikami audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
+    Equal("Otwórz lokalne pliki multimedialne", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
+    Equal("Otwórz folder z plikami multimedialnymi", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Importuj stacje radiowe z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportRadioPlaylist));
     Equal("Pokaż presety radiowe", CommandCatalog.GetDisplayName(CommandIds.ViewRadioPresets));
     Equal("Przypisz bieżącą stację do presetu", CommandCatalog.GetDisplayName(CommandIds.AssignRadioPreset));
@@ -645,6 +645,11 @@ static void TestAudioParametersFormatting()
     };
     Equal("około 322 kb/s, 44,1 kHz", AudioParametersFormatter.Format(estimated, polish));
     Equal("322 kb/s, 44,1 kHz", AudioParametersFormatter.FormatCompact(estimated, polish));
+    Equal(
+        "128 kb/s, 22,05 kHz",
+        AudioParametersFormatter.Format(
+            new MediaItem { BitrateKbps = 128, SampleRateHz = 22_050 },
+            polish));
 
     Equal(
         "96 kHz",
@@ -1428,6 +1433,11 @@ static void TestLocalAudioFileDiscovery()
             !CloudFileAvailability.MayRequireRemoteAccess(lockedPath),
             "Zwykły lokalny plik nie powinien być uznany za chmurowy.");
         True(LocalAudioFileDiscovery.IsAudioFile("nagranie.aiff"), "AIFF powinien być rozpoznawany.");
+        True(LocalAudioFileDiscovery.IsAudioFile("film.mp4"), "MP4 powinien trafić do lokalnych multimediów.");
+        True(LocalAudioFileDiscovery.IsAudioFile("film.mkv"), "MKV powinien trafić do lokalnych multimediów.");
+        True(LocalAudioFileDiscovery.IsAudioFile("film.m2ts"), "M2TS powinien trafić do lokalnych multimediów.");
+        True(LocalAudioFileDiscovery.IsVideoFile("film.mp4"), "MP4 powinien być oznaczony jako kontener wideo.");
+        True(!LocalAudioFileDiscovery.IsVideoFile("nagranie.m4a"), "M4A nie jest kontenerem wideo.");
         True(!LocalAudioFileDiscovery.IsAudioFile("okładka.jpg"), "Obraz nie może trafić na listę audio.");
         Equal(320, LocalAudioFileDiscovery.EstimateBitrateKbps(4_000_000, TimeSpan.FromSeconds(100)));
         True(LocalAudioFileDiscovery.EstimateBitrateKbps(0, TimeSpan.FromSeconds(100)) is null, "Pusty plik nie ma wiarygodnej przepływności.");

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using AccessibleMediaController.Windows.Controls;
+using AccessibleMediaController.Windows.Services;
 
 namespace AccessibleMediaController.Windows;
 
@@ -37,11 +38,73 @@ public partial class RadioPresetsWindow : AccessibleWindow
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (Keyboard.Modifiers == ModifierKeys.None && e.Key is Key.Enter or Key.Space)
+        var modifiers = Keyboard.Modifiers;
+        if (modifiers == ModifierKeys.Control && e.Key == Key.C)
+        {
+            CopySelectedNames();
+            e.Handled = true;
+            return;
+        }
+        if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.C)
+        {
+            CopySelectedNamesAndLinks();
+            e.Handled = true;
+            return;
+        }
+        if (modifiers == ModifierKeys.None && e.Key is Key.Enter or Key.Space)
         {
             ActivateSelected();
             e.Handled = true;
         }
+    }
+
+    private IReadOnlyList<RadioPresetChoice> SelectedOccupiedChoices() =>
+        PresetList.SelectedItems
+            .OfType<RadioPresetChoice>()
+            .Where(choice => choice.StationId is not null)
+            .OrderBy(choice => choice.Slot)
+            .ToArray();
+
+    private void CopySelectedNames()
+    {
+        var choices = SelectedOccupiedChoices();
+        if (choices.Count == 0)
+        {
+            PresetStatus.Announce("Zaznaczenie nie zawiera zajętego presetu");
+            return;
+        }
+        var text = string.Join(Environment.NewLine, choices.Select(choice => choice.StationName));
+        if (!ClipboardRetry.TrySetText(text, out var error))
+        {
+            PresetStatus.Announce(error);
+            return;
+        }
+        PresetStatus.Announce(choices.Count == 1
+            ? "Skopiowano nazwę stacji"
+            : $"Skopiowano nazwy stacji: {choices.Count}");
+    }
+
+    private void CopySelectedNamesAndLinks()
+    {
+        var choices = SelectedOccupiedChoices()
+            .Where(choice => !string.IsNullOrWhiteSpace(choice.ShareableLocation))
+            .ToArray();
+        if (choices.Length == 0)
+        {
+            PresetStatus.Announce("Zaznaczenie nie zawiera zajętego presetu z adresem");
+            return;
+        }
+        var text = string.Join(
+            Environment.NewLine,
+            choices.SelectMany(choice => new[] { choice.StationName!, choice.ShareableLocation! }));
+        if (!ClipboardRetry.TrySetText(text, out var error))
+        {
+            PresetStatus.Announce(error);
+            return;
+        }
+        PresetStatus.Announce(choices.Length == 1
+            ? "Skopiowano nazwę i łącze"
+            : $"Skopiowano nazwy i łącza: {choices.Length}");
     }
 
     private void ActivateSelected()
@@ -64,7 +127,8 @@ public sealed record RadioPresetChoice(
     int Slot,
     string SlotLabel,
     string? StationId,
-    string? StationName)
+    string? StationName,
+    string? ShareableLocation)
 {
     public string Label => StationId is null
         ? $"Preset {SlotLabel} — pusty"

@@ -349,7 +349,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var local = _sessions.FindSession("local");
             if (local is null)
             {
-                Announce("Foldery są dostępne po otwarciu lokalnego folderu z plikami audio");
+                Announce("Foldery są dostępne po otwarciu lokalnego folderu z plikami multimedialnymi");
                 return;
             }
             CaptureCurrentSessionNavigationState();
@@ -933,7 +933,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     slot,
                     RadioPresetSlots.Label(slot),
                     station?.Id,
-                    station?.Title);
+                    station?.Title,
+                    station is null ? null : GetShareableLocation(station, "radio"));
             })
             .ToArray();
     }
@@ -1582,6 +1583,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 technicalLines.Add($"Format: {extension.ToUpperInvariant()}");
             }
+            if (LocalAudioFileDiscovery.IsVideoFile(localPath))
+            {
+                technicalLines.Add("Odtwarzanie: ścieżka audio z pliku wideo");
+            }
             try
             {
                 technicalLines.Add($"Rozmiar: {FormatFileSize(new FileInfo(localPath).Length)}");
@@ -1601,7 +1606,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (item.SampleRateHz is int sampleRate && sampleRate > 0)
         {
-            technicalLines.Add($"Częstotliwość próbkowania: {(sampleRate / 1000d).ToString("0.#", CultureInfo.CurrentCulture)} kHz");
+            technicalLines.Add($"Częstotliwość próbkowania: {(sampleRate / 1000d).ToString("0.##", CultureInfo.CurrentCulture)} kHz");
         }
         if (technicalLines.Count > 1) sections.Add(string.Join(Environment.NewLine, technicalLines));
 
@@ -1732,7 +1737,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 var file = new FileInfo(localPath);
                 if (file.Exists)
                 {
-                    if (item.BitrateKbps is null && item.Duration > TimeSpan.Zero)
+                    if (item.BitrateKbps is null
+                        && item.Duration > TimeSpan.Zero
+                        && !LocalAudioFileDiscovery.IsVideoFile(localPath))
                     {
                         item.BitrateKbps = LocalAudioFileDiscovery.EstimateBitrateKbps(
                             file.Length,
@@ -1924,7 +1931,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "paletę poleceń i wyszukiwanie globalne.\n\n" +
             "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+0 otwiera listę sesji, a kolejność można zmienić w Ustawieniach Ogólnych. " +
             "Ctrl+Page Up i Ctrl+Page Down zmieniają sesję. " +
-            "Ctrl+O dodaje lokalne pliki audio, a Ctrl+Shift+O dodaje do Biblioteki synchronizowany folder wraz z podfolderami. " +
+            "Ctrl+O dodaje lokalne pliki multimedialne, a Ctrl+Shift+O dodaje do Biblioteki synchronizowany folder wraz z podfolderami. Pliki wideo są odtwarzane jako dźwięk bez otwierania obrazu. " +
             "W lokalnej Bibliotece Alt+1 pokazuje Foldery, Alt+2 Wszystkie pliki alfabetycznie, a Alt+3 Kolejność własną. W Kolejności własnej Alt+strzałka w górę lub w dół przenosi jeden element albo ciągły zaznaczony blok; aktywny filtr trzeba wcześniej wyczyścić. F5 odświeża Foldery Biblioteki, a Ctrl+F5 otwiera ich ustawienia. Enter wchodzi do folderu, a Backspace wraca o poziom wyżej. Na wierszu folderu Shift+Enter, Ctrl+Shift+Enter, Ctrl+Shift+U i Ctrl+Shift+P działają rekurencyjnie na jego zaindeksowanych plikach, nigdy na samym technicznym kontenerze. Żadne z tych poleceń nie uruchamia dźwięku automatycznie. " +
             "Ctrl+Shift+A otwiera Albumy; lokalnie numerowane pliki w folderze mogą utworzyć album nawet bez kompletnych tagów. Enter otwiera jego utwory, a Escape wraca do Albumów. Ctrl+U/P/L/Q otwiera odpowiednio: Ulubione, Playlisty, Bibliotekę i Kolejkę, " +
             "Ctrl+H otwiera trwałą Historię odtwarzania, Ctrl+B otwiera globalną listę Zakładek, a Ctrl+Shift+B dodaje nazwaną zakładkę w odtwarzaczu. Ctrl+K filtruje bieżącą listę. Ctrl+F otwiera okno " +
@@ -1992,7 +1999,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Otwórz lokalne pliki audio",
+            Title = "Otwórz lokalne pliki multimedialne",
             Filter = LocalAudioFileDiscovery.DialogFilter,
             Multiselect = true,
             CheckFileExists = true
@@ -2010,7 +2017,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "Otwórz folder z plikami audio",
+            Title = "Otwórz folder z plikami multimedialnymi",
             Multiselect = false
         };
         if (dialog.ShowDialog(this) != true)
@@ -2046,7 +2053,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (fileNames.Count == 0)
         {
-            AnnounceEssential("W folderze nie znaleziono obsługiwanych plików audio");
+            AnnounceEssential("W folderze nie znaleziono obsługiwanych plików multimedialnych");
         }
 
         var sync = LocalLibrarySynchronizer.Synchronize(
@@ -2600,8 +2607,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 HasCustomTitle = saved.HasCustomTitle,
                 Kind = MediaItemKind.Track,
                 Duration = TimeSpan.FromTicks(saved.DurationTicks),
-                BitrateKbps = saved.BitrateKbps,
-                IsBitrateEstimated = saved.IsBitrateEstimated,
+                BitrateKbps = LocalAudioFileDiscovery.IsVideoFile(saved.Path) ? null : saved.BitrateKbps,
+                IsBitrateEstimated = !LocalAudioFileDiscovery.IsVideoFile(saved.Path) && saved.IsBitrateEstimated,
                 SampleRateHz = saved.SampleRateHz,
                 Source = saved.Path,
                 IsFavorite = saved.IsFavorite,
@@ -3251,9 +3258,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             try
             {
-                e.Item.BitrateKbps = LocalAudioFileDiscovery.EstimateBitrateKbps(
-                    new FileInfo(path).Length,
-                    e.Duration);
+                e.Item.BitrateKbps = LocalAudioFileDiscovery.IsVideoFile(path)
+                    ? null
+                    : LocalAudioFileDiscovery.EstimateBitrateKbps(
+                        new FileInfo(path).Length,
+                        e.Duration);
                 e.Item.IsBitrateEstimated = e.Item.BitrateKbps.HasValue;
             }
             catch (IOException)
@@ -3437,7 +3446,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (folderContext.Items.Count == 0)
             {
-                Announce($"Folder {folderContext.FolderLabel} nie zawiera dostępnych plików audio");
+                Announce($"Folder {folderContext.FolderLabel} nie zawiera dostępnych plików multimedialnych");
                 return new CommandExecutionResult(true);
             }
             _actionItemsOverride = folderContext.Items;
@@ -6535,7 +6544,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.O)
         {
             if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)) OpenLocalFolder();
-            else Announce("Otwieranie folderu z plikami audio jest dostępne w sesji Pliki lokalne");
+            else Announce("Otwieranie folderu z plikami multimedialnymi jest dostępne w sesji Pliki lokalne");
             e.Handled = true;
             return;
         }
@@ -8388,7 +8397,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var skippedCount = clipboardFiles.Count - audioPaths.Length;
         if (audioPaths.Length == 0)
         {
-            Announce("Schowek nie zawiera obsługiwanych plików audio");
+            Announce("Schowek nie zawiera obsługiwanych plików multimedialnych");
             return;
         }
 

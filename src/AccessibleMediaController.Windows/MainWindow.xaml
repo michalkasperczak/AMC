@@ -23,12 +23,12 @@
               KeyboardNavigation.IsTabStop="False"
               KeyboardNavigation.TabNavigation="None">
             <MenuItem x:Name="FileMenuItem" Header="_Plik">
-                <MenuItem x:Name="OpenLocalFilesMenuItem" Header="_Otwórz pliki audio…" InputGestureText="Ctrl+O"
-                          automation:AutomationProperties.Name="Otwórz pliki audio, Ctrl+O"
+                <MenuItem x:Name="OpenLocalFilesMenuItem" Header="_Otwórz pliki multimedialne…" InputGestureText="Ctrl+O"
+                          automation:AutomationProperties.Name="Otwórz pliki multimedialne, Ctrl+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+O"
                           Click="OpenLocalFiles_Click" />
-                <MenuItem x:Name="OpenLocalFolderMenuItem" Header="Otwórz _folder z plikami audio…" InputGestureText="Ctrl+Shift+O"
-                          automation:AutomationProperties.Name="Otwórz folder z plikami audio, Ctrl+Shift+O"
+                <MenuItem x:Name="OpenLocalFolderMenuItem" Header="Otwórz _folder z multimediami…" InputGestureText="Ctrl+Shift+O"
+                          automation:AutomationProperties.Name="Otwórz folder z plikami multimedialnymi, Ctrl+Shift+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+O"
                           Click="OpenLocalFolder_Click" />
                 <MenuItem x:Name="ManageLocalSourcesMenuItem" Header="_Foldery Biblioteki…" InputGestureText="Ctrl+F5"

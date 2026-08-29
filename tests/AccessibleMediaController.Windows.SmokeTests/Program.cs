@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Windows.Services;
 using NAudio.Wave;
 using NLayer.NAudioSupport;
@@ -50,6 +51,7 @@ try
     TestGuardRejectsAbsurdDuration();
     TestManagedMp3Fallback();
     TestWaveMetadataAndDamagedContainers();
+    TestLocalVideoAudioExtraction();
     TestRadioBrowserSearchMapping();
     TestRadioPlaylistImport();
     TestRadioAudioMetadataValidation();
@@ -233,6 +235,54 @@ static void TestWaveMetadataAndDamagedContainers()
     finally
     {
         Directory.Delete(directory, true);
+    }
+}
+
+static void TestLocalVideoAudioExtraction()
+{
+    var ffmpeg = FfmpegRadioWaveProvider.FindExecutable();
+    if (ffmpeg is null)
+    {
+        Console.WriteLine("POMINIĘTO: próba lokalnego MP4 wymaga FFmpeg do utworzenia pliku testowego");
+        return;
+    }
+
+    var path = Path.Combine(Path.GetTempPath(), $"amc-video-audio-{Guid.NewGuid():N}.mp4");
+    try
+    {
+        var start = new ProcessStartInfo
+        {
+            FileName = ffmpeg,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardError = true
+        };
+        foreach (var argument in new[]
+        {
+            "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+            "-f", "lavfi", "-i", "color=c=black:s=160x90:d=1",
+            "-f", "lavfi", "-i", "sine=frequency=440:duration=1:sample_rate=48000",
+            "-shortest", "-c:v", "mpeg4", "-c:a", "aac", "-b:a", "128k", path
+        })
+        {
+            start.ArgumentList.Add(argument);
+        }
+        using var process = Process.Start(start)
+            ?? throw new InvalidOperationException("Nie uruchomiono generatora MP4.");
+        var error = process.StandardError.ReadToEnd();
+        process.WaitForExit(15_000);
+        Assert(process.HasExited && process.ExitCode == 0, $"Nie utworzono MP4: {error}");
+        Assert(LocalAudioFileDiscovery.IsAudioFile(path), "MP4 nie trafił do lokalnych multimediów.");
+        Assert(LocalAudioFileDiscovery.IsVideoFile(path), "MP4 nie został rozpoznany jako kontener wideo.");
+        Assert(
+            WindowsMediaOutput.TryReadMetadata(path, out var duration, out var sampleRate),
+            "Nie odczytano ścieżki audio z MP4.");
+        Assert(duration > TimeSpan.Zero && sampleRate == 48_000, "MP4 podał nieprawidłowe parametry audio.");
+        Console.WriteLine("OK: lokalny MP4 jest odtwarzany jako ścieżka audio");
+    }
+    finally
+    {
+        if (File.Exists(path)) File.Delete(path);
     }
 }
 

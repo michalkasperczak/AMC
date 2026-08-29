@@ -21,7 +21,7 @@ public static class AudioParametersFormatter
         if (item.SampleRateHz is int sampleRateHz && sampleRateHz > 0)
         {
             var sampleRateKHz = sampleRateHz / 1000d;
-            parts.Add($"{sampleRateKHz.ToString("0.#", culture)} kHz");
+            parts.Add($"{sampleRateKHz.ToString("0.##", culture)} kHz");
         }
 
         return parts.Count > 0 ? string.Join(", ", parts) : "brak danych audio";
@@ -41,7 +41,7 @@ public static class AudioParametersFormatter
         if (item.SampleRateHz is int sampleRateHz && sampleRateHz > 0)
         {
             var sampleRateKHz = sampleRateHz / 1000d;
-            parts.Add($"{sampleRateKHz.ToString("0.#", culture)} kHz");
+            parts.Add($"{sampleRateKHz.ToString("0.##", culture)} kHz");
         }
 
         return string.Join(", ", parts);

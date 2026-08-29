@@ -22,6 +22,7 @@
             </StackPanel>
         </StackPanel>
         <ListBox x:Name="PresetList"
+                 SelectionMode="Extended"
                  DisplayMemberPath="Label"
                  TextSearch.TextPath="Label"
                  automation:AutomationProperties.Name="Presety radiowe"
