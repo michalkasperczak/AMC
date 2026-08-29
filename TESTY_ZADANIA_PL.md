@@ -1,12 +1,40 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-134`
-- Tytuł zestawu: Dostępny pasek stanu, fokus odtwarzania i wspólne skróty presetów
-- Wersja programu: `0.1.0-alpha.134`
+- Numer zestawu: `AMC-TEST-135`
+- Tytuł zestawu: Playlisty stacji i rozdzielenie presetów
+- Wersja programu: `0.1.0-alpha.135`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.134.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.135.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 135
+
+### AMC-135-01 — Playlisty stacji radiowych
+
+W Radiu naciśnij `Ctrl+P`, utwórz playlistę Insertem, wróć do Biblioteki i zaznacz jedną albo kilka stacji. Naciśnij `Ctrl+Shift+P`, dodaj je do playlisty, ponownie otwórz `Ctrl+P` i wejdź do niej Enterem.
+
+Oczekiwane: Radio korzysta ze zwykłych playlist AMC. Lista zawiera wyłącznie stacje przypisane do tej playlisty. Page Up, Page Down, Delete, ręczna kolejność i ponowne uruchomienie programu zachowują się tak samo jak w innych sesjach. Usunięcie wpisu albo playlisty nie usuwa stacji z Biblioteki.
+
+### AMC-135-02 — Playlisty w wyszukiwaniu i odtwarzaczu
+
+Wyszukaj stacje, zaznacz kilka wyników Shiftem i naciśnij `Ctrl+Shift+P`. Powtórz dla aktualnie odtwarzanej stacji w odtwarzaczu.
+
+Oczekiwane: menedżer playlist przyjmuje zaznaczone stacje z jednej sesji. Po zapisaniu fokus wraca do właściwego okna, a preset nie zostaje zmieniony.
+
+### AMC-135-03 — Presety mają tylko skróty uniwersalne
+
+W Radiu sprawdź kolejno `Ctrl+P`, `Ctrl+Shift+P`, `Ctrl+Alt+P` oraz `Ctrl+Alt+Shift+P`. Powtórz na liście i w odtwarzaczu, a następnie sprawdź menu Widok, menu kontekstowe i paletę poleceń.
+
+Oczekiwane: pierwsze dwa skróty zawsze dotyczą playlist. `Ctrl+Alt+P` otwiera listę presetów, a `Ctrl+Alt+Shift+P` bezpieczny tryb utworzenia lub przypisania presetu. Nazwy dostępnościowe podają dokładnie te same skróty i nie ujawniają nazw technicznych.
+
+### AMC-135-04 — Pasek stanu po zmianie widoków
+
+Przejdź kilka razy między Biblioteką, playlistą, presetami i odtwarzaczem, po czym na każdym z głównych widoków naciśnij `NVDA+End`.
+
+Oczekiwane: pasek pozostaje dostępny i za każdym razem przekazuje jedną aktualną treść. Samo otwieranie playlist lub presetów nie usuwa go ani nie przenosi na niego fokusu.
+
+## Poprzedni zestaw alpha 134
 
 ## Nowości alpha 134
 

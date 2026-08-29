@@ -113,7 +113,7 @@ public partial class RadioPresetsWindow : AccessibleWindow
         if (choice.StationId is null)
         {
             PresetStatus.Announce(
-                $"Preset {choice.SlotLabel} pusty. Ctrl+Shift+P dodaje bieżącą stację");
+                $"Preset {choice.SlotLabel} pusty. Ctrl+Alt+Shift+P dodaje bieżącą stację");
             return;
         }
         SelectedSlot = choice.Slot;

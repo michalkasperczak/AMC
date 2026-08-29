@@ -198,7 +198,6 @@ public partial class SearchWindow : Window
         var result = new SearchResult(row.SessionId, row.Item);
         if (action is SearchResultAction.PlayNext
                 or SearchResultAction.Queue
-                or SearchResultAction.Playlist
             && GetSelectedResults().Any(selected =>
                 string.Equals(selected.SessionId, "radio", StringComparison.OrdinalIgnoreCase)))
         {
@@ -477,7 +476,7 @@ public partial class SearchWindow : Window
         SearchPlayNextMenuItem.Visibility = visibility;
         SearchQueueMenuItem.Visibility = visibility;
         SearchQueueSeparator.Visibility = visibility;
-        SearchPlaylistMenuItem.Visibility = visibility;
+        SearchPlaylistMenuItem.Visibility = Visibility.Visible;
     }
 
     private void ResultsContextMenu_Closed(object sender, RoutedEventArgs e)

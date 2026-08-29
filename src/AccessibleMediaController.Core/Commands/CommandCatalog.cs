@@ -102,7 +102,7 @@ public static class CommandCatalog
             CommandIds.ToggleRadioRecording => "Rozpocznij lub zakończ nagrywanie radia",
             CommandIds.RadioJumpLive => "Radio: wróć na żywo",
             CommandIds.ViewRadioPresets => "Pokaż presety radiowe",
-            CommandIds.AssignRadioPreset => "Przypisz bieżącą stację do presetu",
+            CommandIds.AssignRadioPreset => "Utwórz lub przypisz preset radiowy",
             CommandIds.ViewMixes => "Pokaż miksy",
             CommandIds.ViewHistory => "Pokaż historię odtwarzania",
             CommandIds.ViewBookmarks => "Pokaż zakładki",

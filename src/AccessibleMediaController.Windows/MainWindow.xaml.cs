@@ -215,10 +215,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (navigation.CurrentView is DefaultBrowserView
             or "Radio i rekomendacje"
             or "Kolejka"
-            or "Playlisty"
             or "Albumy"
             or BookmarkViewName
-            || TryGetPlaylistIdFromView(navigation.CurrentView, out _))
+            || TryGetPlaylistIdFromView(navigation.CurrentView, out var playlistId)
+               && new PlaylistIndex(_state.Playlists).Find(playlistId) is not { SessionId: "radio" })
         {
             navigation.CurrentView = "Biblioteka";
         }
@@ -1358,8 +1358,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return commandId is not (CommandIds.AddQueue
             or CommandIds.TogglePlayNext
             or CommandIds.ViewQueue
-            or CommandIds.ViewPlaylists
-            or CommandIds.ManagePlaylists
             or CommandIds.ViewAlbums
             or CommandIds.ViewBookmarks
             or CommandIds.AddBookmark
@@ -2190,31 +2188,33 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
                 || !radio && string.Equals(_currentView, "Kolejka", StringComparison.Ordinal)
                 || local && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
-                || !radio && TryGetPlaylistIdFromView(_currentView, out _));
+                || TryGetPlaylistIdFromView(_currentView, out _));
         MoveItemUpMainMenuItem.Visibility = movableView ? Visibility.Visible : Visibility.Collapsed;
         MoveItemDownMainMenuItem.Visibility = movableView ? Visibility.Visible : Visibility.Collapsed;
 
         PlaylistsViewMenuItem.Visibility = Visibility.Visible;
-        PlaylistsViewMenuItem.Header = radio ? "_Presety…" : "_Playlisty";
-        PlaylistsViewMenuItem.InputGestureText = radio ? "Ctrl+P / Ctrl+Alt+P" : "Ctrl+P";
+        PlaylistsViewMenuItem.Header = "_Playlisty";
+        PlaylistsViewMenuItem.InputGestureText = "Ctrl+P";
         AutomationProperties.SetName(
             PlaylistsViewMenuItem,
-            radio ? "Presety radiowe, Ctrl+P lub Ctrl+Alt+P" : "Playlisty, Ctrl+P");
+            "Playlisty, Ctrl+P");
+        RadioPresetsViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        AutomationProperties.SetName(
+            RadioPresetsViewMenuItem,
+            "Presety radiowe, Ctrl+Alt+P");
         RadioAssignPresetMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
-        RadioAssignPresetMenuItem.InputGestureText = radio
-            ? "Ctrl+Shift+P / Ctrl+Alt+Shift+P"
-            : "Ctrl+Shift+P";
+        RadioAssignPresetMenuItem.InputGestureText = "Ctrl+Alt+Shift+P";
         AutomationProperties.SetName(
             RadioAssignPresetMenuItem,
-            "Przypisz bieżącą stację do presetu, Ctrl+Shift+P lub Ctrl+Alt+Shift+P");
+            "Utwórz lub przypisz preset radiowy, Ctrl+Alt+Shift+P");
         AlbumsViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         QueueViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         BookmarksViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         BrowserPlaylistsButton.Visibility = Visibility.Visible;
-        BrowserPlaylistsButton.Content = radio ? "_Przypisz preset…" : "Zmień _playlisty…";
+        BrowserPlaylistsButton.Content = "Zmień _playlisty…";
         AutomationProperties.SetName(
             BrowserPlaylistsButton,
-            radio ? "Przypisz bieżącą stację do presetu, Ctrl+Shift+P" : "Zmień playlisty");
+            "Zmień przynależność do playlist, Ctrl+Shift+P");
 
         RadioRecordingMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         PlaybackAfterRecordingSeparator.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
@@ -3588,8 +3588,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (commandId is CommandIds.AddQueue
                 or CommandIds.TogglePlayNext
                 or CommandIds.ViewQueue
-                or CommandIds.ViewPlaylists
-                or CommandIds.ManagePlaylists
                 or CommandIds.ViewAlbums)
             {
                 Announce("Ta funkcja nie jest dostępna w Radiu internetowym");
@@ -6920,10 +6918,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 (ModifierKeys.Alt | ModifierKeys.Shift, Key.Enter) => CommandIds.ItemPlaybackOptions,
                 (ModifierKeys.Alt, Key.Enter) => CommandIds.ItemProperties,
                 (ModifierKeys.Control | ModifierKeys.Shift, Key.U) => CommandIds.ToggleFavorite,
-                (ModifierKeys.Control | ModifierKeys.Shift, Key.P) =>
-                    string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-                        ? CommandIds.AssignRadioPreset
-                        : CommandIds.ManagePlaylists,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.P) => CommandIds.ManagePlaylists,
                 (ModifierKeys.Control | ModifierKeys.Shift, Key.Q) => CommandIds.AddQueue,
                 (ModifierKeys.Control | ModifierKeys.Shift, Key.L) => CommandIds.ToggleLibrary,
                 (ModifierKeys.Shift, Key.Enter) => CommandIds.AddQueue,
@@ -6941,10 +6936,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.PageUp) => CommandIds.SessionPrevious,
             (ModifierKeys.Control, Key.PageDown) => CommandIds.SessionNext,
             (ModifierKeys.Control, Key.U) => CommandIds.ViewFavorites,
-            (ModifierKeys.Control, Key.P) =>
-                string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-                    ? CommandIds.ViewRadioPresets
-                    : CommandIds.ViewPlaylists,
+            (ModifierKeys.Control, Key.P) => CommandIds.ViewPlaylists,
             (ModifierKeys.Control, Key.L) => CommandIds.ViewLibrary,
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
             (ModifierKeys.Control, Key.H) => CommandIds.ViewHistory,
@@ -7284,14 +7276,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift, Key.P)
                 when string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal) => CommandIds.AssignRadioPreset,
             (ModifierKeys.Control, Key.U) => CommandIds.ViewFavorites,
-            (ModifierKeys.Control, Key.P) =>
-                string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-                    ? CommandIds.ViewRadioPresets
-                    : CommandIds.ViewPlaylists,
-            (ModifierKeys.Control | ModifierKeys.Shift, Key.P) =>
-                string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-                    ? CommandIds.AssignRadioPreset
-                    : null,
+            (ModifierKeys.Control, Key.P) => CommandIds.ViewPlaylists,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.P) => CommandIds.ManagePlaylists,
             (ModifierKeys.Control, Key.L) => CommandIds.ViewLibrary,
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
             (ModifierKeys.Control, Key.H) => CommandIds.ViewHistory,
@@ -7441,10 +7427,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var commandId = (modifiers, e.Key) switch
         {
             (ModifierKeys.Control | ModifierKeys.Shift, Key.U) => CommandIds.ToggleFavorite,
-            (ModifierKeys.Control | ModifierKeys.Shift, Key.P) =>
-                string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-                    ? CommandIds.AssignRadioPreset
-                    : CommandIds.ManagePlaylists,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.P) => CommandIds.ManagePlaylists,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.Q) => CommandIds.AddQueue,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.L) => CommandIds.ToggleLibrary,
             (ModifierKeys.Shift, Key.Enter) => CommandIds.AddQueue,
@@ -7826,12 +7809,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Favorite_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleFavorite);
     private void Library_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleLibrary);
     private void Playlists_Click(object sender, RoutedEventArgs e)
-    {
-        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
-            ShowRadioPresetAssignment();
-        else
-            ShowPlaylistManager();
-    }
+        => ShowPlaylistManager();
     private void Information_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemProperties);
     private void ItemPlaybackOptions_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemPlaybackOptions);
     private void GoToAlbum_Click(object sender, RoutedEventArgs e) => GoToRelatedAlbum();
@@ -7975,20 +7953,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             || (folderNavigationRow && membershipItems.Count == 0)
             ? Visibility.Collapsed
             : Visibility.Visible;
-        if (radioSession)
-        {
-            SetContextMenuItemPresentation(
-                PlaylistMembershipMenuItem,
-                "Przypisz bieżącą stację do presetu",
-                "Ctrl+Shift+P");
-        }
-        else
-        {
-            SetContextMenuItemPresentation(
-                PlaylistMembershipMenuItem,
-                "Zmień przynależność do playlist",
-                "Ctrl+Shift+P");
-        }
+        SetContextMenuItemPresentation(
+            PlaylistMembershipMenuItem,
+            "Zmień przynależność do playlist",
+            "Ctrl+Shift+P");
+        RadioPresetMembershipMenuItem.Visibility = radioSession
+            && !playlistContainer
+            && !localAlbumContainer
+            && !(folderNavigationRow && membershipItems.Count == 0)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        SetContextMenuItemPresentation(
+            RadioPresetMembershipMenuItem,
+            "Utwórz lub przypisz preset radiowy",
+            "Ctrl+Alt+Shift+P");
         CopyLocationMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
         ItemPlaybackOptionsMenuItem.Visibility = playlistContainer
             || SelectedBookmark is null
@@ -8110,8 +8088,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerPlaylistMembershipMenuItem.Visibility = Visibility.Visible;
         SetContextMenuItemPresentation(
             PlayerPlaylistMembershipMenuItem,
-            radioSession ? "Przypisz bieżącą stację do presetu" : "Zmień przynależność do playlist",
+            "Zmień przynależność do playlist",
             "Ctrl+Shift+P");
+        PlayerRadioPresetMembershipMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
+        SetContextMenuItemPresentation(
+            PlayerRadioPresetMembershipMenuItem,
+            "Utwórz lub przypisz preset radiowy",
+            "Ctrl+Alt+Shift+P");
         PlayerRadioRecordingMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
         PlayerAddBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
         PlayerAddNamedBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
@@ -8647,10 +8630,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void NextSession_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SessionNext);
     private void NowPlayingView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewNowPlaying);
     private void FavoritesView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewFavorites);
-    private void PlaylistsView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(
-        string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-            ? CommandIds.ViewRadioPresets
-            : CommandIds.ViewPlaylists);
+    private void PlaylistsView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewPlaylists);
+    private void RadioPresetsView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewRadioPresets);
     private void RadioAssignPreset_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.AssignRadioPreset);
     private void LibraryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewLibrary);

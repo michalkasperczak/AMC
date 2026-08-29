@@ -185,7 +185,7 @@ static void TestCommandCatalog()
     Equal("Otwórz folder z plikami multimedialnymi", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Importuj stacje radiowe z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportRadioPlaylist));
     Equal("Pokaż presety radiowe", CommandCatalog.GetDisplayName(CommandIds.ViewRadioPresets));
-    Equal("Przypisz bieżącą stację do presetu", CommandCatalog.GetDisplayName(CommandIds.AssignRadioPreset));
+    Equal("Utwórz lub przypisz preset radiowy", CommandCatalog.GetDisplayName(CommandIds.AssignRadioPreset));
     Equal("Biblioteka lokalna: pokaż foldery", CommandCatalog.GetDisplayName(CommandIds.ViewFolders));
     Equal("Biblioteka lokalna: pokaż wszystkie pliki", CommandCatalog.GetDisplayName(CommandIds.ViewAllLocalFiles));
     Equal("Biblioteka lokalna: pokaż kolejność własną", CommandCatalog.GetDisplayName(CommandIds.ViewCustomLocalOrder));
@@ -2171,6 +2171,8 @@ static void TestPlaylists()
         playlists.Rename(first.Id, "Audycje");
         var second = playlists.Create("local", "Muzyka");
         playlists.SetMembership(second.Id, ["track-c"], true);
+        var radioPlaylist = playlists.Create("radio", "Stacje informacyjne");
+        playlists.SetMembership(radioPlaylist.Id, ["station-a", "station-b"], true);
         var duplicateRejected = false;
         try
         {
@@ -2193,11 +2195,21 @@ static void TestPlaylists()
         True(loadedPlaylists[0].ItemIds.SequenceEqual(["track-a", "track-b"]),
             "SQLite powinien zachować kolejność elementów pierwszej playlisty.");
         Equal("track-c", loadedPlaylists[1].ItemIds.Single());
+        var loadedRadioPlaylist = new PlaylistIndex(loaded.Playlists).GetForSession("RADIO").Single();
+        Equal("Stacje informacyjne", loadedRadioPlaylist.Name);
+        True(loadedRadioPlaylist.ItemIds.SequenceEqual(["station-a", "station-b"]),
+            "SQLite powinien zachować playlistę stacji jako osobną kolekcję sesji Radio.");
 
         var clone = new PlaylistIndex(loaded.Playlists).CloneSettings();
         new PlaylistIndex(loaded.Playlists).Remove(loadedPlaylists[0].Id);
-        new PlaylistIndex(loaded.Playlists).ReplaceSession("local", clone.Entries);
+        new PlaylistIndex(loaded.Playlists).ReplaceSession(
+            "local",
+            clone.Entries.Where(entry => string.Equals(
+                entry.SessionId,
+                "local",
+                StringComparison.OrdinalIgnoreCase)));
         Equal(2, new PlaylistIndex(loaded.Playlists).GetForSession("local").Count);
+        Equal(1, new PlaylistIndex(loaded.Playlists).GetForSession("radio").Count);
     }
     finally
     {
@@ -2371,6 +2383,10 @@ static void TestCommandPalette()
     True(!favorites.ToString().Contains("CommandId", StringComparison.Ordinal), "Lista nie może ujawniać technicznych nazw pól obiektu.");
     Equal("Ctrl+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFiles).LocalShortcut);
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
+    Equal("Ctrl+P", entries.Single(entry => entry.CommandId == CommandIds.ViewPlaylists).LocalShortcut);
+    Equal("Ctrl+Shift+P", entries.Single(entry => entry.CommandId == CommandIds.ManagePlaylists).LocalShortcut);
+    Equal("Ctrl+Alt+P (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ViewRadioPresets).LocalShortcut);
+    Equal("Ctrl+Alt+Shift+P (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.AssignRadioPreset).LocalShortcut);
     True(entries.Any(entry => entry.CommandId == CommandIds.ViewFolders), "Paleta powinna zawierać widok folderów.");
     True(entries.Any(entry => entry.CommandId == CommandIds.SettingsSessionOrder), "Paleta powinna zawierać ustawienia kolejności sesji.");
     Equal("Ctrl+H", entries.Single(entry => entry.CommandId == CommandIds.ViewHistory).LocalShortcut);
