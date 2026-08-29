@@ -362,6 +362,12 @@ In **Internet Radio**, `Ctrl+Alt+Shift+R` opens the accessible **Radio recording
 
 A schedule retains the stable station identifier and a safe URL snapshot. Editing a custom station updates linked schedules. Starting AMC inside an active interval records only its remainder; a fully missed one-shot is removed and a recurring plan advances to the next valid day. An unavailable per-entry folder safely falls back to the general recording folder. Active recording prevents idle sleep and the nearest wake-enabled entry owns one Windows wake timer. Wake works while AMC remains running during sleep; closing AMC does not leave a hidden system task behind.
 
+## Discoverable Radio recording and preset 0 in alpha 142
+
+While the AMC window is foreground, `Ctrl+Shift+0` has an additional low-level keyboard path. This lets preset ten work even when NVDA or an add-on does not pass that chord to the normal WPF message queue. Capture is limited to exact `Ctrl+Shift+0` and the active AMC window; `Ctrl+0` still opens the session list, and shortcuts in other applications are unaffected.
+
+In the open Radio player, `R` starts and stops MP3 capture of the station currently being heard. Trying to change stations during this manual recording asks whether to finish and save it; choosing No keeps both the current station and recording unchanged. `Shift+R` on a station in the list or player opens **Timed recording and Radio schedule**. It can start immediately for a chosen duration by default, or the user can turn that option off and set a future time and recurrence. These actions are also exposed in the relevant context menus. `Ctrl+Alt+Shift+R` continues to open the complete schedule list.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

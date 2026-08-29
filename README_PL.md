@@ -391,6 +391,12 @@ W sesji **Radio internetowe** `Ctrl+Alt+Shift+R` otwiera dostępny **Harmonogram
 
 Plan zachowuje stabilny identyfikator stacji i migawkę jej adresu. Zmiana nazwy lub adresu własnej stacji aktualizuje powiązane plany. Gdy AMC uruchomi się wewnątrz trwającego przedziału, zapisuje tylko pozostałą część; całkowicie pominięty termin jednorazowy jest usuwany, a cykliczny przechodzi do następnego właściwego dnia. Niedostępny folder planu powoduje bezpieczny zapis w folderze ogólnym. Aktywne nagranie blokuje automatyczne uśpienie, a najbliższy plan wymagający wybudzenia korzysta z jednego czasomierza Windows. Wybudzenie działa, gdy AMC pozostaje uruchomiony podczas uśpienia; zamknięty program nie pozostawia ukrytego zadania systemowego.
 
+## Dostępne nagrywanie Radia i preset 0 w alpha 142
+
+Gdy okno AMC jest na pierwszym planie, `Ctrl+Shift+0` ma dodatkową, niskopoziomową drogę klawiatury. Dzięki temu dziesiąty preset powinien zadziałać również wtedy, gdy NVDA albo jego dodatek nie przekazuje tej kombinacji do zwykłej kolejki komunikatów WPF. Przechwytywanie dotyczy wyłącznie dokładnego `Ctrl+Shift+0` i aktywnego okna AMC; `Ctrl+0` nadal otwiera listę sesji, a skróty w innych programach nie są przejmowane.
+
+W otwartym odtwarzaczu Radia `R` rozpoczyna i kończy nagrywanie aktualnie słyszanej stacji do MP3. Próba zmiany stacji podczas takiego nagrania pyta, czy zakończyć i zapisać nagranie; odpowiedź „Nie” pozostawia bieżącą stację i nagrywanie bez zmian. `Shift+R` na stacji w liście albo w odtwarzaczu otwiera **Nagrywanie czasowe i harmonogram radia**. Domyślnie można rozpocząć od razu i podać długość, a po wyłączeniu tej opcji ustawić przyszły termin oraz powtarzanie. Polecenia są dostępne również w odpowiednich menu kontekstowych. Pełną listę planów nadal otwiera `Ctrl+Alt+Shift+R`.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

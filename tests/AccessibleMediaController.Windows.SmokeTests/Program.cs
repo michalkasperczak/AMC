@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Windows.Input;
+using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Windows;
@@ -201,6 +202,14 @@ static void TestMainWindowDigitShortcutRouting()
     Assert(
         noShiftLeak.Kind == MainWindowDigitShortcutKind.None,
         "Ctrl+Shift+0 nie może zostać zdegradowany do Ctrl+0.");
+    Assert(
+        GlobalPrefixService.IsFocusedDirectShortcutCandidate(
+            KeyChord.Parse("Ctrl+Shift+0")),
+        "Niskopoziomowa ochrona nie rozpoznaje Ctrl+Shift+0.");
+    Assert(
+        !GlobalPrefixService.IsFocusedDirectShortcutCandidate(
+            KeyChord.Parse("Ctrl+0")),
+        "Niskopoziomowa ochrona nie może przejąć Ctrl+0 przeznaczonego dla listy sesji.");
     Console.WriteLine("OK: Ctrl+0 i Ctrl+Shift+0 mają rozłączne trasy");
 }
 

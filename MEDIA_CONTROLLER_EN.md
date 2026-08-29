@@ -1002,6 +1002,8 @@ Starting with `alpha.141`, Radio has a persistent scheduler opened with `Ctrl+Al
 
 `Ctrl+0` and `Ctrl+Shift+0` are disjoint in the raw keyboard-message router. The former opens the session list; the latter invokes the preset position assigned to key `0`. Missing or transiently lost Shift state must never route the shifted chord to the session list; where presets are unavailable, the shifted chord remains unhandled rather than executing `Ctrl+0`.
 
+Addition in `alpha.142`: the foreground AMC window also captures exact `Ctrl+Shift+0` in its low-level keyboard hook before the chord reaches WPF. This deliberately handles screen-reader add-ons that consume the shortcut; it is not a global preset and does nothing while AMC is in the background. `Ctrl+0` remains exclusively the session list. Manual recording of the current audible station is toggled by `R` only in the Radio player. `Shift+R` on a station opens a direct timed-recording dialog: its default mode begins an independent recording immediately for the requested number of minutes, while turning that mode off exposes a future start and recurrence. Both commands and the schedule manager must appear in the relevant context menus. Changing station during manual recording requires an explicit decision to finish the capture.
+
 Local catalogue and ordering: the Library is neither a playlist nor a mirror of one folder. It is a catalogue of sources with stable identity, path and derived views. Derived orders such as title, artist, album, folder, date added or last played remain deterministic sort modes. Separate Custom order is user metadata and never changes disk-file order. The same keys do not pretend to reorder artist, album or search-result views.
 
 Planned sequence of later stages:

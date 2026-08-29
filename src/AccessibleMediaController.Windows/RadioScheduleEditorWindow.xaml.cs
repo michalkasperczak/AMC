@@ -20,7 +20,9 @@ public partial class RadioScheduleEditorWindow : Window
     public RadioScheduleEditorWindow(
         IReadOnlyCollection<MediaItem> stations,
         RadioRecordingScheduleSettings? existing,
-        string? preferredStationId)
+        string? preferredStationId,
+        DateTime? initialStartUtc = null,
+        bool offerImmediateStart = false)
     {
         InitializeComponent();
         _existing = existing;
@@ -46,7 +48,7 @@ public partial class RadioScheduleEditorWindow : Window
         ];
 
         var initialUtc = existing is null
-            ? DateTime.UtcNow.AddMinutes(5)
+            ? initialStartUtc ?? DateTime.UtcNow.AddMinutes(5)
             : new DateTime(existing.NextStartUtcTicks, DateTimeKind.Utc);
         var zone = RadioScheduleCalculator.ResolveTimeZone(existing?.TimeZoneId);
         var local = TimeZoneInfo.ConvertTimeFromUtc(initialUtc, zone);
@@ -62,6 +64,10 @@ public partial class RadioScheduleEditorWindow : Window
         var stationId = existing?.StationId ?? preferredStationId;
         StationCombo.SelectedItem = _stations.FirstOrDefault(choice => choice.Id == stationId)
             ?? _stations.FirstOrDefault();
+        ImmediateStartCheckBox.Visibility = offerImmediateStart && existing is null
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        ImmediateStartCheckBox.IsChecked = offerImmediateStart && existing is null;
         var selectedDays = (existing?.ActiveDays ?? []).ToHashSet();
         foreach (var box in _dayBoxes)
         {
@@ -76,6 +82,7 @@ public partial class RadioScheduleEditorWindow : Window
             if (todayBox is not null) todayBox.IsChecked = true;
         }
         UpdateDaysEnabled();
+        UpdateStartControlsEnabled();
         Loaded += (_, _) =>
         {
             StationCombo.Focus();
@@ -91,13 +98,19 @@ public partial class RadioScheduleEditorWindow : Window
             ShowError("Wybierz stację do nagrania", StationCombo);
             return;
         }
-        if (!TryParseDate(DateTextBox.Text, out var date))
+        var immediateStart = ImmediateStartCheckBox.Visibility == Visibility.Visible
+            && ImmediateStartCheckBox.IsChecked == true;
+        var date = DateTime.Today;
+        if (!immediateStart && !TryParseDate(DateTextBox.Text, out date))
         {
             ShowError("Wpisz prawidłową datę, na przykład 2026-08-30", DateTextBox);
             return;
         }
-        if (!TimeSpan.TryParseExact(TimeTextBox.Text.Trim(), ["h\\:mm", "hh\\:mm"], CultureInfo.InvariantCulture, out var time)
+        var time = TimeSpan.Zero;
+        if (!immediateStart
+            && (!TimeSpan.TryParseExact(TimeTextBox.Text.Trim(), ["h\\:mm", "hh\\:mm"], CultureInfo.InvariantCulture, out time)
             || time < TimeSpan.Zero || time >= TimeSpan.FromDays(1))
+        )
         {
             ShowError("Wpisz godzinę w formacie godzina dwukropek minuta", TimeTextBox);
             return;
@@ -123,7 +136,9 @@ public partial class RadioScheduleEditorWindow : Window
         }
 
         var timeZoneId = _existing?.TimeZoneId ?? TimeZoneInfo.Local.Id;
-        var startUtc = RadioScheduleCalculator.ConvertLocalToUtc(date.Date + time, timeZoneId);
+        var startUtc = immediateStart
+            ? DateTime.UtcNow
+            : RadioScheduleCalculator.ConvertLocalToUtc(date.Date + time, timeZoneId);
         var schedule = new RadioRecordingScheduleSettings
         {
             Id = _existing?.Id ?? Guid.NewGuid().ToString("N"),
@@ -139,7 +154,7 @@ public partial class RadioScheduleEditorWindow : Window
             WakeComputer = (WakeCombo.SelectedItem as WakeChoice)?.Value,
             Enabled = EnabledCheckBox.IsChecked == true
         };
-        if (startUtc <= DateTime.UtcNow)
+        if (!immediateStart && startUtc <= DateTime.UtcNow)
         {
             if (schedule.Recurrence == RadioScheduleRecurrence.Once)
             {
@@ -185,6 +200,17 @@ public partial class RadioScheduleEditorWindow : Window
     }
 
     private void RecurrenceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateDaysEnabled();
+
+    private void ImmediateStartCheckBox_Changed(object sender, RoutedEventArgs e) => UpdateStartControlsEnabled();
+
+    private void UpdateStartControlsEnabled()
+    {
+        if (DateTextBox is null || TimeTextBox is null) return;
+        var immediate = ImmediateStartCheckBox.Visibility == Visibility.Visible
+            && ImmediateStartCheckBox.IsChecked == true;
+        DateTextBox.IsEnabled = !immediate;
+        TimeTextBox.IsEnabled = !immediate;
+    }
 
     private void UpdateDaysEnabled()
     {

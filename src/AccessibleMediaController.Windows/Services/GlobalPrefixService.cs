@@ -21,6 +21,7 @@ internal sealed class GlobalPrefixService : IDisposable
     private readonly IntPtr _windowHandle;
     private readonly HwndSource _source;
     private readonly Func<KeyChord, bool> _commandHandler;
+    private readonly Func<KeyChord, bool>? _focusedShortcutHandler;
     private readonly Action _prefixActivated;
     private readonly DispatcherTimer _timer;
     private readonly LowLevelKeyboardProc _hookProcedure;
@@ -30,12 +31,17 @@ internal sealed class GlobalPrefixService : IDisposable
     private int _standardTimeout;
     private int _continuationTimeout;
 
-    public GlobalPrefixService(IntPtr windowHandle, Func<KeyChord, bool> commandHandler, Action prefixActivated)
+    public GlobalPrefixService(
+        IntPtr windowHandle,
+        Func<KeyChord, bool> commandHandler,
+        Action prefixActivated,
+        Func<KeyChord, bool>? focusedShortcutHandler = null)
     {
         _windowHandle = windowHandle;
         _source = HwndSource.FromHwnd(windowHandle) ?? throw new InvalidOperationException("Brak źródła okna WPF.");
         _commandHandler = commandHandler;
         _prefixActivated = prefixActivated;
+        _focusedShortcutHandler = focusedShortcutHandler;
         _hookProcedure = KeyboardHookCallback;
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _timer.Tick += (_, _) => DeactivateLayer();
@@ -130,7 +136,18 @@ internal sealed class GlobalPrefixService : IDisposable
         var keyUp = message is WmKeyUp or WmSysKeyUp;
 
         if (keyUp && _suppressedKeys.Remove(data.VirtualKeyCode)) return new IntPtr(1);
-        if (!_layerActive || !keyDown) return CallNextHookEx(_hookHandle, code, wParam, lParam);
+        if (!_layerActive)
+        {
+            if (keyDown
+                && GetForegroundWindow() == _windowHandle
+                && TryHandleFocusedShortcut(data.VirtualKeyCode))
+            {
+                _suppressedKeys.Add(data.VirtualKeyCode);
+                return new IntPtr(1);
+            }
+            return CallNextHookEx(_hookHandle, code, wParam, lParam);
+        }
+        if (!keyDown) return CallNextHookEx(_hookHandle, code, wParam, lParam);
 
         _suppressedKeys.Add(data.VirtualKeyCode);
         if (IsModifier(data.VirtualKeyCode)) return new IntPtr(1);
@@ -161,6 +178,19 @@ internal sealed class GlobalPrefixService : IDisposable
         }
         return new IntPtr(1);
     }
+
+    private bool TryHandleFocusedShortcut(uint virtualKey)
+    {
+        if (_focusedShortcutHandler is null) return false;
+        var keyName = WindowsKeyMap.FromVirtualKey(virtualKey);
+        if (keyName is null) return false;
+        var chord = new KeyChord(keyName, ReadModifiers());
+        return IsFocusedDirectShortcutCandidate(chord) && _focusedShortcutHandler(chord);
+    }
+
+    internal static bool IsFocusedDirectShortcutCandidate(KeyChord chord) =>
+        chord.Modifiers == (KeyModifiers.Ctrl | KeyModifiers.Shift)
+        && string.Equals(chord.Key, "0", StringComparison.Ordinal);
 
     private static KeyModifiers ReadModifiers()
     {
@@ -204,6 +234,9 @@ internal sealed class GlobalPrefixService : IDisposable
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int virtualKey);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
 
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr GetModuleHandle(string? moduleName);

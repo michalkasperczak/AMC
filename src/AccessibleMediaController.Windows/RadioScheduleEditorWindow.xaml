@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
-        Title="Plan nagrywania radia" Width="610" Height="610"
+        Title="Nagrywanie czasowe i harmonogram radia" Width="610" Height="650"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         PreviewKeyDown="Window_PreviewKeyDown">
     <Grid Margin="16">
@@ -23,7 +23,15 @@
                   DisplayMemberPath="Label" TextSearch.TextPath="Label"
                   automation:AutomationProperties.Name="Stacja do nagrania"/>
 
-        <TextBlock Grid.Row="2" Text="Data pierwszego nagrania:" Margin="0,0,0,4"/>
+        <StackPanel Grid.Row="2">
+            <CheckBox x:Name="ImmediateStartCheckBox"
+                      Content="Rozpocznij nagrywanie natychmiast po zapisaniu"
+                      Margin="0,0,0,8" Visibility="Collapsed"
+                      automation:AutomationProperties.Name="Rozpocznij nagrywanie natychmiast po zapisaniu"
+                      Checked="ImmediateStartCheckBox_Changed"
+                      Unchecked="ImmediateStartCheckBox_Changed"/>
+            <TextBlock Text="Data pierwszego nagrania:" Margin="0,0,0,4"/>
+        </StackPanel>
         <TextBox x:Name="DateTextBox" Grid.Row="3" Margin="0,0,0,10"
                  automation:AutomationProperties.Name="Data pierwszego nagrania, rok, miesiąc, dzień"/>
 

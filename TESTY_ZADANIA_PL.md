@@ -1,12 +1,58 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-141`
-- Tytuł zestawu: Rozdzielenie Ctrl+0 i harmonogram nagrywania Radia
-- Wersja programu: `0.1.0-alpha.141`
+- Numer zestawu: `AMC-TEST-142`
+- Tytuł zestawu: Niskopoziomowy preset 0 i widoczne nagrywanie Radia
+- Wersja programu: `0.1.0-alpha.142`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.141.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.142.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 142
+
+### AMC-142-01 — Preset 0 z NVDA
+
+Przy uruchomionym NVDA ustaw preset pod klawiszem `0`. W aktywnym AMC naciśnij
+`Ctrl+0`, wróć Escapem, a następnie naciśnij `Ctrl+Shift+0`. Powtórz próbę na
+liście i w odtwarzaczu. Na koniec przejdź do innej aplikacji i użyj tam tej
+samej kombinacji.
+
+Oczekiwane: `Ctrl+0` otwiera listę sesji, a `Ctrl+Shift+0` uruchamia preset 0 i
+nie milczy. AMC nie przejmuje skrótu, kiedy jego okno nie jest aktywne.
+
+### AMC-142-02 — R nagrywa aktualnie słyszaną stację
+
+Otwórz stację w odtwarzaczu. Sprawdź menu kontekstowe, naciśnij `R`, odczekaj
+kilkanaście sekund i naciśnij `R` ponownie.
+
+Oczekiwane: menu zawiera rozpoczęcie lub zakończenie nagrywania z opisem `R`.
+Program mówi o początku i końcu, a powstały MP3 można odtworzyć.
+
+### AMC-142-03 — Zmiana stacji podczas ręcznego nagrywania
+
+Rozpocznij nagrywanie klawiszem `R`, a następnie spróbuj zmienić stację
+Page Down albo presetem. Najpierw odpowiedz „Nie”, a przy drugiej próbie „Tak”.
+
+Oczekiwane: „Nie” pozostawia bieżącą stację i nagrywanie. „Tak” finalizuje MP3
+i dopiero potem przełącza stację.
+
+### AMC-142-04 — Shift+R rozpoczyna nagranie czasowe
+
+Na stacji w liście naciśnij `Shift+R`. Zostaw zaznaczone rozpoczęcie natychmiast,
+ustaw jedną minutę i zapisz. Podczas nagrania słuchaj innej stacji.
+
+Oczekiwane: nagranie rusza od razu w tle, nie zmienia odsłuchu i po minucie
+powstaje poprawnie zakończony MP3.
+
+### AMC-142-05 — Termin przyszły i menu kontekstowe
+
+Ponownie użyj `Shift+R`, wyłącz rozpoczęcie natychmiast i ustaw przyszły termin.
+Sprawdź też menu kontekstowe stacji oraz odtwarzacza.
+
+Oczekiwane: można zapisać przyszły plan i powtarzanie. Menu listy zawiera
+nagranie czasowe i harmonogram, a menu odtwarzacza dodatkowo nagrywanie `R`.
+
+## Poprzedni zestaw alpha 141
 
 ## Nowości alpha 141
 

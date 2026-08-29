@@ -679,6 +679,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         GetSessionNavigationState(_sessions.Current.Id).PlayerActive = true;
 
+        UpdateFileMenuForCurrentSession();
         UpdatePlayerView(true);
         UpdateWindowTitle();
         _playerUiTimer.Start();
@@ -695,6 +696,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         BrowserHeaderPanel.Visibility = Visibility.Visible;
         BrowserActionPanel.Visibility = Visibility.Visible;
         MediaList.Visibility = Visibility.Visible;
+        UpdateFileMenuForCurrentSession();
         var navigation = GetSessionNavigationState(_sessions.Current.Id);
         navigation.PlayerActive = false;
         _currentView = navigation.CurrentView;
@@ -1292,6 +1294,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var playbackNavigation = GetSessionNavigationState(session.Id);
         playbackNavigation.PlaybackContextView = "Presety";
         playbackNavigation.PlaybackContextItemIds = presetPlayableIds.ToList();
+        if (!ConfirmManualRadioRecordingBeforeTarget(item)) return;
         session.Play(item);
         RecordPlayback(session, item);
         SavePresetState(session.Id);
@@ -2453,7 +2456,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             BrowserPlaylistsButton,
             "Zmień przynależność do playlist, Ctrl+Shift+P");
 
-        RadioRecordingMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        RadioRecordingMenuItem.Visibility = radio && _playerViewActive ? Visibility.Visible : Visibility.Collapsed;
+        RadioRecordingMenuItem.Header = _radioOutput.IsRecording
+            ? "_Zakończ nagrywanie radia"
+            : "_Rozpocznij nagrywanie radia";
+        AutomationProperties.SetName(
+            RadioRecordingMenuItem,
+            $"{(_radioOutput.IsRecording ? "Zakończ" : "Rozpocznij")} nagrywanie radia, R, w odtwarzaczu radia");
+        RadioAddScheduleMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        RadioAddScheduleMenuItem.IsEnabled = radio && RadioScheduleActionStation() is not null;
         RadioSchedulesMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         PlaybackAfterRecordingSeparator.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         PlaybackAddBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
@@ -3134,6 +3145,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         cursor.Index = targetIndex;
         var target = itemsById[cursor.ItemIds[targetIndex]];
+        if (!ConfirmManualRadioRecordingBeforeTarget(target)) return;
         session.Play(target);
         RecordPlayback(session, target, resetHistoryNavigation: false);
         RefreshPlaybackIndicators();
@@ -3295,7 +3307,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             _windowSource = HwndSource.FromHwnd(handle);
             _windowSource?.AddHook(WindowMessageHook);
-            _prefixService = new GlobalPrefixService(handle, HandleGlobalChord, PrefixActivated);
+            _prefixService = new GlobalPrefixService(
+                handle,
+                HandleGlobalChord,
+                PrefixActivated,
+                HandleFocusedDirectShortcut);
             RegisterConfiguredPrefix();
         }
         catch (Exception exception)
@@ -3808,6 +3824,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ToggleRadioRecording();
             return new CommandExecutionResult(true);
         }
+        if (commandId == CommandIds.AddRadioSchedule)
+        {
+            AddRadioScheduleForCurrentContext();
+            return new CommandExecutionResult(true);
+        }
         if (commandId == CommandIds.ManageRadioSchedules)
         {
             ShowRadioSchedules();
@@ -3882,6 +3903,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return new CommandExecutionResult(true);
             }
         }
+        if (!ConfirmManualRadioRecordingBeforeCommand(commandId))
+            return new CommandExecutionResult(true);
         if (commandId is not CommandIds.PreviousBookmark and not CommandIds.NextBookmark)
         {
             _bookmarkNavigationCursor = null;
@@ -4988,6 +5011,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (item.Kind is MediaItemKind.Track or MediaItemKind.Station)
         {
             var session = _sessions.Current;
+            if (!ConfirmManualRadioRecordingBeforeTarget(item)) return;
             var opensFromQueue = string.Equals(_currentView, "Kolejka", StringComparison.Ordinal);
             PreparePlaybackContextForCurrentView(session, item);
             if (session.CurrentItem.Id != item.Id || !session.IsPlaying)
@@ -5079,6 +5103,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var session = _sessions.Current;
         var first = context.Items[0];
         PreparePlaybackContextForCurrentView(session, first);
+        if (!ConfirmManualRadioRecordingBeforeTarget(first)) return;
         session.Play(first);
         RecordPlayback(session, first);
         if (string.Equals(session.Id, "radio", StringComparison.Ordinal)) CaptureRadioState();
@@ -6011,9 +6036,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ToggleRadioRecording()
     {
         if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            || !_playerViewActive
             || !_sessions.Current.HasCurrentItem)
         {
-            Announce("Nagrywanie jest dostępne podczas odtwarzania radia internetowego");
+            Announce("Nagrywanie klawiszem R jest dostępne w otwartym odtwarzaczu radia. Na liście użyj Shift+R, aby zaplanować nagranie stacji");
             return;
         }
         try
@@ -6021,6 +6047,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (_radioOutput.IsRecording)
             {
                 var savedPath = _radioOutput.StopRecording();
+                UpdateFileMenuForCurrentSession();
                 AnnounceEssential(savedPath is null
                     ? "Nagrywanie nie było uruchomione"
                     : $"Zakończono nagrywanie: {Path.GetFileName(savedPath)}");
@@ -6028,6 +6055,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             var folder = ResolveRadioRecordingsFolder();
             var path = _radioOutput.StartRecording(folder);
+            UpdateFileMenuForCurrentSession();
             AnnounceEssential($"Rozpoczęto nagrywanie: {Path.GetFileName(path)}");
         }
         catch (Exception exception) when (exception is IOException
@@ -6041,6 +6069,53 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             DiagnosticLog.Error("radio-recording", "Nie udało się zmienić stanu nagrywania.", exception);
             AnnounceEssential($"Nie można nagrywać: {exception.Message}");
         }
+    }
+
+    private bool ConfirmManualRadioRecordingBeforeCommand(string commandId)
+    {
+        if (!_radioOutput.IsRecording
+            || !string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            return true;
+        }
+        if (commandId == CommandIds.ActivateSelected)
+            return ActionItem is null || ConfirmManualRadioRecordingBeforeTarget(ActionItem);
+        if (commandId is CommandIds.Previous or CommandIds.Next)
+            return ConfirmManualRadioRecordingBeforeTarget(null);
+        return true;
+    }
+
+    private bool ConfirmManualRadioRecordingBeforeTarget(MediaItem? target)
+    {
+        if (!_radioOutput.IsRecording
+            || !string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            return true;
+        }
+        var current = _sessions.Current.CurrentItem;
+        if (target is not null && string.Equals(target.Id, current.Id, StringComparison.Ordinal))
+            return true;
+
+        var targetText = target is null ? "inną stację" : target.Title;
+        var result = MessageBox.Show(
+            this,
+            $"Trwa nagrywanie stacji {current.Title}. Zmiana na {targetText} zakończy i zapisze bieżące nagranie. Czy zmienić stację?",
+            "Trwa nagrywanie radia",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question,
+            MessageBoxResult.No);
+        if (result != MessageBoxResult.Yes)
+        {
+            Announce("Nagrywanie trwa nadal. Nie zmieniono stacji");
+            return false;
+        }
+
+        var savedPath = _radioOutput.StopRecording();
+        UpdateFileMenuForCurrentSession();
+        AnnounceEssential(savedPath is null
+            ? "Zakończono nagrywanie"
+            : $"Zakończono nagrywanie: {Path.GetFileName(savedPath)}");
+        return true;
     }
 
     private void RadioOutput_RecordingFailed(object? sender, EventArgs e)
@@ -6060,6 +6135,74 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return Path.Combine(music, "AMC — Nagrania radia");
     }
 
+    private IReadOnlyList<MediaItem> AvailableRadioScheduleStations(MediaItem? additionalStation = null)
+    {
+        var stations = _sessions.FindSession("radio")?.Items
+            .Where(item => item.Kind == MediaItemKind.Station
+                && Uri.TryCreate(item.Source, UriKind.Absolute, out var uri)
+                && uri.Scheme is "http" or "https")
+            .GroupBy(item => item.Id, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToList() ?? [];
+        if (additionalStation is { Kind: MediaItemKind.Station }
+            && Uri.TryCreate(additionalStation.Source, UriKind.Absolute, out var additionalUri)
+            && additionalUri.Scheme is "http" or "https"
+            && stations.All(item => item.Id != additionalStation.Id))
+        {
+            stations.Add(additionalStation);
+        }
+        return stations;
+    }
+
+    private MediaItem? RadioScheduleActionStation()
+    {
+        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)) return null;
+        if (_playerViewActive && _sessions.Current.HasCurrentItem)
+            return _sessions.Current.CurrentItem.Kind == MediaItemKind.Station
+                ? _sessions.Current.CurrentItem
+                : null;
+        return ActionItem?.Kind == MediaItemKind.Station ? ActionItem : null;
+    }
+
+    private void AddRadioScheduleForCurrentContext()
+    {
+        var station = RadioScheduleActionStation();
+        if (station is null)
+        {
+            Announce("Wybierz stację radiową albo otwórz ją w odtwarzaczu, a następnie naciśnij Shift+R");
+            return;
+        }
+        var dialog = new RadioScheduleEditorWindow(
+            AvailableRadioScheduleStations(station),
+            existing: null,
+            preferredStationId: station.Id,
+            initialStartUtc: DateTime.UtcNow.AddMinutes(5),
+            offerImmediateStart: true)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true || dialog.ResultSchedule is null)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+        _state.Radio.RecordingSchedules.Add(dialog.ResultSchedule);
+        _state.Radio.RecordingSchedules = _state.Radio.RecordingSchedules
+            .OrderBy(schedule => schedule.NextStartUtcTicks)
+            .ToList();
+        _store.Save(_state);
+        RearmRadioWakeTimer();
+        ProcessDueRadioSchedules();
+        RestoreItemActionFocus();
+        var utc = new DateTime(dialog.ResultSchedule.NextStartUtcTicks, DateTimeKind.Utc);
+        var local = TimeZoneInfo.ConvertTimeFromUtc(
+            utc,
+            RadioScheduleCalculator.ResolveTimeZone(dialog.ResultSchedule.TimeZoneId));
+        Dispatcher.BeginInvoke(
+            () => Announce($"Zaplanowano nagranie: {dialog.ResultSchedule.StationName}, {local:dd.MM.yyyy HH:mm}, {dialog.ResultSchedule.DurationMinutes} min"),
+            DispatcherPriority.ContextIdle);
+    }
+
     private void ShowRadioSchedules()
     {
         if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
@@ -6068,22 +6211,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var stations = _sessions.FindSession("radio")?.Items
-            .Where(item => item.Kind == MediaItemKind.Station
-                && Uri.TryCreate(item.Source, UriKind.Absolute, out var uri)
-                && uri.Scheme is "http" or "https")
-            .GroupBy(item => item.Id, StringComparer.Ordinal)
-            .Select(group => group.First())
-            .ToList() ?? [];
-        if (ActionItem is { Kind: MediaItemKind.Station } selectedStation
-            && Uri.TryCreate(selectedStation.Source, UriKind.Absolute, out var selectedUri)
-            && selectedUri.Scheme is "http" or "https"
-            && stations.All(item => item.Id != selectedStation.Id))
-        {
-            stations.Add(selectedStation);
-        }
-        var preferredStationId = ActionItem?.Kind == MediaItemKind.Station
-            ? ActionItem.Id
+        var selectedStation = RadioScheduleActionStation();
+        var stations = AvailableRadioScheduleStations(selectedStation);
+        var preferredStationId = selectedStation?.Kind == MediaItemKind.Station
+            ? selectedStation.Id
             : _sessions.FindSession("radio")?.HasCurrentItem == true
                 ? _sessions.FindSession("radio")!.CurrentItem.Id
                 : null;
@@ -7489,6 +7620,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool TryResolveKeyboardHelpCommand(Key key, ModifierKeys modifiers, out string commandId)
     {
         if (key == Key.R
+            && modifiers == ModifierKeys.None
+            && _playerViewActive
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            commandId = CommandIds.ToggleRadioRecording;
+            return true;
+        }
+        if (key == Key.R
+            && modifiers == ModifierKeys.Shift
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            commandId = CommandIds.AddRadioSchedule;
+            return true;
+        }
+        if (key == Key.R
             && modifiers == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
         {
             commandId = CommandIds.ManageRadioSchedules;
@@ -7719,6 +7865,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var needsItem = commandId is CommandIds.ActivateSelected or CommandIds.ToggleFavorite
             or CommandIds.ToggleLibrary or CommandIds.AddQueue or CommandIds.TogglePlayNext
             or CommandIds.ItemProperties or CommandIds.ItemPlaybackOptions
+            or CommandIds.AddRadioSchedule
             or CommandIds.AddBookmark or CommandIds.AddNamedBookmark
             or CommandIds.PreviousBookmark or CommandIds.NextBookmark;
         if (needsItem && ActionItem is null) return "brak wybranego lub odtwarzanego elementu";
@@ -7912,6 +8059,36 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return true;
     }
 
+    private bool HandleFocusedDirectShortcut(KeyChord chord)
+    {
+        if (!GlobalPrefixService.IsFocusedDirectShortcutCandidate(chord)) return false;
+        if (string.Equals(
+                chord.Canonical,
+                KeyChord.Parse(_state.Settings.PrefixChord).Canonical,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        if (Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase or PasswordBox)
+            return false;
+
+        Dispatcher.BeginInvoke(
+            () =>
+            {
+                if (_keyboardHelpActive)
+                {
+                    AnnounceEssential($"Ctrl+Shift+0: uruchom preset 0 aktywnej sesji. Kontekst: {KeyboardHelpContext()}");
+                    return;
+                }
+                DiagnosticLog.Info(
+                    "preset",
+                    $"Niskopoziomowy skrót presetu 0; sesja: {_sessions.Current.Id}.");
+                ActivatePreset(10, useDirectShortcutLabel: true);
+            },
+            DispatcherPriority.Input);
+        return true;
+    }
+
     private bool CurrentSessionSupportsPresets() => _sessions.Current is not null;
 
     private static bool TryGetRadioPresetSlot(Key key, out int slot) =>
@@ -7993,6 +8170,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!_playerViewActive || !PlayerPanel.IsKeyboardFocusWithin) return false;
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && Keyboard.Modifiers == ModifierKeys.None
+            && key == Key.R)
+        {
+            ToggleRadioRecording();
+            return true;
+        }
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && Keyboard.Modifiers == ModifierKeys.Shift
+            && key == Key.R)
+        {
+            AddRadioScheduleForCurrentContext();
+            return true;
+        }
         if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt) && key == Key.R)
         {
             ToggleRadioRecording();
@@ -8066,6 +8257,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!_playerViewActive && !MediaList.IsKeyboardFocusWithin) return false;
 
         var modifiers = Keyboard.Modifiers;
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && modifiers == ModifierKeys.Shift
+            && e.Key == Key.R)
+        {
+            AddRadioScheduleForCurrentContext();
+            return true;
+        }
         if (!_playerViewActive
             && (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not null
             && modifiers == ModifierKeys.Alt
@@ -8594,6 +8792,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ImportRadioPlaylist_Click(object sender, RoutedEventArgs e) => ImportRadioPlaylist();
     private void AddRadioStation_Click(object sender, RoutedEventArgs e) => AddRadioStation();
     private void RadioRecording_Click(object sender, RoutedEventArgs e) => ToggleRadioRecording();
+    private void RadioAddSchedule_Click(object sender, RoutedEventArgs e) => AddRadioScheduleForCurrentContext();
     private void RadioSchedules_Click(object sender, RoutedEventArgs e) => ShowRadioSchedules();
     private void Sessions_Click(object sender, RoutedEventArgs e) => ShowSessionList();
     private void MediaContextMenu_Opened(object sender, RoutedEventArgs e)
@@ -8635,6 +8834,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             PlaybackMenuItem,
             playbackLabel,
             localAlbumContainer || playlistContainer || folderNavigationRow ? "Enter" : "Ctrl+Enter");
+        var radioStationSelected = radioSession
+            && actionItem?.Kind == MediaItemKind.Station
+            && !playlistContainer;
+        SelectedRadioAddScheduleMenuItem.Visibility = radioStationSelected
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        SelectedRadioSchedulesMenuItem.Visibility = radioSession
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         PlayPlaylistNowMenuItem.Visibility = playlistContainer ? Visibility.Visible : Visibility.Collapsed;
         PlayPlaylistNowMenuItem.IsEnabled = playlistContext?.Items.Count > 0;
         SetContextMenuItemPresentation(
@@ -8878,6 +9086,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Utwórz lub przypisz preset",
             "Ctrl+Alt+Shift+P");
         PlayerRadioRecordingMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
+        PlayerRadioAddScheduleMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
+        PlayerRadioSchedulesMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
         PlayerAddBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
         PlayerAddNamedBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
         PlayerBookmarksMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
@@ -8886,7 +9096,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             SetContextMenuItemPresentation(
                 PlayerRadioRecordingMenuItem,
                 _radioOutput.IsRecording ? "Zakończ nagrywanie radia" : "Rozpocznij nagrywanie radia",
-                "Ctrl+Alt+R");
+                "R");
         }
         var favoriteLabel = item.IsFavorite
             ? "Usuń z ulubionych"
