@@ -1,12 +1,72 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-139`
-- Tytuł zestawu: Wspólne presety wszystkich sesji
-- Wersja programu: `0.1.0-alpha.139`
+- Numer zestawu: `AMC-TEST-140`
+- Tytuł zestawu: Playlisty jako kontenery i bezpośredni preset 0
+- Wersja programu: `0.1.0-alpha.140`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.139.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.140.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 140
+
+### AMC-140-01 — Bezpośredni preset 0
+
+W Radiu przypisz Radio Emaus do miejsca 10, oznaczonego klawiszem `0`.
+Naciśnij `Ctrl+Shift+0` kolejno w Bibliotece, Ulubionych, playliście oraz
+w otwartym odtwarzaczu.
+
+Oczekiwane: za każdym razem zostaje uruchomione Radio Emaus, program mówi
+„Preset 0” i nazwę stacji, nie milczy i nie przełącza sesji. W innej sesji,
+w której to miejsce jest wolne, program mówi „Preset 0 pusty”.
+
+### AMC-140-02 — Podsumowanie czasu playlisty
+
+Otwórz listę playlist zawierającą „Biskup” oraz co najmniej jedną playlistę
+stacji radiowych.
+
+Oczekiwane: przy „Biskup” po liczbie elementów jest podany łączny czas.
+Jeżeli tylko część plików ma znany czas, program mówi „znany czas” i „część
+bez danych”. Playlista składająca się wyłącznie ze stacji mówi „transmisje na
+żywo” i nie podaje fikcyjnej długości.
+
+### AMC-140-03 — Otwieranie i odtwarzanie całej playlisty
+
+Na nazwie lokalnej playlisty naciśnij Enter, wróć do listy playlist, a następnie
+naciśnij `Ctrl+Enter`.
+
+Oczekiwane: Enter tylko otwiera zawartość. `Ctrl+Enter` odtwarza pierwszy
+dostępny element, a Page Up i Page Down przechodzą po elementach tej playlisty.
+Escape wraca do otwartej zawartości playlisty.
+
+### AMC-140-04 — Działania zbiorcze na nazwie playlisty
+
+Otwórz menu kontekstowe na nazwie playlisty. Sprawdź właściwości `Alt+Enter`,
+dodawanie zawartości do Ulubionych i Biblioteki oraz — w Plikach lokalnych —
+do Kolejki i jako następne.
+
+Oczekiwane: nazwy poleceń jednoznacznie mówią o „zawartości playlisty”.
+Właściwości opisują playlistę, a nie przypadkowy aktualnie odtwarzany plik.
+W Radiu polecenia Kolejki i odtwarzania jako następne są ukryte.
+
+### AMC-140-05 — Widoki lokalne z wnętrza playlisty
+
+Wejdź do lokalnej playlisty i naciśnij kolejno `Alt+1`, `Alt+2` i `Alt+3`.
+
+Oczekiwane: skróty świadomie opuszczają playlistę i otwierają odpowiednio
+Foldery, Wszystkie pliki oraz Kolejność użytkownika w tej samej sesji. W Radiu
+te skróty nadal nie przechodzą do Plików lokalnych.
+
+### AMC-140-06 — Parametry stacji na pasku
+
+Odtwórz Tyflo oraz Radio Białystok i odczytaj pasek przez `NVDA+End`.
+
+Oczekiwane: Tyflo może podać `44,1 kHz` bez bitrate'u, jeżeli wiarygodny bitrate
+nie został rozpoznany. Radio Białystok może podać `160 kb/s, 24 kHz`: pierwsza
+wartość pochodzi z danych katalogu, druga z faktycznego formatu dekodera.
+„Za transmisją” i „bufor” są podawane tylko podczas aktywnego odtwarzania.
+
+## Poprzedni zestaw alpha 139
 
 ## Nowości alpha 139
 

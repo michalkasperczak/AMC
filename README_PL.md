@@ -373,6 +373,16 @@ Docelowy mechanizm powinien:
 - nie zmieniać profili, konfiguracji ani danych logowania;
 - nie kraść fokusu i nie przerywać odtwarzania komunikatami.
 
+## Playlisty i presety w alpha 140
+
+Wiersz playlisty skończonych materiałów podaje liczbę elementów i **łączny czas**. Gdy część czasów nie jest jeszcze znana, etykieta mówi o znanym czasie i brakujących danych. Playlista radia nie udaje materiału o skończonej długości i jest oznaczona jako **transmisje na żywo**.
+
+Enter otwiera zawartość playlisty. `Ctrl+Enter` odtwarza jej pierwszy dostępny element i ustawia całą playlistę jako kontekst Page Up/Page Down. Menu kontekstowe playlisty rozróżnia otwieranie od odtwarzania oraz jawnie nazywa działania zbiorcze na jej zawartości: Kolejkę, „Odtwórz jako następne”, Ulubione i Bibliotekę. W Radiu Kolejka oraz „Odtwórz jako następne” pozostają niedostępne. `Alt+Enter` pokazuje właściwości samej playlisty, a nie przypadkowo bieżącego utworu. W lokalnej sesji `Alt+1/2/3` działa również z wnętrza playlisty i przechodzi odpowiednio do Folderów, Wszystkich plików albo Kolejności własnej.
+
+Bezpośrednie presety `Ctrl+Shift+1–0`, minus i znak równości są przechwytywane na granicy komunikatów Win32. Stan modyfikatorów jest odczytywany bezpośrednio z systemu, co usuwa szczególny przypadek, w którym polski układ klawiatury lub czytnik ekranu mógł zgubić Shift dla klawisza `0`.
+
+Lokalne kontenery wideo, w tym MP4, MKV, WebM, MOV, AVI i MPEG, są już obsługiwane jako źródła dźwięku. Po domknięciu testów playlist i presetów następnym etapem Radia będą dostępne harmonogramy nagrywania: jednorazowe i cykliczne, z długością, folderem docelowym, zapisem MP3, bezpiecznym odzyskiwaniem po opóźnieniu oraz opcjonalnym wybudzaniem komputera. Implementacja wykorzysta sprawdzone zasady FreeRadio, ale pozostanie niezależnym modułem AMC i nie będzie zależeć od uruchomionego NVDA.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

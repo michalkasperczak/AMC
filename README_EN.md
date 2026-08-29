@@ -344,6 +344,16 @@ The planned **Help** menu provides a hierarchical accessible shortcut reference 
 
 The final updater should provide a self-contained per-user installation, update the application and service adapters, verify signatures and SHA-256, install atomically with rollback, preserve configuration and credentials, and avoid stealing focus or interrupting playback.
 
+## Playlists and presets in alpha 140
+
+A finite-media playlist row announces its item count and **total duration**. If only part of the duration is known, the label says so explicitly. A radio playlist never pretends to have a finite duration and is labelled as **live streams**.
+
+Enter opens the playlist. `Ctrl+Enter` plays its first available item and uses the complete playlist as the Page Up/Page Down context. The playlist context menu distinguishes opening from playback and explicitly names bulk operations on its contents: Queue, Play next, Favorites and Library. Queue and Play next remain unavailable in Internet Radio. `Alt+Enter` shows properties of the playlist itself instead of an unrelated current item. In Local Files, `Alt+1/2/3` also works from inside a playlist and switches to Folders, All files or Custom order.
+
+Direct preset keys `Ctrl+Shift+1–0`, minus and equals are handled at the Win32 message boundary. Modifier state is read directly from Windows, fixing the specific case in which a Polish keyboard layout or screen reader could lose Shift for the `0` key.
+
+Local video containers, including MP4, MKV, WebM, MOV, AVI and MPEG, are already supported as audio sources. After playlist and preset tests, the next Radio stage is an accessible recording scheduler: one-off and recurring entries, duration, destination folder, MP3 output, safe late-start recovery and optional computer wake. It will reuse proven FreeRadio behaviour while remaining an independent AMC module that does not require NVDA to be running.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

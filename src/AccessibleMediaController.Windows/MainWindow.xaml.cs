@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -102,6 +103,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IReadOnlyList<string> ItemIds);
 
     private const int WmKeyDown = 0x0100;
+    private const int WmSysKeyDown = 0x0104;
+    private const int VirtualKeyControl = 0x11;
+    private const int VirtualKeyShift = 0x10;
+    private const int VirtualKeyAlt = 0x12;
+    private const int VirtualKeyLeftWindows = 0x5B;
+    private const int VirtualKeyRightWindows = 0x5C;
     private const int VirtualKeyC = 0x43;
     private const int VirtualKeyE = 0x45;
     private const int VirtualKeyG = 0x47;
@@ -4472,11 +4479,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     .Where(item => item is not null)
                     .Select(item => item!)
                     .ToArray();
-                var durationTicks = availableItems.Aggregate(
-                    0L,
-                    (total, item) => item.Duration.Ticks > long.MaxValue - total
-                        ? long.MaxValue
-                        : total + item.Duration.Ticks);
+                var durationTicks = availableItems
+                    .Where(item => item.Kind != MediaItemKind.Station)
+                    .Aggregate(
+                        0L,
+                        (total, item) => item.Duration.Ticks > long.MaxValue - total
+                            ? long.MaxValue
+                            : total + item.Duration.Ticks);
                 var item = new MediaItem
                 {
                     Id = $"playlist:{playlist.Id}",
@@ -4485,13 +4494,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     Duration = TimeSpan.FromTicks(durationTicks),
                     IsInLibrary = true
                 };
-                var availability = availableItems.Length == playlist.ItemIds.Count
-                    ? FormatItemCount(playlist.ItemIds.Count)
-                    : $"dostępne {availableItems.Length} z {playlist.ItemIds.Count}";
-                var duration = durationTicks > 0 ? $", {FormatDurationWords(item.Duration)}" : string.Empty;
                 return new MediaItemRow(
                     item,
-                    $"{playlist.Name}, {availability}{duration}",
+                    PlaylistPresentation.BuildLabel(
+                        playlist.Name,
+                        playlist.ItemIds.Count,
+                        availableItems.Length,
+                        availableItems),
                     playlist.Name,
                     playlistId: playlist.Id);
             })
@@ -5007,6 +5016,88 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         NavigateTo(PlaylistContentsView(playlistId));
         PrepareViewFocusContext($"Playlista, {playlistName}");
+        RestoreMediaListFocusAfterRefresh();
+    }
+
+    private bool TryResolveSelectedPlaylistContents(out PlaylistContentsActionContext context)
+    {
+        context = null!;
+        if (_playerViewActive
+            || (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not { } playlistId
+            || new PlaylistIndex(_state.Playlists).Find(playlistId) is not { } playlist
+            || !string.Equals(playlist.SessionId, _sessions.Current.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var itemsById = _sessions.Current.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        var items = playlist.ItemIds
+            .Select(itemId => itemsById.GetValueOrDefault(itemId))
+            .Where(item => item?.Kind is MediaItemKind.Track or MediaItemKind.Station)
+            .Select(item => item!)
+            .ToArray();
+        context = new PlaylistContentsActionContext(playlist, items);
+        return true;
+    }
+
+    private void PlaySelectedPlaylistNow()
+    {
+        if (!TryResolveSelectedPlaylistContents(out var context) || context.Items.Count == 0)
+        {
+            Announce("Ta playlista nie zawiera obecnie dostępnych elementów do odtworzenia");
+            return;
+        }
+
+        NavigateTo(PlaylistContentsView(context.Playlist.Id));
+        PrepareViewFocusContext($"Playlista, {context.Playlist.Name}");
+        var session = _sessions.Current;
+        var first = context.Items[0];
+        PreparePlaybackContextForCurrentView(session, first);
+        session.Play(first);
+        RecordPlayback(session, first);
+        if (string.Equals(session.Id, "radio", StringComparison.Ordinal)) CaptureRadioState();
+        else if (string.Equals(session.Id, "local", StringComparison.Ordinal)) TrySaveLocalMediaState(false);
+        else _store.Save(_state);
+        RefreshPlaybackIndicators();
+        ShowPlayerView();
+    }
+
+    private void ExecuteSelectedPlaylistContentsCommand(string commandId)
+    {
+        if (!TryResolveSelectedPlaylistContents(out var context) || context.Items.Count == 0)
+        {
+            Announce("Ta playlista nie zawiera obecnie dostępnych elementów");
+            return;
+        }
+
+        var previousOverride = _actionItemsOverride;
+        _actionItemsOverride = context.Items;
+        try
+        {
+            ExecuteCommand(commandId);
+        }
+        finally
+        {
+            _actionItemsOverride = previousOverride;
+        }
+    }
+
+    private void ShowSelectedPlaylistProperties()
+    {
+        if (!TryResolveSelectedPlaylistContents(out var context)) return;
+        var label = PlaylistPresentation.BuildLabel(
+            context.Playlist.Name,
+            context.Playlist.ItemIds.Count,
+            context.Items.Count,
+            context.Items);
+        var text = string.Join(
+            Environment.NewLine,
+            "Playlista",
+            $"Nazwa: {context.Playlist.Name}",
+            $"Sesja: {_sessions.Current.DisplayName}",
+            $"Podsumowanie: {label}");
+        var dialog = new InformationWindow(text, []) { Owner = this };
+        dialog.ShowDialog();
         RestoreMediaListFocusAfterRefresh();
     }
 
@@ -6634,17 +6725,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ref bool handled)
     {
         if (_keyboardHelpActive
-            || message != WmKeyDown
+            || message is not (WmKeyDown or WmSysKeyDown)
             || Keyboard.FocusedElement is System.Windows.Controls.TextBox)
         {
             return IntPtr.Zero;
         }
 
-        var modifiers = Keyboard.Modifiers;
+        // Keyboard.Modifiers potrafi zgubić Shift dokładnie dla górnego klawisza 0
+        // w niektórych układach klawiatury i przy aktywnym czytniku ekranu. Stan
+        // klawiszy odczytujemy bezpośrednio z Win32, bo ten hook już pracuje na
+        // granicy komunikatów okna.
+        var modifiers = ReadNativeModifierKeys();
         if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift)
             && CurrentSessionSupportsPresets()
             && RadioPresetKeyMap.TryGetSlotFromVirtualKey(wParam.ToInt32(), out var presetSlot))
         {
+            DiagnosticLog.Info(
+                "preset",
+                $"Bezpośredni skrót presetu; klawisz wirtualny: {wParam.ToInt32()}; slot: {presetSlot}; sesja: {_sessions.Current.Id}.");
             handled = true;
             Dispatcher.BeginInvoke(
                 () => ActivatePreset(presetSlot, useDirectShortcutLabel: true),
@@ -6671,6 +6769,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Dispatcher.BeginInvoke(action, DispatcherPriority.Input);
         return IntPtr.Zero;
     }
+
+    private static ModifierKeys ReadNativeModifierKeys()
+    {
+        var modifiers = ModifierKeys.None;
+        if (IsNativeKeyDown(VirtualKeyControl)) modifiers |= ModifierKeys.Control;
+        if (IsNativeKeyDown(VirtualKeyShift)) modifiers |= ModifierKeys.Shift;
+        if (IsNativeKeyDown(VirtualKeyAlt)) modifiers |= ModifierKeys.Alt;
+        if (IsNativeKeyDown(VirtualKeyLeftWindows) || IsNativeKeyDown(VirtualKeyRightWindows))
+            modifiers |= ModifierKeys.Windows;
+        return modifiers;
+    }
+
+    private static bool IsNativeKeyDown(int virtualKey) =>
+        (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
+
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int virtualKey);
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -7603,6 +7718,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!_playerViewActive && !MediaList.IsKeyboardFocusWithin) return false;
 
         var modifiers = Keyboard.Modifiers;
+        if (!_playerViewActive
+            && (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not null
+            && modifiers == ModifierKeys.Alt
+            && e.SystemKey == Key.Enter)
+        {
+            ShowSelectedPlaylistProperties();
+            return true;
+        }
         if (modifiers == (ModifierKeys.Alt | ModifierKeys.Shift) && e.SystemKey == Key.Enter)
         {
             ExecuteCommand(CommandIds.ItemPlaybackOptions);
@@ -7612,6 +7735,35 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             ExecuteCommand(CommandIds.ItemProperties);
             return true;
+        }
+
+        if (!_playerViewActive
+            && (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not null)
+        {
+            var playlistCommand = (modifiers, e.Key) switch
+            {
+                (ModifierKeys.Control, Key.Enter) => "play",
+                (ModifierKeys.Shift, Key.Enter) => CommandIds.AddQueue,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.Q) => CommandIds.AddQueue,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.Enter) => CommandIds.TogglePlayNext,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.U) => CommandIds.ToggleFavorite,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.L) => CommandIds.ToggleLibrary,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.P) => "open-items-first",
+                _ => null
+            };
+            if (playlistCommand is not null)
+            {
+                if (playlistCommand == "play") PlaySelectedPlaylistNow();
+                else if (playlistCommand == "open-items-first")
+                    Announce("Otwórz playlistę Enterem, aby zmieniać przynależność jej elementów do innych playlist");
+                else if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                         && playlistCommand is CommandIds.AddQueue or CommandIds.TogglePlayNext)
+                {
+                    Announce("Kolejka i odtwarzanie jako następne nie dotyczą sesji Radio internetowe");
+                }
+                else ExecuteSelectedPlaylistContentsCommand(playlistCommand);
+                return true;
+            }
         }
 
         if (!_playerViewActive
@@ -8008,13 +8160,32 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else ExecuteCommand(CommandIds.ActivateSelected);
     }
-    private void PlayNext_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.TogglePlayNext);
-    private void Queue_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddQueue);
-    private void Favorite_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleFavorite);
-    private void Library_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleLibrary);
+    private void PlayPlaylistNow_Click(object sender, RoutedEventArgs e) => PlaySelectedPlaylistNow();
+    private void PlayNext_Click(object sender, RoutedEventArgs e) =>
+        ExecutePlaylistContainerOrItemCommand(CommandIds.TogglePlayNext);
+    private void Queue_Click(object sender, RoutedEventArgs e) =>
+        ExecutePlaylistContainerOrItemCommand(CommandIds.AddQueue);
+    private void Favorite_Click(object sender, RoutedEventArgs e) =>
+        ExecutePlaylistContainerOrItemCommand(CommandIds.ToggleFavorite);
+    private void Library_Click(object sender, RoutedEventArgs e) =>
+        ExecutePlaylistContainerOrItemCommand(CommandIds.ToggleLibrary);
+
+    private void ExecutePlaylistContainerOrItemCommand(string commandId)
+    {
+        if (!_playerViewActive && (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not null)
+            ExecuteSelectedPlaylistContentsCommand(commandId);
+        else
+            ExecuteCommand(commandId);
+    }
     private void Playlists_Click(object sender, RoutedEventArgs e)
         => ShowPlaylistManager();
-    private void Information_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemProperties);
+    private void Information_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_playerViewActive && (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not null)
+            ShowSelectedPlaylistProperties();
+        else
+            ExecuteCommand(CommandIds.ItemProperties);
+    }
     private void ItemPlaybackOptions_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemPlaybackOptions);
     private void GoToAlbum_Click(object sender, RoutedEventArgs e) => GoToRelatedAlbum();
     private void GoToArtist_Click(object sender, RoutedEventArgs e) => GoToRelatedArtist();
@@ -8058,6 +8229,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var localSession = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
         var playlistContainer = !_playerViewActive
             && (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not null;
+        var playlistContext = playlistContainer
+            && TryResolveSelectedPlaylistContents(out var resolvedPlaylistContext)
+                ? resolvedPlaylistContext
+                : null;
         var playlistContents = !_playerViewActive
             && TryGetPlaylistIdFromView(_currentView, out _);
         var localAlbumContainer = !_playerViewActive
@@ -8065,10 +8240,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var folderNavigationRow = !_playerViewActive
             && string.Equals(_currentView, FolderViewName, StringComparison.Ordinal)
             && (MediaList.SelectedItem as MediaItemRow)?.FolderPath is not null;
-        var membershipItems = folderNavigationRow
-            && TryResolveSelectedFolderContents(out var folderContext)
-                ? folderContext.Items
-                : items;
+        var membershipItems = playlistContext?.Items
+            ?? (folderNavigationRow
+                && TryResolveSelectedFolderContents(out var folderContext)
+                    ? folderContext.Items
+                    : items);
         var playbackLabel = playlistContainer
             ? "Otwórz playlistę"
             : localAlbumContainer
@@ -8084,45 +8260,67 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             PlaybackMenuItem,
             playbackLabel,
             localAlbumContainer || playlistContainer || folderNavigationRow ? "Enter" : "Ctrl+Enter");
+        PlayPlaylistNowMenuItem.Visibility = playlistContainer ? Visibility.Visible : Visibility.Collapsed;
+        PlayPlaylistNowMenuItem.IsEnabled = playlistContext?.Items.Count > 0;
+        SetContextMenuItemPresentation(
+            InformationMenuItem,
+            playlistContainer ? "Właściwości playlisty" : "Właściwości i informacje",
+            "Alt+Enter");
         var playNextActive = membershipItems.Count > 0
             && (folderNavigationRow
                 ? membershipItems.Any(item => item.IsPlayNext)
                 : membershipItems.All(item => item.IsPlayNext));
         var playNextLabel = playNextActive
-            ? folderNavigationRow
-                ? "Usuń zawartość folderu z odtwarzanych jako następne"
-                : "Usuń z odtwarzanych jako następne"
-            : folderNavigationRow
-                ? "Odtwórz zawartość folderu jako następną"
-                : "Odtwórz jako następne";
+            ? playlistContainer
+                ? "Usuń zawartość playlisty z odtwarzanych jako następne"
+                : folderNavigationRow
+                    ? "Usuń zawartość folderu z odtwarzanych jako następne"
+                    : "Usuń z odtwarzanych jako następne"
+            : playlistContainer
+                ? "Odtwórz zawartość playlisty jako następną"
+                : folderNavigationRow
+                    ? "Odtwórz zawartość folderu jako następną"
+                    : "Odtwórz jako następne";
         SetContextMenuItemPresentation(PlayNextMenuItem, playNextLabel, "Ctrl+Shift+Enter");
         var queueActive = membershipItems.Count > 0
             && (folderNavigationRow
                 ? membershipItems.Any(item => item.IsInQueue || item.IsPlayNext)
                 : membershipItems.All(item => item.IsInQueue || item.IsPlayNext));
         var queueLabel = queueActive
-            ? folderNavigationRow
-                ? "Usuń zawartość folderu z kolejki"
-                : "Usuń z kolejki"
-            : folderNavigationRow
-                ? "Dodaj zawartość folderu do kolejki"
-                : "Dodaj do kolejki";
+            ? playlistContainer
+                ? "Usuń zawartość playlisty z kolejki"
+                : folderNavigationRow
+                    ? "Usuń zawartość folderu z kolejki"
+                    : "Usuń z kolejki"
+            : playlistContainer
+                ? "Dodaj zawartość playlisty do kolejki"
+                : folderNavigationRow
+                    ? "Dodaj zawartość folderu do kolejki"
+                    : "Dodaj do kolejki";
         SetContextMenuItemPresentation(QueueMenuItem, queueLabel, "Shift+Enter");
         var favoriteActive = membershipItems.Count > 0
             && (folderNavigationRow
                 ? membershipItems.Any(item => item.IsFavorite)
                 : membershipItems.All(item => item.IsFavorite));
         var favoriteLabel = favoriteActive
-            ? folderNavigationRow
-                ? "Usuń zawartość folderu z ulubionych"
-                : "Usuń z ulubionych"
-            : folderNavigationRow
-                ? "Dodaj zawartość folderu do ulubionych"
-                : "Dodaj do ulubionych";
+            ? playlistContainer
+                ? "Usuń zawartość playlisty z ulubionych"
+                : folderNavigationRow
+                    ? "Usuń zawartość folderu z ulubionych"
+                    : "Usuń z ulubionych"
+            : playlistContainer
+                ? "Dodaj zawartość playlisty do ulubionych"
+                : folderNavigationRow
+                    ? "Dodaj zawartość folderu do ulubionych"
+                    : "Dodaj do ulubionych";
         SetContextMenuItemPresentation(FavoriteMenuItem, favoriteLabel, "Ctrl+Shift+U");
-        var libraryLabel = items.Count > 0 && items.All(item => item.IsInLibrary)
-            ? "Usuń z biblioteki"
-            : "Dodaj do biblioteki";
+        var libraryLabel = membershipItems.Count > 0 && membershipItems.All(item => item.IsInLibrary)
+            ? playlistContainer
+                ? "Usuń zawartość playlisty z biblioteki"
+                : "Usuń z biblioteki"
+            : playlistContainer
+                ? "Dodaj zawartość playlisty do biblioteki"
+                : "Dodaj do biblioteki";
         SetContextMenuItemPresentation(LibraryMenuItem, libraryLabel, "Ctrl+Shift+L");
         var copyLocationLabel = actionItem is not null && TryGetLocalPath(actionItem.Source, out _)
             ? "Kopiuj pełną ścieżkę"
@@ -8135,22 +8333,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         DeletePlaylistMenuItem.Visibility = playlistContainer ? Visibility.Visible : Visibility.Collapsed;
         PlayNextMenuItem.Visibility = radioSession
             || localAlbumContainer
-            || playlistContainer
+            || (playlistContainer && membershipItems.Count == 0)
             || (folderNavigationRow && membershipItems.Count == 0)
             ? Visibility.Collapsed
             : Visibility.Visible;
         QueueMenuItem.Visibility = radioSession
             || localAlbumContainer
-            || playlistContainer
+            || (playlistContainer && membershipItems.Count == 0)
             || (folderNavigationRow && membershipItems.Count == 0)
             ? Visibility.Collapsed
             : Visibility.Visible;
         FavoriteMenuItem.Visibility = localAlbumContainer
-            || playlistContainer
+            || (playlistContainer && membershipItems.Count == 0)
             || (folderNavigationRow && membershipItems.Count == 0)
             ? Visibility.Collapsed
             : Visibility.Visible;
-        LibraryMenuItem.Visibility = localAlbumContainer || playlistContainer || folderNavigationRow
+        LibraryMenuItem.Visibility = localAlbumContainer
+            || folderNavigationRow
+            || (playlistContainer && membershipItems.Count == 0)
             ? Visibility.Collapsed
             : Visibility.Visible;
         PlaylistMembershipMenuItem.Visibility = playlistContainer
@@ -8901,6 +9101,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private sealed record FolderContentsActionContext(
         string FolderLabel,
+        IReadOnlyList<MediaItem> Items);
+
+    private sealed record PlaylistContentsActionContext(
+        PlaylistEntry Playlist,
         IReadOnlyList<MediaItem> Items);
 
     private sealed record PlaylistStateUndo(

@@ -220,6 +220,9 @@
                     <MenuItem x:Name="PlaybackMenuItem" Header="Odtwórz lub wstrzymaj" InputGestureText="Ctrl+Enter"
                               automation:AutomationProperties.Name="Odtwórz lub wstrzymaj, Ctrl+Enter"
                               Click="ToggleSelectedPlayback_Click" />
+                    <MenuItem x:Name="PlayPlaylistNowMenuItem" Header="Odtwórz playlistę teraz" InputGestureText="Ctrl+Enter"
+                              automation:AutomationProperties.Name="Odtwórz zawartość playlisty teraz, Ctrl+Enter"
+                              Visibility="Collapsed" Click="PlayPlaylistNow_Click" />
                     <MenuItem x:Name="NewPlaylistMenuItem" Header="Nowa playlista…" InputGestureText="Insert"
                               automation:AutomationProperties.Name="Nowa playlista, Insert"
                               Visibility="Collapsed" Click="NewPlaylist_Click" />
@@ -249,7 +252,7 @@
                               automation:AutomationProperties.Name="Utwórz lub przypisz preset aktywnej sesji, Ctrl+Alt+Shift+P"
                               Visibility="Collapsed" Click="RadioAssignPreset_Click" />
                     <Separator />
-                    <MenuItem Header="Właściwości i informacje" InputGestureText="Alt+Enter"
+                    <MenuItem x:Name="InformationMenuItem" Header="Właściwości i informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.Name="Właściwości i informacje, Alt+Enter"
                               Click="Information_Click" />
                     <MenuItem x:Name="ItemPlaybackOptionsMenuItem" Header="Opcje odtwarzania elementu" InputGestureText="Alt+Shift+Enter"

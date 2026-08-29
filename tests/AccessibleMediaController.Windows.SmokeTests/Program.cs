@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Windows.Input;
 using AccessibleMediaController.Core.LocalMedia;
+using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Windows;
 using AccessibleMediaController.Windows.Controls;
 using AccessibleMediaController.Windows.Services;
@@ -51,6 +52,7 @@ try
     TestAccessiblePlaybackStatusStrip();
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
+    TestPlaylistPresentation();
     TestGuardDoesNotBlockPositionReads();
     TestCompleteOutputChainMonitor();
     TestInvalidSamplesAreSilenced();
@@ -171,6 +173,30 @@ static void TestRadioPresetKeyboardMap()
     Assert(RadioPresetKeyMap.DirectShortcutLabel(10) == "0",
         "Bezpośredni skrót Ctrl+Shift+0 nie ma użytkowej etykiety Preset 0.");
     Console.WriteLine("OK: mapowanie klawiszy listy i bezpośrednich presetów");
+}
+
+static void TestPlaylistPresentation()
+{
+    var finite = new[]
+    {
+        new MediaItem { Id = "1", Title = "Pierwszy", Kind = MediaItemKind.Track, Duration = TimeSpan.FromMinutes(20) },
+        new MediaItem { Id = "2", Title = "Drugi", Kind = MediaItemKind.Track, Duration = TimeSpan.FromMinutes(25) }
+    };
+    Assert(
+        PlaylistPresentation.BuildLabel("Biskup", 2, 2, finite)
+            == "Biskup, 2 elementy, łączny czas 45 min 0 s",
+        "Playlista plików nie podaje łącznego czasu.");
+
+    var live = new[]
+    {
+        new MediaItem { Id = "radio-1", Title = "Pierwsza", Kind = MediaItemKind.Station },
+        new MediaItem { Id = "radio-2", Title = "Druga", Kind = MediaItemKind.Station }
+    };
+    Assert(
+        PlaylistPresentation.BuildLabel("Radia", 2, 2, live)
+            == "Radia, 2 elementy, transmisje na żywo",
+        "Playlista radia błędnie sugeruje skończony czas trwania.");
+    Console.WriteLine("OK: czas playlisty i jawna playlista transmisji na żywo");
 }
 
 static void TestGuardDoesNotBlockPositionReads()
