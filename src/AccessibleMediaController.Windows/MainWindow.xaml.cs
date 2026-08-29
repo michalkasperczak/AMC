@@ -5812,6 +5812,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _store.Save(_state);
         ApplyDetailedHints();
         RebuildCore();
+        RearmRadioWakeTimer();
         RestoreCurrentSessionNavigationState();
         string announcement;
         try
@@ -6053,10 +6054,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     : $"Zakończono nagrywanie: {Path.GetFileName(savedPath)}");
                 return;
             }
-            var folder = ResolveRadioRecordingsFolder();
-            var path = _radioOutput.StartRecording(folder);
+            var folderResolution = ResolveWritableRadioRecordingsFolder();
+            var path = _radioOutput.StartRecording(
+                folderResolution.Path,
+                _state.Radio.RecordingFormat,
+                _state.Radio.RecordingBitrateKbps);
             UpdateFileMenuForCurrentSession();
-            AnnounceEssential($"Rozpoczęto nagrywanie: {Path.GetFileName(path)}");
+            AnnounceEssential(folderResolution.UsedFallback
+                ? $"Wybrany folder był niedostępny. Rozpoczęto nagrywanie w folderze domyślnym: {Path.GetFileName(path)}"
+                : $"Rozpoczęto nagrywanie: {Path.GetFileName(path)}");
         }
         catch (Exception exception) when (exception is IOException
             or UnauthorizedAccessException
@@ -6122,7 +6128,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (_isClosing) return;
         UpdatePlayerView();
-        AnnounceEssential("Nagrywanie MP3 zostało przerwane. Nie zapisano uszkodzonego pliku");
+        AnnounceEssential("Nagrywanie zostało przerwane. Nie zapisano uszkodzonego pliku");
     }
 
     private string ResolveRadioRecordingsFolder()
@@ -6134,6 +6140,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var music = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
         return Path.Combine(music, "AMC — Nagrania radia");
     }
+
+    private string ResolveSystemRadioRecordingsFolder()
+    {
+        var music = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
+        return Path.Combine(music, "AMC — Nagrania radia");
+    }
+
+    private RadioRecordingFolderResolution ResolveWritableRadioRecordingsFolder() =>
+        RadioRecordingFolderResolver.Resolve(
+            _state.Radio.RecordingsFolder,
+            ResolveSystemRadioRecordingsFolder());
 
     private IReadOnlyList<MediaItem> AvailableRadioScheduleStations(MediaItem? additionalStation = null)
     {
@@ -6177,7 +6194,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             existing: null,
             preferredStationId: station.Id,
             initialStartUtc: DateTime.UtcNow.AddMinutes(5),
-            offerImmediateStart: true)
+            offerImmediateStart: true,
+            globalWakeEnabled: _state.Radio.WakeScheduledRecordings)
         {
             Owner = this
         };
@@ -6309,6 +6327,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             snapshot,
             deadlineUtc,
             ResolveRadioRecordingsFolder(),
+            ResolveSystemRadioRecordingsFolder(),
+            _state.Radio.RecordingFormat,
+            _state.Radio.RecordingBitrateKbps,
             cancellation.Token));
         _activeScheduledRadioRecordings[snapshot.Id] = new ActiveScheduledRadioRecording(
             snapshot.Id,

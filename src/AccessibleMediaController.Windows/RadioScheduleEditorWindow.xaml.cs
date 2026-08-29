@@ -22,7 +22,8 @@ public partial class RadioScheduleEditorWindow : Window
         RadioRecordingScheduleSettings? existing,
         string? preferredStationId,
         DateTime? initialStartUtc = null,
-        bool offerImmediateStart = false)
+        bool offerImmediateStart = false,
+        bool globalWakeEnabled = false)
     {
         InitializeComponent();
         _existing = existing;
@@ -40,7 +41,8 @@ public partial class RadioScheduleEditorWindow : Window
         _stations = choices;
         StationCombo.ItemsSource = _stations;
         RecurrenceCombo.ItemsSource = RecurrenceChoice.All;
-        WakeCombo.ItemsSource = WakeChoice.All;
+        var wakeChoices = WakeChoice.Create(globalWakeEnabled);
+        WakeCombo.ItemsSource = wakeChoices;
         _dayBoxes =
         [
             MondayCheckBox, TuesdayCheckBox, WednesdayCheckBox, ThursdayCheckBox,
@@ -56,10 +58,13 @@ public partial class RadioScheduleEditorWindow : Window
         TimeTextBox.Text = local.ToString("HH:mm", CultureInfo.InvariantCulture);
         DurationTextBox.Text = (existing?.DurationMinutes ?? 60).ToString(CultureInfo.InvariantCulture);
         OutputFolderTextBox.Text = existing?.OutputFolder ?? string.Empty;
+        var customOutputFolder = !string.IsNullOrWhiteSpace(existing?.OutputFolder);
+        UseDefaultOutputFolderOption.IsChecked = !customOutputFolder;
+        UseCustomOutputFolderOption.IsChecked = customOutputFolder;
         EnabledCheckBox.IsChecked = existing?.Enabled ?? true;
         RecurrenceCombo.SelectedItem = RecurrenceChoice.All.First(choice =>
             choice.Value == (existing?.Recurrence ?? RadioScheduleRecurrence.Once));
-        WakeCombo.SelectedItem = WakeChoice.All.First(choice => choice.Value == existing?.WakeComputer);
+        WakeCombo.SelectedItem = wakeChoices.First(choice => choice.Value == existing?.WakeComputer);
 
         var stationId = existing?.StationId ?? preferredStationId;
         StationCombo.SelectedItem = _stations.FirstOrDefault(choice => choice.Id == stationId)
@@ -83,6 +88,7 @@ public partial class RadioScheduleEditorWindow : Window
         }
         UpdateDaysEnabled();
         UpdateStartControlsEnabled();
+        UpdateOutputFolderControls();
         Loaded += (_, _) =>
         {
             StationCombo.Focus();
@@ -150,7 +156,9 @@ public partial class RadioScheduleEditorWindow : Window
             DurationMinutes = duration,
             Recurrence = recurrence.Value,
             ActiveDays = days,
-            OutputFolder = OutputFolderTextBox.Text.Trim(),
+            OutputFolder = UseCustomOutputFolderOption.IsChecked == true
+                ? OutputFolderTextBox.Text.Trim()
+                : string.Empty,
             WakeComputer = (WakeCombo.SelectedItem as WakeChoice)?.Value,
             Enabled = EnabledCheckBox.IsChecked == true
         };
@@ -168,6 +176,13 @@ public partial class RadioScheduleEditorWindow : Window
                 return;
             }
             schedule.NextStartUtcTicks = next.Value.Ticks;
+        }
+        if (UseCustomOutputFolderOption.IsChecked == true
+            && (string.IsNullOrWhiteSpace(schedule.OutputFolder)
+                || !Path.IsPathFullyQualified(schedule.OutputFolder)))
+        {
+            ShowError("Folder dla tego planu musi zawierać pełną ścieżkę", OutputFolderTextBox);
+            return;
         }
         ResultSchedule = schedule;
         DialogResult = true;
@@ -196,12 +211,26 @@ public partial class RadioScheduleEditorWindow : Window
             Multiselect = false
         };
         if (Directory.Exists(OutputFolderTextBox.Text)) dialog.InitialDirectory = OutputFolderTextBox.Text;
-        if (dialog.ShowDialog(this) == true) OutputFolderTextBox.Text = dialog.FolderName;
+        if (dialog.ShowDialog(this) != true) return;
+        UseCustomOutputFolderOption.IsChecked = true;
+        OutputFolderTextBox.Text = dialog.FolderName;
+        OutputFolderTextBox.Focus();
+        Keyboard.Focus(OutputFolderTextBox);
     }
 
     private void RecurrenceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateDaysEnabled();
 
     private void ImmediateStartCheckBox_Changed(object sender, RoutedEventArgs e) => UpdateStartControlsEnabled();
+
+    private void OutputFolderMode_Changed(object sender, RoutedEventArgs e) => UpdateOutputFolderControls();
+
+    private void UpdateOutputFolderControls()
+    {
+        if (OutputFolderTextBox is null || BrowseOutputFolderButton is null) return;
+        var custom = UseCustomOutputFolderOption?.IsChecked == true;
+        OutputFolderTextBox.IsEnabled = custom;
+        BrowseOutputFolderButton.IsEnabled = custom;
+    }
 
     private void UpdateStartControlsEnabled()
     {
@@ -244,9 +273,13 @@ public partial class RadioScheduleEditorWindow : Window
 
     private sealed record WakeChoice(bool? Value, string Label)
     {
-        public static IReadOnlyList<WakeChoice> All { get; } =
+        public static IReadOnlyList<WakeChoice> Create(bool globalWakeEnabled) =>
         [
-            new(null, "Zgodnie z ustawieniem ogólnym"),
+            new(
+                null,
+                globalWakeEnabled
+                    ? "Zgodnie z ustawieniem ogólnym: wybudzaj komputer"
+                    : "Zgodnie z ustawieniem ogólnym: nie wybudzaj komputera"),
             new(true, "Wybudzaj komputer"),
             new(false, "Nie wybudzaj komputera")
         ];

@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Security.Authentication;
 using System.Runtime.InteropServices;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
 using NAudio.CoreAudioApi;
@@ -784,7 +785,10 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         // implemented by moving inside the buffer, not by stretching speech.
     }
 
-    public string StartRecording(string folder)
+    public string StartRecording(
+        string folder,
+        RadioRecordingFormat format = RadioRecordingFormat.Mp3,
+        int bitRateKbps = RadioMp3Recorder.DesiredBitRate / 1000)
     {
         lock (_gate)
         {
@@ -795,8 +799,11 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 Path.GetInvalidFileNameChars().Contains(character) ? '_' : character)).Trim();
             if (safeName.Length == 0) safeName = "Radio";
             DeleteStalePartialRecordings(folder);
-            var path = UniqueRecordingPath(folder, $"{safeName} - {DateTime.Now:yyyy-MM-dd HH-mm-ss}");
-            _pipeline.Buffer.StartRecording(path);
+            var path = UniqueRecordingPath(
+                folder,
+                $"{safeName} - {DateTime.Now:yyyy-MM-dd HH-mm-ss}",
+                RadioMp3Recorder.RecordingExtension(format));
+            _pipeline.Buffer.StartRecording(path, format, bitRateKbps);
             DiagnosticLog.Info("radio-recording", $"Rozpoczęto nagrywanie: {path}.");
             return path;
         }
@@ -823,12 +830,12 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         Uri.TryCreate(source, UriKind.Absolute, out var uri)
         && uri.Scheme is "http" or "https";
 
-    private static string UniqueRecordingPath(string folder, string baseName)
+    private static string UniqueRecordingPath(string folder, string baseName, string extension)
     {
-        var path = Path.Combine(folder, baseName + ".mp3");
+        var path = Path.Combine(folder, baseName + extension);
         for (var suffix = 2; File.Exists(path) || File.Exists(path + ".amc-partial"); suffix++)
         {
-            path = Path.Combine(folder, $"{baseName} ({suffix}).mp3");
+            path = Path.Combine(folder, $"{baseName} ({suffix}){extension}");
         }
         return path;
     }
@@ -837,7 +844,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
     {
         try
         {
-            foreach (var path in Directory.EnumerateFiles(folder, "*.mp3.amc-partial"))
+            foreach (var path in Directory.EnumerateFiles(folder, "*.amc-partial"))
             {
                 if (File.GetLastWriteTimeUtc(path) < DateTime.UtcNow.AddDays(-1)) File.Delete(path);
             }
@@ -1195,13 +1202,16 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             }
         }
 
-        public void StartRecording(string path)
+        public void StartRecording(
+            string path,
+            RadioRecordingFormat format,
+            int bitRateKbps)
         {
             lock (_gate)
             {
                 if (_recording is not null) throw new InvalidOperationException("Nagrywanie już trwa.");
                 _recordingPath = path;
-                _recording = RadioMp3Recorder.Start(path, WaveFormat);
+                _recording = RadioMp3Recorder.Start(path, WaveFormat, format, bitRateKbps);
             }
         }
 

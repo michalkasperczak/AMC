@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Windows.Input;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Sessions;
@@ -69,6 +70,7 @@ try
     TestLegacyRadioContentTypes();
     TestRadioCompatibilityCandidates();
     TestRadioReconnectFormatCompatibility();
+    TestRadioRecordingFolderFallback();
     TestRadioMp3Recording();
     TestLegacyIcyMp3Stream();
     TestLegacyIcyCancellation();
@@ -664,6 +666,66 @@ static void TestRadioMp3Recording()
         Assert(firstFrame?.BitRate == RadioMp3Recorder.DesiredBitRate,
             $"Nagranie MP3 ma bitrate {firstFrame?.BitRate ?? 0} zamiast {RadioMp3Recorder.DesiredBitRate}.");
 
+        var aacPath = Path.Combine(directory, "radio-test.m4a");
+        using (var aacRecorder = RadioMp3Recorder.Start(
+                   aacPath,
+                   format,
+                   RadioRecordingFormat.Aac,
+                   160))
+        {
+            aacRecorder.Write(pcm, 0, pcm.Length);
+            aacRecorder.Stop();
+        }
+        using (var aacReader = new MediaFoundationReader(aacPath))
+        {
+            Assert(aacReader.TotalTime > TimeSpan.FromMilliseconds(500),
+                "Nagranie M4A/AAC ma nieprawidłowy czas.");
+        }
+
+        var narrowFormat = new WaveFormat(24_000, 16, 1);
+        var narrowPcm = new byte[narrowFormat.AverageBytesPerSecond];
+        for (var frame = 0; frame < narrowFormat.SampleRate; frame++)
+        {
+            var sample = (short)(Math.Sin(2 * Math.PI * 440 * frame / narrowFormat.SampleRate)
+                * short.MaxValue * 0.1);
+            BinaryPrimitives.WriteInt16LittleEndian(
+                narrowPcm.AsSpan(frame * narrowFormat.BlockAlign, 2),
+                sample);
+        }
+        var narrowAacPath = Path.Combine(directory, "radio-test-24-khz.m4a");
+        using (var narrowAacRecorder = RadioMp3Recorder.Start(
+                   narrowAacPath,
+                   narrowFormat,
+                   RadioRecordingFormat.Aac,
+                   128))
+        {
+            narrowAacRecorder.Write(narrowPcm, 0, narrowPcm.Length);
+            narrowAacRecorder.Stop();
+        }
+        using (var narrowAacReader = new MediaFoundationReader(narrowAacPath))
+        {
+            Assert(narrowAacReader.TotalTime > TimeSpan.FromMilliseconds(500),
+                "Nagranie M4A/AAC ze stacji 24 kHz ma nieprawidłowy czas.");
+        }
+
+        var wavPath = Path.Combine(directory, "radio-test.wav");
+        using (var wavRecorder = RadioMp3Recorder.Start(
+                   wavPath,
+                   format,
+                   RadioRecordingFormat.Wav,
+                   192))
+        {
+            wavRecorder.Write(pcm, 0, pcm.Length);
+            wavRecorder.Stop();
+        }
+        using (var wavReader = new WaveFileReader(wavPath))
+        {
+            Assert(wavReader.TotalTime > TimeSpan.FromMilliseconds(900),
+                "Nagranie WAV ma nieprawidłowy czas.");
+            Assert(wavReader.WaveFormat.SampleRate == 44_100,
+                "Nagranie WAV ma nieprawidłową częstotliwość.");
+        }
+
         var shutdownPath = Path.Combine(directory, "zamkniecie.mp3");
         using (var shutdownRecorder = RadioMp3Recorder.Start(shutdownPath, format))
         {
@@ -680,11 +742,35 @@ static void TestRadioMp3Recording()
         }
         Assert(!File.Exists(abortedPath) && !File.Exists(abortedPath + ".amc-partial"),
             "Przerwane kodowanie pozostawiło plik udający gotowe nagranie.");
-        Console.WriteLine("OK: nagrywanie radia do prawidłowo zakończonego pliku MP3");
+        Console.WriteLine("OK: nagrywanie radia do prawidłowych plików MP3, M4A/AAC (także 24 kHz) i WAV");
     }
     finally
     {
         if (Directory.Exists(directory)) Directory.Delete(directory, true);
+    }
+}
+
+static void TestRadioRecordingFolderFallback()
+{
+    var root = Path.Combine(Path.GetTempPath(), $"amc-radio-folder-{Guid.NewGuid():N}");
+    var fallback = Path.Combine(root, "fallback");
+    var blocked = Path.Combine(root, "not-a-folder");
+    Directory.CreateDirectory(root);
+    File.WriteAllText(blocked, "plik blokuje utworzenie folderu");
+    try
+    {
+        var resolution = RadioRecordingFolderResolver.Resolve(blocked, fallback);
+        Assert(resolution.UsedFallback, "Niedostępny folder nie uruchomił bezpiecznego fallbacku.");
+        Assert(string.Equals(resolution.Path, fallback, StringComparison.OrdinalIgnoreCase),
+            "Nagranie nie przeszło do wskazanego folderu zastępczego.");
+        Assert(Directory.Exists(fallback), "Folder zastępczy nie został utworzony.");
+        Assert(!Directory.EnumerateFiles(fallback, ".amc-write-test-*.tmp").Any(),
+            "Po sprawdzeniu zapisu pozostał plik próbny.");
+        Console.WriteLine("OK: niedostępny folder nagrania ma bezpieczny fallback");
+    }
+    finally
+    {
+        if (Directory.Exists(root)) Directory.Delete(root, true);
     }
 }
 

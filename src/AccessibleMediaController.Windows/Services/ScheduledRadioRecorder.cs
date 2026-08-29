@@ -22,6 +22,9 @@ internal static class ScheduledRadioRecorder
         RadioRecordingScheduleSettings schedule,
         DateTime deadlineUtc,
         string defaultFolder,
+        string systemFallbackFolder,
+        RadioRecordingFormat recordingFormat,
+        int recordingBitrateKbps,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(schedule);
@@ -81,21 +84,20 @@ internal static class ScheduledRadioRecorder
             string? path = null;
             try
             {
-                var folder = string.IsNullOrWhiteSpace(schedule.OutputFolder)
-                    ? defaultFolder
-                    : schedule.OutputFolder;
-                try
-                {
-                    path = output.StartRecording(folder);
-                }
-                catch (Exception exception) when (!string.IsNullOrWhiteSpace(schedule.OutputFolder)
-                    && exception is IOException or UnauthorizedAccessException or ArgumentException)
+                var folderResolution = RadioRecordingFolderResolver.Resolve(
+                    schedule.OutputFolder,
+                    defaultFolder,
+                    systemFallbackFolder);
+                if (folderResolution.UsedFallback)
                 {
                     DiagnosticLog.Warning(
                         "radio-schedule",
-                        $"Folder planu {schedule.OutputFolder} jest niedostępny; użyto folderu ogólnego. Błąd {exception.GetType().Name}.");
-                    path = output.StartRecording(defaultFolder);
+                        $"Skonfigurowany folder nagrania jest niedostępny; użyto folderu zastępczego. Błąd {folderResolution.ErrorType}.");
                 }
+                path = output.StartRecording(
+                    folderResolution.Path,
+                    recordingFormat,
+                    recordingBitrateKbps);
                 var remaining = deadlineUtc - DateTime.UtcNow;
                 if (remaining <= TimeSpan.Zero)
                     return new ScheduledRadioRecordingResult(false, false, null, "Okno nagrywania już się zakończyło");
@@ -110,7 +112,7 @@ internal static class ScheduledRadioRecorder
                         false,
                         false,
                         null,
-                        "Koder MP3 przerwał zapis");
+                        "Koder nagrania przerwał zapis");
                 }
 
                 var savedPath = output.StopRecording();
@@ -123,7 +125,7 @@ internal static class ScheduledRadioRecorder
                         null);
                 }
                 return savedPath is null
-                    ? new ScheduledRadioRecordingResult(false, false, null, "Nie utworzono pliku MP3")
+                    ? new ScheduledRadioRecordingResult(false, false, null, "Nie utworzono pliku nagrania")
                     : new ScheduledRadioRecordingResult(true, false, savedPath, null);
             }
             catch (OperationCanceledException)

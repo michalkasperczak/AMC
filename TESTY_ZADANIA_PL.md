@@ -1,12 +1,96 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-142`
-- Tytuł zestawu: Niskopoziomowy preset 0 i widoczne nagrywanie Radia
-- Wersja programu: `0.1.0-alpha.142`
+- Numer zestawu: `AMC-TEST-143`
+- Tytuł zestawu: Ustawienia nagrywania Radia, foldery, formaty i wybudzanie
+- Wersja programu: `0.1.0-alpha.143`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.142.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.143.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 143
+
+### AMC-143-01 — Dostępność ustawień Radia
+
+Otwórz Ustawienia i kartę „Radio i nagrywanie”. Przejdź Tabem po wszystkich
+polach, rozwiń pola formatu i bitrate'u, poruszaj się strzałkami, anuluj okno,
+a następnie otwórz je ponownie i zapisz zmiany.
+
+Oczekiwane: NVDA czyta tylko pełne, polskie etykiety. Nie pojawiają się nazwy
+klas, rekordy w nawiasach klamrowych, identyfikatory enumów ani nazwy
+właściwości. Początkowo wybrany element i każda zmiana są oznajmiane, a po
+Zapisz lub Anuluj fokus wraca do AMC.
+
+### AMC-143-02 — Ogólny folder nagrań
+
+Najpierw wybierz domyślny folder programu, nagraj ręcznie kilkanaście sekund
+klawiszem `R` i sprawdź położenie pliku. Potem wybierz własny folder, zapisz
+ustawienia i wykonaj drugie nagranie.
+
+Oczekiwane: pierwsze nagranie trafia do „Muzyka, AMC — Nagrania radia”, drugie
+do wybranego folderu. Ścieżka pozostaje zapamiętana po ponownym uruchomieniu.
+
+### AMC-143-03 — Folder ogólny i własny dla harmonogramu
+
+Utwórz dwa krótkie plany `Shift+R`: pierwszy z opcją użycia ogólnego folderu,
+drugi z własnym folderem. Otwórz każdy ponownie do edycji przed terminem.
+
+Oczekiwane: wybrany wariant i ścieżka są zachowane, a pliki trafiają do
+właściwych folderów. Pole własnej ścieżki jest nieaktywne przy wariancie
+ogólnym. Sam wybór folderu nie zmienia ogólnego ustawienia programu.
+
+### AMC-143-04 — MP3, M4A/AAC i WAV
+
+W ustawieniach wybierz kolejno MP3 192 kb/s, M4A/AAC 128 lub 160 kb/s oraz
+WAV. Za każdym razem nagraj tę samą stację przez kilkanaście sekund.
+
+Oczekiwane: powstają odpowiednio pliki `.mp3`, `.m4a` i `.wav`; każdy daje się
+odtworzyć, ma rozsądny czas i nie pozostaje plik `.amc-partial`. Przy WAV pole
+bitrate'u jest nieaktywne. WAV jest wyraźnie większy, co jest prawidłowe.
+
+### AMC-143-05 — HLS i nietypowe parametry stacji
+
+Nagraj ręcznie oraz przez krótki plan stację HLS, na przykład Trójkę albo
+transmisję `m3u8`. Powtórz próbę dla stacji podającej 24 kHz, jeśli jest
+dostępna. Podczas planu słuchaj innej stacji.
+
+Oczekiwane: AMC nagrywa zdekodowany dźwięk także z HLS do wybranego formatu;
+plan działa w tle i nie zmienia odsłuchu. Format wejściowy nie jest bezmyślnie
+kopiowany do pliku, więc zmiany segmentów HLS nie uszkadzają nagrania. Jeżeli
+dany HLS wymaga FFmpeg, program podaje kontrolowany błąd, a nie zawiesza się.
+
+### AMC-143-06 — Globalne i indywidualne wybudzanie
+
+Włącz globalne wybudzanie w Ustawieniach. Utwórz trzy plany: zgodny z
+ustawieniem ogólnym, zawsze wybudzający i nigdy niewybudzający. Otwórz je
+ponownie i sprawdź odczyty pól. Faktyczną próbę uśpienia wykonaj na końcu,
+pozostawiając AMC uruchomiony i ustawiając termin kilka minut później.
+
+Oczekiwane: przy wariancie dziedziczonym edytor mówi również, jaki jest obecny
+stan ogólny. Wszystkie trzy wybory są zachowane. Obsługiwany komputer budzi się
+przed planem; blokada wybudzania przez sprzęt, baterię albo plan zasilania nie
+powoduje uszkodzenia harmonogramu.
+
+### AMC-143-07 — Niedostępny folder i bezpieczny zapis
+
+Wskaż własny folder harmonogramu na odłączanym albo synchronizowanym dysku,
+następnie przed terminem uczyń go niedostępnym. Powtórz z niedostępnym folderem
+ogólnym.
+
+Oczekiwane: AMC sprawdza rzeczywistą możliwość zapisu i wybiera kolejny
+bezpieczny folder: planowy, ogólny, a na końcu systemowy. Program nie publikuje
+pustego lub niedokończonego nagrania i nie ujawnia technicznego wyjątku NVDA.
+
+### AMC-143-08 — Regresja nagrywania i presetów
+
+Sprawdź `R`, `Shift+R`, `Ctrl+Alt+Shift+R`, `Ctrl+0` oraz `Ctrl+Shift+0` na
+liście i w odtwarzaczu.
+
+Oczekiwane: `R` steruje nagrywaniem słyszanej stacji, `Shift+R` otwiera plan,
+`Ctrl+Alt+Shift+R` listę planów, `Ctrl+0` listę sesji, a `Ctrl+Shift+0` preset 0.
+Żaden skrót nie przejmuje roli innego.
+
+## Poprzedni zestaw alpha 142
 
 ## Nowości alpha 142
 

@@ -319,8 +319,17 @@ public sealed class RadioSettings
     public int Volume { get; set; } = 35;
     public int TimeshiftMinutes { get; set; } = 10;
     public string RecordingsFolder { get; set; } = string.Empty;
+    public RadioRecordingFormat RecordingFormat { get; set; } = RadioRecordingFormat.Mp3;
+    public int RecordingBitrateKbps { get; set; } = 192;
     public bool WakeScheduledRecordings { get; set; }
     public List<RadioRecordingScheduleSettings> RecordingSchedules { get; set; } = [];
+}
+
+public enum RadioRecordingFormat
+{
+    Mp3,
+    Aac,
+    Wav
 }
 
 public enum RadioScheduleRecurrence

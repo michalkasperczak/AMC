@@ -65,7 +65,11 @@ public partial class RadioSchedulesWindow : Window
 
     private void New_Click(object sender, RoutedEventArgs e)
     {
-        var editor = new RadioScheduleEditorWindow(_stations, null, _preferredStationId) { Owner = this };
+        var editor = new RadioScheduleEditorWindow(
+            _stations,
+            null,
+            _preferredStationId,
+            globalWakeEnabled: GlobalWakeCheckBox.IsChecked == true) { Owner = this };
         if (editor.ShowDialog() != true || editor.ResultSchedule is null) return;
         _schedules.Add(editor.ResultSchedule);
         RefreshRows(editor.ResultSchedule.Id);
@@ -76,7 +80,11 @@ public partial class RadioSchedulesWindow : Window
     private void EditSelected()
     {
         if (SchedulesList.SelectedItem is not ScheduleRow row) return;
-        var editor = new RadioScheduleEditorWindow(_stations, row.Schedule, row.Schedule.StationId) { Owner = this };
+        var editor = new RadioScheduleEditorWindow(
+            _stations,
+            row.Schedule,
+            row.Schedule.StationId,
+            globalWakeEnabled: GlobalWakeCheckBox.IsChecked == true) { Owner = this };
         if (editor.ShowDialog() != true || editor.ResultSchedule is null) return;
         var index = _schedules.FindIndex(schedule => schedule.Id == row.Schedule.Id);
         if (index >= 0) _schedules[index] = editor.ResultSchedule;

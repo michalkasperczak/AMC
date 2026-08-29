@@ -1,14 +1,15 @@
 using System.Collections.Concurrent;
 using System.IO;
+using AccessibleMediaController.Core.Configuration;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 
 namespace AccessibleMediaController.Windows.Services;
 
 /// <summary>
-/// Encodes a live PCM stream to MP3 without blocking playback on file I/O.
+/// Encodes a live PCM stream to MP3, M4A/AAC or WAV without blocking playback on file I/O.
 /// The encoder writes to an AMC-owned temporary file and publishes the final
-/// MP3 only after Media Foundation has closed the stream successfully.
+/// recording only after the selected encoder has closed the stream successfully.
 /// </summary>
 internal sealed class RadioMp3Recorder : IDisposable
 {
@@ -21,11 +22,15 @@ internal sealed class RadioMp3Recorder : IDisposable
     private readonly string _temporaryPath;
     private int _stopped;
 
-    private RadioMp3Recorder(string finalPath, WaveFormat sourceFormat)
+    private RadioMp3Recorder(
+        string finalPath,
+        WaveFormat sourceFormat,
+        RadioRecordingFormat recordingFormat,
+        int bitRate)
     {
         if (sourceFormat.Channels is < 1 or > 2)
         {
-            throw new NotSupportedException("Nagrywanie MP3 obsługuje stacje mono i stereo.");
+            throw new NotSupportedException("Nagrywanie obsługuje stacje mono i stereo.");
         }
 
         _finalPath = finalPath;
@@ -46,7 +51,20 @@ internal sealed class RadioMp3Recorder : IDisposable
                 FileShare.Read,
                 64 * 1024,
                 FileOptions.SequentialScan);
-            MediaFoundationEncoder.EncodeToMp3(encoderInput, output, DesiredBitRate);
+            switch (recordingFormat)
+            {
+                case RadioRecordingFormat.Mp3:
+                    MediaFoundationEncoder.EncodeToMp3(encoderInput, output, bitRate);
+                    break;
+                case RadioRecordingFormat.Aac:
+                    MediaFoundationEncoder.EncodeToAac(encoderInput, output, bitRate);
+                    break;
+                case RadioRecordingFormat.Wav:
+                    WaveFileWriter.WriteWavFileToStream(output, encoderInput);
+                    break;
+                default:
+                    throw new NotSupportedException("Wybrany format nagrania nie jest obsługiwany.");
+            }
         });
 
         var encoderWaitHandle = ((IAsyncResult)_encoderTask).AsyncWaitHandle;
@@ -58,38 +76,57 @@ internal sealed class RadioMp3Recorder : IDisposable
         AbortAndDeleteTemporaryFile();
         if (ready == 1)
         {
-            ThrowEncoderFailure("Nie udało się uruchomić systemowego kodera MP3.");
+            ThrowEncoderFailure("Nie udało się uruchomić systemowego kodera nagrania.");
         }
-        throw new TimeoutException("Systemowy koder MP3 nie odpowiedział w bezpiecznym czasie.");
+        throw new TimeoutException("Systemowy koder nagrania nie odpowiedział w bezpiecznym czasie.");
     }
 
     public string FinalPath => _finalPath;
 
-    public static RadioMp3Recorder Start(string finalPath, WaveFormat sourceFormat)
+    public static RadioMp3Recorder Start(string finalPath, WaveFormat sourceFormat) =>
+        Start(finalPath, sourceFormat, RadioRecordingFormat.Mp3, DesiredBitRate / 1000);
+
+    public static RadioMp3Recorder Start(
+        string finalPath,
+        WaveFormat sourceFormat,
+        RadioRecordingFormat recordingFormat,
+        int bitRateKbps)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(finalPath);
         ArgumentNullException.ThrowIfNull(sourceFormat);
-        if (!string.Equals(Path.GetExtension(finalPath), ".mp3", StringComparison.OrdinalIgnoreCase))
+        var expectedExtension = RecordingExtension(recordingFormat);
+        if (!string.Equals(Path.GetExtension(finalPath), expectedExtension, StringComparison.OrdinalIgnoreCase))
         {
-            throw new ArgumentException("Plik nagrania musi mieć rozszerzenie MP3.", nameof(finalPath));
+            throw new ArgumentException(
+                $"Plik nagrania musi mieć rozszerzenie {expectedExtension}.",
+                nameof(finalPath));
         }
         if (File.Exists(finalPath) || File.Exists(finalPath + ".amc-partial"))
         {
             throw new IOException("Plik nagrania o tej nazwie już istnieje.");
         }
-        return new RadioMp3Recorder(finalPath, sourceFormat);
+        var bitRate = Math.Clamp(bitRateKbps, 64, 320) * 1000;
+        return new RadioMp3Recorder(finalPath, sourceFormat, recordingFormat, bitRate);
     }
+
+    internal static string RecordingExtension(RadioRecordingFormat format) => format switch
+    {
+        RadioRecordingFormat.Mp3 => ".mp3",
+        RadioRecordingFormat.Aac => ".m4a",
+        RadioRecordingFormat.Wav => ".wav",
+        _ => throw new NotSupportedException("Wybrany format nagrania nie jest obsługiwany.")
+    };
 
     public void Write(byte[] buffer, int offset, int count)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _stopped) != 0, this);
         if (_encoderTask.IsCompleted)
         {
-            ThrowEncoderFailure("Kodowanie MP3 zostało nieoczekiwanie przerwane.");
+            ThrowEncoderFailure("Kodowanie nagrania zostało nieoczekiwanie przerwane.");
         }
         if (!_queue.TryWrite(buffer, offset, count, TimeSpan.FromSeconds(1)))
         {
-            throw new IOException("Koder MP3 nie nadąża z zapisem nagrania.");
+            throw new IOException("Koder nie nadąża z zapisem nagrania.");
         }
     }
 
@@ -105,12 +142,12 @@ internal sealed class RadioMp3Recorder : IDisposable
         {
             if (!_encoderTask.Wait(StopTimeout))
             {
-                throw new TimeoutException("Systemowy koder MP3 nie zakończył pliku w bezpiecznym czasie.");
+                throw new TimeoutException("Systemowy koder nie zakończył pliku w bezpiecznym czasie.");
             }
             _encoderTask.GetAwaiter().GetResult();
             if (!File.Exists(_temporaryPath) || new FileInfo(_temporaryPath).Length == 0)
             {
-                throw new InvalidDataException("Koder MP3 nie utworzył danych nagrania.");
+                throw new InvalidDataException("Koder nie utworzył danych nagrania.");
             }
             File.Move(_temporaryPath, _finalPath);
             return _finalPath;
@@ -124,7 +161,7 @@ internal sealed class RadioMp3Recorder : IDisposable
         {
             TryDeleteTemporaryFile();
             throw new InvalidOperationException(
-                "Nie udało się prawidłowo zakończyć pliku MP3. Nie zapisano uszkodzonego nagrania.",
+                "Nie udało się prawidłowo zakończyć pliku. Nie zapisano uszkodzonego nagrania.",
                 exception);
         }
         finally
@@ -151,7 +188,7 @@ internal sealed class RadioMp3Recorder : IDisposable
         {
             DiagnosticLog.Error(
                 "radio-recording",
-                "Nie udało się zakończyć nagrania MP3 podczas zamykania toru radia.",
+                "Nie udało się zakończyć nagrania podczas zamykania toru radia.",
                 exception);
         }
     }

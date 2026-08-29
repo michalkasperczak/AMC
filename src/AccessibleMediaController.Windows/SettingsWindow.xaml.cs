@@ -79,6 +79,9 @@ public partial class SettingsWindow : Window
             SettingsTarget.RememberLocalPlaybackPositions => (GeneralTab, RememberLocalPlaybackPositionsCheck),
             SettingsTarget.Prefix => (GeneralTab, PrefixBox),
             SettingsTarget.PrefixTimeout => (GeneralTab, TimeoutBox),
+            SettingsTarget.RadioRecording => (RadioTab, RadioRecordingFormatCombo),
+            SettingsTarget.RadioRecordingsFolder => (RadioTab, DefaultRadioFolderOption),
+            SettingsTarget.RadioWakeScheduledRecordings => (RadioTab, WakeScheduledRadioRecordingsCheck),
             SettingsTarget.KeyboardProfile => (KeyboardProfilesTab, ProfileCombo),
             SettingsTarget.ActivateKeyboardProfile => (KeyboardProfilesTab, ActivateProfileButton),
             SettingsTarget.DuplicateKeyboardProfile => (KeyboardProfilesTab, DuplicateProfileButton),
@@ -120,6 +123,17 @@ public partial class SettingsWindow : Window
         PausePlaybackWhenLeavingPlayerCheck.IsChecked = _workingState.Settings.PausePlaybackWhenLeavingPlayer;
         FollowPlaybackOnPlayerExitCheck.IsChecked = _workingState.Settings.FollowPlaybackOnPlayerExit;
         RememberLocalPlaybackPositionsCheck.IsChecked = _workingState.Settings.RememberLocalPlaybackPositions;
+
+        var customRadioFolder = !string.IsNullOrWhiteSpace(_workingState.Radio.RecordingsFolder);
+        DefaultRadioFolderOption.IsChecked = !customRadioFolder;
+        CustomRadioFolderOption.IsChecked = customRadioFolder;
+        RadioRecordingsFolderBox.Text = _workingState.Radio.RecordingsFolder;
+        SelectComboByTag(RadioRecordingFormatCombo, _workingState.Radio.RecordingFormat.ToString());
+        SelectComboByTag(
+            RadioRecordingBitrateCombo,
+            _workingState.Radio.RecordingBitrateKbps.ToString());
+        WakeScheduledRadioRecordingsCheck.IsChecked = _workingState.Radio.WakeScheduledRecordings;
+        UpdateRadioRecordingControls();
 
         MessagesEnabledCheck.IsChecked = _workingState.Settings.Messages.Enabled;
         DetailedHintsCheck.IsChecked = _workingState.Settings.Messages.DetailedHints;
@@ -163,6 +177,27 @@ public partial class SettingsWindow : Window
         _workingState.Settings.PausePlaybackWhenLeavingPlayer = PausePlaybackWhenLeavingPlayerCheck.IsChecked == true;
         _workingState.Settings.FollowPlaybackOnPlayerExit = FollowPlaybackOnPlayerExitCheck.IsChecked == true;
         _workingState.Settings.RememberLocalPlaybackPositions = RememberLocalPlaybackPositionsCheck.IsChecked == true;
+        if (CustomRadioFolderOption.IsChecked == true)
+        {
+            var folder = RadioRecordingsFolderBox.Text.Trim();
+            if (string.IsNullOrWhiteSpace(folder) || !Path.IsPathFullyQualified(folder))
+                throw new InvalidDataException("Wybrany folder nagrań radia musi zawierać pełną ścieżkę.");
+            _workingState.Radio.RecordingsFolder = Path.GetFullPath(folder);
+        }
+        else
+        {
+            _workingState.Radio.RecordingsFolder = string.Empty;
+        }
+        if (Enum.TryParse<RadioRecordingFormat>(
+                SelectedTag(RadioRecordingFormatCombo, nameof(RadioRecordingFormat.Mp3)),
+                out var recordingFormat))
+        {
+            _workingState.Radio.RecordingFormat = recordingFormat;
+        }
+        if (!int.TryParse(SelectedTag(RadioRecordingBitrateCombo, "192"), out var recordingBitrate))
+            recordingBitrate = 192;
+        _workingState.Radio.RecordingBitrateKbps = recordingBitrate;
+        _workingState.Radio.WakeScheduledRecordings = WakeScheduledRadioRecordingsCheck.IsChecked == true;
         if (!int.TryParse(TimeoutBox.Text, out var timeout) || timeout is < 250 or > 30000)
         {
             throw new InvalidDataException("Czas prefiksu musi mieścić się między 250 a 30000 ms.");
@@ -377,6 +412,37 @@ public partial class SettingsWindow : Window
     }
 
     private void ProfileCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshBindings();
+    private void RecordingFolderMode_Changed(object sender, RoutedEventArgs e) => UpdateRadioRecordingControls();
+    private void RadioRecordingFormatCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        UpdateRadioRecordingControls();
+
+    private void UpdateRadioRecordingControls()
+    {
+        if (RadioRecordingsFolderBox is null || RadioRecordingBitrateCombo is null) return;
+        var customFolder = CustomRadioFolderOption.IsChecked == true;
+        RadioRecordingsFolderBox.IsEnabled = customFolder;
+        BrowseRadioRecordingsFolderButton.IsEnabled = customFolder;
+        RadioRecordingBitrateCombo.IsEnabled = !string.Equals(
+            SelectedTag(RadioRecordingFormatCombo, nameof(RadioRecordingFormat.Mp3)),
+            nameof(RadioRecordingFormat.Wav),
+            StringComparison.Ordinal);
+    }
+
+    private void BrowseRadioRecordingsFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Wybierz ogólny folder nagrań radia",
+            Multiselect = false
+        };
+        if (Directory.Exists(RadioRecordingsFolderBox.Text))
+            dialog.InitialDirectory = RadioRecordingsFolderBox.Text;
+        if (dialog.ShowDialog(this) != true) return;
+        CustomRadioFolderOption.IsChecked = true;
+        RadioRecordingsFolderBox.Text = dialog.FolderName;
+        RadioRecordingsFolderBox.Focus();
+        Keyboard.Focus(RadioRecordingsFolderBox);
+    }
     private void ListFieldOrderList_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateListFieldPreview();
     private void ListFieldOrderList_PreviewKeyDown(object sender, KeyEventArgs e)
     {

@@ -396,6 +396,10 @@ public sealed class ConfigurationStore
         state.Radio.Volume = Math.Clamp(state.Radio.Volume, 0, 100);
         state.Radio.TimeshiftMinutes = Math.Clamp(state.Radio.TimeshiftMinutes, 1, 60);
         state.Radio.RecordingsFolder = state.Radio.RecordingsFolder?.Trim() ?? string.Empty;
+        if (!Enum.IsDefined(state.Radio.RecordingFormat))
+            state.Radio.RecordingFormat = RadioRecordingFormat.Mp3;
+        state.Radio.RecordingBitrateKbps = NormalizeRadioRecordingBitrate(
+            state.Radio.RecordingBitrateKbps);
         state.Radio.RecordingSchedules ??= [];
         state.Radio.Stations = (state.Radio.Stations ?? [])
             .Where(station => Uri.TryCreate(station.StreamUrl, UriKind.Absolute, out var uri)
@@ -524,6 +528,12 @@ public sealed class ConfigurationStore
                     .ToList(),
                 StringComparer.OrdinalIgnoreCase),
             StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static int NormalizeRadioRecordingBitrate(int bitrateKbps)
+    {
+        int[] supported = [96, 128, 160, 192, 256, 320];
+        return supported.MinBy(value => Math.Abs(value - bitrateKbps));
     }
 
     private static void NormalizeLocalMedia(PersistedState state, int schemaVersion)

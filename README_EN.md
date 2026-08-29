@@ -368,6 +368,16 @@ While the AMC window is foreground, `Ctrl+Shift+0` has an additional low-level k
 
 In the open Radio player, `R` starts and stops MP3 capture of the station currently being heard. Trying to change stations during this manual recording asks whether to finish and save it; choosing No keeps both the current station and recording unchanged. `Shift+R` on a station in the list or player opens **Timed recording and Radio schedule**. It can start immediately for a chosen duration by default, or the user can turn that option off and set a future time and recurrence. These actions are also exposed in the relevant context menus. `Ctrl+Alt+Shift+R` continues to open the complete schedule list.
 
+## Radio recording settings in alpha 143
+
+Settings has a dedicated **Radio and recording** tab. It selects the default system or a custom folder, `MP3`, `M4A (AAC)` or `WAV`, a lossy-format bitrate, and the default wake behaviour for schedules. MP3 at 192 kb/s remains the initial setting. WAV stores decoded PCM without compression and therefore creates much larger files.
+
+Every schedule explicitly chooses the **general folder from application settings** or **a different folder for this entry**. Wake behaviour remains three-state: inherit the general setting, always wake or never wake; the inheritance label also states the current general value. If the entry-specific or custom general folder is unavailable, AMC performs a real write probe and falls back through the general and system folders instead of losing the recording.
+
+Manual and scheduled capture use the same decoded path as playback. This includes MP3, AAC, OGG and HLS whenever the stream can be played by an available AMC decoder. HLS sources that need FFmpeg also need that component during a scheduled recording. AMC does not offer a misleading HLS “original format”, because a live transmission consists of changing segments rather than one stable source file. An `.amc-partial` working file receives its final name only after the encoder closes correctly.
+
+Wake is optional and requires AMC to remain running while the computer sleeps. Hardware, Windows power-plan settings and battery policy retain the final decision over whether the machine resumes.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

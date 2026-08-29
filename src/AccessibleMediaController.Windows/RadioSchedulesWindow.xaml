@@ -7,7 +7,7 @@
         PreviewKeyDown="Window_PreviewKeyDown">
     <DockPanel Margin="16">
         <TextBlock DockPanel.Dock="Top" Margin="0,0,0,8" TextWrapping="Wrap"
-                   Text="Insert dodaje plan, Enter go edytuje, Delete usuwa. Nagrania są tworzone w tle jako MP3 i nie zmieniają słuchanej stacji."/>
+                   Text="Insert dodaje plan, Enter go edytuje, Delete usuwa. Nagrania są tworzone w tle w formacie wybranym w ustawieniach i nie zmieniają słuchanej stacji."/>
         <CheckBox x:Name="GlobalWakeCheckBox" DockPanel.Dock="Bottom" Margin="0,10,0,8"
                   Content="Domyślnie wybudzaj komputer przed zaplanowanym nagraniem"
                   automation:AutomationProperties.Name="Domyślnie wybudzaj komputer przed zaplanowanym nagraniem"/>

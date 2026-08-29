@@ -83,6 +83,70 @@
                 </ScrollViewer>
             </TabItem>
 
+            <TabItem x:Name="RadioTab" Header="_Radio i nagrywanie">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12">
+                        <TextBlock Margin="0,0,0,12" TextWrapping="Wrap"
+                                   Text="Ustawienia dotyczą ręcznego i zaplanowanego nagrywania Radia internetowego. Każdy plan może osobno użyć folderu ogólnego lub własnego oraz odziedziczyć albo zmienić wybudzanie." />
+                        <GroupBox Header="Folder nagrań" Margin="0,0,0,14">
+                            <StackPanel Margin="8">
+                                <RadioButton x:Name="DefaultRadioFolderOption" GroupName="RadioRecordingsFolderMode"
+                                             Content="Użyj domyślnego folderu Muzyka, AMC — Nagrania radia"
+                                             Margin="0,0,0,8" Checked="RecordingFolderMode_Changed"
+                                             automation:AutomationProperties.Name="Użyj domyślnego folderu Muzyka, AMC — Nagrania radia" />
+                                <RadioButton x:Name="CustomRadioFolderOption" GroupName="RadioRecordingsFolderMode"
+                                             Content="Użyj wybranego folderu"
+                                             Margin="0,0,0,6" Checked="RecordingFolderMode_Changed"
+                                             automation:AutomationProperties.Name="Użyj wybranego folderu nagrań" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="RadioRecordingsFolderBox" Grid.Column="0"
+                                             automation:AutomationProperties.Name="Wybrany ogólny folder nagrań radia" />
+                                    <Button x:Name="BrowseRadioRecordingsFolderButton" Grid.Column="1"
+                                            Content="_Wybierz…" Margin="8,0,0,0" Padding="10,4"
+                                            automation:AutomationProperties.Name="Wybierz ogólny folder nagrań radia"
+                                            Click="BrowseRadioRecordingsFolder_Click" />
+                                </Grid>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Format nagrywania" Margin="0,0,0,14">
+                            <StackPanel Margin="8">
+                                <Label Target="{Binding ElementName=RadioRecordingFormatCombo}">_Format pliku:</Label>
+                                <ComboBox x:Name="RadioRecordingFormatCombo" Width="270" HorizontalAlignment="Left"
+                                          Margin="0,0,0,10" SelectedIndex="0"
+                                          SelectionChanged="RadioRecordingFormatCombo_SelectionChanged"
+                                          automation:AutomationProperties.Name="Format nagrania radia">
+                                    <ComboBoxItem Tag="Mp3">MP3</ComboBoxItem>
+                                    <ComboBoxItem Tag="Aac">M4A, dźwięk AAC</ComboBoxItem>
+                                    <ComboBoxItem Tag="Wav">WAV, bez kompresji</ComboBoxItem>
+                                </ComboBox>
+                                <Label Target="{Binding ElementName=RadioRecordingBitrateCombo}">_Bitrate MP3 lub AAC:</Label>
+                                <ComboBox x:Name="RadioRecordingBitrateCombo" Width="180" HorizontalAlignment="Left"
+                                          automation:AutomationProperties.Name="Bitrate nagrania MP3 lub AAC">
+                                    <ComboBoxItem Tag="96">96 kb/s</ComboBoxItem>
+                                    <ComboBoxItem Tag="128">128 kb/s</ComboBoxItem>
+                                    <ComboBoxItem Tag="160">160 kb/s</ComboBoxItem>
+                                    <ComboBoxItem Tag="192">192 kb/s</ComboBoxItem>
+                                    <ComboBoxItem Tag="256">256 kb/s</ComboBoxItem>
+                                    <ComboBoxItem Tag="320">320 kb/s</ComboBoxItem>
+                                </ComboBox>
+                                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
+                                           Text="MP3 jest ustawieniem domyślnym. WAV zachowuje zdekodowany dźwięk bez kompresji, ale tworzy znacznie większe pliki." />
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Wybudzanie" Margin="0,0,0,8">
+                            <StackPanel Margin="8">
+                                <CheckBox x:Name="WakeScheduledRadioRecordingsCheck"
+                                          Content="Domyślnie _wybudzaj komputer przed zaplanowanym nagraniem"
+                                          automation:AutomationProperties.Name="Domyślnie wybudzaj komputer przed zaplanowanym nagraniem" />
+                                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
+                                           Text="AMC musi pozostawać uruchomiony podczas uśpienia. Sprzęt, plan zasilania Windows i zasilanie bateryjne mogą nie zezwolić na wybudzenie. Każdy plan może odziedziczyć to ustawienie albo je nadpisać." />
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <TabItem x:Name="KeyboardProfilesTab" Header="_Profile klawiatury">
                 <DockPanel Margin="12">
                     <StackPanel DockPanel.Dock="Top">
