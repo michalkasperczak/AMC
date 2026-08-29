@@ -439,6 +439,14 @@ Lista harmonogramów pozwala przełączać zaznaczony plan Spacją albo przycisk
 
 Opcja szybkiego `Shift+R` brzmi teraz **Rozpocznij pierwsze nagranie od razu po zapisaniu**. Gdy jest zaznaczona, data i godzina pierwszego startu są pomijane, a plan zostaje włączony. Plan jednorazowy wykona się raz; cykliczny po pierwszym natychmiastowym zapisie wyznaczy kolejne wystąpienia o godzinie rzeczywistego pierwszego startu. Po odznaczeniu pierwsze nagranie korzysta z wpisanej daty i godziny. Pole folderu planu zawiera wartości **Domyślny folder nagrywania** oraz **Folder użytkownika**; tylko druga udostępnia przycisk wyboru ścieżki.
 
+## Termin i fokus harmonogramu w alpha 149
+
+Nowy plan ma jednoznaczne pole **Pierwsze nagranie** z wartościami **Od razu po zapisaniu** oraz **W wybranym terminie**. Druga wartość udostępnia natywne pola daty i godziny Windows. W dacie lewa i prawa strzałka wybierają dzień, miesiąc albo rok, a góra i dół zmieniają wskazaną część. Godzina działa analogicznie dla godziny i minut. Długość nagrania jest polem liczbowym od 1 do 10080 minut, więc nieprawidłowy tekst nie może zostać zapisany jako termin.
+
+Tab przechodzi po formularzu w kolejności użytkowej. Escape działa również wewnątrz natywnych pól i anuluje edycję, a Enter zapisuje plan. Nowy plan rozpoczyna fokus od stacji, edycja istniejącego od daty, a po dodaniu, zmianie lub usunięciu fokus wraca na listę harmonogramów.
+
+Pełna kopia `*.amcbackup.json` już obejmuje Bibliotekę i Ulubione Radia oraz harmonogramy. Plan osobnego, bezpiecznego eksportu do przesyłania innym osobom opisuje [`PROJEKT_IMPORTU_EKSPORTU_RADIA.md`](PROJEKT_IMPORTU_EKSPORTU_RADIA.md); osobne przyciski importu i eksportu nie są jeszcze częścią alpha 149.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

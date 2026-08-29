@@ -75,6 +75,7 @@ public partial class RadioSchedulesWindow : Window
         if (editor.ShowDialog() != true || editor.ResultSchedule is null) return;
         _schedules.Add(editor.ResultSchedule);
         RefreshRows(editor.ResultSchedule.Id);
+        FocusSchedulesList();
     }
 
     private void Edit_Click(object sender, RoutedEventArgs e) => EditSelected();
@@ -106,6 +107,7 @@ public partial class RadioSchedulesWindow : Window
         var index = _schedules.FindIndex(schedule => schedule.Id == row.Schedule.Id);
         if (index >= 0) _schedules[index] = editor.ResultSchedule;
         RefreshRows(editor.ResultSchedule.Id);
+        FocusSchedulesList();
     }
 
     private void Delete_Click(object sender, RoutedEventArgs e) => DeleteSelected();
@@ -125,6 +127,7 @@ public partial class RadioSchedulesWindow : Window
         if (result != MessageBoxResult.Yes) return;
         _schedules.RemoveAll(schedule => schedule.Id == row.Schedule.Id);
         RefreshRows();
+        FocusSchedulesList();
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -159,6 +162,12 @@ public partial class RadioSchedulesWindow : Window
     }
 
     private void SchedulesList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => EditSelected();
+
+    private void FocusSchedulesList()
+    {
+        SchedulesList.Focus();
+        Keyboard.Focus(SchedulesList);
+    }
 
     private static RadioRecordingScheduleSettings Clone(RadioRecordingScheduleSettings schedule) => new()
     {

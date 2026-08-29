@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -16,6 +15,9 @@ public partial class RadioScheduleEditorWindow : Window
     private readonly RadioRecordingScheduleSettings? _existing;
     private readonly IReadOnlyList<StationChoice> _stations;
     private readonly IReadOnlyList<DayChoice> _dayChoices;
+    private readonly System.Windows.Forms.DateTimePicker _datePicker;
+    private readonly System.Windows.Forms.DateTimePicker _timePicker;
+    private readonly System.Windows.Forms.NumericUpDown _durationPicker;
 
     public RadioRecordingScheduleSettings? ResultSchedule { get; private set; }
 
@@ -28,6 +30,15 @@ public partial class RadioScheduleEditorWindow : Window
         bool globalWakeEnabled = false)
     {
         InitializeComponent();
+        _datePicker = CreateDatePicker();
+        _timePicker = CreateTimePicker();
+        _durationPicker = CreateDurationPicker();
+        DatePickerHost.Child = _datePicker;
+        TimePickerHost.Child = _timePicker;
+        DurationPickerHost.Child = _durationPicker;
+        _datePicker.KeyDown += HostedInput_KeyDown;
+        _timePicker.KeyDown += HostedInput_KeyDown;
+        _durationPicker.KeyDown += HostedInput_KeyDown;
         _existing = existing;
         var choices = stations
             .Where(item => item.Kind == MediaItemKind.Station
@@ -62,9 +73,9 @@ public partial class RadioScheduleEditorWindow : Window
             : new DateTime(existing.NextStartUtcTicks, DateTimeKind.Utc);
         var zone = RadioScheduleCalculator.ResolveTimeZone(existing?.TimeZoneId);
         var local = TimeZoneInfo.ConvertTimeFromUtc(initialUtc, zone);
-        DateTextBox.Text = local.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        TimeTextBox.Text = local.ToString("HH:mm", CultureInfo.InvariantCulture);
-        DurationTextBox.Text = (existing?.DurationMinutes ?? 60).ToString(CultureInfo.InvariantCulture);
+        _datePicker.Value = local.Date;
+        _timePicker.Value = DateTime.Today + local.TimeOfDay;
+        _durationPicker.Value = Math.Clamp(existing?.DurationMinutes ?? 60, 1, 10_080);
         OutputFolderTextBox.Text = existing?.OutputFolder ?? string.Empty;
         var customOutputFolder = !string.IsNullOrWhiteSpace(existing?.OutputFolder);
         OutputFolderModeCombo.SelectedIndex = customOutputFolder ? 1 : 0;
@@ -76,11 +87,11 @@ public partial class RadioScheduleEditorWindow : Window
         var stationId = existing?.StationId ?? preferredStationId;
         StationCombo.SelectedItem = _stations.FirstOrDefault(choice => choice.Id == stationId)
             ?? _stations.FirstOrDefault();
-        ImmediateStartCheckBox.Visibility = offerImmediateStart && existing is null
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-        ImmediateStartExplanation.Visibility = ImmediateStartCheckBox.Visibility;
-        ImmediateStartCheckBox.IsChecked = offerImmediateStart && existing is null;
+        var showStartMode = existing is null;
+        StartModeLabel.Visibility = showStartMode ? Visibility.Visible : Visibility.Collapsed;
+        StartModeCombo.Visibility = showStartMode ? Visibility.Visible : Visibility.Collapsed;
+        ImmediateStartExplanation.Visibility = showStartMode ? Visibility.Visible : Visibility.Collapsed;
+        StartModeCombo.SelectedIndex = offerImmediateStart ? 0 : 1;
         var selectedDays = (existing?.ActiveDays ?? []).ToHashSet();
         foreach (var choice in _dayChoices)
         {
@@ -97,8 +108,15 @@ public partial class RadioScheduleEditorWindow : Window
         UpdateOutputFolderControls();
         Loaded += (_, _) =>
         {
-            StationCombo.Focus();
-            Keyboard.Focus(StationCombo);
+            if (_existing is null)
+            {
+                StationCombo.Focus();
+                Keyboard.Focus(StationCombo);
+            }
+            else
+            {
+                _datePicker.Focus();
+            }
         };
     }
 
@@ -110,28 +128,10 @@ public partial class RadioScheduleEditorWindow : Window
             ShowError("Wybierz stację do nagrania", StationCombo);
             return;
         }
-        var immediateStart = ImmediateStartCheckBox.Visibility == Visibility.Visible
-            && ImmediateStartCheckBox.IsChecked == true;
-        var date = DateTime.Today;
-        if (!immediateStart && !TryParseDate(DateTextBox.Text, out date))
-        {
-            ShowError("Wpisz prawidłową datę, na przykład 2026-08-30", DateTextBox);
-            return;
-        }
-        var time = TimeSpan.Zero;
-        if (!immediateStart
-            && (!TimeSpan.TryParseExact(TimeTextBox.Text.Trim(), ["h\\:mm", "hh\\:mm"], CultureInfo.InvariantCulture, out time)
-            || time < TimeSpan.Zero || time >= TimeSpan.FromDays(1))
-        )
-        {
-            ShowError("Wpisz godzinę w formacie godzina dwukropek minuta", TimeTextBox);
-            return;
-        }
-        if (!int.TryParse(DurationTextBox.Text.Trim(), out var duration) || duration is < 1 or > 10_080)
-        {
-            ShowError("Długość musi wynosić od 1 do 10080 minut", DurationTextBox);
-            return;
-        }
+        var immediateStart = IsImmediateStart;
+        var date = _datePicker.Value.Date;
+        var time = _timePicker.Value.TimeOfDay;
+        var duration = decimal.ToInt32(_durationPicker.Value);
         if (RecurrenceCombo.SelectedItem is not RecurrenceChoice recurrence)
         {
             ShowError("Wybierz sposób powtarzania", RecurrenceCombo);
@@ -172,13 +172,13 @@ public partial class RadioScheduleEditorWindow : Window
         {
             if (schedule.Recurrence == RadioScheduleRecurrence.Once)
             {
-                ShowError("Jednorazowe nagranie musi rozpoczynać się w przyszłości", DateTextBox);
+                ShowHostedError("Jednorazowe nagranie musi rozpoczynać się w przyszłości", _datePicker);
                 return;
             }
             var next = RadioScheduleCalculator.FindNextStartUtc(schedule, DateTime.UtcNow);
             if (next is null)
             {
-                ShowError("Nie można wyznaczyć następnego terminu", DateTextBox);
+                ShowHostedError("Nie można wyznaczyć następnego terminu", _datePicker);
                 return;
             }
             schedule.NextStartUtcTicks = next.Value.Ticks;
@@ -194,19 +194,17 @@ public partial class RadioScheduleEditorWindow : Window
         DialogResult = true;
     }
 
-    private static bool TryParseDate(string value, out DateTime date) =>
-        DateTime.TryParseExact(
-            value.Trim(),
-            ["yyyy-MM-dd", "dd.MM.yyyy", "d.M.yyyy"],
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.None,
-            out date);
-
     private void ShowError(string message, Control control)
     {
         ValidationText.Text = message;
         control.Focus();
         Keyboard.Focus(control);
+    }
+
+    private void ShowHostedError(string message, System.Windows.Forms.Control control)
+    {
+        ValidationText.Text = message;
+        control.Focus();
     }
 
     private void BrowseFolder_Click(object sender, RoutedEventArgs e)
@@ -226,7 +224,8 @@ public partial class RadioScheduleEditorWindow : Window
 
     private void RecurrenceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateDaysEnabled();
 
-    private void ImmediateStartCheckBox_Changed(object sender, RoutedEventArgs e) => UpdateStartControlsEnabled();
+    private void StartModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        UpdateStartControlsEnabled();
 
     private void OutputFolderMode_Changed(object sender, RoutedEventArgs e) => UpdateOutputFolderControls();
 
@@ -241,19 +240,24 @@ public partial class RadioScheduleEditorWindow : Window
     private bool UsesCustomOutputFolder =>
         (OutputFolderModeCombo?.SelectedItem as ComboBoxItem)?.Tag?.ToString() == "Custom";
 
+    private bool IsImmediateStart =>
+        StartModeCombo.Visibility == Visibility.Visible
+        && (StartModeCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString() == "Immediate";
+
     private void UpdateStartControlsEnabled()
     {
-        if (DateTextBox is null || TimeTextBox is null || EnabledCheckBox is null
+        if (DatePickerHost is null || TimePickerHost is null || EnabledCheckBox is null
             || ImmediateStartExplanation is null) return;
-        var immediate = ImmediateStartCheckBox.Visibility == Visibility.Visible
-            && ImmediateStartCheckBox.IsChecked == true;
-        DateTextBox.IsEnabled = !immediate;
-        TimeTextBox.IsEnabled = !immediate;
+        var immediate = IsImmediateStart;
+        DatePickerHost.IsEnabled = !immediate;
+        TimePickerHost.IsEnabled = !immediate;
+        _datePicker.Enabled = !immediate;
+        _timePicker.Enabled = !immediate;
         EnabledCheckBox.IsEnabled = !immediate;
         if (immediate) EnabledCheckBox.IsChecked = true;
         ImmediateStartExplanation.Text = immediate
             ? "Pierwsze nagranie rozpocznie się po zapisaniu. Data i godzina są pomijane; plan cykliczny powtórzy się o godzinie rozpoczęcia pierwszego nagrania."
-            : "Pierwsze nagranie rozpocznie się w podanej dacie i godzinie.";
+            : "Pierwsze nagranie rozpocznie się w podanej dacie i godzinie. W polach daty i czasu lewo lub prawo wybiera część, a góra lub dół zmienia jej wartość.";
     }
 
     private void UpdateDaysEnabled()
@@ -277,6 +281,56 @@ public partial class RadioScheduleEditorWindow : Window
         DialogResult = false;
         e.Handled = true;
     }
+
+    private void HostedInput_KeyDown(object? sender, System.Windows.Forms.KeyEventArgs e)
+    {
+        if (e.KeyCode == System.Windows.Forms.Keys.Escape)
+        {
+            DialogResult = false;
+            e.Handled = true;
+            return;
+        }
+        if (e.KeyCode != System.Windows.Forms.Keys.Enter) return;
+        Save_Click(this, new RoutedEventArgs());
+        e.Handled = true;
+    }
+
+    private static System.Windows.Forms.DateTimePicker CreateDatePicker() => new()
+    {
+        AccessibleName = "Data pierwszego nagrania",
+        AccessibleDescription = "Lewo i prawo wybiera dzień, miesiąc albo rok. Góra i dół zmienia wybraną część.",
+        AccessibleRole = System.Windows.Forms.AccessibleRole.SpinButton,
+        CustomFormat = "dd.MM.yyyy",
+        Format = System.Windows.Forms.DateTimePickerFormat.Custom,
+        ShowUpDown = true,
+        Dock = System.Windows.Forms.DockStyle.Fill,
+        TabStop = true
+    };
+
+    private static System.Windows.Forms.DateTimePicker CreateTimePicker() => new()
+    {
+        AccessibleName = "Godzina rozpoczęcia",
+        AccessibleDescription = "Lewo i prawo wybiera godzinę albo minuty. Góra i dół zmienia wybraną część.",
+        AccessibleRole = System.Windows.Forms.AccessibleRole.SpinButton,
+        CustomFormat = "HH:mm",
+        Format = System.Windows.Forms.DateTimePickerFormat.Custom,
+        ShowUpDown = true,
+        Dock = System.Windows.Forms.DockStyle.Fill,
+        TabStop = true
+    };
+
+    private static System.Windows.Forms.NumericUpDown CreateDurationPicker() => new()
+    {
+        AccessibleName = "Długość nagrania w minutach",
+        AccessibleDescription = "Wpisz liczbę albo zmień ją strzałkami w górę i w dół.",
+        AccessibleRole = System.Windows.Forms.AccessibleRole.SpinButton,
+        Minimum = 1,
+        Maximum = 10_080,
+        Value = 60,
+        Dock = System.Windows.Forms.DockStyle.Fill,
+        TabStop = true,
+        ThousandsSeparator = false
+    };
 
     private sealed record StationChoice(string Id, string Label, string StreamUrl)
     {

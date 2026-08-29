@@ -1,12 +1,58 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-148`
-- Tytuł zestawu: Dostępna edycja harmonogramu nagrywania
-- Wersja programu: `0.1.0-alpha.148`
+- Numer zestawu: `AMC-TEST-149`
+- Tytuł zestawu: Termin, tabulacja i fokus harmonogramu
+- Wersja programu: `0.1.0-alpha.149`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.148.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.149.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 149
+
+### AMC-149-01 — Jednoznaczny termin pierwszego nagrania
+
+Na stacji naciśnij `Shift+R` i przejdź do pola Pierwsze nagranie. Sprawdź obie
+wartości.
+
+Oczekiwane: są tylko **Od razu po zapisaniu** i **W wybranym terminie**. Pierwsza
+wyłącza datę oraz godzinę i wymusza włączenie planu. Druga uaktywnia datę,
+godzinę i zwykłe pole Plan włączony. Nie pojawia się techniczna nazwa ani parametr.
+
+### AMC-149-02 — Segmentowa data i godzina
+
+Wybierz W wybranym terminie. W polu daty użyj lewej i prawej strzałki, a potem
+góry i dołu. Powtórz w polu godziny.
+
+Oczekiwane: lewo i prawo wybiera dzień, miesiąc lub rok, a góra i dół zmienia
+wybraną część. W czasie wybierane są godzina i minuty. NVDA czyta wartości, data
+pozostaje prawidłowa, a Tab wychodzi do następnej funkcji formularza.
+
+### AMC-149-03 — Długość nagrania
+
+Przejdź Tabem do Długości w minutach. Wpisz liczbę, zmień ją strzałkami i spróbuj
+wpisać wartość spoza zakresu.
+
+Oczekiwane: pole przyjmuje wyłącznie liczbę od 1 do 10080 i nie pozwala zapisać
+uszkodzonego tekstu. NVDA nie czyta nazwy klasy ani właściwości kontrolki.
+
+### AMC-149-04 — Escape, Enter i powrót fokusu
+
+Otwórz edycję istniejącego planu. Sprawdź Escape wewnątrz daty, godziny i długości.
+Otwórz ponownie, zapisz Enterem, następnie dodaj i usuń plan.
+
+Oczekiwane: edytowany plan zaczyna na dacie; Escape anuluje bez zawieszenia.
+Enter zapisuje. Po dodaniu, edycji i usunięciu fokus wraca na listę harmonogramów
+i pozostaje na właściwym wierszu albo pierwszym dostępnym wpisie.
+
+### AMC-149-05 — Kolejność Tab i dni tygodnia
+
+Przejdź cały formularz Tabem, wybierz powtarzanie w wybrane dni i zaznacz dwa dni.
+
+Oczekiwane: każde pole formularza występuje raz. Dni tygodnia pozostają jednym
+punktem Tab, a poruszanie po nich i zaznaczanie Spacją działa jak w alpha 148.
+
+## Poprzedni zestaw alpha 148
 
 ## Nowości alpha 148
 

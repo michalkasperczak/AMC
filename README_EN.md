@@ -410,6 +410,14 @@ The schedule list toggles its selected entry with Space or the **Enable or disab
 
 The quick `Shift+R` option is now **Start the first recording immediately after saving**. When checked, the first date and time are ignored and the entry is necessarily enabled. A one-off entry runs once; a recurring entry calculates later occurrences from the actual immediate-start time. Clearing the option makes the entered first date and time effective. The per-entry folder combo contains **Default recording folder** and **User folder**; only the latter enables its path picker.
 
+## Schedule time and focus in alpha 149
+
+A new entry has one explicit **First recording** combo with **Immediately after saving** and **At the selected time**. The latter enables native Windows date and time controls. In the date control, Left and Right select day, month or year, while Up and Down change the selected part. The time control works the same way for hours and minutes. Duration is a numeric field limited to 1 through 10080 minutes, so malformed text cannot be stored as a schedule time.
+
+Tab follows the user-facing form order. Escape also works inside the hosted native controls and cancels editing, while Enter saves the entry. A new entry starts with focus on the station; an existing entry starts on its date; after add, edit or delete, focus returns to the schedule list.
+
+The complete `*.amcbackup.json` backup already contains the Radio Library and Favorites as well as recording schedules. [`PROJEKT_IMPORTU_EKSPORTU_RADIA.md`](PROJEKT_IMPORTU_EKSPORTU_RADIA.md) specifies a separate safe sharing format; dedicated import and export commands are not part of alpha 149 yet.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.
