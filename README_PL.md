@@ -451,6 +451,10 @@ Pełna kopia `*.amcbackup.json` już obejmuje Bibliotekę i Ulubione Radia oraz 
 
 Pole nowego harmonogramu brzmi teraz zwięźle **Nagrywaj** i zawiera wartości **Natychmiast** oraz **Później**. „Natychmiast” oznacza rozpoczęcie po wybraniu Zapisz; „Później” uaktywnia datę i godzinę. Znika techniczne sformułowanie „po zapisaniu” z samej wartości pola. Pole wybudzania ma konsekwentną nazwę **Wybudzanie komputera dla tego harmonogramu**.
 
+## Oznajmianie segmentów daty i godziny w alpha 151
+
+Osadzone pola daty i godziny jawnie wysyłają do NVDA wybraną część oraz jej bieżącą wartość. Lewo i prawo podaje odpowiednio dzień, miesiąc, rok albo godzinę i minuty. Góra i dół po zmianie podaje nową wartość tej samej części, na przykład „Miesiąc: 8, sierpień” lub „Minuty: 35”. Nie trzeba używać `NVDA+strzałka w górę`, a data i godzina nadal zajmują po jednym punkcie Tab.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

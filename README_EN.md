@@ -422,6 +422,10 @@ The complete `*.amcbackup.json` backup already contains the Radio Library and Fa
 
 The new-schedule combo is now simply labelled **Record** and contains **Immediately** and **Later**. “Immediately” means after choosing Save; “Later” enables the date and time controls. The implementation-oriented phrase “after saving” is no longer part of the value itself. The wake control is consistently named **Wake the computer for this schedule**.
 
+## Date and time segment announcements in alpha 151
+
+The hosted date and time controls now explicitly send the selected part and its current value to NVDA. Left and Right announce day, month, year, hour or minutes. After Up or Down changes a value, the same part's new value is announced, for example “Month: 8, August” or “Minutes: 35”. `NVDA+Up Arrow` is no longer required, and date and time still occupy one Tab stop each.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

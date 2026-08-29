@@ -1,12 +1,46 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-150`
-- Tytuł zestawu: Spójne nazwy harmonogramu
-- Wersja programu: `0.1.0-alpha.150`
+- Numer zestawu: `AMC-TEST-151`
+- Tytuł zestawu: Oznajmianie daty i godziny
+- Wersja programu: `0.1.0-alpha.151`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.150.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.151.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 151
+
+### AMC-151-01 — Wybieranie części daty
+
+W nowym harmonogramie wybierz Nagrywaj: Później. Przejdź do daty i naciskaj
+strzałkę w prawo oraz w lewo.
+
+Oczekiwane: NVDA od razu mówi Dzień, Miesiąc albo Rok wraz z bieżącą wartością.
+Nie trzeba naciskać `NVDA+strzałka w górę`.
+
+### AMC-151-02 — Zmienianie daty
+
+Na każdym z trzech segmentów naciśnij kilka razy górę i dół.
+
+Oczekiwane: NVDA po każdym naciśnięciu mówi nową wartość właściwej części.
+Miesiąc zawiera numer i nazwę, np. „Miesiąc: 8, sierpień”.
+
+### AMC-151-03 — Godzina i minuty
+
+Przejdź do godziny. Lewo/prawo wybierz godzinę albo minuty i zmieniaj je
+górą oraz dołem.
+
+Oczekiwane: NVDA mówi aktywną część i każdą nową wartość. Tab przechodzi od
+całej godziny do Długości nagrania; nie powstały dodatkowe punkty Tab.
+
+### AMC-151-04 — Pozostała obsługa pola
+
+Sprawdź Escape w dacie i godzinie, a następnie zapisz prawidłowy termin Enterem.
+
+Oczekiwane: Escape anuluje okno, Enter zapisuje, a nowe oznajmianie nie dubluje
+komunikatów ani nie zmienia wybranej części kontrolki.
+
+## Poprzedni zestaw alpha 150
 
 ## Nowości alpha 150
 

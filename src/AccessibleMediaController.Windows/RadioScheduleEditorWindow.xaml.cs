@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -18,6 +19,8 @@ public partial class RadioScheduleEditorWindow : Window
     private readonly System.Windows.Forms.DateTimePicker _datePicker;
     private readonly System.Windows.Forms.DateTimePicker _timePicker;
     private readonly System.Windows.Forms.NumericUpDown _durationPicker;
+    private int _dateSegmentIndex;
+    private int _timeSegmentIndex;
 
     public RadioRecordingScheduleSettings? ResultSchedule { get; private set; }
 
@@ -290,10 +293,66 @@ public partial class RadioScheduleEditorWindow : Window
             e.Handled = true;
             return;
         }
-        if (e.KeyCode != System.Windows.Forms.Keys.Enter) return;
-        Save_Click(this, new RoutedEventArgs());
-        e.Handled = true;
+        if (e.KeyCode == System.Windows.Forms.Keys.Enter)
+        {
+            Save_Click(this, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
+        if (sender == _datePicker && IsSegmentNavigationKey(e.KeyCode))
+        {
+            _dateSegmentIndex = MoveSegment(
+                _dateSegmentIndex,
+                segmentCount: 3,
+                e.KeyCode);
+            AnnounceHostedValueAfterKey(() => FormatDateSegment(_datePicker.Value, _dateSegmentIndex));
+            return;
+        }
+
+        if (sender == _timePicker && IsSegmentNavigationKey(e.KeyCode))
+        {
+            _timeSegmentIndex = MoveSegment(
+                _timeSegmentIndex,
+                segmentCount: 2,
+                e.KeyCode);
+            AnnounceHostedValueAfterKey(() => FormatTimeSegment(_timePicker.Value, _timeSegmentIndex));
+        }
     }
+
+    private static bool IsSegmentNavigationKey(System.Windows.Forms.Keys key) =>
+        key is System.Windows.Forms.Keys.Left
+            or System.Windows.Forms.Keys.Right
+            or System.Windows.Forms.Keys.Up
+            or System.Windows.Forms.Keys.Down;
+
+    private static int MoveSegment(int current, int segmentCount, System.Windows.Forms.Keys key) =>
+        key switch
+        {
+            System.Windows.Forms.Keys.Left => Math.Max(0, current - 1),
+            System.Windows.Forms.Keys.Right => Math.Min(segmentCount - 1, current + 1),
+            _ => current
+        };
+
+    private void AnnounceHostedValueAfterKey(Func<string> messageFactory)
+    {
+        Dispatcher.BeginInvoke(
+            () => DateTimeStatus.Announce(messageFactory()),
+            System.Windows.Threading.DispatcherPriority.ContextIdle);
+    }
+
+    private static string FormatDateSegment(DateTime value, int segmentIndex) => segmentIndex switch
+    {
+        0 => $"Dzień: {value.Day}",
+        1 => $"Miesiąc: {value.Month}, {value.ToString("MMMM", CultureInfo.GetCultureInfo("pl-PL"))}",
+        _ => $"Rok: {value.Year}"
+    };
+
+    private static string FormatTimeSegment(DateTime value, int segmentIndex) => segmentIndex switch
+    {
+        0 => $"Godzina: {value.Hour}",
+        _ => $"Minuty: {value.Minute}"
+    };
 
     private static System.Windows.Forms.DateTimePicker CreateDatePicker() => new()
     {

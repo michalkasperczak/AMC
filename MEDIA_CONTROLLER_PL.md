@@ -1040,6 +1040,8 @@ Przenośne dane Radia są dwiema warstwami. Pełna kopia zachowuje dokładny sta
 
 Korekta języka interfejsu `alpha.150`: nazwa pola opisuje zamiar **Nagrywaj**, a jego wartości to **Natychmiast** i **Później**. Szczegół, że rozpoczęcie natychmiastowe następuje po zatwierdzeniu przyciskiem Zapisz, należy do opisu pomocniczego, nie do nazwy wartości. Cały moduł używa rzeczownika „harmonogram”, dlatego dostępna nazwa reguły zasilania brzmi **Wybudzanie komputera dla tego harmonogramu**. Nie stosujemy naprzemiennie słów „plan” i „nagranie” dla tego samego rekordu.
 
+Korekta dostępności `alpha.151`: nie wystarczy, że segmentowa kontrolka wizualnie zmienia datę lub godzinę. Każde lewo/prawo jawnie oznajmia aktywny segment i wartość, a każde góra/dół — wartość po zmianie. Oznajmianie jest informacją niezbędną do obsługi kontrolki, więc nie zależy od opcjonalnych komunikatów odtwarzacza. Nie tworzy dodatkowych punktów Tab i nie wymaga polecenia przeglądu bieżącego wiersza czytnika ekranu.
+
 Katalog lokalny i kolejność: Biblioteka nie jest playlistą ani kopią jednego folderu, lecz katalogiem źródeł z trwałą tożsamością, ścieżką i widokami. Porządki wyliczane, takie jak tytuł, wykonawca, album, folder, data dodania albo ostatnie odtworzenie, pozostają deterministycznymi sposobami sortowania. Osobna Kolejność własna jest zapisem użytkownika i nie zmienia kolejności plików na dysku. Te same klawisze nie udają ręcznego sortowania w widokach wykonawców, albumów ani wyników wyszukiwania.
 
 Planowana kolejność dalszych etapów:
