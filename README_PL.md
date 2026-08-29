@@ -52,6 +52,8 @@ Od `alpha.134` natywny pasek stanu udostępnia NVDA jedną bieżącą treść ja
 
 Od `alpha.135` Radio internetowe korzysta ze zwykłych, trwałych playlist AMC tak samo jak pozostałe sesje. `Ctrl+P` otwiera playlisty stacji, a `Ctrl+Shift+P` zmienia przynależność jednej lub wielu stacji, również z wyników wyszukiwania i odtwarzacza. Playlistę można tworzyć, nazywać, usuwać bez usuwania stacji oraz porządkować ręcznie. Presety są od tej funkcji całkowicie oddzielone: `Ctrl+Alt+P` otwiera ich listę, a `Ctrl+Alt+Shift+P` tworzy lub przypisuje preset. Krótsze skróty nie są już aliasami presetów.
 
+Od `alpha.136` lista presetów rozróżnia numer miejsca od fizycznego klawisza. Dziesiąta pozycja brzmi „Preset numer 10, klawisz 0”, jedenasta wskazuje klawisz minus, a dwunasta znak równości. Pasek stanu ponownie zachowuje standardowe drzewo dostępności Windows: ma rolę paska stanu i dokładnie jedno tekstowe dziecko z aktualną treścią, którego oczekuje skrypt `NVDA+End`. Kontener nie otrzymuje dodatkowej nazwy, więc treść nie powinna być dublowana.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

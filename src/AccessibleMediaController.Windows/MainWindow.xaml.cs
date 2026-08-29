@@ -124,12 +124,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         const string initialStatus = "pauza, 0:00";
         _playbackStatusLabel = new System.Windows.Forms.ToolStripStatusLabel
         {
+            AccessibleName = initialStatus,
+            AccessibleRole = System.Windows.Forms.AccessibleRole.StaticText,
             Spring = true,
             Text = initialStatus,
             TextAlign = System.Drawing.ContentAlignment.MiddleLeft
         };
         _playbackStatusBar = new AccessiblePlaybackStatusStrip
         {
+            AccessibleRole = System.Windows.Forms.AccessibleRole.StatusBar,
             SpokenText = initialStatus,
             AutoSize = false,
             CanOverflow = false,
@@ -818,6 +821,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var text = BuildPlaybackStatusText();
         _playbackStatusLabel.Text = text;
+        _playbackStatusLabel.AccessibleName = text;
         _playbackStatusBar.SpokenText = text;
     }
 

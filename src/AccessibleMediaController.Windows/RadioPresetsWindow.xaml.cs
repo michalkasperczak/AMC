@@ -131,9 +131,13 @@ public sealed record RadioPresetChoice(
     string? StationName,
     string? ShareableLocation)
 {
+    private string PositionLabel => Slot <= 9
+        ? $"Preset numer {SlotLabel}"
+        : $"Preset numer {SlotLabel}, klawisz {SpokenShortcutLabel}";
+
     public string Label => StationId is null
-        ? $"Preset {SlotLabel}, skrót Ctrl+Shift+{SpokenShortcutLabel} — pusty"
-        : $"Preset {SlotLabel}, skrót Ctrl+Shift+{SpokenShortcutLabel} — {StationName}";
+        ? $"{PositionLabel}, skrót Ctrl+Shift+{SpokenShortcutLabel} — pusty"
+        : $"{PositionLabel}, skrót Ctrl+Shift+{SpokenShortcutLabel} — {StationName}";
 
     public override string ToString() => Label;
 }

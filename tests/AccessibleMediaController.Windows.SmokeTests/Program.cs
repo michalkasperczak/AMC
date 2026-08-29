@@ -47,6 +47,7 @@ try
     Console.WriteLine("OK: normalizacja osi czasu fragmentu OGG/Vorbis");
 
     TestAccessiblePlaybackStatusStrip();
+    TestRadioPresetAccessibleLabels();
     TestGuardDoesNotBlockPositionReads();
     TestCompleteOutputChainMonitor();
     TestInvalidSamplesAreSilenced();
@@ -109,15 +110,47 @@ static void TestAccessiblePlaybackStatusStrip()
 {
     using var status = new AccessiblePlaybackStatusStrip
     {
-        SpokenText = "AAC, 192 kb/s, odtwarzanie, Radio 357"
+        AccessibleRole = System.Windows.Forms.AccessibleRole.StatusBar
     };
+    var label = new System.Windows.Forms.ToolStripStatusLabel
+    {
+        AccessibleRole = System.Windows.Forms.AccessibleRole.StaticText
+    };
+    status.Items.Add(label);
+    status.SpokenText = "AAC, 192 kb/s, odtwarzanie, Radio 357";
+    status.CreateControl();
+
     Assert(status.AccessibilityObject.Role == System.Windows.Forms.AccessibleRole.StatusBar,
         "Kontrolka nie udostępnia roli paska stanu.");
-    Assert(status.AccessibilityObject.Name == status.SpokenText,
-        "Pasek stanu nie udostępnia aktualnej treści jako swojej nazwy.");
-    Assert(status.AccessibilityObject.GetChildCount() == 0,
-        "Pasek stanu udostępnia dziecko, które może powtórzyć komunikat NVDA.");
-    Console.WriteLine("OK: pojedynczy dostępny komunikat paska stanu");
+    Assert(label.AccessibilityObject.Role == System.Windows.Forms.AccessibleRole.StaticText,
+        "Element paska nie udostępnia roli tekstu statycznego.");
+    Assert(label.AccessibilityObject.Name == status.SpokenText,
+        "Element paska nie udostępnia aktualnej treści jako swojej nazwy.");
+    Assert(status.AccessibilityObject.GetChildCount() == 1,
+        "Pasek stanu nie udostępnia dokładnie jednego tekstowego dziecka.");
+    Assert(status.AccessibilityObject.GetChild(0)?.Name == status.SpokenText,
+        "Tekst paska nie jest osiągalny przez standardowe drzewo dostępności.");
+    Console.WriteLine("OK: standardowy dostępny tekst paska stanu");
+}
+
+static void TestRadioPresetAccessibleLabels()
+{
+    var preset10 = new AccessibleMediaController.Windows.RadioPresetChoice(
+        10, "10", "0", "station-10", "Radio Dziesięć", "https://example.invalid/10");
+    var preset11 = new AccessibleMediaController.Windows.RadioPresetChoice(
+        11, "11", "minus", null, null, null);
+    var preset12 = new AccessibleMediaController.Windows.RadioPresetChoice(
+        12, "12", "znak równości", "station-12", "Radio Dwanaście", "https://example.invalid/12");
+
+    Assert(preset10.Label == "Preset numer 10, klawisz 0, skrót Ctrl+Shift+0 — Radio Dziesięć",
+        "Preset 10 nie rozróżnia numeru miejsca od klawisza 0.");
+    Assert(preset11.Label.StartsWith("Preset numer 11, klawisz minus, skrót Ctrl+Shift+minus", StringComparison.Ordinal),
+        "Preset 11 nie ma jednoznacznej etykiety dostępnościowej.");
+    Assert(preset12.Label.StartsWith("Preset numer 12, klawisz znak równości, skrót Ctrl+Shift+znak równości", StringComparison.Ordinal),
+        "Preset 12 nie ma jednoznacznej etykiety dostępnościowej.");
+    Assert(preset10.ToString() == preset10.Label,
+        "Preset nie udostępnia użytkowej etykiety jako tekstu awaryjnego.");
+    Console.WriteLine("OK: jednoznaczne etykiety presetów 10–12");
 }
 
 static void TestGuardDoesNotBlockPositionReads()

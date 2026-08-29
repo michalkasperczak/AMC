@@ -1,12 +1,34 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-135`
-- Tytuł zestawu: Playlisty stacji i rozdzielenie presetów
-- Wersja programu: `0.1.0-alpha.135`
+- Numer zestawu: `AMC-TEST-136`
+- Tytuł zestawu: Dostępny pasek stanu i jednoznaczne miejsca presetów
+- Wersja programu: `0.1.0-alpha.136`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.135.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.136.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 136
+
+### AMC-136-01 — Pasek stanu na liście i w odtwarzaczu
+
+W Radiu sprawdź `NVDA+End` na liście, podczas odtwarzania oraz po powrocie Escape z odtwarzacza. Powtórz po zmianie stacji przez Page Up lub Page Down.
+
+Oczekiwane: NVDA za każdym razem odczytuje jedną aktualną treść paska. Nie milczy, nie powtarza tekstu i nie dodaje samej nazwy „Pasek stanu odtwarzania”. Fokus oraz skróty głównego widoku pozostają aktywne.
+
+### AMC-136-02 — Jednoznaczne presety 10–12
+
+Otwórz w Radiu `Ctrl+Alt+P` i przejdź do ostatnich trzech miejsc. Sprawdź także bezpośrednie skróty zajętych miejsc `Ctrl+Shift+0`, `Ctrl+Shift+-` i `Ctrl+Shift+=`.
+
+Oczekiwane: lista mówi odpowiednio „Preset numer 10, klawisz 0”, „Preset numer 11, klawisz minus” i „Preset numer 12, klawisz znak równości”, po czym nazwę stacji albo informację, że miejsce jest puste. Skrót zajętego miejsca uruchamia jego stację i nie przełącza sesji.
+
+### AMC-136-03 — Granica playlisty i presetu
+
+Utwórz playlistę kilku stacji przez `Ctrl+P` i przejdź po niej Enterem oraz Page Up/Page Down. Osobno przypisz jedną z tych stacji do presetu przez `Ctrl+Alt+Shift+P`.
+
+Oczekiwane: playlista jest trwałym widokiem wielu stacji, natomiast obecny preset wskazuje dokładnie jedną stację. Wywołanie presetu nie usuwa playlisty, nie zmienia jej składu i nie przedstawia całej playlisty jako zajętego miejsca. Obsługa całej playlisty przez pojedynczy preset jest zaplanowana po zakończeniu testów playlist.
+
+## Poprzedni zestaw alpha 135
 
 ## Nowości alpha 135
 
