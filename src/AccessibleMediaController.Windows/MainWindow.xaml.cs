@@ -435,6 +435,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             var selectedSession = SelectSessionBrowserItem(result.SessionId, result.Item.Id);
             if (allServices) PrepareSearchReturnContext(result.Item.Id);
+            if (dialog.SelectedAction == SearchResultAction.Preset)
+            {
+                ShowPresetAssignment();
+                return;
+            }
             if (dialog.SelectedAction == SearchResultAction.Playlist && selectedSession is not null)
             {
                 var items = dialog.SelectedResults
@@ -930,45 +935,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void ShowPlaylistManager() => ShowPlaylistManager(ActionItems, ActionSession);
 
-    private IReadOnlyList<RadioPresetChoice> RadioPresetChoices()
+    private List<SessionPresetEntry> SessionPresetEntries(string sessionId)
     {
-        var presets = _state.Radio.Presets
-            .Where(preset => preset.Slot is >= 1 and <= RadioPresetSlots.Count)
-            .GroupBy(preset => preset.Slot)
-            .ToDictionary(group => group.Key, group => group.First());
-        var stations = _radioItems
-            .Where(item => !string.IsNullOrWhiteSpace(item.Id))
-            .GroupBy(item => item.Id, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-        return Enumerable.Range(1, RadioPresetSlots.Count)
-            .Select(slot =>
-            {
-                var stationId = presets.GetValueOrDefault(slot)?.StationId;
-                var station = stationId is null ? null : stations.GetValueOrDefault(stationId);
-                return new RadioPresetChoice(
-                    slot,
-                    RadioPresetSlots.Label(slot),
-                    RadioPresetSlots.SpokenShortcutLabel(slot),
-                    station?.Id,
-                    station?.Title,
-                    station is null ? null : GetShareableLocation(station, "radio"));
-            })
-            .ToArray();
-    }
-
-    private List<SessionPresetEntry> LocalPresetEntries()
-    {
-        if (!_state.SessionPresets.EntriesBySession.TryGetValue("local", out var entries))
+        if (!_state.SessionPresets.EntriesBySession.TryGetValue(sessionId, out var entries))
         {
             entries = [];
-            _state.SessionPresets.EntriesBySession["local"] = entries;
+            _state.SessionPresets.EntriesBySession[sessionId] = entries;
         }
         return entries;
     }
 
-    private IReadOnlyList<RadioPresetChoice> LocalPresetChoices()
+    private IReadOnlyList<RadioPresetChoice> SessionPresetChoices(DemoMediaSession session)
     {
-        var presets = LocalPresetEntries()
+        var presets = SessionPresetEntries(session.Id)
             .Where(preset => preset.Slot is >= 1 and <= RadioPresetSlots.Count)
             .GroupBy(preset => preset.Slot)
             .ToDictionary(group => group.Key, group => group.First());
@@ -976,26 +955,80 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .Select(slot =>
             {
                 var preset = presets.GetValueOrDefault(slot);
+                if (preset is null)
+                {
+                    return new RadioPresetChoice(
+                        slot,
+                        RadioPresetSlots.Label(slot),
+                        RadioPresetSlots.SpokenShortcutLabel(slot),
+                        null,
+                        null,
+                        null);
+                }
+
+                var currentItem = session.Items.FirstOrDefault(item =>
+                    string.Equals(item.Id, preset.TargetId, StringComparison.Ordinal));
+                var currentTitle = currentItem?.Title ?? ResolvePresetContainerTitle(session.Id, preset);
+                var currentLocation = currentItem is null
+                    ? preset.TargetLocation
+                    : GetShareableLocation(currentItem, session.Id);
                 return new RadioPresetChoice(
                     slot,
                     RadioPresetSlots.Label(slot),
                     RadioPresetSlots.SpokenShortcutLabel(slot),
-                    preset?.TargetId,
-                    preset?.TargetTitle,
-                    preset?.TargetLocation);
+                    preset.TargetId,
+                    string.IsNullOrWhiteSpace(currentTitle) ? preset.TargetTitle : currentTitle,
+                    currentLocation);
             })
             .ToArray();
     }
 
-    private bool TryGetLocalPresetTarget(
+    private string? ResolvePresetContainerTitle(string sessionId, SessionPresetEntry preset)
+    {
+        if (string.Equals(preset.TargetKind, "amcPlaylist", StringComparison.OrdinalIgnoreCase)
+            && TryGetPresetPlaylistId(preset, out var playlistId))
+        {
+            return new PlaylistIndex(_state.Playlists).Find(playlistId) is { } playlist
+                && string.Equals(playlist.SessionId, sessionId, StringComparison.OrdinalIgnoreCase)
+                    ? playlist.Name
+                    : null;
+        }
+        if (string.Equals(sessionId, "local", StringComparison.Ordinal)
+            && string.Equals(preset.TargetKind, "localAlbum", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(preset.TargetLocation))
+        {
+            return InferLocalAlbums().FirstOrDefault(album => string.Equals(
+                NormalizeLocalFolderPath(album.FolderPath),
+                NormalizeLocalFolderPath(preset.TargetLocation),
+                StringComparison.OrdinalIgnoreCase))?.Title;
+        }
+        return null;
+    }
+
+    private bool TryGetSessionPresetTarget(
         out string targetId,
         out string targetKind,
         out string targetTitle,
         out string? targetLocation)
     {
         var row = _playerViewActive ? null : MediaList.SelectedItem as MediaItemRow;
-        var folderPath = row?.FolderPath ?? row?.AlbumFolderPath;
-        if (!string.IsNullOrWhiteSpace(folderPath))
+        if (row?.PlaylistId is { Length: > 0 } playlistId)
+        {
+            targetId = $"playlist:{playlistId}";
+            targetKind = "amcPlaylist";
+            targetTitle = row.Item.Title;
+            targetLocation = playlistId;
+            return true;
+        }
+        if (row?.AlbumFolderPath is { Length: > 0 } albumFolderPath)
+        {
+            targetId = row.Item.Id;
+            targetKind = "localAlbum";
+            targetTitle = row.Item.Title;
+            targetLocation = albumFolderPath;
+            return true;
+        }
+        if (row?.FolderPath is { Length: > 0 } folderPath)
         {
             targetId = FolderRowId(folderPath);
             targetKind = "folder";
@@ -1005,12 +1038,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var item = ActionItem;
-        if (item?.Kind == MediaItemKind.Track && TryGetLocalPath(item.Source, out var localPath))
+        if (item is not null
+            && string.Equals(ActionSession.Id, _sessions.Current.Id, StringComparison.OrdinalIgnoreCase))
         {
             targetId = item.Id;
-            targetKind = "item";
+            targetKind = item.Kind.ToString().ToLowerInvariant();
             targetTitle = item.Title;
-            targetLocation = localPath;
+            targetLocation = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+                && TryGetLocalPath(item.Source, out var localPath)
+                    ? localPath
+                    : GetShareableLocation(item, _sessions.Current.Id);
             return true;
         }
 
@@ -1023,33 +1060,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ShowPresets()
     {
-        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
-        {
-            ShowRadioPresets();
-            return;
-        }
-        if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
-        {
-            ShowLocalPresets();
-            return;
-        }
-        Announce($"Presety nie są jeszcze dostępne w sesji {_sessions.Current.DisplayName}");
-    }
-
-    private void ShowLocalPresets()
-    {
-        _ = TryGetLocalPresetTarget(out var currentTargetId, out _, out _, out _);
+        var session = _sessions.Current;
+        _ = TryGetSessionPresetTarget(out var currentTargetId, out _, out _, out _);
         var dialog = new RadioPresetsWindow(
-            LocalPresetChoices(),
+            SessionPresetChoices(session),
             string.IsNullOrWhiteSpace(currentTargetId) ? null : currentTargetId,
-            "Pliki lokalne",
-            copyLocalTargets: true)
+            session.DisplayName,
+            copyLocalTargets: string.Equals(session.Id, "local", StringComparison.Ordinal))
         {
             Owner = this
         };
         if (dialog.ShowDialog() == true && dialog.SelectedSlot is int slot)
         {
-            ActivateLocalPreset(slot);
+            ActivatePreset(slot);
             return;
         }
         RestoreItemActionFocus();
@@ -1057,32 +1080,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ShowPresetAssignment()
     {
-        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
-        {
-            ShowRadioPresetAssignment();
-            return;
-        }
-        if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
-        {
-            ShowLocalPresetAssignment();
-            return;
-        }
-        Announce($"Przypisywanie presetów nie jest jeszcze dostępne w sesji {_sessions.Current.DisplayName}");
-    }
-
-    private void ShowLocalPresetAssignment()
-    {
-        if (!TryGetLocalPresetTarget(
+        if (!TryGetSessionPresetTarget(
                 out var targetId,
                 out var targetKind,
                 out var targetTitle,
                 out var targetLocation))
         {
-            Announce("Wybierz plik albo folder Biblioteki, który chcesz przypisać do presetu");
+            Announce($"Wybierz element sesji {_sessions.Current.DisplayName}, który chcesz przypisać do presetu");
             return;
         }
 
-        var choices = LocalPresetChoices();
+        var session = _sessions.Current;
+        var choices = SessionPresetChoices(session);
         var existingTargetSlot = choices.FirstOrDefault(choice =>
             string.Equals(choice.StationId, targetId, StringComparison.Ordinal))?.Slot;
         var firstFree = choices.FirstOrDefault(choice => choice.StationId is null)?.Slot;
@@ -1093,7 +1102,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             choices,
             firstFree,
             initialSlot,
-            "Pliki lokalne")
+            session.DisplayName)
         {
             Owner = this
         };
@@ -1103,13 +1112,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var entries = LocalPresetEntries();
+        var entries = SessionPresetEntries(session.Id);
         var existing = entries.FindIndex(preset => preset.Slot == dialog.SelectedSlot);
         var slotLabel = RadioPresetSlots.Label(dialog.SelectedSlot);
         if (dialog.SelectedAction == RadioPresetAssignmentAction.Remove)
         {
             if (existing >= 0) entries.RemoveAt(existing);
-            _store.Save(_state);
+            SavePresetState(session.Id);
             Announce($"Usunięto preset {slotLabel}");
             RestoreItemActionFocus();
             return;
@@ -1125,12 +1134,30 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         };
         if (existing >= 0) entries[existing] = preset;
         else entries.Add(preset);
-        _state.SessionPresets.EntriesBySession["local"] = entries
+        _state.SessionPresets.EntriesBySession[session.Id] = entries
             .OrderBy(entry => entry.Slot)
             .ToList();
-        _store.Save(_state);
+        if (string.Equals(session.Id, "radio", StringComparison.Ordinal)
+            && ActionItem is { Kind: MediaItemKind.Station } station)
+        {
+            station.IsInLibrary = true;
+            if (_radioItems.All(item => !string.Equals(item.Id, station.Id, StringComparison.Ordinal)))
+                _radioItems.Add(station);
+        }
+        SavePresetState(session.Id);
         Announce($"Zapisano preset {slotLabel}: {targetTitle}");
         RestoreItemActionFocus();
+    }
+
+    private void SavePresetState(string sessionId)
+    {
+        if (string.Equals(sessionId, "radio", StringComparison.Ordinal)) CaptureRadioState();
+        if (string.Equals(sessionId, "local", StringComparison.Ordinal))
+        {
+            TrySaveLocalMediaState(true);
+            return;
+        }
+        _store.Save(_state);
     }
 
     private void ActivatePreset(int slot, bool useDirectShortcutLabel = false)
@@ -1138,30 +1165,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var announcementSlotLabel = useDirectShortcutLabel
             ? RadioPresetKeyMap.DirectShortcutLabel(slot)
             : null;
-        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
-        {
-            ActivateRadioPreset(slot, announcementSlotLabel);
-            return;
-        }
-        if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
-        {
-            ActivateLocalPreset(slot, announcementSlotLabel);
-            return;
-        }
-        Announce($"Preset nie jest dostępny w sesji {_sessions.Current.DisplayName}");
-    }
-
-    private void ActivateLocalPreset(int slot, string? announcementSlotLabel = null)
-    {
         var slotLabel = announcementSlotLabel ?? RadioPresetSlots.Label(slot);
-        var preset = LocalPresetEntries().FirstOrDefault(entry => entry.Slot == slot);
+        var session = _sessions.Current;
+        var preset = SessionPresetEntries(session.Id).FirstOrDefault(entry => entry.Slot == slot);
         if (preset is null)
         {
             Announce($"Preset {slotLabel} pusty. Ctrl+Alt+Shift+P przypisuje bieżący element");
             return;
         }
 
-        if (string.Equals(preset.TargetKind, "folder", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(session.Id, "local", StringComparison.Ordinal)
+            && string.Equals(preset.TargetKind, "folder", StringComparison.OrdinalIgnoreCase))
         {
             var folderPath = preset.TargetLocation;
             var belongsToLibrary = !string.IsNullOrWhiteSpace(folderPath)
@@ -1190,157 +1204,90 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var item = ActiveLocalItems().FirstOrDefault(candidate =>
+        if (string.Equals(session.Id, "local", StringComparison.Ordinal)
+            && string.Equals(preset.TargetKind, "localAlbum", StringComparison.OrdinalIgnoreCase))
+        {
+            var album = !string.IsNullOrWhiteSpace(preset.TargetLocation)
+                ? InferLocalAlbums().FirstOrDefault(candidate => string.Equals(
+                    NormalizeLocalFolderPath(candidate.FolderPath),
+                    NormalizeLocalFolderPath(preset.TargetLocation),
+                    StringComparison.OrdinalIgnoreCase))
+                : null;
+            if (album is null)
+            {
+                Announce($"Preset {slotLabel} jest niedostępny. Albumu nie ma już w Bibliotece");
+                return;
+            }
+            OpenLocalAlbum(album.FolderPath, album.Title);
+            return;
+        }
+
+        if (string.Equals(preset.TargetKind, "amcPlaylist", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!TryGetPresetPlaylistId(preset, out var playlistId)
+                || new PlaylistIndex(_state.Playlists).Find(playlistId) is not { } playlist
+                || !string.Equals(playlist.SessionId, session.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                Announce($"Preset {slotLabel} jest niedostępny. Playlisty nie ma już w sesji {session.DisplayName}");
+                return;
+            }
+            OpenPlaylist(playlist.Id, playlist.Name);
+            return;
+        }
+
+        var item = session.Items.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, preset.TargetId, StringComparison.Ordinal));
         if (item is null)
         {
-            Announce($"Preset {slotLabel} jest niedostępny. Pliku nie ma już w Bibliotece");
+            Announce($"Preset {slotLabel} jest niedostępny w sesji {session.DisplayName}. Przypisz go ponownie skrótem Ctrl+Alt+Shift+P");
             return;
         }
 
-        var session = SelectSessionBrowserItem("local", item.Id);
-        if (session is null)
+        if (item.Kind is not (MediaItemKind.Track or MediaItemKind.Station))
         {
-            Announce("Sesja Pliki lokalne jest niedostępna");
-            return;
-        }
-        PreparePlaybackContextForCurrentView(session, item);
-        session.Play(item);
-        RecordPlayback(session, item);
-        TrySaveLocalMediaState(false);
-        RefreshPlaybackIndicators();
-        ShowPlayerView();
-    }
-
-    private void ShowRadioPresets()
-    {
-        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
-        {
-            Announce("Presety radiowe są dostępne w sesji Radio internetowe");
+            SelectSessionBrowserItem(session.Id, item.Id);
+            NavigateTo(item.Title);
+            Announce($"{item.KindLabel}: {item.Title}");
             return;
         }
 
-        var dialog = new RadioPresetsWindow(
-            RadioPresetChoices(),
-            _sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem.Id : null)
-        {
-            Owner = this
-        };
-        if (dialog.ShowDialog() == true && dialog.SelectedSlot is int slot)
-        {
-            ActivateRadioPreset(slot);
-            return;
-        }
-        RestoreItemActionFocus();
-    }
-
-    private void ShowRadioPresetAssignment()
-    {
-        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
-        {
-            Announce("Przypisywanie presetów jest dostępne w sesji Radio internetowe");
-            return;
-        }
-        var station = ActionItem;
-        if (station?.Kind != MediaItemKind.Station)
-        {
-            Announce("Wybierz albo odtwórz stację, którą chcesz przypisać do presetu");
-            return;
-        }
-
-        var choices = RadioPresetChoices();
-        var existingStationSlot = choices.FirstOrDefault(choice =>
-            string.Equals(choice.StationId, station.Id, StringComparison.Ordinal))?.Slot;
-        var firstFree = choices.FirstOrDefault(choice => choice.StationId is null)?.Slot;
-        var initialSlot = existingStationSlot ?? firstFree ?? 1;
-        var dialog = new RadioPresetAssignmentWindow(
-            station.Title,
-            station.Id,
-            choices,
-            firstFree,
-            initialSlot)
-        {
-            Owner = this
-        };
-        if (dialog.ShowDialog() != true)
-        {
-            RestoreItemActionFocus();
-            return;
-        }
-
-        var existing = _state.Radio.Presets.FindIndex(preset => preset.Slot == dialog.SelectedSlot);
-        var slotLabel = RadioPresetSlots.Label(dialog.SelectedSlot);
-        if (dialog.SelectedAction == RadioPresetAssignmentAction.Remove)
-        {
-            if (existing >= 0) _state.Radio.Presets.RemoveAt(existing);
-            CaptureRadioState();
-            _store.Save(_state);
-            Announce($"Usunięto preset {slotLabel}");
-            RestoreItemActionFocus();
-            return;
-        }
-
-        station.IsInLibrary = true;
-        if (_radioItems.All(item => !string.Equals(item.Id, station.Id, StringComparison.Ordinal)))
-        {
-            _radioItems.Add(station);
-        }
-        var preset = new RadioPresetSettings
-        {
-            Slot = dialog.SelectedSlot,
-            StationId = station.Id
-        };
-        if (existing >= 0) _state.Radio.Presets[existing] = preset;
-        else _state.Radio.Presets.Add(preset);
-        _state.Radio.Presets = _state.Radio.Presets.OrderBy(entry => entry.Slot).ToList();
-        CaptureRadioState();
-        _store.Save(_state);
-        if (!_playerViewActive && string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal))
-        {
-            RefreshCurrentView(preferredItemId: station.Id);
-        }
-        Announce($"Zapisano preset {slotLabel}: {station.Title}");
-        RestoreItemActionFocus();
-    }
-
-    private void ActivateRadioPreset(int slot, string? announcementSlotLabel = null)
-    {
-        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
-        {
-            Announce("Preset radiowy nie przełącza sesji. Najpierw wybierz Radio internetowe");
-            return;
-        }
-        var slotLabel = announcementSlotLabel ?? RadioPresetSlots.Label(slot);
-        var preset = _state.Radio.Presets.FirstOrDefault(entry => entry.Slot == slot);
-        if (preset is null)
-        {
-            Announce($"Preset {slotLabel} pusty. Ctrl+Alt+Shift+P przypisuje bieżącą stację");
-            return;
-        }
-        var station = _radioItems.FirstOrDefault(item =>
-            string.Equals(item.Id, preset.StationId, StringComparison.Ordinal));
-        if (station is null)
-        {
-            Announce($"Preset {slotLabel} jest niedostępny. Przypisz go ponownie skrótem Ctrl+Alt+Shift+P");
-            return;
-        }
-
-        var presetStationIds = _state.Radio.Presets
+        SelectSessionBrowserItem(session.Id, item.Id);
+        var presetPlayableIds = SessionPresetEntries(session.Id)
             .OrderBy(entry => entry.Slot)
-            .Select(entry => entry.StationId)
-            .Where(stationId => _radioItems.Any(item => string.Equals(item.Id, stationId, StringComparison.Ordinal)))
+            .Select(entry => session.Items.FirstOrDefault(candidate => string.Equals(
+                candidate.Id,
+                entry.TargetId,
+                StringComparison.Ordinal)))
+            .Where(candidate => candidate?.Kind is MediaItemKind.Track or MediaItemKind.Station)
+            .Select(candidate => candidate!.Id)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-        _sessions.Current.SetPlaybackContext(presetStationIds);
-        var navigation = GetSessionNavigationState("radio");
-        navigation.PlaybackContextView = "Presety";
-        navigation.PlaybackContextItemIds = presetStationIds.ToList();
-        _sessions.Current.Play(station);
-        RecordPlayback(_sessions.Current, station);
-        CaptureRadioState();
-        _store.Save(_state);
+        session.SetPlaybackContext(presetPlayableIds);
+        var playbackNavigation = GetSessionNavigationState(session.Id);
+        playbackNavigation.PlaybackContextView = "Presety";
+        playbackNavigation.PlaybackContextItemIds = presetPlayableIds.ToList();
+        session.Play(item);
+        RecordPlayback(session, item);
+        SavePresetState(session.Id);
         RefreshPlaybackIndicators();
         ShowPlayerView();
+    }
+
+    private static bool TryGetPresetPlaylistId(SessionPresetEntry preset, out string playlistId)
+    {
+        if (!string.IsNullOrWhiteSpace(preset.TargetLocation))
+        {
+            playlistId = preset.TargetLocation;
+            return true;
+        }
+        const string prefix = "playlist:";
+        if (preset.TargetId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            playlistId = preset.TargetId[prefix.Length..];
+            return playlistId.Length > 0;
+        }
+        playlistId = string.Empty;
+        return false;
     }
 
     private void ShowPlaylistManager(
@@ -2460,7 +2407,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AutomationProperties.SetName(
             PlaylistsViewMenuItem,
             "Playlisty, Ctrl+P");
-        var presetsAvailable = radio || local;
+        var presetsAvailable = CurrentSessionSupportsPresets();
         RadioPresetsViewMenuItem.Visibility = presetsAvailable ? Visibility.Visible : Visibility.Collapsed;
         AutomationProperties.SetName(
             RadioPresetsViewMenuItem,
@@ -7502,8 +7449,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return true;
     }
 
-    private bool CurrentSessionSupportsPresets() =>
-        _sessions.Current.Id is "local" or "radio";
+    private bool CurrentSessionSupportsPresets() => _sessions.Current is not null;
 
     private static bool TryGetRadioPresetSlot(Key key, out int slot) =>
         RadioPresetKeyMap.TryGetSlot(key, out slot);
@@ -8216,11 +8162,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             PlaylistMembershipMenuItem,
             "Zmień przynależność do playlist",
             "Ctrl+Shift+P");
-        var presetTargetAvailable = !playlistContainer
-            && (radioSession && actionItem?.Kind == MediaItemKind.Station
-                || localSession && (folderNavigationRow
-                    || localAlbumContainer
-                    || actionItem?.Kind == MediaItemKind.Track));
+        var presetTargetAvailable = CurrentSessionSupportsPresets()
+            && TryGetSessionPresetTarget(out _, out _, out _, out _);
         RadioPresetMembershipMenuItem.Visibility = presetTargetAvailable
                 ? Visibility.Visible
                 : Visibility.Collapsed;
@@ -8351,8 +8294,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             PlayerPlaylistMembershipMenuItem,
             "Zmień przynależność do playlist",
             "Ctrl+Shift+P");
-        PlayerRadioPresetMembershipMenuItem.Visibility = radioSession
-            || string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+        PlayerRadioPresetMembershipMenuItem.Visibility = CurrentSessionSupportsPresets()
+            && _sessions.Current.HasCurrentItem
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         SetContextMenuItemPresentation(

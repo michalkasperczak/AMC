@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 29;
+    public const int CurrentSchemaVersion = 30;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -276,7 +276,47 @@ public sealed class ConfigurationStore
         NormalizePlaylists(state);
         NormalizeSessionPresets(state);
         NormalizeRadio(state);
+        MigrateLegacyRadioPresets(state, sourceSchemaVersion);
+        NormalizeSessionPresets(state);
         state.SchemaVersion = CurrentSchemaVersion;
+    }
+
+    private static void MigrateLegacyRadioPresets(PersistedState state, int sourceSchemaVersion)
+    {
+        if (sourceSchemaVersion >= 30 || state.Radio.Presets.Count == 0) return;
+
+        if (!state.SessionPresets.EntriesBySession.TryGetValue("radio", out var entries))
+        {
+            entries = [];
+            state.SessionPresets.EntriesBySession["radio"] = entries;
+        }
+
+        var occupiedSlots = entries.Select(entry => entry.Slot).ToHashSet();
+        var stations = state.Radio.Stations
+            .Where(station => !string.IsNullOrWhiteSpace(station.Id))
+            .GroupBy(station => station.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        foreach (var legacy in state.Radio.Presets.OrderBy(entry => entry.Slot))
+        {
+            if (occupiedSlots.Contains(legacy.Slot)
+                || !stations.TryGetValue(legacy.StationId, out var station))
+            {
+                continue;
+            }
+
+            entries.Add(new SessionPresetEntry
+            {
+                Slot = legacy.Slot,
+                TargetId = station.Id,
+                TargetKind = "station",
+                TargetTitle = station.Name,
+                TargetLocation = station.StreamUrl
+            });
+            occupiedSlots.Add(legacy.Slot);
+        }
+
+        // Od wersji 30 istnieje tylko jeden magazyn presetów dla wszystkich sesji.
+        state.Radio.Presets.Clear();
     }
 
     private static void NormalizeSearchHistory(PersistedState state)

@@ -61,6 +61,10 @@
                     <MenuItem x:Name="SearchPlaylistMenuItem" Header="Zarządzaj _playlistami" InputGestureText="Ctrl+Shift+P"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+P"
                               Click="Playlist_Click" />
+                    <MenuItem Header="Utwórz lub przypisz p_reset" InputGestureText="Ctrl+Alt+Shift+P"
+                              automation:AutomationProperties.Name="Utwórz lub przypisz preset aktywnej sesji, Ctrl+Alt+Shift+P"
+                              automation:AutomationProperties.AcceleratorKey="Control+Alt+Shift+P"
+                              Click="Preset_Click" />
                     <MenuItem Header="_Informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.AcceleratorKey="Alt+Enter"
                               Click="Information_Click" />

@@ -205,7 +205,7 @@ public partial class SearchWindow : Window
             Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
             return;
         }
-        if (action is not (SearchResultAction.Open or SearchResultAction.Playlist))
+        if (action is not (SearchResultAction.Open or SearchResultAction.Playlist or SearchResultAction.Preset))
         {
             var results = action is SearchResultAction.CopyName
                 or SearchResultAction.CopyLocation
@@ -401,6 +401,8 @@ public partial class SearchWindow : Window
             action = SearchResultAction.Library;
         else if (key == Key.P && modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
             action = SearchResultAction.Playlist;
+        else if (key == Key.P && modifiers == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+            action = SearchResultAction.Preset;
         else if (key == Key.Enter && modifiers == ModifierKeys.Alt)
             action = SearchResultAction.Information;
         else if (key == Key.C && modifiers == ModifierKeys.Control)
@@ -463,6 +465,7 @@ public partial class SearchWindow : Window
     private void Favorite_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Favorite);
     private void Library_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Library);
     private void Playlist_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Playlist);
+    private void Preset_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Preset);
     private void Information_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Information);
     private void CopyName_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.CopyName);
     private void CopyLocation_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.CopyLocation);
@@ -506,6 +509,7 @@ public enum SearchResultAction
     Favorite,
     Library,
     Playlist,
+    Preset,
     Information,
     CopyName,
     CopyLocation

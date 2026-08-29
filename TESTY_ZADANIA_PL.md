@@ -1,12 +1,64 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-138`
-- Tytuł zestawu: Bezpośredni wybór i pewna obsługa klawiszy presetów
-- Wersja programu: `0.1.0-alpha.138`
+- Numer zestawu: `AMC-TEST-139`
+- Tytuł zestawu: Wspólne presety wszystkich sesji
+- Wersja programu: `0.1.0-alpha.139`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.138.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.139.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 139
+
+### AMC-139-01 — Te same miejsca są niezależne w każdej sesji
+
+W Plikach lokalnych przypisz element do presetu 1. Przejdź kolejno do Radia,
+TIDAL, Apple Music i WiiM. W każdej sesji sprawdź preset 1, a następnie przypisz
+do niego inny dostępny element demonstracyjny lub stację.
+
+Oczekiwane: każda sesja ma własny preset 1. `Ctrl+Shift+1` uruchamia albo
+otwiera tylko cel aktywnej sesji i nigdy sam nie przełącza usługi.
+
+### AMC-139-02 — Plik, folder, album i playlista
+
+W Plikach lokalnych przypisz do różnych miejsc: zwykły plik, folder, album
+rozpoznany z folderu i playlistę AMC. Wywołaj każdy cel skrótem bezpośrednim
+oraz Enterem z listy `Ctrl+Alt+P`.
+
+Oczekiwane: plik zaczyna się odtwarzać. Folder otwiera wskazany poziom,
+a album i playlista otwierają swoją zawartość bez samoczynnego odtwarzania.
+Escape wraca do prawidłowego miejsca i żaden wiersz nie ujawnia technicznej
+nazwy klasy ani pól rekordu.
+
+### AMC-139-03 — Preset z wyniku wyszukiwania
+
+Wyszukaj jeden plik albo stację. Na wyniku użyj `Ctrl+Alt+Shift+P`, przypisz
+wolne miejsce i uruchom je później w tej samej sesji.
+
+Oczekiwane: okno wyszukiwania przekazuje dokładnie zaznaczony wynik, tryb
+przypisania ma nazwę bieżącej sesji, a zapisane miejsce działa po ponownym
+uruchomieniu AMC.
+
+### AMC-139-04 — Zachowanie dotychczasowych presetów po aktualizacji
+
+Po uruchomieniu alpha 139 sprawdź presety zapisane wcześniej w Radiu i Plikach
+lokalnych, w szczególności miejsca 10–12.
+
+Oczekiwane: wcześniejsze przypisania pozostają. Radio zostało jednorazowo
+przeniesione do wspólnego magazynu bez nadpisania istniejących miejsc; lista
+nadal mówi „Preset numer 10, klawisz 0”, a `Ctrl+Shift+0` używa nazwy
+fizycznego klawisza.
+
+### AMC-139-05 — Niedostępny cel nie niszczy presetu
+
+Przypisz lokalny plik lub folder, zamknij AMC, a następnie czasowo odłącz jego
+źródło. Uruchom program i wywołaj preset.
+
+Oczekiwane: AMC krótko informuje o niedostępnym celu, nie zawiesza się, nie
+usuwa przypisania i nie przełącza sesji. Po ponownym udostępnieniu źródła
+to samo miejsce znów działa.
+
+## Poprzedni zestaw alpha 138
 
 ## Nowości alpha 138
 

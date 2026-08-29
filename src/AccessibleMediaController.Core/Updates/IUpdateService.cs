@@ -3,7 +3,10 @@ namespace AccessibleMediaController.Core.Updates;
 public enum UpdateComponentKind
 {
     Application,
-    ServiceAdapter
+    ServiceAdapter,
+    MediaEngine,
+    ScreenReaderAddon,
+    CatalogData
 }
 
 public sealed record UpdateComponent(
@@ -12,7 +15,12 @@ public sealed record UpdateComponent(
     UpdateComponentKind Kind,
     Uri PackageUri,
     string Sha256,
-    string Signature);
+    string Signature,
+    string? MinimumHostVersion = null,
+    string? MaximumHostVersion = null,
+    bool Required = false,
+    string? LicenseId = null,
+    Uri? SourceUri = null);
 
 public sealed record UpdateCheckResult(
     DateTimeOffset CheckedAt,

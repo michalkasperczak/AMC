@@ -58,6 +58,8 @@ Od `alpha.137` presety AMC działają również w sesji **Pliki lokalne**. `Ctrl
 
 Od `alpha.138` na liście presetów pojedyncze klawisze `1–0`, minus i znak równości przenoszą fokus bez uruchamiania ani nadpisywania miejsca. Bezpośrednie skróty `Ctrl+Shift+1–0/-/=` są dodatkowo przechwytywane na granicy komunikatów klawiatury, aby framework albo czytnik ekranu nie zgubił klawisza `0`. Puste miejsce wywołane skrótem nazywa użyty klawisz, dlatego `Ctrl+Shift+0` mówi „Preset 0 pusty”; lista nadal jednoznacznie przedstawia to samo miejsce jako „Preset numer 10, klawisz 0”.
 
+Od `alpha.139` presety są wspólną funkcją wszystkich sesji AMC. Każda sesja ma własne dwanaście miejsc, więc preset TIDAL, Apple Music, WiiM, Radia albo Plików lokalnych nie nadpisuje miejsca innej usługi i nigdy nie przełącza sesji po cichu. Można przypisać zwykły element, folder, lokalny album albo playlistę AMC; element odtwarzalny uruchamia się w kontekście innych zajętych presetów tej sesji, a kontener otwiera swoją zawartość. Mechanizm działa również z pojedynczego wyniku wyszukiwania. Stare presety radia są jednorazowo, bezkolizyjnie przenoszone do wspólnego magazynu. Reguły bezpiecznego aktualizowania FFmpeg, bibliotek i dodatków zapisano w [`AKTUALIZACJE_KOMPONENTOW.md`](AKTUALIZACJE_KOMPONENTOW.md).
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

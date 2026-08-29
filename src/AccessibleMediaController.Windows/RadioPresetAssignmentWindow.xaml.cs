@@ -96,7 +96,7 @@ public partial class RadioPresetAssignmentWindow : AccessibleWindow
         AssignmentStatus.Announce(choice.StationId is null
             ? $"Preset {choice.SlotLabel} pusty. {_stationName}. Enter zapisuje, Escape anuluje"
             : !replacesOtherStation
-                ? $"Preset {choice.SlotLabel} już zawiera tę stację. Enter zatwierdza, Escape anuluje"
+                ? $"Preset {choice.SlotLabel} już zawiera ten element. Enter zatwierdza, Escape anuluje"
                 : _replacementArmedSlot == slot
                     ? $"Potwierdzono miejsce {choice.SlotLabel}. Enter zastępuje element {choice.StationName} elementem {_stationName}, Escape anuluje"
                     : $"Preset {choice.SlotLabel} zajęty: {choice.StationName}. Naciśnij ponownie {choice.SpokenShortcutLabel}, a następnie Enter, aby zastąpić; inny klawisz wybiera inne miejsce; Escape anuluje");

@@ -16,8 +16,8 @@ var tests = new (string Name, Action Test)[]
     ("Domyślny profil", TestDefaultProfile),
     ("Odświeżanie profilu wbudowanego", TestBuiltInProfileRefresh),
     ("Czytelne nazwy poleceń", TestCommandCatalog),
-    ("Trwałe presety radia", TestRadioPresetPersistence),
-    ("Trwałe presety plików lokalnych", TestLocalPresetPersistence),
+    ("Migracja presetów radia do wspólnego magazynu", TestRadioPresetPersistence),
+    ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
     ("Migracja starszych ustawień", TestLegacyStateMigration),
@@ -227,6 +227,7 @@ static void TestRadioPresetPersistence()
     {
         var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
         var state = ConfigurationStore.CreateDefaultState();
+        state.SchemaVersion = 29;
         state.Radio.Stations =
         [
             new RadioStationSettings { Id = "station-a", Name = "Stacja A", StreamUrl = "https://example.test/a" },
@@ -240,15 +241,32 @@ static void TestRadioPresetPersistence()
             new RadioPresetSettings { Slot = 13, StationId = "station-a" },
             new RadioPresetSettings { Slot = 2, StationId = "missing-station" }
         ];
+        state.SessionPresets.EntriesBySession["radio"] =
+        [
+            new SessionPresetEntry
+            {
+                Slot = 12,
+                TargetId = "existing-station",
+                TargetKind = "station",
+                TargetTitle = "Preset zachowany",
+                TargetLocation = "https://example.test/existing"
+            }
+        ];
 
         store.Save(state);
         var loaded = store.LoadOrCreate();
 
-        Equal(2, loaded.Radio.Presets.Count);
-        Equal(1, loaded.Radio.Presets[0].Slot);
-        Equal("station-a", loaded.Radio.Presets[0].StationId);
-        Equal(12, loaded.Radio.Presets[1].Slot);
-        Equal("station-b", loaded.Radio.Presets[1].StationId);
+        Equal(0, loaded.Radio.Presets.Count);
+        var presets = loaded.SessionPresets.EntriesBySession["radio"];
+        Equal(2, presets.Count);
+        Equal(1, presets[0].Slot);
+        Equal("station-a", presets[0].TargetId);
+        Equal("station", presets[0].TargetKind);
+        Equal("Stacja A", presets[0].TargetTitle);
+        Equal("https://example.test/a", presets[0].TargetLocation);
+        Equal(12, presets[1].Slot);
+        Equal("existing-station", presets[1].TargetId);
+        Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
     }
     finally
     {
@@ -256,7 +274,7 @@ static void TestRadioPresetPersistence()
     }
 }
 
-static void TestLocalPresetPersistence()
+static void TestSessionPresetPersistence()
 {
     var directory = Path.Combine(Path.GetTempPath(), $"amc-local-preset-tests-{Guid.NewGuid():N}");
     Directory.CreateDirectory(directory);
@@ -291,6 +309,37 @@ static void TestLocalPresetPersistence()
             },
             new SessionPresetEntry { Slot = 13, TargetId = "invalid", TargetKind = "item" }
         ];
+        state.SessionPresets.EntriesBySession["tidal"] =
+        [
+            new SessionPresetEntry
+            {
+                Slot = 3,
+                TargetId = "tidal-album",
+                TargetKind = "album",
+                TargetTitle = "Album TIDAL",
+                TargetLocation = "https://tidal.example/album"
+            }
+        ];
+        state.SessionPresets.EntriesBySession["appleMusic"] =
+        [
+            new SessionPresetEntry
+            {
+                Slot = 4,
+                TargetId = "apple-playlist",
+                TargetKind = "playlist",
+                TargetTitle = "Playlista Apple Music"
+            }
+        ];
+        state.SessionPresets.EntriesBySession["wiim"] =
+        [
+            new SessionPresetEntry
+            {
+                Slot = 5,
+                TargetId = "wiim-preset",
+                TargetKind = "device",
+                TargetTitle = "Preset urządzenia WiiM"
+            }
+        ];
 
         store.Save(state);
         var loaded = store.LoadOrCreate();
@@ -300,6 +349,9 @@ static void TestLocalPresetPersistence()
         Equal("Muzyka", presets[0].TargetTitle);
         Equal("track-a", presets[1].TargetId);
         Equal("C:\\Audio\\Audycja.mp3", presets[1].TargetLocation);
+        Equal("tidal-album", loaded.SessionPresets.EntriesBySession["tidal"].Single().TargetId);
+        Equal("apple-playlist", loaded.SessionPresets.EntriesBySession["appleMusic"].Single().TargetId);
+        Equal("wiim-preset", loaded.SessionPresets.EntriesBySession["wiim"].Single().TargetId);
     }
     finally
     {
