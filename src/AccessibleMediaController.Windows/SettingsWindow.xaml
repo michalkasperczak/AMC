@@ -35,6 +35,9 @@
                             <CheckBox x:Name="PausePlaybackWhenLeavingPlayerCheck" Margin="0,0,0,8"
                                       Content="_Wstrzymuj odtwarzanie po wyjściu z odtwarzacza"
                                       automation:AutomationProperties.HelpText="Dotyczy Escape, Shift+F6, przycisku Wróć do listy i bezpośredniego przejścia do innego widoku. Zwykła lista zachowuje zwykłe działanie klawiszy." />
+                            <CheckBox x:Name="FollowPlaybackOnPlayerExitCheck" Margin="0,0,0,8"
+                                      Content="Po wyjściu z odtwarzacza ustaw _fokus na aktualnie odtwarzanym elemencie"
+                                      automation:AutomationProperties.HelpText="Po Escape, Shift+F6 albo przycisku Wróć do listy zaznacza element wybrany w odtwarzaczu przez Page Up lub Page Down. Gdy elementu nie ma w bieżącym widoku, zachowuje poprzedni fokus." />
                             <CheckBox x:Name="RememberLocalPlaybackPositionsCheck"
                                       Content="_Pamiętaj pozycję odtwarzania lokalnych plików"
                                       automation:AutomationProperties.HelpText="To ustawienie globalne. Dla każdego Folderu Biblioteki oraz pojedynczego elementu można wybrać inne zachowanie." />

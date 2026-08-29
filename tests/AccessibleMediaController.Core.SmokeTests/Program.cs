@@ -197,6 +197,7 @@ static void TestCommandCatalog()
     Equal("Przenieś niżej na bieżącej liście", CommandCatalog.GetDisplayName(CommandIds.MoveLocalLibraryItemDown));
     Equal("Ustawienia: kolejność sesji i skrótów Ctrl+1–9", CommandCatalog.GetDisplayName(CommandIds.SettingsSessionOrder));
     Equal("Ustawienia: wstrzymuj po wyjściu z odtwarzacza", CommandCatalog.GetDisplayName(CommandIds.SettingsPausePlaybackWhenLeavingPlayer));
+    Equal("Ustawienia: fokus podąża za odtwarzaniem", CommandCatalog.GetDisplayName(CommandIds.SettingsFollowPlaybackOnPlayerExit));
     Equal("Ustawienia: pamiętaj pozycję odtwarzania lokalnych plików", CommandCatalog.GetDisplayName(CommandIds.SettingsRememberLocalPlaybackPositions));
     Equal("Skocz do czasu", CommandCatalog.GetDisplayName(CommandIds.SeekToTime));
     Equal("Skocz do procentu", CommandCatalog.GetDisplayName(CommandIds.SeekToPercentage));
@@ -2866,6 +2867,8 @@ static void TestTimeCommands()
     Equal(SettingsTarget.PlaybackMessages, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsPausePlaybackWhenLeavingPlayer);
     Equal(SettingsTarget.PausePlaybackWhenLeavingPlayer, actions.LastSettingsTarget);
+    router.Execute(CommandIds.SettingsFollowPlaybackOnPlayerExit);
+    Equal(SettingsTarget.FollowPlaybackOnPlayerExit, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsRememberLocalPlaybackPositions);
     Equal(SettingsTarget.RememberLocalPlaybackPositions, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsToggleMessages);

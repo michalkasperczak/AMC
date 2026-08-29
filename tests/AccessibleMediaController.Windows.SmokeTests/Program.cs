@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using AccessibleMediaController.Core.LocalMedia;
+using AccessibleMediaController.Windows.Controls;
 using AccessibleMediaController.Windows.Services;
 using NAudio.Wave;
 using NLayer.NAudioSupport;
@@ -45,6 +46,7 @@ try
 
     Console.WriteLine("OK: normalizacja osi czasu fragmentu OGG/Vorbis");
 
+    TestAccessiblePlaybackStatusStrip();
     TestGuardDoesNotBlockPositionReads();
     TestCompleteOutputChainMonitor();
     TestInvalidSamplesAreSilenced();
@@ -101,6 +103,21 @@ catch (Exception exception)
 finally
 {
     if (File.Exists(path)) File.Delete(path);
+}
+
+static void TestAccessiblePlaybackStatusStrip()
+{
+    using var status = new AccessiblePlaybackStatusStrip
+    {
+        SpokenText = "AAC, 192 kb/s, odtwarzanie, Radio 357"
+    };
+    Assert(status.AccessibilityObject.Role == System.Windows.Forms.AccessibleRole.StatusBar,
+        "Kontrolka nie udostępnia roli paska stanu.");
+    Assert(status.AccessibilityObject.Name == status.SpokenText,
+        "Pasek stanu nie udostępnia aktualnej treści jako swojej nazwy.");
+    Assert(status.AccessibilityObject.GetChildCount() == 0,
+        "Pasek stanu udostępnia dziecko, które może powtórzyć komunikat NVDA.");
+    Console.WriteLine("OK: pojedynczy dostępny komunikat paska stanu");
 }
 
 static void TestGuardDoesNotBlockPositionReads()

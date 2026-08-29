@@ -7,6 +7,7 @@ public enum SettingsTarget
     StartupTarget,
     SessionOrder,
     PausePlaybackWhenLeavingPlayer,
+    FollowPlaybackOnPlayerExit,
     RememberLocalPlaybackPositions,
     Prefix,
     PrefixTimeout,

@@ -190,6 +190,8 @@ public static class ShortcutHelpCatalog
         yield return Info("radio", "Cofnij lub przewiń w buforze transmisji", "Strzałka w lewo lub w prawo", "odtwarzacz radia");
         yield return Info("radio", "Wróć do transmisji na żywo", "End", "odtwarzacz radia");
         yield return Info("radio", "Rozpocznij lub zakończ nagrywanie", "Ctrl+Alt+R", "odtwarzacz radia");
+        yield return Info("radio", "Pokaż presety aktywnej sesji", "Ctrl+Alt+P", "Radio; skrót zarezerwowany także dla przyszłych usług");
+        yield return Info("radio", "Utwórz lub przypisz preset aktywnej sesji", "Ctrl+Alt+Shift+P", "Radio; skrót zarezerwowany także dla przyszłych usług");
     }
 
     private static ShortcutHelpEntry Info(

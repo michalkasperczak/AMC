@@ -33,6 +33,7 @@ public sealed class AppSettings
     public string ActiveKeyboardProfileId { get; set; } = "default";
     public bool RememberLastSession { get; set; } = true;
     public bool PausePlaybackWhenLeavingPlayer { get; set; } = true;
+    public bool FollowPlaybackOnPlayerExit { get; set; } = true;
     public bool RememberLocalPlaybackPositions { get; set; } = true;
     public string LastSessionId { get; set; } = "tidal";
     public Dictionary<int, string> SessionSlots { get; set; } = SessionSlotOrder.CreateDefault();

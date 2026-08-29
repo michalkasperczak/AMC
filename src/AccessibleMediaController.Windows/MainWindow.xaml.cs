@@ -93,7 +93,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private long _quickInformationRequestVersion;
     private string? _radioNowPlayingItemId;
     private string? _radioNowPlayingTitle;
-    private readonly System.Windows.Forms.StatusStrip _playbackStatusBar;
+    private readonly AccessiblePlaybackStatusStrip _playbackStatusBar;
     private readonly System.Windows.Forms.ToolStripStatusLabel _playbackStatusLabel;
 
     private sealed record PendingInternalListMove(
@@ -124,15 +124,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         const string initialStatus = "pauza, 0:00";
         _playbackStatusLabel = new System.Windows.Forms.ToolStripStatusLabel
         {
-            AccessibleName = initialStatus,
-            AccessibleRole = System.Windows.Forms.AccessibleRole.StaticText,
             Spring = true,
             Text = initialStatus,
             TextAlign = System.Drawing.ContentAlignment.MiddleLeft
         };
-        _playbackStatusBar = new System.Windows.Forms.StatusStrip
+        _playbackStatusBar = new AccessiblePlaybackStatusStrip
         {
-            AccessibleRole = System.Windows.Forms.AccessibleRole.StatusBar,
+            SpokenText = initialStatus,
             AutoSize = false,
             CanOverflow = false,
             Dock = System.Windows.Forms.DockStyle.Fill,
@@ -667,7 +665,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         navigation.PlayerActive = false;
         _currentView = navigation.CurrentView;
         RestoreFilterForCurrentView(navigation);
-        RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
+        var preferredItemId = navigation.SelectedItemIds.GetValueOrDefault(_currentView);
+        string? followedPlaybackItemId = null;
+        if (_state.Settings.FollowPlaybackOnPlayerExit && _sessions.Current.HasCurrentItem)
+        {
+            followedPlaybackItemId = _sessions.Current.CurrentItem.Id;
+            preferredItemId = followedPlaybackItemId;
+        }
+        RefreshCurrentView(preferredItemId: preferredItemId);
+        if (followedPlaybackItemId is not null
+            && string.Equals(SelectedItem?.Id, followedPlaybackItemId, StringComparison.Ordinal))
+        {
+            navigation.SelectedItemIds[_currentView] = followedPlaybackItemId;
+        }
         UpdateWindowTitle();
         if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
@@ -808,7 +818,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var text = BuildPlaybackStatusText();
         _playbackStatusLabel.Text = text;
-        _playbackStatusLabel.AccessibleName = text;
+        _playbackStatusBar.SpokenText = text;
     }
 
     private string BuildPlaybackStatusText()
@@ -2186,11 +2196,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         PlaylistsViewMenuItem.Visibility = Visibility.Visible;
         PlaylistsViewMenuItem.Header = radio ? "_Presety…" : "_Playlisty";
-        PlaylistsViewMenuItem.InputGestureText = "Ctrl+P";
+        PlaylistsViewMenuItem.InputGestureText = radio ? "Ctrl+P / Ctrl+Alt+P" : "Ctrl+P";
         AutomationProperties.SetName(
             PlaylistsViewMenuItem,
-            radio ? "Presety radiowe, Ctrl+P" : "Playlisty, Ctrl+P");
+            radio ? "Presety radiowe, Ctrl+P lub Ctrl+Alt+P" : "Playlisty, Ctrl+P");
         RadioAssignPresetMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        RadioAssignPresetMenuItem.InputGestureText = radio
+            ? "Ctrl+Shift+P / Ctrl+Alt+Shift+P"
+            : "Ctrl+Shift+P";
+        AutomationProperties.SetName(
+            RadioAssignPresetMenuItem,
+            "Przypisz bieżącą stację do presetu, Ctrl+Shift+P lub Ctrl+Alt+Shift+P");
         AlbumsViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         QueueViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         BookmarksViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
@@ -6804,6 +6820,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool TryResolveKeyboardHelpCommand(Key key, ModifierKeys modifiers, out string commandId)
     {
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && key == Key.P
+            && modifiers == (ModifierKeys.Control | ModifierKeys.Alt))
+        {
+            commandId = CommandIds.ViewRadioPresets;
+            return true;
+        }
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && key == Key.P
+            && modifiers == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+        {
+            commandId = CommandIds.AssignRadioPreset;
+            return true;
+        }
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
             && modifiers == (ModifierKeys.Control | ModifierKeys.Shift)
             && TryGetRadioPresetSlot(key, out var presetSlot))
         {
@@ -7246,8 +7276,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool TryHandleLocalNavigationShortcut(KeyEventArgs e)
     {
-        var commandId = (Keyboard.Modifiers, e.Key) switch
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var commandId = (Keyboard.Modifiers, key) switch
         {
+            (ModifierKeys.Control | ModifierKeys.Alt, Key.P)
+                when string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal) => CommandIds.ViewRadioPresets,
+            (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift, Key.P)
+                when string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal) => CommandIds.AssignRadioPreset,
             (ModifierKeys.Control, Key.U) => CommandIds.ViewFavorites,
             (ModifierKeys.Control, Key.P) =>
                 string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)

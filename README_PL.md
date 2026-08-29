@@ -48,6 +48,8 @@ Od `alpha.132` pasek stanu nie ma już dodatkowej nazwy „Pasek stanu odtwarzan
 
 Od `alpha.133` miejsca presetów są zawsze nazywane numerami od 1 do 12. Lista dodatkowo podaje rzeczywisty skrót, dlatego trzy ostatnie pozycje brzmią jednoznacznie: „Preset 10, skrót Ctrl+Shift+0”, „Preset 11, skrót Ctrl+Shift+minus” i „Preset 12, skrót Ctrl+Shift+znak równości”. Uruchamianie radia przez Enter, preset oraz Page Up lub Page Down podaje zwięźle samą nazwę wybranej stacji, bez powtarzania słowa „Łączenie” albo „Odtwarzanie”. Błędy i przekroczenie czasu połączenia nadal są oznajmiane.
 
+Od `alpha.134` natywny pasek stanu udostępnia NVDA jedną bieżącą treść jako jeden obiekt o roli paska stanu. Dzięki temu `NVDA+End` ponownie go odnajduje, ale nie powtarza tekstu ani dodatkowej nazwy kontenera. W `Ustawienia > Ogólne > Odtwarzanie` działa opcja „Po wyjściu z odtwarzacza ustaw fokus na aktualnie odtwarzanym elemencie”. Domyślnie jest włączona: po zmianie elementu przez Page Up lub Page Down i wyjściu Escape, Shift+F6 albo przyciskiem Wróć do listy fokus podąża za odtwarzaniem, o ile element należy do wyświetlanego widoku. Radio obsługuje dodatkowo uniwersalne aliasy `Ctrl+Alt+P` dla listy presetów oraz `Ctrl+Alt+Shift+P` dla utworzenia lub przypisania presetu; dotychczasowe `Ctrl+P` i `Ctrl+Shift+P` pozostają bez zmian.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

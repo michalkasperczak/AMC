@@ -1,12 +1,34 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-133`
-- Tytuł zestawu: Jednoznaczne presety i zwięzłe uruchamianie radia
-- Wersja programu: `0.1.0-alpha.133`
+- Numer zestawu: `AMC-TEST-134`
+- Tytuł zestawu: Dostępny pasek stanu, fokus odtwarzania i wspólne skróty presetów
+- Wersja programu: `0.1.0-alpha.134`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.133.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.134.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 134
+
+### AMC-134-01 — Pasek stanu odnajdywany przez NVDA
+
+Na liście i w odtwarzaczu naciśnij `NVDA+End`, następnie zmień stację lub utwór i powtórz test.
+
+Oczekiwane: NVDA za każdym razem czyta jedną aktualną treść paska. Nie mówi „Pasek stanu odtwarzania”, nie powtarza całego tekstu i nie przenosi fokusu.
+
+### AMC-134-02 — Fokus podąża za odtwarzaniem
+
+W `Ustawienia > Ogólne > Odtwarzanie` pozostaw włączone „Po wyjściu z odtwarzacza ustaw fokus na aktualnie odtwarzanym elemencie”. Uruchom element z listy, zmień go kilka razy przez Page Up lub Page Down i naciśnij Escape. Następnie wyłącz opcję i powtórz.
+
+Oczekiwane: przy włączonej opcji fokus wraca na element aktualnie wybrany w odtwarzaczu, jeżeli jest widoczny w bieżącym widoku. Przy wyłączonej wraca na element zaznaczony przed wejściem do odtwarzacza. Żaden wariant nie przełącza widoku ani sesji.
+
+### AMC-134-03 — Uniwersalne skróty presetów w Radiu
+
+W Radiu sprawdź `Ctrl+Alt+P` i `Ctrl+Alt+Shift+P`, również z otwartego odtwarzacza. Porównaj z `Ctrl+P` i `Ctrl+Shift+P`.
+
+Oczekiwane: oba skróty listy otwierają te same presety, a oba skróty przypisania otwierają bezpieczny tryb tworzenia presetu. Fokus po zamknięciu wraca do właściwego miejsca. Skróty z Altem nie uruchamiają menu głównego.
+
+## Poprzedni zestaw alpha 133
 
 ## Nowości alpha 133
 
