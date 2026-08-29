@@ -58,8 +58,7 @@ public partial class RadioScheduleEditorWindow : Window
         DurationTextBox.Text = (existing?.DurationMinutes ?? 60).ToString(CultureInfo.InvariantCulture);
         OutputFolderTextBox.Text = existing?.OutputFolder ?? string.Empty;
         var customOutputFolder = !string.IsNullOrWhiteSpace(existing?.OutputFolder);
-        UseDefaultOutputFolderOption.IsChecked = !customOutputFolder;
-        UseCustomOutputFolderOption.IsChecked = customOutputFolder;
+        OutputFolderModeCombo.SelectedIndex = customOutputFolder ? 1 : 0;
         EnabledCheckBox.IsChecked = existing?.Enabled ?? true;
         RecurrenceCombo.SelectedItem = RecurrenceChoice.All.First(choice =>
             choice.Value == (existing?.Recurrence ?? RadioScheduleRecurrence.Once));
@@ -155,7 +154,7 @@ public partial class RadioScheduleEditorWindow : Window
             DurationMinutes = duration,
             Recurrence = recurrence.Value,
             ActiveDays = days,
-            OutputFolder = UseCustomOutputFolderOption.IsChecked == true
+            OutputFolder = UsesCustomOutputFolder
                 ? OutputFolderTextBox.Text.Trim()
                 : string.Empty,
             WakeComputer = (WakeCombo.SelectedItem as WakeChoice)?.Value,
@@ -176,7 +175,7 @@ public partial class RadioScheduleEditorWindow : Window
             }
             schedule.NextStartUtcTicks = next.Value.Ticks;
         }
-        if (UseCustomOutputFolderOption.IsChecked == true
+        if (UsesCustomOutputFolder
             && (string.IsNullOrWhiteSpace(schedule.OutputFolder)
                 || !Path.IsPathFullyQualified(schedule.OutputFolder)))
         {
@@ -211,7 +210,7 @@ public partial class RadioScheduleEditorWindow : Window
         };
         if (Directory.Exists(OutputFolderTextBox.Text)) dialog.InitialDirectory = OutputFolderTextBox.Text;
         if (dialog.ShowDialog(this) != true) return;
-        UseCustomOutputFolderOption.IsChecked = true;
+        OutputFolderModeCombo.SelectedIndex = 1;
         OutputFolderTextBox.Text = dialog.FolderName;
         OutputFolderTextBox.Focus();
         Keyboard.Focus(OutputFolderTextBox);
@@ -226,10 +225,13 @@ public partial class RadioScheduleEditorWindow : Window
     private void UpdateOutputFolderControls()
     {
         if (OutputFolderTextBox is null || BrowseOutputFolderButton is null) return;
-        var custom = UseCustomOutputFolderOption?.IsChecked == true;
+        var custom = UsesCustomOutputFolder;
         OutputFolderTextBox.IsEnabled = custom;
         BrowseOutputFolderButton.IsEnabled = custom;
     }
+
+    private bool UsesCustomOutputFolder =>
+        (OutputFolderModeCombo?.SelectedItem as ComboBoxItem)?.Tag?.ToString() == "Custom";
 
     private void UpdateStartControlsEnabled()
     {

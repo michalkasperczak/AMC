@@ -81,7 +81,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.Prefix => (GeneralTab, PrefixBox),
             SettingsTarget.PrefixTimeout => (GeneralTab, TimeoutBox),
             SettingsTarget.RadioRecording => (RadioTab, RadioRecordingFormatCombo),
-            SettingsTarget.RadioRecordingsFolder => (RadioTab, DefaultRadioFolderOption),
+            SettingsTarget.RadioRecordingsFolder => (RadioTab, RadioRecordingsFolderBox),
             SettingsTarget.RadioWakeScheduledRecordings => (RadioTab, WakeScheduledRadioRecordingsCheck),
             SettingsTarget.KeyboardProfile => (KeyboardProfilesTab, ProfileCombo),
             SettingsTarget.ActivateKeyboardProfile => (KeyboardProfilesTab, ActivateProfileButton),
@@ -126,10 +126,9 @@ public partial class SettingsWindow : Window
         OpenPlayerWhenActivatingPresetCheck.IsChecked = _workingState.Settings.OpenPlayerWhenActivatingPreset;
         RememberLocalPlaybackPositionsCheck.IsChecked = _workingState.Settings.RememberLocalPlaybackPositions;
 
-        var customRadioFolder = !string.IsNullOrWhiteSpace(_workingState.Radio.RecordingsFolder);
-        DefaultRadioFolderOption.IsChecked = !customRadioFolder;
-        CustomRadioFolderOption.IsChecked = customRadioFolder;
-        RadioRecordingsFolderBox.Text = _workingState.Radio.RecordingsFolder;
+        RadioRecordingsFolderBox.Text = string.IsNullOrWhiteSpace(_workingState.Radio.RecordingsFolder)
+            ? DefaultRadioRecordingsFolder()
+            : _workingState.Radio.RecordingsFolder;
         SelectComboByTag(RadioRecordingFormatCombo, _workingState.Radio.RecordingFormat.ToString());
         SelectComboByTag(
             RadioRecordingBitrateCombo,
@@ -180,17 +179,10 @@ public partial class SettingsWindow : Window
         _workingState.Settings.FollowPlaybackOnPlayerExit = FollowPlaybackOnPlayerExitCheck.IsChecked == true;
         _workingState.Settings.OpenPlayerWhenActivatingPreset = OpenPlayerWhenActivatingPresetCheck.IsChecked == true;
         _workingState.Settings.RememberLocalPlaybackPositions = RememberLocalPlaybackPositionsCheck.IsChecked == true;
-        if (CustomRadioFolderOption.IsChecked == true)
-        {
-            var folder = RadioRecordingsFolderBox.Text.Trim();
-            if (string.IsNullOrWhiteSpace(folder) || !Path.IsPathFullyQualified(folder))
-                throw new InvalidDataException("Wybrany folder nagrań radia musi zawierać pełną ścieżkę.");
-            _workingState.Radio.RecordingsFolder = Path.GetFullPath(folder);
-        }
-        else
-        {
-            _workingState.Radio.RecordingsFolder = string.Empty;
-        }
+        var folder = RadioRecordingsFolderBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(folder) || !Path.IsPathFullyQualified(folder))
+            throw new InvalidDataException("Domyślny folder nagrywania radia musi zawierać pełną ścieżkę.");
+        _workingState.Radio.RecordingsFolder = Path.GetFullPath(folder);
         if (Enum.TryParse<RadioRecordingFormat>(
                 SelectedTag(RadioRecordingFormatCombo, nameof(RadioRecordingFormat.Mp3)),
                 out var recordingFormat))
@@ -415,16 +407,12 @@ public partial class SettingsWindow : Window
     }
 
     private void ProfileCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshBindings();
-    private void RecordingFolderMode_Changed(object sender, RoutedEventArgs e) => UpdateRadioRecordingControls();
     private void RadioRecordingFormatCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         UpdateRadioRecordingControls();
 
     private void UpdateRadioRecordingControls()
     {
         if (RadioRecordingsFolderBox is null || RadioRecordingBitrateCombo is null) return;
-        var customFolder = CustomRadioFolderOption.IsChecked == true;
-        RadioRecordingsFolderBox.IsEnabled = customFolder;
-        BrowseRadioRecordingsFolderButton.IsEnabled = customFolder;
         var format = SelectedTag(RadioRecordingFormatCombo, nameof(RadioRecordingFormat.Mp3));
         RadioRecordingBitrateCombo.IsEnabled = format is nameof(RadioRecordingFormat.Mp3)
             or nameof(RadioRecordingFormat.Aac);
@@ -434,16 +422,21 @@ public partial class SettingsWindow : Window
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "Wybierz ogólny folder nagrań radia",
+            Title = "Wybierz domyślny folder nagrywania radia",
             Multiselect = false
         };
         if (Directory.Exists(RadioRecordingsFolderBox.Text))
             dialog.InitialDirectory = RadioRecordingsFolderBox.Text;
         if (dialog.ShowDialog(this) != true) return;
-        CustomRadioFolderOption.IsChecked = true;
         RadioRecordingsFolderBox.Text = dialog.FolderName;
         RadioRecordingsFolderBox.Focus();
         Keyboard.Focus(RadioRecordingsFolderBox);
+    }
+
+    private static string DefaultRadioRecordingsFolder()
+    {
+        var music = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
+        return Path.Combine(music, "AMC — Nagrania radia");
     }
     private void ListFieldOrderList_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateListFieldPreview();
     private void ListFieldOrderList_PreviewKeyDown(object sender, KeyEventArgs e)

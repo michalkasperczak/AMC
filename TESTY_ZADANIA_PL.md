@@ -1,12 +1,48 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-146`
-- Tytuł zestawu: FLAC i nagrywanie oryginalnego strumienia
-- Wersja programu: `0.1.0-alpha.146`
+- Numer zestawu: `AMC-TEST-147`
+- Tytuł zestawu: Domyślny folder nagrywania i wyjątki harmonogramów
+- Wersja programu: `0.1.0-alpha.147`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.146.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.147.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 147
+
+### AMC-147-01 — Domyślny folder w ustawieniach
+
+Otwórz `Ustawienia > Radio i nagrywanie` i przejdź do grupy Domyślny folder
+nagrywania.
+
+Oczekiwane: jest jedno pole z pełną ścieżką i przycisk Wybierz. Nie ma przycisków
+opcji „użyj domyślnego” i „użyj wybranego”. NVDA odczytuje użytkowe nazwy.
+
+### AMC-147-02 — Wybór i zapamiętanie folderu
+
+Naciśnij Wybierz, wskaż inny folder, zapisz ustawienia, zamknij je i otwórz
+ponownie.
+
+Oczekiwane: otwiera się standardowe okno wyboru folderu, fokus po wyborze wraca
+do pola ścieżki, a pełna wybrana ścieżka pozostaje po ponownym otwarciu ustawień.
+
+### AMC-147-03 — Folder harmonogramu
+
+Otwórz nowy plan przez `Shift+R`. W polu sposobu wyboru folderu przełącz wartości
+Domyślny folder nagrywania i Inny folder.
+
+Oczekiwane: przy wartości domyślnej pole ścieżki i Wybierz są nieaktywne. Inny
+folder je uaktywnia. Lista nie czyta nazw klas, właściwości ani identyfikatorów.
+
+### AMC-147-04 — Dziedziczenie i wyjątek
+
+Utwórz jeden plan z folderem domyślnym oraz drugi z innym folderem. Zmień folder
+domyślny w ustawieniach i ponownie otwórz oba plany.
+
+Oczekiwane: pierwszy plan nadal wybiera Domyślny folder nagrywania i użyje nowej
+wartości ogólnej. Drugi zachowuje wybraną własną ścieżkę.
+
+## Poprzedni zestaw alpha 146
 
 ## Nowości alpha 146
 

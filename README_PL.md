@@ -425,6 +425,12 @@ Format nagrywania Radia obejmuje teraz również **FLAC, bezstratny** oraz **Ory
 
 HLS nie jest jednym gotowym plikiem, dlatego AMC nie zapisuje manifestu M3U8. Segmenty audio są łączone i bez transkodowania przepakowywane do kontenera transportowego TS. Jest to zapis bez zmiany kodeka, ale nie kopia bajt po bajcie manifestu i segmentów. Metadane ICY nie są wstawiane pomiędzy ramki dźwięku. FLAC i format oryginalny wymagają FFmpeg; brak komponentu daje czytelny błąd i nie pozostawia pliku udającego gotowe nagranie. Bitrate można wybierać tylko dla MP3 i AAC.
 
+## Foldery nagrań w alpha 147
+
+Karta `Ustawienia > Radio i nagrywanie` ma jeden, jednoznaczny **Domyślny folder nagrywania**. Pole pokazuje pełną zapamiętaną ścieżkę, a przycisk **Wybierz…** otwiera standardowe okno wyboru folderu. Nie trzeba wcześniej przełączać przycisku opcji. Przy pierwszym uruchomieniu dawna pusta wartość jest przedstawiana jako rzeczywista ścieżka `Muzyka\AMC — Nagrania radia`; zapis ustawień utrwala ją jako jawny wybór użytkownika.
+
+Każdy harmonogram ma osobne pole wyboru z dwiema wartościami: **Domyślny folder nagrywania** i **Inny folder**. Druga wartość udostępnia pole ścieżki oraz przycisk **Wybierz…** tylko dla tego planu. Pusta wartość zapisana w starszym planie nadal oznacza dziedziczenie ustawienia ogólnego, a istniejący własny folder nie jest tracony. Zmiana folderu domyślnego wpływa na plany dziedziczące, lecz nie zmienia planów z własnym folderem.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

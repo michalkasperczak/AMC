@@ -396,6 +396,12 @@ Radio recording now also offers **FLAC, lossless** and **Original stream, no con
 
 HLS is not one finished file, so AMC never stores the M3U8 manifest as a recording. Audio segments are joined and losslessly remuxed into an MPEG transport-stream file. The codec is unchanged, but this is not a byte-for-byte copy of the manifest and segments. ICY metadata is not inserted between audio frames. FLAC and original mode require FFmpeg; a missing component produces a clear failure and no file that pretends to be complete. Bitrate is selectable only for MP3 and AAC.
 
+## Recording folders in alpha 147
+
+`Settings > Radio and recording` now has one unambiguous **Default recording folder**. Its read-only field shows the complete remembered path, and **Browse…** opens the standard folder picker without requiring a preceding radio-button choice. A legacy empty value is initially resolved to the real `Music\AMC — Radio recordings` path and saving the settings makes that choice explicit.
+
+Each schedule has one folder-mode combo with **Default recording folder** and **Different folder**. The latter enables a path field and **Browse…** only for that entry. An empty path in an older entry continues to mean inheritance, while an existing entry-specific folder is preserved. Changing the default affects inheriting schedules but never overwrites an entry-specific folder.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

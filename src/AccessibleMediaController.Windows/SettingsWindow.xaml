@@ -90,26 +90,22 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="12">
                         <TextBlock Margin="0,0,0,12" TextWrapping="Wrap"
-                                   Text="Ustawienia dotyczą ręcznego i zaplanowanego nagrywania Radia internetowego. Każdy plan może osobno użyć folderu ogólnego lub własnego oraz odziedziczyć albo zmienić wybudzanie." />
-                        <GroupBox Header="Folder nagrań" Margin="0,0,0,14">
+                                   Text="Ustawienia dotyczą ręcznego i zaplanowanego nagrywania Radia internetowego. Tutaj wybierasz jeden domyślny folder nagrywania. Każdy plan może użyć tego folderu albo własnego oraz odziedziczyć albo zmienić wybudzanie." />
+                        <GroupBox Header="Domyślny folder nagrywania" Margin="0,0,0,14">
                             <StackPanel Margin="8">
-                                <RadioButton x:Name="DefaultRadioFolderOption" GroupName="RadioRecordingsFolderMode"
-                                             Content="Użyj domyślnego folderu Muzyka, AMC — Nagrania radia"
-                                             Margin="0,0,0,8" Checked="RecordingFolderMode_Changed"
-                                             automation:AutomationProperties.Name="Użyj domyślnego folderu Muzyka, AMC — Nagrania radia" />
-                                <RadioButton x:Name="CustomRadioFolderOption" GroupName="RadioRecordingsFolderMode"
-                                             Content="Użyj wybranego folderu"
-                                             Margin="0,0,0,6" Checked="RecordingFolderMode_Changed"
-                                             automation:AutomationProperties.Name="Użyj wybranego folderu nagrań" />
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                     <TextBox x:Name="RadioRecordingsFolderBox" Grid.Column="0"
-                                             automation:AutomationProperties.Name="Wybrany ogólny folder nagrań radia" />
+                                             IsReadOnly="True"
+                                             automation:AutomationProperties.Name="Domyślny folder nagrywania radia"
+                                             automation:AutomationProperties.HelpText="Folder używany przez nagrywanie ręczne oraz harmonogramy ustawione na domyślny folder nagrywania." />
                                     <Button x:Name="BrowseRadioRecordingsFolderButton" Grid.Column="1"
                                             Content="_Wybierz…" Margin="8,0,0,0" Padding="10,4"
-                                            automation:AutomationProperties.Name="Wybierz ogólny folder nagrań radia"
+                                            automation:AutomationProperties.Name="Wybierz domyślny folder nagrywania radia"
                                             Click="BrowseRadioRecordingsFolder_Click" />
                                 </Grid>
+                                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
+                                           Text="Wybrany folder jest zapamiętywany. Harmonogram może użyć go domyślnie albo wskazać inny folder tylko dla danego planu." />
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Format nagrywania" Margin="0,0,0,14">

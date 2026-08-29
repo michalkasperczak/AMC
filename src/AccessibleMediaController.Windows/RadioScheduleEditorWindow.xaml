@@ -64,17 +64,17 @@
 
         <GroupBox Grid.Row="11" Grid.RowSpan="2" Header="Folder tego nagrania" Margin="0,0,0,10">
             <StackPanel Margin="8">
-                <RadioButton x:Name="UseDefaultOutputFolderOption" GroupName="ScheduleOutputFolderMode"
-                             Content="Użyj ogólnego folderu z ustawień programu"
-                             Margin="0,0,0,8" Checked="OutputFolderMode_Changed"
-                             automation:AutomationProperties.Name="Użyj ogólnego folderu nagrań z ustawień programu" />
-                <RadioButton x:Name="UseCustomOutputFolderOption" GroupName="ScheduleOutputFolderMode"
-                             Content="Użyj innego folderu dla tego planu"
-                             Margin="0,0,0,6" Checked="OutputFolderMode_Changed"
-                             automation:AutomationProperties.Name="Użyj innego folderu dla tego planu" />
+                <Label Target="{Binding ElementName=OutputFolderModeCombo}">_Sposób wyboru folderu:</Label>
+                <ComboBox x:Name="OutputFolderModeCombo" Margin="0,0,0,8" SelectedIndex="0"
+                          SelectionChanged="OutputFolderMode_Changed"
+                          automation:AutomationProperties.Name="Folder nagrywania dla tego harmonogramu">
+                    <ComboBoxItem Tag="Default">Domyślny folder nagrywania</ComboBoxItem>
+                    <ComboBoxItem Tag="Custom">Inny folder</ComboBoxItem>
+                </ComboBox>
                 <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <TextBox x:Name="OutputFolderTextBox" Grid.Column="0"
+                             IsReadOnly="True"
                              automation:AutomationProperties.Name="Wybrany folder dla tego planu"/>
                     <Button x:Name="BrowseOutputFolderButton" Grid.Column="1" Content="_Wybierz…"
                             Margin="8,0,0,0" Padding="10,4"
