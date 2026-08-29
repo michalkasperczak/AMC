@@ -46,6 +46,8 @@ Ta wersja poprawia również stan startowy: lista sesji ustawia fokus na ostatni
 
 Od `alpha.132` pasek stanu nie ma już dodatkowej nazwy „Pasek stanu odtwarzania”. `NVDA+End` nadal odczytuje jego aktualną treść, lecz bez powtarzania nazwy kontenera. Tytuł głównego okna Radia zaczyna się od nazwy stacji i, gdy aktywny strumień ICY/BASS rzeczywiście przekazuje metadane, dopisuje bieżący utwór lub audycję. Tekst nie jest zapisywany jako nazwa stacji, jest ograniczony i oczyszczany ze znaków sterujących. Zmiana, zatrzymanie lub błąd stacji natychmiast usuwa poprzedni tytuł, więc opóźnione dane anulowanego strumienia nie mogą pojawić się przy nowej antenie. Strumień albo użyty dekoder, który nie ujawnia takich metadanych, pozostawia samą nazwę stacji.
 
+Od `alpha.133` miejsca presetów są zawsze nazywane numerami od 1 do 12. Lista dodatkowo podaje rzeczywisty skrót, dlatego trzy ostatnie pozycje brzmią jednoznacznie: „Preset 10, skrót Ctrl+Shift+0”, „Preset 11, skrót Ctrl+Shift+minus” i „Preset 12, skrót Ctrl+Shift+znak równości”. Uruchamianie radia przez Enter, preset oraz Page Up lub Page Down podaje zwięźle samą nazwę wybranej stacji, bez powtarzania słowa „Łączenie” albo „Odtwarzanie”. Błędy i przekroczenie czasu połączenia nadal są oznajmiane.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

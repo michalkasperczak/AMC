@@ -934,6 +934,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return new RadioPresetChoice(
                     slot,
                     RadioPresetSlots.Label(slot),
+                    RadioPresetSlots.SpokenShortcutLabel(slot),
                     station?.Id,
                     station?.Title,
                     station is null ? null : GetShareableLocation(station, "radio"));
@@ -3356,7 +3357,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (_state.Settings.Messages.LoadingMessages)
         {
-            Announce($"Łączenie: {e.Item.Title}");
+            Announce(e.Item.Title);
         }
         UpdatePlaybackStatusBar();
     }

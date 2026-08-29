@@ -1,12 +1,28 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-132`
-- Tytuł zestawu: Zwięzły pasek stanu i bieżący utwór radia w tytule okna
-- Wersja programu: `0.1.0-alpha.132`
+- Numer zestawu: `AMC-TEST-133`
+- Tytuł zestawu: Jednoznaczne presety i zwięzłe uruchamianie radia
+- Wersja programu: `0.1.0-alpha.133`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.132.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.133.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 133
+
+### AMC-133-01 — Numery i skróty wszystkich presetów
+
+W Radiu otwórz `Ctrl+P` i przejdź po pozycjach 9–12. Osobno otwórz `Ctrl+Shift+P` i wskaż klawiszami miejsca 10, 11 i 12.
+
+Oczekiwane: NVDA mówi kolejno numer miejsca i skrót. Ostatnie pozycje są jednoznaczne: „Preset 10, skrót Ctrl+Shift+0”, „Preset 11, skrót Ctrl+Shift+minus” oraz „Preset 12, skrót Ctrl+Shift+znak równości”. Żaden znak ani numer nie ginie, nie pojawia się techniczna nazwa rekordu.
+
+### AMC-133-02 — Zwięzła zmiana stacji
+
+Uruchom stację Enterem, następnie zmień ją kilka razy przez Page Up i Page Down oraz przez zajęte presety.
+
+Oczekiwane: przy każdym wyborze AMC mówi samą nazwę stacji. Nie dodaje słów „Łączenie”, „Odtwarzanie” ani „stacja”. Komunikat o błędzie albo przekroczeniu czasu nadal pojawia się, jeśli dźwięk rzeczywiście nie ruszy.
+
+## Poprzedni zestaw alpha 132
 
 ## Nowości alpha 132
 

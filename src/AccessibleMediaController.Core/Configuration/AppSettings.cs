@@ -314,12 +314,26 @@ public static class RadioPresetSlots
 {
     public const int Count = 12;
 
-    public static string Label(int slot) => slot switch
+    public static string Label(int slot)
+    {
+        if (slot is < 1 or > Count) throw new ArgumentOutOfRangeException(nameof(slot));
+        return slot.ToString(CultureInfo.InvariantCulture);
+    }
+
+    public static string ShortcutLabel(int slot) => slot switch
     {
         >= 1 and <= 9 => slot.ToString(CultureInfo.InvariantCulture),
         10 => "0",
         11 => "-",
         12 => "=",
+        _ => throw new ArgumentOutOfRangeException(nameof(slot))
+    };
+
+    public static string SpokenShortcutLabel(int slot) => slot switch
+    {
+        >= 1 and <= 10 => ShortcutLabel(slot),
+        11 => "minus",
+        12 => "znak równości",
         _ => throw new ArgumentOutOfRangeException(nameof(slot))
     };
 

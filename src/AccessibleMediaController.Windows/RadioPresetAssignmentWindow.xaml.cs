@@ -34,7 +34,8 @@ public partial class RadioPresetAssignmentWindow : AccessibleWindow
         PresetList.ItemsSource = choices;
         PresetList.SelectedIndex = Math.Clamp(initialSlot - 1, 0, choices.Count - 1);
         DescriptionText.Text = firstFreeSlot is int freeSlot
-            ? $"Dodaj preset: {stationName}. Pierwsze wolne miejsce: {RadioPresetSlots.Label(freeSlot)}. " +
+            ? $"Dodaj preset: {stationName}. Pierwsze wolne miejsce: preset {RadioPresetSlots.Label(freeSlot)}, " +
+              $"skrót Ctrl+Shift+{RadioPresetSlots.SpokenShortcutLabel(freeSlot)}. " +
               "Naciśnij cyfrę, minus albo znak równości, a następnie Enter. Escape anuluje."
             : $"Dodaj preset: {stationName}. Nie ma wolnego miejsca. " +
               "Aby zastąpić zajęty preset, wskaż dwukrotnie to samo miejsce i naciśnij Enter. Escape anuluje.";
@@ -96,7 +97,7 @@ public partial class RadioPresetAssignmentWindow : AccessibleWindow
                 ? $"Preset {choice.SlotLabel} już zawiera tę stację. Enter zatwierdza, Escape anuluje"
                 : _replacementArmedSlot == slot
                     ? $"Potwierdzono miejsce {choice.SlotLabel}. Enter zastępuje stację {choice.StationName} stacją {_stationName}, Escape anuluje"
-                    : $"Preset {choice.SlotLabel} zajęty: {choice.StationName}. Naciśnij ponownie {choice.SlotLabel}, a następnie Enter, aby zastąpić; inny klawisz wybiera inne miejsce; Escape anuluje");
+                    : $"Preset {choice.SlotLabel} zajęty: {choice.StationName}. Naciśnij ponownie {choice.SpokenShortcutLabel}, a następnie Enter, aby zastąpić; inny klawisz wybiera inne miejsce; Escape anuluje");
     }
 
     private void PrepareRemoval()
@@ -120,7 +121,7 @@ public partial class RadioPresetAssignmentWindow : AccessibleWindow
         if (!_removePending && replacesOtherStation && _replacementArmedSlot != choice.Slot)
         {
             AssignmentStatus.Announce(
-                $"Preset {choice.SlotLabel} jest zajęty przez {choice.StationName}. Naciśnij dwa razy {choice.SlotLabel}, a następnie Enter, aby zastąpić, albo Escape, aby anulować");
+                $"Preset {choice.SlotLabel} jest zajęty przez {choice.StationName}. Naciśnij dwa razy {choice.SpokenShortcutLabel}, a następnie Enter, aby zastąpić, albo Escape, aby anulować");
             return;
         }
         SelectedSlot = choice.Slot;

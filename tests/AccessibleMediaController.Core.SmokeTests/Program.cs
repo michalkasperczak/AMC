@@ -211,7 +211,9 @@ static void TestCommandCatalog()
     Equal(12, CommandCatalog.GetAllCommandIds().Count(commandId => CommandIds.TryParseRadioPreset(commandId, out _)));
     True(CommandIds.TryParseRadioPreset(CommandIds.RadioPreset(12), out var presetSlot), "Identyfikator presetu radiowego powinien być rozpoznawany.");
     Equal(12, presetSlot);
-    Equal("=", RadioPresetSlots.Label(12));
+    Equal("12", RadioPresetSlots.Label(12));
+    Equal("=", RadioPresetSlots.ShortcutLabel(12));
+    Equal("znak równości", RadioPresetSlots.SpokenShortcutLabel(12));
     Equal("nieznane.polecenie", CommandCatalog.GetDisplayName("nieznane.polecenie"));
 }
 

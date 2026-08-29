@@ -127,7 +127,7 @@ public static class CommandPaletteSearch
 
         if (CommandIds.TryParseRadioPreset(commandId, out var radioPresetSlot))
         {
-            return $"Ctrl+Shift+{RadioPresetSlots.Label(radioPresetSlot)} (Radio internetowe)";
+            return $"Ctrl+Shift+{RadioPresetSlots.ShortcutLabel(radioPresetSlot)} (Radio internetowe)";
         }
 
         const string sessionSlotPrefix = "session.slot.";

@@ -126,13 +126,14 @@ public partial class RadioPresetsWindow : AccessibleWindow
 public sealed record RadioPresetChoice(
     int Slot,
     string SlotLabel,
+    string SpokenShortcutLabel,
     string? StationId,
     string? StationName,
     string? ShareableLocation)
 {
     public string Label => StationId is null
-        ? $"Preset {SlotLabel} — pusty"
-        : $"Preset {SlotLabel} — {StationName}";
+        ? $"Preset {SlotLabel}, skrót Ctrl+Shift+{SpokenShortcutLabel} — pusty"
+        : $"Preset {SlotLabel}, skrót Ctrl+Shift+{SpokenShortcutLabel} — {StationName}";
 
     public override string ToString() => Label;
 }

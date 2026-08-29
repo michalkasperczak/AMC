@@ -183,7 +183,9 @@ public sealed class CommandRouter(
                     announcements.Announce("To pierwszy element");
                     return new(false);
                 }
-                announcements.Announce($"Odtwarzanie: {FormatItem(current.CurrentItem)}");
+                announcements.Announce(current.Id == "radio"
+                    ? current.CurrentItem.Title
+                    : $"Odtwarzanie: {FormatItem(current.CurrentItem)}");
                 return new(true);
             case CommandIds.Next:
                 if (!current.HasCurrentItem) return MissingCurrentMediaItem();
@@ -192,7 +194,9 @@ public sealed class CommandRouter(
                     announcements.Announce("To ostatni element");
                     return new(false);
                 }
-                announcements.Announce($"Odtwarzanie: {FormatItem(current.CurrentItem)}");
+                announcements.Announce(current.Id == "radio"
+                    ? current.CurrentItem.Title
+                    : $"Odtwarzanie: {FormatItem(current.CurrentItem)}");
                 return new(true);
             case CommandIds.SeekBackward10: return Seek(current, -10);
             case CommandIds.SeekForward10: return Seek(current, 10);
