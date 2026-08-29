@@ -17,12 +17,32 @@
                                                 automation:AutomationProperties.LiveSetting="Assertive" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button MinWidth="105" Margin="0,0,8,0" Content="_Kopiuj wszystko"
+                        KeyboardNavigation.TabIndex="2"
                         automation:AutomationProperties.HelpText="Kopiuje pełną treść i pozostawia to okno otwarte"
                         Click="Copy_Click" />
                 <Button MinWidth="105" IsCancel="True"
+                        KeyboardNavigation.TabIndex="3"
                         Content="_Zamknij" Click="Close_Click" />
             </StackPanel>
         </StackPanel>
-        <wfi:WindowsFormsHost x:Name="InformationHost" />
+        <ListBox x:Name="LinksList"
+                 DockPanel.Dock="Top"
+                 MaxHeight="125"
+                 Margin="0,0,0,10"
+                 DisplayMemberPath="Label"
+                 TextSearch.TextPath="Label"
+                 KeyboardNavigation.TabIndex="1"
+                 Visibility="Collapsed"
+                 automation:AutomationProperties.Name="Łącza"
+                 automation:AutomationProperties.HelpText="Strzałki wybierają łącze. Enter otwiera je w zewnętrznej aplikacji."
+                 PreviewKeyDown="LinksList_PreviewKeyDown"
+                 MouseDoubleClick="LinksList_MouseDoubleClick">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+        <wfi:WindowsFormsHost x:Name="InformationHost" KeyboardNavigation.TabIndex="0" />
     </DockPanel>
 </controls:AccessibleWindow>

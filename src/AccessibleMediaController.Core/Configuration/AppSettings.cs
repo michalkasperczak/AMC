@@ -1,3 +1,4 @@
+using System.Globalization;
 using AccessibleMediaController.Core.Presentation;
 
 namespace AccessibleMediaController.Core.Configuration;
@@ -158,7 +159,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 27;
+    public int SchemaVersion { get; set; } = 28;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -296,10 +297,48 @@ public sealed class LocalMediaItemSettings
 public sealed class RadioSettings
 {
     public List<RadioStationSettings> Stations { get; set; } = [];
+    public List<RadioPresetSettings> Presets { get; set; } = [];
     public string? CurrentItemId { get; set; }
     public int Volume { get; set; } = 35;
     public int TimeshiftMinutes { get; set; } = 10;
     public string RecordingsFolder { get; set; } = string.Empty;
+}
+
+public sealed class RadioPresetSettings
+{
+    public int Slot { get; set; }
+    public string StationId { get; set; } = string.Empty;
+}
+
+public static class RadioPresetSlots
+{
+    public const int Count = 12;
+
+    public static string Label(int slot) => slot switch
+    {
+        >= 1 and <= 9 => slot.ToString(CultureInfo.InvariantCulture),
+        10 => "0",
+        11 => "-",
+        12 => "=",
+        _ => throw new ArgumentOutOfRangeException(nameof(slot))
+    };
+
+    public static IReadOnlyList<RadioPresetSettings> Normalize(
+        IEnumerable<RadioPresetSettings>? presets,
+        IReadOnlySet<string> stationIds) =>
+        (presets ?? [])
+            .Where(preset => preset.Slot is >= 1 and <= Count
+                && !string.IsNullOrWhiteSpace(preset.StationId)
+                && stationIds.Contains(preset.StationId.Trim()))
+            .Select(preset => new RadioPresetSettings
+            {
+                Slot = preset.Slot,
+                StationId = preset.StationId.Trim()
+            })
+            .GroupBy(preset => preset.Slot)
+            .Select(group => group.First())
+            .OrderBy(preset => preset.Slot)
+            .ToArray();
 }
 
 public sealed class RadioStationSettings
@@ -314,6 +353,7 @@ public sealed class RadioStationSettings
     public string? Codec { get; set; }
     public string? DirectoryId { get; set; }
     public int? BitrateKbps { get; set; }
+    public bool IsBitrateEstimated { get; set; }
     public int? SampleRateHz { get; set; }
     public bool HasCustomTitle { get; set; }
     public bool IsFavorite { get; set; }

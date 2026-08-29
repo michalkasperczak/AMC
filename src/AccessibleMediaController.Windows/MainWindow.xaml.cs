@@ -914,6 +914,161 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void ShowPlaylistManager() => ShowPlaylistManager(ActionItems, ActionSession);
 
+    private IReadOnlyList<RadioPresetChoice> RadioPresetChoices()
+    {
+        var presets = _state.Radio.Presets
+            .Where(preset => preset.Slot is >= 1 and <= RadioPresetSlots.Count)
+            .GroupBy(preset => preset.Slot)
+            .ToDictionary(group => group.Key, group => group.First());
+        var stations = _radioItems
+            .Where(item => !string.IsNullOrWhiteSpace(item.Id))
+            .GroupBy(item => item.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        return Enumerable.Range(1, RadioPresetSlots.Count)
+            .Select(slot =>
+            {
+                var stationId = presets.GetValueOrDefault(slot)?.StationId;
+                var station = stationId is null ? null : stations.GetValueOrDefault(stationId);
+                return new RadioPresetChoice(
+                    slot,
+                    RadioPresetSlots.Label(slot),
+                    station?.Id,
+                    station?.Title);
+            })
+            .ToArray();
+    }
+
+    private void ShowRadioPresets()
+    {
+        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            Announce("Presety radiowe są dostępne w sesji Radio internetowe");
+            return;
+        }
+
+        var dialog = new RadioPresetsWindow(
+            RadioPresetChoices(),
+            _sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem.Id : null)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() == true && dialog.SelectedSlot is int slot)
+        {
+            ActivateRadioPreset(slot);
+            return;
+        }
+        RestoreItemActionFocus();
+    }
+
+    private void ShowRadioPresetAssignment()
+    {
+        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            Announce("Przypisywanie presetów jest dostępne w sesji Radio internetowe");
+            return;
+        }
+        var station = ActionItem;
+        if (station?.Kind != MediaItemKind.Station)
+        {
+            Announce("Wybierz albo odtwórz stację, którą chcesz przypisać do presetu");
+            return;
+        }
+
+        var choices = RadioPresetChoices();
+        var existingStationSlot = choices.FirstOrDefault(choice =>
+            string.Equals(choice.StationId, station.Id, StringComparison.Ordinal))?.Slot;
+        var firstFree = choices.FirstOrDefault(choice => choice.StationId is null)?.Slot;
+        var initialSlot = existingStationSlot ?? firstFree ?? 1;
+        var dialog = new RadioPresetAssignmentWindow(
+            station.Title,
+            station.Id,
+            choices,
+            firstFree,
+            initialSlot)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+
+        var existing = _state.Radio.Presets.FindIndex(preset => preset.Slot == dialog.SelectedSlot);
+        var slotLabel = RadioPresetSlots.Label(dialog.SelectedSlot);
+        if (dialog.SelectedAction == RadioPresetAssignmentAction.Remove)
+        {
+            if (existing >= 0) _state.Radio.Presets.RemoveAt(existing);
+            CaptureRadioState();
+            _store.Save(_state);
+            Announce($"Usunięto preset {slotLabel}");
+            RestoreItemActionFocus();
+            return;
+        }
+
+        station.IsInLibrary = true;
+        if (_radioItems.All(item => !string.Equals(item.Id, station.Id, StringComparison.Ordinal)))
+        {
+            _radioItems.Add(station);
+        }
+        var preset = new RadioPresetSettings
+        {
+            Slot = dialog.SelectedSlot,
+            StationId = station.Id
+        };
+        if (existing >= 0) _state.Radio.Presets[existing] = preset;
+        else _state.Radio.Presets.Add(preset);
+        _state.Radio.Presets = _state.Radio.Presets.OrderBy(entry => entry.Slot).ToList();
+        CaptureRadioState();
+        _store.Save(_state);
+        if (!_playerViewActive && string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal))
+        {
+            RefreshCurrentView(preferredItemId: station.Id);
+        }
+        Announce($"Zapisano preset {slotLabel}: {station.Title}");
+        RestoreItemActionFocus();
+    }
+
+    private void ActivateRadioPreset(int slot)
+    {
+        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            Announce("Preset radiowy nie przełącza sesji. Najpierw wybierz Radio internetowe");
+            return;
+        }
+        var slotLabel = RadioPresetSlots.Label(slot);
+        var preset = _state.Radio.Presets.FirstOrDefault(entry => entry.Slot == slot);
+        if (preset is null)
+        {
+            Announce($"Preset {slotLabel} pusty. Ctrl+Shift+P dodaje bieżącą stację");
+            return;
+        }
+        var station = _radioItems.FirstOrDefault(item =>
+            string.Equals(item.Id, preset.StationId, StringComparison.Ordinal));
+        if (station is null)
+        {
+            Announce($"Preset {slotLabel} jest niedostępny. Przypisz go ponownie skrótem Ctrl+Shift+P");
+            return;
+        }
+
+        var presetStationIds = _state.Radio.Presets
+            .OrderBy(entry => entry.Slot)
+            .Select(entry => entry.StationId)
+            .Where(stationId => _radioItems.Any(item => string.Equals(item.Id, stationId, StringComparison.Ordinal)))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        _sessions.Current.SetPlaybackContext(presetStationIds);
+        var navigation = GetSessionNavigationState("radio");
+        navigation.PlaybackContextView = "Presety";
+        navigation.PlaybackContextItemIds = presetStationIds.ToList();
+        _sessions.Current.Play(station);
+        RecordPlayback(_sessions.Current, station);
+        CaptureRadioState();
+        _store.Save(_state);
+        RefreshPlaybackIndicators();
+        ShowPlayerView();
+    }
+
     private void ShowPlaylistManager(
         IReadOnlyList<MediaItem> items,
         DemoMediaSession session)
@@ -1161,23 +1316,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         ClearFocusContext();
         var entries = CommandPaletteSearch.CreateEntries(ActiveKeyboardProfile(), _state.Settings)
-            .Where(entry => !string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-                || entry.CommandId is not (CommandIds.AddQueue
-                    or CommandIds.TogglePlayNext
-                    or CommandIds.ViewQueue
-                    or CommandIds.ViewPlaylists
-                    or CommandIds.ManagePlaylists
-                    or CommandIds.ViewAlbums
-                    or CommandIds.ViewBookmarks
-                    or CommandIds.AddBookmark
-                    or CommandIds.AddNamedBookmark
-                    or CommandIds.PreviousBookmark
-                    or CommandIds.NextBookmark
-                    or CommandIds.SeekToTime
-                    or CommandIds.SeekToPercentage
-                    or CommandIds.PlaybackRateDown
-                    or CommandIds.PlaybackRateUp
-                    or CommandIds.PlaybackRateReset))
+            .Where(entry => CommandVisibleInPalette(entry.CommandId))
             .ToArray();
         var dialog = new CommandPaletteWindow(entries) { Owner = this };
         if (dialog.ShowDialog() == true && dialog.SelectedCommandId is { } commandId)
@@ -1194,13 +1333,50 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreMediaListFocusAfterRefresh();
     }
 
+    private bool CommandVisibleInPalette(string commandId)
+    {
+        var radio = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
+        if (!radio)
+        {
+            return commandId is not (CommandIds.ViewRadioPresets or CommandIds.AssignRadioPreset)
+                && !CommandIds.TryParseRadioPreset(commandId, out _);
+        }
+        return commandId is not (CommandIds.AddQueue
+            or CommandIds.TogglePlayNext
+            or CommandIds.ViewQueue
+            or CommandIds.ViewPlaylists
+            or CommandIds.ManagePlaylists
+            or CommandIds.ViewAlbums
+            or CommandIds.ViewBookmarks
+            or CommandIds.AddBookmark
+            or CommandIds.AddNamedBookmark
+            or CommandIds.PreviousBookmark
+            or CommandIds.NextBookmark
+            or CommandIds.SeekToTime
+            or CommandIds.SeekToPercentage
+            or CommandIds.PlaybackRateDown
+            or CommandIds.PlaybackRateUp
+            or CommandIds.PlaybackRateReset);
+    }
+
     public void ShowItemProperties()
     {
         var item = ActionItem ?? _sessions.Current.CurrentItem;
         var activeOwner = Application.Current.Windows
             .OfType<Window>()
             .FirstOrDefault(window => window.IsActive) ?? this;
-        var dialog = new InformationWindow(BuildItemPropertiesText(item)) { Owner = activeOwner };
+        var links = item.Kind == MediaItemKind.Station
+            ? new[]
+            {
+                string.IsNullOrWhiteSpace(item.Source)
+                    ? null
+                    : new InformationLink("Otwórz adres strumienia", item.Source),
+                string.IsNullOrWhiteSpace(item.HomepageUri)
+                    ? null
+                    : new InformationLink("Otwórz stronę stacji", item.HomepageUri)
+            }.Where(link => link is not null).Select(link => link!).ToArray()
+            : [];
+        var dialog = new InformationWindow(BuildItemPropertiesText(item), links) { Owner = activeOwner };
         dialog.ShowDialog();
         if (!ReferenceEquals(activeOwner, this)) return;
         Activate();
@@ -1340,6 +1516,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private string BuildItemPropertiesText(MediaItem item)
     {
         var session = ActionSession;
+        if (item.Kind == MediaItemKind.Station
+            && string.Equals(session.Id, "radio", StringComparison.Ordinal))
+        {
+            return BuildRadioStationPropertiesText(item, session);
+        }
         var isCurrent = string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal);
         var localPath = TryGetLocalPath(item.Source, out var resolvedPath)
             ? resolvedPath
@@ -1438,6 +1619,62 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             sections.Add($"Źródło{Environment.NewLine}Łącze publiczne: {item.PublicUri}");
         }
 
+        return string.Join(Environment.NewLine + Environment.NewLine, sections);
+    }
+
+    private string BuildRadioStationPropertiesText(MediaItem item, DemoMediaSession session)
+    {
+        var isCurrent = string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal);
+        var sections = new List<string>
+        {
+            string.Join(Environment.NewLine,
+                new string?[]
+                {
+                    $"Nazwa: {item.Title}",
+                    "Rodzaj: stacja radiowa",
+                    $"Usługa: {session.DisplayName}",
+                    string.IsNullOrWhiteSpace(item.Country) ? null : $"Kraj: {item.Country}",
+                    string.IsNullOrWhiteSpace(item.Language) ? null : $"Język: {item.Language}",
+                    string.IsNullOrWhiteSpace(item.Tags) ? null : $"Kategorie: {item.Tags}"
+                }.Where(value => value is not null).Select(value => value!))
+        };
+
+        var applicationLines = new List<string>
+        {
+            "W aplikacji",
+            $"Aktualnie odtwarzana: {(isCurrent ? "tak" : "nie")}",
+            $"Ulubiona: {(item.IsFavorite ? "tak" : "nie")}",
+            $"W Bibliotece radia: {(item.IsInLibrary ? "tak" : "nie")}"
+        };
+        if (isCurrent)
+        {
+            applicationLines.Insert(2, $"Stan: {(session.IsPlaying ? "odtwarzanie" : "pauza")}");
+            applicationLines.Insert(3, _radioOutput.BehindLive < TimeSpan.FromSeconds(1)
+                ? "Pozycja: na żywo"
+                : $"Za transmisją: {CommandRouter.FormatTime(_radioOutput.BehindLive)}");
+            applicationLines.Insert(4, $"Głośność: {session.Volume}%");
+        }
+        sections.Add(string.Join(Environment.NewLine, applicationLines));
+
+        var technicalLines = new List<string> { "Dźwięk" };
+        if (!string.IsNullOrWhiteSpace(item.Codec)) technicalLines.Add($"Format strumienia: {item.Codec}");
+        if (item.BitrateKbps is int bitrate)
+        {
+            technicalLines.Add(item.IsBitrateEstimated
+                ? $"Bitrate: około {bitrate} kb/s"
+                : $"Bitrate: {bitrate} kb/s");
+        }
+        if (item.SampleRateHz is int sampleRate && sampleRate > 0)
+        {
+            technicalLines.Add(
+                $"Częstotliwość próbkowania: {(sampleRate / 1000d).ToString("0.#", CultureInfo.CurrentCulture)} kHz");
+        }
+        if (technicalLines.Count > 1) sections.Add(string.Join(Environment.NewLine, technicalLines));
+
+        var sourceLines = new List<string> { "Łącza" };
+        if (!string.IsNullOrWhiteSpace(item.Source)) sourceLines.Add($"Adres strumienia: {item.Source}");
+        if (!string.IsNullOrWhiteSpace(item.HomepageUri)) sourceLines.Add($"Strona stacji: {item.HomepageUri}");
+        if (sourceLines.Count > 1) sections.Add(string.Join(Environment.NewLine, sourceLines));
         return string.Join(Environment.NewLine + Environment.NewLine, sections);
     }
 
@@ -1561,7 +1798,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else if (string.Equals(ActionSession.Id, "radio", StringComparison.Ordinal)
                  && item.Source is { Length: > 0 } radioSource
-                 && (item.BitrateKbps is null || item.SampleRateHz is null))
+                 && (item.BitrateKbps is null || string.IsNullOrWhiteSpace(item.Codec)))
         {
             var metadata = await RadioMediaOutput.TryReadStreamMetadataAsync(
                 radioSource,
@@ -1574,6 +1811,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (metadata is not null)
             {
                 item.BitrateKbps ??= RadioAudioMetadataRules.NormalizeBitrateKbps(metadata.BitrateKbps);
+                if (item.BitrateKbps is not null) item.IsBitrateEstimated = metadata.IsBitrateEstimated;
                 item.SampleRateHz ??= metadata.SampleRateHz;
                 item.Codec ??= metadata.Codec;
                 CaptureRadioState();
@@ -1936,11 +2174,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         MoveItemUpMainMenuItem.Visibility = movableView ? Visibility.Visible : Visibility.Collapsed;
         MoveItemDownMainMenuItem.Visibility = movableView ? Visibility.Visible : Visibility.Collapsed;
 
-        PlaylistsViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaylistsViewMenuItem.Visibility = Visibility.Visible;
+        PlaylistsViewMenuItem.Header = radio ? "_Presety…" : "_Playlisty";
+        PlaylistsViewMenuItem.InputGestureText = "Ctrl+P";
+        AutomationProperties.SetName(
+            PlaylistsViewMenuItem,
+            radio ? "Presety radiowe, Ctrl+P" : "Playlisty, Ctrl+P");
+        RadioAssignPresetMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         AlbumsViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         QueueViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         BookmarksViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
-        BrowserPlaylistsButton.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        BrowserPlaylistsButton.Visibility = Visibility.Visible;
+        BrowserPlaylistsButton.Content = radio ? "_Przypisz preset…" : "Zmień _playlisty…";
+        AutomationProperties.SetName(
+            BrowserPlaylistsButton,
+            radio ? "Przypisz bieżącą stację do presetu, Ctrl+Shift+P" : "Zmień playlisty");
 
         RadioRecordingMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         PlaybackAfterRecordingSeparator.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
@@ -2384,6 +2632,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Codec = saved.Codec,
                 ExternalId = saved.DirectoryId,
                 BitrateKbps = RadioAudioMetadataRules.NormalizeBitrateKbps(saved.BitrateKbps),
+                IsBitrateEstimated = saved.IsBitrateEstimated,
                 SampleRateHz = saved.SampleRateHz,
                 IsFavorite = saved.IsFavorite,
                 IsInLibrary = saved.IsInLibrary,
@@ -2414,6 +2663,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Codec = item.Codec,
             DirectoryId = item.ExternalId,
             BitrateKbps = RadioAudioMetadataRules.NormalizeBitrateKbps(item.BitrateKbps),
+            IsBitrateEstimated = item.IsBitrateEstimated,
             SampleRateHz = item.SampleRateHz,
             HasCustomTitle = item.HasCustomTitle,
             IsFavorite = item.IsFavorite,
@@ -3111,6 +3361,30 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _store.Save(_state);
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
+        if (e.Item.BitrateKbps is null || string.IsNullOrWhiteSpace(e.Item.Codec))
+        {
+            _ = EnrichRadioMetadataAfterPlaybackStartedAsync(e.Item);
+        }
+    }
+
+    private async Task EnrichRadioMetadataAfterPlaybackStartedAsync(MediaItem item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Source)) return;
+        var metadata = await RadioMediaOutput.TryReadStreamMetadataAsync(
+            item.Source,
+            TimeSpan.FromSeconds(8));
+        if (_isClosing || metadata is null
+            || _radioItems.All(candidate => !string.Equals(candidate.Id, item.Id, StringComparison.Ordinal)))
+        {
+            return;
+        }
+        item.BitrateKbps ??= RadioAudioMetadataRules.NormalizeBitrateKbps(metadata.BitrateKbps);
+        if (item.BitrateKbps is not null) item.IsBitrateEstimated = metadata.IsBitrateEstimated;
+        item.SampleRateHz ??= metadata.SampleRateHz;
+        item.Codec ??= metadata.Codec;
+        CaptureRadioState();
+        _store.Save(_state);
+        UpdatePlaybackStatusBar();
     }
 
     private void RadioOutput_PlaybackFailed(object? sender, MediaOutputFailedEventArgs e)
@@ -3188,6 +3462,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string commandId,
         FolderContentsActionContext? folderContext)
     {
+        if (CommandIds.TryParseRadioPreset(commandId, out var radioPresetSlot))
+        {
+            ActivateRadioPreset(radioPresetSlot);
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ViewRadioPresets)
+        {
+            ShowRadioPresets();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.AssignRadioPreset)
+        {
+            ShowRadioPresetAssignment();
+            return new CommandExecutionResult(true);
+        }
         if (commandId is CommandIds.ViewFolders
                 or CommandIds.ViewAllLocalFiles
                 or CommandIds.ViewCustomLocalOrder
@@ -6139,6 +6428,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (TryHandleDirectRadioPresetShortcut(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (TryHandleLocalLibraryViewShortcut(e))
         {
             e.Handled = true;
@@ -6463,6 +6758,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool TryResolveKeyboardHelpCommand(Key key, ModifierKeys modifiers, out string commandId)
     {
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && modifiers == (ModifierKeys.Control | ModifierKeys.Shift)
+            && TryGetRadioPresetSlot(key, out var presetSlot))
+        {
+            commandId = CommandIds.RadioPreset(presetSlot);
+            return true;
+        }
         if (modifiers == ModifierKeys.Control && TryGetDigitKey(key, out var sessionSlot))
         {
             commandId = sessionSlot == 0 ? CommandIds.SessionList : CommandIds.SessionSlot(sessionSlot);
@@ -6543,7 +6845,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 (ModifierKeys.Alt | ModifierKeys.Shift, Key.Enter) => CommandIds.ItemPlaybackOptions,
                 (ModifierKeys.Alt, Key.Enter) => CommandIds.ItemProperties,
                 (ModifierKeys.Control | ModifierKeys.Shift, Key.U) => CommandIds.ToggleFavorite,
-                (ModifierKeys.Control | ModifierKeys.Shift, Key.P) => CommandIds.ManagePlaylists,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.P) =>
+                    string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                        ? CommandIds.AssignRadioPreset
+                        : CommandIds.ManagePlaylists,
                 (ModifierKeys.Control | ModifierKeys.Shift, Key.Q) => CommandIds.AddQueue,
                 (ModifierKeys.Control | ModifierKeys.Shift, Key.L) => CommandIds.ToggleLibrary,
                 (ModifierKeys.Shift, Key.Enter) => CommandIds.AddQueue,
@@ -6561,7 +6866,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.PageUp) => CommandIds.SessionPrevious,
             (ModifierKeys.Control, Key.PageDown) => CommandIds.SessionNext,
             (ModifierKeys.Control, Key.U) => CommandIds.ViewFavorites,
-            (ModifierKeys.Control, Key.P) => CommandIds.ViewPlaylists,
+            (ModifierKeys.Control, Key.P) =>
+                string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                    ? CommandIds.ViewRadioPresets
+                    : CommandIds.ViewPlaylists,
             (ModifierKeys.Control, Key.L) => CommandIds.ViewLibrary,
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
             (ModifierKeys.Control, Key.H) => CommandIds.ViewHistory,
@@ -6594,7 +6902,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool TryDescribeDirectShortcut(Key key, ModifierKeys modifiers, out string description)
     {
         description = string.Empty;
-        if (modifiers == ModifierKeys.Alt && key == Key.F4)
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && modifiers == (ModifierKeys.Control | ModifierKeys.Shift)
+            && TryGetRadioPresetSlot(key, out var presetSlot))
+            description = $"uruchom preset radiowy {RadioPresetSlots.Label(presetSlot)}";
+        else if (modifiers == ModifierKeys.Alt && key == Key.F4)
             description = "zamknij aplikację";
         else if (modifiers == ModifierKeys.None && key == Key.Escape)
             description = _playerViewActive
@@ -6836,6 +7148,41 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return false;
     }
 
+    private bool TryHandleDirectRadioPresetShortcut(KeyEventArgs e)
+    {
+        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            || Keyboard.Modifiers != (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            return false;
+        }
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (!TryGetRadioPresetSlot(key, out var slot)) return false;
+        ActivateRadioPreset(slot);
+        return true;
+    }
+
+    private static bool TryGetRadioPresetSlot(Key key, out int slot)
+    {
+        if (key is >= Key.D1 and <= Key.D9)
+        {
+            slot = (int)key - (int)Key.D0;
+            return true;
+        }
+        if (key is >= Key.NumPad1 and <= Key.NumPad9)
+        {
+            slot = (int)key - (int)Key.NumPad0;
+            return true;
+        }
+        slot = key switch
+        {
+            Key.D0 or Key.NumPad0 => 10,
+            Key.OemMinus or Key.Subtract => 11,
+            Key.OemPlus or Key.Add => 12,
+            _ => 0
+        };
+        return slot != 0;
+    }
+
     private bool TryHandleLocalSessionNavigation(KeyEventArgs e)
     {
         if (Keyboard.Modifiers != ModifierKeys.Control) return false;
@@ -6857,7 +7204,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var commandId = (Keyboard.Modifiers, e.Key) switch
         {
             (ModifierKeys.Control, Key.U) => CommandIds.ViewFavorites,
-            (ModifierKeys.Control, Key.P) => CommandIds.ViewPlaylists,
+            (ModifierKeys.Control, Key.P) =>
+                string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                    ? CommandIds.ViewRadioPresets
+                    : CommandIds.ViewPlaylists,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.P) =>
+                string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                    ? CommandIds.AssignRadioPreset
+                    : null,
             (ModifierKeys.Control, Key.L) => CommandIds.ViewLibrary,
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
             (ModifierKeys.Control, Key.H) => CommandIds.ViewHistory,
@@ -7007,7 +7361,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var commandId = (modifiers, e.Key) switch
         {
             (ModifierKeys.Control | ModifierKeys.Shift, Key.U) => CommandIds.ToggleFavorite,
-            (ModifierKeys.Control | ModifierKeys.Shift, Key.P) => CommandIds.ManagePlaylists,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.P) =>
+                string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                    ? CommandIds.AssignRadioPreset
+                    : CommandIds.ManagePlaylists,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.Q) => CommandIds.AddQueue,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.L) => CommandIds.ToggleLibrary,
             (ModifierKeys.Shift, Key.Enter) => CommandIds.AddQueue,
@@ -7388,7 +7745,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Queue_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddQueue);
     private void Favorite_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleFavorite);
     private void Library_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ToggleLibrary);
-    private void Playlists_Click(object sender, RoutedEventArgs e) => ShowPlaylistManager();
+    private void Playlists_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+            ShowRadioPresetAssignment();
+        else
+            ShowPlaylistManager();
+    }
     private void Information_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemProperties);
     private void ItemPlaybackOptions_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemPlaybackOptions);
     private void GoToAlbum_Click(object sender, RoutedEventArgs e) => GoToRelatedAlbum();
@@ -7527,12 +7890,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         LibraryMenuItem.Visibility = localAlbumContainer || playlistContainer || folderNavigationRow
             ? Visibility.Collapsed
             : Visibility.Visible;
-        PlaylistMembershipMenuItem.Visibility = radioSession
-            || playlistContainer
+        PlaylistMembershipMenuItem.Visibility = playlistContainer
             || localAlbumContainer
             || (folderNavigationRow && membershipItems.Count == 0)
             ? Visibility.Collapsed
             : Visibility.Visible;
+        if (radioSession)
+        {
+            SetContextMenuItemPresentation(
+                PlaylistMembershipMenuItem,
+                "Przypisz bieżącą stację do presetu",
+                "Ctrl+Shift+P");
+        }
+        else
+        {
+            SetContextMenuItemPresentation(
+                PlaylistMembershipMenuItem,
+                "Zmień przynależność do playlist",
+                "Ctrl+Shift+P");
+        }
         CopyLocationMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
         ItemPlaybackOptionsMenuItem.Visibility = playlistContainer
             || SelectedBookmark is null
@@ -7651,7 +8027,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var radioSession = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
         PlayerPlayNextMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
         PlayerQueueMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
-        PlayerPlaylistMembershipMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
+        PlayerPlaylistMembershipMenuItem.Visibility = Visibility.Visible;
+        SetContextMenuItemPresentation(
+            PlayerPlaylistMembershipMenuItem,
+            radioSession ? "Przypisz bieżącą stację do presetu" : "Zmień przynależność do playlist",
+            "Ctrl+Shift+P");
         PlayerRadioRecordingMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
         PlayerAddBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
         PlayerAddNamedBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
@@ -8187,7 +8567,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void NextSession_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SessionNext);
     private void NowPlayingView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewNowPlaying);
     private void FavoritesView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewFavorites);
-    private void PlaylistsView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewPlaylists);
+    private void PlaylistsView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(
+        string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            ? CommandIds.ViewRadioPresets
+            : CommandIds.ViewPlaylists);
+    private void RadioAssignPreset_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.AssignRadioPreset);
     private void LibraryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewLibrary);
     private void FoldersView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewFolders);
     private void AllLocalFilesView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewAllLocalFiles);

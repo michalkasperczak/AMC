@@ -78,6 +78,10 @@ try
         {
             TestLiveHlsRadio(mediaPath["--hls-radio-url=".Length..]);
         }
+        else if (mediaPath.StartsWith("--radio-metadata-url=", StringComparison.OrdinalIgnoreCase))
+        {
+            TestLiveRadioMetadata(mediaPath["--radio-metadata-url=".Length..]);
+        }
         else
         {
             TestFormatMetadata(mediaPath);
@@ -344,7 +348,75 @@ static void TestRadioAudioMetadataValidation()
         "Częstotliwość próbkowania została błędnie zaakceptowana jako bitrate.");
     Assert(RadioAudioMetadataRules.NormalizeBitrateKbps(null) is null,
         "Brak bitrate nie powinien tworzyć wartości.");
+
+    var audioMaster = RadioStreamMetadataProbe.ParseHlsManifest("""
+        #EXTM3U
+        #EXT-X-STREAM-INF:BANDWIDTH=192000,CODECS="mp4a.40.2"
+        audio.m3u8
+        """);
+    Assert(audioMaster.BitrateKbps == 192 && audioMaster.Codec == "AAC",
+        "Manifest audio HLS nie podał przepływności i kodeka.");
+
+    var videoMaster = RadioStreamMetadataProbe.ParseHlsManifest("""
+        #EXTM3U
+        #EXT-X-STREAM-INF:BANDWIDTH=2500000,CODECS="avc1.4d401f,mp4a.40.2"
+        video.m3u8
+        """);
+    Assert(videoMaster.BitrateKbps is null,
+        "Przepływność obrazu HLS została błędnie podana jako przepływność radia.");
+
+    var mediaManifest = RadioStreamMetadataProbe.ParseHlsManifest("""
+        #EXTM3U
+        #EXT-X-TARGETDURATION:7
+        #EXTINF:6.4, no desc
+        radio-audio=128000-123.ts
+        """);
+    Assert(mediaManifest.SegmentDurationSeconds == 6.4
+        && mediaManifest.SegmentUri == "radio-audio=128000-123.ts",
+        "Manifest HLS nie wskazał bezpiecznie pierwszego segmentu.");
+
+    Assert(RadioStreamMetadataProbe.BitrateFromUri(new Uri(
+            "https://audio.example/live/radio-audio%3d128000.norewind.m3u8")) == 128,
+        "Nie rozpoznano bitrate zadeklarowanego w adresie wariantu HLS.");
+
+    var adts = CreateAdtsFrames(frameLength: 100, frameCount: 4, sampleRateIndex: 4);
+    var detectedAac = RadioStreamMetadataProbe.DetectAudioSample(adts);
+    Assert(detectedAac?.Codec == "AAC"
+        && detectedAac.SampleRateHz == 44_100
+        && detectedAac.BitrateKbps is > 20 and < 50,
+        "Ograniczona próbka AAC nie podała wiarygodnych parametrów.");
     Console.WriteLine("OK: walidacja bitrate radia i stała BASS");
+}
+
+static void TestLiveRadioMetadata(string url)
+{
+    var metadata = RadioMediaOutput.TryReadStreamMetadataAsync(url, TimeSpan.FromSeconds(12))
+        .GetAwaiter()
+        .GetResult();
+    if (metadata?.BitrateKbps is not > 0)
+    {
+        throw new InvalidOperationException(
+            "Aktywny strumień nie ujawnił wiarygodnej przepływności.");
+    }
+    Console.WriteLine(
+        $"OK: aktywny strumień podał {metadata.BitrateKbps} kb/s, {metadata.Codec ?? "format nieznany"}");
+}
+
+static byte[] CreateAdtsFrames(int frameLength, int frameCount, int sampleRateIndex)
+{
+    var result = new byte[frameLength * frameCount];
+    for (var frame = 0; frame < frameCount; frame++)
+    {
+        var offset = frame * frameLength;
+        result[offset] = 0xFF;
+        result[offset + 1] = 0xF1;
+        result[offset + 2] = (byte)((1 << 6) | (sampleRateIndex << 2));
+        result[offset + 3] = (byte)((2 << 6) | ((frameLength >> 11) & 0x03));
+        result[offset + 4] = (byte)((frameLength >> 3) & 0xFF);
+        result[offset + 5] = (byte)(((frameLength & 0x07) << 5) | 0x1F);
+        result[offset + 6] = 0xFC;
+    }
+    return result;
 }
 
 static void TestLegacyRadioContentTypes()

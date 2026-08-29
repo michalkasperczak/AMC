@@ -1,3 +1,5 @@
+using AccessibleMediaController.Core.Configuration;
+
 namespace AccessibleMediaController.Core.Commands;
 
 public static class CommandCatalog
@@ -15,6 +17,7 @@ public static class CommandCatalog
         return DefinedCommandIds
             .Concat(Enumerable.Range(1, 9).Select(CommandIds.SessionSlot))
             .Concat(Enumerable.Range(0, 10).Select(digit => CommandIds.SeekPercent(digit * 10)))
+            .Concat(Enumerable.Range(1, RadioPresetSlots.Count).Select(CommandIds.RadioPreset))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
     }
@@ -24,6 +27,11 @@ public static class CommandCatalog
         if (CommandIds.TryParseSeekPercent(commandId, out var percent))
         {
             return $"Przejdź do {percent}% utworu";
+        }
+
+        if (CommandIds.TryParseRadioPreset(commandId, out var radioPresetSlot))
+        {
+            return $"Uruchom preset radiowy {RadioPresetSlots.Label(radioPresetSlot)}";
         }
 
         const string sessionSlotPrefix = "session.slot.";
@@ -93,6 +101,8 @@ public static class CommandCatalog
             CommandIds.ImportRadioPlaylist => "Importuj stacje radiowe z playlisty",
             CommandIds.ToggleRadioRecording => "Rozpocznij lub zakończ nagrywanie radia",
             CommandIds.RadioJumpLive => "Radio: wróć na żywo",
+            CommandIds.ViewRadioPresets => "Pokaż presety radiowe",
+            CommandIds.AssignRadioPreset => "Przypisz bieżącą stację do presetu",
             CommandIds.ViewMixes => "Pokaż miksy",
             CommandIds.ViewHistory => "Pokaż historię odtwarzania",
             CommandIds.ViewBookmarks => "Pokaż zakładki",

@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 27;
+    public const int CurrentSchemaVersion = 28;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -345,6 +345,10 @@ public sealed class ConfigurationStore
             .GroupBy(station => station.Id, StringComparer.Ordinal)
             .Select(group => group.First())
             .ToList();
+        var stationIds = state.Radio.Stations
+            .Select(station => station.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        state.Radio.Presets = RadioPresetSlots.Normalize(state.Radio.Presets, stationIds).ToList();
         if (state.Radio.CurrentItemId is not null
             && state.Radio.Stations.All(station => !string.Equals(
                 station.Id,

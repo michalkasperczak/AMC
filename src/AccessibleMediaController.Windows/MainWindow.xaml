@@ -130,6 +130,9 @@
                           automation:AutomationProperties.AcceleratorKey="F6" Click="NowPlayingView_Click" />
                 <MenuItem x:Name="FavoritesViewMenuItem" Header="_Ulubione" InputGestureText="Ctrl+U" Click="FavoritesView_Click" />
                 <MenuItem x:Name="PlaylistsViewMenuItem" Header="_Playlisty" InputGestureText="Ctrl+P" Click="PlaylistsView_Click" />
+                <MenuItem x:Name="RadioAssignPresetMenuItem" Header="_Przypisz preset…" InputGestureText="Ctrl+Shift+P"
+                          automation:AutomationProperties.Name="Przypisz bieżącą stację do presetu, Ctrl+Shift+P"
+                          Visibility="Collapsed" Click="RadioAssignPreset_Click" />
                 <MenuItem x:Name="LibraryViewMenuItem" Header="_Biblioteka" InputGestureText="Ctrl+L" Click="LibraryView_Click" />
                 <MenuItem x:Name="FoldersViewMenuItem" Header="Foldery _Biblioteki" InputGestureText="Alt+1" Click="FoldersView_Click"
                           automation:AutomationProperties.Name="Foldery Biblioteki, Alt+1"

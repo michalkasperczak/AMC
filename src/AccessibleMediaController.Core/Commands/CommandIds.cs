@@ -1,8 +1,11 @@
+using AccessibleMediaController.Core.Configuration;
+
 namespace AccessibleMediaController.Core.Commands;
 
 public static class CommandIds
 {
     private const string SeekPercentPrefix = "transport.seekPercent.";
+    private const string RadioPresetPrefix = "radio.preset.activate.";
 
     public const string PlayPause = "transport.playPause";
     public const string ActivateSelected = "transport.activateSelected";
@@ -65,6 +68,8 @@ public static class CommandIds
     public const string ImportRadioPlaylist = "radio.playlist.import";
     public const string ToggleRadioRecording = "radio.recording.toggle";
     public const string RadioJumpLive = "radio.timeshift.live";
+    public const string ViewRadioPresets = "radio.presets.view";
+    public const string AssignRadioPreset = "radio.presets.assign";
     public const string ViewMixes = "view.mixes";
     public const string ViewHistory = "view.history";
     public const string ViewBookmarks = "view.bookmarks";
@@ -140,5 +145,22 @@ public static class CommandIds
             && int.TryParse(commandId.AsSpan(SeekPercentPrefix.Length), out percent)
             && percent is >= 0 and <= 90
             && percent % 10 == 0;
+    }
+
+    public static string RadioPreset(int slot)
+    {
+        if (slot is < 1 or > RadioPresetSlots.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(slot));
+        }
+        return $"{RadioPresetPrefix}{slot}";
+    }
+
+    public static bool TryParseRadioPreset(string commandId, out int slot)
+    {
+        slot = 0;
+        return commandId.StartsWith(RadioPresetPrefix, StringComparison.Ordinal)
+            && int.TryParse(commandId.AsSpan(RadioPresetPrefix.Length), out slot)
+            && slot is >= 1 and <= RadioPresetSlots.Count;
     }
 }

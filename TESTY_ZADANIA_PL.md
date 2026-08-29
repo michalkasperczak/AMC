@@ -1,12 +1,52 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-129`
-- Tytuł zestawu: Zakres poleceń radia, HLS Trójki i przenoszenie Ulubionych
-- Wersja programu: `0.1.0-alpha.129`
+- Numer zestawu: `AMC-TEST-130`
+- Tytuł zestawu: Presety radia, dostępne łącza i parametry strumieni
+- Wersja programu: `0.1.0-alpha.130`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.129.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.130.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 130
+
+### AMC-130-01 — Bezpieczne przypisanie wolnego presetu
+
+W Radiu wybierz stację spoza Biblioteki i naciśnij `Ctrl+Shift+P`. Posłuchaj informacji o pierwszym wolnym miejscu, naciśnij jego cyfrę lub znak i zatwierdź Enterem. Zamknij i ponownie uruchom AMC.
+
+Oczekiwane: początkowo czytany jest pełny użytkowy wiersz, bez nazwy klasy i pól technicznych. Enter zapisuje preset, zachowuje stację w Bibliotece radia i po restarcie nadal działa. Escape zamiast Entera nie zapisuje stacji ani presetu.
+
+### AMC-130-02 — Ochrona zajętego miejsca
+
+Wybierz inną stację i otwórz `Ctrl+Shift+P`. Wskaż raz zajęte miejsce i naciśnij Enter. Następnie wskaż dwukrotnie tę samą cyfrę lub znak i dopiero naciśnij Enter.
+
+Oczekiwane: pierwszy wariant nie nadpisuje presetu i wyjaśnia wymagane potwierdzenie. Dopiero powtórne wskazanie tego samego miejsca oraz Enter zastępuje stację. Wybranie innego miejsca zmienia cel, a Escape anuluje.
+
+### AMC-130-03 — Lista presetów tylko do uruchamiania
+
+Naciśnij `Ctrl+P`. Przejdź po wszystkich dwunastu pozycjach, uruchom zajętą Enterem i Spacją, a na pustej spróbuj obu klawiszy. Powtórz przez menu i paletę poleceń.
+
+Oczekiwane: fokus zaczyna się na rzeczywistym wierszu presetu. Zajęta pozycja uruchamia stację, pusta tylko wyjaśnia sposób przypisania. Lista nie zapisuje, nie zastępuje i nie usuwa presetów. `Ctrl+Shift+1–0/-/=` uruchamia zajęte miejsce bez otwierania listy.
+
+### AMC-130-04 — Usunięcie przypisania
+
+Otwórz `Ctrl+Shift+P`, wybierz zajęty preset, naciśnij Delete, a następnie Enter. Sprawdź `Ctrl+P`, Bibliotekę i Ulubione.
+
+Oczekiwane: usuwane jest wyłącznie przypisanie miejsca. Sama stacja pozostaje w Bibliotece i zachowuje stan Ulubionej. Escape po Delete anuluje usunięcie.
+
+### AMC-130-05 — Bitrate 357, HLS i zwykłego MP3
+
+Na liście wybierz kolejno Radio 357, Trójkę HLS, BBC HLS oraz zwykłą stację MP3 i naciśnij lewą strzałkę. Powtórz po rozpoczęciu odtwarzania.
+
+Oczekiwane: jeżeli strumień lub katalog ujawnia parametry, AMC podaje kodek, bitrate oraz dostępną częstotliwość bez wartości `44100 kb/s`. BBC z wariantem `audio=128000` podaje 128 kb/s. Chronione 357 i znany HLS Trójki mogą podać odpowiednio około 128 i około 192 kb/s jako jawnie przybliżony profil awaryjny. Nieznana transmisja wideo bez osobnego pasma audio nie może podać bitrate całego obrazu.
+
+### AMC-130-06 — Właściwości radia i aktywne łącza
+
+Na stacji z adresem strony naciśnij `Alt+Enter`. Przeczytaj całość znakami, słowami i wierszami, przejdź Tabem do listy łączy i otwórz Enterem stronę stacji. Osobno sprawdź adres strumienia, lecz zamknij zewnętrzną aplikację, jeżeli zacznie go odtwarzać.
+
+Oczekiwane: okno nie zawiera Kolejki ani „Odtwarzaj jako następne”. Pokazuje dane stacji, Bibliotekę, Ulubione, dźwięk i łącza. NVDA czyta na liście wyłącznie „Otwórz adres strumienia” i „Otwórz stronę stacji”, bez technicznych rekordów. Enter otwiera wybrane łącze, a kopiowanie całej treści pozostawia okno otwarte.
+
+## Poprzedni zestaw alpha 129
 
 ## Nowości alpha 129
 
@@ -20,7 +60,7 @@ Oczekiwane: AMC najpierw używa właściwego HLS i odbiera dźwięk AAC. Starszy
 
 Na zwykłej liście radia oraz w odtwarzaczu otwórz kolejno menu główne Widok i Odtwarzanie, menu kontekstowe oraz paletę `Ctrl+Shift+K`. Powtórz po otwarciu wyników `Ctrl+F`.
 
-Oczekiwane: w Radiu nie ma Kolejki, „Odtwórz jako następne”, playlist, Albumów, Zakładek, skoków procentowych ani prędkości. Pozostają Biblioteka, Ulubione, Historia, wyszukiwanie, informacje i nagrywanie. `Ctrl+Q`, `Ctrl+P`, `Shift+Enter` oraz `Ctrl+Shift+Enter` niczego nie zmieniają i podają zwięzły komunikat o niedostępności.
+Oczekiwane w `alpha.129`: w Radiu nie ma Kolejki, „Odtwórz jako następne”, playlist, Albumów, Zakładek, skoków procentowych ani prędkości. Od `alpha.130` `Ctrl+P` i `Ctrl+Shift+P` są świadomie ponownie użyte wyłącznie dla lokalnych presetów radiowych; `Ctrl+Q`, `Shift+Enter` i `Ctrl+Shift+Enter` nadal niczego nie zmieniają i podają zwięzły komunikat o niedostępności.
 
 ### AMC-129-03 — Zwięzła pozycja stacji
 

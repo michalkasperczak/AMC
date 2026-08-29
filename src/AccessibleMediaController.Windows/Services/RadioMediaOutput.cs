@@ -94,7 +94,14 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         string source,
         TimeSpan timeout)
     {
-        if (!IsHttpStream(source) || RadioStreamResolver.IsHlsSource(source)) return null;
+        if (!IsHttpStream(source)) return null;
+        var httpMetadata = await RadioStreamMetadataProbe.TryReadAsync(source, timeout)
+            .ConfigureAwait(false);
+        if (RadioStreamResolver.IsHlsSource(source)
+            || httpMetadata?.BitrateKbps is not null && httpMetadata.SampleRateHz is not null)
+        {
+            return httpMetadata;
+        }
         using var cancellation = new CancellationTokenSource(timeout);
         BassRadioWaveProvider? reader = null;
         try
@@ -103,10 +110,12 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                 .ConfigureAwait(false);
             var probe = new byte[16 * 1024];
             _ = reader.Read(probe, 0, probe.Length);
+            var detectedBitrate = reader.BitrateKbps ?? httpMetadata?.BitrateKbps;
             return new RadioAudioMetadata(
-                reader.BitrateKbps,
+                detectedBitrate,
                 reader.WaveFormat.SampleRate,
-                null);
+                httpMetadata?.Codec,
+                httpMetadata?.IsBitrateEstimated == true && reader.BitrateKbps is null);
         }
         catch (Exception exception) when (exception is IOException
             or InvalidDataException
@@ -114,7 +123,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             or ArgumentException
             or OperationCanceledException)
         {
-            return null;
+            return httpMetadata;
         }
         finally
         {

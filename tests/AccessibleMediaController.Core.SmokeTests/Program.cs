@@ -16,6 +16,7 @@ var tests = new (string Name, Action Test)[]
     ("Domyślny profil", TestDefaultProfile),
     ("Odświeżanie profilu wbudowanego", TestBuiltInProfileRefresh),
     ("Czytelne nazwy poleceń", TestCommandCatalog),
+    ("Trwałe presety radia", TestRadioPresetPersistence),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
     ("Migracja starszych ustawień", TestLegacyStateMigration),
@@ -183,6 +184,8 @@ static void TestCommandCatalog()
     Equal("Otwórz lokalne pliki audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
     Equal("Otwórz folder z plikami audio", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Importuj stacje radiowe z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportRadioPlaylist));
+    Equal("Pokaż presety radiowe", CommandCatalog.GetDisplayName(CommandIds.ViewRadioPresets));
+    Equal("Przypisz bieżącą stację do presetu", CommandCatalog.GetDisplayName(CommandIds.AssignRadioPreset));
     Equal("Biblioteka lokalna: pokaż foldery", CommandCatalog.GetDisplayName(CommandIds.ViewFolders));
     Equal("Biblioteka lokalna: pokaż wszystkie pliki", CommandCatalog.GetDisplayName(CommandIds.ViewAllLocalFiles));
     Equal("Biblioteka lokalna: pokaż kolejność własną", CommandCatalog.GetDisplayName(CommandIds.ViewCustomLocalOrder));
@@ -205,7 +208,48 @@ static void TestCommandCatalog()
     True(CommandIds.TryParseSeekPercent(CommandIds.SeekPercent(90), out var percent), "Identyfikator skoku procentowego powinien być rozpoznawany.");
     Equal(90, percent);
     Equal(10, CommandCatalog.GetAllCommandIds().Count(commandId => CommandIds.TryParseSeekPercent(commandId, out _)));
+    Equal(12, CommandCatalog.GetAllCommandIds().Count(commandId => CommandIds.TryParseRadioPreset(commandId, out _)));
+    True(CommandIds.TryParseRadioPreset(CommandIds.RadioPreset(12), out var presetSlot), "Identyfikator presetu radiowego powinien być rozpoznawany.");
+    Equal(12, presetSlot);
+    Equal("=", RadioPresetSlots.Label(12));
     Equal("nieznane.polecenie", CommandCatalog.GetDisplayName("nieznane.polecenie"));
+}
+
+static void TestRadioPresetPersistence()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-radio-preset-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.Radio.Stations =
+        [
+            new RadioStationSettings { Id = "station-a", Name = "Stacja A", StreamUrl = "https://example.test/a" },
+            new RadioStationSettings { Id = "station-b", Name = "Stacja B", StreamUrl = "https://example.test/b" }
+        ];
+        state.Radio.Presets =
+        [
+            new RadioPresetSettings { Slot = 1, StationId = "station-a" },
+            new RadioPresetSettings { Slot = 1, StationId = "station-b" },
+            new RadioPresetSettings { Slot = 12, StationId = "station-b" },
+            new RadioPresetSettings { Slot = 13, StationId = "station-a" },
+            new RadioPresetSettings { Slot = 2, StationId = "missing-station" }
+        ];
+
+        store.Save(state);
+        var loaded = store.LoadOrCreate();
+
+        Equal(2, loaded.Radio.Presets.Count);
+        Equal(1, loaded.Radio.Presets[0].Slot);
+        Equal("station-a", loaded.Radio.Presets[0].StationId);
+        Equal(12, loaded.Radio.Presets[1].Slot);
+        Equal("station-b", loaded.Radio.Presets[1].StationId);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
 }
 
 static void TestMediaItemFormatting()

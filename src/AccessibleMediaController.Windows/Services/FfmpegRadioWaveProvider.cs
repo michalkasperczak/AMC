@@ -125,7 +125,13 @@ internal sealed class FfmpegRadioWaveProvider : IWaveProvider, IDisposable
     }
 }
 
-internal sealed record RadioAudioMetadata(int? BitrateKbps, int? SampleRateHz, string? Codec);
+internal sealed record RadioAudioMetadata(
+    int? BitrateKbps,
+    int? SampleRateHz,
+    string? Codec,
+    bool IsBitrateEstimated = false,
+    double? SegmentDurationSeconds = null,
+    string? SegmentUri = null);
 
 internal static class RadioAudioMetadataRules
 {

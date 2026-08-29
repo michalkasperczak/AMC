@@ -125,6 +125,11 @@ public static class CommandPaletteSearch
             return $"{percent / 10} (odtwarzacz)";
         }
 
+        if (CommandIds.TryParseRadioPreset(commandId, out var radioPresetSlot))
+        {
+            return $"Ctrl+Shift+{RadioPresetSlots.Label(radioPresetSlot)} (Radio internetowe)";
+        }
+
         const string sessionSlotPrefix = "session.slot.";
         if (commandId.StartsWith(sessionSlotPrefix, StringComparison.Ordinal)
             && int.TryParse(commandId.AsSpan(sessionSlotPrefix.Length), out var slot)
@@ -201,6 +206,8 @@ public static class CommandPaletteSearch
             CommandIds.AddRadioStation => "Insert (Biblioteka radia)",
             CommandIds.ToggleRadioRecording => "Ctrl+Alt+R (odtwarzacz radia)",
             CommandIds.RadioJumpLive => "End (odtwarzacz radia)",
+            CommandIds.ViewRadioPresets => "Ctrl+P (Radio internetowe)",
+            CommandIds.AssignRadioPreset => "Ctrl+Shift+P (Radio internetowe)",
             CommandIds.SettingsGeneral => "Ctrl+,",
             CommandIds.SettingsToggleSeekMessages => "Ctrl+Shift+G",
             _ => null

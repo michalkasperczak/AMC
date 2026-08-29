@@ -1,0 +1,36 @@
+<controls:AccessibleWindow x:Class="AccessibleMediaController.Windows.RadioPresetAssignmentWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        Title="Przypisz preset radiowy" Width="620" Height="500"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        ContentRendered="Window_ContentRendered"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="12">
+        <TextBlock x:Name="DescriptionText" DockPanel.Dock="Top" Margin="0,0,0,10"
+                   TextWrapping="Wrap"
+                   automation:AutomationProperties.HeadingLevel="Level1" />
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <controls:AccessibleStatusTextBlock x:Name="AssignmentStatus" Margin="0,0,0,8"
+                                                TextWrapping="Wrap"
+                                                automation:AutomationProperties.LiveSetting="Assertive" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Width="105" Margin="0,0,8,0" Content="_Zapisz" IsDefault="True"
+                        Click="Save_Click" />
+                <Button Width="100" Content="_Anuluj" IsCancel="True" />
+            </StackPanel>
+        </StackPanel>
+        <ListBox x:Name="PresetList"
+                 DisplayMemberPath="Label"
+                 TextSearch.TextPath="Label"
+                 automation:AutomationProperties.Name="Miejsca presetów"
+                 automation:AutomationProperties.HelpText="Naciśnij cyfrę, minus lub znak równości, aby wybrać miejsce. Enter zapisuje lub zastępuje. Delete przygotowuje usunięcie, Enter je potwierdza, Escape anuluje.">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+    </DockPanel>
+</controls:AccessibleWindow>
