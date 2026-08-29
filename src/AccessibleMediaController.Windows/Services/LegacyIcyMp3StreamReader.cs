@@ -14,7 +14,7 @@ namespace AccessibleMediaController.Windows.Services;
 /// response with "ICY 200 OK". Media Foundation rejects that legacy status
 /// line even though the server is sending a valid live MP3 stream.
 /// </summary>
-internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
+internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IRadioStreamTitleSource, IDisposable
 {
     private const int MaximumHeaderBytes = 32 * 1024;
     private const int MaximumFrameAlignmentBytes = 8 * 1024;
@@ -29,6 +29,7 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
     private int _decodedOffset;
     private int _decodedCount;
     private int _disposed;
+    private string? _streamTitle;
 
     private LegacyIcyMp3StreamReader(TcpClient client, Stream transport)
     {
@@ -61,6 +62,8 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
     }
 
     public WaveFormat WaveFormat { get; }
+    public string? StreamTitle => _streamTitle;
+    public event EventHandler<RadioStreamTitleChangedEventArgs>? StreamTitleChanged;
 
     public int BitrateKbps => Math.Max(1, (_firstFrame?.BitRate ?? 0) / 1000);
 
@@ -98,6 +101,8 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
         timeout.CancelAfter(ConnectionTimeout);
         var client = new TcpClient { NoDelay = true, ReceiveTimeout = 20_000, SendTimeout = 12_000 };
         Stream? transport = null;
+        string? pendingStreamTitle = null;
+        Action<string?> streamTitleSink = title => pendingStreamTitle = title;
         try
         {
             var port = uri.IsDefaultPort
@@ -123,7 +128,7 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
                 $"Host: {host}\r\n" +
                 "User-Agent: AccessibleMultimediaController/0.1\r\n" +
                 "Accept: audio/mpeg,audio/mp3,*/*\r\n" +
-                "Icy-MetaData: 0\r\n" +
+                "Icy-MetaData: 1\r\n" +
                 "Connection: close\r\n\r\n");
             await buffered.WriteAsync(request, timeout.Token).ConfigureAwait(false);
             await buffered.FlushAsync(timeout.Token).ConfigureAwait(false);
@@ -152,11 +157,16 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
                 && int.TryParse(metadataIntervalText, out var metadataInterval)
                 && metadataInterval > 0)
             {
-                audio = new IcyMetadataStrippingStream(buffered, metadataInterval);
+                audio = new IcyMetadataStrippingStream(
+                    buffered,
+                    metadataInterval,
+                    title => streamTitleSink(title));
                 transport = audio;
             }
 
             var result = new LegacyIcyMp3StreamReader(client, new PositionTrackingReadStream(audio));
+            result.SetStreamTitle(pendingStreamTitle, false);
+            streamTitleSink = title => result.SetStreamTitle(title, true);
             transport = null;
             return result;
         }
@@ -176,6 +186,17 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
             || mediaType.Contains("mp3", StringComparison.OrdinalIgnoreCase)
             || mediaType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase)
             || mediaType.Equals("binary/octet-stream", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void SetStreamTitle(string? title, bool raiseEvent)
+    {
+        title = RadioStreamTitleMetadata.Normalize(title);
+        if (string.Equals(_streamTitle, title, StringComparison.Ordinal)) return;
+        _streamTitle = title;
+        if (raiseEvent)
+        {
+            StreamTitleChanged?.Invoke(this, new RadioStreamTitleChangedEventArgs(title));
+        }
     }
 
     public int Read(byte[] buffer, int offset, int count)
@@ -266,12 +287,17 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
     {
         private readonly Stream _inner;
         private readonly int _interval;
+        private readonly Action<string?> _streamTitleChanged;
         private int _audioRemaining;
 
-        public IcyMetadataStrippingStream(Stream inner, int interval)
+        public IcyMetadataStrippingStream(
+            Stream inner,
+            int interval,
+            Action<string?> streamTitleChanged)
         {
             _inner = inner;
             _interval = interval;
+            _streamTitleChanged = streamTitleChanged;
             _audioRemaining = interval;
         }
 
@@ -311,13 +337,19 @@ internal sealed class LegacyIcyMp3StreamReader : IWaveProvider, IDisposable
         {
             var lengthByte = _inner.ReadByte();
             if (lengthByte < 0) return false;
-            var bytesToSkip = lengthByte * 16;
-            Span<byte> discard = stackalloc byte[256];
-            while (bytesToSkip > 0)
+            var metadataLength = lengthByte * 16;
+            Span<byte> metadata = stackalloc byte[metadataLength];
+            var totalRead = 0;
+            while (totalRead < metadataLength)
             {
-                var read = _inner.Read(discard[..Math.Min(discard.Length, bytesToSkip)]);
+                var read = _inner.Read(metadata[totalRead..]);
                 if (read == 0) return false;
-                bytesToSkip -= read;
+                totalRead += read;
+            }
+            if (metadataLength > 0
+                && RadioStreamTitleMetadata.TryParseIcyBlock(metadata, out var title))
+            {
+                _streamTitleChanged(title);
             }
             _audioRemaining = _interval;
             return true;

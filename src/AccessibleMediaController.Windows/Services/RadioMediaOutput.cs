@@ -11,6 +11,12 @@ using NAudio.Wave.SampleProviders;
 
 namespace AccessibleMediaController.Windows.Services;
 
+public sealed class RadioNowPlayingChangedEventArgs(MediaItem item, string? streamTitle) : EventArgs
+{
+    public MediaItem Item { get; } = item;
+    public string? StreamTitle { get; } = streamTitle;
+}
+
 /// <summary>
 /// Live radio output with an in-memory decoded-audio ring. The decoder works
 /// away from the WPF dispatcher, so a slow or broken station cannot freeze the
@@ -38,6 +44,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
     public event EventHandler<MediaOutputFailedEventArgs>? PlaybackFailed;
     public event EventHandler<MediaPlaybackPreparingEventArgs>? PlaybackPreparing;
     public event EventHandler<MediaPlaybackStartedEventArgs>? PlaybackStarted;
+    public event EventHandler<RadioNowPlayingChangedEventArgs>? NowPlayingChanged;
     public event EventHandler? RecordingFailed;
 
     public string? LoadedItemId
@@ -154,6 +161,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         {
             reusable.Volume.Volume = _volume / 100f;
             reusable.Output.Play();
+            PublishPipelineStreamTitle(reusable, reusable.StreamTitle);
             RaiseOnCapturedContext(() => PlaybackStarted?.Invoke(
                 this,
                 new MediaPlaybackStartedEventArgs(item)));
@@ -175,6 +183,9 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         }
         CancelPreparation(previousPreparation);
         if (previous is not null) QueueDisposal(previous);
+        RaiseOnCapturedContext(() => NowPlayingChanged?.Invoke(
+            this,
+            new RadioNowPlayingChangedEventArgs(item, null)));
         DiagnosticLog.Info("radio", $"Łączenie ze stacją: {item.Title}.");
         PlaybackPreparing?.Invoke(this, new MediaPlaybackPreparingEventArgs(item, false));
         _ = Task.Run(() => PrepareAndStartAsync(item, requestVersion, preparationCancellation));
@@ -231,7 +242,10 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                 buffer,
                 volume,
                 output,
-                cancellation);
+                cancellation,
+                reader as IRadioStreamTitleSource,
+                Pipeline_StreamTitleChanged);
+            pipeline.StartStreamTitleTracking();
             openedReader = null;
 
             lock (_gate)
@@ -258,6 +272,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             RaiseOnCapturedContext(() => PlaybackStarted?.Invoke(
                 this,
                 new MediaPlaybackStartedEventArgs(item)));
+            PublishPipelineStreamTitle(pipeline, pipeline.StreamTitle);
         }
         catch (OperationCanceledException)
         {
@@ -556,6 +571,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                         if (!pipeline.TryReplaceReader(
                                 openedReader.Reader,
                                 openedReader.Lifetime,
+                                openedReader.Reader as IRadioStreamTitleSource,
                                 out var previousLifetime))
                         {
                             return;
@@ -564,6 +580,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                         openedReader = null;
                         try { previousLifetime?.Dispose(); } catch (Exception) { }
                         pipeline.Buffer.Write(initialAudio, 0, initialRead);
+                        PublishPipelineStreamTitle(pipeline, pipeline.StreamTitle);
                         stableSince = Stopwatch.GetTimestamp();
                         DiagnosticLog.Info(
                             "radio",
@@ -716,6 +733,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
     public void Stop()
     {
         RadioPipeline? pipeline;
+        MediaItem? stoppedItem;
         CancellationTokenSource? preparationCancellation;
         lock (_gate)
         {
@@ -724,9 +742,17 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             preparationCancellation = _preparationCancellation;
             _preparationCancellation = null;
             pipeline = DetachPipelineLocked();
+            stoppedItem = pipeline?.Item ?? _requestedItem;
+            _requestedItem = null;
         }
         CancelPreparation(preparationCancellation);
         if (pipeline is not null) QueueDisposal(pipeline);
+        if (stoppedItem is not null)
+        {
+            RaiseOnCapturedContext(() => NowPlayingChanged?.Invoke(
+                this,
+                new RadioNowPlayingChangedEventArgs(stoppedItem, null)));
+        }
     }
 
     public void Seek(TimeSpan position)
@@ -831,7 +857,36 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
     }
 
     private void RaisePlaybackFailed(MediaItem item, string message) =>
-        RaiseOnCapturedContext(() => PlaybackFailed?.Invoke(this, new MediaOutputFailedEventArgs(item, message)));
+        RaiseOnCapturedContext(() =>
+        {
+            lock (_gate)
+            {
+                if (_disposed
+                    || !string.Equals(_requestedItem?.Id, item.Id, StringComparison.Ordinal))
+                {
+                    return;
+                }
+            }
+            NowPlayingChanged?.Invoke(this, new RadioNowPlayingChangedEventArgs(item, null));
+            PlaybackFailed?.Invoke(this, new MediaOutputFailedEventArgs(item, message));
+        });
+
+    private void Pipeline_StreamTitleChanged(RadioPipeline pipeline, string? streamTitle) =>
+        PublishPipelineStreamTitle(pipeline, streamTitle);
+
+    private void PublishPipelineStreamTitle(RadioPipeline pipeline, string? streamTitle)
+    {
+        RaiseOnCapturedContext(() =>
+        {
+            lock (_gate)
+            {
+                if (_disposed || !ReferenceEquals(_pipeline, pipeline)) return;
+            }
+            NowPlayingChanged?.Invoke(
+                this,
+                new RadioNowPlayingChangedEventArgs(pipeline.Item, streamTitle));
+        });
+    }
 
     private void RaiseRecordingFailed(Exception exception)
     {
@@ -877,18 +932,37 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         RadioTimeshiftWaveProvider buffer,
         VolumeSampleProvider volume,
         WasapiOut output,
-        CancellationTokenSource cancellation) : IDisposable
+        CancellationTokenSource cancellation,
+        IRadioStreamTitleSource? streamTitleSource,
+        Action<RadioPipeline, string?> streamTitleChanged) : IDisposable
     {
         private readonly object _readerGate = new();
         private IWaveProvider _reader = reader;
         private IDisposable? _readerLifetime = readerLifetime;
+        private IRadioStreamTitleSource? _streamTitleSource = streamTitleSource;
+        private readonly Action<RadioPipeline, string?> _streamTitleChanged = streamTitleChanged;
         private int _disposed;
+        public string? StreamTitle
+        {
+            get
+            {
+                lock (_readerGate) return _streamTitleSource?.StreamTitle;
+            }
+        }
         public MediaItem Item { get; } = item;
         public RadioTimeshiftWaveProvider Buffer { get; } = buffer;
         public VolumeSampleProvider Volume { get; } = volume;
         public WasapiOut Output { get; } = output;
         public CancellationTokenSource Cancellation { get; } = cancellation;
         public Task? CaptureTask { get; set; }
+
+        public void StartStreamTitleTracking()
+        {
+            if (_streamTitleSource is not null)
+            {
+                _streamTitleSource.StreamTitleChanged += StreamTitleSource_StreamTitleChanged;
+            }
+        }
 
         public int Read(byte[] target, int offset, int count)
         {
@@ -899,6 +973,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         public bool TryReplaceReader(
             IWaveProvider replacement,
             IDisposable replacementLifetime,
+            IRadioStreamTitleSource? replacementStreamTitleSource,
             out IDisposable? previousLifetime)
         {
             lock (_readerGate)
@@ -909,11 +984,25 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                     return false;
                 }
                 previousLifetime = _readerLifetime;
+                if (_streamTitleSource is not null)
+                {
+                    _streamTitleSource.StreamTitleChanged -= StreamTitleSource_StreamTitleChanged;
+                }
                 Volatile.Write(ref _reader, replacement);
                 _readerLifetime = replacementLifetime;
+                _streamTitleSource = replacementStreamTitleSource;
+                if (_streamTitleSource is not null)
+                {
+                    _streamTitleSource.StreamTitleChanged += StreamTitleSource_StreamTitleChanged;
+                }
                 return true;
             }
         }
+
+        private void StreamTitleSource_StreamTitleChanged(
+            object? sender,
+            RadioStreamTitleChangedEventArgs e) =>
+            _streamTitleChanged(this, e.StreamTitle);
 
         public void Dispose()
         {
@@ -922,6 +1011,11 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             IDisposable? currentLifetime;
             lock (_readerGate)
             {
+                if (_streamTitleSource is not null)
+                {
+                    _streamTitleSource.StreamTitleChanged -= StreamTitleSource_StreamTitleChanged;
+                    _streamTitleSource = null;
+                }
                 currentLifetime = _readerLifetime;
                 _readerLifetime = null;
             }

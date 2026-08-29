@@ -55,6 +55,7 @@ try
     TestRadioBrowserSearchMapping();
     TestRadioPlaylistImport();
     TestRadioAudioMetadataValidation();
+    TestRadioStreamTitleMetadata();
     TestLegacyRadioContentTypes();
     TestRadioCompatibilityCandidates();
     TestRadioReconnectFormatCompatibility();
@@ -438,6 +439,25 @@ static void TestRadioAudioMetadataValidation()
     Console.WriteLine("OK: walidacja bitrate radia i stała BASS");
 }
 
+static void TestRadioStreamTitleMetadata()
+{
+    Assert(
+        RadioStreamTitleMetadata.ParseIcyText(
+            "StreamTitle='Wykonawca - Tytuł';StreamUrl='';") == "Wykonawca - Tytuł",
+        "Nie odczytano tytułu z metadanych ICY.");
+    Assert(
+        RadioStreamTitleMetadata.ParseIcyText("StreamTitle='';") is null,
+        "Pusty tytuł ICY nie został wyczyszczony.");
+    Assert(
+        RadioStreamTitleMetadata.ParseOggTags(["ARTIST=Artysta", "TITLE=Audycja"])
+            == "Artysta — Audycja",
+        "Nie połączono wykonawcy i tytułu z komentarzy OGG.");
+    Assert(
+        RadioStreamTitleMetadata.Normalize("  Bezpieczny\r\n  tytuł\0 ") == "Bezpieczny tytuł",
+        "Nie usunięto znaków sterujących z tytułu okna.");
+    Console.WriteLine("OK: bezpieczne metadane bieżącego utworu radia");
+}
+
 static void TestLiveRadioMetadata(string url)
 {
     var metadata = RadioMediaOutput.TryReadStreamMetadataAsync(url, TimeSpan.FromSeconds(12))
@@ -585,20 +605,40 @@ static void TestLegacyIcyMp3Stream()
                 && request[requestLength - 2] == '\r'
                 && request[requestLength - 1] == '\n') break;
         }
+        Assert(
+            Encoding.ASCII.GetString(request, 0, requestLength)
+                .Contains("Icy-MetaData: 1", StringComparison.OrdinalIgnoreCase),
+            "Klient zgodności nie poprosił o tytuł bieżącego utworu.");
+        const int metadataInterval = 4_096;
         var header = Encoding.ASCII.GetBytes(
             "ICY 200 OK\r\n" +
             "Content-Type: audio/mpeg\r\n" +
-            "icy-name: Stacja testowa\r\n\r\n");
+            "icy-name: Stacja testowa\r\n" +
+            $"icy-metaint: {metadataInterval}\r\n\r\n");
         await stream.WriteAsync(header);
         // A real radio delivers one MP3 frame across multiple TCP packets.
         // Sending one large buffer hid a regression where a short network
         // read was incorrectly treated as the permanent end of the station.
-        for (var offset = 0; offset < mp3.Length; offset += 257)
+        var metadataText = Encoding.UTF8.GetBytes("StreamTitle='Artysta testowy - Utwór testowy';");
+        var metadataBlocks = (metadataText.Length + 15) / 16;
+        var metadata = new byte[metadataBlocks * 16];
+        metadataText.CopyTo(metadata, 0);
+        for (var offset = 0; offset < mp3.Length;)
         {
-            var count = Math.Min(257, mp3.Length - offset);
-            await stream.WriteAsync(mp3.AsMemory(offset, count));
-            await stream.FlushAsync();
-            await Task.Delay(1);
+            var segmentLength = Math.Min(metadataInterval, mp3.Length - offset);
+            for (var sent = 0; sent < segmentLength; sent += 257)
+            {
+                var count = Math.Min(257, segmentLength - sent);
+                await stream.WriteAsync(mp3.AsMemory(offset + sent, count));
+                await stream.FlushAsync();
+                await Task.Delay(1);
+            }
+            offset += segmentLength;
+            if (segmentLength == metadataInterval)
+            {
+                await stream.WriteAsync(new byte[] { (byte)metadataBlocks });
+                await stream.WriteAsync(metadata);
+            }
         }
         await releaseServer.Task;
     });
@@ -613,6 +653,8 @@ static void TestLegacyIcyMp3Stream()
         Assert(reader.WaveFormat.SampleRate == 44_100, "Strumień ICY podał złą częstotliwość.");
         Assert(reader.WaveFormat.Encoding == WaveFormatEncoding.IeeeFloat,
             "Strumień ICY nie został znormalizowany do bezpiecznego formatu float.");
+        Assert(reader.StreamTitle == "Artysta testowy - Utwór testowy",
+            "Dekoder ICY nie zachował tytułu odczytanego podczas przygotowania.");
         var buffer = new byte[16_384];
         Assert(reader.Read(buffer, 0, buffer.Length) > 0, "Strumień ICY nie zwrócił dźwięku.");
         releaseServer.TrySetResult();

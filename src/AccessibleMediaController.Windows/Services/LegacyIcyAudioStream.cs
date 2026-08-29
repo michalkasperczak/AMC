@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Windows.Services;
 /// The returned stream contains audio bytes only: response headers and optional
 /// ICY metadata blocks are removed before a format-specific decoder sees them.
 /// </summary>
-internal sealed class LegacyIcyAudioStream : Stream
+internal sealed class LegacyIcyAudioStream : Stream, IRadioStreamTitleSource
 {
     private const int MaximumHeaderBytes = 32 * 1024;
     private static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(12);
@@ -19,6 +19,7 @@ internal sealed class LegacyIcyAudioStream : Stream
     private readonly Stream _audio;
     private long _position;
     private int _disposed;
+    private string? _streamTitle;
 
     private LegacyIcyAudioStream(TcpClient client, Stream audio, string? contentType)
     {
@@ -28,6 +29,8 @@ internal sealed class LegacyIcyAudioStream : Stream
     }
 
     public string? ContentType { get; }
+    public string? StreamTitle => _streamTitle;
+    public event EventHandler<RadioStreamTitleChangedEventArgs>? StreamTitleChanged;
 
     public bool IsMp3 => MatchesContentType("mpeg", "mp3") || string.IsNullOrWhiteSpace(ContentType);
     public bool IsAac => MatchesContentType("aac", "aacp");
@@ -47,6 +50,8 @@ internal sealed class LegacyIcyAudioStream : Stream
         timeout.CancelAfter(ConnectionTimeout);
         var client = new TcpClient { NoDelay = true, ReceiveTimeout = 20_000, SendTimeout = 12_000 };
         Stream? transport = null;
+        string? pendingStreamTitle = null;
+        Action<string?> streamTitleSink = title => pendingStreamTitle = title;
         try
         {
             var port = uri.IsDefaultPort
@@ -72,7 +77,7 @@ internal sealed class LegacyIcyAudioStream : Stream
                 $"Host: {host}\r\n" +
                 "User-Agent: AccessibleMultimediaController/0.1\r\n" +
                 "Accept: audio/mpeg,audio/aac,audio/aacp,audio/ogg,application/ogg,*/*\r\n" +
-                "Icy-MetaData: 0\r\n" +
+                "Icy-MetaData: 1\r\n" +
                 "Connection: close\r\n\r\n");
             await buffered.WriteAsync(request, timeout.Token).ConfigureAwait(false);
             await buffered.FlushAsync(timeout.Token).ConfigureAwait(false);
@@ -96,7 +101,10 @@ internal sealed class LegacyIcyAudioStream : Stream
                 && int.TryParse(metadataIntervalText, out var metadataInterval)
                 && metadataInterval > 0)
             {
-                audio = new IcyMetadataStrippingStream(buffered, metadataInterval);
+                audio = new IcyMetadataStrippingStream(
+                    buffered,
+                    metadataInterval,
+                    title => streamTitleSink(title));
                 transport = audio;
             }
 
@@ -104,6 +112,8 @@ internal sealed class LegacyIcyAudioStream : Stream
                 client,
                 audio,
                 headers.GetValueOrDefault("content-type"));
+            result.SetStreamTitle(pendingStreamTitle, false);
+            streamTitleSink = title => result.SetStreamTitle(title, true);
             transport = null;
             return result;
         }
@@ -120,6 +130,17 @@ internal sealed class LegacyIcyAudioStream : Stream
         if (string.IsNullOrWhiteSpace(ContentType)) return false;
         var mediaType = ContentType.Split(';', 2)[0].Trim();
         return values.Any(value => mediaType.Contains(value, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void SetStreamTitle(string? title, bool raiseEvent)
+    {
+        title = RadioStreamTitleMetadata.Normalize(title);
+        if (string.Equals(_streamTitle, title, StringComparison.Ordinal)) return;
+        _streamTitle = title;
+        if (raiseEvent)
+        {
+            StreamTitleChanged?.Invoke(this, new RadioStreamTitleChangedEventArgs(title));
+        }
     }
 
     public override bool CanRead => Volatile.Read(ref _disposed) == 0;
@@ -220,12 +241,17 @@ internal sealed class LegacyIcyAudioStream : Stream
     {
         private readonly Stream _inner;
         private readonly int _interval;
+        private readonly Action<string?> _streamTitleChanged;
         private int _audioRemaining;
 
-        public IcyMetadataStrippingStream(Stream inner, int interval)
+        public IcyMetadataStrippingStream(
+            Stream inner,
+            int interval,
+            Action<string?> streamTitleChanged)
         {
             _inner = inner;
             _interval = interval;
+            _streamTitleChanged = streamTitleChanged;
             _audioRemaining = interval;
         }
 
@@ -259,13 +285,19 @@ internal sealed class LegacyIcyAudioStream : Stream
         {
             var lengthByte = _inner.ReadByte();
             if (lengthByte < 0) return false;
-            var bytesToSkip = lengthByte * 16;
-            Span<byte> discard = stackalloc byte[256];
-            while (bytesToSkip > 0)
+            var metadataLength = lengthByte * 16;
+            Span<byte> metadata = stackalloc byte[metadataLength];
+            var totalRead = 0;
+            while (totalRead < metadataLength)
             {
-                var read = _inner.Read(discard[..Math.Min(discard.Length, bytesToSkip)]);
+                var read = _inner.Read(metadata[totalRead..]);
                 if (read == 0) return false;
-                bytesToSkip -= read;
+                totalRead += read;
+            }
+            if (metadataLength > 0
+                && RadioStreamTitleMetadata.TryParseIcyBlock(metadata, out var title))
+            {
+                _streamTitleChanged(title);
             }
             _audioRemaining = _interval;
             return true;

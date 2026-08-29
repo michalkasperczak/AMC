@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using NAudio.Wave;
@@ -10,7 +11,7 @@ namespace AccessibleMediaController.Windows.Services;
 /// continue to work when the proprietary native library is absent or rejects a
 /// particular stream.
 /// </summary>
-internal sealed class BassRadioWaveProvider : IWaveProvider, IDisposable
+internal sealed class BassRadioWaveProvider : IWaveProvider, IRadioStreamTitleSource, IDisposable
 {
     private const uint BassSampleFloat = 0x100;
     private const uint BassStreamBlock = 0x100000;
@@ -20,12 +21,18 @@ internal sealed class BassRadioWaveProvider : IWaveProvider, IDisposable
     // BASS_ATTRIB_FREQ is 1. BASS_ATTRIB_BITRATE is 12; confusing the two
     // stores a typical 44100 Hz sample rate as an impossible 44100 kb/s.
     internal const uint BitrateAttribute = 12;
+    private const uint BassTagOgg = 2;
+    private const uint BassTagMeta = 5;
     private const int BassErrorEnded = 45;
+    private static readonly TimeSpan MetadataPollInterval = TimeSpan.FromMilliseconds(400);
     private static readonly object InitializationGate = new();
     private static bool _initializationAttempted;
     private static bool _available;
+    private readonly object _nativeGate = new();
     private uint _stream;
     private CancellationTokenRegistration _lifetimeCancellation;
+    private long _lastMetadataPollTimestamp;
+    private string? _streamTitle;
 
     private BassRadioWaveProvider(
         uint stream,
@@ -41,19 +48,32 @@ internal sealed class BassRadioWaveProvider : IWaveProvider, IDisposable
 
     public WaveFormat WaveFormat { get; }
 
+    public string? StreamTitle
+    {
+        get
+        {
+            lock (_nativeGate) return _streamTitle;
+        }
+    }
+
+    public event EventHandler<RadioStreamTitleChangedEventArgs>? StreamTitleChanged;
+
     public int? BitrateKbps
     {
         get
         {
-            var stream = Volatile.Read(ref _stream);
-            if (stream == 0
-                || !BassNative.ChannelGetAttribute(stream, BitrateAttribute, out var bitrate)
-                || !float.IsFinite(bitrate)
-                || RadioAudioMetadataRules.NormalizeBitrateKbps((int)Math.Round(bitrate)) is not int normalized)
+            lock (_nativeGate)
             {
-                return null;
+                var stream = _stream;
+                if (stream == 0
+                    || !BassNative.ChannelGetAttribute(stream, BitrateAttribute, out var bitrate)
+                    || !float.IsFinite(bitrate)
+                    || RadioAudioMetadataRules.NormalizeBitrateKbps((int)Math.Round(bitrate)) is not int normalized)
+                {
+                    return null;
+                }
+                return normalized;
             }
-            return normalized;
         }
     }
 
@@ -131,8 +151,14 @@ internal sealed class BassRadioWaveProvider : IWaveProvider, IDisposable
         if (stream == 0) return 0;
         while (true)
         {
+            stream = Volatile.Read(ref _stream);
+            if (stream == 0) return 0;
             var read = BassNative.ChannelGetData(stream, buffer, offset, count);
-            if (read > 0) return read;
+            if (read > 0)
+            {
+                RefreshStreamTitle();
+                return read;
+            }
             if (read < 0)
             {
                 var error = BassNative.ErrorGetCode();
@@ -156,8 +182,74 @@ internal sealed class BassRadioWaveProvider : IWaveProvider, IDisposable
 
     private void CancelStream()
     {
-        var stream = Interlocked.Exchange(ref _stream, 0);
-        if (stream != 0) BassNative.StreamFree(stream);
+        lock (_nativeGate)
+        {
+            var stream = _stream;
+            _stream = 0;
+            if (stream != 0) BassNative.StreamFree(stream);
+        }
+    }
+
+    private void RefreshStreamTitle()
+    {
+        var now = Stopwatch.GetTimestamp();
+        if (_lastMetadataPollTimestamp != 0
+            && Stopwatch.GetElapsedTime(_lastMetadataPollTimestamp, now) < MetadataPollInterval)
+        {
+            return;
+        }
+        _lastMetadataPollTimestamp = now;
+
+        string? title;
+        lock (_nativeGate)
+        {
+            if (_stream == 0) return;
+            var metadata = ReadSingleTag(BassNative.ChannelGetTags(_stream, BassTagMeta));
+            title = RadioStreamTitleMetadata.ParseIcyText(metadata);
+            if (title is null)
+            {
+                title = RadioStreamTitleMetadata.ParseOggTags(
+                    ReadTagList(BassNative.ChannelGetTags(_stream, BassTagOgg)));
+            }
+            if (string.Equals(_streamTitle, title, StringComparison.Ordinal)) return;
+            _streamTitle = title;
+        }
+        StreamTitleChanged?.Invoke(this, new RadioStreamTitleChangedEventArgs(title));
+    }
+
+    private static string? ReadSingleTag(IntPtr pointer)
+    {
+        if (pointer == IntPtr.Zero) return null;
+        const int maximumBytes = 8 * 1024;
+        var bytes = new List<byte>(256);
+        for (var index = 0; index < maximumBytes; index++)
+        {
+            var value = Marshal.ReadByte(pointer, index);
+            if (value == 0) break;
+            bytes.Add(value);
+        }
+        return bytes.Count == 0 ? null : RadioStreamTitleMetadata.Decode(CollectionsMarshal.AsSpan(bytes));
+    }
+
+    private static IReadOnlyList<string> ReadTagList(IntPtr pointer)
+    {
+        if (pointer == IntPtr.Zero) return [];
+        const int maximumBytes = 32 * 1024;
+        var result = new List<string>();
+        var current = new List<byte>(128);
+        for (var index = 0; index < maximumBytes; index++)
+        {
+            var value = Marshal.ReadByte(pointer, index);
+            if (value != 0)
+            {
+                current.Add(value);
+                continue;
+            }
+            if (current.Count == 0) break;
+            result.Add(RadioStreamTitleMetadata.Decode(CollectionsMarshal.AsSpan(current)));
+            current.Clear();
+        }
+        return result;
     }
 
     private static void EnsureInitialized()
@@ -240,6 +332,9 @@ internal sealed class BassRadioWaveProvider : IWaveProvider, IDisposable
         [DllImport("bass.dll", EntryPoint = "BASS_ChannelGetAttribute", CallingConvention = CallingConvention.StdCall)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool ChannelGetAttribute(uint handle, uint attribute, out float value);
+
+        [DllImport("bass.dll", EntryPoint = "BASS_ChannelGetTags", CallingConvention = CallingConvention.StdCall)]
+        internal static extern IntPtr ChannelGetTags(uint handle, uint tags);
 
         [DllImport("bass.dll", EntryPoint = "BASS_ChannelIsActive", CallingConvention = CallingConvention.StdCall)]
         internal static extern uint ChannelIsActive(uint handle);

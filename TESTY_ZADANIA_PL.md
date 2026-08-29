@@ -1,12 +1,34 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-131`
-- Tytuł zestawu: Kopiowanie presetów, lokalne wideo jako audio i stan sesji
-- Wersja programu: `0.1.0-alpha.131`
+- Numer zestawu: `AMC-TEST-132`
+- Tytuł zestawu: Zwięzły pasek stanu i bieżący utwór radia w tytule okna
+- Wersja programu: `0.1.0-alpha.132`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.131.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.132.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 132
+
+### AMC-132-01 — Pasek bez zbędnego wstępu
+
+W głównym oknie, na liście i w odtwarzaczu naciśnij `NVDA+End`. Powtórz podczas odtwarzania pliku oraz radia.
+
+Oczekiwane: NVDA czyta aktualny stan, czas i dostępne parametry. Nie poprzedza ich zdaniem „Pasek stanu odtwarzania” ani nie powtarza treści. Fokus i działanie klawiatury pozostają bez zmian.
+
+### AMC-132-02 — Nazwa stacji i utwór w tytule okna
+
+Uruchom bezpośrednią stację ICY/MP3 albo OGG, która podaje nazwę bieżącego utworu. Odczytaj tytuł okna przez `NVDA+T`, odczekaj na zmianę utworu i odczytaj ponownie.
+
+Oczekiwane: tytuł zaczyna się od nazwy stacji, a następnie podaje bieżący utwór lub audycję. Aktualizacja nie wywołuje osobnego automatycznego komunikatu i nie zmienia nazwy stacji na liście.
+
+### AMC-132-03 — Brak i czyszczenie metadanych
+
+Przełącz ze stacji pokazującej utwór na stację bez takich danych, szybko zmień antenę jeszcze raz, a następnie zatrzymaj radio.
+
+Oczekiwane: nowa stacja nigdy nie dziedziczy tytułu poprzedniego utworu. Gdy strumień lub użyty dekoder nie udostępnia metadanych, w tytule pozostaje sama nazwa stacji oraz zwykły kontekst okna. Stary tytuł nie wraca po zatrzymaniu ani błędzie połączenia.
+
+## Poprzedni zestaw alpha 131
 
 ## Nowości alpha 131
 

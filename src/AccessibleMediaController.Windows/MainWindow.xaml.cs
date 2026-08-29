@@ -91,6 +91,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private DateTime _lastLocalStateSaveUtc;
     private long _lastSavedLocalPositionTicks = -1;
     private long _quickInformationRequestVersion;
+    private string? _radioNowPlayingItemId;
+    private string? _radioNowPlayingTitle;
     private readonly System.Windows.Forms.StatusStrip _playbackStatusBar;
     private readonly System.Windows.Forms.ToolStripStatusLabel _playbackStatusLabel;
 
@@ -130,7 +132,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         };
         _playbackStatusBar = new System.Windows.Forms.StatusStrip
         {
-            AccessibleName = "Pasek stanu odtwarzania",
             AccessibleRole = System.Windows.Forms.AccessibleRole.StatusBar,
             AutoSize = false,
             CanOverflow = false,
@@ -157,6 +158,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _radioOutput.PlaybackFailed += RadioOutput_PlaybackFailed;
         _radioOutput.PlaybackPreparing += RadioOutput_PlaybackPreparing;
         _radioOutput.PlaybackStarted += RadioOutput_PlaybackStarted;
+        _radioOutput.NowPlayingChanged += RadioOutput_NowPlayingChanged;
         _radioOutput.RecordingFailed += RadioOutput_RecordingFailed;
         NormalizeTransientBookmarkViewsAtStartup();
         NormalizePlaylistViewsAtStartup();
@@ -3370,9 +3372,34 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _store.Save(_state);
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
+        UpdateWindowTitle();
         if (e.Item.BitrateKbps is null || string.IsNullOrWhiteSpace(e.Item.Codec))
         {
             _ = EnrichRadioMetadataAfterPlaybackStartedAsync(e.Item);
+        }
+    }
+
+    private void RadioOutput_NowPlayingChanged(
+        object? sender,
+        RadioNowPlayingChangedEventArgs e)
+    {
+        if (_isClosing) return;
+        if (e.StreamTitle is null)
+        {
+            _radioNowPlayingItemId = e.Item.Id;
+            _radioNowPlayingTitle = null;
+        }
+        else
+        {
+            _radioNowPlayingItemId = e.Item.Id;
+            _radioNowPlayingTitle = e.StreamTitle;
+        }
+
+        var session = _sessions.Current;
+        if (string.Equals(session.Id, "radio", StringComparison.Ordinal)
+            && string.Equals(session.CurrentItem.Id, e.Item.Id, StringComparison.Ordinal))
+        {
+            UpdateWindowTitle();
         }
     }
 
@@ -3403,6 +3430,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_state.Settings.Messages.ErrorMessages) AnnounceEssential(e.Message);
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
+        UpdateWindowTitle();
     }
 
     private void RegisterConfiguredPrefix()
@@ -6330,9 +6358,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var session = _sessions.Current;
         var area = _playerViewActive ? "Odtwarzacz" : CurrentViewDisplayName();
+        var itemTitle = session.CurrentItem.Title;
+        if (string.Equals(session.Id, "radio", StringComparison.Ordinal)
+            && string.Equals(session.CurrentItem.Id, _radioNowPlayingItemId, StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(_radioNowPlayingTitle))
+        {
+            itemTitle = $"{itemTitle} — {_radioNowPlayingTitle}";
+        }
         Title = !_playerViewActive && string.Equals(area, DefaultBrowserView, StringComparison.Ordinal)
-            ? $"{session.CurrentItem.Title} — {session.DisplayName} — AMC {AppDisplayVersion}"
-            : $"{session.CurrentItem.Title} — {area} — {session.DisplayName} — AMC {AppDisplayVersion}";
+            ? $"{itemTitle} — {session.DisplayName} — AMC {AppDisplayVersion}"
+            : $"{itemTitle} — {area} — {session.DisplayName} — AMC {AppDisplayVersion}";
         AutomationProperties.SetName(this, Title);
     }
 
