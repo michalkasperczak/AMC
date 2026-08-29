@@ -9,7 +9,7 @@
         PreviewKeyDown="Window_PreviewKeyDown">
     <DockPanel Margin="12">
         <TextBlock x:Name="DescriptionText" DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap"
-                   Text="Presety. Enter lub Spacja uruchamia zajętą pozycję. Ta lista nigdy nie zmienia ani nie nadpisuje presetów."
+                   Text="Presety. Cyfry wybierają miejsce. Enter lub Spacja uruchamia zajętą pozycję. Ta lista nigdy nie zmienia ani nie nadpisuje presetów."
                    automation:AutomationProperties.HeadingLevel="Level1" />
         <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <controls:AccessibleStatusTextBlock x:Name="PresetStatus" Margin="0,0,0,8"
@@ -26,7 +26,7 @@
                  DisplayMemberPath="Label"
                  TextSearch.TextPath="Label"
                  automation:AutomationProperties.Name="Presety"
-                 automation:AutomationProperties.HelpText="Strzałki wybierają preset. Enter lub Spacja uruchamia zajętą pozycję.">
+                 automation:AutomationProperties.HelpText="Strzałki albo klawisz miejsca wybierają preset. Enter lub Spacja uruchamia zajętą pozycję.">
             <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">
                     <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />

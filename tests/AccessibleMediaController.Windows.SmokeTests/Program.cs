@@ -3,7 +3,9 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Windows.Input;
 using AccessibleMediaController.Core.LocalMedia;
+using AccessibleMediaController.Windows;
 using AccessibleMediaController.Windows.Controls;
 using AccessibleMediaController.Windows.Services;
 using NAudio.Wave;
@@ -48,6 +50,7 @@ try
 
     TestAccessiblePlaybackStatusStrip();
     TestRadioPresetAccessibleLabels();
+    TestRadioPresetKeyboardMap();
     TestGuardDoesNotBlockPositionReads();
     TestCompleteOutputChainMonitor();
     TestInvalidSamplesAreSilenced();
@@ -151,6 +154,23 @@ static void TestRadioPresetAccessibleLabels()
     Assert(preset10.ToString() == preset10.Label,
         "Preset nie udostępnia użytkowej etykiety jako tekstu awaryjnego.");
     Console.WriteLine("OK: jednoznaczne etykiety presetów 10–12");
+}
+
+static void TestRadioPresetKeyboardMap()
+{
+    Assert(RadioPresetKeyMap.TryGetSlot(Key.D5, out var slot5) && slot5 == 5,
+        "Klawisz 5 nie wskazuje presetu 5.");
+    Assert(RadioPresetKeyMap.TryGetSlot(Key.D0, out var slot0) && slot0 == 10,
+        "Klawisz 0 nie wskazuje wewnętrznego miejsca 10.");
+    Assert(RadioPresetKeyMap.TryGetSlotFromVirtualKey(0x30, out var rawSlot0) && rawSlot0 == 10,
+        "Surowy komunikat klawisza 0 nie wskazuje wewnętrznego miejsca 10.");
+    Assert(RadioPresetKeyMap.TryGetSlot(Key.OemMinus, out var slotMinus) && slotMinus == 11,
+        "Klawisz minus nie wskazuje presetu 11.");
+    Assert(RadioPresetKeyMap.TryGetSlot(Key.OemPlus, out var slotEquals) && slotEquals == 12,
+        "Klawisz znaku równości nie wskazuje presetu 12.");
+    Assert(RadioPresetKeyMap.DirectShortcutLabel(10) == "0",
+        "Bezpośredni skrót Ctrl+Shift+0 nie ma użytkowej etykiety Preset 0.");
+    Console.WriteLine("OK: mapowanie klawiszy listy i bezpośrednich presetów");
 }
 
 static void TestGuardDoesNotBlockPositionReads()

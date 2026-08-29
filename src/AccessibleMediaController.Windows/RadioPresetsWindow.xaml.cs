@@ -22,7 +22,8 @@ public partial class RadioPresetsWindow : AccessibleWindow
         _choices = choices;
         _copyLocalTargets = copyLocalTargets;
         Title = $"Presety — {sessionName}";
-        DescriptionText.Text = $"Presety sesji {sessionName}. Enter lub Spacja uruchamia zajętą pozycję. " +
+        DescriptionText.Text = $"Presety sesji {sessionName}. Cyfry wybierają miejsce. " +
+            "Enter lub Spacja uruchamia zajętą pozycję. " +
             "Ta lista nigdy nie zmienia ani nie nadpisuje presetów.";
         System.Windows.Automation.AutomationProperties.SetName(PresetList, $"Presety, {sessionName}");
         PresetList.ItemsSource = choices;
@@ -50,6 +51,7 @@ public partial class RadioPresetsWindow : AccessibleWindow
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var modifiers = Keyboard.Modifiers;
         if (modifiers == ModifierKeys.Control && e.Key == Key.C)
         {
@@ -63,11 +65,35 @@ public partial class RadioPresetsWindow : AccessibleWindow
             e.Handled = true;
             return;
         }
-        if (modifiers == ModifierKeys.None && e.Key is Key.Enter or Key.Space)
+        if (modifiers == ModifierKeys.None && RadioPresetKeyMap.TryGetSlot(key, out var slot))
+        {
+            SelectSlot(slot);
+            e.Handled = true;
+            return;
+        }
+        if (modifiers == ModifierKeys.None && key is Key.Enter or Key.Space)
         {
             ActivateSelected();
             e.Handled = true;
         }
+    }
+
+    private void SelectSlot(int slot)
+    {
+        var index = slot - 1;
+        if (index < 0 || index >= _choices.Count) return;
+        PresetList.SelectedItems.Clear();
+        PresetList.SelectedIndex = index;
+        PresetList.ScrollIntoView(PresetList.SelectedItem);
+        PresetList.UpdateLayout();
+        if (PresetList.ItemContainerGenerator.ContainerFromIndex(index)
+            is System.Windows.Controls.ListBoxItem item)
+        {
+            item.Focus();
+            Keyboard.Focus(item);
+            return;
+        }
+        Keyboard.Focus(PresetList);
     }
 
     private IReadOnlyList<RadioPresetChoice> SelectedOccupiedChoices() =>

@@ -62,7 +62,7 @@ public partial class RadioPresetAssignmentWindow : AccessibleWindow
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (Keyboard.Modifiers == ModifierKeys.None && TryGetSlot(key, out var slot))
+        if (Keyboard.Modifiers == ModifierKeys.None && RadioPresetKeyMap.TryGetSlot(key, out var slot))
         {
             SelectSlot(slot, announce: true);
             e.Handled = true;
@@ -135,25 +135,4 @@ public partial class RadioPresetAssignmentWindow : AccessibleWindow
 
     private void Save_Click(object sender, RoutedEventArgs e) => Confirm();
 
-    private static bool TryGetSlot(Key key, out int slot)
-    {
-        if (key is >= Key.D1 and <= Key.D9)
-        {
-            slot = (int)key - (int)Key.D0;
-            return true;
-        }
-        if (key is >= Key.NumPad1 and <= Key.NumPad9)
-        {
-            slot = (int)key - (int)Key.NumPad0;
-            return true;
-        }
-        slot = key switch
-        {
-            Key.D0 or Key.NumPad0 => 10,
-            Key.OemMinus or Key.Subtract => 11,
-            Key.OemPlus or Key.Add => 12,
-            _ => 0
-        };
-        return slot != 0;
-    }
 }

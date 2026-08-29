@@ -1,12 +1,34 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-137`
-- Tytuł zestawu: Presety plików i folderów Biblioteki
-- Wersja programu: `0.1.0-alpha.137`
+- Numer zestawu: `AMC-TEST-138`
+- Tytuł zestawu: Bezpośredni wybór i pewna obsługa klawiszy presetów
+- Wersja programu: `0.1.0-alpha.138`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.137.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.138.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 138
+
+### AMC-138-01 — Pusty preset pod Ctrl+Shift+0
+
+W Plikach lokalnych i w Radiu pozostaw miejsce przypisane do klawisza `0` puste, a następnie naciśnij `Ctrl+Shift+0` na liście i w odtwarzaczu.
+
+Oczekiwane: program za każdym razem mówi „Preset 0 pusty” i podaje sposób przypisania. Nie milczy, nie uruchamia innego miejsca i nie przełącza sesji.
+
+### AMC-138-02 — Cyfry na liście presetów
+
+Otwórz listę `Ctrl+Alt+P`. Naciśnij kolejno `5`, `8`, `0`, minus i znak równości, nie zatwierdzając Enterem.
+
+Oczekiwane: fokus przechodzi odpowiednio do presetów 5, 8, 10, 11 i 12, a NVDA odczytuje pełną etykietę wybranego miejsca. Sama cyfra lub znak niczego nie uruchamia, nie zapisuje ani nie nadpisuje.
+
+### AMC-138-03 — Brak regresji zajętych presetów
+
+Przypisz stacje lub pliki do miejsc 1, 9 i 10. Uruchom je skrótami `Ctrl+Shift+1`, `Ctrl+Shift+9` i `Ctrl+Shift+0`, a następnie Enterem z listy presetów.
+
+Oczekiwane: każdy skrót oraz lista uruchamiają właściwy element w bieżącej sesji. Lista nadal nazywa dziesiąte miejsce „Preset numer 10, klawisz 0”.
+
+## Poprzedni zestaw alpha 137
 
 ## Nowości alpha 137
 

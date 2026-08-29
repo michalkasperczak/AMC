@@ -56,6 +56,8 @@ Od `alpha.136` lista presetów rozróżnia numer miejsca od fizycznego klawisza.
 
 Od `alpha.137` presety AMC działają również w sesji **Pliki lokalne**. `Ctrl+Alt+P` otwiera dwanaście miejsc bieżącej sesji na liście folderów, w płaskiej Bibliotece, Ulubionych oraz w odtwarzaczu. `Ctrl+Alt+Shift+P` przypisuje zaznaczony plik, aktualnie odtwarzany plik albo wskazany folder Biblioteki. `Ctrl+Shift+1–0/-/=` wywołuje miejsce bez przełączania sesji: plik jest od razu odtwarzany, natomiast folder otwiera się jako bieżący poziom widoku Foldery. Presety lokalne są trwałe i wchodzą do pełnej kopii ustawień; usunięcie lub odłączenie celu nie usuwa po cichu przypisania, lecz daje czytelny komunikat o niedostępności.
 
+Od `alpha.138` na liście presetów pojedyncze klawisze `1–0`, minus i znak równości przenoszą fokus bez uruchamiania ani nadpisywania miejsca. Bezpośrednie skróty `Ctrl+Shift+1–0/-/=` są dodatkowo przechwytywane na granicy komunikatów klawiatury, aby framework albo czytnik ekranu nie zgubił klawisza `0`. Puste miejsce wywołane skrótem nazywa użyty klawisz, dlatego `Ctrl+Shift+0` mówi „Preset 0 pusty”; lista nadal jednoznacznie przedstawia to samo miejsce jako „Preset numer 10, klawisz 0”.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

@@ -1133,24 +1133,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreItemActionFocus();
     }
 
-    private void ActivatePreset(int slot)
+    private void ActivatePreset(int slot, bool useDirectShortcutLabel = false)
     {
+        var announcementSlotLabel = useDirectShortcutLabel
+            ? RadioPresetKeyMap.DirectShortcutLabel(slot)
+            : null;
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
-            ActivateRadioPreset(slot);
+            ActivateRadioPreset(slot, announcementSlotLabel);
             return;
         }
         if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
-            ActivateLocalPreset(slot);
+            ActivateLocalPreset(slot, announcementSlotLabel);
             return;
         }
         Announce($"Preset nie jest dostępny w sesji {_sessions.Current.DisplayName}");
     }
 
-    private void ActivateLocalPreset(int slot)
+    private void ActivateLocalPreset(int slot, string? announcementSlotLabel = null)
     {
-        var slotLabel = RadioPresetSlots.Label(slot);
+        var slotLabel = announcementSlotLabel ?? RadioPresetSlots.Label(slot);
         var preset = LocalPresetEntries().FirstOrDefault(entry => entry.Slot == slot);
         if (preset is null)
         {
@@ -1300,14 +1303,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreItemActionFocus();
     }
 
-    private void ActivateRadioPreset(int slot)
+    private void ActivateRadioPreset(int slot, string? announcementSlotLabel = null)
     {
         if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
             Announce("Preset radiowy nie przełącza sesji. Najpierw wybierz Radio internetowe");
             return;
         }
-        var slotLabel = RadioPresetSlots.Label(slot);
+        var slotLabel = announcementSlotLabel ?? RadioPresetSlots.Label(slot);
         var preset = _state.Radio.Presets.FirstOrDefault(entry => entry.Slot == slot);
         if (preset is null)
         {
@@ -6691,6 +6694,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var modifiers = Keyboard.Modifiers;
+        if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift)
+            && CurrentSessionSupportsPresets()
+            && RadioPresetKeyMap.TryGetSlotFromVirtualKey(wParam.ToInt32(), out var presetSlot))
+        {
+            handled = true;
+            Dispatcher.BeginInvoke(
+                () => ActivatePreset(presetSlot, useDirectShortcutLabel: true),
+                DispatcherPriority.Input);
+            return IntPtr.Zero;
+        }
         Action? action = (modifiers, wParam.ToInt32()) switch
         {
             (ModifierKeys.Control, VirtualKeyZ) => UndoLastMembershipChange,
@@ -7484,35 +7497,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return false;
         }
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (!TryGetRadioPresetSlot(key, out var slot)) return false;
-        ActivatePreset(slot);
+        if (!RadioPresetKeyMap.TryGetSlot(key, out var slot)) return false;
+        ActivatePreset(slot, useDirectShortcutLabel: true);
         return true;
     }
 
     private bool CurrentSessionSupportsPresets() =>
         _sessions.Current.Id is "local" or "radio";
 
-    private static bool TryGetRadioPresetSlot(Key key, out int slot)
-    {
-        if (key is >= Key.D1 and <= Key.D9)
-        {
-            slot = (int)key - (int)Key.D0;
-            return true;
-        }
-        if (key is >= Key.NumPad1 and <= Key.NumPad9)
-        {
-            slot = (int)key - (int)Key.NumPad0;
-            return true;
-        }
-        slot = key switch
-        {
-            Key.D0 or Key.NumPad0 => 10,
-            Key.OemMinus or Key.Subtract => 11,
-            Key.OemPlus or Key.Add => 12,
-            _ => 0
-        };
-        return slot != 0;
-    }
+    private static bool TryGetRadioPresetSlot(Key key, out int slot) =>
+        RadioPresetKeyMap.TryGetSlot(key, out slot);
 
     private bool TryHandleLocalSessionNavigation(KeyEventArgs e)
     {
