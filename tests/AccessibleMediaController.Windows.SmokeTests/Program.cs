@@ -52,6 +52,7 @@ try
     TestAccessiblePlaybackStatusStrip();
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
+    TestMainWindowDigitShortcutRouting();
     TestPlaylistPresentation();
     TestGuardDoesNotBlockPositionReads();
     TestCompleteOutputChainMonitor();
@@ -173,6 +174,34 @@ static void TestRadioPresetKeyboardMap()
     Assert(RadioPresetKeyMap.DirectShortcutLabel(10) == "0",
         "Bezpośredni skrót Ctrl+Shift+0 nie ma użytkowej etykiety Preset 0.");
     Console.WriteLine("OK: mapowanie klawiszy listy i bezpośrednich presetów");
+}
+
+static void TestMainWindowDigitShortcutRouting()
+{
+    var presetZero = MainWindowShortcutRouter.ResolveDigit(
+        Key.D0,
+        ModifierKeys.Control | ModifierKeys.Shift,
+        presetsAvailable: true);
+    Assert(
+        presetZero.Kind == MainWindowDigitShortcutKind.Preset && presetZero.Slot == 10,
+        "Ctrl+Shift+0 został błędnie skierowany do listy sesji zamiast presetu 0.");
+
+    var sessions = MainWindowShortcutRouter.ResolveDigit(
+        Key.D0,
+        ModifierKeys.Control,
+        presetsAvailable: true);
+    Assert(
+        sessions.Kind == MainWindowDigitShortcutKind.SessionList,
+        "Ctrl+0 przestał otwierać listę sesji.");
+
+    var noShiftLeak = MainWindowShortcutRouter.ResolveDigit(
+        Key.D0,
+        ModifierKeys.Control | ModifierKeys.Shift,
+        presetsAvailable: false);
+    Assert(
+        noShiftLeak.Kind == MainWindowDigitShortcutKind.None,
+        "Ctrl+Shift+0 nie może zostać zdegradowany do Ctrl+0.");
+    Console.WriteLine("OK: Ctrl+0 i Ctrl+Shift+0 mają rozłączne trasy");
 }
 
 static void TestPlaylistPresentation()

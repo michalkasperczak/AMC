@@ -352,7 +352,15 @@ Enter opens the playlist. `Ctrl+Enter` plays its first available item and uses t
 
 Direct preset keys `Ctrl+Shift+1–0`, minus and equals are handled at the Win32 message boundary. Modifier state is read directly from Windows, fixing the specific case in which a Polish keyboard layout or screen reader could lose Shift for the `0` key.
 
-Local video containers, including MP4, MKV, WebM, MOV, AVI and MPEG, are already supported as audio sources. After playlist and preset tests, the next Radio stage is an accessible recording scheduler: one-off and recurring entries, duration, destination folder, MP3 output, safe late-start recovery and optional computer wake. It will reuse proven FreeRadio behaviour while remaining an independent AMC module that does not require NVDA to be running.
+Local video containers, including MP4, MKV, WebM, MOV, AVI and MPEG, are already supported as audio sources.
+
+## Preset 0 and Radio scheduling in alpha 141
+
+`Ctrl+0` and `Ctrl+Shift+0` now have disjoint command routes. The former still opens the session list, while the latter invokes preset slot ten and calls it “Preset 0” in a direct-key announcement. AMC tracks modifier state from raw Windows messages and never lets a temporary WPF omission of Shift degrade the chord to `Ctrl+0`. A regression test covers the complete routing decision rather than only mapping key `0` to a slot number.
+
+In **Internet Radio**, `Ctrl+Alt+Shift+R` opens the accessible **Radio recording schedule**. Insert creates an entry, Enter edits it and Delete removes it; every row states the station, next start, duration, recurrence and state. A plan may run once, every day or on selected weekdays, may last from one minute to one week, and has an optional output folder plus a three-state wake rule. Recording is finalised as MP3 through a separate inaudible pipeline, so it never changes the station being heard; multiple plans may run concurrently.
+
+A schedule retains the stable station identifier and a safe URL snapshot. Editing a custom station updates linked schedules. Starting AMC inside an active interval records only its remainder; a fully missed one-shot is removed and a recurring plan advances to the next valid day. An unavailable per-entry folder safely falls back to the general recording folder. Active recording prevents idle sleep and the nearest wake-enabled entry owns one Windows wake timer. Wake works while AMC remains running during sleep; closing AMC does not leave a hidden system task behind.
 
 ## Current limitations
 

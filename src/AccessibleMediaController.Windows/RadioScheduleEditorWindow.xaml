@@ -1,0 +1,84 @@
+<Window x:Class="AccessibleMediaController.Windows.RadioScheduleEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="Plan nagrywania radia" Width="610" Height="610"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Stacja:" Margin="0,0,0,4"/>
+        <ComboBox x:Name="StationCombo" Grid.Row="1" Margin="0,0,0,10"
+                  DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                  automation:AutomationProperties.Name="Stacja do nagrania"/>
+
+        <TextBlock Grid.Row="2" Text="Data pierwszego nagrania:" Margin="0,0,0,4"/>
+        <TextBox x:Name="DateTextBox" Grid.Row="3" Margin="0,0,0,10"
+                 automation:AutomationProperties.Name="Data pierwszego nagrania, rok, miesiąc, dzień"/>
+
+        <TextBlock Grid.Row="4" Text="Godzina rozpoczęcia:" Margin="0,0,0,4"/>
+        <TextBox x:Name="TimeTextBox" Grid.Row="5" Margin="0,0,0,10"
+                 automation:AutomationProperties.Name="Godzina rozpoczęcia, godzina i minuta"/>
+
+        <TextBlock Grid.Row="6" Text="Długość w minutach:" Margin="0,0,0,4"/>
+        <TextBox x:Name="DurationTextBox" Grid.Row="7" Margin="0,0,0,10"
+                 automation:AutomationProperties.Name="Długość nagrania w minutach"/>
+
+        <TextBlock Grid.Row="8" Text="Powtarzanie:" Margin="0,0,0,4"/>
+        <ComboBox x:Name="RecurrenceCombo" Grid.Row="9" Margin="0,0,0,10"
+                  DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                  SelectionChanged="RecurrenceCombo_SelectionChanged"
+                  automation:AutomationProperties.Name="Powtarzanie nagrania"/>
+
+        <GroupBox x:Name="DaysGroup" Grid.Row="10" Header="Dni tygodnia" Margin="0,0,0,10"
+                  automation:AutomationProperties.Name="Dni tygodnia dla powtarzanego nagrania">
+            <WrapPanel Margin="8">
+                <CheckBox x:Name="MondayCheckBox" Content="Poniedziałek" Tag="Monday" Margin="0,0,12,6"/>
+                <CheckBox x:Name="TuesdayCheckBox" Content="Wtorek" Tag="Tuesday" Margin="0,0,12,6"/>
+                <CheckBox x:Name="WednesdayCheckBox" Content="Środa" Tag="Wednesday" Margin="0,0,12,6"/>
+                <CheckBox x:Name="ThursdayCheckBox" Content="Czwartek" Tag="Thursday" Margin="0,0,12,6"/>
+                <CheckBox x:Name="FridayCheckBox" Content="Piątek" Tag="Friday" Margin="0,0,12,6"/>
+                <CheckBox x:Name="SaturdayCheckBox" Content="Sobota" Tag="Saturday" Margin="0,0,12,6"/>
+                <CheckBox x:Name="SundayCheckBox" Content="Niedziela" Tag="Sunday" Margin="0,0,12,6"/>
+            </WrapPanel>
+        </GroupBox>
+
+        <TextBlock Grid.Row="11" Text="Folder nagrań; puste pole oznacza ustawienie ogólne:" Margin="0,0,0,4"/>
+        <Grid Grid.Row="12" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBox x:Name="OutputFolderTextBox" Grid.Column="0"
+                     automation:AutomationProperties.Name="Folder dla tego planu, opcjonalny"/>
+            <Button Grid.Column="1" Content="_Wybierz…" Margin="8,0,0,0" Padding="10,4"
+                    automation:AutomationProperties.Name="Wybierz folder nagrania"
+                    Click="BrowseFolder_Click"/>
+        </Grid>
+
+        <TextBlock Grid.Row="13" Text="Wybudzanie komputera:" Margin="0,0,0,4"/>
+        <ComboBox x:Name="WakeCombo" Grid.Row="14" Margin="0,0,0,10"
+                  DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                  automation:AutomationProperties.Name="Wybudzanie komputera dla tego planu"/>
+
+        <CheckBox x:Name="EnabledCheckBox" Grid.Row="15" Content="Plan aktywny" IsChecked="True"
+                  Margin="0,0,0,10" automation:AutomationProperties.Name="Plan aktywny"/>
+
+        <TextBlock x:Name="ValidationText" Grid.Row="16" Foreground="DarkRed" Margin="0,0,0,8"
+                   TextWrapping="Wrap" automation:AutomationProperties.LiveSetting="Assertive"/>
+
+        <StackPanel Grid.Row="17" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="_Zapisz" IsDefault="True" MinWidth="100" Margin="0,0,8,0"
+                    Click="Save_Click"/>
+            <Button Content="Anuluj" IsCancel="True" MinWidth="100"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -80,6 +80,10 @@
                           automation:AutomationProperties.Name="Rozpocznij lub zakończ nagrywanie radia, Ctrl+Alt+R, w odtwarzaczu radia"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+R"
                           Click="RadioRecording_Click" />
+                <MenuItem x:Name="RadioSchedulesMenuItem" Header="_Harmonogram nagrywania…" InputGestureText="Ctrl+Alt+Shift+R"
+                          automation:AutomationProperties.Name="Harmonogram nagrywania radia, Ctrl+Alt+Shift+R"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+Shift+R"
+                          Click="RadioSchedules_Click" />
                 <Separator x:Name="PlaybackAfterRecordingSeparator" />
                 <MenuItem x:Name="PlaybackAddBookmarkMenuItem" Header="Dodaj _zakładkę" InputGestureText="B"
                           automation:AutomationProperties.Name="Dodaj zakładkę w bieżącym miejscu, B, tylko w odtwarzaczu"

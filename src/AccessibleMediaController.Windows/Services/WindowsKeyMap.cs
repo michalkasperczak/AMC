@@ -73,6 +73,9 @@ internal static class WindowsKeyMap
     }
 
     public static KeyChord FromKeyEvent(KeyEventArgs eventArgs)
+        => FromKeyEvent(eventArgs, Keyboard.Modifiers);
+
+    public static KeyChord FromKeyEvent(KeyEventArgs eventArgs, ModifierKeys effectiveModifiers)
     {
         var key = eventArgs.Key == Key.System ? eventArgs.SystemKey : eventArgs.Key;
         var keyName = key switch
@@ -98,10 +101,10 @@ internal static class WindowsKeyMap
         };
 
         var modifiers = KeyModifiers.None;
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) modifiers |= KeyModifiers.Ctrl;
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt)) modifiers |= KeyModifiers.Alt;
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) modifiers |= KeyModifiers.Shift;
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Windows)) modifiers |= KeyModifiers.Windows;
+        if (effectiveModifiers.HasFlag(ModifierKeys.Control)) modifiers |= KeyModifiers.Ctrl;
+        if (effectiveModifiers.HasFlag(ModifierKeys.Alt)) modifiers |= KeyModifiers.Alt;
+        if (effectiveModifiers.HasFlag(ModifierKeys.Shift)) modifiers |= KeyModifiers.Shift;
+        if (effectiveModifiers.HasFlag(ModifierKeys.Windows)) modifiers |= KeyModifiers.Windows;
         return new KeyChord(keyName, modifiers);
     }
 }

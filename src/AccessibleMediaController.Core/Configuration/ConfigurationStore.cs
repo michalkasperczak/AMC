@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 30;
+    public const int CurrentSchemaVersion = 31;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -396,6 +396,7 @@ public sealed class ConfigurationStore
         state.Radio.Volume = Math.Clamp(state.Radio.Volume, 0, 100);
         state.Radio.TimeshiftMinutes = Math.Clamp(state.Radio.TimeshiftMinutes, 1, 60);
         state.Radio.RecordingsFolder = state.Radio.RecordingsFolder?.Trim() ?? string.Empty;
+        state.Radio.RecordingSchedules ??= [];
         state.Radio.Stations = (state.Radio.Stations ?? [])
             .Where(station => Uri.TryCreate(station.StreamUrl, UriKind.Absolute, out var uri)
                 && uri.Scheme is "http" or "https")
@@ -426,6 +427,43 @@ public sealed class ConfigurationStore
             .Select(station => station.Id)
             .ToHashSet(StringComparer.Ordinal);
         state.Radio.Presets = RadioPresetSlots.Normalize(state.Radio.Presets, stationIds).ToList();
+        state.Radio.RecordingSchedules = state.Radio.RecordingSchedules
+            .Where(schedule => schedule is not null
+                && Uri.TryCreate(schedule.StreamUrl, UriKind.Absolute, out var uri)
+                && uri.Scheme is "http" or "https"
+                && schedule.NextStartUtcTicks > DateTime.UnixEpoch.Ticks)
+            .Select(schedule =>
+            {
+                schedule.Id = string.IsNullOrWhiteSpace(schedule.Id)
+                    ? Guid.NewGuid().ToString("N")
+                    : schedule.Id.Trim();
+                schedule.StationId = schedule.StationId?.Trim() ?? string.Empty;
+                schedule.StationName = string.IsNullOrWhiteSpace(schedule.StationName)
+                    ? "Stacja bez nazwy"
+                    : schedule.StationName.Trim();
+                schedule.StreamUrl = schedule.StreamUrl.Trim();
+                schedule.DurationMinutes = Math.Clamp(schedule.DurationMinutes, 1, 10_080);
+                schedule.OutputFolder = schedule.OutputFolder?.Trim() ?? string.Empty;
+                schedule.TimeZoneId = RadioScheduleCalculator.ResolveTimeZone(schedule.TimeZoneId).Id;
+                schedule.ActiveDays = (schedule.ActiveDays ?? [])
+                    .Where(day => day is >= DayOfWeek.Sunday and <= DayOfWeek.Saturday)
+                    .Distinct()
+                    .OrderBy(day => ((int)day + 6) % 7)
+                    .ToList();
+                if (schedule.Recurrence == RadioScheduleRecurrence.SelectedDays
+                    && schedule.ActiveDays.Count == 0)
+                {
+                    var start = new DateTime(schedule.NextStartUtcTicks, DateTimeKind.Utc);
+                    schedule.ActiveDays.Add(TimeZoneInfo.ConvertTimeFromUtc(
+                        start,
+                        RadioScheduleCalculator.ResolveTimeZone(schedule.TimeZoneId)).DayOfWeek);
+                }
+                return schedule;
+            })
+            .GroupBy(schedule => schedule.Id, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .OrderBy(schedule => schedule.NextStartUtcTicks)
+            .ToList();
         if (state.Radio.CurrentItemId is not null
             && state.Radio.Stations.All(station => !string.Equals(
                 station.Id,

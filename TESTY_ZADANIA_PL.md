@@ -1,12 +1,76 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-140`
-- Tytuł zestawu: Playlisty jako kontenery i bezpośredni preset 0
-- Wersja programu: `0.1.0-alpha.140`
+- Numer zestawu: `AMC-TEST-141`
+- Tytuł zestawu: Rozdzielenie Ctrl+0 i harmonogram nagrywania Radia
+- Wersja programu: `0.1.0-alpha.141`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.140.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.141.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 141
+
+### AMC-141-01 — Ctrl+0 oraz Ctrl+Shift+0 są rozłączne
+
+W Radiu przypisz Radio Emaus do miejsca oznaczonego klawiszem `0`. Naciśnij
+`Ctrl+0`, zamknij listę sesji Escapem, a następnie naciśnij `Ctrl+Shift+0` na
+liście Biblioteki, w Ulubionych, na playliście i w odtwarzaczu.
+
+Oczekiwane: `Ctrl+0` zawsze otwiera listę sesji. `Ctrl+Shift+0` nigdy jej nie
+otwiera, lecz od razu uruchamia Radio Emaus i mówi „Preset 0”. W innej sesji z
+pustym miejscem mówi „Preset 0 pusty” zamiast milczeć albo otwierać sesje.
+
+### AMC-141-02 — Dostępność listy i edytora harmonogramu
+
+Na wybranej stacji naciśnij `Ctrl+Alt+Shift+R`. Na pustej lub istniejącej
+liście użyj Insert, przejdź Tabem przez wszystkie pola, rozwiń każde pole kombi
+i poruszaj się strzałkami. Anuluj edytor, otwórz go ponownie i zapisz wpis.
+
+Oczekiwane: fokus zaczyna na liście planów, a w nowym wpisie na wyborze stacji.
+NVDA czyta wyłącznie polskie etykiety. Nie pojawiają się nazwy klas, rekordy w
+nawiasach klamrowych ani identyfikatory wartości. Anulowanie i zapis wracają na
+właściwy wpis listy.
+
+### AMC-141-03 — Jednorazowe nagranie w tle
+
+Utwórz plan wybranej stacji na 2–3 minuty w przyszłości, o długości jednej
+minuty. Przed terminem rozpocznij słuchanie innej stacji albo lokalnego pliku i
+nie zamykaj AMC.
+
+Oczekiwane: o terminie AMC oznajmia rozpoczęcie planu, lecz nie przełącza ani
+nie słychać zaplanowanej stacji. Po minucie oznajmia zakończenie i powstaje
+poprawnie zamknięty MP3 w folderze nagrań. Bieżące odtwarzanie działa dalej.
+
+### AMC-141-04 — Stan, zatrzymanie i kilka planów
+
+Podczas aktywnego planu ponownie otwórz harmonogram. Jeżeli to możliwe, ustaw
+drugi, nakładający się plan. Usuń jeden aktywny wpis i potwierdź ostrzeżenie.
+
+Oczekiwane: aktywny wiersz mówi „nagrywanie trwa”. Plany mogą nagrywać
+równolegle, nie mieszając plików. Usunięcie aktywnego wpisu zatrzymuje tylko
+jego zapis i finalizuje dotychczasową część; drugi plan i odsłuch pozostają.
+
+### AMC-141-05 — Trwałość i powtarzanie
+
+Zapisz plan codzienny oraz plan na wybrane dni tygodnia. Zamknij i uruchom AMC,
+otwórz harmonogram, edytuj jeden wpis i zapisz go ponownie.
+
+Oczekiwane: wpisy, stacje, terminy, długości, dni, foldery i ustawienia
+wybudzania są zachowane. Po zakończeniu plan cykliczny przechodzi do najbliższego
+właściwego dnia, a jednorazowy znika. Fokus po edycji wraca na ten sam wpis.
+
+### AMC-141-06 — Folder zastępczy i bezpieczne pominięcie
+
+Opcjonalnie wskaż dla planu folder, który przed terminem stanie się niedostępny.
+Uruchom AMC również raz w trakcie nadal trwającego okna oraz raz dopiero po jego
+całkowitym końcu.
+
+Oczekiwane: niedostępny folder nie przerywa planu — MP3 trafia do ogólnego
+folderu nagrań. Start w trakcie okna zapisuje tylko pozostały czas. Całkowicie
+pominięty termin nie rozpoczyna spóźnionego pełnego nagrania; wpis cykliczny
+przechodzi do następnego terminu.
+
+## Poprzedni zestaw alpha 140
 
 ## Nowości alpha 140
 

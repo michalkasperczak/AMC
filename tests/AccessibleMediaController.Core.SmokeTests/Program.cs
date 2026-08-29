@@ -17,6 +17,7 @@ var tests = new (string Name, Action Test)[]
     ("Odświeżanie profilu wbudowanego", TestBuiltInProfileRefresh),
     ("Czytelne nazwy poleceń", TestCommandCatalog),
     ("Migracja presetów radia do wspólnego magazynu", TestRadioPresetPersistence),
+    ("Trwały i odporny harmonogram radia", TestRadioRecordingSchedule),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
@@ -266,6 +267,71 @@ static void TestRadioPresetPersistence()
         Equal("https://example.test/a", presets[0].TargetLocation);
         Equal(12, presets[1].Slot);
         Equal("existing-station", presets[1].TargetId);
+        Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
+static void TestRadioRecordingSchedule()
+{
+    var start = new DateTime(2026, 8, 29, 20, 0, 0, DateTimeKind.Utc);
+    var schedule = new RadioRecordingScheduleSettings
+    {
+        Id = "schedule-a",
+        StationId = "station-a",
+        StationName = "Stacja A",
+        StreamUrl = "https://example.test/live",
+        NextStartUtcTicks = start.Ticks,
+        TimeZoneId = "UTC",
+        DurationMinutes = 60,
+        Recurrence = RadioScheduleRecurrence.Daily
+    };
+    Equal(RadioScheduleDueKind.Future,
+        RadioScheduleCalculator.Evaluate(schedule, start.AddMinutes(-1)).Kind);
+    var active = RadioScheduleCalculator.Evaluate(schedule, start.AddMinutes(15));
+    Equal(RadioScheduleDueKind.StartRemaining, active.Kind);
+    Equal(TimeSpan.FromMinutes(45), active.Remaining);
+    Equal(RadioScheduleDueKind.Missed,
+        RadioScheduleCalculator.Evaluate(schedule, start.AddMinutes(60)).Kind);
+    Equal(start.AddDays(1), RadioScheduleCalculator.FindNextStartUtc(schedule, start.AddMinutes(60)));
+
+    schedule.Recurrence = RadioScheduleRecurrence.SelectedDays;
+    schedule.ActiveDays = [DayOfWeek.Monday, DayOfWeek.Friday];
+    Equal(
+        new DateTime(2026, 8, 31, 20, 0, 0, DateTimeKind.Utc),
+        RadioScheduleCalculator.FindNextStartUtc(schedule, start));
+
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-radio-schedule-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.Radio.RecordingSchedules =
+        [
+            new RadioRecordingScheduleSettings
+            {
+                Id = "schedule-a",
+                StationId = "station-a",
+                StationName = "Stacja A",
+                StreamUrl = "https://example.test/live",
+                NextStartUtcTicks = start.Ticks,
+                TimeZoneId = "UTC",
+                DurationMinutes = 0,
+                Recurrence = RadioScheduleRecurrence.SelectedDays,
+                ActiveDays = [],
+                WakeComputer = true
+            }
+        ];
+        store.Save(state);
+        var loaded = store.LoadOrCreate();
+        Equal(1, loaded.Radio.RecordingSchedules.Count);
+        Equal(1, loaded.Radio.RecordingSchedules[0].DurationMinutes);
+        Equal(1, loaded.Radio.RecordingSchedules[0].ActiveDays.Count);
+        Equal(true, loaded.Radio.RecordingSchedules[0].WakeComputer);
         Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
     }
     finally

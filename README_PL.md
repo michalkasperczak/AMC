@@ -381,7 +381,15 @@ Enter otwiera zawartość playlisty. `Ctrl+Enter` odtwarza jej pierwszy dostępn
 
 Bezpośrednie presety `Ctrl+Shift+1–0`, minus i znak równości są przechwytywane na granicy komunikatów Win32. Stan modyfikatorów jest odczytywany bezpośrednio z systemu, co usuwa szczególny przypadek, w którym polski układ klawiatury lub czytnik ekranu mógł zgubić Shift dla klawisza `0`.
 
-Lokalne kontenery wideo, w tym MP4, MKV, WebM, MOV, AVI i MPEG, są już obsługiwane jako źródła dźwięku. Po domknięciu testów playlist i presetów następnym etapem Radia będą dostępne harmonogramy nagrywania: jednorazowe i cykliczne, z długością, folderem docelowym, zapisem MP3, bezpiecznym odzyskiwaniem po opóźnieniu oraz opcjonalnym wybudzaniem komputera. Implementacja wykorzysta sprawdzone zasady FreeRadio, ale pozostanie niezależnym modułem AMC i nie będzie zależeć od uruchomionego NVDA.
+Lokalne kontenery wideo, w tym MP4, MKV, WebM, MOV, AVI i MPEG, są już obsługiwane jako źródła dźwięku.
+
+## Preset 0 i harmonogram Radia w alpha 141
+
+`Ctrl+0` i `Ctrl+Shift+0` mają rozłączne trasy poleceń. Pierwszy skrót nadal otwiera listę sesji, natomiast drugi uruchamia dziesiąte miejsce presetu, nazywane w komunikacie bezpośrednim „Preset 0”. AMC śledzi stan modyfikatorów już od ich surowych komunikatów Windows i nie pozwala, aby chwilowe pominięcie Shift przez WPF zdegradowało skrót do `Ctrl+0`. Regresję obejmuje test całej decyzji routingu, a nie tylko mapowania klawisza `0` na numer miejsca.
+
+W sesji **Radio internetowe** `Ctrl+Alt+Shift+R` otwiera dostępny **Harmonogram nagrywania radia**. Insert dodaje plan, Enter go edytuje, a Delete usuwa; każda pozycja podaje stację, najbliższy termin, długość, sposób powtarzania i stan. Plan może być jednorazowy, codzienny albo ograniczony do wybranych dni, ma długość od minuty do tygodnia, opcjonalny folder oraz trzywartościową regułę wybudzania. Nagrywanie powstaje jako poprawnie finalizowany MP3 w osobnym, niesłyszalnym torze i nie zmienia stacji odtwarzanej przez użytkownika; kilka planów może działać równolegle.
+
+Plan zachowuje stabilny identyfikator stacji i migawkę jej adresu. Zmiana nazwy lub adresu własnej stacji aktualizuje powiązane plany. Gdy AMC uruchomi się wewnątrz trwającego przedziału, zapisuje tylko pozostałą część; całkowicie pominięty termin jednorazowy jest usuwany, a cykliczny przechodzi do następnego właściwego dnia. Niedostępny folder planu powoduje bezpieczny zapis w folderze ogólnym. Aktywne nagranie blokuje automatyczne uśpienie, a najbliższy plan wymagający wybudzenia korzysta z jednego czasomierza Windows. Wybudzenie działa, gdy AMC pozostaje uruchomiony podczas uśpienia; zamknięty program nie pozostawia ukrytego zadania systemowego.
 
 ## Zakres i ograniczenia
 

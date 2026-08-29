@@ -23,7 +23,7 @@ public sealed class RadioNowPlayingChangedEventArgs(MediaItem item, string? stre
 /// accessible interface. The same ring provides pause and time-shift without
 /// creating unbounded temporary files.
 /// </summary>
-public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisposable
+public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) : IMediaOutput, IDisposable
 {
     private const int MaximumTimeshiftBytes = 256 * 1024 * 1024;
     private const int MaximumReconnectAttempts = 2;
@@ -160,7 +160,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         if (reusable is not null)
         {
             reusable.Volume.Volume = _volume / 100f;
-            reusable.Output.Play();
+            reusable.Output?.Play();
             PublishPipelineStreamTitle(reusable, reusable.StreamTitle);
             RaiseOnCapturedContext(() => PlaybackStarted?.Invoke(
                 this,
@@ -231,8 +231,12 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
             {
                 Volume = Math.Clamp(_volume, 0, 100) / 100f
             };
-            var output = new WasapiOut(AudioClientShareMode.Shared, true, 180);
-            output.Init(volume);
+            WasapiOut? output = null;
+            if (audible)
+            {
+                output = new WasapiOut(AudioClientShareMode.Shared, true, 180);
+                output.Init(volume);
+            }
             var cancellation = new CancellationTokenSource();
             var decoderName = openedReader.DecoderName;
             pipeline = new RadioPipeline(
@@ -264,7 +268,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                     _preparationCancellation = null;
                 }
             }
-            output.Play();
+            output?.Play();
             pipeline.CaptureTask = Task.Run(() => CaptureLoopAsync(pipeline), cancellation.Token);
             DiagnosticLog.Info(
                 "radio",
@@ -727,7 +731,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
 
     public void Pause()
     {
-        lock (_gate) _pipeline?.Output.Pause();
+        lock (_gate) _pipeline?.Output?.Pause();
     }
 
     public void Stop()
@@ -931,7 +935,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         IDisposable readerLifetime,
         RadioTimeshiftWaveProvider buffer,
         VolumeSampleProvider volume,
-        WasapiOut output,
+        WasapiOut? output,
         CancellationTokenSource cancellation,
         IRadioStreamTitleSource? streamTitleSource,
         Action<RadioPipeline, string?> streamTitleChanged) : IDisposable
@@ -952,7 +956,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
         public MediaItem Item { get; } = item;
         public RadioTimeshiftWaveProvider Buffer { get; } = buffer;
         public VolumeSampleProvider Volume { get; } = volume;
-        public WasapiOut Output { get; } = output;
+        public WasapiOut? Output { get; } = output;
         public CancellationTokenSource Cancellation { get; } = cancellation;
         public Task? CaptureTask { get; set; }
 
@@ -1027,9 +1031,9 @@ public sealed class RadioMediaOutput(int timeshiftMinutes) : IMediaOutput, IDisp
                     "Nie udało się zakończyć nagrania MP3 podczas zamykania stacji.",
                     exception);
             }
-            try { Output.Stop(); } catch (Exception) { }
+            try { Output?.Stop(); } catch (Exception) { }
             try { currentLifetime?.Dispose(); } catch (Exception) { }
-            try { Output.Dispose(); } catch (Exception) { }
+            try { Output?.Dispose(); } catch (Exception) { }
             Cancellation.Dispose();
         }
     }

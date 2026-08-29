@@ -80,6 +80,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private PendingInternalListMove? _pendingInternalListMove;
     private readonly DispatcherTimer _playerUiTimer;
     private readonly DispatcherTimer _localSourceSyncTimer;
+    private readonly DispatcherTimer _radioScheduleTimer;
+    private readonly Dictionary<string, ActiveScheduledRadioRecording> _activeScheduledRadioRecordings =
+        new(StringComparer.Ordinal);
+    private readonly SystemWakeTimer _radioWakeTimer = new();
     private readonly Dictionary<string, FileSystemWatcher> _localSourceWatchers =
         new(StringComparer.OrdinalIgnoreCase);
     private bool _localSourceSyncInProgress;
@@ -103,7 +107,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IReadOnlyList<string> ItemIds);
 
     private const int WmKeyDown = 0x0100;
+    private const int WmKeyUp = 0x0101;
     private const int WmSysKeyDown = 0x0104;
+    private const int WmSysKeyUp = 0x0105;
     private const int VirtualKeyControl = 0x11;
     private const int VirtualKeyShift = 0x10;
     private const int VirtualKeyAlt = 0x12;
@@ -115,6 +121,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const int VirtualKeyR = 0x52;
     private const int VirtualKeyT = 0x54;
     private const int VirtualKeyZ = 0x5A;
+    private bool _nativeControlDown;
+    private bool _nativeShiftDown;
+    private bool _nativeAltDown;
+    private bool _nativeWindowsDown;
     private static readonly TimeSpan TypeAheadTimeout = TimeSpan.FromMilliseconds(1200);
     private static readonly TimeSpan BookmarkNavigationContinuationWindow = TimeSpan.FromSeconds(5);
     private static readonly string AppDisplayVersion =
@@ -160,6 +170,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Interval = TimeSpan.FromMilliseconds(900)
         };
         _localSourceSyncTimer.Tick += LocalSourceSyncTimer_Tick;
+        _radioScheduleTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _radioScheduleTimer.Tick += RadioScheduleTimer_Tick;
         _state = state;
         _store = store;
         _radioOutput = new RadioMediaOutput(_state.Radio.TimeshiftMinutes);
@@ -177,6 +192,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);
         LoadPersistedLocalMedia();
         LoadPersistedRadio();
+        NormalizeRadioSchedulesAtStartup();
         DiagnosticLog.Info("startup", $"Odtworzono w pamięci {state.LocalMedia.Items.Count} rekordów Biblioteki.");
         _localOutput.DurationAvailable += LocalOutput_DurationAvailable;
         _localOutput.PlaybackFailed += LocalOutput_PlaybackFailed;
@@ -189,6 +205,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreCurrentSessionNavigationState();
         UpdatePlaybackStatusBar();
         _playerUiTimer.Start();
+        _radioScheduleTimer.Start();
+        RearmRadioWakeTimer();
+        Dispatcher.BeginInvoke(ProcessDueRadioSchedules, DispatcherPriority.Background);
         DiagnosticLog.Info("startup", "Główne okno jest gotowe do pokazania.");
     }
 
@@ -2435,6 +2454,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Zmień przynależność do playlist, Ctrl+Shift+P");
 
         RadioRecordingMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        RadioSchedulesMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         PlaybackAfterRecordingSeparator.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         PlaybackAddBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         PlaybackAddNamedBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
@@ -3788,6 +3808,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ToggleRadioRecording();
             return new CommandExecutionResult(true);
         }
+        if (commandId == CommandIds.ManageRadioSchedules)
+        {
+            ShowRadioSchedules();
+            return new CommandExecutionResult(true);
+        }
         if (commandId == CommandIds.RadioJumpLive)
         {
             if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
@@ -4927,6 +4952,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void Window_Deactivated(object? sender, EventArgs e)
     {
+        ClearTrackedNativeModifiers();
         // Persist when the user switches away or a modal dialog opens. This
         // supplements the timer without writing after every repeated seek.
         if (IsLoaded) TrySaveLocalMediaState(false);
@@ -5967,6 +5993,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         item.Source = dialog.StreamUrl;
         item.PublicUri = dialog.StreamUrl;
         item.IsInLibrary = true;
+        foreach (var schedule in _state.Radio.RecordingSchedules.Where(schedule =>
+                     string.Equals(schedule.StationId, item.Id, StringComparison.Ordinal)))
+        {
+            schedule.StationName = item.Title;
+            schedule.StreamUrl = item.Source;
+        }
         RefreshCurrentView(preferredItemId: item.Id);
         CaptureRadioState();
         _store.Save(_state);
@@ -6027,6 +6059,251 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var music = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
         return Path.Combine(music, "AMC — Nagrania radia");
     }
+
+    private void ShowRadioSchedules()
+    {
+        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            Announce("Harmonogram nagrywania jest dostępny w sesji Radio internetowe");
+            return;
+        }
+
+        var stations = _sessions.FindSession("radio")?.Items
+            .Where(item => item.Kind == MediaItemKind.Station
+                && Uri.TryCreate(item.Source, UriKind.Absolute, out var uri)
+                && uri.Scheme is "http" or "https")
+            .GroupBy(item => item.Id, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToList() ?? [];
+        if (ActionItem is { Kind: MediaItemKind.Station } selectedStation
+            && Uri.TryCreate(selectedStation.Source, UriKind.Absolute, out var selectedUri)
+            && selectedUri.Scheme is "http" or "https"
+            && stations.All(item => item.Id != selectedStation.Id))
+        {
+            stations.Add(selectedStation);
+        }
+        var preferredStationId = ActionItem?.Kind == MediaItemKind.Station
+            ? ActionItem.Id
+            : _sessions.FindSession("radio")?.HasCurrentItem == true
+                ? _sessions.FindSession("radio")!.CurrentItem.Id
+                : null;
+        var dialog = new RadioSchedulesWindow(
+            stations,
+            _state.Radio.RecordingSchedules,
+            _activeScheduledRadioRecordings.Keys,
+            preferredStationId,
+            _state.Radio.WakeScheduledRecordings)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+
+        var replacements = dialog.ResultSchedules.Select(CloneRadioSchedule).ToList();
+        foreach (var active in _activeScheduledRadioRecordings.Values.ToArray())
+        {
+            var replacement = replacements.FirstOrDefault(schedule => schedule.Id == active.ScheduleId);
+            if (replacement is null
+                || !replacement.Enabled
+                || replacement.NextStartUtcTicks != active.ExpectedStartUtcTicks
+                || !string.Equals(replacement.StreamUrl, active.StreamUrl, StringComparison.OrdinalIgnoreCase)
+                || replacement.DurationMinutes != active.DurationMinutes)
+            {
+                active.Cancellation.Cancel();
+            }
+        }
+        _state.Radio.RecordingSchedules = replacements;
+        _state.Radio.WakeScheduledRecordings = dialog.ResultWakeScheduledRecordings;
+        _store.Save(_state);
+        RearmRadioWakeTimer();
+        ProcessDueRadioSchedules();
+        RestoreItemActionFocus();
+        Dispatcher.BeginInvoke(
+            () => Announce("Zapisano harmonogram nagrywania radia"),
+            DispatcherPriority.ContextIdle);
+    }
+
+    private void NormalizeRadioSchedulesAtStartup()
+    {
+        var changed = false;
+        var now = DateTime.UtcNow;
+        foreach (var schedule in _state.Radio.RecordingSchedules.ToArray())
+        {
+            if (!schedule.Enabled) continue;
+            if (RadioScheduleCalculator.Evaluate(schedule, now).Kind != RadioScheduleDueKind.Missed) continue;
+            changed |= AdvanceOrRemoveRadioSchedule(schedule, now, "pominięte podczas zamknięcia programu");
+        }
+        if (changed) _store.Save(_state);
+    }
+
+    private void RadioScheduleTimer_Tick(object? sender, EventArgs e) => ProcessDueRadioSchedules();
+
+    private void ProcessDueRadioSchedules()
+    {
+        if (_isClosing) return;
+        var changed = false;
+        var now = DateTime.UtcNow;
+        foreach (var schedule in _state.Radio.RecordingSchedules
+                     .Where(schedule => schedule.Enabled)
+                     .OrderBy(schedule => schedule.NextStartUtcTicks)
+                     .ToArray())
+        {
+            if (_activeScheduledRadioRecordings.ContainsKey(schedule.Id)) continue;
+            var decision = RadioScheduleCalculator.Evaluate(schedule, now);
+            if (decision.Kind == RadioScheduleDueKind.Future) continue;
+            if (decision.Kind == RadioScheduleDueKind.Missed)
+            {
+                changed |= AdvanceOrRemoveRadioSchedule(schedule, now, "pominięte po upływie całego czasu");
+                continue;
+            }
+            StartScheduledRadioRecording(schedule);
+        }
+        if (changed)
+        {
+            _store.Save(_state);
+            RearmRadioWakeTimer();
+        }
+    }
+
+    private void StartScheduledRadioRecording(RadioRecordingScheduleSettings schedule)
+    {
+        var snapshot = CloneRadioSchedule(schedule);
+        var startUtc = new DateTime(snapshot.NextStartUtcTicks, DateTimeKind.Utc);
+        var deadlineUtc = startUtc.AddMinutes(snapshot.DurationMinutes);
+        var cancellation = new CancellationTokenSource();
+        var task = Task.Run(() => ScheduledRadioRecorder.RecordAsync(
+            snapshot,
+            deadlineUtc,
+            ResolveRadioRecordingsFolder(),
+            cancellation.Token));
+        _activeScheduledRadioRecordings[snapshot.Id] = new ActiveScheduledRadioRecording(
+            snapshot.Id,
+            snapshot.NextStartUtcTicks,
+            snapshot.StreamUrl,
+            snapshot.DurationMinutes,
+            cancellation,
+            task);
+        DiagnosticLog.Info(
+            "radio-schedule",
+            $"Uruchomiono plan: {snapshot.StationName}; pozostało {(int)Math.Ceiling((deadlineUtc - DateTime.UtcNow).TotalSeconds)} s.");
+        AnnounceEssential($"Rozpoczynam zaplanowane nagrywanie: {snapshot.StationName}");
+        _ = CompleteScheduledRadioRecordingAsync(snapshot, task);
+        RearmRadioWakeTimer();
+    }
+
+    private async Task CompleteScheduledRadioRecordingAsync(
+        RadioRecordingScheduleSettings snapshot,
+        Task<ScheduledRadioRecordingResult> task)
+    {
+        ScheduledRadioRecordingResult result;
+        try
+        {
+            result = await task;
+        }
+        catch (OperationCanceledException)
+        {
+            result = new ScheduledRadioRecordingResult(false, true, null, null);
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error("radio-schedule", "Nieobsłużony błąd zaplanowanego nagrania.", exception);
+            result = new ScheduledRadioRecordingResult(false, false, null, exception.Message);
+        }
+        if (_activeScheduledRadioRecordings.Remove(snapshot.Id, out var active))
+            active.Cancellation.Dispose();
+        if (_isClosing) return;
+
+        var current = _state.Radio.RecordingSchedules.FirstOrDefault(schedule =>
+            schedule.Id == snapshot.Id
+            && schedule.NextStartUtcTicks == snapshot.NextStartUtcTicks);
+        if (current is not null && !result.Cancelled)
+        {
+            _ = AdvanceOrRemoveRadioSchedule(current, DateTime.UtcNow, "zakończone");
+            _store.Save(_state);
+        }
+        RearmRadioWakeTimer();
+
+        if (result.Cancelled)
+        {
+            if (!string.IsNullOrWhiteSpace(result.Path))
+                AnnounceEssential($"Zatrzymano zaplanowane nagrywanie. Zapisano: {Path.GetFileName(result.Path)}");
+            return;
+        }
+        if (result.Success && !string.IsNullOrWhiteSpace(result.Path))
+        {
+            DiagnosticLog.Info("radio-schedule", $"Zakończono plan: {snapshot.StationName}; plik {result.Path}.");
+            AnnounceEssential($"Zakończono zaplanowane nagrywanie: {Path.GetFileName(result.Path)}");
+        }
+        else
+        {
+            DiagnosticLog.Warning("radio-schedule", $"Plan {snapshot.StationName} nie utworzył nagrania: {result.Error}");
+            AnnounceEssential($"Nie udało się nagrać {snapshot.StationName}: {result.Error}");
+        }
+    }
+
+    private bool AdvanceOrRemoveRadioSchedule(
+        RadioRecordingScheduleSettings schedule,
+        DateTime afterUtc,
+        string reason)
+    {
+        var next = RadioScheduleCalculator.FindNextStartUtc(schedule, afterUtc);
+        if (next is null)
+        {
+            _state.Radio.RecordingSchedules.Remove(schedule);
+            DiagnosticLog.Info("radio-schedule", $"Usunięto zakończony plan {schedule.StationName}: {reason}.");
+            return true;
+        }
+        schedule.NextStartUtcTicks = next.Value.Ticks;
+        DiagnosticLog.Info(
+            "radio-schedule",
+            $"Przeniesiono plan {schedule.StationName} na {next.Value:O}: {reason}.");
+        return true;
+    }
+
+    private void RearmRadioWakeTimer()
+    {
+        var now = DateTime.UtcNow;
+        var next = _state.Radio.RecordingSchedules
+            .Where(schedule => schedule.Enabled
+                && schedule.NextStartUtcTicks > now.Ticks
+                && (schedule.WakeComputer ?? _state.Radio.WakeScheduledRecordings))
+            .OrderBy(schedule => schedule.NextStartUtcTicks)
+            .FirstOrDefault();
+        if (next is null)
+        {
+            _radioWakeTimer.Cancel();
+            return;
+        }
+        var start = new DateTime(next.NextStartUtcTicks, DateTimeKind.Utc);
+        var wake = start - TimeSpan.FromMinutes(2);
+        if (wake <= now) wake = start;
+        var armed = _radioWakeTimer.Arm(wake);
+        DiagnosticLog.Info(
+            "radio-schedule",
+            armed
+                ? $"Ustawiono wybudzenie na {wake:O} dla {next.StationName}."
+                : "Windows odrzucił czasomierz wybudzania.");
+    }
+
+    private static RadioRecordingScheduleSettings CloneRadioSchedule(
+        RadioRecordingScheduleSettings schedule) => new()
+    {
+        Id = schedule.Id,
+        StationId = schedule.StationId,
+        StationName = schedule.StationName,
+        StreamUrl = schedule.StreamUrl,
+        NextStartUtcTicks = schedule.NextStartUtcTicks,
+        TimeZoneId = schedule.TimeZoneId,
+        DurationMinutes = schedule.DurationMinutes,
+        Recurrence = schedule.Recurrence,
+        ActiveDays = [.. schedule.ActiveDays],
+        OutputFolder = schedule.OutputFolder,
+        WakeComputer = schedule.WakeComputer,
+        Enabled = schedule.Enabled
+    };
 
     public void RenameLocalFile()
     {
@@ -6724,8 +7001,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IntPtr lParam,
         ref bool handled)
     {
-        if (_keyboardHelpActive
-            || message is not (WmKeyDown or WmSysKeyDown)
+        if (message is not (WmKeyDown or WmKeyUp or WmSysKeyDown or WmSysKeyUp))
+        {
+            return IntPtr.Zero;
+        }
+
+        var virtualKey = wParam.ToInt32();
+        var keyDown = message is WmKeyDown or WmSysKeyDown;
+        TrackNativeModifierKey(virtualKey, keyDown);
+        if (!keyDown
+            || _keyboardHelpActive
             || Keyboard.FocusedElement is System.Windows.Controls.TextBox)
         {
             return IntPtr.Zero;
@@ -6735,21 +7020,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // w niektórych układach klawiatury i przy aktywnym czytniku ekranu. Stan
         // klawiszy odczytujemy bezpośrednio z Win32, bo ten hook już pracuje na
         // granicy komunikatów okna.
-        var modifiers = ReadNativeModifierKeys();
+        var modifiers = ReadEffectiveModifierKeys();
         if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift)
             && CurrentSessionSupportsPresets()
-            && RadioPresetKeyMap.TryGetSlotFromVirtualKey(wParam.ToInt32(), out var presetSlot))
+            && RadioPresetKeyMap.TryGetSlotFromVirtualKey(virtualKey, out var presetSlot))
         {
             DiagnosticLog.Info(
                 "preset",
-                $"Bezpośredni skrót presetu; klawisz wirtualny: {wParam.ToInt32()}; slot: {presetSlot}; sesja: {_sessions.Current.Id}.");
+                $"Bezpośredni skrót presetu; klawisz wirtualny: {virtualKey}; slot: {presetSlot}; sesja: {_sessions.Current.Id}.");
             handled = true;
             Dispatcher.BeginInvoke(
                 () => ActivatePreset(presetSlot, useDirectShortcutLabel: true),
                 DispatcherPriority.Input);
             return IntPtr.Zero;
         }
-        Action? action = (modifiers, wParam.ToInt32()) switch
+        Action? action = (modifiers, virtualKey) switch
         {
             (ModifierKeys.Control, VirtualKeyZ) => UndoLastMembershipChange,
             (ModifierKeys.Control | ModifierKeys.Shift, VirtualKeyC)
@@ -6768,6 +7053,44 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         handled = true;
         Dispatcher.BeginInvoke(action, DispatcherPriority.Input);
         return IntPtr.Zero;
+    }
+
+    private void TrackNativeModifierKey(int virtualKey, bool keyDown)
+    {
+        switch (virtualKey)
+        {
+            case VirtualKeyControl:
+                _nativeControlDown = keyDown;
+                break;
+            case VirtualKeyShift:
+                _nativeShiftDown = keyDown;
+                break;
+            case VirtualKeyAlt:
+                _nativeAltDown = keyDown;
+                break;
+            case VirtualKeyLeftWindows:
+            case VirtualKeyRightWindows:
+                _nativeWindowsDown = keyDown;
+                break;
+        }
+    }
+
+    private ModifierKeys ReadEffectiveModifierKeys()
+    {
+        var modifiers = Keyboard.Modifiers | ReadNativeModifierKeys();
+        if (_nativeControlDown) modifiers |= ModifierKeys.Control;
+        if (_nativeShiftDown) modifiers |= ModifierKeys.Shift;
+        if (_nativeAltDown) modifiers |= ModifierKeys.Alt;
+        if (_nativeWindowsDown) modifiers |= ModifierKeys.Windows;
+        return modifiers;
+    }
+
+    private void ClearTrackedNativeModifiers()
+    {
+        _nativeControlDown = false;
+        _nativeShiftDown = false;
+        _nativeAltDown = false;
+        _nativeWindowsDown = false;
     }
 
     private static ModifierKeys ReadNativeModifierKeys()
@@ -6820,6 +7143,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             e.Handled = true;
             Close();
+            return;
+        }
+
+        if (ReadEffectiveModifierKeys() == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)
+            && windowKey == Key.R)
+        {
+            if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+                ShowRadioSchedules();
+            else
+                Announce("Harmonogram nagrywania jest dostępny w sesji Radio internetowe");
+            e.Handled = true;
             return;
         }
 
@@ -7113,7 +7447,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private string DescribeKeyboardShortcut(KeyEventArgs e)
     {
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        var chord = WindowsKeyMap.FromKeyEvent(e);
+        var modifiers = ReadEffectiveModifierKeys();
+        var chord = WindowsKeyMap.FromKeyEvent(e, modifiers);
         var spokenShortcut = FormatShortcutForSpeech(chord);
         var context = KeyboardHelpContext();
 
@@ -7125,12 +7460,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return $"{spokenShortcut}: włącz warstwę prefiksową. W trybie Pomocy warstwa nie zostanie uruchomiona. Kontekst: {context}";
         }
 
-        if (TryDescribeDirectShortcut(key, Keyboard.Modifiers, out var directDescription))
+        if (TryDescribeDirectShortcut(key, modifiers, out var directDescription))
         {
             return $"{spokenShortcut}: {directDescription}. Kontekst: {context}";
         }
 
-        if (TryResolveKeyboardHelpCommand(key, Keyboard.Modifiers, out var commandId))
+        if (TryResolveKeyboardHelpCommand(key, modifiers, out var commandId))
         {
             var displayName = CommandPaletteSearch
                 .CreateEntries(ActiveKeyboardProfile(), _state.Settings, includeCommandPalette: true)
@@ -7153,6 +7488,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool TryResolveKeyboardHelpCommand(Key key, ModifierKeys modifiers, out string commandId)
     {
+        if (key == Key.R
+            && modifiers == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+        {
+            commandId = CommandIds.ManageRadioSchedules;
+            return true;
+        }
         if (CurrentSessionSupportsPresets()
             && key == Key.P
             && modifiers == (ModifierKeys.Control | ModifierKeys.Alt))
@@ -7422,11 +7763,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool TryHandleLocalSessionShortcut(KeyEventArgs e)
     {
-        if (Keyboard.Modifiers != ModifierKeys.Control) return false;
-
+        // Ctrl+0 is the session list, but Ctrl+Shift+0 is preset 0. Use the
+        // native modifier state as well so a transient WPF omission of Shift
+        // cannot send the second shortcut to the first command.
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (!TryGetDigitKey(key, out var slot)) return false;
-        ExecuteCommand(slot == 0 ? CommandIds.SessionList : CommandIds.SessionSlot(slot));
+        var shortcut = MainWindowShortcutRouter.ResolveDigit(
+            key,
+            ReadEffectiveModifierKeys(),
+            CurrentSessionSupportsPresets());
+        if (shortcut.Kind is not (MainWindowDigitShortcutKind.SessionList
+            or MainWindowDigitShortcutKind.SessionSlot)) return false;
+        ExecuteCommand(shortcut.Kind == MainWindowDigitShortcutKind.SessionList
+            ? CommandIds.SessionList
+            : CommandIds.SessionSlot(shortcut.Slot));
         return true;
     }
 
@@ -7553,14 +7902,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool TryHandleDirectRadioPresetShortcut(KeyEventArgs e)
     {
-        if (!CurrentSessionSupportsPresets()
-            || Keyboard.Modifiers != (ModifierKeys.Control | ModifierKeys.Shift))
-        {
-            return false;
-        }
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (!RadioPresetKeyMap.TryGetSlot(key, out var slot)) return false;
-        ActivatePreset(slot, useDirectShortcutLabel: true);
+        var shortcut = MainWindowShortcutRouter.ResolveDigit(
+            key,
+            ReadEffectiveModifierKeys(),
+            CurrentSessionSupportsPresets());
+        if (shortcut.Kind != MainWindowDigitShortcutKind.Preset) return false;
+        ActivatePreset(shortcut.Slot, useDirectShortcutLabel: true);
         return true;
     }
 
@@ -8112,6 +8460,32 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _playerUiTimer.Tick -= PlayerUiTimer_Tick;
         _localSourceSyncTimer.Stop();
         _localSourceSyncTimer.Tick -= LocalSourceSyncTimer_Tick;
+        _radioScheduleTimer.Stop();
+        _radioScheduleTimer.Tick -= RadioScheduleTimer_Tick;
+        var scheduledRecordings = _activeScheduledRadioRecordings.Values.ToArray();
+        foreach (var active in scheduledRecordings) active.Cancellation.Cancel();
+        if (scheduledRecordings.Length > 0)
+        {
+            try
+            {
+                // Give each private recording pipeline a short, bounded chance
+                // to close its MP3 writer before Windows tears the process down.
+                // This runs only while the application is already closing.
+                if (!Task.WaitAll(scheduledRecordings.Select(active => active.Task).ToArray(), 5_000))
+                {
+                    DiagnosticLog.Warning(
+                        "radio-schedule",
+                        "Nie wszystkie zaplanowane nagrania zakończyły finalizację przed zamknięciem programu.");
+                }
+            }
+            catch (AggregateException exception)
+            {
+                DiagnosticLog.Warning(
+                    "radio-schedule",
+                    $"Finalizacja planów podczas zamykania zgłosiła błąd {exception.GetBaseException().GetType().Name}.");
+            }
+        }
+        _radioWakeTimer.Dispose();
         foreach (var watcher in _localSourceWatchers.Values) watcher.Dispose();
         _localSourceWatchers.Clear();
         _windowSource?.RemoveHook(WindowMessageHook);
@@ -8220,6 +8594,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ImportRadioPlaylist_Click(object sender, RoutedEventArgs e) => ImportRadioPlaylist();
     private void AddRadioStation_Click(object sender, RoutedEventArgs e) => AddRadioStation();
     private void RadioRecording_Click(object sender, RoutedEventArgs e) => ToggleRadioRecording();
+    private void RadioSchedules_Click(object sender, RoutedEventArgs e) => ShowRadioSchedules();
     private void Sessions_Click(object sender, RoutedEventArgs e) => ShowSessionList();
     private void MediaContextMenu_Opened(object sender, RoutedEventArgs e)
     {
@@ -9106,6 +9481,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private sealed record PlaylistContentsActionContext(
         PlaylistEntry Playlist,
         IReadOnlyList<MediaItem> Items);
+
+    private sealed record ActiveScheduledRadioRecording(
+        string ScheduleId,
+        long ExpectedStartUtcTicks,
+        string StreamUrl,
+        int DurationMinutes,
+        CancellationTokenSource Cancellation,
+        Task<ScheduledRadioRecordingResult> Task);
 
     private sealed record PlaylistStateUndo(
         long Sequence,
