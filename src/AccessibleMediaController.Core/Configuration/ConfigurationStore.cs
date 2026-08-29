@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 28;
+    public const int CurrentSchemaVersion = 29;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -87,6 +87,7 @@ public sealed class ConfigurationStore
         NormalizePlaybackHistory(state);
         NormalizeBookmarks(state);
         NormalizePlaylists(state);
+        NormalizeSessionPresets(state);
         NormalizeRadio(state);
         ValidateState(state);
         return state;
@@ -101,6 +102,7 @@ public sealed class ConfigurationStore
         NormalizePlaybackHistory(state);
         NormalizeBookmarks(state);
         NormalizePlaylists(state);
+        NormalizeSessionPresets(state);
         NormalizeRadio(state);
         ValidateState(state);
         try
@@ -272,6 +274,7 @@ public sealed class ConfigurationStore
         NormalizePlaybackHistory(state);
         NormalizeBookmarks(state);
         NormalizePlaylists(state);
+        NormalizeSessionPresets(state);
         NormalizeRadio(state);
         state.SchemaVersion = CurrentSchemaVersion;
     }
@@ -311,6 +314,40 @@ public sealed class ConfigurationStore
     {
         state.Playlists ??= new PlaylistSettings();
         _ = new PlaylistIndex(state.Playlists);
+    }
+
+    private static void NormalizeSessionPresets(PersistedState state)
+    {
+        state.SessionPresets ??= new SessionPresetSettings();
+        var normalized = new Dictionary<string, List<SessionPresetEntry>>(
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var session in state.SessionPresets.EntriesBySession
+                     ?? new Dictionary<string, List<SessionPresetEntry>>())
+        {
+            var sessionId = session.Key?.Trim();
+            if (string.IsNullOrWhiteSpace(sessionId)) continue;
+            normalized[sessionId] = (session.Value ?? [])
+                .Where(entry => entry.Slot is >= 1 and <= RadioPresetSlots.Count
+                    && !string.IsNullOrWhiteSpace(entry.TargetId)
+                    && !string.IsNullOrWhiteSpace(entry.TargetKind))
+                .Select(entry => new SessionPresetEntry
+                {
+                    Slot = entry.Slot,
+                    TargetId = entry.TargetId.Trim(),
+                    TargetKind = entry.TargetKind.Trim(),
+                    TargetTitle = string.IsNullOrWhiteSpace(entry.TargetTitle)
+                        ? "Element bez nazwy"
+                        : entry.TargetTitle.Trim(),
+                    TargetLocation = string.IsNullOrWhiteSpace(entry.TargetLocation)
+                        ? null
+                        : entry.TargetLocation.Trim()
+                })
+                .GroupBy(entry => entry.Slot)
+                .Select(group => group.First())
+                .OrderBy(entry => entry.Slot)
+                .ToList();
+        }
+        state.SessionPresets.EntriesBySession = normalized;
     }
 
     private static void NormalizeRadio(PersistedState state)

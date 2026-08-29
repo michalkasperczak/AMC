@@ -1,3 +1,5 @@
+using System.Collections.Specialized;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using AccessibleMediaController.Windows.Controls;
@@ -8,15 +10,25 @@ namespace AccessibleMediaController.Windows;
 public partial class RadioPresetsWindow : AccessibleWindow
 {
     private readonly IReadOnlyList<RadioPresetChoice> _choices;
+    private readonly bool _copyLocalTargets;
 
-    public RadioPresetsWindow(IReadOnlyList<RadioPresetChoice> choices, string? currentStationId)
+    public RadioPresetsWindow(
+        IReadOnlyList<RadioPresetChoice> choices,
+        string? currentTargetId,
+        string sessionName = "Radio internetowe",
+        bool copyLocalTargets = false)
     {
         InitializeComponent();
         _choices = choices;
+        _copyLocalTargets = copyLocalTargets;
+        Title = $"Presety — {sessionName}";
+        DescriptionText.Text = $"Presety sesji {sessionName}. Enter lub Spacja uruchamia zajętą pozycję. " +
+            "Ta lista nigdy nie zmienia ani nie nadpisuje presetów.";
+        System.Windows.Automation.AutomationProperties.SetName(PresetList, $"Presety, {sessionName}");
         PresetList.ItemsSource = choices;
         var selected = choices.ToList().FindIndex(choice =>
             choice.StationId is not null
-            && string.Equals(choice.StationId, currentStationId, StringComparison.Ordinal));
+            && string.Equals(choice.StationId, currentTargetId, StringComparison.Ordinal));
         if (selected < 0) selected = choices.ToList().FindIndex(choice => choice.StationId is not null);
         PresetList.SelectedIndex = selected >= 0 ? selected : 0;
     }
@@ -80,8 +92,8 @@ public partial class RadioPresetsWindow : AccessibleWindow
             return;
         }
         PresetStatus.Announce(choices.Count == 1
-            ? "Skopiowano nazwę stacji"
-            : $"Skopiowano nazwy stacji: {choices.Count}");
+            ? "Skopiowano nazwę elementu"
+            : $"Skopiowano nazwy elementów: {choices.Count}");
     }
 
     private void CopySelectedNamesAndLinks()
@@ -94,17 +106,39 @@ public partial class RadioPresetsWindow : AccessibleWindow
             PresetStatus.Announce("Zaznaczenie nie zawiera zajętego presetu z adresem");
             return;
         }
-        var text = string.Join(
-            Environment.NewLine,
-            choices.SelectMany(choice => new[] { choice.StationName!, choice.ShareableLocation! }));
-        if (!ClipboardRetry.TrySetText(text, out var error))
+        var text = _copyLocalTargets
+            ? string.Join(Environment.NewLine, choices.Select(choice => choice.ShareableLocation))
+            : string.Join(
+                Environment.NewLine,
+                choices.SelectMany(choice => new[] { choice.StationName!, choice.ShareableLocation! }));
+        var data = new DataObject();
+        data.SetData(DataFormats.UnicodeText, text);
+        if (_copyLocalTargets)
+        {
+            var paths = choices
+                .Select(choice => choice.ShareableLocation!)
+                .Where(path => File.Exists(path) || Directory.Exists(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (paths.Length > 0)
+            {
+                var fileDropList = new StringCollection();
+                fileDropList.AddRange(paths);
+                data.SetFileDropList(fileDropList);
+            }
+        }
+        if (!ClipboardRetry.TrySetDataObject(data, out var error))
         {
             PresetStatus.Announce(error);
             return;
         }
-        PresetStatus.Announce(choices.Length == 1
-            ? "Skopiowano nazwę i łącze"
-            : $"Skopiowano nazwy i łącza: {choices.Length}");
+        PresetStatus.Announce(_copyLocalTargets
+            ? choices.Length == 1
+                ? "Skopiowano pełną ścieżkę i dostępny element"
+                : $"Skopiowano pełne ścieżki i dostępne elementy: {choices.Length}"
+            : choices.Length == 1
+                ? "Skopiowano nazwę i łącze"
+                : $"Skopiowano nazwy i łącza: {choices.Length}");
     }
 
     private void ActivateSelected()
@@ -113,7 +147,7 @@ public partial class RadioPresetsWindow : AccessibleWindow
         if (choice.StationId is null)
         {
             PresetStatus.Announce(
-                $"Preset {choice.SlotLabel} pusty. Ctrl+Alt+Shift+P dodaje bieżącą stację");
+                $"Preset {choice.SlotLabel} pusty. Ctrl+Alt+Shift+P przypisuje bieżący element");
             return;
         }
         SelectedSlot = choice.Slot;

@@ -25,9 +25,11 @@ public partial class RadioPresetAssignmentWindow : AccessibleWindow
         string stationId,
         IReadOnlyList<RadioPresetChoice> choices,
         int? firstFreeSlot,
-        int initialSlot)
+        int initialSlot,
+        string sessionName = "Radio internetowe")
     {
         InitializeComponent();
+        Title = $"Przypisz preset — {sessionName}";
         _stationName = stationName;
         _stationId = stationId;
         _choices = choices;
@@ -96,7 +98,7 @@ public partial class RadioPresetAssignmentWindow : AccessibleWindow
             : !replacesOtherStation
                 ? $"Preset {choice.SlotLabel} już zawiera tę stację. Enter zatwierdza, Escape anuluje"
                 : _replacementArmedSlot == slot
-                    ? $"Potwierdzono miejsce {choice.SlotLabel}. Enter zastępuje stację {choice.StationName} stacją {_stationName}, Escape anuluje"
+                    ? $"Potwierdzono miejsce {choice.SlotLabel}. Enter zastępuje element {choice.StationName} elementem {_stationName}, Escape anuluje"
                     : $"Preset {choice.SlotLabel} zajęty: {choice.StationName}. Naciśnij ponownie {choice.SpokenShortcutLabel}, a następnie Enter, aby zastąpić; inny klawisz wybiera inne miejsce; Escape anuluje");
     }
 

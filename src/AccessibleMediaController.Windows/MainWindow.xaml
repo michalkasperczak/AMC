@@ -130,12 +130,12 @@
                           automation:AutomationProperties.AcceleratorKey="F6" Click="NowPlayingView_Click" />
                 <MenuItem x:Name="FavoritesViewMenuItem" Header="_Ulubione" InputGestureText="Ctrl+U" Click="FavoritesView_Click" />
                 <MenuItem x:Name="PlaylistsViewMenuItem" Header="_Playlisty" InputGestureText="Ctrl+P" Click="PlaylistsView_Click" />
-                <MenuItem x:Name="RadioPresetsViewMenuItem" Header="_Presety radiowe…" InputGestureText="Ctrl+Alt+P"
-                          automation:AutomationProperties.Name="Presety radiowe, Ctrl+Alt+P"
+                <MenuItem x:Name="RadioPresetsViewMenuItem" Header="_Presety…" InputGestureText="Ctrl+Alt+P"
+                          automation:AutomationProperties.Name="Presety aktywnej sesji, Ctrl+Alt+P"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+P"
                           Visibility="Collapsed" Click="RadioPresetsView_Click" />
                 <MenuItem x:Name="RadioAssignPresetMenuItem" Header="_Utwórz lub przypisz preset…" InputGestureText="Ctrl+Alt+Shift+P"
-                          automation:AutomationProperties.Name="Utwórz lub przypisz preset radiowy, Ctrl+Alt+Shift+P"
+                          automation:AutomationProperties.Name="Utwórz lub przypisz preset aktywnej sesji, Ctrl+Alt+Shift+P"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+Shift+P"
                           Visibility="Collapsed" Click="RadioAssignPreset_Click" />
                 <MenuItem x:Name="LibraryViewMenuItem" Header="_Biblioteka" InputGestureText="Ctrl+L" Click="LibraryView_Click" />
@@ -245,8 +245,8 @@
                     <MenuItem x:Name="PlaylistMembershipMenuItem" Header="Zmień przynależność do playlist…" InputGestureText="Ctrl+Shift+P"
                               automation:AutomationProperties.Name="Zmień przynależność do playlist, Ctrl+Shift+P"
                               Click="Playlists_Click" />
-                    <MenuItem x:Name="RadioPresetMembershipMenuItem" Header="Utwórz lub przypisz preset radiowy…" InputGestureText="Ctrl+Alt+Shift+P"
-                              automation:AutomationProperties.Name="Utwórz lub przypisz preset radiowy, Ctrl+Alt+Shift+P"
+                    <MenuItem x:Name="RadioPresetMembershipMenuItem" Header="Utwórz lub przypisz preset…" InputGestureText="Ctrl+Alt+Shift+P"
+                              automation:AutomationProperties.Name="Utwórz lub przypisz preset aktywnej sesji, Ctrl+Alt+Shift+P"
                               Visibility="Collapsed" Click="RadioAssignPreset_Click" />
                     <Separator />
                     <MenuItem Header="Właściwości i informacje" InputGestureText="Alt+Enter"
@@ -339,8 +339,8 @@
                     <MenuItem x:Name="PlayerPlaylistMembershipMenuItem" Header="Zmień przynależność do playlist…" InputGestureText="Ctrl+Shift+P"
                               automation:AutomationProperties.Name="Zmień przynależność do playlist, Ctrl+Shift+P"
                               Click="Playlists_Click" />
-                    <MenuItem x:Name="PlayerRadioPresetMembershipMenuItem" Header="Utwórz lub przypisz preset radiowy…" InputGestureText="Ctrl+Alt+Shift+P"
-                              automation:AutomationProperties.Name="Utwórz lub przypisz preset radiowy, Ctrl+Alt+Shift+P"
+                    <MenuItem x:Name="PlayerRadioPresetMembershipMenuItem" Header="Utwórz lub przypisz preset…" InputGestureText="Ctrl+Alt+Shift+P"
+                              automation:AutomationProperties.Name="Utwórz lub przypisz preset aktywnej sesji, Ctrl+Alt+Shift+P"
                               Visibility="Collapsed" Click="RadioAssignPreset_Click" />
                     <Separator />
                     <MenuItem Header="Właściwości i informacje" InputGestureText="Alt+Enter"

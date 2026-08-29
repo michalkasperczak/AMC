@@ -31,7 +31,7 @@ public static class CommandCatalog
 
         if (CommandIds.TryParseRadioPreset(commandId, out var radioPresetSlot))
         {
-            return $"Uruchom preset radiowy {RadioPresetSlots.Label(radioPresetSlot)}";
+            return $"Uruchom preset {RadioPresetSlots.Label(radioPresetSlot)} aktywnej sesji";
         }
 
         const string sessionSlotPrefix = "session.slot.";
@@ -101,8 +101,8 @@ public static class CommandCatalog
             CommandIds.ImportRadioPlaylist => "Importuj stacje radiowe z playlisty",
             CommandIds.ToggleRadioRecording => "Rozpocznij lub zakończ nagrywanie radia",
             CommandIds.RadioJumpLive => "Radio: wróć na żywo",
-            CommandIds.ViewRadioPresets => "Pokaż presety radiowe",
-            CommandIds.AssignRadioPreset => "Utwórz lub przypisz preset radiowy",
+            CommandIds.ViewRadioPresets => "Pokaż presety aktywnej sesji",
+            CommandIds.AssignRadioPreset => "Utwórz lub przypisz preset aktywnej sesji",
             CommandIds.ViewMixes => "Pokaż miksy",
             CommandIds.ViewHistory => "Pokaż historię odtwarzania",
             CommandIds.ViewBookmarks => "Pokaż zakładki",

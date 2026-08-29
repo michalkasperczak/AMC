@@ -17,6 +17,7 @@ var tests = new (string Name, Action Test)[]
     ("Odświeżanie profilu wbudowanego", TestBuiltInProfileRefresh),
     ("Czytelne nazwy poleceń", TestCommandCatalog),
     ("Trwałe presety radia", TestRadioPresetPersistence),
+    ("Trwałe presety plików lokalnych", TestLocalPresetPersistence),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
     ("Migracja starszych ustawień", TestLegacyStateMigration),
@@ -184,8 +185,8 @@ static void TestCommandCatalog()
     Equal("Otwórz lokalne pliki multimedialne", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
     Equal("Otwórz folder z plikami multimedialnymi", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Importuj stacje radiowe z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportRadioPlaylist));
-    Equal("Pokaż presety radiowe", CommandCatalog.GetDisplayName(CommandIds.ViewRadioPresets));
-    Equal("Utwórz lub przypisz preset radiowy", CommandCatalog.GetDisplayName(CommandIds.AssignRadioPreset));
+    Equal("Pokaż presety aktywnej sesji", CommandCatalog.GetDisplayName(CommandIds.ViewRadioPresets));
+    Equal("Utwórz lub przypisz preset aktywnej sesji", CommandCatalog.GetDisplayName(CommandIds.AssignRadioPreset));
     Equal("Biblioteka lokalna: pokaż foldery", CommandCatalog.GetDisplayName(CommandIds.ViewFolders));
     Equal("Biblioteka lokalna: pokaż wszystkie pliki", CommandCatalog.GetDisplayName(CommandIds.ViewAllLocalFiles));
     Equal("Biblioteka lokalna: pokaż kolejność własną", CommandCatalog.GetDisplayName(CommandIds.ViewCustomLocalOrder));
@@ -248,6 +249,57 @@ static void TestRadioPresetPersistence()
         Equal("station-a", loaded.Radio.Presets[0].StationId);
         Equal(12, loaded.Radio.Presets[1].Slot);
         Equal("station-b", loaded.Radio.Presets[1].StationId);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
+static void TestLocalPresetPersistence()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-local-preset-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.SessionPresets.EntriesBySession["local"] =
+        [
+            new SessionPresetEntry
+            {
+                Slot = 1,
+                TargetId = "folder:C:\\MUZYKA",
+                TargetKind = "folder",
+                TargetTitle = "Muzyka",
+                TargetLocation = "C:\\Muzyka"
+            },
+            new SessionPresetEntry
+            {
+                Slot = 2,
+                TargetId = "track-a",
+                TargetKind = "item",
+                TargetTitle = "Audycja",
+                TargetLocation = "C:\\Audio\\Audycja.mp3"
+            },
+            new SessionPresetEntry
+            {
+                Slot = 2,
+                TargetId = "duplicate",
+                TargetKind = "item",
+                TargetTitle = "Duplikat"
+            },
+            new SessionPresetEntry { Slot = 13, TargetId = "invalid", TargetKind = "item" }
+        ];
+
+        store.Save(state);
+        var loaded = store.LoadOrCreate();
+        var presets = loaded.SessionPresets.EntriesBySession["local"];
+        Equal(2, presets.Count);
+        Equal("folder", presets[0].TargetKind);
+        Equal("Muzyka", presets[0].TargetTitle);
+        Equal("track-a", presets[1].TargetId);
+        Equal("C:\\Audio\\Audycja.mp3", presets[1].TargetLocation);
     }
     finally
     {
@@ -2385,8 +2437,8 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
     Equal("Ctrl+P", entries.Single(entry => entry.CommandId == CommandIds.ViewPlaylists).LocalShortcut);
     Equal("Ctrl+Shift+P", entries.Single(entry => entry.CommandId == CommandIds.ManagePlaylists).LocalShortcut);
-    Equal("Ctrl+Alt+P (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ViewRadioPresets).LocalShortcut);
-    Equal("Ctrl+Alt+Shift+P (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.AssignRadioPreset).LocalShortcut);
+    Equal("Ctrl+Alt+P (Pliki lokalne lub Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ViewRadioPresets).LocalShortcut);
+    Equal("Ctrl+Alt+Shift+P (Pliki lokalne lub Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.AssignRadioPreset).LocalShortcut);
     True(entries.Any(entry => entry.CommandId == CommandIds.ViewFolders), "Paleta powinna zawierać widok folderów.");
     True(entries.Any(entry => entry.CommandId == CommandIds.SettingsSessionOrder), "Paleta powinna zawierać ustawienia kolejności sesji.");
     Equal("Ctrl+H", entries.Single(entry => entry.CommandId == CommandIds.ViewHistory).LocalShortcut);

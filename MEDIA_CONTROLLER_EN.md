@@ -2,7 +2,7 @@
 
 Document version: 0.7, current project plan
 
-Updated: 27 August 2026
+Updated: 29 August 2026
 
 ## 1. Project goal
 
@@ -698,6 +698,8 @@ Manual ordering of radio Favorites has two modes. `Alt+Up/Down` moves a contiguo
 AMC distinguishes **local Internet Radio presets** from **device presets** owned by WiiM, BluOS or a future hardware adapter. Ordinary Radio has twelve AMC-owned positions `1–0`, `-` and `=`. `Ctrl+Shift+1–0/-/=` immediately recalls an occupied position; an empty one changes nothing and explains assignment. `Ctrl+Alt+P` opens a recall-only accessible list where Enter and Space start an occupied preset and can never save or overwrite it. Shift selects multiple slots; `Ctrl+C` copies occupied station names and `Ctrl+Shift+C` copies name–address pairs while skipping empty slots. `Ctrl+Alt+Shift+P` opens assignment for the current or selected station, announces the first free position, accepts one unmodified slot key and saves with Enter. An occupied position requires selecting the same key again before Enter; another key changes the target and Escape cancels. Delete prepares clearing the selected assignment, also confirmed with Enter. This keeps recall immediate while avoiding the defect of a normal double tap, whose first press would already start the old station. Long press is not used because key repeat, keyboard layout and screen-reader interaction make it less predictable.
 
 Assigning a local preset persists a stable station reference and promotes the station into the Radio Library when necessary; clearing the preset does not remove the station from Library or Favorites. An AMC preset does not require its target to belong to Library, Favorites, Queue, or a playlist: it stores the session, resource kind, stable identifier, and an official fallback link, so it may point to a station, track, album, playlist, or dynamic mix. `Ctrl+Alt+P` is the common preset list for the active session, `Ctrl+Alt+Shift+P` creates or assigns a preset, and `Ctrl+Shift+1–0/-/=` immediately recalls a slot. `Ctrl+P` and `Ctrl+Shift+P` always retain their consistent playlist meanings and also work for radio stations. Device presets remain a separate collection owned by a particular player and are read or written through that device's API; AMC does not pretend that they share identity or synchronisation with app-owned presets.
+
+In the current **Local Files** implementation, a preset can target a file or any visible folder under a registered Library source. A file uses its stable AMC catalogue identifier and starts playing when recalled. A folder stores its full path, switches the Library to Folders, and opens that level without starting audio. The same list and assignment command work in Folders, All files, Custom order, Favorites, and the player. Recall never changes the active session. If a file leaves the active Library or a source folder is detached, the assignment is retained and reported as unavailable so temporary cloud unavailability cannot erase user data.
 
 In the current Radio implementation a preset points to one station. Extending its target to a playlist is intentionally deferred until station playlists have been tested. Recalling such a future preset will open the playlist as the playback context and start its remembered station, or the first station if none was remembered. Page Up and Page Down will then stay inside that playlist. A radio playlist is not a folder that advances automatically: a live stream has no natural end, so changing stations remains an explicit user action.
 

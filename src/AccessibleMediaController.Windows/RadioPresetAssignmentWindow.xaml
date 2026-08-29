@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
         xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
-        Title="Przypisz preset radiowy" Width="620" Height="500"
+        Title="Przypisz preset" Width="620" Height="500"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         ContentRendered="Window_ContentRendered"
         PreviewKeyDown="Window_PreviewKeyDown">

@@ -54,6 +54,8 @@ Od `alpha.135` Radio internetowe korzysta ze zwykłych, trwałych playlist AMC t
 
 Od `alpha.136` lista presetów rozróżnia numer miejsca od fizycznego klawisza. Dziesiąta pozycja brzmi „Preset numer 10, klawisz 0”, jedenasta wskazuje klawisz minus, a dwunasta znak równości. Pasek stanu ponownie zachowuje standardowe drzewo dostępności Windows: ma rolę paska stanu i dokładnie jedno tekstowe dziecko z aktualną treścią, którego oczekuje skrypt `NVDA+End`. Kontener nie otrzymuje dodatkowej nazwy, więc treść nie powinna być dublowana.
 
+Od `alpha.137` presety AMC działają również w sesji **Pliki lokalne**. `Ctrl+Alt+P` otwiera dwanaście miejsc bieżącej sesji na liście folderów, w płaskiej Bibliotece, Ulubionych oraz w odtwarzaczu. `Ctrl+Alt+Shift+P` przypisuje zaznaczony plik, aktualnie odtwarzany plik albo wskazany folder Biblioteki. `Ctrl+Shift+1–0/-/=` wywołuje miejsce bez przełączania sesji: plik jest od razu odtwarzany, natomiast folder otwiera się jako bieżący poziom widoku Foldery. Presety lokalne są trwałe i wchodzą do pełnej kopii ustawień; usunięcie lub odłączenie celu nie usuwa po cichu przypisania, lecz daje czytelny komunikat o niedostępności.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

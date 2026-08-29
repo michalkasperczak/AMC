@@ -3,13 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
         xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
-        Title="Presety radiowe" Width="560" Height="470"
+        Title="Presety" Width="560" Height="470"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         ContentRendered="Window_ContentRendered"
         PreviewKeyDown="Window_PreviewKeyDown">
     <DockPanel Margin="12">
-        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap"
-                   Text="Presety radiowe. Enter lub Spacja uruchamia zajętą pozycję. Ta lista nigdy nie zmienia ani nie nadpisuje presetów."
+        <TextBlock x:Name="DescriptionText" DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap"
+                   Text="Presety. Enter lub Spacja uruchamia zajętą pozycję. Ta lista nigdy nie zmienia ani nie nadpisuje presetów."
                    automation:AutomationProperties.HeadingLevel="Level1" />
         <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <controls:AccessibleStatusTextBlock x:Name="PresetStatus" Margin="0,0,0,8"
@@ -25,7 +25,7 @@
                  SelectionMode="Extended"
                  DisplayMemberPath="Label"
                  TextSearch.TextPath="Label"
-                 automation:AutomationProperties.Name="Presety radiowe"
+                 automation:AutomationProperties.Name="Presety"
                  automation:AutomationProperties.HelpText="Strzałki wybierają preset. Enter lub Spacja uruchamia zajętą pozycję.">
             <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">

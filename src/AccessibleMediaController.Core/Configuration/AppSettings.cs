@@ -160,7 +160,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 28;
+    public int SchemaVersion { get; set; } = 29;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -168,9 +168,25 @@ public sealed class PersistedState
     public SessionNavigationSettings SessionNavigation { get; set; } = new();
     public CollectionOrderSettings CollectionOrders { get; set; } = new();
     public PlaylistSettings Playlists { get; set; } = new();
+    public SessionPresetSettings SessionPresets { get; set; } = new();
     public LocalMediaSettings LocalMedia { get; set; } = new();
     public RadioSettings Radio { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];
+}
+
+public sealed class SessionPresetSettings
+{
+    public Dictionary<string, List<SessionPresetEntry>> EntriesBySession { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class SessionPresetEntry
+{
+    public int Slot { get; set; }
+    public string TargetId { get; set; } = string.Empty;
+    public string TargetKind { get; set; } = string.Empty;
+    public string TargetTitle { get; set; } = string.Empty;
+    public string? TargetLocation { get; set; }
 }
 
 public sealed class SearchHistorySettings

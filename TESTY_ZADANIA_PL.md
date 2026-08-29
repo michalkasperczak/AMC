@@ -1,12 +1,40 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-136`
-- Tytuł zestawu: Dostępny pasek stanu i jednoznaczne miejsca presetów
-- Wersja programu: `0.1.0-alpha.136`
+- Numer zestawu: `AMC-TEST-137`
+- Tytuł zestawu: Presety plików i folderów Biblioteki
+- Wersja programu: `0.1.0-alpha.137`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.136.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.137.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 137
+
+### AMC-137-01 — Lista presetów w Plikach lokalnych
+
+W sesji Pliki lokalne otwórz kolejno Foldery (`Alt+1`), Wszystkie pliki (`Alt+2`) i Ulubione (`Ctrl+U`). W każdym widoku naciśnij `Ctrl+Alt+P`, przejdź po liście, po czym zamknij ją Escape.
+
+Oczekiwane: zawsze otwiera się lista „Presety — Pliki lokalne” z dwunastoma jednoznacznie nazwanymi miejscami. Nie pojawiają się określenia radiowe ani techniczne dane obiektu. Escape wraca na element, z którego lista została otwarta.
+
+### AMC-137-02 — Preset folderu Biblioteki
+
+W `Alt+1` wskaż folder na dowolnym poziomie i naciśnij `Ctrl+Alt+Shift+P`. Wybierz wolne miejsce, zatwierdź Enterem, przejdź do innego widoku lub folderu i wywołaj zapisane miejsce przez `Ctrl+Shift+cyfra`.
+
+Oczekiwane: przypisanie podaje nazwę folderu. Wywołanie nie uruchamia dźwięku i nie zmienia sesji, lecz otwiera dokładnie zapisany folder w widoku Foldery. Fokus trafia na jego pierwszą pozycję albo na czytelną pustą listę.
+
+### AMC-137-03 — Preset pliku z Biblioteki i Ulubionych
+
+Przypisz jeden plik z płaskiej Biblioteki, a drugi z Ulubionych. Wywołaj je bezpośrednimi skrótami oraz Enterem z listy `Ctrl+Alt+P`; sprawdź również przypisanie aktualnego pliku z otwartego odtwarzacza.
+
+Oczekiwane: plik od razu rozpoczyna odtwarzanie, a Page Up i Page Down korzystają z właściwego lokalnego kontekstu. Preset jest ten sam niezależnie od widoku, z którego przypisano plik. Skrót nie przełącza do Radia.
+
+### AMC-137-04 — Trwałość i niedostępny cel
+
+Zamknij i ponownie uruchom AMC, po czym sprawdź zapisane presety. Następnie czasowo odłącz jeden Folder Biblioteki albo usuń przypisany plik z Biblioteki i spróbuj wywołać jego miejsce.
+
+Oczekiwane: po ponownym uruchomieniu przypisania pozostają. Niedostępny cel nie powoduje zawieszenia, przełączenia sesji ani usunięcia presetu; program przekazuje krótki komunikat, że pliku albo folderu nie ma już w Bibliotece.
+
+## Poprzedni zestaw alpha 136
 
 ## Nowości alpha 136
 
