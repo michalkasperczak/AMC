@@ -418,6 +418,10 @@ Tab follows the user-facing form order. Escape also works inside the hosted nati
 
 The complete `*.amcbackup.json` backup already contains the Radio Library and Favorites as well as recording schedules. [`PROJEKT_IMPORTU_EKSPORTU_RADIA.md`](PROJEKT_IMPORTU_EKSPORTU_RADIA.md) specifies a separate safe sharing format; dedicated import and export commands are not part of alpha 149 yet.
 
+## Start and wake labels in alpha 150
+
+The new-schedule combo is now simply labelled **Record** and contains **Immediately** and **Later**. “Immediately” means after choosing Save; “Later” enables the date and time controls. The implementation-oriented phrase “after saving” is no longer part of the value itself. The wake control is consistently named **Wake the computer for this schedule**.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

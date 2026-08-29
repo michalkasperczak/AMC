@@ -1038,6 +1038,8 @@ Zasada terminu i fokusu od `alpha.149`: nowy plan rozdziela wybór **Od razu po 
 
 Przenośne dane Radia są dwiema warstwami. Pełna kopia zachowuje dokładny stan tego użytkownika, natomiast osobne eksporty Ulubionych i harmonogramów służą do bezpiecznego przesyłania oraz scalania. Ich plan i reguły prywatności określa `PROJEKT_IMPORTU_EKSPORTU_RADIA.md`.
 
+Korekta języka interfejsu `alpha.150`: nazwa pola opisuje zamiar **Nagrywaj**, a jego wartości to **Natychmiast** i **Później**. Szczegół, że rozpoczęcie natychmiastowe następuje po zatwierdzeniu przyciskiem Zapisz, należy do opisu pomocniczego, nie do nazwy wartości. Cały moduł używa rzeczownika „harmonogram”, dlatego dostępna nazwa reguły zasilania brzmi **Wybudzanie komputera dla tego harmonogramu**. Nie stosujemy naprzemiennie słów „plan” i „nagranie” dla tego samego rekordu.
+
 Katalog lokalny i kolejność: Biblioteka nie jest playlistą ani kopią jednego folderu, lecz katalogiem źródeł z trwałą tożsamością, ścieżką i widokami. Porządki wyliczane, takie jak tytuł, wykonawca, album, folder, data dodania albo ostatnie odtworzenie, pozostają deterministycznymi sposobami sortowania. Osobna Kolejność własna jest zapisem użytkownika i nie zmienia kolejności plików na dysku. Te same klawisze nie udają ręcznego sortowania w widokach wykonawców, albumów ani wyników wyszukiwania.
 
 Planowana kolejność dalszych etapów:

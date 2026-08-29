@@ -256,8 +256,8 @@ public partial class RadioScheduleEditorWindow : Window
         EnabledCheckBox.IsEnabled = !immediate;
         if (immediate) EnabledCheckBox.IsChecked = true;
         ImmediateStartExplanation.Text = immediate
-            ? "Pierwsze nagranie rozpocznie się po zapisaniu. Data i godzina są pomijane; plan cykliczny powtórzy się o godzinie rozpoczęcia pierwszego nagrania."
-            : "Pierwsze nagranie rozpocznie się w podanej dacie i godzinie. W polach daty i czasu lewo lub prawo wybiera część, a góra lub dół zmienia jej wartość.";
+            ? "Nagrywanie rozpocznie się natychmiast po wybraniu Zapisz. Data i godzina są pomijane; harmonogram cykliczny powtórzy się o godzinie rozpoczęcia pierwszego nagrania."
+            : "Nagrywanie rozpocznie się później, w podanej dacie i godzinie. W polach daty i czasu lewo lub prawo wybiera część, a góra lub dół zmienia jej wartość.";
     }
 
     private void UpdateDaysEnabled()

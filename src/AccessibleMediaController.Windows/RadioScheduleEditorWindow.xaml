@@ -27,13 +27,13 @@
 
         <StackPanel Grid.Row="2">
             <Label x:Name="StartModeLabel" Target="{Binding ElementName=StartModeCombo}"
-                   Visibility="Collapsed">_Pierwsze nagranie:</Label>
+                   Visibility="Collapsed">_Nagrywaj:</Label>
             <ComboBox x:Name="StartModeCombo" Margin="0,0,0,8" Visibility="Collapsed"
                       SelectionChanged="StartModeCombo_SelectionChanged"
-                      automation:AutomationProperties.Name="Termin pierwszego nagrania"
-                      automation:AutomationProperties.HelpText="Wybierz rozpoczęcie od razu po zapisaniu albo w określonej dacie i godzinie.">
-                <ComboBoxItem Tag="Immediate">Od razu po zapisaniu</ComboBoxItem>
-                <ComboBoxItem Tag="Scheduled">W wybranym terminie</ComboBoxItem>
+                      automation:AutomationProperties.Name="Nagrywaj"
+                      automation:AutomationProperties.HelpText="Wybierz Natychmiast albo Później. Po wybraniu Później ustaw datę i godzinę.">
+                <ComboBoxItem Tag="Immediate">Natychmiast</ComboBoxItem>
+                <ComboBoxItem Tag="Scheduled">Później</ComboBoxItem>
             </ComboBox>
             <TextBlock x:Name="ImmediateStartExplanation" Margin="0,0,0,8"
                        TextWrapping="Wrap" Visibility="Collapsed" />
@@ -110,7 +110,7 @@
         <TextBlock Grid.Row="13" Text="Wybudzanie komputera:" Margin="0,0,0,4"/>
         <ComboBox x:Name="WakeCombo" Grid.Row="14" Margin="0,0,0,10"
                   DisplayMemberPath="Label" TextSearch.TextPath="Label"
-                  automation:AutomationProperties.Name="Wybudzanie komputera dla tego planu"/>
+                  automation:AutomationProperties.Name="Wybudzanie komputera dla tego harmonogramu"/>
 
         <CheckBox x:Name="EnabledCheckBox" Grid.Row="15" Content="Plan włączony" IsChecked="True"
                   Margin="0,0,0,10" automation:AutomationProperties.Name="Plan włączony"

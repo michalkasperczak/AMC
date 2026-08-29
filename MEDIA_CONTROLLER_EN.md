@@ -1024,6 +1024,8 @@ Schedule time and focus rule since `alpha.149`: a new entry separates **Immediat
 
 Portable Radio data has two layers. A complete backup preserves one user's exact state, while dedicated Favorites and schedule exports are for safe sharing and merging. `PROJEKT_IMPORTU_EKSPORTU_RADIA.md` defines their privacy and compatibility rules.
 
+Interface-language correction in `alpha.150`: the field describes the intent **Record**, with **Immediately** and **Later** as its values. The detail that immediate capture starts after confirming Save belongs in help text rather than the value label. The whole module uses “schedule” for this record, so the accessible power-rule name is consistently **Wake the computer for this schedule**.
+
 Local catalogue and ordering: the Library is neither a playlist nor a mirror of one folder. It is a catalogue of sources with stable identity, path and derived views. Derived orders such as title, artist, album, folder, date added or last played remain deterministic sort modes. Separate Custom order is user metadata and never changes disk-file order. The same keys do not pretend to reorder artist, album or search-result views.
 
 Planned sequence of later stages:

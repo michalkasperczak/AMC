@@ -447,6 +447,10 @@ Tab przechodzi po formularzu w kolejności użytkowej. Escape działa również 
 
 Pełna kopia `*.amcbackup.json` już obejmuje Bibliotekę i Ulubione Radia oraz harmonogramy. Plan osobnego, bezpiecznego eksportu do przesyłania innym osobom opisuje [`PROJEKT_IMPORTU_EKSPORTU_RADIA.md`](PROJEKT_IMPORTU_EKSPORTU_RADIA.md); osobne przyciski importu i eksportu nie są jeszcze częścią alpha 149.
 
+## Nazwy rozpoczęcia i wybudzania w alpha 150
+
+Pole nowego harmonogramu brzmi teraz zwięźle **Nagrywaj** i zawiera wartości **Natychmiast** oraz **Później**. „Natychmiast” oznacza rozpoczęcie po wybraniu Zapisz; „Później” uaktywnia datę i godzinę. Znika techniczne sformułowanie „po zapisaniu” z samej wartości pola. Pole wybudzania ma konsekwentną nazwę **Wybudzanie komputera dla tego harmonogramu**.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

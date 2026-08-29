@@ -1,12 +1,38 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-149`
-- Tytuł zestawu: Termin, tabulacja i fokus harmonogramu
-- Wersja programu: `0.1.0-alpha.149`
+- Numer zestawu: `AMC-TEST-150`
+- Tytuł zestawu: Spójne nazwy harmonogramu
+- Wersja programu: `0.1.0-alpha.150`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.149.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.150.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 150
+
+### AMC-150-01 — Pole Nagrywaj
+
+Na stacji naciśnij `Shift+R` i przejdź do pola Nagrywaj.
+
+Oczekiwane: NVDA czyta pole kombi Nagrywaj oraz tylko dwie wartości:
+**Natychmiast** i **Później**. Nie mówi „Termin pierwszego nagrania” ani
+„Od razu po zapisaniu”.
+
+### AMC-150-02 — Zachowanie obu wartości
+
+Wybierz kolejno Natychmiast i Później.
+
+Oczekiwane: Natychmiast wyłącza datę i godzinę oraz wyjaśnia, że nagrywanie
+rozpocznie się po wybraniu Zapisz. Później uaktywnia segmentową datę i godzinę.
+
+### AMC-150-03 — Nazwa wybudzania
+
+Przejdź Tabem do pola wybudzania.
+
+Oczekiwane: NVDA mówi „Wybudzanie komputera dla tego harmonogramu”. Lista nadal
+zawiera trzy czytelne warianty dziedziczenia, włączenia i wyłączenia.
+
+## Poprzedni zestaw alpha 149
 
 ## Nowości alpha 149
 
