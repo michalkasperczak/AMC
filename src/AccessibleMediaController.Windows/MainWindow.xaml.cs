@@ -2008,6 +2008,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         RadioRecordingFormat.Mp3 => $"MP3, {bitrateKbps ?? 192} kb/s",
         RadioRecordingFormat.Aac => $"M4A, AAC, {bitrateKbps ?? 192} kb/s",
+        RadioRecordingFormat.Flac => "FLAC, bezstratny",
+        RadioRecordingFormat.Original => "Oryginalny strumień, bez konwersji",
         RadioRecordingFormat.Wav => "WAV, bez kompresji",
         _ => "format nieznany"
     };

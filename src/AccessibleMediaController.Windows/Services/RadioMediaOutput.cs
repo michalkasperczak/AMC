@@ -799,11 +799,23 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 Path.GetInvalidFileNameChars().Contains(character) ? '_' : character)).Trim();
             if (safeName.Length == 0) safeName = "Radio";
             DeleteStalePartialRecordings(folder);
+            var originalTarget = format == RadioRecordingFormat.Original
+                ? RadioOriginalStreamRecorder.Describe(
+                    _pipeline.Item.Source ?? string.Empty,
+                    _pipeline.Item.Codec)
+                : null;
+            var extension = originalTarget?.Extension
+                ?? RadioMp3Recorder.RecordingExtension(format);
             var path = UniqueRecordingPath(
                 folder,
                 $"{safeName} - {DateTime.Now:yyyy-MM-dd HH-mm-ss}",
-                RadioMp3Recorder.RecordingExtension(format));
-            _pipeline.Buffer.StartRecording(path, format, bitRateKbps);
+                extension);
+            _pipeline.Buffer.StartRecording(
+                path,
+                format,
+                bitRateKbps,
+                _pipeline.Item.Source,
+                originalTarget);
             DiagnosticLog.Info("radio-recording", $"Rozpoczęto nagrywanie: {path}.");
             return path;
         }
@@ -903,7 +915,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
     {
         DiagnosticLog.Error(
             "radio-recording",
-            "Nagrywanie MP3 zostało przerwane, ale odtwarzanie radia jest kontynuowane.",
+            "Nagrywanie radia zostało przerwane, ale odtwarzanie jest kontynuowane.",
             exception);
         RaiseOnCapturedContext(() => RecordingFailed?.Invoke(this, EventArgs.Empty));
     }
@@ -1035,7 +1047,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             {
                 DiagnosticLog.Error(
                     "radio-recording",
-                    "Nie udało się zakończyć nagrania MP3 podczas zamykania stacji.",
+                    "Nie udało się zakończyć nagrania podczas zamykania stacji.",
                     exception);
             }
             try { Output?.Stop(); } catch (Exception) { }
@@ -1060,7 +1072,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         private readonly Action<Exception> _recordingFailed;
         private long _totalWritten;
         private long _readPosition;
-        private RadioMp3Recorder? _recording;
+        private IRadioRecorder? _recording;
         private string? _recordingPath;
 
         public RadioTimeshiftWaveProvider(
@@ -1123,7 +1135,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 count -= count % _blockAlign;
             }
 
-            RadioMp3Recorder? failedRecording = null;
+            IRadioRecorder? failedRecording = null;
             Exception? recordingException = null;
             lock (_gate)
             {
@@ -1205,19 +1217,26 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         public void StartRecording(
             string path,
             RadioRecordingFormat format,
-            int bitRateKbps)
+            int bitRateKbps,
+            string? source,
+            OriginalRadioRecordingTarget? originalTarget)
         {
             lock (_gate)
             {
                 if (_recording is not null) throw new InvalidOperationException("Nagrywanie już trwa.");
                 _recordingPath = path;
-                _recording = RadioMp3Recorder.Start(path, WaveFormat, format, bitRateKbps);
+                _recording = format == RadioRecordingFormat.Original
+                    ? RadioOriginalStreamRecorder.Start(
+                        path,
+                        source ?? throw new InvalidOperationException("Stacja nie ma adresu strumienia."),
+                        originalTarget ?? throw new InvalidOperationException("Nie rozpoznano kontenera oryginalnego strumienia."))
+                    : RadioMp3Recorder.Start(path, WaveFormat, format, bitRateKbps);
             }
         }
 
         public string? StopRecording()
         {
-            RadioMp3Recorder? recording;
+            IRadioRecorder? recording;
             lock (_gate)
             {
                 if (_recording is null) return null;

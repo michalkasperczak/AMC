@@ -1,12 +1,56 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-145`
-- Tytuł zestawu: Widok i fokus po uruchomieniu presetu
-- Wersja programu: `0.1.0-alpha.145`
+- Numer zestawu: `AMC-TEST-146`
+- Tytuł zestawu: FLAC i nagrywanie oryginalnego strumienia
+- Wersja programu: `0.1.0-alpha.146`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.145.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.146.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 146
+
+### AMC-146-01 — Dostępne etykiety formatów
+
+Otwórz `Ustawienia > Radio i nagrywanie` i przejdź po polu Format nagrania.
+
+Oczekiwane: lista zawiera MP3, M4A AAC, FLAC bezstratny, Oryginalny strumień
+bez konwersji oraz WAV. Nie pojawiają się identyfikatory enumów ani nazwy klas.
+Pole bitrate jest dostępne tylko przy MP3 i AAC.
+
+### AMC-146-02 — Ręczne nagranie FLAC
+
+Wybierz FLAC, uruchom stację, nagraj co najmniej kilkanaście sekund klawiszem
+`R`, zakończ i sprawdź `Alt+Enter` oraz utworzony plik.
+
+Oczekiwane: powstaje zakończony plik `.flac`, a odtwarzanie stacji nie przerywa
+się. Informacje mówią „FLAC, bezstratny”. Nie pozostaje `.amc-partial`.
+
+### AMC-146-03 — Oryginalny bezpośredni MP3 lub AAC
+
+Wybierz format Oryginalny i nagraj bezpośrednią stację MP3, a następnie AAC.
+
+Oczekiwane: MP3 zapisuje się jako `.mp3`, AAC jako `.aac`; nie następuje ponowne
+kodowanie i odsłuch działa równolegle. `Alt+Enter` podaje format i pełny plik.
+
+### AMC-146-04 — Oryginalny HLS
+
+Nagraj działającą stację z adresem M3U8, na przykład jedną ze stacji Polskiego
+Radia używających HLS.
+
+Oczekiwane: powstaje jeden prawidłowo zakończony plik `.ts` z dźwiękiem, nie
+sam manifest M3U8 ani zbiór luźnych segmentów. Zatrzymanie `R` nie zawiesza AMC.
+
+### AMC-146-05 — Harmonogram i błąd komponentu
+
+Wykonaj krótki plan w FLAC lub formacie oryginalnym. Jeżeli FFmpeg jest chwilowo
+niedostępny, sprawdź też komunikat błędu.
+
+Oczekiwane: harmonogram stosuje wybrany format ogólny i właściwy folder. Brak
+FFmpeg albo wadliwy strumień nie pozostawia pustego pliku końcowego i nie
+zatrzymuje innego odtwarzania.
+
+## Poprzedni zestaw alpha 145
 
 ## Nowości alpha 145
 

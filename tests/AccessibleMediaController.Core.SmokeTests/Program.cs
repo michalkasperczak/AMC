@@ -313,7 +313,7 @@ static void TestRadioRecordingSchedule()
         var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
         var state = ConfigurationStore.CreateDefaultState();
         state.Radio.RecordingsFolder = @"D:\Nagrania radia";
-        state.Radio.RecordingFormat = RadioRecordingFormat.Aac;
+        state.Radio.RecordingFormat = RadioRecordingFormat.Original;
         state.Radio.RecordingBitrateKbps = 173;
         state.Radio.WakeScheduledRecordings = true;
         state.Radio.RecordingSchedules =
@@ -339,7 +339,7 @@ static void TestRadioRecordingSchedule()
         Equal(1, loaded.Radio.RecordingSchedules[0].ActiveDays.Count);
         Equal(true, loaded.Radio.RecordingSchedules[0].WakeComputer);
         Equal(@"D:\Nagrania radia", loaded.Radio.RecordingsFolder);
-        Equal(RadioRecordingFormat.Aac, loaded.Radio.RecordingFormat);
+        Equal(RadioRecordingFormat.Original, loaded.Radio.RecordingFormat);
         Equal(160, loaded.Radio.RecordingBitrateKbps);
         Equal(true, loaded.Radio.WakeScheduledRecordings);
         Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);

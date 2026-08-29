@@ -425,10 +425,9 @@ public partial class SettingsWindow : Window
         var customFolder = CustomRadioFolderOption.IsChecked == true;
         RadioRecordingsFolderBox.IsEnabled = customFolder;
         BrowseRadioRecordingsFolderButton.IsEnabled = customFolder;
-        RadioRecordingBitrateCombo.IsEnabled = !string.Equals(
-            SelectedTag(RadioRecordingFormatCombo, nameof(RadioRecordingFormat.Mp3)),
-            nameof(RadioRecordingFormat.Wav),
-            StringComparison.Ordinal);
+        var format = SelectedTag(RadioRecordingFormatCombo, nameof(RadioRecordingFormat.Mp3));
+        RadioRecordingBitrateCombo.IsEnabled = format is nameof(RadioRecordingFormat.Mp3)
+            or nameof(RadioRecordingFormat.Aac);
     }
 
     private void BrowseRadioRecordingsFolder_Click(object sender, RoutedEventArgs e)

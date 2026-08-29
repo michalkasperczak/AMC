@@ -330,6 +330,8 @@ public enum RadioRecordingFormat
 {
     Mp3,
     Aac,
+    Flac,
+    Original,
     Wav
 }
 

@@ -777,6 +777,33 @@ static void TestRadioMp3Recording()
                 "Nagranie WAV ma nieprawidłową częstotliwość.");
         }
 
+        if (FfmpegRadioWaveProvider.FindExecutable() is not null)
+        {
+            var flacPath = Path.Combine(directory, "radio-test.flac");
+            using (var flacRecorder = RadioMp3Recorder.Start(
+                       flacPath,
+                       format,
+                       RadioRecordingFormat.Flac,
+                       192))
+            {
+                flacRecorder.Write(pcm, 0, pcm.Length);
+                flacRecorder.Stop();
+            }
+            var flacHeader = File.ReadAllBytes(flacPath).AsSpan(0, 4);
+            Assert(flacHeader.SequenceEqual("fLaC"u8), "Nagranie FLAC nie ma prawidłowego nagłówka.");
+
+            TestOriginalRadioRecording(mp3Path, directory);
+        }
+
+        Assert(
+            RadioOriginalStreamRecorder.Describe("https://example.test/live.m3u8", "AAC")
+                is { Extension: ".ts", Muxer: "mpegts" },
+            "HLS nie otrzymał bezkonwersyjnego kontenera transportowego.");
+        Assert(
+            RadioOriginalStreamRecorder.Describe("https://example.test/live", "AAC+")
+                is { Extension: ".aac", Muxer: "adts" },
+            "Bezpośredni AAC nie otrzymał oryginalnego kontenera ADTS.");
+
         var shutdownPath = Path.Combine(directory, "zamkniecie.mp3");
         using (var shutdownRecorder = RadioMp3Recorder.Start(shutdownPath, format))
         {
@@ -793,11 +820,81 @@ static void TestRadioMp3Recording()
         }
         Assert(!File.Exists(abortedPath) && !File.Exists(abortedPath + ".amc-partial"),
             "Przerwane kodowanie pozostawiło plik udający gotowe nagranie.");
-        Console.WriteLine("OK: nagrywanie radia do prawidłowych plików MP3, M4A/AAC (także 24 kHz) i WAV");
+        Console.WriteLine("OK: nagrywanie radia do MP3, M4A/AAC, FLAC, WAV i oryginalnego strumienia");
     }
     finally
     {
         if (Directory.Exists(directory)) Directory.Delete(directory, true);
+    }
+}
+
+static void TestOriginalRadioRecording(string sourceMp3Path, string outputDirectory)
+{
+    var sourceBytes = File.ReadAllBytes(sourceMp3Path);
+    var listener = new TcpListener(IPAddress.Loopback, 0);
+    listener.Start();
+    var endpoint = (IPEndPoint)listener.LocalEndpoint;
+    using var serverCancellation = new CancellationTokenSource();
+    var server = Task.Run(async () =>
+    {
+        try
+        {
+            using var connection = await listener.AcceptTcpClientAsync(serverCancellation.Token);
+            await using var stream = connection.GetStream();
+            var request = new byte[4_096];
+            var requestLength = 0;
+            while (requestLength < request.Length)
+            {
+                var read = await stream.ReadAsync(
+                    request.AsMemory(requestLength, 1),
+                    serverCancellation.Token);
+                if (read == 0) return;
+                requestLength += read;
+                if (requestLength >= 4
+                    && request[requestLength - 4] == '\r'
+                    && request[requestLength - 3] == '\n'
+                    && request[requestLength - 2] == '\r'
+                    && request[requestLength - 1] == '\n') break;
+            }
+            var header = Encoding.ASCII.GetBytes(
+                "HTTP/1.1 200 OK\r\n" +
+                "Content-Type: audio/mpeg\r\n" +
+                "Connection: close\r\n\r\n");
+            await stream.WriteAsync(header, serverCancellation.Token);
+            while (!serverCancellation.IsCancellationRequested)
+            {
+                await stream.WriteAsync(sourceBytes, serverCancellation.Token);
+                await stream.FlushAsync(serverCancellation.Token);
+                await Task.Delay(10, serverCancellation.Token);
+            }
+        }
+        catch (Exception exception) when (exception is OperationCanceledException
+            or IOException
+            or ObjectDisposedException
+            or SocketException)
+        {
+        }
+    });
+
+    var source = $"http://127.0.0.1:{endpoint.Port}/live";
+    var target = RadioOriginalStreamRecorder.Describe(source, "MP3");
+    var outputPath = Path.Combine(outputDirectory, "radio-original.mp3");
+    try
+    {
+        using var recorder = RadioOriginalStreamRecorder.Start(outputPath, source, target);
+        Thread.Sleep(1_200);
+        recorder.Write([], 0, 0);
+        recorder.Stop();
+        var saved = File.ReadAllBytes(outputPath);
+        Assert(
+            AccessibleMediaController.Core.LocalMedia.Mp3StructureProbe.TryFindConsecutiveFrameOffset(saved, out _),
+            "Oryginalne nagranie nie zachowało prawidłowych ramek MP3.");
+    }
+    finally
+    {
+        serverCancellation.Cancel();
+        listener.Stop();
+        try { server.Wait(TimeSpan.FromSeconds(3)); } catch (AggregateException) { }
     }
 }
 

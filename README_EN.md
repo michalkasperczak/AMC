@@ -390,6 +390,12 @@ A preset that represents a playable item starts playback in the background by de
 
 `Settings > General > Playback` contains **Open the player after activating a preset**. Enabling it makes a preset enter the player. Escape then returns to the view and position from which the preset was invoked; the separate follow-playback-on-player-exit option still applies independently. A folder, album or playlist preset remains a container and opens its contents rather than pretending to play in the background.
 
+## FLAC and original-stream capture in alpha 146
+
+Radio recording now also offers **FLAC, lossless** and **Original stream, no conversion**. FLAC receives the decoded PCM used by AMC and encodes it losslessly. Original mode opens a separate inaudible connection and copies compressed packets without re-encoding them. Direct MP3 remains MP3, AAC is stored as AAC, OGG or Opus as OGG, and FLAC as FLAC. An unknown codec uses a safe Matroska audio container.
+
+HLS is not one finished file, so AMC never stores the M3U8 manifest as a recording. Audio segments are joined and losslessly remuxed into an MPEG transport-stream file. The codec is unchanged, but this is not a byte-for-byte copy of the manifest and segments. ICY metadata is not inserted between audio frames. FLAC and original mode require FFmpeg; a missing component produces a clear failure and no file that pretends to be complete. Bitrate is selectable only for MP3 and AAC.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

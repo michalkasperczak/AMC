@@ -1,5 +1,9 @@
 using System.Collections.Concurrent;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
+using System.Text;
 using AccessibleMediaController.Core.Configuration;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
@@ -7,11 +11,11 @@ using NAudio.Wave.SampleProviders;
 namespace AccessibleMediaController.Windows.Services;
 
 /// <summary>
-/// Encodes a live PCM stream to MP3, M4A/AAC or WAV without blocking playback on file I/O.
+/// Encodes a live PCM stream to MP3, M4A/AAC, FLAC or WAV without blocking playback on file I/O.
 /// The encoder writes to an AMC-owned temporary file and publishes the final
 /// recording only after the selected encoder has closed the stream successfully.
 /// </summary>
-internal sealed class RadioMp3Recorder : IDisposable
+internal sealed class RadioMp3Recorder : IRadioRecorder
 {
     internal const int DesiredBitRate = 192_000;
     private static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(8);
@@ -44,6 +48,12 @@ internal sealed class RadioMp3Recorder : IDisposable
 
         _encoderTask = Task.Run(() =>
         {
+            if (recordingFormat == RadioRecordingFormat.Flac)
+            {
+                EncodeToFlac(encoderInput, _temporaryPath);
+                return;
+            }
+
             using var output = new FileStream(
                 _temporaryPath,
                 FileMode.CreateNew,
@@ -113,6 +123,7 @@ internal sealed class RadioMp3Recorder : IDisposable
     {
         RadioRecordingFormat.Mp3 => ".mp3",
         RadioRecordingFormat.Aac => ".m4a",
+        RadioRecordingFormat.Flac => ".flac",
         RadioRecordingFormat.Wav => ".wav",
         _ => throw new NotSupportedException("Wybrany format nagrania nie jest obsługiwany.")
     };
@@ -223,6 +234,77 @@ internal sealed class RadioMp3Recorder : IDisposable
             DiagnosticLog.Warning(
                 "radio-recording",
                 $"Nie można usunąć niedokończonego pliku nagrania: {_temporaryPath}; błąd {exception.GetType().Name}.");
+        }
+    }
+
+    private static void EncodeToFlac(IWaveProvider input, string outputPath)
+    {
+        var executable = FfmpegRadioWaveProvider.FindExecutable()
+            ?? throw new NotSupportedException("Nagrywanie FLAC wymaga komponentu FFmpeg.");
+        var start = new ProcessStartInfo
+        {
+            FileName = executable,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardInput = true,
+            RedirectStandardError = true
+        };
+        foreach (var argument in new[]
+        {
+            "-hide_banner", "-loglevel", "error",
+            "-f", "s16le",
+            "-ar", input.WaveFormat.SampleRate.ToString(CultureInfo.InvariantCulture),
+            "-ac", input.WaveFormat.Channels.ToString(CultureInfo.InvariantCulture),
+            "-i", "pipe:0",
+            "-vn", "-c:a", "flac", "-compression_level", "5",
+            "-f", "flac", outputPath
+        })
+        {
+            start.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(start)
+            ?? throw new InvalidOperationException("Nie udało się uruchomić kodera FLAC.");
+        var error = new StringBuilder();
+        process.ErrorDataReceived += (_, args) =>
+        {
+            if (string.IsNullOrWhiteSpace(args.Data) || error.Length >= 2_000) return;
+            if (error.Length > 0) error.Append(' ');
+            error.Append(args.Data.Trim());
+        };
+        process.BeginErrorReadLine();
+        try
+        {
+            using (var destination = process.StandardInput.BaseStream)
+            {
+                var buffer = new byte[64 * 1024];
+                int read;
+                while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+                    destination.Write(buffer, 0, read);
+            }
+            if (!process.WaitForExit((int)StopTimeout.TotalMilliseconds))
+            {
+                try { process.Kill(true); } catch (Exception) { }
+                throw new TimeoutException("Koder FLAC nie zakończył pliku w bezpiecznym czasie.");
+            }
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException(error.Length == 0
+                    ? "Koder FLAC zakończył się błędem."
+                    : $"Koder FLAC zakończył się błędem. {error}");
+            }
+        }
+        catch (Exception exception) when (exception is IOException
+            or InvalidOperationException
+            or TimeoutException
+            or Win32Exception)
+        {
+            try
+            {
+                if (!process.HasExited) process.Kill(true);
+            }
+            catch (Exception) { }
+            throw new InvalidOperationException("Nie udało się zakodować nagrania FLAC.", exception);
         }
     }
 

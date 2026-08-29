@@ -419,6 +419,12 @@ Preset odtwarzalnego elementu domyślnie rozpoczyna odtwarzanie w tle i nie odbi
 
 W `Ustawienia > Ogólne > Odtwarzanie` znajduje się opcja **Po uruchomieniu presetu otwieraj odtwarzacz**. Po jej włączeniu preset przechodzi do odtwarzacza. Escape wraca wtedy do widoku i pozycji, z których wywołano preset; opcja podążania fokusu po wyjściu z odtwarzacza nadal działa niezależnie. Folder, album lub playlista przypisane do presetu pozostają kontenerami i otwierają swoją zawartość zamiast udawać odtwarzanie w tle.
 
+## FLAC i oryginalny strumień w alpha 146
+
+Format nagrywania Radia obejmuje teraz również **FLAC, bezstratny** oraz **Oryginalny strumień, bez konwersji**. FLAC otrzymuje zdekodowany dźwięk PCM używany przez AMC i koduje go bezstratnie. Format oryginalny otwiera osobne, niesłyszalne połączenie i kopiuje skompresowane pakiety bez ponownego kodowania. Bezpośredni MP3 pozostaje MP3, AAC trafia do AAC, OGG lub Opus do OGG, a FLAC do FLAC. Nieznany kodek otrzymuje bezpieczny kontener audio Matroska.
+
+HLS nie jest jednym gotowym plikiem, dlatego AMC nie zapisuje manifestu M3U8. Segmenty audio są łączone i bez transkodowania przepakowywane do kontenera transportowego TS. Jest to zapis bez zmiany kodeka, ale nie kopia bajt po bajcie manifestu i segmentów. Metadane ICY nie są wstawiane pomiędzy ramki dźwięku. FLAC i format oryginalny wymagają FFmpeg; brak komponentu daje czytelny błąd i nie pozostawia pliku udającego gotowe nagranie. Bitrate można wybierać tylko dla MP3 i AAC.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.
