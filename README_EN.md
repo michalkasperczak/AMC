@@ -402,6 +402,14 @@ HLS is not one finished file, so AMC never stores the M3U8 manifest as a recordi
 
 Each schedule has one folder-mode combo with **Default recording folder** and **Different folder**. The latter enables a path field and **Browse…** only for that entry. An empty path in an older entry continues to mean inheritance, while an existing entry-specific folder is preserved. Changing the default affects inheriting schedules but never overwrites an entry-specific folder.
 
+## Accessible schedule editing in alpha 148
+
+One list replaces seven separate weekday controls. Arrow keys move from Monday through Sunday, while Space checks or clears the current day and announces its new state. The list is enabled only for **Selected weekdays** recurrence. Every row has an explicit accessible name such as “Tuesday, checked”, so UI Automation never exposes an object representation.
+
+The schedule list toggles its selected entry with Space or the **Enable or disable** button. A disabled entry remains stored but cannot start capture or wake the computer. A change takes effect after **Save**; cancelling keeps the previous state. Disabling a currently recording entry stops that capture when the changes are saved.
+
+The quick `Shift+R` option is now **Start the first recording immediately after saving**. When checked, the first date and time are ignored and the entry is necessarily enabled. A one-off entry runs once; a recurring entry calculates later occurrences from the actual immediate-start time. Clearing the option makes the entered first date and time effective. The per-entry folder combo contains **Default recording folder** and **User folder**; only the latter enables its path picker.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

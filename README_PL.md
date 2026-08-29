@@ -431,6 +431,14 @@ Karta `Ustawienia > Radio i nagrywanie` ma jeden, jednoznaczny **Domyślny folde
 
 Każdy harmonogram ma osobne pole wyboru z dwiema wartościami: **Domyślny folder nagrywania** i **Inny folder**. Druga wartość udostępnia pole ścieżki oraz przycisk **Wybierz…** tylko dla tego planu. Pusta wartość zapisana w starszym planie nadal oznacza dziedziczenie ustawienia ogólnego, a istniejący własny folder nie jest tracony. Zmiana folderu domyślnego wpływa na plany dziedziczące, lecz nie zmienia planów z własnym folderem.
 
+## Dostępna edycja harmonogramu w alpha 148
+
+Siedem osobnych pól wyboru dni zastąpiła jedna lista. Strzałki przechodzą od poniedziałku do niedzieli, a Spacja zaznacza lub odznacza bieżący dzień i podaje jego nowy stan. Lista jest aktywna tylko przy powtarzaniu **W wybrane dni tygodnia**. Każdy wiersz ma jawną nazwę w rodzaju „Wtorek, zaznaczony”, więc UI Automation nie udostępnia technicznej reprezentacji obiektu.
+
+Lista harmonogramów pozwala przełączać zaznaczony plan Spacją albo przyciskiem **Włącz lub wyłącz**. Wyłączony plan pozostaje zapisany, ale nie uruchamia nagrań ani wybudzania. Zmiana zaczyna obowiązywać po wybraniu **Zapisz**; anulowanie okna pozostawia poprzedni stan. Aktywne nagranie wyłączone na liście zostanie zatrzymane przy zapisaniu zmian.
+
+Opcja szybkiego `Shift+R` brzmi teraz **Rozpocznij pierwsze nagranie od razu po zapisaniu**. Gdy jest zaznaczona, data i godzina pierwszego startu są pomijane, a plan zostaje włączony. Plan jednorazowy wykona się raz; cykliczny po pierwszym natychmiastowym zapisie wyznaczy kolejne wystąpienia o godzinie rzeczywistego pierwszego startu. Po odznaczeniu pierwsze nagranie korzysta z wpisanej daty i godziny. Pole folderu planu zawiera wartości **Domyślny folder nagrywania** oraz **Folder użytkownika**; tylko druga udostępnia przycisk wyboru ścieżki.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

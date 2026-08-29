@@ -1,12 +1,47 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-147`
-- Tytuł zestawu: Domyślny folder nagrywania i wyjątki harmonogramów
-- Wersja programu: `0.1.0-alpha.147`
-- Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.147.md`
+- Numer zestawu: `AMC-TEST-148`
+- Tytuł zestawu: Dostępna edycja harmonogramu nagrywania
+- Wersja programu: `0.1.0-alpha.148`
+- Utworzono: 2026-08-30, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.148.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 148
+
+### AMC-148-01 — Jedna lista dni tygodnia
+
+W nowym planie ustaw Powtarzanie na W wybrane dni tygodnia i przejdź Tabem do
+listy dni. Nawiguj strzałkami i zaznacz kilka dni Spacją.
+
+Oczekiwane: wszystkie dni zajmują jeden punkt tabulacji. NVDA podaje nazwę dnia
+i stan zaznaczenia. Spacja zmienia tylko bieżący dzień, bez otwierania nowego okna.
+
+### AMC-148-02 — Przełączanie planu na liście
+
+Otwórz `Ctrl+Alt+Shift+R`, wybierz istniejący plan i naciśnij Spację dwa razy.
+
+Oczekiwane: plan zmienia się między włączonym i wyłączonym, fokus pozostaje na
+nim, a komunikat przypomina o zapisaniu. Enter nadal otwiera edycję, Delete usuwa.
+
+### AMC-148-03 — Rozpoczęcie pierwszego nagrania od razu
+
+Naciśnij `Shift+R`. Sprawdź formularz najpierw z zaznaczoną, potem odznaczoną
+opcją rozpoczęcia pierwszego nagrania od razu.
+
+Oczekiwane: przy zaznaczeniu pola daty i godziny są nieaktywne, plan jest
+włączony i opis wyjaśnia kolejne wystąpienia. Po odznaczeniu data, godzina oraz
+pole Plan włączony stają się dostępne.
+
+### AMC-148-04 — Folder planu
+
+Przejdź po polu Folder nagrywania i wybierz obie wartości.
+
+Oczekiwane: wartości brzmią Domyślny folder nagrywania i Folder użytkownika.
+Tylko Folder użytkownika uaktywnia ścieżkę oraz przycisk Wybierz.
+
+## Poprzedni zestaw alpha 147
 
 ## Nowości alpha 147
 

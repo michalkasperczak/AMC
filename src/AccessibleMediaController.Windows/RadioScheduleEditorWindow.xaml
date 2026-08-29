@@ -5,6 +5,7 @@
         Title="Nagrywanie czasowe i harmonogram radia" Width="650" Height="700"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         PreviewKeyDown="Window_PreviewKeyDown">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
@@ -25,11 +26,14 @@
 
         <StackPanel Grid.Row="2">
             <CheckBox x:Name="ImmediateStartCheckBox"
-                      Content="Rozpocznij nagrywanie natychmiast po zapisaniu"
+                      Content="Rozpocznij pierwsze nagranie od razu po zapisaniu"
                       Margin="0,0,0,8" Visibility="Collapsed"
-                      automation:AutomationProperties.Name="Rozpocznij nagrywanie natychmiast po zapisaniu"
+                      automation:AutomationProperties.Name="Rozpocznij pierwsze nagranie od razu po zapisaniu"
+                      automation:AutomationProperties.HelpText="Po zaznaczeniu pierwsze nagranie zacznie się po zapisaniu planu, a pola daty i godziny nie będą używane."
                       Checked="ImmediateStartCheckBox_Changed"
                       Unchecked="ImmediateStartCheckBox_Changed"/>
+            <TextBlock x:Name="ImmediateStartExplanation" Margin="0,0,0,8"
+                       TextWrapping="Wrap" Visibility="Collapsed" />
             <TextBlock Text="Data pierwszego nagrania:" Margin="0,0,0,4"/>
         </StackPanel>
         <TextBox x:Name="DateTextBox" Grid.Row="3" Margin="0,0,0,10"
@@ -51,31 +55,47 @@
 
         <GroupBox x:Name="DaysGroup" Grid.Row="10" Header="Dni tygodnia" Margin="0,0,0,10"
                   automation:AutomationProperties.Name="Dni tygodnia dla powtarzanego nagrania">
-            <WrapPanel Margin="8">
-                <CheckBox x:Name="MondayCheckBox" Content="Poniedziałek" Tag="Monday" Margin="0,0,12,6"/>
-                <CheckBox x:Name="TuesdayCheckBox" Content="Wtorek" Tag="Tuesday" Margin="0,0,12,6"/>
-                <CheckBox x:Name="WednesdayCheckBox" Content="Środa" Tag="Wednesday" Margin="0,0,12,6"/>
-                <CheckBox x:Name="ThursdayCheckBox" Content="Czwartek" Tag="Thursday" Margin="0,0,12,6"/>
-                <CheckBox x:Name="FridayCheckBox" Content="Piątek" Tag="Friday" Margin="0,0,12,6"/>
-                <CheckBox x:Name="SaturdayCheckBox" Content="Sobota" Tag="Saturday" Margin="0,0,12,6"/>
-                <CheckBox x:Name="SundayCheckBox" Content="Niedziela" Tag="Sunday" Margin="0,0,12,6"/>
-            </WrapPanel>
+            <StackPanel Margin="8">
+                <TextBlock Margin="0,0,0,6" TextWrapping="Wrap"
+                           Text="Strzałki wybierają dzień, a Spacja zaznacza go lub odznacza." />
+                <ListBox x:Name="DaysList" Height="155" SelectionMode="Single"
+                         PreviewKeyDown="DaysList_PreviewKeyDown"
+                         automation:AutomationProperties.Name="Dni tygodnia"
+                         automation:AutomationProperties.HelpText="Strzałki przechodzą między dniami. Spacja zaznacza lub odznacza bieżący dzień.">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="automation:AutomationProperties.Name" Value="{Binding AccessibleLabel}" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked}"
+                                      Focusable="False" IsHitTestVisible="False"
+                                      automation:AutomationProperties.Name="{Binding AccessibleLabel}" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock x:Name="DaysStatus" Margin="0,6,0,0" TextWrapping="Wrap"
+                           automation:AutomationProperties.Name="Stan wyboru dnia"
+                           automation:AutomationProperties.LiveSetting="Assertive" />
+            </StackPanel>
         </GroupBox>
 
         <GroupBox Grid.Row="11" Grid.RowSpan="2" Header="Folder tego nagrania" Margin="0,0,0,10">
             <StackPanel Margin="8">
-                <Label Target="{Binding ElementName=OutputFolderModeCombo}">_Sposób wyboru folderu:</Label>
+                <Label Target="{Binding ElementName=OutputFolderModeCombo}">_Folder nagrywania:</Label>
                 <ComboBox x:Name="OutputFolderModeCombo" Margin="0,0,0,8" SelectedIndex="0"
                           SelectionChanged="OutputFolderMode_Changed"
-                          automation:AutomationProperties.Name="Folder nagrywania dla tego harmonogramu">
+                          automation:AutomationProperties.Name="Folder nagrywania dla tego harmonogramu"
+                          automation:AutomationProperties.HelpText="Domyślny folder używa ustawienia programu. Folder użytkownika pozwala wskazać osobną ścieżkę dla tego planu.">
                     <ComboBoxItem Tag="Default">Domyślny folder nagrywania</ComboBoxItem>
-                    <ComboBoxItem Tag="Custom">Inny folder</ComboBoxItem>
+                    <ComboBoxItem Tag="Custom">Folder użytkownika</ComboBoxItem>
                 </ComboBox>
                 <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <TextBox x:Name="OutputFolderTextBox" Grid.Column="0"
                              IsReadOnly="True"
-                             automation:AutomationProperties.Name="Wybrany folder dla tego planu"/>
+                             automation:AutomationProperties.Name="Folder użytkownika dla tego planu"/>
                     <Button x:Name="BrowseOutputFolderButton" Grid.Column="1" Content="_Wybierz…"
                             Margin="8,0,0,0" Padding="10,4"
                             automation:AutomationProperties.Name="Wybierz inny folder dla tego planu"
@@ -89,8 +109,9 @@
                   DisplayMemberPath="Label" TextSearch.TextPath="Label"
                   automation:AutomationProperties.Name="Wybudzanie komputera dla tego planu"/>
 
-        <CheckBox x:Name="EnabledCheckBox" Grid.Row="15" Content="Plan aktywny" IsChecked="True"
-                  Margin="0,0,0,10" automation:AutomationProperties.Name="Plan aktywny"/>
+        <CheckBox x:Name="EnabledCheckBox" Grid.Row="15" Content="Plan włączony" IsChecked="True"
+                  Margin="0,0,0,10" automation:AutomationProperties.Name="Plan włączony"
+                  automation:AutomationProperties.HelpText="Wyłączony plan pozostaje zapisany, ale nie rozpoczyna nagrań."/>
 
         <TextBlock x:Name="ValidationText" Grid.Row="16" Foreground="DarkRed" Margin="0,0,0,8"
                    TextWrapping="Wrap" automation:AutomationProperties.LiveSetting="Assertive"/>
@@ -101,4 +122,5 @@
             <Button Content="Anuluj" IsCancel="True" MinWidth="100"/>
         </StackPanel>
     </Grid>
+    </ScrollViewer>
 </Window>

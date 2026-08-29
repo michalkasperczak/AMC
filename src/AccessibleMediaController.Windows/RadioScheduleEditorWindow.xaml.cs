@@ -1,5 +1,7 @@
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -13,7 +15,7 @@ public partial class RadioScheduleEditorWindow : Window
 {
     private readonly RadioRecordingScheduleSettings? _existing;
     private readonly IReadOnlyList<StationChoice> _stations;
-    private readonly CheckBox[] _dayBoxes;
+    private readonly IReadOnlyList<DayChoice> _dayChoices;
 
     public RadioRecordingScheduleSettings? ResultSchedule { get; private set; }
 
@@ -42,11 +44,18 @@ public partial class RadioScheduleEditorWindow : Window
         RecurrenceCombo.ItemsSource = RecurrenceChoice.All;
         var wakeChoices = WakeChoice.Create(globalWakeEnabled);
         WakeCombo.ItemsSource = wakeChoices;
-        _dayBoxes =
+        _dayChoices =
         [
-            MondayCheckBox, TuesdayCheckBox, WednesdayCheckBox, ThursdayCheckBox,
-            FridayCheckBox, SaturdayCheckBox, SundayCheckBox
+            new(DayOfWeek.Monday, "Poniedziałek"),
+            new(DayOfWeek.Tuesday, "Wtorek"),
+            new(DayOfWeek.Wednesday, "Środa"),
+            new(DayOfWeek.Thursday, "Czwartek"),
+            new(DayOfWeek.Friday, "Piątek"),
+            new(DayOfWeek.Saturday, "Sobota"),
+            new(DayOfWeek.Sunday, "Niedziela")
         ];
+        DaysList.ItemsSource = _dayChoices;
+        DaysList.SelectedIndex = 0;
 
         var initialUtc = existing is null
             ? initialStartUtc ?? DateTime.UtcNow.AddMinutes(5)
@@ -70,19 +79,18 @@ public partial class RadioScheduleEditorWindow : Window
         ImmediateStartCheckBox.Visibility = offerImmediateStart && existing is null
             ? Visibility.Visible
             : Visibility.Collapsed;
+        ImmediateStartExplanation.Visibility = ImmediateStartCheckBox.Visibility;
         ImmediateStartCheckBox.IsChecked = offerImmediateStart && existing is null;
         var selectedDays = (existing?.ActiveDays ?? []).ToHashSet();
-        foreach (var box in _dayBoxes)
+        foreach (var choice in _dayChoices)
         {
-            box.IsChecked = Enum.TryParse<DayOfWeek>(box.Tag?.ToString(), out var day)
-                && selectedDays.Contains(day);
+            choice.IsChecked = selectedDays.Contains(choice.Value);
         }
         if (existing is null)
         {
             var today = local.DayOfWeek;
-            var todayBox = _dayBoxes.FirstOrDefault(box =>
-                Enum.TryParse<DayOfWeek>(box.Tag?.ToString(), out var day) && day == today);
-            if (todayBox is not null) todayBox.IsChecked = true;
+            var todayChoice = _dayChoices.FirstOrDefault(choice => choice.Value == today);
+            if (todayChoice is not null) todayChoice.IsChecked = true;
         }
         UpdateDaysEnabled();
         UpdateStartControlsEnabled();
@@ -129,13 +137,13 @@ public partial class RadioScheduleEditorWindow : Window
             ShowError("Wybierz sposób powtarzania", RecurrenceCombo);
             return;
         }
-        var days = _dayBoxes
-            .Where(box => box.IsChecked == true)
-            .Select(box => Enum.Parse<DayOfWeek>(box.Tag!.ToString()!))
+        var days = _dayChoices
+            .Where(choice => choice.IsChecked)
+            .Select(choice => choice.Value)
             .ToList();
         if (recurrence.Value == RadioScheduleRecurrence.SelectedDays && days.Count == 0)
         {
-            ShowError("Wybierz co najmniej jeden dzień tygodnia", DaysGroup);
+            ShowError("Wybierz co najmniej jeden dzień tygodnia", DaysList);
             return;
         }
 
@@ -235,18 +243,32 @@ public partial class RadioScheduleEditorWindow : Window
 
     private void UpdateStartControlsEnabled()
     {
-        if (DateTextBox is null || TimeTextBox is null) return;
+        if (DateTextBox is null || TimeTextBox is null || EnabledCheckBox is null
+            || ImmediateStartExplanation is null) return;
         var immediate = ImmediateStartCheckBox.Visibility == Visibility.Visible
             && ImmediateStartCheckBox.IsChecked == true;
         DateTextBox.IsEnabled = !immediate;
         TimeTextBox.IsEnabled = !immediate;
+        EnabledCheckBox.IsEnabled = !immediate;
+        if (immediate) EnabledCheckBox.IsChecked = true;
+        ImmediateStartExplanation.Text = immediate
+            ? "Pierwsze nagranie rozpocznie się po zapisaniu. Data i godzina są pomijane; plan cykliczny powtórzy się o godzinie rozpoczęcia pierwszego nagrania."
+            : "Pierwsze nagranie rozpocznie się w podanej dacie i godzinie.";
     }
 
     private void UpdateDaysEnabled()
     {
-        if (_dayBoxes is null) return;
+        if (DaysGroup is null) return;
         DaysGroup.IsEnabled = (RecurrenceCombo.SelectedItem as RecurrenceChoice)?.Value
             == RadioScheduleRecurrence.SelectedDays;
+    }
+
+    private void DaysList_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Space || DaysList.SelectedItem is not DayChoice choice) return;
+        choice.IsChecked = !choice.IsChecked;
+        DaysStatus.Text = $"{choice.Label}: {(choice.IsChecked ? "zaznaczony" : "odznaczony")}";
+        e.Handled = true;
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -285,5 +307,32 @@ public partial class RadioScheduleEditorWindow : Window
             new(false, "Nie wybudzaj komputera")
         ];
         public override string ToString() => Label;
+    }
+
+    private sealed class DayChoice(DayOfWeek value, string label) : INotifyPropertyChanged
+    {
+        private bool _isChecked;
+
+        public DayOfWeek Value { get; } = value;
+        public string Label { get; } = label;
+        public bool IsChecked
+        {
+            get => _isChecked;
+            set
+            {
+                if (_isChecked == value) return;
+                _isChecked = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(AccessibleLabel));
+            }
+        }
+        public string AccessibleLabel => $"{Label}, {(IsChecked ? "zaznaczony" : "niezaznaczony")}";
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+        public override string ToString() => AccessibleLabel;
     }
 }

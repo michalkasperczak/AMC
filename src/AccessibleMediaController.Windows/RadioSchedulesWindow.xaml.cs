@@ -59,7 +59,9 @@ public partial class RadioSchedulesWindow : Window
             RadioScheduleRecurrence.SelectedDays => "wybrane dni",
             _ => "powtarzanie nieznane"
         };
-        var state = active ? "nagrywanie trwa" : schedule.Enabled ? "aktywny" : "wyłączony";
+        var state = schedule.Enabled
+            ? active ? "włączony, nagrywanie trwa" : "włączony"
+            : active ? "wyłączony, nagrywanie zostanie zatrzymane po zapisaniu" : "wyłączony";
         return $"{schedule.StationName}, {local:dd.MM.yyyy HH:mm}, {schedule.DurationMinutes} min, {recurrence}, {state}";
     }
 
@@ -76,6 +78,21 @@ public partial class RadioSchedulesWindow : Window
     }
 
     private void Edit_Click(object sender, RoutedEventArgs e) => EditSelected();
+
+    private void ToggleEnabled_Click(object sender, RoutedEventArgs e) => ToggleSelectedEnabled();
+
+    private void ToggleSelectedEnabled()
+    {
+        if (SchedulesList.SelectedItem is not ScheduleRow row) return;
+        row.Schedule.Enabled = !row.Schedule.Enabled;
+        var message = row.Schedule.Enabled
+            ? $"Włączono plan: {row.Schedule.StationName}"
+            : $"Wyłączono plan: {row.Schedule.StationName}";
+        RefreshRows(row.Schedule.Id);
+        SchedulesList.Focus();
+        Keyboard.Focus(SchedulesList);
+        ScheduleStatus.Text = $"{message}. Wybierz Zapisz, aby zatwierdzić zmianę.";
+    }
 
     private void EditSelected()
     {
@@ -127,6 +144,11 @@ public partial class RadioSchedulesWindow : Window
         else if (e.Key == Key.Enter && SchedulesList.IsKeyboardFocusWithin)
         {
             EditSelected();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Space && SchedulesList.IsKeyboardFocusWithin)
+        {
+            ToggleSelectedEnabled();
             e.Handled = true;
         }
         else if (e.Key == Key.Delete && SchedulesList.IsKeyboardFocusWithin)
