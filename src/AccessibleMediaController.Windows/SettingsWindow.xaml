@@ -38,6 +38,9 @@
                             <CheckBox x:Name="FollowPlaybackOnPlayerExitCheck" Margin="0,0,0,8"
                                       Content="Po wyjściu z odtwarzacza ustaw _fokus na aktualnie odtwarzanym elemencie"
                                       automation:AutomationProperties.HelpText="Po Escape, Shift+F6 albo przycisku Wróć do listy zaznacza element wybrany w odtwarzaczu przez Page Up lub Page Down. Gdy elementu nie ma w bieżącym widoku, zachowuje poprzedni fokus." />
+                            <CheckBox x:Name="OpenPlayerWhenActivatingPresetCheck" Margin="0,0,0,8"
+                                      Content="Po uruchomieniu presetu _otwieraj odtwarzacz"
+                                      automation:AutomationProperties.HelpText="Wyłączone: preset rozpoczyna odtwarzanie w tle, a fokus pozostaje w bieżącym widoku. Jeżeli odtwarzacz jest już otwarty, pozostaje otwarty niezależnie od tego ustawienia." />
                             <CheckBox x:Name="RememberLocalPlaybackPositionsCheck"
                                       Content="_Pamiętaj pozycję odtwarzania lokalnych plików"
                                       automation:AutomationProperties.HelpText="To ustawienie globalne. Dla każdego Folderu Biblioteki oraz pojedynczego elementu można wybrać inne zachowanie." />

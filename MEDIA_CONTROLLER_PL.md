@@ -1026,6 +1026,8 @@ Korekta `alpha.144`: bezpośredni edytor `Shift+R` otrzymuje uporządkowany zbi�
 
 Stan aktywnego zapisu jest relacją identyfikatora stacji i, awaryjnie, dokładnego adresu strumienia. Wspólne formatowanie list dodaje jeden prefiks `Nagrywany`; nie powiela czasu ani ścieżki w każdym wierszu. Ręczne nagranie przechowuje w pamięci chwilę uruchomienia, format i docelowy plik, a aktywny plan także rzeczywistą chwilę startu, deadline i planowany folder. Te dane są prezentowane w sekcji Nagrywanie istniejącego `Alt+Enter`, po czym znikają atomowo z etykiet po zakończeniu albo błędzie.
 
+Zasada presetów od `alpha.145`: uruchomienie odtwarzalnego celu nie musi zmieniać powierzchni interfejsu. Domyślnie odtwarzanie zaczyna się w tle z zachowaniem bieżącego widoku, zaznaczenia i fokusu. Ustawienie ogólne może zamiast tego otwierać odtwarzacz. Jeżeli odtwarzacz był już aktywny, pozostaje aktywny niezależnie od ustawienia. Reguła jest wspólna dla wszystkich sesji; kontenery, takie jak folder, album i playlista, zawsze otwierają zawartość. Opcja ta jest niezależna od późniejszego podążania fokusu po wyjściu z odtwarzacza.
+
 Katalog lokalny i kolejność: Biblioteka nie jest playlistą ani kopią jednego folderu, lecz katalogiem źródeł z trwałą tożsamością, ścieżką i widokami. Porządki wyliczane, takie jak tytuł, wykonawca, album, folder, data dodania albo ostatnie odtworzenie, pozostają deterministycznymi sposobami sortowania. Osobna Kolejność własna jest zapisem użytkownika i nie zmienia kolejności plików na dysku. Te same klawisze nie udają ręcznego sortowania w widokach wykonawców, albumów ani wyników wyszukiwania.
 
 Planowana kolejność dalszych etapów:

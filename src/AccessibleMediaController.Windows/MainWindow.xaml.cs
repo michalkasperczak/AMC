@@ -1284,7 +1284,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        SelectSessionBrowserItem(session.Id, item.Id);
         var presetPlayableIds = SessionPresetEntries(session.Id)
             .OrderBy(entry => entry.Slot)
             .Select(entry => session.Items.FirstOrDefault(candidate => string.Equals(
@@ -1304,7 +1303,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RecordPlayback(session, item);
         SavePresetState(session.Id);
         RefreshPlaybackIndicators();
-        ShowPlayerView();
+        if (_playerViewActive || _state.Settings.OpenPlayerWhenActivatingPreset)
+        {
+            ShowPlayerView();
+            return;
+        }
+
+        UpdatePlaybackStatusBar();
+        UpdateWindowTitle();
+        if (!string.Equals(session.Id, "radio", StringComparison.Ordinal)
+            || !_state.Settings.Messages.LoadingMessages)
+        {
+            Announce(item.Title);
+        }
+        RestoreItemActionFocus();
     }
 
     private static bool TryGetPresetPlaylistId(SessionPresetEntry preset, out string playlistId)

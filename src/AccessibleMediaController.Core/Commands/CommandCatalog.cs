@@ -128,6 +128,7 @@ public static class CommandCatalog
             CommandIds.SettingsSessionOrder => "Ustawienia: kolejność sesji i skrótów Ctrl+1–9",
             CommandIds.SettingsPausePlaybackWhenLeavingPlayer => "Ustawienia: wstrzymuj po wyjściu z odtwarzacza",
             CommandIds.SettingsFollowPlaybackOnPlayerExit => "Ustawienia: fokus podąża za odtwarzaniem",
+            CommandIds.SettingsOpenPlayerWhenActivatingPreset => "Ustawienia: otwieraj odtwarzacz po uruchomieniu presetu",
             CommandIds.SettingsRememberLocalPlaybackPositions => "Ustawienia: pamiętaj pozycję odtwarzania lokalnych plików",
             CommandIds.SettingsPrefix => "Ustawienia: globalny prefiks",
             CommandIds.SettingsPrefixTimeout => "Ustawienia: czas oczekiwania po prefiksie",

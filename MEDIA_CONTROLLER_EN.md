@@ -1012,6 +1012,8 @@ Correction in `alpha.144`: the direct `Shift+R` editor receives an ordered set f
 
 Active capture state matches a station by stable identifier and, as a fallback, its exact stream URL. Shared list formatting adds one `Recording` prefix without repeating times or paths on every row. A manual capture retains its start instant, format and destination file in memory; an active schedule also retains actual start, deadline and intended folder. The existing `Alt+Enter` information view exposes these details in a Recording section, and the labels clear atomically after completion or failure.
 
+Preset rule since `alpha.145`: activating a playable target does not have to replace the current interface surface. Playback starts in the background by default while the current view, selection and focus are retained. A general setting may instead open the player. If the player was already active, it remains active regardless of the setting. This rule is shared by all sessions; container targets such as folders, albums and playlists always open their contents. It is independent of the later focus-following decision made when leaving the player.
+
 Local catalogue and ordering: the Library is neither a playlist nor a mirror of one folder. It is a catalogue of sources with stable identity, path and derived views. Derived orders such as title, artist, album, folder, date added or last played remain deterministic sort modes. Separate Custom order is user metadata and never changes disk-file order. The same keys do not pretend to reorder artist, album or search-result views.
 
 Planned sequence of later stages:

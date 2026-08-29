@@ -76,6 +76,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.SessionOrder => (GeneralTab, SessionOrderList),
             SettingsTarget.PausePlaybackWhenLeavingPlayer => (GeneralTab, PausePlaybackWhenLeavingPlayerCheck),
             SettingsTarget.FollowPlaybackOnPlayerExit => (GeneralTab, FollowPlaybackOnPlayerExitCheck),
+            SettingsTarget.OpenPlayerWhenActivatingPreset => (GeneralTab, OpenPlayerWhenActivatingPresetCheck),
             SettingsTarget.RememberLocalPlaybackPositions => (GeneralTab, RememberLocalPlaybackPositionsCheck),
             SettingsTarget.Prefix => (GeneralTab, PrefixBox),
             SettingsTarget.PrefixTimeout => (GeneralTab, TimeoutBox),
@@ -122,6 +123,7 @@ public partial class SettingsWindow : Window
         SelectComboByTag(StartupTargetCombo, _workingState.Settings.StartupTarget.ToString());
         PausePlaybackWhenLeavingPlayerCheck.IsChecked = _workingState.Settings.PausePlaybackWhenLeavingPlayer;
         FollowPlaybackOnPlayerExitCheck.IsChecked = _workingState.Settings.FollowPlaybackOnPlayerExit;
+        OpenPlayerWhenActivatingPresetCheck.IsChecked = _workingState.Settings.OpenPlayerWhenActivatingPreset;
         RememberLocalPlaybackPositionsCheck.IsChecked = _workingState.Settings.RememberLocalPlaybackPositions;
 
         var customRadioFolder = !string.IsNullOrWhiteSpace(_workingState.Radio.RecordingsFolder);
@@ -176,6 +178,7 @@ public partial class SettingsWindow : Window
         _workingState.Settings.PrefixChord = KeyChord.Parse(PrefixBox.Text).Canonical;
         _workingState.Settings.PausePlaybackWhenLeavingPlayer = PausePlaybackWhenLeavingPlayerCheck.IsChecked == true;
         _workingState.Settings.FollowPlaybackOnPlayerExit = FollowPlaybackOnPlayerExitCheck.IsChecked == true;
+        _workingState.Settings.OpenPlayerWhenActivatingPreset = OpenPlayerWhenActivatingPresetCheck.IsChecked == true;
         _workingState.Settings.RememberLocalPlaybackPositions = RememberLocalPlaybackPositionsCheck.IsChecked == true;
         if (CustomRadioFolderOption.IsChecked == true)
         {

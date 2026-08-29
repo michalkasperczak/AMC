@@ -96,6 +96,7 @@ public static class CommandIds
     public const string SettingsSessionOrder = "settings.sessionOrder";
     public const string SettingsPausePlaybackWhenLeavingPlayer = "settings.playback.pauseWhenLeavingPlayer";
     public const string SettingsFollowPlaybackOnPlayerExit = "settings.playback.followOnPlayerExit";
+    public const string SettingsOpenPlayerWhenActivatingPreset = "settings.playback.openPlayerForPreset";
     public const string SettingsRememberLocalPlaybackPositions = "settings.playback.rememberLocalPositions";
     public const string SettingsPrefix = "settings.prefix";
     public const string SettingsPrefixTimeout = "settings.prefixTimeout";

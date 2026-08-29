@@ -384,6 +384,12 @@ Wake is optional and requires AMC to remain running while the computer sleeps. H
 
 An actively captured station has a short **Recording** prefix in every list. When it is also playing, the state starts with **Playing, Recording**. `Alt+Enter` has a separate Recording section with manual or scheduled kind, start time, manual or planned end, format and destination file or folder. Ordinary navigation therefore remains short while complete data is available on demand. `Alt+Shift+Enter` is not reassigned and retains its item-options role in services that expose those options.
 
+## View behaviour after preset activation in alpha 145
+
+A preset that represents a playable item starts playback in the background by default and does not take focus away from the current list. This applies to every session, both from the preset list and through direct `Ctrl+Shift+1–0/-/=` shortcuts. If the player was already open, it remains open and shows the new item.
+
+`Settings > General > Playback` contains **Open the player after activating a preset**. Enabling it makes a preset enter the player. Escape then returns to the view and position from which the preset was invoked; the separate follow-playback-on-player-exit option still applies independently. A folder, album or playlist preset remains a container and opens its contents rather than pretending to play in the background.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

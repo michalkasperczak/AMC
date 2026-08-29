@@ -34,6 +34,7 @@ public sealed class AppSettings
     public bool RememberLastSession { get; set; } = true;
     public bool PausePlaybackWhenLeavingPlayer { get; set; } = true;
     public bool FollowPlaybackOnPlayerExit { get; set; } = true;
+    public bool OpenPlayerWhenActivatingPreset { get; set; }
     public bool RememberLocalPlaybackPositions { get; set; } = true;
     public string LastSessionId { get; set; } = "tidal";
     public Dictionary<int, string> SessionSlots { get; set; } = SessionSlotOrder.CreateDefault();

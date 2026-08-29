@@ -112,6 +112,7 @@ static void TestDefaultProfile()
     Equal(PercentageSeekAnnouncementMode.Percent, settings.Messages.PercentageSeekAnnouncement);
     Equal(StartupTarget.MediaList, settings.StartupTarget);
     Equal(true, settings.PausePlaybackWhenLeavingPlayer);
+    Equal(false, settings.OpenPlayerWhenActivatingPreset);
     Equal(true, settings.RememberLocalPlaybackPositions);
 
     var profile = KeyboardProfile.CreateDefault();
@@ -200,6 +201,7 @@ static void TestCommandCatalog()
     Equal("Ustawienia: kolejność sesji i skrótów Ctrl+1–9", CommandCatalog.GetDisplayName(CommandIds.SettingsSessionOrder));
     Equal("Ustawienia: wstrzymuj po wyjściu z odtwarzacza", CommandCatalog.GetDisplayName(CommandIds.SettingsPausePlaybackWhenLeavingPlayer));
     Equal("Ustawienia: fokus podąża za odtwarzaniem", CommandCatalog.GetDisplayName(CommandIds.SettingsFollowPlaybackOnPlayerExit));
+    Equal("Ustawienia: otwieraj odtwarzacz po uruchomieniu presetu", CommandCatalog.GetDisplayName(CommandIds.SettingsOpenPlayerWhenActivatingPreset));
     Equal("Ustawienia: pamiętaj pozycję odtwarzania lokalnych plików", CommandCatalog.GetDisplayName(CommandIds.SettingsRememberLocalPlaybackPositions));
     Equal("Skocz do czasu", CommandCatalog.GetDisplayName(CommandIds.SeekToTime));
     Equal("Skocz do procentu", CommandCatalog.GetDisplayName(CommandIds.SeekToPercentage));
@@ -3063,6 +3065,8 @@ static void TestTimeCommands()
     Equal(SettingsTarget.PausePlaybackWhenLeavingPlayer, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsFollowPlaybackOnPlayerExit);
     Equal(SettingsTarget.FollowPlaybackOnPlayerExit, actions.LastSettingsTarget);
+    router.Execute(CommandIds.SettingsOpenPlayerWhenActivatingPreset);
+    Equal(SettingsTarget.OpenPlayerWhenActivatingPreset, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsRememberLocalPlaybackPositions);
     Equal(SettingsTarget.RememberLocalPlaybackPositions, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsToggleMessages);
@@ -3268,6 +3272,7 @@ static void TestExports()
         state.Settings.Messages.PlaybackMessages = false;
         state.Settings.Messages.PercentageSeekAnnouncement = PercentageSeekAnnouncementMode.PercentAndTime;
         state.Settings.PausePlaybackWhenLeavingPlayer = false;
+        state.Settings.OpenPlayerWhenActivatingPreset = true;
         state.Settings.RememberLocalPlaybackPositions = false;
         state.Bookmarks.Entries.Add(new BookmarkEntry
         {
@@ -3317,6 +3322,7 @@ static void TestExports()
         Equal(false, store.LoadOrCreate().Settings.Messages.PlaybackMessages);
         Equal(PercentageSeekAnnouncementMode.PercentAndTime, store.LoadOrCreate().Settings.Messages.PercentageSeekAnnouncement);
         Equal(false, store.LoadOrCreate().Settings.PausePlaybackWhenLeavingPlayer);
+        Equal(true, store.LoadOrCreate().Settings.OpenPlayerWhenActivatingPreset);
         Equal(false, store.LoadOrCreate().Settings.RememberLocalPlaybackPositions);
 
         store.ExportKeyboardMap(mapPath, state.KeyboardProfiles[0]);
@@ -3336,6 +3342,7 @@ static void TestExports()
         Equal(false, importedSettings.Messages.PlaybackMessages);
         Equal(PercentageSeekAnnouncementMode.PercentAndTime, importedSettings.Messages.PercentageSeekAnnouncement);
         Equal(false, importedSettings.PausePlaybackWhenLeavingPlayer);
+        Equal(true, importedSettings.OpenPlayerWhenActivatingPreset);
         Equal(false, importedSettings.RememberLocalPlaybackPositions);
 
         store.ExportFullBackup(backupPath, state);
@@ -3349,6 +3356,7 @@ static void TestExports()
         Equal(false, importedBackup.Settings.Messages.VolumeMessages);
         Equal(false, importedBackup.Settings.Messages.PlaybackMessages);
         Equal(false, importedBackup.Settings.PausePlaybackWhenLeavingPlayer);
+        Equal(true, importedBackup.Settings.OpenPlayerWhenActivatingPreset);
         Equal(false, importedBackup.Settings.RememberLocalPlaybackPositions);
         Equal(ResumePositionMode.Remember, importedBackup.LocalMedia.FolderSources[0].ResumePositionMode);
         Equal(PercentageSeekAnnouncementMode.PercentAndTime, importedBackup.Settings.Messages.PercentageSeekAnnouncement);

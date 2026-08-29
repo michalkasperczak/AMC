@@ -1,12 +1,48 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-144`
-- Tytuł zestawu: Zakres stacji Shift+R i widoczny stan nagrywania
-- Wersja programu: `0.1.0-alpha.144`
+- Numer zestawu: `AMC-TEST-145`
+- Tytuł zestawu: Widok i fokus po uruchomieniu presetu
+- Wersja programu: `0.1.0-alpha.145`
 - Utworzono: 2026-08-29, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.144.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.145.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 145
+
+### AMC-145-01 — Preset odtwarzany w tle
+
+Pozostaw wyłączone ustawienie „Po uruchomieniu presetu otwieraj odtwarzacz”.
+Ustaw fokus na elemencie innym niż cel presetu i uruchom zajęty preset bezpośrednim
+`Ctrl+Shift+cyfra`.
+
+Oczekiwane: element presetu zaczyna grać, ale pozostajesz w tym samym widoku i
+na tej samej pozycji listy. NVDA podaje nazwę uruchomionego elementu tylko raz.
+
+### AMC-145-02 — Preset otwierający odtwarzacz
+
+Włącz opcję w `Ustawienia > Ogólne > Odtwarzanie`, wróć na listę i uruchom
+ten sam preset.
+
+Oczekiwane: otwiera się odtwarzacz z celem presetu. Escape wraca do widoku i
+pozycji, z których wywołano preset, z uwzględnieniem osobnego ustawienia
+podążania fokusu za odtwarzaniem.
+
+### AMC-145-03 — Zmiana presetu w odtwarzaczu
+
+Mając otwarty odtwarzacz, uruchom drugi zajęty preset przy wyłączonej opcji.
+
+Oczekiwane: odtwarzacz pozostaje otwarty i pokazuje nowy element. Ustawienie
+nie wyrzuca użytkownika z już otwartego odtwarzacza.
+
+### AMC-145-04 — Lista presetów i różne sesje
+
+Powtórz test przez `Ctrl+Alt+P` oraz w Radiu i Plikach lokalnych.
+
+Oczekiwane: Enter na odtwarzalnym presecie respektuje tę samą opcję co skrót
+bezpośredni. Folder, album i playlista nadal otwierają zawartość.
+
+## Poprzedni zestaw alpha 144
 
 ## Nowości alpha 144
 

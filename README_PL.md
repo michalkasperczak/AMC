@@ -413,6 +413,12 @@ Wybudzanie jest opcjonalne i wymaga, aby AMC pozostawał uruchomiony podczas uś
 
 Aktywnie zapisywana stacja otrzymuje na każdej liście krótki prefiks **Nagrywany**. Jeżeli jest równocześnie odtwarzana, komunikat zaczyna się od **Odtwarzany, Nagrywany**. `Alt+Enter` zawiera osobną sekcję Nagrywanie: rodzaj ręczny lub planowy, godzinę rozpoczęcia, ręczne albo planowane zakończenie, format i folder lub plik. Dzięki temu zwykła nawigacja pozostaje krótka, a dokładne dane są dostępne na żądanie. `Alt+Shift+Enter` nie został zajęty nową funkcją i zachowuje rolę opcji elementu w usługach, które je udostępniają.
 
+## Widok po uruchomieniu presetu w alpha 145
+
+Preset odtwarzalnego elementu domyślnie rozpoczyna odtwarzanie w tle i nie odbiera fokusu z bieżącej listy. Dotyczy to wszystkich sesji oraz uruchamiania z listy presetów i bezpośrednimi skrótami `Ctrl+Shift+1–0/-/=`. Jeśli odtwarzacz był już otwarty, pozostaje otwarty i pokazuje nowy element.
+
+W `Ustawienia > Ogólne > Odtwarzanie` znajduje się opcja **Po uruchomieniu presetu otwieraj odtwarzacz**. Po jej włączeniu preset przechodzi do odtwarzacza. Escape wraca wtedy do widoku i pozycji, z których wywołano preset; opcja podążania fokusu po wyjściu z odtwarzacza nadal działa niezależnie. Folder, album lub playlista przypisane do presetu pozostają kontenerami i otwierają swoją zawartość zamiast udawać odtwarzanie w tle.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.
