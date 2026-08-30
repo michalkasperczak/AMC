@@ -2773,6 +2773,9 @@ static void TestCommandPalette()
         "Komunikaty odtwarzania i pauzy: włączone. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsPlaybackMessages).DisplayName);
     Equal(
+        "Oznajmianie automatycznie rozpoznanych utworów: włączone. Enter: ustawienia",
+        entries.Single(entry => entry.CommandId == CommandIds.SettingsAutomaticRecognitionMessages).DisplayName);
+    Equal(
         "Komunikat po skoku cyfrą: tylko procent",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsPercentageSeekAnnouncement).DisplayName);
     Equal("Ctrl+,", entries.Single(entry => entry.CommandId == CommandIds.SettingsGeneral).LocalShortcut);
@@ -2796,6 +2799,7 @@ static void TestCommandPalette()
     settings.Messages.BookmarkNavigationMessages = false;
     settings.Messages.VolumeMessages = false;
     settings.Messages.PlaybackMessages = false;
+    settings.Messages.AutomaticRecognitionMessages = false;
     settings.Messages.PercentageSeekAnnouncement = PercentageSeekAnnouncementMode.PercentAndTime;
     var changedEntries = CommandPaletteSearch.CreateEntries(profile, settings);
     Equal(
@@ -2813,6 +2817,9 @@ static void TestCommandPalette()
     Equal(
         "Komunikaty nawigacji po zakładkach: wyłączone. Enter: ustawienia",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsBookmarkNavigationMessages).DisplayName);
+    Equal(
+        "Oznajmianie automatycznie rozpoznanych utworów: wyłączone. Enter: ustawienia",
+        changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsAutomaticRecognitionMessages).DisplayName);
     Equal(
         "Komunikat po skoku cyfrą: procent i czas",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsPercentageSeekAnnouncement).DisplayName);
@@ -3199,6 +3206,8 @@ static void TestTimeCommands()
     Equal(SettingsTarget.VolumeMessages, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsPlaybackMessages);
     Equal(SettingsTarget.PlaybackMessages, actions.LastSettingsTarget);
+    router.Execute(CommandIds.SettingsAutomaticRecognitionMessages);
+    Equal(SettingsTarget.AutomaticRecognitionMessages, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsPausePlaybackWhenLeavingPlayer);
     Equal(SettingsTarget.PausePlaybackWhenLeavingPlayer, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsFollowPlaybackOnPlayerExit);

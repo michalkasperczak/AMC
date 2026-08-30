@@ -131,6 +131,7 @@ public sealed class MessageSettings
     public bool HistoryMessages { get; set; } = true;
     public bool PlaybackMessages { get; set; } = true;
     public bool VolumeMessages { get; set; } = true;
+    public bool AutomaticRecognitionMessages { get; set; } = true;
     public bool LoadingMessages { get; set; } = true;
     public bool ErrorMessages { get; set; } = true;
     public Dictionary<string, string> Templates { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -161,7 +162,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 34;
+    public int SchemaVersion { get; set; } = 35;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();

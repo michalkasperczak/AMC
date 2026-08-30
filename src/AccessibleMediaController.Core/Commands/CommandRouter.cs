@@ -389,6 +389,7 @@ public sealed class CommandRouter(
             CommandIds.SettingsBookmarkNavigationMessages => SettingsTarget.BookmarkNavigationMessages,
             CommandIds.SettingsVolumeMessages => SettingsTarget.VolumeMessages,
             CommandIds.SettingsPlaybackMessages => SettingsTarget.PlaybackMessages,
+            CommandIds.SettingsAutomaticRecognitionMessages => SettingsTarget.AutomaticRecognitionMessages,
             CommandIds.SettingsPercentageSeekAnnouncement => SettingsTarget.PercentageSeekAnnouncement,
             CommandIds.SettingsMessageTemplates => SettingsTarget.MessageTemplates,
             CommandIds.SettingsUpdates => SettingsTarget.Updates,

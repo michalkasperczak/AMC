@@ -236,6 +236,9 @@
                                 <CheckBox x:Name="BookmarkNavigationMessagesCheck" Margin="18,0,0,6" Content="Oznajmiaj nawigację po _zakładkach" />
                                 <CheckBox x:Name="VolumeMessagesCheck" Margin="18,0,0,6" Content="Oznajmiaj zmiany _głośności" />
                                 <CheckBox x:Name="PlaybackMessagesCheck" Margin="18,0,0,8" Content="Oznajmiaj _odtwarzanie i pauzę" />
+                                <CheckBox x:Name="AutomaticRecognitionMessagesCheck" Margin="18,0,0,8"
+                                          Content="Oznajmiaj automatycznie _rozpoznane utwory"
+                                          automation:AutomationProperties.HelpText="Komunikat jest wypowiadany tylko wtedy, gdy okno AMC jest aktywne. Wyłączenie nie zatrzymuje rozpoznawania ani zapisywania wyników w historii." />
                                 <Label Target="{Binding ElementName=PercentageSeekAnnouncementCombo}">Po skoku _cyfrą oznajmiaj:</Label>
                                 <ComboBox x:Name="PercentageSeekAnnouncementCombo" Width="260" HorizontalAlignment="Left">
                                     <ComboBoxItem Tag="Percent">Tylko procent</ComboBoxItem>

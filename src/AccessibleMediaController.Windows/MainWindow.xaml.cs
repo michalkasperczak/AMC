@@ -925,7 +925,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (!result.Success)
             {
                 DiagnosticLog.Info("recognition", result.Error ?? "Nie rozpoznano utworu.");
-                if (!automatic) AnnounceEssential(result.Error ?? "Nie rozpoznano utworu");
+                if (!automatic && IsActive) AnnounceEssential(result.Error ?? "Nie rozpoznano utworu");
                 return;
             }
 
@@ -954,9 +954,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     _state.Radio.RecognizedTracks.RemoveRange(2_000, _state.Radio.RecognizedTracks.Count - 2_000);
                 _store.Save(_state);
                 DiagnosticLog.Info("recognition", $"Rozpoznano {label} na stacji {station.Title}.");
-                AnnounceEssential($"Rozpoznano: {label}");
+                if (ShouldAnnounceRadioRecognitionResult(
+                        automatic,
+                        _state.Settings.Messages.Enabled,
+                        _state.Settings.Messages.AutomaticRecognitionMessages,
+                        IsActive))
+                {
+                    AnnounceEssential($"Rozpoznano: {label}");
+                }
             }
-            else if (!automatic)
+            else if (!automatic && IsActive)
             {
                 AnnounceEssential($"Rozpoznano: {label}. Ten utwór jest już w najnowszej historii");
             }
@@ -981,6 +988,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var label = string.Join(" — ", parts);
         return string.IsNullOrWhiteSpace(label) ? "nieznany utwór" : label;
     }
+
+    internal static bool ShouldAnnounceRadioRecognitionResult(
+        bool automatic,
+        bool messagesEnabled,
+        bool automaticRecognitionMessagesEnabled,
+        bool isWindowActive) =>
+        isWindowActive && (!automatic || (messagesEnabled && automaticRecognitionMessagesEnabled));
 
     private void ToggleRadioRecognitionMonitoring()
     {

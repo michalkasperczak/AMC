@@ -90,6 +90,8 @@ public static class CommandPaletteSearch
                 $"Komunikaty zmian głośności: {OnOff(settings.Messages.VolumeMessages)}. Enter: ustawienia",
             CommandIds.SettingsPlaybackMessages =>
                 $"Komunikaty odtwarzania i pauzy: {OnOff(settings.Messages.PlaybackMessages)}. Enter: ustawienia",
+            CommandIds.SettingsAutomaticRecognitionMessages =>
+                $"Oznajmianie automatycznie rozpoznanych utworów: {OnOff(settings.Messages.AutomaticRecognitionMessages)}. Enter: ustawienia",
             CommandIds.SettingsPercentageSeekAnnouncement =>
                 $"Komunikat po skoku cyfrą: {GetPercentageSeekAnnouncementName(settings.Messages.PercentageSeekAnnouncement)}",
             _ => CommandCatalog.GetDisplayName(commandId)

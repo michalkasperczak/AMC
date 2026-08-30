@@ -167,6 +167,7 @@ public static class CommandCatalog
             CommandIds.SettingsBookmarkNavigationMessages => "Ustawienia: komunikaty nawigacji po zakładkach",
             CommandIds.SettingsVolumeMessages => "Ustawienia: komunikaty zmian głośności",
             CommandIds.SettingsPlaybackMessages => "Ustawienia: komunikaty odtwarzania i pauzy",
+            CommandIds.SettingsAutomaticRecognitionMessages => "Ustawienia: oznajmianie automatycznie rozpoznanych utworów",
             CommandIds.SettingsPercentageSeekAnnouncement => "Ustawienia: komunikat po skoku cyfrą",
             CommandIds.SettingsMessageTemplates => "Ustawienia: szablony komunikatów",
             CommandIds.SettingsUpdates => "Ustawienia: aktualizacje, planowane",

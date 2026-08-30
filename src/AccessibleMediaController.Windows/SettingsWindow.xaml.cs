@@ -106,6 +106,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.BookmarkNavigationMessages => (MessagesTab, BookmarkNavigationMessagesCheck),
             SettingsTarget.VolumeMessages => (MessagesTab, VolumeMessagesCheck),
             SettingsTarget.PlaybackMessages => (MessagesTab, PlaybackMessagesCheck),
+            SettingsTarget.AutomaticRecognitionMessages => (MessagesTab, AutomaticRecognitionMessagesCheck),
             SettingsTarget.PercentageSeekAnnouncement => (MessagesTab, PercentageSeekAnnouncementCombo),
             SettingsTarget.MessageTemplates => (MessagesTab, MessageTemplatesList),
             SettingsTarget.Updates => (UpdatesTab, UpdatesTab),
@@ -145,6 +146,7 @@ public partial class SettingsWindow : Window
         BookmarkNavigationMessagesCheck.IsChecked = _workingState.Settings.Messages.BookmarkNavigationMessages;
         VolumeMessagesCheck.IsChecked = _workingState.Settings.Messages.VolumeMessages;
         PlaybackMessagesCheck.IsChecked = _workingState.Settings.Messages.PlaybackMessages;
+        AutomaticRecognitionMessagesCheck.IsChecked = _workingState.Settings.Messages.AutomaticRecognitionMessages;
         SelectComboByTag(
             PercentageSeekAnnouncementCombo,
             _workingState.Settings.Messages.PercentageSeekAnnouncement.ToString());
@@ -208,6 +210,7 @@ public partial class SettingsWindow : Window
         _workingState.Settings.Messages.BookmarkNavigationMessages = BookmarkNavigationMessagesCheck.IsChecked == true;
         _workingState.Settings.Messages.VolumeMessages = VolumeMessagesCheck.IsChecked == true;
         _workingState.Settings.Messages.PlaybackMessages = PlaybackMessagesCheck.IsChecked == true;
+        _workingState.Settings.Messages.AutomaticRecognitionMessages = AutomaticRecognitionMessagesCheck.IsChecked == true;
         if (Enum.TryParse<PercentageSeekAnnouncementMode>(
                 SelectedTag(PercentageSeekAnnouncementCombo, nameof(PercentageSeekAnnouncementMode.Percent)),
                 out var percentageSeekAnnouncement))

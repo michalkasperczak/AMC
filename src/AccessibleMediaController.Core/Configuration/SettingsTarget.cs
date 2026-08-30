@@ -38,6 +38,7 @@ public enum SettingsTarget
     BookmarkNavigationMessages,
     VolumeMessages,
     PlaybackMessages,
+    AutomaticRecognitionMessages,
     PercentageSeekAnnouncement,
     MessageTemplates,
     Updates

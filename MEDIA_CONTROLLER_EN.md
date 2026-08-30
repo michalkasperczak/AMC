@@ -1147,3 +1147,18 @@ plain and rich copy, export and delete. `Ctrl+Shift+S` is reserved for a future
 session list. Future official service adapters may add album-with-selected-track
 matching to Apple Music, Spotify, TIDAL and YouTube Music, with confirmation for
 ambiguous catalogue results.
+
+## 20. Recognised-track announcements
+
+Starting with `alpha.167`, automatic recognition monitoring and its speech are
+independent states. `Shift+S` controls collection, while **Announce
+automatically recognised tracks** under Messages controls speech only.
+Disabling it does not stop requests, history, export or later service matching.
+
+An automatic result may be spoken only when AMC's main window is active, the
+master accessibility messages setting is enabled and this specific option is
+enabled. After focus moves to another application, the result is stored in
+history without interrupting the screen reader. Manual `S` still answers
+regardless of the automatic-announcement option, but only while AMC remains
+active; a request finishing after an application switch is silent. The command
+palette reports the current state and opens Settings focused on this checkbox.

@@ -135,6 +135,7 @@ public static class CommandIds
     public const string SettingsBookmarkNavigationMessages = "settings.bookmarkNavigationMessages";
     public const string SettingsVolumeMessages = "settings.volumeMessages";
     public const string SettingsPlaybackMessages = "settings.playbackMessages";
+    public const string SettingsAutomaticRecognitionMessages = "settings.automaticRecognitionMessages";
     public const string SettingsPercentageSeekAnnouncement = "settings.percentageSeekAnnouncement";
     public const string SettingsMessageTemplates = "settings.messageTemplates";
     public const string SettingsUpdates = "settings.updates";

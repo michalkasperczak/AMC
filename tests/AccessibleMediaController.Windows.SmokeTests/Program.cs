@@ -57,6 +57,8 @@ try
     TestAccessiblePlaybackStatusStrip();
     TestMenuAccessibility();
     TestRadioScheduleAccessibility();
+    TestRadioRecognitionAnnouncementPolicy();
+    TestRadioRecognitionSettingAccessibility();
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
@@ -292,6 +294,97 @@ static void TestRadioScheduleAccessibility()
                && !text.Contains("Choice", StringComparison.Ordinal)
                && !text.Contains("Settings", StringComparison.Ordinal);
     }
+}
+
+static void TestRadioRecognitionAnnouncementPolicy()
+{
+    Assert(MainWindow.ShouldAnnounceRadioRecognitionResult(
+            automatic: true,
+            messagesEnabled: true,
+            automaticRecognitionMessagesEnabled: true,
+            isWindowActive: true),
+        "Aktywne okno nie oznajmia włączonych automatycznych rozpoznań.");
+    Assert(!MainWindow.ShouldAnnounceRadioRecognitionResult(
+            automatic: true,
+            messagesEnabled: true,
+            automaticRecognitionMessagesEnabled: false,
+            isWindowActive: true),
+        "Wyłączona opcja nie wycisza automatycznych rozpoznań.");
+    Assert(!MainWindow.ShouldAnnounceRadioRecognitionResult(
+            automatic: true,
+            messagesEnabled: true,
+            automaticRecognitionMessagesEnabled: true,
+            isWindowActive: false),
+        "Automatyczne rozpoznanie przerywa pracę poza oknem AMC.");
+    Assert(MainWindow.ShouldAnnounceRadioRecognitionResult(
+            automatic: false,
+            messagesEnabled: false,
+            automaticRecognitionMessagesEnabled: false,
+            isWindowActive: true),
+        "Ręczne rozpoznanie nie odpowiada w aktywnym oknie AMC.");
+    Assert(!MainWindow.ShouldAnnounceRadioRecognitionResult(
+            automatic: false,
+            messagesEnabled: true,
+            automaticRecognitionMessagesEnabled: true,
+            isWindowActive: false),
+        "Ręczne rozpoznanie przerywa pracę poza oknem AMC.");
+    Console.WriteLine("OK: oznajmianie rozpoznań tylko w aktywnym oknie AMC");
+}
+
+static void TestRadioRecognitionSettingAccessibility()
+{
+    Exception? failure = null;
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-recognition-setting-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    var thread = new Thread(() =>
+    {
+        SettingsWindow? window = null;
+        try
+        {
+            var state = new PersistedState();
+            state.Settings.Messages.AutomaticRecognitionMessages = false;
+            var store = new ConfigurationStore(
+                Path.Combine(directory, "state.json"),
+                Path.Combine(directory, "library.db"));
+            window = new SettingsWindow(
+                state,
+                store,
+                SettingsTarget.AutomaticRecognitionMessages);
+            var checkbox = (CheckBox)window.FindName("AutomaticRecognitionMessagesCheck");
+            Assert(checkbox.IsChecked == false,
+                "Pole automatycznych rozpoznań nie wczytuje zapisanego stanu.");
+            Assert((AutomationProperties.GetHelpText(checkbox) ?? string.Empty)
+                    .Contains("tylko wtedy, gdy okno AMC jest aktywne", StringComparison.Ordinal),
+                "Pole nie wyjaśnia ograniczenia oznajmiania do aktywnego okna AMC.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+        finally
+        {
+            window?.Close();
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    try
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+    catch (IOException)
+    {
+        // A delayed SQLite handle may be released after process exit; the test
+        // uses a unique temporary directory, so cleanup failure is harmless.
+    }
+
+    if (failure is not null)
+    {
+        throw new InvalidOperationException("Test ustawienia oznajmiania rozpoznań nie powiódł się.", failure);
+    }
+
+    Console.WriteLine("OK: dostępne ustawienie oznajmiania rozpoznanych utworów");
 }
 
 static void TestShazamFingerprint()

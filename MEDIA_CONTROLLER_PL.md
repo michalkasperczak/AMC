@@ -1177,3 +1177,19 @@ jest aliasem Shazam. Po wdrożeniu oficjalnych adapterów menu historii otrzyma
 działania dopasowania albumu z zaznaczonym utworem do Apple Music, Spotify,
 TIDAL i YouTube Music. Dopasowanie nie może być wykonywane bez potwierdzenia,
 gdy katalog zwróci więcej niż jeden wiarygodny wynik.
+
+## 20. Oznajmianie rozpoznanych utworów
+
+Od `alpha.167` automatyczne obserwowanie rozpoznawania i jego oznajmianie są
+dwoma niezależnymi stanami. `Shift+S` steruje pobieraniem wyników, natomiast
+opcja **Oznajmiaj automatycznie rozpoznane utwory** w kategorii Komunikaty
+steruje wyłącznie mową. Jej wyłączenie nie zatrzymuje zapytań, historii,
+eksportu ani późniejszego dopasowania do usług.
+
+Automatyczny wynik może zostać wypowiedziany tylko wtedy, gdy główne okno AMC
+jest aktywne, komunikaty dostępności są włączone i włączona jest omawiana
+opcja. Po przejściu do innego programu wynik trafia do historii bez
+przerywania pracy czytnika ekranu. Ręczne `S` odpowiada niezależnie od opcji,
+ale także wyłącznie w aktywnym oknie AMC; zakończenie zapytania po zmianie
+aplikacji pozostaje bezgłośne. Paleta poleceń pokazuje stan ustawienia i
+otwiera fokus bezpośrednio na odpowiednim polu wyboru.

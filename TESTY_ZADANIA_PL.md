@@ -1,12 +1,46 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-166`
-- Tytuł zestawu: Indywidualne nagrania i sterowanie Radiem
-- Wersja programu: `0.1.0-alpha.166`
-- Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.166.md`
+- Numer zestawu: `AMC-TEST-167`
+- Tytuł zestawu: Ciche automatyczne rozpoznawanie utworów
+- Wersja programu: `0.1.0-alpha.167`
+- Utworzono: 2026-08-31, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.167.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 167
+
+### AMC-167-01 — Automatyczne rozpoznawanie bez oznajmiania
+
+W `Ustawienia > Komunikaty` wyłącz **Oznajmiaj automatycznie rozpoznane
+utwory**. W Radiu uruchom obserwowanie `Shift+S` i pozostaw je do znalezienia
+co najmniej jednego utworu. Następnie otwórz historię `Ctrl+Alt+S`.
+
+Oczekiwane: wynik nie jest wypowiadany, ale pojawia się w historii z nazwą
+stacji i czasem. Obserwowanie nadal działa, a pole wyboru nie zmienia jego
+stanu.
+
+### AMC-167-02 — Oznajmianie wyłącznie w aktywnym AMC
+
+Włącz opcję, pozostaw obserwowanie aktywne i przejdź do innej aplikacji. Po
+kilku minutach wróć do AMC i sprawdź historię. Następnie poczekaj na kolejne
+rozpoznanie, pozostając w oknie AMC.
+
+Oczekiwane: poza AMC żaden wynik nie przerywa pracy NVDA, choć jest zapisany w
+historii. Kolejny nowy wynik znaleziony przy aktywnym AMC zostaje oznajmiony.
+
+### AMC-167-03 — Ręczne rozpoznanie i paleta poleceń
+
+Wyłącz automatyczne oznajmianie, naciśnij `S` w odtwarzaczu i pozostań w AMC.
+Potem otwórz paletę `Ctrl+Shift+K`, wyszukaj „rozpoznane utwory” i uruchom
+pozycję ustawień.
+
+Oczekiwane: ręczne rozpoznanie nadal podaje wynik. Paleta mówi, że oznajmianie
+automatyczne jest wyłączone, a Enter otwiera kartę Komunikaty z fokusem na
+właściwym polu wyboru. NVDA nie czyta nazwy klasy ani technicznego
+identyfikatora ustawienia.
+
+## Poprzedni zestaw alpha 166
 
 ## Nowości alpha 166
 
