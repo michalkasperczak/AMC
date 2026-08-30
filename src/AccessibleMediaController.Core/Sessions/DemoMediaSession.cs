@@ -56,6 +56,9 @@ public sealed class DemoMediaSession
     public MediaItem CurrentItem => HasCurrentItem ? Items[_currentIndex] : _emptyItem;
     public bool IsPlaying { get; private set; }
     public int Volume { get; private set; } = 35;
+    public bool IsSessionMuted { get; private set; }
+    public bool IsGloballyMuted { get; private set; }
+    public bool IsMuted => IsSessionMuted || IsGloballyMuted;
     public double PlaybackRate { get; private set; } = 1d;
     public double DefaultPlaybackRate { get; private set; } = 1d;
     public bool SupportsPlaybackRate => _output?.SupportsPlaybackRate == true;
@@ -107,7 +110,7 @@ public sealed class DemoMediaSession
             ConsumeQueueItem(CurrentItem);
         }
         IsPlaying = true;
-        _output?.Play(CurrentItem, _position, Volume, PlaybackRate);
+        _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
     }
 
     public void StopPlayback()
@@ -140,7 +143,7 @@ public sealed class DemoMediaSession
         if (_playbackContextIsQueue) ConsumeQueueItem(CurrentItem);
         ApplyPlaybackRateForItem(CurrentItem);
         IsPlaying = true;
-        _output?.Play(CurrentItem, _position, Volume, PlaybackRate);
+        _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
         return true;
     }
 
@@ -169,7 +172,7 @@ public sealed class DemoMediaSession
         if (_playbackContextIsQueue) ConsumeQueueItem(CurrentItem);
         ApplyPlaybackRateForItem(CurrentItem);
         IsPlaying = true;
-        _output?.Play(CurrentItem, _position, Volume, PlaybackRate);
+        _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
         return true;
     }
 
@@ -213,7 +216,7 @@ public sealed class DemoMediaSession
         }
         ApplyPlaybackRateForItem(CurrentItem);
         IsPlaying = true;
-        _output?.Play(CurrentItem, _position, Volume, PlaybackRate);
+        _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
         return true;
     }
 
@@ -264,14 +267,32 @@ public sealed class DemoMediaSession
     public void ChangeVolume(int delta)
     {
         Volume = Math.Clamp(Volume + delta, 0, 100);
-        _output?.SetVolume(Volume);
+        IsSessionMuted = false;
+        ApplyEffectiveVolume();
     }
 
     public void SetVolume(int volume)
     {
         Volume = Math.Clamp(volume, 0, 100);
-        _output?.SetVolume(Volume);
+        ApplyEffectiveVolume();
     }
+
+    public bool ToggleMute()
+    {
+        IsSessionMuted = !IsSessionMuted;
+        ApplyEffectiveVolume();
+        return IsSessionMuted;
+    }
+
+    public void SetGlobalMute(bool muted)
+    {
+        IsGloballyMuted = muted;
+        ApplyEffectiveVolume();
+    }
+
+    private int EffectiveVolume => IsMuted ? 0 : Volume;
+
+    private void ApplyEffectiveVolume() => _output?.SetVolume(EffectiveVolume);
 
     public bool ChangePlaybackRate(int direction)
     {
@@ -652,7 +673,7 @@ public sealed class DemoMediaSession
         StoreRememberedPosition(CurrentItem, TimeSpan.Zero);
         ApplyPlaybackRateForItem(CurrentItem);
         IsPlaying = true;
-        _output?.Play(CurrentItem, TimeSpan.Zero, Volume, PlaybackRate);
+        _output?.Play(CurrentItem, TimeSpan.Zero, EffectiveVolume, PlaybackRate);
         return CurrentItem;
     }
 

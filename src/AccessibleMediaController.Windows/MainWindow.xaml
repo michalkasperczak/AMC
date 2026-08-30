@@ -76,6 +76,17 @@
                 <MenuItem Header="Następna sesja" InputGestureText="Ctrl+Page Down" Click="NextSession_Click" />
             </MenuItem>
             <MenuItem Header="_Odtwarzanie">
+                <MenuItem x:Name="CurrentSessionMuteMenuItem" Header="Wycisz lub przywróć dźwięk _bieżącej sesji" InputGestureText="Ctrl+M"
+                          IsCheckable="True"
+                          automation:AutomationProperties.Name="Wycisz lub przywróć dźwięk bieżącej sesji, Ctrl+M"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+M"
+                          Click="ToggleCurrentSessionMute_Click" />
+                <MenuItem x:Name="AllSessionsMuteMenuItem" Header="Wycisz lub przywróć dźwięk _wszystkich sesji AMC" InputGestureText="Ctrl+Shift+M"
+                          IsCheckable="True"
+                          automation:AutomationProperties.Name="Wycisz lub przywróć dźwięk wszystkich sesji AMC, Ctrl+Shift+M"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+M"
+                          Click="ToggleAllSessionsMute_Click" />
+                <Separator />
                 <MenuItem x:Name="RadioRecordingMenuItem" Header="Rozpocznij nagrywanie radia" InputGestureText="R"
                           automation:AutomationProperties.Name="Rozpocznij lub zakończ nagrywanie radia, R, w odtwarzaczu radia"
                           automation:AutomationProperties.AcceleratorKey="R"

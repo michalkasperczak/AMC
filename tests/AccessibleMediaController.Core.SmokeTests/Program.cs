@@ -210,6 +210,8 @@ static void TestCommandCatalog()
     Equal("Właściwości i informacje", CommandCatalog.GetDisplayName(CommandIds.ItemProperties));
     Equal("Zwiększ prędkość odtwarzania", CommandCatalog.GetDisplayName(CommandIds.PlaybackRateUp));
     Equal("Przywróć normalną prędkość odtwarzania", CommandCatalog.GetDisplayName(CommandIds.PlaybackRateReset));
+    Equal("Wycisz lub przywróć dźwięk bieżącej sesji", CommandCatalog.GetDisplayName(CommandIds.ToggleMuteCurrentSession));
+    Equal("Wycisz lub przywróć dźwięk wszystkich sesji AMC", CommandCatalog.GetDisplayName(CommandIds.ToggleMuteAllSessions));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
     Equal("Przejdź do 50% utworu", CommandCatalog.GetDisplayName(CommandIds.SeekPercent(50)));
     True(CommandIds.TryParseSeekPercent(CommandIds.SeekPercent(90), out var percent), "Identyfikator skoku procentowego powinien być rozpoznawany.");
@@ -1135,6 +1137,22 @@ static void TestLocalPlaybackBoundary()
     Equal(35, output.Volume);
     Equal(1d, output.PlaybackRate);
     True(session.SupportsPlaybackRate, "Lokalne wyjście powinno udostępniać regulację prędkości.");
+
+    True(session.ToggleMute(), "Pierwsze przełączenie powinno wyciszyć bieżącą sesję.");
+    Equal(0, output.Volume);
+    Equal(true, session.IsMuted);
+    Equal(false, session.ToggleMute());
+    Equal(35, output.Volume);
+    Equal(false, session.IsMuted);
+    Equal(true, manager.ToggleAllSessionsMute());
+    Equal(0, output.Volume);
+    Equal(true, session.IsGloballyMuted);
+    True(session.ToggleMute(), "Indywidualne wyciszenie powinno pozostać niezależną warstwą.");
+    Equal(false, manager.ToggleAllSessionsMute());
+    Equal(0, output.Volume);
+    Equal(true, session.IsSessionMuted);
+    Equal(false, session.ToggleMute());
+    Equal(35, output.Volume);
 
     session.TogglePlayback();
     Equal(1, output.PauseCount);
@@ -2597,6 +2615,8 @@ static void TestCommandPalette()
     Equal("Shift+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward30).LocalShortcut);
     Equal("Ctrl+Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward60).LocalShortcut);
     Equal("Up (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.VolumeUp5).LocalShortcut);
+    Equal("Ctrl+M", entries.Single(entry => entry.CommandId == CommandIds.ToggleMuteCurrentSession).LocalShortcut);
+    Equal("Ctrl+Shift+M", entries.Single(entry => entry.CommandId == CommandIds.ToggleMuteAllSessions).LocalShortcut);
     Equal("Shift+, (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PlaybackRateDown).LocalShortcut);
     Equal("Shift+. (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PlaybackRateUp).LocalShortcut);
     Equal("Ctrl+. (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PlaybackRateReset).LocalShortcut);
@@ -3003,6 +3023,18 @@ static void TestTimeCommands()
     settings.Messages.VolumeMessages = true;
     router.Execute(CommandIds.VolumeDown5);
     Equal("40%", sink.LastMessage);
+    router.Execute(CommandIds.ToggleMuteCurrentSession);
+    Equal("Wyciszono: TIDAL", sink.LastMessage);
+    Equal(true, sessions.Current.IsSessionMuted);
+    router.Execute(CommandIds.ToggleMuteAllSessions);
+    Equal("Wyciszono wszystkie sesje AMC", sink.LastMessage);
+    Equal(true, sessions.AllSessionsMuted);
+    router.Execute(CommandIds.ToggleMuteAllSessions);
+    Equal("Wyłączono wyciszenie wszystkich sesji AMC. Indywidualnie wyciszonych: 1", sink.LastMessage);
+    Equal(true, sessions.Current.IsMuted);
+    router.Execute(CommandIds.ToggleMuteCurrentSession);
+    Equal("Przywrócono dźwięk: TIDAL", sink.LastMessage);
+    Equal(false, sessions.Current.IsMuted);
     settings.Messages.PlaybackMessages = false;
     var messageBeforeSilentPlayback = sink.LastMessage;
     router.Execute(CommandIds.PlayPause);

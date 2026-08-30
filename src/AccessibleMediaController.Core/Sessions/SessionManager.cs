@@ -26,6 +26,14 @@ public sealed class SessionManager
     public IReadOnlyList<DemoMediaSession> Sessions => _sessions;
     public IReadOnlyDictionary<int, string> SessionSlots => _sessionSlots;
     public DemoMediaSession Current { get; private set; }
+    public bool AllSessionsMuted { get; private set; }
+
+    public bool ToggleAllSessionsMute()
+    {
+        AllSessionsMuted = !AllSessionsMuted;
+        foreach (var session in _sessions) session.SetGlobalMute(AllSessionsMuted);
+        return AllSessionsMuted;
+    }
 
     public DemoMediaSession? SelectSlot(int slot)
     {
@@ -80,6 +88,7 @@ public sealed class SessionManager
                 output,
                 rememberPosition,
                 playbackRateOverride);
+            session.SetGlobalMute(AllSessionsMuted);
             _sessions.Add(session);
         }
         else
@@ -128,6 +137,7 @@ public sealed class SessionManager
         if (existing is not null) return existing;
 
         _sessions.Insert(Math.Clamp(registration.Index, 0, _sessions.Count), registration.Session);
+        registration.Session.SetGlobalMute(AllSessionsMuted);
         ReorderSessionsBySlots();
         if (makeCurrent || registration.WasCurrent)
         {

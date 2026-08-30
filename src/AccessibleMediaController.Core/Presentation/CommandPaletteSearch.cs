@@ -154,6 +154,8 @@ public static class CommandPaletteSearch
             CommandIds.VolumeDown5 => "Down (odtwarzacz)",
             CommandIds.VolumeUp1 => "Shift+Up (odtwarzacz)",
             CommandIds.VolumeDown1 => "Shift+Down (odtwarzacz)",
+            CommandIds.ToggleMuteCurrentSession => "Ctrl+M",
+            CommandIds.ToggleMuteAllSessions => "Ctrl+Shift+M",
             CommandIds.PlaybackRateDown => "Shift+, (odtwarzacz)",
             CommandIds.PlaybackRateUp => "Shift+. (odtwarzacz)",
             CommandIds.PlaybackRateReset => "Ctrl+. (odtwarzacz)",

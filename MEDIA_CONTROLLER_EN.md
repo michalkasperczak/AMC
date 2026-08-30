@@ -444,6 +444,8 @@ Approved primary bindings:
 | `Ctrl+Shift+J` in the player | enter a percentage from 0 to 100 and seek to it |
 | `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T` | report elapsed, remaining or total time |
 | `Ctrl+Shift+G` | temporarily toggle all automatic player feedback |
+| `Ctrl+M` | mute or restore the current session's listening output |
+| `Ctrl+Shift+M` | mute or restore every AMC session's listening output |
 | `Ctrl+D` | download offline within the service when supported |
 | `Ctrl+Shift+D` | download to a local file; experimental and disabled by default |
 | `Delete` | remove from the current playlist, queue, Favorites or library, with confirmation or Undo |
@@ -1041,6 +1043,8 @@ Change in `alpha.156`: recording and listening have separate controls. Space pau
 Change in `alpha.157` supersedes the earlier decision not to provide recording pause. `Shift+Space` on a recorded station in a list or in the player pauses and resumes that selected station's capture, while plain Space continues to control listening only. Reception and listening may continue during recording pause, but the skipped interval is not appended to the output. Every pause stores a cut point named `Pause 1`, `Pause 2`, and so on; after finalisation the file is silently added to the Local Library and the points become normal AMC Bookmarks. This applies to MP3, M4A/AAC, FLAC and WAV. Original stream copy deliberately remains non-pausable because a reconnect would require safe multi-container concatenation and must not masquerade as one continuous source. List labels, the player and properties distinguish active from paused recording. Original capture now resolves an ordinary PLS, M3U or XSPF wrapper to its direct stream before starting FFmpeg while retaining a genuine HLS manifest; this repairs, among others, the imported Tyflo Podcast `listen.pls` address.
 
 Change in `alpha.158` extends the shared resolver used by playback and Original capture. A PLS, M3U, M3U8 or XSPF address may point to another list and may contain a relative URL; AMC resolves at most four levels, detects cycles, and retains the final URL after an HTTP redirect. If that redirect already returns direct audio, the application does not consume stream data while trying to parse text. A manifest containing HLS tags remains decoder input. This is not a Tyflo Podcast-specific exception: `listen.pls` is one scenario covered by the common bounded mechanism.
+
+Change in `alpha.159` adds two independent mute layers. `Ctrl+M` mutes or restores the current session, while `Ctrl+Shift+M` does so for all AMC listening pipelines, including playback in other sessions and playback started later. Global mute does not overwrite each session's individual state: after global mute is released, a session muted beforehand remains silent. A volume adjustment clears individual mute but cannot bypass active global mute. These commands never change Windows, NVDA or another application's volume and never stop a Radio recording. Mute is intentionally transient, so AMC retains numeric volume values across a restart but does not start unexpectedly silent.
 
 Local catalogue and ordering: the Library is neither a playlist nor a mirror of one folder. It is a catalogue of sources with stable identity, path and derived views. Derived orders such as title, artist, album, folder, date added or last played remain deterministic sort modes. Separate Custom order is user metadata and never changes disk-file order. The same keys do not pretend to reorder artist, album or search-result views.
 

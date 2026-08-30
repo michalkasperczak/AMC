@@ -450,6 +450,8 @@ Starting with `alpha.157`, `Shift+Space` pauses or resumes capture of the statio
 
 Starting with `alpha.158`, network-list resolution also handles nested PLS, M3U, M3U8 and XSPF files, relative addresses, and redirects from a playlist address straight to audio. A loop or more than four list levels is rejected safely. A response identified as direct audio is not consumed and misparsed as text, while a genuine HLS manifest still goes straight to the decoder. This covers Original capture of Tyflo Podcast through `listen.pls` and other stations using the same wrappers.
 
+Starting with `alpha.159`, `Ctrl+M` mutes or restores listening in the current session, while `Ctrl+Shift+M` applies to every AMC session, including playback already running in the background or started later. The layers are independent: releasing global mute does not unmute a session that was muted individually. Adjusting volume clears individual mute but not global mute. These shortcuts do not alter Windows, NVDA or other applications and do not interrupt recording. Mute itself is not retained after restart, while the chosen numeric volume values are.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

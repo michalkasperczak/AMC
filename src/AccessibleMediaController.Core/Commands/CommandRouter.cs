@@ -208,6 +208,25 @@ public sealed class CommandRouter(
             case CommandIds.VolumeDown5: return Volume(current, -5);
             case CommandIds.VolumeUp1: return Volume(current, 1);
             case CommandIds.VolumeDown1: return Volume(current, -1);
+            case CommandIds.ToggleMuteCurrentSession:
+                var sessionMuted = current.ToggleMute();
+                announcements.Announce(current.IsGloballyMuted
+                    ? sessionMuted
+                        ? $"Sesja {current.DisplayName} pozostanie wyciszona po przywróceniu wszystkich sesji AMC"
+                        : $"Wyłączono indywidualne wyciszenie sesji {current.DisplayName}. Wszystkie sesje AMC nadal są wyciszone"
+                    : sessionMuted
+                        ? $"Wyciszono: {current.DisplayName}"
+                        : $"Przywrócono dźwięk: {current.DisplayName}");
+                return new(true);
+            case CommandIds.ToggleMuteAllSessions:
+                var allMuted = sessions.ToggleAllSessionsMute();
+                var individuallyMuted = sessions.Sessions.Count(session => session.IsSessionMuted);
+                announcements.Announce(allMuted
+                    ? "Wyciszono wszystkie sesje AMC"
+                    : individuallyMuted == 0
+                        ? "Przywrócono dźwięk wszystkich sesji AMC"
+                        : $"Wyłączono wyciszenie wszystkich sesji AMC. Indywidualnie wyciszonych: {individuallyMuted}");
+                return new(true);
             case CommandIds.PlaybackRateDown: return PlaybackRate(current, -1);
             case CommandIds.PlaybackRateUp: return PlaybackRate(current, 1);
             case CommandIds.PlaybackRateReset: return ResetPlaybackRate(current);
@@ -397,17 +416,20 @@ public sealed class CommandRouter(
     private void AnnounceSession(DemoMediaSession session, int? slot = null)
     {
         var resolvedSlot = slot ?? sessions.FindSlot(session.Id);
+        var displayName = session.IsMuted
+            ? $"{session.DisplayName}, wyciszono"
+            : session.DisplayName;
         if (resolvedSlot is > 0)
         {
             AnnounceTemplate(
                 "session.changed",
                 "{slot}, {service}",
                 ("slot", resolvedSlot.Value.ToString()),
-                ("service", session.DisplayName));
+                ("service", displayName));
         }
         else
         {
-            announcements.Announce(session.DisplayName);
+            announcements.Announce(displayName);
         }
     }
 
@@ -449,7 +471,8 @@ public sealed class CommandRouter(
         session.ChangeVolume(delta);
         if (settings.Messages.SeekMessages && settings.Messages.VolumeMessages)
         {
-            AnnounceTemplate("volume.changed", "{value}%", ("value", session.Volume.ToString()));
+            if (session.IsMuted) announcements.Announce($"{session.Volume}%, wyciszono");
+            else AnnounceTemplate("volume.changed", "{value}%", ("value", session.Volume.ToString()));
         }
         return new(true);
     }

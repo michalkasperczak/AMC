@@ -779,6 +779,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var state = preparing
             ? (_cloudPreparingItemId is null ? "Otwieranie" : "Pobieranie z chmury")
             : session.IsPlaying ? "Odtwarzanie" : "Pauza";
+        if (session.IsMuted) state += ", wyciszono";
         if (isRadio && RadioRecordingStateLabel(item) is { } recordingState)
             state += $", {recordingState}";
 
@@ -881,6 +882,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var state = preparing
             ? (_cloudPreparingItemId is null ? "Otwieranie" : "Pobieranie z chmury")
             : session.IsPlaying ? "Odtwarzanie" : "Pauza";
+        if (session.IsMuted) state += ", wyciszono";
         var time = isRadio
             ? _radioOutput.BehindLive < TimeSpan.FromSeconds(1)
                 ? $"na żywo, bufor {CommandRouter.FormatTime(_radioOutput.BufferedDuration)}"
@@ -1838,7 +1840,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         };
         if (isCurrent)
         {
-            playbackLines.Insert(2, $"Stan: {(session.IsPlaying ? "odtwarzanie" : "pauza")}");
+            playbackLines.Insert(2, $"Stan: {(session.IsPlaying ? "odtwarzanie" : "pauza")}{(session.IsMuted ? ", wyciszono" : string.Empty)}");
             playbackLines.Insert(3, $"Pozycja: {CommandRouter.FormatTime(session.Position)}");
             playbackLines.Insert(4, $"Prędkość: {FormatPlaybackRateMultiplier(session.PlaybackRate)}");
             playbackLines.Insert(5, $"Głośność: {session.Volume}%");
@@ -1938,7 +1940,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         };
         if (isCurrent)
         {
-            applicationLines.Insert(2, $"Stan: {(session.IsPlaying ? "odtwarzanie" : "pauza")}");
+            applicationLines.Insert(2, $"Stan: {(session.IsPlaying ? "odtwarzanie" : "pauza")}{(session.IsMuted ? ", wyciszono" : string.Empty)}");
             applicationLines.Insert(3, _radioOutput.BehindLive < TimeSpan.FromSeconds(1)
                 ? "Pozycja: na żywo"
                 : $"Za transmisją: {CommandRouter.FormatTime(_radioOutput.BehindLive)}");
@@ -2517,6 +2519,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var local = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
         var radio = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
+        CurrentSessionMuteMenuItem.IsChecked = _sessions.Current.IsSessionMuted;
+        AllSessionsMuteMenuItem.IsChecked = _sessions.AllSessionsMuted;
         OpenLocalFilesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         OpenLocalFolderMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageLocalSourcesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
@@ -4253,6 +4257,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 DispatcherPriority.ContextIdle);
         }
         RefreshPlaybackIndicators();
+        if (commandId is CommandIds.ToggleMuteCurrentSession or CommandIds.ToggleMuteAllSessions)
+            UpdateFileMenuForCurrentSession();
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();
@@ -7559,7 +7565,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         var session = _sessions.Current;
         var isCurrent = string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal);
-        if (isCurrent && session.IsPlaying) return $"Odtwarzany, {label}";
+        if (isCurrent && session.IsPlaying)
+            return session.IsMuted ? $"Odtwarzany, wyciszono, {label}" : $"Odtwarzany, {label}";
         if (isCurrent && session.Position > TimeSpan.Zero) return $"Wstrzymany, {label}";
         var lastPlayedId = _playbackHistory.GetItemIds(session.Id).FirstOrDefault();
         return string.Equals(lastPlayedId, item.Id, StringComparison.Ordinal)
@@ -7771,6 +7778,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             e.Handled = true;
             Close();
+            return;
+        }
+
+        var effectiveModifiers = ReadEffectiveModifierKeys();
+        if (windowKey == Key.M
+            && effectiveModifiers is ModifierKeys.Control
+                or (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            ExecuteCommand(effectiveModifiers == ModifierKeys.Control
+                ? CommandIds.ToggleMuteCurrentSession
+                : CommandIds.ToggleMuteAllSessions);
+            e.Handled = true;
             return;
         }
 
@@ -8157,6 +8176,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool TryResolveKeyboardHelpCommand(Key key, ModifierKeys modifiers, out string commandId)
     {
+        if (key == Key.M && modifiers == ModifierKeys.Control)
+        {
+            commandId = CommandIds.ToggleMuteCurrentSession;
+            return true;
+        }
+        if (key == Key.M && modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            commandId = CommandIds.ToggleMuteAllSessions;
+            return true;
+        }
         if (key == Key.Space
             && modifiers == ModifierKeys.Shift
             && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
@@ -8330,6 +8359,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control | ModifierKeys.Shift, Key.A) => CommandIds.ViewAlbums,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.F) => CommandIds.SearchAll,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.G) => CommandIds.SettingsToggleSeekMessages,
+            (ModifierKeys.Control, Key.M) => CommandIds.ToggleMuteCurrentSession,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.M) => CommandIds.ToggleMuteAllSessions,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.K) => CommandIds.CommandPalette,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.E) => CommandIds.TimeElapsed,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.R) => CommandIds.TimeRemaining,
@@ -9321,6 +9352,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PlayerForward_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SeekForward10);
     private void PlayerVolumeDown_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.VolumeDown5);
     private void PlayerVolumeUp_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.VolumeUp5);
+    private void ToggleCurrentSessionMute_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.ToggleMuteCurrentSession);
+    private void ToggleAllSessionsMute_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.ToggleMuteAllSessions);
     private void PlaybackRateDown_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaybackRateDown);
     private void PlaybackRateUp_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaybackRateUp);
     private void PlaybackRateReset_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaybackRateReset);

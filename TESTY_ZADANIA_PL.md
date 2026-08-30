@@ -1,12 +1,61 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-158`
-- Tytuł zestawu: Wznawianie harmonogramu i odporne playlisty sieciowe
-- Wersja programu: `0.1.0-alpha.158`
+- Numer zestawu: `AMC-TEST-159`
+- Tytuł zestawu: Wyciszenie sesji i wszystkich odtwarzaczy AMC
+- Wersja programu: `0.1.0-alpha.159`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.158.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.159.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 159
+
+### AMC-159-01 — Wyciszenie bieżącej sesji
+
+Uruchom plik lokalny albo Radio i naciśnij `Ctrl+M`. Sprawdź odtwarzacz, listę,
+pasek stanu, menu Odtwarzanie i ponownie naciśnij `Ctrl+M`.
+
+Oczekiwane: odsłuch bieżącej sesji cichnie bez pauzy. NVDA mówi „Wyciszono” z
+nazwą sesji, stan jest widoczny jako „wyciszono”, a po drugim naciśnięciu wraca
+dokładnie wcześniejsza głośność. Skrót nie wycisza NVDA ani dźwięku Windows.
+
+### AMC-159-02 — Wyciszenie wszystkich sesji
+
+Uruchom dźwięk w dwóch sesjach, pozostawiając przynajmniej jedną w tle, i
+naciśnij `Ctrl+Shift+M`. Spróbuj uruchomić jeszcze jeden element, a następnie
+ponownie naciśnij `Ctrl+Shift+M`.
+
+Oczekiwane: wszystkie istniejące i później uruchomione tory odsłuchu AMC są
+ciche. Drugie naciśnięcie przywraca ich zapisane głośności. Inne aplikacje,
+dźwięk systemowy i NVDA pozostają słyszalne.
+
+### AMC-159-03 — Niezależne warstwy
+
+Wycisz jedną sesję przez `Ctrl+M`, potem włącz i wyłącz globalne wyciszenie
+przez `Ctrl+Shift+M`.
+
+Oczekiwane: po wyłączeniu warstwy globalnej wcześniej wyciszona sesja nadal
+pozostaje cicha, a pozostałe odzyskują dźwięk. Komunikat podaje liczbę sesji,
+które zachowały indywidualne wyciszenie.
+
+### AMC-159-04 — Głośność i nagrywanie
+
+Przy aktywnym globalnym wyciszeniu zmień głośność w odtwarzaczu. Osobno
+rozpocznij nagrywanie Radia, wycisz bieżącą sesję i wszystkie sesje, po czym
+zakończ nagranie.
+
+Oczekiwane: zmiana podaje nowy procent i „wyciszono”, ale nie obchodzi globalnej
+blokady dźwięku. Nagrywanie trwa niezależnie i powstały plik zawiera dźwięk.
+
+### AMC-159-05 — Bezpieczne ponowne uruchomienie
+
+Ustaw różne głośności, włącz oba rodzaje wyciszenia, zamknij AMC i uruchom je
+ponownie.
+
+Oczekiwane: wartości głośności są zachowane, lecz ulotne wyciszenie nie jest
+przywracane i program nie uruchamia się niespodziewanie bez dźwięku.
+
+## Poprzedni zestaw alpha 158
 
 ## Nowości alpha 158
 

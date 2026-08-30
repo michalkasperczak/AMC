@@ -57,6 +57,8 @@ public static class CommandCatalog
             CommandIds.VolumeDown5 => "Ciszej o 5%",
             CommandIds.VolumeUp1 => "Głośniej o 1%",
             CommandIds.VolumeDown1 => "Ciszej o 1%",
+            CommandIds.ToggleMuteCurrentSession => "Wycisz lub przywróć dźwięk bieżącej sesji",
+            CommandIds.ToggleMuteAllSessions => "Wycisz lub przywróć dźwięk wszystkich sesji AMC",
             CommandIds.PlaybackRateDown => "Zmniejsz prędkość odtwarzania",
             CommandIds.PlaybackRateUp => "Zwiększ prędkość odtwarzania",
             CommandIds.PlaybackRateReset => "Przywróć normalną prędkość odtwarzania",

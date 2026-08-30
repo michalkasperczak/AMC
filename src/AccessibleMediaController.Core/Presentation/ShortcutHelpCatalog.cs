@@ -163,7 +163,6 @@ public static class ShortcutHelpCatalog
         yield return Info("general", "Zamknij aplikację", "Alt+F4", "aktywne okno AMC");
         yield return Info("general", "Wróć lub zamknij bieżący poziom", "Escape", "okno, menu, filtr lub odtwarzacz");
         yield return Info("general", "Otwórz spis skrótów", "?", "poza polem tekstowym");
-
         yield return Info("lists", "Poprzedni lub następny element", "Strzałka w górę lub w dół", "lista");
         yield return Info("lists", "Zaznacz ciąg elementów", "Shift+strzałka w górę lub w dół", "lista wielokrotnego wyboru");
         yield return Info("lists", "Szybkie przejście według początku nazwy", "litery", "lista multimediów");

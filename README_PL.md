@@ -479,6 +479,8 @@ Od `alpha.157` `Shift+Spacja` wstrzymuje lub wznawia nagranie stacji wybranej na
 
 Od `alpha.158` rozwiązywanie list sieciowych obejmuje także zagnieżdżone PLS, M3U, M3U8 i XSPF, adresy względne oraz przekierowanie z adresu playlisty bezpośrednio do audio. Pętla lub więcej niż cztery poziomy list są bezpiecznie odrzucane. Strumień rozpoznany przez typ odpowiedzi jako audio nie jest pobierany i błędnie analizowany jak tekst, a prawdziwy manifest HLS nadal trafia bezpośrednio do dekodera. Obejmuje to zapis Oryginalny Tyflo Podcastu z adresu `listen.pls` i inne stacje korzystające z takich samych opakowań.
 
+Od `alpha.159` `Ctrl+M` wycisza albo przywraca odsłuch bieżącej sesji, a `Ctrl+Shift+M` wszystkie sesje AMC, również te grające w tle lub uruchomione później. Są to dwie niezależne warstwy: wyłączenie wyciszenia globalnego nie przywraca sesji wyciszonej wcześniej osobno. Regulacja głośności zdejmuje wyciszenie indywidualne, ale nie globalne. Skróty nie zmieniają głośności Windows, NVDA ani innych aplikacji i nie przerywają nagrywania. Wyciszenie nie jest zapisywane między uruchomieniami, natomiast ustawione wartości głośności pozostają zachowane.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.
