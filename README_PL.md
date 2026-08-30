@@ -455,6 +455,10 @@ Pole nowego harmonogramu brzmi teraz zwięźle **Nagrywaj** i zawiera wartości 
 
 Osadzone pola daty i godziny jawnie wysyłają do NVDA wybraną część oraz jej bieżącą wartość. Lewo i prawo podaje odpowiednio dzień, miesiąc, rok albo godzinę i minuty. Góra i dół po zmianie podaje nową wartość tej samej części, na przykład „Miesiąc: 8, sierpień” lub „Minuty: 35”. Nie trzeba używać `NVDA+strzałka w górę`, a data i godzina nadal zajmują po jednym punkcie Tab.
 
+## Krótkie wartości daty i godziny w alpha 152
+
+Lewo i prawo nadal określa wybraną część, na przykład „Minuty: 45”. Podczas właściwej zmiany górą lub dołem AMC mówi już tylko nową wartość: „46”, „47” — bez powtarzania słowa „Minuty”, „Dzień”, „Miesiąc”, „Rok” albo „Godzina”.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

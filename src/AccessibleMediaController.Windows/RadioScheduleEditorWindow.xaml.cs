@@ -306,7 +306,11 @@ public partial class RadioScheduleEditorWindow : Window
                 _dateSegmentIndex,
                 segmentCount: 3,
                 e.KeyCode);
-            AnnounceHostedValueAfterKey(() => FormatDateSegment(_datePicker.Value, _dateSegmentIndex));
+            var includeSegmentName = IsSegmentSelectionKey(e.KeyCode);
+            AnnounceHostedValueAfterKey(() => FormatDateSegment(
+                _datePicker.Value,
+                _dateSegmentIndex,
+                includeSegmentName));
             return;
         }
 
@@ -316,7 +320,11 @@ public partial class RadioScheduleEditorWindow : Window
                 _timeSegmentIndex,
                 segmentCount: 2,
                 e.KeyCode);
-            AnnounceHostedValueAfterKey(() => FormatTimeSegment(_timePicker.Value, _timeSegmentIndex));
+            var includeSegmentName = IsSegmentSelectionKey(e.KeyCode);
+            AnnounceHostedValueAfterKey(() => FormatTimeSegment(
+                _timePicker.Value,
+                _timeSegmentIndex,
+                includeSegmentName));
         }
     }
 
@@ -325,6 +333,9 @@ public partial class RadioScheduleEditorWindow : Window
             or System.Windows.Forms.Keys.Right
             or System.Windows.Forms.Keys.Up
             or System.Windows.Forms.Keys.Down;
+
+    private static bool IsSegmentSelectionKey(System.Windows.Forms.Keys key) =>
+        key is System.Windows.Forms.Keys.Left or System.Windows.Forms.Keys.Right;
 
     private static int MoveSegment(int current, int segmentCount, System.Windows.Forms.Keys key) =>
         key switch
@@ -341,18 +352,40 @@ public partial class RadioScheduleEditorWindow : Window
             System.Windows.Threading.DispatcherPriority.ContextIdle);
     }
 
-    private static string FormatDateSegment(DateTime value, int segmentIndex) => segmentIndex switch
+    private static string FormatDateSegment(DateTime value, int segmentIndex, bool includeSegmentName)
     {
-        0 => $"Dzień: {value.Day}",
-        1 => $"Miesiąc: {value.Month}, {value.ToString("MMMM", CultureInfo.GetCultureInfo("pl-PL"))}",
-        _ => $"Rok: {value.Year}"
-    };
+        if (!includeSegmentName)
+        {
+            return segmentIndex switch
+            {
+                0 => value.Day.ToString(CultureInfo.InvariantCulture),
+                1 => value.Month.ToString(CultureInfo.InvariantCulture),
+                _ => value.Year.ToString(CultureInfo.InvariantCulture)
+            };
+        }
 
-    private static string FormatTimeSegment(DateTime value, int segmentIndex) => segmentIndex switch
+        return segmentIndex switch
+        {
+            0 => $"Dzień: {value.Day}",
+            1 => $"Miesiąc: {value.Month}, {value.ToString("MMMM", CultureInfo.GetCultureInfo("pl-PL"))}",
+            _ => $"Rok: {value.Year}"
+        };
+    }
+
+    private static string FormatTimeSegment(DateTime value, int segmentIndex, bool includeSegmentName)
     {
-        0 => $"Godzina: {value.Hour}",
-        _ => $"Minuty: {value.Minute}"
-    };
+        if (!includeSegmentName)
+        {
+            return (segmentIndex == 0 ? value.Hour : value.Minute)
+                .ToString(CultureInfo.InvariantCulture);
+        }
+
+        return segmentIndex switch
+        {
+            0 => $"Godzina: {value.Hour}",
+            _ => $"Minuty: {value.Minute}"
+        };
+    }
 
     private static System.Windows.Forms.DateTimePicker CreateDatePicker() => new()
     {

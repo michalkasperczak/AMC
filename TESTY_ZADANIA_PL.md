@@ -1,12 +1,38 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-151`
-- Tytuł zestawu: Oznajmianie daty i godziny
-- Wersja programu: `0.1.0-alpha.151`
+- Numer zestawu: `AMC-TEST-152`
+- Tytuł zestawu: Zwięzłe oznajmianie daty i godziny
+- Wersja programu: `0.1.0-alpha.152`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.151.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.152.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 152
+
+### AMC-152-01 — Lewo i prawo wybiera część
+
+W dacie i godzinie naciskaj lewo oraz prawo.
+
+Oczekiwane: NVDA mówi nazwę wybranej części i wartość, np. „Minuty: 45”,
+„Dzień: 30” albo „Rok: 2026”.
+
+### AMC-152-02 — Góra i dół mówi tylko wartość
+
+Na minutach naciśnij kilka razy górę, a potem dół. Powtórz na pozostałych
+częściach daty i godziny.
+
+Oczekiwane: NVDA mówi kolejno tylko wartości, np. „46”, „47”, „46”. Nie powtarza
+za każdym razem nazwy Minuty, Dzień, Miesiąc, Rok ani Godzina.
+
+### AMC-152-03 — Szybka zmiana
+
+Naciśnij szybko kilka razy górę lub dół.
+
+Oczekiwane: komunikaty nie nawarstwiają się, ostatnia wartość odpowiada temu,
+co jest zapisane w polu, a fokus pozostaje na tym samym segmencie.
+
+## Poprzedni zestaw alpha 151
 
 ## Nowości alpha 151
 

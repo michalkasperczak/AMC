@@ -426,6 +426,10 @@ The new-schedule combo is now simply labelled **Record** and contains **Immediat
 
 The hosted date and time controls now explicitly send the selected part and its current value to NVDA. Left and Right announce day, month, year, hour or minutes. After Up or Down changes a value, the same part's new value is announced, for example “Month: 8, August” or “Minutes: 35”. `NVDA+Up Arrow` is no longer required, and date and time still occupy one Tab stop each.
 
+## Concise date and time values in alpha 152
+
+Left and Right still identify the selected part, for example “Minutes: 45”. While actually changing it with Up or Down, AMC now announces only the new value — “46”, “47” — without repeating “Minutes”, “Day”, “Month”, “Year” or “Hour”.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

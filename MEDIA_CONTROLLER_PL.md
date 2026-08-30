@@ -1042,6 +1042,8 @@ Korekta języka interfejsu `alpha.150`: nazwa pola opisuje zamiar **Nagrywaj**, 
 
 Korekta dostępności `alpha.151`: nie wystarczy, że segmentowa kontrolka wizualnie zmienia datę lub godzinę. Każde lewo/prawo jawnie oznajmia aktywny segment i wartość, a każde góra/dół — wartość po zmianie. Oznajmianie jest informacją niezbędną do obsługi kontrolki, więc nie zależy od opcjonalnych komunikatów odtwarzacza. Nie tworzy dodatkowych punktów Tab i nie wymaga polecenia przeglądu bieżącego wiersza czytnika ekranu.
 
+Korekta zwięzłości `alpha.152`: rozpoznanie rodzaju segmentu należy do nawigacji lewo/prawo i wtedy komunikat zawiera nazwę oraz wartość. Powtarzane zmiany góra/dół podają wyłącznie nową wartość. Zapobiega to nawarstwianiu mowy przy szybkim ustawianiu minut, dnia, miesiąca, roku albo godziny.
+
 Katalog lokalny i kolejność: Biblioteka nie jest playlistą ani kopią jednego folderu, lecz katalogiem źródeł z trwałą tożsamością, ścieżką i widokami. Porządki wyliczane, takie jak tytuł, wykonawca, album, folder, data dodania albo ostatnie odtworzenie, pozostają deterministycznymi sposobami sortowania. Osobna Kolejność własna jest zapisem użytkownika i nie zmienia kolejności plików na dysku. Te same klawisze nie udają ręcznego sortowania w widokach wykonawców, albumów ani wyników wyszukiwania.
 
 Planowana kolejność dalszych etapów:

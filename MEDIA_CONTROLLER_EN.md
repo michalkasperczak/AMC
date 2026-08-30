@@ -1028,6 +1028,8 @@ Interface-language correction in `alpha.150`: the field describes the intent **R
 
 Accessibility correction in `alpha.151`: visually changing a segmented date or time control is not sufficient. Every Left or Right explicitly announces the active part and value; every Up or Down announces its post-change value. This speech is essential control feedback and therefore does not depend on optional player-message settings. It adds no Tab stops and requires no screen-reader current-line command.
 
+Conciseness correction in `alpha.152`: identifying the segment belongs to Left and Right navigation, whose message contains its name and value. Repeated Up and Down changes announce only the new value. This prevents speech from piling up while quickly setting minutes, day, month, year or hour.
+
 Local catalogue and ordering: the Library is neither a playlist nor a mirror of one folder. It is a catalogue of sources with stable identity, path and derived views. Derived orders such as title, artist, album, folder, date added or last played remain deterministic sort modes. Separate Custom order is user metadata and never changes disk-file order. The same keys do not pretend to reorder artist, album or search-result views.
 
 Planned sequence of later stages:
