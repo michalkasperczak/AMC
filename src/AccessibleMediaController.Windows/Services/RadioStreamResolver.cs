@@ -7,6 +7,8 @@ namespace AccessibleMediaController.Windows.Services;
 internal static partial class RadioStreamResolver
 {
     private const int MaximumPlaylistBytes = 1024 * 1024;
+    private const int MaximumPlaylistAddressLength = 8192;
+    private const int MaximumPlaylistDepth = 4;
     private static readonly HttpClient Client = CreateClient();
 
     public static IReadOnlyList<string> GetPlaybackCandidates(string source)
@@ -27,16 +29,31 @@ internal static partial class RadioStreamResolver
         Uri.TryCreate(source, UriKind.Absolute, out var uri)
         && Path.GetExtension(uri.AbsolutePath).Equals(".m3u8", StringComparison.OrdinalIgnoreCase);
 
-    public static async Task<string> ResolveAsync(string source, CancellationToken cancellationToken)
+    public static Task<string> ResolveAsync(string source, CancellationToken cancellationToken) =>
+        ResolveAsync(source, 0, new HashSet<string>(StringComparer.OrdinalIgnoreCase), cancellationToken);
+
+    private static async Task<string> ResolveAsync(
+        string source,
+        int depth,
+        HashSet<string> visited,
+        CancellationToken cancellationToken)
     {
-        var uri = new Uri(source, UriKind.Absolute);
-        var extension = Path.GetExtension(uri.AbsolutePath);
-        if (!extension.Equals(".m3u", StringComparison.OrdinalIgnoreCase)
-            && !extension.Equals(".m3u8", StringComparison.OrdinalIgnoreCase)
-            && !extension.Equals(".pls", StringComparison.OrdinalIgnoreCase)
-            && !extension.Equals(".xspf", StringComparison.OrdinalIgnoreCase))
+        if (!Uri.TryCreate(source, UriKind.Absolute, out var uri)
+            || uri.Scheme is not ("http" or "https"))
+        {
+            throw new InvalidDataException("Adres strumienia jest nieprawidłowy.");
+        }
+        if (!IsPlaylistAddress(uri))
         {
             return source;
+        }
+        if (depth >= MaximumPlaylistDepth)
+        {
+            throw new InvalidDataException("Lista stacji zawiera zbyt wiele zagnieżdżonych list.");
+        }
+        if (!visited.Add(uri.AbsoluteUri))
+        {
+            throw new InvalidDataException("Lista stacji zawiera odwołanie do samej siebie.");
         }
 
         using var response = await Client.GetAsync(
@@ -44,6 +61,14 @@ internal static partial class RadioStreamResolver
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
+        var responseUri = response.RequestMessage?.RequestUri ?? uri;
+        var mediaType = response.Content.Headers.ContentType?.MediaType;
+        if (IsDirectAudioMediaType(mediaType))
+        {
+            // Some playlist addresses redirect straight to a live stream.
+            // Do not consume audio while trying to parse it as text.
+            return responseUri.AbsoluteUri;
+        }
         if (response.Content.Headers.ContentLength is > MaximumPlaylistBytes)
         {
             throw new InvalidDataException("Lista stacji jest zbyt duża.");
@@ -57,27 +82,76 @@ internal static partial class RadioStreamResolver
         {
             // This is an HLS manifest, not a station list. Media Foundation
             // must receive the manifest itself so it can follow its segments.
-            return source;
+            return responseUri.AbsoluteUri;
         }
 
-        var candidate = extension.Equals(".pls", StringComparison.OrdinalIgnoreCase)
-            ? PlsEntry().Match(text).Groups[1].Value.Trim()
-            : extension.Equals(".xspf", StringComparison.OrdinalIgnoreCase)
-                ? XspfEntry().Match(text).Groups[1].Value.Trim()
-                : text.Split('\n')
-                    .Select(line => line.Trim().TrimStart('\uFEFF'))
-                    .FirstOrDefault(line => line.Length > 0 && !line.StartsWith('#'))
-                    ?? string.Empty;
+        var candidate = ExtractFirstEntry(text, responseUri, mediaType);
         if (candidate.Length == 0)
         {
             throw new InvalidDataException("Lista nie zawiera adresu strumienia.");
         }
-        if (!Uri.TryCreate(uri, System.Net.WebUtility.HtmlDecode(candidate), out var resolved)
+        candidate = System.Net.WebUtility.HtmlDecode(candidate).Trim();
+        if (candidate.Length > MaximumPlaylistAddressLength
+            || candidate.Any(character => char.IsControl(character))
+            || candidate.Contains('<')
+            || candidate.Contains('>')
+            || !Uri.TryCreate(responseUri, candidate, out var resolved)
             || resolved.Scheme is not ("http" or "https"))
         {
             throw new InvalidDataException("Lista zawiera nieprawidłowy adres strumienia.");
         }
-        return resolved.AbsoluteUri;
+        return IsPlaylistAddress(resolved)
+            ? await ResolveAsync(resolved.AbsoluteUri, depth + 1, visited, cancellationToken)
+                .ConfigureAwait(false)
+            : resolved.AbsoluteUri;
+    }
+
+    private static string ExtractFirstEntry(string text, Uri responseUri, string? mediaType)
+    {
+        var extension = Path.GetExtension(responseUri.AbsolutePath);
+        var pls = PlsEntry().Match(text);
+        if (pls.Success
+            || extension.Equals(".pls", StringComparison.OrdinalIgnoreCase)
+            || mediaType?.Equals("audio/x-scpls", StringComparison.OrdinalIgnoreCase) == true
+            || mediaType?.Equals("application/pls+xml", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return pls.Success ? pls.Groups[1].Value.Trim() : string.Empty;
+        }
+
+        var xspf = XspfEntry().Match(text);
+        if (xspf.Success
+            || extension.Equals(".xspf", StringComparison.OrdinalIgnoreCase)
+            || mediaType?.Equals("application/xspf+xml", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return xspf.Success ? xspf.Groups[1].Value.Trim() : string.Empty;
+        }
+
+        return text.Split('\n')
+            .Select(line => line.Trim().TrimStart('\uFEFF'))
+            .FirstOrDefault(line => line.Length > 0 && !line.StartsWith('#'))
+            ?? string.Empty;
+    }
+
+    private static bool IsPlaylistAddress(Uri uri)
+    {
+        var extension = Path.GetExtension(uri.AbsolutePath);
+        return extension.Equals(".m3u", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".m3u8", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".pls", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".xspf", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsDirectAudioMediaType(string? mediaType)
+    {
+        if (string.IsNullOrWhiteSpace(mediaType)
+            || !mediaType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        return !mediaType.Equals("audio/x-scpls", StringComparison.OrdinalIgnoreCase)
+            && !mediaType.Equals("audio/mpegurl", StringComparison.OrdinalIgnoreCase)
+            && !mediaType.Equals("audio/x-mpegurl", StringComparison.OrdinalIgnoreCase)
+            && !mediaType.Equals("audio/vnd.apple.mpegurl", StringComparison.OrdinalIgnoreCase);
     }
 
     private static HttpClient CreateClient()

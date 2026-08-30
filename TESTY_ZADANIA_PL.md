@@ -1,12 +1,50 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-157`
-- Tytuł zestawu: Pauza nagrywania i punkty cięcia
-- Wersja programu: `0.1.0-alpha.157`
+- Numer zestawu: `AMC-TEST-158`
+- Tytuł zestawu: Wznawianie harmonogramu i odporne playlisty sieciowe
+- Wersja programu: `0.1.0-alpha.158`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.157.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.158.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 158
+
+### AMC-158-01 — Wznowienie trwającego harmonogramu
+
+Utwórz jednorazowy harmonogram na kilka minut. Po rozpoczęciu nagrania zamknij
+AMC, potwierdź zakończenie nagrywania i uruchom program ponownie przed końcem
+zaplanowanego czasu.
+
+Oczekiwane: pierwszy fragment jest prawidłowo finalizowany. AMC mówi
+„Wznawiam zaplanowane nagrywanie”, tworzy drugi plik i nagrywa wyłącznie
+pozostałą część tego samego okna. Nagranie ręczne nie uruchamia się ponownie.
+
+### AMC-158-02 — Harmonogram po zakończeniu okna
+
+Powtórz zamknięcie, ale uruchom AMC dopiero po całkowitym upływie czasu planu.
+
+Oczekiwane: zakończone wystąpienie nie rozpoczyna się z opóźnieniem. Plan
+jednorazowy znika, a cykliczny zachowuje kolejny prawidłowy termin.
+
+### AMC-158-03 — Tyflo Podcast i zapis Oryginalny
+
+Uruchom Tyflo Podcast z adresu kończącego się `listen.pls`, wybierz format
+Oryginalny, nagraj kilkanaście sekund i zakończ.
+
+Oczekiwane: AMC rozwiązuje listę do bezpośredniego strumienia, nie próbuje
+interpretować tekstu PLS jako dźwięku i finalizuje odtwarzalny plik.
+
+### AMC-158-04 — Przekierowania i inne listy
+
+Jeżeli masz stację korzystającą z M3U, M3U8, PLS albo XSPF, sprawdź odtwarzanie
+i zapis Oryginalny, zwłaszcza gdy adres przekierowuje lub wskazuje kolejną listę.
+
+Oczekiwane: adresy względne i zagnieżdżone listy są rozwiązywane. Prawdziwy HLS
+pozostaje manifestem. Błędna pętla kończy się czytelnym błędem zamiast
+zawieszenia albo nieograniczonego pobierania.
+
+## Poprzedni zestaw alpha 157
 
 ## Nowości alpha 157
 

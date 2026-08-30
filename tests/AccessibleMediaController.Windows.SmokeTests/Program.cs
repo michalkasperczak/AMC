@@ -67,6 +67,7 @@ try
     TestRadioBrowserSearchMapping();
     TestRadioScheduleStationScope();
     TestRadioPlaylistImport();
+    TestRadioPlaylistResolution();
     TestRadioAudioMetadataValidation();
     TestRadioStreamTitleMetadata();
     TestLegacyRadioContentTypes();
@@ -675,6 +676,85 @@ static void TestRadioPlaylistImport()
     finally
     {
         Directory.Delete(directory, true);
+    }
+}
+
+static void TestRadioPlaylistResolution()
+{
+    var listener = new TcpListener(IPAddress.Loopback, 0);
+    listener.Start();
+    var endpoint = (IPEndPoint)listener.LocalEndpoint;
+    var baseAddress = $"http://127.0.0.1:{endpoint.Port}";
+    var server = Task.Run(async () =>
+    {
+        for (var requestIndex = 0; requestIndex < 4; requestIndex++)
+        {
+            using var connection = await listener.AcceptTcpClientAsync();
+            await using var stream = connection.GetStream();
+            using var reader = new StreamReader(
+                stream,
+                Encoding.ASCII,
+                detectEncodingFromByteOrderMarks: false,
+                leaveOpen: true);
+            var requestLine = await reader.ReadLineAsync() ?? string.Empty;
+            string? header;
+            do
+            {
+                header = await reader.ReadLineAsync();
+            }
+            while (!string.IsNullOrEmpty(header));
+
+            var path = requestLine.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .ElementAtOrDefault(1) ?? string.Empty;
+            var (status, contentType, location, body) = path switch
+            {
+                "/outer.pls" => ("200 OK", "audio/x-scpls", string.Empty,
+                    "[playlist]\r\nFile1=/nested/list.m3u\r\nNumberOfEntries=1\r\n"),
+                "/nested/list.m3u" => ("200 OK", "audio/x-mpegurl", string.Empty,
+                    "#EXTM3U\r\n../live.mp3\r\n"),
+                "/redirect.pls" => ("302 Found", "text/plain", "/direct-live", string.Empty),
+                "/direct-live" => ("200 OK", "audio/mpeg", string.Empty, string.Empty),
+                _ => ("404 Not Found", "text/plain", string.Empty, string.Empty)
+            };
+            var bodyBytes = Encoding.UTF8.GetBytes(body);
+            var response = new StringBuilder()
+                .Append("HTTP/1.1 ").Append(status).Append("\r\n")
+                .Append("Content-Type: ").Append(contentType).Append("\r\n")
+                .Append("Content-Length: ").Append(bodyBytes.Length).Append("\r\n")
+                .Append("Connection: close\r\n");
+            if (location.Length > 0) response.Append("Location: ").Append(location).Append("\r\n");
+            response.Append("\r\n");
+            var headerBytes = Encoding.ASCII.GetBytes(response.ToString());
+            await stream.WriteAsync(headerBytes);
+            if (bodyBytes.Length > 0) await stream.WriteAsync(bodyBytes);
+        }
+    });
+
+    try
+    {
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var nested = RadioStreamResolver.ResolveAsync(
+                $"{baseAddress}/outer.pls",
+                cancellation.Token)
+            .GetAwaiter()
+            .GetResult();
+        Assert(nested == $"{baseAddress}/live.mp3",
+            $"Nie rozwiązano zagnieżdżonej playlisty: {nested}.");
+
+        var redirected = RadioStreamResolver.ResolveAsync(
+                $"{baseAddress}/redirect.pls",
+                cancellation.Token)
+            .GetAwaiter()
+            .GetResult();
+        Assert(redirected == $"{baseAddress}/direct-live",
+            $"Nie zachowano przekierowania playlisty do strumienia audio: {redirected}.");
+        Assert(server.Wait(TimeSpan.FromSeconds(2)), "Testowy serwer playlist nie zakończył pracy.");
+        Console.WriteLine("OK: zagnieżdżone playlisty i przekierowanie do strumienia audio");
+    }
+    finally
+    {
+        listener.Stop();
+        _ = server.ContinueWith(_ => { }, TaskScheduler.Default);
     }
 }
 

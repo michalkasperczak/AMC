@@ -6727,6 +6727,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var startUtc = new DateTime(snapshot.NextStartUtcTicks, DateTimeKind.Utc);
         var deadlineUtc = startUtc.AddMinutes(snapshot.DurationMinutes);
         var actualStartUtc = DateTime.UtcNow;
+        var resumingOccurrence = actualStartUtc - startUtc >= TimeSpan.FromSeconds(10);
         var recordingFormat = _state.Radio.RecordingFormat;
         var recordingBitrateKbps = _state.Radio.RecordingBitrateKbps;
         var requestedOutputFolder = string.IsNullOrWhiteSpace(snapshot.OutputFolder)
@@ -6761,8 +6762,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RefreshRadioRecordingPresentation();
         DiagnosticLog.Info(
             "radio-schedule",
-            $"Uruchomiono plan: {snapshot.StationName}; pozostało {(int)Math.Ceiling((deadlineUtc - DateTime.UtcNow).TotalSeconds)} s.");
-        AnnounceEssential($"Rozpoczynam zaplanowane nagrywanie: {snapshot.StationName}");
+            $"{(resumingOccurrence ? "Wznowiono" : "Uruchomiono")} plan: {snapshot.StationName}; pozostało {(int)Math.Ceiling((deadlineUtc - DateTime.UtcNow).TotalSeconds)} s.");
+        AnnounceEssential(resumingOccurrence
+            ? $"Wznawiam zaplanowane nagrywanie: {snapshot.StationName}"
+            : $"Rozpoczynam zaplanowane nagrywanie: {snapshot.StationName}");
         _ = CompleteScheduledRadioRecordingAsync(snapshot, task);
         RearmRadioWakeTimer();
     }

@@ -473,11 +473,11 @@ Lokalne `.ts`, `.mts` i `.m2ts` korzystają z odpornego dekodera FFmpeg, który 
 
 ## Bezpieczne kończenie nagrań w alpha 156
 
-`Alt+Shift+R` zatrzymuje wszystkie aktualne nagrania ręczne i harmonogramowe niezależnie od otwartej sesji. Dla jednego nagrania działa od razu; przy kilku wymaga jawnego potwierdzenia z domyślną odpowiedzią Nie. Każdy odebrany fragment jest finalizowany, a harmonogram cykliczny zachowuje dopiero następny termin. Zamknięcie AMC podczas nagrywania również podaje liczbę aktywnych zapisów i wymaga potwierdzenia. Kontrolowanie zamknięte nagrania nie są wznawiane po kolejnym uruchomieniu.
+`Alt+Shift+R` zatrzymuje wszystkie aktualne nagrania ręczne i harmonogramowe niezależnie od otwartej sesji. Dla jednego nagrania działa od razu; przy kilku wymaga jawnego potwierdzenia z domyślną odpowiedzią Nie. Każdy odebrany fragment jest finalizowany, a harmonogram cykliczny zachowuje dopiero następny termin. Zamknięcie AMC podczas nagrywania również podaje liczbę aktywnych zapisów i wymaga potwierdzenia. Nagrania ręczne nie są wznawiane po kolejnym uruchomieniu. Jeśli jednak nadal trwa czas bieżącego wystąpienia harmonogramu, AMC rozpoczyna nowy plik i nagrywa jego pozostałą część; zakończonego okna nie odtwarza po czasie.
 
 Od `alpha.157` `Shift+Spacja` wstrzymuje lub wznawia nagranie stacji wybranej na liście albo otwartej w odtwarzaczu. Zwykła Spacja pozostaje pauzą odsłuchu. MP3, M4A/AAC, FLAC i WAV pomijają dźwięk odebrany podczas pauzy, a każde wstrzymanie tworzy zakładkę AMC w ukończonym nagraniu. Tryb Oryginalny nie udostępnia pauzy, ponieważ zachowanie niezmienionych pakietów wymagałoby dzielenia i ponownego łączenia kontenerów. Importowany PLS, M3U lub XSPF jest przed oryginalnym zapisem rozwiązywany do bezpośredniego strumienia; prawdziwy HLS pozostaje manifestem.
 
-Spacja pozostaje wyłącznie pauzą odsłuchu. AMC świadomie nie oferuje pauzy nagrania: zatrzymanie dopływu danych tworzyłoby niewidoczną lukę, a dla kopiowanego strumienia mogłoby uszkodzić ciągłość kontenera. Aby rozdzielić materiał, należy zakończyć bieżące nagranie i rozpocząć następne.
+Od `alpha.158` rozwiązywanie list sieciowych obejmuje także zagnieżdżone PLS, M3U, M3U8 i XSPF, adresy względne oraz przekierowanie z adresu playlisty bezpośrednio do audio. Pętla lub więcej niż cztery poziomy list są bezpiecznie odrzucane. Strumień rozpoznany przez typ odpowiedzi jako audio nie jest pobierany i błędnie analizowany jak tekst, a prawdziwy manifest HLS nadal trafia bezpośrednio do dekodera. Obejmuje to zapis Oryginalny Tyflo Podcastu z adresu `listen.pls` i inne stacje korzystające z takich samych opakowań.
 
 ## Zakres i ograniczenia
 

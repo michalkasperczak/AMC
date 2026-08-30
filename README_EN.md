@@ -444,11 +444,11 @@ Local `.ts`, `.mts` and `.m2ts` use a tolerant FFmpeg decoder that extracts only
 
 ## Safe recording termination in alpha 156
 
-`Alt+Shift+R` stops all currently active manual and scheduled recordings regardless of the open session. A single recording stops immediately; multiple recordings require explicit confirmation whose default answer is No. Every received fragment is finalised, while a recurring schedule keeps only its next occurrence. Closing AMC during recording likewise reports the active count and requires confirmation. Recordings ended by an orderly shutdown are not resumed after the next launch.
+`Alt+Shift+R` stops all currently active manual and scheduled recordings regardless of the open session. A single recording stops immediately; multiple recordings require explicit confirmation whose default answer is No. Every received fragment is finalised, while a recurring schedule keeps only its next occurrence. Closing AMC during recording likewise reports the active count and requires confirmation. Manual captures do not resume after the next launch. If the current scheduled occurrence is still inside its time window, however, AMC starts a new file and records the remaining portion; an expired window is never replayed late.
 
 Starting with `alpha.157`, `Shift+Space` pauses or resumes capture of the station selected in the list or open in the player. Plain Space remains listening pause. MP3, M4A/AAC, FLAC and WAV omit audio received while paused, and every pause creates an AMC Bookmark in the completed recording. Original stream copy does not offer pause because preserving packets would require splitting and safely joining containers. An imported PLS, M3U or XSPF is resolved to its direct stream before original capture, while genuine HLS remains a manifest.
 
-Space remains a listening-playback pause only. AMC intentionally does not provide recording pause: suspending incoming data would create a hidden gap and could break continuity when source packets are copied. To split captured material, end the current recording and start another one.
+Starting with `alpha.158`, network-list resolution also handles nested PLS, M3U, M3U8 and XSPF files, relative addresses, and redirects from a playlist address straight to audio. A loop or more than four list levels is rejected safely. A response identified as direct audio is not consumed and misparsed as text, while a genuine HLS manifest still goes straight to the decoder. This covers Original capture of Tyflo Podcast through `listen.pls` and other stations using the same wrappers.
 
 ## Current limitations
 
