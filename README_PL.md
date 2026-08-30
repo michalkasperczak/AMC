@@ -463,6 +463,10 @@ Lewo i prawo nadal określa wybraną część, na przykład „Minuty: 45”. Po
 
 Ręczne nagranie Radia korzysta z osobnego, niesłyszalnego połączenia. `R` steruje bieżącą stacją w odtwarzaczu, `Ctrl+Alt+R` działa na zaznaczonej stacji listy, a Page Up, Page Down, Enter i presety zmieniają odsłuch bez kończenia trwającego zapisu. Różne stacje mogą być nagrywane równolegle. `Alt+2` w sesji Radia pokazuje widok **Nagrywane** z ręcznymi nagraniami i aktywnymi harmonogramami; `R` zatrzymuje tam wybrane nagranie ręczne. Powrót Escape z odtwarzacza jawnie kotwiczy fokus na liście. Tryb Oryginalny pozwala FFmpeg samodzielnie wybrać ścieżkę audio, dzięki czemu bezpośredni strumień ICY bez wczesnego indeksu `0:a:0` nie jest odrzucany.
 
+## Przewidywalny bitrate niskich częstotliwości w alpha 154
+
+Stacje dekodowane jako 22,05 albo 24 kHz nie są już po cichu zapisywane przez systemowy koder jako MP3 80 kb/s mimo wybrania 128 kb/s. Tylko przed kodowaniem stratnym MP3 lub AAC AMC normalizuje taki sygnał wysokiej jakości resamplerem do odpowiednio 44,1 albo 48 kHz, dzięki czemu wynik zachowuje wybrany bitrate. Nie dodaje to szczegółów nieobecnych w źródle. FLAC, WAV i format Oryginalny nadal zachowują częstotliwość źródłową. W ustawieniach format Oryginalny jawnie informuje, że HLS tworzy plik `.ts`.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

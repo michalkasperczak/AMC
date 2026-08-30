@@ -118,7 +118,8 @@
                                     <ComboBoxItem Tag="Mp3">MP3</ComboBoxItem>
                                     <ComboBoxItem Tag="Aac">M4A, dźwięk AAC</ComboBoxItem>
                                     <ComboBoxItem Tag="Flac">FLAC, bezstratny</ComboBoxItem>
-                                    <ComboBoxItem Tag="Original">Oryginalny strumień, bez konwersji</ComboBoxItem>
+                                    <ComboBoxItem Tag="Original"
+                                                  automation:AutomationProperties.Name="Oryginalny strumień, bez konwersji; HLS zapisuje plik TS">Oryginalny strumień, bez konwersji; HLS zapisuje plik TS</ComboBoxItem>
                                     <ComboBoxItem Tag="Wav">WAV, bez kompresji</ComboBoxItem>
                                 </ComboBox>
                                 <Label Target="{Binding ElementName=RadioRecordingBitrateCombo}">_Bitrate MP3 lub AAC:</Label>
@@ -132,7 +133,7 @@
                                     <ComboBoxItem Tag="320">320 kb/s</ComboBoxItem>
                                 </ComboBox>
                                 <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
-                                           Text="MP3 jest ustawieniem domyślnym. FLAC zapisuje bezstratnie zdekodowany dźwięk. Oryginalny strumień nie jest ponownie kodowany; HLS zostaje bezstratnie połączony i przepakowany. FLAC oraz format oryginalny wymagają komponentu FFmpeg. WAV zachowuje PCM bez kompresji i tworzy największe pliki." />
+                                           Text="MP3 jest ustawieniem domyślnym. FLAC zapisuje bezstratnie zdekodowany dźwięk. Oryginalny strumień nie jest ponownie kodowany; HLS zostaje bezstratnie połączony i zapisany jako plik TS. FLAC oraz format oryginalny wymagają komponentu FFmpeg. WAV zachowuje PCM bez kompresji i tworzy największe pliki." />
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Wybudzanie" Margin="0,0,0,8">

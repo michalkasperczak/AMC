@@ -1,12 +1,39 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-153`
-- Tytuł zestawu: Niezależne nagrywanie radia i widok Nagrywane
-- Wersja programu: `0.1.0-alpha.153`
+- Numer zestawu: `AMC-TEST-154`
+- Tytuł zestawu: Bitrate nagrań stacji 22,05 i 24 kHz
+- Wersja programu: `0.1.0-alpha.154`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.153.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.154.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 154
+
+### AMC-154-01 — MP3 128 kb/s z Radia 357
+
+W ustawieniach wybierz MP3 i 128 kb/s. Nagraj co najmniej kilkanaście sekund
+Radia 357, zakończ nagranie i otwórz gotowy plik.
+
+Oczekiwane: plik działa od początku do końca, ma 128 kb/s i 44,1 kHz. Jakość
+źródła pozostaje taka jak w transmisji 22,05 kHz; program nie twierdzi, że ją
+ulepszył.
+
+### AMC-154-02 — MP3 128 kb/s z Radia Białystok
+
+Przy tych samych ustawieniach nagraj Radio Białystok.
+
+Oczekiwane: plik ma 128 kb/s i 48 kHz, a nie 80 kb/s i 24 kHz. Nagranie nie
+zawiera przerw ani przyspieszenia.
+
+### AMC-154-03 — Oryginalny HLS
+
+W ustawieniach przejdź po wyborach formatu do opcji Oryginalny.
+
+Oczekiwane: NVDA mówi, że HLS zapisuje plik TS. Krótkie nagranie Trójki w tym
+trybie kończy się prawidłowym `.ts`; jest to gotowy kontener, nie plik tymczasowy.
+
+## Poprzedni zestaw alpha 153
 
 ## Nowości alpha 153
 

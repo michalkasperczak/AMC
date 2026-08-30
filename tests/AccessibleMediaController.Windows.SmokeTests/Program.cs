@@ -759,6 +759,9 @@ static void TestRadioMp3Recording()
                 "Nagranie M4A/AAC ze stacji 24 kHz ma nieprawidłowy czas.");
         }
 
+        TestNarrowRadioMp3Recording(directory, 22_050, 44_100, "357");
+        TestNarrowRadioMp3Recording(directory, 24_000, 48_000, "Białystok");
+
         var wavPath = Path.Combine(directory, "radio-test.wav");
         using (var wavRecorder = RadioMp3Recorder.Start(
                    wavPath,
@@ -826,6 +829,47 @@ static void TestRadioMp3Recording()
     {
         if (Directory.Exists(directory)) Directory.Delete(directory, true);
     }
+}
+
+static void TestNarrowRadioMp3Recording(
+    string directory,
+    int sourceSampleRate,
+    int expectedSampleRate,
+    string stationName)
+{
+    var format = new WaveFormat(sourceSampleRate, 16, 2);
+    var pcm = new byte[format.AverageBytesPerSecond];
+    for (var frame = 0; frame < format.SampleRate; frame++)
+    {
+        var sample = (short)(Math.Sin(2 * Math.PI * 440 * frame / format.SampleRate)
+            * short.MaxValue * 0.1);
+        var offset = frame * format.BlockAlign;
+        BinaryPrimitives.WriteInt16LittleEndian(pcm.AsSpan(offset, 2), sample);
+        BinaryPrimitives.WriteInt16LittleEndian(pcm.AsSpan(offset + 2, 2), sample);
+    }
+
+    var path = Path.Combine(directory, $"radio-test-{sourceSampleRate}.mp3");
+    using (var recorder = RadioMp3Recorder.Start(
+               path,
+               format,
+               RadioRecordingFormat.Mp3,
+               128))
+    {
+        recorder.Write(pcm, 0, pcm.Length);
+        recorder.Stop();
+    }
+
+    using (var reader = new MediaFoundationReader(path))
+    {
+        Assert(reader.TotalTime > TimeSpan.FromMilliseconds(500),
+            $"Nagranie MP3 stacji {stationName} ma nieprawidłowy czas.");
+        Assert(reader.WaveFormat.SampleRate == expectedSampleRate,
+            $"Nagranie MP3 stacji {stationName} ma częstotliwość {reader.WaveFormat.SampleRate} zamiast {expectedSampleRate} Hz.");
+    }
+    using var frameStream = File.OpenRead(path);
+    var firstFrame = Mp3Frame.LoadFromStream(frameStream);
+    Assert(firstFrame?.BitRate == 128_000,
+        $"Nagranie MP3 stacji {stationName} ma bitrate {firstFrame?.BitRate ?? 0} zamiast 128000.");
 }
 
 static void TestOriginalRadioRecording(string sourceMp3Path, string outputDirectory)

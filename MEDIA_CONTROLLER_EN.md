@@ -1032,6 +1032,8 @@ Conciseness correction in `alpha.152`: identifying the segment belongs to Left a
 
 Change in `alpha.153`: manual Radio captures run in private inaudible pipelines identified independently from the main player. Changing station neither opens a modal question nor interrupts NVDA speech or finalises the capture. `Alt+2` in Radio opens **Recording**, `Ctrl+Alt+R` controls the selected station from a list, and `R` remains the shortest toggle in the player and the Recording view. That view combines manual and scheduled captures, while a schedule is still stopped through the schedule manager. Original-stream capture no longer forces the `0:a:0` input index; FFmpeg selects the audio stream, which also supports direct ICY servers that do not expose a typed audio index before reception starts.
 
+Change in `alpha.154`: Windows Media Foundation could select 80 kb/s for 22.05 or 24 kHz input even when 128 kb/s was requested. The lossy MP3/AAC pipeline now uses a high-quality resampler to normalise such input to standard 44.1 or 48 kHz before encoding, and an automated test verifies that the selected bitrate is preserved. Resampling is not presented as improving the source. FLAC, WAV and Original bypass that normalisation; HLS in Original mode is written without conversion in a `.ts` container.
+
 Local catalogue and ordering: the Library is neither a playlist nor a mirror of one folder. It is a catalogue of sources with stable identity, path and derived views. Derived orders such as title, artist, album, folder, date added or last played remain deterministic sort modes. Separate Custom order is user metadata and never changes disk-file order. The same keys do not pretend to reorder artist, album or search-result views.
 
 Planned sequence of later stages:

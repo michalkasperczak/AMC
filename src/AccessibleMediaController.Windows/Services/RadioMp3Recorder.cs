@@ -41,13 +41,15 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
         _temporaryPath = finalPath + ".amc-partial";
         _queue = new QueuedWaveProvider(sourceFormat);
 
-        IWaveProvider encoderInput = sourceFormat.Encoding == WaveFormatEncoding.Pcm
+        IWaveProvider sourceInput = sourceFormat.Encoding == WaveFormatEncoding.Pcm
             && sourceFormat.BitsPerSample == 16
             ? _queue
             : new SampleToWaveProvider16(_queue.ToSampleProvider());
 
         _encoderTask = Task.Run(() =>
         {
+            using var resampler = CreateLossyEncodingResampler(sourceInput, recordingFormat);
+            var encoderInput = (IWaveProvider?)resampler ?? sourceInput;
             if (recordingFormat == RadioRecordingFormat.Flac)
             {
                 EncodeToFlac(encoderInput, _temporaryPath);
@@ -117,6 +119,35 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
         }
         var bitRate = Math.Clamp(bitRateKbps, 64, 320) * 1000;
         return new RadioMp3Recorder(finalPath, sourceFormat, recordingFormat, bitRate);
+    }
+
+    private static MediaFoundationResampler? CreateLossyEncodingResampler(
+        IWaveProvider input,
+        RadioRecordingFormat recordingFormat)
+    {
+        if (recordingFormat is not (RadioRecordingFormat.Mp3 or RadioRecordingFormat.Aac))
+            return null;
+
+        var sourceRate = input.WaveFormat.SampleRate;
+        var targetRate = sourceRate switch
+        {
+            32_000 or 44_100 or 48_000 => sourceRate,
+            11_025 or 22_050 => 44_100,
+            _ => 48_000
+        };
+        if (targetRate == sourceRate) return null;
+
+        // Some Windows Media Foundation MP3 encoders silently reduce a requested
+        // 128 kb/s stream to 80 kb/s when the decoded station is 22.05 or 24 kHz.
+        // Resampling only the lossy export to a standard encoder rate makes the
+        // selected bitrate deterministic. It does not manufacture detail; WAV,
+        // FLAC and original-stream recording continue to preserve the source rate.
+        return new MediaFoundationResampler(
+            input,
+            new WaveFormat(targetRate, 16, input.WaveFormat.Channels))
+        {
+            ResamplerQuality = 60
+        };
     }
 
     internal static string RecordingExtension(RadioRecordingFormat format) => format switch

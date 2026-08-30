@@ -434,6 +434,10 @@ Left and Right still identify the selected part, for example “Minutes: 45”. 
 
 A manual Radio capture uses a separate inaudible connection. `R` controls the current station in the player, `Ctrl+Alt+R` works on a selected list station, while Page Up, Page Down, Enter and presets change listening without ending capture. Different stations may be recorded concurrently. `Alt+2` in Radio opens **Recording** with manual captures and active schedules; `R` stops the selected manual capture there. Escape from the player explicitly anchors focus on the list. Original mode lets FFmpeg select the audio stream, so a direct ICY input without an early typed `0:a:0` index is not rejected.
 
+## Predictable low-rate encoding in alpha 154
+
+Stations decoded at 22.05 or 24 kHz are no longer silently written by the system encoder as 80 kb/s MP3 after 128 kb/s was selected. For lossy MP3 and AAC output only, AMC uses a high-quality resampler to normalise such input to 44.1 or 48 kHz before encoding, so the result honours the selected bitrate. This does not invent detail absent from the source. FLAC, WAV and Original recording continue to preserve the source rate. The Original option now explicitly says that HLS produces a `.ts` file.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.
