@@ -18,6 +18,7 @@
             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/><RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -71,13 +72,27 @@
             </StackPanel>
         </StackPanel>
 
-        <TextBlock Grid.Row="9" Text="Powtarzanie:" Margin="0,0,0,4"/>
-        <ComboBox x:Name="RecurrenceCombo" Grid.Row="10" Margin="0,0,0,10"
+        <GroupBox Grid.Row="9" Header="Format tego nagrania" Margin="0,0,0,10">
+            <StackPanel Margin="8">
+                <Label Target="{Binding ElementName=RecordingFormatCombo}">_Format pliku:</Label>
+                <ComboBox x:Name="RecordingFormatCombo" Margin="0,0,0,8"
+                          DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                          SelectionChanged="RecordingFormatCombo_SelectionChanged"
+                          automation:AutomationProperties.Name="Format tego nagrania" />
+                <Label Target="{Binding ElementName=RecordingBitrateCombo}">_Bitrate MP3 lub AAC:</Label>
+                <ComboBox x:Name="RecordingBitrateCombo"
+                          DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                          automation:AutomationProperties.Name="Bitrate tego nagrania MP3 lub AAC" />
+            </StackPanel>
+        </GroupBox>
+
+        <TextBlock Grid.Row="10" Text="Powtarzanie:" Margin="0,0,0,4"/>
+        <ComboBox x:Name="RecurrenceCombo" Grid.Row="11" Margin="0,0,0,10"
                   DisplayMemberPath="Label" TextSearch.TextPath="Label"
                   SelectionChanged="RecurrenceCombo_SelectionChanged"
                   automation:AutomationProperties.Name="Powtarzanie nagrania"/>
 
-        <GroupBox x:Name="DaysGroup" Grid.Row="11" Header="Dni tygodnia" Margin="0,0,0,10"
+        <GroupBox x:Name="DaysGroup" Grid.Row="12" Header="Dni tygodnia" Margin="0,0,0,10"
                   automation:AutomationProperties.Name="Dni tygodnia dla powtarzanego nagrania">
             <StackPanel Margin="8">
                 <TextBlock Margin="0,0,0,6" TextWrapping="Wrap"
@@ -105,7 +120,7 @@
             </StackPanel>
         </GroupBox>
 
-        <GroupBox Grid.Row="12" Grid.RowSpan="2" Header="Folder tego nagrania" Margin="0,0,0,10">
+        <GroupBox Grid.Row="13" Grid.RowSpan="2" Header="Folder tego nagrania" Margin="0,0,0,10">
             <StackPanel Margin="8">
                 <Label Target="{Binding ElementName=OutputFolderModeCombo}">_Folder nagrywania:</Label>
                 <ComboBox x:Name="OutputFolderModeCombo" Margin="0,0,0,8" SelectedIndex="0"
@@ -128,19 +143,19 @@
             </StackPanel>
         </GroupBox>
 
-        <TextBlock Grid.Row="14" Text="Wybudzanie komputera:" Margin="0,0,0,4"/>
-        <ComboBox x:Name="WakeCombo" Grid.Row="15" Margin="0,0,0,10"
+        <TextBlock Grid.Row="15" Text="Wybudzanie komputera:" Margin="0,0,0,4"/>
+        <ComboBox x:Name="WakeCombo" Grid.Row="16" Margin="0,0,0,10"
                   DisplayMemberPath="Label" TextSearch.TextPath="Label"
                   automation:AutomationProperties.Name="Wybudzanie komputera dla tego harmonogramu"/>
 
-        <CheckBox x:Name="EnabledCheckBox" Grid.Row="16" Content="Plan włączony" IsChecked="True"
+        <CheckBox x:Name="EnabledCheckBox" Grid.Row="17" Content="Plan włączony" IsChecked="True"
                   Margin="0,0,0,10" automation:AutomationProperties.Name="Plan włączony"
                   automation:AutomationProperties.HelpText="Wyłączony plan pozostaje zapisany, ale nie rozpoczyna nagrań."/>
 
-        <TextBlock x:Name="ValidationText" Grid.Row="17" Foreground="DarkRed" Margin="0,0,0,8"
+        <TextBlock x:Name="ValidationText" Grid.Row="18" Foreground="DarkRed" Margin="0,0,0,8"
                    TextWrapping="Wrap" automation:AutomationProperties.LiveSetting="Assertive"/>
 
-        <StackPanel Grid.Row="18" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="19" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="_Zapisz" IsDefault="True" MinWidth="100" Margin="0,0,8,0"
                     Click="Save_Click"/>
             <Button Content="Anuluj" IsCancel="True" MinWidth="100"/>

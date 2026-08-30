@@ -1004,7 +1004,7 @@ Playlist semantics since `alpha.140`: the container and its contents are distinc
 
 Direct active-session presets must not depend on the text produced by the keyboard layout. For `Ctrl+Shift+1–0`, minus and equals, AMC recognises the physical key in the Win32 message and reads modifier state from Windows. This is a window-level path rather than global registration of the twelve chords, so they are not captured while AMC is inactive.
 
-Starting with `alpha.141`, Radio has a persistent scheduler now opened with `Ctrl+Shift+H`; the former `Ctrl+Alt+Shift+R` is an alias. A record stores a stable station identifier plus a safe URL snapshot, start time, time zone, total duration, optional part duration, one-off, daily or selected-day recurrence, an optional destination folder, recording format and a three-state wake rule: inherit, enable or disable. Insert creates an entry, Enter edits it and Delete removes it; controls and list items must never expose class names, record dumps or enum values. List mutations and persistence are serialised, and restart normalises recurring dates. A late start records only the remaining part of an interval that is still active, while a fully missed occurrence never records its complete duration after the fact. Recording uses a separate inaudible pipeline, does not change the station being heard and permits concurrent schedules. An unavailable custom folder falls back to the general recording folder. Active capture prevents automatic sleep and the nearest occurrence requiring wake maintains one Windows wake timer. Wake works only while AMC remains running during sleep; closing AMC does not leave a hidden system task.
+Starting with `alpha.141`, Radio has a persistent scheduler opened with `Ctrl+Shift+H`. A record stores a stable station identifier plus a safe URL snapshot, start time, time zone, total duration, optional part duration, one-off, daily or selected-day recurrence, an optional destination folder, recording format and a three-state wake rule: inherit, enable or disable. Insert creates an entry, Enter edits it, Space enables or disables it, and Delete removes it; controls and list items must never expose class names, record dumps or enum values. List mutations and persistence are serialised, and restart normalises recurring dates. A late start records only the remaining part of an interval that is still active, while a fully missed occurrence never records its complete duration after the fact. Recording uses a separate inaudible pipeline, does not change the station being heard and permits concurrent schedules. An unavailable custom folder falls back to the general recording folder. Active capture prevents automatic sleep and the nearest occurrence requiring wake maintains one Windows wake timer. Wake works only while AMC remains running during sleep; closing AMC does not leave a hidden system task.
 
 `Ctrl+0` and `Ctrl+Shift+0` are disjoint in the raw keyboard-message router. The former opens the session list; the latter invokes the preset position assigned to key `0`. Missing or transiently lost Shift state must never route the shifted chord to the session list; where presets are unavailable, the shifted chord remains unhandled rather than executing `Ctrl+0`.
 
@@ -1042,7 +1042,7 @@ Change in `alpha.154`: Windows Media Foundation could select 80 kb/s for 22.05 o
 
 Change in `alpha.155`: transport containers `.ts`, `.mts` and `.m2ts` have a local resilient FFmpeg pipeline that decodes audio only to PCM. It obtains duration without copying the complete file, supports seeking and tolerates captures that begin without a complete first video frame. Manually selected `.part`, `.partial` and `.amc-partial` files use the same recovery path through `Ctrl+O`; once audio has been returned, a damaged tail is treated as the end of the available fragment. Partial files are neither scanned automatically nor presented as completed recordings. A test against the real `Vianneya - 2026-08-30 10-16.ts` file confirmed reading the start, seeking to the middle and a duration of 7:34.
 
-Change in `alpha.156`: recording and listening have separate controls. Space pauses listening only and cannot silently create a gap in a recording. Global `Alt+Shift+R` stops all active manual and scheduled capture pipelines, asks for confirmation when more than one is active, and does not disable future occurrences of recurring schedules. Orderly application shutdown reports the active recording count, defaults to cancellation, and finalises received fragments after confirmation. A manual recording does not resume after launch. The schedule remains authoritative: if its current window is still active, AMC creates a new file for the remaining portion and announces that it is resuming; after the full window expires it advances to the next occurrence.
+Change in `alpha.156`: recording and listening have separate controls. Space pauses listening only and cannot silently create a gap in a recording. The global command stops all active manual and scheduled capture pipelines, asks for confirmation when more than one is active, and does not disable future occurrences of recurring schedules; starting with `alpha.166` its shortcut is `Ctrl+Alt+Shift+R`. Orderly application shutdown reports the active recording count, defaults to cancellation, and finalises received fragments after confirmation. A manual recording does not resume after launch. The schedule remains authoritative: if its current window is still active, AMC creates a new file for the remaining portion and announces that it is resuming; after the full window expires it advances to the next occurrence.
 
 Change in `alpha.157` supersedes the earlier decision not to provide recording pause. `Shift+Space` on a recorded station in a list or in the player pauses and resumes that selected station's capture, while plain Space continues to control listening only. Reception and listening may continue during recording pause, but the skipped interval is not appended to the output. Every pause stores a cut point named `Pause 1`, `Pause 2`, and so on; after finalisation the file is silently added to the Local Library and the points become normal AMC Bookmarks. This applies to MP3, M4A/AAC, FLAC and WAV. Original stream copy deliberately remains non-pausable because a reconnect would require safe multi-container concatenation and must not masquerade as one continuous source. List labels, the player and properties distinguish active from paused recording. Original capture now resolves an ordinary PLS, M3U or XSPF wrapper to its direct stream before starting FFmpeg while retaining a genuine HLS manifest; this repairs, among others, the imported Tyflo Podcast `listen.pls` address.
 
@@ -1050,7 +1050,7 @@ Change in `alpha.158` extends the shared resolver used by playback and Original 
 
 Change in `alpha.159` adds two independent mute layers. `Ctrl+M` mutes or restores the current session, while `Ctrl+Shift+M` does so for all AMC listening pipelines, including playback in other sessions and playback started later. Global mute does not overwrite each session's individual state: after global mute is released, a session muted beforehand remains silent. A volume adjustment clears individual mute but cannot bypass active global mute. These commands never change Windows, NVDA or another application's volume and never stop a Radio recording. Mute is intentionally transient, so AMC retains numeric volume values across a restart but does not start unexpectedly silent.
 
-Change in `alpha.160`: `Ctrl+Shift+H` is the primary concise shortcut for Radio's recording schedule list. It works from a list, the player and other controls in the active AMC window; outside the Radio session it explains where the feature is available instead of switching sessions silently. The former `Ctrl+Alt+Shift+R` remains a compatibility alias, while menus, the command palette, shortcut list and keyboard help present the shorter binding.
+Change in `alpha.160`: `Ctrl+Shift+H` is the primary concise shortcut for Radio's recording schedule list. It works from a list, the player and other controls in the active AMC window; outside the Radio session it explains where the feature is available instead of switching sessions silently. Starting with `alpha.166`, the scheduler has no second alias: `Ctrl+Alt+Shift+R` stops every active recording.
 
 Change in `alpha.161`: every accessible Radio row starts with the user-facing station name. Playback, mute and recording states are appended afterwards, and the UI Automation playback status follows the same order. A changing prefix such as “recording paused” must not obscure the station identity while the user moves through the list with the arrow keys.
 
@@ -1123,3 +1123,27 @@ because it starts NVDA. Right Arrow may later speak
 cached credits only when the list row is a track; on a folder or album it keeps
 the enter/deeper meaning, while in the player it remains seek forward. Merely
 pressing an arrow never triggers a hidden network request.
+
+## 19. Per-recording parameters, station volume and recording controls
+
+Decision in `alpha.166`: the Radio settings format and bitrate are defaults.
+The `Shift+R` form stores its own pair for every one-off occurrence and
+recurring schedule. Older entries with no override inherit the global values.
+
+`Alt+2` is the active-recordings view. `Shift+Space` toggles pause for supported
+recordings of the selected station, `Ctrl+Alt+R` stops that station's manual or
+scheduled occurrence, and `Ctrl+Alt+Shift+R` stops all captures. Stopping one
+occurrence does not disable future runs of a recurring schedule. The schedule
+list is checklist-like: arrows select, Space toggles and Save commits changes.
+
+Time-shift stays independent when another station records in the background.
+It is locked only while the currently heard station is recording, then returns
+without reopening the player. Listening volume is persistent per station.
+Space controls playback transport; `Ctrl+M` only mutes the audible output of
+the current session without stopping reception, time-shift or recording.
+
+Recognition history remains on `Ctrl+Alt+S` and its context menu exposes open,
+plain and rich copy, export and delete. `Ctrl+Shift+S` is reserved for a future
+session list. Future official service adapters may add album-with-selected-track
+matching to Apple Music, Spotify, TIDAL and YouTube Music, with confirmation for
+ambiguous catalogue results.

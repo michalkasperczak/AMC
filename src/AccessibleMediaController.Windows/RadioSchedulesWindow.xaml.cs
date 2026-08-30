@@ -11,6 +11,8 @@ public partial class RadioSchedulesWindow : Window
     private readonly string? _preferredStationId;
     private readonly HashSet<string> _activeIds;
     private readonly List<RadioRecordingScheduleSettings> _schedules;
+    private readonly RadioRecordingFormat _defaultRecordingFormat;
+    private readonly int _defaultRecordingBitrateKbps;
 
     public IReadOnlyList<RadioRecordingScheduleSettings> ResultSchedules { get; private set; } = [];
     public bool ResultWakeScheduledRecordings { get; private set; }
@@ -20,13 +22,17 @@ public partial class RadioSchedulesWindow : Window
         IEnumerable<RadioRecordingScheduleSettings> schedules,
         IEnumerable<string> activeIds,
         string? preferredStationId,
-        bool wakeScheduledRecordings)
+        bool wakeScheduledRecordings,
+        RadioRecordingFormat defaultRecordingFormat,
+        int defaultRecordingBitrateKbps)
     {
         InitializeComponent();
         _stations = stations;
         _preferredStationId = preferredStationId;
         _activeIds = activeIds.ToHashSet(StringComparer.Ordinal);
         _schedules = schedules.Select(Clone).ToList();
+        _defaultRecordingFormat = defaultRecordingFormat;
+        _defaultRecordingBitrateKbps = defaultRecordingBitrateKbps;
         GlobalWakeCheckBox.IsChecked = wakeScheduledRecordings;
         RefreshRows();
         Loaded += (_, _) =>
@@ -74,7 +80,9 @@ public partial class RadioSchedulesWindow : Window
             _stations,
             null,
             _preferredStationId,
-            globalWakeEnabled: GlobalWakeCheckBox.IsChecked == true) { Owner = this };
+            globalWakeEnabled: GlobalWakeCheckBox.IsChecked == true,
+            defaultRecordingFormat: _defaultRecordingFormat,
+            defaultRecordingBitrateKbps: _defaultRecordingBitrateKbps) { Owner = this };
         if (editor.ShowDialog() != true || editor.ResultSchedule is null) return;
         _schedules.Add(editor.ResultSchedule);
         RefreshRows(editor.ResultSchedule.Id);
@@ -105,7 +113,9 @@ public partial class RadioSchedulesWindow : Window
             _stations,
             row.Schedule,
             row.Schedule.StationId,
-            globalWakeEnabled: GlobalWakeCheckBox.IsChecked == true) { Owner = this };
+            globalWakeEnabled: GlobalWakeCheckBox.IsChecked == true,
+            defaultRecordingFormat: _defaultRecordingFormat,
+            defaultRecordingBitrateKbps: _defaultRecordingBitrateKbps) { Owner = this };
         if (editor.ShowDialog() != true || editor.ResultSchedule is null) return;
         var index = _schedules.FindIndex(schedule => schedule.Id == row.Schedule.Id);
         if (index >= 0) _schedules[index] = editor.ResultSchedule;
@@ -185,12 +195,15 @@ public partial class RadioSchedulesWindow : Window
         Recurrence = schedule.Recurrence,
         ActiveDays = [.. schedule.ActiveDays],
         OutputFolder = schedule.OutputFolder,
+        RecordingFormat = schedule.RecordingFormat,
+        RecordingBitrateKbps = schedule.RecordingBitrateKbps,
         WakeComputer = schedule.WakeComputer,
         Enabled = schedule.Enabled
     };
 
     private sealed record ScheduleRow(RadioRecordingScheduleSettings Schedule, string Label)
     {
+        public string AccessibleLabel => $"{Label}, {(Schedule.Enabled ? "zaznaczony" : "niezaznaczony")}";
         public override string ToString() => Label;
     }
 }

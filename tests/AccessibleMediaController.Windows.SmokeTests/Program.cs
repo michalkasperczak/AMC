@@ -56,6 +56,7 @@ try
 
     TestAccessiblePlaybackStatusStrip();
     TestMenuAccessibility();
+    TestRadioScheduleAccessibility();
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
@@ -192,6 +193,105 @@ static void TestMenuAccessibility()
     }
 
     Console.WriteLine("OK: pojedyncze oznajmianie skrótów w menu");
+}
+
+static void TestRadioScheduleAccessibility()
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        RadioScheduleEditorWindow? editor = null;
+        RadioSchedulesWindow? manager = null;
+        try
+        {
+            var station = new MediaItem
+            {
+                Id = "radio-schedule-accessibility",
+                Title = "Stacja testowa",
+                Kind = MediaItemKind.Station,
+                Source = "https://example.invalid/radio.mp3"
+            };
+            var schedule = new RadioRecordingScheduleSettings
+            {
+                Id = "schedule-accessibility",
+                StationId = station.Id,
+                StationName = station.Title,
+                StreamUrl = station.Source,
+                NextStartUtcTicks = DateTime.UtcNow.AddHours(1).Ticks,
+                TimeZoneId = TimeZoneInfo.Local.Id,
+                DurationMinutes = 30,
+                RecordingFormat = RadioRecordingFormat.Mp3,
+                RecordingBitrateKbps = 192,
+                Enabled = true
+            };
+
+            editor = new RadioScheduleEditorWindow(
+                [station],
+                schedule,
+                station.Id,
+                defaultRecordingFormat: RadioRecordingFormat.Mp3,
+                defaultRecordingBitrateKbps: 192);
+            var formatCombo = (ComboBox)editor.FindName("RecordingFormatCombo");
+            var bitrateCombo = (ComboBox)editor.FindName("RecordingBitrateCombo");
+            Assert(AutomationProperties.GetName(formatCombo) == "Format tego nagrania",
+                "Lista formatów nie ma jednoznacznej nazwy dostępnościowej.");
+            Assert(AutomationProperties.GetName(bitrateCombo) == "Bitrate tego nagrania MP3 lub AAC",
+                "Lista bitrate nie ma jednoznacznej nazwy dostępnościowej.");
+            Assert(formatCombo.SelectedItem is not null && bitrateCombo.SelectedItem is not null,
+                "Początkowe wartości formatu albo bitrate nie zostały wybrane.");
+            Assert(formatCombo.Items.Cast<object>().All(IsUserFacingChoice),
+                "Lista formatów ujawnia techniczną reprezentację obiektu.");
+            Assert(bitrateCombo.Items.Cast<object>().All(IsUserFacingChoice),
+                "Lista bitrate ujawnia techniczną reprezentację obiektu.");
+
+            manager = new RadioSchedulesWindow(
+                [station],
+                [schedule],
+                [],
+                station.Id,
+                wakeScheduledRecordings: false,
+                defaultRecordingFormat: RadioRecordingFormat.Mp3,
+                defaultRecordingBitrateKbps: 192);
+            var schedulesList = (ListBox)manager.FindName("SchedulesList");
+            Assert(schedulesList.SelectedItem is not null,
+                "Lista harmonogramów nie wybiera pierwszego planu.");
+            var selected = schedulesList.SelectedItem;
+            var accessibleLabel = selected?.GetType().GetProperty("AccessibleLabel")?.GetValue(selected)?.ToString();
+            Assert(!string.IsNullOrWhiteSpace(accessibleLabel)
+                   && accessibleLabel.Contains("Stacja testowa", StringComparison.Ordinal)
+                   && accessibleLabel.Contains("zaznaczony", StringComparison.Ordinal)
+                   && IsUserFacingChoice(selected!),
+                "Pierwszy harmonogram nie ma stabilnej, użytkowej etykiety dostępnościowej.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+        finally
+        {
+            manager?.Close();
+            editor?.Close();
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+
+    if (failure is not null)
+    {
+        throw new InvalidOperationException("Test dostępności harmonogramów nie powiódł się.", failure);
+    }
+
+    Console.WriteLine("OK: użytkowe etykiety formatu i harmonogramów nagrywania");
+
+    static bool IsUserFacingChoice(object value)
+    {
+        var text = value.ToString() ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(text)
+               && !text.Contains('{', StringComparison.Ordinal)
+               && !text.Contains("Choice", StringComparison.Ordinal)
+               && !text.Contains("Settings", StringComparison.Ordinal);
+    }
 }
 
 static void TestShazamFingerprint()

@@ -20,6 +20,7 @@ public partial class RadioRecognitionHistoryWindow : AccessibleWindow
     public RadioRecognitionHistoryWindow(List<RadioRecognizedTrackSettings> entries)
     {
         InitializeComponent();
+        MenuAccessibility.NormalizeContextMenu(HistoryContextMenu);
         _entries = entries;
         RefreshRows();
     }
@@ -239,6 +240,8 @@ public partial class RadioRecognitionHistoryWindow : AccessibleWindow
     private static string Csv(string value) => $"\"{value.Replace("\"", "\"\"")}\"";
 
     private void Copy_Click(object sender, RoutedEventArgs e) => CopySelected(includeServiceLinks: false);
+    private void CopyWithLinks_Click(object sender, RoutedEventArgs e) => CopySelected(includeServiceLinks: true);
+    private void OpenProvider_Click(object sender, RoutedEventArgs e) => OpenProviderResult();
     private void Export_Click(object sender, RoutedEventArgs e) => Export();
     private void Delete_Click(object sender, RoutedEventArgs e) => DeleteSelected();
 }

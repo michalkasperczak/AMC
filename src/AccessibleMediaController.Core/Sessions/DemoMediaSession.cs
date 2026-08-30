@@ -21,6 +21,7 @@ public sealed class DemoMediaSession
     private bool _playbackContextIsQueue;
     private List<string> _playbackContextItemIds;
     private readonly Func<MediaItem, double?> _playbackRateOverride;
+    private readonly Func<MediaItem, int?> _volumeOverride;
     private readonly MediaItem _emptyItem;
     private bool _hasCurrentItem;
 
@@ -30,7 +31,8 @@ public sealed class DemoMediaSession
         IEnumerable<MediaItem> items,
         IMediaOutput? output = null,
         Func<MediaItem, bool>? rememberPosition = null,
-        Func<MediaItem, double?>? playbackRateOverride = null)
+        Func<MediaItem, double?>? playbackRateOverride = null,
+        Func<MediaItem, int?>? volumeOverride = null)
     {
         Id = id;
         DisplayName = displayName;
@@ -45,6 +47,7 @@ public sealed class DemoMediaSession
         _output = output;
         _rememberPosition = rememberPosition ?? (_ => true);
         _playbackRateOverride = playbackRateOverride ?? (_ => null);
+        _volumeOverride = volumeOverride ?? (_ => null);
         _position = output is null ? TimeSpan.FromSeconds(83) : TimeSpan.Zero;
     }
 
@@ -142,6 +145,7 @@ public sealed class DemoMediaSession
         if (!SelectItem(item)) return false;
         if (_playbackContextIsQueue) ConsumeQueueItem(CurrentItem);
         ApplyPlaybackRateForItem(CurrentItem);
+        ApplyVolumeForItem(CurrentItem);
         IsPlaying = true;
         _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
         return true;
@@ -171,6 +175,7 @@ public sealed class DemoMediaSession
         _position = RememberedPosition(item);
         if (_playbackContextIsQueue) ConsumeQueueItem(CurrentItem);
         ApplyPlaybackRateForItem(CurrentItem);
+        ApplyVolumeForItem(CurrentItem);
         IsPlaying = true;
         _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
         return true;
@@ -215,6 +220,7 @@ public sealed class DemoMediaSession
             ConsumeQueueItem(CurrentItem);
         }
         ApplyPlaybackRateForItem(CurrentItem);
+        ApplyVolumeForItem(CurrentItem);
         IsPlaying = true;
         _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
         return true;
@@ -293,6 +299,12 @@ public sealed class DemoMediaSession
     private int EffectiveVolume => IsMuted ? 0 : Volume;
 
     private void ApplyEffectiveVolume() => _output?.SetVolume(EffectiveVolume);
+
+    private void ApplyVolumeForItem(MediaItem item)
+    {
+        if (_volumeOverride(item) is not { } volume) return;
+        Volume = Math.Clamp(volume, 0, 100);
+    }
 
     public bool ChangePlaybackRate(int direction)
     {

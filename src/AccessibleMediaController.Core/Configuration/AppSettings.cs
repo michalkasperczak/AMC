@@ -161,7 +161,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 33;
+    public int SchemaVersion { get; set; } = 34;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -369,6 +369,8 @@ public sealed class RadioRecordingScheduleSettings
     public RadioScheduleRecurrence Recurrence { get; set; }
     public List<DayOfWeek> ActiveDays { get; set; } = [];
     public string OutputFolder { get; set; } = string.Empty;
+    public RadioRecordingFormat? RecordingFormat { get; set; }
+    public int? RecordingBitrateKbps { get; set; }
     public bool? WakeComputer { get; set; }
     public bool Enabled { get; set; } = true;
 }
@@ -438,6 +440,7 @@ public sealed class RadioStationSettings
     public int? BitrateKbps { get; set; }
     public bool IsBitrateEstimated { get; set; }
     public int? SampleRateHz { get; set; }
+    public int? Volume { get; set; }
     public bool HasCustomTitle { get; set; }
     public bool IsFavorite { get; set; }
     public bool IsInLibrary { get; set; }

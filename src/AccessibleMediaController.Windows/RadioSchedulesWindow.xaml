@@ -29,10 +29,16 @@
                  MouseDoubleClick="SchedulesList_MouseDoubleClick">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <TextBlock Text="{Binding Label}"
-                               automation:AutomationProperties.Name="{Binding Label}"/>
+                    <CheckBox Content="{Binding Label}" IsChecked="{Binding Schedule.Enabled}"
+                              Focusable="False" IsHitTestVisible="False"
+                              automation:AutomationProperties.Name="{Binding AccessibleLabel}" />
                 </DataTemplate>
             </ListBox.ItemTemplate>
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding AccessibleLabel}" />
+                </Style>
+            </ListBox.ItemContainerStyle>
         </ListBox>
     </DockPanel>
 </Window>

@@ -1,12 +1,92 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-165`
-- Tytuł zestawu: Pojedyncze oznajmianie skrótów w menu
-- Wersja programu: `0.1.0-alpha.165`
+- Numer zestawu: `AMC-TEST-166`
+- Tytuł zestawu: Indywidualne nagrania i sterowanie Radiem
+- Wersja programu: `0.1.0-alpha.166`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.165.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.166.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 166
+
+### AMC-166-01 — Format i bitrate osobnego nagrania
+
+W Radiu wskaż stację i naciśnij `Shift+R`. Utwórz krótkie nagranie
+natychmiastowe w MP3 z bitrate 128 kb/s. Potem utwórz drugi plan tej samej albo
+innej stacji w M4A/AAC 192 kb/s. Otwórz oba ponownie przez `Ctrl+Shift+H`.
+
+Oczekiwane: format i bitrate są zwykłymi, czytelnymi polami kombi. Każdy plan
+pamięta własne ustawienia niezależnie od wartości ogólnej. NVDA nie czyta nazw
+klas, identyfikatorów wyliczeń ani technicznych reprezentacji obiektów.
+
+### AMC-166-02 — Lista harmonogramów jak lista pól wyboru
+
+Otwórz `Ctrl+Shift+H`. Nawiguj strzałkami i naciskaj Spację na kilku planach,
+następnie wybierz Zapisz i otwórz listę ponownie.
+
+Oczekiwane: każdy wiersz jest jednoznacznie oznaczony jako zaznaczony albo
+niezaznaczony. Spacja przełącza tylko bieżący plan, fokus zostaje na nim, a
+stan jest trwały po zapisaniu i ponownym otwarciu.
+
+### AMC-166-03 — Sterowanie wybraną nagrywaną stacją
+
+Uruchom dwa nagrania różnych stacji, w tym przynajmniej jedno z harmonogramu.
+Przejdź do `Alt+2`. Na pierwszej stacji naciśnij `Shift+Spacja` dwa razy, a
+następnie `Ctrl+Alt+R`.
+
+Oczekiwane: pauza i wznowienie dotyczą wyłącznie wybranej stacji.
+`Ctrl+Alt+R` kończy jej bieżące nagranie także wtedy, gdy uruchomił je
+harmonogram, ale nie wyłącza przyszłych terminów cyklicznego planu. Druga
+stacja nadal się nagrywa.
+
+### AMC-166-04 — Zatrzymanie wszystkich i rozdzielone skróty
+
+Przy co najmniej dwóch aktywnych nagraniach naciśnij `Ctrl+Alt+Shift+R`, a
+potem sprawdź `Ctrl+Shift+H`.
+
+Oczekiwane: pierwszy skrót po potwierdzeniu zatrzymuje wszystkie nagrania.
+Drugi zawsze otwiera harmonogram. Dawne `Alt+Shift+R` nie wykonuje ukrytej
+operacji, a pomoc klawiszy i paleta podają nowe znaczenia.
+
+### AMC-166-05 — Timeshift podczas nagrywania
+
+Odtwórz stację, uruchom jej nagrywanie i w odtwarzaczu sprawdź lewo, prawo,
+Home i End. Równolegle nagraj inną stację w tle i ponów próbę na stacji, która
+nie jest nagrywana. Zakończ nagranie bieżącej stacji bez wychodzenia z
+odtwarzacza i sprawdź przewijanie ponownie.
+
+Oczekiwane: timeshift jest zablokowany tylko dla aktualnie słuchanej i
+nagrywanej stacji. Nagranie innej stacji w tle go nie blokuje. Po zakończeniu
+nagrywania przewijanie działa od razu, przed naciśnięciem Escape.
+
+### AMC-166-06 — Głośność pamiętana osobno dla stacji
+
+Ustaw pierwszej stacji głośność 20%, a drugiej 65%. Przełączaj je Page Up i
+Page Down, następnie zamknij i uruchom AMC ponownie.
+
+Oczekiwane: każda stacja przywraca swój poziom zarówno podczas bieżącej sesji,
+jak i po restarcie. Zmiana nie reguluje głośności Windows ani NVDA.
+
+### AMC-166-07 — Spacja a wyciszenie sesji
+
+Podczas odtwarzania Radia sprawdź kolejno Spację, `Ctrl+M`, ponownie `Ctrl+M`
+i `Ctrl+Shift+M`, również gdy trwa nagrywanie.
+
+Oczekiwane: Spacja wstrzymuje albo wznawia odsłuch. `Ctrl+M` tylko wycisza
+bieżącą sesję bez zatrzymania odbioru, timeshiftu i nagrania. `Ctrl+Shift+M`
+pozostaje osobną warstwą wyciszenia wszystkich sesji AMC.
+
+### AMC-166-08 — Menu kontekstowe rozpoznanych utworów
+
+Otwórz `Ctrl+Alt+S`, wywołaj menu kontekstowe i sprawdź otwarcie wyniku,
+kopiowanie zwykłe i bogate, eksport oraz usuwanie.
+
+Oczekiwane: wszystkie pozycje mają użytkowe nazwy i właściwe skróty czytane
+tylko raz. Działania odpowiadają istniejącym przyciskom i nie zmieniają
+przypadkiem odtwarzanej stacji.
+
+## Poprzedni zestaw alpha 165
 
 ## Nowości alpha 165
 

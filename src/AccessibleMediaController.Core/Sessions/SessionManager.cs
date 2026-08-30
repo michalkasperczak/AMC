@@ -76,7 +76,8 @@ public sealed class SessionManager
         IMediaOutput output,
         int preferredSlot,
         Func<MediaItem, bool>? rememberPosition = null,
-        Func<MediaItem, double?>? playbackRateOverride = null)
+        Func<MediaItem, double?>? playbackRateOverride = null,
+        Func<MediaItem, int?>? volumeOverride = null)
     {
         var session = FindSession(id);
         if (session is null)
@@ -87,7 +88,8 @@ public sealed class SessionManager
                 items,
                 output,
                 rememberPosition,
-                playbackRateOverride);
+                playbackRateOverride,
+                volumeOverride);
             session.SetGlobalMute(AllSessionsMuted);
             _sessions.Add(session);
         }

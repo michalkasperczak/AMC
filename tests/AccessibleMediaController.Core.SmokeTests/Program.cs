@@ -322,6 +322,16 @@ static void TestRadioRecordingSchedule()
         state.Radio.RecordingFormat = RadioRecordingFormat.Original;
         state.Radio.RecordingBitrateKbps = 173;
         state.Radio.WakeScheduledRecordings = true;
+        state.Radio.Stations =
+        [
+            new RadioStationSettings
+            {
+                Id = "station-a",
+                Name = "Stacja A",
+                StreamUrl = "https://example.test/live",
+                Volume = 140
+            }
+        ];
         state.Radio.RecordingSchedules =
         [
             new RadioRecordingScheduleSettings
@@ -336,6 +346,8 @@ static void TestRadioRecordingSchedule()
                 SegmentMinutes = 30,
                 Recurrence = RadioScheduleRecurrence.SelectedDays,
                 ActiveDays = [],
+                RecordingFormat = RadioRecordingFormat.Aac,
+                RecordingBitrateKbps = 222,
                 WakeComputer = true
             },
             new RadioRecordingScheduleSettings
@@ -358,6 +370,8 @@ static void TestRadioRecordingSchedule()
         Equal(1, normalized.DurationMinutes);
         Equal(0, normalized.SegmentMinutes);
         Equal(1, normalized.ActiveDays.Count);
+        Equal(RadioRecordingFormat.Aac, normalized.RecordingFormat);
+        Equal(192, normalized.RecordingBitrateKbps);
         Equal(true, normalized.WakeComputer);
         var segmented = loaded.Radio.RecordingSchedules.Single(item => item.Id == "schedule-segmented");
         Equal(120, segmented.DurationMinutes);
@@ -366,6 +380,7 @@ static void TestRadioRecordingSchedule()
         Equal(RadioRecordingFormat.Original, loaded.Radio.RecordingFormat);
         Equal(160, loaded.Radio.RecordingBitrateKbps);
         Equal(true, loaded.Radio.WakeScheduledRecordings);
+        Equal(100, loaded.Radio.Stations.Single().Volume);
         Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
     }
     finally
@@ -1246,6 +1261,20 @@ static void TestLocalPlaybackBoundary()
     True(session.SetPlaybackRate(2d), "Ustawienie najwyższej prędkości powinno być obsłużone.");
     Equal(2d, output.PlaybackRate);
     True(session.SetPlaybackRate(1d), "Przywrócenie normalnej prędkości powinno być obsłużone.");
+
+    var stationA = new MediaItem { Id = "radio-a", Title = "Radio A", Kind = MediaItemKind.Station };
+    var stationB = new MediaItem { Id = "radio-b", Title = "Radio B", Kind = MediaItemKind.Station };
+    var radioOutput = new FakeMediaOutput();
+    var radioSession = new DemoMediaSession(
+        "radio",
+        "Radio internetowe",
+        [stationA, stationB],
+        radioOutput,
+        volumeOverride: item => item.Id == stationA.Id ? 20 : 75);
+    True(radioSession.Play(stationA), "Pierwsza stacja powinna się uruchomić.");
+    Equal(20, radioOutput.Volume);
+    True(radioSession.PlayRelative(1), "Druga stacja powinna się uruchomić.");
+    Equal(75, radioOutput.Volume);
 
     session.AddItems([item]);
     Equal(1, session.Items.Count);
@@ -2660,7 +2689,7 @@ static void TestCommandPalette()
     Equal("Ctrl+Alt+P (Pliki lokalne lub Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ViewRadioPresets).LocalShortcut);
     Equal("Ctrl+Alt+Shift+P (Pliki lokalne lub Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.AssignRadioPreset).LocalShortcut);
     Equal("T (odtwarzacz radia lub widok Nagrywane)", entries.Single(entry => entry.CommandId == CommandIds.SplitRadioRecording).LocalShortcut);
-    Equal("Alt+Shift+R", entries.Single(entry => entry.CommandId == CommandIds.StopAllRadioRecordings).LocalShortcut);
+    Equal("Ctrl+Alt+Shift+R", entries.Single(entry => entry.CommandId == CommandIds.StopAllRadioRecordings).LocalShortcut);
     Equal("Ctrl+Shift+H (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ManageRadioSchedules).LocalShortcut);
     True(entries.Any(entry => entry.CommandId == CommandIds.ViewFolders), "Paleta powinna zawierać widok folderów.");
     True(entries.Any(entry => entry.CommandId == CommandIds.SettingsSessionOrder), "Paleta powinna zawierać ustawienia kolejności sesji.");

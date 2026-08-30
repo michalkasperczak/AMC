@@ -1018,7 +1018,7 @@ Semantyka playlist od `alpha.140`: kontener i jego zawartość są dwoma różny
 
 Bezpośrednie wywołanie presetów aktywnej sesji musi być niezależne od tekstu powstającego w układzie klawiatury. Dla `Ctrl+Shift+1–0`, minusa i znaku równości AMC rozpoznaje fizyczny klawisz w komunikacie Win32 i odczytuje stan modyfikatorów z systemu. Jest to warstwa okna, nie globalna rejestracja tych dwunastu kombinacji, więc skróty nie są przejmowane, gdy AMC nie jest aktywne.
 
-Od `alpha.141` Radio ma trwały harmonogram otwierany obecnie przez `Ctrl+Shift+H`; starszy `Ctrl+Alt+Shift+R` jest aliasem. Rekord przechowuje stabilny identyfikator stacji i bezpieczną kopię adresu, czas rozpoczęcia, strefę czasową, całkowitą długość, opcjonalną długość części pliku, tryb jednorazowy, codzienny albo wybrane dni, opcjonalny folder, format nagrania oraz trzywartościową regułę wybudzania: dziedzicz, włącz, wyłącz. Insert dodaje wpis, Enter go edytuje, a Delete usuwa; kontrolki i pozycje list nie mogą ujawniać nazw klas, rekordów ani wartości wyliczeniowych. Lista oraz zapis są synchronizowane, a ponowne uruchomienie normalizuje terminy cykliczne. Opóźniony start nagrywa tylko pozostałą część nadal trwającego okna; całkowicie pominięte wystąpienie nie nagrywa pełnej długości po czasie. Nagrywanie używa osobnego, niesłyszalnego toru, nie zmienia aktualnie słuchanej stacji i pozwala na kilka równoległych planów. Niedostępny folder planu powoduje przejście do ogólnego folderu nagrań. Aktywne nagranie blokuje automatyczne uśpienie, a najbliższy termin wymagający wybudzenia utrzymuje jeden czasomierz Windows. Wybudzanie działa tylko wtedy, gdy AMC pozostaje uruchomiony podczas uśpienia; harmonogram nie tworzy ukrytego zadania systemowego po zamknięciu programu.
+Od `alpha.141` Radio ma trwały harmonogram otwierany obecnie przez `Ctrl+Shift+H`. Rekord przechowuje stabilny identyfikator stacji i bezpieczną kopię adresu, czas rozpoczęcia, strefę czasową, całkowitą długość, opcjonalną długość części pliku, tryb jednorazowy, codzienny albo wybrane dni, opcjonalny folder, format nagrania oraz trzywartościową regułę wybudzania: dziedzicz, włącz, wyłącz. Insert dodaje wpis, Enter go edytuje, Spacja włącza lub wyłącza, a Delete usuwa; kontrolki i pozycje list nie mogą ujawniać nazw klas, rekordów ani wartości wyliczeniowych. Lista oraz zapis są synchronizowane, a ponowne uruchomienie normalizuje terminy cykliczne. Opóźniony start nagrywa tylko pozostałą część nadal trwającego okna; całkowicie pominięte wystąpienie nie nagrywa pełnej długości po czasie. Nagrywanie używa osobnego, niesłyszalnego toru, nie zmienia aktualnie słuchanej stacji i pozwala na kilka równoległych planów. Niedostępny folder planu powoduje przejście do ogólnego folderu nagrań. Aktywne nagranie blokuje automatyczne uśpienie, a najbliższy termin wymagający wybudzenia utrzymuje jeden czasomierz Windows. Wybudzanie działa tylko wtedy, gdy AMC pozostaje uruchomiony podczas uśpienia; harmonogram nie tworzy ukrytego zadania systemowego po zamknięciu programu.
 
 `Ctrl+0` i `Ctrl+Shift+0` są rozłączne już w routerze surowych komunikatów klawiatury. Pierwszy skrót otwiera listę sesji, drugi wywołuje miejsce presetu przypisane do klawisza `0`. Brak lub chwilowa utrata informacji o Shift nie może skierować drugiego skrótu do listy sesji; gdy presety nie są dostępne, kombinacja z Shiftem pozostaje nieobsłużona zamiast wykonywać `Ctrl+0`.
 
@@ -1056,7 +1056,7 @@ Zmiana `alpha.154`: systemowy koder Media Foundation potrafił przy źródle 22,
 
 Zmiana `alpha.155`: transportowe kontenery `.ts`, `.mts` i `.m2ts` mają lokalny, odporny tor FFmpeg dekodujący wyłącznie audio do PCM. Tor wyznacza czas bez pełnego kopiowania pliku, obsługuje skok i toleruje zapis rozpoczęty bez kompletnej pierwszej klatki obrazu. Ręcznie wskazane przez `Ctrl+O` pliki `.part`, `.partial` i `.amc-partial` korzystają z tego samego odzyskiwania; jeżeli dekoder zwrócił dźwięk, uszkodzony koniec jest traktowany jako koniec dostępnego fragmentu. Pliki częściowe nie są skanowane automatycznie ani przedstawiane jako ukończone nagrania. Test rzeczywistego pliku `Vianneya - 2026-08-30 10-16.ts` potwierdził odczyt początku, skok do środka oraz czas 7:34.
 
-Zmiana `alpha.156`: nagrywanie i odsłuch mają rozłączne sterowanie. Spacja wstrzymuje wyłącznie odsłuch i nie może tworzyć ukrytej luki w zapisie. Globalne `Alt+Shift+R` zatrzymuje wszystkie aktywne tory ręczne i harmonogramowe, przy wielu wymaga potwierdzenia i nie wyłącza przyszłych wystąpień harmonogramów cyklicznych. Kontrolowane zamknięcie aplikacji podaje liczbę nagrań, domyślnie pozostaje anulowane i po zgodzie finalizuje odebrane fragmenty. Ręczne nagranie nie jest wznawiane po starcie. Harmonogram pozostaje źródłem prawdy: jeśli jego bieżące okno jeszcze trwa, AMC tworzy nowy plik dla pozostałej części i oznajmia wznowienie; po upływie całego okna przechodzi do następnego terminu.
+Zmiana `alpha.156`: nagrywanie i odsłuch mają rozłączne sterowanie. Spacja wstrzymuje wyłącznie odsłuch i nie może tworzyć ukrytej luki w zapisie. Globalne zatrzymanie wszystkich aktywnych torów ręcznych i harmonogramowych wymaga przy wielu potwierdzenia i nie wyłącza przyszłych wystąpień harmonogramów cyklicznych; od `alpha.166` wykonuje je `Ctrl+Alt+Shift+R`. Kontrolowane zamknięcie aplikacji podaje liczbę nagrań, domyślnie pozostaje anulowane i po zgodzie finalizuje odebrane fragmenty. Ręczne nagranie nie jest wznawiane po starcie. Harmonogram pozostaje źródłem prawdy: jeśli jego bieżące okno jeszcze trwa, AMC tworzy nowy plik dla pozostałej części i oznajmia wznowienie; po upływie całego okna przechodzi do następnego terminu.
 
 Zmiana `alpha.157` zastępuje wcześniejszą decyzję o braku pauzy nagrania. `Shift+Spacja` na nagrywanej stacji w liście lub odtwarzaczu wstrzymuje i wznawia zapis wybranej stacji, podczas gdy zwykła Spacja nadal steruje wyłącznie odsłuchem. W czasie pauzy odbiór i odsłuch mogą trwać, lecz pominięty fragment nie jest dopisywany do pliku. Każde wstrzymanie zapisuje punkt cięcia `Pauza 1`, `Pauza 2` itd.; po finalizacji plik jest cicho dołączany do lokalnej Biblioteki, a punkty pojawiają się jako zwykłe Zakładki AMC. Działa to dla MP3, M4A/AAC, FLAC i WAV. Tryb Oryginalny pozostaje bez pauzy, ponieważ bezkonwersyjne zatrzymanie i ponowne połączenie wymagałoby bezpiecznego łączenia kilku kontenerów i nie może udawać jednego ciągłego strumienia. Etykieta listy, odtwarzacz i właściwości odróżniają nagranie trwające od wstrzymanego. Zapis Oryginalny rozwiązuje zwykły PLS, M3U lub XSPF do bezpośredniego adresu przed uruchomieniem FFmpeg; manifest HLS pozostaje manifestem. Naprawia to m.in. importowany adres Tyflo Podcastu zakończony `listen.pls`.
 
@@ -1064,7 +1064,7 @@ Zmiana `alpha.158` rozszerza wspólny resolver używany przez odtwarzanie i nagr
 
 Zmiana `alpha.159` wprowadza dwie niezależne warstwy wyciszenia. `Ctrl+M` wycisza albo przywraca dźwięk bieżącej sesji, a `Ctrl+Shift+M` robi to dla wszystkich torów odsłuchu AMC, także grających w innych sesjach i uruchomionych później. Wyciszenie globalne nie zmienia indywidualnego stanu sesji: po jego wyłączeniu sesja wyciszona wcześniej nadal pozostaje cicha. Zmiana głośności anuluje wyciszenie indywidualne, lecz nie omija aktywnego wyciszenia globalnego. Polecenia nie zmieniają głośności systemu, NVDA ani innych aplikacji i nie zatrzymują nagrywania radia. Stan wyciszenia jest celowo ulotny, dlatego po ponownym uruchomieniu AMC zachowuje ustawione wartości głośności, ale rozpoczyna bez niespodziewanego wyciszenia.
 
-Zmiana `alpha.160`: `Ctrl+Shift+H` jest podstawowym, krótkim skrótem listy harmonogramów nagrywania Radia. Działa z listy, odtwarzacza i innych kontrolek aktywnego okna AMC; poza sesją Radio podaje, gdzie funkcja jest dostępna, zamiast po cichu przełączać sesję. Dotychczasowy `Ctrl+Alt+Shift+R` pozostaje zgodnościowym aliasem, ale menu, paleta poleceń, spis skrótów i pomoc klawiszy przedstawiają prostszy skrót.
+Zmiana `alpha.160`: `Ctrl+Shift+H` jest podstawowym, krótkim skrótem listy harmonogramów nagrywania Radia. Działa z listy, odtwarzacza i innych kontrolek aktywnego okna AMC; poza sesją Radio podaje, gdzie funkcja jest dostępna, zamiast po cichu przełączać sesję. Od `alpha.166` harmonogram nie ma drugiego aliasu: `Ctrl+Alt+Shift+R` zatrzymuje wszystkie trwające nagrania.
 
 Zmiana `alpha.161`: dostępna etykieta wiersza Radia rozpoczyna się od użytkowej nazwy stacji. Stany odtwarzania, wyciszenia i nagrywania są dopisywane po niej, a nie przed nią. Tę samą kolejność zachowuje odczytywany przez UI Automation pasek stanu odtwarzania. Nazwa stacji nie może zostać zagłuszona przez zmienny prefiks „nagrywanie wstrzymane” podczas przechodzenia strzałkami po liście.
 
@@ -1138,3 +1138,42 @@ jest używany, ponieważ uruchamia NVDA. Strzałka w prawo
 może w przyszłości podawać zapisanych autorów wyłącznie na wierszu będącym
 utworem; na folderze lub albumie nadal oznacza wejście w głąb, a w odtwarzaczu
 przewijanie. Samo przejście strzałką nie wykonuje ukrytego zapytania sieciowego.
+
+## 19. Parametry nagrania, głośność stacji i sterowanie nagrywaniem
+
+Rozstrzygnięcie `alpha.166`: ustawienie formatu i bitrate w Ustawieniach Radia
+jest wartością domyślną, natomiast formularz `Shift+R` zapisuje własną parę
+wartości w każdym jednorazowym planie i harmonogramie. Starszy rekord bez tych
+pól dziedziczy ustawienie ogólne. Format Oryginalny, FLAC i WAV nie używają
+bitrate kodera, choć wybrana wartość może pozostać bezpiecznie zachowana na
+wypadek późniejszej zmiany formatu.
+
+Widok `Alt+2` jest listą aktualnie nagrywanych stacji. `Shift+Spacja` przełącza
+pauzę wszystkich aktywnych, obsługujących ją zapisów wybranej stacji, a
+`Ctrl+Alt+R` kończy jej ręczne albo harmonogramowe wystąpienie. Zatrzymanie
+wystąpienia nie wyłącza przyszłych terminów cyklicznego planu.
+`Ctrl+Alt+Shift+R` jest wyłącznie świadomym zatrzymaniem wszystkich nagrań;
+listę harmonogramów otwiera `Ctrl+Shift+H`. Lista planów ma zachowanie listy
+pól wyboru: strzałki zmieniają bieżący wiersz, Spacja jego stan, a Zapisz
+zatwierdza zmiany.
+
+Timeshift pozostaje niezależny od nagrywania innej stacji w tle. Gdy nagrywana
+jest stacja aktualnie słuchana, przewijanie jej bufora jest celowo blokowane,
+aby pozycja odsłuchu nie sugerowała pozycji zapisu; po zakończeniu nagrania
+wraca bez ponownego otwierania odtwarzacza. Głośność jest trwałym metadanym
+każdej stacji. Pierwsza nieustawiona stacja dziedziczy ostatnią wartość sesji,
+a po jej zmianie przełączenie stacji przywraca zapisany poziom.
+
+Spacja i `Ctrl+M` mają odmienne znaczenie. Spacja zmienia transport odsłuchu:
+wstrzymuje lub wznawia bieżący dźwięk. `Ctrl+M` wyłącznie zeruje słyszalne
+wyjście bieżącej sesji, bez zatrzymania odbioru, timeshiftu i nagrywania;
+ponowne użycie przywraca zapisany poziom. `Ctrl+Shift+M` pozostaje niezależną
+warstwą wyciszenia wszystkich sesji AMC.
+
+Historia rozpoznanych utworów pozostaje pod `Ctrl+Alt+S`; jej menu kontekstowe
+udostępnia otwarcie wyniku dostawcy, kopiowanie zwykłe i bogate, eksport oraz
+usuwanie. `Ctrl+Shift+S` jest zarezerwowane dla przyszłej listy sesji i nie
+jest aliasem Shazam. Po wdrożeniu oficjalnych adapterów menu historii otrzyma
+działania dopasowania albumu z zaznaczonym utworem do Apple Music, Spotify,
+TIDAL i YouTube Music. Dopasowanie nie może być wykonywane bez potwierdzenia,
+gdy katalog zwróci więcej niż jeden wiarygodny wynik.

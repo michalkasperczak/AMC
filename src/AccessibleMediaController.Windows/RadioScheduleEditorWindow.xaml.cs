@@ -31,7 +31,9 @@ public partial class RadioScheduleEditorWindow : Window
         string? preferredStationId,
         DateTime? initialStartUtc = null,
         bool offerImmediateStart = false,
-        bool globalWakeEnabled = false)
+        bool globalWakeEnabled = false,
+        RadioRecordingFormat defaultRecordingFormat = RadioRecordingFormat.Mp3,
+        int defaultRecordingBitrateKbps = 192)
     {
         InitializeComponent();
         _datePicker = CreateDatePicker();
@@ -61,6 +63,8 @@ public partial class RadioScheduleEditorWindow : Window
         StationCombo.ItemsSource = _stations;
         RecurrenceCombo.ItemsSource = RecurrenceChoice.All;
         SplitModeCombo.ItemsSource = SplitModeChoice.All;
+        RecordingFormatCombo.ItemsSource = RecordingFormatChoice.All;
+        RecordingBitrateCombo.ItemsSource = RecordingBitrateChoice.All;
         var wakeChoices = WakeChoice.Create(globalWakeEnabled);
         WakeCombo.ItemsSource = wakeChoices;
         _dayChoices =
@@ -95,6 +99,12 @@ public partial class RadioScheduleEditorWindow : Window
         RecurrenceCombo.SelectedItem = RecurrenceChoice.All.First(choice =>
             choice.Value == (existing?.Recurrence ?? RadioScheduleRecurrence.Once));
         WakeCombo.SelectedItem = wakeChoices.First(choice => choice.Value == existing?.WakeComputer);
+        var recordingFormat = existing?.RecordingFormat ?? defaultRecordingFormat;
+        RecordingFormatCombo.SelectedItem = RecordingFormatChoice.All.First(choice =>
+            choice.Value == recordingFormat);
+        var recordingBitrate = existing?.RecordingBitrateKbps ?? defaultRecordingBitrateKbps;
+        RecordingBitrateCombo.SelectedItem = RecordingBitrateChoice.All.MinBy(choice =>
+            Math.Abs(choice.Value - recordingBitrate));
 
         var stationId = existing?.StationId ?? preferredStationId;
         StationCombo.SelectedItem = _stations.FirstOrDefault(choice => choice.Id == stationId)
@@ -118,6 +128,7 @@ public partial class RadioScheduleEditorWindow : Window
         UpdateDaysEnabled();
         UpdateStartControlsEnabled();
         UpdateSplitControls();
+        UpdateRecordingBitrateEnabled();
         UpdateOutputFolderControls();
         Loaded += (_, _) =>
         {
@@ -160,6 +171,16 @@ public partial class RadioScheduleEditorWindow : Window
             ShowError("Wybierz sposób powtarzania", RecurrenceCombo);
             return;
         }
+        if (RecordingFormatCombo.SelectedItem is not RecordingFormatChoice recordingFormat)
+        {
+            ShowError("Wybierz format nagrania", RecordingFormatCombo);
+            return;
+        }
+        if (RecordingBitrateCombo.SelectedItem is not RecordingBitrateChoice recordingBitrate)
+        {
+            ShowError("Wybierz bitrate nagrania", RecordingBitrateCombo);
+            return;
+        }
         var days = _dayChoices
             .Where(choice => choice.IsChecked)
             .Select(choice => choice.Value)
@@ -189,6 +210,8 @@ public partial class RadioScheduleEditorWindow : Window
             OutputFolder = UsesCustomOutputFolder
                 ? OutputFolderTextBox.Text.Trim()
                 : string.Empty,
+            RecordingFormat = recordingFormat.Value,
+            RecordingBitrateKbps = recordingBitrate.Value,
             WakeComputer = (WakeCombo.SelectedItem as WakeChoice)?.Value,
             Enabled = EnabledCheckBox.IsChecked == true
         };
@@ -254,6 +277,9 @@ public partial class RadioScheduleEditorWindow : Window
     private void SplitModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         UpdateSplitControls();
 
+    private void RecordingFormatCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        UpdateRecordingBitrateEnabled();
+
     private void OutputFolderMode_Changed(object sender, RoutedEventArgs e) => UpdateOutputFolderControls();
 
     private void UpdateOutputFolderControls()
@@ -295,6 +321,13 @@ public partial class RadioScheduleEditorWindow : Window
         if (SplitMinutesPanel is null || _splitMinutesPicker is null) return;
         SplitMinutesPanel.IsEnabled = UsesSplit;
         _splitMinutesPicker.Enabled = UsesSplit;
+    }
+
+    private void UpdateRecordingBitrateEnabled()
+    {
+        if (RecordingBitrateCombo is null) return;
+        RecordingBitrateCombo.IsEnabled = (RecordingFormatCombo?.SelectedItem as RecordingFormatChoice)?.Value
+            is RadioRecordingFormat.Mp3 or RadioRecordingFormat.Aac;
     }
 
     private void UpdateDaysEnabled()
@@ -493,6 +526,33 @@ public partial class RadioScheduleEditorWindow : Window
         [
             new(false, "Jeden plik"),
             new(true, "Dziel na części")
+        ];
+        public override string ToString() => Label;
+    }
+
+    private sealed record RecordingFormatChoice(RadioRecordingFormat Value, string Label)
+    {
+        public static IReadOnlyList<RecordingFormatChoice> All { get; } =
+        [
+            new(RadioRecordingFormat.Mp3, "MP3"),
+            new(RadioRecordingFormat.Aac, "M4A, dźwięk AAC"),
+            new(RadioRecordingFormat.Flac, "FLAC, bezstratny"),
+            new(RadioRecordingFormat.Original, "Oryginalny strumień, bez konwersji"),
+            new(RadioRecordingFormat.Wav, "WAV, bez kompresji")
+        ];
+        public override string ToString() => Label;
+    }
+
+    private sealed record RecordingBitrateChoice(int Value, string Label)
+    {
+        public static IReadOnlyList<RecordingBitrateChoice> All { get; } =
+        [
+            new(96, "96 kb/s"),
+            new(128, "128 kb/s"),
+            new(160, "160 kb/s"),
+            new(192, "192 kb/s"),
+            new(256, "256 kb/s"),
+            new(320, "320 kb/s")
         ];
         public override string ToString() => Label;
     }

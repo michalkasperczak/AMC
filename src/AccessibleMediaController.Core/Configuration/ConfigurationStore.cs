@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 33;
+    public const int CurrentSchemaVersion = 34;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -422,6 +422,9 @@ public sealed class ConfigurationStore
                 station.Tags = string.IsNullOrWhiteSpace(station.Tags) ? null : station.Tags.Trim();
                 station.Codec = string.IsNullOrWhiteSpace(station.Codec) ? null : station.Codec.Trim();
                 station.DirectoryId = string.IsNullOrWhiteSpace(station.DirectoryId) ? null : station.DirectoryId.Trim();
+                station.Volume = station.Volume.HasValue
+                    ? Math.Clamp(station.Volume.Value, 0, 100)
+                    : null;
                 if (station.IsFavorite) station.IsInLibrary = true;
                 return station;
             })
@@ -453,6 +456,14 @@ public sealed class ConfigurationStore
                         ? Math.Clamp(schedule.SegmentMinutes, 1, 10_080)
                         : 0;
                 schedule.OutputFolder = schedule.OutputFolder?.Trim() ?? string.Empty;
+                if (schedule.RecordingFormat.HasValue
+                    && !Enum.IsDefined(schedule.RecordingFormat.Value))
+                {
+                    schedule.RecordingFormat = null;
+                }
+                schedule.RecordingBitrateKbps = schedule.RecordingBitrateKbps.HasValue
+                    ? NormalizeRadioRecordingBitrate(schedule.RecordingBitrateKbps.Value)
+                    : null;
                 schedule.TimeZoneId = RadioScheduleCalculator.ResolveTimeZone(schedule.TimeZoneId).Id;
                 schedule.ActiveDays = (schedule.ActiveDays ?? [])
                     .Where(day => day is >= DayOfWeek.Sunday and <= DayOfWeek.Saturday)

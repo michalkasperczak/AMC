@@ -3244,32 +3244,58 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void CaptureRadioState()
     {
         var radio = _sessions?.FindSession("radio");
+        var savedById = (_state.Radio.Stations ?? [])
+            .GroupBy(station => station.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        var savedByStream = (_state.Radio.Stations ?? [])
+            .Where(station => !string.IsNullOrWhiteSpace(station.StreamUrl))
+            .GroupBy(station => station.StreamUrl, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         if (radio is not null)
         {
             _state.Radio.CurrentItemId = radio.HasCurrentItem ? radio.CurrentItem.Id : null;
             _state.Radio.Volume = radio.Volume;
         }
-        _state.Radio.Stations = _radioItems.Select(item => new RadioStationSettings
+        _state.Radio.Stations = _radioItems.Select(item =>
         {
-            Id = item.Id,
-            Name = item.Title,
-            StreamUrl = item.Source ?? string.Empty,
-            HomepageUrl = item.HomepageUri,
-            Country = item.Country,
-            Language = item.Language,
-            Tags = item.Tags,
-            Codec = item.Codec,
-            DirectoryId = item.ExternalId,
-            BitrateKbps = RadioAudioMetadataRules.NormalizeBitrateKbps(item.BitrateKbps),
-            IsBitrateEstimated = item.IsBitrateEstimated,
-            SampleRateHz = item.SampleRateHz,
-            HasCustomTitle = item.HasCustomTitle,
-            IsFavorite = item.IsFavorite,
-            IsInLibrary = item.IsInLibrary,
-            IsInQueue = false,
-            IsPlayNext = false,
-            IsCustom = string.IsNullOrWhiteSpace(item.ExternalId)
+            savedById.TryGetValue(item.Id, out var saved);
+            if (saved is null && item.Source is { Length: > 0 })
+                savedByStream.TryGetValue(item.Source, out saved);
+            var isCurrent = radio?.HasCurrentItem == true
+                && SameRadioStation(item, radio.CurrentItem);
+            return new RadioStationSettings
+            {
+                Id = item.Id,
+                Name = item.Title,
+                StreamUrl = item.Source ?? string.Empty,
+                HomepageUrl = item.HomepageUri,
+                Country = item.Country,
+                Language = item.Language,
+                Tags = item.Tags,
+                Codec = item.Codec,
+                DirectoryId = item.ExternalId,
+                BitrateKbps = RadioAudioMetadataRules.NormalizeBitrateKbps(item.BitrateKbps),
+                IsBitrateEstimated = item.IsBitrateEstimated,
+                SampleRateHz = item.SampleRateHz,
+                Volume = isCurrent ? radio!.Volume : saved?.Volume,
+                HasCustomTitle = item.HasCustomTitle,
+                IsFavorite = item.IsFavorite,
+                IsInLibrary = item.IsInLibrary,
+                IsInQueue = false,
+                IsPlayNext = false,
+                IsCustom = string.IsNullOrWhiteSpace(item.ExternalId)
+            };
         }).ToList();
+    }
+
+    private int? RadioStationVolumeOverride(MediaItem item)
+    {
+        var saved = _state.Radio.Stations.FirstOrDefault(station =>
+            string.Equals(station.Id, item.Id, StringComparison.Ordinal))
+            ?? _state.Radio.Stations.FirstOrDefault(station =>
+                item.Source is { Length: > 0 }
+                && string.Equals(station.StreamUrl, item.Source, StringComparison.OrdinalIgnoreCase));
+        return saved?.Volume ?? _state.Radio.Volume;
     }
 
     private async Task PrepareRadioSearchAsync(string query, CancellationToken cancellationToken)
@@ -3703,14 +3729,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _radioItems,
             _radioOutput,
             5,
-            _ => false);
+            _ => false,
+            volumeOverride: RadioStationVolumeOverride);
         if (radio.HasItems)
         {
             var restoredRadioId = previousRadioItemId ?? _state.Radio.CurrentItemId;
             var restoredRadio = radio.Items.FirstOrDefault(item => item.Id == restoredRadioId);
             if (restoredRadio is not null) radio.SelectItem(restoredRadio);
         }
-        radio.SetVolume(previousRadio?.Volume ?? _state.Radio.Volume);
+        radio.SetVolume(radio.HasCurrentItem
+            ? RadioStationVolumeOverride(radio.CurrentItem) ?? _state.Radio.Volume
+            : previousRadio?.Volume ?? _state.Radio.Volume);
         RestorePlaybackContext(radio);
         EnsureQueueOrder(radio);
         if (previousRadioWasPlaying && radio.HasCurrentItem) radio.Play(radio.CurrentItem);
@@ -4192,6 +4221,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Announce("Powrót na żywo jest dostępny w odtwarzaczu radia");
                 return new CommandExecutionResult(false);
             }
+            if (IsCurrentRadioStationRecording())
+            {
+                Announce("Timeshift jest zablokowany podczas nagrywania tej stacji");
+                return new CommandExecutionResult(true);
+            }
             _radioOutput.JumpToLive();
             Announce("Na żywo");
             UpdatePlayerView();
@@ -4215,6 +4249,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
+            if (IsRadioTimeshiftCommand(commandId) && IsCurrentRadioStationRecording())
+            {
+                Announce("Timeshift jest zablokowany podczas nagrywania tej stacji");
+                return new CommandExecutionResult(true);
+            }
             if (commandId is CommandIds.AddQueue
                 or CommandIds.TogglePlayNext
                 or CommandIds.ViewQueue
@@ -6465,21 +6504,31 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var existing = _activeManualRadioRecordings.Values.FirstOrDefault(active =>
-            SameRadioStation(station, active.StationId, active.StreamUrl));
-        if (existing is not null)
+        var manual = _activeManualRadioRecordings.Values
+            .Where(active => SameRadioStation(station, active.StationId, active.StreamUrl))
+            .ToArray();
+        var scheduled = _activeScheduledRadioRecordings.Values
+            .Where(active => SameRadioStation(station, active.StationId, active.StreamUrl))
+            .ToArray();
+        if (manual.Length + scheduled.Length > 0)
         {
-            existing.Control.RequestStop();
-            existing.Cancellation.Cancel();
-            AnnounceEssential($"Zatrzymuję nagrywanie: {existing.StationName}");
-            return;
-        }
-
-        if (string.Equals(_currentView, ActiveRadioRecordingsViewName, StringComparison.Ordinal)
-            && _activeScheduledRadioRecordings.Values.Any(active =>
-                SameRadioStation(station, active.StationId, active.StreamUrl)))
-        {
-            Announce("Ta stacja jest nagrywana z harmonogramu. Zmień lub wyłącz plan w Harmonogramie nagrywania");
+            foreach (var active in manual)
+            {
+                active.Control.RequestStop();
+                active.Cancellation.Cancel();
+            }
+            foreach (var active in scheduled)
+            {
+                active.Control.RequestStop();
+                AdvanceStoppedScheduledOccurrence(active, "zatrzymane dla wybranej stacji");
+                active.Cancellation.Cancel();
+            }
+            if (scheduled.Length > 0)
+            {
+                _store.Save(_state);
+                RearmRadioWakeTimer();
+            }
+            AnnounceEssential($"Zatrzymuję nagrywanie: {station.Title}");
             return;
         }
 
@@ -6928,7 +6977,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             preferredStationId: station.Id,
             initialStartUtc: DateTime.UtcNow.AddMinutes(5),
             offerImmediateStart: true,
-            globalWakeEnabled: _state.Radio.WakeScheduledRecordings)
+            globalWakeEnabled: _state.Radio.WakeScheduledRecordings,
+            defaultRecordingFormat: _state.Radio.RecordingFormat,
+            defaultRecordingBitrateKbps: _state.Radio.RecordingBitrateKbps)
         {
             Owner = this
         };
@@ -6977,7 +7028,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _state.Radio.RecordingSchedules,
             _activeScheduledRadioRecordings.Keys,
             preferredStationId,
-            _state.Radio.WakeScheduledRecordings)
+            _state.Radio.WakeScheduledRecordings,
+            _state.Radio.RecordingFormat,
+            _state.Radio.RecordingBitrateKbps)
         {
             Owner = this
         };
@@ -7061,8 +7114,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var deadlineUtc = startUtc.AddMinutes(snapshot.DurationMinutes);
         var actualStartUtc = DateTime.UtcNow;
         var resumingOccurrence = actualStartUtc - startUtc >= TimeSpan.FromSeconds(10);
-        var recordingFormat = _state.Radio.RecordingFormat;
-        var recordingBitrateKbps = _state.Radio.RecordingBitrateKbps;
+        var recordingFormat = snapshot.RecordingFormat ?? _state.Radio.RecordingFormat;
+        var recordingBitrateKbps = snapshot.RecordingBitrateKbps ?? _state.Radio.RecordingBitrateKbps;
         var requestedOutputFolder = string.IsNullOrWhiteSpace(snapshot.OutputFolder)
             ? ResolveRadioRecordingsFolder()
             : snapshot.OutputFolder;
@@ -7233,6 +7286,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Recurrence = schedule.Recurrence,
         ActiveDays = [.. schedule.ActiveDays],
         OutputFolder = schedule.OutputFolder,
+        RecordingFormat = schedule.RecordingFormat,
+        RecordingBitrateKbps = schedule.RecordingBitrateKbps,
         WakeComputer = schedule.WakeComputer,
         Enabled = schedule.Enabled
     };
@@ -7768,6 +7823,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             SameRadioStation(item, active.StationId, active.StreamUrl));
     }
 
+    private bool IsCurrentRadioStationRecording() =>
+        string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+        && _sessions.Current.HasCurrentItem
+        && IsRadioStationBeingRecorded(_sessions.Current.CurrentItem);
+
+    private static bool IsRadioTimeshiftCommand(string commandId) => commandId is
+        CommandIds.SeekBackward10
+        or CommandIds.SeekForward10
+        or CommandIds.SeekBackward30
+        or CommandIds.SeekForward30
+        or CommandIds.SeekBackward60
+        or CommandIds.SeekForward60
+        or CommandIds.TrackStart
+        or CommandIds.TrackEnd
+        or CommandIds.RadioJumpLive;
+
     private bool IsRadioStationManuallyRecording(MediaItem item) =>
         item.Kind == MediaItemKind.Station
         && _activeManualRadioRecordings.Values.Any(active =>
@@ -8146,7 +8217,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        if (ReadEffectiveModifierKeys() == (ModifierKeys.Alt | ModifierKeys.Shift)
+        if (ReadEffectiveModifierKeys() == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)
             && windowKey == Key.R)
         {
             StopAllRadioRecordings();
@@ -8154,10 +8225,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        if ((ReadEffectiveModifierKeys() == (ModifierKeys.Control | ModifierKeys.Shift)
-                && windowKey == Key.H)
-            || (ReadEffectiveModifierKeys() == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)
-                && windowKey == Key.R))
+        if (ReadEffectiveModifierKeys() == (ModifierKeys.Control | ModifierKeys.Shift)
+            && windowKey == Key.H)
         {
             if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
                 ShowRadioSchedules();
@@ -8592,7 +8661,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (key == Key.R
             && modifiers == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
         {
-            commandId = CommandIds.ManageRadioSchedules;
+            commandId = CommandIds.StopAllRadioRecordings;
             return true;
         }
         if (key == Key.H
@@ -8622,12 +8691,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
             commandId = CommandIds.ToggleRadioRecognitionMonitoring;
-            return true;
-        }
-        if (key == Key.R
-            && modifiers == (ModifierKeys.Alt | ModifierKeys.Shift))
-        {
-            commandId = CommandIds.StopAllRadioRecordings;
             return true;
         }
         if (CurrentSessionSupportsPresets()
@@ -9226,13 +9289,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && key == Key.End
             && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
-            _radioOutput.JumpToLive();
-            if (_state.Settings.Messages.SeekMessages)
-            {
-                Announce("Na żywo");
-            }
-            UpdatePlayerView();
-            UpdatePlaybackStatusBar();
+            ExecuteCommand(CommandIds.RadioJumpLive);
             return true;
         }
         if (Keyboard.Modifiers == ModifierKeys.Alt && key is Key.Up or Key.Down)
