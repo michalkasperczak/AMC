@@ -34,8 +34,13 @@ confirm, reject or leave the result unresolved.
 
 - `Alt+Enter` will add Credits, Album and release, Identifiers and Data sources
   sections after a match exists.
-- Proposed `Ctrl+Alt+D` opens an accessible Track and release data window.
-  `Ctrl+D` remains Download.
+- Proposed `Ctrl+Shift+I` opens an accessible Track and release information
+  window with MusicBrainz and Discogs candidates plus available service data.
+  It returns to the information shortcut family with a new, explicit meaning:
+  catalogue lookup and matching. `Alt+Enter` remains the properties already
+  held by AMC.
+- `Ctrl+D` remains Download. AMC must not use `Ctrl+Alt+D`, because it conflicts
+  with the NVDA start command.
 - Right Arrow on a track row may speak cached credits briefly. It never starts
   a hidden network request. Right Arrow on a folder or album still enters it;
   in the player it still seeks forward.

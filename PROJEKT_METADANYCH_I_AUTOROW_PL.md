@@ -38,8 +38,13 @@ zatwierdzić, odrzucić lub pozostawić wynik nierozstrzygnięty.
 
 - `Alt+Enter` po dopasowaniu pokazuje sekcje **Autorzy**, **Album i wydanie**,
   **Identyfikatory** oraz **Źródła danych**.
-- Planowany `Ctrl+Alt+D` otwiera dostępne okno **Dane utworu i wydania** z
-  kandydaturami MusicBrainz i Discogs. `Ctrl+D` pozostaje pobieraniem.
+- Planowany `Ctrl+Shift+I` otwiera dostępne okno **Informacje o utworze i
+  wydaniu** z kandydaturami MusicBrainz i Discogs oraz dostępnymi danymi usług.
+  Skrót wraca do rodziny informacji, lecz otrzymuje nowe, jednoznaczne
+  znaczenie: wyszukiwanie i dopasowanie danych katalogowych. `Alt+Enter`
+  pozostaje właściwościami już posiadanymi przez AMC.
+- `Ctrl+D` pozostaje pobieraniem. `Ctrl+Alt+D` jest niedostępny dla AMC,
+  ponieważ koliduje z poleceniem uruchomienia NVDA.
 - Strzałka w prawo na zwykłym wierszu utworu może podać zwięźle dane już
   zapisane, np. „muzyka: …; tekst: …”. Brak danych daje krótki komunikat z
   poleceniem otwarcia wyszukiwania. Klawisz nie odpytuje sieci samodzielnie.

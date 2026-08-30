@@ -1117,7 +1117,9 @@ after a valid match is selected.
 Starting with `alpha.164`, recognition exports also include YouTube Music,
 Discogs and MusicBrainz. Source priority, confidence, caching and the proposed
 navigation are specified in `MUSIC_CREDITS_AND_CATALOG_DESIGN_EN.md`. `Ctrl+D`
-remains Download and is not reassigned to Discogs. Right Arrow may later speak
+remains Download and is not reassigned to Discogs. The proposed
+`Ctrl+Shift+I` opens catalogue information lookup; `Ctrl+Alt+D` is not used
+because it starts NVDA. Right Arrow may later speak
 cached credits only when the list row is a track; on a folder or album it keeps
 the enter/deeper meaning, while in the player it remains seek forward. Merely
 pressing an arrow never triggers a hidden network request.
