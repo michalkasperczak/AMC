@@ -12,6 +12,7 @@ internal sealed record RadioRecordingPauseMarker(
 internal enum RadioRecordingSplitChangeKind
 {
     Split,
+    StopRequested,
     NotReady,
     Failed
 }
@@ -78,6 +79,7 @@ internal sealed class RadioRecordingControl
     private RadioRecordingFormat _format;
     private int _bitrateKbps;
     private string? _currentPath;
+    private bool _stopRequested;
 
     public bool IsReady
     {
@@ -155,7 +157,13 @@ internal sealed class RadioRecordingControl
             _format = format;
             _bitrateKbps = bitrateKbps;
             _currentPath = currentPath;
+            _stopRequested = false;
         }
+    }
+
+    public void RequestStop()
+    {
+        lock (_gate) _stopRequested = true;
     }
 
     internal void Detach(RadioMediaOutput output)
@@ -228,6 +236,8 @@ internal sealed class RadioRecordingControl
                 currentPath = _currentPath;
                 format = _format;
                 bitrateKbps = _bitrateKbps;
+                if (_stopRequested)
+                    return new RadioRecordingSplitChange(RadioRecordingSplitChangeKind.StopRequested);
             }
             if (backend?.IsRecording != true
                 || string.IsNullOrWhiteSpace(folder)
@@ -244,6 +254,12 @@ internal sealed class RadioRecordingControl
                 {
                     AddCompletedPath(completedPath);
                     _currentPath = null;
+                    if (_stopRequested)
+                    {
+                        return new RadioRecordingSplitChange(
+                            RadioRecordingSplitChangeKind.StopRequested,
+                            completedPath);
+                    }
                 }
                 var nextPath = backend.StartRecording(folder, format, bitrateKbps);
                 if (wasPaused && backend.CanPauseRecording) backend.PauseRecording();
@@ -351,6 +367,7 @@ internal sealed class RadioRecordingControl
         lock (_gate)
         {
             if (!ReferenceEquals(_backend, backend)) return null;
+            _stopRequested = true;
         }
         var path = backend.StopRecording();
         lock (_gate)

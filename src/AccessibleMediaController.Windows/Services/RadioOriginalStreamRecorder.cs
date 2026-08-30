@@ -30,7 +30,7 @@ internal sealed class RadioOriginalStreamRecorder : IRadioRecorder
         OriginalRadioRecordingTarget target)
     {
         FinalPath = finalPath;
-        _temporaryPath = finalPath + ".amc-partial";
+        _temporaryPath = RadioRecordingStagingStore.CreatePath(finalPath);
         var executable = FfmpegRadioWaveProvider.FindExecutable()
             ?? throw new NotSupportedException(
                 "Zapis w formacie oryginalnym wymaga komponentu FFmpeg.");
@@ -105,7 +105,7 @@ internal sealed class RadioOriginalStreamRecorder : IRadioRecorder
                 $"Plik oryginalnego nagrania musi mieć rozszerzenie {target.Extension}.",
                 nameof(finalPath));
         }
-        if (File.Exists(finalPath) || File.Exists(finalPath + ".amc-partial"))
+        if (File.Exists(finalPath) || File.Exists(finalPath + ".amc-publishing"))
             throw new IOException("Plik nagrania o tej nazwie już istnieje.");
         return new RadioOriginalStreamRecorder(finalPath, source, target);
     }
@@ -201,7 +201,7 @@ internal sealed class RadioOriginalStreamRecorder : IRadioRecorder
             }
             if (!File.Exists(_temporaryPath) || new FileInfo(_temporaryPath).Length == 0)
                 throw new InvalidDataException("Nie odebrano danych oryginalnego strumienia.");
-            File.Move(_temporaryPath, FinalPath);
+            RadioRecordingStagingStore.Publish(_temporaryPath, FinalPath);
             return FinalPath;
         }
         catch (Exception exception) when (exception is IOException
@@ -209,9 +209,12 @@ internal sealed class RadioOriginalStreamRecorder : IRadioRecorder
             or InvalidDataException
             or TimeoutException)
         {
-            TryDeleteTemporaryFile();
+            if (exception is not IOException || !File.Exists(_temporaryPath))
+                TryDeleteTemporaryFile();
             throw new InvalidOperationException(
-                "Nie zapisano uszkodzonego lub niekompletnego nagrania oryginalnego.",
+                exception.Message.Contains("Bezpieczna kopia pozostała", StringComparison.Ordinal)
+                    ? exception.Message
+                    : "Nie zapisano uszkodzonego lub niekompletnego nagrania oryginalnego.",
                 exception);
         }
         finally
@@ -279,7 +282,7 @@ internal sealed class RadioOriginalStreamRecorder : IRadioRecorder
     {
         try
         {
-            if (File.Exists(_temporaryPath)) File.Delete(_temporaryPath);
+            RadioRecordingStagingStore.TryDelete(_temporaryPath);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

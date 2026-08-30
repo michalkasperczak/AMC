@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
 using System.Windows.Input;
 using AccessibleMediaController.Core.Configuration;
@@ -76,7 +77,9 @@ try
     TestRadioRecordingFolderFallback();
     TestRadioRecordingSplitControl();
     TestRadioRecordingSplitPipeline();
+    TestRadioRecordingStagingPublication();
     TestScheduledRadioSegmentation();
+    TestShazamFingerprint();
     TestRadioMp3Recording();
     TestLegacyIcyMp3Stream();
     TestLegacyIcyCancellation();
@@ -123,6 +126,30 @@ catch (Exception exception)
 finally
 {
     if (File.Exists(path)) File.Delete(path);
+}
+
+static void TestShazamFingerprint()
+{
+    const int sampleRate = 16_000;
+    var samples = new short[sampleRate * 12];
+    for (var index = 0; index < samples.Length; index++)
+    {
+        var sweep = 300d + 1_200d * index / samples.Length;
+        samples[index] = (short)(9_000 * Math.Sin(2 * Math.PI * sweep * index / sampleRate)
+            + 6_000 * Math.Sin(2 * Math.PI * 880 * index / sampleRate));
+    }
+    var first = ShazamTrackRecognitionService.CreateFingerprintForTests(samples);
+    var second = ShazamTrackRecognitionService.CreateFingerprintForTests(samples);
+    Assert(first.SequenceEqual(second), "Podpis akustyczny nie jest deterministyczny.");
+    Assert(first.Length > 56, "Podpis akustyczny nie zawiera pików częstotliwości.");
+    Assert(BinaryPrimitives.ReadUInt32LittleEndian(first) == 0xCAFE2580,
+        "Podpis akustyczny ma nieprawidłowy nagłówek.");
+    Assert(BinaryPrimitives.ReadUInt32LittleEndian(first.AsSpan(4)) != 0,
+        "Podpis akustyczny nie zawiera sumy kontrolnej.");
+    var hash = Convert.ToHexString(SHA256.HashData(first)).ToLowerInvariant();
+    Assert(hash == "72f982937a4f5c167b3e2a04e496df69adb3d67fbf4518921d13c9a73e74d51d",
+        $"Port podpisu akustycznego odbiega od wyniku ShazamIO: {hash}.");
+    Console.WriteLine("OK: lokalny podpis akustyczny do rozpoznawania utworów");
 }
 
 static void TestAccessiblePlaybackStatusStrip()
@@ -1222,7 +1249,44 @@ static void TestRadioRecordingSplitPipeline()
     Assert(control.Markers.Count == 1
            && string.Equals(control.Markers[0].Path, firstPath, StringComparison.OrdinalIgnoreCase),
         "Punkt pauzy nie pozostał przypisany do pierwszej części.");
+
+    var stoppingBackend = new TestRadioRecordingBackend(firstPath);
+    var stoppingControl = new RadioRecordingControl();
+    stoppingControl.Attach(stoppingBackend, folder, RadioRecordingFormat.Wav, 192, firstPath);
+    stoppingControl.RequestStop();
+    var rejectedSplit = stoppingControl.SplitRecording();
+    Assert(rejectedSplit.Kind == RadioRecordingSplitChangeKind.StopRequested,
+        "Żądanie zatrzymania nie wygrało z późnym podziałem nagrania.");
+    Assert(string.Equals(stoppingBackend.CurrentPath, firstPath, StringComparison.OrdinalIgnoreCase),
+        "Późny podział po zatrzymaniu uruchomił nową część.");
+    stoppingControl.StopCurrentSegment(stoppingBackend);
+    stoppingControl.Detach(stoppingBackend);
     Console.WriteLine("OK: ręczny podział trwającego nagrania zachowuje części i pauzę");
+}
+
+static void TestRadioRecordingStagingPublication()
+{
+    var root = Path.Combine(Path.GetTempPath(), $"amc-radio-publish-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(root);
+    var finalPath = Path.Combine(root, "nagranie.mp3");
+    var stagingPath = RadioRecordingStagingStore.CreatePath(finalPath);
+    try
+    {
+        File.WriteAllText(stagingPath, "nowe nagranie");
+        File.WriteAllText(finalPath + ".amc-publishing", "stary plik o innej treści");
+        RadioRecordingStagingStore.Publish(stagingPath, finalPath);
+        Assert(File.ReadAllText(finalPath) == "nowe nagranie",
+            "Publikacja pomyliła nowe nagranie ze starym plikiem chmurowym.");
+        Assert(!Directory.EnumerateFiles(root, "*.amc-publishing").Any(path =>
+                !string.Equals(path, finalPath + ".amc-publishing", StringComparison.OrdinalIgnoreCase)),
+            "Po poprawnej publikacji pozostał unikatowy plik roboczy.");
+        Console.WriteLine("OK: lokalne przygotowanie i atomowa publikacja nagrania");
+    }
+    finally
+    {
+        RadioRecordingStagingStore.TryDelete(stagingPath);
+        if (Directory.Exists(root)) Directory.Delete(root, true);
+    }
 }
 
 static void TestScheduledRadioSegmentation()

@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 32;
+    public const int CurrentSchemaVersion = 33;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -401,6 +401,7 @@ public sealed class ConfigurationStore
         state.Radio.RecordingBitrateKbps = NormalizeRadioRecordingBitrate(
             state.Radio.RecordingBitrateKbps);
         state.Radio.RecordingSchedules ??= [];
+        state.Radio.RecognizedTracks ??= [];
         state.Radio.Stations = (state.Radio.Stations ?? [])
             .Where(station => Uri.TryCreate(station.StreamUrl, UriKind.Absolute, out var uri)
                 && uri.Scheme is "http" or "https")
@@ -471,6 +472,38 @@ public sealed class ConfigurationStore
             .GroupBy(schedule => schedule.Id, StringComparer.Ordinal)
             .Select(group => group.First())
             .OrderBy(schedule => schedule.NextStartUtcTicks)
+            .ToList();
+        state.Radio.RecognizedTracks = state.Radio.RecognizedTracks
+            .Where(entry => entry is not null
+                && (!string.IsNullOrWhiteSpace(entry.Title)
+                    || !string.IsNullOrWhiteSpace(entry.Artist)))
+            .Select(entry =>
+            {
+                entry.Id = string.IsNullOrWhiteSpace(entry.Id)
+                    ? Guid.NewGuid().ToString("N")
+                    : entry.Id.Trim();
+                entry.StationId = entry.StationId?.Trim() ?? string.Empty;
+                entry.StationName = string.IsNullOrWhiteSpace(entry.StationName)
+                    ? "Nieznana stacja"
+                    : entry.StationName.Trim();
+                entry.Title = entry.Title?.Trim() ?? string.Empty;
+                entry.Artist = entry.Artist?.Trim() ?? string.Empty;
+                entry.Album = entry.Album?.Trim() ?? string.Empty;
+                entry.ReleaseDate = entry.ReleaseDate?.Trim() ?? string.Empty;
+                entry.ProviderUri = string.IsNullOrWhiteSpace(entry.ProviderUri)
+                    ? null
+                    : entry.ProviderUri.Trim();
+                if (entry.RecognizedUtcTicks <= DateTime.UnixEpoch.Ticks
+                    || entry.RecognizedUtcTicks > DateTime.UtcNow.AddDays(1).Ticks)
+                {
+                    entry.RecognizedUtcTicks = DateTime.UtcNow.Ticks;
+                }
+                return entry;
+            })
+            .GroupBy(entry => entry.Id, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .OrderByDescending(entry => entry.RecognizedUtcTicks)
+            .Take(2_000)
             .ToList();
         if (state.Radio.CurrentItemId is not null
             && state.Radio.Stations.All(station => !string.Equals(

@@ -1074,14 +1074,14 @@ Katalog lokalny i kolejność: Biblioteka nie jest playlistą ani kopią jednego
 
 Planowana kolejność dalszych etapów:
 
-1. Ustabilizowanie głównego okna, list, filtra, kolejki, fokusu i zatwierdzonej mapy klawiatury.
-2. Eksperyment dystrybucji MSIX/App Installer, migracja do .NET 10 LTS oraz prototyp podpisanego manifestu komponentów i powrotu po błędzie.
-3. Wydzielenie AMC.Host i lokalnego kontraktu polecenie–zdarzenie z adapterem demonstracyjnym.
-4. WiiM jako pierwszy realny test wykrywania, komend, głośności, wejść i presetów.
-5. Spotify jako pierwsze logowanie OAuth, katalog i test przekazania odtwarzania do urządzenia Connect.
-6. TIDAL jako osobny adapter katalogowy z izolowanym widokiem wyników oraz oficjalnym modułem odtwarzania.
-7. Cienka wtyczka NVDA korzystająca wyłącznie z kontraktu hosta.
-8. Radio internetowe, świadome nagrywanie bezpośrednich strumieni i podstawowe lokalne multimedia.
+1. Dokończenie testów odporności Plików lokalnych i Radia, w tym HLS, nagrywania, szybkich zmian źródła i rozpoznawania utworów.
+2. Pierwsza wersja sesji Podcasty: RSS/Atom, Biblioteka, skrzynka Nowe odcinki, Historia, pobieranie i wspólny odtwarzacz zgodnie z `PROJEKT_PODCASTOW_PL.md`.
+3. Eksperyment dystrybucji MSIX/App Installer, migracja do .NET 10 LTS oraz prototyp podpisanego manifestu komponentów i powrotu po błędzie.
+4. Wydzielenie AMC.Host i lokalnego kontraktu polecenie–zdarzenie z adapterem demonstracyjnym.
+5. WiiM jako pierwszy realny test wykrywania, komend, głośności, wejść i presetów.
+6. Spotify jako pierwsze logowanie OAuth, katalog i test przekazania odtwarzania do urządzenia Connect.
+7. TIDAL jako osobny adapter katalogowy z izolowanym widokiem wyników oraz oficjalnym modułem odtwarzania.
+8. Cienka wtyczka NVDA korzystająca wyłącznie z kontraktu hosta.
 9. YouTube jako oficjalny adapter publicznego wyszukiwania i widocznego odtwarzacza z lokalnymi Ulubionymi, playlistami i historią; synchronizacja konta pozostaje opcjonalnym późniejszym rozszerzeniem.
 10. BluOS/Bluesound jako rozbudowany adapter urządzenia i źródeł skonfigurowanych na odtwarzaczu.
 11. Apple Music i natywna ścieżka MusicKit dla macOS.
@@ -1101,3 +1101,28 @@ Planowana kolejność dalszych etapów:
 ## 16. Zasada dalszej pracy
 
 Dokument jest projektem, a nie zamkniętą specyfikacją. Każda zatwierdzona zmiana powinna być równolegle naniesiona do wersji polskiej i angielskiej. Kod, ustawienia i dokumentacja mają używać stabilnych identyfikatorów poleceń niezależnych od wyświetlanego języka i wybranych skrótów.
+
+## 17. Odporne HLS i rozpoznawanie muzyki
+
+Granica bezpieczeństwa nagrania jest dwustopniowa. Dekoder HLS zaczyna przy
+krawędzi transmisji i ogranicza pobieranie do tempa rzeczywistego, natomiast
+koder zapisuje wyłącznie do lokalnego magazynu roboczego. Zamknięty, niezerowy
+plik jest publikowany do folderu użytkownika przez tymczasową nazwę
+`.amc-publishing` i atomową zmianę nazwy. Synchronizator chmury nigdy nie
+otrzymuje uchwytu do pliku otwartego przez koder. Niepowodzenie publikacji nie
+usuwa lokalnego odzyskiwalnego pliku. Zatrzymanie ustawia trwały dla danego
+zadania znacznik przed anulowaniem; późny podział nie może po nim otworzyć
+następnego fragmentu.
+
+Rozpoznawanie jest wymiennym adapterem, a nie częścią modelu stacji. Pobiera do
+12 sekund PCM kończącego się dokładnie w odtwarzanym miejscu bufora i lokalnie
+tworzy podpis akustyczny. Do usługi zewnętrznej trafia tylko podpis. `S` działa
+na żądanie w odtwarzaczu Radia, `Shift+S` przełącza obserwowanie, a
+`Ctrl+Alt+S` otwiera historię. Obserwowanie jest nieutrwalane, wykonuje najwyżej
+jedno zapytanie naraz i nie zapisuje powtórzenia tytułu oraz wykonawcy tej samej
+stacji w trzydziestominutowym oknie. Ustrukturyzowana historia jest częścią
+pełnej kopii konfiguracji, ma limit 2000 najnowszych wpisów i niezależne
+usuwanie. Eksport JSON/CSV zachowuje metadane źródłowe oraz generuje jawne
+adresy wyszukiwania Apple Music, Spotify i Tidal. Nie zapisuje fikcyjnego
+identyfikatora katalogowego; późniejszy adapter usługi wykona wyszukanie,
+przedstawi niejednoznaczne kandydatury i dopiero po wyborze utworzy playlistę.

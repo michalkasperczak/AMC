@@ -1,12 +1,64 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-162`
-- Tytuł zestawu: Ręczny i planowy podział nagrania na pliki
-- Wersja programu: `0.1.0-alpha.162`
+- Numer zestawu: `AMC-TEST-163`
+- Tytuł zestawu: Odporne HLS i rozpoznawanie utworów Radia
+- Wersja programu: `0.1.0-alpha.163`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.162.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.163.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 163
+
+### AMC-163-01 — Szybkie zatrzymanie i dzielenie HLS
+
+Uruchom nagrywanie Trójki albo innej stacji HLS. Po kilku sekundach naciśnij
+`T` dwa razy w krótkim odstępie, po czym szybko zakończ nagrywanie klawiszem
+`R`. Powtórz z formatem MP3 i Oryginalnym oraz z folderem nagrań w iCloud,
+OneDrive albo Dysku Google.
+
+Oczekiwane: kolejne polecenie nie uruchamia nowej części po żądaniu
+zatrzymania. Gotowe pliki mają długość zbliżoną do rzeczywistego czasu próby,
+nie zawierają wcześniejszych segmentów manifestu i dają się odtworzyć.
+W folderze docelowym nie pozostaje `.amc-publishing`; plik roboczy nie jest
+tworzony bezpośrednio w chmurze. Gdy publikacja do chmury zawiedzie, komunikat
+podaje ścieżkę zachowanej lokalnej kopii.
+
+### AMC-163-02 — Ręczne rozpoznawanie z odsłuchiwanego bufora
+
+Odtwarzaj stację z muzyką przez co najmniej 12 sekund, otwórz odtwarzacz i
+naciśnij `S`. Przed upływem kilku sekund wykonaj też próbę na nowo uruchomionej
+stacji oraz próbę na mowie.
+
+Oczekiwane: AMC mówi „Rozpoznaję utwór”, po czym tytuł i wykonawcę albo krótki
+kontrolowany brak wyniku. Rozpoznawanie dotyczy tego miejsca transmisji, które
+jest słyszane także po cofnięciu w timeshift, i nie otwiera drugiego połączenia
+ze stacją. Fokus pozostaje w odtwarzaczu, a odsłuch i nagrywanie nie są
+przerywane.
+
+### AMC-163-03 — Obserwowanie i eliminacja powtórzeń
+
+W odtwarzaczu Radia naciśnij `Shift+S`, pozostaw stację muzyczną na kilka
+minut, zmień ją Page Down i po chwili wróć. Ponownie naciśnij `Shift+S`.
+
+Oczekiwane: program potwierdza włączenie i wyłączenie. Nowy rozpoznany utwór
+jest oznajmiany i zapisywany razem ze stacją oraz czasem. Ten sam wynik tej
+samej stacji nie jest dopisywany co minutę. Obserwowanie nie uruchamia się
+samoczynnie po ponownym starcie AMC.
+
+### AMC-163-04 — Historia, kopiowanie i eksport
+
+W Radiu naciśnij `Ctrl+Alt+S`. Nawiguj po liście, zaznacz kilka wpisów Shiftem,
+sprawdź `Ctrl+C`, `Ctrl+Shift+C`, Delete oraz eksport kolejno do JSON i CSV.
+Zamknij i ponownie uruchom AMC.
+
+Oczekiwane: lista zaczyna się od najnowszego wpisu i podaje wyłącznie
+użytkowe etykiety: utwór, wykonawcę, stację oraz datę. `Ctrl+C` kopiuje opisy,
+a `Ctrl+Shift+C` również łącza wyszukiwania w Apple Music, Spotify i Tidal.
+Delete usuwa wyłącznie wpis historii. Historia i usunięcia są trwałe; fokus po
+zamknięciu okna wraca do listy albo odtwarzacza.
+
+## Poprzedni zestaw alpha 162
 
 ## Nowości alpha 162
 

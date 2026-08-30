@@ -66,6 +66,11 @@
           CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest"
           ExcludeFromSingleFile="true" />
+    <None Include="..\..\licenses\ShazamIO-MIT.txt"
+          Link="licenses\ShazamIO-MIT.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
     <None Include="$(PkgSoundTouch_Net)\LICENSE\LICENSE"
           Link="licenses\SoundTouch.Net-LGPL-2.1.txt"
           CopyToOutputDirectory="PreserveNewest"

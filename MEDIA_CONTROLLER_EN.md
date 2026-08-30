@@ -1060,14 +1060,14 @@ Local catalogue and ordering: the Library is neither a playlist nor a mirror of 
 
 Planned sequence of later stages:
 
-1. Stabilise the main window, lists, filter, queue, focus and approved keyboard map.
-2. Run an MSIX/App Installer distribution spike, migrate to .NET 10 LTS and prototype signed component metadata and failure rollback.
-3. Extract AMC.Host and a local command–event contract with a demonstration adapter.
-4. Use WiiM as the first real test of discovery, commands, volume, inputs and presets.
-5. Use Spotify for the first OAuth login, catalogue and Connect playback-transfer test.
-6. Add TIDAL as a separate catalogue adapter with an isolated results view and official playback module.
-7. Add a thin NVDA add-on using only the host contract.
-8. Add internet radio, deliberate direct-stream recording and basic local media.
+1. Complete resilience testing for Local Files and Radio, including HLS, recording, rapid source changes and track recognition.
+2. Deliver the first Podcasts session: RSS/Atom, Library, New episodes inbox, History, downloads and the shared player as defined in `PODCAST_MODULE_DESIGN_EN.md`.
+3. Run an MSIX/App Installer distribution spike, migrate to .NET 10 LTS and prototype signed component metadata and failure rollback.
+4. Extract AMC.Host and a local command–event contract with a demonstration adapter.
+5. Use WiiM as the first real test of discovery, commands, volume, inputs and presets.
+6. Use Spotify for the first OAuth login, catalogue and Connect playback-transfer test.
+7. Add TIDAL as a separate catalogue adapter with an isolated results view and official playback module.
+8. Add a thin NVDA add-on using only the host contract.
 9. Add YouTube as an official public-search and visible-player adapter with local Favorites, playlists and history; account synchronisation remains an optional later extension.
 10. Add BluOS/Bluesound as a richer adapter for devices and player-configured sources.
 11. Add Apple Music and the native MusicKit path for macOS.
@@ -1087,3 +1087,27 @@ Planned sequence of later stages:
 ## 16. Ongoing documentation rule
 
 This document is a design draft rather than a closed specification. Every approved change should be applied to the Polish and English versions in parallel. Code, settings and documentation must use stable command identifiers that do not depend on the display language or selected key bindings.
+
+## 17. Resilient HLS and music recognition
+
+Recording has a two-stage safety boundary. The HLS decoder starts at the live
+edge and limits input to real-time pace, while an encoder writes only to a
+local staging store. A closed, non-empty file is published to the user's
+folder under an `.amc-publishing` name followed by an atomic rename. A cloud
+sync provider never receives an encoder-owned open handle. A publication
+failure retains the locally recoverable file. Stop sets a durable per-task
+flag before cancellation, so a late split cannot open a further segment.
+
+Recognition is a replaceable adapter rather than part of the station model.
+It takes up to 12 seconds of PCM ending at the exact heard position in the
+time-shift buffer and builds the acoustic fingerprint locally. Only that
+fingerprint is sent externally. `S` performs an on-demand recognition in the
+Radio player, `Shift+S` toggles monitoring, and `Ctrl+Alt+S` opens history.
+Monitoring is not persisted, allows at most one request at a time and does not
+store the same title and artist for the same station again within 30 minutes.
+Structured history is included in the complete backup, retains the newest
+2000 entries and can be deleted independently. JSON/CSV export preserves
+source metadata and generates explicit Apple Music, Spotify and TIDAL search
+URLs. It never stores an invented catalogue identifier; a future service
+adapter must search, present ambiguous candidates and create a playlist only
+after a valid match is selected.

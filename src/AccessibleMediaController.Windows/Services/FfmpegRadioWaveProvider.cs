@@ -50,6 +50,23 @@ internal sealed class FfmpegRadioWaveProvider : IWaveProvider, IDisposable
         {
             "-nostdin", "-hide_banner", "-loglevel", "error",
             "-rw_timeout", "15000000",
+        })
+        {
+            start.ArgumentList.Add(argument);
+        }
+        if (RadioStreamResolver.IsHlsSource(source))
+        {
+            // HLS manifests commonly expose several already completed
+            // segments.  Without these input options FFmpeg can emit that
+            // backlog in a burst, so a two-second recording may unexpectedly
+            // contain tens of seconds from before the command was invoked.
+            start.ArgumentList.Add("-live_start_index");
+            start.ArgumentList.Add("-1");
+            start.ArgumentList.Add("-readrate");
+            start.ArgumentList.Add("1");
+        }
+        foreach (var argument in new[]
+        {
             "-i", source,
             "-map", "0:a:0", "-vn",
             "-f", "f32le", "-acodec", "pcm_f32le",

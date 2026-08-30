@@ -18,6 +18,7 @@ var tests = new (string Name, Action Test)[]
     ("Czytelne nazwy poleceń", TestCommandCatalog),
     ("Migracja presetów radia do wspólnego magazynu", TestRadioPresetPersistence),
     ("Trwały i odporny harmonogram radia", TestRadioRecordingSchedule),
+    ("Trwała historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
@@ -365,6 +366,54 @@ static void TestRadioRecordingSchedule()
         Equal(RadioRecordingFormat.Original, loaded.Radio.RecordingFormat);
         Equal(160, loaded.Radio.RecordingBitrateKbps);
         Equal(true, loaded.Radio.WakeScheduledRecordings);
+        Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
+static void TestRadioRecognitionHistoryPersistence()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-radio-recognition-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.Radio.RecognizedTracks =
+        [
+            new RadioRecognizedTrackSettings
+            {
+                Id = "recognized-a",
+                StationId = "station-a",
+                StationName = "Radio A",
+                Title = "Utwór",
+                Artist = "Wykonawca",
+                Album = "Album",
+                ReleaseDate = "2025",
+                ProviderUri = "https://example.test/result",
+                RecognizedUtcTicks = new DateTime(2026, 8, 30, 18, 0, 0, DateTimeKind.Utc).Ticks
+            },
+            new RadioRecognizedTrackSettings
+            {
+                Id = "empty",
+                StationName = "Pusty wpis"
+            }
+        ];
+        store.Save(state);
+
+        var loaded = store.LoadOrCreate();
+        Equal(1, loaded.Radio.RecognizedTracks.Count);
+        var entry = loaded.Radio.RecognizedTracks[0];
+        Equal("recognized-a", entry.Id);
+        Equal("Radio A", entry.StationName);
+        Equal("Utwór", entry.Title);
+        Equal("Wykonawca", entry.Artist);
+        Equal("Album", entry.Album);
+        Equal("2025", entry.ReleaseDate);
+        Equal("https://example.test/result", entry.ProviderUri);
         Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
     }
     finally

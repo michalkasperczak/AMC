@@ -111,6 +111,16 @@
                           automation:AutomationProperties.Name="Harmonogram nagrywania radia, Ctrl+Shift+H"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+H"
                           Click="RadioSchedules_Click" />
+                <Separator x:Name="RadioBeforeRecognitionSeparator" />
+                <MenuItem x:Name="RecognizeRadioTrackMenuItem" Header="_Rozpoznaj utwór" InputGestureText="S"
+                          automation:AutomationProperties.Name="Rozpoznaj teraz odtwarzany utwór, S, w odtwarzaczu radia"
+                          automation:AutomationProperties.AcceleratorKey="S"
+                          Click="RecognizeRadioTrack_Click" />
+                <MenuItem x:Name="MonitorRadioRecognitionMenuItem" Header="_Obserwuj rozpoznawanie: wyłączone" InputGestureText="Shift+S"
+                          automation:AutomationProperties.Name="Obserwowanie rozpoznawania utworów: wyłączone, Shift+S"
+                          automation:AutomationProperties.AcceleratorKey="Shift+S"
+                          IsCheckable="True"
+                          Click="ToggleRadioRecognitionMonitoring_Click" />
                 <Separator x:Name="PlaybackAfterRecordingSeparator" />
                 <MenuItem x:Name="PlaybackAddBookmarkMenuItem" Header="Dodaj _zakładkę" InputGestureText="B"
                           automation:AutomationProperties.Name="Dodaj zakładkę w bieżącym miejscu, B, tylko w odtwarzaczu"
@@ -182,6 +192,10 @@
                 <MenuItem x:Name="ActiveRadioRecordingsViewMenuItem" Header="_Nagrywane" InputGestureText="Alt+2" Click="ActiveRadioRecordingsView_Click"
                           automation:AutomationProperties.Name="Aktualnie nagrywane stacje, Alt+2"
                           automation:AutomationProperties.AcceleratorKey="Alt+2" Visibility="Collapsed" />
+                <MenuItem x:Name="RadioRecognitionHistoryViewMenuItem" Header="_Rozpoznane utwory…" InputGestureText="Ctrl+Alt+S"
+                          automation:AutomationProperties.Name="Rozpoznane utwory, Ctrl+Alt+S"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+S"
+                          Visibility="Collapsed" Click="RadioRecognitionHistory_Click" />
                 <MenuItem x:Name="RefreshLocalLibraryMenuItem" Header="_Odśwież foldery Biblioteki" InputGestureText="F5" Click="RefreshLocalLibrary_Click"
                           automation:AutomationProperties.Name="Odśwież foldery Biblioteki, F5"
                           automation:AutomationProperties.AcceleratorKey="F5" />
@@ -397,6 +411,19 @@
                     <MenuItem x:Name="PlayerRadioSchedulesMenuItem" Header="Harmonogram nagrywania…" InputGestureText="Ctrl+Shift+H"
                               automation:AutomationProperties.Name="Harmonogram nagrywania radia, Ctrl+Shift+H"
                               Visibility="Collapsed" Click="RadioSchedules_Click" />
+                    <MenuItem x:Name="PlayerRecognizeRadioTrackMenuItem" Header="Rozpoznaj utwór" InputGestureText="S"
+                              automation:AutomationProperties.Name="Rozpoznaj teraz odtwarzany utwór, S"
+                              automation:AutomationProperties.AcceleratorKey="S"
+                              Visibility="Collapsed" Click="RecognizeRadioTrack_Click" />
+                    <MenuItem x:Name="PlayerMonitorRadioRecognitionMenuItem" Header="Obserwuj rozpoznawanie: wyłączone" InputGestureText="Shift+S"
+                              automation:AutomationProperties.Name="Obserwowanie rozpoznawania utworów: wyłączone, Shift+S"
+                              automation:AutomationProperties.AcceleratorKey="Shift+S"
+                              IsCheckable="True" Visibility="Collapsed"
+                              Click="ToggleRadioRecognitionMonitoring_Click" />
+                    <MenuItem x:Name="PlayerRadioRecognitionHistoryMenuItem" Header="Rozpoznane utwory…" InputGestureText="Ctrl+Alt+S"
+                              automation:AutomationProperties.Name="Rozpoznane utwory, Ctrl+Alt+S"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+S"
+                              Visibility="Collapsed" Click="RadioRecognitionHistory_Click" />
                     <Separator />
                     <MenuItem x:Name="PlayerFavoriteMenuItem" Header="Dodaj do ulubionych" InputGestureText="Ctrl+Shift+U"
                               automation:AutomationProperties.Name="Dodaj do ulubionych, Ctrl+Shift+U"

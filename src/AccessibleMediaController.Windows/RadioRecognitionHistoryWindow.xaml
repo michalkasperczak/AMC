@@ -1,0 +1,38 @@
+<controls:AccessibleWindow x:Class="AccessibleMediaController.Windows.RadioRecognitionHistoryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        Title="Rozpoznane utwory" Width="720" Height="520"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        ContentRendered="Window_ContentRendered"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="12">
+        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap"
+                   Text="Rozpoznane utwory, od najnowszego. Ctrl+C kopiuje opis, Ctrl+Shift+C kopiuje opis i łącza do wyszukiwania w usługach. Delete usuwa wybrane wpisy."
+                   automation:AutomationProperties.HeadingLevel="Level1" />
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <controls:AccessibleStatusTextBlock x:Name="HistoryStatus" Margin="0,0,0,8"
+                                                TextWrapping="Wrap"
+                                                automation:AutomationProperties.LiveSetting="Assertive" />
+            <WrapPanel HorizontalAlignment="Right">
+                <Button Width="115" Margin="0,0,8,0" Content="_Kopiuj" Click="Copy_Click" />
+                <Button Width="115" Margin="0,0,8,0" Content="_Eksportuj…" Click="Export_Click" />
+                <Button Width="105" Margin="0,0,8,0" Content="_Usuń" Click="Delete_Click" />
+                <Button Width="100" Content="_Zamknij" IsCancel="True" />
+            </WrapPanel>
+        </StackPanel>
+        <ListBox x:Name="HistoryList"
+                 SelectionMode="Extended"
+                 DisplayMemberPath="Label"
+                 TextSearch.TextPath="NavigationText"
+                 automation:AutomationProperties.Name="Rozpoznane utwory"
+                 automation:AutomationProperties.HelpText="Lista trwałej historii rozpoznawania. Enter otwiera wynik dostawcy, jeżeli jest dostępny.">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+    </DockPanel>
+</controls:AccessibleWindow>

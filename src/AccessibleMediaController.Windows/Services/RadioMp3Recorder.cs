@@ -42,7 +42,7 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
         }
 
         _finalPath = finalPath;
-        _temporaryPath = finalPath + ".amc-partial";
+        _temporaryPath = RadioRecordingStagingStore.CreatePath(finalPath);
         _averageBytesPerSecond = sourceFormat.AverageBytesPerSecond;
         _queue = new QueuedWaveProvider(sourceFormat);
 
@@ -136,7 +136,7 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
                 $"Plik nagrania musi mieć rozszerzenie {expectedExtension}.",
                 nameof(finalPath));
         }
-        if (File.Exists(finalPath) || File.Exists(finalPath + ".amc-partial"))
+        if (File.Exists(finalPath) || File.Exists(finalPath + ".amc-publishing"))
         {
             throw new IOException("Plik nagrania o tej nazwie już istnieje.");
         }
@@ -237,7 +237,7 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
             {
                 throw new InvalidDataException("Koder nie utworzył danych nagrania.");
             }
-            File.Move(_temporaryPath, _finalPath);
+            RadioRecordingStagingStore.Publish(_temporaryPath, _finalPath);
             return _finalPath;
         }
         catch (Exception exception) when (exception is IOException
@@ -247,9 +247,15 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
             or System.Runtime.InteropServices.COMException
             or AggregateException)
         {
-            TryDeleteTemporaryFile();
+            // Preserve a successfully encoded local staging file when only
+            // publication to a cloud folder failed.  Its path is included in
+            // the inner exception and can be recovered without re-recording.
+            if (exception is not IOException || !File.Exists(_temporaryPath))
+                TryDeleteTemporaryFile();
             throw new InvalidOperationException(
-                "Nie udało się prawidłowo zakończyć pliku. Nie zapisano uszkodzonego nagrania.",
+                exception.Message.Contains("Bezpieczna kopia pozostała", StringComparison.Ordinal)
+                    ? exception.Message
+                    : "Nie udało się prawidłowo zakończyć pliku. Nie zapisano uszkodzonego nagrania.",
                 exception);
         }
         finally
@@ -304,7 +310,7 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
     {
         try
         {
-            if (File.Exists(_temporaryPath)) File.Delete(_temporaryPath);
+            RadioRecordingStagingStore.TryDelete(_temporaryPath);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

@@ -73,6 +73,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly WindowsMediaOutput _localOutput = new();
     private readonly RadioBrowserClient _radioCatalog = new();
     private RadioMediaOutput _radioOutput = null!;
+    private readonly ITrackRecognitionService _trackRecognitionService = new ShazamTrackRecognitionService();
+    private readonly CancellationTokenSource _trackRecognitionCancellation = new();
+    private bool _radioRecognitionMonitoring;
+    private DateTime _nextRadioRecognitionUtc = DateTime.MaxValue;
+    private int _trackRecognitionInProgress;
     private string? _cloudPreparingItemId;
     private readonly List<MediaItem> _localItems = [];
     private readonly List<MediaItem> _radioItems = [];
@@ -847,7 +852,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : "Escape wraca do listy, a odtwarzanie trwa.";
         if (string.Equals(_sessions?.Current.Id, "radio", StringComparison.Ordinal))
         {
-            return "Strzałki w lewo i w prawo poruszają się po buforze transmisji, Home przechodzi do początku bufora, End wraca na żywo, a strzałki w górę i w dół regulują głośność. R rozpoczyna lub kończy nagrywanie bieżącej stacji w tle, a Shift+Spacja wstrzymuje lub wznawia jej nagranie. Page Up i Page Down wybierają poprzednią lub następną stację bez zatrzymywania nagrań. " + exit;
+            return "Strzałki w lewo i w prawo poruszają się po buforze transmisji, Home przechodzi do początku bufora, End wraca na żywo, a strzałki w górę i w dół regulują głośność. R rozpoczyna lub kończy nagrywanie bieżącej stacji w tle, a Shift+Spacja wstrzymuje lub wznawia jej nagranie. S rozpoznaje utwór, a Shift+S włącza lub wyłącza obserwowanie rozpoznawania. Page Up i Page Down wybierają poprzednią lub następną stację bez zatrzymywania nagrań. " + exit;
         }
         return "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. "
             + "B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach. "
@@ -860,6 +865,158 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
         SaveLocalMediaStateIfDue();
+        TryStartScheduledRadioRecognition();
+    }
+
+    private void TryStartScheduledRadioRecognition()
+    {
+        if (!_radioRecognitionMonitoring
+            || DateTime.UtcNow < _nextRadioRecognitionUtc
+            || Volatile.Read(ref _trackRecognitionInProgress) != 0)
+        {
+            return;
+        }
+        _nextRadioRecognitionUtc = DateTime.UtcNow.AddMinutes(1);
+        _ = RecognizeCurrentRadioTrackAsync(automatic: true);
+    }
+
+    private async Task RecognizeCurrentRadioTrackAsync(bool automatic)
+    {
+        if (Interlocked.CompareExchange(ref _trackRecognitionInProgress, 1, 0) != 0)
+        {
+            if (!automatic) Announce("Rozpoznawanie już trwa");
+            return;
+        }
+
+        try
+        {
+            var radioSession = _sessions.FindSession("radio");
+            var loadedId = _radioOutput.LoadedItemId;
+            var station = loadedId is null
+                ? null
+                : radioSession?.Items.FirstOrDefault(item =>
+                    string.Equals(item.Id, loadedId, StringComparison.Ordinal));
+            if (station is null || radioSession?.IsPlaying != true)
+            {
+                if (!automatic) Announce("Najpierw uruchom stację radiową");
+                else _nextRadioRecognitionUtc = DateTime.UtcNow.AddSeconds(15);
+                return;
+            }
+            if (!_radioOutput.TryGetRecentPlaybackAudio(TimeSpan.FromSeconds(12), out var snapshot)
+                || snapshot is null)
+            {
+                if (!automatic)
+                    Announce("Za mało dźwięku w buforze. Poczekaj kilka sekund i spróbuj ponownie");
+                else _nextRadioRecognitionUtc = DateTime.UtcNow.AddSeconds(15);
+                return;
+            }
+
+            if (!automatic) Announce("Rozpoznaję utwór");
+            DiagnosticLog.Info(
+                "recognition",
+                $"Rozpoczęto rozpoznawanie z {snapshot.Duration.TotalSeconds:0.0} sekundy odsłuchiwanego bufora stacji {station.Title}.");
+            var result = await _trackRecognitionService.RecognizeAsync(
+                snapshot,
+                _trackRecognitionCancellation.Token);
+            if (_isClosing) return;
+            if (!result.Success)
+            {
+                DiagnosticLog.Info("recognition", result.Error ?? "Nie rozpoznano utworu.");
+                if (!automatic) AnnounceEssential(result.Error ?? "Nie rozpoznano utworu");
+                return;
+            }
+
+            var label = RecognitionResultLabel(result);
+            var duplicate = _state.Radio.RecognizedTracks
+                .OrderByDescending(entry => entry.RecognizedUtcTicks)
+                .FirstOrDefault(entry =>
+                    string.Equals(entry.StationId, station.Id, StringComparison.Ordinal)
+                    && string.Equals(entry.Title, result.Title, StringComparison.CurrentCultureIgnoreCase)
+                    && string.Equals(entry.Artist, result.Artist, StringComparison.CurrentCultureIgnoreCase)
+                    && entry.RecognizedUtcTicks >= DateTime.UtcNow.AddMinutes(-30).Ticks);
+            if (duplicate is null)
+            {
+                _state.Radio.RecognizedTracks.Insert(0, new RadioRecognizedTrackSettings
+                {
+                    StationId = station.Id,
+                    StationName = station.Title,
+                    Title = result.Title,
+                    Artist = result.Artist,
+                    Album = result.Album,
+                    ReleaseDate = result.ReleaseDate,
+                    ProviderUri = result.ProviderUri,
+                    RecognizedUtcTicks = DateTime.UtcNow.Ticks
+                });
+                if (_state.Radio.RecognizedTracks.Count > 2_000)
+                    _state.Radio.RecognizedTracks.RemoveRange(2_000, _state.Radio.RecognizedTracks.Count - 2_000);
+                _store.Save(_state);
+                DiagnosticLog.Info("recognition", $"Rozpoznano {label} na stacji {station.Title}.");
+                AnnounceEssential($"Rozpoznano: {label}");
+            }
+            else if (!automatic)
+            {
+                AnnounceEssential($"Rozpoznano: {label}. Ten utwór jest już w najnowszej historii");
+            }
+        }
+        catch (OperationCanceledException) when (_trackRecognitionCancellation.IsCancellationRequested)
+        {
+            // Closing AMC cancels the optional network request without showing
+            // a late message in a window that is already disappearing.
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _trackRecognitionInProgress, 0);
+            if (_radioRecognitionMonitoring && _nextRadioRecognitionUtc < DateTime.UtcNow)
+                _nextRadioRecognitionUtc = DateTime.UtcNow.AddMinutes(1);
+        }
+    }
+
+    private static string RecognitionResultLabel(TrackRecognitionResult result)
+    {
+        var parts = new[] { result.Title, result.Artist }
+            .Where(value => !string.IsNullOrWhiteSpace(value));
+        var label = string.Join(" — ", parts);
+        return string.IsNullOrWhiteSpace(label) ? "nieznany utwór" : label;
+    }
+
+    private void ToggleRadioRecognitionMonitoring()
+    {
+        if (_radioRecognitionMonitoring)
+        {
+            _radioRecognitionMonitoring = false;
+            _nextRadioRecognitionUtc = DateTime.MaxValue;
+            UpdateFileMenuForCurrentSession();
+            AnnounceEssential("Wyłączono obserwowanie rozpoznawania utworów");
+            return;
+        }
+
+        var radioSession = _sessions.FindSession("radio");
+        if (_radioOutput.LoadedItemId is null || radioSession?.IsPlaying != true)
+        {
+            Announce("Najpierw uruchom stację radiową");
+            return;
+        }
+        _radioRecognitionMonitoring = true;
+        _nextRadioRecognitionUtc = DateTime.UtcNow;
+        UpdateFileMenuForCurrentSession();
+        AnnounceEssential("Włączono obserwowanie rozpoznawania utworów");
+    }
+
+    private void ShowRadioRecognitionHistory()
+    {
+        var dialog = new RadioRecognitionHistoryWindow(_state.Radio.RecognizedTracks)
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
+        if (dialog.Changed) _store.Save(_state);
+        Activate();
+        if (_playerViewActive)
+        {
+            PlayerPlayPauseButton.Focus();
+            Keyboard.Focus(PlayerPlayPauseButton);
+        }
+        else RestoreMediaListFocusAfterRefresh();
     }
 
     private void UpdatePlaybackStatusBar()
@@ -1624,7 +1781,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 or CommandIds.AddRadioSchedule
                 or CommandIds.ManageRadioSchedules
                 or CommandIds.ViewActiveRadioRecordings
-                or CommandIds.RadioJumpLive)
+                or CommandIds.RadioJumpLive
+                or CommandIds.RecognizeRadioTrack
+                or CommandIds.ToggleRadioRecognitionMonitoring
+                or CommandIds.ViewRadioRecognitionHistory)
             {
                 return false;
             }
@@ -2544,6 +2704,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AllLocalFilesViewMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         CustomLocalOrderViewMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ActiveRadioRecordingsViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        RadioRecognitionHistoryViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         RefreshLocalLibraryMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         RenameLocalFileMainMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         RenameLibraryItemMainMenuItem.Header = radio
@@ -2616,6 +2777,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RadioAddScheduleMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         RadioAddScheduleMenuItem.IsEnabled = radio && RadioScheduleActionStation() is not null;
         RadioSchedulesMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        RadioBeforeRecognitionSeparator.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        RecognizeRadioTrackMenuItem.Visibility = radio && _playerViewActive
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        RecognizeRadioTrackMenuItem.IsEnabled = radio && _radioOutput.LoadedItemId is not null;
+        MonitorRadioRecognitionMenuItem.Visibility = radio && _playerViewActive
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        MonitorRadioRecognitionMenuItem.IsChecked = _radioRecognitionMonitoring;
+        MonitorRadioRecognitionMenuItem.Header = _radioRecognitionMonitoring
+            ? "_Obserwuj rozpoznawanie: włączone"
+            : "_Obserwuj rozpoznawanie: wyłączone";
+        AutomationProperties.SetName(
+            MonitorRadioRecognitionMenuItem,
+            $"Obserwowanie rozpoznawania utworów: {(_radioRecognitionMonitoring ? "włączone" : "wyłączone")}, Shift+S");
         PlaybackAfterRecordingSeparator.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         PlaybackAddBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         PlaybackAddNamedBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
@@ -3793,6 +3969,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();
+        if (_radioRecognitionMonitoring)
+            _nextRadioRecognitionUtc = DateTime.UtcNow.AddSeconds(12);
         if (e.Item.BitrateKbps is null || string.IsNullOrWhiteSpace(e.Item.Codec))
         {
             _ = EnrichRadioMetadataAfterPlaybackStartedAsync(e.Item);
@@ -4021,6 +4199,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce("Na żywo");
             UpdatePlayerView();
             UpdatePlaybackStatusBar();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.RecognizeRadioTrack)
+        {
+            _ = RecognizeCurrentRadioTrackAsync(automatic: false);
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ToggleRadioRecognitionMonitoring)
+        {
+            ToggleRadioRecognitionMonitoring();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ViewRadioRecognitionHistory)
+        {
+            ShowRadioRecognitionHistory();
             return new CommandExecutionResult(true);
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
@@ -6279,6 +6472,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             SameRadioStation(station, active.StationId, active.StreamUrl));
         if (existing is not null)
         {
+            existing.Control.RequestStop();
             existing.Cancellation.Cancel();
             AnnounceEssential($"Zatrzymuję nagrywanie: {existing.StationName}");
             return;
@@ -6428,6 +6622,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (change.Kind == RadioRecordingSplitChangeKind.StopRequested)
+        {
+            RefreshRadioRecordingPresentation();
+            return;
+        }
+
         active.Cancellation.Cancel();
         AnnounceEssential($"Nie udało się rozpocząć nowej części nagrania: {change.Error}");
     }
@@ -6527,11 +6727,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         foreach (var active in manualRecordings)
         {
             _bulkStoppedManualRadioRecordings.Add(active.Id);
+            active.Control.RequestStop();
             active.Cancellation.Cancel();
         }
         foreach (var active in scheduledRecordings)
         {
             _bulkStoppedScheduledRadioRecordings.Add(active.ScheduleId);
+            active.Control.RequestStop();
             AdvanceStoppedScheduledOccurrence(active, "zatrzymane przez użytkownika");
             active.Cancellation.Cancel();
         }
@@ -8121,6 +8323,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt)
+            && e.Key == Key.S
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            ShowRadioRecognitionHistory();
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.Modifiers == ModifierKeys.Alt
             && Keyboard.FocusedElement is not MenuItem
             && !MainMenu.IsKeyboardFocusWithin
@@ -8391,6 +8602,29 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
             commandId = CommandIds.ManageRadioSchedules;
+            return true;
+        }
+        if (key == Key.S
+            && modifiers == (ModifierKeys.Control | ModifierKeys.Alt)
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            commandId = CommandIds.ViewRadioRecognitionHistory;
+            return true;
+        }
+        if (key == Key.S
+            && modifiers == ModifierKeys.None
+            && _playerViewActive
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            commandId = CommandIds.RecognizeRadioTrack;
+            return true;
+        }
+        if (key == Key.S
+            && modifiers == ModifierKeys.Shift
+            && _playerViewActive
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            commandId = CommandIds.ToggleRadioRecognitionMonitoring;
             return true;
         }
         if (key == Key.R
@@ -8965,6 +9199,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             AddRadioScheduleForCurrentContext();
             return true;
         }
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && Keyboard.Modifiers == ModifierKeys.None
+            && key == Key.S)
+        {
+            _ = RecognizeCurrentRadioTrackAsync(automatic: false);
+            return true;
+        }
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && Keyboard.Modifiers == ModifierKeys.Shift
+            && key == Key.S)
+        {
+            ToggleRadioRecognitionMonitoring();
+            return true;
+        }
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt)
+            && key == Key.S)
+        {
+            ShowRadioRecognitionHistory();
+            return true;
+        }
         if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt) && key == Key.R)
         {
             ToggleRadioRecording();
@@ -9452,6 +9707,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         _isClosing = true;
+        _radioRecognitionMonitoring = false;
+        _trackRecognitionCancellation.Cancel();
         CaptureCurrentSessionNavigationState();
         CaptureLocalMediaState();
         _playerUiTimer.Stop();
@@ -9461,6 +9718,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _radioScheduleTimer.Stop();
         _radioScheduleTimer.Tick -= RadioScheduleTimer_Tick;
         var manualRecordings = _activeManualRadioRecordings.Values.ToArray();
+        foreach (var active in manualRecordings) active.Control.RequestStop();
         foreach (var active in manualRecordings) active.Cancellation.Cancel();
         var manualTasks = manualRecordings
             .Select(active => active.Task)
@@ -9488,6 +9746,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var scheduledRecordings = _activeScheduledRadioRecordings.Values.ToArray();
         foreach (var active in scheduledRecordings)
             AdvanceStoppedScheduledOccurrence(active, "przerwane przy zamknięciu programu");
+        foreach (var active in scheduledRecordings) active.Control.RequestStop();
         foreach (var active in scheduledRecordings) active.Cancellation.Cancel();
         if (scheduledRecordings.Length > 0)
         {
@@ -9519,6 +9778,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _localOutput.Dispose();
         _radioOutput.Dispose();
         _radioCatalog.Dispose();
+        _trackRecognitionCancellation.Dispose();
         _store.Save(_state);
     }
 
@@ -9628,6 +9888,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void StopAllRadioRecordings_Click(object sender, RoutedEventArgs e) => StopAllRadioRecordings();
     private void RadioAddSchedule_Click(object sender, RoutedEventArgs e) => AddRadioScheduleForCurrentContext();
     private void RadioSchedules_Click(object sender, RoutedEventArgs e) => ShowRadioSchedules();
+    private void RecognizeRadioTrack_Click(object sender, RoutedEventArgs e) =>
+        _ = RecognizeCurrentRadioTrackAsync(automatic: false);
+    private void ToggleRadioRecognitionMonitoring_Click(object sender, RoutedEventArgs e) =>
+        ToggleRadioRecognitionMonitoring();
+    private void RadioRecognitionHistory_Click(object sender, RoutedEventArgs e) =>
+        ShowRadioRecognitionHistory();
     private void ActiveRadioRecordingsView_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.ViewActiveRadioRecordings);
     private void Sessions_Click(object sender, RoutedEventArgs e) => ShowSessionList();
@@ -9971,6 +10237,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerRadioSplitRecordingMenuItem.IsEnabled = playerManualRecording?.Control.IsReady == true;
         PlayerRadioAddScheduleMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
         PlayerRadioSchedulesMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
+        PlayerRecognizeRadioTrackMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
+        PlayerRecognizeRadioTrackMenuItem.IsEnabled = radioSession && _radioOutput.LoadedItemId is not null;
+        PlayerMonitorRadioRecognitionMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
+        PlayerMonitorRadioRecognitionMenuItem.IsChecked = _radioRecognitionMonitoring;
+        SetContextMenuItemPresentation(
+            PlayerMonitorRadioRecognitionMenuItem,
+            _radioRecognitionMonitoring
+                ? "Obserwuj rozpoznawanie: włączone"
+                : "Obserwuj rozpoznawanie: wyłączone",
+            "Shift+S");
+        PlayerRadioRecognitionHistoryMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
         PlayerAddBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
         PlayerAddNamedBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
         PlayerBookmarksMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;

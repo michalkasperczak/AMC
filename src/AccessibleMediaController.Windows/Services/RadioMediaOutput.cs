@@ -18,6 +18,8 @@ public sealed class RadioNowPlayingChangedEventArgs(MediaItem item, string? stre
     public string? StreamTitle { get; } = streamTitle;
 }
 
+internal sealed record RadioAudioSnapshot(byte[] Audio, WaveFormat Format, TimeSpan Duration);
+
 /// <summary>
 /// Live radio output with an in-memory decoded-audio ring. The decoder works
 /// away from the WPF dispatcher, so a slow or broken station cannot freeze the
@@ -119,6 +121,19 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         get
         {
             lock (_gate) return _pipeline?.Buffer.BehindLive ?? TimeSpan.Zero;
+        }
+    }
+
+    internal bool TryGetRecentPlaybackAudio(TimeSpan duration, out RadioAudioSnapshot? snapshot)
+    {
+        lock (_gate)
+        {
+            if (_pipeline is null)
+            {
+                snapshot = null;
+                return false;
+            }
+            return _pipeline.Buffer.TryGetRecentPlaybackAudio(duration, out snapshot);
         }
     }
 
@@ -1293,6 +1308,36 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 var safety = WaveFormat.AverageBytesPerSecond / 4L;
                 var oldest = Math.Max(0, _totalWritten - _ring.LongLength);
                 _readPosition = Align(Math.Max(oldest, _totalWritten - safety));
+            }
+        }
+
+        public bool TryGetRecentPlaybackAudio(
+            TimeSpan duration,
+            out RadioAudioSnapshot? snapshot)
+        {
+            lock (_gate)
+            {
+                var requestedBytes = Align((long)Math.Ceiling(
+                    Math.Max(0, duration.TotalSeconds) * WaveFormat.AverageBytesPerSecond));
+                var end = Math.Min(_readPosition, _totalWritten);
+                var oldest = Math.Max(0, _totalWritten - _ring.LongLength);
+                var available = Align(Math.Max(0, end - oldest));
+                var length = Align(Math.Min(requestedBytes, available));
+                if (length < Align(WaveFormat.AverageBytesPerSecond * 3L))
+                {
+                    snapshot = null;
+                    return false;
+                }
+
+                var audio = new byte[checked((int)length)];
+                var start = end - length;
+                var readIndex = (int)(start % _ring.Length);
+                var first = Math.Min(audio.Length, _ring.Length - readIndex);
+                Buffer.BlockCopy(_ring, readIndex, audio, 0, first);
+                if (first < audio.Length)
+                    Buffer.BlockCopy(_ring, 0, audio, first, audio.Length - first);
+                snapshot = new RadioAudioSnapshot(audio, WaveFormat, BytesToTime(length));
+                return true;
             }
         }
 

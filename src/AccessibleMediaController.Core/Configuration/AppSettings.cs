@@ -161,7 +161,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 32;
+    public int SchemaVersion { get; set; } = 33;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -324,6 +324,20 @@ public sealed class RadioSettings
     public int RecordingBitrateKbps { get; set; } = 192;
     public bool WakeScheduledRecordings { get; set; }
     public List<RadioRecordingScheduleSettings> RecordingSchedules { get; set; } = [];
+    public List<RadioRecognizedTrackSettings> RecognizedTracks { get; set; } = [];
+}
+
+public sealed class RadioRecognizedTrackSettings
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string StationId { get; set; } = string.Empty;
+    public string StationName { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Artist { get; set; } = string.Empty;
+    public string Album { get; set; } = string.Empty;
+    public string ReleaseDate { get; set; } = string.Empty;
+    public string? ProviderUri { get; set; }
+    public long RecognizedUtcTicks { get; set; } = DateTime.UtcNow.Ticks;
 }
 
 public enum RadioRecordingFormat
