@@ -1,12 +1,34 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-164`
-- Tytuł zestawu: Eksport rozpoznań do usług i katalogów muzycznych
-- Wersja programu: `0.1.0-alpha.164`
+- Numer zestawu: `AMC-TEST-165`
+- Tytuł zestawu: Pojedyncze oznajmianie skrótów w menu
+- Wersja programu: `0.1.0-alpha.165`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.164.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.165.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 165
+
+### AMC-165-01 — Menu główne bez powtarzania skrótów
+
+W Radiu otwórz menu główne i przejdź po pozycjach Odtwarzanie oraz Widok,
+zwłaszcza: wyciszanie sesji, nagrywanie i Rozpoznane utwory.
+
+Oczekiwane: NVDA czyta nazwę polecenia, stan pozycji i właściwy skrót tylko
+raz. Nie dokłada osobnej litery dostępu, takiej jak „W”, „B” albo „R”. Nazwy
+głównych kategorii menu nadal są dostępne klawiaturą przez Alt.
+
+### AMC-165-02 — Menu kontekstowe listy, odtwarzacza i wyszukiwania
+
+Otwórz menu kontekstowe na stacji radiowej, następnie w odtwarzaczu oraz na
+wyniku wyszukiwania. Sprawdź kilka pozycji ze skrótami.
+
+Oczekiwane: każdy skrót jest oznajmiany tylko raz. Dynamiczna zmiana nazwy,
+np. „Nagrywaj tę stację w tle” na „Zakończ nagrywanie tej stacji”, nie
+przywraca podwójnego odczytu.
+
+## Poprzedni zestaw alpha 164
 
 ## Nowości alpha 164
 

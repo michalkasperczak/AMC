@@ -4,6 +4,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using System.Windows.Automation;
+using System.Windows.Controls;
 using System.Windows.Input;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
@@ -53,6 +55,7 @@ try
     Console.WriteLine("OK: normalizacja osi czasu fragmentu OGG/Vorbis");
 
     TestAccessiblePlaybackStatusStrip();
+    TestMenuAccessibility();
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
@@ -127,6 +130,68 @@ catch (Exception exception)
 finally
 {
     if (File.Exists(path)) File.Delete(path);
+}
+
+static void TestMenuAccessibility()
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            var mainMenu = new Menu();
+            var topLevel = new MenuItem { Header = "_Odtwarzanie" };
+            var command = new MenuItem
+            {
+                Header = "Wycisz lub przywróć dźwięk _bieżącej sesji",
+                InputGestureText = "Ctrl+M"
+            };
+            AutomationProperties.SetName(command, "Wycisz lub przywróć dźwięk bieżącej sesji, Ctrl+M");
+            topLevel.Items.Add(command);
+            mainMenu.Items.Add(topLevel);
+
+            MenuAccessibility.NormalizeMainMenu(mainMenu);
+
+            Assert(topLevel.Header?.ToString() == "_Odtwarzanie", "Usunięto literę dostępu z głównej kategorii menu.");
+            Assert(AutomationProperties.GetName(topLevel) == "Odtwarzanie", "Nazwa kategorii menu zawiera znak mnemonika.");
+            Assert(command.Header?.ToString() == "Wycisz lub przywróć dźwięk bieżącej sesji", "Nie usunięto mnemonika z polecenia menu.");
+            Assert(AutomationProperties.GetName(command) == "Wycisz lub przywróć dźwięk bieżącej sesji", "Nazwa polecenia powtarza skrót.");
+            Assert(command.InputGestureText == "Ctrl+M", "Usunięto widoczny skrót polecenia.");
+
+            var contextMenu = new ContextMenu();
+            var contextCommand = new MenuItem
+            {
+                Header = "_Rozpoznane utwory",
+                InputGestureText = "Ctrl+Alt+S"
+            };
+            AutomationProperties.SetName(contextCommand, "Rozpoznane utwory, Ctrl+Alt+S");
+            contextMenu.Items.Add(contextCommand);
+
+            MenuAccessibility.NormalizeContextMenu(contextMenu);
+
+            Assert(contextCommand.Header?.ToString() == "Rozpoznane utwory", "Nie usunięto mnemonika z menu kontekstowego.");
+            Assert(AutomationProperties.GetName(contextCommand) == "Rozpoznane utwory", "Menu kontekstowe powtarza skrót w nazwie.");
+            Assert(contextCommand.InputGestureText == "Ctrl+Alt+S", "Usunięto skrót menu kontekstowego.");
+
+            MenuAccessibility.SetPresentation(contextCommand, "Nagrywaj tę stację w tle");
+            Assert(AutomationProperties.GetName(contextCommand) == "Nagrywaj tę stację w tle", "Dynamiczna nazwa menu powtarza skrót.");
+            Assert(contextCommand.InputGestureText == "Ctrl+Alt+S", "Dynamiczna prezentacja usunęła skrót.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+
+    if (failure is not null)
+    {
+        throw new InvalidOperationException("Test dostępności menu nie powiódł się.", failure);
+    }
+
+    Console.WriteLine("OK: pojedyncze oznajmianie skrótów w menu");
 }
 
 static void TestShazamFingerprint()

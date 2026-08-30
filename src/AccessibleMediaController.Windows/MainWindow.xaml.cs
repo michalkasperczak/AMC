@@ -149,6 +149,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         DiagnosticLog.Info("startup", "Tworzenie głównego okna.");
         InitializeComponent();
+        MenuAccessibility.NormalizeMainMenu(MainMenu);
+        MenuAccessibility.NormalizeContextMenu(MediaList.ContextMenu);
+        MenuAccessibility.NormalizeContextMenu(PlayerPanel.ContextMenu);
         const string initialStatus = "pauza, 0:00";
         _playbackStatusLabel = new System.Windows.Forms.ToolStripStatusLabel
         {
@@ -2452,8 +2455,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void UpdateKeyboardHelpMenuItem()
     {
         var state = _keyboardHelpActive ? "włączona" : "wyłączona";
-        KeyboardHelpMenuItem.Header = $"Pomoc _klawiatury: {state}";
-        AutomationProperties.SetName(KeyboardHelpMenuItem, $"Pomoc klawiatury: {state}, Ctrl+F1");
+        MenuAccessibility.SetPresentation(KeyboardHelpMenuItem, $"Pomoc klawiatury: {state}");
     }
 
     private void ShowLegacyShortcutHelpText()
@@ -2707,12 +2709,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RadioRecognitionHistoryViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         RefreshLocalLibraryMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         RenameLocalFileMainMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
-        RenameLibraryItemMainMenuItem.Header = radio
-            ? "Edytuj _nazwę i adres stacji…"
-            : "Zmień nazwę w _Bibliotece…";
-        AutomationProperties.SetName(
+        MenuAccessibility.SetPresentation(
             RenameLibraryItemMainMenuItem,
-            radio ? "Edytuj nazwę i adres stacji, F2" : "Zmień nazwę w Bibliotece, F2");
+            radio ? "Edytuj nazwę i adres stacji…" : "Zmień nazwę w Bibliotece…");
         var movableView = !_playerViewActive
             && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
                 || !radio && string.Equals(_currentView, "Kolejka", StringComparison.Ordinal)
@@ -2722,22 +2721,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         MoveItemDownMainMenuItem.Visibility = movableView ? Visibility.Visible : Visibility.Collapsed;
 
         PlaylistsViewMenuItem.Visibility = Visibility.Visible;
-        PlaylistsViewMenuItem.Header = "_Playlisty";
+        PlaylistsViewMenuItem.Header = "Playlisty";
         PlaylistsViewMenuItem.InputGestureText = "Ctrl+P";
-        AutomationProperties.SetName(
-            PlaylistsViewMenuItem,
-            "Playlisty, Ctrl+P");
+        AutomationProperties.SetName(PlaylistsViewMenuItem, "Playlisty");
         var presetsAvailable = CurrentSessionSupportsPresets();
         RadioPresetsViewMenuItem.Visibility = presetsAvailable ? Visibility.Visible : Visibility.Collapsed;
         AutomationProperties.SetName(
             RadioPresetsViewMenuItem,
-            $"Presety, {_sessions.Current.DisplayName}, Ctrl+Alt+P");
+            $"Presety, {_sessions.Current.DisplayName}");
         RadioAssignPresetMenuItem.Visibility = presetsAvailable ? Visibility.Visible : Visibility.Collapsed;
-        RadioAssignPresetMenuItem.Header = "_Utwórz lub przypisz preset…";
+        RadioAssignPresetMenuItem.Header = "Utwórz lub przypisz preset…";
         RadioAssignPresetMenuItem.InputGestureText = "Ctrl+Alt+Shift+P";
         AutomationProperties.SetName(
             RadioAssignPresetMenuItem,
-            $"Utwórz lub przypisz preset, {_sessions.Current.DisplayName}, Ctrl+Alt+Shift+P");
+            $"Utwórz lub przypisz preset, {_sessions.Current.DisplayName}");
         AlbumsViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         QueueViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         BookmarksViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
@@ -2769,11 +2766,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && _sessions.Current.HasCurrentItem
             && IsRadioStationManuallyRecording(_sessions.Current.CurrentItem);
         RadioRecordingMenuItem.Header = currentRadioManuallyRecording
-            ? "_Zakończ nagrywanie radia"
-            : "_Rozpocznij nagrywanie radia";
+            ? "Zakończ nagrywanie radia"
+            : "Rozpocznij nagrywanie radia";
         AutomationProperties.SetName(
             RadioRecordingMenuItem,
-            $"{(currentRadioManuallyRecording ? "Zakończ" : "Rozpocznij")} nagrywanie radia, R, w odtwarzaczu radia");
+            $"{(currentRadioManuallyRecording ? "Zakończ" : "Rozpocznij")} nagrywanie radia w odtwarzaczu radia");
         RadioAddScheduleMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         RadioAddScheduleMenuItem.IsEnabled = radio && RadioScheduleActionStation() is not null;
         RadioSchedulesMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
@@ -2787,11 +2784,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : Visibility.Collapsed;
         MonitorRadioRecognitionMenuItem.IsChecked = _radioRecognitionMonitoring;
         MonitorRadioRecognitionMenuItem.Header = _radioRecognitionMonitoring
-            ? "_Obserwuj rozpoznawanie: włączone"
-            : "_Obserwuj rozpoznawanie: wyłączone";
+            ? "Obserwuj rozpoznawanie: włączone"
+            : "Obserwuj rozpoznawanie: wyłączone";
         AutomationProperties.SetName(
             MonitorRadioRecognitionMenuItem,
-            $"Obserwowanie rozpoznawania utworów: {(_radioRecognitionMonitoring ? "włączone" : "wyłączone")}, Shift+S");
+            $"Obserwowanie rozpoznawania utworów: {(_radioRecognitionMonitoring ? "włączone" : "wyłączone")}");
         PlaybackAfterRecordingSeparator.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         PlaybackAddBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         PlaybackAddNamedBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
@@ -10298,8 +10295,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string label,
         string shortcut)
     {
-        menuItem.Header = label;
-        AutomationProperties.SetName(menuItem, $"{label}, {shortcut}");
+        MenuAccessibility.SetPresentation(menuItem, label);
     }
 
     private void CopyActionItemName()

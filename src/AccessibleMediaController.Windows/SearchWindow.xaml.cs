@@ -49,6 +49,7 @@ public partial class SearchWindow : Window
         Func<string, CancellationToken, Task>? prepareRemoteSearch = null)
     {
         InitializeComponent();
+        MenuAccessibility.NormalizeContextMenu(ResultsList.ContextMenu);
         var modeName = allServices
             ? "Szukaj we wszystkich usługach"
             : $"Szukaj w {sessions.Current.DisplayName}";
