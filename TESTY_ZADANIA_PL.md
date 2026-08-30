@@ -1,12 +1,47 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-155`
-- Tytuł zestawu: Odtwarzanie TS i odzyskiwanie niedokończonych nagrań
-- Wersja programu: `0.1.0-alpha.155`
+- Numer zestawu: `AMC-TEST-156`
+- Tytuł zestawu: Bezpieczne zatrzymywanie i zamykanie nagrań
+- Wersja programu: `0.1.0-alpha.156`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.155.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.156.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 156
+
+### AMC-156-01 — Zatrzymanie jednego nagrania
+
+Uruchom jedno ręczne nagranie i naciśnij `Alt+Shift+R`.
+
+Oczekiwane: AMC nie pyta dodatkowo, oznajmia zatrzymywanie, finalizuje plik i
+usuwa prefiks Nagrywany. Odtwarzanie słuchanej stacji pozostaje niezależne.
+
+### AMC-156-02 — Zatrzymanie kilku nagrań
+
+Uruchom równolegle co najmniej dwa nagrania i naciśnij `Alt+Shift+R`.
+
+Oczekiwane: pojawia się jedno dostępne ostrzeżenie z liczbą nagrań. Nie jest
+wyborem domyślnym. Po potwierdzeniu wszystkie fragmenty są finalizowane, bez
+serii nakładających się komunikatów. Anulowanie pozostawia nagrania bez zmian.
+
+### AMC-156-03 — Ostrzeżenie przy zamykaniu
+
+Podczas nagrywania naciśnij `Alt+F4`.
+
+Oczekiwane: AMC podaje liczbę nagrań i pyta, czy zakończyć je oraz zamknąć
+program. Nie pozostawia uszkodzonych plików roboczych. Po ponownym uruchomieniu
+nie wznawia przerwanego nagrania; harmonogram cykliczny zachowuje następny termin.
+
+### AMC-156-04 — Spacja nie steruje nagrywaniem
+
+Podczas równoczesnego odtwarzania i nagrywania użyj Spacji.
+
+Oczekiwane: zmienia się tylko pauza odsłuchu. Nagrywanie trwa bez luki. AMC nie
+udostępnia pozornej pauzy zapisu; bieżące nagranie można zakończyć i rozpocząć
+nowe.
+
+## Poprzedni zestaw alpha 155
 
 ## Nowości alpha 155
 

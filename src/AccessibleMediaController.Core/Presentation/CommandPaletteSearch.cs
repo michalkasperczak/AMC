@@ -205,6 +205,7 @@ public static class CommandPaletteSearch
             CommandIds.ImportRadioPlaylist => "Ctrl+O (Radio internetowe)",
             CommandIds.AddRadioStation => "Insert (Biblioteka radia)",
             CommandIds.ToggleRadioRecording => "R (odtwarzacz radia) lub Ctrl+Alt+R (lista radia)",
+            CommandIds.StopAllRadioRecordings => "Alt+Shift+R",
             CommandIds.AddRadioSchedule => "Shift+R (Radio internetowe)",
             CommandIds.ManageRadioSchedules => "Ctrl+Alt+Shift+R (Radio internetowe)",
             CommandIds.ViewActiveRadioRecordings => "Alt+2 (Radio internetowe)",

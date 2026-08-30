@@ -442,6 +442,12 @@ Stations decoded at 22.05 or 24 kHz are no longer silently written by the system
 
 Local `.ts`, `.mts` and `.m2ts` use a tolerant FFmpeg decoder that extracts only the audio track. AMC can therefore play broadcasts captured between video key frames even when Media Foundation rejects the container, while seeking remains available. `Ctrl+O` has a separate **Incomplete recordings to recover** filter for `.part`, `.partial` and `.amc-partial`; AMC attempts to play the available portion and ends at its actual boundary. Such files are not indexed automatically from folders because they may still be growing or incomplete.
 
+## Safe recording termination in alpha 156
+
+`Alt+Shift+R` stops all currently active manual and scheduled recordings regardless of the open session. A single recording stops immediately; multiple recordings require explicit confirmation whose default answer is No. Every received fragment is finalised, while a recurring schedule keeps only its next occurrence. Closing AMC during recording likewise reports the active count and requires confirmation. Recordings ended by an orderly shutdown are not resumed after the next launch.
+
+Space remains a listening-playback pause only. AMC intentionally does not provide recording pause: suspending incoming data would create a hidden gap and could break continuity when source packets are copied. To split captured material, end the current recording and start another one.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

@@ -80,6 +80,10 @@
                           automation:AutomationProperties.Name="Rozpocznij lub zakończ nagrywanie radia, R, w odtwarzaczu radia"
                           automation:AutomationProperties.AcceleratorKey="R"
                           Click="RadioRecording_Click" />
+                <MenuItem x:Name="StopAllRadioRecordingsMenuItem" Header="Zatrzymaj _wszystkie nagrania" InputGestureText="Alt+Shift+R"
+                          automation:AutomationProperties.Name="Zatrzymaj wszystkie trwające nagrania, Alt+Shift+R"
+                          automation:AutomationProperties.AcceleratorKey="Alt+Shift+R"
+                          Click="StopAllRadioRecordings_Click" />
                 <MenuItem x:Name="RadioAddScheduleMenuItem" Header="Zaplanuj nagranie wybranej stacji…" InputGestureText="Shift+R"
                           automation:AutomationProperties.Name="Zaplanuj nagranie wybranej stacji, Shift+R"
                           automation:AutomationProperties.AcceleratorKey="Shift+R"

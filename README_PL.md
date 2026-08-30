@@ -471,6 +471,12 @@ Stacje dekodowane jako 22,05 albo 24 kHz nie są już po cichu zapisywane przez 
 
 Lokalne `.ts`, `.mts` i `.m2ts` korzystają z odpornego dekodera FFmpeg, który pobiera wyłącznie ścieżkę audio. Dzięki temu AMC odtwarza również transmisje zapisane od środka segmentu obrazu, które Media Foundation odrzuca. Przewijanie pozostaje dostępne. `Ctrl+O` ma osobny filtr **Niedokończone nagrania do odzyskania** dla `.part`, `.partial` i `.amc-partial`; AMC próbuje odtworzyć dostępną część i kończy na jej rzeczywistym końcu. Takie pliki nie są automatycznie indeksowane z folderów, ponieważ mogą być nadal zapisywane lub niekompletne.
 
+## Bezpieczne kończenie nagrań w alpha 156
+
+`Alt+Shift+R` zatrzymuje wszystkie aktualne nagrania ręczne i harmonogramowe niezależnie od otwartej sesji. Dla jednego nagrania działa od razu; przy kilku wymaga jawnego potwierdzenia z domyślną odpowiedzią Nie. Każdy odebrany fragment jest finalizowany, a harmonogram cykliczny zachowuje dopiero następny termin. Zamknięcie AMC podczas nagrywania również podaje liczbę aktywnych zapisów i wymaga potwierdzenia. Kontrolowanie zamknięte nagrania nie są wznawiane po kolejnym uruchomieniu.
+
+Spacja pozostaje wyłącznie pauzą odsłuchu. AMC świadomie nie oferuje pauzy nagrania: zatrzymanie dopływu danych tworzyłoby niewidoczną lukę, a dla kopiowanego strumienia mogłoby uszkodzić ciągłość kontenera. Aby rozdzielić materiał, należy zakończyć bieżące nagranie i rozpocząć następne.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

@@ -67,6 +67,7 @@ public static class CommandIds
     public const string AddRadioStation = "radio.station.add";
     public const string ImportRadioPlaylist = "radio.playlist.import";
     public const string ToggleRadioRecording = "radio.recording.toggle";
+    public const string StopAllRadioRecordings = "radio.recording.stopAll";
     public const string AddRadioSchedule = "radio.recording.schedule.add";
     public const string ManageRadioSchedules = "radio.recording.schedules";
     public const string ViewActiveRadioRecordings = "radio.recording.active";

@@ -86,12 +86,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         new(StringComparer.Ordinal);
     private readonly Dictionary<string, ActiveManualRadioRecording> _activeManualRadioRecordings =
         new(StringComparer.Ordinal);
+    private readonly HashSet<string> _bulkStoppedManualRadioRecordings = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _bulkStoppedScheduledRadioRecordings = new(StringComparer.Ordinal);
     private readonly SystemWakeTimer _radioWakeTimer = new();
     private readonly Dictionary<string, FileSystemWatcher> _localSourceWatchers =
         new(StringComparer.OrdinalIgnoreCase);
     private bool _localSourceSyncInProgress;
     private bool _localSourceSyncPending;
     private bool _isClosing;
+    private bool _recordingCloseConfirmed;
     private bool _playerViewActive;
     private bool _keyboardHelpActive;
     private bool _restoringSessionNavigation;
@@ -2539,6 +2542,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Zmień przynależność do playlist, Ctrl+Shift+P");
 
         RadioRecordingMenuItem.Visibility = radio && _playerViewActive ? Visibility.Visible : Visibility.Collapsed;
+        StopAllRadioRecordingsMenuItem.Visibility = Visibility.Visible;
+        StopAllRadioRecordingsMenuItem.IsEnabled =
+            _activeManualRadioRecordings.Count + _activeScheduledRadioRecordings.Count > 0;
         var currentRadioManuallyRecording = radio
             && _sessions.Current.HasCurrentItem
             && IsRadioStationManuallyRecording(_sessions.Current.CurrentItem);
@@ -3906,6 +3912,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.ToggleRadioRecording)
         {
             ToggleRadioRecording();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.StopAllRadioRecordings)
+        {
+            StopAllRadioRecordings();
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.AddRadioSchedule)
@@ -6248,6 +6259,63 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _ = CompleteManualRadioRecordingAsync(active);
     }
 
+    private void StopAllRadioRecordings()
+    {
+        var manualRecordings = _activeManualRadioRecordings.Values.ToArray();
+        var scheduledRecordings = _activeScheduledRadioRecordings.Values.ToArray();
+        var count = manualRecordings.Length + scheduledRecordings.Length;
+        if (count == 0)
+        {
+            AnnounceEssential("Brak trwających nagrań");
+            return;
+        }
+
+        if (count > 1)
+        {
+            var answer = System.Windows.MessageBox.Show(
+                this,
+                $"Trwają {count} nagrania. Zatrzymać i zapisać wszystkie odebrane fragmenty? Harmonogramy cykliczne pozostaną aktywne dla następnych terminów.",
+                "Zatrzymywanie nagrań",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No);
+            if (answer != MessageBoxResult.Yes)
+            {
+                RestoreItemActionFocus();
+                return;
+            }
+        }
+
+        foreach (var active in manualRecordings)
+        {
+            _bulkStoppedManualRadioRecordings.Add(active.Id);
+            active.Cancellation.Cancel();
+        }
+        foreach (var active in scheduledRecordings)
+        {
+            _bulkStoppedScheduledRadioRecordings.Add(active.ScheduleId);
+            AdvanceStoppedScheduledOccurrence(active, "zatrzymane przez użytkownika");
+            active.Cancellation.Cancel();
+        }
+        if (scheduledRecordings.Length > 0)
+        {
+            _store.Save(_state);
+            RearmRadioWakeTimer();
+        }
+        AnnounceEssential(count == 1
+            ? "Zatrzymuję nagrywanie"
+            : $"Zatrzymuję wszystkie nagrania: {count}");
+    }
+
+    private void AdvanceStoppedScheduledOccurrence(ActiveScheduledRadioRecording active, string reason)
+    {
+        var schedule = _state.Radio.RecordingSchedules.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, active.ScheduleId, StringComparison.Ordinal)
+            && candidate.NextStartUtcTicks == active.ExpectedStartUtcTicks);
+        if (schedule is not null)
+            _ = AdvanceOrRemoveRadioSchedule(schedule, DateTime.UtcNow, reason);
+    }
+
     private async Task CompleteManualRadioRecordingAsync(ActiveManualRadioRecording active)
     {
         ManualRadioRecordingResult result;
@@ -6265,9 +6333,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             result = new ManualRadioRecordingResult(false, false, null, exception.Message);
         }
         _activeManualRadioRecordings.Remove(active.Id);
+        var suppressAnnouncement = _bulkStoppedManualRadioRecordings.Remove(active.Id);
         active.Cancellation.Dispose();
         if (_isClosing) return;
         RefreshRadioRecordingPresentation();
+        if (suppressAnnouncement) return;
         if (result.Success && !string.IsNullOrWhiteSpace(result.Path))
         {
             DiagnosticLog.Info("radio-recording", $"Zakończono ręczne nagranie w tle: {active.StationName}; plik {result.Path}.");
@@ -6547,6 +6617,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (_activeScheduledRadioRecordings.Remove(snapshot.Id, out var active))
             active.Cancellation.Dispose();
+        var suppressAnnouncement = _bulkStoppedScheduledRadioRecordings.Remove(snapshot.Id);
         if (_isClosing) return;
         RefreshRadioRecordingPresentation();
 
@@ -6559,6 +6630,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _store.Save(_state);
         }
         RearmRadioWakeTimer();
+
+        if (suppressAnnouncement) return;
 
         if (result.Cancelled)
         {
@@ -7506,6 +7579,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (ReadEffectiveModifierKeys() == (ModifierKeys.Alt | ModifierKeys.Shift)
+            && windowKey == Key.R)
+        {
+            StopAllRadioRecordings();
+            e.Handled = true;
+            return;
+        }
+
         if (ReadEffectiveModifierKeys() == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)
             && windowKey == Key.R)
         {
@@ -7896,6 +7977,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && modifiers == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
         {
             commandId = CommandIds.ManageRadioSchedules;
+            return true;
+        }
+        if (key == Key.R
+            && modifiers == (ModifierKeys.Alt | ModifierKeys.Shift))
+        {
+            commandId = CommandIds.StopAllRadioRecordings;
             return true;
         }
         if (CurrentSessionSupportsPresets()
@@ -8912,6 +8999,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
+        var activeRecordingCount =
+            _activeManualRadioRecordings.Count + _activeScheduledRadioRecordings.Count;
+        if (!_recordingCloseConfirmed && activeRecordingCount > 0)
+        {
+            var answer = System.Windows.MessageBox.Show(
+                this,
+                $"Aktywne nagrania: {activeRecordingCount}. Zamknięcie AMC zakończy nagrywanie i zapisze odebrane fragmenty. Przerwane nagrania nie zostaną wznowione po ponownym uruchomieniu. Zamknąć program?",
+                "Trwające nagrania",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No);
+            if (answer != MessageBoxResult.Yes)
+            {
+                e.Cancel = true;
+                return;
+            }
+            _recordingCloseConfirmed = true;
+        }
+
         _isClosing = true;
         CaptureCurrentSessionNavigationState();
         CaptureLocalMediaState();
@@ -8947,6 +9053,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
         }
         var scheduledRecordings = _activeScheduledRadioRecordings.Values.ToArray();
+        foreach (var active in scheduledRecordings)
+            AdvanceStoppedScheduledOccurrence(active, "przerwane przy zamknięciu programu");
         foreach (var active in scheduledRecordings) active.Cancellation.Cancel();
         if (scheduledRecordings.Length > 0)
         {
@@ -9078,6 +9186,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ImportRadioPlaylist_Click(object sender, RoutedEventArgs e) => ImportRadioPlaylist();
     private void AddRadioStation_Click(object sender, RoutedEventArgs e) => AddRadioStation();
     private void RadioRecording_Click(object sender, RoutedEventArgs e) => ToggleRadioRecording();
+    private void StopAllRadioRecordings_Click(object sender, RoutedEventArgs e) => StopAllRadioRecordings();
     private void RadioAddSchedule_Click(object sender, RoutedEventArgs e) => AddRadioScheduleForCurrentContext();
     private void RadioSchedules_Click(object sender, RoutedEventArgs e) => ShowRadioSchedules();
     private void ActiveRadioRecordingsView_Click(object sender, RoutedEventArgs e) =>
