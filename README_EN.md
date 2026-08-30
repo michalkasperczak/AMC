@@ -452,6 +452,8 @@ Starting with `alpha.158`, network-list resolution also handles nested PLS, M3U,
 
 Starting with `alpha.159`, `Ctrl+M` mutes or restores listening in the current session, while `Ctrl+Shift+M` applies to every AMC session, including playback already running in the background or started later. The layers are independent: releasing global mute does not unmute a session that was muted individually. Adjusting volume clears individual mute but not global mute. These shortcuts do not alter Windows, NVDA or other applications and do not interrupt recording. Mute itself is not retained after restart, while the chosen numeric volume values are.
 
+Starting with `alpha.160`, `Ctrl+Shift+H` opens Radio's complete recording schedule list. It is the primary shortcut shown by menus, the palette and help, while the former `Ctrl+Alt+Shift+R` remains a compatibility alias. Invoking it outside Radio reports where the function is available and never changes session silently.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

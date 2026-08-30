@@ -7813,8 +7813,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        if (ReadEffectiveModifierKeys() == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)
-            && windowKey == Key.R)
+        if ((ReadEffectiveModifierKeys() == (ModifierKeys.Control | ModifierKeys.Shift)
+                && windowKey == Key.H)
+            || (ReadEffectiveModifierKeys() == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)
+                && windowKey == Key.R))
         {
             if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
                 ShowRadioSchedules();
@@ -8223,6 +8225,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             commandId = CommandIds.ManageRadioSchedules;
             return true;
         }
+        if (key == Key.H
+            && modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            commandId = CommandIds.ManageRadioSchedules;
+            return true;
+        }
         if (key == Key.R
             && modifiers == (ModifierKeys.Alt | ModifierKeys.Shift))
         {
@@ -8352,6 +8360,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.L) => CommandIds.ViewLibrary,
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
             (ModifierKeys.Control, Key.H) => CommandIds.ViewHistory,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.H) => CommandIds.ManageRadioSchedules,
             (ModifierKeys.Control, Key.B) => CommandIds.ViewBookmarks,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.B) => CommandIds.AddNamedBookmark,
             (ModifierKeys.Control, Key.K) => CommandIds.FilterCurrent,

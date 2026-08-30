@@ -481,6 +481,8 @@ Od `alpha.158` rozwiązywanie list sieciowych obejmuje także zagnieżdżone PLS
 
 Od `alpha.159` `Ctrl+M` wycisza albo przywraca odsłuch bieżącej sesji, a `Ctrl+Shift+M` wszystkie sesje AMC, również te grające w tle lub uruchomione później. Są to dwie niezależne warstwy: wyłączenie wyciszenia globalnego nie przywraca sesji wyciszonej wcześniej osobno. Regulacja głośności zdejmuje wyciszenie indywidualne, ale nie globalne. Skróty nie zmieniają głośności Windows, NVDA ani innych aplikacji i nie przerywają nagrywania. Wyciszenie nie jest zapisywane między uruchomieniami, natomiast ustawione wartości głośności pozostają zachowane.
 
+Od `alpha.160` `Ctrl+Shift+H` otwiera pełną listę harmonogramów nagrywania w Radiu. Jest to podstawowy skrót pokazywany w menu, palecie i pomocy; starszy `Ctrl+Alt+Shift+R` nadal działa jako alias. Wywołanie skrótu poza Radiem nie przełącza sesji, lecz podaje krótki komunikat o dostępności funkcji.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

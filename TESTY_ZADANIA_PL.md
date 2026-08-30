@@ -1,12 +1,35 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-159`
-- Tytuł zestawu: Wyciszenie sesji i wszystkich odtwarzaczy AMC
-- Wersja programu: `0.1.0-alpha.159`
+- Numer zestawu: `AMC-TEST-160`
+- Tytuł zestawu: Dostęp do listy harmonogramów nagrywania
+- Wersja programu: `0.1.0-alpha.160`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.159.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.160.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 160
+
+### AMC-160-01 — Lista harmonogramów pod Ctrl+Shift+H
+
+W sesji Radio naciśnij `Ctrl+Shift+H` kolejno na liście stacji, w otwartym
+odtwarzaczu i po ustawieniu fokusu na innej kontrolce głównego okna. Zamknij
+listę Escape i sprawdź powrót fokusu.
+
+Oczekiwane: za każdym razem otwiera się ta sama dostępna lista harmonogramów,
+bez zmiany stacji i bez technicznych nazw kontrolek. Menu, paleta, spis skrótów
+oraz `Ctrl+F1` podają `Ctrl+Shift+H`. Fokus po zamknięciu wraca na właściwe
+miejsce.
+
+### AMC-160-02 — Granica sesji i zgodność
+
+Naciśnij `Ctrl+Shift+H` poza Radiem, a w Radiu sprawdź również starszy
+`Ctrl+Alt+Shift+R`.
+
+Oczekiwane: poza Radiem program nie przełącza sesji i mówi, że harmonogram jest
+dostępny w Radiu. Starszy skrót nadal otwiera tę samą listę jako alias.
+
+## Poprzedni zestaw alpha 159
 
 ## Nowości alpha 159
 

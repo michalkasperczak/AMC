@@ -442,6 +442,7 @@ Zatwierdzone przypisania podstawowe:
 | `Ctrl+Shift+G` | chwilowo włącz lub wyłącz wszystkie automatyczne komunikaty odtwarzacza |
 | `Ctrl+M` | wycisz lub przywróć dźwięk bieżącej sesji |
 | `Ctrl+Shift+M` | wycisz lub przywróć dźwięk wszystkich sesji AMC |
+| `Ctrl+Shift+H` w Radiu | otwórz listę harmonogramów nagrywania |
 | `Ctrl+D` | pobierz offline wewnątrz usługi, jeśli obsługiwane |
 | `Ctrl+Shift+D` | pobierz do pliku lokalnego; funkcja eksperymentalna, domyślnie wyłączona |
 | `Delete` | usuń z bieżącej playlisty, kolejki, ulubionych lub biblioteki; z potwierdzeniem albo możliwością cofnięcia |
@@ -1059,6 +1060,8 @@ Zmiana `alpha.157` zastępuje wcześniejszą decyzję o braku pauzy nagrania. `S
 Zmiana `alpha.158` rozszerza wspólny resolver używany przez odtwarzanie i nagrywanie Oryginalne. PLS, M3U, M3U8 lub XSPF może wskazywać kolejną listę i może używać adresu względnego; AMC rozwiązuje najwyżej cztery poziomy, wykrywa odwołanie cykliczne i zachowuje końcowy adres po przekierowaniu HTTP. Jeżeli odpowiedź po przekierowaniu jest już bezpośrednim audio, program nie zużywa jego danych podczas próby analizy tekstu. Manifest zawierający znaczniki HLS pozostaje niezmiennie wejściem dekodera. Reguła nie jest wyjątkiem wpisanym dla Tyflo Podcastu: `listen.pls` jest jednym ze scenariuszy obsługiwanych przez wspólny, ograniczony mechanizm.
 
 Zmiana `alpha.159` wprowadza dwie niezależne warstwy wyciszenia. `Ctrl+M` wycisza albo przywraca dźwięk bieżącej sesji, a `Ctrl+Shift+M` robi to dla wszystkich torów odsłuchu AMC, także grających w innych sesjach i uruchomionych później. Wyciszenie globalne nie zmienia indywidualnego stanu sesji: po jego wyłączeniu sesja wyciszona wcześniej nadal pozostaje cicha. Zmiana głośności anuluje wyciszenie indywidualne, lecz nie omija aktywnego wyciszenia globalnego. Polecenia nie zmieniają głośności systemu, NVDA ani innych aplikacji i nie zatrzymują nagrywania radia. Stan wyciszenia jest celowo ulotny, dlatego po ponownym uruchomieniu AMC zachowuje ustawione wartości głośności, ale rozpoczyna bez niespodziewanego wyciszenia.
+
+Zmiana `alpha.160`: `Ctrl+Shift+H` jest podstawowym, krótkim skrótem listy harmonogramów nagrywania Radia. Działa z listy, odtwarzacza i innych kontrolek aktywnego okna AMC; poza sesją Radio podaje, gdzie funkcja jest dostępna, zamiast po cichu przełączać sesję. Dotychczasowy `Ctrl+Alt+Shift+R` pozostaje zgodnościowym aliasem, ale menu, paleta poleceń, spis skrótów i pomoc klawiszy przedstawiają prostszy skrót.
 
 Katalog lokalny i kolejność: Biblioteka nie jest playlistą ani kopią jednego folderu, lecz katalogiem źródeł z trwałą tożsamością, ścieżką i widokami. Porządki wyliczane, takie jak tytuł, wykonawca, album, folder, data dodania albo ostatnie odtworzenie, pozostają deterministycznymi sposobami sortowania. Osobna Kolejność własna jest zapisem użytkownika i nie zmienia kolejności plików na dysku. Te same klawisze nie udają ręcznego sortowania w widokach wykonawców, albumów ani wyników wyszukiwania.
 

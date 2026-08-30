@@ -210,7 +210,7 @@ public static class CommandPaletteSearch
             CommandIds.ToggleRadioRecordingPause => "Shift+Spacja (Radio internetowe)",
             CommandIds.StopAllRadioRecordings => "Alt+Shift+R",
             CommandIds.AddRadioSchedule => "Shift+R (Radio internetowe)",
-            CommandIds.ManageRadioSchedules => "Ctrl+Alt+Shift+R (Radio internetowe)",
+            CommandIds.ManageRadioSchedules => "Ctrl+Shift+H (Radio internetowe)",
             CommandIds.ViewActiveRadioRecordings => "Alt+2 (Radio internetowe)",
             CommandIds.RadioJumpLive => "End (odtwarzacz radia)",
             CommandIds.ViewRadioPresets => "Ctrl+Alt+P (Pliki lokalne lub Radio internetowe)",

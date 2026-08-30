@@ -446,6 +446,7 @@ Approved primary bindings:
 | `Ctrl+Shift+G` | temporarily toggle all automatic player feedback |
 | `Ctrl+M` | mute or restore the current session's listening output |
 | `Ctrl+Shift+M` | mute or restore every AMC session's listening output |
+| `Ctrl+Shift+H` in Radio | open the recording schedule list |
 | `Ctrl+D` | download offline within the service when supported |
 | `Ctrl+Shift+D` | download to a local file; experimental and disabled by default |
 | `Delete` | remove from the current playlist, queue, Favorites or library, with confirmation or Undo |
@@ -1045,6 +1046,8 @@ Change in `alpha.157` supersedes the earlier decision not to provide recording p
 Change in `alpha.158` extends the shared resolver used by playback and Original capture. A PLS, M3U, M3U8 or XSPF address may point to another list and may contain a relative URL; AMC resolves at most four levels, detects cycles, and retains the final URL after an HTTP redirect. If that redirect already returns direct audio, the application does not consume stream data while trying to parse text. A manifest containing HLS tags remains decoder input. This is not a Tyflo Podcast-specific exception: `listen.pls` is one scenario covered by the common bounded mechanism.
 
 Change in `alpha.159` adds two independent mute layers. `Ctrl+M` mutes or restores the current session, while `Ctrl+Shift+M` does so for all AMC listening pipelines, including playback in other sessions and playback started later. Global mute does not overwrite each session's individual state: after global mute is released, a session muted beforehand remains silent. A volume adjustment clears individual mute but cannot bypass active global mute. These commands never change Windows, NVDA or another application's volume and never stop a Radio recording. Mute is intentionally transient, so AMC retains numeric volume values across a restart but does not start unexpectedly silent.
+
+Change in `alpha.160`: `Ctrl+Shift+H` is the primary concise shortcut for Radio's recording schedule list. It works from a list, the player and other controls in the active AMC window; outside the Radio session it explains where the feature is available instead of switching sessions silently. The former `Ctrl+Alt+Shift+R` remains a compatibility alias, while menus, the command palette, shortcut list and keyboard help present the shorter binding.
 
 Local catalogue and ordering: the Library is neither a playlist nor a mirror of one folder. It is a catalogue of sources with stable identity, path and derived views. Derived orders such as title, artist, album, folder, date added or last played remain deterministic sort modes. Separate Custom order is user metadata and never changes disk-file order. The same keys do not pretend to reorder artist, album or search-result views.
 
