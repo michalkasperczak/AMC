@@ -103,6 +103,7 @@ public static class CommandCatalog
             CommandIds.ImportRadioPlaylist => "Importuj stacje radiowe z playlisty",
             CommandIds.ToggleRadioRecording => "Rozpocznij lub zakończ nagrywanie radia",
             CommandIds.ToggleRadioRecordingPause => "Wstrzymaj lub wznów wybrane nagranie radia",
+            CommandIds.SplitRadioRecording => "Rozpocznij nową część ręcznego nagrania radia",
             CommandIds.StopAllRadioRecordings => "Zatrzymaj wszystkie trwające nagrania",
             CommandIds.AddRadioSchedule => "Zaplanuj nagranie wybranej stacji",
             CommandIds.ManageRadioSchedules => "Harmonogram nagrywania radia",

@@ -188,6 +188,7 @@ static void TestCommandCatalog()
     Equal("Otwórz folder z plikami multimedialnymi", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Importuj stacje radiowe z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportRadioPlaylist));
     Equal("Pokaż aktualnie nagrywane stacje", CommandCatalog.GetDisplayName(CommandIds.ViewActiveRadioRecordings));
+    Equal("Rozpocznij nową część ręcznego nagrania radia", CommandCatalog.GetDisplayName(CommandIds.SplitRadioRecording));
     Equal("Zatrzymaj wszystkie trwające nagrania", CommandCatalog.GetDisplayName(CommandIds.StopAllRadioRecordings));
     Equal("Pokaż presety aktywnej sesji", CommandCatalog.GetDisplayName(CommandIds.ViewRadioPresets));
     Equal("Utwórz lub przypisz preset aktywnej sesji", CommandCatalog.GetDisplayName(CommandIds.AssignRadioPreset));
@@ -331,17 +332,35 @@ static void TestRadioRecordingSchedule()
                 NextStartUtcTicks = start.Ticks,
                 TimeZoneId = "UTC",
                 DurationMinutes = 0,
+                SegmentMinutes = 30,
                 Recurrence = RadioScheduleRecurrence.SelectedDays,
                 ActiveDays = [],
                 WakeComputer = true
+            },
+            new RadioRecordingScheduleSettings
+            {
+                Id = "schedule-segmented",
+                StationId = "station-b",
+                StationName = "Stacja dzielona",
+                StreamUrl = "https://example.test/segmented",
+                NextStartUtcTicks = start.AddHours(1).Ticks,
+                TimeZoneId = "UTC",
+                DurationMinutes = 120,
+                SegmentMinutes = 30,
+                Recurrence = RadioScheduleRecurrence.Once
             }
         ];
         store.Save(state);
         var loaded = store.LoadOrCreate();
-        Equal(1, loaded.Radio.RecordingSchedules.Count);
-        Equal(1, loaded.Radio.RecordingSchedules[0].DurationMinutes);
-        Equal(1, loaded.Radio.RecordingSchedules[0].ActiveDays.Count);
-        Equal(true, loaded.Radio.RecordingSchedules[0].WakeComputer);
+        Equal(2, loaded.Radio.RecordingSchedules.Count);
+        var normalized = loaded.Radio.RecordingSchedules.Single(item => item.Id == "schedule-a");
+        Equal(1, normalized.DurationMinutes);
+        Equal(0, normalized.SegmentMinutes);
+        Equal(1, normalized.ActiveDays.Count);
+        Equal(true, normalized.WakeComputer);
+        var segmented = loaded.Radio.RecordingSchedules.Single(item => item.Id == "schedule-segmented");
+        Equal(120, segmented.DurationMinutes);
+        Equal(30, segmented.SegmentMinutes);
         Equal(@"D:\Nagrania radia", loaded.Radio.RecordingsFolder);
         Equal(RadioRecordingFormat.Original, loaded.Radio.RecordingFormat);
         Equal(160, loaded.Radio.RecordingBitrateKbps);
@@ -2591,6 +2610,7 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+P", entries.Single(entry => entry.CommandId == CommandIds.ManagePlaylists).LocalShortcut);
     Equal("Ctrl+Alt+P (Pliki lokalne lub Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ViewRadioPresets).LocalShortcut);
     Equal("Ctrl+Alt+Shift+P (Pliki lokalne lub Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.AssignRadioPreset).LocalShortcut);
+    Equal("T (odtwarzacz radia lub widok Nagrywane)", entries.Single(entry => entry.CommandId == CommandIds.SplitRadioRecording).LocalShortcut);
     Equal("Alt+Shift+R", entries.Single(entry => entry.CommandId == CommandIds.StopAllRadioRecordings).LocalShortcut);
     Equal("Ctrl+Shift+H (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ManageRadioSchedules).LocalShortcut);
     True(entries.Any(entry => entry.CommandId == CommandIds.ViewFolders), "Paleta powinna zawierać widok folderów.");

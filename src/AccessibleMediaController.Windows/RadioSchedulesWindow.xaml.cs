@@ -62,7 +62,10 @@ public partial class RadioSchedulesWindow : Window
         var state = schedule.Enabled
             ? active ? "włączony, nagrywanie trwa" : "włączony"
             : active ? "wyłączony, nagrywanie zostanie zatrzymane po zapisaniu" : "wyłączony";
-        return $"{schedule.StationName}, {local:dd.MM.yyyy HH:mm}, {schedule.DurationMinutes} min, {recurrence}, {state}";
+        var fileDivision = schedule.SegmentMinutes > 0
+            ? $"części co {schedule.SegmentMinutes} min"
+            : "jeden plik";
+        return $"{schedule.StationName}, {local:dd.MM.yyyy HH:mm}, {schedule.DurationMinutes} min, {fileDivision}, {recurrence}, {state}";
     }
 
     private void New_Click(object sender, RoutedEventArgs e)
@@ -178,6 +181,7 @@ public partial class RadioSchedulesWindow : Window
         NextStartUtcTicks = schedule.NextStartUtcTicks,
         TimeZoneId = schedule.TimeZoneId,
         DurationMinutes = schedule.DurationMinutes,
+        SegmentMinutes = schedule.SegmentMinutes,
         Recurrence = schedule.Recurrence,
         ActiveDays = [.. schedule.ActiveDays],
         OutputFolder = schedule.OutputFolder,

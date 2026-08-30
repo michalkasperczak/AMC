@@ -84,7 +84,12 @@ internal static class ManualRadioRecorder
                 folderResolution.Path,
                 recordingFormat,
                 recordingBitrateKbps);
-            control.Attach(output);
+            control.Attach(
+                output,
+                folderResolution.Path,
+                recordingFormat,
+                recordingBitrateKbps,
+                path);
             recordingStarted(path);
 
             var finished = await Task.WhenAny(
@@ -92,7 +97,7 @@ internal static class ManualRadioRecorder
                 recordingFailed.Task).ConfigureAwait(false);
             if (finished == recordingFailed.Task)
             {
-                output.StopRecording();
+                var failedPath = control.StopCurrentSegment(output);
                 return new ManualRadioRecordingResult(
                     false,
                     false,
@@ -100,21 +105,23 @@ internal static class ManualRadioRecorder
                     "Koder nagrania przerwał zapis");
             }
 
-            var savedPath = output.StopRecording();
+            var savedPath = control.StopCurrentSegment(output);
+            var latestPath = savedPath ?? control.CompletedPaths.LastOrDefault();
             return new ManualRadioRecordingResult(
-                savedPath is not null,
+                latestPath is not null,
                 true,
-                savedPath,
-                savedPath is null ? "Nie utworzono pliku nagrania" : null);
+                latestPath,
+                latestPath is null ? "Nie utworzono pliku nagrania" : null);
         }
         catch (OperationCanceledException)
         {
-            var savedPath = output.StopRecording();
+            var savedPath = control.StopCurrentSegment(output);
+            var latestPath = savedPath ?? control.CompletedPaths.LastOrDefault();
             return new ManualRadioRecordingResult(
-                savedPath is not null,
+                latestPath is not null,
                 true,
-                savedPath,
-                savedPath is null ? "Nie utworzono pliku nagrania" : null);
+                latestPath,
+                latestPath is null ? "Nie utworzono pliku nagrania" : null);
         }
         catch (Exception exception) when (exception is IOException
             or UnauthorizedAccessException
@@ -124,7 +131,11 @@ internal static class ManualRadioRecorder
             or TimeoutException
             or COMException)
         {
-            try { output.StopRecording(); } catch (Exception) { }
+            try
+            {
+                _ = control.StopCurrentSegment(output);
+            }
+            catch (Exception) { }
             return new ManualRadioRecordingResult(false, false, null, exception.Message);
         }
         finally

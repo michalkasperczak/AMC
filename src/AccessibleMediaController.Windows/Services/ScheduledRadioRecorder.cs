@@ -100,44 +100,79 @@ internal static class ScheduledRadioRecorder
                     folderResolution.Path,
                     recordingFormat,
                     recordingBitrateKbps);
-                control.Attach(output);
-                var remaining = deadlineUtc - DateTime.UtcNow;
-                if (remaining <= TimeSpan.Zero)
-                    return new ScheduledRadioRecordingResult(false, false, null, "Okno nagrywania już się zakończyło");
-
-                var finished = await Task.WhenAny(
-                    Task.Delay(remaining, cancellationToken),
-                    recordingFailed.Task).ConfigureAwait(false);
-                if (finished == recordingFailed.Task)
+                control.Attach(
+                    output,
+                    folderResolution.Path,
+                    recordingFormat,
+                    recordingBitrateKbps,
+                    path);
+                while (true)
                 {
-                    output.StopRecording();
-                    return new ScheduledRadioRecordingResult(
-                        false,
-                        false,
-                        null,
-                        "Koder nagrania przerwał zapis");
-                }
+                    var remaining = deadlineUtc - DateTime.UtcNow;
+                    if (remaining <= TimeSpan.Zero)
+                    {
+                        var expiredPath = control.StopCurrentSegment(output);
+                        return expiredPath is null
+                            ? new ScheduledRadioRecordingResult(false, false, null, "Okno nagrywania już się zakończyło")
+                            : new ScheduledRadioRecordingResult(true, false, expiredPath, null);
+                    }
 
-                var savedPath = output.StopRecording();
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    return new ScheduledRadioRecordingResult(
-                        savedPath is not null,
-                        true,
-                        savedPath,
-                        null);
+                    var wait = CalculateNextWait(remaining, schedule.SegmentMinutes);
+                    var finished = await Task.WhenAny(
+                        Task.Delay(wait, cancellationToken),
+                        recordingFailed.Task).ConfigureAwait(false);
+                    if (finished == recordingFailed.Task)
+                    {
+                        var failedPath = control.StopCurrentSegment(output);
+                        return new ScheduledRadioRecordingResult(
+                            false,
+                            false,
+                            failedPath,
+                            "Koder nagrania przerwał zapis");
+                    }
+
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        var cancelledPath = control.StopCurrentSegment(output);
+                        var latestPath = cancelledPath ?? control.CompletedPaths.LastOrDefault();
+                        return new ScheduledRadioRecordingResult(
+                            latestPath is not null,
+                            true,
+                            latestPath,
+                            null);
+                    }
+
+                    var timeLeft = deadlineUtc - DateTime.UtcNow;
+                    if (ShouldStartNextSegment(wait, timeLeft, schedule.SegmentMinutes))
+                    {
+                        var split = control.SplitRecording();
+                        if (split.Kind != RadioRecordingSplitChangeKind.Split)
+                        {
+                            var lastPath = control.StopCurrentSegment(output);
+                            return new ScheduledRadioRecordingResult(
+                                false,
+                                false,
+                                lastPath ?? split.CompletedPath,
+                                split.Error ?? "Nie udało się rozpocząć następnej części nagrania");
+                        }
+                        path = split.CurrentPath;
+                        continue;
+                    }
+
+                    var savedPath = control.StopCurrentSegment(output);
+                    return savedPath is null
+                        ? new ScheduledRadioRecordingResult(false, false, null, "Nie utworzono pliku nagrania")
+                        : new ScheduledRadioRecordingResult(true, false, savedPath, null);
                 }
-                return savedPath is null
-                    ? new ScheduledRadioRecordingResult(false, false, null, "Nie utworzono pliku nagrania")
-                    : new ScheduledRadioRecordingResult(true, false, savedPath, null);
             }
             catch (OperationCanceledException)
             {
-                var savedPath = output.StopRecording();
+                var savedPath = control.StopCurrentSegment(output);
+                var latestPath = savedPath ?? control.CompletedPaths.LastOrDefault();
                 return new ScheduledRadioRecordingResult(
-                    savedPath is not null,
+                    latestPath is not null,
                     true,
-                    savedPath,
+                    latestPath,
                     null);
             }
             catch (Exception exception) when (exception is IOException
@@ -148,7 +183,11 @@ internal static class ScheduledRadioRecorder
                 or TimeoutException
                 or COMException)
             {
-                try { output.StopRecording(); } catch (Exception) { }
+                try
+                {
+                    _ = control.StopCurrentSegment(output);
+                }
+                catch (Exception) { }
                 return new ScheduledRadioRecordingResult(false, false, path, exception.Message);
             }
             finally
@@ -166,6 +205,22 @@ internal static class ScheduledRadioRecorder
                 null,
                 lastError ?? "Nie udało się połączyć ze stacją przed końcem zaplanowanego czasu");
     }
+
+    internal static TimeSpan CalculateNextWait(TimeSpan remaining, int segmentMinutes)
+    {
+        if (remaining <= TimeSpan.Zero) return TimeSpan.Zero;
+        if (segmentMinutes <= 0) return remaining;
+        var segment = TimeSpan.FromMinutes(segmentMinutes);
+        return segment < remaining ? segment : remaining;
+    }
+
+    internal static bool ShouldStartNextSegment(
+        TimeSpan completedWait,
+        TimeSpan timeLeft,
+        int segmentMinutes) =>
+        segmentMinutes > 0
+        && completedWait == TimeSpan.FromMinutes(segmentMinutes)
+        && timeLeft > TimeSpan.FromSeconds(3);
 }
 
 internal sealed class WindowsPowerRequest : IDisposable

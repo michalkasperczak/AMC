@@ -161,7 +161,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 31;
+    public int SchemaVersion { get; set; } = 32;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -351,6 +351,7 @@ public sealed class RadioRecordingScheduleSettings
     public long NextStartUtcTicks { get; set; }
     public string TimeZoneId { get; set; } = TimeZoneInfo.Local.Id;
     public int DurationMinutes { get; set; } = 60;
+    public int SegmentMinutes { get; set; }
     public RadioScheduleRecurrence Recurrence { get; set; }
     public List<DayOfWeek> ActiveDays { get; set; } = [];
     public string OutputFolder { get; set; } = string.Empty;

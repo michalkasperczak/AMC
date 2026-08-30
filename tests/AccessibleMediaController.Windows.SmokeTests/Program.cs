@@ -74,6 +74,9 @@ try
     TestRadioCompatibilityCandidates();
     TestRadioReconnectFormatCompatibility();
     TestRadioRecordingFolderFallback();
+    TestRadioRecordingSplitControl();
+    TestRadioRecordingSplitPipeline();
+    TestScheduledRadioSegmentation();
     TestRadioMp3Recording();
     TestLegacyIcyMp3Stream();
     TestLegacyIcyCancellation();
@@ -1177,6 +1180,74 @@ static void TestRadioRecordingFolderFallback()
     }
 }
 
+static void TestRadioRecordingSplitControl()
+{
+    var control = new RadioRecordingControl();
+    var split = control.SplitRecording();
+    Assert(split.Kind == RadioRecordingSplitChangeKind.NotReady,
+        "Podział niegotowego nagrania nie został bezpiecznie odrzucony.");
+    Assert(control.CompletedPaths.Count == 0 && control.CurrentPath is null,
+        "Odrzucony podział ujawnił nieistniejące pliki nagrania.");
+    Console.WriteLine("OK: bezpieczne odrzucenie podziału niegotowego nagrania");
+}
+
+static void TestRadioRecordingSplitPipeline()
+{
+    var folder = Path.Combine(Path.GetTempPath(), "amc-radio-split-test");
+    var firstPath = Path.Combine(folder, "part-1.wav");
+    var backend = new TestRadioRecordingBackend(firstPath);
+    var control = new RadioRecordingControl();
+    control.Attach(backend, folder, RadioRecordingFormat.Wav, 192, firstPath);
+
+    var pause = control.SetPaused(true);
+    Assert(pause.Kind == RadioRecordingPauseChangeKind.Paused && backend.IsRecordingPaused,
+        "Testowy backend nie został wstrzymany przed podziałem.");
+    var split = control.SplitRecording();
+
+    Assert(split.Kind == RadioRecordingSplitChangeKind.Split,
+        $"Nie udało się podzielić rzeczywistego stanu nagrania: {split.Error}");
+    Assert(string.Equals(split.CompletedPath, firstPath, StringComparison.OrdinalIgnoreCase),
+        "Podział nie opublikował pierwszej części.");
+    Assert(!string.Equals(split.CompletedPath, split.CurrentPath, StringComparison.OrdinalIgnoreCase),
+        "Nowa część otrzymała tę samą ścieżkę co poprzednia.");
+    Assert(backend.IsRecording && backend.IsRecordingPaused,
+        "Podział nie zachował stanu pauzy w nowej części.");
+    Assert(control.CompletedPaths.Count == 1 && control.CurrentPath == split.CurrentPath,
+        "Kontroler nie zapamiętał pierwszej i bieżącej części.");
+
+    var finalPath = control.StopCurrentSegment(backend);
+    control.Detach(backend);
+    Assert(control.CompletedPaths.Count == 2 && control.CurrentPath is null,
+        "Finalizacja po podziale nie zapisała dokładnie dwóch części.");
+    Assert(control.Markers.Count == 1
+           && string.Equals(control.Markers[0].Path, firstPath, StringComparison.OrdinalIgnoreCase),
+        "Punkt pauzy nie pozostał przypisany do pierwszej części.");
+    Console.WriteLine("OK: ręczny podział trwającego nagrania zachowuje części i pauzę");
+}
+
+static void TestScheduledRadioSegmentation()
+{
+    var whole = TimeSpan.FromHours(2);
+    var firstWait = ScheduledRadioRecorder.CalculateNextWait(whole, 15);
+    Assert(firstWait == TimeSpan.FromMinutes(15),
+        "Dwugodzinny plan nie wyznaczył pierwszej części 15-minutowej.");
+    Assert(ScheduledRadioRecorder.ShouldStartNextSegment(
+            firstWait,
+            whole - firstWait,
+            15),
+        "Plan nie rozpoczął następnej części po pełnych 15 minutach.");
+    Assert(ScheduledRadioRecorder.CalculateNextWait(whole, 0) == whole,
+        "Tryb jednego pliku nie zachował całego pozostałego czasu.");
+    var finalWait = ScheduledRadioRecorder.CalculateNextWait(TimeSpan.FromMinutes(10), 15);
+    Assert(finalWait == TimeSpan.FromMinutes(10)
+           && !ScheduledRadioRecorder.ShouldStartNextSegment(
+               finalWait,
+               TimeSpan.Zero,
+               15),
+        "Ostatnia krótsza część próbowała uruchomić dodatkowy plik.");
+    Console.WriteLine("OK: harmonogram wyznacza pełne i ostatnią krótszą część nagrania");
+}
+
 static void TestLegacyIcyMp3Stream()
 {
     var mp3Path = Path.Combine(Path.GetTempPath(), $"amc-icy-source-{Guid.NewGuid():N}.mp3");
@@ -1752,5 +1823,45 @@ sealed class InvalidSampleProvider : ISampleProvider
         if (count > 1) buffer[offset + 1] = float.NaN;
         if (count > 2) buffer[offset + 2] = float.PositiveInfinity;
         return count;
+    }
+}
+
+sealed class TestRadioRecordingBackend(string initialPath) : IRadioRecordingBackend
+{
+    private int _part = 1;
+
+    public bool IsRecording { get; private set; } = true;
+    public bool CanPauseRecording => true;
+    public bool IsRecordingPaused { get; private set; }
+    public TimeSpan RecordingDuration => TimeSpan.FromMinutes(_part);
+    public string CurrentPath { get; private set; } = initialPath;
+
+    public string StartRecording(string folder, RadioRecordingFormat format, int bitrateKbps)
+    {
+        _part++;
+        CurrentPath = Path.Combine(folder, $"part-{_part}.wav");
+        IsRecording = true;
+        IsRecordingPaused = false;
+        return CurrentPath;
+    }
+
+    public string? StopRecording()
+    {
+        if (!IsRecording) return null;
+        IsRecording = false;
+        IsRecordingPaused = false;
+        return CurrentPath;
+    }
+
+    public void PauseRecording()
+    {
+        if (!IsRecording) throw new InvalidOperationException("Nagrywanie nie trwa.");
+        IsRecordingPaused = true;
+    }
+
+    public void ResumeRecording()
+    {
+        if (!IsRecording) throw new InvalidOperationException("Nagrywanie nie trwa.");
+        IsRecordingPaused = false;
     }
 }

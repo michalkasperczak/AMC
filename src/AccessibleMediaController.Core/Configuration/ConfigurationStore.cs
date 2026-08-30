@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 31;
+    public const int CurrentSchemaVersion = 32;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -447,6 +447,10 @@ public sealed class ConfigurationStore
                     : schedule.StationName.Trim();
                 schedule.StreamUrl = schedule.StreamUrl.Trim();
                 schedule.DurationMinutes = Math.Clamp(schedule.DurationMinutes, 1, 10_080);
+                schedule.SegmentMinutes = schedule.SegmentMinutes > 0
+                    && schedule.SegmentMinutes < schedule.DurationMinutes
+                        ? Math.Clamp(schedule.SegmentMinutes, 1, 10_080)
+                        : 0;
                 schedule.OutputFolder = schedule.OutputFolder?.Trim() ?? string.Empty;
                 schedule.TimeZoneId = RadioScheduleCalculator.ResolveTimeZone(schedule.TimeZoneId).Id;
                 schedule.ActiveDays = (schedule.ActiveDays ?? [])

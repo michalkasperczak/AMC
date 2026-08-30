@@ -19,6 +19,7 @@ public partial class RadioScheduleEditorWindow : Window
     private readonly System.Windows.Forms.DateTimePicker _datePicker;
     private readonly System.Windows.Forms.DateTimePicker _timePicker;
     private readonly System.Windows.Forms.NumericUpDown _durationPicker;
+    private readonly System.Windows.Forms.NumericUpDown _splitMinutesPicker;
     private int _dateSegmentIndex;
     private int _timeSegmentIndex;
 
@@ -36,12 +37,15 @@ public partial class RadioScheduleEditorWindow : Window
         _datePicker = CreateDatePicker();
         _timePicker = CreateTimePicker();
         _durationPicker = CreateDurationPicker();
+        _splitMinutesPicker = CreateSplitMinutesPicker();
         DatePickerHost.Child = _datePicker;
         TimePickerHost.Child = _timePicker;
         DurationPickerHost.Child = _durationPicker;
+        SplitMinutesPickerHost.Child = _splitMinutesPicker;
         _datePicker.KeyDown += HostedInput_KeyDown;
         _timePicker.KeyDown += HostedInput_KeyDown;
         _durationPicker.KeyDown += HostedInput_KeyDown;
+        _splitMinutesPicker.KeyDown += HostedInput_KeyDown;
         _existing = existing;
         var choices = stations
             .Where(item => item.Kind == MediaItemKind.Station
@@ -56,6 +60,7 @@ public partial class RadioScheduleEditorWindow : Window
         _stations = choices;
         StationCombo.ItemsSource = _stations;
         RecurrenceCombo.ItemsSource = RecurrenceChoice.All;
+        SplitModeCombo.ItemsSource = SplitModeChoice.All;
         var wakeChoices = WakeChoice.Create(globalWakeEnabled);
         WakeCombo.ItemsSource = wakeChoices;
         _dayChoices =
@@ -79,6 +84,10 @@ public partial class RadioScheduleEditorWindow : Window
         _datePicker.Value = local.Date;
         _timePicker.Value = DateTime.Today + local.TimeOfDay;
         _durationPicker.Value = Math.Clamp(existing?.DurationMinutes ?? 60, 1, 10_080);
+        var segmentMinutes = existing?.SegmentMinutes ?? 0;
+        _splitMinutesPicker.Value = Math.Clamp(segmentMinutes > 0 ? segmentMinutes : 30, 1, 10_080);
+        SplitModeCombo.SelectedItem = SplitModeChoice.All.First(choice =>
+            choice.Split == (segmentMinutes > 0));
         OutputFolderTextBox.Text = existing?.OutputFolder ?? string.Empty;
         var customOutputFolder = !string.IsNullOrWhiteSpace(existing?.OutputFolder);
         OutputFolderModeCombo.SelectedIndex = customOutputFolder ? 1 : 0;
@@ -108,6 +117,7 @@ public partial class RadioScheduleEditorWindow : Window
         }
         UpdateDaysEnabled();
         UpdateStartControlsEnabled();
+        UpdateSplitControls();
         UpdateOutputFolderControls();
         Loaded += (_, _) =>
         {
@@ -135,6 +145,16 @@ public partial class RadioScheduleEditorWindow : Window
         var date = _datePicker.Value.Date;
         var time = _timePicker.Value.TimeOfDay;
         var duration = decimal.ToInt32(_durationPicker.Value);
+        var segmentMinutes = UsesSplit
+            ? decimal.ToInt32(_splitMinutesPicker.Value)
+            : 0;
+        if (segmentMinutes >= duration)
+        {
+            ShowHostedError(
+                "Długość części musi być krótsza niż całe nagranie",
+                _splitMinutesPicker);
+            return;
+        }
         if (RecurrenceCombo.SelectedItem is not RecurrenceChoice recurrence)
         {
             ShowError("Wybierz sposób powtarzania", RecurrenceCombo);
@@ -163,6 +183,7 @@ public partial class RadioScheduleEditorWindow : Window
             NextStartUtcTicks = startUtc.Ticks,
             TimeZoneId = timeZoneId,
             DurationMinutes = duration,
+            SegmentMinutes = segmentMinutes,
             Recurrence = recurrence.Value,
             ActiveDays = days,
             OutputFolder = UsesCustomOutputFolder
@@ -230,6 +251,9 @@ public partial class RadioScheduleEditorWindow : Window
     private void StartModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         UpdateStartControlsEnabled();
 
+    private void SplitModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        UpdateSplitControls();
+
     private void OutputFolderMode_Changed(object sender, RoutedEventArgs e) => UpdateOutputFolderControls();
 
     private void UpdateOutputFolderControls()
@@ -242,6 +266,9 @@ public partial class RadioScheduleEditorWindow : Window
 
     private bool UsesCustomOutputFolder =>
         (OutputFolderModeCombo?.SelectedItem as ComboBoxItem)?.Tag?.ToString() == "Custom";
+
+    private bool UsesSplit =>
+        (SplitModeCombo?.SelectedItem as SplitModeChoice)?.Split == true;
 
     private bool IsImmediateStart =>
         StartModeCombo.Visibility == Visibility.Visible
@@ -261,6 +288,13 @@ public partial class RadioScheduleEditorWindow : Window
         ImmediateStartExplanation.Text = immediate
             ? "Nagrywanie rozpocznie się natychmiast po wybraniu Zapisz. Data i godzina są pomijane; harmonogram cykliczny powtórzy się o godzinie rozpoczęcia pierwszego nagrania."
             : "Nagrywanie rozpocznie się później, w podanej dacie i godzinie. W polach daty i czasu lewo lub prawo wybiera część, a góra lub dół zmienia jej wartość.";
+    }
+
+    private void UpdateSplitControls()
+    {
+        if (SplitMinutesPanel is null || _splitMinutesPicker is null) return;
+        SplitMinutesPanel.IsEnabled = UsesSplit;
+        _splitMinutesPicker.Enabled = UsesSplit;
     }
 
     private void UpdateDaysEnabled()
@@ -424,6 +458,19 @@ public partial class RadioScheduleEditorWindow : Window
         ThousandsSeparator = false
     };
 
+    private static System.Windows.Forms.NumericUpDown CreateSplitMinutesPicker() => new()
+    {
+        AccessibleName = "Długość jednej części w minutach",
+        AccessibleDescription = "Pole jest dostępne po wybraniu dzielenia na części. Wpisz liczbę minut albo zmień ją strzałkami w górę i w dół.",
+        AccessibleRole = System.Windows.Forms.AccessibleRole.SpinButton,
+        Minimum = 1,
+        Maximum = 10_080,
+        Value = 30,
+        Dock = System.Windows.Forms.DockStyle.Fill,
+        TabStop = true,
+        ThousandsSeparator = false
+    };
+
     private sealed record StationChoice(string Id, string Label, string StreamUrl)
     {
         public override string ToString() => Label;
@@ -436,6 +483,16 @@ public partial class RadioScheduleEditorWindow : Window
             new(RadioScheduleRecurrence.Once, "Jednorazowo"),
             new(RadioScheduleRecurrence.Daily, "Codziennie"),
             new(RadioScheduleRecurrence.SelectedDays, "W wybrane dni tygodnia")
+        ];
+        public override string ToString() => Label;
+    }
+
+    private sealed record SplitModeChoice(bool Split, string Label)
+    {
+        public static IReadOnlyList<SplitModeChoice> All { get; } =
+        [
+            new(false, "Jeden plik"),
+            new(true, "Dziel na części")
         ];
         public override string ToString() => Label;
     }

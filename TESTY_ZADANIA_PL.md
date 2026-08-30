@@ -1,12 +1,89 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-160`
-- Tytuł zestawu: Dostęp do listy harmonogramów nagrywania
-- Wersja programu: `0.1.0-alpha.160`
+- Numer zestawu: `AMC-TEST-162`
+- Tytuł zestawu: Ręczny i planowy podział nagrania na pliki
+- Wersja programu: `0.1.0-alpha.162`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.160.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.162.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 162
+
+### AMC-162-01 — Ręczny podział klawiszem T
+
+W odtwarzaczu Radia rozpocznij ręczne nagrywanie klawiszem `R`. Po kilkunastu
+sekundach naciśnij `T`, odczekaj i naciśnij `T` ponownie, a na końcu zakończ
+nagrywanie klawiszem `R`.
+
+Oczekiwane: każde `T` najpierw oznajmia zapisywanie bieżącej części, następnie
+podaje numer nowej części i jej użytkową nazwę pliku. Odsłuch stacji nie jest
+zatrzymywany ani przełączany. W folderze nagrań powstają trzy różne, poprawnie
+zamknięte pliki, bez pozostawionych plików `.amc-partial`.
+
+### AMC-162-02 — T w widoku Nagrywane i podczas pauzy
+
+Uruchom ręczne nagranie, przejdź do widoku Nagrywane przez `Alt+2`, wstrzymaj
+zapis klawiszem `Shift+Spacja` i naciśnij `T`. Odczytaj wiersz oraz
+`Alt+Enter`, następnie wznów nagranie.
+
+Oczekiwane: `T` dzieli wybrane nagranie ręczne. Nowa część zachowuje stan
+„nagrywanie wstrzymane”, dopóki użytkownik go nie wznowi. Informacje podają
+liczbę zapisanych części i bieżący plik. Punkty pauzy są przypisane do pliku,
+w którym je utworzono.
+
+### AMC-162-03 — Dostępny wybór podziału w Shift+R
+
+Na stacji naciśnij `Shift+R`. Przejdź do pola Sposób zapisu i sprawdź wartości
+Jeden plik oraz Dziel na części. Dla drugiej wartości wpisz 15 w polu Długość
+części w minutach, a całkowitą długość ustaw na 120 minut. Zapisz plan i
+otwórz listę harmonogramów przez `Ctrl+Shift+H`.
+
+Oczekiwane: NVDA czyta wyłącznie podane etykiety, bez nazw klas, właściwości i
+wartości technicznych. Pole długości części jest nieaktywne dla jednego pliku i
+aktywne dla dzielenia. Wiersz planu podaje „120 min, części co 15 min”.
+
+### AMC-162-04 — Całkowity czas planu nie mnoży się przez części
+
+Utwórz krótki plan o długości 3 minut i podziale co 1 minutę. Pozwól mu
+zakończyć się bez ręcznej ingerencji.
+
+Oczekiwane: harmonogram kończy się po około 3 minutach łącznie i tworzy trzy
+części, a nie trzy pliki po 3 minuty. Ostatnia część może być krótsza wskutek
+czasu łączenia ze stacją. Komunikat końcowy podaje liczbę zapisanych plików.
+
+## Poprzedni zestaw alpha 161
+
+## Nowości alpha 161
+
+### AMC-161-01 — Nazwa stacji przed stanem nagrywania
+
+W Radiu uruchom ręczne nagranie stacji i wróć do listy. Przejdź strzałkami po
+tej stacji w Bibliotece, Ulubionych, playliście i widoku Nagrywane.
+
+Oczekiwane: NVDA najpierw podaje nazwę stacji, a następnie „nagrywanie”. Nazwa
+klasy, identyfikator, adres strumienia ani reprezentacja obiektu nie są
+odczytywane.
+
+### AMC-161-02 — Wstrzymane nagranie i odsłuch
+
+Na nagrywanej stacji naciśnij `Shift+Spacja`, potem zwykłą Spację i ponownie
+przejdź po jej wierszu.
+
+Oczekiwane: komunikat zaczyna się od nazwy stacji, po której występuje
+„nagrywanie wstrzymane” oraz odpowiedni stan odsłuchu, na przykład
+„wstrzymany”. Po wznowieniu nagrywania ta sama nazwa pozostaje na początku.
+
+### AMC-161-03 — Pasek stanu Radia
+
+Odtwarzaj i nagrywaj stację, następnie wstrzymaj oraz wznów nagranie. Odczytaj
+pasek stanu NVDA.
+
+Oczekiwane: pasek stanu rozpoczyna się nazwą stacji. Dopiero dalej podaje stan
+nagrywania, parametry audio, odtwarzanie, położenie względem transmisji i nazwę
+sesji.
+
+## Poprzedni zestaw alpha 160
 
 ## Nowości alpha 160
 
@@ -133,7 +210,7 @@ zakończeniu plik nie zawiera fragmentu odebranego podczas pauzy.
 
 Podczas pauzy sprawdź bieżącą listę, odtwarzacz, widok `Alt+2` i `Alt+Enter`.
 
-Oczekiwane: NVDA mówi „Nagrywanie wstrzymane”, a nie zwykłe „Nagrywany”. Fokus
+Oczekiwane: NVDA najpierw podaje nazwę stacji, a potem „nagrywanie wstrzymane”, a nie zwykłe „nagrywanie”. Fokus
 pozostaje na tej samej stacji. Ponowne `Shift+Spacja` działa z listy i z
 odtwarzacza, bez przełączania pauzy odsłuchu.
 
@@ -172,7 +249,7 @@ nie zgłasza błędu mapowania strumienia ani tekstowego formatu LRC.
 Uruchom jedno ręczne nagranie i naciśnij `Alt+Shift+R`.
 
 Oczekiwane: AMC nie pyta dodatkowo, oznajmia zatrzymywanie, finalizuje plik i
-usuwa prefiks Nagrywany. Odtwarzanie słuchanej stacji pozostaje niezależne.
+usuwa stan nagrywania podawany po nazwie stacji. Odtwarzanie słuchanej stacji pozostaje niezależne.
 
 ### AMC-156-02 — Zatrzymanie kilku nagrań
 
@@ -598,8 +675,8 @@ obcych wyników dawnych wyszukiwań Radio Browser.
 Otwórz stację, naciśnij `R`, wróć Escapem do listy i przejdź do innego widoku,
 w którym występuje ta sama stacja.
 
-Oczekiwane: odtwarzana stacja jest czytana „Odtwarzany, Nagrywany, nazwa”. Gdy
-nie jest bieżącym elementem, ale nadal jest zapisywana, mówi „Nagrywany, nazwa”.
+Oczekiwane: odtwarzana stacja jest czytana „nazwa, nagrywanie, odtwarzany”. Gdy
+nie jest bieżącym elementem, ale nadal jest zapisywana, mówi „nazwa, nagrywanie”.
 Pozostałe stacje nie otrzymują tego stanu.
 
 ### AMC-144-03 — Szczegóły ręcznego nagrania
@@ -616,9 +693,9 @@ nagrywana, a prefiks znika ze wszystkich widoków.
 Uruchom krótki plan stacji A, słuchając stacji B. Otwórz widok zawierający A i
 jej `Alt+Enter`; potem poczekaj na zakończenie planu.
 
-Oczekiwane: tylko A ma prefiks „Nagrywany”. Informacje podają start, planowane
+Oczekiwane: tylko A ma po nazwie stan „nagrywanie”. Informacje podają start, planowane
 zakończenie, format i planowany folder. B pozostaje odtwarzana bez fałszywego
-stanu nagrywania. Po zakończeniu prefiks A znika.
+stanu nagrywania. Po zakończeniu stan A znika.
 
 ### AMC-144-05 — Pełny menedżer planów
 
