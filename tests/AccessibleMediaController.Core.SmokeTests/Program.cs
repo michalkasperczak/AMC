@@ -1622,6 +1622,10 @@ static void TestLocalAudioFileDiscovery()
         True(LocalAudioFileDiscovery.IsAudioFile("film.m2ts"), "M2TS powinien trafić do lokalnych multimediów.");
         True(LocalAudioFileDiscovery.IsVideoFile("film.mp4"), "MP4 powinien być oznaczony jako kontener wideo.");
         True(!LocalAudioFileDiscovery.IsVideoFile("nagranie.m4a"), "M4A nie jest kontenerem wideo.");
+        True(LocalAudioFileDiscovery.IsRecoverablePartialFile("nagranie.PART"), "PART powinien być dostępny do ręcznego odzyskania.");
+        True(LocalAudioFileDiscovery.IsRecoverablePartialFile("nagranie.mp3.amc-partial"), "AMC-PARTIAL powinien być dostępny do ręcznego odzyskania.");
+        True(!LocalAudioFileDiscovery.IsAudioFile("nagranie.part"), "Aktywne PART nie może automatycznie trafiać do Biblioteki.");
+        True(LocalAudioFileDiscovery.DialogFilter.Contains("*.amc-partial", StringComparison.Ordinal), "Okno Otwórz nie udostępnia niedokończonych nagrań.");
         True(!LocalAudioFileDiscovery.IsAudioFile("okładka.jpg"), "Obraz nie może trafić na listę audio.");
         Equal(320, LocalAudioFileDiscovery.EstimateBitrateKbps(4_000_000, TimeSpan.FromSeconds(100)));
         True(LocalAudioFileDiscovery.EstimateBitrateKbps(0, TimeSpan.FromSeconds(100)) is null, "Pusty plik nie ma wiarygodnej przepływności.");

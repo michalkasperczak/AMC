@@ -1,12 +1,39 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-154`
-- Tytuł zestawu: Bitrate nagrań stacji 22,05 i 24 kHz
-- Wersja programu: `0.1.0-alpha.154`
+- Numer zestawu: `AMC-TEST-155`
+- Tytuł zestawu: Odtwarzanie TS i odzyskiwanie niedokończonych nagrań
+- Wersja programu: `0.1.0-alpha.155`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.154.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.155.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 155
+
+### AMC-155-01 — Rzeczywisty plik transmisji TS
+
+Otwórz przez `Ctrl+O` plik `Vianneya - 2026-08-30 10-16.ts`, rozpocznij
+odtwarzanie, przewiń w prawo i użyj `Ctrl+J` do skoku w okolice 4 minuty.
+
+Oczekiwane: słychać dźwięk mimo niepełnego początku obrazu. Program podaje
+czas około 7:34, reaguje na przewijanie i nie zawiesza fokusu.
+
+### AMC-155-02 — Niedokończony plik na żądanie
+
+W `Ctrl+O` wybierz filtr Niedokończone nagrania do odzyskania i wskaż kopię
+pliku `.part`, `.partial` albo `.amc-partial`, jeżeli taki plik jest dostępny.
+
+Oczekiwane: AMC odtwarza możliwą do odzyskania część. Uszkodzony koniec nie
+zawiesza programu. Brak użytecznego dźwięku kończy się zwięzłym błędem.
+
+### AMC-155-03 — Pliki częściowe nie trafiają same do Biblioteki
+
+Odśwież Foldery Biblioteki zawierające plik częściowy.
+
+Oczekiwane: `.part`, `.partial` i `.amc-partial` nie pojawiają się automatycznie.
+Można je otworzyć wyłącznie świadomie przez `Ctrl+O`.
+
+## Poprzedni zestaw alpha 154
 
 ## Nowości alpha 154
 

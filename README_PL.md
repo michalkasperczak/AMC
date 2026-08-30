@@ -467,6 +467,10 @@ Ręczne nagranie Radia korzysta z osobnego, niesłyszalnego połączenia. `R` st
 
 Stacje dekodowane jako 22,05 albo 24 kHz nie są już po cichu zapisywane przez systemowy koder jako MP3 80 kb/s mimo wybrania 128 kb/s. Tylko przed kodowaniem stratnym MP3 lub AAC AMC normalizuje taki sygnał wysokiej jakości resamplerem do odpowiednio 44,1 albo 48 kHz, dzięki czemu wynik zachowuje wybrany bitrate. Nie dodaje to szczegółów nieobecnych w źródle. FLAC, WAV i format Oryginalny nadal zachowują częstotliwość źródłową. W ustawieniach format Oryginalny jawnie informuje, że HLS tworzy plik `.ts`.
 
+## Odporny odczyt TS i odzyskiwanie fragmentów w alpha 155
+
+Lokalne `.ts`, `.mts` i `.m2ts` korzystają z odpornego dekodera FFmpeg, który pobiera wyłącznie ścieżkę audio. Dzięki temu AMC odtwarza również transmisje zapisane od środka segmentu obrazu, które Media Foundation odrzuca. Przewijanie pozostaje dostępne. `Ctrl+O` ma osobny filtr **Niedokończone nagrania do odzyskania** dla `.part`, `.partial` i `.amc-partial`; AMC próbuje odtworzyć dostępną część i kończy na jej rzeczywistym końcu. Takie pliki nie są automatycznie indeksowane z folderów, ponieważ mogą być nadal zapisywane lub niekompletne.
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

@@ -62,7 +62,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         System,
         SanitizedSystemMp3,
         ManagedMp3,
-        Vorbis
+        Vorbis,
+        FfmpegLocal
     }
 
     private enum Mp3DecoderMode
@@ -646,6 +647,15 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                         out decoderKind);
                 }
             }
+        }
+        else if (FfmpegLocalAudioWaveStream.ShouldPrefer(path)
+            && FfmpegLocalAudioWaveStream.TryOpen(path, out var ffmpegReader))
+        {
+            reader = ffmpegReader;
+            decoderKind = DecoderKind.FfmpegLocal;
+            DiagnosticLog.Info(
+                "ffmpeg-local",
+                $"Użyto odpornego dekodera audio dla kontenera: {path}.");
         }
         else
         {

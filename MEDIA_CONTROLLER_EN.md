@@ -1034,6 +1034,8 @@ Change in `alpha.153`: manual Radio captures run in private inaudible pipelines 
 
 Change in `alpha.154`: Windows Media Foundation could select 80 kb/s for 22.05 or 24 kHz input even when 128 kb/s was requested. The lossy MP3/AAC pipeline now uses a high-quality resampler to normalise such input to standard 44.1 or 48 kHz before encoding, and an automated test verifies that the selected bitrate is preserved. Resampling is not presented as improving the source. FLAC, WAV and Original bypass that normalisation; HLS in Original mode is written without conversion in a `.ts` container.
 
+Change in `alpha.155`: transport containers `.ts`, `.mts` and `.m2ts` have a local resilient FFmpeg pipeline that decodes audio only to PCM. It obtains duration without copying the complete file, supports seeking and tolerates captures that begin without a complete first video frame. Manually selected `.part`, `.partial` and `.amc-partial` files use the same recovery path through `Ctrl+O`; once audio has been returned, a damaged tail is treated as the end of the available fragment. Partial files are neither scanned automatically nor presented as completed recordings. A test against the real `Vianneya - 2026-08-30 10-16.ts` file confirmed reading the start, seeking to the middle and a duration of 7:34.
+
 Local catalogue and ordering: the Library is neither a playlist nor a mirror of one folder. It is a catalogue of sources with stable identity, path and derived views. Derived orders such as title, artist, album, folder, date added or last played remain deterministic sort modes. Separate Custom order is user metadata and never changes disk-file order. The same keys do not pretend to reorder artist, album or search-result views.
 
 Planned sequence of later stages:

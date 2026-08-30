@@ -63,6 +63,7 @@ try
     TestManagedMp3Fallback();
     TestWaveMetadataAndDamagedContainers();
     TestLocalVideoAudioExtraction();
+    TestLocalTransportStreamRecovery();
     TestRadioBrowserSearchMapping();
     TestRadioScheduleStationScope();
     TestRadioPlaylistImport();
@@ -97,6 +98,10 @@ try
         else if (mediaPath.StartsWith("--radio-metadata-url=", StringComparison.OrdinalIgnoreCase))
         {
             TestLiveRadioMetadata(mediaPath["--radio-metadata-url=".Length..]);
+        }
+        else if (mediaPath.StartsWith("--ffmpeg-local-path=", StringComparison.OrdinalIgnoreCase))
+        {
+            TestFfmpegLocalFile(mediaPath["--ffmpeg-local-path=".Length..]);
         }
         else
         {
@@ -421,6 +426,103 @@ static void TestLocalVideoAudioExtraction()
     finally
     {
         if (File.Exists(path)) File.Delete(path);
+    }
+}
+
+static void TestLocalTransportStreamRecovery()
+{
+    var ffmpeg = FfmpegRadioWaveProvider.FindExecutable();
+    if (ffmpeg is null)
+    {
+        Console.WriteLine("POMINIĘTO: próba odzyskiwania TS wymaga FFmpeg");
+        return;
+    }
+
+    var directory = Path.Combine(
+        Path.GetTempPath(),
+        $"amc-ts-recovery-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    var tsPath = Path.Combine(directory, "transmisja.ts");
+    var partialPath = Path.Combine(directory, "transmisja.part");
+    try
+    {
+        var start = new ProcessStartInfo
+        {
+            FileName = ffmpeg,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardError = true
+        };
+        foreach (var argument in new[]
+        {
+            "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+            "-f", "lavfi", "-i", "color=c=black:s=160x90:d=2",
+            "-f", "lavfi", "-i", "sine=frequency=440:duration=2:sample_rate=48000",
+            "-shortest", "-c:v", "mpeg4", "-c:a", "aac", "-b:a", "128k",
+            "-f", "mpegts", tsPath
+        })
+        {
+            start.ArgumentList.Add(argument);
+        }
+        using (var process = Process.Start(start)
+            ?? throw new InvalidOperationException("Nie uruchomiono generatora TS."))
+        {
+            var error = process.StandardError.ReadToEnd();
+            process.WaitForExit(15_000);
+            Assert(process.HasExited && process.ExitCode == 0, $"Nie utworzono TS: {error}");
+        }
+
+        Assert(
+            FfmpegLocalAudioWaveStream.TryOpen(tsPath, out var transportReader),
+            "Odporny dekoder nie otworzył gotowego TS.");
+        using (transportReader)
+        {
+            Assert(transportReader.TotalTime > TimeSpan.FromSeconds(1),
+                "TS ma nieprawidłowy czas.");
+            var buffer = new byte[32_768];
+            Assert(transportReader.Read(buffer, 0, buffer.Length) > 0,
+                "TS nie zwrócił dźwięku.");
+            transportReader.CurrentTime = TimeSpan.FromMilliseconds(750);
+            Assert(transportReader.Read(buffer, 0, buffer.Length) > 0,
+                "Nie udało się przewinąć ścieżki audio TS.");
+        }
+
+        File.Copy(tsPath, partialPath);
+        using (var partial = new FileStream(partialPath, FileMode.Open, FileAccess.Write, FileShare.Read))
+        {
+            partial.SetLength(Math.Max(188, partial.Length - 188 * 7));
+        }
+        Assert(
+            FfmpegLocalAudioWaveStream.TryOpen(partialPath, out var partialReader),
+            "Odporny dekoder nie otworzył ręcznie wskazanego pliku PART.");
+        using (partialReader)
+        {
+            var buffer = new byte[32_768];
+            Assert(partialReader.Read(buffer, 0, buffer.Length) > 0,
+                "Niedokończony plik PART nie zwrócił dostępnego dźwięku.");
+        }
+        Console.WriteLine("OK: odporny odczyt audio z TS i niedokończonego PART");
+    }
+    finally
+    {
+        if (Directory.Exists(directory)) Directory.Delete(directory, true);
+    }
+}
+
+static void TestFfmpegLocalFile(string path)
+{
+    Assert(File.Exists(path), $"Nie znaleziono pliku do testu: {path}");
+    Assert(
+        FfmpegLocalAudioWaveStream.TryOpen(path, out var reader),
+        $"Odporny dekoder nie otworzył pliku: {path}");
+    using (reader)
+    {
+        Assert(reader.TotalTime > TimeSpan.Zero, "Odporny dekoder nie podał czasu.");
+        var buffer = new byte[32_768];
+        Assert(reader.Read(buffer, 0, buffer.Length) > 0, "Początek nie zwrócił dźwięku.");
+        reader.CurrentTime = TimeSpan.FromTicks(reader.TotalTime.Ticks / 2);
+        Assert(reader.Read(buffer, 0, buffer.Length) > 0, "Środek pliku nie zwrócił dźwięku.");
+        Console.WriteLine($"OK: rzeczywisty plik TS, czas {reader.TotalTime}");
     }
 }
 

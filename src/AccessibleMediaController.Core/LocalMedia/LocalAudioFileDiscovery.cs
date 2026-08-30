@@ -29,13 +29,16 @@ public static class LocalAudioFileDiscovery
     };
 
     public const string DialogFilter =
-        "Pliki multimedialne|*.mp3;*.mp2;*.wav;*.wave;*.rf64;*.bwf;*.m4a;*.aac;*.adts;*.flac;*.wma;*.asf;*.ogg;*.oga;*.opus;*.aif;*.aiff;*.aifc;*.mka;*.mkv;*.webm;*.mp4;*.m4v;*.mov;*.ogv;*.3g2;*.3gp;*.3gp2;*.3gpp;*.avi;*.wmv;*.mpeg;*.mpg;*.mpe;*.ts;*.mts;*.m2ts;*.vob;*.flv;*.ac3;*.eac3;*.ec3;*.amr|Wszystkie pliki|*.*";
+        "Pliki multimedialne|*.mp3;*.mp2;*.wav;*.wave;*.rf64;*.bwf;*.m4a;*.aac;*.adts;*.flac;*.wma;*.asf;*.ogg;*.oga;*.opus;*.aif;*.aiff;*.aifc;*.mka;*.mkv;*.webm;*.mp4;*.m4v;*.mov;*.ogv;*.3g2;*.3gp;*.3gp2;*.3gpp;*.avi;*.wmv;*.mpeg;*.mpg;*.mpe;*.ts;*.mts;*.m2ts;*.vob;*.flv;*.ac3;*.eac3;*.ec3;*.amr|Niedokończone nagrania do odzyskania|*.part;*.partial;*.amc-partial|Wszystkie pliki|*.*";
 
     public static bool IsAudioFile(string path) =>
         AudioExtensions.Contains(Path.GetExtension(path));
 
     public static bool IsVideoFile(string path) =>
         VideoExtensions.Contains(Path.GetExtension(path));
+
+    public static bool IsRecoverablePartialFile(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() is ".part" or ".partial" or ".amc-partial";
 
     public static int? EstimateBitrateKbps(long fileSizeBytes, TimeSpan duration)
     {

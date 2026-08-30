@@ -438,6 +438,10 @@ A manual Radio capture uses a separate inaudible connection. `R` controls the cu
 
 Stations decoded at 22.05 or 24 kHz are no longer silently written by the system encoder as 80 kb/s MP3 after 128 kb/s was selected. For lossy MP3 and AAC output only, AMC uses a high-quality resampler to normalise such input to 44.1 or 48 kHz before encoding, so the result honours the selected bitrate. This does not invent detail absent from the source. FLAC, WAV and Original recording continue to preserve the source rate. The Original option now explicitly says that HLS produces a `.ts` file.
 
+## Resilient TS playback and fragment recovery in alpha 155
+
+Local `.ts`, `.mts` and `.m2ts` use a tolerant FFmpeg decoder that extracts only the audio track. AMC can therefore play broadcasts captured between video key frames even when Media Foundation rejects the container, while seeking remains available. `Ctrl+O` has a separate **Incomplete recordings to recover** filter for `.part`, `.partial` and `.amc-partial`; AMC attempts to play the available portion and ends at its actual boundary. Such files are not indexed automatically from folders because they may still be growing or incomplete.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.
