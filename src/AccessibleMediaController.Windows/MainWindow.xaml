@@ -156,6 +156,9 @@
                 <MenuItem x:Name="CustomLocalOrderViewMenuItem" Header="_Kolejność własna" InputGestureText="Alt+3" Click="CustomLocalOrderView_Click"
                           automation:AutomationProperties.Name="Kolejność własna Biblioteki lokalnej, Alt+3"
                           automation:AutomationProperties.AcceleratorKey="Alt+3" />
+                <MenuItem x:Name="ActiveRadioRecordingsViewMenuItem" Header="_Nagrywane" InputGestureText="Alt+2" Click="ActiveRadioRecordingsView_Click"
+                          automation:AutomationProperties.Name="Aktualnie nagrywane stacje, Alt+2"
+                          automation:AutomationProperties.AcceleratorKey="Alt+2" Visibility="Collapsed" />
                 <MenuItem x:Name="RefreshLocalLibraryMenuItem" Header="_Odśwież foldery Biblioteki" InputGestureText="F5" Click="RefreshLocalLibrary_Click"
                           automation:AutomationProperties.Name="Odśwież foldery Biblioteki, F5"
                           automation:AutomationProperties.AcceleratorKey="F5" />
@@ -231,6 +234,10 @@
                     <MenuItem x:Name="SelectedRadioAddScheduleMenuItem" Header="Zaplanuj nagranie tej stacji…" InputGestureText="Shift+R"
                               automation:AutomationProperties.Name="Zaplanuj nagranie tej stacji, Shift+R"
                               Visibility="Collapsed" Click="RadioAddSchedule_Click" />
+                    <MenuItem x:Name="SelectedRadioRecordingMenuItem" Header="Nagrywaj tę stację w tle" InputGestureText="Ctrl+Alt+R"
+                              automation:AutomationProperties.Name="Rozpocznij lub zakończ nagrywanie tej stacji w tle, Ctrl+Alt+R"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+R"
+                              Visibility="Collapsed" Click="RadioRecording_Click" />
                     <MenuItem x:Name="SelectedRadioSchedulesMenuItem" Header="Harmonogram nagrywania…" InputGestureText="Ctrl+Alt+Shift+R"
                               automation:AutomationProperties.Name="Harmonogram nagrywania radia, Ctrl+Alt+Shift+R"
                               Visibility="Collapsed" Click="RadioSchedules_Click" />

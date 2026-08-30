@@ -189,7 +189,8 @@ public static class ShortcutHelpCatalog
         yield return Info("radio", "Przenieś zaznaczone stacje przed bieżącą", "Ctrl+V", "Ulubione radia internetowego");
         yield return Info("radio", "Cofnij lub przewiń w buforze transmisji", "Strzałka w lewo lub w prawo", "odtwarzacz radia");
         yield return Info("radio", "Wróć do transmisji na żywo", "End", "odtwarzacz radia");
-        yield return Info("radio", "Rozpocznij lub zakończ nagrywanie", "Ctrl+Alt+R", "odtwarzacz radia");
+        yield return Info("radio", "Rozpocznij lub zakończ nagrywanie", "Ctrl+Alt+R", "lista lub odtwarzacz radia");
+        yield return Info("radio", "Pokaż aktualnie nagrywane stacje", "Alt+2", "lista radia internetowego");
         yield return Info("collections", "Pokaż presety aktywnej sesji", "Ctrl+Alt+P", "Pliki lokalne lub Radio; skrót zarezerwowany także dla przyszłych usług");
         yield return Info("collections", "Utwórz lub przypisz preset aktywnej sesji", "Ctrl+Alt+Shift+P", "Plik, folder Biblioteki lub stacja radiowa");
     }

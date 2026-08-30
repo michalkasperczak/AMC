@@ -49,7 +49,11 @@ internal sealed class RadioOriginalStreamRecorder : IRadioRecorder
             "-rw_timeout", "15000000",
             "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5",
             "-i", source,
-            "-map", "0:a:0", "-vn", "-c:a", "copy",
+            // Radio inputs contain one useful audio stream. Let FFmpeg select it
+            // instead of forcing 0:a:0: some direct ICY streams are initially
+            // exposed without a typed audio index and rejected that map even
+            // though decoding the same source succeeds.
+            "-vn", "-c:a", "copy",
             "-f", target.Muxer,
             _temporaryPath
         })

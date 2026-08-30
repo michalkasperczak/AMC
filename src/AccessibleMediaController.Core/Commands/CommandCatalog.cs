@@ -102,6 +102,7 @@ public static class CommandCatalog
             CommandIds.ToggleRadioRecording => "Rozpocznij lub zakończ nagrywanie radia",
             CommandIds.AddRadioSchedule => "Zaplanuj nagranie wybranej stacji",
             CommandIds.ManageRadioSchedules => "Harmonogram nagrywania radia",
+            CommandIds.ViewActiveRadioRecordings => "Pokaż aktualnie nagrywane stacje",
             CommandIds.RadioJumpLive => "Radio: wróć na żywo",
             CommandIds.ViewRadioPresets => "Pokaż presety aktywnej sesji",
             CommandIds.AssignRadioPreset => "Utwórz lub przypisz preset aktywnej sesji",

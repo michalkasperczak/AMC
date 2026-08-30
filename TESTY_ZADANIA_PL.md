@@ -1,12 +1,57 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-152`
-- Tytuł zestawu: Zwięzłe oznajmianie daty i godziny
-- Wersja programu: `0.1.0-alpha.152`
+- Numer zestawu: `AMC-TEST-153`
+- Tytuł zestawu: Niezależne nagrywanie radia i widok Nagrywane
+- Wersja programu: `0.1.0-alpha.153`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.152.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.153.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 153
+
+### AMC-153-01 — Zmiana odsłuchu nie zatrzymuje nagrania
+
+Otwórz stację A, rozpocznij `R`, a następnie zmieniaj stacje Page Up, Page Down
+i presetem. Wróć do A i zakończ jej nagranie `R`.
+
+Oczekiwane: nie pojawia się pytanie modalne. Każda stacja zaczyna grać od razu,
+a nagranie A trwa w tle aż do ręcznego zatrzymania i tworzy poprawny plik.
+
+### AMC-153-02 — Nagrywanie bez otwierania odtwarzacza
+
+Na stacji B w Bibliotece lub Ulubionych naciśnij `Ctrl+Alt+R`, przejdź do innej
+stacji i powtórz skrót na B.
+
+Oczekiwane: pierwsze użycie rozpoczyna nagrywanie B w tle, drugie je finalizuje.
+Menu kontekstowe ma tę samą funkcję z czytelną nazwą i skrótem.
+
+### AMC-153-03 — Widok Nagrywane
+
+Uruchom ręczne nagrania dwóch różnych stacji i ewentualnie krótki harmonogram.
+Naciśnij `Alt+2` w sesji Radia, poruszaj się po liście i użyj `Alt+Enter`.
+
+Oczekiwane: lista zawiera każdą nagrywaną stację jeden raz i nie przechodzi do
+Plików lokalnych. Informacje rozróżniają nagranie ręczne i plan. `R` zatrzymuje
+wybrane nagranie ręczne; plan wskazuje, że steruje nim Harmonogram.
+
+### AMC-153-04 — Fokus po Escape
+
+Podczas odtwarzania i podczas co najmniej jednego nagrania w tle kilka razy
+wchodź F6 do odtwarzacza i wracaj Escape.
+
+Oczekiwane: fokus zawsze wraca na wybraną listę i reaguje od razu na strzałki.
+Nie trafia na ukryty przycisk, nagłówek ani pasek stanu.
+
+### AMC-153-05 — MP3 oraz format Oryginalny
+
+Nagraj Tyflo lub podobną bezpośrednią stację najpierw do MP3, a potem w trybie
+Oryginalny. W obu przypadkach poczekaj na rozpoczęcie i zakończ ręcznie.
+
+Oczekiwane: MP3 działa od pierwszej próby. Tryb Oryginalny nie zgłasza błędu
+mapowania `0:a:0`, finalizuje właściwy kontener i nie pozostawia `.amc-partial`.
+
+## Poprzedni zestaw alpha 152
 
 ## Nowości alpha 152
 
@@ -444,11 +489,8 @@ Program mówi o początku i końcu, a powstały MP3 można odtworzyć.
 
 ### AMC-142-03 — Zmiana stacji podczas ręcznego nagrywania
 
-Rozpocznij nagrywanie klawiszem `R`, a następnie spróbuj zmienić stację
-Page Down albo presetem. Najpierw odpowiedz „Nie”, a przy drugiej próbie „Tak”.
-
-Oczekiwane: „Nie” pozostawia bieżącą stację i nagrywanie. „Tak” finalizuje MP3
-i dopiero potem przełącza stację.
+Ten starszy scenariusz został zastąpiony przez AMC-153-01. Nagranie działa teraz
+w niezależnym tle, więc zmiana stacji nie wymaga pytania i nie kończy zapisu.
 
 ### AMC-142-04 — Shift+R rozpoczyna nagranie czasowe
 

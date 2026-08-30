@@ -187,6 +187,7 @@ static void TestCommandCatalog()
     Equal("Otwórz lokalne pliki multimedialne", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
     Equal("Otwórz folder z plikami multimedialnymi", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Importuj stacje radiowe z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportRadioPlaylist));
+    Equal("Pokaż aktualnie nagrywane stacje", CommandCatalog.GetDisplayName(CommandIds.ViewActiveRadioRecordings));
     Equal("Pokaż presety aktywnej sesji", CommandCatalog.GetDisplayName(CommandIds.ViewRadioPresets));
     Equal("Utwórz lub przypisz preset aktywnej sesji", CommandCatalog.GetDisplayName(CommandIds.AssignRadioPreset));
     Equal("Biblioteka lokalna: pokaż foldery", CommandCatalog.GetDisplayName(CommandIds.ViewFolders));
