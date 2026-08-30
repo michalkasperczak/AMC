@@ -462,6 +462,8 @@ Starting with `alpha.163`, HLS begins at the live edge and is decoded at real-ti
 
 This release also adds optional music recognition to Radio. `S` in the player recognises the portion currently heard from the time-shift buffer without opening a second station connection. `Shift+S` toggles observation at approximately one-minute intervals, while `Ctrl+Alt+S` opens a persistent newest-first history. The same track on the same station within 30 minutes is not added repeatedly. History stores station, title, artist, album, release date and recognition time and supports extended selection, copying, deletion, and JSON or CSV export. Exports include Apple Music, Spotify and TIDAL searches; exact catalogue-ID matching belongs to the future official service adapters. Only an acoustic fingerprint is sent to the recognition provider, not the recording or station URL. Monitoring is a run-time state and starts disabled after restart.
 
+Starting with `alpha.164`, rich copy and recognition-history exports also include YouTube Music plus Discogs and MusicBrainz catalogue searches. These are explicit search URLs, not a claim that AMC has silently selected the correct edition. The future controlled matching and credits model is defined in [`MUSIC_CREDITS_AND_CATALOG_DESIGN_EN.md`](MUSIC_CREDITS_AND_CATALOG_DESIGN_EN.md).
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

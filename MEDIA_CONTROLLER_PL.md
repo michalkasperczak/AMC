@@ -1126,3 +1126,13 @@ usuwanie. Eksport JSON/CSV zachowuje metadane źródłowe oraz generuje jawne
 adresy wyszukiwania Apple Music, Spotify i Tidal. Nie zapisuje fikcyjnego
 identyfikatora katalogowego; późniejszy adapter usługi wykona wyszukanie,
 przedstawi niejednoznaczne kandydatury i dopiero po wyborze utworzy playlistę.
+
+## 18. Metadane albumu i autorzy utworu
+
+Od `alpha.164` eksport rozpoznawania obejmuje także YouTube Music, Discogs i
+MusicBrainz. Szczegółowe reguły źródeł, ufności, buforowania i proponowanej
+nawigacji opisuje `PROJEKT_METADANYCH_I_AUTOROW_PL.md`. `Ctrl+D` pozostaje
+poleceniem pobierania i nie zostaje przejęte przez Discogs. Strzałka w prawo
+może w przyszłości podawać zapisanych autorów wyłącznie na wierszu będącym
+utworem; na folderze lub albumie nadal oznacza wejście w głąb, a w odtwarzaczu
+przewijanie. Samo przejście strzałką nie wykonuje ukrytego zapytania sieciowego.

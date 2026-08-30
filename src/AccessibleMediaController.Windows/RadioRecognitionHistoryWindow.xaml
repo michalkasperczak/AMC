@@ -9,7 +9,7 @@
         PreviewKeyDown="Window_PreviewKeyDown">
     <DockPanel Margin="12">
         <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap"
-                   Text="Rozpoznane utwory, od najnowszego. Ctrl+C kopiuje opis, Ctrl+Shift+C kopiuje opis i łącza do wyszukiwania w usługach. Delete usuwa wybrane wpisy."
+                   Text="Rozpoznane utwory, od najnowszego. Ctrl+C kopiuje opis, Ctrl+Shift+C kopiuje opis oraz łącza do usług i katalogów muzycznych. Delete usuwa wybrane wpisy."
                    automation:AutomationProperties.HeadingLevel="Level1" />
         <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <controls:AccessibleStatusTextBlock x:Name="HistoryStatus" Margin="0,0,0,8"

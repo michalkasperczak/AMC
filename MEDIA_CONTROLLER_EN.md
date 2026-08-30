@@ -1111,3 +1111,13 @@ source metadata and generates explicit Apple Music, Spotify and TIDAL search
 URLs. It never stores an invented catalogue identifier; a future service
 adapter must search, present ambiguous candidates and create a playlist only
 after a valid match is selected.
+
+## 18. Album metadata and song credits
+
+Starting with `alpha.164`, recognition exports also include YouTube Music,
+Discogs and MusicBrainz. Source priority, confidence, caching and the proposed
+navigation are specified in `MUSIC_CREDITS_AND_CATALOG_DESIGN_EN.md`. `Ctrl+D`
+remains Download and is not reassigned to Discogs. Right Arrow may later speak
+cached credits only when the list row is a track; on a folder or album it keeps
+the enter/deeper meaning, while in the player it remains seek forward. Merely
+pressing an arrow never triggers a hidden network request.

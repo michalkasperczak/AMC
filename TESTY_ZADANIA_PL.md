@@ -1,12 +1,36 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-163`
-- Tytuł zestawu: Odporne HLS i rozpoznawanie utworów Radia
-- Wersja programu: `0.1.0-alpha.163`
+- Numer zestawu: `AMC-TEST-164`
+- Tytuł zestawu: Eksport rozpoznań do usług i katalogów muzycznych
+- Wersja programu: `0.1.0-alpha.164`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.163.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.164.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 164
+
+### AMC-164-01 — Bogate kopiowanie rozpoznanego utworu
+
+Rozpoznaj utwór w Radiu, otwórz historię przez `Ctrl+Alt+S`, zaznacz wpis i
+naciśnij `Ctrl+Shift+C`. Wklej wynik do zwykłego edytora tekstu.
+
+Oczekiwane: po danych utworu znajdują się różne, prawidłowo zakodowane łącza do
+Apple Music, Spotify, Tidal, YouTube Music, Discogs i MusicBrainz. Znaki
+diakrytyczne ani spacje z tytułu nie uszkadzają adresów. `Ctrl+C` nadal kopiuje
+sam opis bez tych łączy.
+
+### AMC-164-02 — Eksport JSON i CSV
+
+Wyeksportuj tę samą historię kolejno do JSON i CSV, po czym otwórz oba pliki w
+edytorze.
+
+Oczekiwane: eksport ma cztery osobne wyszukiwania usług streamingowych oraz
+osobną grupę katalogową Discogs i MusicBrainz. AMC nie przedstawia łącza jako
+pewnego dopasowania wydania ani nie zapisuje fikcyjnego identyfikatora. Pliki
+są czytelne po polsku i zachowują poprzednie dane historii.
+
+## Poprzedni zestaw alpha 163
 
 ## Nowości alpha 163
 
@@ -54,7 +78,8 @@ Zamknij i ponownie uruchom AMC.
 
 Oczekiwane: lista zaczyna się od najnowszego wpisu i podaje wyłącznie
 użytkowe etykiety: utwór, wykonawcę, stację oraz datę. `Ctrl+C` kopiuje opisy,
-a `Ctrl+Shift+C` również łącza wyszukiwania w Apple Music, Spotify i Tidal.
+a `Ctrl+Shift+C` również łącza wyszukiwania w Apple Music, Spotify, Tidal,
+YouTube Music, Discogs i MusicBrainz.
 Delete usuwa wyłącznie wpis historii. Historia i usunięcia są trwałe; fokus po
 zamknięciu okna wraca do listy albo odtwarzacza.
 

@@ -179,7 +179,7 @@ public partial class RadioRecognitionHistoryWindow : AccessibleWindow
             {
                 var lines = new List<string>
                 {
-                    "data;stacja;tytuł;wykonawca;album;wydanie;Apple Music;Spotify;Tidal"
+                    "data;stacja;tytuł;wykonawca;album;wydanie;Apple Music;Spotify;Tidal;YouTube Music;Discogs;MusicBrainz"
                 };
                 lines.AddRange(ordered.Select(entry => string.Join(';', new[]
                 {
@@ -191,7 +191,10 @@ public partial class RadioRecognitionHistoryWindow : AccessibleWindow
                     entry.ReleaseDate,
                     RecognitionLinks.AppleMusic(entry),
                     RecognitionLinks.Spotify(entry),
-                    RecognitionLinks.Tidal(entry)
+                    RecognitionLinks.Tidal(entry),
+                    RecognitionLinks.YouTubeMusic(entry),
+                    RecognitionLinks.Discogs(entry),
+                    RecognitionLinks.MusicBrainz(entry)
                 }.Select(Csv))));
                 File.WriteAllLines(dialog.FileName, lines, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
             }
@@ -210,7 +213,13 @@ public partial class RadioRecognitionHistoryWindow : AccessibleWindow
                     {
                         appleMusic = RecognitionLinks.AppleMusic(entry),
                         spotify = RecognitionLinks.Spotify(entry),
-                        tidal = RecognitionLinks.Tidal(entry)
+                        tidal = RecognitionLinks.Tidal(entry),
+                        youtubeMusic = RecognitionLinks.YouTubeMusic(entry)
+                    },
+                    catalogueSearch = new
+                    {
+                        discogs = RecognitionLinks.Discogs(entry),
+                        musicBrainz = RecognitionLinks.MusicBrainz(entry)
                     }
                 });
                 File.WriteAllText(
@@ -256,7 +265,10 @@ internal sealed class RecognitionHistoryRow(RadioRecognizedTrackSettings entry)
     public string RichText => CopyText + Environment.NewLine
         + $"Apple Music: {RecognitionLinks.AppleMusic(Entry)}" + Environment.NewLine
         + $"Spotify: {RecognitionLinks.Spotify(Entry)}" + Environment.NewLine
-        + $"Tidal: {RecognitionLinks.Tidal(Entry)}";
+        + $"Tidal: {RecognitionLinks.Tidal(Entry)}" + Environment.NewLine
+        + $"YouTube Music: {RecognitionLinks.YouTubeMusic(Entry)}" + Environment.NewLine
+        + $"Discogs: {RecognitionLinks.Discogs(Entry)}" + Environment.NewLine
+        + $"MusicBrainz: {RecognitionLinks.MusicBrainz(Entry)}";
 
     public override string ToString() => Label;
 }
@@ -275,4 +287,13 @@ internal static class RecognitionLinks
 
     public static string Tidal(RadioRecognizedTrackSettings entry) =>
         $"https://listen.tidal.com/search?q={Query(entry)}";
+
+    public static string YouTubeMusic(RadioRecognizedTrackSettings entry) =>
+        $"https://music.youtube.com/search?q={Query(entry)}";
+
+    public static string Discogs(RadioRecognizedTrackSettings entry) =>
+        $"https://www.discogs.com/search/?q={Query(entry)}&type=all";
+
+    public static string MusicBrainz(RadioRecognizedTrackSettings entry) =>
+        $"https://musicbrainz.org/search?query={Query(entry)}&type=recording&method=indexed";
 }

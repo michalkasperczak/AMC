@@ -491,6 +491,8 @@ Od `alpha.163` HLS rozpoczyna się przy krawędzi transmisji i jest dekodowany w
 
 Ta wersja dodaje opcjonalne rozpoznawanie muzyki w Radiu. `S` w odtwarzaczu rozpoznaje aktualnie słyszany fragment z bufora timeshift, bez drugiego połączenia ze stacją. `Shift+S` włącza lub wyłącza obserwowanie co około minutę, a `Ctrl+Alt+S` otwiera trwałą historię od najnowszego. Powtórzenie tego samego utworu na tej samej stacji w ciągu 30 minut nie tworzy kolejnego wpisu. Historia przechowuje stację, tytuł, wykonawcę, album, datę wydania i czas rozpoznania; można ją zaznaczać, kopiować, usuwać i eksportować do JSON albo CSV. Eksport zawiera wyszukiwania Apple Music, Spotify i Tidal, lecz dokładne dopasowanie identyfikatorów będzie należało do przyszłych oficjalnych adapterów tych usług. Do dostawcy rozpoznawania wysyłany jest podpis akustyczny, nie nagranie ani adres stacji. Obserwowanie jest stanem bieżącego uruchomienia i po restarcie pozostaje wyłączone.
 
+Od `alpha.164` bogate kopiowanie i eksport rozpoznanych utworów zawierają także YouTube Music oraz katalogowe wyszukiwania Discogs i MusicBrainz. Są to jawne adresy wyszukiwania, a nie automatyczne twierdzenie, że znaleziono właściwe wydanie. Projekt późniejszego, kontrolowanego dopasowania albumów i autorów znajduje się w [`PROJEKT_METADANYCH_I_AUTOROW_PL.md`](PROJEKT_METADANYCH_I_AUTOROW_PL.md).
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

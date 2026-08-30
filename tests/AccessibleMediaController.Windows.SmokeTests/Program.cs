@@ -80,6 +80,7 @@ try
     TestRadioRecordingStagingPublication();
     TestScheduledRadioSegmentation();
     TestShazamFingerprint();
+    TestRecognitionSearchLinks();
     TestRadioMp3Recording();
     TestLegacyIcyMp3Stream();
     TestLegacyIcyCancellation();
@@ -150,6 +151,31 @@ static void TestShazamFingerprint()
     Assert(hash == "72f982937a4f5c167b3e2a04e496df69adb3d67fbf4518921d13c9a73e74d51d",
         $"Port podpisu akustycznego odbiega od wyniku ShazamIO: {hash}.");
     Console.WriteLine("OK: lokalny podpis akustyczny do rozpoznawania utworów");
+}
+
+static void TestRecognitionSearchLinks()
+{
+    var entry = new RadioRecognizedTrackSettings
+    {
+        Title = "Zażółć gęślą",
+        Artist = "Wykonawca Testowy"
+    };
+    var links = new[]
+    {
+        RecognitionLinks.AppleMusic(entry),
+        RecognitionLinks.Spotify(entry),
+        RecognitionLinks.Tidal(entry),
+        RecognitionLinks.YouTubeMusic(entry),
+        RecognitionLinks.Discogs(entry),
+        RecognitionLinks.MusicBrainz(entry)
+    };
+    Assert(links.All(link => Uri.TryCreate(link, UriKind.Absolute, out _)),
+        "Eksport rozpoznania zawiera nieprawidłowe łącze wyszukiwania.");
+    Assert(links.Distinct(StringComparer.Ordinal).Count() == links.Length,
+        "Różne usługi otrzymały to samo łącze wyszukiwania.");
+    Assert(links.All(link => !link.Contains(' ')),
+        "Zapytanie do katalogu nie zostało prawidłowo zakodowane.");
+    Console.WriteLine("OK: łącza rozpoznania do usług i katalogów muzycznych");
 }
 
 static void TestAccessiblePlaybackStatusStrip()
