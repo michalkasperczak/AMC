@@ -24,6 +24,10 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
     private readonly Task _encoderTask;
     private readonly string _finalPath;
     private readonly string _temporaryPath;
+    private readonly object _writeGate = new();
+    private readonly int _averageBytesPerSecond;
+    private long _acceptedBytes;
+    private bool _paused;
     private int _stopped;
 
     private RadioMp3Recorder(
@@ -39,6 +43,7 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
 
         _finalPath = finalPath;
         _temporaryPath = finalPath + ".amc-partial";
+        _averageBytesPerSecond = sourceFormat.AverageBytesPerSecond;
         _queue = new QueuedWaveProvider(sourceFormat);
 
         IWaveProvider sourceInput = sourceFormat.Encoding == WaveFormatEncoding.Pcm
@@ -94,6 +99,24 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
     }
 
     public string FinalPath => _finalPath;
+    public bool CanPause => true;
+    public bool IsPaused
+    {
+        get
+        {
+            lock (_writeGate) return _paused;
+        }
+    }
+    public TimeSpan RecordedDuration
+    {
+        get
+        {
+            var bytes = Interlocked.Read(ref _acceptedBytes);
+            return _averageBytesPerSecond <= 0
+                ? TimeSpan.Zero
+                : TimeSpan.FromSeconds((double)bytes / _averageBytesPerSecond);
+        }
+    }
 
     public static RadioMp3Recorder Start(string finalPath, WaveFormat sourceFormat) =>
         Start(finalPath, sourceFormat, RadioRecordingFormat.Mp3, DesiredBitRate / 1000);
@@ -161,14 +184,37 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
 
     public void Write(byte[] buffer, int offset, int count)
     {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref _stopped) != 0, this);
-        if (_encoderTask.IsCompleted)
+        lock (_writeGate)
         {
-            ThrowEncoderFailure("Kodowanie nagrania zostało nieoczekiwanie przerwane.");
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _stopped) != 0, this);
+            if (_paused) return;
+            if (_encoderTask.IsCompleted)
+            {
+                ThrowEncoderFailure("Kodowanie nagrania zostało nieoczekiwanie przerwane.");
+            }
+            if (!_queue.TryWrite(buffer, offset, count, TimeSpan.FromSeconds(1)))
+            {
+                throw new IOException("Koder nie nadąża z zapisem nagrania.");
+            }
+            Interlocked.Add(ref _acceptedBytes, count);
         }
-        if (!_queue.TryWrite(buffer, offset, count, TimeSpan.FromSeconds(1)))
+    }
+
+    public void Pause()
+    {
+        lock (_writeGate)
         {
-            throw new IOException("Koder nie nadąża z zapisem nagrania.");
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _stopped) != 0, this);
+            _paused = true;
+        }
+    }
+
+    public void Resume()
+    {
+        lock (_writeGate)
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _stopped) != 0, this);
+            _paused = false;
         }
     }
 

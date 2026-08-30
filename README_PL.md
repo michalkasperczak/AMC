@@ -475,6 +475,8 @@ Lokalne `.ts`, `.mts` i `.m2ts` korzystają z odpornego dekodera FFmpeg, który 
 
 `Alt+Shift+R` zatrzymuje wszystkie aktualne nagrania ręczne i harmonogramowe niezależnie od otwartej sesji. Dla jednego nagrania działa od razu; przy kilku wymaga jawnego potwierdzenia z domyślną odpowiedzią Nie. Każdy odebrany fragment jest finalizowany, a harmonogram cykliczny zachowuje dopiero następny termin. Zamknięcie AMC podczas nagrywania również podaje liczbę aktywnych zapisów i wymaga potwierdzenia. Kontrolowanie zamknięte nagrania nie są wznawiane po kolejnym uruchomieniu.
 
+Od `alpha.157` `Shift+Spacja` wstrzymuje lub wznawia nagranie stacji wybranej na liście albo otwartej w odtwarzaczu. Zwykła Spacja pozostaje pauzą odsłuchu. MP3, M4A/AAC, FLAC i WAV pomijają dźwięk odebrany podczas pauzy, a każde wstrzymanie tworzy zakładkę AMC w ukończonym nagraniu. Tryb Oryginalny nie udostępnia pauzy, ponieważ zachowanie niezmienionych pakietów wymagałoby dzielenia i ponownego łączenia kontenerów. Importowany PLS, M3U lub XSPF jest przed oryginalnym zapisem rozwiązywany do bezpośredniego strumienia; prawdziwy HLS pozostaje manifestem.
+
 Spacja pozostaje wyłącznie pauzą odsłuchu. AMC świadomie nie oferuje pauzy nagrania: zatrzymanie dopływu danych tworzyłoby niewidoczną lukę, a dla kopiowanego strumienia mogłoby uszkodzić ciągłość kontenera. Aby rozdzielić materiał, należy zakończyć bieżące nagranie i rozpocząć następne.
 
 ## Zakres i ograniczenia

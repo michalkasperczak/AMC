@@ -25,9 +25,11 @@ internal static class ScheduledRadioRecorder
         string systemFallbackFolder,
         RadioRecordingFormat recordingFormat,
         int recordingBitrateKbps,
+        RadioRecordingControl control,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(schedule);
+        ArgumentNullException.ThrowIfNull(control);
         deadlineUtc = deadlineUtc.Kind == DateTimeKind.Utc
             ? deadlineUtc
             : deadlineUtc.ToUniversalTime();
@@ -98,6 +100,7 @@ internal static class ScheduledRadioRecorder
                     folderResolution.Path,
                     recordingFormat,
                     recordingBitrateKbps);
+                control.Attach(output);
                 var remaining = deadlineUtc - DateTime.UtcNow;
                 if (remaining <= TimeSpan.Zero)
                     return new ScheduledRadioRecordingResult(false, false, null, "Okno nagrywania już się zakończyło");
@@ -150,6 +153,7 @@ internal static class ScheduledRadioRecorder
             }
             finally
             {
+                control.Detach(output);
                 output.Stop();
             }
         }

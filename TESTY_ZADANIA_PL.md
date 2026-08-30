@@ -1,12 +1,59 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-156`
-- Tytuł zestawu: Bezpieczne zatrzymywanie i zamykanie nagrań
-- Wersja programu: `0.1.0-alpha.156`
+- Numer zestawu: `AMC-TEST-157`
+- Tytuł zestawu: Pauza nagrywania i punkty cięcia
+- Wersja programu: `0.1.0-alpha.157`
 - Utworzono: 2026-08-30, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.156.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.157.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 157
+
+### AMC-157-01 — Pauza i wznowienie MP3
+
+W ustawieniach wybierz MP3. Rozpocznij nagrywanie stacji, po kilku sekundach
+naciśnij `Shift+Spacja`, odczekaj i naciśnij `Shift+Spacja` ponownie.
+
+Oczekiwane: AMC mówi „Wstrzymano nagrywanie” wraz z czasem gotowego pliku,
+a następnie „Wznowiono nagrywanie”. Odsłuch może trwać bez przerwy. Po
+zakończeniu plik nie zawiera fragmentu odebranego podczas pauzy.
+
+### AMC-157-02 — Stan, fokus i właściwości
+
+Podczas pauzy sprawdź bieżącą listę, odtwarzacz, widok `Alt+2` i `Alt+Enter`.
+
+Oczekiwane: NVDA mówi „Nagrywanie wstrzymane”, a nie zwykłe „Nagrywany”. Fokus
+pozostaje na tej samej stacji. Ponowne `Shift+Spacja` działa z listy i z
+odtwarzacza, bez przełączania pauzy odsłuchu.
+
+### AMC-157-03 — Zakładka punktu pauzy
+
+Zakończ nagranie, w którym była jedna lub dwie pauzy. Przejdź do sesji Pliki
+lokalne i otwórz `Ctrl+B`.
+
+Oczekiwane: ukończone nagranie jest w lokalnej Bibliotece, a jego zakładki
+„Pauza 1”, „Pauza 2” wskazują miejsca łączenia zachowanych części. Enter na
+zakładce otwiera ten plik w prawidłowym czasie.
+
+### AMC-157-04 — Inne formaty i tryb Oryginalny
+
+Powtórz krótki test w M4A/AAC, FLAC albo WAV. Następnie wybierz Oryginalny i
+spróbuj `Shift+Spacja` podczas nagrywania.
+
+Oczekiwane: formaty kodowane można wstrzymać i wznowić. Dla Oryginalnego AMC
+jednoznacznie mówi, że pauza nie jest dostępna; nagrywanie trwa i plik nie jest
+uszkadzany.
+
+### AMC-157-05 — Tyflo Podcast z importowanego PLS
+
+Uruchom importowaną pozycję Tyflo Podcast wskazującą na `listen.pls`, wybierz
+format Oryginalny, nagraj kilkanaście sekund i zakończ.
+
+Oczekiwane: AMC rozwiązuje PLS do bezpośredniego MP3, tworzy gotowe nagranie i
+nie zgłasza błędu mapowania strumienia ani tekstowego formatu LRC.
+
+## Poprzedni zestaw alpha 156
 
 ## Nowości alpha 156
 

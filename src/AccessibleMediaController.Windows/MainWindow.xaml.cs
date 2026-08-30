@@ -779,7 +779,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var state = preparing
             ? (_cloudPreparingItemId is null ? "Otwieranie" : "Pobieranie z chmury")
             : session.IsPlaying ? "Odtwarzanie" : "Pauza";
-        if (isRadio && IsRadioStationBeingRecorded(item)) state += ", nagrywanie";
+        if (isRadio && RadioRecordingStateLabel(item) is { } recordingState)
+            state += $", {recordingState}";
 
         PlayerTitleText.Text = item.Title;
         PlayerArtistText.Text = string.IsNullOrWhiteSpace(item.Artist)
@@ -845,7 +846,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : "Escape wraca do listy, a odtwarzanie trwa.";
         if (string.Equals(_sessions?.Current.Id, "radio", StringComparison.Ordinal))
         {
-            return "Strzałki w lewo i w prawo poruszają się po buforze transmisji, Home przechodzi do początku bufora, End wraca na żywo, a strzałki w górę i w dół regulują głośność. R rozpoczyna lub kończy nagrywanie bieżącej stacji w tle. Page Up i Page Down wybierają poprzednią lub następną stację bez zatrzymywania nagrań. " + exit;
+            return "Strzałki w lewo i w prawo poruszają się po buforze transmisji, Home przechodzi do początku bufora, End wraca na żywo, a strzałki w górę i w dół regulują głośność. R rozpoczyna lub kończy nagrywanie bieżącej stacji w tle, a Shift+Spacja wstrzymuje lub wznawia jej nagranie. Page Up i Page Down wybierają poprzednią lub następną stację bez zatrzymywania nagrań. " + exit;
         }
         return "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. "
             + "B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach. "
@@ -899,7 +900,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         parts.Add(time);
         parts.Add(item.Title);
         parts.Add(session.DisplayName);
-        if (isRadio && IsRadioStationBeingRecorded(item)) parts.Insert(0, "nagrywanie");
+        if (isRadio && RadioRecordingStateLabel(item) is { } recordingState)
+            parts.Insert(0, recordingState);
         return string.Join(", ", parts);
     }
 
@@ -1610,6 +1612,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var local = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
         if (!radio)
         {
+            if (commandId is CommandIds.AddRadioStation
+                or CommandIds.ImportRadioPlaylist
+                or CommandIds.ToggleRadioRecording
+                or CommandIds.ToggleRadioRecordingPause
+                or CommandIds.StopAllRadioRecordings
+                or CommandIds.AddRadioSchedule
+                or CommandIds.ManageRadioSchedules
+                or CommandIds.ViewActiveRadioRecordings
+                or CommandIds.RadioJumpLive)
+            {
+                return false;
+            }
+
             return local
                 || commandId is not (CommandIds.ViewRadioPresets or CommandIds.AssignRadioPreset)
                     && !CommandIds.TryParseRadioPreset(commandId, out _);
@@ -1973,7 +1988,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return string.Join(Environment.NewLine, lines);
         }
 
-        lines.Add("Stan: nagrywanie trwa");
+        var allControls = manual.Select(active => active.Control)
+            .Concat(scheduled.Select(active => active.Control))
+            .ToArray();
+        lines.Add(allControls.Length > 0 && allControls.All(control => control.IsPaused)
+            ? "Stan: nagrywanie wstrzymane"
+            : allControls.Any(control => control.IsPaused)
+                ? "Stan: część nagrań jest wstrzymana"
+                : "Stan: nagrywanie trwa");
         for (var index = 0; index < manual.Length; index++)
         {
             var active = manual[index];
@@ -1985,6 +2007,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 lines.Add("Stan połączenia: przygotowywanie nagrania");
             lines.Add("Zakończenie: ręczne, klawiszem R");
             lines.Add($"Format: {FormatRadioRecordingOutput(active.RecordingFormat, active.RecordingBitrateKbps)}");
+            if (active.Control.IsPaused) lines.Add("Pauza: włączona");
+            if (active.Control.Markers.Count > 0)
+                lines.Add($"Punkty pauzy: {active.Control.Markers.Count}");
             if (!string.IsNullOrWhiteSpace(active.Path)) lines.Add($"Plik: {active.Path}");
         }
 
@@ -1996,6 +2021,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             lines.Add($"Rozpoczęto: {FormatRecordingDateTime(active.StartedUtc)}");
             lines.Add($"Planowane zakończenie: {FormatRecordingDateTime(active.DeadlineUtc)}");
             lines.Add($"Format: {FormatRadioRecordingOutput(active.RecordingFormat, active.RecordingBitrateKbps)}");
+            if (active.Control.IsPaused) lines.Add("Pauza: włączona");
+            if (active.Control.Markers.Count > 0)
+                lines.Add($"Punkty pauzy: {active.Control.Markers.Count}");
             lines.Add($"Planowany folder: {active.RequestedOutputFolder}");
         }
         return string.Join(Environment.NewLine, lines);
@@ -2542,6 +2570,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Zmień przynależność do playlist, Ctrl+Shift+P");
 
         RadioRecordingMenuItem.Visibility = radio && _playerViewActive ? Visibility.Visible : Visibility.Collapsed;
+        PauseRadioRecordingMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        var pauseActionItem = RadioScheduleActionStation();
+        var pauseControls = pauseActionItem is null
+            ? Array.Empty<RadioRecordingControl>()
+            : RadioRecordingControlsFor(pauseActionItem);
+        PauseRadioRecordingMenuItem.IsEnabled = pauseControls.Count > 0;
+        SetContextMenuItemPresentation(
+            PauseRadioRecordingMenuItem,
+            pauseControls.Count > 0 && pauseControls.All(control => control.IsPaused)
+                ? "Wznów wybrane nagranie"
+                : "Wstrzymaj wybrane nagranie",
+            "Shift+Spacja");
         StopAllRadioRecordingsMenuItem.Visibility = Visibility.Visible;
         StopAllRadioRecordingsMenuItem.IsEnabled =
             _activeManualRadioRecordings.Count + _activeScheduledRadioRecordings.Count > 0;
@@ -3912,6 +3952,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.ToggleRadioRecording)
         {
             ToggleRadioRecording();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ToggleRadioRecordingPause)
+        {
+            ToggleSelectedRadioRecordingPause();
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.StopAllRadioRecordings)
@@ -6224,10 +6269,86 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         StartManualRadioRecording(station);
     }
 
+    private void ToggleSelectedRadioRecordingPause()
+    {
+        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            Announce("Pauza nagrywania jest dostępna w sesji Radio internetowe");
+            return;
+        }
+
+        var station = _playerViewActive && _sessions.Current.HasCurrentItem
+            ? _sessions.Current.CurrentItem
+            : ActionItem;
+        if (station?.Kind != MediaItemKind.Station)
+        {
+            Announce("Wybierz nagrywaną stację");
+            return;
+        }
+
+        var controls = RadioRecordingControlsFor(station);
+        if (controls.Count == 0)
+        {
+            Announce($"Stacja nie jest nagrywana: {station.Title}");
+            return;
+        }
+
+        var ready = controls.Where(control => control.IsReady).ToArray();
+        if (ready.Length == 0)
+        {
+            Announce("Nagranie jeszcze się uruchamia");
+            return;
+        }
+
+        var pausable = ready.Where(control => control.CanPause).ToArray();
+        if (pausable.Length == 0)
+        {
+            Announce("Pauza nie jest dostępna przy zapisie oryginalnego strumienia bez konwersji");
+            return;
+        }
+
+        var pause = pausable.Any(control => !control.IsPaused);
+        var changes = pausable.Select(control => control.SetPaused(pause)).ToArray();
+        var failures = changes.Where(change => change.Kind == RadioRecordingPauseChangeKind.Failed).ToArray();
+        if (failures.Length > 0)
+        {
+            Announce($"Nie udało się zmienić pauzy nagrania: {failures[0].Error}");
+            return;
+        }
+
+        RefreshRadioRecordingPresentation();
+        if (pause)
+        {
+            var position = changes
+                .Where(change => change.Kind == RadioRecordingPauseChangeKind.Paused)
+                .Select(change => change.Position)
+                .DefaultIfEmpty(TimeSpan.Zero)
+                .Min();
+            var suffix = ready.Length > pausable.Length
+                ? ". Zapis oryginalnego strumienia pozostał aktywny"
+                : string.Empty;
+            AnnounceEssential($"Wstrzymano nagrywanie: {station.Title}, {CommandRouter.FormatTime(position)}{suffix}");
+        }
+        else
+        {
+            AnnounceEssential($"Wznowiono nagrywanie: {station.Title}");
+        }
+    }
+
+    private IReadOnlyList<RadioRecordingControl> RadioRecordingControlsFor(MediaItem station) =>
+        _activeManualRadioRecordings.Values
+            .Where(active => SameRadioStation(station, active.StationId, active.StreamUrl))
+            .Select(active => active.Control)
+            .Concat(_activeScheduledRadioRecordings.Values
+                .Where(active => SameRadioStation(station, active.StationId, active.StreamUrl))
+                .Select(active => active.Control))
+            .ToArray();
+
     private void StartManualRadioRecording(MediaItem station)
     {
         var id = Guid.NewGuid().ToString("N");
         var cancellation = new CancellationTokenSource();
+        var control = new RadioRecordingControl();
         var active = new ActiveManualRadioRecording(
             id,
             station.Id,
@@ -6236,7 +6357,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             DateTime.UtcNow,
             _state.Radio.RecordingFormat,
             _state.Radio.RecordingBitrateKbps,
-            cancellation);
+            cancellation,
+            control);
         _activeManualRadioRecordings[id] = active;
         active.Task = Task.Run(() => ManualRadioRecorder.RecordAsync(
             station,
@@ -6245,6 +6367,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ResolveSystemRadioRecordingsFolder(),
             active.RecordingFormat,
             active.RecordingBitrateKbps,
+            active.Control,
             path => Dispatcher.BeginInvoke(() =>
             {
                 if (!_activeManualRadioRecordings.ContainsKey(id) || _isClosing) return;
@@ -6335,6 +6458,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _activeManualRadioRecordings.Remove(active.Id);
         var suppressAnnouncement = _bulkStoppedManualRadioRecordings.Remove(active.Id);
         active.Cancellation.Dispose();
+        if (!string.IsNullOrWhiteSpace(result.Path))
+            PersistRadioRecordingPauseBookmarks(result.Path, active.Control);
         if (_isClosing) return;
         RefreshRadioRecordingPresentation();
         if (suppressAnnouncement) return;
@@ -6351,6 +6476,48 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         DiagnosticLog.Warning("radio-recording", $"Nie utworzono ręcznego nagrania {active.StationName}: {result.Error}");
         AnnounceEssential($"Nie udało się nagrać {active.StationName}: {result.Error}");
+    }
+
+    private void PersistRadioRecordingPauseBookmarks(
+        string path,
+        RadioRecordingControl control)
+    {
+        var markers = control.Markers;
+        if (markers.Count == 0 || !File.Exists(path)) return;
+
+        try
+        {
+            RemoveLocalExclusions([path]);
+            var import = LocalLibraryImporter.Import(_localItems, [Path.GetFullPath(path)]);
+            var item = import.ImportedItems.FirstOrDefault();
+            if (item is null) return;
+
+            foreach (var marker in markers)
+            {
+                _bookmarkIndex.Add(
+                    "local",
+                    "Pliki lokalne",
+                    item,
+                    marker.Position,
+                    marker.CreatedUtc,
+                    marker.Name);
+            }
+            RefreshLocalSessionItems();
+            TrySaveLocalMediaState(false);
+            DiagnosticLog.Info(
+                "radio-recording",
+                $"Zapisano {markers.Count} punktów pauzy jako zakładki AMC dla pliku {path}.");
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or InvalidDataException)
+        {
+            DiagnosticLog.Error(
+                "radio-recording",
+                $"Nie udało się zapisać punktów pauzy jako zakładek dla pliku {path}.",
+                exception);
+        }
     }
 
     private void RefreshRadioRecordingPresentation()
@@ -6566,6 +6733,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? ResolveRadioRecordingsFolder()
             : snapshot.OutputFolder;
         var cancellation = new CancellationTokenSource();
+        var control = new RadioRecordingControl();
         var task = Task.Run(() => ScheduledRadioRecorder.RecordAsync(
             snapshot,
             deadlineUtc,
@@ -6573,6 +6741,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ResolveSystemRadioRecordingsFolder(),
             recordingFormat,
             recordingBitrateKbps,
+            control,
             cancellation.Token));
         _activeScheduledRadioRecordings[snapshot.Id] = new ActiveScheduledRadioRecording(
             snapshot.Id,
@@ -6587,6 +6756,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             recordingFormat,
             recordingBitrateKbps,
             cancellation,
+            control,
             task);
         RefreshRadioRecordingPresentation();
         DiagnosticLog.Info(
@@ -6615,8 +6785,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             DiagnosticLog.Error("radio-schedule", "Nieobsłużony błąd zaplanowanego nagrania.", exception);
             result = new ScheduledRadioRecordingResult(false, false, null, exception.Message);
         }
+        ActiveScheduledRadioRecording? completedActive = null;
         if (_activeScheduledRadioRecordings.Remove(snapshot.Id, out var active))
+        {
+            completedActive = active;
             active.Cancellation.Dispose();
+        }
+        if (!string.IsNullOrWhiteSpace(result.Path) && completedActive is not null)
+            PersistRadioRecordingPauseBookmarks(result.Path, completedActive.Control);
         var suppressAnnouncement = _bulkStoppedScheduledRadioRecordings.Remove(snapshot.Id);
         if (_isClosing) return;
         RefreshRadioRecordingPresentation();
@@ -7218,9 +7394,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? _state.Settings.Lists.FieldOrder
             : _state.Settings.Lists.FieldOrder.Where(field => field != MediaItemField.Kind);
         var label = MediaItemFormatter.Format(item, fields);
-        return IsRadioStationBeingRecorded(item)
-            ? $"Nagrywany, {label}"
-            : label;
+        return RadioRecordingStateLabel(item) switch
+        {
+            "nagrywanie wstrzymane" => $"Nagrywanie wstrzymane, {label}",
+            "część nagrań wstrzymana" => $"Część nagrań wstrzymana, {label}",
+            not null => $"Nagrywany, {label}",
+            _ => label
+        };
+    }
+
+    private string? RadioRecordingStateLabel(MediaItem item)
+    {
+        if (item.Kind != MediaItemKind.Station) return null;
+        var controls = RadioRecordingControlsFor(item);
+        if (controls.Count == 0) return null;
+        var paused = controls.Count(control => control.IsPaused);
+        if (paused == 0) return "nagrywanie";
+        return paused == controls.Count
+            ? "nagrywanie wstrzymane"
+            : "część nagrań wstrzymana";
     }
 
     private bool IsRadioStationBeingRecorded(MediaItem item)
@@ -7576,6 +7768,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             e.Handled = true;
             Close();
+            return;
+        }
+
+        if (ReadEffectiveModifierKeys() == ModifierKeys.Shift
+            && windowKey == Key.Space
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && (_playerViewActive || MediaList.IsKeyboardFocusWithin)
+            && !MainMenu.IsKeyboardFocusWithin
+            && Keyboard.FocusedElement is not MenuItem)
+        {
+            ToggleSelectedRadioRecordingPause();
+            e.Handled = true;
             return;
         }
 
@@ -7950,6 +8154,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool TryResolveKeyboardHelpCommand(Key key, ModifierKeys modifiers, out string commandId)
     {
+        if (key == Key.Space
+            && modifiers == ModifierKeys.Shift
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && (_playerViewActive || MediaList.IsKeyboardFocusWithin))
+        {
+            commandId = CommandIds.ToggleRadioRecordingPause;
+            return true;
+        }
         if (key == Key.R
             && modifiers == ModifierKeys.None
             && _playerViewActive
@@ -9186,6 +9398,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ImportRadioPlaylist_Click(object sender, RoutedEventArgs e) => ImportRadioPlaylist();
     private void AddRadioStation_Click(object sender, RoutedEventArgs e) => AddRadioStation();
     private void RadioRecording_Click(object sender, RoutedEventArgs e) => ToggleRadioRecording();
+    private void PauseRadioRecording_Click(object sender, RoutedEventArgs e) => ToggleSelectedRadioRecordingPause();
     private void StopAllRadioRecordings_Click(object sender, RoutedEventArgs e) => StopAllRadioRecordings();
     private void RadioAddSchedule_Click(object sender, RoutedEventArgs e) => AddRadioScheduleForCurrentContext();
     private void RadioSchedules_Click(object sender, RoutedEventArgs e) => ShowRadioSchedules();
@@ -9240,6 +9453,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         SelectedRadioRecordingMenuItem.Visibility = radioStationSelected
             ? Visibility.Visible
             : Visibility.Collapsed;
+        var selectedRecordingControls = radioStationSelected && actionItem is not null
+            ? RadioRecordingControlsFor(actionItem)
+            : Array.Empty<RadioRecordingControl>();
+        SelectedRadioPauseRecordingMenuItem.Visibility = selectedRecordingControls.Count > 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         if (radioStationSelected && actionItem is not null)
         {
             SetContextMenuItemPresentation(
@@ -9248,6 +9467,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     ? "Zakończ nagrywanie tej stacji"
                     : "Nagrywaj tę stację w tle",
                 "Ctrl+Alt+R");
+            SetContextMenuItemPresentation(
+                SelectedRadioPauseRecordingMenuItem,
+                selectedRecordingControls.Count > 0
+                    && selectedRecordingControls.All(control => control.IsPaused)
+                        ? "Wznów nagrywanie tej stacji"
+                        : "Wstrzymaj nagrywanie tej stacji",
+                "Shift+Spacja");
         }
         SelectedRadioSchedulesMenuItem.Visibility = radioSession
             ? Visibility.Visible
@@ -9495,6 +9721,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Utwórz lub przypisz preset",
             "Ctrl+Alt+Shift+P");
         PlayerRadioRecordingMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
+        var playerRecordingControls = radioSession
+            ? RadioRecordingControlsFor(item)
+            : Array.Empty<RadioRecordingControl>();
+        PlayerRadioPauseRecordingMenuItem.Visibility = playerRecordingControls.Count > 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         PlayerRadioAddScheduleMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
         PlayerRadioSchedulesMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
         PlayerAddBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
@@ -9506,6 +9738,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 PlayerRadioRecordingMenuItem,
                 IsRadioStationManuallyRecording(item) ? "Zakończ nagrywanie radia" : "Rozpocznij nagrywanie radia",
                 "R");
+            SetContextMenuItemPresentation(
+                PlayerRadioPauseRecordingMenuItem,
+                playerRecordingControls.Count > 0
+                    && playerRecordingControls.All(control => control.IsPaused)
+                        ? "Wznów nagrywanie radia"
+                        : "Wstrzymaj nagrywanie radia",
+                "Shift+Spacja");
         }
         var favoriteLabel = item.IsFavorite
             ? "Usuń z ulubionych"
@@ -10114,6 +10353,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RadioRecordingFormat RecordingFormat,
         int RecordingBitrateKbps,
         CancellationTokenSource Cancellation,
+        RadioRecordingControl Control,
         Task<ScheduledRadioRecordingResult> Task);
 
     private sealed class ActiveManualRadioRecording(
@@ -10124,7 +10364,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         DateTime requestedUtc,
         RadioRecordingFormat recordingFormat,
         int recordingBitrateKbps,
-        CancellationTokenSource cancellation)
+        CancellationTokenSource cancellation,
+        RadioRecordingControl control)
     {
         public string Id { get; } = id;
         public string StationId { get; } = stationId;
@@ -10136,6 +10377,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         public RadioRecordingFormat RecordingFormat { get; } = recordingFormat;
         public int RecordingBitrateKbps { get; } = recordingBitrateKbps;
         public CancellationTokenSource Cancellation { get; } = cancellation;
+        public RadioRecordingControl Control { get; } = control;
         public Task<ManualRadioRecordingResult>? Task { get; set; }
     }
 

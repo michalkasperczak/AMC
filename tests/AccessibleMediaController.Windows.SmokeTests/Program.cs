@@ -864,6 +864,35 @@ static void TestRadioMp3Recording()
         TestNarrowRadioMp3Recording(directory, 22_050, 44_100, "357");
         TestNarrowRadioMp3Recording(directory, 24_000, 48_000, "Białystok");
 
+        var pausedWavPath = Path.Combine(directory, "radio-test-pause.wav");
+        using (var pausedRecorder = RadioMp3Recorder.Start(
+                   pausedWavPath,
+                   format,
+                   RadioRecordingFormat.Wav,
+                   192))
+        {
+            Assert(pausedRecorder.CanPause && !pausedRecorder.IsPaused,
+                "Nagrywarka kodowana nie zgłasza gotowości do pauzy.");
+            pausedRecorder.Write(pcm, 0, pcm.Length);
+            pausedRecorder.Pause();
+            Assert(pausedRecorder.IsPaused,
+                "Nagrywarka nie zapamiętała pauzy.");
+            pausedRecorder.Write(pcm, 0, pcm.Length);
+            Assert(Math.Abs(pausedRecorder.RecordedDuration.TotalSeconds - 1) < 0.05,
+                "Dźwięk odebrany podczas pauzy został dopisany do czasu nagrania.");
+            pausedRecorder.Resume();
+            pausedRecorder.Write(pcm, 0, pcm.Length);
+            Assert(Math.Abs(pausedRecorder.RecordedDuration.TotalSeconds - 2) < 0.05,
+                "Nagrywanie nie zostało prawidłowo wznowione.");
+            pausedRecorder.Stop();
+        }
+        using (var pausedWavReader = new WaveFileReader(pausedWavPath))
+        {
+            Assert(pausedWavReader.TotalTime > TimeSpan.FromMilliseconds(1900)
+                   && pausedWavReader.TotalTime < TimeSpan.FromMilliseconds(2100),
+                $"Pauza utworzyła nieprawidłową długość WAV: {pausedWavReader.TotalTime}.");
+        }
+
         var wavPath = Path.Combine(directory, "radio-test.wav");
         using (var wavRecorder = RadioMp3Recorder.Start(
                    wavPath,

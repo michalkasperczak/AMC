@@ -82,6 +82,30 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         }
     }
 
+    public bool CanPauseRecording
+    {
+        get
+        {
+            lock (_gate) return _pipeline?.Buffer.CanPauseRecording == true;
+        }
+    }
+
+    public bool IsRecordingPaused
+    {
+        get
+        {
+            lock (_gate) return _pipeline?.Buffer.IsRecordingPaused == true;
+        }
+    }
+
+    public TimeSpan RecordingDuration
+    {
+        get
+        {
+            lock (_gate) return _pipeline?.Buffer.RecordingDuration ?? TimeSpan.Zero;
+        }
+    }
+
     public TimeSpan BufferedDuration
     {
         get
@@ -799,9 +823,23 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 Path.GetInvalidFileNameChars().Contains(character) ? '_' : character)).Trim();
             if (safeName.Length == 0) safeName = "Radio";
             DeleteStalePartialRecordings(folder);
+            var recordingSource = _pipeline.Item.Source ?? string.Empty;
+            if (format == RadioRecordingFormat.Original)
+            {
+                // Playback resolves ordinary PLS/M3U/XSPF wrappers before it
+                // opens a decoder. The packet-copy recorder must receive that
+                // same direct stream rather than asking FFmpeg to interpret a
+                // text playlist as audio. Genuine HLS manifests remain intact.
+                using var resolutionCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+                recordingSource = RadioStreamResolver.ResolveAsync(
+                        recordingSource,
+                        resolutionCancellation.Token)
+                    .GetAwaiter()
+                    .GetResult();
+            }
             var originalTarget = format == RadioRecordingFormat.Original
                 ? RadioOriginalStreamRecorder.Describe(
-                    _pipeline.Item.Source ?? string.Empty,
+                    recordingSource,
                     _pipeline.Item.Codec)
                 : null;
             var extension = originalTarget?.Extension
@@ -814,7 +852,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 path,
                 format,
                 bitRateKbps,
-                _pipeline.Item.Source,
+                recordingSource,
                 originalTarget);
             DiagnosticLog.Info("radio-recording", $"Rozpoczęto nagrywanie: {path}.");
             return path;
@@ -828,6 +866,26 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             var path = _pipeline?.Buffer.StopRecording();
             if (path is not null) DiagnosticLog.Info("radio-recording", $"Zakończono nagrywanie: {path}.");
             return path;
+        }
+    }
+
+    public void PauseRecording()
+    {
+        lock (_gate)
+        {
+            if (_pipeline?.Buffer.IsRecording != true)
+                throw new InvalidOperationException("Nagrywanie jeszcze się nie rozpoczęło.");
+            _pipeline.Buffer.PauseRecording();
+        }
+    }
+
+    public void ResumeRecording()
+    {
+        lock (_gate)
+        {
+            if (_pipeline?.Buffer.IsRecording != true)
+                throw new InvalidOperationException("Nagrywanie jeszcze się nie rozpoczęło.");
+            _pipeline.Buffer.ResumeRecording();
         }
     }
 
@@ -1100,6 +1158,30 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             }
         }
 
+        public bool CanPauseRecording
+        {
+            get
+            {
+                lock (_gate) return _recording?.CanPause == true;
+            }
+        }
+
+        public bool IsRecordingPaused
+        {
+            get
+            {
+                lock (_gate) return _recording?.IsPaused == true;
+            }
+        }
+
+        public TimeSpan RecordingDuration
+        {
+            get
+            {
+                lock (_gate) return _recording?.RecordedDuration ?? TimeSpan.Zero;
+            }
+        }
+
         public TimeSpan PlaybackPosition
         {
             get
@@ -1245,6 +1327,26 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 _recordingPath = null;
             }
             return recording.Stop();
+        }
+
+        public void PauseRecording()
+        {
+            lock (_gate)
+            {
+                if (_recording is null)
+                    throw new InvalidOperationException("Nagrywanie jeszcze się nie rozpoczęło.");
+                _recording.Pause();
+            }
+        }
+
+        public void ResumeRecording()
+        {
+            lock (_gate)
+            {
+                if (_recording is null)
+                    throw new InvalidOperationException("Nagrywanie jeszcze się nie rozpoczęło.");
+                _recording.Resume();
+            }
         }
 
         private TimeSpan BytesToTime(long bytes) => WaveFormat.AverageBytesPerSecond <= 0

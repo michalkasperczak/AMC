@@ -25,10 +25,12 @@ internal static class ManualRadioRecorder
         string systemFallbackFolder,
         RadioRecordingFormat recordingFormat,
         int recordingBitrateKbps,
+        RadioRecordingControl control,
         Action<string> recordingStarted,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(station);
+        ArgumentNullException.ThrowIfNull(control);
         ArgumentNullException.ThrowIfNull(recordingStarted);
         using var power = WindowsPowerRequest.TryCreate($"AMC nagrywa stację {station.Title}");
         using var output = new RadioMediaOutput(timeshiftMinutes: 1, audible: false);
@@ -82,6 +84,7 @@ internal static class ManualRadioRecorder
                 folderResolution.Path,
                 recordingFormat,
                 recordingBitrateKbps);
+            control.Attach(output);
             recordingStarted(path);
 
             var finished = await Task.WhenAny(
@@ -126,6 +129,7 @@ internal static class ManualRadioRecorder
         }
         finally
         {
+            control.Detach(output);
             output.Stop();
         }
     }

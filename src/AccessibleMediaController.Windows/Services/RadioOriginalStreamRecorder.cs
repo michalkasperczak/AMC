@@ -80,6 +80,9 @@ internal sealed class RadioOriginalStreamRecorder : IRadioRecorder
     }
 
     public string FinalPath { get; }
+    public bool CanPause => false;
+    public bool IsPaused => false;
+    public TimeSpan RecordedDuration => TimeSpan.Zero;
 
     public static RadioOriginalStreamRecorder Start(
         string finalPath,
@@ -160,6 +163,12 @@ internal sealed class RadioOriginalStreamRecorder : IRadioRecorder
         throw new InvalidOperationException(BuildFailureMessage(
             "Połączenie zapisujące oryginalny strumień zostało przerwane."));
     }
+
+    public void Pause() => throw new NotSupportedException(
+        "Pauza nie jest dostępna przy zapisie oryginalnego strumienia bez konwersji.");
+
+    public void Resume() => throw new NotSupportedException(
+        "Pauza nie jest dostępna przy zapisie oryginalnego strumienia bez konwersji.");
 
     public string Stop()
     {
