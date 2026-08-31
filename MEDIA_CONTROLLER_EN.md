@@ -1249,3 +1249,11 @@ keyboard focus. Player buttons no longer define hidden single-letter
 mnemonics; their explicit transport shortcuts remain exposed through UI
 Automation. A direct combination is consumed only inside the player and only
 when the current playback output advertises the corresponding capability.
+
+Starting with `alpha.175`, numbered views are defined by each session. In
+Radio, `Alt+1` means **All stations** and aliases `Ctrl+L`, while `Alt+2` means
+**Recording now**. Recording now is transient: Escape or Backspace returns to
+the previous view in the same session with its selection retained, while
+`Alt+Left/Right` continues to expose full history. `Alt+3` does not pretend to
+list playback devices while Radio has one output and `F6`; it can be assigned
+when a real adapter discovers multiple simultaneous or Connect targets.

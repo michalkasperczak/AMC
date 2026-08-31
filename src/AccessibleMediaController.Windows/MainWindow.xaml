@@ -233,7 +233,8 @@
                           automation:AutomationProperties.Name="Utwórz lub przypisz preset aktywnej sesji, Ctrl+Alt+Shift+P"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+Shift+P"
                           Visibility="Collapsed" Click="RadioAssignPreset_Click" />
-                <MenuItem x:Name="LibraryViewMenuItem" Header="_Biblioteka" InputGestureText="Ctrl+L" Click="LibraryView_Click" />
+                <MenuItem x:Name="LibraryViewMenuItem" Header="_Biblioteka" InputGestureText="Ctrl+L"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+L" Click="LibraryView_Click" />
                 <MenuItem x:Name="FoldersViewMenuItem" Header="Foldery _Biblioteki" InputGestureText="Alt+1" Click="FoldersView_Click"
                           automation:AutomationProperties.Name="Foldery Biblioteki, Alt+1"
                           automation:AutomationProperties.AcceleratorKey="Alt+1" />

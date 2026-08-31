@@ -1,12 +1,44 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-174`
-- Tytuł zestawu: Skróty opcji dźwięku bez zmiany fokusu
-- Wersja programu: `0.1.0-alpha.174`
+- Numer zestawu: `AMC-TEST-175`
+- Tytuł zestawu: Numerowane widoki i powrót z Nagrywanych w Radiu
+- Wersja programu: `0.1.0-alpha.175`
 - Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.174.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.175.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 175
+
+### AMC-175-01 — Alt+2 i Escape wracają do Ulubionych
+
+W Radiu otwórz `Ctrl+U`, wybierz dowolną ulubioną stację i naciśnij `Alt+2`.
+Następnie naciśnij `Escape`. Powtórz próbę, używając zamiast Escape klawisza
+Backspace.
+
+Oczekiwane: `Alt+2` otwiera **Nagrywane**. Escape i Backspace wracają do
+**Ulubionych**, a fokus oraz zaznaczenie wracają na wcześniej wybraną stację.
+Nie trzeba ponownie naciskać `Ctrl+U`.
+
+### AMC-175-02 — Alt+1 oznacza wszystkie zapisane stacje
+
+Będąc w Ulubionych lub Nagrywanych, naciśnij `Alt+1`, a następnie sprawdź menu
+**Widok** i Pomoc klawiatury `Ctrl+F1`.
+
+Oczekiwane: `Alt+1` otwiera **Wszystkie stacje**, czyli Bibliotekę zapisanych
+stacji. Ta sama pozycja podaje oba skróty: `Ctrl+L` i `Alt+1`; NVDA nie czyta
+technicznej nazwy ani nie powtarza skrótu w etykiecie.
+
+### AMC-175-03 — Alt+3 pozostaje wolne
+
+Na liście Radia naciśnij `Alt+3`, a do bieżącego pojedynczego odtwarzacza
+przejdź osobno przez `F6`.
+
+Oczekiwane: `Alt+3` informuje, że nie ma jeszcze widoku w Radiu, nie zmienia
+listy i nie rusza fokusu. `F6` nadal otwiera aktualny odtwarzacz. Program nie
+pokazuje pustej lub pozornej listy urządzeń.
+
+## Poprzedni zestaw alpha 174
 
 ## Nowości alpha 174
 

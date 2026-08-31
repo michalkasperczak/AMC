@@ -1279,3 +1279,12 @@ zmienia kontrolki z fokusem. Przyciski odtwarzacza nie definiują ukrytych
 jednoliterowych mnemoników; ich jawne skróty transportu pozostają opisane przez
 UI Automation. Bezpośrednia kombinacja jest konsumowana tylko w odtwarzaczu i
 tylko wtedy, gdy bieżący tor deklaruje odpowiadającą jej możliwość.
+
+Od `alpha.175` numerowana grupa widoków jest definiowana osobno przez sesję.
+W Radiu `Alt+1` oznacza **Wszystkie stacje** i jest aliasem `Ctrl+L`, a `Alt+2`
+oznacza **Nagrywane**. Nagrywane jest widokiem tymczasowym: `Escape` albo
+Backspace wraca do poprzedniego widoku tej samej sesji, z zachowaniem jego
+zaznaczenia; pełna historia nadal działa przez `Alt+lewo/prawo`. `Alt+3` nie
+udaje listy odtwarzanych urządzeń, gdy istnieje tylko jeden tor Radia i `F6`.
+Może zostać przypisane dopiero adapterowi, który rzeczywiście wykrywa wiele
+równoczesnych odtworzeń lub urządzeń Connect.

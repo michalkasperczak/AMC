@@ -679,7 +679,31 @@ static void TestMainWindowDigitShortcutRouting()
     Assert(
         !MainWindowShortcutRouter.IsSessionListShortcut(Key.S, ModifierKeys.Control),
         "Ctrl+S nie może zostać przejęte jako lista sesji.");
-    Console.WriteLine("OK: Ctrl+Shift+S i Ctrl+0 otwierają sesje, a Ctrl+Shift+0 pozostaje presetem 0");
+    Assert(
+        MainWindowShortcutRouter.ResolveNumberedView(Key.D1, ModifierKeys.Alt, "radio")
+            == CommandIds.ViewLibrary,
+        "Alt+1 w Radiu nie otwiera wszystkich zapisanych stacji.");
+    Assert(
+        MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "radio")
+            == CommandIds.ViewActiveRadioRecordings,
+        "Alt+2 w Radiu nie otwiera nagrywanych stacji.");
+    Assert(
+        MainWindowShortcutRouter.ResolveNumberedView(Key.D3, ModifierKeys.Alt, "radio") is null,
+        "Alt+3 w Radiu nie może otwierać pozornego widoku odtwarzanych urządzeń.");
+    Assert(
+        MainWindowShortcutRouter.ResolveNumberedView(Key.D1, ModifierKeys.Alt, "local")
+            == CommandIds.ViewFolders
+        && MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "local")
+            == CommandIds.ViewAllLocalFiles
+        && MainWindowShortcutRouter.ResolveNumberedView(Key.D3, ModifierKeys.Alt, "local")
+            == CommandIds.ViewCustomLocalOrder,
+        "Alt+1–3 utraciły dotychczasowe znaczenia w Plikach lokalnych.");
+    Assert(
+        MainWindowNavigationPolicy.IsTransientRadioView("radio", "Nagrywane")
+        && !MainWindowNavigationPolicy.IsTransientRadioView("radio", "Biblioteka")
+        && !MainWindowNavigationPolicy.IsTransientRadioView("local", "Nagrywane"),
+        "Polityka Escape nie rozpoznaje tymczasowego widoku Nagrywane w Radiu.");
+    Console.WriteLine("OK: skróty sesji, Alt+1–3 zależne od sesji i tymczasowy widok Nagrywane");
 }
 
 static void TestPlayerAudioProcessingKeyboardMap()

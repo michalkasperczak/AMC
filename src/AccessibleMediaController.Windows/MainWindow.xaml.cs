@@ -444,7 +444,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         NavigateTo(viewName);
         PrepareViewFocusContext(string.Equals(viewName, "Kolejka", StringComparison.Ordinal)
             ? QueueFocusContext()
-            : viewName);
+            : CurrentViewDisplayName());
         Activate();
         FocusMediaList();
     }
@@ -2776,6 +2776,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RadioRecognitionHistoryViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         RefreshLocalLibraryMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         RenameLocalFileMainMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        MenuAccessibility.SetPresentation(
+            LibraryViewMenuItem,
+            radio ? "Wszystkie stacje" : "Biblioteka");
+        LibraryViewMenuItem.InputGestureText = radio ? "Ctrl+L lub Alt+1" : "Ctrl+L";
+        AutomationProperties.SetAcceleratorKey(
+            LibraryViewMenuItem,
+            radio ? "Ctrl+L lub Alt+1" : "Ctrl+L");
         MenuAccessibility.SetPresentation(
             RenameLibraryItemMainMenuItem,
             radio ? "Edytuj nazwę i adres stacji…" : "Zmień nazwę w Bibliotece…");
@@ -5935,6 +5942,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ReturnFromPlayerToList();
             return;
         }
+        if (TryReturnFromTransientRadioView()) return;
         if (string.Equals(_currentView, FolderViewName, StringComparison.Ordinal))
         {
             NavigateToParentFolder();
@@ -8278,7 +8286,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     private string CurrentViewDisplayName() =>
-        string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal)
+        string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+        && string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal)
+            ? "Wszystkie stacje"
+            : string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal)
             ? string.IsNullOrWhiteSpace(_currentLocalAlbumTitle)
                 ? "Album"
                 : $"Album — {_currentLocalAlbumTitle}"
@@ -8889,6 +8900,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool TryResolveKeyboardHelpCommand(Key key, ModifierKeys modifiers, out string commandId)
     {
+        var numberedViewCommand = MainWindowShortcutRouter.ResolveNumberedView(
+            key,
+            modifiers,
+            _sessions.Current.Id);
+        if (numberedViewCommand is not null)
+        {
+            commandId = numberedViewCommand;
+            return true;
+        }
         var audioCommand = MainWindowShortcutRouter.ResolvePlayerAudioProcessing(
             key,
             modifiers,
@@ -9131,10 +9151,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control | ModifierKeys.Shift, Key.O) => CommandIds.OpenLocalFolder,
             (ModifierKeys.Control, Key.OemComma) => CommandIds.SettingsGeneral,
             (ModifierKeys.Control, Key.F5) when string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) => CommandIds.ManageLocalSources,
-            (ModifierKeys.Alt, Key.D1) when string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) => CommandIds.ViewFolders,
-            (ModifierKeys.Alt, Key.D2) when string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) => CommandIds.ViewAllLocalFiles,
-            (ModifierKeys.Alt, Key.D2) when string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal) => CommandIds.ViewActiveRadioRecordings,
-            (ModifierKeys.Alt, Key.D3) when string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) => CommandIds.ViewCustomLocalOrder,
             (ModifierKeys.None, Key.F5) => CommandIds.RefreshLocalLibrary,
             (ModifierKeys.None, Key.F2) => CommandIds.RenameLibraryItem,
             (ModifierKeys.Shift, Key.F2) => CommandIds.RenameLocalFile,
@@ -9308,30 +9324,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Announce("Foldery Biblioteki są dostępne tylko w sesji Pliki lokalne");
             return true;
         }
-        if (Keyboard.Modifiers == ModifierKeys.Alt && key == Key.D1)
+        var numberedViewCommand = MainWindowShortcutRouter.ResolveNumberedView(
+            key,
+            Keyboard.Modifiers,
+            _sessions.Current.Id);
+        if (numberedViewCommand is not null)
         {
-            if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
-                ExecuteCommand(CommandIds.ViewFolders);
-            else
-                Announce("Alt+1 jest zarezerwowane dla widoku folderów w sesji Pliki lokalne");
+            ExecuteCommand(numberedViewCommand);
             return true;
         }
-        if (Keyboard.Modifiers == ModifierKeys.Alt && key == Key.D2)
+        if (Keyboard.Modifiers == ModifierKeys.Alt && key is Key.D1 or Key.D2 or Key.D3)
         {
-            if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
-                ExecuteCommand(CommandIds.ViewAllLocalFiles);
-            else if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
-                ExecuteCommand(CommandIds.ViewActiveRadioRecordings);
-            else
-                Announce("Alt+2 nie ma jeszcze widoku w bieżącej sesji");
-            return true;
-        }
-        if (Keyboard.Modifiers == ModifierKeys.Alt && key == Key.D3)
-        {
-            if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
-                ExecuteCommand(CommandIds.ViewCustomLocalOrder);
-            else
-                Announce("Alt+3 jest zarezerwowane dla kolejności własnej w sesji Pliki lokalne");
+            var digit = (int)key - (int)Key.D0;
+            Announce(string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                ? $"Alt+{digit} nie ma jeszcze widoku w Radiu internetowym"
+                : $"Alt+{digit} nie ma jeszcze widoku w bieżącej sesji");
             return true;
         }
         if (MediaList.IsKeyboardFocusWithin
@@ -9775,6 +9782,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RestoreMediaListFocusAfterRefresh();
             return;
         }
+        if (TryReturnFromTransientRadioView()) return;
         if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
         {
             LeaveBookmarkView();
@@ -9787,6 +9795,30 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         RestoreMediaListFocusAfterRefresh();
+    }
+
+    private bool TryReturnFromTransientRadioView()
+    {
+        if (!MainWindowNavigationPolicy.IsTransientRadioView(_sessions.Current.Id, _currentView))
+            return false;
+
+        var history = GetSessionViewHistory(_sessions.Current.Id);
+        if (history.Back.Count > 0)
+        {
+            NavigateBack();
+            return true;
+        }
+
+        CaptureCurrentSessionNavigationState();
+        var navigation = GetSessionNavigationState(_sessions.Current.Id);
+        _currentView = "Biblioteka";
+        navigation.CurrentView = _currentView;
+        navigation.PlayerActive = false;
+        RestoreFilterForCurrentView(navigation);
+        RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
+        PrepareViewFocusContext("Wszystkie stacje, Radio internetowe");
+        RestoreMediaListFocusAfterRefresh();
+        return true;
     }
 
     private void LeaveBookmarkView()

@@ -18,6 +18,23 @@ internal readonly record struct MainWindowDigitShortcut(
 
 internal static class MainWindowShortcutRouter
 {
+    public static string? ResolveNumberedView(
+        Key key,
+        ModifierKeys modifiers,
+        string sessionId)
+    {
+        if (modifiers != ModifierKeys.Alt) return null;
+        return (sessionId, key) switch
+        {
+            ("local", Key.D1) => CommandIds.ViewFolders,
+            ("local", Key.D2) => CommandIds.ViewAllLocalFiles,
+            ("local", Key.D3) => CommandIds.ViewCustomLocalOrder,
+            ("radio", Key.D1) => CommandIds.ViewLibrary,
+            ("radio", Key.D2) => CommandIds.ViewActiveRadioRecordings,
+            _ => null
+        };
+    }
+
     public static string? ResolvePlayerAudioProcessing(
         Key key,
         ModifierKeys modifiers,

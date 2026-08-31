@@ -2875,6 +2875,7 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
     Equal("Ctrl+P", entries.Single(entry => entry.CommandId == CommandIds.ViewPlaylists).LocalShortcut);
     Equal("Ctrl+Shift+P", entries.Single(entry => entry.CommandId == CommandIds.ManagePlaylists).LocalShortcut);
+    Equal("Ctrl+L lub Alt+1 (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ViewLibrary).LocalShortcut);
     Equal("Ctrl+Alt+P (Pliki lokalne lub Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ViewRadioPresets).LocalShortcut);
     Equal("Ctrl+Alt+Shift+P (Pliki lokalne lub Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.AssignRadioPreset).LocalShortcut);
     Equal("T (odtwarzacz radia lub widok Nagrywane)", entries.Single(entry => entry.CommandId == CommandIds.SplitRadioRecording).LocalShortcut);

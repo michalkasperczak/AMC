@@ -190,7 +190,7 @@ public static class CommandPaletteSearch
             CommandIds.ToggleFavorite => "Ctrl+Shift+U",
             CommandIds.ViewPlaylists => "Ctrl+P",
             CommandIds.ManagePlaylists => "Ctrl+Shift+P",
-            CommandIds.ViewLibrary => "Ctrl+L",
+            CommandIds.ViewLibrary => "Ctrl+L lub Alt+1 (Radio internetowe)",
             CommandIds.ViewFolders => "Alt+1 (lista lokalna)",
             CommandIds.ViewAllLocalFiles => "Alt+2 (lista lokalna)",
             CommandIds.ViewCustomLocalOrder => "Alt+3 (lista lokalna)",
