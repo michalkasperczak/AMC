@@ -1,12 +1,37 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-176`
-- Tytuł zestawu: Szablony nazw plików harmonogramu Radia
-- Wersja programu: `0.1.0-alpha.176`
+- Numer zestawu: `AMC-TEST-177`
+- Tytuł zestawu: Przełączanie harmonogramów Spacją
+- Wersja programu: `0.1.0-alpha.177`
 - Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.176.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.177.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 177
+
+### AMC-177-01 — Spacja przełącza wybrany harmonogram
+
+Otwórz Radio i `Ctrl+Shift+H`. Strzałkami wybierz włączony harmonogram,
+naciśnij Spację, a następnie ponownie Spację.
+
+Oczekiwane: pierwsza Spacja wyłącza dokładnie wybrany plan, druga go włącza.
+Edytor się nie otwiera. NVDA za każdym razem podaje nazwę stacji, termin oraz
+„wyłączony” albo „włączony”. Nie powtarza zamiast wyniku samej instrukcji
+„Zaplanowane nagrania radia. Strzałki wybierają plan”. Fokus pozostaje na tym
+samym wierszu i można od razu przejść strzałką do następnego harmonogramu.
+
+### AMC-177-02 — Zapis i anulowanie wielu zmian
+
+Wyłącz Spacją dwa różne plany, wybierz **Zapisz**, ponownie otwórz listę i
+sprawdź ich stan. Następnie włącz jeden z nich, wybierz **Anuluj** i jeszcze
+raz otwórz listę.
+
+Oczekiwane: po Zapisz oba harmonogramy pozostają wyłączone. Zmiana wykonana
+przed Anuluj nie zostaje zapamiętana. Każdy wiersz mówi własny stan
+zaznaczony lub niezaznaczony i żadna Spacja nie zmienia sąsiedniego planu.
+
+## Poprzedni zestaw alpha 176
 
 ## Nowości alpha 176
 

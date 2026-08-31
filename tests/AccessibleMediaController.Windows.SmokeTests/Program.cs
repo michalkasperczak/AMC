@@ -336,6 +336,24 @@ static void TestRadioScheduleAccessibility()
                    && accessibleLabel.Contains("zaznaczony", StringComparison.Ordinal)
                    && IsUserFacingChoice(selected!),
                 "Pierwszy harmonogram nie ma stabilnej, użytkowej etykiety dostępnościowej.");
+            var scheduleStatus = (AccessibleStatusTextBlock)manager.FindName("ScheduleStatus");
+            Assert(manager.ToggleSelectedEnabled(),
+                "Spacja nie ma operacji przełączającej wybrany harmonogram.");
+            selected = schedulesList.SelectedItem;
+            accessibleLabel = selected?.GetType().GetProperty("AccessibleLabel")?.GetValue(selected)?.ToString();
+            Assert(!string.IsNullOrWhiteSpace(accessibleLabel)
+                   && accessibleLabel.Contains("wyłączony", StringComparison.Ordinal)
+                   && accessibleLabel.Contains("niezaznaczony", StringComparison.Ordinal),
+                "Wyłączenie nie odświeża stanu pola wyboru zaznaczonego harmonogramu.");
+            Assert(scheduleStatus.Text.Contains(
+                       "Harmonogram Stacja testowa",
+                       StringComparison.Ordinal)
+                   && scheduleStatus.Text.Contains("wyłączony", StringComparison.Ordinal),
+                "Wyłączenie nie tworzy jawnego komunikatu z nazwą harmonogramu i stanem.");
+            Assert(manager.ToggleSelectedEnabled(),
+                "Ponowna Spacja nie włącza wybranego harmonogramu.");
+            Assert(scheduleStatus.Text.Contains("włączony", StringComparison.Ordinal),
+                "Włączenie nie tworzy jawnego komunikatu z nazwą harmonogramu i stanem.");
         }
         catch (Exception exception)
         {

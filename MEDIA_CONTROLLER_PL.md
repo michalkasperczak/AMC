@@ -1307,3 +1307,13 @@ FLAC, WAV albo wykrytego formatu oryginalnego. Walidacja odrzuca pusty,
 niepełny lub nieznany token, a wynik jest oczyszczany z niedozwolonych nazw
 i znaków Windows. Brak pola w starszym zapisie normalizuje się do wzorca
 domyślnego.
+
+Korekta `alpha.177`: lista harmonogramów przechwytuje Enter, Spację i Delete
+we własnej trasie klawiatury. Spacja przełącza dokładnie wybrany rekord w
+kopii roboczej okna, odtwarza zaznaczenie po przebudowie wiersza i ustawia
+fokus na kontenerze tego samego harmonogramu, nie na całej liście. Powiadomienie
+UI Automation podaje użytkową tożsamość planu — nazwę stacji oraz najbliższy
+termin — i kończy się jednoznacznym stanem „włączony” albo „wyłączony”. Sam
+wiersz równolegle zawiera stan zaznaczony lub niezaznaczony. Dopiero Zapisz
+przenosi kopię roboczą do ustawień i zatrzymuje aktywny plan, który został
+wyłączony; Anuluj nie zmienia trwałej konfiguracji.

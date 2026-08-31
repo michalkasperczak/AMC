@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sessions;
@@ -37,8 +38,7 @@ public partial class RadioSchedulesWindow : Window
         RefreshRows();
         Loaded += (_, _) =>
         {
-            SchedulesList.Focus();
-            Keyboard.Focus(SchedulesList);
+            FocusSelectedSchedule();
         };
     }
 
@@ -98,17 +98,25 @@ public partial class RadioSchedulesWindow : Window
 
     private void ToggleEnabled_Click(object sender, RoutedEventArgs e) => ToggleSelectedEnabled();
 
-    private void ToggleSelectedEnabled()
+    internal bool ToggleSelectedEnabled()
     {
-        if (SchedulesList.SelectedItem is not ScheduleRow row) return;
+        if (SchedulesList.SelectedItem is not ScheduleRow row) return false;
         row.Schedule.Enabled = !row.Schedule.Enabled;
-        var message = row.Schedule.Enabled
-            ? $"Włączono plan: {row.Schedule.StationName}"
-            : $"Wyłączono plan: {row.Schedule.StationName}";
+        var identity = BuildScheduleIdentity(row.Schedule);
+        var message = $"Harmonogram {identity}: {(row.Schedule.Enabled ? "włączony" : "wyłączony")}. Wybierz Zapisz, aby zatwierdzić zmianę.";
         RefreshRows(row.Schedule.Id);
-        SchedulesList.Focus();
-        Keyboard.Focus(SchedulesList);
-        ScheduleStatus.Text = $"{message}. Wybierz Zapisz, aby zatwierdzić zmianę.";
+        FocusSelectedSchedule();
+        ScheduleStatus.Announce(message);
+        return true;
+    }
+
+    private static string BuildScheduleIdentity(RadioRecordingScheduleSettings schedule)
+    {
+        var utc = new DateTime(schedule.NextStartUtcTicks, DateTimeKind.Utc);
+        var local = TimeZoneInfo.ConvertTimeFromUtc(
+            utc,
+            RadioScheduleCalculator.ResolveTimeZone(schedule.TimeZoneId));
+        return $"{schedule.StationName}, {local:dd.MM.yyyy HH:mm}";
     }
 
     private void EditSelected()
@@ -162,17 +170,22 @@ public partial class RadioSchedulesWindow : Window
             New_Click(sender, new RoutedEventArgs());
             e.Handled = true;
         }
-        else if (e.Key == Key.Enter && SchedulesList.IsKeyboardFocusWithin)
+    }
+
+    private void SchedulesList_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.None) return;
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.Enter)
         {
             EditSelected();
             e.Handled = true;
         }
-        else if (e.Key == Key.Space && SchedulesList.IsKeyboardFocusWithin)
+        else if (key == Key.Space)
         {
-            ToggleSelectedEnabled();
-            e.Handled = true;
+            e.Handled = ToggleSelectedEnabled();
         }
-        else if (e.Key == Key.Delete && SchedulesList.IsKeyboardFocusWithin)
+        else if (key == Key.Delete)
         {
             DeleteSelected();
             e.Handled = true;
@@ -181,8 +194,20 @@ public partial class RadioSchedulesWindow : Window
 
     private void SchedulesList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => EditSelected();
 
-    private void FocusSchedulesList()
+    private void FocusSchedulesList() => FocusSelectedSchedule();
+
+    private void FocusSelectedSchedule()
     {
+        SchedulesList.UpdateLayout();
+        var selected = SchedulesList.SelectedItem;
+        if (selected is not null
+            && SchedulesList.ItemContainerGenerator.ContainerFromItem(selected) is ListBoxItem item)
+        {
+            item.Focus();
+            Keyboard.Focus(item);
+            return;
+        }
+
         SchedulesList.Focus();
         Keyboard.Focus(SchedulesList);
     }

@@ -1274,3 +1274,13 @@ overwriting an existing file. The extension is not part of the template: it
 comes from MP3, M4A, FLAC, WAV or the detected original-stream format. Empty,
 unknown and unbalanced tokens are rejected, while forbidden Windows names and
 characters are sanitised. Older persisted schedules normalise to the default.
+
+Correction in `alpha.177`: the schedule list handles Enter, Space and Delete
+on its own keyboard route. Space toggles exactly the selected working-copy
+record, restores its selection after the row is rebuilt and focuses that same
+schedule container rather than the list as a whole. The UI Automation
+notification identifies the plan by station and next occurrence, then states
+unambiguously that it is enabled or disabled. Its row updates the checked or
+unchecked state at the same time. Only Save commits the working copy and stops
+an active schedule that was disabled; Cancel leaves persistent configuration
+unchanged.
