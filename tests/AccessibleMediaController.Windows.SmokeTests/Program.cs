@@ -61,6 +61,7 @@ try
     TestGlobalPrefixCapture();
     TestMenuAccessibility();
     TestRadioScheduleAccessibility();
+    TestStatePersistenceQueue();
     TestRadioRecognitionAnnouncementPolicy();
     TestRadioRecognitionSchedulingPolicy();
     TestRadioRecognitionSettingAccessibility();
@@ -441,6 +442,17 @@ static void TestRadioScheduleAccessibility()
             Assert(fileNamePreview.Text.Contains("Audycja - ", StringComparison.Ordinal)
                    && fileNamePreview.Text.EndsWith(".mp3", StringComparison.Ordinal),
                 "Podgląd nie pokazuje wynikowej nazwy i rozszerzenia MP3.");
+            var datePickerHost = (System.Windows.Forms.Integration.WindowsFormsHost)
+                editor.FindName("DatePickerHost");
+            var datePicker = (System.Windows.Forms.DateTimePicker)datePickerHost.Child;
+            Assert(datePicker.ShowUpDown
+                   && datePicker.CustomFormat == "dd.MM.yyyy"
+                   && datePicker.AccessibleRole == System.Windows.Forms.AccessibleRole.SpinButton,
+                "Kalendarz nie zachowuje nawigacji po częściach daty za pomocą strzałek.");
+            Assert(datePicker.AccessibleName == "Data pierwszego nagrania"
+                   && (datePicker.AccessibleDescription ?? string.Empty)
+                       .Contains("Góra i dół zmienia", StringComparison.Ordinal),
+                "Kalendarz nie objaśnia NVDA obsługi strzałkami.");
 
             manager = new RadioSchedulesWindow(
                 [station],
@@ -517,6 +529,61 @@ static void TestRadioScheduleAccessibility()
             foreach (var child in DescendantMenuItems(item.Items)) yield return child;
         }
     }
+}
+
+static void TestStatePersistenceQueue()
+{
+    using var firstSaveStarted = new ManualResetEventSlim();
+    using var releaseFirstSave = new ManualResetEventSlim();
+    using var secondSaveCompleted = new ManualResetEventSlim();
+    var savedValues = new System.Collections.Concurrent.ConcurrentQueue<int>();
+    var saveCount = 0;
+    var queue = new StatePersistenceQueue(
+        state =>
+        {
+            var snapshot = ConfigurationStore.CreateDefaultState();
+            snapshot.Settings.PrefixTimeoutMilliseconds =
+                state.Settings.PrefixTimeoutMilliseconds;
+            return snapshot;
+        },
+        state =>
+        {
+            var currentSave = Interlocked.Increment(ref saveCount);
+            if (currentSave == 1)
+            {
+                firstSaveStarted.Set();
+                if (!releaseFirstSave.Wait(TimeSpan.FromSeconds(5)))
+                    throw new TimeoutException("Test nie zwolnił pierwszego zapisu.");
+            }
+            savedValues.Enqueue(state.Settings.PrefixTimeoutMilliseconds);
+            if (currentSave == 2) secondSaveCompleted.Set();
+        });
+
+    var state = ConfigurationStore.CreateDefaultState();
+    state.Settings.PrefixTimeoutMilliseconds = 1001;
+    queue.Queue(state);
+    Assert(firstSaveStarted.Wait(TimeSpan.FromSeconds(5)),
+        "Kolejka nie rozpoczęła zapisu w tle.");
+
+    var stopwatch = Stopwatch.StartNew();
+    state.Settings.PrefixTimeoutMilliseconds = 1002;
+    queue.Queue(state);
+    state.Settings.PrefixTimeoutMilliseconds = 1003;
+    queue.Queue(state);
+    stopwatch.Stop();
+    Assert(stopwatch.Elapsed < TimeSpan.FromSeconds(1),
+        "Zajęty magazyn blokuje wątek wywołujący podczas dodawania nowszego stanu.");
+
+    releaseFirstSave.Set();
+    Assert(secondSaveCompleted.Wait(TimeSpan.FromSeconds(5)),
+        "Kolejka nie zapisała najnowszego połączonego stanu.");
+    state.Settings.PrefixTimeoutMilliseconds = 1004;
+    Assert(queue.Flush(state, TimeSpan.FromSeconds(5), out var failure),
+        $"Końcowy zapis kolejki nie powiódł się: {failure?.Message}");
+    Assert(savedValues.SequenceEqual([1001, 1003, 1004]),
+        "Kolejka nie zachowała pierwszego i najnowszego stanu albo nie połączyła zapisu pośredniego.");
+
+    Console.WriteLine("OK: nieblokujący, wspólny zapis stanu sesji w tle");
 }
 
 static void TestRadioRecognitionAnnouncementPolicy()

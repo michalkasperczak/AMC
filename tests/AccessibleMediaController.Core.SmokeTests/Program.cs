@@ -56,6 +56,7 @@ var tests = new (string Name, Action Test)[]
     ("Trwała kolejność własna Biblioteki", TestLocalLibraryManualOrder),
     ("Albumy rozpoznawane ze struktury folderów", TestLocalAlbumInference),
     ("Migracja i trwałość Biblioteki SQLite", TestSqliteLibraryMigration),
+    ("Serializacja równoległych zapisów stanu", TestConcurrentConfigurationSaves),
     ("Migracja biblioteki alpha.79", TestVersion17LocalLibraryMigration),
     ("Naprawa pustego źródła po alpha.80", TestVersion18EmptySourceMigration),
     ("Wyszukiwanie w katalogu", TestCatalogSearch),
@@ -1852,6 +1853,39 @@ static void TestResumePositionPolicy()
     Equal(TimeSpan.FromMinutes(12), session.RememberedPositions[podcast.Id]);
 }
 
+static void TestConcurrentConfigurationSaves()
+{
+    var directory = Path.Combine(
+        Path.GetTempPath(),
+        $"amc-concurrent-state-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var statePath = Path.Combine(directory, "state.json");
+        var databasePath = Path.Combine(directory, "library.db");
+        var store = new ConfigurationStore(statePath, databasePath);
+        var tasks = Enumerable.Range(0, 16)
+            .Select(index => Task.Run(() =>
+            {
+                var state = ConfigurationStore.CreateDefaultState();
+                state.Settings.PrefixTimeoutMilliseconds = 2_000 + index;
+                state.LocalMedia.Volume = 10 + index;
+                store.Save(state);
+            }))
+            .ToArray();
+        Task.WaitAll(tasks);
+
+        var loaded = new ConfigurationStore(statePath, databasePath).LoadOrCreate();
+        Equal(
+            loaded.Settings.PrefixTimeoutMilliseconds - 1_990,
+            loaded.LocalMedia.Volume);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
 static void TestLocalAudioFileDiscovery()
 {
     var directory = Path.Combine(Path.GetTempPath(), $"amc-local-folder-tests-{Guid.NewGuid():N}");
@@ -1941,6 +1975,25 @@ static void TestLocalAudioFileDiscovery()
         True(
             !CloudFileAvailability.MayRequireRemoteAccess(lockedPath),
             "Zwykły lokalny plik nie powinien być uznany za chmurowy.");
+        Equal(
+            MediaSourceAccessKind.LocalFile,
+            MediaSourceAccessPolicy.Classify(lockedPath).Kind);
+        Equal(
+            MediaSourceAccessKind.RemoteFile,
+            MediaSourceAccessPolicy.Classify(
+                @"G:\Dyski współdzielone\Archiwum M\Radio Centrum\audycja.mp3").Kind);
+        var streamPolicy = MediaSourceAccessPolicy.Classify(
+            "https://radio.example.invalid/live.mp3");
+        Equal(MediaSourceAccessKind.NetworkStream, streamPolicy.Kind);
+        True(
+            streamPolicy.RequiresRemoteAccess && streamPolicy.RequiresBackgroundIo,
+            "Strumień i przyszłe pobieranie z adresu sieciowego muszą używać wspólnej polityki pracy w tle.");
+        Equal(
+            MediaSourceAccessKind.NetworkStream,
+            MediaSourceAccessPolicy.Classify("spotify:track:test").Kind);
+        True(
+            MediaSourceAccessPolicy.Classify(lockedPath).RequiresBackgroundIo,
+            "Także odczyt zwykłego pliku musi pozostać poza wątkiem interfejsu.");
         True(LocalAudioFileDiscovery.IsAudioFile("nagranie.aiff"), "AIFF powinien być rozpoznawany.");
         True(LocalAudioFileDiscovery.IsAudioFile("film.mp4"), "MP4 powinien trafić do lokalnych multimediów.");
         True(LocalAudioFileDiscovery.IsAudioFile("film.mkv"), "MKV powinien trafić do lokalnych multimediów.");

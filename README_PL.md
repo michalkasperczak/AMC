@@ -40,6 +40,18 @@ Od `alpha.179` globalnego prefiksu nie wpisuje się już ręcznie w zwykłym pol
 
 Od `alpha.180` obserwowanie Shazam jest ustawieniem trwałym. Pole **Ustawienia > Radio i nagrywanie > Automatycznie obserwuj i rozpoznawaj utwory podczas odtwarzania radia** oraz `Shift+S` sterują tym samym stanem i zapisują go od razu; po ponownym uruchomieniu AMC obserwowanie pozostaje takie, jakie użytkownik zostawił. Włączenie jest możliwe również przed uruchomieniem stacji. Pierwsza próba następuje około sześciu sekund po rozpoczęciu odbioru, a brak wyniku powoduje ponowną próbę po 15 sekundach zamiast oczekiwania kolejnej pełnej minuty. Po udanym rozpoznaniu zwykły interwał pozostaje minutowy. Niezależna opcja na karcie **Komunikaty** nadal decyduje tylko o wypowiadaniu automatycznych wyników.
 
+Od `alpha.181` automatyczny zapis pozycji, historii, ustawień Radia i stanu
+pozostałych sesji nie wykonuje pełnej transakcji SQLite na wątku interfejsu.
+Jedna kolejka zapisuje migawki w tle i łączy kilka szybkich zmian, zachowując
+najnowszy stan; przy zamknięciu programu końcowa migawka jest opróżniana przed
+wyjściem. Chroni to fokus, strzałki i odtwarzacz również wtedy, gdy zapis
+lokalnego katalogu opóźni dysk, filtr antywirusowy albo dostawca chmury.
+Wspólna klasyfikacja rozróżnia plik lokalny, plik zdalny i strumień sieciowy,
+więc reguła pracy poza interfejsem obejmuje iCloud, OneDrive, Dysk Google,
+Dropbox, udziały sieciowe oraz przyszłe adaptery sesji, streamingu i pobierania.
+Segmentowe pole daty harmonogramu pozostaje obsługiwane strzałkami: lewo i
+prawo wybiera część daty, a góra i dół zmienia jej wartość.
+
 Od `alpha.115` sesja **Radio internetowe** pod domyślnym `Ctrl+5` jest pierwszym prawdziwym adapterem sieciowym AMC. `Ctrl+F` wyszukuje stacje w publicznym katalogu Radio Browser; wynik można odtworzyć oraz dodać do lokalnej Biblioteki lub Ulubionych radia. Kolejka i „Odtwórz jako następne” nie należą do modelu radia, natomiast playlisty mogą grupować stacje. `Insert` w Bibliotece dodaje własną stację, a `F2` otwiera dwa niezależne pola: nazwę i adres strumienia. Odtwarzacz ma ograniczony pamięcią timeshift, Home przechodzi do początku dostępnego bufora, End wraca na żywo, a `R` rozpoczyna lub kończy świadome nagrywanie bieżącej stacji w niezależnym tle. `Ctrl+Alt+R` robi to samo na liście, `Alt+2` pokazuje wszystkie aktualnie nagrywane stacje, a `Shift+R` otwiera nagranie czasowe lub harmonogram. Obsługiwane są bezpośrednie adresy HTTP/HTTPS oraz listy M3U, M3U8, PLS i XSPF; manifest HLS pozostaje manifestem dla dekodera. Zakładki, skok procentowy i regulacja prędkości są w radiu ukryte, ponieważ nie mają trwałego znaczenia dla transmisji na żywo.
 
 Od `alpha.116` nagranie radia jest zapisywane jako MP3 zamiast WAV; docelowa jakość to 192 kb/s, a dla nietypowej częstotliwości próbkowania system wybiera najbliższy obsługiwany bitrate. AMC koduje dekodowany dźwięk przez systemowy Windows Media Foundation, więc działa tak samo dla źródłowego MP3, AAC, OGG i innych strumieni obsługiwanych przez odtwarzacz, bez instalowania FFmpeg lub globalnego pakietu kodeków. Podczas nagrywania powstaje ukryty plik roboczy; nazwa `.mp3` pojawia się dopiero po prawidłowym zakończeniu. Zatrzymanie, zmiana stacji i zamknięcie programu finalizują nagranie, natomiast awaria kodera usuwa niedokończone dane i nie zatrzymuje odtwarzania radia.

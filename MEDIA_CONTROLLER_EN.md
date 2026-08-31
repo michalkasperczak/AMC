@@ -546,6 +546,17 @@ State in `alpha.111`: changing decoder position must never occupy the UI thread.
 
 State in `alpha.112`: resilience policy distinguishes a local source from a potentially remote one through placeholder and reparse-point attributes, configured provider roots, common path segments, and network drives or shares. This covers iCloud, OneDrive, Google Drive, Dropbox, Box Drive, pCloud, MEGA, Proton Drive, Nextcloud, ownCloud, and Sync. Preparation is bounded at 45 seconds locally and five minutes remotely, stalled reads at 8 and 30 seconds, and seeks at 30 seconds and five minutes. A failed local decoder quarantines the damaged source until restart; a remote failure remains retryable because it may only reflect transient connectivity. These limits cannot cancel an underlying Windows I/O operation that exposes no cancellation contract, but they invalidate its result, detach the pipeline, and keep the window responsive.
 
+State in `alpha.181`: the same rule is a source contract rather than an
+exception for one provider. Shared classification distinguishes a local file,
+potentially remote file and network stream and is available to local playback,
+Radio, future service sessions and download paths. Payload access remains off
+the UI thread even for a nominally local file because storage, a filesystem
+filter or security software may delay it as well. Automatic persistence of
+shared session state uses one serialized background queue. Newer snapshots
+coalesce pending ones, database and settings-file writes cannot overlap, and
+orderly shutdown flushes the final state. The position timer therefore no
+longer performs a complete Library save on the WPF thread.
+
 For an MP3 extension, a bounded preflight reads the ID3 header and at most 1 MiB from the audio start. A tag-declared size is checked against physical length but never determines buffer allocation. Two compatible consecutive frames are required for automatic fallback. NAudio 2.3.0 `AudioFileReader` remains the primary system path and handles files larger than the fallback ceiling. If a local file up to 512 MiB is rejected, stops during playback, or stalls, AMC permits one managed NLayer 2.0.1 recovery attempt while retaining position, speed, and volume. Fallback is forbidden for a remote or larger source to prevent a full scan or download, and its own failure ends the pipeline without a retry loop. The common credible-duration ceiling for MP3, WAV, OGG, and other readers is 365 days while the minimum plausible bitrate check remains. Accessibility messages expose no exception type or technical identifier.
 
 State in `alpha.113`: the shared container preflight is a diagnostic operation bounded to 64 KiB and runs only after the user explicitly opens media, including on the cloud-preparation worker. It recognises RIFF, RF64, and BW64 WAVE; FORM AIFF/AIFC; native FLAC; Ogg Vorbis and Opus; ISO Base Media File Format; ASF; EBML Matroska/WebM; RIFF AVI; and raw ADTS or ADIF AAC. An optional leading ID3 tag is skipped only after its size is checked against the physical file. The probe never expands arbitrary chunk, atom, or metadata lists, and no input size controls allocation. An unknown or mismatched header is not rejected by the probe alone because Media Foundation may still support a valid unusual mux or codec; the warning remains diagnostic and never enters an accessible name.

@@ -38,6 +38,19 @@ Starting with `alpha.179`, the global prefix is no longer typed into an ordinary
 
 Starting with `alpha.180`, Shazam monitoring is persistent. **Settings > Radio and recording > Automatically monitor and recognise tracks while Radio is playing** and `Shift+S` control the same state and save it immediately; after restarting AMC, monitoring remains as the user left it. It may also be enabled before a station starts. The first attempt runs about six seconds after reception begins, and a missing result schedules another attempt after 15 seconds instead of waiting another full minute. The ordinary interval remains one minute after a successful match. The independent checkbox under **Messages** continues to control speech only.
 
+Starting with `alpha.181`, automatic persistence of playback positions,
+history, Radio settings and other session state no longer performs a complete
+SQLite transaction on the UI thread. One background queue stores immutable
+snapshots and coalesces rapid changes while retaining the newest state; the
+final snapshot is flushed during orderly shutdown. This keeps focus, arrow-key
+navigation and playback responsive even when the local catalogue write is
+delayed by storage, a security filter or a cloud provider. Shared source
+classification distinguishes a local file, remote file and network stream, so
+the off-UI rule covers iCloud, OneDrive, Google Drive, Dropbox, network shares,
+and future session, streaming and download adapters. The schedule date field
+remains segmented: Left and Right choose a date part, while Up and Down change
+its value.
+
 Starting with `alpha.115`, **Internet Radio** on the default `Ctrl+5` slot is AMC's first real network adapter. `Ctrl+F` searches the public Radio Browser directory; a result can be played or added to the radio's local Library or Favorites. Queue and Play Next are not part of the radio model, while playlists may group stations. `Insert` in the radio Library adds a custom station, while `F2` exposes two independent fields: station name and stream URL. The player keeps a bounded in-memory time-shift buffer: Home moves to its oldest available point, End returns to live, and `R` starts or stops an explicit background recording of the current station. `Ctrl+Alt+R` does the same from a list, `Alt+2` shows all actively recorded stations, and `Shift+R` opens timed recording or the scheduler. Direct HTTP/HTTPS streams and M3U, M3U8, PLS and XSPF lists are accepted; an HLS manifest remains a manifest for the decoder. Bookmarks, percentage jumps and playback speed are hidden for live radio because they have no durable broadcast meaning.
 
 Starting with `alpha.116`, radio recordings are stored as MP3 instead of WAV. The target quality is 192 kbps; for an unusual sample rate the system selects the nearest supported bitrate. AMC encodes the decoded audio through Windows Media Foundation, so source MP3, AAC, OGG and other streams supported by the player follow one path without installing FFmpeg or a global codec pack. Recording first writes an AMC temporary file and publishes the `.mp3` name only after successful finalisation. Stop, station changes and application shutdown finalise the file; an encoder failure removes incomplete data without stopping radio playback.

@@ -29,6 +29,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 {
     private PersistedState _state;
     private readonly ConfigurationStore _store;
+    private readonly StatePersistenceQueue _statePersistence;
     private PlaybackHistory _playbackHistory;
     private BookmarkIndex _bookmarkIndex;
     private SessionManager _sessions = null!;
@@ -107,6 +108,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private string? _playerFocusContextPrefix;
     private DateTime _lastLocalStateSaveUtc;
     private long _lastSavedLocalPositionTicks = -1;
+    private int _backgroundSaveFailureAnnouncementPending;
+    private int _foregroundSaveInProgress;
     private long _quickInformationRequestVersion;
     private string? _radioNowPlayingItemId;
     private string? _radioNowPlayingTitle;
@@ -196,6 +199,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _radioScheduleTimer.Tick += RadioScheduleTimer_Tick;
         _state = state;
         _store = store;
+        _statePersistence = new StatePersistenceQueue(store, BackgroundStateSaveFailed);
         _radioRecognitionMonitoring = _state.Radio.AutomaticTrackRecognitionEnabled;
         _localOutput.ConfigureAudioProcessing(_state.Settings.Audio);
         _localOutput.ConfigureAudioProcessingResolver(GetEffectiveLocalAudioSettings);
@@ -471,7 +475,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ExecuteSearchResultAction,
             searchHistory,
             searchHistoryScope,
-            () => _store.Save(_state),
+            () => QueueStateSave(),
             _state.Settings.Messages.DetailedHints,
             allServices || string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
                 ? PrepareRadioSearchAsync
@@ -587,7 +591,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             item,
             session.Position,
             DateTime.UtcNow);
-        _store.Save(_state);
+        QueueStateSave();
         var time = CommandRouter.FormatTime(TimeSpan.FromTicks(result.Entry.PositionTicks));
         Announce(result.Added
             ? $"Dodano zakładkę: {time}"
@@ -621,7 +625,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             position,
             DateTime.UtcNow,
             dialog.BookmarkName);
-        _store.Save(_state);
+        QueueStateSave();
         var time = CommandRouter.FormatTime(TimeSpan.FromTicks(result.Entry.PositionTicks));
         Announce(result.Added
             ? $"Dodano zakładkę {result.Entry.Name}: {time}"
@@ -961,7 +965,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 });
                 if (_state.Radio.RecognizedTracks.Count > 2_000)
                     _state.Radio.RecognizedTracks.RemoveRange(2_000, _state.Radio.RecognizedTracks.Count - 2_000);
-                _store.Save(_state);
+                QueueStateSave();
                 DiagnosticLog.Info("recognition", $"Rozpoznano {label} na stacji {station.Title}.");
                 if (ShouldAnnounceRadioRecognitionResult(
                         automatic,
@@ -1026,7 +1030,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             _nextRadioRecognitionUtc = DateTime.MaxValue;
         }
-        _store.Save(_state);
+        QueueStateSave();
         UpdateFileMenuForCurrentSession();
         AnnounceEssential(enabled
             ? radioSession?.IsPlaying == true
@@ -1042,7 +1046,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Owner = this
         };
         dialog.ShowDialog();
-        if (dialog.Changed) _store.Save(_state);
+        if (dialog.Changed) QueueStateSave();
         Activate();
         if (_playerViewActive)
         {
@@ -1390,7 +1394,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             TrySaveLocalMediaState(true);
             return;
         }
-        _store.Save(_state);
+        QueueStateSave();
     }
 
     private void ActivatePreset(int slot, bool useDirectShortcutLabel = false)
@@ -1612,7 +1616,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         try
         {
-            _store.Save(_state);
+            QueueStateSave();
         }
         catch (Exception exception) when (exception is IOException or InvalidDataException)
         {
@@ -2424,7 +2428,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 item.SampleRateHz ??= metadata.SampleRateHz;
                 item.Codec ??= metadata.Codec;
                 CaptureRadioState();
-                _store.Save(_state);
+                QueueStateSave();
                 UpdatePlaybackStatusBar();
             }
         }
@@ -2570,7 +2574,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     public void ToggleAccessibilityMessages()
     {
         _state.Settings.Messages.Enabled = !_state.Settings.Messages.Enabled;
-        _store.Save(_state);
+        QueueStateSave();
         AnnounceEssential(_state.Settings.Messages.Enabled
             ? "Komunikaty dostępności włączone"
             : "Komunikaty dostępności wyłączone");
@@ -2580,7 +2584,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         _state.Settings.Messages.DetailedHints = !_state.Settings.Messages.DetailedHints;
         ApplyDetailedHints();
-        _store.Save(_state);
+        QueueStateSave();
         AnnounceEssential(_state.Settings.Messages.DetailedHints
             ? "Szczegółowe podpowiedzi klawiatury włączone"
             : "Szczegółowe podpowiedzi klawiatury wyłączone");
@@ -2590,7 +2594,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var enabled = !_state.Settings.Messages.SeekMessages;
         _state.Settings.Messages.SeekMessages = enabled;
-        _store.Save(_state);
+        QueueStateSave();
         AnnounceEssential(enabled
             ? "Automatyczne komunikaty odtwarzacza włączone"
             : "Automatyczne komunikaty odtwarzacza wyłączone");
@@ -2743,7 +2747,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         navigation.PlayerActive = false;
         RefreshCurrentView(preferredItemId: promoted.FirstOrDefault()?.Id ?? added[0].Id);
         CaptureRadioState();
-        _store.Save(_state);
+        QueueStateSave();
         RestoreMediaListFocusAfterRefresh();
         DiagnosticLog.Info(
             "radio-import",
@@ -3539,7 +3543,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         radio.AddItems(_radioItems);
         CaptureRadioState();
-        _store.Save(_state);
+        QueueStateSave();
     }
 
     private void CaptureLocalMediaState()
@@ -3613,22 +3617,105 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
-    private void SaveLocalMediaState()
+    private bool SaveLocalMediaState()
     {
         CaptureCurrentSessionNavigationState();
         CaptureLocalMediaState();
         CaptureRadioState();
-        _store.Save(_state);
+        if (!QueueStateSave()) return false;
         var local = _sessions.FindSession("local");
         _lastSavedLocalPositionTicks = local?.Position.Ticks ?? 0;
         _lastLocalStateSaveUtc = DateTime.UtcNow;
+        return true;
+    }
+
+    private bool QueueStateSave(bool announceFailure = false)
+    {
+        try
+        {
+            _statePersistence.Queue(_state);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error("storage", "Nie udało się przygotować stanu do zapisu w tle.", exception);
+            if (announceFailure)
+            {
+                AnnounceEssential($"Nie udało się zapisać stanu programu: {exception.Message}");
+            }
+            return false;
+        }
+    }
+
+    private void BackgroundStateSaveFailed(Exception exception)
+    {
+        DiagnosticLog.Error("storage", "Nie udało się zapisać stanu programu w tle.", exception);
+        if (_isClosing
+            || Volatile.Read(ref _foregroundSaveInProgress) != 0
+            || Interlocked.Exchange(ref _backgroundSaveFailureAnnouncementPending, 1) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                Interlocked.Exchange(ref _backgroundSaveFailureAnnouncementPending, 0);
+                if (!_isClosing)
+                {
+                    AnnounceEssential($"Nie udało się zapisać stanu programu: {exception.Message}");
+                }
+            }, DispatcherPriority.ContextIdle);
+        }
+        catch (InvalidOperationException)
+        {
+            Interlocked.Exchange(ref _backgroundSaveFailureAnnouncementPending, 0);
+        }
+    }
+
+    private bool FlushStateSave(TimeSpan timeout, out Exception? failure)
+    {
+        Interlocked.Increment(ref _foregroundSaveInProgress);
+        try
+        {
+            return _statePersistence.Flush(_state, timeout, out failure);
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+            return false;
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _foregroundSaveInProgress);
+        }
     }
 
     private bool TrySaveLocalMediaState(bool announceFailure)
     {
         try
         {
-            SaveLocalMediaState();
+            if (!announceFailure) return SaveLocalMediaState();
+
+            // Explicit actions whose confirmation says "saved" retain the
+            // durable-save contract. Periodic and ordinary navigation saves
+            // use the non-blocking queue above.
+            CaptureCurrentSessionNavigationState();
+            CaptureLocalMediaState();
+            CaptureRadioState();
+            if (!FlushStateSave(TimeSpan.FromSeconds(30), out var saveFailure))
+            {
+                if (announceFailure)
+                {
+                    AnnounceEssential(
+                        $"Nie udało się zapisać stanu lokalnych multimediów: {saveFailure?.Message ?? "nieznany błąd"}");
+                }
+                return false;
+            }
+            var local = _sessions.FindSession("local");
+            _lastSavedLocalPositionTicks = local?.Position.Ticks ?? 0;
+            _lastLocalStateSaveUtc = DateTime.UtcNow;
             return true;
         }
         catch (Exception exception) when (
@@ -3660,15 +3747,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (resetHistoryNavigation) _playbackHistoryCursors.Remove(session.Id);
         if (!_playbackHistory.Record(session.Id, item.Id)) return;
-        try
-        {
-            _store.Save(_state);
-        }
-        catch (Exception exception) when (
-            exception is IOException or UnauthorizedAccessException or InvalidDataException)
-        {
-            // Playback remains available even if history cannot be persisted.
-        }
+        QueueStateSave();
     }
 
     private void NavigatePlaybackHistory(int direction)
@@ -4260,7 +4339,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RecordPlayback(radio, e.Item);
         }
         CaptureRadioState();
-        _store.Save(_state);
+        QueueStateSave();
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();
@@ -4312,7 +4391,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         item.SampleRateHz ??= metadata.SampleRateHz;
         item.Codec ??= metadata.Codec;
         CaptureRadioState();
-        _store.Save(_state);
+        QueueStateSave();
         UpdatePlaybackStatusBar();
     }
 
@@ -4734,7 +4813,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             else if (string.Equals(sessionBeforeCommand.Id, "radio", StringComparison.Ordinal))
             {
                 CaptureRadioState();
-                _store.Save(_state);
+                QueueStateSave();
             }
         }
         else if (changesListMembership)
@@ -4827,7 +4906,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
             CaptureRadioState();
-            _store.Save(_state);
+            QueueStateSave();
         }
         if (savesPlaybackBoundary && result.Handled && _sessions.Current.IsPlaying)
         {
@@ -4841,12 +4920,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (changesListMembership && changedSession is not null)
         {
             if (string.Equals(changedSession.Id, "radio", StringComparison.Ordinal)) CaptureRadioState();
-            _store.Save(_state);
+            QueueStateSave();
         }
         else if (savesPlaybackBoundary && result.Handled)
         {
             if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)) CaptureRadioState();
-            _store.Save(_state);
+            QueueStateSave();
         }
         return result;
     }
@@ -5480,7 +5559,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
                 TrySaveLocalMediaState(true);
             else
-                _store.Save(_state);
+                QueueStateSave();
         }
         else if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
@@ -5488,7 +5567,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else
         {
-            _store.Save(_state);
+            QueueStateSave();
         }
         var movedLabel = selectedIds.Length == 1
             ? "Przeniesiono"
@@ -5761,7 +5840,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 if (string.Equals(session.Id, "local", StringComparison.Ordinal))
                     TrySaveLocalMediaState(false);
                 else
-                    _store.Save(_state);
+                    QueueStateSave();
             }
             RefreshPlaybackIndicators();
             ShowPlayerView();
@@ -5843,7 +5922,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RecordPlayback(session, first);
         if (string.Equals(session.Id, "radio", StringComparison.Ordinal)) CaptureRadioState();
         else if (string.Equals(session.Id, "local", StringComparison.Ordinal)) TrySaveLocalMediaState(false);
-        else _store.Save(_state);
+        else QueueStateSave();
         RefreshPlaybackIndicators();
         ShowPlayerView();
     }
@@ -6204,7 +6283,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
             CaptureRadioState();
-            _store.Save(_state);
+            QueueStateSave();
         }
         RefreshCurrentView(previousIndex);
         RestoreMediaListFocusAfterRefresh();
@@ -6315,7 +6394,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (string.Equals(undo.SessionId, "radio", StringComparison.Ordinal))
         {
             CaptureRadioState();
-            _store.Save(_state);
+            QueueStateSave();
         }
         RestoreMediaListFocusAfterRefresh();
 
@@ -6347,7 +6426,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(undo.SessionId, "local", StringComparison.OrdinalIgnoreCase))
             TrySaveLocalMediaState(false);
         else
-            _store.Save(_state);
+            QueueStateSave();
         RestoreMediaListFocusAfterRefresh();
         Dispatcher.BeginInvoke(() => Announce(undo.Announcement), DispatcherPriority.ContextIdle);
     }
@@ -6553,7 +6632,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ClearDisabledLocalResumePositions();
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
         _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);
-        _store.Save(_state);
+        Exception? settingsSaveFailure;
+        if (!FlushStateSave(TimeSpan.FromSeconds(30), out settingsSaveFailure))
+        {
+            settingsSaveFailure ??= new IOException("Nieznany błąd zapisu ustawień.");
+            DiagnosticLog.Error("storage", "Nie udało się zapisać ustawień.", settingsSaveFailure);
+        }
         ApplyDetailedHints();
         RebuildCore();
         RearmRadioWakeTimer();
@@ -6562,11 +6646,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         try
         {
             RegisterConfiguredPrefix();
-            announcement = "Zapisano ustawienia";
+            announcement = settingsSaveFailure is null
+                ? "Zapisano ustawienia"
+                : $"Zmieniono ustawienia, ale nie udało się ich zapisać: {settingsSaveFailure.Message}";
         }
         catch (Exception exception)
         {
-            announcement = $"Ustawienia zapisane, ale prefiks jest niedostępny: {exception.Message}";
+            announcement = settingsSaveFailure is null
+                ? $"Ustawienia zapisane, ale prefiks jest niedostępny: {exception.Message}"
+                : $"Nie udało się zapisać ustawień, a prefiks jest niedostępny: {exception.Message}";
         }
         RestoreMediaListFocusAfterRefresh();
         Dispatcher.BeginInvoke(() => Announce(announcement), DispatcherPriority.ContextIdle);
@@ -6632,16 +6720,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else
         {
-            try
-            {
-                _store.Save(_state);
-            }
-            catch (Exception exception) when (
-                exception is IOException or UnauthorizedAccessException or InvalidDataException)
-            {
-                saved = false;
-                DiagnosticLog.Error("storage", "Nie udało się zapisać Historii odtwarzania.", exception);
-            }
+            saved = QueueStateSave(announceFailure: true);
         }
 
         RefreshCurrentView(previousIndex);
@@ -6734,7 +6813,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             duplicate.IsInLibrary = true;
             RefreshCurrentView(preferredItemId: duplicate.Id);
             CaptureRadioState();
-            _store.Save(_state);
+            QueueStateSave();
             RestoreMediaListFocusAfterRefresh();
             Announce($"Zaktualizowano stację: {duplicate.Title}");
             return;
@@ -6763,7 +6842,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         GetSessionNavigationState("radio").CurrentView = _currentView;
         RefreshCurrentView(preferredItemId: item.Id);
         CaptureRadioState();
-        _store.Save(_state);
+        QueueStateSave();
         RestoreMediaListFocusAfterRefresh();
         Dispatcher.BeginInvoke(
             () => Announce($"Dodano stację do Biblioteki: {item.Title}"),
@@ -6803,7 +6882,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         RefreshCurrentView(preferredItemId: item.Id);
         CaptureRadioState();
-        _store.Save(_state);
+        QueueStateSave();
         RestoreItemActionFocus();
         Dispatcher.BeginInvoke(
             () => Announce($"Zapisano nazwę i adres stacji: {item.Title}"),
@@ -6849,7 +6928,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             if (scheduled.Length > 0)
             {
-                _store.Save(_state);
+                QueueStateSave();
                 RearmRadioWakeTimer();
             }
             AnnounceEssential($"Zatrzymuję nagrywanie: {station.Title}");
@@ -7109,7 +7188,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (scheduledRecordings.Length > 0)
         {
-            _store.Save(_state);
+            QueueStateSave();
             RearmRadioWakeTimer();
         }
         AnnounceEssential(count == 1
@@ -7316,7 +7395,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _state.Radio.RecordingSchedules = _state.Radio.RecordingSchedules
             .OrderBy(schedule => schedule.NextStartUtcTicks)
             .ToList();
-        _store.Save(_state);
+        QueueStateSave();
         RearmRadioWakeTimer();
         ProcessDueRadioSchedules();
         RestoreItemActionFocus();
@@ -7380,7 +7459,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         _state.Radio.RecordingSchedules = replacements;
         _state.Radio.WakeScheduledRecordings = dialog.ResultWakeScheduledRecordings;
-        _store.Save(_state);
+        QueueStateSave();
         RearmRadioWakeTimer();
         ProcessDueRadioSchedules();
         RestoreItemActionFocus();
@@ -7399,7 +7478,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (RadioScheduleCalculator.Evaluate(schedule, now).Kind != RadioScheduleDueKind.Missed) continue;
             changed |= AdvanceOrRemoveRadioSchedule(schedule, now, "pominięte podczas zamknięcia programu");
         }
-        if (changed) _store.Save(_state);
+        if (changed) QueueStateSave();
     }
 
     private void RadioScheduleTimer_Tick(object? sender, EventArgs e) => ProcessDueRadioSchedules();
@@ -7426,7 +7505,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (changed)
         {
-            _store.Save(_state);
+            QueueStateSave();
             RearmRadioWakeTimer();
         }
     }
@@ -7517,7 +7596,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (current is not null && !result.Cancelled)
         {
             _ = AdvanceOrRemoveRadioSchedule(current, DateTime.UtcNow, "zakończone");
-            _store.Save(_state);
+            QueueStateSave();
         }
         RearmRadioWakeTimer();
 
@@ -7862,7 +7941,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var previousIndex = MediaList.SelectedIndex;
         AnchorMediaListFocus();
         var removed = _bookmarkIndex.Remove(rows.Select(row => row.Bookmark!.Id));
-        _store.Save(_state);
+        QueueStateSave();
         RefreshCurrentView(previousIndex);
         RestoreMediaListFocusAfterRefresh();
         var message = removed == 1 ? "Usunięto zakładkę" : $"Usunięto zakładki: {removed}";
@@ -10242,7 +10321,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _radioOutput.Dispose();
         _radioCatalog.Dispose();
         _trackRecognitionCancellation.Dispose();
-        _store.Save(_state);
+        CaptureRadioState();
+        if (!_statePersistence.Flush(_state, TimeSpan.FromSeconds(15), out var saveFailure))
+        {
+            DiagnosticLog.Error(
+                "storage",
+                "Końcowy zapis stanu programu nie zakończył się prawidłowo.",
+                saveFailure ?? new IOException("Nieznany błąd końcowego zapisu stanu."));
+        }
     }
 
     private void FilterBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -11055,7 +11141,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         _pendingInternalListMove = null;
         CaptureRadioState();
-        _store.Save(_state);
+        QueueStateSave();
         RefreshCurrentView(preferredItemId: pending.ItemIds[0]);
         SelectMediaItems(pending.ItemIds);
         PrepareSelectedItemFocusContext(pending.ItemIds.Count == 1

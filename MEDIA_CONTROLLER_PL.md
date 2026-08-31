@@ -542,6 +542,18 @@ Stan `alpha.111`: operacja zmiany pozycji dekodera nigdy nie może zajmować wą
 
 Stan `alpha.112`: polityka odporności rozróżnia źródło lokalne od potencjalnie zdalnego na podstawie atrybutów placeholdera i punktu ponownej analizy, skonfigurowanych korzeni dostawców, typowych segmentów ścieżki oraz dysku lub udziału sieciowego. Obejmuje iCloud, OneDrive, Google Drive, Dropbox, Box Drive, pCloud, MEGA, Proton Drive, Nextcloud, ownCloud i Sync. Otwarcie ma limit 45 sekund lokalnie i pięć minut zdalnie, brak postępu odczytu odpowiednio 8 i 30 sekund, a skok 30 sekund i pięć minut. Awaria lokalnego dekodera blokuje wadliwe źródło do restartu; błąd zdalny pozostaje ponawialny, ponieważ może wynikać wyłącznie z chwilowego stanu sieci. Limity nie wykonują anulowania systemowego odczytu, którego Windows nie udostępnia, lecz unieważniają wynik, odłączają tor i pozostawiają okno dostępne.
 
+Stan `alpha.181`: ta sama zasada jest kontraktem źródła, a nie wyjątkiem dla
+jednej usługi. Wspólna klasyfikacja rozróżnia plik lokalny, potencjalnie zdalny
+plik oraz strumień sieciowy i może być używana przez odtwarzacz lokalny, Radio,
+przyszłe sesje usług oraz mechanizmy pobierania. Każda operacja odczytująca
+ładunek pozostaje poza wątkiem interfejsu także dla pliku oznaczonego jako
+lokalny, ponieważ nośnik, filtr systemowy albo program zabezpieczający również
+może opóźnić odczyt. Automatyczne utrwalanie wspólnego stanu sesji korzysta z
+jednej serializowanej kolejki tła. Kolejne migawki są łączone do najnowszej,
+równoległe zapisy bazy i pliku ustawień są wykluczone, a zamknięcie opróżnia
+końcowy stan. Timer pozycji nie wykonuje już pełnego zapisu Biblioteki na
+wątku WPF.
+
 Dla rozszerzenia MP3 ograniczony preflight czyta nagłówek ID3 i najwyżej 1 MiB od początku danych audio. Rozmiar deklarowany przez tag jest sprawdzany względem długości pliku, ale nigdy nie służy jako rozmiar bufora. Dwie zgodne kolejne ramki są warunkiem automatycznego fallbacku. Domyślny `AudioFileReader` z NAudio 2.3.0 pozostaje ścieżką systemową i obsługuje także pliki większe niż limit fallbacku. Jeżeli lokalny plik do 512 MiB zostanie odrzucony, przerwie odtwarzanie albo zatrzyma postęp, dopuszczona jest jedna próba zarządzanym NLayer 2.0.1 z zachowaniem pozycji, prędkości i głośności. Fallback jest zabroniony dla źródła zdalnego i większego pliku, aby nie rozpocząć pełnego skanowania lub pobierania. Jego własna awaria kończy tor bez pętli ponowień. Wspólna granica wiarygodnego czasu MP3, WAV, OGG i pozostałych dekoderów wynosi 365 dni, przy zachowaniu testu minimalnej wiarygodnej przepływności. Komunikat dostępności nie zawiera klasy wyjątku ani identyfikatora technicznego.
 
 Stan `alpha.113`: wspólny preflight kontenera jest operacją diagnostyczną ograniczoną do 64 KiB i wykonywaną dopiero po świadomym otwarciu materiału, w tym na pracowniku przygotowania pliku chmurowego. Rozpoznaje RIFF, RF64 i BW64 z formą WAVE, FORM AIFF/AIFC, natywny FLAC, Ogg Vorbis i Opus, ISO Base Media File Format, ASF, EBML Matroska/WebM, RIFF AVI oraz surowy ADTS i ADIF AAC. Opcjonalny początkowy ID3 jest pomijany przez bezpieczny skok po sprawdzeniu jego rozmiaru względem pliku. Nie są rozwijane dowolne listy chunków, atomów ani metadanych i żaden rozmiar wejściowy nie określa alokacji. Nierozpoznany albo niezgodny nagłówek nie jest samodzielnie odrzucany, ponieważ prawidłowy kodek lub nietypowy mux może nadal zostać obsłużony przez Media Foundation; ostrzeżenie jest techniczne i nie trafia do nazwy dostępności.

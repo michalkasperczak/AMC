@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Security.Authentication;
 using System.Runtime.InteropServices;
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
 using NAudio.CoreAudioApi;
@@ -915,9 +916,17 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         return pipeline;
     }
 
-    private static bool IsHttpStream(string? source) =>
-        Uri.TryCreate(source, UriKind.Absolute, out var uri)
-        && uri.Scheme is "http" or "https";
+    private static bool IsHttpStream(string? source)
+    {
+        if (MediaSourceAccessPolicy.Classify(source).Kind
+            != MediaSourceAccessKind.NetworkStream)
+        {
+            return false;
+        }
+
+        return Uri.TryCreate(source, UriKind.Absolute, out var uri)
+            && uri.Scheme is "http" or "https";
+    }
 
     private static string UniqueRecordingPath(string folder, string baseName, string extension)
     {

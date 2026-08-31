@@ -302,7 +302,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         var resolvedPosition = position < TimeSpan.Zero ? TimeSpan.Zero : position;
         var resolvedRate = Math.Clamp(playbackRate, 0.50d, 2.00d);
         var resolvedVolume = Math.Clamp(volume, 0, 100);
-        var mayRequireRemoteAccess = CloudFileAvailability.MayRequireRemoteAccess(item.Source);
+        var sourceAccess = MediaSourceAccessPolicy.Classify(item.Source);
+        var mayRequireRemoteAccess = sourceAccess.RequiresRemoteAccess;
         PlaybackPipeline? reusable;
         bool sourceQuarantined;
         TimeSpan? remoteRetryDelay;
@@ -527,8 +528,9 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             }
 
             var currentRequest = false;
-            var failedRemote = !string.IsNullOrWhiteSpace(item.Source)
-                && CloudFileAvailability.MayRequireRemoteAccess(item.Source);
+            var failedRemote = MediaSourceAccessPolicy
+                .Classify(item.Source)
+                .RequiresRemoteAccess;
             lock (_gate)
             {
                 if (!_disposed && requestVersion == _requestVersion)
@@ -552,7 +554,9 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         Mp3DecoderMode mp3DecoderMode)
     {
         DiagnosticLog.Info("playback", $"Otwieranie dekodera: {item.Title}; żądanie {requestVersion}.");
-        var mayRequireRemoteAccess = CloudFileAvailability.MayRequireRemoteAccess(item.Source!);
+        var mayRequireRemoteAccess = MediaSourceAccessPolicy
+            .Classify(item.Source)
+            .RequiresRemoteAccess;
         var selection = CreateReader(
             item.Source!,
             mp3DecoderMode,
@@ -910,7 +914,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         sampleRateHz = 0;
         // Quick information must never trigger a cloud download. Metadata for
         // a placeholder is populated after the user explicitly plays it.
-        if (CloudFileAvailability.MayRequireRemoteAccess(path)) return false;
+        if (MediaSourceAccessPolicy.Classify(path).RequiresRemoteAccess) return false;
         try
         {
             using var selection = CreateReader(

@@ -18,6 +18,7 @@ public sealed class ConfigurationStore
     private readonly string statePath;
     private readonly string migrationBackupPath;
     private readonly LocalLibraryDatabase libraryDatabase;
+    private readonly object saveGate = new();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -95,25 +96,31 @@ public sealed class ConfigurationStore
 
     public void Save(PersistedState state)
     {
-        NormalizeSessionSlots(state.Settings);
-        NormalizeSearchHistory(state);
-        NormalizeSessionNavigation(state);
-        NormalizeLocalMedia(state, state.SchemaVersion);
-        NormalizePlaybackHistory(state);
-        NormalizeBookmarks(state);
-        NormalizePlaylists(state);
-        NormalizeSessionPresets(state);
-        NormalizeRadio(state);
-        ValidateState(state);
-        try
+        // MainWindow saves snapshots in the background. Settings and import
+        // dialogs may still request an immediate save, so the database and the
+        // atomic JSON replacement must be one serialized operation.
+        lock (saveGate)
         {
-            libraryDatabase.Save(state);
+            NormalizeSessionSlots(state.Settings);
+            NormalizeSearchHistory(state);
+            NormalizeSessionNavigation(state);
+            NormalizeLocalMedia(state, state.SchemaVersion);
+            NormalizePlaybackHistory(state);
+            NormalizeBookmarks(state);
+            NormalizePlaylists(state);
+            NormalizeSessionPresets(state);
+            NormalizeRadio(state);
+            ValidateState(state);
+            try
+            {
+                libraryDatabase.Save(state);
+            }
+            catch (SqliteException exception)
+            {
+                throw new IOException("Nie udało się zapisać lokalnej bazy Biblioteki SQLite.", exception);
+            }
+            WriteStateAtomically(CreateSettingsOnlyState(state));
         }
-        catch (SqliteException exception)
-        {
-            throw new IOException("Nie udało się zapisać lokalnej bazy Biblioteki SQLite.", exception);
-        }
-        WriteStateAtomically(CreateSettingsOnlyState(state));
     }
 
     public void ExportKeyboardMap(string path, KeyboardProfile profile)
