@@ -156,7 +156,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     private static readonly TimeSpan SlowSeekLogThreshold = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan EndOfFileGracePeriod = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan EndOfFilePositionTolerance = TimeSpan.FromMilliseconds(350);
-    private static readonly TimeSpan SmoothTrackTransitionDuration = TimeSpan.FromMilliseconds(1500);
+    internal static readonly TimeSpan SmoothTrackTransitionDuration = TimeSpan.FromSeconds(4);
     private const long ManagedMp3FallbackMaximumBytes = 512L * 1024 * 1024;
     private PlaybackPipeline? _pipeline;
     private SeekWorkerState? _seekWorker;
@@ -746,6 +746,17 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
                         decoderKind = DecoderKind.ManagedMp3;
                     }
                 }
+                else if (ShouldPreferManagedMp3ForPlayback(
+                    allowManagedMp3Fallback,
+                    mayRequireRemoteAccess,
+                    probe))
+                {
+                    reader = CreateManagedMp3Reader(path);
+                    decoderKind = DecoderKind.ManagedMp3;
+                    DiagnosticLog.Warning(
+                        "mp3-managed",
+                        $"Nietypowy lokalny MP3 otwarto od razu odpornym dekoderem z indeksem ramek: {path}; początek {probe.GetValueOrDefault().AudioStartOffset}.");
+                }
                 else if (probe is { ShouldUseSanitizedStream: true })
                 {
                     try
@@ -896,6 +907,14 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         !mayRequireRemoteAccess
         && probe is { HasConsecutiveFrames: true }
         && probe.Value.FileLength is > 0 and <= ManagedMp3FallbackMaximumBytes;
+
+    internal static bool ShouldPreferManagedMp3ForPlayback(
+        bool allowManagedMp3Fallback,
+        bool mayRequireRemoteAccess,
+        Mp3StructureProbeResult? probe) =>
+        allowManagedMp3Fallback
+        && probe is { ShouldUseSanitizedStream: true }
+        && CanUseManagedMp3Fallback(mayRequireRemoteAccess, probe);
 
     private static bool IsDecoderFailure(Exception exception) =>
         exception is IOException

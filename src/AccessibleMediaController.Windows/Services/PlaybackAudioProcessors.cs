@@ -191,7 +191,7 @@ public sealed class TrackTransitionSampleProvider : ISampleProvider
         var manualTotal = Interlocked.Read(ref _manualFadeTotalFrames);
         for (var frame = 0; frame < frames; frame++)
         {
-            var factor = Math.Min(1d, (_framesRead + frame + 1d) / fadeFrames);
+            var factor = SmoothStep((_framesRead + frame + 1d) / fadeFrames);
             if (duration > TimeSpan.Zero)
             {
                 var progress = (frame + 1d) / frames;
@@ -200,12 +200,12 @@ public sealed class TrackTransitionSampleProvider : ISampleProvider
                 var remainingTicks = Math.Max(0L, duration.Ticks - framePositionTicks);
                 var naturalFactor = remainingTicks /
                     (double)TimeSpan.FromMilliseconds(FadeDurationMilliseconds).Ticks;
-                factor = Math.Min(factor, Math.Clamp(naturalFactor, 0d, 1d));
+                factor = Math.Min(factor, SmoothStep(naturalFactor));
             }
             if (manualRemaining > 0 && manualTotal > 0)
             {
                 var manualFactor = (manualRemaining - frame) / (double)manualTotal;
-                factor = Math.Min(factor, Math.Clamp(manualFactor, 0d, 1d));
+                factor = Math.Min(factor, SmoothStep(manualFactor));
             }
 
             var sampleOffset = offset + frame * channels;
@@ -227,6 +227,12 @@ public sealed class TrackTransitionSampleProvider : ISampleProvider
 
     private long FadeFrameCount() => checked(
         (long)WaveFormat.SampleRate * FadeDurationMilliseconds / 1000L);
+
+    private static double SmoothStep(double value)
+    {
+        var clamped = Math.Clamp(value, 0d, 1d);
+        return clamped * clamped * (3d - 2d * clamped);
+    }
 
     private static TimeSpan SafeTime(TimeSpan value) =>
         value < TimeSpan.Zero ? TimeSpan.Zero : value;

@@ -110,9 +110,24 @@ public partial class RadioSchedulesWindow : Window
         var message = row.Schedule.Enabled
             ? $"Harmonogram {identity}: pole wyboru zaznaczone, harmonogram włączony. Wybierz Zapisz, aby zatwierdzić zmianę."
             : $"Harmonogram {identity}: pole wyboru niezaznaczone, harmonogram wyłączony. Wybierz Zapisz, aby zatwierdzić zmianę.";
-        if (!listHadKeyboardFocus) FocusSelectedSchedule();
         Dispatcher.BeginInvoke(
-            () => ScheduleStatus.Announce(message),
+            () =>
+            {
+                SchedulesList.SelectedItem = row;
+                SchedulesList.ScrollIntoView(row);
+                SchedulesList.UpdateLayout();
+                if (SchedulesList.ItemContainerGenerator.ContainerFromItem(row) is ListBoxItem item)
+                {
+                    item.Focus();
+                    Keyboard.Focus(item);
+                }
+                else if (!listHadKeyboardFocus)
+                {
+                    SchedulesList.Focus();
+                    Keyboard.Focus(SchedulesList);
+                }
+                ScheduleStatus.Announce(message);
+            },
             System.Windows.Threading.DispatcherPriority.ContextIdle);
         return true;
     }

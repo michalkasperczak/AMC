@@ -1383,3 +1383,26 @@ powiadomienie UI Automation są aktualizowane razem. Po zakończeniu obsługi
 klawisza NVDA otrzymuje nazwę stacji i termin oraz jednoznaczne „pole wyboru
 zaznaczone, harmonogram włączony” albo „pole wyboru niezaznaczone, harmonogram
 wyłączony”.
+
+Korekta `alpha.184` wzmacnia przywracanie wiersza harmonogramu: po zmianie
+stanu lista jawnie odtwarza ten sam obiekt, indeks, położenie przewijania i
+fokus jego kontenera, a dopiero potem wysyła komunikat do NVDA. Test działa
+na pokazanym oknie i sprawdza rzeczywisty fokus klawiatury, nie tylko wartość
+modelu.
+
+Łagodne przejście w `alpha.184` rozpoczyna naturalne wyciszenie cztery sekundy
+przed końcem zamiast półtorej sekundy i używa krzywej o łagodnym początku oraz
+końcu zamiast liniowej zmiany poziomu. Ta sama krzywa obejmuje wejście nowego
+pliku i ręczną zmianę utworu. Automatyczna kontynuacja nie zeruje już pozycji
+następnego pliku: ukończony element nadal zacznie następnym razem od początku,
+ale następny element wznawia się zgodnie z efektywnym ustawieniem globalnym,
+folderu albo pliku i otrzymuje także własną głośność.
+
+Log pliku „Opole - 2026-06-07 21-37” nie wykazał pobierania z iCloud. Plik był
+dostępny lokalnie, lecz zawierał 195 nietypowych bajtów przed pierwszą
+potwierdzoną ramką MP3, a Media Foundation zwracał błąd COM podczas ustawiania
+pozycji. Od `alpha.184` taki w pełni lokalny MP3 o bezpiecznym rozmiarze jest
+od początku otwierany zarządzanym dekoderem z indeksem ramek. Umożliwia to
+skoki do środka i w pobliże końca bez kopiowania całego wielogodzinnego audio
+do pamięci. Plik nadal wymagający pobrania z chmury nie jest w ten sposób
+indeksowany przed udostępnieniem jego danych.

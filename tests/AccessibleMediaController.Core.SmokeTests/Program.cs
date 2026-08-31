@@ -1503,10 +1503,12 @@ static void TestLocalPlaybackBoundary()
     Equal(item, session.CurrentItem);
     True(!session.PlayRelative(-1), "Poprzedni plik nie powinien zapętlać początku listy.");
     True(session.Play(item), "Pierwszy plik powinien ponownie rozpocząć odtwarzanie.");
+    session.SetRememberedPosition(nextItem.Id, TimeSpan.FromMinutes(17));
     Equal(nextItem, session.ContinueAfterPlaybackEnded(item));
     Equal(nextItem, session.CurrentItem);
     Equal(true, session.IsPlaying);
     Equal(nextItem, output.LastItem);
+    Equal(TimeSpan.FromMinutes(17), output.Position);
     True(session.ContinueAfterPlaybackEnded(nextItem) is null, "Ostatni plik nie powinien zapętlać listy.");
     Equal(false, session.IsPlaying);
     Equal(TimeSpan.Zero, session.Position);

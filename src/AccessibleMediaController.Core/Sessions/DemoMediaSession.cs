@@ -692,10 +692,11 @@ public sealed class DemoMediaSession
         }
 
         _currentIndex = Items.FindIndex(item => item.Id == next.Id);
-        StoreRememberedPosition(CurrentItem, TimeSpan.Zero);
+        _position = RememberedPosition(CurrentItem);
         ApplyPlaybackRateForItem(CurrentItem);
+        ApplyVolumeForItem(CurrentItem);
         IsPlaying = true;
-        _output?.Play(CurrentItem, TimeSpan.Zero, EffectiveVolume, PlaybackRate);
+        _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
         return CurrentItem;
     }
 

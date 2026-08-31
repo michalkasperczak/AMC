@@ -1347,3 +1347,26 @@ recordings” list control. The row name, visible checkbox state and UI
 Automation notification update together. After key handling finishes, NVDA
 receives the station name and time followed unambiguously by either “checkbox
 checked, schedule enabled” or “checkbox unchecked, schedule disabled”.
+
+Correction in `alpha.184` strengthens schedule-row restoration: after the
+state change, the list explicitly restores the same object, index, scroll
+position and item-container focus before sending the NVDA notification. The
+test now runs against a shown window and verifies actual keyboard focus rather
+than model state alone.
+
+The smooth transition in `alpha.184` begins its natural fade four seconds
+before the end instead of one and a half seconds, using a curve with gentle
+start and finish rather than a linear level change. The same curve covers the
+new file's fade-in and a manual track change. Automatic continuation no longer
+clears the next file's position: the completed item will still start from the
+beginning next time, while its successor resumes according to the effective
+global, folder or item rule and also receives its own volume.
+
+The log for “Opole - 2026-06-07 21-37” showed no iCloud download. The file was
+locally available but contained 195 unusual bytes before the first confirmed
+MP3 frame, and Media Foundation returned a COM error while setting position.
+Starting with `alpha.184`, such a fully local, safely sized MP3 uses the
+managed frame-indexed decoder from the outset. This permits middle and
+near-end seeks without copying a multi-hour recording completely into memory.
+A file that still requires cloud download is not indexed this way before its
+payload becomes available.

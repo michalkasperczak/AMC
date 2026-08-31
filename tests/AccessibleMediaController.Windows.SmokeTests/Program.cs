@@ -472,6 +472,8 @@ static void TestRadioScheduleAccessibility()
                 wakeScheduledRecordings: false,
                 defaultRecordingFormat: RadioRecordingFormat.Mp3,
                 defaultRecordingBitrateKbps: 192);
+            manager.Show();
+            DrainDispatcher(manager.Dispatcher);
             var schedulesList = (ListBox)manager.FindName("SchedulesList");
             Assert(schedulesList.SelectedItem is not null,
                 "Lista harmonogramów nie wybiera pierwszego planu.");
@@ -484,12 +486,19 @@ static void TestRadioScheduleAccessibility()
                 "Pierwszy harmonogram nie ma stabilnej, użytkowej etykiety dostępnościowej.");
             var scheduleStatus = (AccessibleStatusTextBlock)manager.FindName("ScheduleStatus");
             var selectedBeforeToggle = schedulesList.SelectedItem;
+            var selectedIndexBeforeToggle = schedulesList.SelectedIndex;
+            var containerBeforeToggle = schedulesList.ItemContainerGenerator
+                .ContainerFromItem(selectedBeforeToggle) as ListBoxItem;
+            Assert(containerBeforeToggle is not null && containerBeforeToggle.IsKeyboardFocusWithin,
+                "Pierwszy harmonogram nie otrzymuje rzeczywistego fokusu klawiatury.");
             Assert(manager.ToggleSelectedEnabled(),
                 "Spacja nie ma operacji przełączającej wybrany harmonogram.");
             DrainDispatcher(manager.Dispatcher);
             selected = schedulesList.SelectedItem;
             accessibleLabel = selected?.GetType().GetProperty("AccessibleLabel")?.GetValue(selected)?.ToString();
             Assert(ReferenceEquals(selectedBeforeToggle, selected)
+                   && schedulesList.SelectedIndex == selectedIndexBeforeToggle
+                   && containerBeforeToggle!.IsKeyboardFocusWithin
                    && !string.IsNullOrWhiteSpace(accessibleLabel)
                    && accessibleLabel.Contains("wyłączony", StringComparison.Ordinal)
                    && accessibleLabel.Contains("pole wyboru niezaznaczone", StringComparison.Ordinal),
@@ -1233,6 +1242,13 @@ static void TestManagedMp3Fallback()
         Assert(guarded.TotalTime > TimeSpan.Zero, "Awaryjny dekoder nie podał czasu MP3.");
         var buffer = new byte[Math.Min(guarded.WaveFormat.AverageBytesPerSecond, 16_384)];
         Assert(guarded.Read(buffer, 0, buffer.Length) > 0, "Awaryjny dekoder nie zwrócił próbek.");
+        guarded.CurrentTime = TimeSpan.FromTicks(guarded.TotalTime.Ticks / 2);
+        Assert(guarded.Read(buffer, 0, buffer.Length) > 0,
+            "Awaryjny dekoder nie odczytał danych po przewinięciu do środka MP3.");
+        var nearEnd = guarded.TotalTime - TimeSpan.FromMilliseconds(100);
+        guarded.CurrentTime = nearEnd > TimeSpan.Zero ? nearEnd : TimeSpan.Zero;
+        Assert(guarded.Read(buffer, 0, buffer.Length) > 0,
+            "Awaryjny dekoder nie obsłużył przewinięcia w pobliże końca MP3.");
 
         var sanitizedPath = Path.Combine(
             Path.GetTempPath(),
@@ -1243,6 +1259,20 @@ static void TestManagedMp3Fallback()
             Array.Fill<byte>(unusual, 0x55, 0, 37);
             data.CopyTo(unusual, 37);
             File.WriteAllBytes(sanitizedPath, unusual);
+            var unusualProbe = AccessibleMediaController.Core.LocalMedia.Mp3StructureProbe.Probe(
+                sanitizedPath);
+            Assert(
+                WindowsMediaOutput.ShouldPreferManagedMp3ForPlayback(
+                    allowManagedMp3Fallback: true,
+                    mayRequireRemoteAccess: false,
+                    unusualProbe),
+                "Nietypowy, dostępny lokalnie MP3 nie wybiera od razu odpornego dekodera z indeksem ramek.");
+            Assert(
+                !WindowsMediaOutput.ShouldPreferManagedMp3ForPlayback(
+                    allowManagedMp3Fallback: true,
+                    mayRequireRemoteAccess: true,
+                    unusualProbe),
+                "Plik wymagający pobierania z chmury został skierowany do pełnego indeksowania przed pobraniem.");
             var result = WindowsMediaOutput.TryReadMetadataAsync(
                     sanitizedPath,
                     TimeSpan.FromSeconds(3))
@@ -2635,10 +2665,14 @@ static void TestPlaybackAudioProcessors()
         () => transitionSource.Position,
         () => transitionSource.Duration,
         fadeDurationMilliseconds: 100);
+    Assert(WindowsMediaOutput.SmoothTrackTransitionDuration == TimeSpan.FromSeconds(4),
+        "Łagodne przejście nie rozpoczyna wyciszenia cztery sekundy przed końcem.");
     var transitionBuffer = new float[100];
     transition.Read(transitionBuffer, 0, transitionBuffer.Length);
     Assert(transitionBuffer[0] < transitionBuffer[^1],
         "Łagodne wejście nie zwiększa poziomu początku utworu.");
+    Assert(transitionBuffer[24] < 0.20f,
+        "Łagodne wejście nadal używa gwałtownej, liniowej zmiany poziomu.");
     transitionSource.PositionFrames = 900;
     transition.Read(transitionBuffer, 0, transitionBuffer.Length);
     Assert(transitionBuffer[0] > transitionBuffer[^1] && transitionBuffer[^1] <= 0.01f,
