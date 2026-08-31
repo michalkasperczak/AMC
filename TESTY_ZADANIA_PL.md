@@ -1,12 +1,59 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-168`
-- Tytuł zestawu: Normalizacja, przejścia i cisza między utworami
-- Wersja programu: `0.1.0-alpha.168`
+- Numer zestawu: `AMC-TEST-169`
+- Tytuł zestawu: Szybkie opcje dźwięku w menu i skróty prefiksowe
+- Wersja programu: `0.1.0-alpha.169`
 - Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.168.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.169.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 169
+
+### AMC-169-01 — Opcje w menu Odtwarzanie
+
+Wybierz sesję Pliki lokalne, otwórz menu **Odtwarzanie** i przejdź strzałkami
+przez normalizację, łagodne przejścia oraz podmenu ciszy. Przełącz oba pola,
+wybierz dwie sekundy ciszy, zamknij i ponownie otwórz menu.
+
+Oczekiwane: pozycje znajdują się bezpośrednio za wyciszaniem sesji. NVDA czyta
+nazwę, aktualny stan zaznaczenia i skrót tylko raz. W podmenu dokładnie jedna
+wartość ciszy jest zaznaczona, a neutralna nazywa się „Bez dodatkowej ciszy”.
+Po ponownym otwarciu wszystkie stany są aktualne.
+
+### AMC-169-02 — Menu kontekstowe odtwarzacza i zakres lokalny
+
+W Plikach lokalnych uruchom utwór, otwórz menu kontekstowe odtwarzacza i
+sprawdź te same trzy opcje. Następnie przejdź do Radia i ponownie otwórz menu
+Odtwarzanie oraz menu kontekstowe odtwarzacza.
+
+Oczekiwane: w lokalnym odtwarzaczu opcje są tuż za Następnym utworem i mają ten
+sam stan co menu główne. W Radiu są ukryte; nie pojawia się pusty separator ani
+sugestia, że ustawienia zmienią transmisję.
+
+### AMC-169-03 — Skróty po globalnym prefiksie
+
+Na domyślnym profilu klawiatury naciśnij globalny prefiks AMC, potem kolejno
+`Shift+N`, `T` i kilka razy `C`. Po każdej próbie otwórz menu Odtwarzanie.
+
+Oczekiwane: `Shift+N` przełącza normalizację, `T` łagodne przejścia, a `C`
+przechodzi przez brak, pół sekundy, jedną, dwie, trzy i pięć sekund, po czym
+wraca do braku. Każda zmiana jest oznajmiona i od razu widoczna w menu. Jeśli
+aktywny jest własny profil, skróty działają dopiero po przypisaniu tych poleceń
+w Ustawieniach i AMC nie nadpisuje własnej mapy.
+
+### AMC-169-04 — Trwałość, paleta i brak technicznych nazw
+
+Ustaw dowolne trzy wartości z menu, zamknij i uruchom AMC ponownie. Otwórz
+paletę `Ctrl+Shift+K`, wyszukaj „normalizacja”, „łagodne” i „cisza”, a następnie
+sprawdź spis skrótów `Ctrl+F1`.
+
+Oczekiwane: wartości pozostają zapisane. Paleta ma zarówno pozycję szybkiego
+przełączenia, jak i wejście do Ustawień, podaje bieżący stan oraz aktywny skrót
+prefiksowy. NVDA nie czyta nazwy klasy, właściwości, rekordu, identyfikatora ani
+technicznej wartości w milisekundach.
+
+## Poprzedni zestaw alpha 168
 
 ## Nowości alpha 168
 

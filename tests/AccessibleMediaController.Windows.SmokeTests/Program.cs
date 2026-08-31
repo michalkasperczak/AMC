@@ -171,12 +171,33 @@ static void TestMenuAccessibility()
             };
             AutomationProperties.SetName(contextCommand, "Rozpoznane utwory, Ctrl+Alt+S");
             contextMenu.Items.Add(contextCommand);
+            var audioMenu = new MenuItem
+            {
+                Header = "Cisza między utworami: bez dodatkowej ciszy",
+                InputGestureText = "prefiks C"
+            };
+            AutomationProperties.SetAcceleratorKey(audioMenu, "po prefiksie C");
+            var noSilenceChoice = new MenuItem
+            {
+                Header = "Bez dodatkowej ciszy",
+                IsCheckable = true,
+                IsChecked = true
+            };
+            audioMenu.Items.Add(noSilenceChoice);
+            contextMenu.Items.Add(audioMenu);
 
             MenuAccessibility.NormalizeContextMenu(contextMenu);
 
             Assert(contextCommand.Header?.ToString() == "Rozpoznane utwory", "Nie usunięto mnemonika z menu kontekstowego.");
             Assert(AutomationProperties.GetName(contextCommand) == "Rozpoznane utwory", "Menu kontekstowe powtarza skrót w nazwie.");
             Assert(contextCommand.InputGestureText == "Ctrl+Alt+S", "Usunięto skrót menu kontekstowego.");
+            Assert(AutomationProperties.GetName(audioMenu) == "Cisza między utworami: bez dodatkowej ciszy",
+                "Nazwa menu ciszy nie opisuje jednoznacznie wartości neutralnej.");
+            Assert(AutomationProperties.GetAcceleratorKey(audioMenu) == "po prefiksie C",
+                "Skrót prefiksowy nie jest oddzielony od nazwy menu.");
+            Assert(AutomationProperties.GetName(noSilenceChoice) == "Bez dodatkowej ciszy",
+                "Wybór ciszy nie ma jawnej nazwy użytkowej.");
+            Assert(noSilenceChoice.IsChecked, "Normalizacja menu zmieniła zaznaczoną wartość ciszy.");
 
             MenuAccessibility.SetPresentation(contextCommand, "Nagrywaj tę stację w tle");
             Assert(AutomationProperties.GetName(contextCommand) == "Nagrywaj tę stację w tle", "Dynamiczna nazwa menu powtarza skrót.");

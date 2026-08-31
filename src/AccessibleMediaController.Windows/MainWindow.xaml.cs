@@ -2711,6 +2711,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var radio = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
         CurrentSessionMuteMenuItem.IsChecked = _sessions.Current.IsSessionMuted;
         AllSessionsMuteMenuItem.IsChecked = _sessions.AllSessionsMuted;
+        UpdatePlaybackAudioMenuPresentation(local);
         OpenLocalFilesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         OpenLocalFolderMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageLocalSourcesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
@@ -2818,6 +2819,118 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlaybackRateResetMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         PlaybackBeforeInformationSeparator.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         PlaybackItemOptionsMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void UpdatePlaybackAudioMenuPresentation(bool local)
+    {
+        var visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        PlaybackAudioProcessingSeparator.Visibility = visibility;
+        PlayerAudioProcessingSeparator.Visibility = visibility;
+
+        UpdatePlaybackAudioMenuSet(
+            LoudnessNormalizationMenuItem,
+            SmoothTrackTransitionsMenuItem,
+            InterTrackSilenceMenuItem,
+            [
+                (InterTrackSilenceNoneMenuItem, 0),
+                (InterTrackSilenceHalfSecondMenuItem, 500),
+                (InterTrackSilenceOneSecondMenuItem, 1000),
+                (InterTrackSilenceTwoSecondsMenuItem, 2000),
+                (InterTrackSilenceThreeSecondsMenuItem, 3000),
+                (InterTrackSilenceFiveSecondsMenuItem, 5000)
+            ],
+            visibility);
+        UpdatePlaybackAudioMenuSet(
+            PlayerLoudnessNormalizationMenuItem,
+            PlayerSmoothTrackTransitionsMenuItem,
+            PlayerInterTrackSilenceMenuItem,
+            [
+                (PlayerInterTrackSilenceNoneMenuItem, 0),
+                (PlayerInterTrackSilenceHalfSecondMenuItem, 500),
+                (PlayerInterTrackSilenceOneSecondMenuItem, 1000),
+                (PlayerInterTrackSilenceTwoSecondsMenuItem, 2000),
+                (PlayerInterTrackSilenceThreeSecondsMenuItem, 3000),
+                (PlayerInterTrackSilenceFiveSecondsMenuItem, 5000)
+            ],
+            visibility);
+    }
+
+    private void UpdatePlaybackAudioMenuSet(
+        MenuItem loudnessItem,
+        MenuItem transitionsItem,
+        MenuItem silenceItem,
+        IReadOnlyList<(MenuItem Item, int Milliseconds)> silenceChoices,
+        Visibility visibility)
+    {
+        var audio = _state.Settings.Audio;
+        loudnessItem.Visibility = visibility;
+        transitionsItem.Visibility = visibility;
+        silenceItem.Visibility = visibility;
+        loudnessItem.IsChecked = audio.LoudnessNormalizationEnabled;
+        transitionsItem.IsChecked = audio.SmoothTrackTransitionsEnabled;
+        MenuAccessibility.SetPresentation(
+            loudnessItem,
+            $"Normalizacja głośności lokalnych utworów: {(audio.LoudnessNormalizationEnabled ? "włączona" : "wyłączona")}");
+        MenuAccessibility.SetPresentation(
+            transitionsItem,
+            $"Łagodne przejścia między utworami: {(audio.SmoothTrackTransitionsEnabled ? "włączone" : "wyłączone")}");
+        MenuAccessibility.SetPresentation(
+            silenceItem,
+            $"Cisza między utworami: {PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(audio.InterTrackSilenceMilliseconds)}");
+        foreach (var choice in silenceChoices)
+        {
+            choice.Item.IsChecked = choice.Milliseconds == audio.InterTrackSilenceMilliseconds;
+        }
+    }
+
+    private void ToggleLoudnessNormalization()
+    {
+        _state.Settings.Audio.LoudnessNormalizationEnabled =
+            !_state.Settings.Audio.LoudnessNormalizationEnabled;
+        ApplyPlaybackAudioSetting(
+            $"Normalizacja głośności lokalnych utworów: {(_state.Settings.Audio.LoudnessNormalizationEnabled ? "włączona" : "wyłączona")}");
+    }
+
+    private void ToggleSmoothTrackTransitions()
+    {
+        _state.Settings.Audio.SmoothTrackTransitionsEnabled =
+            !_state.Settings.Audio.SmoothTrackTransitionsEnabled;
+        ApplyPlaybackAudioSetting(
+            $"Łagodne przejścia między utworami: {(_state.Settings.Audio.SmoothTrackTransitionsEnabled ? "włączone" : "wyłączone")}");
+    }
+
+    private void CycleInterTrackSilence()
+    {
+        var choices = PlaybackAudioSettingsRules.SupportedInterTrackSilenceMilliseconds;
+        var currentIndex = -1;
+        for (var index = 0; index < choices.Count; index++)
+        {
+            if (choices[index] == _state.Settings.Audio.InterTrackSilenceMilliseconds)
+            {
+                currentIndex = index;
+                break;
+            }
+        }
+        SetInterTrackSilence(choices[(currentIndex + 1) % choices.Count]);
+    }
+
+    private void SetInterTrackSilence(int milliseconds)
+    {
+        if (!PlaybackAudioSettingsRules.IsSupportedSilence(milliseconds)) return;
+        _state.Settings.Audio.InterTrackSilenceMilliseconds = milliseconds;
+        ApplyPlaybackAudioSetting(
+            $"Cisza między lokalnymi utworami: {PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(milliseconds)}");
+    }
+
+    private void ApplyPlaybackAudioSetting(string announcement)
+    {
+        _localOutput.ConfigureAudioProcessing(_state.Settings.Audio);
+        UpdatePlaybackAudioMenuPresentation(
+            string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal));
+        var saved = TrySaveLocalMediaState(false);
+        Announce(saved
+            ? announcement
+            : $"{announcement}. Zmiana działa teraz, ale nie została zapisana");
     }
 
     private void ShowLocalFolderWhileLoading(LocalFolderSourceSettings folderSource)
@@ -4155,6 +4268,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.AssignRadioPreset)
         {
             ShowPresetAssignment();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ToggleLoudnessNormalization)
+        {
+            ToggleLoudnessNormalization();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ToggleSmoothTrackTransitions)
+        {
+            ToggleSmoothTrackTransitions();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.CycleInterTrackSilence)
+        {
+            CycleInterTrackSilence();
             return new CommandExecutionResult(true);
         }
         if (commandId is CommandIds.ViewFolders
@@ -9877,6 +10005,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ExecuteCommand(CommandIds.ToggleMuteCurrentSession);
     private void ToggleAllSessionsMute_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.ToggleMuteAllSessions);
+    private void PlaybackMenuItem_SubmenuOpened(object sender, RoutedEventArgs e) =>
+        UpdateFileMenuForCurrentSession();
+    private void ToggleLoudnessNormalization_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.ToggleLoudnessNormalization);
+    private void ToggleSmoothTrackTransitions_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.ToggleSmoothTrackTransitions);
+    private void InterTrackSilenceChoice_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem
+            || !int.TryParse(
+                Convert.ToString(menuItem.Tag, CultureInfo.InvariantCulture),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var milliseconds))
+        {
+            return;
+        }
+        SetInterTrackSilence(milliseconds);
+    }
     private void PlaybackRateDown_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaybackRateDown);
     private void PlaybackRateUp_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaybackRateUp);
     private void PlaybackRateReset_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlaybackRateReset);
@@ -10266,6 +10413,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PlayerContextMenu_Opened(object sender, RoutedEventArgs e)
     {
         var item = _sessions.Current.CurrentItem;
+        UpdatePlaybackAudioMenuPresentation(
+            string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal));
         SetContextMenuItemPresentation(
             PlayerPlayPauseMenuItem,
             _sessions.Current.IsPlaying ? "Wstrzymaj" : "Odtwórz",

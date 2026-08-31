@@ -58,6 +58,16 @@ public static class PlaybackAudioSettingsRules
 
     public static bool IsSupportedSilence(int milliseconds) =>
         SupportedInterTrackSilenceMilliseconds.Contains(milliseconds);
+
+    public static string GetInterTrackSilenceLabel(int milliseconds) => milliseconds switch
+    {
+        500 => "pół sekundy",
+        1000 => "1 sekunda",
+        2000 => "2 sekundy",
+        3000 => "3 sekundy",
+        5000 => "5 sekund",
+        _ => "bez dodatkowej ciszy"
+    };
 }
 
 public static class SessionSlotOrder

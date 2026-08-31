@@ -1215,3 +1215,15 @@ tego opóźnienia. Przy jednoczesnym przejściu i ciszy kolejność jest słysza
 jednoznaczna: wygaszenie, wybrana cisza, łagodne wejście następnego utworu.
 Każdy wybór ma własną użytkową nazwę dla UI Automation, a paleta poleceń podaje
 stan i otwiera właściwą kontrolkę.
+
+Od `alpha.169` szybkie sterowanie jest również częścią menu **Odtwarzanie** i
+menu kontekstowego odtwarzacza Plików lokalnych. Dwa przełączniki są polami
+zaznaczanymi, a ich nazwa zawsze podaje bieżący stan. Cisza jest podmenu z
+sześcioma wzajemnie wykluczającymi się wartościami; zaznaczona pozycja nie jest
+wyliczana z technicznego identyfikatora. Menu są ukryte poza sesją lokalną.
+
+Domyślny profil prefiksowy przypisuje `Shift+N` do normalizacji, `T` do
+łagodnych przejść i `C` do kolejnego czasu ciszy w porządku: brak, pół sekundy,
+jedna, dwie, trzy, pięć sekund, następnie ponownie brak. Własne profile nie są
+nadpisywane i udostępniają nowe polecenia do ręcznego przypisania. Nazwa
+polecenia i skrót pozostają rozdzielone w UI Automation.

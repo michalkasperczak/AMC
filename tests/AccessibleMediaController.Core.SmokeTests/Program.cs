@@ -100,6 +100,9 @@ static void TestPlaybackAudioSettingsPersistence()
             PlaybackAudioSettingsRules.SupportedInterTrackSilenceMilliseconds
                 .SequenceEqual([0, 500, 1000, 2000, 3000, 5000]),
             "Lista obsługiwanych czasów ciszy jest nieprawidłowa.");
+        Equal("bez dodatkowej ciszy", PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(0));
+        Equal("pół sekundy", PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(500));
+        Equal("2 sekundy", PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(2000));
     }
     finally
     {
@@ -160,7 +163,9 @@ static void TestDefaultProfile()
     Equal(CommandIds.ViewBookmarks, profile.Resolve(KeyChord.Parse("B")));
     Equal(CommandIds.AddBookmark, profile.Resolve(KeyChord.Parse("Shift+B")));
     True(profile.Resolve(KeyChord.Parse("Shift+A")) is null, "Shift+A pozostaje nieprzypisane.");
-    True(profile.Resolve(KeyChord.Parse("Shift+N")) is null, "Skrót oficjalnej aplikacji pozostaje do ustalenia.");
+    Equal(CommandIds.ToggleLoudnessNormalization, profile.Resolve(KeyChord.Parse("Shift+N")));
+    Equal(CommandIds.ToggleSmoothTrackTransitions, profile.Resolve(KeyChord.Parse("T")));
+    Equal(CommandIds.CycleInterTrackSilence, profile.Resolve(KeyChord.Parse("C")));
     Equal(CommandIds.FilterCurrent, profile.Resolve(KeyChord.Parse("K")));
     Equal(CommandIds.CommandPalette, profile.Resolve(KeyChord.Parse("Shift+K")));
     Equal(CommandIds.SearchCurrent, profile.Resolve(KeyChord.Parse("F")));
@@ -199,6 +204,9 @@ static void TestBuiltInProfileRefresh()
         var refreshedBuiltIn = loaded.KeyboardProfiles.Single(profile => profile.Id == "default");
         var retainedCustom = loaded.KeyboardProfiles.Single(profile => profile.Id == custom.Id);
         Equal(CommandIds.SessionSlot(1), refreshedBuiltIn.Resolve(KeyChord.Parse("1")));
+        Equal(CommandIds.ToggleLoudnessNormalization, refreshedBuiltIn.Resolve(KeyChord.Parse("Shift+N")));
+        Equal(CommandIds.ToggleSmoothTrackTransitions, refreshedBuiltIn.Resolve(KeyChord.Parse("T")));
+        Equal(CommandIds.CycleInterTrackSilence, refreshedBuiltIn.Resolve(KeyChord.Parse("C")));
         True(refreshedBuiltIn.Resolve(KeyChord.Parse("Ctrl+1")) is null, "Profil wbudowany powinien otrzymać nową mapę.");
         Equal(CommandIds.SessionSlot(1), retainedCustom.Resolve(KeyChord.Parse("Ctrl+1")));
         Equal(CommandIds.ActivateSelected, retainedCustom.Resolve(KeyChord.Parse("Ctrl+Enter")));
@@ -2751,6 +2759,9 @@ static void TestCommandPalette()
     Equal("Up (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.VolumeUp5).LocalShortcut);
     Equal("Ctrl+M", entries.Single(entry => entry.CommandId == CommandIds.ToggleMuteCurrentSession).LocalShortcut);
     Equal("Ctrl+Shift+M", entries.Single(entry => entry.CommandId == CommandIds.ToggleMuteAllSessions).LocalShortcut);
+    Equal("Shift+N", entries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization).PrefixShortcut);
+    Equal("T", entries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions).PrefixShortcut);
+    Equal("C", entries.Single(entry => entry.CommandId == CommandIds.CycleInterTrackSilence).PrefixShortcut);
     Equal("Shift+, (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PlaybackRateDown).LocalShortcut);
     Equal("Shift+. (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PlaybackRateUp).LocalShortcut);
     Equal("Ctrl+. (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PlaybackRateReset).LocalShortcut);
@@ -2820,6 +2831,15 @@ static void TestCommandPalette()
         "Cisza między utworami: bez dodatkowej ciszy. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsInterTrackSilence).DisplayName);
     Equal(
+        "Normalizacja głośności lokalnych utworów: wyłączone. Enter: przełącz",
+        entries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization).DisplayName);
+    Equal(
+        "Łagodne przejścia między utworami: wyłączone. Enter: przełącz",
+        entries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions).DisplayName);
+    Equal(
+        "Cisza między utworami: bez dodatkowej ciszy. Enter: następna wartość",
+        entries.Single(entry => entry.CommandId == CommandIds.CycleInterTrackSilence).DisplayName);
+    Equal(
         "Komunikat po skoku cyfrą: tylko procent",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsPercentageSeekAnnouncement).DisplayName);
     Equal("Ctrl+,", entries.Single(entry => entry.CommandId == CommandIds.SettingsGeneral).LocalShortcut);
@@ -2877,6 +2897,15 @@ static void TestCommandPalette()
         "Cisza między utworami: 2 sekundy. Enter: ustawienia",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsInterTrackSilence).DisplayName);
     Equal(
+        "Normalizacja głośności lokalnych utworów: włączone. Enter: przełącz",
+        changedEntries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization).DisplayName);
+    Equal(
+        "Łagodne przejścia między utworami: włączone. Enter: przełącz",
+        changedEntries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions).DisplayName);
+    Equal(
+        "Cisza między utworami: 2 sekundy. Enter: następna wartość",
+        changedEntries.Single(entry => entry.CommandId == CommandIds.CycleInterTrackSilence).DisplayName);
+    Equal(
         "Komunikat po skoku cyfrą: procent i czas",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsPercentageSeekAnnouncement).DisplayName);
 }
@@ -2902,6 +2931,15 @@ static void TestShortcutHelpCatalog()
         "Okno Pomocy nie powinno otwierać samo siebie.");
     True(entries.Any(entry => entry.Shortcut == "Ctrl+C"), "Spis powinien obejmować bezpieczne kopiowanie nazw.");
     True(entries.Any(entry => entry.Shortcut == "Shift+Delete"), "Spis powinien wyjaśniać osobną operację Kosza.");
+    True(entries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization).Label
+            .Contains("po prefiksie Shift+N", StringComparison.Ordinal),
+        "Spis powinien podawać skrót normalizacji.");
+    True(entries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions).Label
+            .Contains("po prefiksie T", StringComparison.Ordinal),
+        "Spis powinien podawać skrót przejść.");
+    True(entries.Single(entry => entry.CommandId == CommandIds.CycleInterTrackSilence).Label
+            .Contains("po prefiksie C", StringComparison.Ordinal),
+        "Spis powinien podawać skrót ciszy.");
     True(entries.All(entry => !entry.Label.Contains("CommandId", StringComparison.Ordinal)
         && !entry.Label.Contains("{", StringComparison.Ordinal)),
         "Dostępne etykiety nie mogą ujawniać technicznego zapisu obiektów.");

@@ -91,6 +91,9 @@ public sealed class KeyboardProfile
         Bind("B", CommandIds.ViewBookmarks);
         Bind("Shift+B", CommandIds.AddBookmark);
         Bind("N", CommandIds.ViewNowPlaying);
+        Bind("Shift+N", CommandIds.ToggleLoudnessNormalization);
+        Bind("T", CommandIds.ToggleSmoothTrackTransitions);
+        Bind("C", CommandIds.CycleInterTrackSilence);
         Bind("O", CommandIds.ViewOutputs);
         Bind("D", CommandIds.DownloadInService);
         Bind("Shift+D", CommandIds.DownloadToDisk);

@@ -1183,3 +1183,15 @@ use this delay. When smooth transitions and silence are both enabled, the
 order is fade-out, selected silence, then fade-in. Every choice exposes an
 intentional UI Automation label, and the command palette reports the current
 state and opens the exact control.
+
+Starting with `alpha.169`, quick control is also present in the **Playback**
+menu and in the Local Files player's context menu. The two toggles are
+checkable and their labels always report current state. Silence is a submenu
+with six mutually exclusive values whose accessible text never depends on an
+internal identifier. These menu items are hidden outside the local session.
+
+The default prefix profile maps `Shift+N` to normalisation, `T` to smooth
+transitions and `C` to the next silence value in this order: none, half a
+second, one, two, three and five seconds, then none again. Custom profiles are
+not overwritten and expose the new commands for manual assignment. Command
+labels and shortcuts remain separate UI Automation properties.

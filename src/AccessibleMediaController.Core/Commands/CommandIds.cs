@@ -23,6 +23,9 @@ public static class CommandIds
     public const string VolumeDown1 = "transport.volumeDown1";
     public const string ToggleMuteCurrentSession = "transport.mute.currentSession";
     public const string ToggleMuteAllSessions = "transport.mute.allSessions";
+    public const string ToggleLoudnessNormalization = "transport.audio.loudnessNormalization.toggle";
+    public const string ToggleSmoothTrackTransitions = "transport.audio.smoothTrackTransitions.toggle";
+    public const string CycleInterTrackSilence = "transport.audio.interTrackSilence.cycle";
     public const string PlaybackRateDown = "transport.playbackRate.down";
     public const string PlaybackRateUp = "transport.playbackRate.up";
     public const string PlaybackRateReset = "transport.playbackRate.reset";

@@ -75,7 +75,8 @@
                 <MenuItem Header="Poprzednia sesja" InputGestureText="Ctrl+Page Up" Click="PreviousSession_Click" />
                 <MenuItem Header="Następna sesja" InputGestureText="Ctrl+Page Down" Click="NextSession_Click" />
             </MenuItem>
-            <MenuItem Header="_Odtwarzanie">
+            <MenuItem x:Name="PlaybackMainMenu" Header="_Odtwarzanie"
+                      SubmenuOpened="PlaybackMenuItem_SubmenuOpened">
                 <MenuItem x:Name="CurrentSessionMuteMenuItem" Header="Wycisz lub przywróć dźwięk _bieżącej sesji" InputGestureText="Ctrl+M"
                           IsCheckable="True"
                           automation:AutomationProperties.Name="Wycisz lub przywróć dźwięk bieżącej sesji, Ctrl+M"
@@ -86,6 +87,49 @@
                           automation:AutomationProperties.Name="Wycisz lub przywróć dźwięk wszystkich sesji AMC, Ctrl+Shift+M"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+M"
                           Click="ToggleAllSessionsMute_Click" />
+                <Separator x:Name="PlaybackAudioProcessingSeparator" />
+                <MenuItem x:Name="LoudnessNormalizationMenuItem"
+                          Header="Normalizacja głośności lokalnych utworów: wyłączona"
+                          InputGestureText="prefiks Shift+N" IsCheckable="True"
+                          automation:AutomationProperties.Name="Normalizacja głośności lokalnych utworów: wyłączona"
+                          automation:AutomationProperties.AcceleratorKey="po prefiksie Shift+N"
+                          Click="ToggleLoudnessNormalization_Click" />
+                <MenuItem x:Name="SmoothTrackTransitionsMenuItem"
+                          Header="Łagodne przejścia między utworami: wyłączone"
+                          InputGestureText="prefiks T" IsCheckable="True"
+                          automation:AutomationProperties.Name="Łagodne przejścia między utworami: wyłączone"
+                          automation:AutomationProperties.AcceleratorKey="po prefiksie T"
+                          Click="ToggleSmoothTrackTransitions_Click" />
+                <MenuItem x:Name="InterTrackSilenceMenuItem"
+                          Header="Cisza między utworami: bez dodatkowej ciszy"
+                          InputGestureText="prefiks C"
+                          automation:AutomationProperties.Name="Cisza między utworami: bez dodatkowej ciszy"
+                          automation:AutomationProperties.AcceleratorKey="po prefiksie C">
+                    <MenuItem x:Name="InterTrackSilenceNoneMenuItem" Header="Bez dodatkowej ciszy"
+                              Tag="0" IsCheckable="True"
+                              automation:AutomationProperties.Name="Bez dodatkowej ciszy"
+                              Click="InterTrackSilenceChoice_Click" />
+                    <MenuItem x:Name="InterTrackSilenceHalfSecondMenuItem" Header="Pół sekundy ciszy"
+                              Tag="500" IsCheckable="True"
+                              automation:AutomationProperties.Name="Pół sekundy ciszy"
+                              Click="InterTrackSilenceChoice_Click" />
+                    <MenuItem x:Name="InterTrackSilenceOneSecondMenuItem" Header="1 sekunda ciszy"
+                              Tag="1000" IsCheckable="True"
+                              automation:AutomationProperties.Name="1 sekunda ciszy"
+                              Click="InterTrackSilenceChoice_Click" />
+                    <MenuItem x:Name="InterTrackSilenceTwoSecondsMenuItem" Header="2 sekundy ciszy"
+                              Tag="2000" IsCheckable="True"
+                              automation:AutomationProperties.Name="2 sekundy ciszy"
+                              Click="InterTrackSilenceChoice_Click" />
+                    <MenuItem x:Name="InterTrackSilenceThreeSecondsMenuItem" Header="3 sekundy ciszy"
+                              Tag="3000" IsCheckable="True"
+                              automation:AutomationProperties.Name="3 sekundy ciszy"
+                              Click="InterTrackSilenceChoice_Click" />
+                    <MenuItem x:Name="InterTrackSilenceFiveSecondsMenuItem" Header="5 sekund ciszy"
+                              Tag="5000" IsCheckable="True"
+                              automation:AutomationProperties.Name="5 sekund ciszy"
+                              Click="InterTrackSilenceChoice_Click" />
+                </MenuItem>
                 <Separator />
                 <MenuItem x:Name="RadioRecordingMenuItem" Header="Rozpocznij nagrywanie radia" InputGestureText="R"
                           automation:AutomationProperties.Name="Rozpocznij lub zakończ nagrywanie radia, R, w odtwarzaczu radia"
@@ -380,6 +424,49 @@
                     <MenuItem Header="Następny utwór" InputGestureText="Page Down"
                               automation:AutomationProperties.Name="Następny utwór, Page Down"
                               Click="PlayerNext_Click" />
+                    <Separator x:Name="PlayerAudioProcessingSeparator" />
+                    <MenuItem x:Name="PlayerLoudnessNormalizationMenuItem"
+                              Header="Normalizacja głośności lokalnych utworów: wyłączona"
+                              InputGestureText="prefiks Shift+N" IsCheckable="True"
+                              automation:AutomationProperties.Name="Normalizacja głośności lokalnych utworów: wyłączona"
+                              automation:AutomationProperties.AcceleratorKey="po prefiksie Shift+N"
+                              Click="ToggleLoudnessNormalization_Click" />
+                    <MenuItem x:Name="PlayerSmoothTrackTransitionsMenuItem"
+                              Header="Łagodne przejścia między utworami: wyłączone"
+                              InputGestureText="prefiks T" IsCheckable="True"
+                              automation:AutomationProperties.Name="Łagodne przejścia między utworami: wyłączone"
+                              automation:AutomationProperties.AcceleratorKey="po prefiksie T"
+                              Click="ToggleSmoothTrackTransitions_Click" />
+                    <MenuItem x:Name="PlayerInterTrackSilenceMenuItem"
+                              Header="Cisza między utworami: bez dodatkowej ciszy"
+                              InputGestureText="prefiks C"
+                              automation:AutomationProperties.Name="Cisza między utworami: bez dodatkowej ciszy"
+                              automation:AutomationProperties.AcceleratorKey="po prefiksie C">
+                        <MenuItem x:Name="PlayerInterTrackSilenceNoneMenuItem" Header="Bez dodatkowej ciszy"
+                                  Tag="0" IsCheckable="True"
+                                  automation:AutomationProperties.Name="Bez dodatkowej ciszy"
+                                  Click="InterTrackSilenceChoice_Click" />
+                        <MenuItem x:Name="PlayerInterTrackSilenceHalfSecondMenuItem" Header="Pół sekundy ciszy"
+                                  Tag="500" IsCheckable="True"
+                                  automation:AutomationProperties.Name="Pół sekundy ciszy"
+                                  Click="InterTrackSilenceChoice_Click" />
+                        <MenuItem x:Name="PlayerInterTrackSilenceOneSecondMenuItem" Header="1 sekunda ciszy"
+                                  Tag="1000" IsCheckable="True"
+                                  automation:AutomationProperties.Name="1 sekunda ciszy"
+                                  Click="InterTrackSilenceChoice_Click" />
+                        <MenuItem x:Name="PlayerInterTrackSilenceTwoSecondsMenuItem" Header="2 sekundy ciszy"
+                                  Tag="2000" IsCheckable="True"
+                                  automation:AutomationProperties.Name="2 sekundy ciszy"
+                                  Click="InterTrackSilenceChoice_Click" />
+                        <MenuItem x:Name="PlayerInterTrackSilenceThreeSecondsMenuItem" Header="3 sekundy ciszy"
+                                  Tag="3000" IsCheckable="True"
+                                  automation:AutomationProperties.Name="3 sekundy ciszy"
+                                  Click="InterTrackSilenceChoice_Click" />
+                        <MenuItem x:Name="PlayerInterTrackSilenceFiveSecondsMenuItem" Header="5 sekund ciszy"
+                                  Tag="5000" IsCheckable="True"
+                                  automation:AutomationProperties.Name="5 sekund ciszy"
+                                  Click="InterTrackSilenceChoice_Click" />
+                    </MenuItem>
                     <MenuItem x:Name="PlayerAddBookmarkMenuItem" Header="Dodaj zakładkę" InputGestureText="B"
                               automation:AutomationProperties.Name="Dodaj zakładkę w bieżącym miejscu, B"
                               Click="AddBookmark_Click" />
