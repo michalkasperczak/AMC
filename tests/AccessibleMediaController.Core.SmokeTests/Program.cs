@@ -19,7 +19,7 @@ var tests = new (string Name, Action Test)[]
     ("Migracja presetów radia do wspólnego magazynu", TestRadioPresetPersistence),
     ("Trwały i odporny harmonogram radia", TestRadioRecordingSchedule),
     ("Szablony nazw zaplanowanych nagrań", TestRadioRecordingFileNameTemplate),
-    ("Trwała historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
+    ("Trwałe ustawienia i historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
@@ -593,6 +593,8 @@ static void TestRadioRecognitionHistoryPersistence()
     {
         var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
         var state = ConfigurationStore.CreateDefaultState();
+        Equal(false, state.Radio.AutomaticTrackRecognitionEnabled);
+        state.Radio.AutomaticTrackRecognitionEnabled = true;
         state.Radio.RecognizedTracks =
         [
             new RadioRecognizedTrackSettings
@@ -616,6 +618,7 @@ static void TestRadioRecognitionHistoryPersistence()
         store.Save(state);
 
         var loaded = store.LoadOrCreate();
+        Equal(true, loaded.Radio.AutomaticTrackRecognitionEnabled);
         Equal(1, loaded.Radio.RecognizedTracks.Count);
         var entry = loaded.Radio.RecognizedTracks[0];
         Equal("recognized-a", entry.Id);

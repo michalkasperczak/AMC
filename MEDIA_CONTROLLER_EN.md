@@ -1103,7 +1103,9 @@ It takes up to 12 seconds of PCM ending at the exact heard position in the
 time-shift buffer and builds the acoustic fingerprint locally. Only that
 fingerprint is sent externally. `S` performs an on-demand recognition in the
 Radio player, `Shift+S` toggles monitoring, and `Ctrl+Alt+S` opens history.
-Monitoring is not persisted, allows at most one request at a time and does not
+Starting with `alpha.180`, monitoring is persisted by `Shift+S` and the
+checkbox on the **Radio and recording** Settings page, allows at most one
+request at a time and does not
 store the same title and artist for the same station again within 30 minutes.
 Structured history is included in the complete backup, retains the newest
 2000 entries and can be deleted independently. JSON/CSV export preserves
@@ -1155,6 +1157,13 @@ Starting with `alpha.167`, automatic recognition monitoring and its speech are
 independent states. `Shift+S` controls collection, while **Announce
 automatically recognised tracks** under Messages controls speech only.
 Disabling it does not stop requests, history, export or later service matching.
+
+Starting with `alpha.180`, collection state is persisted, so restarting AMC no
+longer disables it. `Shift+S` and **Automatically monitor and recognise tracks
+while Radio is playing** under **Radio and recording** are two controls for the
+same setting. The first attempt is scheduled about six seconds after a station
+starts. A failed attempt is retried after 15 seconds; a successful match returns
+monitoring to the ordinary interval of about one minute.
 
 An automatic result may be spoken only when AMC's main window is active, the
 master accessibility messages setting is enabled and this specific option is

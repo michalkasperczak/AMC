@@ -1,12 +1,58 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-179`
-- Tytuł zestawu: Dostępne przechwytywanie globalnego prefiksu
-- Wersja programu: `0.1.0-alpha.179`
+- Numer zestawu: `AMC-TEST-180`
+- Tytuł zestawu: Trwałe i szybsze obserwowanie Shazam
+- Wersja programu: `0.1.0-alpha.180`
 - Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.179.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.180.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 180
+
+### AMC-180-01 — Trwała opcja w Ustawieniach
+
+Otwórz **Ustawienia > Radio i nagrywanie**, włącz **Automatycznie obserwuj i
+rozpoznawaj utwory podczas odtwarzania radia** i zapisz. Zamknij AMC, uruchom
+je ponownie i jeszcze raz sprawdź to pole.
+
+Oczekiwane: pole jest łatwo dostępne Tabem, NVDA czyta wyłącznie jego użytkową
+nazwę i nadal podaje stan „zaznaczone”. Nie trzeba włączać obserwowania po
+każdym uruchomieniu programu.
+
+### AMC-180-02 — Shift+S zapisuje ten sam stan
+
+W odtwarzaczu Radia naciśnij `Shift+S`, sprawdź pozycję obserwowania w menu
+**Odtwarzanie** i zamknij program. Po ponownym uruchomieniu sprawdź pole w
+Ustawieniach. Powtórz próbę, przywracając poprzedni stan przez `Shift+S`.
+
+Oczekiwane: skrót potwierdza, że nowy stan został zapamiętany. Menu,
+Ustawienia i kolejne uruchomienie zawsze pokazują zgodnie tę samą wartość.
+Obserwowanie można włączyć także przed uruchomieniem stacji; zacznie działać,
+gdy stacja wystartuje.
+
+### AMC-180-03 — Pierwsze rozpoznanie bez minutowego oczekiwania
+
+Pozostaw obserwowanie włączone, uruchom stację nadającą wyraźny utwór i
+zaczekaj. Następnie przełącz się na inną stację muzyczną i powtórz próbę.
+
+Oczekiwane: AMC zbiera dźwięk przez około sześć sekund i wtedy rozpoczyna
+pierwsze zapytanie; do tego dochodzi czas odpowiedzi sieciowej. Jeżeli pierwsza
+próbka nie daje wyniku, następna próba jest planowana po około 15 sekundach,
+a nie dopiero po kolejnej pełnej minucie. Znaleziony utwór trafia do
+`Ctrl+Alt+S`.
+
+### AMC-180-04 — Oznajmianie pozostaje niezależne
+
+Na karcie **Komunikaty** wyłącz **Oznajmiaj automatycznie rozpoznane
+utwory**, pozostawiając obserwowanie włączone w ustawieniach Radia. Odtwarzaj
+muzykę, a po chwili otwórz historię `Ctrl+Alt+S`.
+
+Oczekiwane: AMC nie przerywa pracy komunikatem, ale nadal wykonuje
+rozpoznawanie i zapisuje wynik. Ponowne włączenie oznajmiania nie zmienia stanu
+samego obserwowania.
+
+## Poprzedni zestaw alpha 179
 
 ## Nowości alpha 179
 

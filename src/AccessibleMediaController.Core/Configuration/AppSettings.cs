@@ -357,6 +357,7 @@ public sealed class RadioSettings
     public RadioRecordingFormat RecordingFormat { get; set; } = RadioRecordingFormat.Mp3;
     public int RecordingBitrateKbps { get; set; } = 192;
     public bool WakeScheduledRecordings { get; set; }
+    public bool AutomaticTrackRecognitionEnabled { get; set; }
     public List<RadioRecordingScheduleSettings> RecordingSchedules { get; set; } = [];
     public List<RadioRecognizedTrackSettings> RecognizedTracks { get; set; } = [];
 }

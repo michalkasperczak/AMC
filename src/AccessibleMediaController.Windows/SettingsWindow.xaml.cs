@@ -93,6 +93,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.RadioRecording => (RadioTab, RadioRecordingFormatCombo),
             SettingsTarget.RadioRecordingsFolder => (RadioTab, RadioRecordingsFolderBox),
             SettingsTarget.RadioWakeScheduledRecordings => (RadioTab, WakeScheduledRadioRecordingsCheck),
+            SettingsTarget.RadioAutomaticTrackRecognition => (RadioTab, AutomaticTrackRecognitionCheck),
             SettingsTarget.KeyboardProfile => (KeyboardProfilesTab, ProfileCombo),
             SettingsTarget.ActivateKeyboardProfile => (KeyboardProfilesTab, ActivateProfileButton),
             SettingsTarget.DuplicateKeyboardProfile => (KeyboardProfilesTab, DuplicateProfileButton),
@@ -151,6 +152,7 @@ public partial class SettingsWindow : Window
             RadioRecordingBitrateCombo,
             _workingState.Radio.RecordingBitrateKbps.ToString());
         WakeScheduledRadioRecordingsCheck.IsChecked = _workingState.Radio.WakeScheduledRecordings;
+        AutomaticTrackRecognitionCheck.IsChecked = _workingState.Radio.AutomaticTrackRecognitionEnabled;
         UpdateRadioRecordingControls();
 
         MessagesEnabledCheck.IsChecked = _workingState.Settings.Messages.Enabled;
@@ -219,6 +221,7 @@ public partial class SettingsWindow : Window
             recordingBitrate = 192;
         _workingState.Radio.RecordingBitrateKbps = recordingBitrate;
         _workingState.Radio.WakeScheduledRecordings = WakeScheduledRadioRecordingsCheck.IsChecked == true;
+        _workingState.Radio.AutomaticTrackRecognitionEnabled = AutomaticTrackRecognitionCheck.IsChecked == true;
         if (!int.TryParse(TimeoutBox.Text, out var timeout) || timeout is < 250 or > 30000)
         {
             throw new InvalidDataException("Czas prefiksu musi mieścić się między 250 a 30000 ms.");

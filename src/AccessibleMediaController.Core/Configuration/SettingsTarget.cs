@@ -18,6 +18,7 @@ public enum SettingsTarget
     RadioRecording,
     RadioRecordingsFolder,
     RadioWakeScheduledRecordings,
+    RadioAutomaticTrackRecognition,
     KeyboardProfile,
     ActivateKeyboardProfile,
     DuplicateKeyboardProfile,

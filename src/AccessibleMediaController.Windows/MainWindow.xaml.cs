@@ -139,6 +139,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool _nativeWindowsDown;
     private static readonly TimeSpan TypeAheadTimeout = TimeSpan.FromMilliseconds(1200);
     private static readonly TimeSpan BookmarkNavigationContinuationWindow = TimeSpan.FromSeconds(5);
+    internal static readonly TimeSpan RadioRecognitionInitialDelay = TimeSpan.FromSeconds(6);
+    internal static readonly TimeSpan RadioRecognitionRetryDelay = TimeSpan.FromSeconds(15);
+    internal static readonly TimeSpan RadioRecognitionRegularInterval = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan RadioRecognitionSampleDuration = TimeSpan.FromSeconds(12);
     private static readonly string AppDisplayVersion =
         typeof(MainWindow).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
@@ -192,6 +196,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _radioScheduleTimer.Tick += RadioScheduleTimer_Tick;
         _state = state;
         _store = store;
+        _radioRecognitionMonitoring = _state.Radio.AutomaticTrackRecognitionEnabled;
         _localOutput.ConfigureAudioProcessing(_state.Settings.Audio);
         _localOutput.ConfigureAudioProcessingResolver(GetEffectiveLocalAudioSettings);
         _radioOutput = new RadioMediaOutput(_state.Radio.TimeshiftMinutes);
@@ -882,7 +887,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             return;
         }
-        _nextRadioRecognitionUtc = DateTime.UtcNow.AddMinutes(1);
+        ScheduleNextRadioRecognition(RadioRecognitionRegularInterval);
         _ = RecognizeCurrentRadioTrackAsync(automatic: true);
     }
 
@@ -905,15 +910,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (station is null || radioSession?.IsPlaying != true)
             {
                 if (!automatic) Announce("Najpierw uruchom stację radiową");
-                else _nextRadioRecognitionUtc = DateTime.UtcNow.AddSeconds(15);
+                else ScheduleNextRadioRecognition(RadioRecognitionRetryDelay);
                 return;
             }
-            if (!_radioOutput.TryGetRecentPlaybackAudio(TimeSpan.FromSeconds(12), out var snapshot)
+            if (!_radioOutput.TryGetRecentPlaybackAudio(RadioRecognitionSampleDuration, out var snapshot)
                 || snapshot is null)
             {
                 if (!automatic)
                     Announce("Za mało dźwięku w buforze. Poczekaj kilka sekund i spróbuj ponownie");
-                else _nextRadioRecognitionUtc = DateTime.UtcNow.AddSeconds(15);
+                else ScheduleNextRadioRecognition(RadioRecognitionRetryDelay);
                 return;
             }
 
@@ -929,6 +934,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 DiagnosticLog.Info("recognition", result.Error ?? "Nie rozpoznano utworu.");
                 if (!automatic && IsActive) AnnounceEssential(result.Error ?? "Nie rozpoznano utworu");
+                else if (automatic) ScheduleNextRadioRecognition(RadioRecognitionRetryDelay);
                 return;
             }
 
@@ -980,8 +986,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             Interlocked.Exchange(ref _trackRecognitionInProgress, 0);
             if (_radioRecognitionMonitoring && _nextRadioRecognitionUtc < DateTime.UtcNow)
-                _nextRadioRecognitionUtc = DateTime.UtcNow.AddMinutes(1);
+                ScheduleNextRadioRecognition(RadioRecognitionRegularInterval);
         }
+    }
+
+    private void ScheduleNextRadioRecognition(TimeSpan delay)
+    {
+        _nextRadioRecognitionUtc = _radioRecognitionMonitoring
+            ? DateTime.UtcNow.Add(delay)
+            : DateTime.MaxValue;
     }
 
     private static string RecognitionResultLabel(TrackRecognitionResult result)
@@ -1001,25 +1014,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ToggleRadioRecognitionMonitoring()
     {
-        if (_radioRecognitionMonitoring)
-        {
-            _radioRecognitionMonitoring = false;
-            _nextRadioRecognitionUtc = DateTime.MaxValue;
-            UpdateFileMenuForCurrentSession();
-            AnnounceEssential("Wyłączono obserwowanie rozpoznawania utworów");
-            return;
-        }
-
+        var enabled = !_radioRecognitionMonitoring;
+        _radioRecognitionMonitoring = enabled;
+        _state.Radio.AutomaticTrackRecognitionEnabled = enabled;
         var radioSession = _sessions.FindSession("radio");
-        if (_radioOutput.LoadedItemId is null || radioSession?.IsPlaying != true)
+        if (enabled && _radioOutput.LoadedItemId is not null && radioSession?.IsPlaying == true)
         {
-            Announce("Najpierw uruchom stację radiową");
-            return;
+            ScheduleNextRadioRecognition(RadioRecognitionInitialDelay);
         }
-        _radioRecognitionMonitoring = true;
-        _nextRadioRecognitionUtc = DateTime.UtcNow;
+        else
+        {
+            _nextRadioRecognitionUtc = DateTime.MaxValue;
+        }
+        _store.Save(_state);
         UpdateFileMenuForCurrentSession();
-        AnnounceEssential("Włączono obserwowanie rozpoznawania utworów");
+        AnnounceEssential(enabled
+            ? radioSession?.IsPlaying == true
+                ? "Włączono i zapamiętano obserwowanie rozpoznawania utworów"
+                : "Włączono i zapamiętano obserwowanie rozpoznawania utworów. Rozpoznawanie rozpocznie się po uruchomieniu stacji"
+            : "Wyłączono i zapamiętano obserwowanie rozpoznawania utworów");
     }
 
     private void ShowRadioRecognitionHistory()
@@ -4252,7 +4265,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();
         if (_radioRecognitionMonitoring)
-            _nextRadioRecognitionUtc = DateTime.UtcNow.AddSeconds(12);
+            ScheduleNextRadioRecognition(RadioRecognitionInitialDelay);
         if (e.Item.BitrateKbps is null || string.IsNullOrWhiteSpace(e.Item.Codec))
         {
             _ = EnrichRadioMetadataAfterPlaybackStartedAsync(e.Item);
@@ -6533,7 +6546,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RestoreMediaListFocusAfterRefresh();
             return;
         }
+        var recognitionMonitoringWasEnabled = _radioRecognitionMonitoring;
         _state = dialog.ResultState;
+        ApplyRadioRecognitionMonitoringSetting(recognitionMonitoringWasEnabled);
         ApplyEffectiveAudioProcessingForCurrentLocalItem();
         ClearDisabledLocalResumePositions();
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
@@ -6555,6 +6570,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         RestoreMediaListFocusAfterRefresh();
         Dispatcher.BeginInvoke(() => Announce(announcement), DispatcherPriority.ContextIdle);
+    }
+
+    private void ApplyRadioRecognitionMonitoringSetting(bool wasEnabled)
+    {
+        _radioRecognitionMonitoring = _state.Radio.AutomaticTrackRecognitionEnabled;
+        if (!_radioRecognitionMonitoring)
+        {
+            _nextRadioRecognitionUtc = DateTime.MaxValue;
+        }
+        else if (!wasEnabled)
+        {
+            var radioSession = _sessions.FindSession("radio");
+            if (_radioOutput.LoadedItemId is not null && radioSession?.IsPlaying == true)
+            {
+                ScheduleNextRadioRecognition(RadioRecognitionInitialDelay);
+            }
+            else
+            {
+                _nextRadioRecognitionUtc = DateTime.MaxValue;
+            }
+        }
+        UpdateFileMenuForCurrentSession();
     }
 
     private void RegisterPrefixFromSettings(KeyChord prefix)

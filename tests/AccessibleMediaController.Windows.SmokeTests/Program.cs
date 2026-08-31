@@ -62,6 +62,7 @@ try
     TestMenuAccessibility();
     TestRadioScheduleAccessibility();
     TestRadioRecognitionAnnouncementPolicy();
+    TestRadioRecognitionSchedulingPolicy();
     TestRadioRecognitionSettingAccessibility();
     TestPlaybackAudioSettingAccessibility();
     TestRadioPresetAccessibleLabels();
@@ -553,6 +554,17 @@ static void TestRadioRecognitionAnnouncementPolicy()
     Console.WriteLine("OK: oznajmianie rozpoznań tylko w aktywnym oknie AMC");
 }
 
+static void TestRadioRecognitionSchedulingPolicy()
+{
+    Assert(MainWindow.RadioRecognitionInitialDelay == TimeSpan.FromSeconds(6),
+        "Pierwsze automatyczne rozpoznanie nie rozpoczyna się po sześciu sekundach.");
+    Assert(MainWindow.RadioRecognitionRetryDelay == TimeSpan.FromSeconds(15),
+        "Nieudane rozpoznanie nie ma szybkiej ponownej próby.");
+    Assert(MainWindow.RadioRecognitionRetryDelay < MainWindow.RadioRecognitionRegularInterval,
+        "Ponowna próba po niepowodzeniu nie jest szybsza od zwykłego interwału obserwowania.");
+    Console.WriteLine("OK: szybkie pierwsze rozpoznanie i ponowna próba");
+}
+
 static void TestRadioRecognitionSettingAccessibility()
 {
     Exception? failure = null;
@@ -565,19 +577,29 @@ static void TestRadioRecognitionSettingAccessibility()
         {
             var state = new PersistedState();
             state.Settings.Messages.AutomaticRecognitionMessages = false;
+            state.Radio.AutomaticTrackRecognitionEnabled = true;
             var store = new ConfigurationStore(
                 Path.Combine(directory, "state.json"),
                 Path.Combine(directory, "library.db"));
             window = new SettingsWindow(
                 state,
                 store,
-                SettingsTarget.AutomaticRecognitionMessages);
+                SettingsTarget.RadioAutomaticTrackRecognition);
             var checkbox = (CheckBox)window.FindName("AutomaticRecognitionMessagesCheck");
             Assert(checkbox.IsChecked == false,
                 "Pole automatycznych rozpoznań nie wczytuje zapisanego stanu.");
             Assert((AutomationProperties.GetHelpText(checkbox) ?? string.Empty)
                     .Contains("tylko wtedy, gdy okno AMC jest aktywne", StringComparison.Ordinal),
                 "Pole nie wyjaśnia ograniczenia oznajmiania do aktywnego okna AMC.");
+            var monitoringCheckbox = (CheckBox)window.FindName("AutomaticTrackRecognitionCheck");
+            Assert(monitoringCheckbox.IsChecked == true,
+                "Pole automatycznego obserwowania nie wczytuje zapisanego stanu.");
+            Assert((AutomationProperties.GetName(monitoringCheckbox) ?? string.Empty)
+                    .Contains("Automatycznie obserwuj", StringComparison.Ordinal),
+                "Pole automatycznego obserwowania nie ma jednoznacznej nazwy dla NVDA.");
+            Assert((AutomationProperties.GetHelpText(monitoringCheckbox) ?? string.Empty)
+                    .Contains("ponownym uruchomieniu programu", StringComparison.Ordinal),
+                "Pole nie wyjaśnia, że ustawienie jest trwałe.");
         }
         catch (Exception exception)
         {
@@ -603,10 +625,10 @@ static void TestRadioRecognitionSettingAccessibility()
 
     if (failure is not null)
     {
-        throw new InvalidOperationException("Test ustawienia oznajmiania rozpoznań nie powiódł się.", failure);
+        throw new InvalidOperationException("Test ustawień obserwowania i oznajmiania rozpoznań nie powiódł się.", failure);
     }
 
-    Console.WriteLine("OK: dostępne ustawienie oznajmiania rozpoznanych utworów");
+    Console.WriteLine("OK: dostępne ustawienia obserwowania i oznajmiania rozpoznanych utworów");
 }
 
 static void TestPlaybackAudioSettingAccessibility()

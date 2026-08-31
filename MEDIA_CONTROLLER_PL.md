@@ -1118,7 +1118,8 @@ Rozpoznawanie jest wymiennym adapterem, a nie częścią modelu stacji. Pobiera 
 12 sekund PCM kończącego się dokładnie w odtwarzanym miejscu bufora i lokalnie
 tworzy podpis akustyczny. Do usługi zewnętrznej trafia tylko podpis. `S` działa
 na żądanie w odtwarzaczu Radia, `Shift+S` przełącza obserwowanie, a
-`Ctrl+Alt+S` otwiera historię. Obserwowanie jest nieutrwalane, wykonuje najwyżej
+`Ctrl+Alt+S` otwiera historię. Od `alpha.180` obserwowanie jest utrwalane przez
+`Shift+S` i pole wyboru na karcie **Radio i nagrywanie**, wykonuje najwyżej
 jedno zapytanie naraz i nie zapisuje powtórzenia tytułu oraz wykonawcy tej samej
 stacji w trzydziestominutowym oknie. Ustrukturyzowana historia jest częścią
 pełnej kopii konfiguracji, ma limit 2000 najnowszych wpisów i niezależne
@@ -1186,6 +1187,14 @@ dwoma niezależnymi stanami. `Shift+S` steruje pobieraniem wyników, natomiast
 opcja **Oznajmiaj automatycznie rozpoznane utwory** w kategorii Komunikaty
 steruje wyłącznie mową. Jej wyłączenie nie zatrzymuje zapytań, historii,
 eksportu ani późniejszego dopasowania do usług.
+
+Od `alpha.180` stan pobierania wyników jest zapisywany, więc ponowne
+uruchomienie AMC nie wyłącza go samoczynnie. `Shift+S` i pole **Automatycznie
+obserwuj i rozpoznawaj utwory podczas odtwarzania radia** na karcie **Radio i
+nagrywanie** są dwoma wejściami do tego samego ustawienia. Pierwsza próba jest
+planowana około sześciu sekund po uruchomieniu stacji. Nieudana próba otrzymuje
+ponowienie po 15 sekundach, a dopiero wynik udany przywraca zwykły interwał
+około jednej minuty.
 
 Automatyczny wynik może zostać wypowiedziany tylko wtedy, gdy główne okno AMC
 jest aktywne, komunikaty dostępności są włączone i włączona jest omawiana

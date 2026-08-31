@@ -122,7 +122,17 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="12">
                         <TextBlock Margin="0,0,0,12" TextWrapping="Wrap"
-                                   Text="Ustawienia dotyczą ręcznego i zaplanowanego nagrywania Radia internetowego. Tutaj wybierasz jeden domyślny folder nagrywania. Każdy plan może użyć tego folderu albo własnego oraz odziedziczyć albo zmienić wybudzanie." />
+                                   Text="Ustawienia dotyczą rozpoznawania utworów oraz ręcznego i zaplanowanego nagrywania Radia internetowego. Tutaj wybierasz jeden domyślny folder nagrywania. Każdy plan może użyć tego folderu albo własnego oraz odziedziczyć albo zmienić wybudzanie." />
+                        <GroupBox Header="Rozpoznawanie utworów" Margin="0,0,0,14">
+                            <StackPanel Margin="8">
+                                <CheckBox x:Name="AutomaticTrackRecognitionCheck"
+                                          Content="Automatycznie _obserwuj i rozpoznawaj utwory podczas odtwarzania radia"
+                                          automation:AutomationProperties.Name="Automatycznie obserwuj i rozpoznawaj utwory podczas odtwarzania radia"
+                                          automation:AutomationProperties.HelpText="Ustawienie jest zapamiętywane. Po włączeniu AMC rozpoczyna rozpoznawanie kilka sekund po uruchomieniu każdej stacji i kontynuuje je do czasu wyłączenia tej opcji, także po ponownym uruchomieniu programu." />
+                                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
+                                           Text="Ten sam przełącznik jest dostępny w odtwarzaczu radia pod Shift+S. Oznajmianie wyników można niezależnie wyłączyć na karcie Komunikaty; wyniki nadal trafiają wtedy do historii rozpoznanych utworów." />
+                            </StackPanel>
+                        </GroupBox>
                         <GroupBox Header="Domyślny folder nagrywania" Margin="0,0,0,14">
                             <StackPanel Margin="8">
                                 <Grid>
