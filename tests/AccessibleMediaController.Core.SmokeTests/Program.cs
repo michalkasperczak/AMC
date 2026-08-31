@@ -92,12 +92,36 @@ static void TestPlaybackAudioSettingsPersistence()
         state.Settings.Audio.LoudnessNormalizationEnabled = true;
         state.Settings.Audio.SmoothTrackTransitionsEnabled = true;
         state.Settings.Audio.InterTrackSilenceMilliseconds = 2000;
+        state.LocalMedia.Items.Add(new LocalMediaItemSettings
+        {
+            Id = "audio-override-item",
+            Title = "Utwór z własnymi opcjami",
+            Path = Path.Combine(directory, "Album", "utwor.mp3"),
+            LoudnessNormalizationOverride = false,
+            SmoothTrackTransitionsOverride = true,
+            InterTrackSilenceMillisecondsOverride = 500
+        });
+        state.LocalMedia.FolderPlaybackOptions.Add(new LocalFolderPlaybackSettings
+        {
+            Path = Path.Combine(directory, "Album"),
+            LoudnessNormalizationOverride = true,
+            SmoothTrackTransitionsOverride = false,
+            InterTrackSilenceMillisecondsOverride = 3000
+        });
         store.Save(state);
 
         var loaded = store.LoadOrCreate();
         Equal(true, loaded.Settings.Audio.LoudnessNormalizationEnabled);
         Equal(true, loaded.Settings.Audio.SmoothTrackTransitionsEnabled);
         Equal(2000, loaded.Settings.Audio.InterTrackSilenceMilliseconds);
+        var loadedItem = loaded.LocalMedia.Items.Single(item => item.Id == "audio-override-item");
+        Equal(false, loadedItem.LoudnessNormalizationOverride);
+        Equal(true, loadedItem.SmoothTrackTransitionsOverride);
+        Equal(500, loadedItem.InterTrackSilenceMillisecondsOverride);
+        var loadedFolder = loaded.LocalMedia.FolderPlaybackOptions.Single();
+        Equal(true, loadedFolder.LoudnessNormalizationOverride);
+        Equal(false, loadedFolder.SmoothTrackTransitionsOverride);
+        Equal(3000, loadedFolder.InterTrackSilenceMillisecondsOverride);
         True(
             PlaybackAudioSettingsRules.SupportedInterTrackSilenceMilliseconds
                 .SequenceEqual([0, 500, 1000, 2000, 3000, 5000]),
@@ -170,23 +194,44 @@ static void TestLocalPlaybackAudioSettingsInheritance()
         InterTrackSilenceMillisecondsOverride = 500
     };
 
-    var effective = LocalPlaybackAudioSettingsResolver.Resolve(
+    var effectiveResolution = LocalPlaybackAudioSettingsResolver.ResolveWithSources(
         global,
         itemPath,
         item,
         folders);
+    var effective = effectiveResolution.Settings;
     Equal(false, effective.LoudnessNormalizationEnabled);
     Equal(true, effective.SmoothTrackTransitionsEnabled);
     Equal(500, effective.InterTrackSilenceMilliseconds);
+    Equal(LocalPlaybackAudioSettingSource.Item, effectiveResolution.LoudnessNormalizationSource);
+    Equal(LocalPlaybackAudioSettingSource.Folder, effectiveResolution.SmoothTrackTransitionsSource);
+    Equal(LocalPlaybackAudioSettingSource.Item, effectiveResolution.InterTrackSilenceSource);
+    Equal(
+        "normalizacja wyłączona, ustawienie pliku; przejścia włączone, ustawienie folderu; "
+        + "cisza pół sekundy, ustawienie pliku",
+        LocalPlaybackAudioSettingsPresentation.FormatEffective(effectiveResolution));
 
-    var inherited = LocalPlaybackAudioSettingsResolver.Resolve(
+    var inheritedResolution = LocalPlaybackAudioSettingsResolver.ResolveWithSources(
         global,
         itemPath,
         itemSettings: null,
         folders);
+    var inherited = inheritedResolution.Settings;
     Equal(true, inherited.LoudnessNormalizationEnabled);
     Equal(true, inherited.SmoothTrackTransitionsEnabled);
     Equal(2000, inherited.InterTrackSilenceMilliseconds);
+    Equal(LocalPlaybackAudioSettingSource.Folder, inheritedResolution.LoudnessNormalizationSource);
+    Equal(LocalPlaybackAudioSettingSource.Folder, inheritedResolution.SmoothTrackTransitionsSource);
+    Equal(LocalPlaybackAudioSettingSource.Folder, inheritedResolution.InterTrackSilenceSource);
+
+    var globalResolution = LocalPlaybackAudioSettingsResolver.ResolveWithSources(
+        global,
+        itemPath,
+        itemSettings: null,
+        folderSettings: []);
+    Equal(LocalPlaybackAudioSettingSource.Global, globalResolution.LoudnessNormalizationSource);
+    Equal(LocalPlaybackAudioSettingSource.Global, globalResolution.SmoothTrackTransitionsSource);
+    Equal(LocalPlaybackAudioSettingSource.Global, globalResolution.InterTrackSilenceSource);
 }
 
 var failures = new List<string>();

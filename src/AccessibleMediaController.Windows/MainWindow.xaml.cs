@@ -1912,10 +1912,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             local.ApplyPlaybackRateForCurrentItem();
             _localOutput.ConfigureAudioProcessing(GetEffectiveLocalAudioSettings(item));
         }
-        TrySaveLocalMediaState(true);
+        var persisted = TrySaveLocalMediaState(true);
         if (_playerViewActive) UpdatePlayerView(true);
         UpdatePlaybackStatusBar();
-        Announce($"Zapisano opcje elementu: {item.Title}");
+        UpdateFileMenuForCurrentSession();
+        if (persisted)
+        {
+            Announce($"Zapisano opcje pliku: {item.Title}. {FormatEffectiveLocalAudioSettings(item)}");
+        }
         RestoreItemActionFocus();
     }
 
@@ -1989,10 +1993,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     GetEffectiveLocalAudioSettings(local.CurrentItem));
             }
         }
-        TrySaveLocalMediaState(true);
+        var persisted = TrySaveLocalMediaState(true);
         if (_playerViewActive) UpdatePlayerView(true);
         UpdatePlaybackStatusBar();
-        Announce($"Zapisano opcje folderu: {folderTitle}");
+        UpdateFileMenuForCurrentSession();
+        if (persisted)
+        {
+            Announce(
+                $"Zapisano opcje folderu: {folderTitle}. "
+                + FormatAudioOverrides(
+                    saved.LoudnessNormalizationOverride,
+                    saved.SmoothTrackTransitionsOverride,
+                    saved.InterTrackSilenceMillisecondsOverride));
+        }
         RestoreItemActionFocus();
     }
 
@@ -2734,6 +2747,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CurrentSessionMuteMenuItem.IsChecked = _sessions.Current.IsSessionMuted;
         AllSessionsMuteMenuItem.IsChecked = _sessions.AllSessionsMuted;
         UpdatePlaybackAudioMenuPresentation(_sessions.Current.AudioProcessingCapabilities);
+        var currentLocalItem = local
+            && _playerViewActive
+            && _sessions.Current.HasCurrentItem
+            && _sessions.Current.CurrentItem.Kind == MediaItemKind.Track
+            && TryGetLocalPath(_sessions.Current.CurrentItem.Source, out _)
+                ? _sessions.Current.CurrentItem
+                : null;
+        PlaybackCurrentItemAudioOptionsMenuItem.Visibility = currentLocalItem is null
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        if (currentLocalItem is not null)
+        {
+            MenuAccessibility.SetPresentation(
+                PlaybackCurrentItemAudioOptionsMenuItem,
+                $"Zmień opcje bieżącego utworu — {FormatEffectiveLocalAudioSettings(currentLocalItem)}");
+        }
         OpenLocalFilesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         OpenLocalFolderMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageLocalSourcesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
@@ -3725,11 +3754,42 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ?? GetFolderPlaybackRateOverride(item.Source);
 
     private PlaybackAudioSettings GetEffectiveLocalAudioSettings(MediaItem item) =>
-        LocalPlaybackAudioSettingsResolver.Resolve(
+        GetEffectiveLocalAudioSettingsResolution(item).Settings;
+
+    private LocalPlaybackAudioSettingsResolution GetEffectiveLocalAudioSettingsResolution(MediaItem item) =>
+        LocalPlaybackAudioSettingsResolver.ResolveWithSources(
             _state.Settings.Audio,
             item.Source,
             FindLocalItemSettings(item),
             _state.LocalMedia.FolderPlaybackOptions);
+
+    private string FormatEffectiveLocalAudioSettings(MediaItem item)
+        => LocalPlaybackAudioSettingsPresentation.FormatEffective(
+            GetEffectiveLocalAudioSettingsResolution(item));
+
+    private static string FormatAudioOverrides(
+        bool? loudnessNormalization,
+        bool? smoothTrackTransitions,
+        int? interTrackSilenceMilliseconds) =>
+        $"Normalizacja {FormatBooleanAudioOverride(loudnessNormalization)}; "
+        + $"przejścia {FormatTransitionsAudioOverride(smoothTrackTransitions)}; "
+        + $"cisza {(interTrackSilenceMilliseconds.HasValue
+            ? PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(interTrackSilenceMilliseconds.Value)
+            : "dziedziczona")}";
+
+    private static string FormatBooleanAudioOverride(bool? value) => value switch
+    {
+        true => "włączona",
+        false => "wyłączona",
+        null => "dziedziczona"
+    };
+
+    private static string FormatTransitionsAudioOverride(bool? value) => value switch
+    {
+        true => "włączone",
+        false => "wyłączone",
+        null => "dziedziczone"
+    };
 
     private void ApplyEffectiveAudioProcessingForCurrentLocalItem()
     {
@@ -10600,7 +10660,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : "Kopiuj łącze do elementu";
         SetContextMenuItemPresentation(PlayerCopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
         var localItem = TryGetLocalPath(item.Source, out _);
-        PlayerItemPlaybackOptionsMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
+        var localPlaybackOptions = localItem
+            && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+            && item.Kind == MediaItemKind.Track;
+        PlayerItemPlaybackOptionsMenuItem.Visibility = localPlaybackOptions
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        if (localPlaybackOptions)
+        {
+            SetContextMenuItemPresentation(
+                PlayerItemPlaybackOptionsMenuItem,
+                $"Zmień opcje bieżącego utworu — {FormatEffectiveLocalAudioSettings(item)}",
+                "Alt+Shift+Enter");
+        }
         var relatedAlbum = FindRelatedLocalAlbum(item);
         PlayerGoToAlbumMenuItem.Visibility = relatedAlbum is null ? Visibility.Collapsed : Visibility.Visible;
         PlayerGoToArtistMenuItem.Visibility = relatedAlbum is not null

@@ -1232,3 +1232,11 @@ appears in **Playback**, the player's context menu and under the matching
 than pretending to work. File and folder overrides remain properties of the
 local Library, while the global value is the default for every compatible
 adapter.
+
+Starting with `alpha.173`, the UI explicitly separates the global level from
+the effective value. Global switches still change the shared default. A
+separate **Change current track options** entry in **Playback** and the local
+player context menu reports the value actually used for each property and its
+source: file, folder or global settings. After `Alt+Shift+Enter`, AMC reads the
+saved values back in its confirmation. A success message is emitted only after
+the database has actually been written.

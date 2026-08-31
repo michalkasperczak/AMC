@@ -1,12 +1,46 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-172`
-- Tytuł zestawu: Sesje, możliwości dźwięku adapterów i kontrola Radia
-- Wersja programu: `0.1.0-alpha.172`
+- Numer zestawu: `AMC-TEST-173`
+- Tytuł zestawu: Trwałość i efektywny stan opcji odtwarzania
+- Wersja programu: `0.1.0-alpha.173`
 - Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.172.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.173.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 173
+
+### AMC-173-01 — Efektywny stan w obu menu
+
+Uruchom lokalny plik należący do folderu z własnymi opcjami. Otwórz główne
+menu **Odtwarzanie**, a następnie menu kontekstowe odtwarzacza.
+
+Oczekiwane: oprócz jawnie globalnych przełączników jest pozycja **Zmień opcje
+bieżącego utworu**. Podaje osobno normalizację, przejścia i ciszę oraz mówi przy
+każdej wartości „ustawienie pliku”, „ustawienie folderu” albo „ustawienie
+globalne”. `Alt+Shift+Enter` jest odczytywany raz, jako skrót tej pozycji.
+
+### AMC-173-02 — Zapis folderu i naturalny koniec
+
+Na folderze lub albumie otwórz `Alt+Shift+Enter`, włącz normalizację i
+przejścia, a ciszę ustaw na 2 sekundy. Zapisz, ponownie otwórz okno i uruchom
+dwa krótkie pliki z tego folderu bez ręcznego używania Page Down.
+
+Oczekiwane: potwierdzenie wymienia zapisane wartości, ponownie otwarte okno je
+pamięta, a pozycja efektywna w menu wskazuje źródło folderowe. Przejście i
+dwusekundowa cisza dotyczą naturalnego końca utworu; ręczna zmiana nie jest
+testem ciszy po utworze.
+
+### AMC-173-03 — Własne ustawienie pliku i restart
+
+Na jednym z plików ustaw wartości inne niż w folderze, zapisz, zamknij AMC,
+uruchom ponownie i otwórz ten plik oraz drugi plik z tego samego folderu.
+
+Oczekiwane: pierwszy plik przywraca własne wartości i menu mówi „ustawienie
+pliku”. Drugi nadal dziedziczy folder. Zmiana globalnych przełączników nie
+nadpisuje żadnego z tych wyjątków.
+
+## Poprzedni zestaw alpha 172
 
 ## Nowości alpha 172
 

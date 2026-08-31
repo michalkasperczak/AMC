@@ -133,6 +133,13 @@
                               automation:AutomationProperties.Name="5 sekund ciszy"
                               Click="InterTrackSilenceChoice_Click" />
                 </MenuItem>
+                <MenuItem x:Name="PlaybackCurrentItemAudioOptionsMenuItem"
+                          Header="Zmień opcje bieżącego utworu"
+                          InputGestureText="Alt+Shift+Enter"
+                          automation:AutomationProperties.Name="Zmień opcje bieżącego utworu"
+                          automation:AutomationProperties.AcceleratorKey="Alt+Shift+Enter"
+                          Visibility="Collapsed"
+                          Click="ItemPlaybackOptions_Click" />
                 <Separator />
                 <MenuItem x:Name="RadioRecordingMenuItem" Header="Rozpocznij nagrywanie radia" InputGestureText="R"
                           automation:AutomationProperties.Name="Rozpocznij lub zakończ nagrywanie radia, R, w odtwarzaczu radia"
@@ -470,6 +477,12 @@
                                   automation:AutomationProperties.Name="5 sekund ciszy"
                                   Click="InterTrackSilenceChoice_Click" />
                     </MenuItem>
+                    <MenuItem x:Name="PlayerItemPlaybackOptionsMenuItem"
+                              Header="Zmień opcje bieżącego utworu"
+                              InputGestureText="Alt+Shift+Enter"
+                              automation:AutomationProperties.Name="Zmień opcje bieżącego utworu"
+                              automation:AutomationProperties.AcceleratorKey="Alt+Shift+Enter"
+                              Click="ItemPlaybackOptions_Click" />
                     <MenuItem x:Name="PlayerAddBookmarkMenuItem" Header="Dodaj zakładkę" InputGestureText="B"
                               automation:AutomationProperties.Name="Dodaj zakładkę w bieżącym miejscu, B"
                               Click="AddBookmark_Click" />
@@ -531,9 +544,6 @@
                     <MenuItem Header="Właściwości i informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.Name="Właściwości i informacje, Alt+Enter"
                               Click="Information_Click" />
-                    <MenuItem x:Name="PlayerItemPlaybackOptionsMenuItem" Header="Opcje odtwarzania elementu" InputGestureText="Alt+Shift+Enter"
-                              automation:AutomationProperties.Name="Opcje odtwarzania elementu, Alt+Shift+Enter"
-                              Click="ItemPlaybackOptions_Click" />
                     <MenuItem x:Name="PlayerGoToAlbumMenuItem" Header="Przejdź do albumu"
                               Click="GoToAlbum_Click" />
                     <MenuItem x:Name="PlayerGoToArtistMenuItem" Header="Przejdź do wykonawcy"

@@ -1262,3 +1262,11 @@ lub przez oficjalne API. Obsługiwana pozycja pojawia się wtedy w menu
 przełączenie. Ustawienia pliku i folderu pozostają właściwościami lokalnej
 Biblioteki, natomiast poziom globalny jest wspólną wartością domyślną dla
 każdego zgodnego adaptera.
+
+Od `alpha.173` poziom globalny i wartość efektywna są jawnie rozdzielone w
+interfejsie. Globalne przełączniki nadal zmieniają wspólną wartość domyślną.
+Osobna pozycja **Zmień opcje bieżącego utworu** w menu **Odtwarzanie** i menu
+kontekstowym lokalnego odtwarzacza podaje natomiast dla każdej właściwości
+wartość rzeczywiście używaną oraz jej źródło: plik, folder albo ustawienie
+globalne. Po zapisaniu `Alt+Shift+Enter` AMC odczytuje w potwierdzeniu zapisane
+wartości. Komunikat sukcesu pojawia się tylko po rzeczywistym zapisie bazy.
