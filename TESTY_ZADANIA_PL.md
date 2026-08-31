@@ -1,12 +1,81 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-171`
-- Tytuł zestawu: Bezpośrednie skróty dźwięku w lokalnym odtwarzaczu
-- Wersja programu: `0.1.0-alpha.171`
+- Numer zestawu: `AMC-TEST-172`
+- Tytuł zestawu: Sesje, możliwości dźwięku adapterów i kontrola Radia
+- Wersja programu: `0.1.0-alpha.172`
 - Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.171.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.172.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 172
+
+### AMC-172-01 — Lista sesji pod Ctrl+Shift+S
+
+Na zwykłej liście, w odtwarzaczu i po włączeniu Pomocy klawiatury `Ctrl+F1`
+naciśnij `Ctrl+Shift+S`. Powtórz próbę przez `Ctrl+0`, a w sesji z presetami
+sprawdź osobno `Ctrl+Shift+0`.
+
+Oczekiwane: `Ctrl+Shift+S` otwiera albo opisuje listę sesji i jest głównym
+skrótem widocznym w menu Sesja. `Ctrl+0` nadal otwiera tę samą listę jako
+alias, natomiast `Ctrl+Shift+0` wywołuje preset 0 i nigdy nie otwiera sesji.
+
+### AMC-172-02 — Menu zależne od możliwości odtwarzania
+
+W Plikach lokalnych otwórz menu **Odtwarzanie** i menu kontekstowe odtwarzacza,
+a potem wykonaj to samo w Radiu oraz w demonstracyjnej sesji usługi, która nie
+ma jeszcze prawdziwego toru odtwarzania. Przejrzyj także opis grupy
+**Odtwarzanie — ustawienia globalne** w Ustawieniach.
+
+Oczekiwane: lokalny tor pokazuje normalizację, przejścia i ciszę. Radio oraz
+niepodłączona usługa nie pokazują martwych poleceń. Opis Ustawień wyjaśnia, że
+przyszły adapter może udostępnić każdą opcję lokalnie albo przez oficjalne API.
+NVDA nie odczytuje nazwy klasy, flag możliwości ani technicznego identyfikatora.
+
+### AMC-172-03 — Spacja, Ctrl+M i pamięć głośności stacji
+
+Uruchom Radio. Naciśnij Spację, ponownie Spację, `Ctrl+M` i jeszcze raz
+`Ctrl+M`. Ustaw dwie różne głośności dla dwóch stacji, przełączaj je, a potem
+uruchom AMC ponownie.
+
+Oczekiwane: Spacja zatrzymuje i wznawia słyszalny transport. `Ctrl+M` jedynie
+zeruje wyjście bieżącej sesji; odbiór, timeshift i nagrywanie nadal trwają.
+Każda stacja przywraca swój zapamiętany poziom także po restarcie.
+
+### AMC-172-04 — Nagrywane stacje i timeshift
+
+Uruchom nagrywanie dwóch stacji, otwórz `Alt+2`, na jednej użyj
+`Shift+Spacja`, a potem `Ctrl+Alt+R`. Następnie uruchom ponownie co najmniej dwa
+nagrania i użyj `Ctrl+Alt+Shift+R`. Osobno podczas nagrywania słuchanej stacji
+sprawdź lewo, prawo, Home i End, zakończ jej zapis bez Escape i ponów próbę.
+
+Oczekiwane: pauza i zakończenie dotyczą wybranej stacji. Skrót z dodatkowym
+Shiftem zatrzymuje wszystkie nagrania po wymaganym potwierdzeniu. Timeshift
+jest zablokowany tylko dla aktualnie słuchanej i nagrywanej stacji, po czym
+wraca natychmiast po zakończeniu jej zapisu.
+
+### AMC-172-05 — Shift+R i lista harmonogramów
+
+Dla dwóch stacji utwórz przez `Shift+R` nagrania o różnych formatach i bitrate.
+Otwórz `Ctrl+Shift+H`, przechodź strzałkami i przełączaj plany Spacją, zapisz,
+a następnie ponownie otwórz listę.
+
+Oczekiwane: każde nagranie jednorazowe i harmonogram pamięta własny format oraz
+bitrate. Lista działa jak lista pól wyboru, fokus pozostaje na przełączanym
+planie, a zmiany są trwałe.
+
+### AMC-172-06 — Historia Shazam i przyszłe usługi
+
+Otwórz historię przez `Ctrl+Alt+S`, sprawdź jej menu kontekstowe, a następnie
+naciśnij `Ctrl+Shift+S`.
+
+Oczekiwane: `Ctrl+Alt+S` nadal otwiera rozpoznane utwory z działającym
+otwarciem wyniku, kopiowaniem, eksportem i usuwaniem. `Ctrl+Shift+S` przechodzi
+do listy sesji. Dopóki Apple Music, Spotify lub TIDAL nie mają podłączonych
+adapterów, menu nie pokazuje martwego „Dodaj do…”. Po integracji właściwym
+celem będzie album z rozpoznanym utworem zaznaczonym, a nie przypadkowy wynik.
+
+## Poprzedni zestaw alpha 171
 
 ## Nowości alpha 171
 

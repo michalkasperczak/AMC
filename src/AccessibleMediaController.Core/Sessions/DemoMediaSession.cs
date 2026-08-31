@@ -1,3 +1,4 @@
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Playback;
 
 namespace AccessibleMediaController.Core.Sessions;
@@ -65,6 +66,9 @@ public sealed class DemoMediaSession
     public double PlaybackRate { get; private set; } = 1d;
     public double DefaultPlaybackRate { get; private set; } = 1d;
     public bool SupportsPlaybackRate => _output?.SupportsPlaybackRate == true;
+    public PlaybackAudioProcessingCapabilities AudioProcessingCapabilities =>
+        (_output as IPlaybackAudioProcessingOutput)?.AudioProcessingCapabilities
+        ?? PlaybackAudioProcessingCapabilities.None;
     public TimeSpan Position => _output is not null
         && string.Equals(_output.LoadedItemId, CurrentItem.Id, StringComparison.Ordinal)
             ? _output.Position
@@ -299,6 +303,12 @@ public sealed class DemoMediaSession
     private int EffectiveVolume => IsMuted ? 0 : Volume;
 
     private void ApplyEffectiveVolume() => _output?.SetVolume(EffectiveVolume);
+
+    public void ConfigureAudioProcessing(PlaybackAudioSettings settings)
+    {
+        if (_output is IPlaybackAudioProcessingOutput output)
+            output.ConfigureAudioProcessing(settings);
+    }
 
     private void ApplyVolumeForItem(MediaItem item)
     {

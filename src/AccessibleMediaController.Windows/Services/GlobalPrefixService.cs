@@ -190,7 +190,7 @@ internal sealed class GlobalPrefixService : IDisposable
 
     internal static bool IsFocusedDirectShortcutCandidate(KeyChord chord) =>
         chord.Modifiers == (KeyModifiers.Ctrl | KeyModifiers.Shift)
-        && string.Equals(chord.Key, "0", StringComparison.Ordinal);
+        && chord.Key is "0" or "S";
 
     private static KeyModifiers ReadModifiers()
     {

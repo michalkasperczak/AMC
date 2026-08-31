@@ -56,7 +56,7 @@ public readonly record struct MediaMetadataReadResult(
 /// for cloud placeholders: Windows may block a file open while iCloud,
 /// OneDrive or Google Drive hydrates the selected file.
 /// </summary>
-public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
+public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingOutput, IDisposable
 {
     private enum DecoderKind
     {
@@ -197,6 +197,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     }
 
     public bool SupportsPlaybackRate => true;
+    public PlaybackAudioProcessingCapabilities AudioProcessingCapabilities =>
+        PlaybackAudioProcessingCapabilities.All;
 
     public void ConfigureAudioProcessing(PlaybackAudioSettings settings)
     {

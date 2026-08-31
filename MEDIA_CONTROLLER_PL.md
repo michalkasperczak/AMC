@@ -96,7 +96,7 @@ Proponowane ustawienia domyślne:
 | `Page Up` | poprzednia dostępna sesja |
 | `Page Down` | następna dostępna sesja |
 
-Po zmianie aplikacja przekazuje krótki komunikat, np. „3, WiiM”. Jeśli miejsce nie zostało przypisane, mówi „Sesja 4 nieprzypisana”. W aktywnym oknie `Ctrl+1–9` wybiera sesję, `Ctrl+0` otwiera ich listę, a `Ctrl+Page Up` i `Ctrl+Page Down` przechodzą do poprzedniej i następnej sesji.
+Po zmianie aplikacja przekazuje krótki komunikat, np. „3, WiiM”. Jeśli miejsce nie zostało przypisane, mówi „Sesja 4 nieprzypisana”. W aktywnym oknie `Ctrl+1–9` wybiera sesję, `Ctrl+Shift+S` otwiera ich listę, `Ctrl+0` pozostaje aliasem, a `Ctrl+Page Up` i `Ctrl+Page Down` przechodzą do poprzedniej i następnej sesji.
 
 ### 4.2. Zapamiętywanie sesji
 
@@ -455,7 +455,7 @@ Zatwierdzone przypisania podstawowe:
 
 Każdy skrót lokalny jest zmienny. Polecenia pobierania nie powinny być aktywne, dopóki odpowiedni moduł nie zostanie świadomie włączony.
 
-`Ctrl+1–9` wybiera sesję, `Ctrl+0` otwiera listę sesji, a `Ctrl+Page Up` i `Ctrl+Page Down` wybierają poprzednią lub następną sesję.
+`Ctrl+1–9` wybiera sesję, `Ctrl+Shift+S` otwiera listę sesji, `Ctrl+0` pozostaje aliasem, a `Ctrl+Page Up` i `Ctrl+Page Down` wybierają poprzednią lub następną sesję.
 
 ## 10. Menu kontekstowe
 
@@ -1172,8 +1172,9 @@ warstwą wyciszenia wszystkich sesji AMC.
 
 Historia rozpoznanych utworów pozostaje pod `Ctrl+Alt+S`; jej menu kontekstowe
 udostępnia otwarcie wyniku dostawcy, kopiowanie zwykłe i bogate, eksport oraz
-usuwanie. `Ctrl+Shift+S` jest zarezerwowane dla przyszłej listy sesji i nie
-jest aliasem Shazam. Po wdrożeniu oficjalnych adapterów menu historii otrzyma
+usuwanie. Od `alpha.172` `Ctrl+Shift+S` otwiera listę sesji, `Ctrl+0` pozostaje
+jej aliasem i żaden z nich nie jest skrótem Shazam. Po wdrożeniu oficjalnych
+adapterów menu historii otrzyma
 działania dopasowania albumu z zaznaczonym utworem do Apple Music, Spotify,
 TIDAL i YouTube Music. Dopasowanie nie może być wykonywane bez potwierdzenia,
 gdy katalog zwróci więcej niż jeden wiarygodny wynik.
@@ -1194,7 +1195,7 @@ ale także wyłącznie w aktywnym oknie AMC; zakończenie zapytania po zmianie
 aplikacji pozostaje bezgłośne. Paleta poleceń pokazuje stan ustawienia i
 otwiera fokus bezpośrednio na odpowiednim polu wyboru.
 
-## 21. Normalizacja i przejścia lokalnego dźwięku
+## 21. Normalizacja i przejścia dźwięku
 
 Od `alpha.168` trzy dodatkowe opcje dotyczą wyłącznie sesji **Pliki lokalne**
 i są domyślnie wyłączone. Nie zmieniają bajtów pliku, tagów, zapamiętanej
@@ -1249,3 +1250,15 @@ dla przejść i `Shift+C` dla kolejnej długości ciszy. Zakres jest celowo wąs
 fokus musi znajdować się w lokalnym odtwarzaczu, więc kombinacje nie działają
 na liście ani w Radiu. Menu kontekstowe odtwarzacza podaje skróty bez prefiksu,
 a menu główne i spis klawiatury zachowują równolegle skróty prefiksowe.
+
+Od `alpha.172` zakres nie jest już zakodowany nazwą sesji. Każdy tor
+odtwarzania deklaruje osobno możliwość normalizacji, łagodnych przejść i ciszy.
+Pliki lokalne deklarują cały zestaw; Radio i demonstracyjne wpisy usług bez
+prawdziwego toru nie deklarują żadnej z tych funkcji. Przyszły adapter TIDAL,
+Apple Music, Spotify albo urządzenia może udostępnić je w lokalnym torze AMC
+lub przez oficjalne API. Obsługiwana pozycja pojawia się wtedy w menu
+**Odtwarzanie**, menu kontekstowym odtwarzacza i pod odpowiednim `Shift+N`,
+`Shift+T` albo `Shift+C`. Brak możliwości oznacza brak pozycji, a nie pozorne
+przełączenie. Ustawienia pliku i folderu pozostają właściwościami lokalnej
+Biblioteki, natomiast poziom globalny jest wspólną wartością domyślną dla
+każdego zgodnego adaptera.

@@ -23,6 +23,7 @@ var tests = new (string Name, Action Test)[]
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
     ("Trwałe opcje przetwarzania dźwięku", TestPlaybackAudioSettingsPersistence),
+    ("Możliwości przetwarzania dźwięku adaptera", TestPlaybackAudioProcessingCapabilities),
     ("Dziedziczenie przetwarzania dźwięku plików lokalnych", TestLocalPlaybackAudioSettingsInheritance),
     ("Migracja starszych ustawień", TestLegacyStateMigration),
     ("Migracja ustawień alpha.4", TestVersion2StateMigration),
@@ -109,6 +110,32 @@ static void TestPlaybackAudioSettingsPersistence()
     {
         Directory.Delete(directory, true);
     }
+}
+
+static void TestPlaybackAudioProcessingCapabilities()
+{
+    var plainSession = new DemoMediaSession(
+        "plain-output",
+        "Zewnętrzne sterowanie",
+        [new MediaItem { Id = "plain", Title = "Element" }],
+        new FakeMediaOutput());
+    Equal(PlaybackAudioProcessingCapabilities.None, plainSession.AudioProcessingCapabilities);
+
+    var output = new FakeAudioProcessingMediaOutput();
+    var processingSession = new DemoMediaSession(
+        "processing-output",
+        "Odtwarzanie przez AMC",
+        [new MediaItem { Id = "processed", Title = "Element" }],
+        output);
+    Equal(PlaybackAudioProcessingCapabilities.All, processingSession.AudioProcessingCapabilities);
+    var settings = new PlaybackAudioSettings
+    {
+        LoudnessNormalizationEnabled = true,
+        SmoothTrackTransitionsEnabled = true,
+        InterTrackSilenceMilliseconds = 2000
+    };
+    processingSession.ConfigureAudioProcessing(settings);
+    Equal(settings, output.LastAudioProcessingSettings);
 }
 
 static void TestLocalPlaybackAudioSettingsInheritance()
@@ -2833,11 +2860,11 @@ static void TestCommandPalette()
     Equal("Up (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.VolumeUp5).LocalShortcut);
     Equal("Ctrl+M", entries.Single(entry => entry.CommandId == CommandIds.ToggleMuteCurrentSession).LocalShortcut);
     Equal("Ctrl+Shift+M", entries.Single(entry => entry.CommandId == CommandIds.ToggleMuteAllSessions).LocalShortcut);
-    Equal("Shift+N (odtwarzacz Plików lokalnych)",
+    Equal("Shift+N (odtwarzacz obsługujący przetwarzanie dźwięku)",
         entries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization).LocalShortcut);
-    Equal("Shift+T (odtwarzacz Plików lokalnych)",
+    Equal("Shift+T (odtwarzacz obsługujący przetwarzanie dźwięku)",
         entries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions).LocalShortcut);
-    Equal("Shift+C (odtwarzacz Plików lokalnych)",
+    Equal("Shift+C (odtwarzacz obsługujący przetwarzanie dźwięku)",
         entries.Single(entry => entry.CommandId == CommandIds.CycleInterTrackSilence).LocalShortcut);
     Equal("Shift+N", entries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization).PrefixShortcut);
     Equal("T", entries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions).PrefixShortcut);
@@ -2846,6 +2873,8 @@ static void TestCommandPalette()
     Equal("Shift+. (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PlaybackRateUp).LocalShortcut);
     Equal("Ctrl+. (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PlaybackRateReset).LocalShortcut);
     Equal("Ctrl+Shift+E", entries.Single(entry => entry.CommandId == CommandIds.TimeElapsed).LocalShortcut);
+    Equal("Ctrl+Shift+S lub Ctrl+0",
+        entries.Single(entry => entry.CommandId == CommandIds.SessionList).LocalShortcut);
     Equal("F6", entries.Single(entry => entry.CommandId == CommandIds.ViewNowPlaying).LocalShortcut);
     Equal("0 (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekPercent(0)).LocalShortcut);
     Equal("9 (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekPercent(90)).LocalShortcut);
@@ -2902,7 +2931,7 @@ static void TestCommandPalette()
         "Oznajmianie automatycznie rozpoznanych utworów: włączone. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsAutomaticRecognitionMessages).DisplayName);
     Equal(
-        "Globalna normalizacja głośności lokalnych utworów: wyłączone. Enter: ustawienia",
+        "Globalna normalizacja głośności: wyłączone. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsLoudnessNormalization).DisplayName);
     Equal(
         "Globalne łagodne przejścia między utworami: wyłączone. Enter: ustawienia",
@@ -2911,7 +2940,7 @@ static void TestCommandPalette()
         "Globalna cisza między utworami: bez dodatkowej ciszy. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsInterTrackSilence).DisplayName);
     Equal(
-        "Globalna normalizacja głośności lokalnych utworów: wyłączone. Enter: przełącz",
+        "Globalna normalizacja głośności: wyłączone. Enter: przełącz",
         entries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization).DisplayName);
     Equal(
         "Globalne łagodne przejścia między utworami: wyłączone. Enter: przełącz",
@@ -2968,7 +2997,7 @@ static void TestCommandPalette()
         "Oznajmianie automatycznie rozpoznanych utworów: wyłączone. Enter: ustawienia",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsAutomaticRecognitionMessages).DisplayName);
     Equal(
-        "Globalna normalizacja głośności lokalnych utworów: włączone. Enter: ustawienia",
+        "Globalna normalizacja głośności: włączone. Enter: ustawienia",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsLoudnessNormalization).DisplayName);
     Equal(
         "Globalne łagodne przejścia między utworami: włączone. Enter: ustawienia",
@@ -2977,7 +3006,7 @@ static void TestCommandPalette()
         "Globalna cisza między utworami: 2 sekundy. Enter: ustawienia",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsInterTrackSilence).DisplayName);
     Equal(
-        "Globalna normalizacja głośności lokalnych utworów: włączone. Enter: przełącz",
+        "Globalna normalizacja głośności: włączone. Enter: przełącz",
         changedEntries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization).DisplayName);
     Equal(
         "Globalne łagodne przejścia między utworami: włączone. Enter: przełącz",
@@ -3011,27 +3040,29 @@ static void TestShortcutHelpCatalog()
         "Okno Pomocy nie powinno otwierać samo siebie.");
     True(entries.Any(entry => entry.Shortcut == "Ctrl+C"), "Spis powinien obejmować bezpieczne kopiowanie nazw.");
     True(entries.Any(entry => entry.Shortcut == "Shift+Delete"), "Spis powinien wyjaśniać osobną operację Kosza.");
+    Equal("Ctrl+Shift+S lub Ctrl+0; po prefiksie 0",
+        entries.Single(entry => entry.CommandId == CommandIds.SessionList).Shortcut);
     var normalizationHelp = entries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization);
     True(normalizationHelp.Shortcut.StartsWith("Shift+N;", StringComparison.Ordinal),
         "Spis powinien podawać lokalny skrót normalizacji przed wariantem prefiksowym.");
-    True(normalizationHelp.Context.Contains("Odtwarzacz Plików lokalnych", StringComparison.Ordinal),
-        "Spis powinien oddzielnie podawać kontekst lokalnej normalizacji.");
+    True(normalizationHelp.Context.Contains("Odtwarzacz obsługujący przetwarzanie dźwięku", StringComparison.Ordinal),
+        "Spis powinien oddzielnie podawać kontekst obsługiwanej normalizacji.");
     True(normalizationHelp.Label
             .Contains("po prefiksie Shift+N", StringComparison.Ordinal),
         "Spis powinien podawać prefiksowy skrót normalizacji.");
     var transitionsHelp = entries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions);
     True(transitionsHelp.Shortcut.StartsWith("Shift+T;", StringComparison.Ordinal),
         "Spis powinien podawać lokalny skrót przejść przed wariantem prefiksowym.");
-    True(transitionsHelp.Context.Contains("Odtwarzacz Plików lokalnych", StringComparison.Ordinal),
-        "Spis powinien oddzielnie podawać kontekst lokalnych przejść.");
+    True(transitionsHelp.Context.Contains("Odtwarzacz obsługujący przetwarzanie dźwięku", StringComparison.Ordinal),
+        "Spis powinien oddzielnie podawać kontekst obsługiwanych przejść.");
     True(transitionsHelp.Label
             .Contains("po prefiksie T", StringComparison.Ordinal),
         "Spis powinien podawać prefiksowy skrót przejść.");
     var silenceHelp = entries.Single(entry => entry.CommandId == CommandIds.CycleInterTrackSilence);
     True(silenceHelp.Shortcut.StartsWith("Shift+C;", StringComparison.Ordinal),
         "Spis powinien podawać lokalny skrót ciszy przed wariantem prefiksowym.");
-    True(silenceHelp.Context.Contains("Odtwarzacz Plików lokalnych", StringComparison.Ordinal),
-        "Spis powinien oddzielnie podawać kontekst lokalnej ciszy.");
+    True(silenceHelp.Context.Contains("Odtwarzacz obsługujący przetwarzanie dźwięku", StringComparison.Ordinal),
+        "Spis powinien oddzielnie podawać kontekst obsługiwanej ciszy.");
     True(silenceHelp.Label
             .Contains("po prefiksie C", StringComparison.Ordinal),
         "Spis powinien podawać prefiksowy skrót ciszy.");
@@ -3826,7 +3857,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void NavigateBookmark(int direction) => BookmarkNavigationDirection = direction;
 }
 
-sealed class FakeMediaOutput : IMediaOutput
+class FakeMediaOutput : IMediaOutput
 {
     public string? LoadedItemId => LastItem?.Id;
     public TimeSpan Position { get; set; }
@@ -3852,4 +3883,14 @@ sealed class FakeMediaOutput : IMediaOutput
     public void Seek(TimeSpan position) => Position = position;
     public void SetVolume(int volume) => Volume = volume;
     public void SetPlaybackRate(double playbackRate) => PlaybackRate = playbackRate;
+}
+
+sealed class FakeAudioProcessingMediaOutput : FakeMediaOutput, IPlaybackAudioProcessingOutput
+{
+    public PlaybackAudioProcessingCapabilities AudioProcessingCapabilities =>
+        PlaybackAudioProcessingCapabilities.All;
+    public PlaybackAudioSettings? LastAudioProcessingSettings { get; private set; }
+
+    public void ConfigureAudioProcessing(PlaybackAudioSettings settings) =>
+        LastAudioProcessingSettings = settings;
 }

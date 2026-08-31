@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using AccessibleMediaController.Core.Commands;
+using AccessibleMediaController.Core.Playback;
 
 namespace AccessibleMediaController.Windows;
 
@@ -17,20 +18,27 @@ internal readonly record struct MainWindowDigitShortcut(
 
 internal static class MainWindowShortcutRouter
 {
-    public static string? ResolveLocalPlayerAudioProcessing(
+    public static string? ResolvePlayerAudioProcessing(
         Key key,
         ModifierKeys modifiers,
-        bool localPlayerActive)
+        bool playerActive,
+        PlaybackAudioProcessingCapabilities capabilities)
     {
-        if (!localPlayerActive || modifiers != ModifierKeys.Shift) return null;
+        if (!playerActive || modifiers != ModifierKeys.Shift) return null;
         return key switch
         {
-            Key.N => CommandIds.ToggleLoudnessNormalization,
-            Key.T => CommandIds.ToggleSmoothTrackTransitions,
-            Key.C => CommandIds.CycleInterTrackSilence,
+            Key.N when capabilities.HasFlag(PlaybackAudioProcessingCapabilities.LoudnessNormalization) =>
+                CommandIds.ToggleLoudnessNormalization,
+            Key.T when capabilities.HasFlag(PlaybackAudioProcessingCapabilities.SmoothTrackTransitions) =>
+                CommandIds.ToggleSmoothTrackTransitions,
+            Key.C when capabilities.HasFlag(PlaybackAudioProcessingCapabilities.InterTrackSilence) =>
+                CommandIds.CycleInterTrackSilence,
             _ => null
         };
     }
+
+    public static bool IsSessionListShortcut(Key key, ModifierKeys modifiers) =>
+        key == Key.S && modifiers == (ModifierKeys.Control | ModifierKeys.Shift);
 
     public static MainWindowDigitShortcut ResolveDigit(
         Key key,

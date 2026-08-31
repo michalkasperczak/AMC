@@ -15,6 +15,7 @@ using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
+using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Updates;
@@ -2503,7 +2504,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "U otwiera Ulubione, Shift+U zmienia stan ulubionych, B otwiera Zakładki, Shift+B dodaje zakładkę w odtwarzaczu, A otwiera Albumy, P otwiera Playlisty. " +
             "K filtruje bieżącą listę, F wyszukuje w bieżącej usłudze; warianty z Shift otwierają " +
             "paletę poleceń i wyszukiwanie globalne.\n\n" +
-            "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+0 otwiera listę sesji, a kolejność można zmienić w Ustawieniach Ogólnych. " +
+            "W aktywnym oknie: Ctrl+1–9 wybiera sesję bez prefiksu, Ctrl+Shift+S otwiera listę sesji, a Ctrl+0 pozostaje zgodnym aliasem. Kolejność można zmienić w Ustawieniach Ogólnych. " +
             "Ctrl+Page Up i Ctrl+Page Down zmieniają sesję. " +
             "Ctrl+O dodaje lokalne pliki multimedialne, a Ctrl+Shift+O dodaje do Biblioteki synchronizowany folder wraz z podfolderami. Pliki wideo są odtwarzane jako dźwięk bez otwierania obrazu. " +
             "W lokalnej Bibliotece Alt+1 pokazuje Foldery, Alt+2 Wszystkie pliki alfabetycznie, a Alt+3 Kolejność własną. W Kolejności własnej Alt+strzałka w górę lub w dół przenosi jeden element albo ciągły zaznaczony blok; aktywny filtr trzeba wcześniej wyczyścić. F5 odświeża Foldery Biblioteki, a Ctrl+F5 otwiera ich ustawienia. Enter wchodzi do folderu, a Backspace wraca o poziom wyżej. Na wierszu folderu Shift+Enter, Ctrl+Shift+Enter, Ctrl+Shift+U i Ctrl+Shift+P działają rekurencyjnie na jego zaindeksowanych plikach, nigdy na samym technicznym kontenerze. Żadne z tych poleceń nie uruchamia dźwięku automatycznie. " +
@@ -2732,7 +2733,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var radio = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
         CurrentSessionMuteMenuItem.IsChecked = _sessions.Current.IsSessionMuted;
         AllSessionsMuteMenuItem.IsChecked = _sessions.AllSessionsMuted;
-        UpdatePlaybackAudioMenuPresentation(local);
+        UpdatePlaybackAudioMenuPresentation(_sessions.Current.AudioProcessingCapabilities);
         OpenLocalFilesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         OpenLocalFolderMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageLocalSourcesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
@@ -2842,11 +2843,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlaybackItemOptionsMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private void UpdatePlaybackAudioMenuPresentation(bool local)
+    private void UpdatePlaybackAudioMenuPresentation(
+        PlaybackAudioProcessingCapabilities capabilities)
     {
-        var visibility = local ? Visibility.Visible : Visibility.Collapsed;
-        PlaybackAudioProcessingSeparator.Visibility = visibility;
-        PlayerAudioProcessingSeparator.Visibility = visibility;
+        var anyVisibility = capabilities == PlaybackAudioProcessingCapabilities.None
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        PlaybackAudioProcessingSeparator.Visibility = anyVisibility;
+        PlayerAudioProcessingSeparator.Visibility = anyVisibility;
 
         UpdatePlaybackAudioMenuSet(
             LoudnessNormalizationMenuItem,
@@ -2860,7 +2864,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 (InterTrackSilenceThreeSecondsMenuItem, 3000),
                 (InterTrackSilenceFiveSecondsMenuItem, 5000)
             ],
-            visibility);
+            capabilities);
         UpdatePlaybackAudioMenuSet(
             PlayerLoudnessNormalizationMenuItem,
             PlayerSmoothTrackTransitionsMenuItem,
@@ -2873,7 +2877,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 (PlayerInterTrackSilenceThreeSecondsMenuItem, 3000),
                 (PlayerInterTrackSilenceFiveSecondsMenuItem, 5000)
             ],
-            visibility);
+            capabilities);
     }
 
     private void UpdatePlaybackAudioMenuSet(
@@ -2881,17 +2885,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         MenuItem transitionsItem,
         MenuItem silenceItem,
         IReadOnlyList<(MenuItem Item, int Milliseconds)> silenceChoices,
-        Visibility visibility)
+        PlaybackAudioProcessingCapabilities capabilities)
     {
         var audio = _state.Settings.Audio;
-        loudnessItem.Visibility = visibility;
-        transitionsItem.Visibility = visibility;
-        silenceItem.Visibility = visibility;
+        loudnessItem.Visibility = capabilities.HasFlag(
+                PlaybackAudioProcessingCapabilities.LoudnessNormalization)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        transitionsItem.Visibility = capabilities.HasFlag(
+                PlaybackAudioProcessingCapabilities.SmoothTrackTransitions)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        silenceItem.Visibility = capabilities.HasFlag(
+                PlaybackAudioProcessingCapabilities.InterTrackSilence)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         loudnessItem.IsChecked = audio.LoudnessNormalizationEnabled;
         transitionsItem.IsChecked = audio.SmoothTrackTransitionsEnabled;
         MenuAccessibility.SetPresentation(
             loudnessItem,
-            $"Globalna normalizacja głośności lokalnych utworów: {(audio.LoudnessNormalizationEnabled ? "włączona" : "wyłączona")}");
+            $"Globalna normalizacja głośności: {(audio.LoudnessNormalizationEnabled ? "włączona" : "wyłączona")}");
         MenuAccessibility.SetPresentation(
             transitionsItem,
             $"Globalne łagodne przejścia między utworami: {(audio.SmoothTrackTransitionsEnabled ? "włączone" : "wyłączone")}");
@@ -2909,7 +2922,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _state.Settings.Audio.LoudnessNormalizationEnabled =
             !_state.Settings.Audio.LoudnessNormalizationEnabled;
         ApplyPlaybackAudioSetting(
-            $"Globalna normalizacja głośności lokalnych utworów: {(_state.Settings.Audio.LoudnessNormalizationEnabled ? "włączona" : "wyłączona")}");
+            $"Globalna normalizacja głośności: {(_state.Settings.Audio.LoudnessNormalizationEnabled ? "włączona" : "wyłączona")}");
     }
 
     private void ToggleSmoothTrackTransitions()
@@ -2940,14 +2953,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!PlaybackAudioSettingsRules.IsSupportedSilence(milliseconds)) return;
         _state.Settings.Audio.InterTrackSilenceMilliseconds = milliseconds;
         ApplyPlaybackAudioSetting(
-            $"Globalna cisza między lokalnymi utworami: {PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(milliseconds)}");
+            $"Globalna cisza między utworami: {PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(milliseconds)}");
     }
 
     private void ApplyPlaybackAudioSetting(string announcement)
     {
-        ApplyEffectiveAudioProcessingForCurrentLocalItem();
-        UpdatePlaybackAudioMenuPresentation(
-            string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal));
+        if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+            ApplyEffectiveAudioProcessingForCurrentLocalItem();
+        else
+            _sessions.Current.ConfigureAudioProcessing(_state.Settings.Audio);
+        UpdatePlaybackAudioMenuPresentation(_sessions.Current.AudioProcessingCapabilities);
         var saved = TrySaveLocalMediaState(false);
         Announce(saved
             ? announcement
@@ -8798,15 +8813,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool TryResolveKeyboardHelpCommand(Key key, ModifierKeys modifiers, out string commandId)
     {
-        var localAudioCommand = MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+        var audioCommand = MainWindowShortcutRouter.ResolvePlayerAudioProcessing(
             key,
             modifiers,
             _playerViewActive
-                && PlayerPanel.IsKeyboardFocusWithin
-                && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal));
-        if (localAudioCommand is not null)
+                && PlayerPanel.IsKeyboardFocusWithin,
+            _sessions.Current.AudioProcessingCapabilities);
+        if (audioCommand is not null)
         {
-            commandId = localAudioCommand;
+            commandId = audioCommand;
+            return true;
+        }
+        if (MainWindowShortcutRouter.IsSessionListShortcut(key, modifiers))
+        {
+            commandId = CommandIds.SessionList;
             return true;
         }
         if (key == Key.M && modifiers == ModifierKeys.Control)
@@ -9012,6 +9032,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.None, Key.F6) or (ModifierKeys.Shift, Key.F6) => CommandIds.ViewNowPlaying,
             (ModifierKeys.Control, Key.PageUp) => CommandIds.SessionPrevious,
             (ModifierKeys.Control, Key.PageDown) => CommandIds.SessionNext,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.S) => CommandIds.SessionList,
             (ModifierKeys.Control, Key.U) => CommandIds.ViewFavorites,
             (ModifierKeys.Control, Key.P) => CommandIds.ViewPlaylists,
             (ModifierKeys.Control, Key.L) => CommandIds.ViewLibrary,
@@ -9181,9 +9202,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // native modifier state as well so a transient WPF omission of Shift
         // cannot send the second shortcut to the first command.
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var modifiers = ReadEffectiveModifierKeys();
+        if (MainWindowShortcutRouter.IsSessionListShortcut(key, modifiers))
+        {
+            ExecuteCommand(CommandIds.SessionList);
+            return true;
+        }
         var shortcut = MainWindowShortcutRouter.ResolveDigit(
             key,
-            ReadEffectiveModifierKeys(),
+            modifiers,
             CurrentSessionSupportsPresets());
         if (shortcut.Kind is not (MainWindowDigitShortcutKind.SessionList
             or MainWindowDigitShortcutKind.SessionSlot)) return false;
@@ -9344,6 +9371,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Dispatcher.BeginInvoke(
             () =>
             {
+                if (string.Equals(chord.Key, "S", StringComparison.Ordinal))
+                {
+                    if (_keyboardHelpActive)
+                    {
+                        AnnounceEssential($"Ctrl+Shift+S: otwórz listę sesji. Kontekst: {KeyboardHelpContext()}");
+                        return;
+                    }
+                    ExecuteCommand(CommandIds.SessionList);
+                    return;
+                }
                 if (_keyboardHelpActive)
                 {
                     AnnounceEssential($"Ctrl+Shift+0: uruchom preset 0 aktywnej sesji. Kontekst: {KeyboardHelpContext()}");
@@ -9439,13 +9476,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!_playerViewActive || !PlayerPanel.IsKeyboardFocusWithin) return false;
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        var localAudioCommand = MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+        var audioCommand = MainWindowShortcutRouter.ResolvePlayerAudioProcessing(
             key,
             Keyboard.Modifiers,
-            string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal));
-        if (localAudioCommand is not null)
+            playerActive: true,
+            capabilities: _sessions.Current.AudioProcessingCapabilities);
+        if (audioCommand is not null)
         {
-            ExecuteCommand(localAudioCommand);
+            ExecuteCommand(audioCommand);
             return true;
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
@@ -10475,8 +10513,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PlayerContextMenu_Opened(object sender, RoutedEventArgs e)
     {
         var item = _sessions.Current.CurrentItem;
-        UpdatePlaybackAudioMenuPresentation(
-            string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal));
+        UpdatePlaybackAudioMenuPresentation(_sessions.Current.AudioProcessingCapabilities);
         SetContextMenuItemPresentation(
             PlayerPlayPauseMenuItem,
             _sessions.Current.IsPlaying ? "Wstrzymaj" : "Odtwórz",

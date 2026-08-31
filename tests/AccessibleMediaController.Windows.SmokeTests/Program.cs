@@ -11,6 +11,7 @@ using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
+using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Windows;
 using AccessibleMediaController.Windows.Controls;
@@ -64,7 +65,7 @@ try
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
-    TestLocalPlayerAudioProcessingKeyboardMap();
+    TestPlayerAudioProcessingKeyboardMap();
     TestPlaylistPresentation();
     TestGuardDoesNotBlockPositionReads();
     TestCompleteOutputChainMonitor();
@@ -155,6 +156,14 @@ static void TestMenuAccessibility()
             };
             AutomationProperties.SetName(command, "Wycisz lub przywróć dźwięk bieżącej sesji, Ctrl+M");
             topLevel.Items.Add(command);
+            var sessionsCommand = new MenuItem
+            {
+                Header = "_Lista sesji",
+                InputGestureText = "Ctrl+Shift+S"
+            };
+            AutomationProperties.SetName(sessionsCommand, "Lista sesji");
+            AutomationProperties.SetAcceleratorKey(sessionsCommand, "Ctrl+Shift+S");
+            topLevel.Items.Add(sessionsCommand);
             var globalAudioMenu = new MenuItem
             {
                 Header = "Cisza między utworami — ustawienie globalne: bez dodatkowej ciszy",
@@ -171,6 +180,10 @@ static void TestMenuAccessibility()
             Assert(command.Header?.ToString() == "Wycisz lub przywróć dźwięk bieżącej sesji", "Nie usunięto mnemonika z polecenia menu.");
             Assert(AutomationProperties.GetName(command) == "Wycisz lub przywróć dźwięk bieżącej sesji", "Nazwa polecenia powtarza skrót.");
             Assert(command.InputGestureText == "Ctrl+M", "Usunięto widoczny skrót polecenia.");
+            Assert(AutomationProperties.GetName(sessionsCommand) == "Lista sesji",
+                "Menu sesji nie ma pojedynczej nazwy użytkowej.");
+            Assert(AutomationProperties.GetAcceleratorKey(sessionsCommand) == "Ctrl+Shift+S",
+                "Menu sesji nie podaje głównego skrótu Ctrl+Shift+S.");
             Assert(AutomationProperties.GetName(globalAudioMenu) == "Cisza między utworami — ustawienie globalne: bez dodatkowej ciszy",
                 "Globalne menu ciszy nie ma jednoznacznej nazwy.");
             Assert(AutomationProperties.GetAcceleratorKey(globalAudioMenu) == "po prefiksie C",
@@ -453,7 +466,7 @@ static void TestPlaybackAudioSettingAccessibility()
                    && AutomationProperties.GetName(selected) == "2 sekundy ciszy",
                 "Wybrana cisza nie ma stabilnej, użytkowej etykiety dla NVDA.");
             Assert((AutomationProperties.GetHelpText(silence) ?? string.Empty)
-                    .Contains("Nie dotyczy ręcznej zmiany, pauzy ani radia", StringComparison.Ordinal),
+                    .Contains("w obsługiwanej sesji", StringComparison.Ordinal),
                 "Lista ciszy nie wyjaśnia zakresu działania opcji.");
 
             itemOptions = new ItemPlaybackOptionsWindow(
@@ -654,54 +667,73 @@ static void TestMainWindowDigitShortcutRouting()
         !GlobalPrefixService.IsFocusedDirectShortcutCandidate(
             KeyChord.Parse("Ctrl+0")),
         "Niskopoziomowa ochrona nie może przejąć Ctrl+0 przeznaczonego dla listy sesji.");
-    Console.WriteLine("OK: Ctrl+0 i Ctrl+Shift+0 mają rozłączne trasy");
+    Assert(
+        MainWindowShortcutRouter.IsSessionListShortcut(
+            Key.S,
+            ModifierKeys.Control | ModifierKeys.Shift),
+        "Ctrl+Shift+S nie otwiera listy sesji.");
+    Assert(
+        GlobalPrefixService.IsFocusedDirectShortcutCandidate(
+            KeyChord.Parse("Ctrl+Shift+S")),
+        "Niskopoziomowa obsługa nie rozpoznaje Ctrl+Shift+S.");
+    Assert(
+        !MainWindowShortcutRouter.IsSessionListShortcut(Key.S, ModifierKeys.Control),
+        "Ctrl+S nie może zostać przejęte jako lista sesji.");
+    Console.WriteLine("OK: Ctrl+Shift+S i Ctrl+0 otwierają sesje, a Ctrl+Shift+0 pozostaje presetem 0");
 }
 
-static void TestLocalPlayerAudioProcessingKeyboardMap()
+static void TestPlayerAudioProcessingKeyboardMap()
 {
     Assert(
-        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+        MainWindowShortcutRouter.ResolvePlayerAudioProcessing(
             Key.N,
             ModifierKeys.Shift,
-            localPlayerActive: true) == CommandIds.ToggleLoudnessNormalization,
-        "Shift+N nie przełącza normalizacji w lokalnym odtwarzaczu.");
+            playerActive: true,
+            PlaybackAudioProcessingCapabilities.All) == CommandIds.ToggleLoudnessNormalization,
+        "Shift+N nie przełącza normalizacji w obsługiwanym odtwarzaczu.");
     Assert(
-        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+        MainWindowShortcutRouter.ResolvePlayerAudioProcessing(
             Key.T,
             ModifierKeys.Shift,
-            localPlayerActive: true) == CommandIds.ToggleSmoothTrackTransitions,
-        "Shift+T nie przełącza łagodnych przejść w lokalnym odtwarzaczu.");
+            playerActive: true,
+            PlaybackAudioProcessingCapabilities.All) == CommandIds.ToggleSmoothTrackTransitions,
+        "Shift+T nie przełącza łagodnych przejść w obsługiwanym odtwarzaczu.");
     Assert(
-        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+        MainWindowShortcutRouter.ResolvePlayerAudioProcessing(
             Key.C,
             ModifierKeys.Shift,
-            localPlayerActive: true) == CommandIds.CycleInterTrackSilence,
-        "Shift+C nie przechodzi przez czasy ciszy w lokalnym odtwarzaczu.");
+            playerActive: true,
+            PlaybackAudioProcessingCapabilities.All) == CommandIds.CycleInterTrackSilence,
+        "Shift+C nie przechodzi przez czasy ciszy w obsługiwanym odtwarzaczu.");
     Assert(
-        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+        MainWindowShortcutRouter.ResolvePlayerAudioProcessing(
             Key.N,
             ModifierKeys.None,
-            localPlayerActive: true) is null,
+            playerActive: true,
+            PlaybackAudioProcessingCapabilities.All) is null,
         "N bez Shifta nie może zmieniać normalizacji.");
     Assert(
-        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+        MainWindowShortcutRouter.ResolvePlayerAudioProcessing(
             Key.N,
             ModifierKeys.Shift,
-            localPlayerActive: false) is null,
-        "Shift+N nie może zmieniać normalizacji poza lokalnym odtwarzaczem.");
+            playerActive: false,
+            PlaybackAudioProcessingCapabilities.All) is null,
+        "Shift+N nie może zmieniać normalizacji poza odtwarzaczem.");
     Assert(
-        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
-            Key.C,
+        MainWindowShortcutRouter.ResolvePlayerAudioProcessing(
+            Key.N,
             ModifierKeys.Shift,
-            localPlayerActive: false) is null,
-        "Shift+C nie może zmieniać ciszy w Radiu ani na liście.");
+            playerActive: true,
+            PlaybackAudioProcessingCapabilities.None) is null,
+        "Niewspierany adapter nie może udawać normalizacji.");
     Assert(
-        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+        MainWindowShortcutRouter.ResolvePlayerAudioProcessing(
             Key.T,
             ModifierKeys.Shift,
-            localPlayerActive: false) is null,
-        "Shift+T nie może zmieniać przejść w Radiu ani na liście.");
-    Console.WriteLine("OK: Shift+N, Shift+T i Shift+C działają tylko w odtwarzaczu Plików lokalnych");
+            playerActive: true,
+            PlaybackAudioProcessingCapabilities.LoudnessNormalization) is null,
+        "Adapter obsługujący tylko normalizację nie może udawać przejść.");
+    Console.WriteLine("OK: Shift+N, Shift+T i Shift+C zależą od możliwości aktywnego toru odtwarzania");
 }
 
 static void TestPlaylistPresentation()

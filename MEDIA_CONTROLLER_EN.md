@@ -96,7 +96,7 @@ Proposed defaults:
 | `Page Up` | previous available session |
 | `Page Down` | next available session |
 
-After a change, the application gives a short message such as “3, WiiM”. If a slot is unused, it says “Session 4 unassigned”. In the active window, `Ctrl+1–9` selects a session, `Ctrl+0` opens the session list, and `Ctrl+Page Up` / `Ctrl+Page Down` move to the previous or next session.
+After a change, the application gives a short message such as “3, WiiM”. If a slot is unused, it says “Session 4 unassigned”. In the active window, `Ctrl+1–9` selects a session, `Ctrl+Shift+S` opens the session list, `Ctrl+0` remains an alias, and `Ctrl+Page Up` / `Ctrl+Page Down` move to the previous or next session.
 
 ### 4.2. Session persistence
 
@@ -459,7 +459,7 @@ Approved primary bindings:
 
 Every local shortcut is configurable. Download commands must not be active until their corresponding module is deliberately enabled.
 
-`Ctrl+1–9` selects a session, `Ctrl+0` opens the session list, and `Ctrl+Page Up` / `Ctrl+Page Down` select the previous or next session.
+`Ctrl+1–9` selects a session, `Ctrl+Shift+S` opens the session list, `Ctrl+0` remains an alias, and `Ctrl+Page Up` / `Ctrl+Page Down` select the previous or next session.
 
 ## 10. Context menu
 
@@ -1143,8 +1143,9 @@ Space controls playback transport; `Ctrl+M` only mutes the audible output of
 the current session without stopping reception, time-shift or recording.
 
 Recognition history remains on `Ctrl+Alt+S` and its context menu exposes open,
-plain and rich copy, export and delete. `Ctrl+Shift+S` is reserved for a future
-session list. Future official service adapters may add album-with-selected-track
+plain and rich copy, export and delete. Starting with `alpha.172`,
+`Ctrl+Shift+S` opens the session list, `Ctrl+0` remains its alias and neither
+shortcut belongs to Shazam. Future official service adapters may add album-with-selected-track
 matching to Apple Music, Spotify, TIDAL and YouTube Music, with confirmation for
 ambiguous catalogue results.
 
@@ -1163,7 +1164,7 @@ regardless of the automatic-announcement option, but only while AMC remains
 active; a request finishing after an application switch is silent. The command
 palette reports the current state and opens Settings focused on this checkbox.
 
-## 21. Local loudness and track transitions
+## 21. Loudness and track transitions
 
 Starting with `alpha.168`, three optional processors apply only to **Local
 Files** and are disabled by default. They never modify file bytes, tags, the
@@ -1219,3 +1220,15 @@ scope is deliberately narrow: focus must be inside the local player, so they
 do not operate on a list or in Radio. The player context menu states the
 non-prefix shortcuts, while the main menu and keyboard index continue to show
 the prefix alternatives alongside them.
+
+Starting with `alpha.172`, scope is no longer hard-coded by session name.
+Each playback output independently advertises loudness normalisation, smooth
+transitions and post-track silence. Local Files advertises all three; Radio
+and demonstration service entries with no real playback output advertise
+none. A future TIDAL, Apple Music, Spotify or device adapter may provide them
+in AMC's local path or through an official API. Each supported command then
+appears in **Playback**, the player's context menu and under the matching
+`Shift+N`, `Shift+T` or `Shift+C`; an unsupported command is absent rather
+than pretending to work. File and folder overrides remain properties of the
+local Library, while the global value is the default for every compatible
+adapter.

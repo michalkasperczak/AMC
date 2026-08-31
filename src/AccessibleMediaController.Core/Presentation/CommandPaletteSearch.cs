@@ -93,13 +93,13 @@ public static class CommandPaletteSearch
             CommandIds.SettingsAutomaticRecognitionMessages =>
                 $"Oznajmianie automatycznie rozpoznanych utworów: {OnOff(settings.Messages.AutomaticRecognitionMessages)}. Enter: ustawienia",
             CommandIds.SettingsLoudnessNormalization =>
-                $"Globalna normalizacja głośności lokalnych utworów: {OnOff(settings.Audio.LoudnessNormalizationEnabled)}. Enter: ustawienia",
+                $"Globalna normalizacja głośności: {OnOff(settings.Audio.LoudnessNormalizationEnabled)}. Enter: ustawienia",
             CommandIds.SettingsSmoothTrackTransitions =>
                 $"Globalne łagodne przejścia między utworami: {OnOff(settings.Audio.SmoothTrackTransitionsEnabled)}. Enter: ustawienia",
             CommandIds.SettingsInterTrackSilence =>
                 $"Globalna cisza między utworami: {PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(settings.Audio.InterTrackSilenceMilliseconds)}. Enter: ustawienia",
             CommandIds.ToggleLoudnessNormalization =>
-                $"Globalna normalizacja głośności lokalnych utworów: {OnOff(settings.Audio.LoudnessNormalizationEnabled)}. Enter: przełącz",
+                $"Globalna normalizacja głośności: {OnOff(settings.Audio.LoudnessNormalizationEnabled)}. Enter: przełącz",
             CommandIds.ToggleSmoothTrackTransitions =>
                 $"Globalne łagodne przejścia między utworami: {OnOff(settings.Audio.SmoothTrackTransitionsEnabled)}. Enter: przełącz",
             CommandIds.CycleInterTrackSilence =>
@@ -170,9 +170,9 @@ public static class CommandPaletteSearch
             CommandIds.VolumeDown1 => "Shift+Down (odtwarzacz)",
             CommandIds.ToggleMuteCurrentSession => "Ctrl+M",
             CommandIds.ToggleMuteAllSessions => "Ctrl+Shift+M",
-            CommandIds.ToggleLoudnessNormalization => "Shift+N (odtwarzacz Plików lokalnych)",
-            CommandIds.ToggleSmoothTrackTransitions => "Shift+T (odtwarzacz Plików lokalnych)",
-            CommandIds.CycleInterTrackSilence => "Shift+C (odtwarzacz Plików lokalnych)",
+            CommandIds.ToggleLoudnessNormalization => "Shift+N (odtwarzacz obsługujący przetwarzanie dźwięku)",
+            CommandIds.ToggleSmoothTrackTransitions => "Shift+T (odtwarzacz obsługujący przetwarzanie dźwięku)",
+            CommandIds.CycleInterTrackSilence => "Shift+C (odtwarzacz obsługujący przetwarzanie dźwięku)",
             CommandIds.PlaybackRateDown => "Shift+, (odtwarzacz)",
             CommandIds.PlaybackRateUp => "Shift+. (odtwarzacz)",
             CommandIds.PlaybackRateReset => "Ctrl+. (odtwarzacz)",
@@ -183,7 +183,7 @@ public static class CommandPaletteSearch
             CommandIds.TimeElapsed => "Ctrl+Shift+E",
             CommandIds.TimeRemaining => "Ctrl+Shift+R",
             CommandIds.TimeTotal => "Ctrl+Shift+T",
-            CommandIds.SessionList => "Ctrl+0",
+            CommandIds.SessionList => "Ctrl+Shift+S lub Ctrl+0",
             CommandIds.SessionPrevious => "Ctrl+PageUp",
             CommandIds.SessionNext => "Ctrl+PageDown",
             CommandIds.ViewFavorites => "Ctrl+U",
