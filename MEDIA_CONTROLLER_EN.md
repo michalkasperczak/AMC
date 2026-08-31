@@ -1370,3 +1370,10 @@ managed frame-indexed decoder from the outset. This permits middle and
 near-end seeks without copying a multi-hour recording completely into memory.
 A file that still requires cloud download is not indexed this way before its
 payload becomes available.
+
+Correction in `alpha.185` shortens schedule-list announcements. Both the
+row's accessible name and the Space-key notification begin with “enabled” or
+“disabled”, followed by the station, time and remaining parameters. Repeated
+“schedule” wording, the technical checkbox description and the per-toggle
+instruction to select Save have been removed. The general reminder that
+changes must be saved remains above the list.

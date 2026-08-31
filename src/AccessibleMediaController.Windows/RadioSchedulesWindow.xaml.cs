@@ -67,9 +67,12 @@ public partial class RadioSchedulesWindow : Window
             RadioScheduleRecurrence.SelectedDays => "wybrane dni",
             _ => "powtarzanie nieznane"
         };
-        var state = schedule.Enabled
-            ? active ? "włączony, nagrywanie trwa" : "włączony"
-            : active ? "wyłączony, nagrywanie zostanie zatrzymane po zapisaniu" : "wyłączony";
+        var state = schedule.Enabled ? "włączone" : "wyłączone";
+        var activity = schedule.Enabled && active
+            ? ", nagrywanie trwa"
+            : !schedule.Enabled && active
+                ? ", nagrywanie zostanie zatrzymane po zapisaniu"
+                : string.Empty;
         var fileDivision = schedule.SegmentMinutes > 0
             ? $"części co {schedule.SegmentMinutes} min"
             : "jeden plik";
@@ -78,7 +81,7 @@ public partial class RadioSchedulesWindow : Window
             schedule.StationName,
             local,
             partNumber: 1);
-        return $"{schedule.StationName}, {local:dd.MM.yyyy HH:mm}, {schedule.DurationMinutes} min, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}, {state}";
+        return $"{state}, {schedule.StationName}, {local:dd.MM.yyyy HH:mm}, {schedule.DurationMinutes} min, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}{activity}";
     }
 
     private void New_Click(object sender, RoutedEventArgs e)
@@ -106,10 +109,7 @@ public partial class RadioSchedulesWindow : Window
         var listHadKeyboardFocus = SchedulesList.IsKeyboardFocusWithin;
         row.Schedule.Enabled = !row.Schedule.Enabled;
         row.UpdateLabel(BuildLabel(row.Schedule, _activeIds.Contains(row.Schedule.Id)));
-        var identity = BuildScheduleIdentity(row.Schedule);
-        var message = row.Schedule.Enabled
-            ? $"Harmonogram {identity}: pole wyboru zaznaczone, harmonogram włączony. Wybierz Zapisz, aby zatwierdzić zmianę."
-            : $"Harmonogram {identity}: pole wyboru niezaznaczone, harmonogram wyłączony. Wybierz Zapisz, aby zatwierdzić zmianę.";
+        var message = row.AccessibleLabel;
         Dispatcher.BeginInvoke(
             () =>
             {
@@ -130,15 +130,6 @@ public partial class RadioSchedulesWindow : Window
             },
             System.Windows.Threading.DispatcherPriority.ContextIdle);
         return true;
-    }
-
-    private static string BuildScheduleIdentity(RadioRecordingScheduleSettings schedule)
-    {
-        var utc = new DateTime(schedule.NextStartUtcTicks, DateTimeKind.Utc);
-        var local = TimeZoneInfo.ConvertTimeFromUtc(
-            utc,
-            RadioScheduleCalculator.ResolveTimeZone(schedule.TimeZoneId));
-        return $"{schedule.StationName}, {local:dd.MM.yyyy HH:mm}";
     }
 
     private void EditSelected()
@@ -265,8 +256,7 @@ public partial class RadioSchedulesWindow : Window
         public RadioRecordingScheduleSettings Schedule { get; } = schedule;
         public string Label => _label;
         public bool IsEnabled => Schedule.Enabled;
-        public string AccessibleLabel =>
-            $"{Label}, pole wyboru {(Schedule.Enabled ? "zaznaczone" : "niezaznaczone")}";
+        public string AccessibleLabel => Label;
 
         public void UpdateLabel(string value)
         {

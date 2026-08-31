@@ -1406,3 +1406,10 @@ od początku otwierany zarządzanym dekoderem z indeksem ramek. Umożliwia to
 skoki do środka i w pobliże końca bez kopiowania całego wielogodzinnego audio
 do pamięci. Plik nadal wymagający pobrania z chmury nie jest w ten sposób
 indeksowany przed udostępnieniem jego danych.
+
+Korekta `alpha.185` skraca komunikaty listy harmonogramów. Nazwa dostępnościowa
+wiersza oraz komunikat po Spacji zaczynają się od „włączone” albo „wyłączone”,
+po czym podają nazwę stacji, termin i pozostałe parametry. Usunięto powtórzenia
+„harmonogram”, techniczne objaśnienie pola wyboru oraz każdorazową instrukcję
+wybrania przycisku Zapisz. Ogólna informacja o konieczności zapisania zmian
+pozostaje nad listą.
