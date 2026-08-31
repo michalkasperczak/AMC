@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
@@ -115,7 +116,9 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         public required GuardedWaveStream DecoderGuard { get; init; }
         public required DecoderReadMonitorSampleProvider OutputReadMonitor { get; init; }
         public required SoundTouchWaveStream TempoStream { get; init; }
+        public required LoudnessNormalizationSampleProvider LoudnessNormalizer { get; init; }
         public required VolumeSampleProvider VolumeProvider { get; init; }
+        public required TrackTransitionSampleProvider TransitionProvider { get; init; }
         public required EventHandler<StoppedEventArgs> StoppedHandler { get; init; }
         public required bool MayRequireRemoteAccess { get; init; }
         public required DecoderKind DecoderKind { get; init; }
@@ -149,6 +152,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     private static readonly TimeSpan LocalPreparationTimeout = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan RemotePreparationTimeout = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan SlowSeekLogThreshold = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan SmoothTrackTransitionDuration = TimeSpan.FromMilliseconds(1500);
     private const long ManagedMp3FallbackMaximumBytes = 512L * 1024 * 1024;
     private PlaybackPipeline? _pipeline;
     private SeekWorkerState? _seekWorker;
@@ -156,6 +160,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     private TimeSpan _pendingPosition;
     private double _playbackRate = 1d;
     private int _volume = 35;
+    private bool _loudnessNormalizationEnabled;
+    private bool _smoothTrackTransitionsEnabled;
+    private int _interTrackSilenceMilliseconds;
+    private DateTimeOffset _nextAutomaticStartNotBeforeUtc;
     private long _requestVersion;
     private long _seekRequestVersion;
     private bool _preparing;
@@ -184,6 +192,52 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     }
 
     public bool SupportsPlaybackRate => true;
+
+    public void ConfigureAudioProcessing(PlaybackAudioSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        if (!PlaybackAudioSettingsRules.IsSupportedSilence(settings.InterTrackSilenceMilliseconds))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                "Nieobsługiwana długość ciszy między utworami.");
+        }
+
+        PlaybackPipeline? pipeline;
+        var fadeMilliseconds = settings.SmoothTrackTransitionsEnabled
+            ? (int)SmoothTrackTransitionDuration.TotalMilliseconds
+            : 0;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _loudnessNormalizationEnabled = settings.LoudnessNormalizationEnabled;
+            _smoothTrackTransitionsEnabled = settings.SmoothTrackTransitionsEnabled;
+            _interTrackSilenceMilliseconds = settings.InterTrackSilenceMilliseconds;
+            pipeline = _pipeline;
+        }
+        if (pipeline is null) return;
+        pipeline.LoudnessNormalizer.Enabled = settings.LoudnessNormalizationEnabled;
+        pipeline.TransitionProvider.FadeDurationMilliseconds = fadeMilliseconds;
+    }
+
+    public void BeginAutomaticTrackContinuation()
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _nextAutomaticStartNotBeforeUtc = DateTimeOffset.UtcNow.AddMilliseconds(
+                _interTrackSilenceMilliseconds);
+        }
+    }
+
+    public void CancelAutomaticTrackContinuation()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _nextAutomaticStartNotBeforeUtc = default;
+        }
+    }
 
     public TimeSpan Position
     {
@@ -228,11 +282,17 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         PlaybackPipeline? reusable;
         bool sourceQuarantined;
         TimeSpan? remoteRetryDelay;
+        DateTimeOffset startNotBeforeUtc;
+        bool smoothTrackTransitions;
         lock (_gate)
         {
+            startNotBeforeUtc = _nextAutomaticStartNotBeforeUtc;
+            _nextAutomaticStartNotBeforeUtc = default;
+            smoothTrackTransitions = _smoothTrackTransitionsEnabled;
             sourceQuarantined = !mayRequireRemoteAccess
                 && _quarantinedSources.Contains(item.Source);
             reusable = _pipeline is not null
+                && startNotBeforeUtc <= DateTimeOffset.UtcNow
                 && string.Equals(_pipeline.Item.Source, item.Source, StringComparison.OrdinalIgnoreCase)
                 ? _pipeline
                 : null;
@@ -289,7 +349,15 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             previous = DetachPipelineLocked();
             _preparing = true;
         }
-        if (previous is not null) QueuePipelineDisposal(previous);
+        if (previous is not null)
+        {
+            var fadePrevious = smoothTrackTransitions
+                && previous.Output.PlaybackState == PlaybackState.Playing;
+            if (fadePrevious) previous.TransitionProvider.BeginManualFadeOut();
+            QueuePipelineDisposal(
+                previous,
+                fadePrevious ? SmoothTrackTransitionDuration : TimeSpan.Zero);
+        }
 
         DiagnosticLog.Info(
             "playback",
@@ -304,7 +372,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             resolvedPosition,
             resolvedVolume,
             resolvedRate,
-            mp3DecoderMode: Mp3DecoderMode.Automatic));
+            mp3DecoderMode: Mp3DecoderMode.Automatic,
+            startNotBeforeUtc: startNotBeforeUtc));
         _ = WatchPreparationTimeoutAsync(
             item,
             requestVersion,
@@ -347,13 +416,14 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             "Przekroczono czas oczekiwania na plik. Sprawdź połączenie i stan usługi chmurowej.");
     }
 
-    private void PrepareAndStartPipeline(
+    private async Task PrepareAndStartPipeline(
         MediaItem item,
         long requestVersion,
         TimeSpan requestedPosition,
         int requestedVolume,
         double requestedRate,
-        Mp3DecoderMode mp3DecoderMode)
+        Mp3DecoderMode mp3DecoderMode,
+        DateTimeOffset startNotBeforeUtc = default)
     {
         PlaybackPipeline? pipeline = null;
         try
@@ -363,6 +433,11 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 if (_disposed || requestVersion != _requestVersion) return;
             }
             pipeline = CreatePipeline(item, requestVersion, mp3DecoderMode);
+            var startDelay = startNotBeforeUtc - DateTimeOffset.UtcNow;
+            if (startDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(startDelay).ConfigureAwait(false);
+            }
             TimeSpan position;
             int volume;
             double rate;
@@ -460,9 +535,26 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 Pitch = 1d,
                 Rate = 1d
             };
-            var volumeProvider = new VolumeSampleProvider(tempoStream.ToSampleProvider());
-            var outputReadMonitor = new DecoderReadMonitorSampleProvider(
+            bool normalizeLoudness;
+            bool smoothTrackTransitions;
+            lock (_gate)
+            {
+                normalizeLoudness = _loudnessNormalizationEnabled;
+                smoothTrackTransitions = _smoothTrackTransitionsEnabled;
+            }
+            var loudnessNormalizer = new LoudnessNormalizationSampleProvider(
+                tempoStream.ToSampleProvider(),
+                normalizeLoudness);
+            var volumeProvider = new VolumeSampleProvider(loudnessNormalizer);
+            var transitionProvider = new TrackTransitionSampleProvider(
                 volumeProvider,
+                () => reader.CachedCurrentTime,
+                () => reader.TotalTime,
+                smoothTrackTransitions
+                    ? (int)SmoothTrackTransitionDuration.TotalMilliseconds
+                    : 0);
+            var outputReadMonitor = new DecoderReadMonitorSampleProvider(
+                transitionProvider,
                 item.Source);
             output = new WasapiOut(AudioClientShareMode.Shared, true, 120);
             PlaybackPipeline? pipeline = null;
@@ -477,7 +569,9 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 DecoderGuard = reader,
                 OutputReadMonitor = outputReadMonitor,
                 TempoStream = tempoStream,
+                LoudnessNormalizer = loudnessNormalizer,
                 VolumeProvider = volumeProvider,
+                TransitionProvider = transitionProvider,
                 StoppedHandler = handler,
                 MayRequireRemoteAccess = mayRequireRemoteAccess,
                 DecoderKind = selection.DecoderKind
@@ -1327,8 +1421,14 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             now.AddSeconds(delaySeconds));
     }
 
-    private static void QueuePipelineDisposal(PlaybackPipeline pipeline) =>
-        _ = Task.Run(() => DisposePipeline(pipeline));
+    private static void QueuePipelineDisposal(
+        PlaybackPipeline pipeline,
+        TimeSpan delay = default) =>
+        _ = Task.Run(async () =>
+        {
+            if (delay > TimeSpan.Zero) await Task.Delay(delay).ConfigureAwait(false);
+            DisposePipeline(pipeline);
+        });
 
     private static void DisposePipeline(PlaybackPipeline pipeline)
     {

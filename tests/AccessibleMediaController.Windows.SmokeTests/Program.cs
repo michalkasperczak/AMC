@@ -59,6 +59,7 @@ try
     TestRadioScheduleAccessibility();
     TestRadioRecognitionAnnouncementPolicy();
     TestRadioRecognitionSettingAccessibility();
+    TestPlaybackAudioSettingAccessibility();
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
@@ -66,6 +67,7 @@ try
     TestGuardDoesNotBlockPositionReads();
     TestCompleteOutputChainMonitor();
     TestInvalidSamplesAreSilenced();
+    TestPlaybackAudioProcessors();
     TestGuardRejectsAbsurdDuration();
     TestManagedMp3Fallback();
     TestWaveMetadataAndDamagedContainers();
@@ -385,6 +387,64 @@ static void TestRadioRecognitionSettingAccessibility()
     }
 
     Console.WriteLine("OK: dostępne ustawienie oznajmiania rozpoznanych utworów");
+}
+
+static void TestPlaybackAudioSettingAccessibility()
+{
+    Exception? failure = null;
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-audio-setting-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    var thread = new Thread(() =>
+    {
+        SettingsWindow? window = null;
+        try
+        {
+            var state = new PersistedState();
+            state.Settings.Audio.LoudnessNormalizationEnabled = true;
+            state.Settings.Audio.SmoothTrackTransitionsEnabled = true;
+            state.Settings.Audio.InterTrackSilenceMilliseconds = 2000;
+            var store = new ConfigurationStore(
+                Path.Combine(directory, "state.json"),
+                Path.Combine(directory, "library.db"));
+            window = new SettingsWindow(state, store, SettingsTarget.LoudnessNormalization);
+
+            var normalization = (CheckBox)window.FindName("LoudnessNormalizationCheck");
+            var transitions = (CheckBox)window.FindName("SmoothTrackTransitionsCheck");
+            var silence = (ComboBox)window.FindName("InterTrackSilenceCombo");
+            Assert(normalization.IsChecked == true && transitions.IsChecked == true,
+                "Opcje przetwarzania dźwięku nie wczytują zapisanego stanu.");
+            Assert(silence.SelectedItem is ComboBoxItem selected
+                   && selected.Tag?.ToString() == "2000"
+                   && AutomationProperties.GetName(selected) == "2 sekundy ciszy",
+                "Wybrana cisza nie ma stabilnej, użytkowej etykiety dla NVDA.");
+            Assert((AutomationProperties.GetHelpText(silence) ?? string.Empty)
+                    .Contains("Nie dotyczy ręcznej zmiany, pauzy ani radia", StringComparison.Ordinal),
+                "Lista ciszy nie wyjaśnia zakresu działania opcji.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+        finally
+        {
+            window?.Close();
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    try
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+    catch (IOException)
+    {
+    }
+    if (failure is not null)
+    {
+        throw new InvalidOperationException("Test ustawień przetwarzania dźwięku nie powiódł się.", failure);
+    }
+    Console.WriteLine("OK: dostępne opcje normalizacji, przejścia i ciszy między utworami");
 }
 
 static void TestShazamFingerprint()
@@ -1991,6 +2051,55 @@ static void TestInvalidSamplesAreSilenced()
     Console.WriteLine("OK: nieprawidłowe próbki są bezpiecznie zastępowane ciszą");
 }
 
+static void TestPlaybackAudioProcessors()
+{
+    var loudSource = new PositionedConstantSampleProvider(1_000, 1, 0.90f, 10_000);
+    var loudNormalizer = new LoudnessNormalizationSampleProvider(loudSource, enabled: true);
+    var loudBuffer = new float[100];
+    Assert(loudNormalizer.Read(loudBuffer, 0, loudBuffer.Length) == loudBuffer.Length,
+        "Normalizator nie zwrócił głośnego bloku testowego.");
+    Assert(loudBuffer.Max(Math.Abs) <= 0.98f && loudBuffer.Average(Math.Abs) < 0.30f,
+        "Normalizator nie ograniczył głośnego utworu albo dopuścił przesterowanie.");
+
+    var quietSource = new PositionedConstantSampleProvider(1_000, 1, 0.05f, 10_000);
+    var quietNormalizer = new LoudnessNormalizationSampleProvider(quietSource, enabled: true);
+    var quietBuffer = new float[100];
+    quietNormalizer.Read(quietBuffer, 0, quietBuffer.Length);
+    Assert(quietBuffer.Average(Math.Abs) > 0.10f && quietBuffer.Max(Math.Abs) <= 0.98f,
+        "Normalizator nie podniósł bezpiecznie cichego utworu.");
+
+    var transitionSource = new PositionedConstantSampleProvider(1_000, 1, 1f, 1_000);
+    var transition = new TrackTransitionSampleProvider(
+        transitionSource,
+        () => transitionSource.Position,
+        () => transitionSource.Duration,
+        fadeDurationMilliseconds: 100);
+    var transitionBuffer = new float[100];
+    transition.Read(transitionBuffer, 0, transitionBuffer.Length);
+    Assert(transitionBuffer[0] < transitionBuffer[^1],
+        "Łagodne wejście nie zwiększa poziomu początku utworu.");
+    transitionSource.PositionFrames = 900;
+    transition.Read(transitionBuffer, 0, transitionBuffer.Length);
+    Assert(transitionBuffer[0] > transitionBuffer[^1] && transitionBuffer[^1] <= 0.01f,
+        "Łagodne wyjście nie wygasza naturalnego końca utworu.");
+
+    var manualSource = new PositionedConstantSampleProvider(1_000, 1, 1f, 10_000)
+    {
+        PositionFrames = 5_000
+    };
+    var manualTransition = new TrackTransitionSampleProvider(
+        manualSource,
+        () => manualSource.Position,
+        () => manualSource.Duration,
+        fadeDurationMilliseconds: 100);
+    manualTransition.Read(transitionBuffer, 0, transitionBuffer.Length);
+    manualTransition.BeginManualFadeOut();
+    manualTransition.Read(transitionBuffer, 0, transitionBuffer.Length);
+    Assert(transitionBuffer[0] > transitionBuffer[^1] && transitionBuffer[^1] <= 0.01f,
+        "Ręczna zmiana utworu nie wygasza poprzedniego toru.");
+    Console.WriteLine("OK: normalizacja i łagodne przejścia lokalnego dźwięku");
+}
+
 static void TestFormatMetadata(string mediaPath)
 {
     Assert(File.Exists(mediaPath), $"Nie istnieje plik testowy: {mediaPath}");
@@ -2171,6 +2280,28 @@ sealed class InvalidSampleProvider : ISampleProvider
         if (count > 1) buffer[offset + 1] = float.NaN;
         if (count > 2) buffer[offset + 2] = float.PositiveInfinity;
         return count;
+    }
+}
+
+sealed class PositionedConstantSampleProvider(
+    int sampleRate,
+    int channels,
+    float value,
+    long lengthFrames) : ISampleProvider
+{
+    public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, channels);
+    public long PositionFrames { get; set; }
+    public TimeSpan Position => TimeSpan.FromSeconds(PositionFrames / (double)sampleRate);
+    public TimeSpan Duration => TimeSpan.FromSeconds(lengthFrames / (double)sampleRate);
+
+    public int Read(float[] buffer, int offset, int count)
+    {
+        var availableSamples = checked((lengthFrames - PositionFrames) * channels);
+        var read = (int)Math.Min(Math.Max(0L, availableSamples), count);
+        read -= read % channels;
+        Array.Fill(buffer, value, offset, read);
+        PositionFrames += read / channels;
+        return read;
     }
 }
 

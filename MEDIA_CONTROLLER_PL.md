@@ -1193,3 +1193,25 @@ przerywania pracy czytnika ekranu. Ręczne `S` odpowiada niezależnie od opcji,
 ale także wyłącznie w aktywnym oknie AMC; zakończenie zapytania po zmianie
 aplikacji pozostaje bezgłośne. Paleta poleceń pokazuje stan ustawienia i
 otwiera fokus bezpośrednio na odpowiednim polu wyboru.
+
+## 21. Normalizacja i przejścia lokalnego dźwięku
+
+Od `alpha.168` trzy dodatkowe opcje dotyczą wyłącznie sesji **Pliki lokalne**
+i są domyślnie wyłączone. Nie zmieniają bajtów pliku, tagów, zapamiętanej
+wartości głośności ani działania Radia. Normalizacja działa za zmianą tempa,
+ale przed głośnością użytkownika: mierzy bezpieczne bloki próbek, łagodnie
+dopasowuje wzmocnienie i ogranicza szczyty przed przesterowaniem. Wyłączenie
+jej podczas odtwarzania przestaje modyfikować kolejne próbki.
+
+Łagodne przejście ma stały czas półtorej sekundy. Nowy tor otrzymuje wejście,
+naturalna końcówka wyjście, a ręczne Page Up, Page Down albo uruchomienie innego
+utworu pozwala poprzedniemu torowi wygasnąć w tle zamiast urwać go w jednej
+próbce. Nie jest to ukryta zmiana pozycji ani modyfikacja nagrania.
+
+Dodatkowa cisza ma jawne wybory: brak, pół sekundy, jedną, dwie, trzy albo pięć
+sekund. Odlicza się wyłącznie pomiędzy naturalnie zakończonym lokalnym utworem
+a automatycznym następcą. Pauza, przewijanie, ręczna zmiana i Radio nie używają
+tego opóźnienia. Przy jednoczesnym przejściu i ciszy kolejność jest słyszalnie
+jednoznaczna: wygaszenie, wybrana cisza, łagodne wejście następnego utworu.
+Każdy wybór ma własną użytkową nazwę dla UI Automation, a paleta poleceń podaje
+stan i otwiera właściwą kontrolkę.

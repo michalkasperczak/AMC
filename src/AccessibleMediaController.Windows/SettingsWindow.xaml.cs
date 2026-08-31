@@ -78,6 +78,9 @@ public partial class SettingsWindow : Window
             SettingsTarget.FollowPlaybackOnPlayerExit => (GeneralTab, FollowPlaybackOnPlayerExitCheck),
             SettingsTarget.OpenPlayerWhenActivatingPreset => (GeneralTab, OpenPlayerWhenActivatingPresetCheck),
             SettingsTarget.RememberLocalPlaybackPositions => (GeneralTab, RememberLocalPlaybackPositionsCheck),
+            SettingsTarget.LoudnessNormalization => (GeneralTab, LoudnessNormalizationCheck),
+            SettingsTarget.SmoothTrackTransitions => (GeneralTab, SmoothTrackTransitionsCheck),
+            SettingsTarget.InterTrackSilence => (GeneralTab, InterTrackSilenceCombo),
             SettingsTarget.Prefix => (GeneralTab, PrefixBox),
             SettingsTarget.PrefixTimeout => (GeneralTab, TimeoutBox),
             SettingsTarget.RadioRecording => (RadioTab, RadioRecordingFormatCombo),
@@ -126,6 +129,11 @@ public partial class SettingsWindow : Window
         FollowPlaybackOnPlayerExitCheck.IsChecked = _workingState.Settings.FollowPlaybackOnPlayerExit;
         OpenPlayerWhenActivatingPresetCheck.IsChecked = _workingState.Settings.OpenPlayerWhenActivatingPreset;
         RememberLocalPlaybackPositionsCheck.IsChecked = _workingState.Settings.RememberLocalPlaybackPositions;
+        LoudnessNormalizationCheck.IsChecked = _workingState.Settings.Audio.LoudnessNormalizationEnabled;
+        SmoothTrackTransitionsCheck.IsChecked = _workingState.Settings.Audio.SmoothTrackTransitionsEnabled;
+        SelectComboByTag(
+            InterTrackSilenceCombo,
+            _workingState.Settings.Audio.InterTrackSilenceMilliseconds.ToString());
 
         RadioRecordingsFolderBox.Text = string.IsNullOrWhiteSpace(_workingState.Radio.RecordingsFolder)
             ? DefaultRadioRecordingsFolder()
@@ -181,6 +189,14 @@ public partial class SettingsWindow : Window
         _workingState.Settings.FollowPlaybackOnPlayerExit = FollowPlaybackOnPlayerExitCheck.IsChecked == true;
         _workingState.Settings.OpenPlayerWhenActivatingPreset = OpenPlayerWhenActivatingPresetCheck.IsChecked == true;
         _workingState.Settings.RememberLocalPlaybackPositions = RememberLocalPlaybackPositionsCheck.IsChecked == true;
+        _workingState.Settings.Audio.LoudnessNormalizationEnabled = LoudnessNormalizationCheck.IsChecked == true;
+        _workingState.Settings.Audio.SmoothTrackTransitionsEnabled = SmoothTrackTransitionsCheck.IsChecked == true;
+        if (!int.TryParse(SelectedTag(InterTrackSilenceCombo, "0"), out var interTrackSilence)
+            || !PlaybackAudioSettingsRules.IsSupportedSilence(interTrackSilence))
+        {
+            interTrackSilence = 0;
+        }
+        _workingState.Settings.Audio.InterTrackSilenceMilliseconds = interTrackSilence;
         var folder = RadioRecordingsFolderBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(folder) || !Path.IsPathFullyQualified(folder))
             throw new InvalidDataException("Domyślny folder nagrywania radia musi zawierać pełną ścieżkę.");

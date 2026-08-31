@@ -36,11 +36,28 @@ public sealed class AppSettings
     public bool FollowPlaybackOnPlayerExit { get; set; } = true;
     public bool OpenPlayerWhenActivatingPreset { get; set; }
     public bool RememberLocalPlaybackPositions { get; set; } = true;
+    public PlaybackAudioSettings Audio { get; set; } = new();
     public string LastSessionId { get; set; } = "tidal";
     public Dictionary<int, string> SessionSlots { get; set; } = SessionSlotOrder.CreateDefault();
     public ListDisplaySettings Lists { get; set; } = new();
     public MessageSettings Messages { get; set; } = MessageSettings.CreateDefault();
     public UpdateSettings Updates { get; set; } = new();
+}
+
+public sealed class PlaybackAudioSettings
+{
+    public bool LoudnessNormalizationEnabled { get; set; }
+    public bool SmoothTrackTransitionsEnabled { get; set; }
+    public int InterTrackSilenceMilliseconds { get; set; }
+}
+
+public static class PlaybackAudioSettingsRules
+{
+    public static readonly IReadOnlyList<int> SupportedInterTrackSilenceMilliseconds =
+        [0, 500, 1000, 2000, 3000, 5000];
+
+    public static bool IsSupportedSilence(int milliseconds) =>
+        SupportedInterTrackSilenceMilliseconds.Contains(milliseconds);
 }
 
 public static class SessionSlotOrder
@@ -162,7 +179,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 35;
+    public int SchemaVersion { get; set; } = 36;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();

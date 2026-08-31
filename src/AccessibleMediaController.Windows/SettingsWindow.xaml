@@ -41,9 +41,28 @@
                             <CheckBox x:Name="OpenPlayerWhenActivatingPresetCheck" Margin="0,0,0,8"
                                       Content="Po uruchomieniu presetu _otwieraj odtwarzacz"
                                       automation:AutomationProperties.HelpText="Wyłączone: preset rozpoczyna odtwarzanie w tle, a fokus pozostaje w bieżącym widoku. Jeżeli odtwarzacz jest już otwarty, pozostaje otwarty niezależnie od tego ustawienia." />
-                            <CheckBox x:Name="RememberLocalPlaybackPositionsCheck"
+                            <CheckBox x:Name="RememberLocalPlaybackPositionsCheck" Margin="0,0,0,12"
                                       Content="_Pamiętaj pozycję odtwarzania lokalnych plików"
                                       automation:AutomationProperties.HelpText="To ustawienie globalne. Dla każdego Folderu Biblioteki oraz pojedynczego elementu można wybrać inne zachowanie." />
+                            <TextBlock Margin="0,0,0,8" TextWrapping="Wrap"
+                                       Text="Dodatkowe przetwarzanie dotyczy lokalnych plików. Nie zmienia zawartości plików ani zapisanej wartości głośności." />
+                            <CheckBox x:Name="LoudnessNormalizationCheck" Margin="0,0,0,8"
+                                      Content="_Normalizuj odczuwaną głośność utworów"
+                                      automation:AutomationProperties.HelpText="Wyrównuje poziom kolejnych lokalnych utworów w czasie odtwarzania i chroni przed przesterowaniem. Pliki pozostają niezmienione. Opcja jest domyślnie wyłączona." />
+                            <CheckBox x:Name="SmoothTrackTransitionsCheck" Margin="0,0,0,8"
+                                      Content="_Łagodnie przechodź między utworami"
+                                      automation:AutomationProperties.HelpText="Wygasza końcówkę i łagodnie wprowadza kolejny lokalny utwór przez półtorej sekundy. Przy ręcznej zmianie utwory mogą się przez ten czas częściowo nakładać. Opcja jest domyślnie wyłączona." />
+                            <Label Target="{Binding ElementName=InterTrackSilenceCombo}">_Dodatkowa cisza po naturalnym końcu utworu:</Label>
+                            <ComboBox x:Name="InterTrackSilenceCombo" Width="320" HorizontalAlignment="Left"
+                                      automation:AutomationProperties.Name="Dodatkowa cisza po naturalnym końcu utworu"
+                                      automation:AutomationProperties.HelpText="Cisza jest dodawana tylko przed następnym automatycznie odtwarzanym lokalnym utworem. Nie dotyczy ręcznej zmiany, pauzy ani radia.">
+                                <ComboBoxItem Tag="0" automation:AutomationProperties.Name="Bez dodatkowej ciszy">Bez dodatkowej ciszy</ComboBoxItem>
+                                <ComboBoxItem Tag="500" automation:AutomationProperties.Name="Pół sekundy ciszy">Pół sekundy ciszy</ComboBoxItem>
+                                <ComboBoxItem Tag="1000" automation:AutomationProperties.Name="1 sekunda ciszy">1 sekunda ciszy</ComboBoxItem>
+                                <ComboBoxItem Tag="2000" automation:AutomationProperties.Name="2 sekundy ciszy">2 sekundy ciszy</ComboBoxItem>
+                                <ComboBoxItem Tag="3000" automation:AutomationProperties.Name="3 sekundy ciszy">3 sekundy ciszy</ComboBoxItem>
+                                <ComboBoxItem Tag="5000" automation:AutomationProperties.Name="5 sekund ciszy">5 sekund ciszy</ComboBoxItem>
+                            </ComboBox>
                         </StackPanel>
                     </GroupBox>
                     <GroupBox Header="Kolejność sesji i skróty Ctrl+1–9" Margin="0,2,0,14">

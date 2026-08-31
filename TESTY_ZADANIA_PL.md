@@ -1,12 +1,59 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-167`
-- Tytuł zestawu: Ciche automatyczne rozpoznawanie utworów
-- Wersja programu: `0.1.0-alpha.167`
+- Numer zestawu: `AMC-TEST-168`
+- Tytuł zestawu: Normalizacja, przejścia i cisza między utworami
+- Wersja programu: `0.1.0-alpha.168`
 - Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.167.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.168.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 168
+
+### AMC-168-01 — Normalizacja bez zmiany głośności użytkownika
+
+W `Ustawienia > Ogólne > Odtwarzanie` włącz normalizację. Odtwórz kolejno
+wyraźnie cichy i wyraźnie głośny plik lokalny, a w trakcie zmień głośność
+strzałkami. Po próbie sprawdź daty modyfikacji obu plików.
+
+Oczekiwane: różnica odczuwanej głośności maleje, nie słychać przesterowania,
+strzałki nadal przewidywalnie regulują głośność, a pliki nie są zmieniane.
+
+### AMC-168-02 — Naturalne i ręczne łagodne przejście
+
+Wyłącz dodatkową ciszę, włącz łagodne przejścia i uruchom co najmniej trzy
+lokalne utwory w jednym kontekście. Posłuchaj automatycznej granicy, a potem
+zmień utwór ręcznie przez Page Down.
+
+Oczekiwane: naturalny koniec wygasa i następny utwór łagodnie wchodzi. Ręczna
+zmiana nie urywa poprzedniego dźwięku; oba tory mogą krótko się nałożyć, lecz po
+półtorej sekundy słychać wyłącznie nowy utwór. Fokus i sterowanie nie czekają
+na koniec wygaszenia.
+
+### AMC-168-03 — Dodatkowa cisza tylko po naturalnym końcu
+
+Ustaw dwie sekundy ciszy i wyłącz łagodne przejście. Poczekaj na naturalny
+koniec utworu, następnie sprawdź ręczne Page Down, pauzę i wznowienie. Powtórz
+próbę w Radiu.
+
+Oczekiwane: około dwie sekundy ciszy występują tylko przed automatycznym
+lokalnym następcą. Ręczna zmiana, pauza, wznowienie i Radio nie otrzymują
+opóźnienia. AMC mówi „Następny utwór po ciszy” zamiast przedwcześnie twierdzić,
+że dźwięk już trwa.
+
+### AMC-168-04 — NVDA, zapis i paleta poleceń
+
+Przejdź Tabem po trzech nowych opcjach, rozwiń listę ciszy, wybierz kolejno
+brak, pół sekundy i dwie sekundy, zapisz, ponownie otwórz Ustawienia i użyj
+strzałek. W palecie `Ctrl+Shift+K` wyszukaj osobno „normalizacja”, „łagodne” i
+„cisza między utworami”. Sprawdź też powrót fokusu po Zapisz i Anuluj.
+
+Oczekiwane: NVDA czyta wyłącznie użytkowe nazwy i stan; „Bez dodatkowej ciszy”
+jednoznacznie opisuje wartość neutralną. Nie pojawia się nazwa klasy, rekord,
+właściwość ani identyfikator. Zapisany wybór wraca po ponownym otwarciu, a
+Enter z palety ustawia fokus dokładnie na właściwej kontrolce.
+
+## Poprzedni zestaw alpha 167
 
 ## Nowości alpha 167
 

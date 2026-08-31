@@ -22,6 +22,7 @@ var tests = new (string Name, Action Test)[]
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
+    ("Trwałe opcje przetwarzania dźwięku", TestPlaybackAudioSettingsPersistence),
     ("Migracja starszych ustawień", TestLegacyStateMigration),
     ("Migracja ustawień alpha.4", TestVersion2StateMigration),
     ("Migracja komunikatów alpha.5", TestVersion3MessageMigration),
@@ -71,6 +72,40 @@ var tests = new (string Name, Action Test)[]
     ("Skok wpisanym czasem i procentem", TestSeekInputParser),
     ("Trzy rodzaje eksportu", TestExports)
 };
+
+static void TestPlaybackAudioSettingsPersistence()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-audio-settings-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(
+            Path.Combine(directory, "state.json"),
+            Path.Combine(directory, "library.db"));
+        var state = ConfigurationStore.CreateDefaultState();
+        Equal(false, state.Settings.Audio.LoudnessNormalizationEnabled);
+        Equal(false, state.Settings.Audio.SmoothTrackTransitionsEnabled);
+        Equal(0, state.Settings.Audio.InterTrackSilenceMilliseconds);
+
+        state.Settings.Audio.LoudnessNormalizationEnabled = true;
+        state.Settings.Audio.SmoothTrackTransitionsEnabled = true;
+        state.Settings.Audio.InterTrackSilenceMilliseconds = 2000;
+        store.Save(state);
+
+        var loaded = store.LoadOrCreate();
+        Equal(true, loaded.Settings.Audio.LoudnessNormalizationEnabled);
+        Equal(true, loaded.Settings.Audio.SmoothTrackTransitionsEnabled);
+        Equal(2000, loaded.Settings.Audio.InterTrackSilenceMilliseconds);
+        True(
+            PlaybackAudioSettingsRules.SupportedInterTrackSilenceMilliseconds
+                .SequenceEqual([0, 500, 1000, 2000, 3000, 5000]),
+            "Lista obsługiwanych czasów ciszy jest nieprawidłowa.");
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
 
 var failures = new List<string>();
 foreach (var (name, test) in tests)
@@ -2776,6 +2811,15 @@ static void TestCommandPalette()
         "Oznajmianie automatycznie rozpoznanych utworów: włączone. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsAutomaticRecognitionMessages).DisplayName);
     Equal(
+        "Normalizacja głośności lokalnych utworów: wyłączone. Enter: ustawienia",
+        entries.Single(entry => entry.CommandId == CommandIds.SettingsLoudnessNormalization).DisplayName);
+    Equal(
+        "Łagodne przejścia między utworami: wyłączone. Enter: ustawienia",
+        entries.Single(entry => entry.CommandId == CommandIds.SettingsSmoothTrackTransitions).DisplayName);
+    Equal(
+        "Cisza między utworami: bez dodatkowej ciszy. Enter: ustawienia",
+        entries.Single(entry => entry.CommandId == CommandIds.SettingsInterTrackSilence).DisplayName);
+    Equal(
         "Komunikat po skoku cyfrą: tylko procent",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsPercentageSeekAnnouncement).DisplayName);
     Equal("Ctrl+,", entries.Single(entry => entry.CommandId == CommandIds.SettingsGeneral).LocalShortcut);
@@ -2801,6 +2845,9 @@ static void TestCommandPalette()
     settings.Messages.PlaybackMessages = false;
     settings.Messages.AutomaticRecognitionMessages = false;
     settings.Messages.PercentageSeekAnnouncement = PercentageSeekAnnouncementMode.PercentAndTime;
+    settings.Audio.LoudnessNormalizationEnabled = true;
+    settings.Audio.SmoothTrackTransitionsEnabled = true;
+    settings.Audio.InterTrackSilenceMilliseconds = 2000;
     var changedEntries = CommandPaletteSearch.CreateEntries(profile, settings);
     Equal(
         "Komunikaty dostępności: wyłączone. Enter: włącz",
@@ -2820,6 +2867,15 @@ static void TestCommandPalette()
     Equal(
         "Oznajmianie automatycznie rozpoznanych utworów: wyłączone. Enter: ustawienia",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsAutomaticRecognitionMessages).DisplayName);
+    Equal(
+        "Normalizacja głośności lokalnych utworów: włączone. Enter: ustawienia",
+        changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsLoudnessNormalization).DisplayName);
+    Equal(
+        "Łagodne przejścia między utworami: włączone. Enter: ustawienia",
+        changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsSmoothTrackTransitions).DisplayName);
+    Equal(
+        "Cisza między utworami: 2 sekundy. Enter: ustawienia",
+        changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsInterTrackSilence).DisplayName);
     Equal(
         "Komunikat po skoku cyfrą: procent i czas",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsPercentageSeekAnnouncement).DisplayName);

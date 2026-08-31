@@ -92,6 +92,12 @@ public static class CommandPaletteSearch
                 $"Komunikaty odtwarzania i pauzy: {OnOff(settings.Messages.PlaybackMessages)}. Enter: ustawienia",
             CommandIds.SettingsAutomaticRecognitionMessages =>
                 $"Oznajmianie automatycznie rozpoznanych utworów: {OnOff(settings.Messages.AutomaticRecognitionMessages)}. Enter: ustawienia",
+            CommandIds.SettingsLoudnessNormalization =>
+                $"Normalizacja głośności lokalnych utworów: {OnOff(settings.Audio.LoudnessNormalizationEnabled)}. Enter: ustawienia",
+            CommandIds.SettingsSmoothTrackTransitions =>
+                $"Łagodne przejścia między utworami: {OnOff(settings.Audio.SmoothTrackTransitionsEnabled)}. Enter: ustawienia",
+            CommandIds.SettingsInterTrackSilence =>
+                $"Cisza między utworami: {InterTrackSilenceName(settings.Audio.InterTrackSilenceMilliseconds)}. Enter: ustawienia",
             CommandIds.SettingsPercentageSeekAnnouncement =>
                 $"Komunikat po skoku cyfrą: {GetPercentageSeekAnnouncementName(settings.Messages.PercentageSeekAnnouncement)}",
             _ => CommandCatalog.GetDisplayName(commandId)
@@ -106,6 +112,16 @@ public static class CommandPaletteSearch
     };
 
     private static string OnOff(bool enabled) => enabled ? "włączone" : "wyłączone";
+
+    private static string InterTrackSilenceName(int milliseconds) => milliseconds switch
+    {
+        500 => "pół sekundy",
+        1000 => "1 sekunda",
+        2000 => "2 sekundy",
+        3000 => "3 sekundy",
+        5000 => "5 sekund",
+        _ => "bez dodatkowej ciszy"
+    };
 
     public static string ContinueOrRestartListQuery(
         IReadOnlyList<CommandPaletteEntry> entries,

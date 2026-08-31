@@ -191,6 +191,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _radioScheduleTimer.Tick += RadioScheduleTimer_Tick;
         _state = state;
         _store = store;
+        _localOutput.ConfigureAudioProcessing(_state.Settings.Audio);
         _radioOutput = new RadioMediaOutput(_state.Radio.TimeshiftMinutes);
         _radioOutput.PlaybackFailed += RadioOutput_PlaybackFailed;
         _radioOutput.PlaybackPreparing += RadioOutput_PlaybackPreparing;
@@ -3964,7 +3965,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         _cloudPreparingItemId = null;
         var localSession = _sessions.FindSession("local");
+        _localOutput.BeginAutomaticTrackContinuation();
         var nextItem = localSession?.ContinueAfterPlaybackEnded(e.Item);
+        if (nextItem is null) _localOutput.CancelAutomaticTrackContinuation();
         if (localSession is not null) EnsureQueueOrder(localSession);
         if (localSession is not null && nextItem is not null) RecordPlayback(localSession, nextItem);
         if (string.Equals(_currentView, "Kolejka", StringComparison.Ordinal))
@@ -3985,7 +3988,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         TrySaveLocalMediaState(false);
         Announce(nextItem is null
             ? $"Koniec: {e.Item.Title}"
-            : $"Odtwarzanie: {nextItem.Title}");
+            : _state.Settings.Audio.InterTrackSilenceMilliseconds > 0
+                ? $"Następny utwór po ciszy: {nextItem.Title}"
+                : $"Odtwarzanie: {nextItem.Title}");
     }
 
     private void RadioOutput_PlaybackPreparing(object? sender, MediaPlaybackPreparingEventArgs e)
@@ -6272,6 +6277,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         _state = dialog.ResultState;
+        _localOutput.ConfigureAudioProcessing(_state.Settings.Audio);
         ClearDisabledLocalResumePositions();
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
         _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);

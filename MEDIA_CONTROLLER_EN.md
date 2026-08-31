@@ -1162,3 +1162,24 @@ history without interrupting the screen reader. Manual `S` still answers
 regardless of the automatic-announcement option, but only while AMC remains
 active; a request finishing after an application switch is silent. The command
 palette reports the current state and opens Settings focused on this checkbox.
+
+## 21. Local loudness and track transitions
+
+Starting with `alpha.168`, three optional processors apply only to **Local
+Files** and are disabled by default. They never modify file bytes, tags, the
+saved user-volume value or Radio playback. Loudness normalisation runs after
+tempo processing and before user volume: it measures bounded sample blocks,
+adapts gain smoothly and limits peaks before clipping.
+
+Smooth transitions use a fixed one-and-a-half-second envelope. A new pipeline
+fades in, a natural ending fades out, and a manual Page Up, Page Down or direct
+track activation lets the old pipeline fade in the background instead of
+cutting it at one sample. This does not seek or rewrite the recording.
+
+Post-track silence has explicit choices: none, half a second, one, two, three
+or five seconds. It is scheduled only between a naturally completed local
+track and its automatic successor. Pause, seek, manual changes and Radio never
+use this delay. When smooth transitions and silence are both enabled, the
+order is fade-out, selected silence, then fade-in. Every choice exposes an
+intentional UI Automation label, and the command palette reports the current
+state and opens the exact control.

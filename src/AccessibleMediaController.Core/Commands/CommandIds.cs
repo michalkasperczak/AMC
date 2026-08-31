@@ -107,6 +107,9 @@ public static class CommandIds
     public const string SettingsFollowPlaybackOnPlayerExit = "settings.playback.followOnPlayerExit";
     public const string SettingsOpenPlayerWhenActivatingPreset = "settings.playback.openPlayerForPreset";
     public const string SettingsRememberLocalPlaybackPositions = "settings.playback.rememberLocalPositions";
+    public const string SettingsLoudnessNormalization = "settings.playback.loudnessNormalization";
+    public const string SettingsSmoothTrackTransitions = "settings.playback.smoothTrackTransitions";
+    public const string SettingsInterTrackSilence = "settings.playback.interTrackSilence";
     public const string SettingsPrefix = "settings.prefix";
     public const string SettingsPrefixTimeout = "settings.prefixTimeout";
     public const string SettingsKeyboardProfile = "settings.keyboardProfile";
