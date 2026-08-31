@@ -1339,3 +1339,11 @@ occurs only after a valid value. An invalid day, month, hour or minute keeps
 the previous date or time and produces a user-facing message; changing month
 or year adjusts the day to the end of a shorter month. Existing arrow-key
 navigation and concise NVDA announcements remain available.
+
+Correction in `alpha.183`: Space on the schedule list no longer rebuilds the
+complete item source. It updates the current row in place, so focus stays on
+that particular schedule instead of falling back to the “Scheduled radio
+recordings” list control. The row name, visible checkbox state and UI
+Automation notification update together. After key handling finishes, NVDA
+receives the station name and time followed unambiguously by either “checkbox
+checked, schedule enabled” or “checkbox unchecked, schedule disabled”.

@@ -1374,3 +1374,12 @@ Przejście następuje dopiero po poprawnej wartości. Błędny dzień, miesiąc,
 godzina lub minuta pozostawia poprzednią datę albo czas i otrzymuje użytkowy
 komunikat; zmiana miesiąca lub roku dopasowuje dzień do krótszego miesiąca.
 Dotychczasowe strzałki i zwięzłe komunikaty NVDA pozostają dostępne.
+
+Korekta `alpha.183`: Spacja na liście harmonogramów nie przebudowuje już
+całego źródła listy. Zmienia w miejscu stan bieżącego wiersza, dzięki czemu
+fokus pozostaje na konkretnym harmonogramie zamiast spadać na kontrolkę
+„Zaplanowane nagrania radia”. Nazwa wiersza, stan widocznego pola wyboru i
+powiadomienie UI Automation są aktualizowane razem. Po zakończeniu obsługi
+klawisza NVDA otrzymuje nazwę stacji i termin oraz jednoznaczne „pole wyboru
+zaznaczone, harmonogram włączony” albo „pole wyboru niezaznaczone, harmonogram
+wyłączony”.

@@ -32,7 +32,7 @@
                  MouseDoubleClick="SchedulesList_MouseDoubleClick">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <CheckBox Content="{Binding Label}" IsChecked="{Binding Schedule.Enabled}"
+                    <CheckBox Content="{Binding Label}" IsChecked="{Binding IsEnabled, Mode=OneWay}"
                               Focusable="False" IsHitTestVisible="False"
                               automation:AutomationProperties.Name="{Binding AccessibleLabel}" />
                 </DataTemplate>

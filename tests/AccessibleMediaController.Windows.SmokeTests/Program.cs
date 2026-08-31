@@ -479,26 +479,32 @@ static void TestRadioScheduleAccessibility()
             var accessibleLabel = selected?.GetType().GetProperty("AccessibleLabel")?.GetValue(selected)?.ToString();
             Assert(!string.IsNullOrWhiteSpace(accessibleLabel)
                    && accessibleLabel.Contains("Stacja testowa", StringComparison.Ordinal)
-                   && accessibleLabel.Contains("zaznaczony", StringComparison.Ordinal)
+                   && accessibleLabel.Contains("pole wyboru zaznaczone", StringComparison.Ordinal)
                    && IsUserFacingChoice(selected!),
                 "Pierwszy harmonogram nie ma stabilnej, użytkowej etykiety dostępnościowej.");
             var scheduleStatus = (AccessibleStatusTextBlock)manager.FindName("ScheduleStatus");
+            var selectedBeforeToggle = schedulesList.SelectedItem;
             Assert(manager.ToggleSelectedEnabled(),
                 "Spacja nie ma operacji przełączającej wybrany harmonogram.");
+            DrainDispatcher(manager.Dispatcher);
             selected = schedulesList.SelectedItem;
             accessibleLabel = selected?.GetType().GetProperty("AccessibleLabel")?.GetValue(selected)?.ToString();
-            Assert(!string.IsNullOrWhiteSpace(accessibleLabel)
+            Assert(ReferenceEquals(selectedBeforeToggle, selected)
+                   && !string.IsNullOrWhiteSpace(accessibleLabel)
                    && accessibleLabel.Contains("wyłączony", StringComparison.Ordinal)
-                   && accessibleLabel.Contains("niezaznaczony", StringComparison.Ordinal),
-                "Wyłączenie nie odświeża stanu pola wyboru zaznaczonego harmonogramu.");
+                   && accessibleLabel.Contains("pole wyboru niezaznaczone", StringComparison.Ordinal),
+                "Wyłączenie przebudowuje wiersz albo nie odświeża stanu jego pola wyboru.");
             Assert(scheduleStatus.Text.Contains(
                        "Harmonogram Stacja testowa",
                        StringComparison.Ordinal)
-                   && scheduleStatus.Text.Contains("wyłączony", StringComparison.Ordinal),
+                   && scheduleStatus.Text.Contains("pole wyboru niezaznaczone", StringComparison.Ordinal)
+                   && scheduleStatus.Text.Contains("harmonogram wyłączony", StringComparison.Ordinal),
                 "Wyłączenie nie tworzy jawnego komunikatu z nazwą harmonogramu i stanem.");
             Assert(manager.ToggleSelectedEnabled(),
                 "Ponowna Spacja nie włącza wybranego harmonogramu.");
-            Assert(scheduleStatus.Text.Contains("włączony", StringComparison.Ordinal),
+            DrainDispatcher(manager.Dispatcher);
+            Assert(scheduleStatus.Text.Contains("pole wyboru zaznaczone", StringComparison.Ordinal)
+                   && scheduleStatus.Text.Contains("harmonogram włączony", StringComparison.Ordinal),
                 "Włączenie nie tworzy jawnego komunikatu z nazwą harmonogramu i stanem.");
         }
         catch (Exception exception)
@@ -529,6 +535,15 @@ static void TestRadioScheduleAccessibility()
                && !text.Contains('{', StringComparison.Ordinal)
                && !text.Contains("Choice", StringComparison.Ordinal)
                && !text.Contains("Settings", StringComparison.Ordinal);
+    }
+
+    static void DrainDispatcher(System.Windows.Threading.Dispatcher dispatcher)
+    {
+        var frame = new System.Windows.Threading.DispatcherFrame();
+        dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.ApplicationIdle,
+            () => frame.Continue = false);
+        System.Windows.Threading.Dispatcher.PushFrame(frame);
     }
 
     static IEnumerable<MenuItem> DescendantMenuItems(ItemCollection items)

@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -101,12 +103,17 @@ public partial class RadioSchedulesWindow : Window
     internal bool ToggleSelectedEnabled()
     {
         if (SchedulesList.SelectedItem is not ScheduleRow row) return false;
+        var listHadKeyboardFocus = SchedulesList.IsKeyboardFocusWithin;
         row.Schedule.Enabled = !row.Schedule.Enabled;
+        row.UpdateLabel(BuildLabel(row.Schedule, _activeIds.Contains(row.Schedule.Id)));
         var identity = BuildScheduleIdentity(row.Schedule);
-        var message = $"Harmonogram {identity}: {(row.Schedule.Enabled ? "włączony" : "wyłączony")}. Wybierz Zapisz, aby zatwierdzić zmianę.";
-        RefreshRows(row.Schedule.Id);
-        FocusSelectedSchedule();
-        ScheduleStatus.Announce(message);
+        var message = row.Schedule.Enabled
+            ? $"Harmonogram {identity}: pole wyboru zaznaczone, harmonogram włączony. Wybierz Zapisz, aby zatwierdzić zmianę."
+            : $"Harmonogram {identity}: pole wyboru niezaznaczone, harmonogram wyłączony. Wybierz Zapisz, aby zatwierdzić zmianę.";
+        if (!listHadKeyboardFocus) FocusSelectedSchedule();
+        Dispatcher.BeginInvoke(
+            () => ScheduleStatus.Announce(message),
+            System.Windows.Threading.DispatcherPriority.ContextIdle);
         return true;
     }
 
@@ -232,9 +239,32 @@ public partial class RadioSchedulesWindow : Window
         Enabled = schedule.Enabled
     };
 
-    private sealed record ScheduleRow(RadioRecordingScheduleSettings Schedule, string Label)
+    private sealed class ScheduleRow(
+        RadioRecordingScheduleSettings schedule,
+        string label) : INotifyPropertyChanged
     {
-        public string AccessibleLabel => $"{Label}, {(Schedule.Enabled ? "zaznaczony" : "niezaznaczony")}";
+        private string _label = label;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public RadioRecordingScheduleSettings Schedule { get; } = schedule;
+        public string Label => _label;
+        public bool IsEnabled => Schedule.Enabled;
+        public string AccessibleLabel =>
+            $"{Label}, pole wyboru {(Schedule.Enabled ? "zaznaczone" : "niezaznaczone")}";
+
+        public void UpdateLabel(string value)
+        {
+            if (_label == value) return;
+            _label = value;
+            OnPropertyChanged(nameof(Label));
+            OnPropertyChanged(nameof(IsEnabled));
+            OnPropertyChanged(nameof(AccessibleLabel));
+        }
+
         public override string ToString() => Label;
+
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }
