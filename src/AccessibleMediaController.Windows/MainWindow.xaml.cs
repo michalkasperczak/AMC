@@ -867,7 +867,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : "Escape wraca do listy, a odtwarzanie trwa.";
         if (string.Equals(_sessions?.Current.Id, "radio", StringComparison.Ordinal))
         {
-            return "Strzałki w lewo i w prawo poruszają się po buforze transmisji, Home przechodzi do początku bufora, End wraca na żywo, a strzałki w górę i w dół regulują głośność. R rozpoczyna lub kończy nagrywanie bieżącej stacji w tle, a Shift+Spacja wstrzymuje lub wznawia jej nagranie. S rozpoznaje utwór, a Shift+S włącza lub wyłącza obserwowanie rozpoznawania. Page Up i Page Down wybierają poprzednią lub następną stację bez zatrzymywania nagrań. " + exit;
+            return "Strzałki w lewo i w prawo poruszają się po buforze transmisji, Home przechodzi do początku bufora, End wraca na żywo, a strzałki w górę i w dół regulują głośność. R rozpoczyna lub kończy nagrywanie bieżącej stacji w tle, a Shift+Spacja wstrzymuje lub wznawia jej nagranie. Podczas nagrywania B dodaje szybką zakładkę do zapisywanego pliku, a Shift+B pozwala ją nazwać. S rozpoznaje utwór, a Shift+S włącza lub wyłącza obserwowanie rozpoznawania. Page Up i Page Down wybierają poprzednią lub następną stację bez zatrzymywania nagrań. " + exit;
         }
         return "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. "
             + "B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach. "
@@ -2841,6 +2841,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var pauseControls = pauseActionItem is null
             ? Array.Empty<RadioRecordingControl>()
             : RadioRecordingControlsFor(pauseActionItem);
+        var recordingBookmarksAvailable = pauseControls.Any(control => control.IsReady);
         PauseRadioRecordingMenuItem.IsEnabled = pauseControls.Count > 0;
         SetContextMenuItemPresentation(
             PauseRadioRecordingMenuItem,
@@ -2881,8 +2882,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             MonitorRadioRecognitionMenuItem,
             $"Obserwowanie rozpoznawania utworów: {(_radioRecognitionMonitoring ? "włączone" : "wyłączone")}");
         PlaybackAfterRecordingSeparator.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
-        PlaybackAddBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
-        PlaybackAddNamedBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackAddBookmarkMenuItem.Visibility = !radio || recordingBookmarksAvailable
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        PlaybackAddNamedBookmarkMenuItem.Visibility = !radio || recordingBookmarksAvailable
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        SetContextMenuItemPresentation(
+            PlaybackAddBookmarkMenuItem,
+            radio ? "Dodaj szybką zakładkę w nagrywanym pliku" : "Dodaj zakładkę",
+            "B");
+        SetContextMenuItemPresentation(
+            PlaybackAddNamedBookmarkMenuItem,
+            radio ? "Dodaj nazwaną zakładkę w nagrywanym pliku" : "Dodaj nazwaną zakładkę",
+            radio ? "Shift+B" : "Ctrl+Shift+B");
         PlaybackPreviousBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         PlaybackNextBookmarkMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         PlaybackBeforeSeekSeparator.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
@@ -4612,6 +4625,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
+            if (commandId == CommandIds.AddBookmark)
+            {
+                AddRadioRecordingBookmark(named: false);
+                return new CommandExecutionResult(true);
+            }
+            if (commandId == CommandIds.AddNamedBookmark)
+            {
+                AddRadioRecordingBookmark(named: true);
+                return new CommandExecutionResult(true);
+            }
             if (IsRadioTimeshiftCommand(commandId) && IsCurrentRadioStationRecording())
             {
                 Announce("Timeshift jest zablokowany podczas nagrywania tej stacji");
@@ -4625,9 +4648,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Announce("Ta funkcja nie jest dostępna w Radiu internetowym");
                 return new CommandExecutionResult(true);
             }
-            if (commandId is CommandIds.AddBookmark
-                or CommandIds.AddNamedBookmark
-                or CommandIds.ViewBookmarks
+            if (commandId is CommandIds.ViewBookmarks
                 or CommandIds.PreviousBookmark
                 or CommandIds.NextBookmark
                 or CommandIds.SeekToTime
@@ -7009,6 +7030,67 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    private void AddRadioRecordingBookmark(bool named)
+    {
+        var station = RadioScheduleActionStation();
+        if (station is null)
+        {
+            Announce("Wybierz nagrywaną stację albo otwórz ją w odtwarzaczu radia");
+            return;
+        }
+
+        var controls = RadioRecordingControlsFor(station);
+        if (controls.Count == 0)
+        {
+            Announce($"Stacja nie jest nagrywana: {station.Title}");
+            return;
+        }
+
+        var targets = new List<(RadioRecordingControl Control, RadioRecordingBookmarkTarget Target)>();
+        foreach (var control in controls)
+        {
+            var target = control.CaptureBookmarkTarget();
+            if (target is not null) targets.Add((control, target));
+        }
+        if (targets.Count == 0)
+        {
+            Announce("Nagranie jeszcze się uruchamia albo trwa zmiana części");
+            return;
+        }
+
+        string? name = null;
+        if (named)
+        {
+            var position = targets.Min(entry => entry.Target.Position);
+            var dialog = new BookmarkNameWindow($"Nagranie {station.Title}", position) { Owner = this };
+            if (dialog.ShowDialog() != true) return;
+            name = dialog.BookmarkName;
+        }
+
+        var changes = targets
+            .Select(entry => entry.Control.AddBookmark(entry.Target, name))
+            .ToArray();
+        var positionText = CommandRouter.FormatTime(changes.Min(change => change.Marker.Position));
+        var affected = changes.Count(change => change.Kind is
+            RadioRecordingBookmarkChangeKind.Added or
+            RadioRecordingBookmarkChangeKind.NameChanged);
+        if (affected == 0)
+        {
+            Announce(named
+                ? $"Nazwana zakładka nagrania już istnieje: {positionText}"
+                : $"Zakładka nagrania już istnieje: {positionText}");
+            return;
+        }
+
+        DiagnosticLog.Info(
+            "radio-recording",
+            $"Dodano zakładkę trwającego nagrania: {station.Title}; czas {positionText}; plików {affected}; nazwana {named}.");
+        var multipleSuffix = affected > 1 ? $", nagrania: {affected}" : string.Empty;
+        AnnounceEssential(named
+            ? $"Dodano zakładkę {name}: {positionText}{multipleSuffix}"
+            : $"Dodano zakładkę nagrania: {positionText}{multipleSuffix}");
+    }
+
     private async void SplitSelectedManualRadioRecording()
     {
         if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
@@ -7224,7 +7306,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _activeManualRadioRecordings.Remove(active.Id);
         var suppressAnnouncement = _bulkStoppedManualRadioRecordings.Remove(active.Id);
         active.Cancellation.Dispose();
-        PersistRadioRecordingPauseBookmarks(active.Control);
+        PersistRadioRecordingBookmarks(active.Control);
         if (_isClosing) return;
         RefreshRadioRecordingPresentation();
         if (suppressAnnouncement) return;
@@ -7249,7 +7331,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : $"Nie udało się nagrać {active.StationName}: {result.Error}");
     }
 
-    private void PersistRadioRecordingPauseBookmarks(RadioRecordingControl control)
+    private void PersistRadioRecordingBookmarks(RadioRecordingControl control)
     {
         var markers = control.Markers;
         if (markers.Count == 0) return;
@@ -7281,7 +7363,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 importedAny = true;
                 DiagnosticLog.Info(
                     "radio-recording",
-                    $"Zapisano {group.Count()} punktów pauzy jako zakładki AMC dla pliku {path}.");
+                    $"Zapisano {group.Count()} zakładek nagrania w AMC dla pliku {path}.");
             }
             catch (Exception exception) when (exception is IOException
                 or UnauthorizedAccessException
@@ -7290,7 +7372,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 DiagnosticLog.Error(
                     "radio-recording",
-                    $"Nie udało się zapisać punktów pauzy jako zakładek dla pliku {path}.",
+                    $"Nie udało się zapisać zakładek nagrania dla pliku {path}.",
                     exception);
             }
         }
@@ -7585,7 +7667,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             active.Cancellation.Dispose();
         }
         if (completedActive is not null)
-            PersistRadioRecordingPauseBookmarks(completedActive.Control);
+            PersistRadioRecordingBookmarks(completedActive.Control);
         var suppressAnnouncement = _bulkStoppedScheduledRadioRecordings.Remove(snapshot.Id);
         if (_isClosing) return;
         RefreshRadioRecordingPresentation();
@@ -8640,6 +8722,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        var radioRecordingBookmarkCommand = MainWindowShortcutRouter.ResolveRadioRecordingBookmark(
+            windowKey,
+            effectiveModifiers,
+            recordingContext: string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                && (_playerViewActive
+                    || MediaList.IsKeyboardFocusWithin
+                    && string.Equals(_currentView, ActiveRadioRecordingsViewName, StringComparison.Ordinal))
+                && !MainMenu.IsKeyboardFocusWithin
+                && Keyboard.FocusedElement is not MenuItem);
+        if (radioRecordingBookmarkCommand is not null)
+        {
+            ExecuteCommand(radioRecordingBookmarkCommand);
+            e.Handled = true;
+            return;
+        }
+
         if (ReadEffectiveModifierKeys() == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)
             && windowKey == Key.R)
         {
@@ -9358,6 +9456,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                  && (_playerViewActive
                      || string.Equals(_currentView, ActiveRadioRecordingsViewName, StringComparison.Ordinal)))
             description = "zapisz bieżącą część i rozpocznij nowy plik ręcznego nagrania";
+        else if (key == Key.B
+                 && modifiers is ModifierKeys.None or ModifierKeys.Shift
+                 && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                 && (_playerViewActive
+                     || string.Equals(_currentView, ActiveRadioRecordingsViewName, StringComparison.Ordinal)))
+            description = modifiers == ModifierKeys.Shift
+                ? "dodaj nazwaną zakładkę w nagrywanym pliku"
+                : "dodaj szybką zakładkę w nagrywanym pliku";
         else if (MediaList.IsKeyboardFocusWithin
                  && modifiers == ModifierKeys.None
                  && key is >= Key.A and <= Key.Z)
@@ -9699,6 +9805,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (audioCommand is not null)
         {
             ExecuteCommand(audioCommand);
+            return true;
+        }
+        var radioRecordingBookmarkCommand = MainWindowShortcutRouter.ResolveRadioRecordingBookmark(
+            key,
+            effectiveModifiers,
+            recordingContext: string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal));
+        if (radioRecordingBookmarkCommand is not null)
+        {
+            ExecuteCommand(radioRecordingBookmarkCommand);
             return true;
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
@@ -10452,6 +10567,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void AddRadioStation_Click(object sender, RoutedEventArgs e) => AddRadioStation();
     private void RadioRecording_Click(object sender, RoutedEventArgs e) => ToggleRadioRecording();
     private void PauseRadioRecording_Click(object sender, RoutedEventArgs e) => ToggleSelectedRadioRecordingPause();
+    private void AddRadioRecordingBookmark_Click(object sender, RoutedEventArgs e) =>
+        AddRadioRecordingBookmark(named: false);
+    private void AddNamedRadioRecordingBookmark_Click(object sender, RoutedEventArgs e) =>
+        AddRadioRecordingBookmark(named: true);
     private void SplitRadioRecording_Click(object sender, RoutedEventArgs e) => SplitSelectedManualRadioRecording();
     private void StopAllRadioRecordings_Click(object sender, RoutedEventArgs e) => StopAllRadioRecordings();
     private void RadioAddSchedule_Click(object sender, RoutedEventArgs e) => AddRadioScheduleForCurrentContext();
@@ -10517,6 +10636,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? RadioRecordingControlsFor(actionItem)
             : Array.Empty<RadioRecordingControl>();
         SelectedRadioPauseRecordingMenuItem.Visibility = selectedRecordingControls.Count > 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        var selectedRecordingBookmarksAvailable = selectedRecordingControls.Any(control => control.IsReady);
+        SelectedRadioAddRecordingBookmarkMenuItem.Visibility = selectedRecordingBookmarksAvailable
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        SelectedRadioAddNamedRecordingBookmarkMenuItem.Visibility = selectedRecordingBookmarksAvailable
             ? Visibility.Visible
             : Visibility.Collapsed;
         var selectedManualRecording = radioStationSelected && actionItem is not null
@@ -10817,8 +10943,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : "Obserwuj rozpoznawanie: wyłączone",
             "Shift+S");
         PlayerRadioRecognitionHistoryMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
-        PlayerAddBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
-        PlayerAddNamedBookmarkMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
+        var playerRecordingBookmarksAvailable = playerRecordingControls.Any(control => control.IsReady);
+        PlayerAddBookmarkMenuItem.Visibility = !radioSession || playerRecordingBookmarksAvailable
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        PlayerAddNamedBookmarkMenuItem.Visibility = !radioSession || playerRecordingBookmarksAvailable
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        SetContextMenuItemPresentation(
+            PlayerAddBookmarkMenuItem,
+            radioSession ? "Dodaj szybką zakładkę w nagrywanym pliku" : "Dodaj zakładkę",
+            "B");
+        SetContextMenuItemPresentation(
+            PlayerAddNamedBookmarkMenuItem,
+            radioSession ? "Dodaj nazwaną zakładkę w nagrywanym pliku" : "Dodaj nazwaną zakładkę",
+            radioSession ? "Shift+B" : "Ctrl+Shift+B");
         PlayerBookmarksMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
         if (radioSession)
         {
@@ -10880,6 +11019,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string shortcut)
     {
         MenuAccessibility.SetPresentation(menuItem, label);
+        menuItem.InputGestureText = shortcut;
+        AutomationProperties.SetAcceleratorKey(menuItem, shortcut);
     }
 
     private void CopyActionItemName()

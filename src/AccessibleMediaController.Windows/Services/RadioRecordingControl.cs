@@ -3,11 +3,27 @@ using AccessibleMediaController.Core.Configuration;
 
 namespace AccessibleMediaController.Windows.Services;
 
-internal sealed record RadioRecordingPauseMarker(
+internal sealed record RadioRecordingBookmarkMarker(
     string Path,
     TimeSpan Position,
     DateTime CreatedUtc,
     string Name);
+
+internal sealed record RadioRecordingBookmarkTarget(
+    string Path,
+    TimeSpan Position,
+    DateTime CreatedUtc);
+
+internal enum RadioRecordingBookmarkChangeKind
+{
+    Added,
+    NameChanged,
+    Duplicate
+}
+
+internal sealed record RadioRecordingBookmarkChange(
+    RadioRecordingBookmarkChangeKind Kind,
+    RadioRecordingBookmarkMarker Marker);
 
 internal enum RadioRecordingSplitChangeKind
 {
@@ -80,7 +96,8 @@ internal sealed class RadioRecordingControl
 {
     private readonly object _gate = new();
     private readonly SemaphoreSlim _operationGate = new(1, 1);
-    private readonly List<RadioRecordingPauseMarker> _markers = [];
+    private static readonly TimeSpan BookmarkDuplicateTolerance = TimeSpan.FromSeconds(1);
+    private readonly List<RadioRecordingBookmarkMarker> _markers = [];
     private readonly List<string> _completedPaths = [];
     private IRadioRecordingBackend? _backend;
     private string? _folder;
@@ -89,6 +106,7 @@ internal sealed class RadioRecordingControl
     private string? _currentPath;
     private Func<int, string?>? _fileBaseNameFactory;
     private int _partNumber;
+    private int _pauseMarkerCount;
     private bool _stopRequested;
 
     public bool IsReady
@@ -115,7 +133,7 @@ internal sealed class RadioRecordingControl
         }
     }
 
-    public IReadOnlyList<RadioRecordingPauseMarker> Markers
+    public IReadOnlyList<RadioRecordingBookmarkMarker> Markers
     {
         get
         {
@@ -177,7 +195,78 @@ internal sealed class RadioRecordingControl
             _currentPath = currentPath;
             _fileBaseNameFactory = fileBaseNameFactory;
             _partNumber = 1;
+            _pauseMarkerCount = 0;
             _stopRequested = false;
+        }
+    }
+
+    public RadioRecordingBookmarkTarget? CaptureBookmarkTarget()
+    {
+        if (!_operationGate.Wait(0)) return null;
+        try
+        {
+            lock (_gate)
+            {
+                if (_backend?.IsRecording != true || string.IsNullOrWhiteSpace(_currentPath))
+                    return null;
+                var position = _backend.RecordingDuration;
+                return new RadioRecordingBookmarkTarget(
+                    _currentPath,
+                    position < TimeSpan.Zero ? TimeSpan.Zero : position,
+                    DateTime.UtcNow);
+            }
+        }
+        catch (Exception exception) when (exception is InvalidOperationException
+            or NotSupportedException
+            or ObjectDisposedException)
+        {
+            return null;
+        }
+        finally
+        {
+            _operationGate.Release();
+        }
+    }
+
+    public RadioRecordingBookmarkChange AddBookmark(
+        RadioRecordingBookmarkTarget target,
+        string? name = null)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentException.ThrowIfNullOrWhiteSpace(target.Path);
+        var normalizedName = NormalizeBookmarkName(name);
+        var position = target.Position < TimeSpan.Zero ? TimeSpan.Zero : target.Position;
+        lock (_gate)
+        {
+            var existingIndex = _markers.FindIndex(marker =>
+                string.Equals(marker.Path, target.Path, StringComparison.OrdinalIgnoreCase)
+                && Math.Abs((marker.Position - position).Ticks) <= BookmarkDuplicateTolerance.Ticks);
+            if (existingIndex >= 0)
+            {
+                var existing = _markers[existingIndex];
+                if (normalizedName.Length > 0
+                    && !string.Equals(existing.Name, normalizedName, StringComparison.CurrentCulture))
+                {
+                    var renamed = existing with { Name = normalizedName };
+                    _markers[existingIndex] = renamed;
+                    return new RadioRecordingBookmarkChange(
+                        RadioRecordingBookmarkChangeKind.NameChanged,
+                        renamed);
+                }
+                return new RadioRecordingBookmarkChange(
+                    RadioRecordingBookmarkChangeKind.Duplicate,
+                    existing);
+            }
+
+            var marker = new RadioRecordingBookmarkMarker(
+                target.Path,
+                position,
+                target.CreatedUtc.ToUniversalTime(),
+                normalizedName);
+            _markers.Add(marker);
+            return new RadioRecordingBookmarkChange(
+                RadioRecordingBookmarkChangeKind.Added,
+                marker);
         }
     }
 
@@ -361,11 +450,12 @@ internal sealed class RadioRecordingControl
                     {
                         _backend.PauseRecording();
                         var position = _backend.RecordingDuration;
-                        _markers.Add(new RadioRecordingPauseMarker(
+                        _pauseMarkerCount++;
+                        _markers.Add(new RadioRecordingBookmarkMarker(
                             _currentPath ?? string.Empty,
                             position,
                             DateTime.UtcNow,
-                            $"Pauza {_markers.Count + 1}"));
+                            $"Pauza {_pauseMarkerCount}"));
                         return new RadioRecordingPauseChange(
                             RadioRecordingPauseChangeKind.Paused,
                             position);
@@ -415,5 +505,14 @@ internal sealed class RadioRecordingControl
         if (string.IsNullOrWhiteSpace(path)
             || _completedPaths.Contains(path, StringComparer.OrdinalIgnoreCase)) return;
         _completedPaths.Add(path);
+    }
+
+    private static string NormalizeBookmarkName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return string.Empty;
+        var normalized = string.Join(' ', name.Split(
+            (char[]?)null,
+            StringSplitOptions.RemoveEmptyEntries));
+        return normalized.Length <= 200 ? normalized : normalized[..200].TrimEnd();
     }
 }

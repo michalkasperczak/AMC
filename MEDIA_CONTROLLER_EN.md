@@ -1377,3 +1377,21 @@ row's accessible name and the Space-key notification begin with “enabled” or
 “schedule” wording, the technical checkbox description and the per-toggle
 instruction to select Save have been removed. The general reminder that
 changes must be saved remains above the list.
+
+Starting with `alpha.186`, an active radio recording accepts bookmarks. In
+the radio player and on a selected station in the Recording view, `B` stores
+a quick bookmark without opening a window, while `Shift+B` opens a short name
+field. AMC takes the position directly from the recording encoder rather than
+the listening time-shift buffer. The bookmark therefore identifies the right
+place even when monitoring is delayed, paused or playing another station.
+After either manual or scheduled splitting, each bookmark remains attached to
+the part being written when the key was pressed. Repeating the action within
+the same second does not create a duplicate; the named variant can name an
+earlier quick bookmark.
+
+When the part closes, AMC adds the completed file to its local catalogue and
+moves the collected bookmarks to that file. They appear in the ordinary
+Bookmarks view in Local files, open the recording at the saved position and
+are included in a full AMC backup. AMC does not modify the MP3, M4A, FLAC, WAV
+or original-stream container, allowing a separate bookmark export to be added
+later without risking the recording.

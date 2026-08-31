@@ -334,6 +334,14 @@
                               automation:AutomationProperties.Name="Wstrzymaj lub wznów nagrywanie tej stacji, Shift+Spacja"
                               automation:AutomationProperties.AcceleratorKey="Shift+Spacja"
                               Visibility="Collapsed" Click="PauseRadioRecording_Click" />
+                    <MenuItem x:Name="SelectedRadioAddRecordingBookmarkMenuItem" Header="Dodaj szybką zakładkę w nagrywanym pliku" InputGestureText="B"
+                              automation:AutomationProperties.Name="Dodaj szybką zakładkę w nagrywanym pliku, B"
+                              automation:AutomationProperties.AcceleratorKey="B"
+                              Visibility="Collapsed" Click="AddRadioRecordingBookmark_Click" />
+                    <MenuItem x:Name="SelectedRadioAddNamedRecordingBookmarkMenuItem" Header="Dodaj nazwaną zakładkę w nagrywanym pliku…" InputGestureText="Shift+B"
+                              automation:AutomationProperties.Name="Dodaj nazwaną zakładkę w nagrywanym pliku, Shift+B"
+                              automation:AutomationProperties.AcceleratorKey="Shift+B"
+                              Visibility="Collapsed" Click="AddNamedRadioRecordingBookmark_Click" />
                     <MenuItem x:Name="SelectedRadioSplitRecordingMenuItem" Header="Rozpocznij nową część ręcznego nagrania tej stacji" InputGestureText="T"
                               automation:AutomationProperties.Name="Rozpocznij nową część ręcznego nagrania tej stacji, T"
                               automation:AutomationProperties.AcceleratorKey="T"

@@ -1413,3 +1413,20 @@ po czym podają nazwę stacji, termin i pozostałe parametry. Usunięto powtórz
 „harmonogram”, techniczne objaśnienie pola wyboru oraz każdorazową instrukcję
 wybrania przycisku Zapisz. Ogólna informacja o konieczności zapisania zmian
 pozostaje nad listą.
+
+Od `alpha.186` trwające nagranie radia przyjmuje zakładki. W odtwarzaczu
+radia oraz na wybranej stacji w widoku Nagrywane klawisz `B` zapisuje szybką
+zakładkę bez otwierania okna, a `Shift+B` otwiera krótkie pole nazwy. AMC
+pobiera czas bezpośrednio z kodera nagrania, a nie z bufora odsłuchu. Dlatego
+zakładka wskazuje właściwe miejsce również wtedy, gdy odsłuch jest cofnięty,
+wstrzymany albo dotyczy innej stacji. Po ręcznym lub automatycznym podziale
+każda zakładka pozostaje związana z częścią, która była zapisywana w chwili
+naciśnięcia klawisza. Ponowne użycie w tej samej sekundzie nie tworzy
+duplikatu; wariant nazwany może nadać nazwę wcześniejszej szybkiej zakładce.
+
+Po zamknięciu części AMC dodaje gotowy plik do lokalnego katalogu programu i
+przenosi do niego zebrane zakładki. Są one widoczne na zwykłej liście
+Zakładek w sesji Pliki lokalne, otwierają nagranie we właściwym czasie i są
+objęte pełną kopią danych AMC. Program nie modyfikuje kontenera MP3, M4A,
+FLAC, WAV ani oryginalnego strumienia; osobny eksport zakładek może dzięki
+temu zostać dodany bez ryzyka uszkodzenia nagrania.

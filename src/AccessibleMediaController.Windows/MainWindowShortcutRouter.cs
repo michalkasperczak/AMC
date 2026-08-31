@@ -68,6 +68,20 @@ internal static class MainWindowShortcutRouter
     public static bool IsSessionListShortcut(Key key, ModifierKeys modifiers) =>
         key == Key.S && modifiers == (ModifierKeys.Control | ModifierKeys.Shift);
 
+    public static string? ResolveRadioRecordingBookmark(
+        Key key,
+        ModifierKeys modifiers,
+        bool recordingContext)
+    {
+        if (!recordingContext || key != Key.B) return null;
+        return modifiers switch
+        {
+            ModifierKeys.None => CommandIds.AddBookmark,
+            ModifierKeys.Shift => CommandIds.AddNamedBookmark,
+            _ => null
+        };
+    }
+
     public static MainWindowDigitShortcut ResolveDigit(
         Key key,
         ModifierKeys modifiers,

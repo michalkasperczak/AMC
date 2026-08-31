@@ -1070,7 +1070,27 @@ static void TestMainWindowDigitShortcutRouting()
         && !MainWindowNavigationPolicy.IsTransientRadioView("radio", "Biblioteka")
         && !MainWindowNavigationPolicy.IsTransientRadioView("local", "Nagrywane"),
         "Polityka Escape nie rozpoznaje tymczasowego widoku Nagrywane w Radiu.");
-    Console.WriteLine("OK: skróty sesji, Alt+1–3 zależne od sesji i tymczasowy widok Nagrywane");
+    Assert(
+        MainWindowShortcutRouter.ResolveRadioRecordingBookmark(
+            Key.B,
+            ModifierKeys.None,
+            recordingContext: true) == CommandIds.AddBookmark
+        && MainWindowShortcutRouter.ResolveRadioRecordingBookmark(
+            Key.B,
+            ModifierKeys.Shift,
+            recordingContext: true) == CommandIds.AddNamedBookmark,
+        "B i Shift+B nie wybierają szybkiej oraz nazwanej zakładki nagrania.");
+    Assert(
+        MainWindowShortcutRouter.ResolveRadioRecordingBookmark(
+            Key.B,
+            ModifierKeys.Control,
+            recordingContext: true) is null
+        && MainWindowShortcutRouter.ResolveRadioRecordingBookmark(
+            Key.B,
+            ModifierKeys.None,
+            recordingContext: false) is null,
+        "Skróty zakładek nagrania przejmują nieprawidłowy modyfikator albo kontekst.");
+    Console.WriteLine("OK: skróty sesji, widoki Radia oraz B i Shift+B nagrywanego pliku");
 }
 
 static void TestPlayerAudioProcessingKeyboardMap()
@@ -2156,6 +2176,23 @@ static void TestRadioRecordingSplitPipeline()
         firstPath,
         partNumber => $"Audycja-{partNumber:00}");
 
+    var firstTarget = control.CaptureBookmarkTarget();
+    Assert(firstTarget is not null
+           && string.Equals(firstTarget.Path, firstPath, StringComparison.OrdinalIgnoreCase)
+           && firstTarget.Position == TimeSpan.FromMinutes(1),
+        "Szybka zakładka nie pobrała ścieżki i czasu bieżącej części nagrania.");
+    var quickBookmark = control.AddBookmark(firstTarget!);
+    Assert(quickBookmark.Kind == RadioRecordingBookmarkChangeKind.Added
+           && string.IsNullOrEmpty(quickBookmark.Marker.Name),
+        "B nie utworzyło nienazwanej zakładki nagrania.");
+    var namedBookmark = control.AddBookmark(firstTarget!, "  Ważna   rozmowa  ");
+    Assert(namedBookmark.Kind == RadioRecordingBookmarkChangeKind.NameChanged
+           && namedBookmark.Marker.Name == "Ważna rozmowa",
+        "Shift+B nie nadało nazwy istniejącej zakładce z tej samej sekundy.");
+    var duplicateBookmark = control.AddBookmark(firstTarget!, "Ważna rozmowa");
+    Assert(duplicateBookmark.Kind == RadioRecordingBookmarkChangeKind.Duplicate,
+        "Ponowne B w tej samej sekundzie utworzyło duplikat zakładki nagrania.");
+
     var pause = control.SetPaused(true);
     Assert(pause.Kind == RadioRecordingPauseChangeKind.Paused && backend.IsRecordingPaused,
         "Testowy backend nie został wstrzymany przed podziałem.");
@@ -2177,13 +2214,26 @@ static void TestRadioRecordingSplitPipeline()
     Assert(control.CompletedPaths.Count == 1 && control.CurrentPath == split.CurrentPath,
         "Kontroler nie zapamiętał pierwszej i bieżącej części.");
 
+    var secondTarget = control.CaptureBookmarkTarget();
+    Assert(secondTarget is not null
+           && string.Equals(secondTarget.Path, split.CurrentPath, StringComparison.OrdinalIgnoreCase)
+           && control.AddBookmark(secondTarget).Kind == RadioRecordingBookmarkChangeKind.Added,
+        "Zakładka po podziale nie została przypisana do nowego pliku.");
+
     var finalPath = control.StopCurrentSegment(backend);
     control.Detach(backend);
     Assert(control.CompletedPaths.Count == 2 && control.CurrentPath is null,
         "Finalizacja po podziale nie zapisała dokładnie dwóch części.");
-    Assert(control.Markers.Count == 1
-           && string.Equals(control.Markers[0].Path, firstPath, StringComparison.OrdinalIgnoreCase),
-        "Punkt pauzy nie pozostał przypisany do pierwszej części.");
+    Assert(control.Markers.Count == 3
+           && control.Markers.Count(marker => string.Equals(
+               marker.Path,
+               firstPath,
+               StringComparison.OrdinalIgnoreCase)) == 2
+           && control.Markers.Count(marker => string.Equals(
+               marker.Path,
+               split.CurrentPath,
+               StringComparison.OrdinalIgnoreCase)) == 1,
+        "Zakładki i punkt pauzy nie pozostały przypisane do właściwych części.");
 
     var stoppingBackend = new TestRadioRecordingBackend(firstPath);
     var stoppingControl = new RadioRecordingControl();
@@ -2196,7 +2246,7 @@ static void TestRadioRecordingSplitPipeline()
         "Późny podział po zatrzymaniu uruchomił nową część.");
     stoppingControl.StopCurrentSegment(stoppingBackend);
     stoppingControl.Detach(stoppingBackend);
-    Console.WriteLine("OK: ręczny podział trwającego nagrania zachowuje części i pauzę");
+    Console.WriteLine("OK: zakładki nagrania zachowują nazwy, części i czas");
 }
 
 static void TestRadioRecordingStagingPublication()
