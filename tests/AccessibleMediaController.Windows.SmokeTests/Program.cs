@@ -304,15 +304,40 @@ static void TestGlobalPrefixCapture()
         WindowsKeyMap.ToDisplayText(KeyChord.Parse("Ctrl+NumpadEnter")) == "Ctrl+Enter numeryczny",
         "Enter numeryczny nie ma użytkowej etykiety dla NVDA.");
     Assert(
+        WindowsKeyMap.ToDisplayText(KeyChord.Parse("NumpadAdd")) == "Plus numeryczny"
+        && WindowsKeyMap.ToDisplayText(KeyChord.Parse("NumpadSubtract")) == "Minus numeryczny"
+        && WindowsKeyMap.ToDisplayText(KeyChord.Parse("NumpadDecimal")) == "Kropka numeryczna"
+        && WindowsKeyMap.ToDisplayText(KeyChord.Parse("NumpadNumLock")) == "Num Lock"
+        && WindowsKeyMap.ToDisplayText(KeyChord.Parse("NumpadInsert")) == "Insert numeryczny",
+        "Klawisze bloku numerycznego nie mają użytkowych nazw dla NVDA.");
+    Assert(
+        WindowsKeyMap.TryGetVirtualKey("NumpadAdd", out var numpadAdd) && numpadAdd == 0x6B
+        && WindowsKeyMap.TryGetVirtualKey("NumpadSubtract", out var numpadSubtract) && numpadSubtract == 0x6D
+        && WindowsKeyMap.TryGetVirtualKey("NumpadDecimal", out var numpadDecimal) && numpadDecimal == 0x6E
+        && WindowsKeyMap.TryGetVirtualKey("NumpadNumLock", out var numpadNumLock) && numpadNumLock == 0x90,
+        "Operatory bloku numerycznego nie zachowują własnych klawiszy wirtualnych.");
+    Assert(
         GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("Ctrl+NumpadEnter")),
         "Prefiks z Enterem numerycznym nie jest kierowany do dokładnego przechwytywania.");
     Assert(
         !GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("Ctrl+Enter")),
         "Zwykły Enter został błędnie utożsamiony z Enterem numerycznym.");
     Assert(
+        GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("NumpadInsert"))
+        && !GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("NumpadAdd"))
+        && !GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("NumpadNumLock"))
+        && !GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("NumpadDecimal")),
+        "Dokładny hook nie rozróżnia klawiszy współdzielonych z blokiem nawigacyjnym od samodzielnych operatorów numerycznych.");
+    Assert(
         GlobalPrefixService.IsNumpadEnterInput(0x0D, 0x01)
         && !GlobalPrefixService.IsNumpadEnterInput(0x0D, 0x00),
         "Flaga rozszerzonego Entera nie odróżnia obu klawiszy Enter.");
+    Assert(
+        WindowsKeyMap.FromKeyboardInput(0x2D, extended: false) == "NumpadInsert"
+        && WindowsKeyMap.FromKeyboardInput(0x2D, extended: true) == "Insert"
+        && WindowsKeyMap.FromKeyboardInput(0x2E, extended: false) == "NumpadDelete"
+        && WindowsKeyMap.FromKeyboardInput(0x2E, extended: true) == "Delete",
+        "Numeryczne Insert i Delete są mylone z osobnym blokiem nawigacyjnym.");
 
     Exception? failure = null;
     var directory = Path.Combine(Path.GetTempPath(), $"amc-prefix-setting-{Guid.NewGuid():N}");
@@ -321,17 +346,18 @@ static void TestGlobalPrefixCapture()
     {
         SettingsWindow? settings = null;
         ShortcutCaptureWindow? capture = null;
+        ShortcutCaptureWindow? numericCapture = null;
         try
         {
             var state = new PersistedState();
-            state.Settings.PrefixChord = "Ctrl+NumpadEnter";
+            state.Settings.PrefixChord = "NumpadAdd";
             var store = new ConfigurationStore(
                 Path.Combine(directory, "state.json"),
                 Path.Combine(directory, "library.db"));
             settings = new SettingsWindow(state, store, SettingsTarget.Prefix);
             var prefixBox = (TextBox)settings.FindName("PrefixBox");
             var changeButton = (Button)settings.FindName("ChangePrefixButton");
-            Assert(prefixBox.IsReadOnly && prefixBox.Text == "Ctrl+Enter numeryczny",
+            Assert(prefixBox.IsReadOnly && prefixBox.Text == "Plus numeryczny",
                 "Pole prefiksu nie pokazuje stabilnej wartości tylko do odczytu.");
             Assert((AutomationProperties.GetHelpText(changeButton) ?? string.Empty)
                     .Contains("zastępuje cały poprzedni prefiks", StringComparison.Ordinal),
@@ -345,6 +371,11 @@ static void TestGlobalPrefixCapture()
             Assert(command.Text == "Funkcja: Globalny prefiks"
                    && captured.Text == "Ctrl+Enter numeryczny",
                 "Okno przechwytywania ujawnia identyfikator techniczny lub złą nazwę klawisza.");
+            numericCapture = new ShortcutCaptureWindow(
+                "Globalny prefiks",
+                KeyChord.Parse("NumpadInsert"));
+            Assert(((TextBox)numericCapture.FindName("CapturedText")).Text == "Insert numeryczny",
+                "Okno przechwytywania nie pokazuje numerycznego Inserta bez modyfikatorów.");
         }
         catch (Exception exception)
         {
@@ -352,6 +383,7 @@ static void TestGlobalPrefixCapture()
         }
         finally
         {
+            numericCapture?.Close();
             capture?.Close();
             settings?.Close();
         }

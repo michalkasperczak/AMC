@@ -203,7 +203,9 @@ internal sealed class GlobalPrefixService : IDisposable
         _suppressedKeys.Add(data.VirtualKeyCode);
         if (IsModifier(data.VirtualKeyCode)) return new IntPtr(1);
 
-        var keyName = WindowsKeyMap.FromVirtualKey(data.VirtualKeyCode);
+        var keyName = WindowsKeyMap.FromKeyboardInput(
+            data.VirtualKeyCode,
+            (data.Flags & LlkhfExtended) != 0);
         if (keyName is null)
         {
             DeactivateLayer();
@@ -244,14 +246,19 @@ internal sealed class GlobalPrefixService : IDisposable
         && chord.Key is "0" or "S";
 
     internal static bool RequiresLowLevelHook(KeyChord prefix) =>
-        KeyChord.NormalizeKey(prefix.Key) == WindowsKeyMap.NumpadEnterKey;
+        WindowsKeyMap.RequiresExactNumpadHook(prefix.Key);
 
     internal static bool IsNumpadEnterInput(uint virtualKey, uint flags) =>
         virtualKey == VirtualKeyReturn && (flags & LlkhfExtended) != 0;
 
     private bool MatchesHookPrefix(KbdLlHookStruct data) =>
         _hookPrefix is KeyChord prefix
-        && IsNumpadEnterInput(data.VirtualKeyCode, data.Flags)
+        && string.Equals(
+            KeyChord.NormalizeKey(prefix.Key),
+            WindowsKeyMap.FromKeyboardInput(
+                data.VirtualKeyCode,
+                (data.Flags & LlkhfExtended) != 0),
+            StringComparison.Ordinal)
         && prefix.Modifiers == ReadModifiers();
 
     private static KeyModifiers ReadModifiers()

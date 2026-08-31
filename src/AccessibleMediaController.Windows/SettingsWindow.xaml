@@ -95,11 +95,11 @@
                     <Label Target="{Binding ElementName=PrefixBox}">Globalny _prefiks:</Label>
                     <TextBox x:Name="PrefixBox" Margin="0,0,0,8" IsReadOnly="True"
                              automation:AutomationProperties.Name="Globalny prefiks"
-                             automation:AutomationProperties.HelpText="Wartość tylko do odczytu. Przycisk Zmień prefiks przechwytuje całą kombinację, także Control plus Enter numeryczny." />
+                             automation:AutomationProperties.HelpText="Wartość tylko do odczytu. Przycisk Zmień prefiks przechwytuje całą kombinację, także sam Plus numeryczny albo Control plus Enter numeryczny." />
                     <WrapPanel Margin="0,0,0,8">
                         <Button x:Name="ChangePrefixButton" MinWidth="135" Margin="0,0,8,0"
                                 Content="_Zmień prefiks…" Click="ChangePrefix_Click"
-                                automation:AutomationProperties.HelpText="Otwiera okno przechwytywania. Pierwsza naciśnięta kombinacja zastępuje cały poprzedni prefiks." />
+                                automation:AutomationProperties.HelpText="Otwiera okno przechwytywania. Pierwsza naciśnięta kombinacja zastępuje cały poprzedni prefiks. Klawisze bloku numerycznego mogą być używane bez modyfikatorów." />
                         <Button x:Name="RestoreDefaultPrefixButton" MinWidth="190"
                                 Content="Przywróć _domyślny" Click="RestoreDefaultPrefix_Click"
                                 automation:AutomationProperties.HelpText="Ustawia Ctrl+Alt+Windows+F12. Zmiana zostanie sprawdzona przy zapisywaniu ustawień." />

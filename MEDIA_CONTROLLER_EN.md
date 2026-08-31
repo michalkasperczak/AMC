@@ -1395,3 +1395,13 @@ Bookmarks view in Local files, open the recording at the saved position and
 are included in a full AMC backup. AMC does not modify the MP3, M4A, FLAC, WAV
 or original-stream container, allowing a separate bookmark export to be added
 later without risking the recording.
+
+Starting with `alpha.187`, global-prefix capture covers the complete standard
+numeric keypad. Bare Plus, Minus, Multiply, Divide, decimal, separator,
+Num Lock, Enter or any digit can serve as the prefix; Control, Alt, Shift and
+Windows remain optional. Digits and operators retain their own virtual-key
+identities. Enter and the keys produced with Num Lock off use exact physical
+capture: keypad Insert, Delete, Home, End, Page Up, Page Down and arrow keys
+are not confused with the dedicated navigation block. The capture window,
+system registration and prefix execution share this model, while UI
+Automation exposes user-facing names rather than internal key identifiers.

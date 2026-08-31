@@ -1430,3 +1430,14 @@ Zakładek w sesji Pliki lokalne, otwierają nagranie we właściwym czasie i są
 objęte pełną kopią danych AMC. Program nie modyfikuje kontenera MP3, M4A,
 FLAC, WAV ani oryginalnego strumienia; osobny eksport zakładek może dzięki
 temu zostać dodany bez ryzyka uszkodzenia nagrania.
+
+Od `alpha.187` przechwytywanie globalnego prefiksu obejmuje cały standardowy
+blok numeryczny. Sam Plus, Minus, Gwiazdka, Ukośnik, kropka, separator,
+Num Lock, Enter albo dowolna cyfra mogą zostać prefiksem bez dodatkowego
+modyfikatora; Control, Alt, Shift i Windows pozostają opcjonalne. Cyfry i
+operatory zachowują własne kody klawiszy. Enter oraz warianty powstające po
+wyłączeniu Num Lock korzystają z dokładnego przechwytywania fizycznego:
+numeryczne Insert, Delete, Home, End, Page Up, Page Down i strzałki nie są
+utożsamiane z osobnym blokiem nawigacyjnym. Ten sam model służy oknu zmiany,
+rejestracji systemowej i wykonaniu prefiksu, a UI Automation udostępnia nazwy
+użytkowe zamiast wewnętrznych oznaczeń klawiszy.

@@ -51,6 +51,14 @@ and future session, streaming and download adapters. The schedule date field
 remains segmented: Left and Right choose a date part, while Up and Down change
 its value.
 
+Starting with `alpha.187`, any standard numeric-keypad key can serve as the
+global prefix, including without Control, Alt, Shift or Windows. This covers
+digits, Enter, Plus, Minus, Multiply, Divide, decimal, separator and Num Lock.
+With Num Lock off, AMC also distinguishes keypad Insert, Delete, Home, End,
+Page Up, Page Down and the arrow keys from their dedicated navigation-block
+counterparts. Settings and the capture window expose only user-facing names
+to NVDA, such as “numeric Plus” or “numeric Insert”.
+
 Starting with `alpha.115`, **Internet Radio** on the default `Ctrl+5` slot is AMC's first real network adapter. `Ctrl+F` searches the public Radio Browser directory; a result can be played or added to the radio's local Library or Favorites. Queue and Play Next are not part of the radio model, while playlists may group stations. `Insert` in the radio Library adds a custom station, while `F2` exposes two independent fields: station name and stream URL. The player keeps a bounded in-memory time-shift buffer: Home moves to its oldest available point, End returns to live, and `R` starts or stops an explicit background recording of the current station. `Ctrl+Alt+R` does the same from a list, `Alt+2` shows all actively recorded stations, and `Shift+R` opens timed recording or the scheduler. Direct HTTP/HTTPS streams and M3U, M3U8, PLS and XSPF lists are accepted; an HLS manifest remains a manifest for the decoder. Bookmarks, percentage jumps and playback speed are hidden for live radio because they have no durable broadcast meaning.
 
 Starting with `alpha.116`, radio recordings are stored as MP3 instead of WAV. The target quality is 192 kbps; for an unusual sample rate the system selects the nearest supported bitrate. AMC encodes the decoded audio through Windows Media Foundation, so source MP3, AAC, OGG and other streams supported by the player follow one path without installing FFmpeg or a global codec pack. Recording first writes an AMC temporary file and publishes the `.mp3` name only after successful finalisation. Stop, station changes and application shutdown finalise the file; an encoder failure removes incomplete data without stopping radio playback.

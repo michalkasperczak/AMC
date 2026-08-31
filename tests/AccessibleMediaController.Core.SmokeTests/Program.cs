@@ -260,6 +260,13 @@ static void TestKeyChords()
     Equal("Ctrl+Alt+Windows+Enter", KeyChord.Parse("Alt+Win+Control+Enter").Canonical);
     Equal("Ctrl+NumpadEnter", KeyChord.Parse("Control+Enter numeryczny").Canonical);
     Equal("Ctrl+NumpadEnter", KeyChord.Parse("Ctrl+Numpad Enter").Canonical);
+    Equal("NumpadAdd", KeyChord.Parse("plus numeryczny").Canonical);
+    Equal("NumpadSubtract", KeyChord.Parse("minus numeryczny").Canonical);
+    Equal("NumpadDecimal", KeyChord.Parse("kropka numeryczna").Canonical);
+    Equal("Numpad7", KeyChord.Parse("7 numeryczny").Canonical);
+    Equal("NumpadInsert", KeyChord.Parse("Insert numeryczny").Canonical);
+    Equal("NumpadNumLock", KeyChord.Parse("Num Lock").Canonical);
+    Equal("Windows+NumpadDivide", KeyChord.Parse("Win+dzielenie numeryczne").Canonical);
     Equal("Ctrl+Alt+Windows+F12", KeyChord.Parse("Windows+Alt+Control+F12").Canonical);
     Equal("PageDown", KeyChord.Parse("PgDn").Canonical);
 }

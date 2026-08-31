@@ -12,12 +12,11 @@ public partial class ShortcutCaptureWindow : Window
     private const int WmKeyUp = 0x0101;
     private const int WmSysKeyDown = 0x0104;
     private const int WmSysKeyUp = 0x0105;
-    private const int VirtualKeyReturn = 0x0D;
     private const long ExtendedKeyMask = 1L << 24;
 
     private HwndSource? _source;
     private bool _captureComplete;
-    private bool _suppressNumpadEnterKeyUp;
+    private readonly HashSet<int> _suppressedNumpadKeyUps = [];
 
     public ShortcutCaptureWindow(string commandDisplayName, KeyChord? currentChord = null)
     {
@@ -73,19 +72,22 @@ public partial class ShortcutCaptureWindow : Window
     {
         var virtualKey = wParam.ToInt32();
         var extended = (lParam.ToInt64() & ExtendedKeyMask) != 0;
-        if (virtualKey != VirtualKeyReturn || !extended) return IntPtr.Zero;
+        if (!WindowsKeyMap.TryGetExactNumpadKey((uint)virtualKey, extended, out var keyName))
+            return IntPtr.Zero;
 
         if (message is WmKeyDown or WmSysKeyDown)
         {
-            Capture(new KeyChord(
-                WindowsKeyMap.NumpadEnterKey,
-                WindowsKeyMap.FromModifierKeys(Keyboard.Modifiers)));
-            _suppressNumpadEnterKeyUp = true;
+            if (_suppressedNumpadKeyUps.Add(virtualKey))
+            {
+                Capture(new KeyChord(
+                    keyName,
+                    WindowsKeyMap.FromModifierKeys(Keyboard.Modifiers)));
+            }
             handled = true;
         }
-        else if (_suppressNumpadEnterKeyUp && message is WmKeyUp or WmSysKeyUp)
+        else if (message is WmKeyUp or WmSysKeyUp
+                 && _suppressedNumpadKeyUps.Remove(virtualKey))
         {
-            _suppressNumpadEnterKeyUp = false;
             handled = true;
         }
         return IntPtr.Zero;

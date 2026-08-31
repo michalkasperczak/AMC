@@ -1,12 +1,60 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-180`
-- Tytuł zestawu: Trwałe i szybsze obserwowanie Shazam
-- Wersja programu: `0.1.0-alpha.180`
-- Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.180.md`
+- Numer zestawu: `AMC-TEST-187`
+- Tytuł zestawu: Cały blok numeryczny jako globalny prefiks
+- Wersja programu: `0.1.0-alpha.187`
+- Utworzono: 2026-09-01, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.187.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 187
+
+### AMC-187-01 — sam Plus numeryczny
+
+Otwórz **Ustawienia > Ogólne > Prefiks globalny**, wybierz **Zmień
+prefiks…** i naciśnij sam Plus na bloku numerycznym, bez żadnego
+modyfikatora. Potwierdź zwykłym Enterem, zapisz Ustawienia, przejdź do innego
+programu i użyj Plusa numerycznego, a następnie polecenia warstwy, na przykład
+Spacji.
+
+Oczekiwane: okno i pole mówią „Plus numeryczny”. Prefiks zapisuje się i
+działa globalnie bez Control, Alt, Shift ani Windows. Naciśnięcie przejętego
+Plusa nie wpisuje równocześnie znaku do programu pod fokusem.
+
+### AMC-187-02 — pozostałe działania i Num Lock
+
+Kolejno przechwyć i zapisz sam Minus numeryczny, Gwiazdkę numeryczną,
+Ukośnik numeryczny, kropkę numeryczną oraz Num Lock. Po każdym zapisie sprawdź
+uruchomienie warstwy prefiksowej poza AMC.
+
+Oczekiwane: każdy klawisz ma własną użytkową nazwę i może działać bez
+modyfikatorów. Poprzednia wartość jest zastępowana w całości, bez ręcznego
+kasowania i bez technicznych nazw odczytywanych przez NVDA.
+
+### AMC-187-03 — Insert numeryczny a zwykły Insert
+
+Wyłącz Num Lock. Ustaw klawisz `0` bloku numerycznego jako prefiks. AMC
+powinien odczytać go jako „Insert numeryczny”. Zapisz ustawienie i porównaj
+działanie tego klawisza ze zwykłym Insertem z osobnego bloku nawigacyjnego.
+Powtórz porównanie dla kropki numerycznej odczytywanej jako „Delete
+numeryczny” i zwykłego Delete.
+
+Oczekiwane: tylko fizyczny klawisz bloku numerycznego uruchamia prefiks.
+Zwykły Insert albo Delete nie jest przejmowany. Fokus i NVDA zachowują się
+normalnie po użyciu klawisza z osobnego bloku.
+
+### AMC-187-04 — cyfry i kombinacje z modyfikatorami
+
+Włącz Num Lock i sprawdź jako prefiks samą cyfrę numeryczną, na przykład
+`7 numeryczny`. Następnie ustaw `Ctrl+Minus numeryczny` i na końcu przywróć
+wartość domyślną.
+
+Oczekiwane: cyfra numeryczna pozostaje odrębna od cyfry górnego rzędu, a
+modyfikatory są opcjonalne, lecz nadal poprawnie rejestrowane. Przycisk
+przywracania ustawia `Ctrl+Alt+Windows+F12`.
+
+## Poprzedni zestaw alpha 180
 
 ## Nowości alpha 180
 

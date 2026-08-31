@@ -9,10 +9,10 @@
     <StackPanel Margin="18">
         <TextBlock x:Name="CommandText" FontWeight="SemiBold" Margin="0,0,0,12"
                    automation:AutomationProperties.HeadingLevel="Level1" />
-        <TextBlock Text="Naciśnij nową kombinację. Zastąpi ona cały poprzedni skrót. Sam Escape anuluje. Po przechwyceniu naciśnij zwykły Enter, aby zapisać." TextWrapping="Wrap" Margin="0,0,0,12" />
+        <TextBlock Text="Naciśnij nową kombinację. Zastąpi ona cały poprzedni skrót. Możesz użyć samego klawisza bloku numerycznego, na przykład Plusa numerycznego. Sam Escape anuluje. Po przechwyceniu naciśnij zwykły Enter, aby zapisać." TextWrapping="Wrap" Margin="0,0,0,12" />
         <TextBox x:Name="CapturedText" IsReadOnly="True" FontSize="18" Margin="0,0,0,18"
                  automation:AutomationProperties.Name="Przechwycony skrót"
-                 automation:AutomationProperties.HelpText="Pole tylko do odczytu. Naciśnięta kombinacja zastępuje cały poprzedni skrót." />
+                 automation:AutomationProperties.HelpText="Pole tylko do odczytu. Naciśnięta kombinacja zastępuje cały poprzedni skrót. Klawisz bloku numerycznego nie wymaga Control, Alt, Shift ani Windows." />
         <controls:AccessibleStatusTextBlock x:Name="CaptureStatus" Margin="0,0,0,12"
                     automation:AutomationProperties.Name="Wynik przechwytywania skrótu"
                     automation:AutomationProperties.LiveSetting="Assertive"
