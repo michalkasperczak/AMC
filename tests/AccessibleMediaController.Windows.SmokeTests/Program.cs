@@ -60,6 +60,7 @@ try
     TestEditableFieldReplacement();
     TestGlobalPrefixCapture();
     TestMenuAccessibility();
+    TestSegmentedDateTimeDigitEntry();
     TestRadioScheduleAccessibility();
     TestStatePersistenceQueue();
     TestRadioRecognitionAnnouncementPolicy();
@@ -451,8 +452,17 @@ static void TestRadioScheduleAccessibility()
                 "Kalendarz nie zachowuje nawigacji po częściach daty za pomocą strzałek.");
             Assert(datePicker.AccessibleName == "Data pierwszego nagrania"
                    && (datePicker.AccessibleDescription ?? string.Empty)
+                       .Contains("Wpisz kolejno dwie cyfry dnia", StringComparison.Ordinal)
+                   && (datePicker.AccessibleDescription ?? string.Empty)
                        .Contains("Góra i dół zmienia", StringComparison.Ordinal),
-                "Kalendarz nie objaśnia NVDA obsługi strzałkami.");
+                "Kalendarz nie objaśnia NVDA ciągłego wpisywania cyfr i obsługi strzałkami.");
+            var timePickerHost = (System.Windows.Forms.Integration.WindowsFormsHost)
+                editor.FindName("TimePickerHost");
+            var timePicker = (System.Windows.Forms.DateTimePicker)timePickerHost.Child;
+            Assert(timePicker.AccessibleName == "Godzina rozpoczęcia"
+                   && (timePicker.AccessibleDescription ?? string.Empty)
+                       .Contains("na przykład 2310", StringComparison.Ordinal),
+                "Pole czasu nie objaśnia NVDA wpisywania czterech cyfr bez dwukropka.");
 
             manager = new RadioSchedulesWindow(
                 [station],
@@ -529,6 +539,77 @@ static void TestRadioScheduleAccessibility()
             foreach (var child in DescendantMenuItems(item.Items)) yield return child;
         }
     }
+}
+
+static void TestSegmentedDateTimeDigitEntry()
+{
+    var now = new DateTime(2026, 8, 31, 12, 0, 0, DateTimeKind.Utc);
+    var minimum = new DateTime(1753, 1, 1);
+    var maximum = new DateTime(9998, 12, 31, 23, 59, 59);
+    var dateEditor = new SegmentedDateTimeDigitEditor(SegmentedDateTimeField.Date);
+    var date = new DateTime(2026, 9, 4);
+
+    var result = dateEditor.EnterDigit(date, 0, 1, now, minimum, maximum);
+    Assert(!result.IsComplete, "Dzień został zatwierdzony przed wpisaniem dwóch cyfr.");
+    result = dateEditor.EnterDigit(date, 0, 5, now.AddMilliseconds(100), minimum, maximum);
+    Assert(result.IsComplete && result.IsValid && result.MoveNext && result.Value.Day == 15,
+        "Dwucyfrowy dzień nie został ustawiony albo nie przeszedł do miesiąca.");
+    date = result.Value;
+
+    result = dateEditor.EnterDigit(date, 1, 0, now.AddMilliseconds(200), minimum, maximum);
+    Assert(!result.IsComplete, "Miesiąc został zatwierdzony przed wpisaniem dwóch cyfr.");
+    result = dateEditor.EnterDigit(date, 1, 4, now.AddMilliseconds(300), minimum, maximum);
+    Assert(result.IsComplete && result.IsValid && result.MoveNext && result.Value.Month == 4,
+        "Miesiąc 04 nie został ustawiony jako kwiecień albo nie przeszedł do roku.");
+    date = result.Value;
+
+    foreach (var (digit, offset) in new[] { (2, 400), (0, 500), (2, 600), (7, 700) })
+        result = dateEditor.EnterDigit(date, 2, digit, now.AddMilliseconds(offset), minimum, maximum);
+    Assert(result.IsComplete && result.IsValid && !result.MoveNext && result.Value.Year == 2027,
+        "Czterocyfrowy rok nie został ustawiony w ostatnim segmencie.");
+
+    dateEditor.Reset();
+    var monthEnd = new DateTime(2026, 1, 31);
+    _ = dateEditor.EnterDigit(monthEnd, 1, 0, now, minimum, maximum);
+    result = dateEditor.EnterDigit(monthEnd, 1, 4, now.AddMilliseconds(100), minimum, maximum);
+    Assert(result.IsValid && result.Value == new DateTime(2026, 4, 30),
+        "Zmiana miesiąca nie dopasowała dnia do końca krótszego miesiąca.");
+
+    var timeEditor = new SegmentedDateTimeDigitEditor(SegmentedDateTimeField.Time);
+    var time = new DateTime(2026, 8, 31, 8, 5, 0);
+    _ = timeEditor.EnterDigit(time, 0, 2, now, minimum, maximum);
+    result = timeEditor.EnterDigit(time, 0, 3, now.AddMilliseconds(100), minimum, maximum);
+    Assert(result.IsValid && result.MoveNext && result.Value.Hour == 23,
+        "Pierwsze dwie cyfry 2310 nie ustawiły godziny 23.");
+    time = result.Value;
+    _ = timeEditor.EnterDigit(time, 1, 1, now.AddMilliseconds(200), minimum, maximum);
+    result = timeEditor.EnterDigit(time, 1, 0, now.AddMilliseconds(300), minimum, maximum);
+    Assert(result.IsValid && !result.MoveNext && result.Value.Hour == 23 && result.Value.Minute == 10,
+        "Ciąg 2310 nie ustawił czasu 23:10.");
+
+    timeEditor.Reset();
+    _ = timeEditor.EnterDigit(time, 0, 2, now, minimum, maximum);
+    result = timeEditor.EnterDigit(time, 0, 9, now.AddMilliseconds(100), minimum, maximum);
+    Assert(result.IsComplete && !result.IsValid && result.Value == time,
+        "Nieprawidłowa godzina 29 zmieniła czas.");
+    _ = timeEditor.EnterDigit(time, 0, 0, now.AddMilliseconds(200), minimum, maximum);
+    result = timeEditor.EnterDigit(time, 0, 5, now.AddMilliseconds(300), minimum, maximum);
+    Assert(result.IsValid && result.Value.Hour == 5,
+        "Po błędzie nie rozpoczęto czystego wpisywania następnej godziny.");
+
+    timeEditor.Reset();
+    result = timeEditor.EnterDigit(time, 0, 1, now, minimum, maximum);
+    result = timeEditor.EnterDigit(time, 0, 0, now.AddSeconds(4), minimum, maximum);
+    Assert(!result.IsComplete,
+        "Cyfra wpisana po przerwie została połączona ze starym, nieukończonym segmentem.");
+
+    Assert(SegmentedDateTimeDigitEditor.TryGetDigit(System.Windows.Forms.Keys.D4, out var topDigit)
+           && topDigit == 4
+           && SegmentedDateTimeDigitEditor.TryGetDigit(System.Windows.Forms.Keys.NumPad7, out var padDigit)
+           && padDigit == 7,
+        "Cyfry z górnego rzędu albo klawiatury numerycznej nie są rozpoznawane jednakowo.");
+
+    Console.WriteLine("OK: ciągłe wpisywanie segmentów daty i czasu");
 }
 
 static void TestStatePersistenceQueue()

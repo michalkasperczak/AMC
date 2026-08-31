@@ -1363,3 +1363,14 @@ transakcyjna: AMC najpierw próbuje zarejestrować nowy skrót pod zapasowym
 identyfikatorem, a dopiero po sukcesie zwalnia stary. Konflikt pozostawia okno
 Ustawień otwarte i poprzedni prefiks czynny. Żadna dostępna etykieta okna
 przechwytywania nie zawiera identyfikatora polecenia.
+
+Od `alpha.182` segmentowe pola daty i czasu harmonogramu przyjmują ciąg cyfr
+bez ręcznego przechodzenia między częściami. Dwie cyfry dnia przechodzą do
+miesiąca, dwie cyfry miesiąca do roku, a dwie cyfry godziny do minut; rok
+pozostaje czterocyfrowy. Dzięki temu `2310` wpisane od godziny ustawia `23:10`,
+a pełną datę można wpisać kolejno jako dzień, miesiąc i rok. Zasada obejmuje
+górny rząd i blok numeryczny, lecz nie przechwytuje kombinacji z Ctrl ani Alt.
+Przejście następuje dopiero po poprawnej wartości. Błędny dzień, miesiąc,
+godzina lub minuta pozostawia poprzednią datę albo czas i otrzymuje użytkowy
+komunikat; zmiana miesiąca lub roku dopasowuje dzień do krótszego miesiąca.
+Dotychczasowe strzałki i zwięzłe komunikaty NVDA pozostają dostępne.

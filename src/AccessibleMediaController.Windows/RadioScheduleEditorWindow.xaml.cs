@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -21,8 +22,17 @@ public partial class RadioScheduleEditorWindow : Window
     private readonly System.Windows.Forms.DateTimePicker _timePicker;
     private readonly System.Windows.Forms.NumericUpDown _durationPicker;
     private readonly System.Windows.Forms.NumericUpDown _splitMinutesPicker;
+    private readonly SegmentedDateTimeDigitEditor _dateDigitEditor =
+        new(SegmentedDateTimeField.Date);
+    private readonly SegmentedDateTimeDigitEditor _timeDigitEditor =
+        new(SegmentedDateTimeField.Time);
     private int _dateSegmentIndex;
     private int _timeSegmentIndex;
+    private bool _movingSegmentProgrammatically;
+
+    private const uint WmKeyDown = 0x0100;
+    private const uint WmKeyUp = 0x0101;
+    private const int VirtualKeyRight = 0x27;
 
     public RadioRecordingScheduleSettings? ResultSchedule { get; private set; }
 
@@ -49,6 +59,8 @@ public partial class RadioScheduleEditorWindow : Window
         _timePicker.KeyDown += HostedInput_KeyDown;
         _durationPicker.KeyDown += HostedInput_KeyDown;
         _splitMinutesPicker.KeyDown += HostedInput_KeyDown;
+        _datePicker.Leave += (_, _) => _dateDigitEditor.Reset();
+        _timePicker.Leave += (_, _) => _timeDigitEditor.Reset();
         EditableFieldSelection.Attach(_durationPicker);
         EditableFieldSelection.Attach(_splitMinutesPicker);
         _datePicker.ValueChanged += (_, _) => UpdateFileNamePreview();
@@ -413,7 +425,7 @@ public partial class RadioScheduleEditorWindow : Window
         if (immediate) EnabledCheckBox.IsChecked = true;
         ImmediateStartExplanation.Text = immediate
             ? "Nagrywanie rozpocznie się natychmiast po wybraniu Zapisz. Data i godzina są pomijane; harmonogram cykliczny powtórzy się o godzinie rozpoczęcia pierwszego nagrania."
-            : "Nagrywanie rozpocznie się później, w podanej dacie i godzinie. W polach daty i czasu lewo lub prawo wybiera część, a góra lub dół zmienia jej wartość.";
+            : "Nagrywanie rozpocznie się później, w podanej dacie i godzinie. Można wpisać kolejno cyfry całej daty lub czasu; po ukończeniu dnia, miesiąca albo godziny program przechodzi do następnej części. Lewo lub prawo wybiera część, a góra lub dół zmienia jej wartość.";
     }
 
     private void UpdateSplitControls()
@@ -467,8 +479,42 @@ public partial class RadioScheduleEditorWindow : Window
             return;
         }
 
+        if (!_movingSegmentProgrammatically
+            && e.Modifiers == System.Windows.Forms.Keys.None
+            && SegmentedDateTimeDigitEditor.TryGetDigit(e.KeyCode, out var digit))
+        {
+            if (sender == _datePicker)
+            {
+                HandleSegmentDigit(
+                    _datePicker,
+                    _dateDigitEditor,
+                    ref _dateSegmentIndex,
+                    digit,
+                    FormatDateSegment,
+                    isDate: true);
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+
+            if (sender == _timePicker)
+            {
+                HandleSegmentDigit(
+                    _timePicker,
+                    _timeDigitEditor,
+                    ref _timeSegmentIndex,
+                    digit,
+                    FormatTimeSegment,
+                    isDate: false);
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+        }
+
         if (sender == _datePicker && IsSegmentNavigationKey(e.KeyCode))
         {
+            _dateDigitEditor.Reset();
             _dateSegmentIndex = MoveSegment(
                 _dateSegmentIndex,
                 segmentCount: 3,
@@ -483,6 +529,7 @@ public partial class RadioScheduleEditorWindow : Window
 
         if (sender == _timePicker && IsSegmentNavigationKey(e.KeyCode))
         {
+            _timeDigitEditor.Reset();
             _timeSegmentIndex = MoveSegment(
                 _timeSegmentIndex,
                 segmentCount: 2,
@@ -493,6 +540,77 @@ public partial class RadioScheduleEditorWindow : Window
                 _timeSegmentIndex,
                 includeSegmentName));
         }
+    }
+
+    private void HandleSegmentDigit(
+        System.Windows.Forms.DateTimePicker picker,
+        SegmentedDateTimeDigitEditor editor,
+        ref int segmentIndex,
+        int digit,
+        Func<DateTime, int, bool, string> segmentFormatter,
+        bool isDate)
+    {
+        var result = editor.EnterDigit(
+            picker.Value,
+            segmentIndex,
+            digit,
+            DateTime.UtcNow,
+            picker.MinDate,
+            picker.MaxDate);
+        if (!result.IsComplete) return;
+
+        if (!result.IsValid)
+        {
+            DateTimeStatus.Announce(FormatInvalidSegment(
+                segmentIndex,
+                result.EnteredValue,
+                isDate));
+            return;
+        }
+
+        picker.Value = result.Value;
+        if (result.MoveNext)
+        {
+            segmentIndex++;
+            MoveNativeSegmentRight(picker);
+        }
+
+        var announcedSegment = segmentIndex;
+        AnnounceHostedValueAfterKey(() => segmentFormatter(
+            picker.Value,
+            announcedSegment,
+            true));
+    }
+
+    private void MoveNativeSegmentRight(System.Windows.Forms.DateTimePicker picker)
+    {
+        _movingSegmentProgrammatically = true;
+        try
+        {
+            SendMessage(picker.Handle, WmKeyDown, (nint)VirtualKeyRight, 0);
+            SendMessage(picker.Handle, WmKeyUp, (nint)VirtualKeyRight, 0);
+        }
+        finally
+        {
+            _movingSegmentProgrammatically = false;
+        }
+    }
+
+    private static string FormatInvalidSegment(int segmentIndex, int enteredValue, bool isDate)
+    {
+        if (!isDate)
+        {
+            return segmentIndex == 0
+                ? $"Nieprawidłowa godzina: {enteredValue:D2}. Wpisz dwie cyfry od 00 do 23."
+                : $"Nieprawidłowe minuty: {enteredValue:D2}. Wpisz dwie cyfry od 00 do 59.";
+        }
+
+        return segmentIndex switch
+        {
+            0 => $"Nieprawidłowy dzień: {enteredValue:D2}. Wpisz dwie cyfry dnia istniejącego w wybranym miesiącu.",
+            1 => $"Nieprawidłowy miesiąc: {enteredValue:D2}. Wpisz dwie cyfry od 01 do 12.",
+            _ => $"Nieprawidłowy rok: {enteredValue:D4}. Wpisz cztery cyfry roku obsługiwanego przez kalendarz."
+        };
     }
 
     private static bool IsSegmentNavigationKey(System.Windows.Forms.Keys key) =>
@@ -557,7 +675,7 @@ public partial class RadioScheduleEditorWindow : Window
     private static System.Windows.Forms.DateTimePicker CreateDatePicker() => new()
     {
         AccessibleName = "Data pierwszego nagrania",
-        AccessibleDescription = "Lewo i prawo wybiera dzień, miesiąc albo rok. Góra i dół zmienia wybraną część.",
+        AccessibleDescription = "Wpisz kolejno dwie cyfry dnia, dwie miesiąca i cztery roku. Po ukończeniu części program przechodzi dalej. Lewo i prawo wybiera część. Góra i dół zmienia jej wartość.",
         AccessibleRole = System.Windows.Forms.AccessibleRole.SpinButton,
         CustomFormat = "dd.MM.yyyy",
         Format = System.Windows.Forms.DateTimePickerFormat.Custom,
@@ -569,7 +687,7 @@ public partial class RadioScheduleEditorWindow : Window
     private static System.Windows.Forms.DateTimePicker CreateTimePicker() => new()
     {
         AccessibleName = "Godzina rozpoczęcia",
-        AccessibleDescription = "Lewo i prawo wybiera godzinę albo minuty. Góra i dół zmienia wybraną część.",
+        AccessibleDescription = "Wpisz cztery cyfry bez dwukropka, na przykład 2310. Po dwóch cyfrach godziny program przechodzi do minut. Lewo i prawo wybiera część. Góra i dół zmienia jej wartość.",
         AccessibleRole = System.Windows.Forms.AccessibleRole.SpinButton,
         CustomFormat = "HH:mm",
         Format = System.Windows.Forms.DateTimePickerFormat.Custom,
@@ -577,6 +695,9 @@ public partial class RadioScheduleEditorWindow : Window
         Dock = System.Windows.Forms.DockStyle.Fill,
         TabStop = true
     };
+
+    [DllImport("user32.dll")]
+    private static extern nint SendMessage(nint window, uint message, nint wordParameter, nint longParameter);
 
     private static System.Windows.Forms.NumericUpDown CreateDurationPicker() => new()
     {

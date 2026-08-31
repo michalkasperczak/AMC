@@ -1327,3 +1327,15 @@ combinations are registered transactionally: AMC first acquires the new
 combination under a spare identifier and releases the old one only after
 success. A conflict keeps Settings open and the previous prefix active. No
 accessible capture label contains an internal command identifier.
+
+Starting with `alpha.182`, the schedule's segmented date and time fields
+accept a continuous digit sequence without requiring manual movement between
+parts. Two day digits advance to month, two month digits advance to year, and
+two hour digits advance to minutes; year remains four digits. Thus `2310`
+entered from the hour sets `23:10`, while a complete date can be entered as
+day, month and year in sequence. The rule covers both the number row and the
+numeric keypad, but does not consume Ctrl or Alt combinations. Advancement
+occurs only after a valid value. An invalid day, month, hour or minute keeps
+the previous date or time and produces a user-facing message; changing month
+or year adjusts the day to the end of a shorter month. Existing arrow-key
+navigation and concise NVDA announcements remain available.
