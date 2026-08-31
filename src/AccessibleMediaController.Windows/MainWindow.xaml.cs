@@ -7559,6 +7559,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Recurrence = schedule.Recurrence,
         ActiveDays = [.. schedule.ActiveDays],
         OutputFolder = schedule.OutputFolder,
+        FileNameTemplate = schedule.FileNameTemplate,
         RecordingFormat = schedule.RecordingFormat,
         RecordingBitrateKbps = schedule.RecordingBitrateKbps,
         WakeComputer = schedule.WakeComputer,

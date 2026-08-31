@@ -48,6 +48,9 @@ public partial class RadioScheduleEditorWindow : Window
         _timePicker.KeyDown += HostedInput_KeyDown;
         _durationPicker.KeyDown += HostedInput_KeyDown;
         _splitMinutesPicker.KeyDown += HostedInput_KeyDown;
+        _datePicker.ValueChanged += (_, _) => UpdateFileNamePreview();
+        _timePicker.ValueChanged += (_, _) => UpdateFileNamePreview();
+        StationCombo.SelectionChanged += (_, _) => UpdateFileNamePreview();
         _existing = existing;
         var choices = stations
             .Where(item => item.Kind == MediaItemKind.Station
@@ -105,6 +108,8 @@ public partial class RadioScheduleEditorWindow : Window
         var recordingBitrate = existing?.RecordingBitrateKbps ?? defaultRecordingBitrateKbps;
         RecordingBitrateCombo.SelectedItem = RecordingBitrateChoice.All.MinBy(choice =>
             Math.Abs(choice.Value - recordingBitrate));
+        FileNameTemplateTextBox.Text = RadioRecordingFileNameTemplate.NormalizeOrDefault(
+            existing?.FileNameTemplate);
 
         var stationId = existing?.StationId ?? preferredStationId;
         StationCombo.SelectedItem = _stations.FirstOrDefault(choice => choice.Id == stationId)
@@ -130,6 +135,7 @@ public partial class RadioScheduleEditorWindow : Window
         UpdateSplitControls();
         UpdateRecordingBitrateEnabled();
         UpdateOutputFolderControls();
+        UpdateFileNamePreview();
         Loaded += (_, _) =>
         {
             if (_existing is null)
@@ -181,6 +187,12 @@ public partial class RadioScheduleEditorWindow : Window
             ShowError("Wybierz bitrate nagrania", RecordingBitrateCombo);
             return;
         }
+        var fileNameTemplate = FileNameTemplateTextBox.Text.Trim();
+        if (!RadioRecordingFileNameTemplate.TryValidate(fileNameTemplate, out var fileNameError))
+        {
+            ShowError(fileNameError, FileNameTemplateTextBox);
+            return;
+        }
         var days = _dayChoices
             .Where(choice => choice.IsChecked)
             .Select(choice => choice.Value)
@@ -210,6 +222,7 @@ public partial class RadioScheduleEditorWindow : Window
             OutputFolder = UsesCustomOutputFolder
                 ? OutputFolderTextBox.Text.Trim()
                 : string.Empty,
+            FileNameTemplate = fileNameTemplate,
             RecordingFormat = recordingFormat.Value,
             RecordingBitrateKbps = recordingBitrate.Value,
             WakeComputer = (WakeCombo.SelectedItem as WakeChoice)?.Value,
@@ -277,8 +290,91 @@ public partial class RadioScheduleEditorWindow : Window
     private void SplitModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         UpdateSplitControls();
 
-    private void RecordingFormatCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+    private void RecordingFormatCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
         UpdateRecordingBitrateEnabled();
+        UpdateFileNamePreview();
+    }
+
+    private void FileNameTemplateTextBox_TextChanged(object sender, TextChangedEventArgs e) =>
+        UpdateFileNamePreview();
+
+    private void FileNameMenuButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (FileNameMenuButton.ContextMenu is null) return;
+        FileNameMenuButton.ContextMenu.PlacementTarget = FileNameMenuButton;
+        FileNameMenuButton.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        FileNameMenuButton.ContextMenu.IsOpen = true;
+    }
+
+    private void FileNameContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu) return;
+        Dispatcher.BeginInvoke(
+            () => (menu.Items.OfType<MenuItem>().FirstOrDefault())?.Focus(),
+            System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private void InsertFileNameToken_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Tag: string token }) return;
+        var start = FileNameTemplateTextBox.SelectionStart;
+        var length = FileNameTemplateTextBox.SelectionLength;
+        var current = FileNameTemplateTextBox.Text;
+        FileNameTemplateTextBox.Text = current.Remove(start, length).Insert(start, token);
+        RestoreFileNameTemplateFocus(start + token.Length);
+    }
+
+    private void UseFileNameTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Tag: string template }) return;
+        FileNameTemplateTextBox.Text = template;
+        RestoreFileNameTemplateFocus(template.Length);
+    }
+
+    private void RestoreFileNameTemplateFocus(int caretIndex)
+    {
+        Dispatcher.BeginInvoke(
+            () =>
+            {
+                FileNameTemplateTextBox.Focus();
+                Keyboard.Focus(FileNameTemplateTextBox);
+                FileNameTemplateTextBox.CaretIndex = Math.Clamp(
+                    caretIndex,
+                    0,
+                    FileNameTemplateTextBox.Text.Length);
+            },
+            System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private void UpdateFileNamePreview()
+    {
+        if (FileNamePreview is null || FileNameTemplateTextBox is null) return;
+        if (!RadioRecordingFileNameTemplate.TryValidate(FileNameTemplateTextBox.Text, out var error))
+        {
+            FileNamePreview.Text = $"Podgląd niedostępny: {error}.";
+            return;
+        }
+
+        var stationName = (StationCombo?.SelectedItem as StationChoice)?.Label ?? "Nazwa stacji";
+        var date = _datePicker?.Value.Date ?? DateTime.Today;
+        var time = _timePicker?.Value.TimeOfDay ?? DateTime.Now.TimeOfDay;
+        var baseName = RadioRecordingFileNameTemplate.Expand(
+            FileNameTemplateTextBox.Text,
+            stationName,
+            date + time,
+            partNumber: 1);
+        var format = (RecordingFormatCombo?.SelectedItem as RecordingFormatChoice)?.Value;
+        FileNamePreview.Text = format switch
+        {
+            RadioRecordingFormat.Mp3 => $"Przykład: {baseName}.mp3",
+            RadioRecordingFormat.Aac => $"Przykład: {baseName}.m4a",
+            RadioRecordingFormat.Flac => $"Przykład: {baseName}.flac",
+            RadioRecordingFormat.Wav => $"Przykład: {baseName}.wav",
+            RadioRecordingFormat.Original => $"Przykład: {baseName}; rozszerzenie strumienia zostanie dodane automatycznie.",
+            _ => $"Przykład: {baseName}; rozszerzenie zostanie dodane automatycznie."
+        };
+    }
 
     private void OutputFolderMode_Changed(object sender, RoutedEventArgs e) => UpdateOutputFolderControls();
 

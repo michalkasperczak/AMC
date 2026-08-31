@@ -1257,3 +1257,20 @@ the previous view in the same session with its selection retained, while
 `Alt+Left/Right` continues to expose full history. `Alt+3` does not pretend to
 list playback devices while Radio has one output and `F6`; it can be assigned
 when a real adapter discovers multiple simultaneous or Connect targets.
+
+Starting with `alpha.176`, every Radio schedule persists an editable output
+file-name template. The `Shift+R` form exposes a normal text field, a result
+preview including the extension, and a button with two accessible submenus:
+ready-made templates and tokens. Choosing a template replaces the field;
+choosing a token inserts it at the caret, after which all text remains freely
+editable. The default is `{stacja} - {data} {czas}`. Supported tokens are
+`{stacja}`, ISO-style `{data}`, `{data-polska}`, `{data-zwarta}`, `{rok}`,
+`{miesiąc}`, `{dzień}`, `{dzień-tygodnia}`, `{czas}`, `{godzina}`, `{minuta}`
+and `{część}`. Date and time describe the scheduled start of that occurrence
+in its configured zone, so a delayed recovery does not silently rename the
+broadcast. `{część}` is a two-digit counter for segmented recording. Omitting
+it is still safe because unique-path handling adds a suffix rather than
+overwriting an existing file. The extension is not part of the template: it
+comes from MP3, M4A, FLAC, WAV or the detected original-stream format. Empty,
+unknown and unbalanced tokens are rejected, while forbidden Windows names and
+characters are sanitised. Older persisted schedules normalise to the default.

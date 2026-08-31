@@ -18,6 +18,7 @@ var tests = new (string Name, Action Test)[]
     ("Czytelne nazwy poleceń", TestCommandCatalog),
     ("Migracja presetów radia do wspólnego magazynu", TestRadioPresetPersistence),
     ("Trwały i odporny harmonogram radia", TestRadioRecordingSchedule),
+    ("Szablony nazw zaplanowanych nagrań", TestRadioRecordingFileNameTemplate),
     ("Trwała historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
@@ -513,6 +514,7 @@ static void TestRadioRecordingSchedule()
                 SegmentMinutes = 30,
                 Recurrence = RadioScheduleRecurrence.SelectedDays,
                 ActiveDays = [],
+                FileNameTemplate = "Audycja - {data-polska}",
                 RecordingFormat = RadioRecordingFormat.Aac,
                 RecordingBitrateKbps = 222,
                 WakeComputer = true
@@ -537,12 +539,14 @@ static void TestRadioRecordingSchedule()
         Equal(1, normalized.DurationMinutes);
         Equal(0, normalized.SegmentMinutes);
         Equal(1, normalized.ActiveDays.Count);
+        Equal("Audycja - {data-polska}", normalized.FileNameTemplate);
         Equal(RadioRecordingFormat.Aac, normalized.RecordingFormat);
         Equal(192, normalized.RecordingBitrateKbps);
         Equal(true, normalized.WakeComputer);
         var segmented = loaded.Radio.RecordingSchedules.Single(item => item.Id == "schedule-segmented");
         Equal(120, segmented.DurationMinutes);
         Equal(30, segmented.SegmentMinutes);
+        Equal(RadioRecordingFileNameTemplate.DefaultTemplate, segmented.FileNameTemplate);
         Equal(@"D:\Nagrania radia", loaded.Radio.RecordingsFolder);
         Equal(RadioRecordingFormat.Original, loaded.Radio.RecordingFormat);
         Equal(160, loaded.Radio.RecordingBitrateKbps);
@@ -554,6 +558,29 @@ static void TestRadioRecordingSchedule()
     {
         Directory.Delete(directory, true);
     }
+}
+
+static void TestRadioRecordingFileNameTemplate()
+{
+    var occurrence = new DateTime(2026, 8, 31, 7, 5, 0, DateTimeKind.Unspecified);
+    var expanded = RadioRecordingFileNameTemplate.Expand(
+        "Audycja: {stacja} - {data-polska} - {dzień-tygodnia} - {czas} - {część}",
+        "Radio/Łódź",
+        occurrence,
+        partNumber: 3);
+    Equal(
+        "Audycja_ Radio_Łódź - 31.08.2026 - poniedziałek - 07-05 - 03",
+        expanded);
+    Equal(
+        "Radio Łódź - 2026-08-31 07-05",
+        RadioRecordingFileNameTemplate.Expand(null, "Radio Łódź", occurrence));
+    Equal("_CON", RadioRecordingFileNameTemplate.SanitizeBaseName("CON"));
+    True(!RadioRecordingFileNameTemplate.TryValidate("Audycja - {nieznany}", out var error)
+         && error.Contains("Nieznany token", StringComparison.Ordinal),
+        "Nieznany token nazwy pliku nie został odrzucony czytelnym błędem.");
+    True(!RadioRecordingFileNameTemplate.TryValidate("Audycja - {data", out error)
+         && error.Contains("nawias", StringComparison.Ordinal),
+        "Niepełny token nazwy pliku nie został odrzucony.");
 }
 
 static void TestRadioRecognitionHistoryPersistence()

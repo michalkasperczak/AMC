@@ -456,6 +456,8 @@ public sealed class ConfigurationStore
                         ? Math.Clamp(schedule.SegmentMinutes, 1, 10_080)
                         : 0;
                 schedule.OutputFolder = schedule.OutputFolder?.Trim() ?? string.Empty;
+                schedule.FileNameTemplate = RadioRecordingFileNameTemplate.NormalizeOrDefault(
+                    schedule.FileNameTemplate);
                 if (schedule.RecordingFormat.HasValue
                     && !Enum.IsDefined(schedule.RecordingFormat.Value))
                 {

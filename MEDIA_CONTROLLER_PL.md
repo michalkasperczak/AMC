@@ -1288,3 +1288,22 @@ zaznaczenia; pełna historia nadal działa przez `Alt+lewo/prawo`. `Alt+3` nie
 udaje listy odtwarzanych urządzeń, gdy istnieje tylko jeden tor Radia i `F6`.
 Może zostać przypisane dopiero adapterowi, który rzeczywiście wykrywa wiele
 równoczesnych odtworzeń lub urządzeń Connect.
+
+Od `alpha.176` każdy harmonogram Radia przechowuje edytowalny szablon nazwy
+pliku. Formularz `Shift+R` udostępnia zwykłe pole tekstowe, wynikowy podgląd
+z rozszerzeniem oraz przycisk otwierający dwa dostępne podmenu: gotowe
+szablony i tokeny. Wybór gotowego szablonu zastępuje zawartość pola, a wybór
+tokenu wstawia go w położeniu kursora; użytkownik może potem zmienić dowolny
+tekst. Domyślny wzorzec to `{stacja} - {data} {czas}`. Dostępne tokeny to
+`{stacja}`, `{data}` w postaci `rrrr-mm-dd`, `{data-polska}`,
+`{data-zwarta}`, `{rok}`, `{miesiąc}`, `{dzień}`, `{dzień-tygodnia}`,
+`{czas}`, `{godzina}`, `{minuta}` i `{część}`. Data i czas odnoszą się do
+planowanego początku danego wystąpienia w strefie harmonogramu, dzięki czemu
+ponowienie po opóźnieniu nie zmienia nazwy audycji. `{część}` jest
+dwucyfrowa i rośnie przy automatycznym dzieleniu; brak tego tokenu nadal nie
+pozwala nadpisać istniejącego pliku, ponieważ mechanizm unikalnej nazwy dodaje
+numer. Rozszerzenie nie należy do szablonu i wynika z wybranego MP3, M4A,
+FLAC, WAV albo wykrytego formatu oryginalnego. Walidacja odrzuca pusty,
+niepełny lub nieznany token, a wynik jest oczyszczany z niedozwolonych nazw
+i znaków Windows. Brak pola w starszym zapisie normalizuje się do wzorca
+domyślnego.

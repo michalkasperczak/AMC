@@ -43,7 +43,11 @@ internal interface IRadioRecordingBackend
     bool CanPauseRecording { get; }
     bool IsRecordingPaused { get; }
     TimeSpan RecordingDuration { get; }
-    string StartRecording(string folder, RadioRecordingFormat format, int bitrateKbps);
+    string StartRecording(
+        string folder,
+        RadioRecordingFormat format,
+        int bitrateKbps,
+        string? preferredBaseName = null);
     string? StopRecording();
     void PauseRecording();
     void ResumeRecording();
@@ -56,8 +60,12 @@ internal sealed class RadioMediaRecordingBackend(RadioMediaOutput output) : IRad
     public bool CanPauseRecording => Output.CanPauseRecording;
     public bool IsRecordingPaused => Output.IsRecordingPaused;
     public TimeSpan RecordingDuration => Output.RecordingDuration;
-    public string StartRecording(string folder, RadioRecordingFormat format, int bitrateKbps) =>
-        Output.StartRecording(folder, format, bitrateKbps);
+    public string StartRecording(
+        string folder,
+        RadioRecordingFormat format,
+        int bitrateKbps,
+        string? preferredBaseName = null) =>
+        Output.StartRecording(folder, format, bitrateKbps, preferredBaseName);
     public string? StopRecording() => Output.StopRecording();
     public void PauseRecording() => Output.PauseRecording();
     public void ResumeRecording() => Output.ResumeRecording();
@@ -79,6 +87,8 @@ internal sealed class RadioRecordingControl
     private RadioRecordingFormat _format;
     private int _bitrateKbps;
     private string? _currentPath;
+    private Func<int, string?>? _fileBaseNameFactory;
+    private int _partNumber;
     private bool _stopRequested;
 
     public bool IsReady
@@ -134,10 +144,17 @@ internal sealed class RadioRecordingControl
         string folder,
         RadioRecordingFormat format,
         int bitrateKbps,
-        string currentPath)
+        string currentPath,
+        Func<int, string?>? fileBaseNameFactory = null)
     {
         ArgumentNullException.ThrowIfNull(output);
-        Attach(new RadioMediaRecordingBackend(output), folder, format, bitrateKbps, currentPath);
+        Attach(
+            new RadioMediaRecordingBackend(output),
+            folder,
+            format,
+            bitrateKbps,
+            currentPath,
+            fileBaseNameFactory);
     }
 
     internal void Attach(
@@ -145,7 +162,8 @@ internal sealed class RadioRecordingControl
         string folder,
         RadioRecordingFormat format,
         int bitrateKbps,
-        string currentPath)
+        string currentPath,
+        Func<int, string?>? fileBaseNameFactory = null)
     {
         ArgumentNullException.ThrowIfNull(backend);
         ArgumentException.ThrowIfNullOrWhiteSpace(folder);
@@ -157,6 +175,8 @@ internal sealed class RadioRecordingControl
             _format = format;
             _bitrateKbps = bitrateKbps;
             _currentPath = currentPath;
+            _fileBaseNameFactory = fileBaseNameFactory;
+            _partNumber = 1;
             _stopRequested = false;
         }
     }
@@ -229,6 +249,8 @@ internal sealed class RadioRecordingControl
             string? currentPath;
             RadioRecordingFormat format;
             int bitrateKbps;
+            Func<int, string?>? fileBaseNameFactory;
+            int nextPartNumber;
             lock (_gate)
             {
                 backend = _backend;
@@ -236,6 +258,8 @@ internal sealed class RadioRecordingControl
                 currentPath = _currentPath;
                 format = _format;
                 bitrateKbps = _bitrateKbps;
+                fileBaseNameFactory = _fileBaseNameFactory;
+                nextPartNumber = _partNumber + 1;
                 if (_stopRequested)
                     return new RadioRecordingSplitChange(RadioRecordingSplitChangeKind.StopRequested);
             }
@@ -261,9 +285,17 @@ internal sealed class RadioRecordingControl
                             completedPath);
                     }
                 }
-                var nextPath = backend.StartRecording(folder, format, bitrateKbps);
+                var nextPath = backend.StartRecording(
+                    folder,
+                    format,
+                    bitrateKbps,
+                    fileBaseNameFactory?.Invoke(nextPartNumber));
                 if (wasPaused && backend.CanPauseRecording) backend.PauseRecording();
-                lock (_gate) _currentPath = nextPath;
+                lock (_gate)
+                {
+                    _currentPath = nextPath;
+                    _partNumber = nextPartNumber;
+                }
                 return new RadioRecordingSplitChange(
                     RadioRecordingSplitChangeKind.Split,
                     completedPath,

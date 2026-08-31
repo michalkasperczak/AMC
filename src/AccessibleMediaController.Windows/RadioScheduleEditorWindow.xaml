@@ -19,6 +19,7 @@
             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/><RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -86,13 +87,89 @@
             </StackPanel>
         </GroupBox>
 
-        <TextBlock Grid.Row="10" Text="Powtarzanie:" Margin="0,0,0,4"/>
-        <ComboBox x:Name="RecurrenceCombo" Grid.Row="11" Margin="0,0,0,10"
+        <GroupBox Grid.Row="10" Header="Nazwa pliku" Margin="0,0,0,10">
+            <StackPanel Margin="8">
+                <Label Target="{Binding ElementName=FileNameTemplateTextBox}">_Nazwa pliku:</Label>
+                <TextBox x:Name="FileNameTemplateTextBox" Margin="0,0,0,8"
+                         TextChanged="FileNameTemplateTextBox_TextChanged"
+                         automation:AutomationProperties.Name="Szablon nazwy pliku nagrania"
+                         automation:AutomationProperties.HelpText="Wpisz zwykłą nazwę i opcjonalne tokeny. Rozszerzenie zostanie dodane automatycznie zgodnie z formatem nagrania."/>
+                <Button x:Name="FileNameMenuButton" Content="_Wstaw token lub wybierz szablon…"
+                        HorizontalAlignment="Left" Padding="10,4" Margin="0,0,0,8"
+                        Click="FileNameMenuButton_Click"
+                        automation:AutomationProperties.Name="Wstaw token lub wybierz gotowy szablon nazwy pliku"
+                        automation:AutomationProperties.HelpText="Otwiera menu gotowych nazw i tokenów wstawianych w położeniu kursora.">
+                    <Button.ContextMenu>
+                        <ContextMenu Opened="FileNameContextMenu_Opened"
+                                     automation:AutomationProperties.Name="Nazwa pliku nagrania">
+                            <MenuItem Header="Gotowe szablony"
+                                      automation:AutomationProperties.Name="Gotowe szablony nazw plików">
+                                <MenuItem Header="Stacja — data i czas"
+                                          Tag="{}{stacja} - {data} {czas}"
+                                          Click="UseFileNameTemplate_Click"
+                                          automation:AutomationProperties.Name="Stacja, data i czas"/>
+                                <MenuItem Header="Własna nazwa audycji — data"
+                                          Tag="{}Nazwa audycji - {data}"
+                                          Click="UseFileNameTemplate_Click"
+                                          automation:AutomationProperties.Name="Własna nazwa audycji i data"/>
+                                <MenuItem Header="Data — stacja"
+                                          Tag="{}{data} - {stacja}"
+                                          Click="UseFileNameTemplate_Click"
+                                          automation:AutomationProperties.Name="Data i stacja"/>
+                                <MenuItem Header="Stacja — dzień tygodnia i data"
+                                          Tag="{}{stacja} - {dzień-tygodnia} - {data}"
+                                          Click="UseFileNameTemplate_Click"
+                                          automation:AutomationProperties.Name="Stacja, dzień tygodnia i data"/>
+                                <MenuItem Header="Stacja — data i numer części"
+                                          Tag="{}{stacja} - {data} - część {część}"
+                                          Click="UseFileNameTemplate_Click"
+                                          automation:AutomationProperties.Name="Stacja, data i numer części"/>
+                            </MenuItem>
+                            <MenuItem Header="Wstaw token"
+                                      automation:AutomationProperties.Name="Tokeny nazwy pliku">
+                                <MenuItem Header="Stacja, {stacja}" Tag="{}{stacja}" Click="InsertFileNameToken_Click"
+                                          automation:AutomationProperties.Name="Stacja, token stacja"/>
+                                <MenuItem Header="Data rok-miesiąc-dzień, {data}" Tag="{}{data}" Click="InsertFileNameToken_Click"
+                                          automation:AutomationProperties.Name="Data w formacie rok, miesiąc, dzień; token data"/>
+                                <MenuItem Header="Data dzień-miesiąc-rok, {data-polska}" Tag="{}{data-polska}" Click="InsertFileNameToken_Click"
+                                          automation:AutomationProperties.Name="Data w formacie dzień, miesiąc, rok; token data polska"/>
+                                <MenuItem Header="Data zwarta, {data-zwarta}" Tag="{}{data-zwarta}" Click="InsertFileNameToken_Click"
+                                          automation:AutomationProperties.Name="Data zwarta bez separatorów; token data zwarta"/>
+                                <Separator/>
+                                <MenuItem Header="Rok, {rok}" Tag="{}{rok}" Click="InsertFileNameToken_Click"
+                                          automation:AutomationProperties.Name="Rok, token rok"/>
+                                <MenuItem Header="Miesiąc, {miesiąc}" Tag="{}{miesiąc}" Click="InsertFileNameToken_Click"
+                                          automation:AutomationProperties.Name="Miesiąc, token miesiąc"/>
+                                <MenuItem Header="Dzień miesiąca, {dzień}" Tag="{}{dzień}" Click="InsertFileNameToken_Click"
+                                          automation:AutomationProperties.Name="Dzień miesiąca, token dzień"/>
+                                <MenuItem Header="Dzień tygodnia, {dzień-tygodnia}" Tag="{}{dzień-tygodnia}" Click="InsertFileNameToken_Click"
+                                          automation:AutomationProperties.Name="Dzień tygodnia, token dzień tygodnia"/>
+                                <Separator/>
+                                <MenuItem Header="Czas godzina-minuta, {czas}" Tag="{}{czas}" Click="InsertFileNameToken_Click"
+                                          automation:AutomationProperties.Name="Czas w formacie godzina, minuta; token czas"/>
+                                <MenuItem Header="Godzina, {godzina}" Tag="{}{godzina}" Click="InsertFileNameToken_Click"
+                                          automation:AutomationProperties.Name="Godzina, token godzina"/>
+                                <MenuItem Header="Minuta, {minuta}" Tag="{}{minuta}" Click="InsertFileNameToken_Click"
+                                          automation:AutomationProperties.Name="Minuta, token minuta"/>
+                                <MenuItem Header="Numer części, {część}" Tag="{}{część}" Click="InsertFileNameToken_Click"
+                                          automation:AutomationProperties.Name="Dwucyfrowy numer części, token część"/>
+                            </MenuItem>
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+                <controls:AccessibleStatusTextBlock x:Name="FileNamePreview" TextWrapping="Wrap"
+                                                    automation:AutomationProperties.Name="Przykładowa wynikowa nazwa pliku"
+                                                    automation:AutomationProperties.LiveSetting="Polite"/>
+            </StackPanel>
+        </GroupBox>
+
+        <TextBlock Grid.Row="11" Text="Powtarzanie:" Margin="0,0,0,4"/>
+        <ComboBox x:Name="RecurrenceCombo" Grid.Row="12" Margin="0,0,0,10"
                   DisplayMemberPath="Label" TextSearch.TextPath="Label"
                   SelectionChanged="RecurrenceCombo_SelectionChanged"
                   automation:AutomationProperties.Name="Powtarzanie nagrania"/>
 
-        <GroupBox x:Name="DaysGroup" Grid.Row="12" Header="Dni tygodnia" Margin="0,0,0,10"
+        <GroupBox x:Name="DaysGroup" Grid.Row="13" Header="Dni tygodnia" Margin="0,0,0,10"
                   automation:AutomationProperties.Name="Dni tygodnia dla powtarzanego nagrania">
             <StackPanel Margin="8">
                 <TextBlock Margin="0,0,0,6" TextWrapping="Wrap"
@@ -120,7 +197,7 @@
             </StackPanel>
         </GroupBox>
 
-        <GroupBox Grid.Row="13" Grid.RowSpan="2" Header="Folder tego nagrania" Margin="0,0,0,10">
+        <GroupBox Grid.Row="14" Grid.RowSpan="2" Header="Folder tego nagrania" Margin="0,0,0,10">
             <StackPanel Margin="8">
                 <Label Target="{Binding ElementName=OutputFolderModeCombo}">_Folder nagrywania:</Label>
                 <ComboBox x:Name="OutputFolderModeCombo" Margin="0,0,0,8" SelectedIndex="0"
@@ -143,19 +220,19 @@
             </StackPanel>
         </GroupBox>
 
-        <TextBlock Grid.Row="15" Text="Wybudzanie komputera:" Margin="0,0,0,4"/>
-        <ComboBox x:Name="WakeCombo" Grid.Row="16" Margin="0,0,0,10"
+        <TextBlock Grid.Row="16" Text="Wybudzanie komputera:" Margin="0,0,0,4"/>
+        <ComboBox x:Name="WakeCombo" Grid.Row="17" Margin="0,0,0,10"
                   DisplayMemberPath="Label" TextSearch.TextPath="Label"
                   automation:AutomationProperties.Name="Wybudzanie komputera dla tego harmonogramu"/>
 
-        <CheckBox x:Name="EnabledCheckBox" Grid.Row="17" Content="Plan włączony" IsChecked="True"
+        <CheckBox x:Name="EnabledCheckBox" Grid.Row="18" Content="Plan włączony" IsChecked="True"
                   Margin="0,0,0,10" automation:AutomationProperties.Name="Plan włączony"
                   automation:AutomationProperties.HelpText="Wyłączony plan pozostaje zapisany, ale nie rozpoczyna nagrań."/>
 
-        <TextBlock x:Name="ValidationText" Grid.Row="18" Foreground="DarkRed" Margin="0,0,0,8"
+        <TextBlock x:Name="ValidationText" Grid.Row="19" Foreground="DarkRed" Margin="0,0,0,8"
                    TextWrapping="Wrap" automation:AutomationProperties.LiveSetting="Assertive"/>
 
-        <StackPanel Grid.Row="19" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="20" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="_Zapisz" IsDefault="True" MinWidth="100" Margin="0,0,8,0"
                     Click="Save_Click"/>
             <Button Content="Anuluj" IsCancel="True" MinWidth="100"/>

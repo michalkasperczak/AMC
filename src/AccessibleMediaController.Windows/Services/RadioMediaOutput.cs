@@ -827,7 +827,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
     public string StartRecording(
         string folder,
         RadioRecordingFormat format = RadioRecordingFormat.Mp3,
-        int bitRateKbps = RadioMp3Recorder.DesiredBitRate / 1000)
+        int bitRateKbps = RadioMp3Recorder.DesiredBitRate / 1000,
+        string? preferredBaseName = null)
     {
         lock (_gate)
         {
@@ -859,9 +860,12 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 : null;
             var extension = originalTarget?.Extension
                 ?? RadioMp3Recorder.RecordingExtension(format);
+            var baseName = string.IsNullOrWhiteSpace(preferredBaseName)
+                ? $"{safeName} - {DateTime.Now:yyyy-MM-dd HH-mm-ss}"
+                : RadioRecordingFileNameTemplate.SanitizeBaseName(preferredBaseName);
             var path = UniqueRecordingPath(
                 folder,
-                $"{safeName} - {DateTime.Now:yyyy-MM-dd HH-mm-ss}",
+                baseName,
                 extension);
             _pipeline.Buffer.StartRecording(
                 path,

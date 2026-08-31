@@ -1,12 +1,57 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-175`
-- Tytuł zestawu: Numerowane widoki i powrót z Nagrywanych w Radiu
-- Wersja programu: `0.1.0-alpha.175`
+- Numer zestawu: `AMC-TEST-176`
+- Tytuł zestawu: Szablony nazw plików harmonogramu Radia
+- Wersja programu: `0.1.0-alpha.176`
 - Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.175.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.176.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 176
+
+### AMC-176-01 — Domyślna nazwa i podgląd
+
+W Radiu wskaż stację, naciśnij `Shift+R` i przejdź Tabem do grupy **Nazwa
+pliku**. Sprawdź pole tekstowe i podgląd, a następnie zmieniaj format między
+MP3, M4A, FLAC i WAV.
+
+Oczekiwane: pole zawiera `{stacja} - {data} {czas}`. Podgląd pokazuje nazwę
+stacji, datę, czas oraz rozszerzenie odpowiadające formatowi. NVDA nie czyta
+nazwy klasy ani identyfikatora pola. Rozszerzenia nie trzeba wpisywać ręcznie.
+
+### AMC-176-02 — Gotowe szablony, tokeny i edycja
+
+Uaktywnij przycisk **Wstaw token lub wybierz gotowy szablon**. Przejdź przez
+podmenu **Gotowe szablony** oraz **Wstaw token**. Wybierz „Własna nazwa audycji
+— data”, zmień tekst „Nazwa audycji” na rzeczywisty tytuł, ustaw kursor w
+środku i wstaw jeszcze token dnia tygodnia.
+
+Oczekiwane: oba podmenu i wszystkie pozycje mają zrozumiałe nazwy. Szablon
+zastępuje pole, token trafia dokładnie w położenie kursora, a fokus wraca do
+edycji. Podgląd od razu pokazuje wynik z polską nazwą dnia tygodnia.
+
+### AMC-176-03 — Trwałość i rzeczywisty plik
+
+Ustaw własny folder, nazwę `Moja audycja - {data-polska} - {czas}` oraz krótki
+termin. Zapisz, ponownie otwórz plan przez `Ctrl+Shift+H`, a potem pozwól mu
+się wykonać.
+
+Oczekiwane: po ponownym otwarciu pole zachowuje cały szablon. W wybranym
+folderze powstaje plik na przykład `Moja audycja - 31.08.2026 - 20-15.mp3`,
+z rozszerzeniem właściwym dla formatu planu.
+
+### AMC-176-04 — Części i ochrona przed nadpisaniem
+
+Utwórz krótki plan dzielony na części z nazwą
+`{stacja} - {data} - część {część}`. Osobno wykonaj dwa plany o identycznej
+zwykłej nazwie bez tokenu części w tym samym folderze.
+
+Oczekiwane: kolejne części kończą się `część 01`, `część 02` i dalej. Dwa
+pliki o identycznej nazwie nie nadpisują się; drugi otrzymuje automatyczny
+numer. Znaki niedozwolone w nazwie stacji są zastępowane bez utraty nagrania.
+
+## Poprzedni zestaw alpha 175
 
 ## Nowości alpha 175
 

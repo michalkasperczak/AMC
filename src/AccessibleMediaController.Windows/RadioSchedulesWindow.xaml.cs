@@ -71,7 +71,12 @@ public partial class RadioSchedulesWindow : Window
         var fileDivision = schedule.SegmentMinutes > 0
             ? $"części co {schedule.SegmentMinutes} min"
             : "jeden plik";
-        return $"{schedule.StationName}, {local:dd.MM.yyyy HH:mm}, {schedule.DurationMinutes} min, {fileDivision}, {recurrence}, {state}";
+        var exampleFileName = RadioRecordingFileNameTemplate.Expand(
+            schedule.FileNameTemplate,
+            schedule.StationName,
+            local,
+            partNumber: 1);
+        return $"{schedule.StationName}, {local:dd.MM.yyyy HH:mm}, {schedule.DurationMinutes} min, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}, {state}";
     }
 
     private void New_Click(object sender, RoutedEventArgs e)
@@ -195,6 +200,7 @@ public partial class RadioSchedulesWindow : Window
         Recurrence = schedule.Recurrence,
         ActiveDays = [.. schedule.ActiveDays],
         OutputFolder = schedule.OutputFolder,
+        FileNameTemplate = schedule.FileNameTemplate,
         RecordingFormat = schedule.RecordingFormat,
         RecordingBitrateKbps = schedule.RecordingBitrateKbps,
         WakeComputer = schedule.WakeComputer,

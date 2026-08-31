@@ -35,6 +35,15 @@ internal static class ScheduledRadioRecorder
             : deadlineUtc.ToUniversalTime();
         using var power = WindowsPowerRequest.TryCreate(
             $"AMC nagrywa zaplanowaną stację {schedule.StationName}");
+        var occurrenceStartUtc = new DateTime(schedule.NextStartUtcTicks, DateTimeKind.Utc);
+        var occurrenceLocal = TimeZoneInfo.ConvertTimeFromUtc(
+            occurrenceStartUtc,
+            RadioScheduleCalculator.ResolveTimeZone(schedule.TimeZoneId));
+        string FileBaseName(int partNumber) => RadioRecordingFileNameTemplate.Expand(
+            schedule.FileNameTemplate,
+            schedule.StationName,
+            occurrenceLocal,
+            partNumber);
 
         string? lastError = null;
         while (!cancellationToken.IsCancellationRequested
@@ -99,13 +108,15 @@ internal static class ScheduledRadioRecorder
                 path = output.StartRecording(
                     folderResolution.Path,
                     recordingFormat,
-                    recordingBitrateKbps);
+                    recordingBitrateKbps,
+                    FileBaseName(1));
                 control.Attach(
                     output,
                     folderResolution.Path,
                     recordingFormat,
                     recordingBitrateKbps,
-                    path);
+                    path,
+                    FileBaseName);
                 while (true)
                 {
                     var remaining = deadlineUtc - DateTime.UtcNow;

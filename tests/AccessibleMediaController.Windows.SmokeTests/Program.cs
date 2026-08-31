@@ -271,6 +271,7 @@ static void TestRadioScheduleAccessibility()
                 NextStartUtcTicks = DateTime.UtcNow.AddHours(1).Ticks,
                 TimeZoneId = TimeZoneInfo.Local.Id,
                 DurationMinutes = 30,
+                FileNameTemplate = "Audycja - {data}",
                 RecordingFormat = RadioRecordingFormat.Mp3,
                 RecordingBitrateKbps = 192,
                 Enabled = true
@@ -284,6 +285,9 @@ static void TestRadioScheduleAccessibility()
                 defaultRecordingBitrateKbps: 192);
             var formatCombo = (ComboBox)editor.FindName("RecordingFormatCombo");
             var bitrateCombo = (ComboBox)editor.FindName("RecordingBitrateCombo");
+            var fileNameTemplate = (TextBox)editor.FindName("FileNameTemplateTextBox");
+            var fileNameMenuButton = (Button)editor.FindName("FileNameMenuButton");
+            var fileNamePreview = (AccessibleStatusTextBlock)editor.FindName("FileNamePreview");
             Assert(AutomationProperties.GetName(formatCombo) == "Format tego nagrania",
                 "Lista formatów nie ma jednoznacznej nazwy dostępnościowej.");
             Assert(AutomationProperties.GetName(bitrateCombo) == "Bitrate tego nagrania MP3 lub AAC",
@@ -294,6 +298,25 @@ static void TestRadioScheduleAccessibility()
                 "Lista formatów ujawnia techniczną reprezentację obiektu.");
             Assert(bitrateCombo.Items.Cast<object>().All(IsUserFacingChoice),
                 "Lista bitrate ujawnia techniczną reprezentację obiektu.");
+            Assert(AutomationProperties.GetName(fileNameTemplate) == "Szablon nazwy pliku nagrania"
+                   && fileNameTemplate.Text == "Audycja - {data}",
+                "Edytowalny szablon nazwy pliku nie ma stabilnej nazwy albo wartości.");
+            Assert(AutomationProperties.GetName(fileNameMenuButton)
+                   == "Wstaw token lub wybierz gotowy szablon nazwy pliku",
+                "Przycisk tokenów nazwy pliku nie ma użytkowej nazwy.");
+            var fileNameMenu = fileNameMenuButton.ContextMenu;
+            var fileNameMenuItems = fileNameMenu is null
+                ? []
+                : DescendantMenuItems(fileNameMenu.Items).ToArray();
+            Assert(fileNameMenu is not null
+                   && fileNameMenu.Items.OfType<MenuItem>().Count() == 2
+                   && fileNameMenuItems.Length == 19
+                   && fileNameMenuItems.All(item =>
+                       !string.IsNullOrWhiteSpace(AutomationProperties.GetName(item))),
+                "Menu nazwy pliku nie udostępnia dwóch nazwanych podmenu i wszystkich użytkowych pozycji.");
+            Assert(fileNamePreview.Text.Contains("Audycja - ", StringComparison.Ordinal)
+                   && fileNamePreview.Text.EndsWith(".mp3", StringComparison.Ordinal),
+                "Podgląd nie pokazuje wynikowej nazwy i rozszerzenia MP3.");
 
             manager = new RadioSchedulesWindow(
                 [station],
@@ -342,6 +365,15 @@ static void TestRadioScheduleAccessibility()
                && !text.Contains('{', StringComparison.Ordinal)
                && !text.Contains("Choice", StringComparison.Ordinal)
                && !text.Contains("Settings", StringComparison.Ordinal);
+    }
+
+    static IEnumerable<MenuItem> DescendantMenuItems(ItemCollection items)
+    {
+        foreach (var item in items.OfType<MenuItem>())
+        {
+            yield return item;
+            foreach (var child in DescendantMenuItems(item.Items)) yield return child;
+        }
     }
 }
 
@@ -1760,7 +1792,13 @@ static void TestRadioRecordingSplitPipeline()
     var firstPath = Path.Combine(folder, "part-1.wav");
     var backend = new TestRadioRecordingBackend(firstPath);
     var control = new RadioRecordingControl();
-    control.Attach(backend, folder, RadioRecordingFormat.Wav, 192, firstPath);
+    control.Attach(
+        backend,
+        folder,
+        RadioRecordingFormat.Wav,
+        192,
+        firstPath,
+        partNumber => $"Audycja-{partNumber:00}");
 
     var pause = control.SetPaused(true);
     Assert(pause.Kind == RadioRecordingPauseChangeKind.Paused && backend.IsRecordingPaused,
@@ -1773,6 +1811,11 @@ static void TestRadioRecordingSplitPipeline()
         "Podział nie opublikował pierwszej części.");
     Assert(!string.Equals(split.CompletedPath, split.CurrentPath, StringComparison.OrdinalIgnoreCase),
         "Nowa część otrzymała tę samą ścieżkę co poprzednia.");
+    Assert(string.Equals(
+            split.CurrentPath,
+            Path.Combine(folder, "Audycja-02.wav"),
+            StringComparison.OrdinalIgnoreCase),
+        "Nowa część nie użyła szablonu i dwucyfrowego tokenu części.");
     Assert(backend.IsRecording && backend.IsRecordingPaused,
         "Podział nie zachował stanu pauzy w nowej części.");
     Assert(control.CompletedPaths.Count == 1 && control.CurrentPath == split.CurrentPath,
@@ -2507,10 +2550,14 @@ sealed class TestRadioRecordingBackend(string initialPath) : IRadioRecordingBack
     public TimeSpan RecordingDuration => TimeSpan.FromMinutes(_part);
     public string CurrentPath { get; private set; } = initialPath;
 
-    public string StartRecording(string folder, RadioRecordingFormat format, int bitrateKbps)
+    public string StartRecording(
+        string folder,
+        RadioRecordingFormat format,
+        int bitrateKbps,
+        string? preferredBaseName = null)
     {
         _part++;
-        CurrentPath = Path.Combine(folder, $"part-{_part}.wav");
+        CurrentPath = Path.Combine(folder, $"{preferredBaseName ?? $"part-{_part}"}.wav");
         IsRecording = true;
         IsRecordingPaused = false;
         return CurrentPath;

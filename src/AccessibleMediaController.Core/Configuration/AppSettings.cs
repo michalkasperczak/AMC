@@ -403,6 +403,7 @@ public sealed class RadioRecordingScheduleSettings
     public RadioScheduleRecurrence Recurrence { get; set; }
     public List<DayOfWeek> ActiveDays { get; set; } = [];
     public string OutputFolder { get; set; } = string.Empty;
+    public string FileNameTemplate { get; set; } = RadioRecordingFileNameTemplate.DefaultTemplate;
     public RadioRecordingFormat? RecordingFormat { get; set; }
     public int? RecordingBitrateKbps { get; set; }
     public bool? WakeComputer { get; set; }
