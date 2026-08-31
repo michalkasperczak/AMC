@@ -733,7 +733,35 @@ static void TestPlayerAudioProcessingKeyboardMap()
             playerActive: true,
             PlaybackAudioProcessingCapabilities.LoudnessNormalization) is null,
         "Adapter obsługujący tylko normalizację nie może udawać przejść.");
-    Console.WriteLine("OK: Shift+N, Shift+T i Shift+C zależą od możliwości aktywnego toru odtwarzania");
+    Assert(
+        MainWindowShortcutRouter.ResolvePlayerAudioProcessingFromVirtualKey(
+            0x4E,
+            ModifierKeys.Shift,
+            playerActive: true,
+            PlaybackAudioProcessingCapabilities.All) == CommandIds.ToggleLoudnessNormalization,
+        "Surowy komunikat Shift+N nie przełącza normalizacji przed obsługą klawisza dostępu WPF.");
+    Assert(
+        MainWindowShortcutRouter.ResolvePlayerAudioProcessingFromVirtualKey(
+            0x54,
+            ModifierKeys.Shift,
+            playerActive: true,
+            PlaybackAudioProcessingCapabilities.All) == CommandIds.ToggleSmoothTrackTransitions,
+        "Surowy komunikat Shift+T nie przełącza przejść przed obsługą klawisza dostępu WPF.");
+    Assert(
+        MainWindowShortcutRouter.ResolvePlayerAudioProcessingFromVirtualKey(
+            0x43,
+            ModifierKeys.Shift,
+            playerActive: true,
+            PlaybackAudioProcessingCapabilities.All) == CommandIds.CycleInterTrackSilence,
+        "Surowy komunikat Shift+C nie zmienia ciszy przed obsługą klawisza dostępu WPF.");
+    Assert(
+        MainWindowShortcutRouter.ResolvePlayerAudioProcessingFromVirtualKey(
+            0x43,
+            ModifierKeys.None,
+            playerActive: true,
+            PlaybackAudioProcessingCapabilities.All) is null,
+        "Surowe C bez Shifta nie może zostać przejęte jako opcja dźwięku.");
+    Console.WriteLine("OK: Shift+N, Shift+T i Shift+C są chronione przed klawiszami dostępu WPF i zależą od możliwości toru");
 }
 
 static void TestPlaylistPresentation()

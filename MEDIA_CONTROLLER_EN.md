@@ -1240,3 +1240,12 @@ player context menu reports the value actually used for each property and its
 source: file, folder or global settings. After `Alt+Shift+Enter`, AMC reads the
 saved values back in its confirmation. A success message is emitted only after
 the database has actually been written.
+
+Starting with `alpha.174`, direct `Shift+N`, `Shift+T` and `Shift+C` are
+recognised at the Windows-message boundary using the native Shift state. This
+prevents WPF access-key handling from taking the letter when a screen reader
+or unusual event ordering obscures the modifier. The command does not move
+keyboard focus. Player buttons no longer define hidden single-letter
+mnemonics; their explicit transport shortcuts remain exposed through UI
+Automation. A direct combination is consumed only inside the player and only
+when the current playback output advertises the corresponding capability.

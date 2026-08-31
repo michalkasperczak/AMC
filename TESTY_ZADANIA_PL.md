@@ -1,12 +1,49 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-173`
-- Tytuł zestawu: Trwałość i efektywny stan opcji odtwarzania
-- Wersja programu: `0.1.0-alpha.173`
+- Numer zestawu: `AMC-TEST-174`
+- Tytuł zestawu: Skróty opcji dźwięku bez zmiany fokusu
+- Wersja programu: `0.1.0-alpha.174`
 - Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.173.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.174.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 174
+
+### AMC-174-01 — Shift+N, Shift+T i Shift+C bez skoku fokusu
+
+Uruchom lokalny utwór dziedziczący opcje globalne i przejdź `F6` do
+odtwarzacza. Ustaw fokus kolejno na przyciskach **Odtwórz lub wstrzymaj**,
+**Cofnij 10 sekund** i **Następny utwór**. Na każdym sprawdź `Shift+N`,
+`Shift+T` oraz kilkakrotnie `Shift+C`.
+
+Oczekiwane: za każdym razem wykonuje się właściwe polecenie i słychać nowy
+stan globalny. Fokus pozostaje dokładnie na kontrolce, na której był przed
+skrótem. `Shift+C` nie ustawia fokusu na **Cofnij 10 sekund**, a `Shift+N` nie
+ustawia go na **Następny utwór** ani **Prędkość normalna**.
+
+### AMC-174-02 — Stan globalny a wyjątek pliku lub folderu
+
+Na pliku, dla którego `Alt+Shift+Enter` wskazuje własną wartość albo wartość
+folderu, naciśnij `Shift+N`, `Shift+T` i `Shift+C`, a następnie otwórz menu
+**Odtwarzanie** oraz pozycję **Zmień opcje bieżącego utworu**.
+
+Oczekiwane: skróty zmieniają i oznajmiają ustawienia globalne. Pozycja
+efektywna nadal uczciwie pokazuje wartość pliku lub folderu, jeżeli ta
+przesłania poziom globalny. Po ustawieniu dziedziczenia globalnego ten sam
+skrót zmienia również wartość efektywną bieżącego utworu.
+
+### AMC-174-03 — Brak ukrytych liter dostępu
+
+Powtórz `Shift+N`, `Shift+T` i `Shift+C` w odtwarzaczu Radia oraz na zwykłej
+liście, gdzie tor nie udostępnia tych funkcji. W lokalnym odtwarzaczu włącz
+też Pomoc klawiatury przez `Ctrl+F1` i sprawdź wszystkie trzy kombinacje.
+
+Oczekiwane: w nieobsługiwanym kontekście kombinacje nie zmieniają ustawień i
+nie przenoszą fokusu na żaden przycisk. Pomoc klawiatury wypowiada właściwy
+opis bez wykonania polecenia; po wyłączeniu Pomocy fokus wraca bez zmiany.
+
+## Poprzedni zestaw alpha 173
 
 ## Nowości alpha 173
 

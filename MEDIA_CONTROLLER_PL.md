@@ -1270,3 +1270,12 @@ kontekstowym lokalnego odtwarzacza podaje natomiast dla każdej właściwości
 wartość rzeczywiście używaną oraz jej źródło: plik, folder albo ustawienie
 globalne. Po zapisaniu `Alt+Shift+Enter` AMC odczytuje w potwierdzeniu zapisane
 wartości. Komunikat sukcesu pojawia się tylko po rzeczywistym zapisie bazy.
+
+Od `alpha.174` bezpośrednie `Shift+N`, `Shift+T` i `Shift+C` są rozpoznawane
+już na granicy komunikatów Windows z uwzględnieniem natywnego stanu Shifta.
+Zapobiega to przejęciu litery przez mechanizm klawiszy dostępu WPF przy
+aktywnym czytniku ekranu lub nietypowej kolejności zdarzeń. Polecenie nie
+zmienia kontrolki z fokusem. Przyciski odtwarzacza nie definiują ukrytych
+jednoliterowych mnemoników; ich jawne skróty transportu pozostają opisane przez
+UI Automation. Bezpośrednia kombinacja jest konsumowana tylko w odtwarzaczu i
+tylko wtedy, gdy bieżący tor deklaruje odpowiadającą jej możliwość.

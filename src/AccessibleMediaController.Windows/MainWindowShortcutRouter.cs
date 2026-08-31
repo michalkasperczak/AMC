@@ -37,6 +37,17 @@ internal static class MainWindowShortcutRouter
         };
     }
 
+    public static string? ResolvePlayerAudioProcessingFromVirtualKey(
+        int virtualKey,
+        ModifierKeys modifiers,
+        bool playerActive,
+        PlaybackAudioProcessingCapabilities capabilities) =>
+        ResolvePlayerAudioProcessing(
+            KeyInterop.KeyFromVirtualKey(virtualKey),
+            modifiers,
+            playerActive,
+            capabilities);
+
     public static bool IsSessionListShortcut(Key key, ModifierKeys modifiers) =>
         key == Key.S && modifiers == (ModifierKeys.Control | ModifierKeys.Shift);
 

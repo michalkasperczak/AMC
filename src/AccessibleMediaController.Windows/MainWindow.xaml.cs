@@ -802,8 +802,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerStateText.Text = state;
         PlayerSpeedText.Visibility = isRadio ? Visibility.Collapsed : Visibility.Visible;
         PlayerSpeedText.Text = $"Prędkość: {FormatPlaybackRateMultiplier(session.PlaybackRate)}";
-        PlayerPreviousButton.Content = isRadio ? "_Poprzednia stacja" : "_Poprzedni utwór";
-        PlayerNextButton.Content = isRadio ? "_Następna stacja" : "_Następny utwór";
+        PlayerPreviousButton.Content = isRadio ? "Poprzednia stacja" : "Poprzedni utwór";
+        PlayerNextButton.Content = isRadio ? "Następna stacja" : "Następny utwór";
         foreach (var control in new FrameworkElement[]
                  {
                      PlayerRateDownButton,
@@ -830,7 +830,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? "_Zakończ nagrywanie"
             : "_Nagrywaj radio";
         PlayerHelpText.Text = PlayerKeyboardHelpText();
-        PlayerPlayPauseButton.Content = preparing ? "_Anuluj" : session.IsPlaying ? "_Wstrzymaj" : "_Odtwórz";
+        PlayerPlayPauseButton.Content = preparing ? "Anuluj" : session.IsPlaying ? "Wstrzymaj" : "Odtwórz";
 
         if (!updateAccessibleName) return;
         var artist = string.IsNullOrWhiteSpace(item.Artist) ? item.KindLabel : item.Artist;
@@ -8333,6 +8333,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // klawiszy odczytujemy bezpośrednio z Win32, bo ten hook już pracuje na
         // granicy komunikatów okna.
         var modifiers = ReadEffectiveModifierKeys();
+        var audioProcessingCommand = MainWindowShortcutRouter.ResolvePlayerAudioProcessingFromVirtualKey(
+            virtualKey,
+            modifiers,
+            _playerViewActive && PlayerPanel.IsKeyboardFocusWithin,
+            _sessions.Current.AudioProcessingCapabilities);
+        if (audioProcessingCommand is not null)
+        {
+            // Consume the raw window message before WPF can interpret its letter
+            // as a button access key. This also preserves Shift when a screen
+            // reader or keyboard layout makes Keyboard.Modifiers incomplete.
+            handled = true;
+            Dispatcher.BeginInvoke(
+                () => ExecuteCommand(audioProcessingCommand),
+                DispatcherPriority.Input);
+            return IntPtr.Zero;
+        }
         if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift)
             && CurrentSessionSupportsPresets()
             && RadioPresetKeyMap.TryGetSlotFromVirtualKey(virtualKey, out var presetSlot))
@@ -9536,9 +9552,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!_playerViewActive || !PlayerPanel.IsKeyboardFocusWithin) return false;
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var effectiveModifiers = ReadEffectiveModifierKeys();
         var audioCommand = MainWindowShortcutRouter.ResolvePlayerAudioProcessing(
             key,
-            Keyboard.Modifiers,
+            effectiveModifiers,
             playerActive: true,
             capabilities: _sessions.Current.AudioProcessingCapabilities);
         if (audioCommand is not null)
