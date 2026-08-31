@@ -1242,3 +1242,10 @@ Media Foundation po nieudanym wznowieniu jest porzucany i otwierany ponownie
 w zachowanej pozycji. Nadzór obejmuje również brak przesuwania pozycji przy
 stanie odtwarzania; przy końcu uzupełnia brakujące zdarzenie końca, a wcześniej
 uruchamia awaryjny dekoder albo bezpiecznie zatrzymuje plik.
+
+Od `alpha.171` te trzy globalne ustawienia mają także bezpośrednie skróty w
+aktywnym odtwarzaczu Plików lokalnych: `Shift+N` dla normalizacji, `Shift+T`
+dla przejść i `Shift+C` dla kolejnej długości ciszy. Zakres jest celowo wąski:
+fokus musi znajdować się w lokalnym odtwarzaczu, więc kombinacje nie działają
+na liście ani w Radiu. Menu kontekstowe odtwarzacza podaje skróty bez prefiksu,
+a menu główne i spis klawiatury zachowują równolegle skróty prefiksowe.

@@ -1,12 +1,58 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-170`
-- Tytuł zestawu: Odzyskiwanie odtwarzania i dziedziczone opcje dźwięku
-- Wersja programu: `0.1.0-alpha.170`
+- Numer zestawu: `AMC-TEST-171`
+- Tytuł zestawu: Bezpośrednie skróty dźwięku w lokalnym odtwarzaczu
+- Wersja programu: `0.1.0-alpha.171`
 - Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.170.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.171.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 171
+
+### AMC-171-01 — Skróty bez prefiksu w lokalnym odtwarzaczu
+
+Uruchom dowolny utwór w Plikach lokalnych i pozostaw fokus w odtwarzaczu.
+Naciśnij kolejno `Shift+N`, `Shift+T` i kilka razy `Shift+C`.
+
+Oczekiwane: `Shift+N` przełącza globalną normalizację, `Shift+T` globalne
+łagodne przejścia, a `Shift+C` przechodzi przez brak, pół sekundy, jedną, dwie,
+trzy i pięć sekund ciszy. Każda zmiana jest oznajmiana i od razu widoczna w
+menu. Nie trzeba wcześniej naciskać globalnego prefiksu AMC.
+
+### AMC-171-02 — Zakres odtwarzacza, listy i Radia
+
+Wróć Escape do listy Plików lokalnych i naciśnij te same trzy kombinacje.
+Następnie uruchom stację Radia, pozostaw fokus w radiowym odtwarzaczu i powtórz
+próbę. Na końcu użyj dotychczasowego globalnego prefiksu, a po nim `Shift+N`,
+`T` i `C`.
+
+Oczekiwane: bezpośrednie `Shift+N`, `Shift+T` i `Shift+C` nie zmieniają tych
+ustawień na liście ani w Radiu i nie przejmują radiowych poleceń. Warianty po
+globalnym prefiksie nadal działają niezależnie od aktywnego widoku.
+
+### AMC-171-03 — Menu kontekstowe i menu Odtwarzanie
+
+Otwórz menu kontekstowe lokalnego odtwarzacza, a potem główne menu
+**Odtwarzanie**. Przejdź NVDA przez normalizację, przejścia i ciszę.
+
+Oczekiwane: menu kontekstowe podaje odpowiednio `Shift+N`, `Shift+T` i
+`Shift+C`, bez słowa „prefiks”. Menu główne nadal mówi „po prefiksie Shift+N”,
+„po prefiksie T” oraz „po prefiksie C”. Nazwa i skrót są czytane po jednym
+razie, a etykieta każdego polecenia jawnie mówi, że zmienia ustawienie globalne.
+
+### AMC-171-04 — Pomoc klawiatury i fokus
+
+W lokalnym odtwarzaczu włącz `Ctrl+F1`, sprawdź po kolei trzy nowe kombinacje,
+a następnie przejrzyj spis skrótów. Zamknij pomoc Escape i ponownie użyj
+`Shift+N`.
+
+Oczekiwane: pomoc rozpoznaje lokalne skróty i odczytuje ich użytkowe nazwy.
+Spis pokazuje zarówno wariant lokalny z opisem „odtwarzacz Plików lokalnych”,
+jak i wariant po prefiksie. Po zamknięciu pomocy fokus wraca i `Shift+N` nadal
+działa bez utknięcia odtwarzacza.
+
+## Poprzedni zestaw alpha 170
 
 ## Nowości alpha 170
 

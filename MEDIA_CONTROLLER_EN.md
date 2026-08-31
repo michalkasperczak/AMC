@@ -1211,3 +1211,11 @@ reopened at the retained position. The watchdog also covers a playing state
 whose position does not advance: at the duration boundary it supplies a
 missing end event, while an earlier stall starts fallback decoding or stops
 the file safely.
+
+Starting with `alpha.171`, these three global settings also have direct
+shortcuts in the active Local Files player: `Shift+N` for normalisation,
+`Shift+T` for transitions and `Shift+C` for the next silence duration. Their
+scope is deliberately narrow: focus must be inside the local player, so they
+do not operate on a list or in Radio. The player context menu states the
+non-prefix shortcuts, while the main menu and keyboard index continue to show
+the prefix alternatives alongside them.

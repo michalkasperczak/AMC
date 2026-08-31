@@ -1,4 +1,5 @@
 using System.Windows.Input;
+using AccessibleMediaController.Core.Commands;
 
 namespace AccessibleMediaController.Windows;
 
@@ -16,6 +17,21 @@ internal readonly record struct MainWindowDigitShortcut(
 
 internal static class MainWindowShortcutRouter
 {
+    public static string? ResolveLocalPlayerAudioProcessing(
+        Key key,
+        ModifierKeys modifiers,
+        bool localPlayerActive)
+    {
+        if (!localPlayerActive || modifiers != ModifierKeys.Shift) return null;
+        return key switch
+        {
+            Key.N => CommandIds.ToggleLoudnessNormalization,
+            Key.T => CommandIds.ToggleSmoothTrackTransitions,
+            Key.C => CommandIds.CycleInterTrackSilence,
+            _ => null
+        };
+    }
+
     public static MainWindowDigitShortcut ResolveDigit(
         Key key,
         ModifierKeys modifiers,

@@ -8798,6 +8798,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool TryResolveKeyboardHelpCommand(Key key, ModifierKeys modifiers, out string commandId)
     {
+        var localAudioCommand = MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+            key,
+            modifiers,
+            _playerViewActive
+                && PlayerPanel.IsKeyboardFocusWithin
+                && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal));
+        if (localAudioCommand is not null)
+        {
+            commandId = localAudioCommand;
+            return true;
+        }
         if (key == Key.M && modifiers == ModifierKeys.Control)
         {
             commandId = CommandIds.ToggleMuteCurrentSession;
@@ -9428,6 +9439,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!_playerViewActive || !PlayerPanel.IsKeyboardFocusWithin) return false;
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var localAudioCommand = MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+            key,
+            Keyboard.Modifiers,
+            string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal));
+        if (localAudioCommand is not null)
+        {
+            ExecuteCommand(localAudioCommand);
+            return true;
+        }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
             && Keyboard.Modifiers == ModifierKeys.None
             && key == Key.R)

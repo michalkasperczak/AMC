@@ -7,6 +7,7 @@ using System.Text;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
+using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
@@ -63,6 +64,7 @@ try
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
+    TestLocalPlayerAudioProcessingKeyboardMap();
     TestPlaylistPresentation();
     TestGuardDoesNotBlockPositionReads();
     TestCompleteOutputChainMonitor();
@@ -153,6 +155,13 @@ static void TestMenuAccessibility()
             };
             AutomationProperties.SetName(command, "Wycisz lub przywróć dźwięk bieżącej sesji, Ctrl+M");
             topLevel.Items.Add(command);
+            var globalAudioMenu = new MenuItem
+            {
+                Header = "Cisza między utworami — ustawienie globalne: bez dodatkowej ciszy",
+                InputGestureText = "prefiks C"
+            };
+            AutomationProperties.SetAcceleratorKey(globalAudioMenu, "po prefiksie C");
+            topLevel.Items.Add(globalAudioMenu);
             mainMenu.Items.Add(topLevel);
 
             MenuAccessibility.NormalizeMainMenu(mainMenu);
@@ -162,6 +171,10 @@ static void TestMenuAccessibility()
             Assert(command.Header?.ToString() == "Wycisz lub przywróć dźwięk bieżącej sesji", "Nie usunięto mnemonika z polecenia menu.");
             Assert(AutomationProperties.GetName(command) == "Wycisz lub przywróć dźwięk bieżącej sesji", "Nazwa polecenia powtarza skrót.");
             Assert(command.InputGestureText == "Ctrl+M", "Usunięto widoczny skrót polecenia.");
+            Assert(AutomationProperties.GetName(globalAudioMenu) == "Cisza między utworami — ustawienie globalne: bez dodatkowej ciszy",
+                "Globalne menu ciszy nie ma jednoznacznej nazwy.");
+            Assert(AutomationProperties.GetAcceleratorKey(globalAudioMenu) == "po prefiksie C",
+                "Globalne menu ciszy utraciło informację o prefiksie.");
 
             var contextMenu = new ContextMenu();
             var contextCommand = new MenuItem
@@ -174,9 +187,9 @@ static void TestMenuAccessibility()
             var audioMenu = new MenuItem
             {
                 Header = "Cisza między utworami: bez dodatkowej ciszy",
-                InputGestureText = "prefiks C"
+                InputGestureText = "Shift+C"
             };
-            AutomationProperties.SetAcceleratorKey(audioMenu, "po prefiksie C");
+            AutomationProperties.SetAcceleratorKey(audioMenu, "Shift+C");
             var noSilenceChoice = new MenuItem
             {
                 Header = "Bez dodatkowej ciszy",
@@ -193,8 +206,8 @@ static void TestMenuAccessibility()
             Assert(contextCommand.InputGestureText == "Ctrl+Alt+S", "Usunięto skrót menu kontekstowego.");
             Assert(AutomationProperties.GetName(audioMenu) == "Cisza między utworami: bez dodatkowej ciszy",
                 "Nazwa menu ciszy nie opisuje jednoznacznie wartości neutralnej.");
-            Assert(AutomationProperties.GetAcceleratorKey(audioMenu) == "po prefiksie C",
-                "Skrót prefiksowy nie jest oddzielony od nazwy menu.");
+            Assert(AutomationProperties.GetAcceleratorKey(audioMenu) == "Shift+C",
+                "Lokalny skrót odtwarzacza nie jest oddzielony od nazwy menu.");
             Assert(AutomationProperties.GetName(noSilenceChoice) == "Bez dodatkowej ciszy",
                 "Wybór ciszy nie ma jawnej nazwy użytkowej.");
             Assert(noSilenceChoice.IsChecked, "Normalizacja menu zmieniła zaznaczoną wartość ciszy.");
@@ -642,6 +655,53 @@ static void TestMainWindowDigitShortcutRouting()
             KeyChord.Parse("Ctrl+0")),
         "Niskopoziomowa ochrona nie może przejąć Ctrl+0 przeznaczonego dla listy sesji.");
     Console.WriteLine("OK: Ctrl+0 i Ctrl+Shift+0 mają rozłączne trasy");
+}
+
+static void TestLocalPlayerAudioProcessingKeyboardMap()
+{
+    Assert(
+        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+            Key.N,
+            ModifierKeys.Shift,
+            localPlayerActive: true) == CommandIds.ToggleLoudnessNormalization,
+        "Shift+N nie przełącza normalizacji w lokalnym odtwarzaczu.");
+    Assert(
+        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+            Key.T,
+            ModifierKeys.Shift,
+            localPlayerActive: true) == CommandIds.ToggleSmoothTrackTransitions,
+        "Shift+T nie przełącza łagodnych przejść w lokalnym odtwarzaczu.");
+    Assert(
+        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+            Key.C,
+            ModifierKeys.Shift,
+            localPlayerActive: true) == CommandIds.CycleInterTrackSilence,
+        "Shift+C nie przechodzi przez czasy ciszy w lokalnym odtwarzaczu.");
+    Assert(
+        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+            Key.N,
+            ModifierKeys.None,
+            localPlayerActive: true) is null,
+        "N bez Shifta nie może zmieniać normalizacji.");
+    Assert(
+        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+            Key.N,
+            ModifierKeys.Shift,
+            localPlayerActive: false) is null,
+        "Shift+N nie może zmieniać normalizacji poza lokalnym odtwarzaczem.");
+    Assert(
+        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+            Key.C,
+            ModifierKeys.Shift,
+            localPlayerActive: false) is null,
+        "Shift+C nie może zmieniać ciszy w Radiu ani na liście.");
+    Assert(
+        MainWindowShortcutRouter.ResolveLocalPlayerAudioProcessing(
+            Key.T,
+            ModifierKeys.Shift,
+            localPlayerActive: false) is null,
+        "Shift+T nie może zmieniać przejść w Radiu ani na liście.");
+    Console.WriteLine("OK: Shift+N, Shift+T i Shift+C działają tylko w odtwarzaczu Plików lokalnych");
 }
 
 static void TestPlaylistPresentation()

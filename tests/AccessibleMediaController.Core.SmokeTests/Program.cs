@@ -2833,6 +2833,12 @@ static void TestCommandPalette()
     Equal("Up (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.VolumeUp5).LocalShortcut);
     Equal("Ctrl+M", entries.Single(entry => entry.CommandId == CommandIds.ToggleMuteCurrentSession).LocalShortcut);
     Equal("Ctrl+Shift+M", entries.Single(entry => entry.CommandId == CommandIds.ToggleMuteAllSessions).LocalShortcut);
+    Equal("Shift+N (odtwarzacz Plików lokalnych)",
+        entries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization).LocalShortcut);
+    Equal("Shift+T (odtwarzacz Plików lokalnych)",
+        entries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions).LocalShortcut);
+    Equal("Shift+C (odtwarzacz Plików lokalnych)",
+        entries.Single(entry => entry.CommandId == CommandIds.CycleInterTrackSilence).LocalShortcut);
     Equal("Shift+N", entries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization).PrefixShortcut);
     Equal("T", entries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions).PrefixShortcut);
     Equal("C", entries.Single(entry => entry.CommandId == CommandIds.CycleInterTrackSilence).PrefixShortcut);
@@ -3005,15 +3011,30 @@ static void TestShortcutHelpCatalog()
         "Okno Pomocy nie powinno otwierać samo siebie.");
     True(entries.Any(entry => entry.Shortcut == "Ctrl+C"), "Spis powinien obejmować bezpieczne kopiowanie nazw.");
     True(entries.Any(entry => entry.Shortcut == "Shift+Delete"), "Spis powinien wyjaśniać osobną operację Kosza.");
-    True(entries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization).Label
+    var normalizationHelp = entries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization);
+    True(normalizationHelp.Shortcut.StartsWith("Shift+N;", StringComparison.Ordinal),
+        "Spis powinien podawać lokalny skrót normalizacji przed wariantem prefiksowym.");
+    True(normalizationHelp.Context.Contains("Odtwarzacz Plików lokalnych", StringComparison.Ordinal),
+        "Spis powinien oddzielnie podawać kontekst lokalnej normalizacji.");
+    True(normalizationHelp.Label
             .Contains("po prefiksie Shift+N", StringComparison.Ordinal),
-        "Spis powinien podawać skrót normalizacji.");
-    True(entries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions).Label
+        "Spis powinien podawać prefiksowy skrót normalizacji.");
+    var transitionsHelp = entries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions);
+    True(transitionsHelp.Shortcut.StartsWith("Shift+T;", StringComparison.Ordinal),
+        "Spis powinien podawać lokalny skrót przejść przed wariantem prefiksowym.");
+    True(transitionsHelp.Context.Contains("Odtwarzacz Plików lokalnych", StringComparison.Ordinal),
+        "Spis powinien oddzielnie podawać kontekst lokalnych przejść.");
+    True(transitionsHelp.Label
             .Contains("po prefiksie T", StringComparison.Ordinal),
-        "Spis powinien podawać skrót przejść.");
-    True(entries.Single(entry => entry.CommandId == CommandIds.CycleInterTrackSilence).Label
+        "Spis powinien podawać prefiksowy skrót przejść.");
+    var silenceHelp = entries.Single(entry => entry.CommandId == CommandIds.CycleInterTrackSilence);
+    True(silenceHelp.Shortcut.StartsWith("Shift+C;", StringComparison.Ordinal),
+        "Spis powinien podawać lokalny skrót ciszy przed wariantem prefiksowym.");
+    True(silenceHelp.Context.Contains("Odtwarzacz Plików lokalnych", StringComparison.Ordinal),
+        "Spis powinien oddzielnie podawać kontekst lokalnej ciszy.");
+    True(silenceHelp.Label
             .Contains("po prefiksie C", StringComparison.Ordinal),
-        "Spis powinien podawać skrót ciszy.");
+        "Spis powinien podawać prefiksowy skrót ciszy.");
     True(entries.All(entry => !entry.Label.Contains("CommandId", StringComparison.Ordinal)
         && !entry.Label.Contains("{", StringComparison.Ordinal)),
         "Dostępne etykiety nie mogą ujawniać technicznego zapisu obiektów.");
