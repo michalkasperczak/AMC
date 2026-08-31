@@ -57,6 +57,7 @@ try
     Console.WriteLine("OK: normalizacja osi czasu fragmentu OGG/Vorbis");
 
     TestAccessiblePlaybackStatusStrip();
+    TestEditableFieldReplacement();
     TestMenuAccessibility();
     TestRadioScheduleAccessibility();
     TestRadioRecognitionAnnouncementPolicy();
@@ -244,6 +245,53 @@ static void TestMenuAccessibility()
     }
 
     Console.WriteLine("OK: pojedyncze oznajmianie skrótów w menu");
+}
+
+static void TestEditableFieldReplacement()
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            var text = new TextBox { Text = "3000" };
+            EditableFieldSelection.SelectAllForKeyboardEntry(text);
+            Assert(text.SelectionStart == 0 && text.SelectionLength == text.Text.Length,
+                "Wejście klawiaturą nie zaznacza całej dotychczasowej wartości tekstowej.");
+
+            text.IsReadOnly = true;
+            text.Select(2, 0);
+            EditableFieldSelection.SelectAllForKeyboardEntry(text);
+            Assert(text.SelectionStart == 2 && text.SelectionLength == 0,
+                "Wspólna reguła niepotrzebnie zmienia zaznaczenie pola tylko do odczytu.");
+
+            using var number = new System.Windows.Forms.NumericUpDown
+            {
+                Minimum = 1,
+                Maximum = 10_080,
+                Value = 60
+            };
+            number.CreateControl();
+            EditableFieldSelection.SelectAllForKeyboardEntry(number);
+            var numberEditor = number.Controls
+                .OfType<System.Windows.Forms.TextBox>()
+                .Single();
+            Assert(numberEditor.SelectionStart == 0
+                   && numberEditor.SelectionLength == numberEditor.Text.Length,
+                "Wejście do pola liczbowego nie zaznacza poprzedniej liczby do zastąpienia.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+
+    if (failure is not null)
+        throw new InvalidOperationException("Test zastępowania wartości pola nie powiódł się.", failure);
+    Console.WriteLine("OK: wpisywanie po wejściu klawiaturą zastępuje całą poprzednią wartość pola");
 }
 
 static void TestRadioScheduleAccessibility()

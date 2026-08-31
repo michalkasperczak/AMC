@@ -1284,3 +1284,14 @@ unambiguously that it is enabled or disabled. Its row updates the checked or
 unchecked state at the same time. Only Save commits the working copy and stops
 an active schedule that was disabled; Cancel leaves persistent configuration
 unchanged.
+
+Starting with `alpha.178`, every directly editable WPF text control inherits
+one entry rule. Focus obtained through Tab, a label access key or a
+programmatic return after validation selects the complete value. The first
+character replaces it; pressing an arrow first collapses the selection and
+permits a partial edit. Mouse entry does not force select-all, and read-only
+controls are skipped. This covers names, addresses, filters, setting values
+and the recording file-name template. The schedule's native NumericUpDown
+fields apply the same selection on entry for both total duration and segment
+duration. Native date and time fields remain segmented because their selected
+day, month, year, hour or minute is itself replaced by typed digits.

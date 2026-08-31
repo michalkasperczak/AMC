@@ -1,12 +1,45 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-177`
-- Tytuł zestawu: Przełączanie harmonogramów Spacją
-- Wersja programu: `0.1.0-alpha.177`
+- Numer zestawu: `AMC-TEST-178`
+- Tytuł zestawu: Zastępowanie wartości w polach edycyjnych
+- Wersja programu: `0.1.0-alpha.178`
 - Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.177.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.178.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 178
+
+### AMC-178-01 — Liczby w Shift+R zastępują poprzednią wartość
+
+Otwórz `Shift+R`. Tabem wejdź do pola długości nagrania, które ma na przykład
+wartość `60`, i od razu wpisz `5`. Włącz dzielenie na części, wejdź Tabem do
+pola długości części i wpisz `2`.
+
+Oczekiwane: pierwsze pole zawiera `5`, a drugie `2`; nie powstaje `605` ani
+`302`. NVDA informuje o zaznaczonej poprzedniej wartości po wejściu. Strzałki
+w górę i w dół nadal zwiększają lub zmniejszają gotową liczbę.
+
+### AMC-178-02 — Zwykłe pola tekstowe w całym AMC
+
+Sprawdź kolejno istniejącą nazwę stacji pod `F2`, adres strumienia, szablon
+nazwy pliku harmonogramu oraz wartość czasu prefiksu w Ustawieniach. Do
+każdego pola wejdź Tabem i zacznij pisać bez ręcznego kasowania.
+
+Oczekiwane: pierwsza litera lub cyfra zastępuje całą starą wartość. Jeśli po
+wejściu najpierw naciśniesz strzałkę, zaznaczenie znika i można poprawić tylko
+fragment. Pole tylko do odczytu nie zmienia się.
+
+### AMC-178-03 — Mysz oraz data i godzina
+
+Kliknij myszą w środek istniejącego tekstu i wpisz znak. W `Shift+R` przejdź
+do daty i godziny, wybierz część strzałkami lewo lub prawo i wpisz nowe cyfry.
+
+Oczekiwane: mysz ustawia kursor w klikniętym miejscu zamiast zaznaczać całość.
+W dacie i godzinie cyfry zastępują wybrany dzień, miesiąc, rok, godzinę albo
+minutę; pozostałe części nie są kasowane.
+
+## Poprzedni zestaw alpha 177
 
 ## Nowości alpha 177
 

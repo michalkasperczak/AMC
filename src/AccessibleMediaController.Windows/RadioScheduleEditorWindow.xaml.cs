@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Windows.Controls;
 using Microsoft.Win32;
 
 namespace AccessibleMediaController.Windows;
@@ -48,6 +49,8 @@ public partial class RadioScheduleEditorWindow : Window
         _timePicker.KeyDown += HostedInput_KeyDown;
         _durationPicker.KeyDown += HostedInput_KeyDown;
         _splitMinutesPicker.KeyDown += HostedInput_KeyDown;
+        EditableFieldSelection.Attach(_durationPicker);
+        EditableFieldSelection.Attach(_splitMinutesPicker);
         _datePicker.ValueChanged += (_, _) => UpdateFileNamePreview();
         _timePicker.ValueChanged += (_, _) => UpdateFileNamePreview();
         StationCombo.SelectionChanged += (_, _) => UpdateFileNamePreview();
@@ -339,10 +342,11 @@ public partial class RadioScheduleEditorWindow : Window
             {
                 FileNameTemplateTextBox.Focus();
                 Keyboard.Focus(FileNameTemplateTextBox);
-                FileNameTemplateTextBox.CaretIndex = Math.Clamp(
+                var safeCaretIndex = Math.Clamp(
                     caretIndex,
                     0,
                     FileNameTemplateTextBox.Text.Length);
+                FileNameTemplateTextBox.Select(safeCaretIndex, 0);
             },
             System.Windows.Threading.DispatcherPriority.Input);
     }

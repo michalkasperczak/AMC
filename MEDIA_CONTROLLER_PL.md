@@ -1317,3 +1317,15 @@ termin — i kończy się jednoznacznym stanem „włączony” albo „wyłącz
 wiersz równolegle zawiera stan zaznaczony lub niezaznaczony. Dopiero Zapisz
 przenosi kopię roboczą do ustawień i zatrzymuje aktywny plan, który został
 wyłączony; Anuluj nie zmienia trwałej konfiguracji.
+
+Od `alpha.178` wszystkie bezpośrednie, edytowalne kontrolki tekstowe WPF
+dziedziczą jedną regułę wejścia. Fokus uzyskany Tabem, skrótem etykiety albo
+programowym powrotem po walidacji zaznacza całą wartość. Pierwszy znak ją
+zastępuje; użycie strzałki najpierw zwija zaznaczenie i pozwala edytować
+fragment. Wejście myszą nie wymusza zaznaczenia całości, a kontrolki tylko do
+odczytu są pomijane. Reguła obejmuje między innymi nazwy, adresy, filtry,
+wartości ustawień i szablon nazwy nagrania. Natywne pola NumericUpDown w
+harmonogramie stosują analogiczne zaznaczenie przy wejściu, osobno dla
+całkowitej długości oraz długości części. Natywne pola daty i czasu pozostają
+segmentowe, ponieważ wybrany dzień, miesiąc, rok, godzina albo minuta jest
+samodzielną wartością zastępowaną przez wpisywane cyfry.
