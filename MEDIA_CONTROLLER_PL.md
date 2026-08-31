@@ -1227,3 +1227,18 @@ Domyślny profil prefiksowy przypisuje `Shift+N` do normalizacji, `T` do
 jedna, dwie, trzy, pięć sekund, następnie ponownie brak. Własne profile nie są
 nadpisywane i udostępniają nowe polecenia do ręcznego przypisania. Nazwa
 polecenia i skrót pozostają rozdzielone w UI Automation.
+
+Od `alpha.170` trzy ustawienia przetwarzania dźwięku mają wspólny model
+dziedziczenia: ustawienie pojedynczego pliku, następnie najbliższego folderu,
+a na końcu wartość globalna. Każda właściwość dziedziczy się niezależnie, więc
+folder może na przykład wymusić normalizację, a ciszę nadal pobierać z poziomu
+nadrzędnego. `Alt+Shift+Enter` udostępnia jawne wybory dziedziczenia, włączenia
+i wyłączenia oraz wszystkie dozwolone czasy ciszy. Ustawienia globalne są
+oznaczone tym słowem w menu i pozostają w grupie Odtwarzanie w Ustawieniach.
+
+Ta sama wersja rozróżnia iCloud tylko online od pliku pobranego i przypiętego,
+korzystając z metadanych placeholdera bez otwierania danych. Uszkodzony tor
+Media Foundation po nieudanym wznowieniu jest porzucany i otwierany ponownie
+w zachowanej pozycji. Nadzór obejmuje również brak przesuwania pozycji przy
+stanie odtwarzania; przy końcu uzupełnia brakujące zdarzenie końca, a wcześniej
+uruchamia awaryjny dekoder albo bezpiecznie zatrzymuje plik.

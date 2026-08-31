@@ -1195,3 +1195,19 @@ transitions and `C` to the next silence value in this order: none, half a
 second, one, two, three and five seconds, then none again. Custom profiles are
 not overwritten and expose the new commands for manual assignment. Command
 labels and shortcuts remain separate UI Automation properties.
+
+Starting with `alpha.170`, the three audio-processing settings share one
+inheritance model: an individual file override, then the nearest folder, and
+finally the global value. Each property inherits independently, so a folder
+may force normalisation while still taking silence from its parent. The
+`Alt+Shift+Enter` dialog exposes intentional choices for inheritance, enabled,
+disabled and every supported silence duration. Playback menus explicitly call
+their quick values global, while Settings retains them in its Playback group.
+
+The same release distinguishes an online-only iCloud placeholder from a
+downloaded and pinned file using metadata without opening payload data. A
+damaged Media Foundation pipeline after a failed resume is discarded and
+reopened at the retained position. The watchdog also covers a playing state
+whose position does not advance: at the duration boundary it supplies a
+missing end event, while an earlier stall starts fallback decoding or stops
+the file safely.

@@ -418,6 +418,7 @@ static void TestPlaybackAudioSettingAccessibility()
     var thread = new Thread(() =>
     {
         SettingsWindow? window = null;
+        ItemPlaybackOptionsWindow? itemOptions = null;
         try
         {
             var state = new PersistedState();
@@ -441,6 +442,31 @@ static void TestPlaybackAudioSettingAccessibility()
             Assert((AutomationProperties.GetHelpText(silence) ?? string.Empty)
                     .Contains("Nie dotyczy ręcznej zmiany, pauzy ani radia", StringComparison.Ordinal),
                 "Lista ciszy nie wyjaśnia zakresu działania opcji.");
+
+            itemOptions = new ItemPlaybackOptionsWindow(
+                "Testowy utwór",
+                ResumePositionMode.Inherit,
+                1d,
+                loudnessNormalizationOverride: null,
+                smoothTrackTransitionsOverride: true,
+                interTrackSilenceMillisecondsOverride: 500);
+            var rate = (ComboBox)itemOptions.FindName("PlaybackRateBox");
+            var itemNormalization = (ComboBox)itemOptions.FindName("LoudnessNormalizationBox");
+            var itemTransitions = (ComboBox)itemOptions.FindName("SmoothTransitionsBox");
+            var itemSilence = (ComboBox)itemOptions.FindName("InterTrackSilenceBox");
+            Assert(rate.Items.Cast<object>().Any(choice =>
+                    string.Equals(choice.ToString(), "1,00 razy — normalna prędkość", StringComparison.Ordinal)),
+                "Neutralna prędkość nie wyjaśnia NVDA, że 1,00 razy jest wartością normalną.");
+            Assert(itemNormalization.SelectedItem?.ToString()
+                    == "Według folderu lub ustawienia globalnego",
+                "Dziedziczenie normalizacji nie ma użytkowej etykiety.");
+            Assert(itemTransitions.SelectedItem?.ToString() == "Włączone"
+                   && itemSilence.SelectedItem?.ToString() == "Cisza: pół sekundy",
+                "Wyjątki pliku nie są pokazane jako stabilne etykiety użytkowe.");
+            Assert(itemNormalization.DisplayMemberPath == "Label"
+                   && TextSearch.GetTextPath(itemNormalization) == "Label"
+                   && AutomationProperties.GetName(itemNormalization) == "Normalizacja głośności",
+                "Lista normalizacji nie ma pełnej semantyki UI Automation i wyszukiwania tekstowego.");
         }
         catch (Exception exception)
         {
@@ -448,6 +474,7 @@ static void TestPlaybackAudioSettingAccessibility()
         }
         finally
         {
+            itemOptions?.Close();
             window?.Close();
         }
     });

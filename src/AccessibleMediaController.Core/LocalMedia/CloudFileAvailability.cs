@@ -99,6 +99,14 @@ public static class CloudFileAvailability
         var segments = fullPath.Split(
             [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
             StringSplitOptions.RemoveEmptyEntries);
+        // iCloud marks fully downloaded, pinned files as reparse points too.
+        // The path name alone therefore cannot decide whether playback still
+        // needs the cloud. Native placeholder metadata can make that
+        // distinction without opening or hydrating the payload.
+        if (segments.Any(IsICloudName))
+        {
+            return GetState(path) != CloudFileState.Local;
+        }
         var knownCloudLocation = segments.Any(IsKnownCloudName);
         if (knownCloudLocation || IsNetworkOrCloudDrive(fullPath)) return true;
         try
@@ -125,8 +133,7 @@ public static class CloudFileAvailability
     }
 
     private static bool IsKnownCloudName(string segment) =>
-            segment.Equals("iCloudDrive", StringComparison.OrdinalIgnoreCase)
-            || segment.StartsWith("iCloud~", StringComparison.OrdinalIgnoreCase)
+            IsICloudName(segment)
             || segment.Equals("OneDrive", StringComparison.OrdinalIgnoreCase)
             || segment.StartsWith("OneDrive - ", StringComparison.OrdinalIgnoreCase)
             || segment.Equals("Dropbox", StringComparison.OrdinalIgnoreCase)
@@ -143,6 +150,10 @@ public static class CloudFileAvailability
             || segment.Equals("Mój dysk", StringComparison.OrdinalIgnoreCase)
             || segment.Equals("Shared drives", StringComparison.OrdinalIgnoreCase)
             || segment.Equals("Dyski współdzielone", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsICloudName(string segment) =>
+        segment.Equals("iCloudDrive", StringComparison.OrdinalIgnoreCase)
+        || segment.StartsWith("iCloud~", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsNetworkOrCloudDrive(string fullPath)
     {

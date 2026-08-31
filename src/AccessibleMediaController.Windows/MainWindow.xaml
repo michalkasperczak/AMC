@@ -89,21 +89,21 @@
                           Click="ToggleAllSessionsMute_Click" />
                 <Separator x:Name="PlaybackAudioProcessingSeparator" />
                 <MenuItem x:Name="LoudnessNormalizationMenuItem"
-                          Header="Normalizacja głośności lokalnych utworów: wyłączona"
+                          Header="Globalna normalizacja głośności lokalnych utworów: wyłączona"
                           InputGestureText="prefiks Shift+N" IsCheckable="True"
-                          automation:AutomationProperties.Name="Normalizacja głośności lokalnych utworów: wyłączona"
+                          automation:AutomationProperties.Name="Globalna normalizacja głośności lokalnych utworów: wyłączona"
                           automation:AutomationProperties.AcceleratorKey="po prefiksie Shift+N"
                           Click="ToggleLoudnessNormalization_Click" />
                 <MenuItem x:Name="SmoothTrackTransitionsMenuItem"
-                          Header="Łagodne przejścia między utworami: wyłączone"
+                          Header="Globalne łagodne przejścia między utworami: wyłączone"
                           InputGestureText="prefiks T" IsCheckable="True"
-                          automation:AutomationProperties.Name="Łagodne przejścia między utworami: wyłączone"
+                          automation:AutomationProperties.Name="Globalne łagodne przejścia między utworami: wyłączone"
                           automation:AutomationProperties.AcceleratorKey="po prefiksie T"
                           Click="ToggleSmoothTrackTransitions_Click" />
                 <MenuItem x:Name="InterTrackSilenceMenuItem"
-                          Header="Cisza między utworami: bez dodatkowej ciszy"
+                          Header="Globalna cisza między utworami: bez dodatkowej ciszy"
                           InputGestureText="prefiks C"
-                          automation:AutomationProperties.Name="Cisza między utworami: bez dodatkowej ciszy"
+                          automation:AutomationProperties.Name="Globalna cisza między utworami: bez dodatkowej ciszy"
                           automation:AutomationProperties.AcceleratorKey="po prefiksie C">
                     <MenuItem x:Name="InterTrackSilenceNoneMenuItem" Header="Bez dodatkowej ciszy"
                               Tag="0" IsCheckable="True"
@@ -426,21 +426,21 @@
                               Click="PlayerNext_Click" />
                     <Separator x:Name="PlayerAudioProcessingSeparator" />
                     <MenuItem x:Name="PlayerLoudnessNormalizationMenuItem"
-                              Header="Normalizacja głośności lokalnych utworów: wyłączona"
+                              Header="Globalna normalizacja głośności lokalnych utworów: wyłączona"
                               InputGestureText="prefiks Shift+N" IsCheckable="True"
-                              automation:AutomationProperties.Name="Normalizacja głośności lokalnych utworów: wyłączona"
+                              automation:AutomationProperties.Name="Globalna normalizacja głośności lokalnych utworów: wyłączona"
                               automation:AutomationProperties.AcceleratorKey="po prefiksie Shift+N"
                               Click="ToggleLoudnessNormalization_Click" />
                     <MenuItem x:Name="PlayerSmoothTrackTransitionsMenuItem"
-                              Header="Łagodne przejścia między utworami: wyłączone"
+                              Header="Globalne łagodne przejścia między utworami: wyłączone"
                               InputGestureText="prefiks T" IsCheckable="True"
-                              automation:AutomationProperties.Name="Łagodne przejścia między utworami: wyłączone"
+                              automation:AutomationProperties.Name="Globalne łagodne przejścia między utworami: wyłączone"
                               automation:AutomationProperties.AcceleratorKey="po prefiksie T"
                               Click="ToggleSmoothTrackTransitions_Click" />
                     <MenuItem x:Name="PlayerInterTrackSilenceMenuItem"
-                              Header="Cisza między utworami: bez dodatkowej ciszy"
+                              Header="Globalna cisza między utworami: bez dodatkowej ciszy"
                               InputGestureText="prefiks C"
-                              automation:AutomationProperties.Name="Cisza między utworami: bez dodatkowej ciszy"
+                              automation:AutomationProperties.Name="Globalna cisza między utworami: bez dodatkowej ciszy"
                               automation:AutomationProperties.AcceleratorKey="po prefiksie C">
                         <MenuItem x:Name="PlayerInterTrackSilenceNoneMenuItem" Header="Bez dodatkowej ciszy"
                                   Tag="0" IsCheckable="True"

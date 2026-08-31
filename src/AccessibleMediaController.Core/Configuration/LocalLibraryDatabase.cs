@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 /// </summary>
 internal sealed class LocalLibraryDatabase(string databasePath)
 {
-    private const int DatabaseSchemaVersion = 3;
+    private const int DatabaseSchemaVersion = 4;
     private readonly object _gate = new();
 
     public string Path { get; } = databasePath;
@@ -73,7 +73,9 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                            is_favorite, is_in_library, is_available, is_in_queue,
                            is_play_next, resume_mode, playback_rate_override,
                            output_device_id, resume_position_ticks, file_length,
-                           last_write_utc_ticks
+                           last_write_utc_ticks, loudness_normalization_override,
+                           smooth_track_transitions_override,
+                           inter_track_silence_ms_override
                     FROM local_items
                     ORDER BY rowid;
                     """;
@@ -100,7 +102,10 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                         OutputDeviceId = NullableString(reader, 15),
                         ResumePositionTicks = reader.GetInt64(16),
                         FileLength = NullableInt64(reader, 17),
-                        LastWriteUtcTicks = NullableInt64(reader, 18)
+                        LastWriteUtcTicks = NullableInt64(reader, 18),
+                        LoudnessNormalizationOverride = NullableBool(reader, 19),
+                        SmoothTrackTransitionsOverride = NullableBool(reader, 20),
+                        InterTrackSilenceMillisecondsOverride = NullableInt32(reader, 21)
                     });
                 }
             }
@@ -123,7 +128,13 @@ internal sealed class LocalLibraryDatabase(string databasePath)
 
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = "SELECT path, resume_mode, playback_rate_override, output_device_id FROM folder_playback_options ORDER BY ordinal;";
+                command.CommandText = """
+                    SELECT path, resume_mode, playback_rate_override, output_device_id,
+                           loudness_normalization_override,
+                           smooth_track_transitions_override,
+                           inter_track_silence_ms_override
+                    FROM folder_playback_options ORDER BY ordinal;
+                    """;
                 using var reader = command.ExecuteReader();
                 while (reader.Read())
                 {
@@ -132,7 +143,10 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                         Path = reader.GetString(0),
                         ResumePositionMode = (ResumePositionMode)reader.GetInt32(1),
                         PlaybackRateOverride = NullableDouble(reader, 2),
-                        OutputDeviceId = NullableString(reader, 3)
+                        OutputDeviceId = NullableString(reader, 3),
+                        LoudnessNormalizationOverride = NullableBool(reader, 4),
+                        SmoothTrackTransitionsOverride = NullableBool(reader, 5),
+                        InterTrackSilenceMillisecondsOverride = NullableInt32(reader, 6)
                     });
                 }
             }
@@ -323,7 +337,10 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 output_device_id TEXT NULL,
                 resume_position_ticks INTEGER NOT NULL,
                 file_length INTEGER NULL,
-                last_write_utc_ticks INTEGER NULL
+                last_write_utc_ticks INTEGER NULL,
+                loudness_normalization_override INTEGER NULL,
+                smooth_track_transitions_override INTEGER NULL,
+                inter_track_silence_ms_override INTEGER NULL
             );
             CREATE INDEX IF NOT EXISTS ix_local_items_title ON local_items(title COLLATE AMC_PL);
             CREATE INDEX IF NOT EXISTS ix_local_items_path ON local_items(path COLLATE NOCASE);
@@ -340,7 +357,10 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 path TEXT PRIMARY KEY,
                 resume_mode INTEGER NOT NULL,
                 playback_rate_override REAL NULL,
-                output_device_id TEXT NULL
+                output_device_id TEXT NULL,
+                loudness_normalization_override INTEGER NULL,
+                smooth_track_transitions_override INTEGER NULL,
+                inter_track_silence_ms_override INTEGER NULL
             );
             CREATE TABLE IF NOT EXISTS excluded_paths (
                 ordinal INTEGER PRIMARY KEY,
@@ -407,9 +427,20 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
             );
             CREATE INDEX IF NOT EXISTS ix_playlist_items_item ON playlist_items(item_id);
-            PRAGMA user_version = 3;
             """;
         command.ExecuteNonQuery();
+
+        EnsureColumn(connection, "local_items", "loudness_normalization_override", "INTEGER NULL");
+        EnsureColumn(connection, "local_items", "smooth_track_transitions_override", "INTEGER NULL");
+        EnsureColumn(connection, "local_items", "inter_track_silence_ms_override", "INTEGER NULL");
+        EnsureColumn(connection, "folder_playback_options", "loudness_normalization_override", "INTEGER NULL");
+        EnsureColumn(connection, "folder_playback_options", "smooth_track_transitions_override", "INTEGER NULL");
+        EnsureColumn(connection, "folder_playback_options", "inter_track_silence_ms_override", "INTEGER NULL");
+        using (var version = connection.CreateCommand())
+        {
+            version.CommandText = $"PRAGMA user_version = {DatabaseSchemaVersion};";
+            version.ExecuteNonQuery();
+        }
 
         using var metadata = connection.CreateCommand();
         metadata.CommandText = """
@@ -444,11 +475,13 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                     bitrate_estimated, sample_rate_hz, is_favorite, is_in_library,
                     is_available, is_in_queue, is_play_next, resume_mode,
                     playback_rate_override, output_device_id, resume_position_ticks,
-                    file_length, last_write_utc_ticks)
+                    file_length, last_write_utc_ticks, loudness_normalization_override,
+                    smooth_track_transitions_override, inter_track_silence_ms_override)
                 VALUES(
                     $id, $title, $custom, $path, $duration, $bitrate, $estimated,
                     $sampleRate, $favorite, $library, $available, $queue, $playNext,
-                    $resumeMode, $rate, $device, $resumePosition, $fileLength, $lastWrite);
+                    $resumeMode, $rate, $device, $resumePosition, $fileLength, $lastWrite,
+                    $normalize, $transitions, $silence);
                 """,
                 ("$id", item.Id), ("$title", item.Title), ("$custom", item.HasCustomTitle),
                 ("$path", item.Path), ("$duration", item.DurationTicks),
@@ -459,7 +492,10 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 ("$resumeMode", (int)item.ResumePositionMode),
                 ("$rate", item.PlaybackRateOverride), ("$device", item.OutputDeviceId),
                 ("$resumePosition", item.ResumePositionTicks), ("$fileLength", item.FileLength),
-                ("$lastWrite", item.LastWriteUtcTicks));
+                ("$lastWrite", item.LastWriteUtcTicks),
+                ("$normalize", item.LoudnessNormalizationOverride),
+                ("$transitions", item.SmoothTrackTransitionsOverride),
+                ("$silence", item.InterTrackSilenceMillisecondsOverride));
         }
 
         for (var index = 0; index < state.LocalMedia.FolderSources.Count; index++)
@@ -475,9 +511,18 @@ internal sealed class LocalLibraryDatabase(string databasePath)
         {
             var option = state.LocalMedia.FolderPlaybackOptions[index];
             Execute(connection, transaction,
-                "INSERT INTO folder_playback_options(ordinal, path, resume_mode, playback_rate_override, output_device_id) VALUES($ordinal, $path, $mode, $rate, $device);",
+                """
+                INSERT INTO folder_playback_options(
+                    ordinal, path, resume_mode, playback_rate_override, output_device_id,
+                    loudness_normalization_override, smooth_track_transitions_override,
+                    inter_track_silence_ms_override)
+                VALUES($ordinal, $path, $mode, $rate, $device, $normalize, $transitions, $silence);
+                """,
                 ("$ordinal", index), ("$path", option.Path), ("$mode", (int)option.ResumePositionMode),
-                ("$rate", option.PlaybackRateOverride), ("$device", option.OutputDeviceId));
+                ("$rate", option.PlaybackRateOverride), ("$device", option.OutputDeviceId),
+                ("$normalize", option.LoudnessNormalizationOverride),
+                ("$transitions", option.SmoothTrackTransitionsOverride),
+                ("$silence", option.InterTrackSilenceMillisecondsOverride));
         }
 
         InsertOrderedStrings(connection, transaction, "excluded_paths", "path", state.LocalMedia.ExcludedPaths);
@@ -614,6 +659,33 @@ internal sealed class LocalLibraryDatabase(string databasePath)
         }
         command.ExecuteNonQuery();
     }
+
+    private static void EnsureColumn(
+        SqliteConnection connection,
+        string table,
+        string column,
+        string declaration)
+    {
+        using var inspect = connection.CreateCommand();
+        inspect.CommandText = $"PRAGMA table_info({table});";
+        using (var reader = inspect.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+            }
+        }
+
+        using var alter = connection.CreateCommand();
+        alter.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {declaration};";
+        alter.ExecuteNonQuery();
+    }
+
+    private static bool? NullableBool(SqliteDataReader reader, int index) =>
+        reader.IsDBNull(index) ? null : reader.GetInt64(index) != 0;
 
     private static int? NullableInt32(SqliteDataReader reader, int index) =>
         reader.IsDBNull(index) ? null : reader.GetInt32(index);

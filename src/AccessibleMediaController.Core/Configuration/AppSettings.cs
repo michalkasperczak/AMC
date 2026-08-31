@@ -189,7 +189,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 36;
+    public int SchemaVersion { get; set; } = 37;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -315,6 +315,9 @@ public sealed class LocalFolderPlaybackSettings
     public ResumePositionMode ResumePositionMode { get; set; } = ResumePositionMode.Inherit;
     public double? PlaybackRateOverride { get; set; }
     public string? OutputDeviceId { get; set; }
+    public bool? LoudnessNormalizationOverride { get; set; }
+    public bool? SmoothTrackTransitionsOverride { get; set; }
+    public int? InterTrackSilenceMillisecondsOverride { get; set; }
 }
 
 public sealed class LocalMediaItemSettings
@@ -335,6 +338,9 @@ public sealed class LocalMediaItemSettings
     public ResumePositionMode ResumePositionMode { get; set; } = ResumePositionMode.Inherit;
     public double? PlaybackRateOverride { get; set; }
     public string? OutputDeviceId { get; set; }
+    public bool? LoudnessNormalizationOverride { get; set; }
+    public bool? SmoothTrackTransitionsOverride { get; set; }
+    public int? InterTrackSilenceMillisecondsOverride { get; set; }
     public long ResumePositionTicks { get; set; }
     public long? FileLength { get; set; }
     public long? LastWriteUtcTicks { get; set; }

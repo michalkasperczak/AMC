@@ -124,6 +124,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         public required DecoderKind DecoderKind { get; init; }
         public long SeekStartedTimestamp;
         public int SeekInProgress;
+        public long LastObservedPositionTicks;
+        public long LastProgressTimestamp;
     }
 
     private sealed class SeekWorkerState(PlaybackPipeline pipeline)
@@ -152,6 +154,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     private static readonly TimeSpan LocalPreparationTimeout = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan RemotePreparationTimeout = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan SlowSeekLogThreshold = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan EndOfFileGracePeriod = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan EndOfFilePositionTolerance = TimeSpan.FromMilliseconds(350);
     private static readonly TimeSpan SmoothTrackTransitionDuration = TimeSpan.FromMilliseconds(1500);
     private const long ManagedMp3FallbackMaximumBytes = 512L * 1024 * 1024;
     private PlaybackPipeline? _pipeline;
@@ -163,6 +167,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
     private bool _loudnessNormalizationEnabled;
     private bool _smoothTrackTransitionsEnabled;
     private int _interTrackSilenceMilliseconds;
+    private Func<MediaItem, PlaybackAudioSettings>? _audioProcessingResolver;
     private DateTimeOffset _nextAutomaticStartNotBeforeUtc;
     private long _requestVersion;
     private long _seekRequestVersion;
@@ -220,6 +225,16 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         pipeline.TransitionProvider.FadeDurationMilliseconds = fadeMilliseconds;
     }
 
+    public void ConfigureAudioProcessingResolver(
+        Func<MediaItem, PlaybackAudioSettings>? resolver)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _audioProcessingResolver = resolver;
+        }
+    }
+
     public void BeginAutomaticTrackContinuation()
     {
         lock (_gate)
@@ -273,6 +288,13 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         if (string.IsNullOrWhiteSpace(item.Source))
         {
             throw new InvalidOperationException("Element nie zawiera lokalnego źródła dźwięku.");
+        }
+
+        Func<MediaItem, PlaybackAudioSettings>? audioProcessingResolver;
+        lock (_gate) audioProcessingResolver = _audioProcessingResolver;
+        if (audioProcessingResolver is not null)
+        {
+            ConfigureAudioProcessing(audioProcessingResolver(item));
         }
 
         var resolvedPosition = position < TimeSpan.Zero ? TimeSpan.Zero : position;
@@ -336,7 +358,13 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             catch (Exception exception)
             {
                 DiagnosticLog.Error("playback", $"Nie udało się wznowić: {item.Title}.", exception);
-                RaisePlaybackFailed(item, exception.Message);
+                if (TryBeginMp3Recovery(reusable, exception)) return;
+                RestartPipelineAfterResumeFailure(
+                    reusable,
+                    resolvedPosition,
+                    resolvedVolume,
+                    resolvedRate,
+                    exception);
                 return;
             }
         }
@@ -464,6 +492,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             pipeline.VolumeProvider.Volume = Math.Clamp(volume, 0, 100) / 100f;
             ApplyRate(pipeline, rate);
             pipeline.Output.Play();
+            Interlocked.Exchange(
+                ref pipeline.LastObservedPositionTicks,
+                pipeline.DecoderGuard.CachedCurrentTime.Ticks);
+            Interlocked.Exchange(ref pipeline.LastProgressTimestamp, Stopwatch.GetTimestamp());
             _ = MonitorDecoderAsync(pipeline);
             var duration = pipeline.DecoderGuard.TotalTime;
             var sampleRateHz = pipeline.TempoStream.WaveFormat.SampleRate;
@@ -864,6 +896,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             or InvalidDataException
             or NotSupportedException
             or ArgumentException
+            or InvalidCastException
             or System.Runtime.InteropServices.COMException;
 
     public static bool TryReadMetadata(
@@ -1058,6 +1091,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                         or InvalidDataException
                         or NotSupportedException
                         or ArgumentException
+                        or InvalidCastException
                         or System.Runtime.InteropServices.COMException)
                 {
                     DiagnosticLog.Error(
@@ -1175,7 +1209,51 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
                 continue;
             }
             if (!pipeline.DecoderGuard.IsReadStalled(decoderStallTimeout)
-                && !pipeline.OutputReadMonitor.IsReadStalled(decoderStallTimeout)) continue;
+                && !pipeline.OutputReadMonitor.IsReadStalled(decoderStallTimeout))
+            {
+                PlaybackState playbackState;
+                try
+                {
+                    playbackState = pipeline.Output.PlaybackState;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return;
+                }
+
+                var position = pipeline.DecoderGuard.CachedCurrentTime;
+                var positionTicks = Math.Max(0, position.Ticks);
+                var previousTicks = Interlocked.Read(ref pipeline.LastObservedPositionTicks);
+                if (playbackState != PlaybackState.Playing
+                    || positionTicks != previousTicks)
+                {
+                    Interlocked.Exchange(ref pipeline.LastObservedPositionTicks, positionTicks);
+                    Interlocked.Exchange(ref pipeline.LastProgressTimestamp, Stopwatch.GetTimestamp());
+                    continue;
+                }
+
+                var lastProgress = Interlocked.Read(ref pipeline.LastProgressTimestamp);
+                if (lastProgress == 0)
+                {
+                    Interlocked.Exchange(ref pipeline.LastProgressTimestamp, Stopwatch.GetTimestamp());
+                    continue;
+                }
+                var withoutProgress = Stopwatch.GetElapsedTime(lastProgress);
+                var totalTime = pipeline.DecoderGuard.TotalTime;
+                var nearEnd = totalTime > TimeSpan.Zero
+                    && totalTime - position <= EndOfFilePositionTolerance;
+                if (nearEnd && withoutProgress >= EndOfFileGracePeriod)
+                {
+                    CompletePlaybackAfterMissingEndSignal(pipeline, position, totalTime);
+                    return;
+                }
+                if (withoutProgress < decoderStallTimeout) continue;
+
+                StopUnresponsivePipeline(
+                    pipeline,
+                    $"Tor odtwarzania nie przesunął pozycji przez {decoderStallTimeout}.");
+                return;
+            }
 
             StopUnresponsivePipeline(
                 pipeline,
@@ -1277,8 +1355,51 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
             return;
         }
 
-        lock (_gate) _pendingPosition = TimeSpan.Zero;
+        var completed = false;
+        lock (_gate)
+        {
+            if (!_disposed && ReferenceEquals(_pipeline, pipeline))
+            {
+                _pendingPosition = TimeSpan.Zero;
+                ++_requestVersion;
+                _pipeline = null;
+                if (ReferenceEquals(_seekWorker?.Pipeline, pipeline)) _seekWorker = null;
+                pipeline.Output.PlaybackStopped -= pipeline.StoppedHandler;
+                completed = true;
+            }
+        }
+        if (!completed) return;
         DiagnosticLog.Info("playback", $"Koniec pliku: {pipeline.Item.Title}.");
+        QueuePipelineDisposal(pipeline);
+        RaiseOnCapturedContext(() =>
+            PlaybackEnded?.Invoke(this, new MediaPlaybackEndedEventArgs(pipeline.Item)));
+    }
+
+    private void CompletePlaybackAfterMissingEndSignal(
+        PlaybackPipeline pipeline,
+        TimeSpan position,
+        TimeSpan totalTime)
+    {
+        var completed = false;
+        lock (_gate)
+        {
+            if (!_disposed && ReferenceEquals(_pipeline, pipeline))
+            {
+                _pendingPosition = TimeSpan.Zero;
+                ++_requestVersion;
+                _pipeline = null;
+                if (ReferenceEquals(_seekWorker?.Pipeline, pipeline)) _seekWorker = null;
+                pipeline.Output.PlaybackStopped -= pipeline.StoppedHandler;
+                completed = true;
+            }
+        }
+        if (!completed) return;
+
+        DiagnosticLog.Warning(
+            "decoder-watchdog",
+            $"Tor wyjściowy nie zgłosił końca; rozpoznano koniec po braku postępu: "
+            + $"{pipeline.Item.Title}; pozycja {position}; czas {totalTime}.");
+        QueuePipelineDisposal(pipeline);
         RaiseOnCapturedContext(() =>
             PlaybackEnded?.Invoke(this, new MediaPlaybackEndedEventArgs(pipeline.Item)));
     }
@@ -1390,6 +1511,55 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         return true;
     }
 
+    private bool RestartPipelineAfterResumeFailure(
+        PlaybackPipeline pipeline,
+        TimeSpan position,
+        int volume,
+        double rate,
+        Exception exception)
+    {
+        long requestVersion;
+        lock (_gate)
+        {
+            if (_disposed || !ReferenceEquals(_pipeline, pipeline)) return false;
+            _pendingPosition = position;
+            _requestedItem = pipeline.Item;
+            _volume = volume;
+            _playbackRate = rate;
+            requestVersion = ++_requestVersion;
+            _pipeline = null;
+            if (ReferenceEquals(_seekWorker?.Pipeline, pipeline)) _seekWorker = null;
+            pipeline.Output.PlaybackStopped -= pipeline.StoppedHandler;
+            _preparing = true;
+        }
+
+        DiagnosticLog.Warning(
+            "playback-recovery",
+            $"Uszkodzony tor wznowienia zostanie otwarty ponownie: {pipeline.Item.Title}; "
+            + exception.Message);
+        QueuePipelineDisposal(pipeline);
+        PlaybackPreparing?.Invoke(
+            this,
+            new MediaPlaybackPreparingEventArgs(
+                pipeline.Item,
+                pipeline.MayRequireRemoteAccess));
+        _ = Task.Run(() => PrepareAndStartPipeline(
+            pipeline.Item,
+            requestVersion,
+            position,
+            volume,
+            rate,
+            mp3DecoderMode: Mp3DecoderMode.Automatic));
+        _ = WatchPreparationTimeoutAsync(
+            pipeline.Item,
+            requestVersion,
+            pipeline.MayRequireRemoteAccess
+                ? RemotePreparationTimeout
+                : LocalPreparationTimeout,
+            pipeline.MayRequireRemoteAccess);
+        return true;
+    }
+
     private PlaybackPipeline? DetachPipelineLocked()
     {
         var pipeline = _pipeline;
@@ -1481,6 +1651,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IDisposable
         if (exception is InvalidDataException
             or NotSupportedException
             or ArgumentException
+            or InvalidCastException
             or OverflowException
             or OutOfMemoryException
             or System.Runtime.InteropServices.COMException)

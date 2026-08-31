@@ -23,6 +23,7 @@ var tests = new (string Name, Action Test)[]
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
     ("Trwałe opcje przetwarzania dźwięku", TestPlaybackAudioSettingsPersistence),
+    ("Dziedziczenie przetwarzania dźwięku plików lokalnych", TestLocalPlaybackAudioSettingsInheritance),
     ("Migracja starszych ustawień", TestLegacyStateMigration),
     ("Migracja ustawień alpha.4", TestVersion2StateMigration),
     ("Migracja komunikatów alpha.5", TestVersion3MessageMigration),
@@ -108,6 +109,57 @@ static void TestPlaybackAudioSettingsPersistence()
     {
         Directory.Delete(directory, true);
     }
+}
+
+static void TestLocalPlaybackAudioSettingsInheritance()
+{
+    var root = Path.Combine(Path.GetTempPath(), $"amc-audio-inheritance-{Guid.NewGuid():N}");
+    var child = Path.Combine(root, "Podcasty");
+    var itemPath = Path.Combine(child, "odcinek.mp3");
+    var global = new PlaybackAudioSettings
+    {
+        LoudnessNormalizationEnabled = false,
+        SmoothTrackTransitionsEnabled = false,
+        InterTrackSilenceMilliseconds = 0
+    };
+    LocalFolderPlaybackSettings[] folders =
+    [
+        new()
+        {
+            Path = root,
+            LoudnessNormalizationOverride = true,
+            InterTrackSilenceMillisecondsOverride = 2000
+        },
+        new()
+        {
+            Path = child,
+            SmoothTrackTransitionsOverride = true
+        }
+    ];
+    var item = new LocalMediaItemSettings
+    {
+        Path = itemPath,
+        LoudnessNormalizationOverride = false,
+        InterTrackSilenceMillisecondsOverride = 500
+    };
+
+    var effective = LocalPlaybackAudioSettingsResolver.Resolve(
+        global,
+        itemPath,
+        item,
+        folders);
+    Equal(false, effective.LoudnessNormalizationEnabled);
+    Equal(true, effective.SmoothTrackTransitionsEnabled);
+    Equal(500, effective.InterTrackSilenceMilliseconds);
+
+    var inherited = LocalPlaybackAudioSettingsResolver.Resolve(
+        global,
+        itemPath,
+        itemSettings: null,
+        folders);
+    Equal(true, inherited.LoudnessNormalizationEnabled);
+    Equal(true, inherited.SmoothTrackTransitionsEnabled);
+    Equal(2000, inherited.InterTrackSilenceMilliseconds);
 }
 
 var failures = new List<string>();
@@ -1756,6 +1808,16 @@ static void TestLocalAudioFileDiscovery()
             CloudFileAvailability.MayRequireRemoteAccess(
                 @"D:\iCloudDrive\iCloud~co~example\nagranie.mp3"),
             "iCloud powinien być rozpoznany na podstawie bezpiecznej ścieżki.");
+        var hydratedICloudDirectory = Path.Combine(directory, "iCloudDrive", "iCloud~co~example");
+        Directory.CreateDirectory(hydratedICloudDirectory);
+        var hydratedICloudFile = Path.Combine(hydratedICloudDirectory, "pobrane.mp3");
+        File.WriteAllBytes(hydratedICloudFile, [1, 2, 3]);
+        True(
+            !CloudFileAvailability.MayRequireRemoteAccess(hydratedICloudFile),
+            "Pobrany lokalnie plik iCloud nie powinien otrzymać limitów dla pliku zdalnego.");
+        Equal(
+            CloudFileState.Local,
+            CloudFileAvailability.ClassifyMetadata((FileAttributes)0x00080420));
         True(
             CloudFileAvailability.MayRequireRemoteAccess(
                 @"C:\Users\Test\OneDrive - Firma\nagranie.mp3"),
@@ -2389,7 +2451,10 @@ static void TestLocalMediaPersistence()
         {
             Path = Path.Combine(directory, "Podcasty"),
             ResumePositionMode = ResumePositionMode.Remember,
-            PlaybackRateOverride = 1.75d
+            PlaybackRateOverride = 1.75d,
+            LoudnessNormalizationOverride = true,
+            SmoothTrackTransitionsOverride = false,
+            InterTrackSilenceMillisecondsOverride = 2000
         });
         state.LocalMedia.CurrentFolderPath = directory;
         state.LocalMedia.LibraryView = "Foldery";
@@ -2412,7 +2477,10 @@ static void TestLocalMediaPersistence()
             IsInQueue = true,
             ResumePositionMode = ResumePositionMode.Remember,
             PlaybackRateOverride = 1.75d,
-            OutputDeviceId = "default"
+            OutputDeviceId = "default",
+            LoudnessNormalizationOverride = false,
+            SmoothTrackTransitionsOverride = true,
+            InterTrackSilenceMillisecondsOverride = 500
         });
 
         store.Save(state);
@@ -2434,6 +2502,9 @@ static void TestLocalMediaPersistence()
             folderOptions.Path);
         Equal(ResumePositionMode.Remember, folderOptions.ResumePositionMode);
         Equal(1.75d, folderOptions.PlaybackRateOverride);
+        Equal(true, folderOptions.LoudnessNormalizationOverride);
+        Equal(false, folderOptions.SmoothTrackTransitionsOverride);
+        Equal(2000, folderOptions.InterTrackSilenceMillisecondsOverride);
         Equal(Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory)), loaded.LocalMedia.CurrentFolderPath);
         Equal("local-1", new PlaybackHistory(loaded.PlaybackHistory).GetItemIds("local")[0]);
         var item = loaded.LocalMedia.Items[0];
@@ -2446,6 +2517,9 @@ static void TestLocalMediaPersistence()
         Equal(ResumePositionMode.Remember, item.ResumePositionMode);
         Equal(1.75d, item.PlaybackRateOverride);
         Equal("default", item.OutputDeviceId);
+        Equal(false, item.LoudnessNormalizationOverride);
+        Equal(true, item.SmoothTrackTransitionsOverride);
+        Equal(500, item.InterTrackSilenceMillisecondsOverride);
         Equal("local-1", loaded.CollectionOrders.FavoriteItemIdsBySession["LOCAL"].Single());
         Equal("local-1", loaded.CollectionOrders.QueueItemIdsBySession["LOCAL"].Single());
 
@@ -2822,22 +2896,22 @@ static void TestCommandPalette()
         "Oznajmianie automatycznie rozpoznanych utworów: włączone. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsAutomaticRecognitionMessages).DisplayName);
     Equal(
-        "Normalizacja głośności lokalnych utworów: wyłączone. Enter: ustawienia",
+        "Globalna normalizacja głośności lokalnych utworów: wyłączone. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsLoudnessNormalization).DisplayName);
     Equal(
-        "Łagodne przejścia między utworami: wyłączone. Enter: ustawienia",
+        "Globalne łagodne przejścia między utworami: wyłączone. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsSmoothTrackTransitions).DisplayName);
     Equal(
-        "Cisza między utworami: bez dodatkowej ciszy. Enter: ustawienia",
+        "Globalna cisza między utworami: bez dodatkowej ciszy. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsInterTrackSilence).DisplayName);
     Equal(
-        "Normalizacja głośności lokalnych utworów: wyłączone. Enter: przełącz",
+        "Globalna normalizacja głośności lokalnych utworów: wyłączone. Enter: przełącz",
         entries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization).DisplayName);
     Equal(
-        "Łagodne przejścia między utworami: wyłączone. Enter: przełącz",
+        "Globalne łagodne przejścia między utworami: wyłączone. Enter: przełącz",
         entries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions).DisplayName);
     Equal(
-        "Cisza między utworami: bez dodatkowej ciszy. Enter: następna wartość",
+        "Globalna cisza między utworami: bez dodatkowej ciszy. Enter: następna wartość",
         entries.Single(entry => entry.CommandId == CommandIds.CycleInterTrackSilence).DisplayName);
     Equal(
         "Komunikat po skoku cyfrą: tylko procent",
@@ -2888,22 +2962,22 @@ static void TestCommandPalette()
         "Oznajmianie automatycznie rozpoznanych utworów: wyłączone. Enter: ustawienia",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsAutomaticRecognitionMessages).DisplayName);
     Equal(
-        "Normalizacja głośności lokalnych utworów: włączone. Enter: ustawienia",
+        "Globalna normalizacja głośności lokalnych utworów: włączone. Enter: ustawienia",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsLoudnessNormalization).DisplayName);
     Equal(
-        "Łagodne przejścia między utworami: włączone. Enter: ustawienia",
+        "Globalne łagodne przejścia między utworami: włączone. Enter: ustawienia",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsSmoothTrackTransitions).DisplayName);
     Equal(
-        "Cisza między utworami: 2 sekundy. Enter: ustawienia",
+        "Globalna cisza między utworami: 2 sekundy. Enter: ustawienia",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsInterTrackSilence).DisplayName);
     Equal(
-        "Normalizacja głośności lokalnych utworów: włączone. Enter: przełącz",
+        "Globalna normalizacja głośności lokalnych utworów: włączone. Enter: przełącz",
         changedEntries.Single(entry => entry.CommandId == CommandIds.ToggleLoudnessNormalization).DisplayName);
     Equal(
-        "Łagodne przejścia między utworami: włączone. Enter: przełącz",
+        "Globalne łagodne przejścia między utworami: włączone. Enter: przełącz",
         changedEntries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions).DisplayName);
     Equal(
-        "Cisza między utworami: 2 sekundy. Enter: następna wartość",
+        "Globalna cisza między utworami: 2 sekundy. Enter: następna wartość",
         changedEntries.Single(entry => entry.CommandId == CommandIds.CycleInterTrackSilence).DisplayName);
     Equal(
         "Komunikat po skoku cyfrą: procent i czas",

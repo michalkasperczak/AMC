@@ -192,6 +192,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _state = state;
         _store = store;
         _localOutput.ConfigureAudioProcessing(_state.Settings.Audio);
+        _localOutput.ConfigureAudioProcessingResolver(GetEffectiveLocalAudioSettings);
         _radioOutput = new RadioMediaOutput(_state.Radio.TimeshiftMinutes);
         _radioOutput.PlaybackFailed += RadioOutput_PlaybackFailed;
         _radioOutput.PlaybackPreparing += RadioOutput_PlaybackPreparing;
@@ -1883,7 +1884,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var dialog = new ItemPlaybackOptionsWindow(
             item.Title,
             saved.ResumePositionMode,
-            saved.PlaybackRateOverride)
+            saved.PlaybackRateOverride,
+            saved.LoudnessNormalizationOverride,
+            saved.SmoothTrackTransitionsOverride,
+            saved.InterTrackSilenceMillisecondsOverride)
         {
             Owner = this
         };
@@ -1895,12 +1899,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         saved.ResumePositionMode = dialog.SelectedResumePositionMode;
         saved.PlaybackRateOverride = dialog.SelectedPlaybackRateOverride;
+        saved.LoudnessNormalizationOverride = dialog.SelectedLoudnessNormalizationOverride;
+        saved.SmoothTrackTransitionsOverride = dialog.SelectedSmoothTrackTransitionsOverride;
+        saved.InterTrackSilenceMillisecondsOverride =
+            dialog.SelectedInterTrackSilenceMillisecondsOverride;
         var local = _sessions.FindSession("local");
         if (local is not null
             && string.Equals(local.CurrentItem.Id, item.Id, StringComparison.Ordinal))
         {
             if (!ShouldRememberLocalPosition(item)) local.ClearRememberedPosition(item.Id);
             local.ApplyPlaybackRateForCurrentItem();
+            _localOutput.ConfigureAudioProcessing(GetEffectiveLocalAudioSettings(item));
         }
         TrySaveLocalMediaState(true);
         if (_playerViewActive) UpdatePlayerView(true);
@@ -1923,6 +1932,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             $"Folder: {folderTitle}",
             saved?.ResumePositionMode ?? ResumePositionMode.Inherit,
             saved?.PlaybackRateOverride,
+            saved?.LoudnessNormalizationOverride,
+            saved?.SmoothTrackTransitionsOverride,
+            saved?.InterTrackSilenceMillisecondsOverride,
             folderTarget: true)
         {
             Owner = this
@@ -1937,9 +1949,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         saved ??= new LocalFolderPlaybackSettings { Path = normalizedPath };
         saved.ResumePositionMode = dialog.SelectedResumePositionMode;
         saved.PlaybackRateOverride = dialog.SelectedPlaybackRateOverride;
+        saved.LoudnessNormalizationOverride = dialog.SelectedLoudnessNormalizationOverride;
+        saved.SmoothTrackTransitionsOverride = dialog.SelectedSmoothTrackTransitionsOverride;
+        saved.InterTrackSilenceMillisecondsOverride =
+            dialog.SelectedInterTrackSilenceMillisecondsOverride;
         var hasOverride = saved.ResumePositionMode != ResumePositionMode.Inherit
             || saved.PlaybackRateOverride.HasValue
-            || saved.OutputDeviceId is not null;
+            || saved.OutputDeviceId is not null
+            || saved.LoudnessNormalizationOverride.HasValue
+            || saved.SmoothTrackTransitionsOverride.HasValue
+            || saved.InterTrackSilenceMillisecondsOverride.HasValue;
         var existingIndex = _state.LocalMedia.FolderPlaybackOptions.FindIndex(option =>
             string.Equals(NormalizeLocalFolderPath(option.Path), normalizedPath, StringComparison.OrdinalIgnoreCase));
         if (hasOverride && existingIndex < 0)
@@ -1965,6 +1984,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 && LocalFolderSourcePolicy.IsSameOrDescendant(currentPath, normalizedPath))
             {
                 local.ApplyPlaybackRateForCurrentItem();
+                _localOutput.ConfigureAudioProcessing(
+                    GetEffectiveLocalAudioSettings(local.CurrentItem));
             }
         }
         TrySaveLocalMediaState(true);
@@ -2870,13 +2891,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         transitionsItem.IsChecked = audio.SmoothTrackTransitionsEnabled;
         MenuAccessibility.SetPresentation(
             loudnessItem,
-            $"Normalizacja głośności lokalnych utworów: {(audio.LoudnessNormalizationEnabled ? "włączona" : "wyłączona")}");
+            $"Globalna normalizacja głośności lokalnych utworów: {(audio.LoudnessNormalizationEnabled ? "włączona" : "wyłączona")}");
         MenuAccessibility.SetPresentation(
             transitionsItem,
-            $"Łagodne przejścia między utworami: {(audio.SmoothTrackTransitionsEnabled ? "włączone" : "wyłączone")}");
+            $"Globalne łagodne przejścia między utworami: {(audio.SmoothTrackTransitionsEnabled ? "włączone" : "wyłączone")}");
         MenuAccessibility.SetPresentation(
             silenceItem,
-            $"Cisza między utworami: {PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(audio.InterTrackSilenceMilliseconds)}");
+            $"Globalna cisza między utworami: {PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(audio.InterTrackSilenceMilliseconds)}");
         foreach (var choice in silenceChoices)
         {
             choice.Item.IsChecked = choice.Milliseconds == audio.InterTrackSilenceMilliseconds;
@@ -2888,7 +2909,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _state.Settings.Audio.LoudnessNormalizationEnabled =
             !_state.Settings.Audio.LoudnessNormalizationEnabled;
         ApplyPlaybackAudioSetting(
-            $"Normalizacja głośności lokalnych utworów: {(_state.Settings.Audio.LoudnessNormalizationEnabled ? "włączona" : "wyłączona")}");
+            $"Globalna normalizacja głośności lokalnych utworów: {(_state.Settings.Audio.LoudnessNormalizationEnabled ? "włączona" : "wyłączona")}");
     }
 
     private void ToggleSmoothTrackTransitions()
@@ -2896,7 +2917,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _state.Settings.Audio.SmoothTrackTransitionsEnabled =
             !_state.Settings.Audio.SmoothTrackTransitionsEnabled;
         ApplyPlaybackAudioSetting(
-            $"Łagodne przejścia między utworami: {(_state.Settings.Audio.SmoothTrackTransitionsEnabled ? "włączone" : "wyłączone")}");
+            $"Globalne łagodne przejścia między utworami: {(_state.Settings.Audio.SmoothTrackTransitionsEnabled ? "włączone" : "wyłączone")}");
     }
 
     private void CycleInterTrackSilence()
@@ -2919,12 +2940,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!PlaybackAudioSettingsRules.IsSupportedSilence(milliseconds)) return;
         _state.Settings.Audio.InterTrackSilenceMilliseconds = milliseconds;
         ApplyPlaybackAudioSetting(
-            $"Cisza między lokalnymi utworami: {PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(milliseconds)}");
+            $"Globalna cisza między lokalnymi utworami: {PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(milliseconds)}");
     }
 
     private void ApplyPlaybackAudioSetting(string announcement)
     {
-        _localOutput.ConfigureAudioProcessing(_state.Settings.Audio);
+        ApplyEffectiveAudioProcessingForCurrentLocalItem();
         UpdatePlaybackAudioMenuPresentation(
             string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal));
         var saved = TrySaveLocalMediaState(false);
@@ -3503,6 +3524,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ResumePositionMode = previous?.ResumePositionMode ?? ResumePositionMode.Inherit,
                 PlaybackRateOverride = previous?.PlaybackRateOverride,
                 OutputDeviceId = previous?.OutputDeviceId,
+                LoudnessNormalizationOverride = previous?.LoudnessNormalizationOverride,
+                SmoothTrackTransitionsOverride = previous?.SmoothTrackTransitionsOverride,
+                InterTrackSilenceMillisecondsOverride =
+                    previous?.InterTrackSilenceMillisecondsOverride,
                 ResumePositionTicks = Math.Max(0, position.Ticks),
                 FileLength = fileLength,
                 LastWriteUtcTicks = lastWriteUtcTicks
@@ -3683,6 +3708,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private double? GetLocalPlaybackRateOverride(MediaItem item) =>
         FindLocalItemSettings(item)?.PlaybackRateOverride
         ?? GetFolderPlaybackRateOverride(item.Source);
+
+    private PlaybackAudioSettings GetEffectiveLocalAudioSettings(MediaItem item) =>
+        LocalPlaybackAudioSettingsResolver.Resolve(
+            _state.Settings.Audio,
+            item.Source,
+            FindLocalItemSettings(item),
+            _state.LocalMedia.FolderPlaybackOptions);
+
+    private void ApplyEffectiveAudioProcessingForCurrentLocalItem()
+    {
+        var local = _sessions?.FindSession("local");
+        _localOutput.ConfigureAudioProcessing(
+            local is { HasCurrentItem: true }
+                ? GetEffectiveLocalAudioSettings(local.CurrentItem)
+                : _state.Settings.Audio);
+    }
 
     private string FormatResumePositionMode(ResumePositionMode mode, MediaItem item) => mode switch
     {
@@ -4078,6 +4119,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         _cloudPreparingItemId = null;
         var localSession = _sessions.FindSession("local");
+        var completedAudioSettings = GetEffectiveLocalAudioSettings(e.Item);
         _localOutput.BeginAutomaticTrackContinuation();
         var nextItem = localSession?.ContinueAfterPlaybackEnded(e.Item);
         if (nextItem is null) _localOutput.CancelAutomaticTrackContinuation();
@@ -4101,7 +4143,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         TrySaveLocalMediaState(false);
         Announce(nextItem is null
             ? $"Koniec: {e.Item.Title}"
-            : _state.Settings.Audio.InterTrackSilenceMilliseconds > 0
+            : completedAudioSettings.InterTrackSilenceMilliseconds > 0
                 ? $"Następny utwór po ciszy: {nextItem.Title}"
                 : $"Odtwarzanie: {nextItem.Title}");
     }
@@ -6405,7 +6447,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         _state = dialog.ResultState;
-        _localOutput.ConfigureAudioProcessing(_state.Settings.Audio);
+        ApplyEffectiveAudioProcessingForCurrentLocalItem();
         ClearDisabledLocalResumePositions();
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
         _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);

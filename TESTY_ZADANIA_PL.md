@@ -1,12 +1,82 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-169`
-- Tytuł zestawu: Szybkie opcje dźwięku w menu i skróty prefiksowe
-- Wersja programu: `0.1.0-alpha.169`
+- Numer zestawu: `AMC-TEST-170`
+- Tytuł zestawu: Odzyskiwanie odtwarzania i dziedziczone opcje dźwięku
+- Wersja programu: `0.1.0-alpha.170`
 - Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.169.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.170.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 170
+
+### AMC-170-01 — Wznowienie po pomocy i po Escape
+
+Uruchom zapis Gdańska albo PIK, otwórz `Ctrl+F1`, zamknij pomoc klawiszem
+Escape, a potem kilka razy użyj Spacji do pauzy i wznowienia. Powtórz próbę po
+wyjściu z odtwarzacza klawiszem Escape.
+
+Oczekiwane: plik wznawia się w zachowanej pozycji. Nie pojawia się komunikat
+techniczny ani trwały stan, w którym kolejne próby nie mogą już odtwarzać.
+Jeżeli globalne pole **Wstrzymuj odtwarzanie po wyjściu z odtwarzacza** jest
+włączone, sam Escape celowo robi pauzę; Spacja ma potem prawidłowo wznowić.
+Po wyłączeniu tego pola Escape wraca do listy bez wstrzymania.
+
+### AMC-170-02 — Naturalny koniec Łodzi i Rzeszowa
+
+Poczekaj do naturalnego końca pełnych plików Radia Łódź i Radia Rzeszów, nie
+zmieniając utworu ręcznie. Najlepiej ustaw za każdym z nich jeszcze jeden plik
+w tym samym kontekście odtwarzania.
+
+Oczekiwane: po dojściu do końca AMC raz oznajmia koniec albo uruchamia następny
+utwór. Pozycja nie zatrzymuje się na kilka minut bez końca i bez błędu. Jeżeli
+tor Windows nie wyśle zdarzenia końca, nadzór rozpoznaje koniec po krótkim
+braku postępu; nie dubluje komunikatu ani następnego utworu.
+
+### AMC-170-03 — Pobrany i dostępny tylko online plik iCloud
+
+W Eksploratorze wybierz dla jednego pliku iCloud **Zawsze zachowuj na tym
+urządzeniu**, a drugi pozostaw tylko online. Otwórz oba kolejno w AMC.
+
+Oczekiwane: pobrany lub przypięty plik zaczyna się jak plik lokalny i nie jest
+opisywany jako oczekiwanie na pobranie. Plik tylko online może wywołać
+komunikat o pobieraniu z chmury i otrzymuje dłuższy limit. Brak sieci kończy się
+czytelnym komunikatem, ale nie blokuje fokusu ani następnego pliku.
+
+### AMC-170-04 — Ustawienia pliku pod Alt+Shift+Enter
+
+Zaznacz lokalny utwór i naciśnij `Alt+Shift+Enter`. Przejdź Tabem przez pozycję,
+prędkość, normalizację, łagodne przejścia i ciszę. Ustaw dla pliku wartości
+inne niż globalne, zapisz, ponownie otwórz okno i uruchom plik.
+
+Oczekiwane: każde pole ma użytkową nazwę, a rozwinięte pozycje nie czytają
+nazwy klasy, właściwości ani rekordu. `1,00 razy` jest opisane jako normalna
+prędkość. Wybrane wartości wracają po ponownym otwarciu i mają pierwszeństwo
+przed folderem oraz ustawieniami globalnymi. Po Zapisz i Anuluj fokus wraca do
+elementu, z którego otwarto okno.
+
+### AMC-170-05 — Dziedziczenie ustawień folderu
+
+W widoku Foldery wybierz folder i otwórz `Alt+Shift+Enter`. Ustaw tylko
+normalizację, pozostaw przejścia i ciszę zgodne z folderem nadrzędnym lub
+ustawieniem globalnym. Dla jednego pliku wewnątrz ustaw następnie własną ciszę.
+
+Oczekiwane: folder wpływa na pliki w sobie i podfolderach. Każda właściwość
+dziedziczy się niezależnie z najbliższego folderu. Wartość pojedynczego pliku
+wygrywa tylko dla tego pliku. Powrót wszystkich pól folderu do dziedziczenia
+usuwa pusty wyjątek, a ustawienia pozostają trwałe po ponownym uruchomieniu.
+
+### AMC-170-06 — Jednoznaczne ustawienia globalne
+
+Otwórz **Ustawienia > Ogólne** i grupę **Odtwarzanie — ustawienia globalne**,
+a następnie menu **Odtwarzanie** oraz menu kontekstowe lokalnego odtwarzacza.
+
+Oczekiwane: normalizacja, przejścia i cisza są nadal dostępne w ustawieniach.
+Pozycje szybkiego menu jawnie mówią, że zmieniają wartości globalne. Zmiana
+globalna wpływa na element dziedziczący, ale nie nadpisuje wyjątku pliku lub
+folderu. Skróty prefiksowe z alpha 169 nadal zmieniają ustawienia globalne.
+
+## Poprzedni zestaw alpha 169
 
 ## Nowości alpha 169
 

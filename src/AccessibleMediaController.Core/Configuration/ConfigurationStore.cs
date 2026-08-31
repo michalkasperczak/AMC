@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 36;
+    public const int CurrentSchemaVersion = 37;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -592,6 +592,23 @@ public sealed class ConfigurationStore
             .GroupBy(item => item.Path, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToList();
+        foreach (var item in state.LocalMedia.Items)
+        {
+            if (!Enum.IsDefined(item.ResumePositionMode))
+            {
+                item.ResumePositionMode = ResumePositionMode.Inherit;
+            }
+            if (item.PlaybackRateOverride.HasValue)
+            {
+                item.PlaybackRateOverride = Math.Clamp(item.PlaybackRateOverride.Value, 0.50d, 2.00d);
+            }
+            if (item.InterTrackSilenceMillisecondsOverride.HasValue
+                && !PlaybackAudioSettingsRules.IsSupportedSilence(
+                    item.InterTrackSilenceMillisecondsOverride.Value))
+            {
+                item.InterTrackSilenceMillisecondsOverride = null;
+            }
+        }
         state.LocalMedia.Volume = Math.Clamp(state.LocalMedia.Volume, 0, 100);
         state.LocalMedia.PlaybackRate = Math.Clamp(state.LocalMedia.PlaybackRate, 0.50d, 2.00d);
         state.LocalMedia.FolderSources = (state.LocalMedia.FolderSources ?? [])
@@ -632,6 +649,12 @@ public sealed class ConfigurationStore
                 option.OutputDeviceId = string.IsNullOrWhiteSpace(option.OutputDeviceId)
                     ? null
                     : option.OutputDeviceId.Trim();
+                if (option.InterTrackSilenceMillisecondsOverride.HasValue
+                    && !PlaybackAudioSettingsRules.IsSupportedSilence(
+                        option.InterTrackSilenceMillisecondsOverride.Value))
+                {
+                    option.InterTrackSilenceMillisecondsOverride = null;
+                }
                 return option;
             })
             .Where(option => !string.IsNullOrWhiteSpace(option.Path))
@@ -639,7 +662,10 @@ public sealed class ConfigurationStore
             .Select(group => group.First())
             .Where(option => option.ResumePositionMode != ResumePositionMode.Inherit
                 || option.PlaybackRateOverride.HasValue
-                || option.OutputDeviceId is not null)
+                || option.OutputDeviceId is not null
+                || option.LoudnessNormalizationOverride.HasValue
+                || option.SmoothTrackTransitionsOverride.HasValue
+                || option.InterTrackSilenceMillisecondsOverride.HasValue)
             .ToList();
         state.LocalMedia.LibraryView = state.LocalMedia.LibraryView is "Foldery" or "Wszystkie pliki" or "Kolejność własna"
             ? state.LocalMedia.LibraryView

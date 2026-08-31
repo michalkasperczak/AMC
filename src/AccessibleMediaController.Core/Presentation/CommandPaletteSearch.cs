@@ -93,17 +93,17 @@ public static class CommandPaletteSearch
             CommandIds.SettingsAutomaticRecognitionMessages =>
                 $"Oznajmianie automatycznie rozpoznanych utworów: {OnOff(settings.Messages.AutomaticRecognitionMessages)}. Enter: ustawienia",
             CommandIds.SettingsLoudnessNormalization =>
-                $"Normalizacja głośności lokalnych utworów: {OnOff(settings.Audio.LoudnessNormalizationEnabled)}. Enter: ustawienia",
+                $"Globalna normalizacja głośności lokalnych utworów: {OnOff(settings.Audio.LoudnessNormalizationEnabled)}. Enter: ustawienia",
             CommandIds.SettingsSmoothTrackTransitions =>
-                $"Łagodne przejścia między utworami: {OnOff(settings.Audio.SmoothTrackTransitionsEnabled)}. Enter: ustawienia",
+                $"Globalne łagodne przejścia między utworami: {OnOff(settings.Audio.SmoothTrackTransitionsEnabled)}. Enter: ustawienia",
             CommandIds.SettingsInterTrackSilence =>
-                $"Cisza między utworami: {PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(settings.Audio.InterTrackSilenceMilliseconds)}. Enter: ustawienia",
+                $"Globalna cisza między utworami: {PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(settings.Audio.InterTrackSilenceMilliseconds)}. Enter: ustawienia",
             CommandIds.ToggleLoudnessNormalization =>
-                $"Normalizacja głośności lokalnych utworów: {OnOff(settings.Audio.LoudnessNormalizationEnabled)}. Enter: przełącz",
+                $"Globalna normalizacja głośności lokalnych utworów: {OnOff(settings.Audio.LoudnessNormalizationEnabled)}. Enter: przełącz",
             CommandIds.ToggleSmoothTrackTransitions =>
-                $"Łagodne przejścia między utworami: {OnOff(settings.Audio.SmoothTrackTransitionsEnabled)}. Enter: przełącz",
+                $"Globalne łagodne przejścia między utworami: {OnOff(settings.Audio.SmoothTrackTransitionsEnabled)}. Enter: przełącz",
             CommandIds.CycleInterTrackSilence =>
-                $"Cisza między utworami: {PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(settings.Audio.InterTrackSilenceMilliseconds)}. Enter: następna wartość",
+                $"Globalna cisza między utworami: {PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(settings.Audio.InterTrackSilenceMilliseconds)}. Enter: następna wartość",
             CommandIds.SettingsPercentageSeekAnnouncement =>
                 $"Komunikat po skoku cyfrą: {GetPercentageSeekAnnouncementName(settings.Messages.PercentageSeekAnnouncement)}",
             _ => CommandCatalog.GetDisplayName(commandId)
