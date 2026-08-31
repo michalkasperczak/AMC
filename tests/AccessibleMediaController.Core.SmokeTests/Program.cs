@@ -257,6 +257,8 @@ static void TestKeyChords()
     Equal("Ctrl+Shift+F", KeyChord.Parse("shift+ctrl+f").Canonical);
     Equal("Ctrl+Alt+Space", KeyChord.Parse("Control+Alt+Spacja").Canonical);
     Equal("Ctrl+Alt+Windows+Enter", KeyChord.Parse("Alt+Win+Control+Enter").Canonical);
+    Equal("Ctrl+NumpadEnter", KeyChord.Parse("Control+Enter numeryczny").Canonical);
+    Equal("Ctrl+NumpadEnter", KeyChord.Parse("Ctrl+Numpad Enter").Canonical);
     Equal("Ctrl+Alt+Windows+F12", KeyChord.Parse("Windows+Alt+Control+F12").Canonical);
     Equal("PageDown", KeyChord.Parse("PgDn").Canonical);
 }

@@ -55,6 +55,8 @@ public readonly record struct KeyChord(string Key, KeyModifiers Modifiers = KeyM
             "home" => "Home",
             "end" => "End",
             "enter" or "return" => "Enter",
+            "numpadenter" or "numpad enter" or "numericenter" or "numeric enter"
+                or "enter numeryczny" => "NumpadEnter",
             "escape" or "esc" => "Escape",
             "backspace" => "Backspace",
             "delete" or "del" => "Delete",

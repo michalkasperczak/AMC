@@ -1,12 +1,52 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-178`
-- Tytuł zestawu: Zastępowanie wartości w polach edycyjnych
-- Wersja programu: `0.1.0-alpha.178`
+- Numer zestawu: `AMC-TEST-179`
+- Tytuł zestawu: Dostępne przechwytywanie globalnego prefiksu
+- Wersja programu: `0.1.0-alpha.179`
 - Utworzono: 2026-08-31, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.178.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.179.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 179
+
+### AMC-179-01 — Ctrl+Enter numeryczny
+
+Otwórz **Ustawienia > Ogólne**, przejdź do grupy **Prefiks globalny** i
+uaktywnij **Zmień prefiks…**. Naciśnij lewy lub prawy Ctrl razem z Enterem
+na klawiaturze numerycznej, a następnie zwykły Enter i zapisz Ustawienia.
+
+Oczekiwane: okno mówi „Ctrl+Enter numeryczny”, a nie zwykłe „Ctrl+Enter”.
+Po zapisaniu ta kombinacja włącza warstwę prefiksową także poza oknem AMC.
+Zwykły Ctrl+Enter nie uruchamia prefiksu.
+
+### AMC-179-02 — Całkowite zastąpienie poprzedniej kombinacji
+
+Ponownie wybierz **Zmień prefiks…**. Nie kasuj żadnego tekstu. Naciśnij
+`Ctrl+Alt+Shift+F12`, potwierdź zwykłym Enterem i zapisz Ustawienia.
+
+Oczekiwane: nowy skrót zastępuje cały stary; nie powstaje połączony tekst z
+dwóch kombinacji. NVDA najpierw podaje obecny prefiks, potem nowy i instrukcję
+potwierdzenia. Nie odczytuje nazwy klasy ani identyfikatora polecenia.
+
+### AMC-179-03 — Zajęta kombinacja nie niszczy działającego prefiksu
+
+Jeśli masz kombinację globalną zajętą przez NVDA, Windows albo inny program,
+spróbuj ustawić ją jako prefiks AMC i wybierz **Zapisz**.
+
+Oczekiwane: Ustawienia nie zamykają się. Komunikat mówi, że kombinacja jest
+już używana, a wcześniej działający prefiks nadal włącza warstwę prefiksową.
+Po wybraniu innej wolnej kombinacji zapis przebiega normalnie.
+
+### AMC-179-04 — Przywrócenie wartości domyślnej
+
+W grupie prefiksu wybierz **Przywróć domyślny**, zapisz Ustawienia i sprawdź
+skrót `Ctrl+Alt+Windows+F12`.
+
+Oczekiwane: pole tylko do odczytu i komunikat stanu podają dokładnie tę
+kombinację. Nie trzeba ręcznie zaznaczać ani usuwać poprzedniej wartości.
+
+## Poprzedni zestaw alpha 178
 
 ## Nowości alpha 178
 

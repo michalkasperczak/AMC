@@ -5,6 +5,8 @@ namespace AccessibleMediaController.Windows.Services;
 
 internal static class WindowsKeyMap
 {
+    public const string NumpadEnterKey = "NumpadEnter";
+
     public static bool TryGetVirtualKey(string keyName, out uint virtualKey)
     {
         var key = KeyChord.NormalizeKey(keyName);
@@ -100,11 +102,29 @@ internal static class WindowsKeyMap
             _ => key.ToString()
         };
 
-        var modifiers = KeyModifiers.None;
-        if (effectiveModifiers.HasFlag(ModifierKeys.Control)) modifiers |= KeyModifiers.Ctrl;
-        if (effectiveModifiers.HasFlag(ModifierKeys.Alt)) modifiers |= KeyModifiers.Alt;
-        if (effectiveModifiers.HasFlag(ModifierKeys.Shift)) modifiers |= KeyModifiers.Shift;
-        if (effectiveModifiers.HasFlag(ModifierKeys.Windows)) modifiers |= KeyModifiers.Windows;
-        return new KeyChord(keyName, modifiers);
+        return new KeyChord(keyName, FromModifierKeys(effectiveModifiers));
+    }
+
+    public static KeyModifiers FromModifierKeys(ModifierKeys modifiers)
+    {
+        var result = KeyModifiers.None;
+        if (modifiers.HasFlag(ModifierKeys.Control)) result |= KeyModifiers.Ctrl;
+        if (modifiers.HasFlag(ModifierKeys.Alt)) result |= KeyModifiers.Alt;
+        if (modifiers.HasFlag(ModifierKeys.Shift)) result |= KeyModifiers.Shift;
+        if (modifiers.HasFlag(ModifierKeys.Windows)) result |= KeyModifiers.Windows;
+        return result;
+    }
+
+    public static string ToDisplayText(KeyChord chord)
+    {
+        var parts = new List<string>(5);
+        if (chord.Modifiers.HasFlag(KeyModifiers.Ctrl)) parts.Add("Ctrl");
+        if (chord.Modifiers.HasFlag(KeyModifiers.Alt)) parts.Add("Alt");
+        if (chord.Modifiers.HasFlag(KeyModifiers.Shift)) parts.Add("Shift");
+        if (chord.Modifiers.HasFlag(KeyModifiers.Windows)) parts.Add("Windows");
+        parts.Add(KeyChord.NormalizeKey(chord.Key) == NumpadEnterKey
+            ? "Enter numeryczny"
+            : KeyChord.NormalizeKey(chord.Key));
+        return string.Join('+', parts);
     }
 }

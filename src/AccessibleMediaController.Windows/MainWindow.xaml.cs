@@ -6523,7 +6523,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void OpenSettings(SettingsTarget initialTarget = SettingsTarget.General)
     {
         TrySaveLocalMediaState(false);
-        var dialog = new SettingsWindow(_state, _store, initialTarget) { Owner = this };
+        var dialog = new SettingsWindow(
+            _state,
+            _store,
+            initialTarget,
+            RegisterPrefixFromSettings) { Owner = this };
         if (dialog.ShowDialog() != true || dialog.ResultState is null)
         {
             RestoreMediaListFocusAfterRefresh();
@@ -6551,6 +6555,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         RestoreMediaListFocusAfterRefresh();
         Dispatcher.BeginInvoke(() => Announce(announcement), DispatcherPriority.ContextIdle);
+    }
+
+    private void RegisterPrefixFromSettings(KeyChord prefix)
+    {
+        if (_prefixService is null)
+        {
+            throw new InvalidOperationException(
+                "Obsługa globalnego prefiksu nie została uruchomiona. Uruchom AMC ponownie i spróbuj jeszcze raz.");
+        }
+        _prefixService.RegisterPrefix(prefix);
     }
 
     private void RemoveSelectedPlaybackHistoryEntries()

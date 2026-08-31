@@ -1329,3 +1329,16 @@ harmonogramie stosują analogiczne zaznaczenie przy wejściu, osobno dla
 całkowitej długości oraz długości części. Natywne pola daty i czasu pozostają
 segmentowe, ponieważ wybrany dzień, miesiąc, rok, godzina albo minuta jest
 samodzielną wartością zastępowaną przez wpisywane cyfry.
+
+Od `alpha.179` globalny prefiks ma dedykowany model przechwytywania zamiast
+swobodnej edycji tekstu. Ustawienia pokazują jego użytkową nazwę w polu tylko
+do odczytu, a przycisk zmiany otwiera modalne okno, w którym nowa kombinacja
+zastępuje całą poprzednią. Natywny komunikat klawiatury zachowuje bit klawisza
+rozszerzonego, więc Enter numeryczny jest odrębnym klawiszem od zwykłego
+Entera. Prefiks z Enterem numerycznym jest obsługiwany przez istniejący
+niskopoziomowy mechanizm klawiatury, ponieważ systemowe RegisterHotKey nie
+potrafi rozróżnić obu Enterów. Dla pozostałych kombinacji rejestracja jest
+transakcyjna: AMC najpierw próbuje zarejestrować nowy skrót pod zapasowym
+identyfikatorem, a dopiero po sukcesie zwalnia stary. Konflikt pozostawia okno
+Ustawień otwarte i poprzedni prefiks czynny. Żadna dostępna etykieta okna
+przechwytywania nie zawiera identyfikatora polecenia.

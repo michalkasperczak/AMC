@@ -9,7 +9,8 @@ namespace AccessibleMediaController.Windows.Services;
 
 internal sealed class GlobalPrefixService : IDisposable
 {
-    private const int HotKeyId = 0x41C0;
+    private const int HotKeyIdA = 0x41C0;
+    private const int HotKeyIdB = 0x41C1;
     private const int WmHotKey = 0x0312;
     private const int WhKeyboardLl = 13;
     private const int WmKeyDown = 0x0100;
@@ -17,6 +18,8 @@ internal sealed class GlobalPrefixService : IDisposable
     private const int WmSysKeyDown = 0x0104;
     private const int WmSysKeyUp = 0x0105;
     private const uint ModNoRepeat = 0x4000;
+    private const uint VirtualKeyReturn = 0x0D;
+    private const uint LlkhfExtended = 0x00000001;
 
     private readonly IntPtr _windowHandle;
     private readonly HwndSource _source;
@@ -27,6 +30,10 @@ internal sealed class GlobalPrefixService : IDisposable
     private readonly LowLevelKeyboardProc _hookProcedure;
     private readonly HashSet<uint> _suppressedKeys = [];
     private IntPtr _hookHandle;
+    private int _activeHotKeyId = HotKeyIdA;
+    private bool _hotKeyRegistered;
+    private KeyChord? _registeredPrefix;
+    private KeyChord? _hookPrefix;
     private bool _layerActive;
     private int _standardTimeout;
     private int _continuationTimeout;
@@ -57,10 +64,27 @@ internal sealed class GlobalPrefixService : IDisposable
 
     public void RegisterPrefix(KeyChord prefix)
     {
-        UnregisterHotKey(_windowHandle, HotKeyId);
+        prefix = new KeyChord(KeyChord.NormalizeKey(prefix.Key), prefix.Modifiers);
+        if (_registeredPrefix is KeyChord current
+            && string.Equals(current.Canonical, prefix.Canonical, StringComparison.OrdinalIgnoreCase)
+            && (_hotKeyRegistered || _hookPrefix is not null))
+        {
+            return;
+        }
+
+        if (RequiresLowLevelHook(prefix))
+        {
+            if (_hotKeyRegistered) UnregisterHotKey(_windowHandle, _activeHotKeyId);
+            _hotKeyRegistered = false;
+            _hookPrefix = prefix;
+            _registeredPrefix = prefix;
+            return;
+        }
+
         if (!WindowsKeyMap.TryGetVirtualKey(prefix.Key, out var virtualKey))
         {
-            throw new InvalidOperationException($"Nieobsługiwany klawisz prefiksu: {prefix.Key}");
+            throw new InvalidOperationException(
+                $"Klawisz {WindowsKeyMap.ToDisplayText(prefix)} nie może być globalnym prefiksem AMC. {RegistrationFailureNextStep()}");
         }
 
         var modifiers = ModNoRepeat;
@@ -69,23 +93,44 @@ internal sealed class GlobalPrefixService : IDisposable
         if (prefix.Modifiers.HasFlag(KeyModifiers.Shift)) modifiers |= 0x0004;
         if (prefix.Modifiers.HasFlag(KeyModifiers.Windows)) modifiers |= 0x0008;
 
-        if (!RegisterHotKey(_windowHandle, HotKeyId, modifiers, virtualKey))
+        var candidateHotKeyId = _activeHotKeyId == HotKeyIdA ? HotKeyIdB : HotKeyIdA;
+        if (!RegisterHotKey(_windowHandle, candidateHotKeyId, modifiers, virtualKey))
         {
-            throw new Win32Exception(Marshal.GetLastWin32Error(), $"Nie można zarejestrować prefiksu {prefix.Canonical}.");
+            var error = Marshal.GetLastWin32Error();
+            var reason = error == 1409
+                ? "Ta kombinacja jest już używana przez Windows, NVDA albo inny program."
+                : "Windows odmówił zarejestrowania tej kombinacji.";
+            throw new InvalidOperationException(
+                $"Nie można ustawić globalnego prefiksu {WindowsKeyMap.ToDisplayText(prefix)}. {reason} {RegistrationFailureNextStep()}");
         }
+
+        if (_hotKeyRegistered) UnregisterHotKey(_windowHandle, _activeHotKeyId);
+        _activeHotKeyId = candidateHotKeyId;
+        _hotKeyRegistered = true;
+        _hookPrefix = null;
+        _registeredPrefix = prefix;
     }
+
+    private string RegistrationFailureNextStep() =>
+        _hotKeyRegistered || _hookPrefix is not null
+            ? "Poprzedni prefiks pozostaje aktywny."
+            : "Wybierz inną kombinację.";
 
     public void Suspend()
     {
         DeactivateLayer();
         _suppressedKeys.Clear();
-        UnregisterHotKey(_windowHandle, HotKeyId);
+        if (_hotKeyRegistered) UnregisterHotKey(_windowHandle, _activeHotKeyId);
+        _hotKeyRegistered = false;
+        _hookPrefix = null;
     }
 
     public void Dispose()
     {
         _timer.Stop();
-        UnregisterHotKey(_windowHandle, HotKeyId);
+        if (_hotKeyRegistered) UnregisterHotKey(_windowHandle, _activeHotKeyId);
+        _hotKeyRegistered = false;
+        _hookPrefix = null;
         if (_hookHandle != IntPtr.Zero) UnhookWindowsHookEx(_hookHandle);
         _source.RemoveHook(WindowProcedure);
     }
@@ -107,7 +152,7 @@ internal sealed class GlobalPrefixService : IDisposable
 
     private IntPtr WindowProcedure(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (message == WmHotKey && wParam.ToInt32() == HotKeyId)
+        if (message == WmHotKey && _hotKeyRegistered && wParam.ToInt32() == _activeHotKeyId)
         {
             ActivateLayer();
             handled = true;
@@ -138,6 +183,12 @@ internal sealed class GlobalPrefixService : IDisposable
         if (keyUp && _suppressedKeys.Remove(data.VirtualKeyCode)) return new IntPtr(1);
         if (!_layerActive)
         {
+            if (keyDown && MatchesHookPrefix(data))
+            {
+                _suppressedKeys.Add(data.VirtualKeyCode);
+                ActivateLayer();
+                return new IntPtr(1);
+            }
             if (keyDown
                 && GetForegroundWindow() == _windowHandle
                 && TryHandleFocusedShortcut(data.VirtualKeyCode))
@@ -191,6 +242,17 @@ internal sealed class GlobalPrefixService : IDisposable
     internal static bool IsFocusedDirectShortcutCandidate(KeyChord chord) =>
         chord.Modifiers == (KeyModifiers.Ctrl | KeyModifiers.Shift)
         && chord.Key is "0" or "S";
+
+    internal static bool RequiresLowLevelHook(KeyChord prefix) =>
+        KeyChord.NormalizeKey(prefix.Key) == WindowsKeyMap.NumpadEnterKey;
+
+    internal static bool IsNumpadEnterInput(uint virtualKey, uint flags) =>
+        virtualKey == VirtualKeyReturn && (flags & LlkhfExtended) != 0;
+
+    private bool MatchesHookPrefix(KbdLlHookStruct data) =>
+        _hookPrefix is KeyChord prefix
+        && IsNumpadEnterInput(data.VirtualKeyCode, data.Flags)
+        && prefix.Modifiers == ReadModifiers();
 
     private static KeyModifiers ReadModifiers()
     {

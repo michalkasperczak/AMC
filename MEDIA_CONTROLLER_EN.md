@@ -1295,3 +1295,15 @@ and the recording file-name template. The schedule's native NumericUpDown
 fields apply the same selection on entry for both total duration and segment
 duration. Native date and time fields remain segmented because their selected
 day, month, year, hour or minute is itself replaced by typed digits.
+
+Starting with `alpha.179`, the global prefix uses a dedicated capture model
+instead of free-form text editing. Settings presents a user-facing read-only
+value and a change button opens a modal window where the next combination
+replaces the complete previous value. The native key message retains the
+extended-key bit, so numeric-keypad Enter remains distinct from main Enter.
+A numeric-Enter prefix uses AMC's existing low-level keyboard path because
+the system RegisterHotKey API cannot distinguish the two Enter keys. Other
+combinations are registered transactionally: AMC first acquires the new
+combination under a spare identifier and releases the old one only after
+success. A conflict keeps Settings open and the previous prefix active. No
+accessible capture label contains an internal command identifier.

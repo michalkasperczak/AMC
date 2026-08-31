@@ -10,28 +10,35 @@ using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Windows.Services;
 using Microsoft.Win32;
 
 namespace AccessibleMediaController.Windows;
 
 public partial class SettingsWindow : Window
 {
+    private const string DefaultPrefixChord = "Ctrl+Alt+Windows+F12";
+
     private readonly ConfigurationStore _store;
+    private readonly Action<KeyChord>? _prefixRegistrar;
     private PersistedState _workingState;
     private readonly ObservableCollection<BindingRow> _bindingRows = [];
     private readonly ObservableCollection<MessageTemplateRow> _messageRows = [];
     private readonly ObservableCollection<MediaFieldRow> _mediaFieldRows = [];
     private readonly ObservableCollection<SessionOrderRow> _sessionOrderRows = [];
     private readonly SettingsTarget _initialTarget;
+    private KeyChord _selectedPrefix = KeyChord.Parse(DefaultPrefixChord);
     private bool _initialFocusApplied;
 
     public SettingsWindow(
         PersistedState state,
         ConfigurationStore store,
-        SettingsTarget initialTarget = SettingsTarget.General)
+        SettingsTarget initialTarget = SettingsTarget.General,
+        Action<KeyChord>? prefixRegistrar = null)
     {
         InitializeComponent();
         _store = store;
+        _prefixRegistrar = prefixRegistrar;
         _initialTarget = initialTarget;
         _workingState = store.CloneState(state);
         BindingsList.ItemsSource = _bindingRows;
@@ -119,7 +126,8 @@ public partial class SettingsWindow : Window
 
     private void LoadControls()
     {
-        PrefixBox.Text = _workingState.Settings.PrefixChord;
+        _selectedPrefix = KeyChord.Parse(_workingState.Settings.PrefixChord);
+        UpdatePrefixDisplay(announce: false);
         TimeoutBox.Text = _workingState.Settings.PrefixTimeoutMilliseconds.ToString();
         LanguageText.Text = _workingState.Settings.InterfaceLanguage == "pl-PL"
             ? "Polski — zmiana języka jest planowana"
@@ -184,7 +192,7 @@ public partial class SettingsWindow : Window
         {
             _workingState.Settings.StartupTarget = startupTarget;
         }
-        _workingState.Settings.PrefixChord = KeyChord.Parse(PrefixBox.Text).Canonical;
+        _workingState.Settings.PrefixChord = _selectedPrefix.Canonical;
         _workingState.Settings.PausePlaybackWhenLeavingPlayer = PausePlaybackWhenLeavingPlayerCheck.IsChecked == true;
         _workingState.Settings.FollowPlaybackOnPlayerExit = FollowPlaybackOnPlayerExitCheck.IsChecked == true;
         _workingState.Settings.OpenPlayerWhenActivatingPreset = OpenPlayerWhenActivatingPresetCheck.IsChecked == true;
@@ -416,13 +424,45 @@ public partial class SettingsWindow : Window
         try
         {
             ApplyControls();
+            _prefixRegistrar?.Invoke(_selectedPrefix);
             ResultState = _workingState;
             DialogResult = true;
         }
         catch (Exception exception)
         {
+            PrefixStatus.Announce($"Nie zapisano ustawień. {exception.Message}");
             MessageBox.Show(exception.Message, "Nie można zapisać ustawień", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ChangePrefixButton.Focus();
+            Keyboard.Focus(ChangePrefixButton);
         }
+    }
+
+    private void ChangePrefix_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ShortcutCaptureWindow("Globalny prefiks", _selectedPrefix) { Owner = this };
+        if (dialog.ShowDialog() != true || dialog.CapturedChord is not KeyChord chord) return;
+        _selectedPrefix = chord;
+        UpdatePrefixDisplay(announce: true);
+        ChangePrefixButton.Focus();
+        Keyboard.Focus(ChangePrefixButton);
+    }
+
+    private void RestoreDefaultPrefix_Click(object sender, RoutedEventArgs e)
+    {
+        _selectedPrefix = KeyChord.Parse(DefaultPrefixChord);
+        UpdatePrefixDisplay(announce: true);
+        RestoreDefaultPrefixButton.Focus();
+        Keyboard.Focus(RestoreDefaultPrefixButton);
+    }
+
+    private void UpdatePrefixDisplay(bool announce)
+    {
+        if (PrefixBox is null || PrefixStatus is null) return;
+        var display = WindowsKeyMap.ToDisplayText(_selectedPrefix);
+        PrefixBox.Text = display;
+        var message = $"Globalny prefiks: {display}";
+        if (announce) PrefixStatus.Announce(message);
+        else PrefixStatus.Text = message;
     }
 
     private void ProfileCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshBindings();
@@ -575,7 +615,9 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var dialog = new ShortcutCaptureWindow(row.CommandId) { Owner = this };
+        var dialog = new ShortcutCaptureWindow(
+            CommandCatalog.GetDisplayName(row.CommandId),
+            KeyChord.Parse(row.Chord)) { Owner = this };
         if (dialog.ShowDialog() != true || dialog.CapturedChord is not KeyChord chord) return;
 
         var profile = EnsureEditableProfile();

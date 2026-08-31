@@ -58,6 +58,7 @@ try
 
     TestAccessiblePlaybackStatusStrip();
     TestEditableFieldReplacement();
+    TestGlobalPrefixCapture();
     TestMenuAccessibility();
     TestRadioScheduleAccessibility();
     TestRadioRecognitionAnnouncementPolicy();
@@ -292,6 +293,80 @@ static void TestEditableFieldReplacement()
     if (failure is not null)
         throw new InvalidOperationException("Test zastępowania wartości pola nie powiódł się.", failure);
     Console.WriteLine("OK: wpisywanie po wejściu klawiaturą zastępuje całą poprzednią wartość pola");
+}
+
+static void TestGlobalPrefixCapture()
+{
+    Assert(
+        WindowsKeyMap.ToDisplayText(KeyChord.Parse("Ctrl+NumpadEnter")) == "Ctrl+Enter numeryczny",
+        "Enter numeryczny nie ma użytkowej etykiety dla NVDA.");
+    Assert(
+        GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("Ctrl+NumpadEnter")),
+        "Prefiks z Enterem numerycznym nie jest kierowany do dokładnego przechwytywania.");
+    Assert(
+        !GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("Ctrl+Enter")),
+        "Zwykły Enter został błędnie utożsamiony z Enterem numerycznym.");
+    Assert(
+        GlobalPrefixService.IsNumpadEnterInput(0x0D, 0x01)
+        && !GlobalPrefixService.IsNumpadEnterInput(0x0D, 0x00),
+        "Flaga rozszerzonego Entera nie odróżnia obu klawiszy Enter.");
+
+    Exception? failure = null;
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-prefix-setting-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    var thread = new Thread(() =>
+    {
+        SettingsWindow? settings = null;
+        ShortcutCaptureWindow? capture = null;
+        try
+        {
+            var state = new PersistedState();
+            state.Settings.PrefixChord = "Ctrl+NumpadEnter";
+            var store = new ConfigurationStore(
+                Path.Combine(directory, "state.json"),
+                Path.Combine(directory, "library.db"));
+            settings = new SettingsWindow(state, store, SettingsTarget.Prefix);
+            var prefixBox = (TextBox)settings.FindName("PrefixBox");
+            var changeButton = (Button)settings.FindName("ChangePrefixButton");
+            Assert(prefixBox.IsReadOnly && prefixBox.Text == "Ctrl+Enter numeryczny",
+                "Pole prefiksu nie pokazuje stabilnej wartości tylko do odczytu.");
+            Assert((AutomationProperties.GetHelpText(changeButton) ?? string.Empty)
+                    .Contains("zastępuje cały poprzedni prefiks", StringComparison.Ordinal),
+                "Przycisk zmiany prefiksu nie wyjaśnia reguły zastępowania.");
+
+            capture = new ShortcutCaptureWindow(
+                "Globalny prefiks",
+                KeyChord.Parse("Ctrl+NumpadEnter"));
+            var command = (TextBlock)capture.FindName("CommandText");
+            var captured = (TextBox)capture.FindName("CapturedText");
+            Assert(command.Text == "Funkcja: Globalny prefiks"
+                   && captured.Text == "Ctrl+Enter numeryczny",
+                "Okno przechwytywania ujawnia identyfikator techniczny lub złą nazwę klawisza.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+        finally
+        {
+            capture?.Close();
+            settings?.Close();
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    try
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+    catch (IOException)
+    {
+    }
+    if (failure is not null)
+        throw new InvalidOperationException("Test przechwytywania globalnego prefiksu nie powiódł się.", failure);
+
+    Console.WriteLine("OK: dostępne przechwytywanie globalnego prefiksu");
 }
 
 static void TestRadioScheduleAccessibility()
