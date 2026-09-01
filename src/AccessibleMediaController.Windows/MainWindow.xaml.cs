@@ -4747,11 +4747,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Announce("Powrót na żywo jest dostępny w odtwarzaczu radia");
                 return new CommandExecutionResult(false);
             }
-            if (IsCurrentRadioStationRecording())
-            {
-                Announce("Timeshift jest zablokowany podczas nagrywania tej stacji");
-                return new CommandExecutionResult(true);
-            }
             _radioOutput.JumpToLive();
             Announce("Na żywo");
             UpdatePlayerView();
@@ -4783,11 +4778,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (commandId == CommandIds.AddNamedBookmark)
             {
                 AddRadioRecordingBookmark(named: true);
-                return new CommandExecutionResult(true);
-            }
-            if (IsRadioTimeshiftCommand(commandId) && IsCurrentRadioStationRecording())
-            {
-                Announce("Timeshift jest zablokowany podczas nagrywania tej stacji");
                 return new CommandExecutionResult(true);
             }
             if (commandId is CommandIds.AddQueue
@@ -4890,20 +4880,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var orderSnapshot = changesListMembership && changedSession is not null
             ? CaptureMembershipOrderForCommand(changedSession, commandId, changedItems)
             : null;
-        var resumeRecordedRadioAtLive = commandId == CommandIds.PlayPause
-            && MainWindowShortcutRouter.ShouldResumeRadioAtLive(
-                sessionBeforeCommand.Id,
-                sessionBeforeCommand.HasCurrentItem,
-                sessionBeforeCommand.IsPlaying,
-                IsCurrentRadioStationRecording());
-        if (resumeRecordedRadioAtLive)
-        {
-            // Space controls only audible monitoring; the independent recorder
-            // continues receiving audio. Timeshift is deliberately unavailable
-            // while this station is being captured, so resuming must not leave
-            // the listener behind live with no permitted way to catch up.
-            _radioOutput.JumpToLive();
-        }
         if (changesListMembership && restoreListFocus) AnchorMediaListFocus();
         if (changesListMembership || mergeSessionAnnouncementWithFocus)
         {
@@ -8466,17 +8442,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
         && _sessions.Current.HasCurrentItem
         && IsRadioStationBeingRecorded(_sessions.Current.CurrentItem);
-
-    private static bool IsRadioTimeshiftCommand(string commandId) => commandId is
-        CommandIds.SeekBackward10
-        or CommandIds.SeekForward10
-        or CommandIds.SeekBackward30
-        or CommandIds.SeekForward30
-        or CommandIds.SeekBackward60
-        or CommandIds.SeekForward60
-        or CommandIds.TrackStart
-        or CommandIds.TrackEnd
-        or CommandIds.RadioJumpLive;
 
     private bool IsRadioStationManuallyRecording(MediaItem item) =>
         item.Kind == MediaItemKind.Station

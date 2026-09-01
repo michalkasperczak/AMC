@@ -1,5 +1,7 @@
 # Accessible Media Controller — Windows prototype
 
+The `alpha.194` correction separates the Radio listening position from live capture. Space can now pause and resume time-shift monitoring even while the same station is being recorded; the recorder keeps capturing live audio and `End` remains the explicit return-to-live command. Shazam fingerprint preparation now runs away from the window thread and reuses FFT buffers instead of allocating thousands of large arrays for every recognition, reducing short monitoring and UI stalls during automatic recognition.
+
 This is the first demonstration prototype of the global-prefix media controller. It validates the keyboard, session, list, accessibility-message, profile, import and export architecture. It does not yet connect to real TIDAL, Apple Music or WiiM accounts.
 
 This README describes the current prototype. Its single version number is stored in `Directory.Build.props`, so the core, Windows UI and published program always receive the same version. The approved development direction, target architecture and complete keyboard map are recorded in [`MEDIA_CONTROLLER_EN.md`](MEDIA_CONTROLLER_EN.md), while the next module is designed in [`PODCAST_MODULE_DESIGN_EN.md`](PODCAST_MODULE_DESIGN_EN.md). Permanent rules for successor selection after a file disappears and for manual-reorder announcements are collected as invariants in section 7.8 of that specification; future adapters and UI rewrites must not bypass them.

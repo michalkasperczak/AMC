@@ -44,16 +44,6 @@ internal static class MainWindowShortcutRouter
             ? CommandIds.ViewActiveRadioRecordings
             : null;
 
-    public static bool ShouldResumeRadioAtLive(
-        string sessionId,
-        bool hasCurrentItem,
-        bool isPlaying,
-        bool isCurrentStationRecording) =>
-        string.Equals(sessionId, "radio", StringComparison.Ordinal)
-        && hasCurrentItem
-        && !isPlaying
-        && isCurrentStationRecording;
-
     public static string? ResolvePlayerAudioProcessing(
         Key key,
         ModifierKeys modifiers,

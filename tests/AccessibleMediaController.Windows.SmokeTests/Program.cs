@@ -1221,12 +1221,6 @@ static void TestMainWindowDigitShortcutRouting()
         && !MainWindowNavigationPolicy.IsTransientRadioView("local", "Nagrywane"),
         "Polityka Escape nie rozpoznaje tymczasowego widoku Nagrywane w Radiu.");
     Assert(
-        MainWindowShortcutRouter.ShouldResumeRadioAtLive("radio", true, false, true)
-        && !MainWindowShortcutRouter.ShouldResumeRadioAtLive("radio", true, true, true)
-        && !MainWindowShortcutRouter.ShouldResumeRadioAtLive("radio", true, false, false)
-        && !MainWindowShortcutRouter.ShouldResumeRadioAtLive("local", true, false, true),
-        "Wznowienie Spacją nie odróżnia słuchanej i nagrywanej stacji od zwykłego timeshiftu.");
-    Assert(
         MainWindowShortcutRouter.ResolveRadioRecordingBookmark(
             Key.B,
             ModifierKeys.None,

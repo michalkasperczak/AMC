@@ -1,12 +1,50 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-192`
-- Tytuł zestawu: Zwięzła historia i rozdzielenie odsłuchu od nagrania
-- Wersja programu: `0.1.0-alpha.193`
+- Numer zestawu: `AMC-TEST-194`
+- Tytuł zestawu: Timeshift podczas nagrywania i płynne rozpoznawanie utworów
+- Wersja programu: `0.1.0-alpha.194`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.193.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.194.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Poprawka alpha 194
+
+### AMC-194-01 — Spacja i timeshift podczas nagrywania
+
+Uruchom stację, rozpocznij jej nagrywanie, odczekaj co najmniej kilkanaście
+sekund i naciśnij Spację. Po chwili naciśnij Spację ponownie.
+
+Oczekiwane: pierwsza Spacja zatrzymuje tylko słyszalny odsłuch. Nagrywanie
+trwa bez przerwy. Druga Spacja wznawia dźwięk od miejsca pauzy, dlatego pasek
+podaje opóźnienie względem transmisji. Nie przeskakuje samoczynnie na żywo.
+
+### AMC-194-02 — przewijanie i jawny powrót na żywo
+
+Podczas dalszego nagrywania użyj skrótów przewijania radia, a następnie `End`.
+
+Oczekiwane: przewijanie działa i nie zatrzymuje nagrania. `End` mówi „Na żywo”
+i zeruje opóźnienie odsłuchu, lecz nadal nie kończy zapisu.
+
+### AMC-194-03 — Shazam bez krótkiej przerwy odsłuchu
+
+Włącz automatyczne rozpoznawanie utworów i słuchaj stacji przez czas
+wystarczający do co najmniej dwóch prób rozpoznania. Jedną z prób wykonaj też
+ręcznie.
+
+Oczekiwane: w chwili rozpoznawania dźwięk nie urywa się nawet na pół sekundy,
+fokus i klawiatura pozostają płynne, a automatyczny wynik jest oznajmiany tylko
+zgodnie z ustawieniem programu.
+
+### AMC-194-04 — nagranie w czasie rozpoznawania
+
+Nagraj co najmniej minutę stacji przy włączonym rozpoznawaniu, a następnie
+odsłuchaj gotowy plik w okolicy chwili, w której pojawił się wynik Shazam.
+
+Oczekiwane: plik nie zawiera przerwy ani ucięcia powstałego podczas
+rozpoznawania.
+
+## Poprzedni zestaw alpha 193
 
 ## Poprawka alpha 192
 

@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
@@ -52,22 +53,24 @@ internal sealed class ShazamTrackRecognitionService : ITrackRecognitionService
 
         try
         {
-            var samples = ConvertToMono16Khz(snapshot);
-            if (samples.Length < TargetSampleRate * 3)
+            // Conversion and fingerprinting are CPU-intensive. Keeping them off
+            // the UI thread prevents automatic recognition from interrupting
+            // keyboard navigation or the audible radio monitor.
+            var preparationStarted = Stopwatch.GetTimestamp();
+            var prepared = await Task.Run(
+                () => PrepareSignature(snapshot, cancellationToken),
+                cancellationToken).ConfigureAwait(false);
+            DiagnosticLog.Info(
+                "recognition",
+                $"Przygotowanie podpisu akustycznego: {Stopwatch.GetElapsedTime(preparationStarted).TotalMilliseconds:F0} ms.");
+            if (prepared.Error is not null)
             {
                 return new TrackRecognitionResult(
                     false,
-                    Error: "Za mało dźwięku w buforze. Poczekaj kilka sekund i spróbuj ponownie");
+                    Error: prepared.Error);
             }
 
-            var signature = SignatureGenerator.Create(samples);
-            if (signature.PeakCount == 0)
-            {
-                return new TrackRecognitionResult(
-                    false,
-                    Error: "Nie znaleziono charakterystycznych fragmentów dźwięku");
-            }
-
+            var signature = prepared.Signature!;
             var uri = DataUriPrefix + Convert.ToBase64String(signature.Data);
             var requestUri = string.Format(
                 CultureInfo.InvariantCulture,
@@ -188,6 +191,31 @@ internal sealed class ShazamTrackRecognitionService : ITrackRecognitionService
     internal static byte[] CreateFingerprintForTests(short[] samples) =>
         SignatureGenerator.Create(samples).Data;
 
+    private static PreparedSignature PrepareSignature(
+        RadioAudioSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var samples = ConvertToMono16Khz(snapshot);
+        if (samples.Length < TargetSampleRate * 3)
+        {
+            return new PreparedSignature(
+                null,
+                "Za mało dźwięku w buforze. Poczekaj kilka sekund i spróbuj ponownie");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var signature = SignatureGenerator.Create(samples);
+        if (signature.PeakCount == 0)
+        {
+            return new PreparedSignature(
+                null,
+                "Nie znaleziono charakterystycznych fragmentów dźwięku");
+        }
+
+        return new PreparedSignature(signature, null);
+    }
+
     private static short[] ConvertToMono16Khz(RadioAudioSnapshot snapshot)
     {
         using var stream = new RawSourceWaveStream(new MemoryStream(snapshot.Audio, writable: false), snapshot.Format);
@@ -254,6 +282,8 @@ internal sealed class ShazamTrackRecognitionService : ITrackRecognitionService
 
     private sealed record EncodedSignature(byte[] Data, int SampleMilliseconds, int PeakCount);
 
+    private sealed record PreparedSignature(EncodedSignature? Signature, string? Error);
+
     private enum FrequencyBand
     {
         Hz250To520,
@@ -276,6 +306,8 @@ internal sealed class ShazamTrackRecognitionService : ITrackRecognitionService
             .ToArray();
 
         private readonly short[] _sampleRing = new short[FftSize];
+        private readonly double[] _fftReal = new double[FftSize];
+        private readonly double[] _fftImaginary = new double[FftSize];
         private readonly double[][] _fft = CreateFrames();
         private readonly double[][] _spread = CreateFrames();
         private readonly Dictionary<FrequencyBand, List<FrequencyPeak>> _peaks = [];
@@ -304,8 +336,9 @@ internal sealed class ShazamTrackRecognitionService : ITrackRecognitionService
                 _samplePosition = (_samplePosition + 1) % FftSize;
             }
 
-            var real = new double[FftSize];
-            var imaginary = new double[FftSize];
+            var real = _fftReal;
+            var imaginary = _fftImaginary;
+            Array.Clear(imaginary);
             for (var index = 0; index < FftSize; index++)
             {
                 var reversed = ReverseElevenBits(index);

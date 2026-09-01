@@ -1173,18 +1173,19 @@ listę harmonogramów otwiera `Ctrl+Shift+H`. Lista planów ma zachowanie listy
 pól wyboru: strzałki zmieniają bieżący wiersz, Spacja jego stan, a Zapisz
 zatwierdza zmiany.
 
-Timeshift pozostaje niezależny od nagrywania innej stacji w tle. Gdy nagrywana
-jest stacja aktualnie słuchana, przewijanie jej bufora jest celowo blokowane,
-aby pozycja odsłuchu nie sugerowała pozycji zapisu; po zakończeniu nagrania
-wraca bez ponownego otwierania odtwarzacza. Głośność jest trwałym metadanym
-każdej stacji. Pierwsza nieustawiona stacja dziedziczy ostatnią wartość sesji,
-a po jej zmianie przełączenie stacji przywraca zapisany poziom.
+Timeshift i odsłuch pozostają niezależne od zapisu na żywo również wtedy, gdy
+nagrywana jest aktualnie słuchana stacja. Pauza lub przewijanie zmieniają tylko
+pozycję słuchacza; rejestrator nadal otrzymuje bieżącą transmisję. Pasek stanu
+może zatem równocześnie informować o odsłuchu opóźnionym względem transmisji i
+o trwającym nagrywaniu na żywo. `End` przechodzi jednoznacznie na żywo.
+Głośność jest trwałym metadanym każdej stacji. Pierwsza nieustawiona stacja
+dziedziczy ostatnią wartość sesji, a po jej zmianie przełączenie stacji
+przywraca zapisany poziom.
 
 Spacja i `Ctrl+M` mają odmienne znaczenie. Spacja zmienia transport odsłuchu:
 wstrzymuje lub wznawia bieżący dźwięk, lecz nie zatrzymuje odbioru, bufora ani
-niezależnego nagrania. Bez nagrywania wznowienie kontynuuje od zatrzymanej
-pozycji timeshiftu. Podczas nagrywania słuchanej stacji wznowienie wraca od
-razu na żywo, ponieważ przewijanie jest wtedy zablokowane. `Ctrl+M` wyłącznie zeruje słyszalne
+niezależnego nagrania. Wznowienie zawsze kontynuuje od zatrzymanej pozycji
+timeshiftu, także podczas nagrywania słuchanej stacji. `Ctrl+M` wyłącznie zeruje słyszalne
 wyjście bieżącej sesji, bez zatrzymania odbioru, timeshiftu i nagrywania;
 ponowne użycie przywraca zapisany poziom. `Ctrl+Shift+M` pozostaje niezależną
 warstwą wyciszenia wszystkich sesji AMC.
