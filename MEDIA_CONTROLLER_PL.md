@@ -1161,7 +1161,10 @@ pól dziedziczy ustawienie ogólne. Format Oryginalny, FLAC i WAV nie używają
 bitrate kodera, choć wybrana wartość może pozostać bezpiecznie zachowana na
 wypadek późniejszej zmiany formatu.
 
-Widok `Alt+2` jest listą aktualnie nagrywanych stacji. `Shift+Spacja` przełącza
+Widok `Alt+R` jest tymczasową listą aktualnie nagrywanych stacji. Escape albo
+Backspace wraca dokładnie do wcześniejszego widoku Radia i jego zaznaczenia;
+`Alt+1` zawsze otwiera Wszystkie stacje, a `Alt+2` pozostaje w Radiu wolne.
+`Shift+Spacja` przełącza
 pauzę wszystkich aktywnych, obsługujących ją zapisów wybranej stacji, a
 `Ctrl+Alt+R` kończy jej ręczne albo harmonogramowe wystąpienie. Zatrzymanie
 wystąpienia nie wyłącza przyszłych terminów cyklicznego planu.
@@ -1178,7 +1181,10 @@ każdej stacji. Pierwsza nieustawiona stacja dziedziczy ostatnią wartość sesj
 a po jej zmianie przełączenie stacji przywraca zapisany poziom.
 
 Spacja i `Ctrl+M` mają odmienne znaczenie. Spacja zmienia transport odsłuchu:
-wstrzymuje lub wznawia bieżący dźwięk. `Ctrl+M` wyłącznie zeruje słyszalne
+wstrzymuje lub wznawia bieżący dźwięk, lecz nie zatrzymuje odbioru, bufora ani
+niezależnego nagrania. Bez nagrywania wznowienie kontynuuje od zatrzymanej
+pozycji timeshiftu. Podczas nagrywania słuchanej stacji wznowienie wraca od
+razu na żywo, ponieważ przewijanie jest wtedy zablokowane. `Ctrl+M` wyłącznie zeruje słyszalne
 wyjście bieżącej sesji, bez zatrzymania odbioru, timeshiftu i nagrywania;
 ponowne użycie przywraca zapisany poziom. `Ctrl+Shift+M` pozostaje niezależną
 warstwą wyciszenia wszystkich sesji AMC.

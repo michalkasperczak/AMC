@@ -244,9 +244,9 @@
                 <MenuItem x:Name="CustomLocalOrderViewMenuItem" Header="_Kolejność własna" InputGestureText="Alt+3" Click="CustomLocalOrderView_Click"
                           automation:AutomationProperties.Name="Kolejność własna Biblioteki lokalnej, Alt+3"
                           automation:AutomationProperties.AcceleratorKey="Alt+3" />
-                <MenuItem x:Name="ActiveRadioRecordingsViewMenuItem" Header="_Nagrywane" InputGestureText="Alt+2" Click="ActiveRadioRecordingsView_Click"
-                          automation:AutomationProperties.Name="Aktualnie nagrywane stacje, Alt+2"
-                          automation:AutomationProperties.AcceleratorKey="Alt+2" Visibility="Collapsed" />
+                <MenuItem x:Name="ActiveRadioRecordingsViewMenuItem" Header="_Nagrywane" InputGestureText="Alt+R" Click="ActiveRadioRecordingsView_Click"
+                          automation:AutomationProperties.Name="Aktualnie nagrywane stacje, Alt+R. Escape wraca do wcześniejszego widoku"
+                          automation:AutomationProperties.AcceleratorKey="Alt+R" Visibility="Collapsed" />
                 <MenuItem x:Name="RadioRecognitionHistoryViewMenuItem" Header="_Rozpoznane utwory…" InputGestureText="Ctrl+Alt+S"
                           automation:AutomationProperties.Name="Rozpoznane utwory, Ctrl+Alt+S"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+S"

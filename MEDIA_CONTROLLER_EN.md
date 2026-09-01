@@ -1143,7 +1143,9 @@ Decision in `alpha.166`: the Radio settings format and bitrate are defaults.
 The `Shift+R` form stores its own pair for every one-off occurrence and
 recurring schedule. Older entries with no override inherit the global values.
 
-`Alt+2` is the active-recordings view. `Shift+Space` toggles pause for supported
+`Alt+R` opens the transient active-recordings view. Escape or Backspace restores
+the exact originating Radio view and selection; `Alt+1` always means All
+stations and `Alt+2` is unassigned in Radio. `Shift+Space` toggles pause for supported
 recordings of the selected station, `Ctrl+Alt+R` stops that station's manual or
 scheduled occurrence, and `Ctrl+Alt+Shift+R` stops all captures. Stopping one
 occurrence does not disable future runs of a recurring schedule. The schedule
@@ -1152,8 +1154,11 @@ list is checklist-like: arrows select, Space toggles and Save commits changes.
 Time-shift stays independent when another station records in the background.
 It is locked only while the currently heard station is recording, then returns
 without reopening the player. Listening volume is persistent per station.
-Space controls playback transport; `Ctrl+M` only mutes the audible output of
-the current session without stopping reception, time-shift or recording.
+Space controls audible playback transport without stopping reception,
+time-shift or recording. It resumes from the buffered pause point unless the
+heard station is being captured; in that case it resumes live because manual
+time-shift is locked. `Ctrl+M` only mutes the audible output of the current
+session.
 
 Recognition history remains on `Ctrl+Alt+S` and its context menu exposes open,
 plain and rich copy, export and delete. Starting with `alpha.172`,

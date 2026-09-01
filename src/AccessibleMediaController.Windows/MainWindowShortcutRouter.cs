@@ -30,10 +30,29 @@ internal static class MainWindowShortcutRouter
             ("local", Key.D2) => CommandIds.ViewAllLocalFiles,
             ("local", Key.D3) => CommandIds.ViewCustomLocalOrder,
             ("radio", Key.D1) => CommandIds.ViewLibrary,
-            ("radio", Key.D2) => CommandIds.ViewActiveRadioRecordings,
             _ => null
         };
     }
+
+    public static string? ResolveTransientRadioView(
+        Key key,
+        ModifierKeys modifiers,
+        string sessionId) =>
+        modifiers == ModifierKeys.Alt
+        && key == Key.R
+        && string.Equals(sessionId, "radio", StringComparison.Ordinal)
+            ? CommandIds.ViewActiveRadioRecordings
+            : null;
+
+    public static bool ShouldResumeRadioAtLive(
+        string sessionId,
+        bool hasCurrentItem,
+        bool isPlaying,
+        bool isCurrentStationRecording) =>
+        string.Equals(sessionId, "radio", StringComparison.Ordinal)
+        && hasCurrentItem
+        && !isPlaying
+        && isCurrentStationRecording;
 
     public static string? ResolvePlayerAudioProcessing(
         Key key,

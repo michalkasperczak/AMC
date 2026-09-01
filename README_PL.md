@@ -44,6 +44,8 @@ Od `alpha.188` karta **Radio i nagrywanie** pozwala wybrać zakres automatyczneg
 
 Korekta `alpha.189` usuwa awarię okna zmiany prefiksu na 64-bitowym Windows. Plus numeryczny i pozostałe jednoznaczne klawisze korzystają ze zwykłej ścieżki WPF; natywny hak pozostaje tylko dla Entera i klawiszy, których nie da się inaczej odróżnić od osobnego bloku nawigacyjnego. Hak sprawdza rodzaj komunikatu przed odczytaniem kodu klawisza, dlatego komunikaty fokusu i UI Automation zawierające wartości wskaźnikowe nie są mylone z klawiaturą. Zarówno okno przechwytywania, jak i globalny hak prefiksu mają dodatkową granicę bezpieczeństwa: wyjątek jest zapisywany w logu, warstwa zostaje anulowana, a klawisz przekazany dalej. Błąd AMC nie może przez to pozostawić zablokowanego łańcucha klawiatury ani uciszyć NVDA.
 
+Od `alpha.190` tymczasową listę **Nagrywane** otwiera w Radiu `Alt+R`, nie `Alt+2`. `Escape` lub Backspace zamyka ją i wraca dokładnie do widoku, z którego została wywołana, na przykład do Ulubionych wraz z wcześniejszym zaznaczeniem. `Alt+1` zachowuje jedno stałe znaczenie: **Wszystkie stacje**. Zwykła Spacja nadal pauzuje wyłącznie słyszalny odsłuch; odbiór, bufor i niezależne nagranie pracują dalej. Bez nagrywania wznowienie wraca do zatrzymanego punktu timeshiftu, a End przechodzi na żywo. Jeżeli słuchana stacja jest równocześnie nagrywana, wznowienie Spacją przechodzi od razu na żywo, ponieważ ręczne przewijanie jest w tym czasie celowo zablokowane. `Shift+Spacja` pozostaje osobnym poleceniem pauzy samego nagrania.
+
 Od `alpha.181` automatyczny zapis pozycji, historii, ustawień Radia i stanu
 pozostałych sesji nie wykonuje pełnej transakcji SQLite na wątku interfejsu.
 Jedna kolejka zapisuje migawki w tle i łączy kilka szybkich zmian, zachowując

@@ -4732,7 +4732,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return new CommandExecutionResult(false);
             }
             NavigateTo(ActiveRadioRecordingsViewName);
-            PrepareViewFocusContext("Nagrywane, Radio internetowe");
+            PrepareViewFocusContext("Nagrywane, Radio internetowe. Escape wraca do wcześniejszego widoku");
             RestoreMediaListFocusAfterRefresh();
             return new CommandExecutionResult(true);
         }
@@ -4886,6 +4886,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var orderSnapshot = changesListMembership && changedSession is not null
             ? CaptureMembershipOrderForCommand(changedSession, commandId, changedItems)
             : null;
+        var resumeRecordedRadioAtLive = commandId == CommandIds.PlayPause
+            && MainWindowShortcutRouter.ShouldResumeRadioAtLive(
+                sessionBeforeCommand.Id,
+                sessionBeforeCommand.HasCurrentItem,
+                sessionBeforeCommand.IsPlaying,
+                IsCurrentRadioStationRecording());
+        if (resumeRecordedRadioAtLive)
+        {
+            // Space controls only audible monitoring; the independent recorder
+            // continues receiving audio. Timeshift is deliberately unavailable
+            // while this station is being captured, so resuming must not leave
+            // the listener behind live with no permitted way to catch up.
+            _radioOutput.JumpToLive();
+        }
         if (changesListMembership && restoreListFocus) AnchorMediaListFocus();
         if (changesListMembership || mergeSessionAnnouncementWithFocus)
         {
@@ -9264,6 +9278,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool TryResolveKeyboardHelpCommand(Key key, ModifierKeys modifiers, out string commandId)
     {
+        var transientRadioViewCommand = MainWindowShortcutRouter.ResolveTransientRadioView(
+            key,
+            modifiers,
+            _sessions.Current.Id);
+        if (transientRadioViewCommand is not null)
+        {
+            commandId = transientRadioViewCommand;
+            return true;
+        }
         var numberedViewCommand = MainWindowShortcutRouter.ResolveNumberedView(
             key,
             modifiers,
@@ -9688,6 +9711,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (_playerViewActive || Keyboard.FocusedElement is System.Windows.Controls.TextBox) return false;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var effectiveModifiers = ReadEffectiveModifierKeys();
+        var transientRadioViewCommand = MainWindowShortcutRouter.ResolveTransientRadioView(
+            key,
+            effectiveModifiers,
+            _sessions.Current.Id);
+        if (transientRadioViewCommand is not null)
+        {
+            ExecuteCommand(transientRadioViewCommand);
+            return true;
+        }
         if (Keyboard.Modifiers == ModifierKeys.Control && key == Key.F5)
         {
             if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
@@ -9705,7 +9738,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ExecuteCommand(numberedViewCommand);
             return true;
         }
-        if (Keyboard.Modifiers == ModifierKeys.Alt && key is Key.D1 or Key.D2 or Key.D3)
+        if (effectiveModifiers == ModifierKeys.Alt && key is Key.D1 or Key.D2 or Key.D3)
         {
             var digit = (int)key - (int)Key.D0;
             Announce(string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)

@@ -1,12 +1,52 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-189`
-- Tytuł zestawu: Bezpieczna zmiana globalnego prefiksu
-- Wersja programu: `0.1.0-alpha.189`
+- Numer zestawu: `AMC-TEST-190`
+- Tytuł zestawu: Nagrywane jako widok tymczasowy i spójna pauza Radia
+- Wersja programu: `0.1.0-alpha.190`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.189.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.190.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Poprawka alpha 190
+
+### AMC-190-01 — Nagrywane z Ulubionych
+
+W Radiu otwórz Ulubione przez `Ctrl+U`, ustaw fokus na rozpoznawalnej stacji i
+naciśnij `Alt+R`. Następnie naciśnij Escape. Powtórz z Biblioteki i użyj
+Backspace zamiast Escape.
+
+Oczekiwane: `Alt+R` pokazuje tylko aktualnie nagrywane stacje. Escape i
+Backspace wracają dokładnie do wcześniejszego widoku oraz zaznaczenia. Nie
+trzeba używać `Alt+1`, które zawsze oznacza Wszystkie stacje.
+
+### AMC-190-02 — wolne Alt+2 w Radiu
+
+Na zwykłej liście Radia naciśnij `Alt+2`, a potem `Alt+1`.
+
+Oczekiwane: `Alt+2` nie zmienia widoku i podaje, że nie ma jeszcze znaczenia w
+Radiu. `Alt+1` świadomie otwiera Wszystkie stacje. W Plikach lokalnych
+`Alt+2` nadal pokazuje Wszystkie pliki alfabetycznie.
+
+### AMC-190-03 — Spacja bez nagrywania
+
+Uruchom stację bez jej nagrywania, odczekaj kilkanaście sekund, naciśnij
+Spację, zaczekaj ponownie i wznów Spacją. Odczytaj pasek oraz użyj End.
+
+Oczekiwane: podczas pauzy odbiór i bufor rosną. Wznowienie kontynuuje od
+zatrzymanego punktu, więc pasek pokazuje opóźnienie względem transmisji. End
+wraca na żywo.
+
+### AMC-190-04 — Spacja podczas nagrywania słuchanej stacji
+
+Uruchom i nagrywaj tę samą stację. Wstrzymaj sam odsłuch zwykłą Spacją,
+odczekaj, a następnie wznów. Osobno użyj `Shift+Spacja` na nagraniu.
+
+Oczekiwane: zwykła Spacja nie robi luki w nagraniu. Wznowienie odsłuchu wraca
+od razu na żywo, ponieważ timeshift tej stacji jest podczas nagrywania
+zablokowany. Dopiero `Shift+Spacja` wstrzymuje zapis w obsługiwanym formacie.
+
+## Poprzedni zestaw alpha 189
 
 ## Poprawka alpha 189
 

@@ -1193,9 +1193,14 @@ static void TestMainWindowDigitShortcutRouting()
             == CommandIds.ViewLibrary,
         "Alt+1 w Radiu nie otwiera wszystkich zapisanych stacji.");
     Assert(
-        MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "radio")
-            == CommandIds.ViewActiveRadioRecordings,
-        "Alt+2 w Radiu nie otwiera nagrywanych stacji.");
+        MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "radio") is null,
+        "Alt+2 w Radiu nie może udawać trwałego widoku Nagrywane.");
+    Assert(
+        MainWindowShortcutRouter.ResolveTransientRadioView(Key.R, ModifierKeys.Alt, "radio")
+            == CommandIds.ViewActiveRadioRecordings
+        && MainWindowShortcutRouter.ResolveTransientRadioView(Key.R, ModifierKeys.Alt, "local") is null
+        && MainWindowShortcutRouter.ResolveTransientRadioView(Key.R, ModifierKeys.None, "radio") is null,
+        "Alt+R nie otwiera tymczasowego widoku Nagrywane wyłącznie w Radiu.");
     Assert(
         MainWindowShortcutRouter.ResolveNumberedView(Key.D3, ModifierKeys.Alt, "radio") is null,
         "Alt+3 w Radiu nie może otwierać pozornego widoku odtwarzanych urządzeń.");
@@ -1212,6 +1217,12 @@ static void TestMainWindowDigitShortcutRouting()
         && !MainWindowNavigationPolicy.IsTransientRadioView("radio", "Biblioteka")
         && !MainWindowNavigationPolicy.IsTransientRadioView("local", "Nagrywane"),
         "Polityka Escape nie rozpoznaje tymczasowego widoku Nagrywane w Radiu.");
+    Assert(
+        MainWindowShortcutRouter.ShouldResumeRadioAtLive("radio", true, false, true)
+        && !MainWindowShortcutRouter.ShouldResumeRadioAtLive("radio", true, true, true)
+        && !MainWindowShortcutRouter.ShouldResumeRadioAtLive("radio", true, false, false)
+        && !MainWindowShortcutRouter.ShouldResumeRadioAtLive("local", true, false, true),
+        "Wznowienie Spacją nie odróżnia słuchanej i nagrywanej stacji od zwykłego timeshiftu.");
     Assert(
         MainWindowShortcutRouter.ResolveRadioRecordingBookmark(
             Key.B,
@@ -1232,7 +1243,7 @@ static void TestMainWindowDigitShortcutRouting()
             ModifierKeys.None,
             recordingContext: false) is null,
         "Skróty zakładek nagrania przejmują nieprawidłowy modyfikator albo kontekst.");
-    Console.WriteLine("OK: skróty sesji, widoki Radia oraz B i Shift+B nagrywanego pliku");
+    Console.WriteLine("OK: skróty sesji, trwałe i tymczasowe widoki Radia oraz B i Shift+B nagrywanego pliku");
 }
 
 static void TestPlayerAudioProcessingKeyboardMap()
