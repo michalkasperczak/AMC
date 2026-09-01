@@ -627,6 +627,19 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         }
     }
 
+    internal static WaveStream OpenReaderForExport(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        var mayRequireRemoteAccess = MediaSourceAccessPolicy
+            .Classify(path)
+            .RequiresRemoteAccess;
+        return CreateReader(
+            path,
+            Mp3DecoderMode.Automatic,
+            allowManagedMp3Fallback: true,
+            mayRequireRemoteAccess).Reader;
+    }
+
     private static ReaderSelection CreateReader(
         string path,
         Mp3DecoderMode mp3DecoderMode,

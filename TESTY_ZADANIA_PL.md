@@ -1,12 +1,70 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-195`
-- Tytuł zestawu: Jednoznaczny kontekst Historii odtwarzania
-- Wersja programu: `0.1.0-alpha.195`
+- Numer zestawu: `AMC-TEST-196`
+- Tytuł zestawu: Bezpieczne wycinanie fragmentu audio
+- Wersja programu: `0.1.0-alpha.196`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.195.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.196.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowość alpha 196
+
+### AMC-196-01 — zaznaczenie fragmentu
+
+Otwórz dłuższy lokalny plik, przejdź w odtwarzaczu do wybranego miejsca i
+naciśnij `I`. Przejdź dalej, naciśnij `O`, a następnie `X`.
+
+Oczekiwane: NVDA podaje czas początku i końca. Okno zapisu mówi nazwę pliku,
+oba czasy i długość fragmentu. Fokus zaczyna na czytelnie opisanym sposobie
+zapisu; nie pojawia się techniczna nazwa klasy ani zapis z klamrami.
+
+### AMC-196-02 — dokładny WAV i nienaruszony oryginał
+
+Wybierz WAV, zapisz wynik pod nową nazwą i odtwórz początek oraz koniec obu
+plików.
+
+Oczekiwane: nowy plik obejmuje zaznaczony fragment, a oryginał ma niezmienioną
+nazwę, długość, treść i położenie. Zapis nie dodaje wyniku do Biblioteki bez
+osobnej decyzji użytkownika.
+
+### AMC-196-03 — błędna kolejność punktów
+
+Po `I` cofnij odtwarzanie i spróbuj ustawić `O`, a następnie przejdź do innego
+pliku i spróbuj użyć wcześniejszego zaznaczenia.
+
+Oczekiwane: program nie tworzy błędnego fragmentu. Wyjaśnia, że koniec musi być
+po początku albo że punkty muszą należeć do tego samego pliku.
+
+### AMC-196-04 — anulowanie i bezpieczny plik wynikowy
+
+Rozpocznij zapis długiego fragmentu WAV i użyj przycisku Przerwij. Powtórz
+operację, wybierając istniejącą nazwę, lecz odrzuć systemowe potwierdzenie
+zastąpienia.
+
+Oczekiwane: anulowanie nie zmienia źródła ani istniejącego pliku docelowego i
+nie pozostawia widocznego pliku częściowego. Fokus wraca do wyboru sposobu
+zapisu albo do odtwarzacza po zamknięciu okna.
+
+### AMC-196-05 — dostępność menu i skrótów
+
+Sprawdź `I`, `O`, `X` i `Shift+X` z klawiatury, Pomocy klawiszy, menu
+Odtwarzanie oraz menu kontekstowego odtwarzacza.
+
+Oczekiwane: polecenia istnieją tylko dla lokalnego utworu w odtwarzaczu,
+pojawiają się pojedynczo i mają te same nazwy. W Radiu, na liście oraz w sesjach
+usług nie wykonują przypadkowej operacji.
+
+### AMC-196-06 — opcjonalne sposoby z FFmpeg
+
+Jeżeli okno pokazuje zapis bez konwersji i FLAC, sprawdź oba na MP3 lub innym
+skompresowanym nagraniu.
+
+Oczekiwane: bez konwersji zachowuje kodek bez ponownego kodowania, z możliwym
+dopasowaniem granicy do ramki. FLAC daje dokładny, bezstratny fragment. Jeżeli
+FFmpeg nie jest dostępny, obie opcje są ukryte, a WAV nadal działa.
+
+## Poprzedni zestaw alpha 195
 
 ## Poprawka alpha 195
 

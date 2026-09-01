@@ -32,6 +32,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly StatePersistenceQueue _statePersistence;
     private PlaybackHistory _playbackHistory;
     private BookmarkIndex _bookmarkIndex;
+    private readonly AudioClipSelection _audioClipSelection = new();
     private SessionManager _sessions = null!;
     private CommandRouter _router = null!;
     private GlobalPrefixService? _prefixService;
@@ -634,6 +635,133 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : $"Zakładka {result.Entry.Name} już istnieje: {time}");
     }
 
+    private void MarkClipStart()
+    {
+        if (!TryGetLocalClipContext(out var session, out var item, out var path, out var error))
+        {
+            Announce(error);
+            return;
+        }
+
+        var previousEnd = _audioClipSelection.Matches(item.Id, path)
+            ? _audioClipSelection.End
+            : null;
+        _audioClipSelection.SetStart(item.Id, path, session.Position, item.Duration);
+        var time = FormatClipTime(_audioClipSelection.Start!.Value);
+        Announce(previousEnd is not null && _audioClipSelection.End is null
+            ? $"Początek fragmentu: {time}. Wcześniejszy koniec usunięty"
+            : $"Początek fragmentu: {time}");
+    }
+
+    private void MarkClipEnd()
+    {
+        if (!TryGetLocalClipContext(out var session, out var item, out var path, out var error))
+        {
+            Announce(error);
+            return;
+        }
+        if (!_audioClipSelection.Matches(item.Id, path) || _audioClipSelection.Start is null)
+        {
+            Announce("Najpierw ustaw początek fragmentu klawiszem I");
+            return;
+        }
+        if (!_audioClipSelection.TrySetEnd(item.Id, path, session.Position, item.Duration))
+        {
+            Announce("Koniec fragmentu musi znajdować się po jego początku");
+            return;
+        }
+        Announce($"Koniec fragmentu: {FormatClipTime(_audioClipSelection.End!.Value)}. "
+            + $"Długość: {FormatClipTime(_audioClipSelection.End.Value - _audioClipSelection.Start.Value)}");
+    }
+
+    private void ClearClipSelection()
+    {
+        if (_audioClipSelection.ItemId is null)
+        {
+            Announce("Nie ma zaznaczonego fragmentu");
+            return;
+        }
+        _audioClipSelection.Clear();
+        Announce("Zaznaczenie fragmentu wyczyszczone");
+    }
+
+    private void ExportClip()
+    {
+        if (!TryGetLocalClipContext(out _, out var item, out var path, out var error))
+        {
+            Announce(error);
+            return;
+        }
+        if (!_audioClipSelection.Matches(item.Id, path) || !_audioClipSelection.IsComplete)
+        {
+            Announce("Zaznacz początek klawiszem I i koniec klawiszem O");
+            return;
+        }
+
+        var dialog = new AudioClipExportWindow(
+            path,
+            item.Title,
+            _audioClipSelection.Start!.Value,
+            _audioClipSelection.End!.Value)
+        {
+            Owner = this
+        };
+        var saved = dialog.ShowDialog() == true;
+        FocusPlayerView();
+        if (saved && dialog.ResultPath is { } resultPath)
+        {
+            DiagnosticLog.Info(
+                "audio-clip",
+                $"Zapisano niedestrukcyjny fragment: {path}; wynik: {resultPath}; "
+                + $"od {_audioClipSelection.Start} do {_audioClipSelection.End}.");
+            Announce($"Fragment zapisany: {Path.GetFileName(resultPath)}");
+        }
+    }
+
+    private bool TryGetLocalClipContext(
+        out DemoMediaSession session,
+        out MediaItem item,
+        out string path,
+        out string error)
+    {
+        session = _sessions.Current;
+        item = session.CurrentItem;
+        path = string.Empty;
+        error = string.Empty;
+        if (!_playerViewActive)
+        {
+            error = "Wycinanie fragmentu działa w otwartym odtwarzaczu";
+            return false;
+        }
+        if (!string.Equals(session.Id, "local", StringComparison.Ordinal))
+        {
+            error = "Wycinanie fragmentu jest dostępne dla lokalnych plików";
+            return false;
+        }
+        if (!session.HasCurrentItem || item.Kind != MediaItemKind.Track
+            || !TryGetLocalPath(item.Source, out path))
+        {
+            error = "Bieżący element nie jest lokalnym plikiem multimedialnym";
+            return false;
+        }
+        if (item.Duration <= TimeSpan.Zero)
+        {
+            error = "Nie można zaznaczyć fragmentu, ponieważ czas trwania pliku jest nieznany";
+            return false;
+        }
+        if (!File.Exists(path))
+        {
+            error = "Plik jest obecnie niedostępny. Jeśli znajduje się w chmurze, pobierz go i spróbuj ponownie";
+            return false;
+        }
+        return true;
+    }
+
+    private static string FormatClipTime(TimeSpan value) =>
+        value.TotalHours >= 1
+            ? value.ToString(@"h\:mm\:ss\.fff", CultureInfo.CurrentCulture)
+            : value.ToString(@"m\:ss\.fff", CultureInfo.CurrentCulture);
+
     public void NavigateBookmark(int direction)
     {
         if (!_playerViewActive)
@@ -871,6 +999,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         return "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. "
             + "B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach. "
+            + "I ustawia początek fragmentu, O koniec, X zapisuje fragment do nowego pliku, a Shift+X czyści zaznaczenie. "
             + "Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. "
             + exit;
     }
@@ -2927,6 +3056,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 PlaybackCurrentItemAudioOptionsMenuItem,
                 $"Zmień opcje bieżącego utworu — {FormatEffectiveLocalAudioSettings(currentLocalItem)}");
         }
+        var clipVisibility = currentLocalItem is null ? Visibility.Collapsed : Visibility.Visible;
+        PlaybackBeforeClipSeparator.Visibility = clipVisibility;
+        PlaybackMarkClipStartMenuItem.Visibility = clipVisibility;
+        PlaybackMarkClipEndMenuItem.Visibility = clipVisibility;
+        PlaybackExportClipMenuItem.Visibility = clipVisibility;
+        PlaybackClearClipMenuItem.Visibility = clipVisibility;
         OpenLocalFilesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         OpenLocalFolderMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageLocalSourcesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
@@ -4634,6 +4769,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string commandId,
         FolderContentsActionContext? folderContext)
     {
+        if (commandId == CommandIds.MarkClipStart)
+        {
+            MarkClipStart();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.MarkClipEnd)
+        {
+            MarkClipEnd();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ExportClip)
+        {
+            ExportClip();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ClearClipSelection)
+        {
+            ClearClipSelection();
+            return new CommandExecutionResult(true);
+        }
         if (CommandIds.TryParseRadioPreset(commandId, out var radioPresetSlot))
         {
             ActivatePreset(radioPresetSlot);
@@ -9417,6 +9572,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             commandId = (modifiers, key) switch
             {
                 (ModifierKeys.None, Key.B) => CommandIds.AddBookmark,
+                (ModifierKeys.None, Key.I) => CommandIds.MarkClipStart,
+                (ModifierKeys.None, Key.O) => CommandIds.MarkClipEnd,
+                (ModifierKeys.None, Key.X) => CommandIds.ExportClip,
+                (ModifierKeys.Shift, Key.X) => CommandIds.ClearClipSelection,
                 (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
                 (ModifierKeys.Shift, Key.PageDown) => CommandIds.NextBookmark,
                 (ModifierKeys.None, Key.PageUp) => CommandIds.Previous,
@@ -10021,6 +10180,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var commandId = (Keyboard.Modifiers, key) switch
         {
             (ModifierKeys.None, Key.B) => CommandIds.AddBookmark,
+            (ModifierKeys.None, Key.I) => CommandIds.MarkClipStart,
+            (ModifierKeys.None, Key.O) => CommandIds.MarkClipEnd,
+            (ModifierKeys.None, Key.X) => CommandIds.ExportClip,
+            (ModifierKeys.Shift, Key.X) => CommandIds.ClearClipSelection,
             (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
             (ModifierKeys.Shift, Key.PageDown) => CommandIds.NextBookmark,
             (ModifierKeys.None, Key.PageUp) => CommandIds.Previous,
@@ -10630,6 +10793,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PlayerBack_Click(object sender, RoutedEventArgs e) => ReturnFromPlayerToList();
     private void AddBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddBookmark);
     private void AddNamedBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddNamedBookmark);
+    private void MarkClipStart_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.MarkClipStart);
+    private void MarkClipEnd_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.MarkClipEnd);
+    private void ExportClip_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ExportClip);
+    private void ClearClipSelection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ClearClipSelection);
     private void BookmarksView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewBookmarks);
     private void PreviousBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PreviousBookmark);
     private void NextBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.NextBookmark);
@@ -11125,6 +11292,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var localPlaybackOptions = localItem
             && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
             && item.Kind == MediaItemKind.Track;
+        var clipVisibility = localPlaybackOptions ? Visibility.Visible : Visibility.Collapsed;
+        PlayerBeforeClipSeparator.Visibility = clipVisibility;
+        PlayerMarkClipStartMenuItem.Visibility = clipVisibility;
+        PlayerMarkClipEndMenuItem.Visibility = clipVisibility;
+        PlayerExportClipMenuItem.Visibility = clipVisibility;
+        PlayerClearClipMenuItem.Visibility = clipVisibility;
         PlayerItemPlaybackOptionsMenuItem.Visibility = localPlaybackOptions
             ? Visibility.Visible
             : Visibility.Collapsed;

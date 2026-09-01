@@ -125,6 +125,7 @@ public static class ShortcutHelpCatalog
             return "settings";
         }
         if (commandId.StartsWith("transport.", StringComparison.Ordinal)
+            || commandId.StartsWith("editing.clip.", StringComparison.Ordinal)
             || commandId.StartsWith("information.time", StringComparison.Ordinal)
             || commandId is CommandIds.ViewNowPlaying or CommandIds.AddBookmark
                 or CommandIds.AddNamedBookmark or CommandIds.PreviousBookmark

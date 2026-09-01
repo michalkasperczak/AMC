@@ -190,6 +190,23 @@
                 <MenuItem x:Name="PlaybackNextBookmarkMenuItem" Header="Następna zakładka" InputGestureText="Shift+Page Down"
                           automation:AutomationProperties.Name="Następna zakładka, Shift+Page Down, tylko w odtwarzaczu"
                           Click="NextBookmark_Click" />
+                <Separator x:Name="PlaybackBeforeClipSeparator" />
+                <MenuItem x:Name="PlaybackMarkClipStartMenuItem" Header="Ustaw początek _fragmentu" InputGestureText="I"
+                          automation:AutomationProperties.Name="Ustaw początek fragmentu, I, tylko w odtwarzaczu lokalnego pliku"
+                          automation:AutomationProperties.AcceleratorKey="I"
+                          Click="MarkClipStart_Click" />
+                <MenuItem x:Name="PlaybackMarkClipEndMenuItem" Header="Ustaw _koniec fragmentu" InputGestureText="O"
+                          automation:AutomationProperties.Name="Ustaw koniec fragmentu, O, tylko w odtwarzaczu lokalnego pliku"
+                          automation:AutomationProperties.AcceleratorKey="O"
+                          Click="MarkClipEnd_Click" />
+                <MenuItem x:Name="PlaybackExportClipMenuItem" Header="_Zapisz zaznaczony fragment…" InputGestureText="X"
+                          automation:AutomationProperties.Name="Zapisz zaznaczony fragment do nowego pliku, X, tylko w odtwarzaczu lokalnego pliku"
+                          automation:AutomationProperties.AcceleratorKey="X"
+                          Click="ExportClip_Click" />
+                <MenuItem x:Name="PlaybackClearClipMenuItem" Header="Wyczyść zaznaczenie fragmentu" InputGestureText="Shift+X"
+                          automation:AutomationProperties.Name="Wyczyść zaznaczenie fragmentu, Shift+X, tylko w odtwarzaczu lokalnego pliku"
+                          automation:AutomationProperties.AcceleratorKey="Shift+X"
+                          Click="ClearClipSelection_Click" />
                 <Separator x:Name="PlaybackBeforeSeekSeparator" />
                 <MenuItem x:Name="PlaybackSeekTimeMenuItem" Header="Skocz do _czasu…" InputGestureText="Ctrl+J"
                           automation:AutomationProperties.Name="Skocz do czasu, Ctrl+J, tylko w odtwarzaczu"
@@ -501,6 +518,23 @@
                     <MenuItem x:Name="PlayerBookmarksMenuItem" Header="Pokaż zakładki" InputGestureText="Ctrl+B"
                               automation:AutomationProperties.Name="Pokaż zakładki, Ctrl+B"
                               Click="BookmarksView_Click" />
+                    <Separator x:Name="PlayerBeforeClipSeparator" />
+                    <MenuItem x:Name="PlayerMarkClipStartMenuItem" Header="Ustaw początek fragmentu" InputGestureText="I"
+                              automation:AutomationProperties.Name="Ustaw początek fragmentu, I"
+                              automation:AutomationProperties.AcceleratorKey="I"
+                              Click="MarkClipStart_Click" />
+                    <MenuItem x:Name="PlayerMarkClipEndMenuItem" Header="Ustaw koniec fragmentu" InputGestureText="O"
+                              automation:AutomationProperties.Name="Ustaw koniec fragmentu, O"
+                              automation:AutomationProperties.AcceleratorKey="O"
+                              Click="MarkClipEnd_Click" />
+                    <MenuItem x:Name="PlayerExportClipMenuItem" Header="Zapisz zaznaczony fragment…" InputGestureText="X"
+                              automation:AutomationProperties.Name="Zapisz zaznaczony fragment do nowego pliku, X"
+                              automation:AutomationProperties.AcceleratorKey="X"
+                              Click="ExportClip_Click" />
+                    <MenuItem x:Name="PlayerClearClipMenuItem" Header="Wyczyść zaznaczenie fragmentu" InputGestureText="Shift+X"
+                              automation:AutomationProperties.Name="Wyczyść zaznaczenie fragmentu, Shift+X"
+                              automation:AutomationProperties.AcceleratorKey="Shift+X"
+                              Click="ClearClipSelection_Click" />
                     <MenuItem x:Name="PlayerPlayNextMenuItem" Header="Odtwórz jako następne" InputGestureText="Ctrl+Shift+Enter"
                               automation:AutomationProperties.Name="Odtwórz jako następne, Ctrl+Shift+Enter"
                               Click="PlayNext_Click" />

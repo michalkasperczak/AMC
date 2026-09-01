@@ -1,0 +1,59 @@
+<controls:AccessibleWindow x:Class="AccessibleMediaController.Windows.AudioClipExportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        Title="Zapisz fragment audio" Width="650" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanMinimize"
+        Loaded="Window_Loaded" Closing="Window_Closing">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" x:Name="SelectionText" Margin="0,0,0,12"
+                   TextWrapping="Wrap"
+                   automation:AutomationProperties.HeadingLevel="Level2" />
+
+        <StackPanel Grid.Row="1">
+            <Label Target="{Binding ElementName=FormatCombo}" Content="_Sposób zapisu:" />
+            <ComboBox x:Name="FormatCombo" Margin="0,0,0,8"
+                      automation:AutomationProperties.Name="Sposób zapisu fragmentu">
+                <ComboBoxItem x:Name="OriginalFormatItem" Tag="OriginalStream"
+                              automation:AutomationProperties.Name="Bez konwersji; zachowaj oryginalny kodek i jakość; granice mogą zostać dopasowane do ramki kodeka">
+                    Bez konwersji — zachowaj kodek; granice do najbliższej ramki
+                </ComboBoxItem>
+                <ComboBoxItem x:Name="FlacFormatItem" Tag="Flac"
+                              automation:AutomationProperties.Name="FLAC; dokładny fragment bezstratny; większy plik">
+                    FLAC — dokładny fragment bezstratny; większy plik
+                </ComboBoxItem>
+                <ComboBoxItem x:Name="WavFormatItem" Tag="Wav"
+                              automation:AutomationProperties.Name="WAV; dokładny fragment bez kompresji; największy plik">
+                    WAV — dokładny fragment bez kompresji; największy plik
+                </ComboBoxItem>
+            </ComboBox>
+            <TextBlock x:Name="ComponentNotice" Margin="0,0,0,12" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <ProgressBar Grid.Row="2" x:Name="ExportProgress" Height="22" Minimum="0" Maximum="100"
+                     Visibility="Collapsed"
+                     automation:AutomationProperties.Name="Postęp zapisywania fragmentu" />
+        <TextBlock Grid.Row="3" x:Name="ExportStatus" Margin="0,8,0,12" TextWrapping="Wrap"
+                   automation:AutomationProperties.LiveSetting="Assertive" />
+
+        <TextBlock Grid.Row="4" Margin="0,0,0,12" TextWrapping="Wrap"
+                   Text="Plik źródłowy nigdy nie jest zmieniany. Wynik zostanie zapisany jako nowy plik." />
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="SaveButton" MinWidth="130" Margin="0,0,8,0"
+                    IsDefault="True" Content="_Zapisz…" Click="Save_Click" />
+            <Button x:Name="CancelButton" MinWidth="110" IsCancel="True"
+                    Content="_Anuluj" Click="Cancel_Click" />
+        </StackPanel>
+    </Grid>
+</controls:AccessibleWindow>

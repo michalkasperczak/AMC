@@ -1505,3 +1505,28 @@ przechwytuje jego fizyczne zdarzenie wcześniej. Okno wyboru skrótu nadal używ
 zwykłego zdarzenia WPF dla jednoznacznych operatorów, więc naprawa nie przywraca
 błędu 64-bitowego z `alpha.189`. Do mapy obsługiwanych klawiszy dochodzi `Pause`.
 Każda udana rejestracja oraz błąd startowy otrzymuje wpis diagnostyczny.
+
+### 7.9. Niedestrukcyjne wycinanie fragmentu audio
+
+Od `alpha.196` Pliki lokalne mają prostą warstwę edycji działającą wyłącznie w
+otwartym odtwarzaczu. `I` zapamiętuje początek fragmentu, `O` jego koniec, `X`
+otwiera okno zapisu, a `Shift+X` czyści zaznaczenie. Koniec musi leżeć po
+początku i oba punkty muszą należeć do tego samego pliku. Zaznaczenie jest
+ulotne: nie zmienia pliku, Biblioteki, zakładek ani pozycji wznowienia.
+
+Eksport nigdy nie zapisuje bezpośrednio do pliku źródłowego. Najpierw tworzy
+unikalny plik tymczasowy w folderze docelowym, a gotowy wynik publikuje dopiero
+po pełnym powodzeniu. Anulowanie lub błąd usuwa część tymczasową. WAV zapewnia
+dokładne granice w zdekodowanym dźwięku i jest zawsze dostępny. FLAC zachowuje
+dokładny fragment bezstratnie, a tryb bez konwersji zachowuje oryginalny kodek
+i jakość, lecz jego granice mogą zostać dopasowane do ramki kodeka. Te dwa
+ostatnie tryby pojawiają się tylko po wykryciu zgodnego FFmpeg. Starego,
+przypadkowego pliku FFmpeg z innego projektu nie wolno kopiować do AMC; składnik
+musi mieć jawne pochodzenie, licencję, kontrolę integralności i osobny mechanizm
+aktualizacji.
+
+Każdy nowy format i każdy mechanizm aktualizacji komponentów musi zachować te
+niezmienniki: brak nadpisywania źródła, obsługa anulowania, atomowe opublikowanie
+wyniku oraz czytelny komunikat bez technicznych identyfikatorów. Narzędzia do
+łączenia fragmentów i bezstratnego cięcia na granicach ramek mogą zostać dodane
+po testach tej podstawowej operacji.

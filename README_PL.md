@@ -1,5 +1,7 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.196` dodaje pierwsze bezpieczne narzędzie do wycinania nagrań. W odtwarzaczu Plików lokalnych `I` oznacza początek, `O` koniec, `X` otwiera zapis fragmentu, a `Shift+X` usuwa zaznaczenie. Operacja zawsze tworzy nowy plik i nie modyfikuje źródła. Dokładny WAV działa bez dodatkowych składników; zapis bez konwersji oraz dokładny FLAC są dostępne po wykryciu właściwego FFmpeg.
+
 Korekta `alpha.195` rozdziela dwa sposoby korzystania z Historii odtwarzania. Świadome otwarcie elementu z listy `Ctrl+H` ustawia widoczną Historię jako kontekst `Page Up/Page Down`, tak samo jak Ulubione, folder, playlista lub kolejka ustawiają własny kontekst. Natomiast chwilowe przejścia `Alt+strzałka w górę/w dół` wykonywane już w odtwarzaczu nadal nie zastępują wcześniejszego kontekstu listy.
 
 Korekta `alpha.194` oddziela pozycję odsłuchu radia od zapisu na żywo. Spacja może teraz pauzować i wznawiać odsłuch z timeshiftu także podczas nagrywania tej samej stacji, podczas gdy rejestrator nadal zapisuje transmisję na żywo; `End` pozostaje jawnym powrotem na żywo. Przygotowanie podpisu Shazam zostało przeniesione poza wątek okna, a bufory FFT są ponownie używane zamiast tworzenia tysięcy dużych tablic przy każdym rozpoznaniu. Ogranicza to krótkie przerwy odsłuchu i przycięcia interfejsu podczas automatycznego rozpoznawania.

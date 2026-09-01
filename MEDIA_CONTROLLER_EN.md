@@ -1463,3 +1463,21 @@ physical event first. The accessible capture dialog continues to use ordinary
 WPF input for unambiguous operators, so the 64-bit safety fix remains intact.
 `Pause` is now a supported prefix key, and diagnostics record registration
 success as well as startup failure.
+
+### 7.9. Non-destructive audio fragment export
+
+Starting with `alpha.196`, Local Files provides a small editing layer available
+only in the open player. `I` marks the start, `O` marks the end, `X` opens
+fragment export, and `Shift+X` clears the selection. Both marks must belong to
+the same file and the end must follow the start. The selection is transient and
+does not alter the source, Library, bookmarks, or resume position.
+
+Export never writes directly to the source. It first creates a unique temporary
+file in the destination directory and publishes the finished result only after
+success; cancellation and failure remove the partial file. WAV offers exact
+decoded-audio boundaries and is always available. FLAC offers an exact lossless
+result, while stream copy retains the source codec and quality but may align
+the boundaries to codec frames. The latter two choices appear only when a
+compatible FFmpeg is detected. AMC must not silently reuse an old FFmpeg binary
+from another project: the component needs known provenance, licensing,
+integrity verification and its own update path.

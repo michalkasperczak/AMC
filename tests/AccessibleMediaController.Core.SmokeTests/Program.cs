@@ -74,8 +74,37 @@ var tests = new (string Name, Action Test)[]
     ("Częściowy stan folderu w kolekcjach", TestFolderContentsMembership),
     ("Krótkie komunikaty czasu", TestTimeCommands),
     ("Skok wpisanym czasem i procentem", TestSeekInputParser),
+    ("Niedestrukcyjne zaznaczanie fragmentu audio", TestAudioClipSelection),
     ("Trzy rodzaje eksportu", TestExports)
 };
+
+static void TestAudioClipSelection()
+{
+    var selection = new AudioClipSelection();
+    selection.SetStart("item-1", @"D:\Audio\plik.mp3", TimeSpan.FromSeconds(20), TimeSpan.FromMinutes(3));
+    Equal(TimeSpan.FromSeconds(20), selection.Start);
+    Equal(false, selection.IsComplete);
+    Equal(false, selection.TrySetEnd(
+        "item-1",
+        @"D:\Audio\plik.mp3",
+        TimeSpan.FromSeconds(10),
+        TimeSpan.FromMinutes(3)));
+    Equal(true, selection.TrySetEnd(
+        "item-1",
+        @"D:\Audio\plik.mp3",
+        TimeSpan.FromSeconds(45),
+        TimeSpan.FromMinutes(3)));
+    Equal(true, selection.IsComplete);
+
+    selection.SetStart("item-1", @"D:\Audio\plik.mp3", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(3));
+    Equal(null, selection.End);
+    selection.SetStart("item-2", @"D:\Audio\inny.mp3", TimeSpan.FromSeconds(-2), TimeSpan.FromMinutes(1));
+    Equal(TimeSpan.Zero, selection.Start);
+    Equal("item-2", selection.ItemId);
+    selection.Clear();
+    Equal(null, selection.ItemId);
+    Equal(false, selection.IsComplete);
+}
 
 static void TestPlaybackAudioSettingsPersistence()
 {

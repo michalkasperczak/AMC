@@ -79,6 +79,8 @@ try
     TestPlaybackAudioProcessors();
     TestGuardRejectsAbsurdDuration();
     TestManagedMp3Fallback();
+    TestAudioClipExporter();
+    TestAudioClipExportAccessibility();
     TestWaveMetadataAndDamagedContainers();
     TestLocalVideoAudioExtraction();
     TestLocalTransportStreamRecovery();
@@ -297,6 +299,84 @@ static void TestEditableFieldReplacement()
     if (failure is not null)
         throw new InvalidOperationException("Test zastępowania wartości pola nie powiódł się.", failure);
     Console.WriteLine("OK: wpisywanie po wejściu klawiaturą zastępuje całą poprzednią wartość pola");
+}
+
+static void TestAudioClipExporter()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-clip-export-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    var source = Path.Combine(directory, "source.wav");
+    var destination = Path.Combine(directory, "fragment.wav");
+    try
+    {
+        var format = new WaveFormat(8_000, 16, 1);
+        using (var writer = new WaveFileWriter(source, format))
+        {
+            writer.Write(new byte[format.AverageBytesPerSecond * 2]);
+        }
+        var sourceLength = new FileInfo(source).Length;
+        AudioClipExporter.ExportAsync(
+                new AudioClipExportRequest(
+                    source,
+                    destination,
+                    TimeSpan.FromMilliseconds(250),
+                    TimeSpan.FromMilliseconds(1250),
+                    AudioClipExportFormat.Wav),
+                progress: null,
+                CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+
+        Assert(File.Exists(destination), "Eksporter nie utworzył nowego pliku WAV.");
+        Assert(new FileInfo(source).Length == sourceLength, "Eksporter zmienił plik źródłowy.");
+        using var fragment = new WaveFileReader(destination);
+        Assert(
+            Math.Abs(fragment.TotalTime.TotalSeconds - 1d) < 0.05d,
+            $"Nieprawidłowa długość wyeksportowanego fragmentu: {fragment.TotalTime}.");
+        Console.WriteLine("OK: niedestrukcyjny eksport dokładnego fragmentu WAV");
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+}
+
+static void TestAudioClipExportAccessibility()
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            var window = new AudioClipExportWindow(
+                @"C:\Nagrania\audycja.mp3",
+                "Audycja",
+                TimeSpan.FromSeconds(15),
+                TimeSpan.FromSeconds(45));
+            var choices = window.FormatCombo.Items.OfType<ComboBoxItem>().ToArray();
+            Assert(choices.Length >= 1, "Okno eksportu nie zawiera sposobów zapisu.");
+            foreach (var choice in choices)
+            {
+                var name = AutomationProperties.GetName(choice);
+                Assert(!string.IsNullOrWhiteSpace(name), "Sposób zapisu nie ma jawnej nazwy dla NVDA.");
+                Assert(!name.Contains('{') && !name.Contains("AudioClipExportFormat", StringComparison.Ordinal),
+                    "Techniczna reprezentacja sposobu zapisu wyciekła do nazwy dostępnościowej.");
+            }
+            Assert(window.FormatCombo.SelectedItem is ComboBoxItem,
+                "Okno eksportu nie wybiera bezpiecznego sposobu zapisu przy otwarciu.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+
+    if (failure is not null)
+        throw new InvalidOperationException("Test dostępności okna eksportu fragmentu nie powiódł się.", failure);
+    Console.WriteLine("OK: jawne etykiety NVDA sposobów zapisu fragmentu");
 }
 
 static void TestGlobalPrefixCapture()

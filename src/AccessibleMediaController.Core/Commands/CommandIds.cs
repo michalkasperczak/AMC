@@ -33,6 +33,10 @@ public static class CommandIds
     public const string TrackEnd = "transport.trackEnd";
     public const string SeekToTime = "transport.seekToTime";
     public const string SeekToPercentage = "transport.seekToPercentage";
+    public const string MarkClipStart = "editing.clip.markStart";
+    public const string MarkClipEnd = "editing.clip.markEnd";
+    public const string ExportClip = "editing.clip.export";
+    public const string ClearClipSelection = "editing.clip.clear";
 
     public const string TimeElapsed = "information.timeElapsed";
     public const string TimeRemaining = "information.timeRemaining";
