@@ -394,6 +394,18 @@ static void TestAudioClipExporter()
 
 static void TestAudioClipOriginalEditor()
 {
+    var longExpectedDuration = TimeSpan.FromSeconds(6482.476644);
+    Assert(
+        AudioClipOriginalEditor.DurationMatches(
+            longExpectedDuration,
+            TimeSpan.FromSeconds(6482.508821)),
+        "Rzeczywista oś czasu długiego MP3 powinna przejść kontrolę cięcia.");
+    Assert(
+        !AudioClipOriginalEditor.DurationMatches(
+            longExpectedDuration,
+            TimeSpan.FromSeconds(6464.876168)),
+        "Wynik obcięty według zaniżonego czasu nagłówka MP3 nie powinien przejść kontroli.");
+
     if (!AudioClipOriginalEditor.IsAvailable)
     {
         Console.WriteLine("POMINIĘTO: destrukcyjna edycja fragmentu wymaga zainstalowanego FFmpeg");

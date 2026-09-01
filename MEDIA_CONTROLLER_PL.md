@@ -1525,7 +1525,7 @@ znaczenie usunięcia rekordu z bieżącego widoku. Przed `Ctrl+X` pojawia się
 jednoznaczne potwierdzenie z domyślną odpowiedzią „Nie”. AMC zatrzymuje tor
 odtwarzania i czeka na zwolnienie pliku. FFmpeg przygotowuje obie zachowane
 części bez ponownej kompresji, a więc bez utraty jakości; granice kodeków
-stratnych mogą zostać dopasowane do najbliższej ramki. Wynik jest dekodowany
+stratnych mogą zostać dopasowane do najbliższej ramki. Wynik jest sprawdzany
 kontrolnie i porównywany z oczekiwaną długością. Dopiero po powodzeniu zastępuje
 źródło, tworząc obok pełną, bitowo identyczną kopię z końcówką `.amc-backup`.
 Błąd przed podmianą pozostawia źródło bez zmian, a błąd awaryjnej podmiany
@@ -1533,6 +1533,14 @@ przywraca je z kopii. Program nie rozpoczyna przez tę funkcję pobierania
 placeholdera z iCloud, OneDrive, Google Drive ani innej chmury. Destrukcyjna
 edycja pliku wideo jest na tym etapie blokowana, aby nie utracić obrazu; `X`
 nadal pozwala zapisać jego ścieżkę audio do nowego pliku.
+
+Od `alpha.202` długość przed cięciem i po nim pochodzi z pełnego skanu osi czasu
+pakietów FFmpeg. Nie jest już wyliczana wyłącznie z nagłówka kontenera ani z
+nominalnego bitrate. Chroni to długie pliki MP3 bez wiarygodnego nagłówka Xing,
+w których Windows może podać czas krótszy od rzeczywistej zawartości. Druga
+zachowywana część jest zawsze kopiowana aż do fizycznego końca pliku, dlatego
+walidacja nie może zaakceptować wyniku, który przypadkowo pominął końcowe
+sekundy. Kontrola nadal nie dekoduje ani nie kompresuje dźwięku ponownie.
 
 Eksport nigdy nie zapisuje bezpośrednio do pliku źródłowego. Najpierw tworzy
 unikalny plik tymczasowy w folderze docelowym, a gotowy wynik publikuje dopiero

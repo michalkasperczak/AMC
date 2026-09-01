@@ -1,12 +1,51 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-201`
-- Tytuł zestawu: Odporny podział ręcznego nagrania radia
-- Wersja programu: `0.1.0-alpha.201`
-- Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.201.md`
+- Numer zestawu: `AMC-TEST-202`
+- Tytuł zestawu: Bezpieczne cięcie długich plików MP3
+- Wersja programu: `0.1.0-alpha.202`
+- Utworzono: 2026-09-02, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.202.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowość alpha 202
+
+### AMC-202-01 — ponowienie rzeczywistego cięcia Tyflo
+
+Na kopii pliku `Tyflo - 2026-09-01 20-18-22.mp3` ustaw początek około `53:03,6`,
+koniec około `1:13:15,7` i użyj `Ctrl+X`.
+
+Oczekiwane: operacja kończy się powodzeniem. Usunięty zostaje wskazany przedział,
+materiał przed nim i po nim pozostaje, a obok znajduje się pełna kopia
+`.amc-backup`. AMC nie zgłasza błędnej niezgodności czasu.
+
+### AMC-202-02 — zachowanie fizycznego końca MP3
+
+Po cięciu przejdź w pobliże końca zmienionego pliku i odsłuchaj ostatnią minutę.
+Porównaj ją z końcem kopii `.amc-backup`.
+
+Oczekiwane: końcowa treść jest zachowana. AMC nie skraca pliku o dodatkowe
+sekundy wynikające z niedokładnego nagłówka czasu.
+
+### AMC-202-03 — Ctrl+1, Ctrl+2 i niezależne nagrywanie
+
+W Radiu rozpocznij ręczne nagranie, otwórz odtwarzacz, naciśnij `Ctrl+1`, a
+następnie wróć do Radia jego przypisanym skrótem sesji.
+
+Oczekiwane: przy domyślnie włączonym ustawieniu „Wstrzymuj odtwarzanie po
+wyjściu z odtwarzacza” odsłuch Radia jest wstrzymany i przycisk mówi „Odtwórz”.
+Nagranie w tle nadal trwa. Po wyłączeniu tej opcji sam wybór innej sesji nie
+wstrzymuje odsłuchu.
+
+### AMC-202-04 — T i Shift+T bez zmiany znaczeń
+
+Sprawdź oba klawisze w ręcznym nagrywaniu Radia i w lokalnym odtwarzaczu.
+
+Oczekiwane: `T` dzieli ręczne nagranie Radia. `Shift+T` nie tworzy kopii ani
+części nagrania; w lokalnym torze obsługującym przetwarzanie przełącza łagodne
+przejścia między utworami.
+
+## Poprzedni zestaw alpha 201
 
 ## Nowość alpha 201
 

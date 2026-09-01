@@ -60,6 +60,23 @@ internal static class AudioClipOriginalEditor
 
         await WaitForExclusiveAccessAsync(sourcePath, FileReleaseTimeout, cancellationToken)
             .ConfigureAwait(false);
+        // Some long CBR MP3 recordings have no reliable Xing header. Windows
+        // then estimates their duration from byte size and nominal bitrate,
+        // which can be several seconds shorter than the real packet timeline.
+        // Use FFmpeg's packet scan both for preserving the true end of file and
+        // for checking the edited output.
+        var sourceTimelineDuration = await ReadPacketTimelineDurationAsync(
+                executable,
+                sourcePath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var effectiveEnd = request.End > sourceTimelineDuration
+            ? sourceTimelineDuration
+            : request.End;
+        if (effectiveEnd <= request.Start)
+        {
+            throw new ArgumentException("Początek i koniec fragmentu są poza rzeczywistą osią czasu pliku.");
+        }
 
         var operationId = Guid.NewGuid().ToString("N");
         var prefix = Path.Combine(directory, $".{Path.GetFileNameWithoutExtension(sourcePath)}.amc-cut-{operationId}");
@@ -87,18 +104,19 @@ internal static class AudioClipOriginalEditor
                     cancellationToken).ConfigureAwait(false);
                 parts.Add(firstPart);
             }
-            if (request.End < request.SourceDuration - TimeSpan.FromMilliseconds(1))
+            if (effectiveEnd < sourceTimelineDuration - TimeSpan.FromMilliseconds(1))
             {
                 await ExportPartAsync(
                     executable,
                     sourcePath,
                     secondPart,
-                    request.End,
-                    request.SourceDuration - request.End,
+                    effectiveEnd,
+                    sourceTimelineDuration - effectiveEnd,
                     parts.Count == 0 ? 0d : 0.4d,
                     parts.Count == 0 ? 0.8d : 0.4d,
                     progress,
-                    cancellationToken).ConfigureAwait(false);
+                    cancellationToken,
+                    readToEnd: true).ConfigureAwait(false);
                 parts.Add(secondPart);
             }
             if (parts.Count == 0)
@@ -117,8 +135,8 @@ internal static class AudioClipOriginalEditor
                 progress,
                 cancellationToken).ConfigureAwait(false);
 
-            var expectedDuration = request.SourceDuration - (request.End - request.Start);
-            var metadata = await VerifyResultAsync(resultPath, expectedDuration, cancellationToken)
+            var expectedDuration = sourceTimelineDuration - (effectiveEnd - request.Start);
+            var metadata = await VerifyResultAsync(executable, resultPath, expectedDuration, cancellationToken)
                 .ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             await WaitForExclusiveAccessAsync(sourcePath, FileReleaseTimeout, cancellationToken)
@@ -156,15 +174,16 @@ internal static class AudioClipOriginalEditor
         double progressStart,
         double progressRange,
         IProgress<double>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool readToEnd = false)
     {
         var start = CreateProcess(executable);
         AddArguments(start, "-nostdin", "-hide_banner", "-loglevel", "error", "-y");
         if (startAt > TimeSpan.Zero) AddArguments(start, "-ss", FfmpegTime(startAt));
+        AddArguments(start, "-i", sourcePath);
+        if (!readToEnd) AddArguments(start, "-t", FfmpegTime(duration));
         AddArguments(
             start,
-            "-i", sourcePath,
-            "-t", FfmpegTime(duration),
             "-map", "0:a:0",
             "-vn",
             "-map_metadata", "0",
@@ -266,6 +285,7 @@ internal static class AudioClipOriginalEditor
     }
 
     private static async Task<MediaMetadataReadResult> VerifyResultAsync(
+        string executable,
         string path,
         TimeSpan expectedDuration,
         CancellationToken cancellationToken)
@@ -277,13 +297,81 @@ internal static class AudioClipOriginalEditor
             .ConfigureAwait(false);
         if (!metadata.Success || metadata.Duration <= TimeSpan.Zero)
             throw new InvalidDataException("Nie można sprawdzić pliku wynikowego. Oryginał nie został zmieniony.");
-        var tolerance = TimeSpan.FromSeconds(Math.Max(2d, Math.Min(5d, expectedDuration.TotalSeconds * 0.02d)));
-        if ((metadata.Duration - expectedDuration).Duration() > tolerance)
+        var packetTimelineDuration = await ReadPacketTimelineDurationAsync(
+                executable,
+                path,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!DurationMatches(expectedDuration, packetTimelineDuration))
         {
             throw new InvalidDataException(
                 "Długość pliku wynikowego nie zgadza się z zaznaczeniem. Oryginał nie został zmieniony.");
         }
-        return metadata;
+        DiagnosticLog.Info(
+            "audio-clip",
+            $"Zweryfikowano wynik cięcia: oczekiwano {expectedDuration:c}, "
+            + $"oś czasu FFmpeg {packetTimelineDuration:c}, odczyt Windows {metadata.Duration:c}.");
+        return metadata with { Duration = packetTimelineDuration };
+    }
+
+    internal static bool DurationMatches(TimeSpan expectedDuration, TimeSpan actualDuration)
+    {
+        var tolerance = TimeSpan.FromSeconds(
+            Math.Max(2d, Math.Min(5d, expectedDuration.TotalSeconds * 0.02d)));
+        return actualDuration > TimeSpan.Zero
+            && (actualDuration - expectedDuration).Duration() <= tolerance;
+    }
+
+    private static async Task<TimeSpan> ReadPacketTimelineDurationAsync(
+        string executable,
+        string path,
+        CancellationToken cancellationToken)
+    {
+        var start = CreateProcess(executable);
+        AddArguments(
+            start,
+            "-nostdin", "-hide_banner", "-loglevel", "error",
+            "-i", path,
+            "-map", "0:a:0",
+            "-vn",
+            "-c:a", "copy",
+            "-f", "null", "-",
+            "-progress", "pipe:1",
+            "-nostats");
+
+        using var process = Process.Start(start)
+            ?? throw new InvalidOperationException("Nie udało się uruchomić kontroli pliku wynikowego.");
+        using var registration = cancellationToken.Register(
+            static state =>
+            {
+                try
+                {
+                    var running = (Process)state!;
+                    if (!running.HasExited) running.Kill(entireProcessTree: true);
+                }
+                catch (Exception)
+                {
+                }
+            },
+            process);
+
+        long? lastMicroseconds = null;
+        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        while (await process.StandardOutput.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+        {
+            var microseconds = ParseProgressMicroseconds(line);
+            if (microseconds.HasValue) lastMicroseconds = microseconds;
+        }
+        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        var error = await errorTask.ConfigureAwait(false);
+        if (process.ExitCode != 0 || lastMicroseconds is not > 0)
+        {
+            throw new InvalidDataException(string.IsNullOrWhiteSpace(error)
+                ? "Nie można sprawdzić osi czasu pliku wynikowego. Oryginał nie został zmieniony."
+                : $"Nie można sprawdzić osi czasu pliku wynikowego: {LastLine(error)}. "
+                  + "Oryginał nie został zmieniony.");
+        }
+        return TimeSpan.FromTicks(lastMicroseconds.Value * 10);
     }
 
     private static async Task WaitForExclusiveAccessAsync(

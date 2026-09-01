@@ -545,6 +545,8 @@ Lewo i prawo nadal określa wybraną część, na przykład „Minuty: 45”. Po
 
 Ręczne nagranie Radia korzysta z osobnego, niesłyszalnego połączenia. `R` steruje bieżącą stacją w odtwarzaczu, `Ctrl+Alt+R` działa na zaznaczonej stacji listy, a Page Up, Page Down, Enter i presety zmieniają odsłuch bez kończenia trwającego zapisu. Różne stacje mogą być nagrywane równolegle. `Alt+2` w sesji Radia pokazuje widok **Nagrywane** z ręcznymi nagraniami i aktywnymi harmonogramami; `R` zatrzymuje tam wybrane nagranie ręczne. Powrót Escape z odtwarzacza jawnie kotwiczy fokus na liście. Tryb Oryginalny pozwala FFmpeg samodzielnie wybrać ścieżkę audio, dzięki czemu bezpośredni strumień ICY bez wczesnego indeksu `0:a:0` nie jest odrzucany.
 
+Od `alpha.202` bezstratne usuwanie fragmentu przez `Ctrl+X` sprawdza rzeczywistą oś czasu pakietów FFmpeg zarówno przed operacją, jak i po niej. Jest to istotne dla długich nagrań MP3 bez wiarygodnego nagłówka Xing: czas szacowany przez Windows może być krótszy od zawartości o kilkanaście sekund. AMC zachowuje cały koniec pliku, kontroluje wynik i dopiero potem atomowo podmienia oryginał, nadal pozostawiając pełną kopię `.amc-backup`.
+
 ## Przewidywalny bitrate niskich częstotliwości w alpha 154
 
 Stacje dekodowane jako 22,05 albo 24 kHz nie są już po cichu zapisywane przez systemowy koder jako MP3 80 kb/s mimo wybrania 128 kb/s. Tylko przed kodowaniem stratnym MP3 lub AAC AMC normalizuje taki sygnał wysokiej jakości resamplerem do odpowiednio 44,1 albo 48 kHz, dzięki czemu wynik zachowuje wybrany bitrate. Nie dodaje to szczegółów nieobecnych w źródle. FLAC, WAV i format Oryginalny nadal zachowują częstotliwość źródłową. W ustawieniach format Oryginalny jawnie informuje, że HLS tworzy plik `.ts`.

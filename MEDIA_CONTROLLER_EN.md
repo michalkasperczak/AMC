@@ -1482,13 +1482,21 @@ its established list-membership meaning. An explicit confirmation defaults to
 No. AMC stops playback and waits for the file handle to be released. FFmpeg
 builds the two retained parts without re-encoding, preserving quality while
 allowing lossy-codec boundaries to align to the nearest frame. The completed
-file is decoded and its duration validated before it can replace the source.
+file is scanned and its duration validated before it can replace the source.
 Replacement creates a complete byte-identical sibling backup with an
 `.amc-backup` suffix. Pre-publication failure leaves the source untouched and a
 fallback publication failure rolls it back from that backup. This command does
 not hydrate an iCloud, OneDrive, Google Drive or other cloud placeholder. Video
 sources are currently rejected so that destructive audio editing cannot discard
 their picture; X can still export their audio track to a new file.
+
+Starting with `alpha.202`, both the source and edited duration come from a full
+FFmpeg packet-timeline scan rather than only from container headers or nominal
+bitrate. This protects long MP3 recordings without a reliable Xing header,
+whose duration Windows may underestimate by several seconds. The retained
+second part is copied through the physical end of the source, so validation
+cannot accept an output that silently lost its final seconds. The check still
+does not decode or re-encode the audio.
 
 Export never writes directly to the source. It first creates a unique temporary
 file in the destination directory and publishes the finished result only after
