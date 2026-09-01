@@ -78,6 +78,9 @@ internal sealed class GlobalPrefixService : IDisposable
             _hotKeyRegistered = false;
             _hookPrefix = prefix;
             _registeredPrefix = prefix;
+            DiagnosticLog.Info(
+                "global-prefix",
+                $"Zarejestrowano globalny prefiks {WindowsKeyMap.ToDisplayText(prefix)} przez bezpieczny hak klawiatury.");
             return;
         }
 
@@ -109,6 +112,9 @@ internal sealed class GlobalPrefixService : IDisposable
         _hotKeyRegistered = true;
         _hookPrefix = null;
         _registeredPrefix = prefix;
+        DiagnosticLog.Info(
+            "global-prefix",
+            $"Zarejestrowano globalny prefiks {WindowsKeyMap.ToDisplayText(prefix)} przez mechanizm skrótów Windows.");
     }
 
     private string RegistrationFailureNextStep() =>
@@ -273,8 +279,17 @@ internal sealed class GlobalPrefixService : IDisposable
         chord.Modifiers == (KeyModifiers.Ctrl | KeyModifiers.Shift)
         && chord.Key is "0" or "S";
 
-    internal static bool RequiresLowLevelHook(KeyChord prefix) =>
-        WindowsKeyMap.RequiresExactNumpadHook(prefix.Key);
+    internal static bool RequiresLowLevelHook(KeyChord prefix)
+    {
+        var key = KeyChord.NormalizeKey(prefix.Key);
+        // NVDA uses a low-level hook for desktop-layout numpad navigation.
+        // RegisterHotKey can report success for an unmodified numpad key even
+        // though the physical event never reaches AMC. The global prefix uses
+        // AMC's already installed, exception-guarded hook for every physical
+        // numpad key. ShortcutCaptureWindow remains unchanged: unambiguous
+        // operators such as Plus still use normal WPF input while it is open.
+        return key.StartsWith("Numpad", StringComparison.Ordinal);
+    }
 
     internal static bool IsNumpadEnterInput(uint virtualKey, uint flags) =>
         virtualKey == VirtualKeyReturn && (flags & LlkhfExtended) != 0;

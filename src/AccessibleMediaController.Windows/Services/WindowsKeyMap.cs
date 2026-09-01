@@ -29,6 +29,7 @@ internal static class WindowsKeyMap
         {
             "Space" => 0x20,
             "Tab" => 0x09,
+            "Pause" => 0x13,
             "PageUp" => 0x21,
             "PageDown" => 0x22,
             "End" => 0x23,
@@ -87,6 +88,7 @@ internal static class WindowsKeyMap
         {
             0x20 => "Space",
             0x09 => "Tab",
+            0x13 => "Pause",
             0x21 => "PageUp",
             0x22 => "PageDown",
             0x23 => "End",

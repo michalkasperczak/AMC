@@ -1454,3 +1454,11 @@ Radio player help presents the three controls together: Space pauses monitoring
 while reception and buffering continue, `Ctrl+M` only mutes the session output,
 and `Shift+Space` pauses recording itself when its selected format supports
 pausing.
+
+The `alpha.193` correction routes every physical numpad key configured as the
+global prefix through AMC's existing exception-guarded low-level hook. Windows
+can accept Numpad Plus through `RegisterHotKey` even when NVDA consumes the
+physical event first. The accessible capture dialog continues to use ordinary
+WPF input for unambiguous operators, so the 64-bit safety fix remains intact.
+`Pause` is now a supported prefix key, and diagnostics record registration
+success as well as startup failure.

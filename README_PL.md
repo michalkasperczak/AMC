@@ -50,6 +50,8 @@ Korekta `alpha.191` przywraca niezawodny zapis i ponowną rejestrację globalneg
 
 Korekta `alpha.192` skraca nawigację po historii odtwarzania w lokalnym odtwarzaczu: udane `Alt+strzałka w górę/w dół` mówi wyłącznie nazwę wybranego pliku, bez powtarzania słowa „Historia”. Komunikaty o pustej historii oraz jej początku lub końcu pozostają jednoznaczne. Pomoc Radia rozdziela trzy działania: Spacja pauzuje sam odsłuch, `Ctrl+M` wycisza słyszalne wyjście bez pauzy, a `Shift+Spacja` pauzuje wyłącznie nagranie.
 
+Korekta `alpha.193` naprawia globalny prefiks złożony z samego klawisza bloku numerycznego. Windows mógł przyjąć rejestrację Plusa numerycznego, lecz fizyczne naciśnięcie przejmował wcześniej hak klawiatury NVDA. Wszystkie numeryczne cyfry i operatory globalnego prefiksu korzystają teraz z istniejącego, zabezpieczonego haka AMC, natomiast dostępne okno wyboru nadal przechwytuje jednoznaczny Plus zwykłą ścieżką WPF. Klawisz `Pause` otrzymał pełne mapowanie i może być wybrany tak samo jak inne obsługiwane klawisze. Log podaje, czy prefiks został zarejestrowany przez hak, czy mechanizm skrótów Windows, a błąd inicjalizacji nie pozostaje już bez śladu.
+
 Od `alpha.181` automatyczny zapis pozycji, historii, ustawień Radia i stanu
 pozostałych sesji nie wykonuje pełnej transakcji SQLite na wątku interfejsu.
 Jedna kolejka zapisuje migawki w tle i łączy kilka szybkich zmian, zachowując

@@ -1494,3 +1494,11 @@ do wyjaśnienia braku starszego albo nowszego elementu. Pomoc odtwarzacza Radia
 podaje równolegle: Spacja pauzuje sam odsłuch i zachowuje odbiór oraz bufor,
 `Ctrl+M` jedynie wycisza wyjście sesji, a `Shift+Spacja` pauzuje sam zapis
 nagrania, jeśli wybrany format obsługuje pauzę.
+
+Korekta `alpha.193` kieruje każdy fizyczny klawisz bloku numerycznego użyty jako
+globalny prefiks do istniejącego niskopoziomowego haka AMC. Jest to konieczne,
+ponieważ `RegisterHotKey` potrafi przyjąć sam Plus numeryczny, mimo że NVDA
+przechwytuje jego fizyczne zdarzenie wcześniej. Okno wyboru skrótu nadal używa
+zwykłego zdarzenia WPF dla jednoznacznych operatorów, więc naprawa nie przywraca
+błędu 64-bitowego z `alpha.189`. Do mapy obsługiwanych klawiszy dochodzi `Pause`.
+Każda udana rejestracja oraz błąd startowy otrzymuje wpis diagnostyczny.

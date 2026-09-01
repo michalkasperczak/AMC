@@ -2,9 +2,9 @@
 
 - Numer zestawu: `AMC-TEST-192`
 - Tytuł zestawu: Zwięzła historia i rozdzielenie odsłuchu od nagrania
-- Wersja programu: `0.1.0-alpha.192`
+- Wersja programu: `0.1.0-alpha.193`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.192.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.193.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
 

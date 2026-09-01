@@ -4167,6 +4167,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         catch (Exception exception)
         {
+            DiagnosticLog.Error(
+                "global-prefix",
+                "Nie udało się zarejestrować skonfigurowanego globalnego prefiksu.",
+                exception);
             Announce($"Globalny prefiks niedostępny: {exception.Message}");
         }
     }

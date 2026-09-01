@@ -349,8 +349,10 @@ static void TestGlobalPrefixCapture()
         WindowsKeyMap.TryGetVirtualKey("NumpadAdd", out var numpadAdd) && numpadAdd == 0x6B
         && WindowsKeyMap.TryGetVirtualKey("NumpadSubtract", out var numpadSubtract) && numpadSubtract == 0x6D
         && WindowsKeyMap.TryGetVirtualKey("NumpadDecimal", out var numpadDecimal) && numpadDecimal == 0x6E
-        && WindowsKeyMap.TryGetVirtualKey("NumpadNumLock", out var numpadNumLock) && numpadNumLock == 0x90,
-        "Operatory bloku numerycznego nie zachowują własnych klawiszy wirtualnych.");
+        && WindowsKeyMap.TryGetVirtualKey("NumpadNumLock", out var numpadNumLock) && numpadNumLock == 0x90
+        && WindowsKeyMap.TryGetVirtualKey("Pause", out var pause) && pause == 0x13
+        && WindowsKeyMap.FromVirtualKey(0x13) == "Pause",
+        "Operatory bloku numerycznego lub klawisz Pause nie zachowują własnych klawiszy wirtualnych.");
     Assert(
         GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("Ctrl+NumpadEnter")),
         "Prefiks z Enterem numerycznym nie jest kierowany do dokładnego przechwytywania.");
@@ -359,10 +361,11 @@ static void TestGlobalPrefixCapture()
         "Zwykły Enter został błędnie utożsamiony z Enterem numerycznym.");
     Assert(
         GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("NumpadInsert"))
-        && !GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("NumpadAdd"))
-        && !GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("NumpadNumLock"))
-        && !GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("NumpadDecimal")),
-        "Dokładny hook nie rozróżnia klawiszy współdzielonych z blokiem nawigacyjnym od samodzielnych operatorów numerycznych.");
+        && GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("NumpadAdd"))
+        && GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("NumpadNumLock"))
+        && GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("NumpadDecimal"))
+        && !GlobalPrefixService.RequiresLowLevelHook(KeyChord.Parse("Pause")),
+        "Globalny prefiks nie kieruje wszystkich fizycznych klawiszy numerycznych do haka albo błędnie kieruje tam Pause.");
     Assert(
         GlobalPrefixService.IsNumpadEnterInput(0x0D, 0x01)
         && !GlobalPrefixService.IsNumpadEnterInput(0x0D, 0x00),
