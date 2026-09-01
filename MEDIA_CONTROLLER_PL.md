@@ -1514,8 +1514,10 @@ otwiera okno zapisu, `Shift+I` i `Shift+O` wracają bezpośrednio do zaznaczonyc
 punktów, `Alt+Page Up` i `Alt+Page Down` przechodzą do poprzedniej lub następnej
 granicy, a `Shift+X` czyści zaznaczenie. Nawigacja kierunkowa nie zapętla się na
 drugą stronę fragmentu. Koniec musi leżeć po
-początku i oba punkty muszą należeć do tego samego pliku. Zaznaczenie jest
-ulotne: nie zmienia pliku, Biblioteki, zakładek ani pozycji wznowienia.
+początku i oba punkty muszą należeć do tego samego pliku. Od `alpha.199` każda
+pozycja lokalnej Biblioteki ma własną parę granic w SQLite. Granice wracają po
+zmianie pliku i ponownym uruchomieniu programu, a `Shift+X` usuwa tylko parę
+bieżącego pliku. Zaznaczenie nie zmienia źródła, zakładek ani pozycji wznowienia.
 
 Eksport nigdy nie zapisuje bezpośrednio do pliku źródłowego. Najpierw tworzy
 unikalny plik tymczasowy w folderze docelowym, a gotowy wynik publikuje dopiero

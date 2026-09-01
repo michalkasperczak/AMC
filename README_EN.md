@@ -1,5 +1,7 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.199` stores a separate fragment selection for every local file in the SQLite Library database. Start and end marks return after changing files or restarting AMC. `Shift+X` removes only the current file's selection; the source file remains untouched.
+
 Version `alpha.198` adds directional navigation between marked fragment boundaries: `Alt+Page Up` moves to the previous cut point and `Alt+Page Down` to the next one. Boundary navigation does not wrap; `Shift+I` and `Shift+O` remain direct jumps to the start and end.
 
 Version `alpha.197` installs and updates AMC's own separate FFmpeg 9 component for Windows x64. It uses the stable LGPL shared variant from a build provider linked by the official FFmpeg site, compares the archive with the release SHA-256 checksum, then validates the executable, version and licence variant before activation. Updates are versioned and performed in the background without removing the working copy on failure. `Shift+I` and `Shift+O` jump to the marked fragment start and end.

@@ -1,12 +1,34 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-198`
-- Tytuł zestawu: Kierunkowa nawigacja po granicach fragmentu
-- Wersja programu: `0.1.0-alpha.198`
+- Numer zestawu: `AMC-TEST-199`
+- Tytuł zestawu: Trwałe zaznaczenia fragmentów dla osobnych plików
+- Wersja programu: `0.1.0-alpha.199`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.198.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.199.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowość alpha 199
+
+### AMC-199-01 — osobne granice dla dwóch plików
+
+W pierwszym lokalnym pliku ustaw `I` i `O`, następnie przejdź `Page Down` do
+drugiego pliku i ustaw inne granice. Wracaj pomiędzy plikami i sprawdzaj punkty
+przez `Shift+I`, `Shift+O`, `Alt+Page Up` i `Alt+Page Down`.
+
+Oczekiwane: każdy plik odzyskuje wyłącznie własny początek i koniec. Punkty
+pierwszego pliku nie pojawiają się w drugim i odwrotnie.
+
+### AMC-199-02 — ponowne uruchomienie i usuwanie
+
+Zamknij AMC z zaznaczeniami w dwóch plikach i uruchom ponownie. Sprawdź oba,
+następnie w jednym naciśnij `Shift+X`, ponownie zmień plik i uruchom program.
+
+Oczekiwane: obie pary przetrwały pierwsze ponowne uruchomienie. `Shift+X`
+usunął tylko parę bieżącego pliku i zrobił to trwale; zaznaczenie drugiego pliku
+pozostało. Żaden plik źródłowy nie został zmieniony.
+
+## Poprzedni zestaw alpha 198
 
 ## Nowość alpha 198
 

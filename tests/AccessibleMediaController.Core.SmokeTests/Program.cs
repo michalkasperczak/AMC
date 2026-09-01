@@ -2704,6 +2704,8 @@ static void TestLocalMediaPersistence()
             Path = @"C:\Muzyka\długie.aac",
             DurationTicks = TimeSpan.FromMinutes(90).Ticks,
             ResumePositionTicks = TimeSpan.FromMinutes(17).Ticks,
+            ClipStartTicks = TimeSpan.FromMinutes(2).Ticks,
+            ClipEndTicks = TimeSpan.FromMinutes(4).Ticks,
             FileLength = 123456,
             LastWriteUtcTicks = 987654,
             IsFavorite = true,
@@ -2716,6 +2718,15 @@ static void TestLocalMediaPersistence()
             SmoothTrackTransitionsOverride = true,
             InterTrackSilenceMillisecondsOverride = 500
         });
+        state.LocalMedia.Items.Add(new LocalMediaItemSettings
+        {
+            Id = "local-2",
+            Title = "Drugie nagranie",
+            Path = @"C:\Muzyka\drugie.flac",
+            DurationTicks = TimeSpan.FromMinutes(10).Ticks,
+            ClipStartTicks = TimeSpan.FromSeconds(10).Ticks,
+            ClipEndTicks = TimeSpan.FromSeconds(20).Ticks
+        });
 
         store.Save(state);
         var loaded = store.LoadOrCreate();
@@ -2723,11 +2734,12 @@ static void TestLocalMediaPersistence()
         Equal("local-1", loaded.LocalMedia.CurrentItemId);
         Equal(47, loaded.LocalMedia.Volume);
         Equal(1.50d, loaded.LocalMedia.PlaybackRate);
-        Equal(1, loaded.LocalMedia.Items.Count);
+        Equal(2, loaded.LocalMedia.Items.Count);
         Equal(1, loaded.LocalMedia.FolderSources.Count);
         Equal(1, loaded.LocalMedia.FolderPlaybackOptions.Count);
         Equal("Foldery", loaded.LocalMedia.LibraryView);
-        Equal("local-1", loaded.LocalMedia.CustomOrderItemIds.Single());
+        Equal(2, loaded.LocalMedia.CustomOrderItemIds.Count);
+        Equal("local-1", loaded.LocalMedia.CustomOrderItemIds[0]);
         Equal(Path.GetFullPath(@"C:\Muzyka\pomijany.mp3"), loaded.LocalMedia.ExcludedPaths[0]);
         Equal("Nagrania", loaded.LocalMedia.FolderSources[0].DisplayName);
         var folderOptions = loaded.LocalMedia.FolderPlaybackOptions[0];
@@ -2741,10 +2753,12 @@ static void TestLocalMediaPersistence()
         Equal(2000, folderOptions.InterTrackSilenceMillisecondsOverride);
         Equal(Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory)), loaded.LocalMedia.CurrentFolderPath);
         Equal("local-1", new PlaybackHistory(loaded.PlaybackHistory).GetItemIds("local")[0]);
-        var item = loaded.LocalMedia.Items[0];
+        var item = loaded.LocalMedia.Items.Single(entry => entry.Id == "local-1");
         Equal("Długie nagranie", item.Title);
         Equal(true, item.HasCustomTitle);
         Equal(TimeSpan.FromMinutes(17).Ticks, item.ResumePositionTicks);
+        Equal(TimeSpan.FromMinutes(2).Ticks, item.ClipStartTicks);
+        Equal(TimeSpan.FromMinutes(4).Ticks, item.ClipEndTicks);
         Equal(true, item.IsFavorite);
         Equal(true, item.IsInQueue);
         Equal(true, item.IsAvailable);
@@ -2754,6 +2768,9 @@ static void TestLocalMediaPersistence()
         Equal(false, item.LoudnessNormalizationOverride);
         Equal(true, item.SmoothTrackTransitionsOverride);
         Equal(500, item.InterTrackSilenceMillisecondsOverride);
+        var secondItem = loaded.LocalMedia.Items.Single(entry => entry.Id == "local-2");
+        Equal(TimeSpan.FromSeconds(10).Ticks, secondItem.ClipStartTicks);
+        Equal(TimeSpan.FromSeconds(20).Ticks, secondItem.ClipEndTicks);
         Equal("local-1", loaded.CollectionOrders.FavoriteItemIdsBySession["LOCAL"].Single());
         Equal("local-1", loaded.CollectionOrders.QueueItemIdsBySession["LOCAL"].Single());
 

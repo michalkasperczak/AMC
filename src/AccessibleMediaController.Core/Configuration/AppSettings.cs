@@ -215,7 +215,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 38;
+    public int SchemaVersion { get; set; } = 39;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -368,6 +368,8 @@ public sealed class LocalMediaItemSettings
     public bool? SmoothTrackTransitionsOverride { get; set; }
     public int? InterTrackSilenceMillisecondsOverride { get; set; }
     public long ResumePositionTicks { get; set; }
+    public long? ClipStartTicks { get; set; }
+    public long? ClipEndTicks { get; set; }
     public long? FileLength { get; set; }
     public long? LastWriteUtcTicks { get; set; }
 }

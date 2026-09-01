@@ -1,5 +1,7 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.199` zapamiętuje osobne zaznaczenie fragmentu dla każdego lokalnego pliku w bazie Biblioteki SQLite. Początek i koniec wracają po zmianie pliku oraz ponownym uruchomieniu AMC. `Shift+X` usuwa wyłącznie zaznaczenie bieżącego pliku; plik źródłowy pozostaje nietknięty.
+
 Wersja `alpha.198` dodaje kierunkową nawigację po granicach zaznaczonego fragmentu: `Alt+Page Up` przechodzi do poprzedniego, a `Alt+Page Down` do następnego punktu cięcia. Skróty nie zapętlają granic; `Shift+I` i `Shift+O` pozostają bezpośrednimi skokami do początku i końca.
 
 Wersja `alpha.197` instaluje i aktualizuje własny, oddzielny składnik FFmpeg 9 dla Windows x64. AMC korzysta ze stabilnego wariantu LGPL shared od dostawcy wskazanego na oficjalnej stronie FFmpeg, porównuje pobrane archiwum z sumą SHA-256 wydania i przed uaktywnieniem sprawdza program, wersję oraz wariant licencji. Aktualizacja odbywa się w tle, wersjami i bez usuwania działającej kopii po błędzie. `Shift+I` i `Shift+O` przechodzą odpowiednio do zaznaczonego początku i końca fragmentu.

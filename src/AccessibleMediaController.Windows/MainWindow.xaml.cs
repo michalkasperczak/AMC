@@ -647,6 +647,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? _audioClipSelection.End
             : null;
         _audioClipSelection.SetStart(item.Id, path, session.Position, item.Duration);
+        PersistClipSelection(item);
         var time = FormatClipTime(_audioClipSelection.Start!.Value);
         Announce(previousEnd is not null && _audioClipSelection.End is null
             ? $"Początek fragmentu: {time}. Wcześniejszy koniec usunięty"
@@ -670,19 +671,57 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce("Koniec fragmentu musi znajdować się po jego początku");
             return;
         }
+        PersistClipSelection(item);
         Announce($"Koniec fragmentu: {FormatClipTime(_audioClipSelection.End!.Value)}. "
             + $"Długość: {FormatClipTime(_audioClipSelection.End.Value - _audioClipSelection.Start.Value)}");
     }
 
     private void ClearClipSelection()
     {
-        if (_audioClipSelection.ItemId is null)
+        if (!TryGetLocalClipContext(out _, out var item, out _, out var error))
         {
-            Announce("Nie ma zaznaczonego fragmentu");
+            Announce(error);
+            return;
+        }
+        if (_audioClipSelection.Start is null && _audioClipSelection.End is null)
+        {
+            Announce("Ten plik nie ma zaznaczonego fragmentu");
             return;
         }
         _audioClipSelection.Clear();
+        PersistClipSelection(item);
         Announce("Zaznaczenie fragmentu wyczyszczone");
+    }
+
+    private void RestoreClipSelection(MediaItem item, string path)
+    {
+        if (_audioClipSelection.Matches(item.Id, path)) return;
+        _audioClipSelection.Clear();
+        var saved = FindLocalItemSettings(item);
+        if (saved?.ClipStartTicks is not long startTicks) return;
+        _audioClipSelection.SetStart(
+            item.Id,
+            path,
+            TimeSpan.FromTicks(startTicks),
+            item.Duration);
+        if (saved.ClipEndTicks.HasValue)
+        {
+            _audioClipSelection.TrySetEnd(
+                item.Id,
+                path,
+                TimeSpan.FromTicks(saved.ClipEndTicks.Value),
+                item.Duration);
+        }
+    }
+
+    private void PersistClipSelection(MediaItem item)
+    {
+        var saved = FindLocalItemSettings(item);
+        if (saved is null) return;
+        var matches = _audioClipSelection.Matches(item.Id, saved.Path);
+        saved.ClipStartTicks = matches ? _audioClipSelection.Start?.Ticks : null;
+        saved.ClipEndTicks = matches ? _audioClipSelection.End?.Ticks : null;
+        TrySaveLocalMediaState(false);
     }
 
     private void JumpToClipBoundary(bool end)
@@ -815,6 +854,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             error = "Plik jest obecnie niedostępny. Jeśli znajduje się w chmurze, pobierz go i spróbuj ponownie";
             return false;
         }
+        RestoreClipSelection(item, path);
         return true;
     }
 
@@ -3961,6 +4001,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 InterTrackSilenceMillisecondsOverride =
                     previous?.InterTrackSilenceMillisecondsOverride,
                 ResumePositionTicks = Math.Max(0, position.Ticks),
+                ClipStartTicks = previous?.ClipStartTicks,
+                ClipEndTicks = previous?.ClipEndTicks,
                 FileLength = fileLength,
                 LastWriteUtcTicks = lastWriteUtcTicks
             };

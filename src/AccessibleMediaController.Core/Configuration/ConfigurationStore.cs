@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 38;
+    public const int CurrentSchemaVersion = 39;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -619,6 +619,19 @@ public sealed class ConfigurationStore
                     item.InterTrackSilenceMillisecondsOverride.Value))
             {
                 item.InterTrackSilenceMillisecondsOverride = null;
+            }
+            if (item.ClipStartTicks.HasValue
+                && (item.ClipStartTicks.Value < 0
+                    || item.DurationTicks > 0 && item.ClipStartTicks.Value > item.DurationTicks))
+            {
+                item.ClipStartTicks = null;
+            }
+            if (!item.ClipStartTicks.HasValue
+                || !item.ClipEndTicks.HasValue
+                || item.ClipEndTicks.Value <= item.ClipStartTicks.Value
+                || item.DurationTicks > 0 && item.ClipEndTicks.Value > item.DurationTicks)
+            {
+                item.ClipEndTicks = null;
             }
         }
         state.LocalMedia.Volume = Math.Clamp(state.LocalMedia.Volume, 0, 100);

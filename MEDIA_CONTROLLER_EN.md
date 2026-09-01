@@ -1471,8 +1471,10 @@ only in the open player. `I` marks the start, `O` marks the end, `X` opens
 fragment export, `Shift+I` and `Shift+O` jump directly to the marked boundaries,
 `Alt+Page Up` and `Alt+Page Down` move to the previous or next boundary without
 wrapping, and `Shift+X` clears the selection. Both marks must belong to
-the same file and the end must follow the start. The selection is transient and
-does not alter the source, Library, bookmarks, or resume position.
+the same file and the end must follow the start. Starting with `alpha.199`, each
+local Library item stores its own pair of boundaries in SQLite. The pair returns
+after changing files and restarting AMC, while `Shift+X` removes only the current
+file's pair. A selection does not alter the source, bookmarks, or resume position.
 
 Export never writes directly to the source. It first creates a unique temporary
 file in the destination directory and publishes the finished result only after

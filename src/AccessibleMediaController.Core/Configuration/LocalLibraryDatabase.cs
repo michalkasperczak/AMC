@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 /// </summary>
 internal sealed class LocalLibraryDatabase(string databasePath)
 {
-    private const int DatabaseSchemaVersion = 4;
+    private const int DatabaseSchemaVersion = 5;
     private readonly object _gate = new();
 
     public string Path { get; } = databasePath;
@@ -75,7 +75,8 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                            output_device_id, resume_position_ticks, file_length,
                            last_write_utc_ticks, loudness_normalization_override,
                            smooth_track_transitions_override,
-                           inter_track_silence_ms_override
+                           inter_track_silence_ms_override, clip_start_ticks,
+                           clip_end_ticks
                     FROM local_items
                     ORDER BY rowid;
                     """;
@@ -105,7 +106,9 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                         LastWriteUtcTicks = NullableInt64(reader, 18),
                         LoudnessNormalizationOverride = NullableBool(reader, 19),
                         SmoothTrackTransitionsOverride = NullableBool(reader, 20),
-                        InterTrackSilenceMillisecondsOverride = NullableInt32(reader, 21)
+                        InterTrackSilenceMillisecondsOverride = NullableInt32(reader, 21),
+                        ClipStartTicks = NullableInt64(reader, 22),
+                        ClipEndTicks = NullableInt64(reader, 23)
                     });
                 }
             }
@@ -340,7 +343,9 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 last_write_utc_ticks INTEGER NULL,
                 loudness_normalization_override INTEGER NULL,
                 smooth_track_transitions_override INTEGER NULL,
-                inter_track_silence_ms_override INTEGER NULL
+                inter_track_silence_ms_override INTEGER NULL,
+                clip_start_ticks INTEGER NULL,
+                clip_end_ticks INTEGER NULL
             );
             CREATE INDEX IF NOT EXISTS ix_local_items_title ON local_items(title COLLATE AMC_PL);
             CREATE INDEX IF NOT EXISTS ix_local_items_path ON local_items(path COLLATE NOCASE);
@@ -433,6 +438,8 @@ internal sealed class LocalLibraryDatabase(string databasePath)
         EnsureColumn(connection, "local_items", "loudness_normalization_override", "INTEGER NULL");
         EnsureColumn(connection, "local_items", "smooth_track_transitions_override", "INTEGER NULL");
         EnsureColumn(connection, "local_items", "inter_track_silence_ms_override", "INTEGER NULL");
+        EnsureColumn(connection, "local_items", "clip_start_ticks", "INTEGER NULL");
+        EnsureColumn(connection, "local_items", "clip_end_ticks", "INTEGER NULL");
         EnsureColumn(connection, "folder_playback_options", "loudness_normalization_override", "INTEGER NULL");
         EnsureColumn(connection, "folder_playback_options", "smooth_track_transitions_override", "INTEGER NULL");
         EnsureColumn(connection, "folder_playback_options", "inter_track_silence_ms_override", "INTEGER NULL");
@@ -476,12 +483,13 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                     is_available, is_in_queue, is_play_next, resume_mode,
                     playback_rate_override, output_device_id, resume_position_ticks,
                     file_length, last_write_utc_ticks, loudness_normalization_override,
-                    smooth_track_transitions_override, inter_track_silence_ms_override)
+                    smooth_track_transitions_override, inter_track_silence_ms_override,
+                    clip_start_ticks, clip_end_ticks)
                 VALUES(
                     $id, $title, $custom, $path, $duration, $bitrate, $estimated,
                     $sampleRate, $favorite, $library, $available, $queue, $playNext,
                     $resumeMode, $rate, $device, $resumePosition, $fileLength, $lastWrite,
-                    $normalize, $transitions, $silence);
+                    $normalize, $transitions, $silence, $clipStart, $clipEnd);
                 """,
                 ("$id", item.Id), ("$title", item.Title), ("$custom", item.HasCustomTitle),
                 ("$path", item.Path), ("$duration", item.DurationTicks),
@@ -495,7 +503,9 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 ("$lastWrite", item.LastWriteUtcTicks),
                 ("$normalize", item.LoudnessNormalizationOverride),
                 ("$transitions", item.SmoothTrackTransitionsOverride),
-                ("$silence", item.InterTrackSilenceMillisecondsOverride));
+                ("$silence", item.InterTrackSilenceMillisecondsOverride),
+                ("$clipStart", item.ClipStartTicks),
+                ("$clipEnd", item.ClipEndTicks));
         }
 
         for (var index = 0; index < state.LocalMedia.FolderSources.Count; index++)
