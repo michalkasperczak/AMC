@@ -219,6 +219,10 @@
                           automation:AutomationProperties.Name="Zapisz zaznaczony fragment do nowego pliku, X, tylko w odtwarzaczu lokalnego pliku"
                           automation:AutomationProperties.AcceleratorKey="X"
                           Click="ExportClip_Click" />
+                <MenuItem x:Name="PlaybackRemoveClipMenuItem" Header="_Usuń zaznaczony fragment z oryginału…" InputGestureText="Ctrl+X"
+                          automation:AutomationProperties.Name="Usuń zaznaczony fragment z oryginalnego pliku, Ctrl+X, tylko w odtwarzaczu lokalnego pliku; wymaga potwierdzenia i tworzy kopię bezpieczeństwa"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+X"
+                          Click="RemoveClipFromOriginal_Click" />
                 <MenuItem x:Name="PlaybackClearClipMenuItem" Header="Wyczyść zaznaczenie fragmentu" InputGestureText="Shift+X"
                           automation:AutomationProperties.Name="Wyczyść zaznaczenie fragmentu, Shift+X, tylko w odtwarzaczu lokalnego pliku"
                           automation:AutomationProperties.AcceleratorKey="Shift+X"
@@ -563,6 +567,10 @@
                               automation:AutomationProperties.Name="Zapisz zaznaczony fragment do nowego pliku, X"
                               automation:AutomationProperties.AcceleratorKey="X"
                               Click="ExportClip_Click" />
+                    <MenuItem x:Name="PlayerRemoveClipMenuItem" Header="Usuń zaznaczony fragment z oryginału…" InputGestureText="Ctrl+X"
+                              automation:AutomationProperties.Name="Usuń zaznaczony fragment z oryginalnego pliku, Ctrl+X; wymaga potwierdzenia i tworzy kopię bezpieczeństwa"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+X"
+                              Click="RemoveClipFromOriginal_Click" />
                     <MenuItem x:Name="PlayerClearClipMenuItem" Header="Wyczyść zaznaczenie fragmentu" InputGestureText="Shift+X"
                               automation:AutomationProperties.Name="Wyczyść zaznaczenie fragmentu, Shift+X"
                               automation:AutomationProperties.AcceleratorKey="Shift+X"

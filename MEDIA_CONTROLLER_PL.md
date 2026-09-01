@@ -1506,7 +1506,7 @@ zwykłego zdarzenia WPF dla jednoznacznych operatorów, więc naprawa nie przywr
 błędu 64-bitowego z `alpha.189`. Do mapy obsługiwanych klawiszy dochodzi `Pause`.
 Każda udana rejestracja oraz błąd startowy otrzymuje wpis diagnostyczny.
 
-### 7.9. Niedestrukcyjne wycinanie fragmentu audio
+### 7.9. Zaznaczanie, eksport i bezpieczne usuwanie fragmentu audio
 
 Od `alpha.196` Pliki lokalne mają prostą warstwę edycji działającą wyłącznie w
 otwartym odtwarzaczu. `I` zapamiętuje początek fragmentu, `O` jego koniec, `X`
@@ -1518,6 +1518,21 @@ początku i oba punkty muszą należeć do tego samego pliku. Od `alpha.199` ka�
 pozycja lokalnej Biblioteki ma własną parę granic w SQLite. Granice wracają po
 zmianie pliku i ponownym uruchomieniu programu, a `Shift+X` usuwa tylko parę
 bieżącego pliku. Zaznaczenie nie zmienia źródła, zakładek ani pozycji wznowienia.
+
+Od `alpha.200` `Ctrl+X` w odtwarzaczu usuwa zaznaczony przedział z oryginalnego
+pliku audio. `Delete` nie wykonuje tej operacji: na listach zachowuje ustalone
+znaczenie usunięcia rekordu z bieżącego widoku. Przed `Ctrl+X` pojawia się
+jednoznaczne potwierdzenie z domyślną odpowiedzią „Nie”. AMC zatrzymuje tor
+odtwarzania i czeka na zwolnienie pliku. FFmpeg przygotowuje obie zachowane
+części bez ponownej kompresji, a więc bez utraty jakości; granice kodeków
+stratnych mogą zostać dopasowane do najbliższej ramki. Wynik jest dekodowany
+kontrolnie i porównywany z oczekiwaną długością. Dopiero po powodzeniu zastępuje
+źródło, tworząc obok pełną, bitowo identyczną kopię z końcówką `.amc-backup`.
+Błąd przed podmianą pozostawia źródło bez zmian, a błąd awaryjnej podmiany
+przywraca je z kopii. Program nie rozpoczyna przez tę funkcję pobierania
+placeholdera z iCloud, OneDrive, Google Drive ani innej chmury. Destrukcyjna
+edycja pliku wideo jest na tym etapie blokowana, aby nie utracić obrazu; `X`
+nadal pozwala zapisać jego ścieżkę audio do nowego pliku.
 
 Eksport nigdy nie zapisuje bezpośrednio do pliku źródłowego. Najpierw tworzy
 unikalny plik tymczasowy w folderze docelowym, a gotowy wynik publikuje dopiero
@@ -1531,10 +1546,9 @@ musi mieć jawne pochodzenie, licencję, kontrolę integralności i osobny mecha
 aktualizacji.
 
 Każdy nowy format i każdy mechanizm aktualizacji komponentów musi zachować te
-niezmienniki: brak nadpisywania źródła, obsługa anulowania, atomowe opublikowanie
-wyniku oraz czytelny komunikat bez technicznych identyfikatorów. Narzędzia do
-łączenia fragmentów i bezstratnego cięcia na granicach ramek mogą zostać dodane
-po testach tej podstawowej operacji.
+niezmienniki: eksport nie nadpisuje źródła, destrukcyjna edycja zawsze tworzy
+kopię bezpieczeństwa, gotowy wynik jest sprawdzany przed atomową publikacją,
+a komunikaty nie zawierają technicznych identyfikatorów.
 
 ### 7.10. Zarządzany składnik FFmpeg
 

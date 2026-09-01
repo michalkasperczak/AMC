@@ -3082,6 +3082,7 @@ static void TestCommandPalette()
     Equal("Shift+PageDown (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.NextBookmark).LocalShortcut);
     Equal("Alt+PageUp (odtwarzacz lokalnego pliku)", entries.Single(entry => entry.CommandId == CommandIds.PreviousClipBoundary).LocalShortcut);
     Equal("Alt+PageDown (odtwarzacz lokalnego pliku)", entries.Single(entry => entry.CommandId == CommandIds.NextClipBoundary).LocalShortcut);
+    Equal("Ctrl+X (odtwarzacz lokalnego pliku)", entries.Single(entry => entry.CommandId == CommandIds.RemoveClipFromOriginal).LocalShortcut);
     Equal("Ctrl+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToTime).LocalShortcut);
     Equal("Ctrl+Shift+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToPercentage).LocalShortcut);
     Equal("PageUp (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.Previous).LocalShortcut);

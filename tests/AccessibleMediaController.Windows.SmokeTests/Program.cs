@@ -80,6 +80,7 @@ try
     TestGuardRejectsAbsurdDuration();
     TestManagedMp3Fallback();
     TestAudioClipExporter();
+    TestAudioClipOriginalEditor();
     TestAudioClipExportAccessibility();
     TestFfmpegComponentSecurity();
     TestWaveMetadataAndDamagedContainers();
@@ -384,6 +385,95 @@ static void TestAudioClipExporter()
                 $"Nieprawidłowa długość fragmentu FLAC: {flacReader.TotalTime}.");
             Console.WriteLine("OK: zweryfikowany FFmpeg zapisuje bez konwersji i do FLAC");
         }
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+}
+
+static void TestAudioClipOriginalEditor()
+{
+    if (!AudioClipOriginalEditor.IsAvailable)
+    {
+        Console.WriteLine("POMINIĘTO: destrukcyjna edycja fragmentu wymaga zainstalowanego FFmpeg");
+        return;
+    }
+
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-clip-remove-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    var source = Path.Combine(directory, "source.wav");
+    try
+    {
+        var format = new WaveFormat(8_000, 16, 1);
+        using (var writer = new WaveFileWriter(source, format))
+        {
+            writer.Write(new byte[format.AverageBytesPerSecond * 3]);
+        }
+        var originalBytes = File.ReadAllBytes(source);
+        var result = AudioClipOriginalEditor.RemoveAsync(
+                new AudioClipRemovalRequest(
+                    source,
+                    TimeSpan.FromSeconds(1),
+                    TimeSpan.FromSeconds(2),
+                    TimeSpan.FromSeconds(3)),
+                progress: null,
+                CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+
+        Assert(File.Exists(source), "Po edycji zabrakło pliku źródłowego.");
+        Assert(File.Exists(result.BackupPath), "Edycja nie utworzyła kopii bezpieczeństwa.");
+        Assert(
+            originalBytes.SequenceEqual(File.ReadAllBytes(result.BackupPath)),
+            "Kopia bezpieczeństwa nie jest identyczna z oryginałem.");
+        using var edited = new WaveFileReader(source);
+        Assert(
+            Math.Abs(edited.TotalTime.TotalSeconds - 2d) < 0.08d,
+            $"Nieprawidłowa długość pliku po usunięciu fragmentu: {edited.TotalTime}.");
+        Assert(
+            !Directory.EnumerateFiles(directory).Any(path => Path.GetFileName(path).Contains(".amc-cut-", StringComparison.Ordinal)),
+            "Po udanej edycji pozostał plik tymczasowy.");
+
+        var ffmpeg = FfmpegRadioWaveProvider.FindExecutable()
+            ?? throw new InvalidOperationException("FFmpeg zniknął podczas testu edycji.");
+        var mp3 = Path.Combine(directory, "source.mp3");
+        var conversion = Process.Start(new ProcessStartInfo
+        {
+            FileName = ffmpeg,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            ArgumentList =
+            {
+                "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                "-i", result.BackupPath, "-c:a", "libmp3lame", "-b:a", "128k", mp3
+            }
+        }) ?? throw new InvalidOperationException("Nie uruchomiono FFmpeg do testu MP3.");
+        conversion.WaitForExit();
+        Assert(conversion.ExitCode == 0 && File.Exists(mp3), "Nie przygotowano kontrolnego MP3.");
+        var originalMp3 = File.ReadAllBytes(mp3);
+        TimeSpan originalMp3Duration;
+        using (var originalMp3Reader = WindowsMediaOutput.OpenReaderForExport(mp3))
+        {
+            originalMp3Duration = originalMp3Reader.TotalTime;
+        }
+        var mp3Result = AudioClipOriginalEditor.RemoveAsync(
+                new AudioClipRemovalRequest(
+                    mp3,
+                    TimeSpan.FromSeconds(1),
+                    TimeSpan.FromSeconds(2),
+                    originalMp3Duration),
+                progress: null,
+                CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+        Assert(originalMp3.SequenceEqual(File.ReadAllBytes(mp3Result.BackupPath)),
+            "Kopia bezpieczeństwa MP3 nie jest identyczna z oryginałem.");
+        using var editedMp3 = WindowsMediaOutput.OpenReaderForExport(mp3);
+        var expectedMp3Duration = originalMp3Duration - TimeSpan.FromSeconds(1);
+        Assert(Math.Abs((editedMp3.TotalTime - expectedMp3Duration).TotalSeconds) < 0.2d,
+            $"Nieprawidłowa długość MP3 po usunięciu fragmentu: {editedMp3.TotalTime}.");
+        Console.WriteLine("OK: usuwanie fragmentu WAV i MP3 podmienia plik dopiero po weryfikacji i zachowuje pełną kopię");
     }
     finally
     {

@@ -1,12 +1,54 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-199`
-- Tytuł zestawu: Trwałe zaznaczenia fragmentów dla osobnych plików
-- Wersja programu: `0.1.0-alpha.199`
+- Numer zestawu: `AMC-TEST-200`
+- Tytuł zestawu: Bezpieczne usuwanie fragmentu z oryginalnego pliku
+- Wersja programu: `0.1.0-alpha.200`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.199.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.200.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowość alpha 200
+
+### AMC-200-01 — potwierdzenie i prawidłowe usunięcie
+
+Na kopii lokalnego pliku MP3 lub WAV ustaw `I` i `O`, naciśnij `Ctrl+X` i
+najpierw wybierz „Nie”. Powtórz i wybierz „Tak”.
+
+Oczekiwane: odpowiedź domyślna nie zmienia pliku. Po potwierdzeniu odtwarzanie
+zatrzymuje się, zaznaczony przedział znika, a reszta materiału pozostaje przed
+i po cięciu. Fokus wraca do odtwarzacza, punkty `I` i `O` są wyczyszczone, a
+pozycja znajduje się w pobliżu początku usuniętego fragmentu.
+
+### AMC-200-02 — kopia bezpieczeństwa i błąd bez utraty danych
+
+Po udanej operacji sprawdź folder źródłowy. Następnie spróbuj `Ctrl+X` na pliku
+tylko do odczytu albo na niepobranym pliku chmurowym.
+
+Oczekiwane: obok zmienionego audio istnieje jeden plik z końcówką
+`.amc-backup`, zawierający pełny wcześniejszy oryginał. Plik niedostępny lokalnie
+lub tylko do odczytu nie jest pobierany ani zmieniany; AMC podaje przyczynę.
+
+### AMC-200-03 — rozdzielenie X, Ctrl+X, Shift+X i Delete
+
+W odtwarzaczu sprawdź Pomoc klawiszy, menu Odtwarzanie i menu kontekstowe.
+Następnie sprawdź te klawisze na zwykłej liście.
+
+Oczekiwane: `X` zapisuje zaznaczony fragment jako nowy plik, `Ctrl+X` usuwa go
+z oryginału dopiero po potwierdzeniu, `Shift+X` usuwa same punkty, a `Delete`
+nie wykonuje cięcia audio. Polecenia edycji nie działają przypadkowo poza
+odtwarzaczem lokalnego pliku.
+
+### AMC-200-04 — Zakładki globalne i bieżący plik
+
+Dodaj zakładki do dwóch plików. Otwórz `Ctrl+B`, a następnie wróć do jednego
+pliku i użyj `Shift+Page Up` oraz `Shift+Page Down`.
+
+Oczekiwane: `Ctrl+B` pokazuje wspólny indeks obu plików, natomiast skróty w
+odtwarzaczu przechodzą wyłącznie po zakładkach bieżącego pliku. Cięcie nie usuwa
+globalnej listy Zakładek.
+
+## Poprzedni zestaw alpha 199
 
 ## Nowość alpha 199
 

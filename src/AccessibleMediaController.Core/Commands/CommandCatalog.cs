@@ -76,6 +76,7 @@ public static class CommandCatalog
             CommandIds.PreviousClipBoundary => "Przejdź do poprzedniej granicy fragmentu",
             CommandIds.NextClipBoundary => "Przejdź do następnej granicy fragmentu",
             CommandIds.ExportClip => "Zapisz zaznaczony fragment do nowego pliku",
+            CommandIds.RemoveClipFromOriginal => "Usuń zaznaczony fragment z oryginalnego pliku",
             CommandIds.ClearClipSelection => "Wyczyść zaznaczenie fragmentu",
             CommandIds.TimeElapsed => "Czas od początku",
             CommandIds.TimeRemaining => "Czas pozostały",

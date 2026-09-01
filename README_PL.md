@@ -1,5 +1,7 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.200` dodaje świadome usuwanie zaznaczonego przedziału z oryginalnego pliku audio przez `Ctrl+X` w odtwarzaczu. Operacja wymaga potwierdzenia domyślnie ustawionego na „Nie”, zatrzymuje odtwarzanie, nie kompresuje dźwięku ponownie, sprawdza gotowy wynik i dopiero wtedy podmienia źródło. Pełna, bitowo identyczna kopia otrzymuje końcówkę `.amc-backup`; błąd pozostawia oryginał bez zmian. Pliki wymagające pobrania z chmury i pliki wideo są bezpiecznie odrzucane.
+
 Wersja `alpha.199` zapamiętuje osobne zaznaczenie fragmentu dla każdego lokalnego pliku w bazie Biblioteki SQLite. Początek i koniec wracają po zmianie pliku oraz ponownym uruchomieniu AMC. `Shift+X` usuwa wyłącznie zaznaczenie bieżącego pliku; plik źródłowy pozostaje nietknięty.
 
 Wersja `alpha.198` dodaje kierunkową nawigację po granicach zaznaczonego fragmentu: `Alt+Page Up` przechodzi do poprzedniego, a `Alt+Page Down` do następnego punktu cięcia. Skróty nie zapętlają granic; `Shift+I` i `Shift+O` pozostają bezpośrednimi skokami do początku i końca.

@@ -33,6 +33,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private PlaybackHistory _playbackHistory;
     private BookmarkIndex _bookmarkIndex;
     private readonly AudioClipSelection _audioClipSelection = new();
+    private bool _audioClipEditInProgress;
     private SessionManager _sessions = null!;
     private CommandRouter _router = null!;
     private GlobalPrefixService? _prefixService;
@@ -818,6 +819,136 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    private async void RemoveClipFromOriginal()
+    {
+        if (_audioClipEditInProgress)
+        {
+            Announce("Usuwanie fragmentu już trwa");
+            return;
+        }
+        if (!TryGetLocalClipContext(out var session, out var item, out var path, out var error))
+        {
+            Announce(error);
+            return;
+        }
+        if (!_audioClipSelection.Matches(item.Id, path) || !_audioClipSelection.IsComplete)
+        {
+            Announce("Zaznacz początek klawiszem I i koniec klawiszem O");
+            return;
+        }
+        if (!AudioClipOriginalEditor.IsAvailable)
+        {
+            AnnounceEssential("Usuwanie fragmentu z oryginalnego pliku wymaga składnika FFmpeg");
+            return;
+        }
+        if (CloudFileAvailability.MayRequireRemoteAccess(path))
+        {
+            AnnounceEssential(
+                "Plik nie jest w pełni dostępny lokalnie. Pobierz go świadomie z chmury i spróbuj ponownie");
+            return;
+        }
+        if (LocalAudioFileDiscovery.IsVideoFile(path))
+        {
+            AnnounceEssential(
+                "Usuwanie fragmentu z oryginału nie jest jeszcze dostępne dla plików wideo. "
+                + "Klawisz X może zapisać ich ścieżkę audio do nowego pliku");
+            return;
+        }
+
+        var start = _audioClipSelection.Start!.Value;
+        var end = _audioClipSelection.End!.Value;
+        var confirmation = System.Windows.MessageBox.Show(
+            this,
+            $"Czy usunąć z oryginalnego pliku fragment od {FormatClipTime(start)} do {FormatClipTime(end)}?\n\n"
+            + "AMC zatrzyma odtwarzanie, zachowa jakość bez ponownej kompresji i utworzy kopię bezpieczeństwa. "
+            + "W formatach stratnych granice mogą zostać dopasowane do najbliższej ramki kodeka.",
+            "Usuń fragment z oryginalnego pliku",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        FocusPlayerView();
+        if (confirmation != MessageBoxResult.Yes) return;
+
+        _audioClipEditInProgress = true;
+        var progress = new Progress<double>(value =>
+        {
+            var percent = Math.Clamp((int)Math.Round(value * 100d), 0, 100);
+            var status = $"Usuwanie fragmentu: {percent}%";
+            _playbackStatusBar.SpokenText = status;
+            _playbackStatusLabel.Text = status;
+            _playbackStatusLabel.AccessibleName = status;
+        });
+        try
+        {
+            session.StopPlayback();
+            UpdatePlayerView();
+            UpdatePlaybackStatusBar();
+            AnnounceEssential("Usuwanie fragmentu. Odtwarzanie zatrzymano");
+            var result = await AudioClipOriginalEditor.RemoveAsync(
+                new AudioClipRemovalRequest(path, start, end, item.Duration),
+                progress,
+                CancellationToken.None);
+
+            item.Duration = result.Duration;
+            item.SampleRateHz = result.SampleRateHz > 0 ? result.SampleRateHz : item.SampleRateHz;
+            item.BitrateKbps = LocalAudioFileDiscovery.IsVideoFile(path)
+                ? null
+                : LocalAudioFileDiscovery.EstimateBitrateKbps(new FileInfo(path).Length, result.Duration);
+            item.IsBitrateEstimated = item.BitrateKbps.HasValue;
+            var nextPosition = start < result.Duration ? start : result.Duration;
+            session.SetRememberedPosition(item.Id, nextPosition);
+            _audioClipSelection.Clear();
+            if (FindLocalItemSettings(item) is { } saved)
+            {
+                var fingerprint = GetFileFingerprint(path);
+                saved.ClipStartTicks = null;
+                saved.ClipEndTicks = null;
+                saved.ResumePositionTicks = Math.Max(0, nextPosition.Ticks);
+                saved.DurationTicks = result.Duration.Ticks;
+                saved.BitrateKbps = item.BitrateKbps;
+                saved.IsBitrateEstimated = item.IsBitrateEstimated;
+                saved.SampleRateHz = item.SampleRateHz;
+                saved.FileLength = fingerprint.FileLength;
+                saved.LastWriteUtcTicks = fingerprint.LastWriteUtcTicks;
+            }
+            TrySaveLocalMediaState(true);
+            RefreshCurrentView(preferredItemId: item.Id);
+            UpdatePlayerView(true);
+            UpdatePlaybackStatusBar();
+            UpdateWindowTitle();
+            FocusPlayerView();
+            DiagnosticLog.Info(
+                "audio-clip",
+                $"Usunięto fragment z oryginału: {path}; od {start} do {end}; kopia: {result.BackupPath}.");
+            AnnounceEssential(
+                $"Fragment usunięty. Kopia bezpieczeństwa: {Path.GetFileName(result.BackupPath)}");
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or InvalidDataException
+            or InvalidOperationException
+            or NotSupportedException
+            or ArgumentException)
+        {
+            DiagnosticLog.Error("audio-clip", "Nie udało się usunąć fragmentu z oryginalnego pliku.", exception);
+            UpdatePlaybackStatusBar();
+            FocusPlayerView();
+            System.Windows.MessageBox.Show(
+                this,
+                exception.Message,
+                "Nie udało się usunąć fragmentu",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            FocusPlayerView();
+            AnnounceEssential(exception.Message);
+        }
+        finally
+        {
+            _audioClipEditInProgress = false;
+            UpdatePlaybackStatusBar();
+        }
+    }
+
     private bool TryGetLocalClipContext(
         out DemoMediaSession session,
         out MediaItem item,
@@ -1100,7 +1231,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         return "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. "
             + "B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach. "
-            + "I ustawia początek fragmentu, O koniec, Shift+I i Shift+O wracają bezpośrednio do tych punktów, a Alt+Page Up i Alt+Page Down przechodzą do poprzedniej lub następnej granicy. X zapisuje fragment do nowego pliku, a Shift+X czyści zaznaczenie. "
+            + "I ustawia początek fragmentu, O koniec, Shift+I i Shift+O wracają bezpośrednio do tych punktów, a Alt+Page Up i Alt+Page Down przechodzą do poprzedniej lub następnej granicy. X zapisuje fragment do nowego pliku, Ctrl+X usuwa go z oryginału po potwierdzeniu i z kopią bezpieczeństwa, a Shift+X czyści zaznaczenie. "
             + "Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. "
             + exit;
     }
@@ -3170,6 +3301,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlaybackPreviousClipBoundaryMenuItem.Visibility = clipVisibility;
         PlaybackNextClipBoundaryMenuItem.Visibility = clipVisibility;
         PlaybackExportClipMenuItem.Visibility = clipVisibility;
+        PlaybackRemoveClipMenuItem.Visibility = clipVisibility;
         PlaybackClearClipMenuItem.Visibility = clipVisibility;
         OpenLocalFilesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         OpenLocalFolderMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
@@ -4913,6 +5045,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.ExportClip)
         {
             ExportClip();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.RemoveClipFromOriginal)
+        {
+            RemoveClipFromOriginal();
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.ClearClipSelection)
@@ -9710,6 +9847,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 (ModifierKeys.Alt, Key.PageUp) => CommandIds.PreviousClipBoundary,
                 (ModifierKeys.Alt, Key.PageDown) => CommandIds.NextClipBoundary,
                 (ModifierKeys.None, Key.X) => CommandIds.ExportClip,
+                (ModifierKeys.Control, Key.X) => CommandIds.RemoveClipFromOriginal,
                 (ModifierKeys.Shift, Key.X) => CommandIds.ClearClipSelection,
                 (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
                 (ModifierKeys.Shift, Key.PageDown) => CommandIds.NextBookmark,
@@ -10322,6 +10460,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Alt, Key.PageUp) => CommandIds.PreviousClipBoundary,
             (ModifierKeys.Alt, Key.PageDown) => CommandIds.NextClipBoundary,
             (ModifierKeys.None, Key.X) => CommandIds.ExportClip,
+            (ModifierKeys.Control, Key.X) => CommandIds.RemoveClipFromOriginal,
             (ModifierKeys.Shift, Key.X) => CommandIds.ClearClipSelection,
             (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
             (ModifierKeys.Shift, Key.PageDown) => CommandIds.NextBookmark,
@@ -10939,6 +11078,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PreviousClipBoundary_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PreviousClipBoundary);
     private void NextClipBoundary_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.NextClipBoundary);
     private void ExportClip_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ExportClip);
+    private void RemoveClipFromOriginal_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.RemoveClipFromOriginal);
     private void ClearClipSelection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ClearClipSelection);
     private void BookmarksView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewBookmarks);
     private void PreviousBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PreviousBookmark);
@@ -11444,6 +11585,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerPreviousClipBoundaryMenuItem.Visibility = clipVisibility;
         PlayerNextClipBoundaryMenuItem.Visibility = clipVisibility;
         PlayerExportClipMenuItem.Visibility = clipVisibility;
+        PlayerRemoveClipMenuItem.Visibility = clipVisibility;
         PlayerClearClipMenuItem.Visibility = clipVisibility;
         PlayerItemPlaybackOptionsMenuItem.Visibility = localPlaybackOptions
             ? Visibility.Visible

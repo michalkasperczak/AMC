@@ -1,5 +1,7 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.200` adds explicit removal of the marked interval from the original audio file through `Ctrl+X` in the player. The operation requires a confirmation whose default is No, stops playback, does not re-encode the audio, validates the completed result and only then replaces the source. A complete byte-identical copy receives an `.amc-backup` suffix; failure leaves the original unchanged. Cloud placeholders and video files are safely rejected.
+
 Version `alpha.199` stores a separate fragment selection for every local file in the SQLite Library database. Start and end marks return after changing files or restarting AMC. `Shift+X` removes only the current file's selection; the source file remains untouched.
 
 Version `alpha.198` adds directional navigation between marked fragment boundaries: `Alt+Page Up` moves to the previous cut point and `Alt+Page Down` to the next one. Boundary navigation does not wrap; `Shift+I` and `Shift+O` remain direct jumps to the start and end.

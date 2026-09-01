@@ -193,6 +193,7 @@ public static class CommandPaletteSearch
             CommandIds.PreviousClipBoundary => "Alt+PageUp (odtwarzacz lokalnego pliku)",
             CommandIds.NextClipBoundary => "Alt+PageDown (odtwarzacz lokalnego pliku)",
             CommandIds.ExportClip => "X (odtwarzacz lokalnego pliku)",
+            CommandIds.RemoveClipFromOriginal => "Ctrl+X (odtwarzacz lokalnego pliku)",
             CommandIds.ClearClipSelection => "Shift+X (odtwarzacz lokalnego pliku)",
             CommandIds.TimeElapsed => "Ctrl+Shift+E",
             CommandIds.TimeRemaining => "Ctrl+Shift+R",

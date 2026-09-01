@@ -1464,7 +1464,7 @@ WPF input for unambiguous operators, so the 64-bit safety fix remains intact.
 `Pause` is now a supported prefix key, and diagnostics record registration
 success as well as startup failure.
 
-### 7.9. Non-destructive audio fragment export
+### 7.9. Audio fragment selection, export and safe removal
 
 Starting with `alpha.196`, Local Files provides a small editing layer available
 only in the open player. `I` marks the start, `O` marks the end, `X` opens
@@ -1475,6 +1475,20 @@ the same file and the end must follow the start. Starting with `alpha.199`, each
 local Library item stores its own pair of boundaries in SQLite. The pair returns
 after changing files and restarting AMC, while `Shift+X` removes only the current
 file's pair. A selection does not alter the source, bookmarks, or resume position.
+
+Starting with `alpha.200`, `Ctrl+X` in the player removes the selected interval
+from the original audio file. Delete does not perform this operation and keeps
+its established list-membership meaning. An explicit confirmation defaults to
+No. AMC stops playback and waits for the file handle to be released. FFmpeg
+builds the two retained parts without re-encoding, preserving quality while
+allowing lossy-codec boundaries to align to the nearest frame. The completed
+file is decoded and its duration validated before it can replace the source.
+Replacement creates a complete byte-identical sibling backup with an
+`.amc-backup` suffix. Pre-publication failure leaves the source untouched and a
+fallback publication failure rolls it back from that backup. This command does
+not hydrate an iCloud, OneDrive, Google Drive or other cloud placeholder. Video
+sources are currently rejected so that destructive audio editing cannot discard
+their picture; X can still export their audio track to a new file.
 
 Export never writes directly to the source. It first creates a unique temporary
 file in the destination directory and publishes the finished result only after
