@@ -73,8 +73,10 @@ rezerwować klawiszy na podstawie samego dokumentu koncepcyjnego.
 
 ## 7. Rozdziały odcinków
 
-Przyszłe rozdziały podcastów wykorzystają nazwaną Zakładkę jako stabilny punkt
-czasu zamiast tworzyć drugi system znaczników. `Ctrl+Shift+B` nadal zapisuje
-nazwany punkt, który może później zostać oznaczony jako początek rozdziału.
-Pełny model, dostępny edytor, wykrywanie ciszy i sposoby eksportu opisuje
-`PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
+Podcasty nie otrzymują w tym celu osobnego odtwarzacza ani dużego modułu
+edycyjnego. Dziedziczą niewielką funkcję rozdziałów wspólnego odtwarzacza AMC.
+Rozdziały wykorzystają nazwaną Zakładkę jako stabilny punkt czasu zamiast
+tworzyć drugi system znaczników. `Ctrl+Shift+B` nadal zapisuje nazwany punkt,
+który może później zostać oznaczony jako początek rozdziału także w istniejącym
+odcinku. Pełny model, dostępny edytor, wykrywanie ciszy i sposoby eksportu
+opisuje `PROJEKT_ROZDZIALOW_AUDIO_PL.md`.

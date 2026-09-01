@@ -1,8 +1,9 @@
 # Projekt rozdziałów audio opartych na Zakładkach AMC
 
-Status: zatwierdzony kierunek przyszłego modułu. Dokument opisuje model i
-interfejs; nie oznacza jeszcze gotowej implementacji ani rezerwacji nowych
-skrótów klawiszowych.
+Status: zatwierdzony kierunek niewielkiej, przyszłej funkcji wspólnego
+odtwarzacza AMC. Nie jest to osobna sesja ani duży samodzielny moduł. Dokument
+opisuje model i interfejs; nie oznacza jeszcze gotowej implementacji ani
+rezerwacji nowych skrótów klawiszowych.
 
 ## 1. Jedna oś czasu, dwa zastosowania
 
@@ -15,7 +16,7 @@ samo pole ma etykietę „Nazwa rozdziału”.
 Nie każda dawna zakładka nazwana staje się automatycznie rozdziałem. Rekord
 zachowuje stabilną tożsamość, pozycję, nazwę i materiał, a dodatkowe oznaczenie
 określa jego zastosowanie: zwykła zakładka, początek rozdziału albo oba. Dzięki
-temu włączenie modułu nie zmieni znaczenia istniejących danych ani nawigacji
+temu włączenie funkcji nie zmieni znaczenia istniejących danych ani nawigacji
 `Shift+Page Up` i `Shift+Page Down`.
 
 ## 2. Granice i kolejność
@@ -60,7 +61,7 @@ powoduje pobierania pliku chmurowego bez świadomej decyzji.
 
 ## 5. Eksport
 
-Moduł przewiduje trzy oddzielne działania:
+Funkcja przewiduje trzy oddzielne działania:
 
 1. zapis samych rozdziałów jako metadanych albo pliku towarzyszącego;
 2. zapis każdego rozdziału jako osobnego pliku;
@@ -77,10 +78,16 @@ dopasowanymi do ramek albo dokładnego zapisu WAV/FLAC. Ponowne kodowanie musi b
 jawne. Lista montażowa zawsze tworzy nowy plik przez plik tymczasowy i atomową
 publikację; nie podmienia materiału źródłowego.
 
-## 6. Powiązanie z Podcastami
+## 6. Powiązanie z Odtwarzaczem i Podcastami
+
+Rozdziały są funkcją wspólnego odtwarzacza, dlatego mogą działać dla trwałych
+plików lokalnych, nagrań oraz pobranych odcinków bez budowania drugiego
+odtwarzacza. Sesja Podcasty dziedziczy po nim pozycję, prędkość, Zakładki,
+nawigację i obsługę rozdziałów.
 
 W sesji Podcasty rozdziały należą do konkretnego odcinka. Mogą pochodzić z
 metadanych dostawcy, importu CUE/AMC albo nazwanych zakładek użytkownika.
+Użytkownik może więc dodać własne rozdziały także do istniejącego podcastu.
 Rozdziały dostawcy i użytkownika muszą pozostać rozróżnialne, aby odświeżenie
 kanału nie nadpisało lokalnej pracy.
 
@@ -95,7 +102,8 @@ tworzenia drugiego, prawie identycznego rekordu.
 3. Precyzyjna korekta czasu oraz propozycje wykryte na podstawie ciszy.
 4. Eksport CUE i wersjonowanego pliku AMC, potem natywne rozdziały MP3/M4A.
 5. Eksport osobnych plików i niedestrukcyjna lista montażowa.
-6. Integracja z sesją Podcasty oraz import rozdziałów dostawcy.
+6. Udostępnienie odziedziczonej funkcji w sesji Podcasty oraz import rozdziałów
+   dostawcy.
 
 Każdy etap wymaga testów NVDA dla początkowego fokusu, nawigacji listy,
 edytowania czasu, podglądu, anulowania i powrotu do odtwarzacza. W nazwach

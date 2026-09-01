@@ -31,7 +31,8 @@ Koperta JSON otrzyma numer schematu, rodzaj `bookmarks`, datę eksportu oraz rek
 
 ## Rozdziały audio
 
-Przyszły moduł rozdziałów nie duplikuje rekordów czasu. Nazwana zakładka może
+Przyszła funkcja rozdziałów wspólnego odtwarzacza nie duplikuje rekordów
+czasu. Nazwana zakładka może
 otrzymać dodatkowe oznaczenie początku rozdziału, które osobny eksport zachowa
 razem z nazwą i pozycją. Zwykłe zakładki nie stają się rozdziałami automatycznie.
 Model interfejsu i eksportu audio opisuje `PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
