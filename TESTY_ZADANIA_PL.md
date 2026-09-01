@@ -1,12 +1,47 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-188`
-- Tytuł zestawu: Zakres automatycznego rozpoznawania i filtr historii
-- Wersja programu: `0.1.0-alpha.188`
+- Numer zestawu: `AMC-TEST-189`
+- Tytuł zestawu: Bezpieczna zmiana globalnego prefiksu
+- Wersja programu: `0.1.0-alpha.189`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.188.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.189.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Poprawka alpha 189
+
+### AMC-189-01 — przechwycenie Plusa numerycznego
+
+Otwórz **Ustawienia > Ogólne > Prefiks globalny**, wybierz **Zmień
+prefiks…** i naciśnij sam Plus numeryczny. Odczekaj kilka sekund, użyj Tabu,
+strzałek i zwykłego Entera, ale na tym etapie możesz anulować bez zapisywania.
+
+Oczekiwane: NVDA mówi „Plus numeryczny”, nadal czyta wszystkie kontrolki i
+nie wymaga restartu. AMC nie zawiesza się ani nie zamyka. Anulowanie pozostawia
+poprzedni prefiks.
+
+### AMC-189-02 — zapis i użycie Plusa
+
+Powtórz zmianę, naciśnij zwykły Enter na przycisku Zapisz, a następnie zapisz
+Ustawienia. W innym programie naciśnij Plus numeryczny i po nim polecenie
+warstwy, na przykład Spację. Po wygaśnięciu warstwy sprawdź zwykłe klawisze
+NVDA.
+
+Oczekiwane: Plus uruchamia prefiks jeden raz, polecenie wykonuje się, a
+klawiatura wraca do zwykłej pracy. NVDA nie milknie. Jeśli rejestracja skrótu
+nie powiedzie się, AMC pozostawia poprzedni prefiks i podaje komunikat zamiast
+zawieszenia.
+
+### AMC-189-03 — powtarzanie i anulowanie
+
+Otwórz okno zmiany kilka razy. Przechwyć kolejno Plus numeryczny, Minus
+numeryczny i ponownie Plus. Część prób anuluj Escape, a jedną zatwierdź.
+
+Oczekiwane: każda próba ma użytkową nazwę, fokus przechodzi na Zapisz, Escape
+bezpiecznie zamyka okno, a szybkie powtarzanie nie pozostawia przejętego
+klawisza ani aktywnej warstwy.
+
+## Poprzedni zestaw alpha 188
 
 ## Nowości alpha 188
 

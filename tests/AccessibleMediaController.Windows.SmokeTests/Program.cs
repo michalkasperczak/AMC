@@ -301,6 +301,40 @@ static void TestEditableFieldReplacement()
 
 static void TestGlobalPrefixCapture()
 {
+    if (IntPtr.Size == 8)
+    {
+        Assert(
+            !ShortcutCaptureWindow.TryReadExactNumpadMessage(
+                0x0007,
+                new IntPtr((long)int.MaxValue + 1),
+                IntPtr.Zero,
+                out _,
+                out _,
+                out _),
+            "Okno przechwytywania próbuje interpretować 64-bitowy komunikat fokusu jako klawisz.");
+    }
+    Assert(
+        !ShortcutCaptureWindow.TryReadExactNumpadMessage(
+            0x0100,
+            new IntPtr(0x6B),
+            IntPtr.Zero,
+            out _,
+            out _,
+            out _)
+        && WindowsKeyMap.FromVirtualKey(0x6B) == "NumpadAdd",
+        "Plus numeryczny powinien używać zwykłej bezpiecznej ścieżki WPF, nie natywnego haka okna.");
+    Assert(
+        ShortcutCaptureWindow.TryReadExactNumpadMessage(
+            0x0100,
+            new IntPtr(0x0D),
+            new IntPtr(1L << 24),
+            out var capturedVirtualKey,
+            out var capturedKeyName,
+            out var capturedKeyDown)
+        && capturedVirtualKey == 0x0D
+        && capturedKeyName == "NumpadEnter"
+        && capturedKeyDown,
+        "Enter numeryczny utracił dokładną, zabezpieczoną ścieżkę przechwytywania.");
     Assert(
         WindowsKeyMap.ToDisplayText(KeyChord.Parse("Ctrl+NumpadEnter")) == "Ctrl+Enter numeryczny",
         "Enter numeryczny nie ma użytkowej etykiety dla NVDA.");

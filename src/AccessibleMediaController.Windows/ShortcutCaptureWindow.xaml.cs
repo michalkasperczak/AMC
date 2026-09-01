@@ -16,7 +16,7 @@ public partial class ShortcutCaptureWindow : Window
 
     private HwndSource? _source;
     private bool _captureComplete;
-    private readonly HashSet<int> _suppressedNumpadKeyUps = [];
+    private readonly HashSet<uint> _suppressedNumpadKeyUps = [];
 
     public ShortcutCaptureWindow(string commandDisplayName, KeyChord? currentChord = null)
     {
@@ -42,6 +42,7 @@ public partial class ShortcutCaptureWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _source?.RemoveHook(WindowProcedure);
+        _suppressedNumpadKeyUps.Clear();
         base.OnClosed(e);
     }
 
@@ -70,27 +71,100 @@ public partial class ShortcutCaptureWindow : Window
 
     private IntPtr WindowProcedure(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        var virtualKey = wParam.ToInt32();
-        var extended = (lParam.ToInt64() & ExtendedKeyMask) != 0;
-        if (!WindowsKeyMap.TryGetExactNumpadKey((uint)virtualKey, extended, out var keyName))
-            return IntPtr.Zero;
-
-        if (message is WmKeyDown or WmSysKeyDown)
+        try
         {
-            if (_suppressedNumpadKeyUps.Add(virtualKey))
+            if (!TryReadExactNumpadMessage(
+                    message,
+                    wParam,
+                    lParam,
+                    out var virtualKey,
+                    out var keyName,
+                    out var keyDown))
             {
-                Capture(new KeyChord(
-                    keyName,
-                    WindowsKeyMap.FromModifierKeys(Keyboard.Modifiers)));
+                return IntPtr.Zero;
             }
-            handled = true;
+
+            if (keyDown)
+            {
+                if (_suppressedNumpadKeyUps.Add(virtualKey))
+                {
+                    Capture(new KeyChord(
+                        keyName,
+                        WindowsKeyMap.FromModifierKeys(Keyboard.Modifiers)));
+                }
+                handled = true;
+            }
+            else if (_suppressedNumpadKeyUps.Remove(virtualKey))
+            {
+                handled = true;
+            }
         }
-        else if (message is WmKeyUp or WmSysKeyUp
-                 && _suppressedNumpadKeyUps.Remove(virtualKey))
+        catch (Exception exception)
         {
-            handled = true;
+            // An HwndSource hook runs inside the native Windows message loop. No
+            // capture defect may escape from here, because a failed UI thread can
+            // also stall screen-reader keyboard hooks until Windows removes them.
+            handled = false;
+            _suppressedNumpadKeyUps.Clear();
+            DiagnosticLog.Error(
+                "shortcut-capture",
+                "Nie udało się bezpiecznie przechwycić klawisza. Klawisz przekazano dalej do Windows.",
+                exception);
+            try
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    try
+                    {
+                        CaptureStatus.Announce(
+                            "Nie udało się odczytać tego klawisza. Poprzedni skrót nie został zmieniony");
+                    }
+                    catch (Exception announceException)
+                    {
+                        DiagnosticLog.Error(
+                            "shortcut-capture",
+                            "Nie udało się ogłosić błędu przechwytywania.",
+                            announceException);
+                    }
+                });
+            }
+            catch (Exception dispatcherException)
+            {
+                DiagnosticLog.Error(
+                    "shortcut-capture",
+                    "Dyspozytor okna przechwytywania nie przyjął komunikatu o błędzie.",
+                    dispatcherException);
+            }
         }
         return IntPtr.Zero;
+    }
+
+    internal static bool TryReadExactNumpadMessage(
+        int message,
+        IntPtr wParam,
+        IntPtr lParam,
+        out uint virtualKey,
+        out string keyName,
+        out bool keyDown)
+    {
+        virtualKey = 0;
+        keyName = string.Empty;
+        keyDown = false;
+
+        // HwndSource sends every window message through this hook. Pointer-sized
+        // parameters of focus, UI Automation and accessibility messages are not
+        // key codes and can exceed Int32 on 64-bit Windows.
+        if (message is not (WmKeyDown or WmKeyUp or WmSysKeyDown or WmSysKeyUp))
+            return false;
+
+        virtualKey = unchecked((uint)wParam.ToInt64());
+        var extended = (lParam.ToInt64() & ExtendedKeyMask) != 0;
+        if (!WindowsKeyMap.TryGetExactNumpadKey(virtualKey, extended, out keyName)
+            || !WindowsKeyMap.RequiresExactNumpadHook(keyName))
+            return false;
+
+        keyDown = message is WmKeyDown or WmSysKeyDown;
+        return true;
     }
 
     private void Capture(KeyChord chord)

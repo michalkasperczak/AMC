@@ -40,6 +40,8 @@ Starting with `alpha.180`, Shazam monitoring is persistent. **Settings > Radio a
 
 Starting with `alpha.188`, **Radio and recording** settings provide three automatic-recognition scopes: the currently heard station, stations being recorded in the background, or both. `Shift+S` toggles monitoring for the stored scope, while manual `S` always targets only the heard station. A background recording is recognised from its existing private decoded-audio buffer, without opening a second station connection or changing the recorded file. The same station received by playback and recording is checked only once per cycle. `Ctrl+Alt+S` still opens one history, now with a station filter. “All sources” means only sources AMC is actually receiving, never the whole Radio catalogue.
 
+Correction `alpha.189` prevents the shortcut-capture window from crashing on 64-bit Windows. Numpad Plus and other unambiguous keys now use the ordinary WPF path; the native hook remains only for Enter and keys that cannot otherwise be distinguished from the dedicated navigation block. The hook checks the message type before reading a key code, so pointer-sized focus and UI Automation messages cannot be mistaken for keyboard input. Both the capture window and the global-prefix hook also have a fail-safe boundary: an exception is logged, the prefix layer is cancelled and input is passed on. An AMC defect there cannot leave the keyboard-hook chain blocked or silence NVDA.
+
 Starting with `alpha.181`, automatic persistence of playback positions,
 history, Radio settings and other session state no longer performs a complete
 SQLite transaction on the UI thread. One background queue stores immutable

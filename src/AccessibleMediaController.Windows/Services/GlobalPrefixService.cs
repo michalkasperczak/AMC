@@ -173,6 +173,34 @@ internal sealed class GlobalPrefixService : IDisposable
 
     private IntPtr KeyboardHookCallback(int code, IntPtr wParam, IntPtr lParam)
     {
+        try
+        {
+            return HandleKeyboardHook(code, wParam, lParam);
+        }
+        catch (Exception exception)
+        {
+            // A low-level keyboard hook must never propagate an exception. If it
+            // does, other consumers of the keyboard chain, including NVDA, can
+            // temporarily stop receiving input.
+            try
+            {
+                _suppressedKeys.Clear();
+                DeactivateLayer();
+                DiagnosticLog.Error(
+                    "global-prefix",
+                    "Błąd obsługi globalnego prefiksu. AMC zwolnił klawiaturę i przekazał klawisz dalej.",
+                    exception);
+            }
+            catch
+            {
+                // Nothing may escape from a native low-level hook callback.
+            }
+            return CallNextHookEx(_hookHandle, code, wParam, lParam);
+        }
+    }
+
+    private IntPtr HandleKeyboardHook(int code, IntPtr wParam, IntPtr lParam)
+    {
         if (code < 0) return CallNextHookEx(_hookHandle, code, wParam, lParam);
 
         var message = wParam.ToInt32();

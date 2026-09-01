@@ -1458,3 +1458,15 @@ numeryczne Insert, Delete, Home, End, Page Up, Page Down i strzałki nie są
 utożsamiane z osobnym blokiem nawigacyjnym. Ten sam model służy oknu zmiany,
 rejestracji systemowej i wykonaniu prefiksu, a UI Automation udostępnia nazwy
 użytkowe zamiast wewnętrznych oznaczeń klawiszy.
+
+Niezmiennik bezpieczeństwa od `alpha.189`: jednoznaczne operatory, w tym Plus
+numeryczny, korzystają ze zwykłej ścieżki WPF; natywny hak okna jest używany
+tylko do klawiszy wymagających fizycznego rozróżnienia. Żaden wyjątek z tego
+haka ani niskopoziomowego haka klawiatury nie może wyjść do pętli komunikatów
+Windows. Hak okna najpierw rozpoznaje cztery komunikaty klawiatury, a dopiero
+potem interpretuje `wParam`; pozostałe komunikaty, w tym fokusu i UI
+Automation, przechodzą bez konwersji wartości wskaźnikowej do liczby 32-bitowej.
+Jeżeli mimo to przechwytywanie zgłosi wyjątek, AMC zapisuje go w logu, czyści
+stan stłumionych klawiszy, wyłącza aktywną warstwę i wywołuje następny hak.
+Awaria funkcji prefiksu nie może blokować NVDA, JAWS-a, Narratora ani zwykłego
+wejścia klawiatury.

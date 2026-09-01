@@ -1420,3 +1420,14 @@ capture: keypad Insert, Delete, Home, End, Page Up, Page Down and arrow keys
 are not confused with the dedicated navigation block. The capture window,
 system registration and prefix execution share this model, while UI
 Automation exposes user-facing names rather than internal key identifiers.
+
+Safety invariant from `alpha.189`: unambiguous operators, including Numpad
+Plus, use the ordinary WPF path; the native window hook is restricted to keys
+that require physical disambiguation. No exception from that hook or the
+low-level keyboard hook may escape into the Windows message loop. The window
+hook identifies the four keyboard messages before interpreting `wParam`; focus,
+UI Automation and all other messages pass through without narrowing a
+pointer-sized value to 32 bits. If capture still raises an exception, AMC logs
+it, clears suppressed-key state, deactivates the layer and calls the next hook.
+A prefix-layer defect must not block NVDA, JAWS, Narrator or ordinary keyboard
+input.
