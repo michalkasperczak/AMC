@@ -867,7 +867,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : "Escape wraca do listy, a odtwarzanie trwa.";
         if (string.Equals(_sessions?.Current.Id, "radio", StringComparison.Ordinal))
         {
-            return "Strzałki w lewo i w prawo poruszają się po buforze transmisji, Home przechodzi do początku bufora, End wraca na żywo, a strzałki w górę i w dół regulują głośność. R rozpoczyna lub kończy nagrywanie bieżącej stacji w tle, a Shift+Spacja wstrzymuje lub wznawia jej nagranie. Podczas nagrywania B dodaje szybką zakładkę do zapisywanego pliku, a Shift+B pozwala ją nazwać. S rozpoznaje utwór, a Shift+S włącza lub wyłącza obserwowanie rozpoznawania. Page Up i Page Down wybierają poprzednią lub następną stację bez zatrzymywania nagrań. " + exit;
+            return "Strzałki w lewo i w prawo poruszają się po buforze transmisji, Home przechodzi do początku bufora, End wraca na żywo, a strzałki w górę i w dół regulują głośność. Spacja wstrzymuje sam odsłuch, Ctrl+M tylko go wycisza bez przerywania odbioru ani nagrania, a Shift+Spacja wstrzymuje lub wznawia samo nagranie. R rozpoczyna lub kończy nagrywanie bieżącej stacji w tle. Podczas nagrywania B dodaje szybką zakładkę do zapisywanego pliku, a Shift+B pozwala ją nazwać. S rozpoznaje utwór, a Shift+S włącza lub wyłącza obserwowanie rozpoznawania. Page Up i Page Down wybierają poprzednią lub następną stację bez zatrzymywania nagrań. " + exit;
         }
         return "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. "
             + "B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach. "
@@ -3957,7 +3957,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();
         if (string.Equals(session.Id, "local", StringComparison.Ordinal)) TrySaveLocalMediaState(false);
-        Announce($"Historia: {target.Title}");
+        Announce(target.Title);
     }
 
     private static (long? FileLength, long? LastWriteUtcTicks) GetFileFingerprint(string? path)

@@ -1446,3 +1446,11 @@ Keyboard Help can therefore register the prefix again reliably. A malformed
 imported value falls back to the default without losing the Library,
 schedules or other settings. A failed registration of a newly selected chord
 continues to preserve the previously working prefix.
+
+The `alpha.192` correction reduces successful `Alt+Up/Down` playback-history
+navigation in the local player to the file name alone. “History” remains only
+in boundary messages where it explains the absence of an older or newer item.
+Radio player help presents the three controls together: Space pauses monitoring
+while reception and buffering continue, `Ctrl+M` only mutes the session output,
+and `Shift+Space` pauses recording itself when its selected format supports
+pausing.

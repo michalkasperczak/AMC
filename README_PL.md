@@ -48,6 +48,8 @@ Od `alpha.190` tymczasową listę **Nagrywane** otwiera w Radiu `Alt+R`, nie `Al
 
 Korekta `alpha.191` przywraca niezawodny zapis i ponowną rejestrację globalnego prefiksu. Starsze ustawienia mogły zawierać zapis `CTRL-Alt-Win-F12`, podczas gdy bieżący mechanizm oczekiwał separatorów `+`; po wyłączeniu Pomocy klawiszy taki prefiks nie dawał się ponownie uruchomić. AMC automatycznie normalizuje starszy zapis do `Ctrl+Alt+Windows+F12` zarówno przy wczytywaniu, jak i zapisie. Nieprawidłowa wartość w importowanej konfiguracji nie blokuje uruchomienia ani pozostałych danych — bezpiecznie wraca do prefiksu domyślnego. Zajęta nowa kombinacja nadal pozostawia aktywny poprzedni prefiks.
 
+Korekta `alpha.192` skraca nawigację po historii odtwarzania w lokalnym odtwarzaczu: udane `Alt+strzałka w górę/w dół` mówi wyłącznie nazwę wybranego pliku, bez powtarzania słowa „Historia”. Komunikaty o pustej historii oraz jej początku lub końcu pozostają jednoznaczne. Pomoc Radia rozdziela trzy działania: Spacja pauzuje sam odsłuch, `Ctrl+M` wycisza słyszalne wyjście bez pauzy, a `Shift+Spacja` pauzuje wyłącznie nagranie.
+
 Od `alpha.181` automatyczny zapis pozycji, historii, ustawień Radia i stanu
 pozostałych sesji nie wykonuje pełnej transakcji SQLite na wątku interfejsu.
 Jedna kolejka zapisuje migawki w tle i łączy kilka szybkich zmian, zachowując

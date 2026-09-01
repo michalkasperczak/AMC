@@ -1,12 +1,47 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-191`
-- Tytuł zestawu: Trwały i bezpieczny globalny prefiks
-- Wersja programu: `0.1.0-alpha.191`
+- Numer zestawu: `AMC-TEST-192`
+- Tytuł zestawu: Zwięzła historia i rozdzielenie odsłuchu od nagrania
+- Wersja programu: `0.1.0-alpha.192`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.191.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.192.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Poprawka alpha 192
+
+### AMC-192-01 — zwięzła nawigacja po historii odtwarzania
+
+W Plikach lokalnych odtwórz kolejno co najmniej trzy różne pliki. Pozostając w
+odtwarzaczu, użyj kilka razy `Alt+strzałka w dół`, a potem
+`Alt+strzałka w górę`.
+
+Oczekiwane: po każdym udanym przejściu NVDA mówi wyłącznie nazwę uruchomionego
+pliku. Nie dodaje przed nią słowa „Historia”. Dopiero próba przejścia poza
+początek lub koniec wyjaśnia, że nie ma starszego albo nowszego elementu w
+historii.
+
+### AMC-192-02 — trzy niezależne działania w Radiu
+
+Uruchom stację oraz jej nagrywanie. Kolejno sprawdź Spację, `Ctrl+M` oraz
+`Shift+Spacja`, za każdym razem wykonując skrót ponownie w celu wznowienia.
+
+Oczekiwane: Spacja pauzuje tylko słyszalny odsłuch, a odbiór, bufor i nagranie
+trwają. `Ctrl+M` wycisza dźwięk bez pauzy transportu, odbioru i nagrania.
+`Shift+Spacja` pauzuje wyłącznie zapis nagrania, a odsłuch nadal gra. Przy
+formacie Oryginalnym program jasno informuje, że pauza zapisu jest niedostępna.
+
+### AMC-192-03 — najprostszy wariant ciszy podczas pauzy nagrania
+
+Wstrzymaj zapis przez `Shift+Spacja`, a następnie wycisz odsłuch przez
+`Ctrl+M`. Po chwili przywróć dźwięk `Ctrl+M` i wznów zapis przez
+`Shift+Spacja`.
+
+Oczekiwane: stacja pozostaje połączona przez cały test. Nie trzeba jej
+zatrzymywać ani uruchamiać ponownie, a każde polecenie zmienia tylko swoją
+warstwę.
+
+## Poprzedni zestaw alpha 191
 
 ## Poprawka alpha 191
 

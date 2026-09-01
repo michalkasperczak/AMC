@@ -1486,3 +1486,11 @@ temu zakończenie Pomocy klawiszy może niezawodnie zarejestrować prefiks
 ponownie. Nieprawidłowa wartość z importu wraca do prefiksu domyślnego bez
 utraty Biblioteki, harmonogramów ani pozostałych ustawień. Nieudana rejestracja
 nowej kombinacji nadal zachowuje dotychczas działający prefiks.
+
+Korekta `alpha.192` skraca udaną nawigację `Alt+strzałka w górę/w dół` po
+historii odtwarzania w lokalnym odtwarzaczu do samej nazwy pliku. Słowo
+„Historia” pozostaje tylko w komunikatach granicznych, w których jest potrzebne
+do wyjaśnienia braku starszego albo nowszego elementu. Pomoc odtwarzacza Radia
+podaje równolegle: Spacja pauzuje sam odsłuch i zachowuje odbiór oraz bufor,
+`Ctrl+M` jedynie wycisza wyjście sesji, a `Shift+Spacja` pauzuje sam zapis
+nagrania, jeśli wybrany format obsługuje pauzę.
