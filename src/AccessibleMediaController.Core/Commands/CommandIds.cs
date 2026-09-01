@@ -37,6 +37,8 @@ public static class CommandIds
     public const string MarkClipEnd = "editing.clip.markEnd";
     public const string JumpClipStart = "editing.clip.jumpStart";
     public const string JumpClipEnd = "editing.clip.jumpEnd";
+    public const string PreviousClipBoundary = "editing.clip.previousBoundary";
+    public const string NextClipBoundary = "editing.clip.nextBoundary";
     public const string ExportClip = "editing.clip.export";
     public const string ClearClipSelection = "editing.clip.clear";
 

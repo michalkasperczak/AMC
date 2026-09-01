@@ -190,6 +190,8 @@ public static class CommandPaletteSearch
             CommandIds.MarkClipEnd => "O (odtwarzacz lokalnego pliku)",
             CommandIds.JumpClipStart => "Shift+I (odtwarzacz lokalnego pliku)",
             CommandIds.JumpClipEnd => "Shift+O (odtwarzacz lokalnego pliku)",
+            CommandIds.PreviousClipBoundary => "Alt+PageUp (odtwarzacz lokalnego pliku)",
+            CommandIds.NextClipBoundary => "Alt+PageDown (odtwarzacz lokalnego pliku)",
             CommandIds.ExportClip => "X (odtwarzacz lokalnego pliku)",
             CommandIds.ClearClipSelection => "Shift+X (odtwarzacz lokalnego pliku)",
             CommandIds.TimeElapsed => "Ctrl+Shift+E",

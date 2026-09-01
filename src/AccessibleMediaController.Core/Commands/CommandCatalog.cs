@@ -73,6 +73,8 @@ public static class CommandCatalog
             CommandIds.MarkClipEnd => "Ustaw koniec fragmentu",
             CommandIds.JumpClipStart => "Przejdź do początku fragmentu",
             CommandIds.JumpClipEnd => "Przejdź do końca fragmentu",
+            CommandIds.PreviousClipBoundary => "Przejdź do poprzedniej granicy fragmentu",
+            CommandIds.NextClipBoundary => "Przejdź do następnej granicy fragmentu",
             CommandIds.ExportClip => "Zapisz zaznaczony fragment do nowego pliku",
             CommandIds.ClearClipSelection => "Wyczyść zaznaczenie fragmentu",
             CommandIds.TimeElapsed => "Czas od początku",

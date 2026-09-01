@@ -41,6 +41,20 @@ public sealed class AudioClipSelection
         string.Equals(ItemId, itemId, StringComparison.Ordinal)
         && string.Equals(SourcePath, sourcePath, StringComparison.OrdinalIgnoreCase);
 
+    public TimeSpan? FindRelativeBoundary(TimeSpan position, int direction)
+    {
+        if (direction == 0) throw new ArgumentOutOfRangeException(nameof(direction));
+        var boundaries = new[] { Start, End }
+            .Where(value => value is not null)
+            .Select(value => value!.Value)
+            .Distinct()
+            .OrderBy(value => value)
+            .ToArray();
+        return direction < 0
+            ? boundaries.Where(value => value < position).Select(value => (TimeSpan?)value).LastOrDefault()
+            : boundaries.Where(value => value > position).Select(value => (TimeSpan?)value).FirstOrDefault();
+    }
+
     public void Clear()
     {
         ItemId = null;

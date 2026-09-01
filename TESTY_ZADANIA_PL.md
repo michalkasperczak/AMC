@@ -1,12 +1,28 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-197`
-- Tytuł zestawu: Zweryfikowany FFmpeg i nawigacja po granicach fragmentu
-- Wersja programu: `0.1.0-alpha.197`
+- Numer zestawu: `AMC-TEST-198`
+- Tytuł zestawu: Kierunkowa nawigacja po granicach fragmentu
+- Wersja programu: `0.1.0-alpha.198`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.197.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.198.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowość alpha 198
+
+### AMC-198-01 — poprzednia i następna granica fragmentu
+
+W lokalnym pliku ustaw początek klawiszem `I` i koniec klawiszem `O`. Ustaw
+pozycję przed początkiem, pomiędzy granicami oraz za końcem i sprawdź
+`Alt+Page Up` oraz `Alt+Page Down`, także podczas odtwarzania.
+
+Oczekiwane: `Alt+Page Up` przechodzi tylko do najbliższej wcześniejszej granicy,
+a `Alt+Page Down` tylko do najbliższej późniejszej. Na początku nie ma
+poprzedniej, a na końcu następnej granicy; nawigacja nie zapętla fragmentu.
+`Shift+I` i `Shift+O` nadal bezpośrednio wybierają początek i koniec. Po
+wyłączeniu komunikatów przewijania skoki nie są oznajmiane.
+
+## Poprzedni zestaw alpha 197
 
 ## Nowość alpha 197
 

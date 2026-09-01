@@ -207,6 +207,14 @@
                           automation:AutomationProperties.Name="Przejdź do końca fragmentu, Shift+O, tylko w odtwarzaczu lokalnego pliku"
                           automation:AutomationProperties.AcceleratorKey="Shift+O"
                           Click="JumpClipEnd_Click" />
+                <MenuItem x:Name="PlaybackPreviousClipBoundaryMenuItem" Header="Poprzednia granica fragmentu" InputGestureText="Alt+Page Up"
+                          automation:AutomationProperties.Name="Przejdź do poprzedniej granicy fragmentu, Alt+Page Up, tylko w odtwarzaczu lokalnego pliku"
+                          automation:AutomationProperties.AcceleratorKey="Alt+Page Up"
+                          Click="PreviousClipBoundary_Click" />
+                <MenuItem x:Name="PlaybackNextClipBoundaryMenuItem" Header="Następna granica fragmentu" InputGestureText="Alt+Page Down"
+                          automation:AutomationProperties.Name="Przejdź do następnej granicy fragmentu, Alt+Page Down, tylko w odtwarzaczu lokalnego pliku"
+                          automation:AutomationProperties.AcceleratorKey="Alt+Page Down"
+                          Click="NextClipBoundary_Click" />
                 <MenuItem x:Name="PlaybackExportClipMenuItem" Header="_Zapisz zaznaczony fragment…" InputGestureText="X"
                           automation:AutomationProperties.Name="Zapisz zaznaczony fragment do nowego pliku, X, tylko w odtwarzaczu lokalnego pliku"
                           automation:AutomationProperties.AcceleratorKey="X"
@@ -543,6 +551,14 @@
                               automation:AutomationProperties.Name="Przejdź do końca fragmentu, Shift+O"
                               automation:AutomationProperties.AcceleratorKey="Shift+O"
                               Click="JumpClipEnd_Click" />
+                    <MenuItem x:Name="PlayerPreviousClipBoundaryMenuItem" Header="Poprzednia granica fragmentu" InputGestureText="Alt+Page Up"
+                              automation:AutomationProperties.Name="Przejdź do poprzedniej granicy fragmentu, Alt+Page Up"
+                              automation:AutomationProperties.AcceleratorKey="Alt+Page Up"
+                              Click="PreviousClipBoundary_Click" />
+                    <MenuItem x:Name="PlayerNextClipBoundaryMenuItem" Header="Następna granica fragmentu" InputGestureText="Alt+Page Down"
+                              automation:AutomationProperties.Name="Przejdź do następnej granicy fragmentu, Alt+Page Down"
+                              automation:AutomationProperties.AcceleratorKey="Alt+Page Down"
+                              Click="NextClipBoundary_Click" />
                     <MenuItem x:Name="PlayerExportClipMenuItem" Header="Zapisz zaznaczony fragment…" InputGestureText="X"
                               automation:AutomationProperties.Name="Zapisz zaznaczony fragment do nowego pliku, X"
                               automation:AutomationProperties.AcceleratorKey="X"

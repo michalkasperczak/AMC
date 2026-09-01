@@ -715,6 +715,37 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    private void NavigateClipBoundary(int direction)
+    {
+        if (!TryGetLocalClipContext(out var session, out var item, out var path, out var error))
+        {
+            Announce(error);
+            return;
+        }
+        if (!_audioClipSelection.Matches(item.Id, path))
+        {
+            Announce("Ten plik nie ma zaznaczonego fragmentu");
+            return;
+        }
+        var position = _audioClipSelection.FindRelativeBoundary(session.Position, direction);
+        if (position is null)
+        {
+            Announce(direction < 0
+                ? "Brak poprzedniej granicy fragmentu"
+                : "Brak następnej granicy fragmentu");
+            return;
+        }
+        session.SetPosition(position.Value);
+        UpdatePlayerView();
+        UpdatePlaybackStatusBar();
+        TrySaveLocalMediaState(false);
+        if (_state.Settings.Messages.SeekMessages)
+        {
+            var label = position == _audioClipSelection.Start ? "Początek" : "Koniec";
+            Announce($"{label} fragmentu: {FormatClipTime(position.Value)}");
+        }
+    }
+
     private void ExportClip()
     {
         if (!TryGetLocalClipContext(out _, out var item, out var path, out var error))
@@ -1029,7 +1060,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         return "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. "
             + "B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach. "
-            + "I ustawia początek fragmentu, O koniec, Shift+I i Shift+O wracają do tych punktów, X zapisuje fragment do nowego pliku, a Shift+X czyści zaznaczenie. "
+            + "I ustawia początek fragmentu, O koniec, Shift+I i Shift+O wracają bezpośrednio do tych punktów, a Alt+Page Up i Alt+Page Down przechodzą do poprzedniej lub następnej granicy. X zapisuje fragment do nowego pliku, a Shift+X czyści zaznaczenie. "
             + "Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. "
             + exit;
     }
@@ -2113,6 +2144,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var radio = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
         var local = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
+        if (commandId.StartsWith("editing.clip.", StringComparison.Ordinal))
+        {
+            return local && _playerViewActive;
+        }
         if (!radio)
         {
             if (commandId is CommandIds.AddRadioStation
@@ -3092,6 +3127,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlaybackMarkClipEndMenuItem.Visibility = clipVisibility;
         PlaybackJumpClipStartMenuItem.Visibility = clipVisibility;
         PlaybackJumpClipEndMenuItem.Visibility = clipVisibility;
+        PlaybackPreviousClipBoundaryMenuItem.Visibility = clipVisibility;
+        PlaybackNextClipBoundaryMenuItem.Visibility = clipVisibility;
         PlaybackExportClipMenuItem.Visibility = clipVisibility;
         PlaybackClearClipMenuItem.Visibility = clipVisibility;
         OpenLocalFilesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
@@ -4819,6 +4856,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.JumpClipEnd)
         {
             JumpToClipBoundary(end: true);
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.PreviousClipBoundary)
+        {
+            NavigateClipBoundary(-1);
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.NextClipBoundary)
+        {
+            NavigateClipBoundary(1);
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.ExportClip)
@@ -9618,6 +9665,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 (ModifierKeys.None, Key.O) => CommandIds.MarkClipEnd,
                 (ModifierKeys.Shift, Key.I) => CommandIds.JumpClipStart,
                 (ModifierKeys.Shift, Key.O) => CommandIds.JumpClipEnd,
+                (ModifierKeys.Alt, Key.PageUp) => CommandIds.PreviousClipBoundary,
+                (ModifierKeys.Alt, Key.PageDown) => CommandIds.NextClipBoundary,
                 (ModifierKeys.None, Key.X) => CommandIds.ExportClip,
                 (ModifierKeys.Shift, Key.X) => CommandIds.ClearClipSelection,
                 (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
@@ -10228,6 +10277,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.None, Key.O) => CommandIds.MarkClipEnd,
             (ModifierKeys.Shift, Key.I) => CommandIds.JumpClipStart,
             (ModifierKeys.Shift, Key.O) => CommandIds.JumpClipEnd,
+            (ModifierKeys.Alt, Key.PageUp) => CommandIds.PreviousClipBoundary,
+            (ModifierKeys.Alt, Key.PageDown) => CommandIds.NextClipBoundary,
             (ModifierKeys.None, Key.X) => CommandIds.ExportClip,
             (ModifierKeys.Shift, Key.X) => CommandIds.ClearClipSelection,
             (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
@@ -10843,6 +10894,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void MarkClipEnd_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.MarkClipEnd);
     private void JumpClipStart_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.JumpClipStart);
     private void JumpClipEnd_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.JumpClipEnd);
+    private void PreviousClipBoundary_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PreviousClipBoundary);
+    private void NextClipBoundary_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.NextClipBoundary);
     private void ExportClip_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ExportClip);
     private void ClearClipSelection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ClearClipSelection);
     private void BookmarksView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewBookmarks);
@@ -11346,6 +11399,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerMarkClipEndMenuItem.Visibility = clipVisibility;
         PlayerJumpClipStartMenuItem.Visibility = clipVisibility;
         PlayerJumpClipEndMenuItem.Visibility = clipVisibility;
+        PlayerPreviousClipBoundaryMenuItem.Visibility = clipVisibility;
+        PlayerNextClipBoundaryMenuItem.Visibility = clipVisibility;
         PlayerExportClipMenuItem.Visibility = clipVisibility;
         PlayerClearClipMenuItem.Visibility = clipVisibility;
         PlayerItemPlaybackOptionsMenuItem.Visibility = localPlaybackOptions

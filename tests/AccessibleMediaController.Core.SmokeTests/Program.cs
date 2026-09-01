@@ -95,6 +95,12 @@ static void TestAudioClipSelection()
         TimeSpan.FromSeconds(45),
         TimeSpan.FromMinutes(3)));
     Equal(true, selection.IsComplete);
+    Equal(TimeSpan.FromSeconds(20), selection.FindRelativeBoundary(TimeSpan.FromSeconds(30), -1));
+    Equal(TimeSpan.FromSeconds(45), selection.FindRelativeBoundary(TimeSpan.FromSeconds(30), 1));
+    Equal(TimeSpan.FromSeconds(20), selection.FindRelativeBoundary(TimeSpan.FromSeconds(45), -1));
+    Equal(TimeSpan.FromSeconds(45), selection.FindRelativeBoundary(TimeSpan.FromSeconds(20), 1));
+    Equal(null, selection.FindRelativeBoundary(TimeSpan.FromSeconds(20), -1));
+    Equal(null, selection.FindRelativeBoundary(TimeSpan.FromSeconds(45), 1));
 
     selection.SetStart("item-1", @"D:\Audio\plik.mp3", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(3));
     Equal(null, selection.End);
@@ -3057,6 +3063,8 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+B (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.AddNamedBookmark).LocalShortcut);
     Equal("Shift+PageUp (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.PreviousBookmark).LocalShortcut);
     Equal("Shift+PageDown (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.NextBookmark).LocalShortcut);
+    Equal("Alt+PageUp (odtwarzacz lokalnego pliku)", entries.Single(entry => entry.CommandId == CommandIds.PreviousClipBoundary).LocalShortcut);
+    Equal("Alt+PageDown (odtwarzacz lokalnego pliku)", entries.Single(entry => entry.CommandId == CommandIds.NextClipBoundary).LocalShortcut);
     Equal("Ctrl+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToTime).LocalShortcut);
     Equal("Ctrl+Shift+J (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekToPercentage).LocalShortcut);
     Equal("PageUp (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.Previous).LocalShortcut);

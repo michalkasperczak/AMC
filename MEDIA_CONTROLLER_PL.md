@@ -1510,8 +1510,10 @@ Każda udana rejestracja oraz błąd startowy otrzymuje wpis diagnostyczny.
 
 Od `alpha.196` Pliki lokalne mają prostą warstwę edycji działającą wyłącznie w
 otwartym odtwarzaczu. `I` zapamiętuje początek fragmentu, `O` jego koniec, `X`
-otwiera okno zapisu, `Shift+I` i `Shift+O` wracają do zaznaczonych punktów, a
-`Shift+X` czyści zaznaczenie. Koniec musi leżeć po
+otwiera okno zapisu, `Shift+I` i `Shift+O` wracają bezpośrednio do zaznaczonych
+punktów, `Alt+Page Up` i `Alt+Page Down` przechodzą do poprzedniej lub następnej
+granicy, a `Shift+X` czyści zaznaczenie. Nawigacja kierunkowa nie zapętla się na
+drugą stronę fragmentu. Koniec musi leżeć po
 początku i oba punkty muszą należeć do tego samego pliku. Zaznaczenie jest
 ulotne: nie zmienia pliku, Biblioteki, zakładek ani pozycji wznowienia.
 

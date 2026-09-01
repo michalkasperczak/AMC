@@ -1468,8 +1468,9 @@ success as well as startup failure.
 
 Starting with `alpha.196`, Local Files provides a small editing layer available
 only in the open player. `I` marks the start, `O` marks the end, `X` opens
-fragment export, `Shift+I` and `Shift+O` jump back to the marked boundaries,
-and `Shift+X` clears the selection. Both marks must belong to
+fragment export, `Shift+I` and `Shift+O` jump directly to the marked boundaries,
+`Alt+Page Up` and `Alt+Page Down` move to the previous or next boundary without
+wrapping, and `Shift+X` clears the selection. Both marks must belong to
 the same file and the end must follow the start. The selection is transient and
 does not alter the source, Library, bookmarks, or resume position.
 
