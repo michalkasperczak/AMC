@@ -1,12 +1,43 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-194`
-- Tytuł zestawu: Timeshift podczas nagrywania i płynne rozpoznawanie utworów
-- Wersja programu: `0.1.0-alpha.194`
+- Numer zestawu: `AMC-TEST-195`
+- Tytuł zestawu: Jednoznaczny kontekst Historii odtwarzania
+- Wersja programu: `0.1.0-alpha.195`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.194.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.195.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Poprawka alpha 195
+
+### AMC-195-01 — Page Down z listy Ctrl+H
+
+Otwórz Historię przez `Ctrl+H`, zapamiętaj trzy kolejne widoczne pozycje i
+uruchom środkową. W odtwarzaczu naciśnij `Page Up`, a następnie dwukrotnie
+`Page Down`.
+
+Oczekiwane: program przechodzi wyłącznie między pozycjami widocznymi w
+Historii, zgodnie z jej kolejnością od najnowszej. Nie wybiera alfabetycznego
+sąsiada z Biblioteki, jeżeli nie ma go w Historii.
+
+### AMC-195-02 — kontekst Ulubionych i folderu
+
+Uruchom element z Ulubionych i sprawdź `Page Up/Page Down`, a następnie zrób to
+samo z plikiem otwartym z konkretnego folderu.
+
+Oczekiwane: w pierwszym przypadku nawigacja pozostaje w Ulubionych, a w drugim
+w bieżącym folderze. Samo wcześniejsze otwarcie Historii nie wpływa już na te
+dwa konteksty.
+
+### AMC-195-03 — chwilowa Historia w odtwarzaczu
+
+Uruchom plik z folderu, w odtwarzaczu przejdź do starszego wpisu przez
+`Alt+strzałka w dół`, a następnie użyj `Page Up/Page Down`.
+
+Oczekiwane: `Alt+strzałka` pozwala chwilowo przejrzeć Historię, ale nie zmienia
+zapamiętanego kontekstu folderu dla `Page Up/Page Down`.
+
+## Poprzedni zestaw alpha 194
 
 ## Poprawka alpha 194
 

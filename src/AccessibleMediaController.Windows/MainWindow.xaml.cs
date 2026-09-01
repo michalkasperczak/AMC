@@ -6013,8 +6013,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void PreparePlaybackContextForCurrentView(DemoMediaSession session, MediaItem selectedItem)
     {
-        if (_playerViewActive
-            || _currentView is BookmarkViewName or "Historia odtwarzania")
+        if (MainWindowNavigationPolicy.ShouldPreservePlaybackContext(_playerViewActive, _currentView))
         {
             return;
         }

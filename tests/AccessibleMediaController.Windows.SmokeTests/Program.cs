@@ -1221,6 +1221,12 @@ static void TestMainWindowDigitShortcutRouting()
         && !MainWindowNavigationPolicy.IsTransientRadioView("local", "Nagrywane"),
         "Polityka Escape nie rozpoznaje tymczasowego widoku Nagrywane w Radiu.");
     Assert(
+        MainWindowNavigationPolicy.ShouldPreservePlaybackContext(true, "Historia odtwarzania")
+        && MainWindowNavigationPolicy.ShouldPreservePlaybackContext(false, "Zakładki")
+        && !MainWindowNavigationPolicy.ShouldPreservePlaybackContext(false, "Historia odtwarzania")
+        && !MainWindowNavigationPolicy.ShouldPreservePlaybackContext(false, "Ulubione"),
+        "Jawne odtworzenie z Ctrl+H nie zastępuje starego kontekstu Page Up i Page Down.");
+    Assert(
         MainWindowShortcutRouter.ResolveRadioRecordingBookmark(
             Key.B,
             ModifierKeys.None,

@@ -1,5 +1,7 @@
 # Accessible Media Controller — Windows prototype
 
+The `alpha.195` correction separates two ways of using playback history. Explicitly opening an item from the `Ctrl+H` list makes the visible History the `Page Up/Page Down` context, just as Favorites, a folder, playlist or queue establish their own context. Temporary `Alt+Up/Down` history traversal inside the player still preserves the previously established list context.
+
 The `alpha.194` correction separates the Radio listening position from live capture. Space can now pause and resume time-shift monitoring even while the same station is being recorded; the recorder keeps capturing live audio and `End` remains the explicit return-to-live command. Shazam fingerprint preparation now runs away from the window thread and reuses FFT buffers instead of allocating thousands of large arrays for every recognition, reducing short monitoring and UI stalls during automatic recognition.
 
 This is the first demonstration prototype of the global-prefix media controller. It validates the keyboard, session, list, accessibility-message, profile, import and export architecture. It does not yet connect to real TIDAL, Apple Music or WiiM accounts.
