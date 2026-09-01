@@ -70,3 +70,11 @@ magazynie sekretów i pozostaje niezależny od adapterów publicznych.
 
 Mapa skrótów zostanie ustalona po pierwszym działającym widoku. Nie należy
 rezerwować klawiszy na podstawie samego dokumentu koncepcyjnego.
+
+## 7. Rozdziały odcinków
+
+Przyszłe rozdziały podcastów wykorzystają nazwaną Zakładkę jako stabilny punkt
+czasu zamiast tworzyć drugi system znaczników. `Ctrl+Shift+B` nadal zapisuje
+nazwany punkt, który może później zostać oznaczony jako początek rozdziału.
+Pełny model, dostępny edytor, wykrywanie ciszy i sposoby eksportu opisuje
+`PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
