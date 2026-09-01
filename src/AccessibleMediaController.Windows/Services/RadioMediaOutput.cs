@@ -138,6 +138,19 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         }
     }
 
+    internal bool TryGetRecentCapturedAudio(TimeSpan duration, out RadioAudioSnapshot? snapshot)
+    {
+        lock (_gate)
+        {
+            if (_pipeline is null)
+            {
+                snapshot = null;
+                return false;
+            }
+            return _pipeline.Buffer.TryGetRecentCapturedAudio(duration, out snapshot);
+        }
+    }
+
     internal static async Task<RadioAudioMetadata?> TryReadStreamMetadataAsync(
         string source,
         TimeSpan timeout)
@@ -1330,28 +1343,46 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         {
             lock (_gate)
             {
-                var requestedBytes = Align((long)Math.Ceiling(
-                    Math.Max(0, duration.TotalSeconds) * WaveFormat.AverageBytesPerSecond));
                 var end = Math.Min(_readPosition, _totalWritten);
-                var oldest = Math.Max(0, _totalWritten - _ring.LongLength);
-                var available = Align(Math.Max(0, end - oldest));
-                var length = Align(Math.Min(requestedBytes, available));
-                if (length < Align(WaveFormat.AverageBytesPerSecond * 3L))
-                {
-                    snapshot = null;
-                    return false;
-                }
-
-                var audio = new byte[checked((int)length)];
-                var start = end - length;
-                var readIndex = (int)(start % _ring.Length);
-                var first = Math.Min(audio.Length, _ring.Length - readIndex);
-                Buffer.BlockCopy(_ring, readIndex, audio, 0, first);
-                if (first < audio.Length)
-                    Buffer.BlockCopy(_ring, 0, audio, first, audio.Length - first);
-                snapshot = new RadioAudioSnapshot(audio, WaveFormat, BytesToTime(length));
-                return true;
+                return TryGetRecentAudioCore(duration, end, out snapshot);
             }
+        }
+
+        public bool TryGetRecentCapturedAudio(
+            TimeSpan duration,
+            out RadioAudioSnapshot? snapshot)
+        {
+            lock (_gate)
+            {
+                return TryGetRecentAudioCore(duration, _totalWritten, out snapshot);
+            }
+        }
+
+        private bool TryGetRecentAudioCore(
+            TimeSpan duration,
+            long end,
+            out RadioAudioSnapshot? snapshot)
+        {
+            var requestedBytes = Align((long)Math.Ceiling(
+                Math.Max(0, duration.TotalSeconds) * WaveFormat.AverageBytesPerSecond));
+            var oldest = Math.Max(0, _totalWritten - _ring.LongLength);
+            var available = Align(Math.Max(0, Math.Min(end, _totalWritten) - oldest));
+            var length = Align(Math.Min(requestedBytes, available));
+            if (length < Align(WaveFormat.AverageBytesPerSecond * 3L))
+            {
+                snapshot = null;
+                return false;
+            }
+
+            var audio = new byte[checked((int)length)];
+            var start = Math.Min(end, _totalWritten) - length;
+            var readIndex = (int)(start % _ring.Length);
+            var first = Math.Min(audio.Length, _ring.Length - readIndex);
+            Buffer.BlockCopy(_ring, readIndex, audio, 0, first);
+            if (first < audio.Length)
+                Buffer.BlockCopy(_ring, 0, audio, first, audio.Length - first);
+            snapshot = new RadioAudioSnapshot(audio, WaveFormat, BytesToTime(length));
+            return true;
         }
 
         public void StartRecording(

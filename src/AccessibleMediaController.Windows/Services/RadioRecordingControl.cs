@@ -59,6 +59,7 @@ internal interface IRadioRecordingBackend
     bool CanPauseRecording { get; }
     bool IsRecordingPaused { get; }
     TimeSpan RecordingDuration { get; }
+    bool TryGetRecentAudio(TimeSpan duration, out RadioAudioSnapshot? snapshot);
     string StartRecording(
         string folder,
         RadioRecordingFormat format,
@@ -76,6 +77,8 @@ internal sealed class RadioMediaRecordingBackend(RadioMediaOutput output) : IRad
     public bool CanPauseRecording => Output.CanPauseRecording;
     public bool IsRecordingPaused => Output.IsRecordingPaused;
     public TimeSpan RecordingDuration => Output.RecordingDuration;
+    public bool TryGetRecentAudio(TimeSpan duration, out RadioAudioSnapshot? snapshot) =>
+        Output.TryGetRecentCapturedAudio(duration, out snapshot);
     public string StartRecording(
         string folder,
         RadioRecordingFormat format,
@@ -197,6 +200,19 @@ internal sealed class RadioRecordingControl
             _partNumber = 1;
             _pauseMarkerCount = 0;
             _stopRequested = false;
+        }
+    }
+
+    public bool TryGetRecentAudio(TimeSpan duration, out RadioAudioSnapshot? snapshot)
+    {
+        lock (_gate)
+        {
+            if (_backend?.IsRecording != true)
+            {
+                snapshot = null;
+                return false;
+            }
+            return _backend.TryGetRecentAudio(duration, out snapshot);
         }
     }
 

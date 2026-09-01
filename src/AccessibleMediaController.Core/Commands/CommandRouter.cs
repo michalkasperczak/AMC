@@ -357,6 +357,7 @@ public sealed class CommandRouter(
         SettingsTarget? resolved = commandId switch
         {
             CommandIds.SettingsGeneral => SettingsTarget.General,
+            CommandIds.SettingsRadioRecognitionScope => SettingsTarget.RadioRecognitionScope,
             CommandIds.SettingsLanguage => SettingsTarget.Language,
             CommandIds.SettingsStartupTarget => SettingsTarget.StartupTarget,
             CommandIds.SettingsSessionOrder => SettingsTarget.SessionOrder,

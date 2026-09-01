@@ -8,9 +8,23 @@
         ContentRendered="Window_ContentRendered"
         PreviewKeyDown="Window_PreviewKeyDown">
     <DockPanel Margin="12">
-        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap"
-                   Text="Rozpoznane utwory, od najnowszego. Ctrl+C kopiuje opis, Ctrl+Shift+C kopiuje opis oraz łącza do usług i katalogów muzycznych. Delete usuwa wybrane wpisy."
-                   automation:AutomationProperties.HeadingLevel="Level1" />
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBlock TextWrapping="Wrap"
+                       Text="Rozpoznane utwory, od najnowszego. Ctrl+C kopiuje opis, Ctrl+Shift+C kopiuje opis oraz łącza do usług i katalogów muzycznych. Delete usuwa wybrane wpisy."
+                       automation:AutomationProperties.HeadingLevel="Level1" />
+            <Label Margin="0,8,0,0" Target="{Binding ElementName=StationFilterCombo}">_Pokaż wpisy:</Label>
+            <ComboBox x:Name="StationFilterCombo" Width="430" HorizontalAlignment="Left"
+                      DisplayMemberPath="Label" TextSearch.TextPath="NavigationText"
+                      SelectionChanged="StationFilterCombo_SelectionChanged"
+                      automation:AutomationProperties.Name="Filtr historii według stacji"
+                      automation:AutomationProperties.HelpText="Wybierz wszystkie stacje albo jedną stację. Zmiana filtra nie usuwa wpisów.">
+                <ComboBox.ItemContainerStyle>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
+                    </Style>
+                </ComboBox.ItemContainerStyle>
+            </ComboBox>
+        </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <controls:AccessibleStatusTextBlock x:Name="HistoryStatus" Margin="0,0,0,8"
                                                 TextWrapping="Wrap"

@@ -16,12 +16,14 @@ public partial class RadioRecognitionHistoryWindow : AccessibleWindow
 {
     private readonly List<RadioRecognizedTrackSettings> _entries;
     private List<RecognitionHistoryRow> _rows = [];
+    private bool _updatingFilters;
 
     public RadioRecognitionHistoryWindow(List<RadioRecognizedTrackSettings> entries)
     {
         InitializeComponent();
         MenuAccessibility.NormalizeContextMenu(HistoryContextMenu);
         _entries = entries;
+        RefreshStationFilters();
         RefreshRows();
     }
 
@@ -29,7 +31,10 @@ public partial class RadioRecognitionHistoryWindow : AccessibleWindow
 
     private void RefreshRows(string? preferredId = null, int fallbackIndex = 0)
     {
+        var filterKey = (StationFilterCombo.SelectedItem as RecognitionStationFilter)?.Key;
         _rows = _entries
+            .Where(entry => filterKey is null
+                || string.Equals(RecognitionStationFilter.KeyFor(entry), filterKey, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(entry => entry.RecognizedUtcTicks)
             .Select(entry => new RecognitionHistoryRow(entry))
             .ToList();
@@ -37,13 +42,45 @@ public partial class RadioRecognitionHistoryWindow : AccessibleWindow
         if (_rows.Count == 0)
         {
             HistoryList.SelectedIndex = -1;
-            HistoryStatus.Text = "Historia jest pusta";
+            HistoryStatus.Text = filterKey is null
+                ? "Historia jest pusta"
+                : "Brak wpisów dla wybranej stacji";
             return;
         }
         var index = preferredId is null
             ? Math.Clamp(fallbackIndex, 0, _rows.Count - 1)
             : _rows.FindIndex(row => string.Equals(row.Entry.Id, preferredId, StringComparison.Ordinal));
         HistoryList.SelectedIndex = index >= 0 ? index : Math.Clamp(fallbackIndex, 0, _rows.Count - 1);
+        HistoryStatus.Text = filterKey is null
+            ? $"Wpisów: {_rows.Count}, wszystkie stacje"
+            : $"Wpisów: {_rows.Count}, {(StationFilterCombo.SelectedItem as RecognitionStationFilter)?.Label}";
+    }
+
+    private void RefreshStationFilters(string? preferredKey = null)
+    {
+        preferredKey ??= (StationFilterCombo.SelectedItem as RecognitionStationFilter)?.Key;
+        var filters = new List<RecognitionStationFilter>
+        {
+            new(null, "Wszystkie stacje")
+        };
+        filters.AddRange(_entries
+            .GroupBy(RecognitionStationFilter.KeyFor, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new RecognitionStationFilter(
+                group.Key,
+                group.OrderByDescending(entry => entry.RecognizedUtcTicks).First().StationName))
+            .OrderBy(filter => filter.Label, StringComparer.CurrentCultureIgnoreCase));
+
+        _updatingFilters = true;
+        StationFilterCombo.ItemsSource = filters;
+        StationFilterCombo.SelectedItem = filters.FirstOrDefault(filter =>
+            string.Equals(filter.Key, preferredKey, StringComparison.OrdinalIgnoreCase)) ?? filters[0];
+        _updatingFilters = false;
+    }
+
+    private void StationFilterCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_updatingFilters) return;
+        RefreshRows();
     }
 
     private void Window_ContentRendered(object? sender, EventArgs e) => FocusSelectedRow();
@@ -128,6 +165,7 @@ public partial class RadioRecognitionHistoryWindow : AccessibleWindow
         var ids = selected.Select(row => row.Entry.Id).ToHashSet(StringComparer.Ordinal);
         _entries.RemoveAll(entry => ids.Contains(entry.Id));
         Changed = true;
+        RefreshStationFilters();
         RefreshRows(fallbackIndex: index);
         FocusSelectedRow();
         HistoryStatus.Announce(selected.Length == 1
@@ -244,6 +282,18 @@ public partial class RadioRecognitionHistoryWindow : AccessibleWindow
     private void OpenProvider_Click(object sender, RoutedEventArgs e) => OpenProviderResult();
     private void Export_Click(object sender, RoutedEventArgs e) => Export();
     private void Delete_Click(object sender, RoutedEventArgs e) => DeleteSelected();
+}
+
+internal sealed record RecognitionStationFilter(string? Key, string Label)
+{
+    public string NavigationText => Label;
+
+    public static string KeyFor(RadioRecognizedTrackSettings entry) =>
+        string.IsNullOrWhiteSpace(entry.StationId)
+            ? $"name:{entry.StationName.Trim()}"
+            : $"id:{entry.StationId.Trim()}";
+
+    public override string ToString() => Label;
 }
 
 internal sealed class RecognitionHistoryRow(RadioRecognizedTrackSettings entry)

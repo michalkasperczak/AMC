@@ -115,6 +115,7 @@ public static class CommandIds
     public const string SettingsInterTrackSilence = "settings.playback.interTrackSilence";
     public const string SettingsPrefix = "settings.prefix";
     public const string SettingsPrefixTimeout = "settings.prefixTimeout";
+    public const string SettingsRadioRecognitionScope = "settings.radio.recognitionScope";
     public const string SettingsKeyboardProfile = "settings.keyboardProfile";
     public const string SettingsActivateKeyboardProfile = "settings.keyboardProfile.activate";
     public const string SettingsDuplicateKeyboardProfile = "settings.keyboardProfile.duplicate";

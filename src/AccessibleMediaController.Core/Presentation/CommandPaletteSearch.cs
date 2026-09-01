@@ -35,7 +35,8 @@ public static class CommandPaletteSearch
     public static IReadOnlyList<CommandPaletteEntry> CreateEntries(
         KeyboardProfile profile,
         AppSettings settings,
-        bool includeCommandPalette = false)
+        bool includeCommandPalette = false,
+        RadioSettings? radioSettings = null)
     {
         var shortcuts = profile.Bindings
             .GroupBy(pair => pair.Value, StringComparer.Ordinal)
@@ -50,14 +51,17 @@ public static class CommandPaletteSearch
             .Where(commandId => includeCommandPalette || commandId != CommandIds.CommandPalette)
             .Select(commandId => new CommandPaletteEntry(
                 commandId,
-                GetDisplayName(commandId, settings),
+                GetDisplayName(commandId, settings, radioSettings),
                 GetLocalShortcut(commandId),
                 shortcuts.GetValueOrDefault(commandId)))
             .OrderBy(entry => entry.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
     }
 
-    private static string GetDisplayName(string commandId, AppSettings settings)
+    private static string GetDisplayName(
+        string commandId,
+        AppSettings settings,
+        RadioSettings? radioSettings)
     {
         const string sessionSlotPrefix = "session.slot.";
         if (commandId.StartsWith(sessionSlotPrefix, StringComparison.Ordinal)
@@ -92,6 +96,8 @@ public static class CommandPaletteSearch
                 $"Komunikaty odtwarzania i pauzy: {OnOff(settings.Messages.PlaybackMessages)}. Enter: ustawienia",
             CommandIds.SettingsAutomaticRecognitionMessages =>
                 $"Oznajmianie automatycznie rozpoznanych utworów: {OnOff(settings.Messages.AutomaticRecognitionMessages)}. Enter: ustawienia",
+            CommandIds.SettingsRadioRecognitionScope =>
+                $"Zakres automatycznego rozpoznawania radia: {RadioRecognitionScopeRules.GetLabel(radioSettings?.AutomaticTrackRecognitionScope ?? RadioRecognitionScope.CurrentStation)}. Enter: ustawienia",
             CommandIds.SettingsLoudnessNormalization =>
                 $"Globalna normalizacja głośności: {OnOff(settings.Audio.LoudnessNormalizationEnabled)}. Enter: ustawienia",
             CommandIds.SettingsSmoothTrackTransitions =>

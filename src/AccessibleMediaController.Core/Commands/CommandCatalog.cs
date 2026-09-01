@@ -147,6 +147,7 @@ public static class CommandCatalog
             CommandIds.SettingsInterTrackSilence => "Ustawienia: cisza między utworami",
             CommandIds.SettingsPrefix => "Ustawienia: globalny prefiks",
             CommandIds.SettingsPrefixTimeout => "Ustawienia: czas oczekiwania po prefiksie",
+            CommandIds.SettingsRadioRecognitionScope => "Ustawienia: zakres automatycznego rozpoznawania radia",
             CommandIds.SettingsKeyboardProfile => "Ustawienia: profil klawiatury",
             CommandIds.SettingsActivateKeyboardProfile => "Ustawienia: aktywuj profil klawiatury",
             CommandIds.SettingsDuplicateKeyboardProfile => "Ustawienia: utwórz kopię profilu klawiatury",

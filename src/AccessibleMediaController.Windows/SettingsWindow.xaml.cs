@@ -94,6 +94,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.RadioRecordingsFolder => (RadioTab, RadioRecordingsFolderBox),
             SettingsTarget.RadioWakeScheduledRecordings => (RadioTab, WakeScheduledRadioRecordingsCheck),
             SettingsTarget.RadioAutomaticTrackRecognition => (RadioTab, AutomaticTrackRecognitionCheck),
+            SettingsTarget.RadioRecognitionScope => (RadioTab, RadioRecognitionScopeCombo),
             SettingsTarget.KeyboardProfile => (KeyboardProfilesTab, ProfileCombo),
             SettingsTarget.ActivateKeyboardProfile => (KeyboardProfilesTab, ActivateProfileButton),
             SettingsTarget.DuplicateKeyboardProfile => (KeyboardProfilesTab, DuplicateProfileButton),
@@ -153,6 +154,9 @@ public partial class SettingsWindow : Window
             _workingState.Radio.RecordingBitrateKbps.ToString());
         WakeScheduledRadioRecordingsCheck.IsChecked = _workingState.Radio.WakeScheduledRecordings;
         AutomaticTrackRecognitionCheck.IsChecked = _workingState.Radio.AutomaticTrackRecognitionEnabled;
+        SelectComboByTag(
+            RadioRecognitionScopeCombo,
+            _workingState.Radio.AutomaticTrackRecognitionScope.ToString());
         UpdateRadioRecordingControls();
 
         MessagesEnabledCheck.IsChecked = _workingState.Settings.Messages.Enabled;
@@ -222,6 +226,12 @@ public partial class SettingsWindow : Window
         _workingState.Radio.RecordingBitrateKbps = recordingBitrate;
         _workingState.Radio.WakeScheduledRecordings = WakeScheduledRadioRecordingsCheck.IsChecked == true;
         _workingState.Radio.AutomaticTrackRecognitionEnabled = AutomaticTrackRecognitionCheck.IsChecked == true;
+        if (Enum.TryParse<RadioRecognitionScope>(
+                SelectedTag(RadioRecognitionScopeCombo, nameof(RadioRecognitionScope.CurrentStation)),
+                out var recognitionScope))
+        {
+            _workingState.Radio.AutomaticTrackRecognitionScope = recognitionScope;
+        }
         if (!int.TryParse(TimeoutBox.Text, out var timeout) || timeout is < 250 or > 30000)
         {
             throw new InvalidDataException("Czas prefiksu musi mieścić się między 250 a 30000 ms.");

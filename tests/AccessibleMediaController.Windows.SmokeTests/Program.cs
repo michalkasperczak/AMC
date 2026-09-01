@@ -66,6 +66,7 @@ try
     TestRadioRecognitionAnnouncementPolicy();
     TestRadioRecognitionSchedulingPolicy();
     TestRadioRecognitionSettingAccessibility();
+    TestRadioRecognitionHistoryFilterAccessibility();
     TestPlaybackAudioSettingAccessibility();
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
@@ -782,6 +783,8 @@ static void TestRadioRecognitionSettingAccessibility()
             var state = new PersistedState();
             state.Settings.Messages.AutomaticRecognitionMessages = false;
             state.Radio.AutomaticTrackRecognitionEnabled = true;
+            state.Radio.AutomaticTrackRecognitionScope =
+                RadioRecognitionScope.CurrentAndRecordingStations;
             var store = new ConfigurationStore(
                 Path.Combine(directory, "state.json"),
                 Path.Combine(directory, "library.db"));
@@ -804,6 +807,17 @@ static void TestRadioRecognitionSettingAccessibility()
             Assert((AutomationProperties.GetHelpText(monitoringCheckbox) ?? string.Empty)
                     .Contains("ponownym uruchomieniu programu", StringComparison.Ordinal),
                 "Pole nie wyjaśnia, że ustawienie jest trwałe.");
+            var scopeCombo = (ComboBox)window.FindName("RadioRecognitionScopeCombo");
+            Assert((scopeCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString()
+                    == nameof(RadioRecognitionScope.CurrentAndRecordingStations),
+                "Pole zakresu nie wczytuje zapisanego wyboru.");
+            Assert((AutomationProperties.GetName(scopeCombo) ?? string.Empty)
+                    == "Zakres automatycznego rozpoznawania utworów",
+                "Pole zakresu nie ma jednoznacznej nazwy dla NVDA.");
+            Assert(scopeCombo.Items.OfType<ComboBoxItem>().All(item =>
+                    !(AutomationProperties.GetName(item) ?? item.Content?.ToString() ?? string.Empty)
+                        .Contains('{', StringComparison.Ordinal)),
+                "Wariant zakresu ujawnia techniczny zapis obiektu.");
         }
         catch (Exception exception)
         {
@@ -833,6 +847,68 @@ static void TestRadioRecognitionSettingAccessibility()
     }
 
     Console.WriteLine("OK: dostępne ustawienia obserwowania i oznajmiania rozpoznanych utworów");
+}
+
+static void TestRadioRecognitionHistoryFilterAccessibility()
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        RadioRecognitionHistoryWindow? window = null;
+        try
+        {
+            var entries = new List<RadioRecognizedTrackSettings>
+            {
+                new()
+                {
+                    Id = "one",
+                    StationId = "station-one",
+                    StationName = "Radio Jeden",
+                    Title = "Pierwszy utwór",
+                    RecognizedUtcTicks = DateTime.UtcNow.Ticks
+                },
+                new()
+                {
+                    Id = "two",
+                    StationId = "station-two",
+                    StationName = "Radio Dwa",
+                    Title = "Drugi utwór",
+                    RecognizedUtcTicks = DateTime.UtcNow.AddMinutes(-1).Ticks
+                }
+            };
+            window = new RadioRecognitionHistoryWindow(entries);
+            var combo = (ComboBox)window.FindName("StationFilterCombo");
+            var filters = combo.Items.OfType<RecognitionStationFilter>().ToArray();
+            Assert(filters.Length == 3 && filters[0].Label == "Wszystkie stacje",
+                "Filtr historii nie zawiera wszystkich stacji i dwóch nazw stacji.");
+            Assert(filters.All(filter => filter.ToString() == filter.Label
+                                         && !filter.ToString().Contains('{', StringComparison.Ordinal)),
+                "Filtr historii ujawnia techniczny zapis obiektu.");
+            Assert((AutomationProperties.GetName(combo) ?? string.Empty)
+                    == "Filtr historii według stacji",
+                "Filtr historii nie ma użytkowej nazwy dla NVDA.");
+            combo.SelectedItem = filters.Single(filter => filter.Label == "Radio Dwa");
+            var list = (ListBox)window.FindName("HistoryList");
+            Assert(list.Items.Count == 1
+                   && list.Items.OfType<RecognitionHistoryRow>().Single().Entry.StationName == "Radio Dwa",
+                "Wybranie stacji nie ograniczyło listy historii.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+        finally
+        {
+            window?.Close();
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    if (failure is not null)
+        throw new InvalidOperationException("Test filtra historii rozpoznawania nie powiódł się.", failure);
+
+    Console.WriteLine("OK: dostępny filtr historii rozpoznawania według stacji");
 }
 
 static void TestPlaybackAudioSettingAccessibility()
@@ -2208,6 +2284,14 @@ static void TestRadioRecordingSplitPipeline()
         firstPath,
         partNumber => $"Audycja-{partNumber:00}");
 
+    backend.RecentAudio = new RadioAudioSnapshot(
+        new byte[48_000 * 2 * 2 * 3],
+        new WaveFormat(48_000, 16, 2),
+        TimeSpan.FromSeconds(3));
+    Assert(control.TryGetRecentAudio(TimeSpan.FromSeconds(3), out var recognitionAudio)
+           && recognitionAudio?.Duration == TimeSpan.FromSeconds(3),
+        "Kontroler nagrania nie udostępnia bufora rozpoznawaniu bez drugiego połączenia ze stacją.");
+
     var firstTarget = control.CaptureBookmarkTarget();
     Assert(firstTarget is not null
            && string.Equals(firstTarget.Path, firstPath, StringComparison.OrdinalIgnoreCase)
@@ -2991,6 +3075,14 @@ sealed class TestRadioRecordingBackend(string initialPath) : IRadioRecordingBack
     public bool IsRecordingPaused { get; private set; }
     public TimeSpan RecordingDuration => TimeSpan.FromMinutes(_part);
     public string CurrentPath { get; private set; } = initialPath;
+
+    public RadioAudioSnapshot? RecentAudio { get; set; }
+
+    public bool TryGetRecentAudio(TimeSpan duration, out RadioAudioSnapshot? snapshot)
+    {
+        snapshot = RecentAudio;
+        return snapshot is not null;
+    }
 
     public string StartRecording(
         string folder,

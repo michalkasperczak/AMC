@@ -38,6 +38,8 @@ Starting with `alpha.179`, the global prefix is no longer typed into an ordinary
 
 Starting with `alpha.180`, Shazam monitoring is persistent. **Settings > Radio and recording > Automatically monitor and recognise tracks while Radio is playing** and `Shift+S` control the same state and save it immediately; after restarting AMC, monitoring remains as the user left it. It may also be enabled before a station starts. The first attempt runs about six seconds after reception begins, and a missing result schedules another attempt after 15 seconds instead of waiting another full minute. The ordinary interval remains one minute after a successful match. The independent checkbox under **Messages** continues to control speech only.
 
+Starting with `alpha.188`, **Radio and recording** settings provide three automatic-recognition scopes: the currently heard station, stations being recorded in the background, or both. `Shift+S` toggles monitoring for the stored scope, while manual `S` always targets only the heard station. A background recording is recognised from its existing private decoded-audio buffer, without opening a second station connection or changing the recorded file. The same station received by playback and recording is checked only once per cycle. `Ctrl+Alt+S` still opens one history, now with a station filter. “All sources” means only sources AMC is actually receiving, never the whole Radio catalogue.
+
 Starting with `alpha.181`, automatic persistence of playback positions,
 history, Radio settings and other session state no longer performs a complete
 SQLite transaction on the UI thread. One background queue stores immutable

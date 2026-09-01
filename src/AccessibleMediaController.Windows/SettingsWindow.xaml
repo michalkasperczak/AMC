@@ -126,11 +126,22 @@
                         <GroupBox Header="Rozpoznawanie utworów" Margin="0,0,0,14">
                             <StackPanel Margin="8">
                                 <CheckBox x:Name="AutomaticTrackRecognitionCheck"
-                                          Content="Automatycznie _obserwuj i rozpoznawaj utwory podczas odtwarzania radia"
-                                          automation:AutomationProperties.Name="Automatycznie obserwuj i rozpoznawaj utwory podczas odtwarzania radia"
-                                          automation:AutomationProperties.HelpText="Ustawienie jest zapamiętywane. Po włączeniu AMC rozpoczyna rozpoznawanie kilka sekund po uruchomieniu każdej stacji i kontynuuje je do czasu wyłączenia tej opcji, także po ponownym uruchomieniu programu." />
+                                          Content="Automatycznie _obserwuj i rozpoznawaj utwory"
+                                          automation:AutomationProperties.Name="Automatycznie obserwuj i rozpoznawaj utwory"
+                                          automation:AutomationProperties.HelpText="Ustawienie jest zapamiętywane. Zakres obserwowania wybiera się w następnym polu. Rozpoznawanie trwa do czasu wyłączenia tej opcji, także po ponownym uruchomieniu programu." />
+                                <Label Margin="0,10,0,0" Target="{Binding ElementName=RadioRecognitionScopeCombo}">_Rozpoznawaj automatycznie:</Label>
+                                <ComboBox x:Name="RadioRecognitionScopeCombo" Width="430" HorizontalAlignment="Left"
+                                          automation:AutomationProperties.Name="Zakres automatycznego rozpoznawania utworów"
+                                          automation:AutomationProperties.HelpText="Wybierz stację aktualnie słuchaną, stacje nagrywane w tle albo oba rodzaje źródeł. AMC korzysta z już odbieranego dźwięku i nie otwiera dodatkowego połączenia ze stacją.">
+                                    <ComboBoxItem Tag="CurrentStation"
+                                                  automation:AutomationProperties.Name="Tylko aktualnie odtwarzana stacja">Tylko aktualnie odtwarzana stacja</ComboBoxItem>
+                                    <ComboBoxItem Tag="RecordingStations"
+                                                  automation:AutomationProperties.Name="Tylko stacje nagrywane w tle">Tylko stacje nagrywane w tle</ComboBoxItem>
+                                    <ComboBoxItem Tag="CurrentAndRecordingStations"
+                                                  automation:AutomationProperties.Name="Aktualnie odtwarzana stacja i wszystkie stacje nagrywane w tle">Aktualnie odtwarzana stacja i wszystkie stacje nagrywane w tle</ComboBoxItem>
+                                </ComboBox>
                                 <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
-                                           Text="Ten sam przełącznik jest dostępny w odtwarzaczu radia pod Shift+S. Oznajmianie wyników można niezależnie wyłączyć na karcie Komunikaty; wyniki nadal trafiają wtedy do historii rozpoznanych utworów." />
+                                           Text="Shift+S w odtwarzaczu radia włącza lub wyłącza obserwowanie dla wybranego tutaj zakresu. Ręczne S zawsze rozpoznaje wyłącznie słuchaną stację. Oznajmianie wyników można niezależnie wyłączyć na karcie Komunikaty; wyniki nadal trafiają wtedy do jednej historii, którą można filtrować według stacji." />
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Domyślny folder nagrywania" Margin="0,0,0,14">

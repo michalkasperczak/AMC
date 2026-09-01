@@ -1208,6 +1208,23 @@ planowana około sześciu sekund po uruchomieniu stacji. Nieudana próba otrzymu
 ponowienie po 15 sekundach, a dopiero wynik udany przywraca zwykły interwał
 około jednej minuty.
 
+Od `alpha.188` zakres automatycznego obserwowania jest osobnym, trwałym
+ustawieniem na karcie **Radio i nagrywanie**. Dostępne są trzy warianty:
+wyłącznie aktualnie słuchana stacja, wyłącznie stacje nagrywane w tle oraz
+słuchana stacja razem ze wszystkimi stacjami nagrywanymi. „Wszystkie” nie
+oznacza całego katalogu, lecz tylko strumienie rzeczywiście odbierane przez
+AMC. `Shift+S` włącza lub wyłącza obserwowanie dla zapisanego zakresu, a ręczne
+`S` nadal zawsze dotyczy stacji słuchanej.
+
+Prywatne tory nagrywania udostępniają rozpoznawaniu ograniczony wycinek swojego
+już zdekodowanego bufora. Nie powstaje drugie połączenie sieciowe, nagranie nie
+jest ponownie kodowane, a pauzowane nagranie nie jest rozpoznawane. Jeżeli ta
+sama stacja jest równocześnie słuchana i nagrywana, w jednym cyklu występuje
+tylko raz. Automatyczne źródła są sprawdzane kolejno, dzięki czemu liczba
+aktywnych nagrań nie uruchamia równoległej serii zapytań. Historia pozostaje
+jedna i uporządkowana od najnowszego wpisu; pole **Pokaż wpisy** ogranicza jej
+widok do wybranej stacji bez usuwania danych.
+
 Automatyczny wynik może zostać wypowiedziany tylko wtedy, gdy główne okno AMC
 jest aktywne, komunikaty dostępności są włączone i włączona jest omawiana
 opcja. Po przejściu do innego programu wynik trafia do historii bez

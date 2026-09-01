@@ -1176,6 +1176,21 @@ same setting. The first attempt is scheduled about six seconds after a station
 starts. A failed attempt is retried after 15 seconds; a successful match returns
 monitoring to the ordinary interval of about one minute.
 
+Starting with `alpha.188`, automatic-monitoring scope is a separate persisted
+setting under **Radio and recording**. The choices are the currently heard
+station only, background-recorded stations only, or the heard station together
+with every background recording. “Every” means streams AMC is actually
+receiving, never the whole directory. `Shift+S` toggles monitoring for the
+stored scope, while manual `S` continues to target the heard station only.
+
+Private recording pipelines expose a bounded slice of their already decoded
+buffer to recognition. AMC opens no second network connection, does not
+re-encode the recording, and does not recognise a paused recording. A station
+that is heard and recorded at the same time is checked only once per cycle.
+Automatic sources are processed sequentially rather than through a burst of
+parallel requests. History remains a single newest-first collection; the
+**Show entries** control filters its view by station without deleting data.
+
 An automatic result may be spoken only when AMC's main window is active, the
 master accessibility messages setting is enabled and this specific option is
 enabled. After focus moves to another application, the result is stored in

@@ -603,6 +603,8 @@ static void TestRadioRecognitionHistoryPersistence()
         var state = ConfigurationStore.CreateDefaultState();
         Equal(false, state.Radio.AutomaticTrackRecognitionEnabled);
         state.Radio.AutomaticTrackRecognitionEnabled = true;
+        state.Radio.AutomaticTrackRecognitionScope =
+            RadioRecognitionScope.CurrentAndRecordingStations;
         state.Radio.RecognizedTracks =
         [
             new RadioRecognizedTrackSettings
@@ -627,6 +629,14 @@ static void TestRadioRecognitionHistoryPersistence()
 
         var loaded = store.LoadOrCreate();
         Equal(true, loaded.Radio.AutomaticTrackRecognitionEnabled);
+        Equal(RadioRecognitionScope.CurrentAndRecordingStations,
+            loaded.Radio.AutomaticTrackRecognitionScope);
+        Equal(true, RadioRecognitionScopeRules.IncludesCurrentStation(
+            loaded.Radio.AutomaticTrackRecognitionScope));
+        Equal(true, RadioRecognitionScopeRules.IncludesRecordingStations(
+            loaded.Radio.AutomaticTrackRecognitionScope));
+        Equal("aktualnie odtwarzana stacja i wszystkie stacje nagrywane w tle",
+            RadioRecognitionScopeRules.GetLabel(loaded.Radio.AutomaticTrackRecognitionScope));
         Equal(1, loaded.Radio.RecognizedTracks.Count);
         var entry = loaded.Radio.RecognizedTracks[0];
         Equal("recognized-a", entry.Id);
@@ -2949,7 +2959,14 @@ static void TestCommandPalette()
     var settings = new AppSettings();
     settings.Messages.Enabled = true;
     settings.Messages.DetailedHints = false;
-    var entries = CommandPaletteSearch.CreateEntries(profile, settings);
+    var radioSettings = new RadioSettings
+    {
+        AutomaticTrackRecognitionScope = RadioRecognitionScope.CurrentAndRecordingStations
+    };
+    var entries = CommandPaletteSearch.CreateEntries(
+        profile,
+        settings,
+        radioSettings: radioSettings);
 
     True(entries.Count >= 40, "Paleta powinna zawierać pełny katalog poleceń.");
     True(entries.All(entry => entry.CommandId != CommandIds.CommandPalette), "Paleta nie powinna uruchamiać samej siebie.");
@@ -2977,6 +2994,9 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+H (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ManageRadioSchedules).LocalShortcut);
     True(entries.Any(entry => entry.CommandId == CommandIds.ViewFolders), "Paleta powinna zawierać widok folderów.");
     True(entries.Any(entry => entry.CommandId == CommandIds.SettingsSessionOrder), "Paleta powinna zawierać ustawienia kolejności sesji.");
+    Equal(
+        "Zakres automatycznego rozpoznawania radia: aktualnie odtwarzana stacja i wszystkie stacje nagrywane w tle. Enter: ustawienia",
+        entries.Single(entry => entry.CommandId == CommandIds.SettingsRadioRecognitionScope).DisplayName);
     Equal("Ctrl+H", entries.Single(entry => entry.CommandId == CommandIds.ViewHistory).LocalShortcut);
     var bookmarks = entries.Single(entry => entry.CommandId == CommandIds.ViewBookmarks);
     Equal("Ctrl+B", bookmarks.LocalShortcut);
@@ -3568,6 +3588,8 @@ static void TestTimeCommands()
     Equal(SettingsTarget.PlaybackMessages, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsAutomaticRecognitionMessages);
     Equal(SettingsTarget.AutomaticRecognitionMessages, actions.LastSettingsTarget);
+    router.Execute(CommandIds.SettingsRadioRecognitionScope);
+    Equal(SettingsTarget.RadioRecognitionScope, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsPausePlaybackWhenLeavingPlayer);
     Equal(SettingsTarget.PausePlaybackWhenLeavingPlayer, actions.LastSettingsTarget);
     router.Execute(CommandIds.SettingsFollowPlaybackOnPlayerExit);

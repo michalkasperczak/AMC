@@ -1,12 +1,78 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-187`
-- Tytuł zestawu: Cały blok numeryczny jako globalny prefiks
-- Wersja programu: `0.1.0-alpha.187`
+- Numer zestawu: `AMC-TEST-188`
+- Tytuł zestawu: Zakres automatycznego rozpoznawania i filtr historii
+- Wersja programu: `0.1.0-alpha.188`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.187.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.188.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 188
+
+### AMC-188-01 — zakres tylko dla słuchanej stacji
+
+W **Ustawienia > Radio i nagrywanie** włącz automatyczne rozpoznawanie i w
+polu **Rozpoznawaj automatycznie** wybierz **Tylko aktualnie odtwarzana
+stacja**. Uruchom stację muzyczną, odczekaj co najmniej minutę, a następnie
+sprawdź historię pod `Ctrl+Alt+S`.
+
+Oczekiwane: rozpoznawany jest dźwięk rzeczywiście słuchany, również z bieżącej
+pozycji timeshiftu. `Shift+S` wyłącza i ponownie włącza obserwowanie, ale nie
+zmienia zapisanego zakresu. Ręczne `S` nadal dotyczy tej stacji.
+
+### AMC-188-02 — tylko nagrania w tle
+
+Wybierz **Tylko stacje nagrywane w tle**. Rozpocznij `Ctrl+Alt+R` nagrywanie
+jednej stacji, a słuchaj innej. Pozostaw oba źródła na co najmniej minutę i
+otwórz historię.
+
+Oczekiwane: nowe automatyczne wpisy pochodzą ze stacji nagrywanej, a nie ze
+stacji słuchanej. Nagranie działa bez przerwy i bez drugiego połączenia
+widocznego jako osobne odtwarzanie. Ręczne `S` mimo tego ustawienia rozpoznaje
+stację słuchaną.
+
+### AMC-188-03 — słuchana i kilka nagrywanych stacji
+
+Wybierz **Aktualnie odtwarzana stacja i wszystkie stacje nagrywane w tle**.
+Słuchaj jednej stacji i nagrywaj w tle co najmniej dwie. Jeżeli jedną z nich
+jest stacja słuchana, pozostaw taki układ przez kilka cykli.
+
+Oczekiwane: historia przyjmuje wyniki ze wszystkich rzeczywiście odbieranych
+źródeł. Ta sama stacja słuchana i nagrywana nie tworzy podwójnego zapytania w
+jednym cyklu. Program, nagrania, fokus i skróty pozostają responsywne.
+
+### AMC-188-04 — pauza nagrania i trwałość ustawienia
+
+W zakresie obejmującym nagrania wstrzymaj jedną nagrywaną stację przez
+`Shift+Spacja`. Zapisz Ustawienia, zamknij AMC dopiero po bezpiecznym
+zakończeniu nagrań, uruchom je ponownie i odczytaj zakres.
+
+Oczekiwane: wstrzymane nagranie nie dostarcza nowych automatycznych wyników.
+Po wznowieniu może znów być rozpoznawane. Zakres i stan `Shift+S` są zachowane
+po ponownym uruchomieniu.
+
+### AMC-188-05 — jedna historia i filtr stacji
+
+Otwórz `Ctrl+Alt+S`. Tabem przejdź do pola **Pokaż wpisy**, wybierz kolejno
+**Wszystkie stacje** i dwie konkretne stacje. W każdym widoku zaznacz wpisy,
+sprawdź `Ctrl+C`, `Ctrl+Shift+C`, menu kontekstowe i powrót do listy.
+
+Oczekiwane: NVDA czyta wyłącznie użytkowe nazwy filtra i stacji. Lista pokazuje
+tylko wybraną stację, a powrót do wszystkich przywraca wspólną historię.
+Filtrowanie nie usuwa danych; kopiowanie i działania dotyczą widocznego
+zaznaczenia.
+
+### AMC-188-06 — niezależne oznajmianie
+
+Na karcie **Komunikaty** wyłącz oznajmianie automatycznie rozpoznanych utworów,
+pozostaw `Shift+S` włączone i użyj zakresu obejmującego nagrania w tle.
+
+Oczekiwane: wyniki ze wszystkich wybranych źródeł nadal trafiają do historii,
+ale nie są wypowiadane. Po ponownym włączeniu komunikat zawiera nazwę stacji i
+pojawia się tylko w aktywnym oknie AMC.
+
+## Poprzedni zestaw alpha 187
 
 ## Nowości alpha 187
 

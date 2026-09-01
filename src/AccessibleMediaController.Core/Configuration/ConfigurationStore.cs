@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 37;
+    public const int CurrentSchemaVersion = 38;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -403,6 +403,8 @@ public sealed class ConfigurationStore
         state.Radio.Volume = Math.Clamp(state.Radio.Volume, 0, 100);
         state.Radio.TimeshiftMinutes = Math.Clamp(state.Radio.TimeshiftMinutes, 1, 60);
         state.Radio.RecordingsFolder = state.Radio.RecordingsFolder?.Trim() ?? string.Empty;
+        if (!Enum.IsDefined(state.Radio.AutomaticTrackRecognitionScope))
+            state.Radio.AutomaticTrackRecognitionScope = RadioRecognitionScope.CurrentStation;
         if (!Enum.IsDefined(state.Radio.RecordingFormat))
             state.Radio.RecordingFormat = RadioRecordingFormat.Mp3;
         state.Radio.RecordingBitrateKbps = NormalizeRadioRecordingBitrate(

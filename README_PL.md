@@ -40,6 +40,8 @@ Od `alpha.179` globalnego prefiksu nie wpisuje się już ręcznie w zwykłym pol
 
 Od `alpha.180` obserwowanie Shazam jest ustawieniem trwałym. Pole **Ustawienia > Radio i nagrywanie > Automatycznie obserwuj i rozpoznawaj utwory podczas odtwarzania radia** oraz `Shift+S` sterują tym samym stanem i zapisują go od razu; po ponownym uruchomieniu AMC obserwowanie pozostaje takie, jakie użytkownik zostawił. Włączenie jest możliwe również przed uruchomieniem stacji. Pierwsza próba następuje około sześciu sekund po rozpoczęciu odbioru, a brak wyniku powoduje ponowną próbę po 15 sekundach zamiast oczekiwania kolejnej pełnej minuty. Po udanym rozpoznaniu zwykły interwał pozostaje minutowy. Niezależna opcja na karcie **Komunikaty** nadal decyduje tylko o wypowiadaniu automatycznych wyników.
 
+Od `alpha.188` karta **Radio i nagrywanie** pozwala wybrać zakres automatycznego rozpoznawania: tylko aktualnie słuchana stacja, tylko stacje nagrywane w tle albo oba rodzaje źródeł. `Shift+S` przełącza obserwowanie dla zapisanego zakresu, natomiast ręczne `S` zawsze dotyczy wyłącznie słuchanej stacji. Nagrania w tle są rozpoznawane z ich istniejącego, prywatnego bufora dekodera, bez drugiego połączenia ze stacją i bez zmiany pliku nagrania. Ta sama stacja odbierana równocześnie przez odtwarzacz i nagrywanie jest sprawdzana tylko raz w cyklu. `Ctrl+Alt+S` nadal otwiera jedną historię, lecz nowe pole **Pokaż wpisy** filtruje ją według stacji. „Wszystkie źródła” oznaczają wyłącznie źródła faktycznie odbierane przez AMC, nigdy cały katalog Radia.
+
 Od `alpha.181` automatyczny zapis pozycji, historii, ustawień Radia i stanu
 pozostałych sesji nie wykonuje pełnej transakcji SQLite na wątku interfejsu.
 Jedna kolejka zapisuje migawki w tle i łączy kilka szybkich zmian, zachowując

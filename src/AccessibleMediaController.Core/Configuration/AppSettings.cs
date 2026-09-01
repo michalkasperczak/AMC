@@ -23,6 +23,32 @@ public enum ResumePositionMode
     StartFromBeginning
 }
 
+public enum RadioRecognitionScope
+{
+    CurrentStation,
+    RecordingStations,
+    CurrentAndRecordingStations
+}
+
+public static class RadioRecognitionScopeRules
+{
+    public static bool IncludesCurrentStation(RadioRecognitionScope scope) =>
+        scope is RadioRecognitionScope.CurrentStation
+            or RadioRecognitionScope.CurrentAndRecordingStations;
+
+    public static bool IncludesRecordingStations(RadioRecognitionScope scope) =>
+        scope is RadioRecognitionScope.RecordingStations
+            or RadioRecognitionScope.CurrentAndRecordingStations;
+
+    public static string GetLabel(RadioRecognitionScope scope) => scope switch
+    {
+        RadioRecognitionScope.RecordingStations => "tylko stacje nagrywane w tle",
+        RadioRecognitionScope.CurrentAndRecordingStations =>
+            "aktualnie odtwarzana stacja i wszystkie stacje nagrywane w tle",
+        _ => "tylko aktualnie odtwarzana stacja"
+    };
+}
+
 public sealed class AppSettings
 {
     public string InterfaceLanguage { get; set; } = "pl-PL";
@@ -189,7 +215,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 37;
+    public int SchemaVersion { get; set; } = 38;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -358,6 +384,8 @@ public sealed class RadioSettings
     public int RecordingBitrateKbps { get; set; } = 192;
     public bool WakeScheduledRecordings { get; set; }
     public bool AutomaticTrackRecognitionEnabled { get; set; }
+    public RadioRecognitionScope AutomaticTrackRecognitionScope { get; set; } =
+        RadioRecognitionScope.CurrentStation;
     public List<RadioRecordingScheduleSettings> RecordingSchedules { get; set; } = [];
     public List<RadioRecognizedTrackSettings> RecognizedTracks { get; set; } = [];
 }
