@@ -1,12 +1,46 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-200`
-- Tytuł zestawu: Bezpieczne usuwanie fragmentu z oryginalnego pliku
-- Wersja programu: `0.1.0-alpha.200`
+- Numer zestawu: `AMC-TEST-201`
+- Tytuł zestawu: Odporny podział ręcznego nagrania radia
+- Wersja programu: `0.1.0-alpha.201`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.200.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.201.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowość alpha 201
+
+### AMC-201-01 — pojedyncze T i dalsze nagrywanie
+
+Rozpocznij ręczne nagrywanie stacji, odczekaj co najmniej kilkanaście sekund i
+naciśnij `T` jeden raz.
+
+Oczekiwane: AMC zapisuje dotychczasową część i od razu rozpoczyna kolejną.
+Stacja pozostaje na liście Nagrywane, a nagranie nie kończy się.
+
+### AMC-201-02 — szybkie podwójne T
+
+Podczas dłuższego ręcznego nagrania naciśnij `T` dwa razy szybko.
+
+Oczekiwane: pierwszy klawisz rozpoczyna nową część. Drugi nie zamyka świeżego
+pliku i nie zatrzymuje nagrania; NVDA mówi, że ponowne `T` zostało pominięte.
+
+### AMC-201-03 — zakończona część w Bibliotece
+
+Po pierwszym `T`, gdy następna część nadal się nagrywa, przejdź do Plików
+lokalnych i wyszukaj pierwszą zakończoną część.
+
+Oczekiwane: pierwsza część jest już widoczna i możliwa do odtworzenia. Nie
+trzeba kończyć drugiej części ani ponownie uruchamiać AMC.
+
+### AMC-201-04 — T i Shift+T
+
+W Radiu sprawdź Pomoc klawiszy oraz oba klawisze podczas nagrywania.
+
+Oczekiwane: wyłącznie `T` dzieli ręczne nagranie. `Shift+T` nie tworzy części
+i zachowuje swoje dotychczasowe znaczenie w obsługiwanych odtwarzaczach.
+
+## Poprzedni zestaw alpha 200
 
 ## Nowość alpha 200
 

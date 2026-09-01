@@ -1,5 +1,7 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.201` protects manual Radio recording splits from a rapid double press of `T`. The first press finalises the current part and immediately continues into a new file; another `T` during the first five seconds of that new part is safely ignored instead of stopping the recording. Every finalised part is added to the Local Library immediately while the next part continues recording. `Shift+T` keeps its existing meaning and is not a second split command.
+
 Version `alpha.200` adds explicit removal of the marked interval from the original audio file through `Ctrl+X` in the player. The operation requires a confirmation whose default is No, stops playback, does not re-encode the audio, validates the completed result and only then replaces the source. A complete byte-identical copy receives an `.amc-backup` suffix; failure leaves the original unchanged. Cloud placeholders and video files are safely rejected.
 
 Version `alpha.199` stores a separate fragment selection for every local file in the SQLite Library database. Start and end marks return after changing files or restarting AMC. `Shift+X` removes only the current file's selection; the source file remains untouched.

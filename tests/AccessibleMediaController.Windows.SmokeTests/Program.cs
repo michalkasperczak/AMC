@@ -2625,6 +2625,14 @@ static void TestRadioRecordingSplitPipeline()
     Assert(control.CompletedPaths.Count == 1 && control.CurrentPath == split.CurrentPath,
         "Kontroler nie zapamiętał pierwszej i bieżącej części.");
 
+    var repeatedSplit = control.SplitRecording();
+    Assert(repeatedSplit.Kind == RadioRecordingSplitChangeKind.TooSoon,
+        "Szybkie podwójne T nie zostało bezpiecznie pominięte.");
+    Assert(backend.IsRecording
+           && control.CompletedPaths.Count == 1
+           && string.Equals(control.CurrentPath, split.CurrentPath, StringComparison.OrdinalIgnoreCase),
+        "Drugie szybkie T zatrzymało albo ponownie podzieliło świeżą część nagrania.");
+
     var secondTarget = control.CaptureBookmarkTarget();
     Assert(secondTarget is not null
            && string.Equals(secondTarget.Path, split.CurrentPath, StringComparison.OrdinalIgnoreCase)
@@ -2657,7 +2665,7 @@ static void TestRadioRecordingSplitPipeline()
         "Późny podział po zatrzymaniu uruchomił nową część.");
     stoppingControl.StopCurrentSegment(stoppingBackend);
     stoppingControl.Detach(stoppingBackend);
-    Console.WriteLine("OK: zakładki nagrania zachowują nazwy, części i czas");
+    Console.WriteLine("OK: zakładki, części i szybkie podwójne T zachowują stan nagrania");
 }
 
 static void TestRadioRecordingStagingPublication()
@@ -3364,11 +3372,12 @@ sealed class PositionedConstantSampleProvider(
 sealed class TestRadioRecordingBackend(string initialPath) : IRadioRecordingBackend
 {
     private int _part = 1;
+    private TimeSpan _recordingDuration = TimeSpan.FromMinutes(1);
 
     public bool IsRecording { get; private set; } = true;
     public bool CanPauseRecording => true;
     public bool IsRecordingPaused { get; private set; }
-    public TimeSpan RecordingDuration => TimeSpan.FromMinutes(_part);
+    public TimeSpan RecordingDuration => _recordingDuration;
     public string CurrentPath { get; private set; } = initialPath;
 
     public RadioAudioSnapshot? RecentAudio { get; set; }
@@ -3389,6 +3398,7 @@ sealed class TestRadioRecordingBackend(string initialPath) : IRadioRecordingBack
         CurrentPath = Path.Combine(folder, $"{preferredBaseName ?? $"part-{_part}"}.wav");
         IsRecording = true;
         IsRecordingPaused = false;
+        _recordingDuration = TimeSpan.Zero;
         return CurrentPath;
     }
 

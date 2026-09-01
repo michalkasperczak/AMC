@@ -7685,6 +7685,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (change.Kind == RadioRecordingSplitChangeKind.Split
             && !string.IsNullOrWhiteSpace(change.CurrentPath))
         {
+            if (!string.IsNullOrWhiteSpace(change.CompletedPath))
+                ImportCompletedRadioRecording(change.CompletedPath);
             active.Path = change.CurrentPath;
             RefreshRadioRecordingPresentation();
             var partNumber = active.Control.CompletedPaths.Count + 1;
@@ -7699,12 +7701,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (change.Kind == RadioRecordingSplitChangeKind.TooSoon)
+        {
+            Announce("Nowa część nagrania już trwa. Ponowne T pominięte");
+            return;
+        }
+
         if (change.Kind == RadioRecordingSplitChangeKind.StopRequested)
         {
             RefreshRadioRecordingPresentation();
             return;
         }
 
+        DiagnosticLog.Warning(
+            "radio-recording",
+            $"Nie udało się rozpocząć nowej części nagrania {active.StationName}: {change.Error}");
         active.Cancellation.Cancel();
         AnnounceEssential($"Nie udało się rozpocząć nowej części nagrania: {change.Error}");
     }
@@ -7855,6 +7866,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RefreshRadioRecognitionScheduleAfterSourceChange();
         var suppressAnnouncement = _bulkStoppedManualRadioRecordings.Remove(active.Id);
         active.Cancellation.Dispose();
+        ImportCompletedRadioRecordings(active.Control.CompletedPaths);
         PersistRadioRecordingBookmarks(active.Control);
         if (_isClosing) return;
         RefreshRadioRecordingPresentation();
@@ -10618,6 +10630,55 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         RestoreMediaListFocusAfterRefresh();
+    }
+
+    private void ImportCompletedRadioRecordings(IEnumerable<string> paths)
+    {
+        var changed = false;
+        foreach (var path in paths
+                     .Where(path => !string.IsNullOrWhiteSpace(path))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            changed |= ImportCompletedRadioRecording(path, refreshAndSave: false);
+        }
+        if (!changed) return;
+        RefreshLocalSessionItems();
+        TrySaveLocalMediaState(false);
+    }
+
+    private bool ImportCompletedRadioRecording(string path, bool refreshAndSave = true)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
+        try
+        {
+            var normalizedPath = Path.GetFullPath(path);
+            RemoveLocalExclusions([normalizedPath]);
+            var import = LocalLibraryImporter.Import(_localItems, [normalizedPath]);
+            var changed = import.AddedItems.Count > 0 || import.RestoredItems.Count > 0;
+            if (refreshAndSave && changed)
+            {
+                RefreshLocalSessionItems();
+                TrySaveLocalMediaState(false);
+            }
+            if (changed)
+            {
+                DiagnosticLog.Info(
+                    "radio-recording",
+                    $"Dodano zakończoną część nagrania do biblioteki lokalnej: {normalizedPath}.");
+            }
+            return changed;
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or InvalidDataException)
+        {
+            DiagnosticLog.Error(
+                "radio-recording",
+                $"Nie udało się dodać zakończonej części nagrania do biblioteki: {path}.",
+                exception);
+            return false;
+        }
     }
 
     private bool TryReturnFromTransientRadioView()

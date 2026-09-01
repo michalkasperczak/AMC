@@ -30,6 +30,7 @@ internal enum RadioRecordingSplitChangeKind
     Split,
     StopRequested,
     NotReady,
+    TooSoon,
     Failed
 }
 
@@ -100,6 +101,7 @@ internal sealed class RadioRecordingControl
     private readonly object _gate = new();
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private static readonly TimeSpan BookmarkDuplicateTolerance = TimeSpan.FromSeconds(1);
+    internal static readonly TimeSpan MinimumSplitSegmentDuration = TimeSpan.FromSeconds(5);
     private readonly List<RadioRecordingBookmarkMarker> _markers = [];
     private readonly List<string> _completedPaths = [];
     private IRadioRecordingBackend? _backend;
@@ -373,6 +375,10 @@ internal sealed class RadioRecordingControl
                 || string.IsNullOrWhiteSpace(currentPath))
             {
                 return new RadioRecordingSplitChange(RadioRecordingSplitChangeKind.NotReady);
+            }
+            if (backend.RecordingDuration < MinimumSplitSegmentDuration)
+            {
+                return new RadioRecordingSplitChange(RadioRecordingSplitChangeKind.TooSoon);
             }
             var wasPaused = backend.IsRecordingPaused;
             string? completedPath = null;
