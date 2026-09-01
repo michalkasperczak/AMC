@@ -1,5 +1,7 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.197` instaluje i aktualizuje własny, oddzielny składnik FFmpeg 9 dla Windows x64. AMC korzysta ze stabilnego wariantu LGPL shared od dostawcy wskazanego na oficjalnej stronie FFmpeg, porównuje pobrane archiwum z sumą SHA-256 wydania i przed uaktywnieniem sprawdza program, wersję oraz wariant licencji. Aktualizacja odbywa się w tle, wersjami i bez usuwania działającej kopii po błędzie. `Shift+I` i `Shift+O` przechodzą odpowiednio do zaznaczonego początku i końca fragmentu.
+
 Wersja `alpha.196` dodaje pierwsze bezpieczne narzędzie do wycinania nagrań. W odtwarzaczu Plików lokalnych `I` oznacza początek, `O` koniec, `X` otwiera zapis fragmentu, a `Shift+X` usuwa zaznaczenie. Operacja zawsze tworzy nowy plik i nie modyfikuje źródła. Dokładny WAV działa bez dodatkowych składników; zapis bez konwersji oraz dokładny FLAC są dostępne po wykryciu właściwego FFmpeg.
 
 Korekta `alpha.195` rozdziela dwa sposoby korzystania z Historii odtwarzania. Świadome otwarcie elementu z listy `Ctrl+H` ustawia widoczną Historię jako kontekst `Page Up/Page Down`, tak samo jak Ulubione, folder, playlista lub kolejka ustawiają własny kontekst. Natomiast chwilowe przejścia `Alt+strzałka w górę/w dół` wykonywane już w odtwarzaczu nadal nie zastępują wcześniejszego kontekstu listy.

@@ -35,6 +35,8 @@ public static class CommandIds
     public const string SeekToPercentage = "transport.seekToPercentage";
     public const string MarkClipStart = "editing.clip.markStart";
     public const string MarkClipEnd = "editing.clip.markEnd";
+    public const string JumpClipStart = "editing.clip.jumpStart";
+    public const string JumpClipEnd = "editing.clip.jumpEnd";
     public const string ExportClip = "editing.clip.export";
     public const string ClearClipSelection = "editing.clip.clear";
 

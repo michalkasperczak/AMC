@@ -188,6 +188,8 @@ public static class CommandPaletteSearch
             CommandIds.SeekToPercentage => "Ctrl+Shift+J (odtwarzacz)",
             CommandIds.MarkClipStart => "I (odtwarzacz lokalnego pliku)",
             CommandIds.MarkClipEnd => "O (odtwarzacz lokalnego pliku)",
+            CommandIds.JumpClipStart => "Shift+I (odtwarzacz lokalnego pliku)",
+            CommandIds.JumpClipEnd => "Shift+O (odtwarzacz lokalnego pliku)",
             CommandIds.ExportClip => "X (odtwarzacz lokalnego pliku)",
             CommandIds.ClearClipSelection => "Shift+X (odtwarzacz lokalnego pliku)",
             CommandIds.TimeElapsed => "Ctrl+Shift+E",

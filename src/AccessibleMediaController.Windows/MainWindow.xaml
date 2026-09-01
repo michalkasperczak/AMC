@@ -199,6 +199,14 @@
                           automation:AutomationProperties.Name="Ustaw koniec fragmentu, O, tylko w odtwarzaczu lokalnego pliku"
                           automation:AutomationProperties.AcceleratorKey="O"
                           Click="MarkClipEnd_Click" />
+                <MenuItem x:Name="PlaybackJumpClipStartMenuItem" Header="Przejdź do początku fragmentu" InputGestureText="Shift+I"
+                          automation:AutomationProperties.Name="Przejdź do początku fragmentu, Shift+I, tylko w odtwarzaczu lokalnego pliku"
+                          automation:AutomationProperties.AcceleratorKey="Shift+I"
+                          Click="JumpClipStart_Click" />
+                <MenuItem x:Name="PlaybackJumpClipEndMenuItem" Header="Przejdź do końca fragmentu" InputGestureText="Shift+O"
+                          automation:AutomationProperties.Name="Przejdź do końca fragmentu, Shift+O, tylko w odtwarzaczu lokalnego pliku"
+                          automation:AutomationProperties.AcceleratorKey="Shift+O"
+                          Click="JumpClipEnd_Click" />
                 <MenuItem x:Name="PlaybackExportClipMenuItem" Header="_Zapisz zaznaczony fragment…" InputGestureText="X"
                           automation:AutomationProperties.Name="Zapisz zaznaczony fragment do nowego pliku, X, tylko w odtwarzaczu lokalnego pliku"
                           automation:AutomationProperties.AcceleratorKey="X"
@@ -292,7 +300,7 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F1"
                           Click="KeyboardHelp_Click" />
                 <Separator />
-                <MenuItem Header="Sprawdź _aktualizacje" Click="Updates_Click" />
+                <MenuItem Header="Sprawdź _aktualizacje i składniki" Click="Updates_Click" />
             </MenuItem>
         </Menu>
 
@@ -527,6 +535,14 @@
                               automation:AutomationProperties.Name="Ustaw koniec fragmentu, O"
                               automation:AutomationProperties.AcceleratorKey="O"
                               Click="MarkClipEnd_Click" />
+                    <MenuItem x:Name="PlayerJumpClipStartMenuItem" Header="Przejdź do początku fragmentu" InputGestureText="Shift+I"
+                              automation:AutomationProperties.Name="Przejdź do początku fragmentu, Shift+I"
+                              automation:AutomationProperties.AcceleratorKey="Shift+I"
+                              Click="JumpClipStart_Click" />
+                    <MenuItem x:Name="PlayerJumpClipEndMenuItem" Header="Przejdź do końca fragmentu" InputGestureText="Shift+O"
+                              automation:AutomationProperties.Name="Przejdź do końca fragmentu, Shift+O"
+                              automation:AutomationProperties.AcceleratorKey="Shift+O"
+                              Click="JumpClipEnd_Click" />
                     <MenuItem x:Name="PlayerExportClipMenuItem" Header="Zapisz zaznaczony fragment…" InputGestureText="X"
                               automation:AutomationProperties.Name="Zapisz zaznaczony fragment do nowego pliku, X"
                               automation:AutomationProperties.AcceleratorKey="X"

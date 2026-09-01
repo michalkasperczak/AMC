@@ -71,6 +71,8 @@ public static class CommandCatalog
             CommandIds.SeekToPercentage => "Skocz do procentu",
             CommandIds.MarkClipStart => "Ustaw początek fragmentu",
             CommandIds.MarkClipEnd => "Ustaw koniec fragmentu",
+            CommandIds.JumpClipStart => "Przejdź do początku fragmentu",
+            CommandIds.JumpClipEnd => "Przejdź do końca fragmentu",
             CommandIds.ExportClip => "Zapisz zaznaczony fragment do nowego pliku",
             CommandIds.ClearClipSelection => "Wyczyść zaznaczenie fragmentu",
             CommandIds.TimeElapsed => "Czas od początku",

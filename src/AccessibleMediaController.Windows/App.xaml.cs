@@ -19,6 +19,7 @@ public partial class App : Application
     private RegisteredWaitHandle? _activationRegistration;
     private DispatcherTimer? _uiHeartbeatTimer;
     private Timer? _uiWatchdogTimer;
+    private readonly CancellationTokenSource _componentUpdateCancellation = new();
     private long _lastUiHeartbeat;
     private int _uiHangReported;
 
@@ -120,6 +121,7 @@ public partial class App : Application
         var mainWindow = new MainWindow(state, store);
         MainWindow = mainWindow;
         mainWindow.Show();
+        StartComponentUpdates(state);
         DiagnosticLog.Info(
             "startup",
             $"Pokazano główne okno. Widoczne: {mainWindow.IsVisible}; stan: {mainWindow.WindowState}; uchwyt: {new WindowInteropHelper(mainWindow).Handle}.");
@@ -128,6 +130,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         DiagnosticLog.Info("application", $"Zamykanie AMC, kod {e.ApplicationExitCode}.");
+        _componentUpdateCancellation.Cancel();
         _uiHeartbeatTimer?.Stop();
         _uiHeartbeatTimer = null;
         _uiWatchdogTimer?.Dispose();
@@ -143,7 +146,35 @@ public partial class App : Application
             _instanceMutex = null;
         }
         base.OnExit(e);
+        _componentUpdateCancellation.Dispose();
         DiagnosticLog.Shutdown();
+    }
+
+    private void StartComponentUpdates(PersistedState state)
+    {
+        if (!state.Settings.Updates.CheckAutomatically) return;
+        var status = FfmpegComponentManager.GetStatus();
+        if (status.CheckedAtUtc is { } checkedAt
+            && checkedAt >= DateTimeOffset.UtcNow.Subtract(TimeSpan.FromHours(24)))
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var result = await FfmpegComponentManager.CheckAndUpdateAsync(
+                    state.Settings.Updates.DownloadAutomatically,
+                    cancellationToken: _componentUpdateCancellation.Token).ConfigureAwait(false);
+                if (result.Success) DiagnosticLog.Info("component-update", result.Message);
+                else DiagnosticLog.Warning("component-update", result.Message);
+            }
+            catch (OperationCanceledException)
+            {
+                DiagnosticLog.Info("component-update", "Sprawdzanie FFmpeg przerwane przy zamykaniu AMC.");
+            }
+        });
     }
 
     private static void SignalExistingInstance()

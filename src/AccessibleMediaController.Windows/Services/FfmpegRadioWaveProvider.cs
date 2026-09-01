@@ -117,6 +117,9 @@ internal sealed class FfmpegRadioWaveProvider : IWaveProvider, IDisposable
     internal static string? FindExecutable()
     {
         var fileName = OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
+        var managed = FfmpegComponentManager.FindInstalledExecutable();
+        if (managed is not null) return managed;
+
         var bundled = Path.Combine(AppContext.BaseDirectory, fileName);
         if (File.Exists(bundled)) return bundled;
 

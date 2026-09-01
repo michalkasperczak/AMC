@@ -685,6 +685,36 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Announce("Zaznaczenie fragmentu wyczyszczone");
     }
 
+    private void JumpToClipBoundary(bool end)
+    {
+        if (!TryGetLocalClipContext(out var session, out var item, out var path, out var error))
+        {
+            Announce(error);
+            return;
+        }
+        if (!_audioClipSelection.Matches(item.Id, path))
+        {
+            Announce("Ten plik nie ma zaznaczonego fragmentu");
+            return;
+        }
+        var position = end ? _audioClipSelection.End : _audioClipSelection.Start;
+        if (position is null)
+        {
+            Announce(end
+                ? "Nie ustawiono końca fragmentu"
+                : "Nie ustawiono początku fragmentu");
+            return;
+        }
+        session.SetPosition(position.Value);
+        UpdatePlayerView();
+        UpdatePlaybackStatusBar();
+        TrySaveLocalMediaState(false);
+        if (_state.Settings.Messages.SeekMessages)
+        {
+            Announce($"{(end ? "Koniec" : "Początek")} fragmentu: {FormatClipTime(position.Value)}");
+        }
+    }
+
     private void ExportClip()
     {
         if (!TryGetLocalClipContext(out _, out var item, out var path, out var error))
@@ -999,7 +1029,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         return "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. "
             + "B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach. "
-            + "I ustawia początek fragmentu, O koniec, X zapisuje fragment do nowego pliku, a Shift+X czyści zaznaczenie. "
+            + "I ustawia początek fragmentu, O koniec, Shift+I i Shift+O wracają do tych punktów, X zapisuje fragment do nowego pliku, a Shift+X czyści zaznaczenie. "
             + "Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. "
             + exit;
     }
@@ -3060,6 +3090,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlaybackBeforeClipSeparator.Visibility = clipVisibility;
         PlaybackMarkClipStartMenuItem.Visibility = clipVisibility;
         PlaybackMarkClipEndMenuItem.Visibility = clipVisibility;
+        PlaybackJumpClipStartMenuItem.Visibility = clipVisibility;
+        PlaybackJumpClipEndMenuItem.Visibility = clipVisibility;
         PlaybackExportClipMenuItem.Visibility = clipVisibility;
         PlaybackClearClipMenuItem.Visibility = clipVisibility;
         OpenLocalFilesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
@@ -4777,6 +4809,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.MarkClipEnd)
         {
             MarkClipEnd();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.JumpClipStart)
+        {
+            JumpToClipBoundary(end: false);
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.JumpClipEnd)
+        {
+            JumpToClipBoundary(end: true);
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.ExportClip)
@@ -9574,6 +9616,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 (ModifierKeys.None, Key.B) => CommandIds.AddBookmark,
                 (ModifierKeys.None, Key.I) => CommandIds.MarkClipStart,
                 (ModifierKeys.None, Key.O) => CommandIds.MarkClipEnd,
+                (ModifierKeys.Shift, Key.I) => CommandIds.JumpClipStart,
+                (ModifierKeys.Shift, Key.O) => CommandIds.JumpClipEnd,
                 (ModifierKeys.None, Key.X) => CommandIds.ExportClip,
                 (ModifierKeys.Shift, Key.X) => CommandIds.ClearClipSelection,
                 (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
@@ -10182,6 +10226,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.None, Key.B) => CommandIds.AddBookmark,
             (ModifierKeys.None, Key.I) => CommandIds.MarkClipStart,
             (ModifierKeys.None, Key.O) => CommandIds.MarkClipEnd,
+            (ModifierKeys.Shift, Key.I) => CommandIds.JumpClipStart,
+            (ModifierKeys.Shift, Key.O) => CommandIds.JumpClipEnd,
             (ModifierKeys.None, Key.X) => CommandIds.ExportClip,
             (ModifierKeys.Shift, Key.X) => CommandIds.ClearClipSelection,
             (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
@@ -10795,6 +10841,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void AddNamedBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddNamedBookmark);
     private void MarkClipStart_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.MarkClipStart);
     private void MarkClipEnd_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.MarkClipEnd);
+    private void JumpClipStart_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.JumpClipStart);
+    private void JumpClipEnd_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.JumpClipEnd);
     private void ExportClip_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ExportClip);
     private void ClearClipSelection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ClearClipSelection);
     private void BookmarksView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewBookmarks);
@@ -11296,6 +11344,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerBeforeClipSeparator.Visibility = clipVisibility;
         PlayerMarkClipStartMenuItem.Visibility = clipVisibility;
         PlayerMarkClipEndMenuItem.Visibility = clipVisibility;
+        PlayerJumpClipStartMenuItem.Visibility = clipVisibility;
+        PlayerJumpClipEndMenuItem.Visibility = clipVisibility;
         PlayerExportClipMenuItem.Visibility = clipVisibility;
         PlayerClearClipMenuItem.Visibility = clipVisibility;
         PlayerItemPlaybackOptionsMenuItem.Visibility = localPlaybackOptions
@@ -11846,8 +11896,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private async void Updates_Click(object sender, RoutedEventArgs e)
     {
-        var result = await new UnconfiguredUpdateService().CheckAsync();
-        Announce(result.Error ?? "Brak aktualizacji");
+        Announce("Sprawdzanie aktualizacji składnika FFmpeg");
+        var progress = new Progress<double>(value =>
+        {
+            if (value is > 0.05d and < 0.98d)
+            {
+                var percent = Math.Round(value * 100d);
+                var status = $"Aktualizacja FFmpeg: {percent:0}%";
+                _playbackStatusBar.SpokenText = status;
+                _playbackStatusLabel.Text = status;
+                _playbackStatusLabel.AccessibleName = status;
+            }
+        });
+        var result = await FfmpegComponentManager.CheckAndUpdateAsync(
+            installAvailable: true,
+            progress,
+            CancellationToken.None);
+        UpdatePlaybackStatusBar();
+        Announce(result.Message);
     }
 
     private sealed class MediaItemRow(

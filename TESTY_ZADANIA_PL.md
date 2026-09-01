@@ -1,12 +1,63 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-196`
-- Tytuł zestawu: Bezpieczne wycinanie fragmentu audio
-- Wersja programu: `0.1.0-alpha.196`
+- Numer zestawu: `AMC-TEST-197`
+- Tytuł zestawu: Zweryfikowany FFmpeg i nawigacja po granicach fragmentu
+- Wersja programu: `0.1.0-alpha.197`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.196.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.197.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowość alpha 197
+
+### AMC-197-01 — stan i ręczna kontrola FFmpeg
+
+Otwórz Ustawienia, kartę Aktualizacje, a następnie menu Pomoc i wybierz
+„Sprawdź aktualizacje i składniki”.
+
+Oczekiwane: Ustawienia podają użytkową wersję FFmpeg albo informację, że nie
+został jeszcze zainstalowany. Ręczna kontrola nie blokuje NVDA i kończy się
+jednym komunikatem o zainstalowanej, aktualnej albo niedostępnej wersji. Nie
+pojawiają się nazwy klas, sumy ani techniczny zrzut obiektu.
+
+### AMC-197-02 — automatyczna instalacja i ponowne uruchomienie
+
+Pozostaw zaznaczone automatyczne sprawdzanie i pobieranie FFmpeg. Uruchom AMC,
+odczekaj na zakończenie ewentualnego pobierania, zamknij program i uruchom go
+ponownie.
+
+Oczekiwane: pierwsza instalacja odbywa się w tle, a kolejne uruchomienie od razu
+widzi zweryfikowany składnik. Program nie pobiera ponownie tej samej wersji i
+nie zmienia Biblioteki, ustawień ani pozycji odtwarzania.
+
+### AMC-197-03 — trzy sposoby zapisu fragmentu
+
+W lokalnym MP3 zaznacz fragment klawiszami `I` i `O`, naciśnij `X` i sprawdź
+kolejno zapis bez konwersji, FLAC oraz WAV.
+
+Oczekiwane: okno pokazuje wszystkie trzy czytelne warianty. Każdy tworzy nowy
+odtwarzalny plik, źródło pozostaje bez zmian. Bez konwersji może dopasować
+granicę do ramki kodeka, FLAC i WAV zachowują dokładny fragment.
+
+### AMC-197-04 — przechodzenie do punktów cięcia
+
+Po ustawieniu początku i końca odejdź od nich na osi czasu. Naciśnij
+`Shift+I`, potem `Shift+O`, również podczas odtwarzania.
+
+Oczekiwane: `Shift+I` przechodzi dokładnie do początku, a `Shift+O` do końca.
+Punkty się nie przesuwają i można wielokrotnie porównywać granice przed
+zapisem. Po wyłączeniu komunikatów przewijania przejścia nie są oznajmiane.
+
+### AMC-197-05 — brak sieci nie wyłącza FFmpeg
+
+Po poprawnej instalacji uruchom ręczne sprawdzanie bez połączenia z internetem,
+a następnie spróbuj zapisać fragment FLAC.
+
+Oczekiwane: kontrola zgłasza brak możliwości aktualizacji, lecz nie usuwa
+dotychczasowego FFmpeg. Eksport FLAC nadal działa, podobnie jak odtwarzanie i
+nagrywanie korzystające z poprzednio zweryfikowanego składnika.
+
+## Poprzedni zestaw alpha 196
 
 ## Nowość alpha 196
 

@@ -1468,7 +1468,8 @@ success as well as startup failure.
 
 Starting with `alpha.196`, Local Files provides a small editing layer available
 only in the open player. `I` marks the start, `O` marks the end, `X` opens
-fragment export, and `Shift+X` clears the selection. Both marks must belong to
+fragment export, `Shift+I` and `Shift+O` jump back to the marked boundaries,
+and `Shift+X` clears the selection. Both marks must belong to
 the same file and the end must follow the start. The selection is transient and
 does not alter the source, Library, bookmarks, or resume position.
 
@@ -1481,3 +1482,20 @@ the boundaries to codec frames. The latter two choices appear only when a
 compatible FFmpeg is detected. AMC must not silently reuse an old FFmpeg binary
 from another project: the component needs known provenance, licensing,
 integrity verification and its own update path.
+
+### 7.10. Managed FFmpeg component
+
+Starting with `alpha.197`, FFmpeg is neither copied from another project nor
+embedded in the single executable. AMC downloads the stable Windows x64 LGPL
+shared package from BtbN/FFmpeg-Builds, a provider linked by the official FFmpeg
+download page. It tracks the stable 9.0 branch rather than daily development
+master. The package name and 64-character release SHA-256 must match exactly;
+safe extraction enforces file-count and size limits and blocks path traversal.
+
+Before activation, `ffmpeg.exe` must run, report a version and contain neither
+`enable-gpl` nor `enable-nonfree`. Separate version directories live under the
+user's local application data. Only a fully validated version is activated by
+an atomic state update. Network, checksum, extraction or launch failure leaves
+the previous version intact and does not disable basic playback. Automatic
+checks run at most daily and can be disabled in Settings; Help offers a manual
+check.

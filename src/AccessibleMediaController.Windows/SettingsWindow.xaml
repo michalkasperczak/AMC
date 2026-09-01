@@ -313,17 +313,21 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem x:Name="UpdatesTab" Header="_Aktualizacje (planowane)">
+            <TabItem x:Name="UpdatesTab" Header="_Aktualizacje">
                 <StackPanel Margin="12">
                     <TextBlock Margin="0,0,0,12" TextWrapping="Wrap" FontWeight="SemiBold"
-                               Text="Ta sekcja jest makietą następnego etapu. Serwer aktualizacji nie jest jeszcze skonfigurowany, dlatego poniższe opcje są nieaktywne." />
-                    <StackPanel IsEnabled="False">
+                               Text="AMC bezpiecznie instaluje i aktualizuje składnik FFmpeg z wydania Windows wskazanego przez oficjalną stronę FFmpeg. Pakiet jest sprawdzany sumą SHA-256 oraz kontrolą wersji i wariantu LGPL przed uaktywnieniem." />
+                    <TextBlock x:Name="FfmpegStatusText" Margin="0,0,0,12" TextWrapping="Wrap"
+                               automation:AutomationProperties.Name="Stan składnika FFmpeg" />
+                    <StackPanel>
                         <CheckBox x:Name="UpdateCheckAutomatically" Margin="0,0,0,8"
-                                  Content="Automatycznie _sprawdzaj aktualizacje w tle" />
+                                  Content="Automatycznie _sprawdzaj aktualizacje składników w tle" />
                         <CheckBox x:Name="UpdateDownloadAutomatically" Margin="0,0,0,8"
-                                  Content="Automatycznie _pobieraj podpisane pakiety" />
+                                  Content="Automatycznie _pobieraj i instaluj zweryfikowany FFmpeg" />
+                    </StackPanel>
+                    <StackPanel IsEnabled="False" Margin="0,8,0,0">
                         <CheckBox x:Name="UpdateInstallOnExit" Margin="0,0,0,8"
-                                  Content="Instaluj przy _zamykaniu lub następnym uruchomieniu" />
+                                  Content="Instaluj aktualizacje całej aplikacji przy _zamykaniu — planowane" />
                         <CheckBox x:Name="UpdateMetered" Margin="0,0,0,12"
                                   Content="Zezwalaj na pobieranie przez połączenia _taryfowe" />
                         <Label Target="{Binding ElementName=UpdateChannelCombo}">_Kanał aktualizacji:</Label>
@@ -333,7 +337,7 @@
                         </ComboBox>
                     </StackPanel>
                     <TextBlock Margin="0,16,0,0" TextWrapping="Wrap"
-                               Text="Docelowe pakiety będą podpisywane, sprawdzane i instalowane z możliwością wycofania." />
+                               Text="Aktualizator całej aplikacji pozostaje następnym etapem. FFmpeg jest przechowywany wersjami; nieudane pobranie lub kontrola nie usuwa poprzedniej działającej kopii." />
                 </StackPanel>
             </TabItem>
         </TabControl>

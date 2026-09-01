@@ -1510,7 +1510,8 @@ Każda udana rejestracja oraz błąd startowy otrzymuje wpis diagnostyczny.
 
 Od `alpha.196` Pliki lokalne mają prostą warstwę edycji działającą wyłącznie w
 otwartym odtwarzaczu. `I` zapamiętuje początek fragmentu, `O` jego koniec, `X`
-otwiera okno zapisu, a `Shift+X` czyści zaznaczenie. Koniec musi leżeć po
+otwiera okno zapisu, `Shift+I` i `Shift+O` wracają do zaznaczonych punktów, a
+`Shift+X` czyści zaznaczenie. Koniec musi leżeć po
 początku i oba punkty muszą należeć do tego samego pliku. Zaznaczenie jest
 ulotne: nie zmienia pliku, Biblioteki, zakładek ani pozycji wznowienia.
 
@@ -1530,3 +1531,28 @@ niezmienniki: brak nadpisywania źródła, obsługa anulowania, atomowe opubliko
 wyniku oraz czytelny komunikat bez technicznych identyfikatorów. Narzędzia do
 łączenia fragmentów i bezstratnego cięcia na granicach ramek mogą zostać dodane
 po testach tej podstawowej operacji.
+
+### 7.10. Zarządzany składnik FFmpeg
+
+Od `alpha.197` FFmpeg nie jest przypadkowym plikiem kopiowanym z innego
+projektu ani częścią pojedynczego EXE. AMC pobiera stabilny pakiet Windows x64
+LGPL shared z BtbN/FFmpeg-Builds, czyli dostawcy wskazanego przez oficjalną
+stronę pobierania FFmpeg. Używana jest stabilna gałąź 9.0, a nie codzienna gałąź
+rozwojowa master. Archiwum i plik sum pochodzą przez HTTPS z jednego, jawnie
+przypiętego repozytorium.
+
+Przed rozpakowaniem AMC wymaga dokładnej nazwy pakietu i 64-znakowej sumy
+SHA-256. Rozpakowywanie ma limity liczby plików i rozmiaru oraz blokuje wyjście
+ścieżki poza katalog tymczasowy. Przed uaktywnieniem `ffmpeg.exe` musi się
+uruchomić, podać wersję i nie może zawierać konfiguracji `enable-gpl` ani
+`enable-nonfree`. Metadane aktywnej wersji zawierają źródło, sumę, licencję i
+czas kontroli.
+
+Komponent jest przechowywany w `%LocalAppData%\AccessibleMediaController\components\ffmpeg`
+w osobnych katalogach wersji. Nowa wersja staje się aktywna dopiero po pełnej
+kontroli i atomowej zmianie wskaźnika. Przerwanie pobierania, brak sieci,
+niezgodna suma lub błąd uruchomienia nie usuwa poprzedniej działającej kopii i
+nie blokuje podstawowego odtwarzania. Porzucone katalogi tymczasowe są usuwane
+przy następnej kontroli. Domyślnie sprawdzanie i instalacja odbywają się w tle
+nie częściej niż raz na dobę; można je wyłączyć w Ustawieniach, a ręczną kontrolę
+uruchamia menu Pomoc.

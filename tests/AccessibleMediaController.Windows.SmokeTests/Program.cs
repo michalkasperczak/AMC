@@ -81,6 +81,7 @@ try
     TestManagedMp3Fallback();
     TestAudioClipExporter();
     TestAudioClipExportAccessibility();
+    TestFfmpegComponentSecurity();
     TestWaveMetadataAndDamagedContainers();
     TestLocalVideoAudioExtraction();
     TestLocalTransportStreamRecovery();
@@ -129,6 +130,16 @@ try
         else if (mediaPath.StartsWith("--ffmpeg-local-path=", StringComparison.OrdinalIgnoreCase))
         {
             TestFfmpegLocalFile(mediaPath["--ffmpeg-local-path=".Length..]);
+        }
+        else if (mediaPath.Equals("--install-ffmpeg", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = FfmpegComponentManager.CheckAndUpdateAsync(
+                    installAvailable: true,
+                    cancellationToken: CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+            Assert(result.Success && result.Status.Installed, result.Message);
+            Console.WriteLine($"OK: {result.Message}");
         }
         else
         {
@@ -334,6 +345,45 @@ static void TestAudioClipExporter()
             Math.Abs(fragment.TotalTime.TotalSeconds - 1d) < 0.05d,
             $"Nieprawidłowa długość wyeksportowanego fragmentu: {fragment.TotalTime}.");
         Console.WriteLine("OK: niedestrukcyjny eksport dokładnego fragmentu WAV");
+
+        if (AudioClipExporter.IsFfmpegAvailable)
+        {
+            var copied = Path.Combine(directory, "fragment-bez-konwersji.wav");
+            var flac = Path.Combine(directory, "fragment.flac");
+            AudioClipExporter.ExportAsync(
+                    new AudioClipExportRequest(
+                        source,
+                        copied,
+                        TimeSpan.FromMilliseconds(250),
+                        TimeSpan.FromMilliseconds(1250),
+                        AudioClipExportFormat.OriginalStream),
+                    progress: null,
+                    CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+            using (var copiedReader = new WaveFileReader(copied))
+            {
+                Assert(Math.Abs(copiedReader.TotalTime.TotalSeconds - 1d) < 0.05d,
+                    "FFmpeg nie zapisał prawidłowego fragmentu bez konwersji.");
+            }
+            AudioClipExporter.ExportAsync(
+                    new AudioClipExportRequest(
+                        source,
+                        flac,
+                        TimeSpan.FromMilliseconds(250),
+                        TimeSpan.FromMilliseconds(1250),
+                        AudioClipExportFormat.Flac),
+                    progress: null,
+                    CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+            Assert(File.Exists(flac) && new FileInfo(flac).Length > 0,
+                "FFmpeg nie zapisał dokładnego fragmentu FLAC.");
+            using var flacReader = WindowsMediaOutput.OpenReaderForExport(flac);
+            Assert(Math.Abs(flacReader.TotalTime.TotalSeconds - 1d) < 0.08d,
+                $"Nieprawidłowa długość fragmentu FLAC: {flacReader.TotalTime}.");
+            Console.WriteLine("OK: zweryfikowany FFmpeg zapisuje bez konwersji i do FLAC");
+        }
     }
     finally
     {
@@ -377,6 +427,33 @@ static void TestAudioClipExportAccessibility()
     if (failure is not null)
         throw new InvalidOperationException("Test dostępności okna eksportu fragmentu nie powiódł się.", failure);
     Console.WriteLine("OK: jawne etykiety NVDA sposobów zapisu fragmentu");
+}
+
+static void TestFfmpegComponentSecurity()
+{
+    var expected = new string('a', 64);
+    var checksums = $"{new string('b', 64)}  other.zip\n{expected} *{FfmpegComponentManager.AssetName}\n";
+    Assert(
+        FfmpegComponentManager.ParseChecksum(checksums, FfmpegComponentManager.AssetName) == expected,
+        "Aktualizator FFmpeg nie wybiera sumy przypisanej do dokładnej nazwy pakietu.");
+    Assert(
+        FfmpegComponentManager.ParseChecksum(
+            $"1234  {FfmpegComponentManager.AssetName}",
+            FfmpegComponentManager.AssetName) is null,
+        "Aktualizator przyjmuje nieprawidłową sumę SHA-256.");
+    Assert(
+        FfmpegComponentManager.ArchiveUri.Scheme == Uri.UriSchemeHttps
+        && FfmpegComponentManager.ArchiveUri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase),
+        "Pakiet FFmpeg nie pochodzi z przypiętego źródła HTTPS GitHub BtbN.");
+
+    var root = Path.Combine(Path.GetTempPath(), $"amc-ffmpeg-security-{Guid.NewGuid():N}");
+    Assert(
+        FfmpegComponentManager.IsSafeArchiveDestination(root, Path.Combine(root, "package", "bin", "ffmpeg.exe")),
+        "Aktualizator odrzuca bezpieczną ścieżkę wewnątrz pakietu.");
+    Assert(
+        !FfmpegComponentManager.IsSafeArchiveDestination(root, Path.Combine(root, "..", "outside.exe")),
+        "Aktualizator nie blokuje wyjścia archiwum poza katalog tymczasowy.");
+    Console.WriteLine("OK: suma SHA-256, przypięte źródło i ochrona rozpakowywania FFmpeg");
 }
 
 static void TestGlobalPrefixCapture()

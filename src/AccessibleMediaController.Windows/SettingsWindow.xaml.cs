@@ -186,6 +186,7 @@ public partial class SettingsWindow : Window
         UpdateInstallOnExit.IsChecked = _workingState.Settings.Updates.InstallOnExit;
         UpdateMetered.IsChecked = _workingState.Settings.Updates.AllowMeteredConnection;
         SelectComboByTag(UpdateChannelCombo, _workingState.Settings.Updates.Channel);
+        FfmpegStatusText.Text = FfmpegComponentManager.GetStatus().UserFacingText;
 
         RefreshProfiles(_workingState.Settings.ActiveKeyboardProfileId);
         LoadSessionOrder();

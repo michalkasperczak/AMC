@@ -1,5 +1,7 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.197` installs and updates AMC's own separate FFmpeg 9 component for Windows x64. It uses the stable LGPL shared variant from a build provider linked by the official FFmpeg site, compares the archive with the release SHA-256 checksum, then validates the executable, version and licence variant before activation. Updates are versioned and performed in the background without removing the working copy on failure. `Shift+I` and `Shift+O` jump to the marked fragment start and end.
+
 Version `alpha.196` adds the first safe recording-trim tool. In the Local Files player, `I` marks the start, `O` marks the end, `X` opens fragment export, and `Shift+X` clears the selection. The operation always creates a new file and never modifies its source. Exact WAV export has no extra dependency; stream-copy and exact FLAC become available when a suitable FFmpeg installation is detected.
 
 The `alpha.195` correction separates two ways of using playback history. Explicitly opening an item from the `Ctrl+H` list makes the visible History the `Page Up/Page Down` context, just as Favorites, a folder, playlist or queue establish their own context. Temporary `Alt+Up/Down` history traversal inside the player still preserves the previously established list context.
