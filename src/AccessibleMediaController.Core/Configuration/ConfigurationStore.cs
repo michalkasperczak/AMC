@@ -101,6 +101,7 @@ public sealed class ConfigurationStore
         // atomic JSON replacement must be one serialized operation.
         lock (saveGate)
         {
+            state.Settings.PrefixChord = NormalizePrefixChord(state.Settings.PrefixChord);
             NormalizeSessionSlots(state.Settings);
             NormalizeSearchHistory(state);
             NormalizeSessionNavigation(state);
@@ -803,6 +804,7 @@ public sealed class ConfigurationStore
     private static void MigrateSettings(AppSettings settings, int schemaVersion)
     {
         settings.Audio ??= new PlaybackAudioSettings();
+        settings.PrefixChord = NormalizePrefixChord(settings.PrefixChord);
         if (schemaVersion < 17 && IsLegacyDefaultSessionOrder(settings.SessionSlots))
         {
             settings.SessionSlots = SessionSlotOrder.CreateDefault();
@@ -961,6 +963,22 @@ public sealed class ConfigurationStore
     private static void NormalizeSessionSlots(AppSettings settings)
     {
         settings.SessionSlots = SessionSlotOrder.Normalize(settings.SessionSlots);
+    }
+
+    private static string NormalizePrefixChord(string? value)
+    {
+        try
+        {
+            return KeyChord.Parse(value ?? string.Empty).Canonical;
+        }
+        catch (FormatException)
+        {
+            // An invalid imported prefix must not prevent the remainder of the
+            // user's library, schedules and settings from loading. The default
+            // is explicit and can be changed again from the accessible capture
+            // dialog.
+            return CurrentDefaultPrefix;
+        }
     }
 
     private static bool IsLegacyDefaultSessionOrder(IReadOnlyDictionary<int, string>? slots) =>

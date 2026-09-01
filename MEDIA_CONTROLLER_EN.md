@@ -1436,3 +1436,13 @@ pointer-sized value to 32 bits. If capture still raises an exception, AMC logs
 it, clears suppressed-key state, deactivates the layer and calls the next hook.
 A prefix-layer defect must not block NVDA, JAWS, Narrator or ordinary keyboard
 input.
+
+The `alpha.191` correction covers migration and persistence of the prefix
+configuration. Older versions could store the default chord as
+`CTRL-Alt-Win-F12`, even though the current parser accepted only `+`-separated
+spelling. Every valid legacy value is now normalized to one canonical form,
+such as `Ctrl+Alt+Windows+F12`, during both loading and saving. Leaving
+Keyboard Help can therefore register the prefix again reliably. A malformed
+imported value falls back to the default without losing the Library,
+schedules or other settings. A failed registration of a newly selected chord
+continues to preserve the previously working prefix.

@@ -268,6 +268,7 @@ static void TestKeyChords()
     Equal("NumpadNumLock", KeyChord.Parse("Num Lock").Canonical);
     Equal("Windows+NumpadDivide", KeyChord.Parse("Win+dzielenie numeryczne").Canonical);
     Equal("Ctrl+Alt+Windows+F12", KeyChord.Parse("Windows+Alt+Control+F12").Canonical);
+    Equal("Ctrl+Alt+Windows+F12", KeyChord.Parse("CTRL-Alt-Win-F12").Canonical);
     Equal("PageDown", KeyChord.Parse("PgDn").Canonical);
 }
 
@@ -1175,6 +1176,28 @@ static void TestLegacyStateMigration()
         Equal(true, loaded.Settings.RememberLocalPlaybackPositions);
         Equal(MediaItemField.Title, loaded.Settings.Lists.FieldOrder[0]);
         Equal(4, loaded.Settings.Lists.FieldOrder.Count);
+
+        document = JsonNode.Parse(File.ReadAllText(statePath))?.AsObject()
+            ?? throw new InvalidOperationException("Nie udało się ponownie odczytać konfiguracji.");
+        document["schemaVersion"] = ConfigurationStore.CurrentSchemaVersion;
+        settings = document["settings"]?.AsObject()
+            ?? throw new InvalidOperationException("Brak ustawień w bieżącej konfiguracji.");
+        settings["prefixChord"] = "CTRL-Alt-Win-F12";
+        File.WriteAllText(statePath, document.ToJsonString());
+
+        loaded = store.LoadOrCreate();
+        Equal("Ctrl+Alt+Windows+F12", loaded.Settings.PrefixChord);
+        store.Save(loaded);
+        document = JsonNode.Parse(File.ReadAllText(statePath))?.AsObject()
+            ?? throw new InvalidOperationException("Nie udało się sprawdzić zapisu konfiguracji.");
+        settings = document["settings"]?.AsObject()
+            ?? throw new InvalidOperationException("Brak ustawień po zapisie konfiguracji.");
+        Equal("Ctrl+Alt+Windows+F12", settings["prefixChord"]?.GetValue<string>());
+
+        settings["prefixChord"] = string.Empty;
+        File.WriteAllText(statePath, document.ToJsonString());
+        loaded = store.LoadOrCreate();
+        Equal("Ctrl+Alt+Windows+F12", loaded.Settings.PrefixChord);
     }
     finally
     {

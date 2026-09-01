@@ -1476,3 +1476,13 @@ Jeżeli mimo to przechwytywanie zgłosi wyjątek, AMC zapisuje go w logu, czyśc
 stan stłumionych klawiszy, wyłącza aktywną warstwę i wywołuje następny hak.
 Awaria funkcji prefiksu nie może blokować NVDA, JAWS-a, Narratora ani zwykłego
 wejścia klawiatury.
+
+Korekta `alpha.191` obejmuje migrację i zapis konfiguracji prefiksu. Starsze
+wersje mogły przechować domyślną kombinację jako `CTRL-Alt-Win-F12`, chociaż
+bieżący parser przyjmował tylko zapis rozdzielony znakami `+`. Każda poprawna
+starsza wartość jest teraz normalizowana do jednej postaci kanonicznej, na
+przykład `Ctrl+Alt+Windows+F12`, podczas wczytywania i podczas zapisu. Dzięki
+temu zakończenie Pomocy klawiszy może niezawodnie zarejestrować prefiks
+ponownie. Nieprawidłowa wartość z importu wraca do prefiksu domyślnego bez
+utraty Biblioteki, harmonogramów ani pozostałych ustawień. Nieudana rejestracja
+nowej kombinacji nadal zachowuje dotychczas działający prefiks.

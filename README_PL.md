@@ -46,6 +46,8 @@ Korekta `alpha.189` usuwa awarię okna zmiany prefiksu na 64-bitowym Windows. Pl
 
 Od `alpha.190` tymczasową listę **Nagrywane** otwiera w Radiu `Alt+R`, nie `Alt+2`. `Escape` lub Backspace zamyka ją i wraca dokładnie do widoku, z którego została wywołana, na przykład do Ulubionych wraz z wcześniejszym zaznaczeniem. `Alt+1` zachowuje jedno stałe znaczenie: **Wszystkie stacje**. Zwykła Spacja nadal pauzuje wyłącznie słyszalny odsłuch; odbiór, bufor i niezależne nagranie pracują dalej. Bez nagrywania wznowienie wraca do zatrzymanego punktu timeshiftu, a End przechodzi na żywo. Jeżeli słuchana stacja jest równocześnie nagrywana, wznowienie Spacją przechodzi od razu na żywo, ponieważ ręczne przewijanie jest w tym czasie celowo zablokowane. `Shift+Spacja` pozostaje osobnym poleceniem pauzy samego nagrania.
 
+Korekta `alpha.191` przywraca niezawodny zapis i ponowną rejestrację globalnego prefiksu. Starsze ustawienia mogły zawierać zapis `CTRL-Alt-Win-F12`, podczas gdy bieżący mechanizm oczekiwał separatorów `+`; po wyłączeniu Pomocy klawiszy taki prefiks nie dawał się ponownie uruchomić. AMC automatycznie normalizuje starszy zapis do `Ctrl+Alt+Windows+F12` zarówno przy wczytywaniu, jak i zapisie. Nieprawidłowa wartość w importowanej konfiguracji nie blokuje uruchomienia ani pozostałych danych — bezpiecznie wraca do prefiksu domyślnego. Zajęta nowa kombinacja nadal pozostawia aktywny poprzedni prefiks.
+
 Od `alpha.181` automatyczny zapis pozycji, historii, ustawień Radia i stanu
 pozostałych sesji nie wykonuje pełnej transakcji SQLite na wątku interfejsu.
 Jedna kolejka zapisuje migawki w tle i łączy kilka szybkich zmian, zachowując

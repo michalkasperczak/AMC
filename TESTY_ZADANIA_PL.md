@@ -1,12 +1,50 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-190`
-- Tytuł zestawu: Nagrywane jako widok tymczasowy i spójna pauza Radia
-- Wersja programu: `0.1.0-alpha.190`
+- Numer zestawu: `AMC-TEST-191`
+- Tytuł zestawu: Trwały i bezpieczny globalny prefiks
+- Wersja programu: `0.1.0-alpha.191`
 - Utworzono: 2026-09-01, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.190.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.191.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Poprawka alpha 191
+
+### AMC-191-01 — migracja starszego zapisu
+
+Uruchom program, który wcześniej miał zapisany domyślny prefiks, następnie
+otwórz **Ustawienia > Ogólne**.
+
+Oczekiwane: ustawienia otwierają się bez błędu, a pole prefiksu podaje
+`Ctrl+Alt+Windows+F12`. Starszy zapis z myślnikami nie jest czytany ani
+odrzucany jako niedozwolony klawisz.
+
+### AMC-191-02 — zapis Plusa numerycznego
+
+Wybierz **Zmień prefiks…**, naciśnij sam Plus numeryczny, zapisz okno zmiany i
+całe Ustawienia. Otwórz Ustawienia ponownie.
+
+Oczekiwane: NVDA nie milknie, program nie zawiesza się, a zapisany prefiks jest
+czytany jako „Plus numeryczny”. Ponowne otwarcie potwierdza, że zmiana
+przetrwała zapis. Na końcu można przywrócić prefiks domyślny.
+
+### AMC-191-03 — Pomoc klawiszy nie wyłącza prefiksu
+
+Naciśnij `Ctrl+F1`, sprawdź kilka klawiszy, po czym ponownie naciśnij
+`Ctrl+F1`. Następnie wywołaj skonfigurowany prefiks poza oknem AMC.
+
+Oczekiwane: Pomoc opisuje klawisze bez wykonywania poleceń. Po jej wyłączeniu
+prefiks zostaje ponownie zarejestrowany, nie pojawia się komunikat o
+niedozwolonym klawiszu, a NVDA działa bez restartu.
+
+### AMC-191-04 — konflikt nie usuwa poprzedniej wartości
+
+Spróbuj zapisać kombinację zajętą przez system albo inny program.
+
+Oczekiwane: AMC pozostawia Ustawienia otwarte, podaje zrozumiały komunikat i
+nie zastępuje poprzednio działającego prefiksu.
+
+## Poprzedni zestaw alpha 190
 
 ## Poprawka alpha 190
 

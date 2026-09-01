@@ -13,7 +13,16 @@ public readonly record struct KeyChord(string Key, KeyModifiers Modifiers = KeyM
             throw new FormatException("Skrót nie może być pusty.");
         }
 
-        var parts = value.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        // Early AMC builds and some exported settings used the legacy form
+        // "CTRL-Alt-Win-F12". Accept it on input, but always expose and save
+        // the canonical plus-separated spelling. A single minus remains an
+        // invalid chord rather than being mistaken for an empty key.
+        var separator = value.Contains('+')
+            ? '+'
+            : value.Contains('-') && value.Trim() != "-"
+                ? '-'
+                : '+';
+        var parts = value.Split(separator, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length == 0)
         {
             throw new FormatException($"Nieprawidłowy skrót: {value}");
