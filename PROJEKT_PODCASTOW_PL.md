@@ -91,7 +91,7 @@ Nieukończone pobranie pozostaje lokalnym plikiem roboczym poza chmurą, a do
 folderu użytkownika trafia dopiero ukończony plik przez bezpieczną publikację
 stosowaną przy nagraniach Radia.
 
-`Ctrl+S` w sesji Podcasty będzie znaczyć **Pobierz odcinek** i zadziała także
+`Ctrl+D` w sesji Podcasty będzie znaczyć **Pobierz odcinek** i zadziała także
 na ciągłym zaznaczeniu wielu odcinków. Na nagłówku całej audycji nie uruchomi
 bez ostrzeżenia pobierania całego archiwum; taka operacja będzie dostępna
 wyłącznie jako jawne polecenie z zakresem i potwierdzeniem.
@@ -133,10 +133,10 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
 1. `alpha.203` — prawdziwa, pusta sesja Podcasty bez danych demonstracyjnych,
    szóste miejsce w konfigurowanej kolejności sesji, trwały model subskrypcji i
    odcinków, widoki Biblioteka, Nowe odcinki i Pobrane oraz parser RSS/Atom.
-2. `alpha.204` — **Dodaj podcast lub materiał z adresu** przez `Ctrl+O` w sesji
-   Podcasty, ograniczony klient HTTP/HTTPS, bezpośredni RSS/Atom, aktualizacja
-   pojedynczej audycji i całej Biblioteki, otwieranie podcastu do listy
-   odcinków oraz wypisywanie się przez Delete. Kanał nie pobiera automatycznie
+2. `alpha.204` — **Nowy podcast…** przez `Ctrl+N`, ograniczony klient
+   HTTP/HTTPS, bezpośredni RSS/Atom, aktualizacja pojedynczej audycji i całej
+   Biblioteki, otwieranie podcastu do listy odcinków oraz wypisywanie się przez
+   Delete. `Ctrl+O` importuje lokalny plik OPML. Kanał nie pobiera automatycznie
    plików audio.
 3. `alpha.205` — odtwarzanie skończonych materiałów HTTP przez osobny tor
    Podcastów, zapamiętywanie pozycji i prędkości per odcinek, poprawne
@@ -146,9 +146,10 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
 5. `alpha.207` — pełna skrzynka Nowe odcinki, stany nowy, przejrzany,
    odsłuchany i w trakcie, filtrowanie oraz operacje zbiorowe. Stan odsłuchania
    nie będzie utożsamiany z usunięciem odcinka.
-6. `alpha.208` — jawne Pobierz/Usuń pobranie i `Ctrl+S`, kolejka pobierania,
-   anulowanie, postęp i atomowa publikacja gotowego pliku. Części robocze pozostają poza
-   iCloud, OneDrive, Dyskiem Google i innymi folderami synchronizowanymi.
+6. `alpha.208` — jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
+   anulowanie, postęp i atomowa publikacja gotowego pliku. Części robocze
+   pozostają poza iCloud, OneDrive, Dyskiem Google i innymi folderami
+   synchronizowanymi.
 7. `alpha.209` — playlisty odcinków, import i eksport OPML, osobny eksport
    danych Podcastów AMC i pełne odtworzenie ich z kopii zapasowej.
 8. `alpha.210` — strony z osadzonym audio, istniejące adaptery Polskiego Radia
@@ -159,10 +160,30 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
 10. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
    nie mogą uzależnić od siebie RSS, Biblioteki ani lokalnych pobrań.
 
-Mapa skrótów zostanie ustalona po pierwszym działającym widoku. Nie należy
-rezerwować klawiszy na podstawie samego dokumentu koncepcyjnego.
+Pozostała mapa skrótów zostanie ustalona po pierwszym działającym widoku. Nie
+należy rezerwować dalszych klawiszy na podstawie samego dokumentu
+koncepcyjnego.
 
-## 7. Rozdziały odcinków
+## 7. Dodawanie, import i wyszukiwanie
+
+- `Ctrl+N` otwiera **Nowy podcast**. Formularz zawiera nazwę użytkownika oraz
+  adres kanału, strony podcastu albo strony z materiałem. Nazwa jest opcjonalnym
+  nadpisaniem; po sprawdzeniu adresu AMC przedstawia nazwę i rodzaj odnaleziony
+  przez adapter. Dopiero przycisk Dodaj zapisuje wynik w Bibliotece.
+- `Ctrl+O` otwiera plik OPML i pokazuje listę znalezionych kanałów z
+  wielokrotnym zaznaczeniem. Import niczego nie pobiera i nie tworzy duplikatów.
+- `Ctrl+F` otwiera wyszukiwanie w Podcastach. Pierwszy poziom wyników zawiera
+  audycje, a nie pomieszane odcinki ze wszystkich kanałów. Enter na audycji
+  otwiera podgląd jej odcinków bez automatycznego dodawania subskrypcji;
+  Backspace wraca do listy audycji, a Escape zamyka wyszukiwanie.
+- `Ctrl+Shift+L` na wyniku audycji dodaje ją do Biblioteki albo z niej usuwa.
+  Na poziomie odcinków obowiązują wspólne działania AMC: Enter, `Ctrl+Enter`,
+  Kolejka, Odtwórz jako następne, Ulubione, Playlisty, `Ctrl+D`, kopiowanie i
+  Właściwości. Wynik pozostaje dostępny po działaniu, zgodnie z dotychczasową
+  mechaniką wyszukiwania.
+- `Ctrl+K` nigdy nie odpytuje internetu: filtruje tylko już załadowaną listę.
+
+## 8. Rozdziały odcinków
 
 Podcasty nie otrzymują w tym celu osobnego odtwarzacza ani dużego modułu
 edycyjnego. Dziedziczą niewielką funkcję rozdziałów wspólnego odtwarzacza AMC.
@@ -172,10 +193,13 @@ który może później zostać oznaczony jako początek rozdziału także w istn
 odcinku. Pełny model, dostępny edytor, wykrywanie ciszy i sposoby eksportu
 opisuje `PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
 
-## 8. Zasady interfejsu
+## 9. Zasady interfejsu
 
 - `Ctrl+L` otwiera Bibliotekę obserwowanych audycji. Enter na audycji pokaże
   jej odcinki; nie spróbuje odtwarzać samego kanału.
+- `Ctrl+I` otwiera skrzynkę **Nowe odcinki**. Litera pochodzi od powszechnego
+  określenia Inbox; wcześniejsze polecenie informacji spod `Ctrl+I` zostało w
+  AMC zastąpione przez `Alt+Enter`, więc skrót nie ma konfliktu.
 - **Nowe odcinki** są widokiem automatycznym od najnowszego. **Pobrane** są
   filtrem rzeczywiście ukończonych plików lokalnych. Żaden z tych widoków nie
   zmienia ręcznie kolejności danych źródłowych.
@@ -186,10 +210,24 @@ opisuje `PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
   przenosić tu nagrywania Radia, zarządzania folderami ani lokalnego cięcia
   pliku strumieniowanego.
 - Skróty dla Nowych odcinków i Pobranych zostaną ustalone po teście pierwszej
-  listy. `Alt+1`, `Alt+2` i `Alt+3` nie zostają bez sprawdzenia skopiowane z
-  lokalnej Biblioteki ani Radia.
+  listy, z wyjątkiem przyjętego `Ctrl+I` dla skrzynki. `Alt+1`, `Alt+2` i
+  `Alt+3` nie zostają bez sprawdzenia skopiowane z lokalnej Biblioteki ani
+  Radia.
 
-## 9. Granica pierwszej wersji
+Skrzynka ma własne, dostępne ustawienia, ale nie ręczną kolejność playlisty:
+
+- sortowanie od najnowszych, od najstarszych albo grupami według audycji;
+- pokazywanie nowych i rozpoczętych oraz opcjonalne pozostawianie odsłuchanych;
+- próg uznania odcinka za odsłuchany;
+- zachowanie przy pierwszym dodaniu audycji. Domyślnie stare archiwum jest
+  widoczne wewnątrz audycji, ale nie zalewa skrzynki jako rzekomo nowe;
+- częstotliwość automatycznego odświeżania oraz możliwość wyłączenia wybranej
+  audycji ze skrzynki;
+- liczba odcinków i łączny znany czas w nagłówku, tak jak dla playlisty. Czas
+  częściowy musi być wyraźnie oznaczony, jeśli nie wszystkie odcinki podają
+  długość.
+
+## 10. Granica pierwszej wersji
 
 `alpha.203` pozwala wybrać sesję Podcasty i sprawdzić jej pustą Bibliotekę oraz
 puste widoki Nowe odcinki i Pobrane. To celowa wersja fundamentu: nie przyjmuje

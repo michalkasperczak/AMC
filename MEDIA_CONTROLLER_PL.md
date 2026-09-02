@@ -1613,10 +1613,19 @@ NVDA. Pojedynczy materiał bez kanału jest materiałem ze strony, a nie fikcyjn
 subskrypcją.
 
 Nowe odcinki pozostają automatyczną skrzynką, nie playlistą zmienianą w tle.
-Playlista jest ręcznym kontenerem użytkownika. W Podcastach `Ctrl+C` kopiuje
+Playlista jest ręcznym kontenerem użytkownika. `Ctrl+I` otwiera skrzynkę Nowe
+odcinki. W Podcastach `Ctrl+C` kopiuje
 nazwę z publiczną stroną odcinka lub audycji, `Ctrl+Shift+C` nazwę z adresem
-bezpośredniego audio albo RSS, a `Ctrl+S` pobiera świadomie wybrane odcinki.
+bezpośredniego audio albo RSS, a `Ctrl+D` pobiera świadomie wybrane odcinki.
 Całe archiwum audycji nigdy nie jest pobierane przez skrót bez osobnego zakresu
 i potwierdzenia. Adres podpisany, wymagający ciasteczek lub zawierający dane
 uwierzytelniające nie może zostać bez ostrzeżenia skopiowany jako zwykły,
 trwały link.
+
+`Ctrl+N` tworzy nową subskrypcję z nazwy i adresu, natomiast `Ctrl+O` w sesji
+Podcasty importuje OPML. Nie łączymy tej czynności z `Ctrl+F`: wyszukiwanie
+najpierw pokazuje audycje, Enter otwiera ich odcinki w podglądzie, a dopiero
+`Ctrl+Shift+L` świadomie zmienia przynależność audycji do Biblioteki. Na
+odcinkach wyszukiwania działają wspólne polecenia AMC, w tym pobieranie,
+Kolejka, Ulubione i Playlisty. Skrzynka ma własne sortowanie, regułę stanów,
+próg odsłuchania i harmonogram odświeżania, lecz nie ręczną kolejność playlisty.

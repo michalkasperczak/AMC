@@ -69,7 +69,7 @@ for durable local media. An incomplete download stays in local staging outside
 cloud folders. Only a complete file is published to the user's destination,
 using the same safe publication boundary as Radio recordings.
 
-In the Podcasts session, Ctrl+S downloads selected episodes. It never downloads
+In the Podcasts session, Ctrl+D downloads selected episodes. It never downloads
 an entire show archive from the show header without a separate range choice
 and confirmation. Ctrl+C copies the title and public episode page; Ctrl+Shift+C
 copies the title and direct enclosure/media address. On a show header the same
@@ -92,7 +92,7 @@ an existing RSS subscription to work.
 ## 6. Delivery order
 
 1. `alpha.203`: session shell, durable model, empty core views and RSS/Atom parser.
-2. `alpha.204`: add a feed or media URL, bounded HTTP/HTTPS refresh and show/episode navigation.
+2. `alpha.204`: Ctrl+N adds a feed or media URL, Ctrl+O imports OPML, with bounded HTTP/HTTPS refresh and show/episode navigation.
 3. `alpha.205`: finite HTTP playback, per-episode resume and speed, history and bookmarks.
 4. `alpha.206`: Apple Podcasts catalog search and feed discovery from ordinary pages.
 5. `alpha.207`: New episodes state, filtering and batch operations.
@@ -105,9 +105,22 @@ an existing RSS subscription to work.
 The keyboard map will be decided after the first working view. This design
 document does not reserve shortcuts by itself.
 
+Ctrl+F first returns shows. Enter opens a non-subscribing episode preview;
+Backspace returns to shows and Escape closes search. Ctrl+Shift+L changes show
+Library membership. Episode results retain the standard AMC queue, play-next,
+favourite, playlist, playback, download and copy operations. Ctrl+K only
+filters an already loaded list and never sends a network request.
+
 `Ctrl+L` opens followed shows. Enter on a show will open its episodes rather
 than trying to play the feed itself. Shared history, favourites, queue,
 playlists, presets, copying and playback apply to episodes. Radio recording,
 local-folder management and destructive local audio editing must not leak into
-the Podcasts menus. Shortcuts for New episodes and Downloads will be selected
-after NVDA testing of the first populated lists.
+the Podcasts menus. The shortcut for the Downloads view and any numeric view
+shortcuts will be selected after NVDA testing of the first populated lists.
+
+Ctrl+I opens the **New episodes** inbox. Its options cover sorting, inclusion
+of started/played episodes, the played threshold, refresh interval and whether
+an individual show contributes to the inbox. Existing archive episodes remain
+available inside a newly followed show but do not all become "new" by default.
+The heading exposes episode count and the total known duration, marking it as
+partial when some durations are unknown.
