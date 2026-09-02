@@ -18,5 +18,5 @@ internal static class MainWindowNavigationPolicy
         || string.Equals(viewName, "Zakładki", StringComparison.Ordinal);
 
     public static bool ShouldApplyPlaybackExitPolicy(PlayerDepartureReason reason) =>
-        reason is not PlayerDepartureReason.SessionSwitch;
+        reason is PlayerDepartureReason.ReturnToList;
 }

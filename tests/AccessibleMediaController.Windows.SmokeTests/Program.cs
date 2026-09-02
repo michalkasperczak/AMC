@@ -362,14 +362,14 @@ static void TestPlayerDeparturePlaybackPolicy()
             PlayerDepartureReason.ReturnToList),
         "Escape powinien stosować ustawienie wstrzymania po wyjściu z odtwarzacza.");
     Assert(
-        MainWindowNavigationPolicy.ShouldApplyPlaybackExitPolicy(
+        !MainWindowNavigationPolicy.ShouldApplyPlaybackExitPolicy(
             PlayerDepartureReason.BrowserNavigation),
-        "Przejście do widoku tej samej sesji powinno stosować ustawienie wyjścia z odtwarzacza.");
+        "Przejście do widoku tej samej sesji nie może zatrzymywać jej odtwarzania.");
     Assert(
         !MainWindowNavigationPolicy.ShouldApplyPlaybackExitPolicy(
             PlayerDepartureReason.SessionSwitch),
         "Samo przełączenie sesji nie może zatrzymywać jej niezależnego toru audio.");
-    Console.WriteLine("OK: przełączenie sesji nie jest wyjściem z odtwarzacza");
+    Console.WriteLine("OK: tylko jawny powrót z odtwarzacza stosuje regułę wstrzymania");
 }
 
 static void TestAudioClipExporter()

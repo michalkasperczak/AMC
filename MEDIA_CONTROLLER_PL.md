@@ -1654,10 +1654,11 @@ odtwarzania: Spacja naciśnięta podczas zmiany urządzenia musi pozostawić tor
 wstrzymany także wtedy, gdy urządzenie zakończy inicjalizację nieco później.
 Przełączenie sesji przez `Ctrl+cyfra` albo `Ctrl+Page Up/Page Down` zmienia
 wyłącznie aktywny interfejs i nie uruchamia reguły wstrzymywania po wyjściu z
-odtwarzacza. Dzięki temu Radio na osobnym wyjściu może grać nadal, gdy
-użytkownik przechodzi do Plików lokalnych na głośnikach komputera. Jawny
-Escape, Shift+F6, przycisk powrotu i przejście do innego widoku tej samej sesji
-nadal stosują ustawienie użytkownika.
+odtwarzacza. Tak samo bezpośrednie przejście z odtwarzacza do Kolejki,
+Biblioteki, Ulubionych albo innego widoku tej samej sesji zachowuje dźwięk.
+Dzięki temu Radio na osobnym wyjściu może grać nadal, gdy użytkownik przegląda
+inne dane. Wyłącznie jawny Escape, Shift+F6 lub przycisk powrotu stosuje
+ustawienie użytkownika.
 
 Polecenie należy do wspólnego kontraktu adaptera sesji. Przyszły bezpośredni
 adapter TIDAL albo Apple Music, który odtwarza przez AMC, udostępni pod `Shift+A`
