@@ -9,6 +9,12 @@ i bezpośredni adres. Klient ogranicza czas, przekierowania i rozmiar odpowiedzi
 nie przyjmuje niebezpiecznego XML i podczas odświeżania nie pobiera audio.
 Odtwarzanie odcinków jest świadomie pozostawione do `alpha.206`.
 
+W poprawionym imporcie OPML strzałki wyłącznie nawigują, Spacja niezależnie
+zaznacza lub odznacza bieżący podcast, a `Ctrl+A` zaznacza wszystkie. Lista
+harmonogramów nagrywania zaczyna każdy wiersz od nazwy stacji i po tej nazwie
+obsługuje szybkie przechodzenie literami; stan włączony albo wyłączony jest
+czytany bezpośrednio po nazwie.
+
 Wersja `alpha.201` zabezpiecza ręczny podział nagrania radia przed szybkim podwójnym naciśnięciem `T`. Pierwsze `T` finalizuje bieżącą część i natychmiast kontynuuje zapis w nowym pliku; ponowne `T` w ciągu pierwszych pięciu sekund nowej części jest bezpiecznie pomijane zamiast zatrzymywać nagranie. Każda zamknięta część jest od razu dodawana do lokalnej Biblioteki, choć kolejna część nadal się nagrywa. `Shift+T` zachowuje dotychczasowe znaczenie i nie jest drugim poleceniem podziału.
 
 Wersja `alpha.200` dodaje świadome usuwanie zaznaczonego przedziału z oryginalnego pliku audio przez `Ctrl+X` w odtwarzaczu. Operacja wymaga potwierdzenia domyślnie ustawionego na „Nie”, zatrzymuje odtwarzanie, nie kompresuje dźwięku ponownie, sprawdza gotowy wynik i dopiero wtedy podmienia źródło. Pełna, bitowo identyczna kopia otrzymuje końcówkę `.amc-backup`; błąd pozostawia oryginał bez zmian. Pliki wymagające pobrania z chmury i pliki wideo są bezpiecznie odrzucane.

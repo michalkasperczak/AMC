@@ -172,7 +172,9 @@ koncepcyjnego.
   **Sprawdź** pobiera wyłącznie ograniczone metadane kanału; dopiero aktywny po
   pomyślnej weryfikacji przycisk **Dodaj** zapisuje podcast w Bibliotece.
 - `Ctrl+O` otwiera plik OPML i pokazuje listę znalezionych kanałów z
-  wielokrotnym zaznaczeniem. `Ctrl+A` zaznacza wszystkie pozycje. Import
+  niezależnymi polami wyboru. Strzałki przesuwają fokus bez zmiany wyboru,
+  Spacja zaznacza lub odznacza bieżący kanał, a `Ctrl+A` zaznacza wszystkie.
+  Import
   odświeża metadane maksymalnie czterech kanałów równocześnie, nie pobiera
   odcinków audio i nie tworzy duplikatów.
 - `F5` odświeża zaznaczoną lub otwartą audycję, a `Ctrl+F5` wszystkie

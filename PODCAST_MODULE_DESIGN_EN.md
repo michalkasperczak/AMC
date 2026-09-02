@@ -107,8 +107,9 @@ The keyboard map will be decided after the first working view. This design
 document does not reserve shortcuts by itself.
 
 In `alpha.205`, Ctrl+N verifies a direct RSS/Atom URL before enabling Add.
-Ctrl+O presents the OPML feeds in an extended-selection list; Ctrl+A selects
-all. F5 refreshes the selected or open show and Ctrl+F5 refreshes every followed
+Ctrl+O presents OPML feeds as independent choices: arrows move focus without
+changing inclusion, Space toggles the current feed and Ctrl+A selects all. F5
+refreshes the selected or open show and Ctrl+F5 refreshes every followed
 show. Fetching is bounded by timeout, redirect count and response size, accepts
 only HTTP/HTTPS without embedded credentials, and never downloads episode audio.
 Enter opens a show's episodes newest first and Backspace returns to the Library.

@@ -72,6 +72,7 @@ try
     TestPlaybackAudioSettingAccessibility();
     TestAudioOutputDeviceAccessibility();
     TestPodcastFeedClient();
+    TestPodcastOpmlImportSelectionAccessibility();
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
@@ -828,10 +829,14 @@ static void TestRadioScheduleAccessibility()
             var selected = schedulesList.SelectedItem;
             var accessibleLabel = selected?.GetType().GetProperty("AccessibleLabel")?.GetValue(selected)?.ToString();
             Assert(!string.IsNullOrWhiteSpace(accessibleLabel)
-                   && accessibleLabel.StartsWith("włączone, Stacja testowa,", StringComparison.Ordinal)
+                   && accessibleLabel.StartsWith("Stacja testowa, włączone,", StringComparison.Ordinal)
                    && !accessibleLabel.Contains("pole wyboru", StringComparison.OrdinalIgnoreCase)
                    && IsUserFacingChoice(selected!),
                 "Pierwszy harmonogram nie ma stabilnej, użytkowej etykiety dostępnościowej.");
+            Assert(TextSearch.GetTextPath(schedulesList) == "NavigationText"
+                   && selected?.GetType().GetProperty("NavigationText")?.GetValue(selected)?.ToString()
+                       == "Stacja testowa",
+                "Nawigacja literowa harmonogramów nie korzysta z nazwy stacji.");
             var scheduleStatus = (AccessibleStatusTextBlock)manager.FindName("ScheduleStatus");
             var selectedBeforeToggle = schedulesList.SelectedItem;
             var selectedIndexBeforeToggle = schedulesList.SelectedIndex;
@@ -848,18 +853,18 @@ static void TestRadioScheduleAccessibility()
                    && schedulesList.SelectedIndex == selectedIndexBeforeToggle
                    && containerBeforeToggle!.IsKeyboardFocusWithin
                    && !string.IsNullOrWhiteSpace(accessibleLabel)
-                   && accessibleLabel.StartsWith("wyłączone, Stacja testowa,", StringComparison.Ordinal)
+                   && accessibleLabel.StartsWith("Stacja testowa, wyłączone,", StringComparison.Ordinal)
                    && !accessibleLabel.Contains("harmonogram", StringComparison.OrdinalIgnoreCase)
                    && !accessibleLabel.Contains("pole wyboru", StringComparison.OrdinalIgnoreCase),
                 "Wyłączenie przebudowuje wiersz albo nie odświeża stanu jego pola wyboru.");
             Assert(scheduleStatus.Text == accessibleLabel
-                   && scheduleStatus.Text.StartsWith("wyłączone, Stacja testowa,", StringComparison.Ordinal)
+                   && scheduleStatus.Text.StartsWith("Stacja testowa, wyłączone,", StringComparison.Ordinal)
                    && !scheduleStatus.Text.Contains("Wybierz Zapisz", StringComparison.OrdinalIgnoreCase),
                 "Wyłączenie nie tworzy krótkiego komunikatu zaczynającego się od stanu i nazwy stacji.");
             Assert(manager.ToggleSelectedEnabled(),
                 "Ponowna Spacja nie włącza wybranego harmonogramu.");
             DrainDispatcher(manager.Dispatcher);
-            Assert(scheduleStatus.Text.StartsWith("włączone, Stacja testowa,", StringComparison.Ordinal)
+            Assert(scheduleStatus.Text.StartsWith("Stacja testowa, włączone,", StringComparison.Ordinal)
                    && !scheduleStatus.Text.Contains("harmonogram", StringComparison.OrdinalIgnoreCase)
                    && !scheduleStatus.Text.Contains("pole wyboru", StringComparison.OrdinalIgnoreCase),
                 "Włączenie nie tworzy krótkiego komunikatu zaczynającego się od stanu i nazwy stacji.");
@@ -3314,6 +3319,80 @@ static void TestPodcastFeedClient()
     Assert(handler.Requests.All(uri => uri.Host == "example.test"), "Klient pobrał plik audio zamiast samych metadanych kanału.");
 
     Console.WriteLine("OK: ograniczony klient kanałów podcastów");
+}
+
+static void TestPodcastOpmlImportSelectionAccessibility()
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        PodcastOpmlImportWindow? window = null;
+        try
+        {
+            var entries = new[]
+            {
+                new PodcastOpmlEntry(
+                    "Audycja Alfa",
+                    new Uri("https://example.test/alfa.xml"),
+                    new Uri("https://example.test/alfa")),
+                new PodcastOpmlEntry(
+                    "Podcast Beta",
+                    new Uri("https://example.test/beta.xml"),
+                    null)
+            };
+            window = new PodcastOpmlImportWindow(entries);
+            window.Show();
+            DrainPodcastDispatcher(window.Dispatcher);
+            var list = (ListBox)window.FindName("FeedsList");
+            var status = (AccessibleStatusTextBlock)window.FindName("ImportStatus");
+            Assert(list.SelectionMode == SelectionMode.Single
+                   && TextSearch.GetTextPath(list) == "NavigationText",
+                "Lista OPML nie rozdziela fokusu od wyboru podcastów do importu.");
+            Assert(window.SelectedEntries.Count == 2 && list.SelectedIndex == 0,
+                "Import OPML nie rozpoczyna od wszystkich podcastów i pierwszego wiersza.");
+            var first = list.SelectedItem;
+            var firstLabel = first?.GetType().GetProperty("AccessibleLabel")?.GetValue(first)?.ToString();
+            Assert(!string.IsNullOrWhiteSpace(firstLabel)
+                   && firstLabel.Contains("zaznaczony do importu", StringComparison.Ordinal)
+                   && !firstLabel.Contains('{', StringComparison.Ordinal),
+                "Pierwszy kanał OPML nie ma użytkowej informacji o stanie wyboru.");
+            Assert(window.ToggleCurrentEntry() && window.SelectedEntries.Count == 1,
+                "Spacja nie odznacza bieżącego kanału OPML.");
+            list.SelectedIndex = 1;
+            Assert(window.SelectedEntries.Count == 1,
+                "Sama nawigacja strzałkami zmienia wybór kanałów OPML.");
+            Assert(window.ToggleCurrentEntry() && window.SelectedEntries.Count == 0,
+                "Spacja nie odznacza drugiego kanału OPML.");
+            window.SelectAllEntries();
+            Assert(window.SelectedEntries.Count == 2
+                   && status.Text == "Wybrano podcasty: 2 z 2.",
+                "Ctrl+A nie zaznacza wszystkich kanałów OPML albo nie podaje liczby.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+        finally
+        {
+            window?.Close();
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    if (failure is not null)
+        throw new InvalidOperationException("Test dostępnego wyboru podcastów z OPML nie powiódł się.", failure);
+
+    Console.WriteLine("OK: dostępny wybór podcastów z OPML");
+
+    static void DrainPodcastDispatcher(System.Windows.Threading.Dispatcher dispatcher)
+    {
+        var frame = new System.Windows.Threading.DispatcherFrame();
+        dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.ApplicationIdle,
+            () => frame.Continue = false);
+        System.Windows.Threading.Dispatcher.PushFrame(frame);
+    }
 }
 
 sealed class BlockingWaveStream : WaveStream

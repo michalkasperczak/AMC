@@ -26,6 +26,7 @@
                                             automation:AutomationProperties.Name="Wynik zmiany harmonogramu"
                                             automation:AutomationProperties.LiveSetting="Assertive" />
         <ListBox x:Name="SchedulesList" SelectionMode="Single"
+                 TextSearch.TextPath="NavigationText"
                  automation:AutomationProperties.Name="Zaplanowane nagrania radia"
                  automation:AutomationProperties.HelpText="Strzałki wybierają plan. Spacja włącza lub wyłącza go bez otwierania edytora."
                  PreviewKeyDown="SchedulesList_PreviewKeyDown"

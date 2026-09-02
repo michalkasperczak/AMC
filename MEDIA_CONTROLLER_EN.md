@@ -1335,6 +1335,11 @@ unchecked state at the same time. Only Save commits the working copy and stops
 an active schedule that was disabled; Cancel leaves persistent configuration
 unchanged.
 
+The `alpha.205` correction keeps OPML inclusion independent from list focus:
+arrows only navigate, Space toggles the current feed and Ctrl+A includes all.
+Radio schedule rows now begin with the station name and use it for type-ahead;
+the enabled or disabled state follows the name.
+
 Starting with `alpha.178`, every directly editable WPF text control inherits
 one entry rule. Focus obtained through Tab, a label access key or a
 programmatic return after validation selects the complete value. The first

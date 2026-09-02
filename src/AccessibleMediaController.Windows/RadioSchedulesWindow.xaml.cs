@@ -81,7 +81,7 @@ public partial class RadioSchedulesWindow : Window
             schedule.StationName,
             local,
             partNumber: 1);
-        return $"{state}, {schedule.StationName}, {local:dd.MM.yyyy HH:mm}, {schedule.DurationMinutes} min, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}{activity}";
+        return $"{schedule.StationName}, {state}, {local:dd.MM.yyyy HH:mm}, {schedule.DurationMinutes} min, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}{activity}";
     }
 
     private void New_Click(object sender, RoutedEventArgs e)
@@ -255,6 +255,7 @@ public partial class RadioSchedulesWindow : Window
 
         public RadioRecordingScheduleSettings Schedule { get; } = schedule;
         public string Label => _label;
+        public string NavigationText => Schedule.StationName;
         public bool IsEnabled => Schedule.Enabled;
         public string AccessibleLabel => Label;
 

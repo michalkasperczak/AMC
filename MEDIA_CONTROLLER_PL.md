@@ -1416,9 +1416,9 @@ całego źródła listy. Zmienia w miejscu stan bieżącego wiersza, dzięki cze
 fokus pozostaje na konkretnym harmonogramie zamiast spadać na kontrolkę
 „Zaplanowane nagrania radia”. Nazwa wiersza, stan widocznego pola wyboru i
 powiadomienie UI Automation są aktualizowane razem. Po zakończeniu obsługi
-klawisza NVDA otrzymuje nazwę stacji i termin oraz jednoznaczne „pole wyboru
-zaznaczone, harmonogram włączony” albo „pole wyboru niezaznaczone, harmonogram
-wyłączony”.
+klawisza NVDA otrzymuje najpierw nazwę stacji, potem stan i termin. Wiersz
+zaczyna się od nazwy stacji także podczas zwykłej nawigacji, a mechanizm
+TextSearch pozwala przechodzić po harmonogramach literami tej nazwy.
 
 Korekta `alpha.184` wzmacnia przywracanie wiersza harmonogramu: po zmianie
 stanu lista jawnie odtwarza ten sam obiekt, indeks, położenie przewijania i
