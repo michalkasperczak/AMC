@@ -7,7 +7,6 @@ using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
-using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 
@@ -41,6 +40,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
     private CancellationTokenSource? _preparationCancellation;
     private MediaItem? _requestedItem;
     private int _volume = 35;
+    private string? _outputDeviceId;
     private long _requestVersion;
     private bool _preparing;
     private bool _disposed;
@@ -68,6 +68,17 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
     }
 
     public bool SupportsPlaybackRate => false;
+
+    public void ConfigureOutputDevice(string? deviceId)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _outputDeviceId = string.IsNullOrWhiteSpace(deviceId)
+                ? null
+                : deviceId.Trim();
+        }
+    }
 
     public bool IsPreparing
     {
@@ -253,6 +264,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
     {
         RadioPipeline? pipeline = null;
         OpenedRadioReader? openedReader = null;
+        AudioOutputDeviceLease? preparedOutputLease = null;
         try
         {
             var cancellationToken = preparationCancellation.Token;
@@ -285,11 +297,12 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             {
                 Volume = Math.Clamp(_volume, 0, 100) / 100f
             };
-            WasapiOut? output = null;
             if (audible)
             {
-                output = new WasapiOut(AudioClientShareMode.Shared, true, 180);
-                output.Init(volume);
+                string? outputDeviceId;
+                lock (_gate) outputDeviceId = _outputDeviceId;
+                preparedOutputLease = AudioOutputDeviceCatalog.CreateOutput(outputDeviceId, 180);
+                preparedOutputLease.Output.Init(volume);
             }
             var cancellation = new CancellationTokenSource();
             var decoderName = openedReader.DecoderName;
@@ -299,12 +312,13 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 openedReader.Lifetime,
                 buffer,
                 volume,
-                output,
+                preparedOutputLease,
                 cancellation,
                 reader as IRadioStreamTitleSource,
                 Pipeline_StreamTitleChanged);
             pipeline.StartStreamTitleTracking();
             openedReader = null;
+            preparedOutputLease = null;
 
             lock (_gate)
             {
@@ -322,7 +336,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                     _preparationCancellation = null;
                 }
             }
-            output?.Play();
+            pipeline.Output?.Play();
             pipeline.CaptureTask = Task.Run(() => CaptureLoopAsync(pipeline), cancellation.Token);
             DiagnosticLog.Info(
                 "radio",
@@ -334,6 +348,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         }
         catch (OperationCanceledException)
         {
+            preparedOutputLease?.Dispose();
             if (pipeline is not null) QueueDisposal(pipeline);
             lock (_gate)
             {
@@ -359,6 +374,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             or COMException
             or InvalidComObjectException)
         {
+            preparedOutputLease?.Dispose();
             if (pipeline is not null) QueueDisposal(pipeline);
             var current = false;
             lock (_gate)
@@ -1053,7 +1069,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         IDisposable readerLifetime,
         RadioTimeshiftWaveProvider buffer,
         VolumeSampleProvider volume,
-        WasapiOut? output,
+        AudioOutputDeviceLease? outputLease,
         CancellationTokenSource cancellation,
         IRadioStreamTitleSource? streamTitleSource,
         Action<RadioPipeline, string?> streamTitleChanged) : IDisposable
@@ -1074,7 +1090,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         public MediaItem Item { get; } = item;
         public RadioTimeshiftWaveProvider Buffer { get; } = buffer;
         public VolumeSampleProvider Volume { get; } = volume;
-        public WasapiOut? Output { get; } = output;
+        public WasapiOut? Output => outputLease?.Output;
         public CancellationTokenSource Cancellation { get; } = cancellation;
         public Task? CaptureTask { get; set; }
 
@@ -1151,7 +1167,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             }
             try { Output?.Stop(); } catch (Exception) { }
             try { currentLifetime?.Dispose(); } catch (Exception) { }
-            try { Output?.Dispose(); } catch (Exception) { }
+            try { outputLease?.Dispose(); } catch (Exception) { }
             Cancellation.Dispose();
         }
     }

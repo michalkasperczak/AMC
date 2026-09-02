@@ -52,9 +52,9 @@
                 <Label x:Name="OutputDeviceLabel" Target="{Binding ElementName=OutputDeviceBox}">_Urządzenie audio dla elementu:</Label>
                 <ComboBox x:Name="OutputDeviceBox" Margin="0,0,0,6" IsEnabled="False"
                           automation:AutomationProperties.Name="Urządzenie audio dla elementu"
-                          automation:AutomationProperties.HelpText="Wybór urządzenia zostanie włączony po dodaniu listy wyjść audio." />
+                          automation:AutomationProperties.HelpText="Urządzenie pojedynczego elementu nie jest jeszcze nadpisywane. Wyjście wybiera się obecnie osobno dla sesji w menu Odtwarzanie." />
                 <TextBlock Margin="0,0,0,16" TextWrapping="Wrap"
-                           Text="Obecnie AMC używa bezpiecznego, współdzielonego domyślnego wyjścia Windows. Miejsce dla urządzenia elementu jest już wydzielone; wybór oraz EQ dojdą wraz z modułem wyjść audio." />
+                           Text="Urządzenie wyjściowe wybiera się osobno dla każdej sesji w menu Odtwarzanie. Nadpisanie tylko dla tego pliku lub folderu pozostaje wyłączone." />
             </StackPanel>
         </ScrollViewer>
 

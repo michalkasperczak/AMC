@@ -68,6 +68,7 @@ try
     TestRadioRecognitionSettingAccessibility();
     TestRadioRecognitionHistoryFilterAccessibility();
     TestPlaybackAudioSettingAccessibility();
+    TestAudioOutputDeviceAccessibility();
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
@@ -311,6 +312,21 @@ static void TestEditableFieldReplacement()
     if (failure is not null)
         throw new InvalidOperationException("Test zastępowania wartości pola nie powiódł się.", failure);
     Console.WriteLine("OK: wpisywanie po wejściu klawiaturą zastępuje całą poprzednią wartość pola");
+}
+
+static void TestAudioOutputDeviceAccessibility()
+{
+    const string missingDeviceId = "amc-test-device-that-does-not-exist";
+    var choices = AudioOutputDeviceCatalog.Enumerate(missingDeviceId);
+    Assert(choices.Count >= 2, "Lista urządzeń nie zawiera wyboru domyślnego i niedostępnego urządzenia.");
+    Assert(choices[0].Id is null, "Pierwszym wyborem nie jest urządzenie domyślne Windows.");
+    Assert(choices[0].Label == "Domyślne urządzenie systemowe", "Domyślne urządzenie nie ma stabilnej nazwy.");
+    var unavailable = choices.Single(choice => choice.Id == missingDeviceId);
+    Assert(!unavailable.IsAvailable, "Brakujące urządzenie nie zostało oznaczone jako niedostępne.");
+    Assert(unavailable.ToString() == unavailable.Label, "NVDA może otrzymać techniczny zapis wyboru urządzenia.");
+    Assert(!unavailable.Label.Contains(missingDeviceId, StringComparison.Ordinal),
+        "Identyfikator urządzenia wyciekł do dostępnej etykiety.");
+    Console.WriteLine("OK: dostępny i bezpieczny wybór urządzenia audio sesji");
 }
 
 static void TestAudioClipExporter()

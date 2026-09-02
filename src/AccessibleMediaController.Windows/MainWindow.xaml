@@ -90,6 +90,10 @@
                           automation:AutomationProperties.Name="Wycisz lub przywróć dźwięk wszystkich sesji AMC, Ctrl+Shift+M"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+M"
                           Click="ToggleAllSessionsMute_Click" />
+                <MenuItem x:Name="AudioOutputDeviceMenuItem"
+                          Header="Wybierz _urządzenie audio dla bieżącej sesji…"
+                          automation:AutomationProperties.Name="Wybierz urządzenie audio dla bieżącej sesji"
+                          Click="AudioOutputDevice_Click" />
                 <Separator x:Name="PlaybackAudioProcessingSeparator" />
                 <MenuItem x:Name="LoudnessNormalizationMenuItem"
                           Header="Globalna normalizacja głośności: wyłączona"
@@ -486,6 +490,10 @@
                     <MenuItem Header="Następny utwór" InputGestureText="Page Down"
                               automation:AutomationProperties.Name="Następny utwór, Page Down"
                               Click="PlayerNext_Click" />
+                    <MenuItem x:Name="PlayerAudioOutputDeviceMenuItem"
+                              Header="Wybierz urządzenie audio dla tej sesji…"
+                              automation:AutomationProperties.Name="Wybierz urządzenie audio dla tej sesji"
+                              Click="AudioOutputDevice_Click" />
                     <Separator x:Name="PlayerAudioProcessingSeparator" />
                     <MenuItem x:Name="PlayerLoudnessNormalizationMenuItem"
                               Header="Globalna normalizacja głośności: wyłączona"

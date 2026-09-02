@@ -128,6 +128,15 @@ public sealed class DemoMediaSession
         _output?.Stop();
     }
 
+    public bool RestartPlaybackOutput(TimeSpan? positionOverride = null)
+    {
+        if (!HasCurrentItem || !IsPlaying || _output is null) return false;
+        _position = positionOverride ?? Position;
+        _output.Stop();
+        _output.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
+        return true;
+    }
+
     public bool SelectItem(MediaItem item)
     {
         var index = Items.FindIndex(candidate => candidate.Id == item.Id);

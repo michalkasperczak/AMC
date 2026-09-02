@@ -345,7 +345,7 @@ W `alpha.88` `Ctrl+Shift+A` tworzy prawdziwy lokalny widok **Albumy** także dla
 
 W `alpha.89` lista, z której uruchomiono element, staje się trwałym **kontekstem odtwarzania** tej sesji. `Page Up`, `Page Down` i automatyczna kontynuacja pozostają więc w Ulubionych, otwartym albumie, bieżącym folderze, Kolejce albo Kolejności własnej. Późniejsze przeglądanie innego widoku nie zmienia kontekstu, dopóki użytkownik nie uruchomi z niego nowego elementu. Historia i Zakładki są odsyłaczami, nie osobnymi kolejkami. Filtr `Ctrl+K` nie ogranicza kontekstu do chwilowo widocznych wyników. `Alt+strzałka w górę/w dół` ustawia trwałą kolejność również w Ulubionych; nadal nie działa w Folderach, Wszystkich plikach alfabetycznie, Albumach, Historii ani wynikach wyszukiwania.
 
-`Alt+Shift+Enter` otwiera dostępne **Opcje odtwarzania elementu**. Dla pliku lokalnego można nadpisać regułę pamiętania pozycji oraz prędkość; brak nadpisania dziedziczy ustawienie folderu lub ogólne i prędkość sesji. Pole urządzenia wskazuje obecnie bezpieczne domyślne wyjście współdzielone Windows i pozostaje nieaktywne do czasu wdrożenia modułu wyjść audio; w tym samym miejscu później może pojawić się EQ. `Alt+Enter` pozostaje oknem informacji tylko do odczytu i pokazuje skuteczne reguły. Menu pliku rozpoznanego jako ścieżka albumu oferuje także **Przejdź do albumu** i **Przejdź do wykonawcy**. Alias ustawiony przez `F2` zmienia wyłącznie tytuł widoczny w AMC; kolejność albumu nadal wynika z numerów fizycznych nazw plików, więc własne czyste tytuły nie naruszają kolejności ścieżek.
+`Alt+Shift+Enter` otwiera dostępne **Opcje odtwarzania elementu**. Dla pliku lokalnego można nadpisać regułę pamiętania pozycji oraz prędkość; brak nadpisania dziedziczy ustawienie folderu lub ogólne i prędkość sesji. Urządzenie wyjściowe wybiera się obecnie dla całej sesji w menu Odtwarzanie; nadpisanie tylko dla jednego pliku lub folderu pozostaje nieaktywne, a w tym samym miejscu później może pojawić się EQ. `Alt+Enter` pozostaje oknem informacji tylko do odczytu i pokazuje skuteczne reguły. Menu pliku rozpoznanego jako ścieżka albumu oferuje także **Przejdź do albumu** i **Przejdź do wykonawcy**. Alias ustawiony przez `F2` zmienia wyłącznie tytuł widoczny w AMC; kolejność albumu nadal wynika z numerów fizycznych nazw plików, więc własne czyste tytuły nie naruszają kolejności ścieżek.
 
 Od `alpha.90` `Alt+Shift+Enter` działa również na folderze i albumie. Ustawienia folderu dotyczą wszystkich plików poniżej niego, a folder zagnieżdżony może mieć własne, bardziej szczegółowe nadpisanie. Pojedynczy plik ma zawsze pierwszeństwo, następnie obowiązuje najbliższy folder, zarejestrowane źródło Biblioteki i ustawienie ogólne. Opcje są zapisywane według pełnej ścieżki, ale nie przenoszą, nie zmieniają ani nie otwierają plików. Dopasowanie ustawień pojedynczego pliku używa także jego ścieżki, dzięki czemu odświeżenie identyfikatora Biblioteki nie powoduje komunikatu o braku ustawień.
 
@@ -602,6 +602,25 @@ interfejsów. `Ctrl+I` otworzy automatyczną skrzynkę **Nowe odcinki**, `Ctrl+D
 pobierze świadomie wybrane odcinki, a Playlisty pozostaną ręcznymi zestawami i
 nie będą się same zmieniać po odświeżeniu kanału. Pełny podział etapów znajduje
 się w [`PROJEKT_PODCASTOW_PL.md`](PROJEKT_PODCASTOW_PL.md).
+
+## Urządzenie audio osobno dla sesji w alpha 204
+
+Menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej sesji…** oraz menu
+kontekstowe odtwarzacza pokazują rzeczywiste, aktywne wyjścia Windows. Wybór
+jest zapisywany niezależnie dla Plików lokalnych, Radia internetowego i
+Podcastów. Po zmianie aktywny odsłuch zostaje uruchomiony ponownie na nowym
+wyjściu, bez zmiany Kolejki, Historii ani bieżącego elementu. W Radiu osobne
+nagrania działające w tle pozostają niezależne i nie są zatrzymywane.
+
+AMC nadal używa współdzielonego WASAPI, aby NVDA i inne aplikacje zachowały
+dźwięk. Można wybrać **Domyślne urządzenie systemowe**, które podąża za zmianą
+ustawienia Windows, albo zapamiętać konkretne urządzenie dla sesji. Gdy
+zapamiętane wyjście jest chwilowo odłączone, AMC bezpiecznie korzysta z
+urządzenia domyślnego, nie usuwa preferencji i ponownie użyje wybranego
+urządzenia po jego powrocie. Dostępne etykiety zawierają tylko nazwy użytkowe;
+identyfikatory techniczne urządzeń nie są przekazywane do NVDA. `Alt+Enter`
+podaje skuteczne wyjście sesji. Indywidualne urządzenie dla pojedynczego pliku,
+folderu lub stacji pozostaje etapem późniejszym.
 
 ## Zakres i ograniczenia
 

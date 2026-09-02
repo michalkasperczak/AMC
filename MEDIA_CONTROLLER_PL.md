@@ -222,6 +222,16 @@ Ulubione i playlisty pozostają własnością konkretnej usługi albo lokalnej b
 
 Na Windows domyślnym wyjściem pozostaje współdzielone WASAPI, aby AMC współistniał z NVDA. Tryb wyłączny, bit-perfect i natywne DSD nie wchodzą do podstawowego toru. Ewentualny późniejszy tryb zaawansowany musi być jawny, odwracalny i nie może po cichu odbierać dźwięku czytnikowi ekranu. foobar2000 może kiedyś działać jako zewnętrzny adapter; jego komponentów nie traktujemy jako bibliotek możliwych do bezpośredniego wbudowania bez osobno sprawdzonych źródeł i licencji.
 
+Stan `alpha.204`: Pliki lokalne, Radio internetowe i Podcasty wybierają aktywne
+wyjście Windows osobno dla każdej sesji. Wartość pusta oznacza dynamiczne
+urządzenie domyślne systemu, a konkretne wyjście jest zapisywane pod stabilnym
+identyfikatorem, którego nie wolno ujawniać w etykiecie dostępności. Odłączenie
+zapamiętanego urządzenia powoduje bezpieczny fallback do wyjścia domyślnego bez
+kasowania preferencji. Zmiana podczas odtwarzania przebudowuje tylko słyszalny
+tor sesji i zachowuje jej bieżący element, stan oraz pozycję, o ile dany rodzaj
+źródła pozycję obsługuje. Osobne, niesłyszalne tory nagrywania Radia nie mogą
+zostać zatrzymane ani przekierowane przez zmianę urządzenia odsłuchu.
+
 ## 7. Okno przeglądania
 
 ### 7.1. Lista zamiast drzewa
@@ -1105,7 +1115,7 @@ Planowana kolejność dalszych etapów:
 ## 15. Otwarte decyzje
 
 1. Czy domyślnym prefiksem ma być `Ctrl+Numeryczny Enter`, czy sam `Numeryczny Enter`, oraz jaki ma być czas wygaśnięcia warstwy.
-2. Jak prezentować wybór urządzenia i EQ dla elementu po wdrożeniu modułu wyjść audio; nadpisanie wznowienia i prędkości pojedynczego pliku działa od `alpha.89`.
+2. Czy i jak dopuścić nadpisanie urządzenia i EQ dla pojedynczego elementu; wybór wyjścia dla całej sesji działa od `alpha.204`, a nadpisanie wznowienia i prędkości pojedynczego pliku od `alpha.89`.
 3. Czy istnieje od początku playlista „Do odsłuchu”.
 4. Które komunikaty mają być mówione, a które sygnalizowane dźwiękiem.
 5. Edycja nazw istniejących zakładek; tworzenie nazwanych zakładek działa od `alpha.70`, a podstawowy globalny widok i eksport pełnej kopii od `alpha.68`.

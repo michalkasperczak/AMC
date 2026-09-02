@@ -4,7 +4,6 @@ using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
-using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using NLayer.NAudioSupport;
@@ -112,7 +111,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     private sealed class PlaybackPipeline
     {
         public required MediaItem Item { get; init; }
-        public required WasapiOut Output { get; init; }
+        public required AudioOutputDeviceLease OutputLease { get; init; }
+        public WasapiOut Output => OutputLease.Output;
         public required GuardedWaveStream DecoderGuard { get; init; }
         public required DecoderReadMonitorSampleProvider OutputReadMonitor { get; init; }
         public required SoundTouchWaveStream TempoStream { get; init; }
@@ -167,6 +167,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     private bool _loudnessNormalizationEnabled;
     private bool _smoothTrackTransitionsEnabled;
     private int _interTrackSilenceMilliseconds;
+    private string? _outputDeviceId;
     private Func<MediaItem, PlaybackAudioSettings>? _audioProcessingResolver;
     private DateTimeOffset _nextAutomaticStartNotBeforeUtc;
     private long _requestVersion;
@@ -234,6 +235,17 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             _audioProcessingResolver = resolver;
+        }
+    }
+
+    public void ConfigureOutputDevice(string? deviceId)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _outputDeviceId = string.IsNullOrWhiteSpace(deviceId)
+                ? null
+                : deviceId.Trim();
         }
     }
 
@@ -564,7 +576,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             mayRequireRemoteAccess);
         var reader = selection.Reader;
         SoundTouchWaveStream? tempoStream = null;
-        WasapiOut? output = null;
+        AudioOutputDeviceLease? outputLease = null;
         try
         {
             tempoStream = new SoundTouchWaveStream(reader)
@@ -594,7 +606,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             var outputReadMonitor = new DecoderReadMonitorSampleProvider(
                 transitionProvider,
                 item.Source);
-            output = new WasapiOut(AudioClientShareMode.Shared, true, 120);
+            string? outputDeviceId;
+            lock (_gate) outputDeviceId = _outputDeviceId;
+            outputLease = AudioOutputDeviceCatalog.CreateOutput(outputDeviceId, 120);
+            var output = outputLease.Output;
             PlaybackPipeline? pipeline = null;
             EventHandler<StoppedEventArgs> handler = (_, args) =>
             {
@@ -603,7 +618,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             pipeline = new PlaybackPipeline
             {
                 Item = item,
-                Output = output,
+                OutputLease = outputLease,
                 DecoderGuard = reader,
                 OutputReadMonitor = outputReadMonitor,
                 TempoStream = tempoStream,
@@ -620,7 +635,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         }
         catch
         {
-            output?.Dispose();
+            outputLease?.Dispose();
             if (tempoStream is not null) tempoStream.Dispose();
             else reader.Dispose();
             throw;
@@ -1644,7 +1659,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         {
             pipeline.Output.PlaybackStopped -= pipeline.StoppedHandler;
             pipeline.Output.Stop();
-            pipeline.Output.Dispose();
+            pipeline.OutputLease.Dispose();
             // SoundTouchWaveStream owns and disposes the underlying reader.
             pipeline.TempoStream.Dispose();
         }

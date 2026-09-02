@@ -133,29 +133,29 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
 1. `alpha.203` — prawdziwa, pusta sesja Podcasty bez danych demonstracyjnych,
    szóste miejsce w konfigurowanej kolejności sesji, trwały model subskrypcji i
    odcinków, widoki Biblioteka, Nowe odcinki i Pobrane oraz parser RSS/Atom.
-2. `alpha.204` — **Nowy podcast…** przez `Ctrl+N`, ograniczony klient
+2. `alpha.205` — **Nowy podcast…** przez `Ctrl+N`, ograniczony klient
    HTTP/HTTPS, bezpośredni RSS/Atom, aktualizacja pojedynczej audycji i całej
    Biblioteki, otwieranie podcastu do listy odcinków oraz wypisywanie się przez
    Delete. `Ctrl+O` importuje lokalny plik OPML. Kanał nie pobiera automatycznie
    plików audio.
-3. `alpha.205` — odtwarzanie skończonych materiałów HTTP przez osobny tor
+3. `alpha.206` — odtwarzanie skończonych materiałów HTTP przez osobny tor
    Podcastów, zapamiętywanie pozycji i prędkości per odcinek, poprawne
    Page Up/Page Down w bieżącym kontenerze, Historia i zakładki.
-4. `alpha.206` — wyszukiwanie publicznego katalogu Apple Podcasts, rozpoznanie
+4. `alpha.207` — wyszukiwanie publicznego katalogu Apple Podcasts, rozpoznanie
    stron Apple/Overcast i wykrywanie RSS/Atom na zwykłej stronie.
-5. `alpha.207` — pełna skrzynka Nowe odcinki, stany nowy, przejrzany,
+5. `alpha.208` — pełna skrzynka Nowe odcinki, stany nowy, przejrzany,
    odsłuchany i w trakcie, filtrowanie oraz operacje zbiorowe. Stan odsłuchania
    nie będzie utożsamiany z usunięciem odcinka.
-6. `alpha.208` — jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
+6. `alpha.209` — jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
    anulowanie, postęp i atomowa publikacja gotowego pliku. Części robocze
    pozostają poza iCloud, OneDrive, Dyskiem Google i innymi folderami
    synchronizowanymi.
-7. `alpha.209` — playlisty odcinków, import i eksport OPML, osobny eksport
+7. `alpha.210` — playlisty odcinków, import i eksport OPML, osobny eksport
    danych Podcastów AMC i pełne odtworzenie ich z kopii zapasowej.
-8. `alpha.210` — strony z osadzonym audio, istniejące adaptery Polskiego Radia
+8. `alpha.211` — strony z osadzonym audio, istniejące adaptery Polskiego Radia
    i innych rozgłośni oraz przekazywanie wyników z rozszerzenia Chrome i
    dodatku NVDA.
-9. `alpha.211` — rozdziały dostarczone przez podcast i rozdziały użytkownika
+9. `alpha.212` — rozdziały dostarczone przez podcast i rozdziały użytkownika
    oparte na nazwanych zakładkach.
 10. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
    nie mogą uzależnić od siebie RSS, Biblioteki ani lokalnych pobrań.

@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 40;
+    public const int CurrentSchemaVersion = 41;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -820,6 +820,16 @@ public sealed class ConfigurationStore
     private static void MigrateSettings(AppSettings settings, int schemaVersion)
     {
         settings.Audio ??= new PlaybackAudioSettings();
+        settings.Audio.OutputDeviceIdsBySession =
+            (settings.Audio.OutputDeviceIdsBySession ?? new Dictionary<string, string>())
+            .Where(pair => SessionSlotOrder.DefaultSessionIds.Contains(
+                pair.Key,
+                StringComparer.OrdinalIgnoreCase))
+            .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
+            .ToDictionary(
+                pair => pair.Key.Trim(),
+                pair => pair.Value.Trim(),
+                StringComparer.OrdinalIgnoreCase);
         settings.PrefixChord = NormalizePrefixChord(settings.PrefixChord);
         if (schemaVersion < 17 && IsLegacyDefaultSessionOrder(settings.SessionSlots))
         {
@@ -953,6 +963,15 @@ public sealed class ConfigurationStore
         {
             throw new InvalidDataException(
                 "Cisza między utworami musi mieć jedną z wartości dostępnych w Ustawieniach.");
+        }
+        if (settings.Audio.OutputDeviceIdsBySession.Any(pair =>
+                !SessionSlotOrder.DefaultSessionIds.Contains(
+                    pair.Key,
+                    StringComparer.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(pair.Value)
+                || pair.Value.Length > 2048))
+        {
+            throw new InvalidDataException("Wybór urządzeń audio sesji jest nieprawidłowy.");
         }
 
         var expectedFields = Enum.GetValues<MediaItemField>();

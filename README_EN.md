@@ -561,6 +561,21 @@ This release also adds optional music recognition to Radio. `S` in the player re
 
 Starting with `alpha.164`, rich copy and recognition-history exports also include YouTube Music plus Discogs and MusicBrainz catalogue searches. These are explicit search URLs, not a claim that AMC has silently selected the correct edition. The future controlled matching and credits model is defined in [`MUSIC_CREDITS_AND_CATALOG_DESIGN_EN.md`](MUSIC_CREDITS_AND_CATALOG_DESIGN_EN.md).
 
+## Per-session audio output in alpha 204
+
+**Playback > Select audio device for the current session…** and the player
+context menu enumerate real active Windows outputs. The choice persists
+independently for Local Files, Internet Radio and Podcasts. Changing it restarts
+only the audible session pipeline without changing Queue, History or the current
+item; independent Radio recordings continue in the background.
+
+AMC keeps shared-mode WASAPI so NVDA and other applications remain audible.
+The user can follow the Windows default dynamically or retain a specific output.
+If the retained device is disconnected, AMC temporarily falls back to the
+system default without deleting the preference. Accessible labels expose only
+friendly names, never technical device identifiers. Per-item, folder or station
+output overrides remain a later stage.
+
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.

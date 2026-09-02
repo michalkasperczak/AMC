@@ -75,6 +75,8 @@ public sealed class PlaybackAudioSettings
     public bool LoudnessNormalizationEnabled { get; set; }
     public bool SmoothTrackTransitionsEnabled { get; set; }
     public int InterTrackSilenceMilliseconds { get; set; }
+    public Dictionary<string, string> OutputDeviceIdsBySession { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
 }
 
 public static class PlaybackAudioSettingsRules
@@ -217,7 +219,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 40;
+    public int SchemaVersion { get; set; } = 41;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();

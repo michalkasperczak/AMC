@@ -263,6 +263,7 @@ static void TestPlaybackAudioSettingsPersistence()
         state.Settings.Audio.LoudnessNormalizationEnabled = true;
         state.Settings.Audio.SmoothTrackTransitionsEnabled = true;
         state.Settings.Audio.InterTrackSilenceMilliseconds = 2000;
+        state.Settings.Audio.OutputDeviceIdsBySession["radio"] = "test-device-id";
         state.LocalMedia.Items.Add(new LocalMediaItemSettings
         {
             Id = "audio-override-item",
@@ -285,6 +286,7 @@ static void TestPlaybackAudioSettingsPersistence()
         Equal(true, loaded.Settings.Audio.LoudnessNormalizationEnabled);
         Equal(true, loaded.Settings.Audio.SmoothTrackTransitionsEnabled);
         Equal(2000, loaded.Settings.Audio.InterTrackSilenceMilliseconds);
+        Equal("test-device-id", loaded.Settings.Audio.OutputDeviceIdsBySession["RADIO"]);
         var loadedItem = loaded.LocalMedia.Items.Single(item => item.Id == "audio-override-item");
         Equal(false, loadedItem.LoudnessNormalizationOverride);
         Equal(true, loadedItem.SmoothTrackTransitionsOverride);
@@ -1658,6 +1660,13 @@ static void TestLocalPlaybackBoundary()
     Equal(1, output.StopCount);
     Equal(false, session.IsPlaying);
     session.TogglePlayback();
+
+    output.Position = TimeSpan.FromSeconds(27);
+    True(session.RestartPlaybackOutput(), "Zmiana urządzenia powinna ponownie uruchomić aktywne wyjście.");
+    Equal(TimeSpan.FromSeconds(27), output.Position);
+    Equal(true, session.IsPlaying);
+    Equal(2, output.StopCount);
+    Equal(4, output.PlayCount);
 
     output.Position = TimeSpan.FromSeconds(30);
     session.Seek(TimeSpan.FromSeconds(10));

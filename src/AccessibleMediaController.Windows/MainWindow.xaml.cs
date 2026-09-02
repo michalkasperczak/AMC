@@ -209,8 +209,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _radioRecognitionMonitoring = _state.Radio.AutomaticTrackRecognitionEnabled;
         _localOutput.ConfigureAudioProcessing(_state.Settings.Audio);
         _localOutput.ConfigureAudioProcessingResolver(GetEffectiveLocalAudioSettings);
+        _localOutput.ConfigureOutputDevice(GetSessionOutputDeviceId("local"));
         _podcastOutput.ConfigureAudioProcessing(_state.Settings.Audio);
+        _podcastOutput.ConfigureOutputDevice(GetSessionOutputDeviceId("podcasts"));
         _radioOutput = new RadioMediaOutput(_state.Radio.TimeshiftMinutes);
+        _radioOutput.ConfigureOutputDevice(GetSessionOutputDeviceId("radio"));
         _radioOutput.PlaybackFailed += RadioOutput_PlaybackFailed;
         _radioOutput.PlaybackPreparing += RadioOutput_PlaybackPreparing;
         _radioOutput.PlaybackStarted += RadioOutput_PlaybackStarted;
@@ -2624,8 +2627,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var saved = FindLocalItemSettings(item);
             playbackLines.Add($"Wznawianie: {FormatResumePositionMode(saved?.ResumePositionMode ?? ResumePositionMode.Inherit, item)}");
             playbackLines.Add($"Prędkość elementu: {FormatItemPlaybackRate(item, saved)}");
-            playbackLines.Add("Wyjście audio: domyślne urządzenie systemowe, tryb współdzielony");
         }
+        if (session.Id is "local" or "radio" or "podcasts")
+            playbackLines.Add($"Wyjście audio: {GetSessionOutputDeviceLabel(session.Id)}, tryb współdzielony");
         sections.Add(string.Join(Environment.NewLine, playbackLines));
 
         var technicalLines = new List<string> { "Techniczne" };
@@ -2720,6 +2724,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : $"Za transmisją: {CommandRouter.FormatTime(_radioOutput.BehindLive)}");
             applicationLines.Insert(4, $"Głośność: {session.Volume}%");
         }
+        applicationLines.Add($"Wyjście audio: {GetSessionOutputDeviceLabel(session.Id)}, tryb współdzielony");
         sections.Add(string.Join(Environment.NewLine, applicationLines));
 
         sections.Add(BuildRadioRecordingInformation(item));
@@ -3306,6 +3311,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var podcasts = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
         CurrentSessionMuteMenuItem.IsChecked = _sessions.Current.IsSessionMuted;
         AllSessionsMuteMenuItem.IsChecked = _sessions.AllSessionsMuted;
+        AudioOutputDeviceMenuItem.Visibility = CurrentSessionSupportsAudioOutputSelection()
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        MenuAccessibility.SetPresentation(
+            AudioOutputDeviceMenuItem,
+            $"Wybierz urządzenie audio dla sesji {_sessions.Current.DisplayName}");
         UpdatePlaybackAudioMenuPresentation(_sessions.Current.AudioProcessingCapabilities);
         var currentLocalItem = local
             && _playerViewActive
@@ -3589,6 +3600,118 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Announce(saved
             ? announcement
             : $"{announcement}. Zmiana działa teraz, ale nie została zapisana");
+    }
+
+    private string? GetSessionOutputDeviceId(string sessionId) =>
+        _state.Settings.Audio.OutputDeviceIdsBySession.TryGetValue(sessionId, out var deviceId)
+            ? deviceId
+            : null;
+
+    private string GetSessionOutputDeviceLabel(string sessionId)
+    {
+        var deviceId = GetSessionOutputDeviceId(sessionId);
+        return AudioOutputDeviceCatalog.Enumerate(deviceId)
+            .FirstOrDefault(choice => string.Equals(choice.Id, deviceId, StringComparison.Ordinal))
+            ?.Label
+            ?? "Domyślne urządzenie systemowe";
+    }
+
+    private bool CurrentSessionSupportsAudioOutputSelection() =>
+        _sessions.Current.Id is "local" or "radio" or "podcasts";
+
+    private void ConfigureOutputDevice(string sessionId, string? deviceId)
+    {
+        switch (sessionId)
+        {
+            case "local":
+                _localOutput.ConfigureOutputDevice(deviceId);
+                break;
+            case "radio":
+                _radioOutput.ConfigureOutputDevice(deviceId);
+                break;
+            case "podcasts":
+                _podcastOutput.ConfigureOutputDevice(deviceId);
+                break;
+        }
+    }
+
+    private void ChooseAudioOutputDeviceForCurrentSession()
+    {
+        var session = _sessions.Current;
+        if (!CurrentSessionSupportsAudioOutputSelection())
+        {
+            Announce("Ta sesja nie ma jeszcze własnego toru odtwarzania w AMC");
+            return;
+        }
+
+        var dialog = new AudioOutputDeviceWindow(
+            session.DisplayName,
+            GetSessionOutputDeviceId(session.Id))
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        var previousDeviceId = GetSessionOutputDeviceId(session.Id);
+        var previousPosition = session.Position;
+        ConfigureOutputDevice(session.Id, dialog.SelectedDeviceId);
+        bool restarted;
+        try
+        {
+            restarted = session.RestartPlaybackOutput(previousPosition);
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error(
+                "audio-device",
+                $"Nie udało się przełączyć wyjścia sesji {session.Id}; przywracanie poprzedniego urządzenia.",
+                exception);
+            ConfigureOutputDevice(session.Id, previousDeviceId);
+            try
+            {
+                session.RestartPlaybackOutput(previousPosition);
+            }
+            catch (Exception restoreException)
+            {
+                DiagnosticLog.Error(
+                    "audio-device",
+                    $"Nie udało się wznowić wyjścia sesji {session.Id} na poprzednim urządzeniu.",
+                    restoreException);
+                try
+                {
+                    session.StopPlayback();
+                }
+                catch (Exception stopException)
+                {
+                    DiagnosticLog.Error(
+                        "audio-device",
+                        $"Nie udało się domknąć uszkodzonego wyjścia sesji {session.Id}.",
+                        stopException);
+                }
+            }
+            RestoreMediaListFocusAfterRefresh();
+            AnnounceEssential("Nie udało się użyć wybranego urządzenia audio. Poprzednie ustawienie zostało zachowane");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(dialog.SelectedDeviceId))
+            _state.Settings.Audio.OutputDeviceIdsBySession.Remove(session.Id);
+        else
+            _state.Settings.Audio.OutputDeviceIdsBySession[session.Id] = dialog.SelectedDeviceId;
+        QueueStateSave();
+        UpdateFileMenuForCurrentSession();
+        RestoreMediaListFocusAfterRefresh();
+        var availability = dialog.SelectedDeviceIsAvailable
+            ? string.Empty
+            : ". Urządzenie jest teraz niedostępne, dlatego bieżący odsłuch użyje urządzenia domyślnego";
+        var restart = restarted ? ". Odtwarzanie uruchomiono ponownie" : string.Empty;
+        Dispatcher.BeginInvoke(
+            () => Announce($"Urządzenie audio sesji {session.DisplayName}: {dialog.SelectedDeviceLabel}{availability}{restart}"),
+            DispatcherPriority.ContextIdle);
     }
 
     private void ShowLocalFolderWhileLoading(LocalFolderSourceSettings folderSource)
@@ -11327,6 +11450,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ExecuteCommand(CommandIds.ToggleMuteCurrentSession);
     private void ToggleAllSessionsMute_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.ToggleMuteAllSessions);
+    private void AudioOutputDevice_Click(object sender, RoutedEventArgs e) =>
+        ChooseAudioOutputDeviceForCurrentSession();
     private void PlaybackMenuItem_SubmenuOpened(object sender, RoutedEventArgs e) =>
         UpdateFileMenuForCurrentSession();
     private void ToggleLoudnessNormalization_Click(object sender, RoutedEventArgs e) =>
@@ -11756,6 +11881,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PlayerContextMenu_Opened(object sender, RoutedEventArgs e)
     {
         var item = _sessions.Current.CurrentItem;
+        PlayerAudioOutputDeviceMenuItem.Visibility = CurrentSessionSupportsAudioOutputSelection()
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        MenuAccessibility.SetPresentation(
+            PlayerAudioOutputDeviceMenuItem,
+            $"Wybierz urządzenie audio dla sesji {_sessions.Current.DisplayName}");
         UpdatePlaybackAudioMenuPresentation(_sessions.Current.AudioProcessingCapabilities);
         SetContextMenuItemPresentation(
             PlayerPlayPauseMenuItem,

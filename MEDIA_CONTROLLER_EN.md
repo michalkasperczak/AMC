@@ -222,6 +222,15 @@ Favorites and playlists remain owned by a specific service or the local library 
 
 Shared-mode WASAPI remains the Windows default so AMC can coexist with NVDA. Exclusive, bit-perfect and native DSD output are not part of the base path. Any later advanced mode must be explicit, reversible and must never silently take the screen reader's audio. foobar2000 may later act as an external adapter; its components are not treated as embeddable libraries without separately verified source and licensing.
 
+State of `alpha.204`: Local Files, Internet Radio and Podcasts select a real
+active Windows output independently for each session. An empty value means the
+dynamic system default; a specific endpoint is stored by a stable identifier
+that must never leak into an accessible label. If that endpoint is disconnected,
+AMC falls back to the default without forgetting the preference. A live change
+rebuilds only the session's audible pipeline and preserves its current item,
+state and position when the source supports seeking. Radio's separate inaudible
+recording pipelines are never stopped or redirected by changing listening output.
+
 ## 7. Browser window
 
 ### 7.1. Lists rather than trees
@@ -965,7 +974,7 @@ The `alpha.195` correction treats an explicitly opened `Ctrl+H` list as the visi
 
 `Alt+Up/Down` is meaningful only on lists with user-owned order: Custom order, Favorites, an open editable Playlist and Queue. From `alpha.98`, all four variants are implemented. Folders retain disk hierarchy, All files stays alphabetical, Album follows track numbers, and History and search preserve their semantic order. Reordering never changes a disk file. A service adapter writes remote order only where the official API supports it; otherwise AMC order is explicitly local metadata.
 
-Item options are separate from information. `Alt+Enter` remains read-only text, while `Alt+Shift+Enter` opens editable **Item playback options**. Local resume policy is hierarchical: global setting, folder-source override, individual-item override. Playback rate has a session rule plus an optional item override; moving to another item restores that item's value or the session value. Per-item output and EQ have reserved model space but stay disabled until the output layer can enumerate devices and switch shared WASAPI safely without losing NVDA speech.
+Item options are separate from information. `Alt+Enter` remains read-only text, while `Alt+Shift+Enter` opens editable **Item playback options**. Local resume policy is hierarchical: global setting, folder-source override, individual-item override. Playback rate has a session rule plus an optional item override; moving to another item restores that item's value or the session value. Since `alpha.204`, shared WASAPI output is selectable per session; per-item output and EQ retain reserved model space but remain disabled.
 
 The `alpha.90` extension gives playback settings the hierarchy `file > nearest folder > Library source > global setting`. A folder override is separate AMC metadata identified by a normalized full path; it neither creates another source nor changes disk structure, and it also covers future files discovered below that path. An `inherit` value skips that level, so a folder speed override does not prevent its resume rule from being inherited from a parent. File records are matched first by stable identifier and, as a safe fallback, by normalized case-insensitive path.
 

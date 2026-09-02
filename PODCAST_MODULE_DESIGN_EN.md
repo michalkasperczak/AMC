@@ -92,14 +92,14 @@ an existing RSS subscription to work.
 ## 6. Delivery order
 
 1. `alpha.203`: session shell, durable model, empty core views and RSS/Atom parser.
-2. `alpha.204`: Ctrl+N adds a feed or media URL, Ctrl+O imports OPML, with bounded HTTP/HTTPS refresh and show/episode navigation.
-3. `alpha.205`: finite HTTP playback, per-episode resume and speed, history and bookmarks.
-4. `alpha.206`: Apple Podcasts catalog search and feed discovery from ordinary pages.
-5. `alpha.207`: New episodes state, filtering and batch operations.
-6. `alpha.208`: cancellable downloads with local staging and atomic publication.
-7. `alpha.209`: episode playlists plus OPML and AMC import/export.
-8. `alpha.210`: embedded web audio and publisher-specific adapters.
-9. `alpha.211`: supplied and user-authored chapters.
+2. `alpha.205`: Ctrl+N adds a feed or media URL, Ctrl+O imports OPML, with bounded HTTP/HTTPS refresh and show/episode navigation.
+3. `alpha.206`: finite HTTP playback, per-episode resume and speed, history and bookmarks.
+4. `alpha.207`: Apple Podcasts catalog search and feed discovery from ordinary pages.
+5. `alpha.208`: New episodes state, filtering and batch operations.
+6. `alpha.209`: cancellable downloads with local staging and atomic publication.
+7. `alpha.210`: episode playlists plus OPML and AMC import/export.
+8. `alpha.211`: embedded web audio and publisher-specific adapters.
+9. `alpha.212`: supplied and user-authored chapters.
 10. Additional directories and account services remain optional adapters.
 
 The keyboard map will be decided after the first working view. This design

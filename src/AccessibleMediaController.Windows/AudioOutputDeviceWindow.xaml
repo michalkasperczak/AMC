@@ -1,0 +1,36 @@
+<Window x:Class="AccessibleMediaController.Windows.AudioOutputDeviceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="Urządzenie audio sesji" Width="620" Height="330"
+        MinWidth="520" MinHeight="280"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="HeadingText" FontSize="20" FontWeight="SemiBold"
+                   TextWrapping="Wrap"
+                   automation:AutomationProperties.HeadingLevel="Level1" />
+        <Label Grid.Row="1" Margin="0,14,0,0"
+               Target="{Binding ElementName=DeviceCombo}">_Urządzenie wyjściowe:</Label>
+        <ComboBox x:Name="DeviceCombo" Grid.Row="2" Margin="0,0,0,12"
+                  DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                  automation:AutomationProperties.Name="Urządzenie wyjściowe bieżącej sesji"
+                  automation:AutomationProperties.HelpText="Wybór jest zapamiętywany osobno dla tej sesji. Domyślne urządzenie systemowe podąża za konfiguracją Windows przy następnym otwarciu dźwięku." />
+        <TextBlock Grid.Row="3" TextWrapping="Wrap"
+                   Text="AMC używa współdzielonego trybu Windows, dlatego NVDA i inne aplikacje nadal pozostają słyszalne. Zmiana dotyczy odsłuchu tej sesji i nie zmienia miejsca ani sposobu zapisywania nagrań radia." />
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Width="110" Margin="0,0,8,0" Content="_Zapisz"
+                    IsDefault="True" Click="Save_Click" />
+            <Button Width="110" Content="_Anuluj" IsCancel="True" />
+        </StackPanel>
+    </Grid>
+</Window>
