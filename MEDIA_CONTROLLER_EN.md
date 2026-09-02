@@ -1551,6 +1551,11 @@ listening output does not stop independent background recordings.
 Asynchronous output startup retains the latest playback intent: pressing Space
 during a device change must leave the pipeline paused even when that endpoint
 finishes initialising slightly later.
+Switching with `Ctrl+digit` or `Ctrl+Page Up/Page Down` changes only the active
+session interface and does not invoke the pause-on-player-exit rule. Radio may
+therefore continue on a separate output while the user inspects Local Files on
+the computer speakers. Explicit Escape, Shift+F6, the return button, and
+navigating to another view in the same session still follow the user's setting.
 
 This command is part of the shared session-adapter contract. A future direct
 TIDAL or Apple Music adapter that plays through AMC will expose the same output

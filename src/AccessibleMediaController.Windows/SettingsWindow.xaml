@@ -34,7 +34,7 @@
                         <StackPanel Margin="8">
                             <CheckBox x:Name="PausePlaybackWhenLeavingPlayerCheck" Margin="0,0,0,8"
                                       Content="_Wstrzymuj odtwarzanie po wyjściu z odtwarzacza"
-                                      automation:AutomationProperties.HelpText="Dotyczy Escape, Shift+F6, przycisku Wróć do listy i bezpośredniego przejścia do innego widoku. Zwykła lista zachowuje zwykłe działanie klawiszy." />
+                                      automation:AutomationProperties.HelpText="Dotyczy Escape, Shift+F6, przycisku Wróć do listy i bezpośredniego przejścia do innego widoku tej samej sesji. Nie dotyczy przełączania sesji przez Ctrl z cyfrą ani Ctrl z Page Up lub Page Down. Zwykła lista zachowuje zwykłe działanie klawiszy." />
                             <CheckBox x:Name="FollowPlaybackOnPlayerExitCheck" Margin="0,0,0,8"
                                       Content="Po wyjściu z odtwarzacza ustaw _fokus na aktualnie odtwarzanym elemencie"
                                       automation:AutomationProperties.HelpText="Po Escape, Shift+F6 albo przycisku Wróć do listy zaznacza element wybrany w odtwarzaczu przez Page Up lub Page Down. Gdy elementu nie ma w bieżącym widoku, zachowuje poprzedni fokus." />

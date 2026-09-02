@@ -77,6 +77,7 @@ try
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
+    TestPlayerDeparturePlaybackPolicy();
     TestPlayerAudioProcessingKeyboardMap();
     TestPlaylistPresentation();
     TestGuardDoesNotBlockPositionReads();
@@ -352,6 +353,23 @@ static void TestAudioOutputPauseRaceGuard()
     Assert(output.PlayCount == 2 && output.PauseCount == 1,
         "Uruchomienie bez żądania pauzy niepotrzebnie zatrzymało wyjście audio.");
     Console.WriteLine("OK: pauza nie ginie podczas uruchamiania wyjścia audio");
+}
+
+static void TestPlayerDeparturePlaybackPolicy()
+{
+    Assert(
+        MainWindowNavigationPolicy.ShouldApplyPlaybackExitPolicy(
+            PlayerDepartureReason.ReturnToList),
+        "Escape powinien stosować ustawienie wstrzymania po wyjściu z odtwarzacza.");
+    Assert(
+        MainWindowNavigationPolicy.ShouldApplyPlaybackExitPolicy(
+            PlayerDepartureReason.BrowserNavigation),
+        "Przejście do widoku tej samej sesji powinno stosować ustawienie wyjścia z odtwarzacza.");
+    Assert(
+        !MainWindowNavigationPolicy.ShouldApplyPlaybackExitPolicy(
+            PlayerDepartureReason.SessionSwitch),
+        "Samo przełączenie sesji nie może zatrzymywać jej niezależnego toru audio.");
+    Console.WriteLine("OK: przełączenie sesji nie jest wyjściem z odtwarzacza");
 }
 
 static void TestAudioClipExporter()

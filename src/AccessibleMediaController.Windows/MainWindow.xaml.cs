@@ -1121,7 +1121,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ReturnFromPlayerToList()
     {
         if (!_playerViewActive) return;
-        ApplyPlaybackPolicyWhenLeavingPlayer(_sessions.Current);
+        ApplyPlaybackPolicyWhenLeavingPlayer(
+            _sessions.Current,
+            PlayerDepartureReason.ReturnToList);
         _playerViewActive = false;
         PlayerPanel.Visibility = Visibility.Collapsed;
         BrowserHeaderPanel.Visibility = Visibility.Visible;
@@ -1157,7 +1159,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void HidePlayerForBrowserNavigation()
     {
         if (!_playerViewActive) return;
-        ApplyPlaybackPolicyWhenLeavingPlayer(_sessions.Current);
+        ApplyPlaybackPolicyWhenLeavingPlayer(
+            _sessions.Current,
+            PlayerDepartureReason.BrowserNavigation);
         _playerViewActive = false;
         PlayerPanel.Visibility = Visibility.Collapsed;
         BrowserHeaderPanel.Visibility = Visibility.Visible;
@@ -1170,8 +1174,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
-    private void ApplyPlaybackPolicyWhenLeavingPlayer(DemoMediaSession session)
+    private void ApplyPlaybackPolicyWhenLeavingPlayer(
+        DemoMediaSession session,
+        PlayerDepartureReason reason)
     {
+        if (!MainWindowNavigationPolicy.ShouldApplyPlaybackExitPolicy(reason)) return;
         if (!_state.Settings.PausePlaybackWhenLeavingPlayer || !session.HasCurrentItem) return;
 
         if (session.IsPlaying) session.TogglePlayback();
@@ -6045,7 +6052,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var sessionChanged = _sessions.Current.Id != oldSession;
         if (sessionChanged)
         {
-            if (_playerViewActive) ApplyPlaybackPolicyWhenLeavingPlayer(sessionBeforeCommand);
+            if (_playerViewActive)
+            {
+                ApplyPlaybackPolicyWhenLeavingPlayer(
+                    sessionBeforeCommand,
+                    PlayerDepartureReason.SessionSwitch);
+            }
             ClearFilterForNavigation(
                 GetSessionNavigationState(sessionBeforeCommand.Id),
                 _currentView);
