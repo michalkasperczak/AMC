@@ -1151,6 +1151,11 @@ usuwanie. Eksport JSON/CSV zachowuje metadane źródłowe oraz generuje jawne
 adresy wyszukiwania Apple Music, Spotify i Tidal. Nie zapisuje fikcyjnego
 identyfikatora katalogowego; późniejszy adapter usługi wykona wyszukanie,
 przedstawi niejednoznaczne kandydatury i dopiero po wyborze utworzy playlistę.
+Późniejsze dostrojenie doda również neutralny eksport tekstowy rozpoznanych
+tytułów, wykonawców i albumów oraz wyszukiwanie pojedynczego wpisu lub
+zaznaczonej grupy we własnej Bibliotece AMC. Funkcje te nie będą wymagały
+konta streamingowego; ich dokładny format i interakcja zostaną ustalone po
+dalszych testach rozpoznawania.
 
 ## 18. Metadane albumu i autorzy utworu
 

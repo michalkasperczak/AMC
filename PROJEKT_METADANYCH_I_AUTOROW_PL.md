@@ -80,3 +80,18 @@ Spotify, TIDAL i YouTube Music każdy adapter wykonuje własne wyszukiwanie i
 zwraca kandydatury. Do playlisty trafia wyłącznie natywny identyfikator
 zatwierdzonego wyniku. Brak pewnego dopasowania pozostaje na liście „wymaga
 wyboru” i nigdy nie jest zastępowany utworem o podobnym tytule bez zgody.
+
+## 7. Neutralny eksport i wyszukiwanie w Bibliotece
+
+Późniejszy etap rozwoju rozpoznawania nie może ograniczać wyniku do działań
+w serwisach streamingowych. Historia rozpoznań otrzyma prosty eksport tekstowy
+oraz co najmniej jeden format strukturalny. Rekord powinien zachowywać
+rozpoznany tytuł utworu, wykonawcę, album, datę i źródło rozpoznania, a także
+identyfikatory i dane o pewności, jeżeli dostawca je udostępnia. Dokładny układ
+pliku i zakres formatów zostaną ustalone po dalszych testach rozpoznawania.
+
+Z poziomu pojedynczego wpisu i zaznaczonej grupy ma być dostępne wyszukiwanie
+utworu, albumu lub wykonawcy we własnej Bibliotece AMC. Wynik bez trwałego
+identyfikatora pozostaje kandydaturą: program nie oznacza lokalnego pliku jako
+pewnego odpowiednika tylko na podstawie podobnego tytułu. Funkcja ma działać
+niezależnie od przyszłych adapterów Apple Music, Spotify, TIDAL i YouTube Music.

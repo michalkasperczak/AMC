@@ -1135,6 +1135,11 @@ source metadata and generates explicit Apple Music, Spotify and TIDAL search
 URLs. It never stores an invented catalogue identifier; a future service
 adapter must search, present ambiguous candidates and create a playlist only
 after a valid match is selected.
+A later refinement will also add a neutral text export of recognised titles,
+artists and albums and allow a single entry or selected group to be searched
+in AMC's own Library. These capabilities will not require a streaming-service
+account; their exact format and interaction will be settled after further
+recognition testing.
 
 ## 18. Album metadata and song credits
 

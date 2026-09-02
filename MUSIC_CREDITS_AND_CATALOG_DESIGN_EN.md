@@ -73,3 +73,18 @@ TIDAL and YouTube Music adapters each return their own candidates. Only a
 confirmed native identifier is added to a service playlist. An uncertain item
 remains marked as requiring a choice and is never silently replaced by a song
 with a similar title.
+
+## 7. Neutral export and Library lookup
+
+A later recognition stage must not limit a result to actions in streaming
+services. Recognition history will gain a simple text export and at least one
+structured format. A record should preserve the recognised track title,
+artist, album, recognition time and source, plus identifiers and confidence
+data when the provider supplies them. The exact text layout and final set of
+formats will be decided after further recognition testing.
+
+A single entry or selected group will also be searchable in AMC's own Library
+by track, album or artist. A result without a durable identifier remains a
+candidate: AMC never labels a local file as an exact match from a similar title
+alone. This capability remains independent of the future Apple Music, Spotify,
+TIDAL and YouTube Music adapters.
