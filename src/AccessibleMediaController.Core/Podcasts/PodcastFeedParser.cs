@@ -44,22 +44,50 @@ public static partial class PodcastFeedParser
     {
         ArgumentNullException.ThrowIfNull(xml);
         ArgumentNullException.ThrowIfNull(feedUri);
+        using var textReader = new StringReader(xml);
+        return ParseReader(textReader, feedUri);
+    }
+
+    public static PodcastFeedDocument Parse(Stream stream, Uri feedUri)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentNullException.ThrowIfNull(feedUri);
+        ValidateFeedUri(feedUri);
+        using var reader = XmlReader.Create(stream, ReaderSettings());
+        return ParseDocument(XDocument.Load(reader, LoadOptions.None), feedUri);
+    }
+
+    private static PodcastFeedDocument ParseReader(TextReader textReader, Uri feedUri)
+    {
+        ValidateFeedUri(feedUri);
+        using var reader = XmlReader.Create(textReader, ReaderSettings());
+        return ParseDocument(XDocument.Load(reader, LoadOptions.None), feedUri);
+    }
+
+    private static void ValidateFeedUri(Uri feedUri)
+    {
         if (!IsHttpUri(feedUri))
         {
             throw new ArgumentException("Adres kanału musi używać protokołu HTTP albo HTTPS.", nameof(feedUri));
         }
-
-        using var textReader = new StringReader(xml);
-        using var reader = XmlReader.Create(textReader, new XmlReaderSettings
+        if (!string.IsNullOrEmpty(feedUri.UserInfo))
         {
-            DtdProcessing = DtdProcessing.Prohibit,
-            XmlResolver = null,
-            MaxCharactersInDocument = MaximumXmlCharacters,
-            MaxCharactersFromEntities = 0,
-            IgnoreComments = true,
-            IgnoreProcessingInstructions = true
-        });
-        var document = XDocument.Load(reader, LoadOptions.None);
+            throw new ArgumentException("Adres kanału nie może zawierać nazwy użytkownika ani hasła.", nameof(feedUri));
+        }
+    }
+
+    private static XmlReaderSettings ReaderSettings() => new()
+    {
+        DtdProcessing = DtdProcessing.Prohibit,
+        XmlResolver = null,
+        MaxCharactersInDocument = MaximumXmlCharacters,
+        MaxCharactersFromEntities = 0,
+        IgnoreComments = true,
+        IgnoreProcessingInstructions = true
+    };
+
+    private static PodcastFeedDocument ParseDocument(XDocument document, Uri feedUri)
+    {
         var root = document.Root ?? throw new InvalidDataException("Kanał podcastu jest pusty.");
         return root.Name.LocalName.ToLowerInvariant() switch
         {

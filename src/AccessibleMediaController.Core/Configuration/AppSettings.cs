@@ -247,6 +247,7 @@ public sealed class PodcastSubscriptionSettings
 {
     public string Id { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
+    public bool HasCustomTitle { get; set; }
     public string Author { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string FeedUrl { get; set; } = string.Empty;

@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -12,6 +13,7 @@ using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
+using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Windows;
 using AccessibleMediaController.Windows.Controls;
@@ -69,6 +71,7 @@ try
     TestRadioRecognitionHistoryFilterAccessibility();
     TestPlaybackAudioSettingAccessibility();
     TestAudioOutputDeviceAccessibility();
+    TestPodcastFeedClient();
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
@@ -3278,6 +3281,39 @@ static uint CalculateOggChecksum(ReadOnlySpan<byte> page)
     return checksum;
 }
 
+static void TestPodcastFeedClient()
+{
+    const string feedXml = """
+        <rss version="2.0"><channel><title>Podcast sieciowy</title>
+          <item><guid>1</guid><title>Odcinek</title>
+            <enclosure url="https://cdn.example.test/audio.mp3" type="audio/mpeg" />
+          </item>
+        </channel></rss>
+        """;
+    var handler = new PodcastHttpHandler(request =>
+    {
+        if (request.RequestUri == new Uri("https://example.test/start"))
+        {
+            var redirect = new HttpResponseMessage(HttpStatusCode.Redirect);
+            redirect.Headers.Location = new Uri("/feed.xml", UriKind.Relative);
+            return redirect;
+        }
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(feedXml, Encoding.UTF8, "application/rss+xml")
+        };
+    });
+    using var client = new PodcastFeedClient(handler, TimeSpan.FromSeconds(2));
+    var feed = client.FetchAsync(new Uri("https://example.test/start"), CancellationToken.None)
+        .GetAwaiter().GetResult();
+    Assert(feed.Title == "Podcast sieciowy", "Klient nie odczytał kanału po bezpiecznym przekierowaniu.");
+    Assert(feed.Episodes.Count == 1, "Klient nie odczytał metadanych odcinka.");
+    Assert(handler.Requests.Count == 2, "Klient wykonał nieoczekiwaną liczbę żądań.");
+    Assert(handler.Requests.All(uri => uri.Host == "example.test"), "Klient pobrał plik audio zamiast samych metadanych kanału.");
+
+    Console.WriteLine("OK: ograniczony klient kanałów podcastów");
+}
+
 sealed class BlockingWaveStream : WaveStream
 {
     private readonly WaveFormat _format = WaveFormat.CreateIeeeFloatWaveFormat(48_000, 2);
@@ -3378,6 +3414,20 @@ sealed class InvalidSampleProvider : ISampleProvider
         if (count > 1) buffer[offset + 1] = float.NaN;
         if (count > 2) buffer[offset + 2] = float.PositiveInfinity;
         return count;
+    }
+}
+
+sealed class PodcastHttpHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
+{
+    public List<Uri> Requests { get; } = [];
+
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Requests.Add(request.RequestUri!);
+        return Task.FromResult(respond(request));
     }
 }
 

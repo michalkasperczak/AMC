@@ -80,6 +80,10 @@ public static class CommandIds
     public const string StartRadio = "action.radio.start";
     public const string AddRadioStation = "radio.station.add";
     public const string ImportRadioPlaylist = "radio.playlist.import";
+    public const string AddPodcast = "podcast.subscription.add";
+    public const string ImportPodcastOpml = "podcast.opml.import";
+    public const string RefreshPodcast = "podcast.refresh.current";
+    public const string RefreshPodcastLibrary = "podcast.refresh.all";
     public const string ToggleRadioRecording = "radio.recording.toggle";
     public const string ToggleRadioRecordingPause = "radio.recording.pauseToggle";
     public const string SplitRadioRecording = "radio.recording.split";

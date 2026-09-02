@@ -1,8 +1,9 @@
 # Projekt modułu podcastów AMC
 
-Status: wdrażanie rozpoczęte w `alpha.203`. Działa fundament sesji, trwały model
-danych oraz bezpieczny parser RSS/Atom. Pobieranie kanałów z sieci i dodawanie
-subskrypcji przez interfejs rozpoczyna następny etap.
+Status: etap subskrypcji jest ukończony w `alpha.205`. Działa trwała sesja,
+bezpieczne dodawanie bezpośrednich kanałów RSS/Atom, import OPML, odświeżanie
+metadanych oraz przejście z audycji do jej odcinków. Odtwarzanie odcinków przez
+HTTP rozpoczyna następny etap.
 
 ## 1. Osobna sesja Podcasty
 
@@ -133,7 +134,7 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
 1. `alpha.203` — prawdziwa, pusta sesja Podcasty bez danych demonstracyjnych,
    szóste miejsce w konfigurowanej kolejności sesji, trwały model subskrypcji i
    odcinków, widoki Biblioteka, Nowe odcinki i Pobrane oraz parser RSS/Atom.
-2. `alpha.205` — **Nowy podcast…** przez `Ctrl+N`, ograniczony klient
+2. `alpha.205` — zrealizowane: **Nowy podcast…** przez `Ctrl+N`, ograniczony klient
    HTTP/HTTPS, bezpośredni RSS/Atom, aktualizacja pojedynczej audycji i całej
    Biblioteki, otwieranie podcastu do listy odcinków oraz wypisywanie się przez
    Delete. `Ctrl+O` importuje lokalny plik OPML. Kanał nie pobiera automatycznie
@@ -166,12 +167,23 @@ koncepcyjnego.
 
 ## 7. Dodawanie, import i wyszukiwanie
 
-- `Ctrl+N` otwiera **Nowy podcast**. Formularz zawiera nazwę użytkownika oraz
-  adres kanału, strony podcastu albo strony z materiałem. Nazwa jest opcjonalnym
-  nadpisaniem; po sprawdzeniu adresu AMC przedstawia nazwę i rodzaj odnaleziony
-  przez adapter. Dopiero przycisk Dodaj zapisuje wynik w Bibliotece.
+- `Ctrl+N` otwiera **Nowy podcast**. W `alpha.205` formularz przyjmuje
+  bezpośredni adres kanału RSS/Atom i opcjonalną nazwę użytkownika. Przycisk
+  **Sprawdź** pobiera wyłącznie ograniczone metadane kanału; dopiero aktywny po
+  pomyślnej weryfikacji przycisk **Dodaj** zapisuje podcast w Bibliotece.
 - `Ctrl+O` otwiera plik OPML i pokazuje listę znalezionych kanałów z
-  wielokrotnym zaznaczeniem. Import niczego nie pobiera i nie tworzy duplikatów.
+  wielokrotnym zaznaczeniem. `Ctrl+A` zaznacza wszystkie pozycje. Import
+  odświeża metadane maksymalnie czterech kanałów równocześnie, nie pobiera
+  odcinków audio i nie tworzy duplikatów.
+- `F5` odświeża zaznaczoną lub otwartą audycję, a `Ctrl+F5` wszystkie
+  obserwowane audycje. Połączenia mają ograniczenie czasu, liczby przekierowań
+  i rozmiaru odpowiedzi; DTD, encje zewnętrzne, adresy inne niż HTTP/HTTPS oraz
+  adresy z danymi logowania są odrzucane.
+- Enter na audycji otwiera jej odcinki od najnowszego, a Backspace wraca do
+  Biblioteki. Delete na audycji wypisuje z niej bez kasowania zapisanych danych
+  odcinków; ponowne dodanie przywraca subskrypcję.
+- `Ctrl+C` kopiuje nazwę i publiczną stronę podcastu lub odcinka, natomiast
+  `Ctrl+Shift+C` nazwę i bezpośredni adres kanału albo pliku audio.
 - `Ctrl+F` otwiera wyszukiwanie w Podcastach. Pierwszy poziom wyników zawiera
   audycje, a nie pomieszane odcinki ze wszystkich kanałów. Enter na audycji
   otwiera podgląd jej odcinków bez automatycznego dodawania subskrypcji;
@@ -229,9 +241,11 @@ Skrzynka ma własne, dostępne ustawienia, ale nie ręczną kolejność playlist
 
 ## 10. Granica pierwszej wersji
 
-`alpha.203` pozwala wybrać sesję Podcasty i sprawdzić jej pustą Bibliotekę oraz
-puste widoki Nowe odcinki i Pobrane. To celowa wersja fundamentu: nie przyjmuje
-jeszcze adresu kanału i nie łączy się z siecią. Parser jest sprawdzany na RSS,
-Atom, adresach względnych, metadanych iTunes, wpisach bez audio oraz złośliwym
-DTD. Dzięki temu następna wersja dołącza sieć do gotowego i migrowalnego modelu,
-zamiast zapisywać subskrypcje w prowizorycznej strukturze.
+`alpha.205` pozwala dodać bezpośredni kanał RSS/Atom, zaimportować OPML,
+odświeżyć pojedynczą audycję albo całą Bibliotekę i wejść do listy odcinków.
+Pierwsze pobranie zachowuje starsze archiwum wewnątrz audycji, ale nie oznacza
+go całego jako nowe. Dopiero odcinki odnalezione podczas późniejszego
+odświeżenia trafiają do podstawowej skrzynki **Nowe odcinki**. Odświeżanie
+nigdy nie pobiera zawartości plików audio. W tej wersji Enter na odcinku
+świadomie nie rozpoczyna jeszcze odtwarzania; bezpieczny tor skończonych
+materiałów HTTP powstaje w `alpha.206`.

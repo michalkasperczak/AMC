@@ -1,5 +1,14 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.205` uruchamia pierwszy kompletny przepływ subskrypcji Podcastów.
+W sesji Podcasty `Ctrl+N` sprawdza i dodaje bezpośredni kanał RSS/Atom,
+`Ctrl+O` importuje wybrane kanały z OPML, `F5` odświeża bieżącą audycję, a
+`Ctrl+F5` całą Bibliotekę. Enter na audycji otwiera jej odcinki, Backspace
+wraca, Delete wypisuje, `Ctrl+C` kopiuje nazwę i stronę, a `Ctrl+Shift+C` nazwę
+i bezpośredni adres. Klient ogranicza czas, przekierowania i rozmiar odpowiedzi,
+nie przyjmuje niebezpiecznego XML i podczas odświeżania nie pobiera audio.
+Odtwarzanie odcinków jest świadomie pozostawione do `alpha.206`.
+
 Wersja `alpha.201` zabezpiecza ręczny podział nagrania radia przed szybkim podwójnym naciśnięciem `T`. Pierwsze `T` finalizuje bieżącą część i natychmiast kontynuuje zapis w nowym pliku; ponowne `T` w ciągu pierwszych pięciu sekund nowej części jest bezpiecznie pomijane zamiast zatrzymywać nagranie. Każda zamknięta część jest od razu dodawana do lokalnej Biblioteki, choć kolejna część nadal się nagrywa. `Shift+T` zachowuje dotychczasowe znaczenie i nie jest drugim poleceniem podziału.
 
 Wersja `alpha.200` dodaje świadome usuwanie zaznaczonego przedziału z oryginalnego pliku audio przez `Ctrl+X` w odtwarzaczu. Operacja wymaga potwierdzenia domyślnie ustawionego na „Nie”, zatrzymuje odtwarzanie, nie kompresuje dźwięku ponownie, sprawdza gotowy wynik i dopiero wtedy podmienia źródło. Pełna, bitowo identyczna kopia otrzymuje końcówkę `.amc-backup`; błąd pozostawia oryginał bez zmian. Pliki wymagające pobrania z chmury i pliki wideo są bezpiecznie odrzucane.
@@ -577,7 +586,7 @@ Ta wersja dodaje opcjonalne rozpoznawanie muzyki w Radiu. `S` w odtwarzaczu rozp
 
 Od `alpha.164` bogate kopiowanie i eksport rozpoznanych utworów zawierają także YouTube Music oraz katalogowe wyszukiwania Discogs i MusicBrainz. Są to jawne adresy wyszukiwania, a nie automatyczne twierdzenie, że znaleziono właściwe wydanie. Projekt późniejszego, kontrolowanego dopasowania albumów i autorów znajduje się w [`PROJEKT_METADANYCH_I_AUTOROW_PL.md`](PROJEKT_METADANYCH_I_AUTOROW_PL.md).
 
-## Fundament Podcastów w alpha 203
+## Podcasty: fundament alpha 203 i subskrypcje alpha 205
 
 Podcasty są od tej wersji prawdziwą, szóstą sesją AMC i nie zawierają danych
 demonstracyjnych. Sesja ma osobną Bibliotekę oraz dostępne z menu Widok puste
@@ -590,9 +599,10 @@ prędkość, Ulubione i Kolejkę. Parser przyjmuje RSS 2.0 i Atom, obsługuje
 `enclosure`, względne adresy oraz czas iTunes, pomija wpisy bez audio i tworzy
 stabilne identyfikatory. XML jest traktowany jako niezaufany: DTD i encje
 zewnętrzne są zablokowane, a rozmiar dokumentu i liczba odcinków mają granice.
-`alpha.203` celowo nie pobiera jeszcze kanałów z sieci. Następny etap doda
-`Ctrl+N` dla nowej subskrypcji, `Ctrl+O` dla importu OPML, ograniczone
-odświeżanie HTTP/HTTPS oraz wejście z audycji do odcinków. `Ctrl+F` najpierw
+`alpha.205` dodaje `Ctrl+N` dla bezpośredniego RSS/Atom, `Ctrl+O` dla importu
+OPML, ograniczone odświeżanie HTTP/HTTPS przez `F5` i `Ctrl+F5` oraz wejście z
+audycji do odcinków. Aktualizacja pobiera wyłącznie metadane i nigdy nie pobiera
+automatycznie plików audio. `Ctrl+F` w następnym etapie katalogowym najpierw
 wyszuka audycje, a Enter pokaże ich odcinki bez automatycznego subskrybowania.
 Zakres wejściowy obejmie następnie publiczne wyszukiwanie Apple Podcasts,
 odkrywanie RSS na zwykłej stronie, osadzone audio i osobne adaptery wydawców,
@@ -600,7 +610,8 @@ w tym Polskiego Radia. Wykorzystamy reguły przygotowane wcześniej w rozszerzen
 Chrome i dodatku NVDA do konwersji, ale bez uzależnienia rdzenia AMC od ich
 interfejsów. `Ctrl+I` otworzy automatyczną skrzynkę **Nowe odcinki**, `Ctrl+D`
 pobierze świadomie wybrane odcinki, a Playlisty pozostaną ręcznymi zestawami i
-nie będą się same zmieniać po odświeżeniu kanału. Pełny podział etapów znajduje
+nie będą się same zmieniać po odświeżeniu kanału. Odtwarzanie odcinków przez
+HTTP rozpoczyna `alpha.206`. Pełny podział etapów znajduje
 się w [`PROJEKT_PODCASTOW_PL.md`](PROJEKT_PODCASTOW_PL.md).
 
 ## Urządzenie audio osobno dla sesji w alpha 204

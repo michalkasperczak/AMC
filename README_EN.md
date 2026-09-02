@@ -1,5 +1,14 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.205` delivers the first complete Podcasts subscription flow.
+Within the Podcasts session, Ctrl+N verifies and follows a direct RSS/Atom feed,
+Ctrl+O imports selected OPML feeds, F5 refreshes the current show and Ctrl+F5
+refreshes the whole Library. Enter opens a show's episodes, Backspace returns,
+Delete unfollows, Ctrl+C copies title and public page, and Ctrl+Shift+C copies
+title and the direct feed or enclosure URL. The client bounds time, redirects
+and response size, rejects unsafe XML and never downloads episode audio during
+refresh. Episode playback is deliberately reserved for `alpha.206`.
+
 Version `alpha.201` protects manual Radio recording splits from a rapid double press of `T`. The first press finalises the current part and immediately continues into a new file; another `T` during the first five seconds of that new part is safely ignored instead of stopping the recording. Every finalised part is added to the Local Library immediately while the next part continues recording. `Shift+T` keeps its existing meaning and is not a second split command.
 
 Version `alpha.200` adds explicit removal of the marked interval from the original audio file through `Ctrl+X` in the player. The operation requires a confirmation whose default is No, stops playback, does not re-encode the audio, validates the completed result and only then replaces the source. A complete byte-identical copy receives an `.amc-backup` suffix; failure leaves the original unchanged. Cloud placeholders and video files are safely rejected.
@@ -141,7 +150,7 @@ Since `alpha.78`, the **Local Files** session exists from startup even when its 
 
 Since `alpha.202`, lossless interval removal with `Ctrl+X` verifies the real FFmpeg packet timeline before and after the operation. Long MP3 recordings without a reliable Xing header may be reported by Windows as several seconds shorter than their actual content; AMC now preserves the real end of the file, validates the result, and only then atomically replaces the source while retaining the complete `.amc-backup` copy.
 
-## Podcasts foundation in alpha 203
+## Podcasts foundation in alpha 203 and subscriptions in alpha 205
 
 Podcasts are now a real sixth AMC session with no demo data. The session has a
 separate Library and empty New episodes and Downloads views. The durable model
@@ -149,8 +158,10 @@ already covers subscriptions, episodes, source identity, dates, playback
 position and speed, played/new state, downloads, favourites and queue state.
 The bounded parser accepts RSS 2.0 and Atom, resolves relative enclosure URLs,
 supports iTunes duration, skips entries without media and rejects DTD/external
-entities. This version deliberately does not fetch feeds yet; the next stage
-adds `Ctrl+O`, bounded HTTPS refresh and show-to-episode navigation. See
+entities. `alpha.205` adds verified direct RSS/Atom subscription with Ctrl+N,
+selective OPML import with Ctrl+O, bounded HTTP/HTTPS refresh through F5 and
+Ctrl+F5, and show-to-episode navigation. Refresh only retrieves metadata and
+never downloads episode audio. Finite HTTP playback begins in `alpha.206`. See
 [`PODCAST_MODULE_DESIGN_EN.md`](PODCAST_MODULE_DESIGN_EN.md) for the rollout.
 
 Since `alpha.79`, a registered folder is unambiguously a **Library source**. `Ctrl+Shift+O` includes every recognised file from that folder and its subfolders in the flat Library, including known records that had previously been removed from it; **Folders** is only a hierarchical view of the same records. Delete on a file in Folders removes its Library membership while leaving the physical file visible in its real folder. Delete on a folder row removes nothing, while physically moving a file to the Recycle Bin still requires `Shift+Delete` and confirmation.

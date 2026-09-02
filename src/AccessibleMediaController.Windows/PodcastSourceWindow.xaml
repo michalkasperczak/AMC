@@ -1,0 +1,30 @@
+<Window x:Class="AccessibleMediaController.Windows.PodcastSourceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Width="690" Height="390" MinWidth="560" WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False" Closing="Window_Closing">
+    <StackPanel Margin="16">
+        <TextBlock Text="Nowy podcast" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"
+                   automation:AutomationProperties.HeadingLevel="Level1" />
+        <TextBlock Margin="0,0,0,12" TextWrapping="Wrap"
+                   Text="Wpisz bezpośredni adres kanału RSS lub Atom. Nazwa jest opcjonalna; bez niej AMC użyje nazwy z kanału. Zwykłe strony oraz katalog Apple Podcasts zostaną dodane w następnym etapie." />
+        <Label Target="{Binding ElementName=NameBox}">_Nazwa własna, opcjonalnie:</Label>
+        <TextBox x:Name="NameBox" MaxLength="240" Margin="0,0,0,10"
+                 automation:AutomationProperties.Name="Nazwa własna podcastu, opcjonalnie" />
+        <Label Target="{Binding ElementName=FeedBox}">Adres kanału _RSS lub Atom:</Label>
+        <TextBox x:Name="FeedBox" Margin="0,0,0,10"
+                 automation:AutomationProperties.Name="Adres kanału RSS lub Atom"
+                 automation:AutomationProperties.HelpText="Pełny adres rozpoczynający się od http:// albo https://" />
+        <TextBlock x:Name="StatusText" MinHeight="48" Margin="0,0,0,12" TextWrapping="Wrap"
+                   automation:AutomationProperties.Name="Wynik sprawdzania kanału"
+                   automation:AutomationProperties.LiveSetting="Assertive" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="CheckButton" Width="110" Margin="0,0,8,0" Content="_Sprawdź"
+                    Click="Check_Click" />
+            <Button x:Name="AddButton" Width="105" Margin="0,0,8,0" Content="_Dodaj"
+                    IsDefault="True" IsEnabled="False" Click="Add_Click" />
+            <Button Width="95" Content="_Anuluj" IsCancel="True" />
+        </StackPanel>
+    </StackPanel>
+</Window>

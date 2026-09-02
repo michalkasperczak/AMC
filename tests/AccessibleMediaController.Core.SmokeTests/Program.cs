@@ -24,6 +24,8 @@ var tests = new (string Name, Action Test)[]
     ("Trwałe ustawienia i historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Bezpieczne parsowanie kanałów podcastów", TestPodcastFeedParsing),
+    ("Bezpieczny import list podcastów OPML", TestPodcastOpmlParsing),
+    ("Aktualizacja biblioteki Podcastów", TestPodcastLibraryUpdate),
     ("Trwały model Podcastów", TestPodcastStatePersistence),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
@@ -210,6 +212,90 @@ static void TestPodcastStatePersistence()
     {
         Directory.Delete(directory, true);
     }
+}
+
+static void TestPodcastOpmlParsing()
+{
+    const string opml = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <opml version="2.0"><body>
+          <outline text="Folder">
+            <outline text="Podcast A" xmlUrl="https://example.test/a.xml" htmlUrl="https://example.test/a" />
+            <outline text="Duplikat" xmlUrl="https://example.test/a.xml" />
+            <outline text="Niebezpieczny" xmlUrl="file:///c:/plik.xml" />
+          </outline>
+        </body></opml>
+        """;
+    var entries = PodcastOpmlParser.Parse(opml);
+    Equal(1, entries.Count);
+    Equal("Podcast A", entries[0].Title);
+    Equal(new Uri("https://example.test/a.xml"), entries[0].FeedUri);
+    Equal(new Uri("https://example.test/a"), entries[0].HomepageUri);
+    Equal("Podcast A, example.test", entries[0].ToString());
+
+    var rejectedDtd = false;
+    try
+    {
+        PodcastOpmlParser.Parse("<!DOCTYPE opml [<!ENTITY xxe SYSTEM 'file:///c:/windows/win.ini'>]><opml><body><outline text='&xxe;' xmlUrl='https://example.test/a'/></body></opml>");
+    }
+    catch (XmlException)
+    {
+        rejectedDtd = true;
+    }
+    True(rejectedDtd, "Parser OPML musi odrzucać DTD i encje zewnętrzne.");
+}
+
+static void TestPodcastLibraryUpdate()
+{
+    var settings = new PodcastSettings();
+    var feedUri = new Uri("https://example.test/feed.xml");
+    var first = new PodcastFeedDocument(
+        "podcast-a",
+        "Podcast z kanału",
+        "Autor",
+        "Opis",
+        feedUri,
+        new Uri("https://example.test/podcast"),
+        [new PodcastFeedEpisode(
+            "episode-1",
+            "guid-1",
+            "Starszy odcinek",
+            "Autor",
+            "Opis odcinka",
+            new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero),
+            TimeSpan.FromMinutes(20),
+            new Uri("https://cdn.example.test/1.mp3"),
+            null,
+            "audio/mpeg",
+            100)]);
+    var initial = PodcastLibraryUpdater.Apply(settings, first, "Moja nazwa", DateTime.UtcNow);
+    Equal(true, initial.AddedSubscription);
+    Equal(false, settings.Episodes[0].IsNew);
+    settings.Episodes[0].ResumePositionTicks = TimeSpan.FromMinutes(5).Ticks;
+    settings.Episodes[0].IsPlayed = true;
+
+    var second = first with
+    {
+        Title = "Nowa nazwa z kanału",
+        Episodes =
+        [
+            first.Episodes[0] with { Title = "Zmieniony starszy odcinek" },
+            first.Episodes[0] with
+            {
+                Id = "episode-2",
+                SourceIdentifier = "guid-2",
+                Title = "Nowy odcinek",
+                MediaUri = new Uri("https://cdn.example.test/2.mp3")
+            }
+        ]
+    };
+    var update = PodcastLibraryUpdater.Apply(settings, second, null, DateTime.UtcNow.AddMinutes(1));
+    Equal(1, update.AddedEpisodes);
+    Equal("Moja nazwa", settings.Subscriptions[0].Title);
+    Equal(true, settings.Subscriptions[0].HasCustomTitle);
+    Equal(TimeSpan.FromMinutes(5).Ticks, settings.Episodes.Single(item => item.Id == "episode-1").ResumePositionTicks);
+    Equal(true, settings.Episodes.Single(item => item.Id == "episode-1").IsPlayed);
+    Equal(true, settings.Episodes.Single(item => item.Id == "episode-2").IsNew);
 }
 
 static void TestAudioClipSelection()

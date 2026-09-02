@@ -44,6 +44,18 @@
                           automation:AutomationProperties.Name="Dodaj stację radiową do Biblioteki, Insert w Bibliotece radia"
                           Visibility="Collapsed"
                           Click="AddRadioStation_Click" />
+                <MenuItem x:Name="AddPodcastMenuItem" Header="_Nowy podcast…" InputGestureText="Ctrl+N"
+                          automation:AutomationProperties.Name="Nowy podcast przez RSS lub Atom, Ctrl+N"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+N"
+                          Visibility="Collapsed" Click="AddPodcast_Click" />
+                <MenuItem x:Name="ImportPodcastOpmlMenuItem" Header="Importuj podcasty z _OPML…" InputGestureText="Ctrl+O"
+                          automation:AutomationProperties.Name="Importuj podcasty z OPML, Ctrl+O"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+O"
+                          Visibility="Collapsed" Click="ImportPodcastOpml_Click" />
+                <MenuItem x:Name="RefreshAllPodcastsMenuItem" Header="Odśwież _wszystkie podcasty" InputGestureText="Ctrl+F5"
+                          automation:AutomationProperties.Name="Odśwież wszystkie podcasty, Ctrl+F5"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
+                          Visibility="Collapsed" Click="RefreshAllPodcasts_Click" />
                 <Separator x:Name="FileActionsSeparator" />
                 <MenuItem Header="_Ustawienia…" InputGestureText="Ctrl+," Click="Settings_Click" />
                 <Separator />
@@ -372,6 +384,10 @@
                     <MenuItem x:Name="PlaybackMenuItem" Header="Odtwórz lub wstrzymaj" InputGestureText="Ctrl+Enter"
                               automation:AutomationProperties.Name="Odtwórz lub wstrzymaj, Ctrl+Enter"
                               Click="ToggleSelectedPlayback_Click" />
+                    <MenuItem x:Name="RefreshPodcastMenuItem" Header="Odśwież podcast" InputGestureText="F5"
+                              automation:AutomationProperties.Name="Odśwież wybrany podcast, F5"
+                              automation:AutomationProperties.AcceleratorKey="F5"
+                              Visibility="Collapsed" Click="RefreshPodcast_Click" />
                     <MenuItem x:Name="SelectedRadioAddScheduleMenuItem" Header="Zaplanuj nagranie tej stacji…" InputGestureText="Shift+R"
                               automation:AutomationProperties.Name="Zaplanuj nagranie tej stacji, Shift+R"
                               Visibility="Collapsed" Click="RadioAddSchedule_Click" />
