@@ -1,12 +1,52 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-202`
-- Tytuł zestawu: Bezpieczne cięcie długich plików MP3
-- Wersja programu: `0.1.0-alpha.202`
+- Numer zestawu: `AMC-TEST-203`
+- Tytuł zestawu: Fundament sesji Podcasty
+- Wersja programu: `0.1.0-alpha.203`
 - Utworzono: 2026-09-02, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.202.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.203.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowość alpha 203
+
+### AMC-203-01 — szósta sesja Podcasty
+
+Otwórz listę sesji przez `Ctrl+Shift+S` albo `Ctrl+0` i przejdź strzałkami po
+wszystkich pozycjach. Wybierz Podcasty.
+
+Oczekiwane: Podcasty są osobną szóstą sesją, mają wyłącznie prawdziwą pustą
+Bibliotekę i nie zawierają utworów demonstracyjnych. NVDA nie odczytuje nazwy
+klasy, identyfikatora ani zapisu obiektu.
+
+### AMC-203-02 — widoki pustego modułu
+
+W sesji Podcasty otwórz menu Widok i kolejno wybierz Biblioteka, Nowe odcinki,
+Pobrane, Playlisty, Historia odtwarzania, Ulubione i Kolejka.
+
+Oczekiwane: każdy widok otwiera się bez błędu i jednoznacznie podaje nazwę.
+Nowe odcinki oraz Pobrane są dostępne tylko w sesji Podcasty. Albumy, Foldery
+Biblioteki i Nagrywane nie są w niej pokazywane.
+
+### AMC-203-03 — zapamiętanie sesji i widoku
+
+Pozostaw aktywną sesję Podcasty i widok Nowe odcinki, zamknij AMC, uruchom je
+ponownie i otwórz listę sesji.
+
+Oczekiwane: jeżeli w Ustawieniach działa pamiętanie ostatniej sesji, AMC wraca
+do Podcastów i tego samego widoku. Pozostałe sesje oraz ich zapisany stan nie
+ulegają zmianie.
+
+### AMC-203-04 — polecenia właściwe dla kontekstu
+
+Porównaj menu Plik, Widok, Odtwarzanie i menu kontekstowe pustej listy w
+Podcastach z Radiem i Plikami lokalnymi.
+
+Oczekiwane: Podcasty nie pokazują importu stacji, nagrywania Radia, Folderów
+Biblioteki, Albumów ani lokalnego cięcia audio. W tej wersji nie ma jeszcze
+polecenia dodawania adresu kanału; pojawi się w następnym etapie.
+
+## Poprzedni zestaw alpha 202
 
 ## Nowość alpha 202
 

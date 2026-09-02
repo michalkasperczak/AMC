@@ -1,8 +1,8 @@
 # AMC podcast module design
 
-Status: approved direction after Internet Radio has stabilised. This document
-defines the data and interaction model; it does not claim that the module is
-implemented yet.
+Status: implementation started in `alpha.203`. The real empty session, durable
+data model, Library/New episodes/Downloads views and secure RSS/Atom parser are
+in place. Network feed retrieval and subscription UI are the next stage.
 
 ## 1. A separate Podcasts session
 
@@ -61,11 +61,21 @@ separate from public-source adapters.
 
 ## 6. Delivery order
 
-1. RSS/Atom, Library, New episodes, History and the shared player.
-2. Downloads, offline files, durable position, speed and bookmarks.
-3. Manual playlists and OPML/AMC import and export.
-4. Page-URL discovery using the converter's proven containers.
-5. Additional public directories and account services as separate adapters.
+1. `alpha.203`: session shell, durable model, empty core views and RSS/Atom parser.
+2. `alpha.204`: add a feed URL, bounded HTTPS refresh and show/episode navigation.
+3. `alpha.205`: finite HTTP playback, per-episode resume and speed, history and bookmarks.
+4. `alpha.206`: New episodes state, filtering and batch operations.
+5. `alpha.207`: cancellable downloads with local staging and atomic publication.
+6. `alpha.208`: episode playlists plus OPML and AMC import/export.
+7. `alpha.209`: supplied/user chapters and page-URL feed discovery.
+8. Additional directories and account services remain optional adapters.
 
 The keyboard map will be decided after the first working view. This design
 document does not reserve shortcuts by itself.
+
+`Ctrl+L` opens followed shows. Enter on a show will open its episodes rather
+than trying to play the feed itself. Shared history, favourites, queue,
+playlists, presets, copying and playback apply to episodes. Radio recording,
+local-folder management and destructive local audio editing must not leak into
+the Podcasts menus. Shortcuts for New episodes and Downloads will be selected
+after NVDA testing of the first populated lists.

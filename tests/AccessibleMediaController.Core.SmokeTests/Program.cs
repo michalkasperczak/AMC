@@ -2,11 +2,13 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Xml;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
+using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
 
@@ -21,6 +23,8 @@ var tests = new (string Name, Action Test)[]
     ("Szablony nazw zaplanowanych nagrań", TestRadioRecordingFileNameTemplate),
     ("Trwałe ustawienia i historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
+    ("Bezpieczne parsowanie kanałów podcastów", TestPodcastFeedParsing),
+    ("Trwały model Podcastów", TestPodcastStatePersistence),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
     ("Trwałe opcje przetwarzania dźwięku", TestPlaybackAudioSettingsPersistence),
@@ -77,6 +81,136 @@ var tests = new (string Name, Action Test)[]
     ("Niedestrukcyjne zaznaczanie fragmentu audio", TestAudioClipSelection),
     ("Trzy rodzaje eksportu", TestExports)
 };
+
+static void TestPodcastFeedParsing()
+{
+    const string rss = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+          <channel>
+            <title>Próba &amp; Podcast</title>
+            <link>https://example.test/podcast</link>
+            <description><![CDATA[<p>Opis <strong>audycji</strong>.</p>]]></description>
+            <itunes:author>Autor kanału</itunes:author>
+            <item>
+              <guid>odcinek-1</guid>
+              <title>Odcinek pierwszy</title>
+              <pubDate>Tue, 01 Sep 2026 18:30:00 GMT</pubDate>
+              <itunes:duration>01:02:03</itunes:duration>
+              <enclosure url="https://cdn.example.test/audio/1.mp3" length="123456" type="audio/mpeg" />
+              <link>/podcast/1</link>
+            </item>
+            <item>
+              <title>Wpis bez dźwięku</title>
+              <link>https://example.test/text</link>
+            </item>
+          </channel>
+        </rss>
+        """;
+    var feedUri = new Uri("https://example.test/feed.xml");
+    var feed = PodcastFeedParser.Parse(rss, feedUri);
+    Equal("Próba & Podcast", feed.Title);
+    Equal("Autor kanału", feed.Author);
+    Equal("Opis audycji.", feed.Description);
+    Equal(new Uri("https://example.test/podcast"), feed.HomepageUri);
+    Equal(1, feed.Episodes.Count);
+    var episode = feed.Episodes[0];
+    Equal("Odcinek pierwszy", episode.Title);
+    Equal(TimeSpan.FromHours(1) + TimeSpan.FromMinutes(2) + TimeSpan.FromSeconds(3), episode.Duration);
+    Equal(new Uri("https://cdn.example.test/audio/1.mp3"), episode.MediaUri);
+    Equal(new Uri("https://example.test/podcast/1"), episode.PageUri);
+    Equal("audio/mpeg", episode.MediaType);
+    Equal(123456L, episode.MediaLength);
+    Equal(episode.Id, PodcastFeedParser.Parse(rss, feedUri).Episodes[0].Id);
+
+    const string atom = """
+        <feed xmlns="http://www.w3.org/2005/Atom">
+          <id>urn:test:podcast</id>
+          <title>Atom Podcast</title>
+          <author><name>Anna</name></author>
+          <link rel="alternate" href="https://example.test/atom" />
+            <entry>
+              <id>urn:test:episode:1</id>
+              <title>Atom odcinek</title>
+              <updated>2026-09-01T12:00:00Z</updated>
+              <itunes:duration xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">3723</itunes:duration>
+              <link rel="enclosure" href="media/atom.m4a" type="audio/mp4" length="42" />
+            </entry>
+        </feed>
+        """;
+    var atomFeed = PodcastFeedParser.Parse(atom, new Uri("https://example.test/feed/atom.xml"));
+    Equal("Atom Podcast", atomFeed.Title);
+    Equal("Anna", atomFeed.Author);
+    Equal(1, atomFeed.Episodes.Count);
+    Equal("Anna", atomFeed.Episodes[0].Author);
+    Equal(TimeSpan.FromSeconds(3723), atomFeed.Episodes[0].Duration);
+    Equal(new Uri("https://example.test/feed/media/atom.m4a"), atomFeed.Episodes[0].MediaUri);
+
+    var rejectedDtd = false;
+    try
+    {
+        PodcastFeedParser.Parse(
+            "<!DOCTYPE rss [<!ENTITY xxe SYSTEM 'file:///c:/windows/win.ini'>]><rss><channel><title>&xxe;</title></channel></rss>",
+            feedUri);
+    }
+    catch (XmlException)
+    {
+        rejectedDtd = true;
+    }
+    True(rejectedDtd, "Parser podcastów musi odrzucać DTD i encje zewnętrzne.");
+}
+
+static void TestPodcastStatePersistence()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-podcast-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(
+            Path.Combine(directory, "state.json"),
+            Path.Combine(directory, "library.db"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.Podcasts.Volume = 44;
+        state.Podcasts.PlaybackRate = 1.25d;
+        state.Podcasts.Subscriptions.Add(new PodcastSubscriptionSettings
+        {
+            Id = "podcast-a",
+            Title = "Podcast A",
+            FeedUrl = "https://example.test/feed.xml",
+            HomepageUrl = "javascript:alert(1)",
+            LastRefreshUtcTicks = DateTime.UtcNow.Ticks
+        });
+        state.Podcasts.Episodes.Add(new PodcastEpisodeSettings
+        {
+            Id = "episode-a",
+            SubscriptionId = "podcast-a",
+            SourceIdentifier = "guid-a",
+            Title = "Odcinek A",
+            MediaUrl = "https://cdn.example.test/a.mp3",
+            DurationTicks = TimeSpan.FromMinutes(30).Ticks,
+            ResumePositionTicks = TimeSpan.FromMinutes(5).Ticks,
+            IsNew = true,
+            IsFavorite = true
+        });
+        state.Podcasts.CurrentItemId = "episode-a";
+        store.Save(state);
+
+        var loaded = store.LoadOrCreate();
+        Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
+        Equal("podcasts", loaded.Settings.SessionSlots[6]);
+        Equal(44, loaded.Podcasts.Volume);
+        Equal(1.25d, loaded.Podcasts.PlaybackRate);
+        Equal(1, loaded.Podcasts.Subscriptions.Count);
+        Equal(null, loaded.Podcasts.Subscriptions[0].HomepageUrl);
+        Equal(1, loaded.Podcasts.Episodes.Count);
+        Equal(TimeSpan.FromMinutes(5).Ticks, loaded.Podcasts.Episodes[0].ResumePositionTicks);
+        Equal("episode-a", loaded.Podcasts.CurrentItemId);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
 
 static void TestAudioClipSelection()
 {
@@ -1444,6 +1578,8 @@ static void TestSessionOrder()
     Equal("wiim", defaults[2]);
     Equal("tidal", defaults[3]);
     Equal("appleMusic", defaults[4]);
+    Equal("radio", defaults[5]);
+    Equal("podcasts", defaults[6]);
 
     var settings = new AppSettings
     {
@@ -3954,7 +4090,7 @@ static void TestExports()
 
         store.ExportFullBackup(backupPath, state);
         var importedBackup = store.ImportFullBackup(backupPath);
-        Equal(5, importedBackup.Settings.SessionSlots.Count);
+        Equal(6, importedBackup.Settings.SessionSlots.Count);
         Equal(1, importedBackup.KeyboardProfiles.Count);
         Equal(false, importedBackup.Settings.Messages.SeekMessages);
         Equal(false, importedBackup.Settings.Messages.ArrowSeekMessages);

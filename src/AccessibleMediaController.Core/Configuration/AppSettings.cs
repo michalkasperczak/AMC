@@ -104,7 +104,8 @@ public static class SessionSlotOrder
         ("wiim", "WiiM"),
         ("tidal", "TIDAL"),
         ("appleMusic", "Apple Music"),
-        ("radio", "Radio internetowe")
+        ("radio", "Radio internetowe"),
+        ("podcasts", "Podcasty")
     ];
 
     public static IReadOnlyList<string> DefaultSessionIds =>
@@ -116,7 +117,8 @@ public static class SessionSlotOrder
         [2] = "wiim",
         [3] = "tidal",
         [4] = "appleMusic",
-        [5] = "radio"
+        [5] = "radio",
+        [6] = "podcasts"
     };
 
     public static Dictionary<int, string> Normalize(IReadOnlyDictionary<int, string>? slots)
@@ -215,7 +217,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 39;
+    public int SchemaVersion { get; set; } = 40;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -226,7 +228,53 @@ public sealed class PersistedState
     public SessionPresetSettings SessionPresets { get; set; } = new();
     public LocalMediaSettings LocalMedia { get; set; } = new();
     public RadioSettings Radio { get; set; } = new();
+    public PodcastSettings Podcasts { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];
+}
+
+public sealed class PodcastSettings
+{
+    public List<PodcastSubscriptionSettings> Subscriptions { get; set; } = [];
+    public List<PodcastEpisodeSettings> Episodes { get; set; } = [];
+    public string? CurrentItemId { get; set; }
+    public int Volume { get; set; } = 35;
+    public double PlaybackRate { get; set; } = 1d;
+}
+
+public sealed class PodcastSubscriptionSettings
+{
+    public string Id { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Author { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string FeedUrl { get; set; } = string.Empty;
+    public string? HomepageUrl { get; set; }
+    public long LastRefreshUtcTicks { get; set; }
+    public bool IsFavorite { get; set; }
+    public bool IsInLibrary { get; set; } = true;
+}
+
+public sealed class PodcastEpisodeSettings
+{
+    public string Id { get; set; } = string.Empty;
+    public string SubscriptionId { get; set; } = string.Empty;
+    public string SourceIdentifier { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Author { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string MediaUrl { get; set; } = string.Empty;
+    public string? PageUrl { get; set; }
+    public string? MediaType { get; set; }
+    public long? MediaLength { get; set; }
+    public long PublishedUtcTicks { get; set; }
+    public long DurationTicks { get; set; }
+    public long ResumePositionTicks { get; set; }
+    public string? DownloadPath { get; set; }
+    public bool IsNew { get; set; } = true;
+    public bool IsPlayed { get; set; }
+    public bool IsFavorite { get; set; }
+    public bool IsInQueue { get; set; }
+    public bool IsPlayNext { get; set; }
 }
 
 public sealed class SessionPresetSettings

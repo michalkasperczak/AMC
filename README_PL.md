@@ -577,6 +577,23 @@ Ta wersja dodaje opcjonalne rozpoznawanie muzyki w Radiu. `S` w odtwarzaczu rozp
 
 Od `alpha.164` bogate kopiowanie i eksport rozpoznanych utworów zawierają także YouTube Music oraz katalogowe wyszukiwania Discogs i MusicBrainz. Są to jawne adresy wyszukiwania, a nie automatyczne twierdzenie, że znaleziono właściwe wydanie. Projekt późniejszego, kontrolowanego dopasowania albumów i autorów znajduje się w [`PROJEKT_METADANYCH_I_AUTOROW_PL.md`](PROJEKT_METADANYCH_I_AUTOROW_PL.md).
 
+## Fundament Podcastów w alpha 203
+
+Podcasty są od tej wersji prawdziwą, szóstą sesją AMC i nie zawierają danych
+demonstracyjnych. Sesja ma osobną Bibliotekę oraz dostępne z menu Widok puste
+kontenery **Nowe odcinki** i **Pobrane**. Jej miejsce można zmienić razem z
+pozostałymi sesjami w Ustawieniach, a ostatni widok jest zapamiętywany.
+
+Rdzeń przechowuje już subskrypcje, odcinki, źródłowy identyfikator, adres
+materiału i strony, datę, czas, stan nowy/odsłuchany, lokalne pobranie, pozycję,
+prędkość, Ulubione i Kolejkę. Parser przyjmuje RSS 2.0 i Atom, obsługuje
+`enclosure`, względne adresy oraz czas iTunes, pomija wpisy bez audio i tworzy
+stabilne identyfikatory. XML jest traktowany jako niezaufany: DTD i encje
+zewnętrzne są zablokowane, a rozmiar dokumentu i liczba odcinków mają granice.
+`alpha.203` celowo nie pobiera jeszcze kanałów z sieci. Następny etap doda
+`Ctrl+O`, odświeżanie HTTPS oraz wejście z audycji do odcinków. Pełny podział
+etapów znajduje się w [`PROJEKT_PODCASTOW_PL.md`](PROJEKT_PODCASTOW_PL.md).
+
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.

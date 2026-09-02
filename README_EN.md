@@ -141,6 +141,18 @@ Since `alpha.78`, the **Local Files** session exists from startup even when its 
 
 Since `alpha.202`, lossless interval removal with `Ctrl+X` verifies the real FFmpeg packet timeline before and after the operation. Long MP3 recordings without a reliable Xing header may be reported by Windows as several seconds shorter than their actual content; AMC now preserves the real end of the file, validates the result, and only then atomically replaces the source while retaining the complete `.amc-backup` copy.
 
+## Podcasts foundation in alpha 203
+
+Podcasts are now a real sixth AMC session with no demo data. The session has a
+separate Library and empty New episodes and Downloads views. The durable model
+already covers subscriptions, episodes, source identity, dates, playback
+position and speed, played/new state, downloads, favourites and queue state.
+The bounded parser accepts RSS 2.0 and Atom, resolves relative enclosure URLs,
+supports iTunes duration, skips entries without media and rejects DTD/external
+entities. This version deliberately does not fetch feeds yet; the next stage
+adds `Ctrl+O`, bounded HTTPS refresh and show-to-episode navigation. See
+[`PODCAST_MODULE_DESIGN_EN.md`](PODCAST_MODULE_DESIGN_EN.md) for the rollout.
+
 Since `alpha.79`, a registered folder is unambiguously a **Library source**. `Ctrl+Shift+O` includes every recognised file from that folder and its subfolders in the flat Library, including known records that had previously been removed from it; **Folders** is only a hierarchical view of the same records. Delete on a file in Folders removes its Library membership while leaving the physical file visible in its real folder. Delete on a folder row removes nothing, while physically moving a file to the Recycle Bin still requires `Shift+Delete` and confirmation.
 
 Since `alpha.80`, sources synchronize at startup, after file-system changes and on demand with `F5`. New files are added, missing files become unavailable without losing history, bookmarks or resume positions, and a file restored to the same path returns to the active Library. Delete creates a persistent exclusion, so rescanning or restarting cannot silently add the file again; immediate `Ctrl+Z` removes that exclusion. `Alt+1` opens **Library Folders**, `Alt+2` opens flat **All files**, and `Ctrl+L` returns to the most recently used Library layout. `Shift+digits` remains available for type-ahead names beginning with punctuation.

@@ -1582,3 +1582,23 @@ nie blokuje podstawowego odtwarzania. Porzucone katalogi tymczasowe są usuwane
 przy następnej kontroli. Domyślnie sprawdzanie i instalacja odbywają się w tle
 nie częściej niż raz na dobę; można je wyłączyć w Ustawieniach, a ręczną kontrolę
 uruchamia menu Pomoc.
+
+### 7.11. Fundament sesji Podcasty
+
+Od `alpha.203` identyfikator `podcasts` oznacza osobną, trwałą sesję Podcasty,
+domyślnie przypisaną do szóstego miejsca. Nie korzysta z elementów
+demonstracyjnych TIDAL, Apple Music ani WiiM. Widok Biblioteka zawiera wyłącznie
+obserwowane audycje; Nowe odcinki i Pobrane są wyliczanymi widokami odcinków.
+Modele `PodcastSubscriptionSettings` i `PodcastEpisodeSettings` oddzielają
+tożsamość kanału od tożsamości odcinka, stan nowy/odsłuchany od pozycji
+odtwarzania oraz adres sieciowy od ukończonego pliku lokalnego.
+
+`PodcastFeedParser` jest bezsieciową granicą rdzenia dla RSS 2.0 i Atom.
+Przyjmuje wyłącznie wcześniej pobrany tekst oraz bazowy adres HTTP/HTTPS.
+Wyłącza DTD i zewnętrzne encje, ogranicza dokument do 5 MiB i wynik do 1000
+odcinków, oczyszcza tekst z prostego HTML i ignoruje wpis bez poprawnego
+`enclosure`. Stabilny identyfikator odcinka pochodzi z identyfikatora źródłowego
+lub adresu medium w obrębie kanału. Klient sieciowy następnego etapu ma osobno
+wymusić czas, liczbę przekierowań, limit odpowiedzi i brak automatycznego
+pobierania plików audio. Szczegółowy przebieg wersji opisuje
+`PROJEKT_PODCASTOW_PL.md`.

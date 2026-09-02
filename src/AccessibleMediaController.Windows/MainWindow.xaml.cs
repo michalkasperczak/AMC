@@ -41,6 +41,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const string PlayerViewName = "Teraz odtwarzane";
     private const string BookmarkViewName = "Zakładki";
     private const string ActiveRadioRecordingsViewName = "Nagrywane";
+    private const string PodcastInboxViewName = "Nowe odcinki";
+    private const string PodcastDownloadsViewName = "Pobrane";
     private const string FolderViewName = "Foldery";
     private const string AllLocalFilesViewName = "Wszystkie pliki";
     private const string CustomLocalOrderViewName = "Kolejność własna";
@@ -75,6 +77,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private string? _focusContextPrefix;
     private ListBoxItem? _focusContextContainer;
     private readonly WindowsMediaOutput _localOutput = new();
+    private readonly WindowsMediaOutput _podcastOutput = new();
     private readonly RadioBrowserClient _radioCatalog = new();
     private RadioMediaOutput _radioOutput = null!;
     private readonly ITrackRecognitionService _trackRecognitionService = new ShazamTrackRecognitionService();
@@ -85,6 +88,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private string? _cloudPreparingItemId;
     private readonly List<MediaItem> _localItems = [];
     private readonly List<MediaItem> _radioItems = [];
+    private readonly List<MediaItem> _podcastItems = [];
     private readonly Dictionary<string, string> _pendingExternalMoves =
         new(StringComparer.Ordinal);
     private PendingInternalListMove? _pendingInternalListMove;
@@ -205,6 +209,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _radioRecognitionMonitoring = _state.Radio.AutomaticTrackRecognitionEnabled;
         _localOutput.ConfigureAudioProcessing(_state.Settings.Audio);
         _localOutput.ConfigureAudioProcessingResolver(GetEffectiveLocalAudioSettings);
+        _podcastOutput.ConfigureAudioProcessing(_state.Settings.Audio);
         _radioOutput = new RadioMediaOutput(_state.Radio.TimeshiftMinutes);
         _radioOutput.PlaybackFailed += RadioOutput_PlaybackFailed;
         _radioOutput.PlaybackPreparing += RadioOutput_PlaybackPreparing;
@@ -214,11 +219,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         NormalizePlaylistViewsAtStartup();
         NormalizeLocalLibraryNavigationAtStartup();
         NormalizeRadioNavigationAtStartup();
+        NormalizePodcastNavigationAtStartup();
         ClearPersistedListFiltersAtStartup();
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
         _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);
         LoadPersistedLocalMedia();
         LoadPersistedRadio();
+        LoadPersistedPodcasts();
         NormalizeRadioSchedulesAtStartup();
         DiagnosticLog.Info("startup", $"Odtworzono w pamięci {state.LocalMedia.Items.Count} rekordów Biblioteki.");
         _localOutput.DurationAvailable += LocalOutput_DurationAvailable;
@@ -634,6 +641,29 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : result.NameChanged
                 ? $"Nadano nazwę zakładce {result.Entry.Name}: {time}"
                 : $"Zakładka {result.Entry.Name} już istnieje: {time}");
+    }
+
+    private void NormalizePodcastNavigationAtStartup()
+    {
+        if (!_state.SessionNavigation.Sessions.TryGetValue("podcasts", out var navigation))
+        {
+            _state.SessionNavigation.Sessions["podcasts"] = new SessionNavigationState
+            {
+                CurrentView = "Biblioteka"
+            };
+            return;
+        }
+
+        if (navigation.CurrentView is DefaultBrowserView
+            or FolderViewName
+            or AllLocalFilesViewName
+            or CustomLocalOrderViewName
+            or LocalAlbumContentsViewName
+            or "Albumy"
+            or ActiveRadioRecordingsViewName)
+        {
+            navigation.CurrentView = "Biblioteka";
+        }
     }
 
     private void MarkClipStart()
@@ -3273,6 +3303,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var local = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
         var radio = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
+        var podcasts = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
         CurrentSessionMuteMenuItem.IsChecked = _sessions.Current.IsSessionMuted;
         AllSessionsMuteMenuItem.IsChecked = _sessions.AllSessionsMuted;
         UpdatePlaybackAudioMenuPresentation(_sessions.Current.AudioProcessingCapabilities);
@@ -3314,6 +3345,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CustomLocalOrderViewMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ActiveRadioRecordingsViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         RadioRecognitionHistoryViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        PodcastInboxViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
+        PodcastDownloadsViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         RefreshLocalLibraryMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         RenameLocalFileMainMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         MenuAccessibility.SetPresentation(
@@ -3349,7 +3382,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AutomationProperties.SetName(
             RadioAssignPresetMenuItem,
             $"Utwórz lub przypisz preset, {_sessions.Current.DisplayName}");
-        AlbumsViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        AlbumsViewMenuItem.Visibility = radio || podcasts ? Visibility.Collapsed : Visibility.Visible;
         QueueViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         BookmarksViewMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         BrowserPlaylistsButton.Visibility = Visibility.Visible;
@@ -4160,6 +4193,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CaptureCurrentSessionNavigationState();
         CaptureLocalMediaState();
         CaptureRadioState();
+        CapturePodcastState();
         if (!QueueStateSave()) return false;
         var local = _sessions.FindSession("local");
         _lastSavedLocalPositionTicks = local?.Position.Ticks ?? 0;
@@ -4182,6 +4216,91 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 AnnounceEssential($"Nie udało się zapisać stanu programu: {exception.Message}");
             }
             return false;
+        }
+    }
+
+    private void LoadPersistedPodcasts()
+    {
+        var subscriptionsById = _state.Podcasts.Subscriptions
+            .ToDictionary(subscription => subscription.Id, StringComparer.Ordinal);
+        foreach (var subscription in _state.Podcasts.Subscriptions)
+        {
+            _podcastItems.Add(new MediaItem
+            {
+                Id = subscription.Id,
+                Title = subscription.Title,
+                Artist = subscription.Author,
+                Kind = MediaItemKind.Podcast,
+                Source = subscription.FeedUrl,
+                PublicUri = subscription.HomepageUrl ?? subscription.FeedUrl,
+                IsFavorite = subscription.IsFavorite,
+                IsInLibrary = subscription.IsInLibrary,
+                IsAvailable = true
+            });
+        }
+
+        foreach (var episode in _state.Podcasts.Episodes)
+        {
+            subscriptionsById.TryGetValue(episode.SubscriptionId, out var subscription);
+            var downloaded = episode.DownloadPath is { Length: > 0 }
+                && File.Exists(episode.DownloadPath);
+            _podcastItems.Add(new MediaItem
+            {
+                Id = episode.Id,
+                Title = episode.Title,
+                Artist = string.IsNullOrWhiteSpace(episode.Author)
+                    ? subscription?.Title ?? string.Empty
+                    : episode.Author,
+                Kind = MediaItemKind.Episode,
+                Duration = TimeSpan.FromTicks(episode.DurationTicks),
+                Source = downloaded ? episode.DownloadPath : episode.MediaUrl,
+                PublicUri = episode.PageUrl ?? episode.MediaUrl,
+                ExternalId = episode.SubscriptionId,
+                IsFavorite = episode.IsFavorite,
+                IsInLibrary = true,
+                IsAvailable = true,
+                IsInQueue = episode.IsInQueue,
+                IsPlayNext = episode.IsPlayNext
+            });
+        }
+    }
+
+    private void CapturePodcastState()
+    {
+        var session = _sessions?.FindSession("podcasts");
+        if (session is not null) session.RememberCurrentPosition();
+        var itemsById = _podcastItems.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        foreach (var subscription in _state.Podcasts.Subscriptions)
+        {
+            if (!itemsById.TryGetValue(subscription.Id, out var item)) continue;
+            subscription.Title = item.Title;
+            subscription.Author = item.Artist;
+            subscription.IsFavorite = item.IsFavorite;
+            subscription.IsInLibrary = item.IsInLibrary;
+        }
+
+        foreach (var episode in _state.Podcasts.Episodes)
+        {
+            if (!itemsById.TryGetValue(episode.Id, out var item)) continue;
+            episode.Title = item.Title;
+            episode.Author = item.Artist;
+            episode.DurationTicks = Math.Max(0, item.Duration.Ticks);
+            episode.IsFavorite = item.IsFavorite;
+            episode.IsInQueue = item.IsInQueue;
+            episode.IsPlayNext = item.IsPlayNext;
+            episode.ResumePositionTicks = Math.Max(
+                0,
+                session?.RememberedPositions.GetValueOrDefault(item.Id).Ticks
+                    ?? episode.ResumePositionTicks);
+        }
+
+        _state.Podcasts.CurrentItemId = session?.HasCurrentItem == true
+            ? session.CurrentItem.Id
+            : null;
+        if (session is not null)
+        {
+            _state.Podcasts.Volume = session.Volume;
+            _state.Podcasts.PlaybackRate = session.PlaybackRate;
         }
     }
 
@@ -4242,6 +4361,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             CaptureCurrentSessionNavigationState();
             CaptureLocalMediaState();
             CaptureRadioState();
+            CapturePodcastState();
             if (!FlushStateSave(TimeSpan.FromSeconds(30), out var saveFailure))
             {
                 if (announceFailure)
@@ -4564,6 +4684,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var previousRadio = _sessions?.FindSession("radio");
         var previousRadioItemId = previousRadio?.HasCurrentItem == true ? previousRadio.CurrentItem.Id : null;
         var previousRadioWasPlaying = previousRadio?.IsPlaying == true;
+        var previousPodcasts = _sessions?.FindSession("podcasts");
+        var previousPodcastItemId = previousPodcasts?.HasCurrentItem == true
+            ? previousPodcasts.CurrentItem.Id
+            : null;
+        var previousPodcastWasPlaying = previousPodcasts?.IsPlaying == true;
         _membershipHistory.Clear();
         _localCatalogHistory.Clear();
         _playlistHistory.Clear();
@@ -4628,6 +4753,33 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestorePlaybackContext(radio);
         EnsureQueueOrder(radio);
         if (previousRadioWasPlaying && radio.HasCurrentItem) radio.Play(radio.CurrentItem);
+        var (podcasts, _) = _sessions.AddOrUpdateTransientSession(
+            "podcasts",
+            "Podcasty",
+            _podcastItems,
+            _podcastOutput,
+            6,
+            item => item.Kind == MediaItemKind.Episode);
+        if (podcasts.HasItems)
+        {
+            foreach (var episode in _state.Podcasts.Episodes.Where(episode =>
+                         episode.ResumePositionTicks > 0))
+            {
+                podcasts.SetRememberedPosition(
+                    episode.Id,
+                    TimeSpan.FromTicks(episode.ResumePositionTicks));
+            }
+            var restoredPodcastId = previousPodcastItemId ?? _state.Podcasts.CurrentItemId;
+            var restoredPodcast = podcasts.Items.FirstOrDefault(item => item.Id == restoredPodcastId);
+            if (restoredPodcast is not null) podcasts.SelectItem(restoredPodcast);
+        }
+        podcasts.SetVolume(previousPodcasts?.Volume ?? _state.Podcasts.Volume);
+        podcasts.SetDefaultPlaybackRate(_state.Podcasts.PlaybackRate);
+        podcasts.ApplyPlaybackRateForCurrentItem();
+        RestorePlaybackContext(podcasts);
+        EnsureQueueOrder(podcasts);
+        if (previousPodcastWasPlaying && podcasts.HasCurrentItem)
+            podcasts.Play(podcasts.CurrentItem);
         if (string.Equals(desiredSessionId, "local", StringComparison.Ordinal))
         {
             _sessions.SelectSession("local");
@@ -4635,6 +4787,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (string.Equals(desiredSessionId, "radio", StringComparison.Ordinal))
         {
             _sessions.SelectSession("radio");
+        }
+        else if (string.Equals(desiredSessionId, "podcasts", StringComparison.Ordinal))
+        {
+            _sessions.SelectSession("podcasts");
         }
         _router = new CommandRouter(_sessions, _state.Settings, this, this);
         foreach (var session in _sessions.Sessions.Where(session =>
@@ -5399,6 +5555,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 CaptureRadioState();
                 QueueStateSave();
             }
+            else if (string.Equals(sessionBeforeCommand.Id, "podcasts", StringComparison.Ordinal))
+            {
+                CapturePodcastState();
+                QueueStateSave();
+            }
         }
         else if (changesListMembership)
         {
@@ -5484,12 +5645,30 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             TrySaveLocalMediaState(false);
         }
+        else if (commandId is CommandIds.PlaybackRateDown
+            or CommandIds.PlaybackRateUp
+            or CommandIds.PlaybackRateReset
+            && result.Handled
+            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+        {
+            _state.Podcasts.PlaybackRate = _sessions.Current.PlaybackRate;
+            CapturePodcastState();
+            QueueStateSave();
+        }
         if (commandId is CommandIds.VolumeUp5 or CommandIds.VolumeDown5
             or CommandIds.VolumeUp1 or CommandIds.VolumeDown1
             && result.Handled
             && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
             CaptureRadioState();
+            QueueStateSave();
+        }
+        else if (commandId is CommandIds.VolumeUp5 or CommandIds.VolumeDown5
+            or CommandIds.VolumeUp1 or CommandIds.VolumeDown1
+            && result.Handled
+            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+        {
+            CapturePodcastState();
             QueueStateSave();
         }
         if (savesPlaybackBoundary && result.Handled && _sessions.Current.IsPlaying)
@@ -5504,11 +5683,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (changesListMembership && changedSession is not null)
         {
             if (string.Equals(changedSession.Id, "radio", StringComparison.Ordinal)) CaptureRadioState();
+            if (string.Equals(changedSession.Id, "podcasts", StringComparison.Ordinal)) CapturePodcastState();
             QueueStateSave();
         }
         else if (savesPlaybackBoundary && result.Handled)
         {
             if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)) CaptureRadioState();
+            if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)) CapturePodcastState();
             QueueStateSave();
         }
         return result;
@@ -5669,6 +5850,39 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal))
+        {
+            ViewHeading.Text = PodcastInboxViewName;
+            var itemsById = _sessions.Current.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
+            _unfilteredItems = _state.Podcasts.Episodes
+                .Where(episode => episode.IsNew && !episode.IsPlayed)
+                .OrderByDescending(episode => episode.PublishedUtcTicks)
+                .Select(episode => itemsById.GetValueOrDefault(episode.Id))
+                .Where(item => item is not null)
+                .Select(item => new MediaItemRow(item!, FormatListItem(item!), item!.PrimaryText))
+                .ToList();
+            ApplyFilter(preferredItemId, fallbackIndex);
+            return;
+        }
+
+        if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && string.Equals(_currentView, PodcastDownloadsViewName, StringComparison.Ordinal))
+        {
+            ViewHeading.Text = PodcastDownloadsViewName;
+            var itemsById = _sessions.Current.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
+            _unfilteredItems = _state.Podcasts.Episodes
+                .Where(episode => episode.DownloadPath is { Length: > 0 }
+                    && File.Exists(episode.DownloadPath))
+                .OrderByDescending(episode => episode.PublishedUtcTicks)
+                .Select(episode => itemsById.GetValueOrDefault(episode.Id))
+                .Where(item => item is not null)
+                .Select(item => new MediaItemRow(item!, FormatListItem(item!), item!.PrimaryText))
+                .ToList();
+            ApplyFilter(preferredItemId, fallbackIndex);
+            return;
+        }
+
         if (string.Equals(_currentView, FolderViewName, StringComparison.Ordinal))
         {
             _unfilteredItems = CreateFolderRows();
@@ -5788,6 +6002,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 items = items
                     .OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
                     .ThenBy(item => item.Source, StringComparer.OrdinalIgnoreCase);
+            }
+            else if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+            {
+                items = items
+                    .Where(item => item.Kind == MediaItemKind.Podcast)
+                    .OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase);
             }
         }
         if (_currentView == "Kolejka") items = OrderedQueueItems(_sessions.Current);
@@ -11006,6 +11226,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _trackRecognitionCancellation.Cancel();
         CaptureCurrentSessionNavigationState();
         CaptureLocalMediaState();
+        CapturePodcastState();
         _playerUiTimer.Stop();
         _playerUiTimer.Tick -= PlayerUiTimer_Tick;
         _localSourceSyncTimer.Stop();
@@ -11071,6 +11292,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _windowSource = null;
         _prefixService?.Dispose();
         _localOutput.Dispose();
+        _podcastOutput.Dispose();
         _radioOutput.Dispose();
         _radioCatalog.Dispose();
         _trackRecognitionCancellation.Dispose();
@@ -12174,6 +12396,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void RadioAssignPreset_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.AssignRadioPreset);
     private void LibraryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewLibrary);
+    private void PodcastInboxView_Click(object sender, RoutedEventArgs e) => NavigateTo(PodcastInboxViewName);
+    private void PodcastDownloadsView_Click(object sender, RoutedEventArgs e) => NavigateTo(PodcastDownloadsViewName);
     private void FoldersView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewFolders);
     private void AllLocalFilesView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewAllLocalFiles);
     private void CustomLocalOrderView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewCustomLocalOrder);

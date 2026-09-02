@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 39;
+    public const int CurrentSchemaVersion = 40;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -90,6 +90,7 @@ public sealed class ConfigurationStore
         NormalizePlaylists(state);
         NormalizeSessionPresets(state);
         NormalizeRadio(state);
+        NormalizePodcasts(state);
         ValidateState(state);
         return state;
     }
@@ -111,6 +112,7 @@ public sealed class ConfigurationStore
             NormalizePlaylists(state);
             NormalizeSessionPresets(state);
             NormalizeRadio(state);
+            NormalizePodcasts(state);
             ValidateState(state);
             try
             {
@@ -284,6 +286,7 @@ public sealed class ConfigurationStore
         NormalizePlaylists(state);
         NormalizeSessionPresets(state);
         NormalizeRadio(state);
+        NormalizePodcasts(state);
         MigrateLegacyRadioPresets(state, sourceSchemaVersion);
         NormalizeSessionPresets(state);
         state.SchemaVersion = CurrentSchemaVersion;
@@ -977,6 +980,99 @@ public sealed class ConfigurationStore
     {
         settings.SessionSlots = SessionSlotOrder.Normalize(settings.SessionSlots);
     }
+
+    private static void NormalizePodcasts(PersistedState state)
+    {
+        state.Podcasts ??= new PodcastSettings();
+        state.Podcasts.Volume = Math.Clamp(state.Podcasts.Volume, 0, 100);
+        state.Podcasts.PlaybackRate = Math.Clamp(state.Podcasts.PlaybackRate, 0.50d, 2.00d);
+
+        state.Podcasts.Subscriptions = (state.Podcasts.Subscriptions ?? [])
+            .Where(subscription => IsHttpAddress(subscription.FeedUrl))
+            .Select(subscription =>
+            {
+                subscription.Id = string.IsNullOrWhiteSpace(subscription.Id)
+                    ? $"podcast-{Guid.NewGuid():N}"
+                    : subscription.Id.Trim();
+                subscription.Title = string.IsNullOrWhiteSpace(subscription.Title)
+                    ? "Podcast bez nazwy"
+                    : subscription.Title.Trim();
+                subscription.Author = subscription.Author?.Trim() ?? string.Empty;
+                subscription.Description = subscription.Description?.Trim() ?? string.Empty;
+                subscription.FeedUrl = subscription.FeedUrl.Trim();
+                subscription.HomepageUrl = IsHttpAddress(subscription.HomepageUrl)
+                    ? subscription.HomepageUrl!.Trim()
+                    : null;
+                subscription.LastRefreshUtcTicks = NormalizeOptionalUtcTicks(
+                    subscription.LastRefreshUtcTicks);
+                if (subscription.IsFavorite) subscription.IsInLibrary = true;
+                return subscription;
+            })
+            .GroupBy(subscription => subscription.FeedUrl, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .GroupBy(subscription => subscription.Id, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToList();
+
+        var subscriptionIds = state.Podcasts.Subscriptions
+            .Select(subscription => subscription.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        state.Podcasts.Episodes = (state.Podcasts.Episodes ?? [])
+            .Where(episode => subscriptionIds.Contains(episode.SubscriptionId?.Trim() ?? string.Empty)
+                && IsHttpAddress(episode.MediaUrl))
+            .Select(episode =>
+            {
+                episode.Id = string.IsNullOrWhiteSpace(episode.Id)
+                    ? $"podcast-episode-{Guid.NewGuid():N}"
+                    : episode.Id.Trim();
+                episode.SubscriptionId = episode.SubscriptionId.Trim();
+                episode.SourceIdentifier = episode.SourceIdentifier?.Trim() ?? string.Empty;
+                episode.Title = string.IsNullOrWhiteSpace(episode.Title)
+                    ? "Odcinek bez tytułu"
+                    : episode.Title.Trim();
+                episode.Author = episode.Author?.Trim() ?? string.Empty;
+                episode.Description = episode.Description?.Trim() ?? string.Empty;
+                episode.MediaUrl = episode.MediaUrl.Trim();
+                episode.PageUrl = IsHttpAddress(episode.PageUrl) ? episode.PageUrl!.Trim() : null;
+                episode.MediaType = string.IsNullOrWhiteSpace(episode.MediaType)
+                    ? null
+                    : episode.MediaType.Trim();
+                episode.MediaLength = episode.MediaLength is >= 0 ? episode.MediaLength : null;
+                episode.PublishedUtcTicks = NormalizeOptionalUtcTicks(episode.PublishedUtcTicks);
+                episode.DurationTicks = Math.Max(0, episode.DurationTicks);
+                episode.ResumePositionTicks = Math.Max(0, episode.ResumePositionTicks);
+                if (episode.DurationTicks > 0)
+                {
+                    episode.ResumePositionTicks = Math.Min(
+                        episode.ResumePositionTicks,
+                        episode.DurationTicks);
+                }
+                episode.DownloadPath = string.IsNullOrWhiteSpace(episode.DownloadPath)
+                    ? null
+                    : NormalizeFilePath(episode.DownloadPath);
+                if (episode.DownloadPath?.Length == 0) episode.DownloadPath = null;
+                return episode;
+            })
+            .GroupBy(episode => episode.Id, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToList();
+
+        var knownItemIds = subscriptionIds
+            .Concat(state.Podcasts.Episodes.Select(episode => episode.Id))
+            .ToHashSet(StringComparer.Ordinal);
+        if (!string.IsNullOrWhiteSpace(state.Podcasts.CurrentItemId)
+            && !knownItemIds.Contains(state.Podcasts.CurrentItemId))
+        {
+            state.Podcasts.CurrentItemId = null;
+        }
+    }
+
+    private static bool IsHttpAddress(string? value) =>
+        Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var uri)
+        && uri.Scheme is "http" or "https";
+
+    private static long NormalizeOptionalUtcTicks(long ticks) =>
+        ticks >= DateTime.MinValue.Ticks && ticks <= DateTime.MaxValue.Ticks ? ticks : 0;
 
     private static string NormalizePrefixChord(string? value)
     {

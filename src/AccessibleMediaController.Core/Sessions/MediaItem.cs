@@ -8,7 +8,9 @@ public enum MediaItemKind
     Artist,
     Station,
     Device,
-    Folder
+    Folder,
+    Podcast,
+    Episode
 }
 
 public sealed class MediaItem
@@ -56,6 +58,8 @@ public sealed class MediaItem
         MediaItemKind.Station => "stacja",
         MediaItemKind.Device => "urządzenie",
         MediaItemKind.Folder => "folder",
+        MediaItemKind.Podcast => "podcast",
+        MediaItemKind.Episode => "odcinek",
         _ => "element"
     };
 

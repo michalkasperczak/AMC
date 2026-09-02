@@ -1,7 +1,8 @@
 # Projekt modułu podcastów AMC
 
-Status: zatwierdzony kierunek po ustabilizowaniu Radia internetowego. Dokument
-opisuje model danych i interfejs; nie oznacza jeszcze gotowej implementacji.
+Status: wdrażanie rozpoczęte w `alpha.203`. Działa fundament sesji, trwały model
+danych oraz bezpieczny parser RSS/Atom. Pobieranie kanałów z sieci i dodawanie
+subskrypcji przez interfejs rozpoczyna następny etap.
 
 ## 1. Osobna sesja Podcasty
 
@@ -62,11 +63,29 @@ magazynie sekretów i pozostaje niezależny od adapterów publicznych.
 
 ## 6. Kolejność wdrożenia
 
-1. RSS/Atom, Biblioteka, Nowe odcinki, Historia i wspólny odtwarzacz.
-2. Pobieranie, Pobrane, trwała pozycja, prędkość i zakładki.
-3. Ręczne playlisty oraz import i eksport OPML i danych AMC.
-4. Adapter adresu strony korzystający ze sprawdzonych kontenerów konwertera.
-5. Dalsze publiczne katalogi i usługi kontowe jako osobne adaptery.
+1. `alpha.203` — prawdziwa, pusta sesja Podcasty bez danych demonstracyjnych,
+   szóste miejsce w konfigurowanej kolejności sesji, trwały model subskrypcji i
+   odcinków, widoki Biblioteka, Nowe odcinki i Pobrane oraz parser RSS/Atom.
+2. `alpha.204` — **Dodaj podcast z adresu** przez `Ctrl+O` w sesji Podcasty,
+   ograniczony klient HTTPS, aktualizacja pojedynczej audycji i całej
+   Biblioteki, otwieranie podcastu do listy odcinków oraz wypisywanie się przez
+   Delete. Kanał nie pobiera automatycznie plików audio.
+3. `alpha.205` — odtwarzanie skończonych materiałów HTTP przez osobny tor
+   Podcastów, zapamiętywanie pozycji i prędkości per odcinek, poprawne
+   Page Up/Page Down w bieżącym kontenerze, Historia i zakładki.
+4. `alpha.206` — pełna skrzynka Nowe odcinki, stany nowy, przejrzany,
+   odsłuchany i w trakcie, filtrowanie oraz operacje zbiorowe. Stan odsłuchania
+   nie będzie utożsamiany z usunięciem odcinka.
+5. `alpha.207` — jawne Pobierz/Usuń pobranie, kolejka pobierania, anulowanie,
+   postęp i atomowa publikacja gotowego pliku. Części robocze pozostają poza
+   iCloud, OneDrive, Dyskiem Google i innymi folderami synchronizowanymi.
+6. `alpha.208` — playlisty odcinków, import i eksport OPML, osobny eksport
+   danych Podcastów AMC i pełne odtworzenie ich z kopii zapasowej.
+7. `alpha.209` — rozdziały dostarczone przez podcast i rozdziały użytkownika
+   oparte na nazwanych zakładkach oraz adapter odkrywania kanału z adresu
+   zwykłej strony.
+8. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
+   nie mogą uzależnić od siebie RSS, Biblioteki ani lokalnych pobrań.
 
 Mapa skrótów zostanie ustalona po pierwszym działającym widoku. Nie należy
 rezerwować klawiszy na podstawie samego dokumentu koncepcyjnego.
@@ -80,3 +99,29 @@ tworzyć drugi system znaczników. `Ctrl+Shift+B` nadal zapisuje nazwany punkt,
 który może później zostać oznaczony jako początek rozdziału także w istniejącym
 odcinku. Pełny model, dostępny edytor, wykrywanie ciszy i sposoby eksportu
 opisuje `PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
+
+## 8. Zasady interfejsu
+
+- `Ctrl+L` otwiera Bibliotekę obserwowanych audycji. Enter na audycji pokaże
+  jej odcinki; nie spróbuje odtwarzać samego kanału.
+- **Nowe odcinki** są widokiem automatycznym od najnowszego. **Pobrane** są
+  filtrem rzeczywiście ukończonych plików lokalnych. Żaden z tych widoków nie
+  zmienia ręcznie kolejności danych źródłowych.
+- Historia, Ulubione, Kolejka, Playlisty, Presety, wyszukiwanie, kopiowanie i
+  wspólny odtwarzacz zachowują ustaloną mechanikę AMC, ale działają na
+  odcinkach, nie na nagłówku audycji.
+- Menu i paleta pokazują wyłącznie czynności możliwe w Podcastach. Nie wolno
+  przenosić tu nagrywania Radia, zarządzania folderami ani lokalnego cięcia
+  pliku strumieniowanego.
+- Skróty dla Nowych odcinków i Pobranych zostaną ustalone po teście pierwszej
+  listy. `Alt+1`, `Alt+2` i `Alt+3` nie zostają bez sprawdzenia skopiowane z
+  lokalnej Biblioteki ani Radia.
+
+## 9. Granica pierwszej wersji
+
+`alpha.203` pozwala wybrać sesję Podcasty i sprawdzić jej pustą Bibliotekę oraz
+puste widoki Nowe odcinki i Pobrane. To celowa wersja fundamentu: nie przyjmuje
+jeszcze adresu kanału i nie łączy się z siecią. Parser jest sprawdzany na RSS,
+Atom, adresach względnych, metadanych iTunes, wpisach bez audio oraz złośliwym
+DTD. Dzięki temu następna wersja dołącza sieć do gotowego i migrowalnego modelu,
+zamiast zapisywać subskrypcje w prowizorycznej strukturze.
