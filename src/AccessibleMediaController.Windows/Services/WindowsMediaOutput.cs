@@ -685,7 +685,15 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     {
         if (IsSupportedNetworkMediaSource(path))
         {
-            var networkReader = new MediaFoundationReader(path);
+            // SoundTouch accepts IEEE-float samples. Local AudioFileReader and
+            // the managed fallbacks already provide that format, but the
+            // default MediaFoundationReader output for an HTTP resource is
+            // usually 16-bit PCM. Requesting float output here keeps podcast
+            // episodes on the same playback path as local media, including
+            // volume, speed, seeking and the output-device selection.
+            var networkReader = new MediaFoundationReader(
+                path,
+                CreateNetworkMediaFoundationReaderSettings());
             try
             {
                 DiagnosticLog.Info("podcast-playback", $"Otwarto skończony materiał HTTP: {path}.");
@@ -889,6 +897,14 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         Uri.TryCreate(source, UriKind.Absolute, out var uri)
         && uri.Scheme is "http" or "https"
         && string.IsNullOrEmpty(uri.UserInfo);
+
+    internal static MediaFoundationReader.MediaFoundationReaderSettings
+        CreateNetworkMediaFoundationReaderSettings() => new()
+        {
+            RequestFloatOutput = true,
+            RepositionInRead = false,
+            SingleReaderObject = true
+        };
 
     private static WaveStream CreateManagedMp3Reader(string path)
     {

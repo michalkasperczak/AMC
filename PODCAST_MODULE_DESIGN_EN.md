@@ -1,6 +1,8 @@
 # AMC podcast module design
 
-Status: subscription and initial playback are complete in `alpha.206`. The
+Status: subscription and initial playback are complete. `alpha.207` fixes the
+shared playback-speed pipeline for remote MP3, MP4 and other finite HTTP/HTTPS
+episodes. The
 durable session, safe direct RSS/Atom subscription, accessible OPML import,
 metadata refresh, show-to-episode navigation and finite HTTP/HTTPS episode
 playback through AMC's shared player are in place.
@@ -98,13 +100,15 @@ an existing RSS subscription to work.
    speed, current-container Page Up/Page Down, history and bookmarks. OPML
    starts with every feed included; arrows only move focus, Space toggles one
    feed and Ctrl+A includes all.
-4. `alpha.207`: Apple Podcasts catalog search and feed discovery from ordinary pages.
-5. `alpha.208`: New episodes state, filtering and batch operations.
-6. `alpha.209`: cancellable downloads with local staging and atomic publication.
-7. `alpha.210`: episode playlists plus OPML and AMC import/export.
-8. `alpha.211`: embedded web audio and publisher-specific adapters.
-9. `alpha.212`: supplied and user-authored chapters.
-10. Additional directories and account services remain optional adapters.
+4. `alpha.207`: completed — normalize remote decoder samples so real MP3 and
+   MP4 episodes pass through speed processing and the shared audio output.
+5. `alpha.208`: Apple Podcasts catalog search and feed discovery from ordinary pages.
+6. `alpha.209`: New episodes state, filtering and batch operations.
+7. `alpha.210`: cancellable downloads with local staging and atomic publication.
+8. `alpha.211`: episode playlists plus OPML and AMC import/export.
+9. `alpha.212`: embedded web audio and publisher-specific adapters.
+10. `alpha.213`: supplied and user-authored chapters.
+11. Additional directories and account services remain optional adapters.
 
 The keyboard map will be decided after the first working view. This design
 document does not reserve shortcuts by itself.

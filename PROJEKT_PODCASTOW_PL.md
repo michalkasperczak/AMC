@@ -1,6 +1,8 @@
 # Projekt modułu podcastów AMC
 
-Status: etap subskrypcji i pierwszego odtwarzania jest ukończony w `alpha.206`.
+Status: etap subskrypcji i pierwszego odtwarzania jest ukończony. `alpha.207`
+naprawia wspólny tor regulacji prędkości dla sieciowych odcinków MP3, MP4 i
+pozostałych skończonych materiałów HTTP/HTTPS.
 Działa trwała sesja, bezpieczne dodawanie bezpośrednich kanałów RSS/Atom,
 dostępny import OPML, odświeżanie metadanych, przejście z audycji do jej
 odcinków oraz odtwarzanie skończonych materiałów HTTP/HTTPS we wspólnym
@@ -145,23 +147,26 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
    Page Up/Page Down w bieżącym kontenerze, Historia i zakładki. Import OPML
    zaczyna od wszystkich kanałów; strzałki nie zmieniają wyboru, Spacja
    przełącza jeden kanał, a Ctrl+A zaznacza wszystkie.
-4. `alpha.207` — wyszukiwanie publicznego katalogu Apple Podcasts, rozpoznanie
+4. `alpha.207` — zrealizowane: naprawa formatu próbek sieciowego dekodera;
+   rzeczywiste odcinki MP3 i MP4 przechodzą przez regulację prędkości i wspólny
+   tor wyjścia audio.
+5. `alpha.208` — wyszukiwanie publicznego katalogu Apple Podcasts, rozpoznanie
    stron Apple/Overcast i wykrywanie RSS/Atom na zwykłej stronie.
-5. `alpha.208` — pełna skrzynka Nowe odcinki, stany nowy, przejrzany,
+6. `alpha.209` — pełna skrzynka Nowe odcinki, stany nowy, przejrzany,
    odsłuchany i w trakcie, filtrowanie oraz operacje zbiorowe. Stan odsłuchania
    nie będzie utożsamiany z usunięciem odcinka.
-6. `alpha.209` — jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
+7. `alpha.210` — jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
    anulowanie, postęp i atomowa publikacja gotowego pliku. Części robocze
    pozostają poza iCloud, OneDrive, Dyskiem Google i innymi folderami
    synchronizowanymi.
-7. `alpha.210` — playlisty odcinków, import i eksport OPML, osobny eksport
+8. `alpha.211` — playlisty odcinków, import i eksport OPML, osobny eksport
    danych Podcastów AMC i pełne odtworzenie ich z kopii zapasowej.
-8. `alpha.211` — strony z osadzonym audio, istniejące adaptery Polskiego Radia
+9. `alpha.212` — strony z osadzonym audio, istniejące adaptery Polskiego Radia
    i innych rozgłośni oraz przekazywanie wyników z rozszerzenia Chrome i
    dodatku NVDA.
-9. `alpha.212` — rozdziały dostarczone przez podcast i rozdziały użytkownika
+10. `alpha.213` — rozdziały dostarczone przez podcast i rozdziały użytkownika
    oparte na nazwanych zakładkach.
-10. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
+11. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
    nie mogą uzależnić od siebie RSS, Biblioteki ani lokalnych pobrań.
 
 Pozostała mapa skrótów zostanie ustalona po pierwszym działającym widoku. Nie

@@ -1,6 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
-Wersja `alpha.206` uruchamia pierwszy kompletny przepływ subskrypcji i
+Wersja `alpha.207` naprawia odtwarzanie sieciowych odcinków Podcastów. Dekoder
+normalizuje MP3, MP4 i inne materiały HTTP/HTTPS do formatu wymaganego przez
+wspólny tor regulacji prędkości. Poprawkę sprawdzono na rzeczywistych odcinkach
+MP3 44,1 kHz i MP4 48 kHz, które w `alpha.206` kończyły się błędem przed
+uruchomieniem wyjścia audio.
+
+Wersja `alpha.206` uruchomiła pierwszy kompletny przepływ subskrypcji i
 odtwarzania Podcastów.
 W sesji Podcasty `Ctrl+N` sprawdza i dodaje bezpośredni kanał RSS/Atom,
 `Ctrl+O` importuje wybrane kanały z OPML, `F5` odświeża bieżącą audycję, a

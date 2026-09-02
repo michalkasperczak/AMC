@@ -1,6 +1,12 @@
 # Accessible Media Controller — Windows prototype
 
-Version `alpha.206` delivers the first complete Podcasts subscription and
+Version `alpha.207` fixes playback of remote Podcast episodes. The decoder now
+normalizes MP3, MP4 and other finite HTTP/HTTPS media to the floating-point
+format required by the shared playback-speed pipeline. The fix was verified
+against real 44.1 kHz MP3 and 48 kHz MP4 episodes that failed before reaching
+the audio output in `alpha.206`.
+
+Version `alpha.206` delivered the first complete Podcasts subscription and
 playback flow.
 Within the Podcasts session, Ctrl+N verifies and follows a direct RSS/Atom feed,
 Ctrl+O imports selected OPML feeds, F5 refreshes the current show and Ctrl+F5
