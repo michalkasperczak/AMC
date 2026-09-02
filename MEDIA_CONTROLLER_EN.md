@@ -1548,6 +1548,9 @@ Local Files, Internet Radio and Podcasts pipelines retain independent Windows
 outputs and use shared-mode WASAPI. A disconnected device temporarily falls
 back to the system default without deleting the preference. Changing Radio's
 listening output does not stop independent background recordings.
+Asynchronous output startup retains the latest playback intent: pressing Space
+during a device change must leave the pipeline paused even when that endpoint
+finishes initialising slightly later.
 
 This command is part of the shared session-adapter contract. A future direct
 TIDAL or Apple Music adapter that plays through AMC will expose the same output

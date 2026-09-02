@@ -1649,6 +1649,9 @@ Plików lokalnych, Radia internetowego i Podcastów używają osobno zapamiętan
 wyjść Windows w trybie współdzielonym WASAPI. Odłączone urządzenie powoduje
 tymczasowy powrót do wyjścia systemowego bez usunięcia preferencji. Zmiana
 odsłuchu Radia nie zatrzymuje niezależnych nagrań działających w tle.
+Asynchroniczne uruchamianie nowego wyjścia przechowuje ostatnią intencję
+odtwarzania: Spacja naciśnięta podczas zmiany urządzenia musi pozostawić tor
+wstrzymany także wtedy, gdy urządzenie zakończy inicjalizację nieco później.
 
 Polecenie należy do wspólnego kontraktu adaptera sesji. Przyszły bezpośredni
 adapter TIDAL albo Apple Music, który odtwarza przez AMC, udostępni pod `Shift+A`

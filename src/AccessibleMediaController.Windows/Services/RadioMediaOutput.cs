@@ -43,6 +43,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
     private string? _outputDeviceId;
     private long _requestVersion;
     private bool _preparing;
+    private bool _pauseRequested;
     private bool _disposed;
 
     public event EventHandler<MediaOutputFailedEventArgs>? PlaybackFailed;
@@ -217,6 +218,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         {
             _requestedItem = item;
             _volume = Math.Clamp(volume, 0, 100);
+            _pauseRequested = false;
             reusable = _pipeline is not null
                 && string.Equals(_pipeline.Item.Source, item.Source, StringComparison.OrdinalIgnoreCase)
                 ? _pipeline
@@ -225,7 +227,17 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         if (reusable is not null)
         {
             reusable.Volume.Volume = _volume / 100f;
-            reusable.Output?.Play();
+            AudioOutputPauseGuard.Play(
+                reusable.Output,
+                () =>
+                {
+                    lock (_gate)
+                    {
+                        return _disposed
+                            || !ReferenceEquals(_pipeline, reusable)
+                            || _pauseRequested;
+                    }
+                });
             PublishPipelineStreamTitle(reusable, reusable.StreamTitle);
             RaiseOnCapturedContext(() => PlaybackStarted?.Invoke(
                 this,
@@ -336,7 +348,17 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                     _preparationCancellation = null;
                 }
             }
-            pipeline.Output?.Play();
+            AudioOutputPauseGuard.Play(
+                pipeline.Output,
+                () =>
+                {
+                    lock (_gate)
+                    {
+                        return _disposed
+                            || !ReferenceEquals(_pipeline, pipeline)
+                            || _pauseRequested;
+                    }
+                });
             pipeline.CaptureTask = Task.Run(() => CaptureLoopAsync(pipeline), cancellation.Token);
             DiagnosticLog.Info(
                 "radio",
@@ -801,7 +823,20 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
 
     public void Pause()
     {
-        lock (_gate) _pipeline?.Output?.Pause();
+        WasapiOut? output;
+        lock (_gate)
+        {
+            _pauseRequested = true;
+            output = _pipeline?.Output;
+        }
+        try
+        {
+            output?.Pause();
+        }
+        catch (ObjectDisposedException)
+        {
+            // A concurrent station or output-device change already detached it.
+        }
     }
 
     public void Stop()
@@ -813,6 +848,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         {
             ++_requestVersion;
             _preparing = false;
+            _pauseRequested = true;
             preparationCancellation = _preparationCancellation;
             _preparationCancellation = null;
             pipeline = DetachPipelineLocked();
@@ -1055,6 +1091,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             _disposed = true;
             ++_requestVersion;
             _preparing = false;
+            _pauseRequested = true;
             preparationCancellation = _preparationCancellation;
             _preparationCancellation = null;
             pipeline = DetachPipelineLocked();

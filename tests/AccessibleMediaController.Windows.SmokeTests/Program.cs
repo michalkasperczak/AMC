@@ -71,6 +71,7 @@ try
     TestRadioRecognitionHistoryFilterAccessibility();
     TestPlaybackAudioSettingAccessibility();
     TestAudioOutputDeviceAccessibility();
+    TestAudioOutputPauseRaceGuard();
     TestPodcastFeedClient();
     TestPodcastOpmlImportSelectionAccessibility();
     TestRadioPresetAccessibleLabels();
@@ -331,6 +332,26 @@ static void TestAudioOutputDeviceAccessibility()
     Assert(!unavailable.Label.Contains(missingDeviceId, StringComparison.Ordinal),
         "Identyfikator urządzenia wyciekł do dostępnej etykiety.");
     Console.WriteLine("OK: dostępny i bezpieczny wybór urządzenia audio sesji");
+}
+
+static void TestAudioOutputPauseRaceGuard()
+{
+    var pauseRequested = false;
+    using var output = new TestWavePlayer
+    {
+        OnPlay = () => pauseRequested = true
+    };
+
+    AudioOutputPauseGuard.Play(output, () => pauseRequested);
+    Assert(output.PlayCount == 1 && output.PauseCount == 1,
+        "Pauza wydana podczas uruchamiania zewnętrznego wyjścia audio została pominięta.");
+
+    pauseRequested = false;
+    output.OnPlay = null;
+    AudioOutputPauseGuard.Play(output, () => pauseRequested);
+    Assert(output.PlayCount == 2 && output.PauseCount == 1,
+        "Uruchomienie bez żądania pauzy niepotrzebnie zatrzymało wyjście audio.");
+    Console.WriteLine("OK: pauza nie ginie podczas uruchamiania wyjścia audio");
 }
 
 static void TestAudioClipExporter()
@@ -3585,5 +3606,45 @@ sealed class TestRadioRecordingBackend(string initialPath) : IRadioRecordingBack
     {
         if (!IsRecording) throw new InvalidOperationException("Nagrywanie nie trwa.");
         IsRecordingPaused = false;
+    }
+}
+
+sealed class TestWavePlayer : IWavePlayer
+{
+    public event EventHandler<StoppedEventArgs>? PlaybackStopped;
+
+    public Action? OnPlay { get; set; }
+    public int PlayCount { get; private set; }
+    public int PauseCount { get; private set; }
+    public PlaybackState PlaybackState { get; private set; } = PlaybackState.Stopped;
+    public WaveFormat OutputWaveFormat { get; private set; } = new WaveFormat(48_000, 16, 2);
+    public float Volume { get; set; } = 1f;
+
+    public void Init(IWaveProvider waveProvider)
+    {
+        OutputWaveFormat = waveProvider.WaveFormat;
+    }
+
+    public void Play()
+    {
+        PlayCount++;
+        PlaybackState = PlaybackState.Playing;
+        OnPlay?.Invoke();
+    }
+
+    public void Pause()
+    {
+        PauseCount++;
+        PlaybackState = PlaybackState.Paused;
+    }
+
+    public void Stop()
+    {
+        PlaybackState = PlaybackState.Stopped;
+        PlaybackStopped?.Invoke(this, new StoppedEventArgs());
+    }
+
+    public void Dispose()
+    {
     }
 }

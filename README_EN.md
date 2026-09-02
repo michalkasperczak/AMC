@@ -592,6 +592,11 @@ system default without deleting the preference. Accessible labels expose only
 friendly names, never technical device identifiers. Per-item, folder or station
 output overrides remain a later stage.
 
+The `alpha.205` correction also retains the latest Space-key request while an
+output pipeline is being switched asynchronously. If a slower external endpoint
+is still starting, the pause request is not lost and the new pipeline remains
+paused. The same guard covers Radio, Podcasts and Local Files.
+
 `Shift+A` targets the current session rather than globally changing every audio
 pipeline. It is available to each adapter that actually outputs sound through
 AMC: currently Local Files, Internet Radio and Podcasts. A future device session

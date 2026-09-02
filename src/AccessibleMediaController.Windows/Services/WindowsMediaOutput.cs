@@ -173,6 +173,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     private long _requestVersion;
     private long _seekRequestVersion;
     private bool _preparing;
+    private bool _pauseRequested;
     private bool _disposed;
 
     public event EventHandler<MediaDurationAvailableEventArgs>? DurationAvailable;
@@ -340,6 +341,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             _pendingPosition = resolvedPosition;
             _playbackRate = resolvedRate;
             _volume = resolvedVolume;
+            _pauseRequested = false;
         }
 
         if (sourceQuarantined)
@@ -367,7 +369,17 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
                 SeekPipeline(reusable, resolvedPosition);
                 reusable.VolumeProvider.Volume = resolvedVolume / 100f;
                 ApplyRate(reusable, resolvedRate);
-                reusable.Output.Play();
+                AudioOutputPauseGuard.Play(
+                    reusable.Output,
+                    () =>
+                    {
+                        lock (_gate)
+                        {
+                            return _disposed
+                                || !ReferenceEquals(_pipeline, reusable)
+                                || _pauseRequested;
+                        }
+                    });
                 return;
             }
             catch (Exception exception)
@@ -506,7 +518,17 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             SeekPipeline(pipeline, position);
             pipeline.VolumeProvider.Volume = Math.Clamp(volume, 0, 100) / 100f;
             ApplyRate(pipeline, rate);
-            pipeline.Output.Play();
+            AudioOutputPauseGuard.Play(
+                pipeline.Output,
+                () =>
+                {
+                    lock (_gate)
+                    {
+                        return _disposed
+                            || !ReferenceEquals(_pipeline, pipeline)
+                            || _pauseRequested;
+                    }
+                });
             Interlocked.Exchange(
                 ref pipeline.LastObservedPositionTicks,
                 pipeline.DecoderGuard.CachedCurrentTime.Ticks);
@@ -1035,6 +1057,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         lock (_gate)
         {
             _pendingPosition = position;
+            _pauseRequested = true;
             if (_preparing)
             {
                 ++_requestVersion;
@@ -1063,6 +1086,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             _pendingPosition = position;
             ++_requestVersion;
             _preparing = false;
+            _pauseRequested = true;
             _requestedItem = null;
             pipeline = DetachPipelineLocked();
         }

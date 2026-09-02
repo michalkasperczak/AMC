@@ -640,6 +640,11 @@ identyfikatory techniczne urządzeń nie są przekazywane do NVDA. `Alt+Enter`
 podaje skuteczne wyjście sesji. Indywidualne urządzenie dla pojedynczego pliku,
 folderu lub stacji pozostaje etapem późniejszym.
 
+Poprawka `alpha.205` zachowuje także ostatnie żądanie Spacji podczas
+asynchronicznego przełączania toru. Jeżeli wolniejsze urządzenie zewnętrzne
+jeszcze się uruchamia, polecenie wstrzymania nie ginie i nowy tor pozostaje
+wstrzymany. Ta sama ochrona obejmuje Radio, Podcasty i Pliki lokalne.
+
 `Shift+A` dotyczy bieżącej sesji, a nie wszystkich torów dźwięku naraz. Jest
 dostępne w każdym adapterze, który rzeczywiście odtwarza dźwięk przez AMC.
 Obecnie są to Pliki lokalne, Radio internetowe i Podcasty. W przyszłej sesji
