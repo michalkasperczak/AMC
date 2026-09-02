@@ -12,12 +12,17 @@ remain common capabilities, but Podcasts will not impersonate Radio or Local
 Files. Menus, the command palette and context menus must expose an operation
 only where it is meaningful.
 
+The session keeps the short name **Podcasts**, while accepted input is broader:
+shows, episodes and one-off audio found on ordinary web pages. Every row keeps
+an explicit user-facing kind instead of presenting all web media as a podcast.
+
 ## 2. User containers
 
 - **Library** stores followed shows and their sources. Following a show does
   not automatically download all of its episodes.
 - **New episodes** is an automatic inbox, ordered newest first, for unplayed or
-  unreviewed episodes from the Library. It is not a manually ordered playlist.
+  unreviewed episodes from the Library. It deliberately is not a manually
+  ordered playlist. Episodes may be new, in progress, played or skipped.
 - **Playlists** are durable, user-ordered episode collections and may combine
   different shows.
 - **Downloads** lists files available offline. Removing a download does not
@@ -27,10 +32,16 @@ only where it is meaningful.
 
 ## 3. Sources and import
 
-RSS or Atom with podcast media is the first source type. AMC accepts a feed or
-web-page URL and passes it to an isolated discovery adapter. The result may be
-a feed, one episode, or several detected audio items. Ambiguous results are
-presented in an accessible chooser and nothing is added without confirmation.
+AMC does not depend on one directory. Discovery tries, in order: direct
+RSS/Atom, an Apple Podcasts catalog result or catalog page resolved to its
+public feed, a feed advertised by an ordinary page, embedded page audio, a
+publisher-specific adapter (initially including Polish Radio), and finally an
+explicitly invoked yt-dlp adapter. Standard RSS never depends on yt-dlp.
+
+The result may be a show, one episode, or several detected audio items.
+Ambiguous results are presented in an accessible chooser and nothing is added
+or downloaded without confirmation. A standalone page item is placed in an
+explicit **Web media** group rather than a fake podcast subscription.
 
 Containers and extractors already used by the Chrome extension and media
 converter will become replaceable input adapters. Fragile site-specific HTML
@@ -43,6 +54,13 @@ bounded metadata fingerprint. A CDN URL change must not by itself create a
 duplicate, while genuinely different episodes with similar titles must not be
 silently merged.
 
+The Chrome extension already detects audio/video/source elements, RSS/Atom,
+enclosures, Open Graph media, manifests and player resources, including Apple
+Podcasts page lookup. The NVDA media converter already has bounded page parsing
+and tested rules for Polish Radio and several regional radio sites. These rules
+will be ported into isolated .NET adapters, not imported as Chrome- or
+NVDA-dependent UI code.
+
 ## 4. Playback and downloads
 
 An episode may stream or be explicitly downloaded. Position and speed are
@@ -50,6 +68,13 @@ stored per episode; played state is separate. Bookmarks behave like bookmarks
 for durable local media. An incomplete download stays in local staging outside
 cloud folders. Only a complete file is published to the user's destination,
 using the same safe publication boundary as Radio recordings.
+
+In the Podcasts session, Ctrl+S downloads selected episodes. It never downloads
+an entire show archive from the show header without a separate range choice
+and confirmation. Ctrl+C copies the title and public episode page; Ctrl+Shift+C
+copies the title and direct enclosure/media address. On a show header the same
+commands use its public page and RSS/Atom URL respectively. Temporary signed
+URLs and credentials are not silently placed on the clipboard.
 
 ## 5. Privacy and resilience
 
@@ -59,16 +84,23 @@ tokens in exports and never sends listening history to a source. An account
 adapter stores credentials in the operating-system secret store and remains
 separate from public-source adapters.
 
+The public Apple catalog is used for discovery and resolving a public feed,
+not for synchronizing a private Apple Podcasts account. Results are bounded and
+cached. Other catalogs remain optional adapters and cannot become required for
+an existing RSS subscription to work.
+
 ## 6. Delivery order
 
 1. `alpha.203`: session shell, durable model, empty core views and RSS/Atom parser.
-2. `alpha.204`: add a feed URL, bounded HTTPS refresh and show/episode navigation.
+2. `alpha.204`: add a feed or media URL, bounded HTTP/HTTPS refresh and show/episode navigation.
 3. `alpha.205`: finite HTTP playback, per-episode resume and speed, history and bookmarks.
-4. `alpha.206`: New episodes state, filtering and batch operations.
-5. `alpha.207`: cancellable downloads with local staging and atomic publication.
-6. `alpha.208`: episode playlists plus OPML and AMC import/export.
-7. `alpha.209`: supplied/user chapters and page-URL feed discovery.
-8. Additional directories and account services remain optional adapters.
+4. `alpha.206`: Apple Podcasts catalog search and feed discovery from ordinary pages.
+5. `alpha.207`: New episodes state, filtering and batch operations.
+6. `alpha.208`: cancellable downloads with local staging and atomic publication.
+7. `alpha.209`: episode playlists plus OPML and AMC import/export.
+8. `alpha.210`: embedded web audio and publisher-specific adapters.
+9. `alpha.211`: supplied and user-authored chapters.
+10. Additional directories and account services remain optional adapters.
 
 The keyboard map will be decided after the first working view. This design
 document does not reserve shortcuts by itself.

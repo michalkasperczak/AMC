@@ -1602,3 +1602,21 @@ lub adresu medium w obrębie kanału. Klient sieciowy następnego etapu ma osobn
 wymusić czas, liczbę przekierowań, limit odpowiedzi i brak automatycznego
 pobierania plików audio. Szczegółowy przebieg wersji opisuje
 `PROJEKT_PODCASTOW_PL.md`.
+
+Sesja zachowuje nazwę **Podcasty**, ale jej wejście jest szersze niż RSS:
+publiczny katalog Apple Podcasts, strony Apple i Overcast, wskazania kanału w
+zwykłym HTML, osadzone audio i manifesty, kontrolowane adaptery wydawców (w tym
+Polskiego Radia) oraz jawnie uruchamiany fallback `yt-dlp`. Rozszerzenie Chrome
+i dodatek NVDA do konwersji są źródłem już sprawdzonych reguł, lecz reguły te
+trafiają do izolowanych adapterów .NET bez zależności rdzenia od Chrome lub
+NVDA. Pojedynczy materiał bez kanału jest materiałem ze strony, a nie fikcyjną
+subskrypcją.
+
+Nowe odcinki pozostają automatyczną skrzynką, nie playlistą zmienianą w tle.
+Playlista jest ręcznym kontenerem użytkownika. W Podcastach `Ctrl+C` kopiuje
+nazwę z publiczną stroną odcinka lub audycji, `Ctrl+Shift+C` nazwę z adresem
+bezpośredniego audio albo RSS, a `Ctrl+S` pobiera świadomie wybrane odcinki.
+Całe archiwum audycji nigdy nie jest pobierane przez skrót bez osobnego zakresu
+i potwierdzenia. Adres podpisany, wymagający ciasteczek lub zawierający dane
+uwierzytelniające nie może zostać bez ostrzeżenia skopiowany jako zwykły,
+trwały link.

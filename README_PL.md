@@ -591,7 +591,13 @@ prędkość, Ulubione i Kolejkę. Parser przyjmuje RSS 2.0 i Atom, obsługuje
 stabilne identyfikatory. XML jest traktowany jako niezaufany: DTD i encje
 zewnętrzne są zablokowane, a rozmiar dokumentu i liczba odcinków mają granice.
 `alpha.203` celowo nie pobiera jeszcze kanałów z sieci. Następny etap doda
-`Ctrl+O`, odświeżanie HTTPS oraz wejście z audycji do odcinków. Pełny podział
+`Ctrl+O`, ograniczone odświeżanie HTTP/HTTPS oraz wejście z audycji do odcinków.
+Zakres wejściowy obejmie następnie publiczne wyszukiwanie Apple Podcasts,
+odkrywanie RSS na zwykłej stronie, osadzone audio i osobne adaptery wydawców,
+w tym Polskiego Radia. Wykorzystamy reguły przygotowane wcześniej w rozszerzeniu
+Chrome i dodatku NVDA do konwersji, ale bez uzależnienia rdzenia AMC od ich
+interfejsów. **Nowe odcinki** pozostają automatyczną skrzynką, a Playlisty są
+ręcznymi zestawami i nie zmieniają się same po odświeżeniu kanału. Pełny podział
 etapów znajduje się w [`PROJEKT_PODCASTOW_PL.md`](PROJEKT_PODCASTOW_PL.md).
 
 ## Zakres i ograniczenia
