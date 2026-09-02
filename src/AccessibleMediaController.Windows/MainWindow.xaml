@@ -104,9 +104,9 @@
                           Click="ToggleAllSessionsMute_Click" />
                 <MenuItem x:Name="AudioOutputDeviceMenuItem"
                           Header="Wybierz _urządzenie audio dla bieżącej sesji…"
-                          InputGestureText="F11"
+                          InputGestureText="Shift+A"
                           automation:AutomationProperties.Name="Wybierz urządzenie audio dla bieżącej sesji"
-                          automation:AutomationProperties.AcceleratorKey="F11"
+                          automation:AutomationProperties.AcceleratorKey="Shift+A"
                           Click="AudioOutputDevice_Click" />
                 <Separator x:Name="PlaybackAudioProcessingSeparator" />
                 <MenuItem x:Name="LoudnessNormalizationMenuItem"
@@ -510,9 +510,9 @@
                               Click="PlayerNext_Click" />
                     <MenuItem x:Name="PlayerAudioOutputDeviceMenuItem"
                               Header="Wybierz urządzenie audio dla tej sesji…"
-                              InputGestureText="F11"
+                              InputGestureText="Shift+A"
                               automation:AutomationProperties.Name="Wybierz urządzenie audio dla tej sesji"
-                              automation:AutomationProperties.AcceleratorKey="F11"
+                              automation:AutomationProperties.AcceleratorKey="Shift+A"
                               Click="AudioOutputDevice_Click" />
                     <Separator x:Name="PlayerAudioProcessingSeparator" />
                     <MenuItem x:Name="PlayerLoudnessNormalizationMenuItem"

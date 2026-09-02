@@ -78,7 +78,7 @@ internal static class MainWindowShortcutRouter
         key == Key.S && modifiers == (ModifierKeys.Control | ModifierKeys.Shift);
 
     public static string? ResolveAudioOutputSelection(Key key, ModifierKeys modifiers) =>
-        key == Key.F11 && modifiers == ModifierKeys.None
+        key == Key.A && modifiers == ModifierKeys.Shift
             ? CommandIds.SelectAudioOutput
             : null;
 

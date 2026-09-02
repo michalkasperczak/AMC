@@ -1463,11 +1463,13 @@ static void TestMainWindowDigitShortcutRouting()
             ModifierKeys.Control | ModifierKeys.Shift),
         "Ctrl+Shift+S nie otwiera listy sesji.");
     Assert(
-        MainWindowShortcutRouter.ResolveAudioOutputSelection(Key.F11, ModifierKeys.None)
+        MainWindowShortcutRouter.ResolveAudioOutputSelection(Key.A, ModifierKeys.Shift)
             == CommandIds.SelectAudioOutput
-        && MainWindowShortcutRouter.ResolveAudioOutputSelection(Key.F11, ModifierKeys.Control) is null
-        && MainWindowShortcutRouter.ResolveAudioOutputSelection(Key.F10, ModifierKeys.None) is null,
-        "F11 nie wybiera urządzenia audio bieżącej sesji albo przejmuje błędny skrót.");
+        && MainWindowShortcutRouter.ResolveAudioOutputSelection(Key.F11, ModifierKeys.None) is null
+        && MainWindowShortcutRouter.ResolveAudioOutputSelection(
+            Key.A,
+            ModifierKeys.Control | ModifierKeys.Shift) is null,
+        "Shift+A nie wybiera urządzenia audio bieżącej sesji albo przejmuje błędny skrót.");
     Assert(
         GlobalPrefixService.IsFocusedDirectShortcutCandidate(
             KeyChord.Parse("Ctrl+Shift+S")),

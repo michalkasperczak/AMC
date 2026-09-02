@@ -217,7 +217,7 @@ Domyślny globalny prefiks to `Ctrl+Alt+Windows+F12`. Zastąpił wcześniejsze k
 - `L` i `Shift+L` — Biblioteka i zmiana przynależności;
 - `P` i `Shift+P` — Playlisty i zmiana przynależności;
 - `Q` i `Shift+Q` — Kolejka i dodanie albo usunięcie elementu;
-- `A` — Albumy; `Shift+A` pozostaje wolne;
+- `A` — Albumy; `Shift+A` po prefiksie pozostaje wolne (bez prefiksu wybiera urządzenie audio sesji);
 - `K` — filtr bieżącej listy, `Shift+K` — paleta poleceń;
 - `F` — wyszukiwanie w bieżącej usłudze, `Shift+F` — wyszukiwanie globalne;
 - `D` — pobieranie wewnątrz usługi, `Shift+D` — eksperymentalne pobieranie na dysk.
@@ -616,7 +616,7 @@ się w [`PROJEKT_PODCASTOW_PL.md`](PROJEKT_PODCASTOW_PL.md).
 
 ## Urządzenie audio osobno dla sesji w alpha 204
 
-Klawisz **F11**, menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej
+Klawisz **Shift+A**, menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej
 sesji…** oraz menu kontekstowe odtwarzacza pokazują rzeczywiste, aktywne wyjścia
 Windows. Wybór
 jest zapisywany niezależnie dla Plików lokalnych, Radia internetowego i
@@ -634,7 +634,7 @@ identyfikatory techniczne urządzeń nie są przekazywane do NVDA. `Alt+Enter`
 podaje skuteczne wyjście sesji. Indywidualne urządzenie dla pojedynczego pliku,
 folderu lub stacji pozostaje etapem późniejszym.
 
-`F11` dotyczy bieżącej sesji, a nie wszystkich torów dźwięku naraz. Jest
+`Shift+A` dotyczy bieżącej sesji, a nie wszystkich torów dźwięku naraz. Jest
 dostępne w każdym adapterze, który rzeczywiście odtwarza dźwięk przez AMC.
 Obecnie są to Pliki lokalne, Radio internetowe i Podcasty. W przyszłej sesji
 urządzenia, takiej jak WiiM, ten sam skrót otworzy wybór celu odtwarzania

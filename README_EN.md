@@ -235,7 +235,7 @@ The default global prefix is `Ctrl+Alt+Windows+F12`. It replaced earlier combina
 - `L` and `Shift+L` open Library and toggle membership;
 - `P` and `Shift+P` open Playlists and manage membership;
 - `Q` and `Shift+Q` open Queue and add or remove the item;
-- `A` opens Albums while `Shift+A` remains unassigned;
+- `A` opens Albums while prefix then `Shift+A` remains unassigned (direct `Shift+A` selects the session audio output);
 - `K` filters the current list and `Shift+K` opens the command palette;
 - `F` searches the current service and `Shift+F` performs a global search;
 - `D` downloads within a service and `Shift+D` is the experimental download-to-disk command.
@@ -574,7 +574,7 @@ Starting with `alpha.164`, rich copy and recognition-history exports also includ
 
 ## Per-session audio output in alpha 204
 
-**F11**, **Playback > Select audio device for the current session…** and the
+**Shift+A**, **Playback > Select audio device for the current session…** and the
 player context menu enumerate real active Windows outputs. The choice persists
 independently for Local Files, Internet Radio and Podcasts. Changing it restarts
 only the audible session pipeline without changing Queue, History or the current
@@ -587,7 +587,7 @@ system default without deleting the preference. Accessible labels expose only
 friendly names, never technical device identifiers. Per-item, folder or station
 output overrides remain a later stage.
 
-`F11` targets the current session rather than globally changing every audio
+`Shift+A` targets the current session rather than globally changing every audio
 pipeline. It is available to each adapter that actually outputs sound through
 AMC: currently Local Files, Internet Radio and Podcasts. A future device session
 such as WiiM will use the same command to select an adapter-provided playback

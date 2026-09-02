@@ -27,6 +27,9 @@ osobno jako „OK” albo „błąd”. Po dwukropku wpisuj spację.
 ## Dostępność list, komunikatów i powrotu fokusu
 
 
+## Shift+A — wybór urządzenia audio bieżącej sesji
+
+
 ## Inne uwagi
 
 

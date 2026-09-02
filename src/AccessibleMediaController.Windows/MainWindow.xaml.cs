@@ -10135,9 +10135,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var audioOutputCommand = MainWindowShortcutRouter.ResolveAudioOutputSelection(
-            windowKey,
-            effectiveModifiers);
+        var audioOutputCommand = Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase
+            ? null
+            : MainWindowShortcutRouter.ResolveAudioOutputSelection(windowKey, effectiveModifiers);
         if (audioOutputCommand is not null)
         {
             ExecuteCommand(audioOutputCommand);
@@ -10779,7 +10779,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         commandId = (modifiers, key) switch
         {
             (ModifierKeys.None, Key.F1) => CommandIds.Help,
-            (ModifierKeys.None, Key.F11) => CommandIds.SelectAudioOutput,
+            (ModifierKeys.Shift, Key.A) => CommandIds.SelectAudioOutput,
             (ModifierKeys.None, Key.F6) or (ModifierKeys.Shift, Key.F6) => CommandIds.ViewNowPlaying,
             (ModifierKeys.Control, Key.PageUp) => CommandIds.SessionPrevious,
             (ModifierKeys.Control, Key.PageDown) => CommandIds.SessionNext,
