@@ -227,6 +227,7 @@ public static class CommandPaletteSearch
             CommandIds.TogglePlayNext => "Ctrl+Shift+Enter",
             CommandIds.ViewAlbums => "Ctrl+Shift+A",
             CommandIds.ViewNowPlaying => "F6",
+            CommandIds.SelectAudioOutput => "F11",
             CommandIds.FilterCurrent => "Ctrl+K",
             CommandIds.SearchCurrent => "Ctrl+F",
             CommandIds.SearchAll => "Ctrl+Shift+F",

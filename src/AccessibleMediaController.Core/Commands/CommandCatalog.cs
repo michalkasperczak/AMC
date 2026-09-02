@@ -135,6 +135,7 @@ public static class CommandCatalog
             CommandIds.NextBookmark => "Następna zakładka w bieżącym materiale",
             CommandIds.ViewNowPlaying => "Pokaż teraz odtwarzane",
             CommandIds.OpenOfficialApp => "Otwórz w oficjalnej aplikacji",
+            CommandIds.SelectAudioOutput => "Wybierz urządzenie audio bieżącej sesji",
             CommandIds.ViewOutputs => "Pokaż wyjścia i urządzenia",
             CommandIds.ViewDownloads => "Pokaż pobrane",
             CommandIds.DownloadInService => "Pobierz wewnątrz usługi",

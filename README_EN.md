@@ -563,8 +563,8 @@ Starting with `alpha.164`, rich copy and recognition-history exports also includ
 
 ## Per-session audio output in alpha 204
 
-**Playback > Select audio device for the current session…** and the player
-context menu enumerate real active Windows outputs. The choice persists
+**F11**, **Playback > Select audio device for the current session…** and the
+player context menu enumerate real active Windows outputs. The choice persists
 independently for Local Files, Internet Radio and Podcasts. Changing it restarts
 only the audible session pipeline without changing Queue, History or the current
 item; independent Radio recordings continue in the background.
@@ -575,6 +575,12 @@ If the retained device is disconnected, AMC temporarily falls back to the
 system default without deleting the preference. Accessible labels expose only
 friendly names, never technical device identifiers. Per-item, folder or station
 output overrides remain a later stage.
+
+`F11` targets the current session rather than globally changing every audio
+pipeline. It is available to each adapter that actually outputs sound through
+AMC: currently Local Files, Internet Radio and Podcasts. A future device session
+such as WiiM will use the same command to select an adapter-provided playback
+target instead of pretending that the external streamer is a Windows sound card.
 
 ## Current limitations
 

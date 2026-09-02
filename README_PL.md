@@ -605,8 +605,9 @@ się w [`PROJEKT_PODCASTOW_PL.md`](PROJEKT_PODCASTOW_PL.md).
 
 ## Urządzenie audio osobno dla sesji w alpha 204
 
-Menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej sesji…** oraz menu
-kontekstowe odtwarzacza pokazują rzeczywiste, aktywne wyjścia Windows. Wybór
+Klawisz **F11**, menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej
+sesji…** oraz menu kontekstowe odtwarzacza pokazują rzeczywiste, aktywne wyjścia
+Windows. Wybór
 jest zapisywany niezależnie dla Plików lokalnych, Radia internetowego i
 Podcastów. Po zmianie aktywny odsłuch zostaje uruchomiony ponownie na nowym
 wyjściu, bez zmiany Kolejki, Historii ani bieżącego elementu. W Radiu osobne
@@ -621,6 +622,12 @@ urządzenia po jego powrocie. Dostępne etykiety zawierają tylko nazwy użytkow
 identyfikatory techniczne urządzeń nie są przekazywane do NVDA. `Alt+Enter`
 podaje skuteczne wyjście sesji. Indywidualne urządzenie dla pojedynczego pliku,
 folderu lub stacji pozostaje etapem późniejszym.
+
+`F11` dotyczy bieżącej sesji, a nie wszystkich torów dźwięku naraz. Jest
+dostępne w każdym adapterze, który rzeczywiście odtwarza dźwięk przez AMC.
+Obecnie są to Pliki lokalne, Radio internetowe i Podcasty. W przyszłej sesji
+urządzenia, takiej jak WiiM, ten sam skrót otworzy wybór celu odtwarzania
+udostępniony przez adapter, zamiast pozorować wybór karty dźwiękowej Windows.
 
 ## Zakres i ograniczenia
 

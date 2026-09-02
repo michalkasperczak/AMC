@@ -1639,3 +1639,21 @@ najpierw pokazuje audycje, Enter otwiera ich odcinki w podglądzie, a dopiero
 odcinkach wyszukiwania działają wspólne polecenia AMC, w tym pobieranie,
 Kolejka, Ulubione i Playlisty. Skrzynka ma własne sortowanie, regułę stanów,
 próg odsłuchania i harmonogram odświeżania, lecz nie ręczną kolejność playlisty.
+
+### 7.12. Wybór wyjścia audio bieżącej sesji
+
+Od `alpha.204` ustawienie urządzenia audio jest własnością sesji, a nie jedną
+globalną wartością programu. `F11` otwiera jego dostępny wybór z listy, z
+odtwarzacza i z każdego innego miejsca głównego okna. Obecne rzeczywiste tory
+Plików lokalnych, Radia internetowego i Podcastów używają osobno zapamiętanych
+wyjść Windows w trybie współdzielonym WASAPI. Odłączone urządzenie powoduje
+tymczasowy powrót do wyjścia systemowego bez usunięcia preferencji. Zmiana
+odsłuchu Radia nie zatrzymuje niezależnych nagrań działających w tle.
+
+Polecenie należy do wspólnego kontraktu adaptera sesji. Przyszły bezpośredni
+adapter TIDAL albo Apple Music, który odtwarza przez AMC, udostępni pod `F11`
+ten sam wybór wyjścia. Sesja urządzenia zewnętrznego, na przykład WiiM, ma pod
+tym poleceniem pokazać właściwe cele, odtwarzacze lub strefy udostępnione przez
+adapter, a nie nieistniejącą kartę dźwiękową komputera. Sesja bez gotowego toru
+podaje jednoznaczny komunikat niedostępności zamiast milczeć lub zmieniać inną
+sesję.

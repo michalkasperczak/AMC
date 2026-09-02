@@ -5366,6 +5366,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             CycleInterTrackSilence();
             return new CommandExecutionResult(true);
         }
+        if (commandId == CommandIds.SelectAudioOutput)
+        {
+            ChooseAudioOutputDeviceForCurrentSession();
+            return new CommandExecutionResult(true);
+        }
         if (commandId is CommandIds.ViewFolders
                 or CommandIds.ViewAllLocalFiles
                 or CommandIds.ViewCustomLocalOrder
@@ -9658,6 +9663,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        var audioOutputCommand = MainWindowShortcutRouter.ResolveAudioOutputSelection(
+            windowKey,
+            effectiveModifiers);
+        if (audioOutputCommand is not null)
+        {
+            ExecuteCommand(audioOutputCommand);
+            e.Handled = true;
+            return;
+        }
+
         if (TryHandleLocalLibraryViewShortcut(e))
         {
             e.Handled = true;
@@ -10058,6 +10073,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             commandId = CommandIds.SessionList;
             return true;
         }
+        var audioOutputCommand = MainWindowShortcutRouter.ResolveAudioOutputSelection(key, modifiers);
+        if (audioOutputCommand is not null)
+        {
+            commandId = audioOutputCommand;
+            return true;
+        }
         if (key == Key.M && modifiers == ModifierKeys.Control)
         {
             commandId = CommandIds.ToggleMuteCurrentSession;
@@ -10267,6 +10288,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         commandId = (modifiers, key) switch
         {
             (ModifierKeys.None, Key.F1) => CommandIds.Help,
+            (ModifierKeys.None, Key.F11) => CommandIds.SelectAudioOutput,
             (ModifierKeys.None, Key.F6) or (ModifierKeys.Shift, Key.F6) => CommandIds.ViewNowPlaying,
             (ModifierKeys.Control, Key.PageUp) => CommandIds.SessionPrevious,
             (ModifierKeys.Control, Key.PageDown) => CommandIds.SessionNext,
@@ -11451,7 +11473,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ToggleAllSessionsMute_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.ToggleMuteAllSessions);
     private void AudioOutputDevice_Click(object sender, RoutedEventArgs e) =>
-        ChooseAudioOutputDeviceForCurrentSession();
+        ExecuteCommand(CommandIds.SelectAudioOutput);
     private void PlaybackMenuItem_SubmenuOpened(object sender, RoutedEventArgs e) =>
         UpdateFileMenuForCurrentSession();
     private void ToggleLoudnessNormalization_Click(object sender, RoutedEventArgs e) =>

@@ -77,6 +77,11 @@ internal static class MainWindowShortcutRouter
     public static bool IsSessionListShortcut(Key key, ModifierKeys modifiers) =>
         key == Key.S && modifiers == (ModifierKeys.Control | ModifierKeys.Shift);
 
+    public static string? ResolveAudioOutputSelection(Key key, ModifierKeys modifiers) =>
+        key == Key.F11 && modifiers == ModifierKeys.None
+            ? CommandIds.SelectAudioOutput
+            : null;
+
     public static string? ResolveRadioRecordingBookmark(
         Key key,
         ModifierKeys modifiers,

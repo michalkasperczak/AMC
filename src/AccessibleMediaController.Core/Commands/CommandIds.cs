@@ -102,6 +102,7 @@ public static class CommandIds
     public const string NextBookmark = "transport.bookmark.next";
     public const string ViewNowPlaying = "view.nowPlaying";
     public const string OpenOfficialApp = "action.openOfficialApp";
+    public const string SelectAudioOutput = "transport.audio.outputDevice.select";
     public const string ViewOutputs = "view.outputs";
     public const string ViewDownloads = "view.downloads";
     public const string DownloadInService = "action.download.inService";

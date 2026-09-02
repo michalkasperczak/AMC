@@ -1533,3 +1533,20 @@ an atomic state update. Network, checksum, extraction or launch failure leaves
 the previous version intact and does not disable basic playback. Automatic
 checks run at most daily and can be disabled in Settings; Help offers a manual
 check.
+
+### 7.12. Current-session audio output selection
+
+Starting with `alpha.204`, the audio device setting belongs to a session rather
+than being one global application value. `F11` opens its accessible selector
+from the list, player, or any other part of the main window. The current real
+Local Files, Internet Radio and Podcasts pipelines retain independent Windows
+outputs and use shared-mode WASAPI. A disconnected device temporarily falls
+back to the system default without deleting the preference. Changing Radio's
+listening output does not stop independent background recordings.
+
+This command is part of the shared session-adapter contract. A future direct
+TIDAL or Apple Music adapter that plays through AMC will expose the same output
+selection under `F11`. An external-device session such as WiiM will instead show
+adapter-provided targets, players, or zones, not a fictitious computer sound
+card. A session without a working pipeline gives an explicit unavailable message
+instead of remaining silent or switching another session.
