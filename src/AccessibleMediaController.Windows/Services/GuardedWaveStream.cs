@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using AccessibleMediaController.Core.LocalMedia;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 
@@ -60,18 +61,21 @@ public sealed class GuardedWaveStream : WaveStream
         // speech and long audio books remain valid.
         try
         {
-            var fileLength = new FileInfo(sourcePath).Length;
-            if (fileLength > 0 && duration >= TimeSpan.FromHours(1))
+            if (MediaSourceAccessPolicy.Classify(sourcePath).Kind != MediaSourceAccessKind.NetworkStream)
             {
-                var estimatedKbps = fileLength * 8d / duration.TotalSeconds / 1000d;
-                if (!double.IsFinite(estimatedKbps) || estimatedKbps < 0.5d)
+                var fileLength = new FileInfo(sourcePath).Length;
+                if (fileLength > 0 && duration >= TimeSpan.FromHours(1))
                 {
-                    throw new InvalidDataException(
-                        "Plik zawiera niewiarygodny czas trwania w stosunku do rozmiaru. Odtwarzanie zatrzymano, aby program nie przestał odpowiadać.");
+                    var estimatedKbps = fileLength * 8d / duration.TotalSeconds / 1000d;
+                    if (!double.IsFinite(estimatedKbps) || estimatedKbps < 0.5d)
+                    {
+                        throw new InvalidDataException(
+                            "Plik zawiera niewiarygodny czas trwania w stosunku do rozmiaru. Odtwarzanie zatrzymano, aby program nie przestał odpowiadać.");
+                    }
                 }
             }
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {
             // The decoder can still be used when a cloud provider temporarily
             // refuses this supplementary size check.

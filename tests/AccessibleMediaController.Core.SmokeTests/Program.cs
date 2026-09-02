@@ -624,6 +624,7 @@ static void TestCommandCatalog()
     Equal("Otwórz lokalne pliki multimedialne", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
     Equal("Otwórz folder z plikami multimedialnymi", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Importuj stacje radiowe z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportRadioPlaylist));
+    Equal("Pokaż nowe odcinki podcastów", CommandCatalog.GetDisplayName(CommandIds.ViewPodcastInbox));
     Equal("Pokaż aktualnie nagrywane stacje", CommandCatalog.GetDisplayName(CommandIds.ViewActiveRadioRecordings));
     Equal("Rozpocznij nową część ręcznego nagrania radia", CommandCatalog.GetDisplayName(CommandIds.SplitRadioRecording));
     Equal("Zatrzymaj wszystkie trwające nagrania", CommandCatalog.GetDisplayName(CommandIds.StopAllRadioRecordings));
@@ -3298,6 +3299,11 @@ static void TestCommandPalette()
     Equal("T (odtwarzacz radia lub widok Nagrywane)", entries.Single(entry => entry.CommandId == CommandIds.SplitRadioRecording).LocalShortcut);
     Equal("Ctrl+Alt+Shift+R", entries.Single(entry => entry.CommandId == CommandIds.StopAllRadioRecordings).LocalShortcut);
     Equal("Ctrl+Shift+H (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ManageRadioSchedules).LocalShortcut);
+    Equal("Ctrl+N (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.AddPodcast).LocalShortcut);
+    Equal("Ctrl+O (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.ImportPodcastOpml).LocalShortcut);
+    Equal("F5 (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcast).LocalShortcut);
+    Equal("Ctrl+F5 (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcastLibrary).LocalShortcut);
+    Equal("Ctrl+I (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.ViewPodcastInbox).LocalShortcut);
     True(entries.Any(entry => entry.CommandId == CommandIds.ViewFolders), "Paleta powinna zawierać widok folderów.");
     True(entries.Any(entry => entry.CommandId == CommandIds.SettingsSessionOrder), "Paleta powinna zawierać ustawienia kolejności sesji.");
     Equal(
@@ -3350,7 +3356,7 @@ static void TestCommandPalette()
     Equal(10, entries.Count(entry => CommandIds.TryParseSeekPercent(entry.CommandId, out _)));
     True(
         entries.Single(entry => entry.CommandId == CommandIds.OpenOfficialApp).LocalShortcut is null,
-        "Otwieranie w oficjalnej aplikacji nie powinno kolidować ze skrótem folderu.");
+        "Otwieranie strony elementu nie powinno kolidować ze skrótem folderu.");
     Equal("Alt+1 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.ViewFolders).LocalShortcut);
     Equal("Alt+2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.ViewAllLocalFiles).LocalShortcut);
     Equal("Alt+3 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.ViewCustomLocalOrder).LocalShortcut);

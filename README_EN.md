@@ -1,18 +1,27 @@
 # Accessible Media Controller — Windows prototype
 
-Version `alpha.205` delivers the first complete Podcasts subscription flow.
+Version `alpha.206` delivers the first complete Podcasts subscription and
+playback flow.
 Within the Podcasts session, Ctrl+N verifies and follows a direct RSS/Atom feed,
 Ctrl+O imports selected OPML feeds, F5 refreshes the current show and Ctrl+F5
 refreshes the whole Library. Enter opens a show's episodes, Backspace returns,
-Delete unfollows, Ctrl+C copies title and public page, and Ctrl+Shift+C copies
-title and the direct feed or enclosure URL. The client bounds time, redirects
+Delete unfollows, Ctrl+C copies title and the public page when supplied by the
+feed, and Ctrl+Shift+C copies title and the direct feed or enclosure URL. The client bounds time, redirects
 and response size, rejects unsafe XML and never downloads episode audio during
-refresh. Episode playback is deliberately reserved for `alpha.206`.
+refresh. Enter on an episode now plays its finite HTTP/HTTPS media in the shared AMC
+player, which retains per-episode position and speed and integrates with
+History and Bookmarks.
 
 In the corrected OPML import, arrows only navigate, Space independently toggles
 the current show and Ctrl+A includes all. Every Radio schedule row now begins
 with its station name and uses that name for type-ahead; enabled or disabled is
 announced immediately after it.
+
+Every known menu shortcut is now also exposed through the UI Automation
+accelerator field. **Show file in folder** selects a local or downloaded file
+in Windows Explorer. A remote show or episode instead offers an explicit
+browser-page command; AMC no longer guesses what “default application” should
+handle the item. Ctrl+I opens **New episodes**.
 
 Version `alpha.201` protects manual Radio recording splits from a rapid double press of `T`. The first press finalises the current part and immediately continues into a new file; another `T` during the first five seconds of that new part is safely ignored instead of stopping the recording. Every finalised part is added to the Local Library immediately while the next part continues recording. `Shift+T` keeps its existing meaning and is not a second split command.
 
@@ -155,7 +164,7 @@ Since `alpha.78`, the **Local Files** session exists from startup even when its 
 
 Since `alpha.202`, lossless interval removal with `Ctrl+X` verifies the real FFmpeg packet timeline before and after the operation. Long MP3 recordings without a reliable Xing header may be reported by Windows as several seconds shorter than their actual content; AMC now preserves the real end of the file, validates the result, and only then atomically replaces the source while retaining the complete `.amc-backup` copy.
 
-## Podcasts foundation in alpha 203 and subscriptions in alpha 205
+## Podcasts subscriptions in alpha 205 and playback in alpha 206
 
 Podcasts are now a real sixth AMC session with no demo data. The session has a
 separate Library and empty New episodes and Downloads views. The durable model
@@ -166,7 +175,9 @@ supports iTunes duration, skips entries without media and rejects DTD/external
 entities. `alpha.205` adds verified direct RSS/Atom subscription with Ctrl+N,
 selective OPML import with Ctrl+O, bounded HTTP/HTTPS refresh through F5 and
 Ctrl+F5, and show-to-episode navigation. Refresh only retrieves metadata and
-never downloads episode audio. Finite HTTP playback begins in `alpha.206`. See
+never downloads episode audio. `alpha.206` plays finite HTTP/HTTPS episodes,
+retains per-episode position and speed and connects episodes to AMC's shared
+History, Bookmarks, Queue and Playlists. See
 [`PODCAST_MODULE_DESIGN_EN.md`](PODCAST_MODULE_DESIGN_EN.md) for the rollout.
 
 Since `alpha.79`, a registered folder is unambiguously a **Library source**. `Ctrl+Shift+O` includes every recognised file from that folder and its subfolders in the flat Library, including known records that had previously been removed from it; **Folders** is only a hierarchical view of the same records. Delete on a file in Folders removes its Library membership while leaving the physical file visible in its real folder. Delete on a folder row removes nothing, while physically moving a file to the Recycle Bin still requires `Shift+Delete` and confirmation.
@@ -606,7 +617,8 @@ target instead of pretending that the external streamer is a Windows sound card.
 ## Current limitations
 
 - TIDAL, Apple Music and WiiM remain demonstration sessions. Local Files plays real media and persists its catalogue, while Internet Radio searches and plays real public streams and persists its own Library and Favorites.
-- Opening official applications is only a demonstration announcement.
+- Public station, show and episode pages can open in the browser; account-based
+  official-application integration remains a later stage.
 - Music downloading and DRM handling are not implemented; `D` and `Shift+D` only announce that the commands are unavailable.
 - The updater does not yet download packages.
 - Windows is the first target. macOS, VoiceOver and Siri are later stages.

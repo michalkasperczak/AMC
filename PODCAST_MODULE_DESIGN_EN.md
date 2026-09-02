@@ -1,9 +1,9 @@
 # AMC podcast module design
 
-Status: the subscription stage is complete in `alpha.205`. The durable session,
-safe direct RSS/Atom subscription, OPML import, metadata refresh and
-show-to-episode navigation are in place. HTTP episode playback is the next
-stage.
+Status: subscription and initial playback are complete in `alpha.206`. The
+durable session, safe direct RSS/Atom subscription, accessible OPML import,
+metadata refresh, show-to-episode navigation and finite HTTP/HTTPS episode
+playback through AMC's shared player are in place.
 
 ## 1. A separate Podcasts session
 
@@ -94,7 +94,10 @@ an existing RSS subscription to work.
 
 1. `alpha.203`: session shell, durable model, empty core views and RSS/Atom parser.
 2. `alpha.205`: completed — Ctrl+N adds a direct RSS/Atom feed, Ctrl+O imports OPML, with bounded HTTP/HTTPS refresh and show/episode navigation.
-3. `alpha.206`: finite HTTP playback, per-episode resume and speed, history and bookmarks.
+3. `alpha.206`: completed — finite HTTP/HTTPS playback, per-episode resume and
+   speed, current-container Page Up/Page Down, history and bookmarks. OPML
+   starts with every feed included; arrows only move focus, Space toggles one
+   feed and Ctrl+A includes all.
 4. `alpha.207`: Apple Podcasts catalog search and feed discovery from ordinary pages.
 5. `alpha.208`: New episodes state, filtering and batch operations.
 6. `alpha.209`: cancellable downloads with local staging and atomic publication.
@@ -114,8 +117,9 @@ show. Fetching is bounded by timeout, redirect count and response size, accepts
 only HTTP/HTTPS without embedded credentials, and never downloads episode audio.
 Enter opens a show's episodes newest first and Backspace returns to the Library.
 Delete unfollows the show without destroying retained episode state. Ctrl+C
-copies the title and public page, while Ctrl+Shift+C copies the title and the
-direct feed or enclosure URL.
+copies the title and public page when the feed supplies one, while Ctrl+Shift+C
+copies the title and the direct feed or enclosure URL. A feed URL or direct
+audio URL is never mislabeled as a browser page.
 
 Ctrl+F first returns shows. Enter opens a non-subscribing episode preview;
 Backspace returns to shows and Escape closes search. Ctrl+Shift+L changes show
@@ -137,7 +141,7 @@ available inside a newly followed show but do not all become "new" by default.
 The heading exposes episode count and the total known duration, marking it as
 partial when some durations are unknown.
 
-The initial `alpha.205` inbox excludes the archive present when a show is first
+The initial inbox excludes the archive present when a show is first
 followed. Episodes discovered by later refreshes are marked new. Streaming an
-episode remains deliberately disabled until the bounded finite-HTTP player in
-`alpha.206` is ready.
+episode is enabled in `alpha.206`; explicit Downloads, Apple catalog search and
+ordinary-page media extraction remain later stages.

@@ -54,6 +54,11 @@ internal static class MenuAccessibility
         // InputGestureText/AcceleratorKey is the single source of the shortcut
         // for UI Automation. Repeating it in Name makes NVDA speak it twice.
         AutomationProperties.SetName(item, accessibleLabel);
+        if (string.IsNullOrWhiteSpace(AutomationProperties.GetAcceleratorKey(item))
+            && !string.IsNullOrWhiteSpace(item.InputGestureText))
+        {
+            AutomationProperties.SetAcceleratorKey(item, item.InputGestureText);
+        }
     }
 
     private static string RemoveMnemonic(string label) => label.Replace("_", string.Empty, StringComparison.Ordinal);

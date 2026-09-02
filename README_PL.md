@@ -1,19 +1,28 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
-Wersja `alpha.205` uruchamia pierwszy kompletny przepływ subskrypcji Podcastów.
+Wersja `alpha.206` uruchamia pierwszy kompletny przepływ subskrypcji i
+odtwarzania Podcastów.
 W sesji Podcasty `Ctrl+N` sprawdza i dodaje bezpośredni kanał RSS/Atom,
 `Ctrl+O` importuje wybrane kanały z OPML, `F5` odświeża bieżącą audycję, a
 `Ctrl+F5` całą Bibliotekę. Enter na audycji otwiera jej odcinki, Backspace
-wraca, Delete wypisuje, `Ctrl+C` kopiuje nazwę i stronę, a `Ctrl+Shift+C` nazwę
-i bezpośredni adres. Klient ogranicza czas, przekierowania i rozmiar odpowiedzi,
+wraca, Delete wypisuje, `Ctrl+C` kopiuje nazwę i publiczną stronę, jeśli kanał
+ją podaje, a `Ctrl+Shift+C` nazwę i bezpośredni adres. Klient ogranicza czas, przekierowania i rozmiar odpowiedzi,
 nie przyjmuje niebezpiecznego XML i podczas odświeżania nie pobiera audio.
-Odtwarzanie odcinków jest świadomie pozostawione do `alpha.206`.
+Enter na odcinku odtwarza skończony materiał HTTP/HTTPS we wspólnym
+odtwarzaczu, który zachowuje pozycję, prędkość, Historię i Zakładki.
 
 W poprawionym imporcie OPML strzałki wyłącznie nawigują, Spacja niezależnie
 zaznacza lub odznacza bieżący podcast, a `Ctrl+A` zaznacza wszystkie. Lista
 harmonogramów nagrywania zaczyna każdy wiersz od nazwy stacji i po tej nazwie
 obsługuje szybkie przechodzenie literami; stan włączony albo wyłączony jest
 czytany bezpośrednio po nazwie.
+
+Menu przekazuje teraz każdy znany skrót do NVDA również przez pole skrótu UI
+Automation, zamiast polegać wyłącznie na tekście widocznym. Dla lokalnego lub
+pobranego pliku pozycja **Pokaż plik w folderze** zaznacza oryginał w
+Eksploratorze Windows. Dla zdalnego podcastu i odcinka osobna pozycja otwiera
+jego publiczną stronę w przeglądarce; AMC nie używa już niejednoznacznego
+polecenia „Otwórz w domyślnej aplikacji”. `Ctrl+I` otwiera **Nowe odcinki**.
 
 Wersja `alpha.201` zabezpiecza ręczny podział nagrania radia przed szybkim podwójnym naciśnięciem `T`. Pierwsze `T` finalizuje bieżącą część i natychmiast kontynuuje zapis w nowym pliku; ponowne `T` w ciągu pierwszych pięciu sekund nowej części jest bezpiecznie pomijane zamiast zatrzymywać nagranie. Każda zamknięta część jest od razu dodawana do lokalnej Biblioteki, choć kolejna część nadal się nagrywa. `Shift+T` zachowuje dotychczasowe znaczenie i nie jest drugim poleceniem podziału.
 
@@ -592,7 +601,7 @@ Ta wersja dodaje opcjonalne rozpoznawanie muzyki w Radiu. `S` w odtwarzaczu rozp
 
 Od `alpha.164` bogate kopiowanie i eksport rozpoznanych utworów zawierają także YouTube Music oraz katalogowe wyszukiwania Discogs i MusicBrainz. Są to jawne adresy wyszukiwania, a nie automatyczne twierdzenie, że znaleziono właściwe wydanie. Projekt późniejszego, kontrolowanego dopasowania albumów i autorów znajduje się w [`PROJEKT_METADANYCH_I_AUTOROW_PL.md`](PROJEKT_METADANYCH_I_AUTOROW_PL.md).
 
-## Podcasty: fundament alpha 203 i subskrypcje alpha 205
+## Podcasty: subskrypcje alpha 205 i odtwarzanie alpha 206
 
 Podcasty są od tej wersji prawdziwą, szóstą sesją AMC i nie zawierają danych
 demonstracyjnych. Sesja ma osobną Bibliotekę oraz dostępne z menu Widok puste
@@ -608,7 +617,9 @@ zewnętrzne są zablokowane, a rozmiar dokumentu i liczba odcinków mają granic
 `alpha.205` dodaje `Ctrl+N` dla bezpośredniego RSS/Atom, `Ctrl+O` dla importu
 OPML, ograniczone odświeżanie HTTP/HTTPS przez `F5` i `Ctrl+F5` oraz wejście z
 audycji do odcinków. Aktualizacja pobiera wyłącznie metadane i nigdy nie pobiera
-automatycznie plików audio. `Ctrl+F` w następnym etapie katalogowym najpierw
+automatycznie plików audio. `alpha.206` odtwarza odcinki z bezpośrednich
+adresów HTTP/HTTPS, zapisuje pozycję i prędkość per odcinek oraz łączy je ze
+wspólną Historią, Zakładkami, Kolejką i Playlistami AMC. `Ctrl+F` w następnym etapie katalogowym najpierw
 wyszuka audycje, a Enter pokaże ich odcinki bez automatycznego subskrybowania.
 Zakres wejściowy obejmie następnie publiczne wyszukiwanie Apple Podcasts,
 odkrywanie RSS na zwykłej stronie, osadzone audio i osobne adaptery wydawców,
@@ -617,7 +628,7 @@ Chrome i dodatku NVDA do konwersji, ale bez uzależnienia rdzenia AMC od ich
 interfejsów. `Ctrl+I` otworzy automatyczną skrzynkę **Nowe odcinki**, `Ctrl+D`
 pobierze świadomie wybrane odcinki, a Playlisty pozostaną ręcznymi zestawami i
 nie będą się same zmieniać po odświeżeniu kanału. Odtwarzanie odcinków przez
-HTTP rozpoczyna `alpha.206`. Pełny podział etapów znajduje
+HTTP działa od `alpha.206`. Pełny podział etapów znajduje
 się w [`PROJEKT_PODCASTOW_PL.md`](PROJEKT_PODCASTOW_PL.md).
 
 ## Urządzenie audio osobno dla sesji w alpha 204
@@ -654,7 +665,8 @@ udostępniony przez adapter, zamiast pozorować wybór karty dźwiękowej Window
 ## Zakres i ograniczenia
 
 - TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.
-- Otwieranie oficjalnych aplikacji jest tylko komunikatem demonstracyjnym.
+- Publiczne strony stacji, podcastów i odcinków można otwierać w przeglądarce;
+  integracje z oficjalnymi aplikacjami kontowymi pozostają etapem późniejszym.
 - Pobieranie muzyki i obsługa DRM nie są jeszcze zaimplementowane; skróty `D` i `Shift+D` tylko podają komunikaty.
 - Aktualizator nie pobiera jeszcze pakietów.
 - Pierwszym celem jest Windows. macOS, VoiceOver i Siri pozostają etapem późniejszym.

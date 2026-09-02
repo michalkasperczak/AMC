@@ -683,6 +683,23 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         bool allowManagedMp3Fallback,
         bool mayRequireRemoteAccess)
     {
+        if (IsSupportedNetworkMediaSource(path))
+        {
+            var networkReader = new MediaFoundationReader(path);
+            try
+            {
+                DiagnosticLog.Info("podcast-playback", $"Otwarto skończony materiał HTTP: {path}.");
+                return new ReaderSelection(
+                    new GuardedWaveStream(networkReader, path),
+                    DecoderKind.System);
+            }
+            catch
+            {
+                networkReader.Dispose();
+                throw;
+            }
+        }
+
         var extension = Path.GetExtension(path);
         MediaContainerProbeResult? containerProbe = null;
         if (!extension.Equals(".mp3", StringComparison.OrdinalIgnoreCase))
@@ -867,6 +884,11 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             throw;
         }
     }
+
+    internal static bool IsSupportedNetworkMediaSource(string? source) =>
+        Uri.TryCreate(source, UriKind.Absolute, out var uri)
+        && uri.Scheme is "http" or "https"
+        && string.IsNullOrEmpty(uri.UserInfo);
 
     private static WaveStream CreateManagedMp3Reader(string path)
     {

@@ -1,9 +1,10 @@
 # Projekt modułu podcastów AMC
 
-Status: etap subskrypcji jest ukończony w `alpha.205`. Działa trwała sesja,
-bezpieczne dodawanie bezpośrednich kanałów RSS/Atom, import OPML, odświeżanie
-metadanych oraz przejście z audycji do jej odcinków. Odtwarzanie odcinków przez
-HTTP rozpoczyna następny etap.
+Status: etap subskrypcji i pierwszego odtwarzania jest ukończony w `alpha.206`.
+Działa trwała sesja, bezpieczne dodawanie bezpośrednich kanałów RSS/Atom,
+dostępny import OPML, odświeżanie metadanych, przejście z audycji do jej
+odcinków oraz odtwarzanie skończonych materiałów HTTP/HTTPS we wspólnym
+odtwarzaczu AMC.
 
 ## 1. Osobna sesja Podcasty
 
@@ -139,9 +140,11 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
    Biblioteki, otwieranie podcastu do listy odcinków oraz wypisywanie się przez
    Delete. `Ctrl+O` importuje lokalny plik OPML. Kanał nie pobiera automatycznie
    plików audio.
-3. `alpha.206` — odtwarzanie skończonych materiałów HTTP przez osobny tor
-   Podcastów, zapamiętywanie pozycji i prędkości per odcinek, poprawne
-   Page Up/Page Down w bieżącym kontenerze, Historia i zakładki.
+3. `alpha.206` — zrealizowane: odtwarzanie skończonych materiałów HTTP/HTTPS
+   przez osobny tor Podcastów, zapamiętywanie pozycji i prędkości per odcinek,
+   Page Up/Page Down w bieżącym kontenerze, Historia i zakładki. Import OPML
+   zaczyna od wszystkich kanałów; strzałki nie zmieniają wyboru, Spacja
+   przełącza jeden kanał, a Ctrl+A zaznacza wszystkie.
 4. `alpha.207` — wyszukiwanie publicznego katalogu Apple Podcasts, rozpoznanie
    stron Apple/Overcast i wykrywanie RSS/Atom na zwykłej stronie.
 5. `alpha.208` — pełna skrzynka Nowe odcinki, stany nowy, przejrzany,
@@ -184,8 +187,16 @@ koncepcyjnego.
 - Enter na audycji otwiera jej odcinki od najnowszego, a Backspace wraca do
   Biblioteki. Delete na audycji wypisuje z niej bez kasowania zapisanych danych
   odcinków; ponowne dodanie przywraca subskrypcję.
-- `Ctrl+C` kopiuje nazwę i publiczną stronę podcastu lub odcinka, natomiast
-  `Ctrl+Shift+C` nazwę i bezpośredni adres kanału albo pliku audio.
+- `Ctrl+C` kopiuje nazwę i publiczną stronę podcastu lub odcinka, jeśli kanał
+  ją podaje, natomiast
+  `Ctrl+Shift+C` nazwę i bezpośredni adres kanału albo pliku audio. Menu
+  kontekstowe wypowiada te różnice wprost.
+- **Pokaż plik w folderze** jest dostępne tylko dla rzeczywiście pobranego,
+  lokalnego odcinka i zaznacza go w Eksploratorze Windows. Zdalny odcinek ma
+  zamiast tego **Otwórz stronę odcinka**, a nagłówek audycji — **Otwórz stronę
+  podcastu**. Gdy kanał nie podaje strony publicznej, AMC nie przedstawia
+  adresu RSS ani bezpośredniego pliku audio jako strony internetowej. AMC nie
+  zgaduje już, która „domyślna aplikacja” miałaby otworzyć odcinek.
 - `Ctrl+F` otwiera wyszukiwanie w Podcastach. Pierwszy poziom wyników zawiera
   audycje, a nie pomieszane odcinki ze wszystkich kanałów. Enter na audycji
   otwiera podgląd jej odcinków bez automatycznego dodawania subskrypcji;
@@ -243,11 +254,12 @@ Skrzynka ma własne, dostępne ustawienia, ale nie ręczną kolejność playlist
 
 ## 10. Granica pierwszej wersji
 
-`alpha.205` pozwala dodać bezpośredni kanał RSS/Atom, zaimportować OPML,
-odświeżyć pojedynczą audycję albo całą Bibliotekę i wejść do listy odcinków.
+`alpha.206` pozwala dodać bezpośredni kanał RSS/Atom, zaimportować OPML,
+odświeżyć pojedynczą audycję albo całą Bibliotekę, wejść do listy odcinków i
+odtworzyć skończony materiał HTTP/HTTPS.
 Pierwsze pobranie zachowuje starsze archiwum wewnątrz audycji, ale nie oznacza
 go całego jako nowe. Dopiero odcinki odnalezione podczas późniejszego
 odświeżenia trafiają do podstawowej skrzynki **Nowe odcinki**. Odświeżanie
-nigdy nie pobiera zawartości plików audio. W tej wersji Enter na odcinku
-świadomie nie rozpoczyna jeszcze odtwarzania; bezpieczny tor skończonych
-materiałów HTTP powstaje w `alpha.206`.
+nigdy nie pobiera zawartości plików audio. Jawne pobieranie do widoku
+**Pobrane**, katalog Apple i wydobywanie audio ze zwykłych stron pozostają
+kolejnymi etapami; ich brak nie oznacza błędu odtwarzania `alpha.206`.

@@ -1099,7 +1099,7 @@ Katalog lokalny i kolejność: Biblioteka nie jest playlistą ani kopią jednego
 Planowana kolejność dalszych etapów:
 
 1. Dokończenie testów odporności Plików lokalnych i Radia, w tym HLS, nagrywania, szybkich zmian źródła i rozpoznawania utworów.
-2. Pierwsza wersja sesji Podcasty: RSS/Atom, Biblioteka, skrzynka Nowe odcinki, Historia, pobieranie i wspólny odtwarzacz zgodnie z `PROJEKT_PODCASTOW_PL.md`.
+2. Rozwinięcie działającej sesji Podcasty: po ukończonych w `alpha.206` RSS/Atom, Bibliotece, imporcie OPML, skrzynce Nowe odcinki i wspólnym odtwarzaczu pozostają jawne pobieranie, katalog Apple oraz wydobywanie audio ze zwykłych stron zgodnie z `PROJEKT_PODCASTOW_PL.md`.
 3. Eksperyment dystrybucji MSIX/App Installer, migracja do .NET 10 LTS oraz prototyp podpisanego manifestu komponentów i powrotu po błędzie.
 4. Wydzielenie AMC.Host i lokalnego kontraktu polecenie–zdarzenie z adapterem demonstracyjnym.
 5. WiiM jako pierwszy realny test wykrywania, komend, głośności, wejść i presetów.

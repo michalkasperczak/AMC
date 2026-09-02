@@ -72,6 +72,7 @@ try
     TestPlaybackAudioSettingAccessibility();
     TestAudioOutputDeviceAccessibility();
     TestAudioOutputPauseRaceGuard();
+    TestPodcastNetworkSourcePolicy();
     TestPodcastFeedClient();
     TestPodcastOpmlImportSelectionAccessibility();
     TestRadioPresetAccessibleLabels();
@@ -207,6 +208,8 @@ static void TestMenuAccessibility()
             Assert(command.Header?.ToString() == "Wycisz lub przywróć dźwięk bieżącej sesji", "Nie usunięto mnemonika z polecenia menu.");
             Assert(AutomationProperties.GetName(command) == "Wycisz lub przywróć dźwięk bieżącej sesji", "Nazwa polecenia powtarza skrót.");
             Assert(command.InputGestureText == "Ctrl+M", "Usunięto widoczny skrót polecenia.");
+            Assert(AutomationProperties.GetAcceleratorKey(command) == "Ctrl+M",
+                "Skrót widoczny w menu nie został przekazany do UI Automation.");
             Assert(AutomationProperties.GetName(sessionsCommand) == "Lista sesji",
                 "Menu sesji nie ma pojedynczej nazwy użytkowej.");
             Assert(AutomationProperties.GetAcceleratorKey(sessionsCommand) == "Ctrl+Shift+S",
@@ -318,6 +321,22 @@ static void TestEditableFieldReplacement()
     if (failure is not null)
         throw new InvalidOperationException("Test zastępowania wartości pola nie powiódł się.", failure);
     Console.WriteLine("OK: wpisywanie po wejściu klawiaturą zastępuje całą poprzednią wartość pola");
+}
+
+static void TestPodcastNetworkSourcePolicy()
+{
+    Assert(WindowsMediaOutput.IsSupportedNetworkMediaSource("https://cdn.example.test/episode.mp3"),
+        "Bezpieczny adres HTTPS odcinka nie został dopuszczony do odtwarzania.");
+    Assert(WindowsMediaOutput.IsSupportedNetworkMediaSource("http://cdn.example.test/episode.m4a"),
+        "Adres HTTP odcinka nie został dopuszczony do odtwarzania.");
+    Assert(!WindowsMediaOutput.IsSupportedNetworkMediaSource("ftp://example.test/episode.mp3"),
+        "Niedozwolony protokół FTP został potraktowany jak odcinek HTTP.");
+    Assert(!WindowsMediaOutput.IsSupportedNetworkMediaSource("https://user:secret@example.test/episode.mp3"),
+        "Adres z poświadczeniami został dopuszczony do odtwarzania.");
+    Assert(!WindowsMediaOutput.IsSupportedNetworkMediaSource(@"D:\Podcasty\odcinek.mp3"),
+        "Ścieżka lokalna została błędnie potraktowana jak odcinek HTTP.");
+
+    Console.WriteLine("OK: bezpieczna kwalifikacja adresów odcinków HTTP i HTTPS");
 }
 
 static void TestAudioOutputDeviceAccessibility()

@@ -1083,7 +1083,7 @@ Local catalogue and ordering: the Library is neither a playlist nor a mirror of 
 Planned sequence of later stages:
 
 1. Complete resilience testing for Local Files and Radio, including HLS, recording, rapid source changes and track recognition.
-2. Deliver the first Podcasts session: RSS/Atom, Library, New episodes inbox, History, downloads and the shared player as defined in `PODCAST_MODULE_DESIGN_EN.md`.
+2. Extend the working Podcasts session: after RSS/Atom, Library, selective OPML import, New episodes and shared playback were completed in `alpha.206`, explicit downloads, the Apple catalogue and ordinary-page audio extraction remain as defined in `PODCAST_MODULE_DESIGN_EN.md`.
 3. Run an MSIX/App Installer distribution spike, migrate to .NET 10 LTS and prototype signed component metadata and failure rollback.
 4. Extract AMC.Host and a local command–event contract with a demonstration adapter.
 5. Use WiiM as the first real test of discovery, commands, volume, inputs and presets.

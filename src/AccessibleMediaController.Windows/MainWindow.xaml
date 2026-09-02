@@ -290,8 +290,9 @@
                           Visibility="Collapsed" Click="RadioAssignPreset_Click" />
                 <MenuItem x:Name="LibraryViewMenuItem" Header="_Biblioteka" InputGestureText="Ctrl+L"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+L" Click="LibraryView_Click" />
-                <MenuItem x:Name="PodcastInboxViewMenuItem" Header="_Nowe odcinki"
-                          automation:AutomationProperties.Name="Nowe odcinki Podcastów"
+                <MenuItem x:Name="PodcastInboxViewMenuItem" Header="_Nowe odcinki" InputGestureText="Ctrl+I"
+                          automation:AutomationProperties.Name="Nowe odcinki Podcastów, Ctrl+I"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+I"
                           Visibility="Collapsed" Click="PodcastInboxView_Click" />
                 <MenuItem x:Name="PodcastDownloadsViewMenuItem" Header="Po_brane"
                           automation:AutomationProperties.Name="Pobrane odcinki Podcastów"
@@ -456,7 +457,7 @@
                               Click="GoToAlbum_Click" />
                     <MenuItem x:Name="GoToArtistMenuItem" Header="Przejdź do wykonawcy"
                               Click="GoToArtist_Click" />
-                    <MenuItem Header="Kopiuj nazwę" InputGestureText="Ctrl+C"
+                    <MenuItem x:Name="CopyNameMenuItem" Header="Kopiuj nazwę" InputGestureText="Ctrl+C"
                               automation:AutomationProperties.Name="Kopiuj nazwę, Ctrl+C"
                               Click="CopyName_Click" />
                     <MenuItem x:Name="CopyLocationMenuItem" Header="Kopiuj ścieżkę lub łącze" InputGestureText="Ctrl+Shift+C"
@@ -480,9 +481,9 @@
                     <MenuItem x:Name="PasteFilesMenuItem" Header="Wklej pliki ze schowka" InputGestureText="Ctrl+V"
                               automation:AutomationProperties.Name="Wklej pliki ze schowka, Ctrl+V"
                               Click="PasteFiles_Click" />
-                    <MenuItem x:Name="OpenDefaultApplicationMenuItem" Header="Otwórz w domyślnej aplikacji"
+                    <MenuItem x:Name="ShowLocalFileInFolderMenuItem" Header="Pokaż plik w folderze"
                               Click="OpenDefaultApplication_Click" />
-                    <MenuItem x:Name="OfficialApplicationMenuItem" Header="Otwórz w oficjalnej aplikacji"
+                    <MenuItem x:Name="OfficialApplicationMenuItem" Header="Otwórz stronę elementu"
                               Click="OfficialApp_Click" />
                     <MenuItem x:Name="RemoveMenuItem" Header="Usuń z bieżącego widoku" InputGestureText="Delete"
                               automation:AutomationProperties.Name="Usuń z bieżącego widoku, Delete"
@@ -665,15 +666,15 @@
                               Click="GoToAlbum_Click" />
                     <MenuItem x:Name="PlayerGoToArtistMenuItem" Header="Przejdź do wykonawcy"
                               Click="GoToArtist_Click" />
-                    <MenuItem Header="Kopiuj nazwę" InputGestureText="Ctrl+C"
+                    <MenuItem x:Name="PlayerCopyNameMenuItem" Header="Kopiuj nazwę" InputGestureText="Ctrl+C"
                               automation:AutomationProperties.Name="Kopiuj nazwę, Ctrl+C"
                               Click="CopyName_Click" />
                     <MenuItem x:Name="PlayerCopyLocationMenuItem" Header="Kopiuj ścieżkę lub łącze" InputGestureText="Ctrl+Shift+C"
                               automation:AutomationProperties.Name="Kopiuj ścieżkę lub łącze, Ctrl+Shift+C"
                               Click="CopyLocation_Click" />
-                    <MenuItem x:Name="PlayerOpenDefaultApplicationMenuItem" Header="Otwórz w domyślnej aplikacji"
+                    <MenuItem x:Name="PlayerShowLocalFileInFolderMenuItem" Header="Pokaż plik w folderze"
                               Click="OpenDefaultApplication_Click" />
-                    <MenuItem x:Name="PlayerOfficialApplicationMenuItem" Header="Otwórz w oficjalnej aplikacji"
+                    <MenuItem x:Name="PlayerOfficialApplicationMenuItem" Header="Otwórz stronę elementu"
                               Click="OfficialApp_Click" />
                     <MenuItem x:Name="PlayerRemoveLocalItemMenuItem" Header="Usuń z AMC, pozostaw plik na dysku" InputGestureText="Delete"
                               automation:AutomationProperties.Name="Usuń z AMC, pozostaw plik na dysku, Delete"
