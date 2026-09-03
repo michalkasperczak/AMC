@@ -617,6 +617,26 @@ static void TestMainWindowFocusRecoveryPolicy()
             windowActive: true,
             ownedWindowActive: false,
             menuFocus: false,
+            playerViewActive: true,
+            playerFocusValid: true,
+            browserFocusValid: false,
+            nativeFocusValid: false) == MainWindowFocusRecoveryTarget.Player,
+        "Natywna kontrolka może ukryć utratę rzeczywistego fokusa odtwarzacza przed WPF.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveFocusRecoveryTarget(
+            windowActive: true,
+            ownedWindowActive: false,
+            menuFocus: false,
+            playerViewActive: false,
+            playerFocusValid: false,
+            browserFocusValid: true,
+            nativeFocusValid: false) == MainWindowFocusRecoveryTarget.MediaList,
+        "Natywna kontrolka może ukryć utratę rzeczywistego fokusa listy przed WPF.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveFocusRecoveryTarget(
+            windowActive: true,
+            ownedWindowActive: false,
+            menuFocus: false,
             playerViewActive: false,
             playerFocusValid: false,
             browserFocusValid: false) == MainWindowFocusRecoveryTarget.MediaList,

@@ -1,5 +1,13 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.227` strengthens playback focus protection. AMC now validates
+the real native Windows focus in addition to WPF's logical focus, preventing
+the hosted status bar from silently taking keyboard and NVDA focus while WPF
+still considers the player focused. The bar remains available through
+`NVDA+End`, but no longer raises a redundant name-change event every second
+that could move NVDA's navigator object. Detected focus loss is repaired and
+recorded in the diagnostic log.
+
 Version `alpha.226` fixes parent navigation in the Podcasts Library. `Ctrl+L`
 may still restore the episodes of the last browsed show, but Escape or
 Backspace from that list now always opens the parent show list and focuses the

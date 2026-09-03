@@ -1,12 +1,39 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-226`
-- Tytuł zestawu: Nadrzędna lista Biblioteki Podcastów
-- Wersja programu: `0.1.0-alpha.226`
+- Numer zestawu: `AMC-TEST-227`
+- Tytuł zestawu: Stabilny fokus podczas odtwarzania
+- Wersja programu: `0.1.0-alpha.227`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.226.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.227.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 227
+
+### AMC-227-01 — fokus podczas odtwarzania podcastu
+
+Otwórz odcinek podcastu i przez co najmniej dwie minuty używaj na przemian
+strzałek, cyfr, Page Up, Page Down oraz odczytu paska `NVDA+End`.
+
+Oczekiwane: fokus przez cały czas pozostaje w odtwarzaczu. Każdy skrót działa
+od pierwszego naciśnięcia; nie trzeba naciskać dodatkowego Escape ani wracać
+do AMC przez Alt+Tab.
+
+### AMC-227-02 — szybka zmiana odcinków
+
+W odtwarzaczu kilka razy szybko zmień odcinek przez Page Up i Page Down,
+również zanim poprzedni materiał zdąży się całkowicie otworzyć.
+
+Oczekiwane: po zakończeniu otwierania fokus nadal znajduje się na przycisku
+odtwarzania bieżącego odcinka, a klawisze sterowania nie przestają działać.
+
+### AMC-227-03 — powrót do listy
+
+Podczas odtwarzania naciśnij Escape, przejdź po liście, wróć do odtwarzacza
+klawiszem F6 i ponownie sprawdź `NVDA+End`.
+
+Oczekiwane: Escape ustawia fokus na zapamiętanym elemencie listy, F6 na
+odtwarzaczu, a odczyt paska nie zabiera fokusa żadnemu z tych widoków.
 
 ## Nowości alpha 226
 

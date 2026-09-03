@@ -198,6 +198,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             SizingGrip = false,
             TabStop = false
         };
+        _playbackStatusBar.GotFocus += PlaybackStatusBar_GotFocus;
         _playbackStatusBar.Items.Add(_playbackStatusLabel);
         PlaybackStatusHost.Child = _playbackStatusBar;
         _playerUiTimer = new DispatcherTimer(DispatcherPriority.Background)
@@ -1466,6 +1467,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ScheduleNextRadioRecognition(RadioRecognitionRegularInterval);
         }
     }
+
+    private void PlaybackStatusBar_GotFocus(object? sender, EventArgs e) =>
+        ScheduleMainWindowFocusRecovery("natywny pasek stanu przejął fokus");
 
     private MediaItem? CurrentPlayedRadioStation()
     {
@@ -8055,19 +8059,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var browserFocusValid = MediaList.IsKeyboardFocusWithin
             || BrowserHeaderPanel.IsKeyboardFocusWithin
             || BrowserActionPanel.IsKeyboardFocusWithin;
+        var nativeFocusHandle = GetFocus();
+        var mainWindowHandle = _windowSource?.Handle ?? IntPtr.Zero;
+        var nativeFocusValid = mainWindowHandle == IntPtr.Zero
+            || nativeFocusHandle == mainWindowHandle;
         var recoveryTarget = MainWindowNavigationPolicy.ResolveFocusRecoveryTarget(
             IsActive,
             ownedWindowActive,
             menuFocus,
             _playerViewActive,
             PlayerPanel.IsKeyboardFocusWithin,
-            browserFocusValid);
+            browserFocusValid,
+            nativeFocusValid);
         if (recoveryTarget == MainWindowFocusRecoveryTarget.None) return;
 
         DiagnosticLog.Warning(
             "focus-recovery",
             $"Przywracanie fokusa po zdarzeniu: {reason}; "
-            + $"cel: {recoveryTarget}; poprzedni fokus: {DescribeKeyboardFocus(focused)}.");
+            + $"cel: {recoveryTarget}; poprzedni fokus: {DescribeKeyboardFocus(focused)}; "
+            + $"fokus natywny: 0x{nativeFocusHandle.ToInt64():X}; okno: 0x{mainWindowHandle.ToInt64():X}.");
         if (recoveryTarget == MainWindowFocusRecoveryTarget.Player)
         {
             if (!PlayerPlayPauseButton.IsVisible || !PlayerPlayPauseButton.IsEnabled) return;
@@ -11120,6 +11130,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int virtualKey);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetFocus();
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {

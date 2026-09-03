@@ -71,10 +71,17 @@ internal static class MainWindowNavigationPolicy
         bool menuFocus,
         bool playerViewActive,
         bool playerFocusValid,
-        bool browserFocusValid)
+        bool browserFocusValid,
+        bool nativeFocusValid = true)
     {
         if (!windowActive || ownedWindowActive || menuFocus)
             return MainWindowFocusRecoveryTarget.None;
+        if (!nativeFocusValid)
+        {
+            return playerViewActive
+                ? MainWindowFocusRecoveryTarget.Player
+                : MainWindowFocusRecoveryTarget.MediaList;
+        }
         if (playerViewActive)
         {
             return playerFocusValid

@@ -1,5 +1,13 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.227` wzmacnia ochronę fokusa podczas odtwarzania. AMC sprawdza
+teraz nie tylko logiczny fokus WPF, lecz także rzeczywisty fokus natywnego
+okna Windows. Dzięki temu osadzony pasek stanu nie może pozornie pozostawić
+fokusa na odtwarzaczu, a faktycznie odebrać klawiatury i NVDA. Pasek nadal
+działa z `NVDA+End`, ale nie wysyła co sekundę zbędnego zdarzenia zmiany nazwy,
+które mogło przenosić obiekt nawigatora NVDA. Wykryta utrata fokusa jest
+naprawiana i zapisywana w logu diagnostycznym.
+
 Wersja `alpha.226` naprawia przejście o poziom wyżej w Bibliotece Podcastów.
 `Ctrl+L` nadal może zgodnie z zapamiętanym miejscem otworzyć odcinki ostatnio
 przeglądanej audycji, lecz Escape albo Backspace z tej listy zawsze prowadzi

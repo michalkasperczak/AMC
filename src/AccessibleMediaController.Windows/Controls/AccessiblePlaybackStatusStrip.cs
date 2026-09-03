@@ -10,6 +10,14 @@ public sealed class AccessiblePlaybackStatusStrip : StatusStrip
 {
     private string _spokenText = string.Empty;
 
+    public AccessiblePlaybackStatusStrip()
+    {
+        // The status bar is informational. It must remain available to NVDA+End,
+        // but it must never become the keyboard target while playback updates it.
+        SetStyle(ControlStyles.Selectable, false);
+        TabStop = false;
+    }
+
     public string SpokenText
     {
         get => _spokenText;
@@ -18,6 +26,7 @@ public sealed class AccessiblePlaybackStatusStrip : StatusStrip
             var normalized = value ?? string.Empty;
             if (string.Equals(_spokenText, normalized, StringComparison.Ordinal)) return;
             _spokenText = normalized;
+            AccessibleName = normalized;
             foreach (ToolStripStatusLabel label in Items.OfType<ToolStripStatusLabel>())
             {
                 label.Text = normalized;
@@ -25,10 +34,10 @@ public sealed class AccessiblePlaybackStatusStrip : StatusStrip
                 label.AccessibleRole = AccessibleRole.StaticText;
             }
 
-            // Child 0 is the one status label. Announcing a change on that
-            // child preserves the standard StatusStrip accessibility tree,
-            // which is used by NVDA+End.
-            AccessibilityNotifyClients(AccessibleEvents.NameChange, 0);
+            // NVDA+End reads the current name directly from the standard status
+            // bar tree. Do not emit a NameChange event every second: for a native
+            // control hosted inside WPF that event can move NVDA's navigator away
+            // from the player even though WPF still reports logical focus there.
         }
     }
 }
