@@ -1797,6 +1797,13 @@ innymi tytuł, autora, podcast nadrzędny, datę i czas, stan odsłuchania, źr�
 RSS albo pliku audio oraz stronę publiczną. Opis nie jest w niej powtarzany.
 Karetka po każdym otwarciu jest ustawiana na pierwszym znaku tekstu.
 
+Od `alpha.238` również pierwszy komunikat fokusu rozpoczyna się od właściwej
+treści opisu. Ogólna nazwa dialogu nie jest już nazwą dostępnościową pola
+tekstowego, dlatego słowa opisujące typ kontrolki nie wyprzedzają informacji,
+po którą użytkownik nacisnął `Alt+D`. Dla bardzo długiego opisu pierwszy
+komunikat jest bezpiecznie skracany, lecz całe źródłowe pole pozostaje dostępne
+do zwykłego czytania, zaznaczania i kopiowania.
+
 Publiczny katalog Apple Podcasts służy wyłącznie do odkrywania audycji i
 uzyskania publicznego adresu RSS lub Atom. Wyszukiwanie ma ograniczoną liczbę
 wyników, nie wymaga logowania, nie odczytuje prywatnej Biblioteki Apple i nie

@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-237`
-- Tytuł zestawu: Trwałe archiwum odcinków poza bieżącym RSS oraz regresja całej aplikacji
-- Wersja programu: `0.1.0-alpha.237`
+- Numer zestawu: `AMC-TEST-238`
+- Tytuł zestawu: Opis podcastu jako pierwszy komunikat Alt+D oraz regresja całej aplikacji
+- Wersja programu: `0.1.0-alpha.238`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.237.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.238.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,27 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 238
+
+### AMC-238-01 — pierwszy komunikat Alt+D
+
+W Podcastach zaznacz odcinek zawierający opis i naciśnij `Alt+D`. Nie używaj
+Tabu ani polecenia odczytu bieżącej linii, tylko wysłuchaj pierwszego
+komunikatu NVDA.
+
+Oczekiwane: pierwszą użyteczną informacją jest początek właściwego opisu.
+Ogólne słowa „pole edycyjne” lub „dialog” nie występują przed opisem. Fokus i
+karetka znajdują się w polu tekstowym na jego początku.
+
+### AMC-238-02 — pełny długi opis i powrót fokusu
+
+Otwórz długi, wieloakapitowy opis. Przerwij mowę, przeczytaj pole strzałkami,
+skopiuj wybrany fragment, a następnie zamknij okno Escape.
+
+Oczekiwane: automatyczny komunikat początkowy nie czyta bez końca całej długiej
+treści, lecz opis w polu nie jest skrócony. Nawigacja i kopiowanie działają, a
+Escape przywraca fokus dokładnie do podcastu lub odcinka.
 
 ## Nowości alpha 237
 

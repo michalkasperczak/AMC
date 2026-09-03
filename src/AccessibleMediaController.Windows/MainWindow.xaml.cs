@@ -2672,7 +2672,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var dialog = new InformationWindow(
             PodcastDescriptionText.Compose(description, BuildPodcastPropertiesText(item, includeDescription: false)),
             links,
-            item.Kind == MediaItemKind.Podcast ? "Opis podcastu" : "Opis odcinka")
+            item.Kind == MediaItemKind.Podcast ? "Opis podcastu" : "Opis odcinka",
+            PodcastDescriptionText.InitialFocusName(description))
         {
             Owner = activeOwner
         };

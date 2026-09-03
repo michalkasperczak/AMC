@@ -364,7 +364,18 @@ static void TestPodcastDescriptionTextOrder()
     Assert(!result.Contains("Opis: Pierwsze zdanie", StringComparison.Ordinal),
         "Opis nie powinien być powtórzony w sekcji metadanych.");
 
-    Console.WriteLine("OK: opis podcastu przed metadanymi");
+    var initialFocusName = PodcastDescriptionText.InitialFocusName(
+        "Pierwsze zdanie opisu.\nDrugi akapit.");
+    Assert(initialFocusName.StartsWith("Pierwsze zdanie opisu.", StringComparison.Ordinal),
+        "Nazwa pierwszego fokusu nie rozpoczyna się od treści opisu.");
+    Assert(!initialFocusName.Contains('\n') && !initialFocusName.Contains('\r'),
+        "Nazwa pierwszego fokusu powinna być jednym czytelnym komunikatem.");
+
+    var longDescription = string.Join(' ', Enumerable.Repeat("bardzo długi opis", 100));
+    Assert(PodcastDescriptionText.InitialFocusName(longDescription).Length <= 501,
+        "Nazwa pierwszego fokusu nie ogranicza bardzo długiego opisu.");
+
+    Console.WriteLine("OK: opis podcastu przed metadanymi i przed rolą pola tekstowego");
 }
 
 static void TestPodcastDirectorySearchMerge()

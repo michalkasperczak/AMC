@@ -7,6 +7,13 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.238` poprawia pierwszy komunikat po `Alt+D` w Podcastach.
+Fokus nadal trafia bezpośrednio do tekstu tylko do odczytu, ale jego nazwą
+dostępnościową jest teraz początek właściwego opisu, a nie ogólne „Opis
+odcinka” albo „Opis podcastu”. Dzięki temu NVDA zaczyna od treści, po czym
+można normalnie czytać po znakach, słowach i wierszach. Bardzo długi opis ma
+ograniczony komunikat początkowy i pozostaje w całości dostępny w polu.
+
 Wersja `alpha.237` utrwala Bibliotekę Podcastów jako archiwum poznanych
 metadanych. Odświeżenie RSS albo Atom nadal dodaje nowe odcinki i aktualizuje
 te, które ponownie znalazło, ale nie usuwa starszych tylko dlatego, że wydawca

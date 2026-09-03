@@ -17,7 +17,8 @@ public partial class InformationWindow : AccessibleWindow
     public InformationWindow(
         string information,
         IReadOnlyList<InformationLink>? links = null,
-        string? windowTitle = null)
+        string? windowTitle = null,
+        string? initialFocusName = null)
     {
         InitializeComponent();
         var accessibleTitle = string.IsNullOrWhiteSpace(windowTitle)
@@ -29,7 +30,12 @@ public partial class InformationWindow : AccessibleWindow
         _links = links ?? [];
         _informationBox = new System.Windows.Forms.RichTextBox
         {
-            AccessibleName = accessibleTitle,
+            // For long-form content such as a podcast description, the focused
+            // text field starts with the content itself. NVDA therefore does
+            // not make the generic control role the first useful announcement.
+            AccessibleName = string.IsNullOrWhiteSpace(initialFocusName)
+                ? accessibleTitle
+                : initialFocusName.Trim(),
             AccessibleDescription = _links.Count == 0
                 ? "Tekst tylko do odczytu. Można poruszać się po znakach, słowach i wierszach oraz zaznaczać fragmenty."
                 : "Tekst tylko do odczytu. Można poruszać się po znakach, słowach i wierszach oraz zaznaczać fragmenty. Tab przechodzi do listy aktywnych łączy.",
