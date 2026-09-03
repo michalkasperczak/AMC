@@ -1807,6 +1807,19 @@ static void TestLocalPlaybackBoundary()
     Equal(2, output.StopCount);
     Equal(4, output.PlayCount);
 
+    output.Position = TimeSpan.FromSeconds(31);
+    session.MarkPlaybackFailed(output.Position);
+    Equal(false, session.IsPlaying);
+    Equal(TimeSpan.FromSeconds(31), session.Position);
+    True(!session.RestartPlaybackOutput(),
+        "Zwykła zmiana urządzenia nie może samoczynnie uruchamiać świadomie zatrzymanej sesji.");
+    True(session.RestartPlaybackOutput(
+            TimeSpan.FromSeconds(31),
+            resumeIfStopped: true),
+        "Po zniknięciu urządzenia ręczny wybór sprawnego wyjścia powinien wznowić sesję.");
+    Equal(true, session.IsPlaying);
+    Equal(TimeSpan.FromSeconds(31), output.Position);
+
     output.Position = TimeSpan.FromSeconds(30);
     session.Seek(TimeSpan.FromSeconds(10));
     Equal(TimeSpan.FromSeconds(40), output.Position);

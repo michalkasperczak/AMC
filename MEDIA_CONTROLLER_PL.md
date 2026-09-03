@@ -4,6 +4,11 @@ Wersja dokumentu: 0.7, aktualny plan projektu
 
 Data aktualizacji: 29 sierpnia 2026 r.
 
+Od `alpha.220` zniknięcie jawnie wybranego urządzenia nie kasuje pozycji ani
+nie blokuje dalszego wyboru wyjścia. Ręczne wskazanie sprawnego zamiennika
+wznawia element przerwany utratą urządzenia. Zwykła zmiana urządzenia w
+świadomie zatrzymanej sesji tylko zapisuje wybór i nie uruchamia dźwięku.
+
 ## 1. Cel projektu
 
 Projekt zakłada stworzenie dostępnego kontrolera multimediów z jednym wspólnym rdzeniem poleceń, sesji i usług oraz kilkoma równorzędnymi sposobami obsługi. Program ma działać zarówno przez klasyczne okno, jak i przez konfigurowalny prefiks klawiaturowy używany bez przechodzenia do okna.

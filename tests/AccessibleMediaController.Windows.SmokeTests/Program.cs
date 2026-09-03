@@ -373,6 +373,8 @@ static void TestAudioOutputDeviceAccessibility()
     Assert(choices[0].Label == "Domyślne urządzenie systemowe", "Domyślne urządzenie nie ma stabilnej nazwy.");
     var unavailable = choices.Single(choice => choice.Id == missingDeviceId);
     Assert(!unavailable.IsAvailable, "Brakujące urządzenie nie zostało oznaczone jako niedostępne.");
+    Assert(!AudioOutputDeviceCatalog.IsAvailable(missingDeviceId),
+        "Nieistniejące urządzenie zostało uznane za gotowe do wznowienia odtwarzania.");
     Assert(unavailable.ToString() == unavailable.Label, "NVDA może otrzymać techniczny zapis wyboru urządzenia.");
     Assert(!unavailable.Label.Contains(missingDeviceId, StringComparison.Ordinal),
         "Identyfikator urządzenia wyciekł do dostępnej etykiety.");

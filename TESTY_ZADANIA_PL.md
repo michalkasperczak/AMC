@@ -1,14 +1,40 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-219`
-- Tytuł zestawu: Przejście z odcinka do podcastu nadrzędnego
-- Wersja programu: `0.1.0-alpha.219`
+- Numer zestawu: `AMC-TEST-220`
+- Tytuł zestawu: Odzyskiwanie dźwięku po zniknięciu urządzenia
+- Wersja programu: `0.1.0-alpha.220`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.219.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.220.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
 
-## Nowości alpha 219
+## Nowości alpha 220
+
+### AMC-220-01 — zniknięcie wybranego urządzenia
+
+Uruchom plik albo podcast na dodatkowym urządzeniu, odłącz lub wyłącz to
+urządzenie, a następnie przez `Shift+A` wybierz inne dostępne wyjście.
+
+Oczekiwane: AMC przyjmuje nowy wybór i ponownie uruchamia bieżący element od
+ostatniej bezpiecznej pozycji. Nie trzeba ponownie uruchamiać programu.
+
+### AMC-220-02 — radio i ponowny wybór wyjścia
+
+Powtórz zmianę w sesji Radio. Po zniknięciu urządzenia wybierz sprawne wyjście
+i sprawdź także ponowne uruchomienie tej samej stacji.
+
+Oczekiwane: radio staje się słyszalne na nowym urządzeniu; AMC nie pozostaje w
+niemym, zablokowanym stanie.
+
+### AMC-220-03 — świadomie wstrzymana sesja
+
+Wstrzymaj zwykły plik lub podcast, gdy urządzenie nadal jest dostępne, a potem
+zmień urządzenie przez `Shift+A`.
+
+Oczekiwane: wybór zostaje zapamiętany, ale świadomie wstrzymany materiał nie
+uruchamia się sam. Po ręcznym wznowieniu gra na nowym wyjściu.
+
+## Poprzedni zestaw alpha 219
 
 ### AMC-219-01 — przejście z odcinka do audycji
 

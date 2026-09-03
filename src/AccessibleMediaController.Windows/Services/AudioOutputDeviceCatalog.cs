@@ -119,6 +119,14 @@ internal static class AudioOutputDeviceCatalog
         return choices;
     }
 
+    public static bool IsAvailable(string? deviceId)
+    {
+        if (string.IsNullOrWhiteSpace(deviceId)) return true;
+        return Enumerate(deviceId).Any(choice =>
+            choice.IsAvailable
+            && string.Equals(choice.Id, deviceId, StringComparison.Ordinal));
+    }
+
     public static AudioOutputDeviceLease CreateOutput(string? deviceId, int latencyMilliseconds)
     {
         if (string.IsNullOrWhiteSpace(deviceId))

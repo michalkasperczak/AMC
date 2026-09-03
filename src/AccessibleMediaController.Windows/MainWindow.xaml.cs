@@ -4082,9 +4082,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        var previousDeviceId = GetSessionOutputDeviceId(session.Id);
+        var previousDeviceWasAvailable = AudioOutputDeviceCatalog.IsAvailable(previousDeviceId);
         var dialog = new AudioOutputDeviceWindow(
             session.DisplayName,
-            GetSessionOutputDeviceId(session.Id))
+            previousDeviceId)
         {
             Owner = this
         };
@@ -4094,13 +4096,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var previousDeviceId = GetSessionOutputDeviceId(session.Id);
         var previousPosition = session.Position;
+        var recoverAfterMissingDevice = !previousDeviceWasAvailable
+            && session.HasCurrentItem
+            && dialog.SelectedDeviceIsAvailable;
+        DiagnosticLog.Info(
+            "audio-device",
+            $"Zmiana wyjścia sesji {session.Id}; poprzednie dostępne: {previousDeviceWasAvailable}; "
+            + $"wybrane dostępne: {dialog.SelectedDeviceIsAvailable}; "
+            + $"odtwarzanie: {session.IsPlaying}; odzyskiwanie: {recoverAfterMissingDevice}.");
         ConfigureOutputDevice(session.Id, dialog.SelectedDeviceId);
         bool restarted;
         try
         {
-            restarted = session.RestartPlaybackOutput(previousPosition);
+            restarted = session.RestartPlaybackOutput(
+                previousPosition,
+                resumeIfStopped: recoverAfterMissingDevice);
         }
         catch (Exception exception)
         {
@@ -4111,7 +4122,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ConfigureOutputDevice(session.Id, previousDeviceId);
             try
             {
-                session.RestartPlaybackOutput(previousPosition);
+                session.RestartPlaybackOutput(
+                    previousPosition,
+                    resumeIfStopped: recoverAfterMissingDevice);
             }
             catch (Exception restoreException)
             {
@@ -5772,7 +5785,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void LocalOutput_PlaybackFailed(object? sender, MediaOutputFailedEventArgs e)
     {
         _cloudPreparingItemId = null;
-        _sessions.FindSession("local")?.MarkPlaybackFailed();
+        _sessions.FindSession("local")?.MarkPlaybackFailed(_localOutput.Position);
         RefreshPlaybackIndicators();
         if (_playerViewActive) UpdatePlayerView(true);
         UpdatePlaybackStatusBar();
@@ -5943,7 +5956,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void PodcastOutput_PlaybackFailed(object? sender, MediaOutputFailedEventArgs e)
     {
-        _sessions.FindSession("podcasts")?.MarkPlaybackFailed();
+        _sessions.FindSession("podcasts")?.MarkPlaybackFailed(_podcastOutput.Position);
         RefreshPlaybackIndicators();
         if (_playerViewActive
             && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))

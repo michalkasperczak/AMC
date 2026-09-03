@@ -1,5 +1,13 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.220` naprawia odzyskiwanie dźwięku po odłączeniu wcześniej
+wybranego urządzenia audio. AMC rozpoznaje, że zapamiętane wyjście zniknęło,
+zachowuje ostatnią bezpieczną pozycję i po ręcznym wybraniu dostępnego
+urządzenia ponownie uruchamia bieżący element. Świadomie zatrzymana albo
+wstrzymana sesja nadal nie uruchamia się tylko z powodu zwykłej zmiany
+urządzenia. Zmiana i wynik odzyskiwania są zapisywane w dzienniku bez
+ujawniania technicznego identyfikatora urządzenia.
+
 Wersja `alpha.219` dodaje polecenie **Przejdź do podcastu** dla odcinka
 widocznego w Nowych odcinkach, Ulubionych, Kolejce, Historii, playliście,
 wynikach wyszukiwania albo otwartym odtwarzaczu. Polecenie otwiera audycję

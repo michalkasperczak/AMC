@@ -1,5 +1,11 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.220` fixes audio recovery after a previously selected output
+device disappears. AMC retains the last safe position and, after the user
+selects an available replacement, restarts the current item. An intentionally
+paused or stopped session still remains silent during an ordinary device
+change. Device recovery is logged without exposing the endpoint identifier.
+
 Version `alpha.219` adds **Go to podcast** for an episode shown in New
 episodes, Favorites, Queue, History, a playlist, search results or the open
 player. The command opens the parent show, focuses the same episode and stores

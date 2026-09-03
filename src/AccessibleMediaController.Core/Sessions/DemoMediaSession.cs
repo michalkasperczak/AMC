@@ -120,11 +120,14 @@ public sealed class DemoMediaSession
         _output?.Stop();
     }
 
-    public bool RestartPlaybackOutput(TimeSpan? positionOverride = null)
+    public bool RestartPlaybackOutput(
+        TimeSpan? positionOverride = null,
+        bool resumeIfStopped = false)
     {
-        if (!HasCurrentItem || !IsPlaying || _output is null) return false;
+        if (!HasCurrentItem || _output is null || !IsPlaying && !resumeIfStopped) return false;
         _position = positionOverride ?? Position;
         _output.Stop();
+        IsPlaying = true;
         _output.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
         return true;
     }
@@ -686,13 +689,15 @@ public sealed class DemoMediaSession
         return CurrentItem;
     }
 
-    public void MarkPlaybackFailed()
+    public void MarkPlaybackFailed(TimeSpan? lastKnownPosition = null)
     {
         if (!HasCurrentItem) return;
         IsPlaying = false;
-        _position = TimeSpan.Zero;
+        _position = lastKnownPosition is { } position && position > TimeSpan.Zero
+            ? position
+            : TimeSpan.Zero;
+        StoreRememberedPosition(CurrentItem, _position);
         ResetQueueDiversion();
-        _output?.Seek(TimeSpan.Zero);
     }
 
     public bool ToggleFavorite(MediaItem item)
