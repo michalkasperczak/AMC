@@ -1,5 +1,9 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.212` nie powtarza na liście identycznej nazwy zapisanej w kilku
+polach metadanych. Jeśli kanał podcastu podaje ten sam tekst jako tytuł i autora,
+NVDA czyta go tylko raz; pozostałe różne informacje nadal są zachowane.
+
 Wersja `alpha.211` usuwa z początku użytkowej nazwy autora podcastu techniczne
 oznaczenia praw `℗`, `©`, `®` i `™`. Przykładowe `℗&© Polskie Radio PiK` jest
 czytane przez NVDA jako „Polskie Radio PiK”; oryginalna wartość kanału RSS

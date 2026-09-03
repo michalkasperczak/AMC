@@ -15,10 +15,11 @@ public static class MediaItemFormatter
     public static string Format(MediaItem item, IEnumerable<MediaItemField> fieldOrder)
     {
         var values = new List<string>();
+        var spokenValues = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
         foreach (var field in fieldOrder)
         {
-            var value = FieldValue(item, field);
-            if (!string.IsNullOrWhiteSpace(value)) values.Add(value);
+            var value = FieldValue(item, field)?.Trim();
+            if (!string.IsNullOrWhiteSpace(value) && spokenValues.Add(value)) values.Add(value);
         }
 
         return values.Count > 0 ? string.Join(", ", values) : item.Title;

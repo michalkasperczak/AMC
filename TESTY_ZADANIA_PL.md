@@ -1,12 +1,25 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-211`
-- Tytuł zestawu: Czytelni autorzy i spójny Escape
-- Wersja programu: `0.1.0-alpha.211`
+- Numer zestawu: `AMC-TEST-212`
+- Tytuł zestawu: Bez powtarzania identycznych metadanych
+- Wersja programu: `0.1.0-alpha.212`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.211.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.212.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowość alpha 212
+
+### AMC-212-01 — identyczny tytuł i autor podcastu
+
+W Bibliotece Podcastów odszukaj „ZACZYTAJ SIĘ Z RADIEM POZNAŃ” i przejdź na
+ten element strzałkami lub literami.
+
+Oczekiwane: NVDA mówi „ZACZYTAJ SIĘ Z RADIEM POZNAŃ, podcast” tylko raz.
+Jeżeli tytuł i autor są różne, nadal odczytuje obie informacje zgodnie z
+ustawioną kolejnością pól.
+
+## Poprzedni zestaw alpha 211
 
 ## Nowości alpha 211
 

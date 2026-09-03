@@ -1047,6 +1047,16 @@ static void TestMediaItemFormatting()
     Equal(
         "Do odsłuchu, 2:46:00",
         MediaItemFormatter.Format(withoutArtist, homogeneousFields));
+
+    var repeatedPodcastAuthor = new MediaItem
+    {
+        Title = "ZACZYTAJ SIĘ Z RADIEM POZNAŃ",
+        Artist = "zaczytaj się z radiem poznań",
+        Kind = MediaItemKind.Podcast
+    };
+    Equal(
+        "ZACZYTAJ SIĘ Z RADIEM POZNAŃ, podcast",
+        MediaItemFormatter.Format(repeatedPodcastAuthor, ListDisplaySettings.CreateDefaultFieldOrder()));
 }
 
 static void TestLocalLibraryImport()
