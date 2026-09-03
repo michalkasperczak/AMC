@@ -1681,3 +1681,25 @@ tym poleceniem pokazać właściwe cele, odtwarzacze lub strefy udostępnione pr
 adapter, a nie nieistniejącą kartę dźwiękową komputera. Sesja bez gotowego toru
 podaje jednoznaczny komunikat niedostępności zamiast milczeć lub zmieniać inną
 sesję.
+
+### 7.13. Wspólne sortowanie Biblioteki i Ulubionych
+
+Od `alpha.216` trwałe kolekcje mają wspólną, przewidywalną mapę. W Bibliotece
+i Ulubionych `Alt+1` oznacza kolejność dodania z najnowszymi elementami na
+początku, `Alt+2` kolejność alfabetyczną, a `Alt+3` kolejność własną. Tryb jest
+zapisywany osobno dla każdego widoku każdej sesji. Ponowne dodanie usuniętego
+elementu czyni go najnowszym; kolejność dodania, kolejność własna i wybór trybu
+przetrwają ponowne uruchomienie oraz migrację lokalnej bazy SQLite.
+
+Ręczne `Alt+strzałka w górę/w dół` działa wyłącznie po wybraniu `Alt+3`.
+Kolejka i playlista zachowują kolejność odtwarzania lub użytkownika bez
+przełączania tych trzech trybów, album zachowuje kolejność ścieżek, a wyniki
+wyszukiwania, Historia, Nowe odcinki i Nagrywane pozostają listami wyliczanymi
+bez ręcznego sortowania. Lokalna Biblioteka stanowi jawny wyjątek strukturalny:
+`Alt+1` otwiera Foldery, `Alt+2` Wszystkie pliki alfabetycznie, a `Alt+3`
+Kolejność własną. Lokalne Ulubione używają wspólnej reguły kolekcji.
+
+Rozpoznawanie skrótów opiera się na rzeczywiście wciśniętych modyfikatorach,
+nie na zapamiętanym stanie haka. Utracone po zmianie fokusu zdarzenie puszczenia
+klawisza Alt nie może więc zamienić późniejszej zwykłej cyfry w zmianę widoku
+ani przenieść użytkownika do innej sesji.

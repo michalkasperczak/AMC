@@ -315,6 +315,22 @@
                 <MenuItem x:Name="CustomLocalOrderViewMenuItem" Header="_Kolejność własna" InputGestureText="Alt+3" Click="CustomLocalOrderView_Click"
                           automation:AutomationProperties.Name="Kolejność własna Biblioteki lokalnej, Alt+3"
                           automation:AutomationProperties.AcceleratorKey="Alt+3" />
+                <Separator x:Name="CollectionSortSeparator" Visibility="Collapsed" />
+                <MenuItem x:Name="CollectionSortAddedMenuItem" Header="Według _dodania — najnowsze najpierw" InputGestureText="Alt+1"
+                          IsCheckable="True" Visibility="Collapsed"
+                          automation:AutomationProperties.Name="Według dodania, najnowsze najpierw, Alt+1"
+                          automation:AutomationProperties.AcceleratorKey="Alt+1"
+                          Click="CollectionSortAdded_Click" />
+                <MenuItem x:Name="CollectionSortAlphabeticalMenuItem" Header="_Alfabetycznie" InputGestureText="Alt+2"
+                          IsCheckable="True" Visibility="Collapsed"
+                          automation:AutomationProperties.Name="Alfabetycznie, Alt+2"
+                          automation:AutomationProperties.AcceleratorKey="Alt+2"
+                          Click="CollectionSortAlphabetical_Click" />
+                <MenuItem x:Name="CollectionSortCustomMenuItem" Header="Kolejność _własna" InputGestureText="Alt+3"
+                          IsCheckable="True" Visibility="Collapsed"
+                          automation:AutomationProperties.Name="Kolejność własna, Alt+3"
+                          automation:AutomationProperties.AcceleratorKey="Alt+3"
+                          Click="CollectionSortCustom_Click" />
                 <MenuItem x:Name="ActiveRadioRecordingsViewMenuItem" Header="_Nagrywane" InputGestureText="Alt+R" Click="ActiveRadioRecordingsView_Click"
                           automation:AutomationProperties.Name="Aktualnie nagrywane stacje, Alt+R. Escape wraca do wcześniejszego widoku"
                           automation:AutomationProperties.AcceleratorKey="Alt+R" Visibility="Collapsed" />

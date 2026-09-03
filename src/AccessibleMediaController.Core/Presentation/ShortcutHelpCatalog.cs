@@ -179,6 +179,9 @@ public static class ShortcutHelpCatalog
         yield return Info("lists", "Wróć poziom wyżej", "Backspace", "folder, album, playlista lub Zakładki");
         yield return Info("lists", "Oznajmij wielkość, bitrate i dostępne parametry elementu", "Strzałka w lewo", "lista multimediów lub wyniki wyszukiwania");
         yield return Info("lists", "Poprzedni lub następny widok", "Alt+strzałka w lewo lub w prawo", "lista multimediów");
+        yield return Info("lists", "Kolejność dodania, najnowsze na początku", "Alt+1", "Biblioteka lub Ulubione; lokalnie Alt+1 pokazuje foldery");
+        yield return Info("lists", "Kolejność alfabetyczna", "Alt+2", "Biblioteka lub Ulubione; lokalnie płaska lista plików");
+        yield return Info("lists", "Kolejność własna", "Alt+3", "Biblioteka lub Ulubione");
 
         yield return Info("collections", "Utwórz playlistę", "Insert", "lista playlist");
         yield return Info("collections", "Zmień nazwę playlisty", "F2", "lista playlist");

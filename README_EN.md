@@ -1,5 +1,27 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.216` gives persistent collections one consistent sorting map.
+In Library and Favorites, `Alt+1` selects added order with newest items first,
+`Alt+2` selects alphabetical order, and `Alt+3` selects persistent custom
+order. The choice is remembered independently for every view and session, and
+`Alt+Up/Down` moves items only in custom order. Queues and playlists retain
+playback/user order, albums retain track order, while Search, History, New
+episodes and Recording now do not capture these shortcuts. Local Library keeps
+its structural exception: `Alt+1` Folders, `Alt+2` flat alphabetical files and
+`Alt+3` Custom order; local Favorites use the shared collection rule. A plain
+digit can no longer be mistaken for `Alt+digit` after a rapid view change.
+
+Version `alpha.216` gives persistent collections one consistent sorting map.
+In Library and Favorites, `Alt+1` selects added order with newest items first,
+`Alt+2` selects alphabetical order, and `Alt+3` selects persistent custom
+order. The choice is remembered independently for every view and session, and
+`Alt+Up/Down` moves items only in custom order. Queues and playlists retain
+playback/user order, albums retain track order, while Search, History, New
+episodes and Recording now do not capture these shortcuts. Local Library keeps
+its structural exception: `Alt+1` Folders, `Alt+2` flat alphabetical files and
+`Alt+3` Custom order; local Favorites use the shared collection rule. A plain
+digit can no longer be mistaken for `Alt+digit` after a rapid view change.
+
 Version `alpha.207` fixes playback of remote Podcast episodes. The decoder now
 normalizes MP3, MP4 and other finite HTTP/HTTPS media to the floating-point
 format required by the shared playback-speed pipeline. The fix was verified

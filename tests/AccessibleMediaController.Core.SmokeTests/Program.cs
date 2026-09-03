@@ -2947,6 +2947,10 @@ static void TestSessionNavigationPersistence()
             {
                 ["Ulubione"] = "północ"
             },
+            CollectionSortModes = new Dictionary<string, CollectionSortMode>
+            {
+                ["Ulubione"] = CollectionSortMode.Alphabetical
+            },
             PlaybackContextView = "Ulubione",
             PlaybackContextItemIds = ["tidal-1", "tidal-14"]
         };
@@ -2963,6 +2967,7 @@ static void TestSessionNavigationPersistence()
         Equal(true, tidal.PlayerActive);
         Equal("tidal-14", tidal.SelectedItemIds["ulubione"]);
         Equal("północ", tidal.Filters["ULUBIONE"]);
+        Equal(CollectionSortMode.Alphabetical, tidal.CollectionSortModes["ULUBIONE"]);
         Equal("Ulubione", tidal.PlaybackContextView);
         True(tidal.PlaybackContextItemIds.SequenceEqual(["tidal-1", "tidal-14"]),
             "Kontekst odtwarzania powinien przetrwać ponowne uruchomienie.");
@@ -3006,6 +3011,9 @@ static void TestLocalMediaPersistence()
         state.LocalMedia.CustomOrderItemIds.Add("local-1");
         state.LocalMedia.ExcludedPaths.Add(@"C:\Muzyka\pomijany.mp3");
         state.CollectionOrders.FavoriteItemIdsBySession["local"] = ["local-1"];
+        state.CollectionOrders.FavoriteAddedItemIdsBySession["local"] = ["local-2", "local-1"];
+        state.CollectionOrders.LibraryAddedItemIdsBySession["radio"] = ["radio-2", "radio-1"];
+        state.CollectionOrders.LibraryItemIdsBySession["radio"] = ["radio-1", "radio-2"];
         state.CollectionOrders.QueueItemIdsBySession["local"] = ["local-1"];
         state.LocalMedia.Items.Add(new LocalMediaItemSettings
         {
@@ -3083,6 +3091,15 @@ static void TestLocalMediaPersistence()
         Equal(TimeSpan.FromSeconds(10).Ticks, secondItem.ClipStartTicks);
         Equal(TimeSpan.FromSeconds(20).Ticks, secondItem.ClipEndTicks);
         Equal("local-1", loaded.CollectionOrders.FavoriteItemIdsBySession["LOCAL"].Single());
+        True(
+            loaded.CollectionOrders.FavoriteAddedItemIdsBySession["LOCAL"].SequenceEqual(["local-2", "local-1"]),
+            "Kolejność dodawania ulubionych powinna przetrwać zapis w lokalnej bazie.");
+        True(
+            loaded.CollectionOrders.LibraryAddedItemIdsBySession["RADIO"].SequenceEqual(["radio-2", "radio-1"]),
+            "Kolejność dodawania do biblioteki powinna przetrwać zapis w lokalnej bazie.");
+        True(
+            loaded.CollectionOrders.LibraryItemIdsBySession["RADIO"].SequenceEqual(["radio-1", "radio-2"]),
+            "Kolejność własna biblioteki powinna przetrwać zapis w lokalnej bazie.");
         Equal("local-1", loaded.CollectionOrders.QueueItemIdsBySession["LOCAL"].Single());
 
         var output = new FakeMediaOutput();
@@ -3372,7 +3389,7 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+O", entries.Single(entry => entry.CommandId == CommandIds.OpenLocalFolder).LocalShortcut);
     Equal("Ctrl+P", entries.Single(entry => entry.CommandId == CommandIds.ViewPlaylists).LocalShortcut);
     Equal("Ctrl+Shift+P", entries.Single(entry => entry.CommandId == CommandIds.ManagePlaylists).LocalShortcut);
-    Equal("Ctrl+L lub Alt+1 (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ViewLibrary).LocalShortcut);
+    Equal("Ctrl+L", entries.Single(entry => entry.CommandId == CommandIds.ViewLibrary).LocalShortcut);
     Equal("Ctrl+Alt+P (Pliki lokalne lub Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ViewRadioPresets).LocalShortcut);
     Equal("Ctrl+Alt+Shift+P (Pliki lokalne lub Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.AssignRadioPreset).LocalShortcut);
     Equal("T (odtwarzacz radia lub widok Nagrywane)", entries.Single(entry => entry.CommandId == CommandIds.SplitRadioRecording).LocalShortcut);

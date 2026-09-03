@@ -1,5 +1,17 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.216` ujednolica sortowanie trwałych kolekcji. W Bibliotece i
+Ulubionych `Alt+1` wybiera kolejność dodania z najnowszymi pozycjami na
+początku, `Alt+2` — alfabet, a `Alt+3` — trwałą kolejność własną. Wybrany
+sposób jest pamiętany osobno dla widoku i sesji. Dopiero w kolejności własnej
+`Alt+strzałka w górę/w dół` przenosi pozycje. Kolejki i playlisty zachowują
+kolejność odtwarzania, albumy kolejność ścieżek, a wyszukiwanie, Historia,
+Nowe odcinki i Nagrywane nie przejmują tych skrótów. Lokalna Biblioteka
+zachowuje wcześniejszy wyjątek: `Alt+1` to Foldery, `Alt+2` płaska lista
+alfabetyczna, `Alt+3` Kolejność własna; w lokalnych Ulubionych obowiązuje już
+wspólna reguła kolekcji. Zwykłe cyfry nie mogą zostać potraktowane jako
+`Alt+cyfra` po szybkim przejściu między widokami.
+
 Wersja `alpha.213` utrzymuje fokus na liście po Escape użytym na najwyższym
 poziomie widoku; klawisz nie przenosi już użytkownika do pola filtra. Pusta
 skrzynka Podcastów mówi „Brak nowych odcinków”, a `F5` użyte w skrzynce

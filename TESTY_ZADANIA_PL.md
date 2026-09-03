@@ -1,12 +1,62 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-213`
-- Tytuł zestawu: Fokus Escape i odświeżanie skrzynki Podcastów
-- Wersja programu: `0.1.0-alpha.213`
+- Numer zestawu: `AMC-TEST-216`
+- Tytuł zestawu: Spójne sortowanie Biblioteki i Ulubionych
+- Wersja programu: `0.1.0-alpha.216`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.213.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.216.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 216
+
+### AMC-216-01 — Ulubione: trzy porządki
+
+W dowolnej sesji dodaj do Ulubionych kilka elementów w kolejności innej niż
+alfabetyczna. Otwórz `Ctrl+U`, a następnie sprawdź `Alt+1`, `Alt+2` i `Alt+3`.
+
+Oczekiwane: `Alt+1` pokazuje ostatnio dodany element na początku, `Alt+2`
+układa alfabetycznie, a `Alt+3` otwiera kolejność własną. Tylko po `Alt+3`
+`Alt+strzałka w górę/w dół` przenosi element. NVDA podaje tryb, sesję i
+zachowuje fokus na tym samym elemencie.
+
+### AMC-216-02 — Biblioteka Radia i Podcastów
+
+W Bibliotece Radia oraz Podcastów powtórz `Alt+1`, `Alt+2` i `Alt+3`.
+Przenieś element w trybie własnym, przełącz widok i wróć.
+
+Oczekiwane: znaczenia klawiszy są identyczne jak w Ulubionych, a własna
+kolejność pozostaje zapisana. `Ctrl+L` nadal otwiera Bibliotekę i nie jest
+zastępowany przez skrót sortowania.
+
+### AMC-216-03 — wyjątek Plików lokalnych
+
+W lokalnej Bibliotece sprawdź `Alt+1`, `Alt+2`, `Alt+3`, a potem przejdź do
+lokalnych Ulubionych i ponów te skróty.
+
+Oczekiwane: w Bibliotece są to nadal Foldery, Wszystkie pliki alfabetycznie i
+Kolejność własna. W Ulubionych są to kolejność dodania, alfabet i kolejność
+własna, tak jak w pozostałych sesjach.
+
+### AMC-216-04 — listy wyliczane i zwykłe cyfry
+
+Sprawdź cyfry z Altem w Historii, wynikach wyszukiwania, Nowych odcinkach i
+widoku Nagrywane. Następnie szybko użyj `Alt+2`, puść Alt i naciśnij zwykłe
+`2` albo inną literę nawigacji.
+
+Oczekiwane: listy tymczasowe nie zmieniają sposobu sortowania ani sesji.
+Zwykła cyfra pozostaje zwykłą cyfrą i nie jest odczytywana jako `Alt+2`.
+
+### AMC-216-05 — zapis i ponowne dodanie
+
+W Ulubionych wybierz `Alt+3`, ustaw własną kolejność, zamknij bezpiecznie AMC
+i uruchom ponownie. Następnie usuń jeden element z Ulubionych, dodaj go znowu
+i wybierz `Alt+1`.
+
+Oczekiwane: program pamięta tryb i kolejność własną. Ponownie dodany element
+jest najnowszy i pojawia się na początku kolejności dodania.
+
+## Poprzedni zestaw alpha 213
 
 ## Nowości alpha 213
 

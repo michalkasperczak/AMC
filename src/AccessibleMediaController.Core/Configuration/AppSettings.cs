@@ -23,6 +23,13 @@ public enum ResumePositionMode
     StartFromBeginning
 }
 
+public enum CollectionSortMode
+{
+    AddedNewest,
+    Alphabetical,
+    Custom
+}
+
 public enum RadioRecognitionScope
 {
     CurrentStation,
@@ -219,7 +226,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 41;
+    public int SchemaVersion { get; set; } = 42;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -338,6 +345,8 @@ public sealed class SessionNavigationState
         new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, string> Filters { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, CollectionSortMode> CollectionSortModes { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
     public string PlaybackContextView { get; set; } = "Multimedia";
     public List<string> PlaybackContextItemIds { get; set; } = [];
     public bool PlayerActive { get; set; }
@@ -345,7 +354,13 @@ public sealed class SessionNavigationState
 
 public sealed class CollectionOrderSettings
 {
+    public Dictionary<string, List<string>> FavoriteAddedItemIdsBySession { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, List<string>> FavoriteItemIdsBySession { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, List<string>> LibraryAddedItemIdsBySession { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, List<string>> LibraryItemIdsBySession { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, List<string>> QueueItemIdsBySession { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);

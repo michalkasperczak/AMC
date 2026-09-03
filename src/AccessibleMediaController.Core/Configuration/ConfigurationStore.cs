@@ -12,7 +12,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 41;
+    public const int CurrentSchemaVersion = 42;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -560,6 +560,9 @@ public sealed class ConfigurationStore
             session.Filters = new Dictionary<string, string>(
                 session.Filters ?? new Dictionary<string, string>(),
                 StringComparer.OrdinalIgnoreCase);
+            session.CollectionSortModes = new Dictionary<string, CollectionSortMode>(
+                session.CollectionSortModes ?? new Dictionary<string, CollectionSortMode>(),
+                StringComparer.OrdinalIgnoreCase);
             session.PlaybackContextView = string.IsNullOrWhiteSpace(session.PlaybackContextView)
                 ? "Multimedia"
                 : session.PlaybackContextView;
@@ -570,6 +573,8 @@ public sealed class ConfigurationStore
         }
 
         state.CollectionOrders ??= new CollectionOrderSettings();
+        state.CollectionOrders.FavoriteAddedItemIdsBySession = NormalizeOrderDictionary(
+            state.CollectionOrders.FavoriteAddedItemIdsBySession);
         state.CollectionOrders.FavoriteItemIdsBySession = new Dictionary<string, List<string>>(
             (state.CollectionOrders.FavoriteItemIdsBySession
                 ?? new Dictionary<string, List<string>>())
@@ -581,6 +586,10 @@ public sealed class ConfigurationStore
                     .ToList(),
                 StringComparer.OrdinalIgnoreCase),
             StringComparer.OrdinalIgnoreCase);
+        state.CollectionOrders.LibraryAddedItemIdsBySession = NormalizeOrderDictionary(
+            state.CollectionOrders.LibraryAddedItemIdsBySession);
+        state.CollectionOrders.LibraryItemIdsBySession = NormalizeOrderDictionary(
+            state.CollectionOrders.LibraryItemIdsBySession);
         state.CollectionOrders.QueueItemIdsBySession = new Dictionary<string, List<string>>(
             (state.CollectionOrders.QueueItemIdsBySession
                 ?? new Dictionary<string, List<string>>())
@@ -593,6 +602,19 @@ public sealed class ConfigurationStore
                 StringComparer.OrdinalIgnoreCase),
             StringComparer.OrdinalIgnoreCase);
     }
+
+    private static Dictionary<string, List<string>> NormalizeOrderDictionary(
+        Dictionary<string, List<string>>? source) =>
+        new(
+            (source ?? new Dictionary<string, List<string>>())
+            .ToDictionary(
+                pair => pair.Key,
+                pair => (pair.Value ?? [])
+                    .Where(itemId => !string.IsNullOrWhiteSpace(itemId))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase),
+            StringComparer.OrdinalIgnoreCase);
 
     private static int NormalizeRadioRecordingBitrate(int bitrateKbps)
     {

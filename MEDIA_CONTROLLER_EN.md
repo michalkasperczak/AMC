@@ -1569,3 +1569,39 @@ selection under `Shift+A`. An external-device session such as WiiM will instead 
 adapter-provided targets, players, or zones, not a fictitious computer sound
 card. A session without a working pipeline gives an explicit unavailable message
 instead of remaining silent or switching another session.
+
+### 7.13. Shared Library and Favorites sorting
+
+Starting with `alpha.216`, persistent collections use one predictable map. In
+Library and Favorites, `Alt+1` means added order with newest items first,
+`Alt+2` alphabetical order, and `Alt+3` custom order. The mode is stored per
+view and per session. Removing and adding an item again makes it newest; added
+order, custom order and the selected mode survive restart and SQLite migration.
+
+Manual `Alt+Up/Down` is available only after selecting `Alt+3`. Queue and
+playlist retain playback or user order without these three modes, albums retain
+track order, and Search, History, New episodes and Recording now remain derived
+lists without manual sorting. Local Library is the explicit structural
+exception: `Alt+1` opens Folders, `Alt+2` All files alphabetically and `Alt+3`
+Custom order. Local Favorites use the shared collection rule. Shortcut routing
+uses modifiers that are physically down rather than a cached hook state, so a
+missed Alt key-up after focus movement cannot turn a later plain digit into a
+view command or a session change.
+
+### 7.13. Shared Library and Favorites sorting
+
+Starting with `alpha.216`, persistent collections use one predictable map. In
+Library and Favorites, `Alt+1` means added order with newest items first,
+`Alt+2` alphabetical order, and `Alt+3` custom order. The mode is stored per
+view and per session. Removing and adding an item again makes it newest; added
+order, custom order and the selected mode survive restart and SQLite migration.
+
+Manual `Alt+Up/Down` is available only after selecting `Alt+3`. Queue and
+playlist retain playback or user order without these three modes, albums retain
+track order, and Search, History, New episodes and Recording now remain derived
+lists without manual sorting. Local Library is the explicit structural
+exception: `Alt+1` opens Folders, `Alt+2` All files alphabetically and `Alt+3`
+Custom order. Local Favorites use the shared collection rule. Shortcut routing
+uses modifiers that are physically down rather than a cached hook state, so a
+missed Alt key-up after focus movement cannot turn a later plain digit into a
+view command or a session change.

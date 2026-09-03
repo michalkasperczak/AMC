@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 /// </summary>
 internal sealed class LocalLibraryDatabase(string databasePath)
 {
-    private const int DatabaseSchemaVersion = 5;
+    private const int DatabaseSchemaVersion = 6;
     private readonly object _gate = new();
 
     public string Path { get; } = databasePath;
@@ -218,6 +218,10 @@ internal sealed class LocalLibraryDatabase(string databasePath)
             }
 
             state.CollectionOrders = new CollectionOrderSettings();
+            ReadSessionOrders(
+                connection,
+                "favorite_added_order",
+                state.CollectionOrders.FavoriteAddedItemIdsBySession);
             using (var command = connection.CreateCommand())
             {
                 command.CommandText = "SELECT session_id, item_id FROM favorite_order ORDER BY session_id, ordinal;";
@@ -233,6 +237,15 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                     ids.Add(reader.GetString(1));
                 }
             }
+
+            ReadSessionOrders(
+                connection,
+                "library_added_order",
+                state.CollectionOrders.LibraryAddedItemIdsBySession);
+            ReadSessionOrders(
+                connection,
+                "library_custom_order",
+                state.CollectionOrders.LibraryItemIdsBySession);
 
             using (var command = connection.CreateCommand())
             {
@@ -408,6 +421,24 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 item_id TEXT NOT NULL,
                 PRIMARY KEY(session_id, ordinal)
             );
+            CREATE TABLE IF NOT EXISTS favorite_added_order (
+                session_id TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                item_id TEXT NOT NULL,
+                PRIMARY KEY(session_id, ordinal)
+            );
+            CREATE TABLE IF NOT EXISTS library_added_order (
+                session_id TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                item_id TEXT NOT NULL,
+                PRIMARY KEY(session_id, ordinal)
+            );
+            CREATE TABLE IF NOT EXISTS library_custom_order (
+                session_id TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                item_id TEXT NOT NULL,
+                PRIMARY KEY(session_id, ordinal)
+            );
             CREATE TABLE IF NOT EXISTS queue_order (
                 session_id TEXT NOT NULL,
                 ordinal INTEGER NOT NULL,
@@ -465,7 +496,9 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                  {
                      "local_items", "folder_sources", "folder_playback_options",
                      "excluded_paths", "custom_order", "local_state", "bookmarks",
-                     "playback_history", "favorite_order", "queue_order", "playlist_items", "playlists"
+                     "playback_history", "favorite_added_order", "favorite_order",
+                     "library_added_order", "library_custom_order", "queue_order",
+                     "playlist_items", "playlists"
                  })
         {
             Execute(connection, transaction, $"DELETE FROM {table};");
@@ -569,6 +602,12 @@ internal sealed class LocalLibraryDatabase(string databasePath)
             }
         }
 
+        InsertSessionOrders(
+            connection,
+            transaction,
+            "favorite_added_order",
+            state.CollectionOrders.FavoriteAddedItemIdsBySession);
+
         foreach (var pair in state.CollectionOrders.FavoriteItemIdsBySession)
         {
             for (var index = 0; index < pair.Value.Count; index++)
@@ -578,6 +617,17 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                     ("$session", pair.Key), ("$ordinal", index), ("$item", pair.Value[index]));
             }
         }
+
+        InsertSessionOrders(
+            connection,
+            transaction,
+            "library_added_order",
+            state.CollectionOrders.LibraryAddedItemIdsBySession);
+        InsertSessionOrders(
+            connection,
+            transaction,
+            "library_custom_order",
+            state.CollectionOrders.LibraryItemIdsBySession);
 
         foreach (var pair in state.CollectionOrders.QueueItemIdsBySession)
         {
@@ -618,6 +668,47 @@ internal sealed class LocalLibraryDatabase(string databasePath)
             """,
             ("$value", DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)));
         transaction.Commit();
+    }
+
+    private static void ReadSessionOrders(
+        SqliteConnection connection,
+        string table,
+        IDictionary<string, List<string>> destination)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT session_id, item_id FROM {table} ORDER BY session_id, ordinal;";
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var sessionId = reader.GetString(0);
+            if (!destination.TryGetValue(sessionId, out var ids))
+            {
+                ids = [];
+                destination[sessionId] = ids;
+            }
+            ids.Add(reader.GetString(1));
+        }
+    }
+
+    private static void InsertSessionOrders(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string table,
+        IReadOnlyDictionary<string, List<string>> source)
+    {
+        foreach (var pair in source)
+        {
+            for (var index = 0; index < pair.Value.Count; index++)
+            {
+                Execute(
+                    connection,
+                    transaction,
+                    $"INSERT INTO {table}(session_id, ordinal, item_id) VALUES($session, $ordinal, $item);",
+                    ("$session", pair.Key),
+                    ("$ordinal", index),
+                    ("$item", pair.Value[index]));
+            }
+        }
     }
 
     private static void InsertOrderedStrings(

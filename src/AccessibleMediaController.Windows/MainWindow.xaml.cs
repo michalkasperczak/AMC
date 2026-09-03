@@ -2419,6 +2419,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var radio = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
         var local = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
         var podcasts = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
+        if (commandId is CommandIds.SortCollectionByAdded
+            or CommandIds.SortCollectionAlphabetically
+            or CommandIds.SortCollectionCustom)
+        {
+            return CurrentViewSupportsCollectionSorting();
+        }
         if (!podcasts && commandId is CommandIds.AddPodcast
             or CommandIds.ImportPodcastOpml
             or CommandIds.RefreshPodcast
@@ -3582,9 +3588,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ImportPodcastOpmlMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         RefreshAllPodcastsMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         FileActionsSeparator.Visibility = local || radio || podcasts ? Visibility.Visible : Visibility.Collapsed;
-        FoldersViewMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
-        AllLocalFilesViewMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
-        CustomLocalOrderViewMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        var collectionSorting = CurrentViewSupportsCollectionSorting();
+        var localLibraryLayouts = local && !collectionSorting;
+        FoldersViewMenuItem.Visibility = localLibraryLayouts ? Visibility.Visible : Visibility.Collapsed;
+        AllLocalFilesViewMenuItem.Visibility = localLibraryLayouts ? Visibility.Visible : Visibility.Collapsed;
+        CustomLocalOrderViewMenuItem.Visibility = localLibraryLayouts ? Visibility.Visible : Visibility.Collapsed;
+        var collectionSortVisibility = collectionSorting ? Visibility.Visible : Visibility.Collapsed;
+        CollectionSortSeparator.Visibility = collectionSortVisibility;
+        CollectionSortAddedMenuItem.Visibility = collectionSortVisibility;
+        CollectionSortAlphabeticalMenuItem.Visibility = collectionSortVisibility;
+        CollectionSortCustomMenuItem.Visibility = collectionSortVisibility;
+        var collectionSortMode = CurrentCollectionSortMode();
+        CollectionSortAddedMenuItem.IsChecked = collectionSorting
+            && collectionSortMode == CollectionSortMode.AddedNewest;
+        CollectionSortAlphabeticalMenuItem.IsChecked = collectionSorting
+            && collectionSortMode == CollectionSortMode.Alphabetical;
+        CollectionSortCustomMenuItem.IsChecked = collectionSorting
+            && collectionSortMode == CollectionSortMode.Custom;
         ActiveRadioRecordingsViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         RadioRecognitionHistoryViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         PodcastInboxViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
@@ -3610,10 +3630,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         MenuAccessibility.SetPresentation(
             LibraryViewMenuItem,
             radio ? "Wszystkie stacje" : "Biblioteka");
-        LibraryViewMenuItem.InputGestureText = radio ? "Ctrl+L lub Alt+1" : "Ctrl+L";
+        LibraryViewMenuItem.InputGestureText = "Ctrl+L";
         AutomationProperties.SetAcceleratorKey(
             LibraryViewMenuItem,
-            radio ? "Ctrl+L lub Alt+1" : "Ctrl+L");
+            "Ctrl+L");
         MenuAccessibility.SetPresentation(
             RenameLibraryItemMainMenuItem,
             radio
@@ -3622,7 +3642,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     ? "Zmień nazwę podcastu…"
                     : "Zmień nazwę w Bibliotece…");
         var movableView = !_playerViewActive
-            && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+            && (CurrentViewUsesCustomCollectionOrder()
                 || !radio && string.Equals(_currentView, "Kolejka", StringComparison.Ordinal)
                 || local && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
                 || TryGetPlaylistIdFromView(_currentView, out _));
@@ -5909,6 +5929,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string commandId,
         FolderContentsActionContext? folderContext)
     {
+        if (commandId is CommandIds.SortCollectionByAdded
+            or CommandIds.SortCollectionAlphabetically
+            or CommandIds.SortCollectionCustom)
+        {
+            SetCurrentCollectionSortMode(commandId switch
+            {
+                CommandIds.SortCollectionAlphabetically => CollectionSortMode.Alphabetical,
+                CommandIds.SortCollectionCustom => CollectionSortMode.Custom,
+                _ => CollectionSortMode.AddedNewest
+            });
+            return new CommandExecutionResult(true);
+        }
         if (commandId == CommandIds.MarkClipStart)
         {
             MarkClipStart();
@@ -6334,6 +6366,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 }
             }
             CaptureRadioState();
+        }
+        if (result.Handled && changedSession is not null)
+        {
+            UpdateCollectionAddedOrders(changedSession, previousMemberships);
         }
         if (changedSession is not null)
         {
@@ -6881,8 +6917,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_currentView == "Ulubione")
         {
             var favoriteItems = items.Where(item => item.IsFavorite).ToArray();
-            var favoriteOrder = EnsureFavoriteOrder(_sessions.Current, favoriteItems);
-            items = LocalLibraryManualOrder.Order(favoriteItems, favoriteOrder);
+            items = OrderCurrentCollection(_sessions.Current, _currentView, favoriteItems);
         }
         if (_currentView == "Playlisty") items = items.Where(item => item.Kind == MediaItemKind.Playlist);
         if (_currentView == "Biblioteka")
@@ -6897,9 +6932,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             else if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
             {
                 items = items
-                    .Where(item => item.Kind == MediaItemKind.Podcast)
-                    .OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase);
+                    .Where(item => item.Kind == MediaItemKind.Podcast);
             }
+            if (!string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+                items = OrderCurrentCollection(_sessions.Current, _currentView, items);
         }
         if (_currentView == "Kolejka") items = OrderedQueueItems(_sessions.Current);
         if (_currentView == "Albumy") items = items.Where(item => item.Kind == MediaItemKind.Album);
@@ -7074,6 +7110,140 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             initializeAlphabetically: true);
     }
 
+    private bool CurrentViewSupportsCollectionSorting() =>
+        string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+        || string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal)
+           && !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
+
+    private bool CurrentViewUsesCustomCollectionOrder() =>
+        CurrentViewSupportsCollectionSorting()
+        && CurrentCollectionSortMode() == CollectionSortMode.Custom;
+
+    private CollectionSortMode CurrentCollectionSortMode()
+    {
+        if (!CurrentViewSupportsCollectionSorting()) return CollectionSortMode.AddedNewest;
+        return GetSessionNavigationState(_sessions.Current.Id)
+            .CollectionSortModes
+            .GetValueOrDefault(_currentView, CollectionSortMode.AddedNewest);
+    }
+
+    private void SetCurrentCollectionSortMode(CollectionSortMode mode)
+    {
+        if (!CurrentViewSupportsCollectionSorting())
+        {
+            Announce("Sortowanie Alt+1, Alt+2 i Alt+3 działa w Bibliotece i Ulubionych");
+            return;
+        }
+
+        var selectedId = SelectedItem?.Id;
+        GetSessionNavigationState(_sessions.Current.Id).CollectionSortModes[_currentView] = mode;
+        RefreshCurrentView(preferredItemId: selectedId);
+        var label = mode switch
+        {
+            CollectionSortMode.Alphabetical => "Alfabetycznie",
+            CollectionSortMode.Custom => "Kolejność własna",
+            _ => "Według dodania, najnowsze na początku"
+        };
+        PrepareViewFocusContext($"{_currentView}, {label}, {_sessions.Current.DisplayName}");
+        RestoreMediaListFocusAfterRefresh();
+        if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+            TrySaveLocalMediaState(false);
+        else
+            QueueStateSave();
+    }
+
+    private IReadOnlyList<MediaItem> OrderCurrentCollection(
+        DemoMediaSession session,
+        string viewName,
+        IEnumerable<MediaItem> source)
+    {
+        var items = source.ToArray();
+        return CurrentCollectionSortMode() switch
+        {
+            CollectionSortMode.Alphabetical => items
+                .OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(item => item.Artist, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(item => item.Id, StringComparer.Ordinal)
+                .ToArray(),
+            CollectionSortMode.Custom => LocalLibraryManualOrder.Order(
+                items,
+                EnsureCollectionOrder(session, viewName, items, custom: true)),
+            _ => LocalLibraryManualOrder.Order(
+                    items,
+                    EnsureCollectionOrder(session, viewName, items, custom: false))
+                .Reverse()
+                .ToArray()
+        };
+    }
+
+    private List<string> EnsureCollectionOrder(
+        DemoMediaSession session,
+        string viewName,
+        IReadOnlyList<MediaItem> items,
+        bool custom)
+    {
+        Dictionary<string, List<string>> orders;
+        if (string.Equals(viewName, "Ulubione", StringComparison.Ordinal))
+        {
+            orders = custom
+                ? _state.CollectionOrders.FavoriteItemIdsBySession
+                : _state.CollectionOrders.FavoriteAddedItemIdsBySession;
+        }
+        else
+        {
+            orders = custom
+                ? _state.CollectionOrders.LibraryItemIdsBySession
+                : _state.CollectionOrders.LibraryAddedItemIdsBySession;
+        }
+
+        var normalized = LocalLibraryManualOrder.Normalize(
+            orders.GetValueOrDefault(session.Id),
+            items);
+        orders[session.Id] = normalized;
+        return normalized;
+    }
+
+    private void UpdateCollectionAddedOrders(
+        DemoMediaSession session,
+        IEnumerable<(MediaItem Item, MediaMembershipState Previous)> changes)
+    {
+        foreach (var (item, previous) in changes)
+        {
+            UpdateAddedOrder(
+                _state.CollectionOrders.FavoriteAddedItemIdsBySession,
+                session.Id,
+                item.Id,
+                previous.IsFavorite,
+                item.IsFavorite);
+            if (!string.Equals(session.Id, "local", StringComparison.OrdinalIgnoreCase))
+            {
+                UpdateAddedOrder(
+                    _state.CollectionOrders.LibraryAddedItemIdsBySession,
+                    session.Id,
+                    item.Id,
+                    previous.IsInLibrary,
+                    item.IsInLibrary);
+            }
+        }
+    }
+
+    private static void UpdateAddedOrder(
+        IDictionary<string, List<string>> orders,
+        string sessionId,
+        string itemId,
+        bool wasMember,
+        bool isMember)
+    {
+        if (wasMember == isMember) return;
+        if (!orders.TryGetValue(sessionId, out var order))
+        {
+            order = [];
+            orders[sessionId] = order;
+        }
+        order.RemoveAll(candidate => string.Equals(candidate, itemId, StringComparison.Ordinal));
+        if (isMember) order.Add(itemId);
+    }
+
     private List<string> EnsureFavoriteOrder(
         DemoMediaSession session,
         IEnumerable<MediaItem>? favoriteItems = null)
@@ -7137,15 +7307,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
             && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal);
         var isFavoriteOrder = !_playerViewActive
-            && string.Equals(_currentView, "Ulubione", StringComparison.Ordinal);
+            && string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+            && CurrentCollectionSortMode() == CollectionSortMode.Custom;
+        var isCustomLibraryOrder = !_playerViewActive
+            && string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal)
+            && !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+            && CurrentCollectionSortMode() == CollectionSortMode.Custom;
         var isQueueOrder = !_playerViewActive
             && string.Equals(_currentView, "Kolejka", StringComparison.Ordinal);
         var playlistId = string.Empty;
         var isPlaylistOrder = !_playerViewActive
             && TryGetPlaylistIdFromView(_currentView, out playlistId);
-        if (!isCustomLocalOrder && !isFavoriteOrder && !isQueueOrder && !isPlaylistOrder)
+        if (!isCustomLocalOrder && !isFavoriteOrder && !isCustomLibraryOrder && !isQueueOrder && !isPlaylistOrder)
         {
-            Announce("Ręczne przenoszenie działa w Kolejności własnej, Ulubionych, Kolejce oraz otwartej playliście");
+            Announce("Ręczne przenoszenie działa w Kolejności własnej, Kolejce oraz otwartej playliście. W Bibliotece lub Ulubionych wybierz najpierw Alt+3");
             return;
         }
         if (!string.IsNullOrWhiteSpace(FilterBox.Text))
@@ -7175,6 +7350,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (isFavoriteOrder)
         {
             storedOrder = EnsureFavoriteOrder(_sessions.Current);
+        }
+        else if (isCustomLibraryOrder)
+        {
+            storedOrder = EnsureCollectionOrder(
+                _sessions.Current,
+                _currentView,
+                _unfilteredItems.Select(row => row.ActionItem).ToArray(),
+                custom: true);
         }
         else if (isQueueOrder)
         {
@@ -7970,6 +8153,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 item.IsPlayNext = false;
             }
         }
+        UpdateCollectionAddedOrders(_sessions.Current, previousMemberships);
         if (string.Equals(_currentView, "Kolejka", StringComparison.Ordinal))
         {
             EnsureQueueOrder(_sessions.Current);
@@ -8085,6 +8269,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        var preUndoMemberships = membershipCandidate?.Items
+            .Select(entry => (entry.Item, Previous: MediaMembershipState.From(entry.Item)))
+            .ToArray() ?? [];
         var undo = _membershipHistory.Undo();
         if (undo is null)
         {
@@ -8096,6 +8283,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         RestoreMembershipOrder(undo);
+        var undoSession = _sessions.FindSession(undo.SessionId);
+        if (undoSession is not null)
+        {
+            UpdateCollectionAddedOrders(undoSession, preUndoMemberships);
+        }
 
         if (string.Equals(undo.SessionId, "local", StringComparison.Ordinal))
         {
@@ -10430,10 +10622,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private ModifierKeys ReadEffectiveModifierKeys()
     {
         var modifiers = Keyboard.Modifiers | ReadNativeModifierKeys();
-        if (_nativeControlDown) modifiers |= ModifierKeys.Control;
-        if (_nativeShiftDown) modifiers |= ModifierKeys.Shift;
-        if (_nativeAltDown) modifiers |= ModifierKeys.Alt;
-        if (_nativeWindowsDown) modifiers |= ModifierKeys.Windows;
+        // Stan zapamiętany przez hook jest tylko diagnostyczny. Po szybkim
+        // przełączeniu widoku komunikat KeyUp może trafić już do innego okna;
+        // nie wolno wtedy uznać kolejnej zwykłej cyfry za Alt+cyfra.
+        _nativeControlDown = modifiers.HasFlag(ModifierKeys.Control);
+        _nativeShiftDown = modifiers.HasFlag(ModifierKeys.Shift);
+        _nativeAltDown = modifiers.HasFlag(ModifierKeys.Alt);
+        _nativeWindowsDown = modifiers.HasFlag(ModifierKeys.Windows);
         return modifiers;
     }
 
@@ -10961,7 +11156,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var numberedViewCommand = MainWindowShortcutRouter.ResolveNumberedView(
             key,
             modifiers,
-            _sessions.Current.Id);
+            _sessions.Current.Id,
+            _currentView);
         if (numberedViewCommand is not null)
         {
             commandId = numberedViewCommand;
@@ -11194,7 +11390,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (MediaList.IsKeyboardFocusWithin
             && modifiers == ModifierKeys.Alt
             && key is Key.Up or Key.Down
-            && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+            && (CurrentViewUsesCustomCollectionOrder()
                 || string.Equals(_currentView, "Kolejka", StringComparison.Ordinal)
                 || string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
                    && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
@@ -11455,8 +11651,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         var numberedViewCommand = MainWindowShortcutRouter.ResolveNumberedView(
             key,
-            Keyboard.Modifiers,
-            _sessions.Current.Id);
+            effectiveModifiers,
+            _sessions.Current.Id,
+            _currentView);
         if (numberedViewCommand is not null)
         {
             ExecuteCommand(numberedViewCommand);
@@ -11471,8 +11668,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return true;
         }
         if (MediaList.IsKeyboardFocusWithin
-            && Keyboard.Modifiers == ModifierKeys.Alt
-            && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+            && effectiveModifiers == ModifierKeys.Alt
+            && (CurrentViewUsesCustomCollectionOrder()
                 || string.Equals(_currentView, "Kolejka", StringComparison.Ordinal)
                 || string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
                    && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
@@ -12871,7 +13068,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? Visibility.Visible
             : Visibility.Collapsed;
         var movableCustomOrderItems = !_playerViewActive
-            && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+            && (CurrentViewUsesCustomCollectionOrder()
                 || string.Equals(_currentView, "Kolejka", StringComparison.Ordinal)
                 || string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
                    && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal)
@@ -13335,7 +13532,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool IsInternalRadioFavoriteMoveView() =>
         !_playerViewActive
         && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-        && string.Equals(_currentView, "Ulubione", StringComparison.Ordinal);
+        && string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+        && CurrentCollectionSortMode() == CollectionSortMode.Custom;
 
     private bool TryStartInternalListMove()
     {
@@ -13645,6 +13843,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void FoldersView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewFolders);
     private void AllLocalFilesView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewAllLocalFiles);
     private void CustomLocalOrderView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewCustomLocalOrder);
+    private void CollectionSortAdded_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SortCollectionByAdded);
+    private void CollectionSortAlphabetical_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SortCollectionAlphabetically);
+    private void CollectionSortCustom_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SortCollectionCustom);
     private void RefreshLocalLibrary_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
             ? CommandIds.RefreshPodcast

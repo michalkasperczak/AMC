@@ -1575,12 +1575,13 @@ static void TestMainWindowDigitShortcutRouting()
         !MainWindowShortcutRouter.IsSessionListShortcut(Key.S, ModifierKeys.Control),
         "Ctrl+S nie może zostać przejęte jako lista sesji.");
     Assert(
-        MainWindowShortcutRouter.ResolveNumberedView(Key.D1, ModifierKeys.Alt, "radio")
-            == CommandIds.ViewLibrary,
-        "Alt+1 w Radiu nie otwiera wszystkich zapisanych stacji.");
+        MainWindowShortcutRouter.ResolveNumberedView(Key.D1, ModifierKeys.Alt, "radio", "Biblioteka")
+            == CommandIds.SortCollectionByAdded,
+        "Alt+1 nie wybiera kolejności dodania w Bibliotece radia.");
     Assert(
-        MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "radio") is null,
-        "Alt+2 w Radiu nie może udawać trwałego widoku Nagrywane.");
+        MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "radio", "Biblioteka")
+            == CommandIds.SortCollectionAlphabetically,
+        "Alt+2 nie wybiera alfabetu w Bibliotece radia.");
     Assert(
         MainWindowShortcutRouter.ResolveTransientRadioView(Key.R, ModifierKeys.Alt, "radio")
             == CommandIds.ViewActiveRadioRecordings
@@ -1588,16 +1589,30 @@ static void TestMainWindowDigitShortcutRouting()
         && MainWindowShortcutRouter.ResolveTransientRadioView(Key.R, ModifierKeys.None, "radio") is null,
         "Alt+R nie otwiera tymczasowego widoku Nagrywane wyłącznie w Radiu.");
     Assert(
-        MainWindowShortcutRouter.ResolveNumberedView(Key.D3, ModifierKeys.Alt, "radio") is null,
-        "Alt+3 w Radiu nie może otwierać pozornego widoku odtwarzanych urządzeń.");
+        MainWindowShortcutRouter.ResolveNumberedView(Key.D3, ModifierKeys.Alt, "radio", "Biblioteka")
+            == CommandIds.SortCollectionCustom,
+        "Alt+3 nie wybiera kolejności własnej w Bibliotece radia.");
     Assert(
-        MainWindowShortcutRouter.ResolveNumberedView(Key.D1, ModifierKeys.Alt, "local")
+        MainWindowShortcutRouter.ResolveNumberedView(Key.D1, ModifierKeys.Alt, "local", "Multimedia")
             == CommandIds.ViewFolders
-        && MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "local")
+        && MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "local", "Multimedia")
             == CommandIds.ViewAllLocalFiles
-        && MainWindowShortcutRouter.ResolveNumberedView(Key.D3, ModifierKeys.Alt, "local")
+        && MainWindowShortcutRouter.ResolveNumberedView(Key.D3, ModifierKeys.Alt, "local", "Multimedia")
             == CommandIds.ViewCustomLocalOrder,
         "Alt+1–3 utraciły dotychczasowe znaczenia w Plikach lokalnych.");
+    Assert(
+        MainWindowShortcutRouter.ResolveNumberedView(Key.D1, ModifierKeys.Alt, "local", "Ulubione")
+            == CommandIds.SortCollectionByAdded
+        && MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "podcasts", "Ulubione")
+            == CommandIds.SortCollectionAlphabetically
+        && MainWindowShortcutRouter.ResolveNumberedView(Key.D3, ModifierKeys.Alt, "tidal", "Ulubione")
+            == CommandIds.SortCollectionCustom,
+        "Alt+1–3 nie mają wspólnej semantyki w Ulubionych różnych sesji.");
+    Assert(
+        MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "radio", "Nagrywane") is null
+        && MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "podcasts", "Nowe odcinki") is null
+        && MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.None, "radio", "Biblioteka") is null,
+        "Sortowanie przeniknęło do list tymczasowych albo zwykłych cyfr.");
     Assert(
         MainWindowNavigationPolicy.IsTransientRadioView("radio", "Nagrywane")
         && !MainWindowNavigationPolicy.IsTransientRadioView("radio", "Biblioteka")

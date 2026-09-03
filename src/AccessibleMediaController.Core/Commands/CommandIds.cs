@@ -62,6 +62,9 @@ public static class CommandIds
     public const string FilterCurrent = "view.filter.current";
     public const string CommandPalette = "view.commandPalette";
     public const string ViewLibrary = "view.library";
+    public const string SortCollectionByAdded = "view.collection.sort.added";
+    public const string SortCollectionAlphabetically = "view.collection.sort.alphabetical";
+    public const string SortCollectionCustom = "view.collection.sort.custom";
     public const string ViewFolders = "view.folders";
     public const string ViewAllLocalFiles = "view.local.allFiles";
     public const string ViewCustomLocalOrder = "view.local.customOrder";

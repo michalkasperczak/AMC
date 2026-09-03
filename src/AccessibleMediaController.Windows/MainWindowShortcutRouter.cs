@@ -21,15 +21,27 @@ internal static class MainWindowShortcutRouter
     public static string? ResolveNumberedView(
         Key key,
         ModifierKeys modifiers,
-        string sessionId)
+        string sessionId,
+        string viewName)
     {
         if (modifiers != ModifierKeys.Alt) return null;
+        if (string.Equals(viewName, "Ulubione", StringComparison.Ordinal)
+            || string.Equals(viewName, "Biblioteka", StringComparison.Ordinal)
+               && !string.Equals(sessionId, "local", StringComparison.Ordinal))
+        {
+            return key switch
+            {
+                Key.D1 => CommandIds.SortCollectionByAdded,
+                Key.D2 => CommandIds.SortCollectionAlphabetically,
+                Key.D3 => CommandIds.SortCollectionCustom,
+                _ => null
+            };
+        }
         return (sessionId, key) switch
         {
             ("local", Key.D1) => CommandIds.ViewFolders,
             ("local", Key.D2) => CommandIds.ViewAllLocalFiles,
             ("local", Key.D3) => CommandIds.ViewCustomLocalOrder,
-            ("radio", Key.D1) => CommandIds.ViewLibrary,
             _ => null
         };
     }
