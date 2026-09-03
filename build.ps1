@@ -77,6 +77,25 @@ if ($Publish) {
         if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
         Remove-GeneratedNuGetSyncDuplicates
     }
+    if (Test-Path -LiteralPath $publishRoot) {
+        $resolvedPublishRoot = [IO.Path]::GetFullPath($publishRoot).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+        foreach ($oldPackage in Get-ChildItem -LiteralPath $publishRoot -Directory -Filter "AccessibleMediaController-*") {
+            $resolvedOldPackage = [IO.Path]::GetFullPath($oldPackage.FullName)
+            if ($resolvedOldPackage -eq $resolvedPackageDirectory) { continue }
+            if (-not $resolvedOldPackage.StartsWith($resolvedPublishRoot, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Nieprawidłowy stary katalog publikacji."
+            }
+            try {
+                Remove-Item -LiteralPath $resolvedOldPackage -Recurse -Force -ErrorAction Stop
+            }
+            catch [System.UnauthorizedAccessException] {
+                Write-Warning "Nie usunięto używanej starszej wersji: $resolvedOldPackage"
+            }
+            catch [System.IO.IOException] {
+                Write-Warning "Nie usunięto używanej starszej wersji: $resolvedOldPackage"
+            }
+        }
+    }
     Write-Host "Gotowy pakiet: $packageDirectory"
     Write-Host "Program: $program"
 }

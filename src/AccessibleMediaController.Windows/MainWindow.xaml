@@ -299,6 +299,10 @@
                           automation:AutomationProperties.Name="Nowe odcinki Podcastów, Ctrl+I"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+I"
                           Visibility="Collapsed" Click="PodcastInboxView_Click" />
+                <MenuItem x:Name="PodcastInProgressViewMenuItem" Header="W _trakcie słuchania" InputGestureText="Ctrl+Shift+I"
+                          automation:AutomationProperties.Name="Odcinki w trakcie słuchania, Ctrl+Shift+I"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+I"
+                          Visibility="Collapsed" Click="PodcastInProgressView_Click" />
                 <MenuItem x:Name="PodcastDownloadsViewMenuItem" Header="Po_brane"
                           automation:AutomationProperties.Name="Pobrane odcinki Podcastów"
                           Visibility="Collapsed" Click="PodcastDownloadsView_Click" />

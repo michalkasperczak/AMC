@@ -114,15 +114,20 @@ an existing RSS subscription to work.
 9. `alpha.212`: completed — suppress duplicate list values when a feed uses the
    same text for its show title and author.
 10. `alpha.213`: completed — reliable top-level Escape focus, explicit empty
-    inbox feedback, aggregate F5 refresh, and keeping a started new episode in
-    the inbox until completion.
-11. Next: Apple Podcasts catalog search and feed discovery from ordinary pages.
-12. Later: New episodes state, filtering and batch operations.
-13. Later: cancellable downloads with local staging and atomic publication.
-14. Later: episode playlists plus OPML and AMC import/export.
-15. Later: embedded web audio and publisher-specific adapters.
-16. Later: supplied and user-authored chapters.
-17. Additional directories and account services remain optional adapters.
+    inbox feedback and aggregate F5 refresh.
+11. `alpha.214`: completed — a genuinely new episode leaves the Inbox after
+    reaching one minute and moves to a separate **In progress** view opened by
+    Ctrl+Shift+I. Completion marks it played. Old archive entries imported with
+    a new subscription are not misclassified as started. Quick information can
+    also expose codec, estimated bitrate and size when the feed, server or a
+    downloaded file supplies enough metadata.
+12. Next: Apple Podcasts catalog search and feed discovery from ordinary pages.
+13. Later: New episodes filtering and batch operations.
+14. Later: cancellable downloads with local staging and atomic publication.
+15. Later: episode playlists plus OPML and AMC import/export.
+16. Later: embedded web audio and publisher-specific adapters.
+17. Later: supplied and user-authored chapters.
+18. Additional directories and account services remain optional adapters.
 
 The keyboard map will be decided after the first working view. This design
 document does not reserve shortcuts by itself.

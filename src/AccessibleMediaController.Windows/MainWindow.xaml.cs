@@ -44,6 +44,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const string BookmarkViewName = "Zakładki";
     private const string ActiveRadioRecordingsViewName = "Nagrywane";
     private const string PodcastInboxViewName = "Nowe odcinki";
+    private const string PodcastInProgressViewName = "W trakcie słuchania";
     private const string PodcastDownloadsViewName = "Pobrane";
     private const string PodcastContentsViewPrefix = "Podcast:";
     private const string FolderViewName = "Foldery";
@@ -2417,7 +2418,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.ImportPodcastOpml
             or CommandIds.RefreshPodcast
             or CommandIds.RefreshPodcastLibrary
-            or CommandIds.ViewPodcastInbox)
+            or CommandIds.ViewPodcastInbox
+            or CommandIds.ViewPodcastInProgress)
         {
             return false;
         }
@@ -2841,8 +2843,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 $"Data publikacji: {published}",
                 episodeSettings.DurationTicks > 0 ? $"Czas: {CommandRouter.FormatTime(TimeSpan.FromTicks(episodeSettings.DurationTicks))}" : null,
                 string.IsNullOrWhiteSpace(episodeSettings.Description) ? null : $"Opis: {episodeSettings.Description}",
-                $"Nowy: {(episodeSettings.IsNew ? "tak" : "nie")}",
-                $"Odtworzony: {(episodeSettings.IsPlayed ? "tak" : "nie")}",
+                $"Stan odsłuchania: {PodcastEpisodeProgress.GetLabel(episodeSettings)}",
                 $"Pobrany: {(string.IsNullOrWhiteSpace(episodeSettings.DownloadPath) ? "nie" : "tak")}",
                 $"Plik audio: {episodeSettings.MediaUrl}",
                 string.IsNullOrWhiteSpace(episodeSettings.PageUrl) ? null : $"Strona odcinka: {episodeSettings.PageUrl}"
@@ -3020,9 +3021,33 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return $"{value.ToString(unit == 0 ? "0" : "0.##", CultureInfo.CurrentCulture)} {units[unit]}";
     }
 
+    private static int? EstimatePodcastBitrateKbps(PodcastEpisodeSettings episode)
+    {
+        if (episode.MediaLength is not > 0 || episode.DurationTicks <= 0) return null;
+        return LocalAudioFileDiscovery.EstimateBitrateKbps(
+            episode.MediaLength.Value,
+            TimeSpan.FromTicks(episode.DurationTicks));
+    }
+
+    private static string? FormatPodcastCodec(string? mediaType) => mediaType?.Trim().ToLowerInvariant() switch
+    {
+        "audio/mpeg" or "audio/mp3" => "MP3",
+        "audio/mp4" or "audio/x-m4a" => "M4A/AAC",
+        "audio/aac" or "audio/aacp" => "AAC",
+        "audio/ogg" or "application/ogg" => "OGG",
+        "audio/opus" => "Opus",
+        "audio/flac" or "audio/x-flac" => "FLAC",
+        "audio/wav" or "audio/wave" or "audio/x-wav" => "WAV",
+        _ => null
+    };
+
     private string BuildQuickMediaInformation(MediaItem item)
     {
         var isLocal = TryGetLocalPath(item.Source, out var localPath);
+        var podcastEpisode = item.Kind == MediaItemKind.Episode
+            ? _state.Podcasts.Episodes.FirstOrDefault(episode =>
+                string.Equals(episode.Id, item.Id, StringComparison.Ordinal))
+            : null;
         var metadataChanged = false;
 
         var details = new List<string>();
@@ -3064,6 +3089,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 // The other cached details remain useful if the file is temporarily unavailable.
             }
+        }
+        else if (podcastEpisode?.MediaLength is > 0)
+        {
+            details.Add(FormatFileSize(podcastEpisode.MediaLength.Value));
         }
 
         var audio = AudioParametersFormatter.FormatCompact(item, CultureInfo.CurrentCulture);
@@ -3195,7 +3224,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return true;
             }
         }
-
         pageUri = null!;
         return false;
     }
@@ -3555,6 +3583,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ActiveRadioRecordingsViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         RadioRecognitionHistoryViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         PodcastInboxViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
+        PodcastInProgressViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         PodcastDownloadsViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         RefreshLocalLibraryMenuItem.Visibility = local || podcasts ? Visibility.Visible : Visibility.Collapsed;
         if (podcasts)
@@ -4605,6 +4634,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     : PodcastMetadataPresentation.FormatAuthor(episode.Author),
                 Kind = MediaItemKind.Episode,
                 Duration = TimeSpan.FromTicks(episode.DurationTicks),
+                BitrateKbps = EstimatePodcastBitrateKbps(episode),
+                IsBitrateEstimated = EstimatePodcastBitrateKbps(episode).HasValue,
+                Codec = FormatPodcastCodec(episode.MediaType),
                 Source = downloaded ? episode.DownloadPath : episode.MediaUrl,
                 PublicUri = episode.PageUrl,
                 ExternalId = episode.SubscriptionId,
@@ -4643,6 +4675,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 0,
                 session?.RememberedPositions.GetValueOrDefault(item.Id).Ticks
                     ?? episode.ResumePositionTicks);
+        }
+
+        if (session?.HasCurrentItem == true
+            && session.CurrentItem.Kind == MediaItemKind.Episode
+            && _state.Podcasts.Episodes.FirstOrDefault(episode =>
+                string.Equals(episode.Id, session.CurrentItem.Id, StringComparison.Ordinal)) is { } currentEpisode)
+        {
+            PodcastEpisodeProgress.UpdateFromPosition(currentEpisode, session.Position);
         }
 
         _state.Podcasts.CurrentItemId = session?.HasCurrentItem == true
@@ -5693,8 +5733,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             string.Equals(episode.Id, e.Item.Id, StringComparison.Ordinal));
         if (completed is not null)
         {
-            completed.IsNew = false;
-            completed.IsPlayed = true;
+            PodcastEpisodeProgress.MarkPlayed(completed);
         }
 
         _podcastOutput.BeginAutomaticTrackContinuation();
@@ -5983,6 +6022,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     () => Announce("Brak nowych odcinków. F5 odświeża wszystkie podcasty z Biblioteki"),
                     DispatcherPriority.ContextIdle);
             }
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ViewPodcastInProgress)
+        {
+            if (!string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+            {
+                Announce("Odcinki w trakcie słuchania są dostępne w sesji Podcasty");
+                return new CommandExecutionResult(false);
+            }
+            NavigateTo(PodcastInProgressViewName);
+            PrepareViewFocusContext(MediaList.Items.Count == 0
+                ? "W trakcie słuchania, brak rozpoczętych odcinków"
+                : PodcastInProgressViewName);
+            RestoreMediaListFocusAfterRefresh();
             return new CommandExecutionResult(true);
         }
         if (commandId is CommandIds.ViewFolders
@@ -6640,6 +6693,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && string.Equals(_currentView, PodcastInProgressViewName, StringComparison.Ordinal))
+        {
+            ViewHeading.Text = PodcastInProgressViewName;
+            var itemsById = _sessions.Current.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
+            _unfilteredItems = _state.Podcasts.Episodes
+                .Where(episode => PodcastEpisodeProgress.GetState(episode)
+                    == PodcastEpisodeListeningState.InProgress
+                    && _state.Podcasts.Subscriptions.Any(subscription =>
+                        subscription.IsInLibrary
+                        && string.Equals(subscription.Id, episode.SubscriptionId, StringComparison.Ordinal)))
+                .OrderByDescending(episode => episode.ResumePositionTicks)
+                .ThenByDescending(episode => episode.PublishedUtcTicks)
+                .Select(episode => itemsById.GetValueOrDefault(episode.Id))
+                .Where(item => item is not null)
+                .Select(item => new MediaItemRow(item!, FormatListItem(item!), item!.PrimaryText))
+                .ToList();
+            ApplyFilter(preferredItemId, fallbackIndex);
+            return;
+        }
+
+        if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
             && string.Equals(_currentView, PodcastDownloadsViewName, StringComparison.Ordinal))
         {
             ViewHeading.Text = PodcastDownloadsViewName;
@@ -6682,11 +6756,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     var date = episode.PublishedUtcTicks > 0
                         ? new DateTime(episode.PublishedUtcTicks, DateTimeKind.Utc).ToLocalTime().ToString("d", CultureInfo.CurrentCulture)
                         : "data nieznana";
-                    var state = episode.IsPlayed
-                        ? "odtworzony"
-                        : episode.IsNew
-                            ? "nowy"
-                            : "nieodtworzony";
+                    var state = PodcastEpisodeProgress.GetLabel(episode);
                     return new MediaItemRow(
                         item,
                         $"{item.Title}, {date}, {FormatDurationWords(item.Duration)}, {state}",
@@ -7697,6 +7767,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         or "Miksy"
         or "Wyjścia i urządzenia"
         or PodcastInboxViewName
+        or PodcastInProgressViewName
         or "Pobrane";
 
     private void NavigateToParentFolder()
@@ -11036,6 +11107,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             commandId = CommandIds.ViewPodcastInbox;
             return true;
         }
+        if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift)
+            && key == Key.I
+            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+        {
+            commandId = CommandIds.ViewPodcastInProgress;
+            return true;
+        }
         if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key == Key.O
             && !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
@@ -11550,6 +11628,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.I)
                 when string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal) =>
                     CommandIds.ViewPodcastInbox,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.I)
+                when string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal) =>
+                    CommandIds.ViewPodcastInProgress,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.B) => CommandIds.AddNamedBookmark,
             (ModifierKeys.Control, Key.K) => CommandIds.FilterCurrent,
             (ModifierKeys.Control, Key.F) => CommandIds.SearchCurrent,
@@ -13535,6 +13616,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ExecuteCommand(CommandIds.AssignRadioPreset);
     private void LibraryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewLibrary);
     private void PodcastInboxView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewPodcastInbox);
+    private void PodcastInProgressView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewPodcastInProgress);
     private void PodcastDownloadsView_Click(object sender, RoutedEventArgs e) => NavigateTo(PodcastDownloadsViewName);
     private void FoldersView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewFolders);
     private void AllLocalFilesView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewAllLocalFiles);

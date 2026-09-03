@@ -25,11 +25,15 @@ nieczytelny zbiór wszystkich możliwych multimediów.
 
 - **Biblioteka** przechowuje obserwowane audycje i ich źródła. Dodanie podcastu
   nie oznacza automatycznego pobrania wszystkich odcinków.
-- **Nowe odcinki** są automatyczną skrzynką odbiorczą. Zawierają nieodsłuchane
-  lub jeszcze nieprzejrzane odcinki z Biblioteki, od najnowszego. To celowo nie
+- **Nowe odcinki** są automatyczną skrzynką odbiorczą. Zawierają wyłącznie
+  odcinki naprawdę nowe, których odtwarzanie nie osiągnęło jeszcze jednej
+  minuty. To celowo nie
   jest playlista: użytkownik nie układa jej ręcznie, a odświeżenie kanału może
   bezpiecznie dopisać nowe pozycje. Odcinek może być nowy, rozpoczęty,
   odsłuchany albo świadomie pominięty.
+- **W trakcie słuchania** zawiera rozpoczęte, lecz nieukończone odcinki. Dzięki
+  temu materiał zatrzymany w połowie nie pozostaje bez końca oznaczony jako
+  nowy. Widok otwiera `Ctrl+Shift+I`.
 - **Playlisty** są ręcznymi, trwałymi zestawami odcinków w kolejności
   użytkownika i mogą łączyć różne audycje.
 - **Pobrane** pokazują pliki dostępne bez sieci. Usunięcie pobrania nie usuwa
@@ -166,9 +170,13 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
    Escape i Backspace na listach zagnieżdżonych.
 9. Kolejny etap — wyszukiwanie publicznego katalogu Apple Podcasts, rozpoznanie
    stron Apple/Overcast i wykrywanie RSS/Atom na zwykłej stronie.
-10. Pełna skrzynka Nowe odcinki, stany nowy, przejrzany,
-   odsłuchany i w trakcie, filtrowanie oraz operacje zbiorowe. Stan odsłuchania
-   nie będzie utożsamiany z usunięciem odcinka.
+10. `alpha.214` — zrealizowane: odcinek pozostaje nowy najwyżej do osiągnięcia
+    pierwszej minuty, następnie przechodzi do trwałego stanu **w trakcie**, a po
+    zakończeniu do stanu **odtworzony**. `Ctrl+Shift+I` otwiera osobny widok
+    rozpoczętych odcinków. Starsze archiwum zaimportowane wraz z nową audycją
+    nie jest przez to fałszywie oznaczane jako rozpoczęte. Lewa strzałka podaje
+    również kodek, oszacowany bitrate i rozmiar, jeżeli RSS, serwer albo pobrany
+    plik udostępnia potrzebne dane.
 11. Jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
    anulowanie, postęp i atomowa publikacja gotowego pliku. Części robocze
    pozostają poza iCloud, OneDrive, Dyskiem Google i innymi folderami
@@ -246,6 +254,8 @@ opisuje `PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
 - `Ctrl+I` otwiera skrzynkę **Nowe odcinki**. Litera pochodzi od powszechnego
   określenia Inbox; wcześniejsze polecenie informacji spod `Ctrl+I` zostało w
   AMC zastąpione przez `Alt+Enter`, więc skrót nie ma konfliktu.
+- `Ctrl+Shift+I` otwiera **W trakcie słuchania**. Jest to osobna lista
+  niedokończonych odcinków, a nie rozszerzenie znaczenia słowa „nowe”.
 - **Nowe odcinki** są widokiem automatycznym od najnowszego. **Pobrane** są
   filtrem rzeczywiście ukończonych plików lokalnych. Żaden z tych widoków nie
   zmienia ręcznie kolejności danych źródłowych.
@@ -280,8 +290,9 @@ Domyślne zasady widoków są następujące:
 - skrzynka pokazuje odcinki od najnowszego. Planowane filtry obejmują:
   wszystkie nowe i rozpoczęte, tylko nowe, tylko rozpoczęte, wybraną audycję,
   zakres daty, czas trwania i stan pobrania;
-- rozpoczęcie nowego odcinka nie usuwa go ze skrzynki. Domyślnie znika po
-  ukończeniu albo przyszłym jawnym poleceniu „Oznacz jako przejrzany”;
+- pozycja krótsza niż minuta pozostawia odcinek jako nowy. Po osiągnięciu jednej
+  minuty odcinek znika z Nowych i trafia do W trakcie słuchania. Ukończenie
+  przenosi jego stan do odtworzonych, bez usuwania go z Biblioteki ani Historii;
 - `F5` w skrzynce odświeża wszystkie obserwowane audycje, ponieważ skrzynka
   łączy wiele kanałów. W otwartej audycji `F5` odświeża tylko ją, a `Ctrl+F5`
   wszędzie w Podcastach odświeża całą Bibliotekę;

@@ -118,6 +118,7 @@ public static class CommandCatalog
             CommandIds.RefreshPodcast => "Odśwież bieżący podcast",
             CommandIds.RefreshPodcastLibrary => "Odśwież wszystkie podcasty",
             CommandIds.ViewPodcastInbox => "Pokaż nowe odcinki podcastów",
+            CommandIds.ViewPodcastInProgress => "Pokaż rozpoczęte odcinki podcastów",
             CommandIds.ToggleRadioRecording => "Rozpocznij lub zakończ nagrywanie radia",
             CommandIds.ToggleRadioRecordingPause => "Wstrzymaj lub wznów wybrane nagranie radia",
             CommandIds.SplitRadioRecording => "Rozpocznij nową część ręcznego nagrania radia",

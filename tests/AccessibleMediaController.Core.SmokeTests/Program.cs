@@ -27,6 +27,7 @@ var tests = new (string Name, Action Test)[]
     ("Zwięzłe autorstwo podcastów", TestPodcastMetadataPresentation),
     ("Bezpieczny import list podcastów OPML", TestPodcastOpmlParsing),
     ("Aktualizacja biblioteki Podcastów", TestPodcastLibraryUpdate),
+    ("Stany odsłuchania odcinków Podcastów", TestPodcastEpisodeProgress),
     ("Trwały model Podcastów", TestPodcastStatePersistence),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
@@ -217,6 +218,8 @@ static void TestPodcastStatePersistence()
         Equal(null, loaded.Podcasts.Subscriptions[0].HomepageUrl);
         Equal(1, loaded.Podcasts.Episodes.Count);
         Equal(TimeSpan.FromMinutes(5).Ticks, loaded.Podcasts.Episodes[0].ResumePositionTicks);
+        Equal(false, loaded.Podcasts.Episodes[0].IsNew);
+        Equal(true, loaded.Podcasts.Episodes[0].IsStarted);
         Equal("episode-a", loaded.Podcasts.CurrentItemId);
     }
     finally
@@ -307,6 +310,26 @@ static void TestPodcastLibraryUpdate()
     Equal(TimeSpan.FromMinutes(5).Ticks, settings.Episodes.Single(item => item.Id == "episode-1").ResumePositionTicks);
     Equal(true, settings.Episodes.Single(item => item.Id == "episode-1").IsPlayed);
     Equal(true, settings.Episodes.Single(item => item.Id == "episode-2").IsNew);
+}
+
+static void TestPodcastEpisodeProgress()
+{
+    var episode = new PodcastEpisodeSettings { IsNew = true };
+    Equal(PodcastEpisodeListeningState.New, PodcastEpisodeProgress.GetState(episode));
+    Equal(false, PodcastEpisodeProgress.UpdateFromPosition(episode, TimeSpan.FromSeconds(59)));
+    Equal(true, episode.IsNew);
+    Equal(true, PodcastEpisodeProgress.UpdateFromPosition(episode, TimeSpan.FromMinutes(1)));
+    Equal(false, episode.IsNew);
+    Equal(true, episode.IsStarted);
+    Equal(PodcastEpisodeListeningState.InProgress, PodcastEpisodeProgress.GetState(episode));
+    Equal("w trakcie", PodcastEpisodeProgress.GetLabel(episode));
+    PodcastEpisodeProgress.MarkPlayed(episode);
+    Equal(PodcastEpisodeListeningState.Played, PodcastEpisodeProgress.GetState(episode));
+    Equal("odtworzony", PodcastEpisodeProgress.GetLabel(episode));
+
+    var archived = new PodcastEpisodeSettings { IsNew = false };
+    Equal(PodcastEpisodeListeningState.Unplayed, PodcastEpisodeProgress.GetState(archived));
+    Equal("nieodtworzony", PodcastEpisodeProgress.GetLabel(archived));
 }
 
 static void TestAudioClipSelection()
@@ -639,6 +662,7 @@ static void TestCommandCatalog()
     Equal("Otwórz folder z plikami multimedialnymi", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Importuj stacje radiowe z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportRadioPlaylist));
     Equal("Pokaż nowe odcinki podcastów", CommandCatalog.GetDisplayName(CommandIds.ViewPodcastInbox));
+    Equal("Pokaż rozpoczęte odcinki podcastów", CommandCatalog.GetDisplayName(CommandIds.ViewPodcastInProgress));
     Equal("Pokaż aktualnie nagrywane stacje", CommandCatalog.GetDisplayName(CommandIds.ViewActiveRadioRecordings));
     Equal("Rozpocznij nową część ręcznego nagrania radia", CommandCatalog.GetDisplayName(CommandIds.SplitRadioRecording));
     Equal("Zatrzymaj wszystkie trwające nagrania", CommandCatalog.GetDisplayName(CommandIds.StopAllRadioRecordings));
@@ -3359,6 +3383,7 @@ static void TestCommandPalette()
     Equal("F5 (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcast).LocalShortcut);
     Equal("Ctrl+F5 (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcastLibrary).LocalShortcut);
     Equal("Ctrl+I (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.ViewPodcastInbox).LocalShortcut);
+    Equal("Ctrl+Shift+I (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.ViewPodcastInProgress).LocalShortcut);
     True(entries.Any(entry => entry.CommandId == CommandIds.ViewFolders), "Paleta powinna zawierać widok folderów.");
     True(entries.Any(entry => entry.CommandId == CommandIds.SettingsSessionOrder), "Paleta powinna zawierać ustawienia kolejności sesji.");
     Equal(

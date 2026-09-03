@@ -1608,7 +1608,7 @@ domyślnie przypisaną do szóstego miejsca. Nie korzysta z elementów
 demonstracyjnych TIDAL, Apple Music ani WiiM. Widok Biblioteka zawiera wyłącznie
 obserwowane audycje; Nowe odcinki i Pobrane są wyliczanymi widokami odcinków.
 Modele `PodcastSubscriptionSettings` i `PodcastEpisodeSettings` oddzielają
-tożsamość kanału od tożsamości odcinka, stan nowy/odsłuchany od pozycji
+tożsamość kanału od tożsamości odcinka, stan nowy/w trakcie/odsłuchany od pozycji
 odtwarzania oraz adres sieciowy od ukończonego pliku lokalnego.
 
 `PodcastFeedParser` jest bezsieciową granicą rdzenia dla RSS 2.0 i Atom.
@@ -1631,8 +1631,11 @@ NVDA. Pojedynczy materiał bez kanału jest materiałem ze strony, a nie fikcyjn
 subskrypcją.
 
 Nowe odcinki pozostają automatyczną skrzynką, nie playlistą zmienianą w tle.
-Playlista jest ręcznym kontenerem użytkownika. `Ctrl+I` otwiera skrzynkę Nowe
-odcinki. W Podcastach `Ctrl+C` kopiuje
+Od `alpha.214` naprawdę nowy odcinek opuszcza ją po osiągnięciu jednej minuty i
+trafia do osobnego widoku **W trakcie słuchania** pod `Ctrl+Shift+I`; ukończenie
+oznacza go jako odtworzony. Archiwalny odcinek dodany przy pierwszym imporcie nie
+staje się przez to fałszywie rozpoczęty. Playlista jest ręcznym kontenerem
+użytkownika. `Ctrl+I` otwiera skrzynkę Nowe odcinki. W Podcastach `Ctrl+C` kopiuje
 nazwę z publiczną stroną odcinka lub audycji, `Ctrl+Shift+C` nazwę z adresem
 bezpośredniego audio albo RSS, a `Ctrl+D` pobiera świadomie wybrane odcinki.
 Całe archiwum audycji nigdy nie jest pobierane przez skrót bez osobnego zakresu
@@ -1646,7 +1649,10 @@ najpierw pokazuje audycje, Enter otwiera ich odcinki w podglądzie, a dopiero
 `Ctrl+Shift+L` świadomie zmienia przynależność audycji do Biblioteki. Na
 odcinkach wyszukiwania działają wspólne polecenia AMC, w tym pobieranie,
 Kolejka, Ulubione i Playlisty. Skrzynka ma własne sortowanie, regułę stanów,
-próg odsłuchania i harmonogram odświeżania, lecz nie ręczną kolejność playlisty.
+próg rozpoczęcia i harmonogram odświeżania, lecz nie ręczną kolejność playlisty.
+Lewa strzałka korzysta ze wspólnej krótkiej informacji AMC: dla odcinka podaje
+kodek, oszacowany bitrate i rozmiar tylko wtedy, gdy kanał RSS, serwer albo
+pobrany plik rzeczywiście udostępnia dane potrzebne do ich ustalenia.
 
 ### 7.12. Wybór wyjścia audio bieżącej sesji
 

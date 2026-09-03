@@ -274,6 +274,7 @@ public sealed class PodcastEpisodeSettings
     public long ResumePositionTicks { get; set; }
     public string? DownloadPath { get; set; }
     public bool IsNew { get; set; } = true;
+    public bool IsStarted { get; set; }
     public bool IsPlayed { get; set; }
     public bool IsFavorite { get; set; }
     public bool IsInQueue { get; set; }

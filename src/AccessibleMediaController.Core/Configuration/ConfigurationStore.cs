@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
+using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
 using Microsoft.Data.Sqlite;
@@ -1070,6 +1071,7 @@ public sealed class ConfigurationStore
                     ? null
                     : NormalizeFilePath(episode.DownloadPath);
                 if (episode.DownloadPath?.Length == 0) episode.DownloadPath = null;
+                PodcastEpisodeProgress.Normalize(episode);
                 return episode;
             })
             .GroupBy(episode => episode.Id, StringComparer.Ordinal)

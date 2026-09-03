@@ -86,7 +86,8 @@ odtwarzacza. Sesja Podcasty dziedziczy po nim pozycję, prędkość, Zakładki,
 nawigację i obsługę rozdziałów.
 
 W sesji Podcasty rozdziały należą do konkretnego odcinka. Mogą pochodzić z
-metadanych dostawcy, importu CUE/AMC albo nazwanych zakładek użytkownika.
+Podcasting 2.0 JSON Chapters, metadanych ID3/MP4 dostawcy, importu CUE/AMC albo
+nazwanych zakładek użytkownika.
 Użytkownik może więc dodać własne rozdziały także do istniejącego podcastu.
 Rozdziały dostawcy i użytkownika muszą pozostać rozróżnialne, aby odświeżenie
 kanału nie nadpisało lokalnej pracy.
@@ -94,6 +95,20 @@ kanału nie nadpisało lokalnej pracy.
 `Ctrl+Shift+B` pozostaje szybkim sposobem zapisania nazwanego punktu podczas
 słuchania. Przekształcenie go w rozdział odbywa się bez kopiowania czasu i bez
 tworzenia drugiego, prawie identycznego rekordu.
+
+Na liście odcinków prawa strzałka może w przyszłości otwierać listę rozdziałów,
+ale wyłącznie wtedy, gdy odcinek rzeczywiście je ma; brak rozdziałów nie może
+zmieniać fokusu ani otwierać pustego widoku. `Ctrl+Page Up` i `Ctrl+Page Down`
+pozostają przełączaniem sesji, dlatego nie mogą równocześnie nawigować po
+rozdziałach. Roboczym, bezkolizyjnym wyborem w odtwarzaczu jest
+`Ctrl+Alt+Page Up` i `Ctrl+Alt+Page Down`.
+
+Wybrany rozdział będzie można zapisać jako osobny plik. Polecenie **Zapisz
+rozdział…** najpierw trafi do menu kontekstowego listy rozdziałów; skrót zostanie
+ustalony po teście, ponieważ `Ctrl+S` oznacza zapis całego odcinka, a
+`Ctrl+Shift+S` jest przewidywany dla listy sesji. Źródłowa kolejność rozdziałów
+pozostaje czasowa. Osobna lista odtwarzania lub montażowa może wybrać i
+przestawić rozdziały bez modyfikowania podcastu.
 
 ## 7. Kolejność wdrożenia
 
