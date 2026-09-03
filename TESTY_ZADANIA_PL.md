@@ -6,6 +6,11 @@
 - Utworzono: 2026-09-03, Europe/Warsaw
 - Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.229.md`
 
+Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
+przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
+warunkami, częstością i najmniejszym proponowanym testem. Nie należy zmieniać
+ich od razu w potwierdzony błąd.
+
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
 
 ## Nowości alpha 229

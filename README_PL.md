@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Niejednoznaczne obserwacje, ryzyka zależne od środowiska i scenariusze do
+ponownego sprawdzenia są prowadzone w
+[`REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md`](REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md).
+Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
+testerowi przed publikacją; nie należy traktować każdego wpisu jako
+potwierdzonego błędu.
+
 Wersja `alpha.229` dodaje dwa rozłączne sposoby zapisywania odcinków
 Podcastów. `Ctrl+D` pobiera jeden lub wiele zaznaczonych odcinków do
 domyślnego folderu ustawionego w **Ustawienia > Podcasty** i rejestruje je w
