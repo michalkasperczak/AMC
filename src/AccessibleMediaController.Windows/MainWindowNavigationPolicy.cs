@@ -146,14 +146,24 @@ internal static class MainWindowNavigationPolicy
         return PodcastLibraryView;
     }
 
+    public static string ResolveRadioSearchLandingView(MediaItem item) =>
+        item.IsFavorite
+            ? "Ulubione"
+            : "Biblioteka";
+
     public static string ResolveSafeSessionView(
         string sessionId,
         string requestedView,
-        string podcastLibraryReturnView) =>
-        string.Equals(sessionId, PodcastSessionId, StringComparison.Ordinal)
-        && string.Equals(requestedView, "Multimedia", StringComparison.Ordinal)
-            ? podcastLibraryReturnView
-            : requestedView;
+        string podcastLibraryReturnView)
+    {
+        if (!string.Equals(requestedView, "Multimedia", StringComparison.Ordinal))
+            return requestedView;
+        if (string.Equals(sessionId, PodcastSessionId, StringComparison.Ordinal))
+            return podcastLibraryReturnView;
+        if (string.Equals(sessionId, "radio", StringComparison.Ordinal))
+            return "Biblioteka";
+        return requestedView;
+    }
 
     public static string FormatPodcastSearchResult(
         MediaItem item,

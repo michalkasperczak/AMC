@@ -5,6 +5,12 @@ potwierdzonym błędem, ani prawidłowym zachowaniem. Ma umożliwić przekazanie
 projektu innemu modelowi, testerowi albo narzędziu automatycznemu bez
 odtwarzania całej historii rozmów.
 
+Rejestr i wynikająca z niego końcowa macierz testów obejmują **całą aplikację
+AMC**: wspólny rdzeń, wszystkie sesje, listy i widoki, odtwarzanie,
+nagrywanie, wyszukiwanie, ustawienia, dostępność, zapis danych oraz integracje
+systemowe. Wpis dodany podczas pracy nad jednym modułem nie ogranicza testów
+wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
+
 ## Zasady prowadzenia rejestru
 
 - Każdy wpis rozdziela **fakt zaobserwowany** od hipotezy i interpretacji.
@@ -109,10 +115,29 @@ odtwarzania całej historii rozmów.
 - Następny test: pobrać odcinek, przenieść go poza AMC, odświeżyć widok
   **Pobrane** i ponowić `Ctrl+D`; ocenić komunikat i oczekiwany stan wpisu.
 
-## Stałe obszary regresji przed publikacją
+### AMC-RYZYKO-006 — techniczny agregat Radia po wyszukiwaniu
 
-Poniższe obszary miały w historii projektu problemy zależne od czasu,
-urządzenia albo programu zewnętrznego. Nie oznacza to, że obecnie są zepsute:
+- Stan: zamknięte w `alpha.230`, pozostaje test regresji NVDA.
+- Dotyczy: `alpha.229`, Radio internetowe, `Ctrl+F`, Ulubione i przejście
+  zwykłym Enterem.
+- Fakt zaobserwowany: po wyszukaniu Radia Kolor, dodaniu go do Ulubionych i
+  naciśnięciu Enter główna lista odsłoniła ponad sto nieznanych stacji zamiast
+  właściwego widoku użytkownika.
+- Częstość: potwierdzone raz przez użytkownika i jednoznacznie przez log.
+- Przyczyna: wynik był kierowany do technicznego widoku `Multimedia`, czyli
+  całego wewnętrznego indeksu Radia. Log z `alpha.229` o 21:20 wskazuje 161
+  widocznych wierszy przy działaniu na jednym wyniku.
+- Rozstrzygnięcie: `alpha.230` kieruje ulubiony wynik do Ulubionych, pozostały
+  do Biblioteki i normalizuje każde techniczne `Multimedia` Radia do
+  Biblioteki. Test automatyczny sprawdza wszystkie trzy warianty.
+- Następny test: wykonać `AMC-230-01` i `AMC-230-02`, a potem powtórzyć
+  analogiczny przepływ w Podcastach oraz przyszłej usłudze streamingowej.
+
+## Stałe, globalne obszary regresji przed publikacją
+
+Poniższe obszary dotyczą całego AMC, a nie wyłącznie modułu rozwijanego w
+danej wersji. Miały w historii projektu problemy zależne od czasu, urządzenia
+albo programu zewnętrznego. Nie oznacza to, że obecnie są zepsute:
 
 - fokus NVDA po szybkim przełączaniu widoków, Escape, oknach modalnych i
   asynchronicznym otwieraniu źródła;

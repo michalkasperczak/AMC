@@ -7,6 +7,13 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.230` naprawia przejście z wyników wyszukiwania Radia. Wynik
+zapisany w Ulubionych prowadzi do Ulubionych, a pozostały zapisany wynik do
+Biblioteki. Wewnętrzny agregat stacji odnalezionych kiedykolwiek w Radio
+Browser nie może już pojawić się jako użytkowa lista licząca setki pozycji.
+Zabezpieczenie działa również przy starym zapamiętanym odwołaniu do widoku
+`Multimedia`, które w Radiu zostaje zastąpione Biblioteką.
+
 Wersja `alpha.229` dodaje dwa rozłączne sposoby zapisywania odcinków
 Podcastów. `Ctrl+D` pobiera jeden lub wiele zaznaczonych odcinków do
 domyślnego folderu ustawionego w **Ustawienia > Podcasty** i rejestruje je w

@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-229`
-- Tytuł zestawu: Pobieranie i zapisywanie odcinków Podcastów
-- Wersja programu: `0.1.0-alpha.229`
+- Numer zestawu: `AMC-TEST-230`
+- Tytuł zestawu: Bezpieczne przejście z wyszukiwania Radia i regresja całej aplikacji
+- Wersja programu: `0.1.0-alpha.230`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.229.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.230.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -12,6 +12,39 @@ warunkami, częstością i najmniejszym proponowanym testem. Nie należy zmienia
 ich od razu w potwierdzony błąd.
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
+i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 230
+
+### AMC-230-01 — Radio Kolor po dodaniu do Ulubionych
+
+W Radiu naciśnij `Ctrl+F`, wyszukaj stację spoza bieżącego widoku, dodaj ją do
+Ulubionych przez `Ctrl+Shift+U`, a następnie naciśnij zwykły Enter.
+
+Oczekiwane: wyszukiwanie zamyka się, główna lista pokazuje Ulubione z fokusem
+na tej stacji. Nie pojawia się lista setek dawnych wyników Radio Browser.
+
+### AMC-230-02 — wynik zapisany w Bibliotece
+
+Powtórz wyszukiwanie dla stacji należącej do Biblioteki, lecz nie do
+Ulubionych, i naciśnij Enter. Następnie uruchom ją drugim Enterem, wyjdź z
+odtwarzacza Escape i przełącz sesję tam i z powrotem.
+
+Oczekiwane: każdy powrót prowadzi do Biblioteki i tej samej stacji. Wewnętrzny
+widok `Multimedia` nie pojawia się ani przed odtwarzaniem, ani po nim.
+
+### AMC-230-03 — globalna regresja wyszukiwania i fokusa
+
+Powtórz zwykły Enter oraz jedno działanie bezpośrednie w wyszukiwaniu Plików
+lokalnych, Radia i Podcastów. Sprawdź Escape, ponowne wejście do sesji,
+strzałki, menu kontekstowe i `NVDA+End` podczas odtwarzania.
+
+Oczekiwane: każda sesja wraca do własnego jawnego widoku i elementu, fokus nie
+przechodzi do filtra ani ukrytej kontrolki, a żaden wewnętrzny katalog nie
+staje się listą użytkownika. Pozostałe spostrzeżenia wpisz do globalnego
+rejestru ryzyk, nawet jeżeli nie dotyczą Radia.
 
 ## Nowości alpha 229
 

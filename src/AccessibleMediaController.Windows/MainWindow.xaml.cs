@@ -592,6 +592,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     .Where(subscription => subscription.IsInLibrary)
                     .Select(subscription => subscription.Id));
         }
+        else if (string.Equals(result.SessionId, "radio", StringComparison.OrdinalIgnoreCase))
+        {
+            targetView = MainWindowNavigationPolicy.ResolveRadioSearchLandingView(result.Item);
+        }
 
         return SelectSessionBrowserItem(result.SessionId, result.Item.Id, targetView);
     }

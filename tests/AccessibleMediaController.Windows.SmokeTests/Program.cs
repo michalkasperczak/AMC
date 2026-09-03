@@ -83,7 +83,7 @@ try
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
     TestPlayerDeparturePlaybackPolicy();
-    TestPodcastSearchNavigation();
+    TestSearchNavigation();
     TestPlayerListReturnSelection();
     TestMainWindowFocusRecoveryPolicy();
     TestPlayerAudioProcessingKeyboardMap();
@@ -466,7 +466,7 @@ static void TestPlayerDeparturePlaybackPolicy()
     Console.WriteLine("OK: tylko jawny powrót z odtwarzacza stosuje regułę wstrzymania");
 }
 
-static void TestPodcastSearchNavigation()
+static void TestSearchNavigation()
 {
     var podcast = new MediaItem
     {
@@ -509,8 +509,28 @@ static void TestPodcastSearchNavigation()
         MainWindowNavigationPolicy.ResolveSafeSessionView(
             "radio",
             "Multimedia",
-            "Biblioteka") == "Multimedia",
-        "Zabezpieczenie Podcastów zmieniło widok innej sesji.");
+            "Biblioteka") == "Biblioteka",
+        "Techniczny agregat Radia nie został zastąpiony Biblioteką.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveRadioSearchLandingView(new MediaItem
+        {
+            Kind = MediaItemKind.Station,
+            IsFavorite = true
+        }) == "Ulubione",
+        "Ulubiony wynik wyszukiwania Radia nie prowadzi do Ulubionych.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveRadioSearchLandingView(new MediaItem
+        {
+            Kind = MediaItemKind.Station,
+            IsInLibrary = true
+        }) == "Biblioteka",
+        "Wynik wyszukiwania Radia z Biblioteki nie prowadzi do Biblioteki.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveRadioSearchLandingView(new MediaItem
+        {
+            Kind = MediaItemKind.Station
+        }) == "Biblioteka",
+        "Niezapisany wynik Radia ujawnił techniczny agregat stacji.");
     Assert(
         MainWindowNavigationPolicy.ResolvePodcastParentView(
             "podcasts",

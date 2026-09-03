@@ -1824,3 +1824,19 @@ sprawdza deklarowaną długość oraz nie publikuje pustego ani urwanego pliku.
 Dopiero zamknięty, kompletny plik jest przenoszony pod nazwę docelową. Przy
 `Ctrl+D` kolizja nazw tworzy bezpiecznie kolejny numer, a `Ctrl+S` korzysta z
 systemowego potwierdzenia zastąpienia.
+
+### 7.17. Bezpieczne przejście z wyszukiwania Radia
+
+Od `alpha.230` wynik wyszukany w Radio Browser nigdy nie otwiera wewnętrznego
+agregatu wszystkich stacji poznanych przez aplikację. Jeżeli stacja należy do
+Ulubionych, zwykły Enter prowadzi do niej w Ulubionych; w przeciwnym razie
+docelowym bezpiecznym widokiem jest Biblioteka. Stare albo przejściowe
+odwołanie Radia do technicznego widoku `Multimedia` jest normalizowane do
+Biblioteki również podczas działania programu, a nie dopiero po ponownym
+uruchomieniu.
+
+Reguła jest częścią wspólnego kontraktu wyszukiwania: wewnętrzny indeks
+adaptera może zawierać zasoby potrzebne do wyszukiwania, Historii, presetów i
+playlist, ale nie jest automatycznie listą użytkownika. Każdy adapter musi
+wskazać jawny widok docelowy albo pozostawić wynik w oknie wyszukiwania. Nie
+wolno zastępować brakującego widoku pełną pulą rekordów sesji.
