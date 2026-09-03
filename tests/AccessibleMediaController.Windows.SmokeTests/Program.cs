@@ -383,6 +383,14 @@ static void TestAudioOutputDeviceAccessibility()
     Assert(unavailable.ToString() == unavailable.Label, "NVDA może otrzymać techniczny zapis wyboru urządzenia.");
     Assert(!unavailable.Label.Contains(missingDeviceId, StringComparison.Ordinal),
         "Identyfikator urządzenia wyciekł do dostępnej etykiety.");
+    Assert(
+        AudioOutputDeviceWindow.ShouldCommitSelection(Key.Enter, ModifierKeys.None)
+        && AudioOutputDeviceWindow.ShouldCommitSelection(Key.Return, ModifierKeys.None),
+        "Enter na urządzeniu nie zatwierdza wyboru za pierwszym razem.");
+    Assert(
+        !AudioOutputDeviceWindow.ShouldCommitSelection(Key.Space, ModifierKeys.None)
+        && !AudioOutputDeviceWindow.ShouldCommitSelection(Key.Enter, ModifierKeys.Control),
+        "Inny klawisz albo zmodyfikowany Enter nie może przypadkowo zapisać urządzenia.");
     Console.WriteLine("OK: dostępny i bezpieczny wybór urządzenia audio sesji");
 }
 

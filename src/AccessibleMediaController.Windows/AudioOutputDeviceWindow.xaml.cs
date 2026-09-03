@@ -38,5 +38,22 @@ public partial class AudioOutputDeviceWindow : Window
     public bool SelectedDeviceIsAvailable =>
         (DeviceCombo.SelectedItem as AudioOutputDeviceChoice)?.IsAvailable != false;
 
-    private void Save_Click(object sender, RoutedEventArgs e) => DialogResult = true;
+    internal static bool ShouldCommitSelection(Key key, ModifierKeys modifiers) =>
+        (key == Key.Enter || key == Key.Return) && modifiers == ModifierKeys.None;
+
+    private void DeviceCombo_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (!ShouldCommitSelection(e.Key, Keyboard.Modifiers)) return;
+        DeviceCombo.IsDropDownOpen = false;
+        CommitSelection();
+        e.Handled = true;
+    }
+
+    private void Save_Click(object sender, RoutedEventArgs e) => CommitSelection();
+
+    private void CommitSelection()
+    {
+        if (DeviceCombo.SelectedItem is not AudioOutputDeviceChoice) return;
+        DialogResult = true;
+    }
 }

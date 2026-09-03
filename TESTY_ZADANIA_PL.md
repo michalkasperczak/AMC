@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-231`
-- Tytuł zestawu: Jednoznaczne nazwy odcinków i regresja całej aplikacji
-- Wersja programu: `0.1.0-alpha.231`
+- Numer zestawu: `AMC-TEST-232`
+- Tytuł zestawu: Jednoznaczne zatwierdzanie urządzenia audio i regresja całej aplikacji
+- Wersja programu: `0.1.0-alpha.232`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.231.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.232.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,30 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 232
+
+### AMC-232-01 — jeden Enter zapisuje urządzenie
+
+W odtwarzającej sesji Radia naciśnij `Shift+A`, rozwiń listę, wybierz inne
+dostępne urządzenie strzałkami i naciśnij Enter tylko raz.
+
+Oczekiwane: okno wyboru zamyka się, AMC oznajmia wybrane urządzenie, a dźwięk
+przechodzi na nie bez drugiego Enteru.
+
+### AMC-232-02 — trwałość wyboru
+
+Ponownie otwórz `Shift+A`, sprawdź zaznaczenie, przełącz się do Podcastów i z
+powrotem, a następnie — gdy nic nie jest nagrywane — uruchom AMC ponownie.
+
+Oczekiwane: Radio zachowuje własne urządzenie po każdym powrocie i ponownym
+uruchomieniu. Podcasty zachowują niezależny wybór.
+
+### AMC-232-03 — anulowanie
+
+Otwórz wybór urządzenia, wskaż inną pozycję i naciśnij Escape zamiast Enteru.
+
+Oczekiwane: okno zamyka się bez przełączania i bez zapisania wskazanej pozycji.
 
 ## Nowości alpha 231
 

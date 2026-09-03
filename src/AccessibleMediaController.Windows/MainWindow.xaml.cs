@@ -4213,15 +4213,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _state.Settings.Audio.OutputDeviceIdsBySession.Remove(session.Id);
         else
             _state.Settings.Audio.OutputDeviceIdsBySession[session.Id] = dialog.SelectedDeviceId;
-        QueueStateSave();
+        var saved = QueueStateSave(announceFailure: true);
         UpdateFileMenuForCurrentSession();
         RestoreMediaListFocusAfterRefresh();
         var availability = dialog.SelectedDeviceIsAvailable
             ? string.Empty
             : ". Urządzenie jest teraz niedostępne, dlatego bieżący odsłuch użyje urządzenia domyślnego";
         var restart = restarted ? ". Odtwarzanie uruchomiono ponownie" : string.Empty;
+        var persistence = saved ? string.Empty : ". Zmiana działa teraz, ale nie została zapisana";
         Dispatcher.BeginInvoke(
-            () => Announce($"Urządzenie audio sesji {session.DisplayName}: {dialog.SelectedDeviceLabel}{availability}{restart}"),
+            () => Announce($"Urządzenie audio sesji {session.DisplayName}: {dialog.SelectedDeviceLabel}{availability}{restart}{persistence}"),
             DispatcherPriority.ContextIdle);
     }
 

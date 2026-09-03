@@ -7,6 +7,13 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.232` upraszcza zatwierdzanie urządzenia audio sesji. Enter na
+wybranym elemencie zapisuje wybór od razu, również gdy lista rozwijana jest
+otwarta; nie trzeba naciskać Enteru drugi raz na przycisku **Zapisz**. Escape
+nadal anuluje zmianę. Jeżeli urządzenie zostanie zastosowane, lecz ustawienia
+nie dadzą się zapisać, komunikat rozróżnia te dwa stany zamiast sugerować pełne
+powodzenie.
+
 Wersja `alpha.231` jednoznacznie opisuje odcinki w zbiorczych widokach
 Podcastów. Skrzynka, W trakcie słuchania, Pobrane, Ulubione, Kolejka, historia
 i playlisty podają kolejno tytuł odcinka, nazwę podcastu, autora i typ elementu.

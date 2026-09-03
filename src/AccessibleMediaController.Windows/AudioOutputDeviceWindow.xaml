@@ -21,8 +21,9 @@
                Target="{Binding ElementName=DeviceCombo}">_Urządzenie wyjściowe:</Label>
         <ComboBox x:Name="DeviceCombo" Grid.Row="2" Margin="0,0,0,12"
                   DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                  PreviewKeyDown="DeviceCombo_PreviewKeyDown"
                   automation:AutomationProperties.Name="Urządzenie wyjściowe bieżącej sesji"
-                  automation:AutomationProperties.HelpText="Wybór jest zapamiętywany osobno dla tej sesji. Domyślne urządzenie systemowe podąża za konfiguracją Windows przy następnym otwarciu dźwięku." />
+                  automation:AutomationProperties.HelpText="Strzałkami wybierz urządzenie i naciśnij Enter, aby zapisać. Wybór jest zapamiętywany osobno dla tej sesji. Domyślne urządzenie systemowe podąża za konfiguracją Windows przy następnym otwarciu dźwięku." />
         <TextBlock Grid.Row="3" TextWrapping="Wrap"
                    Text="AMC używa współdzielonego trybu Windows, dlatego NVDA i inne aplikacje nadal pozostają słyszalne. Zmiana dotyczy odsłuchu tej sesji i nie zmienia miejsca ani sposobu zapisywania nagrań radia." />
 

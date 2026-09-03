@@ -1694,6 +1694,10 @@ Plików lokalnych, Radia internetowego i Podcastów używają osobno zapamiętan
 wyjść Windows w trybie współdzielonym WASAPI. Odłączone urządzenie powoduje
 tymczasowy powrót do wyjścia systemowego bez usunięcia preferencji. Zmiana
 odsłuchu Radia nie zatrzymuje niezależnych nagrań działających w tle.
+Enter na urządzeniu jest jednocześnie wyborem i zatwierdzeniem okna, niezależnie
+od tego, czy pole kombi jest zwinięte, czy rozwinięte. Escape anuluje bez zmiany.
+Ustawienie jest utrwalane dopiero po pomyślnym przełączeniu toru; awaria zapisu
+stanu musi zostać odróżniona w komunikacie od awarii samego urządzenia.
 Asynchroniczne uruchamianie nowego wyjścia przechowuje ostatnią intencję
 odtwarzania: Spacja naciśnięta podczas zmiany urządzenia musi pozostawić tor
 wstrzymany także wtedy, gdy urządzenie zakończy inicjalizację nieco później.
