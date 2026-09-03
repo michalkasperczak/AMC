@@ -141,7 +141,7 @@
                                                   automation:AutomationProperties.Name="Aktualnie odtwarzana stacja i wszystkie stacje nagrywane w tle">Aktualnie odtwarzana stacja i wszystkie stacje nagrywane w tle</ComboBoxItem>
                                 </ComboBox>
                                 <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
-                                           Text="Shift+S w odtwarzaczu radia włącza lub wyłącza obserwowanie dla wybranego tutaj zakresu. Ręczne S zawsze rozpoznaje wyłącznie słuchaną stację. Oznajmianie wyników można niezależnie wyłączyć na karcie Komunikaty; wyniki nadal trafiają wtedy do jednej historii, którą można filtrować według stacji." />
+                                           Text="Shift+S w odtwarzaczu radia włącza lub wyłącza obserwowanie dla wybranego tutaj zakresu. Ręczne S zawsze rozpoznaje wyłącznie słuchaną stację. Ctrl+Alt+Shift+S niezależnie przełącza oznajmianie wyników; po jego wyłączeniu wyniki nadal trafiają do jednej historii, którą można filtrować według stacji." />
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Domyślny folder nagrywania" Margin="0,0,0,14">
@@ -291,7 +291,7 @@
                                 <CheckBox x:Name="PlaybackMessagesCheck" Margin="18,0,0,8" Content="Oznajmiaj _odtwarzanie i pauzę" />
                                 <CheckBox x:Name="AutomaticRecognitionMessagesCheck" Margin="18,0,0,8"
                                           Content="Oznajmiaj automatycznie _rozpoznane utwory"
-                                          automation:AutomationProperties.HelpText="Komunikat jest wypowiadany tylko wtedy, gdy okno AMC jest aktywne. Wyłączenie nie zatrzymuje rozpoznawania ani zapisywania wyników w historii." />
+                                          automation:AutomationProperties.HelpText="Skrót Ctrl+Alt+Shift+S. Komunikat jest wypowiadany tylko wtedy, gdy okno AMC jest aktywne. Wyłączenie nie zatrzymuje rozpoznawania ani zapisywania wyników w historii." />
                                 <Label Target="{Binding ElementName=PercentageSeekAnnouncementCombo}">Po skoku _cyfrą oznajmiaj:</Label>
                                 <ComboBox x:Name="PercentageSeekAnnouncementCombo" Width="260" HorizontalAlignment="Left">
                                     <ComboBoxItem Tag="Percent">Tylko procent</ComboBoxItem>

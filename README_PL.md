@@ -1,5 +1,17 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.209` dodaje w sesji Radio skrót `Ctrl+Alt+Shift+S`, który
+włącza lub wyłącza wyłącznie automatyczne oznajmianie rozpoznanych utworów.
+Rozpoznawanie uruchomione przez `Shift+S` nadal pracuje w tle, a wyniki nadal
+trafiają do historii `Ctrl+Alt+S`. Ręczne rozpoznanie klawiszem `S` pozostaje
+odpowiedzią na żądanie. Bieżący stan jest zapisywany, widoczny w menu
+Odtwarzanie, menu kontekstowym odtwarzacza, Ustawieniach, palecie poleceń i
+spisie skrótów. Wyłączenie mowy jest potwierdzane jednoznacznym komunikatem.
+
+Wersja `alpha.208` naprawia przewijanie sieciowych odcinków Podcastów,
+pozostawia bieżący odcinek w Kolejce do zakończenia lub przejścia dalej,
+ujednolica kolejność tytułu i autora oraz zapisuje własną nazwę podcastu z `F2`.
+
 Wersja `alpha.207` naprawia odtwarzanie sieciowych odcinków Podcastów. Dekoder
 normalizuje MP3, MP4 i inne materiały HTTP/HTTPS do formatu wymaganego przez
 wspólny tor regulacji prędkości. Poprawkę sprawdzono na rzeczywistych odcinkach

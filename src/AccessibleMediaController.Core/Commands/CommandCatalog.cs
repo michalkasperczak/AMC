@@ -128,6 +128,7 @@ public static class CommandCatalog
             CommandIds.RadioJumpLive => "Radio: wróć na żywo",
             CommandIds.RecognizeRadioTrack => "Rozpoznaj teraz odtwarzany utwór",
             CommandIds.ToggleRadioRecognitionMonitoring => "Włącz lub wyłącz obserwowanie rozpoznawania utworów",
+            CommandIds.ToggleRadioRecognitionAnnouncements => "Włącz lub wyłącz oznajmianie rozpoznanych utworów",
             CommandIds.ViewRadioRecognitionHistory => "Pokaż rozpoznane utwory",
             CommandIds.ViewRadioPresets => "Pokaż presety aktywnej sesji",
             CommandIds.AssignRadioPreset => "Utwórz lub przypisz preset aktywnej sesji",

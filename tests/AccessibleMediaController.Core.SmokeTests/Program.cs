@@ -621,6 +621,9 @@ static void TestCommandCatalog()
     Equal("Ustawienia: szablony komunikatów", CommandCatalog.GetDisplayName(CommandIds.SettingsMessageTemplates));
     Equal("Ustawienia: komunikat po skoku cyfrą", CommandCatalog.GetDisplayName(CommandIds.SettingsPercentageSeekAnnouncement));
     Equal("Przełącz automatyczne komunikaty odtwarzacza", CommandCatalog.GetDisplayName(CommandIds.SettingsToggleSeekMessages));
+    Equal(
+        "Włącz lub wyłącz oznajmianie rozpoznanych utworów",
+        CommandCatalog.GetDisplayName(CommandIds.ToggleRadioRecognitionAnnouncements));
     Equal("Otwórz lokalne pliki multimedialne", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
     Equal("Otwórz folder z plikami multimedialnymi", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Importuj stacje radiowe z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportRadioPlaylist));
@@ -3408,6 +3411,12 @@ static void TestCommandPalette()
         "Oznajmianie automatycznie rozpoznanych utworów: włączone. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsAutomaticRecognitionMessages).DisplayName);
     Equal(
+        "Oznajmianie rozpoznanych utworów: włączone. Enter: przełącz",
+        entries.Single(entry => entry.CommandId == CommandIds.ToggleRadioRecognitionAnnouncements).DisplayName);
+    Equal(
+        "Ctrl+Alt+Shift+S (Radio internetowe)",
+        entries.Single(entry => entry.CommandId == CommandIds.ToggleRadioRecognitionAnnouncements).LocalShortcut);
+    Equal(
         "Globalna normalizacja głośności: wyłączone. Enter: ustawienia",
         entries.Single(entry => entry.CommandId == CommandIds.SettingsLoudnessNormalization).DisplayName);
     Equal(
@@ -3474,6 +3483,9 @@ static void TestCommandPalette()
         "Oznajmianie automatycznie rozpoznanych utworów: wyłączone. Enter: ustawienia",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsAutomaticRecognitionMessages).DisplayName);
     Equal(
+        "Oznajmianie rozpoznanych utworów: wyłączone. Enter: przełącz",
+        changedEntries.Single(entry => entry.CommandId == CommandIds.ToggleRadioRecognitionAnnouncements).DisplayName);
+    Equal(
         "Globalna normalizacja głośności: włączone. Enter: ustawienia",
         changedEntries.Single(entry => entry.CommandId == CommandIds.SettingsLoudnessNormalization).DisplayName);
     Equal(
@@ -3527,6 +3539,11 @@ static void TestShortcutHelpCatalog()
     True(normalizationHelp.Label
             .Contains("po prefiksie Shift+N", StringComparison.Ordinal),
         "Spis powinien podawać prefiksowy skrót normalizacji.");
+    var recognitionAnnouncementsHelp = entries.Single(
+        entry => entry.CommandId == CommandIds.ToggleRadioRecognitionAnnouncements);
+    Equal("Ctrl+Alt+Shift+S", recognitionAnnouncementsHelp.Shortcut);
+    True(recognitionAnnouncementsHelp.Context.Contains("Radio internetowe", StringComparison.Ordinal),
+        "Skrót oznajmiania rozpoznań musi mieć jednoznaczny kontekst Radia.");
     var transitionsHelp = entries.Single(entry => entry.CommandId == CommandIds.ToggleSmoothTrackTransitions);
     True(transitionsHelp.Shortcut.StartsWith("Shift+T;", StringComparison.Ordinal),
         "Spis powinien podawać lokalny skrót przejść przed wariantem prefiksowym.");

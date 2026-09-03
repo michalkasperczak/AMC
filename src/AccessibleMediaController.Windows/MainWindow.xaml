@@ -193,6 +193,11 @@
                           automation:AutomationProperties.AcceleratorKey="Shift+S"
                           IsCheckable="True"
                           Click="ToggleRadioRecognitionMonitoring_Click" />
+                <MenuItem x:Name="RadioRecognitionAnnouncementsMenuItem" Header="_Oznajmiaj rozpoznane utwory: włączone" InputGestureText="Ctrl+Alt+Shift+S"
+                          automation:AutomationProperties.Name="Oznajmianie rozpoznanych utworów: włączone, Ctrl+Alt+Shift+S"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+Shift+S"
+                          IsCheckable="True"
+                          Click="ToggleRadioRecognitionAnnouncements_Click" />
                 <Separator x:Name="PlaybackAfterRecordingSeparator" />
                 <MenuItem x:Name="PlaybackAddBookmarkMenuItem" Header="Dodaj _zakładkę" InputGestureText="B"
                           automation:AutomationProperties.Name="Dodaj zakładkę w bieżącym miejscu, B, tylko w odtwarzaczu"
@@ -641,6 +646,11 @@
                               automation:AutomationProperties.AcceleratorKey="Shift+S"
                               IsCheckable="True" Visibility="Collapsed"
                               Click="ToggleRadioRecognitionMonitoring_Click" />
+                    <MenuItem x:Name="PlayerRadioRecognitionAnnouncementsMenuItem" Header="Oznajmiaj rozpoznane utwory: włączone" InputGestureText="Ctrl+Alt+Shift+S"
+                              automation:AutomationProperties.Name="Oznajmianie rozpoznanych utworów: włączone, Ctrl+Alt+Shift+S"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+Shift+S"
+                              IsCheckable="True" Visibility="Collapsed"
+                              Click="ToggleRadioRecognitionAnnouncements_Click" />
                     <MenuItem x:Name="PlayerRadioRecognitionHistoryMenuItem" Header="Rozpoznane utwory…" InputGestureText="Ctrl+Alt+S"
                               automation:AutomationProperties.Name="Rozpoznane utwory, Ctrl+Alt+S"
                               automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+S"

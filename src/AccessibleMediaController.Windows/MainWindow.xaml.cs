@@ -1614,6 +1614,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : "Wyłączono i zapamiętano obserwowanie rozpoznawania utworów");
     }
 
+    private void ToggleRadioRecognitionAnnouncements()
+    {
+        var enabled = !_state.Settings.Messages.AutomaticRecognitionMessages;
+        _state.Settings.Messages.AutomaticRecognitionMessages = enabled;
+        QueueStateSave();
+        UpdateFileMenuForCurrentSession();
+
+        if (!enabled)
+        {
+            AnnounceEssential(_radioRecognitionMonitoring
+                ? "Wyłączono oznajmianie rozpoznanych utworów. Obserwowanie nadal działa, a wyniki trafiają do historii"
+                : "Wyłączono oznajmianie rozpoznanych utworów. Obserwowanie pozostaje wyłączone");
+            return;
+        }
+
+        AnnounceEssential(_state.Settings.Messages.Enabled
+            ? "Włączono oznajmianie rozpoznanych utworów"
+            : "Włączono oznajmianie rozpoznanych utworów, ale ogólne komunikaty dostępności pozostają wyłączone");
+    }
+
     private void ShowRadioRecognitionHistory()
     {
         var dialog = new RadioRecognitionHistoryWindow(_state.Radio.RecognizedTracks)
@@ -2429,6 +2449,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 or CommandIds.RadioJumpLive
                 or CommandIds.RecognizeRadioTrack
                 or CommandIds.ToggleRadioRecognitionMonitoring
+                or CommandIds.ToggleRadioRecognitionAnnouncements
                 or CommandIds.ViewRadioRecognitionHistory)
             {
                 return false;
@@ -3642,6 +3663,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AutomationProperties.SetName(
             MonitorRadioRecognitionMenuItem,
             $"Obserwowanie rozpoznawania utworów: {(_radioRecognitionMonitoring ? "włączone" : "wyłączone")}");
+        RadioRecognitionAnnouncementsMenuItem.Visibility = radio
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        RadioRecognitionAnnouncementsMenuItem.IsChecked =
+            _state.Settings.Messages.AutomaticRecognitionMessages;
+        SetContextMenuItemPresentation(
+            RadioRecognitionAnnouncementsMenuItem,
+            _state.Settings.Messages.AutomaticRecognitionMessages
+                ? "Oznajmiaj rozpoznane utwory: włączone"
+                : "Oznajmiaj rozpoznane utwory: wyłączone",
+            "Ctrl+Alt+Shift+S");
         PlaybackAfterRecordingSeparator.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         PlaybackAddBookmarkMenuItem.Visibility = !radio || recordingBookmarksAvailable
             ? Visibility.Visible
@@ -6054,6 +6086,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.ToggleRadioRecognitionMonitoring)
         {
             ToggleRadioRecognitionMonitoring();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ToggleRadioRecognitionAnnouncements)
+        {
+            ToggleRadioRecognitionAnnouncements();
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.ViewRadioRecognitionHistory)
@@ -10905,6 +10942,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return true;
         }
         if (key == Key.S
+            && modifiers == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            commandId = CommandIds.ToggleRadioRecognitionAnnouncements;
+            return true;
+        }
+        if (key == Key.S
             && modifiers == (ModifierKeys.Control | ModifierKeys.Alt)
             && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
@@ -11584,6 +11628,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && key == Key.S)
         {
             ToggleRadioRecognitionMonitoring();
+            return true;
+        }
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+            && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)
+            && key == Key.S)
+        {
+            ToggleRadioRecognitionAnnouncements();
             return true;
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
@@ -12414,6 +12465,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _ = RecognizeCurrentRadioTrackAsync(automatic: false);
     private void ToggleRadioRecognitionMonitoring_Click(object sender, RoutedEventArgs e) =>
         ToggleRadioRecognitionMonitoring();
+    private void ToggleRadioRecognitionAnnouncements_Click(object sender, RoutedEventArgs e) =>
+        ToggleRadioRecognitionAnnouncements();
     private void RadioRecognitionHistory_Click(object sender, RoutedEventArgs e) =>
         ShowRadioRecognitionHistory();
     private void ActiveRadioRecordingsView_Click(object sender, RoutedEventArgs e) =>
@@ -12830,6 +12883,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ? "Obserwuj rozpoznawanie: włączone"
                 : "Obserwuj rozpoznawanie: wyłączone",
             "Shift+S");
+        PlayerRadioRecognitionAnnouncementsMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
+        PlayerRadioRecognitionAnnouncementsMenuItem.IsChecked =
+            _state.Settings.Messages.AutomaticRecognitionMessages;
+        SetContextMenuItemPresentation(
+            PlayerRadioRecognitionAnnouncementsMenuItem,
+            _state.Settings.Messages.AutomaticRecognitionMessages
+                ? "Oznajmiaj rozpoznane utwory: włączone"
+                : "Oznajmiaj rozpoznane utwory: wyłączone",
+            "Ctrl+Alt+Shift+S");
         PlayerRadioRecognitionHistoryMenuItem.Visibility = radioSession ? Visibility.Visible : Visibility.Collapsed;
         var playerRecordingBookmarksAvailable = playerRecordingControls.Any(control => control.IsReady);
         PlayerAddBookmarkMenuItem.Visibility = !radioSession || playerRecordingBookmarksAvailable

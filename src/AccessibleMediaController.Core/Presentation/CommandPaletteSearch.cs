@@ -96,6 +96,8 @@ public static class CommandPaletteSearch
                 $"Komunikaty odtwarzania i pauzy: {OnOff(settings.Messages.PlaybackMessages)}. Enter: ustawienia",
             CommandIds.SettingsAutomaticRecognitionMessages =>
                 $"Oznajmianie automatycznie rozpoznanych utworów: {OnOff(settings.Messages.AutomaticRecognitionMessages)}. Enter: ustawienia",
+            CommandIds.ToggleRadioRecognitionAnnouncements =>
+                $"Oznajmianie rozpoznanych utworów: {OnOff(settings.Messages.AutomaticRecognitionMessages)}. Enter: przełącz",
             CommandIds.SettingsRadioRecognitionScope =>
                 $"Zakres automatycznego rozpoznawania radia: {RadioRecognitionScopeRules.GetLabel(radioSettings?.AutomaticTrackRecognitionScope ?? RadioRecognitionScope.CurrentStation)}. Enter: ustawienia",
             CommandIds.SettingsLoudnessNormalization =>
@@ -254,6 +256,7 @@ public static class CommandPaletteSearch
             CommandIds.RadioJumpLive => "End (odtwarzacz radia)",
             CommandIds.RecognizeRadioTrack => "S (odtwarzacz radia)",
             CommandIds.ToggleRadioRecognitionMonitoring => "Shift+S (odtwarzacz radia)",
+            CommandIds.ToggleRadioRecognitionAnnouncements => "Ctrl+Alt+Shift+S (Radio internetowe)",
             CommandIds.ViewRadioRecognitionHistory => "Ctrl+Alt+S (Radio internetowe)",
             CommandIds.ViewRadioPresets => "Ctrl+Alt+P (Pliki lokalne lub Radio internetowe)",
             CommandIds.AssignRadioPreset => "Ctrl+Alt+Shift+P (Pliki lokalne lub Radio internetowe)",

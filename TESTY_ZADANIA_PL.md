@@ -1,12 +1,45 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-208`
-- Tytuł zestawu: Przewijanie, Kolejka i nazwy Podcastów
-- Wersja programu: `0.1.0-alpha.208`
+- Numer zestawu: `AMC-TEST-209`
+- Tytuł zestawu: Ciche rozpoznawanie utworów w Radiu
+- Wersja programu: `0.1.0-alpha.209`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.208.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.209.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowość alpha 209
+
+### AMC-209-01 — rozpoznawanie bez automatycznej mowy
+
+W Radiu włącz obserwowanie przez `Shift+S`, a następnie naciśnij
+`Ctrl+Alt+Shift+S`, aby wyłączyć oznajmianie. Pozostaw muzyczną stację do
+rozpoznania i otwórz historię przez `Ctrl+Alt+S`.
+
+Oczekiwane: AMC potwierdza wyłączenie mowy i przypomina, że rozpoznawanie oraz
+historia nadal działają. Automatyczny wynik nie przerywa odsłuchu komunikatem,
+ale pojawia się w historii.
+
+### AMC-209-02 — ponowne włączenie i ręczne rozpoznanie
+
+Przy wyłączonym oznajmianiu naciśnij ręczne `S`, a następnie włącz
+automatyczne oznajmianie przez `Ctrl+Alt+Shift+S`.
+
+Oczekiwane: ręczne `S` nadal wypowiada wynik, ponieważ jest działaniem na
+żądanie. Nowy skrót potwierdza włączenie, a kolejny wynik automatyczny jest
+czytany tylko wtedy, gdy AMC jest aktywnym oknem.
+
+### AMC-209-03 — menu, paleta i trwałość
+
+Porównaj stan pozycji w menu Odtwarzanie, menu kontekstowym odtwarzacza,
+Ustawieniach i palecie `Ctrl+Shift+K`. Wyłącz oznajmianie, bezpiecznie uruchom
+AMC ponownie i sprawdź te miejsca jeszcze raz.
+
+Oczekiwane: wszędzie występują wyłącznie nazwy użytkowe i ten sam stan.
+Paleta podaje skrót `Ctrl+Alt+Shift+S`, a ustawienie pozostaje wyłączone po
+ponownym uruchomieniu.
+
+## Poprzedni zestaw alpha 208
 
 ## Nowości alpha 208
 

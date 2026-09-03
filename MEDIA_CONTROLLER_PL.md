@@ -1141,8 +1141,11 @@ następnego fragmentu.
 Rozpoznawanie jest wymiennym adapterem, a nie częścią modelu stacji. Pobiera do
 12 sekund PCM kończącego się dokładnie w odtwarzanym miejscu bufora i lokalnie
 tworzy podpis akustyczny. Do usługi zewnętrznej trafia tylko podpis. `S` działa
-na żądanie w odtwarzaczu Radia, `Shift+S` przełącza obserwowanie, a
-`Ctrl+Alt+S` otwiera historię. Od `alpha.180` obserwowanie jest utrwalane przez
+na żądanie w odtwarzaczu Radia, `Shift+S` przełącza obserwowanie,
+`Ctrl+Alt+Shift+S` przełącza wyłącznie automatyczne oznajmianie wyników, a
+`Ctrl+Alt+S` otwiera historię. Wyłączenie oznajmiania nie zatrzymuje adaptera,
+nie usuwa wyników i nie wycisza odpowiedzi ręcznego `S`. Od `alpha.180`
+obserwowanie jest utrwalane przez
 `Shift+S` i pole wyboru na karcie **Radio i nagrywanie**, wykonuje najwyżej
 jedno zapytanie naraz i nie zapisuje powtórzenia tytułu oraz wykonawcy tej samej
 stacji w trzydziestominutowym oknie. Ustrukturyzowana historia jest częścią
