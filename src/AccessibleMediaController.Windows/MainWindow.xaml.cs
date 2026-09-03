@@ -505,7 +505,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var dialog = new SearchWindow(
             _sessions,
             allServices,
-            FormatItem,
+            FormatSearchResultItem,
             BuildQuickMediaInformation,
             ExecuteSearchResultAction,
             searchHistory,
@@ -532,8 +532,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 _ = AddApplePodcastDirectoryResultAsync(result.Item, openAfterImport: true, markFavorite: false);
                 return;
             }
-            var selectedSession = SelectSessionBrowserItem(result.SessionId, result.Item.Id);
-            if (allServices) PrepareSearchReturnContext(result.Item.Id);
+            var selectedSession = SelectSearchResultBrowserItem(result);
+            PrepareSearchReturnContext(result.Item.Id);
             if (dialog.SelectedAction == SearchResultAction.Preset)
             {
                 ShowPresetAssignment();
@@ -560,9 +560,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        if (allServices && dialog.LastDirectActionResult is { } lastDirectResult)
+        if (dialog.LastDirectActionResult is { } lastDirectResult)
         {
-            SelectSessionBrowserItem(lastDirectResult.SessionId, lastDirectResult.Item.Id);
+            SelectSearchResultBrowserItem(lastDirectResult);
             PrepareSearchReturnContext(lastDirectResult.Item.Id);
         }
         else if (allServices && _sessions.Current.Id != sessionBeforeSearch)
@@ -574,6 +574,29 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private DemoMediaSession? SelectSessionBrowserItem(string sessionId, string itemId)
     {
+        return SelectSessionBrowserItem(sessionId, itemId, targetViewOverride: null);
+    }
+
+    private DemoMediaSession? SelectSearchResultBrowserItem(SearchWindow.SearchResult result)
+    {
+        string? targetView = null;
+        if (string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase))
+        {
+            targetView = MainWindowNavigationPolicy.ResolvePodcastSearchLandingView(
+                result.Item,
+                _state.Podcasts.Subscriptions
+                    .Where(subscription => subscription.IsInLibrary)
+                    .Select(subscription => subscription.Id));
+        }
+
+        return SelectSessionBrowserItem(result.SessionId, result.Item.Id, targetView);
+    }
+
+    private DemoMediaSession? SelectSessionBrowserItem(
+        string sessionId,
+        string itemId,
+        string? targetViewOverride)
+    {
         CaptureCurrentSessionNavigationState();
         ClearFilterForNavigation(
             GetSessionNavigationState(_sessions.Current.Id),
@@ -582,9 +605,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (session is null) return null;
 
         var navigation = GetSessionNavigationState(session.Id);
-        var targetView = string.Equals(session.Id, "local", StringComparison.Ordinal)
-            ? _state.LocalMedia.LibraryView
-            : DefaultBrowserView;
+        var targetView = targetViewOverride
+            ?? (string.Equals(session.Id, "local", StringComparison.Ordinal)
+                ? _state.LocalMedia.LibraryView
+                : DefaultBrowserView);
         if (string.Equals(targetView, FolderViewName, StringComparison.Ordinal))
         {
             var targetItem = session.Items.FirstOrDefault(item =>
@@ -6962,6 +6986,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void RefreshCurrentView(int? fallbackIndex = null, string? preferredItemId = null)
     {
         ClearFocusContext();
+        var currentNavigation = GetSessionNavigationState(_sessions.Current.Id);
+        var safeView = MainWindowNavigationPolicy.ResolveSafeSessionView(
+            _sessions.Current.Id,
+            _currentView,
+            ResolvePodcastLibraryReturnView(currentNavigation));
+        if (!string.Equals(safeView, _currentView, StringComparison.Ordinal))
+        {
+            DiagnosticLog.Warning(
+                "navigation",
+                "Zablokowano techniczny, płaski widok wszystkich rekordów Podcastów i przywrócono bezpieczne miejsce Biblioteki.");
+            _currentView = safeView;
+            currentNavigation.CurrentView = safeView;
+            RestoreFilterForCurrentView(currentNavigation);
+        }
         preferredItemId ??= SelectedItem?.Id;
         UpdateFileMenuForCurrentSession();
         SessionHeading.Text = string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal)
@@ -7850,7 +7888,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         ClearFocusContext();
         _focusContextItemId = itemId;
-        _focusContextPrefix = _sessions.Current.DisplayName;
+        var viewName = CurrentViewDisplayName();
+        _focusContextPrefix = string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
+            ? _sessions.Current.DisplayName
+            : $"{viewName}, {_sessions.Current.DisplayName}";
     }
 
     private void PrepareViewFocusContext(string viewName)
@@ -10598,6 +10639,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private string FormatItem(MediaItem item) => FormatItem(item, true);
 
+    private string FormatSearchResultItem(MediaItem item)
+    {
+        var formattedItem = FormatItem(item);
+        if (item.Kind is not (MediaItemKind.Podcast or MediaItemKind.Episode))
+            return formattedItem;
+
+        var parent = item.Kind == MediaItemKind.Podcast
+            ? _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+                string.Equals(subscription.Id, item.Id, StringComparison.Ordinal))
+            : _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+                string.Equals(subscription.Id, item.ExternalId, StringComparison.Ordinal));
+        return MainWindowNavigationPolicy.FormatPodcastSearchResult(
+            item,
+            formattedItem,
+            parent?.Title,
+            parent?.IsInLibrary == true);
+    }
+
     private string FormatItem(MediaItem item, bool includeKind)
     {
         var configuredFields = (includeKind
@@ -12739,7 +12798,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var result = results[0];
-        var session = SelectSessionBrowserItem(result.SessionId, result.Item.Id);
+        var session = SelectSearchResultBrowserItem(result);
         if (session is null) return "Wybrana sesja nie jest już dostępna";
 
         var previousActionItemsOverride = _actionItemsOverride;

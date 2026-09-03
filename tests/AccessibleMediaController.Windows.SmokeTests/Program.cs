@@ -81,6 +81,7 @@ try
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
     TestPlayerDeparturePlaybackPolicy();
+    TestPodcastSearchNavigation();
     TestPlayerListReturnSelection();
     TestMainWindowFocusRecoveryPolicy();
     TestPlayerAudioProcessingKeyboardMap();
@@ -461,6 +462,84 @@ static void TestPlayerDeparturePlaybackPolicy()
             new MediaItem { Kind = MediaItemKind.Podcast, ExternalId = "audycja-1" }) is null,
         "Nagłówek podcastu nie powinien udawać odcinka z podcastem nadrzędnym.");
     Console.WriteLine("OK: tylko jawny powrót z odtwarzacza stosuje regułę wstrzymania");
+}
+
+static void TestPodcastSearchNavigation()
+{
+    var podcast = new MediaItem
+    {
+        Id = "audycja-1",
+        Title = "Rozmowa dnia",
+        Kind = MediaItemKind.Podcast,
+        IsInLibrary = true
+    };
+    var episode = new MediaItem
+    {
+        Id = "odcinek-1",
+        Title = "Gość poranka",
+        Kind = MediaItemKind.Episode,
+        ExternalId = podcast.Id,
+        IsInLibrary = true
+    };
+
+    Assert(
+        MainWindowNavigationPolicy.ResolvePodcastSearchLandingView(
+            episode,
+            [podcast.Id]) == "Podcast:audycja-1",
+        "Wynik odcinka nie prowadzi do właściwego podcastu.");
+    Assert(
+        MainWindowNavigationPolicy.ResolvePodcastSearchLandingView(
+            podcast,
+            [podcast.Id]) == "Biblioteka",
+        "Wynik nagłówka podcastu nie prowadzi do Biblioteki.");
+    Assert(
+        MainWindowNavigationPolicy.ResolvePodcastSearchLandingView(
+            episode,
+            []) == "Biblioteka",
+        "Odcinek usuniętego podcastu prowadzi do niedostępnego widoku.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveSafeSessionView(
+            "podcasts",
+            "Multimedia",
+            "Podcast:audycja-1") == "Podcast:audycja-1",
+        "Techniczny agregat Podcastów nie został zastąpiony ostatnim miejscem Biblioteki.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveSafeSessionView(
+            "radio",
+            "Multimedia",
+            "Biblioteka") == "Multimedia",
+        "Zabezpieczenie Podcastów zmieniło widok innej sesji.");
+
+    var podcastLabel = MainWindowNavigationPolicy.FormatPodcastSearchResult(
+        podcast,
+        "Rozmowa dnia, podcast",
+        podcast.Title,
+        parentPodcastInLibrary: true);
+    Assert(
+        podcastLabel == "Rozmowa dnia, podcast, w Bibliotece",
+        "Wynik obserwowanego podcastu nie podaje stanu Biblioteki.");
+    var episodeLabel = MainWindowNavigationPolicy.FormatPodcastSearchResult(
+        episode,
+        "Gość poranka, odcinek",
+        podcast.Title,
+        parentPodcastInLibrary: true);
+    Assert(
+        episodeLabel == "Gość poranka, odcinek, podcast Rozmowa dnia, podcast w Bibliotece",
+        "Wynik odcinka nie podaje podcastu nadrzędnego i jego stanu.");
+    var directoryPodcast = new MediaItem
+    {
+        Id = "podcast-directory:apple:123",
+        Title = "Nowa audycja",
+        Kind = MediaItemKind.Podcast
+    };
+    Assert(
+        MainWindowNavigationPolicy.FormatPodcastSearchResult(
+            directoryPodcast,
+            "Nowa audycja, podcast",
+            parentPodcastTitle: null,
+            parentPodcastInLibrary: false) == "Nowa audycja, podcast, katalog Apple Podcasts",
+        "Wynik katalogu został omyłkowo opisany jako element Biblioteki.");
+    Console.WriteLine("OK: wyniki Podcastów prowadzą do właściwej listy i podają stan Biblioteki");
 }
 
 static void TestPlayerListReturnSelection()

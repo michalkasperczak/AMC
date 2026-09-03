@@ -185,18 +185,22 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
     pokazanego w skrzynce, Ulubionych, Kolejce, Historii, playliście,
     wyszukiwaniu albo odtwarzaczu. Polecenie ustawia fokus na źródłowym odcinku
     i nie jest pokazywane poza sesją Podcasty ani na samym nagłówku audycji.
-12. Jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
+12. `alpha.222–224` — zrealizowane: stabilny powrót ze skrzynki po zniknięciu
+    odsłuchanego odcinka, naprawa inicjalizacji Nowych odcinków po dawnym
+    imporcie oraz bezpieczne przejście z wyszukiwania do Biblioteki albo
+    właściwej audycji bez ujawniania płaskiego indeksu wszystkich rekordów.
+13. Jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
    anulowanie, postęp i atomowa publikacja gotowego pliku. Części robocze
    pozostają poza iCloud, OneDrive, Dyskiem Google i innymi folderami
    synchronizowanymi.
-13. Playlisty odcinków, import i eksport OPML, osobny eksport
+14. Playlisty odcinków, import i eksport OPML, osobny eksport
    danych Podcastów AMC i pełne odtworzenie ich z kopii zapasowej.
-14. Strony z osadzonym audio, istniejące adaptery Polskiego Radia
+15. Strony z osadzonym audio, istniejące adaptery Polskiego Radia
    i innych rozgłośni oraz przekazywanie wyników z rozszerzenia Chrome i
    dodatku NVDA.
-15. Rozdziały dostarczone przez podcast i rozdziały użytkownika
+16. Rozdziały dostarczone przez podcast i rozdziały użytkownika
    oparte na nazwanych zakładkach.
-16. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
+17. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
    nie mogą uzależnić od siebie RSS, Biblioteki ani lokalnych pobrań.
 
 Pozostała mapa skrótów zostanie ustalona po pierwszym działającym widoku. Nie
@@ -234,10 +238,19 @@ koncepcyjnego.
   podcastu**. Gdy kanał nie podaje strony publicznej, AMC nie przedstawia
   adresu RSS ani bezpośredniego pliku audio jako strony internetowej. AMC nie
   zgaduje już, która „domyślna aplikacja” miałaby otworzyć odcinek.
-- `Ctrl+F` otwiera wyszukiwanie w Podcastach. Pierwszy poziom wyników zawiera
-  audycje, a nie pomieszane odcinki ze wszystkich kanałów. Enter na audycji
-  otwiera podgląd jej odcinków bez automatycznego dodawania subskrypcji;
-  Backspace wraca do listy audycji, a Escape zamyka wyszukiwanie.
+- `Ctrl+F` otwiera wyszukiwanie w Podcastach. Wyniki mogą zawierać obserwowane
+  audycje, zapisane odcinki oraz nieobserwowane audycje z katalogu Apple
+  Podcasts, ale każdy rodzaj ma jawną etykietę. Podcast ma stan „w Bibliotece”,
+  „poza Biblioteką” albo „katalog Apple Podcasts”; odcinek podaje audycję
+  nadrzędną i jej stan w Bibliotece.
+- Zwykły Enter na zapisanym wyniku zamyka wyszukiwanie i ustawia fokus na jego
+  właściwym miejscu: nagłówek audycji w nadrzędnej Bibliotece, a odcinek
+  wewnątrz tej audycji. Następny Enter otwiera audycję albo odcinek. Wynik
+  katalogowy jest najpierw weryfikowany przez RSS lub Atom, dodawany do
+  Biblioteki i otwierany. Escape zamyka wyszukiwanie.
+- Płaski magazyn wszystkich nagłówków i odcinków jest wyłącznie wewnętrznym
+  indeksem wyszukiwania. Nie jest widokiem interfejsu i nie wolno wystawiać go
+  jako listy liczącej tysiące pomieszanych pozycji.
 - `Ctrl+Shift+L` na wyniku audycji dodaje ją do Biblioteki albo z niej usuwa.
   Na poziomie odcinków obowiązują wspólne działania AMC: Enter, `Ctrl+Enter`,
   Kolejka, Odtwórz jako następne, Ulubione, Playlisty, `Ctrl+D`, kopiowanie i

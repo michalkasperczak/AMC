@@ -135,13 +135,17 @@ an existing RSS subscription to work.
 15. `alpha.223`: completed — migrate early OPML imports by seeding only the
     newest untouched episode for a followed show whose Inbox state is empty.
     Ctrl+I remains a local view command and F5 explicitly refreshes all feeds.
-16. Next: feed discovery from ordinary pages, New episodes filtering and batch
+16. `alpha.224`: completed — search results land on a followed show in the
+    Library or on an episode inside its parent show. The internal flat search
+    index is never exposed as a browser view, and result labels identify
+    Library membership, directory results and the parent show.
+17. Next: feed discovery from ordinary pages, New episodes filtering and batch
     operations.
-17. Later: cancellable downloads with local staging and atomic publication.
-18. Later: episode playlists plus OPML and AMC import/export.
-19. Later: embedded web audio and publisher-specific adapters.
-20. Later: supplied and user-authored chapters.
-21. Additional directories and account services remain optional adapters.
+18. Later: cancellable downloads with local staging and atomic publication.
+19. Later: episode playlists plus OPML and AMC import/export.
+20. Later: embedded web audio and publisher-specific adapters.
+21. Later: supplied and user-authored chapters.
+22. Additional directories and account services remain optional adapters.
 
 The keyboard map will be decided after the first working view. This design
 document does not reserve shortcuts by itself.
@@ -158,11 +162,15 @@ copies the title and public page when the feed supplies one, while Ctrl+Shift+C
 copies the title and the direct feed or enclosure URL. A feed URL or direct
 audio URL is never mislabeled as a browser page.
 
-Ctrl+F first returns shows. Enter opens a non-subscribing episode preview;
-Backspace returns to shows and Escape closes search. Ctrl+Shift+L changes show
-Library membership. Episode results retain the standard AMC queue, play-next,
-favourite, playlist, playback, download and copy operations. Ctrl+K only
-filters an already loaded list and never sends a network request.
+Ctrl+F can return followed shows, stored episodes and Apple Podcasts directory
+shows, with explicit Library/directory and parent-show labels. Plain Enter
+leaves search and locates a followed show in the Library or an episode inside
+its parent show; the next Enter opens it. A directory result is verified,
+followed and opened. The flat backing index is never a user-facing view.
+Ctrl+Shift+L changes show Library membership. Episode results retain the
+standard AMC queue, play-next, favourite, playlist, playback, download and
+copy operations. Ctrl+K only filters an already loaded list and never sends a
+network request.
 
 `Ctrl+L` opens followed shows. Enter on a show will open its episodes rather
 than trying to play the feed itself. Shared history, favourites, queue,

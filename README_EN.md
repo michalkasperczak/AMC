@@ -1,5 +1,15 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.224` fixes Podcasts search-result navigation. A show result now
+lands on that show in the top-level Library, while an episode lands inside its
+parent show with that episode focused. The internal flat aggregate containing
+every show and episode can no longer surface as a user-facing list; a legacy
+saved reference to it is replaced with the last safe Podcasts Library
+location. Search labels explicitly distinguish a Library show, an unfollowed
+show, an Apple Podcasts directory result, and an episode with its parent show.
+Plain Enter still leaves search and locates the result on the correct list; a
+second Enter opens the show or starts the episode.
+
 Version `alpha.223` repairs incomplete **New episodes** initialization left by
 early Podcasts imports. For each followed show with no new entry, AMC seeds
 only its newest untouched episode. It neither restores listened-to material

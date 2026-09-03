@@ -117,4 +117,53 @@ internal static class MainWindowNavigationPolicy
         && !string.IsNullOrWhiteSpace(item.ExternalId)
             ? item.ExternalId
             : null;
+
+    public static string ResolvePodcastSearchLandingView(
+        MediaItem item,
+        IEnumerable<string> availablePodcastIds)
+    {
+        if (item.Kind == MediaItemKind.Episode
+            && !string.IsNullOrWhiteSpace(item.ExternalId)
+            && availablePodcastIds.Contains(item.ExternalId, StringComparer.Ordinal))
+        {
+            return $"{PodcastContentsViewPrefix}{item.ExternalId}";
+        }
+
+        return PodcastLibraryView;
+    }
+
+    public static string ResolveSafeSessionView(
+        string sessionId,
+        string requestedView,
+        string podcastLibraryReturnView) =>
+        string.Equals(sessionId, PodcastSessionId, StringComparison.Ordinal)
+        && string.Equals(requestedView, "Multimedia", StringComparison.Ordinal)
+            ? podcastLibraryReturnView
+            : requestedView;
+
+    public static string FormatPodcastSearchResult(
+        MediaItem item,
+        string formattedItem,
+        string? parentPodcastTitle,
+        bool parentPodcastInLibrary)
+    {
+        if (item.Kind == MediaItemKind.Podcast)
+        {
+            if (item.IsInLibrary) return $"{formattedItem}, w Bibliotece";
+            return item.Id.StartsWith("podcast-directory:", StringComparison.Ordinal)
+                ? $"{formattedItem}, katalog Apple Podcasts"
+                : $"{formattedItem}, poza Biblioteką";
+        }
+
+        if (item.Kind != MediaItemKind.Episode) return formattedItem;
+
+        var parts = new List<string> { formattedItem };
+        if (!string.IsNullOrWhiteSpace(parentPodcastTitle)
+            && !formattedItem.Contains(parentPodcastTitle, StringComparison.CurrentCultureIgnoreCase))
+        {
+            parts.Add($"podcast {parentPodcastTitle}");
+        }
+        parts.Add(parentPodcastInLibrary ? "podcast w Bibliotece" : "podcast poza Biblioteką");
+        return string.Join(", ", parts);
+    }
 }

@@ -1,12 +1,43 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-223`
-- Tytuł zestawu: Pełna inicjalizacja skrzynki Podcastów
-- Wersja programu: `0.1.0-alpha.223`
+- Numer zestawu: `AMC-TEST-224`
+- Tytuł zestawu: Bezpieczne przejście z wyszukiwania Podcastów
+- Wersja programu: `0.1.0-alpha.224`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.223.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.224.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 224
+
+### AMC-224-01 — stan audycji w wynikach
+
+W sesji Podcasty naciśnij `Ctrl+F` i wyszukaj „Polskie radio” albo inną nazwę,
+która występuje w kilku obserwowanych podcastach i odcinkach.
+
+Oczekiwane: nagłówek obserwowanego podcastu zawiera „w Bibliotece”. Odcinek
+jest jednoznacznie opisany jako odcinek właściwego podcastu i podaje, że
+podcast znajduje się w Bibliotece. Wynik zewnętrzny ma etykietę „katalog Apple
+Podcasts”, a nie fałszywy stan subskrypcji.
+
+### AMC-224-02 — Enter na odcinku
+
+Wybierz w wynikach odcinek obserwowanego podcastu i naciśnij Enter.
+
+Oczekiwane: okno wyszukiwania zamyka się, a główna lista pokazuje wyłącznie
+odcinki właściwego podcastu z fokusem na znalezionym odcinku. Nie pojawia się
+lista około dziewięciu tysięcy wszystkich rekordów. Kolejny Enter uruchamia
+odcinek.
+
+### AMC-224-03 — działania bezpośrednie i nagłówek podcastu
+
+Ponownie wyszukaj tę samą nazwę. Na jednym wyniku użyj bezpośredniego działania,
+na przykład `Ctrl+Shift+U`, po czym zamknij wyszukiwanie Escape. Osobno wybierz
+nagłówek obserwowanego podcastu i naciśnij Enter.
+
+Oczekiwane: po działaniu program nadal wraca do właściwej audycji albo
+Biblioteki. Enter na nagłówku ustawia go w nadrzędnej Bibliotece; następny Enter
+otwiera jego odcinki. Techniczny płaski widok nie pojawia się żadną z tych dróg.
 
 ## Nowości alpha 223
 

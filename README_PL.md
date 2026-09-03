@@ -1,5 +1,15 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.224` naprawia przejście z wyników wyszukiwania Podcastów.
+Znaleziony nagłówek audycji prowadzi do nadrzędnej Biblioteki, a odcinek — do
+listy właściwej audycji z fokusem na tym odcinku. Wewnętrzny, płaski agregat
+wszystkich audycji i odcinków nie może już pojawić się jako lista użytkownika;
+starszy zapis takiego widoku jest bezpiecznie zastępowany ostatnim miejscem w
+Bibliotece Podcastów. Wyniki jawnie odróżniają podcast w Bibliotece, podcast
+spoza Biblioteki, wynik katalogu Apple Podcasts oraz odcinek wraz z audycją
+nadrzędną. Zwykły Enter nadal tylko przechodzi z okna wyszukiwania na właściwą
+listę — następny Enter otwiera audycję albo uruchamia odcinek.
+
 Wersja `alpha.223` naprawia niepełną inicjalizację **Nowych odcinków** po
 imporcie wykonanym we wcześniejszych wersjach Podcastów. Dla każdej
 obserwowanej audycji bez nowej pozycji AMC dodaje do skrzynki tylko jej

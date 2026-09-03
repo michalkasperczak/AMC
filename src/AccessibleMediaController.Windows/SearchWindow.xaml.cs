@@ -74,7 +74,7 @@ public partial class SearchWindow : Window
         _prepareRemoteSearch = prepareRemoteSearch;
         _remoteSearchLabel = remoteSearchLabel;
         _resultHelpText = detailedHints
-            ? "Strzałki wybierają wynik. Enter otwiera. Escape zamyka okno."
+            ? "Strzałki wybierają wynik. Enter przechodzi do wyniku na właściwej liście. Escape zamyka okno."
             : string.Empty;
 
         if (detailedHints)
