@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.213` utrzymuje fokus na liście po Escape użytym na najwyższym
+poziomie widoku; klawisz nie przenosi już użytkownika do pola filtra. Pusta
+skrzynka Podcastów mówi „Brak nowych odcinków”, a `F5` użyte w skrzynce
+odświeża wszystkie podcasty z Biblioteki. Nowy rozpoczęty odcinek pozostaje w
+skrzynce do ukończenia, dzięki czemu rozpoczęcie odtwarzania nie usuwa go bez
+możliwości powrotu.
+
 Wersja `alpha.212` nie powtarza na liście identycznej nazwy zapisanej w kilku
 polach metadanych. Jeśli kanał podcastu podaje ten sam tekst jako tytuł i autora,
 NVDA czyta go tylko raz; pozostałe różne informacje nadal są zachowane.

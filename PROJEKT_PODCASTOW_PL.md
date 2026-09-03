@@ -273,6 +273,31 @@ Skrzynka ma własne, dostępne ustawienia, ale nie ręczną kolejność playlist
   częściowy musi być wyraźnie oznaczony, jeśli nie wszystkie odcinki podają
   długość.
 
+Domyślne zasady widoków są następujące:
+
+- Biblioteka pokazuje audycje alfabetycznie. Planowane warianty to: ostatnio
+  dodane, ostatnio zaktualizowane, najczęściej słuchane i kolejność własna;
+- skrzynka pokazuje odcinki od najnowszego. Planowane filtry obejmują:
+  wszystkie nowe i rozpoczęte, tylko nowe, tylko rozpoczęte, wybraną audycję,
+  zakres daty, czas trwania i stan pobrania;
+- rozpoczęcie nowego odcinka nie usuwa go ze skrzynki. Domyślnie znika po
+  ukończeniu albo przyszłym jawnym poleceniu „Oznacz jako przejrzany”;
+- `F5` w skrzynce odświeża wszystkie obserwowane audycje, ponieważ skrzynka
+  łączy wiele kanałów. W otwartej audycji `F5` odświeża tylko ją, a `Ctrl+F5`
+  wszędzie w Podcastach odświeża całą Bibliotekę;
+- zwykłe playlisty są ręcznymi, trwałymi zestawami i nie odświeżają kanałów.
+  Przyszła playlista inteligentna będzie osobnym zapisanym filtrem, który
+  aktualizuje swoją zawartość automatycznie i nie pozwala na ręczne
+  przestawianie wyników;
+- ustawienie sortowania jest pamiętane osobno dla Biblioteki, skrzynki i każdej
+  playlisty. Tymczasowy `Ctrl+K` nie zmienia zapisanej reguły sortowania.
+
+W Podcastach `Ctrl+S` zostaje przeznaczony na świadome zapisanie audio jednego
+lub wielu zaznaczonych odcinków. Nie działa na nagłówku całej audycji bez
+osobnego wyboru zakresu i potwierdzenia. Pobieranie ma używać lokalnego pliku
+roboczego, anulowania, postępu i atomowej publikacji, tak samo bezpiecznie jak
+nagrania Radia.
+
 ## 10. Granica pierwszej wersji
 
 `alpha.206` pozwala dodać bezpośredni kanał RSS/Atom, zaimportować OPML,

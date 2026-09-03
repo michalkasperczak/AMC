@@ -5674,9 +5674,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             RecordPlayback(podcasts, e.Item);
         }
-        var saved = _state.Podcasts.Episodes.FirstOrDefault(episode =>
-            string.Equals(episode.Id, e.Item.Id, StringComparison.Ordinal));
-        if (saved is not null) saved.IsNew = false;
         RefreshPlaybackIndicators();
         if (_playerViewActive
             && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
@@ -5976,6 +5973,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return new CommandExecutionResult(false);
             }
             NavigateTo(PodcastInboxViewName);
+            PrepareViewFocusContext(MediaList.Items.Count == 0
+                ? "Nowe odcinki, brak nowych odcinków"
+                : PodcastInboxViewName);
+            RestoreMediaListFocusAfterRefresh();
+            if (MediaList.Items.Count == 0)
+            {
+                Dispatcher.BeginInvoke(
+                    () => Announce("Brak nowych odcinków. F5 odświeża wszystkie podcasty z Biblioteki"),
+                    DispatcherPriority.ContextIdle);
+            }
             return new CommandExecutionResult(true);
         }
         if (commandId is CommandIds.ViewFolders
@@ -7670,6 +7677,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         Announce("To najwyższy poziom tego widoku");
+        RestoreMediaListFocusAfterRefresh();
     }
 
     private static bool IsTopLevelBrowserView(string viewName) => viewName is
@@ -7697,6 +7705,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.IsNullOrWhiteSpace(currentPath))
         {
             Announce("To jest lista Folderów Biblioteki");
+            RestoreMediaListFocusAfterRefresh();
             return;
         }
 
@@ -11145,6 +11154,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.OemComma) => CommandIds.SettingsGeneral,
             (ModifierKeys.Control, Key.F5) when string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) => CommandIds.ManageLocalSources,
             (ModifierKeys.Control, Key.F5) when string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal) => CommandIds.RefreshPodcastLibrary,
+            (ModifierKeys.None, Key.F5) when string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+                && string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal) => CommandIds.RefreshPodcastLibrary,
             (ModifierKeys.None, Key.F5) when string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal) => CommandIds.RefreshPodcast,
             (ModifierKeys.None, Key.F5) => CommandIds.RefreshLocalLibrary,
             (ModifierKeys.None, Key.F2) => CommandIds.RenameLibraryItem,
@@ -11377,7 +11388,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 || string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)))
         {
             ExecuteCommand(string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
-                ? CommandIds.RefreshPodcast
+                ? string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal)
+                    ? CommandIds.RefreshPodcastLibrary
+                    : CommandIds.RefreshPodcast
                 : CommandIds.RefreshLocalLibrary);
             return true;
         }

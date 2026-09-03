@@ -1,8 +1,9 @@
 # AMC podcast module design
 
-Status: subscription and initial playback are complete. `alpha.211` removes
-leading copyright markers from user-facing author labels and makes Escape
-follow Backspace on nested lists. The
+Status: subscription and initial playback are complete. `alpha.213` keeps
+keyboard focus on the list after Escape at the top level, gives the empty inbox
+an explicit announcement, and refreshes all followed shows with F5 from that
+aggregate view. The
 durable session, safe direct RSS/Atom subscription, accessible OPML import,
 metadata refresh, show-to-episode navigation and finite HTTP/HTTPS episode
 playback through AMC's shared player are in place.
@@ -110,13 +111,18 @@ an existing RSS subscription to work.
    and reopening an episode.
 8. `alpha.211`: completed — concise user-facing author labels and consistent
    Escape/Backspace parent navigation on nested lists.
-9. Next: Apple Podcasts catalog search and feed discovery from ordinary pages.
-10. Later: New episodes state, filtering and batch operations.
-11. Later: cancellable downloads with local staging and atomic publication.
-12. Later: episode playlists plus OPML and AMC import/export.
-13. Later: embedded web audio and publisher-specific adapters.
-14. Later: supplied and user-authored chapters.
-15. Additional directories and account services remain optional adapters.
+9. `alpha.212`: completed — suppress duplicate list values when a feed uses the
+   same text for its show title and author.
+10. `alpha.213`: completed — reliable top-level Escape focus, explicit empty
+    inbox feedback, aggregate F5 refresh, and keeping a started new episode in
+    the inbox until completion.
+11. Next: Apple Podcasts catalog search and feed discovery from ordinary pages.
+12. Later: New episodes state, filtering and batch operations.
+13. Later: cancellable downloads with local staging and atomic publication.
+14. Later: episode playlists plus OPML and AMC import/export.
+15. Later: embedded web audio and publisher-specific adapters.
+16. Later: supplied and user-authored chapters.
+17. Additional directories and account services remain optional adapters.
 
 The keyboard map will be decided after the first working view. This design
 document does not reserve shortcuts by itself.

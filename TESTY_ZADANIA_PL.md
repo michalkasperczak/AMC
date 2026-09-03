@@ -1,12 +1,42 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-212`
-- Tytuł zestawu: Bez powtarzania identycznych metadanych
-- Wersja programu: `0.1.0-alpha.212`
+- Numer zestawu: `AMC-TEST-213`
+- Tytuł zestawu: Fokus Escape i odświeżanie skrzynki Podcastów
+- Wersja programu: `0.1.0-alpha.213`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.212.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.213.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 213
+
+### AMC-213-01 — Escape na najwyższym poziomie
+
+W sesji Podcasty przejdź z listy odcinków przez Escape do Biblioteki, a
+następnie naciśnij Escape jeszcze raz.
+
+Oczekiwane: program mówi, że jest to najwyższy poziom widoku, ale fokus
+pozostaje na aktualnym podcaście na liście. Nie przechodzi do pola „Filtruj
+listę”; strzałki i wpisywanie liter nadal od razu obsługują listę.
+
+### AMC-213-02 — pusta skrzynka i F5
+
+Naciśnij `Ctrl+I`, gdy nie ma nowych odcinków, a następnie `F5`.
+
+Oczekiwane: program podaje „Brak nowych odcinków”. `F5` rozpoczyna odświeżenie
+wszystkich podcastów z Biblioteki i po zakończeniu podaje liczbę wykrytych
+nowych odcinków. `Ctrl+F5` nadal wykonuje pełne odświeżenie z każdego widoku
+Podcastów.
+
+### AMC-213-03 — rozpoczęty odcinek pozostaje w skrzynce
+
+Gdy pojawi się nowy odcinek, rozpocznij go ze skrzynki, wróć Escape i ponownie
+otwórz `Ctrl+I`.
+
+Oczekiwane: rozpoczęty, lecz nieukończony odcinek nadal jest w skrzynce. Znika
+po odtworzeniu do końca.
+
+## Poprzedni zestaw alpha 212
 
 ## Nowość alpha 212
 
