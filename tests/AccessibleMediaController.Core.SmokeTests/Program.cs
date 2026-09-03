@@ -1967,11 +1967,13 @@ static void TestQueuePlaybackNavigation()
     explicitQueue.SetPlaybackContext([first.Id, second.Id, third.Id], isQueueContext: true);
 
     True(explicitQueue.Play(first), "Pierwsza pozycja jawnej Kolejki powinna się uruchomić.");
-    True(!first.IsPlayNext && !first.IsInQueue,
-        "Bieżący element nie może pozostać jednocześnie na liście oczekujących.");
+    True(first.IsPlayNext,
+        "Bieżący element powinien pozostać widoczny w Kolejce do zakończenia albo przejścia dalej.");
     True(explicitQueue.QueueNavigationActive, "Odtwarzacz powinien pamiętać aktywny kontekst Kolejki.");
     True(explicitQueue.PlayRelative(1), "Page Down powinien przejść do następnej pozycji Kolejki.");
     Equal(second, explicitQueue.CurrentItem);
+    True(!first.IsPlayNext && second.IsInQueue,
+        "Dopiero opuszczony element powinien zniknąć, a bieżący pozostać w Kolejce.");
     True(explicitQueue.PlayRelative(-1), "Page Up powinien wrócić do poprzedniej pozycji tej samej Kolejki.");
     Equal(first, explicitQueue.CurrentItem);
     True(explicitQueue.PlayRelative(1), "Ponowny Page Down powinien wrócić do drugiej pozycji.");
@@ -2014,8 +2016,8 @@ static void TestQueuePlaybackNavigation()
     True(adoption.Play(adopted), "Element powinien najpierw grać poza kontekstem Kolejki.");
     True(adopted.IsPlayNext, "Samo odtworzenie poza widokiem Kolejki nie powinno zmienić przynależności.");
     adoption.SetPlaybackContext([adopted.Id, adoptedLater.Id], isQueueContext: true);
-    True(!adopted.IsPlayNext && adoption.QueueNavigationActive,
-        "Otwarcie już odtwarzanego elementu z Kolejki powinno przejąć go bez ponownego uruchamiania.");
+    True(adopted.IsPlayNext && adoption.QueueNavigationActive,
+        "Otwarcie już odtwarzanego elementu z Kolejki nie powinno przedwcześnie usuwać go z listy.");
 }
 
 static void TestMissingCurrentItemRecovery()
@@ -2058,7 +2060,7 @@ static void TestMissingCurrentItemRecovery()
     Equal(true, queuedSecond.IsInQueue);
     queueSession.TogglePlayback();
     Equal(queuedSecond, output.LastItem);
-    Equal(false, queuedSecond.IsInQueue);
+    Equal(true, queuedSecond.IsInQueue);
 
     var onlyQueued = new MediaItem { Id = "queue-only", Title = "Jedyny z Kolejki", IsInQueue = true };
     var exhaustedQueue = new DemoMediaSession(
@@ -3364,7 +3366,7 @@ static void TestCommandPalette()
     Equal("Alt+Down (kolejność własna lub Ulubione)", entries.Single(entry => entry.CommandId == CommandIds.MoveLocalLibraryItemDown).LocalShortcut);
     Equal("F5 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RefreshLocalLibrary).LocalShortcut);
     Equal("Ctrl+F5", entries.Single(entry => entry.CommandId == CommandIds.ManageLocalSources).LocalShortcut);
-    Equal("F2 (lista lokalna lub Radio)", entries.Single(entry => entry.CommandId == CommandIds.RenameLibraryItem).LocalShortcut);
+    Equal("F2 (Biblioteka lokalna, Radio lub Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RenameLibraryItem).LocalShortcut);
     Equal("Shift+F2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RenameLocalFile).LocalShortcut);
     Equal("Ctrl+F1", entries.Single(entry => entry.CommandId == CommandIds.KeyboardHelp).LocalShortcut);
 

@@ -108,14 +108,6 @@ public sealed class DemoMediaSession
             return;
         }
 
-        if ((_playbackContextIsQueue
-                || (_queueNavigationActive
-                    && _queueNavigationItemIds.Contains(CurrentItem.Id, StringComparer.Ordinal)))
-            && (CurrentItem.IsInQueue || CurrentItem.IsPlayNext))
-        {
-            _playedQueueItemIds.Add(CurrentItem.Id);
-            ConsumeQueueItem(CurrentItem);
-        }
         IsPlaying = true;
         _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
     }
@@ -156,7 +148,6 @@ public sealed class DemoMediaSession
         ResetQueueDiversion();
         RestoreExplicitQueueNavigation();
         if (!SelectItem(item)) return false;
-        if (_playbackContextIsQueue) ConsumeQueueItem(CurrentItem);
         ApplyPlaybackRateForItem(CurrentItem);
         ApplyVolumeForItem(CurrentItem);
         IsPlaying = true;
@@ -174,7 +165,6 @@ public sealed class DemoMediaSession
             if (_playbackContextIsQueue)
             {
                 RestoreExplicitQueueNavigation();
-                ConsumeQueueItem(CurrentItem);
             }
             TogglePlayback();
             return true;
@@ -186,7 +176,6 @@ public sealed class DemoMediaSession
         _currentIndex = index;
         _hasCurrentItem = true;
         _position = RememberedPosition(item);
-        if (_playbackContextIsQueue) ConsumeQueueItem(CurrentItem);
         ApplyPlaybackRateForItem(CurrentItem);
         ApplyVolumeForItem(CurrentItem);
         IsPlaying = true;
@@ -224,14 +213,13 @@ public sealed class DemoMediaSession
 
         if (!usesQueueNavigation) ResetQueueDiversion();
         RememberCurrentPosition();
-        if (usesQueueNavigation) ConsumeQueueItem(CurrentItem);
-        _currentIndex = nextIndex;
-        _position = RememberedPosition(CurrentItem);
         if (usesQueueNavigation)
         {
             _playedQueueItemIds.Add(CurrentItem.Id);
             ConsumeQueueItem(CurrentItem);
         }
+        _currentIndex = nextIndex;
+        _position = RememberedPosition(CurrentItem);
         ApplyPlaybackRateForItem(CurrentItem);
         ApplyVolumeForItem(CurrentItem);
         IsPlaying = true;
@@ -377,12 +365,6 @@ public sealed class DemoMediaSession
         _playbackContextIsQueue = isQueueContext;
         ResetQueueDiversion();
         RestoreExplicitQueueNavigation();
-        if (isQueueContext
-            && IsPlaying
-            && normalized.Contains(CurrentItem.Id, StringComparer.Ordinal))
-        {
-            ConsumeQueueItem(CurrentItem);
-        }
     }
 
     public void AddItems(IEnumerable<MediaItem> items)
@@ -488,8 +470,9 @@ public sealed class DemoMediaSession
             _hasCurrentItem = true;
             _position = RememberedPosition(CurrentItem);
             ApplyPlaybackRateForItem(CurrentItem);
-            // A Queue successor remains in the waiting set until playback
-            // actually starts through TogglePlayback.
+            // A Queue successor remains visible while it is selected and while
+            // it plays. It is consumed only after completion or navigation to
+            // another queue entry.
             if (!successorUsesQueueNavigation && previousQueueNavigationActive)
             {
                 ResetQueueDiversion();
@@ -646,15 +629,10 @@ public sealed class DemoMediaSession
             .ToArray();
         var next = orderedQueue.FirstOrDefault(item =>
             item.Id != endedItem.Id && item.IsPlayNext);
-        if (next is not null)
-        {
-            next.IsPlayNext = false;
-        }
-        else
+        if (next is null)
         {
             next = orderedQueue.FirstOrDefault(item =>
                 item.Id != endedItem.Id && item.IsInQueue);
-            if (next is not null) next.IsInQueue = false;
         }
 
         if (next is not null)
@@ -669,7 +647,6 @@ public sealed class DemoMediaSession
                     : Math.Min(contextIndex + 1, _playbackContextItemIds.Count);
             }
             _playedQueueItemIds.Add(next.Id);
-            ConsumeQueueItem(next);
         }
         else if (_playbackContextIsQueue && _queueNavigationActive)
         {

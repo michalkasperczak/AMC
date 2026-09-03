@@ -1,12 +1,60 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-203`
-- Tytuł zestawu: Fundament sesji Podcasty
-- Wersja programu: `0.1.0-alpha.203`
-- Utworzono: 2026-09-02, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.203.md`
+- Numer zestawu: `AMC-TEST-208`
+- Tytuł zestawu: Przewijanie, Kolejka i nazwy Podcastów
+- Wersja programu: `0.1.0-alpha.208`
+- Utworzono: 2026-09-03, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.208.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 208
+
+### AMC-208-01 — przewijanie sieciowego odcinka
+
+Uruchom niepobrany odcinek podcastu trwający co najmniej kilka minut. Sprawdź
+lewą i prawą strzałkę, cyfry `1`, `5` i `9`, `Ctrl+J` oraz `Ctrl+Shift+J`.
+Powtórz jeden skok po wstrzymaniu.
+
+Oczekiwane: każdy skrót zmienia pozycję tego samego odcinka. Materiał nie jest
+traktowany jak transmisja na żywo, AMC nie milknie i nie zgłasza błędu.
+
+### AMC-208-02 — bieżący odcinek pozostaje w Kolejce
+
+Dodaj do Kolejki co najmniej dwa odcinki, otwórz `Ctrl+Q` i uruchom pierwszy.
+Wróć do Kolejki, a następnie użyj w odtwarzaczu `Page Down`.
+
+Oczekiwane: odtwarzany odcinek nadal jest widoczny w Kolejce. Po przejściu
+dalej znika poprzedni, natomiast nowy bieżący odcinek pozostaje widoczny.
+
+### AMC-208-03 — tytuł przed autorem
+
+Wybierz odcinek mający osobnego autora. Porównaj jego wiersz w otwartym
+podcaście, Kolejce, Ulubionych, Historii i playliście.
+
+Oczekiwane: każdy wiersz zaczyna się od tytułu odcinka, a dopiero potem podaje
+autora, czas i pozostałe skonfigurowane pola.
+
+### AMC-208-04 — trwała nazwa podcastu pod F2
+
+W Bibliotece Podcastów wybierz audycję, naciśnij `F2`, wpisz nazwę własną i
+zatwierdź. Odśwież podcast przez `F5`, zamknij AMC i uruchom go ponownie.
+Powtórz `F2`, ale tym razem anuluj przez Escape.
+
+Oczekiwane: pole ma jednoznaczną etykietę „Nowa nazwa podcastu”, po zapisaniu
+fokus wraca do audycji, odświeżenie RSS i restart zachowują nazwę własną, a
+anulowanie niczego nie zmienia.
+
+### AMC-208-05 — regresja Kolejki w Plikach lokalnych
+
+Dodaj dwa krótkie pliki do Kolejki i uruchom pierwszy bezpośrednio z jej widoku.
+Sprawdź `Ctrl+Q`, `Page Down`, `Page Up` oraz naturalny koniec drugiego pliku.
+
+Oczekiwane: reguła pozostawiania bieżącej pozycji do zakończenia lub przejścia
+dalej jest taka sama jak w Podcastach. Żaden zużyty plik nie odtwarza się drugi
+raz, a Page Up nadal może wrócić w historii bieżącej Kolejki.
+
+## Poprzedni zestaw alpha 203
 
 ## Nowość alpha 203
 

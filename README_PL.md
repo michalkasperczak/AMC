@@ -397,7 +397,7 @@ W `alpha.97` Playlisty są już trwałymi kolekcjami każdej sesji, a nie pozycj
 
 W `alpha.98` Kolejka ma trwałą kolejność użytkownika w każdej sesji. W widoku Kolejka `Alt+strzałka w górę/w dół` przenosi jedną pozycję albo zaznaczony blok; `Ctrl+Z` przywraca dokładne poprzednie miejsce, a restart zachowuje układ w SQLite i pełnej kopii AMC. Pozycje oznaczone „Odtwórz jako następne” są zawsze wyświetlane i odtwarzane przed zwykłą kolejką. Można zmieniać kolejność wewnątrz każdej z tych dwóch grup, lecz nie mieszać ich jednym ruchem. Naturalny koniec utworu zużywa elementy dokładnie w widocznej kolejności: najpierw „Odtwórz jako następne”, potem zwykłą Kolejkę, a następnie wraca do wcześniejszego kontekstu odtwarzania.
 
-W `alpha.99` `Ctrl+Q` pozostawia jedną wspólną Kolejkę, ale jej priorytetowa część jest jednoznaczna dla NVDA: wejście podaje liczbę pozycji „jako następne” i pozostałych, a każdy priorytetowy wiersz zaczyna się od słowa „Następny”. Rozpoczęty element znika z listy oczekujących. W odtwarzaczu Page Up i Page Down poruszają się po zapamiętanej kolejności tej Kolejki także wtedy, gdy AMC wszedł do niej automatycznie po zakończeniu pliku z Biblioteki. Page Up może wrócić do wcześniej odtworzonej pozycji, a ręczne przechodzenie nie powoduje późniejszego powtarzania zużytych elementów. Po wyczerpaniu Kolejki uruchomionej z innego widoku AMC wraca do dalszej części wcześniejszego kontekstu; Kolejka uruchomiona bezpośrednio kończy się bez ponownego odtwarzania własnych pozycji.
+W `alpha.99` `Ctrl+Q` pozostawia jedną wspólną Kolejkę, ale jej priorytetowa część jest jednoznaczna dla NVDA: wejście podaje liczbę pozycji „jako następne” i pozostałych, a każdy priorytetowy wiersz zaczyna się od słowa „Następny”. Od korekty `alpha.208` bieżący element pozostaje widoczny w Kolejce przez cały czas odtwarzania; znika dopiero po zakończeniu albo ręcznym przejściu dalej. W odtwarzaczu Page Up i Page Down poruszają się po zapamiętanej kolejności tej Kolejki także wtedy, gdy AMC wszedł do niej automatycznie po zakończeniu pliku z Biblioteki. Page Up może wrócić do wcześniej odtworzonej pozycji, a ręczne przechodzenie nie powoduje późniejszego powtarzania zużytych elementów. Po wyczerpaniu Kolejki uruchomionej z innego widoku AMC wraca do dalszej części wcześniejszego kontekstu; Kolejka uruchomiona bezpośrednio kończy się bez ponownego odtwarzania własnych pozycji.
 
 W `alpha.100` wycięcie, przeniesienie albo usunięcie bieżącego pliku nie może już przestawić odtwarzacza na pierwszy element całej Biblioteki. AMC pamięta dokładny kontekst, z którego uruchomiono materiał: Kolejkę, folder, album, Ulubione, playlistę, Bibliotekę, wyniki wyszukiwania albo dowolny inny obecny lub przyszły widok. Wybiera następny dostępny element wyłącznie z tego kontekstu. Ta sama reguła obowiązuje przy zmianie wykrytej przez monitoring folderu, wycięciu do schowka AMC, Delete oraz Shift+Delete. Odtwarzanie pozostaje zatrzymane do naciśnięcia Spacji. Gdy w źródłowym widoku nie ma następcy, AMC nie wybiera pliku zastępczego i mówi o braku następnego elementu.
 
@@ -607,7 +607,7 @@ Ta wersja dodaje opcjonalne rozpoznawanie muzyki w Radiu. `S` w odtwarzaczu rozp
 
 Od `alpha.164` bogate kopiowanie i eksport rozpoznanych utworów zawierają także YouTube Music oraz katalogowe wyszukiwania Discogs i MusicBrainz. Są to jawne adresy wyszukiwania, a nie automatyczne twierdzenie, że znaleziono właściwe wydanie. Projekt późniejszego, kontrolowanego dopasowania albumów i autorów znajduje się w [`PROJEKT_METADANYCH_I_AUTOROW_PL.md`](PROJEKT_METADANYCH_I_AUTOROW_PL.md).
 
-## Podcasty: subskrypcje alpha 205 i odtwarzanie alpha 206
+## Podcasty: subskrypcje alpha 205 i odtwarzanie alpha 206–208
 
 Podcasty są od tej wersji prawdziwą, szóstą sesją AMC i nie zawierają danych
 demonstracyjnych. Sesja ma osobną Bibliotekę oraz dostępne z menu Widok puste
@@ -634,7 +634,14 @@ Chrome i dodatku NVDA do konwersji, ale bez uzależnienia rdzenia AMC od ich
 interfejsów. `Ctrl+I` otworzy automatyczną skrzynkę **Nowe odcinki**, `Ctrl+D`
 pobierze świadomie wybrane odcinki, a Playlisty pozostaną ręcznymi zestawami i
 nie będą się same zmieniać po odświeżeniu kanału. Odtwarzanie odcinków przez
-HTTP działa od `alpha.206`. Pełny podział etapów znajduje
+HTTP działa od `alpha.206`. Korekta `alpha.208` umożliwia bezpieczne przewijanie
+sieciowego odcinka strzałkami, skok wpisanym czasem i cyframi procentowymi bez
+wywoływania dekodera Media Foundation z niewłaściwego wątku. Bieżący odcinek
+pozostaje widoczny w Kolejce przez cały czas odtwarzania i znika dopiero po
+zakończeniu albo ręcznym przejściu dalej. Wiersze Podcastów zawsze zaczynają się
+od tytułu audycji lub odcinka, niezależnie od ogólnej kolejności pól dla muzyki.
+`F2` na audycji w Bibliotece ustawia trwałą nazwę własną AMC, której odświeżenie
+RSS nie nadpisuje. Pełny podział etapów znajduje
 się w [`PROJEKT_PODCASTOW_PL.md`](PROJEKT_PODCASTOW_PL.md).
 
 ## Urządzenie audio osobno dla sesji w alpha 204

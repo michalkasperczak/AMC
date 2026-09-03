@@ -902,7 +902,12 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         CreateNetworkMediaFoundationReaderSettings() => new()
         {
             RequestFloatOutput = true,
-            RepositionInRead = false,
+            // MediaFoundationReader is created on the preparation worker, while
+            // later seeks can be requested by another worker.  Calling the COM
+            // source reader directly from that second thread throws for some
+            // podcast MP3 files.  Queue the reposition and let the reader apply
+            // it on its own read thread instead.
+            RepositionInRead = true,
             SingleReaderObject = true
         };
 

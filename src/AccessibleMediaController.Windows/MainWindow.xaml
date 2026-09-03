@@ -65,7 +65,7 @@
                 <MenuItem Header="_Cofnij ostatnią zmianę" InputGestureText="Ctrl+Z" Click="Undo_Click" />
                 <Separator />
                 <MenuItem x:Name="RenameLibraryItemMainMenuItem" Header="Zmień nazwę w _Bibliotece…" InputGestureText="F2"
-                          automation:AutomationProperties.Name="Zmień nazwę w Bibliotece albo edytuj stację, F2, lista lokalna lub Radio"
+                          automation:AutomationProperties.Name="Zmień nazwę w Bibliotece, podcastu albo edytuj stację, F2"
                           automation:AutomationProperties.AcceleratorKey="F2"
                           Click="RenameLibraryItem_Click" />
                 <MenuItem x:Name="RenameLocalFileMainMenuItem" Header="Zmień nazwę pliku na _dysku…" InputGestureText="Shift+F2"

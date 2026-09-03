@@ -344,8 +344,8 @@ static void TestPodcastNetworkSourcePolicy()
     var decoderSettings = WindowsMediaOutput.CreateNetworkMediaFoundationReaderSettings();
     Assert(decoderSettings.RequestFloatOutput,
         "Sieciowy dekoder podcastu nie zwraca próbek float wymaganych przez regulację prędkości.");
-    Assert(!decoderSettings.RepositionInRead && decoderSettings.SingleReaderObject,
-        "Sieciowy dekoder podcastu nie ma stabilnych ustawień przewijania i odczytu.");
+    Assert(decoderSettings.RepositionInRead && decoderSettings.SingleReaderObject,
+        "Sieciowy dekoder podcastu nie odkłada przewinięcia do bezpiecznego wątku odczytu.");
 
     Console.WriteLine("OK: bezpieczna kwalifikacja i format dekodera odcinków HTTP i HTTPS");
 }

@@ -150,23 +150,26 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
 4. `alpha.207` — zrealizowane: naprawa formatu próbek sieciowego dekodera;
    rzeczywiste odcinki MP3 i MP4 przechodzą przez regulację prędkości i wspólny
    tor wyjścia audio.
-5. `alpha.208` — wyszukiwanie publicznego katalogu Apple Podcasts, rozpoznanie
+5. `alpha.208` — zrealizowane: bezpieczne przewijanie sieciowych odcinków,
+   zachowanie bieżącego odcinka w Kolejce do zakończenia lub przejścia dalej,
+   tytuł przed autorem na listach oraz trwała nazwa podcastu pod `F2`.
+6. `alpha.209` — wyszukiwanie publicznego katalogu Apple Podcasts, rozpoznanie
    stron Apple/Overcast i wykrywanie RSS/Atom na zwykłej stronie.
-6. `alpha.209` — pełna skrzynka Nowe odcinki, stany nowy, przejrzany,
+7. `alpha.210` — pełna skrzynka Nowe odcinki, stany nowy, przejrzany,
    odsłuchany i w trakcie, filtrowanie oraz operacje zbiorowe. Stan odsłuchania
    nie będzie utożsamiany z usunięciem odcinka.
-7. `alpha.210` — jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
+8. `alpha.211` — jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
    anulowanie, postęp i atomowa publikacja gotowego pliku. Części robocze
    pozostają poza iCloud, OneDrive, Dyskiem Google i innymi folderami
    synchronizowanymi.
-8. `alpha.211` — playlisty odcinków, import i eksport OPML, osobny eksport
+9. `alpha.212` — playlisty odcinków, import i eksport OPML, osobny eksport
    danych Podcastów AMC i pełne odtworzenie ich z kopii zapasowej.
-9. `alpha.212` — strony z osadzonym audio, istniejące adaptery Polskiego Radia
+10. `alpha.213` — strony z osadzonym audio, istniejące adaptery Polskiego Radia
    i innych rozgłośni oraz przekazywanie wyników z rozszerzenia Chrome i
    dodatku NVDA.
-10. `alpha.213` — rozdziały dostarczone przez podcast i rozdziały użytkownika
+11. `alpha.214` — rozdziały dostarczone przez podcast i rozdziały użytkownika
    oparte na nazwanych zakładkach.
-11. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
+12. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
    nie mogą uzależnić od siebie RSS, Biblioteki ani lokalnych pobrań.
 
 Pozostała mapa skrótów zostanie ustalona po pierwszym działającym widoku. Nie
@@ -191,7 +194,9 @@ koncepcyjnego.
   adresy z danymi logowania są odrzucane.
 - Enter na audycji otwiera jej odcinki od najnowszego, a Backspace wraca do
   Biblioteki. Delete na audycji wypisuje z niej bez kasowania zapisanych danych
-  odcinków; ponowne dodanie przywraca subskrypcję.
+  odcinków; ponowne dodanie przywraca subskrypcję. `F2` ustawia nazwę własną
+  podcastu w AMC; nie zmienia źródłowego kanału i nie jest nadpisywane przez
+  późniejsze odświeżenia RSS.
 - `Ctrl+C` kopiuje nazwę i publiczną stronę podcastu lub odcinka, jeśli kanał
   ją podaje, natomiast
   `Ctrl+Shift+C` nazwę i bezpośredni adres kanału albo pliku audio. Menu

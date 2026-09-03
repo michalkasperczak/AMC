@@ -2405,7 +2405,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.OpenLocalFolder
             or CommandIds.RefreshLocalLibrary
             or CommandIds.ManageLocalSources
-            or CommandIds.RenameLibraryItem
             or CommandIds.RenameLocalFile
             or CommandIds.AddRadioStation
             or CommandIds.ImportRadioPlaylist)
@@ -3548,6 +3547,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             MenuAccessibility.SetPresentation(RefreshLocalLibraryMenuItem, "Odśwież foldery Biblioteki");
         }
         RenameLocalFileMainMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        RenameLibraryItemMainMenuItem.Visibility = local || radio || podcasts
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         MenuAccessibility.SetPresentation(
             LibraryViewMenuItem,
             radio ? "Wszystkie stacje" : "Biblioteka");
@@ -3557,7 +3559,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             radio ? "Ctrl+L lub Alt+1" : "Ctrl+L");
         MenuAccessibility.SetPresentation(
             RenameLibraryItemMainMenuItem,
-            radio ? "Edytuj nazwę i adres stacji…" : "Zmień nazwę w Bibliotece…");
+            radio
+                ? "Edytuj nazwę i adres stacji…"
+                : podcasts
+                    ? "Zmień nazwę podcastu…"
+                    : "Zmień nazwę w Bibliotece…");
         var movableView = !_playerViewActive
             && (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
                 || !radio && string.Equals(_currentView, "Kolejka", StringComparison.Ordinal)
@@ -4540,6 +4546,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 Id = subscription.Id,
                 Title = subscription.Title,
+                HasCustomTitle = subscription.HasCustomTitle,
                 Artist = subscription.Author,
                 Kind = MediaItemKind.Podcast,
                 Source = subscription.FeedUrl,
@@ -4585,6 +4592,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (!itemsById.TryGetValue(subscription.Id, out var item)) continue;
             subscription.Title = item.Title;
+            subscription.HasCustomTitle = item.HasCustomTitle;
             subscription.Author = item.Artist;
             subscription.IsFavorite = item.IsFavorite;
             subscription.IsInLibrary = item.IsInLibrary;
@@ -4593,8 +4601,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         foreach (var episode in _state.Podcasts.Episodes)
         {
             if (!itemsById.TryGetValue(episode.Id, out var item)) continue;
-            episode.Title = item.Title;
-            episode.Author = item.Artist;
             episode.DurationTicks = Math.Max(0, item.Duration.Ticks);
             episode.IsFavorite = item.IsFavorite;
             episode.IsInQueue = item.IsInQueue;
@@ -8322,6 +8328,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             EditRadioStation();
             return;
         }
+        if (string.Equals(ActionSession.Id, "podcasts", StringComparison.Ordinal))
+        {
+            RenamePodcastSubscription();
+            return;
+        }
         if (!TryGetSingleLocalRenameItem(requireExistingFile: false, out var item, out var path)) return;
         var dialog = new RenameLocalItemWindow(item.Title, renameOnDisk: false) { Owner = this };
         if (dialog.ShowDialog() != true)
@@ -8348,6 +8359,73 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreMediaListFocusAfterRefresh();
         Dispatcher.BeginInvoke(
             () => Announce($"Zmieniono nazwę w Bibliotece: {newTitle}"),
+            DispatcherPriority.ContextIdle);
+    }
+
+    private void RenamePodcastSubscription()
+    {
+        var item = ActionItem;
+        if (item?.Kind != MediaItemKind.Podcast)
+        {
+            Announce("Wybierz podcast w Bibliotece. Nazwy odcinków pochodzą z kanału podcastu");
+            return;
+        }
+
+        var subscription = _state.Podcasts.Subscriptions.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
+        if (subscription is null || !subscription.IsInLibrary)
+        {
+            Announce("Nie można odnaleźć tego podcastu w Bibliotece");
+            return;
+        }
+
+        var dialog = new RenameLocalItemWindow(
+            item.Title,
+            "Zmień nazwę podcastu",
+            "Zmiana dotyczy nazwy wyświetlanej przez AMC. Nazwa kanału w źródle RSS pozostanie bez zmian.",
+            "_Nowa nazwa podcastu:")
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+
+        var newTitle = dialog.NewName;
+        if (string.Equals(item.Title, newTitle, StringComparison.CurrentCulture))
+        {
+            RestoreItemActionFocus();
+            Announce("Nazwa podcastu nie została zmieniona");
+            return;
+        }
+
+        var oldTitle = item.Title;
+        item.Title = newTitle;
+        item.HasCustomTitle = true;
+        subscription.Title = newTitle;
+        subscription.HasCustomTitle = true;
+        foreach (var episode in _podcastItems.Where(candidate =>
+                     candidate.Kind == MediaItemKind.Episode
+                     && string.Equals(candidate.ExternalId, subscription.Id, StringComparison.Ordinal)))
+        {
+            var savedEpisode = _state.Podcasts.Episodes.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, episode.Id, StringComparison.Ordinal));
+            if (savedEpisode is not null
+                && (string.IsNullOrWhiteSpace(savedEpisode.Author)
+                    || string.Equals(savedEpisode.Author, oldTitle, StringComparison.CurrentCulture)))
+            {
+                episode.Artist = newTitle;
+                savedEpisode.Author = string.Empty;
+            }
+        }
+        RefreshCurrentView(preferredItemId: item.Id);
+        CapturePodcastState();
+        QueueStateSave(announceFailure: true);
+        RestoreItemActionFocus();
+        Dispatcher.BeginInvoke(
+            () => Announce($"Zmieniono nazwę podcastu: {newTitle}"),
             DispatcherPriority.ContextIdle);
     }
 
@@ -9834,9 +9912,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private string FormatItem(MediaItem item, bool includeKind)
     {
-        var fields = includeKind
+        var configuredFields = (includeKind
             ? _state.Settings.Lists.FieldOrder
-            : _state.Settings.Lists.FieldOrder.Where(field => field != MediaItemField.Kind);
+            : _state.Settings.Lists.FieldOrder.Where(field => field != MediaItemField.Kind))
+            .ToArray();
+        var fields = item.Kind is MediaItemKind.Podcast or MediaItemKind.Episode
+            ? new[] { MediaItemField.Title }
+                .Concat(configuredFields.Where(field => field != MediaItemField.Title))
+            : configuredFields;
         var label = MediaItemFormatter.Format(item, fields);
         return RadioRecordingStateLabel(item) is { } recordingState
             ? $"{label}, {recordingState}"
@@ -12606,11 +12689,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && items.Count == 1
             && actionItem?.Kind == MediaItemKind.Station
             && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
-        RenameLibraryItemMenuItem.Visibility = localRenameItem || radioRenameItem
+        var podcastRenameItem = SelectedBookmark is null
+            && items.Count == 1
+            && actionItem?.Kind == MediaItemKind.Podcast
+            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
+        RenameLibraryItemMenuItem.Visibility = localRenameItem || radioRenameItem || podcastRenameItem
             ? Visibility.Visible
             : Visibility.Collapsed;
         if (radioRenameItem)
             SetContextMenuItemPresentation(RenameLibraryItemMenuItem, "Edytuj nazwę i adres stacji", "F2");
+        else if (podcastRenameItem)
+            SetContextMenuItemPresentation(RenameLibraryItemMenuItem, "Zmień nazwę podcastu", "F2");
         else
             SetContextMenuItemPresentation(RenameLibraryItemMenuItem, "Zmień nazwę w Bibliotece", "F2");
         RenameLocalFileMenuItem.Visibility = localRenameItem && localItem
