@@ -9105,10 +9105,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        var candidateSession = membershipCandidate is null
+            ? null
+            : _sessions.FindSession(membershipCandidate.SessionId);
+        MediaItem ResolveCurrentUndoItem(MediaMembershipUndoItem entry) =>
+            candidateSession?.Items.FirstOrDefault(item =>
+                string.Equals(item.Id, entry.Item.Id, StringComparison.Ordinal))
+            ?? entry.Item;
         var preUndoMemberships = membershipCandidate?.Items
-            .Select(entry => (entry.Item, Previous: MediaMembershipState.From(entry.Item)))
+            .Select(entry =>
+            {
+                var currentItem = ResolveCurrentUndoItem(entry);
+                return (currentItem, Previous: MediaMembershipState.From(currentItem));
+            })
             .ToArray() ?? [];
-        var undo = _membershipHistory.Undo();
+        var undo = _membershipHistory.Undo(itemId =>
+            candidateSession?.Items.FirstOrDefault(item =>
+                string.Equals(item.Id, itemId, StringComparison.Ordinal)));
         if (undo is null)
         {
             RestoreMediaListFocusAfterRefresh();
@@ -9151,6 +9164,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             CaptureRadioState();
             QueueStateSave();
         }
+        else if (string.Equals(undo.SessionId, "podcasts", StringComparison.Ordinal))
+        {
+            // A podcast subscription is represented both by the live list item
+            // and by its persisted subscription record.  Keep both in sync so
+            // Enter can open the restored podcast immediately after Ctrl+Z.
+            CapturePodcastState();
+            QueueStateSave();
+        }
+        DiagnosticLog.Info(
+            "undo",
+            $"Cofnięto zmianę przynależności; sesja {undo.SessionId}; elementy {undo.Items.Count}.");
         RestoreMediaListFocusAfterRefresh();
 
         Dispatcher.BeginInvoke(

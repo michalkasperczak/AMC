@@ -7,6 +7,14 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.240` naprawia cofanie usunięcia całego podcastu z Biblioteki.
+`Ctrl+Z` przywraca teraz nie tylko widoczny wiersz, ale również trwały rekord
+subskrypcji, dlatego Enter od razu ponownie otwiera audycję i jej zachowane
+odcinki. Cofnięcie odnajduje aktualny element po stabilnym identyfikatorze,
+więc działa także wtedy, gdy lista została w międzyczasie odświeżona albo
+przebudowana. Operacja jest zapisywana w bazie i opisywana w logu
+diagnostycznym bez ujawniania danych podcastu.
+
 Wersja `alpha.239` oznajmia rozpoczęcie `Ctrl+D` od razu krótkim komunikatem
 „Pobieranie odcinka” albo „Pobieranie odcinków” z ich liczbą. Po ukończeniu
 pobierania przebudowa widoku nie może już zrzucić fokusu z odcinka na przycisk

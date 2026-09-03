@@ -1922,3 +1922,18 @@ a po niej wraca na ten sam odcinek. Dodatkowe przywrócenie po zakończeniu
 układu okna chroni przed charakterystycznym dla WPF przejściem na sąsiedni
 przycisk „Otwórz” albo do menu Plik. Mechanizm nie przejmuje fokusu, gdy AMC
 nie jest aktywnym oknem, i nie przeszkadza oknu systemowemu `Ctrl+S`.
+
+### 7.20. Spójne cofanie usunięcia podcastu
+
+Od `alpha.240` operacja usunięcia kanału z Biblioteki Podcastów i jej
+cofnięcie obejmują dwa zgodne poziomy: aktualny element sesji oraz trwały
+rekord subskrypcji. Samo ponowne pokazanie wiersza nie jest wystarczającym
+cofnięciem. Po `Ctrl+Z` rekord ma ponownie należeć do Biblioteki, Enter ma
+otworzyć zachowany katalog odcinków, a stan ma przetrwać restart programu.
+
+Historia nie polega już wyłącznie na referencji do dawnego obiektu listy.
+Przy cofaniu wyszukuje bieżący element po stabilnym identyfikatorze w sesji i
+przywraca oba obiekty, jeśli odświeżenie zbudowało listę od nowa. Dzięki temu
+ten sam kontrakt można stosować do przyszłych adapterów sieciowych, które
+częściej wymieniają migawki elementów. Cofnięcie nie uruchamia pobierania RSS
+ani odtwarzania, więc nie może blokować interfejsu oczekiwaniem na sieć.

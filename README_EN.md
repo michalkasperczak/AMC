@@ -1,5 +1,13 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.240` fixes undo after removing an entire podcast from the
+Library. `Ctrl+Z` now restores both the visible item and the persisted
+subscription record, so Enter can immediately open the restored show and its
+retained episodes. Undo resolves the current item by its stable identifier and
+therefore remains valid after the Podcasts list has been refreshed or rebuilt.
+The restored state is queued for durable storage and the operation is recorded
+in the diagnostic log without including podcast data.
+
 Version `alpha.227` strengthens playback focus protection. AMC now validates
 the real native Windows focus in addition to WPF's logical focus, preventing
 the hosted status bar from silently taking keyboard and NVDA focus while WPF

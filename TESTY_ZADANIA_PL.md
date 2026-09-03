@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-239`
-- Tytuł zestawu: Komunikat i stabilny fokus po pobieraniu Podcastów oraz regresja całej aplikacji
-- Wersja programu: `0.1.0-alpha.239`
+- Numer zestawu: `AMC-TEST-240`
+- Tytuł zestawu: Trwałe cofanie usunięcia podcastu oraz regresja całej aplikacji
+- Wersja programu: `0.1.0-alpha.240`
 - Utworzono: 2026-09-04, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.239.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.240.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,33 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 240
+
+### AMC-240-01 — cofnięcie usunięcia całego podcastu
+
+W Podcastach wybierz kanał mający zapisane odcinki. Usuń go z Biblioteki przez
+`Ctrl+Shift+L`, a następnie od razu naciśnij `Ctrl+Z`.
+
+Oczekiwane: AMC mówi o przywróceniu, ten sam podcast wraca na listę i pozostaje
+zaznaczony. Enter od razu otwiera jego zachowane odcinki. Nie pojawia się pusta
+lista, nie trzeba ponownie wyszukiwać kanału i program nie zawiesza się.
+
+### AMC-240-02 — cofnięcie po przebudowie listy i restart
+
+Powtórz usunięcie, przed `Ctrl+Z` zmień widok i wróć do Biblioteki albo wykonaj
+odświeżenie, które nie wymaga czekania na dużą liczbę kanałów. Cofnij zmianę,
+otwórz podcast Enterem, zamknij AMC i uruchom wersję 240 ponownie.
+
+Oczekiwane: cofnięcie trafia do aktualnego elementu listy mimo jej przebudowy.
+Podcast otwiera się przed restartem i nadal należy do Biblioteki po restarcie.
+
+### AMC-240-03 — ponowne usunięcie po cofnięciu
+
+Na przywróconym podcaście naciśnij `Ctrl+Shift+L` tylko raz.
+
+Oczekiwane: komunikat mówi o usunięciu, podcast znika dokładnie raz, fokus
+pozostaje na liście, a następne `Ctrl+Z` znowu daje kompletny, otwieralny wpis.
 
 ## Nowości alpha 239
 

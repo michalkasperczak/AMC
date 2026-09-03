@@ -133,6 +133,22 @@ wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
 - Następny test: wykonać `AMC-230-01` i `AMC-230-02`, a potem powtórzyć
   analogiczny przepływ w Podcastach oraz przyszłej usłudze streamingowej.
 
+### AMC-RYZYKO-007 — niepełne Ctrl+Z po usunięciu podcastu
+
+- Stan: zamknięte w `alpha.240`, pozostaje test regresji NVDA i restartu.
+- Dotyczy: usunięcia całego podcastu z Biblioteki i natychmiastowego `Ctrl+Z`.
+- Fakt zaobserwowany: wiersz kanału wracał na listę, lecz Enter nie otwierał
+  już jego odcinków; następne `Ctrl+Shift+L` ponownie oznajmiało usunięcie.
+- Przyczyna: historia przywracała flagę w żywym elemencie listy, ale gałąź
+  cofania nie zapisywała odtworzonej przynależności do trwałego rekordu
+  Podcastów. Po przebudowie listy możliwa była dodatkowo nieaktualna referencja
+  do wcześniejszej instancji elementu.
+- Rozstrzygnięcie: cofnięcie rozwiązuje aktualny element po stabilnym
+  identyfikatorze, synchronizuje rekord subskrypcji i zleca trwały zapis.
+  Operacja nie pobiera kanału z sieci ani nie uruchamia odtwarzania.
+- Następny test: wykonać `AMC-240-01`–`AMC-240-03`, w tym przebudowę listy i
+  ponowne uruchomienie programu.
+
 ## Stałe, globalne obszary regresji przed publikacją
 
 Poniższe obszary dotyczą całego AMC, a nie wyłącznie modułu rozwijanego w

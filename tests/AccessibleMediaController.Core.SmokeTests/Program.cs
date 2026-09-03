@@ -4001,6 +4001,31 @@ static void TestMembershipHistory()
     Equal(2, batchUndo!.Items.Count);
     True(item.IsFavorite && second.IsFavorite, "Jedno cofnięcie powinno przywrócić całą zmianę zbiorową.");
 
+    var stalePodcast = new MediaItem
+    {
+        Id = "podcast-restored-after-refresh",
+        Title = "Podcast po przebudowie listy",
+        Kind = MediaItemKind.Podcast,
+        IsInLibrary = true
+    };
+    var podcastBeforeRemoval = MediaMembershipState.From(stalePodcast);
+    stalePodcast.IsInLibrary = false;
+    history.Record("podcasts", stalePodcast, podcastBeforeRemoval, "Przywrócono podcast");
+    var currentPodcast = new MediaItem
+    {
+        Id = stalePodcast.Id,
+        Title = stalePodcast.Title,
+        Kind = MediaItemKind.Podcast,
+        IsInLibrary = false
+    };
+    var podcastUndo = history.Undo(itemId =>
+        string.Equals(itemId, currentPodcast.Id, StringComparison.Ordinal) ? currentPodcast : null);
+    True(podcastUndo is not null, "Cofnięcie podcastu powinno zostać znalezione po przebudowie listy.");
+    True(currentPodcast.IsInLibrary,
+        "Ctrl+Z powinno przywrócić bieżący obiekt podcastu, a nie tylko nieaktualny element starej listy.");
+    True(stalePodcast.IsInLibrary,
+        "Obiekt zapisany w historii powinien pozostać zgodny z bieżącym elementem.");
+
     var firstFavorite = new MediaItem { Id = "favorite-a", Title = "Pierwszy", IsFavorite = true };
     var middleFavorite = new MediaItem { Id = "favorite-b", Title = "Środkowy", IsFavorite = true };
     var lastFavorite = new MediaItem { Id = "favorite-c", Title = "Ostatni", IsFavorite = true };

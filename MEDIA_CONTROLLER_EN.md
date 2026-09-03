@@ -1603,6 +1603,20 @@ uses modifiers that are physically down rather than a cached hook state, so a
 missed Alt key-up after focus movement cannot turn a later plain digit into a
 view command or a session change.
 
+### 7.20. Consistent undo for removed podcasts
+
+Starting with `alpha.240`, undoing the removal of a show from the Podcasts
+Library restores both the current session item and the persisted subscription
+record. Showing the row again is not considered a complete undo: Enter must
+open the retained episode catalogue immediately and the restored membership
+must survive application restart.
+
+The undo history no longer depends only on an object reference from an older
+list snapshot. It resolves the current item by its stable identifier and
+updates both instances when a refresh has rebuilt the list. Undo performs no
+RSS fetch and starts no playback, keeping the operation independent of network
+availability and safe for the UI thread.
+
 ### 7.13. Shared Library and Favorites sorting
 
 Starting with `alpha.216`, persistent collections use one predictable map. In
