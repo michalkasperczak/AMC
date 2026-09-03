@@ -119,6 +119,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool _recordingCloseConfirmed;
     private bool _playerViewActive;
     private bool _keyboardHelpActive;
+    private bool _focusRecoveryScheduled;
     private bool _restoringSessionNavigation;
     private string? _playerFocusContextPrefix;
     private DateTime _lastLocalStateSaveUtc;
@@ -1345,6 +1346,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
+        RecoverMainWindowFocusIfNeeded("cykliczna aktualizacja odtwarzania");
         SaveLocalMediaStateIfDue();
         SavePodcastStateIfDue();
         TryStartScheduledRadioRecognition();
@@ -7939,8 +7941,76 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         ReconcileCompletedExternalMoves();
         if (!_initialFocusApplied) return;
-        if (Keyboard.FocusedElement is not null and not Menu and not MenuItem) return;
-        Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.ContextIdle);
+        ScheduleMainWindowFocusRecovery("ponowne uaktywnienie okna");
+    }
+
+    private void Window_IsKeyboardFocusWithinChanged(
+        object sender,
+        DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is true) return;
+        ScheduleMainWindowFocusRecovery("utrata fokusa klawiatury");
+    }
+
+    private void ScheduleMainWindowFocusRecovery(string reason)
+    {
+        if (_isClosing || _focusRecoveryScheduled) return;
+        _focusRecoveryScheduled = true;
+        Dispatcher.BeginInvoke(
+            () =>
+            {
+                _focusRecoveryScheduled = false;
+                RecoverMainWindowFocusIfNeeded(reason);
+            },
+            DispatcherPriority.Input);
+    }
+
+    private void RecoverMainWindowFocusIfNeeded(string reason)
+    {
+        if (_isClosing || !IsLoaded || !IsVisible) return;
+
+        var focused = Keyboard.FocusedElement;
+        var menuFocus = MainMenu.IsKeyboardFocusWithin
+            || focused is MenuItem { IsVisible: true };
+        var ownedWindowActive = OwnedWindows.Cast<Window>().Any(window => window.IsActive);
+        var browserFocusValid = MediaList.IsKeyboardFocusWithin
+            || BrowserHeaderPanel.IsKeyboardFocusWithin
+            || BrowserActionPanel.IsKeyboardFocusWithin;
+        var recoveryTarget = MainWindowNavigationPolicy.ResolveFocusRecoveryTarget(
+            IsActive,
+            ownedWindowActive,
+            menuFocus,
+            _playerViewActive,
+            PlayerPanel.IsKeyboardFocusWithin,
+            browserFocusValid);
+        if (recoveryTarget == MainWindowFocusRecoveryTarget.None) return;
+
+        DiagnosticLog.Warning(
+            "focus-recovery",
+            $"Przywracanie fokusa po zdarzeniu: {reason}; "
+            + $"cel: {recoveryTarget}; poprzedni fokus: {DescribeKeyboardFocus(focused)}.");
+        if (recoveryTarget == MainWindowFocusRecoveryTarget.Player)
+        {
+            if (!PlayerPlayPauseButton.IsVisible || !PlayerPlayPauseButton.IsEnabled) return;
+            PlayerPlayPauseButton.Focus();
+            Keyboard.Focus(PlayerPlayPauseButton);
+            return;
+        }
+
+        FocusMediaList();
+    }
+
+    private static string DescribeKeyboardFocus(IInputElement? focused)
+    {
+        if (focused is null) return "brak";
+        if (focused is FrameworkElement element)
+        {
+            var accessibleName = AutomationProperties.GetName(element);
+            return string.IsNullOrWhiteSpace(accessibleName)
+                ? element.GetType().Name
+                : $"{element.GetType().Name} ({accessibleName})";
+        }
+        return focused.GetType().Name;
     }
 
     private void Window_Deactivated(object? sender, EventArgs e)
@@ -10944,6 +11014,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var windowKey = e.Key == Key.System ? e.SystemKey : e.Key;
+        // If WPF left focus on the window itself after an asynchronous player
+        // update, repair it before routing this very key. The user must not
+        // need an extra Escape merely to make transport shortcuts work again.
+        RecoverMainWindowFocusIfNeeded("naciśnięcie klawisza po utracie fokusa");
         if (windowKey == Key.F1 && Keyboard.Modifiers == ModifierKeys.Control)
         {
             ToggleKeyboardHelp();
@@ -13463,6 +13537,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
     private void MediaContextMenu_Closed(object sender, RoutedEventArgs e) =>
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.Loaded);
+    private void PlayerContextMenu_Closed(object sender, RoutedEventArgs e) =>
+        Dispatcher.BeginInvoke(
+            () => RecoverMainWindowFocusIfNeeded("zamknięcie menu odtwarzacza"),
+            DispatcherPriority.Loaded);
     private void PlayerContextMenu_Opened(object sender, RoutedEventArgs e)
     {
         var item = _sessions.Current.CurrentItem;

@@ -1,5 +1,13 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.221` protects keyboard focus during playback. After an
+asynchronous file, podcast, or radio update, AMC restores focus to the player
+or current media list if WPF leaves it on a hidden or invalid element. Closing
+the player's context menu now explicitly returns to the player. The guard does
+not steal focus during Alt+Tab, an open menu, or an owned dialog. Actual
+recoveries are recorded as `focus-recovery` diagnostics without adding NVDA
+speech.
+
 Version `alpha.220` fixes audio recovery after a previously selected output
 device disappears. AMC retains the last safe position and, after the user
 selects an available replacement, restarts the current item. An intentionally

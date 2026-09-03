@@ -1,5 +1,13 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.221` chroni fokus podczas odtwarzania. Po asynchronicznym
+otwarciu albo zmianie pliku, podcastu lub stacji AMC przywraca fokus do
+odtwarzacza albo bieżącej listy, jeżeli WPF pozostawił go na niewidocznym
+elemencie. Zamknięcie menu kontekstowego odtwarzacza również jawnie wraca do
+odtwarzacza. Ochrona nie przejmuje fokusa podczas Alt+Tab, w otwartym menu ani
+w oknie dialogowym. Każde rzeczywiste automatyczne odzyskanie jest zapisywane
+w logu jako `focus-recovery`, ale nie dodaje komunikatu NVDA.
+
 Wersja `alpha.220` naprawia odzyskiwanie dźwięku po odłączeniu wcześniej
 wybranego urządzenia audio. AMC rozpoznaje, że zapamiętane wyjście zniknęło,
 zachowuje ostatnią bezpieczną pozycję i po ręcznym wybraniu dostępnego

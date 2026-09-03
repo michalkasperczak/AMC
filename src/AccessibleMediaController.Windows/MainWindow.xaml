@@ -10,6 +10,7 @@
         ContentRendered="Window_ContentRendered"
         Activated="Window_Activated"
         Deactivated="Window_Deactivated"
+        IsKeyboardFocusWithinChanged="Window_IsKeyboardFocusWithinChanged"
         PreviewKeyDown="Window_PreviewKeyDown"
         PreviewTextInput="Window_PreviewTextInput"
         Closing="Window_Closing">
@@ -535,7 +536,7 @@
                 BorderThickness="1" BorderBrush="Gray" Padding="18"
                 automation:AutomationProperties.Name="Odtwarzacz">
             <Border.ContextMenu>
-                <ContextMenu Opened="PlayerContextMenu_Opened">
+                <ContextMenu Opened="PlayerContextMenu_Opened" Closed="PlayerContextMenu_Closed">
                     <MenuItem x:Name="PlayerPlayPauseMenuItem" Header="Odtwórz lub wstrzymaj" InputGestureText="Spacja"
                               automation:AutomationProperties.Name="Odtwórz lub wstrzymaj, Spacja"
                               Click="PlayerPlayPause_Click" />

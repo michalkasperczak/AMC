@@ -81,6 +81,7 @@ try
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
     TestPlayerDeparturePlaybackPolicy();
+    TestMainWindowFocusRecoveryPolicy();
     TestPlayerAudioProcessingKeyboardMap();
     TestPlaylistPresentation();
     TestGuardDoesNotBlockPositionReads();
@@ -459,6 +460,65 @@ static void TestPlayerDeparturePlaybackPolicy()
             new MediaItem { Kind = MediaItemKind.Podcast, ExternalId = "audycja-1" }) is null,
         "Nagłówek podcastu nie powinien udawać odcinka z podcastem nadrzędnym.");
     Console.WriteLine("OK: tylko jawny powrót z odtwarzacza stosuje regułę wstrzymania");
+}
+
+static void TestMainWindowFocusRecoveryPolicy()
+{
+    Assert(
+        MainWindowNavigationPolicy.ResolveFocusRecoveryTarget(
+            windowActive: true,
+            ownedWindowActive: false,
+            menuFocus: false,
+            playerViewActive: true,
+            playerFocusValid: false,
+            browserFocusValid: false) == MainWindowFocusRecoveryTarget.Player,
+        "Odtwarzacz nie odzyskuje fokusa po zniknięciu aktywnego elementu.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveFocusRecoveryTarget(
+            windowActive: true,
+            ownedWindowActive: false,
+            menuFocus: false,
+            playerViewActive: false,
+            playerFocusValid: false,
+            browserFocusValid: false) == MainWindowFocusRecoveryTarget.MediaList,
+        "Lista nie odzyskuje fokusa po asynchronicznym odświeżeniu.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveFocusRecoveryTarget(
+            windowActive: false,
+            ownedWindowActive: false,
+            menuFocus: false,
+            playerViewActive: true,
+            playerFocusValid: false,
+            browserFocusValid: false) == MainWindowFocusRecoveryTarget.None,
+        "Ochrona fokusa przejmuje go podczas Alt+Tab.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveFocusRecoveryTarget(
+            windowActive: true,
+            ownedWindowActive: true,
+            menuFocus: false,
+            playerViewActive: true,
+            playerFocusValid: false,
+            browserFocusValid: false) == MainWindowFocusRecoveryTarget.None,
+        "Ochrona fokusa przejmuje go z okna dialogowego.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveFocusRecoveryTarget(
+            windowActive: true,
+            ownedWindowActive: false,
+            menuFocus: true,
+            playerViewActive: true,
+            playerFocusValid: false,
+            browserFocusValid: false) == MainWindowFocusRecoveryTarget.None,
+        "Ochrona fokusa zamyka albo omija otwarte menu.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveFocusRecoveryTarget(
+            windowActive: true,
+            ownedWindowActive: false,
+            menuFocus: false,
+            playerViewActive: true,
+            playerFocusValid: true,
+            browserFocusValid: false) == MainWindowFocusRecoveryTarget.None,
+        "Prawidłowy fokus odtwarzacza jest niepotrzebnie przenoszony.");
+    Console.WriteLine("OK: ochrona fokusa odtwarzacza i listy nie przejmuje menu ani innych okien");
 }
 
 static void TestAudioClipExporter()

@@ -9,6 +9,13 @@ internal enum PlayerDepartureReason
     SessionSwitch
 }
 
+internal enum MainWindowFocusRecoveryTarget
+{
+    None,
+    Player,
+    MediaList
+}
+
 internal static class MainWindowNavigationPolicy
 {
     private const string PodcastSessionId = "podcasts";
@@ -34,6 +41,27 @@ internal static class MainWindowNavigationPolicy
 
     public static bool ShouldApplyPlaybackExitPolicy(PlayerDepartureReason reason) =>
         reason is PlayerDepartureReason.ReturnToList;
+
+    public static MainWindowFocusRecoveryTarget ResolveFocusRecoveryTarget(
+        bool windowActive,
+        bool ownedWindowActive,
+        bool menuFocus,
+        bool playerViewActive,
+        bool playerFocusValid,
+        bool browserFocusValid)
+    {
+        if (!windowActive || ownedWindowActive || menuFocus)
+            return MainWindowFocusRecoveryTarget.None;
+        if (playerViewActive)
+        {
+            return playerFocusValid
+                ? MainWindowFocusRecoveryTarget.None
+                : MainWindowFocusRecoveryTarget.Player;
+        }
+        return browserFocusValid
+            ? MainWindowFocusRecoveryTarget.None
+            : MainWindowFocusRecoveryTarget.MediaList;
+    }
 
     public static bool IsPodcastLibraryLocation(string sessionId, string viewName) =>
         string.Equals(sessionId, PodcastSessionId, StringComparison.Ordinal)

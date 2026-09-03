@@ -1,12 +1,40 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-220`
-- Tytuł zestawu: Odzyskiwanie dźwięku po zniknięciu urządzenia
-- Wersja programu: `0.1.0-alpha.220`
+- Numer zestawu: `AMC-TEST-221`
+- Tytuł zestawu: Ochrona fokusa podczas odtwarzania
+- Wersja programu: `0.1.0-alpha.221`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.220.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.221.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 221
+
+### AMC-221-01 — szybka zmiana podczas odtwarzania
+
+Otwórz odtwarzacz podcastu, pliku lokalnego i radia. W każdym z nich kilka razy
+szybko użyj `Page Up`, `Page Down`, strzałek sterujących oraz `F6`.
+
+Oczekiwane: wszystkie skróty działają od pierwszego naciśnięcia. Fokus
+pozostaje w odtwarzaczu i nie trzeba odzyskiwać go klawiszem Escape.
+
+### AMC-221-02 — menu kontekstowe odtwarzacza
+
+W otwartym odtwarzaczu otwórz menu kontekstowe, przejdź po kilku poleceniach i
+zamknij je Escape bez wykonywania polecenia. Od razu użyj strzałki albo
+`Page Down`.
+
+Oczekiwane: po zamknięciu menu fokus wraca do odtwarzacza, a następny klawisz
+steruje nim bez dodatkowego Escape.
+
+### AMC-221-03 — granice ochrony
+
+Podczas odtwarzania otwórz okno `Shift+A`, anuluj je, a następnie przełącz się
+Alt+Tab do innej aplikacji i wróć do AMC.
+
+Oczekiwane: AMC nie odbiera fokusa oknu wyboru ani innej aplikacji. Po powrocie
+do głównego okna fokus znajduje się w aktualnym odtwarzaczu albo na bieżącej
+liście, zależnie od otwartego widoku.
 
 ## Nowości alpha 220
 

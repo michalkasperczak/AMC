@@ -4,6 +4,14 @@ Wersja dokumentu: 0.7, aktualny plan projektu
 
 Data aktualizacji: 29 sierpnia 2026 r.
 
+Od `alpha.221` główne okno ma ochronę fokusa niezależną od silnika audio.
+Asynchroniczne rozpoczęcie, zakończenie, błąd albo zmiana odtwarzanego elementu
+nie mogą pozostawić fokusa na ukrytej kontrolce, natywnym pasku stanu ani samym
+oknie. Przy aktywnym odtwarzaczu celem odzyskania jest jego główny przycisk, a
+w widoku przeglądania — wybrany wiersz listy. Otwarte menu, okna dialogowe i
+przełączenie do innej aplikacji są chronione przed takim automatycznym
+przeniesieniem. Odzyskanie jest ciche dla NVDA i rejestrowane diagnostycznie.
+
 Od `alpha.220` zniknięcie jawnie wybranego urządzenia nie kasuje pozycji ani
 nie blokuje dalszego wyboru wyjścia. Ręczne wskazanie sprawnego zamiennika
 wznawia element przerwany utratą urządzenia. Zwykła zmiana urządzenia w
