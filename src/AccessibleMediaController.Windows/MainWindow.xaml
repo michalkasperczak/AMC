@@ -276,6 +276,10 @@
                 <MenuItem Header="_Właściwości i informacje" InputGestureText="Alt+Enter"
                           automation:AutomationProperties.AcceleratorKey="Alt+Enter"
                           Click="Information_Click" />
+                <MenuItem x:Name="PlaybackPodcastDescriptionMenuItem" Header="Pełny _opis podcastu lub odcinka…" InputGestureText="Alt+D"
+                          automation:AutomationProperties.Name="Pokaż pełny opis podcastu lub odcinka, Alt+D"
+                          automation:AutomationProperties.AcceleratorKey="Alt+D"
+                          Visibility="Collapsed" Click="PodcastDescription_Click" />
                 <MenuItem x:Name="PlaybackItemOptionsMenuItem" Header="_Opcje odtwarzania elementu…" InputGestureText="Alt+Shift+Enter"
                           automation:AutomationProperties.AcceleratorKey="Alt+Shift+Enter"
                           Click="ItemPlaybackOptions_Click" />
@@ -475,6 +479,10 @@
                     <MenuItem x:Name="InformationMenuItem" Header="Właściwości i informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.Name="Właściwości i informacje, Alt+Enter"
                               Click="Information_Click" />
+                    <MenuItem x:Name="PodcastDescriptionMenuItem" Header="Pełny opis podcastu lub odcinka…" InputGestureText="Alt+D"
+                              automation:AutomationProperties.Name="Pokaż pełny opis podcastu lub odcinka, Alt+D"
+                              automation:AutomationProperties.AcceleratorKey="Alt+D"
+                              Visibility="Collapsed" Click="PodcastDescription_Click" />
                     <MenuItem x:Name="ItemPlaybackOptionsMenuItem" Header="Opcje odtwarzania elementu" InputGestureText="Alt+Shift+Enter"
                               automation:AutomationProperties.Name="Opcje odtwarzania elementu, Alt+Shift+Enter"
                               Click="ItemPlaybackOptions_Click" />
@@ -692,6 +700,10 @@
                     <MenuItem Header="Właściwości i informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.Name="Właściwości i informacje, Alt+Enter"
                               Click="Information_Click" />
+                    <MenuItem x:Name="PlayerPodcastDescriptionMenuItem" Header="Pełny opis podcastu lub odcinka…" InputGestureText="Alt+D"
+                              automation:AutomationProperties.Name="Pokaż pełny opis podcastu lub odcinka, Alt+D"
+                              automation:AutomationProperties.AcceleratorKey="Alt+D"
+                              Visibility="Collapsed" Click="PodcastDescription_Click" />
                     <MenuItem x:Name="PlayerGoToAlbumMenuItem" Header="Przejdź do albumu"
                               Click="GoToAlbum_Click" />
                     <MenuItem x:Name="PlayerGoToArtistMenuItem" Header="Przejdź do wykonawcy"

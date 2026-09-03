@@ -1,15 +1,15 @@
 # Accessible Media Controller — Windows prototype
 
-Version `alpha.216` gives persistent collections one consistent sorting map.
-In Library and Favorites, `Alt+1` selects added order with newest items first,
-`Alt+2` selects alphabetical order, and `Alt+3` selects persistent custom
-order. The choice is remembered independently for every view and session, and
-`Alt+Up/Down` moves items only in custom order. Queues and playlists retain
-playback/user order, albums retain track order, while Search, History, New
-episodes and Recording now do not capture these shortcuts. Local Library keeps
-its structural exception: `Alt+1` Folders, `Alt+2` flat alphabetical files and
-`Alt+3` Custom order; local Favorites use the shared collection rule. A plain
-digit can no longer be mistaken for `Alt+digit` after a rapid view change.
+Version `alpha.217` adds public Apple Podcasts directory search without an
+Apple login or private-library synchronization. In the Podcasts session,
+Ctrl+F searches saved shows, episodes and bounded directory results. Opening a
+directory result verifies its public RSS/Atom feed, adds the show and opens its
+episodes. Alt+D opens a show or episode description as selectable read-only
+text with usable links; descriptions are not spoken during normal list
+navigation. Ctrl+I rebuilds the session snapshot before showing the Inbox.
+Only the newest episode of a newly added show enters the Inbox, while later
+refreshes mark every genuinely discovered episode as new. F5 in the Inbox
+refreshes all followed shows.
 
 Version `alpha.216` gives persistent collections one consistent sorting map.
 In Library and Favorites, `Alt+1` selects added order with newest items first,

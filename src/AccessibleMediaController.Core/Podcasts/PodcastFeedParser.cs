@@ -104,7 +104,7 @@ public static partial class PodcastFeedParser
             ?? throw new InvalidDataException("Kanał RSS nie zawiera sekcji channel.");
         var title = TextOf(channel, "title", "Podcast bez nazwy");
         var author = TextOfAny(channel, "author", "managingEditor", "creator");
-        var description = TextOfAny(channel, "description", "subtitle", "summary");
+        var description = DescriptionOfAny(channel, "description", "subtitle", "summary");
         var homepage = FirstUri(channel, feedUri, "link");
         var itemElements = channel.Elements().Any(element => IsNamed(element, "item"))
             ? channel.Elements().Where(element => IsNamed(element, "item"))
@@ -151,7 +151,7 @@ public static partial class PodcastFeedParser
             sourceIdentifier,
             title,
             author,
-            TextOfAny(item, "description", "summary", "encoded"),
+            DescriptionOfAny(item, "description", "summary", "encoded"),
             ParseDate(TextOfAny(item, "pubDate", "published", "updated")),
             ParseDuration(TextOfAny(item, "duration")),
             mediaUri,
@@ -164,7 +164,7 @@ public static partial class PodcastFeedParser
     {
         var title = TextOf(root, "title", "Podcast bez nazwy");
         var author = AuthorOf(root);
-        var description = TextOfAny(root, "subtitle", "summary");
+        var description = DescriptionOfAny(root, "subtitle", "summary");
         var homepage = AtomLink(root, feedUri, "alternate") ?? FirstUri(root, feedUri, "link");
         var feedIdentifier = TextOfAny(root, "id");
         if (string.IsNullOrWhiteSpace(feedIdentifier)) feedIdentifier = feedUri.AbsoluteUri;
@@ -204,7 +204,7 @@ public static partial class PodcastFeedParser
             sourceIdentifier,
             TextOf(entry, "title", "Odcinek bez tytułu"),
             author,
-            TextOfAny(entry, "summary", "content"),
+            DescriptionOfAny(entry, "summary", "content"),
             ParseDate(TextOfAny(entry, "published", "updated")),
             ParseDuration(TextOfAny(entry, "duration")),
             mediaUri,
@@ -264,6 +264,22 @@ public static partial class PodcastFeedParser
         return string.Empty;
     }
 
+    private static string DescriptionOfAny(XElement parent, params string[] localNames)
+    {
+        foreach (var localName in localNames)
+        {
+            var element = parent.Elements().FirstOrDefault(element => IsNamed(element, localName));
+            var value = element is null
+                ? null
+                : element.HasElements
+                    ? string.Concat(element.Nodes().Select(node => node.ToString(SaveOptions.DisableFormatting)))
+                    : element.Value;
+            var normalized = NormalizeDescription(value);
+            if (normalized.Length > 0) return normalized;
+        }
+        return string.Empty;
+    }
+
     private static string NormalizeText(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return string.Empty;
@@ -271,6 +287,31 @@ public static partial class PodcastFeedParser
         var withoutMarkup = MarkupPattern().Replace(decoded, " ");
         var normalized = WhitespacePattern().Replace(withoutMarkup, " ").Trim();
         return SpaceBeforePunctuationPattern().Replace(normalized, "$1");
+    }
+
+    private static string NormalizeDescription(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        var decoded = WebUtility.HtmlDecode(value);
+        decoded = AnchorPattern().Replace(decoded, match =>
+        {
+            var label = NormalizeText(match.Groups[2].Value);
+            var address = WebUtility.HtmlDecode(match.Groups[1].Value).Trim();
+            if (label.Length == 0) return address;
+            if (address.Length == 0 || label.Contains(address, StringComparison.OrdinalIgnoreCase)) return label;
+            return $"{label}: {address}";
+        });
+        decoded = BreakPattern().Replace(decoded, Environment.NewLine);
+        decoded = MarkupPattern().Replace(decoded, " ");
+        decoded = WebUtility.HtmlDecode(decoded);
+        return string.Join(
+            Environment.NewLine,
+            decoded
+                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(line => SpaceBeforePunctuationPattern().Replace(
+                    WhitespacePattern().Replace(line, " ").Trim(),
+                    "$1"))
+                .Where(line => line.Length > 0));
     }
 
     private static string? AttributeValue(XElement? element, string localName) =>
@@ -326,6 +367,12 @@ public static partial class PodcastFeedParser
 
     [GeneratedRegex("<[^>]+>", RegexOptions.CultureInvariant)]
     private static partial Regex MarkupPattern();
+
+    [GeneratedRegex("<a\\b[^>]*?href\\s*=\\s*[\\\"']([^\\\"']+)[\\\"'][^>]*>(.*?)</a>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex AnchorPattern();
+
+    [GeneratedRegex("<(?:br\\s*/?|/p|/div|/li|/h[1-6])\\s*>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex BreakPattern();
 
     [GeneratedRegex("\\s+", RegexOptions.CultureInvariant)]
     private static partial Regex WhitespacePattern();

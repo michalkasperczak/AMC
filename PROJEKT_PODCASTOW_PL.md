@@ -168,8 +168,11 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
 8. `alpha.211` — zrealizowane: zwięzła prezentacja autora bez początkowych
    oznaczeń `℗`, `©`, `®` i `™` oraz wspólne przejście o poziom wyżej przez
    Escape i Backspace na listach zagnieżdżonych.
-9. Kolejny etap — wyszukiwanie publicznego katalogu Apple Podcasts, rozpoznanie
-   stron Apple/Overcast i wykrywanie RSS/Atom na zwykłej stronie.
+9. `alpha.217` — zrealizowane: wyszukiwanie publicznego katalogu Apple
+   Podcasts, dodanie wyniku przez zweryfikowany RSS/Atom, pełny opis pod
+   `Alt+D` i przeładowanie danych przed pokazaniem skrzynki `Ctrl+I`.
+   Rozpoznanie stron Overcast i wykrywanie RSS/Atom na dowolnej zwykłej stronie
+   pozostaje następnym etapem.
 10. `alpha.214` — zrealizowane: odcinek pozostaje nowy najwyżej do osiągnięcia
     pierwszej minuty, następnie przechodzi do trwałego stanu **w trakcie**, a po
     zakończeniu do stanu **odtworzony**. `Ctrl+Shift+I` otwiera osobny widok
@@ -256,6 +259,10 @@ opisuje `PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
   AMC zastąpione przez `Alt+Enter`, więc skrót nie ma konfliktu.
 - `Ctrl+Shift+I` otwiera **W trakcie słuchania**. Jest to osobna lista
   niedokończonych odcinków, a nie rozszerzenie znaczenia słowa „nowe”.
+- `Alt+D` otwiera pełny opis audycji albo odcinka jako tekst tylko do odczytu.
+  Tekst pozwala na nawigację znakami i słowami, zaznaczanie i kopiowanie, a
+  zachowane adresy są aktywnymi łączami. Opis nie jest czytany automatycznie
+  przy przechodzeniu strzałkami po liście.
 - **Nowe odcinki** są widokiem automatycznym od najnowszego. **Pobrane** są
   filtrem rzeczywiście ukończonych plików lokalnych. Żaden z tych widoków nie
   zmienia ręcznie kolejności danych źródłowych.

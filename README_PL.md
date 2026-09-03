@@ -1,5 +1,22 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.217` uruchamia publiczne wyszukiwanie podcastów przez katalog
+Apple Podcasts. `Ctrl+F` w sesji Podcasty szuka obserwowanych audycji,
+zapisanych odcinków i wyników katalogu; Enter na wyniku katalogowym sprawdza
+publiczny kanał RSS lub Atom, dodaje audycję do Biblioteki i otwiera jej
+odcinki. Nie wymaga konta Apple i nie synchronizuje prywatnej biblioteki.
+`Alt+D` na audycji albo odcinku otwiera pełny opis jako zwykły tekst tylko do
+odczytu, po którym można poruszać się znakami i słowami, zaznaczać fragmenty,
+kopiować oraz otwierać wykryte łącza. Opis nie jest automatycznie wypowiadany
+podczas nawigacji po liście.
+
+`Ctrl+I` przed zbudowaniem widoku przeładowuje bieżący stan Podcastów, dlatego
+nie pokazuje pustej listy z powodu nieaktualnej kopii danych. Przy pierwszym
+dodaniu audycji tylko jej najnowszy odcinek trafia do skrzynki; całe starsze
+archiwum pozostaje dostępne wewnątrz audycji. Kolejne odświeżenia oznaczają
+wszystkie rzeczywiście nowo odnalezione odcinki. `F5` w skrzynce i pozycja menu
+odświeżają wszystkie obserwowane podcasty.
+
 Wersja `alpha.216` ujednolica sortowanie trwałych kolekcji. W Bibliotece i
 Ulubionych `Alt+1` wybiera kolejność dodania z najnowszymi pozycjami na
 początku, `Alt+2` — alfabet, a `Alt+3` — trwałą kolejność własną. Wybrany
@@ -11,6 +28,17 @@ zachowuje wcześniejszy wyjątek: `Alt+1` to Foldery, `Alt+2` płaska lista
 alfabetyczna, `Alt+3` Kolejność własna; w lokalnych Ulubionych obowiązuje już
 wspólna reguła kolekcji. Zwykłe cyfry nie mogą zostać potraktowane jako
 `Alt+cyfra` po szybkim przejściu między widokami.
+
+Reguła przeznaczona również do przyszłego podręcznika jest stała: Biblioteka i
+Ulubione używają `Alt+1` dla kolejności dodania od najnowszych, `Alt+2` dla
+alfabetu i `Alt+3` dla kolejności własnej. Ręczne przesuwanie
+`Alt+strzałka w górę/w dół` działa tylko w kolejności własnej. Kolejka i
+playlista zachowują kolejność odtwarzania, album — numery ścieżek, a Historia,
+wyniki wyszukiwania, Nowe odcinki i Nagrywane własny porządek wyliczany.
+Lokalna Biblioteka jest jedynym wyjątkiem: `Alt+1` oznacza Foldery,
+`Alt+2` Wszystkie pliki alfabetycznie, a `Alt+3` Kolejność własną. Filtr
+`Ctrl+K` jedynie zawęża widoczną listę i nigdy nie zmienia ani nie zapisuje jej
+porządku.
 
 Wersja `alpha.213` utrzymuje fokus na liście po Escape użytym na najwyższym
 poziomie widoku; klawisz nie przenosi już użytkownika do pola filtra. Pusta

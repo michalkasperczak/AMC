@@ -102,6 +102,7 @@ static void TestPodcastFeedParsing()
               <title>Odcinek pierwszy</title>
               <pubDate>Tue, 01 Sep 2026 18:30:00 GMT</pubDate>
               <itunes:duration>01:02:03</itunes:duration>
+              <description><![CDATA[<p>Pierwszy akapit.</p><p><a href="https://example.test/material">Materiały do odcinka</a></p>]]></description>
               <enclosure url="https://cdn.example.test/audio/1.mp3" length="123456" type="audio/mpeg" />
               <link>/podcast/1</link>
             </item>
@@ -121,6 +122,9 @@ static void TestPodcastFeedParsing()
     Equal(1, feed.Episodes.Count);
     var episode = feed.Episodes[0];
     Equal("Odcinek pierwszy", episode.Title);
+    Equal(
+        $"Pierwszy akapit.{Environment.NewLine}Materiały do odcinka: https://example.test/material",
+        episode.Description);
     Equal(TimeSpan.FromHours(1) + TimeSpan.FromMinutes(2) + TimeSpan.FromSeconds(3), episode.Duration);
     Equal(new Uri("https://cdn.example.test/audio/1.mp3"), episode.MediaUri);
     Equal(new Uri("https://example.test/podcast/1"), episode.PageUri);
@@ -284,7 +288,7 @@ static void TestPodcastLibraryUpdate()
             100)]);
     var initial = PodcastLibraryUpdater.Apply(settings, first, "Moja nazwa", DateTime.UtcNow);
     Equal(true, initial.AddedSubscription);
-    Equal(false, settings.Episodes[0].IsNew);
+    Equal(true, settings.Episodes[0].IsNew);
     settings.Episodes[0].ResumePositionTicks = TimeSpan.FromMinutes(5).Ticks;
     settings.Episodes[0].IsPlayed = true;
 
@@ -3424,6 +3428,7 @@ static void TestCommandPalette()
     var itemProperties = entries.Single(entry => entry.CommandId == CommandIds.ItemProperties);
     Equal("Alt+Enter", itemProperties.LocalShortcut);
     True(itemProperties.PrefixShortcut is null, "Właściwości nie mają skrótu prefiksowego.");
+    Equal("Alt+D (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.PodcastDescription).LocalShortcut);
     True(entries.All(entry => entry.CommandId != "view.itemInformation"), "Stare polecenie informacji nie może być w palecie.");
     True(entries.All(entry => entry.CommandId != "information.playbackStatus"), "Stary odczyt stanu nie może być w palecie.");
     Equal("Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward10).LocalShortcut);
@@ -3996,6 +4001,8 @@ static void TestTimeCommands()
     True(actions.SeekToPercentageShown, "Router powinien otworzyć okno skoku do procentu.");
     router.Execute(CommandIds.ItemProperties);
     True(actions.ItemPropertiesShown, "Router powinien otworzyć jedno okno właściwości i informacji.");
+    router.Execute(CommandIds.PodcastDescription);
+    True(actions.PodcastDescriptionShown, "Router powinien przekazać otwarcie pełnego opisu podcastu.");
     router.Execute(CommandIds.AddNamedBookmark);
     True(actions.NamedBookmarkAdded, "Router powinien przekazać dodanie nazwanej zakładki do aplikacji.");
     router.Execute(CommandIds.SettingsMessageTemplates);
@@ -4407,6 +4414,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public bool SeekToTimeShown { get; private set; }
     public bool SeekToPercentageShown { get; private set; }
     public bool ItemPropertiesShown { get; private set; }
+    public bool PodcastDescriptionShown { get; private set; }
     public bool ItemPlaybackOptionsShown { get; private set; }
     public bool BookmarkAdded { get; private set; }
     public bool NamedBookmarkAdded { get; private set; }
@@ -4422,6 +4430,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ShowPlaylistManager() { }
     public void ShowCommandPalette() => CommandPaletteShown = true;
     public void ShowItemProperties() => ItemPropertiesShown = true;
+    public void ShowPodcastDescription() => PodcastDescriptionShown = true;
     public void ShowItemPlaybackOptions() => ItemPlaybackOptionsShown = true;
     public void OpenOfficialApplication() { }
     public void ShowHelp() { }

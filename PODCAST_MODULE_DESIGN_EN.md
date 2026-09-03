@@ -121,8 +121,11 @@ an existing RSS subscription to work.
     a new subscription are not misclassified as started. Quick information can
     also expose codec, estimated bitrate and size when the feed, server or a
     downloaded file supplies enough metadata.
-12. Next: Apple Podcasts catalog search and feed discovery from ordinary pages.
-13. Later: New episodes filtering and batch operations.
+12. `alpha.217`: completed — public Apple Podcasts search, RSS/Atom import
+    from a directory result, full selectable description under Alt+D, and a
+    reliably rebuilt Ctrl+I Inbox.
+13. Next: feed discovery from ordinary pages, New episodes filtering and batch
+    operations.
 14. Later: cancellable downloads with local staging and atomic publication.
 15. Later: episode playlists plus OPML and AMC import/export.
 16. Later: embedded web audio and publisher-specific adapters.

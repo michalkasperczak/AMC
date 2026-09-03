@@ -52,6 +52,13 @@ public static class PodcastLibraryUpdater
         subscription.LastRefreshUtcTicks = refreshUtc.ToUniversalTime().Ticks;
         subscription.IsInLibrary = true;
 
+        var initialInboxEpisodeId = addedSubscription
+            ? feed.Episodes
+                .OrderByDescending(episode => episode.Published ?? DateTimeOffset.MinValue)
+                .FirstOrDefault()?.Id
+              ?? feed.Episodes.FirstOrDefault()?.Id
+            : null;
+
         var addedEpisodes = 0;
         var updatedEpisodes = 0;
         foreach (var source in feed.Episodes)
@@ -74,7 +81,13 @@ public static class PodcastLibraryUpdater
                 {
                     Id = source.Id,
                     SubscriptionId = subscription.Id,
+                    // A new subscription must not flood the inbox with its
+                    // complete archive. Its newest available episode is still
+                    // useful as an immediately visible confirmation that the
+                    // subscription works. Later refreshes mark every newly
+                    // discovered episode as new.
                     IsNew = !addedSubscription
+                        || string.Equals(source.Id, initialInboxEpisodeId, StringComparison.Ordinal)
                 };
                 settings.Episodes.Add(episode);
                 addedEpisodes++;

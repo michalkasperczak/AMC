@@ -1703,3 +1703,51 @@ Rozpoznawanie skrótów opiera się na rzeczywiście wciśniętych modyfikatorac
 nie na zapamiętanym stanie haka. Utracone po zmianie fokusu zdarzenie puszczenia
 klawisza Alt nie może więc zamienić późniejszej zwykłej cyfry w zmianę widoku
 ani przenieść użytkownika do innej sesji.
+
+#### Reguła do podręcznika użytkownika
+
+Opis sortowania w przyszłym podręczniku ma używać tych samych nazw i nie może
+przypisywać `Alt+1–3` listom, które mają własną semantykę:
+
+- **Biblioteka i Ulubione**: `Alt+1` — ostatnio dodane, od najnowszych;
+  `Alt+2` — alfabetycznie; `Alt+3` — kolejność własna.
+- **Kolejność własna**: `Alt+strzałka w górę/w dół` przesuwa wskazany element
+  albo ciągły blok zaznaczenia. W pozostałych porządkach skrót niczego nie
+  przestawia.
+- **Kolejka i playlista**: kolejność odtwarzania lub kolejność ustalona przez
+  użytkownika. Nie przełącza się jej skrótami sortowania kolekcji.
+- **Album**: kolejność numerów ścieżek; alias nazwy w AMC nie zmienia numeru
+  ani położenia rzeczywistego pliku.
+- **Historia, wyniki wyszukiwania, Nowe odcinki i Nagrywane**: porządek
+  wyliczany właściwy dla celu widoku, bez ręcznego przestawiania.
+- **Lokalna Biblioteka**: wyjątek strukturalny — `Alt+1` Foldery,
+  `Alt+2` Wszystkie pliki alfabetycznie, `Alt+3` Kolejność własna. Dopiero
+  lokalne Ulubione wracają do wspólnej mapy kolekcji.
+- `Ctrl+K` jedynie chwilowo zawęża bieżącą listę. Wyczyszczenie filtra pokazuje
+  ten sam zapisany porządek; filtr nie zmienia go i nie jest jego czwartym
+  wariantem.
+
+### 7.14. Opisy i publiczne wyszukiwanie Podcastów
+
+Od `alpha.217` `Alt+D` na podcaście lub odcinku otwiera pełny opis w
+dostępnym polu tekstowym tylko do odczytu. Można używać nawigacji po znakach,
+słowach i wierszach, zaznaczać fragmenty oraz kopiować. Łącza zachowane z HTML
+są wyświetlane w treści i dostępne jako osobna lista aktywnych odnośników.
+Zwykła nawigacja listy nadal podaje zwięzłą nazwę i metadane, bez automatycznego
+czytania całego opisu.
+
+Publiczny katalog Apple Podcasts służy wyłącznie do odkrywania audycji i
+uzyskania publicznego adresu RSS lub Atom. Wyszukiwanie ma ograniczoną liczbę
+wyników, nie wymaga logowania, nie odczytuje prywatnej Biblioteki Apple i nie
+wysyła historii odsłuchu. Enter na wyniku pobiera tylko ograniczone metadane
+kanału, zapisuje go w Bibliotece AMC i dopiero wtedy otwiera listę odcinków.
+Źródło katalogowe nie zastępuje RSS i jego awaria nie blokuje już obserwowanych
+audycji. Dokumentacja API: [iTunes Search API — wyszukiwanie](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/Searching.html).
+
+Spotify pozostaje osobnym przyszłym adapterem OAuth. Oficjalne wyszukiwanie
+Spotify udostępnia typy `show` i `episode`, ale nie jest ogólnym źródłem
+publicznych adresów plików audio. Podcast mający publiczny RSS może działać w
+sesji Podcasty niezależnie od Spotify; materiał dostępny wyłącznie w Spotify
+pozostanie w przyszłej sesji Spotify albo zostanie otwarty w oficjalnej
+aplikacji. AMC nie będzie udawał, że taki element jest zwykłym kanałem RSS.
+Dokumentacja: [Spotify Web API — Search](https://developer.spotify.com/documentation/web-api/reference/search).

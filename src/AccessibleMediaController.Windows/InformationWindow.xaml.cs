@@ -14,14 +14,22 @@ public partial class InformationWindow : AccessibleWindow
     private readonly IReadOnlyList<InformationLink> _links;
     private readonly System.Windows.Forms.RichTextBox _informationBox;
 
-    public InformationWindow(string information, IReadOnlyList<InformationLink>? links = null)
+    public InformationWindow(
+        string information,
+        IReadOnlyList<InformationLink>? links = null,
+        string? windowTitle = null)
     {
         InitializeComponent();
+        var accessibleTitle = string.IsNullOrWhiteSpace(windowTitle)
+            ? "Właściwości i informacje"
+            : windowTitle.Trim();
+        Title = accessibleTitle;
+        System.Windows.Automation.AutomationProperties.SetName(this, accessibleTitle);
         _information = information;
         _links = links ?? [];
         _informationBox = new System.Windows.Forms.RichTextBox
         {
-            AccessibleName = "Właściwości i informacje",
+            AccessibleName = accessibleTitle,
             AccessibleDescription = _links.Count == 0
                 ? "Tekst tylko do odczytu. Można poruszać się po znakach, słowach i wierszach oraz zaznaczać fragmenty."
                 : "Tekst tylko do odczytu. Można poruszać się po znakach, słowach i wierszach oraz zaznaczać fragmenty. Tab przechodzi do listy aktywnych łączy.",
@@ -139,7 +147,7 @@ public partial class InformationWindow : AccessibleWindow
     {
         if (ClipboardRetry.TrySetText(_information, out var errorMessage))
         {
-            CopyStatusText.Announce("Skopiowano wszystkie informacje");
+            CopyStatusText.Announce("Skopiowano całą treść");
             return;
         }
         CopyStatusText.Announce(errorMessage);

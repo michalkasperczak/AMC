@@ -24,6 +24,7 @@ public partial class SearchWindow : Window
     private readonly string _searchHistoryScope;
     private readonly Action _persistSearchHistory;
     private readonly Func<string, CancellationToken, Task>? _prepareRemoteSearch;
+    private readonly string _remoteSearchLabel;
     private CancellationTokenSource? _searchCancellation;
     private bool _isApplyingHistory;
     private bool _isBrowsingHistory;
@@ -46,7 +47,8 @@ public partial class SearchWindow : Window
         string searchHistoryScope,
         Action persistSearchHistory,
         bool detailedHints,
-        Func<string, CancellationToken, Task>? prepareRemoteSearch = null)
+        Func<string, CancellationToken, Task>? prepareRemoteSearch = null,
+        string remoteSearchLabel = "katalogu")
     {
         InitializeComponent();
         MenuAccessibility.NormalizeContextMenu(ResultsList.ContextMenu);
@@ -70,6 +72,7 @@ public partial class SearchWindow : Window
         _searchHistoryScope = searchHistoryScope;
         _persistSearchHistory = persistSearchHistory;
         _prepareRemoteSearch = prepareRemoteSearch;
+        _remoteSearchLabel = remoteSearchLabel;
         _resultHelpText = detailedHints
             ? "Strzałki wybierają wynik. Enter otwiera. Escape zamyka okno."
             : string.Empty;
@@ -120,7 +123,7 @@ public partial class SearchWindow : Window
         if (_prepareRemoteSearch is not null)
         {
             SearchButton.IsEnabled = false;
-            SearchStatus.Announce("Wyszukiwanie w katalogu radia");
+            SearchStatus.Announce($"Wyszukiwanie w {_remoteSearchLabel}");
             try
             {
                 await _prepareRemoteSearch(query, _searchCancellation.Token);
@@ -131,7 +134,7 @@ public partial class SearchWindow : Window
             }
             catch (Exception)
             {
-                SearchStatus.Announce("Katalog radia jest chwilowo niedostępny. Pokazuję zapisane stacje");
+                SearchStatus.Announce($"Wyszukiwanie w {_remoteSearchLabel} jest chwilowo niedostępne. Pokazuję zapisane elementy");
             }
             finally
             {

@@ -82,6 +82,7 @@ public static class CommandCatalog
             CommandIds.TimeRemaining => "Czas pozostały",
             CommandIds.TimeTotal => "Czas całkowity",
             CommandIds.ItemProperties => "Właściwości i informacje",
+            CommandIds.PodcastDescription => "Pokaż pełny opis podcastu lub odcinka",
             CommandIds.ItemPlaybackOptions => "Opcje odtwarzania elementu",
             CommandIds.SessionList => "Lista sesji",
             CommandIds.SessionPrevious => "Poprzednia sesja",

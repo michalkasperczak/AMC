@@ -1,12 +1,88 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-216`
-- Tytuł zestawu: Spójne sortowanie Biblioteki i Ulubionych
-- Wersja programu: `0.1.0-alpha.216`
+- Numer zestawu: `AMC-TEST-217`
+- Tytuł zestawu: Katalog Apple Podcasts, opisy i skrzynka nowych odcinków
+- Wersja programu: `0.1.0-alpha.217`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.216.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.217.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 217
+
+### AMC-217-01 — wyszukiwanie Apple Podcasts
+
+Przejdź do sesji Podcasty, naciśnij `Ctrl+F` i wyszukaj audycję, której nie ma
+jeszcze w Bibliotece. Wybierz wynik oznaczony jako podcast i naciśnij Enter.
+
+Oczekiwane: program mówi o wyszukiwaniu w katalogu Apple Podcasts. Enter
+sprawdza publiczny kanał, dodaje podcast do Biblioteki i otwiera jego odcinki.
+Nie pojawia się logowanie do Apple, techniczny obiekt ani pusta lista. Jeżeli
+katalog lub kanał jest chwilowo niedostępny, program podaje kontrolowany błąd i
+zachowuje fokus.
+
+### AMC-217-02 — opis podcastu i odcinka
+
+Na nagłówku podcastu, a potem na jednym z jego odcinków naciśnij `Alt+D`.
+Przejdź po tekście strzałkami, `Ctrl+strzałkami`, zaznacz fragment Shiftem i
+skopiuj `Ctrl+C`. Jeżeli opis zawiera adres, przejdź Tabem do listy łączy.
+Zamknij okno Escape.
+
+Oczekiwane: opis jest zwykłym tekstem tylko do odczytu, a nie jednym wierszem
+listy ani technicznym rekordem. Łącza są czytelne i otwieralne Enterem. Escape
+wraca dokładnie do wcześniejszego podcastu lub odcinka. Strzałki na zwykłej
+liście nie rozpoczynają samoczynnego czytania całego opisu.
+
+### AMC-217-03 — pierwsze dodanie i skrzynka
+
+Po dodaniu nowej audycji naciśnij `Ctrl+I`. Sprawdź jej pozycje, a potem wróć
+do samej audycji i porównaj liczbę wszystkich odcinków.
+
+Oczekiwane: pełne archiwum jest dostępne wewnątrz audycji, lecz jako nowy w
+skrzynce pojawia się tylko jej najnowszy odcinek. Skrzynka może jednocześnie
+zawierać rzeczywiście nowe odcinki innych obserwowanych audycji.
+
+### AMC-217-04 — odświeżenie skrzynki
+
+Otwórz `Ctrl+I` i naciśnij `F5`; powtórz przez odpowiednią pozycję menu Widok.
+
+Oczekiwane: oba sposoby odświeżają wszystkie obserwowane podcasty, po
+zakończeniu podają liczbę poprawnie odświeżonych audycji i nowo znalezionych
+odcinków, a następnie pokazują aktualną skrzynkę. Widok nie pozostaje pusty z
+powodu starej kopii danych.
+
+### AMC-217-05 — wyszukiwanie globalne
+
+Naciśnij `Ctrl+Shift+F` i wyszukaj nazwę, która daje wyniki radiowe i
+podcastowe. Przejdź po liście, kopiując wybrane nazwy przez `Ctrl+C` i
+lokalizacje przez `Ctrl+Shift+C`.
+
+Oczekiwane: komunikat mówi o katalogach radia i podcastów. Każdy wynik podaje
+właściwą sesję. Podcast ma osobno publiczną stronę oraz bezpośredni adres
+RSS/Atom; wynik radiowy zachowuje adres strumienia. Wielokrotne zaznaczenie
+kopiuje wszystkie wskazane pozycje.
+
+### AMC-217-06 — regresja sortowania
+
+W Radiu otwórz Ulubione. Naciśnij `Alt+1`, `Alt+2` i `Alt+3`, a potem powtórz
+w Bibliotece Podcastów i ich Ulubionych. Sprawdź także lokalną Bibliotekę.
+
+Oczekiwane: skróty nie opuszczają Ulubionych. W trwałych kolekcjach oznaczają
+odpowiednio kolejność dodania od najnowszych, alfabet i kolejność własną.
+Lokalna Biblioteka zachowuje wyjątek: Foldery, Wszystkie pliki i Kolejność
+własna. Historia, wyszukiwanie i Nowe odcinki nie przejmują tych skrótów.
+
+### AMC-217-07 — dostępność polecenia opisu
+
+W Podcastach sprawdź menu główne Odtwarzanie, menu kontekstowe listy,
+odtwarzacz, paletę `Ctrl+Shift+K` i Pomoc klawiatury `Ctrl+F1` dla `Alt+D`.
+Powtórz wyrywkowo w Radiu i Plikach lokalnych.
+
+Oczekiwane: „Pokaż pełny opis podcastu lub odcinka, Alt+D” występuje tylko dla
+podcastu lub odcinka. NVDA nigdy nie czyta nazwy klasy, identyfikatora polecenia
+ani zrzutu właściwości obiektu.
+
+## Poprzedni zestaw alpha 216
 
 ## Nowości alpha 216
 

@@ -85,6 +85,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly WindowsMediaOutput _podcastOutput = new();
     private readonly RadioBrowserClient _radioCatalog = new();
     private readonly PodcastFeedClient _podcastFeedClient = new();
+    private readonly ApplePodcastDirectoryClient _applePodcastDirectory = new();
     private readonly CancellationTokenSource _podcastCancellation = new();
     private RadioMediaOutput _radioOutput = null!;
     private readonly ITrackRecognitionService _trackRecognitionService = new ShazamTrackRecognitionService();
@@ -96,6 +97,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly List<MediaItem> _localItems = [];
     private readonly List<MediaItem> _radioItems = [];
     private readonly List<MediaItem> _podcastItems = [];
+    private readonly List<MediaItem> _podcastDirectoryItems = [];
     private readonly Dictionary<string, string> _pendingExternalMoves =
         new(StringComparer.Ordinal);
     private PendingInternalListMove? _pendingInternalListMove;
@@ -504,13 +506,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             () => QueueStateSave(),
             _state.Settings.Messages.DetailedHints,
             allServices || string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-                ? PrepareRadioSearchAsync
-                : null)
+                || string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+                ? (query, cancellationToken) => PrepareRemoteSearchAsync(query, allServices, cancellationToken)
+                : null,
+            allServices
+                ? "katalogach radia i podcastów"
+                : string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+                    ? "katalogu Apple Podcasts"
+                    : "katalogu radia")
         {
             Owner = this
         };
         if (dialog.ShowDialog() == true && dialog.SelectedResult is { } result)
         {
+            if (IsApplePodcastDirectoryResult(result)
+                && dialog.SelectedAction == SearchResultAction.Open)
+            {
+                _ = AddApplePodcastDirectoryResultAsync(result.Item, openAfterImport: true, markFavorite: false);
+                return;
+            }
             var selectedSession = SelectSessionBrowserItem(result.SessionId, result.Item.Id);
             if (allServices) PrepareSearchReturnContext(result.Item.Id);
             if (dialog.SelectedAction == SearchResultAction.Preset)
@@ -2430,7 +2444,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.RefreshPodcast
             or CommandIds.RefreshPodcastLibrary
             or CommandIds.ViewPodcastInbox
-            or CommandIds.ViewPodcastInProgress)
+            or CommandIds.ViewPodcastInProgress
+            or CommandIds.PodcastDescription)
+        {
+            return false;
+        }
+        if (commandId == CommandIds.PodcastDescription
+            && ActionItem?.Kind is not (MediaItemKind.Podcast or MediaItemKind.Episode))
         {
             return false;
         }
@@ -2520,6 +2540,86 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 }.Where(link => link is not null).Select(link => link!).ToArray()
                 : [];
         var dialog = new InformationWindow(BuildItemPropertiesText(item), links) { Owner = activeOwner };
+        dialog.ShowDialog();
+        if (!ReferenceEquals(activeOwner, this)) return;
+        Activate();
+        if (_playerViewActive) FocusPlayerView();
+        else RestoreMediaListFocusAfterRefresh();
+    }
+
+    public void ShowPodcastDescription()
+    {
+        var item = ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
+        if (!string.Equals(ActionSession.Id, "podcasts", StringComparison.Ordinal)
+            || item?.Kind is not (MediaItemKind.Podcast or MediaItemKind.Episode))
+        {
+            Announce("Pełny opis jest dostępny dla podcastu albo odcinka");
+            return;
+        }
+
+        string heading;
+        string description;
+        string? pageUrl;
+        if (item.Kind == MediaItemKind.Podcast)
+        {
+            var subscription = _state.Podcasts.Subscriptions.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
+            heading = $"Podcast: {subscription?.Title ?? item.Title}";
+            description = subscription?.Description ?? string.Empty;
+            pageUrl = subscription?.HomepageUrl ?? item.PublicUri;
+        }
+        else
+        {
+            var episode = _state.Podcasts.Episodes.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
+            var subscription = episode is null
+                ? null
+                : _state.Podcasts.Subscriptions.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Id, episode.SubscriptionId, StringComparison.Ordinal));
+            heading = $"Odcinek: {episode?.Title ?? item.Title}";
+            if (subscription is not null) heading += $"{Environment.NewLine}Podcast: {subscription.Title}";
+            description = episode?.Description ?? string.Empty;
+            pageUrl = episode?.PageUrl ?? item.PublicUri;
+        }
+
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            Announce(item.Kind == MediaItemKind.Podcast
+                ? "Ten podcast nie zawiera opisu"
+                : "Ten odcinek nie zawiera opisu");
+            return;
+        }
+
+        var links = new List<InformationLink>();
+        if (!string.IsNullOrWhiteSpace(pageUrl))
+        {
+            links.Add(new InformationLink(
+                item.Kind == MediaItemKind.Podcast ? "Otwórz stronę podcastu" : "Otwórz stronę odcinka",
+                pageUrl));
+        }
+        var descriptionLinks = System.Text.RegularExpressions.Regex.Matches(
+                description,
+                "https?://[^\\s<>\\\"']+",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+            .Select(match => match.Value.TrimEnd('.', ',', ';', ':', '!', '?', ')', ']'))
+            .Where(address => Uri.TryCreate(address, UriKind.Absolute, out _))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(address => !links.Any(link => string.Equals(link.Uri, address, StringComparison.OrdinalIgnoreCase)))
+            .Take(50)
+            .ToArray();
+        links.AddRange(descriptionLinks.Select((address, index) =>
+            new InformationLink($"Łącze z opisu {index + 1}", address)));
+
+        var activeOwner = Application.Current.Windows
+            .OfType<Window>()
+            .FirstOrDefault(window => window.IsActive) ?? this;
+        var dialog = new InformationWindow(
+            $"{heading}{Environment.NewLine}{Environment.NewLine}{description}",
+            links,
+            item.Kind == MediaItemKind.Podcast ? "Opis podcastu" : "Opis odcinka")
+        {
+            Owner = activeOwner
+        };
         dialog.ShowDialog();
         if (!ReferenceEquals(activeOwner, this)) return;
         Activate();
@@ -3610,12 +3710,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PodcastInboxViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         PodcastInProgressViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         PodcastDownloadsViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
+        PlaybackPodcastDescriptionMenuItem.Visibility = podcasts
+            && ActionItem?.Kind is MediaItemKind.Podcast or MediaItemKind.Episode
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         RefreshLocalLibraryMenuItem.Visibility = local || podcasts ? Visibility.Visible : Visibility.Collapsed;
         if (podcasts)
         {
             MenuAccessibility.SetPresentation(
                 RefreshLocalLibraryMenuItem,
-                TryResolveCurrentPodcastSubscription(out var podcast)
+                string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal)
+                    ? "Odśwież wszystkie podcasty"
+                    : TryResolveCurrentPodcastSubscription(out var podcast)
                     ? $"Odśwież podcast {podcast.Title}"
                     : "Odśwież wszystkie podcasty");
         }
@@ -5700,6 +5806,89 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         QueueStateSave();
     }
 
+    private async Task PrepareRemoteSearchAsync(
+        string query,
+        bool allServices,
+        CancellationToken cancellationToken)
+    {
+        var currentId = _sessions.Current.Id;
+        var tasks = new List<Task>();
+        if (allServices || string.Equals(currentId, "radio", StringComparison.Ordinal))
+            tasks.Add(PrepareRadioSearchAsync(query, cancellationToken));
+        if (allServices || string.Equals(currentId, "podcasts", StringComparison.Ordinal))
+            tasks.Add(PrepareApplePodcastSearchAsync(query, cancellationToken));
+        await Task.WhenAll(tasks);
+    }
+
+    private async Task PrepareApplePodcastSearchAsync(string query, CancellationToken cancellationToken)
+    {
+        var found = await _applePodcastDirectory.SearchAsync(query, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        var podcastSession = _sessions.FindSession("podcasts");
+        if (podcastSession is null) return;
+
+        _podcastDirectoryItems.Clear();
+        var savedFeeds = _state.Podcasts.Subscriptions
+            .Select(subscription => subscription.FeedUrl)
+            .Where(address => !string.IsNullOrWhiteSpace(address))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        _podcastDirectoryItems.AddRange(found.Where(candidate =>
+            candidate.Source is { Length: > 0 } source && !savedFeeds.Contains(source)));
+        podcastSession.ReplaceItems(_podcastItems.Concat(_podcastDirectoryItems));
+    }
+
+    private static bool IsApplePodcastDirectoryResult(SearchWindow.SearchResult result) =>
+        string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)
+        && result.Item.Id.StartsWith("podcast-directory:apple:", StringComparison.Ordinal);
+
+    private async Task AddApplePodcastDirectoryResultAsync(
+        MediaItem item,
+        bool openAfterImport,
+        bool markFavorite)
+    {
+        if (!Uri.TryCreate(item.Source, UriKind.Absolute, out var feedUri))
+        {
+            AnnounceEssential("Wynik katalogu nie zawiera prawidłowego adresu kanału podcastu");
+            return;
+        }
+
+        StatusText.Text = $"Dodawanie podcastu: {item.Title}";
+        try
+        {
+            var feed = await _podcastFeedClient.FetchAsync(feedUri, _podcastCancellation.Token);
+            if (_isClosing) return;
+            CapturePodcastState();
+            var result = PodcastLibraryUpdater.Apply(
+                _state.Podcasts,
+                feed,
+                null,
+                DateTime.UtcNow);
+            if (markFavorite) result.Subscription.IsFavorite = true;
+            ReloadPodcastSessionItems();
+            QueueStateSave(announceFailure: true);
+            if (openAfterImport)
+            {
+                OpenPodcast(result.Subscription.Id, result.Subscription.Title);
+            }
+            else
+            {
+                RefreshCurrentView(preferredItemId: result.Subscription.Id);
+            }
+            AnnounceEssential($"Dodano podcast: {result.Subscription.Title}");
+        }
+        catch (Exception exception) when (exception is HttpRequestException
+            or InvalidDataException
+            or System.Xml.XmlException
+            or ArgumentException
+            or OperationCanceledException)
+        {
+            if (exception is OperationCanceledException && _isClosing) return;
+            DiagnosticLog.Warning("podcast-directory", $"Nie udało się dodać podcastu {item.Title}: {exception.Message}");
+            AnnounceEssential($"Nie udało się dodać podcastu: {exception.Message}");
+            RestoreMediaListFocusAfterRefresh();
+        }
+    }
+
     private void PodcastOutput_PlaybackFailed(object? sender, MediaOutputFailedEventArgs e)
     {
         _sessions.FindSession("podcasts")?.MarkPlaybackFailed();
@@ -6048,6 +6237,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Announce("Nowe odcinki są dostępne w sesji Podcasty");
                 return new CommandExecutionResult(false);
             }
+            // A background refresh can update persisted episode flags while
+            // the Podcasts session still contains the previous item snapshot.
+            ReloadPodcastSessionItems();
             NavigateTo(PodcastInboxViewName);
             PrepareViewFocusContext(MediaList.Items.Count == 0
                 ? "Nowe odcinki, brak nowych odcinków"
@@ -11341,6 +11533,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return false;
         }
 
+        if (modifiers == ModifierKeys.Alt
+            && key == Key.D
+            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && (_playerViewActive || MediaList.IsKeyboardFocusWithin))
+        {
+            commandId = CommandIds.PodcastDescription;
+            return true;
+        }
+
         if (_playerViewActive && PlayerPanel.IsKeyboardFocusWithin)
         {
             if (modifiers == ModifierKeys.None && TryGetDigitKey(key, out var digit))
@@ -12041,6 +12242,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!_playerViewActive && !MediaList.IsKeyboardFocusWithin) return false;
 
         var modifiers = Keyboard.Modifiers;
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && modifiers == ModifierKeys.Alt
+            && key == Key.D)
+        {
+            ExecuteCommand(CommandIds.PodcastDescription);
+            return true;
+        }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
             && modifiers == ModifierKeys.Shift
             && e.Key == Key.R)
@@ -12278,7 +12487,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IReadOnlyList<SearchWindow.SearchResult> results,
         IReadOnlyList<SearchWindow.SearchResult> visibleResults,
         SearchResultAction action,
-        bool _)
+        bool allServices)
     {
         if (results.Count == 0) return "Brak zaznaczonego wyniku";
         if (action == SearchResultAction.CopyName)
@@ -12309,6 +12518,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (action == SearchResultAction.CopyLocation)
         {
             return CopySearchResultLocations(results);
+        }
+        if (results.All(IsApplePodcastDirectoryResult)
+            && action is SearchResultAction.Library or SearchResultAction.Favorite)
+        {
+            _ = AddApplePodcastDirectoryResultsAsync(
+                results.Select(result => result.Item).ToArray(),
+                markFavorite: action == SearchResultAction.Favorite);
+            return results.Count == 1
+                ? "Dodawanie podcastu z katalogu Apple"
+                : $"Dodawanie podcastów z katalogu Apple: {results.Count}";
         }
         if (action is SearchResultAction.PlayNext or SearchResultAction.Queue
             && results.Any(result =>
@@ -12403,6 +12622,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             announcement = $"{announcement}, {session.DisplayName}";
         }
         return announcement;
+    }
+
+    private async Task AddApplePodcastDirectoryResultsAsync(
+        IReadOnlyList<MediaItem> items,
+        bool markFavorite)
+    {
+        foreach (var item in items)
+        {
+            await AddApplePodcastDirectoryResultAsync(
+                item,
+                openAfterImport: false,
+                markFavorite);
+        }
     }
 
     private void MediaList_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -12612,6 +12844,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _podcastOutput.Dispose();
         _radioOutput.Dispose();
         _radioCatalog.Dispose();
+        _applePodcastDirectory.Dispose();
         _podcastFeedClient.Dispose();
         _podcastCancellation.Dispose();
         _trackRecognitionCancellation.Dispose();
@@ -12723,6 +12956,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else
             ExecuteCommand(CommandIds.ItemProperties);
     }
+    private void PodcastDescription_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.PodcastDescription);
     private void ItemPlaybackOptions_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemPlaybackOptions);
     private void GoToAlbum_Click(object sender, RoutedEventArgs e) => GoToRelatedAlbum();
     private void GoToArtist_Click(object sender, RoutedEventArgs e) => GoToRelatedArtist();
@@ -12883,6 +13118,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             InformationMenuItem,
             playlistContainer ? "Właściwości playlisty" : "Właściwości i informacje",
             "Alt+Enter");
+        PodcastDescriptionMenuItem.Visibility = podcastHeader || podcastEpisode
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         var playNextActive = membershipItems.Count > 0
             && (folderNavigationRow
                 ? membershipItems.Any(item => item.IsPlayNext)
@@ -13218,6 +13456,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             radioSession ? "Dodaj nazwaną zakładkę w nagrywanym pliku" : "Dodaj nazwaną zakładkę",
             radioSession ? "Shift+B" : "Ctrl+Shift+B");
         PlayerBookmarksMenuItem.Visibility = radioSession ? Visibility.Collapsed : Visibility.Visible;
+        PlayerPodcastDescriptionMenuItem.Visibility = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && item.Kind is MediaItemKind.Podcast or MediaItemKind.Episode
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         if (radioSession)
         {
             SetContextMenuItemPresentation(
@@ -13848,7 +14090,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void CollectionSortCustom_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SortCollectionCustom);
     private void RefreshLocalLibrary_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
-            ? CommandIds.RefreshPodcast
+            ? string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal)
+                ? CommandIds.RefreshPodcastLibrary
+                : CommandIds.RefreshPodcast
             : CommandIds.RefreshLocalLibrary);
     private void ManageLocalSources_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageLocalSources);
     private void QueueView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewQueue);

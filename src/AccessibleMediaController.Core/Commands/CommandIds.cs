@@ -47,6 +47,7 @@ public static class CommandIds
     public const string TimeRemaining = "information.timeRemaining";
     public const string TimeTotal = "information.timeTotal";
     public const string ItemProperties = "information.itemProperties";
+    public const string PodcastDescription = "information.podcastDescription";
     public const string ItemPlaybackOptions = "settings.itemPlaybackOptions";
 
     public const string SessionList = "session.list";

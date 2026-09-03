@@ -75,6 +75,7 @@ try
     TestAudioOutputPauseRaceGuard();
     TestPodcastNetworkSourcePolicy();
     TestPodcastFeedClient();
+    TestApplePodcastDirectoryClient();
     TestPodcastOpmlImportSelectionAccessibility();
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
@@ -3426,6 +3427,49 @@ static void TestPodcastFeedClient()
     Assert(handler.Requests.All(uri => uri.Host == "example.test"), "Klient pobrał plik audio zamiast samych metadanych kanału.");
 
     Console.WriteLine("OK: ograniczony klient kanałów podcastów");
+}
+
+static void TestApplePodcastDirectoryClient()
+{
+    const string json = """
+        {
+          "resultCount": 3,
+          "results": [
+            {
+              "collectionId": 123,
+              "collectionName": "Podcast Testowy",
+              "artistName": "Redakcja",
+              "feedUrl": "https://example.test/feed.xml",
+              "collectionViewUrl": "https://podcasts.apple.com/pl/podcast/test/id123",
+              "primaryGenreName": "Wiadomości"
+            },
+            {
+              "collectionId": 124,
+              "collectionName": "Duplikat",
+              "feedUrl": "https://example.test/feed.xml"
+            },
+            {
+              "collectionId": 125,
+              "collectionName": "Niebezpieczny",
+              "feedUrl": "file:///c:/sekret.xml"
+            }
+          ]
+        }
+        """;
+    using var client = new ApplePodcastDirectoryClient(
+        new FixedJsonHandler(json),
+        TimeSpan.FromSeconds(2));
+    var results = client.SearchAsync("test", CancellationToken.None).GetAwaiter().GetResult();
+    Assert(results.Count == 1, "Katalog Apple nie odfiltrował duplikatu albo niebezpiecznego adresu kanału.");
+    var result = results[0];
+    Assert(result.Title == "Podcast Testowy" && result.Artist == "Redakcja",
+        "Katalog Apple nie zachował użytkowych metadanych podcastu.");
+    Assert(result.Source == "https://example.test/feed.xml"
+           && result.PublicUri?.StartsWith("https://podcasts.apple.com/", StringComparison.Ordinal) == true,
+        "Katalog Apple pomylił kanał RSS ze stroną podcastu.");
+    Assert(result.Kind == MediaItemKind.Podcast && !result.IsInLibrary,
+        "Wynik katalogu Apple został błędnie uznany za istniejący element Biblioteki.");
+    Console.WriteLine("OK: bezpieczne wyszukiwanie katalogu Apple Podcasts");
 }
 
 static void TestPodcastOpmlImportSelectionAccessibility()
