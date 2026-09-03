@@ -559,6 +559,20 @@ static void TestSearchNavigation()
     Assert(
         episodeLabel == "Gość poranka, odcinek, podcast Rozmowa dnia, podcast w Bibliotece",
         "Wynik odcinka nie podaje podcastu nadrzędnego i jego stanu.");
+    episode.Artist = "Anna Kobryń";
+    Assert(
+        MainWindowNavigationPolicy.FormatPodcastAggregateEpisodeLabel(
+            episode,
+            "Gość poranka, Anna Kobryń, odcinek",
+            podcast.Title) == "Gość poranka, Rozmowa dnia, Anna Kobryń, odcinek",
+        "Zbiorczy widok odcinków zgubił nazwę podcastu, gdy kanał podał również autora odcinka.");
+    episode.Artist = podcast.Title;
+    Assert(
+        MainWindowNavigationPolicy.FormatPodcastAggregateEpisodeLabel(
+            episode,
+            "Gość poranka, Rozmowa dnia, odcinek",
+            podcast.Title) == "Gość poranka, Rozmowa dnia, odcinek",
+        "Zbiorczy widok odcinków powtórzył nazwę podcastu używaną zamiast brakującego autora.");
     var directoryPodcast = new MediaItem
     {
         Id = "podcast-directory:apple:123",

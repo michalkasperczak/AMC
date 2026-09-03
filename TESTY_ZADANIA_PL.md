@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-230`
-- Tytuł zestawu: Bezpieczne przejście z wyszukiwania Radia i regresja całej aplikacji
-- Wersja programu: `0.1.0-alpha.230`
+- Numer zestawu: `AMC-TEST-231`
+- Tytuł zestawu: Jednoznaczne nazwy odcinków i regresja całej aplikacji
+- Wersja programu: `0.1.0-alpha.231`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.230.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.231.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,33 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 231
+
+### AMC-231-01 — nazwa podcastu w skrzynce
+
+Otwórz `Ctrl+I` w Podcastach i znajdź odcinki Radia Gdańsk, na przykład ze
+„Srebrnego Pokolenia” albo „Nad Rozlewiskiem”.
+
+Oczekiwane: wiersz podaje tytuł odcinka, nazwę podcastu, autora oraz słowo
+„odcinek”, na przykład „Co sprawia, że seniorzy czują się dobrze?, Srebrne
+Pokolenie, Anna Kobryń, odcinek”. Nazwa podcastu nie znika i nie jest
+powtórzona.
+
+### AMC-231-02 — pozostałe zbiorcze widoki Podcastów
+
+Sprawdź odcinek z podanym autorem kolejno w Ulubionych, Kolejce, historii,
+W trakcie słuchania, Pobranych i playliście, o ile występuje w danym widoku.
+
+Oczekiwane: każdy zbiorczy widok zachowuje tę samą jednoznaczną kolejność
+tytułu odcinka, podcastu i autora.
+
+### AMC-231-03 — otwarty podcast bez powtórzeń
+
+Wejdź z Biblioteki do „Srebrnego Pokolenia” i poruszaj się po jego odcinkach.
+
+Oczekiwane: nagłówek widoku podaje nazwę podcastu, a poszczególne wiersze nie
+powtarzają jej bez potrzeby. Data, czas i stan odsłuchania pozostają czytelne.
 
 ## Nowości alpha 230
 

@@ -11134,6 +11134,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             || string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
                && item.Kind == MediaItemKind.Station;
         var label = FormatItem(item, !homogeneousView);
+        if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && item.Kind == MediaItemKind.Episode
+            && !TryGetPodcastIdFromView(_currentView, out _))
+        {
+            var parentTitle = _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+                string.Equals(subscription.Id, item.ExternalId, StringComparison.Ordinal))?.Title;
+            label = MainWindowNavigationPolicy.FormatPodcastAggregateEpisodeLabel(
+                item,
+                label,
+                parentTitle);
+        }
         if (string.Equals(_currentView, "Kolejka", StringComparison.Ordinal) && item.IsPlayNext)
         {
             label = $"Następny, {label}";

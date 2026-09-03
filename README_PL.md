@@ -7,6 +7,13 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.231` jednoznacznie opisuje odcinki w zbiorczych widokach
+Podcastów. Skrzynka, W trakcie słuchania, Pobrane, Ulubione, Kolejka, historia
+i playlisty podają kolejno tytuł odcinka, nazwę podcastu, autora i typ elementu.
+Kanał, który udostępnia autora odcinka — między innymi Radio Gdańsk — nie gubi
+już przez to nazwy audycji. Na liście odcinków wewnątrz otwartego podcastu
+nazwa audycji nie jest powtarzana.
+
 Wersja `alpha.230` naprawia przejście z wyników wyszukiwania Radia. Wynik
 zapisany w Ulubionych prowadzi do Ulubionych, a pozostały zapisany wynik do
 Biblioteki. Wewnętrzny agregat stacji odnalezionych kiedykolwiek w Radio

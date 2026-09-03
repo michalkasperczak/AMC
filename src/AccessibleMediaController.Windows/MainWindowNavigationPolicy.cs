@@ -190,4 +190,30 @@ internal static class MainWindowNavigationPolicy
         parts.Add(parentPodcastInLibrary ? "podcast w Bibliotece" : "podcast poza Biblioteką");
         return string.Join(", ", parts);
     }
+
+    public static string FormatPodcastAggregateEpisodeLabel(
+        MediaItem item,
+        string formattedItem,
+        string? parentPodcastTitle)
+    {
+        var parentTitle = parentPodcastTitle?.Trim();
+        if (item.Kind != MediaItemKind.Episode || string.IsNullOrWhiteSpace(parentTitle))
+            return formattedItem;
+
+        // When an episode has no author, the in-memory model already uses the
+        // podcast title in Artist. Do not repeat it. Feeds such as Radio Gdańsk
+        // provide both values, so an aggregate view must expose both of them.
+        if (string.Equals(item.Artist?.Trim(), parentTitle, StringComparison.CurrentCultureIgnoreCase))
+            return formattedItem;
+
+        var episodeTitle = item.Title.Trim();
+        if (episodeTitle.Length > 0
+            && formattedItem.StartsWith(episodeTitle, StringComparison.CurrentCultureIgnoreCase)
+            && (formattedItem.Length == episodeTitle.Length || formattedItem[episodeTitle.Length] == ','))
+        {
+            return $"{episodeTitle}, {parentTitle}{formattedItem[episodeTitle.Length..]}";
+        }
+
+        return $"{formattedItem}, {parentTitle}";
+    }
 }

@@ -1657,6 +1657,11 @@ NVDA. Pojedynczy materiał bez kanału jest materiałem ze strony, a nie fikcyjn
 subskrypcją.
 
 Nowe odcinki pozostają automatyczną skrzynką, nie playlistą zmienianą w tle.
+Każdy odcinek w zbiorczym widoku Podcastów musi być jednoznaczny nawet wtedy,
+gdy różne audycje używają podobnych tytułów. Etykieta podaje tytuł odcinka,
+nazwę podcastu, autora i typ elementu. Nazwa podcastu nie może znikać tylko
+dlatego, że kanał RSS podał osobnego autora odcinka. W obrębie otwartej audycji
+jej nazwa wynika z nagłówka widoku i nie jest powtarzana przy każdym odcinku.
 Od `alpha.214` naprawdę nowy odcinek opuszcza ją po osiągnięciu jednej minuty i
 trafia do osobnego widoku **W trakcie słuchania** pod `Ctrl+Shift+I`; ukończenie
 oznacza go jako odtworzony. Archiwalny odcinek dodany przy pierwszym imporcie nie
