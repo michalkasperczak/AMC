@@ -92,6 +92,13 @@ internal static class MainWindowNavigationPolicy
             || viewName.StartsWith(PodcastContentsViewPrefix, StringComparison.Ordinal)
                && viewName.Length > PodcastContentsViewPrefix.Length);
 
+    public static string? ResolvePodcastParentView(string sessionId, string viewName) =>
+        string.Equals(sessionId, PodcastSessionId, StringComparison.Ordinal)
+        && viewName.StartsWith(PodcastContentsViewPrefix, StringComparison.Ordinal)
+        && viewName.Length > PodcastContentsViewPrefix.Length
+            ? PodcastLibraryView
+            : null;
+
     public static string ResolvePodcastLibraryReturnView(
         string? rememberedView,
         IEnumerable<string> availablePodcastIds)

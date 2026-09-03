@@ -1,12 +1,41 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-225`
-- Tytuł zestawu: Sortowanie i kopiowanie wielu nowych odcinków
-- Wersja programu: `0.1.0-alpha.225`
+- Numer zestawu: `AMC-TEST-226`
+- Tytuł zestawu: Nadrzędna lista Biblioteki Podcastów
+- Wersja programu: `0.1.0-alpha.226`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.225.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.226.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 226
+
+### AMC-226-01 — Ctrl+L przywraca zapamiętany podcast
+
+W Bibliotece Podcastów otwórz dowolny podcast, przejdź kilka odcinków w dół,
+następnie przejdź do Ulubionych lub Kolejki i naciśnij `Ctrl+L`.
+
+Oczekiwane: program wraca do listy odcinków tego samego podcastu i zachowuje
+ostatni fokus. Jest to zamierzone przywrócenie miejsca, a nie płaska lista
+wszystkich odcinków.
+
+### AMC-226-02 — jednoznaczny poziom nadrzędny
+
+Na liście odcinków otwartej przez `Ctrl+L` naciśnij Escape. Powtórz próbę z
+Backspace.
+
+Oczekiwane: każdy z tych klawiszy przechodzi bezpośrednio do listy podcastów i
+ustawia fokus na audycji, z której pochodziły odcinki. Nie pozostaje na tej
+samej liście i nie wraca do Nowych odcinków, wyników wyszukiwania ani innego
+wcześniejszego widoku.
+
+### AMC-226-03 — zapamiętanie świadomego wyjścia
+
+Po powrocie Escape do nadrzędnej listy przejdź do innego widoku i ponownie
+naciśnij `Ctrl+L`.
+
+Oczekiwane: Biblioteka pozostaje na liście podcastów. Ponowne wejście do listy
+odcinków następuje dopiero po wybraniu podcastu Enterem.
 
 ## Nowości alpha 225
 

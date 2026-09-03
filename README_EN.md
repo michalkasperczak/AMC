@@ -1,5 +1,11 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.226` fixes parent navigation in the Podcasts Library. `Ctrl+L`
+may still restore the episodes of the last browsed show, but Escape or
+Backspace from that list now always opens the parent show list and focuses the
+correct show. It no longer depends on unrelated view-history entries. After
+this explicit parent navigation, the next `Ctrl+L` remains at the parent level.
+
 Version `alpha.225` adds three persistent orders to the **New episodes**
 inbox: `Alt+1` puts newest episodes first, `Alt+2` sorts by episode title, and
 `Alt+3` groups by show name with newest episodes first inside each group. The

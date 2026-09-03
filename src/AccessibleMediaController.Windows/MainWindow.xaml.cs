@@ -8352,6 +8352,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             LeaveBookmarkView();
             return;
         }
+        if (MainWindowNavigationPolicy.ResolvePodcastParentView(
+                _sessions.Current.Id,
+                _currentView) is { } podcastParent
+            && TryGetPodcastIdFromView(_currentView, out var podcastId))
+        {
+            var navigation = GetSessionNavigationState(_sessions.Current.Id);
+            navigation.SelectedItemIds[podcastParent] = podcastId;
+            NavigateTo(podcastParent);
+            PrepareViewFocusContext($"Biblioteka, {_sessions.Current.DisplayName}");
+            RestoreMediaListFocusAfterRefresh();
+            QueueStateSave();
+            return;
+        }
         if (string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal)
             || TryGetPlaylistIdFromView(_currentView, out _)
             || !IsTopLevelBrowserView(_currentView))

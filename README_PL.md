@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.226` naprawia przejście o poziom wyżej w Bibliotece Podcastów.
+`Ctrl+L` nadal może zgodnie z zapamiętanym miejscem otworzyć odcinki ostatnio
+przeglądanej audycji, lecz Escape albo Backspace z tej listy zawsze prowadzi
+bezpośrednio do nadrzędnej listy podcastów i ustawia fokus na właściwej
+audycji. Powrót nie zależy już od przypadkowej historii wcześniejszych widoków.
+Po takim świadomym wyjściu kolejne `Ctrl+L` pozostaje na nadrzędnej liście.
+
 Wersja `alpha.225` dodaje trzy trwałe sposoby uporządkowania skrzynki **Nowe
 odcinki**: `Alt+1` — najnowsze odcinki najpierw, `Alt+2` — alfabetycznie według
 tytułu odcinka, `Alt+3` — grupami według nazwy podcastu, a wewnątrz grupy od

@@ -509,6 +509,17 @@ static void TestPodcastSearchNavigation()
             "Multimedia",
             "Biblioteka") == "Multimedia",
         "Zabezpieczenie Podcastów zmieniło widok innej sesji.");
+    Assert(
+        MainWindowNavigationPolicy.ResolvePodcastParentView(
+            "podcasts",
+            "Podcast:audycja-1") == "Biblioteka"
+        && MainWindowNavigationPolicy.ResolvePodcastParentView(
+            "podcasts",
+            "Biblioteka") is null
+        && MainWindowNavigationPolicy.ResolvePodcastParentView(
+            "radio",
+            "Podcast:audycja-1") is null,
+        "Escape lub Backspace z odcinków podcastu nie prowadzi jednoznacznie do nadrzędnej Biblioteki.");
 
     var podcastLabel = MainWindowNavigationPolicy.FormatPodcastSearchResult(
         podcast,
