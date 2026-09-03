@@ -1,8 +1,8 @@
 # AMC podcast module design
 
-Status: subscription and initial playback are complete. `alpha.207` fixes the
-shared playback-speed pipeline for remote MP3, MP4 and other finite HTTP/HTTPS
-episodes. The
+Status: subscription and initial playback are complete. `alpha.210` keeps the
+Podcast session playback rate after leaving the player with Escape, reopening
+an episode, and restarting AMC. The
 durable session, safe direct RSS/Atom subscription, accessible OPML import,
 metadata refresh, show-to-episode navigation and finite HTTP/HTTPS episode
 playback through AMC's shared player are in place.
@@ -97,18 +97,24 @@ an existing RSS subscription to work.
 1. `alpha.203`: session shell, durable model, empty core views and RSS/Atom parser.
 2. `alpha.205`: completed — Ctrl+N adds a direct RSS/Atom feed, Ctrl+O imports OPML, with bounded HTTP/HTTPS refresh and show/episode navigation.
 3. `alpha.206`: completed — finite HTTP/HTTPS playback, per-episode resume and
-   speed, current-container Page Up/Page Down, history and bookmarks. OPML
+   session-wide speed, current-container Page Up/Page Down, history and bookmarks. OPML
    starts with every feed included; arrows only move focus, Space toggles one
    feed and Ctrl+A includes all.
 4. `alpha.207`: completed — normalize remote decoder samples so real MP3 and
    MP4 episodes pass through speed processing and the shared audio output.
-5. `alpha.208`: Apple Podcasts catalog search and feed discovery from ordinary pages.
-6. `alpha.209`: New episodes state, filtering and batch operations.
-7. `alpha.210`: cancellable downloads with local staging and atomic publication.
-8. `alpha.211`: episode playlists plus OPML and AMC import/export.
-9. `alpha.212`: embedded web audio and publisher-specific adapters.
-10. `alpha.213`: supplied and user-authored chapters.
-11. Additional directories and account services remain optional adapters.
+5. `alpha.208`: completed — finite-network seeking, stable queue consumption,
+   consistent episode labels, and persistent custom show names.
+6. `alpha.209`: completed outside Podcasts — a direct toggle for automatic
+   Radio recognition announcements.
+7. `alpha.210`: completed — keep the Podcast session playback rate after Escape
+   and reopening an episode.
+8. Next: Apple Podcasts catalog search and feed discovery from ordinary pages.
+9. Later: New episodes state, filtering and batch operations.
+10. Later: cancellable downloads with local staging and atomic publication.
+11. Later: episode playlists plus OPML and AMC import/export.
+12. Later: embedded web audio and publisher-specific adapters.
+13. Later: supplied and user-authored chapters.
+14. Additional directories and account services remain optional adapters.
 
 The keyboard map will be decided after the first working view. This design
 document does not reserve shortcuts by itself.

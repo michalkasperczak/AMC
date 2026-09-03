@@ -1,12 +1,33 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-209`
-- Tytuł zestawu: Ciche rozpoznawanie utworów w Radiu
-- Wersja programu: `0.1.0-alpha.209`
+- Numer zestawu: `AMC-TEST-210`
+- Tytuł zestawu: Pamięć prędkości Podcastów
+- Wersja programu: `0.1.0-alpha.210`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.209.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.210.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowość alpha 210
+
+### AMC-210-01 — prędkość po wyjściu Escape
+
+Uruchom dowolny odcinek Podcastów, zmień prędkość przez `Shift+kropka` co
+najmniej raz, zapamiętaj podaną wartość, naciśnij Escape i ponownie otwórz ten
+sam odcinek.
+
+Oczekiwane: odcinek rozpoczyna się z ostatnio ustawioną prędkością sesji
+Podcasty, a nie z `1,00 razy`.
+
+### AMC-210-02 — prędkość po ponownym uruchomieniu
+
+Pozostaw w Podcastach prędkość inną niż normalna, zamknij AMC w bezpiecznym
+momencie, uruchom je ponownie i odtwórz odcinek.
+
+Oczekiwane: zapisana prędkość Podcastów nadal obowiązuje. `Ctrl+kropka`
+przywraca `1,00 razy — normalna prędkość` i ta zmiana również jest pamiętana.
+
+## Poprzedni zestaw alpha 209
 
 ## Nowość alpha 209
 

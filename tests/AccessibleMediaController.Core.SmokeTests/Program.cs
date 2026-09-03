@@ -45,6 +45,7 @@ var tests = new (string Name, Action Test)[]
     ("Pusta sesja lokalna", TestEmptyLocalSession),
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
     ("Kontekst listy odtwarzania", TestPlaybackContext),
+    ("Pamięć domyślnej prędkości po ponownym otwarciu", TestPlaybackRateDefaultPersistence),
     ("Trwała kolejność Kolejki", TestQueueOrder),
     ("Nawigacja Page Up i Page Down w Kolejce", TestQueuePlaybackNavigation),
     ("Zniknięcie bieżącego pliku zachowuje kontekst odtwarzania", TestMissingCurrentItemRecovery),
@@ -1925,6 +1926,35 @@ static void TestPlaybackContext()
     Equal(1.50d, session.PlaybackRate);
     Equal(fourth, session.ContinueAfterPlaybackEnded(third));
     Equal(1.25d, session.PlaybackRate);
+}
+
+static void TestPlaybackRateDefaultPersistence()
+{
+    var output = new FakeMediaOutput();
+    var episode = new MediaItem
+    {
+        Id = "podcast-episode",
+        Title = "Odcinek",
+        Kind = MediaItemKind.Episode
+    };
+    var session = new DemoMediaSession(
+        "podcasts",
+        "Podcasty",
+        [episode],
+        output,
+        rememberPosition: _ => true);
+
+    True(session.Play(episode), "Odcinek powinien rozpocząć odtwarzanie.");
+    True(session.ChangePlaybackRate(1), "Podcast powinien pozwalać na zmianę prędkości.");
+    Equal(1.25d, session.PlaybackRate);
+
+    // To samo robi warstwa okna po zmianie prędkości Podcastów: zapisuje
+    // wybraną wartość i ustawia ją jako domyślną dla następnego otwarcia.
+    session.SetDefaultPlaybackRate(session.PlaybackRate);
+    session.StopPlayback();
+    True(session.Play(episode), "Odcinek powinien dać się ponownie otworzyć po Escape.");
+    Equal(1.25d, session.PlaybackRate);
+    Equal(1.25d, output.PlaybackRate);
 }
 
 static void TestQueueOrder()

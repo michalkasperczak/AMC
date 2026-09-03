@@ -1,5 +1,10 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.210` zachowuje zmienioną prędkość Podcastów po wyjściu z
+odtwarzacza klawiszem Escape i ponownym otwarciu odcinka. Wybrana wartość staje
+się bieżącą prędkością sesji Podcasty, jest od razu stosowana przy kolejnym
+odtworzeniu i nadal pozostaje zapisana po ponownym uruchomieniu AMC.
+
 Wersja `alpha.209` dodaje w sesji Radio skrót `Ctrl+Alt+Shift+S`, który
 włącza lub wyłącza wyłącznie automatyczne oznajmianie rozpoznanych utworów.
 Rozpoznawanie uruchomione przez `Shift+S` nadal pracuje w tle, a wyniki nadal

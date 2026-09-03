@@ -6408,6 +6408,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
         {
             _state.Podcasts.PlaybackRate = _sessions.Current.PlaybackRate;
+            // Reopening a finite episode applies the session default again.
+            // Keep that default synchronized with the rate just selected by
+            // the user, otherwise Escape followed by Enter falls back to 1x.
+            _sessions.Current.SetDefaultPlaybackRate(_state.Podcasts.PlaybackRate);
             CapturePodcastState();
             QueueStateSave();
         }

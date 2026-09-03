@@ -1,8 +1,8 @@
 # Projekt modułu podcastów AMC
 
-Status: etap subskrypcji i pierwszego odtwarzania jest ukończony. `alpha.207`
-naprawia wspólny tor regulacji prędkości dla sieciowych odcinków MP3, MP4 i
-pozostałych skończonych materiałów HTTP/HTTPS.
+Status: etap subskrypcji i pierwszego odtwarzania jest ukończony. `alpha.210`
+zachowuje wybraną prędkość sesji Podcasty po wyjściu Escape, ponownym otwarciu
+odcinka oraz ponownym uruchomieniu AMC.
 Działa trwała sesja, bezpieczne dodawanie bezpośrednich kanałów RSS/Atom,
 dostępny import OPML, odświeżanie metadanych, przejście z audycji do jej
 odcinków oraz odtwarzanie skończonych materiałów HTTP/HTTPS we wspólnym
@@ -89,8 +89,9 @@ nie mogą zostać automatycznie scalone.
 ## 4. Odtwarzanie i pobieranie
 
 Odcinek może być odtwarzany strumieniowo lub pobrany świadomym poleceniem.
-Pozycja i prędkość są trwałe per odcinek; oznaczenie jako odsłuchany jest
-oddzielnym stanem. Zakładki działają tak samo jak w trwałych mediach lokalnych.
+Pozycja jest trwała osobno dla każdego odcinka, a prędkość jest trwałym
+ustawieniem całej sesji Podcasty; oznaczenie jako odsłuchany jest oddzielnym
+stanem. Zakładki działają tak samo jak w trwałych mediach lokalnych.
 Nieukończone pobranie pozostaje lokalnym plikiem roboczym poza chmurą, a do
 folderu użytkownika trafia dopiero ukończony plik przez bezpieczną publikację
 stosowaną przy nagraniach Radia.
@@ -143,7 +144,8 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
    Delete. `Ctrl+O` importuje lokalny plik OPML. Kanał nie pobiera automatycznie
    plików audio.
 3. `alpha.206` — zrealizowane: odtwarzanie skończonych materiałów HTTP/HTTPS
-   przez osobny tor Podcastów, zapamiętywanie pozycji i prędkości per odcinek,
+   przez osobny tor Podcastów, zapamiętywanie pozycji per odcinek i prędkości
+   sesji,
    Page Up/Page Down w bieżącym kontenerze, Historia i zakładki. Import OPML
    zaczyna od wszystkich kanałów; strzałki nie zmieniają wyboru, Spacja
    przełącza jeden kanał, a Ctrl+A zaznacza wszystkie.
@@ -156,23 +158,26 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
 6. `alpha.209` — zrealizowane poza modułem Podcastów: bezpośredni skrót
    cichego automatycznego rozpoznawania Radia; plan Podcastów pozostaje bez
    zmian funkcjonalnych.
-7. `alpha.210` — wyszukiwanie publicznego katalogu Apple Podcasts, rozpoznanie
+7. `alpha.210` — zrealizowane: poprawka trwałej prędkości sesji Podcasty po
+   wyjściu Escape i ponownym otwarciu odcinka. Wyszukiwanie publicznego katalogu
+   Apple Podcasts przechodzi do kolejnego etapu.
+8. Kolejny etap — wyszukiwanie publicznego katalogu Apple Podcasts, rozpoznanie
    stron Apple/Overcast i wykrywanie RSS/Atom na zwykłej stronie.
-8. `alpha.211` — pełna skrzynka Nowe odcinki, stany nowy, przejrzany,
+9. Pełna skrzynka Nowe odcinki, stany nowy, przejrzany,
    odsłuchany i w trakcie, filtrowanie oraz operacje zbiorowe. Stan odsłuchania
    nie będzie utożsamiany z usunięciem odcinka.
-9. `alpha.212` — jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
+10. Jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
    anulowanie, postęp i atomowa publikacja gotowego pliku. Części robocze
    pozostają poza iCloud, OneDrive, Dyskiem Google i innymi folderami
    synchronizowanymi.
-10. `alpha.213` — playlisty odcinków, import i eksport OPML, osobny eksport
+11. Playlisty odcinków, import i eksport OPML, osobny eksport
    danych Podcastów AMC i pełne odtworzenie ich z kopii zapasowej.
-11. `alpha.214` — strony z osadzonym audio, istniejące adaptery Polskiego Radia
+12. Strony z osadzonym audio, istniejące adaptery Polskiego Radia
    i innych rozgłośni oraz przekazywanie wyników z rozszerzenia Chrome i
    dodatku NVDA.
-12. `alpha.215` — rozdziały dostarczone przez podcast i rozdziały użytkownika
+13. Rozdziały dostarczone przez podcast i rozdziały użytkownika
    oparte na nazwanych zakładkach.
-13. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
+14. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
    nie mogą uzależnić od siebie RSS, Biblioteki ani lokalnych pobrań.
 
 Pozostała mapa skrótów zostanie ustalona po pierwszym działającym widoku. Nie
