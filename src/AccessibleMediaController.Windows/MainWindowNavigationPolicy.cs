@@ -9,6 +9,15 @@ internal enum PlayerDepartureReason
 
 internal static class MainWindowNavigationPolicy
 {
+    public static string FormatFocusedListEntry(
+        string itemLabel,
+        string? prefix = null,
+        string? suffix = null) =>
+        string.Join(
+            ", ",
+            new[] { prefix, itemLabel, suffix }
+                .Where(part => !string.IsNullOrWhiteSpace(part)));
+
     public static bool IsTransientRadioView(string sessionId, string viewName) =>
         string.Equals(sessionId, "radio", StringComparison.Ordinal)
         && string.Equals(viewName, "Nagrywane", StringComparison.Ordinal);

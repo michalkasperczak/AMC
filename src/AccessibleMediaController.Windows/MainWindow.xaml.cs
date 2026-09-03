@@ -79,6 +79,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private DateTime _lastTypeAheadInputUtc;
     private string? _focusContextItemId;
     private string? _focusContextPrefix;
+    private string? _focusContextSuffix;
     private ListBoxItem? _focusContextContainer;
     private readonly WindowsMediaOutput _localOutput = new();
     private readonly WindowsMediaOutput _podcastOutput = new();
@@ -1133,11 +1134,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _sessions.Current,
             PlayerDepartureReason.ReturnToList);
         _playerViewActive = false;
-        PlayerPanel.Visibility = Visibility.Collapsed;
         BrowserHeaderPanel.Visibility = Visibility.Visible;
         BrowserActionPanel.Visibility = Visibility.Visible;
         MediaList.Visibility = Visibility.Visible;
-        AnchorMediaListFocus();
         UpdateFileMenuForCurrentSession();
         var navigation = GetSessionNavigationState(_sessions.Current.Id);
         navigation.PlayerActive = false;
@@ -1161,6 +1160,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             TrySaveLocalMediaState(false);
         }
+        PrepareSelectedItemFocusSuffix("lista");
+        // While the list is rebuilt, keep focus on the still-visible player control.
+        // Focusing the list container first makes NVDA announce "lista" before the
+        // item. Hiding the player only after the refresh lets focus move directly to
+        // the selected row, whose one-time label deliberately ends with "lista".
+        PlayerPanel.Visibility = Visibility.Collapsed;
         RestoreMediaListFocusAfterRefresh();
     }
 
@@ -7402,17 +7407,35 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AutomationProperties.SetName(MediaList, $"{prefix}, lista pusta");
     }
 
+    private void PrepareSelectedItemFocusSuffix(string suffix)
+    {
+        ClearFocusContext();
+        if (SelectedItem is { } item)
+        {
+            _focusContextItemId = item.Id;
+            _focusContextSuffix = suffix;
+            return;
+        }
+
+        AutomationProperties.SetName(MediaList, "Lista pusta");
+    }
+
     private void ApplyFocusContext(ListBoxItem container)
     {
         if (_focusContextItemId is null
-            || _focusContextPrefix is null
+            || _focusContextPrefix is null && _focusContextSuffix is null
             || container.Content is not MediaItemRow row
             || row.Item.Id != _focusContextItemId)
         {
             return;
         }
 
-        AutomationProperties.SetName(container, $"{_focusContextPrefix}, {row.Label}");
+        AutomationProperties.SetName(
+            container,
+            MainWindowNavigationPolicy.FormatFocusedListEntry(
+                row.Label,
+                _focusContextPrefix,
+                _focusContextSuffix));
         _focusContextContainer = container;
     }
 
@@ -7423,6 +7446,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _focusContextContainer = null;
         _focusContextItemId = null;
         _focusContextPrefix = null;
+        _focusContextSuffix = null;
     }
 
     private void MediaList_SelectionChanged(object sender, SelectionChangedEventArgs e)

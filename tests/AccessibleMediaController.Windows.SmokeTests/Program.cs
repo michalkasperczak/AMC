@@ -401,6 +401,16 @@ static void TestAudioOutputPauseRaceGuard()
 static void TestPlayerDeparturePlaybackPolicy()
 {
     Assert(
+        MainWindowNavigationPolicy.FormatFocusedListEntry(
+            "Radio 24, wstrzymany",
+            suffix: "lista") == "Radio 24, wstrzymany, lista",
+        "Powrót Escape nie umieszcza informacji o liście po nazwie i stanie elementu.");
+    Assert(
+        MainWindowNavigationPolicy.FormatFocusedListEntry(
+            "Audycja",
+            "Kolejka") == "Kolejka, Audycja",
+        "Dotychczasowy prefiks widoku został zmieniony.");
+    Assert(
         MainWindowNavigationPolicy.ShouldApplyPlaybackExitPolicy(
             PlayerDepartureReason.ReturnToList),
         "Escape powinien stosować ustawienie wstrzymania po wyjściu z odtwarzacza.");
