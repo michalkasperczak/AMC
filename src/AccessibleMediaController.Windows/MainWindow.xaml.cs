@@ -99,7 +99,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly List<MediaItem> _localItems = [];
     private readonly List<MediaItem> _radioItems = [];
     private readonly List<MediaItem> _podcastItems = [];
-    private readonly List<MediaItem> _podcastDirectoryItems = [];
     private readonly Dictionary<string, string> _pendingExternalMoves =
         new(StringComparer.Ordinal);
     private PendingInternalListMove? _pendingInternalListMove;
@@ -6248,35 +6247,83 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         QueueStateSave();
     }
 
-    private async Task PrepareRemoteSearchAsync(
+    private async Task<IReadOnlyList<SearchWindow.SearchResult>> PrepareRemoteSearchAsync(
         string query,
         bool allServices,
         CancellationToken cancellationToken)
     {
         var currentId = _sessions.Current.Id;
-        var tasks = new List<Task>();
+        Task radioSearch = Task.CompletedTask;
+        Task<IReadOnlyList<MediaItem>> podcastSearch = Task.FromResult<IReadOnlyList<MediaItem>>([]);
         if (allServices || string.Equals(currentId, "radio", StringComparison.Ordinal))
-            tasks.Add(PrepareRadioSearchAsync(query, cancellationToken));
+            radioSearch = PrepareRadioSearchAsync(query, cancellationToken);
         if (allServices || string.Equals(currentId, "podcasts", StringComparison.Ordinal))
-            tasks.Add(PrepareApplePodcastSearchAsync(query, cancellationToken));
-        await Task.WhenAll(tasks);
+            podcastSearch = PrepareApplePodcastSearchAsync(query, cancellationToken);
+        await Task.WhenAll(radioSearch, podcastSearch);
+        return podcastSearch.Result
+            .Select(item => new SearchWindow.SearchResult("podcasts", item))
+            .ToArray();
     }
 
-    private async Task PrepareApplePodcastSearchAsync(string query, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<MediaItem>> PrepareApplePodcastSearchAsync(
+        string query,
+        CancellationToken cancellationToken)
     {
-        var found = await _applePodcastDirectory.SearchAsync(query, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        var podcastSession = _sessions.FindSession("podcasts");
-        if (podcastSession is null) return;
+        try
+        {
+            var found = await _applePodcastDirectory.SearchAsync(query, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            var savedByFeed = _state.Podcasts.Subscriptions
+                .Where(subscription => !string.IsNullOrWhiteSpace(subscription.FeedUrl))
+                .GroupBy(
+                    subscription => NormalizePodcastFeedAddress(subscription.FeedUrl),
+                    StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+            var libraryItemsById = _podcastItems
+                .Where(item => item.Kind == MediaItemKind.Podcast)
+                .ToDictionary(item => item.Id, StringComparer.Ordinal);
+            var resolvedResults = found
+                .Select(candidate =>
+                {
+                    if (candidate.Source is not { Length: > 0 } source
+                        || !savedByFeed.TryGetValue(NormalizePodcastFeedAddress(source), out var saved)
+                        || !libraryItemsById.TryGetValue(saved.Id, out var libraryItem))
+                    {
+                        return candidate;
+                    }
+                    return libraryItem;
+                })
+                .DistinctBy(candidate => candidate.Id)
+                .ToArray();
+            var directoryCount = resolvedResults.Count(candidate =>
+                candidate.Id.StartsWith("podcast-directory:apple:", StringComparison.Ordinal));
+            DiagnosticLog.Info(
+                "podcast-search",
+                $"Katalog Apple Podcasts zwrócił {found.Count} wyników; "
+                + $"nowe: {directoryCount}; rozpoznane w Bibliotece: {resolvedResults.Length - directoryCount}.");
+            return resolvedResults;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Warning(
+                "podcast-search",
+                $"Wyszukiwanie katalogu Apple Podcasts nie powiodło się; błąd {exception.GetType().Name}.");
+            throw;
+        }
+    }
 
-        _podcastDirectoryItems.Clear();
-        var savedFeeds = _state.Podcasts.Subscriptions
-            .Select(subscription => subscription.FeedUrl)
-            .Where(address => !string.IsNullOrWhiteSpace(address))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        _podcastDirectoryItems.AddRange(found.Where(candidate =>
-            candidate.Source is { Length: > 0 } source && !savedFeeds.Contains(source)));
-        podcastSession.ReplaceItems(_podcastItems.Concat(_podcastDirectoryItems));
+    private static string NormalizePodcastFeedAddress(string address)
+    {
+        var trimmed = address.Trim();
+        if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri)) return trimmed;
+        return uri.GetComponents(
+                UriComponents.SchemeAndServer | UriComponents.PathAndQuery,
+                UriFormat.SafeUnescaped)
+            .TrimEnd('/');
     }
 
     private static bool IsApplePodcastDirectoryResult(SearchWindow.SearchResult result) =>

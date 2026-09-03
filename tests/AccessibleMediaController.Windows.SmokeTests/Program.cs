@@ -86,6 +86,7 @@ try
     TestMainWindowDigitShortcutRouting();
     TestPlayerDeparturePlaybackPolicy();
     TestSearchNavigation();
+    TestPodcastDirectorySearchMerge();
     TestPlayerListReturnSelection();
     TestMainWindowFocusRecoveryPolicy();
     TestPlayerAudioProcessingKeyboardMap();
@@ -152,6 +153,10 @@ try
         else if (mediaPath.StartsWith("--podcast-url=", StringComparison.OrdinalIgnoreCase))
         {
             TestLivePodcast(mediaPath["--podcast-url=".Length..]);
+        }
+        else if (mediaPath.StartsWith("--apple-podcast-query=", StringComparison.OrdinalIgnoreCase))
+        {
+            TestLiveApplePodcastDirectory(mediaPath["--apple-podcast-query=".Length..]);
         }
         else if (mediaPath.Equals("--install-ffmpeg", StringComparison.OrdinalIgnoreCase))
         {
@@ -360,6 +365,56 @@ static void TestPodcastDescriptionTextOrder()
         "Opis nie powinien być powtórzony w sekcji metadanych.");
 
     Console.WriteLine("OK: opis podcastu przed metadanymi");
+}
+
+static void TestPodcastDirectorySearchMerge()
+{
+    var episode = new MediaItem
+    {
+        Id = "episode-local",
+        Title = "Gamma — Polskie Radio, odcinek",
+        Kind = MediaItemKind.Episode
+    };
+    var libraryPodcast = new MediaItem
+    {
+        Id = "podcast-local",
+        Title = "Beta — Polskie Radio w Bibliotece",
+        Kind = MediaItemKind.Podcast,
+        IsInLibrary = true
+    };
+    var directoryPodcast = new MediaItem
+    {
+        Id = "podcast-directory:apple:123",
+        Title = "Alfa — Polskie Radio z katalogu",
+        Kind = MediaItemKind.Podcast,
+        Source = "https://example.test/feed.xml"
+    };
+    var session = new DemoMediaSession("podcasts", "Podcasty", [episode, libraryPodcast]);
+    var localResults = MediaCatalogSearch.Search([session], "Polskie Radio");
+    var merged = SearchWindow.MergeSearchResults(
+        localResults,
+        [new SearchWindow.SearchResult("podcasts", directoryPodcast)],
+        [session],
+        podcastOnly: true);
+
+    Assert(
+        string.Join(',', merged.Select(result => result.Item.Id))
+            == "podcast-directory:apple:123,podcast-local,episode-local",
+        "Wyniki Podcastów nie pokazują nagłówków z katalogu i Biblioteki przed odcinkami.");
+    Assert(session.Items.Count == 2,
+        "Tymczasowe wyniki katalogu nie mogą zmieniać wewnętrznej sesji Podcastów.");
+
+    var withoutLocalMatch = SearchWindow.MergeSearchResults(
+        [],
+        [new SearchWindow.SearchResult("podcasts", directoryPodcast)],
+        [session],
+        podcastOnly: true);
+    Assert(
+        string.Join(',', withoutLocalMatch.Select(result => result.Item.Id))
+            == "podcast-directory:apple:123",
+        "Wynik katalogu zniknął, gdy Biblioteka nie zawiera lokalnego dopasowania.");
+
+    Console.WriteLine("OK: katalog Apple jest osobną, widoczną częścią wyszukiwania Podcastów");
 }
 
 static void TestPodcastNetworkSourcePolicy()
@@ -3965,6 +4020,19 @@ static void TestApplePodcastDirectoryClient()
     Assert(result.Kind == MediaItemKind.Podcast && !result.IsInLibrary,
         "Wynik katalogu Apple został błędnie uznany za istniejący element Biblioteki.");
     Console.WriteLine("OK: bezpieczne wyszukiwanie katalogu Apple Podcasts");
+}
+
+static void TestLiveApplePodcastDirectory(string query)
+{
+    using var client = new ApplePodcastDirectoryClient();
+    var results = client.SearchAsync(query, CancellationToken.None).GetAwaiter().GetResult();
+    Assert(results.Count > 0, "Publiczny katalog Apple Podcasts nie zwrócił wyników.");
+    Assert(results.All(item => item.Kind == MediaItemKind.Podcast
+        && item.Id.StartsWith("podcast-directory:apple:", StringComparison.Ordinal)
+        && Uri.TryCreate(item.Source, UriKind.Absolute, out _)),
+        "Odpowiedź katalogu Apple Podcasts zawiera nieprawidłowy wynik.");
+    Console.WriteLine($"OK: katalog Apple Podcasts na żywo — wyniki: {results.Count}");
+    foreach (var result in results.Take(5)) Console.WriteLine($"  {result.Title}");
 }
 
 static void TestPodcastOpmlImportSelectionAccessibility()

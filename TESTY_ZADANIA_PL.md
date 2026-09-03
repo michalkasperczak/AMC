@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-235`
-- Tytuł zestawu: Opis Podcastów przed metadanymi oraz regresja całej aplikacji
-- Wersja programu: `0.1.0-alpha.235`
+- Numer zestawu: `AMC-TEST-236`
+- Tytuł zestawu: Rzeczywiste wyniki katalogu Apple w wyszukiwaniu Podcastów oraz regresja całej aplikacji
+- Wersja programu: `0.1.0-alpha.236`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.235.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.236.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,47 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 236
+
+### AMC-236-01 — katalog Apple bez lokalnego wyniku
+
+W sesji Podcasty naciśnij `Ctrl+F` i wpisz nazwę podcastu, którego na pewno nie
+ma w Bibliotece. Naciśnij Enter i przejdź po początkowej części listy.
+
+Oczekiwane: co najmniej część nagłówków jest opisana jako „katalog Apple
+Podcasts”. Wyniki katalogowe są widoczne również wtedy, gdy nie znaleziono
+żadnego zapisanego podcastu ani odcinka. Nie pojawia się dawna lista wszystkich
+odcinków sesji.
+
+### AMC-236-02 — Polskie Radio i kolejność typów
+
+Wyszukaj przez `Ctrl+F` tekst „Polskie Radio”. Przejdź po całej liście,
+sprawdzając Home, End i nawigację literami.
+
+Oczekiwane: wyszukiwanie obejmuje publiczne wyniki Apple, pozycje z Biblioteki
+i zapisane odcinki. Wszystkie nagłówki podcastów występują przed odcinkami.
+Pozycje katalogowe mówią „katalog Apple Podcasts”, zapisane — „w Bibliotece”.
+Ten sam kanał nie występuje podwójnie tylko z powodu obecności w obu źródłach.
+
+### AMC-236-03 — trzy działania Enter
+
+Otwórz kolejno: zapisany nagłówek podcastu, zapisany odcinek oraz nowy wynik
+z katalogu Apple.
+
+Oczekiwane: nagłówek otwiera swoje odcinki; odcinek prowadzi do właściwej
+audycji i ustawia na sobie fokus; wynik katalogowy sprawdza publiczny RSS lub
+Atom, dodaje audycję do Biblioteki i otwiera jej odcinki. Żaden wariant nie
+prowadzi do płaskiej listy wszystkich podcastów i odcinków.
+
+### AMC-236-04 — kopiowanie i ponowne wyszukiwanie
+
+Zaznacz Shiftem kilka wyników Podcastów i sprawdź `Ctrl+C` oraz
+`Ctrl+Shift+C`. Zamknij okno, otwórz `Ctrl+F` ponownie i powtórz zapytanie.
+
+Oczekiwane: `Ctrl+C` nadal kopiuje czytelne opisy i strony, a
+`Ctrl+Shift+C` bezpośrednie źródła. Ponowne wyszukiwanie nie zwiększa liczby
+duplikatów i nie zmienia zawartości Biblioteki bez jawnego wybrania wyniku.
 
 ## Nowości alpha 235
 

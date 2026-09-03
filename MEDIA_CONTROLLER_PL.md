@@ -1805,6 +1805,16 @@ kanału, zapisuje go w Bibliotece AMC i dopiero wtedy otwiera listę odcinków.
 Źródło katalogowe nie zastępuje RSS i jego awaria nie blokuje już obserwowanych
 audycji. Dokumentacja API: [iTunes Search API — wyszukiwanie](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/Searching.html).
 
+Od `alpha.236` odpowiedź katalogu nie jest dopisywana do trwałej ani roboczej
+listy elementów sesji. Jest łączona wyłącznie z wynikami aktualnego okna
+wyszukiwania, co zapobiega ujawnieniu płaskiego agregatu tysięcy odcinków po
+zamknięciu wyszukiwania. W `Ctrl+F` nagłówki podcastów — zarówno zapisanych,
+jak i katalogowych — występują przed odcinkami. Zgodność kanałów jest ustalana
+po znormalizowanym adresie RSS lub Atom: znany kanał używa pozycji Biblioteki,
+a nowy zachowuje jednoznaczną etykietę „katalog Apple Podcasts”. Wynik Apple
+pozostaje widoczny także bez lokalnego dopasowania. Log zapisuje wyłącznie
+liczby wyników oraz typ błędu, bez tekstu prywatnego zapytania użytkownika.
+
 Spotify pozostaje osobnym przyszłym adapterem OAuth. Oficjalne wyszukiwanie
 Spotify udostępnia typy `show` i `episode`, ale nie jest ogólnym źródłem
 publicznych adresów plików audio. Podcast mający publiczny RSS może działać w

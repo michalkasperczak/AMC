@@ -23,7 +23,7 @@ public partial class SearchWindow : Window
     private readonly SearchQueryHistory _searchHistory;
     private readonly string _searchHistoryScope;
     private readonly Action _persistSearchHistory;
-    private readonly Func<string, CancellationToken, Task>? _prepareRemoteSearch;
+    private readonly Func<string, CancellationToken, Task<IReadOnlyList<SearchResult>>>? _prepareRemoteSearch;
     private readonly string _remoteSearchLabel;
     private CancellationTokenSource? _searchCancellation;
     private bool _isApplyingHistory;
@@ -47,7 +47,7 @@ public partial class SearchWindow : Window
         string searchHistoryScope,
         Action persistSearchHistory,
         bool detailedHints,
-        Func<string, CancellationToken, Task>? prepareRemoteSearch = null,
+        Func<string, CancellationToken, Task<IReadOnlyList<SearchResult>>>? prepareRemoteSearch = null,
         string remoteSearchLabel = "katalogu")
     {
         InitializeComponent();
@@ -120,13 +120,14 @@ public partial class SearchWindow : Window
         _searchCancellation?.Cancel();
         _searchCancellation?.Dispose();
         _searchCancellation = new CancellationTokenSource();
+        IReadOnlyList<SearchResult> remoteResults = [];
         if (_prepareRemoteSearch is not null)
         {
             SearchButton.IsEnabled = false;
             SearchStatus.Announce($"Wyszukiwanie w {_remoteSearchLabel}");
             try
             {
-                await _prepareRemoteSearch(query, _searchCancellation.Token);
+                remoteResults = await _prepareRemoteSearch(query, _searchCancellation.Token);
             }
             catch (OperationCanceledException)
             {
@@ -142,7 +143,15 @@ public partial class SearchWindow : Window
             }
         }
 
-        var results = MediaCatalogSearch.Search(_sourceSessions, query)
+        var podcastOnly = !_allServices
+            && _sourceSessions.Count == 1
+            && string.Equals(_sourceSessions[0].Id, "podcasts", StringComparison.OrdinalIgnoreCase);
+        var combinedResults = MergeSearchResults(
+            MediaCatalogSearch.Search(_sourceSessions, query),
+            remoteResults,
+            _sourceSessions,
+            podcastOnly);
+        var results = combinedResults
             .Select(result => new SearchResultRow(
                 result.Session.Id,
                 result.Item,
@@ -171,6 +180,36 @@ public partial class SearchWindow : Window
         // The focused ListBoxItem already exposes its label and position (for example
         // "1 z 3"). Keep the visible count without raising a second live announcement.
         SearchStatus.Text = results.Count == 1 ? "1 wynik" : $"{results.Count} wyników";
+    }
+
+    internal static IReadOnlyList<MediaSearchResult> MergeSearchResults(
+        IEnumerable<MediaSearchResult> localResults,
+        IEnumerable<SearchResult> remoteResults,
+        IEnumerable<DemoMediaSession> sourceSessions,
+        bool podcastOnly)
+    {
+        var sessionsById = sourceSessions
+            .GroupBy(session => session.Id, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var combined = localResults
+            .Concat(remoteResults
+                .Where(result => sessionsById.ContainsKey(result.SessionId))
+                .Select(result => new MediaSearchResult(sessionsById[result.SessionId], result.Item)))
+            .DistinctBy(result => (result.Session.Id.ToUpperInvariant(), result.Item.Id))
+            .ToList();
+
+        if (!podcastOnly) return combined;
+
+        return combined
+            .OrderBy(result => result.Item.Kind switch
+            {
+                MediaItemKind.Podcast => 0,
+                MediaItemKind.Episode => 1,
+                _ => 2
+            })
+            .ThenBy(result => result.Item.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(result => result.Item.Id, StringComparer.Ordinal)
+            .ToArray();
     }
 
     private void FocusSelectedResult()

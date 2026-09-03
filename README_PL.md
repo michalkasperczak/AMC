@@ -7,6 +7,18 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.236` naprawia `Ctrl+F` w sesji Podcasty. Wyniki publicznego
+katalogu Apple Podcasts są teraz osobną częścią bieżącego wyszukiwania, a nie
+tymczasowymi rekordami dopisywanymi do wewnętrznej sesji. Nagłówki podcastów
+z Biblioteki i katalogu są widoczne przed pasującymi odcinkami; wynik nie
+znika nawet wtedy, gdy Biblioteka nie zawiera żadnego lokalnego dopasowania.
+Kanał znaleziony również w Bibliotece jest scalany z jej pozycją i opisany jako
+obecny w Bibliotece, zamiast pojawiać się drugi raz. Enter zachowuje trzy
+rozłączne działania: otwiera zapisany podcast, prowadzi do audycji wybranego
+odcinka albo sprawdza RSS wyniku Apple, dodaje go i otwiera. Zapytanie nie
+ujawnia już technicznego agregatu wszystkich odcinków, a liczby wyników i typ
+ewentualnego błędu katalogu trafiają do logu diagnostycznego.
+
 Wersja `alpha.235` porządkuje okno pełnego opisu Podcastów pod `Alt+D`.
 Fokus nadal trafia do zwykłego pola tekstowego tylko do odczytu i na jego
 początek, lecz pierwszą treścią jest teraz właściwy opis. Dopiero pod nim
