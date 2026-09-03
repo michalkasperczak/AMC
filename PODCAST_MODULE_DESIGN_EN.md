@@ -124,13 +124,17 @@ an existing RSS subscription to work.
 12. `alpha.217`: completed — public Apple Podcasts search, RSS/Atom import
     from a directory result, full selectable description under Alt+D, and a
     reliably rebuilt Ctrl+I Inbox.
-13. Next: feed discovery from ordinary pages, New episodes filtering and batch
+13. `alpha.218–219`: completed — exact Ctrl+L return to the last open show and
+    episode, plus **Go to podcast** from an episode in the Inbox, Favorites,
+    Queue, History, a playlist, search or the player. It focuses the source
+    episode and is not exposed outside Podcasts or on a show header.
+14. Next: feed discovery from ordinary pages, New episodes filtering and batch
     operations.
-14. Later: cancellable downloads with local staging and atomic publication.
-15. Later: episode playlists plus OPML and AMC import/export.
-16. Later: embedded web audio and publisher-specific adapters.
-17. Later: supplied and user-authored chapters.
-18. Additional directories and account services remain optional adapters.
+15. Later: cancellable downloads with local staging and atomic publication.
+16. Later: episode playlists plus OPML and AMC import/export.
+17. Later: embedded web audio and publisher-specific adapters.
+18. Later: supplied and user-authored chapters.
+19. Additional directories and account services remain optional adapters.
 
 The keyboard map will be decided after the first working view. This design
 document does not reserve shortcuts by itself.

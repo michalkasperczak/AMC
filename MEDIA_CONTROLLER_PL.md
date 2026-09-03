@@ -1762,3 +1762,12 @@ o poziom wyżej; po nim miejscem powrotu staje się nadrzędna lista podcastów.
 Stan jest trwały. Identyfikator audycji jest sprawdzany przy każdym powrocie i
 po uruchomieniu, dlatego usunięty podcast nie tworzy pustego ani technicznego
 widoku, tylko powoduje bezpieczny powrót do Biblioteki.
+
+Od `alpha.219` każdy odcinek należący do audycji zapisanej w Bibliotece ma
+polecenie **Przejdź do podcastu**. Działa ono z Nowych odcinków, Ulubionych,
+Kolejki, Historii, playlisty, wyników wyszukiwania i odtwarzacza. Otwiera
+audycję nadrzędną, ustawia fokus dokładnie na wskazanym odcinku i aktualizuje
+zapamiętane miejsce powrotu `Ctrl+L`. Polecenie jest kontekstowe: nie pojawia
+się przy nagłówku audycji, w innej sesji ani wtedy, gdy podcast nadrzędny nie
+należy już do Biblioteki. Ma pozycję w menu kontekstowym i palecie poleceń, ale
+nie zajmuje nowego domyślnego skrótu; profil użytkownika może go przypisać.

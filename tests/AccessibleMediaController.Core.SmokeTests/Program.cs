@@ -3442,6 +3442,9 @@ static void TestCommandPalette()
     Equal("Alt+Enter", itemProperties.LocalShortcut);
     True(itemProperties.PrefixShortcut is null, "Właściwości nie mają skrótu prefiksowego.");
     Equal("Alt+D (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.PodcastDescription).LocalShortcut);
+    var goToPodcast = entries.Single(entry => entry.CommandId == CommandIds.GoToPodcast);
+    Equal("Przejdź do podcastu tego odcinka", goToPodcast.DisplayName);
+    True(goToPodcast.LocalShortcut is null, "Przejście do podcastu nie powinno zajmować nowego skrótu domyślnego.");
     True(entries.All(entry => entry.CommandId != "view.itemInformation"), "Stare polecenie informacji nie może być w palecie.");
     True(entries.All(entry => entry.CommandId != "information.playbackStatus"), "Stary odczyt stanu nie może być w palecie.");
     Equal("Left (odtwarzacz)", entries.Single(entry => entry.CommandId == CommandIds.SeekBackward10).LocalShortcut);
@@ -4016,6 +4019,8 @@ static void TestTimeCommands()
     True(actions.ItemPropertiesShown, "Router powinien otworzyć jedno okno właściwości i informacji.");
     router.Execute(CommandIds.PodcastDescription);
     True(actions.PodcastDescriptionShown, "Router powinien przekazać otwarcie pełnego opisu podcastu.");
+    router.Execute(CommandIds.GoToPodcast);
+    True(actions.RelatedPodcastShown, "Router powinien przekazać przejście do podcastu nadrzędnego.");
     router.Execute(CommandIds.AddNamedBookmark);
     True(actions.NamedBookmarkAdded, "Router powinien przekazać dodanie nazwanej zakładki do aplikacji.");
     router.Execute(CommandIds.SettingsMessageTemplates);
@@ -4428,6 +4433,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public bool SeekToPercentageShown { get; private set; }
     public bool ItemPropertiesShown { get; private set; }
     public bool PodcastDescriptionShown { get; private set; }
+    public bool RelatedPodcastShown { get; private set; }
     public bool ItemPlaybackOptionsShown { get; private set; }
     public bool BookmarkAdded { get; private set; }
     public bool NamedBookmarkAdded { get; private set; }
@@ -4444,6 +4450,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ShowCommandPalette() => CommandPaletteShown = true;
     public void ShowItemProperties() => ItemPropertiesShown = true;
     public void ShowPodcastDescription() => PodcastDescriptionShown = true;
+    public void GoToRelatedPodcast() => RelatedPodcastShown = true;
     public void ShowItemPlaybackOptions() => ItemPlaybackOptionsShown = true;
     public void OpenOfficialApplication() { }
     public void ShowHelp() { }

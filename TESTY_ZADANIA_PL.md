@@ -1,14 +1,42 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-218`
-- Tytuł zestawu: Powrót do otwartej audycji w Bibliotece Podcastów
-- Wersja programu: `0.1.0-alpha.218`
+- Numer zestawu: `AMC-TEST-219`
+- Tytuł zestawu: Przejście z odcinka do podcastu nadrzędnego
+- Wersja programu: `0.1.0-alpha.219`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.218.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.219.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
 
-## Nowości alpha 218
+## Nowości alpha 219
+
+### AMC-219-01 — przejście z odcinka do audycji
+
+W sesji Podcasty wybierz odcinek widoczny w Nowych odcinkach, Ulubionych,
+Kolejce, Historii albo playliście. Otwórz menu kontekstowe i wybierz
+**Przejdź do podcastu**.
+
+Oczekiwane: AMC otwiera listę odcinków właściwej audycji i ustawia fokus na
+tym samym odcinku. NVDA nie odczytuje identyfikatora ani technicznej nazwy
+obiektu.
+
+### AMC-219-02 — wyszukiwanie i odtwarzacz
+
+Wyszukaj zapisany odcinek przez `Ctrl+F`, wybierz z jego menu kontekstowego
+**Przejdź do podcastu**. Powtórz test z otwartego odtwarzacza.
+
+Oczekiwane: oba przejścia kończą się na właściwej audycji i tym samym odcinku.
+Po późniejszym przejściu do innego widoku `Ctrl+L` wraca w to miejsce.
+
+### AMC-219-03 — właściwy zakres polecenia
+
+Sprawdź menu kontekstowe nagłówka podcastu, zwykłego pliku lokalnego i stacji
+radia oraz paletę poleceń w kilku sesjach.
+
+Oczekiwane: polecenie jest dostępne wyłącznie dla odcinka mającego podcast
+nadrzędny w Bibliotece. Nie zajmuje nowego skrótu domyślnego.
+
+## Poprzedni zestaw alpha 218
 
 ### AMC-218-01 — powrót z Kolejki do audycji
 

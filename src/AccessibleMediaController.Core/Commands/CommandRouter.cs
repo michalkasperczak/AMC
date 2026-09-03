@@ -21,6 +21,7 @@ public interface IApplicationActions
     void ShowCommandPalette();
     void ShowItemProperties();
     void ShowPodcastDescription();
+    void GoToRelatedPodcast();
     void ShowItemPlaybackOptions();
     void OpenOfficialApplication();
     void ShowHelp();
@@ -152,6 +153,9 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.PodcastDescription:
                 application.ShowPodcastDescription();
+                return new(true);
+            case CommandIds.GoToPodcast:
+                application.GoToRelatedPodcast();
                 return new(true);
             case CommandIds.ItemPlaybackOptions:
                 application.ShowItemPlaybackOptions();
@@ -536,7 +540,8 @@ public sealed class CommandRouter(
         or CommandIds.SeekBackward60 or CommandIds.SeekForward60
         or CommandIds.TrackStart or CommandIds.TrackEnd
         or CommandIds.TimeElapsed or CommandIds.TimeRemaining or CommandIds.TimeTotal
-        or CommandIds.ItemProperties or CommandIds.PodcastDescription or CommandIds.ItemPlaybackOptions
+        or CommandIds.ItemProperties or CommandIds.PodcastDescription or CommandIds.GoToPodcast
+        or CommandIds.ItemPlaybackOptions
         or CommandIds.ToggleFavorite or CommandIds.ToggleLibrary
         or CommandIds.AddQueue or CommandIds.TogglePlayNext
         or CommandIds.PlaybackRateDown or CommandIds.PlaybackRateUp or CommandIds.PlaybackRateReset;

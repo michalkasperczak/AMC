@@ -438,6 +438,24 @@ static void TestPlayerDeparturePlaybackPolicy()
             "Podcast:usunięta-audycja",
             ["audycja-1"]) == "Biblioteka",
         "Nieistniejąca audycja nie została bezpiecznie zastąpiona nadrzędną Biblioteką.");
+    var episode = new MediaItem
+    {
+        Id = "odcinek-1",
+        Title = "Rozmowy po Zachodzie",
+        Kind = MediaItemKind.Episode,
+        ExternalId = "audycja-1"
+    };
+    Assert(
+        MainWindowNavigationPolicy.ResolveRelatedPodcastId("podcasts", episode) == "audycja-1",
+        "Odcinek nie wskazuje podcastu nadrzędnego.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveRelatedPodcastId("local", episode) is null,
+        "Przejście do podcastu wyciekło poza sesję Podcasty.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveRelatedPodcastId(
+            "podcasts",
+            new MediaItem { Kind = MediaItemKind.Podcast, ExternalId = "audycja-1" }) is null,
+        "Nagłówek podcastu nie powinien udawać odcinka z podcastem nadrzędnym.");
     Console.WriteLine("OK: tylko jawny powrót z odtwarzacza stosuje regułę wstrzymania");
 }
 

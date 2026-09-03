@@ -180,18 +180,23 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
     nie jest przez to fałszywie oznaczane jako rozpoczęte. Lewa strzałka podaje
     również kodek, oszacowany bitrate i rozmiar, jeżeli RSS, serwer albo pobrany
     plik udostępnia potrzebne dane.
-11. Jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
+11. `alpha.218–219` — zrealizowane: dokładny powrót `Ctrl+L` do ostatnio
+    otwartej audycji i odcinka oraz polecenie **Przejdź do podcastu** z odcinka
+    pokazanego w skrzynce, Ulubionych, Kolejce, Historii, playliście,
+    wyszukiwaniu albo odtwarzaczu. Polecenie ustawia fokus na źródłowym odcinku
+    i nie jest pokazywane poza sesją Podcasty ani na samym nagłówku audycji.
+12. Jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
    anulowanie, postęp i atomowa publikacja gotowego pliku. Części robocze
    pozostają poza iCloud, OneDrive, Dyskiem Google i innymi folderami
    synchronizowanymi.
-12. Playlisty odcinków, import i eksport OPML, osobny eksport
+13. Playlisty odcinków, import i eksport OPML, osobny eksport
    danych Podcastów AMC i pełne odtworzenie ich z kopii zapasowej.
-13. Strony z osadzonym audio, istniejące adaptery Polskiego Radia
+14. Strony z osadzonym audio, istniejące adaptery Polskiego Radia
    i innych rozgłośni oraz przekazywanie wyników z rozszerzenia Chrome i
    dodatku NVDA.
-14. Rozdziały dostarczone przez podcast i rozdziały użytkownika
+15. Rozdziały dostarczone przez podcast i rozdziały użytkownika
    oparte na nazwanych zakładkach.
-15. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
+16. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
    nie mogą uzależnić od siebie RSS, Biblioteki ani lokalnych pobrań.
 
 Pozostała mapa skrótów zostanie ustalona po pierwszym działającym widoku. Nie

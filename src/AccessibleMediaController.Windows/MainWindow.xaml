@@ -482,7 +482,10 @@
                     <MenuItem x:Name="PodcastDescriptionMenuItem" Header="Pełny opis podcastu lub odcinka…" InputGestureText="Alt+D"
                               automation:AutomationProperties.Name="Pokaż pełny opis podcastu lub odcinka, Alt+D"
                               automation:AutomationProperties.AcceleratorKey="Alt+D"
-                              Visibility="Collapsed" Click="PodcastDescription_Click" />
+                               Visibility="Collapsed" Click="PodcastDescription_Click" />
+                    <MenuItem x:Name="GoToPodcastMenuItem" Header="Przejdź do podcastu"
+                              automation:AutomationProperties.Name="Przejdź do podcastu tego odcinka"
+                              Visibility="Collapsed" Click="GoToPodcast_Click" />
                     <MenuItem x:Name="ItemPlaybackOptionsMenuItem" Header="Opcje odtwarzania elementu" InputGestureText="Alt+Shift+Enter"
                               automation:AutomationProperties.Name="Opcje odtwarzania elementu, Alt+Shift+Enter"
                               Click="ItemPlaybackOptions_Click" />
@@ -703,7 +706,10 @@
                     <MenuItem x:Name="PlayerPodcastDescriptionMenuItem" Header="Pełny opis podcastu lub odcinka…" InputGestureText="Alt+D"
                               automation:AutomationProperties.Name="Pokaż pełny opis podcastu lub odcinka, Alt+D"
                               automation:AutomationProperties.AcceleratorKey="Alt+D"
-                              Visibility="Collapsed" Click="PodcastDescription_Click" />
+                               Visibility="Collapsed" Click="PodcastDescription_Click" />
+                    <MenuItem x:Name="PlayerGoToPodcastMenuItem" Header="Przejdź do podcastu"
+                              automation:AutomationProperties.Name="Przejdź do podcastu tego odcinka"
+                              Visibility="Collapsed" Click="GoToPodcast_Click" />
                     <MenuItem x:Name="PlayerGoToAlbumMenuItem" Header="Przejdź do albumu"
                               Click="GoToAlbum_Click" />
                     <MenuItem x:Name="PlayerGoToArtistMenuItem" Header="Przejdź do wykonawcy"

@@ -209,7 +209,8 @@ public partial class SearchWindow : Window
             Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
             return;
         }
-        if (action is not (SearchResultAction.Open or SearchResultAction.Playlist or SearchResultAction.Preset))
+        if (action is not (SearchResultAction.Open or SearchResultAction.Playlist
+                or SearchResultAction.Preset or SearchResultAction.GoToPodcast))
         {
             var results = action is SearchResultAction.CopyName
                 or SearchResultAction.CopyLocation
@@ -471,6 +472,7 @@ public partial class SearchWindow : Window
     private void Playlist_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Playlist);
     private void Preset_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Preset);
     private void Information_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Information);
+    private void GoToPodcast_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.GoToPodcast);
     private void CopyName_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.CopyName);
     private void CopyLocation_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.CopyLocation);
     private void ResultsList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => CompleteSelected(SearchResultAction.Open);
@@ -484,6 +486,13 @@ public partial class SearchWindow : Window
         SearchQueueMenuItem.Visibility = visibility;
         SearchQueueSeparator.Visibility = visibility;
         SearchPlaylistMenuItem.Visibility = Visibility.Visible;
+        var selected = GetSelectedResults();
+        SearchGoToPodcastMenuItem.Visibility = selected.Length == 1
+            && string.Equals(selected[0].SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)
+            && selected[0].Item.Kind == MediaItemKind.Episode
+            && !string.IsNullOrWhiteSpace(selected[0].Item.ExternalId)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
     }
 
     private void ResultsContextMenu_Closed(object sender, RoutedEventArgs e)
@@ -514,6 +523,7 @@ public enum SearchResultAction
     Library,
     Playlist,
     Preset,
+    GoToPodcast,
     Information,
     CopyName,
     CopyLocation

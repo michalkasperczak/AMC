@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.219` dodaje polecenie **Przejdź do podcastu** dla odcinka
+widocznego w Nowych odcinkach, Ulubionych, Kolejce, Historii, playliście,
+wynikach wyszukiwania albo otwartym odtwarzaczu. Polecenie otwiera audycję
+nadrzędną, ustawia fokus na tym samym odcinku i zapamiętuje to miejsce jako
+punkt późniejszego powrotu przez `Ctrl+L`. Jest dostępne w odpowiednim menu
+kontekstowym i palecie poleceń; nie zajmuje nowego domyślnego skrótu.
+
 Wersja `alpha.218` zachowuje dokładne miejsce wewnątrz Biblioteki Podcastów.
 Jeżeli użytkownik otworzy audycję, zaznaczy odcinek, przejdzie do Kolejki,
 Ulubionych albo innego widoku i wróci przez `Ctrl+L`, AMC ponownie otwiera tę

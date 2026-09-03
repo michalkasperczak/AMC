@@ -538,6 +538,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ShowPresetAssignment();
                 return;
             }
+            if (dialog.SelectedAction == SearchResultAction.GoToPodcast)
+            {
+                GoToRelatedPodcast(result.Item);
+                return;
+            }
             if (dialog.SelectedAction == SearchResultAction.Playlist && selectedSession is not null)
             {
                 var items = dialog.SelectedResults
@@ -2456,12 +2461,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.RefreshPodcastLibrary
             or CommandIds.ViewPodcastInbox
             or CommandIds.ViewPodcastInProgress
-            or CommandIds.PodcastDescription)
+            or CommandIds.PodcastDescription
+            or CommandIds.GoToPodcast)
         {
             return false;
         }
         if (commandId == CommandIds.PodcastDescription
             && ActionItem?.Kind is not (MediaItemKind.Podcast or MediaItemKind.Episode))
+        {
+            return false;
+        }
+        if (commandId == CommandIds.GoToPodcast
+            && FindRelatedPodcast(ActionItem) is null)
         {
             return false;
         }
@@ -2636,6 +2647,34 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Activate();
         if (_playerViewActive) FocusPlayerView();
         else RestoreMediaListFocusAfterRefresh();
+    }
+
+    public void GoToRelatedPodcast() =>
+        GoToRelatedPodcast(ActionItem ?? (_sessions.Current.HasCurrentItem
+            ? _sessions.Current.CurrentItem
+            : null));
+
+    private PodcastSubscriptionSettings? FindRelatedPodcast(MediaItem? item)
+    {
+        var podcastId = MainWindowNavigationPolicy.ResolveRelatedPodcastId(ActionSession.Id, item);
+        if (podcastId is null) return null;
+
+        return _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+            subscription.IsInLibrary
+            && string.Equals(subscription.Id, podcastId, StringComparison.Ordinal));
+    }
+
+    private void GoToRelatedPodcast(MediaItem? episode)
+    {
+        var podcast = FindRelatedPodcast(episode);
+        if (podcast is null || episode is null)
+        {
+            Announce("Dla tego elementu nie znaleziono podcastu w Bibliotece");
+            return;
+        }
+
+        OpenPodcast(podcast.Id, podcast.Title, episode.Id);
+        QueueStateSave();
     }
 
     public void ShowItemPlaybackOptions()
@@ -10709,9 +10748,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     : "Podcast"
             : _currentView;
 
-    private void OpenPodcast(string podcastId, string podcastTitle)
+    private void OpenPodcast(string podcastId, string podcastTitle, string? preferredEpisodeId = null)
     {
-        NavigateTo(PodcastContentsView(podcastId));
+        var viewName = PodcastContentsView(podcastId);
+        if (!string.IsNullOrWhiteSpace(preferredEpisodeId))
+        {
+            GetSessionNavigationState("podcasts").SelectedItemIds[viewName] = preferredEpisodeId;
+        }
+        NavigateTo(viewName);
         PrepareViewFocusContext($"Podcast, {podcastTitle}");
         RestoreMediaListFocusAfterRefresh();
     }
@@ -12994,6 +13038,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
     private void PodcastDescription_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.PodcastDescription);
+    private void GoToPodcast_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.GoToPodcast);
     private void ItemPlaybackOptions_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemPlaybackOptions);
     private void GoToAlbum_Click(object sender, RoutedEventArgs e) => GoToRelatedAlbum();
     private void GoToArtist_Click(object sender, RoutedEventArgs e) => GoToRelatedArtist();
@@ -13155,6 +13201,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             playlistContainer ? "Właściwości playlisty" : "Właściwości i informacje",
             "Alt+Enter");
         PodcastDescriptionMenuItem.Visibility = podcastHeader || podcastEpisode
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        GoToPodcastMenuItem.Visibility = FindRelatedPodcast(actionItem) is not null
             ? Visibility.Visible
             : Visibility.Collapsed;
         var playNextActive = membershipItems.Count > 0
@@ -13496,6 +13545,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && item.Kind is MediaItemKind.Podcast or MediaItemKind.Episode
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        PlayerGoToPodcastMenuItem.Visibility = FindRelatedPodcast(item) is not null
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         if (radioSession)
         {
             SetContextMenuItemPresentation(

@@ -1,5 +1,12 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.219` adds **Go to podcast** for an episode shown in New
+episodes, Favorites, Queue, History, a playlist, search results or the open
+player. The command opens the parent show, focuses the same episode and stores
+that location for the next `Ctrl+L` Library return. It is exposed through the
+relevant context menu and command palette without consuming a new default
+shortcut.
+
 Version `alpha.218` restores the exact location within the Podcasts Library.
 After opening a show and selecting an episode, leaving for Queue, Favorites or
 another view and pressing `Ctrl+L` returns to that show and episode instead of

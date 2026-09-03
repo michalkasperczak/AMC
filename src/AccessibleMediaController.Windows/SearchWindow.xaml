@@ -68,6 +68,9 @@
                     <MenuItem Header="_Informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.AcceleratorKey="Alt+Enter"
                               Click="Information_Click" />
+                    <MenuItem x:Name="SearchGoToPodcastMenuItem" Header="Przejdź do podcastu"
+                              automation:AutomationProperties.Name="Przejdź do podcastu tego odcinka"
+                              Visibility="Collapsed" Click="GoToPodcast_Click" />
                     <Separator />
                     <MenuItem Header="Kopiuj _nazwę" InputGestureText="Ctrl+C"
                               automation:AutomationProperties.AcceleratorKey="Control+C"

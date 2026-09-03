@@ -1,3 +1,5 @@
+using AccessibleMediaController.Core.Sessions;
+
 namespace AccessibleMediaController.Windows;
 
 internal enum PlayerDepartureReason
@@ -57,4 +59,11 @@ internal static class MainWindowNavigationPolicy
             ? rememberedView
             : PodcastLibraryView;
     }
+
+    public static string? ResolveRelatedPodcastId(string sessionId, MediaItem? item) =>
+        string.Equals(sessionId, PodcastSessionId, StringComparison.Ordinal)
+        && item?.Kind == MediaItemKind.Episode
+        && !string.IsNullOrWhiteSpace(item.ExternalId)
+            ? item.ExternalId
+            : null;
 }
