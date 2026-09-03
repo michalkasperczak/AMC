@@ -80,6 +80,7 @@ try
     TestApplePodcastDirectoryClient();
     TestPodcastOpmlImportSelectionAccessibility();
     TestPodcastDownloadSettingsAccessibility();
+    TestPodcastDescriptionTextOrder();
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
@@ -333,6 +334,32 @@ static void TestEditableFieldReplacement()
     if (failure is not null)
         throw new InvalidOperationException("Test zastępowania wartości pola nie powiódł się.", failure);
     Console.WriteLine("OK: wpisywanie po wejściu klawiaturą zastępuje całą poprzednią wartość pola");
+}
+
+static void TestPodcastDescriptionTextOrder()
+{
+    var details = string.Join(
+        Environment.NewLine,
+        "Odcinek podcastu",
+        "Tytuł: Próba odcinka",
+        "Podcast: Próba audycji",
+        "Źródło audio: https://cdn.example.test/episode.mp3");
+    var result = PodcastDescriptionText.Compose(
+        "Pierwsze zdanie opisu.\nDrugi akapit.",
+        details);
+
+    Assert(result.StartsWith("Pierwsze zdanie opisu.", StringComparison.Ordinal),
+        "Alt+D powinien rozpoczynać pole tekstowe od właściwego opisu.");
+    Assert(result.IndexOf("Drugi akapit.", StringComparison.Ordinal)
+        < result.IndexOf("Tytuł: Próba odcinka", StringComparison.Ordinal),
+        "Dane odcinka nie mogą poprzedzać ani rozdzielać opisu.");
+    Assert(result.Contains("Podcast: Próba audycji", StringComparison.Ordinal)
+        && result.Contains("Źródło audio: https://cdn.example.test/episode.mp3", StringComparison.Ordinal),
+        "Alt+D powinien zachować dane audycji i źródło pod opisem.");
+    Assert(!result.Contains("Opis: Pierwsze zdanie", StringComparison.Ordinal),
+        "Opis nie powinien być powtórzony w sekcji metadanych.");
+
+    Console.WriteLine("OK: opis podcastu przed metadanymi");
 }
 
 static void TestPodcastNetworkSourcePolicy()

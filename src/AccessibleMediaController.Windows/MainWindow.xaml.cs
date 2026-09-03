@@ -2622,14 +2622,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        string heading;
         string description;
         string? pageUrl;
         if (item.Kind == MediaItemKind.Podcast)
         {
             var subscription = _state.Podcasts.Subscriptions.FirstOrDefault(candidate =>
                 string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
-            heading = $"Podcast: {subscription?.Title ?? item.Title}";
             description = subscription?.Description ?? string.Empty;
             pageUrl = subscription?.HomepageUrl ?? item.PublicUri;
         }
@@ -2637,12 +2635,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             var episode = _state.Podcasts.Episodes.FirstOrDefault(candidate =>
                 string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
-            var subscription = episode is null
-                ? null
-                : _state.Podcasts.Subscriptions.FirstOrDefault(candidate =>
-                    string.Equals(candidate.Id, episode.SubscriptionId, StringComparison.Ordinal));
-            heading = $"Odcinek: {episode?.Title ?? item.Title}";
-            if (subscription is not null) heading += $"{Environment.NewLine}Podcast: {subscription.Title}";
             description = episode?.Description ?? string.Empty;
             pageUrl = episode?.PageUrl ?? item.PublicUri;
         }
@@ -2679,7 +2671,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .OfType<Window>()
             .FirstOrDefault(window => window.IsActive) ?? this;
         var dialog = new InformationWindow(
-            $"{heading}{Environment.NewLine}{Environment.NewLine}{description}",
+            PodcastDescriptionText.Compose(description, BuildPodcastPropertiesText(item, includeDescription: false)),
             links,
             item.Kind == MediaItemKind.Podcast ? "Opis podcastu" : "Opis odcinka")
         {
@@ -3001,7 +2993,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return string.Join(Environment.NewLine + Environment.NewLine, sections);
     }
 
-    private string BuildPodcastPropertiesText(MediaItem item)
+    private string BuildPodcastPropertiesText(MediaItem item, bool includeDescription = true)
     {
         if (item.Kind == MediaItemKind.Podcast)
         {
@@ -3019,7 +3011,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     PodcastMetadataPresentation.FormatAuthor(subscription.Author) is { Length: > 0 } author
                         ? $"Autor: {author}"
                         : null,
-                    string.IsNullOrWhiteSpace(subscription.Description) ? null : $"Opis: {subscription.Description}",
+                    !includeDescription || string.IsNullOrWhiteSpace(subscription.Description) ? null : $"Opis: {subscription.Description}",
                     $"Odcinki: {_state.Podcasts.Episodes.Count(episode => string.Equals(episode.SubscriptionId, subscription.Id, StringComparison.Ordinal))}",
                     $"Ostatnie odświeżenie: {refreshed}",
                     $"Ulubiony: {(subscription.IsFavorite ? "tak" : "nie")}",
@@ -3046,11 +3038,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 string.IsNullOrWhiteSpace(episodeSettings.Author) ? null : $"Autor: {episodeSettings.Author}",
                 $"Data publikacji: {published}",
                 episodeSettings.DurationTicks > 0 ? $"Czas: {CommandRouter.FormatTime(TimeSpan.FromTicks(episodeSettings.DurationTicks))}" : null,
-                string.IsNullOrWhiteSpace(episodeSettings.Description) ? null : $"Opis: {episodeSettings.Description}",
+                !includeDescription || string.IsNullOrWhiteSpace(episodeSettings.Description) ? null : $"Opis: {episodeSettings.Description}",
                 $"Stan odsłuchania: {PodcastEpisodeProgress.GetLabel(episodeSettings)}",
                 $"Pobrany: {(string.IsNullOrWhiteSpace(episodeSettings.DownloadPath) ? "nie" : "tak")}",
-                $"Plik audio: {episodeSettings.MediaUrl}",
-                string.IsNullOrWhiteSpace(episodeSettings.PageUrl) ? null : $"Strona odcinka: {episodeSettings.PageUrl}"
+                $"Źródło audio: {episodeSettings.MediaUrl}",
+                string.IsNullOrWhiteSpace(episodeSettings.PageUrl) ? null : $"Strona odcinka: {episodeSettings.PageUrl}",
+                podcast is null || string.IsNullOrWhiteSpace(podcast.FeedUrl) ? null : $"Kanał RSS lub Atom: {podcast.FeedUrl}",
+                podcast is null || string.IsNullOrWhiteSpace(podcast.HomepageUrl) ? null : $"Strona podcastu: {podcast.HomepageUrl}"
             }.Where(value => value is not null).Select(value => value!));
     }
 

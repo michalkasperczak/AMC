@@ -1790,6 +1790,13 @@ są wyświetlane w treści i dostępne jako osobna lista aktywnych odnośników.
 Zwykła nawigacja listy nadal podaje zwięzłą nazwę i metadane, bez automatycznego
 czytania całego opisu.
 
+Od `alpha.235` pole rozpoczyna się od właściwego opisu, więc NVDA po wejściu
+nie zatrzymuje się najpierw na tytule ani źródle. Dopiero pod całym opisem
+znajduje się uporządkowana sekcja danych audycji lub odcinka, obejmująca między
+innymi tytuł, autora, podcast nadrzędny, datę i czas, stan odsłuchania, źródło
+RSS albo pliku audio oraz stronę publiczną. Opis nie jest w niej powtarzany.
+Karetka po każdym otwarciu jest ustawiana na pierwszym znaku tekstu.
+
 Publiczny katalog Apple Podcasts służy wyłącznie do odkrywania audycji i
 uzyskania publicznego adresu RSS lub Atom. Wyszukiwanie ma ograniczoną liczbę
 wyników, nie wymaga logowania, nie odczytuje prywatnej Biblioteki Apple i nie

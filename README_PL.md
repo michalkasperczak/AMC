@@ -7,6 +7,13 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.235` porządkuje okno pełnego opisu Podcastów pod `Alt+D`.
+Fokus nadal trafia do zwykłego pola tekstowego tylko do odczytu i na jego
+początek, lecz pierwszą treścią jest teraz właściwy opis. Dopiero pod nim
+znajdują się dane audycji albo odcinka: tytuł, autor, źródło, adresy, data,
+czas i stan w aplikacji. Opis nie jest powtarzany w sekcji danych, a osobna
+lista aktywnych łączy oraz powrót Escape zachowują dotychczasowe działanie.
+
 Wersja `alpha.234` zapamiętuje głośność w powiązaniu z materiałem i konkretnym
 wyjściem audio. Ta sama stacja może mieć więc inny poziom na głośnikach
 komputera i inny na zewnętrznym urządzeniu. Reguła obejmuje stacje radiowe,

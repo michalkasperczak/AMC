@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-234`
-- Tytuł zestawu: Pamięć głośności materiału dla każdego wyjścia audio oraz regresja całej aplikacji
-- Wersja programu: `0.1.0-alpha.234`
+- Numer zestawu: `AMC-TEST-235`
+- Tytuł zestawu: Opis Podcastów przed metadanymi oraz regresja całej aplikacji
+- Wersja programu: `0.1.0-alpha.235`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.234.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.235.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,39 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 235
+
+### AMC-235-01 — opis odcinka przed danymi
+
+W Podcastach zaznacz odcinek zawierający dłuższy opis i naciśnij `Alt+D`.
+Bez naciskania Tab przejdź strzałką w dół po pierwszych wierszach, potem użyj
+`Ctrl+End` i przeczytaj końcową część pola.
+
+Oczekiwane: fokus i karetka są od razu w polu tylko do odczytu, na jego
+początku. Pierwszą treścią jest opis odcinka, a nie jego tytuł. Dopiero pod
+całym opisem występują dane: tytuł, podcast, autor, data, czas, stan
+odsłuchania, źródło audio i strona, o ile kanał je udostępnia. Opis nie jest
+powtórzony drugi raz.
+
+### AMC-235-02 — opis całego podcastu i łącza
+
+Wróć na listę audycji, zaznacz podcast z opisem i co najmniej jednym adresem
+w treści, po czym naciśnij `Alt+D`. Przejdź Tabem do listy łączy, otwórz jedno
+Enterem, wróć do AMC i zamknij okno Escape.
+
+Oczekiwane: najpierw znajduje się opis audycji, a pod nim jej dane wraz ze
+źródłem RSS lub Atom. Lista łączy ma wyłącznie czytelne etykiety, bez nazw klas
+i identyfikatorów. Escape wraca dokładnie do wcześniej zaznaczonego podcastu.
+
+### AMC-235-03 — ponowne otwarcie i brak opisu
+
+Kilkakrotnie otwórz i zamknij opis tego samego odcinka. Następnie użyj
+`Alt+D` na pozycji, która nie ma opisu.
+
+Oczekiwane: każde otwarcie rozpoczyna się od pierwszego znaku opisu; fokus nie
+zostaje na końcu ani na liście łączy. Dla pozycji bez opisu AMC podaje krótki,
+jednoznaczny komunikat i nie otwiera pustego okna.
 
 ## Nowości alpha 234
 
