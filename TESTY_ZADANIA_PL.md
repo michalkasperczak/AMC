@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-236`
-- Tytuł zestawu: Rzeczywiste wyniki katalogu Apple w wyszukiwaniu Podcastów oraz regresja całej aplikacji
-- Wersja programu: `0.1.0-alpha.236`
+- Numer zestawu: `AMC-TEST-237`
+- Tytuł zestawu: Trwałe archiwum odcinków poza bieżącym RSS oraz regresja całej aplikacji
+- Wersja programu: `0.1.0-alpha.237`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.236.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.237.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,28 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 237
+
+### AMC-237-01 — starszy odcinek po skróceniu kanału
+
+Wybierz podcast, który ma co najmniej kilka odcinków, zapamiętaj jeden ze
+starszych i odśwież audycję `F5`. Jeżeli wydawca udostępnia krótszy RSS niż
+wcześniej, ponownie otwórz audycję i znajdź zapamiętaną pozycję.
+
+Oczekiwane: starszy odcinek pozostaje w Bibliotece nawet wtedy, gdy nie ma go
+już w bieżącej odpowiedzi RSS. Zachowuje opis, datę, stan odsłuchania, pozycję,
+Ulubione, Kolejkę i Playlisty. Samo odświeżenie nie pobiera pliku audio.
+
+### AMC-237-02 — ponowne pojawienie się i kopia stanu
+
+Po kilku odświeżeniach sprawdź, czy liczba starych odcinków nie maleje i czy
+żaden nie pojawia się podwójnie. Utwórz pełną kopię zapasową, uruchom AMC
+ponownie i wróć do tej samej audycji.
+
+Oczekiwane: katalog jest trwały po restarcie i znajduje się w pełnej kopii
+stanu. Ponownie udostępniony przez wydawcę odcinek aktualizuje swoje metadane,
+ale pozostaje jednym wpisem z dotychczasową pozycją i stanami użytkownika.
 
 ## Nowości alpha 236
 

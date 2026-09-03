@@ -7,6 +7,16 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.237` utrwala Bibliotekę Podcastów jako archiwum poznanych
+metadanych. Odświeżenie RSS albo Atom nadal dodaje nowe odcinki i aktualizuje
+te, które ponownie znalazło, ale nie usuwa starszych tylko dlatego, że wydawca
+skrócił kanał na przykład do dziesięciu najnowszych pozycji. Zachowane zostają
+tytuł, opis, data, adresy, stan odsłuchania, pozycja, Ulubione, Kolejka i
+Playlisty. Nie oznacza to automatycznego pobierania dźwięku: plik trafia na
+dysk wyłącznie po jawnym `Ctrl+D` albo `Ctrl+S`. Regresja obejmuje również
+ponowne pojawienie się starego odcinka w RSS — metadane są wtedy aktualizowane
+bez duplikatu i bez utraty lokalnego stanu.
+
 Wersja `alpha.236` naprawia `Ctrl+F` w sesji Podcasty. Wyniki publicznego
 katalogu Apple Podcasts są teraz osobną częścią bieżącego wyszukiwania, a nie
 tymczasowymi rekordami dopisywanymi do wewnętrznej sesji. Nagłówki podcastów

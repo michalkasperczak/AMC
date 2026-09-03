@@ -5202,6 +5202,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CapturePodcastState();
         var success = 0;
         var addedEpisodes = 0;
+        var retainedArchivedEpisodes = 0;
         var failed = 0;
         foreach (var subscription in subscriptions)
         {
@@ -5216,6 +5217,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     subscription.HasCustomTitle ? subscription.Title : null,
                     DateTime.UtcNow);
                 addedEpisodes += result.AddedEpisodes;
+                retainedArchivedEpisodes += result.RetainedEpisodesAbsentFromFeed;
                 success++;
             }
             catch (Exception exception) when (exception is HttpRequestException
@@ -5245,7 +5247,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         DiagnosticLog.Info(
             "podcasts",
             $"Odświeżanie zakończone: poprawne {success}, nieudane {failed}, "
-            + $"dodane odcinki {addedEpisodes}, w skrzynce {inboxCount}.");
+            + $"dodane odcinki {addedEpisodes}, zachowane poza bieżącym RSS "
+            + $"{retainedArchivedEpisodes}, w skrzynce {inboxCount}.");
         PrepareViewFocusContext(
             $"Odświeżono podcasty: {success} z {subscriptions.Count}. "
             + $"Nowe teraz: {addedEpisodes}. W skrzynce: {inboxCount}");

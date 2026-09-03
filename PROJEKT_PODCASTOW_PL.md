@@ -24,7 +24,12 @@ nieczytelny zbiór wszystkich możliwych multimediów.
 ## 2. Kontenery użytkownika
 
 - **Biblioteka** przechowuje obserwowane audycje i ich źródła. Dodanie podcastu
-  nie oznacza automatycznego pobrania wszystkich odcinków.
+  nie oznacza automatycznego pobrania wszystkich odcinków. Jest też trwałym
+  katalogiem metadanych wszystkich odcinków, które AMC już zobaczył. Kolejne
+  odświeżenie scala bieżący RSS lub Atom z tym katalogiem: dodaje nowe pozycje
+  i aktualizuje ponownie napotkane, ale nie usuwa starszych tylko dlatego, że
+  wydawca skrócił kanał. Zachowanie nie pobiera dźwięku i nie potrafi odzyskać
+  odcinka, którego żadne użyte źródło nigdy nie udostępniło.
 - **Nowe odcinki** są automatyczną skrzynką odbiorczą. Zawierają wyłącznie
   odcinki naprawdę nowe, których odtwarzanie nie osiągnęło jeszcze jednej
   minuty. To celowo nie
@@ -235,6 +240,11 @@ koncepcyjnego.
   obserwowane audycje. Połączenia mają ograniczenie czasu, liczby przekierowań
   i rozmiaru odpowiedzi; DTD, encje zewnętrzne, adresy inne niż HTTP/HTTPS oraz
   adresy z danymi logowania są odrzucane.
+- Odświeżenie nigdy nie zastępuje lokalnego katalogu samą bieżącą odpowiedzią
+  RSS. Odcinek nieobecny w odpowiedzi pozostaje w otwartej audycji ze swoim
+  opisem, datą, pozycją i stanami AMC. Jeśli dawny adres audio wygasł, program
+  zachowuje dane i zgłasza błąd dopiero przy próbie odtworzenia; nie usuwa
+  rekordu po nieudanym połączeniu.
 - Enter na audycji otwiera jej odcinki od najnowszego, a Backspace wraca do
   Biblioteki. Delete na audycji wypisuje z niej bez kasowania zapisanych danych
   odcinków; ponowne dodanie przywraca subskrypcję. `F2` ustawia nazwę własną

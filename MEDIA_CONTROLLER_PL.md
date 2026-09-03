@@ -1870,7 +1870,24 @@ dwóch miejsc do odpowiednich poleceń. Rozdzielenie pozostaje ścisłe:
 `Ctrl+Shift+S` otwiera listę sesji. W Radiu i pozostałych sesjach skróty nie
 udają pobierania odcinka.
 
-### 7.17. Bezpieczne przejście z wyszukiwania Radia
+### 7.17. Trwałe archiwum metadanych Podcastów
+
+Od `alpha.237` Biblioteka traktuje RSS i Atom jako bieżące okno publikacji, a
+nie pełny i rozstrzygający spis odcinków. Każdy raz poznany odcinek pozostaje w
+trwałym katalogu audycji również wtedy, gdy przy późniejszym odświeżeniu
+wydawca zwróci tylko kilka najnowszych pozycji. Odświeżenie wykonuje scalanie:
+dodaje nowe odcinki, aktualizuje metadane ponownie napotkanych i pozostawia
+nieobecne bez zmian. Ponowne pojawienie się odcinka nie tworzy duplikatu i nie
+kasuje pozycji odsłuchu ani stanów użytkownika.
+
+Archiwizowane są dane, nie pliki audio. `Ctrl+D` i `Ctrl+S` pozostają jedynymi
+jawnymi drogami zapisania dźwięku. AMC nie może w ten sposób odkryć odcinków,
+których RSS, katalog ani inny adapter nigdy mu nie pokazał, ani zagwarantować,
+że dawny zewnętrzny adres audio pozostanie czynny. Wygaśnięcie adresu powoduje
+błąd odtwarzania, ale samo w sobie nie usuwa zachowanego wpisu. Pełna kopia
+zapasowa stanu obejmuje ten katalog razem z pozostałymi danymi Podcastów.
+
+### 7.18. Bezpieczne przejście z wyszukiwania Radia
 
 Od `alpha.230` wynik wyszukany w Radio Browser nigdy nie otwiera wewnętrznego
 agregatu wszystkich stacji poznanych przez aplikację. Jeżeli stacja należy do

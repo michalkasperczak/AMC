@@ -7,7 +7,8 @@ public sealed record PodcastLibraryUpdateResult(
     bool AddedSubscription,
     bool RestoredSubscription,
     int AddedEpisodes,
-    int UpdatedEpisodes);
+    int UpdatedEpisodes,
+    int RetainedEpisodesAbsentFromFeed);
 
 public static class PodcastLibraryUpdater
 {
@@ -59,6 +60,18 @@ public static class PodcastLibraryUpdater
               ?? feed.Episodes.FirstOrDefault()?.Id
             : null;
 
+        // RSS is a current publication window, not the Podcast library itself.
+        // Some publishers expose only their newest few episodes.  Refreshing
+        // therefore merges the current feed into AMC's durable catalogue and
+        // must never prune an episode merely because it is absent today.
+        var knownEpisodeIds = settings.Episodes
+            .Where(episode => string.Equals(
+                episode.SubscriptionId,
+                subscription.Id,
+                StringComparison.Ordinal))
+            .Select(episode => episode.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        var matchedKnownEpisodeIds = new HashSet<string>(StringComparer.Ordinal);
         var addedEpisodes = 0;
         var updatedEpisodes = 0;
         foreach (var source in feed.Episodes)
@@ -94,6 +107,8 @@ public static class PodcastLibraryUpdater
             }
             else
             {
+                if (knownEpisodeIds.Contains(episode.Id))
+                    matchedKnownEpisodeIds.Add(episode.Id);
                 updatedEpisodes++;
             }
 
@@ -120,7 +135,8 @@ public static class PodcastLibraryUpdater
             addedSubscription,
             restoredSubscription,
             addedEpisodes,
-            updatedEpisodes);
+            updatedEpisodes,
+            knownEpisodeIds.Count - matchedKnownEpisodeIds.Count);
     }
 
     private static string Normalize(string? value) =>

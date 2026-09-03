@@ -393,12 +393,14 @@ static void TestPodcastLibraryUpdate()
     settings.Episodes[0].ResumePositionTicks = TimeSpan.FromMinutes(5).Ticks;
     settings.Episodes[0].IsPlayed = true;
 
+    // The publisher now exposes only a new episode. The old one must remain
+    // in AMC together with its listening state even though it vanished from
+    // the current RSS window.
     var second = first with
     {
         Title = "Nowa nazwa z kanału",
         Episodes =
         [
-            first.Episodes[0] with { Title = "Zmieniony starszy odcinek" },
             first.Episodes[0] with
             {
                 Id = "episode-2",
@@ -410,11 +412,32 @@ static void TestPodcastLibraryUpdate()
     };
     var update = PodcastLibraryUpdater.Apply(settings, second, null, DateTime.UtcNow.AddMinutes(1));
     Equal(1, update.AddedEpisodes);
+    Equal(1, update.RetainedEpisodesAbsentFromFeed);
+    Equal(2, settings.Episodes.Count);
     Equal("Moja nazwa", settings.Subscriptions[0].Title);
     Equal(true, settings.Subscriptions[0].HasCustomTitle);
     Equal(TimeSpan.FromMinutes(5).Ticks, settings.Episodes.Single(item => item.Id == "episode-1").ResumePositionTicks);
     Equal(true, settings.Episodes.Single(item => item.Id == "episode-1").IsPlayed);
+    Equal(null, settings.Episodes.Single(item => item.Id == "episode-1").DownloadPath);
     Equal(true, settings.Episodes.Single(item => item.Id == "episode-2").IsNew);
+
+    // If an archived episode reappears, update its metadata in place without
+    // duplicating it or losing locally remembered progress.
+    var third = second with
+    {
+        Episodes =
+        [
+            first.Episodes[0] with { Title = "Zmieniony starszy odcinek" },
+            second.Episodes[0]
+        ]
+    };
+    var reappeared = PodcastLibraryUpdater.Apply(settings, third, null, DateTime.UtcNow.AddMinutes(2));
+    Equal(0, reappeared.AddedEpisodes);
+    Equal(0, reappeared.RetainedEpisodesAbsentFromFeed);
+    Equal(2, settings.Episodes.Count);
+    Equal("Zmieniony starszy odcinek", settings.Episodes.Single(item => item.Id == "episode-1").Title);
+    Equal(TimeSpan.FromMinutes(5).Ticks, settings.Episodes.Single(item => item.Id == "episode-1").ResumePositionTicks);
+    Equal(true, settings.Episodes.Single(item => item.Id == "episode-1").IsPlayed);
 }
 
 static void TestPodcastLegacyInboxMigration()
