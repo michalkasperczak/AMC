@@ -229,7 +229,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 44;
+    public int SchemaVersion { get; set; } = 45;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -238,10 +238,24 @@ public sealed class PersistedState
     public CollectionOrderSettings CollectionOrders { get; set; } = new();
     public PlaylistSettings Playlists { get; set; } = new();
     public SessionPresetSettings SessionPresets { get; set; } = new();
+    public PlaybackVolumeMemorySettings PlaybackVolumes { get; set; } = new();
     public LocalMediaSettings LocalMedia { get; set; } = new();
     public RadioSettings Radio { get; set; } = new();
     public PodcastSettings Podcasts { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];
+}
+
+public sealed class PlaybackVolumeMemorySettings
+{
+    public List<PlaybackVolumeMemoryEntry> Entries { get; set; } = [];
+}
+
+public sealed class PlaybackVolumeMemoryEntry
+{
+    public string SessionId { get; set; } = string.Empty;
+    public string ContextId { get; set; } = string.Empty;
+    public string OutputDeviceId { get; set; } = string.Empty;
+    public int Volume { get; set; } = 35;
 }
 
 public sealed class PodcastSettings

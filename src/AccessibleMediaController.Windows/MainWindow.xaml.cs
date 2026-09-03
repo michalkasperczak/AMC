@@ -4105,6 +4105,88 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? deviceId
             : null;
 
+    private string? GetEffectiveSessionOutputDeviceId(string sessionId)
+    {
+        var configuredDeviceId = GetSessionOutputDeviceId(sessionId);
+        return AudioOutputDeviceCatalog.IsAvailable(configuredDeviceId)
+            ? configuredDeviceId
+            : null;
+    }
+
+    private static string GetPlaybackVolumeContextId(string sessionId, MediaItem item) =>
+        string.Equals(sessionId, "podcasts", StringComparison.Ordinal)
+        && item.Kind == MediaItemKind.Episode
+        && !string.IsNullOrWhiteSpace(item.ExternalId)
+            ? item.ExternalId
+            : item.Id;
+
+    private int GetLegacyPlaybackVolume(string sessionId, MediaItem item)
+    {
+        if (string.Equals(sessionId, "radio", StringComparison.Ordinal))
+        {
+            var saved = _state.Radio.Stations.FirstOrDefault(station =>
+                string.Equals(station.Id, item.Id, StringComparison.Ordinal))
+                ?? _state.Radio.Stations.FirstOrDefault(station =>
+                    item.Source is { Length: > 0 }
+                    && string.Equals(station.StreamUrl, item.Source, StringComparison.OrdinalIgnoreCase));
+            return saved?.Volume ?? _state.Radio.Volume;
+        }
+
+        return string.Equals(sessionId, "podcasts", StringComparison.Ordinal)
+            ? _state.Podcasts.Volume
+            : _state.LocalMedia.Volume;
+    }
+
+    private int GetPlaybackVolumeForOutput(
+        string sessionId,
+        MediaItem item,
+        string? effectiveOutputDeviceId)
+    {
+        return PlaybackVolumeMemory.Find(
+                   _state.PlaybackVolumes,
+                   sessionId,
+                   GetPlaybackVolumeContextId(sessionId, item),
+                   effectiveOutputDeviceId)
+               ?? GetLegacyPlaybackVolume(sessionId, item);
+    }
+
+    private int? PlaybackVolumeOverride(string sessionId, MediaItem item) =>
+        GetPlaybackVolumeForOutput(sessionId, item, GetEffectiveSessionOutputDeviceId(sessionId));
+
+    private bool UsesSystemDefaultOutput(string sessionId) =>
+        string.IsNullOrWhiteSpace(GetEffectiveSessionOutputDeviceId(sessionId));
+
+    private void RememberCurrentPlaybackVolume(DemoMediaSession session)
+    {
+        if (!session.HasCurrentItem) return;
+        var effectiveOutputDeviceId = GetEffectiveSessionOutputDeviceId(session.Id);
+        PlaybackVolumeMemory.Remember(
+            _state.PlaybackVolumes,
+            session.Id,
+            GetPlaybackVolumeContextId(session.Id, session.CurrentItem),
+            effectiveOutputDeviceId,
+            session.Volume);
+
+        // Zachowaj wcześniejsze pola jako wartość domyślną i zgodność ze
+        // starszym stanem, ale nie nadpisuj ich poziomem urządzenia zewnętrznego.
+        if (!string.IsNullOrWhiteSpace(effectiveOutputDeviceId)) return;
+        switch (session.Id)
+        {
+            case "radio":
+                _state.Radio.Volume = session.Volume;
+                var station = _state.Radio.Stations.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Id, session.CurrentItem.Id, StringComparison.Ordinal));
+                if (station is not null) station.Volume = session.Volume;
+                break;
+            case "podcasts":
+                _state.Podcasts.Volume = session.Volume;
+                break;
+            case "local":
+                _state.LocalMedia.Volume = session.Volume;
+                break;
+        }
+    }
+
     private string GetSessionOutputDeviceLabel(string sessionId)
     {
         var deviceId = GetSessionOutputDeviceId(sessionId);
@@ -4157,6 +4239,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var previousPosition = session.Position;
+        var previousVolume = session.Volume;
+        RememberCurrentPlaybackVolume(session);
+        var selectedEffectiveDeviceId = dialog.SelectedDeviceIsAvailable
+            ? dialog.SelectedDeviceId
+            : null;
+        var selectedVolume = session.HasCurrentItem
+            ? GetPlaybackVolumeForOutput(session.Id, session.CurrentItem, selectedEffectiveDeviceId)
+            : previousVolume;
         var recoverAfterMissingDevice = !previousDeviceWasAvailable
             && session.HasCurrentItem
             && dialog.SelectedDeviceIsAvailable;
@@ -4166,6 +4256,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             + $"wybrane dostępne: {dialog.SelectedDeviceIsAvailable}; "
             + $"odtwarzanie: {session.IsPlaying}; odzyskiwanie: {recoverAfterMissingDevice}.");
         ConfigureOutputDevice(session.Id, dialog.SelectedDeviceId);
+        session.SetVolume(selectedVolume);
         bool restarted;
         try
         {
@@ -4180,6 +4271,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 $"Nie udało się przełączyć wyjścia sesji {session.Id}; przywracanie poprzedniego urządzenia.",
                 exception);
             ConfigureOutputDevice(session.Id, previousDeviceId);
+            session.SetVolume(previousVolume);
             try
             {
                 session.RestartPlaybackOutput(
@@ -4665,6 +4757,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void CaptureRadioState()
     {
         var radio = _sessions?.FindSession("radio");
+        var usesSystemDefaultOutput = UsesSystemDefaultOutput("radio");
         var savedById = (_state.Radio.Stations ?? [])
             .GroupBy(station => station.Id, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
@@ -4675,7 +4768,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (radio is not null)
         {
             _state.Radio.CurrentItemId = radio.HasCurrentItem ? radio.CurrentItem.Id : null;
-            _state.Radio.Volume = radio.Volume;
+            if (usesSystemDefaultOutput) _state.Radio.Volume = radio.Volume;
         }
         _state.Radio.Stations = _radioItems.Select(item =>
         {
@@ -4698,7 +4791,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 BitrateKbps = RadioAudioMetadataRules.NormalizeBitrateKbps(item.BitrateKbps),
                 IsBitrateEstimated = item.IsBitrateEstimated,
                 SampleRateHz = item.SampleRateHz,
-                Volume = isCurrent ? radio!.Volume : saved?.Volume,
+                Volume = isCurrent && usesSystemDefaultOutput
+                    ? radio!.Volume
+                    : saved?.Volume,
                 HasCustomTitle = item.HasCustomTitle,
                 IsFavorite = item.IsFavorite,
                 IsInLibrary = item.IsInLibrary,
@@ -4711,12 +4806,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private int? RadioStationVolumeOverride(MediaItem item)
     {
-        var saved = _state.Radio.Stations.FirstOrDefault(station =>
-            string.Equals(station.Id, item.Id, StringComparison.Ordinal))
-            ?? _state.Radio.Stations.FirstOrDefault(station =>
-                item.Source is { Length: > 0 }
-                && string.Equals(station.StreamUrl, item.Source, StringComparison.OrdinalIgnoreCase));
-        return saved?.Volume ?? _state.Radio.Volume;
+        return PlaybackVolumeOverride("radio", item);
     }
 
     private async Task PrepareRadioSearchAsync(string query, CancellationToken cancellationToken)
@@ -4811,7 +4901,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (local is not null && local.HasCurrentItem)
         {
             _state.LocalMedia.CurrentItemId = local.CurrentItem.Id;
-            _state.LocalMedia.Volume = local.Volume;
+            if (UsesSystemDefaultOutput("local")) _state.LocalMedia.Volume = local.Volume;
             if (FindLocalItemSettings(local.CurrentItem)?.PlaybackRateOverride is null)
             {
                 _state.LocalMedia.PlaybackRate = local.PlaybackRate;
@@ -4945,7 +5035,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : null;
         if (session is not null)
         {
-            _state.Podcasts.Volume = session.Volume;
+            if (UsesSystemDefaultOutput("podcasts")) _state.Podcasts.Volume = session.Volume;
             _state.Podcasts.PlaybackRate = session.PlaybackRate;
         }
     }
@@ -5821,7 +5911,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _localOutput,
             1,
             ShouldRememberLocalPosition,
-            GetLocalPlaybackRateOverride);
+            GetLocalPlaybackRateOverride,
+            item => PlaybackVolumeOverride("local", item));
         if (local.HasItems)
         {
             foreach (var saved in _state.LocalMedia.Items
@@ -5840,7 +5931,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     : TimeSpan.Zero);
             }
         }
-        local.SetVolume(previousLocal?.Volume ?? _state.LocalMedia.Volume);
+        local.SetVolume(local.HasCurrentItem
+            ? PlaybackVolumeOverride("local", local.CurrentItem) ?? previousLocal?.Volume ?? _state.LocalMedia.Volume
+            : previousLocal?.Volume ?? _state.LocalMedia.Volume);
         local.SetDefaultPlaybackRate(_state.LocalMedia.PlaybackRate);
         local.ApplyPlaybackRateForCurrentItem();
         RestorePlaybackContext(local);
@@ -5877,7 +5970,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _podcastItems,
             _podcastOutput,
             6,
-            item => item.Kind == MediaItemKind.Episode);
+            item => item.Kind == MediaItemKind.Episode,
+            volumeOverride: item => PlaybackVolumeOverride("podcasts", item));
         if (podcasts.HasItems)
         {
             foreach (var episode in _state.Podcasts.Episodes.Where(episode =>
@@ -5891,7 +5985,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var restoredPodcast = podcasts.Items.FirstOrDefault(item => item.Id == restoredPodcastId);
             if (restoredPodcast is not null) podcasts.SelectItem(restoredPodcast);
         }
-        podcasts.SetVolume(previousPodcasts?.Volume ?? _state.Podcasts.Volume);
+        podcasts.SetVolume(podcasts.HasCurrentItem
+            ? PlaybackVolumeOverride("podcasts", podcasts.CurrentItem) ?? previousPodcasts?.Volume ?? _state.Podcasts.Volume
+            : previousPodcasts?.Volume ?? _state.Podcasts.Volume);
         podcasts.SetDefaultPlaybackRate(_state.Podcasts.PlaybackRate);
         podcasts.ApplyPlaybackRateForCurrentItem();
         RestorePlaybackContext(podcasts);
@@ -7043,6 +7139,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             // Utrwal również tę zmianę, aby po przebudowie lub restarcie nie
             // powrócił wcześniejszy stan ciszy.
             _sessions.CaptureMuteStates();
+            RememberCurrentPlaybackVolume(_sessions.Current);
             QueueStateSave();
         }
         if (_playerViewActive) UpdatePlayerView();
@@ -7085,22 +7182,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             // Keep that default synchronized with the rate just selected by
             // the user, otherwise Escape followed by Enter falls back to 1x.
             _sessions.Current.SetDefaultPlaybackRate(_state.Podcasts.PlaybackRate);
-            CapturePodcastState();
-            QueueStateSave();
-        }
-        if (commandId is CommandIds.VolumeUp5 or CommandIds.VolumeDown5
-            or CommandIds.VolumeUp1 or CommandIds.VolumeDown1
-            && result.Handled
-            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
-        {
-            CaptureRadioState();
-            QueueStateSave();
-        }
-        else if (commandId is CommandIds.VolumeUp5 or CommandIds.VolumeDown5
-            or CommandIds.VolumeUp1 or CommandIds.VolumeDown1
-            && result.Handled
-            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
-        {
             CapturePodcastState();
             QueueStateSave();
         }

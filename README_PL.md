@@ -7,6 +7,16 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.234` zapamiętuje głośność w powiązaniu z materiałem i konkretnym
+wyjściem audio. Ta sama stacja może mieć więc inny poziom na głośnikach
+komputera i inny na zewnętrznym urządzeniu. Reguła obejmuje stacje radiowe,
+poszczególne podcasty oraz lokalne pliki; dla odcinków wspólna wartość należy do
+całej audycji. Przełączenie wyjścia przez `Shift+A` natychmiast przywraca
+właściwy poziom, ale nadal zmienia tylko programową głośność AMC — nie poziom
+Windows, sprzętu ani NVDA. Dotychczasowe poziomy pozostają bezpiecznymi
+wartościami domyślnymi, dopóki użytkownik nie ustawi osobnej wartości na danym
+wyjściu.
+
 Wersja `alpha.233` naprawia rzeczywiste wywołanie zapisu odcinków Podcastów.
 `Ctrl+D` na liście lub w odtwarzaczu pobiera zaznaczone odcinki do folderu z
 Ustawień, a `Ctrl+S` dla jednego odcinka otwiera systemowe **Zapisz jako**.

@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-233`
-- Tytuł zestawu: Rzeczywiste pobieranie i zapis odcinków Podcastów oraz regresja całej aplikacji
-- Wersja programu: `0.1.0-alpha.233`
+- Numer zestawu: `AMC-TEST-234`
+- Tytuł zestawu: Pamięć głośności materiału dla każdego wyjścia audio oraz regresja całej aplikacji
+- Wersja programu: `0.1.0-alpha.234`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.233.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.234.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,46 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 234
+
+### AMC-234-01 — jedna stacja, dwa wyjścia
+
+W Radiu uruchom stację na domyślnym urządzeniu, ustaw wyraźny poziom, np. 20%,
+a przez `Shift+A` wybierz inne wyjście i ustaw np. 55%. Kilka razy zmieniaj
+wyjście i stację, a po zakończeniu wszystkich nagrań uruchom AMC ponownie.
+
+Oczekiwane: każda para stacja–wyjście przywraca swój poziom. AMC nie zmienia
+głośności Windows, urządzenia ani NVDA. Pierwsze użycie nieustawionej pary
+korzysta z bezpiecznej dotychczasowej wartości.
+
+### AMC-234-02 — podcasty według audycji i wyjścia
+
+Otwórz dwa odcinki tej samej audycji i ustaw jej poziom na jednym wyjściu.
+Sprawdź drugi odcinek, potem zmień urządzenie i ustaw inną wartość. Na koniec
+otwórz odcinek innej audycji.
+
+Oczekiwane: odcinki tej samej audycji dzielą poziom na danym wyjściu; drugie
+wyjście ma niezależną wartość. Inna audycja nie przejmuje jawnego nadpisania
+pierwszej.
+
+### AMC-234-03 — lokalny plik i zmiana urządzenia
+
+W Plikach lokalnych ustaw różne poziomy tego samego pliku na dwóch wyjściach.
+Przełącz plik `Page Up/Page Down`, wróć i ponownie zmieniaj urządzenie.
+
+Oczekiwane: AMC przywraca poziom zapisany dla pliku i skutecznego wyjścia,
+również po ponownym otwarciu. Nawigacja, pozycja i prędkość nie zmieniają się.
+
+### AMC-234-04 — odłączone urządzenie i powrót awaryjny
+
+Zapamiętaj osobny poziom na dodatkowym urządzeniu, odłącz je i uruchom ten sam
+materiał. Zmień głośność podczas awaryjnego odsłuchu na urządzeniu domyślnym,
+a następnie podłącz dodatkowe wyjście i wybierz je przez `Shift+A`.
+
+Oczekiwane: zmiana podczas awaryjnego użycia wyjścia domyślnego nie nadpisuje
+poziomu odłączonego urządzenia. Po jego powrocie AMC odtwarza jego własną
+wartość; brak urządzenia nie blokuje fokusa ani klawiatury.
 
 ## Nowości alpha 233
 

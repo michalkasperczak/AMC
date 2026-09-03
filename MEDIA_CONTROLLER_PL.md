@@ -1694,6 +1694,16 @@ Plików lokalnych, Radia internetowego i Podcastów używają osobno zapamiętan
 wyjść Windows w trybie współdzielonym WASAPI. Odłączone urządzenie powoduje
 tymczasowy powrót do wyjścia systemowego bez usunięcia preferencji. Zmiana
 odsłuchu Radia nie zatrzymuje niezależnych nagrań działających w tle.
+Od `alpha.234` również pamięć głośności jest zależna od skutecznego wyjścia.
+Kluczem jest sesja, kontekst materiału i urządzenie: stacja radiowa pamięta
+poziom dla każdej karty lub streamera osobno, odcinki jednej audycji Podcastów
+dzielą jej poziom na danym wyjściu, a lokalny plik może mieć własną wartość.
+Puste ID oznacza systemowe wyjście domyślne. Jeśli wybrane urządzenie jest
+niedostępne i AMC tymczasowo używa wyjścia domyślnego, regulacja nie nadpisuje
+poziomu zapamiętanego dla odłączonego urządzenia. Starsze wartości stacji i
+sesji są wyłącznie wartością awaryjną, ponieważ nie da się wiarygodnie ustalić,
+na jakim urządzeniu zostały ustawione. Zmiana pozostaje programowym poziomem
+strumienia AMC i nie steruje głośnością Windows, urządzenia ani NVDA.
 Enter na urządzeniu jest jednocześnie wyborem i zatwierdzeniem okna, niezależnie
 od tego, czy pole kombi jest zwinięte, czy rozwinięte. Escape anuluje bez zmiany.
 Ustawienie jest utrwalane dopiero po pomyślnym przełączeniu toru; awaria zapisu

@@ -36,6 +36,7 @@ var tests = new (string Name, Action Test)[]
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
     ("Trwałe opcje przetwarzania dźwięku", TestPlaybackAudioSettingsPersistence),
+    ("Głośność materiału zależna od wyjścia audio", TestPlaybackVolumeMemory),
     ("Trwałe wyciszenia sesji", TestSessionMutePersistence),
     ("Możliwości przetwarzania dźwięku adaptera", TestPlaybackAudioProcessingCapabilities),
     ("Dziedziczenie przetwarzania dźwięku plików lokalnych", TestLocalPlaybackAudioSettingsInheritance),
@@ -578,6 +579,45 @@ static void TestPlaybackAudioSettingsPersistence()
         Equal("bez dodatkowej ciszy", PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(0));
         Equal("pół sekundy", PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(500));
         Equal("2 sekundy", PlaybackAudioSettingsRules.GetInterTrackSilenceLabel(2000));
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
+static void TestPlaybackVolumeMemory()
+{
+    var settings = new PlaybackVolumeMemorySettings();
+    Equal(null, PlaybackVolumeMemory.Find(settings, "radio", "stacja-1", null));
+
+    PlaybackVolumeMemory.Remember(settings, "radio", "stacja-1", null, 18);
+    PlaybackVolumeMemory.Remember(settings, "radio", "stacja-1", "wyjscie-a", 47);
+    PlaybackVolumeMemory.Remember(settings, "podcasts", "podcast-1", "wyjscie-a", 130);
+    Equal(18, PlaybackVolumeMemory.Find(settings, "RADIO", "stacja-1", null));
+    Equal(47, PlaybackVolumeMemory.Find(settings, "radio", "stacja-1", "WYJSCIE-A"));
+    Equal(null, PlaybackVolumeMemory.Find(settings, "radio", "stacja-1", "wyjscie-b"));
+    Equal(100, PlaybackVolumeMemory.Find(settings, "podcasts", "podcast-1", "wyjscie-a"));
+
+    PlaybackVolumeMemory.Remember(settings, "radio", "stacja-1", "wyjscie-a", 39);
+    PlaybackVolumeMemory.Normalize(settings);
+    Equal(3, settings.Entries.Count);
+    Equal(39, PlaybackVolumeMemory.Find(settings, "radio", "stacja-1", "wyjscie-a"));
+
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-volume-memory-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(
+            Path.Combine(directory, "state.json"),
+            Path.Combine(directory, "library.db"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.PlaybackVolumes = settings;
+        store.Save(state);
+        var loaded = store.LoadOrCreate();
+        Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
+        Equal(18, PlaybackVolumeMemory.Find(loaded.PlaybackVolumes, "radio", "stacja-1", null));
+        Equal(39, PlaybackVolumeMemory.Find(loaded.PlaybackVolumes, "radio", "stacja-1", "wyjscie-a"));
     }
     finally
     {

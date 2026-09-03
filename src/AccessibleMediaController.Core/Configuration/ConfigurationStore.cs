@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
+using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
@@ -12,7 +13,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 44;
+    public const int CurrentSchemaVersion = 45;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -90,6 +91,7 @@ public sealed class ConfigurationStore
         NormalizeBookmarks(state);
         NormalizePlaylists(state);
         NormalizeSessionPresets(state);
+        NormalizePlaybackVolumes(state);
         NormalizeRadio(state);
         NormalizePodcasts(state);
         ValidateState(state);
@@ -112,6 +114,7 @@ public sealed class ConfigurationStore
             NormalizeBookmarks(state);
             NormalizePlaylists(state);
             NormalizeSessionPresets(state);
+            NormalizePlaybackVolumes(state);
             NormalizeRadio(state);
             NormalizePodcasts(state);
             ValidateState(state);
@@ -286,6 +289,7 @@ public sealed class ConfigurationStore
         NormalizeBookmarks(state);
         NormalizePlaylists(state);
         NormalizeSessionPresets(state);
+        NormalizePlaybackVolumes(state);
         NormalizeRadio(state);
         NormalizePodcasts(state);
         MigrateLegacyPodcastInbox(state, sourceSchemaVersion);
@@ -637,6 +641,12 @@ public sealed class ConfigurationStore
                     .ToList(),
                 StringComparer.OrdinalIgnoreCase),
             StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static void NormalizePlaybackVolumes(PersistedState state)
+    {
+        state.PlaybackVolumes ??= new PlaybackVolumeMemorySettings();
+        PlaybackVolumeMemory.Normalize(state.PlaybackVolumes);
     }
 
     private static Dictionary<string, List<string>> NormalizeOrderDictionary(
