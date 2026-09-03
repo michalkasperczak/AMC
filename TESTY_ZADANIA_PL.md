@@ -1,12 +1,43 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-217`
-- Tytuł zestawu: Katalog Apple Podcasts, opisy i skrzynka nowych odcinków
-- Wersja programu: `0.1.0-alpha.217`
+- Numer zestawu: `AMC-TEST-218`
+- Tytuł zestawu: Powrót do otwartej audycji w Bibliotece Podcastów
+- Wersja programu: `0.1.0-alpha.218`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.217.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.218.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 218
+
+### AMC-218-01 — powrót z Kolejki do audycji
+
+W sesji Podcasty otwórz Bibliotekę, wejdź do wybranego podcastu i ustaw fokus
+na odcinku innym niż pierwszy. Przejdź przez `Ctrl+Q` do Kolejki, a następnie
+naciśnij `Ctrl+L`.
+
+Oczekiwane: AMC wraca do listy odcinków tej samej audycji i ustawia fokus na
+tym samym odcinku. Nie pokazuje nadrzędnej listy wszystkich podcastów.
+
+### AMC-218-02 — świadome przejście poziom wyżej
+
+Po powrocie do listy odcinków naciśnij Backspace albo Escape, a następnie
+przejdź do innego widoku i wróć przez `Ctrl+L`.
+
+Oczekiwane: Backspace lub Escape otwiera nadrzędną Bibliotekę. Po świadomym
+opuszczeniu audycji kolejne `Ctrl+L` wraca już do nadrzędnej listy, z
+zapamiętanym fokusem na właściwym podcaście.
+
+### AMC-218-03 — ponowne uruchomienie i usunięta audycja
+
+Pozostaw otwartą listę odcinków, zamknij bezpiecznie AMC i uruchom je ponownie.
+Sprawdź także później wariant, w którym zapamiętana audycja została usunięta z
+Biblioteki.
+
+Oczekiwane: po ponownym uruchomieniu program zachowuje audycję, odcinek i
+poziom listy. Dla usuniętej audycji bez błędu wraca do nadrzędnej Biblioteki.
+
+## Poprzedni zestaw alpha 217
 
 ## Nowości alpha 217
 

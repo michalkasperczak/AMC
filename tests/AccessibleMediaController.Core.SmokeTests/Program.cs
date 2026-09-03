@@ -2963,6 +2963,15 @@ static void TestSessionNavigationPersistence()
             CurrentView = "Albumy",
             PlayerActive = false
         };
+        state.SessionNavigation.Sessions["podcasts"] = new SessionNavigationState
+        {
+            CurrentView = "Kolejka",
+            LastLibraryView = "Podcast:audycja-1",
+            SelectedItemIds = new Dictionary<string, string?>
+            {
+                ["Podcast:audycja-1"] = "odcinek-7"
+            }
+        };
 
         store.Save(state);
         var loaded = store.LoadOrCreate();
@@ -2977,6 +2986,10 @@ static void TestSessionNavigationPersistence()
             "Kontekst odtwarzania powinien przetrwać ponowne uruchomienie.");
         Equal("Albumy", loaded.SessionNavigation.Sessions["appleMusic"].CurrentView);
         Equal(false, loaded.SessionNavigation.Sessions["appleMusic"].PlayerActive);
+        var podcasts = loaded.SessionNavigation.Sessions["podcasts"];
+        Equal("Kolejka", podcasts.CurrentView);
+        Equal("Podcast:audycja-1", podcasts.LastLibraryView);
+        Equal("odcinek-7", podcasts.SelectedItemIds["Podcast:audycja-1"]);
     }
     finally
     {

@@ -554,6 +554,9 @@ public sealed class ConfigurationStore
             session.CurrentView = string.IsNullOrWhiteSpace(session.CurrentView)
                 ? "Multimedia"
                 : session.CurrentView;
+            session.LastLibraryView = string.IsNullOrWhiteSpace(session.LastLibraryView)
+                ? "Biblioteka"
+                : session.LastLibraryView;
             session.SelectedItemIds = new Dictionary<string, string?>(
                 session.SelectedItemIds ?? new Dictionary<string, string?>(),
                 StringComparer.OrdinalIgnoreCase);

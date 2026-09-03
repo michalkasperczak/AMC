@@ -254,6 +254,12 @@ opisuje `PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
 
 - `Ctrl+L` otwiera Bibliotekę obserwowanych audycji. Enter na audycji pokaże
   jej odcinki; nie spróbuje odtwarzać samego kanału.
+- Biblioteka pamięta swój ostatni poziom niezależnie od Kolejki, Ulubionych i
+  innych widoków. Jeżeli użytkownik opuści otwartą audycję z fokusem na
+  odcinku, `Ctrl+L` wraca do tej audycji i odcinka. Dopiero Backspace lub
+  Escape świadomie ustawia nadrzędną listę podcastów jako miejsce kolejnego
+  powrotu. Zasada i fokus przetrwają ponowne uruchomienie; brakująca albo
+  usunięta audycja powoduje bezpieczny powrót na poziom nadrzędny.
 - `Ctrl+I` otwiera skrzynkę **Nowe odcinki**. Litera pochodzi od powszechnego
   określenia Inbox; wcześniejsze polecenie informacji spod `Ctrl+I` zostało w
   AMC zastąpione przez `Alt+Enter`, więc skrót nie ma konfliktu.

@@ -425,6 +425,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             viewName = _state.LocalMedia.LibraryView;
         }
+        else if (string.Equals(viewName, "Biblioteka", StringComparison.Ordinal)
+            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+        {
+            viewName = ResolvePodcastLibraryReturnView(
+                GetSessionNavigationState(_sessions.Current.Id));
+        }
 
         if ((viewName is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName)
             && !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
@@ -702,6 +708,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             navigation.CurrentView = "Biblioteka";
         }
+        navigation.LastLibraryView = MainWindowNavigationPolicy.IsPodcastLibraryLocation(
+                "podcasts",
+                navigation.CurrentView)
+            ? ResolvePodcastLibraryReturnView(navigation.CurrentView)
+            : ResolvePodcastLibraryReturnView(navigation);
     }
 
     private void MarkClipStart()
@@ -5647,6 +5658,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         navigation.CurrentView = _currentView;
         navigation.PlayerActive = _playerViewActive;
         navigation.Filters[_currentView] = FilterBox.Text;
+        RememberPodcastLibraryLocation(navigation, _sessions.Current.Id, _currentView);
         if (SelectedItem is { } selected)
         {
             navigation.SelectedItemIds[_currentView] = selected.Id;
@@ -5659,6 +5671,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _currentView = string.IsNullOrWhiteSpace(navigation.CurrentView)
             ? DefaultBrowserView
             : navigation.CurrentView;
+        RememberPodcastLibraryLocation(navigation, _sessions.Current.Id, _currentView);
         RestoreFilterForCurrentView(navigation);
         RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
         _playerViewActive = navigation.PlayerActive;
@@ -10522,9 +10535,29 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         navigation.CurrentView = _currentView;
         navigation.PlayerActive = false;
+        RememberPodcastLibraryLocation(navigation, _sessions.Current.Id, _currentView);
         RestoreFilterForCurrentView(navigation);
         RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
     }
+
+    private void RememberPodcastLibraryLocation(
+        SessionNavigationState navigation,
+        string sessionId,
+        string viewName)
+    {
+        if (!MainWindowNavigationPolicy.IsPodcastLibraryLocation(sessionId, viewName)) return;
+        navigation.LastLibraryView = ResolvePodcastLibraryReturnView(viewName);
+    }
+
+    private string ResolvePodcastLibraryReturnView(SessionNavigationState navigation) =>
+        ResolvePodcastLibraryReturnView(navigation.LastLibraryView);
+
+    private string ResolvePodcastLibraryReturnView(string? rememberedView) =>
+        MainWindowNavigationPolicy.ResolvePodcastLibraryReturnView(
+            rememberedView,
+            _state.Podcasts.Subscriptions
+                .Where(subscription => subscription.IsInLibrary)
+                .Select(subscription => subscription.Id));
 
     private void NavigateBack()
     {
@@ -10549,6 +10582,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _currentView = history.Back.Pop();
         ClearFilterForNavigation(navigation, previousView, _currentView);
         navigation.CurrentView = _currentView;
+        RememberPodcastLibraryLocation(navigation, _sessions.Current.Id, _currentView);
         RestoreFilterForCurrentView(navigation);
         RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
         PrepareHistoryFocusContext("Wstecz");
@@ -10574,6 +10608,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _currentView = history.Forward.Pop();
         ClearFilterForNavigation(navigation, previousView, _currentView);
         navigation.CurrentView = _currentView;
+        RememberPodcastLibraryLocation(navigation, _sessions.Current.Id, _currentView);
         RestoreFilterForCurrentView(navigation);
         RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
         PrepareHistoryFocusContext("Naprzód");
@@ -12465,6 +12500,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _currentView = returnView;
         returnNavigation.CurrentView = returnView;
         returnNavigation.PlayerActive = false;
+        RememberPodcastLibraryLocation(returnNavigation, returnSession.Id, returnView);
         var history = GetSessionViewHistory(returnSession.Id);
         if (history.Back.Count > 0
             && string.Equals(history.Back.Peek(), returnView, StringComparison.Ordinal))

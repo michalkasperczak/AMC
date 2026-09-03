@@ -1751,3 +1751,14 @@ sesji Podcasty niezależnie od Spotify; materiał dostępny wyłącznie w Spotif
 pozostanie w przyszłej sesji Spotify albo zostanie otwarty w oficjalnej
 aplikacji. AMC nie będzie udawał, że taki element jest zwykłym kanałem RSS.
 Dokumentacja: [Spotify Web API — Search](https://developer.spotify.com/documentation/web-api/reference/search).
+
+### 7.15. Pamięć poziomu Biblioteki Podcastów
+
+Od `alpha.218` wejście do Kolejki, Ulubionych albo innego równoległego widoku
+nie spłaszcza nawigacji Biblioteki Podcastów. Program zapisuje osobno ostatnią
+otwartą audycję oraz zaznaczony w niej odcinek. `Ctrl+L` przywraca dokładnie ten
+poziom i fokus. Backspace albo Escape pozostaje świadomym poleceniem przejścia
+o poziom wyżej; po nim miejscem powrotu staje się nadrzędna lista podcastów.
+Stan jest trwały. Identyfikator audycji jest sprawdzany przy każdym powrocie i
+po uruchomieniu, dlatego usunięty podcast nie tworzy pustego ani technicznego
+widoku, tylko powoduje bezpieczny powrót do Biblioteki.

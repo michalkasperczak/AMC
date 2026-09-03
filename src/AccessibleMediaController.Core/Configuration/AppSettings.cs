@@ -341,6 +341,7 @@ public sealed class SessionNavigationSettings
 public sealed class SessionNavigationState
 {
     public string CurrentView { get; set; } = "Multimedia";
+    public string LastLibraryView { get; set; } = "Biblioteka";
     public Dictionary<string, string?> SelectedItemIds { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, string> Filters { get; set; } =

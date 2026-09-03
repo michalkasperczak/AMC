@@ -423,6 +423,21 @@ static void TestPlayerDeparturePlaybackPolicy()
         !MainWindowNavigationPolicy.ShouldApplyPlaybackExitPolicy(
             PlayerDepartureReason.SessionSwitch),
         "Samo przełączenie sesji nie może zatrzymywać jej niezależnego toru audio.");
+    Assert(
+        MainWindowNavigationPolicy.IsPodcastLibraryLocation("podcasts", "Podcast:audycja-1")
+        && MainWindowNavigationPolicy.IsPodcastLibraryLocation("podcasts", "Biblioteka")
+        && !MainWindowNavigationPolicy.IsPodcastLibraryLocation("podcasts", "Kolejka"),
+        "Nie rozpoznano poziomów należących do Biblioteki Podcastów.");
+    Assert(
+        MainWindowNavigationPolicy.ResolvePodcastLibraryReturnView(
+            "Podcast:audycja-1",
+            ["audycja-1", "audycja-2"]) == "Podcast:audycja-1",
+        "Powrót do Biblioteki nie zachował otwartej audycji.");
+    Assert(
+        MainWindowNavigationPolicy.ResolvePodcastLibraryReturnView(
+            "Podcast:usunięta-audycja",
+            ["audycja-1"]) == "Biblioteka",
+        "Nieistniejąca audycja nie została bezpiecznie zastąpiona nadrzędną Biblioteką.");
     Console.WriteLine("OK: tylko jawny powrót z odtwarzacza stosuje regułę wstrzymania");
 }
 

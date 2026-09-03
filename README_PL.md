@@ -1,5 +1,13 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.218` zachowuje dokładne miejsce wewnątrz Biblioteki Podcastów.
+Jeżeli użytkownik otworzy audycję, zaznaczy odcinek, przejdzie do Kolejki,
+Ulubionych albo innego widoku i wróci przez `Ctrl+L`, AMC ponownie otwiera tę
+samą audycję i zaznacza wcześniejszy odcinek. Backspace i Escape nadal
+przechodzą świadomie o poziom wyżej. Zapamiętane miejsce jest sprawdzane przy
+starcie; jeżeli audycję usunięto z Biblioteki, program bezpiecznie pokazuje
+nadrzędną listę podcastów.
+
 Wersja `alpha.217` uruchamia publiczne wyszukiwanie podcastów przez katalog
 Apple Podcasts. `Ctrl+F` w sesji Podcasty szuka obserwowanych audycji,
 zapisanych odcinków i wyników katalogu; Enter na wyniku katalogowym sprawdza

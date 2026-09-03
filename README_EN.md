@@ -1,5 +1,12 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.218` restores the exact location within the Podcasts Library.
+After opening a show and selecting an episode, leaving for Queue, Favorites or
+another view and pressing `Ctrl+L` returns to that show and episode instead of
+the top-level podcast list. Backspace and Escape still deliberately move one
+level up. The remembered location survives restart and safely falls back to
+the Library when the show is no longer subscribed.
+
 Version `alpha.217` adds public Apple Podcasts directory search without an
 Apple login or private-library synchronization. In the Podcasts session,
 Ctrl+F searches saved shows, episodes and bounded directory results. Opening a
