@@ -1,8 +1,8 @@
 # AMC podcast module design
 
-Status: subscription and initial playback are complete. `alpha.210` keeps the
-Podcast session playback rate after leaving the player with Escape, reopening
-an episode, and restarting AMC. The
+Status: subscription and initial playback are complete. `alpha.211` removes
+leading copyright markers from user-facing author labels and makes Escape
+follow Backspace on nested lists. The
 durable session, safe direct RSS/Atom subscription, accessible OPML import,
 metadata refresh, show-to-episode navigation and finite HTTP/HTTPS episode
 playback through AMC's shared player are in place.
@@ -108,13 +108,15 @@ an existing RSS subscription to work.
    Radio recognition announcements.
 7. `alpha.210`: completed — keep the Podcast session playback rate after Escape
    and reopening an episode.
-8. Next: Apple Podcasts catalog search and feed discovery from ordinary pages.
-9. Later: New episodes state, filtering and batch operations.
-10. Later: cancellable downloads with local staging and atomic publication.
-11. Later: episode playlists plus OPML and AMC import/export.
-12. Later: embedded web audio and publisher-specific adapters.
-13. Later: supplied and user-authored chapters.
-14. Additional directories and account services remain optional adapters.
+8. `alpha.211`: completed — concise user-facing author labels and consistent
+   Escape/Backspace parent navigation on nested lists.
+9. Next: Apple Podcasts catalog search and feed discovery from ordinary pages.
+10. Later: New episodes state, filtering and batch operations.
+11. Later: cancellable downloads with local staging and atomic publication.
+12. Later: episode playlists plus OPML and AMC import/export.
+13. Later: embedded web audio and publisher-specific adapters.
+14. Later: supplied and user-authored chapters.
+15. Additional directories and account services remain optional adapters.
 
 The keyboard map will be decided after the first working view. This design
 document does not reserve shortcuts by itself.

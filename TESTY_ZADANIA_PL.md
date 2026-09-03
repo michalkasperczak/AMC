@@ -1,12 +1,35 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-210`
-- Tytuł zestawu: Pamięć prędkości Podcastów
-- Wersja programu: `0.1.0-alpha.210`
+- Numer zestawu: `AMC-TEST-211`
+- Tytuł zestawu: Czytelni autorzy i spójny Escape
+- Wersja programu: `0.1.0-alpha.211`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.210.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.211.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 211
+
+### AMC-211-01 — autor bez znaków praw
+
+W Bibliotece Podcastów przejdź po kilku audycjach Radia PiK i innych kanałach,
+których autor rozpoczyna się od `℗`, `©`, `®` albo `™`. Otwórz również
+Alt+Enter dla jednej z nich.
+
+Oczekiwane: NVDA czyta zwykłą nazwę autora, na przykład „Polskie Radio PiK”,
+bez wypowiadania znaków praw. Naturalne nazwy zawierające `&` pozostają bez
+zmian, a w interfejsie nie pojawia się identyfikator techniczny.
+
+### AMC-211-02 — Escape i Backspace na liście odcinków
+
+Otwórz podcast Enterem. Na liście jego odcinków wróć raz przez Escape, a po
+ponownym wejściu przez Backspace. Powtórz na playliście albo albumie.
+
+Oczekiwane: oba klawisze wracają dokładnie o jeden poziom. Escape w aktywnym
+filtrze najpierw tylko go czyści, w odtwarzaczu wraca do listy, a w polu
+edycyjnym, menu i oknie dialogowym zachowuje ich standardową semantykę.
+
+## Poprzedni zestaw alpha 210
 
 ## Nowość alpha 210
 

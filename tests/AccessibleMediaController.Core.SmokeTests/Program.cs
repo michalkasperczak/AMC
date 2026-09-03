@@ -24,6 +24,7 @@ var tests = new (string Name, Action Test)[]
     ("Trwałe ustawienia i historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Bezpieczne parsowanie kanałów podcastów", TestPodcastFeedParsing),
+    ("Zwięzłe autorstwo podcastów", TestPodcastMetadataPresentation),
     ("Bezpieczny import list podcastów OPML", TestPodcastOpmlParsing),
     ("Aktualizacja biblioteki Podcastów", TestPodcastLibraryUpdate),
     ("Trwały model Podcastów", TestPodcastStatePersistence),
@@ -161,6 +162,15 @@ static void TestPodcastFeedParsing()
         rejectedDtd = true;
     }
     True(rejectedDtd, "Parser podcastów musi odrzucać DTD i encje zewnętrzne.");
+}
+
+static void TestPodcastMetadataPresentation()
+{
+    Equal("Polskie Radio PiK", PodcastMetadataPresentation.FormatAuthor("℗&© Polskie Radio PiK"));
+    Equal("Radio", PodcastMetadataPresentation.FormatAuthor(" © / ℗ | Radio "));
+    Equal("2026 Wydawca", PodcastMetadataPresentation.FormatAuthor("(c) 2026 Wydawca"));
+    Equal("Simon & Schuster", PodcastMetadataPresentation.FormatAuthor("Simon & Schuster"));
+    Equal(string.Empty, PodcastMetadataPresentation.FormatAuthor("© & ℗"));
 }
 
 static void TestPodcastStatePersistence()

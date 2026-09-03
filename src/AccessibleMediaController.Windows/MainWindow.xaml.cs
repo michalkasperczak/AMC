@@ -2810,7 +2810,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 {
                     "Podcast",
                     $"Nazwa: {subscription.Title}",
-                    string.IsNullOrWhiteSpace(subscription.Author) ? null : $"Autor: {subscription.Author}",
+                    PodcastMetadataPresentation.FormatAuthor(subscription.Author) is { Length: > 0 } author
+                        ? $"Autor: {author}"
+                        : null,
                     string.IsNullOrWhiteSpace(subscription.Description) ? null : $"Opis: {subscription.Description}",
                     $"Odcinki: {_state.Podcasts.Episodes.Count(episode => string.Equals(episode.SubscriptionId, subscription.Id, StringComparison.Ordinal))}",
                     $"Ostatnie odświeżenie: {refreshed}",
@@ -4579,7 +4581,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Id = subscription.Id,
                 Title = subscription.Title,
                 HasCustomTitle = subscription.HasCustomTitle,
-                Artist = subscription.Author,
+                Artist = PodcastMetadataPresentation.FormatAuthor(subscription.Author),
                 Kind = MediaItemKind.Podcast,
                 Source = subscription.FeedUrl,
                 PublicUri = subscription.HomepageUrl,
@@ -4600,7 +4602,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Title = episode.Title,
                 Artist = string.IsNullOrWhiteSpace(episode.Author)
                     ? subscription?.Title ?? string.Empty
-                    : episode.Author,
+                    : PodcastMetadataPresentation.FormatAuthor(episode.Author),
                 Kind = MediaItemKind.Episode,
                 Duration = TimeSpan.FromTicks(episode.DurationTicks),
                 Source = downloaded ? episode.DownloadPath : episode.MediaUrl,
@@ -11836,19 +11838,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RestoreMediaListFocusAfterRefresh();
             return;
         }
-        if (TryReturnFromTransientRadioView()) return;
-        if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
-        {
-            LeaveBookmarkView();
-            return;
-        }
-        if (string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal)
-            || TryGetPlaylistIdFromView(_currentView, out _))
-        {
-            NavigateBack();
-            return;
-        }
-        RestoreMediaListFocusAfterRefresh();
+        NavigateToParentLevel();
     }
 
     private void ImportCompletedRadioRecordings(IEnumerable<string> paths)

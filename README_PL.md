@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.211` usuwa z początku użytkowej nazwy autora podcastu techniczne
+oznaczenia praw `℗`, `©`, `®` i `™`. Przykładowe `℗&© Polskie Radio PiK` jest
+czytane przez NVDA jako „Polskie Radio PiK”; oryginalna wartość kanału RSS
+pozostaje zachowana. Na listach zagnieżdżonych Escape działa teraz jak
+Backspace i wraca o jeden poziom, z zachowaniem osobnych reguł odtwarzacza,
+filtra, pól edycyjnych, menu i okien dialogowych.
+
 Wersja `alpha.210` zachowuje zmienioną prędkość Podcastów po wyjściu z
 odtwarzacza klawiszem Escape i ponownym otwarciu odcinka. Wybrana wartość staje
 się bieżącą prędkością sesji Podcasty, jest od razu stosowana przy kolejnym
