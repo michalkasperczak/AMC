@@ -1909,3 +1909,16 @@ adaptera może zawierać zasoby potrzebne do wyszukiwania, Historii, presetów i
 playlist, ale nie jest automatycznie listą użytkownika. Każdy adapter musi
 wskazać jawny widok docelowy albo pozostawić wynik w oknie wyszukiwania. Nie
 wolno zastępować brakującego widoku pełną pulą rekordów sesji.
+
+### 7.19. Komunikat i fokus podczas pobierania Podcastów
+
+Od `alpha.239` `Ctrl+D` natychmiast oznajmia „Pobieranie odcinka” albo, przy
+zaznaczeniu wielu pozycji, „Pobieranie odcinków” wraz z ich liczbą. Szczegóły
+postępu pozostają dostępne na pasku stanu, a zakończenie nadal podaje wynik.
+
+Pobranie aktualizuje stan odcinka i przebudowuje bieżącą listę. Przed tą
+operacją fokus jest przenoszony z nietrwałego wiersza na samą kontrolkę listy,
+a po niej wraca na ten sam odcinek. Dodatkowe przywrócenie po zakończeniu
+układu okna chroni przed charakterystycznym dla WPF przejściem na sąsiedni
+przycisk „Otwórz” albo do menu Plik. Mechanizm nie przejmuje fokusu, gdy AMC
+nie jest aktywnym oknem, i nie przeszkadza oknu systemowemu `Ctrl+S`.

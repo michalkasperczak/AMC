@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-238`
-- Tytuł zestawu: Opis podcastu jako pierwszy komunikat Alt+D oraz regresja całej aplikacji
-- Wersja programu: `0.1.0-alpha.238`
-- Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.238.md`
+- Numer zestawu: `AMC-TEST-239`
+- Tytuł zestawu: Komunikat i stabilny fokus po pobieraniu Podcastów oraz regresja całej aplikacji
+- Wersja programu: `0.1.0-alpha.239`
+- Utworzono: 2026-09-04, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.239.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,26 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 239
+
+### AMC-239-01 — natychmiastowy komunikat Ctrl+D
+
+W Podcastach zaznacz jeden niepobrany odcinek i naciśnij `Ctrl+D`. Powtórz z
+kilkoma odcinkami zaznaczonymi Shiftem.
+
+Oczekiwane: od razu słychać odpowiednio „Pobieranie odcinka” albo „Pobieranie
+odcinków” wraz z liczbą. Nie trzeba czekać na zakończenie pobrania, aby
+otrzymać pierwsze potwierdzenie polecenia.
+
+### AMC-239-02 — fokus po zakończeniu i Escape
+
+Pozostań w AMC do zakończenia pobierania. Następnie użyj strzałek i Escape,
+także krótko po komunikacie o pobraniu.
+
+Oczekiwane: fokus pozostaje na pobranym odcinku bieżącej listy. Strzałki od
+razu nawigują po odcinkach, a Escape wykonuje działanie właściwe dla widoku.
+Fokus nie przechodzi na przycisk „Otwórz” ani do menu Plik.
 
 ## Nowości alpha 238
 

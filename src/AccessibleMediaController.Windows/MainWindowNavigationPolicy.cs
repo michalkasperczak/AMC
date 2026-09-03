@@ -19,6 +19,11 @@ internal enum MainWindowFocusRecoveryTarget
 internal static class MainWindowNavigationPolicy
 {
     private const string PodcastSessionId = "podcasts";
+
+    public static string FormatPodcastDownloadStarted(int episodeCount) =>
+        episodeCount == 1
+            ? "Pobieranie odcinka"
+            : $"Pobieranie odcinków: {Math.Max(0, episodeCount)}";
     private const string PodcastLibraryView = "Biblioteka";
     private const string PodcastContentsViewPrefix = "Podcast:";
 

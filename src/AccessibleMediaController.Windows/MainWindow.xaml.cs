@@ -5302,6 +5302,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        var pendingDownloadCount = saveAs
+            ? 0
+            : episodes.Count(episode => string.IsNullOrWhiteSpace(episode.DownloadPath)
+                || !File.Exists(episode.DownloadPath));
+        if (!saveAs && restoreListFocus && pendingDownloadCount > 0)
+        {
+            AnnounceEssential(MainWindowNavigationPolicy.FormatPodcastDownloadStarted(pendingDownloadCount));
+        }
+
         string destinationFolder;
         try
         {
@@ -5446,6 +5455,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (!saveAs && downloadedEpisodeIds.Count > 0)
         {
+            // Reloading the podcast snapshot replaces every ListBoxItem. If the
+            // focused row is destroyed, WPF may move keyboard focus to the next
+            // control (for example the Open button or the File menu). Anchor it
+            // on the stable ListBox before rebuilding, then restore the episode.
+            if (restoreListFocus && !wasPlayerActive && MediaList.IsKeyboardFocusWithin)
+                AnchorMediaListFocus();
             CapturePodcastState();
             ReloadPodcastSessionItems();
             QueueStateSave(announceFailure: true);
@@ -5477,7 +5492,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (!restoreListFocus || _isClosing) return;
         if (wasPlayerActive && _playerViewActive) FocusPlayerView();
-        else RestoreMediaListFocusAfterRefresh();
+        else
+        {
+            RestoreMediaListFocusAfterRefresh();
+            // The download continuation, list layout and the key-up that
+            // initiated Ctrl+D may all finish in different dispatcher turns.
+            // A final idle pass prevents menu/button focus from resurfacing.
+            Dispatcher.BeginInvoke(
+                () =>
+                {
+                    if (!_isClosing && IsActive && !_playerViewActive)
+                        FocusMediaList();
+                },
+                DispatcherPriority.ContextIdle);
+        }
     }
 
     private bool TryResolveCurrentPodcastSubscription(out PodcastSubscriptionSettings subscription)

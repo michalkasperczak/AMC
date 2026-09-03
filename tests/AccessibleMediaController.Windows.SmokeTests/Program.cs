@@ -89,6 +89,7 @@ try
     TestPodcastDirectorySearchMerge();
     TestPlayerListReturnSelection();
     TestMainWindowFocusRecoveryPolicy();
+    TestPodcastDownloadStartAnnouncement();
     TestPlayerAudioProcessingKeyboardMap();
     TestPlaylistPresentation();
     TestGuardDoesNotBlockPositionReads();
@@ -816,6 +817,17 @@ static void TestMainWindowFocusRecoveryPolicy()
             browserFocusValid: false) == MainWindowFocusRecoveryTarget.None,
         "Prawidłowy fokus odtwarzacza jest niepotrzebnie przenoszony.");
     Console.WriteLine("OK: ochrona fokusa odtwarzacza i listy nie przejmuje menu ani innych okien");
+}
+
+static void TestPodcastDownloadStartAnnouncement()
+{
+    Assert(
+        MainWindowNavigationPolicy.FormatPodcastDownloadStarted(1) == "Pobieranie odcinka",
+        "Pojedyncze pobieranie nie ma natychmiastowego, krótkiego komunikatu.");
+    Assert(
+        MainWindowNavigationPolicy.FormatPodcastDownloadStarted(4) == "Pobieranie odcinków: 4",
+        "Pobieranie wielu odcinków nie podaje ich liczby.");
+    Console.WriteLine("OK: natychmiastowy komunikat rozpoczęcia pobierania Podcastów");
 }
 
 static void TestAudioClipExporter()

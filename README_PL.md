@@ -7,6 +7,12 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.239` oznajmia rozpoczęcie `Ctrl+D` od razu krótkim komunikatem
+„Pobieranie odcinka” albo „Pobieranie odcinków” z ich liczbą. Po ukończeniu
+pobierania przebudowa widoku nie może już zrzucić fokusu z odcinka na przycisk
+„Otwórz” ani do menu Plik: fokus jest najpierw kotwiczony na stabilnej liście,
+a następnie przywracany na pobrany odcinek również po zakończeniu układu WPF.
+
 Wersja `alpha.238` poprawia pierwszy komunikat po `Alt+D` w Podcastach.
 Fokus nadal trafia bezpośrednio do tekstu tylko do odczytu, ale jego nazwą
 dostępnościową jest teraz początek właściwego opisu, a nie ogólne „Opis
