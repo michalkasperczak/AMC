@@ -7,6 +7,14 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.233` naprawia rzeczywiste wywołanie zapisu odcinków Podcastów.
+`Ctrl+D` na liście lub w odtwarzaczu pobiera zaznaczone odcinki do folderu z
+Ustawień, a `Ctrl+S` dla jednego odcinka otwiera systemowe **Zapisz jako**.
+Skróty nie są już jedynie opisane w menu, Pomocy i dokumentacji. Polecenia
+pozostają dostępne także w menu Plik, menu kontekstowym listy i odtwarzacza,
+wynikach wyszukiwania oraz palecie poleceń. Próba użycia skrótu na nagłówku
+podcastu daje jednoznaczny komunikat zamiast pozornego braku reakcji.
+
 Wersja `alpha.232` upraszcza zatwierdzanie urządzenia audio sesji. Enter na
 wybranym elemencie zapisuje wybór od razu, również gdy lista rozwijana jest
 otwarta; nie trzeba naciskać Enteru drugi raz na przycisku **Zapisz**. Escape

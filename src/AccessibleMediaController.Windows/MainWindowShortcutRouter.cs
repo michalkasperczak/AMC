@@ -96,6 +96,27 @@ internal static class MainWindowShortcutRouter
             ? CommandIds.SelectAudioOutput
             : null;
 
+    public static string? ResolvePodcastEpisodeFileAction(
+        Key key,
+        ModifierKeys modifiers,
+        string sessionId,
+        bool itemContext)
+    {
+        if (!itemContext
+            || !string.Equals(sessionId, "podcasts", StringComparison.Ordinal)
+            || modifiers != ModifierKeys.Control)
+        {
+            return null;
+        }
+
+        return key switch
+        {
+            Key.D => CommandIds.DownloadInService,
+            Key.S => CommandIds.SavePodcastAs,
+            _ => null
+        };
+    }
+
     public static string? ResolveRadioRecordingBookmark(
         Key key,
         ModifierKeys modifiers,

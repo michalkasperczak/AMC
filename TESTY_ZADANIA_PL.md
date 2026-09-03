@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-232`
-- Tytuł zestawu: Jednoznaczne zatwierdzanie urządzenia audio i regresja całej aplikacji
-- Wersja programu: `0.1.0-alpha.232`
+- Numer zestawu: `AMC-TEST-233`
+- Tytuł zestawu: Rzeczywiste pobieranie i zapis odcinków Podcastów oraz regresja całej aplikacji
+- Wersja programu: `0.1.0-alpha.233`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.232.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.233.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,44 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 233
+
+### AMC-233-01 — Ctrl+D na liście odcinków
+
+W Podcastach otwórz dowolną audycję albo `Ctrl+I`, zaznacz jeden odcinek i
+naciśnij `Ctrl+D`. Powtórz z dwoma odcinkami zaznaczonymi Shiftem.
+
+Oczekiwane: skrót działa od pierwszego naciśnięcia. Pliki trafiają do folderu
+wybranego w **Ustawienia > Podcasty**, a AMC podaje wynik i zachowuje fokus.
+
+### AMC-233-02 — Ctrl+S jako Zapisz jako
+
+Na jednym odcinku naciśnij `Ctrl+S`, wybierz nazwę i folder, a następnie anuluj
+drugą próbę Escapem. Powtórz próbę przy zaznaczeniu dwóch odcinków.
+
+Oczekiwane: dla jednego odcinka otwiera się systemowe **Zapisz jako**. Anulowanie
+niczego nie zapisuje. Przy wielu odcinkach AMC wyjaśnia, że polecenie działa dla
+jednego odcinka, bez otwierania serii okien.
+
+### AMC-233-03 — odtwarzacz, menu i niewłaściwy element
+
+Otwórz odcinek w odtwarzaczu i sprawdź `Ctrl+D`, `Ctrl+S` oraz jego menu
+kontekstowe. Potem wróć do nadrzędnej listy podcastów, ustaw fokus na nagłówku
+audycji i ponów oba skróty. Sprawdź też menu Plik i menu kontekstowe odcinka.
+
+Oczekiwane: oba skróty działają również w odtwarzaczu. Menu odcinka zawiera
+czytelne polecenia ze skrótami. Nagłówek audycji nie rozpoczyna pobierania całego
+archiwum; AMC prosi o wskazanie co najmniej jednego odcinka.
+
+### AMC-233-04 — rozdzielenie skrótów i wyszukiwanie
+
+Na odcinku z wyników `Ctrl+F` sprawdź `Ctrl+D` i `Ctrl+S`. Następnie sprawdź,
+że `Ctrl+Shift+D`, `Ctrl+Shift+S` oraz te same skróty w Radiu nie uruchamiają
+pobierania Podcastów.
+
+Oczekiwane: wyniki wyszukiwania zapisują właściwy odcinek i zachowują okno oraz
+fokus. Skróty o innych modyfikatorach zachowują swoje dotychczasowe znaczenie.
 
 ## Nowości alpha 232
 

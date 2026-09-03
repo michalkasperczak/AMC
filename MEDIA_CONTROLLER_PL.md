@@ -1834,6 +1834,15 @@ Dopiero zamknięty, kompletny plik jest przenoszony pod nazwę docelową. Przy
 `Ctrl+D` kolizja nazw tworzy bezpiecznie kolejny numer, a `Ctrl+S` korzysta z
 systemowego potwierdzenia zastąpienia.
 
+Od `alpha.233` oba skróty są obsługiwane bezpośrednio przez główną warstwę
+klawiatury listy i odtwarzacza. Wcześniejsza wersja miała gotowy mechanizm
+pobierania oraz pozycje menu, lecz nie przekazywała `Ctrl+D` i `Ctrl+S` z tych
+dwóch miejsc do odpowiednich poleceń. Rozdzielenie pozostaje ścisłe:
+`Ctrl+D` oznacza pobranie do folderu domyślnego, `Ctrl+S` oznacza jednorazowe
+**Zapisz jako**, `Ctrl+Shift+D` zachowuje odrębne przyszłe znaczenie, a
+`Ctrl+Shift+S` otwiera listę sesji. W Radiu i pozostałych sesjach skróty nie
+udają pobierania odcinka.
+
 ### 7.17. Bezpieczne przejście z wyszukiwania Radia
 
 Od `alpha.230` wynik wyszukany w Radio Browser nigdy nie otwiera wewnętrznego

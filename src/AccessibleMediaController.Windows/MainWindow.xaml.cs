@@ -5198,6 +5198,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .Select(episode => episode!)
             .DistinctBy(episode => episode.Id, StringComparer.Ordinal)
             .ToArray();
+        DiagnosticLog.Info(
+            "podcast-download",
+            $"Polecenie {(saveAs ? "Zapisz jako" : "Pobierz")}; widok {_currentView}; "
+            + $"elementy {requestedItems.Count}; odcinki {episodes.Length}; odtwarzacz {wasPlayerActive}.");
         if (episodes.Length == 0)
         {
             Announce("Zaznacz co najmniej jeden odcinek podcastu");
@@ -12815,6 +12819,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var modifiers = Keyboard.Modifiers;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var podcastFileAction = MainWindowShortcutRouter.ResolvePodcastEpisodeFileAction(
+            key,
+            modifiers,
+            _sessions.Current.Id,
+            itemContext: true);
+        if (podcastFileAction is not null)
+        {
+            ExecuteCommand(podcastFileAction);
+            return true;
+        }
         if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
             && modifiers == ModifierKeys.Alt
             && key == Key.D)

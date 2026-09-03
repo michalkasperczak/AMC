@@ -72,6 +72,7 @@ try
     TestRadioRecognitionHistoryFilterAccessibility();
     TestPlaybackAudioSettingAccessibility();
     TestAudioOutputDeviceAccessibility();
+    TestPodcastEpisodeFileActionKeyboardMap();
     TestAudioOutputPauseRaceGuard();
     TestPodcastNetworkSourcePolicy();
     TestPodcastFeedClient();
@@ -3804,6 +3805,47 @@ static void TestPodcastEpisodeDownloader()
     }
 
     Console.WriteLine("OK: odporne pobieranie odcinków podcastów");
+}
+
+static void TestPodcastEpisodeFileActionKeyboardMap()
+{
+    Assert(
+        MainWindowShortcutRouter.ResolvePodcastEpisodeFileAction(
+            Key.D,
+            ModifierKeys.Control,
+            "podcasts",
+            itemContext: true) == CommandIds.DownloadInService,
+        "Ctrl+D nie uruchamia pobierania odcinka w Podcastach.");
+    Assert(
+        MainWindowShortcutRouter.ResolvePodcastEpisodeFileAction(
+            Key.S,
+            ModifierKeys.Control,
+            "podcasts",
+            itemContext: true) == CommandIds.SavePodcastAs,
+        "Ctrl+S nie uruchamia Zapisu jako w Podcastach.");
+    Assert(
+        MainWindowShortcutRouter.ResolvePodcastEpisodeFileAction(
+            Key.D,
+            ModifierKeys.Control,
+            "radio",
+            itemContext: true) is null,
+        "Ctrl+D nie może pobierać podcastu w innej sesji.");
+    Assert(
+        MainWindowShortcutRouter.ResolvePodcastEpisodeFileAction(
+            Key.S,
+            ModifierKeys.Control,
+            "podcasts",
+            itemContext: false) is null,
+        "Ctrl+S nie może przejmować pola tekstowego ani menu poza listą i odtwarzaczem.");
+    Assert(
+        MainWindowShortcutRouter.ResolvePodcastEpisodeFileAction(
+            Key.D,
+            ModifierKeys.Control | ModifierKeys.Shift,
+            "podcasts",
+            itemContext: true) is null,
+        "Ctrl+Shift+D nie może zostać pomylone z pobieraniem odcinka.");
+
+    Console.WriteLine("OK: skróty pobierania i zapisu odcinków Podcastów");
 }
 
 static void TestPodcastDownloadSettingsAccessibility()
