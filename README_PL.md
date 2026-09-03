@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.222` zachowuje pozycję po wyjściu Escape z odtwarzacza do
+widoku **Nowe odcinki**. Jeżeli odcinek nadal jest nowy, fokus wraca dokładnie
+na niego. Jeżeli podczas słuchania przestał być nowy i zniknął ze skrzynki,
+AMC wybiera najbliższy odcinek w jego dawnej pozycji zamiast pierwszego wiersza
+listy. Ta sama reguła bezpiecznego powrotu obejmuje inne listy tymczasowe i
+wiersze reprezentujące odtwarzany element pośrednio.
+
 Wersja `alpha.221` chroni fokus podczas odtwarzania. Po asynchronicznym
 otwarciu albo zmianie pliku, podcastu lub stacji AMC przywraca fokus do
 odtwarzacza albo bieżącej listy, jeżeli WPF pozostawił go na niewidocznym

@@ -268,6 +268,10 @@ opisuje `PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
 - `Ctrl+I` otwiera skrzynkę **Nowe odcinki**. Litera pochodzi od powszechnego
   określenia Inbox; wcześniejsze polecenie informacji spod `Ctrl+I` zostało w
   AMC zastąpione przez `Alt+Enter`, więc skrót nie ma konfliktu.
+- Escape z odtwarzacza wraca na odcinek, z którego rozpoczęto odtwarzanie,
+  jeżeli nadal znajduje się on w skrzynce. Gdy po odsłuchaniu przestał być
+  nowy i zniknął z automatycznego widoku, fokus pozostaje w jego dawnej
+  pozycji na najbliższym odcinku; nie przeskakuje bez powodu na początek.
 - `Ctrl+Shift+I` otwiera **W trakcie słuchania**. Jest to osobna lista
   niedokończonych odcinków, a nie rozszerzenie znaczenia słowa „nowe”.
 - `Alt+D` otwiera pełny opis audycji albo odcinka jako tekst tylko do odczytu.

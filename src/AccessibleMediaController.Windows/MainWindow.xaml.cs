@@ -1161,6 +1161,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ReturnFromPlayerToList()
     {
         if (!_playerViewActive) return;
+        // Preserve the row position before rebuilding transient views. A podcast
+        // may leave "Nowe odcinki" while it is playing; in that case its ID can no
+        // longer be restored, but the nearest row at the former position can.
+        var returnFallbackIndex = MediaList.SelectedIndex;
         ApplyPlaybackPolicyWhenLeavingPlayer(
             _sessions.Current,
             PlayerDepartureReason.ReturnToList);
@@ -1180,7 +1184,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             followedPlaybackItemId = _sessions.Current.CurrentItem.Id;
             preferredItemId = followedPlaybackItemId;
         }
-        RefreshCurrentView(preferredItemId: preferredItemId);
+        RefreshCurrentView(
+            fallbackIndex: returnFallbackIndex,
+            preferredItemId: preferredItemId);
         if (followedPlaybackItemId is not null
             && string.Equals(SelectedItem?.Id, followedPlaybackItemId, StringComparison.Ordinal))
         {
@@ -7795,12 +7801,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             MediaList.SelectedIndex = -1;
             return;
         }
-        var preferredIndex = preferredItemId is null
-            ? -1
-            : filteredItems.FindIndex(row => row.Item.Id == preferredItemId);
-        MediaList.SelectedIndex = preferredIndex >= 0
-            ? preferredIndex
-            : Math.Clamp(fallbackIndex ?? 0, 0, filteredItems.Count - 1);
+        MediaList.SelectedIndex = MainWindowNavigationPolicy.ResolveListSelectionIndex(
+            filteredItems
+                .Select(row => (row.Item.Id, row.ActionItem.Id))
+                .ToArray(),
+            preferredItemId,
+            fallbackIndex);
     }
 
     private void FocusMediaList()

@@ -1,12 +1,40 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-221`
-- Tytuł zestawu: Ochrona fokusa podczas odtwarzania
-- Wersja programu: `0.1.0-alpha.221`
+- Numer zestawu: `AMC-TEST-222`
+- Tytuł zestawu: Powrót z odtwarzacza do Nowych odcinków
+- Wersja programu: `0.1.0-alpha.222`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.221.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.222.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 222
+
+### AMC-222-01 — odcinek nadal należy do skrzynki
+
+Otwórz `Ctrl+I`, przejdź kilka pozycji w dół, uruchom odcinek i przed upływem
+minuty wróć Escape.
+
+Oczekiwane: fokus wraca dokładnie na uruchomiony odcinek, a nie na pierwszy
+wiersz listy.
+
+### AMC-222-02 — odcinek znika z Nowych odcinków
+
+W `Ctrl+I` uruchom odcinek znajdujący się w środku listy. Słuchaj go co
+najmniej minutę, aby przeszedł do „W trakcie słuchania”, po czym naciśnij
+Escape.
+
+Oczekiwane: odcinek nie jest już pokazywany jako nowy, ale fokus pozostaje w
+jego dotychczasowym miejscu — na najbliższym sąsiednim odcinku. Nie wraca na
+początek skrzynki ani do pola filtrowania.
+
+### AMC-222-03 — granice listy
+
+Powtórz poprzedni test na ostatnim odcinku w skrzynce.
+
+Oczekiwane: po zniknięciu ostatniego odcinka fokus trafia na nowy ostatni
+wiersz. Jeżeli skrzynka stała się pusta, AMC pozostawia dostępny pusty widok i
+nie przenosi fokusa do innej funkcji.
 
 ## Nowości alpha 221
 

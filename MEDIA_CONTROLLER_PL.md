@@ -4,6 +4,12 @@ Wersja dokumentu: 0.7, aktualny plan projektu
 
 Data aktualizacji: 29 sierpnia 2026 r.
 
+Od `alpha.222` powrót Escape z odtwarzacza zachowuje pozycję w źródłowej
+liście. Program najpierw odnajduje ten sam element, również w wierszu
+pośrednim. Jeżeli element przestał należeć do automatycznego widoku, na
+przykład odsłuchany odcinek zniknął z **Nowych odcinków**, fokus trafia na
+najbliższy wiersz w jego dawnej pozycji zamiast na początek listy.
+
 Od `alpha.221` główne okno ma ochronę fokusa niezależną od silnika audio.
 Asynchroniczne rozpoczęcie, zakończenie, błąd albo zmiana odtwarzanego elementu
 nie mogą pozostawić fokusa na ukrytej kontrolce, natywnym pasku stanu ani samym

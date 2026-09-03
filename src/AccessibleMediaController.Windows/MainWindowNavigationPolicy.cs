@@ -42,6 +42,29 @@ internal static class MainWindowNavigationPolicy
     public static bool ShouldApplyPlaybackExitPolicy(PlayerDepartureReason reason) =>
         reason is PlayerDepartureReason.ReturnToList;
 
+    public static int ResolveListSelectionIndex(
+        IReadOnlyList<(string ItemId, string ActionItemId)> rows,
+        string? preferredItemId,
+        int? fallbackIndex)
+    {
+        if (rows.Count == 0) return -1;
+
+        if (!string.IsNullOrWhiteSpace(preferredItemId))
+        {
+            for (var index = 0; index < rows.Count; index++)
+            {
+                var row = rows[index];
+                if (string.Equals(row.ItemId, preferredItemId, StringComparison.Ordinal)
+                    || string.Equals(row.ActionItemId, preferredItemId, StringComparison.Ordinal))
+                {
+                    return index;
+                }
+            }
+        }
+
+        return Math.Clamp(fallbackIndex ?? 0, 0, rows.Count - 1);
+    }
+
     public static MainWindowFocusRecoveryTarget ResolveFocusRecoveryTarget(
         bool windowActive,
         bool ownedWindowActive,

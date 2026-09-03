@@ -81,6 +81,7 @@ try
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
     TestPlayerDeparturePlaybackPolicy();
+    TestPlayerListReturnSelection();
     TestMainWindowFocusRecoveryPolicy();
     TestPlayerAudioProcessingKeyboardMap();
     TestPlaylistPresentation();
@@ -460,6 +461,54 @@ static void TestPlayerDeparturePlaybackPolicy()
             new MediaItem { Kind = MediaItemKind.Podcast, ExternalId = "audycja-1" }) is null,
         "Nagłówek podcastu nie powinien udawać odcinka z podcastem nadrzędnym.");
     Console.WriteLine("OK: tylko jawny powrót z odtwarzacza stosuje regułę wstrzymania");
+}
+
+static void TestPlayerListReturnSelection()
+{
+    var rows = new (string ItemId, string ActionItemId)[]
+    {
+        ("odcinek-1", "odcinek-1"),
+        ("odcinek-2", "odcinek-2"),
+        ("odcinek-3", "odcinek-3")
+    };
+    Assert(
+        MainWindowNavigationPolicy.ResolveListSelectionIndex(
+            rows,
+            "odcinek-2",
+            fallbackIndex: 0) == 1,
+        "Powrót z odtwarzacza nie odnalazł tego samego odcinka.");
+
+    var inboxAfterPlayedEpisodeDisappeared = new (string ItemId, string ActionItemId)[]
+    {
+        ("odcinek-1", "odcinek-1"),
+        ("odcinek-3", "odcinek-3"),
+        ("odcinek-4", "odcinek-4")
+    };
+    Assert(
+        MainWindowNavigationPolicy.ResolveListSelectionIndex(
+            inboxAfterPlayedEpisodeDisappeared,
+            "odcinek-2",
+            fallbackIndex: 1) == 1,
+        "Po opuszczeniu skrzynki odtworzony odcinek przenosi fokus na początek listy.");
+
+    var wrappedRows = new (string ItemId, string ActionItemId)[]
+    {
+        ("zakladka-1", "odcinek-1"),
+        ("zakladka-2", "odcinek-2")
+    };
+    Assert(
+        MainWindowNavigationPolicy.ResolveListSelectionIndex(
+            wrappedRows,
+            "odcinek-2",
+            fallbackIndex: 0) == 1,
+        "Powrót nie rozpoznaje elementu opakowanego w wierszu widoku tymczasowego.");
+    Assert(
+        MainWindowNavigationPolicy.ResolveListSelectionIndex(
+            [],
+            "odcinek-2",
+            fallbackIndex: 1) == -1,
+        "Pusta lista otrzymała nieprawidłowe zaznaczenie.");
+    Console.WriteLine("OK: Escape zachowuje pozycję na liście także po zniknięciu odcinka");
 }
 
 static void TestMainWindowFocusRecoveryPolicy()

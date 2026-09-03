@@ -4,6 +4,12 @@ Document version: 0.7, current project plan
 
 Updated: 29 August 2026
 
+Since `alpha.222`, Escape from the player preserves the position in the source
+list. AMC first resolves the same playable item, including rows that wrap it
+indirectly. If the item has left an automatic view—for example, a listened-to
+episode is no longer in **New episodes**—focus moves to the nearest row at its
+former position rather than the beginning of the list.
+
 ## 1. Project goal
 
 The project is an accessible media controller with one shared core for commands, sessions and services and several equal interaction methods. It will work through both a classic window and a configurable keyboard prefix used without switching to the window.

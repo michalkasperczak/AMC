@@ -1,5 +1,12 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.222` preserves the list position when Escape returns from the
+player to **New episodes**. If the episode is still new, focus returns to that
+exact row. If listening made it leave the Inbox, AMC selects the nearest
+episode at its former position instead of jumping to the first row. The same
+safe fallback applies to other transient views and rows that indirectly wrap
+the playable item.
+
 Version `alpha.221` protects keyboard focus during playback. After an
 asynchronous file, podcast, or radio update, AMC restores focus to the player
 or current media list if WPF leaves it on a hidden or invalid element. Closing

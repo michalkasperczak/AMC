@@ -128,13 +128,17 @@ an existing RSS subscription to work.
     episode, plus **Go to podcast** from an episode in the Inbox, Favorites,
     Queue, History, a playlist, search or the player. It focuses the source
     episode and is not exposed outside Podcasts or on a show header.
-14. Next: feed discovery from ordinary pages, New episodes filtering and batch
+14. `alpha.222`: completed — Escape returns to the same New episodes row, or
+    to the nearest row at its former position if listening removed the episode
+    from the automatic Inbox; it never falls back to the first row merely
+    because the original item is no longer visible.
+15. Next: feed discovery from ordinary pages, New episodes filtering and batch
     operations.
-15. Later: cancellable downloads with local staging and atomic publication.
-16. Later: episode playlists plus OPML and AMC import/export.
-17. Later: embedded web audio and publisher-specific adapters.
-18. Later: supplied and user-authored chapters.
-19. Additional directories and account services remain optional adapters.
+16. Later: cancellable downloads with local staging and atomic publication.
+17. Later: episode playlists plus OPML and AMC import/export.
+18. Later: embedded web audio and publisher-specific adapters.
+19. Later: supplied and user-authored chapters.
+20. Additional directories and account services remain optional adapters.
 
 The keyboard map will be decided after the first working view. This design
 document does not reserve shortcuts by itself.
