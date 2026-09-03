@@ -1,5 +1,14 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.223` naprawia niepełną inicjalizację **Nowych odcinków** po
+imporcie wykonanym we wcześniejszych wersjach Podcastów. Dla każdej
+obserwowanej audycji bez nowej pozycji AMC dodaje do skrzynki tylko jej
+najnowszy nierozpoczęty odcinek. Nie przywraca odsłuchanych materiałów i nie
+zalewa skrzynki całym archiwum. `Ctrl+I` szybko otwiera zapisany stan skrzynki,
+a `F5` pobiera aktualizacje wszystkich obserwowanych kanałów. Komunikat po
+odświeżeniu rozróżnia liczbę odcinków dodanych teraz od łącznej liczby pozycji
+w skrzynce, a log wskazuje nazwę kanału, którego nie udało się odświeżyć.
+
 Wersja `alpha.222` zachowuje pozycję po wyjściu Escape z odtwarzacza do
 widoku **Nowe odcinki**. Jeżeli odcinek nadal jest nowy, fokus wraca dokładnie
 na niego. Jeżeli podczas słuchania przestał być nowy i zniknął ze skrzynki,

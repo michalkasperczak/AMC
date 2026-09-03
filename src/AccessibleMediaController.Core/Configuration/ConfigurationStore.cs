@@ -12,7 +12,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 42;
+    public const int CurrentSchemaVersion = 43;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -288,9 +288,42 @@ public sealed class ConfigurationStore
         NormalizeSessionPresets(state);
         NormalizeRadio(state);
         NormalizePodcasts(state);
+        MigrateLegacyPodcastInbox(state, sourceSchemaVersion);
         MigrateLegacyRadioPresets(state, sourceSchemaVersion);
         NormalizeSessionPresets(state);
         state.SchemaVersion = CurrentSchemaVersion;
+    }
+
+    private static void MigrateLegacyPodcastInbox(PersistedState state, int sourceSchemaVersion)
+    {
+        if (sourceSchemaVersion >= 43) return;
+
+        foreach (var subscription in state.Podcasts.Subscriptions.Where(item => item.IsInLibrary))
+        {
+            var episodes = state.Podcasts.Episodes
+                .Where(episode => string.Equals(
+                    episode.SubscriptionId,
+                    subscription.Id,
+                    StringComparison.Ordinal))
+                .ToArray();
+            if (episodes.Any(episode => episode.IsNew && !episode.IsPlayed)) continue;
+
+            var latest = episodes
+                .OrderByDescending(episode => episode.PublishedUtcTicks)
+                .FirstOrDefault();
+            if (latest is null
+                || latest.IsPlayed
+                || latest.IsStarted
+                || latest.ResumePositionTicks >= PodcastEpisodeProgress.StartedThreshold.Ticks)
+            {
+                continue;
+            }
+
+            // Early OPML imports deliberately marked the entire existing archive
+            // as old. Seed only the newest untouched entry so migration cannot
+            // flood the Inbox or resurrect an episode the user already started.
+            latest.IsNew = true;
+        }
     }
 
     private static void MigrateLegacyRadioPresets(PersistedState state, int sourceSchemaVersion)

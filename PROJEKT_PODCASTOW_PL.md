@@ -267,7 +267,11 @@ opisuje `PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
   usunięta audycja powoduje bezpieczny powrót na poziom nadrzędny.
 - `Ctrl+I` otwiera skrzynkę **Nowe odcinki**. Litera pochodzi od powszechnego
   określenia Inbox; wcześniejsze polecenie informacji spod `Ctrl+I` zostało w
-  AMC zastąpione przez `Alt+Enter`, więc skrót nie ma konfliktu.
+  AMC zastąpione przez `Alt+Enter`, więc skrót nie ma konfliktu. Polecenie nie
+  pobiera samo sieciowych aktualizacji; `F5` świadomie odświeża wszystkie
+  obserwowane kanały. Przy migracji starszego importu do skrzynki trafia
+  wyłącznie najnowszy nierozpoczęty odcinek audycji, która nie ma jeszcze
+  żadnego nowego wpisu — nigdy całe archiwum.
 - Escape z odtwarzacza wraca na odcinek, z którego rozpoczęto odtwarzanie,
   jeżeli nadal znajduje się on w skrzynce. Gdy po odsłuchaniu przestał być
   nowy i zniknął z automatycznego widoku, fokus pozostaje w jego dawnej

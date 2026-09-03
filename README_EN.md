@@ -1,5 +1,13 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.223` repairs incomplete **New episodes** initialization left by
+early Podcasts imports. For each followed show with no new entry, AMC seeds
+only its newest untouched episode. It neither restores listened-to material
+nor floods the Inbox with the full archive. `Ctrl+I` opens the stored Inbox
+immediately, while `F5` fetches every followed feed. Refresh feedback now
+separates entries discovered during that refresh from the total Inbox size,
+and diagnostics name a feed that failed to refresh.
+
 Version `alpha.222` preserves the list position when Escape returns from the
 player to **New episodes**. If the episode is still new, focus returns to that
 exact row. If listening made it leave the Inbox, AMC selects the nearest

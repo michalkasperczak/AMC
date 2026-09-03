@@ -5066,6 +5066,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CapturePodcastState();
         var success = 0;
         var addedEpisodes = 0;
+        var failed = 0;
         foreach (var subscription in subscriptions)
         {
             try
@@ -5087,7 +5088,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 or ArgumentException
                 or OperationCanceledException)
             {
-                DiagnosticLog.Warning("podcasts", $"Nie udało się odświeżyć podcastu; błąd {exception.GetType().Name}.");
+                failed++;
+                DiagnosticLog.Warning(
+                    "podcasts",
+                    $"Nie udało się odświeżyć podcastu „{subscription.Title}”; błąd {exception.GetType().Name}.");
             }
         }
 
@@ -5096,7 +5100,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (returnToLibrary) _currentView = "Biblioteka";
         RefreshCurrentView();
         QueueStateSave(announceFailure: true);
-        PrepareViewFocusContext($"Odświeżono podcasty: {success} z {subscriptions.Count}. Nowe odcinki: {addedEpisodes}");
+        var inboxCount = _state.Podcasts.Episodes.Count(episode =>
+            episode.IsNew
+            && !episode.IsPlayed
+            && _state.Podcasts.Subscriptions.Any(subscription =>
+                subscription.IsInLibrary
+                && string.Equals(subscription.Id, episode.SubscriptionId, StringComparison.Ordinal)));
+        DiagnosticLog.Info(
+            "podcasts",
+            $"Odświeżanie zakończone: poprawne {success}, nieudane {failed}, "
+            + $"dodane odcinki {addedEpisodes}, w skrzynce {inboxCount}.");
+        PrepareViewFocusContext(
+            $"Odświeżono podcasty: {success} z {subscriptions.Count}. "
+            + $"Nowe teraz: {addedEpisodes}. W skrzynce: {inboxCount}");
         RestoreMediaListFocusAfterRefresh();
     }
 

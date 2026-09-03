@@ -1,12 +1,39 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-222`
-- Tytuł zestawu: Powrót z odtwarzacza do Nowych odcinków
-- Wersja programu: `0.1.0-alpha.222`
+- Numer zestawu: `AMC-TEST-223`
+- Tytuł zestawu: Pełna inicjalizacja skrzynki Podcastów
+- Wersja programu: `0.1.0-alpha.223`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.222.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.223.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 223
+
+### AMC-223-01 — migracja dotychczasowej skrzynki
+
+Po pierwszym uruchomieniu `alpha.223` przejdź do sesji Podcasty i naciśnij
+`Ctrl+I`.
+
+Oczekiwane: skrzynka zawiera najnowsze nierozpoczęte odcinki obserwowanych
+audycji, których brakowało po wcześniejszym imporcie. Nie pojawia się całe
+archiwum liczące tysiące pozycji.
+
+### AMC-223-02 — jawne odświeżenie
+
+W widoku Nowe odcinki naciśnij `F5` i zaczekaj na zakończenie.
+
+Oczekiwane: komunikat podaje liczbę odświeżonych podcastów, odcinków dodanych
+właśnie teraz oraz wszystkich pozycji pozostających w skrzynce. `Ctrl+I` samo
+nie rozpoczyna długiego pobierania sieciowego.
+
+### AMC-223-03 — rozpoczęte odcinki
+
+Otwórz jeden z nowych odcinków, słuchaj co najmniej minutę, wróć Escape i
+ponownie otwórz `Ctrl+I`. Następnie sprawdź `Ctrl+Shift+I`.
+
+Oczekiwane: rozpoczęty odcinek znika z Nowych odcinków i pojawia się we
+„W trakcie słuchania”. Ponowne uruchomienie AMC nie oznacza go znów jako nowy.
 
 ## Nowości alpha 222
 

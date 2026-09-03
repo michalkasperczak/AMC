@@ -27,6 +27,7 @@ var tests = new (string Name, Action Test)[]
     ("Zwięzłe autorstwo podcastów", TestPodcastMetadataPresentation),
     ("Bezpieczny import list podcastów OPML", TestPodcastOpmlParsing),
     ("Aktualizacja biblioteki Podcastów", TestPodcastLibraryUpdate),
+    ("Migracja skrzynki Podcastów po starszym imporcie", TestPodcastLegacyInboxMigration),
     ("Stany odsłuchania odcinków Podcastów", TestPodcastEpisodeProgress),
     ("Trwały model Podcastów", TestPodcastStatePersistence),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
@@ -314,6 +315,54 @@ static void TestPodcastLibraryUpdate()
     Equal(TimeSpan.FromMinutes(5).Ticks, settings.Episodes.Single(item => item.Id == "episode-1").ResumePositionTicks);
     Equal(true, settings.Episodes.Single(item => item.Id == "episode-1").IsPlayed);
     Equal(true, settings.Episodes.Single(item => item.Id == "episode-2").IsNew);
+}
+
+static void TestPodcastLegacyInboxMigration()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-podcast-inbox-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(
+            Path.Combine(directory, "state.json"),
+            Path.Combine(directory, "library.db"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.SchemaVersion = 42;
+        state.Podcasts.Subscriptions =
+        [
+            new PodcastSubscriptionSettings { Id = "legacy", Title = "Starszy import", FeedUrl = "https://example.test/legacy.xml" },
+            new PodcastSubscriptionSettings { Id = "started", Title = "Rozpoczęty", FeedUrl = "https://example.test/started.xml" },
+            new PodcastSubscriptionSettings { Id = "has-new", Title = "Ma nowy", FeedUrl = "https://example.test/has-new.xml" },
+            new PodcastSubscriptionSettings { Id = "removed", Title = "Usunięty", FeedUrl = "https://example.test/removed.xml", IsInLibrary = false }
+        ];
+        state.Podcasts.Episodes =
+        [
+            new PodcastEpisodeSettings { Id = "legacy-old", SubscriptionId = "legacy", Title = "Starszy", MediaUrl = "https://cdn.example.test/legacy-old.mp3", PublishedUtcTicks = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc).Ticks, IsNew = false },
+            new PodcastEpisodeSettings { Id = "legacy-latest", SubscriptionId = "legacy", Title = "Najnowszy", MediaUrl = "https://cdn.example.test/legacy-latest.mp3", PublishedUtcTicks = new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc).Ticks, IsNew = false },
+            new PodcastEpisodeSettings { Id = "started-latest", SubscriptionId = "started", Title = "Już rozpoczęty", MediaUrl = "https://cdn.example.test/started.mp3", PublishedUtcTicks = new DateTime(2026, 9, 2, 0, 0, 0, DateTimeKind.Utc).Ticks, ResumePositionTicks = TimeSpan.FromMinutes(2).Ticks, IsNew = false },
+            new PodcastEpisodeSettings { Id = "existing-new", SubscriptionId = "has-new", Title = "Już nowy", MediaUrl = "https://cdn.example.test/existing-new.mp3", PublishedUtcTicks = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc).Ticks, IsNew = true },
+            new PodcastEpisodeSettings { Id = "has-new-latest", SubscriptionId = "has-new", Title = "Nowszy, ale archiwalny", MediaUrl = "https://cdn.example.test/has-new-latest.mp3", PublishedUtcTicks = new DateTime(2026, 9, 2, 0, 0, 0, DateTimeKind.Utc).Ticks, IsNew = false },
+            new PodcastEpisodeSettings { Id = "removed-latest", SubscriptionId = "removed", Title = "Poza Biblioteką", MediaUrl = "https://cdn.example.test/removed.mp3", PublishedUtcTicks = new DateTime(2026, 9, 2, 0, 0, 0, DateTimeKind.Utc).Ticks, IsNew = false }
+        ];
+        store.Save(state);
+
+        var migrated = store.LoadOrCreate();
+        Equal(ConfigurationStore.CurrentSchemaVersion, migrated.SchemaVersion);
+        Equal(false, migrated.Podcasts.Episodes.Single(item => item.Id == "legacy-old").IsNew);
+        Equal(true, migrated.Podcasts.Episodes.Single(item => item.Id == "legacy-latest").IsNew);
+        Equal(false, migrated.Podcasts.Episodes.Single(item => item.Id == "started-latest").IsNew);
+        Equal(true, migrated.Podcasts.Episodes.Single(item => item.Id == "existing-new").IsNew);
+        Equal(false, migrated.Podcasts.Episodes.Single(item => item.Id == "has-new-latest").IsNew);
+        Equal(false, migrated.Podcasts.Episodes.Single(item => item.Id == "removed-latest").IsNew);
+
+        store.Save(migrated);
+        var loadedAgain = store.LoadOrCreate();
+        Equal(2, loadedAgain.Podcasts.Episodes.Count(item => item.IsNew));
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
 }
 
 static void TestPodcastEpisodeProgress()

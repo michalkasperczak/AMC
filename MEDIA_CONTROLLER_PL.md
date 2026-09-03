@@ -4,6 +4,13 @@ Wersja dokumentu: 0.7, aktualny plan projektu
 
 Data aktualizacji: 29 sierpnia 2026 r.
 
+Od `alpha.223` jednorazowa migracja naprawia skrzynki utworzone przez wczesny
+import OPML. Jeżeli obserwowana audycja nie ma żadnego nowego odcinka, tylko
+jej najnowszy nierozpoczęty odcinek otrzymuje stan „nowy”. Audycje z istniejącą
+nową pozycją, materiały rozpoczęte i odtworzone oraz podcasty usunięte z
+Biblioteki pozostają bez zmian. `Ctrl+I` jest lokalnym wejściem do skrzynki;
+`F5` stanowi jawne odświeżenie sieciowe wszystkich obserwowanych kanałów.
+
 Od `alpha.222` powrót Escape z odtwarzacza zachowuje pozycję w źródłowej
 liście. Program najpierw odnajduje ten sam element, również w wierszu
 pośrednim. Jeżeli element przestał należeć do automatycznego widoku, na

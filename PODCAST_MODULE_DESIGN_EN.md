@@ -132,13 +132,16 @@ an existing RSS subscription to work.
     to the nearest row at its former position if listening removed the episode
     from the automatic Inbox; it never falls back to the first row merely
     because the original item is no longer visible.
-15. Next: feed discovery from ordinary pages, New episodes filtering and batch
+15. `alpha.223`: completed — migrate early OPML imports by seeding only the
+    newest untouched episode for a followed show whose Inbox state is empty.
+    Ctrl+I remains a local view command and F5 explicitly refreshes all feeds.
+16. Next: feed discovery from ordinary pages, New episodes filtering and batch
     operations.
-16. Later: cancellable downloads with local staging and atomic publication.
-17. Later: episode playlists plus OPML and AMC import/export.
-18. Later: embedded web audio and publisher-specific adapters.
-19. Later: supplied and user-authored chapters.
-20. Additional directories and account services remain optional adapters.
+17. Later: cancellable downloads with local staging and atomic publication.
+18. Later: episode playlists plus OPML and AMC import/export.
+19. Later: embedded web audio and publisher-specific adapters.
+20. Later: supplied and user-authored chapters.
+21. Additional directories and account services remain optional adapters.
 
 The keyboard map will be decided after the first working view. This design
 document does not reserve shortcuts by itself.

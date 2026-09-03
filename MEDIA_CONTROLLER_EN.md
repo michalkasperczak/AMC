@@ -4,6 +4,13 @@ Document version: 0.7, current project plan
 
 Updated: 29 August 2026
 
+Since `alpha.223`, a one-time migration repairs Inboxes created by early OPML
+imports. If a followed show has no new episode, only its newest untouched
+episode becomes new. Shows that already have a new entry, started or played
+episodes, and shows removed from the Library are unchanged. `Ctrl+I` opens the
+local Inbox state; `F5` explicitly refreshes every followed feed over the
+network.
+
 Since `alpha.222`, Escape from the player preserves the position in the source
 list. AMC first resolves the same playable item, including rows that wrap it
 indirectly. If the item has left an automatic view—for example, a listened-to
