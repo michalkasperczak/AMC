@@ -1,5 +1,15 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.229` dodaje dwa rozłączne sposoby zapisywania odcinków
+Podcastów. `Ctrl+D` pobiera jeden lub wiele zaznaczonych odcinków do
+domyślnego folderu ustawionego w **Ustawienia > Podcasty** i rejestruje je w
+widoku **Pobrane**. `Ctrl+S` działa dla jednego odcinka i otwiera systemowe
+okno **Zapisz jako**, nie zmieniając domyślnego folderu. Polecenia są dostępne
+na listach, w odtwarzaczu, w wynikach wyszukiwania, menu i palecie poleceń.
+Pobieranie ma ograniczenia czasu, rozmiaru i przekierowań; dopiero kompletny
+plik roboczy jest atomowo publikowany pod nazwą docelową. Istniejący plik przy
+`Ctrl+D` nie jest nadpisywany — AMC dobiera kolejny wolny numer nazwy.
+
 Wersja `alpha.227` wzmacnia ochronę fokusa podczas odtwarzania. AMC sprawdza
 teraz nie tylko logiczny fokus WPF, lecz także rzeczywisty fokus natywnego
 okna Windows. Dzięki temu osadzony pasek stanu nie może pozornie pozostawić

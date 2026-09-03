@@ -27,6 +27,7 @@ var tests = new (string Name, Action Test)[]
     ("Zwięzłe autorstwo podcastów", TestPodcastMetadataPresentation),
     ("Sortowanie skrzynki Podcastów", TestPodcastInboxOrdering),
     ("Kopiowanie opisów i adresów Podcastów", TestPodcastClipboardPresentation),
+    ("Bezpieczne nazwy pobranych odcinków Podcastów", TestPodcastDownloadNaming),
     ("Bezpieczny import list podcastów OPML", TestPodcastOpmlParsing),
     ("Aktualizacja biblioteki Podcastów", TestPodcastLibraryUpdate),
     ("Migracja skrzynki Podcastów po starszym imporcie", TestPodcastLegacyInboxMigration),
@@ -256,6 +257,7 @@ static void TestPodcastStatePersistence()
             Path.Combine(directory, "state.json"),
             Path.Combine(directory, "library.db"));
         var state = ConfigurationStore.CreateDefaultState();
+        state.Podcasts.DownloadsFolder = Path.Combine(directory, "pobrane");
         state.Podcasts.Volume = 44;
         state.Podcasts.PlaybackRate = 1.25d;
         state.Podcasts.Subscriptions.Add(new PodcastSubscriptionSettings
@@ -286,6 +288,7 @@ static void TestPodcastStatePersistence()
         Equal("podcasts", loaded.Settings.SessionSlots[6]);
         Equal(44, loaded.Podcasts.Volume);
         Equal(1.25d, loaded.Podcasts.PlaybackRate);
+        Equal(Path.Combine(directory, "pobrane"), loaded.Podcasts.DownloadsFolder);
         Equal(1, loaded.Podcasts.Subscriptions.Count);
         Equal(null, loaded.Podcasts.Subscriptions[0].HomepageUrl);
         Equal(1, loaded.Podcasts.Episodes.Count);
@@ -297,6 +300,35 @@ static void TestPodcastStatePersistence()
     finally
     {
         Directory.Delete(directory, true);
+    }
+}
+
+static void TestPodcastDownloadNaming()
+{
+    Equal(
+        "Odcinek _ specjalny_.m4a",
+        PodcastDownloadNaming.SuggestedFileName(
+            "Odcinek : specjalny?",
+            "https://cdn.example.test/audio?id=1",
+            "audio/mp4; charset=binary"));
+    Equal(
+        ".ogg",
+        PodcastDownloadNaming.ResolveExtension(
+            "https://cdn.example.test/media/episode.OGG?token=abc",
+            "audio/mpeg"));
+
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-podcast-name-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        File.WriteAllText(Path.Combine(directory, "Odcinek.mp3"), "pierwszy");
+        Equal(
+            Path.Combine(directory, "Odcinek (2).mp3"),
+            PodcastDownloadNaming.UniquePath(directory, "Odcinek.mp3"));
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
     }
 }
 

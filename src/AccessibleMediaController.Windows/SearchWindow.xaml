@@ -65,6 +65,14 @@
                               automation:AutomationProperties.Name="Utwórz lub przypisz preset aktywnej sesji, Ctrl+Alt+Shift+P"
                               automation:AutomationProperties.AcceleratorKey="Control+Alt+Shift+P"
                               Click="Preset_Click" />
+                    <MenuItem x:Name="SearchDownloadPodcastMenuItem" Header="_Pobierz odcinki" InputGestureText="Ctrl+D"
+                              automation:AutomationProperties.Name="Pobierz zaznaczone odcinki do domyślnego folderu podcastów, Ctrl+D"
+                              automation:AutomationProperties.AcceleratorKey="Control+D"
+                              Visibility="Collapsed" Click="DownloadPodcast_Click" />
+                    <MenuItem x:Name="SearchSavePodcastAsMenuItem" Header="_Zapisz odcinek jako…" InputGestureText="Ctrl+S"
+                              automation:AutomationProperties.Name="Zapisz jeden odcinek podcastu jako, Ctrl+S"
+                              automation:AutomationProperties.AcceleratorKey="Control+S"
+                              Visibility="Collapsed" Click="SavePodcastAs_Click" />
                     <MenuItem Header="_Informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.AcceleratorKey="Alt+Enter"
                               Click="Information_Click" />

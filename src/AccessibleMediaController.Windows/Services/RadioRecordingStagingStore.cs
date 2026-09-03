@@ -51,7 +51,7 @@ internal static class RadioRecordingStagingStore
             lastFailure);
     }
 
-    public static void Publish(string stagingPath, string finalPath)
+    public static void Publish(string stagingPath, string finalPath, bool overwrite = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(stagingPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(finalPath);
@@ -70,11 +70,11 @@ internal static class RadioRecordingStagingStore
         {
             try
             {
-                if (File.Exists(finalPath))
-                    throw new IOException("Plik nagrania o tej nazwie już istnieje.");
+                if (!overwrite && File.Exists(finalPath))
+                    throw new IOException("Plik o tej nazwie już istnieje.");
                 if (!File.Exists(publishingPath))
                     File.Copy(stagingPath, publishingPath, overwrite: false);
-                File.Move(publishingPath, finalPath, overwrite: false);
+                File.Move(publishingPath, finalPath, overwrite);
                 File.Delete(stagingPath);
                 return;
             }
@@ -88,7 +88,7 @@ internal static class RadioRecordingStagingStore
 
         TryDelete(publishingPath);
         throw new IOException(
-            $"Nie można zapisać gotowego nagrania w wybranym folderze. "
+            $"Nie można zapisać gotowego pliku w wybranym folderze. "
             + $"Bezpieczna kopia pozostała w: {stagingPath}",
             lastFailure);
     }

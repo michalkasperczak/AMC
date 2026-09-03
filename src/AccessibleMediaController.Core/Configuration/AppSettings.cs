@@ -229,7 +229,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 43;
+    public int SchemaVersion { get; set; } = 44;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -248,6 +248,7 @@ public sealed class PodcastSettings
 {
     public List<PodcastSubscriptionSettings> Subscriptions { get; set; } = [];
     public List<PodcastEpisodeSettings> Episodes { get; set; } = [];
+    public string? DownloadsFolder { get; set; }
     public string? CurrentItemId { get; set; }
     public int Volume { get; set; } = 35;
     public double PlaybackRate { get; set; } = 1d;

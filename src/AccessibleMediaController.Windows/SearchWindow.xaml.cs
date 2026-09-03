@@ -214,6 +214,8 @@ public partial class SearchWindow : Window
         {
             var results = action is SearchResultAction.CopyName
                 or SearchResultAction.CopyLocation
+                or SearchResultAction.Download
+                or SearchResultAction.SaveAs
                 or SearchResultAction.PlayNext
                 or SearchResultAction.Queue
                 or SearchResultAction.Favorite
@@ -414,6 +416,10 @@ public partial class SearchWindow : Window
             action = SearchResultAction.CopyName;
         else if (key == Key.C && modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
             action = SearchResultAction.CopyLocation;
+        else if (key == Key.D && modifiers == ModifierKeys.Control)
+            action = SearchResultAction.Download;
+        else if (key == Key.S && modifiers == ModifierKeys.Control)
+            action = SearchResultAction.SaveAs;
 
         if (action is null) return;
         CompleteSelected(action.Value);
@@ -475,6 +481,8 @@ public partial class SearchWindow : Window
     private void GoToPodcast_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.GoToPodcast);
     private void CopyName_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.CopyName);
     private void CopyLocation_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.CopyLocation);
+    private void DownloadPodcast_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.Download);
+    private void SavePodcastAs_Click(object sender, RoutedEventArgs e) => CompleteSelected(SearchResultAction.SaveAs);
     private void ResultsList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => CompleteSelected(SearchResultAction.Open);
 
     private void ResultsContextMenu_Opened(object sender, RoutedEventArgs e)
@@ -489,6 +497,14 @@ public partial class SearchWindow : Window
         var selected = GetSelectedResults();
         var podcastsOnly = selected.Length > 0 && selected.All(result =>
             string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase));
+        var podcastEpisodesOnly = podcastsOnly
+            && selected.All(result => result.Item.Kind == MediaItemKind.Episode);
+        SearchDownloadPodcastMenuItem.Visibility = podcastEpisodesOnly
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        SearchSavePodcastAsMenuItem.Visibility = podcastEpisodesOnly && selected.Length == 1
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         MenuAccessibility.SetPresentation(
             SearchCopyNameMenuItem,
             podcastsOnly ? "Kopiuj opisy i strony odcinków" : "Kopiuj nazwy");
@@ -538,5 +554,7 @@ public enum SearchResultAction
     GoToPodcast,
     Information,
     CopyName,
-    CopyLocation
+    CopyLocation,
+    Download,
+    SaveAs
 }

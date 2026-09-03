@@ -95,6 +95,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.RadioWakeScheduledRecordings => (RadioTab, WakeScheduledRadioRecordingsCheck),
             SettingsTarget.RadioAutomaticTrackRecognition => (RadioTab, AutomaticTrackRecognitionCheck),
             SettingsTarget.RadioRecognitionScope => (RadioTab, RadioRecognitionScopeCombo),
+            SettingsTarget.PodcastDownloadsFolder => (PodcastsTab, PodcastDownloadsFolderBox),
             SettingsTarget.KeyboardProfile => (KeyboardProfilesTab, ProfileCombo),
             SettingsTarget.ActivateKeyboardProfile => (KeyboardProfilesTab, ActivateProfileButton),
             SettingsTarget.DuplicateKeyboardProfile => (KeyboardProfilesTab, DuplicateProfileButton),
@@ -158,6 +159,10 @@ public partial class SettingsWindow : Window
             RadioRecognitionScopeCombo,
             _workingState.Radio.AutomaticTrackRecognitionScope.ToString());
         UpdateRadioRecordingControls();
+
+        PodcastDownloadsFolderBox.Text = string.IsNullOrWhiteSpace(_workingState.Podcasts.DownloadsFolder)
+            ? PodcastDownloadFolderResolver.DefaultFolder()
+            : _workingState.Podcasts.DownloadsFolder;
 
         MessagesEnabledCheck.IsChecked = _workingState.Settings.Messages.Enabled;
         DetailedHintsCheck.IsChecked = _workingState.Settings.Messages.DetailedHints;
@@ -233,6 +238,10 @@ public partial class SettingsWindow : Window
         {
             _workingState.Radio.AutomaticTrackRecognitionScope = recognitionScope;
         }
+        var podcastFolder = PodcastDownloadsFolderBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(podcastFolder) || !Path.IsPathFullyQualified(podcastFolder))
+            throw new InvalidDataException("Domyślny folder pobierania podcastów musi zawierać pełną ścieżkę.");
+        _workingState.Podcasts.DownloadsFolder = Path.GetFullPath(podcastFolder);
         if (!int.TryParse(TimeoutBox.Text, out var timeout) || timeout is < 250 or > 30000)
         {
             throw new InvalidDataException("Czas prefiksu musi mieścić się między 250 a 30000 ms.");
@@ -510,6 +519,21 @@ public partial class SettingsWindow : Window
     {
         var music = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
         return Path.Combine(music, "AMC — Nagrania radia");
+    }
+
+    private void BrowsePodcastDownloadsFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Wybierz domyślny folder pobierania podcastów",
+            Multiselect = false
+        };
+        if (Directory.Exists(PodcastDownloadsFolderBox.Text))
+            dialog.InitialDirectory = PodcastDownloadsFolderBox.Text;
+        if (dialog.ShowDialog(this) != true) return;
+        PodcastDownloadsFolderBox.Text = dialog.FolderName;
+        PodcastDownloadsFolderBox.Focus();
+        Keyboard.Focus(PodcastDownloadsFolderBox);
     }
     private void ListFieldOrderList_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateListFieldPreview();
     private void ListFieldOrderList_PreviewKeyDown(object sender, KeyEventArgs e)

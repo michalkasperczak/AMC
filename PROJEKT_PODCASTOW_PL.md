@@ -1,8 +1,8 @@
 # Projekt modułu podcastów AMC
 
-Status: etap subskrypcji i pierwszego odtwarzania jest ukończony. `alpha.211`
-oczyszcza użytkową prezentację autora z początkowych oznaczeń praw autorskich
-i zrównuje Escape z Backspace na zagnieżdżonych listach.
+Status: etap subskrypcji, odtwarzania i jawnego pobierania jest ukończony.
+`alpha.229` rozdziela szybkie pobieranie `Ctrl+D` od interaktywnego
+`Ctrl+S`, udostępnia trwały domyślny folder i zasila widok **Pobrane**.
 Działa trwała sesja, bezpieczne dodawanie bezpośrednich kanałów RSS/Atom,
 dostępny import OPML, odświeżanie metadanych, przejście z audycji do jej
 odcinków oraz odtwarzanie skończonych materiałów HTTP/HTTPS we wspólnym
@@ -100,10 +100,19 @@ Nieukończone pobranie pozostaje lokalnym plikiem roboczym poza chmurą, a do
 folderu użytkownika trafia dopiero ukończony plik przez bezpieczną publikację
 stosowaną przy nagraniach Radia.
 
-`Ctrl+D` w sesji Podcasty będzie znaczyć **Pobierz odcinek** i zadziała także
-na ciągłym zaznaczeniu wielu odcinków. Na nagłówku całej audycji nie uruchomi
+`Ctrl+D` w sesji Podcasty znaczy **Pobierz odcinek** i działa także
+na ciągłym zaznaczeniu wielu odcinków. Zapisuje bez dalszych pytań do
+domyślnego folderu z **Ustawienia > Podcasty**, zapamiętuje lokalizację przy
+odcinku i udostępnia go w widoku **Pobrane**. Gdy nazwa już istnieje, program
+wybiera kolejno wariant „(2)”, „(3)” i nigdy po cichu nie nadpisuje pliku.
+Na nagłówku całej audycji nie uruchomi
 bez ostrzeżenia pobierania całego archiwum; taka operacja będzie dostępna
 wyłącznie jako jawne polecenie z zakresem i potwierdzeniem.
+
+`Ctrl+S` znaczy **Zapisz odcinek jako**. Działa wyłącznie dla jednego odcinka,
+otwiera standardowe okno wyboru nazwy i folderu oraz nie zmienia domyślnego
+folderu ani rekordu widoku **Pobrane**. Jest przeznaczone do jednorazowego
+eksportu w wybrane miejsce.
 
 Kopiowanie rozróżnia adres dla człowieka i adres techniczny:
 
@@ -191,8 +200,9 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
     odsłuchanego odcinka, naprawa inicjalizacji Nowych odcinków po dawnym
     imporcie oraz bezpieczne przejście z wyszukiwania do Biblioteki albo
     właściwej audycji bez ujawniania płaskiego indeksu wszystkich rekordów.
-13. Jawne Pobierz/Usuń pobranie i `Ctrl+D`, kolejka pobierania,
-   anulowanie, postęp i atomowa publikacja gotowego pliku. Części robocze
+13. `alpha.229` — zrealizowane: jawne `Ctrl+D` do domyślnego folderu,
+   wielokrotne zaznaczenie, `Ctrl+S` jako zapis jednego odcinka pod wskazaną
+   nazwą, postęp i atomowa publikacja gotowego pliku. Części robocze
    pozostają poza iCloud, OneDrive, Dyskiem Google i innymi folderami
    synchronizowanymi.
 14. Playlisty odcinków, import i eksport OPML, osobny eksport
@@ -346,11 +356,11 @@ Domyślne zasady widoków są następujące:
 - ustawienie sortowania jest pamiętane osobno dla Biblioteki, skrzynki i każdej
   playlisty. Tymczasowy `Ctrl+K` nie zmienia zapisanej reguły sortowania.
 
-W Podcastach `Ctrl+S` zostaje przeznaczony na świadome zapisanie audio jednego
-lub wielu zaznaczonych odcinków. Nie działa na nagłówku całej audycji bez
-osobnego wyboru zakresu i potwierdzenia. Pobieranie ma używać lokalnego pliku
-roboczego, anulowania, postępu i atomowej publikacji, tak samo bezpiecznie jak
-nagrania Radia.
+W Podcastach `Ctrl+D` pobiera jeden lub wiele zaznaczonych odcinków do
+zapamiętanego folderu, a `Ctrl+S` zapisuje jako dokładnie jeden odcinek w
+wybranym miejscu. Żadne z poleceń nie działa na nagłówku całej audycji.
+Pobieranie używa lokalnego pliku roboczego, anulowania, postępu i atomowej
+publikacji, tak samo bezpiecznie jak nagrania Radia.
 
 ## 10. Granica pierwszej wersji
 
@@ -361,5 +371,5 @@ Pierwsze pobranie zachowuje starsze archiwum wewnątrz audycji, ale nie oznacza
 go całego jako nowe. Dopiero odcinki odnalezione podczas późniejszego
 odświeżenia trafiają do podstawowej skrzynki **Nowe odcinki**. Odświeżanie
 nigdy nie pobiera zawartości plików audio. Jawne pobieranie do widoku
-**Pobrane**, katalog Apple i wydobywanie audio ze zwykłych stron pozostają
-kolejnymi etapami; ich brak nie oznacza błędu odtwarzania `alpha.206`.
+**Pobrane** jest dostępne od `alpha.229`, a katalog Apple od `alpha.217`.
+Wydobywanie audio ze zwykłych stron pozostaje kolejnym etapem.

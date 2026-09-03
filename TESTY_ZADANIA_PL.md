@@ -1,12 +1,60 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-227`
-- Tytuł zestawu: Stabilny fokus podczas odtwarzania
-- Wersja programu: `0.1.0-alpha.227`
+- Numer zestawu: `AMC-TEST-229`
+- Tytuł zestawu: Pobieranie i zapisywanie odcinków Podcastów
+- Wersja programu: `0.1.0-alpha.229`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.227.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.229.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 229
+
+### AMC-229-01 — domyślny folder i Ctrl+D
+
+W **Ustawienia > Podcasty** wybierz pusty folder. Na liście odcinków zaznacz
+jeden odcinek i naciśnij `Ctrl+D`.
+
+Oczekiwane: AMC pobiera odcinek bez drugiego pytania, ogłasza zakończenie,
+tworzy kompletny plik w wybranym folderze i pokazuje odcinek w widoku
+**Pobrane**. Fokus wraca na ten sam odcinek.
+
+### AMC-229-02 — wielokrotne pobieranie
+
+Zaznacz Shiftem dwa albo trzy odcinki, także w wynikach `Ctrl+F`, i naciśnij
+`Ctrl+D`. Po zakończeniu powtórz polecenie na tych samych pozycjach.
+
+Oczekiwane: pierwsze polecenie pobiera cały zaznaczony zakres i podaje
+podsumowanie. Drugie nie pobiera ponownie odcinków już zapisanych przez AMC.
+Wyszukiwanie pozostaje otwarte i zachowuje fokus.
+
+### AMC-229-03 — Ctrl+S jako Zapisz jako
+
+Wybierz jeden odcinek i naciśnij `Ctrl+S`. Zapisz go pod inną nazwą poza
+folderem domyślnym. Następnie zaznacz kilka odcinków i ponów skrót.
+
+Oczekiwane: dla jednego odcinka pojawia się systemowe okno **Zapisz jako**.
+Wielokrotne zaznaczenie daje jasny komunikat i nie otwiera kilku okien.
+Jednorazowy eksport nie zmienia folderu skonfigurowanego dla `Ctrl+D`.
+
+### AMC-229-04 — menu, paleta i NVDA
+
+Sprawdź menu Plik, menu kontekstowe listy i odtwarzacza, wyniki wyszukiwania,
+paletę `Ctrl+Shift+K` oraz Pomoc klawiatury `Ctrl+F1`.
+
+Oczekiwane: pozycje pojawiają się tylko dla odcinków Podcastów, mają czytelne
+nazwy `Ctrl+D` i `Ctrl+S`, nie ujawniają identyfikatorów ani reprezentacji
+rekordów. Na nagłówku podcastu i w innych sesjach nie sugerują pobrania całego
+archiwum.
+
+### AMC-229-05 — odporność przerwanego pobierania
+
+Jeżeli możesz, rozpocznij pobieranie większego odcinka i przerwij sieć albo
+zamknij AMC przed końcem. Po ponownym uruchomieniu sprawdź folder docelowy.
+
+Oczekiwane: pod końcową nazwą nie ma pustego ani urwanego pliku. Ponowne
+`Ctrl+D` może zacząć czyste pobieranie, a folder synchronizowany przez iCloud,
+OneDrive lub Dysk Google nie otrzymuje pliku częściowego jako gotowego.
 
 ## Nowości alpha 227
 

@@ -119,6 +119,7 @@ public static class CommandIds
     public const string ViewDownloads = "view.downloads";
     public const string DownloadInService = "action.download.inService";
     public const string DownloadToDisk = "action.download.toDisk";
+    public const string SavePodcastAs = "podcast.episode.saveAs";
     public const string Help = "view.help";
     public const string KeyboardHelp = "view.keyboardHelp";
     public const string OpenLocalFiles = "local.openFiles";

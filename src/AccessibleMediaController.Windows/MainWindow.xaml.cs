@@ -86,7 +86,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly RadioBrowserClient _radioCatalog = new();
     private readonly PodcastFeedClient _podcastFeedClient = new();
     private readonly ApplePodcastDirectoryClient _applePodcastDirectory = new();
+    private readonly PodcastEpisodeDownloader _podcastDownloader = new();
     private readonly CancellationTokenSource _podcastCancellation = new();
+    private readonly HashSet<string> _podcastDownloadsInProgress = new(StringComparer.Ordinal);
     private RadioMediaOutput _radioOutput = null!;
     private readonly ITrackRecognitionService _trackRecognitionService = new ShazamTrackRecognitionService();
     private readonly CancellationTokenSource _trackRecognitionCancellation = new();
@@ -3525,7 +3527,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Alt+Enter otwiera jedno dostępne okno Właściwości i informacje. " +
             "Ctrl+K, Ctrl+F i Ctrl+Shift+F nie opuszczają odtwarzacza; wyszukiwanie jest dostępne po powrocie do listy. " +
             "Skróty widoków opuszczają odtwarzacz, a F6 wraca do niego. " +
-            "Ctrl+C kopiuje nazwy wszystkich zaznaczonych elementów, po jednej w wierszu; Ctrl+Shift+C kopiuje pełne ścieżki i fizyczne pliki lokalne. W Podcastach Ctrl+C kopiuje nazwę, opis i publiczną stronę każdego zaznaczonego odcinka, a Ctrl+Shift+C wyłącznie bezpośrednie adresy audio. " +
+            "Ctrl+C kopiuje nazwy wszystkich zaznaczonych elementów, po jednej w wierszu; Ctrl+Shift+C kopiuje pełne ścieżki i fizyczne pliki lokalne. W Podcastach Ctrl+C kopiuje nazwę, opis i publiczną stronę każdego zaznaczonego odcinka, a Ctrl+Shift+C wyłącznie bezpośrednie adresy audio. Ctrl+D pobiera zaznaczone odcinki do domyślnego folderu Podcastów, a Ctrl+S zapisuje jeden odcinek pod wskazaną nazwą. " +
             "Delete usuwa z bieżącego widoku. W Historii odtwarzania usuwa tylko wpis Historii, bez zmiany Biblioteki i pliku. W lokalnej Bibliotece i na pliku w widoku Foldery usuwa tylko wpis z Biblioteki AMC, a plik pozostawia na dysku; na wierszu folderu nie usuwa niczego. W odtwarzaczu lokalnym Delete również usuwa tylko wpis z AMC i pozostawia plik na dysku. Shift+Delete działa wyłącznie na listach i po potwierdzeniu przenosi zaznaczone pliki do systemowego Kosza. Backspace nigdy nie usuwa: wraca do poziomu nadrzędnego, a w polu tekstowym kasuje znak. " +
             "Alt+strzałka w lewo i w prawo przechodzi po osobnej historii widoków. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
@@ -3774,6 +3776,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AddPodcastMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         ImportPodcastOpmlMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         RefreshAllPodcastsMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
+        var selectedPodcastEpisodes = podcasts
+            && ActionItems.Count > 0
+            && ActionItems.All(item => item.Kind == MediaItemKind.Episode);
+        DownloadPodcastEpisodeMainMenuItem.Visibility = selectedPodcastEpisodes
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        SavePodcastEpisodeAsMainMenuItem.Visibility = selectedPodcastEpisodes
+            && ActionItems.Count == 1
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         FileActionsSeparator.Visibility = local || radio || podcasts ? Visibility.Visible : Visibility.Collapsed;
         var collectionSorting = CurrentViewSupportsCollectionSorting();
         var localLibraryLayouts = local && !collectionSorting;
@@ -5166,6 +5178,212 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         EnsureQueueOrder(session);
     }
 
+    private async Task DownloadPodcastEpisodesAsync(
+        IReadOnlyList<MediaItem> requestedItems,
+        bool saveAs,
+        bool restoreListFocus)
+    {
+        var wasPlayerActive = _playerViewActive;
+        var preferredItemId = requestedItems.FirstOrDefault()?.Id ?? SelectedItem?.Id;
+        var episodes = requestedItems
+            .Where(item => item.Kind == MediaItemKind.Episode)
+            .Select(item => _state.Podcasts.Episodes.FirstOrDefault(episode =>
+                string.Equals(episode.Id, item.Id, StringComparison.Ordinal)))
+            .Where(episode => episode is not null)
+            .Select(episode => episode!)
+            .DistinctBy(episode => episode.Id, StringComparer.Ordinal)
+            .ToArray();
+        if (episodes.Length == 0)
+        {
+            Announce("Zaznacz co najmniej jeden odcinek podcastu");
+            RestorePodcastDownloadFocus(wasPlayerActive, restoreListFocus);
+            return;
+        }
+        if (saveAs && episodes.Length != 1)
+        {
+            Announce("Zapisz jako działa dla jednego odcinka. Wybierz jeden odcinek i spróbuj ponownie");
+            RestorePodcastDownloadFocus(wasPlayerActive, restoreListFocus);
+            return;
+        }
+
+        string destinationFolder;
+        try
+        {
+            destinationFolder = saveAs
+                ? PodcastDownloadFolderResolver.ResolveDialogInitialFolder(_state.Podcasts.DownloadsFolder)
+                : PodcastDownloadFolderResolver.Resolve(_state.Podcasts.DownloadsFolder);
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or NotSupportedException)
+        {
+            DiagnosticLog.Warning("podcast-download", $"Folder docelowy jest niedostępny; błąd {exception.GetType().Name}.");
+            AnnounceEssential($"Nie można użyć folderu pobierania podcastów: {exception.Message}");
+            RestorePodcastDownloadFocus(wasPlayerActive, restoreListFocus);
+            return;
+        }
+
+        string? saveAsPath = null;
+        if (saveAs)
+        {
+            var episode = episodes[0];
+            var suggestedName = PodcastDownloadNaming.SuggestedFileName(
+                episode.Title,
+                episode.MediaUrl,
+                episode.MediaType);
+            var extension = Path.GetExtension(suggestedName);
+            var dialog = new SaveFileDialog
+            {
+                Title = "Zapisz odcinek podcastu jako",
+                InitialDirectory = destinationFolder,
+                FileName = suggestedName,
+                DefaultExt = extension,
+                AddExtension = true,
+                OverwritePrompt = true,
+                Filter = $"Plik audio (*{extension})|*{extension}|Wszystkie pliki (*.*)|*.*"
+            };
+            if (dialog.ShowDialog(this) != true)
+            {
+                RestorePodcastDownloadFocus(wasPlayerActive, restoreListFocus);
+                return;
+            }
+            saveAsPath = dialog.FileName;
+        }
+
+        var downloaded = 0;
+        var alreadyDownloaded = 0;
+        var failed = 0;
+        var downloadedEpisodeIds = new List<string>();
+        for (var index = 0; index < episodes.Length; index++)
+        {
+            var episode = episodes[index];
+            if (!_podcastDownloadsInProgress.Add(episode.Id))
+            {
+                failed++;
+                continue;
+            }
+            try
+            {
+                if (!saveAs
+                    && !string.IsNullOrWhiteSpace(episode.DownloadPath)
+                    && File.Exists(episode.DownloadPath))
+                {
+                    alreadyDownloaded++;
+                    continue;
+                }
+                if (!Uri.TryCreate(episode.MediaUrl, UriKind.Absolute, out var source)
+                    || source.Scheme is not ("http" or "https"))
+                {
+                    failed++;
+                    DiagnosticLog.Warning("podcast-download", $"Odcinek {episode.Id} nie ma prawidłowego adresu audio.");
+                    continue;
+                }
+
+                var destinationPath = saveAsPath ?? PodcastDownloadNaming.UniquePath(
+                    destinationFolder,
+                    PodcastDownloadNaming.SuggestedFileName(
+                        episode.Title,
+                        episode.MediaUrl,
+                        episode.MediaType));
+                StatusText.Text = episodes.Length == 1
+                    ? $"Pobieranie odcinka: {episode.Title}"
+                    : $"Pobieranie {index + 1} z {episodes.Length}: {episode.Title}";
+                var lastProgressUtc = DateTime.MinValue;
+                var progress = new Progress<PodcastDownloadProgress>(value =>
+                {
+                    if (_isClosing || DateTime.UtcNow - lastProgressUtc < TimeSpan.FromSeconds(1)) return;
+                    lastProgressUtc = DateTime.UtcNow;
+                    StatusText.Text = value.TotalBytes is > 0
+                        ? $"Pobieranie {index + 1} z {episodes.Length}: {Math.Clamp(value.BytesReceived * 100 / value.TotalBytes.Value, 0, 100)}%"
+                        : $"Pobieranie {index + 1} z {episodes.Length}: {FormatFileSize(value.BytesReceived)}";
+                });
+                var result = await _podcastDownloader.DownloadAsync(
+                    source,
+                    destinationPath,
+                    progress,
+                    _podcastCancellation.Token,
+                    overwrite: saveAs);
+                if (!saveAs)
+                {
+                    episode.DownloadPath = result.Path;
+                    downloadedEpisodeIds.Add(episode.Id);
+                }
+                downloaded++;
+                DiagnosticLog.Info(
+                    "podcast-download",
+                    $"Zapisano odcinek {episode.Id}; bajty {result.BytesWritten}; tryb {(saveAs ? "save-as" : "downloads")}.");
+            }
+            catch (OperationCanceledException) when (_isClosing || _podcastCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (OperationCanceledException)
+            {
+                failed++;
+                DiagnosticLog.Warning(
+                    "podcast-download",
+                    $"Pobieranie odcinka {episode.Id} przekroczyło czas oczekiwania.");
+                if (episodes.Length == 1)
+                    AnnounceEssential("Nie można pobrać odcinka: przekroczono czas oczekiwania");
+            }
+            catch (Exception exception) when (exception is HttpRequestException
+                or IOException
+                or UnauthorizedAccessException
+                or InvalidDataException
+                or ArgumentException
+                or NotSupportedException
+                or TimeoutException)
+            {
+                failed++;
+                DiagnosticLog.Warning(
+                    "podcast-download",
+                    $"Nie udało się pobrać odcinka {episode.Id}; błąd {exception.GetType().Name}.");
+                if (episodes.Length == 1)
+                    AnnounceEssential($"Nie można pobrać odcinka: {exception.Message}");
+            }
+            finally
+            {
+                _podcastDownloadsInProgress.Remove(episode.Id);
+            }
+        }
+
+        if (!saveAs && downloadedEpisodeIds.Count > 0)
+        {
+            CapturePodcastState();
+            ReloadPodcastSessionItems();
+            QueueStateSave(announceFailure: true);
+            if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+                RefreshCurrentView(preferredItemId: preferredItemId);
+        }
+
+        if (episodes.Length > 1)
+        {
+            var parts = new List<string> { $"Pobrano: {downloaded}" };
+            if (alreadyDownloaded > 0) parts.Add($"już pobrane: {alreadyDownloaded}");
+            if (failed > 0) parts.Add($"niepowodzenia: {failed}");
+            AnnounceEssential(string.Join(". ", parts));
+        }
+        else if (downloaded > 0)
+        {
+            AnnounceEssential(saveAs
+                ? $"Zapisano odcinek jako: {Path.GetFileName(saveAsPath)}"
+                : $"Pobrano odcinek: {episodes[0].Title}");
+        }
+        else if (alreadyDownloaded > 0)
+        {
+            AnnounceEssential($"Odcinek jest już pobrany: {episodes[0].Title}");
+        }
+        RestorePodcastDownloadFocus(wasPlayerActive, restoreListFocus);
+    }
+
+    private void RestorePodcastDownloadFocus(bool wasPlayerActive, bool restoreListFocus)
+    {
+        if (!restoreListFocus || _isClosing) return;
+        if (wasPlayerActive && _playerViewActive) FocusPlayerView();
+        else RestoreMediaListFocusAfterRefresh();
+    }
+
     private bool TryResolveCurrentPodcastSubscription(out PodcastSubscriptionSettings subscription)
     {
         string? subscriptionId = null;
@@ -6353,6 +6571,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.RefreshPodcastLibrary)
         {
             _ = RefreshAllPodcastsAsync();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.DownloadInService
+            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+        {
+            _ = DownloadPodcastEpisodesAsync(ActionItems, saveAs: false, restoreListFocus: true);
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.SavePodcastAs)
+        {
+            _ = DownloadPodcastEpisodesAsync(ActionItems, saveAs: true, restoreListFocus: true);
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.ViewPodcastInbox)
@@ -11837,6 +12066,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return false;
         }
 
+        if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && (_playerViewActive || MediaList.IsKeyboardFocusWithin))
+        {
+            if (modifiers == ModifierKeys.Control && key == Key.D)
+            {
+                commandId = CommandIds.DownloadInService;
+                return true;
+            }
+            if (modifiers == ModifierKeys.Control && key == Key.S)
+            {
+                commandId = CommandIds.SavePodcastAs;
+                return true;
+            }
+        }
+
         if (modifiers == ModifierKeys.Alt
             && key == Key.D
             && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
@@ -11992,6 +12236,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : "przejdź do nowszego elementu historii odtwarzania";
         else if (_playerViewActive && modifiers == ModifierKeys.None && key == Key.Delete)
             description = "usuń bieżący element z Biblioteki AMC, pozostawiając plik na dysku";
+        else if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+                 && (_playerViewActive || MediaList.IsKeyboardFocusWithin)
+                 && modifiers == ModifierKeys.Control && key == Key.D)
+            description = "pobierz zaznaczone odcinki do domyślnego folderu podcastów";
+        else if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+                 && (_playerViewActive || MediaList.IsKeyboardFocusWithin)
+                 && modifiers == ModifierKeys.Control && key == Key.S)
+            description = "zapisz jeden odcinek podcastu jako";
         else if ((_playerViewActive || MediaList.IsKeyboardFocusWithin)
                  && modifiers == ModifierKeys.Control && key == Key.C)
             description = "kopiuj nazwy zaznaczonych elementów";
@@ -12823,6 +13075,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             return CopySearchResultLocations(results);
         }
+        if (action is SearchResultAction.Download or SearchResultAction.SaveAs)
+        {
+            var episodes = results
+                .Where(result => string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase))
+                .Select(result => result.Item)
+                .Where(item => item.Kind == MediaItemKind.Episode)
+                .DistinctBy(item => item.Id, StringComparer.Ordinal)
+                .ToArray();
+            if (episodes.Length != results.Count)
+                return "Pobieranie jest dostępne dla odcinków podcastów";
+            if (action == SearchResultAction.SaveAs && episodes.Length != 1)
+                return "Zapisz jako działa dla jednego odcinka";
+            _ = DownloadPodcastEpisodesAsync(
+                episodes,
+                saveAs: action == SearchResultAction.SaveAs,
+                restoreListFocus: false);
+            return action == SearchResultAction.SaveAs
+                ? "Wybierz nazwę i folder zapisu odcinka"
+                : episodes.Length == 1
+                    ? "Rozpoczęto pobieranie odcinka"
+                    : $"Rozpoczęto pobieranie odcinków: {episodes.Length}";
+        }
         if (results.All(IsApplePodcastDirectoryResult)
             && action is SearchResultAction.Library or SearchResultAction.Favorite)
         {
@@ -13150,6 +13424,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _radioCatalog.Dispose();
         _applePodcastDirectory.Dispose();
         _podcastFeedClient.Dispose();
+        _podcastDownloader.Dispose();
         _podcastCancellation.Dispose();
         _trackRecognitionCancellation.Dispose();
         CaptureRadioState();
@@ -13300,6 +13575,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ImportPodcastOpml_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ImportPodcastOpml);
     private void RefreshAllPodcasts_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.RefreshPodcastLibrary);
     private void RefreshPodcast_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.RefreshPodcast);
+    private void DownloadPodcastEpisode_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.DownloadInService);
+    private void SavePodcastEpisodeAs_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.SavePodcastAs);
+    private void FileMenuItem_SubmenuOpened(object sender, RoutedEventArgs e) =>
+        UpdateFileMenuForCurrentSession();
     private void AddRadioStation_Click(object sender, RoutedEventArgs e) => AddRadioStation();
     private void RadioRecording_Click(object sender, RoutedEventArgs e) => ToggleRadioRecording();
     private void PauseRadioRecording_Click(object sender, RoutedEventArgs e) => ToggleSelectedRadioRecordingPause();
@@ -13344,6 +13625,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && (MediaList.SelectedItem as MediaItemRow)?.FolderPath is not null;
         var podcastHeader = podcastSession && actionItem?.Kind == MediaItemKind.Podcast;
         var podcastEpisode = podcastSession && actionItem?.Kind == MediaItemKind.Episode;
+        var podcastEpisodes = podcastSession
+            && items.Count > 0
+            && items.All(item => item.Kind == MediaItemKind.Episode);
         var membershipItems = playlistContext?.Items
             ?? (folderNavigationRow
                 && TryResolveSelectedFolderContents(out var folderContext)
@@ -13367,6 +13651,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             playbackLabel,
             localAlbumContainer || playlistContainer || folderNavigationRow || podcastHeader ? "Enter" : "Ctrl+Enter");
         RefreshPodcastMenuItem.Visibility = podcastHeader || podcastEpisode
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        DownloadPodcastEpisodeMenuItem.Visibility = podcastEpisodes
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        SavePodcastEpisodeAsMenuItem.Visibility = podcastEpisode && items.Count == 1
             ? Visibility.Visible
             : Visibility.Collapsed;
         var radioStationSelected = radioSession
@@ -13770,6 +14060,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         PlayerGoToPodcastMenuItem.Visibility = FindRelatedPodcast(item) is not null
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        var podcastEpisode = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && item.Kind == MediaItemKind.Episode;
+        PlayerDownloadPodcastEpisodeMenuItem.Visibility = podcastEpisode
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        PlayerSavePodcastEpisodeAsMenuItem.Visibility = podcastEpisode
             ? Visibility.Visible
             : Visibility.Collapsed;
         if (radioSession)

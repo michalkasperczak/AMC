@@ -1806,3 +1806,21 @@ zapamiętane miejsce powrotu `Ctrl+L`. Polecenie jest kontekstowe: nie pojawia
 się przy nagłówku audycji, w innej sesji ani wtedy, gdy podcast nadrzędny nie
 należy już do Biblioteki. Ma pozycję w menu kontekstowym i palecie poleceń, ale
 nie zajmuje nowego domyślnego skrótu; profil użytkownika może go przypisać.
+
+### 7.16. Pobieranie i jednorazowy zapis odcinków Podcastów
+
+Od `alpha.229` `Ctrl+D` pobiera zaznaczone odcinki Podcastów do trwałego,
+domyślnego folderu wybieranego w Ustawieniach. Obsługuje ciągłe zaznaczenie
+wielu odcinków i po powodzeniu zapisuje lokalizację przy każdym odcinku, dzięki
+czemu pojawia się on w widoku **Pobrane**. `Ctrl+S` działa dla jednego odcinka,
+otwiera standardowe **Zapisz jako** i służy jednorazowemu eksportowi bez
+zmiany folderu domyślnego ani rekordu Pobranych. Oba polecenia działają na
+liście, w odtwarzaczu i w wynikach wyszukiwania; nagłówek podcastu nie jest
+niejawnie traktowany jako całe archiwum do pobrania.
+
+Treść sieciowa trafia najpierw do lokalnego pliku roboczego poza folderem
+chmurowym. Klient ogranicza liczbę przekierowań, czas oczekiwania i rozmiar,
+sprawdza deklarowaną długość oraz nie publikuje pustego ani urwanego pliku.
+Dopiero zamknięty, kompletny plik jest przenoszony pod nazwę docelową. Przy
+`Ctrl+D` kolizja nazw tworzy bezpiecznie kolejny numer, a `Ctrl+S` korzysta z
+systemowego potwierdzenia zastąpienia.

@@ -75,8 +75,10 @@ try
     TestAudioOutputPauseRaceGuard();
     TestPodcastNetworkSourcePolicy();
     TestPodcastFeedClient();
+    TestPodcastEpisodeDownloader();
     TestApplePodcastDirectoryClient();
     TestPodcastOpmlImportSelectionAccessibility();
+    TestPodcastDownloadSettingsAccessibility();
     TestRadioPresetAccessibleLabels();
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
@@ -3688,6 +3690,127 @@ static void TestPodcastFeedClient()
     Assert(handler.Requests.All(uri => uri.Host == "example.test"), "Klient pobrał plik audio zamiast samych metadanych kanału.");
 
     Console.WriteLine("OK: ograniczony klient kanałów podcastów");
+}
+
+static void TestPodcastEpisodeDownloader()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-podcast-download-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var payload = Encoding.UTF8.GetBytes("bezpieczny test odcinka");
+        var handler = new PodcastHttpHandler(request =>
+        {
+            if (request.RequestUri == new Uri("https://example.test/start"))
+            {
+                var redirect = new HttpResponseMessage(HttpStatusCode.Redirect);
+                redirect.Headers.Location = new Uri("/episode.mp3", UriKind.Relative);
+                return redirect;
+            }
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(payload)
+            };
+        });
+        using (var downloader = new PodcastEpisodeDownloader(handler))
+        {
+            var finalPath = Path.Combine(directory, "odcinek.mp3");
+            var result = downloader.DownloadAsync(
+                    new Uri("https://example.test/start"),
+                    finalPath,
+                    progress: null,
+                    CancellationToken.None)
+                .GetAwaiter().GetResult();
+            Assert(result.Path == finalPath && result.BytesWritten == payload.Length,
+                "Pobieranie odcinka nie zwróciło prawidłowej ścieżki albo rozmiaru.");
+            Assert(File.ReadAllBytes(finalPath).SequenceEqual(payload),
+                "Kompletny odcinek nie został opublikowany bez zmian.");
+            Assert(handler.Requests.Count == 2,
+                "Pobieranie odcinka nie obsłużyło kontrolowanego przekierowania.");
+        }
+
+        var truncatedHandler = new PodcastHttpHandler(_ =>
+        {
+            var content = new ByteArrayContent(payload);
+            content.Headers.ContentLength = payload.Length + 10;
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+        });
+        using (var downloader = new PodcastEpisodeDownloader(truncatedHandler))
+        {
+            var truncatedPath = Path.Combine(directory, "niepelny.mp3");
+            var rejected = false;
+            try
+            {
+                downloader.DownloadAsync(
+                        new Uri("https://example.test/truncated.mp3"),
+                        truncatedPath,
+                        progress: null,
+                        CancellationToken.None)
+                    .GetAwaiter().GetResult();
+            }
+            catch (InvalidDataException)
+            {
+                rejected = true;
+            }
+            Assert(rejected && !File.Exists(truncatedPath),
+                "Niepełna odpowiedź została błędnie opublikowana jako gotowy odcinek.");
+        }
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+
+    Console.WriteLine("OK: odporne pobieranie odcinków podcastów");
+}
+
+static void TestPodcastDownloadSettingsAccessibility()
+{
+    Exception? failure = null;
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-podcast-settings-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    var thread = new Thread(() =>
+    {
+        SettingsWindow? window = null;
+        try
+        {
+            var state = ConfigurationStore.CreateDefaultState();
+            state.Podcasts.DownloadsFolder = Path.Combine(directory, "Podcasty");
+            var store = new ConfigurationStore(
+                Path.Combine(directory, "state.json"),
+                Path.Combine(directory, "library.db"));
+            window = new SettingsWindow(state, store, SettingsTarget.PodcastDownloadsFolder);
+            var folder = (TextBox)window.FindName("PodcastDownloadsFolderBox");
+            var browse = (Button)window.FindName("BrowsePodcastDownloadsFolderButton");
+            Assert(folder.IsReadOnly && folder.Text == state.Podcasts.DownloadsFolder,
+                "Ustawienia nie pokazują zapamiętanego folderu pobierania podcastów.");
+            Assert(AutomationProperties.GetName(folder) == "Domyślny folder pobierania podcastów"
+                   && AutomationProperties.GetName(browse) == "Wybierz domyślny folder pobierania podcastów",
+                "Kontrolki folderu pobierania podcastów nie mają stabilnych etykiet dla NVDA.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+        finally
+        {
+            window?.Close();
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    try
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+    catch (IOException)
+    {
+    }
+    if (failure is not null)
+        throw new InvalidOperationException("Test ustawień pobierania podcastów nie powiódł się.", failure);
+
+    Console.WriteLine("OK: dostępne ustawienia pobierania podcastów");
 }
 
 static void TestApplePodcastDirectoryClient()

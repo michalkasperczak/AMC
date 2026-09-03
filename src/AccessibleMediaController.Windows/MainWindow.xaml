@@ -23,7 +23,7 @@
         <Menu x:Name="MainMenu" DockPanel.Dock="Top" Margin="0,0,0,8"
               KeyboardNavigation.IsTabStop="False"
               KeyboardNavigation.TabNavigation="None">
-            <MenuItem x:Name="FileMenuItem" Header="_Plik">
+            <MenuItem x:Name="FileMenuItem" Header="_Plik" SubmenuOpened="FileMenuItem_SubmenuOpened">
                 <MenuItem x:Name="OpenLocalFilesMenuItem" Header="_Otwórz pliki multimedialne…" InputGestureText="Ctrl+O"
                           automation:AutomationProperties.Name="Otwórz pliki multimedialne, Ctrl+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+O"
@@ -56,7 +56,15 @@
                 <MenuItem x:Name="RefreshAllPodcastsMenuItem" Header="Odśwież _wszystkie podcasty" InputGestureText="Ctrl+F5"
                           automation:AutomationProperties.Name="Odśwież wszystkie podcasty, Ctrl+F5"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
-                          Visibility="Collapsed" Click="RefreshAllPodcasts_Click" />
+                           Visibility="Collapsed" Click="RefreshAllPodcasts_Click" />
+                <MenuItem x:Name="DownloadPodcastEpisodeMainMenuItem" Header="_Pobierz odcinek" InputGestureText="Ctrl+D"
+                          automation:AutomationProperties.Name="Pobierz zaznaczone odcinki do domyślnego folderu podcastów, Ctrl+D"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+D"
+                          Visibility="Collapsed" Click="DownloadPodcastEpisode_Click" />
+                <MenuItem x:Name="SavePodcastEpisodeAsMainMenuItem" Header="_Zapisz odcinek jako…" InputGestureText="Ctrl+S"
+                          automation:AutomationProperties.Name="Zapisz jeden odcinek podcastu jako, Ctrl+S"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+S"
+                          Visibility="Collapsed" Click="SavePodcastEpisodeAs_Click" />
                 <Separator x:Name="FileActionsSeparator" />
                 <MenuItem Header="_Ustawienia…" InputGestureText="Ctrl+," Click="Settings_Click" />
                 <Separator />
@@ -419,6 +427,14 @@
                               automation:AutomationProperties.Name="Odśwież wybrany podcast, F5"
                               automation:AutomationProperties.AcceleratorKey="F5"
                               Visibility="Collapsed" Click="RefreshPodcast_Click" />
+                    <MenuItem x:Name="DownloadPodcastEpisodeMenuItem" Header="Pobierz odcinek" InputGestureText="Ctrl+D"
+                              automation:AutomationProperties.Name="Pobierz zaznaczone odcinki do domyślnego folderu podcastów, Ctrl+D"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+D"
+                              Visibility="Collapsed" Click="DownloadPodcastEpisode_Click" />
+                    <MenuItem x:Name="SavePodcastEpisodeAsMenuItem" Header="Zapisz odcinek jako…" InputGestureText="Ctrl+S"
+                              automation:AutomationProperties.Name="Zapisz jeden odcinek podcastu jako, Ctrl+S"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+S"
+                              Visibility="Collapsed" Click="SavePodcastEpisodeAs_Click" />
                     <MenuItem x:Name="SelectedRadioAddScheduleMenuItem" Header="Zaplanuj nagranie tej stacji…" InputGestureText="Shift+R"
                               automation:AutomationProperties.Name="Zaplanuj nagranie tej stacji, Shift+R"
                               Visibility="Collapsed" Click="RadioAddSchedule_Click" />
@@ -711,6 +727,14 @@
                     <MenuItem x:Name="PlayerGoToPodcastMenuItem" Header="Przejdź do podcastu"
                               automation:AutomationProperties.Name="Przejdź do podcastu tego odcinka"
                               Visibility="Collapsed" Click="GoToPodcast_Click" />
+                    <MenuItem x:Name="PlayerDownloadPodcastEpisodeMenuItem" Header="Pobierz odcinek" InputGestureText="Ctrl+D"
+                              automation:AutomationProperties.Name="Pobierz odcinek do domyślnego folderu podcastów, Ctrl+D"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+D"
+                              Visibility="Collapsed" Click="DownloadPodcastEpisode_Click" />
+                    <MenuItem x:Name="PlayerSavePodcastEpisodeAsMenuItem" Header="Zapisz odcinek jako…" InputGestureText="Ctrl+S"
+                              automation:AutomationProperties.Name="Zapisz odcinek podcastu jako, Ctrl+S"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+S"
+                              Visibility="Collapsed" Click="SavePodcastEpisodeAs_Click" />
                     <MenuItem x:Name="PlayerGoToAlbumMenuItem" Header="Przejdź do albumu"
                               Click="GoToAlbum_Click" />
                     <MenuItem x:Name="PlayerGoToArtistMenuItem" Header="Przejdź do wykonawcy"

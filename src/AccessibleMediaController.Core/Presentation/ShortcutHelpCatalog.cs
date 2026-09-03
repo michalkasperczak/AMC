@@ -38,6 +38,7 @@ public static class ShortcutHelpCatalog
         ("player", "Odtwarzacz"),
         ("search", "Wyszukiwanie i filtrowanie"),
         ("library", "Biblioteka lokalna"),
+        ("podcasts", "Podcasty"),
         ("radio", "Radio internetowe"),
         ("collections", "Playlisty i Zakładki"),
         ("settings", "Ustawienia i pomoc"),
@@ -145,6 +146,11 @@ public static class ShortcutHelpCatalog
             || commandId is CommandIds.ViewRadio or CommandIds.StartRadio)
         {
             return "radio";
+        }
+        if (commandId.StartsWith("podcast.", StringComparison.Ordinal)
+            || commandId == CommandIds.DownloadInService)
+        {
+            return "podcasts";
         }
         if (commandId is CommandIds.FilterCurrent or CommandIds.SearchCurrent
             or CommandIds.SearchAll or CommandIds.CommandPalette)

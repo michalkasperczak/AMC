@@ -202,6 +202,32 @@
                 </ScrollViewer>
             </TabItem>
 
+            <TabItem x:Name="PodcastsTab" Header="_Podcasty">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12">
+                        <TextBlock Margin="0,0,0,12" TextWrapping="Wrap"
+                                   Text="Ctrl+D pobiera zaznaczone odcinki bez dodatkowych pytań do poniższego folderu. Ctrl+S zapisuje jeden odcinek pod wybraną nazwą i w wybranym miejscu." />
+                        <GroupBox Header="Domyślny folder pobierania">
+                            <StackPanel Margin="8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="PodcastDownloadsFolderBox" Grid.Column="0"
+                                             IsReadOnly="True"
+                                             automation:AutomationProperties.Name="Domyślny folder pobierania podcastów"
+                                             automation:AutomationProperties.HelpText="Folder używany przez skrót Ctrl+D. Zapisz jako, Ctrl+S, zawsze pozwala wybrać inne miejsce." />
+                                    <Button x:Name="BrowsePodcastDownloadsFolderButton" Grid.Column="1"
+                                            Content="_Wybierz…" Margin="8,0,0,0" Padding="10,4"
+                                            automation:AutomationProperties.Name="Wybierz domyślny folder pobierania podcastów"
+                                            Click="BrowsePodcastDownloadsFolder_Click" />
+                                </Grid>
+                                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
+                                           Text="Pobieranie odbywa się najpierw w bezpiecznym lokalnym folderze roboczym. Dopiero kompletny plik otrzymuje nazwę docelową, także gdy wybrany folder znajduje się w chmurze." />
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <TabItem x:Name="KeyboardProfilesTab" Header="_Profile klawiatury">
                 <DockPanel Margin="12">
                     <StackPanel DockPanel.Dock="Top">
