@@ -18,6 +18,8 @@ public sealed class SessionManager
         _sessionSlots = SessionSlotOrder.Normalize(settings.SessionSlots);
         settings.SessionSlots = new Dictionary<int, string>(_sessionSlots);
         ReorderSessionsBySlots();
+        AllSessionsMuted = settings.Audio.AllSessionsMuted;
+        foreach (var session in _sessions) ApplyRememberedMute(session);
         var remembered = Sessions.FirstOrDefault(session => session.Id == settings.LastSessionId);
         Current = remembered ?? Sessions[0];
         if (remembered is null) _settings.LastSessionId = Current.Id;
@@ -32,7 +34,21 @@ public sealed class SessionManager
     {
         AllSessionsMuted = !AllSessionsMuted;
         foreach (var session in _sessions) session.SetGlobalMute(AllSessionsMuted);
+        _settings.Audio.AllSessionsMuted = AllSessionsMuted;
         return AllSessionsMuted;
+    }
+
+    public bool ToggleCurrentSessionMute()
+    {
+        var muted = Current.ToggleMute();
+        RememberSessionMute(Current);
+        return muted;
+    }
+
+    public void CaptureMuteStates()
+    {
+        _settings.Audio.AllSessionsMuted = AllSessionsMuted;
+        foreach (var session in _sessions) RememberSessionMute(session);
     }
 
     public DemoMediaSession? SelectSlot(int slot)
@@ -90,7 +106,7 @@ public sealed class SessionManager
                 rememberPosition,
                 playbackRateOverride,
                 volumeOverride);
-            session.SetGlobalMute(AllSessionsMuted);
+            ApplyRememberedMute(session);
             _sessions.Add(session);
         }
         else
@@ -139,7 +155,7 @@ public sealed class SessionManager
         if (existing is not null) return existing;
 
         _sessions.Insert(Math.Clamp(registration.Index, 0, _sessions.Count), registration.Session);
-        registration.Session.SetGlobalMute(AllSessionsMuted);
+        ApplyRememberedMute(registration.Session);
         ReorderSessionsBySlots();
         if (makeCurrent || registration.WasCurrent)
         {
@@ -147,6 +163,20 @@ public sealed class SessionManager
             _settings.LastSessionId = Current.Id;
         }
         return registration.Session;
+    }
+
+    private void ApplyRememberedMute(DemoMediaSession session)
+    {
+        session.SetSessionMute(_settings.Audio.SessionMutedById.GetValueOrDefault(session.Id));
+        session.SetGlobalMute(AllSessionsMuted);
+    }
+
+    private void RememberSessionMute(DemoMediaSession session)
+    {
+        if (session.IsSessionMuted)
+            _settings.Audio.SessionMutedById[session.Id] = true;
+        else
+            _settings.Audio.SessionMutedById.Remove(session.Id);
     }
 
     private void ReorderSessionsBySlots()

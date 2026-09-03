@@ -35,6 +35,7 @@ var tests = new (string Name, Action Test)[]
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
     ("Trwałe opcje przetwarzania dźwięku", TestPlaybackAudioSettingsPersistence),
+    ("Trwałe wyciszenia sesji", TestSessionMutePersistence),
     ("Możliwości przetwarzania dźwięku adaptera", TestPlaybackAudioProcessingCapabilities),
     ("Dziedziczenie przetwarzania dźwięku plików lokalnych", TestLocalPlaybackAudioSettingsInheritance),
     ("Migracja starszych ustawień", TestLegacyStateMigration),
@@ -502,6 +503,8 @@ static void TestPlaybackAudioSettingsPersistence()
         state.Settings.Audio.LoudnessNormalizationEnabled = true;
         state.Settings.Audio.SmoothTrackTransitionsEnabled = true;
         state.Settings.Audio.InterTrackSilenceMilliseconds = 2000;
+        state.Settings.Audio.AllSessionsMuted = true;
+        state.Settings.Audio.SessionMutedById["radio"] = true;
         state.Settings.Audio.OutputDeviceIdsBySession["radio"] = "test-device-id";
         state.LocalMedia.Items.Add(new LocalMediaItemSettings
         {
@@ -525,6 +528,8 @@ static void TestPlaybackAudioSettingsPersistence()
         Equal(true, loaded.Settings.Audio.LoudnessNormalizationEnabled);
         Equal(true, loaded.Settings.Audio.SmoothTrackTransitionsEnabled);
         Equal(2000, loaded.Settings.Audio.InterTrackSilenceMilliseconds);
+        Equal(true, loaded.Settings.Audio.AllSessionsMuted);
+        Equal(true, loaded.Settings.Audio.SessionMutedById["RADIO"]);
         Equal("test-device-id", loaded.Settings.Audio.OutputDeviceIdsBySession["RADIO"]);
         var loadedItem = loaded.LocalMedia.Items.Single(item => item.Id == "audio-override-item");
         Equal(false, loadedItem.LoudnessNormalizationOverride);
@@ -546,6 +551,43 @@ static void TestPlaybackAudioSettingsPersistence()
     {
         Directory.Delete(directory, true);
     }
+}
+
+static void TestSessionMutePersistence()
+{
+    var settings = new AppSettings();
+    var manager = new SessionManager(settings);
+    var output = new FakeMediaOutput();
+    var (local, _) = manager.AddOrUpdateTransientSession(
+        "local",
+        "Pliki lokalne",
+        [new MediaItem { Id = "mute-item", Title = "Test wyciszenia" }],
+        output,
+        1);
+    manager.SelectSession("local");
+
+    Equal(true, manager.ToggleCurrentSessionMute());
+    Equal(true, manager.ToggleAllSessionsMute());
+    Equal(true, settings.Audio.SessionMutedById["LOCAL"]);
+    Equal(true, settings.Audio.AllSessionsMuted);
+
+    var restoredManager = new SessionManager(settings);
+    var (restoredLocal, _) = restoredManager.AddOrUpdateTransientSession(
+        "local",
+        "Pliki lokalne",
+        [new MediaItem { Id = "mute-item", Title = "Test wyciszenia" }],
+        new FakeMediaOutput(),
+        1);
+    Equal(true, restoredManager.AllSessionsMuted);
+    Equal(true, restoredLocal.IsGloballyMuted);
+    Equal(true, restoredLocal.IsSessionMuted);
+
+    restoredManager.SelectSession("local");
+    Equal(false, restoredManager.ToggleAllSessionsMute());
+    Equal(false, restoredLocal.IsGloballyMuted);
+    Equal(true, restoredLocal.IsSessionMuted);
+    Equal(false, restoredManager.ToggleCurrentSessionMute());
+    Equal(false, settings.Audio.SessionMutedById.ContainsKey("local"));
 }
 
 static void TestPlaybackAudioProcessingCapabilities()

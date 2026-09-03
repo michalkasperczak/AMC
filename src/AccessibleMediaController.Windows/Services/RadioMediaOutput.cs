@@ -313,8 +313,10 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             {
                 string? outputDeviceId;
                 lock (_gate) outputDeviceId = _outputDeviceId;
-                preparedOutputLease = AudioOutputDeviceCatalog.CreateOutput(outputDeviceId, 180);
-                preparedOutputLease.Output.Init(volume);
+                preparedOutputLease = AudioOutputDeviceCatalog.CreateInitializedOutput(
+                    outputDeviceId,
+                    180,
+                    output => output.Init(volume));
             }
             var cancellation = new CancellationTokenSource();
             var decoderName = openedReader.DecoderName;

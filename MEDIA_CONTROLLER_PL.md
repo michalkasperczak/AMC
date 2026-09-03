@@ -1112,7 +1112,7 @@ Zmiana `alpha.157` zastępuje wcześniejszą decyzję o braku pauzy nagrania. `S
 
 Zmiana `alpha.158` rozszerza wspólny resolver używany przez odtwarzanie i nagrywanie Oryginalne. PLS, M3U, M3U8 lub XSPF może wskazywać kolejną listę i może używać adresu względnego; AMC rozwiązuje najwyżej cztery poziomy, wykrywa odwołanie cykliczne i zachowuje końcowy adres po przekierowaniu HTTP. Jeżeli odpowiedź po przekierowaniu jest już bezpośrednim audio, program nie zużywa jego danych podczas próby analizy tekstu. Manifest zawierający znaczniki HLS pozostaje niezmiennie wejściem dekodera. Reguła nie jest wyjątkiem wpisanym dla Tyflo Podcastu: `listen.pls` jest jednym ze scenariuszy obsługiwanych przez wspólny, ograniczony mechanizm.
 
-Zmiana `alpha.159` wprowadza dwie niezależne warstwy wyciszenia. `Ctrl+M` wycisza albo przywraca dźwięk bieżącej sesji, a `Ctrl+Shift+M` robi to dla wszystkich torów odsłuchu AMC, także grających w innych sesjach i uruchomionych później. Wyciszenie globalne nie zmienia indywidualnego stanu sesji: po jego wyłączeniu sesja wyciszona wcześniej nadal pozostaje cicha. Zmiana głośności anuluje wyciszenie indywidualne, lecz nie omija aktywnego wyciszenia globalnego. Polecenia nie zmieniają głośności systemu, NVDA ani innych aplikacji i nie zatrzymują nagrywania radia. Stan wyciszenia jest celowo ulotny, dlatego po ponownym uruchomieniu AMC zachowuje ustawione wartości głośności, ale rozpoczyna bez niespodziewanego wyciszenia.
+Zmiana `alpha.159` wprowadza dwie niezależne warstwy wyciszenia. `Ctrl+M` wycisza albo przywraca dźwięk bieżącej sesji, a `Ctrl+Shift+M` robi to dla wszystkich torów odsłuchu AMC, także grających w innych sesjach i uruchomionych później. Wyciszenie globalne nie zmienia indywidualnego stanu sesji: po jego wyłączeniu sesja wyciszona wcześniej nadal pozostaje cicha. Zmiana głośności anuluje wyciszenie indywidualne, lecz nie omija aktywnego wyciszenia globalnego. Polecenia nie zmieniają głośności systemu, NVDA ani innych aplikacji i nie zatrzymują nagrywania radia. Od `alpha.228` oba stany są trwałe: program zapisuje wyciszenie każdej sesji oraz wyciszenie całego AMC, odtwarza je po przebudowie rdzenia i po ponownym uruchomieniu, a regulacja głośności utrwala także zdjęcie wyciszenia indywidualnego.
 
 Zmiana `alpha.160`: `Ctrl+Shift+H` jest podstawowym, krótkim skrótem listy harmonogramów nagrywania Radia. Działa z listy, odtwarzacza i innych kontrolek aktywnego okna AMC; poza sesją Radio podaje, gdzie funkcja jest dostępna, zamiast po cichu przełączać sesję. Od `alpha.166` harmonogram nie ma drugiego aliasu: `Ctrl+Alt+Shift+R` zatrzymuje wszystkie trwające nagrania.
 
@@ -1692,6 +1692,11 @@ odsłuchu Radia nie zatrzymuje niezależnych nagrań działających w tle.
 Asynchroniczne uruchamianie nowego wyjścia przechowuje ostatnią intencję
 odtwarzania: Spacja naciśnięta podczas zmiany urządzenia musi pozostawić tor
 wstrzymany także wtedy, gdy urządzenie zakończy inicjalizację nieco później.
+Od `alpha.228` zabezpieczenie obejmuje również sytuację, w której urządzenie
+jest jeszcze widoczne dla Windows, lecz odmawia inicjalizacji strumienia.
+Niedziałający tor jest zwalniany, a ten sam dźwięk zostaje otwarty ponownie na
+domyślnym wyjściu współdzielonym. Nie usuwa to zapisanej preferencji sesji;
+ręczny wybór innego działającego urządzenia zastępuje ją i jest zapisywany.
 Przełączenie sesji przez `Ctrl+cyfra` albo `Ctrl+Page Up/Page Down` zmienia
 wyłącznie aktywny interfejs i nie uruchamia reguły wstrzymywania po wyjściu z
 odtwarzacza. Tak samo bezpośrednie przejście z odtwarzacza do Kolejki,

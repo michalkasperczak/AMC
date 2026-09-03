@@ -630,13 +630,28 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
                 item.Source);
             string? outputDeviceId;
             lock (_gate) outputDeviceId = _outputDeviceId;
-            outputLease = AudioOutputDeviceCatalog.CreateOutput(outputDeviceId, 120);
-            var output = outputLease.Output;
             PlaybackPipeline? pipeline = null;
             EventHandler<StoppedEventArgs> handler = (_, args) =>
             {
                 if (pipeline is not null) OutputDevicePlaybackStopped(pipeline, args);
             };
+            outputLease = AudioOutputDeviceCatalog.CreateInitializedOutput(
+                outputDeviceId,
+                120,
+                output =>
+                {
+                    output.PlaybackStopped += handler;
+                    try
+                    {
+                        output.Init(outputReadMonitor.ToWaveProvider());
+                    }
+                    catch
+                    {
+                        output.PlaybackStopped -= handler;
+                        throw;
+                    }
+                });
+            var output = outputLease.Output;
             pipeline = new PlaybackPipeline
             {
                 Item = item,
@@ -651,8 +666,6 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
                 MayRequireRemoteAccess = mayRequireRemoteAccess,
                 DecoderKind = selection.DecoderKind
             };
-            output.PlaybackStopped += handler;
-            output.Init(outputReadMonitor.ToWaveProvider());
             return pipeline;
         }
         catch

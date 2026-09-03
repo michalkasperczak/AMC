@@ -6791,7 +6791,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         RefreshPlaybackIndicators();
         if (commandId is CommandIds.ToggleMuteCurrentSession or CommandIds.ToggleMuteAllSessions)
+        {
+            _sessions.CaptureMuteStates();
+            QueueStateSave();
             UpdateFileMenuForCurrentSession();
+        }
+        else if (result.Handled && commandId is CommandIds.VolumeUp5
+                 or CommandIds.VolumeDown5
+                 or CommandIds.VolumeUp1
+                 or CommandIds.VolumeDown1)
+        {
+            // Zmiana głośności znosi indywidualne wyciszenie w modelu sesji.
+            // Utrwal również tę zmianę, aby po przebudowie lub restarcie nie
+            // powrócił wcześniejszy stan ciszy.
+            _sessions.CaptureMuteStates();
+            QueueStateSave();
+        }
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();

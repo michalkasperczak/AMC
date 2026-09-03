@@ -889,6 +889,16 @@ public sealed class ConfigurationStore
                 pair => pair.Key.Trim(),
                 pair => pair.Value.Trim(),
                 StringComparer.OrdinalIgnoreCase);
+        settings.Audio.SessionMutedById =
+            (settings.Audio.SessionMutedById ?? new Dictionary<string, bool>())
+            .Where(pair => pair.Value)
+            .Where(pair => SessionSlotOrder.DefaultSessionIds.Contains(
+                pair.Key,
+                StringComparer.OrdinalIgnoreCase))
+            .ToDictionary(
+                pair => pair.Key.Trim(),
+                _ => true,
+                StringComparer.OrdinalIgnoreCase);
         settings.PrefixChord = NormalizePrefixChord(settings.PrefixChord);
         if (schemaVersion < 17 && IsLegacyDefaultSessionOrder(settings.SessionSlots))
         {
@@ -1031,6 +1041,14 @@ public sealed class ConfigurationStore
                 || pair.Value.Length > 2048))
         {
             throw new InvalidDataException("Wybór urządzeń audio sesji jest nieprawidłowy.");
+        }
+        if (settings.Audio.SessionMutedById.Any(pair =>
+                !pair.Value
+                || !SessionSlotOrder.DefaultSessionIds.Contains(
+                    pair.Key,
+                    StringComparer.OrdinalIgnoreCase)))
+        {
+            throw new InvalidDataException("Zapamiętane wyciszenia sesji są nieprawidłowe.");
         }
 
         var expectedFields = Enum.GetValues<MediaItemField>();

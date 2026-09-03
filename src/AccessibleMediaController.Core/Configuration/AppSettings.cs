@@ -82,6 +82,9 @@ public sealed class PlaybackAudioSettings
     public bool LoudnessNormalizationEnabled { get; set; }
     public bool SmoothTrackTransitionsEnabled { get; set; }
     public int InterTrackSilenceMilliseconds { get; set; }
+    public bool AllSessionsMuted { get; set; }
+    public Dictionary<string, bool> SessionMutedById { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, string> OutputDeviceIdsBySession { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
 }

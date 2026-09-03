@@ -294,6 +294,12 @@ public sealed class DemoMediaSession
         return IsSessionMuted;
     }
 
+    public void SetSessionMute(bool muted)
+    {
+        IsSessionMuted = muted;
+        ApplyEffectiveVolume();
+    }
+
     public void SetGlobalMute(bool muted)
     {
         IsGloballyMuted = muted;

@@ -1,3 +1,4 @@
+using System.IO;
 using System.Runtime.InteropServices;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
@@ -14,11 +15,13 @@ internal sealed record AudioOutputDeviceChoice(
 
 internal sealed class AudioOutputDeviceLease(
     WasapiOut output,
-    MMDevice? device) : IDisposable
+    MMDevice? device,
+    bool usesDefaultDevice) : IDisposable
 {
     private int _disposed;
 
     public WasapiOut Output { get; } = output;
+    public bool UsesDefaultDevice { get; } = usesDefaultDevice;
 
     public void Dispose()
     {
@@ -133,7 +136,8 @@ internal static class AudioOutputDeviceCatalog
         {
             return new AudioOutputDeviceLease(
                 new WasapiOut(AudioClientShareMode.Shared, true, latencyMilliseconds),
-                null);
+                null,
+                true);
         }
 
         MMDevice? selectedDevice = null;
@@ -150,7 +154,7 @@ internal static class AudioOutputDeviceCatalog
                 AudioClientShareMode.Shared,
                 true,
                 latencyMilliseconds);
-            return new AudioOutputDeviceLease(output, selectedDevice);
+            return new AudioOutputDeviceLease(output, selectedDevice, false);
         }
         catch (Exception exception) when (IsDeviceEnumerationFailure(exception))
         {
@@ -160,14 +164,58 @@ internal static class AudioOutputDeviceCatalog
                 $"Wybrane urządzenie jest niedostępne; użyto domyślnego. Błąd {exception.GetType().Name}.");
             return new AudioOutputDeviceLease(
                 new WasapiOut(AudioClientShareMode.Shared, true, latencyMilliseconds),
-                null);
+                null,
+                true);
         }
     }
 
-    private static bool IsDeviceEnumerationFailure(Exception exception) =>
+    public static AudioOutputDeviceLease CreateInitializedOutput(
+        string? deviceId,
+        int latencyMilliseconds,
+        Action<WasapiOut> initialize)
+    {
+        ArgumentNullException.ThrowIfNull(initialize);
+        var lease = CreateOutput(deviceId, latencyMilliseconds);
+        try
+        {
+            initialize(lease.Output);
+            return lease;
+        }
+        catch (Exception exception) when (
+            !string.IsNullOrWhiteSpace(deviceId)
+            && !lease.UsesDefaultDevice
+            && IsDevicePlaybackFailure(exception))
+        {
+            lease.Dispose();
+            DiagnosticLog.Warning(
+                "audio-device",
+                $"Nie udało się uruchomić wybranego wyjścia; ponowiono na urządzeniu domyślnym. "
+                + $"Błąd {exception.GetType().Name}.");
+            var fallback = CreateOutput(null, latencyMilliseconds);
+            try
+            {
+                initialize(fallback.Output);
+                return fallback;
+            }
+            catch
+            {
+                fallback.Dispose();
+                throw;
+            }
+        }
+    }
+
+    public static bool IsDevicePlaybackFailure(Exception exception) =>
         exception is InvalidOperationException
             or ArgumentException
+            or NotSupportedException
+            or NAudio.MmException
             or COMException
             or InvalidComObjectException
-            or UnauthorizedAccessException;
+            or UnauthorizedAccessException
+            or IOException
+            or ObjectDisposedException;
+
+    private static bool IsDeviceEnumerationFailure(Exception exception) =>
+        IsDevicePlaybackFailure(exception);
 }

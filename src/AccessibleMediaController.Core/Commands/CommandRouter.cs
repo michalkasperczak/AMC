@@ -217,7 +217,7 @@ public sealed class CommandRouter(
             case CommandIds.VolumeUp1: return Volume(current, 1);
             case CommandIds.VolumeDown1: return Volume(current, -1);
             case CommandIds.ToggleMuteCurrentSession:
-                var sessionMuted = current.ToggleMute();
+                var sessionMuted = sessions.ToggleCurrentSessionMute();
                 announcements.Announce(current.IsGloballyMuted
                     ? sessionMuted
                         ? $"Sesja {current.DisplayName} pozostanie wyciszona po przywróceniu wszystkich sesji AMC"

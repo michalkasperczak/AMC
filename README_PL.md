@@ -751,7 +751,7 @@ Od `alpha.157` `Shift+Spacja` wstrzymuje lub wznawia nagranie stacji wybranej na
 
 Od `alpha.158` rozwiązywanie list sieciowych obejmuje także zagnieżdżone PLS, M3U, M3U8 i XSPF, adresy względne oraz przekierowanie z adresu playlisty bezpośrednio do audio. Pętla lub więcej niż cztery poziomy list są bezpiecznie odrzucane. Strumień rozpoznany przez typ odpowiedzi jako audio nie jest pobierany i błędnie analizowany jak tekst, a prawdziwy manifest HLS nadal trafia bezpośrednio do dekodera. Obejmuje to zapis Oryginalny Tyflo Podcastu z adresu `listen.pls` i inne stacje korzystające z takich samych opakowań.
 
-Od `alpha.159` `Ctrl+M` wycisza albo przywraca odsłuch bieżącej sesji, a `Ctrl+Shift+M` wszystkie sesje AMC, również te grające w tle lub uruchomione później. Są to dwie niezależne warstwy: wyłączenie wyciszenia globalnego nie przywraca sesji wyciszonej wcześniej osobno. Regulacja głośności zdejmuje wyciszenie indywidualne, ale nie globalne. Skróty nie zmieniają głośności Windows, NVDA ani innych aplikacji i nie przerywają nagrywania. Wyciszenie nie jest zapisywane między uruchomieniami, natomiast ustawione wartości głośności pozostają zachowane.
+Od `alpha.159` `Ctrl+M` wycisza albo przywraca odsłuch bieżącej sesji, a `Ctrl+Shift+M` wszystkie sesje AMC, również te grające w tle lub uruchomione później. Są to dwie niezależne warstwy: wyłączenie wyciszenia globalnego nie przywraca sesji wyciszonej wcześniej osobno. Regulacja głośności zdejmuje wyciszenie indywidualne, ale nie globalne. Skróty nie zmieniają głośności Windows, NVDA ani innych aplikacji i nie przerywają nagrywania. Od `alpha.228` oba stany wyciszenia, podobnie jak wartości głośności, są zapisywane między uruchomieniami.
 
 Od `alpha.160` `Ctrl+Shift+H` otwiera pełną listę harmonogramów nagrywania w Radiu. Jest to podstawowy skrót pokazywany w menu, palecie i pomocy. Od `alpha.166` dawny alias `Ctrl+Alt+Shift+R` oznacza zatrzymanie wszystkich nagrań, dlatego harmonogram otwiera wyłącznie `Ctrl+Shift+H`. Wywołanie skrótu poza Radiem nie przełącza sesji, lecz podaje krótki komunikat o dostępności funkcji.
 
@@ -826,6 +826,15 @@ Poprawka `alpha.205` zachowuje także ostatnie żądanie Spacji podczas
 asynchronicznego przełączania toru. Jeżeli wolniejsze urządzenie zewnętrzne
 jeszcze się uruchamia, polecenie wstrzymania nie ginie i nowy tor pozostaje
 wstrzymany. Ta sama ochrona obejmuje Radio, Podcasty i Pliki lokalne.
+
+Od `alpha.228` przełączenie wyjścia jest zabezpieczone także na późnym etapie
+inicjalizacji WASAPI. Jeżeli zapamiętane urządzenie jest widoczne na liście,
+ale nie daje się faktycznie uruchomić, AMC zamyka niedziałający tor i ponawia
+odsłuch na domyślnych głośnikach Windows. Preferencja sesji nie jest kasowana,
+więc ręczne wskazanie drugiego urządzenia zostaje zapamiętane i jest stosowane
+przy następnym otwarciu dźwięku. `Ctrl+M` oraz `Ctrl+Shift+M` są od tej wersji
+również trwałe: osobne wyciszenie sesji i nadrzędne wyciszenie całego AMC
+przetrwają przebudowę list, zmianę sesji i ponowne uruchomienie programu.
 
 `Shift+A` dotyczy bieżącej sesji, a nie wszystkich torów dźwięku naraz. Jest
 dostępne w każdym adapterze, który rzeczywiście odtwarza dźwięk przez AMC.
