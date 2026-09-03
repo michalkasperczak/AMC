@@ -24,9 +24,10 @@ an explicit user-facing kind instead of presenting all web media as a podcast.
 
 - **Library** stores followed shows and their sources. Following a show does
   not automatically download all of its episodes.
-- **New episodes** is an automatic inbox, ordered newest first, for unplayed or
-  unreviewed episodes from the Library. It deliberately is not a manually
-  ordered playlist. Episodes may be new, in progress, played or skipped.
+- **New episodes** is an automatic inbox for unplayed or unreviewed episodes
+  from the Library. It offers newest-first, alphabetical-by-episode and
+  grouped-by-show orders, but deliberately is not a manually ordered playlist.
+  Episodes may be new, in progress, played or skipped.
 - **Playlists** are durable, user-ordered episode collections and may combine
   different shows.
 - **Downloads** lists files available offline. Removing a download does not
@@ -75,10 +76,13 @@ using the same safe publication boundary as Radio recordings.
 
 In the Podcasts session, Ctrl+D downloads selected episodes. It never downloads
 an entire show archive from the show header without a separate range choice
-and confirmation. Ctrl+C copies the title and public episode page; Ctrl+Shift+C
-copies the title and direct enclosure/media address. On a show header the same
-commands use its public page and RSS/Atom URL respectively. Temporary signed
-URLs and credentials are not silently placed on the clipboard.
+and confirmation. Ctrl+C copies the title, full description and public episode
+page; Ctrl+Shift+C copies only the direct enclosure/media address. On a show
+header the same commands use its description and public page or only its
+RSS/Atom URL respectively. Both commands cover all Shift-selected rows. The
+explicit direct-link command may return a signed URL that later expires, but
+URLs containing embedded login credentials and future account-adapter tokens
+must never enter the clipboard or an export.
 
 ## 5. Privacy and resilience
 
@@ -158,8 +162,8 @@ show. Fetching is bounded by timeout, redirect count and response size, accepts
 only HTTP/HTTPS without embedded credentials, and never downloads episode audio.
 Enter opens a show's episodes newest first and Backspace returns to the Library.
 Delete unfollows the show without destroying retained episode state. Ctrl+C
-copies the title and public page when the feed supplies one, while Ctrl+Shift+C
-copies the title and the direct feed or enclosure URL. A feed URL or direct
+copies the title, description and public page when the feed supplies them,
+while Ctrl+Shift+C copies only the direct feed or enclosure URL. A feed URL or direct
 audio URL is never mislabeled as a browser page.
 
 Ctrl+F can return followed shows, stored episodes and Apple Podcasts directory
@@ -179,7 +183,10 @@ local-folder management and destructive local audio editing must not leak into
 the Podcasts menus. The shortcut for the Downloads view and any numeric view
 shortcuts will be selected after NVDA testing of the first populated lists.
 
-Ctrl+I opens the **New episodes** inbox. Its options cover sorting, inclusion
+Ctrl+I opens the **New episodes** inbox. Alt+1 orders it newest first, Alt+2
+alphabetically by episode title, and Alt+3 groups it by show with newest
+episodes first inside each group. These are computed modes and never enable
+manual movement. Its remaining options cover inclusion
 of started/played episodes, the played threshold, refresh interval and whether
 an individual show contributes to the inbox. Existing archive episodes remain
 available inside a newly followed show but do not all become "new" by default.

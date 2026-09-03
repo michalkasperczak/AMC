@@ -1,12 +1,42 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-224`
-- Tytuł zestawu: Bezpieczne przejście z wyszukiwania Podcastów
-- Wersja programu: `0.1.0-alpha.224`
+- Numer zestawu: `AMC-TEST-225`
+- Tytuł zestawu: Sortowanie i kopiowanie wielu nowych odcinków
+- Wersja programu: `0.1.0-alpha.225`
 - Utworzono: 2026-09-03, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.224.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.225.md`
 
 Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba przed każdym zadaniem dopisywać osobnego wariantu „OK” lub „błąd”. Po dwukropku wpisuj spację.
+
+## Nowości alpha 225
+
+### AMC-225-01 — trzy porządki Nowych odcinków
+
+W sesji Podcasty otwórz `Ctrl+I`, a następnie sprawdź kolejno `Alt+1`, `Alt+2`
+i `Alt+3`.
+
+Oczekiwane: Alt+1 pokazuje najnowsze odcinki na początku, Alt+2 porządkuje
+alfabetycznie według tytułu odcinka, a Alt+3 grupuje według nazwy podcastu i
+zachowuje odcinki od najnowszego wewnątrz każdej grupy. Program mówi
+„Według podcastu”, nie „Kolejność własna”. Alt+strzałka góra/dół nie
+przestawia automatycznej skrzynki.
+
+### AMC-225-02 — Ctrl+C dla jednego i wielu odcinków
+
+Na jednym odcinku użyj `Ctrl+C`. Potem zaznacz Shiftem kilka odcinków i
+powtórz polecenie. Wklej wynik do edytora tekstu.
+
+Oczekiwane: każdy odcinek tworzy osobny blok zawierający nazwę, pełny opis i
+publiczny adres strony, jeśli kanał go udostępnia. Bloki wielu odcinków są
+rozdzielone pustym wierszem; zaznaczenie i fokus w AMC pozostają bez zmian.
+
+### AMC-225-03 — Ctrl+Shift+C kopiuje wyłącznie audio
+
+Na tym samym wielokrotnym zaznaczeniu użyj `Ctrl+Shift+C`, również w wynikach
+`Ctrl+F`, i wklej wynik do edytora.
+
+Oczekiwane: schowek zawiera wyłącznie bezpośrednie adresy audio, po jednym w
+wierszu. Nie ma przed nimi nazw odcinków, opisów ani adresów publicznych stron.
 
 ## Nowości alpha 224
 

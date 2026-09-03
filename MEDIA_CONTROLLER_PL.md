@@ -1662,8 +1662,8 @@ trafia do osobnego widoku **W trakcie słuchania** pod `Ctrl+Shift+I`; ukończen
 oznacza go jako odtworzony. Archiwalny odcinek dodany przy pierwszym imporcie nie
 staje się przez to fałszywie rozpoczęty. Playlista jest ręcznym kontenerem
 użytkownika. `Ctrl+I` otwiera skrzynkę Nowe odcinki. W Podcastach `Ctrl+C` kopiuje
-nazwę z publiczną stroną odcinka lub audycji, `Ctrl+Shift+C` nazwę z adresem
-bezpośredniego audio albo RSS, a `Ctrl+D` pobiera świadomie wybrane odcinki.
+nazwę, pełny opis i publiczną stronę odcinka lub audycji, `Ctrl+Shift+C`
+wyłącznie bezpośredni adres audio albo RSS, a `Ctrl+D` pobiera świadomie wybrane odcinki.
 Całe archiwum audycji nigdy nie jest pobierane przez skrót bez osobnego zakresu
 i potwierdzenia. Adres podpisany, wymagający ciasteczek lub zawierający dane
 uwierzytelniające nie może zostać bez ostrzeżenia skopiowany jako zwykły,
@@ -1720,8 +1720,10 @@ przetrwają ponowne uruchomienie oraz migrację lokalnej bazy SQLite.
 Ręczne `Alt+strzałka w górę/w dół` działa wyłącznie po wybraniu `Alt+3`.
 Kolejka i playlista zachowują kolejność odtwarzania lub użytkownika bez
 przełączania tych trzech trybów, album zachowuje kolejność ścieżek, a wyniki
-wyszukiwania, Historia, Nowe odcinki i Nagrywane pozostają listami wyliczanymi
-bez ręcznego sortowania. Lokalna Biblioteka stanowi jawny wyjątek strukturalny:
+wyszukiwania, Historia i Nagrywane pozostają listami wyliczanymi bez ręcznego
+sortowania. Nowe odcinki mają trzy wyliczane porządki: `Alt+1` od najnowszego,
+`Alt+2` alfabetycznie według tytułu i `Alt+3` grupami według podcastu; żaden
+nie włącza ręcznego przesuwania. Lokalna Biblioteka stanowi jawny wyjątek strukturalny:
 `Alt+1` otwiera Foldery, `Alt+2` Wszystkie pliki alfabetycznie, a `Alt+3`
 Kolejność własną. Lokalne Ulubione używają wspólnej reguły kolekcji.
 
@@ -1744,8 +1746,10 @@ przypisywać `Alt+1–3` listom, które mają własną semantykę:
   użytkownika. Nie przełącza się jej skrótami sortowania kolekcji.
 - **Album**: kolejność numerów ścieżek; alias nazwy w AMC nie zmienia numeru
   ani położenia rzeczywistego pliku.
-- **Historia, wyniki wyszukiwania, Nowe odcinki i Nagrywane**: porządek
-  wyliczany właściwy dla celu widoku, bez ręcznego przestawiania.
+- **Historia, wyniki wyszukiwania i Nagrywane**: porządek wyliczany właściwy
+  dla celu widoku, bez ręcznego przestawiania.
+- **Nowe odcinki**: `Alt+1` od najnowszego, `Alt+2` alfabetycznie według tytułu,
+  `Alt+3` grupami według podcastu; wszystkie warianty bez ręcznego przesuwania.
 - **Lokalna Biblioteka**: wyjątek strukturalny — `Alt+1` Foldery,
   `Alt+2` Wszystkie pliki alfabetycznie, `Alt+3` Kolejność własna. Dopiero
   lokalne Ulubione wracają do wspólnej mapy kolekcji.

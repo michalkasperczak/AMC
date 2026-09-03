@@ -72,10 +72,10 @@
                               automation:AutomationProperties.Name="Przejdź do podcastu tego odcinka"
                               Visibility="Collapsed" Click="GoToPodcast_Click" />
                     <Separator />
-                    <MenuItem Header="Kopiuj _nazwę" InputGestureText="Ctrl+C"
+                    <MenuItem x:Name="SearchCopyNameMenuItem" Header="Kopiuj _nazwę" InputGestureText="Ctrl+C"
                               automation:AutomationProperties.AcceleratorKey="Control+C"
                               Click="CopyName_Click" />
-                    <MenuItem Header="Kopiuj ścieżkę lub łącze" InputGestureText="Ctrl+Shift+C"
+                    <MenuItem x:Name="SearchCopyLocationMenuItem" Header="Kopiuj ścieżkę lub łącze" InputGestureText="Ctrl+Shift+C"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+C"
                               Click="CopyLocation_Click" />
                 </ContextMenu>

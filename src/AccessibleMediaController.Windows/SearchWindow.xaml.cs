@@ -487,6 +487,18 @@ public partial class SearchWindow : Window
         SearchQueueSeparator.Visibility = visibility;
         SearchPlaylistMenuItem.Visibility = Visibility.Visible;
         var selected = GetSelectedResults();
+        var podcastsOnly = selected.Length > 0 && selected.All(result =>
+            string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase));
+        MenuAccessibility.SetPresentation(
+            SearchCopyNameMenuItem,
+            podcastsOnly ? "Kopiuj opisy i strony odcinków" : "Kopiuj nazwy");
+        SearchCopyNameMenuItem.InputGestureText = "Ctrl+C";
+        AutomationProperties.SetAcceleratorKey(SearchCopyNameMenuItem, "Ctrl+C");
+        MenuAccessibility.SetPresentation(
+            SearchCopyLocationMenuItem,
+            podcastsOnly ? "Kopiuj bezpośrednie adresy audio" : "Kopiuj ścieżki lub łącza");
+        SearchCopyLocationMenuItem.InputGestureText = "Ctrl+Shift+C";
+        AutomationProperties.SetAcceleratorKey(SearchCopyLocationMenuItem, "Ctrl+Shift+C");
         SearchGoToPodcastMenuItem.Visibility = selected.Length == 1
             && string.Equals(selected[0].SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)
             && selected[0].Item.Kind == MediaItemKind.Episode

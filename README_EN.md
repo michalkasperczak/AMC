@@ -1,5 +1,14 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.225` adds three persistent orders to the **New episodes**
+inbox: `Alt+1` puts newest episodes first, `Alt+2` sorts by episode title, and
+`Alt+3` groups by show name with newest episodes first inside each group. The
+third mode is not a custom order and never enables manual movement in this
+automatic inbox. In Podcasts, `Ctrl+C` copies each selected episode's title,
+full description and public page, while `Ctrl+Shift+C` copies direct audio
+URLs only. Both commands cover a contiguous Shift selection and work in
+search results as well.
+
 Version `alpha.224` fixes Podcasts search-result navigation. A show result now
 lands on that show in the top-level Library, while an episode lands inside its
 parent show with that episode focused. The internal flat aggregate containing

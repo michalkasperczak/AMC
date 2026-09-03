@@ -1593,8 +1593,10 @@ order, custom order and the selected mode survive restart and SQLite migration.
 
 Manual `Alt+Up/Down` is available only after selecting `Alt+3`. Queue and
 playlist retain playback or user order without these three modes, albums retain
-track order, and Search, History, New episodes and Recording now remain derived
-lists without manual sorting. Local Library is the explicit structural
+track order, and Search, History and Recording now remain derived lists without
+manual sorting. New episodes offers three computed orders: `Alt+1` newest
+first, `Alt+2` by episode title, and `Alt+3` grouped by show; none enables
+manual movement. Local Library is the explicit structural
 exception: `Alt+1` opens Folders, `Alt+2` All files alphabetically and `Alt+3`
 Custom order. Local Favorites use the shared collection rule. Shortcut routing
 uses modifiers that are physically down rather than a cached hook state, so a
@@ -1611,8 +1613,10 @@ order, custom order and the selected mode survive restart and SQLite migration.
 
 Manual `Alt+Up/Down` is available only after selecting `Alt+3`. Queue and
 playlist retain playback or user order without these three modes, albums retain
-track order, and Search, History, New episodes and Recording now remain derived
-lists without manual sorting. Local Library is the explicit structural
+track order, and Search, History and Recording now remain derived lists without
+manual sorting. New episodes offers three computed orders: `Alt+1` newest
+first, `Alt+2` by episode title, and `Alt+3` grouped by show; none enables
+manual movement. Local Library is the explicit structural
 exception: `Alt+1` opens Folders, `Alt+2` All files alphabetically and `Alt+3`
 Custom order. Local Favorites use the shared collection rule. Shortcut routing
 uses modifiers that are physically down rather than a cached hook state, so a

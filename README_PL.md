@@ -1,5 +1,14 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.225` dodaje trzy trwałe sposoby uporządkowania skrzynki **Nowe
+odcinki**: `Alt+1` — najnowsze odcinki najpierw, `Alt+2` — alfabetycznie według
+tytułu odcinka, `Alt+3` — grupami według nazwy podcastu, a wewnątrz grupy od
+najnowszego. Trzeci wariant nie jest kolejnością własną i nie pozwala ręcznie
+przesuwać automatycznej skrzynki. `Ctrl+C` w Podcastach kopiuje nazwę, pełny
+opis i publiczną stronę każdego odcinka, natomiast `Ctrl+Shift+C` kopiuje
+wyłącznie bezpośrednie adresy audio. Oba skróty obejmują cały ciągły zakres
+zaznaczony Shiftem i działają również w wynikach wyszukiwania.
+
 Wersja `alpha.224` naprawia przejście z wyników wyszukiwania Podcastów.
 Znaleziony nagłówek audycji prowadzi do nadrzędnej Biblioteki, a odcinek — do
 listy właściwej audycji z fokusem na tym odcinku. Wewnętrzny, płaski agregat

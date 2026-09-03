@@ -359,6 +359,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var selected = MediaList.SelectedItems
                 .OfType<MediaItemRow>()
                 .Where(row => row.PlaylistId is null)
+                .OrderBy(row => MediaList.Items.IndexOf(row))
                 .Select(row => row.ActionItem)
                 .DistinctBy(item => item.Id, StringComparer.Ordinal)
                 .ToArray();
@@ -3520,7 +3521,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Alt+Enter otwiera jedno dostępne okno Właściwości i informacje. " +
             "Ctrl+K, Ctrl+F i Ctrl+Shift+F nie opuszczają odtwarzacza; wyszukiwanie jest dostępne po powrocie do listy. " +
             "Skróty widoków opuszczają odtwarzacz, a F6 wraca do niego. " +
-            "Ctrl+C kopiuje nazwy wszystkich zaznaczonych elementów, po jednej w wierszu; Ctrl+Shift+C kopiuje pełne ścieżki i fizyczne pliki lokalne. " +
+            "Ctrl+C kopiuje nazwy wszystkich zaznaczonych elementów, po jednej w wierszu; Ctrl+Shift+C kopiuje pełne ścieżki i fizyczne pliki lokalne. W Podcastach Ctrl+C kopiuje nazwę, opis i publiczną stronę każdego zaznaczonego odcinka, a Ctrl+Shift+C wyłącznie bezpośrednie adresy audio. " +
             "Delete usuwa z bieżącego widoku. W Historii odtwarzania usuwa tylko wpis Historii, bez zmiany Biblioteki i pliku. W lokalnej Bibliotece i na pliku w widoku Foldery usuwa tylko wpis z Biblioteki AMC, a plik pozostawia na dysku; na wierszu folderu nie usuwa niczego. W odtwarzaczu lokalnym Delete również usuwa tylko wpis z AMC i pozostawia plik na dysku. Shift+Delete działa wyłącznie na listach i po potwierdzeniu przenosi zaznaczone pliki do systemowego Kosza. Backspace nigdy nie usuwa: wraca do poziomu nadrzędnego, a w polu tekstowym kasuje znak. " +
             "Alt+strzałka w lewo i w prawo przechodzi po osobnej historii widoków. " +
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
@@ -3780,6 +3781,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CollectionSortAddedMenuItem.Visibility = collectionSortVisibility;
         CollectionSortAlphabeticalMenuItem.Visibility = collectionSortVisibility;
         CollectionSortCustomMenuItem.Visibility = collectionSortVisibility;
+        var podcastInboxSorting = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal);
+        MenuAccessibility.SetPresentation(
+            CollectionSortCustomMenuItem,
+            podcastInboxSorting ? "Według podcastu" : "Kolejność własna");
+        CollectionSortCustomMenuItem.InputGestureText = "Alt+3";
+        AutomationProperties.SetAcceleratorKey(CollectionSortCustomMenuItem, "Alt+3");
         var collectionSortMode = CurrentCollectionSortMode();
         CollectionSortAddedMenuItem.IsChecked = collectionSorting
             && collectionSortMode == CollectionSortMode.AddedNewest;
@@ -7037,13 +7045,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             ViewHeading.Text = PodcastInboxViewName;
             var itemsById = _sessions.Current.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
-            _unfilteredItems = _state.Podcasts.Episodes
+            var inboxEpisodes = _state.Podcasts.Episodes
                 .Where(episode => episode.IsNew
                     && !episode.IsPlayed
                     && _state.Podcasts.Subscriptions.Any(subscription =>
                         subscription.IsInLibrary
-                        && string.Equals(subscription.Id, episode.SubscriptionId, StringComparison.Ordinal)))
-                .OrderByDescending(episode => episode.PublishedUtcTicks)
+                        && string.Equals(subscription.Id, episode.SubscriptionId, StringComparison.Ordinal)));
+            _unfilteredItems = PodcastInboxOrdering.Order(
+                    inboxEpisodes,
+                    _state.Podcasts.Subscriptions,
+                    CurrentCollectionSortMode())
                 .Select(episode => itemsById.GetValueOrDefault(episode.Id))
                 .Where(item => item is not null)
                 .Select(item => new MediaItemRow(item!, FormatListItem(item!), item!.PrimaryText))
@@ -7431,11 +7442,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool CurrentViewSupportsCollectionSorting() =>
         string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+        || string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+           && string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal)
         || string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal)
            && !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
 
     private bool CurrentViewUsesCustomCollectionOrder() =>
         CurrentViewSupportsCollectionSorting()
+        && !string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal)
         && CurrentCollectionSortMode() == CollectionSortMode.Custom;
 
     private CollectionSortMode CurrentCollectionSortMode()
@@ -7450,7 +7464,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (!CurrentViewSupportsCollectionSorting())
         {
-            Announce("Sortowanie Alt+1, Alt+2 i Alt+3 działa w Bibliotece i Ulubionych");
+            Announce("Sortowanie Alt+1, Alt+2 i Alt+3 działa w Bibliotece, Ulubionych i Nowych odcinkach");
             return;
         }
 
@@ -7460,6 +7474,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var label = mode switch
         {
             CollectionSortMode.Alphabetical => "Alfabetycznie",
+            CollectionSortMode.Custom when string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal) =>
+                "Według podcastu",
             CollectionSortMode.Custom => "Kolejność własna",
             _ => "Według dodania, najnowsze na początku"
         };
@@ -12742,26 +12758,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             _pendingExternalMoves.Clear();
             var text = string.Join(
-                Environment.NewLine,
-                results.SelectMany(result =>
+                Environment.NewLine + Environment.NewLine,
+                results.Select(result =>
                     string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)
-                        ? new[]
-                        {
-                            result.Item.Title,
-                            !string.IsNullOrWhiteSpace(result.Item.PublicUri)
-                                ? result.Item.PublicUri
-                                : GetShareableLocation(result.Item, result.SessionId)
-                        }
-                        : [result.Item.Title]));
+                        ? PodcastClipboardPresentation.FormatPublicDetails(
+                            [CreatePodcastClipboardEntry(result.Item)])
+                        : result.Item.Title));
             if (!ClipboardRetry.TrySetText(
                     text,
                     out var clipboardError))
             {
                 return clipboardError;
             }
+            var podcastsOnly = results.All(result =>
+                string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase));
             return results.Count == 1
-                ? "Skopiowano nazwę"
-                : $"Skopiowano nazwy: {FormatItemCount(results.Count)}";
+                ? podcastsOnly ? "Skopiowano opis i stronę" : "Skopiowano nazwę"
+                : podcastsOnly
+                    ? $"Skopiowano opisy i strony: {FormatItemCount(results.Count)}"
+                    : $"Skopiowano elementy: {FormatItemCount(results.Count)}";
         }
         if (action == SearchResultAction.CopyLocation)
         {
@@ -13431,21 +13446,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : "Dodaj do biblioteki";
         SetContextMenuItemPresentation(LibraryMenuItem, libraryLabel, "Ctrl+Shift+L");
         var copyNameLabel = podcastHeader
-            ? string.IsNullOrWhiteSpace(actionItem?.PublicUri)
-                ? "Kopiuj nazwę i adres kanału RSS lub Atom"
-                : "Kopiuj nazwę i stronę podcastu"
+            ? "Kopiuj opis i stronę podcastu"
             : podcastEpisode
-                ? string.IsNullOrWhiteSpace(actionItem?.PublicUri)
-                    ? "Kopiuj nazwę i bezpośredni adres audio"
-                    : "Kopiuj nazwę i stronę odcinka"
+                ? "Kopiuj opis i stronę odcinka"
                 : "Kopiuj nazwę";
         SetContextMenuItemPresentation(CopyNameMenuItem, copyNameLabel, "Ctrl+C");
-        var copyLocationLabel = actionItem is not null && TryGetLocalPath(actionItem.Source, out _)
-            ? "Kopiuj plik i pełną ścieżkę"
-            : podcastHeader
-                ? "Kopiuj nazwę i adres kanału RSS lub Atom"
-                : podcastEpisode
-                    ? "Kopiuj nazwę i bezpośredni adres audio"
+        var copyLocationLabel = podcastHeader
+            ? "Kopiuj adres kanału RSS lub Atom"
+            : podcastEpisode
+                ? "Kopiuj bezpośredni adres audio"
+                : actionItem is not null && TryGetLocalPath(actionItem.Source, out _)
+                    ? "Kopiuj plik i pełną ścieżkę"
                     : "Kopiuj łącze do elementu";
         SetContextMenuItemPresentation(CopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
         NewPlaylistMenuItem.Visibility = string.Equals(_currentView, "Playlisty", StringComparison.Ordinal)
@@ -13742,17 +13753,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? "Usuń z biblioteki"
             : "Dodaj do biblioteki";
         SetContextMenuItemPresentation(PlayerLibraryMenuItem, libraryLabel, "Ctrl+Shift+L");
-        var copyLocationLabel = TryGetLocalPath(item.Source, out _)
-            ? "Kopiuj plik i pełną ścieżkę"
-            : item.Kind == MediaItemKind.Episode
-                ? "Kopiuj nazwę i bezpośredni adres audio"
-                : "Kopiuj łącze do elementu";
+        var copyLocationLabel = item.Kind == MediaItemKind.Episode
+            ? "Kopiuj bezpośredni adres audio"
+            : item.Kind == MediaItemKind.Podcast
+                ? "Kopiuj adres kanału RSS lub Atom"
+                : TryGetLocalPath(item.Source, out _)
+                    ? "Kopiuj plik i pełną ścieżkę"
+                    : "Kopiuj łącze do elementu";
         SetContextMenuItemPresentation(
             PlayerCopyNameMenuItem,
             item.Kind == MediaItemKind.Episode
-                ? string.IsNullOrWhiteSpace(item.PublicUri)
-                    ? "Kopiuj nazwę i bezpośredni adres audio"
-                    : "Kopiuj nazwę i stronę odcinka"
+                ? "Kopiuj opis i stronę odcinka"
+                : item.Kind == MediaItemKind.Podcast
+                    ? "Kopiuj opis i stronę podcastu"
                 : "Kopiuj nazwę",
             "Ctrl+C");
         SetContextMenuItemPresentation(PlayerCopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
@@ -13847,16 +13860,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var items = ActionItems;
         if (items.Count == 0) return;
         _pendingExternalMoves.Clear();
-        var copiedText = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
-            ? string.Join(
-                Environment.NewLine,
-                items.SelectMany(item => new[]
-                {
-                    item.Title,
-                    !string.IsNullOrWhiteSpace(item.PublicUri)
-                        ? item.PublicUri
-                        : GetShareableLocation(item, "podcasts")
-                }))
+        var podcastCopy = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
+        var copiedText = podcastCopy
+            ? PodcastClipboardPresentation.FormatPublicDetails(
+                items.Select(CreatePodcastClipboardEntry))
             : string.Join(Environment.NewLine, items.Select(item => item.Title));
         if (!ClipboardRetry.TrySetText(
                 copiedText,
@@ -13865,16 +13872,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce(nameClipboardError);
             return;
         }
-        var podcastCopy = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
-        var copiedPodcastPages = podcastCopy && items.All(item => !string.IsNullOrWhiteSpace(item.PublicUri));
         Announce(items.Count == 1
             ? podcastCopy
-                ? copiedPodcastPages ? "Skopiowano nazwę i stronę" : "Skopiowano nazwę i łącze"
+                ? "Skopiowano opis i stronę"
                 : "Skopiowano nazwę"
             : podcastCopy
-                ? copiedPodcastPages
-                    ? $"Skopiowano nazwy i strony: {FormatItemCount(items.Count)}"
-                    : $"Skopiowano nazwy i łącza: {FormatItemCount(items.Count)}"
+                ? $"Skopiowano opisy i strony: {FormatItemCount(items.Count)}"
                 : $"Skopiowano nazwy: {FormatItemCount(items.Count)}");
     }
 
@@ -13891,6 +13894,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (items.Count == 0) return string.Empty;
         _pendingExternalMoves.Clear();
+        if (string.Equals(sessionId, "podcasts", StringComparison.OrdinalIgnoreCase))
+        {
+            var directUrls = PodcastClipboardPresentation.FormatDirectUrls(
+                items.Select(CreatePodcastClipboardEntry));
+            if (directUrls.Length == 0)
+                return "Dla zaznaczonego podcastu lub odcinka nie zapisano bezpośredniego adresu";
+            if (!ClipboardRetry.TrySetText(directUrls, out var podcastClipboardError))
+                return podcastClipboardError;
+            return items.Count == 1
+                ? "Skopiowano bezpośredni adres"
+                : $"Skopiowano bezpośrednie adresy: {FormatItemCount(items.Count)}";
+        }
         var entries = items
             .Select(item =>
             {
@@ -13952,6 +13967,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private string CopySearchResultLocations(IReadOnlyList<SearchWindow.SearchResult> results)
     {
         _pendingExternalMoves.Clear();
+        if (results.All(result =>
+                string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)))
+        {
+            var directUrls = PodcastClipboardPresentation.FormatDirectUrls(
+                results.Select(result => CreatePodcastClipboardEntry(result.Item)));
+            if (directUrls.Length == 0)
+                return "Dla zaznaczonego podcastu lub odcinka nie zapisano bezpośredniego adresu";
+            if (!ClipboardRetry.TrySetText(directUrls, out var podcastClipboardError))
+                return podcastClipboardError;
+            return results.Count == 1
+                ? "Skopiowano bezpośredni adres"
+                : $"Skopiowano bezpośrednie adresy: {FormatItemCount(results.Count)}";
+        }
         var clipboardEntries = results
             .Select(result =>
             {
@@ -14025,6 +14053,44 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         return $"demo://{sessionId}/{item.Id}";
     }
+
+    private PodcastClipboardEntry CreatePodcastClipboardEntry(MediaItem item)
+    {
+        if (item.Kind == MediaItemKind.Episode)
+        {
+            var episode = _state.Podcasts.Episodes.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
+            var subscriptionId = episode?.SubscriptionId ?? item.ExternalId;
+            var subscription = _state.Podcasts.Subscriptions.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, subscriptionId, StringComparison.Ordinal));
+            return new PodcastClipboardEntry(
+                item.Title,
+                episode?.Description,
+                FirstNonEmpty(
+                    HttpLocation(episode?.PageUrl),
+                    HttpLocation(item.PublicUri),
+                    HttpLocation(subscription?.HomepageUrl)),
+                FirstNonEmpty(HttpLocation(episode?.MediaUrl), HttpLocation(item.Source)));
+        }
+
+        var podcast = _state.Podcasts.Subscriptions.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
+        return new PodcastClipboardEntry(
+            item.Title,
+            podcast?.Description,
+            FirstNonEmpty(HttpLocation(podcast?.HomepageUrl), HttpLocation(item.PublicUri)),
+            FirstNonEmpty(HttpLocation(podcast?.FeedUrl), HttpLocation(item.Source)));
+    }
+
+    private static string? HttpLocation(string? value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var uri)
+        && uri.Scheme is "http" or "https"
+        && string.IsNullOrEmpty(uri.UserInfo)
+            ? uri.AbsoluteUri
+            : null;
+
+    private static string? FirstNonEmpty(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private sealed record ClipboardMediaEntry(
         string Title,

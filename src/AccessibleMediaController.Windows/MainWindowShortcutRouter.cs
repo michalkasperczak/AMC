@@ -26,6 +26,8 @@ internal static class MainWindowShortcutRouter
     {
         if (modifiers != ModifierKeys.Alt) return null;
         if (string.Equals(viewName, "Ulubione", StringComparison.Ordinal)
+            || string.Equals(sessionId, "podcasts", StringComparison.Ordinal)
+               && string.Equals(viewName, "Nowe odcinki", StringComparison.Ordinal)
             || string.Equals(viewName, "Biblioteka", StringComparison.Ordinal)
                && !string.Equals(sessionId, "local", StringComparison.Ordinal))
         {

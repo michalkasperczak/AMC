@@ -107,15 +107,17 @@ wyłącznie jako jawne polecenie z zakresem i potwierdzeniem.
 
 Kopiowanie rozróżnia adres dla człowieka i adres techniczny:
 
-- `Ctrl+C` na odcinku kopiuje nazwę i publiczne łącze do jego strony, jeżeli
-  istnieje; na wielu odcinkach tworzy powtarzalne pary nazwa–łącze;
-- `Ctrl+Shift+C` kopiuje nazwę i bezpośredni adres pliku lub strumienia audio;
-- na nagłówku audycji `Ctrl+C` kopiuje nazwę i publiczną stronę, a
-  `Ctrl+Shift+C` nazwę i adres RSS/Atom;
-- wygasający adres podpisany, adres wymagający ciasteczek albo zawierający
-  poświadczenia nie jest bez ostrzeżenia umieszczany w schowku. Program kopiuje
-  wtedy publiczną stronę albo informuje, dlaczego bezpośredni adres jest
-  nietrwały.
+- `Ctrl+C` na odcinku kopiuje czytelny blok: nazwę, pełny opis i publiczne
+  łącze do jego strony, jeżeli istnieje; wiele zaznaczonych odcinków daje
+  osobne bloki rozdzielone pustym wierszem;
+- `Ctrl+Shift+C` kopiuje wyłącznie bezpośredni adres pliku lub strumienia
+  audio, po jednym adresie w wierszu i bez powtarzania nazwy;
+- na nagłówku audycji `Ctrl+C` kopiuje nazwę, opis i publiczną stronę, a
+  `Ctrl+Shift+C` wyłącznie adres RSS/Atom;
+- `Ctrl+Shift+C` jest jawną prośbą o adres techniczny, dlatego może skopiować
+  także podpisany adres, który po czasie wygaśnie. Adres zawierający jawne dane
+  logowania nie jest kopiowany; tokeny kont przyszłych adapterów nie mogą
+  trafiać ani do schowka, ani do eksportu.
 
 ## 5. Prywatność i odporność
 
@@ -228,9 +230,9 @@ koncepcyjnego.
   odcinków; ponowne dodanie przywraca subskrypcję. `F2` ustawia nazwę własną
   podcastu w AMC; nie zmienia źródłowego kanału i nie jest nadpisywane przez
   późniejsze odświeżenia RSS.
-- `Ctrl+C` kopiuje nazwę i publiczną stronę podcastu lub odcinka, jeśli kanał
-  ją podaje, natomiast
-  `Ctrl+Shift+C` nazwę i bezpośredni adres kanału albo pliku audio. Menu
+- `Ctrl+C` kopiuje nazwę, pełny opis i publiczną stronę podcastu lub odcinka,
+  jeśli kanał ją podaje, natomiast
+  `Ctrl+Shift+C` kopiuje wyłącznie bezpośredni adres kanału albo pliku audio. Menu
   kontekstowe wypowiada te różnice wprost.
 - **Pokaż plik w folderze** jest dostępne tylko dla rzeczywiście pobranego,
   lokalnego odcinka i zaznacza go w Eksploratorze Windows. Zdalny odcinek ma
@@ -295,23 +297,25 @@ opisuje `PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
   Tekst pozwala na nawigację znakami i słowami, zaznaczanie i kopiowanie, a
   zachowane adresy są aktywnymi łączami. Opis nie jest czytany automatycznie
   przy przechodzeniu strzałkami po liście.
-- **Nowe odcinki** są widokiem automatycznym od najnowszego. **Pobrane** są
-  filtrem rzeczywiście ukończonych plików lokalnych. Żaden z tych widoków nie
-  zmienia ręcznie kolejności danych źródłowych.
+- **Nowe odcinki** są widokiem automatycznym z trzema trwałymi porządkami:
+  `Alt+1` od najnowszego, `Alt+2` alfabetycznie według tytułu odcinka i
+  `Alt+3` grupami według podcastu, z odcinkami od najnowszego wewnątrz grupy.
+  Żaden wariant nie pozwala ręcznie przestawiać skrzynki. **Pobrane** są
+  filtrem rzeczywiście ukończonych plików lokalnych.
 - Historia, Ulubione, Kolejka, Playlisty, Presety, wyszukiwanie, kopiowanie i
   wspólny odtwarzacz zachowują ustaloną mechanikę AMC, ale działają na
   odcinkach, nie na nagłówku audycji.
 - Menu i paleta pokazują wyłącznie czynności możliwe w Podcastach. Nie wolno
   przenosić tu nagrywania Radia, zarządzania folderami ani lokalnego cięcia
   pliku strumieniowanego.
-- Skróty dla Nowych odcinków i Pobranych zostaną ustalone po teście pierwszej
-  listy, z wyjątkiem przyjętego `Ctrl+I` dla skrzynki. `Alt+1`, `Alt+2` i
-  `Alt+3` nie zostają bez sprawdzenia skopiowane z lokalnej Biblioteki ani
-  Radia.
+- Dla Pobranych osobne skróty porządku zostaną ustalone po teście listy.
+  Skrzynka ma już przyjęte `Ctrl+I` oraz opisane wyżej `Alt+1`, `Alt+2` i
+  `Alt+3`.
 
 Skrzynka ma własne, dostępne ustawienia, ale nie ręczną kolejność playlisty:
 
-- sortowanie od najnowszych, od najstarszych albo grupami według audycji;
+- sortowanie od najnowszych, alfabetycznie według tytułu odcinka albo grupami
+  według audycji;
 - pokazywanie nowych i rozpoczętych oraz opcjonalne pozostawianie odsłuchanych;
 - próg uznania odcinka za odsłuchany;
 - zachowanie przy pierwszym dodaniu audycji. Domyślnie stare archiwum jest

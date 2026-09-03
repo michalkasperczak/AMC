@@ -1834,9 +1834,16 @@ static void TestMainWindowDigitShortcutRouting()
         "Alt+1–3 nie mają wspólnej semantyki w Ulubionych różnych sesji.");
     Assert(
         MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "radio", "Nagrywane") is null
-        && MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "podcasts", "Nowe odcinki") is null
         && MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.None, "radio", "Biblioteka") is null,
         "Sortowanie przeniknęło do list tymczasowych albo zwykłych cyfr.");
+    Assert(
+        MainWindowShortcutRouter.ResolveNumberedView(Key.D1, ModifierKeys.Alt, "podcasts", "Nowe odcinki")
+            == CommandIds.SortCollectionByAdded
+        && MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "podcasts", "Nowe odcinki")
+            == CommandIds.SortCollectionAlphabetically
+        && MainWindowShortcutRouter.ResolveNumberedView(Key.D3, ModifierKeys.Alt, "podcasts", "Nowe odcinki")
+            == CommandIds.SortCollectionCustom,
+        "Alt+1–3 nie sortują automatycznej skrzynki Podcastów.");
     Assert(
         MainWindowNavigationPolicy.IsTransientRadioView("radio", "Nagrywane")
         && !MainWindowNavigationPolicy.IsTransientRadioView("radio", "Biblioteka")

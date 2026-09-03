@@ -25,6 +25,8 @@ var tests = new (string Name, Action Test)[]
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Bezpieczne parsowanie kanałów podcastów", TestPodcastFeedParsing),
     ("Zwięzłe autorstwo podcastów", TestPodcastMetadataPresentation),
+    ("Sortowanie skrzynki Podcastów", TestPodcastInboxOrdering),
+    ("Kopiowanie opisów i adresów Podcastów", TestPodcastClipboardPresentation),
     ("Bezpieczny import list podcastów OPML", TestPodcastOpmlParsing),
     ("Aktualizacja biblioteki Podcastów", TestPodcastLibraryUpdate),
     ("Migracja skrzynki Podcastów po starszym imporcie", TestPodcastLegacyInboxMigration),
@@ -177,6 +179,70 @@ static void TestPodcastMetadataPresentation()
     Equal("2026 Wydawca", PodcastMetadataPresentation.FormatAuthor("(c) 2026 Wydawca"));
     Equal("Simon & Schuster", PodcastMetadataPresentation.FormatAuthor("Simon & Schuster"));
     Equal(string.Empty, PodcastMetadataPresentation.FormatAuthor("© & ℗"));
+}
+
+static void TestPodcastInboxOrdering()
+{
+    var subscriptions = new[]
+    {
+        new PodcastSubscriptionSettings { Id = "b", Title = "Beta" },
+        new PodcastSubscriptionSettings { Id = "a", Title = "Alfa" }
+    };
+    var episodes = new[]
+    {
+        new PodcastEpisodeSettings { Id = "3", SubscriptionId = "b", Title = "Adam", PublishedUtcTicks = 30 },
+        new PodcastEpisodeSettings { Id = "2", SubscriptionId = "a", Title = "Zenon", PublishedUtcTicks = 20 },
+        new PodcastEpisodeSettings { Id = "1", SubscriptionId = "a", Title = "Beata", PublishedUtcTicks = 10 }
+    };
+
+    Equal(
+        "3,2,1",
+        string.Join(',', PodcastInboxOrdering.Order(
+            episodes,
+            subscriptions,
+            CollectionSortMode.AddedNewest).Select(episode => episode.Id)));
+    Equal(
+        "3,1,2",
+        string.Join(',', PodcastInboxOrdering.Order(
+            episodes,
+            subscriptions,
+            CollectionSortMode.Alphabetical).Select(episode => episode.Id)));
+    Equal(
+        "2,1,3",
+        string.Join(',', PodcastInboxOrdering.Order(
+            episodes,
+            subscriptions,
+            CollectionSortMode.Custom).Select(episode => episode.Id)));
+}
+
+static void TestPodcastClipboardPresentation()
+{
+    var entries = new[]
+    {
+        new PodcastClipboardEntry(
+            "Odcinek pierwszy",
+            "Opis pierwszego odcinka.",
+            "https://example.com/episodes/1",
+            "https://cdn.example.com/audio/1.mp3"),
+        new PodcastClipboardEntry(
+            "Odcinek drugi",
+            "Opis drugi.\nDrugi akapit.",
+            "https://example.com/episodes/2",
+            "https://cdn.example.com/audio/2.mp3")
+    };
+
+    var publicText = PodcastClipboardPresentation.FormatPublicDetails(entries);
+    True(publicText.Contains(string.Join(Environment.NewLine,
+            "Odcinek pierwszy",
+            "Opis pierwszego odcinka.",
+            "https://example.com/episodes/1")),
+        "Ctrl+C powinien łączyć nazwę, opis i publiczną stronę odcinka.");
+    True(publicText.Contains(Environment.NewLine + Environment.NewLine + "Odcinek drugi"),
+        "Wiele odcinków powinno tworzyć osobne, czytelne bloki.");
+    Equal(
+        "https://cdn.example.com/audio/1.mp3" + Environment.NewLine +
+        "https://cdn.example.com/audio/2.mp3",
+        PodcastClipboardPresentation.FormatDirectUrls(entries));
 }
 
 static void TestPodcastStatePersistence()
