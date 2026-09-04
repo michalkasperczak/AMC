@@ -16,7 +16,8 @@ public static class PodcastLibraryUpdater
         PodcastSettings settings,
         PodcastFeedDocument feed,
         string? titleOverride,
-        DateTime refreshUtc)
+        DateTime refreshUtc,
+        BookmarkSettings? bookmarks = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(feed);
@@ -121,6 +122,23 @@ public static class PodcastLibraryUpdater
             episode.PageUrl = source.PageUri?.AbsoluteUri;
             episode.MediaType = source.MediaType;
             episode.MediaLength = source.MediaLength;
+            var chaptersUrl = source.ChaptersUri?.AbsoluteUri;
+            if (!string.Equals(episode.ProviderChaptersUrl, chaptersUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                var hadLoadedJsonChapters = !string.IsNullOrWhiteSpace(episode.ProviderChaptersLoadedUrl);
+                episode.ProviderChaptersUrl = chaptersUrl;
+                episode.ProviderChaptersLoadedUrl = null;
+                if (bookmarks is not null && hadLoadedJsonChapters)
+                {
+                    new ChapterIndex(bookmarks).ReplaceProviderChapters(
+                        "podcasts",
+                        "Podcasty",
+                        ToMediaItem(episode, subscription.Title),
+                        "podcast-json",
+                        [],
+                        refreshUtc);
+                }
+            }
             episode.PublishedUtcTicks = source.Published?.UtcDateTime.Ticks ?? 0;
             if (source.Duration > TimeSpan.Zero)
             {
@@ -128,6 +146,18 @@ public static class PodcastLibraryUpdater
                 if (episode.ResumePositionTicks > episode.DurationTicks)
                     episode.ResumePositionTicks = episode.DurationTicks;
             }
+            var feedChapters = source.Chapters ?? [];
+            if (bookmarks is not null && (feedChapters.Count > 0 || episode.HasFeedChapters))
+            {
+                new ChapterIndex(bookmarks).ReplaceProviderChapters(
+                    "podcasts",
+                    "Podcasty",
+                    ToMediaItem(episode, subscription.Title),
+                    "podcast-feed",
+                    feedChapters,
+                    refreshUtc);
+            }
+            episode.HasFeedChapters = feedChapters.Count > 0;
         }
 
         return new PodcastLibraryUpdateResult(
@@ -142,4 +172,16 @@ public static class PodcastLibraryUpdater
     private static string Normalize(string? value) =>
         string.Join(' ', (value ?? string.Empty)
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+    private static AccessibleMediaController.Core.Sessions.MediaItem ToMediaItem(
+        PodcastEpisodeSettings episode,
+        string podcastTitle) => new()
+    {
+        Id = episode.Id,
+        Title = episode.Title,
+        Artist = podcastTitle,
+        Kind = AccessibleMediaController.Core.Sessions.MediaItemKind.Episode,
+        Duration = TimeSpan.FromTicks(Math.Max(0, episode.DurationTicks)),
+        Source = episode.DownloadPath ?? episode.MediaUrl
+    };
 }

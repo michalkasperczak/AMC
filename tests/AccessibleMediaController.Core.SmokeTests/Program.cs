@@ -24,6 +24,7 @@ var tests = new (string Name, Action Test)[]
     ("Trwałe ustawienia i historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Bezpieczne parsowanie kanałów podcastów", TestPodcastFeedParsing),
+    ("Rozdziały dostawcy podcastu", TestPodcastProviderChapters),
     ("Zwięzłe autorstwo podcastów", TestPodcastMetadataPresentation),
     ("Sortowanie skrzynki Podcastów", TestPodcastInboxOrdering),
     ("Stronicowanie dużych list Podcastów", TestPodcastEpisodePaging),
@@ -103,7 +104,7 @@ static void TestPodcastFeedParsing()
 {
     const string rss = """
         <?xml version="1.0" encoding="UTF-8"?>
-        <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+        <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:podcast="https://podcastindex.org/namespace/1.0">
           <channel>
             <title>Próba &amp; Podcast</title>
             <link>https://example.test/podcast</link>
@@ -116,6 +117,7 @@ static void TestPodcastFeedParsing()
               <itunes:duration>01:02:03</itunes:duration>
               <description><![CDATA[<p>Pierwszy akapit.</p><p><a href="https://example.test/material">Materiały do odcinka</a></p>]]></description>
               <enclosure url="https://cdn.example.test/audio/1.mp3" length="123456" type="audio/mpeg" />
+              <podcast:chapters url="https://cdn.example.test/chapters/1.json" type="application/json+chapters" />
               <link>/podcast/1</link>
             </item>
             <item>
@@ -142,6 +144,8 @@ static void TestPodcastFeedParsing()
     Equal(new Uri("https://example.test/podcast/1"), episode.PageUri);
     Equal("audio/mpeg", episode.MediaType);
     Equal(123456L, episode.MediaLength);
+    Equal(new Uri("https://cdn.example.test/chapters/1.json"), episode.ChaptersUri);
+    Equal(0, episode.Chapters?.Count ?? -1);
     Equal(episode.Id, PodcastFeedParser.Parse(rss, feedUri).Episodes[0].Id);
 
     const string atom = """
@@ -179,6 +183,58 @@ static void TestPodcastFeedParsing()
         rejectedDtd = true;
     }
     True(rejectedDtd, "Parser podcastów musi odrzucać DTD i encje zewnętrzne.");
+}
+
+static void TestPodcastProviderChapters()
+{
+    const string json = """
+        {
+          "version": "1.2.0",
+          "chapters": [
+            { "startTime": 65.5, "title": "Rozmowa" },
+            { "startTime": 0, "title": "Wstęp" },
+            { "startTime": 30, "title": "Ukryty", "toc": false },
+            { "startTime": -1, "title": "Błędny" }
+          ]
+        }
+        """;
+    var jsonChapters = PodcastJsonChapterParser.Parse(json);
+    Equal(2, jsonChapters.Count);
+    Equal("Wstęp", jsonChapters[0].Name);
+    Equal(TimeSpan.FromSeconds(65.5), jsonChapters[1].Start);
+
+    var descriptionChapters = PodcastDescriptionChapterParser.Parse(
+        $"00:00 Wprowadzenie{Environment.NewLine}12:34 - Temat główny{Environment.NewLine}1:02:03 Zakończenie",
+        TimeSpan.FromHours(2));
+    Equal(3, descriptionChapters.Count);
+    Equal(TimeSpan.FromMinutes(12) + TimeSpan.FromSeconds(34), descriptionChapters[1].Start);
+    Equal(0, PodcastDescriptionChapterParser.Parse("12:34 tylko jeden znacznik", TimeSpan.FromHours(1)).Count);
+
+    const string psc = """
+        <rss xmlns:psc="http://podlove.org/simple-chapters" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>PSC</title><item>
+          <guid>psc-1</guid><title>Odcinek</title><enclosure url="https://example.test/a.mp3" />
+          <itunes:duration>10:00</itunes:duration>
+          <psc:chapters><psc:chapter start="00:00:00" title="Początek"/><psc:chapter start="00:03:20" title="Drugi"/></psc:chapters>
+        </item></channel></rss>
+        """;
+    var parsed = PodcastFeedParser.Parse(psc, new Uri("https://example.test/feed.xml"));
+    Equal(2, parsed.Episodes[0].Chapters?.Count ?? -1);
+    Equal("Drugi", parsed.Episodes[0].Chapters?[1].Name);
+
+    var podcastSettings = new PodcastSettings();
+    var bookmarks = new BookmarkSettings();
+    var update = PodcastLibraryUpdater.Apply(
+        podcastSettings,
+        parsed,
+        null,
+        DateTime.UtcNow,
+        bookmarks);
+    var importedEpisode = podcastSettings.Episodes.Single();
+    Equal(2, new ChapterIndex(bookmarks).GetForItem(
+        "podcasts",
+        importedEpisode.Id,
+        TimeSpan.FromTicks(importedEpisode.DurationTicks)).Count);
+    Equal(update.Subscription.Id, importedEpisode.SubscriptionId);
 }
 
 static void TestPodcastMetadataPresentation()
@@ -325,6 +381,10 @@ static void TestPodcastStatePersistence()
             SourceIdentifier = "guid-a",
             Title = "Odcinek A",
             MediaUrl = "https://cdn.example.test/a.mp3",
+            ProviderChaptersUrl = "https://cdn.example.test/a.chapters.json",
+            ProviderChaptersLoadedUrl = "https://cdn.example.test/a.chapters.json",
+            EmbeddedChaptersSignature = "C:\\Podcasty\\a.mp3|123|456",
+            HasFeedChapters = true,
             DurationTicks = TimeSpan.FromMinutes(30).Ticks,
             ResumePositionTicks = TimeSpan.FromMinutes(5).Ticks,
             ResumePositionMode = ResumePositionMode.Remember,
@@ -354,6 +414,10 @@ static void TestPodcastStatePersistence()
         Equal(ResumePositionMode.Remember, loaded.Podcasts.Episodes[0].ResumePositionMode);
         Equal(0.75d, loaded.Podcasts.Episodes[0].PlaybackRateOverride);
         Equal(true, loaded.Podcasts.Episodes[0].SmoothTrackTransitionsOverride);
+        Equal("https://cdn.example.test/a.chapters.json", loaded.Podcasts.Episodes[0].ProviderChaptersUrl);
+        Equal("https://cdn.example.test/a.chapters.json", loaded.Podcasts.Episodes[0].ProviderChaptersLoadedUrl);
+        Equal("C:\\Podcasty\\a.mp3|123|456", loaded.Podcasts.Episodes[0].EmbeddedChaptersSignature);
+        Equal(true, loaded.Podcasts.Episodes[0].HasFeedChapters);
         Equal(false, loaded.Podcasts.Episodes[0].IsNew);
         Equal(true, loaded.Podcasts.Episodes[0].IsStarted);
         Equal("episode-a", loaded.Podcasts.CurrentItemId);
@@ -3498,6 +3562,33 @@ static void TestChapters()
     Equal(1, bookmarks.GetForItem("podcasts", item.Id).Count);
     Equal(bookmark.Entry.Id, bookmarks.GetForItem("podcasts", item.Id)[0].Id);
     True(settings.Entries.Contains(last.Entry), "Usunięcie innego rozdziału nie może naruszyć pozostałych.");
+
+    var providerCount = chapters.ReplaceProviderChapters(
+        "podcasts",
+        "Podcasty",
+        item,
+        "podcast-json",
+        [
+            new ProviderChapterPoint("start", "Początek dostawcy", TimeSpan.Zero),
+            new ProviderChapterPoint("override", "Nadpisywany", TimeSpan.FromMinutes(5)),
+            new ProviderChapterPoint("end", "Końcówka dostawcy", TimeSpan.FromMinutes(25))
+        ],
+        now.AddMinutes(4));
+    Equal(3, providerCount);
+    True(chapters.GetForItem("podcasts", item.Id, item.Duration).Any(chapter =>
+            chapter.Entry.ChapterOrigin == ChapterOrigin.Provider
+            && chapter.Name == "Końcówka dostawcy"),
+        "Rozdziały dostawcy powinny wejść do wspólnej osi czasu.");
+    chapters.ReplaceProviderChapters(
+        "podcasts",
+        "Podcasty",
+        item,
+        "podcast-json",
+        [new ProviderChapterPoint("replacement", "Nowy spis", TimeSpan.FromMinutes(2))],
+        now.AddMinutes(5));
+    Equal(1, settings.Entries.Count(entry =>
+        entry.ChapterOrigin == ChapterOrigin.Provider
+        && entry.ChapterSourceId?.StartsWith("podcast-json:", StringComparison.Ordinal) == true));
 
     var sharedAgain = chapters.AddUserChapter(
         "podcasts", "Podcasty", item, TimeSpan.FromMinutes(5), now.AddMinutes(4), "Rozdział ponownie");

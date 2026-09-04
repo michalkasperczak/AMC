@@ -8,6 +8,12 @@ dostępny import OPML, odświeżanie metadanych, przejście z audycji do jej
 odcinków oraz odtwarzanie skończonych materiałów HTTP/HTTPS we wspólnym
 odtwarzaczu AMC.
 
+Od `alpha.252` odcinki korzystają również z rozdziałów dostawcy. Obsługiwane są
+Podcasting 2.0 JSON Chapters, Podlove Simple Chapters, czytelne znaczniki czasu
+w opisie oraz osadzone rozdziały ID3/MP4 pobranego pliku. Sieciowy plik
+rozdziałów przez HTTPS jest pobierany dopiero po wywołaniu `Ctrl+Alt+B`; zwykłe odświeżanie
+Podcastów nie wysyła dodatkowych żądań do serwerów rozdziałów.
+
 Od `alpha.247` każdy podcast ma opcjonalne ustawienia dziedziczone przez jego
 odcinki: pozycję wznowienia, prędkość, przetwarzanie dźwięku, częstotliwość
 automatycznego odświeżania i folder pobierania. Pojedynczy odcinek może
@@ -309,11 +315,14 @@ koncepcyjnego.
 
 Podcasty nie otrzymują w tym celu osobnego odtwarzacza ani dużego modułu
 edycyjnego. Dziedziczą niewielką funkcję rozdziałów wspólnego odtwarzacza AMC.
-Rozdziały wykorzystają nazwaną Zakładkę jako stabilny punkt czasu zamiast
-tworzyć drugi system znaczników. `Ctrl+Shift+B` nadal zapisuje nazwany punkt,
-który może później zostać oznaczony jako początek rozdziału także w istniejącym
-odcinku. Pełny model, dostępny edytor, wykrywanie ciszy i sposoby eksportu
-opisuje `PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
+Rozdziały wykorzystują tę samą trwałą oś czasu co nazwane Zakładki zamiast
+tworzyć drugi system znaczników. `Ctrl+Alt+B` otwiera listę rozdziałów,
+`Ctrl+Alt+Shift+B` dodaje własny nazwany początek, a
+`Ctrl+Alt+Page Up` i `Ctrl+Alt+Page Down` nawigują po początkach. Rozdziały
+dostawcy są oznaczone na liście i nie można ich skasować jak własnego punktu.
+Własny punkt w tym samym czasie ma pierwszeństwo i nie jest nadpisywany przez
+odświeżenie RSS. Pełny model, dostępny edytor, wykrywanie ciszy i sposoby
+eksportu opisuje `PROJEKT_ROZDZIALOW_AUDIO_PL.md`.
 
 ## 9. Zasady interfejsu
 

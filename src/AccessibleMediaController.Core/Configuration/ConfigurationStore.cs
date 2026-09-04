@@ -317,6 +317,10 @@ public sealed class ConfigurationStore
         PageUrl = item.PageUrl,
         MediaType = item.MediaType,
         MediaLength = item.MediaLength,
+        ProviderChaptersUrl = item.ProviderChaptersUrl,
+        ProviderChaptersLoadedUrl = item.ProviderChaptersLoadedUrl,
+        EmbeddedChaptersSignature = item.EmbeddedChaptersSignature,
+        HasFeedChapters = item.HasFeedChapters,
         PublishedUtcTicks = item.PublishedUtcTicks,
         DurationTicks = item.DurationTicks,
         ResumePositionTicks = item.ResumePositionTicks,
@@ -1330,6 +1334,22 @@ public sealed class ConfigurationStore
                     ? null
                     : episode.MediaType.Trim();
                 episode.MediaLength = episode.MediaLength is >= 0 ? episode.MediaLength : null;
+                episode.ProviderChaptersUrl = IsHttpAddress(episode.ProviderChaptersUrl)
+                    ? episode.ProviderChaptersUrl!.Trim()
+                    : null;
+                episode.ProviderChaptersLoadedUrl = IsHttpAddress(episode.ProviderChaptersLoadedUrl)
+                    ? episode.ProviderChaptersLoadedUrl!.Trim()
+                    : null;
+                if (!string.Equals(
+                        episode.ProviderChaptersUrl,
+                        episode.ProviderChaptersLoadedUrl,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    episode.ProviderChaptersLoadedUrl = null;
+                }
+                episode.EmbeddedChaptersSignature = string.IsNullOrWhiteSpace(episode.EmbeddedChaptersSignature)
+                    ? null
+                    : episode.EmbeddedChaptersSignature.Trim();
                 episode.PublishedUtcTicks = NormalizeOptionalUtcTicks(episode.PublishedUtcTicks);
                 episode.DurationTicks = Math.Max(0, episode.DurationTicks);
                 episode.ResumePositionTicks = Math.Max(0, episode.ResumePositionTicks);

@@ -76,6 +76,7 @@ try
     TestAudioOutputPauseRaceGuard();
     TestPodcastNetworkSourcePolicy();
     TestPodcastFeedClient();
+    TestPodcastChapterClient();
     TestPodcastEpisodeDownloader();
     TestApplePodcastDirectoryClient();
     TestSpreakerPodcastDirectoryClient();
@@ -104,6 +105,7 @@ try
     TestAudioClipOriginalEditor();
     TestAudioClipExportAccessibility();
     TestChapterWindowAccessibility();
+    TestEmbeddedMediaChapters();
     TestFfmpegComponentSecurity();
     TestWaveMetadataAndDamagedContainers();
     TestLocalVideoAudioExtraction();
@@ -1175,6 +1177,21 @@ static void TestChapterWindowAccessibility()
     if (failure is not null)
         throw new InvalidOperationException("Test dostępności okien rozdziałów nie powiódł się.", failure);
     Console.WriteLine("OK: czytelna lista rozdziałów, początkowy wybór i brak technicznych etykiet");
+}
+
+static void TestEmbeddedMediaChapters()
+{
+    const string ffprobeJson = """
+        { "chapters": [
+          { "id": 1, "start_time": "0.000000", "end_time": "60.000000", "tags": { "title": "Wstęp" } },
+          { "id": 2, "start_time": "60.000000", "end_time": "180.000000", "tags": { "title": "Temat" } }
+        ] }
+        """;
+    var chapters = EmbeddedMediaChapterReader.Parse(ffprobeJson);
+    Assert(chapters.Count == 2, "FFprobe: nie odczytano rozdziałów ID3/MP4.");
+    Assert(chapters[0].Name == "Wstęp" && chapters[1].Start == TimeSpan.FromMinutes(1),
+        "FFprobe: nie zachowano nazwy albo czasu osadzonego rozdziału.");
+    Console.WriteLine("OK: rozdziały osadzone ID3 i MP4 mają wspólny model AMC");
 }
 
 static void TestFfmpegComponentSecurity()
@@ -4043,6 +4060,37 @@ static void TestPodcastFeedClient()
     Assert(handler.Requests.All(uri => uri.Host == "example.test"), "Klient pobrał plik audio zamiast samych metadanych kanału.");
 
     Console.WriteLine("OK: ograniczony klient kanałów podcastów");
+}
+
+static void TestPodcastChapterClient()
+{
+    const string chaptersJson = """
+        { "version": "1.2.0", "chapters": [
+          { "startTime": 0, "title": "Wprowadzenie" },
+          { "startTime": 42.5, "title": "Rozmowa" }
+        ] }
+        """;
+    var handler = new PodcastHttpHandler(request =>
+    {
+        if (request.RequestUri == new Uri("https://example.test/start"))
+        {
+            var redirect = new HttpResponseMessage(HttpStatusCode.Redirect);
+            redirect.Headers.Location = new Uri("/chapters.json", UriKind.Relative);
+            return redirect;
+        }
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(chaptersJson, Encoding.UTF8, "application/json+chapters")
+        };
+    });
+    using var client = new PodcastChapterClient(handler, TimeSpan.FromSeconds(2));
+    var chapters = client.FetchAsync(new Uri("https://example.test/start"), CancellationToken.None)
+        .GetAwaiter().GetResult();
+    Assert(chapters.Count == 2 && chapters[1].Start == TimeSpan.FromSeconds(42.5),
+        "Klient nie odczytał zewnętrznych rozdziałów Podcasting 2.0.");
+    Assert(handler.Requests.Count == 2,
+        "Klient rozdziałów nie obsłużył kontrolowanego przekierowania.");
+    Console.WriteLine("OK: rozdziały Podcasting 2.0 są pobierane osobno i z limitem");
 }
 
 static void TestPodcastEpisodeDownloader()

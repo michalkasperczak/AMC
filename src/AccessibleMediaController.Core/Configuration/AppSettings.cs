@@ -301,6 +301,10 @@ public sealed class PodcastEpisodeSettings
     public string? PageUrl { get; set; }
     public string? MediaType { get; set; }
     public long? MediaLength { get; set; }
+    public string? ProviderChaptersUrl { get; set; }
+    public string? ProviderChaptersLoadedUrl { get; set; }
+    public string? EmbeddedChaptersSignature { get; set; }
+    public bool HasFeedChapters { get; set; }
     public long PublishedUtcTicks { get; set; }
     public long DurationTicks { get; set; }
     public long ResumePositionTicks { get; set; }

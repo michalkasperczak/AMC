@@ -1,8 +1,9 @@
 # Projekt rozdziałów audio opartych na Zakładkach AMC
 
-Status: pierwsza działająca implementacja od `alpha.241`; dalsze punkty tego
-dokumentu wyznaczają kolejne etapy. Nie jest to osobna sesja ani duży
-samodzielny moduł, tylko funkcja wspólnego odtwarzacza AMC.
+Status: działająca implementacja od `alpha.241`, rozszerzona w `alpha.252` o
+rozdziały dostawcy. Dalsze punkty tego dokumentu wyznaczają opcjonalne etapy
+edycyjne. Nie jest to osobna sesja ani duży samodzielny moduł, tylko funkcja
+wspólnego odtwarzacza AMC.
 
 ## Stan wdrożony w alpha.241
 
@@ -26,9 +27,11 @@ samodzielny moduł, tylko funkcja wspólnego odtwarzacza AMC.
 - schemat SQLite przechowuje zastosowanie punktu, pochodzenie rozdziału oraz
   przyszły identyfikator źródła. Kontrolki mają jawne etykiety dla NVDA.
 
-Nie wdrożono jeszcze odczytu rozdziałów dostawcy z Podcasting 2.0, ID3, MP4
-ani CUE, korekty granic o 0,1/0,5 sekundy, wykrywania ciszy, eksportu CUE/AMC,
-natywnego zapisu metadanych i listy montażowej.
+Od `alpha.252` AMC odczytuje rozdziały dostawcy z Podcasting 2.0 JSON,
+Podlove Simple Chapters, uporządkowanych znaczników czasu w opisie oraz ID3 i
+MP4 przez zweryfikowany FFprobe. Nie wdrożono jeszcze importu CUE, korekty
+granic o 0,1/0,5 sekundy, wykrywania ciszy, eksportu CUE/AMC, natywnego zapisu
+metadanych i listy montażowej.
 
 ## 1. Jedna oś czasu, dwa zastosowania
 
@@ -142,8 +145,10 @@ rozdziały bez modyfikowania podcastu.
 3. Precyzyjna korekta czasu oraz propozycje wykryte na podstawie ciszy.
 4. Eksport CUE i wersjonowanego pliku AMC, potem natywne rozdziały MP3/M4A.
 5. Eksport osobnych plików i niedestrukcyjna lista montażowa.
-6. Udostępnienie odziedziczonej funkcji w sesji Podcasty oraz import rozdziałów
-   dostawcy.
+6. Wykonane w `alpha.252`: udostępnienie odziedziczonej funkcji w sesji
+   Podcasty oraz import rozdziałów dostawcy. Zewnętrzny JSON przez HTTPS jest pobierany
+   dopiero na jawne polecenie `Ctrl+Alt+B`, bez masowego odpytywania serwerów
+   podczas `F5`.
 
 Każdy etap wymaga testów NVDA dla początkowego fokusu, nawigacji listy,
 edytowania czasu, podglądu, anulowania i powrotu do odtwarzacza. W nazwach

@@ -163,15 +163,17 @@ wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
 
 ### AMC-RYZYKO-009 — rozdziały dostawcy i materiały bez znanego czasu
 
-- Stan: funkcja zaplanowana, jeszcze niewdrożona.
+- Stan: podstawowa funkcja wdrożona w `alpha.252`, wymaga testów na prawdziwych
+  kanałach i plikach różnych dostawców.
 - Dotyczy: Podcasting 2.0 JSON Chapters, ID3 CHAP/CTOC, rozdziały MP4 i CUE.
-- Fakt: `alpha.241` zapisuje i odtwarza własne rozdziały użytkownika. Model oraz
-  SQLite rozróżniają już pochodzenie, ale nie pobierają ani nie parsują jeszcze
-  metadanych rozdziałów dostawcy. Transmisja na żywo i materiał bez znanego
-  końca nie mogą tworzyć poprawnie ograniczonych segmentów.
-- Następny test: przed importem przygotować po jednym legalnym przykładzie
-  każdego formatu, rozstrzygnąć zasady aktualizacji i sprawdzić, że dane
-  dostawcy nie nadpisują własnych punktów użytkownika.
+- Fakt: AMC odczytuje Podcasting 2.0 JSON, Podlove Simple Chapters, znaczniki
+  czasu z opisu oraz ID3/MP4 przez FFprobe. Zewnętrzny JSON jest pobierany tylko
+  po `Ctrl+Alt+B`. Dane dostawcy są wymieniane według źródła, a rozdziały własne
+  pozostają nienaruszone. CUE pozostaje etapem późniejszym. Transmisja na żywo i
+  materiał bez znanego końca nadal nie mogą tworzyć poprawnie ograniczonych
+  segmentów.
+- Następny test: sprawdzić legalne przykłady JSON, ID3 i M4A/MP4, w tym TyfloPodcast,
+  zmianę spisu po odświeżeniu, brak sieci oraz plik o nieznanym czasie.
 
 ### AMC-RYZYKO-010 — wielokrotny wybór rozdziałów a ręczne sterowanie
 

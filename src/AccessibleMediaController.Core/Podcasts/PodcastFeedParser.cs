@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
+using AccessibleMediaController.Core.Configuration;
 
 namespace AccessibleMediaController.Core.Podcasts;
 
@@ -28,7 +29,9 @@ public sealed record PodcastFeedEpisode(
     Uri MediaUri,
     Uri? PageUri,
     string? MediaType,
-    long? MediaLength);
+    long? MediaLength,
+    Uri? ChaptersUri = null,
+    IReadOnlyList<ProviderChapterPoint>? Chapters = null);
 
 /// <summary>
 /// Parses already downloaded RSS and Atom metadata. Network retrieval is kept
@@ -146,18 +149,24 @@ public static partial class PodcastFeedParser
         var title = TextOf(item, "title", "Odcinek bez tytułu");
         var author = TextOfAny(item, "author", "creator");
         if (string.IsNullOrWhiteSpace(author)) author = defaultAuthor;
+        var description = DescriptionOfAny(item, "description", "summary", "encoded");
+        var duration = ParseDuration(TextOfAny(item, "duration"));
+        var chaptersUri = ExternalChaptersUri(item, feedUri);
+        var chapters = InlineChapters(item, description, duration);
         return new PodcastFeedEpisode(
             StableId("podcast-episode", $"{feedUri.AbsoluteUri}\n{sourceIdentifier}"),
             sourceIdentifier,
             title,
             author,
-            DescriptionOfAny(item, "description", "summary", "encoded"),
+            description,
             ParseDate(TextOfAny(item, "pubDate", "published", "updated")),
-            ParseDuration(TextOfAny(item, "duration")),
+            duration,
             mediaUri,
             pageUri,
             NormalizeOptional(AttributeValue(enclosure, "type")),
-            ParsePositiveLong(AttributeValue(enclosure, "length")));
+            ParsePositiveLong(AttributeValue(enclosure, "length")),
+            chaptersUri,
+            chapters);
     }
 
     private static PodcastFeedDocument ParseAtom(XElement root, Uri feedUri)
@@ -199,18 +208,63 @@ public static partial class PodcastFeedParser
         if (string.IsNullOrWhiteSpace(sourceIdentifier)) sourceIdentifier = mediaUri.AbsoluteUri;
         var author = AuthorOf(entry);
         if (string.IsNullOrWhiteSpace(author)) author = defaultAuthor;
+        var description = DescriptionOfAny(entry, "summary", "content");
+        var duration = ParseDuration(TextOfAny(entry, "duration"));
+        var chaptersUri = ExternalChaptersUri(entry, feedUri);
+        var chapters = InlineChapters(entry, description, duration);
         return new PodcastFeedEpisode(
             StableId("podcast-episode", $"{feedUri.AbsoluteUri}\n{sourceIdentifier}"),
             sourceIdentifier,
             TextOf(entry, "title", "Odcinek bez tytułu"),
             author,
-            DescriptionOfAny(entry, "summary", "content"),
+            description,
             ParseDate(TextOfAny(entry, "published", "updated")),
-            ParseDuration(TextOfAny(entry, "duration")),
+            duration,
             mediaUri,
             AtomLink(entry, feedUri, "alternate"),
             NormalizeOptional(AttributeValue(enclosure, "type")),
-            ParsePositiveLong(AttributeValue(enclosure, "length")));
+            ParsePositiveLong(AttributeValue(enclosure, "length")),
+            chaptersUri,
+            chapters);
+    }
+
+    private static Uri? ExternalChaptersUri(XElement parent, Uri feedUri)
+    {
+        foreach (var element in parent.Elements().Where(element => IsNamed(element, "chapters")))
+        {
+            var type = AttributeValue(element, "type");
+            if (!string.Equals(type, "application/json+chapters", StringComparison.OrdinalIgnoreCase)) continue;
+            var uri = ResolveUri(feedUri, AttributeValue(element, "url"));
+            if (uri is { Scheme: "https" } && string.IsNullOrEmpty(uri.UserInfo)) return uri;
+        }
+        return null;
+    }
+
+    private static IReadOnlyList<ProviderChapterPoint> InlineChapters(
+        XElement parent,
+        string description,
+        TimeSpan duration)
+    {
+        var container = parent.Elements().FirstOrDefault(element =>
+            IsNamed(element, "chapters") && AttributeValue(element, "url") is null);
+        if (container is not null)
+        {
+            var points = container.Elements()
+                .Where(element => IsNamed(element, "chapter"))
+                .Select((element, index) =>
+                {
+                    var start = ParseDuration(AttributeValue(element, "start") ?? string.Empty);
+                    var title = PodcastJsonChapterParser.NormalizeTitle(AttributeValue(element, "title"));
+                    return new ProviderChapterPoint(
+                        $"psc:{index + 1}:{start.Ticks}:{title}",
+                        title.Length == 0 ? $"Rozdział {index + 1}" : title,
+                        start);
+                })
+                .Where(point => duration <= TimeSpan.Zero || point.Start < duration)
+                .ToArray();
+            if (points.Length > 0) return PodcastJsonChapterParser.Normalize(points);
+        }
+        return PodcastDescriptionChapterParser.Parse(description, duration);
     }
 
     private static string AuthorOf(XElement parent)

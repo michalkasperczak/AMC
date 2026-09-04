@@ -310,6 +310,10 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         hash.Add(item.PageUrl);
         hash.Add(item.MediaType);
         hash.Add(item.MediaLength);
+        hash.Add(item.ProviderChaptersUrl);
+        hash.Add(item.ProviderChaptersLoadedUrl);
+        hash.Add(item.EmbeddedChaptersSignature);
+        hash.Add(item.HasFeedChapters);
         hash.Add(item.PublishedUtcTicks);
         hash.Add(item.DurationTicks);
         hash.Add(item.ResumePositionTicks);

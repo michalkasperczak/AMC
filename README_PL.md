@@ -1,5 +1,15 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.252` kończy podstawową obsługę rozdziałów Podcastów. AMC rozpoznaje
+zewnętrzne rozdziały Podcasting 2.0 JSON, Podlove Simple Chapters, uporządkowane
+znaczniki czasu w opisie oraz rozdziały ID3/MP4 osadzone w pobranym pliku.
+Zewnętrzny JSON jest pobierany dopiero po jawnym otwarciu listy rozdziałów
+`Ctrl+Alt+B`, a nie podczas odświeżania całej Biblioteki. Rozdziały dostawcy i
+własne punkty użytkownika trafiają na jedną chronologiczną oś; lokalny punkt ma
+pierwszeństwo i odświeżenie kanału go nie nadpisuje. Z listy nadal można
+odtworzyć wybrane rozdziały, a jeden rozdział pobranego odcinka zapisać do
+osobnego pliku.
+
 Wersja `alpha.251` zmniejsza porcję dostępnej listy Podcastów z 250 do 150
 odcinków. Dotyczy to pierwszego otwarcia oraz każdego użycia **Załaduj więcej
 odcinków**. Mniejsza porcja ogranicza liczbę tworzonych wierszy WPF i pracę

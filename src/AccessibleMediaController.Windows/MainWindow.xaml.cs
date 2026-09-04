@@ -6,6 +6,7 @@ using System.IO;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -37,6 +38,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private ChapterIndex _chapterIndex;
     private readonly AudioClipSelection _audioClipSelection = new();
     private ChapterPlaybackPlan? _chapterPlaybackPlan;
+    private bool _chapterListOpening;
     private bool _audioClipEditInProgress;
     private SessionManager _sessions = null!;
     private CommandRouter _router = null!;
@@ -88,11 +90,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly WindowsMediaOutput _podcastOutput = new();
     private readonly RadioBrowserClient _radioCatalog = new();
     private readonly PodcastFeedClient _podcastFeedClient = new();
+    private readonly PodcastChapterClient _podcastChapterClient = new();
     private readonly ApplePodcastDirectoryClient _applePodcastDirectory = new();
     private readonly SpreakerPodcastDirectoryClient _spreakerPodcastDirectory = new();
     private readonly PodcastEpisodeDownloader _podcastDownloader = new();
     private readonly CancellationTokenSource _podcastCancellation = new();
     private readonly HashSet<string> _podcastDownloadsInProgress = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _podcastChapterDownloadsInProgress = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _embeddedChapterSignatures = new(StringComparer.OrdinalIgnoreCase);
     private RadioMediaOutput _radioOutput = null!;
     private readonly ITrackRecognitionService _trackRecognitionService = new ShazamTrackRecognitionService();
     private readonly CancellationTokenSource _trackRecognitionCancellation = new();
@@ -789,11 +794,52 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : $"Rozdział {result.Entry.Name} już istnieje: {time}");
     }
 
-    public void ShowChapters()
+    public void ShowChapters() => _ = OpenChapterListAsync();
+
+    private async Task OpenChapterListAsync()
+    {
+        if (_chapterListOpening)
+        {
+            Announce("Lista rozdziałów jest już otwierana");
+            return;
+        }
+        _chapterListOpening = true;
+        try
+        {
+            await ShowChaptersAsync();
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error("chapters", "Nieoczekiwany błąd otwierania listy rozdziałów.", exception);
+            Announce("Nie udało się otworzyć listy rozdziałów");
+            RestoreChapterCallerFocus();
+        }
+        finally
+        {
+            _chapterListOpening = false;
+        }
+    }
+
+    private async Task ShowChaptersAsync()
     {
         var session = ActionSession;
         var item = ActionItem;
-        if (item is null || item.Duration <= TimeSpan.Zero)
+        if (item is null)
+        {
+            Announce("Wybierz materiał");
+            return;
+        }
+
+        await EnsurePodcastProviderChaptersAsync(session.Id, item);
+        if (_isClosing) return;
+        await EnsureEmbeddedChaptersAsync(session.Id, session.DisplayName, item);
+        if (_isClosing) return;
+        if (!string.Equals(ActionSession.Id, session.Id, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(ActionItem?.Id, item.Id, StringComparison.Ordinal))
+        {
+            return;
+        }
+        if (item.Duration <= TimeSpan.Zero)
         {
             Announce("Rozdziały są dostępne dla materiału o znanym czasie trwania");
             return;
@@ -834,6 +880,127 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             default:
                 RestoreChapterCallerFocus();
                 break;
+        }
+    }
+
+    private async Task EnsurePodcastProviderChaptersAsync(string sessionId, MediaItem item)
+    {
+        if (!string.Equals(sessionId, "podcasts", StringComparison.OrdinalIgnoreCase)) return;
+        var episode = _state.Podcasts.Episodes.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
+        if (episode is null
+            || string.IsNullOrWhiteSpace(episode.ProviderChaptersUrl)
+            || string.Equals(
+                episode.ProviderChaptersUrl,
+                episode.ProviderChaptersLoadedUrl,
+                StringComparison.OrdinalIgnoreCase)
+            || !_podcastChapterDownloadsInProgress.Add(episode.Id))
+        {
+            return;
+        }
+
+        try
+        {
+            if (!Uri.TryCreate(episode.ProviderChaptersUrl, UriKind.Absolute, out var address))
+                throw new InvalidDataException("Adres rozdziałów jest nieprawidłowy.");
+            if (_state.Settings.Messages.LoadingMessages) Announce("Pobieranie rozdziałów");
+            var chapters = await _podcastChapterClient.FetchAsync(address, _podcastCancellation.Token);
+            if (_isClosing) return;
+            _chapterIndex.ReplaceProviderChapters(
+                "podcasts",
+                "Podcasty",
+                item,
+                "podcast-json",
+                chapters,
+                DateTime.UtcNow);
+            episode.ProviderChaptersLoadedUrl = episode.ProviderChaptersUrl;
+            QueueStateSave(announceFailure: true);
+            DiagnosticLog.Info(
+                "podcast-chapters",
+                $"Pobrano rozdziały dostawcy dla {episode.Id}: {chapters.Count}.");
+        }
+        catch (OperationCanceledException) when (_isClosing || _podcastCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception) when (exception is HttpRequestException
+            or IOException
+            or InvalidDataException
+            or ArgumentException
+            or JsonException
+            or TaskCanceledException)
+        {
+            DiagnosticLog.Error(
+                "podcast-chapters",
+                $"Nie udało się pobrać rozdziałów dla {episode.Id}.",
+                exception);
+            Announce($"Nie udało się pobrać rozdziałów: {exception.Message}");
+        }
+        finally
+        {
+            _podcastChapterDownloadsInProgress.Remove(episode.Id);
+        }
+    }
+
+    private async Task EnsureEmbeddedChaptersAsync(
+        string sessionId,
+        string sessionName,
+        MediaItem item)
+    {
+        string? path = null;
+        PodcastEpisodeSettings? episode = null;
+        if (string.Equals(sessionId, "podcasts", StringComparison.OrdinalIgnoreCase))
+        {
+            episode = _state.Podcasts.Episodes.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
+            path = episode?.DownloadPath;
+        }
+        else if (string.Equals(sessionId, "local", StringComparison.OrdinalIgnoreCase))
+        {
+            path = item.Source;
+        }
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path) || !EmbeddedMediaChapterReader.IsAvailable)
+            return;
+
+        var signature = EmbeddedMediaChapterReader.GetFileSignature(path);
+        if (signature is null) return;
+        var alreadyLoaded = episode?.EmbeddedChaptersSignature
+            ?? (_embeddedChapterSignatures.TryGetValue(path, out var cached) ? cached : null);
+        if (string.Equals(signature, alreadyLoaded, StringComparison.Ordinal)) return;
+
+        try
+        {
+            var chapters = await EmbeddedMediaChapterReader.ReadAsync(path, _podcastCancellation.Token);
+            if (_isClosing) return;
+            _chapterIndex.ReplaceProviderChapters(
+                sessionId,
+                sessionName,
+                item,
+                "embedded",
+                chapters,
+                DateTime.UtcNow);
+            if (episode is not null)
+                episode.EmbeddedChaptersSignature = signature;
+            else
+                _embeddedChapterSignatures[path] = signature;
+            if (chapters.Count > 0 || episode is not null) QueueStateSave(announceFailure: true);
+            DiagnosticLog.Info(
+                "media-chapters",
+                $"Odczytano rozdziały osadzone dla {item.Id}: {chapters.Count}.");
+        }
+        catch (OperationCanceledException) when (_isClosing || _podcastCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception) when (exception is IOException
+            or InvalidDataException
+            or InvalidOperationException
+            or UnauthorizedAccessException
+            or JsonException
+            or System.ComponentModel.Win32Exception
+            or TaskCanceledException)
+        {
+            DiagnosticLog.Warning(
+                "media-chapters",
+                $"Nie udało się odczytać rozdziałów osadzonych dla {item.Id}; błąd {exception.GetType().Name}.");
         }
     }
 
@@ -5817,7 +5984,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _state.Podcasts,
             dialog.Feed,
             dialog.CustomTitle,
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            _state.Bookmarks);
         ReloadPodcastSessionItems();
         QueueStateSave(announceFailure: true);
         OpenPodcast(result.Subscription.Id, result.Subscription.Title);
@@ -5915,7 +6083,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 _state.Podcasts,
                 item.Feed!,
                 item.Entry.Title,
-                DateTime.UtcNow);
+                DateTime.UtcNow,
+                _state.Bookmarks);
             imported++;
         }
         ReloadPodcastSessionItems();
@@ -6013,7 +6182,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     _state.Podcasts,
                     feed,
                     subscription.HasCustomTitle ? subscription.Title : null,
-                    DateTime.UtcNow);
+                    DateTime.UtcNow,
+                    _state.Bookmarks);
                 addedEpisodes += result.AddedEpisodes;
                 retainedArchivedEpisodes += result.RetainedEpisodesAbsentFromFeed;
                 success++;
@@ -7367,7 +7537,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 _state.Podcasts,
                 feed,
                 null,
-                DateTime.UtcNow);
+                DateTime.UtcNow,
+                _state.Bookmarks);
             if (markFavorite) result.Subscription.IsFavorite = true;
             ReloadPodcastSessionItems();
             QueueStateSave(announceFailure: true);
@@ -14746,6 +14917,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _applePodcastDirectory.Dispose();
         _spreakerPodcastDirectory.Dispose();
         _podcastFeedClient.Dispose();
+        _podcastChapterClient.Dispose();
         _podcastDownloader.Dispose();
         _podcastCancellation.Dispose();
         _trackRecognitionCancellation.Dispose();
