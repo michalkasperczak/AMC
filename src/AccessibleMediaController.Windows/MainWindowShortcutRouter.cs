@@ -96,6 +96,19 @@ internal static class MainWindowShortcutRouter
             ? CommandIds.SelectAudioOutput
             : null;
 
+    public static string? ResolveChapterList(
+        Key key,
+        ModifierKeys modifiers,
+        bool itemContext,
+        bool textEditing,
+        bool menuActive) =>
+        itemContext
+        && !menuActive
+        && key == Key.B
+        && modifiers == (ModifierKeys.Control | ModifierKeys.Alt)
+            ? CommandIds.ViewChapters
+            : null;
+
     public static string? ResolvePodcastEpisodeFileAction(
         Key key,
         ModifierKeys modifiers,

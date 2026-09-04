@@ -1,5 +1,14 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.256` naprawia rzeczywistą obsługę `Ctrl+Alt+B` na liście
+multimediów. Skrót był opisany w profilu i menu, lecz poza odtwarzaczem nie
+docierał do wykonania polecenia. Teraz działa na zaznaczonym materiale zarówno
+na liście, jak i w odtwarzaczu, nie przejmuje pól tekstowych ani menu i zawsze
+kończy się listą rozdziałów albo jednoznacznym komunikatem, że materiał ich nie
+ma. Dziennik zapisuje odebranie skrótu, wybrany element i liczbę znalezionych
+rozdziałów, co pozwoli odróżnić błąd klawiatury od braku danych w kanale lub
+pliku.
+
 Wersja `alpha.255` zabezpiecza drugi rodzaj utraty fokusa: WPF potrafił zostawić
 fokus na samej kontrolce listy po zniszczeniu lub wirtualizacji zaznaczonego
 wiersza. Dla NVDA wyglądało to jak milcząca lista, mimo że technicznie fokus
@@ -1013,6 +1022,14 @@ od tytułu audycji lub odcinka, niezależnie od ogólnej kolejności pól dla mu
 `F2` na audycji w Bibliotece ustawia trwałą nazwę własną AMC, której odświeżenie
 RSS nie nadpisuje. Pełny podział etapów znajduje
 się w [`PROJEKT_PODCASTOW_PL.md`](PROJEKT_PODCASTOW_PL.md).
+
+Od `alpha.257` otwarcie rozdziałów najpierw korzysta z już zapisanego spisu,
+zamiast ponownie czekać na sieć albo analizę pliku. Chwilowo niepełne RSS nie
+może już usunąć wcześniej poznanych rozdziałów. Sprawdzanie nowego źródła ma
+limit 20 sekund, osobne etapy w logu i zawsze zwalnia blokadę polecenia po
+błędzie lub przekroczeniu czasu. `Ctrl+Alt+B` działa także wtedy, gdy po
+przebudowie listy fokus WPF omyłkowo pozostał w polu filtra, o ile istnieje
+bieżący element multimedialny.
 
 ## Urządzenie audio osobno dla sesji w alpha 204
 

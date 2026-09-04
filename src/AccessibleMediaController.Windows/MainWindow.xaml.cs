@@ -805,9 +805,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         _chapterListOpening = true;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_podcastCancellation.Token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(20));
         try
         {
-            await ShowChaptersAsync();
+            await ShowChaptersAsync(timeout.Token);
+        }
+        catch (OperationCanceledException) when (!_isClosing && !_podcastCancellation.IsCancellationRequested)
+        {
+            DiagnosticLog.Warning("chapters", "Sprawdzanie rozdziałów przekroczyło limit 20 sekund.");
+            Announce("Sprawdzanie rozdziałów trwało zbyt długo. Spróbuj ponownie");
+            RestoreChapterCallerFocus();
         }
         catch (Exception exception)
         {
@@ -821,7 +829,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
-    private async Task ShowChaptersAsync()
+    private async Task ShowChaptersAsync(CancellationToken cancellationToken)
     {
         var session = ActionSession;
         var item = ActionItem;
@@ -831,15 +839,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        await EnsurePodcastProviderChaptersAsync(session.Id, item);
-        if (_isClosing) return;
-        await EnsureEmbeddedChaptersAsync(session.Id, session.DisplayName, item);
-        if (_isClosing) return;
-        if (!string.Equals(ActionSession.Id, session.Id, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(ActionItem?.Id, item.Id, StringComparison.Ordinal))
-        {
-            return;
-        }
+        DiagnosticLog.Info(
+            "chapters",
+            $"Sprawdzanie rozdziałów; sesja: {session.Id}; element: {item.Id}; tytuł: {item.Title}.");
+
         if (item.Duration <= TimeSpan.Zero)
         {
             Announce("Rozdziały są dostępne dla materiału o znanym czasie trwania");
@@ -847,6 +850,37 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var chapters = _chapterIndex.GetForItem(session.Id, item.Id, item.Duration);
+        if (chapters.Count > 0)
+        {
+            DiagnosticLog.Info(
+                "chapters",
+                $"Użyto zapisanego spisu rozdziałów; sesja: {session.Id}; element: {item.Id}; liczba: {chapters.Count}.");
+        }
+        else
+        {
+            DiagnosticLog.Info("chapters", $"Etap rozdziałów dostawcy; element: {item.Id}.");
+            await EnsurePodcastProviderChaptersAsync(session.Id, item, cancellationToken);
+            if (_isClosing) return;
+            DiagnosticLog.Info("chapters", $"Etap rozdziałów osadzonych; element: {item.Id}.");
+            await EnsureEmbeddedChaptersAsync(session.Id, session.DisplayName, item, cancellationToken);
+            if (_isClosing) return;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!string.Equals(ActionSession.Id, session.Id, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(ActionItem?.Id, item.Id, StringComparison.Ordinal))
+            {
+                DiagnosticLog.Warning(
+                    "chapters",
+                    $"Przerwano otwieranie rozdziałów, ponieważ zmienił się wybrany element; "
+                    + $"oczekiwano {session.Id}/{item.Id}, jest {ActionSession.Id}/{ActionItem?.Id ?? "brak"}.");
+                Announce("Wybrany materiał zmienił się podczas sprawdzania rozdziałów. Spróbuj ponownie");
+                RestoreChapterCallerFocus();
+                return;
+            }
+            chapters = _chapterIndex.GetForItem(session.Id, item.Id, item.Duration);
+        }
+        DiagnosticLog.Info(
+            "chapters",
+            $"Zakończono sprawdzanie rozdziałów; sesja: {session.Id}; element: {item.Id}; liczba: {chapters.Count}.");
         if (chapters.Count == 0)
         {
             Announce(_playerViewActive
@@ -884,7 +918,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
-    private async Task EnsurePodcastProviderChaptersAsync(string sessionId, MediaItem item)
+    private async Task EnsurePodcastProviderChaptersAsync(
+        string sessionId,
+        MediaItem item,
+        CancellationToken cancellationToken)
     {
         if (!string.Equals(sessionId, "podcasts", StringComparison.OrdinalIgnoreCase)) return;
         var episode = _state.Podcasts.Episodes.FirstOrDefault(candidate =>
@@ -905,15 +942,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (!Uri.TryCreate(episode.ProviderChaptersUrl, UriKind.Absolute, out var address))
                 throw new InvalidDataException("Adres rozdziałów jest nieprawidłowy.");
             if (_state.Settings.Messages.LoadingMessages) Announce("Pobieranie rozdziałów");
-            var chapters = await _podcastChapterClient.FetchAsync(address, _podcastCancellation.Token);
+            var chapters = await _podcastChapterClient.FetchAsync(address, cancellationToken);
             if (_isClosing) return;
-            _chapterIndex.ReplaceProviderChapters(
-                "podcasts",
-                "Podcasty",
-                item,
-                "podcast-json",
-                chapters,
-                DateTime.UtcNow);
+            if (chapters.Count > 0)
+            {
+                _chapterIndex.ReplaceProviderChapters(
+                    "podcasts",
+                    "Podcasty",
+                    item,
+                    "podcast-json",
+                    chapters,
+                    DateTime.UtcNow);
+            }
             episode.ProviderChaptersLoadedUrl = episode.ProviderChaptersUrl;
             QueueStateSave(announceFailure: true);
             DiagnosticLog.Info(
@@ -922,6 +962,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         catch (OperationCanceledException) when (_isClosing || _podcastCancellation.IsCancellationRequested)
         {
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception exception) when (exception is HttpRequestException
             or IOException
@@ -945,7 +989,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private async Task EnsureEmbeddedChaptersAsync(
         string sessionId,
         string sessionName,
-        MediaItem item)
+        MediaItem item,
+        CancellationToken cancellationToken)
     {
         string? path = null;
         PodcastEpisodeSettings? episode = null;
@@ -959,10 +1004,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             path = item.Source;
         }
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path) || !EmbeddedMediaChapterReader.IsAvailable)
+        if (string.IsNullOrWhiteSpace(path) || !EmbeddedMediaChapterReader.IsAvailable)
             return;
 
-        var signature = EmbeddedMediaChapterReader.GetFileSignature(path);
+        var signature = await Task.Run(
+                () => EmbeddedMediaChapterReader.GetFileSignature(path),
+                cancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
         if (signature is null) return;
         var alreadyLoaded = episode?.EmbeddedChaptersSignature
             ?? (_embeddedChapterSignatures.TryGetValue(path, out var cached) ? cached : null);
@@ -970,15 +1018,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         try
         {
-            var chapters = await EmbeddedMediaChapterReader.ReadAsync(path, _podcastCancellation.Token);
+            var chapters = await EmbeddedMediaChapterReader.ReadAsync(path, cancellationToken);
             if (_isClosing) return;
-            _chapterIndex.ReplaceProviderChapters(
-                sessionId,
-                sessionName,
-                item,
-                "embedded",
-                chapters,
-                DateTime.UtcNow);
+            if (chapters.Count > 0)
+            {
+                _chapterIndex.ReplaceProviderChapters(
+                    sessionId,
+                    sessionName,
+                    item,
+                    "embedded",
+                    chapters,
+                    DateTime.UtcNow);
+            }
             if (episode is not null)
                 episode.EmbeddedChaptersSignature = signature;
             else
@@ -990,6 +1041,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         catch (OperationCanceledException) when (_isClosing || _podcastCancellation.IsCancellationRequested)
         {
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception exception) when (exception is IOException
             or InvalidDataException
@@ -12947,6 +13002,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var effectiveModifiers = ReadEffectiveModifierKeys();
+        var chapterListCommand = MainWindowShortcutRouter.ResolveChapterList(
+            windowKey,
+            effectiveModifiers,
+            itemContext: ActionItem is not null
+                && (_playerViewActive
+                    || MediaList.IsKeyboardFocusWithin
+                    || Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase
+                    || Keyboard.FocusedElement is PasswordBox),
+            textEditing: Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase
+                or PasswordBox,
+            menuActive: MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem);
+        if (chapterListCommand is not null)
+        {
+            var chapterItem = ActionItem;
+            DiagnosticLog.Info(
+                "chapters",
+                $"Odebrano Ctrl+Alt+B; sesja: {_sessions.Current.Id}; widok: {_currentView}; "
+                + $"odtwarzacz: {_playerViewActive}; element: {chapterItem?.Id ?? "brak"}.");
+            ExecuteCommand(chapterListCommand);
+            e.Handled = true;
+            return;
+        }
         if (windowKey == Key.M
             && effectiveModifiers is ModifierKeys.Control
                 or (ModifierKeys.Control | ModifierKeys.Shift))

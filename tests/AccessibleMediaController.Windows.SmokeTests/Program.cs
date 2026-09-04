@@ -2239,6 +2239,34 @@ static void TestMainWindowDigitShortcutRouting()
             ModifierKeys.Control | ModifierKeys.Shift) is null,
         "Shift+A nie wybiera urządzenia audio bieżącej sesji albo przejmuje błędny skrót.");
     Assert(
+        MainWindowShortcutRouter.ResolveChapterList(
+            Key.B,
+            ModifierKeys.Control | ModifierKeys.Alt,
+            itemContext: true,
+            textEditing: false,
+            menuActive: false) == CommandIds.ViewChapters,
+        "Ctrl+Alt+B nie otwiera rozdziałów zaznaczonego elementu.");
+    Assert(
+        MainWindowShortcutRouter.ResolveChapterList(
+            Key.B,
+            ModifierKeys.Control | ModifierKeys.Alt,
+            itemContext: false,
+            textEditing: false,
+            menuActive: false) is null
+        && MainWindowShortcutRouter.ResolveChapterList(
+            Key.B,
+            ModifierKeys.Control | ModifierKeys.Alt,
+            itemContext: true,
+            textEditing: true,
+            menuActive: false) == CommandIds.ViewChapters
+        && MainWindowShortcutRouter.ResolveChapterList(
+            Key.B,
+            ModifierKeys.Control | ModifierKeys.Alt,
+            itemContext: true,
+            textEditing: false,
+            menuActive: true) is null,
+        "Ctrl+Alt+B ma odzyskiwać listę rozdziałów również po wycieku fokusu do filtra, ale nie w menu ani bez elementu multimedialnego.");
+    Assert(
         GlobalPrefixService.IsFocusedDirectShortcutCandidate(
             KeyChord.Parse("Ctrl+Shift+S")),
         "Niskopoziomowa obsługa nie rozpoznaje Ctrl+Shift+S.");

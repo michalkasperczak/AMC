@@ -1970,6 +1970,24 @@ wykonuje najwyżej jedną odłożoną próbę utworzenia kontenera i przywrócen
 zaznaczonego elementu. Pusta lista może nadal prawidłowo przyjąć fokus jako
 cała kontrolka.
 
+Od `alpha.256` skrót `Ctrl+Alt+B` jest obsługiwany bezpośrednio przez główne
+okno na liście i w odtwarzaczu. Nie wolno polegać wyłącznie na wpisie w mapie
+pomocy lub palety poleceń: każda deklarowana kombinacja musi mieć sprawdzoną
+ścieżkę od zdarzenia klawiatury do wykonania polecenia. Jeżeli rozdziałów nie
+ma, program ma to powiedzieć i zachować fokus; brak reakcji jest zawsze błędem.
+
+Od `alpha.257` zapisany spis rozdziałów ma pierwszeństwo przed ponownym
+odpytywaniem źródła. Automatyczne odświeżenie kanału nie może kasować
+wcześniejszych rozdziałów tylko dlatego, że jedna odpowiedź RSS chwilowo nie
+zawiera `podcast:chapters` albo `psc:chapters`. Nowy niepusty spis może zastąpić
+starszy spis tego samego dostawcy; odpowiedź pusta zachowuje ostatni poprawny
+stan. Całe wykrywanie ma limit 20 sekund i wpisuje do logu osobno etap danych
+dostawcy oraz etap rozdziałów osadzonych. Po błędzie, anulowaniu lub limicie
+blokada otwierania zostaje bezwarunkowo zwolniona, a fokus wraca do wywołującej
+listy lub odtwarzacza. Jawny skrót `Ctrl+Alt+B` może również odzyskać polecenie
+po przypadkowym przejściu fokusa do filtra, ale nie przejmuje otwartego menu ani
+okna bez bieżącego elementu.
+
 ### 7.20. Spójne cofanie usunięcia podcastu
 
 Od `alpha.240` operacja usunięcia kanału z Biblioteki Podcastów i jej

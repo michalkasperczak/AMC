@@ -123,21 +123,11 @@ public static class PodcastLibraryUpdater
             episode.MediaType = source.MediaType;
             episode.MediaLength = source.MediaLength;
             var chaptersUrl = source.ChaptersUri?.AbsoluteUri;
-            if (!string.Equals(episode.ProviderChaptersUrl, chaptersUrl, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(chaptersUrl)
+                && !string.Equals(episode.ProviderChaptersUrl, chaptersUrl, StringComparison.OrdinalIgnoreCase))
             {
-                var hadLoadedJsonChapters = !string.IsNullOrWhiteSpace(episode.ProviderChaptersLoadedUrl);
                 episode.ProviderChaptersUrl = chaptersUrl;
                 episode.ProviderChaptersLoadedUrl = null;
-                if (bookmarks is not null && hadLoadedJsonChapters)
-                {
-                    new ChapterIndex(bookmarks).ReplaceProviderChapters(
-                        "podcasts",
-                        "Podcasty",
-                        ToMediaItem(episode, subscription.Title),
-                        "podcast-json",
-                        [],
-                        refreshUtc);
-                }
             }
             episode.PublishedUtcTicks = source.Published?.UtcDateTime.Ticks ?? 0;
             if (source.Duration > TimeSpan.Zero)
@@ -147,7 +137,7 @@ public static class PodcastLibraryUpdater
                     episode.ResumePositionTicks = episode.DurationTicks;
             }
             var feedChapters = source.Chapters ?? [];
-            if (bookmarks is not null && (feedChapters.Count > 0 || episode.HasFeedChapters))
+            if (bookmarks is not null && feedChapters.Count > 0)
             {
                 new ChapterIndex(bookmarks).ReplaceProviderChapters(
                     "podcasts",
@@ -157,7 +147,7 @@ public static class PodcastLibraryUpdater
                     feedChapters,
                     refreshUtc);
             }
-            episode.HasFeedChapters = feedChapters.Count > 0;
+            if (feedChapters.Count > 0) episode.HasFeedChapters = true;
         }
 
         return new PodcastLibraryUpdateResult(

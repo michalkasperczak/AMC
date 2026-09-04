@@ -235,6 +235,53 @@ static void TestPodcastProviderChapters()
         importedEpisode.Id,
         TimeSpan.FromTicks(importedEpisode.DurationTicks)).Count);
     Equal(update.Subscription.Id, importedEpisode.SubscriptionId);
+
+    var chapterIndex = new ChapterIndex(bookmarks);
+    importedEpisode.ProviderChaptersUrl = "https://example.test/chapters/psc-1.json";
+    importedEpisode.ProviderChaptersLoadedUrl = importedEpisode.ProviderChaptersUrl;
+    chapterIndex.ReplaceProviderChapters(
+        "podcasts",
+        "Podcasty",
+        new MediaItem
+        {
+            Id = importedEpisode.Id,
+            Title = importedEpisode.Title,
+            Artist = parsed.Title,
+            Kind = MediaItemKind.Episode,
+            Duration = TimeSpan.FromTicks(importedEpisode.DurationTicks),
+            Source = importedEpisode.MediaUrl
+        },
+        "podcast-json",
+        [new ProviderChapterPoint("json-1", "Dodatkowy rozdział", TimeSpan.FromMinutes(8))],
+        DateTime.UtcNow);
+
+    // A temporary, incomplete RSS response must not erase chapters that AMC
+    // has already stored. Some publishers intermittently omit both PSC and
+    // Podcasting 2.0 chapter metadata from otherwise valid feed responses.
+    var incomplete = parsed with
+    {
+        Episodes =
+        [
+            parsed.Episodes[0] with
+            {
+                ChaptersUri = null,
+                Chapters = null
+            }
+        ]
+    };
+    PodcastLibraryUpdater.Apply(
+        podcastSettings,
+        incomplete,
+        null,
+        DateTime.UtcNow.AddMinutes(1),
+        bookmarks);
+    Equal(true, importedEpisode.HasFeedChapters);
+    Equal("https://example.test/chapters/psc-1.json", importedEpisode.ProviderChaptersUrl);
+    Equal("https://example.test/chapters/psc-1.json", importedEpisode.ProviderChaptersLoadedUrl);
+    Equal(3, chapterIndex.GetForItem(
+        "podcasts",
+        importedEpisode.Id,
+        TimeSpan.FromTicks(importedEpisode.DurationTicks)).Count);
 }
 
 static void TestPodcastMetadataPresentation()
