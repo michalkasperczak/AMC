@@ -12555,6 +12555,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             commandId = audioCommand;
             return true;
         }
+        var chapterListCommand = MainWindowShortcutRouter.ResolvePlayerChapterList(
+            key,
+            modifiers,
+            _playerViewActive && PlayerPanel.IsKeyboardFocusWithin);
+        if (chapterListCommand is not null)
+        {
+            commandId = chapterListCommand;
+            return true;
+        }
         if (MainWindowShortcutRouter.IsSessionListShortcut(key, modifiers))
         {
             commandId = CommandIds.SessionList;
@@ -12918,6 +12927,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             description = "cofnij ostatnią zmianę Ulubionych, Biblioteki, Kolejki albo playlisty";
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.Control && key == Key.A)
             description = "zaznacz wszystkie elementy bieżącej listy";
+        else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.Control && key == Key.Space)
+            description = "zaznacz lub odznacz bieżący element bez zmiany pozostałego zaznaczenia";
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.Shift && key == Key.Delete)
             description = "po potwierdzeniu przenieś zaznaczone lokalne pliki do Kosza";
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.None && key == Key.Delete)
@@ -13322,6 +13333,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (audioCommand is not null)
         {
             ExecuteCommand(audioCommand);
+            return true;
+        }
+        var chapterListCommand = MainWindowShortcutRouter.ResolvePlayerChapterList(
+            key,
+            effectiveModifiers,
+            playerActive: true);
+        if (chapterListCommand is not null)
+        {
+            ExecuteCommand(chapterListCommand);
             return true;
         }
         var radioRecordingBookmarkCommand = MainWindowShortcutRouter.ResolveRadioRecordingBookmark(

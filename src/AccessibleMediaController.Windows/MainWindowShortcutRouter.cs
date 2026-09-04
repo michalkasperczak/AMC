@@ -88,6 +88,14 @@ internal static class MainWindowShortcutRouter
             playerActive,
             capabilities);
 
+    public static string? ResolvePlayerChapterList(
+        Key key,
+        ModifierKeys modifiers,
+        bool playerActive) =>
+        playerActive && key == Key.C && modifiers == ModifierKeys.None
+            ? CommandIds.ViewChapters
+            : null;
+
     public static bool IsSessionListShortcut(Key key, ModifierKeys modifiers) =>
         key == Key.S && modifiers == (ModifierKeys.Control | ModifierKeys.Shift);
 

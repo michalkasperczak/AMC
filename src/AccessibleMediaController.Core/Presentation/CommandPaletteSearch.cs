@@ -228,7 +228,7 @@ public static class CommandPaletteSearch
             CommandIds.AddNamedBookmark => "Ctrl+Shift+B (odtwarzacz)",
             CommandIds.PreviousBookmark => "Shift+PageUp (odtwarzacz)",
             CommandIds.NextBookmark => "Shift+PageDown (odtwarzacz)",
-            CommandIds.ViewChapters => "Ctrl+Alt+B",
+            CommandIds.ViewChapters => "C (odtwarzacz); Ctrl+Alt+B",
             CommandIds.AddNamedChapter => "Ctrl+Alt+Shift+B (odtwarzacz)",
             CommandIds.PreviousChapter => "Ctrl+Alt+PageUp (odtwarzacz)",
             CommandIds.NextChapter => "Ctrl+Alt+PageDown (odtwarzacz)",

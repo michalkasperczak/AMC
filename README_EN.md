@@ -1,5 +1,14 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.244` simplifies chapter access: plain `C` opens the chapter
+list in the active player, while Enter keeps its single play-or-pause meaning.
+`Ctrl+Alt+B` remains a compatible alias and `Ctrl+Alt+Shift+B` still inserts a
+named chapter at the current position without opening the list. Every media
+item list that supports multiple selection now follows one documented rule:
+`Shift+Arrow` selects a contiguous range, `Ctrl+Arrow` moves focus alone, and
+`Ctrl+Space` toggles the focused item without clearing the other selections. This includes search results, Radio,
+chapters, presets, and recognition history.
+
 Version `alpha.243` generalises safe collection-state undo across all
 sessions. Removing an item or changing its Library, Favorites, or Queue
 membership from search results or a regular view is now tied to both the

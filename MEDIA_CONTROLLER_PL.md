@@ -1966,3 +1966,28 @@ sieciowy nie może pozostawić lokalnej atrapy zmiany ani dodać do historii
 operacji, której usługa nie wykonała. Dopóki adaptery kont użytkownika nie są
 wdrożone, trwałość tej reguły dotyczy Plików lokalnych, Radia i Podcastów, a
 sesje demonstracyjne można sprawdzać tylko w bieżącym uruchomieniu.
+
+### 7.22. Rozdziały i nieciągłe zaznaczanie
+
+W aktywnym odtwarzaczu `C` otwiera chronologiczną listę rozdziałów. Enter nie
+jest przeciążony tą funkcją i zawsze pozostaje poleceniem odtwórz lub wstrzymaj.
+`Ctrl+Alt+B` jest aliasem działającym także z listy materiałów, a
+`Ctrl+Alt+Shift+B` dodaje nazwany rozdział w bieżącym czasie bez otwierania
+okna. Na liście rozdziałów Enter odtwarza wyłącznie zaznaczone fragmenty.
+
+Każda lista elementów multimedialnych z trybem wielokrotnego wyboru ma ten sam
+kontrakt klawiatury:
+
+- `Shift+strzałka` tworzy ciągły zakres;
+- `Ctrl+strzałka` przesuwa fokus bez zmiany istniejącego zaznaczenia;
+- `Ctrl+Spacja` zaznacza lub odznacza bieżący element bez kasowania pozostałego
+  zaznaczenia;
+- `Ctrl+A` zaznacza wszystko, jeżeli lista udostępnia operację dla całego
+  zbioru;
+- późniejsze kopiowanie, zmiana kolekcji, usunięcie albo odtwarzanie wybranych
+  rozdziałów obejmuje cały zaznaczony zbiór.
+
+Reguła dotyczy głównej listy każdej sesji, wyników wyszukiwania, rozdziałów,
+listy presetów, historii rozpoznawania oraz innych list rzeczywistych elementów.
+Nie zmienia pól pojedynczego wyboru ani list opartych na polach wyboru, takich
+jak dni harmonogramu lub wybór kanałów podczas importu OPML.

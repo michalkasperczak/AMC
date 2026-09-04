@@ -1140,6 +1140,8 @@ static void TestChapterWindowAccessibility()
                 "Lista rozdziałów nie zaznacza rozdziału zawierającego bieżącą pozycję.");
             Assert(AutomationProperties.GetName(window.ChapterList) == "Rozdziały: Odcinek",
                 "Lista rozdziałów nie ma jednoznacznej nazwy dla NVDA.");
+            Assert(window.ChapterList.SelectionMode == System.Windows.Controls.SelectionMode.Extended,
+                "Lista rozdziałów nie obsługuje Shift+strzałek i Ctrl+Spacji.");
             foreach (var row in window.ChapterList.Items.OfType<ChapterListRow>())
             {
                 Assert(!string.IsNullOrWhiteSpace(row.AccessibleLabel), "Rozdział nie ma jawnej etykiety.");
@@ -2181,6 +2183,20 @@ static void TestMainWindowDigitShortcutRouting()
 
 static void TestPlayerAudioProcessingKeyboardMap()
 {
+    Assert(
+        MainWindowShortcutRouter.ResolvePlayerChapterList(
+            Key.C,
+            ModifierKeys.None,
+            playerActive: true) == CommandIds.ViewChapters
+        && MainWindowShortcutRouter.ResolvePlayerChapterList(
+            Key.C,
+            ModifierKeys.Shift,
+            playerActive: true) is null
+        && MainWindowShortcutRouter.ResolvePlayerChapterList(
+            Key.C,
+            ModifierKeys.None,
+            playerActive: false) is null,
+        "C nie otwiera listy rozdziałów wyłącznie w aktywnym odtwarzaczu.");
     Assert(
         MainWindowShortcutRouter.ResolvePlayerAudioProcessing(
             Key.N,

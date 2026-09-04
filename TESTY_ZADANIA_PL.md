@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-243`
-- Tytuł zestawu: Globalne, trwałe cofanie zmian kolekcji
-- Wersja programu: `0.1.0-alpha.243`
+- Numer zestawu: `AMC-TEST-244`
+- Tytuł zestawu: Prosta lista rozdziałów i nieciągłe zaznaczanie
+- Wersja programu: `0.1.0-alpha.244`
 - Utworzono: 2026-09-04, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.243.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.244.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,48 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 244
+
+### AMC-244-01 — C otwiera rozdziały bez przeciążania Entera
+
+Otwórz lokalny plik lub pobrany odcinek mający rozdziały. W odtwarzaczu
+naciśnij `C`, zamknij listę, a następnie sprawdź Enter oraz `Ctrl+Alt+B`.
+
+Oczekiwane: `C` i `Ctrl+Alt+B` otwierają tę samą chronologiczną listę.
+Enter w odtwarzaczu nadal wyłącznie odtwarza lub wstrzymuje. Na zwykłej liście
+literka C nadal służy do szybkiej nawigacji po nazwach.
+
+### AMC-244-02 — wybór nieprzylegających rozdziałów
+
+Na liście rozdziałów zaznacz pozycję przez `Ctrl+Spacja`, przejdź do odległej
+pozycji przez `Ctrl+strzałki`, zaznacz ją przez `Ctrl+Spacja`, a następnie
+naciśnij Enter.
+
+Oczekiwane: każde naciśnięcie zmienia tylko stan bieżącego rozdziału. Enter
+odtwarza wyłącznie wybrane fragmenty w kolejności czasu i po ostatnim kończy
+wybór bez uruchamiania następnego materiału.
+
+### AMC-244-03 — Ctrl+Spacja na wszystkich listach multimediów
+
+Powtórz nieciągłe zaznaczanie w Plikach lokalnych, Radiu, Podcastach,
+Ulubionych, Kolejce i wynikach wyszukiwania. Wyrywkowo sprawdź także presety
+oraz historię rozpoznawania.
+
+Oczekiwane: `Ctrl+Spacja` zaznacza lub odznacza wyłącznie bieżący element i nie
+kasuje pozostałego zaznaczenia. NVDA podaje stan zaznaczenia bez technicznych
+nazw. `Ctrl+C`, `Ctrl+Shift+C` oraz adekwatne działania kolekcji obejmują
+wszystkie wybrane elementy.
+
+### AMC-244-04 — zakres i wybór nieciągły nie mieszają się
+
+Zaznacz zakres przez `Shift+strzałki`, przejdź do odległego elementu przez
+`Ctrl+strzałki`, dodaj go przez `Ctrl+Spacja`, skopiuj wynik i następnie
+rozpocznij nowy zakres.
+
+Oczekiwane: wybór przez `Ctrl+Spacja` nie usuwa wcześniejszego zakresu. Nowa
+operacja zakresowa ma przewidywalny punkt początkowy i fokus pozostaje na
+elemencie, którym użytkownik właśnie steruje.
 
 ## Nowości alpha 243
 

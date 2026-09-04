@@ -1633,6 +1633,28 @@ Until account adapters are implemented, durable coverage applies to Local
 media, Radio, and Podcasts; demo sessions can only be exercised within the
 current process.
 
+### 7.22. Chapters and discontinuous selection
+
+In the active player, `C` opens the chronological chapter list. Enter is not
+overloaded and always retains its play-or-pause meaning. `Ctrl+Alt+B` remains
+an alias that also works from a media list, while `Ctrl+Alt+Shift+B` inserts a
+named chapter at the current position without opening the window. Enter in the
+chapter list plays only the selected segments.
+
+Every multiple-selection media item list follows one keyboard contract:
+
+- `Shift+Arrow` creates a contiguous range;
+- `Ctrl+Arrow` moves focus without changing the existing selection;
+- `Ctrl+Space` toggles the current item without clearing other selections;
+- `Ctrl+A` selects all when the list exposes a whole-set operation;
+- subsequent copy, collection membership, removal, or selected-chapter
+  playback operates on the complete selected set.
+
+This applies to each session's main list, search results, chapters, presets,
+recognition history, and other lists of actual items. It does not alter
+single-choice fields or checkbox-based lists such as schedule days and OPML
+feed selection.
+
 ### 7.20. Consistent undo for removed podcasts
 
 Starting with `alpha.240`, undoing the removal of a show from the Podcasts
