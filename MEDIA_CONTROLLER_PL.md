@@ -19,7 +19,7 @@ Od `alpha.241` wspólny odtwarzacz obsługuje własne rozdziały plików lokalny
 i podcastów. Rozdział jest trwałym, nazwanym początkiem na osi czasu i może
 współdzielić rekord ze zwykłą zakładką bez uzależniania ich usuwania.
 `Ctrl+Alt+B` otwiera chronologiczną listę, `Ctrl+Alt+Shift+B` dodaje rozdział,
-a `Ctrl+Alt+Page Up/Down` nawiguje po jego początkach. Lista pozwala odtworzyć
+a `Ctrl+Shift+strzałka w lewo/prawo` nawiguje po jego początkach. Lista pozwala odtworzyć
 tylko zaznaczone rozdziały i zapisać jeden do nowego pliku. Cięcie pobranego
 odcinka korzysta z tych samych trwałych punktów `I`–`O` i niedestrukcyjnego
 eksportu co pliki lokalne; treści sieciowe nie są pobierane automatycznie.
@@ -1997,6 +1997,17 @@ popularne układy: czas przed nazwą i czas na końcu nazwy. Pobieranie strony n
 używa konta ani ciasteczek, ma ograniczenie przekierowań, 2 MB i wspólny limit
 20 sekund całej operacji. Poprawnie odczytany spis jest zapisywany i przy
 następnym otwarciu nie wymaga sieci.
+
+Od `alpha.259` adresy odcinków zapisane jeszcze pod wycofanym hostem
+`new.tyflopodcast.pl` są po pustej odpowiedzi albo błędzie bezpiecznie
+sprawdzane pod odpowiadającym im kanonicznym adresem `tyflopodcast.net`.
+Dotyczy to między innymi znaczników czasu publikowanych w komentarzu autora;
+program nie zgaduje alternatywnych domen innych wydawców. Lista rozdziałów
+jawnie obsługuje `Ctrl+Spacja`, podaje stan zaznaczenia, a Enter uruchamia
+wybrane fragmenty, zamyka listę i przywraca fokus odtwarzacza. Podstawowa
+nawigacja w odtwarzaczu to `Ctrl+Shift+strzałka w lewo/prawo`; dawne
+`Ctrl+Alt+Page Up/Down` pozostaje zgodnościowym aliasem. Ręczna nawigacja
+obejmuje wszystkie rozdziały materiału, niezależnie od wcześniejszego wyboru.
 
 ### 7.20. Spójne cofanie usunięcia podcastu
 

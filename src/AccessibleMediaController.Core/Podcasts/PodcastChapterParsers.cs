@@ -169,20 +169,30 @@ public static partial class PodcastEpisodePageChapterParser
             .Where(line => line.Length > 0)
             .ToArray();
 
-        var marker = Array.FindIndex(lines, IsChapterHeading);
-        if (marker < 0) return [];
-        var section = string.Join(Environment.NewLine, lines.Skip(marker + 1).Take(500));
+        if (!TryFindChapterSection(lines, out var marker, out var firstLine)) return [];
+        var sectionLines = new List<string>(501);
+        if (!string.IsNullOrWhiteSpace(firstLine)) sectionLines.Add(firstLine);
+        sectionLines.AddRange(lines.Skip(marker + 1).Take(500));
+        var section = string.Join(Environment.NewLine, sectionLines);
         return PodcastDescriptionChapterParser.Parse(section, duration);
     }
 
-    private static bool IsChapterHeading(string line)
+    private static bool TryFindChapterSection(
+        IReadOnlyList<string> lines,
+        out int marker,
+        out string firstLine)
     {
-        var normalized = line.Trim().TrimEnd(':');
-        return normalized.Equals("Znaczniki czasu", StringComparison.CurrentCultureIgnoreCase)
-            || normalized.Equals("Rozdziały", StringComparison.CurrentCultureIgnoreCase)
-            || normalized.Equals("Spis rozdziałów", StringComparison.CurrentCultureIgnoreCase)
-            || normalized.Equals("Chapters", StringComparison.OrdinalIgnoreCase)
-            || normalized.Equals("Chapter list", StringComparison.OrdinalIgnoreCase);
+        for (var index = 0; index < lines.Count; index++)
+        {
+            var match = ChapterHeadingPattern().Match(lines[index]);
+            if (!match.Success) continue;
+            marker = index;
+            firstLine = lines[index][(match.Index + match.Length)..].Trim();
+            return true;
+        }
+        marker = -1;
+        firstLine = string.Empty;
+        return false;
     }
 
     [GeneratedRegex(@"<(script|style|noscript)\b[^>]*>.*?</\1\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
@@ -193,4 +203,7 @@ public static partial class PodcastEpisodePageChapterParser
 
     [GeneratedRegex(@"<[^>]+>", RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex TagPattern();
+
+    [GeneratedRegex(@"(?:^|\s)(?:znaczniki\s+czasu|spis\s+rozdziałów|rozdziały|chapters|chapter\s+list)(?:\s*:\s*|\s*$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ChapterHeadingPattern();
 }

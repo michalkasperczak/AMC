@@ -283,9 +283,10 @@ usuwa rozdziału.
 
 ### AMC-241-03 — nawigacja i wybiórcze odtwarzanie rozdziałów
 
-W odtwarzaczu sprawdź `Ctrl+Alt+Page Up` i `Ctrl+Alt+Page Down`. Następnie na
-liście rozdziałów zaznacz Shiftem dwa rozdziały, które nie leżą obok siebie, i
-naciśnij Enter.
+W odtwarzaczu sprawdź `Ctrl+Shift+strzałka w lewo` i
+`Ctrl+Shift+strzałka w prawo`. Następnie na liście rozdziałów przejdź
+`Ctrl+strzałką` do dwóch rozdziałów, które nie leżą obok siebie, każdy przełącz
+`Ctrl+Spacją`, i naciśnij Enter.
 
 Oczekiwane: skróty przechodzą do właściwych początków i podają nazwę oraz czas.
 Odtwarzanie rozpoczyna się od pierwszego zaznaczonego rozdziału, pomija fragment

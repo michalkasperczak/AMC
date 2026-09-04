@@ -104,6 +104,36 @@ internal sealed class PodcastChapterClient : IDisposable
         CancellationToken cancellationToken)
     {
         ValidatePageAddress(address);
+        var canonicalAddress = TryGetCanonicalEpisodePage(address);
+        try
+        {
+            var chapters = await FetchFromSingleEpisodePageAsync(address, duration, cancellationToken)
+                .ConfigureAwait(false);
+            if (chapters.Count > 0 || canonicalAddress is null) return chapters;
+        }
+        catch (Exception exception) when (canonicalAddress is not null
+            && exception is HttpRequestException
+                or IOException
+                or InvalidDataException
+                or ArgumentException
+                or TaskCanceledException)
+        {
+            // The retired new.tyflopodcast.pl host sometimes returns an empty
+            // shell or has TLS problems, while the same public episode and its
+            // timestamp comment live on tyflopodcast.net.  Retry only this
+            // known, deterministic migration target; never guess arbitrary
+            // alternative hosts.
+        }
+
+        return await FetchFromSingleEpisodePageAsync(canonicalAddress!, duration, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<ProviderChapterPoint>> FetchFromSingleEpisodePageAsync(
+        Uri address,
+        TimeSpan duration,
+        CancellationToken cancellationToken)
+    {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(_timeout);
         var current = address;
@@ -155,6 +185,18 @@ internal sealed class PodcastChapterClient : IDisposable
             }
             return PodcastEpisodePageChapterParser.Parse(result.ToString(), duration);
         }
+    }
+
+    internal static Uri? TryGetCanonicalEpisodePage(Uri address)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+        if (!address.Host.Equals("new.tyflopodcast.pl", StringComparison.OrdinalIgnoreCase)) return null;
+        var segments = address.AbsolutePath
+            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (segments.Length == 0) return null;
+        var slug = segments[^1];
+        if (slug.Length == 0 || slug is "." or "..") return null;
+        return new Uri($"https://tyflopodcast.net/{slug.TrimEnd('/')}/", UriKind.Absolute);
     }
 
     private static void ValidateAddress(Uri address)

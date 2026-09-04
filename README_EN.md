@@ -48,7 +48,7 @@ requires a registered application and token.
 Version `alpha.241` adds the first working chapter workflow for local media and
 podcast episodes. In the player, `Ctrl+Alt+Shift+B` creates a named chapter,
 `Ctrl+Alt+B` opens its chronological chapter list, and
-`Ctrl+Alt+Page Up/Down` navigates chapter starts. Multiple selected chapters
+`Ctrl+Shift+Left/Right` navigates chapter starts. Multiple selected chapters
 can be played as a bounded selection; reaching its end never advances to the
 next media item. A single chapter can be saved to a new file without modifying
 the source. Downloaded episodes also inherit persistent `I`/`O` clip points and

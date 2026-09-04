@@ -114,7 +114,7 @@ strony: oficjalne API wyszukiwania wymaga zarejestrowanej aplikacji i tokenu.
 Wersja `alpha.241` wprowadza pierwszą działającą obsługę rozdziałów dla plików
 lokalnych i odcinków podcastów. W odtwarzaczu `Ctrl+Alt+Shift+B` tworzy nazwany
 początek rozdziału, `Ctrl+Alt+B` otwiera chronologiczną listę, a
-`Ctrl+Alt+Page Up` i `Ctrl+Alt+Page Down` przechodzą między rozdziałami. Na
+`Ctrl+Shift+strzałka w lewo` i `Ctrl+Shift+strzałka w prawo` przechodzą między rozdziałami. Na
 liście można zaznaczyć kilka pozycji i odtworzyć wyłącznie wybrane fragmenty;
 koniec wyboru nie uruchamia następnego materiału. Jeden rozdział można zapisać
 do nowego pliku bez zmiany źródła. Pobrany odcinek dziedziczy również trwałe
@@ -1037,6 +1037,15 @@ jednoznacznym nagłówkiem „Znaczniki czasu”, „Rozdziały” albo „Chapt
 obsługuje zarówno zapis „00:12:34 Temat”, jak i „Temat 00:12:34”. Strona jest
 pobierana dopiero po jawnym `Ctrl+Alt+B`, z limitem czasu i rozmiaru, bez
 ciasteczek. Znaleziony spis trafia do trwałego magazynu rozdziałów.
+
+`alpha.259` naprawia starsze adresy TyfloPodcastu: po pustej stronie
+`new.tyflopodcast.pl` program sprawdza odpowiadającą stronę
+`tyflopodcast.net`, na której znaczniki bywają opublikowane w komentarzu.
+`Ctrl+Spacja` na liście rozdziałów niezależnie zaznacza i odznacza bieżący
+wiersz, Enter zamyka listę i odtwarza wybrany zestaw, a Escape anuluje.
+Nawigacja po wszystkich rozdziałach w odtwarzaczu używa teraz krótszych
+`Ctrl+Shift+strzałka w lewo/prawo`; dotychczasowe skróty Page Up/Down nadal
+działają jako aliasy.
 
 ## Urządzenie audio osobno dla sesji w alpha 204
 

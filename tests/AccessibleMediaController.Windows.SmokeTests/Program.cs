@@ -1197,6 +1197,11 @@ static void TestChapterWindowAccessibility()
             window.Show();
             Assert(window.ChapterList.SelectedIndex == 1,
                 "Lista rozdziałów nie zaznacza rozdziału zawierającego bieżącą pozycję.");
+            Assert(window.ToggleSelectionAt(0) && window.SelectedChapters.Count == 2,
+                "Ctrl+Spacja nie może dołączyć nieciągłego rozdziału do wyboru.");
+            Assert(window.ToggleSelectionAt(1) && window.SelectedChapters.Count == 1
+                   && window.SelectedChapters[0].Entry.Id == first.Id,
+                "Ctrl+Spacja nie może niezależnie odznaczyć bieżącego rozdziału.");
             Assert(AutomationProperties.GetName(window.ChapterList) == "Rozdziały: Odcinek",
                 "Lista rozdziałów nie ma jednoznacznej nazwy dla NVDA.");
             foreach (var row in window.ChapterList.Items.OfType<ChapterListRow>())
@@ -2270,6 +2275,28 @@ static void TestMainWindowDigitShortcutRouting()
             textEditing: false,
             menuActive: true) is null,
         "Ctrl+Alt+B ma odzyskiwać listę rozdziałów również po wycieku fokusu do filtra, ale nie w menu ani bez elementu multimedialnego.");
+    Assert(
+        MainWindowShortcutRouter.ResolveChapterNavigation(
+            Key.Left,
+            ModifierKeys.Control | ModifierKeys.Shift,
+            playerActive: true,
+            menuActive: false) == CommandIds.PreviousChapter
+        && MainWindowShortcutRouter.ResolveChapterNavigation(
+            Key.Right,
+            ModifierKeys.Control | ModifierKeys.Shift,
+            playerActive: true,
+            menuActive: false) == CommandIds.NextChapter
+        && MainWindowShortcutRouter.ResolveChapterNavigation(
+            Key.PageDown,
+            ModifierKeys.Control | ModifierKeys.Alt,
+            playerActive: true,
+            menuActive: false) == CommandIds.NextChapter
+        && MainWindowShortcutRouter.ResolveChapterNavigation(
+            Key.Right,
+            ModifierKeys.Control | ModifierKeys.Shift,
+            playerActive: false,
+            menuActive: false) is null,
+        "Nawigacja po rozdziałach nie działa globalnie w otwartym odtwarzaczu albo wycieka poza niego.");
     Assert(
         GlobalPrefixService.IsFocusedDirectShortcutCandidate(
             KeyChord.Parse("Ctrl+Shift+S")),
@@ -4183,6 +4210,29 @@ static void TestPodcastChapterClient()
         .GetAwaiter().GetResult();
     Assert(pageChapters.Count == 2 && pageChapters[1].Start == TimeSpan.FromSeconds(42),
         "Klient nie odtworzył rozdziałów opisanych bezpośrednio na stronie odcinka.");
+
+    var tyfloHandler = new PodcastHttpHandler(request =>
+    {
+        var content = request.RequestUri?.Host.Equals(
+            "new.tyflopodcast.pl",
+            StringComparison.OrdinalIgnoreCase) == true
+                ? "<html><body>Stara pusta strona</body></html>"
+                : pageHtml;
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(content, Encoding.UTF8, "text/html")
+        };
+    });
+    using var tyfloClient = new PodcastChapterClient(tyfloHandler, TimeSpan.FromSeconds(2));
+    var migratedChapters = tyfloClient.FetchFromEpisodePageAsync(
+            new Uri("https://new.tyflopodcast.pl/2025-09-22/tyfloprzeglad-odcinek-nr-300/"),
+            TimeSpan.FromHours(6),
+            CancellationToken.None)
+        .GetAwaiter().GetResult();
+    Assert(migratedChapters.Count == 2
+           && tyfloHandler.Requests.Count == 2
+           && tyfloHandler.Requests[1] == new Uri("https://tyflopodcast.net/tyfloprzeglad-odcinek-nr-300/"),
+        "Klient nie ponowił pustej strony starego TyfloPodcastu pod kanonicznym adresem.");
     Console.WriteLine("OK: rozdziały Podcasting 2.0 są pobierane osobno i z limitem");
 }
 

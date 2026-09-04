@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
@@ -72,7 +73,18 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
 
     private void ChapterList_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter)
+        if (e.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            ToggleSelectionAt(FindFocusedIndex());
+            e.Handled = true;
+        }
+        else if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            ChapterList.SelectAll();
+            SetSelectionStatus($"Zaznaczono wszystkie rozdziały: {SelectedChapters.Count}");
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter)
         {
             Complete(ChapterListAction.Play);
             e.Handled = true;
@@ -82,6 +94,41 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
             Complete(ChapterListAction.Remove);
             e.Handled = true;
         }
+    }
+
+    internal bool ToggleSelectionAt(int index)
+    {
+        if (index < 0 || index >= _rows.Count) return false;
+        var row = _rows[index];
+        var selected = ChapterList.SelectedItems.Contains(row);
+        if (selected) ChapterList.SelectedItems.Remove(row);
+        else ChapterList.SelectedItems.Add(row);
+        if (ChapterList.ItemContainerGenerator.ContainerFromIndex(index) is ListBoxItem container)
+        {
+            container.Focus();
+            Keyboard.Focus(container);
+        }
+        SetSelectionStatus(
+            selected
+                ? $"Odznaczono: {row.Segment.Name}. Wybrano {SelectedChapters.Count}"
+                : $"Zaznaczono: {row.Segment.Name}. Wybrano {SelectedChapters.Count}");
+        return true;
+    }
+
+    private int FindFocusedIndex()
+    {
+        if (Keyboard.FocusedElement is DependencyObject focused
+            && ItemsControl.ContainerFromElement(ChapterList, focused) is ListBoxItem container)
+        {
+            return ChapterList.ItemContainerGenerator.IndexFromContainer(container);
+        }
+        return ChapterList.SelectedIndex;
+    }
+
+    private void SetSelectionStatus(string message)
+    {
+        SelectionStatusText.Text = message;
+        System.Windows.Automation.AutomationProperties.SetName(SelectionStatusText, message);
     }
 
     private void Complete(ChapterListAction action)

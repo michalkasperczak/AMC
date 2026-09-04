@@ -13,7 +13,7 @@ wspólnego odtwarzacza AMC.
   rozdziału zachowuje współdzieloną zakładkę;
 - `Ctrl+Alt+Shift+B` w odtwarzaczu dodaje nazwany rozdział;
 - `Ctrl+Alt+B` otwiera dostępną listę chronologiczną, również z listy materiałów;
-- `Ctrl+Alt+Page Up` i `Ctrl+Alt+Page Down` przechodzą do poprzedniego albo
+- `Ctrl+Shift+strzałka w lewo` i `Ctrl+Shift+strzałka w prawo` przechodzą do poprzedniego albo
   następnego początku rozdziału;
 - Shift ze strzałkami na liście rozdziałów zaznacza kilka pozycji, Enter
   odtwarza tylko zaznaczone rozdziały, a Delete usuwa własne oznaczenia;
@@ -127,7 +127,8 @@ tworzenia drugiego, prawie identycznego rekordu.
 
 `Ctrl+Page Up` i `Ctrl+Page Down` pozostają przełączaniem sesji, dlatego nie
 mogą równocześnie nawigować po rozdziałach. W odtwarzaczu działają
-`Ctrl+Alt+Page Up` i `Ctrl+Alt+Page Down`. Prawa strzałka nadal nie zmienia
+`Ctrl+Shift+strzałka w lewo` i `Ctrl+Shift+strzałka w prawo`; dawne
+`Ctrl+Alt+Page Up/Down` pozostaje zgodnościowym aliasem. Prawa strzałka nadal nie zmienia
 znaczenia zależnie od obecności rozdziałów; lista ma stałe polecenie
 `Ctrl+Alt+B`, a brak rozdziałów nie zmienia fokusu.
 

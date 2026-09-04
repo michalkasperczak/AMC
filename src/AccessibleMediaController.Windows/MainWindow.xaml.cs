@@ -1136,12 +1136,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         var session = _sessions.Current;
         var item = session.CurrentItem;
+        var availableChapters = _chapterIndex.GetForItem(session.Id, item.Id, item.Duration);
         var chapter = _chapterIndex.FindRelative(
             session.Id,
             item.Id,
             item.Duration,
             session.Position,
             direction);
+        DiagnosticLog.Info(
+            "chapters",
+            $"Nawigacja po rozdziałach; element: {item.Id}; kierunek: {direction}; "
+            + $"pozycja: {session.Position}; liczba: {availableChapters.Count}; "
+            + $"cel: {chapter?.Start.ToString() ?? "brak"}.");
         if (chapter is null)
         {
             Announce(direction < 0
@@ -13091,6 +13097,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             e.Handled = true;
             return;
         }
+        var chapterNavigationCommand = MainWindowShortcutRouter.ResolveChapterNavigation(
+            windowKey,
+            effectiveModifiers,
+            _playerViewActive,
+            MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem);
+        if (chapterNavigationCommand is not null)
+        {
+            ExecuteCommand(chapterNavigationCommand);
+            e.Handled = true;
+            return;
+        }
         if (windowKey == Key.M
             && effectiveModifiers is ModifierKeys.Control
                 or (ModifierKeys.Control | ModifierKeys.Shift))
@@ -13582,6 +13599,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             commandId = audioOutputCommand;
             return true;
         }
+        var chapterNavigationCommand = MainWindowShortcutRouter.ResolveChapterNavigation(
+            key,
+            modifiers,
+            _playerViewActive,
+            MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem);
+        if (chapterNavigationCommand is not null)
+        {
+            commandId = chapterNavigationCommand;
+            return true;
+        }
         if (key == Key.M && modifiers == ModifierKeys.Control)
         {
             commandId = CommandIds.ToggleMuteCurrentSession;
@@ -13785,6 +13812,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
                 (ModifierKeys.Shift, Key.PageDown) => CommandIds.NextBookmark,
                 (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift, Key.B) => CommandIds.AddNamedChapter,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.Left) => CommandIds.PreviousChapter,
+                (ModifierKeys.Control | ModifierKeys.Shift, Key.Right) => CommandIds.NextChapter,
                 (ModifierKeys.Control | ModifierKeys.Alt, Key.PageUp) => CommandIds.PreviousChapter,
                 (ModifierKeys.Control | ModifierKeys.Alt, Key.PageDown) => CommandIds.NextChapter,
                 (ModifierKeys.None, Key.PageUp) => CommandIds.Previous,
@@ -14438,6 +14467,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Shift, Key.PageDown) => CommandIds.NextBookmark,
             (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift, Key.B) => CommandIds.AddNamedChapter,
             (ModifierKeys.Control | ModifierKeys.Alt, Key.B) => CommandIds.ViewChapters,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.Left) => CommandIds.PreviousChapter,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.Right) => CommandIds.NextChapter,
             (ModifierKeys.Control | ModifierKeys.Alt, Key.PageUp) => CommandIds.PreviousChapter,
             (ModifierKeys.Control | ModifierKeys.Alt, Key.PageDown) => CommandIds.NextChapter,
             (ModifierKeys.None, Key.PageUp) => CommandIds.Previous,

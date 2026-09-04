@@ -109,6 +109,26 @@ internal static class MainWindowShortcutRouter
             ? CommandIds.ViewChapters
             : null;
 
+    public static string? ResolveChapterNavigation(
+        Key key,
+        ModifierKeys modifiers,
+        bool playerActive,
+        bool menuActive)
+    {
+        if (!playerActive || menuActive) return null;
+        return (modifiers, key) switch
+        {
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.Left) => CommandIds.PreviousChapter,
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.Right) => CommandIds.NextChapter,
+            // Compatibility aliases retained for people who tested the first
+            // chapter implementation.  The shorter left/right combinations
+            // are the documented shortcuts from alpha.259 onward.
+            (ModifierKeys.Control | ModifierKeys.Alt, Key.PageUp) => CommandIds.PreviousChapter,
+            (ModifierKeys.Control | ModifierKeys.Alt, Key.PageDown) => CommandIds.NextChapter,
+            _ => null
+        };
+    }
+
     public static string? ResolvePodcastEpisodeFileAction(
         Key key,
         ModifierKeys modifiers,

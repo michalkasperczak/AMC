@@ -225,6 +225,15 @@ static void TestPodcastProviderChapters()
     var pageChapters = PodcastEpisodePageChapterParser.Parse(episodePage, TimeSpan.FromHours(2));
     Equal(3, pageChapters.Count);
     Equal("Rozmowa", pageChapters[1].Name);
+    const string chapterCommentPage = """
+        <html><body><div class="comment"><strong>TyfloPodcast pisze:</strong>
+        znaczniki czasu:<br>Intro 00:00:00<br>Temat 00:02:42</div></body></html>
+        """;
+    var commentChapters = PodcastEpisodePageChapterParser.Parse(
+        chapterCommentPage,
+        TimeSpan.FromHours(1));
+    Equal(2, commentChapters.Count);
+    Equal("Temat", commentChapters[1].Name);
     Equal(0, PodcastEpisodePageChapterParser.Parse(
         "<p>Odtwarzacz 01:23:45</p><p>Komentarz o 12:30</p>",
         TimeSpan.FromHours(2)).Count);
