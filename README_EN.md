@@ -1,13 +1,16 @@
 # Accessible Media Controller — Windows prototype
 
-Version `alpha.244` simplifies chapter access: plain `C` opens the chapter
-list in the active player, while Enter keeps its single play-or-pause meaning.
-`Ctrl+Alt+B` remains a compatible alias and `Ctrl+Alt+Shift+B` still inserts a
-named chapter at the current position without opening the list. Every media
-item list that supports multiple selection now follows one documented rule:
-`Shift+Arrow` selects a contiguous range, `Ctrl+Arrow` moves focus alone, and
-`Ctrl+Space` toggles the focused item without clearing the other selections. This includes search results, Radio,
-chapters, presets, and recognition history.
+Version `alpha.245` rolls back the accessibility-layer changes from
+`alpha.244` that could make NVDA navigation unstable and move its cursor to
+help text or the status bar. Lists no longer receive long automatically exposed
+keyboard descriptions, and plain `C` is no longer intercepted in the player.
+The chapter list is again opened with `Ctrl+Alt+B`; Enter remains play or pause
+only. Native WPF multiple selection remains available: `Shift+Arrow` selects a
+range, `Ctrl+Arrow` moves focus, and `Ctrl+Space` toggles the focused item
+without clearing other selections.
+
+Version `alpha.244` introduced plain `C` and expanded list help text. It is
+superseded by `alpha.245` because of the reported NVDA focus regression.
 
 Version `alpha.243` generalises safe collection-state undo across all
 sessions. Removing an item or changing its Library, Favorites, or Queue

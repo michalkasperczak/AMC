@@ -431,7 +431,6 @@
                  TextSearch.TextPath="NavigationText"
                  KeyboardNavigation.DirectionalNavigation="Contained"
                  KeyboardNavigation.TabNavigation="Once"
-                 automation:AutomationProperties.HelpText="Shift ze strzałkami zaznacza ciągły zakres. Ctrl ze strzałkami przesuwa fokus bez zmiany zaznaczenia, a Ctrl+Spacja zaznacza lub odznacza wskazany element."
                  SelectionChanged="MediaList_SelectionChanged"
                  PreviewKeyDown="MediaList_PreviewKeyDown"
                  PreviewTextInput="MediaList_PreviewTextInput"
@@ -649,9 +648,9 @@
                               automation:AutomationProperties.Name="Pokaż zakładki, Ctrl+B"
                               Click="BookmarksView_Click" />
                     <Separator x:Name="PlayerBeforeChaptersSeparator" />
-                    <MenuItem x:Name="PlayerChaptersMenuItem" Header="Pokaż rozdziały…" InputGestureText="C"
-                              automation:AutomationProperties.Name="Pokaż rozdziały bieżącego materiału, C w odtwarzaczu; Ctrl+Alt+B również działa"
-                              automation:AutomationProperties.AcceleratorKey="C"
+                    <MenuItem x:Name="PlayerChaptersMenuItem" Header="Pokaż rozdziały…" InputGestureText="Ctrl+Alt+B"
+                              automation:AutomationProperties.Name="Pokaż rozdziały bieżącego materiału, Ctrl+Alt+B"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+B"
                               Click="Chapters_Click" />
                     <MenuItem x:Name="PlayerAddNamedChapterMenuItem" Header="Dodaj nazwany rozdział…" InputGestureText="Ctrl+Alt+Shift+B"
                               automation:AutomationProperties.Name="Dodaj nazwany rozdział w bieżącym miejscu, Ctrl+Alt+Shift+B"

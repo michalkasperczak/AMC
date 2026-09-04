@@ -29,7 +29,6 @@
         <ListBox x:Name="UnavailableItemsList" SelectionMode="Extended"
                  DisplayMemberPath="Label" TextSearch.TextPath="Title"
                  automation:AutomationProperties.Name="Niedostępne pliki"
-                 automation:AutomationProperties.HelpText="Shift ze strzałkami zaznacza zakres. Ctrl ze strzałkami przesuwa fokus bez zmiany zaznaczenia, a Ctrl+Spacja zaznacza lub odznacza wskazany plik."
                  SelectionChanged="UnavailableItemsList_SelectionChanged" />
     </DockPanel>
 </Window>

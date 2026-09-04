@@ -7,15 +7,17 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
-Wersja `alpha.244` upraszcza obsługę rozdziałów: w otwartym odtwarzaczu samo
-`C` otwiera ich listę, natomiast Enter zachowuje jedno znaczenie — odtwórz lub
-wstrzymaj. `Ctrl+Alt+B` pozostaje zgodnym aliasem, a
-`Ctrl+Alt+Shift+B` nadal służy do szybkiego utworzenia nazwanego rozdziału w
-bieżącym miejscu bez otwierania listy. Wszystkie listy elementów multimedialnych
-z wielokrotnym wyborem stosują wspólną zasadę: `Shift+strzałki` zaznacza ciągły
-zakres, `Ctrl+strzałki` przesuwa sam fokus, a `Ctrl+Spacja` dodaje lub usuwa
-wskazany element z zaznaczenia bez naruszania pozostałych. Dotyczy to również wyników wyszukiwania, Radia, listy
-rozdziałów, presetów i historii rozpoznawania.
+Wersja `alpha.245` wycofuje zmiany warstwy dostępności z `alpha.244`, które
+mogły powodować niestabilną nawigację NVDA i przechodzenie kursora do opisów
+lub paska stanu. Listy nie otrzymują już rozbudowanych, automatycznie czytanych
+opisów klawiatury, a jednoliterowe `C` nie jest przechwytywane w odtwarzaczu.
+Lista rozdziałów wraca pod `Ctrl+Alt+B`; Enter nadal wyłącznie odtwarza lub
+wstrzymuje. Natywne zaznaczanie WPF pozostaje dostępne: `Shift+strzałki`
+zaznacza zakres, `Ctrl+strzałki` przesuwa fokus, a `Ctrl+Spacja` przełącza
+zaznaczenie bieżącego elementu bez kasowania pozostałych.
+
+Wersja `alpha.244` wprowadzała jednoliterowe `C` i rozbudowane opisy list.
+Została zastąpiona przez `alpha.245` z powodu zgłoszonej regresji fokusa NVDA.
 
 Wersja `alpha.243` uogólnia bezpieczne cofanie zmian kolekcji na wszystkie
 sesje. Usunięcie albo zmiana przynależności elementu w wynikach wyszukiwania,

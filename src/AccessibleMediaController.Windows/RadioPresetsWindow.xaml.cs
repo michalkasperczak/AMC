@@ -24,7 +24,6 @@ public partial class RadioPresetsWindow : AccessibleWindow
         Title = $"Presety — {sessionName}";
         DescriptionText.Text = $"Presety sesji {sessionName}. Cyfry wybierają miejsce. " +
             "Enter lub Spacja uruchamia zajętą pozycję. " +
-            "Ctrl ze strzałkami przesuwa fokus, a Ctrl+Spacja zaznacza lub odznacza pozycję do kopiowania. " +
             "Ta lista nigdy nie zmienia ani nie nadpisuje presetów.";
         System.Windows.Automation.AutomationProperties.SetName(PresetList, $"Presety, {sessionName}");
         PresetList.ItemsSource = choices;

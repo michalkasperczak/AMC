@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-244`
-- Tytuł zestawu: Prosta lista rozdziałów i nieciągłe zaznaczanie
-- Wersja programu: `0.1.0-alpha.244`
+- Numer zestawu: `AMC-TEST-245`
+- Tytuł zestawu: Awaryjna stabilizacja fokusa NVDA
+- Wersja programu: `0.1.0-alpha.245`
 - Utworzono: 2026-09-04, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.244.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.245.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -16,47 +16,44 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
 
-## Nowości alpha 244
+## Nowości alpha 245
 
-### AMC-244-01 — C otwiera rozdziały bez przeciążania Entera
+### AMC-245-01 — stabilny fokus podczas podcastu RMF
 
-Otwórz lokalny plik lub pobrany odcinek mający rozdziały. W odtwarzaczu
-naciśnij `C`, zamknij listę, a następnie sprawdź Enter oraz `Ctrl+Alt+B`.
+Otwórz odcinek podcastu RMF, na którym wystąpił problem. Przez co najmniej dwie
+minuty używaj strzałek, skrótów czasu, pauzy i wznowienia bez naciskania Escape
+w celu ratowania fokusa. Sprawdź pasek stanu osobno przez NVDA+End.
 
-Oczekiwane: `C` i `Ctrl+Alt+B` otwierają tę samą chronologiczną listę.
-Enter w odtwarzaczu nadal wyłącznie odtwarza lub wstrzymuje. Na zwykłej liście
-literka C nadal służy do szybkiej nawigacji po nazwach.
+Oczekiwane: fokus pozostaje na sterowaniu odtwarzacza, wszystkie skróty działają
+od pierwszego naciśnięcia, a NVDA nie przechodzi samo do paska stanu, tekstów
+pomocy ani ukrytych elementów. NVDA+End nadal odczytuje aktualny pasek na żądanie.
 
-### AMC-244-02 — wybór nieprzylegających rozdziałów
+### AMC-245-02 — rozdziały bez jednoliterowego przechwytywania
 
-Na liście rozdziałów zaznacz pozycję przez `Ctrl+Spacja`, przejdź do odległej
-pozycji przez `Ctrl+strzałki`, zaznacz ją przez `Ctrl+Spacja`, a następnie
-naciśnij Enter.
+W odtwarzaczu naciśnij `C`, Enter i `Ctrl+Alt+B`. Po zamknięciu listy rozdziałów
+sprawdź, czy fokus wrócił bez dodatkowego Escape.
 
-Oczekiwane: każde naciśnięcie zmienia tylko stan bieżącego rozdziału. Enter
-odtwarza wyłącznie wybrane fragmenty w kolejności czasu i po ostatnim kończy
-wybór bez uruchamiania następnego materiału.
+Oczekiwane: `C` nie otwiera okna i nie przenosi fokusa. Enter wyłącznie
+odtwarza lub wstrzymuje. Listę rozdziałów otwiera `Ctrl+Alt+B`, a jej zamknięcie
+przywraca sterowanie odtwarzacza.
 
-### AMC-244-03 — Ctrl+Spacja na wszystkich listach multimediów
+### AMC-245-03 — Ctrl+Spacja bez automatycznych długich opisów
 
-Powtórz nieciągłe zaznaczanie w Plikach lokalnych, Radiu, Podcastach,
-Ulubionych, Kolejce i wynikach wyszukiwania. Wyrywkowo sprawdź także presety
-oraz historię rozpoznawania.
+Na kilku listach wybierz nieprzylegające elementy: `Ctrl+Spacja`,
+`Ctrl+strzałki`, ponownie `Ctrl+Spacja`. Po przejściu do listy odczekaj chwilę
+przed pierwszym klawiszem.
 
-Oczekiwane: `Ctrl+Spacja` zaznacza lub odznacza wyłącznie bieżący element i nie
-kasuje pozostałego zaznaczenia. NVDA podaje stan zaznaczenia bez technicznych
-nazw. `Ctrl+C`, `Ctrl+Shift+C` oraz adekwatne działania kolekcji obejmują
-wszystkie wybrane elementy.
+Oczekiwane: natywne zaznaczanie nadal działa, ale NVDA nie zaczyna po chwili
+czytać całej instrukcji listy ani nie opuszcza bieżącego elementu.
 
-### AMC-244-04 — zakres i wybór nieciągły nie mieszają się
+### AMC-245-04 — zmiana widoku i powrót z odtwarzacza
 
-Zaznacz zakres przez `Shift+strzałki`, przejdź do odległego elementu przez
-`Ctrl+strzałki`, dodaj go przez `Ctrl+Spacja`, skopiuj wynik i następnie
-rozpocznij nowy zakres.
+Podczas podcastu przejdź kolejno do Biblioteki, nowych odcinków, Kolejki i
+ponownie do odtwarzacza przez F6. Z każdego widoku wracaj zwykłymi poleceniami,
+bez awaryjnego naciskania Escape.
 
-Oczekiwane: wybór przez `Ctrl+Spacja` nie usuwa wcześniejszego zakresu. Nowa
-operacja zakresowa ma przewidywalny punkt początkowy i fokus pozostaje na
-elemencie, którym użytkownik właśnie steruje.
+Oczekiwane: fokus zawsze znajduje się na bieżącym wierszu albo przycisku
+odtwarzania, nie na kontenerze okna, pasku stanu lub niewidocznym elemencie.
 
 ## Nowości alpha 243
 

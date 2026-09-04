@@ -1633,13 +1633,14 @@ Until account adapters are implemented, durable coverage applies to Local
 media, Radio, and Podcasts; demo sessions can only be exercised within the
 current process.
 
-### 7.22. Chapters and discontinuous selection
+### 7.22. Chapters, discontinuous selection, and focus safety
 
-In the active player, `C` opens the chronological chapter list. Enter is not
-overloaded and always retains its play-or-pause meaning. `Ctrl+Alt+B` remains
-an alias that also works from a media list, while `Ctrl+Alt+Shift+B` inserts a
-named chapter at the current position without opening the window. Enter in the
-chapter list plays only the selected segments.
+`Ctrl+Alt+B` opens the chronological chapter list from both the player and a
+media list. Enter is not overloaded and always retains its play-or-pause
+meaning. Plain `C` was removed after the NVDA focus regression in `alpha.244`,
+while `Ctrl+Alt+Shift+B` inserts a named chapter at the current position
+without opening the window. Enter in the chapter list plays only the selected
+segments.
 
 Every multiple-selection media item list follows one keyboard contract:
 
@@ -1654,6 +1655,12 @@ This applies to each session's main list, search results, chapters, presets,
 recognition history, and other lists of actual items. It does not alter
 single-choice fields or checkbox-based lists such as schedule days and OPML
 feed selection.
+
+This contract must use the list control's native behavior and must not attach a
+long `AutomationProperties.HelpText` to every list. NVDA may repeat such text
+and move its navigator to help or status objects. Detailed selection guidance
+belongs in keyboard help and documentation; ordinary navigation should expose
+only the current item.
 
 ### 7.20. Consistent undo for removed podcasts
 

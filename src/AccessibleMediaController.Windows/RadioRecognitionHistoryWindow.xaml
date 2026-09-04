@@ -10,7 +10,7 @@
     <DockPanel Margin="12">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
             <TextBlock TextWrapping="Wrap"
-                       Text="Rozpoznane utwory, od najnowszego. Shift ze strzałkami zaznacza zakres. Ctrl ze strzałkami przesuwa fokus, a Ctrl+Spacja zaznacza lub odznacza pojedyncze wpisy. Ctrl+C kopiuje opis, Ctrl+Shift+C kopiuje opis oraz łącza do usług i katalogów muzycznych. Delete usuwa wybrane wpisy."
+                       Text="Rozpoznane utwory, od najnowszego. Ctrl+C kopiuje opis, Ctrl+Shift+C kopiuje opis oraz łącza do usług i katalogów muzycznych. Delete usuwa wybrane wpisy."
                        automation:AutomationProperties.HeadingLevel="Level1" />
             <Label Margin="0,8,0,0" Target="{Binding ElementName=StationFilterCombo}">_Pokaż wpisy:</Label>
             <ComboBox x:Name="StationFilterCombo" Width="430" HorizontalAlignment="Left"
@@ -41,7 +41,7 @@
                  DisplayMemberPath="Label"
                  TextSearch.TextPath="NavigationText"
                  automation:AutomationProperties.Name="Rozpoznane utwory"
-                 automation:AutomationProperties.HelpText="Lista trwałej historii rozpoznawania. Ctrl ze strzałkami przesuwa fokus bez zmiany zaznaczenia, a Ctrl+Spacja zaznacza lub odznacza wskazany wpis. Enter otwiera wynik dostawcy, jeżeli jest dostępny.">
+                 automation:AutomationProperties.HelpText="Lista trwałej historii rozpoznawania. Enter otwiera wynik dostawcy, jeżeli jest dostępny.">
             <ListBox.ContextMenu>
                 <ContextMenu x:Name="HistoryContextMenu">
                     <MenuItem Header="_Otwórz wynik rozpoznawania" Click="OpenProvider_Click" />

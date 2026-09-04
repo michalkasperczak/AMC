@@ -1967,11 +1967,12 @@ operacji, której usługa nie wykonała. Dopóki adaptery kont użytkownika nie 
 wdrożone, trwałość tej reguły dotyczy Plików lokalnych, Radia i Podcastów, a
 sesje demonstracyjne można sprawdzać tylko w bieżącym uruchomieniu.
 
-### 7.22. Rozdziały i nieciągłe zaznaczanie
+### 7.22. Rozdziały, nieciągłe zaznaczanie i bezpieczeństwo fokusa
 
-W aktywnym odtwarzaczu `C` otwiera chronologiczną listę rozdziałów. Enter nie
-jest przeciążony tą funkcją i zawsze pozostaje poleceniem odtwórz lub wstrzymaj.
-`Ctrl+Alt+B` jest aliasem działającym także z listy materiałów, a
+`Ctrl+Alt+B` otwiera chronologiczną listę rozdziałów zarówno z odtwarzacza, jak
+i z listy materiałów. Enter nie jest przeciążony tą funkcją i zawsze pozostaje
+poleceniem odtwórz lub wstrzymaj. Jednoliterowe `C` zostało wycofane po regresji
+fokusa NVDA w `alpha.244`, a
 `Ctrl+Alt+Shift+B` dodaje nazwany rozdział w bieżącym czasie bez otwierania
 okna. Na liście rozdziałów Enter odtwarza wyłącznie zaznaczone fragmenty.
 
@@ -1991,3 +1992,9 @@ Reguła dotyczy głównej listy każdej sesji, wyników wyszukiwania, rozdział�
 listy presetów, historii rozpoznawania oraz innych list rzeczywistych elementów.
 Nie zmienia pól pojedynczego wyboru ani list opartych na polach wyboru, takich
 jak dni harmonogramu lub wybór kanałów podczas importu OPML.
+
+Reguła ma korzystać z natywnego zachowania kontrolki listy i nie może dodawać
+długiego `AutomationProperties.HelpText` do każdej listy. Taki tekst bywa
+ponownie odczytywany przez NVDA i może przenosić jego nawigator do opisów albo
+paska stanu. Szczegółowa instrukcja zaznaczania pozostaje w pomocy klawiszy i
+dokumentacji, a zwykła nawigacja ma podawać wyłącznie bieżący element.
