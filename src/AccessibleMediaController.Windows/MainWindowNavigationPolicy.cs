@@ -236,6 +236,13 @@ internal static class MainWindowNavigationPolicy
             return formattedItem;
 
         var episodeTitle = item.Title.Trim();
+        // Some feeds repeat the podcast title at the beginning of every
+        // episode title (for example "Informacje Radia TOK FM - 11:00...").
+        // Keep the full metadata in properties, but do not speak the same
+        // podcast name twice in an aggregate episode list.
+        if (ContainsMetadataPhrase(episodeTitle, parentTitle))
+            return formattedItem;
+
         if (episodeTitle.Length > 0
             && formattedItem.StartsWith(episodeTitle, StringComparison.CurrentCultureIgnoreCase)
             && (formattedItem.Length == episodeTitle.Length || formattedItem[episodeTitle.Length] == ','))
@@ -244,5 +251,37 @@ internal static class MainWindowNavigationPolicy
         }
 
         return $"{formattedItem}, {parentTitle}";
+    }
+
+    private static bool ContainsMetadataPhrase(string text, string phrase)
+    {
+        var normalizedText = NormalizeMetadataText(text);
+        var normalizedPhrase = NormalizeMetadataText(phrase);
+        if (normalizedText.Length == 0 || normalizedPhrase.Length == 0) return false;
+
+        return string.Equals(normalizedText, normalizedPhrase, StringComparison.CurrentCultureIgnoreCase)
+            || normalizedText.StartsWith($"{normalizedPhrase} ", StringComparison.CurrentCultureIgnoreCase)
+            || normalizedText.EndsWith($" {normalizedPhrase}", StringComparison.CurrentCultureIgnoreCase)
+            || normalizedText.Contains($" {normalizedPhrase} ", StringComparison.CurrentCultureIgnoreCase);
+    }
+
+    private static string NormalizeMetadataText(string value)
+    {
+        var result = new System.Text.StringBuilder(value.Length);
+        var separatorPending = false;
+        foreach (var character in value.Trim())
+        {
+            if (char.IsLetterOrDigit(character))
+            {
+                if (separatorPending && result.Length > 0) result.Append(' ');
+                result.Append(char.ToLower(character, System.Globalization.CultureInfo.CurrentCulture));
+                separatorPending = false;
+            }
+            else
+            {
+                separatorPending = result.Length > 0;
+            }
+        }
+        return result.ToString();
     }
 }

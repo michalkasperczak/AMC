@@ -683,6 +683,15 @@ static void TestSearchNavigation()
             "Gość poranka, Rozmowa dnia, odcinek",
             podcast.Title) == "Gość poranka, Rozmowa dnia, odcinek",
         "Zbiorczy widok odcinków powtórzył nazwę podcastu używaną zamiast brakującego autora.");
+    episode.Title = "Informacje Radia TOK FM - 11:00 04.09.2026";
+    episode.Artist = "TOK FM";
+    Assert(
+        MainWindowNavigationPolicy.FormatPodcastAggregateEpisodeLabel(
+            episode,
+            "Informacje Radia TOK FM - 11:00 04.09.2026, TOK FM, 6:23, odcinek",
+            "Informacje Radia TOK FM")
+        == "Informacje Radia TOK FM - 11:00 04.09.2026, TOK FM, 6:23, odcinek",
+        "Zbiorczy widok powtórzył nazwę podcastu już obecną w tytule odcinka.");
     var directoryPodcast = new MediaItem
     {
         Id = "podcast-directory:apple:123",

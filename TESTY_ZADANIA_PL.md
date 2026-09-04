@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-245`
-- Tytuł zestawu: Awaryjna stabilizacja fokusa NVDA
-- Wersja programu: `0.1.0-alpha.245`
+- Numer zestawu: `AMC-TEST-246`
+- Tytuł zestawu: Bez powtórzeń metadanych podcastu
+- Wersja programu: `0.1.0-alpha.246`
 - Utworzono: 2026-09-04, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.245.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.246.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,24 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 246
+
+### AMC-246-01 — nazwa podcastu zawarta w tytule odcinka
+
+Otwórz zbiorczą listę odcinków zawierającą „Informacje Radia TOK FM” i przejdź
+na odcinek, którego tytuł zaczyna się od tej samej nazwy.
+
+Oczekiwane: NVDA czyta „Informacje Radia TOK FM - godzina i data, TOK FM, czas,
+odcinek”. Nazwa „Informacje Radia TOK FM” występuje tylko raz.
+
+### AMC-246-02 — odrębny autor i pełne właściwości
+
+Sprawdź odcinek, którego tytuł, nazwa podcastu i autor są rzeczywiście różne,
+a następnie otwórz `Alt+Enter`.
+
+Oczekiwane: krótka etykieta zachowuje wszystkie różne informacje. Właściwości
+nadal pokazują komplet pól także wtedy, gdy lista pominęła powtórzenie.
 
 ## Nowości alpha 245
 

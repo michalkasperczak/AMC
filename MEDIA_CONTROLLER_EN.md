@@ -4,6 +4,11 @@ Document version: 0.7, current project plan
 
 Updated: 29 August 2026
 
+Since `alpha.246`, aggregate episode lists do not repeat the podcast name when
+it is already contained in the episode title. A distinct author remains in the
+short label, while all channel and episode fields remain available through
+`Alt+Enter`.
+
 Since `alpha.241`, the shared player supports user-authored chapters for local
 media and podcast episodes. A chapter is a durable named time point and can
 share one record with a regular bookmark without coupling their removal.

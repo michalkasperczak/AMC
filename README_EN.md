@@ -1,5 +1,10 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.246` removes a repeated podcast name from aggregate episode
+lists when that same name is already part of the episode title. A distinct
+author is retained, while the complete metadata remains available in
+properties through `Alt+Enter`.
+
 Version `alpha.245` rolls back the accessibility-layer changes from
 `alpha.244` that could make NVDA navigation unstable and move its cursor to
 help text or the status bar. Lists no longer receive long automatically exposed

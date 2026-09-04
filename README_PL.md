@@ -7,6 +7,11 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.246` usuwa powtarzanie nazwy podcastu w zbiorczych listach
+odcinków, gdy ta sama nazwa jest już częścią tytułu odcinka. Autor pozostaje
+widoczny, jeżeli wnosi inną informację, a komplet metadanych nadal jest
+dostępny we właściwościach przez `Alt+Enter`.
+
 Wersja `alpha.245` wycofuje zmiany warstwy dostępności z `alpha.244`, które
 mogły powodować niestabilną nawigację NVDA i przechodzenie kursora do opisów
 lub paska stanu. Listy nie otrzymują już rozbudowanych, automatycznie czytanych

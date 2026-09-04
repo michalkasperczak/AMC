@@ -4,6 +4,10 @@ Wersja dokumentu: 0.7, aktualny plan projektu
 
 Data aktualizacji: 29 sierpnia 2026 r.
 
+Od `alpha.246` zbiorcze listy odcinków nie powtarzają nazwy podcastu, jeżeli
+jest ona już zawarta w tytule odcinka. Odrębny autor pozostaje w krótkiej
+etykiecie, a pełne pola kanału i odcinka są dostępne w `Alt+Enter`.
+
 Od `alpha.241` wspólny odtwarzacz obsługuje własne rozdziały plików lokalnych
 i podcastów. Rozdział jest trwałym, nazwanym początkiem na osi czasu i może
 współdzielić rekord ze zwykłą zakładką bez uzależniania ich usuwania.
