@@ -1047,6 +1047,13 @@ Nawigacja po wszystkich rozdziałach w odtwarzaczu używa teraz krótszych
 `Ctrl+Shift+strzałka w lewo/prawo`; dotychczasowe skróty Page Up/Down nadal
 działają jako aliasy.
 
+`alpha.260` usuwa zależność między listą a nawigacją: pierwsze użycie
+`Ctrl+Shift+strzałki w lewo/prawo` samo sprawdza źródła rozdziałów, więc nie
+trzeba wcześniej naciskać `Ctrl+Alt+B`. Cofanie nie zatrzymuje się już w kółko
+na początku bieżącego rozdziału. Na liście zarówno Spacja, jak i
+`Ctrl+Spacja` przełącza pojedynczy wybór bez usuwania pozostałych, a NVDA
+otrzymuje jawny komunikat z nazwą rozdziału i liczbą wybranych pozycji.
+
 ## Urządzenie audio osobno dla sesji w alpha 204
 
 Klawisz **Shift+A**, menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej

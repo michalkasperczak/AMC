@@ -73,7 +73,8 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
 
     private void ChapterList_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.Control)
+        if (e.Key == Key.Space
+            && Keyboard.Modifiers is ModifierKeys.None or ModifierKeys.Control)
         {
             ToggleSelectionAt(FindFocusedIndex());
             e.Handled = true;
@@ -127,8 +128,7 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
 
     private void SetSelectionStatus(string message)
     {
-        SelectionStatusText.Text = message;
-        System.Windows.Automation.AutomationProperties.SetName(SelectionStatusText, message);
+        SelectionStatusText.Announce(message);
     }
 
     private void Complete(ChapterListAction action)

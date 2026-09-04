@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-248`
-- Tytuł zestawu: Stabilne uruchamianie dużej Biblioteki Podcastów
-- Wersja programu: `0.1.0-alpha.248`
+- Numer zestawu: `AMC-TEST-260`
+- Tytuł zestawu: Samodzielna nawigacja i dostępne zaznaczanie rozdziałów
+- Wersja programu: `0.1.0-alpha.260`
 - Utworzono: 2026-09-04, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.248.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.260.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,53 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 260
+
+### AMC-260-01 — nawigacja bez wcześniejszego otwierania listy
+
+Uruchom odcinek z rozdziałami, którego listy nie otwierano w tej sesji programu.
+Użyj `Ctrl+Shift+strzałki w prawo` bez naciskania `Ctrl+Alt+B`.
+
+Oczekiwane: AMC sam sprawdza rozdziały, przechodzi do następnego i nie podaje
+fałszywie „Brak następnego rozdziału”. Fokus pozostaje w odtwarzaczu.
+
+### AMC-260-02 — kolejne cofanie po rozdziałach
+
+Przejdź do co najmniej trzeciego rozdziału, a następnie kilka razy szybko użyj
+`Ctrl+Shift+strzałki w lewo`.
+
+Oczekiwane: po wejściu w rozdział skrót przechodzi kolejno do poprzedniego i
+jeszcze wcześniejszego. Jeżeli bieżący rozdział był słuchany dłużej niż
+3 sekundy, pierwsze naciśnięcie wraca na jego początek, a drugie idzie wstecz.
+
+### AMC-260-03 — zaznaczanie Spacją i Ctrl+Spacją
+
+Otwórz `Ctrl+Alt+B`. Na pierwszym rozdziale naciśnij Spację, przejdź
+`Ctrl+strzałką` do nieprzylegającego rozdziału i użyj `Ctrl+Spacji`. Jedną z
+pozycji odznacz ponownym naciśnięciem.
+
+Oczekiwane: oba skróty przełączają tylko bieżący rozdział, nie kasują innych
+wyborów i nie wykonują podwójnego przełączenia. NVDA mówi nazwę, stan
+„zaznaczono/odznaczono” i liczbę wybranych.
+
+### AMC-260-04 — zakres i odtwarzanie wyboru
+
+Zaznacz zakres przez Shift ze strzałkami, połącz go z nieprzylegającą pozycją
+przez `Ctrl+Spację` i naciśnij Enter.
+
+Oczekiwane: lista zamyka się, fokus wraca do odtwarzacza, a program odtwarza
+wyłącznie wybrane rozdziały w kolejności czasu.
+
+### AMC-260-05 — brak rozdziałów i odporność
+
+Na materiale bez rozdziałów użyj obu skrótów nawigacji, a potem
+`Ctrl+Alt+B`. W czasie sprawdzania nie zmieniaj sesji.
+
+Oczekiwane: najpóźniej po 20 sekundach pojawia się jednoznaczny komunikat.
+Program pozostaje responsywny, nie gubi fokusa i pozwala ponowić próbę.
+
+## Poprzedni zestaw regresyjny alpha 248
 
 ## Nowości alpha 248
 

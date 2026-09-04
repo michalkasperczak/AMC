@@ -1202,6 +1202,9 @@ static void TestChapterWindowAccessibility()
             Assert(window.ToggleSelectionAt(1) && window.SelectedChapters.Count == 1
                    && window.SelectedChapters[0].Entry.Id == first.Id,
                 "Ctrl+Spacja nie może niezależnie odznaczyć bieżącego rozdziału.");
+            var status = (AccessibleStatusTextBlock)window.FindName("SelectionStatusText");
+            Assert(status.Text.StartsWith("Odznaczono:", StringComparison.Ordinal),
+                "Zmiana zaznaczenia nie ma jawnego komunikatu dostępnościowego.");
             Assert(AutomationProperties.GetName(window.ChapterList) == "Rozdziały: Odcinek",
                 "Lista rozdziałów nie ma jednoznacznej nazwy dla NVDA.");
             foreach (var row in window.ChapterList.Items.OfType<ChapterListRow>())

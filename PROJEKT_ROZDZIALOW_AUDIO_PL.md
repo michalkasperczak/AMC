@@ -1,9 +1,9 @@
 # Projekt rozdziałów audio opartych na Zakładkach AMC
 
 Status: działająca implementacja od `alpha.241`, rozszerzona w `alpha.252` o
-rozdziały dostawcy. Dalsze punkty tego dokumentu wyznaczają opcjonalne etapy
-edycyjne. Nie jest to osobna sesja ani duży samodzielny moduł, tylko funkcja
-wspólnego odtwarzacza AMC.
+rozdziały dostawcy i ustabilizowana w `alpha.260`. Dalsze punkty tego dokumentu
+wyznaczają opcjonalne etapy edycyjne. Nie jest to osobna sesja ani duży
+samodzielny moduł, tylko funkcja wspólnego odtwarzacza AMC.
 
 ## Stan wdrożony w alpha.241
 
@@ -15,8 +15,9 @@ wspólnego odtwarzacza AMC.
 - `Ctrl+Alt+B` otwiera dostępną listę chronologiczną, również z listy materiałów;
 - `Ctrl+Shift+strzałka w lewo` i `Ctrl+Shift+strzałka w prawo` przechodzą do poprzedniego albo
   następnego początku rozdziału;
-- Shift ze strzałkami na liście rozdziałów zaznacza kilka pozycji, Enter
-  odtwarza tylko zaznaczone rozdziały, a Delete usuwa własne oznaczenia;
+- Spacja lub `Ctrl+Spacja` na liście rozdziałów przełącza pojedynczą pozycję,
+  Shift ze strzałkami zaznacza zakres, Enter odtwarza tylko zaznaczone
+  rozdziały, a Delete usuwa własne oznaczenia;
 - przy odtwarzaniu nieprzyległych rozdziałów AMC przeskakuje pominięte odcinki,
   a po ostatnim wybranym rozdziale zatrzymuje się bez przejścia do kolejnego
   materiału;
@@ -131,6 +132,15 @@ mogą równocześnie nawigować po rozdziałach. W odtwarzaczu działają
 `Ctrl+Alt+Page Up/Down` pozostaje zgodnościowym aliasem. Prawa strzałka nadal nie zmienia
 znaczenia zależnie od obecności rozdziałów; lista ma stałe polecenie
 `Ctrl+Alt+B`, a brak rozdziałów nie zmienia fokusu.
+
+Od `alpha.260` skróty poprzedniego i następnego rozdziału same uruchamiają
+ograniczone wykrywanie rozdziałów, jeżeli spisu nie ma jeszcze w trwałym
+magazynie. Nie trzeba wcześniej otwierać `Ctrl+Alt+B`. Jeżeli bieżący rozdział
+jest odtwarzany dłużej niż 3 sekundy, pierwsze polecenie poprzedniego rozdziału
+wraca na jego początek; kolejne szybkie naciśnięcie przechodzi do wcześniejszego
+rozdziału. Bezpośrednio po skoku jedno naciśnięcie od razu przechodzi wstecz.
+Pozwala to cofać się kolejno przez cały spis bez wielokrotnego zatrzymywania na
+tym samym punkcie.
 
 Wybrany pojedynczy rozdział można zapisać jako osobny plik przyciskiem
 **Zapisz rozdział…** na liście rozdziałów. `Ctrl+S` nadal oznacza zapis całego

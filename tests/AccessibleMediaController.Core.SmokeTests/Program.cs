@@ -3612,6 +3612,12 @@ static void TestChapters()
     Equal(TimeSpan.FromMinutes(10), ordered[2].Duration);
     Equal(middle.Entry.Id, chapters.FindRelative(
         "podcasts", item.Id, item.Duration, TimeSpan.FromMinutes(6), 1)?.Entry.Id);
+    Equal(shared.Entry.Id, chapters.FindRelative(
+        "podcasts", item.Id, item.Duration, TimeSpan.FromMinutes(12).Add(TimeSpan.FromSeconds(1)), -1)?.Entry.Id);
+    Equal(middle.Entry.Id, chapters.FindRelative(
+        "podcasts", item.Id, item.Duration, TimeSpan.FromMinutes(12).Add(TimeSpan.FromSeconds(4)), -1)?.Entry.Id);
+    Equal(null, chapters.FindRelative(
+        "podcasts", item.Id, item.Duration, TimeSpan.FromMinutes(5).Add(TimeSpan.FromSeconds(1)), -1));
 
     var directory = Path.Combine(Path.GetTempPath(), $"amc-chapter-tests-{Guid.NewGuid():N}");
     Directory.CreateDirectory(directory);

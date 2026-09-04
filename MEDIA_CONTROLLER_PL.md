@@ -2009,6 +2009,17 @@ nawigacja w odtwarzaczu to `Ctrl+Shift+strzałka w lewo/prawo`; dawne
 `Ctrl+Alt+Page Up/Down` pozostaje zgodnościowym aliasem. Ręczna nawigacja
 obejmuje wszystkie rozdziały materiału, niezależnie od wcześniejszego wyboru.
 
+Od `alpha.260` nawigacja może uruchomić ten sam ograniczony proces wykrywania,
+którego używa lista. Brak wcześniejszego użycia `Ctrl+Alt+B` nie może więc
+powodować fałszywego komunikatu „Brak następnego rozdziału”. Proces ma wspólny
+limit 20 sekund i po zakończeniu sprawdza, czy użytkownik nadal odtwarza ten sam
+materiał. Poprzedni rozdział stosuje standardową regułę restartu: po ponad
+3 sekundach najpierw wraca na początek bieżącego rozdziału, a szybkie kolejne
+naciśnięcie przechodzi dalej wstecz. Lista przechwytuje Spację oraz
+`Ctrl+Spację` przed domyślną obsługą WPF, aby zaznaczenie nie zostało wykonane
+i natychmiast odwrócone. Każda zmiana wysyła do UI Automation wyłącznie
+użytkowy komunikat „Zaznaczono” lub „Odznaczono”.
+
 ### 7.20. Spójne cofanie usunięcia podcastu
 
 Od `alpha.240` operacja usunięcia kanału z Biblioteki Podcastów i jej

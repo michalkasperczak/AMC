@@ -39,6 +39,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly AudioClipSelection _audioClipSelection = new();
     private ChapterPlaybackPlan? _chapterPlaybackPlan;
     private bool _chapterListOpening;
+    private bool _chapterNavigationLoading;
     private bool _audioClipEditInProgress;
     private SessionManager _sessions = null!;
     private CommandRouter _router = null!;
@@ -1127,16 +1128,73 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
-    public void NavigateChapter(int direction)
+    public void NavigateChapter(int direction) => _ = NavigateChapterAsync(direction);
+
+    private async Task NavigateChapterAsync(int direction)
     {
         if (!_playerViewActive || !_sessions.Current.HasCurrentItem)
         {
             Announce("Nawigacja po rozdziałach działa w otwartym odtwarzaczu");
             return;
         }
+        if (_chapterNavigationLoading)
+        {
+            Announce("Rozdziały są już sprawdzane");
+            return;
+        }
         var session = _sessions.Current;
         var item = session.CurrentItem;
         var availableChapters = _chapterIndex.GetForItem(session.Id, item.Id, item.Duration);
+        if (availableChapters.Count == 0)
+        {
+            _chapterNavigationLoading = true;
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_podcastCancellation.Token);
+            timeout.CancelAfter(TimeSpan.FromSeconds(20));
+            try
+            {
+                DiagnosticLog.Info(
+                    "chapters",
+                    $"Nawigacja uruchamia wykrywanie rozdziałów; element: {item.Id}; kierunek: {direction}.");
+                await EnsurePodcastProviderChaptersAsync(session.Id, item, timeout.Token);
+                if (_isClosing) return;
+                await EnsureEmbeddedChaptersAsync(session.Id, session.DisplayName, item, timeout.Token);
+                if (_isClosing) return;
+                if (_chapterIndex.GetForItem(session.Id, item.Id, item.Duration).Count == 0)
+                {
+                    await EnsurePodcastPageChaptersAsync(session.Id, item, timeout.Token);
+                    if (_isClosing) return;
+                }
+                timeout.Token.ThrowIfCancellationRequested();
+            }
+            catch (OperationCanceledException) when (!_isClosing && !_podcastCancellation.IsCancellationRequested)
+            {
+                DiagnosticLog.Warning("chapters", "Wykrywanie rozdziałów z nawigacji przekroczyło limit 20 sekund.");
+                Announce("Sprawdzanie rozdziałów trwało zbyt długo. Spróbuj ponownie");
+                return;
+            }
+            catch (Exception exception)
+            {
+                DiagnosticLog.Error("chapters", "Nieoczekiwany błąd wykrywania rozdziałów z nawigacji.", exception);
+                Announce("Nie udało się sprawdzić rozdziałów");
+                return;
+            }
+            finally
+            {
+                _chapterNavigationLoading = false;
+            }
+
+            if (!_playerViewActive
+                || !ReferenceEquals(session, _sessions.Current)
+                || !session.HasCurrentItem
+                || !string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal))
+            {
+                DiagnosticLog.Warning(
+                    "chapters",
+                    $"Pominięto zakończenie nawigacji, ponieważ zmienił się odtwarzany element; oczekiwano {session.Id}/{item.Id}.");
+                return;
+            }
+            availableChapters = _chapterIndex.GetForItem(session.Id, item.Id, item.Duration);
+        }
         var chapter = _chapterIndex.FindRelative(
             session.Id,
             item.Id,

@@ -29,6 +29,7 @@ public sealed class ChapterIndex(BookmarkSettings settings)
     public const int MaximumProviderChaptersPerItem = 500;
     private static readonly TimeSpan DuplicateTolerance = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan NavigationTolerance = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan PreviousChapterRestartThreshold = TimeSpan.FromSeconds(3);
 
     public IReadOnlyList<ChapterSegment> GetForItem(
         string sessionId,
@@ -221,9 +222,17 @@ public sealed class ChapterIndex(BookmarkSettings settings)
     {
         if (direction == 0) return null;
         var chapters = GetForItem(sessionId, itemId, itemDuration);
-        return direction > 0
-            ? chapters.FirstOrDefault(chapter => chapter.Start > currentPosition + NavigationTolerance)
-            : chapters.LastOrDefault(chapter => chapter.Start < currentPosition - NavigationTolerance);
+        if (direction > 0)
+            return chapters.FirstOrDefault(chapter => chapter.Start > currentPosition + NavigationTolerance);
+
+        var currentChapter = chapters.LastOrDefault(chapter => chapter.Start <= currentPosition + NavigationTolerance);
+        if (currentChapter is not null
+            && currentPosition - currentChapter.Start > PreviousChapterRestartThreshold)
+        {
+            return currentChapter;
+        }
+        var reference = currentChapter?.Start ?? currentPosition;
+        return chapters.LastOrDefault(chapter => chapter.Start < reference - NavigationTolerance);
     }
 
     public int RemoveUserChapters(IEnumerable<string> chapterIds)
