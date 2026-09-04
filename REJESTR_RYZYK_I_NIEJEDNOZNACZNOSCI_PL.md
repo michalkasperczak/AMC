@@ -194,14 +194,14 @@ wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
   ociężale lub sprawiać wrażenie zawieszonych.
 - Rozstrzygnięcie etapu pierwszego: archiwum jest migrowane do osobnego
   `podcasts.db`; liczby rekordów i integralność są weryfikowane, a widoki
-  tworzą najwyżej 250 wierszy naraz. Próba na kopii rzeczywistych danych
+  tworzą najwyżej 150 wierszy naraz. Próba na kopii rzeczywistych danych
   zachowała wszystkie rekordy, a pierwsza migracja trwała około 4,9 sekundy.
 - Ważne rozróżnienie: zrzut pamięci wskazywał również kilka dużych buforów
   audio Radia, dlatego całego użycia pamięci nie wolno przypisywać Podcastom.
 - Pozostałe ryzyko: bieżący etap nadal odczytuje archiwum metadanych do modelu
   procesu. Docelowe repozytorium ma stronicować zapytania bez pełnego odczytu,
   a aktualizator kanałów ma scalać transakcyjnie tylko jeden podcast.
-- Następny test: migracja, ponowny start, wejście do audycji z ponad 250
+- Następny test: migracja, ponowny start, wejście do audycji z ponad 150
   odcinkami, wielokrotne **Załaduj więcej**, `Ctrl+K`, powrót fokusa, pełny
   eksport i odtworzenie kopii zapasowej.
 

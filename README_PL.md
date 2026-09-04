@@ -1,5 +1,10 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.251` zmniejsza porcję dostępnej listy Podcastów z 250 do 150
+odcinków. Dotyczy to pierwszego otwarcia oraz każdego użycia **Załaduj więcej
+odcinków**. Mniejsza porcja ogranicza liczbę tworzonych wierszy WPF i pracę
+czytnika ekranu, nie zmieniając kompletności archiwum ani wyników filtrowania.
+
 Wersja `alpha.250` poprawia domyślny wybór dnia w nowym harmonogramie radia.
 Zaznaczony dzień tygodnia wynika teraz z daty pierwszego nagrania, a nie z dnia
 utworzenia planu. Dopóki użytkownik nie zmieni dni ręcznie, zmiana daty
@@ -21,7 +26,7 @@ pozostaje mały. Pierwszy start wykonuje transakcyjną migrację, porównuje lic
 kanałów i odcinków, sprawdza integralność SQLite oraz zachowuje
 `state.pre-podcast-sqlite-migration.json`. Próba na kopii rzeczywistej
 Biblioteki objęła 227 podcastów i 32 134 odcinki. Listy odcinków pokazują
-początkowo najwyżej 250 pozycji; dostępny wiersz **Załaduj więcej odcinków**
+początkowo najwyżej 150 pozycji; dostępny wiersz **Załaduj więcej odcinków**
 dołącza następną porcję i przenosi fokus na pierwszy nowy odcinek. Wiersz ten
 nie jest elementem multimedialnym i nie przyjmuje poleceń Ulubionych, Kolejki,
 Playlist ani kopiowania.

@@ -430,7 +430,7 @@ Pełny eksport `.amcbackup.json` pozostaje formatem przenośnym i zawiera
 Podcasty niezależnie od wewnętrznego podziału baz.
 
 Widok nie tworzy kontrolek dla całego archiwum. Skrzynka, rozpoczęte, pobrane
-i wnętrze audycji pokazują po 250 odcinków. Ostatnią pozycją jest wtedy
+i wnętrze audycji pokazują po 150 odcinków. Ostatnią pozycją jest wtedy
 **Załaduj więcej odcinków, pozostało N**. Enter dodaje następną porcję i
 ustawia fokus na pierwszym nowym odcinku; zapamiętany odcinek zostaje włączony
 do odpowiedniej porcji, aby powrót nie przenosił użytkownika na początek.

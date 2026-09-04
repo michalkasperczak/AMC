@@ -2,7 +2,7 @@ namespace AccessibleMediaController.Core.Podcasts;
 
 public static class PodcastEpisodePaging
 {
-    public const int DefaultPageSize = 250;
+    public const int DefaultPageSize = 150;
 
     public static int ResolveLoadedCount(
         int totalCount,

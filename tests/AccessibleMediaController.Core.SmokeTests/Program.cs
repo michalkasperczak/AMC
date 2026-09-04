@@ -228,10 +228,10 @@ static void TestPodcastEpisodePaging()
 {
     Equal(0, PodcastEpisodePaging.ResolveLoadedCount(0, 0));
     Equal(120, PodcastEpisodePaging.ResolveLoadedCount(120, 0));
-    Equal(250, PodcastEpisodePaging.ResolveLoadedCount(2_000, 0));
-    Equal(500, PodcastEpisodePaging.ResolveLoadedCount(2_000, 250, 300));
-    Equal(1_000, PodcastEpisodePaging.ResolveLoadedCount(2_000, 1_000, 10));
-    Equal(500, PodcastEpisodePaging.ResolveNextLoadedCount(2_000, 250));
+    Equal(150, PodcastEpisodePaging.ResolveLoadedCount(2_000, 0));
+    Equal(450, PodcastEpisodePaging.ResolveLoadedCount(2_000, 150, 300));
+    Equal(900, PodcastEpisodePaging.ResolveLoadedCount(2_000, 900, 10));
+    Equal(300, PodcastEpisodePaging.ResolveNextLoadedCount(2_000, 150));
     Equal(2_000, PodcastEpisodePaging.ResolveNextLoadedCount(2_000, 1_900));
 
     try

@@ -1049,7 +1049,7 @@ Warstwa trwałych danych `alpha.93` używa osadzonego SQLite. Tabele rozdzielaj�
 Od `alpha.249` osobna baza `podcasts.db` przechowuje kanały i całe poznane
 archiwum odcinków. Migracja z dużego `state.json` jest transakcyjna, sprawdza
 liczniki i integralność, a kopia wejściowa nosi nazwę
-`state.pre-podcast-sqlite-migration.json`. Warstwa listy tworzy najwyżej 250
+`state.pre-podcast-sqlite-migration.json`. Od `alpha.251` warstwa listy tworzy najwyżej 150
 wierszy odcinków naraz. Jawny wiersz **Załaduj więcej odcinków** dołącza
 następną stronę i ustawia fokus na pierwszym dołączonym wpisie; nie ma
 tożsamości elementu multimedialnego i nie może wykonać poleceń kolekcji.
