@@ -10,8 +10,8 @@
         <TextBlock x:Name="HeadingText" DockPanel.Dock="Top" Margin="0,0,0,10"
                    TextWrapping="Wrap" automation:AutomationProperties.HeadingLevel="Level1" />
         <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap"
-                   Text="Strzałki tylko nawigują. Spacja lub Ctrl+Spacja wybiera albo usuwa z wyboru pojedynczy rozdział, a Shift+strzałki dodaje zakres. Enter rozpoczyna wybrane rozdziały i wraca do odtwarzacza. Escape anuluje."
-                   automation:AutomationProperties.Name="Strzałki tylko nawigują. Spacja lub Ctrl+Spacja wybiera albo usuwa z wyboru pojedynczy rozdział. Shift ze strzałkami dodaje zakres. Enter rozpoczyna wybrane rozdziały i wraca do odtwarzacza. Escape anuluje." />
+                   Text="Strzałki tylko nawigują. Spacja lub Ctrl+Spacja wybiera albo usuwa z wyboru pojedynczy rozdział, a Shift+strzałki dodaje zakres. Enter uruchamia rozdział pod fokusem albo wcześniej wybrany zestaw i wraca do odtwarzacza. Escape anuluje."
+                   automation:AutomationProperties.Name="Strzałki tylko nawigują. Spacja lub Ctrl+Spacja wybiera albo usuwa z wyboru pojedynczy rozdział. Shift ze strzałkami dodaje zakres. Enter uruchamia rozdział pod fokusem albo wcześniej wybrany zestaw i wraca do odtwarzacza. Escape anuluje." />
         <controls:AccessibleStatusTextBlock x:Name="SelectionStatusText" DockPanel.Dock="Bottom" Margin="0,8,0,0"
                                             TextWrapping="Wrap" automation:AutomationProperties.LiveSetting="Assertive" />
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">

@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Windows.Services;
 
 namespace AccessibleMediaController.Windows;
 
@@ -43,8 +44,8 @@ public sealed class ChapterListRow : INotifyPropertyChanged
         }
     }
     public string SelectionAccessibleLabel => IsChosen
-        ? $"Wybrany do odtwarzania, {AccessibleLabel}"
-        : $"Niewybrany do odtwarzania, {AccessibleLabel}";
+        ? $"Wybrany, {AccessibleLabel}"
+        : $"Niewybrany, {AccessibleLabel}";
     public override string ToString() => AccessibleLabel;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -71,7 +72,6 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
             chapters.Select((chapter, index) => new ChapterListRow(chapter, index + 1)));
         ChapterList.ItemsSource = _rows;
         _initialIndex = FindInitialIndex(chapters, position);
-        if (_initialIndex >= 0) _rows[_initialIndex].IsChosen = true;
     }
 
     public ChapterListAction Action { get; private set; }
@@ -147,8 +147,8 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
         FocusRow(index);
         SetSelectionStatus(
             wasChosen
-                ? $"Usunięto z wyboru: {row.Segment.Name}. Wybrano {SelectedChapters.Count}"
-                : $"Wybrano do odtwarzania: {row.Segment.Name}. Wybrano {SelectedChapters.Count}");
+                ? $"Niewybrany: {row.Segment.Name}. Razem {SelectedChapters.Count}"
+                : $"Wybrany: {row.Segment.Name}. Razem {SelectedChapters.Count}");
         return true;
     }
 
@@ -162,7 +162,16 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
         var start = Math.Min(firstIndex, secondIndex);
         var end = Math.Max(firstIndex, secondIndex);
         for (var index = start; index <= end; index++) _rows[index].IsChosen = true;
-        SetSelectionStatus($"Wybrano zakres. Wybrano {SelectedChapters.Count}");
+        SetSelectionStatus($"Wybrano zakres. Razem {SelectedChapters.Count}");
+        return true;
+    }
+
+    internal bool ChooseFocusedChapterWhenNone()
+    {
+        if (SelectedChapters.Count > 0) return true;
+        var index = FindFocusedIndex();
+        if (index < 0 || index >= _rows.Count) return false;
+        _rows[index].IsChosen = true;
         return true;
     }
 
@@ -195,12 +204,17 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
 
     private void Complete(ChapterListAction action)
     {
-        if (SelectedChapters.Count == 0)
+        if (!ChooseFocusedChapterWhenNone())
         {
             MessageBox.Show(this, "Wybierz co najmniej jeden rozdział.", "Rozdziały", MessageBoxButton.OK, MessageBoxImage.Information);
             ChapterList.Focus();
             return;
         }
+        var selected = SelectedChapters;
+        DiagnosticLog.Info(
+            "chapters",
+            $"Zatwierdzono listę rozdziałów; działanie: {action}; liczba: {selected.Count}; "
+            + $"rozdziały: {string.Join(" | ", selected.Select(chapter => $"{chapter.Name} @ {chapter.Start:c}"))}.");
         Action = action;
         DialogResult = true;
     }

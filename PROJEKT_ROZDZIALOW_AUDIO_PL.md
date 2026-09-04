@@ -157,6 +157,12 @@ przełączają pojedynczy wybór, a Shift ze strzałkami dodaje spójny zakres.
 Etykieta mówi jednoznacznie „Wybrany do odtwarzania” albo „Niewybrany do
 odtwarzania” i nie zależy od technicznego zaznaczenia kontrolki WPF.
 
+`alpha.263` skraca te etykiety do „Wybrany” i „Niewybrany”. Lista nie wybiera
+już automatycznie rozdziału bieżącego przy otwarciu. Dzięki temu Enter bez
+ręcznego wyboru uruchamia dokładnie rozdział znajdujący się pod fokusem. Jeżeli
+użytkownik wcześniej użył Spacji, `Ctrl+Spacji`, Shift ze strzałkami albo
+`Ctrl+A`, Enter zachowuje funkcję odtwarzania jawnie wybranego zestawu.
+
 Wybrany pojedynczy rozdział można zapisać jako osobny plik przyciskiem
 **Zapisz rozdział…** na liście rozdziałów. `Ctrl+S` nadal oznacza zapis całego
 odcinka. Źródłowa kolejność rozdziałów pozostaje czasowa. Osobna lista

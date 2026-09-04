@@ -1201,28 +1201,33 @@ static void TestChapterWindowAccessibility()
             var firstContainer = (ListBoxItem?)window.ChapterList.ItemContainerGenerator.ContainerFromIndex(0);
             var secondContainer = (ListBoxItem?)window.ChapterList.ItemContainerGenerator.ContainerFromIndex(1);
             Assert(firstContainer is not null
-                   && AutomationProperties.GetName(firstContainer).StartsWith("Niewybrany do odtwarzania,", StringComparison.Ordinal),
+                   && AutomationProperties.GetName(firstContainer).StartsWith("Niewybrany,", StringComparison.Ordinal),
                 "Niewybrany rozdział nie podaje funkcjonalnego stanu przed nazwą.");
             Assert(secondContainer is not null
-                   && AutomationProperties.GetName(secondContainer).StartsWith("Wybrany do odtwarzania,", StringComparison.Ordinal),
-                "Wybrany rozdział nie podaje funkcjonalnego stanu przed nazwą.");
+                   && AutomationProperties.GetName(secondContainer).StartsWith("Niewybrany,", StringComparison.Ordinal)
+                   && window.SelectedChapters.Count == 0,
+                "Lista nie może sama wybierać początkowego rozdziału do odtwarzania.");
             window.ChapterList.SelectedIndex = 0;
-            Assert(window.SelectedChapters.Count == 1
-                   && window.SelectedChapters[0].Entry.Id == second.Id
-                   && AutomationProperties.GetName(firstContainer).StartsWith("Niewybrany do odtwarzania,", StringComparison.Ordinal),
+            Assert(window.SelectedChapters.Count == 0
+                   && AutomationProperties.GetName(firstContainer).StartsWith("Niewybrany,", StringComparison.Ordinal),
                 "Sama nawigacja listy nie może zmieniać wyboru rozdziałów do odtwarzania.");
+            Assert(window.ChooseFocusedChapterWhenNone()
+                   && window.SelectedChapters.Count == 1
+                   && window.SelectedChapters[0].Entry.Id == first.Id
+                   && AutomationProperties.GetName(firstContainer).StartsWith("Wybrany,", StringComparison.Ordinal),
+                "Enter bez jawnego wyboru nie wskazuje rozdziału znajdującego się pod fokusem.");
             window.ChapterList.SelectedIndex = 1;
-            Assert(window.ToggleSelectionAt(0) && window.SelectedChapters.Count == 2,
+            Assert(window.ToggleSelectionAt(1) && window.SelectedChapters.Count == 2,
                 "Ctrl+Spacja nie może dołączyć nieciągłego rozdziału do wyboru.");
-            Assert(AutomationProperties.GetName(firstContainer).StartsWith("Wybrany do odtwarzania,", StringComparison.Ordinal),
+            Assert(AutomationProperties.GetName(secondContainer).StartsWith("Wybrany,", StringComparison.Ordinal),
                 "Etykieta rozdziału nie odświeżyła stanu po zaznaczeniu.");
-            Assert(window.ToggleSelectionAt(1) && window.SelectedChapters.Count == 1
-                   && window.SelectedChapters[0].Entry.Id == first.Id,
+            Assert(window.ToggleSelectionAt(0) && window.SelectedChapters.Count == 1
+                   && window.SelectedChapters[0].Entry.Id == second.Id,
                 "Ctrl+Spacja nie może niezależnie odznaczyć bieżącego rozdziału.");
-            Assert(AutomationProperties.GetName(secondContainer).StartsWith("Niewybrany do odtwarzania,", StringComparison.Ordinal),
+            Assert(AutomationProperties.GetName(firstContainer).StartsWith("Niewybrany,", StringComparison.Ordinal),
                 "Etykieta rozdziału nie odświeżyła stanu po odznaczeniu.");
             var status = (AccessibleStatusTextBlock)window.FindName("SelectionStatusText");
-            Assert(status.Text.StartsWith("Usunięto z wyboru:", StringComparison.Ordinal),
+            Assert(status.Text.StartsWith("Niewybrany:", StringComparison.Ordinal),
                 "Zmiana wyboru nie ma jawnego komunikatu dostępnościowego.");
             Assert(window.AddRangeToSelection(0, 1) && window.SelectedChapters.Count == 2,
                 "Shift+strzałki nie mogą dodać spójnego zakresu do wyboru.");
@@ -1234,7 +1239,7 @@ static void TestChapterWindowAccessibility()
             {
                 Assert(!string.IsNullOrWhiteSpace(row.AccessibleLabel), "Rozdział nie ma jawnej etykiety.");
                 Assert(row.SelectionAccessibleLabel.StartsWith(
-                           row.IsChosen ? "Wybrany do odtwarzania," : "Niewybrany do odtwarzania,",
+                           row.IsChosen ? "Wybrany," : "Niewybrany,",
                            StringComparison.Ordinal),
                     "Rozdział nie ma jawnej etykiety funkcjonalnego stanu wyboru.");
                 Assert(!row.AccessibleLabel.Contains('{')

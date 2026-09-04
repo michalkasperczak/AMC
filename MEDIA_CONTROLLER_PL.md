@@ -2036,6 +2036,14 @@ nie może zmienić `SelectedChapters`; zmieniają je wyłącznie jawne polecenia
 wyboru. Ta sama zasada powinna obowiązywać przyszłe listy montażowe i inne
 tymczasowe zestawy, w których fokus nie oznacza członkostwa.
 
+Od `alpha.263` lista rozdziałów nie tworzy automatycznie funkcjonalnego wyboru
+na podstawie bieżącej pozycji odtwarzania. Początkowy wiersz otrzymuje tylko
+fokus. Enter bez jawnego zestawu wybiera i uruchamia wiersz pod fokusem; po
+jawnym wyborze odtwarza wybrany zestaw. Etykiety dostępnościowe są krótsze:
+„Wybrany” i „Niewybrany”. Zatwierdzenie zapisuje w logu działanie, liczbę oraz
+nazwy i czasy rozdziałów, aby dało się odtworzyć przebieg przyszłego testu bez
+zapisywania mowy NVDA.
+
 ### 7.20. Spójne cofanie usunięcia podcastu
 
 Od `alpha.240` operacja usunięcia kanału z Biblioteki Podcastów i jej

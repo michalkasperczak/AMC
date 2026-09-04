@@ -1064,6 +1064,13 @@ wybierają już rozdziałów do późniejszego odtwarzania. Tylko Spacja,
 wiersza mówi „Wybrany do odtwarzania” albo „Niewybrany do odtwarzania”. Usuwa
 to mylące ogłaszanie każdego kolejnego wiersza jako zaznaczonego.
 
+`alpha.263` skraca stan wiersza do „Wybrany” albo „Niewybrany” i poprawia
+Enter. Po samym otwarciu listy żaden rozdział nie jest automatycznie wybrany:
+Enter uruchamia rozdział aktualnie znajdujący się pod fokusem. Po użyciu
+Spacji, `Ctrl+Spacji`, Shift ze strzałkami albo `Ctrl+A` Enter uruchamia jawnie
+wybrany zestaw. W logu diagnostycznym zapisywane są od tej wersji rozdziały
+rzeczywiście zatwierdzone na liście.
+
 ## Urządzenie audio osobno dla sesji w alpha 204
 
 Klawisz **Shift+A**, menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej

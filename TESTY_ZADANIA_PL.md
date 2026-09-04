@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-262`
-- Tytuł zestawu: Niezależny fokus i wybór rozdziałów do odtwarzania
-- Wersja programu: `0.1.0-alpha.262`
-- Utworzono: 2026-09-04, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.262.md`
+- Numer zestawu: `AMC-TEST-263`
+- Tytuł zestawu: Krótkie stany i jednoznaczny Enter na liście rozdziałów
+- Wersja programu: `0.1.0-alpha.263`
+- Utworzono: 2026-09-05, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.263.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -16,6 +16,41 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
 
+## Nowości alpha 263
+
+### AMC-263-01 — krótki stan podczas nawigacji
+
+Otwórz listę rozdziałów i przejdź strzałkami przez kilka pozycji.
+
+Oczekiwane: NVDA mówi przed wierszem tylko „Wybrany” albo „Niewybrany”, bez
+długiego dopowiedzenia „do odtwarzania”. Sam ruch strzałką niczego nie wybiera.
+
+### AMC-263-02 — Enter bez ręcznego wyboru
+
+Otwórz listę, nie używaj Spacji, przejdź strzałką na inny rozdział i naciśnij
+Enter.
+
+Oczekiwane: lista zamyka się, fokus wraca do odtwarzacza, a odtwarzanie skacze
+dokładnie do rozdziału, na którym naciśnięto Enter.
+
+### AMC-263-03 — Enter po jawnym wyborze
+
+Wybierz Spacją dwa nieprzylegające rozdziały, pozostaw fokus na innym wierszu i
+naciśnij Enter.
+
+Oczekiwane: AMC odtwarza wyłącznie dwa jawnie wybrane rozdziały w kolejności
+czasowej. Wiersz znajdujący się tylko pod fokusem nie jest dołączany.
+
+### AMC-263-04 — ponowne otwarcie listy
+
+Po skoku Enterem ponownie otwórz listę rozdziałów.
+
+Oczekiwane: fokus znajduje się na rozdziale obejmującym bieżący czas, ale jego
+stan brzmi „Niewybrany”. Przejdź na następny wiersz i naciśnij Enter; program
+ma przejść właśnie do niego, a nie wrócić do początkowo fokusowanego rozdziału.
+
+## Poprzedni zestaw regresyjny alpha 262
+
 ## Nowości alpha 262
 
 ### AMC-262-01 — strzałki nie wybierają rozdziałów
@@ -23,9 +58,8 @@ i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modu�
 Otwórz listę i przejdź zwykłymi strzałkami przez kilka rozdziałów, nie używając
 Spacji.
 
-Oczekiwane: tylko rozdział bieżący przy otwarciu pozostaje domyślnie wybrany do
-odtwarzania. Pozostałe mówią „Niewybrany do odtwarzania”; sam fokus ich nie
-wybiera.
+Oczekiwane w `alpha.263`: żaden rozdział nie jest domyślnie wybrany do
+odtwarzania. Wszystkie mówią „Niewybrany”; sam fokus ich nie wybiera.
 
 ### AMC-262-02 — jawny wybór Spacją
 
