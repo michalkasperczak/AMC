@@ -7,6 +7,15 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.242` rozszerza wyszukiwanie Podcastów o drugi publiczny katalog:
+Spreaker. `Ctrl+F` przeszukuje równolegle Apple Podcasts i Spreaker, każdy
+niezapisany wynik podaje nazwę katalogu, a Enter przed dodaniem nadal sprawdza
+rzeczywisty RSS lub Atom. Awaria jednego katalogu nie ukrywa wyników drugiego
+ani zapisanej Biblioteki. `Ctrl+N` przyjmuje również bezpośrednie, publiczne
+kanały RSS podcastów hostowanych przez SoundCloud i Spreaker. Pełne
+przeszukiwanie katalogu SoundCloud nie zostało zasymulowane przez odczytywanie
+strony: oficjalne API wyszukiwania wymaga zarejestrowanej aplikacji i tokenu.
+
 Wersja `alpha.241` wprowadza pierwszą działającą obsługę rozdziałów dla plików
 lokalnych i odcinków podcastów. W odtwarzaczu `Ctrl+Alt+Shift+B` tworzy nazwany
 początek rozdziału, `Ctrl+Alt+B` otwiera chronologiczną listę, a

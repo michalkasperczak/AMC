@@ -1,5 +1,14 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.242` adds Spreaker as the second public Podcasts directory.
+`Ctrl+F` searches Apple Podcasts and Spreaker concurrently, labels each
+unsaved result with its source directory, and still verifies the actual RSS or
+Atom feed before adding it. Failure of one directory does not hide results
+from the other directory or the saved Library. `Ctrl+N` also accepts direct
+public RSS feeds hosted by SoundCloud and Spreaker. AMC does not emulate a
+SoundCloud-wide search by scraping pages because the official search API
+requires a registered application and token.
+
 Version `alpha.241` adds the first working chapter workflow for local media and
 podcast episodes. In the player, `Ctrl+Alt+Shift+B` creates a named chapter,
 `Ctrl+Alt+B` opens its chronological chapter list, and

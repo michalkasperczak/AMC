@@ -78,6 +78,7 @@ try
     TestPodcastFeedClient();
     TestPodcastEpisodeDownloader();
     TestApplePodcastDirectoryClient();
+    TestSpreakerPodcastDirectoryClient();
     TestPodcastOpmlImportSelectionAccessibility();
     TestPodcastDownloadSettingsAccessibility();
     TestPodcastDescriptionTextOrder();
@@ -159,6 +160,10 @@ try
         else if (mediaPath.StartsWith("--apple-podcast-query=", StringComparison.OrdinalIgnoreCase))
         {
             TestLiveApplePodcastDirectory(mediaPath["--apple-podcast-query=".Length..]);
+        }
+        else if (mediaPath.StartsWith("--spreaker-podcast-query=", StringComparison.OrdinalIgnoreCase))
+        {
+            TestLiveSpreakerPodcastDirectory(mediaPath["--spreaker-podcast-query=".Length..]);
         }
         else if (mediaPath.Equals("--install-ffmpeg", StringComparison.OrdinalIgnoreCase))
         {
@@ -690,6 +695,19 @@ static void TestSearchNavigation()
             parentPodcastTitle: null,
             parentPodcastInLibrary: false) == "Nowa audycja, podcast, katalog Apple Podcasts",
         "Wynik katalogu został omyłkowo opisany jako element Biblioteki.");
+    var spreakerPodcast = new MediaItem
+    {
+        Id = "podcast-directory:spreaker:456",
+        Title = "Audycja ze Spreaker",
+        Kind = MediaItemKind.Podcast
+    };
+    Assert(
+        MainWindowNavigationPolicy.FormatPodcastSearchResult(
+            spreakerPodcast,
+            "Audycja ze Spreaker, podcast",
+            parentPodcastTitle: null,
+            parentPodcastInLibrary: false) == "Audycja ze Spreaker, podcast, katalog Spreaker",
+        "Wynik Spreaker nie ma jednoznacznej, użytkowej etykiety katalogu.");
     Console.WriteLine("OK: wyniki Podcastów prowadzą do właściwej listy i podają stan Biblioteki");
 }
 
@@ -4114,6 +4132,48 @@ static void TestApplePodcastDirectoryClient()
     Console.WriteLine("OK: bezpieczne wyszukiwanie katalogu Apple Podcasts");
 }
 
+static void TestSpreakerPodcastDirectoryClient()
+{
+    const string json = """
+        {
+          "response": {
+            "items": [
+              {
+                "show_id": 123456,
+                "title": "Podcast ze Spreaker",
+                "site_url": "https://www.spreaker.com/show/podcast-testowy"
+              },
+              {
+                "show_id": 123456,
+                "title": "Duplikat",
+                "site_url": "https://www.spreaker.com/show/duplikat"
+              },
+              {
+                "show_id": 0,
+                "title": "Nieprawidłowy"
+              }
+            ]
+          }
+        }
+        """;
+    using var client = new SpreakerPodcastDirectoryClient(
+        new FixedJsonHandler(json),
+        TimeSpan.FromSeconds(2));
+    var results = client.SearchAsync("test", CancellationToken.None).GetAwaiter().GetResult();
+    Assert(results.Count == 1, "Katalog Spreaker nie odfiltrował duplikatu albo nieprawidłowego wyniku.");
+    var result = results[0];
+    Assert(result.Title == "Podcast ze Spreaker",
+        "Katalog Spreaker nie zachował użytkowej nazwy podcastu.");
+    Assert(result.Source == "https://www.spreaker.com/show/123456/episodes/feed"
+           && result.PublicUri == "https://www.spreaker.com/show/podcast-testowy",
+        "Katalog Spreaker pomylił publiczną stronę z adresem kanału RSS.");
+    Assert(result.Id == "podcast-directory:spreaker:123456"
+           && result.Kind == MediaItemKind.Podcast
+           && !result.IsInLibrary,
+        "Wynik katalogu Spreaker nie ma stabilnej tożsamości albo został uznany za element Biblioteki.");
+    Console.WriteLine("OK: bezpieczne wyszukiwanie katalogu Spreaker");
+}
+
 static void TestLiveApplePodcastDirectory(string query)
 {
     using var client = new ApplePodcastDirectoryClient();
@@ -4124,6 +4184,19 @@ static void TestLiveApplePodcastDirectory(string query)
         && Uri.TryCreate(item.Source, UriKind.Absolute, out _)),
         "Odpowiedź katalogu Apple Podcasts zawiera nieprawidłowy wynik.");
     Console.WriteLine($"OK: katalog Apple Podcasts na żywo — wyniki: {results.Count}");
+    foreach (var result in results.Take(5)) Console.WriteLine($"  {result.Title}");
+}
+
+static void TestLiveSpreakerPodcastDirectory(string query)
+{
+    using var client = new SpreakerPodcastDirectoryClient();
+    var results = client.SearchAsync(query, CancellationToken.None).GetAwaiter().GetResult();
+    Assert(results.Count > 0, "Publiczny katalog Spreaker nie zwrócił wyników.");
+    Assert(results.All(item => item.Kind == MediaItemKind.Podcast
+        && item.Id.StartsWith("podcast-directory:spreaker:", StringComparison.Ordinal)
+        && Uri.TryCreate(item.Source, UriKind.Absolute, out _)),
+        "Odpowiedź katalogu Spreaker zawiera nieprawidłowy wynik.");
+    Console.WriteLine($"OK: katalog Spreaker na żywo — wyniki: {results.Count}");
     foreach (var result in results.Take(5)) Console.WriteLine($"  {result.Title}");
 }
 

@@ -179,8 +179,8 @@ internal static class MainWindowNavigationPolicy
         if (item.Kind == MediaItemKind.Podcast)
         {
             if (item.IsInLibrary) return $"{formattedItem}, w Bibliotece";
-            return item.Id.StartsWith("podcast-directory:", StringComparison.Ordinal)
-                ? $"{formattedItem}, katalog Apple Podcasts"
+            return TryGetPodcastDirectoryLabel(item, out var directoryLabel)
+                ? $"{formattedItem}, katalog {directoryLabel}"
                 : $"{formattedItem}, poza Biblioteką";
         }
 
@@ -194,6 +194,30 @@ internal static class MainWindowNavigationPolicy
         }
         parts.Add(parentPodcastInLibrary ? "podcast w Bibliotece" : "podcast poza Biblioteką");
         return string.Join(", ", parts);
+    }
+
+    public static bool TryGetPodcastDirectoryLabel(MediaItem item, out string label)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        const string prefix = "podcast-directory:";
+        if (!item.Id.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            label = string.Empty;
+            return false;
+        }
+
+        var providerEnd = item.Id.IndexOf(':', prefix.Length);
+        var provider = providerEnd > prefix.Length
+            ? item.Id[prefix.Length..providerEnd]
+            : item.Id[prefix.Length..];
+        label = provider.ToLowerInvariant() switch
+        {
+            "apple" => "Apple Podcasts",
+            "spreaker" => "Spreaker",
+            "soundcloud" => "SoundCloud",
+            _ => "podcastów"
+        };
+        return true;
     }
 
     public static string FormatPodcastAggregateEpisodeLabel(

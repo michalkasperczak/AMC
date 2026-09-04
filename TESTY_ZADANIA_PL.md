@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-241`
-- Tytuł zestawu: Rozdziały, cięcie pobranych podcastów i cofanie usunięcia podcastu
-- Wersja programu: `0.1.0-alpha.241`
+- Numer zestawu: `AMC-TEST-242`
+- Tytuł zestawu: Katalog Spreaker i niezależność źródeł wyszukiwania Podcastów
+- Wersja programu: `0.1.0-alpha.242`
 - Utworzono: 2026-09-04, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.241.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.242.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,45 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 242
+
+### AMC-242-01 — wspólne wyszukiwanie Apple Podcasts i Spreaker
+
+W sesji Podcasty naciśnij `Ctrl+F` i wyszukaj kilka polskich oraz zagranicznych
+audycji, w tym audycję obecną w Spreaker.
+
+Oczekiwane: wyniki spoza Biblioteki jednoznacznie mówią „katalog Apple
+Podcasts” albo „katalog Spreaker”. Zapisane podcasty nadal mówią „w
+Bibliotece”. Nie pojawia się techniczny identyfikator, typ obiektu ani surowa
+odpowiedź serwera.
+
+### AMC-242-02 — dodanie wyniku Spreaker
+
+Wybierz niezapisany wynik opisany jako „katalog Spreaker” i naciśnij Enter.
+
+Oczekiwane: AMC sprawdza RSS, dodaje audycję tylko po udanej weryfikacji,
+otwiera jej odcinki i zachowuje właściwy fokus. Ponowne wyszukanie tej samej
+audycji pokazuje „w Bibliotece”, a nie drugi egzemplarz katalogowy.
+
+### AMC-242-03 — bezpośredni RSS SoundCloud lub Spreaker
+
+W Podcastach naciśnij `Ctrl+N` i wklej publiczny adres RSS audycji hostowanej
+przez SoundCloud albo Spreaker. Użyj najpierw przycisku Sprawdź, następnie
+Dodaj.
+
+Oczekiwane: działający kanał zachowuje się jak każdy RSS: podaje nazwę i liczbę
+odcinków, a dodanie nie wymaga logowania do serwisu. Zwykły adres profilu
+SoundCloud nie jest mylony z kanałem RSS.
+
+### AMC-242-04 — odporność na częściową awarię katalogu
+
+Powtórz wyszukiwanie przy chwilowym braku odpowiedzi jednego z katalogów albo
+po odłączeniu i ponownym podłączeniu internetu.
+
+Oczekiwane: zapisane wyniki Biblioteki są nadal dostępne. Awaria jednego
+katalogu nie usuwa danych ani nie zawiesza okna; jeśli odpowie drugi katalog,
+jego wyniki pozostają widoczne.
 
 ## Nowości alpha 241
 

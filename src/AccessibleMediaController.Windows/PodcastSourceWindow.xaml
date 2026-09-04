@@ -8,7 +8,7 @@
         <TextBlock Text="Nowy podcast" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"
                    automation:AutomationProperties.HeadingLevel="Level1" />
         <TextBlock Margin="0,0,0,12" TextWrapping="Wrap"
-                   Text="Wpisz bezpośredni adres kanału RSS lub Atom. Nazwa jest opcjonalna; bez niej AMC użyje nazwy z kanału. Zwykłe strony oraz katalog Apple Podcasts zostaną dodane w następnym etapie." />
+                   Text="Wpisz bezpośredni adres kanału RSS lub Atom, także publiczny RSS z SoundCloud albo Spreaker. Nazwa jest opcjonalna; bez niej AMC użyje nazwy z kanału. Podcastów możesz również szukać przez Ctrl+F w katalogach Apple Podcasts i Spreaker." />
         <Label Target="{Binding ElementName=NameBox}">_Nazwa własna, opcjonalnie:</Label>
         <TextBox x:Name="NameBox" MaxLength="240" Margin="0,0,0,10"
                  automation:AutomationProperties.Name="Nazwa własna podcastu, opcjonalnie" />

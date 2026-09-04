@@ -141,17 +141,28 @@ poleceń, nie zapisuje tokenów w eksporcie i nie wysyła historii odsłuchu do
 źródeł. Adapter wymagający konta przechowuje poświadczenia w systemowym
 magazynie sekretów i pozostaje niezależny od adapterów publicznych.
 
-Publiczny katalog Apple służy do wyszukania podcastu i jego kanału, a nie do
-synchronizacji prywatnego konta Apple Podcasts. Wyniki są buforowane i
-ograniczane, ponieważ publiczna usługa wyszukiwania ma limit zapytań. Pozostałe
-katalogi będą opcjonalnymi adapterami; żaden z nich nie stanie się jedynym
-indeksem potrzebnym do działania Biblioteki.
+Publiczne katalogi Apple i Spreaker służą do wyszukania podcastu i jego kanału,
+a nie do synchronizacji prywatnych kont. Wyniki są buforowane i ograniczane.
+Od `alpha.242` oba adaptery działają równolegle, a awaria jednego nie wyłącza
+drugiego ani lokalnych wyników Biblioteki. Spreaker zwraca stabilny identyfikator
+audycji; AMC buduje z niego udokumentowany adres publicznego RSS i zawsze
+weryfikuje kanał przed zapisaniem.
 
 Pierwszy adapter katalogowy korzysta z udokumentowanych operacji Search i
 Lookup z parametrami `media=podcast`, `entity=podcast` i `country=PL`.
 Dokumentacja Apple podaje orientacyjny limit około 20 zapytań na minutę, dlatego
 AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
 [iTunes Search API](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/Searching.html).
+Spreaker udostępnia publiczne operacje GET wyszukiwania audycji bez logowania;
+każda audycja ma kanał w postaci
+`https://www.spreaker.com/show/IDENTYFIKATOR/episodes/feed`.
+
+SoundCloud jest obsługiwany jako dostawca zwykłego publicznego RSS: jego kanał
+można dodać przez `Ctrl+N`, import OPML albo odnaleźć przez inny katalog.
+Przeszukiwanie całego SoundCloud pozostaje osobnym, opcjonalnym adapterem,
+ponieważ oficjalne API wymaga zarejestrowania aplikacji i tokenu. Nie należy
+zastępować go nietrwałym parsowaniem strony ani prywatnym kluczem wbudowanym w
+program.
 
 ## 6. Kolejność wdrożenia
 
@@ -219,6 +230,10 @@ AMC nie wysyła zapytania po każdym znaku i przechowuje krótki cache wyników:
    oparte na nazwanych zakładkach.
 17. Dalsze katalogi publiczne i usługi kontowe pozostają wymiennymi adapterami;
    nie mogą uzależnić od siebie RSS, Biblioteki ani lokalnych pobrań.
+18. `alpha.242` — zrealizowane: publiczne wyszukiwanie Spreaker obok Apple
+   Podcasts, jawne etykiety źródła, deduplikacja według adresu kanału i
+   częściowa odporność na awarię katalogu. Publiczne RSS-y SoundCloud i
+   Spreaker są obsługiwane bez konta.
 
 Pozostała mapa skrótów zostanie ustalona po pierwszym działającym widoku. Nie
 należy rezerwować dalszych klawiszy na podstawie samego dokumentu
@@ -261,9 +276,10 @@ koncepcyjnego.
   adresu RSS ani bezpośredniego pliku audio jako strony internetowej. AMC nie
   zgaduje już, która „domyślna aplikacja” miałaby otworzyć odcinek.
 - `Ctrl+F` otwiera wyszukiwanie w Podcastach. Wyniki mogą zawierać obserwowane
-  audycje, zapisane odcinki oraz nieobserwowane audycje z katalogu Apple
-  Podcasts, ale każdy rodzaj ma jawną etykietę. Podcast ma stan „w Bibliotece”,
-  „poza Biblioteką” albo „katalog Apple Podcasts”; odcinek podaje audycję
+  audycje, zapisane odcinki oraz nieobserwowane audycje z katalogów Apple
+  Podcasts i Spreaker, ale każdy rodzaj ma jawną etykietę. Podcast ma stan „w
+  Bibliotece”, „poza Biblioteką”, „katalog Apple Podcasts” albo „katalog
+  Spreaker”; odcinek podaje audycję
   nadrzędną i jej stan w Bibliotece.
 - Zwykły Enter na zapisanym wyniku zamyka wyszukiwanie i ustawia fokus na jego
   właściwym miejscu: nagłówek audycji w nadrzędnej Bibliotece, a odcinek
