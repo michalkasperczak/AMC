@@ -398,6 +398,26 @@ public sealed class DemoMediaSession
         }
     }
 
+    public void AddItemsById(IEnumerable<MediaItem> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        var selectFirstAddedItem = Items.Count == 0;
+        var contextWasWholeCatalog = PlaybackContextIsWholeCatalog();
+        var knownIds = Items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var item in items)
+        {
+            if (!knownIds.Add(item.Id)) continue;
+            Items.Add(item);
+            if (contextWasWholeCatalog) _playbackContextItemIds.Add(item.Id);
+        }
+        if (selectFirstAddedItem && Items.Count > 0)
+        {
+            _currentIndex = 0;
+            _hasCurrentItem = true;
+            _position = RememberedPosition(CurrentItem);
+        }
+    }
+
     public MediaReplacementResult ReplaceItems(IEnumerable<MediaItem> items)
     {
         ArgumentNullException.ThrowIfNull(items);

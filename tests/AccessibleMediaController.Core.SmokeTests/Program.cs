@@ -26,6 +26,7 @@ var tests = new (string Name, Action Test)[]
     ("Bezpieczne parsowanie kanałów podcastów", TestPodcastFeedParsing),
     ("Zwięzłe autorstwo podcastów", TestPodcastMetadataPresentation),
     ("Sortowanie skrzynki Podcastów", TestPodcastInboxOrdering),
+    ("Stronicowanie dużych list Podcastów", TestPodcastEpisodePaging),
     ("Kopiowanie opisów i adresów Podcastów", TestPodcastClipboardPresentation),
     ("Bezpieczne nazwy pobranych odcinków Podcastów", TestPodcastDownloadNaming),
     ("Bezpieczny import list podcastów OPML", TestPodcastOpmlParsing),
@@ -35,6 +36,7 @@ var tests = new (string Name, Action Test)[]
     ("Dziedziczenie opcji odtwarzania Podcastów", TestPodcastPlaybackSettings),
     ("Odwracanie Biblioteki i ulubionych z katalogu Podcastów", TestPodcastMembershipToggle),
     ("Trwały model Podcastów", TestPodcastStatePersistence),
+    ("Bezpieczna migracja Podcastów do SQLite", TestPodcastSqliteMigration),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
     ("Trwałe opcje przetwarzania dźwięku", TestPlaybackAudioSettingsPersistence),
@@ -51,6 +53,7 @@ var tests = new (string Name, Action Test)[]
     ("Migracja wspólnego wyciszenia alpha.40", TestVersion9PlayerMessageMigration),
     ("Migracja kategorii komunikatów alpha.41", TestVersion10PlayerMessageMigration),
     ("Przełączanie sesji", TestSessions),
+    ("Doładowywanie odcinków według stabilnego identyfikatora", TestSessionAddItemsById),
     ("Konfigurowana kolejność sesji", TestSessionOrder),
     ("Pusta sesja lokalna", TestEmptyLocalSession),
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
@@ -221,6 +224,44 @@ static void TestPodcastInboxOrdering()
             CollectionSortMode.Custom).Select(episode => episode.Id)));
 }
 
+static void TestPodcastEpisodePaging()
+{
+    Equal(0, PodcastEpisodePaging.ResolveLoadedCount(0, 0));
+    Equal(120, PodcastEpisodePaging.ResolveLoadedCount(120, 0));
+    Equal(250, PodcastEpisodePaging.ResolveLoadedCount(2_000, 0));
+    Equal(500, PodcastEpisodePaging.ResolveLoadedCount(2_000, 250, 300));
+    Equal(1_000, PodcastEpisodePaging.ResolveLoadedCount(2_000, 1_000, 10));
+    Equal(500, PodcastEpisodePaging.ResolveNextLoadedCount(2_000, 250));
+    Equal(2_000, PodcastEpisodePaging.ResolveNextLoadedCount(2_000, 1_900));
+
+    try
+    {
+        PodcastEpisodePaging.ResolveLoadedCount(10, 0, pageSize: 0);
+        throw new InvalidOperationException("Zerowy rozmiar strony powinien zostać odrzucony.");
+    }
+    catch (ArgumentOutOfRangeException)
+    {
+    }
+}
+
+static void TestSessionAddItemsById()
+{
+    var sharedAddress = "https://example.test/shared-audio.mp3";
+    var session = new DemoMediaSession(
+        "podcasts",
+        "Podcasty",
+        [new MediaItem { Id = "episode-1", Title = "Pierwszy", Source = sharedAddress }]);
+
+    session.AddItemsById(
+    [
+        new MediaItem { Id = "episode-2", Title = "Drugi", Source = sharedAddress },
+        new MediaItem { Id = "episode-1", Title = "Duplikat", Source = "https://example.test/other.mp3" }
+    ]);
+
+    Equal(2, session.Items.Count);
+    Equal("episode-2", session.Items[1].Id);
+}
+
 static void TestPodcastClipboardPresentation()
 {
     var entries = new[]
@@ -316,6 +357,74 @@ static void TestPodcastStatePersistence()
         Equal(false, loaded.Podcasts.Episodes[0].IsNew);
         Equal(true, loaded.Podcasts.Episodes[0].IsStarted);
         Equal("episode-a", loaded.Podcasts.CurrentItemId);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
+
+static void TestPodcastSqliteMigration()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-podcast-sqlite-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var statePath = Path.Combine(directory, "state.json");
+        var databasePath = Path.Combine(directory, "podcasts.db");
+        var state = ConfigurationStore.CreateDefaultState();
+        state.Podcasts.Subscriptions.Add(new PodcastSubscriptionSettings
+        {
+            Id = "migration-podcast",
+            Title = "Podcast migracyjny",
+            Description = new string('o', 2048),
+            FeedUrl = "https://example.test/migration.xml"
+        });
+        for (var index = 0; index < 200; index++)
+        {
+            state.Podcasts.Episodes.Add(new PodcastEpisodeSettings
+            {
+                Id = $"migration-episode-{index}",
+                SubscriptionId = "migration-podcast",
+                Title = $"Odcinek {index}",
+                Description = new string('x', 1024),
+                MediaUrl = $"https://cdn.example.test/{index}.mp3",
+                PublishedUtcTicks = DateTime.UtcNow.AddDays(-index).Ticks,
+                IsFavorite = index == 17,
+                ResumePositionTicks = index == 17 ? TimeSpan.FromMinutes(3).Ticks : 0
+            });
+        }
+        File.WriteAllText(
+            statePath,
+            JsonSerializer.Serialize(state, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                Converters = { new JsonStringEnumConverter() }
+            }));
+
+        var store = new ConfigurationStore(
+            statePath,
+            Path.Combine(directory, "library.db"),
+            databasePath);
+        var migrated = store.LoadOrCreate();
+        Equal(1, migrated.Podcasts.Subscriptions.Count);
+        Equal(200, migrated.Podcasts.Episodes.Count);
+        Equal(true, migrated.Podcasts.Episodes.Single(item => item.Id == "migration-episode-17").IsFavorite);
+        Equal(TimeSpan.FromMinutes(3).Ticks,
+            migrated.Podcasts.Episodes.Single(item => item.Id == "migration-episode-17").ResumePositionTicks);
+        True(File.Exists(databasePath), "Nie utworzono bazy Podcastów.");
+        True(File.Exists(Path.Combine(directory, "state.pre-podcast-sqlite-migration.json")),
+            "Nie zachowano kopii stanu sprzed migracji Podcastów.");
+        var compactJson = File.ReadAllText(statePath);
+        True(!compactJson.Contains("migration-episode-17", StringComparison.Ordinal),
+            "Lekki state.json nadal zawiera archiwum odcinków.");
+
+        var loadedAgain = new ConfigurationStore(
+            statePath,
+            Path.Combine(directory, "library.db"),
+            databasePath).LoadOrCreate();
+        Equal(200, loadedAgain.Podcasts.Episodes.Count);
+        Equal("Podcast migracyjny", loadedAgain.Podcasts.Subscriptions[0].Title);
     }
     finally
     {
@@ -875,8 +984,59 @@ foreach (var (name, test) in tests)
     }
 }
 
+var externalPodcastStatePath = Environment.GetEnvironmentVariable("AMC_PODCAST_MIGRATION_STATE");
+if (!string.IsNullOrWhiteSpace(externalPodcastStatePath))
+{
+    try
+    {
+        TestPodcastMigrationOnCopy(externalPodcastStatePath);
+        Console.WriteLine("OK: Migracja kopii rzeczywistej Biblioteki Podcastów");
+    }
+    catch (Exception exception)
+    {
+        failures.Add($"BŁĄD: Migracja kopii rzeczywistej Biblioteki Podcastów: {exception.Message}");
+    }
+}
+
 foreach (var failure in failures) Console.Error.WriteLine(failure);
 return failures.Count == 0 ? 0 : 1;
+
+static void TestPodcastMigrationOnCopy(string sourceStatePath)
+{
+    if (!File.Exists(sourceStatePath))
+        throw new FileNotFoundException("Nie znaleziono wskazanego stanu do diagnostyki.", sourceStatePath);
+
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-real-podcast-migration-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var statePath = Path.Combine(directory, "state.json");
+        var libraryPath = Path.Combine(directory, "library.db");
+        var podcastsPath = Path.Combine(directory, "podcasts.db");
+        File.Copy(sourceStatePath, statePath);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var state = new ConfigurationStore(statePath, libraryPath, podcastsPath).LoadOrCreate();
+        stopwatch.Stop();
+        var subscriptionCount = state.Podcasts.Subscriptions.Count;
+        var episodeCount = state.Podcasts.Episodes.Count;
+        True(subscriptionCount > 0, "Kopia rzeczywistego stanu nie zawiera subskrypcji Podcastów.");
+        True(episodeCount > 0, "Kopia rzeczywistego stanu nie zawiera odcinków Podcastów.");
+        True(File.Exists(podcastsPath), "Migracja kopii nie utworzyła podcasts.db.");
+        var compactJson = JsonNode.Parse(File.ReadAllText(statePath))?.AsObject()
+            ?? throw new InvalidDataException("Nie można odczytać kompaktowego state.json.");
+        Equal(0, compactJson["podcasts"]?["episodes"]?.AsArray().Count ?? -1);
+
+        var reload = new ConfigurationStore(statePath, libraryPath, podcastsPath).LoadOrCreate();
+        Equal(subscriptionCount, reload.Podcasts.Subscriptions.Count);
+        Equal(episodeCount, reload.Podcasts.Episodes.Count);
+        Console.WriteLine(
+            $"DIAGNOSTYKA: {subscriptionCount} podcastów, {episodeCount} odcinków, migracja {stopwatch.Elapsed.TotalSeconds:0.00} s.");
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
 
 static void TestKeyChords()
 {

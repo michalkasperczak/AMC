@@ -97,7 +97,8 @@ public partial class App : Application
             "AccessibleMediaController");
         var store = new ConfigurationStore(
             Path.Combine(configurationDirectory, "state.json"),
-            Path.Combine(localDataDirectory, "library.db"));
+            Path.Combine(localDataDirectory, "library.db"),
+            Path.Combine(localDataDirectory, "podcasts.db"));
 
         PersistedState state;
         try

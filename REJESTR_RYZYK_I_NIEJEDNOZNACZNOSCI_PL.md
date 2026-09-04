@@ -185,6 +185,26 @@ wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
   automatycznym przejściem i wybór ostatniego rozdziału kończącego się razem z
   całym odcinkiem.
 
+### AMC-RYZYKO-011 — rozmiar archiwum Podcastów i migracja SQLite
+
+- Stan: pierwszy etap zamknięty w `alpha.249`; pełne repozytorium zapytań
+  pozostaje do wdrożenia.
+- Fakt zaobserwowany: rzeczywisty `state.json` osiągnął około 67 MB przy 227
+  podcastach i 32 134 odcinkach, a wcześniejsze uruchomienia potrafiły działać
+  ociężale lub sprawiać wrażenie zawieszonych.
+- Rozstrzygnięcie etapu pierwszego: archiwum jest migrowane do osobnego
+  `podcasts.db`; liczby rekordów i integralność są weryfikowane, a widoki
+  tworzą najwyżej 250 wierszy naraz. Próba na kopii rzeczywistych danych
+  zachowała wszystkie rekordy, a pierwsza migracja trwała około 4,9 sekundy.
+- Ważne rozróżnienie: zrzut pamięci wskazywał również kilka dużych buforów
+  audio Radia, dlatego całego użycia pamięci nie wolno przypisywać Podcastom.
+- Pozostałe ryzyko: bieżący etap nadal odczytuje archiwum metadanych do modelu
+  procesu. Docelowe repozytorium ma stronicować zapytania bez pełnego odczytu,
+  a aktualizator kanałów ma scalać transakcyjnie tylko jeden podcast.
+- Następny test: migracja, ponowny start, wejście do audycji z ponad 250
+  odcinkami, wielokrotne **Załaduj więcej**, `Ctrl+K`, powrót fokusa, pełny
+  eksport i odtworzenie kopii zapasowej.
+
 ## Stałe, globalne obszary regresji przed publikacją
 
 Poniższe obszary dotyczą całego AMC, a nie wyłącznie modułu rozwijanego w

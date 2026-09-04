@@ -1046,6 +1046,18 @@ Obiekty wyboru w oknie opcji muszą mieć stabilną reprezentację tekstową ró
 
 Warstwa trwałych danych `alpha.93` używa osadzonego SQLite. Tabele rozdzielają rekordy lokalne, źródła i reguły folderów, wykluczenia, własną kolejność, stan lokalnej sesji, Zakładki, Historię, porządek Ulubionych, od `alpha.97` Playlisty i ich uporządkowane elementy, a od `alpha.98` także porządek Kolejki każdej sesji; indeksy obejmują między innymi tytuł, ścieżkę oraz przynależność do widoków. Ustawienia interfejsu, profile klawiatury, historia zapytań i nawigacja sesji pozostają w małym pliku JSON. Migracja z wcześniejszego stanu przebiega w jednej transakcji, weryfikuje liczbę elementów i zachowuje kopię wejściową. Pełny eksport pozostaje niezależny od formatu bazy i nadal może zostać zaimportowany na innym komputerze.
 
+Od `alpha.249` osobna baza `podcasts.db` przechowuje kanały i całe poznane
+archiwum odcinków. Migracja z dużego `state.json` jest transakcyjna, sprawdza
+liczniki i integralność, a kopia wejściowa nosi nazwę
+`state.pre-podcast-sqlite-migration.json`. Warstwa listy tworzy najwyżej 250
+wierszy odcinków naraz. Jawny wiersz **Załaduj więcej odcinków** dołącza
+następną stronę i ustawia fokus na pierwszym dołączonym wpisie; nie ma
+tożsamości elementu multimedialnego i nie może wykonać poleceń kolekcji.
+Filtrowanie następuje przed stronicowaniem, a stabilny identyfikator odcinka
+pozwala rozwinąć stronę zawierającą zapamiętany fokus. Jest to pierwszy etap:
+docelowe repozytorium Podcastów ma również stronicować zapytania do SQLite,
+aby pełne archiwum nie było utrzymywane w modelu procesu.
+
 Hydratacja Cloud Files jest operacją odtwarzania, nigdy indeksowania. Skaner odczytuje wyłącznie nazwy, rozszerzenia i atrybuty; widoki oraz informacje nie otwierają zawartości placeholdera. Jawne odtworzenie jednego rekordu uruchamia przygotowanie dekodera na wątku roboczym, oznajmia stan pobierania i ma identyfikator żądania: anulowanie, zmiana utworu lub limit czasu unieważniają wynik, dzięki czemu spóźniony plik nie zacznie grać. Log procesu zapisuje etapy otwierania, błędy urządzenia, wyjątki nieobsłużone i wykryte okresy braku odpowiedzi interfejsu, ale nie jest synchronizowany do chmury.
 
 Krytyczne skróty okna mogą otrzymać dodatkową obsługę na granicy komunikatów Win32, jeżeli WPF, kontrolka hybrydowa albo kolejność zdarzeń czytnika ekranu okazuje się niestabilna. `alpha.94` obejmuje tą ścieżką `Ctrl+Shift+C` na listach i w odtwarzaczu, zachowując zwykłą edycję w polach tekstowych. Operacja schowka rejestruje w lokalnym logu samo nadejście polecenia, typy zapisywanych formatów i wynik ograniczonych ponowień, co pozwala rozróżnić konflikt skrótu od blokady schowka bez zapisywania kopiowanej treści.

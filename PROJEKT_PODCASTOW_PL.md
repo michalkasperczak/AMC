@@ -408,3 +408,38 @@ odświeżenia trafiają do podstawowej skrzynki **Nowe odcinki**. Odświeżanie
 nigdy nie pobiera zawartości plików audio. Jawne pobieranie do widoku
 **Pobrane** jest dostępne od `alpha.229`, a katalog Apple od `alpha.217`.
 Wydobywanie audio ze zwykłych stron pozostaje kolejnym etapem.
+
+## 11. Magazyn i duże biblioteki
+
+Archiwum metadanych Podcastów nie może rosnąć we wspólnym `state.json`.
+Kanały i odcinki są przechowywane w lokalnej bazie
+`%LocalAppData%\AccessibleMediaController\podcasts.db`; pliki audio nadal
+powstają wyłącznie po jawnym pobraniu i nigdy nie są zawartością bazy.
+
+Pierwsze uruchomienie wersji z nowym magazynem wykonuje następujący przebieg:
+
+1. odczytuje dotychczasowy stan, ale go nie nadpisuje;
+2. zachowuje `state.pre-podcast-sqlite-migration.json`;
+3. zapisuje kanały i odcinki w jednej transakcji SQLite;
+4. porównuje liczbę rekordów źródłowych i docelowych;
+5. sprawdza integralność bazy;
+6. dopiero wtedy zapisuje mały `state.json` bez archiwum Podcastów.
+
+Niepowodzenie przed punktem szóstym pozostawia źródłowy JSON i jego kopię.
+Pełny eksport `.amcbackup.json` pozostaje formatem przenośnym i zawiera
+Podcasty niezależnie od wewnętrznego podziału baz.
+
+Widok nie tworzy kontrolek dla całego archiwum. Skrzynka, rozpoczęte, pobrane
+i wnętrze audycji pokazują po 250 odcinków. Ostatnią pozycją jest wtedy
+**Załaduj więcej odcinków, pozostało N**. Enter dodaje następną porcję i
+ustawia fokus na pierwszym nowym odcinku; zapamiętany odcinek zostaje włączony
+do odpowiedniej porcji, aby powrót nie przenosił użytkownika na początek.
+Pozycja doładowania nie może trafić do trwałego zaznaczenia, wyszukiwania,
+odtwarzania ani menu działań multimedialnych. `Ctrl+K` filtruje cały logiczny
+widok i dopiero potem stosuje stronicowanie.
+
+Aktualizacja zapisu porównuje rekordy i przepisuje tylko zmienione kanały oraz
+odcinki. Kolejny etap architektury ma wykonywać także zapytania i odświeżanie
+bez ładowania pełnego archiwum do modelu procesu. Do czasu jego ukończenia baza
+i ograniczony zestaw wierszy rozwiązują największy koszt `state.json` i WPF,
+ale nie są jeszcze końcem optymalizacji pamięci.

@@ -7,6 +7,18 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.249` oddziela duże archiwum Podcastów od pliku ustawień. Kanały
+i poznane odcinki trafiają do lokalnej bazy
+`%LocalAppData%\AccessibleMediaController\podcasts.db`, a `state.json`
+pozostaje mały. Pierwszy start wykonuje transakcyjną migrację, porównuje liczbę
+kanałów i odcinków, sprawdza integralność SQLite oraz zachowuje
+`state.pre-podcast-sqlite-migration.json`. Próba na kopii rzeczywistej
+Biblioteki objęła 227 podcastów i 32 134 odcinki. Listy odcinków pokazują
+początkowo najwyżej 250 pozycji; dostępny wiersz **Załaduj więcej odcinków**
+dołącza następną porcję i przenosi fokus na pierwszy nowy odcinek. Wiersz ten
+nie jest elementem multimedialnym i nie przyjmuje poleceń Ulubionych, Kolejki,
+Playlist ani kopiowania.
+
 Wersja `alpha.247` udostępnia pod `Alt+Shift+Enter` opcje całego podcastu i
 pojedynczego odcinka: pamiętanie pozycji, prędkość, normalizację, przejścia i
 ciszę. Podcast może dodatkowo mieć własną częstotliwość odświeżania oraz
@@ -784,7 +796,7 @@ Program rozróżnia trzy rodzaje plików:
 
 Żaden eksport nie zawiera haseł, tokenów ani danych logowania.
 
-Ustawienia robocze i profile programu są przechowywane w `%AppData%\AccessibleMediaController\state.json`. Lokalny katalog Biblioteki i jego relacje znajdują się w `%LocalAppData%\AccessibleMediaController\library.db`. Pełna kopia `.amcbackup.json` nadal łączy oba zbiory w jeden przenośny plik.
+Ustawienia robocze i profile programu są przechowywane w `%AppData%\AccessibleMediaController\state.json`. Lokalny katalog Biblioteki i jego relacje znajdują się w `%LocalAppData%\AccessibleMediaController\library.db`, a archiwum metadanych Podcastów w `%LocalAppData%\AccessibleMediaController\podcasts.db`. Pełna kopia `.amcbackup.json` nadal łączy wszystkie zbiory w jeden przenośny plik.
 
 ## Aktualizacje
 

@@ -19,7 +19,9 @@ public sealed class ConfigurationStore
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
     private readonly string statePath;
     private readonly string migrationBackupPath;
+    private readonly string podcastMigrationBackupPath;
     private readonly LocalLibraryDatabase libraryDatabase;
+    private readonly PodcastLibraryDatabase podcastDatabase;
     private readonly object saveGate = new();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -29,15 +31,24 @@ public sealed class ConfigurationStore
         Converters = { new JsonStringEnumConverter() }
     };
 
-    public ConfigurationStore(string statePath, string? libraryDatabasePath = null)
+    public ConfigurationStore(
+        string statePath,
+        string? libraryDatabasePath = null,
+        string? podcastDatabasePath = null)
     {
         this.statePath = statePath;
         migrationBackupPath = Path.Combine(
             Path.GetDirectoryName(statePath) ?? string.Empty,
             "state.pre-sqlite-migration.json");
+        podcastMigrationBackupPath = Path.Combine(
+            Path.GetDirectoryName(statePath) ?? string.Empty,
+            "state.pre-podcast-sqlite-migration.json");
         libraryDatabase = new LocalLibraryDatabase(
             libraryDatabasePath
             ?? Path.Combine(Path.GetDirectoryName(statePath) ?? string.Empty, "library.db"));
+        podcastDatabase = new PodcastLibraryDatabase(
+            podcastDatabasePath
+            ?? Path.Combine(Path.GetDirectoryName(statePath) ?? string.Empty, "podcasts.db"));
     }
 
     public PersistedState LoadOrCreate()
@@ -46,6 +57,22 @@ public sealed class ConfigurationStore
             ? JsonSerializer.Deserialize<PersistedState>(File.ReadAllText(statePath), JsonOptions)
                 ?? throw new InvalidDataException("Nie udało się odczytać konfiguracji.")
             : CreateDefaultState();
+
+        // Load the archived podcast records before applying state-version
+        // migrations. Otherwise an installation upgraded from an older schema
+        // would migrate the compact JSON shell but miss the records already in
+        // podcasts.db.
+        bool podcastDatabaseInitialized;
+        try
+        {
+            podcastDatabaseInitialized = podcastDatabase.IsInitialized();
+            if (podcastDatabaseInitialized) podcastDatabase.LoadInto(state.Podcasts);
+        }
+        catch (SqliteException exception)
+        {
+            throw new InvalidDataException("Nie udało się odczytać bazy Podcastów SQLite.", exception);
+        }
+
         MigrateState(state);
         ValidateState(state);
         EnsureBuiltInProfile(state);
@@ -86,6 +113,38 @@ public sealed class ConfigurationStore
             throw new InvalidDataException("Nie udało się odczytać lokalnej bazy Biblioteki SQLite.", exception);
         }
 
+        try
+        {
+            if (!podcastDatabaseInitialized)
+            {
+                if (!HasPodcastPayload(state) && File.Exists(podcastMigrationBackupPath))
+                {
+                    var backup = JsonSerializer.Deserialize<PersistedState>(
+                        File.ReadAllText(podcastMigrationBackupPath),
+                        JsonOptions);
+                    if (backup is not null)
+                    {
+                        MigrateState(backup);
+                        CopyPodcastPayload(backup, state);
+                    }
+                }
+
+                if (File.Exists(statePath)
+                    && HasPodcastPayload(state)
+                    && !File.Exists(podcastMigrationBackupPath))
+                {
+                    File.Copy(statePath, podcastMigrationBackupPath, false);
+                }
+
+                podcastDatabase.Initialize(state.Podcasts);
+                WriteStateAtomically(CreateSettingsOnlyState(state));
+            }
+        }
+        catch (SqliteException exception)
+        {
+            throw new InvalidDataException("Nie udało się odczytać bazy Podcastów SQLite.", exception);
+        }
+
         NormalizeLocalMedia(state, state.SchemaVersion);
         NormalizePlaybackHistory(state);
         NormalizeBookmarks(state);
@@ -121,10 +180,11 @@ public sealed class ConfigurationStore
             try
             {
                 libraryDatabase.Save(state);
+                podcastDatabase.Save(state.Podcasts);
             }
             catch (SqliteException exception)
             {
-                throw new IOException("Nie udało się zapisać lokalnej bazy Biblioteki SQLite.", exception);
+                throw new IOException("Nie udało się zapisać lokalnych baz SQLite.", exception);
             }
             WriteStateAtomically(CreateSettingsOnlyState(state));
         }
@@ -175,9 +235,106 @@ public sealed class ConfigurationStore
 
     public PersistedState CloneState(PersistedState state)
     {
-        return JsonSerializer.Deserialize<PersistedState>(JsonSerializer.Serialize(state, JsonOptions), JsonOptions)
-            ?? throw new InvalidOperationException("Nie udało się skopiować konfiguracji.");
+        return CloneStateCore(state, includePodcastPayload: true);
     }
+
+    private static PersistedState CloneStateCore(PersistedState state, bool includePodcastPayload)
+    {
+        // Podcast archives can contain tens of thousands of long descriptions.
+        // Serializing them merely to prepare a background save used to allocate
+        // another copy of every string on the WPF thread. Serialize the compact
+        // state shell and copy podcast records as plain objects whose strings are
+        // immutable and can therefore be shared safely.
+        var shell = new PersistedState
+        {
+            SchemaVersion = state.SchemaVersion,
+            Settings = state.Settings,
+            SearchHistory = state.SearchHistory,
+            PlaybackHistory = state.PlaybackHistory,
+            Bookmarks = state.Bookmarks,
+            SessionNavigation = state.SessionNavigation,
+            CollectionOrders = state.CollectionOrders,
+            Playlists = state.Playlists,
+            SessionPresets = state.SessionPresets,
+            PlaybackVolumes = state.PlaybackVolumes,
+            LocalMedia = state.LocalMedia,
+            Radio = state.Radio,
+            Podcasts = new PodcastSettings
+            {
+                DownloadsFolder = state.Podcasts.DownloadsFolder,
+                CurrentItemId = state.Podcasts.CurrentItemId,
+                Volume = state.Podcasts.Volume,
+                PlaybackRate = state.Podcasts.PlaybackRate
+            },
+            KeyboardProfiles = state.KeyboardProfiles
+        };
+        var copy = JsonSerializer.Deserialize<PersistedState>(
+                JsonSerializer.Serialize(shell, JsonOptions),
+                JsonOptions)
+            ?? throw new InvalidOperationException("Nie udało się skopiować konfiguracji.");
+        if (!includePodcastPayload) return copy;
+
+        copy.Podcasts.Subscriptions = state.Podcasts.Subscriptions
+            .Select(ClonePodcastSubscription)
+            .ToList();
+        copy.Podcasts.Episodes = state.Podcasts.Episodes
+            .Select(ClonePodcastEpisode)
+            .ToList();
+        return copy;
+    }
+
+    private static PodcastSubscriptionSettings ClonePodcastSubscription(
+        PodcastSubscriptionSettings item) => new()
+    {
+        Id = item.Id,
+        Title = item.Title,
+        HasCustomTitle = item.HasCustomTitle,
+        Author = item.Author,
+        Description = item.Description,
+        FeedUrl = item.FeedUrl,
+        HomepageUrl = item.HomepageUrl,
+        LastRefreshUtcTicks = item.LastRefreshUtcTicks,
+        RefreshIntervalMinutes = item.RefreshIntervalMinutes,
+        DownloadsFolder = item.DownloadsFolder,
+        ResumePositionMode = item.ResumePositionMode,
+        PlaybackRateOverride = item.PlaybackRateOverride,
+        LoudnessNormalizationOverride = item.LoudnessNormalizationOverride,
+        SmoothTrackTransitionsOverride = item.SmoothTrackTransitionsOverride,
+        InterTrackSilenceMillisecondsOverride = item.InterTrackSilenceMillisecondsOverride,
+        IsFavorite = item.IsFavorite,
+        IsInLibrary = item.IsInLibrary
+    };
+
+    private static PodcastEpisodeSettings ClonePodcastEpisode(PodcastEpisodeSettings item) => new()
+    {
+        Id = item.Id,
+        SubscriptionId = item.SubscriptionId,
+        SourceIdentifier = item.SourceIdentifier,
+        Title = item.Title,
+        Author = item.Author,
+        Description = item.Description,
+        MediaUrl = item.MediaUrl,
+        PageUrl = item.PageUrl,
+        MediaType = item.MediaType,
+        MediaLength = item.MediaLength,
+        PublishedUtcTicks = item.PublishedUtcTicks,
+        DurationTicks = item.DurationTicks,
+        ResumePositionTicks = item.ResumePositionTicks,
+        ResumePositionMode = item.ResumePositionMode,
+        PlaybackRateOverride = item.PlaybackRateOverride,
+        LoudnessNormalizationOverride = item.LoudnessNormalizationOverride,
+        SmoothTrackTransitionsOverride = item.SmoothTrackTransitionsOverride,
+        InterTrackSilenceMillisecondsOverride = item.InterTrackSilenceMillisecondsOverride,
+        DownloadPath = item.DownloadPath,
+        IsNew = item.IsNew,
+        IsStarted = item.IsStarted,
+        IsPlayed = item.IsPlayed,
+        IsFavorite = item.IsFavorite,
+        IsInQueue = item.IsInQueue,
+        IsPlayNext = item.IsPlayNext,
+        ClipStartTicks = item.ClipStartTicks,
+        ClipEndTicks = item.ClipEndTicks
+    };
 
     public static PersistedState CreateDefaultState() => new()
     {
@@ -204,13 +361,21 @@ public sealed class ConfigurationStore
 
     private PersistedState CreateSettingsOnlyState(PersistedState state)
     {
-        var copy = CloneState(state);
+        var copy = CloneStateCore(state, includePodcastPayload: false);
         copy.LocalMedia = new LocalMediaSettings();
         copy.Bookmarks = new BookmarkSettings();
         copy.PlaybackHistory = new PlaybackHistorySettings();
         copy.CollectionOrders = new CollectionOrderSettings();
         copy.Playlists = new PlaylistSettings();
         return copy;
+    }
+
+    private static bool HasPodcastPayload(PersistedState state) =>
+        state.Podcasts.Subscriptions.Count > 0 || state.Podcasts.Episodes.Count > 0;
+
+    private static void CopyPodcastPayload(PersistedState source, PersistedState destination)
+    {
+        destination.Podcasts = source.Podcasts;
     }
 
     private static bool HasLibraryPayload(PersistedState state) =>

@@ -49,6 +49,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const string PodcastInProgressViewName = "W trakcie słuchania";
     private const string PodcastDownloadsViewName = "Pobrane";
     private const string PodcastContentsViewPrefix = "Podcast:";
+    private const string PodcastLoadMoreRowPrefix = "podcast-load-more:";
     private const string FolderViewName = "Foldery";
     private const string AllLocalFilesViewName = "Wszystkie pliki";
     private const string CustomLocalOrderViewName = "Kolejność własna";
@@ -102,6 +103,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly List<MediaItem> _localItems = [];
     private readonly List<MediaItem> _radioItems = [];
     private readonly List<MediaItem> _podcastItems = [];
+    private readonly Dictionary<string, int> _podcastLoadedEpisodeCounts =
+        new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _podcastLoadMoreNextItemIds =
+        new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _pendingExternalMoves =
         new(StringComparer.Ordinal);
     private PendingInternalListMove? _pendingInternalListMove;
@@ -129,6 +134,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool _keyboardHelpActive;
     private bool _focusRecoveryScheduled;
     private bool _restoringSessionNavigation;
+    private bool _podcastListUsesPreFilteredRows;
     private string? _playerFocusContextPrefix;
     private DateTime _lastLocalStateSaveUtc;
     private long _lastSavedLocalPositionTicks = -1;
@@ -364,7 +370,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (_playerViewActive) return _sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null;
             var row = MediaList.SelectedItem as MediaItemRow;
-            if (row?.PlaylistId is not null) return null;
+            if (row?.PlaylistId is not null || row?.LoadMorePodcastViewName is not null) return null;
             return row?.ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
         }
     }
@@ -380,7 +386,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return _sessions.Current.HasCurrentItem ? [_sessions.Current.CurrentItem] : [];
             var selected = MediaList.SelectedItems
                 .OfType<MediaItemRow>()
-                .Where(row => row.PlaylistId is null)
+                .Where(row => row.PlaylistId is null && row.LoadMorePodcastViewName is null)
                 .OrderBy(row => MediaList.Items.IndexOf(row))
                 .Select(row => row.ActionItem)
                 .DistinctBy(item => item.Id, StringComparer.Ordinal)
@@ -5516,65 +5522,256 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             });
         }
 
-        foreach (var episode in _state.Podcasts.Episodes)
+        var workingSetIds = PodcastWorkingSetEpisodeIds();
+        foreach (var episode in _state.Podcasts.Episodes.Where(episode => workingSetIds.Contains(episode.Id)))
         {
             subscriptionsById.TryGetValue(episode.SubscriptionId, out var subscription);
-            var downloaded = episode.DownloadPath is { Length: > 0 }
-                && File.Exists(episode.DownloadPath);
-            _podcastItems.Add(new MediaItem
-            {
-                Id = episode.Id,
-                Title = episode.Title,
-                Artist = string.IsNullOrWhiteSpace(episode.Author)
-                    ? subscription?.Title ?? string.Empty
-                    : PodcastMetadataPresentation.FormatAuthor(episode.Author),
-                Kind = MediaItemKind.Episode,
-                Duration = TimeSpan.FromTicks(episode.DurationTicks),
-                BitrateKbps = EstimatePodcastBitrateKbps(episode),
-                IsBitrateEstimated = EstimatePodcastBitrateKbps(episode).HasValue,
-                Codec = FormatPodcastCodec(episode.MediaType),
-                Source = downloaded ? episode.DownloadPath : episode.MediaUrl,
-                PublicUri = episode.PageUrl,
-                ExternalId = episode.SubscriptionId,
-                IsFavorite = episode.IsFavorite,
-                IsInLibrary = true,
-                IsAvailable = true,
-                IsInQueue = episode.IsInQueue,
-                IsPlayNext = episode.IsPlayNext
-            });
+            _podcastItems.Add(CreatePodcastEpisodeItem(episode, subscription));
         }
     }
+
+    private HashSet<string> PodcastWorkingSetEpisodeIds()
+    {
+        var ids = _state.Podcasts.Episodes
+            .Where(episode => episode.IsNew && !episode.IsPlayed
+                || episode.IsStarted && !episode.IsPlayed
+                || episode.IsFavorite
+                || episode.IsInQueue
+                || episode.IsPlayNext
+                || !string.IsNullOrWhiteSpace(episode.DownloadPath))
+            .Select(episode => episode.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        if (!string.IsNullOrWhiteSpace(_state.Podcasts.CurrentItemId))
+            ids.Add(_state.Podcasts.CurrentItemId);
+        if (_state.PlaybackHistory.ItemIdsBySession.TryGetValue("podcasts", out var history))
+            ids.UnionWith(history);
+        foreach (var playlist in _state.Playlists.Entries.Where(playlist =>
+                     string.Equals(playlist.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)))
+        {
+            ids.UnionWith(playlist.ItemIds);
+        }
+        if (_state.SessionPresets.EntriesBySession.TryGetValue("podcasts", out var presets))
+            ids.UnionWith(presets.Select(preset => preset.TargetId));
+        if (_state.SessionNavigation.Sessions.TryGetValue("podcasts", out var navigation))
+        {
+            ids.UnionWith(navigation.SelectedItemIds.Values
+                .OfType<string>()
+                .Where(id => !string.IsNullOrWhiteSpace(id)));
+            ids.UnionWith(navigation.PlaybackContextItemIds);
+        }
+        return ids;
+    }
+
+    private static MediaItem CreatePodcastEpisodeItem(
+        PodcastEpisodeSettings episode,
+        PodcastSubscriptionSettings? subscription)
+    {
+        var downloaded = episode.DownloadPath is { Length: > 0 }
+            && File.Exists(episode.DownloadPath);
+        var bitrate = EstimatePodcastBitrateKbps(episode);
+        return new MediaItem
+        {
+            Id = episode.Id,
+            Title = episode.Title,
+            Artist = string.IsNullOrWhiteSpace(episode.Author)
+                ? subscription?.Title ?? string.Empty
+                : PodcastMetadataPresentation.FormatAuthor(episode.Author),
+            Kind = MediaItemKind.Episode,
+            Duration = TimeSpan.FromTicks(episode.DurationTicks),
+            BitrateKbps = bitrate,
+            IsBitrateEstimated = bitrate.HasValue,
+            Codec = FormatPodcastCodec(episode.MediaType),
+            Source = downloaded ? episode.DownloadPath : episode.MediaUrl,
+            PublicUri = episode.PageUrl,
+            ExternalId = episode.SubscriptionId,
+            IsFavorite = episode.IsFavorite,
+            IsInLibrary = true,
+            IsAvailable = true,
+            IsInQueue = episode.IsInQueue,
+            IsPlayNext = episode.IsPlayNext
+        };
+    }
+
+    private void EnsurePodcastEpisodeItems(IEnumerable<PodcastEpisodeSettings> episodes)
+    {
+        var session = _sessions?.FindSession("podcasts");
+        var knownIds = _podcastItems.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        var subscriptionsById = _state.Podcasts.Subscriptions
+            .ToDictionary(subscription => subscription.Id, StringComparer.Ordinal);
+        var added = new List<MediaItem>();
+        foreach (var episode in episodes)
+        {
+            if (!knownIds.Add(episode.Id)) continue;
+            subscriptionsById.TryGetValue(episode.SubscriptionId, out var subscription);
+            var item = CreatePodcastEpisodeItem(episode, subscription);
+            _podcastItems.Add(item);
+            added.Add(item);
+        }
+        if (session is null || added.Count == 0) return;
+        // Different feed records can legitimately refer to the same enclosure
+        // URL. Podcast identity is the stable episode ID, not the URL.
+        session.AddItemsById(added);
+        foreach (var episode in episodes.Where(episode => episode.ResumePositionTicks > 0))
+        {
+            var addedItem = added.FirstOrDefault(item =>
+                string.Equals(item.Id, episode.Id, StringComparison.Ordinal));
+            if (addedItem is null || !ShouldRememberPodcastPosition(addedItem)) continue;
+            session.SetRememberedPosition(episode.Id, TimeSpan.FromTicks(episode.ResumePositionTicks));
+        }
+    }
+
+    private List<MediaItemRow> CreatePagedPodcastEpisodeRows(
+        IReadOnlyList<PodcastEpisodeSettings> orderedEpisodes,
+        string? preferredItemId,
+        Func<MediaItem, PodcastEpisodeSettings, string> navigationText,
+        Func<MediaItem, PodcastEpisodeSettings, string> label)
+    {
+        _podcastListUsesPreFilteredRows = true;
+        var subscriptionTitles = _state.Podcasts.Subscriptions.ToDictionary(
+            subscription => subscription.Id,
+            subscription => subscription.Title,
+            StringComparer.Ordinal);
+        IReadOnlyList<PodcastEpisodeSettings> filteredEpisodes = string.IsNullOrWhiteSpace(FilterBox.Text)
+            ? orderedEpisodes
+            : orderedEpisodes
+                .Where(episode => PodcastEpisodeMatchesListFilter(
+                    episode,
+                    FilterBox.Text.Trim(),
+                    subscriptionTitles.GetValueOrDefault(episode.SubscriptionId)))
+                .ToArray();
+        var preferredIndex = string.IsNullOrWhiteSpace(preferredItemId)
+            ? -1
+            : FindPodcastEpisodeIndex(filteredEpisodes, preferredItemId);
+        var loadedCount = PodcastEpisodePaging.ResolveLoadedCount(
+            filteredEpisodes.Count,
+            _podcastLoadedEpisodeCounts.GetValueOrDefault(_currentView),
+            preferredIndex);
+        _podcastLoadedEpisodeCounts[_currentView] = loadedCount;
+
+        var visibleEpisodes = filteredEpisodes.Take(loadedCount).ToArray();
+        EnsurePodcastEpisodeItems(visibleEpisodes);
+        var itemsById = _podcastItems.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        var rows = visibleEpisodes
+            .Select(episode =>
+            {
+                var item = itemsById.GetValueOrDefault(episode.Id);
+                return item is null
+                    ? null
+                    : new MediaItemRow(
+                        item,
+                        label(item, episode),
+                        navigationText(item, episode));
+            })
+            .Where(row => row is not null)
+            .Select(row => row!)
+            .ToList();
+
+        if (loadedCount >= filteredEpisodes.Count)
+        {
+            _podcastLoadMoreNextItemIds.Remove(_currentView);
+            return rows;
+        }
+
+        var remaining = filteredEpisodes.Count - loadedCount;
+        _podcastLoadMoreNextItemIds[_currentView] = filteredEpisodes[loadedCount].Id;
+        var loadMoreItem = new MediaItem
+        {
+            Id = $"{PodcastLoadMoreRowPrefix}{_currentView}",
+            Title = "Załaduj więcej odcinków",
+            Kind = MediaItemKind.Folder,
+            IsAvailable = true
+        };
+        rows.Add(new MediaItemRow(
+            loadMoreItem,
+            $"Załaduj więcej odcinków, pozostało {remaining}",
+            "Załaduj więcej odcinków",
+            loadMorePodcastViewName: _currentView));
+        return rows;
+    }
+
+    private static bool PodcastEpisodeMatchesListFilter(
+        PodcastEpisodeSettings episode,
+        string query,
+        string? subscriptionTitle)
+    {
+        var compareInfo = CultureInfo.CurrentCulture.CompareInfo;
+        return PodcastSearchFieldContains(compareInfo, episode.Title, query)
+            || PodcastSearchFieldContains(compareInfo, episode.Author, query)
+            || PodcastSearchFieldContains(compareInfo, episode.Description, query)
+            || PodcastSearchFieldContains(compareInfo, subscriptionTitle, query);
+    }
+
+    private static int FindPodcastEpisodeIndex(
+        IReadOnlyList<PodcastEpisodeSettings> episodes,
+        string preferredItemId)
+    {
+        for (var index = 0; index < episodes.Count; index++)
+        {
+            if (string.Equals(episodes[index].Id, preferredItemId, StringComparison.Ordinal))
+                return index;
+        }
+        return -1;
+    }
+
+    private void LoadMorePodcastEpisodes(string viewName)
+    {
+        if (!string.Equals(_currentView, viewName, StringComparison.Ordinal)
+            || !_podcastLoadMoreNextItemIds.TryGetValue(viewName, out var nextItemId))
+        {
+            Announce("Nie można teraz doładować odcinków");
+            return;
+        }
+
+        var previousCount = _podcastLoadedEpisodeCounts.GetValueOrDefault(viewName);
+        _podcastLoadedEpisodeCounts[viewName] = PodcastEpisodePaging.ResolveNextLoadedCount(
+            int.MaxValue,
+            previousCount);
+        RefreshCurrentView(preferredItemId: nextItemId);
+        var loadedNow = Math.Max(0, _podcastLoadedEpisodeCounts.GetValueOrDefault(viewName) - previousCount);
+        PrepareSelectedItemFocusContext($"Załadowano {FormatEpisodeCount(loadedNow)}");
+        RestoreMediaListFocusAfterRefresh();
+    }
+
+    private static string FormatEpisodeCount(int count) => count switch
+    {
+        1 => "1 odcinek",
+        _ when count % 10 is >= 2 and <= 4 && count % 100 is not (>= 12 and <= 14) => $"{count} odcinki",
+        _ => $"{count} odcinków"
+    };
 
     private void CapturePodcastState()
     {
         var session = _sessions?.FindSession("podcasts");
         if (session is not null) session.RememberCurrentPosition();
-        var itemsById = _podcastItems.ToDictionary(item => item.Id, StringComparer.Ordinal);
         var subscriptionsById = _state.Podcasts.Subscriptions
             .ToDictionary(subscription => subscription.Id, StringComparer.Ordinal);
         var episodesById = _state.Podcasts.Episodes
             .ToDictionary(episode => episode.Id, StringComparer.Ordinal);
-        foreach (var subscription in _state.Podcasts.Subscriptions)
+        foreach (var item in _podcastItems)
         {
-            if (!itemsById.TryGetValue(subscription.Id, out var item)) continue;
-            subscription.Title = item.Title;
-            subscription.HasCustomTitle = item.HasCustomTitle;
-            subscription.Author = item.Artist;
-            subscription.IsFavorite = item.IsFavorite;
-            subscription.IsInLibrary = item.IsInLibrary;
-        }
-
-        foreach (var episode in _state.Podcasts.Episodes)
-        {
-            if (!itemsById.TryGetValue(episode.Id, out var item)) continue;
+            if (item.Kind == MediaItemKind.Podcast
+                && subscriptionsById.GetValueOrDefault(item.Id) is { } subscription)
+            {
+                subscription.Title = item.Title;
+                subscription.HasCustomTitle = item.HasCustomTitle;
+                subscription.Author = item.Artist;
+                subscription.IsFavorite = item.IsFavorite;
+                subscription.IsInLibrary = item.IsInLibrary;
+                continue;
+            }
+            if (item.Kind != MediaItemKind.Episode
+                || episodesById.GetValueOrDefault(item.Id) is not { } episode)
+            {
+                continue;
+            }
             episode.DurationTicks = Math.Max(0, item.Duration.Ticks);
             episode.IsFavorite = item.IsFavorite;
             episode.IsInQueue = item.IsInQueue;
             episode.IsPlayNext = item.IsPlayNext;
-            subscriptionsById.TryGetValue(episode.SubscriptionId, out var subscription);
+            subscriptionsById.TryGetValue(episode.SubscriptionId, out var parentSubscription);
             episode.ResumePositionTicks = PodcastPlaybackSettingsResolver.ShouldRememberPosition(
                     episode,
-                    subscription)
+                    parentSubscription)
                 ? Math.Max(
                     0,
                     session?.RememberedPositions.GetValueOrDefault(item.Id).Ticks
@@ -6965,10 +7162,56 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (allServices || string.Equals(currentId, "podcasts", StringComparison.Ordinal))
             podcastSearch = PreparePodcastDirectorySearchAsync(query, cancellationToken);
         await Task.WhenAll(radioSearch, podcastSearch);
+        var podcastArchiveResults = allServices
+            || string.Equals(currentId, "podcasts", StringComparison.Ordinal)
+                ? SearchPodcastArchive(query)
+                : [];
         return podcastSearch.Result
+            .Concat(podcastArchiveResults)
+            .DistinctBy(item => item.Id, StringComparer.Ordinal)
             .Select(item => new SearchWindow.SearchResult("podcasts", item))
             .ToArray();
     }
+
+    private IReadOnlyList<MediaItem> SearchPodcastArchive(string query)
+    {
+        var words = query.Trim().Split(
+            ' ',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (words.Length == 0) return [];
+        var compareInfo = CultureInfo.CurrentCulture.CompareInfo;
+        var subscriptions = _state.Podcasts.Subscriptions
+            .Where(subscription => subscription.IsInLibrary)
+            .ToDictionary(subscription => subscription.Id, StringComparer.Ordinal);
+        var matchingEpisodes = _state.Podcasts.Episodes
+            .Where(episode => subscriptions.TryGetValue(episode.SubscriptionId, out var subscription)
+                && words.All(word => PodcastSearchFieldContains(compareInfo, episode.Title, word)
+                    || PodcastSearchFieldContains(compareInfo, episode.Author, word)
+                    || PodcastSearchFieldContains(compareInfo, subscription.Title, word)
+                    || PodcastSearchFieldContains(compareInfo, episode.Description, word)))
+            .OrderByDescending(episode => episode.PublishedUtcTicks)
+            // A search result is a navigation surface, not an export of the
+            // entire archive. Keep it responsive even for a very broad query.
+            .Take(500)
+            .ToArray();
+        EnsurePodcastEpisodeItems(matchingEpisodes);
+        var itemsById = _podcastItems.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        return matchingEpisodes
+            .Select(episode => itemsById.GetValueOrDefault(episode.Id))
+            .Where(item => item is not null)
+            .Select(item => item!)
+            .ToArray();
+    }
+
+    private static bool PodcastSearchFieldContains(
+        CompareInfo compareInfo,
+        string? value,
+        string word) =>
+        !string.IsNullOrWhiteSpace(value)
+        && compareInfo.IndexOf(
+            value,
+            word,
+            CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
 
     private async Task<IReadOnlyList<MediaItem>> PreparePodcastDirectorySearchAsync(
         string query,
@@ -8176,6 +8419,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void RefreshCurrentView(int? fallbackIndex = null, string? preferredItemId = null)
     {
         ClearFocusContext();
+        _podcastListUsesPreFilteredRows = false;
         var currentNavigation = GetSessionNavigationState(_sessions.Current.Id);
         var safeView = MainWindowNavigationPolicy.ResolveSafeSessionView(
             _sessions.Current.Id,
@@ -8226,21 +8470,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal))
         {
             ViewHeading.Text = PodcastInboxViewName;
-            var itemsById = _sessions.Current.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
             var inboxEpisodes = _state.Podcasts.Episodes
                 .Where(episode => episode.IsNew
                     && !episode.IsPlayed
                     && _state.Podcasts.Subscriptions.Any(subscription =>
                         subscription.IsInLibrary
-                        && string.Equals(subscription.Id, episode.SubscriptionId, StringComparison.Ordinal)));
-            _unfilteredItems = PodcastInboxOrdering.Order(
+                        && string.Equals(subscription.Id, episode.SubscriptionId, StringComparison.Ordinal)))
+                .ToArray();
+            var orderedEpisodes = PodcastInboxOrdering.Order(
                     inboxEpisodes,
                     _state.Podcasts.Subscriptions,
-                    CurrentCollectionSortMode())
-                .Select(episode => itemsById.GetValueOrDefault(episode.Id))
-                .Where(item => item is not null)
-                .Select(item => new MediaItemRow(item!, FormatListItem(item!), item!.PrimaryText))
-                .ToList();
+                    CurrentCollectionSortMode());
+            _unfilteredItems = CreatePagedPodcastEpisodeRows(
+                orderedEpisodes,
+                preferredItemId,
+                static (item, _) => item.PrimaryText,
+                (item, _) => FormatListItem(item));
             ApplyFilter(preferredItemId, fallbackIndex);
             return;
         }
@@ -8249,8 +8494,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_currentView, PodcastInProgressViewName, StringComparison.Ordinal))
         {
             ViewHeading.Text = PodcastInProgressViewName;
-            var itemsById = _sessions.Current.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
-            _unfilteredItems = _state.Podcasts.Episodes
+            var inProgressEpisodes = _state.Podcasts.Episodes
                 .Where(episode => PodcastEpisodeProgress.GetState(episode)
                     == PodcastEpisodeListeningState.InProgress
                     && _state.Podcasts.Subscriptions.Any(subscription =>
@@ -8258,10 +8502,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                         && string.Equals(subscription.Id, episode.SubscriptionId, StringComparison.Ordinal)))
                 .OrderByDescending(episode => episode.ResumePositionTicks)
                 .ThenByDescending(episode => episode.PublishedUtcTicks)
-                .Select(episode => itemsById.GetValueOrDefault(episode.Id))
-                .Where(item => item is not null)
-                .Select(item => new MediaItemRow(item!, FormatListItem(item!), item!.PrimaryText))
-                .ToList();
+                .ToArray();
+            _unfilteredItems = CreatePagedPodcastEpisodeRows(
+                inProgressEpisodes,
+                preferredItemId,
+                static (item, _) => item.PrimaryText,
+                (item, _) => FormatListItem(item));
             ApplyFilter(preferredItemId, fallbackIndex);
             return;
         }
@@ -8270,15 +8516,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_currentView, PodcastDownloadsViewName, StringComparison.Ordinal))
         {
             ViewHeading.Text = PodcastDownloadsViewName;
-            var itemsById = _sessions.Current.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
-            _unfilteredItems = _state.Podcasts.Episodes
+            var downloadedEpisodes = _state.Podcasts.Episodes
                 .Where(episode => episode.DownloadPath is { Length: > 0 }
                     && File.Exists(episode.DownloadPath))
                 .OrderByDescending(episode => episode.PublishedUtcTicks)
-                .Select(episode => itemsById.GetValueOrDefault(episode.Id))
-                .Where(item => item is not null)
-                .Select(item => new MediaItemRow(item!, FormatListItem(item!), item!.PrimaryText))
-                .ToList();
+                .ToArray();
+            _unfilteredItems = CreatePagedPodcastEpisodeRows(
+                downloadedEpisodes,
+                preferredItemId,
+                static (item, _) => item.PrimaryText,
+                (item, _) => FormatListItem(item));
             ApplyFilter(preferredItemId, fallbackIndex);
             return;
         }
@@ -8297,27 +8544,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return;
             }
             ViewHeading.Text = $"Podcast — {subscription.Title}";
-            var itemsById = _sessions.Current.Items.ToDictionary(item => item.Id, StringComparer.Ordinal);
-            _unfilteredItems = _state.Podcasts.Episodes
+            var podcastEpisodes = _state.Podcasts.Episodes
                 .Where(episode => string.Equals(episode.SubscriptionId, podcastId, StringComparison.Ordinal))
                 .OrderByDescending(episode => episode.PublishedUtcTicks)
                 .ThenBy(episode => episode.Title, StringComparer.CurrentCultureIgnoreCase)
-                .Select(episode =>
+                .ToArray();
+            _unfilteredItems = CreatePagedPodcastEpisodeRows(
+                podcastEpisodes,
+                preferredItemId,
+                static (item, _) => item.PrimaryText,
+                (item, episode) =>
                 {
-                    var item = itemsById.GetValueOrDefault(episode.Id);
-                    if (item is null) return null;
                     var date = episode.PublishedUtcTicks > 0
                         ? new DateTime(episode.PublishedUtcTicks, DateTimeKind.Utc).ToLocalTime().ToString("d", CultureInfo.CurrentCulture)
                         : "data nieznana";
                     var state = PodcastEpisodeProgress.GetLabel(episode);
-                    return new MediaItemRow(
-                        item,
-                        $"{item.Title}, {date}, {FormatDurationWords(item.Duration)}, {state}",
-                        item.PrimaryText);
-                })
-                .Where(row => row is not null)
-                .Select(row => row!)
-                .ToList();
+                    return $"{item.Title}, {date}, {FormatDurationWords(item.Duration)}, {state}";
+                });
             ApplyFilter(preferredItemId, fallbackIndex);
             return;
         }
@@ -9066,7 +9309,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         ResetTypeAhead();
         var query = FilterBox.Text.Trim();
-        var filteredItems = string.IsNullOrEmpty(query)
+        var filteredItems = string.IsNullOrEmpty(query) || _podcastListUsesPreFilteredRows
             ? _unfilteredItems
             : _unfilteredItems.Where(row =>
                 row.Label.Contains(query, StringComparison.CurrentCultureIgnoreCase)).ToList();
@@ -9178,7 +9421,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void MediaList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_restoringSessionNavigation && !_playerViewActive && SelectedItem is { } selected)
+        var selectedRow = MediaList.SelectedItem as MediaItemRow;
+        if (!_restoringSessionNavigation
+            && !_playerViewActive
+            && selectedRow?.LoadMorePodcastViewName is null
+            && SelectedItem is { } selected)
         {
             GetSessionNavigationState(_sessions.Current.Id).SelectedItemIds[_currentView] = selected.Id;
         }
@@ -9320,6 +9567,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var row = MediaList.SelectedItem as MediaItemRow;
+        if (row?.LoadMorePodcastViewName is { } loadMorePodcastViewName)
+        {
+            LoadMorePodcastEpisodes(loadMorePodcastViewName);
+            return;
+        }
         if (row?.PlaylistId is { } playlistId)
         {
             OpenPlaylist(playlistId, row.Item.Title);
@@ -14273,6 +14525,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void MediaList_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if ((MediaList.SelectedItem as MediaItemRow)?.LoadMorePodcastViewName is not null
+            && Keyboard.Modifiers == ModifierKeys.None
+            && key == Key.Left)
+        {
+            Announce("Załaduj więcej odcinków. Naciśnij Enter");
+            e.Handled = true;
+            return;
+        }
         if (Keyboard.Modifiers == ModifierKeys.None
             && SelectedItem is { } item
             && key == Key.Left)
@@ -14503,11 +14763,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (_restoringSessionNavigation) return;
         GetSessionNavigationState(_sessions.Current.Id).Filters[_currentView] = FilterBox.Text;
-        ApplyFilter(SelectedItem?.Id);
+        var preferredItemId = SelectedItem?.Id;
+        if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && IsPagedPodcastEpisodeView(_currentView))
+        {
+            RefreshCurrentView(preferredItemId: preferredItemId);
+        }
+        else
+        {
+            ApplyFilter(preferredItemId);
+        }
         StatusText.Text = string.IsNullOrWhiteSpace(FilterBox.Text)
             ? "Gotowy"
             : $"Wyniki filtrowania: {MediaList.Items.Count}";
     }
+
+    private static bool IsPagedPodcastEpisodeView(string viewName) =>
+        string.Equals(viewName, PodcastInboxViewName, StringComparison.Ordinal)
+        || string.Equals(viewName, PodcastInProgressViewName, StringComparison.Ordinal)
+        || string.Equals(viewName, PodcastDownloadsViewName, StringComparison.Ordinal)
+        || TryGetPodcastIdFromView(viewName, out _);
     private void MediaList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => ActivateSelected();
     private void PlayerPlayPause_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PlayPause);
     private void PlayerPrevious_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.Previous);
@@ -14671,6 +14946,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Sessions_Click(object sender, RoutedEventArgs e) => ShowSessionList();
     private void MediaContextMenu_Opened(object sender, RoutedEventArgs e)
     {
+        if ((MediaList.SelectedItem as MediaItemRow)?.LoadMorePodcastViewName is not null)
+        {
+            if (sender is ContextMenu contextMenu) contextMenu.IsOpen = false;
+            Announce("Naciśnij Enter, aby załadować więcej odcinków");
+            return;
+        }
         var items = ActionItems;
         var actionItem = ActionItem;
         var radioSession = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
@@ -15911,7 +16192,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         BookmarkEntry? bookmark = null,
         string? folderPath = null,
         string? albumFolderPath = null,
-        string? playlistId = null) : INotifyPropertyChanged
+        string? playlistId = null,
+        string? loadMorePodcastViewName = null) : INotifyPropertyChanged
     {
         public MediaItem Item { get; } = item;
         public MediaItem ActionItem { get; } = actionItem ?? item;
@@ -15919,6 +16201,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         public string? FolderPath { get; } = folderPath;
         public string? AlbumFolderPath { get; } = albumFolderPath;
         public string? PlaylistId { get; } = playlistId;
+        public string? LoadMorePodcastViewName { get; } = loadMorePodcastViewName;
         public string Label { get; private set; } = label;
         public string NavigationText { get; } = navigationText;
 
