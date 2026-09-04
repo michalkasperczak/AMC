@@ -5126,11 +5126,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
             if (result.Changed)
             {
-                var selectedId = SelectedItem?.Id;
-                var hadListFocus = MediaList.IsKeyboardFocusWithin;
+                // A folder scan runs independently of the visible session. It
+                // must never anchor a Podcast/Radio list merely because that is
+                // where the user navigated while the local scan was awaiting IO.
+                var refreshLocalBrowser = MainWindowNavigationPolicy.CanRefreshLocalBrowserAfterAsyncOperation(
+                    _sessions.Current.Id,
+                    _playerViewActive);
+                var selectedId = refreshLocalBrowser ? SelectedItem?.Id : null;
+                var hadListFocus = refreshLocalBrowser && MediaList.IsKeyboardFocusWithin;
                 if (hadListFocus) AnchorMediaListFocus();
                 replacementResult = RefreshLocalSessionItems();
-                if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) && !_playerViewActive)
+                if (refreshLocalBrowser)
                 {
                     RefreshCurrentView(preferredItemId: selectedId);
                     if (hadListFocus) RestoreMediaListFocusAfterRefresh();
@@ -6142,11 +6148,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         bool returnToLibrary,
         bool automatic = false)
     {
-        var podcastSessionActive = string.Equals(
+        var podcastSessionActiveAtStart = string.Equals(
             _sessions.Current.Id,
             "podcasts",
             StringComparison.Ordinal);
-        if (!podcastSessionActive && !automatic)
+        if (!podcastSessionActiveAtStart && !automatic)
         {
             Announce("Odświeżanie podcastów jest dostępne w sesji Podcasty");
             return;
@@ -6163,9 +6169,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ? $"Odświeżanie podcastu: {subscriptions[0].Title}"
                 : $"Odświeżanie podcastów: {subscriptions.Count}";
         }
-        var preferredItemId = podcastSessionActive ? SelectedItem?.Id : null;
-        var restoreFocusedList = podcastSessionActive && MediaList.IsKeyboardFocusWithin;
-        if (automatic && restoreFocusedList) AnchorMediaListFocus();
         CapturePodcastState();
         var success = 0;
         var addedEpisodes = 0;
@@ -6201,12 +6204,29 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
         }
 
+        // Network refresh may take several minutes for a large library. Do not
+        // move focus away from the selected ListBoxItem before awaiting it, and
+        // do not reuse the session/focus snapshot from before the await. The user
+        // may have navigated to another item, opened the player or switched the
+        // session in the meantime.
+        var refreshPodcastBrowser = MainWindowNavigationPolicy.CanRefreshPodcastBrowserAfterAsyncOperation(
+            _sessions.Current.Id,
+            _playerViewActive);
+        var browserViewAtCompletion = refreshPodcastBrowser ? _currentView : null;
+        var preferredItemIdAtCompletion = refreshPodcastBrowser ? SelectedItem?.Id : null;
+        var restoreFocusedList = refreshPodcastBrowser && MediaList.IsKeyboardFocusWithin;
+        if (restoreFocusedList) AnchorMediaListFocus();
         ReloadPodcastSessionItems();
         if (_isClosing) return;
-        if (podcastSessionActive)
+        var browserContextStillCurrent = refreshPodcastBrowser
+            && MainWindowNavigationPolicy.CanRefreshPodcastBrowserAfterAsyncOperation(
+                _sessions.Current.Id,
+                _playerViewActive)
+            && string.Equals(_currentView, browserViewAtCompletion, StringComparison.Ordinal);
+        if (browserContextStillCurrent)
         {
             if (returnToLibrary) _currentView = "Biblioteka";
-            RefreshCurrentView(preferredItemId: preferredItemId);
+            RefreshCurrentView(preferredItemId: preferredItemIdAtCompletion);
         }
         QueueStateSave(announceFailure: true);
         var inboxCount = _state.Podcasts.Episodes.Count(episode =>
@@ -6220,14 +6240,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             $"Odświeżanie zakończone: poprawne {success}, nieudane {failed}, "
             + $"dodane odcinki {addedEpisodes}, zachowane poza bieżącym RSS "
             + $"{retainedArchivedEpisodes}, w skrzynce {inboxCount}.");
-        if (!automatic)
+        if (!automatic && browserContextStillCurrent)
         {
             PrepareViewFocusContext(
                 $"Odświeżono podcasty: {success} z {subscriptions.Count}. "
                 + $"Nowe teraz: {addedEpisodes}. W skrzynce: {inboxCount}");
             RestoreMediaListFocusAfterRefresh();
         }
-        else if (restoreFocusedList)
+        else if (automatic && browserContextStillCurrent && restoreFocusedList)
         {
             RestoreMediaListFocusAfterRefresh();
         }
@@ -6438,19 +6458,36 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
         }
 
+        var refreshPodcastBrowser = MainWindowNavigationPolicy.CanRefreshPodcastBrowserAfterAsyncOperation(
+            _sessions.Current.Id,
+            _playerViewActive);
+        var podcastViewAtCompletion = refreshPodcastBrowser ? _currentView : null;
+        var preferredItemIdAtCompletion = refreshPodcastBrowser
+            ? SelectedItem?.Id ?? preferredItemId
+            : null;
+        var restoreListAtCompletion = restoreListFocus
+            && refreshPodcastBrowser
+            && MediaList.IsKeyboardFocusWithin;
         if (!saveAs && downloadedEpisodeIds.Count > 0)
         {
             // Reloading the podcast snapshot replaces every ListBoxItem. If the
             // focused row is destroyed, WPF may move keyboard focus to the next
             // control (for example the Open button or the File menu). Anchor it
             // on the stable ListBox before rebuilding, then restore the episode.
-            if (restoreListFocus && !wasPlayerActive && MediaList.IsKeyboardFocusWithin)
+            if (restoreListAtCompletion)
                 AnchorMediaListFocus();
             CapturePodcastState();
             ReloadPodcastSessionItems();
             QueueStateSave(announceFailure: true);
-            if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
-                RefreshCurrentView(preferredItemId: preferredItemId);
+            var podcastBrowserContextStillCurrent = refreshPodcastBrowser
+                && MainWindowNavigationPolicy.CanRefreshPodcastBrowserAfterAsyncOperation(
+                    _sessions.Current.Id,
+                    _playerViewActive)
+                && string.Equals(_currentView, podcastViewAtCompletion, StringComparison.Ordinal);
+            if (podcastBrowserContextStillCurrent)
+                RefreshCurrentView(preferredItemId: preferredItemIdAtCompletion);
+            else
+                restoreListAtCompletion = false;
         }
 
         if (episodes.Length > 1)
@@ -6470,7 +6507,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             AnnounceEssential($"Odcinek jest już pobrany: {episodes[0].Title}");
         }
-        RestorePodcastDownloadFocus(wasPlayerActive, restoreListFocus);
+        RestorePodcastDownloadFocus(wasPlayerActive, restoreListAtCompletion);
     }
 
     private string? ResolveConfiguredPodcastDownloadFolder(PodcastEpisodeSettings episode)
@@ -6484,9 +6521,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void RestorePodcastDownloadFocus(bool wasPlayerActive, bool restoreListFocus)
     {
-        if (!restoreListFocus || _isClosing) return;
-        if (wasPlayerActive && _playerViewActive) FocusPlayerView();
-        else
+        if (_isClosing
+            || !string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+        {
+            return;
+        }
+        if (wasPlayerActive && _playerViewActive)
+        {
+            FocusPlayerView();
+        }
+        else if (restoreListFocus && !_playerViewActive)
         {
             RestoreMediaListFocusAfterRefresh();
             // The download continuation, list layout and the key-up that

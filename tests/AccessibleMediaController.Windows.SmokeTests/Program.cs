@@ -806,6 +806,31 @@ static void TestCanonicalMembershipResolution()
 static void TestMainWindowFocusRecoveryPolicy()
 {
     Assert(
+        MainWindowNavigationPolicy.CanRefreshPodcastBrowserAfterAsyncOperation(
+            "podcasts",
+            playerViewActive: false),
+        "widoczna lista Podcastów może zostać odświeżona po operacji asynchronicznej");
+    Assert(
+        !MainWindowNavigationPolicy.CanRefreshPodcastBrowserAfterAsyncOperation(
+            "podcasts",
+            playerViewActive: true)
+        && !MainWindowNavigationPolicy.CanRefreshPodcastBrowserAfterAsyncOperation(
+            "local",
+            playerViewActive: false),
+        "zakończenie odświeżania Podcastów nie może przejąć odtwarzacza ani innej sesji");
+    Assert(
+        MainWindowNavigationPolicy.CanRefreshLocalBrowserAfterAsyncOperation(
+            "local",
+            playerViewActive: false)
+        && !MainWindowNavigationPolicy.CanRefreshLocalBrowserAfterAsyncOperation(
+            "podcasts",
+            playerViewActive: false)
+        && !MainWindowNavigationPolicy.CanRefreshLocalBrowserAfterAsyncOperation(
+            "local",
+            playerViewActive: true),
+        "zakończenie skanowania folderów może przebudować i kotwiczyć tylko widoczną listę Plików lokalnych");
+
+    Assert(
         MainWindowNavigationPolicy.ResolveFocusRecoveryTarget(
             windowActive: true,
             ownedWindowActive: false,

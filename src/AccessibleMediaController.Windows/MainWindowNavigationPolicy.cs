@@ -47,6 +47,18 @@ internal static class MainWindowNavigationPolicy
     public static bool ShouldApplyPlaybackExitPolicy(PlayerDepartureReason reason) =>
         reason is PlayerDepartureReason.ReturnToList;
 
+    public static bool CanRefreshPodcastBrowserAfterAsyncOperation(
+        string currentSessionId,
+        bool playerViewActive) =>
+        string.Equals(currentSessionId, PodcastSessionId, StringComparison.Ordinal)
+        && !playerViewActive;
+
+    public static bool CanRefreshLocalBrowserAfterAsyncOperation(
+        string currentSessionId,
+        bool playerViewActive) =>
+        string.Equals(currentSessionId, "local", StringComparison.Ordinal)
+        && !playerViewActive;
+
     public static int ResolveListSelectionIndex(
         IReadOnlyList<(string ItemId, string ActionItemId)> rows,
         string? preferredItemId,

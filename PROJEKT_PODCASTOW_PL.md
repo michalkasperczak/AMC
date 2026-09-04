@@ -452,3 +452,16 @@ odcinki. Kolejny etap architektury ma wykonywać także zapytania i odświeżani
 bez ładowania pełnego archiwum do modelu procesu. Do czasu jego ukończenia baza
 i ograniczony zestaw wierszy rozwiązują największy koszt `state.json` i WPF,
 ale nie są jeszcze końcem optymalizacji pamięci.
+
+Automatyczne odświeżenie może trwać długo, dlatego nie wolno kotwiczyć fokusu
+na samej kontrolce listy przed rozpoczęciem operacji sieciowej. Bezpośrednio
+przed końcową przebudową AMC ponownie odczytuje bieżącą sesję, widok,
+zaznaczenie i powierzchnię odtwarzacza. Listę odświeża i przywraca jej fokus
+tylko wtedy, gdy użytkownik nadal znajduje się w tym samym widoku Podcastów.
+Wynik rozpoczęty w Podcastach nie może po kilku minutach przejąć fokusu w
+Plikach lokalnych, innym widoku ani w odtwarzaczu.
+
+Ta sama kontrola obowiązuje pobieranie odcinka oraz równoległe skanowanie
+Folderów Biblioteki. Operacja lokalna może przebudować i zakotwiczyć wyłącznie
+widoczną listę Plików lokalnych; nigdy listę Podcastów lub Radia, która akurat
+znalazła się pod fokusem przed zakończeniem skanowania.

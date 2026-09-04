@@ -1,5 +1,13 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.254` naprawia wyścigi fokusu podczas automatycznego odświeżania
+Podcastów, kończącego się skanowania Folderów Biblioteki oraz pobierania
+odcinka. Program nie przenosi już fokusu z bieżącego elementu na samą
+kontrolkę listy przed długą operacją. Po zakończeniu ponownie sprawdza aktualną
+sesję, widok, odtwarzacz, zaznaczenie i fokus; przebudowuje widoczną listę tylko
+w jej właściwej sesji. Spóźniony wynik sieciowy albo dyskowy nie może cofnąć
+przejścia do Plików lokalnych, Podcastów, innego widoku lub odtwarzacza.
+
 Wersja `alpha.252` kończy podstawową obsługę rozdziałów Podcastów. AMC rozpoznaje
 zewnętrzne rozdziały Podcasting 2.0 JSON, Podlove Simple Chapters, uporządkowane
 znaczniki czasu w opisie oraz rozdziały ID3/MP4 osadzone w pobranym pliku.

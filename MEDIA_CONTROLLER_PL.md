@@ -1955,6 +1955,13 @@ układu okna chroni przed charakterystycznym dla WPF przejściem na sąsiedni
 przycisk „Otwórz” albo do menu Plik. Mechanizm nie przejmuje fokusu, gdy AMC
 nie jest aktywnym oknem, i nie przeszkadza oknu systemowemu `Ctrl+S`.
 
+Od `alpha.254` ta sama zasada uwzględnia długie automatyczne odświeżanie wielu
+kanałów. Fokus pozostaje na konkretnym wierszu przez cały etap sieciowy;
+kotwiczenie na kontrolce listy następuje dopiero bezpośrednio przed jej
+rzeczywistą przebudową. Po każdym `await` program ponownie sprawdza sesję,
+widok i powierzchnię. Spóźnione odświeżenie Podcastów nie może przejąć fokusu
+po przejściu użytkownika do innej sesji, innego widoku albo odtwarzacza.
+
 ### 7.20. Spójne cofanie usunięcia podcastu
 
 Od `alpha.240` operacja usunięcia kanału z Biblioteki Podcastów i jej
