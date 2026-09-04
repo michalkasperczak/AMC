@@ -119,6 +119,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly SystemWakeTimer _radioWakeTimer = new();
     private readonly Dictionary<string, FileSystemWatcher> _localSourceWatchers =
         new(StringComparer.OrdinalIgnoreCase);
+    private long _localSourceWatcherBuildVersion;
     private bool _localSourceSyncInProgress;
     private bool _localSourceSyncPending;
     private bool _podcastRefreshInProgress;
@@ -4609,7 +4610,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         GetPlaybackVolumeForOutput(sessionId, item, GetEffectiveSessionOutputDeviceId(sessionId));
 
     private bool UsesSystemDefaultOutput(string sessionId) =>
-        string.IsNullOrWhiteSpace(GetEffectiveSessionOutputDeviceId(sessionId));
+        string.IsNullOrWhiteSpace(GetSessionOutputDeviceId(sessionId));
 
     private void RememberCurrentPlaybackVolume(DemoMediaSession session)
     {
@@ -5027,17 +5028,68 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
-    private void ConfigureLocalSourceWatchers()
+    private async void ConfigureLocalSourceWatchers()
     {
         if (_isClosing) return;
-        foreach (var watcher in _localSourceWatchers.Values) watcher.Dispose();
-        _localSourceWatchers.Clear();
-        foreach (var source in _state.LocalMedia.FolderSources)
+
+        // Cloud providers may block Directory.Exists, FileSystemWatcher construction
+        // or handle disposal while they reconnect. None of those operations may run
+        // on WPF's dispatcher thread: doing so used to freeze the entire window just
+        // after it was shown, before Ctrl+1/Ctrl+2 or Escape could be handled.
+        var buildVersion = Interlocked.Increment(ref _localSourceWatcherBuildVersion);
+        var sourcePaths = _state.LocalMedia.FolderSources
+            .Select(source => source.Path)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var stopwatch = Stopwatch.StartNew();
+        DiagnosticLog.Info(
+            "local-watchers",
+            $"Rozpoczęto przygotowanie obserwatorów w tle: {sourcePaths.Length}.");
+
+        IReadOnlyList<FileSystemWatcher> prepared;
+        try
         {
-            if (!Directory.Exists(source.Path)) continue;
+            prepared = await Task.Run(() => BuildLocalSourceWatchers(sourcePaths));
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error(
+                "local-watchers",
+                "Nie udało się przygotować obserwatorów Folderów Biblioteki.",
+                exception);
+            return;
+        }
+
+        if (_isClosing || buildVersion != Volatile.Read(ref _localSourceWatcherBuildVersion))
+        {
+            QueueLocalSourceWatcherDisposal(prepared);
+            return;
+        }
+
+        var previous = _localSourceWatchers.Values.ToArray();
+        _localSourceWatchers.Clear();
+        foreach (var watcher in prepared)
+        {
+            _localSourceWatchers[watcher.Path] = watcher;
+        }
+        QueueLocalSourceWatcherDisposal(previous);
+        DiagnosticLog.Info(
+            "local-watchers",
+            $"Gotowe obserwatory: {prepared.Count}; czas {stopwatch.ElapsedMilliseconds} ms.");
+    }
+
+    private IReadOnlyList<FileSystemWatcher> BuildLocalSourceWatchers(
+        IReadOnlyList<string> sourcePaths)
+    {
+        var watchers = new List<FileSystemWatcher>();
+        foreach (var sourcePath in sourcePaths)
+        {
+            if (_isClosing) break;
             try
             {
-                var watcher = new FileSystemWatcher(source.Path)
+                if (!Directory.Exists(sourcePath)) continue;
+                var watcher = new FileSystemWatcher(sourcePath)
                 {
                     IncludeSubdirectories = true,
                     NotifyFilter = NotifyFilters.FileName
@@ -5051,15 +5103,57 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 watcher.Renamed += LocalSourceWatcher_Renamed;
                 watcher.Error += LocalSourceWatcher_Error;
                 watcher.EnableRaisingEvents = true;
-                _localSourceWatchers[source.Path] = watcher;
+                watchers.Add(watcher);
             }
             catch (Exception exception) when (
-                exception is IOException or UnauthorizedAccessException or ArgumentException)
+                exception is IOException
+                    or UnauthorizedAccessException
+                    or ArgumentException
+                    or NotSupportedException
+                    or PathTooLongException)
             {
                 // F5 and the startup scan remain available when a provider does
                 // not support reliable change notifications.
+                DiagnosticLog.Warning(
+                    "local-watchers",
+                    $"Nie można obserwować folderu {sourcePath}: {exception.GetType().Name}.");
             }
         }
+        return watchers;
+    }
+
+    private void QueueLocalSourceWatcherDisposal(IEnumerable<FileSystemWatcher> watchers)
+    {
+        var detached = watchers.ToArray();
+        foreach (var watcher in detached)
+        {
+            watcher.Created -= LocalSourceWatcher_Changed;
+            watcher.Deleted -= LocalSourceWatcher_Changed;
+            watcher.Changed -= LocalSourceWatcher_Changed;
+            watcher.Renamed -= LocalSourceWatcher_Renamed;
+            watcher.Error -= LocalSourceWatcher_Error;
+        }
+        if (detached.Length == 0) return;
+        _ = Task.Run(() =>
+        {
+            foreach (var watcher in detached)
+            {
+                try
+                {
+                    watcher.Dispose();
+                }
+                catch (Exception exception) when (
+                    exception is IOException
+                        or UnauthorizedAccessException
+                        or InvalidOperationException
+                        or ObjectDisposedException)
+                {
+                    DiagnosticLog.Warning(
+                        "local-watchers",
+                        $"Zamknięcie obserwatora {watcher.Path} nie powiodło się: {exception.GetType().Name}.");
+                }
+            }
+        });
     }
 
     private void LocalSourceWatcher_Changed(object sender, FileSystemEventArgs e) =>
@@ -5372,8 +5466,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         CaptureCurrentSessionNavigationState();
         CaptureLocalMediaState();
-        CaptureRadioState();
-        CapturePodcastState();
+        // A local-folder refresh must remain scoped to local media. Capturing
+        // tens of thousands of podcast episodes here used to block WPF during
+        // startup even though no podcast data had changed. Radio and Podcasts
+        // persist their own changes and playback positions on their own paths.
         if (!QueueStateSave()) return false;
         var local = _sessions.FindSession("local");
         _lastSavedLocalPositionTicks = local?.Position.Ticks ?? 0;
@@ -5454,6 +5550,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var session = _sessions?.FindSession("podcasts");
         if (session is not null) session.RememberCurrentPosition();
         var itemsById = _podcastItems.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        var subscriptionsById = _state.Podcasts.Subscriptions
+            .ToDictionary(subscription => subscription.Id, StringComparer.Ordinal);
+        var episodesById = _state.Podcasts.Episodes
+            .ToDictionary(episode => episode.Id, StringComparer.Ordinal);
         foreach (var subscription in _state.Podcasts.Subscriptions)
         {
             if (!itemsById.TryGetValue(subscription.Id, out var item)) continue;
@@ -5471,7 +5571,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             episode.IsFavorite = item.IsFavorite;
             episode.IsInQueue = item.IsInQueue;
             episode.IsPlayNext = item.IsPlayNext;
-            episode.ResumePositionTicks = ShouldRememberPodcastPosition(item)
+            subscriptionsById.TryGetValue(episode.SubscriptionId, out var subscription);
+            episode.ResumePositionTicks = PodcastPlaybackSettingsResolver.ShouldRememberPosition(
+                    episode,
+                    subscription)
                 ? Math.Max(
                     0,
                     session?.RememberedPositions.GetValueOrDefault(item.Id).Ticks
@@ -5481,8 +5584,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (session?.HasCurrentItem == true
             && session.CurrentItem.Kind == MediaItemKind.Episode
-            && _state.Podcasts.Episodes.FirstOrDefault(episode =>
-                string.Equals(episode.Id, session.CurrentItem.Id, StringComparison.Ordinal)) is { } currentEpisode)
+            && episodesById.GetValueOrDefault(session.CurrentItem.Id) is { } currentEpisode)
         {
             PodcastEpisodeProgress.UpdateFromPosition(currentEpisode, session.Position);
         }
@@ -6104,8 +6206,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             // use the non-blocking queue above.
             CaptureCurrentSessionNavigationState();
             CaptureLocalMediaState();
-            CaptureRadioState();
-            CapturePodcastState();
             if (!FlushStateSave(TimeSpan.FromSeconds(30), out var saveFailure))
             {
                 if (announceFailure)
@@ -9105,7 +9205,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (_initialFocusApplied) return;
         _initialFocusApplied = true;
-        ConfigureLocalSourceWatchers();
         _ = SynchronizeLocalSourcesAsync(announceResult: false);
         if (_state.Settings.StartupTarget == StartupTarget.SessionList)
         {
@@ -14373,8 +14472,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
         }
         _radioWakeTimer.Dispose();
-        foreach (var watcher in _localSourceWatchers.Values) watcher.Dispose();
+        Interlocked.Increment(ref _localSourceWatcherBuildVersion);
+        var localSourceWatchers = _localSourceWatchers.Values.ToArray();
         _localSourceWatchers.Clear();
+        QueueLocalSourceWatcherDisposal(localSourceWatchers);
         _windowSource?.RemoveHook(WindowMessageHook);
         _windowSource = null;
         _prefixService?.Dispose();

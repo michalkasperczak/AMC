@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-247`
-- Tytuł zestawu: Opcje podcastów i hierarchia folderów
-- Wersja programu: `0.1.0-alpha.247`
+- Numer zestawu: `AMC-TEST-248`
+- Tytuł zestawu: Stabilne uruchamianie dużej Biblioteki Podcastów
+- Wersja programu: `0.1.0-alpha.248`
 - Utworzono: 2026-09-04, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.247.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.248.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,50 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 248
+
+### AMC-248-01 — uruchomienie dużej Biblioteki Podcastów
+
+Uruchom AMC z dotychczasowym stanem zawierającym pełne archiwum Podcastów.
+Od razu przejdź strzałkami po liście i przez około minutę używaj `Ctrl+1`,
+`Ctrl+2`, `F6` oraz `Escape`.
+
+Oczekiwane: okno odpowiada od pierwszych sekund. NVDA nie wymaga ratowania
+fokusa klawiszem Escape, a Windows nie zgłasza, że program nie odpowiada.
+
+### AMC-248-02 — brak zapisanego urządzenia audio
+
+Wyłącz urządzenie zapamiętane dla jednej z sesji, uruchom AMC i przejdź do tej
+sesji. Następnie wybierz dostępne urządzenie przez `Shift+A`.
+
+Oczekiwane: brak urządzenia nie blokuje uruchomienia ani nawigacji. Program
+używa urządzenia domyślnego i pozwala zapisać nowy wybór.
+
+### AMC-248-03 — foldery w chmurze
+
+Pozostaw w Folderach Biblioteki źródła z iCloud oraz, jeżeli są skonfigurowane,
+OneDrive lub Google Drive. Uruchom program, odśwież `F5` i szybko zmieniaj
+sesje podczas synchronizacji.
+
+Oczekiwane: sprawdzanie i obserwowanie folderów odbywa się w tle. Niedostępny
+albo wolno odpowiadający dostawca nie zawiesza głównego okna.
+
+### AMC-248-04 — okresowy zapis podczas podcastu
+
+Odtwarzaj podcast przez co najmniej minutę. Co kilka sekund przewijaj, zmieniaj
+prędkość i przechodź między listą a odtwarzaczem.
+
+Oczekiwane: zapis pozycji wykonywany co około 15 sekund nie powoduje cyklicznych
+zawieszeń. Po ponownym uruchomieniu pozycja i prędkość są zachowane.
+
+### AMC-248-05 — szybka nawigacja po uruchomieniu
+
+Natychmiast po pokazaniu okna wykonaj kilkanaście zmian sesji i widoków,
+łącznie z Biblioteką, Kolejką, Podcastami i Radiem.
+
+Oczekiwane: fokus pozostaje na właściwej liście albo w odtwarzaczu; pasek
+stanu, ukryte elementy ani menu nie przejmują fokusa.
 
 ## Nowości alpha 247
 

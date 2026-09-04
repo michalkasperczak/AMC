@@ -35,15 +35,35 @@ internal static class RadioRecordingStagingStore
         Exception? lastFailure = null;
         foreach (var candidate in candidates)
         {
+            string? probePath = null;
             try
             {
                 Directory.CreateDirectory(candidate);
+                // Directory.CreateDirectory also succeeds when the directory
+                // already exists but the current process cannot create files
+                // in it. Verify the permission now so downloads and recordings
+                // can fall back to the system temporary directory instead of
+                // failing only after the network stream has started.
+                probePath = Path.Combine(candidate, $".{Guid.NewGuid():N}.amc-write-test");
+                using (new FileStream(
+                           probePath,
+                           FileMode.CreateNew,
+                           FileAccess.Write,
+                           FileShare.None,
+                           bufferSize: 1,
+                           FileOptions.DeleteOnClose))
+                {
+                }
                 return candidate;
             }
             catch (Exception exception) when (exception is IOException
                 or UnauthorizedAccessException)
             {
                 lastFailure = exception;
+            }
+            finally
+            {
+                if (probePath is not null) TryDelete(probePath);
             }
         }
         throw new IOException(
