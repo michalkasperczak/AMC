@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -15,8 +17,10 @@ public enum ChapterListAction
     Remove
 }
 
-public sealed class ChapterListRow
+public sealed class ChapterListRow : INotifyPropertyChanged
 {
+    private bool _isChosen;
+
     public ChapterListRow(ChapterSegment segment, int number)
     {
         Segment = segment;
@@ -27,9 +31,26 @@ public sealed class ChapterListRow
 
     public ChapterSegment Segment { get; }
     public string AccessibleLabel { get; }
-    public string SelectedAccessibleLabel => $"Zaznaczony, {AccessibleLabel}";
-    public string UnselectedAccessibleLabel => $"Niezaznaczony, {AccessibleLabel}";
+    public bool IsChosen
+    {
+        get => _isChosen;
+        set
+        {
+            if (_isChosen == value) return;
+            _isChosen = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectionAccessibleLabel));
+        }
+    }
+    public string SelectionAccessibleLabel => IsChosen
+        ? $"Wybrany do odtwarzania, {AccessibleLabel}"
+        : $"Niewybrany do odtwarzania, {AccessibleLabel}";
     public override string ToString() => AccessibleLabel;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
     private static string FormatTime(TimeSpan value) => CommandRouter.FormatTime(value);
 }
@@ -50,11 +71,12 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
             chapters.Select((chapter, index) => new ChapterListRow(chapter, index + 1)));
         ChapterList.ItemsSource = _rows;
         _initialIndex = FindInitialIndex(chapters, position);
+        if (_initialIndex >= 0) _rows[_initialIndex].IsChosen = true;
     }
 
     public ChapterListAction Action { get; private set; }
-    public IReadOnlyList<ChapterSegment> SelectedChapters => ChapterList.SelectedItems
-        .OfType<ChapterListRow>()
+    public IReadOnlyList<ChapterSegment> SelectedChapters => _rows
+        .Where(row => row.IsChosen)
         .Select(row => row.Segment)
         .OrderBy(segment => segment.Start)
         .ToArray();
@@ -81,10 +103,27 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
             ToggleSelectionAt(FindFocusedIndex());
             e.Handled = true;
         }
+        else if (e.Key is Key.Up or Key.Down
+                 && Keyboard.Modifiers == ModifierKeys.Shift)
+        {
+            var currentIndex = FindFocusedIndex();
+            if (_rows.Count == 0 || currentIndex < 0)
+            {
+                e.Handled = true;
+                return;
+            }
+            var targetIndex = Math.Clamp(
+                currentIndex + (e.Key == Key.Up ? -1 : 1),
+                0,
+                _rows.Count - 1);
+            AddRangeToSelection(currentIndex, targetIndex);
+            FocusRow(targetIndex);
+            e.Handled = true;
+        }
         else if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.Control)
         {
-            ChapterList.SelectAll();
-            SetSelectionStatus($"Zaznaczono wszystkie rozdziały: {SelectedChapters.Count}");
+            foreach (var row in _rows) row.IsChosen = true;
+            SetSelectionStatus($"Wybrano wszystkie rozdziały: {SelectedChapters.Count}");
             e.Handled = true;
         }
         else if (e.Key == Key.Enter)
@@ -103,19 +142,40 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
     {
         if (index < 0 || index >= _rows.Count) return false;
         var row = _rows[index];
-        var selected = ChapterList.SelectedItems.Contains(row);
-        if (selected) ChapterList.SelectedItems.Remove(row);
-        else ChapterList.SelectedItems.Add(row);
+        var wasChosen = row.IsChosen;
+        row.IsChosen = !wasChosen;
+        FocusRow(index);
+        SetSelectionStatus(
+            wasChosen
+                ? $"Usunięto z wyboru: {row.Segment.Name}. Wybrano {SelectedChapters.Count}"
+                : $"Wybrano do odtwarzania: {row.Segment.Name}. Wybrano {SelectedChapters.Count}");
+        return true;
+    }
+
+    internal bool AddRangeToSelection(int firstIndex, int secondIndex)
+    {
+        if (firstIndex < 0 || secondIndex < 0
+            || firstIndex >= _rows.Count || secondIndex >= _rows.Count)
+        {
+            return false;
+        }
+        var start = Math.Min(firstIndex, secondIndex);
+        var end = Math.Max(firstIndex, secondIndex);
+        for (var index = start; index <= end; index++) _rows[index].IsChosen = true;
+        SetSelectionStatus($"Wybrano zakres. Wybrano {SelectedChapters.Count}");
+        return true;
+    }
+
+    private void FocusRow(int index)
+    {
+        if (index < 0 || index >= _rows.Count) return;
+        ChapterList.SelectedIndex = index;
+        ChapterList.ScrollIntoView(ChapterList.SelectedItem);
         if (ChapterList.ItemContainerGenerator.ContainerFromIndex(index) is ListBoxItem container)
         {
             container.Focus();
             Keyboard.Focus(container);
         }
-        SetSelectionStatus(
-            selected
-                ? $"Odznaczono: {row.Segment.Name}. Wybrano {SelectedChapters.Count}"
-                : $"Zaznaczono: {row.Segment.Name}. Wybrano {SelectedChapters.Count}");
-        return true;
     }
 
     private int FindFocusedIndex()

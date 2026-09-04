@@ -2027,6 +2027,15 @@ pozwalają sprawdzić wybór bez jego zmiany. Stan nie może być dopisywany do
 tekstu widocznego modelu ani technicznego `ToString()`; należy wyprowadzać go z
 kontenera listy, aby nie rozjechał się z rzeczywistym wyborem.
 
+W `alpha.262` ten kontrakt został doprecyzowany po teście NVDA. `IsSelected`
+kontenera WPF nie jest stanem wyboru rozdziału, ponieważ zwykła strzałka ustawia
+go na każdym fokusowanym wierszu. Model wiersza przechowuje niezależne
+`IsChosen`, a UI Automation wystawia użytkowe etykiety „Wybrany do
+odtwarzania” i „Niewybrany do odtwarzania”. Zmiana natywnego zaznaczenia listy
+nie może zmienić `SelectedChapters`; zmieniają je wyłącznie jawne polecenia
+wyboru. Ta sama zasada powinna obowiązywać przyszłe listy montażowe i inne
+tymczasowe zestawy, w których fokus nie oznacza członkostwa.
+
 ### 7.20. Spójne cofanie usunięcia podcastu
 
 Od `alpha.240` operacja usunięcia kanału z Biblioteki Podcastów i jej

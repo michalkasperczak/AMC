@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-261`
-- Tytuł zestawu: Odczyt zaznaczenia podczas nawigacji po rozdziałach
-- Wersja programu: `0.1.0-alpha.261`
+- Numer zestawu: `AMC-TEST-262`
+- Tytuł zestawu: Niezależny fokus i wybór rozdziałów do odtwarzania
+- Wersja programu: `0.1.0-alpha.262`
 - Utworzono: 2026-09-04, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.261.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.262.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,43 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 262
+
+### AMC-262-01 — strzałki nie wybierają rozdziałów
+
+Otwórz listę i przejdź zwykłymi strzałkami przez kilka rozdziałów, nie używając
+Spacji.
+
+Oczekiwane: tylko rozdział bieżący przy otwarciu pozostaje domyślnie wybrany do
+odtwarzania. Pozostałe mówią „Niewybrany do odtwarzania”; sam fokus ich nie
+wybiera.
+
+### AMC-262-02 — jawny wybór Spacją
+
+Na kilku nieprzylegających wierszach użyj Spacji albo `Ctrl+Spacji`, a potem
+przejdź po nich zwykłymi strzałkami.
+
+Oczekiwane: wybrane wiersze mówią „Wybrany do odtwarzania”, pozostałe
+„Niewybrany do odtwarzania”. Ponowna Spacja usuwa tylko bieżący wybór.
+
+### AMC-262-03 — dodawanie zakresu
+
+Użyj kilkakrotnie Shift ze strzałką w dół, potem przejdź zwykłymi strzałkami po
+całym zakresie.
+
+Oczekiwane: wszystkie odwiedzone w zakresie rozdziały są wybrane do
+odtwarzania, a elementy poza zakresem zachowują wcześniejszy stan.
+
+### AMC-262-04 — Enter i nawigacja odtwarzacza
+
+Wybierz kilka rozdziałów, naciśnij Enter i sprawdź automatyczne pomijanie.
+Następnie użyj `Ctrl+Shift+lewo/prawo`.
+
+Oczekiwane: Enter odtwarza zestaw wybrany na liście. Ręczna nawigacja anuluje
+tymczasowy plan i ponownie obejmuje cały spis rozdziałów.
+
+## Poprzedni zestaw regresyjny alpha 261
 
 ## Nowości alpha 261
 

@@ -149,6 +149,14 @@ Stan musi być słyszalny również podczas nawigacji strzałkami i
 polegać na opcjonalnym odczycie natywnego stanu wyboru przez konkretną wersję
 czy konfigurację NVDA.
 
+`alpha.262` koryguje tę pierwszą próbę: natywne zaznaczenie wiersza oznaczało
+jednocześnie bieżący fokus listy, dlatego zwykłe strzałki myląco podawały każdy
+wiersz jako zaznaczony. AMC przechowuje teraz osobny stan wyboru rozdziału do
+odtwarzania. Strzałki tylko przemieszczają fokus, Spacja i `Ctrl+Spacja`
+przełączają pojedynczy wybór, a Shift ze strzałkami dodaje spójny zakres.
+Etykieta mówi jednoznacznie „Wybrany do odtwarzania” albo „Niewybrany do
+odtwarzania” i nie zależy od technicznego zaznaczenia kontrolki WPF.
+
 Wybrany pojedynczy rozdział można zapisać jako osobny plik przyciskiem
 **Zapisz rozdział…** na liście rozdziałów. `Ctrl+S` nadal oznacza zapis całego
 odcinka. Źródłowa kolejność rozdziałów pozostaje czasowa. Osobna lista

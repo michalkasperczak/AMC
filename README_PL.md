@@ -1058,6 +1058,12 @@ W `alpha.261` stan wyboru jest również częścią dostępnej nazwy każdego wi
 Przy przechodzeniu po spisie NVDA mówi najpierw „Zaznaczony” albo
 „Niezaznaczony”, a następnie numer, nazwę i czas rozdziału.
 
+`alpha.262` rozdziela fokus listy od właściwego wyboru. Zwykłe strzałki nie
+wybierają już rozdziałów do późniejszego odtwarzania. Tylko Spacja,
+`Ctrl+Spacja`, Shift ze strzałkami i `Ctrl+A` zmieniają ten zestaw, a nazwa
+wiersza mówi „Wybrany do odtwarzania” albo „Niewybrany do odtwarzania”. Usuwa
+to mylące ogłaszanie każdego kolejnego wiersza jako zaznaczonego.
+
 ## Urządzenie audio osobno dla sesji w alpha 204
 
 Klawisz **Shift+A**, menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej

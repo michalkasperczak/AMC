@@ -10,8 +10,8 @@
         <TextBlock x:Name="HeadingText" DockPanel.Dock="Top" Margin="0,0,0,10"
                    TextWrapping="Wrap" automation:AutomationProperties.HeadingLevel="Level1" />
         <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap"
-                   Text="Spacja lub Ctrl+Spacja zaznacza albo odznacza pojedynczy rozdział, a Shift+strzałki zaznaczają zakres. Enter rozpoczyna zaznaczone rozdziały i wraca do odtwarzacza. Escape anuluje."
-                   automation:AutomationProperties.Name="Spacja lub Ctrl+Spacja zaznacza albo odznacza pojedynczy rozdział. Shift ze strzałkami zaznacza zakres. Enter rozpoczyna zaznaczone rozdziały i wraca do odtwarzacza. Escape anuluje." />
+                   Text="Strzałki tylko nawigują. Spacja lub Ctrl+Spacja wybiera albo usuwa z wyboru pojedynczy rozdział, a Shift+strzałki dodaje zakres. Enter rozpoczyna wybrane rozdziały i wraca do odtwarzacza. Escape anuluje."
+                   automation:AutomationProperties.Name="Strzałki tylko nawigują. Spacja lub Ctrl+Spacja wybiera albo usuwa z wyboru pojedynczy rozdział. Shift ze strzałkami dodaje zakres. Enter rozpoczyna wybrane rozdziały i wraca do odtwarzacza. Escape anuluje." />
         <controls:AccessibleStatusTextBlock x:Name="SelectionStatusText" DockPanel.Dock="Bottom" Margin="0,8,0,0"
                                             TextWrapping="Wrap" automation:AutomationProperties.LiveSetting="Assertive" />
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
@@ -27,18 +27,13 @@
             <Button Width="95" Content="Za_mknij" IsCancel="True"
                     automation:AutomationProperties.Name="Zamknij" />
         </StackPanel>
-        <ListBox x:Name="ChapterList" SelectionMode="Extended"
+        <ListBox x:Name="ChapterList" SelectionMode="Single"
                  DisplayMemberPath="AccessibleLabel"
                  automation:AutomationProperties.Name="Rozdziały materiału"
                  PreviewKeyDown="ChapterList_KeyDown">
             <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">
-                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding UnselectedAccessibleLabel}" />
-                    <Style.Triggers>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="automation:AutomationProperties.Name" Value="{Binding SelectedAccessibleLabel}" />
-                        </Trigger>
-                    </Style.Triggers>
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding SelectionAccessibleLabel}" />
                 </Style>
             </ListBox.ItemContainerStyle>
         </ListBox>
