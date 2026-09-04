@@ -1,5 +1,14 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.255` zabezpiecza drugi rodzaj utraty fokusa: WPF potrafił zostawić
+fokus na samej kontrolce listy po zniszczeniu lub wirtualizacji zaznaczonego
+wiersza. Dla NVDA wyglądało to jak milcząca lista, mimo że technicznie fokus
+nadal należał do AMC; Escape przypadkowo naprawiał sytuację. Program rozróżnia
+teraz fokus konkretnego wiersza od fokusa rodzica, obserwuje także wewnętrzne
+zmiany fokusa i po układzie podejmuje jedną bezpieczną próbę powrotu do
+zaznaczonego elementu. Zwykłe przechodzenie po wierszach, przyciskach, menu i
+oknach podrzędnych pozostaje bez zmian.
+
 Wersja `alpha.254` naprawia wyścigi fokusu podczas automatycznego odświeżania
 Podcastów, kończącego się skanowania Folderów Biblioteki oraz pobierania
 odcinka. Program nie przenosi już fokusu z bieżącego elementu na samą

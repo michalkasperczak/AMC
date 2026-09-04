@@ -11,6 +11,7 @@
         Activated="Window_Activated"
         Deactivated="Window_Deactivated"
         IsKeyboardFocusWithinChanged="Window_IsKeyboardFocusWithinChanged"
+        PreviewLostKeyboardFocus="Window_PreviewLostKeyboardFocus"
         PreviewKeyDown="Window_PreviewKeyDown"
         PreviewTextInput="Window_PreviewTextInput"
         Closing="Window_Closing">

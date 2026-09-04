@@ -138,6 +138,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool _playerViewActive;
     private bool _keyboardHelpActive;
     private bool _focusRecoveryScheduled;
+    private bool _mediaListItemFocusRetryScheduled;
     private bool _restoringSessionNavigation;
     private bool _podcastListUsesPreFilteredRows;
     private string? _playerFocusContextPrefix;
@@ -9562,6 +9563,32 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         MediaList.Focus();
         Keyboard.Focus(MediaList);
+        if (MediaList.SelectedItem is null || _mediaListItemFocusRetryScheduled) return;
+
+        // A virtualized row may not exist during the first layout pass. Leaving
+        // keyboard focus on the ListBox itself makes NVDA appear silent even
+        // though WPF still reports focus inside the list. Retry once after
+        // layout and move focus to the concrete row.
+        _mediaListItemFocusRetryScheduled = true;
+        Dispatcher.BeginInvoke(
+            () =>
+            {
+                _mediaListItemFocusRetryScheduled = false;
+                if (_isClosing || _playerViewActive || !ReferenceEquals(Keyboard.FocusedElement, MediaList)) return;
+                if (MediaList.SelectedItem is not null) MediaList.ScrollIntoView(MediaList.SelectedItem);
+                MediaList.UpdateLayout();
+                if (MediaList.ItemContainerGenerator.ContainerFromItem(MediaList.SelectedItem) is not ListBoxItem row)
+                {
+                    DiagnosticLog.Warning(
+                        "focus-recovery",
+                        "Nie utworzono wiersza zaznaczonego elementu po dodatkowym przebiegu układu.");
+                    return;
+                }
+                ApplyFocusContext(row);
+                row.Focus();
+                Keyboard.Focus(row);
+            },
+            DispatcherPriority.Loaded);
     }
 
     private void PrepareSearchReturnContext(string itemId)
@@ -9698,6 +9725,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ScheduleMainWindowFocusRecovery("utrata fokusa klawiatury");
     }
 
+    private void Window_PreviewLostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        // IsKeyboardFocusWithin does not change when WPF drops a destroyed
+        // ListBoxItem onto its parent ListBox (or a player child onto the panel).
+        // Those are precisely the silent-focus states for which Escape used to
+        // be the only visible recovery. Deferred validation ignores ordinary
+        // movement between valid rows, buttons, menus and owned dialogs.
+        ScheduleMainWindowFocusRecovery("zmiana elementu fokusa wewnątrz okna");
+    }
+
     private void ScheduleMainWindowFocusRecovery(string reason)
     {
         if (_isClosing || _focusRecoveryScheduled) return;
@@ -9719,7 +9756,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var menuFocus = MainMenu.IsKeyboardFocusWithin
             || focused is MenuItem { IsVisible: true };
         var ownedWindowActive = OwnedWindows.Cast<Window>().Any(window => window.IsActive);
-        var browserFocusValid = MediaList.IsKeyboardFocusWithin
+        var listItemFocusValid = focused is DependencyObject focusedObject
+            && ItemsControl.ContainerFromElement(MediaList, focusedObject) is ListBoxItem;
+        var mediaListFocusValid = MainWindowNavigationPolicy.IsMediaListFocusValid(
+            MediaList.IsKeyboardFocusWithin,
+            MediaList.Items.Count > 0,
+            listItemFocusValid);
+        var browserFocusValid = mediaListFocusValid
             || BrowserHeaderPanel.IsKeyboardFocusWithin
             || BrowserActionPanel.IsKeyboardFocusWithin;
         var nativeFocusHandle = GetFocus();
@@ -9731,7 +9774,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ownedWindowActive,
             menuFocus,
             _playerViewActive,
-            PlayerPanel.IsKeyboardFocusWithin,
+            PlayerPanel.IsKeyboardFocusWithin && focused is Control,
             browserFocusValid,
             nativeFocusValid);
         if (recoveryTarget == MainWindowFocusRecoveryTarget.None) return;

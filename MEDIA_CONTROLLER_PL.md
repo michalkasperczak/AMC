@@ -1962,6 +1962,14 @@ rzeczywistą przebudową. Po każdym `await` program ponownie sprawdza sesję,
 widok i powierzchnię. Spóźnione odświeżenie Podcastów nie może przejąć fokusu
 po przejściu użytkownika do innej sesji, innego widoku albo odtwarzacza.
 
+Od `alpha.255` sama informacja `IsKeyboardFocusWithin` nie wystarcza dla listy
+z elementami. Prawidłowy fokus musi należeć do konkretnego wiersza, a nie do
+rodzica `ListBox`, na którym NVDA nie ma czego oznajmić. Główne okno obserwuje
+również wewnętrzne przejścia fokusa; po zniszczeniu albo wirtualizacji wiersza
+wykonuje najwyżej jedną odłożoną próbę utworzenia kontenera i przywrócenia
+zaznaczonego elementu. Pusta lista może nadal prawidłowo przyjąć fokus jako
+cała kontrolka.
+
 ### 7.20. Spójne cofanie usunięcia podcastu
 
 Od `alpha.240` operacja usunięcia kanału z Biblioteki Podcastów i jej

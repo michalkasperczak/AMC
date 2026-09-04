@@ -13,6 +13,11 @@ Podcasting 2.0 JSON Chapters, Podlove Simple Chapters, czytelne znaczniki czasu
 w opisie oraz osadzone rozdziały ID3/MP4 pobranego pliku. Sieciowy plik
 rozdziałów przez HTTPS jest pobierany dopiero po wywołaniu `Ctrl+Alt+B`; zwykłe odświeżanie
 Podcastów nie wysyła dodatkowych żądań do serwerów rozdziałów.
+Sama litera `C` pozostaje na listach częścią szybkiej nawigacji po nazwach i nie
+otwiera rozdziałów. Była próbnie przechwytywana w odtwarzaczu w `alpha.244`,
+lecz po regresji fokusa NVDA została wycofana; bezpiecznym, jednoznacznym
+poleceniem listy rozdziałów jest `Ctrl+Alt+B` zarówno na odcinku, jak i w
+odtwarzaczu.
 
 Od `alpha.247` każdy podcast ma opcjonalne ustawienia dziedziczone przez jego
 odcinki: pozycję wznowienia, prędkość, przetwarzanie dźwięku, częstotliwość

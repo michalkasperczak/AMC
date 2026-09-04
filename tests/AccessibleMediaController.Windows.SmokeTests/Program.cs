@@ -806,6 +806,25 @@ static void TestCanonicalMembershipResolution()
 static void TestMainWindowFocusRecoveryPolicy()
 {
     Assert(
+        MainWindowNavigationPolicy.IsMediaListFocusValid(
+            listContainsKeyboardFocus: true,
+            listHasItems: false,
+            aListItemContainsKeyboardFocus: false),
+        "pusta lista może prawidłowo zachować fokus na samej kontrolce");
+    Assert(
+        !MainWindowNavigationPolicy.IsMediaListFocusValid(
+            listContainsKeyboardFocus: true,
+            listHasItems: true,
+            aListItemContainsKeyboardFocus: false),
+        "lista z elementami nie może uznać niemego fokusa na samym ListBox za prawidłowy");
+    Assert(
+        MainWindowNavigationPolicy.IsMediaListFocusValid(
+            listContainsKeyboardFocus: true,
+            listHasItems: true,
+            aListItemContainsKeyboardFocus: true),
+        "fokus konkretnego wiersza listy pozostaje prawidłowy");
+
+    Assert(
         MainWindowNavigationPolicy.CanRefreshPodcastBrowserAfterAsyncOperation(
             "podcasts",
             playerViewActive: false),

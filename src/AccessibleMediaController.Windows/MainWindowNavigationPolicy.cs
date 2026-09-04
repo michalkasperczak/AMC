@@ -59,6 +59,13 @@ internal static class MainWindowNavigationPolicy
         string.Equals(currentSessionId, "local", StringComparison.Ordinal)
         && !playerViewActive;
 
+    public static bool IsMediaListFocusValid(
+        bool listContainsKeyboardFocus,
+        bool listHasItems,
+        bool aListItemContainsKeyboardFocus) =>
+        listContainsKeyboardFocus
+        && (!listHasItems || aListItemContainsKeyboardFocus);
+
     public static int ResolveListSelectionIndex(
         IReadOnlyList<(string ItemId, string ActionItemId)> rows,
         string? preferredItemId,
