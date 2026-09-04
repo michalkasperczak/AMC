@@ -27,6 +27,8 @@ public sealed class ChapterListRow
 
     public ChapterSegment Segment { get; }
     public string AccessibleLabel { get; }
+    public string SelectedAccessibleLabel => $"Zaznaczony, {AccessibleLabel}";
+    public string UnselectedAccessibleLabel => $"Niezaznaczony, {AccessibleLabel}";
     public override string ToString() => AccessibleLabel;
 
     private static string FormatTime(TimeSpan value) => CommandRouter.FormatTime(value);

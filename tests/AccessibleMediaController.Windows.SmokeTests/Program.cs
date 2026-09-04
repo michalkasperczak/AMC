@@ -1195,13 +1195,26 @@ static void TestChapterWindowAccessibility()
             };
             var window = new ChapterListWindow("Odcinek", chapters, TimeSpan.FromMinutes(6));
             window.Show();
+            window.UpdateLayout();
             Assert(window.ChapterList.SelectedIndex == 1,
                 "Lista rozdziałów nie zaznacza rozdziału zawierającego bieżącą pozycję.");
+            var firstContainer = (ListBoxItem?)window.ChapterList.ItemContainerGenerator.ContainerFromIndex(0);
+            var secondContainer = (ListBoxItem?)window.ChapterList.ItemContainerGenerator.ContainerFromIndex(1);
+            Assert(firstContainer is not null
+                   && AutomationProperties.GetName(firstContainer).StartsWith("Niezaznaczony,", StringComparison.Ordinal),
+                "Niezaznaczony rozdział nie podaje stanu przed nazwą.");
+            Assert(secondContainer is not null
+                   && AutomationProperties.GetName(secondContainer).StartsWith("Zaznaczony,", StringComparison.Ordinal),
+                "Zaznaczony rozdział nie podaje stanu przed nazwą.");
             Assert(window.ToggleSelectionAt(0) && window.SelectedChapters.Count == 2,
                 "Ctrl+Spacja nie może dołączyć nieciągłego rozdziału do wyboru.");
+            Assert(AutomationProperties.GetName(firstContainer).StartsWith("Zaznaczony,", StringComparison.Ordinal),
+                "Etykieta rozdziału nie odświeżyła stanu po zaznaczeniu.");
             Assert(window.ToggleSelectionAt(1) && window.SelectedChapters.Count == 1
                    && window.SelectedChapters[0].Entry.Id == first.Id,
                 "Ctrl+Spacja nie może niezależnie odznaczyć bieżącego rozdziału.");
+            Assert(AutomationProperties.GetName(secondContainer).StartsWith("Niezaznaczony,", StringComparison.Ordinal),
+                "Etykieta rozdziału nie odświeżyła stanu po odznaczeniu.");
             var status = (AccessibleStatusTextBlock)window.FindName("SelectionStatusText");
             Assert(status.Text.StartsWith("Odznaczono:", StringComparison.Ordinal),
                 "Zmiana zaznaczenia nie ma jawnego komunikatu dostępnościowego.");
@@ -1210,6 +1223,9 @@ static void TestChapterWindowAccessibility()
             foreach (var row in window.ChapterList.Items.OfType<ChapterListRow>())
             {
                 Assert(!string.IsNullOrWhiteSpace(row.AccessibleLabel), "Rozdział nie ma jawnej etykiety.");
+                Assert(row.SelectedAccessibleLabel.StartsWith("Zaznaczony,", StringComparison.Ordinal)
+                       && row.UnselectedAccessibleLabel.StartsWith("Niezaznaczony,", StringComparison.Ordinal),
+                    "Rozdział nie ma jawnych etykiet obu stanów wyboru.");
                 Assert(!row.AccessibleLabel.Contains('{')
                        && !row.AccessibleLabel.Contains(nameof(ChapterSegment), StringComparison.Ordinal),
                     "Techniczna reprezentacja rozdziału wyciekła do etykiety listy.");
@@ -1232,7 +1248,7 @@ static void TestChapterWindowAccessibility()
 
     if (failure is not null)
         throw new InvalidOperationException("Test dostępności okien rozdziałów nie powiódł się.", failure);
-    Console.WriteLine("OK: czytelna lista rozdziałów, początkowy wybór i brak technicznych etykiet");
+    Console.WriteLine("OK: czytelna lista rozdziałów, oba stany wyboru i brak technicznych etykiet");
 }
 
 static void TestEmbeddedMediaChapters()

@@ -33,7 +33,12 @@
                  PreviewKeyDown="ChapterList_KeyDown">
             <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">
-                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding AccessibleLabel}" />
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding UnselectedAccessibleLabel}" />
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="automation:AutomationProperties.Name" Value="{Binding SelectedAccessibleLabel}" />
+                        </Trigger>
+                    </Style.Triggers>
                 </Style>
             </ListBox.ItemContainerStyle>
         </ListBox>

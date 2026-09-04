@@ -1054,6 +1054,10 @@ na początku bieżącego rozdziału. Na liście zarówno Spacja, jak i
 `Ctrl+Spacja` przełącza pojedynczy wybór bez usuwania pozostałych, a NVDA
 otrzymuje jawny komunikat z nazwą rozdziału i liczbą wybranych pozycji.
 
+W `alpha.261` stan wyboru jest również częścią dostępnej nazwy każdego wiersza.
+Przy przechodzeniu po spisie NVDA mówi najpierw „Zaznaczony” albo
+„Niezaznaczony”, a następnie numer, nazwę i czas rozdziału.
+
 ## Urządzenie audio osobno dla sesji w alpha 204
 
 Klawisz **Shift+A**, menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej

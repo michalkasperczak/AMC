@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-260`
-- Tytuł zestawu: Samodzielna nawigacja i dostępne zaznaczanie rozdziałów
-- Wersja programu: `0.1.0-alpha.260`
+- Numer zestawu: `AMC-TEST-261`
+- Tytuł zestawu: Odczyt zaznaczenia podczas nawigacji po rozdziałach
+- Wersja programu: `0.1.0-alpha.261`
 - Utworzono: 2026-09-04, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.260.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.261.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,34 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 261
+
+### AMC-261-01 — oba stany podczas nawigacji
+
+Otwórz listę rozdziałów, zaznacz kilka nieprzylegających pozycji i przechodź
+między nimi `Ctrl+strzałką w górę/dół`, nie zmieniając wyboru.
+
+Oczekiwane: NVDA przed każdym wierszem mówi „Zaznaczony” albo
+„Niezaznaczony”. Stan odpowiada rzeczywistemu wyborowi.
+
+### AMC-261-02 — aktualizacja stanu po Spacji
+
+Na tym samym wierszu użyj kolejno Spacji albo `Ctrl+Spacji`, po każdym użyciu
+odejdź `Ctrl+strzałką` i wróć.
+
+Oczekiwane: po zaznaczeniu wiersz mówi „Zaznaczony”, po odznaczeniu
+„Niezaznaczony”. Nie pozostaje stara etykieta i nie ma podwójnego przełączenia.
+
+### AMC-261-03 — zakres i wybiórcze odtwarzanie
+
+Zaznacz zakres Shiftem ze strzałkami, sprawdź jego granice `Ctrl+strzałkami`,
+następnie naciśnij Enter.
+
+Oczekiwane: każdy element zakresu mówi „Zaznaczony”, lista zamyka się, a AMC
+odtwarza tylko wybrane rozdziały.
+
+## Poprzedni zestaw regresyjny alpha 260
 
 ## Nowości alpha 260
 

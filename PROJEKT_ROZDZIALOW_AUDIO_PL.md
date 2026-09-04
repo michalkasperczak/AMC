@@ -142,6 +142,13 @@ rozdziału. Bezpośrednio po skoku jedno naciśnięcie od razu przechodzi wstecz
 Pozwala to cofać się kolejno przez cały spis bez wielokrotnego zatrzymywania na
 tym samym punkcie.
 
+Od `alpha.261` każdy wiersz listy ma dwa jawne warianty nazwy dostępnościowej:
+„Zaznaczony” oraz „Niezaznaczony”, podawane przed numerem i nazwą rozdziału.
+Stan musi być słyszalny również podczas nawigacji strzałkami i
+`Ctrl+strzałkami`, a nie wyłącznie bezpośrednio po użyciu Spacji. Nie wolno
+polegać na opcjonalnym odczycie natywnego stanu wyboru przez konkretną wersję
+czy konfigurację NVDA.
+
 Wybrany pojedynczy rozdział można zapisać jako osobny plik przyciskiem
 **Zapisz rozdział…** na liście rozdziałów. `Ctrl+S` nadal oznacza zapis całego
 odcinka. Źródłowa kolejność rozdziałów pozostaje czasowa. Osobna lista

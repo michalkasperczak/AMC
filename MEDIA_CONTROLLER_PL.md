@@ -2020,6 +2020,13 @@ naciśnięcie przechodzi dalej wstecz. Lista przechwytuje Spację oraz
 i natychmiast odwrócone. Każda zmiana wysyła do UI Automation wyłącznie
 użytkowy komunikat „Zaznaczono” lub „Odznaczono”.
 
+Od `alpha.261` nazwa dostępnościowa każdego rozdziału rozpoczyna się od
+aktualnego stanu „Zaznaczony” albo „Niezaznaczony”. Oba warianty są jawne i
+aktualizowane razem z natywnym `IsSelected`, dzięki czemu `Ctrl+strzałki`
+pozwalają sprawdzić wybór bez jego zmiany. Stan nie może być dopisywany do
+tekstu widocznego modelu ani technicznego `ToString()`; należy wyprowadzać go z
+kontenera listy, aby nie rozjechał się z rzeczywistym wyborem.
+
 ### 7.20. Spójne cofanie usunięcia podcastu
 
 Od `alpha.240` operacja usunięcia kanału z Biblioteki Podcastów i jej
