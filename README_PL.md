@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.250` poprawia domyślny wybór dnia w nowym harmonogramie radia.
+Zaznaczony dzień tygodnia wynika teraz z daty pierwszego nagrania, a nie z dnia
+utworzenia planu. Dopóki użytkownik nie zmieni dni ręcznie, zmiana daty
+automatycznie przenosi domyślne zaznaczenie. Po użyciu Spacji na liście dni
+program zachowuje własny wybór użytkownika i nie nadpisuje go kolejną zmianą
+daty.
+
 Niejednoznaczne obserwacje, ryzyka zależne od środowiska i scenariusze do
 ponownego sprawdzenia są prowadzone w
 [`REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md`](REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md).

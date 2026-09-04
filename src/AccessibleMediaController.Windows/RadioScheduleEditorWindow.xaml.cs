@@ -29,6 +29,7 @@ public partial class RadioScheduleEditorWindow : Window
     private int _dateSegmentIndex;
     private int _timeSegmentIndex;
     private bool _movingSegmentProgrammatically;
+    private bool _followStartDateWithDefaultDay;
 
     private const uint WmKeyDown = 0x0100;
     private const uint WmKeyUp = 0x0101;
@@ -63,10 +64,11 @@ public partial class RadioScheduleEditorWindow : Window
         _timePicker.Leave += (_, _) => _timeDigitEditor.Reset();
         EditableFieldSelection.Attach(_durationPicker);
         EditableFieldSelection.Attach(_splitMinutesPicker);
-        _datePicker.ValueChanged += (_, _) => UpdateFileNamePreview();
+        _datePicker.ValueChanged += DatePicker_ValueChanged;
         _timePicker.ValueChanged += (_, _) => UpdateFileNamePreview();
         StationCombo.SelectionChanged += (_, _) => UpdateFileNamePreview();
         _existing = existing;
+        _followStartDateWithDefaultDay = existing is null;
         var choices = stations
             .Where(item => item.Kind == MediaItemKind.Station
                 && Uri.TryCreate(item.Source, UriKind.Absolute, out var uri)
@@ -299,6 +301,30 @@ public partial class RadioScheduleEditorWindow : Window
 
     private void RecurrenceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateDaysEnabled();
 
+    private void DatePicker_ValueChanged(object? sender, EventArgs e)
+    {
+        UpdateFileNamePreview();
+        if (!_followStartDateWithDefaultDay || _existing is not null || _dayChoices is null) return;
+
+        SelectOnlyStartDateDay(_datePicker.Value.DayOfWeek);
+    }
+
+    private void SelectOnlyStartDateDay(DayOfWeek day)
+    {
+        DayChoice? selected = null;
+        foreach (var choice in _dayChoices)
+        {
+            choice.IsChecked = choice.Value == day;
+            if (choice.IsChecked) selected = choice;
+        }
+
+        if (selected is not null && DaysList is not null)
+        {
+            DaysList.SelectedItem = selected;
+            DaysList.ScrollIntoView(selected);
+        }
+    }
+
     private void StartModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         UpdateStartControlsEnabled();
 
@@ -452,6 +478,7 @@ public partial class RadioScheduleEditorWindow : Window
     private void DaysList_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Space || DaysList.SelectedItem is not DayChoice choice) return;
+        _followStartDateWithDefaultDay = false;
         choice.IsChecked = !choice.IsChecked;
         DaysStatus.Text = $"{choice.Label}: {(choice.IsChecked ? "zaznaczony" : "odznaczony")}";
         e.Handled = true;

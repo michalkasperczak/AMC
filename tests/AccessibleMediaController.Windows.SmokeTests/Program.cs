@@ -1439,6 +1439,52 @@ static void TestRadioScheduleAccessibility()
                        .Contains("na przykład 2310", StringComparison.Ordinal),
                 "Pole czasu nie objaśnia NVDA wpisywania czterech cyfr bez dwukropka.");
 
+            var newScheduleEditor = new RadioScheduleEditorWindow(
+                [station],
+                existing: null,
+                station.Id,
+                initialStartUtc: new DateTime(2026, 9, 7, 18, 0, 0, DateTimeKind.Utc),
+                offerImmediateStart: false,
+                defaultRecordingFormat: RadioRecordingFormat.Mp3,
+                defaultRecordingBitrateKbps: 192);
+            try
+            {
+                newScheduleEditor.Show();
+                DrainDispatcher(newScheduleEditor.Dispatcher);
+                var newDatePickerHost = (System.Windows.Forms.Integration.WindowsFormsHost)
+                    newScheduleEditor.FindName("DatePickerHost");
+                var newDatePicker = (System.Windows.Forms.DateTimePicker)newDatePickerHost.Child;
+                var daysList = (ListBox)newScheduleEditor.FindName("DaysList");
+                newDatePicker.Value = new DateTime(2026, 9, 7);
+                Assert(CheckedDayLabels(daysList).SequenceEqual(["Poniedziałek"]),
+                    "Nowy plan nie zaznacza dnia tygodnia wynikającego z daty pierwszego nagrania.");
+
+                newDatePicker.Value = new DateTime(2026, 9, 8);
+                Assert(CheckedDayLabels(daysList).SequenceEqual(["Wtorek"]),
+                    "Zmiana daty nowego planu nie aktualizuje domyślnego dnia tygodnia.");
+
+                daysList.SelectedIndex = 0;
+                var source = System.Windows.PresentationSource.FromVisual(newScheduleEditor);
+                Assert(source is not null, "Okno testowe nie ma źródła zdarzeń klawiatury.");
+                var keyArgs = new KeyEventArgs(
+                    Keyboard.PrimaryDevice,
+                    source!,
+                    Environment.TickCount,
+                    Key.Space)
+                {
+                    RoutedEvent = Keyboard.PreviewKeyDownEvent
+                };
+                daysList.RaiseEvent(keyArgs);
+                newDatePicker.Value = new DateTime(2026, 9, 9);
+                Assert(CheckedDayLabels(daysList).Order().SequenceEqual(
+                        new[] { "Poniedziałek", "Wtorek" }.Order()),
+                    "Ręcznie wybrane dni zostały nadpisane po późniejszej zmianie daty.");
+            }
+            finally
+            {
+                newScheduleEditor.Close();
+            }
+
             manager = new RadioSchedulesWindow(
                 [station],
                 [schedule],
@@ -1524,6 +1570,13 @@ static void TestRadioScheduleAccessibility()
                && !text.Contains("Choice", StringComparison.Ordinal)
                && !text.Contains("Settings", StringComparison.Ordinal);
     }
+
+    static string[] CheckedDayLabels(ListBox list) => list.Items
+        .Cast<object>()
+        .Select(item => item.ToString() ?? string.Empty)
+        .Where(label => label.EndsWith(", zaznaczony", StringComparison.Ordinal))
+        .Select(label => label[..^", zaznaczony".Length])
+        .ToArray();
 
     static void DrainDispatcher(System.Windows.Threading.Dispatcher dispatcher)
     {
