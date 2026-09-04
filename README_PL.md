@@ -7,6 +7,14 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.247` udostępnia pod `Alt+Shift+Enter` opcje całego podcastu i
+pojedynczego odcinka: pamiętanie pozycji, prędkość, normalizację, przejścia i
+ciszę. Podcast może dodatkowo mieć własną częstotliwość odświeżania oraz
+własny folder pobierania albo korzystać z folderu ogólnego Podcastów. Radio
+może niezależnie zachować swój folder nagrań lub jawnie używać tego samego
+folderu co Podcasty. Ponowne użycie polecenia Biblioteki lub ulubionych na
+wyniku katalogu odwraca teraz rzeczywisty stan i podaje właściwy komunikat.
+
 Wersja `alpha.246` usuwa powtarzanie nazwy podcastu w zbiorczych listach
 odcinków, gdy ta sama nazwa jest już częścią tytułu odcinka. Autor pozostaje
 widoczny, jeżeli wnosi inną informację, a komplet metadanych nadal jest

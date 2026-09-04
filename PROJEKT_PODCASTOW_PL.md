@@ -8,6 +8,15 @@ dostępny import OPML, odświeżanie metadanych, przejście z audycji do jej
 odcinków oraz odtwarzanie skończonych materiałów HTTP/HTTPS we wspólnym
 odtwarzaczu AMC.
 
+Od `alpha.247` każdy podcast ma opcjonalne ustawienia dziedziczone przez jego
+odcinki: pozycję wznowienia, prędkość, przetwarzanie dźwięku, częstotliwość
+automatycznego odświeżania i folder pobierania. Pojedynczy odcinek może
+nadpisać ustawienia odtwarzania, ale nie częstotliwość kanału. `Ctrl+D` wybiera
+folder w kolejności: własny folder podcastu, ogólny folder Podcastów, domyślny
+folder systemowy. `Ctrl+S` nadal zawsze pyta o nazwę i miejsce jednego pliku.
+Radio może wskazać ogólny folder Podcastów, lecz domyślnie zachowuje oddzielny
+folder nagrań.
+
 ## 1. Osobna sesja Podcasty
 
 Podcasty będą osobną sesją korzystającą ze wspólnego odtwarzacza AMC. Zachowają

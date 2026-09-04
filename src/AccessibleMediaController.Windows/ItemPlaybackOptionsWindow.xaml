@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
-        Title="Opcje odtwarzania elementu" Width="650" Height="700"
+        Title="Opcje odtwarzania elementu" Width="680" Height="820"
         MinWidth="560" MinHeight="540"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <Grid Margin="18">
@@ -48,6 +48,30 @@
                           DisplayMemberPath="Label" TextSearch.TextPath="Label"
                           automation:AutomationProperties.Name="Cisza po tym elemencie"
                           automation:AutomationProperties.HelpText="Określa dodatkową ciszę po zakończeniu tego pliku przed automatycznym uruchomieniem następnego." />
+
+                <StackPanel x:Name="PodcastSettingsPanel" Visibility="Collapsed">
+                    <Label Target="{Binding ElementName=PodcastRefreshIntervalBox}">_Automatyczne odświeżanie podcastu:</Label>
+                    <ComboBox x:Name="PodcastRefreshIntervalBox" Margin="0,0,0,14"
+                              DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                              automation:AutomationProperties.Name="Automatyczne odświeżanie podcastu"
+                              automation:AutomationProperties.HelpText="Ustawienie dotyczy całego podcastu. Ręcznie oznacza, że kanał jest odświeżany tylko na żądanie." />
+
+                    <Label Target="{Binding ElementName=PodcastDownloadFolderModeBox}">_Folder pobierania odcinków:</Label>
+                    <ComboBox x:Name="PodcastDownloadFolderModeBox" Margin="0,0,0,8"
+                              DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                              SelectionChanged="PodcastDownloadFolderModeBox_SelectionChanged"
+                              automation:AutomationProperties.Name="Folder pobierania odcinków tego podcastu"
+                              automation:AutomationProperties.HelpText="Wybierz folder ogólny ustawiony dla Podcastów albo osobny folder tylko dla tego podcastu." />
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBox x:Name="PodcastDownloadFolderBox" Grid.Column="0" IsReadOnly="True"
+                                 automation:AutomationProperties.Name="Własny folder pobierania tego podcastu" />
+                        <Button x:Name="BrowsePodcastDownloadFolderButton" Grid.Column="1"
+                                Content="_Wybierz…" Margin="8,0,0,0" Padding="10,4"
+                                automation:AutomationProperties.Name="Wybierz własny folder pobierania tego podcastu"
+                                Click="BrowsePodcastDownloadFolder_Click" />
+                    </Grid>
+                </StackPanel>
 
                 <Label x:Name="OutputDeviceLabel" Target="{Binding ElementName=OutputDeviceBox}">_Urządzenie audio dla elementu:</Label>
                 <ComboBox x:Name="OutputDeviceBox" Margin="0,0,0,6" IsEnabled="False"

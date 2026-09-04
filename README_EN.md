@@ -1,5 +1,13 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.247` adds contextual `Alt+Shift+Enter` options for a podcast
+show and an individual episode: resume policy, speed, normalization,
+transitions, and silence. A show can also use its own refresh interval and
+download folder or inherit the Podcasts default. Radio may keep a separate
+recording folder or explicitly reuse the Podcasts folder. Repeating Library or
+Favorites on a directory search result now toggles the persisted show and
+announces the correct action.
+
 Version `alpha.246` removes a repeated podcast name from aggregate episode
 lists when that same name is already part of the episode title. A distinct
 author is retained, while the complete metadata remains available in

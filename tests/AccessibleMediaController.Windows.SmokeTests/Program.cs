@@ -1866,6 +1866,7 @@ static void TestPlaybackAudioSettingAccessibility()
     {
         SettingsWindow? window = null;
         ItemPlaybackOptionsWindow? itemOptions = null;
+        ItemPlaybackOptionsWindow? podcastOptions = null;
         try
         {
             var state = new PersistedState();
@@ -1914,6 +1915,27 @@ static void TestPlaybackAudioSettingAccessibility()
                    && TextSearch.GetTextPath(itemNormalization) == "Label"
                    && AutomationProperties.GetName(itemNormalization) == "Normalizacja głośności",
                 "Lista normalizacji nie ma pełnej semantyki UI Automation i wyszukiwania tekstowego.");
+
+            podcastOptions = new ItemPlaybackOptionsWindow(
+                "Testowy podcast",
+                ResumePositionMode.Inherit,
+                playbackRateOverride: null,
+                loudnessNormalizationOverride: null,
+                smoothTrackTransitionsOverride: null,
+                interTrackSilenceMillisecondsOverride: null,
+                target: ItemPlaybackOptionsTarget.Podcast,
+                podcastRefreshIntervalMinutes: 60,
+                podcastDownloadFolder: Path.Combine(directory, "Podcast"));
+            var refresh = (ComboBox)podcastOptions.FindName("PodcastRefreshIntervalBox");
+            var folderMode = (ComboBox)podcastOptions.FindName("PodcastDownloadFolderModeBox");
+            Assert(refresh.SelectedItem?.ToString() == "Co godzinę"
+                   && refresh.DisplayMemberPath == "Label"
+                   && TextSearch.GetTextPath(refresh) == "Label",
+                "Częstotliwość odświeżania podcastu nie ma stabilnej etykiety dla NVDA.");
+            Assert(folderMode.SelectedItem?.ToString() == "Własny folder dla tego podcastu"
+                   && AutomationProperties.GetName(folderMode)
+                        == "Folder pobierania odcinków tego podcastu",
+                "Wybór folderu podcastu nie ma czytelnej semantyki dostępności.");
         }
         catch (Exception exception)
         {
@@ -1922,6 +1944,7 @@ static void TestPlaybackAudioSettingAccessibility()
         finally
         {
             itemOptions?.Close();
+            podcastOptions?.Close();
             window?.Close();
         }
     });
@@ -4094,6 +4117,7 @@ static void TestPodcastDownloadSettingsAccessibility()
         {
             var state = ConfigurationStore.CreateDefaultState();
             state.Podcasts.DownloadsFolder = Path.Combine(directory, "Podcasty");
+            state.Radio.UsePodcastDownloadsFolderForRecordings = true;
             var store = new ConfigurationStore(
                 Path.Combine(directory, "state.json"),
                 Path.Combine(directory, "library.db"));
@@ -4105,6 +4129,13 @@ static void TestPodcastDownloadSettingsAccessibility()
             Assert(AutomationProperties.GetName(folder) == "Domyślny folder pobierania podcastów"
                    && AutomationProperties.GetName(browse) == "Wybierz domyślny folder pobierania podcastów",
                 "Kontrolki folderu pobierania podcastów nie mają stabilnych etykiet dla NVDA.");
+            var radioFolderMode = (ComboBox)window.FindName("RadioRecordingsFolderModeCombo");
+            var radioFolder = (TextBox)window.FindName("RadioRecordingsFolderBox");
+            Assert((radioFolderMode.SelectedItem as ComboBoxItem)?.Tag?.ToString() == "Podcasts"
+                   && radioFolderMode.Items.OfType<ComboBoxItem>().All(item =>
+                       !string.IsNullOrWhiteSpace(AutomationProperties.GetName(item)))
+                   && !radioFolder.IsEnabled,
+                "Wspólny folder Radia i Podcastów nie ma czytelnego, trwałego wyboru.");
         }
         catch (Exception exception)
         {

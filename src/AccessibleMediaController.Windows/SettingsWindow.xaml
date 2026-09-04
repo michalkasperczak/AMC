@@ -146,6 +146,14 @@
                         </GroupBox>
                         <GroupBox Header="Domyślny folder nagrywania" Margin="0,0,0,14">
                             <StackPanel Margin="8">
+                                <Label Target="{Binding ElementName=RadioRecordingsFolderModeCombo}">_Położenie nagrań Radia:</Label>
+                                <ComboBox x:Name="RadioRecordingsFolderModeCombo" Margin="0,0,0,8"
+                                          SelectionChanged="RadioRecordingsFolderModeCombo_SelectionChanged"
+                                          automation:AutomationProperties.Name="Położenie nagrań Radia"
+                                          automation:AutomationProperties.HelpText="Radio może zachować osobny folder albo używać tego samego folderu ogólnego, który ustawiono dla pobierania Podcastów.">
+                                    <ComboBoxItem Tag="Radio" automation:AutomationProperties.Name="Osobny folder nagrywania Radia">Osobny folder nagrywania Radia</ComboBoxItem>
+                                    <ComboBoxItem Tag="Podcasts" automation:AutomationProperties.Name="Ten sam folder co pobieranie Podcastów">Ten sam folder co pobieranie Podcastów</ComboBoxItem>
+                                </ComboBox>
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                     <TextBox x:Name="RadioRecordingsFolderBox" Grid.Column="0"
@@ -158,7 +166,7 @@
                                             Click="BrowseRadioRecordingsFolder_Click" />
                                 </Grid>
                                 <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
-                                           Text="Wybrany folder jest zapamiętywany. Harmonogram może użyć go domyślnie albo wskazać inny folder tylko dla danego planu." />
+                                           Text="Wybór jest zapamiętywany. Harmonogram może użyć folderu domyślnego Radia albo wskazać inny folder tylko dla danego planu." />
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Format nagrywania" Margin="0,0,0,14">

@@ -29,6 +29,7 @@ public partial class SettingsWindow : Window
     private readonly SettingsTarget _initialTarget;
     private KeyChord _selectedPrefix = KeyChord.Parse(DefaultPrefixChord);
     private bool _initialFocusApplied;
+    private string _radioRecordingsOwnFolder = string.Empty;
 
     public SettingsWindow(
         PersistedState state,
@@ -146,9 +147,13 @@ public partial class SettingsWindow : Window
             InterTrackSilenceCombo,
             _workingState.Settings.Audio.InterTrackSilenceMilliseconds.ToString());
 
-        RadioRecordingsFolderBox.Text = string.IsNullOrWhiteSpace(_workingState.Radio.RecordingsFolder)
+        _radioRecordingsOwnFolder = string.IsNullOrWhiteSpace(_workingState.Radio.RecordingsFolder)
             ? DefaultRadioRecordingsFolder()
             : _workingState.Radio.RecordingsFolder;
+        RadioRecordingsFolderBox.Text = _radioRecordingsOwnFolder;
+        SelectComboByTag(
+            RadioRecordingsFolderModeCombo,
+            _workingState.Radio.UsePodcastDownloadsFolderForRecordings ? "Podcasts" : "Radio");
         SelectComboByTag(RadioRecordingFormatCombo, _workingState.Radio.RecordingFormat.ToString());
         SelectComboByTag(
             RadioRecordingBitrateCombo,
@@ -163,6 +168,7 @@ public partial class SettingsWindow : Window
         PodcastDownloadsFolderBox.Text = string.IsNullOrWhiteSpace(_workingState.Podcasts.DownloadsFolder)
             ? PodcastDownloadFolderResolver.DefaultFolder()
             : _workingState.Podcasts.DownloadsFolder;
+        UpdateRadioRecordingControls();
 
         MessagesEnabledCheck.IsChecked = _workingState.Settings.Messages.Enabled;
         DetailedHintsCheck.IsChecked = _workingState.Settings.Messages.DetailedHints;
@@ -217,10 +223,14 @@ public partial class SettingsWindow : Window
             interTrackSilence = 0;
         }
         _workingState.Settings.Audio.InterTrackSilenceMilliseconds = interTrackSilence;
-        var folder = RadioRecordingsFolderBox.Text.Trim();
+        if (SelectedTag(RadioRecordingsFolderModeCombo, "Radio") == "Radio")
+            _radioRecordingsOwnFolder = RadioRecordingsFolderBox.Text.Trim();
+        var folder = _radioRecordingsOwnFolder.Trim();
         if (string.IsNullOrWhiteSpace(folder) || !Path.IsPathFullyQualified(folder))
             throw new InvalidDataException("Domyślny folder nagrywania radia musi zawierać pełną ścieżkę.");
         _workingState.Radio.RecordingsFolder = Path.GetFullPath(folder);
+        _workingState.Radio.UsePodcastDownloadsFolderForRecordings =
+            SelectedTag(RadioRecordingsFolderModeCombo, "Radio") == "Podcasts";
         if (Enum.TryParse<RadioRecordingFormat>(
                 SelectedTag(RadioRecordingFormatCombo, nameof(RadioRecordingFormat.Mp3)),
                 out var recordingFormat))
@@ -491,6 +501,15 @@ public partial class SettingsWindow : Window
     private void ProfileCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshBindings();
     private void RadioRecordingFormatCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         UpdateRadioRecordingControls();
+    private void RadioRecordingsFolderModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (RadioRecordingsFolderBox?.IsEnabled == true
+            && !string.IsNullOrWhiteSpace(RadioRecordingsFolderBox.Text))
+        {
+            _radioRecordingsOwnFolder = RadioRecordingsFolderBox.Text;
+        }
+        UpdateRadioRecordingControls();
+    }
 
     private void UpdateRadioRecordingControls()
     {
@@ -498,6 +517,12 @@ public partial class SettingsWindow : Window
         var format = SelectedTag(RadioRecordingFormatCombo, nameof(RadioRecordingFormat.Mp3));
         RadioRecordingBitrateCombo.IsEnabled = format is nameof(RadioRecordingFormat.Mp3)
             or nameof(RadioRecordingFormat.Aac);
+        var ownFolder = SelectedTag(RadioRecordingsFolderModeCombo, "Radio") != "Podcasts";
+        RadioRecordingsFolderBox.Text = ownFolder
+            ? _radioRecordingsOwnFolder
+            : PodcastDownloadsFolderBox?.Text ?? PodcastDownloadFolderResolver.DefaultFolder();
+        RadioRecordingsFolderBox.IsEnabled = ownFolder;
+        BrowseRadioRecordingsFolderButton.IsEnabled = ownFolder;
     }
 
     private void BrowseRadioRecordingsFolder_Click(object sender, RoutedEventArgs e)
@@ -511,6 +536,7 @@ public partial class SettingsWindow : Window
             dialog.InitialDirectory = RadioRecordingsFolderBox.Text;
         if (dialog.ShowDialog(this) != true) return;
         RadioRecordingsFolderBox.Text = dialog.FolderName;
+        _radioRecordingsOwnFolder = dialog.FolderName;
         RadioRecordingsFolderBox.Focus();
         Keyboard.Focus(RadioRecordingsFolderBox);
     }
@@ -532,6 +558,7 @@ public partial class SettingsWindow : Window
             dialog.InitialDirectory = PodcastDownloadsFolderBox.Text;
         if (dialog.ShowDialog(this) != true) return;
         PodcastDownloadsFolderBox.Text = dialog.FolderName;
+        UpdateRadioRecordingControls();
         PodcastDownloadsFolderBox.Focus();
         Keyboard.Focus(PodcastDownloadsFolderBox);
     }

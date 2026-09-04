@@ -32,6 +32,8 @@ var tests = new (string Name, Action Test)[]
     ("Aktualizacja biblioteki Podcastów", TestPodcastLibraryUpdate),
     ("Migracja skrzynki Podcastów po starszym imporcie", TestPodcastLegacyInboxMigration),
     ("Stany odsłuchania odcinków Podcastów", TestPodcastEpisodeProgress),
+    ("Dziedziczenie opcji odtwarzania Podcastów", TestPodcastPlaybackSettings),
+    ("Odwracanie Biblioteki i ulubionych z katalogu Podcastów", TestPodcastMembershipToggle),
     ("Trwały model Podcastów", TestPodcastStatePersistence),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
@@ -268,7 +270,12 @@ static void TestPodcastStatePersistence()
             Title = "Podcast A",
             FeedUrl = "https://example.test/feed.xml",
             HomepageUrl = "javascript:alert(1)",
-            LastRefreshUtcTicks = DateTime.UtcNow.Ticks
+            LastRefreshUtcTicks = DateTime.UtcNow.Ticks,
+            RefreshIntervalMinutes = 60,
+            DownloadsFolder = Path.Combine(directory, "podcast-a"),
+            ResumePositionMode = ResumePositionMode.StartFromBeginning,
+            PlaybackRateOverride = 1.5d,
+            LoudnessNormalizationOverride = true
         });
         state.Podcasts.Episodes.Add(new PodcastEpisodeSettings
         {
@@ -279,6 +286,9 @@ static void TestPodcastStatePersistence()
             MediaUrl = "https://cdn.example.test/a.mp3",
             DurationTicks = TimeSpan.FromMinutes(30).Ticks,
             ResumePositionTicks = TimeSpan.FromMinutes(5).Ticks,
+            ResumePositionMode = ResumePositionMode.Remember,
+            PlaybackRateOverride = 0.75d,
+            SmoothTrackTransitionsOverride = true,
             IsNew = true,
             IsFavorite = true
         });
@@ -293,8 +303,16 @@ static void TestPodcastStatePersistence()
         Equal(Path.Combine(directory, "pobrane"), loaded.Podcasts.DownloadsFolder);
         Equal(1, loaded.Podcasts.Subscriptions.Count);
         Equal(null, loaded.Podcasts.Subscriptions[0].HomepageUrl);
+        Equal(60, loaded.Podcasts.Subscriptions[0].RefreshIntervalMinutes);
+        Equal(Path.Combine(directory, "podcast-a"), loaded.Podcasts.Subscriptions[0].DownloadsFolder);
+        Equal(ResumePositionMode.StartFromBeginning, loaded.Podcasts.Subscriptions[0].ResumePositionMode);
+        Equal(1.5d, loaded.Podcasts.Subscriptions[0].PlaybackRateOverride);
+        Equal(true, loaded.Podcasts.Subscriptions[0].LoudnessNormalizationOverride);
         Equal(1, loaded.Podcasts.Episodes.Count);
         Equal(TimeSpan.FromMinutes(5).Ticks, loaded.Podcasts.Episodes[0].ResumePositionTicks);
+        Equal(ResumePositionMode.Remember, loaded.Podcasts.Episodes[0].ResumePositionMode);
+        Equal(0.75d, loaded.Podcasts.Episodes[0].PlaybackRateOverride);
+        Equal(true, loaded.Podcasts.Episodes[0].SmoothTrackTransitionsOverride);
         Equal(false, loaded.Podcasts.Episodes[0].IsNew);
         Equal(true, loaded.Podcasts.Episodes[0].IsStarted);
         Equal("episode-a", loaded.Podcasts.CurrentItemId);
@@ -507,6 +525,65 @@ static void TestPodcastEpisodeProgress()
     var archived = new PodcastEpisodeSettings { IsNew = false };
     Equal(PodcastEpisodeListeningState.Unplayed, PodcastEpisodeProgress.GetState(archived));
     Equal("nieodtworzony", PodcastEpisodeProgress.GetLabel(archived));
+}
+
+static void TestPodcastPlaybackSettings()
+{
+    var global = new PlaybackAudioSettings
+    {
+        LoudnessNormalizationEnabled = false,
+        SmoothTrackTransitionsEnabled = false,
+        InterTrackSilenceMilliseconds = 500
+    };
+    var podcast = new PodcastSubscriptionSettings
+    {
+        ResumePositionMode = ResumePositionMode.StartFromBeginning,
+        PlaybackRateOverride = 1.25d,
+        LoudnessNormalizationOverride = true,
+        InterTrackSilenceMillisecondsOverride = 2000,
+        DownloadsFolder = @"D:\Podcasty\Audycja"
+    };
+    var episode = new PodcastEpisodeSettings
+    {
+        ResumePositionMode = ResumePositionMode.Inherit,
+        SmoothTrackTransitionsOverride = true,
+        InterTrackSilenceMillisecondsOverride = 0
+    };
+
+    Equal(false, PodcastPlaybackSettingsResolver.ShouldRememberPosition(episode, podcast));
+    Equal(1.25d, PodcastPlaybackSettingsResolver.PlaybackRateOverride(episode, podcast));
+    var audio = PodcastPlaybackSettingsResolver.ResolveAudio(global, episode, podcast);
+    Equal(true, audio.LoudnessNormalizationEnabled);
+    Equal(true, audio.SmoothTrackTransitionsEnabled);
+    Equal(0, audio.InterTrackSilenceMilliseconds);
+    Equal(
+        @"D:\Podcasty\Audycja",
+        PodcastPlaybackSettingsResolver.ConfiguredDownloadFolder(@"D:\Podcasty", podcast));
+    podcast.DownloadsFolder = null;
+    Equal(
+        @"D:\Podcasty",
+        PodcastPlaybackSettingsResolver.ConfiguredDownloadFolder(@"D:\Podcasty", podcast));
+}
+
+static void TestPodcastMembershipToggle()
+{
+    PodcastSubscriptionSettings[] subscriptions =
+    [
+        new() { IsInLibrary = true, IsFavorite = false },
+        new() { IsInLibrary = true, IsFavorite = false }
+    ];
+    Equal(true, PodcastMembershipToggle.Apply(subscriptions, PodcastMembershipCollection.Favorites));
+    True(subscriptions.All(subscription => subscription.IsFavorite && subscription.IsInLibrary),
+        "Dodanie do ulubionych musi zachować podcast w Bibliotece.");
+    Equal(false, PodcastMembershipToggle.Apply(subscriptions, PodcastMembershipCollection.Favorites));
+    True(subscriptions.All(subscription => !subscription.IsFavorite && subscription.IsInLibrary),
+        "Drugie użycie ulubionych musi usunąć wyłącznie stan ulubionego.");
+    Equal(false, PodcastMembershipToggle.Apply(subscriptions, PodcastMembershipCollection.Library));
+    True(subscriptions.All(subscription => !subscription.IsInLibrary && !subscription.IsFavorite),
+        "Drugie użycie Biblioteki musi usunąć zapisany podcast i stan ulubionego.");
+    Equal(true, PodcastMembershipToggle.Apply(subscriptions, PodcastMembershipCollection.Library));
+    True(subscriptions.All(subscription => subscription.IsInLibrary),
+        "Kolejne użycie Biblioteki musi przywrócić podcast.");
 }
 
 static void TestAudioClipSelection()
@@ -1051,6 +1128,7 @@ static void TestRadioRecordingSchedule()
         var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
         var state = ConfigurationStore.CreateDefaultState();
         state.Radio.RecordingsFolder = @"D:\Nagrania radia";
+        state.Radio.UsePodcastDownloadsFolderForRecordings = true;
         state.Radio.RecordingFormat = RadioRecordingFormat.Original;
         state.Radio.RecordingBitrateKbps = 173;
         state.Radio.WakeScheduledRecordings = true;
@@ -1112,6 +1190,7 @@ static void TestRadioRecordingSchedule()
         Equal(30, segmented.SegmentMinutes);
         Equal(RadioRecordingFileNameTemplate.DefaultTemplate, segmented.FileNameTemplate);
         Equal(@"D:\Nagrania radia", loaded.Radio.RecordingsFolder);
+        Equal(true, loaded.Radio.UsePodcastDownloadsFolderForRecordings);
         Equal(RadioRecordingFormat.Original, loaded.Radio.RecordingFormat);
         Equal(160, loaded.Radio.RecordingBitrateKbps);
         Equal(true, loaded.Radio.WakeScheduledRecordings);

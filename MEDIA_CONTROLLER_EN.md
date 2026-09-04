@@ -4,6 +4,13 @@ Document version: 0.7, current project plan
 
 Updated: 29 August 2026
 
+Since `alpha.247`, `Alt+Shift+Enter` opens options appropriate to either a
+show or an episode. Episode settings inherit from the show, and show settings
+inherit from global playback settings. Download folder precedence is explicit:
+a show-specific folder first, then the Podcasts default. Radio stays separate
+but can deliberately reuse that same default. Automatic refresh remains off by
+default and is configured per show.
+
 Since `alpha.246`, aggregate episode lists do not repeat the podcast name when
 it is already contained in the episode title. A distinct author remains in the
 short label, while all channel and episode fields remain available through

@@ -4,6 +4,13 @@ Wersja dokumentu: 0.7, aktualny plan projektu
 
 Data aktualizacji: 29 sierpnia 2026 r.
 
+Od `alpha.247` `Alt+Shift+Enter` otwiera opcje adekwatne do poziomu audycji
+lub odcinka. Ustawienia odcinka dziedziczą z podcastu, a podcast z ustawień
+globalnych. Hierarchia folderu pobierania jest jawna: własny folder podcastu,
+następnie ogólny folder Podcastów. Radio pozostaje oddzielne, ale może w
+ustawieniach świadomie wskazać ten sam folder ogólny. Automatyczne odświeżanie
+jest domyślnie wyłączone i ustawia się osobno dla wybranej audycji.
+
 Od `alpha.246` zbiorcze listy odcinków nie powtarzają nazwy podcastu, jeżeli
 jest ona już zawarta w tytule odcinka. Odrębny autor pozostaje w krótkiej
 etykiecie, a pełne pola kanału i odcinka są dostępne w `Alt+Enter`.

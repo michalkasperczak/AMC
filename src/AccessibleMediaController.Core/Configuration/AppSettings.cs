@@ -229,7 +229,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 45;
+    public int SchemaVersion { get; set; } = 47;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -278,6 +278,13 @@ public sealed class PodcastSubscriptionSettings
     public string FeedUrl { get; set; } = string.Empty;
     public string? HomepageUrl { get; set; }
     public long LastRefreshUtcTicks { get; set; }
+    public int RefreshIntervalMinutes { get; set; }
+    public string? DownloadsFolder { get; set; }
+    public ResumePositionMode ResumePositionMode { get; set; } = ResumePositionMode.Inherit;
+    public double? PlaybackRateOverride { get; set; }
+    public bool? LoudnessNormalizationOverride { get; set; }
+    public bool? SmoothTrackTransitionsOverride { get; set; }
+    public int? InterTrackSilenceMillisecondsOverride { get; set; }
     public bool IsFavorite { get; set; }
     public bool IsInLibrary { get; set; } = true;
 }
@@ -297,6 +304,11 @@ public sealed class PodcastEpisodeSettings
     public long PublishedUtcTicks { get; set; }
     public long DurationTicks { get; set; }
     public long ResumePositionTicks { get; set; }
+    public ResumePositionMode ResumePositionMode { get; set; } = ResumePositionMode.Inherit;
+    public double? PlaybackRateOverride { get; set; }
+    public bool? LoudnessNormalizationOverride { get; set; }
+    public bool? SmoothTrackTransitionsOverride { get; set; }
+    public int? InterTrackSilenceMillisecondsOverride { get; set; }
     public string? DownloadPath { get; set; }
     public bool IsNew { get; set; } = true;
     public bool IsStarted { get; set; }
@@ -487,6 +499,7 @@ public sealed class RadioSettings
     public int Volume { get; set; } = 35;
     public int TimeshiftMinutes { get; set; } = 10;
     public string RecordingsFolder { get; set; } = string.Empty;
+    public bool UsePodcastDownloadsFolderForRecordings { get; set; }
     public RadioRecordingFormat RecordingFormat { get; set; } = RadioRecordingFormat.Mp3;
     public int RecordingBitrateKbps { get; set; } = 192;
     public bool WakeScheduledRecordings { get; set; }

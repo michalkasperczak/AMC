@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-246`
-- Tytuł zestawu: Bez powtórzeń metadanych podcastu
-- Wersja programu: `0.1.0-alpha.246`
+- Numer zestawu: `AMC-TEST-247`
+- Tytuł zestawu: Opcje podcastów i hierarchia folderów
+- Wersja programu: `0.1.0-alpha.247`
 - Utworzono: 2026-09-04, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.246.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.247.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,62 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 247
+
+### AMC-247-01 — opcje całego podcastu
+
+Na podcaście w Bibliotece naciśnij `Alt+Shift+Enter`. Przejdź strzałkami po
+każdym polu, ustaw inną prędkość, pozycję odtwarzania, przetwarzanie dźwięku i
+odświeżanie co godzinę. Zapisz, otwórz okno ponownie i sprawdź fokus.
+
+Oczekiwane: NVDA czyta wyłącznie użytkowe etykiety, w tym „1,00 razy —
+normalna prędkość”; zapisane wybory wracają, a po zamknięciu fokus pozostaje na
+tym samym podcaście.
+
+### AMC-247-02 — opcje pojedynczego odcinka
+
+Na odcinku naciśnij `Alt+Shift+Enter`, ustaw własną prędkość oraz „Zawsze od
+początku”, zapisz i otwórz odcinek ponownie.
+
+Oczekiwane: odcinek stosuje własne ustawienia. Wybory dziedziczone mówią o
+podcaście lub ustawieniu globalnym; okno odcinka nie pokazuje częstotliwości
+odświeżania ani folderu całej audycji.
+
+### AMC-247-03 — własny folder podcastu
+
+Ustaw w opcjach podcastu własny folder. Pobierz jego odcinek przez `Ctrl+D`, a
+następnie pobierz odcinek innego podcastu bez własnego folderu.
+
+Oczekiwane: pierwszy plik trafia do folderu audycji, drugi do folderu ogólnego
+Podcastów. `Ctrl+S` nadal otwiera wybór miejsca.
+
+### AMC-247-04 — wspólny folder Radia i Podcastów
+
+W Ustawieniach, na karcie Radio i nagrywanie, wybierz „Ten sam folder co
+pobieranie Podcastów”, zapisz i otwórz ustawienia ponownie. Wróć też do
+„Osobnego folderu nagrywania Radia”.
+
+Oczekiwane: NVDA czyta obie możliwości bez identyfikatorów technicznych.
+Wspólny tryb pokazuje folder Podcastów i blokuje osobny wybór; przełączenie z
+powrotem przywraca wcześniej wskazany folder Radia.
+
+### AMC-247-05 — odwracanie stanu z wyników katalogu
+
+W `Ctrl+F` znajdź podcast spoza Biblioteki. Użyj dwa razy `Ctrl+Shift+L`, a
+potem dwa razy polecenia ulubionych.
+
+Oczekiwane: program kolejno dodaje i usuwa rzeczywisty podcast, nie ponawia
+importu. Komunikaty rozróżniają Bibliotekę i ulubione oraz „dodano” i
+„usunięto”.
+
+### AMC-247-06 — automatyczne odświeżanie bez przejęcia fokusa
+
+Ustaw jednej audycji automatyczne odświeżanie, pozostaw inną w trybie „Tylko
+ręcznie” i korzystaj z innej sesji podczas nadejścia terminu.
+
+Oczekiwane: odświeża się tylko wskazany podcast. Program nie przełącza sesji,
+nie otwiera okna i nie przenosi fokusa.
 
 ## Nowości alpha 246
 

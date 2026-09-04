@@ -8,6 +8,14 @@ durable session, safe direct RSS/Atom subscription, accessible OPML import,
 metadata refresh, show-to-episode navigation and finite HTTP/HTTPS episode
 playback through AMC's shared player are in place.
 
+Since `alpha.247`, each show may define inheritable resume, playback-rate and
+audio-processing preferences, a refresh interval, and a download folder.
+Episodes can override playback preferences but not feed refresh scheduling.
+`Ctrl+D` resolves the show-specific folder first, then the Podcasts default,
+then the system fallback. `Ctrl+S` continues to ask for a name and destination
+for one episode. Radio can explicitly reuse the Podcasts default while keeping
+its own recording folder by default.
+
 ## 1. A separate Podcasts session
 
 Podcasts will be a separate session using AMC's shared player. Playback

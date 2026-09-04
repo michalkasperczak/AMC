@@ -13,7 +13,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 46;
+    public const int CurrentSchemaVersion = 47;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -1116,6 +1116,22 @@ public sealed class ConfigurationStore
                     : null;
                 subscription.LastRefreshUtcTicks = NormalizeOptionalUtcTicks(
                     subscription.LastRefreshUtcTicks);
+                subscription.RefreshIntervalMinutes = subscription.RefreshIntervalMinutes is
+                    0 or 15 or 30 or 60 or 180 or 360 or 720 or 1440
+                        ? subscription.RefreshIntervalMinutes
+                        : 0;
+                subscription.DownloadsFolder = string.IsNullOrWhiteSpace(subscription.DownloadsFolder)
+                    ? null
+                    : NormalizeFilePath(subscription.DownloadsFolder);
+                if (subscription.DownloadsFolder?.Length == 0)
+                    subscription.DownloadsFolder = null;
+                subscription.ResumePositionMode = Enum.IsDefined(subscription.ResumePositionMode)
+                    ? subscription.ResumePositionMode
+                    : ResumePositionMode.Inherit;
+                subscription.PlaybackRateOverride = NormalizePlaybackRateOverride(
+                    subscription.PlaybackRateOverride);
+                subscription.InterTrackSilenceMillisecondsOverride =
+                    NormalizeSilenceOverride(subscription.InterTrackSilenceMillisecondsOverride);
                 if (subscription.IsFavorite) subscription.IsInLibrary = true;
                 return subscription;
             })
@@ -1152,6 +1168,13 @@ public sealed class ConfigurationStore
                 episode.PublishedUtcTicks = NormalizeOptionalUtcTicks(episode.PublishedUtcTicks);
                 episode.DurationTicks = Math.Max(0, episode.DurationTicks);
                 episode.ResumePositionTicks = Math.Max(0, episode.ResumePositionTicks);
+                episode.ResumePositionMode = Enum.IsDefined(episode.ResumePositionMode)
+                    ? episode.ResumePositionMode
+                    : ResumePositionMode.Inherit;
+                episode.PlaybackRateOverride = NormalizePlaybackRateOverride(
+                    episode.PlaybackRateOverride);
+                episode.InterTrackSilenceMillisecondsOverride =
+                    NormalizeSilenceOverride(episode.InterTrackSilenceMillisecondsOverride);
                 if (episode.DurationTicks > 0)
                 {
                     episode.ResumePositionTicks = Math.Min(
@@ -1182,6 +1205,16 @@ public sealed class ConfigurationStore
     private static bool IsHttpAddress(string? value) =>
         Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var uri)
         && uri.Scheme is "http" or "https";
+
+    private static double? NormalizePlaybackRateOverride(double? value) =>
+        value.HasValue && double.IsFinite(value.Value)
+            ? Math.Clamp(value.Value, 0.50d, 2.00d)
+            : null;
+
+    private static int? NormalizeSilenceOverride(int? value) =>
+        value.HasValue && PlaybackAudioSettingsRules.IsSupportedSilence(value.Value)
+            ? value
+            : null;
 
     private static long NormalizeOptionalUtcTicks(long ticks) =>
         ticks >= DateTime.MinValue.Ticks && ticks <= DateTime.MaxValue.Ticks ? ticks : 0;

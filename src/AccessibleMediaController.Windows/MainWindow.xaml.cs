@@ -109,6 +109,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly DispatcherTimer _chapterPlaybackTimer;
     private readonly DispatcherTimer _localSourceSyncTimer;
     private readonly DispatcherTimer _radioScheduleTimer;
+    private readonly DispatcherTimer _podcastRefreshTimer;
     private readonly Dictionary<string, ActiveScheduledRadioRecording> _activeScheduledRadioRecordings =
         new(StringComparer.Ordinal);
     private readonly Dictionary<string, ActiveManualRadioRecording> _activeManualRadioRecordings =
@@ -120,6 +121,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         new(StringComparer.OrdinalIgnoreCase);
     private bool _localSourceSyncInProgress;
     private bool _localSourceSyncPending;
+    private bool _podcastRefreshInProgress;
     private bool _isClosing;
     private bool _recordingCloseConfirmed;
     private bool _playerViewActive;
@@ -226,6 +228,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Interval = TimeSpan.FromSeconds(1)
         };
         _radioScheduleTimer.Tick += RadioScheduleTimer_Tick;
+        _podcastRefreshTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMinutes(1)
+        };
+        _podcastRefreshTimer.Tick += PodcastRefreshTimer_Tick;
         _state = state;
         _store = store;
         _statePersistence = new StatePersistenceQueue(store, BackgroundStateSaveFailed);
@@ -234,6 +241,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _localOutput.ConfigureAudioProcessingResolver(GetEffectiveLocalAudioSettings);
         _localOutput.ConfigureOutputDevice(GetSessionOutputDeviceId("local"));
         _podcastOutput.ConfigureAudioProcessing(_state.Settings.Audio);
+        _podcastOutput.ConfigureAudioProcessingResolver(GetEffectivePodcastAudioSettings);
         _podcastOutput.ConfigureOutputDevice(GetSessionOutputDeviceId("podcasts"));
         _podcastOutput.DurationAvailable += PodcastOutput_DurationAvailable;
         _podcastOutput.PlaybackFailed += PodcastOutput_PlaybackFailed;
@@ -272,6 +280,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdatePlaybackStatusBar();
         _playerUiTimer.Start();
         _radioScheduleTimer.Start();
+        _podcastRefreshTimer.Start();
         RearmRadioWakeTimer();
         Dispatcher.BeginInvoke(ProcessDueRadioSchedules, DispatcherPriority.Background);
         DiagnosticLog.Info("startup", "Główne okno jest gotowe do pokazania.");
@@ -3059,6 +3068,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var item = ActionItem ?? _sessions.Current.CurrentItem;
+        if (string.Equals(ActionSession.Id, "podcasts", StringComparison.Ordinal)
+            && item.Kind is MediaItemKind.Podcast or MediaItemKind.Episode)
+        {
+            ShowPodcastPlaybackOptions(item);
+            return;
+        }
         if (!string.Equals(ActionSession.Id, "local", StringComparison.Ordinal)
             || item.Kind != MediaItemKind.Track
             || !TryGetLocalPath(item.Source, out _))
@@ -3133,7 +3148,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             saved?.LoudnessNormalizationOverride,
             saved?.SmoothTrackTransitionsOverride,
             saved?.InterTrackSilenceMillisecondsOverride,
-            folderTarget: true)
+            target: ItemPlaybackOptionsTarget.LocalFolder)
         {
             Owner = this
         };
@@ -3199,6 +3214,84 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     saved.SmoothTrackTransitionsOverride,
                     saved.InterTrackSilenceMillisecondsOverride));
         }
+        RestoreItemActionFocus();
+    }
+
+    private void ShowPodcastPlaybackOptions(MediaItem item)
+    {
+        CapturePodcastState();
+        var episode = FindPodcastEpisodeSettings(item);
+        var subscription = FindPodcastSubscriptionSettings(item);
+        if (subscription is null || item.Kind == MediaItemKind.Episode && episode is null)
+        {
+            Announce("Nie można odnaleźć ustawień tego podcastu");
+            RestoreItemActionFocus();
+            return;
+        }
+
+        var target = episode is null
+            ? ItemPlaybackOptionsTarget.Podcast
+            : ItemPlaybackOptionsTarget.PodcastEpisode;
+        var dialog = new ItemPlaybackOptionsWindow(
+            item.Title,
+            episode?.ResumePositionMode ?? subscription.ResumePositionMode,
+            episode is null ? subscription.PlaybackRateOverride : episode.PlaybackRateOverride,
+            episode is null ? subscription.LoudnessNormalizationOverride : episode.LoudnessNormalizationOverride,
+            episode is null ? subscription.SmoothTrackTransitionsOverride : episode.SmoothTrackTransitionsOverride,
+            episode is null
+                ? subscription.InterTrackSilenceMillisecondsOverride
+                : episode.InterTrackSilenceMillisecondsOverride,
+            target,
+            subscription.RefreshIntervalMinutes,
+            subscription.DownloadsFolder)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+
+        if (episode is null)
+        {
+            subscription.ResumePositionMode = dialog.SelectedResumePositionMode;
+            subscription.PlaybackRateOverride = dialog.SelectedPlaybackRateOverride;
+            subscription.LoudnessNormalizationOverride = dialog.SelectedLoudnessNormalizationOverride;
+            subscription.SmoothTrackTransitionsOverride = dialog.SelectedSmoothTrackTransitionsOverride;
+            subscription.InterTrackSilenceMillisecondsOverride =
+                dialog.SelectedInterTrackSilenceMillisecondsOverride;
+            subscription.RefreshIntervalMinutes = dialog.SelectedPodcastRefreshIntervalMinutes;
+            subscription.DownloadsFolder = dialog.SelectedPodcastDownloadFolder is { } customFolder
+                ? Path.GetFullPath(customFolder)
+                : null;
+        }
+        else
+        {
+            episode.ResumePositionMode = dialog.SelectedResumePositionMode;
+            episode.PlaybackRateOverride = dialog.SelectedPlaybackRateOverride;
+            episode.LoudnessNormalizationOverride = dialog.SelectedLoudnessNormalizationOverride;
+            episode.SmoothTrackTransitionsOverride = dialog.SelectedSmoothTrackTransitionsOverride;
+            episode.InterTrackSilenceMillisecondsOverride =
+                dialog.SelectedInterTrackSilenceMillisecondsOverride;
+        }
+
+        var podcasts = _sessions.FindSession("podcasts");
+        if (podcasts is not null && podcasts.HasCurrentItem)
+        {
+            if (!ShouldRememberPodcastPosition(podcasts.CurrentItem))
+                podcasts.ClearRememberedPosition(podcasts.CurrentItem.Id);
+            podcasts.ApplyPlaybackRateForCurrentItem();
+            _podcastOutput.ConfigureAudioProcessing(
+                GetEffectivePodcastAudioSettings(podcasts.CurrentItem));
+        }
+        QueueStateSave(announceFailure: true);
+        if (_playerViewActive) UpdatePlayerView(true);
+        UpdatePlaybackStatusBar();
+        UpdateFileMenuForCurrentSession();
+        Announce(episode is null
+            ? $"Zapisano opcje podcastu: {subscription.Title}"
+            : $"Zapisano opcje odcinka: {episode.Title}");
         RestoreItemActionFocus();
     }
 
@@ -4081,6 +4174,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && TryGetLocalPath(_sessions.Current.CurrentItem.Source, out _)
                 ? _sessions.Current.CurrentItem
                 : null;
+        var currentPodcastItem = podcasts
+            && _playerViewActive
+            && _sessions.Current.HasCurrentItem
+            && _sessions.Current.CurrentItem.Kind is MediaItemKind.Podcast or MediaItemKind.Episode
+                ? _sessions.Current.CurrentItem
+                : null;
         var currentClipItem = _playerViewActive
             && _sessions.Current.HasCurrentItem
             && _sessions.Current.CurrentItem.Kind is MediaItemKind.Track or MediaItemKind.Episode
@@ -4089,6 +4188,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ? _sessions.Current.CurrentItem
                 : null;
         PlaybackCurrentItemAudioOptionsMenuItem.Visibility = currentLocalItem is null
+            && currentPodcastItem is null
             ? Visibility.Collapsed
             : Visibility.Visible;
         if (currentLocalItem is not null)
@@ -4096,6 +4196,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             MenuAccessibility.SetPresentation(
                 PlaybackCurrentItemAudioOptionsMenuItem,
                 $"Zmień opcje bieżącego utworu — {FormatEffectiveLocalAudioSettings(currentLocalItem)}");
+        }
+        else if (currentPodcastItem is not null)
+        {
+            MenuAccessibility.SetPresentation(
+                PlaybackCurrentItemAudioOptionsMenuItem,
+                currentPodcastItem.Kind == MediaItemKind.Podcast
+                    ? "Zmień opcje bieżącego podcastu"
+                    : "Zmień opcje bieżącego odcinka podcastu");
         }
         var clipVisibility = currentClipItem is null ? Visibility.Collapsed : Visibility.Visible;
         var chapterVisibility = _playerViewActive
@@ -5363,10 +5471,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             episode.IsFavorite = item.IsFavorite;
             episode.IsInQueue = item.IsInQueue;
             episode.IsPlayNext = item.IsPlayNext;
-            episode.ResumePositionTicks = Math.Max(
-                0,
-                session?.RememberedPositions.GetValueOrDefault(item.Id).Ticks
-                    ?? episode.ResumePositionTicks);
+            episode.ResumePositionTicks = ShouldRememberPodcastPosition(item)
+                ? Math.Max(
+                    0,
+                    session?.RememberedPositions.GetValueOrDefault(item.Id).Ticks
+                        ?? episode.ResumePositionTicks)
+                : 0;
         }
 
         if (session?.HasCurrentItem == true
@@ -5383,7 +5493,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (session is not null)
         {
             if (UsesSystemDefaultOutput("podcasts")) _state.Podcasts.Volume = session.Volume;
-            _state.Podcasts.PlaybackRate = session.PlaybackRate;
+            if (!session.HasCurrentItem || GetPodcastPlaybackRateOverride(session.CurrentItem) is null)
+                _state.Podcasts.PlaybackRate = session.PlaybackRate;
         }
     }
 
@@ -5535,11 +5646,39 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return RefreshPodcastSubscriptionsAsync(subscriptions, returnToLibrary: false);
     }
 
+    private async void PodcastRefreshTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_isClosing || _podcastRefreshInProgress) return;
+        var now = DateTime.UtcNow;
+        var due = _state.Podcasts.Subscriptions
+            .Where(subscription => subscription.IsInLibrary && subscription.RefreshIntervalMinutes > 0)
+            .Where(subscription => subscription.LastRefreshUtcTicks <= 0
+                || now - new DateTime(subscription.LastRefreshUtcTicks, DateTimeKind.Utc)
+                    >= TimeSpan.FromMinutes(subscription.RefreshIntervalMinutes))
+            .ToArray();
+        if (due.Length == 0) return;
+
+        _podcastRefreshInProgress = true;
+        try
+        {
+            await RefreshPodcastSubscriptionsAsync(due, returnToLibrary: false, automatic: true);
+        }
+        finally
+        {
+            _podcastRefreshInProgress = false;
+        }
+    }
+
     private async Task RefreshPodcastSubscriptionsAsync(
         IReadOnlyList<PodcastSubscriptionSettings> subscriptions,
-        bool returnToLibrary)
+        bool returnToLibrary,
+        bool automatic = false)
     {
-        if (!string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+        var podcastSessionActive = string.Equals(
+            _sessions.Current.Id,
+            "podcasts",
+            StringComparison.Ordinal);
+        if (!podcastSessionActive && !automatic)
         {
             Announce("Odświeżanie podcastów jest dostępne w sesji Podcasty");
             return;
@@ -5550,9 +5689,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        StatusText.Text = subscriptions.Count == 1
-            ? $"Odświeżanie podcastu: {subscriptions[0].Title}"
-            : $"Odświeżanie podcastów: {subscriptions.Count}";
+        if (!automatic)
+        {
+            StatusText.Text = subscriptions.Count == 1
+                ? $"Odświeżanie podcastu: {subscriptions[0].Title}"
+                : $"Odświeżanie podcastów: {subscriptions.Count}";
+        }
+        var preferredItemId = podcastSessionActive ? SelectedItem?.Id : null;
+        var restoreFocusedList = podcastSessionActive && MediaList.IsKeyboardFocusWithin;
+        if (automatic && restoreFocusedList) AnchorMediaListFocus();
         CapturePodcastState();
         var success = 0;
         var addedEpisodes = 0;
@@ -5589,8 +5734,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         ReloadPodcastSessionItems();
         if (_isClosing) return;
-        if (returnToLibrary) _currentView = "Biblioteka";
-        RefreshCurrentView();
+        if (podcastSessionActive)
+        {
+            if (returnToLibrary) _currentView = "Biblioteka";
+            RefreshCurrentView(preferredItemId: preferredItemId);
+        }
         QueueStateSave(announceFailure: true);
         var inboxCount = _state.Podcasts.Episodes.Count(episode =>
             episode.IsNew
@@ -5603,10 +5751,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             $"Odświeżanie zakończone: poprawne {success}, nieudane {failed}, "
             + $"dodane odcinki {addedEpisodes}, zachowane poza bieżącym RSS "
             + $"{retainedArchivedEpisodes}, w skrzynce {inboxCount}.");
-        PrepareViewFocusContext(
-            $"Odświeżono podcasty: {success} z {subscriptions.Count}. "
-            + $"Nowe teraz: {addedEpisodes}. W skrzynce: {inboxCount}");
-        RestoreMediaListFocusAfterRefresh();
+        if (!automatic)
+        {
+            PrepareViewFocusContext(
+                $"Odświeżono podcasty: {success} z {subscriptions.Count}. "
+                + $"Nowe teraz: {addedEpisodes}. W skrzynce: {inboxCount}");
+            RestoreMediaListFocusAfterRefresh();
+        }
+        else if (restoreFocusedList)
+        {
+            RestoreMediaListFocusAfterRefresh();
+        }
     }
 
     private void ReloadPodcastSessionItems()
@@ -5618,6 +5773,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         session.ReplaceItems(_podcastItems);
         foreach (var episode in _state.Podcasts.Episodes.Where(episode => episode.ResumePositionTicks > 0))
         {
+            var episodeItem = _podcastItems.FirstOrDefault(item =>
+                string.Equals(item.Id, episode.Id, StringComparison.Ordinal));
+            if (episodeItem is null || !ShouldRememberPodcastPosition(episodeItem)) continue;
             session.SetRememberedPosition(episode.Id, TimeSpan.FromTicks(episode.ResumePositionTicks));
         }
         EnsureQueueOrder(session);
@@ -5668,8 +5826,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         try
         {
             destinationFolder = saveAs
-                ? PodcastDownloadFolderResolver.ResolveDialogInitialFolder(_state.Podcasts.DownloadsFolder)
-                : PodcastDownloadFolderResolver.Resolve(_state.Podcasts.DownloadsFolder);
+                ? PodcastDownloadFolderResolver.ResolveDialogInitialFolder(
+                    ResolveConfiguredPodcastDownloadFolder(episodes[0]))
+                : string.Empty;
         }
         catch (Exception exception) when (exception is IOException
             or UnauthorizedAccessException
@@ -5738,8 +5897,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     continue;
                 }
 
+                var itemDestinationFolder = saveAs
+                    ? destinationFolder
+                    : PodcastDownloadFolderResolver.Resolve(
+                        ResolveConfiguredPodcastDownloadFolder(episode));
                 var destinationPath = saveAsPath ?? PodcastDownloadNaming.UniquePath(
-                    destinationFolder,
+                    itemDestinationFolder,
                     PodcastDownloadNaming.SuggestedFileName(
                         episode.Title,
                         episode.MediaUrl,
@@ -5839,6 +6002,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             AnnounceEssential($"Odcinek jest już pobrany: {episodes[0].Title}");
         }
         RestorePodcastDownloadFocus(wasPlayerActive, restoreListFocus);
+    }
+
+    private string? ResolveConfiguredPodcastDownloadFolder(PodcastEpisodeSettings episode)
+    {
+        var subscription = _state.Podcasts.Subscriptions.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, episode.SubscriptionId, StringComparison.Ordinal));
+        return PodcastPlaybackSettingsResolver.ConfiguredDownloadFolder(
+            _state.Podcasts.DownloadsFolder,
+            subscription);
     }
 
     private void RestorePodcastDownloadFocus(bool wasPlayerActive, bool restoreListFocus)
@@ -6213,6 +6385,41 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 folderPath,
                 StringComparison.OrdinalIgnoreCase));
 
+    private PodcastEpisodeSettings? FindPodcastEpisodeSettings(MediaItem item) =>
+        item.Kind == MediaItemKind.Episode
+            ? _state.Podcasts.Episodes.FirstOrDefault(episode =>
+                string.Equals(episode.Id, item.Id, StringComparison.Ordinal))
+            : null;
+
+    private PodcastSubscriptionSettings? FindPodcastSubscriptionSettings(MediaItem item)
+    {
+        var subscriptionId = item.Kind == MediaItemKind.Podcast
+            ? item.Id
+            : FindPodcastEpisodeSettings(item)?.SubscriptionId ?? item.ExternalId;
+        return _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+            string.Equals(subscription.Id, subscriptionId, StringComparison.Ordinal));
+    }
+
+    private bool ShouldRememberPodcastPosition(MediaItem item)
+    {
+        var episode = FindPodcastEpisodeSettings(item);
+        return item.Kind == MediaItemKind.Episode
+            && PodcastPlaybackSettingsResolver.ShouldRememberPosition(
+                episode,
+                FindPodcastSubscriptionSettings(item));
+    }
+
+    private double? GetPodcastPlaybackRateOverride(MediaItem item) =>
+        PodcastPlaybackSettingsResolver.PlaybackRateOverride(
+            FindPodcastEpisodeSettings(item),
+            FindPodcastSubscriptionSettings(item));
+
+    private PlaybackAudioSettings GetEffectivePodcastAudioSettings(MediaItem item) =>
+        PodcastPlaybackSettingsResolver.ResolveAudio(
+            _state.Settings.Audio,
+            FindPodcastEpisodeSettings(item),
+            FindPodcastSubscriptionSettings(item));
+
     private static string NormalizeLocalFilePath(string path)
     {
         try
@@ -6348,13 +6555,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _podcastItems,
             _podcastOutput,
             6,
-            item => item.Kind == MediaItemKind.Episode,
+            ShouldRememberPodcastPosition,
+            GetPodcastPlaybackRateOverride,
             volumeOverride: item => PlaybackVolumeOverride("podcasts", item));
         if (podcasts.HasItems)
         {
             foreach (var episode in _state.Podcasts.Episodes.Where(episode =>
                          episode.ResumePositionTicks > 0))
             {
+                var episodeItem = _podcastItems.FirstOrDefault(item =>
+                    string.Equals(item.Id, episode.Id, StringComparison.Ordinal));
+                if (episodeItem is null || !ShouldRememberPodcastPosition(episodeItem)) continue;
                 podcasts.SetRememberedPosition(
                     episode.Id,
                     TimeSpan.FromTicks(episode.ResumePositionTicks));
@@ -6759,6 +6970,39 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)
         && MainWindowNavigationPolicy.TryGetPodcastDirectoryLabel(result.Item, out _);
 
+    private PodcastSubscriptionSettings? FindPodcastSubscriptionByFeed(string? feedAddress)
+    {
+        if (string.IsNullOrWhiteSpace(feedAddress)) return null;
+        var normalized = NormalizePodcastFeedAddress(feedAddress);
+        return _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+            string.Equals(
+                NormalizePodcastFeedAddress(subscription.FeedUrl),
+                normalized,
+                StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string TogglePodcastDirectoryMembership(
+        IReadOnlyList<PodcastSubscriptionSettings> subscriptions,
+        SearchResultAction action)
+    {
+        CapturePodcastState();
+        var add = PodcastMembershipToggle.Apply(
+            subscriptions,
+            action == SearchResultAction.Library
+                ? PodcastMembershipCollection.Library
+                : PodcastMembershipCollection.Favorites);
+        ReloadPodcastSessionItems();
+        QueueStateSave(announceFailure: true);
+        if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+            RefreshCurrentView(preferredItemId: subscriptions[0].Id);
+
+        var target = action == SearchResultAction.Library ? "Biblioteki" : "ulubionych";
+        var verb = add ? "Dodano do" : "Usunięto z";
+        return subscriptions.Count == 1
+            ? $"{verb} {target}: {subscriptions[0].Title}"
+            : $"{verb} {target}: {FormatItemCount(subscriptions.Count)}";
+    }
+
     private async Task AddPodcastDirectoryResultAsync(
         MediaItem item,
         bool openAfterImport,
@@ -6792,7 +7036,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 RefreshCurrentView(preferredItemId: result.Subscription.Id);
             }
-            AnnounceEssential($"Dodano podcast: {result.Subscription.Title}");
+            AnnounceEssential(markFavorite
+                ? $"Dodano podcast do ulubionych: {result.Subscription.Title}"
+                : $"Dodano podcast do Biblioteki: {result.Subscription.Title}");
         }
         catch (Exception exception) when (exception is HttpRequestException
             or InvalidDataException
@@ -7666,11 +7912,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && result.Handled
             && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
         {
-            _state.Podcasts.PlaybackRate = _sessions.Current.PlaybackRate;
-            // Reopening a finite episode applies the session default again.
-            // Keep that default synchronized with the rate just selected by
-            // the user, otherwise Escape followed by Enter falls back to 1x.
-            _sessions.Current.SetDefaultPlaybackRate(_state.Podcasts.PlaybackRate);
+            var item = _sessions.Current.CurrentItem;
+            var episode = FindPodcastEpisodeSettings(item);
+            var subscription = FindPodcastSubscriptionSettings(item);
+            if (episode?.PlaybackRateOverride is not null)
+            {
+                episode.PlaybackRateOverride = _sessions.Current.PlaybackRate;
+            }
+            else if (subscription?.PlaybackRateOverride is not null)
+            {
+                subscription.PlaybackRateOverride = _sessions.Current.PlaybackRate;
+            }
+            else
+            {
+                _state.Podcasts.PlaybackRate = _sessions.Current.PlaybackRate;
+                _sessions.Current.SetDefaultPlaybackRate(_state.Podcasts.PlaybackRate);
+            }
             CapturePodcastState();
             QueueStateSave();
         }
@@ -10689,6 +10946,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private string ResolveRadioRecordingsFolder()
     {
+        if (_state.Radio.UsePodcastDownloadsFolderForRecordings)
+        {
+            return string.IsNullOrWhiteSpace(_state.Podcasts.DownloadsFolder)
+                ? PodcastDownloadFolderResolver.DefaultFolder()
+                : _state.Podcasts.DownloadsFolder;
+        }
         if (!string.IsNullOrWhiteSpace(_state.Radio.RecordingsFolder))
         {
             return _state.Radio.RecordingsFolder;
@@ -13774,6 +14037,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (results.All(IsPodcastDirectoryResult)
             && action is SearchResultAction.Library or SearchResultAction.Favorite)
         {
+            var mappedSubscriptions = results
+                .Select(result => FindPodcastSubscriptionByFeed(result.Item.Source))
+                .ToArray();
+            if (mappedSubscriptions.All(subscription => subscription is not null))
+            {
+                return TogglePodcastDirectoryMembership(
+                    mappedSubscriptions
+                        .Select(subscription => subscription!)
+                        .DistinctBy(subscription => subscription.Id, StringComparer.Ordinal)
+                        .ToArray(),
+                    action);
+            }
             _ = AddPodcastDirectoryResultsAsync(
                 results.Select(result => result.Item).ToArray(),
                 markFavorite: action == SearchResultAction.Favorite);
@@ -14043,6 +14318,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _localSourceSyncTimer.Tick -= LocalSourceSyncTimer_Tick;
         _radioScheduleTimer.Stop();
         _radioScheduleTimer.Tick -= RadioScheduleTimer_Tick;
+        _podcastRefreshTimer.Stop();
+        _podcastRefreshTimer.Tick -= PodcastRefreshTimer_Tick;
         var manualRecordings = _activeManualRadioRecordings.Values.ToArray();
         foreach (var active in manualRecordings) active.Control.RequestStop();
         foreach (var active in manualRecordings) active.Cancellation.Cancel();
@@ -14534,13 +14811,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+Alt+Shift+P");
         CopyLocationMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
         ItemPlaybackOptionsMenuItem.Visibility = playlistContainer
-            || podcastHeader
-            || podcastEpisode
             || SelectedBookmark is null
                && actionItem?.Kind == MediaItemKind.Station
                && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
             ? Visibility.Collapsed
             : Visibility.Visible;
+        if (ItemPlaybackOptionsMenuItem.Visibility == Visibility.Visible)
+        {
+            SetContextMenuItemPresentation(
+                ItemPlaybackOptionsMenuItem,
+                podcastHeader
+                    ? "Zmień opcje podcastu"
+                    : podcastEpisode
+                        ? "Zmień opcje odcinka podcastu"
+                        : "Opcje odtwarzania elementu",
+                "Alt+Shift+Enter");
+        }
         var relatedAlbum = FindRelatedLocalAlbum(actionItem);
         GoToAlbumMenuItem.Visibility = relatedAlbum is null ? Visibility.Collapsed : Visibility.Visible;
         GoToArtistMenuItem.Visibility = relatedAlbum is not null
@@ -14830,7 +15116,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerExportClipMenuItem.Visibility = clipVisibility;
         PlayerRemoveClipMenuItem.Visibility = localPlaybackOptions ? Visibility.Visible : Visibility.Collapsed;
         PlayerClearClipMenuItem.Visibility = clipVisibility;
-        PlayerItemPlaybackOptionsMenuItem.Visibility = localPlaybackOptions
+        var podcastPlaybackOptions = string.Equals(
+                _sessions.Current.Id,
+                "podcasts",
+                StringComparison.Ordinal)
+            && item.Kind == MediaItemKind.Episode;
+        PlayerItemPlaybackOptionsMenuItem.Visibility = localPlaybackOptions || podcastPlaybackOptions
             ? Visibility.Visible
             : Visibility.Collapsed;
         if (localPlaybackOptions)
@@ -14838,6 +15129,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             SetContextMenuItemPresentation(
                 PlayerItemPlaybackOptionsMenuItem,
                 $"Zmień opcje bieżącego utworu — {FormatEffectiveLocalAudioSettings(item)}",
+                "Alt+Shift+Enter");
+        }
+        else if (podcastPlaybackOptions)
+        {
+            SetContextMenuItemPresentation(
+                PlayerItemPlaybackOptionsMenuItem,
+                "Zmień opcje bieżącego odcinka podcastu",
                 "Alt+Shift+Enter");
         }
         var relatedAlbum = FindRelatedLocalAlbum(item);
