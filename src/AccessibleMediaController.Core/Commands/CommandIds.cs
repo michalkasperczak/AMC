@@ -112,6 +112,10 @@ public static class CommandIds
     public const string AddNamedBookmark = "action.bookmark.addNamed";
     public const string PreviousBookmark = "transport.bookmark.previous";
     public const string NextBookmark = "transport.bookmark.next";
+    public const string ViewChapters = "view.chapters";
+    public const string AddNamedChapter = "action.chapter.addNamed";
+    public const string PreviousChapter = "transport.chapter.previous";
+    public const string NextChapter = "transport.chapter.next";
     public const string ViewNowPlaying = "view.nowPlaying";
     public const string OpenOfficialApp = "action.openOfficialApp";
     public const string SelectAudioOutput = "transport.audio.outputDevice.select";

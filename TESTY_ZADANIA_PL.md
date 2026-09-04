@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-240`
-- Tytuł zestawu: Trwałe cofanie usunięcia podcastu oraz regresja całej aplikacji
-- Wersja programu: `0.1.0-alpha.240`
+- Numer zestawu: `AMC-TEST-241`
+- Tytuł zestawu: Rozdziały, cięcie pobranych podcastów i cofanie usunięcia podcastu
+- Wersja programu: `0.1.0-alpha.241`
 - Utworzono: 2026-09-04, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.240.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.241.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,72 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 241
+
+### AMC-241-01 — tworzenie i trwałość rozdziałów
+
+Otwórz dłuższy plik lokalny. Przejdź do trzech różnych miejsc i w każdym użyj
+`Ctrl+Alt+Shift+B`, nadając rozdziałom różne nazwy. Otwórz listę przez
+`Ctrl+Alt+B`, zamknij ją, uruchom AMC ponownie i otwórz ją jeszcze raz.
+
+Oczekiwane: przy każdym dodawaniu fokus trafia od razu do pola nazwy i wraca do
+odtwarzacza po zapisaniu lub anulowaniu. Lista jest uporządkowana według czasu,
+a nie według kolejności tworzenia. Rozdziały przetrwały restart. NVDA nie czyta
+nazw klas, właściwości ani innych technicznych reprezentacji elementów.
+
+### AMC-241-02 — zakładka i rozdział w tym samym miejscu
+
+W jednym miejscu dodaj nazwaną zakładkę `Ctrl+Shift+B`, a następnie nazwany
+rozdział `Ctrl+Alt+Shift+B`. Usuń oznaczenie rozdziału Delete z listy
+rozdziałów i sprawdź listę zakładek. Powtórz w odwrotnej kolejności, usuwając
+zakładkę z jej listy.
+
+Oczekiwane: w danym miejscu nie powstają dwa prawie identyczne punkty.
+Usunięcie oznaczenia rozdziału nie usuwa zakładki, a usunięcie zakładki nie
+usuwa rozdziału.
+
+### AMC-241-03 — nawigacja i wybiórcze odtwarzanie rozdziałów
+
+W odtwarzaczu sprawdź `Ctrl+Alt+Page Up` i `Ctrl+Alt+Page Down`. Następnie na
+liście rozdziałów zaznacz Shiftem dwa rozdziały, które nie leżą obok siebie, i
+naciśnij Enter.
+
+Oczekiwane: skróty przechodzą do właściwych początków i podają nazwę oraz czas.
+Odtwarzanie rozpoczyna się od pierwszego zaznaczonego rozdziału, pomija fragment
+między wybranymi rozdziałami i zatrzymuje się po końcu ostatniego. Nie uruchamia
+następnego pliku ani odcinka. Zwykłe ręczne przewinięcie kończy tryb odtwarzania
+wyboru i pozostawia normalne sterowanie odtwarzaczem.
+
+### AMC-241-04 — zapis rozdziału bez zmiany oryginału
+
+Wybierz jeden rozdział pliku lokalnego i użyj przycisku **Zapisz rozdział…**.
+Wskaż nową nazwę, poczekaj na zakończenie i odtwórz wynik. Porównaj czas oraz
+sprawdź, czy oryginał nadal istnieje i odtwarza się w całości.
+
+Oczekiwane: nowy plik obejmuje od początku wybranego rozdziału do początku
+następnego albo końca materiału. Operacja nie zmienia oryginału. Anulowanie
+okna zapisu nie tworzy pliku i prawidłowo przywraca fokus.
+
+### AMC-241-05 — cięcie pobranego i zdalnego odcinka
+
+Otwórz pobrany odcinek podcastu, zaznacz fragment klawiszami `I` oraz `O`,
+sprawdź granice `Alt+Page Up` i `Alt+Page Down`, a następnie użyj `Shift+X`.
+Powtórz próbę na odcinku, którego plik nie został pobrany.
+
+Oczekiwane: punkty pobranego odcinka są zapamiętane po restarcie, a `Shift+X`
+zapisuje nowy plik bez modyfikacji pobranego oryginału. Zdalny odcinek nie jest
+pobierany po cichu; AMC prosi najpierw o jawne `Ctrl+D`.
+
+### AMC-241-06 — lista rozdziałów i fokus NVDA
+
+Otwórz listę rozdziałów z listy multimediów i z odtwarzacza. Sprawdź pierwszy
+zaznaczony element, nawigację strzałkami, wielokrotne zaznaczenie Shiftem,
+przyciski Tabem, Escape, zapis, usunięcie i ponowne otwarcie.
+
+Oczekiwane: początkowo zaznaczony jest rozdział zawierający bieżącą pozycję.
+Każdy wiersz podaje nazwę, początek i długość. Po każdej operacji fokus wraca do
+tego widoku, z którego otwarto listę; nic nie blokuje klawiatury ani NVDA.
 
 ## Nowości alpha 240
 

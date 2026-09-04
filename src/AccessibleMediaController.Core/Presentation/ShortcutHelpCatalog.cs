@@ -130,7 +130,9 @@ public static class ShortcutHelpCatalog
             || commandId.StartsWith("information.time", StringComparison.Ordinal)
             || commandId is CommandIds.ViewNowPlaying or CommandIds.AddBookmark
                 or CommandIds.AddNamedBookmark or CommandIds.PreviousBookmark
-                or CommandIds.NextBookmark)
+                or CommandIds.NextBookmark or CommandIds.ViewChapters
+                or CommandIds.AddNamedChapter or CommandIds.PreviousChapter
+                or CommandIds.NextChapter)
         {
             return "player";
         }

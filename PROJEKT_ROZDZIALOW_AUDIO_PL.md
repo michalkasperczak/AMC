@@ -1,9 +1,34 @@
 # Projekt rozdziałów audio opartych na Zakładkach AMC
 
-Status: zatwierdzony kierunek niewielkiej, przyszłej funkcji wspólnego
-odtwarzacza AMC. Nie jest to osobna sesja ani duży samodzielny moduł. Dokument
-opisuje model i interfejs; nie oznacza jeszcze gotowej implementacji ani
-rezerwacji nowych skrótów klawiszowych.
+Status: pierwsza działająca implementacja od `alpha.241`; dalsze punkty tego
+dokumentu wyznaczają kolejne etapy. Nie jest to osobna sesja ani duży
+samodzielny moduł, tylko funkcja wspólnego odtwarzacza AMC.
+
+## Stan wdrożony w alpha.241
+
+- zakładka i rozdział korzystają z jednego trwałego punktu czasu, który może
+  pełnić jedną albo obie funkcje;
+- usunięcie zakładki zachowuje współdzielony rozdział, a usunięcie własnego
+  rozdziału zachowuje współdzieloną zakładkę;
+- `Ctrl+Alt+Shift+B` w odtwarzaczu dodaje nazwany rozdział;
+- `Ctrl+Alt+B` otwiera dostępną listę chronologiczną, również z listy materiałów;
+- `Ctrl+Alt+Page Up` i `Ctrl+Alt+Page Down` przechodzą do poprzedniego albo
+  następnego początku rozdziału;
+- Shift ze strzałkami na liście rozdziałów zaznacza kilka pozycji, Enter
+  odtwarza tylko zaznaczone rozdziały, a Delete usuwa własne oznaczenia;
+- przy odtwarzaniu nieprzyległych rozdziałów AMC przeskakuje pominięte odcinki,
+  a po ostatnim wybranym rozdziale zatrzymuje się bez przejścia do kolejnego
+  materiału;
+- przycisk **Zapisz rozdział…** zapisuje jeden rozdział do nowego pliku przez
+  sprawdzony mechanizm FFmpeg; oryginał pozostaje nietknięty;
+- pobrany odcinek podcastu korzysta także z trwałego zaznaczenia `I`–`O`,
+  nawigacji po granicach i `Shift+X`; zdalny odcinek wymaga najpierw `Ctrl+D`;
+- schemat SQLite przechowuje zastosowanie punktu, pochodzenie rozdziału oraz
+  przyszły identyfikator źródła. Kontrolki mają jawne etykiety dla NVDA.
+
+Nie wdrożono jeszcze odczytu rozdziałów dostawcy z Podcasting 2.0, ID3, MP4
+ani CUE, korekty granic o 0,1/0,5 sekundy, wykrywania ciszy, eksportu CUE/AMC,
+natywnego zapisu metadanych i listy montażowej.
 
 ## 1. Jedna oś czasu, dwa zastosowania
 
@@ -92,28 +117,28 @@ Użytkownik może więc dodać własne rozdziały także do istniejącego podcas
 Rozdziały dostawcy i użytkownika muszą pozostać rozróżnialne, aby odświeżenie
 kanału nie nadpisało lokalnej pracy.
 
-`Ctrl+Shift+B` pozostaje szybkim sposobem zapisania nazwanego punktu podczas
-słuchania. Przekształcenie go w rozdział odbywa się bez kopiowania czasu i bez
+`Ctrl+Shift+B` pozostaje szybkim sposobem zapisania nazwanej zakładki podczas
+słuchania. `Ctrl+Alt+Shift+B` zapisuje nazwany początek rozdziału. Jeżeli oba
+punkty przypadają w tym samym miejscu, są scalane bez kopiowania czasu i bez
 tworzenia drugiego, prawie identycznego rekordu.
 
-Na liście odcinków prawa strzałka może w przyszłości otwierać listę rozdziałów,
-ale wyłącznie wtedy, gdy odcinek rzeczywiście je ma; brak rozdziałów nie może
-zmieniać fokusu ani otwierać pustego widoku. `Ctrl+Page Up` i `Ctrl+Page Down`
-pozostają przełączaniem sesji, dlatego nie mogą równocześnie nawigować po
-rozdziałach. Roboczym, bezkolizyjnym wyborem w odtwarzaczu jest
-`Ctrl+Alt+Page Up` i `Ctrl+Alt+Page Down`.
+`Ctrl+Page Up` i `Ctrl+Page Down` pozostają przełączaniem sesji, dlatego nie
+mogą równocześnie nawigować po rozdziałach. W odtwarzaczu działają
+`Ctrl+Alt+Page Up` i `Ctrl+Alt+Page Down`. Prawa strzałka nadal nie zmienia
+znaczenia zależnie od obecności rozdziałów; lista ma stałe polecenie
+`Ctrl+Alt+B`, a brak rozdziałów nie zmienia fokusu.
 
-Wybrany rozdział będzie można zapisać jako osobny plik. Polecenie **Zapisz
-rozdział…** najpierw trafi do menu kontekstowego listy rozdziałów; skrót zostanie
-ustalony po teście, ponieważ `Ctrl+S` oznacza zapis całego odcinka, a
-`Ctrl+Shift+S` jest przewidywany dla listy sesji. Źródłowa kolejność rozdziałów
-pozostaje czasowa. Osobna lista odtwarzania lub montażowa może wybrać i
-przestawić rozdziały bez modyfikowania podcastu.
+Wybrany pojedynczy rozdział można zapisać jako osobny plik przyciskiem
+**Zapisz rozdział…** na liście rozdziałów. `Ctrl+S` nadal oznacza zapis całego
+odcinka. Źródłowa kolejność rozdziałów pozostaje czasowa. Osobna lista
+odtwarzania lub montażowa będzie mogła w przyszłości wybrać i przestawić
+rozdziały bez modyfikowania podcastu.
 
 ## 7. Kolejność wdrożenia
 
-1. Rozszerzenie modelu Zakładki o oznaczenie początku rozdziału i migracja SQLite.
-2. Dostępna lista rozdziałów, tworzenie z nazwanej zakładki, zmiana nazwy i podgląd.
+1. Wykonane: rozszerzenie modelu Zakładki o oznaczenie początku rozdziału i migracja SQLite.
+2. Częściowo wykonane: dostępna lista rozdziałów, tworzenie nazwanych punktów,
+   usuwanie oznaczenia, nawigacja, wybiórcze odtwarzanie i zapis jednego rozdziału.
 3. Precyzyjna korekta czasu oraz propozycje wykryte na podstawie ciszy.
 4. Eksport CUE i wersjonowanego pliku AMC, potem natywne rozdziały MP3/M4A.
 5. Eksport osobnych plików i niedestrukcyjna lista montażowa.

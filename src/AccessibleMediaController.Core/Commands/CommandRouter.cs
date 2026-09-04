@@ -43,6 +43,9 @@ public interface IApplicationActions
     void AddBookmark();
     void AddNamedBookmark();
     void NavigateBookmark(int direction);
+    void ShowChapters();
+    void AddNamedChapter();
+    void NavigateChapter(int direction);
 }
 
 public readonly record struct CommandExecutionResult(bool Handled, bool KeepPrefixActive = false);
@@ -147,6 +150,18 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.NextBookmark:
                 application.NavigateBookmark(1);
+                return new(true);
+            case CommandIds.ViewChapters:
+                application.ShowChapters();
+                return new(true);
+            case CommandIds.AddNamedChapter:
+                application.AddNamedChapter();
+                return new(true);
+            case CommandIds.PreviousChapter:
+                application.NavigateChapter(-1);
+                return new(true);
+            case CommandIds.NextChapter:
+                application.NavigateChapter(1);
                 return new(true);
             case CommandIds.ItemProperties:
                 application.ShowItemProperties();

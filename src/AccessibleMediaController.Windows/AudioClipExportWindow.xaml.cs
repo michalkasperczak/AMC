@@ -13,6 +13,7 @@ public partial class AudioClipExportWindow : AccessibleMediaController.Windows.C
     private readonly string _sourceTitle;
     private readonly TimeSpan _start;
     private readonly TimeSpan _end;
+    private readonly string _contentKind;
     private CancellationTokenSource? _exportCancellation;
     private bool _exporting;
     private bool _allowClose;
@@ -21,16 +22,28 @@ public partial class AudioClipExportWindow : AccessibleMediaController.Windows.C
         string sourcePath,
         string sourceTitle,
         TimeSpan start,
-        TimeSpan end)
+        TimeSpan end,
+        string contentKind = "fragment")
     {
         InitializeComponent();
         _sourcePath = sourcePath;
         _sourceTitle = sourceTitle;
         _start = start;
         _end = end;
+        _contentKind = string.Equals(contentKind, "rozdział", StringComparison.OrdinalIgnoreCase)
+            ? "rozdział"
+            : "fragment";
+        Title = _contentKind == "rozdział" ? "Zapisz rozdział audio" : "Zapisz fragment audio";
         SelectionText.Text =
             $"{sourceTitle}. Od {FormatTime(start)} do {FormatTime(end)}. "
-            + $"Długość fragmentu: {FormatTime(end - start)}.";
+            + $"Długość {_contentKind}u: {FormatTime(end - start)}.";
+        System.Windows.Automation.AutomationProperties.SetName(SelectionText, SelectionText.Text);
+        System.Windows.Automation.AutomationProperties.SetName(
+            FormatCombo,
+            _contentKind == "rozdział" ? "Sposób zapisu rozdziału" : "Sposób zapisu fragmentu");
+        System.Windows.Automation.AutomationProperties.SetName(
+            ExportProgress,
+            _contentKind == "rozdział" ? "Postęp zapisywania rozdziału" : "Postęp zapisywania fragmentu");
 
         if (AudioClipExporter.IsFfmpegAvailable)
         {
@@ -59,10 +72,12 @@ public partial class AudioClipExportWindow : AccessibleMediaController.Windows.C
         var extension = AudioClipExporter.SuggestedExtension(_sourcePath, format);
         var dialog = new SaveFileDialog
         {
-            Title = "Zapisz zaznaczony fragment jako nowy plik",
+            Title = _contentKind == "rozdział"
+                ? "Zapisz rozdział jako nowy plik"
+                : "Zapisz zaznaczony fragment jako nowy plik",
             AddExtension = true,
             DefaultExt = extension,
-            FileName = SanitizeFileName(_sourceTitle) + " - fragment" + extension,
+            FileName = SanitizeFileName(_sourceTitle) + $" - {_contentKind}" + extension,
             Filter = format switch
             {
                 AudioClipExportFormat.Flac => "Plik FLAC (*.flac)|*.flac",
@@ -78,7 +93,7 @@ public partial class AudioClipExportWindow : AccessibleMediaController.Windows.C
         FormatCombo.IsEnabled = false;
         ExportProgress.Visibility = Visibility.Visible;
         ExportProgress.Value = 0;
-        ExportStatus.Text = "Zapisywanie fragmentu…";
+        ExportStatus.Text = $"Zapisywanie {_contentKind}u…";
         CancelButton.Content = "_Przerwij";
         _exportCancellation = new CancellationTokenSource();
         var progress = new Progress<double>(value =>
@@ -94,7 +109,7 @@ public partial class AudioClipExportWindow : AccessibleMediaController.Windows.C
                 progress,
                 _exportCancellation.Token);
             ResultPath = dialog.FileName;
-            ExportStatus.Text = "Fragment zapisany.";
+            ExportStatus.Text = _contentKind == "rozdział" ? "Rozdział zapisany." : "Fragment zapisany.";
             _allowClose = true;
             DialogResult = true;
         }
@@ -114,7 +129,7 @@ public partial class AudioClipExportWindow : AccessibleMediaController.Windows.C
             System.Windows.MessageBox.Show(
                 this,
                 exception.Message,
-                "Nie udało się zapisać fragmentu",
+                _contentKind == "rozdział" ? "Nie udało się zapisać rozdziału" : "Nie udało się zapisać fragmentu",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             ResetAfterExport();

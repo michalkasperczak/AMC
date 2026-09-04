@@ -101,6 +101,7 @@ try
     TestAudioClipExporter();
     TestAudioClipOriginalEditor();
     TestAudioClipExportAccessibility();
+    TestChapterWindowAccessibility();
     TestFfmpegComponentSecurity();
     TestWaveMetadataAndDamagedContainers();
     TestLocalVideoAudioExtraction();
@@ -1046,6 +1047,74 @@ static void TestAudioClipExportAccessibility()
     if (failure is not null)
         throw new InvalidOperationException("Test dostępności okna eksportu fragmentu nie powiódł się.", failure);
     Console.WriteLine("OK: jawne etykiety NVDA sposobów zapisu fragmentu");
+}
+
+static void TestChapterWindowAccessibility()
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            var first = new BookmarkEntry
+            {
+                Id = "chapter-1",
+                SessionId = "podcasts",
+                SessionName = "Podcasty",
+                ItemId = "episode-1",
+                ItemTitle = "Odcinek",
+                Name = "Wprowadzenie",
+                PositionTicks = TimeSpan.FromMinutes(1).Ticks,
+                Purpose = BookmarkPurpose.Chapter
+            };
+            var second = new BookmarkEntry
+            {
+                Id = "chapter-2",
+                SessionId = "podcasts",
+                SessionName = "Podcasty",
+                ItemId = "episode-1",
+                ItemTitle = "Odcinek",
+                Name = "Rozmowa",
+                PositionTicks = TimeSpan.FromMinutes(5).Ticks,
+                Purpose = BookmarkPurpose.Chapter
+            };
+            var chapters = new[]
+            {
+                new ChapterSegment(first, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5)),
+                new ChapterSegment(second, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(10))
+            };
+            var window = new ChapterListWindow("Odcinek", chapters, TimeSpan.FromMinutes(6));
+            window.Show();
+            Assert(window.ChapterList.SelectedIndex == 1,
+                "Lista rozdziałów nie zaznacza rozdziału zawierającego bieżącą pozycję.");
+            Assert(AutomationProperties.GetName(window.ChapterList) == "Rozdziały: Odcinek",
+                "Lista rozdziałów nie ma jednoznacznej nazwy dla NVDA.");
+            foreach (var row in window.ChapterList.Items.OfType<ChapterListRow>())
+            {
+                Assert(!string.IsNullOrWhiteSpace(row.AccessibleLabel), "Rozdział nie ma jawnej etykiety.");
+                Assert(!row.AccessibleLabel.Contains('{')
+                       && !row.AccessibleLabel.Contains(nameof(ChapterSegment), StringComparison.Ordinal),
+                    "Techniczna reprezentacja rozdziału wyciekła do etykiety listy.");
+            }
+            window.Close();
+
+            var nameWindow = new ChapterNameWindow("Odcinek", TimeSpan.FromMinutes(3));
+            Assert(AutomationProperties.GetName(nameWindow.NameBox) == "Nazwa rozdziału",
+                "Pole nazwy rozdziału nie ma jawnej nazwy dostępnościowej.");
+            nameWindow.Close();
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+
+    if (failure is not null)
+        throw new InvalidOperationException("Test dostępności okien rozdziałów nie powiódł się.", failure);
+    Console.WriteLine("OK: czytelna lista rozdziałów, początkowy wybór i brak technicznych etykiet");
 }
 
 static void TestFfmpegComponentSecurity()

@@ -1,5 +1,16 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.241` adds the first working chapter workflow for local media and
+podcast episodes. In the player, `Ctrl+Alt+Shift+B` creates a named chapter,
+`Ctrl+Alt+B` opens its chronological chapter list, and
+`Ctrl+Alt+Page Up/Down` navigates chapter starts. Multiple selected chapters
+can be played as a bounded selection; reaching its end never advances to the
+next media item. A single chapter can be saved to a new file without modifying
+the source. Downloaded episodes also inherit persistent `I`/`O` clip points and
+non-destructive `Shift+X` export; a remote episode must first be explicitly
+downloaded with `Ctrl+D`. Bookmarks and chapters may share one durable point,
+while removing either role preserves the other.
+
 Version `alpha.240` fixes undo after removing an entire podcast from the
 Library. `Ctrl+Z` now restores both the visible item and the persisted
 subscription record, so Enter can immediately open the restored show and its

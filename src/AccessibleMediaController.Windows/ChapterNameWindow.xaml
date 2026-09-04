@@ -1,0 +1,23 @@
+<controls:AccessibleWindow x:Class="AccessibleMediaController.Windows.ChapterNameWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="Nowy rozdział" Width="540" Height="220"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="16">
+        <TextBlock x:Name="ContextText" Margin="0,0,0,10" TextWrapping="Wrap"
+                   automation:AutomationProperties.HeadingLevel="Level1" />
+        <Label Target="{Binding ElementName=NameBox}">_Nazwa rozdziału:</Label>
+        <TextBox x:Name="NameBox" MaxLength="200" Margin="0,0,0,16"
+                 automation:AutomationProperties.Name="Nazwa rozdziału"
+                 automation:AutomationProperties.HelpText="Maksymalnie 200 znaków. Enter zapisuje, Escape anuluje." />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Width="95" Margin="0,0,8,0" Content="_Zapisz" IsDefault="True"
+                    automation:AutomationProperties.Name="Zapisz rozdział"
+                    Click="Save_Click" />
+            <Button Width="95" Content="_Anuluj" IsCancel="True"
+                    automation:AutomationProperties.Name="Anuluj" />
+        </StackPanel>
+    </StackPanel>
+</controls:AccessibleWindow>

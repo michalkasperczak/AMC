@@ -222,6 +222,23 @@
                 <MenuItem x:Name="PlaybackNextBookmarkMenuItem" Header="Następna zakładka" InputGestureText="Shift+Page Down"
                           automation:AutomationProperties.Name="Następna zakładka, Shift+Page Down, tylko w odtwarzaczu"
                           Click="NextBookmark_Click" />
+                <Separator x:Name="PlaybackBeforeChaptersSeparator" />
+                <MenuItem x:Name="PlaybackChaptersMenuItem" Header="_Rozdziały…" InputGestureText="Ctrl+Alt+B"
+                          automation:AutomationProperties.Name="Pokaż rozdziały bieżącego materiału, Ctrl+Alt+B"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+B"
+                          Click="Chapters_Click" />
+                <MenuItem x:Name="PlaybackAddNamedChapterMenuItem" Header="Dodaj _nazwany rozdział…" InputGestureText="Ctrl+Alt+Shift+B"
+                          automation:AutomationProperties.Name="Dodaj nazwany rozdział w bieżącym miejscu, Ctrl+Alt+Shift+B, tylko w odtwarzaczu"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+Shift+B"
+                          Click="AddNamedChapter_Click" />
+                <MenuItem x:Name="PlaybackPreviousChapterMenuItem" Header="Poprzedni rozdział" InputGestureText="Ctrl+Alt+Page Up"
+                          automation:AutomationProperties.Name="Poprzedni rozdział, Ctrl+Alt+Page Up, tylko w odtwarzaczu"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+Page Up"
+                          Click="PreviousChapter_Click" />
+                <MenuItem x:Name="PlaybackNextChapterMenuItem" Header="Następny rozdział" InputGestureText="Ctrl+Alt+Page Down"
+                          automation:AutomationProperties.Name="Następny rozdział, Ctrl+Alt+Page Down, tylko w odtwarzaczu"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+Page Down"
+                          Click="NextChapter_Click" />
                 <Separator x:Name="PlaybackBeforeClipSeparator" />
                 <MenuItem x:Name="PlaybackMarkClipStartMenuItem" Header="Ustaw początek _fragmentu" InputGestureText="I"
                           automation:AutomationProperties.Name="Ustaw początek fragmentu, I, tylko w odtwarzaczu lokalnego pliku"
@@ -496,6 +513,10 @@
                     <MenuItem x:Name="InformationMenuItem" Header="Właściwości i informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.Name="Właściwości i informacje, Alt+Enter"
                               Click="Information_Click" />
+                    <MenuItem x:Name="ChaptersMenuItem" Header="Rozdziały…" InputGestureText="Ctrl+Alt+B"
+                              automation:AutomationProperties.Name="Pokaż rozdziały tego materiału, Ctrl+Alt+B"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+B"
+                              Visibility="Collapsed" Click="Chapters_Click" />
                     <MenuItem x:Name="PodcastDescriptionMenuItem" Header="Pełny opis podcastu lub odcinka…" InputGestureText="Alt+D"
                               automation:AutomationProperties.Name="Pokaż pełny opis podcastu lub odcinka, Alt+D"
                               automation:AutomationProperties.AcceleratorKey="Alt+D"
@@ -626,6 +647,23 @@
                     <MenuItem x:Name="PlayerBookmarksMenuItem" Header="Pokaż zakładki" InputGestureText="Ctrl+B"
                               automation:AutomationProperties.Name="Pokaż zakładki, Ctrl+B"
                               Click="BookmarksView_Click" />
+                    <Separator x:Name="PlayerBeforeChaptersSeparator" />
+                    <MenuItem x:Name="PlayerChaptersMenuItem" Header="Pokaż rozdziały…" InputGestureText="Ctrl+Alt+B"
+                              automation:AutomationProperties.Name="Pokaż rozdziały bieżącego materiału, Ctrl+Alt+B"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+B"
+                              Click="Chapters_Click" />
+                    <MenuItem x:Name="PlayerAddNamedChapterMenuItem" Header="Dodaj nazwany rozdział…" InputGestureText="Ctrl+Alt+Shift+B"
+                              automation:AutomationProperties.Name="Dodaj nazwany rozdział w bieżącym miejscu, Ctrl+Alt+Shift+B"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+Shift+B"
+                              Click="AddNamedChapter_Click" />
+                    <MenuItem x:Name="PlayerPreviousChapterMenuItem" Header="Poprzedni rozdział" InputGestureText="Ctrl+Alt+Page Up"
+                              automation:AutomationProperties.Name="Poprzedni rozdział, Ctrl+Alt+Page Up"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+Page Up"
+                              Click="PreviousChapter_Click" />
+                    <MenuItem x:Name="PlayerNextChapterMenuItem" Header="Następny rozdział" InputGestureText="Ctrl+Alt+Page Down"
+                              automation:AutomationProperties.Name="Następny rozdział, Ctrl+Alt+Page Down"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+Page Down"
+                              Click="NextChapter_Click" />
                     <Separator x:Name="PlayerBeforeClipSeparator" />
                     <MenuItem x:Name="PlayerMarkClipStartMenuItem" Header="Ustaw początek fragmentu" InputGestureText="I"
                               automation:AutomationProperties.Name="Ustaw początek fragmentu, I"

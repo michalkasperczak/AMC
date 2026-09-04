@@ -4,6 +4,15 @@ Document version: 0.7, current project plan
 
 Updated: 29 August 2026
 
+Since `alpha.241`, the shared player supports user-authored chapters for local
+media and podcast episodes. A chapter is a durable named time point and can
+share one record with a regular bookmark without coupling their removal.
+`Ctrl+Alt+B` opens the chronological list, `Ctrl+Alt+Shift+B` adds a chapter,
+and `Ctrl+Alt+Page Up/Down` navigates chapter starts. The list can play only a
+selected set of chapters and save one chapter as a new file. A downloaded
+episode inherits the same persistent `I`–`O` selection and non-destructive
+export as local media; network content is never downloaded implicitly.
+
 Since `alpha.223`, a one-time migration repairs Inboxes created by early OPML
 imports. If a followed show has no new episode, only its newest untouched
 episode becomes new. Shows that already have a new entry, started or played

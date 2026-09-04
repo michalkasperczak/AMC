@@ -11,12 +11,14 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
     private static readonly TimeSpan NavigationTolerance = TimeSpan.FromSeconds(2);
 
     public IReadOnlyList<BookmarkEntry> GetAll() => settings.Entries
+        .Where(IsBookmark)
         .OrderByDescending(entry => entry.CreatedUtcTicks)
         .ThenBy(entry => entry.Id, StringComparer.Ordinal)
         .ToArray();
 
     public IReadOnlyList<BookmarkEntry> GetForDisplay(string currentSessionId, string currentItemId) =>
         settings.Entries
+            .Where(IsBookmark)
             .OrderBy(entry => IsCurrentItem(entry, currentSessionId, currentItemId) ? 0 : 1)
             .ThenBy(entry => entry.SessionName, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(entry => entry.ItemTitle, StringComparer.CurrentCultureIgnoreCase)
@@ -26,7 +28,8 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
             .ToArray();
 
     public IReadOnlyList<BookmarkEntry> GetForItem(string sessionId, string itemId) => settings.Entries
-        .Where(entry => string.Equals(entry.SessionId, sessionId, StringComparison.OrdinalIgnoreCase)
+        .Where(entry => IsBookmark(entry)
+            && string.Equals(entry.SessionId, sessionId, StringComparison.OrdinalIgnoreCase)
             && string.Equals(entry.ItemId, itemId, StringComparison.Ordinal))
         .OrderBy(entry => entry.PositionTicks)
         .ThenBy(entry => entry.CreatedUtcTicks)
@@ -47,10 +50,13 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
         if (item.Duration > TimeSpan.Zero && clamped > item.Duration) clamped = item.Duration;
         var roundedTicks = TimeSpan.FromSeconds(Math.Round(clamped.TotalSeconds)).Ticks;
         var normalizedName = NormalizeName(name);
-        var existing = GetForItem(sessionId, item.Id).FirstOrDefault(entry =>
-            Math.Abs(entry.PositionTicks - roundedTicks) <= DuplicateTolerance.Ticks);
+        var existing = settings.Entries.FirstOrDefault(entry =>
+            string.Equals(entry.SessionId, sessionId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(entry.ItemId, item.Id, StringComparison.Ordinal)
+            && Math.Abs(entry.PositionTicks - roundedTicks) <= DuplicateTolerance.Ticks);
         if (existing is not null)
         {
+            existing.Purpose |= BookmarkPurpose.Bookmark;
             var nameChanged = normalizedName.Length > 0
                 && !string.Equals(existing.Name, normalizedName, StringComparison.CurrentCulture);
             if (nameChanged) existing.Name = normalizedName;
@@ -65,12 +71,17 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
             ItemTitle = item.Title,
             Name = normalizedName,
             PositionTicks = roundedTicks,
-            CreatedUtcTicks = utcNow.ToUniversalTime().Ticks
+            CreatedUtcTicks = utcNow.ToUniversalTime().Ticks,
+            Purpose = BookmarkPurpose.Bookmark
         };
         settings.Entries.Add(entry);
         if (settings.Entries.Count > MaxEntries)
         {
-            var retainedIds = GetAll().Take(MaxEntries).Select(candidate => candidate.Id)
+            var retainedIds = settings.Entries
+                .OrderByDescending(candidate => candidate.CreatedUtcTicks)
+                .ThenBy(candidate => candidate.Id, StringComparer.Ordinal)
+                .Take(MaxEntries)
+                .Select(candidate => candidate.Id)
                 .ToHashSet(StringComparer.Ordinal);
             settings.Entries.RemoveAll(candidate => !retainedIds.Contains(candidate.Id));
         }
@@ -113,7 +124,22 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
     public int Remove(IEnumerable<string> bookmarkIds)
     {
         var ids = bookmarkIds.ToHashSet(StringComparer.Ordinal);
-        return settings.Entries.RemoveAll(entry => ids.Contains(entry.Id));
+        var changed = 0;
+        for (var index = settings.Entries.Count - 1; index >= 0; index--)
+        {
+            var entry = settings.Entries[index];
+            if (!ids.Contains(entry.Id) || !IsBookmark(entry)) continue;
+            if ((entry.Purpose & BookmarkPurpose.Chapter) != 0)
+            {
+                entry.Purpose &= ~BookmarkPurpose.Bookmark;
+            }
+            else
+            {
+                settings.Entries.RemoveAt(index);
+            }
+            changed++;
+        }
+        return changed;
     }
 
     public void Normalize()
@@ -130,6 +156,13 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
                 entry.Name = NormalizeName(entry.Name);
                 entry.PositionTicks = Math.Max(0, entry.PositionTicks);
                 entry.CreatedUtcTicks = Math.Max(0, entry.CreatedUtcTicks);
+                entry.Purpose &= BookmarkPurpose.Bookmark | BookmarkPurpose.Chapter;
+                if (entry.Purpose == BookmarkPurpose.None) entry.Purpose = BookmarkPurpose.Bookmark;
+                if ((entry.Purpose & BookmarkPurpose.Chapter) == 0)
+                {
+                    entry.ChapterOrigin = ChapterOrigin.User;
+                    entry.ChapterSourceId = null;
+                }
                 return entry;
             })
             .GroupBy(entry => entry.Id, StringComparer.Ordinal)
@@ -152,4 +185,7 @@ public sealed class BookmarkIndex(BookmarkSettings settings)
         string currentItemId) =>
         string.Equals(entry.SessionId, currentSessionId, StringComparison.OrdinalIgnoreCase)
         && string.Equals(entry.ItemId, currentItemId, StringComparison.Ordinal);
+
+    private static bool IsBookmark(BookmarkEntry entry) =>
+        (entry.Purpose & BookmarkPurpose.Bookmark) != 0;
 }

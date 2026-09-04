@@ -34,7 +34,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly StatePersistenceQueue _statePersistence;
     private PlaybackHistory _playbackHistory;
     private BookmarkIndex _bookmarkIndex;
+    private ChapterIndex _chapterIndex;
     private readonly AudioClipSelection _audioClipSelection = new();
+    private ChapterPlaybackPlan? _chapterPlaybackPlan;
     private bool _audioClipEditInProgress;
     private SessionManager _sessions = null!;
     private CommandRouter _router = null!;
@@ -103,6 +105,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         new(StringComparer.Ordinal);
     private PendingInternalListMove? _pendingInternalListMove;
     private readonly DispatcherTimer _playerUiTimer;
+    private readonly DispatcherTimer _chapterPlaybackTimer;
     private readonly DispatcherTimer _localSourceSyncTimer;
     private readonly DispatcherTimer _radioScheduleTimer;
     private readonly Dictionary<string, ActiveScheduledRadioRecording> _activeScheduledRadioRecordings =
@@ -207,6 +210,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Interval = TimeSpan.FromSeconds(1)
         };
         _playerUiTimer.Tick += PlayerUiTimer_Tick;
+        _chapterPlaybackTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(150)
+        };
+        _chapterPlaybackTimer.Tick += ChapterPlaybackTimer_Tick;
         _localSourceSyncTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromMilliseconds(900)
@@ -245,6 +253,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ClearPersistedListFiltersAtStartup();
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
         _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);
+        _chapterIndex = new ChapterIndex(_state.Bookmarks);
         LoadPersistedLocalMedia();
         LoadPersistedRadio();
         LoadPersistedPodcasts();
@@ -717,6 +726,303 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : $"Zakładka {result.Entry.Name} już istnieje: {time}");
     }
 
+    public void AddNamedChapter()
+    {
+        if (!_playerViewActive || !_sessions.Current.HasCurrentItem)
+        {
+            Announce("Rozdział można dodać w otwartym odtwarzaczu");
+            return;
+        }
+
+        var session = _sessions.Current;
+        var item = session.CurrentItem;
+        if (item.Duration <= TimeSpan.Zero)
+        {
+            Announce("Nie można dodać rozdziału: czas trwania materiału jest nieznany");
+            return;
+        }
+        var position = session.Position;
+        if (position >= item.Duration - TimeSpan.FromMilliseconds(50))
+        {
+            Announce("Nie można rozpocząć rozdziału na końcu materiału");
+            return;
+        }
+
+        var dialog = new ChapterNameWindow(item.Title, position) { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            FocusPlayerView();
+            return;
+        }
+
+        var result = _chapterIndex.AddUserChapter(
+            session.Id,
+            session.DisplayName,
+            item,
+            position,
+            DateTime.UtcNow,
+            dialog.ChapterName);
+        QueueStateSave(announceFailure: true);
+        FocusPlayerView();
+        var time = CommandRouter.FormatTime(TimeSpan.FromTicks(result.Entry.PositionTicks));
+        Announce(result.Added
+            ? $"Dodano rozdział {result.Entry.Name}: {time}"
+            : result.NameChanged
+                ? $"Zmieniono nazwę rozdziału na {result.Entry.Name}: {time}"
+                : $"Rozdział {result.Entry.Name} już istnieje: {time}");
+    }
+
+    public void ShowChapters()
+    {
+        var session = ActionSession;
+        var item = ActionItem;
+        if (item is null || item.Duration <= TimeSpan.Zero)
+        {
+            Announce("Rozdziały są dostępne dla materiału o znanym czasie trwania");
+            return;
+        }
+
+        var chapters = _chapterIndex.GetForItem(session.Id, item.Id, item.Duration);
+        if (chapters.Count == 0)
+        {
+            Announce(_playerViewActive
+                ? "Ten materiał nie ma rozdziałów. Ctrl+Alt+Shift+B dodaje nazwany rozdział"
+                : "Ten materiał nie ma rozdziałów");
+            RestoreChapterCallerFocus();
+            return;
+        }
+
+        var position = session.HasCurrentItem
+            && string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal)
+                ? session.Position
+                : TimeSpan.Zero;
+        var dialog = new ChapterListWindow(item.Title, chapters, position) { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreChapterCallerFocus();
+            return;
+        }
+        var selected = dialog.SelectedChapters;
+        switch (dialog.Action)
+        {
+            case ChapterListAction.Play:
+                PlaySelectedChapters(session, item, selected);
+                break;
+            case ChapterListAction.Save:
+                SaveSelectedChapter(item, selected);
+                break;
+            case ChapterListAction.Remove:
+                RemoveSelectedChapters(selected);
+                break;
+            default:
+                RestoreChapterCallerFocus();
+                break;
+        }
+    }
+
+    public void NavigateChapter(int direction)
+    {
+        if (!_playerViewActive || !_sessions.Current.HasCurrentItem)
+        {
+            Announce("Nawigacja po rozdziałach działa w otwartym odtwarzaczu");
+            return;
+        }
+        var session = _sessions.Current;
+        var item = session.CurrentItem;
+        var chapter = _chapterIndex.FindRelative(
+            session.Id,
+            item.Id,
+            item.Duration,
+            session.Position,
+            direction);
+        if (chapter is null)
+        {
+            Announce(direction < 0
+                ? "Brak poprzedniego rozdziału"
+                : "Brak następnego rozdziału");
+            return;
+        }
+        CancelChapterPlaybackPlan();
+        session.SetPosition(chapter.Start);
+        UpdatePlayerView();
+        UpdatePlaybackStatusBar();
+        Announce($"{chapter.Name}, {CommandRouter.FormatTime(chapter.Start)}");
+    }
+
+    private void PlaySelectedChapters(
+        DemoMediaSession session,
+        MediaItem item,
+        IReadOnlyList<ChapterSegment> selected)
+    {
+        var playable = selected.Where(chapter => chapter.End > chapter.Start).OrderBy(chapter => chapter.Start).ToArray();
+        if (playable.Length == 0)
+        {
+            Announce("Wybrane rozdziały nie mają prawidłowego zakresu czasu");
+            RestoreChapterCallerFocus();
+            return;
+        }
+        if (!ReferenceEquals(session, _sessions.Current))
+        {
+            CaptureCurrentSessionNavigationState();
+            _sessions.SelectSession(session.Id);
+        }
+        if (!session.Play(item))
+        {
+            Announce("Nie można odtworzyć materiału wybranego rozdziału");
+            RestoreChapterCallerFocus();
+            return;
+        }
+        session.SetPosition(playable[0].Start);
+        _chapterPlaybackPlan = new ChapterPlaybackPlan(session.Id, item.Id, playable, 0);
+        _chapterPlaybackTimer.Start();
+        RecordPlayback(session, item);
+        ShowPlayerView();
+        Announce(playable.Length == 1
+            ? $"Rozdział: {playable[0].Name}"
+            : $"Odtwarzanie zaznaczonych rozdziałów: {playable.Length}");
+    }
+
+    private void SaveSelectedChapter(MediaItem item, IReadOnlyList<ChapterSegment> selected)
+    {
+        if (selected.Count != 1)
+        {
+            Announce("Do osobnego pliku można jednorazowo zapisać jeden rozdział");
+            RestoreChapterCallerFocus();
+            return;
+        }
+        var chapter = selected[0];
+        if (chapter.End <= chapter.Start)
+        {
+            Announce("Rozdział nie ma prawidłowego zakresu czasu");
+            RestoreChapterCallerFocus();
+            return;
+        }
+        if (!TryGetChapterExportPath(item, out var path))
+        {
+            Announce(item.Kind == MediaItemKind.Episode
+                ? "Aby zapisać rozdział, najpierw pobierz odcinek klawiszem Ctrl+D"
+                : "Źródłowy plik tego materiału nie jest dostępny lokalnie");
+            RestoreChapterCallerFocus();
+            return;
+        }
+
+        var dialog = new AudioClipExportWindow(
+            path,
+            $"{item.Title} - {chapter.Name}",
+            chapter.Start,
+            chapter.End,
+            "rozdział")
+        {
+            Owner = this
+        };
+        var saved = dialog.ShowDialog() == true;
+        RestoreChapterCallerFocus();
+        if (saved && dialog.ResultPath is { } resultPath)
+        {
+            DiagnosticLog.Info(
+                "chapters",
+                $"Zapisano rozdział bez zmiany oryginału: {item.Id}; {chapter.Start}-{chapter.End}; wynik: {resultPath}.");
+            Announce($"Rozdział zapisany: {Path.GetFileName(resultPath)}");
+        }
+    }
+
+    private void RemoveSelectedChapters(IReadOnlyList<ChapterSegment> selected)
+    {
+        var providerCount = selected.Count(chapter => chapter.Entry.ChapterOrigin == ChapterOrigin.Provider);
+        var removed = _chapterIndex.RemoveUserChapters(selected.Select(chapter => chapter.Entry.Id));
+        if (removed > 0) QueueStateSave(announceFailure: true);
+        RestoreChapterCallerFocus();
+        if (removed == 0 && providerCount > 0)
+            Announce("Rozdziałów dostawcy nie można usunąć; można je później ukryć w ustawieniach materiału");
+        else if (providerCount > 0)
+            Announce($"Usunięto własne oznaczenia rozdziałów: {removed}. Pominięto rozdziały dostawcy: {providerCount}");
+        else
+            Announce(removed == 1 ? "Usunięto oznaczenie rozdziału" : $"Usunięto oznaczenia rozdziałów: {removed}");
+    }
+
+    private bool TryGetChapterExportPath(MediaItem item, out string path)
+    {
+        if (TryGetLocalPath(item.Source, out path) && File.Exists(path)) return true;
+        if (item.Kind == MediaItemKind.Episode)
+        {
+            var downloadPath = _state.Podcasts.Episodes.FirstOrDefault(episode =>
+                string.Equals(episode.Id, item.Id, StringComparison.Ordinal))?.DownloadPath;
+            if (!string.IsNullOrWhiteSpace(downloadPath) && File.Exists(downloadPath))
+            {
+                path = downloadPath;
+                return true;
+            }
+        }
+        path = string.Empty;
+        return false;
+    }
+
+    private void RestoreChapterCallerFocus()
+    {
+        if (_playerViewActive) FocusPlayerView();
+        else RestoreMediaListFocusAfterRefresh();
+    }
+
+    private void ChapterPlaybackTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_chapterPlaybackPlan is not { } plan) return;
+        var session = _sessions.FindSession(plan.SessionId);
+        if (session is null || !session.HasCurrentItem
+            || !string.Equals(session.CurrentItem.Id, plan.ItemId, StringComparison.Ordinal))
+        {
+            CancelChapterPlaybackPlan();
+            return;
+        }
+        if (!session.IsPlaying) return;
+        var current = plan.Chapters[plan.CurrentIndex];
+        if (session.Position < current.End - TimeSpan.FromMilliseconds(40)) return;
+        var nextIndex = plan.CurrentIndex + 1;
+        if (nextIndex >= plan.Chapters.Count)
+        {
+            session.SetPosition(current.End);
+            session.TogglePlayback();
+            CancelChapterPlaybackPlan();
+            UpdatePlayerView();
+            UpdatePlaybackStatusBar();
+            Announce("Zakończono odtwarzanie wybranych rozdziałów");
+            return;
+        }
+        var next = plan.Chapters[nextIndex];
+        _chapterPlaybackPlan = plan with { CurrentIndex = nextIndex };
+        session.SetPosition(next.Start);
+        UpdatePlayerView();
+        UpdatePlaybackStatusBar();
+        Announce($"Rozdział: {next.Name}");
+    }
+
+    private void CancelChapterPlaybackPlan()
+    {
+        _chapterPlaybackPlan = null;
+        _chapterPlaybackTimer.Stop();
+    }
+
+    private bool TryCompleteChapterPlaybackAtMediaEnd(DemoMediaSession? session, MediaItem endedItem)
+    {
+        if (_chapterPlaybackPlan is not { } plan
+            || session is null
+            || !string.Equals(plan.SessionId, session.Id, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(plan.ItemId, endedItem.Id, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        // The regular end-of-file handlers normally continue with the queue or
+        // playback context.  A chapter selection is an explicit bounded
+        // playback request, so reaching the end of its final segment must stop
+        // here instead of leaking into the next episode or track.
+        session.StopPlayback();
+        var finalPosition = plan.Chapters[^1].End;
+        if (finalPosition > TimeSpan.Zero) session.SetPosition(finalPosition);
+        CancelChapterPlaybackPlan();
+        Announce("Zakończono odtwarzanie wybranych rozdziałów");
+        return true;
+    }
+
     private void NormalizePodcastNavigationAtStartup()
     {
         if (!_state.SessionNavigation.Sessions.TryGetValue("podcasts", out var navigation))
@@ -814,31 +1120,50 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (_audioClipSelection.Matches(item.Id, path)) return;
         _audioClipSelection.Clear();
-        var saved = FindLocalItemSettings(item);
-        if (saved?.ClipStartTicks is not long startTicks) return;
+        var (startTicks, endTicks) = FindClipSelectionTicks(item);
+        if (startTicks is not long savedStartTicks) return;
         _audioClipSelection.SetStart(
             item.Id,
             path,
-            TimeSpan.FromTicks(startTicks),
+            TimeSpan.FromTicks(savedStartTicks),
             item.Duration);
-        if (saved.ClipEndTicks.HasValue)
+        if (endTicks.HasValue)
         {
             _audioClipSelection.TrySetEnd(
                 item.Id,
                 path,
-                TimeSpan.FromTicks(saved.ClipEndTicks.Value),
+                TimeSpan.FromTicks(endTicks.Value),
                 item.Duration);
         }
     }
 
     private void PersistClipSelection(MediaItem item)
     {
-        var saved = FindLocalItemSettings(item);
-        if (saved is null) return;
-        var matches = _audioClipSelection.Matches(item.Id, saved.Path);
-        saved.ClipStartTicks = matches ? _audioClipSelection.Start?.Ticks : null;
-        saved.ClipEndTicks = matches ? _audioClipSelection.End?.Ticks : null;
-        TrySaveLocalMediaState(false);
+        if (FindLocalItemSettings(item) is { } local)
+        {
+            var matches = _audioClipSelection.Matches(item.Id, local.Path);
+            local.ClipStartTicks = matches ? _audioClipSelection.Start?.Ticks : null;
+            local.ClipEndTicks = matches ? _audioClipSelection.End?.Ticks : null;
+            TrySaveLocalMediaState(false);
+            return;
+        }
+        if (_state.Podcasts.Episodes.FirstOrDefault(episode =>
+                string.Equals(episode.Id, item.Id, StringComparison.Ordinal)) is { } episode)
+        {
+            var path = episode.DownloadPath ?? string.Empty;
+            var matches = _audioClipSelection.Matches(item.Id, path);
+            episode.ClipStartTicks = matches ? _audioClipSelection.Start?.Ticks : null;
+            episode.ClipEndTicks = matches ? _audioClipSelection.End?.Ticks : null;
+            QueueStateSave();
+        }
+    }
+
+    private (long? Start, long? End) FindClipSelectionTicks(MediaItem item)
+    {
+        if (FindLocalItemSettings(item) is { } local) return (local.ClipStartTicks, local.ClipEndTicks);
+        var episode = _state.Podcasts.Episodes.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
+        return episode is null ? (null, null) : (episode.ClipStartTicks, episode.ClipEndTicks);
     }
 
     private void JumpToClipBoundary(bool end)
@@ -945,6 +1270,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!TryGetLocalClipContext(out var session, out var item, out var path, out var error))
         {
             Announce(error);
+            return;
+        }
+        if (!string.Equals(session.Id, "local", StringComparison.Ordinal))
+        {
+            Announce("Pobrany odcinek podcastu pozostaje niezmieniony. Klawisz X zapisuje zaznaczony fragment do nowego pliku");
             return;
         }
         if (!_audioClipSelection.Matches(item.Id, path) || !_audioClipSelection.IsComplete)
@@ -1080,15 +1410,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             error = "Wycinanie fragmentu działa w otwartym odtwarzaczu";
             return false;
         }
-        if (!string.Equals(session.Id, "local", StringComparison.Ordinal))
+        var supportedSession = string.Equals(session.Id, "local", StringComparison.Ordinal)
+            || string.Equals(session.Id, "podcasts", StringComparison.Ordinal);
+        if (!supportedSession)
         {
-            error = "Wycinanie fragmentu jest dostępne dla lokalnych plików";
+            error = "Wycinanie fragmentu jest dostępne dla plików lokalnych i pobranych odcinków podcastów";
             return false;
         }
-        if (!session.HasCurrentItem || item.Kind != MediaItemKind.Track
+        if (!session.HasCurrentItem || item.Kind is not (MediaItemKind.Track or MediaItemKind.Episode)
             || !TryGetLocalPath(item.Source, out path))
         {
-            error = "Bieżący element nie jest lokalnym plikiem multimedialnym";
+            error = item.Kind == MediaItemKind.Episode
+                ? "Najpierw pobierz odcinek klawiszem Ctrl+D"
+                : "Bieżący element nie jest lokalnym plikiem multimedialnym";
             return false;
         }
         if (item.Duration <= TimeSpan.Zero)
@@ -3746,6 +4080,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && TryGetLocalPath(_sessions.Current.CurrentItem.Source, out _)
                 ? _sessions.Current.CurrentItem
                 : null;
+        var currentClipItem = _playerViewActive
+            && _sessions.Current.HasCurrentItem
+            && _sessions.Current.CurrentItem.Kind is MediaItemKind.Track or MediaItemKind.Episode
+            && TryGetLocalPath(_sessions.Current.CurrentItem.Source, out var clipPath)
+            && File.Exists(clipPath)
+                ? _sessions.Current.CurrentItem
+                : null;
         PlaybackCurrentItemAudioOptionsMenuItem.Visibility = currentLocalItem is null
             ? Visibility.Collapsed
             : Visibility.Visible;
@@ -3755,7 +4096,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 PlaybackCurrentItemAudioOptionsMenuItem,
                 $"Zmień opcje bieżącego utworu — {FormatEffectiveLocalAudioSettings(currentLocalItem)}");
         }
-        var clipVisibility = currentLocalItem is null ? Visibility.Collapsed : Visibility.Visible;
+        var clipVisibility = currentClipItem is null ? Visibility.Collapsed : Visibility.Visible;
+        var chapterVisibility = _playerViewActive
+            && _sessions.Current.HasCurrentItem
+            && _sessions.Current.CurrentItem.Duration > TimeSpan.Zero
+            && _sessions.Current.CurrentItem.Kind is MediaItemKind.Track or MediaItemKind.Episode
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        PlaybackBeforeChaptersSeparator.Visibility = chapterVisibility;
+        PlaybackChaptersMenuItem.Visibility = chapterVisibility;
+        PlaybackAddNamedChapterMenuItem.Visibility = chapterVisibility;
+        PlaybackPreviousChapterMenuItem.Visibility = chapterVisibility;
+        PlaybackNextChapterMenuItem.Visibility = chapterVisibility;
         PlaybackBeforeClipSeparator.Visibility = clipVisibility;
         PlaybackMarkClipStartMenuItem.Visibility = clipVisibility;
         PlaybackMarkClipEndMenuItem.Visibility = clipVisibility;
@@ -3764,7 +4116,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlaybackPreviousClipBoundaryMenuItem.Visibility = clipVisibility;
         PlaybackNextClipBoundaryMenuItem.Visibility = clipVisibility;
         PlaybackExportClipMenuItem.Visibility = clipVisibility;
-        PlaybackRemoveClipMenuItem.Visibility = clipVisibility;
+        PlaybackRemoveClipMenuItem.Visibility = currentLocalItem is null ? Visibility.Collapsed : Visibility.Visible;
         PlaybackClearClipMenuItem.Visibility = clipVisibility;
         OpenLocalFilesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         OpenLocalFolderMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
@@ -6232,6 +6584,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         _cloudPreparingItemId = null;
         var localSession = _sessions.FindSession("local");
+        if (TryCompleteChapterPlaybackAtMediaEnd(localSession, e.Item))
+        {
+            RefreshPlaybackIndicators();
+            if (_playerViewActive) UpdatePlayerView(true);
+            UpdatePlaybackStatusBar();
+            UpdateWindowTitle();
+            TrySaveLocalMediaState(false);
+            return;
+        }
         var completedAudioSettings = GetEffectiveLocalAudioSettings(e.Item);
         _localOutput.BeginAutomaticTrackContinuation();
         var nextItem = localSession?.ContinueAfterPlaybackEnded(e.Item);
@@ -6464,6 +6825,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PodcastOutput_PlaybackEnded(object? sender, MediaPlaybackEndedEventArgs e)
     {
         var podcasts = _sessions.FindSession("podcasts");
+        if (TryCompleteChapterPlaybackAtMediaEnd(podcasts, e.Item))
+        {
+            RefreshPlaybackIndicators();
+            if (_playerViewActive
+                && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+            {
+                UpdatePlayerView(true);
+            }
+            UpdatePlaybackStatusBar();
+            UpdateWindowTitle();
+            CapturePodcastState();
+            QueueStateSave();
+            return;
+        }
         var completed = _state.Podcasts.Episodes.FirstOrDefault(episode =>
             string.Equals(episode.Id, e.Item.Id, StringComparison.Ordinal));
         if (completed is not null)
@@ -6607,6 +6982,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private CommandExecutionResult ExecuteCommand(string commandId)
     {
+        if (_chapterPlaybackPlan is not null && CommandInterruptsChapterPlayback(commandId))
+        {
+            CancelChapterPlaybackPlan();
+        }
         var previousOverride = _actionItemsOverride;
         FolderContentsActionContext? folderContext = null;
         if (IsFolderContentsCommand(commandId)
@@ -7972,6 +8351,30 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
         }
     }
+
+    private static bool CommandInterruptsChapterPlayback(string commandId) =>
+        commandId is CommandIds.ActivateSelected
+            or CommandIds.Previous
+            or CommandIds.Next
+            or CommandIds.SeekBackward10
+            or CommandIds.SeekForward10
+            or CommandIds.SeekBackward30
+            or CommandIds.SeekForward30
+            or CommandIds.SeekBackward60
+            or CommandIds.SeekForward60
+            or CommandIds.TrackStart
+            or CommandIds.TrackEnd
+            or CommandIds.SeekToTime
+            or CommandIds.SeekToPercentage
+            or CommandIds.JumpClipStart
+            or CommandIds.JumpClipEnd
+            or CommandIds.PreviousClipBoundary
+            or CommandIds.NextClipBoundary
+            or CommandIds.PreviousBookmark
+            or CommandIds.NextBookmark
+            or CommandIds.PreviousChapter
+            or CommandIds.NextChapter
+        || commandId.StartsWith("transport.seekPercent.", StringComparison.Ordinal);
 
     private static void UpdateAddedOrder(
         IDictionary<string, List<string>> orders,
@@ -9410,6 +9813,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ClearDisabledLocalResumePositions();
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
         _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);
+        _chapterIndex = new ChapterIndex(_state.Bookmarks);
         Exception? settingsSaveFailure;
         if (!FlushStateSave(TimeSpan.FromSeconds(30), out settingsSaveFailure))
         {
@@ -10743,6 +11147,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var removedIds = removed.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
         _localItems.RemoveAll(item => removedIds.Contains(item.Id));
         _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);
+        _chapterIndex = new ChapterIndex(_state.Bookmarks);
         _playbackHistory = new PlaybackHistory(_state.PlaybackHistory);
         _playbackHistoryCursors.Remove("local");
         TrySaveLocalMediaState(true);
@@ -12310,6 +12715,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 (ModifierKeys.Shift, Key.X) => CommandIds.ClearClipSelection,
                 (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
                 (ModifierKeys.Shift, Key.PageDown) => CommandIds.NextBookmark,
+                (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift, Key.B) => CommandIds.AddNamedChapter,
+                (ModifierKeys.Control | ModifierKeys.Alt, Key.PageUp) => CommandIds.PreviousChapter,
+                (ModifierKeys.Control | ModifierKeys.Alt, Key.PageDown) => CommandIds.NextChapter,
                 (ModifierKeys.None, Key.PageUp) => CommandIds.Previous,
                 (ModifierKeys.None, Key.PageDown) => CommandIds.Next,
                 (ModifierKeys.Control, Key.J) => CommandIds.SeekToTime,
@@ -12354,6 +12762,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             commandId = (modifiers, key) switch
             {
+                (ModifierKeys.Control | ModifierKeys.Alt, Key.B) => CommandIds.ViewChapters,
                 (ModifierKeys.Alt | ModifierKeys.Shift, Key.Enter) => CommandIds.ItemPlaybackOptions,
                 (ModifierKeys.Alt, Key.Enter) => CommandIds.ItemProperties,
                 (ModifierKeys.Control | ModifierKeys.Shift, Key.U) => CommandIds.ToggleFavorite,
@@ -12958,6 +13367,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Shift, Key.X) => CommandIds.ClearClipSelection,
             (ModifierKeys.Shift, Key.PageUp) => CommandIds.PreviousBookmark,
             (ModifierKeys.Shift, Key.PageDown) => CommandIds.NextBookmark,
+            (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift, Key.B) => CommandIds.AddNamedChapter,
+            (ModifierKeys.Control | ModifierKeys.Alt, Key.B) => CommandIds.ViewChapters,
+            (ModifierKeys.Control | ModifierKeys.Alt, Key.PageUp) => CommandIds.PreviousChapter,
+            (ModifierKeys.Control | ModifierKeys.Alt, Key.PageDown) => CommandIds.NextChapter,
             (ModifierKeys.None, Key.PageUp) => CommandIds.Previous,
             (ModifierKeys.None, Key.PageDown) => CommandIds.Next,
             (ModifierKeys.Control, Key.J) => CommandIds.SeekToTime,
@@ -13564,6 +13977,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CapturePodcastState();
         _playerUiTimer.Stop();
         _playerUiTimer.Tick -= PlayerUiTimer_Tick;
+        _chapterPlaybackTimer.Stop();
+        _chapterPlaybackTimer.Tick -= ChapterPlaybackTimer_Tick;
         _localSourceSyncTimer.Stop();
         _localSourceSyncTimer.Tick -= LocalSourceSyncTimer_Tick;
         _radioScheduleTimer.Stop();
@@ -13695,6 +14110,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PlayerBack_Click(object sender, RoutedEventArgs e) => ReturnFromPlayerToList();
     private void AddBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddBookmark);
     private void AddNamedBookmark_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddNamedBookmark);
+    private void Chapters_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewChapters);
+    private void AddNamedChapter_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddNamedChapter);
+    private void PreviousChapter_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.PreviousChapter);
+    private void NextChapter_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.NextChapter);
     private void MarkClipStart_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.MarkClipStart);
     private void MarkClipEnd_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.MarkClipEnd);
     private void JumpClipStart_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.JumpClipStart);
@@ -13922,6 +14341,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             InformationMenuItem,
             playlistContainer ? "Właściwości playlisty" : "Właściwości i informacje",
             "Alt+Enter");
+        ChaptersMenuItem.Visibility = !playlistContainer
+            && actionItem?.Duration > TimeSpan.Zero
+            && actionItem.Kind is MediaItemKind.Track or MediaItemKind.Episode
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         PodcastDescriptionMenuItem.Visibility = podcastHeader || podcastEpisode
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -14320,7 +14744,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var localPlaybackOptions = localItem
             && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
             && item.Kind == MediaItemKind.Track;
-        var clipVisibility = localPlaybackOptions ? Visibility.Visible : Visibility.Collapsed;
+        var clipPlaybackOptions = localItem
+            && (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+                && item.Kind == MediaItemKind.Track
+                || string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+                && item.Kind == MediaItemKind.Episode);
+        var clipVisibility = clipPlaybackOptions ? Visibility.Visible : Visibility.Collapsed;
+        var chapterVisibility = item.Duration > TimeSpan.Zero
+            && item.Kind is MediaItemKind.Track or MediaItemKind.Episode
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        PlayerBeforeChaptersSeparator.Visibility = chapterVisibility;
+        PlayerChaptersMenuItem.Visibility = chapterVisibility;
+        PlayerAddNamedChapterMenuItem.Visibility = chapterVisibility;
+        PlayerPreviousChapterMenuItem.Visibility = chapterVisibility;
+        PlayerNextChapterMenuItem.Visibility = chapterVisibility;
         PlayerBeforeClipSeparator.Visibility = clipVisibility;
         PlayerMarkClipStartMenuItem.Visibility = clipVisibility;
         PlayerMarkClipEndMenuItem.Visibility = clipVisibility;
@@ -14329,7 +14767,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerPreviousClipBoundaryMenuItem.Visibility = clipVisibility;
         PlayerNextClipBoundaryMenuItem.Visibility = clipVisibility;
         PlayerExportClipMenuItem.Visibility = clipVisibility;
-        PlayerRemoveClipMenuItem.Visibility = clipVisibility;
+        PlayerRemoveClipMenuItem.Visibility = localPlaybackOptions ? Visibility.Visible : Visibility.Collapsed;
         PlayerClearClipMenuItem.Visibility = clipVisibility;
         PlayerItemPlaybackOptionsMenuItem.Visibility = localPlaybackOptions
             ? Visibility.Visible
@@ -15126,6 +15564,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string SessionId,
         string ViewName,
         string? SelectedItemId);
+
+    private sealed record ChapterPlaybackPlan(
+        string SessionId,
+        string ItemId,
+        IReadOnlyList<ChapterSegment> Chapters,
+        int CurrentIndex);
 
     private sealed record LocalSourceScanResult(
         LocalFolderSourceSettings Source,

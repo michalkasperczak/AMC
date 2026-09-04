@@ -4,6 +4,15 @@ Wersja dokumentu: 0.7, aktualny plan projektu
 
 Data aktualizacji: 29 sierpnia 2026 r.
 
+Od `alpha.241` wspólny odtwarzacz obsługuje własne rozdziały plików lokalnych
+i podcastów. Rozdział jest trwałym, nazwanym początkiem na osi czasu i może
+współdzielić rekord ze zwykłą zakładką bez uzależniania ich usuwania.
+`Ctrl+Alt+B` otwiera chronologiczną listę, `Ctrl+Alt+Shift+B` dodaje rozdział,
+a `Ctrl+Alt+Page Up/Down` nawiguje po jego początkach. Lista pozwala odtworzyć
+tylko zaznaczone rozdziały i zapisać jeden do nowego pliku. Cięcie pobranego
+odcinka korzysta z tych samych trwałych punktów `I`–`O` i niedestrukcyjnego
+eksportu co pliki lokalne; treści sieciowe nie są pobierane automatycznie.
+
 Od `alpha.223` jednorazowa migracja naprawia skrzynki utworzone przez wczesny
 import OPML. Jeżeli obserwowana audycja nie ma żadnego nowego odcinka, tylko
 jej najnowszy nierozpoczęty odcinek otrzymuje stan „nowy”. Audycje z istniejącą

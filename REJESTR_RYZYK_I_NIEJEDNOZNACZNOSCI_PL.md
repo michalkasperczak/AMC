@@ -149,6 +149,42 @@ wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
 - Następny test: wykonać `AMC-240-01`–`AMC-240-03`, w tym przebudowę listy i
   ponowne uruchomienie programu.
 
+### AMC-RYZYKO-008 — dokładność granicy zapisanego rozdziału
+
+- Stan: świadome ograniczenie pierwszego etapu, do testów wielu formatów.
+- Dotyczy: `alpha.241`, zapis pojedynczego rozdziału do nowego pliku.
+- Fakt: eksport korzysta ze wspólnego bezpiecznego mechanizmu FFmpeg. Dla
+  formatów umożliwiających kopiowanie strumienia granica może zostać dopasowana
+  do najbliższej ramki; dokładny wariant może wymagać jawnego ponownego kodowania.
+- Zabezpieczenie: źródło nigdy nie jest zmieniane, wynik najpierw powstaje jako
+  osobny plik tymczasowy, a zdalny podcast wymaga jawnego pobrania.
+- Następny test: wykonać `AMC-241-04` dla MP3, AAC/M4A, OGG/Opus, FLAC i WAV,
+  porównując początek, koniec, czas i możliwość ponownego otwarcia pliku.
+
+### AMC-RYZYKO-009 — rozdziały dostawcy i materiały bez znanego czasu
+
+- Stan: funkcja zaplanowana, jeszcze niewdrożona.
+- Dotyczy: Podcasting 2.0 JSON Chapters, ID3 CHAP/CTOC, rozdziały MP4 i CUE.
+- Fakt: `alpha.241` zapisuje i odtwarza własne rozdziały użytkownika. Model oraz
+  SQLite rozróżniają już pochodzenie, ale nie pobierają ani nie parsują jeszcze
+  metadanych rozdziałów dostawcy. Transmisja na żywo i materiał bez znanego
+  końca nie mogą tworzyć poprawnie ograniczonych segmentów.
+- Następny test: przed importem przygotować po jednym legalnym przykładzie
+  każdego formatu, rozstrzygnąć zasady aktualizacji i sprawdzić, że dane
+  dostawcy nie nadpisują własnych punktów użytkownika.
+
+### AMC-RYZYKO-010 — wielokrotny wybór rozdziałów a ręczne sterowanie
+
+- Stan: zaimplementowane zabezpieczenie, wymaga testu interakcyjnego NVDA.
+- Dotyczy: odtwarzania kilku zaznaczonych, także nieprzyległych rozdziałów.
+- Fakt: AMC automatycznie przeskakuje pominięte fragmenty i zatrzymuje się po
+  ostatnim wyborze. Ręczne przewinięcie, zmiana materiału albo nawigacja po
+  zakładkach i rozdziałach wyłącza ten ograniczony plan, aby zegar nie cofnął
+  później użytkownika bez ostrzeżenia.
+- Następny test: wykonać `AMC-241-03`, w tym ręczne przewinięcie tuż przed
+  automatycznym przejściem i wybór ostatniego rozdziału kończącego się razem z
+  całym odcinkiem.
+
 ## Stałe, globalne obszary regresji przed publikacją
 
 Poniższe obszary dotyczą całego AMC, a nie wyłącznie modułu rozwijanego w

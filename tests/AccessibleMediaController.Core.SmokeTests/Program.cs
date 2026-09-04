@@ -78,6 +78,7 @@ var tests = new (string Name, Action Test)[]
     ("Historia wyszukiwania", TestSearchHistory),
     ("Historia odtwarzania", TestPlaybackHistory),
     ("Trwałe zakładki", TestBookmarks),
+    ("Trwałe i chronologiczne rozdziały", TestChapters),
     ("Pamięć widoków sesji", TestSessionNavigationPersistence),
     ("Pamięć lokalnej biblioteki", TestLocalMediaPersistence),
     ("Trwałe playlisty", TestPlaylists),
@@ -3196,6 +3197,79 @@ static void TestBookmarks()
     Equal(4, index.GetAll().Count);
 }
 
+static void TestChapters()
+{
+    var settings = new BookmarkSettings();
+    var bookmarks = new BookmarkIndex(settings);
+    var chapters = new ChapterIndex(settings);
+    var item = new MediaItem
+    {
+        Id = "episode-1",
+        Title = "Odcinek z rozdziałami",
+        Kind = MediaItemKind.Episode,
+        Duration = TimeSpan.FromMinutes(30)
+    };
+    var now = new DateTime(2026, 9, 4, 12, 0, 0, DateTimeKind.Utc);
+
+    var bookmark = bookmarks.Add("podcasts", "Podcasty", item, TimeSpan.FromMinutes(5), now, "Temat pierwszy");
+    var shared = chapters.AddUserChapter(
+        "podcasts", "Podcasty", item, TimeSpan.FromMinutes(5), now.AddSeconds(1), "Rozdział pierwszy");
+    True(shared.Added, "Zakładka powinna móc stać się również rozdziałem bez duplikowania punktu.");
+    Equal(bookmark.Entry.Id, shared.Entry.Id);
+    True((shared.Entry.Purpose & BookmarkPurpose.Bookmark) != 0
+         && (shared.Entry.Purpose & BookmarkPurpose.Chapter) != 0,
+        "Wspólny punkt powinien zachować obie funkcje.");
+
+    var last = chapters.AddUserChapter(
+        "podcasts", "Podcasty", item, TimeSpan.FromMinutes(20), now.AddMinutes(2), "Zakończenie");
+    var middle = chapters.AddUserChapter(
+        "podcasts", "Podcasty", item, TimeSpan.FromMinutes(12), now.AddMinutes(3), "Rozmowa");
+    var ordered = chapters.GetForItem("podcasts", item.Id, item.Duration);
+    Equal(3, ordered.Count);
+    Equal("Rozdział pierwszy", ordered[0].Name);
+    Equal("Rozmowa", ordered[1].Name);
+    Equal("Zakończenie", ordered[2].Name);
+    Equal(TimeSpan.FromMinutes(7), ordered[0].Duration);
+    Equal(TimeSpan.FromMinutes(8), ordered[1].Duration);
+    Equal(TimeSpan.FromMinutes(10), ordered[2].Duration);
+    Equal(middle.Entry.Id, chapters.FindRelative(
+        "podcasts", item.Id, item.Duration, TimeSpan.FromMinutes(6), 1)?.Entry.Id);
+
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-chapter-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.Bookmarks = settings;
+        store.Save(state);
+        var loaded = store.LoadOrCreate();
+        var loadedChapters = new ChapterIndex(loaded.Bookmarks).GetForItem("podcasts", item.Id, item.Duration);
+        Equal(3, loadedChapters.Count);
+        Equal(ChapterOrigin.User, loadedChapters[0].Entry.ChapterOrigin);
+        Equal(BookmarkPurpose.Bookmark | BookmarkPurpose.Chapter, loadedChapters[0].Entry.Purpose);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+
+    Equal(1, chapters.RemoveUserChapters([shared.Entry.Id]));
+    Equal(2, chapters.GetForItem("podcasts", item.Id, item.Duration).Count);
+    Equal(1, bookmarks.GetForItem("podcasts", item.Id).Count);
+    Equal(bookmark.Entry.Id, bookmarks.GetForItem("podcasts", item.Id)[0].Id);
+    True(settings.Entries.Contains(last.Entry), "Usunięcie innego rozdziału nie może naruszyć pozostałych.");
+
+    var sharedAgain = chapters.AddUserChapter(
+        "podcasts", "Podcasty", item, TimeSpan.FromMinutes(5), now.AddMinutes(4), "Rozdział ponownie");
+    Equal(bookmark.Entry.Id, sharedAgain.Entry.Id);
+    Equal(1, bookmarks.Remove([bookmark.Entry.Id]));
+    Equal(0, bookmarks.GetForItem("podcasts", item.Id).Count);
+    True(chapters.GetForItem("podcasts", item.Id, item.Duration).Any(chapter =>
+            string.Equals(chapter.Entry.Id, sharedAgain.Entry.Id, StringComparison.Ordinal)),
+        "Usunięcie zakładki nie może usuwać rozdziału współdzielącego ten sam punkt.");
+}
+
 static void TestSessionNavigationPersistence()
 {
     var directory = Path.Combine(Path.GetTempPath(), $"amc-navigation-tests-{Guid.NewGuid():N}");
@@ -4733,6 +4807,9 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public bool LocalFileRenameShown { get; private set; }
     public int LocalLibraryMoveDirection { get; private set; }
     public int BookmarkNavigationDirection { get; private set; }
+    public bool ChaptersShown { get; private set; }
+    public bool NamedChapterAdded { get; private set; }
+    public int ChapterNavigationDirection { get; private set; }
     public void ShowCurrentSession(string viewName) { }
     public void ShowFilter() { }
     public void ShowSessionList() { }
@@ -4762,6 +4839,9 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void AddBookmark() => BookmarkAdded = true;
     public void AddNamedBookmark() => NamedBookmarkAdded = true;
     public void NavigateBookmark(int direction) => BookmarkNavigationDirection = direction;
+    public void ShowChapters() => ChaptersShown = true;
+    public void AddNamedChapter() => NamedChapterAdded = true;
+    public void NavigateChapter(int direction) => ChapterNavigationDirection = direction;
 }
 
 class FakeMediaOutput : IMediaOutput

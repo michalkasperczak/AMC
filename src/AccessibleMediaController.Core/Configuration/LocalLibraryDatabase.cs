@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 /// </summary>
 internal sealed class LocalLibraryDatabase(string databasePath)
 {
-    private const int DatabaseSchemaVersion = 6;
+    private const int DatabaseSchemaVersion = 7;
     private readonly object _gate = new();
 
     public string Path { get; } = databasePath;
@@ -180,7 +180,8 @@ internal sealed class LocalLibraryDatabase(string databasePath)
             {
                 command.CommandText = """
                     SELECT id, session_id, session_name, item_id, item_title, name,
-                           position_ticks, created_utc_ticks
+                           position_ticks, created_utc_ticks, purpose, chapter_origin,
+                           chapter_source_id
                     FROM bookmarks ORDER BY ordinal;
                     """;
                 using var reader = command.ExecuteReader();
@@ -195,7 +196,10 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                         ItemTitle = reader.GetString(4),
                         Name = reader.GetString(5),
                         PositionTicks = reader.GetInt64(6),
-                        CreatedUtcTicks = reader.GetInt64(7)
+                        CreatedUtcTicks = reader.GetInt64(7),
+                        Purpose = (BookmarkPurpose)reader.GetInt32(8),
+                        ChapterOrigin = (ChapterOrigin)reader.GetInt32(9),
+                        ChapterSourceId = NullableString(reader, 10)
                     });
                 }
             }
@@ -405,7 +409,10 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 item_title TEXT NOT NULL COLLATE AMC_PL,
                 name TEXT NOT NULL COLLATE AMC_PL,
                 position_ticks INTEGER NOT NULL,
-                created_utc_ticks INTEGER NOT NULL
+                created_utc_ticks INTEGER NOT NULL,
+                purpose INTEGER NOT NULL DEFAULT 1,
+                chapter_origin INTEGER NOT NULL DEFAULT 0,
+                chapter_source_id TEXT NULL
             );
             CREATE INDEX IF NOT EXISTS ix_bookmarks_item ON bookmarks(session_id, item_id, position_ticks);
             CREATE TABLE IF NOT EXISTS playback_history (
@@ -471,6 +478,9 @@ internal sealed class LocalLibraryDatabase(string databasePath)
         EnsureColumn(connection, "local_items", "inter_track_silence_ms_override", "INTEGER NULL");
         EnsureColumn(connection, "local_items", "clip_start_ticks", "INTEGER NULL");
         EnsureColumn(connection, "local_items", "clip_end_ticks", "INTEGER NULL");
+        EnsureColumn(connection, "bookmarks", "purpose", "INTEGER NOT NULL DEFAULT 1");
+        EnsureColumn(connection, "bookmarks", "chapter_origin", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "bookmarks", "chapter_source_id", "TEXT NULL");
         EnsureColumn(connection, "folder_playback_options", "loudness_normalization_override", "INTEGER NULL");
         EnsureColumn(connection, "folder_playback_options", "smooth_track_transitions_override", "INTEGER NULL");
         EnsureColumn(connection, "folder_playback_options", "inter_track_silence_ms_override", "INTEGER NULL");
@@ -582,14 +592,17 @@ internal sealed class LocalLibraryDatabase(string databasePath)
             Execute(connection, transaction,
                 """
                 INSERT INTO bookmarks(id, ordinal, session_id, session_name, item_id,
-                                      item_title, name, position_ticks, created_utc_ticks)
+                                      item_title, name, position_ticks, created_utc_ticks,
+                                      purpose, chapter_origin, chapter_source_id)
                 VALUES($id, $ordinal, $sessionId, $sessionName, $itemId, $itemTitle,
-                       $name, $position, $created);
+                       $name, $position, $created, $purpose, $chapterOrigin, $chapterSourceId);
                 """,
                 ("$id", bookmark.Id), ("$ordinal", index), ("$sessionId", bookmark.SessionId),
                 ("$sessionName", bookmark.SessionName), ("$itemId", bookmark.ItemId),
                 ("$itemTitle", bookmark.ItemTitle), ("$name", bookmark.Name),
-                ("$position", bookmark.PositionTicks), ("$created", bookmark.CreatedUtcTicks));
+                ("$position", bookmark.PositionTicks), ("$created", bookmark.CreatedUtcTicks),
+                ("$purpose", (int)bookmark.Purpose), ("$chapterOrigin", (int)bookmark.ChapterOrigin),
+                ("$chapterSourceId", bookmark.ChapterSourceId));
         }
 
         foreach (var pair in state.PlaybackHistory.ItemIdsBySession)

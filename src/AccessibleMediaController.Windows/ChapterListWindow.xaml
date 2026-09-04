@@ -1,0 +1,39 @@
+<controls:AccessibleWindow x:Class="AccessibleMediaController.Windows.ChapterListWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="Rozdziały" Width="760" Height="500"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Loaded="Window_Loaded">
+    <DockPanel Margin="16">
+        <TextBlock x:Name="HeadingText" DockPanel.Dock="Top" Margin="0,0,0,10"
+                   TextWrapping="Wrap" automation:AutomationProperties.HeadingLevel="Level1" />
+        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap"
+                   Text="Strzałki wybierają rozdział. Shift+strzałki zaznaczają kilka. Enter odtwarza zaznaczone rozdziały. Delete usuwa własne oznaczenie rozdziału."
+                   automation:AutomationProperties.Name="Strzałki wybierają rozdział. Shift ze strzałkami zaznacza kilka. Enter odtwarza. Delete usuwa własne oznaczenie rozdziału." />
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Width="155" Margin="0,0,8,0" Content="_Odtwórz zaznaczone" IsDefault="True"
+                    automation:AutomationProperties.Name="Odtwórz zaznaczone rozdziały"
+                    Click="Play_Click" />
+            <Button Width="145" Margin="0,0,8,0" Content="_Zapisz rozdział…"
+                    automation:AutomationProperties.Name="Zapisz wybrany rozdział do osobnego pliku"
+                    Click="Save_Click" />
+            <Button Width="150" Margin="0,0,8,0" Content="_Usuń oznaczenie"
+                    automation:AutomationProperties.Name="Usuń własne oznaczenie rozdziału"
+                    Click="Remove_Click" />
+            <Button Width="95" Content="Za_mknij" IsCancel="True"
+                    automation:AutomationProperties.Name="Zamknij" />
+        </StackPanel>
+        <ListBox x:Name="ChapterList" SelectionMode="Extended"
+                 DisplayMemberPath="AccessibleLabel"
+                 automation:AutomationProperties.Name="Rozdziały materiału"
+                 KeyDown="ChapterList_KeyDown">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding AccessibleLabel}" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+    </DockPanel>
+</controls:AccessibleWindow>

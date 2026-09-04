@@ -304,6 +304,8 @@ public sealed class PodcastEpisodeSettings
     public bool IsFavorite { get; set; }
     public bool IsInQueue { get; set; }
     public bool IsPlayNext { get; set; }
+    public long? ClipStartTicks { get; set; }
+    public long? ClipEndTicks { get; set; }
 }
 
 public sealed class SessionPresetSettings
@@ -338,6 +340,20 @@ public sealed class BookmarkSettings
     public List<BookmarkEntry> Entries { get; set; } = [];
 }
 
+[Flags]
+public enum BookmarkPurpose
+{
+    None = 0,
+    Bookmark = 1,
+    Chapter = 2
+}
+
+public enum ChapterOrigin
+{
+    User,
+    Provider
+}
+
 public sealed class BookmarkEntry
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -348,6 +364,9 @@ public sealed class BookmarkEntry
     public string Name { get; set; } = string.Empty;
     public long PositionTicks { get; set; }
     public long CreatedUtcTicks { get; set; } = DateTime.UtcNow.Ticks;
+    public BookmarkPurpose Purpose { get; set; } = BookmarkPurpose.Bookmark;
+    public ChapterOrigin ChapterOrigin { get; set; } = ChapterOrigin.User;
+    public string? ChapterSourceId { get; set; }
 }
 
 public sealed class SessionNavigationSettings
