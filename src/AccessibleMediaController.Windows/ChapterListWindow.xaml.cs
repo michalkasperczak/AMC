@@ -45,7 +45,7 @@ public sealed class ChapterListRow : INotifyPropertyChanged
     }
     public string SelectionAccessibleLabel => IsChosen
         ? $"Wybrany, {AccessibleLabel}"
-        : $"Niewybrany, {AccessibleLabel}";
+        : AccessibleLabel;
     public override string ToString() => AccessibleLabel;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -147,7 +147,7 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
         FocusRow(index);
         SetSelectionStatus(
             wasChosen
-                ? $"Niewybrany: {row.Segment.Name}. Razem {SelectedChapters.Count}"
+                ? $"Odznaczono: {row.Segment.Name}. Razem {SelectedChapters.Count}"
                 : $"Wybrany: {row.Segment.Name}. Razem {SelectedChapters.Count}");
         return true;
     }

@@ -1071,6 +1071,13 @@ Spacji, `Ctrl+Spacji`, Shift ze strzałkami albo `Ctrl+A` Enter uruchamia jawnie
 wybrany zestaw. W logu diagnostycznym zapisywane są od tej wersji rozdziały
 rzeczywiście zatwierdzone na liście.
 
+`alpha.264` usuwa także powtarzane „Niewybrany”. Niewybrany wiersz jest czytany
+samą nazwą i czasem, a wybrany rozpoczyna się od krótkiego „Wybrany”. Po
+uruchomieniu zestawu AMC mówi, który rozdział gra i który wybrany będzie
+następny. Każdy rozdział jest odtwarzany do własnego końca; dopiero potem
+program przeskakuje nad pominiętymi rozdziałami. Przebieg i przerwania planu są
+zapisywane w logu diagnostycznym.
+
 ## Urządzenie audio osobno dla sesji w alpha 204
 
 Klawisz **Shift+A**, menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej

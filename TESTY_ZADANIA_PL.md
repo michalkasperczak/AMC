@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-263`
-- Tytuł zestawu: Krótkie stany i jednoznaczny Enter na liście rozdziałów
-- Wersja programu: `0.1.0-alpha.263`
+- Numer zestawu: `AMC-TEST-264`
+- Tytuł zestawu: Cichy brak wyboru i czytelne przejście zestawu rozdziałów
+- Wersja programu: `0.1.0-alpha.264`
 - Utworzono: 2026-09-05, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.263.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.264.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,34 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 264
+
+### AMC-264-01 — brak prefiksu przy niewybranym rozdziale
+
+Otwórz listę i przejdź zwykłymi strzałkami po kilku niewybranych pozycjach.
+
+Oczekiwane: NVDA czyta numer, nazwę i czas. Nie mówi „Niewybrany”. Po użyciu
+Spacji tylko wybrane pozycje rozpoczynają się od słowa „Wybrany”.
+
+### AMC-264-02 — dwa odległe rozdziały
+
+W TyfloPrzeglądzie wybierz Spacją Intro i jeden dużo późniejszy rozdział, potem
+naciśnij Enter i nie używaj klawiszy nawigacji.
+
+Oczekiwane: AMC mówi nazwę bieżącego i następnego wybranego rozdziału. Intro
+jest odtwarzane w całości do początku kolejnego rozdziału źródłowego (w odcinku
+346 do około 3:32), a dopiero potem następuje skok do późniejszej wybranej
+pozycji. Pominięte rozdziały nie są odtwarzane.
+
+### AMC-264-03 — jawne przerwanie zestawu
+
+Podczas odtwarzania wybranego zestawu użyj ręcznej nawigacji po rozdziałach.
+
+Oczekiwane: nawigacja działa na całym spisie i anuluje tymczasowy zestaw. AMC
+nie wykonuje później samoczynnego skoku wynikającego ze starego wyboru.
+
+## Poprzedni zestaw regresyjny alpha 263
 
 ## Nowości alpha 263
 

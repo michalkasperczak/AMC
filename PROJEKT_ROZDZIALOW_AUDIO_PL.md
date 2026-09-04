@@ -163,6 +163,14 @@ ręcznego wyboru uruchamia dokładnie rozdział znajdujący się pod fokusem. Je
 użytkownik wcześniej użył Spacji, `Ctrl+Spacji`, Shift ze strzałkami albo
 `Ctrl+A`, Enter zachowuje funkcję odtwarzania jawnie wybranego zestawu.
 
+Od `alpha.264` niewybrany wiersz nie otrzymuje żadnego prefiksu. „Wybrany” jest
+podawane wyłącznie dla pozycji należących do zestawu. Wybrane rozdziały są
+odtwarzane w kolejności czasowej i każdy trwa do początku następnego rozdziału
+w pełnym spisie. Dopiero wtedy AMC przeskakuje nad pominiętymi fragmentami do
+następnej wybranej pozycji. Otwarcie listy albo ręczna nawigacja może przerwać
+ten tymczasowy plan. Początek, automatyczne przejście, zakończenie i przyczyna
+przerwania są zapisywane w logu diagnostycznym.
+
 Wybrany pojedynczy rozdział można zapisać jako osobny plik przyciskiem
 **Zapisz rozdział…** na liście rozdziałów. `Ctrl+S` nadal oznacza zapis całego
 odcinka. Źródłowa kolejność rozdziałów pozostaje czasowa. Osobna lista

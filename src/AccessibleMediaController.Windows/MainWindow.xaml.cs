@@ -1246,11 +1246,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         session.SetPosition(playable[0].Start);
         _chapterPlaybackPlan = new ChapterPlaybackPlan(session.Id, item.Id, playable, 0);
         _chapterPlaybackTimer.Start();
+        DiagnosticLog.Info(
+            "chapters",
+            $"Rozpoczęto odtwarzanie wybranego zestawu; element: {item.Id}; liczba: {playable.Length}; "
+            + $"teraz: {playable[0].Name} {playable[0].Start:c}-{playable[0].End:c}; "
+            + $"następny: {(playable.Length > 1 ? $"{playable[1].Name} @ {playable[1].Start:c}" : "brak")}.");
         RecordPlayback(session, item);
         ShowPlayerView();
         Announce(playable.Length == 1
             ? $"Rozdział: {playable[0].Name}"
-            : $"Odtwarzanie zaznaczonych rozdziałów: {playable.Length}");
+            : $"Wybrane rozdziały: {playable.Length}. Teraz {playable[0].Name}. Następny {playable[1].Name}");
     }
 
     private void SaveSelectedChapter(MediaItem item, IReadOnlyList<ChapterSegment> selected)
@@ -1341,6 +1346,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (session is null || !session.HasCurrentItem
             || !string.Equals(session.CurrentItem.Id, plan.ItemId, StringComparison.Ordinal))
         {
+            DiagnosticLog.Warning(
+                "chapters",
+                $"Anulowano wybrany zestaw, ponieważ zmienił się element; plan: {plan.SessionId}/{plan.ItemId}.");
             CancelChapterPlaybackPlan();
             return;
         }
@@ -1352,6 +1360,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             session.SetPosition(current.End);
             session.TogglePlayback();
+            DiagnosticLog.Info(
+                "chapters",
+                $"Zakończono wybrany zestaw na rozdziale: {current.Name} @ {current.End:c}.");
             CancelChapterPlaybackPlan();
             UpdatePlayerView();
             UpdatePlaybackStatusBar();
@@ -1361,6 +1372,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var next = plan.Chapters[nextIndex];
         _chapterPlaybackPlan = plan with { CurrentIndex = nextIndex };
         session.SetPosition(next.Start);
+        DiagnosticLog.Info(
+            "chapters",
+            $"Automatyczne przejście wybranego zestawu; z: {current.Name} @ {current.End:c}; "
+            + $"do: {next.Name} @ {next.Start:c}; pozycja po skoku: {session.Position:c}.");
         UpdatePlayerView();
         UpdatePlaybackStatusBar();
         Announce($"Rozdział: {next.Name}");
@@ -8011,6 +8026,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (_chapterPlaybackPlan is not null && CommandInterruptsChapterPlayback(commandId))
         {
+            DiagnosticLog.Info(
+                "chapters",
+                $"Anulowano wybrany zestaw przez ręczne polecenie: {commandId}.");
             CancelChapterPlaybackPlan();
         }
         var previousOverride = _actionItemsOverride;

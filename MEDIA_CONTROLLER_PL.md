@@ -2044,6 +2044,14 @@ jawnym wyborze odtwarza wybrany zestaw. Etykiety dostępnościowe są krótsze:
 nazwy i czasy rozdziałów, aby dało się odtworzyć przebieg przyszłego testu bez
 zapisywania mowy NVDA.
 
+W `alpha.264` niewybrany rozdział ma zwykłą nazwę bez komunikatu stanu;
+prefiks „Wybrany” występuje tylko przy rzeczywistym członkostwie w zestawie.
+Odtwarzanie zestawu nie przechodzi natychmiast po uruchomieniu pierwszego
+wiersza: odtwarza cały jego przedział aż do początku kolejnego rozdziału w
+źródłowym spisie, a następnie pomija niewybrane przedziały. Jednorazowy
+komunikat podaje rozdział bieżący i następny wybrany. Log obejmuje rozpoczęcie,
+każdy automatyczny skok, zakończenie oraz przerwanie ręcznym poleceniem.
+
 ### 7.20. Spójne cofanie usunięcia podcastu
 
 Od `alpha.240` operacja usunięcia kanału z Biblioteki Podcastów i jej
