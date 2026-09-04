@@ -1988,6 +1988,16 @@ listy lub odtwarzacza. Jawny skrót `Ctrl+Alt+B` może również odzyskać polec
 po przypadkowym przejściu fokusa do filtra, ale nie przejmuje otwartego menu ani
 okna bez bieżącego elementu.
 
+Od `alpha.258`, gdy RSS, JSON Podcasting 2.0 i pobrany plik nie dostarczają
+rozdziałów, jawne polecenie może sprawdzić publiczną stronę odcinka. Parser
+przyjmuje wyłącznie listę po nagłówku „Znaczniki czasu”, „Rozdziały”, „Spis
+rozdziałów”, „Chapters” albo „Chapter list”; przypadkowe godziny odtwarzacza,
+daty i komentarzy poza takim działem są ignorowane. Dopuszczalne są oba
+popularne układy: czas przed nazwą i czas na końcu nazwy. Pobieranie strony nie
+używa konta ani ciasteczek, ma ograniczenie przekierowań, 2 MB i wspólny limit
+20 sekund całej operacji. Poprawnie odczytany spis jest zapisywany i przy
+następnym otwarciu nie wymaga sieci.
+
 ### 7.20. Spójne cofanie usunięcia podcastu
 
 Od `alpha.240` operacja usunięcia kanału z Biblioteki Podcastów i jej

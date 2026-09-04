@@ -279,7 +279,8 @@ public sealed class ChapterIndex(BookmarkSettings settings)
         if (sourceId?.StartsWith("podcast-json:", StringComparison.Ordinal) == true) return 0;
         if (sourceId?.StartsWith("podcast-feed:", StringComparison.Ordinal) == true) return 1;
         if (sourceId?.StartsWith("embedded:", StringComparison.Ordinal) == true) return 2;
-        return 3;
+        if (sourceId?.StartsWith("podcast-page:", StringComparison.Ordinal) == true) return 3;
+        return 4;
     }
 
     private void TrimProviderEntriesToCapacity()

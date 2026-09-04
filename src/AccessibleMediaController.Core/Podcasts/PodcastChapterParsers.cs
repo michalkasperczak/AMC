@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using AccessibleMediaController.Core.Configuration;
@@ -97,6 +98,7 @@ public static partial class PodcastDescriptionChapterParser
         {
             lineNumber++;
             var match = ChapterLinePattern().Match(line.Trim());
+            if (!match.Success) match = ChapterLineWithTrailingTimePattern().Match(line.Trim());
             if (!match.Success || !TryParseTime(match.Groups["time"].Value, out var start)) continue;
             if (duration > TimeSpan.Zero && start >= duration) continue;
             var title = PodcastJsonChapterParser.NormalizeTitle(match.Groups["title"].Value.Trim(' ', '-', '–', '—', ':', '|'));
@@ -136,4 +138,59 @@ public static partial class PodcastDescriptionChapterParser
 
     [GeneratedRegex(@"^\s*[\[(]?(?<time>\d{1,3}:\d{2}(?::\d{2})?)[\])]?\s*(?:[-–—:|]\s*)?(?<title>\S.*)$", RegexOptions.CultureInvariant)]
     private static partial Regex ChapterLinePattern();
+
+    [GeneratedRegex(@"^\s*(?<title>\S.*?)\s+(?:[-–—:|]\s*)?(?<time>\d{1,3}:\d{2}(?::\d{2})?)\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex ChapterLineWithTrailingTimePattern();
+}
+
+/// <summary>
+/// Extracts an explicitly labelled chapter list from an episode web page.
+/// It intentionally ignores arbitrary timestamps outside a chapter section,
+/// because dates, player durations and comment times are not chapters.
+/// </summary>
+public static partial class PodcastEpisodePageChapterParser
+{
+    public const int MaximumHtmlCharacters = 2 * 1024 * 1024;
+
+    public static IReadOnlyList<ProviderChapterPoint> Parse(string html, TimeSpan duration)
+    {
+        ArgumentNullException.ThrowIfNull(html);
+        if (html.Length > MaximumHtmlCharacters)
+            throw new InvalidDataException("Strona odcinka jest zbyt duża.");
+        if (string.IsNullOrWhiteSpace(html)) return [];
+
+        var text = ScriptAndStylePattern().Replace(html, string.Empty);
+        text = BlockEndPattern().Replace(text, "\n");
+        text = TagPattern().Replace(text, " ");
+        text = WebUtility.HtmlDecode(text).Replace('\u00a0', ' ');
+        var lines = text
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => string.Join(' ', line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)))
+            .Where(line => line.Length > 0)
+            .ToArray();
+
+        var marker = Array.FindIndex(lines, IsChapterHeading);
+        if (marker < 0) return [];
+        var section = string.Join(Environment.NewLine, lines.Skip(marker + 1).Take(500));
+        return PodcastDescriptionChapterParser.Parse(section, duration);
+    }
+
+    private static bool IsChapterHeading(string line)
+    {
+        var normalized = line.Trim().TrimEnd(':');
+        return normalized.Equals("Znaczniki czasu", StringComparison.CurrentCultureIgnoreCase)
+            || normalized.Equals("Rozdziały", StringComparison.CurrentCultureIgnoreCase)
+            || normalized.Equals("Spis rozdziałów", StringComparison.CurrentCultureIgnoreCase)
+            || normalized.Equals("Chapters", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Chapter list", StringComparison.OrdinalIgnoreCase);
+    }
+
+    [GeneratedRegex(@"<(script|style|noscript)\b[^>]*>.*?</\1\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex ScriptAndStylePattern();
+
+    [GeneratedRegex(@"<\s*br\s*/?\s*>|</\s*(?:p|div|li|tr|h[1-6]|section|article)\s*>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex BlockEndPattern();
+
+    [GeneratedRegex(@"<[^>]+>", RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex TagPattern();
 }

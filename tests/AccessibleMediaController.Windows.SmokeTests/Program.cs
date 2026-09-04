@@ -160,6 +160,10 @@ try
         {
             TestLivePodcast(mediaPath["--podcast-url=".Length..]);
         }
+        else if (mediaPath.StartsWith("--podcast-chapter-page-url=", StringComparison.OrdinalIgnoreCase))
+        {
+            TestLivePodcastChapterPage(mediaPath["--podcast-chapter-page-url=".Length..]);
+        }
         else if (mediaPath.StartsWith("--apple-podcast-query=", StringComparison.OrdinalIgnoreCase))
         {
             TestLiveApplePodcastDirectory(mediaPath["--apple-podcast-query=".Length..]);
@@ -4162,7 +4166,36 @@ static void TestPodcastChapterClient()
         "Klient nie odczytał zewnętrznych rozdziałów Podcasting 2.0.");
     Assert(handler.Requests.Count == 2,
         "Klient rozdziałów nie obsłużył kontrolowanego przekierowania.");
+
+    const string pageHtml = """
+        <html><body><h3>Znaczniki czasu:</h3>
+        <p>Wprowadzenie 00:00:00<br />Rozmowa 00:00:42</p></body></html>
+        """;
+    var pageHandler = new PodcastHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+    {
+        Content = new StringContent(pageHtml, Encoding.UTF8, "text/html")
+    });
+    using var pageClient = new PodcastChapterClient(pageHandler, TimeSpan.FromSeconds(2));
+    var pageChapters = pageClient.FetchFromEpisodePageAsync(
+            new Uri("https://example.test/episode"),
+            TimeSpan.FromMinutes(5),
+            CancellationToken.None)
+        .GetAwaiter().GetResult();
+    Assert(pageChapters.Count == 2 && pageChapters[1].Start == TimeSpan.FromSeconds(42),
+        "Klient nie odtworzył rozdziałów opisanych bezpośrednio na stronie odcinka.");
     Console.WriteLine("OK: rozdziały Podcasting 2.0 są pobierane osobno i z limitem");
+}
+
+static void TestLivePodcastChapterPage(string address)
+{
+    using var client = new PodcastChapterClient();
+    var chapters = client.FetchFromEpisodePageAsync(
+            new Uri(address, UriKind.Absolute),
+            TimeSpan.FromHours(12),
+            CancellationToken.None)
+        .GetAwaiter().GetResult();
+    Assert(chapters.Count > 0, "Publiczna strona odcinka nie zwróciła żadnych rozdziałów.");
+    Console.WriteLine($"OK: publiczna strona odcinka, rozdziały: {chapters.Count}");
 }
 
 static void TestPodcastEpisodeDownloader()

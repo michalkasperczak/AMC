@@ -1031,6 +1031,13 @@ błędzie lub przekroczeniu czasu. `Ctrl+Alt+B` działa także wtedy, gdy po
 przebudowie listy fokus WPF omyłkowo pozostał w polu filtra, o ile istnieje
 bieżący element multimedialny.
 
+`alpha.258` uzupełnia odzyskiwanie rozdziałów dla wydawców, którzy nie wpisują
+ich do RSS ani do pliku Podcasting 2.0, lecz publikują na stronie odcinka pod
+jednoznacznym nagłówkiem „Znaczniki czasu”, „Rozdziały” albo „Chapters”. AMC
+obsługuje zarówno zapis „00:12:34 Temat”, jak i „Temat 00:12:34”. Strona jest
+pobierana dopiero po jawnym `Ctrl+Alt+B`, z limitem czasu i rozmiaru, bez
+ciasteczek. Znaleziony spis trafia do trwałego magazynu rozdziałów.
+
 ## Urządzenie audio osobno dla sesji w alpha 204
 
 Klawisz **Shift+A**, menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej

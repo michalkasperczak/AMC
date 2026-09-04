@@ -16,6 +16,7 @@ internal sealed class PodcastChapterClient : IDisposable
 {
     internal const int MaximumRedirects = 5;
     internal const int MaximumResponseBytes = PodcastJsonChapterParser.MaximumJsonCharacters;
+    internal const int MaximumPageResponseCharacters = PodcastEpisodePageChapterParser.MaximumHtmlCharacters;
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(15);
     private readonly HttpClient _http;
     private readonly TimeSpan _timeout;
@@ -97,6 +98,65 @@ internal sealed class PodcastChapterClient : IDisposable
         }
     }
 
+    public async Task<IReadOnlyList<ProviderChapterPoint>> FetchFromEpisodePageAsync(
+        Uri address,
+        TimeSpan duration,
+        CancellationToken cancellationToken)
+    {
+        ValidatePageAddress(address);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(_timeout);
+        var current = address;
+        for (var redirect = 0; ; redirect++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, current);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/xhtml+xml", 0.9));
+            using var response = await _http.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                timeout.Token).ConfigureAwait(false);
+            if (IsRedirect(response.StatusCode))
+            {
+                if (redirect >= MaximumRedirects)
+                    throw new InvalidDataException("Strona odcinka przekierowuje zbyt wiele razy.");
+                var location = response.Headers.Location
+                    ?? throw new InvalidDataException("Przekierowanie strony odcinka nie zawiera adresu docelowego.");
+                current = location.IsAbsoluteUri ? location : new Uri(current, location.OriginalString);
+                ValidatePageAddress(current);
+                continue;
+            }
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException(
+                    $"Strona odcinka zwróciła kod {(int)response.StatusCode}.",
+                    null,
+                    response.StatusCode);
+            }
+            if (response.Content.Headers.ContentLength is > MaximumPageResponseCharacters)
+                throw new InvalidDataException("Strona odcinka jest zbyt duża.");
+
+            await using var source = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
+            using var reader = new StreamReader(
+                source,
+                Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: true,
+                bufferSize: 16 * 1024,
+                leaveOpen: false);
+            var buffer = new char[16 * 1024];
+            var result = new StringBuilder();
+            while (true)
+            {
+                var read = await reader.ReadAsync(buffer.AsMemory(), timeout.Token).ConfigureAwait(false);
+                if (read == 0) break;
+                if (result.Length > MaximumPageResponseCharacters - read)
+                    throw new InvalidDataException("Strona odcinka jest zbyt duża.");
+                result.Append(buffer, 0, read);
+            }
+            return PodcastEpisodePageChapterParser.Parse(result.ToString(), duration);
+        }
+    }
+
     private static void ValidateAddress(Uri address)
     {
         ArgumentNullException.ThrowIfNull(address);
@@ -104,6 +164,15 @@ internal sealed class PodcastChapterClient : IDisposable
             throw new ArgumentException("Adres rozdziałów musi używać bezpiecznego protokołu HTTPS.", nameof(address));
         if (!string.IsNullOrEmpty(address.UserInfo))
             throw new ArgumentException("Adres rozdziałów nie może zawierać nazwy użytkownika ani hasła.", nameof(address));
+    }
+
+    private static void ValidatePageAddress(Uri address)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+        if (!address.IsAbsoluteUri || address.Scheme is not ("http" or "https"))
+            throw new ArgumentException("Adres strony odcinka musi rozpoczynać się od http:// albo https://.", nameof(address));
+        if (!string.IsNullOrEmpty(address.UserInfo))
+            throw new ArgumentException("Adres strony odcinka nie może zawierać nazwy użytkownika ani hasła.", nameof(address));
     }
 
     private static bool IsRedirect(HttpStatusCode status) => status is

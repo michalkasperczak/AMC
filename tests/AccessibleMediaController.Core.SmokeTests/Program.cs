@@ -209,6 +209,25 @@ static void TestPodcastProviderChapters()
     Equal(3, descriptionChapters.Count);
     Equal(TimeSpan.FromMinutes(12) + TimeSpan.FromSeconds(34), descriptionChapters[1].Start);
     Equal(0, PodcastDescriptionChapterParser.Parse("12:34 tylko jeden znacznik", TimeSpan.FromHours(1)).Count);
+    var trailingTimeChapters = PodcastDescriptionChapterParser.Parse(
+        $"Intro 00:00:00{Environment.NewLine}Temat główny 00:12:34{Environment.NewLine}Zakończenie 01:02:03",
+        TimeSpan.FromHours(2));
+    Equal(3, trailingTimeChapters.Count);
+    Equal("Temat główny", trailingTimeChapters[1].Name);
+
+    const string episodePage = """
+        <html><head><style>.time{display:none}</style><script>const fake = '09:09';</script></head><body>
+        <p>Opis zawierający godzinę 12:00, który nie jest rozdziałem.</p>
+        <h3>Znaczniki czasu:</h3>
+        <p>Intro 00:00:00<br>Rozmowa 00:12:34<br>Zakończenie 01:02:03</p>
+        </body></html>
+        """;
+    var pageChapters = PodcastEpisodePageChapterParser.Parse(episodePage, TimeSpan.FromHours(2));
+    Equal(3, pageChapters.Count);
+    Equal("Rozmowa", pageChapters[1].Name);
+    Equal(0, PodcastEpisodePageChapterParser.Parse(
+        "<p>Odtwarzacz 01:23:45</p><p>Komentarz o 12:30</p>",
+        TimeSpan.FromHours(2)).Count);
 
     const string psc = """
         <rss xmlns:psc="http://podlove.org/simple-chapters" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>PSC</title><item>

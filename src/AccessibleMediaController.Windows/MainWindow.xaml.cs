@@ -864,6 +864,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             DiagnosticLog.Info("chapters", $"Etap rozdziałów osadzonych; element: {item.Id}.");
             await EnsureEmbeddedChaptersAsync(session.Id, session.DisplayName, item, cancellationToken);
             if (_isClosing) return;
+            if (_chapterIndex.GetForItem(session.Id, item.Id, item.Duration).Count == 0)
+            {
+                DiagnosticLog.Info("chapters", $"Etap strony odcinka; element: {item.Id}.");
+                await EnsurePodcastPageChaptersAsync(session.Id, item, cancellationToken);
+                if (_isClosing) return;
+            }
             cancellationToken.ThrowIfCancellationRequested();
             if (!string.Equals(ActionSession.Id, session.Id, StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(ActionItem?.Id, item.Id, StringComparison.Ordinal))
@@ -1057,6 +1063,67 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             DiagnosticLog.Warning(
                 "media-chapters",
                 $"Nie udało się odczytać rozdziałów osadzonych dla {item.Id}; błąd {exception.GetType().Name}.");
+        }
+    }
+
+    private async Task EnsurePodcastPageChaptersAsync(
+        string sessionId,
+        MediaItem item,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(sessionId, "podcasts", StringComparison.OrdinalIgnoreCase)) return;
+        var episode = _state.Podcasts.Episodes.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
+        if (episode is null
+            || !Uri.TryCreate(episode.PageUrl, UriKind.Absolute, out var address)
+            || !_podcastChapterDownloadsInProgress.Add(episode.Id))
+        {
+            return;
+        }
+
+        try
+        {
+            if (_state.Settings.Messages.LoadingMessages) Announce("Sprawdzanie strony odcinka");
+            var chapters = await _podcastChapterClient.FetchFromEpisodePageAsync(
+                address,
+                item.Duration,
+                cancellationToken);
+            if (_isClosing) return;
+            if (chapters.Count > 0)
+            {
+                _chapterIndex.ReplaceProviderChapters(
+                    "podcasts",
+                    "Podcasty",
+                    item,
+                    "podcast-page",
+                    chapters,
+                    DateTime.UtcNow);
+                QueueStateSave(announceFailure: true);
+            }
+            DiagnosticLog.Info(
+                "podcast-chapters",
+                $"Odczytano stronę odcinka {episode.Id}: {chapters.Count} rozdziałów.");
+        }
+        catch (OperationCanceledException) when (_isClosing || _podcastCancellation.IsCancellationRequested)
+        {
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is HttpRequestException
+            or IOException
+            or InvalidDataException
+            or ArgumentException
+            or TaskCanceledException)
+        {
+            DiagnosticLog.Warning(
+                "podcast-chapters",
+                $"Nie udało się odczytać strony odcinka {episode.Id}; błąd {exception.GetType().Name}.");
+        }
+        finally
+        {
+            _podcastChapterDownloadsInProgress.Remove(episode.Id);
         }
     }
 
