@@ -1078,6 +1078,12 @@ następny. Każdy rozdział jest odtwarzany do własnego końca; dopiero potem
 program przeskakuje nad pominiętymi rozdziałami. Przebieg i przerwania planu są
 zapisywane w logu diagnostycznym.
 
+`alpha.265` zachowuje wybrany zestaw podczas przewijania strzałkami, skoków do
+czasu i procentu oraz nawigacji rozdziałami. Trafienie w pominięty fragment
+kieruje do najbliższego wybranego rozdziału, a poprzedni/następny rozdział
+porusza się tylko po zestawie. Po ponownym otwarciu listy wcześniejsze wybory
+są nadal widoczne. Zmiana odtwarzanego materiału kończy ten tymczasowy plan.
+
 ## Urządzenie audio osobno dla sesji w alpha 204
 
 Klawisz **Shift+A**, menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej

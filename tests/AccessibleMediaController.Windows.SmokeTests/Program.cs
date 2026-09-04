@@ -1249,6 +1249,33 @@ static void TestChapterWindowAccessibility()
             }
             window.Close();
 
+            var reopened = new ChapterListWindow(
+                "Odcinek",
+                chapters,
+                TimeSpan.FromMinutes(6),
+                [first.Id]);
+            Assert(reopened.SelectedChapters.Count == 1
+                   && reopened.SelectedChapters[0].Entry.Id == first.Id,
+                "Ponowne otwarcie listy nie odtwarza wyboru aktywnego zestawu rozdziałów.");
+            var reopenedFirst = (ChapterListRow)reopened.ChapterList.Items[0];
+            var reopenedSecond = (ChapterListRow)reopened.ChapterList.Items[1];
+            Assert(reopenedFirst.SelectionAccessibleLabel.StartsWith("Wybrany,", StringComparison.Ordinal)
+                   && reopenedSecond.SelectionAccessibleLabel == reopenedSecond.AccessibleLabel,
+                "Odtworzony wybór rozdziałów nie ma prawidłowych etykiet dostępnościowych.");
+            reopened.Close();
+
+            Assert(!MainWindow.CommandInterruptsChapterPlayback(CommandIds.SeekBackward10)
+                   && MainWindow.IsChapterPlanPreservingSeekCommand(CommandIds.SeekBackward10)
+                   && !MainWindow.CommandInterruptsChapterPlayback(CommandIds.SeekToTime)
+                   && MainWindow.IsChapterPlanPreservingSeekCommand(CommandIds.SeekToTime)
+                   && !MainWindow.CommandInterruptsChapterPlayback(CommandIds.SeekPercent(50))
+                   && MainWindow.IsChapterPlanPreservingSeekCommand(CommandIds.SeekPercent(50)),
+                "Przewijanie nie zachowuje aktywnego zestawu rozdziałów.");
+            Assert(!MainWindow.CommandInterruptsChapterPlayback(CommandIds.PreviousChapter)
+                   && !MainWindow.CommandInterruptsChapterPlayback(CommandIds.NextChapter)
+                   && MainWindow.CommandInterruptsChapterPlayback(CommandIds.Next),
+                "Nawigacja po rozdziałach albo zmiana materiału ma nieprawidłową politykę aktywnego zestawu.");
+
             var nameWindow = new ChapterNameWindow("Odcinek", TimeSpan.FromMinutes(3));
             Assert(AutomationProperties.GetName(nameWindow.NameBox) == "Nazwa rozdziału",
                 "Pole nazwy rozdziału nie ma jawnej nazwy dostępnościowej.");

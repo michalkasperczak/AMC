@@ -2052,6 +2052,15 @@ wiersza: odtwarza cały jego przedział aż do początku kolejnego rozdziału w
 komunikat podaje rozdział bieżący i następny wybrany. Log obejmuje rozpoczęcie,
 każdy automatyczny skok, zakończenie oraz przerwanie ręcznym poleceniem.
 
+Od `alpha.265` zwykłe przewijanie nie jest poleceniem przerywającym zestaw.
+Pozycja planu jest uzgadniana z nowym czasem: wewnątrz wybranego przedziału
+pozostaje bez zmian, a trafienie w przerwę kieruje do najbliższego wybranego
+rozdziału w użytym kierunku. Poprzedni i następny rozdział działają na
+aktywnym zestawie, a nie na pełnym spisie. Lista otwarta ponownie dla tego
+samego materiału otrzymuje identyfikatory rozdziałów z planu i wystawia ich
+stan przez UI Automation. Dopiero zmiana materiału lub jawne uruchomienie
+innego zestawu zastępuje bieżący plan.
+
 ### 7.20. Spójne cofanie usunięcia podcastu
 
 Od `alpha.240` operacja usunięcia kanału z Biblioteki Podcastów i jej

@@ -901,7 +901,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal)
                 ? session.Position
                 : TimeSpan.Zero;
-        var dialog = new ChapterListWindow(item.Title, chapters, position) { Owner = this };
+        var activeChoice = _chapterPlaybackPlan is { } activePlan
+            && string.Equals(activePlan.SessionId, session.Id, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(activePlan.ItemId, item.Id, StringComparison.Ordinal)
+                ? activePlan.Chapters.Select(chapter => chapter.Entry.Id).ToArray()
+                : null;
+        var dialog = new ChapterListWindow(item.Title, chapters, position, activeChoice) { Owner = this };
         if (dialog.ShowDialog() != true)
         {
             RestoreChapterCallerFocus();
@@ -1144,6 +1149,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         var session = _sessions.Current;
         var item = session.CurrentItem;
+        if (TryNavigateSelectedChapter(session, item, direction)) return;
         var availableChapters = _chapterIndex.GetForItem(session.Id, item.Id, item.Duration);
         if (availableChapters.Count == 0)
         {
@@ -1218,6 +1224,44 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdatePlayerView();
         UpdatePlaybackStatusBar();
         Announce($"{chapter.Name}, {CommandRouter.FormatTime(chapter.Start)}");
+    }
+
+    private bool TryNavigateSelectedChapter(DemoMediaSession session, MediaItem item, int direction)
+    {
+        if (_chapterPlaybackPlan is not { } plan
+            || !string.Equals(plan.SessionId, session.Id, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(plan.ItemId, item.Id, StringComparison.Ordinal)
+            || plan.Chapters.Count == 0)
+        {
+            return false;
+        }
+
+        var currentIndex = Math.Clamp(plan.CurrentIndex, 0, plan.Chapters.Count - 1);
+        var current = plan.Chapters[currentIndex];
+        var targetIndex = direction > 0
+            ? currentIndex + 1
+            : session.Position - current.Start > TimeSpan.FromSeconds(3)
+                ? currentIndex
+                : currentIndex - 1;
+        if (targetIndex < 0 || targetIndex >= plan.Chapters.Count)
+        {
+            Announce(direction < 0
+                ? "Brak poprzedniego wybranego rozdziału"
+                : "Brak następnego wybranego rozdziału");
+            return true;
+        }
+
+        var target = plan.Chapters[targetIndex];
+        _chapterPlaybackPlan = plan with { CurrentIndex = targetIndex };
+        session.SetPosition(target.Start);
+        DiagnosticLog.Info(
+            "chapters",
+            $"Ręczna nawigacja w wybranym zestawie; kierunek: {direction}; "
+            + $"cel: {target.Name} @ {target.Start:c}; indeks: {targetIndex + 1}/{plan.Chapters.Count}.");
+        UpdatePlayerView();
+        UpdatePlaybackStatusBar();
+        Announce($"{target.Name}, {CommandRouter.FormatTime(target.Start)}");
+        return true;
     }
 
     private void PlaySelectedChapters(
@@ -8024,6 +8068,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private CommandExecutionResult ExecuteCommand(string commandId)
     {
+        var seekPositionBefore = IsChapterPlanPreservingSeekCommand(commandId)
+            && _chapterPlaybackPlan is not null
+            && _sessions.Current.HasCurrentItem
+                ? _sessions.Current.Position
+                : (TimeSpan?)null;
         if (_chapterPlaybackPlan is not null && CommandInterruptsChapterPlayback(commandId))
         {
             DiagnosticLog.Info(
@@ -8051,7 +8100,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         try
         {
-            return ExecuteCommandCore(commandId, folderContext);
+            var result = ExecuteCommandCore(commandId, folderContext);
+            if (seekPositionBefore is { } previousPosition)
+            {
+                ReconcileChapterPlaybackPlanAfterSeek(previousPosition);
+            }
+            return result;
         }
         finally
         {
@@ -9407,11 +9461,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
-    private static bool CommandInterruptsChapterPlayback(string commandId) =>
+    internal static bool CommandInterruptsChapterPlayback(string commandId) =>
         commandId is CommandIds.ActivateSelected
             or CommandIds.Previous
             or CommandIds.Next
-            or CommandIds.SeekBackward10
+            or CommandIds.JumpClipStart
+            or CommandIds.JumpClipEnd
+            or CommandIds.PreviousClipBoundary
+            or CommandIds.NextClipBoundary
+            or CommandIds.PreviousBookmark
+            or CommandIds.NextBookmark;
+
+    internal static bool IsChapterPlanPreservingSeekCommand(string commandId) =>
+        commandId is CommandIds.SeekBackward10
             or CommandIds.SeekForward10
             or CommandIds.SeekBackward30
             or CommandIds.SeekForward30
@@ -9421,15 +9483,80 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.TrackEnd
             or CommandIds.SeekToTime
             or CommandIds.SeekToPercentage
-            or CommandIds.JumpClipStart
-            or CommandIds.JumpClipEnd
-            or CommandIds.PreviousClipBoundary
-            or CommandIds.NextClipBoundary
-            or CommandIds.PreviousBookmark
-            or CommandIds.NextBookmark
-            or CommandIds.PreviousChapter
-            or CommandIds.NextChapter
         || commandId.StartsWith("transport.seekPercent.", StringComparison.Ordinal);
+
+    private void ReconcileChapterPlaybackPlanAfterSeek(TimeSpan previousPosition)
+    {
+        if (_chapterPlaybackPlan is not { } plan) return;
+        var session = _sessions.FindSession(plan.SessionId);
+        if (session is null || !ReferenceEquals(session, _sessions.Current)
+            || !session.HasCurrentItem
+            || !string.Equals(session.CurrentItem.Id, plan.ItemId, StringComparison.Ordinal)
+            || plan.Chapters.Count == 0)
+        {
+            return;
+        }
+
+        var position = session.Position;
+        var containingIndex = -1;
+        for (var index = 0; index < plan.Chapters.Count; index++)
+        {
+            var chapter = plan.Chapters[index];
+            if (position >= chapter.Start && position < chapter.End)
+            {
+                containingIndex = index;
+                break;
+            }
+        }
+
+        if (containingIndex >= 0)
+        {
+            _chapterPlaybackPlan = plan with { CurrentIndex = containingIndex };
+            return;
+        }
+
+        int targetIndex;
+        if (position < previousPosition)
+        {
+            targetIndex = -1;
+            for (var index = plan.Chapters.Count - 1; index >= 0; index--)
+            {
+                if (plan.Chapters[index].End <= position)
+                {
+                    targetIndex = index;
+                    break;
+                }
+            }
+            if (targetIndex < 0) targetIndex = 0;
+        }
+        else
+        {
+            targetIndex = -1;
+            for (var index = 0; index < plan.Chapters.Count; index++)
+            {
+                if (plan.Chapters[index].Start >= position)
+                {
+                    targetIndex = index;
+                    break;
+                }
+            }
+            if (targetIndex < 0) targetIndex = plan.Chapters.Count - 1;
+        }
+
+        var target = plan.Chapters[targetIndex];
+        _chapterPlaybackPlan = plan with { CurrentIndex = targetIndex };
+        session.SetPosition(target.Start);
+        DiagnosticLog.Info(
+            "chapters",
+            $"Przewijanie zachowało wybrany zestaw i ominęło niewybrany przedział; "
+            + $"z: {previousPosition:c}; żądano: {position:c}; cel: {target.Name} @ {target.Start:c}.");
+        UpdatePlayerView();
+        UpdatePlaybackStatusBar();
+        if (_state.Settings.Messages.SeekMessages)
+        {
+            Announce($"Wybrany rozdział: {target.Name}, {CommandRouter.FormatTime(target.Start)}");
+        }
+    }
 
     private static void UpdateAddedOrder(
         IDictionary<string, List<string>> orders,

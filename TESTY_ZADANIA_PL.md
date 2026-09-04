@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-264`
-- Tytuł zestawu: Cichy brak wyboru i czytelne przejście zestawu rozdziałów
-- Wersja programu: `0.1.0-alpha.264`
+- Numer zestawu: `AMC-TEST-265`
+- Tytuł zestawu: Trwały zestaw rozdziałów podczas przewijania
+- Wersja programu: `0.1.0-alpha.265`
 - Utworzono: 2026-09-05, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.264.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.265.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,41 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 265
+
+### AMC-265-01 — przewijanie wewnątrz wybranego rozdziału
+
+Wybierz dwa odległe rozdziały, uruchom zestaw i w pierwszym używaj strzałek,
+Shift ze strzałkami oraz Control ze strzałkami.
+
+Oczekiwane: skoki o 10, 30 i 60 sekund nie kasują zestawu. Po dojściu do końca
+pierwszego rozdziału AMC nadal przechodzi do drugiego wybranego.
+
+### AMC-265-02 — przewinięcie do pominiętego przedziału
+
+Podczas aktywnego zestawu użyj cyfry, `Ctrl+J` albo przewijania tak, aby żądany
+czas wypadł pomiędzy wybranymi rozdziałami.
+
+Oczekiwane: AMC nie zaczyna odtwarzać całej niewybranej części. Przechodzi do
+najbliższego wybranego rozdziału zgodnie z kierunkiem skoku i zachowuje zestaw.
+
+### AMC-265-03 — ręczna nawigacja po wybranym zestawie
+
+Użyj kilkakrotnie `Ctrl+Shift+lewo/prawo`.
+
+Oczekiwane: nawigacja przechodzi wyłącznie między wybranymi rozdziałami. Po
+ponad 3 sekundach cofnięcie najpierw wraca na początek bieżącego wybranego
+rozdziału, a kolejne przechodzi do poprzedniego wybranego.
+
+### AMC-265-04 — ponowne otwarcie listy
+
+W trakcie odtwarzania zestawu otwórz ponownie `Ctrl+Alt+B`.
+
+Oczekiwane: wcześniej wybrane rozdziały nadal mówią „Wybrany”. Escape nie
+zmienia planu, a Enter zatwierdza widoczny zestaw ponownie.
+
+## Poprzedni zestaw regresyjny alpha 264
 
 ## Nowości alpha 264
 

@@ -61,7 +61,11 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
     private readonly ObservableCollection<ChapterListRow> _rows;
     private readonly int _initialIndex;
 
-    public ChapterListWindow(string itemTitle, IReadOnlyList<ChapterSegment> chapters, TimeSpan position)
+    public ChapterListWindow(
+        string itemTitle,
+        IReadOnlyList<ChapterSegment> chapters,
+        TimeSpan position,
+        IReadOnlyCollection<string>? chosenChapterIds = null)
     {
         InitializeComponent();
         Title = $"Rozdziały — {itemTitle}";
@@ -70,6 +74,14 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
         System.Windows.Automation.AutomationProperties.SetName(ChapterList, $"Rozdziały: {itemTitle}");
         _rows = new ObservableCollection<ChapterListRow>(
             chapters.Select((chapter, index) => new ChapterListRow(chapter, index + 1)));
+        if (chosenChapterIds is { Count: > 0 })
+        {
+            var chosenIds = chosenChapterIds.ToHashSet(StringComparer.Ordinal);
+            foreach (var row in _rows)
+            {
+                row.IsChosen = chosenIds.Contains(row.Segment.Entry.Id);
+            }
+        }
         ChapterList.ItemsSource = _rows;
         _initialIndex = FindInitialIndex(chapters, position);
     }
