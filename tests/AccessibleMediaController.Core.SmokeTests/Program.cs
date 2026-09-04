@@ -4092,13 +4092,45 @@ static void TestMembershipHistory()
         Kind = MediaItemKind.Podcast,
         IsInLibrary = false
     };
-    var podcastUndo = history.Undo(itemId =>
-        string.Equals(itemId, currentPodcast.Id, StringComparison.Ordinal) ? currentPodcast : null);
+    var podcastUndo = history.Undo((sessionId, itemId) =>
+        string.Equals(sessionId, "podcasts", StringComparison.Ordinal)
+        && string.Equals(itemId, currentPodcast.Id, StringComparison.Ordinal)
+            ? currentPodcast
+            : null);
     True(podcastUndo is not null, "Cofnięcie podcastu powinno zostać znalezione po przebudowie listy.");
     True(currentPodcast.IsInLibrary,
         "Ctrl+Z powinno przywrócić bieżący obiekt podcastu, a nie tylko nieaktualny element starej listy.");
     True(stalePodcast.IsInLibrary,
         "Obiekt zapisany w historii powinien pozostać zgodny z bieżącym elementem.");
+
+    foreach (var sessionId in new[] { "local", "radio", "tidal", "appleMusic", "wiim" })
+    {
+        var stale = new MediaItem
+        {
+            Id = $"{sessionId}-rebuilt-item",
+            Title = $"Przebudowany element {sessionId}",
+            IsFavorite = true,
+            IsInLibrary = true,
+            IsInQueue = true
+        };
+        var before = MediaMembershipState.From(stale);
+        stale.IsFavorite = false;
+        stale.IsInLibrary = false;
+        stale.IsInQueue = false;
+        history.Record(sessionId, stale, before, $"Przywrócono {sessionId}");
+        var current = new MediaItem
+        {
+            Id = stale.Id,
+            Title = stale.Title
+        };
+        var serviceUndo = history.Undo((resolvedSessionId, itemId) =>
+            string.Equals(resolvedSessionId, sessionId, StringComparison.Ordinal)
+            && string.Equals(itemId, current.Id, StringComparison.Ordinal)
+                ? current
+                : null);
+        True(serviceUndo is not null && MediaMembershipState.From(current) == before,
+            $"Ctrl+Z nie przywrócił aktualnego rekordu po przebudowie sesji {sessionId}.");
+    }
 
     var firstFavorite = new MediaItem { Id = "favorite-a", Title = "Pierwszy", IsFavorite = true };
     var middleFavorite = new MediaItem { Id = "favorite-b", Title = "Środkowy", IsFavorite = true };

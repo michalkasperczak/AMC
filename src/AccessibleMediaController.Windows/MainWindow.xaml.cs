@@ -7426,6 +7426,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var changedSession = changesListMembership ? ActionSession : null;
         var changedItems = changesListMembership
             ? ActionItems
+                .Select(item => ResolveCanonicalMembershipItem(ActionSession.Id, item.Id) ?? item)
                 .DistinctBy(item => item.Id, StringComparer.Ordinal)
                 .ToArray()
             : [];
@@ -7684,9 +7685,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else if (changesListMembership && changedSession is not null)
         {
-            if (string.Equals(changedSession.Id, "radio", StringComparison.Ordinal)) CaptureRadioState();
-            if (string.Equals(changedSession.Id, "podcasts", StringComparison.Ordinal)) CapturePodcastState();
-            QueueStateSave();
+            PersistMembershipState(changedSession.Id);
         }
         else if (savesPlaybackBoundary && result.Handled)
         {
@@ -9544,23 +9543,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var candidateSession = membershipCandidate is null
-            ? null
-            : _sessions.FindSession(membershipCandidate.SessionId);
-        MediaItem ResolveCurrentUndoItem(MediaMembershipUndoItem entry) =>
-            candidateSession?.Items.FirstOrDefault(item =>
-                string.Equals(item.Id, entry.Item.Id, StringComparison.Ordinal))
-            ?? entry.Item;
         var preUndoMemberships = membershipCandidate?.Items
             .Select(entry =>
             {
-                var currentItem = ResolveCurrentUndoItem(entry);
+                var currentItem = ResolveCanonicalMembershipItem(
+                    membershipCandidate.SessionId,
+                    entry.Item.Id) ?? entry.Item;
                 return (currentItem, Previous: MediaMembershipState.From(currentItem));
             })
             .ToArray() ?? [];
-        var undo = _membershipHistory.Undo(itemId =>
-            candidateSession?.Items.FirstOrDefault(item =>
-                string.Equals(item.Id, itemId, StringComparison.Ordinal)));
+        var undo = _membershipHistory.Undo(ResolveCanonicalMembershipItem);
         if (undo is null)
         {
             RestoreMediaListFocusAfterRefresh();
@@ -9570,6 +9562,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        var restoredItems = undo.Items
+            .Select(entry => ResolveCanonicalMembershipItem(undo.SessionId, entry.Item.Id) ?? entry.Item)
+            .DistinctBy(item => item.Id, StringComparer.Ordinal)
+            .ToArray();
         RestoreMembershipOrder(undo);
         var undoSession = _sessions.FindSession(undo.SessionId);
         if (undoSession is not null)
@@ -9579,12 +9575,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (string.Equals(undo.SessionId, "local", StringComparison.Ordinal))
         {
-            foreach (var entry in undo.Items)
+            foreach (var item in restoredItems)
             {
-                if (entry.Item.IsInLibrary)
-                    RemoveLocalExclusions([entry.Item.Source ?? string.Empty]);
+                if (item.IsInLibrary)
+                    RemoveLocalExclusions([item.Source ?? string.Empty]);
                 else
-                    AddLocalExclusions([entry.Item]);
+                    AddLocalExclusions([item]);
             }
             RefreshLocalSessionItems();
         }
@@ -9592,25 +9588,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_sessions.Current.Id == undo.SessionId)
         {
             RefreshCurrentView();
-            SelectMediaItems(undo.Items.Select(item => item.Item.Id));
+            SelectMediaItems(restoredItems.Select(item => item.Id));
         }
-        if (string.Equals(undo.SessionId, "local", StringComparison.Ordinal))
-        {
-            TrySaveLocalMediaState(false);
-        }
-        else if (string.Equals(undo.SessionId, "radio", StringComparison.Ordinal))
-        {
-            CaptureRadioState();
-            QueueStateSave();
-        }
-        else if (string.Equals(undo.SessionId, "podcasts", StringComparison.Ordinal))
-        {
-            // A podcast subscription is represented both by the live list item
-            // and by its persisted subscription record.  Keep both in sync so
-            // Enter can open the restored podcast immediately after Ctrl+Z.
-            CapturePodcastState();
-            QueueStateSave();
-        }
+        PersistMembershipState(undo.SessionId);
         DiagnosticLog.Info(
             "undo",
             $"Cofnięto zmianę przynależności; sesja {undo.SessionId}; elementy {undo.Items.Count}.");
@@ -9999,6 +9979,43 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Dispatcher.BeginInvoke(
             () => Announce($"Zmieniono nazwę w Bibliotece: {newTitle}"),
             DispatcherPriority.ContextIdle);
+    }
+
+    private MediaItem? ResolveCanonicalMembershipItem(string sessionId, string itemId)
+    {
+        IEnumerable<MediaItem>? durableItems = sessionId switch
+        {
+            "local" => _localItems,
+            "radio" => _radioItems,
+            "podcasts" => _podcastItems,
+            _ => null
+        };
+        return MainWindowMembershipPolicy.ResolveCanonicalItem(
+            itemId,
+            durableItems,
+            _sessions.FindSession(sessionId)?.Items);
+    }
+
+    private void PersistMembershipState(string sessionId)
+    {
+        if (string.Equals(sessionId, "local", StringComparison.Ordinal))
+        {
+            TrySaveLocalMediaState(false);
+            return;
+        }
+        if (string.Equals(sessionId, "radio", StringComparison.Ordinal))
+        {
+            CaptureRadioState();
+        }
+        else if (string.Equals(sessionId, "podcasts", StringComparison.Ordinal))
+        {
+            CapturePodcastState();
+        }
+
+        // Collection order and future service-adapter state share the normal
+        // state queue. A real account adapter must complete its remote write
+        // before it exposes a membership change as successfully undoable.
+        QueueStateSave(announceFailure: true);
     }
 
     private void RenamePodcastSubscription()

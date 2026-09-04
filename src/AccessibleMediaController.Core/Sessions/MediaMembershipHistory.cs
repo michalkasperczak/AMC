@@ -79,14 +79,15 @@ public sealed class MediaMembershipHistory
 
     public MediaMembershipUndo? Peek() => _entries.Count == 0 ? null : _entries.Peek();
 
-    public MediaMembershipUndo? Undo(Func<string, MediaItem?>? currentItemResolver = null)
+    public MediaMembershipUndo? Undo(
+        Func<string, string, MediaItem?>? currentItemResolver = null)
     {
         if (_entries.Count == 0) return null;
         var entry = _entries.Pop();
         foreach (var item in entry.Items)
         {
             item.PreviousState.ApplyTo(item.Item);
-            var currentItem = currentItemResolver?.Invoke(item.Item.Id);
+            var currentItem = currentItemResolver?.Invoke(entry.SessionId, item.Item.Id);
             if (currentItem is not null && !ReferenceEquals(currentItem, item.Item))
             {
                 item.PreviousState.ApplyTo(currentItem);

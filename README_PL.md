@@ -7,6 +7,16 @@ Ten plik jest punktem przekazania projektu innemu modelowi albo niezależnemu
 testerowi przed publikacją; nie należy traktować każdego wpisu jako
 potwierdzonego błędu.
 
+Wersja `alpha.243` uogólnia bezpieczne cofanie zmian kolekcji na wszystkie
+sesje. Usunięcie albo zmiana przynależności elementu w wynikach wyszukiwania,
+Bibliotece, Ulubionych lub Kolejce jest teraz wiązana z identyfikatorem sesji
+i stabilnym identyfikatorem elementu, a nie z tymczasowym obiektem widocznego
+wiersza. `Ctrl+Z` odszukuje aktualny rekord po odświeżeniu lub przebudowie
+listy, przywraca stan, kolejność i fokus oraz zapisuje zmianę we właściwym
+magazynie sesji. Działa to trwale dla Plików lokalnych, Radia i Podcastów.
+Przyszłe adaptery TIDAL, Apple Music, Spotify i WiiM mają stosować ten sam
+kontrakt, ale udostępniać cofnięcie dopiero po potwierdzeniu zapisu przez API.
+
 Wersja `alpha.242` rozszerza wyszukiwanie Podcastów o drugi publiczny katalog:
 Spreaker. `Ctrl+F` przeszukuje równolegle Apple Podcasts i Spreaker, każdy
 niezapisany wynik podaje nazwę katalogu, a Enter przed dodaniem nadal sprawdza

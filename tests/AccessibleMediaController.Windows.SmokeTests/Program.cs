@@ -88,6 +88,7 @@ try
     TestPlayerDeparturePlaybackPolicy();
     TestSearchNavigation();
     TestPodcastDirectorySearchMerge();
+    TestCanonicalMembershipResolution();
     TestPlayerListReturnSelection();
     TestMainWindowFocusRecoveryPolicy();
     TestPodcastDownloadStartAnnouncement();
@@ -757,6 +758,38 @@ static void TestPlayerListReturnSelection()
             fallbackIndex: 1) == -1,
         "Pusta lista otrzymała nieprawidłowe zaznaczenie.");
     Console.WriteLine("OK: Escape zachowuje pozycję na liście także po zniknięciu odcinka");
+}
+
+static void TestCanonicalMembershipResolution()
+{
+    var staleListItem = new MediaItem
+    {
+        Id = "same-id",
+        Title = "Nieaktualny wiersz",
+        IsInLibrary = false
+    };
+    var durableItem = new MediaItem
+    {
+        Id = "same-id",
+        Title = "Aktualny rekord",
+        IsInLibrary = true
+    };
+    var resolved = MainWindowMembershipPolicy.ResolveCanonicalItem(
+        "same-id",
+        [durableItem],
+        [staleListItem]);
+    Assert(ReferenceEquals(resolved, durableItem),
+        "Cofnięcie wybrało nieaktualny wiersz zamiast trwałego rekordu sesji.");
+
+    var sessionOnly = new MediaItem { Id = "service-item", Title = "Element adaptera" };
+    Assert(ReferenceEquals(
+            MainWindowMembershipPolicy.ResolveCanonicalItem(
+                sessionOnly.Id,
+                durableItems: null,
+                [sessionOnly]),
+            sessionOnly),
+        "Przyszła usługa bez lokalnego magazynu nie może odnaleźć aktualnego elementu sesji.");
+    Console.WriteLine("OK: globalne cofanie wybiera aktualny rekord każdej sesji");
 }
 
 static void TestMainWindowFocusRecoveryPolicy()

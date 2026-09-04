@@ -1,5 +1,16 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.243` generalises safe collection-state undo across all
+sessions. Removing an item or changing its Library, Favorites, or Queue
+membership from search results or a regular view is now tied to both the
+session identifier and the item's stable identifier, rather than to a
+temporary visible-row object. `Ctrl+Z` resolves the current record after a
+refresh or view rebuild, restores state, ordering, and focus, and persists the
+change through the correct session store. This is durable for Local media,
+Radio, and Podcasts. Future TIDAL, Apple Music, Spotify, and WiiM adapters must
+use the same contract, but may expose undo only after the remote API confirms
+the original write.
+
 Version `alpha.242` adds Spreaker as the second public Podcasts directory.
 `Ctrl+F` searches Apple Podcasts and Spreaker concurrently, labels each
 unsaved result with its source directory, and still verifies the actual RSS or

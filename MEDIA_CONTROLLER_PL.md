@@ -1946,3 +1946,23 @@ przywraca oba obiekty, jeśli odświeżenie zbudowało listę od nowa. Dzięki t
 ten sam kontrakt można stosować do przyszłych adapterów sieciowych, które
 częściej wymieniają migawki elementów. Cofnięcie nie uruchamia pobierania RSS
 ani odtwarzania, więc nie może blokować interfejsu oczekiwaniem na sieć.
+
+### 7.21. Wspólne cofanie stanu kolekcji
+
+Od `alpha.243` historia zmian Biblioteki, Ulubionych i Kolejki przechowuje
+identyfikator sesji, stabilny identyfikator elementu oraz stan sprzed operacji.
+Nie wolno uznawać obiektu wiersza wyników wyszukiwania za trwały rekord.
+Wspólny przebieg cofnięcia jest następujący:
+
+1. odszukaj bieżący rekord w trwałym zbiorze danej sesji;
+2. jeżeli sesja nie ma osobnego trwałego zbioru, odszukaj aktualny element
+   sesji;
+3. przywróć członkostwo, kolejność i fokus bez używania starego wiersza;
+4. zapisz wynik w magazynie właściwym dla tej sesji.
+
+Kontrakt obowiązuje również przyszłe adaptery TIDAL, Apple Music, Spotify i
+WiiM. Adapter sieciowy ma najpierw uzyskać potwierdzenie zapisu z API. Błąd
+sieciowy nie może pozostawić lokalnej atrapy zmiany ani dodać do historii
+operacji, której usługa nie wykonała. Dopóki adaptery kont użytkownika nie są
+wdrożone, trwałość tej reguły dotyczy Plików lokalnych, Radia i Podcastów, a
+sesje demonstracyjne można sprawdzać tylko w bieżącym uruchomieniu.

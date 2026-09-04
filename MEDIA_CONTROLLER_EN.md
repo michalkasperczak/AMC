@@ -1612,6 +1612,27 @@ uses modifiers that are physically down rather than a cached hook state, so a
 missed Alt key-up after focus movement cannot turn a later plain digit into a
 view command or a session change.
 
+### 7.21. Shared collection-state undo
+
+Starting with `alpha.243`, the Library, Favorites, and Queue change history
+stores the session identifier, the item's stable identifier, and the state
+before the operation. A search-result row object must never be treated as the
+durable record. The shared undo sequence is:
+
+1. resolve the current record in the session's durable collection;
+2. when no separate durable collection exists, resolve the current session
+   item;
+3. restore membership, ordering, and focus without reusing the stale row;
+4. persist the result through the store owned by that session.
+
+Future TIDAL, Apple Music, Spotify, and WiiM adapters are bound by the same
+contract. A network adapter must receive confirmation from its API before the
+write becomes undoable. A remote failure must not leave a local imitation of
+the change or an undo record for an operation the service did not perform.
+Until account adapters are implemented, durable coverage applies to Local
+media, Radio, and Podcasts; demo sessions can only be exercised within the
+current process.
+
 ### 7.20. Consistent undo for removed podcasts
 
 Starting with `alpha.240`, undoing the removal of a show from the Podcasts

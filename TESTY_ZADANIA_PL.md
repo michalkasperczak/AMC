@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-242`
-- Tytuł zestawu: Katalog Spreaker i niezależność źródeł wyszukiwania Podcastów
-- Wersja programu: `0.1.0-alpha.242`
+- Numer zestawu: `AMC-TEST-243`
+- Tytuł zestawu: Globalne, trwałe cofanie zmian kolekcji
+- Wersja programu: `0.1.0-alpha.243`
 - Utworzono: 2026-09-04, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.242.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.243.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,51 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 243
+
+### AMC-243-01 — Podcast usunięty z wyniku wyszukiwania
+
+W Podcastach wyszukaj zapisaną audycję. Usuń ją z Biblioteki, odśwież albo
+zmień widok, a następnie naciśnij `Ctrl+Z`.
+
+Oczekiwane: przywrócony zostaje bieżący rekord audycji, nie dawny wiersz
+wyniku. Enter od razu otwiera zachowane odcinki, stan przeżywa restart, a fokus
+wraca na przywróconą audycję.
+
+### AMC-243-02 — Radio po wyszukiwaniu i odświeżeniu
+
+Wyszukaj zapisaną stację, zmień jej stan Ulubionych, przejdź do innego widoku,
+wróć i użyj `Ctrl+Z`. Powtórz po odświeżeniu listy.
+
+Oczekiwane: cofnięcie dotyczy tej samej stacji w aktualnej liście, jej stan i
+kolejność są prawidłowe po restarcie, a żaden techniczny lub duplikowany wpis
+nie pozostaje w wynikach.
+
+### AMC-243-03 — Pliki lokalne i wiele zaznaczonych elementów
+
+Zaznacz kilka plików, zmień ich stan w Bibliotece, Ulubionych albo Kolejce,
+zmień widok i naciśnij `Ctrl+Z`.
+
+Oczekiwane: wszystkie elementy wracają do poprzedniego stanu oraz właściwej
+kolejności, a fokus pozostaje na aktualnym rekordzie listy.
+
+### AMC-243-04 — Cofnięcie po zmianie sesji
+
+Wykonaj zmianę kolekcji w jednej sesji, przełącz się do innej przez `Ctrl` z
+cyfrą, wróć i naciśnij `Ctrl+Z`.
+
+Oczekiwane: historia nie myli identycznych identyfikatorów między sesjami i
+cofa zmianę tylko w sesji, w której ją wykonano.
+
+### AMC-243-05 — sesje demonstracyjne i przyszłe API
+
+W bieżącym uruchomieniu sprawdź zmianę oraz cofnięcie w demonstracyjnych
+sesjach TIDAL, Apple Music i WiiM.
+
+Oczekiwane: aktualny element interfejsu zostaje przywrócony bez starego wiersza
+i bez wpływu na inną sesję. Ten test nie potwierdza jeszcze trwałego zapisu do
+kont użytkownika; należy go powtórzyć po dodaniu rzeczywistych adapterów API.
 
 ## Nowości alpha 242
 
