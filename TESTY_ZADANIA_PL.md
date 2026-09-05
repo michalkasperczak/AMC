@@ -6319,3 +6319,27 @@ Oczekiwane: oba polecenia proponują nazwę według tej samej reguły. W nazwie
 pliku nie ma cudzysłowów ani apostrofów, problematyczne separatory są zastąpione
 czytelnym myślnikiem, a rozszerzenie odpowiada formatowi audio. Oryginalny tytuł
 nadal jest czytany na liście Podcastów. Istniejące pliki nie zmieniają nazw.
+
+## Test ręczny bieżących metadanych — alpha 273
+
+### AMC-273-01 — Audycja lub utwór na WiiM
+
+Uruchom w WiiM Home Radio Rzeszów albo inną stację, przy której aplikacja
+producenta pokazuje nazwę audycji lub utworu. Przejdź do sesji WiiM, otwórz
+odtwarzacz i sprawdź kolejno jego tekst, `NVDA+T`, `NVDA+End` oraz `Alt+D`.
+
+Oczekiwane: dostępna nazwa stacji i audycji albo utworu pojawia się bez
+technicznych wartości `playlist.m3u8`, `unknown` i kodu szesnastkowego. `Alt+D`
+odczytuje zwarty zestaw bez otwierania okna i bez zmiany fokusu. Jeżeli
+urządzenie nie przekazuje nazwy audycji, AMC mówi o jej braku, ale nadal podaje
+stację i dostępne parametry audio.
+
+### AMC-273-02 — Metadane zwykłego Radia internetowego
+
+Otwórz bezpośrednią stację ICY, która podaje tytuł, oraz stację bez takich
+metadanych. Odczekaj na zmianę utworu i użyj `Alt+D` zarówno w odtwarzaczu, jak
+i na liście.
+
+Oczekiwane: odtwarzacz, pasek i tytuł okna aktualizują się bez automatycznego
+komunikatu mowy. `Alt+D` podaje bieżący tytuł, a dla drugiej stacji jednoznaczny
+brak danych. Przełączenie stacji nie dziedziczy poprzedniego tytułu.

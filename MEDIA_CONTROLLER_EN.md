@@ -1699,6 +1699,17 @@ The capability-gated stable and experimental roadmap is recorded in
 TIDAL catalogues require service adapters, and groups, the hardware queue, and
 PEQ must be probed independently for each model and firmware.
 
+Starting with `alpha.273`, AMC merges three bounded sources for WiiM now-playing
+information: extended player status, `getMetaInfo`, and UPnP `GetInfoEx`. The
+first available station, programme, track, artist, and album labels appear on
+the player surface, in the window title, and on the status bar. `Alt+D` speaks
+the same compact information immediately without opening a dialog or moving
+focus. The shortcut has the same meaning in Internet Radio and uses current
+ICY/HLS metadata there. Technical values such as `unknown`, `unknow`, `null`,
+hex-encoded text, and `m3u`, `m3u8`, or `pls` manifest names are not exposed as
+programme titles. When the broadcaster or device supplies no useful title,
+AMC reports that fact instead of guessing.
+
 ### 7.25. Distinguishing podcast media from artwork
 
 Starting with `alpha.269`, the RSS and Atom parser no longer treats the first

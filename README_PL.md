@@ -1148,6 +1148,15 @@ Rozpoznane możliwości dalszego adaptera, między innymi URL/M3U, zdarzenia UPn
 multiroom i ograniczona kolejka sprzętowa, opisuje
 [`PROJEKT_WIIM_PL.md`](PROJEKT_WIIM_PL.md).
 
+W `alpha.273` bieżąca audycja albo utwór jest widoczny również na powierzchni
+odtwarzacza WiiM i Radia internetowego, na pasku stanu oraz w tytule okna.
+`Alt+D` odczytuje te informacje bez otwierania dodatkowego okna. AMC łączy
+metadane stanu odtwarzacza, `getMetaInfo` i ograniczony odczyt UPnP `GetInfoEx`,
+odrzuca wartości `unknown` oraz techniczne nazwy `playlist.m3u8`. Jeżeli adres
+strumienia odpowiada stacji zapisanej w Bibliotece Radia, używana jest jej
+czytelna nazwa. Brak metadanych jest oznajmiany wprost; program nie wymyśla
+nazwy audycji. W Podcastach `Alt+D` nadal otwiera pełny opis.
+
 W `alpha.272` menu **Plik** sesji Podcasty zawiera także **Eksportuj bibliotekę
 podcastów do OPML…**. Jest to przenośna kopia obserwowanych kanałów, zgodna z
 ponownym importem `Ctrl+O`; nie kopiuje plików audio, postępu słuchania,

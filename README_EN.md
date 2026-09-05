@@ -795,6 +795,12 @@ using the last preset activated through AMC. It does not guess while Spotify
 Connect or TIDAL Connect is active. `Ctrl+P` retains its shared Playlists
 meaning and is not captured by WiiM.
 
+In `alpha.273`, the player surface, window title, and status bar also expose
+the current programme or track when the device or station supplies it.
+`Alt+D` speaks the compact now-playing information without opening a dialog.
+AMC merges WiiM player status, `getMetaInfo`, and bounded UPnP metadata, while
+filtering technical placeholders and playlist-manifest names.
+
 The manufacturer's local API does not expose writing native presets. AMC can
 therefore read and activate them safely, while an assignment attempt explains
 that WiiM Home is required instead of creating a local stand-in for a device

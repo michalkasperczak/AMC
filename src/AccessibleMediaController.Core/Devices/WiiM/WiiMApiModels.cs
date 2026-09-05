@@ -1,6 +1,9 @@
 using System.Globalization;
 using System.Net;
+using System.Text;
 using System.Text.Json;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace AccessibleMediaController.Core.Devices.WiiM;
 
@@ -31,7 +34,11 @@ public sealed record WiiMTrackInformation(
     string Artist,
     string Album,
     int? SampleRateHz,
-    int? BitDepth);
+    int? BitDepth)
+{
+    public string Subtitle { get; init; } = string.Empty;
+    public int? BitrateKbps { get; init; }
+}
 
 public sealed record WiiMPresetInformation(
     int Number,
@@ -63,6 +70,10 @@ public sealed record WiiMDeviceSnapshot(
         }
     }
 }
+
+public sealed record WiiMUpnpPlaybackInformation(
+    string? ContentUri,
+    WiiMTrackInformation Track);
 
 public static class WiiMAddressPolicy
 {
@@ -161,11 +172,90 @@ public static class WiiMApiParser
         if (TryProperty(root, "metaData", out var metadata) && metadata.ValueKind == JsonValueKind.Object)
             root = metadata;
         return new WiiMTrackInformation(
-            Text(root, "title"),
-            Text(root, "artist"),
-            Text(root, "album"),
-            Integer(root, "sampleRate"),
-            Integer(root, "bitDepth"));
+            CleanTrackText(Text(root, "title")),
+            CleanTrackText(Text(root, "artist")),
+            CleanTrackText(Text(root, "album")),
+            PositiveInteger(root, "sampleRate", "sample_rate", "rate_hz"),
+            PositiveInteger(root, "bitDepth", "bit_depth", "format_s"))
+        {
+            Subtitle = CleanTrackText(Text(root, "subtitle")),
+            BitrateKbps = NormalizeBitrateKbps(PositiveInteger(root, "bitRate", "bitrate"))
+        };
+    }
+
+    public static WiiMTrackInformation ParsePlayerTrackInformation(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return EmptyTrack();
+        using var document = ParseObject(json, "stan odtwarzania");
+        var root = document.RootElement;
+        return new WiiMTrackInformation(
+            DecodePlayerTrackText(Text(root, "Title")),
+            DecodePlayerTrackText(Text(root, "Artist")),
+            DecodePlayerTrackText(Text(root, "Album")),
+            null,
+            null);
+    }
+
+    public static WiiMTrackInformation MergeTrackInformation(
+        WiiMTrackInformation metadata,
+        WiiMTrackInformation playerStatus)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(playerStatus);
+        return new WiiMTrackInformation(
+            PreferTrackText(metadata.Title, playerStatus.Title),
+            PreferTrackText(metadata.Artist, playerStatus.Artist),
+            PreferTrackText(metadata.Album, playerStatus.Album),
+            metadata.SampleRateHz ?? playerStatus.SampleRateHz,
+            metadata.BitDepth ?? playerStatus.BitDepth)
+        {
+            Subtitle = PreferTrackText(metadata.Subtitle, playerStatus.Subtitle),
+            BitrateKbps = metadata.BitrateKbps ?? playerStatus.BitrateKbps
+        };
+    }
+
+    public static WiiMUpnpPlaybackInformation ParseUpnpPlaybackInformation(string? xml)
+    {
+        if (string.IsNullOrWhiteSpace(xml))
+            return new WiiMUpnpPlaybackInformation(null, EmptyTrack());
+        try
+        {
+            var outer = ParseXml(xml);
+            var contentUri = NormalizeUri(outer.Descendants()
+                .FirstOrDefault(element => element.Name.LocalName.Equals("TrackURI", StringComparison.OrdinalIgnoreCase))
+                ?.Value ?? string.Empty);
+            var metadataText = outer.Descendants()
+                .FirstOrDefault(element => element.Name.LocalName.Equals("TrackMetaData", StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+            if (string.IsNullOrWhiteSpace(metadataText))
+                return new WiiMUpnpPlaybackInformation(contentUri, EmptyTrack());
+
+            var metadata = ParseXml(metadataText);
+            string Value(string name) => CleanTrackText(metadata.Descendants()
+                .FirstOrDefault(element => element.Name.LocalName.Equals(name, StringComparison.OrdinalIgnoreCase))
+                ?.Value ?? string.Empty);
+            int? Number(string name) => int.TryParse(
+                Value(name),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var value) && value > 0
+                    ? value
+                    : null;
+            var track = new WiiMTrackInformation(
+                Value("title"),
+                PreferTrackText(Value("artist"), Value("creator")),
+                Value("album"),
+                Number("rate_hz"),
+                Number("format_s"))
+            {
+                BitrateKbps = NormalizeBitrateKbps(Number("bitrate"))
+            };
+            return new WiiMUpnpPlaybackInformation(contentUri, track);
+        }
+        catch (XmlException exception)
+        {
+            throw new FormatException("Nieprawidłowe metadane UPnP odtwarzacza.", exception);
+        }
     }
 
     public static IReadOnlyList<WiiMPresetInformation> ParsePresets(string? json)
@@ -279,6 +369,9 @@ public static class WiiMApiParser
             ? value
             : null;
 
+    private static int? PositiveInteger(JsonElement element, params string[] names) =>
+        Integer(element, names) is > 0 and var value ? value : null;
+
     private static long? Long(JsonElement element, params string[] names) =>
         long.TryParse(Text(element, names), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
             ? value
@@ -327,6 +420,57 @@ public static class WiiMApiParser
     private static string FriendlyModel(string model) => string.IsNullOrWhiteSpace(model)
         ? "model nierozpoznany"
         : model.Replace('_', ' ').Trim();
+
+    private static string DecodePlayerTrackText(string value)
+    {
+        value = value.Trim();
+        if (value.Length >= 2 && value.Length % 2 == 0 && value.All(Uri.IsHexDigit))
+        {
+            try
+            {
+                var bytes = Convert.FromHexString(value);
+                value = new UTF8Encoding(false, true).GetString(bytes);
+            }
+            catch (Exception exception) when (exception is FormatException or DecoderFallbackException)
+            {
+                // Some firmware returns plain text which happens to resemble hex.
+            }
+        }
+        return CleanTrackText(WebUtility.HtmlDecode(value));
+    }
+
+    private static string CleanTrackText(string value)
+    {
+        var normalized = WebUtility.HtmlDecode(value).Trim();
+        return normalized.Equals("unknown", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("unknow", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("null", StringComparison.OrdinalIgnoreCase)
+            ? string.Empty
+            : normalized;
+    }
+
+    private static string PreferTrackText(string preferred, string fallback) =>
+        string.IsNullOrWhiteSpace(preferred) ? fallback : preferred;
+
+    private static XDocument ParseXml(string xml)
+    {
+        using var textReader = new StringReader(xml);
+        using var reader = XmlReader.Create(textReader, new XmlReaderSettings
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null,
+            MaxCharactersInDocument = 1024 * 1024
+        });
+        return XDocument.Load(reader, LoadOptions.None);
+    }
+
+    private static int? NormalizeBitrateKbps(int? bitrate)
+    {
+        if (bitrate is null) return null;
+        return bitrate > 10_000
+            ? Math.Max(1, (int)Math.Round(bitrate.Value / 1000d))
+            : bitrate;
+    }
 
     private static string? NormalizeUri(string value) =>
         Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"

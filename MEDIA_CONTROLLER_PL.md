@@ -2226,6 +2226,17 @@ porównaniu aktywnych bibliotek społecznościowych LinkPlay/WiiM, znajduje się
 i uruchamiania, katalogi Spotify/TIDAL wymagają własnych adapterów, a grupy,
 kolejka oraz PEQ muszą być wykrywane osobno dla danego modelu i firmware.
 
+Od `alpha.273` AMC scala trzy bezpieczne źródła informacji o tym, co gra na
+WiiM: rozszerzony stan odtwarzacza, `getMetaInfo` oraz odczyt UPnP `GetInfoEx`.
+Pierwsza dostępna nazwa stacji, audycji, utworu, wykonawcy i albumu trafia do
+powierzchni odtwarzacza, tytułu okna i paska stanu. `Alt+D` odczytuje ten sam
+zwarty zestaw natychmiast, bez otwierania dialogu i bez zmiany fokusu. W Radiu
+internetowym skrót ma identyczne znaczenie i korzysta z bieżących metadanych
+ICY/HLS. Techniczne wartości `unknown`, `unknow`, `null`, zakodowany tekst
+szesnastkowy oraz nazwy manifestów `m3u`, `m3u8` i `pls` nie są przedstawiane
+jako nazwa audycji. Jeżeli nadawca albo urządzenie naprawdę nie udostępnia
+bieżącego tytułu, AMC mówi o braku danych zamiast odgadywać nazwę.
+
 ### 7.25. Odróżnianie nagrania podcastu od ilustracji
 
 Od `alpha.269` parser RSS i Atom nie uznaje automatycznie pierwszego załącznika

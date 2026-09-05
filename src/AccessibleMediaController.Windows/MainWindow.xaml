@@ -315,6 +315,10 @@
                           automation:AutomationProperties.Name="Pokaż pełny opis podcastu lub odcinka, Alt+D"
                           automation:AutomationProperties.AcceleratorKey="Alt+D"
                           Visibility="Collapsed" Click="PodcastDescription_Click" />
+                <MenuItem x:Name="PlaybackCurrentBroadcastInformationMenuItem" Header="Odczytaj bieżącą _audycję lub utwór" InputGestureText="Alt+D"
+                          automation:AutomationProperties.Name="Odczytaj bieżącą audycję lub utwór, Alt+D"
+                          automation:AutomationProperties.AcceleratorKey="Alt+D"
+                          Visibility="Collapsed" Click="CurrentBroadcastInformation_Click" />
                 <MenuItem x:Name="PlaybackItemOptionsMenuItem" Header="_Opcje odtwarzania elementu…" InputGestureText="Alt+Shift+Enter"
                           automation:AutomationProperties.AcceleratorKey="Alt+Shift+Enter"
                           Click="ItemPlaybackOptions_Click" />
@@ -534,6 +538,10 @@
                               automation:AutomationProperties.Name="Pokaż pełny opis podcastu lub odcinka, Alt+D"
                               automation:AutomationProperties.AcceleratorKey="Alt+D"
                                Visibility="Collapsed" Click="PodcastDescription_Click" />
+                    <MenuItem x:Name="CurrentBroadcastInformationMenuItem" Header="Odczytaj bieżącą audycję lub utwór" InputGestureText="Alt+D"
+                              automation:AutomationProperties.Name="Odczytaj bieżącą audycję lub utwór, Alt+D"
+                              automation:AutomationProperties.AcceleratorKey="Alt+D"
+                              Visibility="Collapsed" Click="CurrentBroadcastInformation_Click" />
                     <MenuItem x:Name="GoToPodcastMenuItem" Header="Przejdź do podcastu"
                               automation:AutomationProperties.Name="Przejdź do podcastu tego odcinka"
                               Visibility="Collapsed" Click="GoToPodcast_Click" />
@@ -811,6 +819,10 @@
                               automation:AutomationProperties.Name="Pokaż pełny opis podcastu lub odcinka, Alt+D"
                               automation:AutomationProperties.AcceleratorKey="Alt+D"
                                Visibility="Collapsed" Click="PodcastDescription_Click" />
+                    <MenuItem x:Name="PlayerCurrentBroadcastInformationMenuItem" Header="Odczytaj bieżącą audycję lub utwór" InputGestureText="Alt+D"
+                              automation:AutomationProperties.Name="Odczytaj bieżącą audycję lub utwór, Alt+D"
+                              automation:AutomationProperties.AcceleratorKey="Alt+D"
+                              Visibility="Collapsed" Click="CurrentBroadcastInformation_Click" />
                     <MenuItem x:Name="PlayerGoToPodcastMenuItem" Header="Przejdź do podcastu"
                               automation:AutomationProperties.Name="Przejdź do podcastu tego odcinka"
                               Visibility="Collapsed" Click="GoToPodcast_Click" />

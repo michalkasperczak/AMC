@@ -47,11 +47,20 @@ public sealed class WiiMDeviceClient : IDisposable
         var playbackTask = TryReadPlayerStatusAsync(normalized, cancellationToken);
         var metadataTask = TryReadTextAsync(normalized, "getMetaInfo", cancellationToken);
         var presetsTask = TryReadTextAsync(normalized, "getPresetInfo", cancellationToken);
-        await Task.WhenAll(playbackTask, metadataTask, presetsTask).ConfigureAwait(false);
+        var upnpTask = TryReadUpnpPlaybackInformationAsync(normalized, cancellationToken);
+        await Task.WhenAll(playbackTask, metadataTask, presetsTask, upnpTask).ConfigureAwait(false);
+        var metadataTrack = WiiMApiParser.ParseTrackInformation(metadataTask.Result);
+        var statusTrack = WiiMApiParser.ParsePlayerTrackInformation(playbackTask.Result);
+        var upnp = upnpTask.Result;
+        var playback = WiiMApiParser.ParsePlaybackInformation(playbackTask.Result);
+        if (playback.ContentUri is null && upnp.ContentUri is not null)
+            playback = playback with { ContentUri = upnp.ContentUri };
+        var track = WiiMApiParser.MergeTrackInformation(metadataTrack, statusTrack);
+        track = WiiMApiParser.MergeTrackInformation(upnp.Track, track);
         return new WiiMDeviceSnapshot(
             device,
-            WiiMApiParser.ParsePlaybackInformation(playbackTask.Result),
-            WiiMApiParser.ParseTrackInformation(metadataTask.Result),
+            playback,
+            track,
             WiiMApiParser.ParsePresets(presetsTask.Result));
     }
 
@@ -178,6 +187,47 @@ public sealed class WiiMDeviceClient : IDisposable
         }
     }
 
+    private async Task<WiiMUpnpPlaybackInformation> TryReadUpnpPlaybackInformationAsync(
+        string address,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(2));
+            var uri = new Uri($"http://{address}:49152/upnp/control/rendertransport1");
+            const string body = "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+                + "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" "
+                + "s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body>"
+                + "<u:GetInfoEx xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\">"
+                + "<InstanceID>0</InstanceID></u:GetInfoEx></s:Body></s:Envelope>";
+            using var request = new HttpRequestMessage(HttpMethod.Post, uri)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "text/xml"),
+                Version = HttpVersion.Version11,
+                VersionPolicy = HttpVersionPolicy.RequestVersionOrLower
+            };
+            request.Headers.TryAddWithoutValidation(
+                "SOAPACTION",
+                "\"urn:schemas-upnp-org:service:AVTransport:1#GetInfoEx\"");
+            using var response = await client.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    timeout.Token)
+                .ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            var text = await ReadBoundedResponseAsync(response, timeout.Token).ConfigureAwait(false);
+            return WiiMApiParser.ParseUpnpPlaybackInformation(text);
+        }
+        catch (Exception exception) when (exception is HttpRequestException
+            or OperationCanceledException
+            or IOException
+            or FormatException)
+        {
+            return new WiiMUpnpPlaybackInformation(null, WiiMApiParser.EmptyTrack());
+        }
+    }
+
     private async Task<string> ReadTextAsync(
         string address,
         string command,
@@ -195,6 +245,13 @@ public sealed class WiiMDeviceClient : IDisposable
                 cancellationToken)
             .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
+        return await ReadBoundedResponseAsync(response, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<string> ReadBoundedResponseAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
         if (response.Content.Headers.ContentLength is > MaximumResponseBytes)
             throw new IOException("Odpowiedź urządzenia jest zbyt duża.");
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken)

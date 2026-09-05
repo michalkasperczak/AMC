@@ -167,6 +167,34 @@ static void TestWiiMApiParsing()
     Equal(48000, metadata.SampleRateHz);
     Equal(24, metadata.BitDepth);
 
+    var radioMetadata = WiiMApiParser.ParseTrackInformation(
+        "{\"metaData\":{\"title\":\"playlist.m3u8\",\"subtitle\":\"Poranny gość\",\"artist\":\"unknow\",\"bitRate\":\"196\"}}");
+    Equal("Poranny gość", radioMetadata.Subtitle);
+    Equal(string.Empty, radioMetadata.Artist);
+    Equal(196, radioMetadata.BitrateKbps);
+    var statusMetadata = WiiMApiParser.ParsePlayerTrackInformation(
+        "{\"Title\":\"526164696F20527A65737A6F77\",\"Artist\":\"4A616E204B6F77616C736B69\",\"Album\":\"\"}");
+    Equal("Radio Rzeszow", statusMetadata.Title);
+    Equal("Jan Kowalski", statusMetadata.Artist);
+    var mergedMetadata = WiiMApiParser.MergeTrackInformation(
+        radioMetadata with { Title = string.Empty },
+        statusMetadata);
+    Equal("Radio Rzeszow", mergedMetadata.Title);
+    Equal("Poranny gość", mergedMetadata.Subtitle);
+
+    const string upnpXml = """
+        <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>
+        <u:GetInfoExResponse xmlns:u="urn:schemas-upnp-org:service:AVTransport:1">
+        <TrackMetaData>&lt;DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:song="www.wiimu.com/song/" xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/"&gt;&lt;item&gt;&lt;dc:title&gt;Audycja dnia&lt;/dc:title&gt;&lt;upnp:artist&gt;Prowadzący&lt;/upnp:artist&gt;&lt;song:bitrate&gt;192000&lt;/song:bitrate&gt;&lt;song:rate_hz&gt;48000&lt;/song:rate_hz&gt;&lt;/item&gt;&lt;/DIDL-Lite&gt;</TrackMetaData>
+        <TrackURI>https://example.test/radio.m3u8</TrackURI>
+        </u:GetInfoExResponse></s:Body></s:Envelope>
+        """;
+    var upnp = WiiMApiParser.ParseUpnpPlaybackInformation(upnpXml);
+    Equal("https://example.test/radio.m3u8", upnp.ContentUri);
+    Equal("Audycja dnia", upnp.Track.Title);
+    Equal("Prowadzący", upnp.Track.Artist);
+    Equal(192, upnp.Track.BitrateKbps);
+
     var presets = WiiMApiParser.ParsePresets(
         "{\"preset_list\":[{\"number\":\"2\",\"name\":\"Radio\",\"source\":\"TuneIn\",\"url\":\"https://example.test/radio\"},{\"number\":\"13\",\"name\":\"Poza zakresem\"}]}");
     Equal(1, presets.Count);
@@ -4419,6 +4447,7 @@ static void TestCommandPalette()
     Equal("Alt+Enter", itemProperties.LocalShortcut);
     True(itemProperties.PrefixShortcut is null, "Właściwości nie mają skrótu prefiksowego.");
     Equal("Alt+D (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.PodcastDescription).LocalShortcut);
+    Equal("Alt+D (Radio internetowe i WiiM)", entries.Single(entry => entry.CommandId == CommandIds.CurrentBroadcastInformation).LocalShortcut);
     var goToPodcast = entries.Single(entry => entry.CommandId == CommandIds.GoToPodcast);
     Equal("Przejdź do podcastu tego odcinka", goToPodcast.DisplayName);
     True(goToPodcast.LocalShortcut is null, "Przejście do podcastu nie powinno zajmować nowego skrótu domyślnego.");
@@ -5053,6 +5082,8 @@ static void TestTimeCommands()
     True(actions.ItemPropertiesShown, "Router powinien otworzyć jedno okno właściwości i informacji.");
     router.Execute(CommandIds.PodcastDescription);
     True(actions.PodcastDescriptionShown, "Router powinien przekazać otwarcie pełnego opisu podcastu.");
+    router.Execute(CommandIds.CurrentBroadcastInformation);
+    True(actions.CurrentBroadcastInformationAnnounced, "Router powinien przekazać szybki odczyt bieżącej audycji.");
     router.Execute(CommandIds.GoToPodcast);
     True(actions.RelatedPodcastShown, "Router powinien przekazać przejście do podcastu nadrzędnego.");
     router.Execute(CommandIds.AddNamedBookmark);
@@ -5467,6 +5498,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public bool SeekToPercentageShown { get; private set; }
     public bool ItemPropertiesShown { get; private set; }
     public bool PodcastDescriptionShown { get; private set; }
+    public bool CurrentBroadcastInformationAnnounced { get; private set; }
     public bool RelatedPodcastShown { get; private set; }
     public bool ItemPlaybackOptionsShown { get; private set; }
     public bool BookmarkAdded { get; private set; }
@@ -5487,6 +5519,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ShowCommandPalette() => CommandPaletteShown = true;
     public void ShowItemProperties() => ItemPropertiesShown = true;
     public void ShowPodcastDescription() => PodcastDescriptionShown = true;
+    public void AnnounceCurrentBroadcastInformation() => CurrentBroadcastInformationAnnounced = true;
     public void GoToRelatedPodcast() => RelatedPodcastShown = true;
     public void ShowItemPlaybackOptions() => ItemPlaybackOptionsShown = true;
     public void OpenOfficialApplication() { }

@@ -253,6 +253,7 @@ public static class CommandPaletteSearch
             CommandIds.SearchAll => "Ctrl+Shift+F",
             CommandIds.ItemProperties => "Alt+Enter",
             CommandIds.PodcastDescription => "Alt+D (Podcasty)",
+            CommandIds.CurrentBroadcastInformation => "Alt+D (Radio internetowe i WiiM)",
             CommandIds.ItemPlaybackOptions => "Alt+Shift+Enter",
             CommandIds.Help => "F1",
             CommandIds.KeyboardHelp => "Ctrl+F1",

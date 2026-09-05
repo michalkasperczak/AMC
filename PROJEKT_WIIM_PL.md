@@ -13,7 +13,7 @@ eksperymentalne, po sprawdzeniu możliwości konkretnego modelu i z bezpiecznym
 wycofaniem operacji. Polecenia administracyjne, konfiguracja sieci, restart i
 przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 
-## Stan po alpha 272
+## Stan po alpha 273
 
 - wykrywanie UPnP/SSDP i ręczne dodanie lokalnego adresu IP;
 - wybór i zapamiętanie aktywnego urządzenia;
@@ -30,6 +30,12 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   uruchomiony w AMC. Zapamiętany numer jest używany tylko w trybie odtwarzania
   zarządzanym przez WiiM; przy Spotify Connect lub TIDAL Connect aplikacja nie
   zgaduje.
+- stan odtwarzacza, `getMetaInfo` i UPnP `GetInfoEx` są łączone w jeden zestaw
+  bieżących metadanych. Tytuł audycji lub utworu trafia do odtwarzacza, tytułu
+  okna i paska stanu, a `Alt+D` odczytuje go na żądanie bez dialogu;
+- nazwy `unknown`, `unknow` oraz techniczne nazwy playlist M3U/PLS nie są
+  przedstawiane jako tytuł audycji. Zgodny adres może zostać powiązany z
+  użytkową nazwą stacji w Bibliotece Radia AMC.
 
 Lokalne API nie udostępnia zapisu ani zmiany kolejności natywnych presetów.
 AMC nie zgłasza więc pozornego powodzenia; takie ustawienie nadal wykonuje się

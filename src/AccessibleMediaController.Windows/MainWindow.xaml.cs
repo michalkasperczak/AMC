@@ -2061,10 +2061,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (isRadio && RadioRecordingStateLabel(item) is { } recordingState)
             state += $", {recordingState}";
 
+        var radioNowPlaying = isRadio
+            && string.Equals(item.Id, _radioNowPlayingItemId, StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(_radioNowPlayingTitle)
+            && !SameSpokenValue(item.Title, _radioNowPlayingTitle)
+                ? _radioNowPlayingTitle
+                : null;
         PlayerTitleText.Text = item.Title;
-        PlayerArtistText.Text = string.IsNullOrWhiteSpace(item.Artist)
-            ? item.KindLabel
-            : item.Artist;
+        PlayerArtistText.Text = radioNowPlaying
+            ?? (string.IsNullOrWhiteSpace(item.Artist) ? item.KindLabel : item.Artist);
         PlayerSessionText.Text = session.DisplayName;
         PlayerStateText.Text = state;
         PlayerSpeedText.Visibility = isRadio ? Visibility.Collapsed : Visibility.Visible;
@@ -2108,7 +2113,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerPlayPauseButton.Content = preparing ? "Anuluj" : session.IsPlaying ? "Wstrzymaj" : "Odtwórz";
 
         if (!updateAccessibleName) return;
-        var artist = string.IsNullOrWhiteSpace(item.Artist) ? item.KindLabel : item.Artist;
+        var artist = radioNowPlaying
+            ?? (string.IsNullOrWhiteSpace(item.Artist) ? item.KindLabel : item.Artist);
         var action = preparing ? "Anuluj otwieranie" : session.IsPlaying ? "Wstrzymaj" : "Odtwórz";
         var focusContext = _playerFocusContextPrefix;
         _playerFocusContextPrefix = null;
@@ -2131,9 +2137,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _wiiMSnapshots.TryGetValue(deviceItem.Id, out var snapshot);
         var playback = snapshot?.Playback;
         var track = snapshot?.Track;
-        var title = string.IsNullOrWhiteSpace(track?.Title) ? deviceItem.Title : track.Title;
-        var artist = !string.IsNullOrWhiteSpace(track?.Artist)
-            ? track.Artist
+        var nowPlaying = snapshot is null
+            ? new List<string> { deviceItem.Title }
+            : BuildWiiMNowPlayingParts(deviceItem, snapshot, includeDevice: false, includeAudio: false);
+        var title = nowPlaying.FirstOrDefault() ?? deviceItem.Title;
+        var secondary = nowPlaying.Skip(1).ToArray();
+        var artist = secondary.Length > 0
+            ? string.Join(", ", secondary)
             : !string.IsNullOrWhiteSpace(playback?.Source)
                 ? playback.Source
                 : "Urządzenie WiiM";
@@ -2186,6 +2196,83 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AutomationProperties.SetHelpText(PlayerPlayPauseButton, PlayerKeyboardHelpText());
     }
 
+    private List<string> BuildWiiMNowPlayingParts(
+        MediaItem deviceItem,
+        WiiMDeviceSnapshot snapshot,
+        bool includeDevice,
+        bool includeAudio)
+    {
+        var parts = new List<string>();
+        var station = ResolveWiiMStationName(snapshot);
+        AddDistinctSpokenPart(parts, station);
+        AddDistinctSpokenPart(parts, UsefulWiiMTrackText(snapshot.Track.Title));
+        AddDistinctSpokenPart(parts, UsefulWiiMTrackText(snapshot.Track.Subtitle));
+        AddDistinctSpokenPart(parts, UsefulWiiMTrackText(snapshot.Track.Artist));
+        AddDistinctSpokenPart(parts, UsefulWiiMTrackText(snapshot.Track.Album));
+        if (includeDevice || parts.Count == 0) AddDistinctSpokenPart(parts, deviceItem.Title);
+        if (includeAudio)
+        {
+            var audio = FormatWiiMAudioParameters(snapshot.Track);
+            AddDistinctSpokenPart(parts, audio);
+        }
+        return parts;
+    }
+
+    private string? ResolveWiiMStationName(WiiMDeviceSnapshot snapshot)
+    {
+        if (snapshot.Playback.ContentUri is not { Length: > 0 } uri) return null;
+        var radioItem = _radioItems.FirstOrDefault(item =>
+            item.Source is { Length: > 0 } source && SameNetworkAddress(source, uri));
+        if (radioItem is not null) return radioItem.Title;
+        var preset = snapshot.Presets.FirstOrDefault(item =>
+            item.Uri is { Length: > 0 } presetUri && SameNetworkAddress(presetUri, uri));
+        return UsefulWiiMTrackText(preset?.Name);
+    }
+
+    private static bool SameNetworkAddress(string first, string second) =>
+        Uri.TryCreate(first, UriKind.Absolute, out var firstUri)
+        && Uri.TryCreate(second, UriKind.Absolute, out var secondUri)
+        && string.Equals(firstUri.AbsoluteUri, secondUri.AbsoluteUri, StringComparison.Ordinal);
+
+    private static string? UsefulWiiMTrackText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var text = value.Trim();
+        var path = text.Split(['?', '#'], 2)[0];
+        var extension = Path.GetExtension(path);
+        if (extension.Equals(".m3u", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".m3u8", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".pls", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+        return text;
+    }
+
+    private static string? FormatWiiMAudioParameters(WiiMTrackInformation track)
+    {
+        var parts = new List<string>();
+        if (track.BitrateKbps is > 0) parts.Add($"{track.BitrateKbps} kb/s");
+        if (track.SampleRateHz is > 0)
+        {
+            parts.Add($"{(track.SampleRateHz.Value / 1000d).ToString("0.##", CultureInfo.CurrentCulture)} kHz");
+        }
+        if (track.BitDepth is > 0) parts.Add($"{track.BitDepth} bit");
+        return parts.Count == 0 ? null : string.Join(", ", parts);
+    }
+
+    private static void AddDistinctSpokenPart(List<string> parts, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)
+            || parts.Any(existing => SameSpokenValue(existing, value))) return;
+        parts.Add(value.Trim());
+    }
+
+    private static bool SameSpokenValue(string? first, string? second) =>
+        !string.IsNullOrWhiteSpace(first)
+        && !string.IsNullOrWhiteSpace(second)
+        && string.Equals(first.Trim(), second.Trim(), StringComparison.CurrentCultureIgnoreCase);
+
     private string PlayerKeyboardHelpText()
     {
         var exit = _state.Settings.PausePlaybackWhenLeavingPlayer
@@ -2193,13 +2280,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : "Escape wraca do listy, a odtwarzanie trwa.";
         if (string.Equals(_sessions?.Current.Id, "radio", StringComparison.Ordinal))
         {
-            return "Strzałki w lewo i w prawo poruszają się po buforze transmisji, Home przechodzi do początku bufora, End wraca na żywo, a strzałki w górę i w dół regulują głośność. Spacja wstrzymuje sam odsłuch, Ctrl+M tylko go wycisza bez przerywania odbioru ani nagrania, a Shift+Spacja wstrzymuje lub wznawia samo nagranie. R rozpoczyna lub kończy nagrywanie bieżącej stacji w tle. Podczas nagrywania B dodaje szybką zakładkę do zapisywanego pliku, a Shift+B pozwala ją nazwać. S rozpoznaje utwór, a Shift+S włącza lub wyłącza obserwowanie rozpoznawania. Page Up i Page Down wybierają poprzednią lub następną stację bez zatrzymywania nagrań. " + exit;
+            return "Strzałki w lewo i w prawo poruszają się po buforze transmisji, Home przechodzi do początku bufora, End wraca na żywo, a strzałki w górę i w dół regulują głośność. Spacja wstrzymuje sam odsłuch, Ctrl+M tylko go wycisza bez przerywania odbioru ani nagrania, a Shift+Spacja wstrzymuje lub wznawia samo nagranie. R rozpoczyna lub kończy nagrywanie bieżącej stacji w tle. Podczas nagrywania B dodaje szybką zakładkę do zapisywanego pliku, a Shift+B pozwala ją nazwać. S rozpoznaje utwór, a Shift+S włącza lub wyłącza obserwowanie rozpoznawania. Alt+D odczytuje bieżącą audycję lub utwór. Page Up i Page Down wybierają poprzednią lub następną stację bez zatrzymywania nagrań. " + exit;
         }
         if (string.Equals(_sessions?.Current.Id, "wiim", StringComparison.Ordinal))
         {
             return "Spacja odtwarza lub wstrzymuje na urządzeniu. Page Up i Page Down wybierają poprzedni lub następny element. "
                 + "Strzałki w lewo i w prawo przewijają, a strzałki w górę i w dół regulują głośność urządzenia. "
                 + "Ctrl+M wycisza lub przywraca dźwięk. Ctrl+Alt+P otwiera presety zapisane w urządzeniu, a Alt+Page Up i Alt+Page Down przechodzą po zajętych presetach. "
+                + "Alt+D odczytuje bieżącą audycję lub utwór udostępniony przez urządzenie. "
                 + "I wybiera wejście, O wyjście, E korektor, R tryb powtarzania, S losowanie, T timer uśpienia, a Shift+A aktywne urządzenie WiiM. "
                 + "Escape wraca do listy urządzeń i nie zatrzymuje odtwarzania WiiM.";
         }
@@ -2601,6 +2689,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : $"{CommandRouter.FormatTime(position)}, czas całkowity nieznany";
         var parts = new List<string>();
         if (isRadio) parts.Add(item.Title);
+        if (isRadio
+            && string.Equals(item.Id, _radioNowPlayingItemId, StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(_radioNowPlayingTitle)
+            && !SameSpokenValue(item.Title, _radioNowPlayingTitle))
+        {
+            parts.Add(_radioNowPlayingTitle);
+        }
         var audioParameters = AudioParametersFormatter.FormatCompact(item);
         if (!string.IsNullOrWhiteSpace(audioParameters)) parts.Add(audioParameters);
         var playbackState = state.ToLowerInvariant();
@@ -2621,9 +2716,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (!_wiiMSnapshots.TryGetValue(deviceItem.Id, out var snapshot))
             return $"{deviceItem.Title}, WiiM, stan jeszcze nieodświeżony";
-        var parts = new List<string> { deviceItem.Title };
-        if (!string.IsNullOrWhiteSpace(snapshot.Track.Title)) parts.Add(snapshot.Track.Title);
-        if (!string.IsNullOrWhiteSpace(snapshot.Track.Artist)) parts.Add(snapshot.Track.Artist);
+        var parts = BuildWiiMNowPlayingParts(
+            deviceItem,
+            snapshot,
+            includeDevice: true,
+            includeAudio: true);
         if (!string.IsNullOrWhiteSpace(snapshot.Playback.Source)) parts.Add(snapshot.Playback.Source);
         parts.Add(snapshot.Playback.State);
         if (snapshot.Playback.Muted) parts.Add("wyciszone");
@@ -3352,6 +3449,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var wiiM = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
         if (commandId is CommandIds.ManageWiiMDevices or CommandIds.RefreshWiiMDevices)
             return wiiM;
+        if (commandId == CommandIds.CurrentBroadcastInformation)
+            return radio || wiiM;
         if (!wiiM && commandId.StartsWith("wiim.", StringComparison.Ordinal)) return false;
         if (wiiM) return CommandAvailableInWiiM(commandId);
         if (commandId is CommandIds.SortCollectionByAdded
@@ -3546,6 +3645,48 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Activate();
         if (_playerViewActive) FocusPlayerView();
         else RestoreMediaListFocusAfterRefresh();
+    }
+
+    public void AnnounceCurrentBroadcastInformation()
+    {
+        if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            var item = _radioItems.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Id, _radioOutput.LoadedItemId, StringComparison.Ordinal))
+                ?? _sessions.Current.CurrentItem;
+            var parts = new List<string> { item.Title };
+            if (string.Equals(item.Id, _radioNowPlayingItemId, StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(_radioNowPlayingTitle)
+                && !SameSpokenValue(item.Title, _radioNowPlayingTitle))
+            {
+                parts.Add(_radioNowPlayingTitle);
+            }
+            else
+            {
+                parts.Add("brak nazwy bieżącej audycji lub utworu");
+            }
+            var audio = AudioParametersFormatter.FormatCompact(item);
+            if (!string.IsNullOrWhiteSpace(audio)) parts.Add(audio);
+            Announce(string.Join(", ", parts));
+            return;
+        }
+
+        if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+            && _sessions.Current.HasCurrentItem)
+        {
+            var deviceItem = _sessions.Current.CurrentItem;
+            if (!_wiiMSnapshots.TryGetValue(deviceItem.Id, out var snapshot))
+            {
+                Announce($"{deviceItem.Title}, informacje z urządzenia nie są jeszcze dostępne");
+                return;
+            }
+            var parts = BuildWiiMNowPlayingParts(deviceItem, snapshot, includeDevice: true, includeAudio: true);
+            if (parts.Count == 1) parts.Add("brak nazwy bieżącej audycji lub utworu");
+            Announce(string.Join(", ", parts));
+            return;
+        }
+
+        Announce("Bieżące informacje są dostępne w Radiu internetowym i WiiM");
     }
 
     public void GoToRelatedPodcast() =>
@@ -4843,6 +4984,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && ActionItem?.Kind is MediaItemKind.Podcast or MediaItemKind.Episode
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        PlaybackCurrentBroadcastInformationMenuItem.Visibility = radio || wiiM
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         RefreshLocalLibraryMenuItem.Visibility = local || podcasts || wiiM ? Visibility.Visible : Visibility.Collapsed;
         if (wiiM)
         {
@@ -8265,6 +8409,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(session.Id, "radio", StringComparison.Ordinal)
             && string.Equals(session.CurrentItem.Id, e.Item.Id, StringComparison.Ordinal))
         {
+            if (_playerViewActive) UpdatePlayerView();
+            UpdatePlaybackStatusBar();
             UpdateWindowTitle();
         }
     }
@@ -9705,6 +9851,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.TimeRemaining
             or CommandIds.TimeTotal
             or CommandIds.ItemProperties
+            or CommandIds.CurrentBroadcastInformation
             or CommandIds.ViewLibrary
             or CommandIds.FilterCurrent
             or CommandIds.SearchCurrent
@@ -13387,6 +13534,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             itemTitle = $"{itemTitle} — {_radioNowPlayingTitle}";
         }
+        else if (string.Equals(session.Id, "wiim", StringComparison.Ordinal)
+                 && _wiiMSnapshots.TryGetValue(session.CurrentItem.Id, out var snapshot))
+        {
+            var nowPlaying = BuildWiiMNowPlayingParts(
+                session.CurrentItem,
+                snapshot,
+                includeDevice: false,
+                includeAudio: false);
+            if (nowPlaying.Count > 0) itemTitle = string.Join(" — ", nowPlaying);
+        }
         Title = !_playerViewActive && string.Equals(area, DefaultBrowserView, StringComparison.Ordinal)
             ? $"{itemTitle} — {session.DisplayName} — AMC {AppDisplayVersion}"
             : $"{itemTitle} — {area} — {session.DisplayName} — AMC {AppDisplayVersion}";
@@ -16040,6 +16197,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ExecuteCommand(CommandIds.PodcastDescription);
             return true;
         }
+        if ((_sessions.Current.Id is "radio" or "wiim")
+            && modifiers == ModifierKeys.Alt
+            && key == Key.D)
+        {
+            ExecuteCommand(CommandIds.CurrentBroadcastInformation);
+            return true;
+        }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
             && modifiers == ModifierKeys.Shift
             && e.Key == Key.R)
@@ -16828,6 +16992,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
     private void PodcastDescription_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.PodcastDescription);
+    private void CurrentBroadcastInformation_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.CurrentBroadcastInformation);
     private void GoToPodcast_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.GoToPodcast);
     private void ItemPlaybackOptions_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemPlaybackOptions);
@@ -17020,6 +17186,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         PodcastDescriptionMenuItem.Visibility = podcastHeader || podcastEpisode
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        CurrentBroadcastInformationMenuItem.Visibility = radioSession || wiiMSession
             ? Visibility.Visible
             : Visibility.Collapsed;
         GoToPodcastMenuItem.Visibility = FindRelatedPodcast(actionItem) is not null
@@ -17365,6 +17534,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             PlayerPlaylistMembershipMenuItem.Visibility = Visibility.Collapsed;
             PlayerRadioPresetMembershipMenuItem.Visibility = Visibility.Collapsed;
             PlayerPodcastDescriptionMenuItem.Visibility = Visibility.Collapsed;
+            PlayerCurrentBroadcastInformationMenuItem.Visibility = Visibility.Visible;
             PlayerGoToPodcastMenuItem.Visibility = Visibility.Collapsed;
             PlayerDownloadPodcastEpisodeMenuItem.Visibility = Visibility.Collapsed;
             PlayerSavePodcastEpisodeAsMenuItem.Visibility = Visibility.Collapsed;
@@ -17460,6 +17630,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && item.Kind is MediaItemKind.Podcast or MediaItemKind.Episode
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        PlayerCurrentBroadcastInformationMenuItem.Visibility = radioSession
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         PlayerGoToPodcastMenuItem.Visibility = FindRelatedPodcast(item) is not null
             ? Visibility.Visible
             : Visibility.Collapsed;
