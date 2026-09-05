@@ -17,7 +17,7 @@ public partial class WiiMDevicePresetsWindow : AccessibleWindow
         InitializeComponent();
         Title = $"Presety urządzenia — {deviceName}";
         DescriptionText.Text = $"Presety zapisane w urządzeniu {deviceName}. "
-            + "Cyfra wybiera miejsce. Enter lub Spacja uruchamia zajęty preset. "
+            + "Cyfra wybiera miejsce. Page Up i Page Down przechodzą po zajętych miejscach bez ich uruchamiania. Enter lub Spacja uruchamia zajęty preset. "
             + "Ta lista nie zmienia ustawień urządzenia.";
         rows = Enumerable.Range(1, 12)
             .Select(number => new WiiMDevicePresetRow(
@@ -57,11 +57,37 @@ public partial class WiiMDevicePresetsWindow : AccessibleWindow
             e.Handled = true;
             return;
         }
+        if (modifiers == ModifierKeys.None && key is Key.PageUp or Key.PageDown)
+        {
+            MoveToOccupiedPreset(key == Key.PageDown ? 1 : -1);
+            e.Handled = true;
+            return;
+        }
         if (modifiers == ModifierKeys.None && key is Key.Enter or Key.Space)
         {
             ActivateSelected();
             e.Handled = true;
         }
+    }
+
+    internal bool MoveToOccupiedPreset(int direction)
+    {
+        if (rows.All(row => row.Preset is null))
+        {
+            PresetStatus.Announce("Brak zajętych presetów urządzenia");
+            return false;
+        }
+        var current = Math.Max(0, PresetList.SelectedIndex);
+        for (var offset = 1; offset <= rows.Count; offset++)
+        {
+            var index = (current + direction * offset + rows.Count) % rows.Count;
+            if (rows[index].Preset is null) continue;
+            PresetList.SelectedIndex = index;
+            PresetList.ScrollIntoView(PresetList.SelectedItem);
+            FocusSelectedRow();
+            return true;
+        }
+        return false;
     }
 
     private void FocusSelectedRow()

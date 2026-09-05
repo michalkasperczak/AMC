@@ -2168,12 +2168,10 @@ logowania do TIDAL, Spotify lub innych usług. Dokumentacja producenta:
 https://www.wiimhome.com/support oraz
 https://www.wiimhome.com/pdf/HTTP%20API%20for%20WiiM%20Products.pdf.
 
-Do czasu sprawdzenia tego etapu na prawdziwym urządzeniu sesja ukrywa
-nieadekwatne polecenia Biblioteki, Ulubionych, Kolejki, Playlist i Zakładek.
-Następny etap obejmie transport, głośność, wyciszenie, wybór wejścia i presety
-sprzętowe. Dopiero później dochodzi wysyłanie adresów strumieni do WiiM. Presety
-sprzętowe WiiM pozostają odrębne od uniwersalnych presetów AMC, a katalogi
-TIDAL i Apple Music nadal wymagają własnych adapterów usług.
+Sesja ukrywa polecenia, których obecny adapter urządzenia nie potrafi wykonać,
+zamiast tworzyć lokalne atrapy Biblioteki, Ulubionych, Kolejki albo Playlist.
+Presety sprzętowe WiiM pozostają odrębne od uniwersalnych presetów AMC, a
+katalogi TIDAL i Apple Music nadal wymagają własnych adapterów usług.
 
 ### 7.24. Wybór i sterowanie urządzeniem WiiM
 
@@ -2193,13 +2191,31 @@ bez przejmowania fokusa i bez cyklicznych komunikatów NVDA. Utrata połączenia
 nie usuwa zapisanego urządzenia; kolejne próby są rzadsze, aby nie przeciążać
 sieci ani logu.
 
-`Ctrl+P` w sesji WiiM otwiera dwanaście natywnych presetów zapisanych w samym
-urządzeniu. Cyfra wybiera pozycję, Enter lub Spacja ją uruchamia, `Ctrl+C`
-kopiuje nazwę, a `Ctrl+Shift+C` nazwę i dostępny adres. Presety urządzenia nie
-są tym samym co uniwersalne presety AMC i nie można ich nadpisać z tej listy.
-Escape wraca z odtwarzacza do listy urządzeń, lecz nie zatrzymuje autonomicznego
-odtwarzania w pokoju. Wybór wejścia, wyjścia i wysyłanie adresów strumieni
-pozostają kolejnymi etapami adaptera.
+Od `alpha.271` `Ctrl+P` zachowuje wspólne znaczenie **Playlisty**. Obecny
+adapter HTTP WiiM nie udostępnia jednak katalogu playlist, dlatego polecenie nie
+jest pokazywane w tej sesji. `Ctrl+Alt+P` otwiera dwanaście natywnych presetów
+zapisanych w urządzeniu. Cyfra wybiera pozycję, Page Up i Page Down przechodzą
+do poprzedniego albo następnego zajętego miejsca bez uruchamiania, Enter lub
+Spacja uruchamiają wybrany preset, `Ctrl+C` kopiuje nazwę, a `Ctrl+Shift+C`
+nazwę i dostępny adres. `Ctrl+Shift+1–9`, `Ctrl+Shift+0`, `Ctrl+Shift+-` oraz
+`Ctrl+Shift+=` uruchamiają miejsca 1–12 bez otwierania listy.
+
+W odtwarzaczu `Alt+Page Up` i `Alt+Page Down` uruchamiają poprzedni albo
+następny zajęty preset z zawijaniem i pomijaniem pustych miejsc. Ta nawigacja
+jest dostępna dopiero po uruchomieniu presetu przez AMC, ponieważ API WiiM nie
+podaje numeru aktualnego presetu. W przeciwnym razie program kieruje do listy
+`Ctrl+Alt+P`, zamiast zgadywać pozycję. Litery `I`, `O`, `E`, `R`, `S` i `T`
+otwierają odpowiednio wybór wejścia, fizycznego wyjścia, korektora, trybu
+powtarzania, przełączają losowanie i ustawiają timer uśpienia. `Shift+A`
+pozostaje wyborem aktywnego urządzenia WiiM. Listy wyboru mają jawne etykiety
+dla UI Automation i nie ujawniają nazw klas, wartości enumów ani rekordów.
+
+Oficjalne lokalne API potrafi odczytać i uruchomić natywne presety 1–12, ale
+nie dokumentuje ich zapisu ani nadpisywania. Dlatego
+`Ctrl+Alt+Shift+P` w tej sesji wyjaśnia ograniczenie i odsyła do WiiM Home;
+AMC nie udaje powodzenia. Escape wraca z odtwarzacza do listy urządzeń, lecz
+nie zatrzymuje autonomicznego odtwarzania w pokoju. Wysyłanie adresów strumieni
+pozostaje kolejnym etapem adaptera.
 
 ### 7.25. Odróżnianie nagrania podcastu od ilustracji
 

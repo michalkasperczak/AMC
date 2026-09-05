@@ -1645,12 +1645,10 @@ redirects, bounds both response size and time, and does not store music-service
 credentials. Official references: https://www.wiimhome.com/support and
 https://www.wiimhome.com/pdf/HTTP%20API%20for%20WiiM%20Products.pdf.
 
-Until this read-only path is verified against a real device, irrelevant
-Library, Favorites, Queue, Playlist, and Bookmark actions remain unavailable
-inside the WiiM session. Transport, volume, mute, input selection and hardware
-presets are the next milestone, followed by sending stream URLs. WiiM hardware
-presets remain distinct from AMC presets, and TIDAL or Apple Music catalogues
-still require their own service adapters.
+The session hides commands that the current device adapter cannot perform
+instead of creating local stand-ins for Library, Favorites, Queue, or
+Playlists. WiiM hardware presets remain distinct from AMC presets, and TIDAL
+or Apple Music catalogues still require their own service adapters.
 
 ### 7.24. WiiM device selection and control
 
@@ -1668,13 +1666,30 @@ polled without moving focus or producing recurring NVDA announcements. A lost
 connection does not delete the saved device, and subsequent retries are backed
 off to avoid network and log noise.
 
-`Ctrl+P` in the WiiM session opens the twelve native presets stored by the
-device. A digit selects a slot, Enter or Space activates it, `Ctrl+C` copies its
-name, and `Ctrl+Shift+C` copies the name plus an available address. Device
-presets are separate from universal AMC presets and this list never overwrites
-them. Escape returns to the device list without stopping autonomous room
-playback. Input/output selection and sending stream URLs are later adapter
-milestones.
+Starting with `alpha.271`, `Ctrl+P` keeps its shared **Playlists** meaning. The
+current WiiM HTTP adapter exposes no playlist catalogue, so that command is
+hidden in this session. `Ctrl+Alt+P` opens the twelve native presets stored by
+the device. A digit focuses a slot, Page Up and Page Down move to the previous
+or next occupied slot without activation, Enter or Space activates it,
+`Ctrl+C` copies its name, and `Ctrl+Shift+C` copies its name plus an available
+address. `Ctrl+Shift+1–9`, `Ctrl+Shift+0`, `Ctrl+Shift+-`, and `Ctrl+Shift+=`
+activate native slots 1–12 directly.
+
+Inside the player, `Alt+Page Up` and `Alt+Page Down` activate the previous or
+next occupied preset, wrapping and skipping empty slots. This navigation is
+available only after AMC has activated a preset because the WiiM API does not
+report the current preset number. Otherwise AMC directs the user to
+`Ctrl+Alt+P` instead of guessing. `I`, `O`, `E`, `R`, `S`, and `T` select the
+input, physical output, equalizer preset, repeat mode, shuffle state, and sleep
+timer respectively. `Shift+A` continues to select the active WiiM device. Every
+data-bound choice has an explicit UI Automation label and never exposes class,
+enum, or record representations.
+
+The official local API can read and activate native presets 1–12 but does not
+document writing or overwriting them. Therefore `Ctrl+Alt+Shift+P` explains
+the limitation and directs the user to WiiM Home; AMC never reports a fake
+success. Escape returns to the device list without stopping autonomous room
+playback. Sending stream URLs remains a later adapter milestone.
 
 ### 7.25. Distinguishing podcast media from artwork
 

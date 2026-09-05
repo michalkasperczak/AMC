@@ -18,7 +18,11 @@ public sealed record WiiMPlaybackInformation(
     int Volume,
     bool Muted,
     TimeSpan Position,
-    TimeSpan Duration);
+    TimeSpan Duration)
+{
+    public int LoopMode { get; init; } = 4;
+    public int EqualizerPresetNumber { get; init; }
+}
 
 public sealed record WiiMTrackInformation(
     string Title,
@@ -137,7 +141,11 @@ public static class WiiMApiParser
             Math.Clamp(Integer(root, "vol") ?? 0, 0, 100),
             Integer(root, "mute") == 1,
             TimeSpan.FromMilliseconds(Math.Max(0, Long(root, "curpos") ?? 0)),
-            TimeSpan.FromMilliseconds(Math.Max(0, Long(root, "totlen") ?? 0)));
+            TimeSpan.FromMilliseconds(Math.Max(0, Long(root, "totlen") ?? 0)))
+        {
+            LoopMode = Integer(root, "loop") ?? 4,
+            EqualizerPresetNumber = Math.Max(0, Integer(root, "eq") ?? 0)
+        };
     }
 
     public static WiiMTrackInformation ParseTrackInformation(string? json)
@@ -175,6 +183,46 @@ public static class WiiMApiParser
             .Where(item => item.Number is >= 1 and <= 12)
             .OrderBy(item => item.Number)
             .ToArray();
+    }
+
+    public static bool ParseEqualizerEnabled(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return false;
+        using var document = ParseObject(json, "stan korektora");
+        return Text(document.RootElement, "EQStat").Equals("On", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static IReadOnlyList<string> ParseEqualizerPresets(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            using var document = JsonDocument.Parse(json, new JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip,
+                MaxDepth = 8
+            });
+            if (document.RootElement.ValueKind != JsonValueKind.Array) return [];
+            return document.RootElement.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.String)
+                .Select(item => item.GetString()?.Trim())
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Select(item => item!)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                .ToArray();
+        }
+        catch (JsonException exception)
+        {
+            throw new FormatException("Nieprawidłowa lista ustawień korektora.", exception);
+        }
+    }
+
+    public static int ParseAudioOutputHardwareMode(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return 0;
+        using var document = ParseObject(json, "informacja o wyjściu audio");
+        return Integer(document.RootElement, "hardware") is >= 1 and <= 3 ? Integer(document.RootElement, "hardware")!.Value : 0;
     }
 
     public static WiiMPlaybackInformation EmptyPlayback() =>

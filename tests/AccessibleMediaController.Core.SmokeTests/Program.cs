@@ -116,6 +116,11 @@ static void TestWiiMApiParsing()
     Equal("setPlayerCmd:mute:1", WiiMCommands.SetMuted(true));
     Equal("setPlayerCmd:seek:95", WiiMCommands.Seek(TimeSpan.FromSeconds(94.6)));
     Equal("MCUKeyShortClick:12", WiiMCommands.ActivatePreset(12));
+    Equal("setPlayerCmd:switchmode:optical", WiiMCommands.SwitchInput("optical"));
+    Equal("setAudioOutputHardwareMode:2", WiiMCommands.SetAudioOutputHardwareMode(2));
+    Equal("EQLoad:Spoken Word", WiiMCommands.LoadEqualizerPreset("Spoken Word"));
+    Equal("setPlayerCmd:loopmode:-1", WiiMCommands.SetLoopMode(-1));
+    Equal("setShutdown:3600", WiiMCommands.SetSleepTimer(3600));
     True(WiiMCommands.ResponseIndicatesFailure("{\"status\":\"Failed\"}"),
         "Odrzucone polecenie urządzenia powinno zostać wykryte.");
     True(!WiiMCommands.ResponseIndicatesFailure("OK"),
@@ -138,11 +143,20 @@ static void TestWiiMApiParsing()
     Equal(12, device.PresetButtonCount);
 
     var playback = WiiMApiParser.ParsePlaybackInformation(
-        "{\"status\":\"play\",\"mode\":\"32\",\"curpos\":\"184919\",\"totlen\":\"300000\",\"vol\":\"39\",\"mute\":\"0\"}");
+        "{\"status\":\"play\",\"mode\":\"32\",\"curpos\":\"184919\",\"totlen\":\"300000\",\"vol\":\"39\",\"mute\":\"0\",\"loop\":\"2\",\"eq\":\"7\"}");
     Equal("odtwarzanie", playback.State);
     Equal("TIDAL Connect", playback.Source);
     Equal(39, playback.Volume);
     Equal(TimeSpan.FromMilliseconds(184919), playback.Position);
+    Equal(2, playback.LoopMode);
+    Equal(7, playback.EqualizerPresetNumber);
+
+    True(WiiMApiParser.ParseEqualizerEnabled("{\"EQStat\":\"On\"}"),
+        "Włączony korektor WiiM powinien zostać rozpoznany.");
+    var equalizerPresets = WiiMApiParser.ParseEqualizerPresets("[\"Flat\",\"Spoken Word\",\"Flat\"]");
+    Equal(2, equalizerPresets.Count);
+    Equal("Spoken Word", equalizerPresets[1]);
+    Equal(2, WiiMApiParser.ParseAudioOutputHardwareMode("{\"hardware\":\"2\",\"source\":\"0\"}"));
 
     var metadata = WiiMApiParser.ParseTrackInformation(
         "{\"metaData\":{\"title\":\"Utwór\",\"artist\":\"Wykonawca\",\"album\":\"Album\",\"sampleRate \":\"48000\",\"bitDepth\":\"24\"}}");

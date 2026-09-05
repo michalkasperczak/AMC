@@ -2228,7 +2228,10 @@ static void TestWiiMDeviceManagerAccessibility()
                 new WiiMDeviceInformation("192.168.1.25", "wiim-salon", "Salon", "WiiM Pro", "4.8.7000", 12),
                 new WiiMPlaybackInformation("odtwarzanie", "TIDAL Connect", 39, false, TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(4)),
                 new WiiMTrackInformation("Utwór", "Wykonawca", "Album", 48000, 24),
-                [new WiiMPresetInformation(1, "Radio", "TuneIn", "https://example.test/radio")]);
+                [
+                    new WiiMPresetInformation(1, "Radio", "TuneIn", "https://example.test/radio"),
+                    new WiiMPresetInformation(6, "Podcast", "WiiM", "https://example.test/podcast")
+                ]);
             using var client = new WiiMDeviceClient();
             var window = new WiiMDevicesWindow(
                 settings,
@@ -2267,10 +2270,43 @@ static void TestWiiMDeviceManagerAccessibility()
                            && labels[1].Contains("pusty", StringComparison.Ordinal)
                            && labels.All(value => !value.Contains('{') && !value.Contains("WiiMPreset", StringComparison.Ordinal)),
                         "Lista presetów WiiM ujawnia obiekty techniczne albo ma niepełne etykiety.");
+                    presetList.SelectedIndex = 0;
+                    Assert(presetWindow.MoveToOccupiedPreset(1)
+                           && presetList.SelectedIndex == 5,
+                        "Page Down nie przechodzi do następnego zajętego presetu WiiM.");
+                    Assert(presetWindow.MoveToOccupiedPreset(-1)
+                           && presetList.SelectedIndex == 0,
+                        "Page Up nie przechodzi do poprzedniego zajętego presetu WiiM.");
                 }
                 finally
                 {
                     presetWindow.Close();
+                }
+
+                var optionWindow = new WiiMOptionWindow(
+                    "Wejście urządzenia WiiM",
+                    "Wybierz wejście.",
+                    [
+                        new WiiMOptionChoice("wifi", "Odtwarzanie sieciowe"),
+                        new WiiMOptionChoice("optical", "Wejście optyczne")
+                    ],
+                    "optical");
+                try
+                {
+                    var optionList = (ListBox)optionWindow.FindName("OptionList");
+                    Assert(optionList.DisplayMemberPath == "Label"
+                           && TextSearch.GetTextPath(optionList) == "NavigationText"
+                           && optionList.SelectedIndex == 1,
+                        "Lista opcji WiiM nie ma stabilnego tekstu albo bieżącego wyboru.");
+                    Assert(optionList.Items.Cast<object>().All(item =>
+                            item.ToString() is { } value
+                            && !value.Contains('{')
+                            && !value.Contains("WiiMOptionChoice", StringComparison.Ordinal)),
+                        "Lista opcji WiiM ujawnia techniczną reprezentację obiektu.");
+                }
+                finally
+                {
+                    optionWindow.Close();
                 }
             }
             finally

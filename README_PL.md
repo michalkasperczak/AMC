@@ -1098,10 +1098,9 @@ trafia na zapisane urządzenie albo przycisk wykrywania. Strzałki jedynie
 przeglądają urządzenia; Enter ustawia wybrane jako aktywne i otwiera sterowanie.
 
 W sterowaniu WiiM działają Spacja, `Page Up`/`Page Down`, przewijanie,
-głośność, `Ctrl+M` oraz odczyt czasu. `Ctrl+P` otwiera osobną listę dwunastu
-sprzętowych presetów WiiM. Escape wraca do listy urządzeń bez zatrzymywania
-odtwarzacza sieciowego. Wybór wejścia i wyjścia oraz wysyłanie strumieni będą
-następnym etapem.
+głośność, `Ctrl+M` oraz odczyt czasu. Escape wraca do listy urządzeń bez
+zatrzymywania odtwarzacza sieciowego. Pełniejsza mapa sterowania i natywne
+presety zostały wdrożone w `alpha.271`.
 
 ## Załączniki podcastów w alpha 269
 
@@ -1125,6 +1124,21 @@ macOS; polskie litery pozostają bez zmian.
 Zmiana dotyczy wyłącznie nowych plików zapisywanych na dysku. Oryginalny tytuł
 odcinka pozostaje w Bibliotece, opisie i metadanych, a istniejące pobrania nie
 są automatycznie przemianowywane.
+
+## Pełniejsze sterowanie WiiM w alpha 271
+
+Sesja WiiM steruje wejściem, fizycznym wyjściem, korektorem, powtarzaniem,
+losowaniem i timerem uśpienia z dostępnych okien wyboru otwieranych w
+odtwarzaczu klawiszami `I`, `O`, `E`, `R`, `S` i `T`. `Shift+A` wybiera aktywne
+urządzenie. `Ctrl+Alt+P` otwiera dwanaście natywnych presetów WiiM, a
+`Ctrl+Shift+1–9/0/-/=` uruchamia je bezpośrednio. W liście Page Up i Page Down
+przechodzą po zajętych miejscach bez odtwarzania; w odtwarzaczu
+`Alt+Page Up/Down` uruchamia sąsiedni zajęty preset, jeżeli AMC zna punkt
+wyjścia. `Ctrl+P` pozostaje skrótem Playlist i nie jest przejmowany przez WiiM.
+
+Lokalne API producenta nie udostępnia zapisu natywnych presetów. AMC pozwala je
+więc bezpiecznie odczytać i uruchomić, natomiast próba przypisania informuje o
+konieczności użycia WiiM Home. Nie powstaje lokalna atrapa zmiany w urządzeniu.
 
 ## Urządzenie audio osobno dla sesji w alpha 204
 

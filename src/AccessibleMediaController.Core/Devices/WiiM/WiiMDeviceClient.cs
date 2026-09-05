@@ -79,6 +79,54 @@ public sealed class WiiMDeviceClient : IDisposable
     public Task ActivatePresetAsync(string address, int presetNumber, CancellationToken cancellationToken = default) =>
         SendCommandAsync(address, WiiMCommands.ActivatePreset(presetNumber), cancellationToken);
 
+    public Task SwitchInputAsync(string address, string input, CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.SwitchInput(input), cancellationToken);
+
+    public async Task<int> ReadAudioOutputHardwareModeAsync(
+        string address,
+        CancellationToken cancellationToken = default) =>
+        WiiMApiParser.ParseAudioOutputHardwareMode(
+            await ReadTextAsync(address, WiiMCommands.GetAudioOutputHardwareMode, cancellationToken)
+                .ConfigureAwait(false));
+
+    public Task SetAudioOutputHardwareModeAsync(
+        string address,
+        int mode,
+        CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.SetAudioOutputHardwareMode(mode), cancellationToken);
+
+    public async Task<bool> ReadEqualizerEnabledAsync(
+        string address,
+        CancellationToken cancellationToken = default) =>
+        WiiMApiParser.ParseEqualizerEnabled(
+            await ReadTextAsync(address, WiiMCommands.GetEqualizerState, cancellationToken)
+                .ConfigureAwait(false));
+
+    public async Task<IReadOnlyList<string>> ReadEqualizerPresetsAsync(
+        string address,
+        CancellationToken cancellationToken = default) =>
+        WiiMApiParser.ParseEqualizerPresets(
+            await ReadTextAsync(address, WiiMCommands.GetEqualizerPresets, cancellationToken)
+                .ConfigureAwait(false));
+
+    public Task SetEqualizerEnabledAsync(
+        string address,
+        bool enabled,
+        CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, enabled ? WiiMCommands.EqualizerOn : WiiMCommands.EqualizerOff, cancellationToken);
+
+    public Task LoadEqualizerPresetAsync(
+        string address,
+        string preset,
+        CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.LoadEqualizerPreset(preset), cancellationToken);
+
+    public Task SetLoopModeAsync(string address, int mode, CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.SetLoopMode(mode), cancellationToken);
+
+    public Task SetSleepTimerAsync(string address, int seconds, CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.SetSleepTimer(seconds), cancellationToken);
+
     private async Task SendCommandAsync(
         string address,
         string command,
@@ -150,6 +198,11 @@ public static class WiiMCommands
     public const string Previous = "setPlayerCmd:prev";
     public const string Next = "setPlayerCmd:next";
     public const string Stop = "setPlayerCmd:stop";
+    public const string GetAudioOutputHardwareMode = "getNewAudioOutputHardwareMode";
+    public const string GetEqualizerState = "EQGetStat";
+    public const string GetEqualizerPresets = "EQGetList";
+    public const string EqualizerOn = "EQOn";
+    public const string EqualizerOff = "EQOff";
 
     public static string SetVolume(int volume) =>
         $"setPlayerCmd:vol:{Math.Clamp(volume, 0, 100)}";
@@ -168,6 +221,41 @@ public static class WiiMCommands
         if (presetNumber is < 1 or > 12)
             throw new ArgumentOutOfRangeException(nameof(presetNumber));
         return $"MCUKeyShortClick:{presetNumber}";
+    }
+
+    public static string SwitchInput(string input)
+    {
+        var normalized = input.Trim().ToLowerInvariant();
+        if (normalized is not ("line-in" or "bluetooth" or "optical" or "udisk" or "wifi"))
+            throw new ArgumentOutOfRangeException(nameof(input));
+        return $"setPlayerCmd:switchmode:{normalized}";
+    }
+
+    public static string SetAudioOutputHardwareMode(int mode)
+    {
+        if (mode is < 1 or > 3) throw new ArgumentOutOfRangeException(nameof(mode));
+        return $"setAudioOutputHardwareMode:{mode}";
+    }
+
+    public static string LoadEqualizerPreset(string preset)
+    {
+        var normalized = preset.Trim();
+        if (normalized.Length == 0 || normalized.Length > 80 || normalized.Contains(':'))
+            throw new ArgumentException("Nieprawidłowa nazwa ustawienia korektora.", nameof(preset));
+        return $"EQLoad:{normalized}";
+    }
+
+    public static string SetLoopMode(int mode)
+    {
+        if (mode is not (-1 or 0 or 1 or 2)) throw new ArgumentOutOfRangeException(nameof(mode));
+        return $"setPlayerCmd:loopmode:{mode}";
+    }
+
+    public static string SetSleepTimer(int seconds)
+    {
+        if (seconds != -1 && seconds is < 60 or > 86400)
+            throw new ArgumentOutOfRangeException(nameof(seconds));
+        return $"setShutdown:{seconds}";
     }
 
     public static bool ResponseIndicatesFailure(string? response)

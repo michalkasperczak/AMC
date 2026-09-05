@@ -75,6 +75,14 @@ public static class CommandIds
     public const string ManageWiiMDevices = "wiim.devices.manage";
     public const string RefreshWiiMDevices = "wiim.devices.refresh";
     public const string ViewWiiMDevicePresets = "wiim.devicePresets.view";
+    public const string PreviousWiiMDevicePreset = "wiim.devicePresets.previous";
+    public const string NextWiiMDevicePreset = "wiim.devicePresets.next";
+    public const string SelectWiiMInput = "wiim.input.select";
+    public const string SelectWiiMOutput = "wiim.output.select";
+    public const string SelectWiiMEqualizer = "wiim.equalizer.select";
+    public const string SelectWiiMRepeatMode = "wiim.repeat.select";
+    public const string ToggleWiiMShuffle = "wiim.shuffle.toggle";
+    public const string SetWiiMSleepTimer = "wiim.sleepTimer.set";
     public const string RenameLibraryItem = "local.library.renameItem";
     public const string RenameLocalFile = "local.file.rename";
     public const string MoveLocalLibraryItemUp = "local.library.moveItemUp";

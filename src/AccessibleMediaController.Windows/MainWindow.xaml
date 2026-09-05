@@ -446,8 +446,9 @@
                     <MenuItem x:Name="PlaybackMenuItem" Header="Odtwórz lub wstrzymaj" InputGestureText="Ctrl+Enter"
                               automation:AutomationProperties.Name="Odtwórz lub wstrzymaj, Ctrl+Enter"
                               Click="ToggleSelectedPlayback_Click" />
-                    <MenuItem x:Name="WiiMDevicePresetsMenuItem" Header="Presety urządzenia WiiM…" InputGestureText="Ctrl+P"
-                              automation:AutomationProperties.Name="Presety urządzenia WiiM, Ctrl+P"
+                    <MenuItem x:Name="WiiMDevicePresetsMenuItem" Header="Presety urządzenia WiiM…" InputGestureText="Ctrl+Alt+P"
+                              automation:AutomationProperties.Name="Presety urządzenia WiiM, Ctrl+Alt+P"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+P"
                               Visibility="Collapsed" Click="WiiMDevicePresets_Click" />
                     <MenuItem x:Name="RefreshPodcastMenuItem" Header="Odśwież podcast" InputGestureText="F5"
                               automation:AutomationProperties.Name="Odśwież wybrany podcast, F5"
@@ -592,9 +593,42 @@
                     <MenuItem Header="Następny utwór" InputGestureText="Page Down"
                               automation:AutomationProperties.Name="Następny utwór, Page Down"
                               Click="PlayerNext_Click" />
-                    <MenuItem x:Name="PlayerWiiMDevicePresetsMenuItem" Header="Presety urządzenia WiiM…" InputGestureText="Ctrl+P"
-                              automation:AutomationProperties.Name="Presety urządzenia WiiM, Ctrl+P"
+                    <MenuItem x:Name="PlayerWiiMDevicePresetsMenuItem" Header="Presety urządzenia WiiM…" InputGestureText="Ctrl+Alt+P"
+                              automation:AutomationProperties.Name="Presety urządzenia WiiM, Ctrl+Alt+P"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+P"
                               Visibility="Collapsed" Click="WiiMDevicePresets_Click" />
+                    <MenuItem x:Name="PlayerWiiMPreviousPresetMenuItem" Header="Poprzedni zajęty preset" InputGestureText="Alt+Page Up"
+                              automation:AutomationProperties.Name="Poprzedni zajęty preset urządzenia WiiM, Alt+Page Up"
+                              automation:AutomationProperties.AcceleratorKey="Alt+Page Up"
+                              Visibility="Collapsed" Click="WiiMPreviousPreset_Click" />
+                    <MenuItem x:Name="PlayerWiiMNextPresetMenuItem" Header="Następny zajęty preset" InputGestureText="Alt+Page Down"
+                              automation:AutomationProperties.Name="Następny zajęty preset urządzenia WiiM, Alt+Page Down"
+                              automation:AutomationProperties.AcceleratorKey="Alt+Page Down"
+                              Visibility="Collapsed" Click="WiiMNextPreset_Click" />
+                    <MenuItem x:Name="PlayerWiiMInputMenuItem" Header="Wybierz wejście…" InputGestureText="I"
+                              automation:AutomationProperties.Name="Wybierz wejście urządzenia WiiM, I"
+                              automation:AutomationProperties.AcceleratorKey="I"
+                              Visibility="Collapsed" Click="WiiMInput_Click" />
+                    <MenuItem x:Name="PlayerWiiMOutputMenuItem" Header="Wybierz wyjście urządzenia…" InputGestureText="O"
+                              automation:AutomationProperties.Name="Wybierz wyjście urządzenia WiiM, O"
+                              automation:AutomationProperties.AcceleratorKey="O"
+                              Visibility="Collapsed" Click="WiiMOutput_Click" />
+                    <MenuItem x:Name="PlayerWiiMEqualizerMenuItem" Header="Korektor…" InputGestureText="E"
+                              automation:AutomationProperties.Name="Wybierz ustawienie korektora WiiM, E"
+                              automation:AutomationProperties.AcceleratorKey="E"
+                              Visibility="Collapsed" Click="WiiMEqualizer_Click" />
+                    <MenuItem x:Name="PlayerWiiMRepeatMenuItem" Header="Tryb powtarzania…" InputGestureText="R"
+                              automation:AutomationProperties.Name="Wybierz tryb powtarzania WiiM, R"
+                              automation:AutomationProperties.AcceleratorKey="R"
+                              Visibility="Collapsed" Click="WiiMRepeat_Click" />
+                    <MenuItem x:Name="PlayerWiiMShuffleMenuItem" Header="Włącz lub wyłącz losowanie" InputGestureText="S"
+                              automation:AutomationProperties.Name="Włącz lub wyłącz losowanie WiiM, S"
+                              automation:AutomationProperties.AcceleratorKey="S"
+                              Visibility="Collapsed" Click="WiiMShuffle_Click" />
+                    <MenuItem x:Name="PlayerWiiMSleepTimerMenuItem" Header="Timer uśpienia…" InputGestureText="T"
+                              automation:AutomationProperties.Name="Ustaw timer uśpienia WiiM, T"
+                              automation:AutomationProperties.AcceleratorKey="T"
+                              Visibility="Collapsed" Click="WiiMSleepTimer_Click" />
                     <MenuItem x:Name="PlayerAudioOutputDeviceMenuItem"
                               Header="Wybierz urządzenie audio dla tej sesji…"
                               InputGestureText="Shift+A"

@@ -6219,7 +6219,7 @@ Przejdź w każdej sesji do innego widoku, po czym przełączaj ją przez `Ctrl+
 
 Oczekiwane: komunikat zaczyna się od numeru i nazwy sesji, potem podaje przywrócony widok i element, np. „4, Pliki lokalne, Biblioteka…”. Pozostałe funkcje nie mają regresji.
 
-## Test ręczny WiiM — alpha 268
+## Test ręczny WiiM — alpha 268 i 271
 
 ### AMC-268-01 — Menedżer, fokus i jawny wybór
 
@@ -6242,14 +6242,47 @@ Oczekiwane: polecenia sterują urządzeniem, a niedostępny czas lub chwilowy br
 odpowiedzi daje krótki komunikat zamiast zawieszenia. Escape wraca do listy
 urządzeń, lecz muzyka na WiiM gra dalej.
 
-### AMC-268-03 — Presety sprzętowe
+### AMC-271-01 — Presety sprzętowe
 
-W sesji WiiM naciśnij `Ctrl+P`. Wybieraj miejsca strzałkami i cyframi, uruchom
-zajęte miejsce Enterem oraz sprawdź `Ctrl+C` i `Ctrl+Shift+C`.
+W sesji WiiM naciśnij `Ctrl+Alt+P`. Wybieraj miejsca strzałkami i cyframi,
+sprawdź Page Up i Page Down, uruchom zajęte miejsce Enterem oraz sprawdź
+`Ctrl+C` i `Ctrl+Shift+C`.
 
 Oczekiwane: widocznych jest dokładnie dwanaście użytkowo opisanych miejsc.
-Puste miejsce jest jednoznacznie puste, zajęte można uruchomić, a kopiowanie nie
-ujawnia nazw klas, identyfikatorów ani innych reprezentacji technicznych.
+Puste miejsce jest jednoznacznie puste, Page Up i Page Down pomijają puste
+miejsca bez uruchamiania, zajęte można uruchomić, a kopiowanie nie ujawnia nazw
+klas, identyfikatorów ani innych reprezentacji technicznych. `Ctrl+P` nie
+otwiera presetów WiiM.
+
+### AMC-271-02 — Bezpośrednie i sąsiednie presety
+
+Sprawdź `Ctrl+Shift+1–9`, `Ctrl+Shift+0`, `Ctrl+Shift+-` i `Ctrl+Shift+=`.
+Po uruchomieniu zajętego miejsca otwórz odtwarzacz i użyj
+`Alt+Page Up`/`Alt+Page Down` kilka razy.
+
+Oczekiwane: skróty uruchamiają miejsca 1–12, w tym miejsce 10 pod cyfrą 0.
+Nawigacja sąsiednia zawija listę i pomija puste miejsca. Po świeżym uruchomieniu,
+zanim AMC sam uruchomi preset, podaje polecenie otwarcia `Ctrl+Alt+P` i nie
+zgaduje bieżącego numeru.
+
+### AMC-271-03 — Wejście, wyjście, korektor i tryb odtwarzania
+
+W odtwarzaczu WiiM sprawdź kolejno `I`, `O`, `E`, `R`, `S`, `T` i `Shift+A`.
+W każdym oknie przejdź strzałkami po wszystkich pozycjach, anuluj Escape,
+otwórz ponownie, zapisz Enterem i sprawdź powrót fokusu do odtwarzacza.
+
+Oczekiwane: NVDA czyta wyłącznie etykiety użytkowe, początkowe zaznaczenie jest
+odczytywane, a zapis i anulowanie nie pozostawiają fokusu w ukrytym oknie.
+Urządzenie może jawnie odrzucić funkcję, której dany model nie obsługuje, lecz
+AMC nie może milczeć ani ujawnić tekstu typu `TypeName { Value = ... }`.
+
+### AMC-271-04 — Brak zapisu natywnego presetu
+
+W sesji WiiM naciśnij `Ctrl+Alt+Shift+P`.
+
+Oczekiwane: program wyjaśnia, że oficjalne API nie udostępnia zapisu ani
+nadpisywania natywnego presetu i kieruje do WiiM Home. Nie zmienia lokalnego
+stanu i nie informuje o powodzeniu.
 
 ## AMC-269-01 — Ilustracja RSS nie jest odcinkiem
 
