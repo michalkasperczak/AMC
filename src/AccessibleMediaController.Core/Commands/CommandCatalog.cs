@@ -107,6 +107,7 @@ public static class CommandCatalog
             CommandIds.ManageLocalSources => "Foldery Biblioteki",
             CommandIds.ManageWiiMDevices => "Urządzenia WiiM",
             CommandIds.RefreshWiiMDevices => "Odśwież urządzenia WiiM",
+            CommandIds.ViewWiiMDevicePresets => "Presety urządzenia WiiM",
             CommandIds.RenameLibraryItem => "Zmień nazwę w Bibliotece",
             CommandIds.RenameLocalFile => "Zmień nazwę pliku na dysku",
             CommandIds.MoveLocalLibraryItemUp => "Przenieś wyżej na bieżącej liście",

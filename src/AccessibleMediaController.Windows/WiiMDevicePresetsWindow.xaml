@@ -1,0 +1,36 @@
+<controls:AccessibleWindow x:Class="AccessibleMediaController.Windows.WiiMDevicePresetsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        Title="Presety urządzenia WiiM" Width="590" Height="470"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        ContentRendered="Window_ContentRendered"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="12">
+        <TextBlock x:Name="DescriptionText" DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap"
+                   automation:AutomationProperties.HeadingLevel="Level1" />
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <controls:AccessibleStatusTextBlock x:Name="PresetStatus" Margin="0,0,0,8"
+                                                TextWrapping="Wrap"
+                                                automation:AutomationProperties.LiveSetting="Assertive" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Width="115" Margin="0,0,8,0" Content="_Uruchom" IsDefault="True"
+                        Click="Activate_Click" />
+                <Button Width="100" Content="_Zamknij" IsCancel="True" />
+            </StackPanel>
+        </StackPanel>
+        <ListBox x:Name="PresetList"
+                 SelectionMode="Extended"
+                 DisplayMemberPath="Label"
+                 TextSearch.TextPath="NavigationText"
+                 automation:AutomationProperties.Name="Presety urządzenia WiiM"
+                 automation:AutomationProperties.HelpText="Strzałki albo cyfra wybierają preset. Enter lub Spacja uruchamia zajęty preset.">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+    </DockPanel>
+</controls:AccessibleWindow>

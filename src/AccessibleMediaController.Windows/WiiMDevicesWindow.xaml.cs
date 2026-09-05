@@ -73,6 +73,8 @@ public partial class WiiMDevicesWindow : Window
                 1 => "Wykryto jedno urządzenie WiiM.",
                 _ => $"Wykryto urządzenia WiiM: {found}."
             };
+            if (found > 0)
+                _ = Dispatcher.BeginInvoke(FocusSelectedDevice, DispatcherPriority.ContextIdle);
         });
     }
 
@@ -153,6 +155,22 @@ public partial class WiiMDevicesWindow : Window
         OperationStatusText.Text = $"Usunięto urządzenie {row.Device.DisplayName} z AMC.";
     }
 
+    private void Activate_Click(object sender, RoutedEventArgs e) => ActivateSelectedDevice();
+
+    private void ActivateSelectedDevice()
+    {
+        if (SelectedRow is not { } row)
+        {
+            OperationStatusText.Text = "Najpierw wybierz urządzenie WiiM.";
+            return;
+        }
+        settings.SelectedDeviceId = row.Device.Id;
+        Changed = true;
+        ReloadRows(row.Device.Id);
+        OperationStatusText.Text = $"Aktywne urządzenie: {row.Device.DisplayName}.";
+        Dispatcher.BeginInvoke(FocusSelectedDevice, DispatcherPriority.ContextIdle);
+    }
+
     private void Upsert(WiiMDeviceSnapshot snapshot)
     {
         var existing = settings.Devices.FirstOrDefault(device =>
@@ -189,7 +207,8 @@ public partial class WiiMDevicesWindow : Window
             .Select(device => new WiiMDeviceRow(
                 device,
                 snapshots.GetValueOrDefault(device.Id),
-                errors.GetValueOrDefault(device.Id)))
+                errors.GetValueOrDefault(device.Id),
+                string.Equals(device.Id, settings.SelectedDeviceId, StringComparison.OrdinalIgnoreCase)))
             .ToArray();
         DevicesList.ItemsSource = rows;
         DevicesList.SelectedItem = rows.FirstOrDefault(row =>
@@ -226,18 +245,13 @@ public partial class WiiMDevicesWindow : Window
         DiscoverButton.IsEnabled = !value;
         AddButton.IsEnabled = !value;
         AddressBox.IsEnabled = !value;
+        ActivateButton.IsEnabled = !value && SelectedRow is not null;
         RefreshButton.IsEnabled = !value && SelectedRow is not null;
         RemoveButton.IsEnabled = !value && SelectedRow is not null;
     }
 
     private void DevicesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (SelectedRow is { } row
-            && !string.Equals(settings.SelectedDeviceId, row.Device.Id, StringComparison.OrdinalIgnoreCase))
-        {
-            settings.SelectedDeviceId = row.Device.Id;
-            Changed = true;
-        }
         UpdateSelection();
     }
 
@@ -245,6 +259,7 @@ public partial class WiiMDevicesWindow : Window
     {
         RefreshButton.IsEnabled = !busy && SelectedRow is not null;
         RemoveButton.IsEnabled = !busy && SelectedRow is not null;
+        ActivateButton.IsEnabled = !busy && SelectedRow is not null;
         DeviceDetailsText.Text = SelectedRow?.Details
             ?? "Brak zapisanych urządzeń. Wykryj urządzenie w sieci albo wpisz jego adres IP.";
     }
@@ -262,8 +277,22 @@ public partial class WiiMDevicesWindow : Window
                 return;
             }
         }
-        AddressBox.Focus();
-        Keyboard.Focus(AddressBox);
+        DiscoverButton.Focus();
+        Keyboard.Focus(DiscoverButton);
+    }
+
+    private void FocusSelectedDevice()
+    {
+        if (DevicesList.SelectedItem is null) return;
+        DevicesList.ScrollIntoView(DevicesList.SelectedItem);
+        DevicesList.UpdateLayout();
+        if (DevicesList.ItemContainerGenerator.ContainerFromItem(DevicesList.SelectedItem) is ListBoxItem item)
+        {
+            item.Focus();
+            Keyboard.Focus(item);
+            return;
+        }
+        Keyboard.Focus(DevicesList);
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -272,6 +301,14 @@ public partial class WiiMDevicesWindow : Window
         {
             if (SelectedRow is not null) Refresh_Click(this, new RoutedEventArgs());
             else Discover_Click(this, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.Enter
+            && Keyboard.Modifiers == ModifierKeys.None
+            && DevicesList.IsKeyboardFocusWithin)
+        {
+            ActivateSelectedDevice();
             e.Handled = true;
             return;
         }
@@ -293,7 +330,8 @@ public partial class WiiMDevicesWindow : Window
 public sealed record WiiMDeviceRow(
     WiiMDeviceSettings Device,
     WiiMDeviceSnapshot? Snapshot,
-    string? Error)
+    string? Error,
+    bool IsActive = false)
 {
     public string NavigationText => Device.DisplayName;
 
@@ -301,9 +339,10 @@ public sealed record WiiMDeviceRow(
     {
         get
         {
-            if (!string.IsNullOrWhiteSpace(Error)) return $"{Device.DisplayName}, {Error}";
-            if (Snapshot is null) return $"{Device.DisplayName}, zapisane, stan jeszcze nieodświeżony";
-            return $"{Device.DisplayName}, dostępne, {Snapshot.PlaybackSummary}";
+            var active = IsActive ? ", aktywne" : string.Empty;
+            if (!string.IsNullOrWhiteSpace(Error)) return $"{Device.DisplayName}{active}, {Error}";
+            if (Snapshot is null) return $"{Device.DisplayName}{active}, zapisane, stan jeszcze nieodświeżony";
+            return $"{Device.DisplayName}{active}, dostępne, {Snapshot.PlaybackSummary}";
         }
     }
 

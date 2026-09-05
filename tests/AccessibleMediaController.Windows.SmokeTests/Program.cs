@@ -2243,12 +2243,35 @@ static void TestWiiMDeviceManagerAccessibility()
                 var row = list.Items.Cast<object>().Single();
                 var label = row.GetType().GetProperty("Label")?.GetValue(row)?.ToString() ?? string.Empty;
                 Assert(label.Contains("Salon", StringComparison.Ordinal)
+                       && label.Contains("aktywne", StringComparison.Ordinal)
                        && label.Contains("TIDAL Connect", StringComparison.Ordinal)
                        && !label.Contains('{')
                        && !label.Contains("WiiMDevice", StringComparison.Ordinal),
                     "Lista WiiM ujawnia techniczną reprezentację obiektu zamiast etykiety użytkowej.");
                 Assert(list.SelectedIndex == 0,
                     "Menedżer WiiM nie wybiera zapamiętanego urządzenia przy otwarciu.");
+
+                var presetWindow = new WiiMDevicePresetsWindow("Salon", snapshot.Presets);
+                try
+                {
+                    var presetList = (ListBox)presetWindow.FindName("PresetList");
+                    Assert(presetList.DisplayMemberPath == "Label"
+                           && TextSearch.GetTextPath(presetList) == "NavigationText",
+                        "Lista presetów WiiM nie ma jawnego tekstu dostępnościowego.");
+                    var labels = presetList.Items
+                        .Cast<object>()
+                        .Select(item => item.GetType().GetProperty("Label")?.GetValue(item)?.ToString() ?? string.Empty)
+                        .ToArray();
+                    Assert(labels.Length == 12
+                           && labels[0].Contains("Radio", StringComparison.Ordinal)
+                           && labels[1].Contains("pusty", StringComparison.Ordinal)
+                           && labels.All(value => !value.Contains('{') && !value.Contains("WiiMPreset", StringComparison.Ordinal)),
+                        "Lista presetów WiiM ujawnia obiekty techniczne albo ma niepełne etykiety.");
+                }
+                finally
+                {
+                    presetWindow.Close();
+                }
             }
             finally
             {

@@ -1652,6 +1652,30 @@ presets are the next milestone, followed by sending stream URLs. WiiM hardware
 presets remain distinct from AMC presets, and TIDAL or Apple Music catalogues
 still require their own service adapters.
 
+### 7.24. WiiM device selection and control
+
+Starting with `alpha.268`, automatic discovery is the primary action and manual
+IP entry lives in a collapsed fallback section. Opening the manager focuses a
+saved device or the automatic-discovery button, never the address field by
+default. Arrow keys only browse the list. Enter or **Set active** explicitly
+stores the choice, refreshes it, and opens that device's controller.
+
+Inside the WiiM player, Space toggles play and pause, `Page Up` and `Page Down`
+select the previous or next item, Left and Right seek, Up and Down control the
+device volume, and `Ctrl+M` toggles device mute. Time, jump, and percentage
+commands are enabled only when the device reports a usable duration. Status is
+polled without moving focus or producing recurring NVDA announcements. A lost
+connection does not delete the saved device, and subsequent retries are backed
+off to avoid network and log noise.
+
+`Ctrl+P` in the WiiM session opens the twelve native presets stored by the
+device. A digit selects a slot, Enter or Space activates it, `Ctrl+C` copies its
+name, and `Ctrl+Shift+C` copies the name plus an available address. Device
+presets are separate from universal AMC presets and this list never overwrites
+them. Escape returns to the device list without stopping autonomous room
+playback. Input/output selection and sending stream URLs are later adapter
+milestones.
+
 ### 7.21. Shared collection-state undo
 
 Starting with `alpha.243`, the Library, Favorites, and Queue change history

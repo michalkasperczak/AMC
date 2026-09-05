@@ -1086,14 +1086,22 @@ kolejne niewybrane części i wraca do najbliższego późniejszego rozdziału z
 zestawu. Po ponownym otwarciu listy wcześniejsze wybory są nadal widoczne.
 Zmiana materiału kończy ten tymczasowy plan.
 
-## WiiM w alpha 267
+## WiiM w alpha 267 i 268
 
 Sesja WiiM pokazuje teraz prawdziwe urządzenia z sieci lokalnej zamiast danych
 demonstracyjnych. `Ctrl+F5` otwiera menedżer, w którym można wykryć urządzenie
 albo podać jego lokalny adres IP. `F5` odświeża zapisane urządzenia, Enter
 odświeża urządzenie pod fokusem, a `Alt+Enter` pokazuje jego stan i metadane.
-Ten pierwszy etap jest bezpiecznie odczytowy; sterowanie odtwarzaniem,
-głośnością, wejściami i presetami sprzętowymi będzie następnym etapem.
+Pierwszy etap był bezpiecznie odczytowy. Od `alpha.268` automatyczne wykrywanie
+jest główną czynnością, ręczny adres IP znajduje się w zwijanej sekcji, a fokus
+trafia na zapisane urządzenie albo przycisk wykrywania. Strzałki jedynie
+przeglądają urządzenia; Enter ustawia wybrane jako aktywne i otwiera sterowanie.
+
+W sterowaniu WiiM działają Spacja, `Page Up`/`Page Down`, przewijanie,
+głośność, `Ctrl+M` oraz odczyt czasu. `Ctrl+P` otwiera osobną listę dwunastu
+sprzętowych presetów WiiM. Escape wraca do listy urządzeń bez zatrzymywania
+odtwarzacza sieciowego. Wybór wejścia i wyjścia oraz wysyłanie strumieni będą
+następnym etapem.
 
 ## Urządzenie audio osobno dla sesji w alpha 204
 
@@ -1137,7 +1145,7 @@ udostępniony przez adapter, zamiast pozorować wybór karty dźwiękowej Window
 
 ## Zakres i ograniczenia
 
-- TIDAL i Apple Music są obecnie sesjami demonstracyjnymi. WiiM ma pierwszy rzeczywisty, odczytowy adapter urządzeń. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.
+- TIDAL i Apple Music są obecnie sesjami demonstracyjnymi. WiiM ma rzeczywisty adapter wykrywania, stanu, transportu, głośności, wyciszenia i presetów urządzenia. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.
 - Publiczne strony stacji, podcastów i odcinków można otwierać w przeglądarce;
   integracje z oficjalnymi aplikacjami kontowymi pozostają etapem późniejszym.
 - Pobieranie muzyki i obsługa DRM nie są jeszcze zaimplementowane; skróty `D` i `Shift+D` tylko podają komunikaty.

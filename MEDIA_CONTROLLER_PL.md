@@ -2174,3 +2174,29 @@ Następny etap obejmie transport, głośność, wyciszenie, wybór wejścia i pr
 sprzętowe. Dopiero później dochodzi wysyłanie adresów strumieni do WiiM. Presety
 sprzętowe WiiM pozostają odrębne od uniwersalnych presetów AMC, a katalogi
 TIDAL i Apple Music nadal wymagają własnych adapterów usług.
+
+### 7.24. Wybór i sterowanie urządzeniem WiiM
+
+Od `alpha.268` wykrywanie urządzeń jest czynnością nadrzędną, a ręczne wpisanie
+adresu IP znajduje się w zwijanej sekcji awaryjnej. Po otwarciu menedżera fokus
+trafia na zapisane urządzenie albo przycisk automatycznego wykrywania, nigdy
+samoczynnie na pole adresu. Strzałki tylko przeglądają listę. Dopiero Enter albo
+przycisk **Ustaw jako aktywne** zapamiętuje wybór, odświeża stan i otwiera
+sterowanie tym urządzeniem.
+
+W odtwarzaczu WiiM Spacja przełącza odtwarzanie i pauzę, `Page Up` i
+`Page Down` wybierają poprzedni lub następny element, strzałki lewo/prawo
+przewijają materiał, strzałki góra/dół regulują głośność, a `Ctrl+M` przełącza
+wyciszenie urządzenia. Skróty czasu, skoku i cyfr procentowych działają tylko,
+gdy urządzenie podaje wystarczający czas trwania. Stan jest odświeżany w tle
+bez przejmowania fokusa i bez cyklicznych komunikatów NVDA. Utrata połączenia
+nie usuwa zapisanego urządzenia; kolejne próby są rzadsze, aby nie przeciążać
+sieci ani logu.
+
+`Ctrl+P` w sesji WiiM otwiera dwanaście natywnych presetów zapisanych w samym
+urządzeniu. Cyfra wybiera pozycję, Enter lub Spacja ją uruchamia, `Ctrl+C`
+kopiuje nazwę, a `Ctrl+Shift+C` nazwę i dostępny adres. Presety urządzenia nie
+są tym samym co uniwersalne presety AMC i nie można ich nadpisać z tej listy.
+Escape wraca z odtwarzacza do listy urządzeń, lecz nie zatrzymuje autonomicznego
+odtwarzania w pokoju. Wybór wejścia, wyjścia i wysyłanie adresów strumieni
+pozostają kolejnymi etapami adaptera.

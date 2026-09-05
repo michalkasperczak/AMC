@@ -17,19 +17,27 @@
             <TextBlock x:Name="OperationStatusText" Margin="0,0,0,8" TextWrapping="Wrap"
                        automation:AutomationProperties.Name="Wynik operacji"
                        automation:AutomationProperties.LiveSetting="Assertive" />
-            <Label Target="{Binding ElementName=AddressBox}">_Adres IP urządzenia:</Label>
-            <WrapPanel Margin="0,0,0,8">
-                <TextBox x:Name="AddressBox" Width="230" Margin="0,0,8,0"
-                         automation:AutomationProperties.Name="Adres IP urządzenia WiiM"
-                         automation:AutomationProperties.HelpText="Przykład: 192.168.1.25" />
-                <Button x:Name="AddButton" Content="_Dodaj i sprawdź" Click="Add_Click" />
-            </WrapPanel>
             <WrapPanel HorizontalAlignment="Left">
-                <Button x:Name="DiscoverButton" Margin="0,0,8,8" Content="_Wykryj w sieci" Click="Discover_Click" />
+                <Button x:Name="DiscoverButton" Margin="0,0,8,8" Content="_Wykryj urządzenia automatycznie" Click="Discover_Click" />
+                <Button x:Name="ActivateButton" Margin="0,0,8,8" Content="_Ustaw jako aktywne" IsDefault="True"
+                        automation:AutomationProperties.HelpText="Enter na urządzeniu wykonuje to samo polecenie."
+                        Click="Activate_Click" />
                 <Button x:Name="RefreshButton" Margin="0,0,8,8" Content="_Odśwież wybrane" Click="Refresh_Click" />
                 <Button x:Name="RemoveButton" Margin="0,0,8,8" Content="_Usuń urządzenie…" Click="Remove_Click" />
                 <Button Margin="0,0,0,8" Content="_Zamknij" IsCancel="True" />
             </WrapPanel>
+            <Expander Header="Dodawanie ręczne po adresie IP" IsExpanded="False"
+                      automation:AutomationProperties.HelpText="Użyj tylko wtedy, gdy automatyczne wykrywanie nie znajduje urządzenia.">
+                <StackPanel Margin="12,6,0,0">
+                    <Label Target="{Binding ElementName=AddressBox}">_Adres IP urządzenia:</Label>
+                    <WrapPanel Margin="0,0,0,8">
+                        <TextBox x:Name="AddressBox" Width="230" Margin="0,0,8,0"
+                                 automation:AutomationProperties.Name="Adres IP urządzenia WiiM"
+                                 automation:AutomationProperties.HelpText="Przykład: 192.168.1.25" />
+                        <Button x:Name="AddButton" Content="_Dodaj i sprawdź" Click="Add_Click" />
+                    </WrapPanel>
+                </StackPanel>
+            </Expander>
         </StackPanel>
 
         <Grid>
@@ -39,6 +47,7 @@
             </Grid.RowDefinitions>
             <ListBox x:Name="DevicesList" DisplayMemberPath="Label" TextSearch.TextPath="NavigationText"
                      automation:AutomationProperties.Name="Urządzenia WiiM"
+                     automation:AutomationProperties.HelpText="Strzałki wybierają urządzenie. Enter ustawia zaznaczone urządzenie jako aktywne."
                      SelectionChanged="DevicesList_SelectionChanged" />
             <TextBlock x:Name="DeviceDetailsText" Grid.Row="1" Margin="0,10,0,0" TextWrapping="Wrap"
                        automation:AutomationProperties.Name="Szczegóły wybranego urządzenia" />

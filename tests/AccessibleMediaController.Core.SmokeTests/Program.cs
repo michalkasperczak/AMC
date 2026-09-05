@@ -107,6 +107,19 @@ static void TestWiiMApiParsing()
     True(WiiMAddressPolicy.TryNormalize("192.168.1.25", out var address),
         "Prywatny adres IPv4 powinien być dozwolony dla WiiM.");
     Equal("192.168.1.25", address);
+
+    Equal("setPlayerCmd:onepause", WiiMCommands.TogglePlayPause);
+    Equal("setPlayerCmd:prev", WiiMCommands.Previous);
+    Equal("setPlayerCmd:next", WiiMCommands.Next);
+    Equal("setPlayerCmd:vol:100", WiiMCommands.SetVolume(125));
+    Equal("setPlayerCmd:vol:0", WiiMCommands.SetVolume(-5));
+    Equal("setPlayerCmd:mute:1", WiiMCommands.SetMuted(true));
+    Equal("setPlayerCmd:seek:95", WiiMCommands.Seek(TimeSpan.FromSeconds(94.6)));
+    Equal("MCUKeyShortClick:12", WiiMCommands.ActivatePreset(12));
+    True(WiiMCommands.ResponseIndicatesFailure("{\"status\":\"Failed\"}"),
+        "Odrzucone polecenie urządzenia powinno zostać wykryte.");
+    True(!WiiMCommands.ResponseIndicatesFailure("OK"),
+        "Odpowiedź OK urządzenia nie może być traktowana jako błąd.");
     True(WiiMAddressPolicy.TryNormalize("https://10.0.0.8/httpapi.asp", out address),
         "Adres urządzenia podany jako HTTPS powinien zostać znormalizowany.");
     Equal("10.0.0.8", address);

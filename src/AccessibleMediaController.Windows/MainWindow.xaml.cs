@@ -116,7 +116,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly WiiMDeviceClient _wiiMClient = new();
     private readonly WiiMDiscoveryService _wiiMDiscovery = new();
     private readonly CancellationTokenSource _wiiMCancellation = new();
+    private readonly SemaphoreSlim _wiiMDeviceOperationGate = new(1, 1);
     private bool _wiiMRefreshInProgress;
+    private DateTime _nextWiiMPlayerRefreshUtc = DateTime.MinValue;
     private readonly Dictionary<string, int> _podcastLoadedEpisodeCounts =
         new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _podcastLoadMoreNextItemIds =
@@ -2009,6 +2011,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         DemoMediaSession session,
         PlayerDepartureReason reason)
     {
+        // WiiM is an autonomous network player. Leaving its controller must not
+        // stop music in the room; transport is changed only by an explicit command.
+        if (string.Equals(session.Id, "wiim", StringComparison.Ordinal)) return;
         if (!MainWindowNavigationPolicy.ShouldApplyPlaybackExitPolicy(reason)) return;
         if (!_state.Settings.PausePlaybackWhenLeavingPlayer || !session.HasCurrentItem) return;
 
@@ -2033,6 +2038,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!_playerViewActive) return;
         var session = _sessions.Current;
         var item = session.CurrentItem;
+        if (string.Equals(session.Id, "wiim", StringComparison.Ordinal))
+        {
+            UpdateWiiMPlayerView(item, updateAccessibleName);
+            return;
+        }
         var position = session.Position;
         var duration = item.Duration;
         var isRadio = string.Equals(session.Id, "radio", StringComparison.Ordinal);
@@ -2113,6 +2123,66 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             PlayerKeyboardHelpText());
     }
 
+    private void UpdateWiiMPlayerView(MediaItem deviceItem, bool updateAccessibleName)
+    {
+        _wiiMSnapshots.TryGetValue(deviceItem.Id, out var snapshot);
+        var playback = snapshot?.Playback;
+        var track = snapshot?.Track;
+        var title = string.IsNullOrWhiteSpace(track?.Title) ? deviceItem.Title : track.Title;
+        var artist = !string.IsNullOrWhiteSpace(track?.Artist)
+            ? track.Artist
+            : !string.IsNullOrWhiteSpace(playback?.Source)
+                ? playback.Source
+                : "Urządzenie WiiM";
+        var state = playback?.State ?? "stan jeszcze nieodświeżony";
+        if (playback?.Muted == true) state += ", wyciszone";
+        if (playback is not null) state += $", głośność {playback.Volume}%";
+
+        PlayerTitleText.Text = title;
+        PlayerArtistText.Text = artist;
+        PlayerSessionText.Text = $"WiiM, {deviceItem.Title}";
+        PlayerStateText.Text = state;
+        PlayerSpeedText.Visibility = Visibility.Collapsed;
+        PlayerPreviousButton.Content = "Poprzedni element";
+        PlayerNextButton.Content = "Następny element";
+        foreach (var control in new FrameworkElement[]
+                 {
+                     PlayerRateDownButton,
+                     PlayerRateUpButton,
+                     PlayerRateResetButton,
+                     PlayerAddBookmarkButton,
+                     PlayerAddNamedBookmarkButton,
+                     PlayerBookmarksButton
+                 })
+        {
+            control.Visibility = Visibility.Collapsed;
+        }
+        var seekVisibility = playback?.Duration > TimeSpan.Zero
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        PlayerSeekTimeButton.Visibility = seekVisibility;
+        PlayerSeekPercentButton.Visibility = seekVisibility;
+        PlayerTimeText.Text = playback is null
+            ? "Stan czasu nieznany"
+            : playback.Duration > TimeSpan.Zero
+                ? $"{CommandRouter.FormatTime(playback.Position)} z {CommandRouter.FormatTime(playback.Duration)}"
+                : CommandRouter.FormatTime(playback.Position);
+        RadioRecordingButton.Visibility = Visibility.Collapsed;
+        PlayerHelpText.Text = PlayerKeyboardHelpText();
+        var playing = string.Equals(playback?.State, "odtwarzanie", StringComparison.OrdinalIgnoreCase);
+        var action = playing ? "Wstrzymaj" : "Odtwórz";
+        PlayerPlayPauseButton.Content = action;
+
+        if (!updateAccessibleName) return;
+        var focusContext = _playerFocusContextPrefix;
+        _playerFocusContextPrefix = null;
+        var name = $"Odtwarzacz WiiM, {deviceItem.Title}, {title}, {artist}, {state}. {action}";
+        AutomationProperties.SetName(
+            PlayerPlayPauseButton,
+            focusContext is null ? name : $"{focusContext}, {name}");
+        AutomationProperties.SetHelpText(PlayerPlayPauseButton, PlayerKeyboardHelpText());
+    }
+
     private string PlayerKeyboardHelpText()
     {
         var exit = _state.Settings.PausePlaybackWhenLeavingPlayer
@@ -2121,6 +2191,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(_sessions?.Current.Id, "radio", StringComparison.Ordinal))
         {
             return "Strzałki w lewo i w prawo poruszają się po buforze transmisji, Home przechodzi do początku bufora, End wraca na żywo, a strzałki w górę i w dół regulują głośność. Spacja wstrzymuje sam odsłuch, Ctrl+M tylko go wycisza bez przerywania odbioru ani nagrania, a Shift+Spacja wstrzymuje lub wznawia samo nagranie. R rozpoczyna lub kończy nagrywanie bieżącej stacji w tle. Podczas nagrywania B dodaje szybką zakładkę do zapisywanego pliku, a Shift+B pozwala ją nazwać. S rozpoznaje utwór, a Shift+S włącza lub wyłącza obserwowanie rozpoznawania. Page Up i Page Down wybierają poprzednią lub następną stację bez zatrzymywania nagrań. " + exit;
+        }
+        if (string.Equals(_sessions?.Current.Id, "wiim", StringComparison.Ordinal))
+        {
+            return "Spacja odtwarza lub wstrzymuje na urządzeniu. Page Up i Page Down wybierają poprzedni lub następny element. "
+                + "Strzałki w lewo i w prawo przewijają, a strzałki w górę i w dół regulują głośność urządzenia. "
+                + "Ctrl+M wycisza lub przywraca dźwięk. Ctrl+P otwiera presety zapisane w urządzeniu. "
+                + "Escape wraca do listy urządzeń i nie zatrzymuje odtwarzania WiiM.";
         }
         return "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. "
             + "B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach. "
@@ -2132,6 +2209,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PlayerUiTimer_Tick(object? sender, EventArgs e)
     {
         if (_playerViewActive) UpdatePlayerView();
+        if (_playerViewActive
+            && string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+            && DateTime.UtcNow >= _nextWiiMPlayerRefreshUtc)
+        {
+            _nextWiiMPlayerRefreshUtc = DateTime.UtcNow.AddSeconds(3);
+            _ = PollActiveWiiMDeviceAsync();
+        }
         UpdatePlaybackStatusBar();
         RecoverMainWindowFocusIfNeeded("cykliczna aktualizacja odtwarzania");
         SaveLocalMediaStateIfDue();
@@ -2491,6 +2575,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var session = _sessions.Current;
         var item = session.CurrentItem;
+        if (string.Equals(session.Id, "wiim", StringComparison.Ordinal))
+            return BuildWiiMPlaybackStatusText(item);
         var position = session.Position;
         var isRadio = string.Equals(session.Id, "radio", StringComparison.Ordinal);
         var preparing = string.Equals(session.Id, "local", StringComparison.Ordinal)
@@ -2524,6 +2610,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         parts.Add(session.DisplayName);
         if (isRadio && RadioRecordingStateLabel(item) is { } recordingState)
             parts.Insert(1, recordingState);
+        return string.Join(", ", parts);
+    }
+
+    private string BuildWiiMPlaybackStatusText(MediaItem deviceItem)
+    {
+        if (!_wiiMSnapshots.TryGetValue(deviceItem.Id, out var snapshot))
+            return $"{deviceItem.Title}, WiiM, stan jeszcze nieodświeżony";
+        var parts = new List<string> { deviceItem.Title };
+        if (!string.IsNullOrWhiteSpace(snapshot.Track.Title)) parts.Add(snapshot.Track.Title);
+        if (!string.IsNullOrWhiteSpace(snapshot.Track.Artist)) parts.Add(snapshot.Track.Artist);
+        if (!string.IsNullOrWhiteSpace(snapshot.Playback.Source)) parts.Add(snapshot.Playback.Source);
+        parts.Add(snapshot.Playback.State);
+        if (snapshot.Playback.Muted) parts.Add("wyciszone");
+        parts.Add($"głośność {snapshot.Playback.Volume}%");
+        if (snapshot.Playback.Duration > TimeSpan.Zero)
+        {
+            parts.Add($"{CommandRouter.FormatTime(snapshot.Playback.Position)} z {CommandRouter.FormatTime(snapshot.Playback.Duration)}");
+        }
         return string.Join(", ", parts);
     }
 
@@ -3245,7 +3349,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId is CommandIds.ManageWiiMDevices or CommandIds.RefreshWiiMDevices)
             return wiiM;
         if (!wiiM && commandId.StartsWith("wiim.", StringComparison.Ordinal)) return false;
-        if (wiiM) return CommandAvailableInWiiMReadOnly(commandId);
+        if (wiiM) return CommandAvailableInWiiM(commandId);
         if (commandId is CommandIds.SortCollectionByAdded
             or CommandIds.SortCollectionAlphabetically
             or CommandIds.SortCollectionCustom)
@@ -4780,10 +4884,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         NowPlayingViewMenuItem.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
         FavoritesViewMenuItem.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
-        PlaylistsViewMenuItem.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
-        PlaylistsViewMenuItem.Header = "Playlisty";
+        PlaylistsViewMenuItem.Visibility = Visibility.Visible;
+        PlaylistsViewMenuItem.Header = wiiM ? "Presety urządzenia WiiM…" : "Playlisty";
         PlaylistsViewMenuItem.InputGestureText = "Ctrl+P";
-        AutomationProperties.SetName(PlaylistsViewMenuItem, "Playlisty");
+        AutomationProperties.SetName(
+            PlaylistsViewMenuItem,
+            wiiM ? "Presety urządzenia WiiM, Ctrl+P" : "Playlisty, Ctrl+P");
         var presetsAvailable = CurrentSessionSupportsPresets() && !wiiM;
         RadioPresetsViewMenuItem.Visibility = presetsAvailable ? Visibility.Visible : Visibility.Collapsed;
         AutomationProperties.SetName(
@@ -4799,10 +4905,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         QueueViewMenuItem.Visibility = radio || wiiM ? Visibility.Collapsed : Visibility.Visible;
         HistoryViewMenuItem.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
         BookmarksViewMenuItem.Visibility = radio || wiiM ? Visibility.Collapsed : Visibility.Visible;
-        BrowserPlaybackButton.Content = wiiM ? "_Odśwież stan urządzenia" : "Odtwórz lub _wstrzymaj";
+        BrowserPlaybackButton.Content = wiiM ? "_Wybierz urządzenie i otwórz sterowanie" : "Odtwórz lub _wstrzymaj";
         AutomationProperties.SetName(
             BrowserPlaybackButton,
-            wiiM ? "Odśwież stan wybranego urządzenia WiiM" : "Odtwórz lub wstrzymaj");
+            wiiM ? "Wybierz urządzenie WiiM i otwórz sterowanie, Enter" : "Odtwórz lub wstrzymaj");
         BrowserFavoriteButton.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
         BrowserPlaylistsButton.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
         BrowserPlaylistsButton.Content = "Zmień _playlisty…";
@@ -5795,6 +5901,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Kind = MediaItemKind.Device,
         Source = device.Address,
         ExternalId = device.Id,
+        Duration = snapshot?.Playback.Duration ?? TimeSpan.Zero,
         IsInLibrary = true,
         IsAvailable = snapshot is not null
     };
@@ -8203,23 +8310,40 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string commandId,
         FolderContentsActionContext? folderContext)
     {
-        if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
-            && !CommandAvailableInWiiMReadOnly(commandId))
+        if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
         {
-            Announce("To polecenie nie jest jeszcze dostępne w sesji WiiM");
-            return new CommandExecutionResult(false);
-        }
-        if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
-            && commandId is CommandIds.ActivateSelected or CommandIds.PlayPause)
-        {
-            var device = ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
-            if (device is null)
+            if (commandId == CommandIds.ActivateSelected)
             {
-                Announce("Brak wybranego urządzenia WiiM. Ctrl+F5 otwiera wykrywanie i dodawanie urządzeń");
+                var selectedDevice = ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
+                if (selectedDevice is null)
+                {
+                    Announce("Brak wybranego urządzenia WiiM. Ctrl+F5 otwiera wykrywanie i dodawanie urządzeń");
+                    return new CommandExecutionResult(false);
+                }
+                _ = ActivateWiiMDeviceAsync(selectedDevice);
+                return new CommandExecutionResult(true);
+            }
+            if (commandId == CommandIds.ViewWiiMDevicePresets)
+            {
+                _ = ShowWiiMDevicePresetsAsync();
+                return new CommandExecutionResult(true);
+            }
+            if (IsWiiMTransportCommand(commandId)
+                || CommandIds.TryParseSeekPercent(commandId, out _))
+            {
+                _ = ExecuteWiiMTransportCommandAsync(commandId);
+                return new CommandExecutionResult(true);
+            }
+            if (commandId is CommandIds.TimeElapsed or CommandIds.TimeRemaining or CommandIds.TimeTotal)
+            {
+                AnnounceWiiMTime(commandId);
+                return new CommandExecutionResult(true);
+            }
+            if (!CommandAvailableInWiiM(commandId))
+            {
+                Announce("To polecenie nie jest dostępne w sesji WiiM");
                 return new CommandExecutionResult(false);
             }
-            _ = RefreshSelectedWiiMDeviceAsync(device);
-            return new CommandExecutionResult(true);
         }
         if (commandId is CommandIds.SortCollectionByAdded
             or CommandIds.SortCollectionAlphabetically
@@ -9443,11 +9567,32 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             initializeAlphabetically: true);
     }
 
-    private static bool CommandAvailableInWiiMReadOnly(string commandId) =>
+    private static bool CommandAvailableInWiiM(string commandId) =>
         commandId.StartsWith("session.", StringComparison.Ordinal)
         || commandId.StartsWith("settings.", StringComparison.Ordinal)
+        || commandId.StartsWith("transport.seekPercent.", StringComparison.Ordinal)
         || commandId is CommandIds.ActivateSelected
             or CommandIds.PlayPause
+            or CommandIds.Previous
+            or CommandIds.Next
+            or CommandIds.SeekBackward10
+            or CommandIds.SeekForward10
+            or CommandIds.SeekBackward30
+            or CommandIds.SeekForward30
+            or CommandIds.SeekBackward60
+            or CommandIds.SeekForward60
+            or CommandIds.VolumeUp5
+            or CommandIds.VolumeDown5
+            or CommandIds.VolumeUp1
+            or CommandIds.VolumeDown1
+            or CommandIds.ToggleMuteCurrentSession
+            or CommandIds.TrackStart
+            or CommandIds.TrackEnd
+            or CommandIds.SeekToTime
+            or CommandIds.SeekToPercentage
+            or CommandIds.TimeElapsed
+            or CommandIds.TimeRemaining
+            or CommandIds.TimeTotal
             or CommandIds.ItemProperties
             or CommandIds.ViewLibrary
             or CommandIds.FilterCurrent
@@ -9457,7 +9602,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.Help
             or CommandIds.KeyboardHelp
             or CommandIds.ManageWiiMDevices
-            or CommandIds.RefreshWiiMDevices;
+            or CommandIds.RefreshWiiMDevices
+            or CommandIds.ViewWiiMDevicePresets;
 
     private bool CurrentViewSupportsCollectionSorting() =>
         string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
@@ -10265,6 +10411,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var item = row?.Item;
         if (item is null) return;
+        if (item.Kind == MediaItemKind.Device
+            && string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
+        {
+            ExecuteCommand(CommandIds.ActivateSelected);
+            return;
+        }
         if (item.Kind == MediaItemKind.Podcast)
         {
             OpenPodcast(item.Id, item.Title);
@@ -13167,7 +13319,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         foreach (var (id, snapshot) in dialog.Snapshots) _wiiMSnapshots[id] = snapshot;
         if (dialog.Changed)
         {
-            RefreshWiiMSessionItems();
+            RefreshWiiMSessionItems(_state.WiiM.SelectedDeviceId);
             QueueStateSave(announceFailure: true);
         }
         RestoreMediaListFocusAfterRefresh();
@@ -13242,40 +13394,390 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
-    private async Task RefreshSelectedWiiMDeviceAsync(MediaItem item)
+    private async Task ActivateWiiMDeviceAsync(MediaItem item)
+    {
+        var session = _sessions.FindSession("wiim");
+        if (session is null || !session.SelectItem(item))
+        {
+            Announce("Nie można wybrać urządzenia WiiM");
+            return;
+        }
+        _state.WiiM.SelectedDeviceId = item.Id;
+        var gateEntered = false;
+        WiiMDeviceSnapshot? snapshot;
+        try
+        {
+            await _wiiMDeviceOperationGate.WaitAsync(_wiiMCancellation.Token);
+            gateEntered = true;
+            snapshot = await RefreshSelectedWiiMDeviceAsync(item, announceFailure: true);
+        }
+        catch (OperationCanceledException) when (_wiiMCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+        finally
+        {
+            if (gateEntered) _wiiMDeviceOperationGate.Release();
+        }
+        if (snapshot is null || _isClosing) return;
+        QueueStateSave(announceFailure: true);
+        _nextWiiMPlayerRefreshUtc = DateTime.UtcNow.AddSeconds(3);
+        _playerFocusContextPrefix = $"Wybrano urządzenie {snapshot.Device.Name}";
+        ShowPlayerView();
+    }
+
+    private async Task<WiiMDeviceSnapshot?> RefreshSelectedWiiMDeviceAsync(
+        MediaItem item,
+        bool announceFailure)
     {
         var device = _state.WiiM.Devices.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, item.Id, StringComparison.OrdinalIgnoreCase));
         if (device is null)
         {
-            Announce("Nie można odnaleźć zapisanego urządzenia WiiM");
+            if (announceFailure) Announce("Nie można odnaleźć zapisanego urządzenia WiiM");
+            return null;
+        }
+        try
+        {
+            var snapshot = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
+            if (_isClosing) return null;
+            UpdateWiiMRegistration(device, snapshot);
+            _wiiMSnapshots[device.Id] = snapshot;
+            _state.WiiM.SelectedDeviceId = device.Id;
+            RefreshWiiMSessionItems(device.Id);
+            return snapshot;
+        }
+        catch (OperationCanceledException) when (_wiiMCancellation.IsCancellationRequested)
+        {
+            return null;
+        }
+        catch (Exception exception) when (IsWiiMConnectionFailure(exception))
+        {
+            DiagnosticLog.Warning("wiim-refresh", $"Brak odpowiedzi {device.Address}: {exception.GetType().Name}.");
+            if (announceFailure) Announce($"Brak odpowiedzi urządzenia {device.DisplayName}");
+            return null;
+        }
+    }
+
+    private async Task ExecuteWiiMTransportCommandAsync(string commandId)
+    {
+        if (!_playerViewActive)
+        {
+            Announce("Sterowanie WiiM jest dostępne w odtwarzaczu. Naciśnij Enter na urządzeniu");
+            return;
+        }
+        var session = _sessions.Current;
+        if (!session.HasCurrentItem
+            || !TryGetWiiMDevice(session.CurrentItem.Id, out var device))
+        {
+            Announce("Brak aktywnego urządzenia WiiM");
+            return;
+        }
+
+        var gateEntered = false;
+        try
+        {
+            await _wiiMDeviceOperationGate.WaitAsync(_wiiMCancellation.Token);
+            gateEntered = true;
+            var snapshot = _wiiMSnapshots.GetValueOrDefault(device.Id)
+                ?? await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
+            TimeSpan? requestedPosition = null;
+            if (commandId is CommandIds.SeekToTime or CommandIds.SeekToPercentage)
+            {
+                if (snapshot.Playback.Duration <= TimeSpan.Zero)
+                {
+                    Announce("Przewijanie jest niedostępne, ponieważ urządzenie nie podało czasu trwania");
+                    return;
+                }
+                var mode = commandId == CommandIds.SeekToTime
+                    ? SeekInputMode.Time
+                    : SeekInputMode.Percentage;
+                var dialog = new SeekPositionWindow(mode, snapshot.Playback.Duration) { Owner = this };
+                if (dialog.ShowDialog() != true)
+                {
+                    FocusPlayerView();
+                    return;
+                }
+                requestedPosition = mode == SeekInputMode.Time
+                    ? dialog.Position
+                    : TimeSpan.FromTicks((long)Math.Round(
+                        snapshot.Playback.Duration.Ticks * (dialog.Percentage / 100d)));
+            }
+            else if (CommandIds.TryParseSeekPercent(commandId, out var percentage))
+            {
+                if (snapshot.Playback.Duration <= TimeSpan.Zero)
+                {
+                    Announce("Skok procentowy jest niedostępny, ponieważ urządzenie nie podało czasu trwania");
+                    return;
+                }
+                requestedPosition = TimeSpan.FromTicks((long)Math.Round(
+                    snapshot.Playback.Duration.Ticks * (percentage / 100d)));
+            }
+
+            switch (commandId)
+            {
+                case CommandIds.PlayPause:
+                    await _wiiMClient.TogglePlayPauseAsync(device.Address, _wiiMCancellation.Token);
+                    break;
+                case CommandIds.Previous:
+                    await _wiiMClient.PreviousAsync(device.Address, _wiiMCancellation.Token);
+                    break;
+                case CommandIds.Next:
+                    await _wiiMClient.NextAsync(device.Address, _wiiMCancellation.Token);
+                    break;
+                case CommandIds.VolumeUp5:
+                    await _wiiMClient.SetVolumeAsync(device.Address, snapshot.Playback.Volume + 5, _wiiMCancellation.Token);
+                    break;
+                case CommandIds.VolumeDown5:
+                    await _wiiMClient.SetVolumeAsync(device.Address, snapshot.Playback.Volume - 5, _wiiMCancellation.Token);
+                    break;
+                case CommandIds.VolumeUp1:
+                    await _wiiMClient.SetVolumeAsync(device.Address, snapshot.Playback.Volume + 1, _wiiMCancellation.Token);
+                    break;
+                case CommandIds.VolumeDown1:
+                    await _wiiMClient.SetVolumeAsync(device.Address, snapshot.Playback.Volume - 1, _wiiMCancellation.Token);
+                    break;
+                case CommandIds.ToggleMuteCurrentSession:
+                    await _wiiMClient.SetMutedAsync(device.Address, !snapshot.Playback.Muted, _wiiMCancellation.Token);
+                    break;
+                case CommandIds.SeekBackward10:
+                    requestedPosition = snapshot.Playback.Position - TimeSpan.FromSeconds(10);
+                    break;
+                case CommandIds.SeekForward10:
+                    requestedPosition = snapshot.Playback.Position + TimeSpan.FromSeconds(10);
+                    break;
+                case CommandIds.SeekBackward30:
+                    requestedPosition = snapshot.Playback.Position - TimeSpan.FromSeconds(30);
+                    break;
+                case CommandIds.SeekForward30:
+                    requestedPosition = snapshot.Playback.Position + TimeSpan.FromSeconds(30);
+                    break;
+                case CommandIds.SeekBackward60:
+                    requestedPosition = snapshot.Playback.Position - TimeSpan.FromSeconds(60);
+                    break;
+                case CommandIds.SeekForward60:
+                    requestedPosition = snapshot.Playback.Position + TimeSpan.FromSeconds(60);
+                    break;
+                case CommandIds.TrackStart:
+                    requestedPosition = TimeSpan.Zero;
+                    break;
+                case CommandIds.TrackEnd:
+                    if (snapshot.Playback.Duration <= TimeSpan.Zero)
+                    {
+                        Announce("Koniec materiału jest nieznany");
+                        return;
+                    }
+                    requestedPosition = snapshot.Playback.Duration;
+                    break;
+            }
+            if (requestedPosition is { } position)
+            {
+                var maximum = snapshot.Playback.Duration > TimeSpan.Zero
+                    ? snapshot.Playback.Duration
+                    : TimeSpan.MaxValue;
+                position = position < TimeSpan.Zero ? TimeSpan.Zero : position > maximum ? maximum : position;
+                await _wiiMClient.SeekAsync(device.Address, position, _wiiMCancellation.Token);
+            }
+
+            await Task.Delay(120, _wiiMCancellation.Token);
+            var refreshed = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
+            ApplyWiiMSnapshot(device, refreshed);
+            UpdatePlayerView(true);
+            AnnounceWiiMCommandResult(commandId, refreshed, requestedPosition);
+            _ = Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.ContextIdle);
+        }
+        catch (OperationCanceledException) when (_wiiMCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception) when (IsWiiMConnectionFailure(exception))
+        {
+            DiagnosticLog.Warning("wiim-control", $"Polecenie dla {device.Address} nie powiodło się: {exception.GetType().Name}.");
+            Announce($"Nie udało się sterować urządzeniem {device.DisplayName}");
+            _ = Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.ContextIdle);
+        }
+        finally
+        {
+            if (gateEntered) _wiiMDeviceOperationGate.Release();
+        }
+    }
+
+    private async Task ShowWiiMDevicePresetsAsync()
+    {
+        var item = ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
+        if (item is null || !TryGetWiiMDevice(item.Id, out var device))
+        {
+            Announce("Brak aktywnego urządzenia WiiM");
+            return;
+        }
+        var session = _sessions.FindSession("wiim");
+        session?.SelectItem(item);
+        _state.WiiM.SelectedDeviceId = device.Id;
+
+        var gateEntered = false;
+        try
+        {
+            await _wiiMDeviceOperationGate.WaitAsync(_wiiMCancellation.Token);
+            gateEntered = true;
+            var snapshot = _wiiMSnapshots.GetValueOrDefault(device.Id)
+                ?? await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
+            ApplyWiiMSnapshot(device, snapshot);
+            var dialog = new WiiMDevicePresetsWindow(device.DisplayName, snapshot.Presets)
+            {
+                Owner = this
+            };
+            if (dialog.ShowDialog() != true || dialog.SelectedPresetNumber is not { } number)
+            {
+                RestoreWiiMFocus();
+                return;
+            }
+            await _wiiMClient.ActivatePresetAsync(device.Address, number, _wiiMCancellation.Token);
+            await Task.Delay(180, _wiiMCancellation.Token);
+            var refreshed = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
+            ApplyWiiMSnapshot(device, refreshed);
+            _playerFocusContextPrefix = $"Uruchomiono preset {number}, {refreshed.Track.Title}".TrimEnd(' ', ',');
+            ShowPlayerView();
+        }
+        catch (OperationCanceledException) when (_wiiMCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception) when (IsWiiMConnectionFailure(exception))
+        {
+            DiagnosticLog.Warning("wiim-preset", $"Preset urządzenia {device.Address} nie został uruchomiony: {exception.GetType().Name}.");
+            Announce($"Nie udało się uruchomić presetu urządzenia {device.DisplayName}");
+            RestoreWiiMFocus();
+        }
+        finally
+        {
+            if (gateEntered) _wiiMDeviceOperationGate.Release();
+        }
+    }
+
+    private async Task PollActiveWiiMDeviceAsync()
+    {
+        if (!_playerViewActive
+            || !string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+            || !_sessions.Current.HasCurrentItem
+            || !TryGetWiiMDevice(_sessions.Current.CurrentItem.Id, out var device)
+            || !await _wiiMDeviceOperationGate.WaitAsync(0))
+        {
             return;
         }
         try
         {
             var snapshot = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
-            if (_isClosing) return;
-            UpdateWiiMRegistration(device, snapshot);
-            _wiiMSnapshots[device.Id] = snapshot;
-            _state.WiiM.SelectedDeviceId = device.Id;
-            RefreshWiiMSessionItems(device.Id);
-            QueueStateSave(announceFailure: true);
-            RestoreMediaListFocusAfterRefresh();
-            Announce($"{snapshot.Device.Name}, {snapshot.PlaybackSummary}");
+            if (!_isClosing) ApplyWiiMSnapshot(device, snapshot);
         }
         catch (OperationCanceledException) when (_wiiMCancellation.IsCancellationRequested)
         {
         }
-        catch (Exception exception) when (exception is HttpRequestException
-            or TaskCanceledException or IOException or FormatException or ArgumentException)
+        catch (Exception exception) when (IsWiiMConnectionFailure(exception))
         {
-            _wiiMSnapshots.Remove(device.Id);
-            RefreshWiiMSessionItems(device.Id);
-            DiagnosticLog.Warning("wiim-refresh", $"Brak odpowiedzi {device.Address}: {exception.GetType().Name}.");
-            RestoreMediaListFocusAfterRefresh();
-            Announce($"Brak odpowiedzi urządzenia {device.DisplayName}");
+            DiagnosticLog.Warning("wiim-poll", $"Okresowe odświeżenie {device.Address} nie powiodło się: {exception.GetType().Name}.");
+            _nextWiiMPlayerRefreshUtc = DateTime.UtcNow.AddSeconds(15);
+        }
+        finally
+        {
+            _wiiMDeviceOperationGate.Release();
         }
     }
+
+    private void ApplyWiiMSnapshot(WiiMDeviceSettings device, WiiMDeviceSnapshot snapshot)
+    {
+        UpdateWiiMRegistration(device, snapshot);
+        _wiiMSnapshots[device.Id] = snapshot;
+        _state.WiiM.SelectedDeviceId = device.Id;
+        RefreshWiiMSessionItems(device.Id);
+        _nextWiiMPlayerRefreshUtc = DateTime.UtcNow.AddSeconds(3);
+    }
+
+    private bool TryGetWiiMDevice(string id, out WiiMDeviceSettings device)
+    {
+        device = _state.WiiM.Devices.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, id, StringComparison.OrdinalIgnoreCase))!;
+        return device is not null;
+    }
+
+    private void RestoreWiiMFocus()
+    {
+        Activate();
+        if (_playerViewActive) FocusPlayerView();
+        else RestoreMediaListFocusAfterRefresh();
+    }
+
+    private void AnnounceWiiMTime(string commandId)
+    {
+        if (!_sessions.Current.HasCurrentItem
+            || !_wiiMSnapshots.TryGetValue(_sessions.Current.CurrentItem.Id, out var snapshot))
+        {
+            Announce("Stan czasu urządzenia nie jest jeszcze dostępny");
+            return;
+        }
+        var playback = snapshot.Playback;
+        if (commandId == CommandIds.TimeElapsed)
+            Announce($"Czas od początku: {CommandRouter.FormatTime(playback.Position)}");
+        else if (commandId == CommandIds.TimeRemaining)
+            Announce(playback.Duration <= TimeSpan.Zero
+                ? "Czas pozostały jest nieznany"
+                : $"Czas pozostały: {CommandRouter.FormatTime(
+                    playback.Position >= playback.Duration
+                        ? TimeSpan.Zero
+                        : playback.Duration - playback.Position)}");
+        else
+            Announce(playback.Duration <= TimeSpan.Zero
+                ? "Czas całkowity jest nieznany"
+                : $"Czas całkowity: {CommandRouter.FormatTime(playback.Duration)}");
+    }
+
+    private void AnnounceWiiMCommandResult(
+        string commandId,
+        WiiMDeviceSnapshot snapshot,
+        TimeSpan? requestedPosition)
+    {
+        if (commandId is CommandIds.VolumeUp5 or CommandIds.VolumeDown5
+            or CommandIds.VolumeUp1 or CommandIds.VolumeDown1
+            or CommandIds.ToggleMuteCurrentSession)
+        {
+            if (_state.Settings.Messages.VolumeMessages)
+                Announce(snapshot.Playback.Muted ? "Wyciszono" : $"Głośność {snapshot.Playback.Volume}%");
+            return;
+        }
+        if (requestedPosition is not null)
+        {
+            if (_state.Settings.Messages.SeekMessages)
+                Announce(CommandRouter.FormatTime(snapshot.Playback.Position));
+            return;
+        }
+        if (!_state.Settings.Messages.PlaybackMessages) return;
+        if (commandId == CommandIds.PlayPause)
+            Announce(snapshot.Playback.State);
+        else if (commandId is CommandIds.Previous or CommandIds.Next)
+            Announce(string.IsNullOrWhiteSpace(snapshot.Track.Title)
+                ? snapshot.Playback.State
+                : snapshot.Track.Title);
+    }
+
+    private static bool IsWiiMTransportCommand(string commandId) => commandId is
+        CommandIds.PlayPause
+        or CommandIds.Previous
+        or CommandIds.Next
+        or CommandIds.SeekBackward10
+        or CommandIds.SeekForward10
+        or CommandIds.SeekBackward30
+        or CommandIds.SeekForward30
+        or CommandIds.SeekBackward60
+        or CommandIds.SeekForward60
+        or CommandIds.VolumeUp5
+        or CommandIds.VolumeDown5
+        or CommandIds.VolumeUp1
+        or CommandIds.VolumeDown1
+        or CommandIds.ToggleMuteCurrentSession
+        or CommandIds.TrackStart
+        or CommandIds.TrackEnd
+        or CommandIds.SeekToTime
+        or CommandIds.SeekToPercentage;
+
+    private static bool IsWiiMConnectionFailure(Exception exception) => exception is
+        HttpRequestException or TaskCanceledException or IOException or FormatException or ArgumentException;
 
     private static void UpdateWiiMRegistration(
         WiiMDeviceSettings device,
@@ -13288,7 +13790,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         device.LastSeenUtcTicks = DateTime.UtcNow.Ticks;
     }
 
-    private void RefreshWiiMSessionItems(string? preferredItemId = null)
+    private void RefreshWiiMSessionItems(
+        string? preferredItemId = null,
+        bool updateAccessiblePlayerName = false)
     {
         preferredItemId ??= string.Equals(_sessions.Current.Id, "wiim", StringComparison.OrdinalIgnoreCase)
             ? SelectedItem?.Id
@@ -13296,7 +13800,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         LoadPersistedWiiM();
         var session = _sessions.FindSession("wiim");
         session?.ReplaceItems(_wiiMItems);
+        if (session is not null && preferredItemId is not null)
+        {
+            var preferredItem = session.Items.FirstOrDefault(item =>
+                string.Equals(item.Id, preferredItemId, StringComparison.OrdinalIgnoreCase));
+            if (preferredItem is not null) session.SelectItem(preferredItem);
+        }
         if (!string.Equals(_sessions.Current.Id, "wiim", StringComparison.OrdinalIgnoreCase)) return;
+        if (_playerViewActive)
+        {
+            UpdatePlayerView(updateAccessiblePlayerName);
+            UpdatePlaybackStatusBar();
+            UpdateWindowTitle();
+            return;
+        }
         RefreshCurrentView(preferredItemId: preferredItemId);
         UpdateWindowTitle();
     }
@@ -14322,6 +14839,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.PageDown) => CommandIds.SessionNext,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.S) => CommandIds.SessionList,
             (ModifierKeys.Control, Key.U) => CommandIds.ViewFavorites,
+            (ModifierKeys.Control, Key.P) when string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal) =>
+                CommandIds.ViewWiiMDevicePresets,
             (ModifierKeys.Control, Key.P) => CommandIds.ViewPlaylists,
             (ModifierKeys.Control, Key.L) => CommandIds.ViewLibrary,
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
@@ -14745,6 +15264,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift, Key.P)
                 when CurrentSessionSupportsPresets() => CommandIds.AssignRadioPreset,
             (ModifierKeys.Control, Key.U) => CommandIds.ViewFavorites,
+            (ModifierKeys.Control, Key.P) when string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal) =>
+                CommandIds.ViewWiiMDevicePresets,
             (ModifierKeys.Control, Key.P) => CommandIds.ViewPlaylists,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.P) => CommandIds.ManagePlaylists,
             (ModifierKeys.Control, Key.L) => CommandIds.ViewLibrary,
@@ -15838,6 +16359,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var localSession = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
         var podcastSession = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
         var wiiMSession = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
+        WiiMDevicePresetsMenuItem.Visibility = wiiMSession ? Visibility.Visible : Visibility.Collapsed;
         var playlistContainer = !_playerViewActive
             && (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not null;
         var playlistContext = playlistContainer
@@ -16201,7 +16723,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 || items.Any(item => item.IsInLibrary));
         if (wiiMSession)
         {
-            SetContextMenuItemPresentation(PlaybackMenuItem, "Odśwież stan urządzenia", "Enter");
+            SetContextMenuItemPresentation(PlaybackMenuItem, "Wybierz urządzenie i otwórz sterowanie", "Enter");
             SetContextMenuItemPresentation(InformationMenuItem, "Właściwości i stan urządzenia", "Alt+Enter");
             SetContextMenuItemPresentation(CopyNameMenuItem, "Kopiuj nazwę urządzenia", "Ctrl+C");
             SetContextMenuItemPresentation(CopyLocationMenuItem, "Kopiuj adres IP urządzenia", "Ctrl+Shift+C");
@@ -16224,6 +16746,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void PlayerContextMenu_Opened(object sender, RoutedEventArgs e)
     {
         var item = _sessions.Current.CurrentItem;
+        var wiiMSession = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
+        PlayerWiiMDevicePresetsMenuItem.Visibility = wiiMSession ? Visibility.Visible : Visibility.Collapsed;
         PlayerAudioOutputDeviceMenuItem.Visibility = CurrentSessionSupportsAudioOutputSelection()
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -16233,8 +16757,68 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdatePlaybackAudioMenuPresentation(_sessions.Current.AudioProcessingCapabilities);
         SetContextMenuItemPresentation(
             PlayerPlayPauseMenuItem,
-            _sessions.Current.IsPlaying ? "Wstrzymaj" : "Odtwórz",
+            wiiMSession
+                && _wiiMSnapshots.TryGetValue(item.Id, out var wiiMSnapshot)
+                && string.Equals(wiiMSnapshot.Playback.State, "odtwarzanie", StringComparison.OrdinalIgnoreCase)
+                    ? "Wstrzymaj"
+                    : _sessions.Current.IsPlaying ? "Wstrzymaj" : "Odtwórz",
             "Spacja");
+        if (wiiMSession)
+        {
+            PlayerAudioOutputDeviceMenuItem.Visibility = Visibility.Collapsed;
+            PlayerAudioProcessingSeparator.Visibility = Visibility.Collapsed;
+            PlayerLoudnessNormalizationMenuItem.Visibility = Visibility.Collapsed;
+            PlayerSmoothTrackTransitionsMenuItem.Visibility = Visibility.Collapsed;
+            PlayerInterTrackSilenceMenuItem.Visibility = Visibility.Collapsed;
+            PlayerItemPlaybackOptionsMenuItem.Visibility = Visibility.Collapsed;
+            PlayerAddBookmarkMenuItem.Visibility = Visibility.Collapsed;
+            PlayerAddNamedBookmarkMenuItem.Visibility = Visibility.Collapsed;
+            PlayerBookmarksMenuItem.Visibility = Visibility.Collapsed;
+            PlayerBeforeChaptersSeparator.Visibility = Visibility.Collapsed;
+            PlayerChaptersMenuItem.Visibility = Visibility.Collapsed;
+            PlayerAddNamedChapterMenuItem.Visibility = Visibility.Collapsed;
+            PlayerPreviousChapterMenuItem.Visibility = Visibility.Collapsed;
+            PlayerNextChapterMenuItem.Visibility = Visibility.Collapsed;
+            PlayerBeforeClipSeparator.Visibility = Visibility.Collapsed;
+            PlayerMarkClipStartMenuItem.Visibility = Visibility.Collapsed;
+            PlayerMarkClipEndMenuItem.Visibility = Visibility.Collapsed;
+            PlayerJumpClipStartMenuItem.Visibility = Visibility.Collapsed;
+            PlayerJumpClipEndMenuItem.Visibility = Visibility.Collapsed;
+            PlayerPreviousClipBoundaryMenuItem.Visibility = Visibility.Collapsed;
+            PlayerNextClipBoundaryMenuItem.Visibility = Visibility.Collapsed;
+            PlayerExportClipMenuItem.Visibility = Visibility.Collapsed;
+            PlayerRemoveClipMenuItem.Visibility = Visibility.Collapsed;
+            PlayerClearClipMenuItem.Visibility = Visibility.Collapsed;
+            PlayerPlayNextMenuItem.Visibility = Visibility.Collapsed;
+            PlayerQueueMenuItem.Visibility = Visibility.Collapsed;
+            PlayerRadioRecordingMenuItem.Visibility = Visibility.Collapsed;
+            PlayerRadioPauseRecordingMenuItem.Visibility = Visibility.Collapsed;
+            PlayerRadioSplitRecordingMenuItem.Visibility = Visibility.Collapsed;
+            PlayerRadioAddScheduleMenuItem.Visibility = Visibility.Collapsed;
+            PlayerRadioSchedulesMenuItem.Visibility = Visibility.Collapsed;
+            PlayerRecognizeRadioTrackMenuItem.Visibility = Visibility.Collapsed;
+            PlayerMonitorRadioRecognitionMenuItem.Visibility = Visibility.Collapsed;
+            PlayerRadioRecognitionAnnouncementsMenuItem.Visibility = Visibility.Collapsed;
+            PlayerRadioRecognitionHistoryMenuItem.Visibility = Visibility.Collapsed;
+            PlayerFavoriteMenuItem.Visibility = Visibility.Collapsed;
+            PlayerLibraryMenuItem.Visibility = Visibility.Collapsed;
+            PlayerPlaylistMembershipMenuItem.Visibility = Visibility.Collapsed;
+            PlayerRadioPresetMembershipMenuItem.Visibility = Visibility.Collapsed;
+            PlayerPodcastDescriptionMenuItem.Visibility = Visibility.Collapsed;
+            PlayerGoToPodcastMenuItem.Visibility = Visibility.Collapsed;
+            PlayerDownloadPodcastEpisodeMenuItem.Visibility = Visibility.Collapsed;
+            PlayerSavePodcastEpisodeAsMenuItem.Visibility = Visibility.Collapsed;
+            PlayerGoToAlbumMenuItem.Visibility = Visibility.Collapsed;
+            PlayerGoToArtistMenuItem.Visibility = Visibility.Collapsed;
+            PlayerCopyNameMenuItem.Visibility = Visibility.Visible;
+            PlayerCopyLocationMenuItem.Visibility = Visibility.Visible;
+            SetContextMenuItemPresentation(PlayerCopyNameMenuItem, "Kopiuj nazwę urządzenia", "Ctrl+C");
+            SetContextMenuItemPresentation(PlayerCopyLocationMenuItem, "Kopiuj adres IP urządzenia", "Ctrl+Shift+C");
+            PlayerShowLocalFileInFolderMenuItem.Visibility = Visibility.Collapsed;
+            PlayerOfficialApplicationMenuItem.Visibility = Visibility.Collapsed;
+            PlayerRemoveLocalItemMenuItem.Visibility = Visibility.Collapsed;
+            return;
+        }
         var playNextLabel = item.IsPlayNext
             ? "Usuń z odtwarzanych jako następne"
             : "Odtwórz jako następne";
@@ -17022,7 +17606,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void NextSession_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SessionNext);
     private void NowPlayingView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewNowPlaying);
     private void FavoritesView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewFavorites);
-    private void PlaylistsView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewPlaylists);
+    private void PlaylistsView_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+            ? CommandIds.ViewWiiMDevicePresets
+            : CommandIds.ViewPlaylists);
+    private void WiiMDevicePresets_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.ViewWiiMDevicePresets);
     private void RadioPresetsView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewRadioPresets);
     private void RadioAssignPreset_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.AssignRadioPreset);

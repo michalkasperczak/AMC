@@ -6218,3 +6218,35 @@ Oczekiwane:
 Przejdź w każdej sesji do innego widoku, po czym przełączaj ją przez `Ctrl+1–9`. Sprawdź wyrywkowo OGG, prędkość, pasek, `Alt+Enter`, Kolejkę i naturalne przejście do następnego pliku.
 
 Oczekiwane: komunikat zaczyna się od numeru i nazwy sesji, potem podaje przywrócony widok i element, np. „4, Pliki lokalne, Biblioteka…”. Pozostałe funkcje nie mają regresji.
+
+## Test ręczny WiiM — alpha 268
+
+### AMC-268-01 — Menedżer, fokus i jawny wybór
+
+Otwórz `Ctrl+F5`. Sprawdź początkowy fokus, uruchom automatyczne wykrywanie,
+przeglądaj kilka urządzeń strzałkami, a potem naciśnij Enter na wybranym.
+
+Oczekiwane: przy pierwszym otwarciu fokus jest na wykrywaniu, a przy kolejnych
+na zapisanym urządzeniu. Pole ręcznego adresu IP jest w zwijanej sekcji.
+Strzałki nie zmieniają aktywnego urządzenia. Enter oznacza wybrane jako aktywne
+i po zamknięciu menedżera pozostaje ono zaznaczone w sesji WiiM.
+
+### AMC-268-02 — Sterowanie i bezpieczne odświeżanie
+
+Na urządzeniu naciśnij Enter. W odtwarzaczu sprawdź Spację, `Page Up`,
+`Page Down`, strzałki głośności, `Ctrl+M`, przewijanie oraz odczyt czasu.
+Pozostaw widok na co najmniej kilkanaście sekund i sprawdź, czy odświeżanie
+metadanych nie przejmuje fokusa i nie generuje cyklicznych komunikatów NVDA.
+
+Oczekiwane: polecenia sterują urządzeniem, a niedostępny czas lub chwilowy brak
+odpowiedzi daje krótki komunikat zamiast zawieszenia. Escape wraca do listy
+urządzeń, lecz muzyka na WiiM gra dalej.
+
+### AMC-268-03 — Presety sprzętowe
+
+W sesji WiiM naciśnij `Ctrl+P`. Wybieraj miejsca strzałkami i cyframi, uruchom
+zajęte miejsce Enterem oraz sprawdź `Ctrl+C` i `Ctrl+Shift+C`.
+
+Oczekiwane: widocznych jest dokładnie dwanaście użytkowo opisanych miejsc.
+Puste miejsce jest jednoznacznie puste, zajęte można uruchomić, a kopiowanie nie
+ujawnia nazw klas, identyfikatorów ani innych reprezentacji technicznych.

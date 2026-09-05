@@ -55,6 +55,40 @@ public sealed class WiiMDeviceClient : IDisposable
             WiiMApiParser.ParsePresets(presetsTask.Result));
     }
 
+    public Task TogglePlayPauseAsync(string address, CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.TogglePlayPause, cancellationToken);
+
+    public Task PreviousAsync(string address, CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.Previous, cancellationToken);
+
+    public Task NextAsync(string address, CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.Next, cancellationToken);
+
+    public Task StopAsync(string address, CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.Stop, cancellationToken);
+
+    public Task SetVolumeAsync(string address, int volume, CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.SetVolume(volume), cancellationToken);
+
+    public Task SetMutedAsync(string address, bool muted, CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.SetMuted(muted), cancellationToken);
+
+    public Task SeekAsync(string address, TimeSpan position, CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.Seek(position), cancellationToken);
+
+    public Task ActivatePresetAsync(string address, int presetNumber, CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.ActivatePreset(presetNumber), cancellationToken);
+
+    private async Task SendCommandAsync(
+        string address,
+        string command,
+        CancellationToken cancellationToken)
+    {
+        var response = await ReadTextAsync(address, command, cancellationToken).ConfigureAwait(false);
+        if (WiiMCommands.ResponseIndicatesFailure(response))
+            throw new IOException("Urządzenie WiiM odrzuciło polecenie.");
+    }
+
     private async Task<string?> TryReadTextAsync(
         string address,
         string command,
@@ -108,6 +142,47 @@ public sealed class WiiMDeviceClient : IDisposable
     }
 
     public void Dispose() => client.Dispose();
+}
+
+public static class WiiMCommands
+{
+    public const string TogglePlayPause = "setPlayerCmd:onepause";
+    public const string Previous = "setPlayerCmd:prev";
+    public const string Next = "setPlayerCmd:next";
+    public const string Stop = "setPlayerCmd:stop";
+
+    public static string SetVolume(int volume) =>
+        $"setPlayerCmd:vol:{Math.Clamp(volume, 0, 100)}";
+
+    public static string SetMuted(bool muted) =>
+        $"setPlayerCmd:mute:{(muted ? 1 : 0)}";
+
+    public static string Seek(TimeSpan position)
+    {
+        var seconds = Math.Clamp((long)Math.Round(position.TotalSeconds), 0, int.MaxValue);
+        return $"setPlayerCmd:seek:{seconds}";
+    }
+
+    public static string ActivatePreset(int presetNumber)
+    {
+        if (presetNumber is < 1 or > 12)
+            throw new ArgumentOutOfRangeException(nameof(presetNumber));
+        return $"MCUKeyShortClick:{presetNumber}";
+    }
+
+    public static bool ResponseIndicatesFailure(string? response)
+    {
+        if (string.IsNullOrWhiteSpace(response)) return false;
+        var value = response.Trim();
+        if (value.Equals("FAIL", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("FAILED", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return value.Contains("\"status\"", StringComparison.OrdinalIgnoreCase)
+            && value.Contains("failed", StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 public sealed class WiiMDiscoveryService
