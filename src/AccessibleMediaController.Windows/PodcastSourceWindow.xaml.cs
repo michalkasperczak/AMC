@@ -43,11 +43,22 @@ public partial class PodcastSourceWindow : Window
             var feed = await _fetch(address, _checkCancellation.Token);
             Feed = feed;
             _checkedAddress = FeedBox.Text.Trim();
-            AddButton.IsEnabled = true;
             var author = string.IsNullOrWhiteSpace(feed.Author) ? string.Empty : $", autor: {feed.Author}";
-            StatusText.Text = $"Kanał działa. {feed.Title}{author}. Odcinki: {feed.Episodes.Count}.";
-            AddButton.Focus();
-            Keyboard.Focus(AddButton);
+            if (feed.Episodes.Count == 0)
+            {
+                AddButton.IsEnabled = false;
+                StatusText.Text = $"Kanał {feed.Title}{author} nie zawiera odtwarzalnych odcinków audio ani wideo.";
+                FeedBox.Focus();
+                Keyboard.Focus(FeedBox);
+                FeedBox.SelectAll();
+            }
+            else
+            {
+                AddButton.IsEnabled = true;
+                StatusText.Text = $"Kanał działa. {feed.Title}{author}. Odcinki: {feed.Episodes.Count}.";
+                AddButton.Focus();
+                Keyboard.Focus(AddButton);
+            }
         }
         catch (OperationCanceledException)
         {

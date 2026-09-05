@@ -1676,6 +1676,21 @@ them. Escape returns to the device list without stopping autonomous room
 playback. Input/output selection and sending stream URLs are later adapter
 milestones.
 
+### 7.25. Distinguishing podcast media from artwork
+
+Starting with `alpha.269`, the RSS and Atom parser no longer treats the first
+attachment as playable media. Among `enclosure` and `media:content` candidates
+it prefers audio, then video or a known media container. Images, documents,
+text, XML, and archives are rejected. A missing MIME type or extension remains
+valid because older legitimate feeds often reach audio through an HTTP
+redirect.
+
+This fixes feeds such as RMF24 `Sprawdzam!`, whose `enclosure` values are JPEG
+artwork. An image no longer becomes an episode or reaches the player. On
+startup AMC also removes legacy database records that are unambiguously
+artwork. The subscription itself remains stored; if its current feed exposes
+no playable audio or video, AMC reports that condition explicitly.
+
 ### 7.21. Shared collection-state undo
 
 Starting with `alpha.243`, the Library, Favorites, and Queue change history

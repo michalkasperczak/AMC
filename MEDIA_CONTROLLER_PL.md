@@ -2200,3 +2200,19 @@ są tym samym co uniwersalne presety AMC i nie można ich nadpisać z tej listy.
 Escape wraca z odtwarzacza do listy urządzeń, lecz nie zatrzymuje autonomicznego
 odtwarzania w pokoju. Wybór wejścia, wyjścia i wysyłanie adresów strumieni
 pozostają kolejnymi etapami adaptera.
+
+### 7.25. Odróżnianie nagrania podcastu od ilustracji
+
+Od `alpha.269` parser RSS i Atom nie uznaje automatycznie pierwszego załącznika
+za nagranie. Spośród `enclosure` i `media:content` wybiera preferencyjnie audio,
+następnie wideo albo znany kontener multimedialny. Obrazy, dokumenty, tekst,
+XML i archiwa są odrzucane. Brak typu MIME lub rozszerzenia nadal jest
+dozwolony, ponieważ starsze poprawne kanały często prowadzą do nagrania przez
+przekierowanie HTTP.
+
+Reguła naprawia między innymi kanał RMF24 `Sprawdzam!`, którego wpisy mają w
+polu `enclosure` ilustrację `image/jpeg`. Taki obraz nie trafia już do listy
+odcinków i nie jest przekazywany odtwarzaczowi. Przy uruchomieniu AMC usuwa też
+z bazy wcześniejsze rekordy jednoznacznie będące ilustracjami. Sam podcast
+pozostaje zapisany; jeżeli jego kanał nie udostępnia żadnego nagrania, program
+podaje wprost, że nie zawiera odtwarzalnych odcinków audio ani wideo.

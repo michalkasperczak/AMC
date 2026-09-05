@@ -1103,6 +1103,15 @@ sprzętowych presetów WiiM. Escape wraca do listy urządzeń bez zatrzymywania
 odtwarzacza sieciowego. Wybór wejścia i wyjścia oraz wysyłanie strumieni będą
 następnym etapem.
 
+## Załączniki podcastów w alpha 269
+
+AMC odróżnia nagranie RSS/Atom od ilustracji, dokumentu i innych załączników.
+Jeżeli wpis zawiera obraz oraz dźwięk, wybierane jest audio; sam obraz nie jest
+już otwierany jako odcinek. Przy uruchomieniu program usuwa z katalogu odcinków
+wcześniejsze rekordy jednoznacznie wskazujące na obraz, zachowując samą
+subskrypcję. Kanał bez odtwarzalnego audio lub wideo otrzymuje czytelny
+komunikat zamiast ogólnego błędu odtwarzania.
+
 ## Urządzenie audio osobno dla sesji w alpha 204
 
 Klawisz **Shift+A**, menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej

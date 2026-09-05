@@ -133,13 +133,9 @@ public static partial class PodcastFeedParser
 
     private static PodcastFeedEpisode? ParseRssEpisode(XElement item, Uri feedUri, string defaultAuthor)
     {
-        var enclosure = item.Elements().FirstOrDefault(element =>
-            IsNamed(element, "enclosure") && ResolveUri(feedUri, AttributeValue(element, "url")) is not null)
-            ?? item.Elements().FirstOrDefault(element =>
-                IsNamed(element, "content") && ResolveUri(feedUri, AttributeValue(element, "url")) is not null);
-        var mediaUri = enclosure is null
-            ? null
-            : ResolveUri(feedUri, AttributeValue(enclosure, "url"));
+        var media = SelectRssMedia(item, feedUri);
+        var enclosure = media?.Element;
+        var mediaUri = media?.Uri;
         if (mediaUri is null || !IsHttpUri(mediaUri)) return null;
 
         var pageUri = FirstUri(item, feedUri, "link");
@@ -199,10 +195,16 @@ public static partial class PodcastFeedParser
 
     private static PodcastFeedEpisode? ParseAtomEpisode(XElement entry, Uri feedUri, string defaultAuthor)
     {
-        var enclosure = entry.Elements().FirstOrDefault(element =>
-            IsNamed(element, "link")
-            && string.Equals(AttributeValue(element, "rel"), "enclosure", StringComparison.OrdinalIgnoreCase));
-        var mediaUri = ResolveUri(feedUri, AttributeValue(enclosure, "href"));
+        var media = entry.Elements()
+            .Where(element => IsNamed(element, "link")
+                && string.Equals(AttributeValue(element, "rel"), "enclosure", StringComparison.OrdinalIgnoreCase))
+            .Select(element => CreateMediaCandidate(element, feedUri, "href"))
+            .Where(candidate => candidate is not null && candidate.Score >= 0)
+            .Select(candidate => candidate!)
+            .OrderByDescending(candidate => candidate.Score)
+            .FirstOrDefault();
+        var enclosure = media?.Element;
+        var mediaUri = media?.Uri;
         if (mediaUri is null || !IsHttpUri(mediaUri)) return null;
         var sourceIdentifier = TextOfAny(entry, "id");
         if (string.IsNullOrWhiteSpace(sourceIdentifier)) sourceIdentifier = mediaUri.AbsoluteUri;
@@ -227,6 +229,38 @@ public static partial class PodcastFeedParser
             chaptersUri,
             chapters);
     }
+
+    private static MediaCandidate? SelectRssMedia(XElement item, Uri feedUri)
+    {
+        var directCandidates = item.Elements()
+            .Where(element => IsNamed(element, "enclosure") || IsNamed(element, "content"));
+        var groupedCandidates = item.Elements()
+            .Where(element => IsNamed(element, "group"))
+            .SelectMany(group => group.Elements().Where(element => IsNamed(element, "content")));
+        return directCandidates
+            .Concat(groupedCandidates)
+            .Select(element => CreateMediaCandidate(element, feedUri, "url"))
+            .Where(candidate => candidate is not null && candidate.Score >= 0)
+            .Select(candidate => candidate!)
+            .OrderByDescending(candidate => candidate.Score)
+            .ThenByDescending(candidate => IsNamed(candidate.Element, "enclosure"))
+            .FirstOrDefault();
+    }
+
+    private static MediaCandidate? CreateMediaCandidate(
+        XElement element,
+        Uri feedUri,
+        string addressAttribute)
+    {
+        var uri = ResolveUri(feedUri, AttributeValue(element, addressAttribute));
+        if (uri is null || !IsHttpUri(uri)) return null;
+        return new MediaCandidate(
+            element,
+            uri,
+            PodcastMediaSourceRules.CandidateScore(uri, AttributeValue(element, "type")));
+    }
+
+    private sealed record MediaCandidate(XElement Element, Uri Uri, int Score);
 
     private static Uri? ExternalChaptersUri(XElement parent, Uri feedUri)
     {

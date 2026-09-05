@@ -758,6 +758,15 @@ This release also adds optional music recognition to Radio. `S` in the player re
 
 Starting with `alpha.164`, rich copy and recognition-history exports also include YouTube Music plus Discogs and MusicBrainz catalogue searches. These are explicit search URLs, not a claim that AMC has silently selected the correct edition. The future controlled matching and credits model is defined in [`MUSIC_CREDITS_AND_CATALOG_DESIGN_EN.md`](MUSIC_CREDITS_AND_CATALOG_DESIGN_EN.md).
 
+## Podcast attachments in alpha 269
+
+AMC distinguishes playable RSS/Atom media from artwork, documents, and other
+attachments. If an entry contains both artwork and audio, audio is selected;
+an image alone is no longer opened as an episode. At startup AMC removes legacy
+episode records that unambiguously point to artwork while retaining the
+subscription. A feed without playable audio or video now receives an explicit
+message instead of a generic playback failure.
+
 ## Per-session audio output in alpha 204
 
 **Shift+A**, **Playback > Select audio device for the current session…** and the

@@ -6250,3 +6250,15 @@ zajęte miejsce Enterem oraz sprawdź `Ctrl+C` i `Ctrl+Shift+C`.
 Oczekiwane: widocznych jest dokładnie dwanaście użytkowo opisanych miejsc.
 Puste miejsce jest jednoznacznie puste, zajęte można uruchomić, a kopiowanie nie
 ujawnia nazw klas, identyfikatorów ani innych reprezentacji technicznych.
+
+## AMC-269-01 — Ilustracja RSS nie jest odcinkiem
+
+Odśwież albo ponownie dodaj podcast RMF24 `Sprawdzam!`, którego kanał wskazuje
+pliki JPEG, między innymi adresy kończące się na `636x421-….jpg`. Spróbuj też
+dodać testowy kanał zawierający najpierw ilustrację, a następnie prawidłowy
+załącznik audio.
+
+Oczekiwane: JPEG nie pojawia się jako odtwarzalny odcinek. Jeśli wpis ma również
+audio, AMC wybiera audio. Jeśli cały kanał zawiera wyłącznie ilustracje lub
+artykuły, program mówi, że kanał nie zawiera odtwarzalnych odcinków audio ani
+wideo, zamiast próbować otworzyć obraz w odtwarzaczu.

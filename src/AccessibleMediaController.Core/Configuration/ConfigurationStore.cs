@@ -1353,7 +1353,10 @@ public sealed class ConfigurationStore
             .ToHashSet(StringComparer.Ordinal);
         state.Podcasts.Episodes = (state.Podcasts.Episodes ?? [])
             .Where(episode => subscriptionIds.Contains(episode.SubscriptionId?.Trim() ?? string.Empty)
-                && IsHttpAddress(episode.MediaUrl))
+                && IsHttpAddress(episode.MediaUrl)
+                && !PodcastMediaSourceRules.IsDefinitelyNonPlayable(
+                    episode.MediaUrl,
+                    episode.MediaType))
             .Select(episode =>
             {
                 episode.Id = string.IsNullOrWhiteSpace(episode.Id)

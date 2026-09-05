@@ -213,6 +213,17 @@ static void TestPodcastFeedParsing()
               <title>Wpis bez dźwięku</title>
               <link>https://example.test/text</link>
             </item>
+            <item>
+              <guid>odcinek-z-obrazem</guid>
+              <title>Odcinek z ilustracją przed dźwiękiem</title>
+              <enclosure url="https://cdn.example.test/artwork.jpg" type="image/jpeg" />
+              <media:content xmlns:media="http://search.yahoo.com/mrss/" url="https://cdn.example.test/audio/2.mp3" type="audio/mpeg" />
+            </item>
+            <item>
+              <guid>sam-obraz</guid>
+              <title>Artykuł udający odcinek</title>
+              <enclosure url="https://cdn.example.test/photo.jpg" type="image/jpeg" />
+            </item>
           </channel>
         </rss>
         """;
@@ -222,7 +233,7 @@ static void TestPodcastFeedParsing()
     Equal("Autor kanału", feed.Author);
     Equal("Opis audycji.", feed.Description);
     Equal(new Uri("https://example.test/podcast"), feed.HomepageUri);
-    Equal(1, feed.Episodes.Count);
+    Equal(2, feed.Episodes.Count);
     var episode = feed.Episodes[0];
     Equal("Odcinek pierwszy", episode.Title);
     Equal(
@@ -236,6 +247,11 @@ static void TestPodcastFeedParsing()
     Equal(new Uri("https://cdn.example.test/chapters/1.json"), episode.ChaptersUri);
     Equal(0, episode.Chapters?.Count ?? -1);
     Equal(episode.Id, PodcastFeedParser.Parse(rss, feedUri).Episodes[0].Id);
+    Equal(
+        new Uri("https://cdn.example.test/audio/2.mp3"),
+        feed.Episodes.Single(item => item.SourceIdentifier == "odcinek-z-obrazem").MediaUri);
+    True(feed.Episodes.All(item => !item.MediaUri.AbsolutePath.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)),
+        "Ilustracja RSS nie może zostać potraktowana jako audio podcastu.");
 
     const string atom = """
         <feed xmlns="http://www.w3.org/2005/Atom">
@@ -622,6 +638,14 @@ static void TestPodcastSqliteMigration()
                 ResumePositionTicks = index == 17 ? TimeSpan.FromMinutes(3).Ticks : 0
             });
         }
+        state.Podcasts.Episodes.Add(new PodcastEpisodeSettings
+        {
+            Id = "migration-artwork",
+            SubscriptionId = "migration-podcast",
+            Title = "Błędna ilustracja RMF",
+            MediaUrl = "https://cdn.example.test/attachment.jpg",
+            MediaType = "image/jpeg"
+        });
         File.WriteAllText(
             statePath,
             JsonSerializer.Serialize(state, new JsonSerializerOptions

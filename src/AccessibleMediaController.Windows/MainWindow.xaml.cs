@@ -8017,6 +8017,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             var feed = await _podcastFeedClient.FetchAsync(feedUri, _podcastCancellation.Token);
             if (_isClosing) return;
+            if (feed.Episodes.Count == 0)
+                throw new InvalidDataException(
+                    "Kanał nie zawiera odtwarzalnych odcinków audio ani wideo. Może udostępniać jedynie ilustracje lub artykuły.");
             CapturePodcastState();
             var result = PodcastLibraryUpdater.Apply(
                 _state.Podcasts,
