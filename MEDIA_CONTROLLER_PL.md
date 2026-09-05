@@ -2216,3 +2216,20 @@ odcinków i nie jest przekazywany odtwarzaczowi. Przy uruchomieniu AMC usuwa te�
 z bazy wcześniejsze rekordy jednoznacznie będące ilustracjami. Sam podcast
 pozostaje zapisany; jeżeli jego kanał nie udostępnia żadnego nagrania, program
 podaje wprost, że nie zawiera odtwarzalnych odcinków audio ani wideo.
+
+### 7.26. Przenośne nazwy plików podcastów
+
+Automatyczne pobieranie `Ctrl+D` i propozycja nazwy w oknie `Ctrl+S` muszą
+korzystać z tego samego generatora nazw. Generator normalizuje Unicode bez
+usuwania polskich liter, usuwa proste i typograficzne cudzysłowy oraz apostrofy,
+a przecinki, dwukropki, ukośniki i inne separatory nieprzenośne zastępuje
+czytelnym myślnikiem. Usuwane są znaki sterujące, niewidoczne znaczniki formatu,
+końcowe kropki i spacje. Nazwy urządzeń Windows, takie jak `CON`, `NUL`, `COM1`
+i `LPT1`, otrzymują bezpieczny prefiks. Rdzeń nazwy ma ograniczoną długość, a
+rozszerzenie formatu i przyrostek rozróżniający duplikaty pozostają zachowane.
+
+Sanityzacja jest granicą zapisu pliku, nie zmianą danych katalogowych. Tytuł
+otrzymany z RSS, Atom lub katalogu podcastów pozostaje oryginalny w interfejsie,
+wyszukiwaniu, opisach i eksporcie. Nie wolno automatycznie przemianowywać
+wcześniej pobranych plików, ponieważ ich ścieżki mogą być używane przez inne
+programy.

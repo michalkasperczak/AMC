@@ -1691,6 +1691,22 @@ startup AMC also removes legacy database records that are unambiguously
 artwork. The subscription itself remains stored; if its current feed exposes
 no playable audio or video, AMC reports that condition explicitly.
 
+### 7.26. Portable podcast filenames
+
+Automatic `Ctrl+D` downloads and the filename proposed by the `Ctrl+S` dialog
+must use the same generator. It normalises Unicode without stripping Polish or
+other letters, removes straight and typographic quotation marks and
+apostrophes, and replaces commas, colons, slashes, and other non-portable
+separators with a readable hyphen. Control and invisible formatting characters,
+trailing dots, and trailing spaces are removed. Windows device names such as
+`CON`, `NUL`, `COM1`, and `LPT1` receive a safe prefix. The stem has a bounded
+length while the media extension and duplicate-number suffix are preserved.
+
+Sanitisation occurs at the disk-write boundary and never mutates catalogue
+data. The title received from RSS, Atom, or a podcast directory remains intact
+in the UI, search, descriptions, and exports. Existing downloaded files are not
+renamed automatically because other applications may already refer to them.
+
 ### 7.21. Shared collection-state undo
 
 Starting with `alpha.243`, the Library, Favorites, and Queue change history

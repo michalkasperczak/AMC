@@ -6262,3 +6262,14 @@ Oczekiwane: JPEG nie pojawia się jako odtwarzalny odcinek. Jeśli wpis ma równ
 audio, AMC wybiera audio. Jeśli cały kanał zawiera wyłącznie ilustracje lub
 artykuły, program mówi, że kanał nie zawiera odtwarzalnych odcinków audio ani
 wideo, zamiast próbować otworzyć obraz w odtwarzaczu.
+
+## AMC-270-01 — Bezpieczne nazwy pobranych odcinków
+
+W Podcastach wybierz odcinek zawierający w tytule cudzysłowy, apostrof,
+przecinek, dwukropek lub ukośnik. Sprawdź automatyczne pobranie `Ctrl+D`, a na
+drugim odcinku propozycję nazwy po `Ctrl+S`.
+
+Oczekiwane: oba polecenia proponują nazwę według tej samej reguły. W nazwie
+pliku nie ma cudzysłowów ani apostrofów, problematyczne separatory są zastąpione
+czytelnym myślnikiem, a rozszerzenie odpowiada formatowi audio. Oryginalny tytuł
+nadal jest czytany na liście Podcastów. Istniejące pliki nie zmieniają nazw.

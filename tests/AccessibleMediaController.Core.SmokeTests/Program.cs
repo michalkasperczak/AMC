@@ -687,11 +687,41 @@ static void TestPodcastSqliteMigration()
 static void TestPodcastDownloadNaming()
 {
     Equal(
-        "Odcinek _ specjalny_.m4a",
+        "Odcinek - specjalny.m4a",
         PodcastDownloadNaming.SuggestedFileName(
             "Odcinek : specjalny?",
             "https://cdn.example.test/audio?id=1",
             "audio/mp4; charset=binary"));
+    Equal(
+        "Rozmowa - której nie było - gość OConnor.mp3",
+        PodcastDownloadNaming.SuggestedFileName(
+            "„Rozmowa”, której nie było: gość O'Connor",
+            "https://cdn.example.test/audio.mp3",
+            "audio/mpeg"));
+    Equal(
+        "_CON.mp3",
+        PodcastDownloadNaming.SuggestedFileName(
+            "CON",
+            "https://cdn.example.test/audio.mp3",
+            "audio/mpeg"));
+    Equal(
+        "_CON.notatki.mp3",
+        PodcastDownloadNaming.SuggestedFileName(
+            "CON.notatki",
+            "https://cdn.example.test/audio.mp3",
+            "audio/mpeg"));
+    Equal(
+        "Odcinek podcastu.mp3",
+        PodcastDownloadNaming.SuggestedFileName(
+            "\"'...",
+            "https://cdn.example.test/audio.mp3",
+            "audio/mpeg"));
+    var longName = PodcastDownloadNaming.SuggestedFileName(
+        new string('ą', 200),
+        "https://cdn.example.test/audio.mp3",
+        "audio/mpeg");
+    True(longName.Length <= 144, "Przenośna nazwa odcinka przekracza bezpieczny limit.");
+    True(longName.EndsWith(".mp3", StringComparison.Ordinal), "Skracanie usunęło rozszerzenie pliku.");
     Equal(
         ".ogg",
         PodcastDownloadNaming.ResolveExtension(

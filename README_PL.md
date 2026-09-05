@@ -1112,6 +1112,20 @@ wcześniejsze rekordy jednoznacznie wskazujące na obraz, zachowując samą
 subskrypcję. Kanał bez odtwarzalnego audio lub wideo otrzymuje czytelny
 komunikat zamiast ogólnego błędu odtwarzania.
 
+## Przenośne nazwy pobranych podcastów w alpha 270
+
+`Ctrl+D` oraz nazwa proponowana przez `Ctrl+S` używają jednego mechanizmu
+bezpiecznych nazw. Z tytułu pliku usuwane są cudzysłowy i apostrofy, a
+przecinki, dwukropki, ukośniki oraz pozostałe problematyczne separatory są
+zamieniane na czytelny myślnik. Program usuwa też znaki sterujące, końcowe
+kropki i spacje, zabezpiecza nazwy zarezerwowane przez Windows oraz skraca
+bardzo długie tytuły bez utraty rozszerzenia. Nazwa jest zgodna z Windows i
+macOS; polskie litery pozostają bez zmian.
+
+Zmiana dotyczy wyłącznie nowych plików zapisywanych na dysku. Oryginalny tytuł
+odcinka pozostaje w Bibliotece, opisie i metadanych, a istniejące pobrania nie
+są automatycznie przemianowywane.
+
 ## Urządzenie audio osobno dla sesji w alpha 204
 
 Klawisz **Shift+A**, menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej

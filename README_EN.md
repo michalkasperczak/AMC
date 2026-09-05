@@ -767,6 +767,20 @@ episode records that unambiguously point to artwork while retaining the
 subscription. A feed without playable audio or video now receives an explicit
 message instead of a generic playback failure.
 
+## Portable downloaded-podcast names in alpha 270
+
+`Ctrl+D` and the name suggested by `Ctrl+S` now share one safe naming rule.
+Quotation marks and apostrophes are removed, while commas, colons, slashes,
+and other problematic separators become a readable hyphen. AMC also removes
+control characters and trailing dots or spaces, protects Windows reserved
+names, and shortens unusually long titles without losing the extension. The
+result is portable between Windows and macOS while retaining Polish and other
+Unicode letters.
+
+Only newly written disk files are affected. The original episode title remains
+unchanged in the Library, description, and metadata, and existing downloads
+are not renamed automatically.
+
 ## Per-session audio output in alpha 204
 
 **Shift+A**, **Playback > Select audio device for the current session…** and the

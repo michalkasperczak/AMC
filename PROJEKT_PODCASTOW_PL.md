@@ -411,6 +411,13 @@ wybranym miejscu. Żadne z poleceń nie działa na nagłówku całej audycji.
 Pobieranie używa lokalnego pliku roboczego, anulowania, postępu i atomowej
 publikacji, tak samo bezpiecznie jak nagrania Radia.
 
+Nazwy nowych plików z `Ctrl+D` i nazwy proponowane przez `Ctrl+S` są przenośne
+między Windows i macOS. Program zachowuje oryginalny tytuł w bazie, ale z nazwy
+na dysku usuwa cudzysłowy i apostrofy, a przecinki, dwukropki, ukośniki oraz
+podobne separatory zastępuje myślnikiem. Usuwa też znaki sterujące i końcowe
+kropki lub spacje, chroni nazwy zarezerwowane oraz ogranicza długość bez utraty
+rozszerzenia. Istniejące pobrania pozostają bez zmian.
+
 ## 10. Granica pierwszej wersji
 
 `alpha.206` pozwala dodać bezpośredni kanał RSS/Atom, zaimportować OPML,

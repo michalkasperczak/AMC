@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 
 namespace AccessibleMediaController.Core.Podcasts;
 
@@ -14,7 +15,8 @@ public static class PodcastDownloadNaming
     {
         "CON", "PRN", "AUX", "NUL",
         "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        "COM¹", "COM²", "COM³", "LPT¹", "LPT²", "LPT³"
     };
 
     public static string SuggestedFileName(
@@ -68,12 +70,98 @@ public static class PodcastDownloadNaming
     private static string SanitizeBaseName(string? title)
     {
         var value = string.IsNullOrWhiteSpace(title) ? "Odcinek podcastu" : title.Trim();
-        var invalid = Path.GetInvalidFileNameChars().ToHashSet();
-        value = new string(value.Select(character => invalid.Contains(character) ? '_' : character).ToArray());
-        value = value.Trim().TrimEnd('.', ' ');
-        if (value.Length > MaximumBaseNameLength) value = value[..MaximumBaseNameLength].TrimEnd('.', ' ');
+        try
+        {
+            value = value.Normalize(NormalizationForm.FormC);
+        }
+        catch (ArgumentException)
+        {
+            // A malformed external feed must not prevent saving an otherwise playable episode.
+        }
+
+        var result = new StringBuilder(value.Length);
+        var pendingSpace = false;
+        var pendingSeparator = false;
+        foreach (var rune in value.EnumerateRunes())
+        {
+            if (IsQuotationMark(rune)) continue;
+            if (Rune.IsWhiteSpace(rune))
+            {
+                pendingSpace = result.Length > 0;
+                continue;
+            }
+            if (IsPortableSeparator(rune))
+            {
+                pendingSeparator = result.Length > 0;
+                pendingSpace = false;
+                continue;
+            }
+            if (Rune.IsControl(rune)
+                || Rune.GetUnicodeCategory(rune) is UnicodeCategory.Format
+                    or UnicodeCategory.LineSeparator
+                    or UnicodeCategory.ParagraphSeparator)
+            {
+                pendingSpace = result.Length > 0;
+                continue;
+            }
+
+            if (pendingSeparator)
+            {
+                AppendSeparator(result);
+            }
+            else if (pendingSpace && result.Length > 0 && result[^1] != ' ')
+            {
+                result.Append(' ');
+            }
+            pendingSpace = false;
+            pendingSeparator = false;
+            result.Append(rune.ToString());
+        }
+
+        value = result.ToString().Trim().TrimStart('.').TrimEnd('.', ' ');
+        if (value.Length > MaximumBaseNameLength)
+        {
+            var length = MaximumBaseNameLength;
+            if (char.IsHighSurrogate(value[length - 1])) length--;
+            value = value[..length].TrimEnd('.', ' ', '-');
+        }
         if (value.Length == 0) value = "Odcinek podcastu";
-        if (ReservedNames.Contains(value)) value += "_";
+        if (IsReservedBaseName(value)) value = $"_{value}";
         return value;
+    }
+
+    private static bool IsReservedBaseName(string value)
+    {
+        var firstSegment = value.Split('.', 2)[0].TrimEnd(' ');
+        return ReservedNames.Contains(firstSegment);
+    }
+
+    private static void AppendSeparator(StringBuilder result)
+    {
+        while (result.Length > 0 && result[^1] == ' ') result.Length--;
+        if (result.Length == 0 || result[^1] == '-') return;
+        result.Append(" - ");
+    }
+
+    private static bool IsPortableSeparator(Rune rune)
+    {
+        return rune.Value is ',' or ';' or ':' or '/' or '\\' or '|' or '<' or '>' or '?' or '*'
+            or 0x060C // Arabic comma
+            or 0x3001 // Ideographic comma
+            or 0xFF0C // Full-width comma
+            or 0xFF1A // Full-width colon
+            or 0xFF1B; // Full-width semicolon
+    }
+
+    private static bool IsQuotationMark(Rune rune)
+    {
+        return rune.Value is '\'' or '"' or '`'
+            or 0x00AB or 0x00BB
+            or 0x2018 or 0x2019 or 0x201A or 0x201B
+            or 0x201C or 0x201D or 0x201E or 0x201F
+            or 0x2032 or 0x2033 or 0x2039 or 0x203A
+            or 0x275B or 0x275C or 0x275D or 0x275E
+            or 0x301D or 0x301E or 0x301F
+            or 0xFF02 or 0xFF07;
     }
 }
