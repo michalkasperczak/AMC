@@ -235,6 +235,15 @@ static void TestWiiMApiParsing()
             presetSnapshot with { Playback = presetSnapshot.Playback with { RawMode = 32, ContentUri = null } },
             2) is null,
         "Odtwarzanie przez TIDAL Connect nie może udawać ostatniego presetu WiiM.");
+    Equal(2, WiiMPresetStateResolver.ResolveCurrentPreset(
+        presetSnapshot with { Playback = presetSnapshot.Playback with { RawMode = 32, ContentUri = null } },
+        2,
+        trustRememberedNetworkPreset: true));
+    True(WiiMPresetStateResolver.ResolveCurrentPreset(
+            presetSnapshot with { Playback = presetSnapshot.Playback with { RawMode = 43, ContentUri = null } },
+            2,
+            trustRememberedNetworkPreset: true) is null,
+        "Wejście optyczne nie może udawać zapamiętanego presetu WiiM.");
 
     const string ssdp = "HTTP/1.1 200 OK\r\nLOCATION: http://192.168.1.25:49152/description.xml\r\nST: urn:schemas-upnp-org:device:MediaRenderer:1\r\n\r\n";
     True(WiiMDiscoveryService.TryParseResponse(ssdp, out address),

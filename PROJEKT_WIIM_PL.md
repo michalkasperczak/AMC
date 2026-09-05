@@ -13,7 +13,7 @@ eksperymentalne, po sprawdzeniu możliwości konkretnego modelu i z bezpiecznym
 wycofaniem operacji. Polecenia administracyjne, konfiguracja sieci, restart i
 przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 
-## Stan po alpha 276
+## Stan po alpha 277
 
 - wykrywanie UPnP/SSDP i ręczne dodanie lokalnego adresu IP;
 - wybór i zapamiętanie aktywnego urządzenia;
@@ -31,9 +31,13 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   `Alt+Page Up/Alt+Page Down` do sąsiedniego zajętego miejsca;
 - po ponownym uruchomieniu AMC ustala bieżący preset przez zgodność adresu
   strumienia, a gdy urządzenie nie podaje adresu — przez ostatni preset
-  uruchomiony w AMC. Zapamiętany numer jest używany tylko w trybie odtwarzania
-  zarządzanym przez WiiM; przy Spotify Connect lub TIDAL Connect aplikacja nie
-  zgaduje.
+  uruchomiony w AMC. Aktywne zapisane urządzenie jest bezgłośnie odświeżane po
+  uruchomieniu programu i przy każdym wejściu do sesji WiiM. Pierwsze
+  `Alt+Page Up/Alt+Page Down` czeka na ten odczyt zamiast wymagać uprzedniego
+  otwarcia listy presetów. Gdy firmware nie udostępnia adresu, zapamiętany
+  preset może być punktem nawigacji również dla sieciowych trybów usług
+  Connect. Wejścia fizyczne, AirPlay, DLNA i odtwarzanie grupowe nigdy nie
+  dziedziczą numeru presetu.
 - stan odtwarzacza, `getMetaInfo` i UPnP `GetInfoEx` są łączone w jeden zestaw
   bieżących metadanych. Tytuł audycji lub utworu trafia do odtwarzacza, tytułu
   okna i paska stanu, a `Alt+D` odczytuje go na żądanie bez dialogu;

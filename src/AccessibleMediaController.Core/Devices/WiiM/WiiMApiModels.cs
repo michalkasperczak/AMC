@@ -482,7 +482,8 @@ public static class WiiMPresetStateResolver
 {
     public static int? ResolveCurrentPreset(
         WiiMDeviceSnapshot snapshot,
-        int lastActivatedPresetNumber)
+        int lastActivatedPresetNumber,
+        bool trustRememberedNetworkPreset = false)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         var occupied = snapshot.Presets
@@ -504,10 +505,16 @@ public static class WiiMPresetStateResolver
         }
 
         // The LinkPlay API does not expose a current-preset number. Modes
-        // 10-30 are device-managed network playback on current WiiM firmware,
-        // which is the only safe context in which the last preset activated by
-        // AMC remains useful.
+        // 10-30 are device-managed network playback on current WiiM firmware.
+        // Some service presets are reported as a Connect mode (31-39), though,
+        // and omit the URI needed for an exact comparison. An explicit user
+        // navigation command may then use AMC's persisted preset as its anchor.
+        // Physical inputs, AirPlay, DLNA and grouped playback must never inherit
+        // a remembered preset because that would silently navigate from the
+        // wrong source.
         return snapshot.Playback.RawMode is >= 10 and <= 30
+            || trustRememberedNetworkPreset
+               && snapshot.Playback.RawMode is >= 31 and <= 39
             ? lastActivatedPresetNumber
             : null;
     }

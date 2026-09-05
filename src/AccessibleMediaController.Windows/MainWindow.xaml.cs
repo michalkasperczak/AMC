@@ -316,7 +316,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_state.WiiM.Devices.Count > 0)
         {
             Dispatcher.BeginInvoke(
-                () => _ = RefreshWiiMDevicesAsync(announceResult: false),
+                () => _ = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+                    ? RefreshActiveWiiMDeviceOnEntryAsync()
+                    : RefreshWiiMDevicesAsync(announceResult: false),
                 DispatcherPriority.Background);
         }
         DiagnosticLog.Info("startup", "Główne okno jest gotowe do pokazania.");
@@ -4588,6 +4590,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             await _wiiMDeviceOperationGate.WaitAsync(_wiiMCancellation.Token);
             gateEntered = true;
             await _wiiMClient.PlayNetworkStreamAsync(device.Address, mediaUrl, _wiiMCancellation.Token);
+            ForgetActivatedWiiMPreset(device);
             await Task.Delay(450, _wiiMCancellation.Token);
             try
             {
@@ -9245,6 +9248,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     ? DefaultBrowserView
                     : destinationNavigation.CurrentView);
             RestoreCurrentSessionNavigationState();
+            if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
+            {
+                Dispatcher.BeginInvoke(
+                    () => _ = RefreshActiveWiiMDeviceOnEntryAsync(),
+                    DispatcherPriority.Background);
+            }
             if (string.Equals(sessionBeforeCommand.Id, "local", StringComparison.Ordinal))
             {
                 TrySaveLocalMediaState(false);
@@ -13782,8 +13791,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         _wiiMRefreshInProgress = true;
         var selectedId = SelectedItem?.Id;
+        var gateEntered = false;
         try
         {
+            await _wiiMDeviceOperationGate.WaitAsync(_wiiMCancellation.Token);
+            gateEntered = true;
             var results = await Task.WhenAll(devices.Select(async device =>
             {
                 try
@@ -13830,7 +13842,49 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         finally
         {
+            if (gateEntered) _wiiMDeviceOperationGate.Release();
             _wiiMRefreshInProgress = false;
+        }
+    }
+
+    private async Task RefreshActiveWiiMDeviceOnEntryAsync()
+    {
+        if (_isClosing
+            || !string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+            || !_sessions.Current.HasCurrentItem
+            || !TryGetWiiMDevice(_sessions.Current.CurrentItem.Id, out var device))
+        {
+            return;
+        }
+
+        var restoreListFocus = !_playerViewActive && MediaList.IsKeyboardFocusWithin;
+        var gateEntered = false;
+        try
+        {
+            await _wiiMDeviceOperationGate.WaitAsync(_wiiMCancellation.Token);
+            gateEntered = true;
+            if (_isClosing || !string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)) return;
+            var snapshot = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
+            if (_isClosing || !string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)) return;
+            ApplyWiiMSnapshot(device, snapshot);
+            QueueStateSave(announceFailure: true);
+            DiagnosticLog.Info(
+                "wiim-refresh",
+                $"Odświeżono aktywne urządzenie po wejściu do sesji; tryb: {snapshot.Playback.RawMode}; presety: {snapshot.Presets.Count}.");
+            if (restoreListFocus) RestoreMediaListFocusAfterRefresh();
+        }
+        catch (OperationCanceledException) when (_wiiMCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception) when (IsWiiMConnectionFailure(exception))
+        {
+            DiagnosticLog.Warning(
+                "wiim-refresh",
+                $"Nie udało się odświeżyć aktywnego urządzenia {device.Address} po wejściu do sesji: {exception.GetType().Name}.");
+        }
+        finally
+        {
+            if (gateEntered) _wiiMDeviceOperationGate.Release();
         }
     }
 
@@ -14488,9 +14542,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var lastKnown = _lastActivatedWiiMPresets.GetValueOrDefault(
                 device.Id,
                 device.LastActivatedPresetNumber);
-            var resolved = WiiMPresetStateResolver.ResolveCurrentPreset(snapshot, lastKnown);
+            var resolved = WiiMPresetStateResolver.ResolveCurrentPreset(
+                snapshot,
+                lastKnown,
+                trustRememberedNetworkPreset: true);
             if (resolved is not { } currentNumber)
             {
+                DiagnosticLog.Info(
+                    "wiim-preset",
+                    $"Nie rozpoznano bieżącego presetu; tryb: {snapshot.Playback.RawMode}; " +
+                    $"adres odtwarzania: {(snapshot.Playback.ContentUri is null ? "brak" : "dostępny")}; " +
+                    $"zapamiętany preset: {lastKnown}.");
                 Announce("Nie wiadomo, który preset jest odtwarzany. Ctrl+Alt+P otwiera listę presetów urządzenia");
                 return;
             }
@@ -14610,6 +14672,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 case CommandIds.SelectWiiMInput:
                     await _wiiMClient.SwitchInputAsync(device.Address, choice.Value, _wiiMCancellation.Token);
+                    ForgetActivatedWiiMPreset(device);
                     break;
                 case CommandIds.SelectWiiMOutput:
                     await _wiiMClient.SetAudioOutputHardwareModeAsync(device.Address, int.Parse(choice.Value), _wiiMCancellation.Token);
@@ -14835,6 +14898,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         _lastActivatedWiiMPresets[device.Id] = number;
         device.LastActivatedPresetNumber = number;
+        QueueStateSave(announceFailure: true);
+    }
+
+    private void ForgetActivatedWiiMPreset(WiiMDeviceSettings device)
+    {
+        _lastActivatedWiiMPresets.Remove(device.Id);
+        device.LastActivatedPresetNumber = 0;
         QueueStateSave(announceFailure: true);
     }
 
