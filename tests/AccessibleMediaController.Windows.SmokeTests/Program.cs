@@ -2254,7 +2254,10 @@ static void TestWiiMDeviceManagerAccessibility()
                 Assert(list.SelectedIndex == 0,
                     "Menedżer WiiM nie wybiera zapamiętanego urządzenia przy otwarciu.");
 
-                var presetWindow = new WiiMDevicePresetsWindow("Salon", snapshot.Presets);
+                var presetWindow = new WiiMDevicePresetsWindow(
+                    "Salon",
+                    snapshot.Presets,
+                    shortcutSlotsByNativePreset: new Dictionary<int, int> { [6] = 2 });
                 try
                 {
                     var presetList = (ListBox)presetWindow.FindName("PresetList");
@@ -2268,6 +2271,7 @@ static void TestWiiMDeviceManagerAccessibility()
                     Assert(labels.Length == 12
                            && labels[0].Contains("Radio", StringComparison.Ordinal)
                            && labels[1].Contains("pusty", StringComparison.Ordinal)
+                           && labels[5].Contains("skrót Ctrl+Shift+2", StringComparison.Ordinal)
                            && labels.All(value => !value.Contains('{') && !value.Contains("WiiMPreset", StringComparison.Ordinal)),
                         "Lista presetów WiiM ujawnia obiekty techniczne albo ma niepełne etykiety.");
                     presetList.SelectedIndex = 0;
@@ -2281,6 +2285,24 @@ static void TestWiiMDeviceManagerAccessibility()
                 finally
                 {
                     presetWindow.Close();
+                }
+
+                var shortcutSelectionWindow = new WiiMDevicePresetsWindow(
+                    "Salon",
+                    snapshot.Presets,
+                    selectForShortcut: true,
+                    initialPresetNumber: 6);
+                try
+                {
+                    var presetList = (ListBox)shortcutSelectionWindow.FindName("PresetList");
+                    Assert(shortcutSelectionWindow.Title.StartsWith("Wybierz gotowy preset", StringComparison.Ordinal)
+                           && presetList.SelectedIndex == 5
+                           && AutomationProperties.GetHelpText(presetList).Contains("wyboru skrótu AMC", StringComparison.Ordinal),
+                        "Wybór gotowego presetu do lokalnego skrótu nie ma jednoznacznych etykiet dostępnościowych.");
+                }
+                finally
+                {
+                    shortcutSelectionWindow.Close();
                 }
 
                 var optionWindow = new WiiMOptionWindow(

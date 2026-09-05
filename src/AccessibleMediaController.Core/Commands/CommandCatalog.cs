@@ -150,7 +150,7 @@ public static class CommandCatalog
             CommandIds.ToggleRadioRecognitionAnnouncements => "Włącz lub wyłącz oznajmianie rozpoznanych utworów",
             CommandIds.ViewRadioRecognitionHistory => "Pokaż rozpoznane utwory",
             CommandIds.ViewRadioPresets => "Pokaż presety aktywnej sesji",
-            CommandIds.AssignRadioPreset => "Utwórz lub przypisz preset aktywnej sesji",
+            CommandIds.AssignRadioPreset => "Utwórz preset lub przypisz skrót aktywnej sesji",
             CommandIds.ViewMixes => "Pokaż miksy",
             CommandIds.ViewHistory => "Pokaż historię odtwarzania",
             CommandIds.ViewBookmarks => "Pokaż zakładki",

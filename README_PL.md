@@ -1141,8 +1141,10 @@ nie zgaduje numeru. `Ctrl+P` pozostaje skrótem Playlist i nie jest przejmowany
 przez WiiM.
 
 Lokalne API producenta nie udostępnia zapisu natywnych presetów. AMC pozwala je
-więc bezpiecznie odczytać i uruchomić, natomiast próba przypisania informuje o
-konieczności użycia WiiM Home. Nie powstaje lokalna atrapa zmiany w urządzeniu.
+bezpiecznie odczytać i uruchomić. Od `alpha.274` może też przypisać gotowy
+preset do lokalnego skrótu AMC, lecz nie przedstawia tego jako zmiany w
+urządzeniu. Zapisywanie, nadpisywanie i usuwanie presetów sprzętowych nadal
+wykonuje się w WiiM Home.
 
 Rozpoznane możliwości dalszego adaptera, między innymi URL/M3U, zdarzenia UPnP,
 multiroom i ograniczona kolejka sprzętowa, opisuje
@@ -1156,6 +1158,13 @@ odrzuca wartości `unknown` oraz techniczne nazwy `playlist.m3u8`. Jeżeli adres
 strumienia odpowiada stacji zapisanej w Bibliotece Radia, używana jest jej
 czytelna nazwa. Brak metadanych jest oznajmiany wprost; program nie wymyśla
 nazwy audycji. W Podcastach `Alt+D` nadal otwiera pełny opis.
+
+W `alpha.274` `Ctrl+Alt+Shift+P` w sesji WiiM przypisuje gotowy preset
+urządzenia do jednego z dwunastu lokalnych skrótów AMC. `Ctrl+Shift+1–0/-/=`
+uruchamia przypisany preset, także wtedy, gdy numer skrótu różni się od numeru
+miejsca w urządzeniu. Pierwsze uruchomienie zachowuje wcześniejsze mapowanie
+1:1. Usunięcie przypisania usuwa wyłącznie skrót AMC; preset WiiM pozostaje
+bez zmian. `Ctrl+Alt+P` nadal pokazuje i uruchamia natywną listę urządzenia.
 
 W `alpha.272` menu **Plik** sesji Podcasty zawiera także **Eksportuj bibliotekę
 podcastów do OPML…**. Jest to przenośna kopia obserwowanych kanałów, zgodna z

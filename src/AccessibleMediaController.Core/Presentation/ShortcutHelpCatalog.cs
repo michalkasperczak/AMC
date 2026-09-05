@@ -204,7 +204,7 @@ public static class ShortcutHelpCatalog
         yield return Info("radio", "Wstrzymaj lub wznów wybrane nagranie", "Shift+Spacja", "nagrywana stacja na liście lub w odtwarzaczu radia");
         yield return Info("radio", "Pokaż aktualnie nagrywane stacje; Escape wraca do wcześniejszego widoku", "Alt+R", "lista radia internetowego");
         yield return Info("collections", "Pokaż presety aktywnej sesji", "Ctrl+Alt+P", "Pliki lokalne lub Radio; skrót zarezerwowany także dla przyszłych usług");
-        yield return Info("collections", "Utwórz lub przypisz preset aktywnej sesji", "Ctrl+Alt+Shift+P", "Plik, folder Biblioteki lub stacja radiowa");
+        yield return Info("collections", "Utwórz albo przypisz preset; w WiiM przypisz lokalny skrót do gotowego presetu urządzenia", "Ctrl+Alt+Shift+P", "Sesja obsługująca presety");
     }
 
     private static ShortcutHelpEntry Info(

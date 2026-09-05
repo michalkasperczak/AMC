@@ -801,10 +801,17 @@ the current programme or track when the device or station supplies it.
 AMC merges WiiM player status, `getMetaInfo`, and bounded UPnP metadata, while
 filtering technical placeholders and playlist-manifest names.
 
+In `alpha.274`, `Ctrl+Alt+Shift+P` in the WiiM session maps an existing device
+preset to one of AMC's twelve local `Ctrl+Shift+1–0/-/=` shortcuts. The mapping
+is stored separately for each device, may differ from the native preset number,
+and initially preserves the former one-to-one behavior. Removing a mapping
+removes only the AMC shortcut and never changes or deletes the hardware preset.
+`Ctrl+Alt+P` continues to show and activate the native device list.
+
 The manufacturer's local API does not expose writing native presets. AMC can
-therefore read and activate them safely, while an assignment attempt explains
-that WiiM Home is required instead of creating a local stand-in for a device
-change.
+therefore read and activate them safely and map them to local shortcuts, but it
+never presents that mapping as a device change. Writing, overwriting, and
+deleting hardware presets still belong in WiiM Home.
 
 The next capability-gated stages—direct URL/M3U playback, UPnP events,
 multi-room groups, and the device-dependent hardware queue—are specified in

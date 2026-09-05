@@ -282,7 +282,7 @@ public static class CommandPaletteSearch
             CommandIds.ToggleRadioRecognitionAnnouncements => "Ctrl+Alt+Shift+S (Radio internetowe)",
             CommandIds.ViewRadioRecognitionHistory => "Ctrl+Alt+S (Radio internetowe)",
             CommandIds.ViewRadioPresets => "Ctrl+Alt+P (Pliki lokalne lub Radio internetowe)",
-            CommandIds.AssignRadioPreset => "Ctrl+Alt+Shift+P (Pliki lokalne lub Radio internetowe)",
+            CommandIds.AssignRadioPreset => "Ctrl+Alt+Shift+P (sesja obsługująca presety)",
             CommandIds.SettingsGeneral => "Ctrl+,",
             CommandIds.SettingsToggleSeekMessages => "Ctrl+Shift+G",
             _ => null

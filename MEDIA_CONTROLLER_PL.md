@@ -2214,11 +2214,16 @@ pozostaje wyborem aktywnego urządzenia WiiM. Listy wyboru mają jawne etykiety
 dla UI Automation i nie ujawniają nazw klas, wartości enumów ani rekordów.
 
 Oficjalne lokalne API potrafi odczytać i uruchomić natywne presety 1–12, ale
-nie dokumentuje ich zapisu ani nadpisywania. Dlatego
-`Ctrl+Alt+Shift+P` w tej sesji wyjaśnia ograniczenie i odsyła do WiiM Home;
-AMC nie udaje powodzenia. Escape wraca z odtwarzacza do listy urządzeń, lecz
-nie zatrzymuje autonomicznego odtwarzania w pokoju. Wysyłanie adresów strumieni
-pozostaje kolejnym etapem adaptera.
+nie dokumentuje ich zapisu ani nadpisywania. Od `alpha.274`
+`Ctrl+Alt+Shift+P` przypisuje więc wskazany gotowy preset urządzenia do jednego
+z dwunastu lokalnych skrótów AMC `Ctrl+Shift+1–0/-/=`. Mapowanie jest osobne
+dla każdego urządzenia. Przy pierwszym użyciu istniejące miejsca zostają
+odwzorowane 1:1, aby zachować wcześniejsze działanie. Użytkownik może potem
+przypisać dowolny zajęty preset do innego skrótu albo usunąć samo przypisanie.
+Żadna z tych operacji nie zapisuje, nie nadpisuje ani nie usuwa presetu w WiiM.
+Takie zmiany sprzętowe nadal wykonuje się w WiiM Home. Escape wraca z
+odtwarzacza do listy urządzeń, lecz nie zatrzymuje autonomicznego odtwarzania w
+pokoju. Wysyłanie adresów strumieni pozostaje kolejnym etapem adaptera.
 
 Szczegółowa mapa stabilnych i eksperymentalnych etapów, oparta także na
 porównaniu aktywnych bibliotek społecznościowych LinkPlay/WiiM, znajduje się w

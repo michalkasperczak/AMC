@@ -15,7 +15,7 @@
                                                 TextWrapping="Wrap"
                                                 automation:AutomationProperties.LiveSetting="Assertive" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Width="115" Margin="0,0,8,0" Content="_Uruchom" IsDefault="True"
+                <Button x:Name="ActivateButton" Width="115" Margin="0,0,8,0" Content="_Uruchom" IsDefault="True"
                         Click="Activate_Click" />
                 <Button Width="100" Content="_Zamknij" IsCancel="True" />
             </StackPanel>

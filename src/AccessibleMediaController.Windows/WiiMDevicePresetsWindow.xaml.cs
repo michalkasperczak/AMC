@@ -1,5 +1,7 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Input;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Devices.WiiM;
 using AccessibleMediaController.Windows.Controls;
 using AccessibleMediaController.Windows.Services;
@@ -12,23 +14,47 @@ public partial class WiiMDevicePresetsWindow : AccessibleWindow
 
     public WiiMDevicePresetsWindow(
         string deviceName,
-        IReadOnlyList<WiiMPresetInformation> presets)
+        IReadOnlyList<WiiMPresetInformation> presets,
+        bool selectForShortcut = false,
+        IReadOnlyDictionary<int, int>? shortcutSlotsByNativePreset = null,
+        int? initialPresetNumber = null)
     {
         InitializeComponent();
-        Title = $"Presety urządzenia — {deviceName}";
-        DescriptionText.Text = $"Presety zapisane w urządzeniu {deviceName}. "
-            + "Cyfra wybiera miejsce. Page Up i Page Down przechodzą po zajętych miejscach bez ich uruchamiania. Enter lub Spacja uruchamia zajęty preset. "
-            + "Ta lista nie zmienia ustawień urządzenia.";
+        Title = selectForShortcut
+            ? $"Wybierz gotowy preset — {deviceName}"
+            : $"Presety urządzenia — {deviceName}";
+        DescriptionText.Text = selectForShortcut
+            ? $"Wybierz istniejący preset urządzenia {deviceName}, który chcesz przypisać do skrótu AMC. "
+              + "Cyfra wybiera preset. Enter lub Spacja przechodzi do wyboru skrótu. Escape anuluje. Ustawienia urządzenia nie zostaną zmienione."
+            : $"Presety zapisane w urządzeniu {deviceName}. "
+              + "Cyfra wybiera miejsce. Page Up i Page Down przechodzą po zajętych miejscach bez ich uruchamiania. Enter lub Spacja uruchamia zajęty preset. "
+              + "Ctrl+Alt+Shift+P przypisuje zaznaczony preset do skrótu AMC. Ta lista nie zmienia ustawień urządzenia.";
+        ActivateButton.Content = selectForShortcut ? "_Wybierz" : "_Uruchom";
+        AutomationProperties.SetName(
+            ActivateButton,
+            selectForShortcut ? "Wybierz preset do przypisania" : "Uruchom preset");
+        AutomationProperties.SetHelpText(
+            PresetList,
+            selectForShortcut
+                ? "Strzałki albo cyfra wybierają gotowy preset. Enter lub Spacja przechodzi do wyboru skrótu AMC."
+                : "Strzałki albo cyfra wybierają preset. Page Up i Page Down przechodzą po zajętych presetach. Enter lub Spacja uruchamia zajęty preset. Ctrl+Alt+Shift+P przypisuje skrót AMC.");
         rows = Enumerable.Range(1, 12)
             .Select(number => new WiiMDevicePresetRow(
                 number,
-                presets.FirstOrDefault(preset => preset.Number == number)))
+                presets.FirstOrDefault(preset => preset.Number == number),
+                shortcutSlotsByNativePreset?.GetValueOrDefault(number)))
             .ToArray();
         PresetList.ItemsSource = rows;
-        PresetList.SelectedIndex = Math.Max(0, rows.ToList().FindIndex(row => row.Preset is not null));
+        var requestedIndex = initialPresetNumber is >= 1 and <= 12
+            ? initialPresetNumber.Value - 1
+            : rows.ToList().FindIndex(row => row.Preset is not null);
+        PresetList.SelectedIndex = Math.Max(0, requestedIndex);
+        SelectForShortcut = selectForShortcut;
     }
 
     public int? SelectedPresetNumber { get; private set; }
+    public bool SelectForShortcut { get; }
+    public bool ShortcutAssignmentRequested { get; private set; }
 
     private void Window_ContentRendered(object? sender, EventArgs e) => FocusSelectedRow();
 
@@ -65,6 +91,16 @@ public partial class WiiMDevicePresetsWindow : AccessibleWindow
         }
         if (modifiers == ModifierKeys.None && key is Key.Enter or Key.Space)
         {
+            if (!SelectForShortcut) ShortcutAssignmentRequested = false;
+            ActivateSelected();
+            e.Handled = true;
+            return;
+        }
+        if (!SelectForShortcut
+            && modifiers == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)
+            && key == Key.P)
+        {
+            ShortcutAssignmentRequested = true;
             ActivateSelected();
             e.Handled = true;
         }
@@ -146,17 +182,33 @@ public partial class WiiMDevicePresetsWindow : AccessibleWindow
                 : $"Skopiowano nazwy: {selected.Length}");
     }
 
-    private void Activate_Click(object sender, RoutedEventArgs e) => ActivateSelected();
+    private void Activate_Click(object sender, RoutedEventArgs e)
+    {
+        if (!SelectForShortcut) ShortcutAssignmentRequested = false;
+        ActivateSelected();
+    }
 }
 
-public sealed record WiiMDevicePresetRow(int Number, WiiMPresetInformation? Preset)
+public sealed record WiiMDevicePresetRow(
+    int Number,
+    WiiMPresetInformation? Preset,
+    int? ShortcutSlot = null)
 {
     public string NavigationText => Preset?.Name ?? $"Preset {Number}";
-    public string Label => Preset is null
-        ? $"Preset {Number}, pusty"
-        : string.IsNullOrWhiteSpace(Preset.Source)
-            ? $"Preset {Number}, {Preset.Name}"
-            : $"Preset {Number}, {Preset.Name}, {Preset.Source}";
+    public string Label
+    {
+        get
+        {
+            if (Preset is null) return $"Preset {Number}, pusty";
+            var source = string.IsNullOrWhiteSpace(Preset.Source)
+                ? string.Empty
+                : $", {Preset.Source}";
+            var shortcut = ShortcutSlot is >= 1 and <= RadioPresetSlots.Count
+                ? $", skrót Ctrl+Shift+{RadioPresetSlots.SpokenShortcutLabel(ShortcutSlot.Value)}"
+                : string.Empty;
+            return $"Preset {Number}, {Preset.Name}{source}{shortcut}";
+        }
+    }
 
     public override string ToString() => Label;
 }

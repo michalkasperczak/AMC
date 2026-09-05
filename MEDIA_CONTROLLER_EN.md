@@ -1689,10 +1689,15 @@ data-bound choice has an explicit UI Automation label and never exposes class,
 enum, or record representations.
 
 The official local API can read and activate native presets 1–12 but does not
-document writing or overwriting them. Therefore `Ctrl+Alt+Shift+P` explains
-the limitation and directs the user to WiiM Home; AMC never reports a fake
-success. Escape returns to the device list without stopping autonomous room
-playback. Sending stream URLs remains a later adapter milestone.
+document writing or overwriting them. Starting with `alpha.274`,
+`Ctrl+Alt+Shift+P` therefore maps an existing device preset to one of AMC's
+twelve local `Ctrl+Shift+1–0/-/=` shortcuts. Mappings are stored per device.
+The first use preserves the former one-to-one behavior; users may then map any
+occupied native preset to a different shortcut or remove only the mapping.
+None of these operations writes, overwrites, or deletes a WiiM preset. Hardware
+changes still belong in WiiM Home. Escape returns to the device list without
+stopping autonomous room playback. Sending stream URLs remains a later adapter
+milestone.
 
 The capability-gated stable and experimental roadmap is recorded in
 `PROJEKT_WIIM_PL.md`. Native presets remain read/activate-only, Spotify and

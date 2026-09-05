@@ -6343,3 +6343,27 @@ i na liście.
 Oczekiwane: odtwarzacz, pasek i tytuł okna aktualizują się bez automatycznego
 komunikatu mowy. `Alt+D` podaje bieżący tytuł, a dla drugiej stacji jednoznaczny
 brak danych. Przełączenie stacji nie dziedziczy poprzedniego tytułu.
+
+## Test ręczny lokalnych skrótów presetów WiiM — alpha 274
+
+### AMC-274-01 — Przypisanie gotowego presetu do innego skrótu
+
+W sesji WiiM naciśnij `Ctrl+Alt+Shift+P`. Wybierz istniejący preset urządzenia,
+np. Radio Rzeszów, a następnie przypisz go do wolnego skrótu, którego numer jest
+inny niż numer sprzętowego miejsca. Zamknij oba okna i uruchom ten skrót przez
+`Ctrl+Shift+1–0/-/=`.
+
+Oczekiwane: pierwsze okno mówi wyłącznie o wyborze gotowego presetu, a drugie
+wyłącznie o lokalnym skrócie AMC. Skrót uruchamia wybraną stację. Lista
+`Ctrl+Alt+P` podaje przy tym presecie przypisany skrót. Żadna nazwa klasy,
+rekordu ani identyfikator techniczny nie trafia do NVDA.
+
+### AMC-274-02 — Trwałość i bezpieczne usunięcie przypisania
+
+Uruchom AMC ponownie i sprawdź wcześniej utworzony skrót. Następnie ponownie
+wejdź w przypisanie, wybierz zajęty skrót, naciśnij Delete i potwierdź Enterem.
+
+Oczekiwane: mapowanie przetrwało restart. Po usunięciu AMC mówi, że usunęło
+tylko przypisanie skrótu i że preset urządzenia pozostał bez zmian. Skrót jest
+pusty, natomiast ten sam natywny preset nadal znajduje się na liście
+`Ctrl+Alt+P` i daje się uruchomić Enterem.

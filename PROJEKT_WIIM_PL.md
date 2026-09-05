@@ -13,7 +13,7 @@ eksperymentalne, po sprawdzeniu możliwości konkretnego modelu i z bezpiecznym
 wycofaniem operacji. Polecenia administracyjne, konfiguracja sieci, restart i
 przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 
-## Stan po alpha 273
+## Stan po alpha 274
 
 - wykrywanie UPnP/SSDP i ręczne dodanie lokalnego adresu IP;
 - wybór i zapamiętanie aktywnego urządzenia;
@@ -36,6 +36,10 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 - nazwy `unknown`, `unknow` oraz techniczne nazwy playlist M3U/PLS nie są
   przedstawiane jako tytuł audycji. Zgodny adres może zostać powiązany z
   użytkową nazwą stacji w Bibliotece Radia AMC.
+- `Ctrl+Alt+Shift+P` nie próbuje zapisywać presetu w urządzeniu. Pozwala
+  przypisać jeden z gotowych presetów WiiM do dwunastu lokalnych skrótów AMC
+  `Ctrl+Shift+1–0/-/=`. Mapowanie jest zapisywane osobno dla każdego urządzenia,
+  a jego usunięcie nie usuwa ani nie zmienia presetu sprzętowego.
 
 Lokalne API nie udostępnia zapisu ani zmiany kolejności natywnych presetów.
 AMC nie zgłasza więc pozornego powodzenia; takie ustawienie nadal wykonuje się

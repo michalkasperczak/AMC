@@ -3451,6 +3451,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return wiiM;
         if (commandId == CommandIds.CurrentBroadcastInformation)
             return radio || wiiM;
+        if (commandId == CommandIds.AssignRadioPreset && wiiM)
+            return true;
         if (!wiiM && commandId.StartsWith("wiim.", StringComparison.Ordinal)) return false;
         if (wiiM) return CommandAvailableInWiiM(commandId);
         if (commandId is CommandIds.SortCollectionByAdded
@@ -5048,12 +5050,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             wiiM
                 ? "Presety urządzenia WiiM, Ctrl+Alt+P"
                 : $"Presety, {_sessions.Current.DisplayName}, Ctrl+Alt+P");
-        RadioAssignPresetMenuItem.Visibility = presetsAvailable && !wiiM ? Visibility.Visible : Visibility.Collapsed;
-        RadioAssignPresetMenuItem.Header = "Utwórz lub przypisz preset…";
+        RadioAssignPresetMenuItem.Visibility = presetsAvailable ? Visibility.Visible : Visibility.Collapsed;
+        RadioAssignPresetMenuItem.Header = wiiM
+            ? "Przypisz skrót AMC do gotowego presetu WiiM…"
+            : "Utwórz lub przypisz preset…";
         RadioAssignPresetMenuItem.InputGestureText = "Ctrl+Alt+Shift+P";
         AutomationProperties.SetName(
             RadioAssignPresetMenuItem,
-            $"Utwórz lub przypisz preset, {_sessions.Current.DisplayName}");
+            wiiM
+                ? "Przypisz skrót AMC do gotowego presetu WiiM, Ctrl+Alt+Shift+P"
+                : $"Utwórz lub przypisz preset, {_sessions.Current.DisplayName}");
         AlbumsViewMenuItem.Visibility = radio || podcasts || wiiM ? Visibility.Collapsed : Visibility.Visible;
         QueueViewMenuItem.Visibility = radio || wiiM ? Visibility.Collapsed : Visibility.Visible;
         HistoryViewMenuItem.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
@@ -8546,13 +8552,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             if (CommandIds.TryParseRadioPreset(commandId, out var wiiMPresetSlot))
             {
-                _ = ActivateWiiMNativePresetAsync(wiiMPresetSlot);
+                _ = ActivateWiiMNativePresetAsync(wiiMPresetSlot, resolveShortcutMapping: true);
                 return new CommandExecutionResult(true);
             }
             if (commandId == CommandIds.AssignRadioPreset)
             {
-                Announce("Publiczne API WiiM nie pozwala bezpiecznie zapisywać ani nadpisywać presetów urządzenia. Użyj aplikacji WiiM Home");
-                return new CommandExecutionResult(false);
+                _ = ShowWiiMPresetShortcutAssignmentAsync();
+                return new CommandExecutionResult(true);
             }
             if (commandId is CommandIds.PreviousWiiMDevicePreset or CommandIds.NextWiiMDevicePreset)
             {
@@ -13908,13 +13914,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var snapshot = _wiiMSnapshots.GetValueOrDefault(device.Id)
                 ?? await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
             ApplyWiiMSnapshot(device, snapshot);
-            var dialog = new WiiMDevicePresetsWindow(device.DisplayName, snapshot.Presets)
+            var shortcutSlots = WiiMShortcutSlotsByNativePreset(device, snapshot);
+            var currentPreset = WiiMPresetStateResolver.ResolveCurrentPreset(
+                snapshot,
+                _lastActivatedWiiMPresets.GetValueOrDefault(device.Id, device.LastActivatedPresetNumber));
+            var dialog = new WiiMDevicePresetsWindow(
+                device.DisplayName,
+                snapshot.Presets,
+                shortcutSlotsByNativePreset: shortcutSlots,
+                initialPresetNumber: currentPreset)
             {
                 Owner = this
             };
             if (dialog.ShowDialog() != true || dialog.SelectedPresetNumber is not { } number)
             {
                 RestoreWiiMFocus();
+                return;
+            }
+            if (dialog.ShortcutAssignmentRequested)
+            {
+                AssignWiiMPresetShortcut(device, snapshot, number);
                 return;
             }
             await _wiiMClient.ActivatePresetAsync(device.Address, number, _wiiMCancellation.Token);
@@ -13940,7 +13959,235 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
-    private async Task ActivateWiiMNativePresetAsync(int number)
+    private async Task ShowWiiMPresetShortcutAssignmentAsync()
+    {
+        var item = ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
+        if (item is null || !TryGetWiiMDevice(item.Id, out var device))
+        {
+            Announce("Brak aktywnego urządzenia WiiM");
+            return;
+        }
+
+        WiiMDeviceSnapshot snapshot;
+        var gateEntered = false;
+        try
+        {
+            await _wiiMDeviceOperationGate.WaitAsync(_wiiMCancellation.Token);
+            gateEntered = true;
+            snapshot = _wiiMSnapshots.GetValueOrDefault(device.Id)
+                ?? await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
+            ApplyWiiMSnapshot(device, snapshot);
+        }
+        catch (OperationCanceledException) when (_wiiMCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception exception) when (IsWiiMConnectionFailure(exception))
+        {
+            DiagnosticLog.Warning("wiim-preset-shortcut", $"Nie odczytano presetów {device.Address}: {exception.GetType().Name}.");
+            Announce($"Nie udało się odczytać presetów urządzenia {device.DisplayName}");
+            RestoreWiiMFocus();
+            return;
+        }
+        finally
+        {
+            if (gateEntered) _wiiMDeviceOperationGate.Release();
+        }
+
+        var occupied = snapshot.Presets.OrderBy(preset => preset.Number).ToArray();
+        if (occupied.Length == 0)
+        {
+            Announce($"Urządzenie {device.DisplayName} nie ma gotowego presetu do przypisania");
+            RestoreWiiMFocus();
+            return;
+        }
+        var currentPreset = WiiMPresetStateResolver.ResolveCurrentPreset(
+            snapshot,
+            _lastActivatedWiiMPresets.GetValueOrDefault(device.Id, device.LastActivatedPresetNumber));
+        var selectDialog = new WiiMDevicePresetsWindow(
+            device.DisplayName,
+            snapshot.Presets,
+            selectForShortcut: true,
+            shortcutSlotsByNativePreset: WiiMShortcutSlotsByNativePreset(device, snapshot),
+            initialPresetNumber: currentPreset)
+        {
+            Owner = this
+        };
+        if (selectDialog.ShowDialog() != true
+            || selectDialog.SelectedPresetNumber is not { } presetNumber)
+        {
+            RestoreWiiMFocus();
+            return;
+        }
+        AssignWiiMPresetShortcut(device, snapshot, presetNumber);
+    }
+
+    private void AssignWiiMPresetShortcut(
+        WiiMDeviceSettings device,
+        WiiMDeviceSnapshot snapshot,
+        int nativePresetNumber)
+    {
+        var nativePreset = snapshot.Presets.FirstOrDefault(preset => preset.Number == nativePresetNumber);
+        if (nativePreset is null)
+        {
+            Announce($"Preset {RadioPresetSlots.Label(nativePresetNumber)} urządzenia jest pusty");
+            RestoreWiiMFocus();
+            return;
+        }
+        var entries = WiiMShortcutPresetEntries(device, snapshot);
+        var choices = WiiMShortcutPresetChoices(device, snapshot);
+        var targetId = WiiMNativePresetTargetId(nativePresetNumber);
+        var existingTargetSlot = entries.FirstOrDefault(entry =>
+            string.Equals(entry.TargetId, targetId, StringComparison.Ordinal))?.Slot;
+        var firstFreeSlot = choices.FirstOrDefault(choice => choice.StationId is null)?.Slot;
+        var initialSlot = existingTargetSlot ?? firstFreeSlot ?? 1;
+        var dialog = new RadioPresetAssignmentWindow(
+            $"preset {nativePresetNumber}, {nativePreset.Name}",
+            targetId,
+            choices,
+            firstFreeSlot,
+            initialSlot,
+            $"WiiM, {device.DisplayName}",
+            shortcutOnly: true)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreWiiMFocus();
+            return;
+        }
+
+        var selectedIndex = entries.FindIndex(entry => entry.Slot == dialog.SelectedSlot);
+        var shortcutLabel = RadioPresetSlots.SpokenShortcutLabel(dialog.SelectedSlot);
+        if (dialog.SelectedAction == RadioPresetAssignmentAction.Remove)
+        {
+            if (selectedIndex >= 0) entries.RemoveAt(selectedIndex);
+            QueueStateSave(announceFailure: true);
+            Announce($"Usunięto przypisanie Ctrl+Shift+{shortcutLabel}. Preset urządzenia pozostał bez zmian");
+            RestoreWiiMFocus();
+            return;
+        }
+
+        entries.RemoveAll(entry => string.Equals(entry.TargetId, targetId, StringComparison.Ordinal));
+        selectedIndex = entries.FindIndex(entry => entry.Slot == dialog.SelectedSlot);
+        var mapped = new SessionPresetEntry
+        {
+            Slot = dialog.SelectedSlot,
+            TargetId = targetId,
+            TargetKind = "wiimNativePreset",
+            TargetTitle = nativePreset.Name,
+            TargetLocation = nativePreset.Uri
+        };
+        if (selectedIndex >= 0) entries[selectedIndex] = mapped;
+        else entries.Add(mapped);
+        entries.Sort((left, right) => left.Slot.CompareTo(right.Slot));
+        QueueStateSave(announceFailure: true);
+        Announce($"Ctrl+Shift+{shortcutLabel} uruchamia preset {nativePresetNumber}, {nativePreset.Name}. Ustawienia urządzenia nie zostały zmienione");
+        RestoreWiiMFocus();
+    }
+
+    private List<SessionPresetEntry> WiiMShortcutPresetEntries(
+        WiiMDeviceSettings device,
+        WiiMDeviceSnapshot snapshot)
+    {
+        var key = WiiMShortcutPresetStoreKey(device);
+        if (!_state.SessionPresets.EntriesBySession.TryGetValue(key, out var entries))
+        {
+            entries = snapshot.Presets
+                .Where(preset => preset.Number is >= 1 and <= RadioPresetSlots.Count)
+                .Select(preset => new SessionPresetEntry
+                {
+                    Slot = preset.Number,
+                    TargetId = WiiMNativePresetTargetId(preset.Number),
+                    TargetKind = "wiimNativePreset",
+                    TargetTitle = preset.Name,
+                    TargetLocation = preset.Uri
+                })
+                .OrderBy(entry => entry.Slot)
+                .ToList();
+            _state.SessionPresets.EntriesBySession[key] = entries;
+            QueueStateSave();
+        }
+        foreach (var entry in entries)
+        {
+            if (!TryParseWiiMNativePresetTarget(entry, out var number)) continue;
+            var current = snapshot.Presets.FirstOrDefault(preset => preset.Number == number);
+            if (current is null) continue;
+            entry.TargetTitle = current.Name;
+            entry.TargetLocation = current.Uri;
+        }
+        return entries;
+    }
+
+    private IReadOnlyList<RadioPresetChoice> WiiMShortcutPresetChoices(
+        WiiMDeviceSettings device,
+        WiiMDeviceSnapshot snapshot)
+    {
+        var entries = WiiMShortcutPresetEntries(device, snapshot)
+            .Where(entry => entry.Slot is >= 1 and <= RadioPresetSlots.Count)
+            .GroupBy(entry => entry.Slot)
+            .ToDictionary(group => group.Key, group => group.First());
+        return Enumerable.Range(1, RadioPresetSlots.Count)
+            .Select(slot =>
+            {
+                var entry = entries.GetValueOrDefault(slot);
+                if (entry is null)
+                {
+                    return new RadioPresetChoice(
+                        slot,
+                        RadioPresetSlots.Label(slot),
+                        RadioPresetSlots.SpokenShortcutLabel(slot),
+                        null,
+                        null,
+                        null);
+                }
+                var available = TryParseWiiMNativePresetTarget(entry, out var number)
+                    ? snapshot.Presets.FirstOrDefault(preset => preset.Number == number)
+                    : null;
+                var title = available is null
+                    ? $"{entry.TargetTitle}, preset urządzenia niedostępny"
+                    : $"preset {available.Number}, {available.Name}";
+                return new RadioPresetChoice(
+                    slot,
+                    RadioPresetSlots.Label(slot),
+                    RadioPresetSlots.SpokenShortcutLabel(slot),
+                    entry.TargetId,
+                    title,
+                    available?.Uri ?? entry.TargetLocation);
+            })
+            .ToArray();
+    }
+
+    private IReadOnlyDictionary<int, int> WiiMShortcutSlotsByNativePreset(
+        WiiMDeviceSettings device,
+        WiiMDeviceSnapshot snapshot) =>
+        WiiMShortcutPresetEntries(device, snapshot)
+            .Select(entry => new
+            {
+                Entry = entry,
+                Number = TryParseWiiMNativePresetTarget(entry, out var number) ? number : 0
+            })
+            .Where(item => item.Number is >= 1 and <= RadioPresetSlots.Count)
+            .GroupBy(item => item.Number)
+            .ToDictionary(group => group.Key, group => group.First().Entry.Slot);
+
+    private static string WiiMShortcutPresetStoreKey(WiiMDeviceSettings device) =>
+        $"wiim-device:{device.Id}";
+
+    private static string WiiMNativePresetTargetId(int number) => $"native-preset:{number}";
+
+    private static bool TryParseWiiMNativePresetTarget(SessionPresetEntry entry, out int number)
+    {
+        const string prefix = "native-preset:";
+        number = 0;
+        return string.Equals(entry.TargetKind, "wiimNativePreset", StringComparison.OrdinalIgnoreCase)
+            && entry.TargetId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(entry.TargetId.AsSpan(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out number)
+            && number is >= 1 and <= RadioPresetSlots.Count;
+    }
+
+    private async Task ActivateWiiMNativePresetAsync(int number, bool resolveShortcutMapping = false)
     {
         var item = ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
         if (item is null || !TryGetWiiMDevice(item.Id, out var device))
@@ -13954,11 +14201,31 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             await _wiiMDeviceOperationGate.WaitAsync(_wiiMCancellation.Token);
             gateEntered = true;
             var snapshot = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
+            var shortcutSlot = resolveShortcutMapping ? number : 0;
+            if (resolveShortcutMapping)
+            {
+                var mapping = WiiMShortcutPresetEntries(device, snapshot)
+                    .FirstOrDefault(entry => entry.Slot == shortcutSlot);
+                if (mapping is null)
+                {
+                    Announce($"Skrót Ctrl+Shift+{RadioPresetSlots.SpokenShortcutLabel(shortcutSlot)} jest pusty. Ctrl+Alt+Shift+P przypisuje gotowy preset WiiM");
+                    RestoreWiiMFocus();
+                    return;
+                }
+                if (!TryParseWiiMNativePresetTarget(mapping, out number))
+                {
+                    Announce($"Skrót Ctrl+Shift+{RadioPresetSlots.SpokenShortcutLabel(shortcutSlot)} ma nieprawidłowe przypisanie. Przypisz go ponownie");
+                    RestoreWiiMFocus();
+                    return;
+                }
+            }
             var preset = snapshot.Presets.FirstOrDefault(candidate => candidate.Number == number);
             if (preset is null)
             {
                 ApplyWiiMSnapshot(device, snapshot);
-                Announce($"Preset {RadioPresetSlots.Label(number)} jest pusty");
+                Announce(resolveShortcutMapping
+                    ? $"Skrót Ctrl+Shift+{RadioPresetSlots.SpokenShortcutLabel(shortcutSlot)} wskazuje preset {RadioPresetSlots.Label(number)}, który nie jest już dostępny w urządzeniu"
+                    : $"Preset {RadioPresetSlots.Label(number)} jest pusty");
                 RestoreWiiMFocus();
                 return;
             }
@@ -13967,7 +14234,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             await Task.Delay(180, _wiiMCancellation.Token);
             var refreshed = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
             ApplyWiiMSnapshot(device, refreshed);
-            _playerFocusContextPrefix = $"Uruchomiono preset {RadioPresetSlots.Label(number)}, {preset.Name}";
+            _playerFocusContextPrefix = resolveShortcutMapping
+                ? $"Ctrl+Shift+{RadioPresetSlots.SpokenShortcutLabel(shortcutSlot)}, preset {RadioPresetSlots.Label(number)}, {preset.Name}"
+                : $"Uruchomiono preset {RadioPresetSlots.Label(number)}, {preset.Name}";
             ShowPlayerView();
         }
         catch (OperationCanceledException) when (_wiiMCancellation.IsCancellationRequested)
@@ -17451,7 +17720,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             FavoriteMenuItem.Visibility = Visibility.Collapsed;
             LibraryMenuItem.Visibility = Visibility.Collapsed;
             PlaylistMembershipMenuItem.Visibility = Visibility.Collapsed;
-            RadioPresetMembershipMenuItem.Visibility = Visibility.Collapsed;
+            RadioPresetMembershipMenuItem.Visibility = Visibility.Visible;
+            SetContextMenuItemPresentation(
+                RadioPresetMembershipMenuItem,
+                "Przypisz skrót AMC do gotowego presetu WiiM",
+                "Ctrl+Alt+Shift+P");
             ItemPlaybackOptionsMenuItem.Visibility = Visibility.Collapsed;
             RemoveMenuItem.Visibility = Visibility.Collapsed;
         }
@@ -17532,7 +17805,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             PlayerFavoriteMenuItem.Visibility = Visibility.Collapsed;
             PlayerLibraryMenuItem.Visibility = Visibility.Collapsed;
             PlayerPlaylistMembershipMenuItem.Visibility = Visibility.Collapsed;
-            PlayerRadioPresetMembershipMenuItem.Visibility = Visibility.Collapsed;
+            PlayerRadioPresetMembershipMenuItem.Visibility = Visibility.Visible;
+            SetContextMenuItemPresentation(
+                PlayerRadioPresetMembershipMenuItem,
+                "Przypisz skrót AMC do gotowego presetu WiiM",
+                "Ctrl+Alt+Shift+P");
             PlayerPodcastDescriptionMenuItem.Visibility = Visibility.Collapsed;
             PlayerCurrentBroadcastInformationMenuItem.Visibility = Visibility.Visible;
             PlayerGoToPodcastMenuItem.Visibility = Visibility.Collapsed;

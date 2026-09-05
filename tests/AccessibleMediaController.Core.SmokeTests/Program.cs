@@ -1521,7 +1521,7 @@ static void TestCommandCatalog()
     Equal("Rozpocznij nową część ręcznego nagrania radia", CommandCatalog.GetDisplayName(CommandIds.SplitRadioRecording));
     Equal("Zatrzymaj wszystkie trwające nagrania", CommandCatalog.GetDisplayName(CommandIds.StopAllRadioRecordings));
     Equal("Pokaż presety aktywnej sesji", CommandCatalog.GetDisplayName(CommandIds.ViewRadioPresets));
-    Equal("Utwórz lub przypisz preset aktywnej sesji", CommandCatalog.GetDisplayName(CommandIds.AssignRadioPreset));
+    Equal("Utwórz preset lub przypisz skrót aktywnej sesji", CommandCatalog.GetDisplayName(CommandIds.AssignRadioPreset));
     Equal("Biblioteka lokalna: pokaż foldery", CommandCatalog.GetDisplayName(CommandIds.ViewFolders));
     Equal("Biblioteka lokalna: pokaż wszystkie pliki", CommandCatalog.GetDisplayName(CommandIds.ViewAllLocalFiles));
     Equal("Biblioteka lokalna: pokaż kolejność własną", CommandCatalog.GetDisplayName(CommandIds.ViewCustomLocalOrder));
@@ -1590,6 +1590,17 @@ static void TestRadioPresetPersistence()
                 TargetLocation = "https://example.test/existing"
             }
         ];
+        state.SessionPresets.EntriesBySession["wiim-device:wiim-salon"] =
+        [
+            new SessionPresetEntry
+            {
+                Slot = 2,
+                TargetId = "native-preset:12",
+                TargetKind = "wiimNativePreset",
+                TargetTitle = "Radio Rzeszów",
+                TargetLocation = "https://example.test/rzeszow"
+            }
+        ];
 
         store.Save(state);
         var loaded = store.LoadOrCreate();
@@ -1604,6 +1615,11 @@ static void TestRadioPresetPersistence()
         Equal("https://example.test/a", presets[0].TargetLocation);
         Equal(12, presets[1].Slot);
         Equal("existing-station", presets[1].TargetId);
+        var wiiMShortcut = loaded.SessionPresets.EntriesBySession["wiim-device:wiim-salon"].Single();
+        Equal(2, wiiMShortcut.Slot);
+        Equal("native-preset:12", wiiMShortcut.TargetId);
+        Equal("wiimNativePreset", wiiMShortcut.TargetKind);
+        Equal("Radio Rzeszów", wiiMShortcut.TargetTitle);
         Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
     }
     finally
@@ -4413,7 +4429,7 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+P", entries.Single(entry => entry.CommandId == CommandIds.ManagePlaylists).LocalShortcut);
     Equal("Ctrl+L", entries.Single(entry => entry.CommandId == CommandIds.ViewLibrary).LocalShortcut);
     Equal("Ctrl+Alt+P (Pliki lokalne lub Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ViewRadioPresets).LocalShortcut);
-    Equal("Ctrl+Alt+Shift+P (Pliki lokalne lub Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.AssignRadioPreset).LocalShortcut);
+    Equal("Ctrl+Alt+Shift+P (sesja obsługująca presety)", entries.Single(entry => entry.CommandId == CommandIds.AssignRadioPreset).LocalShortcut);
     Equal("T (odtwarzacz radia lub widok Nagrywane)", entries.Single(entry => entry.CommandId == CommandIds.SplitRadioRecording).LocalShortcut);
     Equal("Ctrl+Alt+Shift+R", entries.Single(entry => entry.CommandId == CommandIds.StopAllRadioRecordings).LocalShortcut);
     Equal("Ctrl+Shift+H (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ManageRadioSchedules).LocalShortcut);
