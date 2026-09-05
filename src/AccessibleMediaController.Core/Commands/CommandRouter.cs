@@ -35,6 +35,8 @@ public interface IApplicationActions
     void ImportRadioPlaylist();
     void RefreshLocalLibrary();
     void ShowLocalSourceManager();
+    void ShowWiiMDeviceManager();
+    void RefreshWiiMDevices();
     void RenameLibraryItem();
     void RenameLocalFile();
     void MoveLocalLibrarySelection(int direction);
@@ -120,6 +122,12 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.ManageLocalSources:
                 application.ShowLocalSourceManager();
+                return new(true);
+            case CommandIds.ManageWiiMDevices:
+                application.ShowWiiMDeviceManager();
+                return new(true);
+            case CommandIds.RefreshWiiMDevices:
+                application.RefreshWiiMDevices();
                 return new(true);
             case CommandIds.RenameLibraryItem:
                 application.RenameLibraryItem();

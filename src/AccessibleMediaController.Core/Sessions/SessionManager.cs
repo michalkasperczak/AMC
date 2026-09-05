@@ -89,7 +89,7 @@ public sealed class SessionManager
         string id,
         string displayName,
         IEnumerable<MediaItem> items,
-        IMediaOutput output,
+        IMediaOutput? output,
         int preferredSlot,
         Func<MediaItem, bool>? rememberPosition = null,
         Func<MediaItem, double?>? playbackRateOverride = null,
@@ -223,7 +223,7 @@ public sealed class SessionManager
         [
             new DemoMediaSession("tidal", "TIDAL", Items("tidal")),
             new DemoMediaSession("appleMusic", "Apple Music", Items("apple")),
-            new DemoMediaSession("wiim", "WiiM", Items("wiim"))
+            new DemoMediaSession("wiim", "WiiM", [])
         ];
     }
 }

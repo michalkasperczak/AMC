@@ -1624,6 +1624,34 @@ uses modifiers that are physically down rather than a cached hook state, so a
 missed Alt key-up after focus movement cannot turn a later plain digit into a
 view command or a session change.
 
+### 7.23. First real WiiM adapter
+
+Starting with `alpha.267`, the WiiM session no longer contains a mock media
+catalogue. It represents real devices on the local network. `Ctrl+F5` opens an
+accessible device manager and `F5` refreshes saved devices. The manager can
+discover UPnP MediaRenderers through local SSDP or verify a private IP address
+entered from WiiM Home. Discovery runs only on request; startup refreshes only
+devices the user has already saved.
+
+This first milestone is read-only and uses the documented WiiM HTTP API. It
+reads device identity and firmware, playback state and source, volume and mute,
+track metadata, signal parameters, and occupied hardware preset slots. Enter
+refreshes and announces one device, while `Alt+Enter` opens complete details.
+`Ctrl+C` copies its name and `Ctrl+Shift+C` copies its IP address. All bound
+controls expose explicit user-facing UI Automation labels.
+
+The client accepts only private or link-local IP addresses, never follows
+redirects, bounds both response size and time, and does not store music-service
+credentials. Official references: https://www.wiimhome.com/support and
+https://www.wiimhome.com/pdf/HTTP%20API%20for%20WiiM%20Products.pdf.
+
+Until this read-only path is verified against a real device, irrelevant
+Library, Favorites, Queue, Playlist, and Bookmark actions remain unavailable
+inside the WiiM session. Transport, volume, mute, input selection and hardware
+presets are the next milestone, followed by sending stream URLs. WiiM hardware
+presets remain distinct from AMC presets, and TIDAL or Apple Music catalogues
+still require their own service adapters.
+
 ### 7.21. Shared collection-state undo
 
 Starting with `alpha.243`, the Library, Favorites, and Queue change history

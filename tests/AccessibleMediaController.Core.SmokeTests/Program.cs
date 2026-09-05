@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using System.Xml;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Devices.WiiM;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
@@ -23,6 +24,7 @@ var tests = new (string Name, Action Test)[]
     ("Szablony nazw zaplanowanych nagrań", TestRadioRecordingFileNameTemplate),
     ("Trwałe ustawienia i historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
+    ("Bezpieczny klient i parser urządzeń WiiM", TestWiiMApiParsing),
     ("Bezpieczne parsowanie kanałów podcastów", TestPodcastFeedParsing),
     ("Rozdziały dostawcy podcastu", TestPodcastProviderChapters),
     ("Zwięzłe autorstwo podcastów", TestPodcastMetadataPresentation),
@@ -99,6 +101,80 @@ var tests = new (string Name, Action Test)[]
     ("Niedestrukcyjne zaznaczanie fragmentu audio", TestAudioClipSelection),
     ("Trzy rodzaje eksportu", TestExports)
 };
+
+static void TestWiiMApiParsing()
+{
+    True(WiiMAddressPolicy.TryNormalize("192.168.1.25", out var address),
+        "Prywatny adres IPv4 powinien być dozwolony dla WiiM.");
+    Equal("192.168.1.25", address);
+    True(WiiMAddressPolicy.TryNormalize("https://10.0.0.8/httpapi.asp", out address),
+        "Adres urządzenia podany jako HTTPS powinien zostać znormalizowany.");
+    Equal("10.0.0.8", address);
+    True(!WiiMAddressPolicy.TryNormalize("8.8.8.8", out _),
+        "Klient WiiM nie może łączyć się z publicznym adresem IP.");
+    True(!WiiMAddressPolicy.TryNormalize("127.0.0.1", out _),
+        "Klient WiiM nie może łączyć się z adresem zwrotnym.");
+
+    const string statusJson = """
+        {"DeviceName":"Salon","uuid":"wiim-1","project":"WiiM_Pro","firmware":"4.8.7000","preset_key":"12"}
+        """;
+    var device = WiiMApiParser.ParseDeviceInformation(statusJson, "192.168.1.25");
+    Equal("Salon", device.Name);
+    Equal("wiim-1", device.Id);
+    Equal("WiiM Pro", device.Model);
+    Equal(12, device.PresetButtonCount);
+
+    var playback = WiiMApiParser.ParsePlaybackInformation(
+        "{\"status\":\"play\",\"mode\":\"32\",\"curpos\":\"184919\",\"totlen\":\"300000\",\"vol\":\"39\",\"mute\":\"0\"}");
+    Equal("odtwarzanie", playback.State);
+    Equal("TIDAL Connect", playback.Source);
+    Equal(39, playback.Volume);
+    Equal(TimeSpan.FromMilliseconds(184919), playback.Position);
+
+    var metadata = WiiMApiParser.ParseTrackInformation(
+        "{\"metaData\":{\"title\":\"Utwór\",\"artist\":\"Wykonawca\",\"album\":\"Album\",\"sampleRate \":\"48000\",\"bitDepth\":\"24\"}}");
+    Equal("Utwór", metadata.Title);
+    Equal(48000, metadata.SampleRateHz);
+    Equal(24, metadata.BitDepth);
+
+    var presets = WiiMApiParser.ParsePresets(
+        "{\"preset_list\":[{\"number\":\"2\",\"name\":\"Radio\",\"source\":\"TuneIn\",\"url\":\"https://example.test/radio\"},{\"number\":\"13\",\"name\":\"Poza zakresem\"}]}");
+    Equal(1, presets.Count);
+    Equal(2, presets[0].Number);
+    Equal("Radio", presets[0].Name);
+
+    const string ssdp = "HTTP/1.1 200 OK\r\nLOCATION: http://192.168.1.25:49152/description.xml\r\nST: urn:schemas-upnp-org:device:MediaRenderer:1\r\n\r\n";
+    True(WiiMDiscoveryService.TryParseResponse(ssdp, out address),
+        "Odpowiedź SSDP urządzenia w sieci lokalnej powinna zostać rozpoznana.");
+    Equal("192.168.1.25", address);
+
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-wiim-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.WiiM.Devices.Add(new WiiMDeviceSettings
+        {
+            Id = "wiim-1",
+            Address = "192.168.1.25",
+            DisplayName = "Salon",
+            Model = "WiiM Pro",
+            Firmware = "4.8.7000"
+        });
+        state.WiiM.SelectedDeviceId = "wiim-1";
+        store.Save(state);
+        var loaded = store.LoadOrCreate();
+        Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
+        Equal(1, loaded.WiiM.Devices.Count);
+        Equal("Salon", loaded.WiiM.Devices[0].DisplayName);
+        Equal("wiim-1", loaded.WiiM.SelectedDeviceId);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+}
 
 static void TestPodcastFeedParsing()
 {
@@ -3381,8 +3457,10 @@ static void TestCatalogSearch()
     Equal("TIDAL", currentResults[0].Session.DisplayName);
 
     var globalResults = MediaCatalogSearch.Search(manager.Sessions, "zielony horyzont");
-    Equal(3, globalResults.Count);
+    Equal(2, globalResults.Count);
     True(globalResults.Any(result => result.Session.DisplayName == "Apple Music"), "Wyniki globalne powinny zawierać Apple Music.");
+    True(globalResults.All(result => result.Session.DisplayName != "WiiM"),
+        "Sesja WiiM nie może zawierać fikcyjnego katalogu multimediów.");
     Equal(0, MediaCatalogSearch.Search(manager.Sessions, "nieistniejący wynik").Count);
     Equal(0, MediaCatalogSearch.Search(manager.Sessions, "   ").Count);
 }
@@ -5306,6 +5384,8 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ImportRadioPlaylist() { }
     public void RefreshLocalLibrary() => LocalLibraryRefreshed = true;
     public void ShowLocalSourceManager() => LocalSourceManagerShown = true;
+    public void ShowWiiMDeviceManager() { }
+    public void RefreshWiiMDevices() { }
     public void RenameLibraryItem() => LibraryItemRenameShown = true;
     public void RenameLocalFile() => LocalFileRenameShown = true;
     public void MoveLocalLibrarySelection(int direction) => LocalLibraryMoveDirection = direction;

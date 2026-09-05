@@ -105,6 +105,8 @@ public static class CommandCatalog
             CommandIds.ViewCustomLocalOrder => "Biblioteka lokalna: pokaż kolejność własną",
             CommandIds.RefreshLocalLibrary => "Odśwież foldery Biblioteki",
             CommandIds.ManageLocalSources => "Foldery Biblioteki",
+            CommandIds.ManageWiiMDevices => "Urządzenia WiiM",
+            CommandIds.RefreshWiiMDevices => "Odśwież urządzenia WiiM",
             CommandIds.RenameLibraryItem => "Zmień nazwę w Bibliotece",
             CommandIds.RenameLocalFile => "Zmień nazwę pliku na dysku",
             CommandIds.MoveLocalLibraryItemUp => "Przenieś wyżej na bieżącej liście",

@@ -37,6 +37,11 @@
                           automation:AutomationProperties.Name="Foldery Biblioteki, Ctrl+F5"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
                           Click="ManageLocalSources_Click" />
+                <MenuItem x:Name="ManageWiiMDevicesMenuItem" Header="_Urządzenia WiiM…" InputGestureText="Ctrl+F5"
+                          automation:AutomationProperties.Name="Urządzenia WiiM, Ctrl+F5"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
+                          Visibility="Collapsed"
+                          Click="ManageWiiMDevices_Click" />
                 <MenuItem x:Name="ImportRadioPlaylistMenuItem" Header="_Importuj stacje z playlisty…" InputGestureText="Ctrl+O"
                           automation:AutomationProperties.Name="Importuj stacje radiowe z playlisty, Ctrl+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+O"
@@ -312,7 +317,7 @@
                           Click="ItemPlaybackOptions_Click" />
             </MenuItem>
             <MenuItem Header="_Widok">
-                <MenuItem Header="_Teraz odtwarzane" InputGestureText="F6"
+                <MenuItem x:Name="NowPlayingViewMenuItem" Header="_Teraz odtwarzane" InputGestureText="F6"
                           automation:AutomationProperties.AcceleratorKey="F6" Click="NowPlayingView_Click" />
                 <MenuItem x:Name="FavoritesViewMenuItem" Header="_Ulubione" InputGestureText="Ctrl+U" Click="FavoritesView_Click" />
                 <MenuItem x:Name="PlaylistsViewMenuItem" Header="_Playlisty" InputGestureText="Ctrl+P" Click="PlaylistsView_Click" />
@@ -411,8 +416,8 @@
 
         <StackPanel DockPanel.Dock="Bottom">
             <WrapPanel x:Name="BrowserActionPanel" Margin="0,8,0,8">
-                <Button MinWidth="175" Margin="0,0,8,0" Content="Odtwórz lub _wstrzymaj" Click="ToggleSelectedPlayback_Click" />
-                <Button MinWidth="175" Margin="0,0,8,0" Content="Zmień stan _ulubionych" Click="Favorite_Click" />
+                <Button x:Name="BrowserPlaybackButton" MinWidth="175" Margin="0,0,8,0" Content="Odtwórz lub _wstrzymaj" Click="ToggleSelectedPlayback_Click" />
+                <Button x:Name="BrowserFavoriteButton" MinWidth="175" Margin="0,0,8,0" Content="Zmień stan _ulubionych" Click="Favorite_Click" />
                 <Button x:Name="BrowserPlaylistsButton" MinWidth="145" Margin="0,0,8,0" Content="Zmień _playlisty…" Click="Playlists_Click" />
                 <Button MinWidth="120" Content="U_stawienia…" Click="Settings_Click" />
             </WrapPanel>

@@ -216,6 +216,8 @@ public static class CommandPaletteSearch
             CommandIds.ViewCustomLocalOrder => "Alt+3 (lista lokalna)",
             CommandIds.RefreshLocalLibrary => "F5 (lista lokalna)",
             CommandIds.ManageLocalSources => "Ctrl+F5",
+            CommandIds.ManageWiiMDevices => "Ctrl+F5 (WiiM)",
+            CommandIds.RefreshWiiMDevices => "F5 (WiiM)",
             CommandIds.RenameLibraryItem => "F2 (Biblioteka lokalna, Radio lub Podcasty)",
             CommandIds.RenameLocalFile => "Shift+F2 (lista lokalna)",
             CommandIds.MoveLocalLibraryItemUp => "Alt+Up (kolejność własna lub Ulubione)",

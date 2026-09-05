@@ -2141,3 +2141,36 @@ długiego `AutomationProperties.HelpText` do każdej listy. Taki tekst bywa
 ponownie odczytywany przez NVDA i może przenosić jego nawigator do opisów albo
 paska stanu. Szczegółowa instrukcja zaznaczania pozostaje w pomocy klawiszy i
 dokumentacji, a zwykła nawigacja ma podawać wyłącznie bieżący element.
+
+### 7.23. Pierwszy rzeczywisty adapter WiiM
+
+Od `alpha.267` sesja WiiM nie zawiera już fikcyjnych albumów demonstracyjnych.
+Przechowuje rzeczywiste urządzenia dostępne w sieci lokalnej. `Ctrl+F5`
+otwiera dostępny menedżer urządzeń, a `F5` odświeża stan zapisanych urządzeń.
+Menedżer może wykryć odtwarzacze przez lokalne UPnP/SSDP, a w razie blokady
+wykrywania przez router lub zaporę pozwala podać adres IP widoczny w WiiM Home.
+Wykrywanie następuje wyłącznie na żądanie; przy uruchomieniu AMC odświeża
+jedynie urządzenia wcześniej zapisane przez użytkownika.
+
+Pierwszy etap korzysta z udokumentowanego interfejsu HTTP API WiiM i jest
+wyłącznie odczytowy. Zbiera nazwę, model, wersję oprogramowania, stan
+odtwarzania, źródło, głośność, wyciszenie, tytuł, wykonawcę, album, parametry
+sygnału oraz listę zajętych presetów urządzenia. Enter na urządzeniu odświeża
+i oznajmia jego stan, a `Alt+Enter` pokazuje pełne informacje. `Ctrl+C` kopiuje
+nazwę, a `Ctrl+Shift+C` adres IP. Lista, pola i komunikaty wystawiają do UI
+Automation wyłącznie etykiety użytkowe, nigdy reprezentacje obiektów lub
+identyfikatory klas.
+
+Klient akceptuje wyłącznie prywatny albo lokalny adres IP, nie podąża za
+przekierowaniami, ogranicza czas i rozmiar odpowiedzi oraz używa osobnego
+połączenia przeznaczonego tylko dla WiiM. Nie przechowuje hasła ani danych
+logowania do TIDAL, Spotify lub innych usług. Dokumentacja producenta:
+https://www.wiimhome.com/support oraz
+https://www.wiimhome.com/pdf/HTTP%20API%20for%20WiiM%20Products.pdf.
+
+Do czasu sprawdzenia tego etapu na prawdziwym urządzeniu sesja ukrywa
+nieadekwatne polecenia Biblioteki, Ulubionych, Kolejki, Playlist i Zakładek.
+Następny etap obejmie transport, głośność, wyciszenie, wybór wejścia i presety
+sprzętowe. Dopiero później dochodzi wysyłanie adresów strumieni do WiiM. Presety
+sprzętowe WiiM pozostają odrębne od uniwersalnych presetów AMC, a katalogi
+TIDAL i Apple Music nadal wymagają własnych adapterów usług.

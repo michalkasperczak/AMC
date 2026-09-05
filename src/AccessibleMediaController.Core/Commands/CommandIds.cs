@@ -72,6 +72,8 @@ public static class CommandIds
     public const string ViewCustomLocalOrder = "view.local.customOrder";
     public const string RefreshLocalLibrary = "local.library.refresh";
     public const string ManageLocalSources = "local.library.manageSources";
+    public const string ManageWiiMDevices = "wiim.devices.manage";
+    public const string RefreshWiiMDevices = "wiim.devices.refresh";
     public const string RenameLibraryItem = "local.library.renameItem";
     public const string RenameLocalFile = "local.file.rename";
     public const string MoveLocalLibraryItemUp = "local.library.moveItemUp";

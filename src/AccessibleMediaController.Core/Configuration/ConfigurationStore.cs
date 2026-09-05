@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AccessibleMediaController.Core.Commands;
+using AccessibleMediaController.Core.Devices.WiiM;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
@@ -13,7 +14,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 47;
+    public const int CurrentSchemaVersion = 48;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -153,6 +154,7 @@ public sealed class ConfigurationStore
         NormalizePlaybackVolumes(state);
         NormalizeRadio(state);
         NormalizePodcasts(state);
+        NormalizeWiiM(state);
         ValidateState(state);
         return state;
     }
@@ -176,6 +178,7 @@ public sealed class ConfigurationStore
             NormalizePlaybackVolumes(state);
             NormalizeRadio(state);
             NormalizePodcasts(state);
+            NormalizeWiiM(state);
             ValidateState(state);
             try
             {
@@ -259,6 +262,7 @@ public sealed class ConfigurationStore
             PlaybackVolumes = state.PlaybackVolumes,
             LocalMedia = state.LocalMedia,
             Radio = state.Radio,
+            WiiM = state.WiiM,
             Podcasts = new PodcastSettings
             {
                 DownloadsFolder = state.Podcasts.DownloadsFolder,
@@ -461,10 +465,44 @@ public sealed class ConfigurationStore
         NormalizePlaybackVolumes(state);
         NormalizeRadio(state);
         NormalizePodcasts(state);
+        NormalizeWiiM(state);
         MigrateLegacyPodcastInbox(state, sourceSchemaVersion);
         MigrateLegacyRadioPresets(state, sourceSchemaVersion);
         NormalizeSessionPresets(state);
         state.SchemaVersion = CurrentSchemaVersion;
+    }
+
+    private static void NormalizeWiiM(PersistedState state)
+    {
+        state.WiiM ??= new WiiMSettings();
+        state.WiiM.Devices = (state.WiiM.Devices ?? [])
+            .Where(device => WiiMAddressPolicy.TryNormalize(device.Address, out _))
+            .Select(device =>
+            {
+                WiiMAddressPolicy.TryNormalize(device.Address, out var normalizedAddress);
+                device.Address = normalizedAddress;
+                device.Id = string.IsNullOrWhiteSpace(device.Id) ? normalizedAddress : device.Id.Trim();
+                device.DisplayName = string.IsNullOrWhiteSpace(device.DisplayName)
+                    ? $"WiiM {normalizedAddress}"
+                    : device.DisplayName.Trim();
+                device.Model = device.Model?.Trim() ?? string.Empty;
+                device.Firmware = device.Firmware?.Trim() ?? string.Empty;
+                device.LastSeenUtcTicks = device.LastSeenUtcTicks > 0
+                    && device.LastSeenUtcTicks <= DateTime.MaxValue.Ticks
+                        ? device.LastSeenUtcTicks
+                        : 0;
+                return device;
+            })
+            .DistinctBy(device => device.Id, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (string.IsNullOrWhiteSpace(state.WiiM.SelectedDeviceId)
+            || state.WiiM.Devices.All(device => !string.Equals(
+                device.Id,
+                state.WiiM.SelectedDeviceId,
+                StringComparison.OrdinalIgnoreCase)))
+        {
+            state.WiiM.SelectedDeviceId = state.WiiM.Devices.FirstOrDefault()?.Id;
+        }
     }
 
     private static void MigrateLegacyPodcastInbox(PersistedState state, int sourceSchemaVersion)

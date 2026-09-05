@@ -229,7 +229,7 @@ public sealed class MessageSettings
 
 public sealed class PersistedState
 {
-    public int SchemaVersion { get; set; } = 47;
+    public int SchemaVersion { get; set; } = 48;
     public AppSettings Settings { get; set; } = new();
     public SearchHistorySettings SearchHistory { get; set; } = new();
     public PlaybackHistorySettings PlaybackHistory { get; set; } = new();
@@ -242,7 +242,24 @@ public sealed class PersistedState
     public LocalMediaSettings LocalMedia { get; set; } = new();
     public RadioSettings Radio { get; set; } = new();
     public PodcastSettings Podcasts { get; set; } = new();
+    public WiiMSettings WiiM { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];
+}
+
+public sealed class WiiMSettings
+{
+    public List<WiiMDeviceSettings> Devices { get; set; } = [];
+    public string? SelectedDeviceId { get; set; }
+}
+
+public sealed class WiiMDeviceSettings
+{
+    public string Id { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string Model { get; set; } = string.Empty;
+    public string Firmware { get; set; } = string.Empty;
+    public long LastSeenUtcTicks { get; set; }
 }
 
 public sealed class PlaybackVolumeMemorySettings

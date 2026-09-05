@@ -1086,6 +1086,15 @@ kolejne niewybrane części i wraca do najbliższego późniejszego rozdziału z
 zestawu. Po ponownym otwarciu listy wcześniejsze wybory są nadal widoczne.
 Zmiana materiału kończy ten tymczasowy plan.
 
+## WiiM w alpha 267
+
+Sesja WiiM pokazuje teraz prawdziwe urządzenia z sieci lokalnej zamiast danych
+demonstracyjnych. `Ctrl+F5` otwiera menedżer, w którym można wykryć urządzenie
+albo podać jego lokalny adres IP. `F5` odświeża zapisane urządzenia, Enter
+odświeża urządzenie pod fokusem, a `Alt+Enter` pokazuje jego stan i metadane.
+Ten pierwszy etap jest bezpiecznie odczytowy; sterowanie odtwarzaniem,
+głośnością, wejściami i presetami sprzętowymi będzie następnym etapem.
+
 ## Urządzenie audio osobno dla sesji w alpha 204
 
 Klawisz **Shift+A**, menu **Odtwarzanie > Wybierz urządzenie audio dla bieżącej
@@ -1128,7 +1137,7 @@ udostępniony przez adapter, zamiast pozorować wybór karty dźwiękowej Window
 
 ## Zakres i ograniczenia
 
-- TIDAL, Apple Music i WiiM są obecnie sesjami demonstracyjnymi. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.
+- TIDAL i Apple Music są obecnie sesjami demonstracyjnymi. WiiM ma pierwszy rzeczywisty, odczytowy adapter urządzeń. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.
 - Publiczne strony stacji, podcastów i odcinków można otwierać w przeglądarce;
   integracje z oficjalnymi aplikacjami kontowymi pozostają etapem późniejszym.
 - Pobieranie muzyki i obsługa DRM nie są jeszcze zaimplementowane; skróty `D` i `Shift+D` tylko podają komunikaty.

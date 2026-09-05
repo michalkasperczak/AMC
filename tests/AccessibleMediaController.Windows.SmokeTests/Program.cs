@@ -10,6 +10,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Devices.WiiM;
 using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
@@ -72,6 +73,7 @@ try
     TestRadioRecognitionHistoryFilterAccessibility();
     TestPlaybackAudioSettingAccessibility();
     TestAudioOutputDeviceAccessibility();
+    TestWiiMDeviceManagerAccessibility();
     TestPodcastEpisodeFileActionKeyboardMap();
     TestAudioOutputPauseRaceGuard();
     TestPodcastNetworkSourcePolicy();
@@ -2198,6 +2200,72 @@ static void TestRecognitionSearchLinks()
     Assert(links.All(link => !link.Contains(' ')),
         "Zapytanie do katalogu nie zostało prawidłowo zakodowane.");
     Console.WriteLine("OK: łącza rozpoznania do usług i katalogów muzycznych");
+}
+
+static void TestWiiMDeviceManagerAccessibility()
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            var settings = new WiiMSettings
+            {
+                SelectedDeviceId = "wiim-salon",
+                Devices =
+                [
+                    new WiiMDeviceSettings
+                    {
+                        Id = "wiim-salon",
+                        Address = "192.168.1.25",
+                        DisplayName = "Salon",
+                        Model = "WiiM Pro",
+                        Firmware = "4.8.7000"
+                    }
+                ]
+            };
+            var snapshot = new WiiMDeviceSnapshot(
+                new WiiMDeviceInformation("192.168.1.25", "wiim-salon", "Salon", "WiiM Pro", "4.8.7000", 12),
+                new WiiMPlaybackInformation("odtwarzanie", "TIDAL Connect", 39, false, TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(4)),
+                new WiiMTrackInformation("Utwór", "Wykonawca", "Album", 48000, 24),
+                [new WiiMPresetInformation(1, "Radio", "TuneIn", "https://example.test/radio")]);
+            using var client = new WiiMDeviceClient();
+            var window = new WiiMDevicesWindow(
+                settings,
+                client,
+                new WiiMDiscoveryService(),
+                new Dictionary<string, WiiMDeviceSnapshot> { ["wiim-salon"] = snapshot });
+            try
+            {
+                var list = (ListBox)window.FindName("DevicesList");
+                Assert(list.DisplayMemberPath == "Label" && TextSearch.GetTextPath(list) == "NavigationText",
+                    "Lista WiiM nie ma jawnego tekstu dla UI Automation i nawigacji literowej.");
+                var row = list.Items.Cast<object>().Single();
+                var label = row.GetType().GetProperty("Label")?.GetValue(row)?.ToString() ?? string.Empty;
+                Assert(label.Contains("Salon", StringComparison.Ordinal)
+                       && label.Contains("TIDAL Connect", StringComparison.Ordinal)
+                       && !label.Contains('{')
+                       && !label.Contains("WiiMDevice", StringComparison.Ordinal),
+                    "Lista WiiM ujawnia techniczną reprezentację obiektu zamiast etykiety użytkowej.");
+                Assert(list.SelectedIndex == 0,
+                    "Menedżer WiiM nie wybiera zapamiętanego urządzenia przy otwarciu.");
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    if (failure is not null)
+        throw new InvalidOperationException("Test dostępności menedżera WiiM nie powiódł się.", failure);
+    Console.WriteLine("OK: dostępny menedżer urządzeń WiiM");
 }
 
 static void TestAccessiblePlaybackStatusStrip()
