@@ -1676,10 +1676,13 @@ address. `Ctrl+Shift+1–9`, `Ctrl+Shift+0`, `Ctrl+Shift+-`, and `Ctrl+Shift+=`
 activate native slots 1–12 directly.
 
 Inside the player, `Alt+Page Up` and `Alt+Page Down` activate the previous or
-next occupied preset, wrapping and skipping empty slots. This navigation is
-available only after AMC has activated a preset because the WiiM API does not
-report the current preset number. Otherwise AMC directs the user to
-`Ctrl+Alt+P` instead of guessing. `I`, `O`, `E`, `R`, `S`, and `T` select the
+next occupied preset, wrapping and skipping empty slots. Starting with
+`alpha.272`, AMC first matches the current stream URL against native preset
+URLs after restart. When the device omits that URL, AMC retains the last preset
+it activated and uses it only for device-managed network playback. Spotify
+Connect, TIDAL Connect, and external sources invalidate that certainty, so AMC
+directs the user to `Ctrl+Alt+P` instead of guessing. `I`, `O`, `E`, `R`, `S`,
+and `T` select the
 input, physical output, equalizer preset, repeat mode, shuffle state, and sleep
 timer respectively. `Shift+A` continues to select the active WiiM device. Every
 data-bound choice has an explicit UI Automation label and never exposes class,
@@ -1690,6 +1693,11 @@ document writing or overwriting them. Therefore `Ctrl+Alt+Shift+P` explains
 the limitation and directs the user to WiiM Home; AMC never reports a fake
 success. Escape returns to the device list without stopping autonomous room
 playback. Sending stream URLs remains a later adapter milestone.
+
+The capability-gated stable and experimental roadmap is recorded in
+`PROJEKT_WIIM_PL.md`. Native presets remain read/activate-only, Spotify and
+TIDAL catalogues require service adapters, and groups, the hardware queue, and
+PEQ must be probed independently for each model and firmware.
 
 ### 7.25. Distinguishing podcast media from artwork
 

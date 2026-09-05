@@ -2201,10 +2201,13 @@ nazwę i dostępny adres. `Ctrl+Shift+1–9`, `Ctrl+Shift+0`, `Ctrl+Shift+-` ora
 `Ctrl+Shift+=` uruchamiają miejsca 1–12 bez otwierania listy.
 
 W odtwarzaczu `Alt+Page Up` i `Alt+Page Down` uruchamiają poprzedni albo
-następny zajęty preset z zawijaniem i pomijaniem pustych miejsc. Ta nawigacja
-jest dostępna dopiero po uruchomieniu presetu przez AMC, ponieważ API WiiM nie
-podaje numeru aktualnego presetu. W przeciwnym razie program kieruje do listy
-`Ctrl+Alt+P`, zamiast zgadywać pozycję. Litery `I`, `O`, `E`, `R`, `S` i `T`
+następny zajęty preset z zawijaniem i pomijaniem pustych miejsc. Od `alpha.272`
+AMC po ponownym uruchomieniu najpierw próbuje dopasować adres aktualnego
+strumienia do adresu natywnego presetu. Gdy urządzenie nie zwraca adresu,
+program zachowuje ostatni preset uruchomiony przez AMC i używa go tylko w
+trybie sieciowym zarządzanym przez urządzenie. Spotify Connect, TIDAL Connect i
+inne źródła zewnętrzne kasują pewność położenia, więc AMC kieruje wówczas do
+listy `Ctrl+Alt+P`, zamiast zgadywać. Litery `I`, `O`, `E`, `R`, `S` i `T`
 otwierają odpowiednio wybór wejścia, fizycznego wyjścia, korektora, trybu
 powtarzania, przełączają losowanie i ustawiają timer uśpienia. `Shift+A`
 pozostaje wyborem aktywnego urządzenia WiiM. Listy wyboru mają jawne etykiety
@@ -2216,6 +2219,12 @@ nie dokumentuje ich zapisu ani nadpisywania. Dlatego
 AMC nie udaje powodzenia. Escape wraca z odtwarzacza do listy urządzeń, lecz
 nie zatrzymuje autonomicznego odtwarzania w pokoju. Wysyłanie adresów strumieni
 pozostaje kolejnym etapem adaptera.
+
+Szczegółowa mapa stabilnych i eksperymentalnych etapów, oparta także na
+porównaniu aktywnych bibliotek społecznościowych LinkPlay/WiiM, znajduje się w
+`PROJEKT_WIIM_PL.md`. W szczególności natywne presety nadal są tylko do odczytu
+i uruchamiania, katalogi Spotify/TIDAL wymagają własnych adapterów, a grupy,
+kolejka oraz PEQ muszą być wykrywane osobno dla danego modelu i firmware.
 
 ### 7.25. Odróżnianie nagrania podcastu od ilustracji
 

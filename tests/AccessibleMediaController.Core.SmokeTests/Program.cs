@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -143,13 +144,15 @@ static void TestWiiMApiParsing()
     Equal(12, device.PresetButtonCount);
 
     var playback = WiiMApiParser.ParsePlaybackInformation(
-        "{\"status\":\"play\",\"mode\":\"32\",\"curpos\":\"184919\",\"totlen\":\"300000\",\"vol\":\"39\",\"mute\":\"0\",\"loop\":\"2\",\"eq\":\"7\"}");
+        "{\"status\":\"play\",\"mode\":\"32\",\"curpos\":\"184919\",\"totlen\":\"300000\",\"vol\":\"39\",\"mute\":\"0\",\"loop\":\"2\",\"eq\":\"7\",\"uri\":\"https://example.test/current\"}");
     Equal("odtwarzanie", playback.State);
     Equal("TIDAL Connect", playback.Source);
     Equal(39, playback.Volume);
     Equal(TimeSpan.FromMilliseconds(184919), playback.Position);
     Equal(2, playback.LoopMode);
     Equal(7, playback.EqualizerPresetNumber);
+    Equal(32, playback.RawMode);
+    Equal("https://example.test/current", playback.ContentUri);
 
     True(WiiMApiParser.ParseEqualizerEnabled("{\"EQStat\":\"On\"}"),
         "Włączony korektor WiiM powinien zostać rozpoznany.");
@@ -170,6 +173,23 @@ static void TestWiiMApiParsing()
     Equal(2, presets[0].Number);
     Equal("Radio", presets[0].Name);
 
+    var presetSnapshot = new WiiMDeviceSnapshot(
+        device,
+        playback with { RawMode = 12, ContentUri = "https://example.test/radio" },
+        WiiMApiParser.EmptyTrack(),
+        presets);
+    Equal(2, WiiMPresetStateResolver.ResolveCurrentPreset(presetSnapshot, 0));
+    Equal(2, WiiMPresetStateResolver.ResolveCurrentPreset(
+        presetSnapshot with { Playback = presetSnapshot.Playback with { ContentUri = null } },
+        2));
+    Equal(2, WiiMPresetStateResolver.ResolveCurrentPreset(
+        presetSnapshot with { Playback = presetSnapshot.Playback with { RawMode = 20, ContentUri = null } },
+        2));
+    True(WiiMPresetStateResolver.ResolveCurrentPreset(
+            presetSnapshot with { Playback = presetSnapshot.Playback with { RawMode = 32, ContentUri = null } },
+            2) is null,
+        "Odtwarzanie przez TIDAL Connect nie może udawać ostatniego presetu WiiM.");
+
     const string ssdp = "HTTP/1.1 200 OK\r\nLOCATION: http://192.168.1.25:49152/description.xml\r\nST: urn:schemas-upnp-org:device:MediaRenderer:1\r\n\r\n";
     True(WiiMDiscoveryService.TryParseResponse(ssdp, out address),
         "Odpowiedź SSDP urządzenia w sieci lokalnej powinna zostać rozpoznana.");
@@ -187,7 +207,8 @@ static void TestWiiMApiParsing()
             Address = "192.168.1.25",
             DisplayName = "Salon",
             Model = "WiiM Pro",
-            Firmware = "4.8.7000"
+            Firmware = "4.8.7000",
+            LastActivatedPresetNumber = 2
         });
         state.WiiM.SelectedDeviceId = "wiim-1";
         store.Save(state);
@@ -196,6 +217,7 @@ static void TestWiiMApiParsing()
         Equal(1, loaded.WiiM.Devices.Count);
         Equal("Salon", loaded.WiiM.Devices[0].DisplayName);
         Equal("wiim-1", loaded.WiiM.SelectedDeviceId);
+        Equal(2, loaded.WiiM.Devices[0].LastActivatedPresetNumber);
     }
     finally
     {
@@ -786,6 +808,20 @@ static void TestPodcastOpmlParsing()
         rejectedDtd = true;
     }
     True(rejectedDtd, "Parser OPML musi odrzucać DTD i encje zewnętrzne.");
+
+    var exported = Encoding.UTF8.GetString(PodcastOpmlWriter.Write(
+    [
+        new PodcastOpmlEntry("Życie & dźwięk", new Uri("https://example.test/b.xml"), null),
+        entries[0],
+        new PodcastOpmlEntry("Duplikat", new Uri("https://example.test/a.xml"), null)
+    ]));
+    True(exported.StartsWith("<?xml version=\"1.0\" encoding=\"utf-8\"?>", StringComparison.Ordinal),
+        "Eksport OPML powinien deklarować rzeczywiste kodowanie UTF-8.");
+    var roundTrip = PodcastOpmlParser.Parse(exported);
+    Equal(2, roundTrip.Count);
+    Equal("Podcast A", roundTrip[0].Title);
+    Equal("Życie & dźwięk", roundTrip[1].Title);
+    Equal(new Uri("https://example.test/a"), roundTrip[0].HomepageUri);
 }
 
 static void TestPodcastLibraryUpdate()

@@ -293,6 +293,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         LoadPersistedRadio();
         LoadPersistedPodcasts();
         LoadPersistedWiiM();
+        RestoreLastActivatedWiiMPresets();
         NormalizeRadioSchedulesAtStartup();
         DiagnosticLog.Info("startup", $"Odtworzono w pamięci {state.LocalMedia.Items.Count} rekordów Biblioteki.");
         _localOutput.DurationAvailable += LocalOutput_DurationAvailable;
@@ -3361,6 +3362,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (!podcasts && commandId is CommandIds.AddPodcast
             or CommandIds.ImportPodcastOpml
+            or CommandIds.ExportPodcastOpml
             or CommandIds.RefreshPodcast
             or CommandIds.RefreshPodcastLibrary
             or CommandIds.ViewPodcastInbox
@@ -4795,6 +4797,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AddRadioStationMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         AddPodcastMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         ImportPodcastOpmlMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
+        ExportPodcastOpmlMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         RefreshAllPodcastsMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         var selectedPodcastEpisodes = podcasts
             && ActionItems.Count > 0
@@ -6529,6 +6532,64 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         GetSessionNavigationState("podcasts").CurrentView = _currentView;
         RefreshCurrentView();
         PrepareViewFocusContext($"Zaimportowano podcasty: {imported}. Niepowodzenia: {fetched.Length - imported}");
+        RestoreMediaListFocusAfterRefresh();
+    }
+
+    private void ExportPodcastOpml()
+    {
+        if (!string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+        {
+            Announce("Eksport OPML jest dostępny w sesji Podcasty");
+            return;
+        }
+
+        var subscriptions = _state.Podcasts.Subscriptions
+            .Where(subscription => subscription.IsInLibrary)
+            .Where(subscription => Uri.TryCreate(subscription.FeedUrl, UriKind.Absolute, out var feed)
+                && feed.Scheme is "http" or "https")
+            .Select(subscription => new PodcastOpmlEntry(
+                subscription.Title,
+                new Uri(subscription.FeedUrl, UriKind.Absolute),
+                Uri.TryCreate(subscription.HomepageUrl, UriKind.Absolute, out var homepage)
+                    && homepage.Scheme is "http" or "https"
+                        ? homepage
+                        : null))
+            .ToArray();
+        if (subscriptions.Length == 0)
+        {
+            AnnounceEssential("Biblioteka nie zawiera podcastów, które można wyeksportować do OPML");
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Eksportuj bibliotekę podcastów do OPML",
+            FileName = "Podcasty AMC.opml",
+            DefaultExt = ".opml",
+            AddExtension = true,
+            OverwritePrompt = true,
+            Filter = "Pliki OPML (*.opml)|*.opml|Pliki XML (*.xml)|*.xml"
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        try
+        {
+            File.WriteAllBytes(dialog.FileName, PodcastOpmlWriter.Write(subscriptions));
+            AnnounceEssential($"Wyeksportowano podcasty: {subscriptions.Length}");
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or NotSupportedException)
+        {
+            DiagnosticLog.Warning("podcast-opml", $"Eksport nie powiódł się; błąd {exception.GetType().Name}.");
+            AnnounceEssential($"Nie można zapisać OPML: {exception.Message}");
+        }
         RestoreMediaListFocusAfterRefresh();
     }
 
@@ -8489,6 +8550,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.ImportPodcastOpml)
         {
             ImportPodcastOpml();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ExportPodcastOpml)
+        {
+            ExportPodcastOpml();
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.RefreshPodcast)
@@ -13695,7 +13761,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return;
             }
             await _wiiMClient.ActivatePresetAsync(device.Address, number, _wiiMCancellation.Token);
-            _lastActivatedWiiMPresets[device.Id] = number;
+            RememberActivatedWiiMPreset(device, number);
             await Task.Delay(180, _wiiMCancellation.Token);
             var refreshed = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
             ApplyWiiMSnapshot(device, refreshed);
@@ -13740,7 +13806,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return;
             }
             await _wiiMClient.ActivatePresetAsync(device.Address, number, _wiiMCancellation.Token);
-            _lastActivatedWiiMPresets[device.Id] = number;
+            RememberActivatedWiiMPreset(device, number);
             await Task.Delay(180, _wiiMCancellation.Token);
             var refreshed = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
             ApplyWiiMSnapshot(device, refreshed);
@@ -13771,18 +13837,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce("Przechodzenie po presetach WiiM jest dostępne w odtwarzaczu urządzenia");
             return;
         }
-        if (!_lastActivatedWiiMPresets.TryGetValue(device.Id, out var currentNumber))
-        {
-            Announce("Nie wiadomo, który preset uruchomiono. Ctrl+Alt+P otwiera listę presetów urządzenia");
-            return;
-        }
-
         var gateEntered = false;
         try
         {
             await _wiiMDeviceOperationGate.WaitAsync(_wiiMCancellation.Token);
             gateEntered = true;
             var snapshot = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
+            var lastKnown = _lastActivatedWiiMPresets.GetValueOrDefault(
+                device.Id,
+                device.LastActivatedPresetNumber);
+            var resolved = WiiMPresetStateResolver.ResolveCurrentPreset(snapshot, lastKnown);
+            if (resolved is not { } currentNumber)
+            {
+                Announce("Nie wiadomo, który preset jest odtwarzany. Ctrl+Alt+P otwiera listę presetów urządzenia");
+                return;
+            }
             var occupied = snapshot.Presets.OrderBy(preset => preset.Number).ToArray();
             var currentIndex = Array.FindIndex(occupied, preset => preset.Number == currentNumber);
             if (currentIndex < 0)
@@ -13799,7 +13868,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var nextIndex = (currentIndex + (direction > 0 ? 1 : -1) + occupied.Length) % occupied.Length;
             var target = occupied[nextIndex];
             await _wiiMClient.ActivatePresetAsync(device.Address, target.Number, _wiiMCancellation.Token);
-            _lastActivatedWiiMPresets[device.Id] = target.Number;
+            RememberActivatedWiiMPreset(device, target.Number);
             await Task.Delay(180, _wiiMCancellation.Token);
             var refreshed = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
             ApplyWiiMSnapshot(device, refreshed);
@@ -14096,10 +14165,35 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ApplyWiiMSnapshot(WiiMDeviceSettings device, WiiMDeviceSnapshot snapshot)
     {
         UpdateWiiMRegistration(device, snapshot);
+        var resolvedPreset = WiiMPresetStateResolver.ResolveCurrentPreset(
+            snapshot,
+            _lastActivatedWiiMPresets.GetValueOrDefault(device.Id, device.LastActivatedPresetNumber));
+        if (resolvedPreset is { } presetNumber)
+        {
+            _lastActivatedWiiMPresets[device.Id] = presetNumber;
+            device.LastActivatedPresetNumber = presetNumber;
+        }
         _wiiMSnapshots[device.Id] = snapshot;
         _state.WiiM.SelectedDeviceId = device.Id;
         RefreshWiiMSessionItems(device.Id);
         _nextWiiMPlayerRefreshUtc = DateTime.UtcNow.AddSeconds(3);
+    }
+
+    private void RestoreLastActivatedWiiMPresets()
+    {
+        _lastActivatedWiiMPresets.Clear();
+        foreach (var device in _state.WiiM.Devices.Where(device =>
+                     device.LastActivatedPresetNumber is >= 1 and <= 12))
+        {
+            _lastActivatedWiiMPresets[device.Id] = device.LastActivatedPresetNumber;
+        }
+    }
+
+    private void RememberActivatedWiiMPreset(WiiMDeviceSettings device, int number)
+    {
+        _lastActivatedWiiMPresets[device.Id] = number;
+        device.LastActivatedPresetNumber = number;
+        QueueStateSave(announceFailure: true);
     }
 
     private bool TryGetWiiMDevice(string id, out WiiMDeviceSettings device)
@@ -16770,6 +16864,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ImportRadioPlaylist_Click(object sender, RoutedEventArgs e) => ImportRadioPlaylist();
     private void AddPodcast_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddPodcast);
     private void ImportPodcastOpml_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ImportPodcastOpml);
+    private void ExportPodcastOpml_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ExportPodcastOpml);
     private void RefreshAllPodcasts_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.RefreshPodcastLibrary);
     private void RefreshPodcast_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.RefreshPodcast);
     private void DownloadPodcastEpisode_Click(object sender, RoutedEventArgs e) =>

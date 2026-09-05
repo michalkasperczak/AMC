@@ -22,6 +22,8 @@ public sealed record WiiMPlaybackInformation(
 {
     public int LoopMode { get; init; } = 4;
     public int EqualizerPresetNumber { get; init; }
+    public int RawMode { get; init; }
+    public string? ContentUri { get; init; }
 }
 
 public sealed record WiiMTrackInformation(
@@ -135,16 +137,19 @@ public static class WiiMApiParser
         if (string.IsNullOrWhiteSpace(json)) return EmptyPlayback();
         using var document = ParseObject(json, "stan odtwarzania");
         var root = document.RootElement;
+        var rawMode = Integer(root, "mode") ?? 0;
         return new WiiMPlaybackInformation(
             FriendlyState(Text(root, "status")),
-            FriendlySource(Integer(root, "mode"), Text(root, "mode")),
+            FriendlySource(rawMode, Text(root, "mode")),
             Math.Clamp(Integer(root, "vol") ?? 0, 0, 100),
             Integer(root, "mute") == 1,
             TimeSpan.FromMilliseconds(Math.Max(0, Long(root, "curpos") ?? 0)),
             TimeSpan.FromMilliseconds(Math.Max(0, Long(root, "totlen") ?? 0)))
         {
             LoopMode = Integer(root, "loop") ?? 4,
-            EqualizerPresetNumber = Math.Max(0, Integer(root, "eq") ?? 0)
+            EqualizerPresetNumber = Math.Max(0, Integer(root, "eq") ?? 0),
+            RawMode = rawMode,
+            ContentUri = NormalizeUri(Text(root, "uri", "iuri", "media_content_id", "stream_url"))
         };
     }
 
@@ -306,7 +311,7 @@ public static class WiiMApiParser
     {
         1 => "AirPlay",
         2 => "DLNA",
-        >= 10 and <= 19 => "odtwarzacz WiiM",
+        >= 10 and <= 30 => "odtwarzacz WiiM",
         31 => "Spotify Connect",
         32 => "TIDAL Connect",
         40 => "wejście liniowe",
@@ -327,4 +332,53 @@ public static class WiiMApiParser
         Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"
             ? uri.AbsoluteUri
             : null;
+}
+
+public static class WiiMPresetStateResolver
+{
+    public static int? ResolveCurrentPreset(
+        WiiMDeviceSnapshot snapshot,
+        int lastActivatedPresetNumber)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var occupied = snapshot.Presets
+            .Where(preset => preset.Number is >= 1 and <= 12)
+            .ToArray();
+
+        if (snapshot.Playback.ContentUri is { Length: > 0 } currentUri)
+        {
+            var exact = occupied.FirstOrDefault(preset =>
+                preset.Uri is { Length: > 0 }
+                && UriEquals(preset.Uri, currentUri));
+            if (exact is not null) return exact.Number;
+        }
+
+        if (lastActivatedPresetNumber is < 1 or > 12
+            || occupied.All(preset => preset.Number != lastActivatedPresetNumber))
+        {
+            return null;
+        }
+
+        // The LinkPlay API does not expose a current-preset number. Modes
+        // 10-30 are device-managed network playback on current WiiM firmware,
+        // which is the only safe context in which the last preset activated by
+        // AMC remains useful.
+        return snapshot.Playback.RawMode is >= 10 and <= 30
+            ? lastActivatedPresetNumber
+            : null;
+    }
+
+    private static bool UriEquals(string first, string second)
+    {
+        if (!Uri.TryCreate(first, UriKind.Absolute, out var firstUri)
+            || !Uri.TryCreate(second, UriKind.Absolute, out var secondUri))
+        {
+            return false;
+        }
+
+        return string.Equals(
+            firstUri.AbsoluteUri,
+            secondUri.AbsoluteUri,
+            StringComparison.Ordinal);
+    }
 }

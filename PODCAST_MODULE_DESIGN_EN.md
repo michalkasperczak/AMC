@@ -168,6 +168,11 @@ changing inclusion, Space toggles the current feed and Ctrl+A selects all. F5
 refreshes the selected or open show and Ctrl+F5 refreshes every followed
 show. Fetching is bounded by timeout, redirect count and response size, accepts
 only HTTP/HTTPS without embedded credentials, and never downloads episode audio.
+Starting with `alpha.272`, **Export podcast library to OPML…** writes the
+followed feeds, their names, and available home pages as a UTF-8 OPML file that
+can be imported back through Ctrl+O. OPML is a subscription interchange format:
+it intentionally excludes downloaded audio, listening progress, bookmarks,
+chapters, and episode playlists. Those records remain in the full AMC backup.
 Enter opens a show's episodes newest first and Backspace returns to the Library.
 Delete unfollows the show without destroying retained episode state. Ctrl+C
 copies the title, description and public page when the feed supplies them,

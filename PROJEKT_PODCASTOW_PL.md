@@ -271,6 +271,15 @@ koncepcyjnego.
   Import
   odświeża metadane maksymalnie czterech kanałów równocześnie, nie pobiera
   odcinków audio i nie tworzy duplikatów.
+- Od `alpha.272` polecenie **Eksportuj bibliotekę podcastów do OPML…** w menu
+  Plik zapisuje obserwowane kanały RSS/Atom, ich nazwy oraz dostępne strony.
+  Wynik można ponownie wczytać `Ctrl+O` w AMC lub innym czytniku podcastów.
+  OPML nie zawiera plików audio, pozycji odsłuchu, zakładek, rozdziałów ani
+  playlist odcinków; pełna kopia AMC zachowuje te dane osobno.
+- Dalszy eksport playlist odcinków ma dwa poziomy: standardowy M3U8 z nazwami i
+  publicznymi adresami audio oraz format AMC JSON dla pełnej tożsamości,
+  wybranych rozdziałów i ustawień. OPML pozostaje formatem subskrypcji, a nie
+  playlistą odtwarzania.
 - `F5` odświeża zaznaczoną lub otwartą audycję, a `Ctrl+F5` wszystkie
   obserwowane audycje. Połączenia mają ograniczenie czasu, liczby przekierowań
   i rozmiaru odpowiedzi; DTD, encje zewnętrzne, adresy inne niż HTTP/HTTPS oraz

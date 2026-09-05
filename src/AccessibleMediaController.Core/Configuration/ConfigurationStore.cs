@@ -491,6 +491,9 @@ public sealed class ConfigurationStore
                     && device.LastSeenUtcTicks <= DateTime.MaxValue.Ticks
                         ? device.LastSeenUtcTicks
                         : 0;
+                device.LastActivatedPresetNumber = device.LastActivatedPresetNumber is >= 1 and <= 12
+                    ? device.LastActivatedPresetNumber
+                    : 0;
                 return device;
             })
             .DistinctBy(device => device.Id, StringComparer.OrdinalIgnoreCase)

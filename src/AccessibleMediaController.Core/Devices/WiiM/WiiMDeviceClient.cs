@@ -44,7 +44,7 @@ public sealed class WiiMDeviceClient : IDisposable
         var deviceJson = await ReadTextAsync(normalized, "getStatusEx", cancellationToken)
             .ConfigureAwait(false);
         var device = WiiMApiParser.ParseDeviceInformation(deviceJson, normalized);
-        var playbackTask = TryReadTextAsync(normalized, "getPlayerStatus", cancellationToken);
+        var playbackTask = TryReadPlayerStatusAsync(normalized, cancellationToken);
         var metadataTask = TryReadTextAsync(normalized, "getMetaInfo", cancellationToken);
         var presetsTask = TryReadTextAsync(normalized, "getPresetInfo", cancellationToken);
         await Task.WhenAll(playbackTask, metadataTask, presetsTask).ConfigureAwait(false);
@@ -126,6 +126,29 @@ public sealed class WiiMDeviceClient : IDisposable
 
     public Task SetSleepTimerAsync(string address, int seconds, CancellationToken cancellationToken = default) =>
         SendCommandAsync(address, WiiMCommands.SetSleepTimer(seconds), cancellationToken);
+
+    private async Task<string?> TryReadPlayerStatusAsync(
+        string address,
+        CancellationToken cancellationToken)
+    {
+        var extended = await TryReadTextAsync(address, "getPlayerStatusEx", cancellationToken)
+            .ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(extended))
+        {
+            try
+            {
+                _ = WiiMApiParser.ParsePlaybackInformation(extended);
+                return extended;
+            }
+            catch (FormatException)
+            {
+                // Older firmware may answer "unknown command" with HTTP 200.
+                // Fall back to the basic status endpoint in that case.
+            }
+        }
+        return await TryReadTextAsync(address, "getPlayerStatus", cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     private async Task SendCommandAsync(
         string address,

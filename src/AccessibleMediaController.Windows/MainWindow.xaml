@@ -59,6 +59,9 @@
                           automation:AutomationProperties.Name="Importuj podcasty z OPML, Ctrl+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+O"
                           Visibility="Collapsed" Click="ImportPodcastOpml_Click" />
+                <MenuItem x:Name="ExportPodcastOpmlMenuItem" Header="_Eksportuj bibliotekę podcastów do OPML…"
+                          automation:AutomationProperties.Name="Eksportuj bibliotekę podcastów do OPML"
+                          Visibility="Collapsed" Click="ExportPodcastOpml_Click" />
                 <MenuItem x:Name="RefreshAllPodcastsMenuItem" Header="Odśwież _wszystkie podcasty" InputGestureText="Ctrl+F5"
                           automation:AutomationProperties.Name="Odśwież wszystkie podcasty, Ctrl+F5"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F5"

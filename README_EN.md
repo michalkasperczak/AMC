@@ -781,7 +781,7 @@ Only newly written disk files are affected. The original episode title remains
 unchanged in the Library, description, and metadata, and existing downloads
 are not renamed automatically.
 
-## Extended WiiM control in alpha 271
+## Extended WiiM control in alpha 271 and 272
 
 The WiiM session now controls input, physical output, equalizer, repeat mode,
 shuffle, and sleep timer through accessible labelled dialogs opened in the
@@ -789,13 +789,26 @@ player with `I`, `O`, `E`, `R`, `S`, and `T`. `Shift+A` selects the active
 device. `Ctrl+Alt+P` opens the twelve native WiiM presets, while
 `Ctrl+Shift+1–9/0/-/=` activates them directly. Page Up and Page Down move
 between occupied slots without playback inside the list; `Alt+Page Up/Down`
-activates an adjacent occupied slot in the player once AMC knows the starting
-slot. `Ctrl+P` retains its shared Playlists meaning and is not captured by WiiM.
+activates an adjacent occupied slot. Starting with `alpha.272`, AMC restores the
+starting point after restart by matching the current stream URL first and then
+using the last preset activated through AMC. It does not guess while Spotify
+Connect or TIDAL Connect is active. `Ctrl+P` retains its shared Playlists
+meaning and is not captured by WiiM.
 
 The manufacturer's local API does not expose writing native presets. AMC can
 therefore read and activate them safely, while an assignment attempt explains
 that WiiM Home is required instead of creating a local stand-in for a device
 change.
+
+The next capability-gated stages—direct URL/M3U playback, UPnP events,
+multi-room groups, and the device-dependent hardware queue—are specified in
+`PROJEKT_WIIM_PL.md`.
+
+In `alpha.272`, the Podcasts File menu also offers **Export podcast library to
+OPML…**. This portable subscription backup round-trips through `Ctrl+O` but
+does not contain media files, listening progress, chapters, or episode
+playlists. The full AMC backup continues to retain those application-specific
+records.
 
 ## Per-session audio output in alpha 204
 

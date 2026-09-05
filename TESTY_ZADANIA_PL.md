@@ -6219,7 +6219,7 @@ Przejdź w każdej sesji do innego widoku, po czym przełączaj ją przez `Ctrl+
 
 Oczekiwane: komunikat zaczyna się od numeru i nazwy sesji, potem podaje przywrócony widok i element, np. „4, Pliki lokalne, Biblioteka…”. Pozostałe funkcje nie mają regresji.
 
-## Test ręczny WiiM — alpha 268 i 271
+## Test ręczny WiiM — alpha 268, 271 i 272
 
 ### AMC-268-01 — Menedżer, fokus i jawny wybór
 
@@ -6261,9 +6261,11 @@ Po uruchomieniu zajętego miejsca otwórz odtwarzacz i użyj
 `Alt+Page Up`/`Alt+Page Down` kilka razy.
 
 Oczekiwane: skróty uruchamiają miejsca 1–12, w tym miejsce 10 pod cyfrą 0.
-Nawigacja sąsiednia zawija listę i pomija puste miejsca. Po świeżym uruchomieniu,
-zanim AMC sam uruchomi preset, podaje polecenie otwarcia `Ctrl+Alt+P` i nie
-zgaduje bieżącego numeru.
+Nawigacja sąsiednia zawija listę i pomija puste miejsca. Zamknij AMC podczas
+odtwarzania presetu, uruchom ponownie, otwórz odtwarzacz WiiM i od razu sprawdź
+`Alt+Page Up/Down`. Program rozpoznaje pozycję z adresu strumienia albo
+zapamiętanego ostatniego presetu. Po zmianie źródła na Spotify Connect lub
+TIDAL Connect nie zgaduje numeru i kieruje do `Ctrl+Alt+P`.
 
 ### AMC-271-03 — Wejście, wyjście, korektor i tryb odtwarzania
 
@@ -6283,6 +6285,17 @@ W sesji WiiM naciśnij `Ctrl+Alt+Shift+P`.
 Oczekiwane: program wyjaśnia, że oficjalne API nie udostępnia zapisu ani
 nadpisywania natywnego presetu i kieruje do WiiM Home. Nie zmienia lokalnego
 stanu i nie informuje o powodzeniu.
+
+### AMC-272-01 — Eksport podcastów do OPML
+
+W sesji Podcasty otwórz menu Plik i wybierz **Eksportuj bibliotekę podcastów do
+OPML…**. Zapisz plik, usuń lub uruchom osobną testową konfigurację, a następnie
+zaimportuj go przez `Ctrl+O`.
+
+Oczekiwane: menu jest widoczne tylko w Podcastach, okno zaczyna od użytkowej
+nazwy pliku, a NVDA nie odczytuje identyfikatorów technicznych. Ponowny import
+widzi wszystkie unikatowe obserwowane kanały i polskie znaki. Eksport nie
+pobiera odcinków audio ani nie zmienia Biblioteki.
 
 ## AMC-269-01 — Ilustracja RSS nie jest odcinkiem
 

@@ -1125,7 +1125,7 @@ Zmiana dotyczy wyłącznie nowych plików zapisywanych na dysku. Oryginalny tytu
 odcinka pozostaje w Bibliotece, opisie i metadanych, a istniejące pobrania nie
 są automatycznie przemianowywane.
 
-## Pełniejsze sterowanie WiiM w alpha 271
+## Pełniejsze sterowanie WiiM w alpha 271 i 272
 
 Sesja WiiM steruje wejściem, fizycznym wyjściem, korektorem, powtarzaniem,
 losowaniem i timerem uśpienia z dostępnych okien wyboru otwieranych w
@@ -1133,12 +1133,25 @@ odtwarzaczu klawiszami `I`, `O`, `E`, `R`, `S` i `T`. `Shift+A` wybiera aktywne
 urządzenie. `Ctrl+Alt+P` otwiera dwanaście natywnych presetów WiiM, a
 `Ctrl+Shift+1–9/0/-/=` uruchamia je bezpośrednio. W liście Page Up i Page Down
 przechodzą po zajętych miejscach bez odtwarzania; w odtwarzaczu
-`Alt+Page Up/Down` uruchamia sąsiedni zajęty preset, jeżeli AMC zna punkt
-wyjścia. `Ctrl+P` pozostaje skrótem Playlist i nie jest przejmowany przez WiiM.
+`Alt+Page Up/Down` uruchamia sąsiedni zajęty preset. Od `alpha.272` punkt
+wyjścia jest odtwarzany po ponownym uruchomieniu AMC: program najpierw porównuje
+adres bieżącego strumienia z presetami urządzenia, a następnie może użyć
+ostatniego presetu zapisanego przez AMC. Przy Spotify Connect i TIDAL Connect
+nie zgaduje numeru. `Ctrl+P` pozostaje skrótem Playlist i nie jest przejmowany
+przez WiiM.
 
 Lokalne API producenta nie udostępnia zapisu natywnych presetów. AMC pozwala je
 więc bezpiecznie odczytać i uruchomić, natomiast próba przypisania informuje o
 konieczności użycia WiiM Home. Nie powstaje lokalna atrapa zmiany w urządzeniu.
+
+Rozpoznane możliwości dalszego adaptera, między innymi URL/M3U, zdarzenia UPnP,
+multiroom i ograniczona kolejka sprzętowa, opisuje
+[`PROJEKT_WIIM_PL.md`](PROJEKT_WIIM_PL.md).
+
+W `alpha.272` menu **Plik** sesji Podcasty zawiera także **Eksportuj bibliotekę
+podcastów do OPML…**. Jest to przenośna kopia obserwowanych kanałów, zgodna z
+ponownym importem `Ctrl+O`; nie kopiuje plików audio, postępu słuchania,
+rozdziałów ani playlist odcinków. Te dane nadal obejmuje pełna kopia AMC.
 
 ## Urządzenie audio osobno dla sesji w alpha 204
 

@@ -131,6 +131,7 @@ public static class CommandCatalog
             CommandIds.ImportRadioPlaylist => "Importuj stacje radiowe z playlisty",
             CommandIds.AddPodcast => "Dodaj podcast przez RSS lub Atom",
             CommandIds.ImportPodcastOpml => "Importuj podcasty z OPML",
+            CommandIds.ExportPodcastOpml => "Eksportuj bibliotekę podcastów do OPML",
             CommandIds.RefreshPodcast => "Odśwież bieżący podcast",
             CommandIds.RefreshPodcastLibrary => "Odśwież wszystkie podcasty",
             CommandIds.ViewPodcastInbox => "Pokaż nowe odcinki podcastów",
