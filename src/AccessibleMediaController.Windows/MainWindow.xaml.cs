@@ -1149,7 +1149,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         var session = _sessions.Current;
         var item = session.CurrentItem;
-        if (TryNavigateSelectedChapter(session, item, direction)) return;
         var availableChapters = _chapterIndex.GetForItem(session.Id, item.Id, item.Duration);
         if (availableChapters.Count == 0)
         {
@@ -1219,49 +1218,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : "Brak następnego rozdziału");
             return;
         }
-        CancelChapterPlaybackPlan();
         session.SetPosition(chapter.Start);
+        AlignChapterPlaybackPlanAfterManualPositionChange();
         UpdatePlayerView();
         UpdatePlaybackStatusBar();
         Announce($"{chapter.Name}, {CommandRouter.FormatTime(chapter.Start)}");
-    }
-
-    private bool TryNavigateSelectedChapter(DemoMediaSession session, MediaItem item, int direction)
-    {
-        if (_chapterPlaybackPlan is not { } plan
-            || !string.Equals(plan.SessionId, session.Id, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(plan.ItemId, item.Id, StringComparison.Ordinal)
-            || plan.Chapters.Count == 0)
-        {
-            return false;
-        }
-
-        var currentIndex = Math.Clamp(plan.CurrentIndex, 0, plan.Chapters.Count - 1);
-        var current = plan.Chapters[currentIndex];
-        var targetIndex = direction > 0
-            ? currentIndex + 1
-            : session.Position - current.Start > TimeSpan.FromSeconds(3)
-                ? currentIndex
-                : currentIndex - 1;
-        if (targetIndex < 0 || targetIndex >= plan.Chapters.Count)
-        {
-            Announce(direction < 0
-                ? "Brak poprzedniego wybranego rozdziału"
-                : "Brak następnego wybranego rozdziału");
-            return true;
-        }
-
-        var target = plan.Chapters[targetIndex];
-        _chapterPlaybackPlan = plan with { CurrentIndex = targetIndex };
-        session.SetPosition(target.Start);
-        DiagnosticLog.Info(
-            "chapters",
-            $"Ręczna nawigacja w wybranym zestawie; kierunek: {direction}; "
-            + $"cel: {target.Name} @ {target.Start:c}; indeks: {targetIndex + 1}/{plan.Chapters.Count}.");
-        UpdatePlayerView();
-        UpdatePlaybackStatusBar();
-        Announce($"{target.Name}, {CommandRouter.FormatTime(target.Start)}");
-        return true;
     }
 
     private void PlaySelectedChapters(
@@ -1288,7 +1249,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         session.SetPosition(playable[0].Start);
-        _chapterPlaybackPlan = new ChapterPlaybackPlan(session.Id, item.Id, playable, 0);
+        _chapterPlaybackPlan = new ChapterPlaybackPlan(session.Id, item.Id, playable, 0, null, null);
         _chapterPlaybackTimer.Start();
         DiagnosticLog.Info(
             "chapters",
@@ -1397,16 +1358,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         if (!session.IsPlaying) return;
-        var current = plan.Chapters[plan.CurrentIndex];
-        if (session.Position < current.End - TimeSpan.FromMilliseconds(40)) return;
-        var nextIndex = plan.CurrentIndex + 1;
-        if (nextIndex >= plan.Chapters.Count)
+        var current = plan.ManualBoundary is { } manualBoundary
+            ? plan.ManualChapter
+            : plan.Chapters[plan.CurrentIndex];
+        var currentEnd = plan.ManualBoundary ?? current!.End;
+        if (session.Position < currentEnd - TimeSpan.FromMilliseconds(40)) return;
+        var nextIndex = plan.ManualBoundary is { }
+            ? ChapterPlaybackSelection.FindNextSelectedIndex(plan.Chapters, currentEnd)
+            : plan.CurrentIndex + 1;
+        if (nextIndex < 0 || nextIndex >= plan.Chapters.Count)
         {
-            session.SetPosition(current.End);
+            session.SetPosition(currentEnd);
             session.TogglePlayback();
             DiagnosticLog.Info(
                 "chapters",
-                $"Zakończono wybrany zestaw na rozdziale: {current.Name} @ {current.End:c}.");
+                $"Zakończono wybrany zestaw na {(current is null ? "ręcznie wybranym fragmencie" : $"rozdziale: {current.Name}")} @ {currentEnd:c}.");
             CancelChapterPlaybackPlan();
             UpdatePlayerView();
             UpdatePlaybackStatusBar();
@@ -1414,11 +1380,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         var next = plan.Chapters[nextIndex];
-        _chapterPlaybackPlan = plan with { CurrentIndex = nextIndex };
+        _chapterPlaybackPlan = plan with
+        {
+            CurrentIndex = nextIndex,
+            ManualChapter = null,
+            ManualBoundary = null
+        };
         session.SetPosition(next.Start);
         DiagnosticLog.Info(
             "chapters",
-            $"Automatyczne przejście wybranego zestawu; z: {current.Name} @ {current.End:c}; "
+            $"Automatyczne przejście wybranego zestawu; z: {(current?.Name ?? "ręcznie wybrany fragment")} @ {currentEnd:c}; "
             + $"do: {next.Name} @ {next.Start:c}; pozycja po skoku: {session.Position:c}.");
         UpdatePlayerView();
         UpdatePlaybackStatusBar();
@@ -1446,7 +1417,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // playback request, so reaching the end of its final segment must stop
         // here instead of leaking into the next episode or track.
         session.StopPlayback();
-        var finalPosition = plan.Chapters[^1].End;
+        var finalPosition = plan.ManualBoundary ?? plan.Chapters[^1].End;
         if (finalPosition > TimeSpan.Zero) session.SetPosition(finalPosition);
         CancelChapterPlaybackPlan();
         Announce("Zakończono odtwarzanie wybranych rozdziałów");
@@ -8068,11 +8039,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private CommandExecutionResult ExecuteCommand(string commandId)
     {
-        var seekPositionBefore = IsChapterPlanPreservingSeekCommand(commandId)
+        var alignChapterPlanAfterCommand = IsChapterPlanPreservingSeekCommand(commandId)
             && _chapterPlaybackPlan is not null
-            && _sessions.Current.HasCurrentItem
-                ? _sessions.Current.Position
-                : (TimeSpan?)null;
+            && _sessions.Current.HasCurrentItem;
         if (_chapterPlaybackPlan is not null && CommandInterruptsChapterPlayback(commandId))
         {
             DiagnosticLog.Info(
@@ -8101,9 +8070,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         try
         {
             var result = ExecuteCommandCore(commandId, folderContext);
-            if (seekPositionBefore is { } previousPosition)
+            if (alignChapterPlanAfterCommand)
             {
-                ReconcileChapterPlaybackPlanAfterSeek(previousPosition);
+                AlignChapterPlaybackPlanAfterManualPositionChange();
             }
             return result;
         }
@@ -9485,7 +9454,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.SeekToPercentage
         || commandId.StartsWith("transport.seekPercent.", StringComparison.Ordinal);
 
-    private void ReconcileChapterPlaybackPlanAfterSeek(TimeSpan previousPosition)
+    private void AlignChapterPlaybackPlanAfterManualPositionChange()
     {
         if (_chapterPlaybackPlan is not { } plan) return;
         var session = _sessions.FindSession(plan.SessionId);
@@ -9497,65 +9466,31 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var position = session.Position;
-        var containingIndex = -1;
-        for (var index = 0; index < plan.Chapters.Count; index++)
-        {
-            var chapter = plan.Chapters[index];
-            if (position >= chapter.Start && position < chapter.End)
-            {
-                containingIndex = index;
-                break;
-            }
-        }
+        var allChapters = _chapterIndex.GetForItem(
+            session.Id,
+            session.CurrentItem.Id,
+            session.CurrentItem.Duration);
+        var alignment = ChapterPlaybackSelection.Align(
+            plan.Chapters,
+            allChapters,
+            session.Position,
+            session.CurrentItem.Duration);
+        if (alignment.SelectedIndex < 0) return;
 
-        if (containingIndex >= 0)
+        _chapterPlaybackPlan = plan with
         {
-            _chapterPlaybackPlan = plan with { CurrentIndex = containingIndex };
-            return;
-        }
-
-        int targetIndex;
-        if (position < previousPosition)
-        {
-            targetIndex = -1;
-            for (var index = plan.Chapters.Count - 1; index >= 0; index--)
-            {
-                if (plan.Chapters[index].End <= position)
-                {
-                    targetIndex = index;
-                    break;
-                }
-            }
-            if (targetIndex < 0) targetIndex = 0;
-        }
-        else
-        {
-            targetIndex = -1;
-            for (var index = 0; index < plan.Chapters.Count; index++)
-            {
-                if (plan.Chapters[index].Start >= position)
-                {
-                    targetIndex = index;
-                    break;
-                }
-            }
-            if (targetIndex < 0) targetIndex = plan.Chapters.Count - 1;
-        }
-
-        var target = plan.Chapters[targetIndex];
-        _chapterPlaybackPlan = plan with { CurrentIndex = targetIndex };
-        session.SetPosition(target.Start);
+            CurrentIndex = alignment.SelectedIndex,
+            ManualChapter = alignment.ManualChapter,
+            ManualBoundary = alignment.ManualBoundary
+        };
         DiagnosticLog.Info(
             "chapters",
-            $"Przewijanie zachowało wybrany zestaw i ominęło niewybrany przedział; "
-            + $"z: {previousPosition:c}; żądano: {position:c}; cel: {target.Name} @ {target.Start:c}.");
-        UpdatePlayerView();
-        UpdatePlaybackStatusBar();
-        if (_state.Settings.Messages.SeekMessages)
-        {
-            Announce($"Wybrany rozdział: {target.Name}, {CommandRouter.FormatTime(target.Start)}");
-        }
+            alignment.IsInsideUnselectedRange
+                ? $"Ręczna pozycja w niewybranym rozdziale pozostaje do jego końca; pozycja: {session.Position:c}; "
+                    + $"rozdział: {alignment.ManualChapter?.Name ?? "fragment przed pierwszym rozdziałem"}; "
+                    + $"granica: {alignment.ManualBoundary:c}."
+                : $"Ręczna pozycja znajduje się w wybranym rozdziale; pozycja: {session.Position:c}; "
+                    + $"indeks zestawu: {alignment.SelectedIndex + 1}/{plan.Chapters.Count}.");
     }
 
     private static void UpdateAddedOrder(
@@ -16949,7 +16884,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string SessionId,
         string ItemId,
         IReadOnlyList<ChapterSegment> Chapters,
-        int CurrentIndex);
+        int CurrentIndex,
+        ChapterSegment? ManualChapter,
+        TimeSpan? ManualBoundary);
 
     private sealed record LocalSourceScanResult(
         LocalFolderSourceSettings Source,

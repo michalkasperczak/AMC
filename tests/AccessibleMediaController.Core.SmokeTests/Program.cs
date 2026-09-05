@@ -3619,6 +3619,38 @@ static void TestChapters()
     Equal(null, chapters.FindRelative(
         "podcasts", item.Id, item.Duration, TimeSpan.FromMinutes(5).Add(TimeSpan.FromSeconds(1)), -1));
 
+    var selectedSequence = new[] { ordered[0], ordered[2] };
+    var selectedAlignment = ChapterPlaybackSelection.Align(
+        selectedSequence,
+        ordered,
+        TimeSpan.FromMinutes(7),
+        item.Duration);
+    Equal(0, selectedAlignment.SelectedIndex);
+    True(!selectedAlignment.IsInsideUnselectedRange,
+        "Ręczny skok w wybranym rozdziale nie powinien tworzyć zakresu tymczasowego.");
+
+    var manualAlignment = ChapterPlaybackSelection.Align(
+        selectedSequence,
+        ordered,
+        TimeSpan.FromMinutes(13),
+        item.Duration);
+    Equal(middle.Entry.Id, manualAlignment.ManualChapter?.Entry.Id);
+    Equal(TimeSpan.FromMinutes(20), manualAlignment.ManualBoundary);
+    Equal(1, ChapterPlaybackSelection.FindNextSelectedIndex(
+        selectedSequence,
+        manualAlignment.ManualBoundary!.Value));
+    True(manualAlignment.IsInsideUnselectedRange,
+        "Ręczny skok w niewybranym rozdziale powinien pozwolić odsłuchać go do końca.");
+
+    var lastAlignment = ChapterPlaybackSelection.Align(
+        selectedSequence,
+        ordered,
+        TimeSpan.FromMinutes(22),
+        item.Duration);
+    Equal(1, lastAlignment.SelectedIndex);
+    True(!lastAlignment.IsInsideUnselectedRange,
+        "Ręczny skok do ostatniego wybranego rozdziału powinien zachować kolejność zestawu.");
+
     var directory = Path.Combine(Path.GetTempPath(), $"amc-chapter-tests-{Guid.NewGuid():N}");
     Directory.CreateDirectory(directory);
     try

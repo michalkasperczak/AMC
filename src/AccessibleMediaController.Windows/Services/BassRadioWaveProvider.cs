@@ -98,15 +98,34 @@ internal sealed class BassRadioWaveProvider : IWaveProvider, IRadioStreamTitleSo
         uint stream = 0;
         try
         {
-            using var cancellationRegistration = cancellationToken.Register(
-                static state => BassNative.StreamCancel((IntPtr)state!),
-                requestPointer);
-            stream = await Task.Run(
-                    () => BassNative.StreamCreateUrl(
-                        source,
-                        BassSampleFloat | BassStreamBlock | BassStreamDecode | BassUnicode,
-                        requestPointer))
+            var cancellationSignal = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            using var cancellationRegistration = cancellationToken.Register(() =>
+            {
+                BassNative.StreamCancel(requestPointer);
+                cancellationSignal.TrySetResult();
+            });
+            var nativeOpenTask = Task.Run(
+                () => BassNative.StreamCreateUrl(
+                    source,
+                    BassSampleFloat | BassStreamBlock | BassStreamDecode | BassUnicode,
+                    requestPointer));
+            var completed = await Task.WhenAny(
+                    nativeOpenTask,
+                    cancellationSignal.Task)
                 .ConfigureAwait(false);
+            if (!ReferenceEquals(completed, nativeOpenTask))
+            {
+                // Some servers leave the native URL open call waiting even
+                // after BASS_StreamCancel. Return control to AMC immediately,
+                // but keep the request token alive until BASS really exits and
+                // then release any late stream in the background.
+                var cleanupHandle = requestHandle;
+                requestHandle = default;
+                _ = CleanupCanceledOpenAsync(nativeOpenTask, cleanupHandle);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            stream = await nativeOpenTask.ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();
             if (stream == 0)
@@ -135,6 +154,24 @@ internal sealed class BassRadioWaveProvider : IWaveProvider, IRadioStreamTitleSo
         finally
         {
             if (stream != 0) BassNative.StreamFree(stream);
+            if (requestHandle.IsAllocated) requestHandle.Free();
+        }
+    }
+
+    private static async Task CleanupCanceledOpenAsync(Task<uint> nativeOpenTask, GCHandle requestHandle)
+    {
+        try
+        {
+            var lateStream = await nativeOpenTask.ConfigureAwait(false);
+            if (lateStream != 0) BassNative.StreamFree(lateStream);
+        }
+        catch
+        {
+            // The foreground operation has already reported cancellation.
+            // Cleanup must never surface a second, unobserved exception.
+        }
+        finally
+        {
             if (requestHandle.IsAllocated) requestHandle.Free();
         }
     }

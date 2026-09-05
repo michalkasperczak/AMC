@@ -171,14 +171,22 @@ następnej wybranej pozycji. Otwarcie listy albo ręczna nawigacja może przerwa
 ten tymczasowy plan. Początek, automatyczne przejście, zakończenie i przyczyna
 przerwania są zapisywane w logu diagnostycznym.
 
-`alpha.265` utrzymuje aktywny zestaw podczas ręcznego przewijania. Skoki o
-10, 30 i 60 sekund, skok do czasu i procentu oraz cyfry nie usuwają wyboru.
-Jeżeli skok trafi w niewybrany przedział, AMC przechodzi do najbliższego
-wybranego rozdziału zgodnie z kierunkiem nawigacji. Polecenia poprzedniego i
-następnego rozdziału poruszają się wtedy tylko po aktywnym zestawie. Ponowne
-otwarcie listy odtwarza wybór, zamiast pokazywać pusty zestaw. Plan kończy
-zmiana materiału, uruchomienie innego zestawu albo dojście do końca ostatniego
-wybranego rozdziału.
+`alpha.265` była pierwszą próbą utrzymania zestawu podczas przewijania, ale
+zbyt mocno ograniczała decyzję użytkownika. `alpha.266` wprowadza właściwą
+regułę: wybór rozdziałów jest filtrem automatycznego przechodzenia, a nie
+granicą ręcznej nawigacji. Strzałki, Home, End, skok do czasu i procentu, cyfry
+oraz poprzedni i następny rozdział pozwalają wejść w dowolne miejsce pełnego
+materiału. Jeżeli użytkownik ręcznie wejdzie w niewybrany rozdział, AMC pozwala
+odsłuchać go do końca. Dopiero na jego granicy pomija następne niewybrane
+rozdziały i przechodzi do najbliższego późniejszego rozdziału z zapisanego
+zestawu. Brak późniejszego wybranego rozdziału kończy odtwarzanie zestawu.
+Ponowne otwarcie listy pokazuje zapisany wybór. Plan kończy również zmiana
+materiału albo jawne uruchomienie innego zestawu.
+
+Spis jest ograniczony do 500 pozycji. Uzgodnienie planu ze zwykłym skokiem
+odbywa się jeden raz po poleceniu, natomiast podczas odtwarzania AMC przechowuje
+bieżącą granicę. Zegar nie przeszukuje całego spisu przy każdym odświeżeniu,
+więc ta funkcja nie powinna pogarszać płynności długich podcastów.
 
 Wybrany pojedynczy rozdział można zapisać jako osobny plik przyciskiem
 **Zapisz rozdział…** na liście rozdziałów. `Ctrl+S` nadal oznacza zapis całego

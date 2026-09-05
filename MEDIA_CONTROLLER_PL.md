@@ -787,6 +787,12 @@ Stan `alpha.123`: po przerwaniu działającego strumienia tor odbioru wykonuje n
 
 Próba techniczna BASS 2.4 na tych samych adresach potwierdziła sprawne dekodowanie starszych ICY MP3 Polskiego Radia i OGG Radia Emaus, lecz również wykazała granice: strumień niedostępny po stronie serwera nie staje się dostępny dzięki zmianie dekodera, surowy AAC może nadal wymagać właściwego kodeka, a HLS osobnego BASSHLS. BASS jest biblioteką własnościową, bezpłatną tylko dla zastosowań niekomercyjnych. AMC pozostaje darmowym projektem bez reklam, sprzedaży, płatnych funkcji i odsyłaczy do darowizn, dlatego może dystrybuować BASS na tych warunkach. Kod AMC pozostaje otwarty, ale `bass.dll` nie przechodzi na jego licencję; komercyjny fork musi usunąć ten składnik albo uzyskać licencję. Adapter BASS jest wymiennym silnikiem radiowym, a nie zależnością rdzenia sesji; jego brak lub awaria uruchamia dotychczasową ścieżkę zapasową.
 
+Od `alpha.266` anulowanie oczekującego otwarcia BASS natychmiast oddaje sterowanie
+AMC także wtedy, gdy natywna biblioteka albo serwer kończy operację z
+opóźnieniem. Spóźnione zadanie pozostaje pod kontrolą programu i po zakończeniu
+zwalnia utworzony strumień oraz identyfikator żądania. Dzięki temu szybka zmiana
+stacji nie blokuje interfejsu ani nie pozostawia nieobserwowanego wyjątku.
+
 Wyniki wyszukiwania wszystkich adapterów mają jedną semantykę zaznaczenia i schowka. `Shift+strzałka` rozszerza ciągły zakres z trwałą kotwicą, a aktywny koniec zakresu zachowuje fokus NVDA. `Ctrl+C` kopiuje nazwy wszystkich zaznaczonych wyników w kolejności listy. `Ctrl+Shift+C` przekazuje lokalne pliki jako ścieżki i Windows `FileDrop`; element sieciowy daje dwa kolejne wiersze: nazwę oraz kanoniczny publiczny URL, powtórzone dla każdego zaznaczenia. Wyszukiwanie mieszane zachowuje ścieżki lokalne, pary nazwa–łącze dla usług i listę prawdziwych plików w jednym obiekcie schowka.
 
 Sesja **Radio internetowe** ma własną lokalną Bibliotekę i własne Ulubione. Wynik katalogu nie staje się Ulubionym samoczynnie. `Insert` w Bibliotece dodaje ręczny adres, natomiast `F2` zawsze edytuje osobno użytkową nazwę i adres strumienia; zmiana nazwy nie modyfikuje URL, a zmiana URL nie kasuje nazwy. `Alt+Enter` podaje nazwę, rodzaj, sesję, kraj, język, tagi, kodek, bitrate, adres strumienia i stronę stacji, jeśli katalog je udostępnił. Nie pokazuje radiu Kolejki ani „Odtwarzaj jako następne”. Treść pozostaje zwykłym tekstem tylko do odczytu z nawigacją po znakach i słowach, natomiast adres strumienia i strona stacji występują również na jawnie nazwanej liście łączy; Enter otwiera wybrane łącze przez bezpieczne skojarzenie systemowe. Wewnętrzny identyfikator katalogu nie jest czytany przez NVDA.
@@ -2052,14 +2058,22 @@ wiersza: odtwarza cały jego przedział aż do początku kolejnego rozdziału w
 komunikat podaje rozdział bieżący i następny wybrany. Log obejmuje rozpoczęcie,
 każdy automatyczny skok, zakończenie oraz przerwanie ręcznym poleceniem.
 
-Od `alpha.265` zwykłe przewijanie nie jest poleceniem przerywającym zestaw.
-Pozycja planu jest uzgadniana z nowym czasem: wewnątrz wybranego przedziału
-pozostaje bez zmian, a trafienie w przerwę kieruje do najbliższego wybranego
-rozdziału w użytym kierunku. Poprzedni i następny rozdział działają na
-aktywnym zestawie, a nie na pełnym spisie. Lista otwarta ponownie dla tego
-samego materiału otrzymuje identyfikatory rozdziałów z planu i wystawia ich
-stan przez UI Automation. Dopiero zmiana materiału lub jawne uruchomienie
-innego zestawu zastępuje bieżący plan.
+Od `alpha.266` zwykłe przewijanie nie jest poleceniem przerywającym zestaw ani
+nie jest przez ten zestaw ograniczane. Home, End, skoki względne, skok do czasu
+i procentu, cyfry oraz ręczna nawigacja poprzedni/następny rozdział obejmują
+cały materiał. Po ręcznym wejściu w niewybrany rozdział użytkownik słucha go do
+jego naturalnej granicy. Dopiero wtedy automat szuka najbliższego późniejszego
+wybranego rozdziału, pomija niewybrane i wznawia plan. Jeżeli późniejszego
+wybranego rozdziału nie ma, plan zatrzymuje się na tej granicy. Lista otwarta
+ponownie dla tego samego materiału otrzymuje identyfikatory rozdziałów z planu
+i wystawia ich stan przez UI Automation. Zmiana materiału lub jawne
+uruchomienie innego zestawu zastępuje bieżący plan.
+
+Wybrany zestaw jest więc filtrem automatycznego przechodzenia, nie blokadą
+osi czasu. Uzgodnienie pozycji wymaga jednego liniowego przejścia po spisie po
+ręcznym skoku (maksymalnie 500 rozdziałów). Zegar odtwarzania korzysta z
+zapamiętanego indeksu albo jednej granicy i nie wykonuje takiego przeszukania
+w każdym takcie.
 
 ### 7.20. Spójne cofanie usunięcia podcastu
 

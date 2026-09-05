@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-265`
-- Tytuł zestawu: Trwały zestaw rozdziałów podczas przewijania
-- Wersja programu: `0.1.0-alpha.265`
+- Numer zestawu: `AMC-TEST-266`
+- Tytuł zestawu: Swobodna nawigacja i automatyczne pomijanie rozdziałów
+- Wersja programu: `0.1.0-alpha.266`
 - Utworzono: 2026-09-05, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.265.md`
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.266.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,55 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 266
+
+### AMC-266-01 — swobodne przewijanie poza wybrany zestaw
+
+Wybierz dwa odległe rozdziały, uruchom zestaw, a następnie użyj zwykłych
+strzałek, Home, End, cyfry, `Ctrl+J` i `Ctrl+Shift+J`, aby wejść w niewybrany
+rozdział.
+
+Oczekiwane: AMC pozostaje dokładnie w ręcznie wskazanym miejscu i pozwala
+słuchać niewybranego rozdziału. Nie cofa ani nie przenosi natychmiast do
+wybranego rozdziału.
+
+### AMC-266-02 — ręczna nawigacja po pełnym spisie
+
+Podczas aktywnego zestawu użyj wielokrotnie
+`Ctrl+Shift+strzałka w lewo/prawo`.
+
+Oczekiwane: skróty przechodzą kolejno po wszystkich rozdziałach źródłowego
+spisu, także niewybranych. Zapisany wybór nie znika.
+
+### AMC-266-03 — powrót do zestawu na granicy rozdziału
+
+Ręcznie wejdź w niewybrany rozdział, po którym znajduje się co najmniej jeden
+późniejszy wybrany rozdział, i pozwól mu dobiec do końca.
+
+Oczekiwane: bieżący niewybrany rozdział gra do końca. Na jego granicy AMC
+pomija dalsze niewybrane części i przechodzi do najbliższego późniejszego
+wybranego rozdziału.
+
+### AMC-266-04 — brak późniejszego wybranego rozdziału
+
+Ręcznie przejdź do niewybranego rozdziału leżącego za ostatnim wybranym i
+pozwól mu dobiec do końca.
+
+Oczekiwane: AMC kończy odtwarzanie zestawu na granicy tego rozdziału. Nie
+uruchamia następnego odcinka ani materiału.
+
+### AMC-266-05 — trwały wybór po ręcznych skokach
+
+Po wykonaniu różnych ręcznych skoków ponownie otwórz `Ctrl+Alt+B`.
+
+Oczekiwane: te same wcześniej wskazane rozdziały nadal mówią „Wybrany”.
+
+## Poprzedni zestaw regresyjny alpha 265
+
+Poniższe oczekiwania dotyczące ograniczania skoków do wybranego zestawu zostały
+zastąpione przez regułę `alpha.266`; pozostają zapisane wyłącznie jako historia
+zmiany projektu.
 
 ## Nowości alpha 265
 

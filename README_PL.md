@@ -1078,11 +1078,13 @@ następny. Każdy rozdział jest odtwarzany do własnego końca; dopiero potem
 program przeskakuje nad pominiętymi rozdziałami. Przebieg i przerwania planu są
 zapisywane w logu diagnostycznym.
 
-`alpha.265` zachowuje wybrany zestaw podczas przewijania strzałkami, skoków do
-czasu i procentu oraz nawigacji rozdziałami. Trafienie w pominięty fragment
-kieruje do najbliższego wybranego rozdziału, a poprzedni/następny rozdział
-porusza się tylko po zestawie. Po ponownym otwarciu listy wcześniejsze wybory
-są nadal widoczne. Zmiana odtwarzanego materiału kończy ten tymczasowy plan.
+`alpha.266` zachowuje wybrany zestaw, ale nie ogranicza nim ręcznej nawigacji.
+Strzałki, Home, End, skok do czasu i procentu, cyfry oraz poprzedni/następny
+rozdział działają na całym materiale. Jeżeli użytkownik ręcznie wejdzie w
+niewybrany rozdział, może go odsłuchać do końca; dopiero wtedy AMC pomija
+kolejne niewybrane części i wraca do najbliższego późniejszego rozdziału z
+zestawu. Po ponownym otwarciu listy wcześniejsze wybory są nadal widoczne.
+Zmiana materiału kończy ten tymczasowy plan.
 
 ## Urządzenie audio osobno dla sesji w alpha 204
 
