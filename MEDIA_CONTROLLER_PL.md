@@ -2223,7 +2223,27 @@ przypisać dowolny zajęty preset do innego skrótu albo usunąć samo przypisan
 Żadna z tych operacji nie zapisuje, nie nadpisuje ani nie usuwa presetu w WiiM.
 Takie zmiany sprzętowe nadal wykonuje się w WiiM Home. Escape wraca z
 odtwarzacza do listy urządzeń, lecz nie zatrzymuje autonomicznego odtwarzania w
-pokoju. Wysyłanie adresów strumieni pozostaje kolejnym etapem adaptera.
+pokoju.
+
+Od `alpha.276` polecenie **Otwórz w WiiM** jest dostępne dla pojedynczej stacji,
+odcinka podcastu, zdalnego utworu lub publicznej playlisty posiadającej
+rzeczywisty adres HTTP albo HTTPS. Znajduje się w menu kontekstowym listy i
+odtwarzacza, w menu Odtwarzanie oraz w palecie poleceń; na razie nie ma
+domyślnego skrótu. Przed wysłaniem AMC podaje nazwę urządzenia i wymaga
+potwierdzenia, że jego aktualne źródło zostanie zastąpione. Po zaakceptowaniu
+wysyła adres przez oficjalne lokalne API, próbuje potwierdzić nowy stan i
+przechodzi do odtwarzacza WiiM. Brak natychmiastowego odczytu stanu nie cofa
+już przyjętego polecenia, lecz jest jednoznacznie oznajmiany.
+
+Ścieżka lokalna `D:\...`, URI `file:`, adres z osadzonym loginem lub hasłem,
+sam nagłówek podcastu prowadzący do RSS oraz prywatny uchwyt DRM nie są
+wysyłane. Lokalne pliki będą wymagały osobnego, kontrolowanego serwera HTTP lub
+DLNA. Statyczne listy M3U i PLS korzystają z udokumentowanego polecenia
+playlisty; M3U8 jest traktowane jako bezpośredni strumień HLS. WiiM Home
+przechowuje własną listę „Open Network Stream”, lecz publiczne API nie pozwala
+jej obecnie wyliczać ani edytować. Dlatego późniejsza wymiana tej listy będzie
+odbywać się jawnie przez import i eksport M3U, a nie przez pozorną
+synchronizację.
 
 Szczegółowa mapa stabilnych i eksperymentalnych etapów, oparta także na
 porównaniu aktywnych bibliotek społecznościowych LinkPlay/WiiM, znajduje się w

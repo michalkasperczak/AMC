@@ -13,7 +13,7 @@ eksperymentalne, po sprawdzeniu możliwości konkretnego modelu i z bezpiecznym
 wycofaniem operacji. Polecenia administracyjne, konfiguracja sieci, restart i
 przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 
-## Stan po alpha 275
+## Stan po alpha 276
 
 - wykrywanie UPnP/SSDP i ręczne dodanie lokalnego adresu IP;
 - wybór i zapamiętanie aktywnego urządzenia;
@@ -44,6 +44,13 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   przypisać jeden z gotowych presetów WiiM do dwunastu lokalnych skrótów AMC
   `Ctrl+Shift+1–0/-/=`. Mapowanie jest zapisywane osobno dla każdego urządzenia,
   a jego usunięcie nie usuwa ani nie zmienia presetu sprzętowego.
+- **Otwórz w WiiM** w menu kontekstowym, menu Odtwarzanie i palecie poleceń
+  wysyła do aktywnego urządzenia publiczny adres stacji, odcinka podcastu,
+  zdalnego utworu albo publicznej playlisty. Przed operacją podaje nazwę
+  urządzenia i wymaga potwierdzenia, ponieważ zastępuje bieżące źródło WiiM.
+  Po powodzeniu przechodzi do odtwarzacza urządzenia. Lista M3U albo PLS jest
+  przekazywana poleceniem playlisty, natomiast M3U8 pozostaje bezpośrednim
+  strumieniem HLS.
 
 Lokalne API nie udostępnia zapisu ani zmiany kolejności natywnych presetów.
 AMC nie zgłasza więc pozornego powodzenia; takie ustawienie nadal wykonuje się
@@ -52,10 +59,10 @@ adres, album, playlistę lub inną treść niezależnie od sprzętowych miejsc W
 
 ## Kolejność dalszej integracji
 
-1. **Otwieranie adresu na WiiM.** Radio, odcinek podcastu albo publiczna
-   playlista M3U może zostać wysłana jako URL. Funkcja musi jasno ostrzegać, że
-   zastępuje bieżące źródło. Lokalny plik wymaga kontrolowanego serwera HTTP lub
-   DLNA w AMC; sama ścieżka `D:\...` nie jest dla urządzenia osiągalna.
+1. **Wymiana zapisanych strumieni.** WiiM Home pozwala importować i eksportować
+   M3U, M3U8 i PLS, ale publiczne API nie udostępnia odczytu ani zapisu całej
+   listy „Open Network Stream”. AMC może więc wymieniać te listy jawnie przez
+   plik, bez udawania automatycznej synchronizacji.
 2. **Aktualizacja stanu przez UPnP z odpytywaniem awaryjnym.** Zdarzenia UPnP
    mogą szybciej aktualizować tytuł, pozycję i głośność. Okresowe HTTP pozostaje
    mechanizmem awaryjnym, ponieważ zdarzenia bywają blokowane przez router,
@@ -85,6 +92,10 @@ adres, album, playlistę lub inną treść niezależnie od sprzętowych miejsc W
 - Awaria jednego odczytu nie usuwa urządzenia ani zapisanych ustawień.
 - Żądania mają ograniczony czas, rozmiar odpowiedzi i są kierowane wyłącznie do
   lokalnych adresów IP bez przekierowań.
+- Do urządzenia można wysłać wyłącznie bezwzględny adres HTTP albo HTTPS bez
+  danych logowania. Fragment adresu jest usuwany. Ścieżki lokalne, adresy
+  `file:`, nagłówki podcastów prowadzące do RSS oraz prywatne uchwyty usług nie
+  są kwalifikowane do tej funkcji.
 - Zapis stanu urządzenia nie może przejmować fokusu ani generować okresowych
   komunikatów NVDA.
 - Nazwy usług, trybów i elementów są etykietami użytkowymi. Surowe kody,

@@ -117,6 +117,24 @@ static void TestWiiMApiParsing()
     Equal("setPlayerCmd:mute:1", WiiMCommands.SetMuted(true));
     Equal("setPlayerCmd:seek:95", WiiMCommands.Seek(TimeSpan.FromSeconds(94.6)));
     Equal("MCUKeyShortClick:12", WiiMCommands.ActivatePreset(12));
+    Equal(
+        "setPlayerCmd:play:https://example.test/live/stream.m3u8?quality=high",
+        WiiMCommands.PlayUrl(" https://example.test/live/stream.m3u8?quality=high#player "));
+    Equal(
+        $"setPlayerCmd:hex_playlist:{Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes("https://example.test/lista.m3u"))}:0",
+        WiiMCommands.PlayNetworkResource("https://example.test/lista.m3u"));
+    Equal(
+        "setPlayerCmd:play:https://example.test/live/playlist.m3u8",
+        WiiMCommands.PlayNetworkResource("https://example.test/live/playlist.m3u8"));
+    True(WiiMPlaybackUriPolicy.TryNormalize(
+            "https://example.test/audio.mp3#fragment",
+            out var playableUri),
+        "Publiczny adres HTTPS powinien być dozwolony dla odtwarzania na WiiM.");
+    Equal("https://example.test/audio.mp3", playableUri);
+    True(!WiiMPlaybackUriPolicy.TryNormalize("file:///D:/Muzyka/test.mp3", out _),
+        "Lokalna ścieżka nie może zostać wysłana do WiiM jako adres sieciowy.");
+    True(!WiiMPlaybackUriPolicy.TryNormalize("https://user:secret@example.test/audio.mp3", out _),
+        "Adres zawierający dane logowania nie może zostać wysłany do WiiM.");
     Equal("setPlayerCmd:switchmode:optical", WiiMCommands.SwitchInput("optical"));
     Equal("setAudioOutputHardwareMode:2", WiiMCommands.SetAudioOutputHardwareMode(2));
     Equal("EQLoad:Spoken Word", WiiMCommands.LoadEqualizerPreset("Spoken Word"));
@@ -1527,6 +1545,7 @@ static void TestCommandCatalog()
     Equal("Biblioteka lokalna: pokaż kolejność własną", CommandCatalog.GetDisplayName(CommandIds.ViewCustomLocalOrder));
     Equal("Odśwież foldery Biblioteki", CommandCatalog.GetDisplayName(CommandIds.RefreshLocalLibrary));
     Equal("Foldery Biblioteki", CommandCatalog.GetDisplayName(CommandIds.ManageLocalSources));
+    Equal("Otwórz element w WiiM", CommandCatalog.GetDisplayName(CommandIds.OpenOnWiiM));
     Equal("Zmień nazwę w Bibliotece", CommandCatalog.GetDisplayName(CommandIds.RenameLibraryItem));
     Equal("Zmień nazwę pliku na dysku", CommandCatalog.GetDisplayName(CommandIds.RenameLocalFile));
     Equal("Przenieś wyżej na bieżącej liście", CommandCatalog.GetDisplayName(CommandIds.MoveLocalLibraryItemUp));

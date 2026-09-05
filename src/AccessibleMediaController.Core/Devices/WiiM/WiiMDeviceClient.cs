@@ -88,6 +88,12 @@ public sealed class WiiMDeviceClient : IDisposable
     public Task ActivatePresetAsync(string address, int presetNumber, CancellationToken cancellationToken = default) =>
         SendCommandAsync(address, WiiMCommands.ActivatePreset(presetNumber), cancellationToken);
 
+    public Task PlayNetworkStreamAsync(
+        string address,
+        string mediaUrl,
+        CancellationToken cancellationToken = default) =>
+        SendCommandAsync(address, WiiMCommands.PlayNetworkResource(mediaUrl), cancellationToken);
+
     public Task SwitchInputAsync(string address, string input, CancellationToken cancellationToken = default) =>
         SendCommandAsync(address, WiiMCommands.SwitchInput(input), cancellationToken);
 
@@ -303,6 +309,21 @@ public static class WiiMCommands
         return $"MCUKeyShortClick:{presetNumber}";
     }
 
+    public static string PlayUrl(string mediaUrl)
+    {
+        if (!WiiMPlaybackUriPolicy.TryNormalize(mediaUrl, out var normalized))
+            throw new ArgumentException("Podaj publiczny adres HTTP lub HTTPS materiału.", nameof(mediaUrl));
+        return $"setPlayerCmd:play:{normalized}";
+    }
+
+    public static string PlayNetworkResource(string mediaUrl)
+    {
+        if (!WiiMPlaybackUriPolicy.TryNormalize(mediaUrl, out var normalized))
+            throw new ArgumentException("Podaj publiczny adres HTTP lub HTTPS materiału.", nameof(mediaUrl));
+        if (!WiiMPlaybackUriPolicy.IsStaticPlaylist(normalized)) return PlayUrl(normalized);
+        return $"setPlayerCmd:hex_playlist:{Convert.ToHexString(Encoding.UTF8.GetBytes(normalized))}:0";
+    }
+
     public static string SwitchInput(string input)
     {
         var normalized = input.Trim().ToLowerInvariant();
@@ -350,6 +371,40 @@ public static class WiiMCommands
 
         return value.Contains("\"status\"", StringComparison.OrdinalIgnoreCase)
             && value.Contains("failed", StringComparison.OrdinalIgnoreCase);
+    }
+}
+
+public static class WiiMPlaybackUriPolicy
+{
+    private const int MaximumUriLength = 4096;
+
+    public static bool TryNormalize(string? value, out string normalized)
+    {
+        normalized = string.Empty;
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        var candidate = value.Trim();
+        if (candidate.Length > MaximumUriLength
+            || !Uri.TryCreate(candidate, UriKind.Absolute, out var uri)
+            || uri.Scheme is not ("http" or "https")
+            || string.IsNullOrWhiteSpace(uri.Host)
+            || !string.IsNullOrEmpty(uri.UserInfo))
+        {
+            return false;
+        }
+
+        var builder = new UriBuilder(uri) { Fragment = string.Empty };
+        normalized = builder.Uri.AbsoluteUri;
+        return normalized.Length <= MaximumUriLength;
+    }
+
+    public static bool IsStaticPlaylist(string value)
+    {
+        if (!TryNormalize(value, out var normalized)
+            || !Uri.TryCreate(normalized, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+        return Path.GetExtension(uri.AbsolutePath).ToLowerInvariant() is ".m3u" or ".pls";
     }
 }
 

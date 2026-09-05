@@ -126,6 +126,11 @@
                           automation:AutomationProperties.Name="Wybierz urządzenie audio dla bieżącej sesji"
                           automation:AutomationProperties.AcceleratorKey="Shift+A"
                           Click="AudioOutputDevice_Click" />
+                <MenuItem x:Name="OpenOnWiiMMainMenuItem"
+                          Header="Otwórz element w _WiiM…"
+                          automation:AutomationProperties.Name="Otwórz element w WiiM"
+                          Visibility="Collapsed"
+                          Click="OpenOnWiiM_Click" />
                 <Separator x:Name="PlaybackAudioProcessingSeparator" />
                 <MenuItem x:Name="LoudnessNormalizationMenuItem"
                           Header="Globalna normalizacja głośności: wyłączona"
@@ -527,6 +532,9 @@
                               automation:AutomationProperties.Name="Utwórz lub przypisz preset aktywnej sesji, Ctrl+Alt+Shift+P"
                               Visibility="Collapsed" Click="RadioAssignPreset_Click" />
                     <Separator />
+                    <MenuItem x:Name="OpenOnWiiMMenuItem" Header="Otwórz element w WiiM…"
+                              automation:AutomationProperties.Name="Otwórz element w WiiM"
+                              Visibility="Collapsed" Click="OpenOnWiiM_Click" />
                     <MenuItem x:Name="InformationMenuItem" Header="Właściwości i informacje" InputGestureText="Alt+Enter"
                               automation:AutomationProperties.Name="Właściwości i informacje, Alt+Enter"
                               Click="Information_Click" />
@@ -646,6 +654,11 @@
                               automation:AutomationProperties.Name="Wybierz urządzenie audio dla tej sesji"
                               automation:AutomationProperties.AcceleratorKey="Shift+A"
                               Click="AudioOutputDevice_Click" />
+                    <MenuItem x:Name="PlayerOpenOnWiiMMenuItem"
+                              Header="Otwórz element w WiiM…"
+                              automation:AutomationProperties.Name="Otwórz element w WiiM"
+                              Visibility="Collapsed"
+                              Click="OpenOnWiiM_Click" />
                     <Separator x:Name="PlayerAudioProcessingSeparator" />
                     <MenuItem x:Name="PlayerLoudnessNormalizationMenuItem"
                               Header="Globalna normalizacja głośności: wyłączona"

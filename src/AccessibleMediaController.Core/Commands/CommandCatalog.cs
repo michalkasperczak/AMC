@@ -108,6 +108,7 @@ public static class CommandCatalog
             CommandIds.ManageLocalSources => "Foldery Biblioteki",
             CommandIds.ManageWiiMDevices => "Urządzenia WiiM",
             CommandIds.RefreshWiiMDevices => "Odśwież urządzenia WiiM",
+            CommandIds.OpenOnWiiM => "Otwórz element w WiiM",
             CommandIds.ViewWiiMDevicePresets => "Presety urządzenia WiiM",
             CommandIds.PreviousWiiMDevicePreset => "Poprzedni zajęty preset urządzenia WiiM",
             CommandIds.NextWiiMDevicePreset => "Następny zajęty preset urządzenia WiiM",

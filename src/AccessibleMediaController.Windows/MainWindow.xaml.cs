@@ -3449,6 +3449,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var local = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
         var podcasts = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
         var wiiM = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
+        if (commandId == CommandIds.OpenOnWiiM)
+            return !wiiM && ActionItems.Count == 1 && TryGetWiiMPlayableUri(ActionItem, out _);
         if (commandId is CommandIds.ManageWiiMDevices or CommandIds.RefreshWiiMDevices)
             return wiiM;
         if (commandId == CommandIds.CurrentBroadcastInformation)
@@ -4518,6 +4520,127 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    private bool TryGetWiiMPlayableUri(MediaItem? item, out string mediaUrl)
+    {
+        mediaUrl = string.Empty;
+        if (item?.Kind is not (MediaItemKind.Station
+            or MediaItemKind.Episode
+            or MediaItemKind.Track
+            or MediaItemKind.Playlist))
+        {
+            return false;
+        }
+        if (WiiMPlaybackUriPolicy.TryNormalize(item.Source, out mediaUrl)) return true;
+        return item.Kind == MediaItemKind.Episode
+            && WiiMPlaybackUriPolicy.TryNormalize(
+                FindPodcastEpisodeSettings(item)?.MediaUrl,
+                out mediaUrl);
+    }
+
+    private WiiMDeviceSettings? ResolveWiiMPlaybackTarget()
+    {
+        var selected = _state.WiiM.Devices.FirstOrDefault(device =>
+            string.Equals(device.Id, _state.WiiM.SelectedDeviceId, StringComparison.OrdinalIgnoreCase));
+        return selected ?? (_state.WiiM.Devices.Count == 1 ? _state.WiiM.Devices[0] : null);
+    }
+
+    private async Task OpenCurrentItemOnWiiMAsync()
+    {
+        var item = ActionItems.Count == 1 ? ActionItem : null;
+        if (!TryGetWiiMPlayableUri(item, out var mediaUrl))
+        {
+            Announce("Ten element nie ma publicznego adresu, który można otworzyć w WiiM");
+            return;
+        }
+        if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
+        {
+            Announce("Ten element jest już obsługiwany przez sesję WiiM");
+            return;
+        }
+
+        var device = ResolveWiiMPlaybackTarget();
+        if (device is null)
+        {
+            Announce(_state.WiiM.Devices.Count == 0
+                ? "Brak zapisanego urządzenia WiiM. Przejdź do sesji WiiM i naciśnij Ctrl+F5"
+                : "Wybierz aktywne urządzenie w sesji WiiM przed wysłaniem materiału");
+            return;
+        }
+
+        var confirmation = MessageBox.Show(
+            this,
+            $"Otworzyć „{item!.Title}” na urządzeniu {device.DisplayName}? "
+                + "Bieżące źródło odtwarzania tego urządzenia zostanie zastąpione.",
+            "Otwórz w WiiM",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            RestoreWiiMFocusAfterExternalCommand();
+            return;
+        }
+
+        var gateEntered = false;
+        WiiMDeviceSnapshot? snapshot = null;
+        try
+        {
+            await _wiiMDeviceOperationGate.WaitAsync(_wiiMCancellation.Token);
+            gateEntered = true;
+            await _wiiMClient.PlayNetworkStreamAsync(device.Address, mediaUrl, _wiiMCancellation.Token);
+            await Task.Delay(450, _wiiMCancellation.Token);
+            try
+            {
+                snapshot = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
+                if (!_isClosing) ApplyWiiMSnapshot(device, snapshot);
+            }
+            catch (Exception exception) when (IsWiiMConnectionFailure(exception))
+            {
+                DiagnosticLog.Warning(
+                    "wiim-play-url",
+                    $"Wysłano adres do urządzenia, ale nie potwierdzono nowego stanu: {exception.GetType().Name}.");
+            }
+        }
+        catch (OperationCanceledException) when (_wiiMCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception exception) when (IsWiiMConnectionFailure(exception))
+        {
+            DiagnosticLog.Warning(
+                "wiim-play-url",
+                $"Nie udało się otworzyć adresu na urządzeniu {device.Id}: {exception.GetType().Name}.");
+            AnnounceEssential($"Nie udało się otworzyć elementu na urządzeniu {device.DisplayName}");
+            RestoreWiiMFocusAfterExternalCommand();
+            return;
+        }
+        finally
+        {
+            if (gateEntered) _wiiMDeviceOperationGate.Release();
+        }
+
+        if (_isClosing) return;
+        var session = SelectSessionBrowserItem("wiim", device.Id);
+        if (session is null)
+        {
+            AnnounceEssential("Wysłano materiał do WiiM, ale nie można otworzyć sesji urządzenia");
+            return;
+        }
+        _state.WiiM.SelectedDeviceId = device.Id;
+        QueueStateSave(announceFailure: true);
+        _playerFocusContextPrefix = snapshot is null
+            ? $"Wysłano {item.Title} do {device.DisplayName}; urządzenie nie potwierdziło jeszcze stanu"
+            : $"Otwarto {item.Title} na {device.DisplayName}";
+        ShowPlayerView();
+    }
+
+    private void RestoreWiiMFocusAfterExternalCommand()
+    {
+        Activate();
+        if (_playerViewActive) FocusPlayerView();
+        else RestoreMediaListFocusAfterRefresh();
+    }
+
     private void ShowLocalFileInFolder()
     {
         if (ActionItem is not { } item || !TryGetLocalPath(item.Source, out var localPath)) return;
@@ -4873,6 +4996,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         MenuAccessibility.SetPresentation(
             AudioOutputDeviceMenuItem,
             $"Wybierz urządzenie audio dla sesji {_sessions.Current.DisplayName}");
+        var openOnWiiMAvailable = !wiiM
+            && ActionItems.Count == 1
+            && TryGetWiiMPlayableUri(ActionItem, out _);
+        OpenOnWiiMMainMenuItem.Visibility = openOnWiiMAvailable
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        if (openOnWiiMAvailable)
+        {
+            MenuAccessibility.SetPresentation(
+                OpenOnWiiMMainMenuItem,
+                ResolveWiiMPlaybackTarget() is { } playbackTarget
+                    ? $"Otwórz element w {playbackTarget.DisplayName}"
+                    : "Otwórz element w WiiM");
+        }
         UpdatePlaybackAudioMenuPresentation(_sessions.Current.AudioProcessingCapabilities);
         var currentLocalItem = local
             && _playerViewActive
@@ -8534,6 +8671,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string commandId,
         FolderContentsActionContext? folderContext)
     {
+        if (commandId == CommandIds.OpenOnWiiM)
+        {
+            _ = OpenCurrentItemOnWiiMAsync();
+            return new CommandExecutionResult(true);
+        }
         if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
         {
             if (commandId == CommandIds.ActivateSelected)
@@ -17406,6 +17548,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void MoveLocalItemDown_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.MoveLocalLibraryItemDown);
     private void OfficialApp_Click(object sender, RoutedEventArgs e) => OpenOfficialApplication();
+    private void OpenOnWiiM_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.OpenOnWiiM);
     private void Remove_Click(object sender, RoutedEventArgs e) => RemoveSelected();
     private void Recycle_Click(object sender, RoutedEventArgs e) => MoveSelectedLocalFilesToRecycleBin();
     private void PlayerRemoveLocalItem_Click(object sender, RoutedEventArgs e) => RemoveCurrentLocalItemFromPlayer();
@@ -17462,6 +17605,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var podcastSession = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
         var wiiMSession = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
         WiiMDevicePresetsMenuItem.Visibility = wiiMSession ? Visibility.Visible : Visibility.Collapsed;
+        var openOnWiiMAvailable = !wiiMSession
+            && items.Count == 1
+            && TryGetWiiMPlayableUri(actionItem, out _);
+        OpenOnWiiMMenuItem.Visibility = openOnWiiMAvailable
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        if (openOnWiiMAvailable)
+        {
+            MenuAccessibility.SetPresentation(
+                OpenOnWiiMMenuItem,
+                ResolveWiiMPlaybackTarget() is { } playbackTarget
+                    ? $"Otwórz w {playbackTarget.DisplayName}"
+                    : "Otwórz w WiiM");
+        }
         var playlistContainer = !_playerViewActive
             && (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not null;
         var playlistContext = playlistContainer
@@ -17856,6 +18013,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var item = _sessions.Current.CurrentItem;
         var wiiMSession = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
+        var playerOpenOnWiiMAvailable = !wiiMSession && TryGetWiiMPlayableUri(item, out _);
+        PlayerOpenOnWiiMMenuItem.Visibility = playerOpenOnWiiMAvailable
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        if (playerOpenOnWiiMAvailable)
+        {
+            MenuAccessibility.SetPresentation(
+                PlayerOpenOnWiiMMenuItem,
+                ResolveWiiMPlaybackTarget() is { } playbackTarget
+                    ? $"Otwórz w {playbackTarget.DisplayName}"
+                    : "Otwórz w WiiM");
+        }
         PlayerWiiMDevicePresetsMenuItem.Visibility = wiiMSession ? Visibility.Visible : Visibility.Collapsed;
         PlayerWiiMPreviousPresetMenuItem.Visibility = wiiMSession ? Visibility.Visible : Visibility.Collapsed;
         PlayerWiiMNextPresetMenuItem.Visibility = wiiMSession ? Visibility.Visible : Visibility.Collapsed;
