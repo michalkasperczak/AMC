@@ -266,6 +266,25 @@ static void TestWiiMApiParsing()
             LastActivatedPresetNumber = 2
         });
         state.WiiM.SelectedDeviceId = "wiim-1";
+        state.WiiM.NetworkStreams.Add(new WiiMNetworkStreamSettings
+        {
+            Id = "wiim:stream:1",
+            Name = "Radio testowe",
+            StreamUrl = "https://radio.example/live.m3u8",
+            AddedUtcTicks = 123456
+        });
+        state.WiiM.NetworkStreams.Add(new WiiMNetworkStreamSettings
+        {
+            Id = "wiim:stream:duplicate",
+            Name = "Duplikat",
+            StreamUrl = "https://radio.example/live.m3u8"
+        });
+        state.WiiM.NetworkStreams.Add(new WiiMNetworkStreamSettings
+        {
+            Id = "wiim:stream:unsafe",
+            Name = "Niedozwolony",
+            StreamUrl = "file:///C:/private.mp3"
+        });
         store.Save(state);
         var loaded = store.LoadOrCreate();
         Equal(ConfigurationStore.CurrentSchemaVersion, loaded.SchemaVersion);
@@ -273,6 +292,9 @@ static void TestWiiMApiParsing()
         Equal("Salon", loaded.WiiM.Devices[0].DisplayName);
         Equal("wiim-1", loaded.WiiM.SelectedDeviceId);
         Equal(2, loaded.WiiM.Devices[0].LastActivatedPresetNumber);
+        Equal(1, loaded.WiiM.NetworkStreams.Count);
+        Equal("Radio testowe", loaded.WiiM.NetworkStreams[0].Name);
+        Equal("https://radio.example/live.m3u8", loaded.WiiM.NetworkStreams[0].StreamUrl);
     }
     finally
     {
@@ -1555,6 +1577,8 @@ static void TestCommandCatalog()
     Equal("Odśwież foldery Biblioteki", CommandCatalog.GetDisplayName(CommandIds.RefreshLocalLibrary));
     Equal("Foldery Biblioteki", CommandCatalog.GetDisplayName(CommandIds.ManageLocalSources));
     Equal("Otwórz element w WiiM", CommandCatalog.GetDisplayName(CommandIds.OpenOnWiiM));
+    Equal("Dodaj strumień sieciowy WiiM", CommandCatalog.GetDisplayName(CommandIds.AddWiiMNetworkStream));
+    Equal("Importuj strumienie WiiM z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportWiiMNetworkStreams));
     Equal("Zmień nazwę w Bibliotece", CommandCatalog.GetDisplayName(CommandIds.RenameLibraryItem));
     Equal("Zmień nazwę pliku na dysku", CommandCatalog.GetDisplayName(CommandIds.RenameLocalFile));
     Equal("Przenieś wyżej na bieżącej liście", CommandCatalog.GetDisplayName(CommandIds.MoveLocalLibraryItemUp));
@@ -4463,6 +4487,9 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+H (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ManageRadioSchedules).LocalShortcut);
     Equal("Ctrl+N (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.AddPodcast).LocalShortcut);
     Equal("Ctrl+O (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.ImportPodcastOpml).LocalShortcut);
+    Equal("Ctrl+Alt+W", entries.Single(entry => entry.CommandId == CommandIds.OpenOnWiiM).LocalShortcut);
+    Equal("Ctrl+N (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.AddWiiMNetworkStream).LocalShortcut);
+    Equal("Ctrl+O (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ImportWiiMNetworkStreams).LocalShortcut);
     Equal("F5 (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcast).LocalShortcut);
     Equal("Ctrl+F5 (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcastLibrary).LocalShortcut);
     Equal("Ctrl+I (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.ViewPodcastInbox).LocalShortcut);

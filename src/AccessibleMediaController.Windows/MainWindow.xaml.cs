@@ -59,6 +59,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const string CustomLocalOrderViewName = "Kolejność własna";
     private const string LocalAlbumContentsViewName = "Album";
     private const string PlaylistContentsViewPrefix = "Playlista:";
+    private const string WiiMNetworkStreamExternalId = "wiim-network-stream";
     private string? _currentLocalAlbumPath;
     private string? _currentLocalAlbumTitle;
     private string _currentView = DefaultBrowserView;
@@ -3452,8 +3453,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var podcasts = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
         var wiiM = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
         if (commandId == CommandIds.OpenOnWiiM)
-            return !wiiM && ActionItems.Count == 1 && TryGetWiiMPlayableUri(ActionItem, out _);
-        if (commandId is CommandIds.ManageWiiMDevices or CommandIds.RefreshWiiMDevices)
+            return ActionItems.Count == 1 && TryGetWiiMPlayableUri(ActionItem, out _);
+        if (commandId is CommandIds.ManageWiiMDevices
+            or CommandIds.RefreshWiiMDevices
+            or CommandIds.AddWiiMNetworkStream
+            or CommandIds.ImportWiiMNetworkStreams)
             return wiiM;
         if (commandId == CommandIds.CurrentBroadcastInformation)
             return radio || wiiM;
@@ -4554,12 +4558,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce("Ten element nie ma publicznego adresu, który można otworzyć w WiiM");
             return;
         }
-        if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
-        {
-            Announce("Ten element jest już obsługiwany przez sesję WiiM");
-            return;
-        }
-
         var device = ResolveWiiMPlaybackTarget();
         if (device is null)
         {
@@ -4985,6 +4983,126 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _ = Dispatcher.BeginInvoke(() => AnnounceEssential(message), DispatcherPriority.ContextIdle);
     }
 
+    private void AddWiiMNetworkStream()
+    {
+        var dialog = new RadioStationWindow(wiiMNetworkStream: true) { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+
+        if (!WiiMPlaybackUriPolicy.TryNormalize(dialog.StreamUrl, out var normalizedUrl))
+        {
+            AnnounceEssential("Nie można zapisać tego adresu strumienia WiiM");
+            RestoreItemActionFocus();
+            return;
+        }
+
+        var duplicate = _state.WiiM.NetworkStreams.FirstOrDefault(stream =>
+            string.Equals(stream.StreamUrl, normalizedUrl, StringComparison.OrdinalIgnoreCase));
+        if (duplicate is not null)
+        {
+            duplicate.Name = dialog.StationName;
+            ShowWiiMNetworkStreams(duplicate.Id, $"Zaktualizowano strumień: {duplicate.Name}");
+            return;
+        }
+
+        var saved = new WiiMNetworkStreamSettings
+        {
+            Id = $"wiim:stream:{Guid.NewGuid():N}",
+            Name = dialog.StationName,
+            StreamUrl = normalizedUrl,
+            AddedUtcTicks = DateTime.UtcNow.Ticks
+        };
+        _state.WiiM.NetworkStreams.Add(saved);
+        ShowWiiMNetworkStreams(saved.Id, $"Dodano strumień WiiM: {saved.Name}");
+    }
+
+    private async void ImportWiiMNetworkStreams()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Importuj strumienie WiiM z playlisty",
+            Filter = "Playlisty (*.m3u;*.m3u8;*.pls)|*.m3u;*.m3u8;*.pls|Wszystkie pliki (*.*)|*.*",
+            Multiselect = false,
+            CheckFileExists = true
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+
+        RadioPlaylistImportResult import;
+        try
+        {
+            import = await Task.Run(() => RadioPlaylistImporter.Import(dialog.FileName));
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or InvalidDataException
+            or System.Text.Json.JsonException
+            or System.Xml.XmlException)
+        {
+            DiagnosticLog.Warning(
+                "wiim-stream-import",
+                $"Nie udało się zaimportować playlisty; błąd {exception.GetType().Name}.");
+            AnnounceEssential($"Nie można zaimportować playlisty: {exception.Message}");
+            RestoreItemActionFocus();
+            return;
+        }
+
+        var existingUrls = _state.WiiM.NetworkStreams
+            .Select(stream => stream.StreamUrl)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var added = new List<WiiMNetworkStreamSettings>();
+        foreach (var station in import.Stations)
+        {
+            if (!existingUrls.Add(station.StreamUrl)) continue;
+            var stream = new WiiMNetworkStreamSettings
+            {
+                Id = $"wiim:stream:{Guid.NewGuid():N}",
+                Name = station.Name,
+                StreamUrl = station.StreamUrl,
+                AddedUtcTicks = DateTime.UtcNow.Ticks
+            };
+            _state.WiiM.NetworkStreams.Add(stream);
+            added.Add(stream);
+        }
+
+        if (added.Count == 0)
+        {
+            Announce(import.SkippedEntries > 0
+                ? "Playlista nie zawiera nowych prawidłowych strumieni WiiM"
+                : "Wszystkie strumienie z tej playlisty są już zapisane");
+            RestoreItemActionFocus();
+            return;
+        }
+
+        ShowWiiMNetworkStreams(
+            added[0].Id,
+            $"Zaimportowano strumienie WiiM: {added.Count}");
+    }
+
+    private void ShowWiiMNetworkStreams(string? preferredItemId = null, string? announcement = null)
+    {
+        CaptureCurrentSessionNavigationState();
+        HidePlayerForBrowserNavigation();
+        LoadPersistedWiiM();
+        _sessions.FindSession("wiim")?.ReplaceItems(_wiiMItems);
+        _sessions.SelectSession("wiim");
+        _currentView = "Biblioteka";
+        var navigation = GetSessionNavigationState("wiim");
+        navigation.CurrentView = _currentView;
+        navigation.PlayerActive = false;
+        RefreshCurrentView(preferredItemId: preferredItemId);
+        QueueStateSave(announceFailure: true);
+        if (!string.IsNullOrWhiteSpace(announcement)) PrepareViewFocusContext(announcement);
+        RestoreMediaListFocusAfterRefresh();
+    }
+
     private void UpdateFileMenuForCurrentSession()
     {
         var local = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
@@ -4999,8 +5117,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         MenuAccessibility.SetPresentation(
             AudioOutputDeviceMenuItem,
             $"Wybierz urządzenie audio dla sesji {_sessions.Current.DisplayName}");
-        var openOnWiiMAvailable = !wiiM
-            && ActionItems.Count == 1
+        var openOnWiiMAvailable = ActionItems.Count == 1
             && TryGetWiiMPlayableUri(ActionItem, out _);
         OpenOnWiiMMainMenuItem.Visibility = openOnWiiMAvailable
             ? Visibility.Visible
@@ -5078,6 +5195,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         OpenLocalFolderMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageLocalSourcesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageWiiMDevicesMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
+        AddWiiMNetworkStreamMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
+        ImportWiiMNetworkStreamsMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         ImportRadioPlaylistMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         AddRadioStationMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         AddPodcastMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
@@ -5152,6 +5271,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         RenameLocalFileMainMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         RenameLibraryItemMainMenuItem.Visibility = local || radio || podcasts
+            || wiiM && IsWiiMNetworkStream(ActionItem)
             ? Visibility.Visible
             : Visibility.Collapsed;
         MenuAccessibility.SetPresentation(
@@ -6190,7 +6310,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 device,
                 _wiiMSnapshots.GetValueOrDefault(device.Id)));
         }
+        foreach (var stream in _state.WiiM.NetworkStreams)
+        {
+            if (!WiiMPlaybackUriPolicy.TryNormalize(stream.StreamUrl, out var normalizedUrl)) continue;
+            _wiiMItems.Add(new MediaItem
+            {
+                Id = stream.Id,
+                Title = stream.Name,
+                Kind = MediaItemKind.Station,
+                Source = normalizedUrl,
+                PublicUri = normalizedUrl,
+                ExternalId = WiiMNetworkStreamExternalId,
+                IsInLibrary = true,
+                IsAvailable = true
+            });
+        }
     }
+
+    private static bool IsWiiMNetworkStream(MediaItem? item) =>
+        item?.Kind == MediaItemKind.Station
+        && string.Equals(item.ExternalId, WiiMNetworkStreamExternalId, StringComparison.Ordinal);
 
     private static MediaItem BuildWiiMMediaItem(
         WiiMDeviceSettings device,
@@ -8679,6 +8818,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _ = OpenCurrentItemOnWiiMAsync();
             return new CommandExecutionResult(true);
         }
+        if (commandId == CommandIds.AddWiiMNetworkStream)
+        {
+            AddWiiMNetworkStream();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ImportWiiMNetworkStreams)
+        {
+            ImportWiiMNetworkStreams();
+            return new CommandExecutionResult(true);
+        }
         if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
         {
             if (commandId == CommandIds.ActivateSelected)
@@ -8688,6 +8837,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 {
                     Announce("Brak wybranego urządzenia WiiM. Ctrl+F5 otwiera wykrywanie i dodawanie urządzeń");
                     return new CommandExecutionResult(false);
+                }
+                if (IsWiiMNetworkStream(selectedDevice))
+                {
+                    _ = OpenCurrentItemOnWiiMAsync();
+                    return new CommandExecutionResult(true);
                 }
                 _ = ActivateWiiMDeviceAsync(selectedDevice);
                 return new CommandExecutionResult(true);
@@ -9809,8 +9963,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 items = items
                     .Where(item => item.Kind == MediaItemKind.Podcast);
             }
+            else if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
+            {
+                items = items.Where(IsWiiMNetworkStream);
+            }
             if (!string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
                 items = OrderCurrentCollection(_sessions.Current, _currentView, items);
+        }
+        if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+            && string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal))
+        {
+            items = items.Where(item => item.Kind == MediaItemKind.Device);
         }
         if (_currentView == "Kolejka") items = OrderedQueueItems(_sessions.Current);
         if (_currentView == "Albumy") items = items.Where(item => item.Kind == MediaItemKind.Album);
@@ -10023,6 +10186,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.KeyboardHelp
             or CommandIds.ManageWiiMDevices
             or CommandIds.RefreshWiiMDevices
+            or CommandIds.OpenOnWiiM
+            or CommandIds.AddWiiMNetworkStream
+            or CommandIds.ImportWiiMNetworkStreams
+            or CommandIds.RenameLibraryItem
             or CommandIds.ViewWiiMDevicePresets
             or CommandIds.PreviousWiiMDevicePreset
             or CommandIds.NextWiiMDevicePreset
@@ -10846,6 +11013,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ExecuteCommand(CommandIds.ActivateSelected);
             return;
         }
+        if (IsWiiMNetworkStream(item)
+            && string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
+        {
+            ExecuteCommand(CommandIds.OpenOnWiiM);
+            return;
+        }
         if (item.Kind == MediaItemKind.Podcast)
         {
             OpenPodcast(item.Id, item.Title);
@@ -11201,6 +11374,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var selectedRows = MediaList.SelectedItems
             .OfType<MediaItemRow>()
             .ToArray();
+        if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+            && string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal)
+            && selectedRows.Length > 0
+            && selectedRows.All(row => IsWiiMNetworkStream(row.Item)))
+        {
+            RemoveWiiMNetworkStreams(selectedRows.Select(row => row.Item).ToArray());
+            return;
+        }
         if (selectedRows.Any(row => row.AlbumFolderPath is not null))
         {
             RestoreMediaListFocusAfterRefresh();
@@ -11805,6 +11986,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void RenameLibraryItem()
     {
+        if (string.Equals(ActionSession.Id, "wiim", StringComparison.Ordinal)
+            && IsWiiMNetworkStream(ActionItem))
+        {
+            EditWiiMNetworkStream();
+            return;
+        }
         if (string.Equals(ActionSession.Id, "radio", StringComparison.Ordinal)
             && ActionItem?.Kind == MediaItemKind.Station)
         {
@@ -12042,6 +12229,82 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreItemActionFocus();
         Dispatcher.BeginInvoke(
             () => Announce($"Zapisano nazwę i adres stacji: {item.Title}"),
+            DispatcherPriority.ContextIdle);
+    }
+
+    private void EditWiiMNetworkStream()
+    {
+        var item = ActionItem;
+        if (!IsWiiMNetworkStream(item) || string.IsNullOrWhiteSpace(item!.Source))
+        {
+            Announce("Wybierz jeden zapisany strumień WiiM");
+            return;
+        }
+        var saved = _state.WiiM.NetworkStreams.FirstOrDefault(stream =>
+            string.Equals(stream.Id, item.Id, StringComparison.Ordinal));
+        if (saved is null)
+        {
+            Announce("Nie można odnaleźć tego strumienia na zapisanej liście AMC");
+            return;
+        }
+
+        var dialog = new RadioStationWindow(item.Title, item.Source, wiiMNetworkStream: true)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+        if (!WiiMPlaybackUriPolicy.TryNormalize(dialog.StreamUrl, out var normalizedUrl))
+        {
+            AnnounceEssential("Nie można zapisać tego adresu strumienia WiiM");
+            RestoreItemActionFocus();
+            return;
+        }
+        var duplicate = _state.WiiM.NetworkStreams.FirstOrDefault(stream =>
+            !string.Equals(stream.Id, saved.Id, StringComparison.Ordinal)
+            && string.Equals(stream.StreamUrl, normalizedUrl, StringComparison.OrdinalIgnoreCase));
+        if (duplicate is not null)
+        {
+            AnnounceEssential($"Ten adres jest już zapisany jako: {duplicate.Name}");
+            RestoreItemActionFocus();
+            return;
+        }
+
+        saved.Name = dialog.StationName;
+        saved.StreamUrl = normalizedUrl;
+        ShowWiiMNetworkStreams(saved.Id, $"Zapisano strumień WiiM: {saved.Name}");
+    }
+
+    private void RemoveWiiMNetworkStreams(IReadOnlyList<MediaItem> items)
+    {
+        var ids = items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        var label = items.Count == 1 ? $"„{items[0].Title}”" : $"{items.Count} strumieni";
+        if (MessageBox.Show(
+                this,
+                $"Usunąć {label} z lokalnej listy strumieni WiiM w AMC? Nie zmieni to danych zapisanych w aplikacji WiiM Home.",
+                "Usuń strumień WiiM",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No) != MessageBoxResult.Yes)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        var previousIndex = MediaList.SelectedIndex;
+        _state.WiiM.NetworkStreams.RemoveAll(stream => ids.Contains(stream.Id));
+        LoadPersistedWiiM();
+        _sessions.FindSession("wiim")?.ReplaceItems(_wiiMItems);
+        RefreshCurrentView(fallbackIndex: previousIndex);
+        QueueStateSave(announceFailure: true);
+        RestoreMediaListFocusAfterRefresh();
+        Dispatcher.BeginInvoke(
+            () => Announce(items.Count == 1
+                ? $"Usunięto strumień WiiM: {items[0].Title}"
+                : $"Usunięto strumienie WiiM: {items.Count}"),
             DispatcherPriority.ContextIdle);
     }
 
@@ -13644,7 +13907,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var homogeneousView = _currentView is "Albumy" or "Playlisty"
             || string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
                && item.Kind == MediaItemKind.Station;
-        var label = FormatItem(item, !homogeneousView);
+        var label = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+            && IsWiiMNetworkStream(item)
+                ? $"{item.Title}, strumień sieciowy"
+                : FormatItem(item, !homogeneousView);
         if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
             && item.Kind == MediaItemKind.Episode
             && !TryGetPodcastIdFromView(_currentView, out _))
@@ -13716,6 +13982,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
         && string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal)
             ? "Wszystkie stacje"
+            : string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+              && string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal)
+                ? "Strumienie sieciowe"
             : string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal)
             ? string.IsNullOrWhiteSpace(_currentLocalAlbumTitle)
                 ? "Album"
@@ -15509,11 +15778,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        if (Keyboard.Modifiers == ModifierKeys.Control
-            && e.Key == Key.N
-            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.N)
         {
-            ExecuteCommand(CommandIds.AddPodcast);
+            if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+                ExecuteCommand(CommandIds.AddPodcast);
+            else if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
+                ExecuteCommand(CommandIds.AddWiiMNetworkStream);
+            else
+                Announce("Nowy element przez Ctrl+N nie jest dostępny w bieżącej sesji");
+            e.Handled = true;
+            return;
+        }
+
+        if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt)
+            && e.Key == Key.W)
+        {
+            ExecuteCommand(CommandIds.OpenOnWiiM);
             e.Handled = true;
             return;
         }
@@ -15536,6 +15816,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)) ImportRadioPlaylist();
             else if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)) ImportPodcastOpml();
+            else if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)) ImportWiiMNetworkStreams();
             else if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)) OpenLocalFiles();
             else Announce("To polecenie nie jest dostępne w bieżącej sesji");
             e.Handled = true;
@@ -15944,6 +16225,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ? CommandIds.ImportRadioPlaylist
                 : string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
                     ? CommandIds.ImportPodcastOpml
+                    : string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+                        ? CommandIds.ImportWiiMNetworkStreams
                     : CommandIds.OpenLocalFiles;
             return true;
         }
@@ -15952,6 +16235,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
         {
             commandId = CommandIds.AddPodcast;
+            return true;
+        }
+        if (modifiers == ModifierKeys.Control
+            && key == Key.N
+            && string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
+        {
+            commandId = CommandIds.AddWiiMNetworkStream;
+            return true;
+        }
+        if (modifiers == (ModifierKeys.Control | ModifierKeys.Alt) && key == Key.W)
+        {
+            commandId = CommandIds.OpenOnWiiM;
             return true;
         }
         if (modifiers == ModifierKeys.Control
@@ -17639,6 +17934,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void FileMenuItem_SubmenuOpened(object sender, RoutedEventArgs e) =>
         UpdateFileMenuForCurrentSession();
     private void AddRadioStation_Click(object sender, RoutedEventArgs e) => AddRadioStation();
+    private void AddWiiMNetworkStream_Click(object sender, RoutedEventArgs e) => AddWiiMNetworkStream();
+    private void ImportWiiMNetworkStreams_Click(object sender, RoutedEventArgs e) => ImportWiiMNetworkStreams();
     private void RadioRecording_Click(object sender, RoutedEventArgs e) => ToggleRadioRecording();
     private void PauseRadioRecording_Click(object sender, RoutedEventArgs e) => ToggleSelectedRadioRecordingPause();
     private void AddRadioRecordingBookmark_Click(object sender, RoutedEventArgs e) =>
@@ -17707,6 +18004,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var podcastEpisodes = podcastSession
             && items.Count > 0
             && items.All(item => item.Kind == MediaItemKind.Episode);
+        var wiiMNetworkStream = wiiMSession && IsWiiMNetworkStream(actionItem);
         var membershipItems = playlistContext?.Items
             ?? (folderNavigationRow
                 && TryResolveSelectedFolderContents(out var folderContext)
@@ -17720,6 +18018,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? "Otwórz folder"
             : podcastHeader
             ? "Otwórz podcast"
+            : wiiMNetworkStream
+            ? "Otwórz strumień w WiiM"
             : actionItem is not null
             && string.Equals(actionItem.Id, _sessions.Current.CurrentItem.Id, StringComparison.Ordinal)
             && _sessions.Current.IsPlaying
@@ -17728,7 +18028,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         SetContextMenuItemPresentation(
             PlaybackMenuItem,
             playbackLabel,
-            localAlbumContainer || playlistContainer || folderNavigationRow || podcastHeader ? "Enter" : "Ctrl+Enter");
+            localAlbumContainer || playlistContainer || folderNavigationRow || podcastHeader || wiiMNetworkStream
+                ? "Enter"
+                : "Ctrl+Enter");
         RefreshPodcastMenuItem.Visibility = podcastHeader || podcastEpisode
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -17883,6 +18185,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RenamePlaylistMenuItem.Visibility = playlistContainer ? Visibility.Visible : Visibility.Collapsed;
         DeletePlaylistMenuItem.Visibility = playlistContainer ? Visibility.Visible : Visibility.Collapsed;
         PlayNextMenuItem.Visibility = radioSession
+            || wiiMSession
             || podcastHeader
             || localAlbumContainer
             || (playlistContainer && membershipItems.Count == 0)
@@ -17890,24 +18193,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? Visibility.Collapsed
             : Visibility.Visible;
         QueueMenuItem.Visibility = radioSession
+            || wiiMSession
             || podcastHeader
             || localAlbumContainer
             || (playlistContainer && membershipItems.Count == 0)
             || (folderNavigationRow && membershipItems.Count == 0)
             ? Visibility.Collapsed
             : Visibility.Visible;
-        FavoriteMenuItem.Visibility = localAlbumContainer
+        FavoriteMenuItem.Visibility = wiiMSession
+            || localAlbumContainer
             || (playlistContainer && membershipItems.Count == 0)
             || (folderNavigationRow && membershipItems.Count == 0)
             ? Visibility.Collapsed
             : Visibility.Visible;
-        LibraryMenuItem.Visibility = localAlbumContainer
+        LibraryMenuItem.Visibility = wiiMSession
+            || localAlbumContainer
             || folderNavigationRow
             || podcastEpisode
             || (playlistContainer && membershipItems.Count == 0)
             ? Visibility.Collapsed
             : Visibility.Visible;
-        PlaylistMembershipMenuItem.Visibility = playlistContainer
+        PlaylistMembershipMenuItem.Visibility = wiiMSession
+            || playlistContainer
             || localAlbumContainer
             || podcastHeader
             || (folderNavigationRow && membershipItems.Count == 0)
@@ -17927,7 +18234,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Utwórz lub przypisz preset",
             "Ctrl+Alt+Shift+P");
         CopyLocationMenuItem.Visibility = localAlbumContainer || playlistContainer ? Visibility.Collapsed : Visibility.Visible;
-        ItemPlaybackOptionsMenuItem.Visibility = playlistContainer
+        ItemPlaybackOptionsMenuItem.Visibility = wiiMSession
+            || playlistContainer
             || SelectedBookmark is null
                && actionItem?.Kind == MediaItemKind.Station
                && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
@@ -17984,10 +18292,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && items.Count == 1
             && actionItem?.Kind == MediaItemKind.Podcast
             && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
-        RenameLibraryItemMenuItem.Visibility = localRenameItem || radioRenameItem || podcastRenameItem
+        var wiiMStreamRenameItem = SelectedBookmark is null
+            && items.Count == 1
+            && wiiMNetworkStream;
+        RenameLibraryItemMenuItem.Visibility = localRenameItem || radioRenameItem || podcastRenameItem || wiiMStreamRenameItem
             ? Visibility.Visible
             : Visibility.Collapsed;
-        if (radioRenameItem)
+        if (wiiMStreamRenameItem)
+            SetContextMenuItemPresentation(RenameLibraryItemMenuItem, "Edytuj nazwę i adres strumienia WiiM", "F2");
+        else if (radioRenameItem)
             SetContextMenuItemPresentation(RenameLibraryItemMenuItem, "Edytuj nazwę i adres stacji", "F2");
         else if (podcastRenameItem)
             SetContextMenuItemPresentation(RenameLibraryItemMenuItem, "Zmień nazwę podcastu", "F2");

@@ -2228,8 +2228,8 @@ pokoju.
 Od `alpha.276` polecenie **Otwórz w WiiM** jest dostępne dla pojedynczej stacji,
 odcinka podcastu, zdalnego utworu lub publicznej playlisty posiadającej
 rzeczywisty adres HTTP albo HTTPS. Znajduje się w menu kontekstowym listy i
-odtwarzacza, w menu Odtwarzanie oraz w palecie poleceń; na razie nie ma
-domyślnego skrótu. Przed wysłaniem AMC podaje nazwę urządzenia i wymaga
+odtwarzacza, w menu Odtwarzanie oraz w palecie poleceń. Od `alpha.278` ma
+skrót `Ctrl+Alt+W`. Przed wysłaniem AMC podaje nazwę urządzenia i wymaga
 potwierdzenia, że jego aktualne źródło zostanie zastąpione. Po zaakceptowaniu
 wysyła adres przez oficjalne lokalne API, próbuje potwierdzić nowy stan i
 przechodzi do odtwarzacza WiiM. Brak natychmiastowego odczytu stanu nie cofa
@@ -2244,6 +2244,16 @@ przechowuje własną listę „Open Network Stream”, lecz publiczne API nie po
 jej obecnie wyliczać ani edytować. Dlatego późniejsza wymiana tej listy będzie
 odbywać się jawnie przez import i eksport M3U, a nie przez pozorną
 synchronizację.
+
+Od `alpha.278` sesja WiiM ma lokalną, trwałą listę **Strumienie sieciowe**.
+`Ctrl+L` ją otwiera, `Ctrl+N` dodaje nazwany adres, a `Ctrl+O` importuje M3U,
+M3U8 lub PLS z limitami rozmiaru, liczby wpisów i długości adresów. Manifest
+jednej transmisji HLS nie jest mylony z listą wielu strumieni. Duplikaty URL
+nie są dodawane ponownie. Enter i `Ctrl+Alt+W` wysyłają wybrany adres do
+aktywnego urządzenia, `F2` edytuje nazwę i URL, a Delete usuwa wpis tylko z
+lokalnych danych AMC. Funkcja nie odczytuje automatycznie prywatnej kolekcji
+WiiM Home, ponieważ wspierane API jej nie udostępnia; istniejącą listę można
+przenieść jawnie przez wyeksportowany plik playlisty.
 
 Szczegółowa mapa stabilnych i eksperymentalnych etapów, oparta także na
 porównaniu aktywnych bibliotek społecznościowych LinkPlay/WiiM, znajduje się w

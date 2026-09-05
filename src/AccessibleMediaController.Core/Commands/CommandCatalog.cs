@@ -109,6 +109,8 @@ public static class CommandCatalog
             CommandIds.ManageWiiMDevices => "Urządzenia WiiM",
             CommandIds.RefreshWiiMDevices => "Odśwież urządzenia WiiM",
             CommandIds.OpenOnWiiM => "Otwórz element w WiiM",
+            CommandIds.AddWiiMNetworkStream => "Dodaj strumień sieciowy WiiM",
+            CommandIds.ImportWiiMNetworkStreams => "Importuj strumienie WiiM z playlisty",
             CommandIds.ViewWiiMDevicePresets => "Presety urządzenia WiiM",
             CommandIds.PreviousWiiMDevicePreset => "Poprzedni zajęty preset urządzenia WiiM",
             CommandIds.NextWiiMDevicePreset => "Następny zajęty preset urządzenia WiiM",

@@ -1172,6 +1172,16 @@ miejsca w urządzeniu. Pierwsze uruchomienie zachowuje wcześniejsze mapowanie
 1:1. Usunięcie przypisania usuwa wyłącznie skrót AMC; preset WiiM pozostaje
 bez zmian. `Ctrl+Alt+P` nadal pokazuje i uruchamia natywną listę urządzenia.
 
+W `alpha.278` `Ctrl+L` otwiera w sesji WiiM trwałą listę **Strumienie
+sieciowe** przechowywaną przez AMC. `Ctrl+N` dodaje nazwę i publiczny adres,
+`Ctrl+O` importuje M3U, M3U8 lub PLS, Enter albo `Ctrl+Alt+W` wysyła strumień
+do aktywnego WiiM, `F2` edytuje wpis, a Delete usuwa go tylko z AMC. Import nie
+powiela identycznych adresów i odrzuca manifest pojedynczej transmisji HLS jako
+niebędący listą stacji. Publiczne API WiiM nie pozwala wyliczyć całej prywatnej
+listy „Open Network Stream” z WiiM Home, dlatego AMC jej nie udaje ani nie
+nadpisuje. Istniejącą kolekcję można przenieść do AMC przez eksport playlisty
+z WiiM Home i `Ctrl+O`.
+
 W `alpha.272` menu **Plik** sesji Podcasty zawiera także **Eksportuj bibliotekę
 podcastów do OPML…**. Jest to przenośna kopia obserwowanych kanałów, zgodna z
 ponownym importem `Ctrl+O`; nie kopiuje plików audio, postępu słuchania,

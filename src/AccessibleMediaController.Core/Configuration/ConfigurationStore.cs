@@ -498,6 +498,26 @@ public sealed class ConfigurationStore
             })
             .DistinctBy(device => device.Id, StringComparer.OrdinalIgnoreCase)
             .ToList();
+        state.WiiM.NetworkStreams = (state.WiiM.NetworkStreams ?? [])
+            .Where(stream => WiiMPlaybackUriPolicy.TryNormalize(stream.StreamUrl, out _))
+            .Select(stream =>
+            {
+                WiiMPlaybackUriPolicy.TryNormalize(stream.StreamUrl, out var normalizedUrl);
+                stream.Id = string.IsNullOrWhiteSpace(stream.Id)
+                    ? $"wiim:stream:{Guid.NewGuid():N}"
+                    : stream.Id.Trim();
+                stream.Name = string.IsNullOrWhiteSpace(stream.Name)
+                    ? new Uri(normalizedUrl).Host
+                    : stream.Name.Trim();
+                stream.StreamUrl = normalizedUrl;
+                stream.AddedUtcTicks = stream.AddedUtcTicks > 0
+                    && stream.AddedUtcTicks <= DateTime.MaxValue.Ticks
+                        ? stream.AddedUtcTicks
+                        : DateTime.UtcNow.Ticks;
+                return stream;
+            })
+            .DistinctBy(stream => stream.StreamUrl, StringComparer.OrdinalIgnoreCase)
+            .ToList();
         if (string.IsNullOrWhiteSpace(state.WiiM.SelectedDeviceId)
             || state.WiiM.Devices.All(device => !string.Equals(
                 device.Id,

@@ -42,6 +42,16 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
                           Visibility="Collapsed"
                           Click="ManageWiiMDevices_Click" />
+                <MenuItem x:Name="AddWiiMNetworkStreamMenuItem" Header="_Nowy strumień WiiM…" InputGestureText="Ctrl+N"
+                          automation:AutomationProperties.Name="Nowy strumień WiiM, Ctrl+N"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+N"
+                          Visibility="Collapsed"
+                          Click="AddWiiMNetworkStream_Click" />
+                <MenuItem x:Name="ImportWiiMNetworkStreamsMenuItem" Header="Importuj strumienie WiiM z _playlisty…" InputGestureText="Ctrl+O"
+                          automation:AutomationProperties.Name="Importuj strumienie WiiM z playlisty, Ctrl+O"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+O"
+                          Visibility="Collapsed"
+                          Click="ImportWiiMNetworkStreams_Click" />
                 <MenuItem x:Name="ImportRadioPlaylistMenuItem" Header="_Importuj stacje z playlisty…" InputGestureText="Ctrl+O"
                           automation:AutomationProperties.Name="Importuj stacje radiowe z playlisty, Ctrl+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+O"
@@ -128,7 +138,9 @@
                           Click="AudioOutputDevice_Click" />
                 <MenuItem x:Name="OpenOnWiiMMainMenuItem"
                           Header="Otwórz element w _WiiM…"
-                          automation:AutomationProperties.Name="Otwórz element w WiiM"
+                          InputGestureText="Ctrl+Alt+W"
+                          automation:AutomationProperties.Name="Otwórz element w WiiM, Ctrl+Alt+W"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+W"
                           Visibility="Collapsed"
                           Click="OpenOnWiiM_Click" />
                 <Separator x:Name="PlaybackAudioProcessingSeparator" />

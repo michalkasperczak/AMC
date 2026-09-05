@@ -4,13 +4,26 @@ namespace AccessibleMediaController.Windows;
 
 public partial class RadioStationWindow : Window
 {
-    public RadioStationWindow(string? currentName = null, string? currentStreamUrl = null)
+    private readonly bool _wiiMNetworkStream;
+
+    public RadioStationWindow(
+        string? currentName = null,
+        string? currentStreamUrl = null,
+        bool wiiMNetworkStream = false)
     {
         InitializeComponent();
+        _wiiMNetworkStream = wiiMNetworkStream;
         var editing = !string.IsNullOrWhiteSpace(currentName) || !string.IsNullOrWhiteSpace(currentStreamUrl);
-        Title = editing ? "Edytuj stację radiową" : "Dodaj stację radiową";
+        Title = wiiMNetworkStream
+            ? editing ? "Edytuj strumień WiiM" : "Dodaj strumień WiiM"
+            : editing ? "Edytuj stację radiową" : "Dodaj stację radiową";
         HeadingText.Text = Title;
-        HelpText.Text = "Nazwa jest etykietą używaną przez AMC. Adres strumienia jest niezależnym źródłem odtwarzania i również można go później zaktualizować klawiszem F2.";
+        HelpText.Text = wiiMNetworkStream
+            ? "Nazwa i adres zostaną zapisane na lokalnej liście AMC. Enter lub Ctrl+Alt+W wyśle wybrany strumień do aktywnego urządzenia WiiM."
+            : "Nazwa jest etykietą używaną przez AMC. Adres strumienia jest niezależnym źródłem odtwarzania i również można go później zaktualizować klawiszem F2.";
+        NameLabel.Content = wiiMNetworkStream ? "_Nazwa strumienia:" : "_Nazwa stacji:";
+        NameBox.SetValue(System.Windows.Automation.AutomationProperties.NameProperty,
+            wiiMNetworkStream ? "Nazwa strumienia" : "Nazwa stacji");
         NameBox.Text = currentName ?? string.Empty;
         StreamBox.Text = currentStreamUrl ?? string.Empty;
         Loaded += (_, _) =>
@@ -27,7 +40,11 @@ public partial class RadioStationWindow : Window
     {
         if (string.IsNullOrWhiteSpace(StationName))
         {
-            MessageBox.Show("Nazwa stacji nie może być pusta.", Title, MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                _wiiMNetworkStream ? "Nazwa strumienia nie może być pusta." : "Nazwa stacji nie może być pusta.",
+                Title,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
             NameBox.Focus();
             return;
         }

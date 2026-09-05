@@ -8,7 +8,7 @@
         <TextBlock x:Name="HeadingText" Margin="0,0,0,8" TextWrapping="Wrap"
                    automation:AutomationProperties.HeadingLevel="Level1" />
         <TextBlock x:Name="HelpText" Margin="0,0,0,12" TextWrapping="Wrap" />
-        <Label Target="{Binding ElementName=NameBox}">_Nazwa stacji:</Label>
+        <Label x:Name="NameLabel" Target="{Binding ElementName=NameBox}">_Nazwa stacji:</Label>
         <TextBox x:Name="NameBox" MaxLength="240" Margin="0,0,0,10"
                  automation:AutomationProperties.Name="Nazwa stacji" />
         <Label Target="{Binding ElementName=StreamBox}">Adres _strumienia:</Label>

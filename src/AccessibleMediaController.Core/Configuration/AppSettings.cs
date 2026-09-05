@@ -249,7 +249,16 @@ public sealed class PersistedState
 public sealed class WiiMSettings
 {
     public List<WiiMDeviceSettings> Devices { get; set; } = [];
+    public List<WiiMNetworkStreamSettings> NetworkStreams { get; set; } = [];
     public string? SelectedDeviceId { get; set; }
+}
+
+public sealed class WiiMNetworkStreamSettings
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string StreamUrl { get; set; } = string.Empty;
+    public long AddedUtcTicks { get; set; }
 }
 
 public sealed class WiiMDeviceSettings
