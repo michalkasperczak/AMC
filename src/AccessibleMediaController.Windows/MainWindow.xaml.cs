@@ -115,6 +115,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> _lastActivatedWiiMPresets =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, int> _queuedWiiMVolumeTargets =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly WiiMDeviceClient _wiiMClient = new();
     private readonly WiiMDiscoveryService _wiiMDiscovery = new();
     private readonly CancellationTokenSource _wiiMCancellation = new();
@@ -8588,7 +8590,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (IsWiiMTransportCommand(commandId)
                 || CommandIds.TryParseSeekPercent(commandId, out _))
             {
-                _ = ExecuteWiiMTransportCommandAsync(commandId);
+                var requestedVolume = IsWiiMVolumeCommand(commandId)
+                    ? QueueWiiMVolumeTarget(commandId)
+                    : null;
+                _ = ExecuteWiiMTransportCommandAsync(commandId, requestedVolume);
                 return new CommandExecutionResult(true);
             }
             if (commandId is CommandIds.TimeElapsed or CommandIds.TimeRemaining or CommandIds.TimeTotal)
@@ -13752,7 +13757,46 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
-    private async Task ExecuteWiiMTransportCommandAsync(string commandId)
+    private int? QueueWiiMVolumeTarget(string commandId)
+    {
+        if (!_sessions.Current.HasCurrentItem
+            || !TryGetWiiMDevice(_sessions.Current.CurrentItem.Id, out var device))
+        {
+            return null;
+        }
+
+        int current;
+        if (_queuedWiiMVolumeTargets.TryGetValue(device.Id, out var queuedVolume))
+        {
+            current = queuedVolume;
+        }
+        else if (_wiiMSnapshots.TryGetValue(device.Id, out var snapshot))
+        {
+            current = snapshot.Playback.Volume;
+        }
+        else
+        {
+            // The asynchronous command will obtain a fresh snapshot before it
+            // calculates the first target. Never guess zero, which could make
+            // a first Arrow Up unexpectedly lower a loud device to 5%.
+            return null;
+        }
+        var delta = commandId switch
+        {
+            CommandIds.VolumeUp5 => 5,
+            CommandIds.VolumeDown5 => -5,
+            CommandIds.VolumeUp1 => 1,
+            CommandIds.VolumeDown1 => -1,
+            _ => 0
+        };
+        var target = Math.Clamp(current + delta, 0, 100);
+        _queuedWiiMVolumeTargets[device.Id] = target;
+        return target;
+    }
+
+    private async Task ExecuteWiiMTransportCommandAsync(
+        string commandId,
+        int? requestedVolume = null)
     {
         if (!_playerViewActive)
         {
@@ -13819,16 +13863,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     await _wiiMClient.NextAsync(device.Address, _wiiMCancellation.Token);
                     break;
                 case CommandIds.VolumeUp5:
-                    await _wiiMClient.SetVolumeAsync(device.Address, snapshot.Playback.Volume + 5, _wiiMCancellation.Token);
+                    requestedVolume ??= Math.Clamp(snapshot.Playback.Volume + 5, 0, 100);
+                    await _wiiMClient.SetVolumeAsync(device.Address, requestedVolume.Value, _wiiMCancellation.Token);
                     break;
                 case CommandIds.VolumeDown5:
-                    await _wiiMClient.SetVolumeAsync(device.Address, snapshot.Playback.Volume - 5, _wiiMCancellation.Token);
+                    requestedVolume ??= Math.Clamp(snapshot.Playback.Volume - 5, 0, 100);
+                    await _wiiMClient.SetVolumeAsync(device.Address, requestedVolume.Value, _wiiMCancellation.Token);
                     break;
                 case CommandIds.VolumeUp1:
-                    await _wiiMClient.SetVolumeAsync(device.Address, snapshot.Playback.Volume + 1, _wiiMCancellation.Token);
+                    requestedVolume ??= Math.Clamp(snapshot.Playback.Volume + 1, 0, 100);
+                    await _wiiMClient.SetVolumeAsync(device.Address, requestedVolume.Value, _wiiMCancellation.Token);
                     break;
                 case CommandIds.VolumeDown1:
-                    await _wiiMClient.SetVolumeAsync(device.Address, snapshot.Playback.Volume - 1, _wiiMCancellation.Token);
+                    requestedVolume ??= Math.Clamp(snapshot.Playback.Volume - 1, 0, 100);
+                    await _wiiMClient.SetVolumeAsync(device.Address, requestedVolume.Value, _wiiMCancellation.Token);
                     break;
                 case CommandIds.ToggleMuteCurrentSession:
                     await _wiiMClient.SetMutedAsync(device.Address, !snapshot.Playback.Muted, _wiiMCancellation.Token);
@@ -13872,11 +13920,32 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 await _wiiMClient.SeekAsync(device.Address, position, _wiiMCancellation.Token);
             }
 
-            await Task.Delay(120, _wiiMCancellation.Token);
+            await Task.Delay(requestedVolume is null ? 120 : 180, _wiiMCancellation.Token);
             var refreshed = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
+            if (requestedVolume is { } volumeTarget
+                && refreshed.Playback.Volume != volumeTarget)
+            {
+                // Some WiiM firmware publishes the previous value briefly after
+                // accepting a command. One bounded second read prevents rapid
+                // arrow presses from repeatedly starting from stale volume.
+                await Task.Delay(300, _wiiMCancellation.Token);
+                refreshed = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
+            }
             ApplyWiiMSnapshot(device, refreshed);
             UpdatePlayerView(true);
-            AnnounceWiiMCommandResult(commandId, refreshed, requestedPosition);
+            if (requestedVolume is { } expectedVolume
+                && refreshed.Playback.Volume != expectedVolume)
+            {
+                DiagnosticLog.Warning(
+                    "wiim-volume",
+                    $"Urządzenie nie potwierdziło głośności; oczekiwano: {expectedVolume}; odczytano: {refreshed.Playback.Volume}; urządzenie: {device.Id}.");
+                AnnounceEssential(
+                    $"Urządzenie pozostało na głośności {refreshed.Playback.Volume}%. Sprawdź w WiiM Home, czy wyjście nie ma ustawionej stałej głośności");
+            }
+            else
+            {
+                AnnounceWiiMCommandResult(commandId, refreshed, requestedPosition);
+            }
             _ = Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.ContextIdle);
         }
         catch (OperationCanceledException) when (_wiiMCancellation.IsCancellationRequested)
@@ -13890,6 +13959,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         finally
         {
+            if (requestedVolume is { } completedTarget
+                && _queuedWiiMVolumeTargets.GetValueOrDefault(device.Id, -1) == completedTarget)
+            {
+                _queuedWiiMVolumeTargets.Remove(device.Id);
+            }
             if (gateEntered) _wiiMDeviceOperationGate.Release();
         }
     }
@@ -14708,6 +14782,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         or CommandIds.SeekToTime
         or CommandIds.SeekToPercentage;
 
+    private static bool IsWiiMVolumeCommand(string commandId) => commandId is
+        CommandIds.VolumeUp5
+        or CommandIds.VolumeDown5
+        or CommandIds.VolumeUp1
+        or CommandIds.VolumeDown1;
+
     private static bool IsWiiMConnectionFailure(Exception exception) => exception is
         HttpRequestException or TaskCanceledException or IOException or FormatException or ArgumentException;
 
@@ -14826,6 +14906,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 DispatcherPriority.Input);
             return IntPtr.Zero;
         }
+        var menuActive = MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem;
+        var playerVolumeCommand = MainWindowShortcutRouter.ResolvePlayerVolumeFromVirtualKey(
+            virtualKey,
+            modifiers,
+            _playerViewActive
+                && PlayerPanel.Visibility == Visibility.Visible
+                && !menuActive
+                && !IsNativeScreenReaderModifierDown());
+        if (playerVolumeCommand is not null)
+        {
+            // Capture player volume arrows at the HWND boundary. This keeps
+            // them reliable when NVDA or an asynchronous WiiM refresh leaves
+            // WPF focus on the window instead of the focused player button.
+            handled = true;
+            Dispatcher.BeginInvoke(
+                () => ExecuteCommand(playerVolumeCommand),
+                DispatcherPriority.Input);
+            return IntPtr.Zero;
+        }
         if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift)
             && CurrentSessionSupportsPresets()
             && RadioPresetKeyMap.TryGetSlotFromVirtualKey(virtualKey, out var presetSlot))
@@ -14914,6 +15013,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private static bool IsNativeKeyDown(int virtualKey) =>
         (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
+
+    private static bool IsNativeScreenReaderModifierDown() =>
+        IsNativeKeyDown(0x2D) // Insert
+        || IsNativeKeyDown(0x60) // Numpad Insert / Numpad 0
+        || IsNativeKeyDown(0x14); // Caps Lock held as an NVDA modifier
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int virtualKey);
@@ -16274,7 +16378,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool TryHandlePlayerTransportShortcut(KeyEventArgs e)
     {
-        if (!_playerViewActive || !PlayerPanel.IsKeyboardFocusWithin) return false;
+        if (!_playerViewActive || PlayerPanel.Visibility != Visibility.Visible) return false;
+        if (MainMenu.IsKeyboardFocusWithin
+            || Keyboard.FocusedElement is MenuItem
+                or System.Windows.Controls.Primitives.TextBoxBase
+                or PasswordBox)
+        {
+            return false;
+        }
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var effectiveModifiers = ReadEffectiveModifierKeys();
@@ -16318,79 +16429,89 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return true;
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-            && Keyboard.Modifiers == ModifierKeys.None
+            && effectiveModifiers == ModifierKeys.None
             && key == Key.R)
         {
             ToggleRadioRecording();
             return true;
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-            && Keyboard.Modifiers == ModifierKeys.None
+            && effectiveModifiers == ModifierKeys.None
             && key == Key.T)
         {
             SplitSelectedManualRadioRecording();
             return true;
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-            && Keyboard.Modifiers == ModifierKeys.Shift
+            && effectiveModifiers == ModifierKeys.Shift
             && key == Key.R)
         {
             AddRadioScheduleForCurrentContext();
             return true;
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-            && Keyboard.Modifiers == ModifierKeys.None
+            && effectiveModifiers == ModifierKeys.None
             && key == Key.S)
         {
             _ = RecognizeCurrentRadioTrackAsync(automatic: false);
             return true;
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-            && Keyboard.Modifiers == ModifierKeys.Shift
+            && effectiveModifiers == ModifierKeys.Shift
             && key == Key.S)
         {
             ToggleRadioRecognitionMonitoring();
             return true;
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-            && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)
+            && effectiveModifiers == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)
             && key == Key.S)
         {
             ToggleRadioRecognitionAnnouncements();
             return true;
         }
         if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-            && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt)
+            && effectiveModifiers == (ModifierKeys.Control | ModifierKeys.Alt)
             && key == Key.S)
         {
             ShowRadioRecognitionHistory();
             return true;
         }
-        if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt) && key == Key.R)
+        if (effectiveModifiers == (ModifierKeys.Control | ModifierKeys.Alt) && key == Key.R)
         {
             ToggleRadioRecording();
             return true;
         }
-        if (Keyboard.Modifiers == ModifierKeys.None
+        if (effectiveModifiers == ModifierKeys.None
             && key == Key.End
             && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
             ExecuteCommand(CommandIds.RadioJumpLive);
             return true;
         }
-        if (Keyboard.Modifiers == ModifierKeys.Alt && key is Key.Up or Key.Down)
+        if (effectiveModifiers == ModifierKeys.Alt && key is Key.Up or Key.Down)
         {
             NavigatePlaybackHistory(key == Key.Down ? 1 : -1);
             return true;
         }
 
-        if (Keyboard.Modifiers == ModifierKeys.None && TryGetDigitKey(key, out var digit))
+        if (effectiveModifiers == ModifierKeys.None && TryGetDigitKey(key, out var digit))
         {
             ExecuteCommand(CommandIds.SeekPercent(digit * 10));
             return true;
         }
 
-        var commandId = (Keyboard.Modifiers, key) switch
+        var volumeCommand = MainWindowShortcutRouter.ResolvePlayerVolume(
+            key,
+            effectiveModifiers,
+            playerActive: !IsNativeScreenReaderModifierDown());
+        if (volumeCommand is not null)
+        {
+            ExecuteCommand(volumeCommand);
+            return true;
+        }
+
+        var commandId = (effectiveModifiers, key) switch
         {
             (ModifierKeys.None, Key.B) => CommandIds.AddBookmark,
             (ModifierKeys.None, Key.I) => CommandIds.MarkClipStart,
@@ -16420,10 +16541,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Shift, Key.Right) => CommandIds.SeekForward30,
             (ModifierKeys.Control, Key.Left) => CommandIds.SeekBackward60,
             (ModifierKeys.Control, Key.Right) => CommandIds.SeekForward60,
-            (ModifierKeys.None, Key.Up) => CommandIds.VolumeUp5,
-            (ModifierKeys.None, Key.Down) => CommandIds.VolumeDown5,
-            (ModifierKeys.Shift, Key.Up) => CommandIds.VolumeUp1,
-            (ModifierKeys.Shift, Key.Down) => CommandIds.VolumeDown1,
             (ModifierKeys.Shift, Key.OemComma) => CommandIds.PlaybackRateDown,
             (ModifierKeys.Shift, Key.OemPeriod) => CommandIds.PlaybackRateUp,
             (ModifierKeys.Control, Key.OemPeriod) => CommandIds.PlaybackRateReset,
@@ -16437,7 +16554,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             // focus navigation between player buttons. They have no transport
             // meaning until AMC assigns one explicitly.
             return key is Key.Left or Key.Right or Key.Up or Key.Down or Key.PageUp or Key.PageDown
-                && Keyboard.Modifiers != ModifierKeys.None;
+                && effectiveModifiers != ModifierKeys.None;
         }
         ExecuteCommand(commandId);
         return true;

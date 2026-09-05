@@ -88,6 +88,31 @@ internal static class MainWindowShortcutRouter
             playerActive,
             capabilities);
 
+    public static string? ResolvePlayerVolume(
+        Key key,
+        ModifierKeys modifiers,
+        bool playerActive)
+    {
+        if (!playerActive) return null;
+        return (modifiers, key) switch
+        {
+            (ModifierKeys.None, Key.Up) => CommandIds.VolumeUp5,
+            (ModifierKeys.None, Key.Down) => CommandIds.VolumeDown5,
+            (ModifierKeys.Shift, Key.Up) => CommandIds.VolumeUp1,
+            (ModifierKeys.Shift, Key.Down) => CommandIds.VolumeDown1,
+            _ => null
+        };
+    }
+
+    public static string? ResolvePlayerVolumeFromVirtualKey(
+        int virtualKey,
+        ModifierKeys modifiers,
+        bool playerActive) =>
+        ResolvePlayerVolume(
+            KeyInterop.KeyFromVirtualKey(virtualKey),
+            modifiers,
+            playerActive);
+
     public static bool IsSessionListShortcut(Key key, ModifierKeys modifiers) =>
         key == Key.S && modifiers == (ModifierKeys.Control | ModifierKeys.Shift);
 

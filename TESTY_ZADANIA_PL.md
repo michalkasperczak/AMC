@@ -6367,3 +6367,10 @@ Oczekiwane: mapowanie przetrwało restart. Po usunięciu AMC mówi, że usunęł
 tylko przypisanie skrótu i że preset urządzenia pozostał bez zmian. Skrót jest
 pusty, natomiast ten sam natywny preset nadal znajduje się na liście
 `Ctrl+Alt+P` i daje się uruchomić Enterem.
+# Test ręczny AMC-275-01 — głośność WiiM z otwartego odtwarzacza
+
+1. Otwórz sesję WiiM, wybierz urządzenie i wejdź do odtwarzacza.
+2. Naciśnij kilka razy strzałkę w górę, a następnie strzałkę w dół.
+3. Sprawdź, czy głośność urządzenia zmienia się odpowiednio o 5%, również przy szybkich naciśnięciach.
+4. Sprawdź Shift+strzałka w górę i Shift+strzałka w dół — zmiana powinna wynosić 1%.
+5. Jeżeli wyjście WiiM ma włączoną stałą głośność, AMC powinien jednoznacznie poinformować, że urządzenie nie potwierdziło zmiany, zamiast milczeć.

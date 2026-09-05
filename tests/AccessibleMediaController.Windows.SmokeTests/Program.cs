@@ -96,6 +96,7 @@ try
     TestMainWindowFocusRecoveryPolicy();
     TestPodcastDownloadStartAnnouncement();
     TestPlayerAudioProcessingKeyboardMap();
+    TestPlayerVolumeKeyboardMap();
     TestPlaylistPresentation();
     TestGuardDoesNotBlockPositionReads();
     TestCompleteOutputChainMonitor();
@@ -2676,6 +2677,51 @@ static void TestPlayerAudioProcessingKeyboardMap()
             PlaybackAudioProcessingCapabilities.All) is null,
         "Surowe C bez Shifta nie może zostać przejęte jako opcja dźwięku.");
     Console.WriteLine("OK: Shift+N, Shift+T i Shift+C są chronione przed klawiszami dostępu WPF i zależą od możliwości toru");
+}
+
+static void TestPlayerVolumeKeyboardMap()
+{
+    Assert(
+        MainWindowShortcutRouter.ResolvePlayerVolume(
+            Key.Up,
+            ModifierKeys.None,
+            playerActive: true) == CommandIds.VolumeUp5
+        && MainWindowShortcutRouter.ResolvePlayerVolume(
+            Key.Down,
+            ModifierKeys.None,
+            playerActive: true) == CommandIds.VolumeDown5,
+        "Zwykłe strzałki góra i dół nie regulują głośności odtwarzacza o 5%.");
+    Assert(
+        MainWindowShortcutRouter.ResolvePlayerVolume(
+            Key.Up,
+            ModifierKeys.Shift,
+            playerActive: true) == CommandIds.VolumeUp1
+        && MainWindowShortcutRouter.ResolvePlayerVolume(
+            Key.Down,
+            ModifierKeys.Shift,
+            playerActive: true) == CommandIds.VolumeDown1,
+        "Shift ze strzałkami góra i dół nie reguluje głośności odtwarzacza o 1%.");
+    Assert(
+        MainWindowShortcutRouter.ResolvePlayerVolumeFromVirtualKey(
+            0x26,
+            ModifierKeys.None,
+            playerActive: true) == CommandIds.VolumeUp5
+        && MainWindowShortcutRouter.ResolvePlayerVolumeFromVirtualKey(
+            0x28,
+            ModifierKeys.Shift,
+            playerActive: true) == CommandIds.VolumeDown1,
+        "Surowe komunikaty strzałek nie są chronione przed utratą fokusa WPF lub przejęciem przez czytnik ekranu.");
+    Assert(
+        MainWindowShortcutRouter.ResolvePlayerVolume(
+            Key.Up,
+            ModifierKeys.None,
+            playerActive: false) is null
+        && MainWindowShortcutRouter.ResolvePlayerVolume(
+            Key.Left,
+            ModifierKeys.None,
+            playerActive: true) is null,
+        "Regulacja głośności przejmuje klawisze poza odtwarzaczem albo niewłaściwą strzałkę.");
+    Console.WriteLine("OK: strzałki głośności odtwarzacza działają także na granicy komunikatów okna");
 }
 
 static void TestPlaylistPresentation()

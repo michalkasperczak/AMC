@@ -13,7 +13,7 @@ eksperymentalne, po sprawdzeniu możliwości konkretnego modelu i z bezpiecznym
 wycofaniem operacji. Polecenia administracyjne, konfiguracja sieci, restart i
 przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 
-## Stan po alpha 274
+## Stan po alpha 275
 
 - wykrywanie UPnP/SSDP i ręczne dodanie lokalnego adresu IP;
 - wybór i zapamiętanie aktywnego urządzenia;
@@ -23,6 +23,10 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 - wybór wejścia i fizycznego wyjścia, korektor graficzny, powtarzanie,
   losowanie i timer uśpienia;
 - odczyt oraz uruchamianie natywnych presetów urządzenia;
+- regulacja głośności urządzenia strzałkami góra/dół o 5% oraz
+  Shift+strzałkami o 1% w otwartym odtwarzaczu, odporna na chwilową utratę
+  fokusa i szybkie kolejne naciśnięcia; kombinacje z klawiszem NVDA pozostają
+  przeznaczone dla czytnika ekranu;
 - skróty `Ctrl+Shift+1–0/-/=` do miejsc 1–12 i
   `Alt+Page Up/Alt+Page Down` do sąsiedniego zajętego miejsca;
 - po ponownym uruchomieniu AMC ustala bieżący preset przez zgodność adresu

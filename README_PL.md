@@ -1159,6 +1159,12 @@ strumienia odpowiada stacji zapisanej w Bibliotece Radia, używana jest jej
 czytelna nazwa. Brak metadanych jest oznajmiany wprost; program nie wymyśla
 nazwy audycji. W Podcastach `Alt+D` nadal otwiera pełny opis.
 
+W `alpha.275` poprawiono regulację głośności WiiM w otwartym odtwarzaczu.
+Strzałki góra/dół oraz Shift+strzałki działają także po chwilowej utracie
+fokusa przez panel, szybkie naciśnięcia są sumowane, a AMC zgłasza brak
+potwierdzenia zmiany, na przykład przy stałej głośności wyjścia WiiM. Skróty
+z przytrzymanym klawiszem NVDA nie są przejmowane przez odtwarzacz.
+
 W `alpha.274` `Ctrl+Alt+Shift+P` w sesji WiiM przypisuje gotowy preset
 urządzenia do jednego z dwunastu lokalnych skrótów AMC. `Ctrl+Shift+1–0/-/=`
 uruchamia przypisany preset, także wtedy, gdy numer skrótu różni się od numeru

@@ -801,6 +801,12 @@ the current programme or track when the device or station supplies it.
 AMC merges WiiM player status, `getMetaInfo`, and bounded UPnP metadata, while
 filtering technical placeholders and playlist-manifest names.
 
+In `alpha.275`, WiiM volume control in the open player no longer depends on
+focus remaining on one particular player control. Up/Down and Shift+Up/Down
+accumulate rapid presses and AMC reports when the device does not confirm the
+requested value, for example when fixed output volume is enabled. Combinations
+using the NVDA modifier remain available to the screen reader.
+
 In `alpha.274`, `Ctrl+Alt+Shift+P` in the WiiM session maps an existing device
 preset to one of AMC's twelve local `Ctrl+Shift+1–0/-/=` shortcuts. The mapping
 is stored separately for each device, may differ from the native preset number,
