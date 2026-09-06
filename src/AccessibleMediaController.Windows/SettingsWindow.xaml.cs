@@ -198,6 +198,7 @@ public partial class SettingsWindow : Window
         UpdateMetered.IsChecked = _workingState.Settings.Updates.AllowMeteredConnection;
         SelectComboByTag(UpdateChannelCombo, _workingState.Settings.Updates.Channel);
         FfmpegStatusText.Text = FfmpegComponentManager.GetStatus().UserFacingText;
+        YtDlpStatusText.Text = YtDlpComponentManager.GetStatus().UserFacingText;
 
         RefreshProfiles(_workingState.Settings.ActiveKeyboardProfileId);
         LoadSessionOrder();

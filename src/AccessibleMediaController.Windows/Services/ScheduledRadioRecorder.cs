@@ -72,7 +72,11 @@ internal static class ScheduledRadioRecorder
             output.Play(item, TimeSpan.Zero, 0, 1d);
 
             var connectionTimeout = deadlineUtc - DateTime.UtcNow;
-            if (connectionTimeout > TimeSpan.FromSeconds(30)) connectionTimeout = TimeSpan.FromSeconds(30);
+            var maximumConnectionTimeout = YouTubeSourceResolver.IsYouTubeUrl(schedule.StreamUrl)
+                ? TimeSpan.FromSeconds(90)
+                : TimeSpan.FromSeconds(30);
+            if (connectionTimeout > maximumConnectionTimeout)
+                connectionTimeout = maximumConnectionTimeout;
             if (connectionTimeout <= TimeSpan.Zero) break;
             var timeoutTask = Task.Delay(connectionTimeout, cancellationToken);
             var connection = await Task.WhenAny(started.Task, failed.Task, timeoutTask).ConfigureAwait(false);

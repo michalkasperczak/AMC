@@ -4,6 +4,14 @@ using System.Text.RegularExpressions;
 
 namespace AccessibleMediaController.Windows.Services;
 
+internal sealed record ResolvedRadioSource(
+    string Url,
+    bool IsHls,
+    bool IsYouTube,
+    string? Title = null,
+    string? Codec = null,
+    int? BitrateKbps = null);
+
 internal static partial class RadioStreamResolver
 {
     private const int MaximumPlaylistBytes = 1024 * 1024;
@@ -29,10 +37,36 @@ internal static partial class RadioStreamResolver
         Uri.TryCreate(source, UriKind.Absolute, out var uri)
         && Path.GetExtension(uri.AbsolutePath).Equals(".m3u8", StringComparison.OrdinalIgnoreCase);
 
-    public static Task<string> ResolveAsync(string source, CancellationToken cancellationToken) =>
-        ResolveAsync(source, 0, new HashSet<string>(StringComparer.OrdinalIgnoreCase), cancellationToken);
+    public static async Task<string> ResolveAsync(string source, CancellationToken cancellationToken) =>
+        (await ResolveSourceAsync(source, cancellationToken).ConfigureAwait(false)).Url;
 
-    private static async Task<string> ResolveAsync(
+    public static async Task<ResolvedRadioSource> ResolveSourceAsync(
+        string source,
+        CancellationToken cancellationToken)
+    {
+        if (YouTubeSourceResolver.IsYouTubeUrl(source))
+        {
+            var youtube = await YouTubeSourceResolver.ResolveLiveAudioAsync(source, cancellationToken)
+                .ConfigureAwait(false);
+            return new ResolvedRadioSource(
+                youtube.StreamUrl,
+                youtube.IsHls,
+                true,
+                youtube.Title,
+                youtube.Codec,
+                youtube.BitrateKbps);
+        }
+
+        var resolved = await ResolvePlaylistAsync(
+                source,
+                0,
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return new ResolvedRadioSource(resolved, IsHlsSource(resolved), false);
+    }
+
+    private static async Task<string> ResolvePlaylistAsync(
         string source,
         int depth,
         HashSet<string> visited,
@@ -101,7 +135,7 @@ internal static partial class RadioStreamResolver
             throw new InvalidDataException("Lista zawiera nieprawidłowy adres strumienia.");
         }
         return IsPlaylistAddress(resolved)
-            ? await ResolveAsync(resolved.AbsoluteUri, depth + 1, visited, cancellationToken)
+            ? await ResolvePlaylistAsync(resolved.AbsoluteUri, depth + 1, visited, cancellationToken)
                 .ConfigureAwait(false)
             : resolved.AbsoluteUri;
     }

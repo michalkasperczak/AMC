@@ -1,6 +1,6 @@
 # Aktualizacje AMC, bibliotek multimedialnych i dodatków
 
-Stan zasad: 2026-08-29. Dokument uzupełnia rozdział 13 specyfikacji
+Stan zasad: 2026-09-06. Dokument uzupełnia rozdział 13 specyfikacji
 `MEDIA_CONTROLLER_PL.md`.
 
 ## 1. Znaczenie słowa „aktualne”
@@ -23,8 +23,10 @@ systemowych. Składniki należą do konkretnej wersji AMC albo konkretnego dodat
 - SoundTouch.Net i warstwa NAudioSupport;
 - BASS oraz ewentualne rozszerzenia BASS, z uwzględnieniem licencji
   niekomercyjnej;
-- opcjonalny FFmpeg dla HLS i przyszłych izolowanych konwerterów;
-- przyszłe adaptery usług, urządzeń, podcastów i YouTube;
+- opcjonalny FFmpeg dla HLS i izolowanych konwerterów;
+- opcjonalny `yt-dlp` wyłącznie jako izolowany resolver publicznych źródeł
+  YouTube, bez przejmowania sesji ani ciasteczek przeglądarki;
+- przyszłe adaptery usług, urządzeń, podcastów i mediów internetowych;
 - cienka wtyczka NVDA oraz osobne dodatki, w tym FreeRadio;
 - dane zgodności stacji i katalogów, które mogą być aktualizowane bez kodu.
 
@@ -92,6 +94,28 @@ Docelowo każdy dodatek ma własny manifest lub korzysta ze wspólnego,
 podpisanego menedżera komponentów. Nie wolno, aby dwa dodatki samodzielnie
 nadpisywały ten sam plik wykonywalny w miejscu.
 
+## 6a. Działający etap przejściowy FFmpeg i yt-dlp
+
+Od `alpha.293` AMC ma działający, ograniczony aktualizator dwóch opcjonalnych
+składników. FFmpeg i `yt-dlp` trafiają do osobnych katalogów pod
+`%LocalAppData%\AccessibleMediaController\components`. Każde pobranie odbywa
+się do katalogu roboczego, ma limit rozmiaru, jest porównywane z sumą SHA-256
+opublikowaną dla dokładnej nazwy pakietu i przechodzi ograniczoną kontrolę
+uruchomienia. Dopiero wtedy atomowo zmienia się wskazanie aktywnej wersji.
+Nieudana kontrola nie podmienia działającego składnika.
+
+`yt-dlp` jest uruchamiany w osobnym procesie z `--ignore-config`, bez cookies,
+bez profilu przeglądarki i bez przetwarzania playlisty. AMC przekazuje mu tylko
+jawnie dodany przez użytkownika adres publicznej transmisji YouTube. Zwrócony
+podpisany adres audio ma krótki czas życia, nie trafia do ustawień, SQLite,
+eksportu ani dziennika i jest odtwarzany przez istniejący tor FFmpeg. Zwykły
+film, transmisja zakończona albo materiał wymagający logowania są odrzucane.
+
+Ten etap nie jest jeszcze aktualizatorem całej aplikacji ani docelowym
+podpisanym manifestem wszystkich bibliotek. Użytkownik może sprawdzić oba
+składniki ręcznie w menu Pomoc, a automatyczna kontrola odbywa się najwyżej raz
+na dobę zgodnie z ustawieniami.
+
 ## 7. Kolejność wdrażania
 
 - obecne wersje alpha pozostają przenośne i podają wersje komponentów
@@ -103,6 +127,7 @@ nadpisywały ten sam plik wykonywalny w miejscu.
 - dopiero po przejściu testów aktualizacje mogą pobierać się automatycznie
   w tle; instalacja nadal czeka na bezpieczne zamknięcie.
 
-Do czasu wdrożenia tego mechanizmu pozycja „Sprawdź aktualizacje” nie może
-udawać działającego serwera. Informuje uczciwie, że usługa nie została jeszcze
-skonfigurowana.
+Do czasu wdrożenia podpisanego aktualizatora całej aplikacji pozycja
+„Sprawdź aktualizacje i składniki” nie może obiecywać aktualizacji samego AMC.
+Rzeczywiście sprawdza i bezpiecznie instaluje FFmpeg oraz `yt-dlp`, a stan
+aktualizacji programu nadal opisuje jako etap planowany.

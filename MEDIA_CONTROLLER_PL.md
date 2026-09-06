@@ -732,7 +732,7 @@ Kolejność najbliższych rzeczywistych integracji po ustabilizowaniu lokalnego 
 
 - **YouTube**: pierwszy adapter działa na żądanie i nie synchronizuje konta. Publiczne wyszukiwanie filmów, transmisji i playlist korzysta z YouTube Data API oraz klucza projektu. Lokalna Biblioteka YouTube w AMC nie jest kopią serwisu: zawiera pozycje świadomie dodane do Ulubionych, własne lokalne playlisty oraz lokalną historię odtwarzania. Te dane wystarczają do podstawowej pracy bez logowania. OAuth pozostaje opcjonalnym późniejszym rozszerzeniem, uruchamianym tylko wtedy, gdy użytkownik świadomie zechce pobrać subskrypcje, playlisty lub polubienia z konta; brak logowania nie ogranicza podstawowego adaptera. Odtwarzanie i sterowanie transportem korzysta z widocznego oficjalnego IFrame Player API. AMC przedstawia metadane, wyniki i polecenia w dostępnym interfejsie przypominającym podcasty, ale nie ukrywa odtwarzacza w tle. Zgodnie z zasadami API oficjalny adapter nie pobiera materiałów, nie oddziela dźwięku i nie nagrywa fragmentów filmów ani transmisji. Nagrywanie pozostaje funkcją źródeł, które jawnie na to pozwalają, np. bezpośredniego strumienia radiowego lub własnego pliku. [YouTube Data API](https://developers.google.com/youtube/v3/getting-started), [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference), [YouTube API Services Developer Policies](https://developers.google.com/youtube/terms/developer-policies).
 
-  Narzędzia ekstrakcyjne, takie jak yt-dlp, nie stają się oficjalnym adapterem YouTube ani obowiązkową zależnością AMC. Ich obsługa YouTube wymaga częstych poprawek wskutek zmian odtwarzacza, JavaScriptu i tokenów PO, może tracić formaty bez ostrzeżenia i przy użyciu ciasteczek konta niesie ryzyko ograniczenia konta. Możemy w przyszłości badać osobny, domyślnie wyłączony moduł „Narzędzia multimedialne” dla legalnie zapisywalnych źródeł. Taki moduł działa poza procesem głównym, aktualizuje się niezależnie, nie otrzymuje tokenów OAuth ani ciasteczek oficjalnych adapterów, a jego awaria nie może zakłócić wyszukiwania lub odtwarzania. [Kanały wydań yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/README.md#update-channels), [uwagi o ekstraktorze YouTube](https://github.com/yt-dlp/yt-dlp/wiki/Extractors).
+  Narzędzia ekstrakcyjne, takie jak yt-dlp, nie stają się oficjalnym adapterem katalogowym YouTube ani obowiązkową zależnością wewnątrz procesu AMC. Ich obsługa YouTube wymaga częstych poprawek wskutek zmian odtwarzacza, JavaScriptu i tokenów PO, może tracić formaty bez ostrzeżenia i przy użyciu ciasteczek konta niesie ryzyko ograniczenia konta. Od `alpha.293` Radio może użyć opcjonalnego, osobno aktualizowanego procesu yt-dlp dla jawnie podanego, publicznego i aktualnie nadawanego źródła. Nie otrzymuje on tokenów OAuth, profilu ani ciasteczek przeglądarki, a czasowy podpisany adres audio pozostaje w pamięci. Ten wąski resolver Radia jest oddzielony od przyszłego modułu katalogowego i pobierania Media internetowe. [Kanały wydań yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/README.md#update-channels), [uwagi o ekstraktorze YouTube](https://github.com/yt-dlp/yt-dlp/wiki/Extractors).
 
 - **Sonos**: chmurowe Control API z OAuth pozwala odkrywać gospodarstwa domowe, grupy i odtwarzacze, odczytywać stan, sterować transportem, przewijaniem i głośnością oraz uruchamiać Sonos Favorites i playlisty Sonos. Nie zastępuje katalogowego API istniejących usług muzycznych, wymaga publicznego zwrotnego adresu HTTPS i ma większy koszt integracyjny. Sonos pozostaje w planie, ale po WiiM, Spotify, TIDAL, BluOS, Apple Music, radiu i multimediach lokalnych. [Sonos Control API](https://docs.sonos.com/reference/about-control-api), [Sonos authorization](https://docs.sonos.com/docs/authorize).
 - **Frontier Smart**: producent potwierdza NetRemote API, SDK i możliwość budowania własnych aplikacji przez partnerów sprzętowych, ale nie publikuje kompletnej wspieranej dokumentacji konsumenckiej. Stabilny adapter wymaga dostępu partnerskiego; ewentualny adapter społecznościowy musi być osobno oznaczony jako eksperymentalny i nie może być podstawą pierwszego wydania. [Frontier AURIA](https://www.frontiersmart.com/product/auria/), [Frontier customer area](https://www.frontiersmart.com/customer-area/).
@@ -1138,6 +1138,20 @@ Zasada zwięzłego odczytu WiiM od `alpha.291`: zmiana strumienia lub presetu ni
 
 Korekta `alpha.292`: automatyczny odczyt po zmianie strumienia albo wywołaniu presetu jest nazwą celu bez numeru miejsca i bez działania przycisku, np. „Lublin”. Użytkownik już zna użyty skrót oraz słyszy skutek odtwarzania, dlatego te informacje nie są powtarzane. Wyjątkiem pozostaje stan wyciszenia, który zmienia znaczenie braku słyszalnego dźwięku i musi zostać podany. Działanie przycisku i pozostałe szczegóły są nadal dostępne w pełnym odczycie odtwarzacza na żądanie.
 
+Integracja publicznych transmisji YouTube od `alpha.293` należy do sesji Radio,
+ponieważ jej wynikiem jest ulotny strumień na żywo, a nie katalog filmów.
+Biblioteka, Ulubione, playlisty, presety i harmonogram przechowują stabilny
+adres strony oraz nazwę użytkownika. Dopiero rozpoczęcie odsłuchu lub nagrania
+uruchamia odizolowany `yt-dlp` bez cookies i bez konfiguracji użytkownika;
+czasowy podpisany adres audio pozostaje w pamięci i jest rozwiązywany ponownie
+przy następnym połączeniu. Ten sam wynik zasila istniejący, odporny tor HLS
+FFmpeg, więc odsłuch, nagranie ręczne, nagranie w tle i harmonogram zachowują
+wspólną semantykę. Formularz stacji jawnie dopuszcza publiczną transmisję
+YouTube. Zwykłe i zakończone filmy są odrzucane czytelnym komunikatem; ich
+wyszukiwanie, pobieranie i obsługa wielu stron należą do osobnego przyszłego
+modułu Media internetowe. Kanały i playlisty publikujące regularne materiały
+mogą później stać się źródłami w sesji Podcasty, ale nie są częścią tej zmiany.
+
 Przenośne dane Radia są dwiema warstwami. Pełna kopia zachowuje dokładny stan tego użytkownika, natomiast osobne eksporty Ulubionych i harmonogramów służą do bezpiecznego przesyłania oraz scalania. Ich plan i reguły prywatności określa `PROJEKT_IMPORTU_EKSPORTU_RADIA.md`.
 
 Korekta języka interfejsu `alpha.150`: nazwa pola opisuje zamiar **Nagrywaj**, a jego wartości to **Natychmiast** i **Później**. Szczegół, że rozpoczęcie natychmiastowe następuje po zatwierdzeniu przyciskiem Zapisz, należy do opisu pomocniczego, nie do nazwy wartości. Cały moduł używa rzeczownika „harmonogram”, dlatego dostępna nazwa reguły zasilania brzmi **Wybudzanie komputera dla tego harmonogramu**. Nie stosujemy naprzemiennie słów „plan” i „nagranie” dla tego samego rekordu.
@@ -1178,7 +1192,7 @@ Planowana kolejność dalszych etapów:
 6. Spotify jako pierwsze logowanie OAuth, katalog i test przekazania odtwarzania do urządzenia Connect.
 7. TIDAL jako osobny adapter katalogowy z izolowanym widokiem wyników oraz oficjalnym modułem odtwarzania.
 8. Cienka wtyczka NVDA korzystająca wyłącznie z kontraktu hosta.
-9. YouTube jako oficjalny adapter publicznego wyszukiwania i widocznego odtwarzacza z lokalnymi Ulubionymi, playlistami i historią; synchronizacja konta pozostaje opcjonalnym późniejszym rozszerzeniem.
+9. Media internetowe jako izolowany adapter wyszukiwania i pobierania zwykłych materiałów YouTube oraz innych jawnie obsługiwanych stron; lokalne Ulubione, playlisty i historia nie wymagają synchronizacji konta.
 10. BluOS/Bluesound jako rozbudowany adapter urządzenia i źródeł skonfigurowanych na odtwarzaczu.
 11. Apple Music i natywna ścieżka MusicKit dla macOS.
 12. Natywny prototyp macOS w Swift/AppKit po ustabilizowaniu kontraktu i zachowania wersji Windows.

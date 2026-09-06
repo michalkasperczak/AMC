@@ -722,7 +722,7 @@ After the local interface is stable, the next real integrations are **WiiM** as 
 
 - **YouTube**: the first adapter is on demand and does not synchronise an account. Public video, live-stream and playlist search uses the YouTube Data API with a project key. AMC's local YouTube Library is not a copy of the service: it contains items deliberately added to Favorites, local AMC playlists and local playback history. These are sufficient for basic use without login. OAuth remains an optional later extension, started only when the user deliberately wants account subscriptions, playlists or likes; lack of login does not restrict the basic adapter. Playback and transport use the visible official IFrame Player API. AMC presents metadata, results and commands in a podcast-like accessible interface but does not hide the player in the background. Under the API policies, the official adapter does not download content, separate audio, or record parts of videos or live streams. Recording remains limited to sources that explicitly permit it, such as a direct radio stream or a user-owned local file. [YouTube Data API](https://developers.google.com/youtube/v3/getting-started), [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference), [YouTube API Services Developer Policies](https://developers.google.com/youtube/terms/developer-policies).
 
-  Extraction tools such as yt-dlp do not become the official YouTube adapter or a required AMC dependency. Their YouTube support needs frequent fixes as the player, JavaScript and PO-token requirements change; formats may disappear without warning, and account cookies can expose an account to restrictions. We may later investigate a separate, disabled-by-default Media Tools module for sources that may legally be saved. Such a module runs outside the main process, updates independently, receives neither OAuth tokens nor cookies from official adapters, and its failure cannot disrupt search or playback. [yt-dlp update channels](https://github.com/yt-dlp/yt-dlp/blob/master/README.md#update-channels), [YouTube extractor notes](https://github.com/yt-dlp/yt-dlp/wiki/Extractors).
+  Extraction tools such as yt-dlp do not become the official YouTube catalogue adapter or a required in-process dependency. Their YouTube support needs frequent fixes as the player, JavaScript and PO-token requirements change; formats may disappear without warning, and account cookies can expose an account to restrictions. Starting with `alpha.293`, Radio may use an optional, separately updated yt-dlp process for an explicitly supplied, public, currently live source. It receives no OAuth tokens, browser profile or cookies, and the temporary signed audio address remains in memory. This narrow Radio resolver is separate from the future Internet Media catalogue and download module. [yt-dlp update channels](https://github.com/yt-dlp/yt-dlp/blob/master/README.md#update-channels), [YouTube extractor notes](https://github.com/yt-dlp/yt-dlp/wiki/Extractors).
 
 - **Sonos**: its OAuth cloud Control API discovers households, groups and players, reports state, controls playback, seek and volume, and loads Sonos Favorites and playlists. It does not replace catalogue APIs for existing music services, needs a public HTTPS callback and has a higher integration cost. It stays in scope after WiiM, Spotify, TIDAL, BluOS, Apple Music, radio and local media. [Sonos Control API](https://docs.sonos.com/reference/about-control-api), [Sonos authorization](https://docs.sonos.com/docs/authorize).
 - **Frontier Smart**: the manufacturer confirms NetRemote API and SDK access for hardware partners but does not publish a complete supported consumer integration reference. A stable adapter requires partner access; any community adapter is explicitly experimental. [Frontier AURIA](https://www.frontiersmart.com/product/auria/), [Frontier customer area](https://www.frontiersmart.com/customer-area/).
@@ -931,7 +931,7 @@ State of `alpha.37`: Escape from the player preserves the last browsed position,
 
 State of `alpha.38`: the “Announce position after seeking” option on the Messages tab separates automatic seek feedback from explicit time commands. Disabling it covers transport Arrows, Home and End, while `Ctrl+Shift+E/R/T` still respond. The state persists, appears as a safe command-palette toggle, and can be switched directly with `Ctrl+Shift+G`, which always gives a brief confirmation.
 
-State of `alpha.39`: digits `0–9` in the player seek to `0–90%` of the duration. Numpad digits also work with Num Lock enabled, without changing digit behaviour on lists or `Ctrl+digit` session selection. The seek respects the automatic-position-announcement setting, and unknown duration produces an explicit unavailable message. The command palette exposes all ten percentage positions. The adapter plan now records an official YouTube integration without initial account synchronisation and without downloading, audio extraction or recording of YouTube content.
+State of `alpha.39`: digits `0–9` in the player seek to `0–90%` of the duration. Numpad digits also work with Num Lock enabled, without changing digit behaviour on lists or `Ctrl+digit` session selection. The seek respects the automatic-position-announcement setting, and unknown duration produces an explicit unavailable message. The command palette exposes all ten percentage positions. The later `alpha.293` Radio resolver is an explicitly isolated exception for public, currently live sources; it does not replace the planned official catalogue adapter.
 
 State of `alpha.40`: the default digit-seek announcement is the percentage alone. The Messages tab selects percentage only, time only, or percentage and time, and the command palette opens that control directly. `Ctrl+Shift+G` and the shared checkbox silence both automatic time values and volume values after a change. Playback, pause, error messages and explicit time commands remain audible.
 
@@ -1145,6 +1145,20 @@ Change in `alpha.161`: every accessible Radio row starts with the user-facing st
 
 Change in `alpha.162`: `T` in the Radio player or on the selected station in Recording splits a manual capture. The current encoder is atomically finalised and the same private pipeline starts a new file without changing listening playback. The `Shift+R` editor exposes an explicitly labelled file layout—one file or parts—and enables a part-duration field only for the latter. Total schedule duration remains one final deadline; part duration merely adds earlier file boundaries. There is no separate `Shift+T`, which would duplicate the same editor.
 
+Public YouTube live integration in `alpha.293` belongs to Radio because its
+result is an ephemeral live stream rather than a video catalogue. Library,
+Favorites, playlists, presets and schedules store the stable page URL and the
+user-facing station name. Playback or recording then launches isolated
+`yt-dlp` with user configuration and cookies disabled; its temporary signed
+audio URL remains in memory and is resolved again for a later connection. The
+result enters the existing resilient FFmpeg HLS path, so listening, manual
+background recording and schedules share the same behaviour. The station
+editor explicitly accepts a public live YouTube URL. Ordinary and ended videos
+are rejected with a user-facing explanation; search, downloads and support for
+multiple sites belong to the future Internet Media module. Channels and
+playlists that publish regular episodes may later feed Podcasts, but are not
+part of this change.
+
 Local catalogue and ordering: the Library is neither a playlist nor a mirror of one folder. It is a catalogue of sources with stable identity, path and derived views. Derived orders such as title, artist, album, folder, date added or last played remain deterministic sort modes. Separate Custom order is user metadata and never changes disk-file order. The same keys do not pretend to reorder artist, album or search-result views.
 
 Planned sequence of later stages:
@@ -1157,7 +1171,7 @@ Planned sequence of later stages:
 6. Use Spotify for the first OAuth login, catalogue and Connect playback-transfer test.
 7. Add TIDAL as a separate catalogue adapter with an isolated results view and official playback module.
 8. Add a thin NVDA add-on using only the host contract.
-9. Add YouTube as an official public-search and visible-player adapter with local Favorites, playlists and history; account synchronisation remains an optional later extension.
+9. Add Internet media as an isolated adapter for searching and downloading ordinary YouTube items and other explicitly supported sites; local Favorites, playlists and history do not require account synchronisation.
 10. Add BluOS/Bluesound as a richer adapter for devices and player-configured sources.
 11. Add Apple Music and the native MusicKit path for macOS.
 12. Build a native Swift/AppKit macOS prototype after the contract and Windows behaviour have stabilised.

@@ -31,6 +31,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
     private const int MaximumTimeshiftBytes = 256 * 1024 * 1024;
     private const int MaximumReconnectAttempts = 2;
     private static readonly TimeSpan PreparationTimeout = TimeSpan.FromSeconds(25);
+    private static readonly TimeSpan YouTubePreparationTimeout = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan ReconnectDelay = TimeSpan.FromMilliseconds(750);
     private static readonly TimeSpan StableReceptionInterval = TimeSpan.FromSeconds(20);
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
@@ -193,6 +194,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         catch (Exception exception) when (exception is IOException
             or InvalidDataException
             or NotSupportedException
+            or TimeoutException
             or ArgumentException
             or OperationCanceledException)
         {
@@ -266,7 +268,13 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         DiagnosticLog.Info("radio", $"Łączenie ze stacją: {item.Title}.");
         PlaybackPreparing?.Invoke(this, new MediaPlaybackPreparingEventArgs(item, false));
         _ = Task.Run(() => PrepareAndStartAsync(item, requestVersion, preparationCancellation));
-        _ = WatchPreparationTimeoutAsync(item, requestVersion, preparationCancellation);
+        _ = WatchPreparationTimeoutAsync(
+            item,
+            requestVersion,
+            preparationCancellation,
+            YouTubeSourceResolver.IsYouTubeUrl(item.Source)
+                ? YouTubePreparationTimeout
+                : PreparationTimeout);
     }
 
     private async Task PrepareAndStartAsync(
@@ -324,6 +332,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 item,
                 reader,
                 openedReader.Lifetime,
+                openedReader.Source
+                    ?? new ResolvedRadioSource(item.Source!, RadioStreamResolver.IsHlsSource(item.Source!), false),
                 buffer,
                 volume,
                 preparedOutputLease,
@@ -414,9 +424,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 }
             }
             DiagnosticLog.Warning("radio", $"Nie udało się otworzyć stacji {item.Title}; błąd {exception.GetType().Name}.");
-            if (current) RaisePlaybackFailed(
-                item,
-                "Nie udało się odtworzyć tej stacji. Sprawdź adres strumienia lub spróbuj ponownie później.");
+            if (current) RaisePlaybackFailed(item, InitialPlaybackFailureMessage(item, exception));
         }
         finally
         {
@@ -427,19 +435,23 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
 
     private static async Task<OpenedRadioReader> OpenReaderAsync(
         string source,
+        bool isHls,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (RadioStreamResolver.IsHlsSource(source))
+        if (isHls)
         {
-            var ffmpeg = await FfmpegRadioWaveProvider.TryOpenAsync(source, cancellationToken)
+            var ffmpeg = await FfmpegRadioWaveProvider.TryOpenAsync(
+                    source,
+                    cancellationToken,
+                    forceLiveHls: true)
                 .ConfigureAwait(false);
             if (ffmpeg is not null)
             {
                 return new OpenedRadioReader(ffmpeg, ffmpeg, "FFmpeg HLS", null, "AAC");
             }
         }
-        var preferBass = ShouldPreferBass(source);
+        var preferBass = ShouldPreferBass(source, isHls);
         if (preferBass)
         {
             var bass = await TryOpenBassReaderAsync(source, cancellationToken).ConfigureAwait(false);
@@ -466,7 +478,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 "radio",
                 $"Dekoder systemowy odrzucił strumień; rozpoznawanie starszego radia ICY ({exception.GetType().Name}).");
 
-            if (RadioStreamResolver.IsHlsSource(source))
+            if (isHls)
             {
                 throw new NotSupportedException(
                     "Strumień HLS wymaga zgodnego wariantu albo dodatkowego komponentu dekodera.",
@@ -533,9 +545,10 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         }
     }
 
-    internal static bool ShouldPreferBass(string source)
+    internal static bool ShouldPreferBass(string source, bool forceHls = false)
     {
         if (!Uri.TryCreate(source, UriKind.Absolute, out var uri)
+            || forceHls
             || RadioStreamResolver.IsHlsSource(source))
         {
             return false;
@@ -560,9 +573,11 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var resolved = await RadioStreamResolver.ResolveAsync(candidates[index], cancellationToken)
+                var resolved = await RadioStreamResolver.ResolveSourceAsync(candidates[index], cancellationToken)
                     .ConfigureAwait(false);
-                var reader = await OpenReaderAsync(resolved, cancellationToken).ConfigureAwait(false);
+                var reader = await OpenReaderAsync(resolved.Url, resolved.IsHls, cancellationToken)
+                    .ConfigureAwait(false);
+                reader = reader with { Source = resolved };
                 if (index > 0 || !string.Equals(candidates[index], source, StringComparison.OrdinalIgnoreCase))
                 {
                     DiagnosticLog.Info("radio", "Użyto zgodnego wariantu strumienia stacji.");
@@ -575,6 +590,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 or InvalidOperationException
                 or InvalidDataException
                 or NotSupportedException
+                or TimeoutException
                 or ArgumentException
                 or AuthenticationException
                 or COMException
@@ -669,6 +685,11 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                         if (!pipeline.TryReplaceReader(
                                 openedReader.Reader,
                                 openedReader.Lifetime,
+                                openedReader.Source
+                                    ?? new ResolvedRadioSource(
+                                        pipeline.Item.Source!,
+                                        RadioStreamResolver.IsHlsSource(pipeline.Item.Source!),
+                                        false),
                                 openedReader.Reader as IRadioStreamTitleSource,
                                 out var previousLifetime))
                         {
@@ -772,16 +793,41 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             or InvalidDataException
             or InvalidOperationException
             or NotSupportedException
+            or TimeoutException
             or AuthenticationException
             or COMException
             or InvalidComObjectException;
+
+    private static string InitialPlaybackFailureMessage(MediaItem item, Exception exception)
+    {
+        if (!YouTubeSourceResolver.IsYouTubeUrl(item.Source))
+        {
+            return "Nie udało się odtworzyć tej stacji. Sprawdź adres strumienia lub spróbuj ponownie później.";
+        }
+        if (exception is TimeoutException)
+        {
+            return "YouTube nie odpowiedział w bezpiecznym czasie. Spróbuj ponownie później.";
+        }
+        if (exception is NotSupportedException)
+        {
+            return "Odtwarzanie transmisji YouTube wymaga składnika yt-dlp. Wybierz Pomoc, Sprawdź aktualizacje i składniki.";
+        }
+        if (exception is InvalidDataException
+            && (exception.Message.StartsWith("YouTube ", StringComparison.Ordinal)
+                || exception.Message.StartsWith("Ten adres YouTube ", StringComparison.Ordinal)))
+        {
+            return exception.Message;
+        }
+        return "Nie udało się odtworzyć tej transmisji YouTube. Sprawdź, czy transmisja trwa i jest publiczna.";
+    }
 
     private static void ApplyDetectedAudioMetadata(MediaItem item, OpenedRadioReader reader)
     {
         var detectedBitrate = reader.Reader is BassRadioWaveProvider bass
             ? bass.BitrateKbps ?? reader.BitrateKbps
             : reader.BitrateKbps;
-        detectedBitrate = RadioAudioMetadataRules.NormalizeBitrateKbps(detectedBitrate);
+        detectedBitrate = RadioAudioMetadataRules.NormalizeBitrateKbps(
+            detectedBitrate ?? reader.Source?.BitrateKbps);
         if (item.BitrateKbps is null && detectedBitrate is not null)
         {
             item.BitrateKbps = detectedBitrate;
@@ -791,18 +837,20 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         {
             item.SampleRateHz = reader.Reader.WaveFormat.SampleRate;
         }
-        if (string.IsNullOrWhiteSpace(item.Codec) && !string.IsNullOrWhiteSpace(reader.Codec))
+        var detectedCodec = reader.Codec ?? reader.Source?.Codec;
+        if (string.IsNullOrWhiteSpace(item.Codec) && !string.IsNullOrWhiteSpace(detectedCodec))
         {
-            item.Codec = reader.Codec;
+            item.Codec = detectedCodec;
         }
     }
 
     private async Task WatchPreparationTimeoutAsync(
         MediaItem item,
         long requestVersion,
-        CancellationTokenSource preparationCancellation)
+        CancellationTokenSource preparationCancellation,
+        TimeSpan timeout)
     {
-        await Task.Delay(PreparationTimeout).ConfigureAwait(false);
+        await Task.Delay(timeout).ConfigureAwait(false);
         var timedOut = false;
         lock (_gate)
         {
@@ -907,19 +955,12 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 Path.GetInvalidFileNameChars().Contains(character) ? '_' : character)).Trim();
             if (safeName.Length == 0) safeName = "Radio";
             DeleteStalePartialRecordings(folder);
-            var recordingSource = _pipeline.Item.Source ?? string.Empty;
+            var recordingSource = _pipeline.ResolvedSource.Url;
             if (format == RadioRecordingFormat.Original)
             {
-                // Playback resolves ordinary PLS/M3U/XSPF wrappers before it
-                // opens a decoder. The packet-copy recorder must receive that
-                // same direct stream rather than asking FFmpeg to interpret a
-                // text playlist as audio. Genuine HLS manifests remain intact.
-                using var resolutionCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-                recordingSource = RadioStreamResolver.ResolveAsync(
-                        recordingSource,
-                        resolutionCancellation.Token)
-                    .GetAwaiter()
-                    .GetResult();
+                // Use the direct source that is already feeding this pipeline.
+                // For YouTube this is a temporary signed URL held only in
+                // memory; the stable page address remains in the Library.
             }
             var originalTarget = format == RadioRecordingFormat.Original
                 ? RadioOriginalStreamRecorder.Describe(
@@ -1106,6 +1147,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         MediaItem item,
         IWaveProvider reader,
         IDisposable readerLifetime,
+        ResolvedRadioSource resolvedSource,
         RadioTimeshiftWaveProvider buffer,
         VolumeSampleProvider volume,
         AudioOutputDeviceLease? outputLease,
@@ -1116,6 +1158,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         private readonly object _readerGate = new();
         private IWaveProvider _reader = reader;
         private IDisposable? _readerLifetime = readerLifetime;
+        private ResolvedRadioSource _resolvedSource = resolvedSource;
         private IRadioStreamTitleSource? _streamTitleSource = streamTitleSource;
         private readonly Action<RadioPipeline, string?> _streamTitleChanged = streamTitleChanged;
         private int _disposed;
@@ -1127,6 +1170,13 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             }
         }
         public MediaItem Item { get; } = item;
+        public ResolvedRadioSource ResolvedSource
+        {
+            get
+            {
+                lock (_readerGate) return _resolvedSource;
+            }
+        }
         public RadioTimeshiftWaveProvider Buffer { get; } = buffer;
         public VolumeSampleProvider Volume { get; } = volume;
         public WasapiOut? Output => outputLease?.Output;
@@ -1150,6 +1200,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         public bool TryReplaceReader(
             IWaveProvider replacement,
             IDisposable replacementLifetime,
+            ResolvedRadioSource replacementSource,
             IRadioStreamTitleSource? replacementStreamTitleSource,
             out IDisposable? previousLifetime)
         {
@@ -1167,6 +1218,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 }
                 Volatile.Write(ref _reader, replacement);
                 _readerLifetime = replacementLifetime;
+                _resolvedSource = replacementSource;
                 _streamTitleSource = replacementStreamTitleSource;
                 if (_streamTitleSource is not null)
                 {
@@ -1216,7 +1268,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         IDisposable Lifetime,
         string DecoderName,
         int? BitrateKbps,
-        string? Codec);
+        string? Codec,
+        ResolvedRadioSource? Source = null);
 
     private sealed class RadioTimeshiftWaveProvider : IWaveProvider
     {

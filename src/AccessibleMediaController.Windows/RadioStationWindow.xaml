@@ -11,10 +11,10 @@
         <Label x:Name="NameLabel" Target="{Binding ElementName=NameBox}">_Nazwa stacji:</Label>
         <TextBox x:Name="NameBox" MaxLength="240" Margin="0,0,0,10"
                  automation:AutomationProperties.Name="Nazwa stacji" />
-        <Label Target="{Binding ElementName=StreamBox}">Adres _strumienia:</Label>
+        <Label x:Name="StreamLabel" Target="{Binding ElementName=StreamBox}">Adres _strumienia lub transmisji YouTube:</Label>
         <TextBox x:Name="StreamBox" Margin="0,0,0,18"
-                 automation:AutomationProperties.Name="Adres strumienia HTTP lub HTTPS"
-                 automation:AutomationProperties.HelpText="Wpisz bezpośredni adres strumienia, playlisty M3U, M3U8 lub PLS. Nie wpisuj adresu zwykłej strony internetowej." />
+                 automation:AutomationProperties.Name="Adres strumienia lub transmisji YouTube"
+                 automation:AutomationProperties.HelpText="Wpisz bezpośredni adres strumienia, playlisty M3U, M3U8 lub PLS albo publiczny adres trwającej transmisji YouTube." />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Width="105" Margin="0,0,8,0" Content="_Zapisz"
                     IsDefault="True" Click="Save_Click" />

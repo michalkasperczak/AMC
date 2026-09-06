@@ -1,5 +1,18 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.293` przyjmuje w module Radia publiczny adres trwającej
+transmisji YouTube. Stabilny adres strony można dodać jak zwykłą stację, a
+AMC rozwiązuje go dopiero przy odtwarzaniu lub nagrywaniu, bez logowania,
+ciasteczek przeglądarki i zapisywania czasowego adresu audio. Dotyczy to
+odsłuchu, nagrania ręcznego w tle oraz harmonogramu; zwykłe filmy są świadomie
+odrzucane i pozostają zakresem przyszłego modułu Media internetowe.
+
+Potrzebny `yt-dlp` jest osobnym, wymiennym składnikiem w danych lokalnych AMC.
+Aktualizator pobiera oficjalny program Windows i opublikowaną dla niego sumę
+SHA-256, sprawdza ją oraz wykonuje ograniczoną kontrolę wersji przed
+uaktywnieniem. Ustawienia i polecenie **Pomoc > Sprawdź aktualizacje i
+składniki** pokazują teraz osobno stan FFmpeg i `yt-dlp`.
+
 Wersja `alpha.292` skraca automatyczny odczyt WiiM jeszcze bardziej. Po zmianie
 strumienia albo wywołaniu presetu NVDA podaje tylko nazwę, np. „Lublin”. Nie
 dodaje numeru presetu ani oczywistego działania „Odtwórz” lub „Wstrzymaj”.

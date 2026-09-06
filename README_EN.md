@@ -1,5 +1,18 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.293` accepts a public URL of a currently live YouTube broadcast
+in the Radio session. The stable page URL is stored like a station, while AMC
+resolves it only for playback or recording, without signing in, reading browser
+cookies, or persisting the temporary audio URL. This applies to listening,
+manual background recording, and schedules. Ordinary videos are deliberately
+rejected and remain in scope for the future Internet media module.
+
+The required `yt-dlp` executable is an isolated, replaceable component in
+AMC's local application data. The updater retrieves the official Windows
+binary and its published SHA-256 checksum, verifies both the hash and a bounded
+version probe before activation, and reports FFmpeg and `yt-dlp` separately in
+Settings and under **Help > Check updates and components**.
+
 Version `alpha.292` makes automatic WiiM announcements even shorter. Changing
 a stream or invoking a preset now announces only its name, for example
 “Lublin”. It no longer adds the preset number or the obvious Play/Pause action.

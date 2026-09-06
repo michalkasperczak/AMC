@@ -59,7 +59,11 @@ internal static class ManualRadioRecorder
             var connection = await Task.WhenAny(
                 started.Task,
                 failed.Task,
-                Task.Delay(TimeSpan.FromSeconds(30), cancellationToken)).ConfigureAwait(false);
+                Task.Delay(
+                    YouTubeSourceResolver.IsYouTubeUrl(station.Source)
+                        ? TimeSpan.FromSeconds(90)
+                        : TimeSpan.FromSeconds(30),
+                    cancellationToken)).ConfigureAwait(false);
             if (cancellationToken.IsCancellationRequested)
                 return new ManualRadioRecordingResult(false, true, null, null);
             if (connection != started.Task)

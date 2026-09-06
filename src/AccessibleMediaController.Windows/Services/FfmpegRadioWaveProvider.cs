@@ -32,7 +32,8 @@ internal sealed class FfmpegRadioWaveProvider : IWaveProvider, IDisposable
 
     public static Task<FfmpegRadioWaveProvider?> TryOpenAsync(
         string source,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool forceLiveHls = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var executable = FindExecutable();
@@ -54,7 +55,7 @@ internal sealed class FfmpegRadioWaveProvider : IWaveProvider, IDisposable
         {
             start.ArgumentList.Add(argument);
         }
-        if (RadioStreamResolver.IsHlsSource(source))
+        if (forceLiveHls || RadioStreamResolver.IsHlsSource(source))
         {
             // HLS manifests commonly expose several already completed
             // segments.  Without these input options FFmpeg can emit that

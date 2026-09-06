@@ -350,14 +350,16 @@
             <TabItem x:Name="UpdatesTab" Header="_Aktualizacje">
                 <StackPanel Margin="12">
                     <TextBlock Margin="0,0,0,12" TextWrapping="Wrap" FontWeight="SemiBold"
-                               Text="AMC bezpiecznie instaluje i aktualizuje składnik FFmpeg z wydania Windows wskazanego przez oficjalną stronę FFmpeg. Pakiet jest sprawdzany sumą SHA-256 oraz kontrolą wersji i wariantu LGPL przed uaktywnieniem." />
+                               Text="AMC bezpiecznie instaluje i aktualizuje opcjonalne składniki multimedialne. FFmpeg oraz yt-dlp są sprawdzane sumą SHA-256 i kontrolą uruchomienia przed uaktywnieniem; niesprawdzony plik nie zastępuje działającej wersji." />
                     <TextBlock x:Name="FfmpegStatusText" Margin="0,0,0,12" TextWrapping="Wrap"
                                automation:AutomationProperties.Name="Stan składnika FFmpeg" />
+                    <TextBlock x:Name="YtDlpStatusText" Margin="0,0,0,12" TextWrapping="Wrap"
+                               automation:AutomationProperties.Name="Stan składnika yt-dlp" />
                     <StackPanel>
                         <CheckBox x:Name="UpdateCheckAutomatically" Margin="0,0,0,8"
                                   Content="Automatycznie _sprawdzaj aktualizacje składników w tle" />
                         <CheckBox x:Name="UpdateDownloadAutomatically" Margin="0,0,0,8"
-                                  Content="Automatycznie _pobieraj i instaluj zweryfikowany FFmpeg" />
+                                  Content="Automatycznie _pobieraj i instaluj zweryfikowane składniki" />
                     </StackPanel>
                     <StackPanel IsEnabled="False" Margin="0,8,0,0">
                         <CheckBox x:Name="UpdateInstallOnExit" Margin="0,0,0,8"
@@ -371,7 +373,7 @@
                         </ComboBox>
                     </StackPanel>
                     <TextBlock Margin="0,16,0,0" TextWrapping="Wrap"
-                               Text="Aktualizator całej aplikacji pozostaje następnym etapem. FFmpeg jest przechowywany wersjami; nieudane pobranie lub kontrola nie usuwa poprzedniej działającej kopii." />
+                               Text="Aktualizator całej aplikacji pozostaje następnym etapem. Składniki są przechowywane wersjami; nieudane pobranie lub kontrola nie usuwa poprzedniej działającej kopii." />
                 </StackPanel>
             </TabItem>
         </TabControl>

@@ -111,6 +111,9 @@ try
     TestChapterWindowAccessibility();
     TestEmbeddedMediaChapters();
     TestFfmpegComponentSecurity();
+    TestYtDlpComponentSecurity();
+    TestYouTubeSourceResolver();
+    TestRadioYouTubeAddressAccessibility();
     TestWaveMetadataAndDamagedContainers();
     TestLocalVideoAudioExtraction();
     TestLocalTransportStreamRecovery();
@@ -152,6 +155,10 @@ try
         {
             TestLiveHlsRadio(mediaPath["--hls-radio-url=".Length..]);
         }
+        else if (mediaPath.StartsWith("--youtube-live-url=", StringComparison.OrdinalIgnoreCase))
+        {
+            TestLiveYouTubeRadio(mediaPath["--youtube-live-url=".Length..]);
+        }
         else if (mediaPath.StartsWith("--radio-metadata-url=", StringComparison.OrdinalIgnoreCase))
         {
             TestLiveRadioMetadata(mediaPath["--radio-metadata-url=".Length..]);
@@ -179,6 +186,16 @@ try
         else if (mediaPath.Equals("--install-ffmpeg", StringComparison.OrdinalIgnoreCase))
         {
             var result = FfmpegComponentManager.CheckAndUpdateAsync(
+                    installAvailable: true,
+                    cancellationToken: CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+            Assert(result.Success && result.Status.Installed, result.Message);
+            Console.WriteLine($"OK: {result.Message}");
+        }
+        else if (mediaPath.Equals("--install-yt-dlp", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = YtDlpComponentManager.CheckAndUpdateAsync(
                     installAvailable: true,
                     cancellationToken: CancellationToken.None)
                 .GetAwaiter()
@@ -1383,6 +1400,126 @@ static void TestFfmpegComponentSecurity()
         !FfmpegComponentManager.IsSafeArchiveDestination(root, Path.Combine(root, "..", "outside.exe")),
         "Aktualizator nie blokuje wyjścia archiwum poza katalog tymczasowy.");
     Console.WriteLine("OK: suma SHA-256, przypięte źródło i ochrona rozpakowywania FFmpeg");
+}
+
+static void TestYtDlpComponentSecurity()
+{
+    var expected = new string('c', 64);
+    var checksums = $"{new string('d', 64)}  yt-dlp.tar.gz\n{expected} *{YtDlpComponentManager.AssetName}\n";
+    Assert(
+        YtDlpComponentManager.ParseChecksum(checksums, YtDlpComponentManager.AssetName) == expected,
+        "Aktualizator yt-dlp nie wybiera sumy przypisanej do programu Windows.");
+    Assert(
+        YtDlpComponentManager.ParseChecksum("1234  yt-dlp.exe", YtDlpComponentManager.AssetName) is null,
+        "Aktualizator yt-dlp przyjmuje nieprawidłową sumę SHA-256.");
+    Assert(
+        YtDlpComponentManager.ExecutableUri.Scheme == Uri.UriSchemeHttps
+        && YtDlpComponentManager.ExecutableUri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase),
+        "Aktualizator yt-dlp nie korzysta z oficjalnego źródła HTTPS w GitHub.");
+    Console.WriteLine("OK: suma SHA-256 i oficjalne źródło aktualizacji yt-dlp");
+}
+
+static void TestYouTubeSourceResolver()
+{
+    Assert(
+        YouTubeSourceResolver.IsYouTubeUrl("https://www.youtube.com/watch?v=test")
+        && YouTubeSourceResolver.IsYouTubeUrl("https://youtu.be/test")
+        && YouTubeSourceResolver.IsYouTubeUrl("https://music.youtube.com/watch?v=test"),
+        "Resolver nie rozpoznaje prawidłowego adresu YouTube.");
+    Assert(
+        !YouTubeSourceResolver.IsYouTubeUrl("https://youtube.com.example.org/watch?v=test")
+        && !YouTubeSourceResolver.IsYouTubeUrl("https://example.org/?next=https://youtube.com/watch?v=test"),
+        "Resolver uznaje podobną, obcą domenę za YouTube.");
+
+    const string liveJson = """
+        {
+          "title": "Publiczna transmisja testowa",
+          "is_live": true,
+          "live_status": "is_live",
+          "requested_downloads": [
+            {
+              "url": "https://manifest.googlevideo.com/api/manifest/hls_playlist/test",
+              "protocol": "m3u8_native",
+              "ext": "m4a",
+              "acodec": "mp4a.40.2",
+              "vcodec": "none",
+              "abr": 128.4
+            }
+          ]
+        }
+        """;
+    var resolved = YouTubeSourceResolver.ParseResult(
+        "https://www.youtube.com/watch?v=test",
+        liveJson,
+        requireLive: true);
+    Assert(
+        resolved.IsLive
+        && resolved.IsHls
+        && resolved.Title == "Publiczna transmisja testowa"
+        && resolved.BitrateKbps == 128
+        && resolved.Codec == "mp4a.40.2",
+        "Resolver nie zachowuje metadanych publicznej transmisji YouTube.");
+
+    const string recordedJson = """
+        {
+          "title": "Zwykły film",
+          "is_live": false,
+          "live_status": "was_live",
+          "url": "https://example.googlevideo.com/audio",
+          "acodec": "opus",
+          "vcodec": "none"
+        }
+        """;
+    try
+    {
+        _ = YouTubeSourceResolver.ParseResult(
+            "https://www.youtube.com/watch?v=recorded",
+            recordedJson,
+            requireLive: true);
+        throw new InvalidOperationException("Resolver dopuścił zwykły film w module Radia.");
+    }
+    catch (InvalidDataException exception)
+    {
+        Assert(
+            exception.Message.Contains("nie jest obecnie transmisją na żywo", StringComparison.Ordinal),
+            "Resolver odrzuca zwykły film bez czytelnego wyjaśnienia.");
+    }
+    Console.WriteLine("OK: bezpieczne rozpoznawanie publicznych transmisji YouTube");
+}
+
+static void TestRadioYouTubeAddressAccessibility()
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            var radioWindow = new RadioStationWindow();
+            var radioAddress = (TextBox)radioWindow.FindName("StreamBox");
+            Assert(
+                AutomationProperties.GetName(radioAddress) == "Adres strumienia lub transmisji YouTube",
+                "Formularz Radia nie opisuje publicznego adresu transmisji YouTube.");
+            Assert(
+                AutomationProperties.GetHelpText(radioAddress).Contains("publiczny adres", StringComparison.Ordinal),
+                "Pole adresu Radia nie ma czytelnej wskazówki o transmisji YouTube.");
+
+            var wiiMWindow = new RadioStationWindow(wiiMNetworkStream: true);
+            var wiiMAddress = (TextBox)wiiMWindow.FindName("StreamBox");
+            Assert(
+                AutomationProperties.GetName(wiiMAddress) == "Adres strumienia",
+                "Formularz WiiM nie zachował etykiety bezpośredniego strumienia.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    if (failure is not null)
+        throw new InvalidOperationException("Test dostępności adresu transmisji nie powiódł się.", failure);
+    Console.WriteLine("OK: dostępne etykiety strumienia i transmisji YouTube");
 }
 
 static void TestGlobalPrefixCapture()
@@ -4511,6 +4648,29 @@ static void TestPodcastFeedClient()
     Assert(handler.Requests.All(uri => uri.Host == "example.test"), "Klient pobrał plik audio zamiast samych metadanych kanału.");
 
     Console.WriteLine("OK: ograniczony klient kanałów podcastów");
+}
+
+static void TestLiveYouTubeRadio(string pageUrl)
+{
+    using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+    var resolved = YouTubeSourceResolver.ResolveLiveAudioAsync(pageUrl, cancellation.Token)
+        .GetAwaiter()
+        .GetResult();
+    Assert(resolved.IsLive, "YouTube: źródło nie zostało oznaczone jako transmisja na żywo.");
+    Assert(
+        !string.Equals(resolved.PageUrl, resolved.StreamUrl, StringComparison.Ordinal),
+        "YouTube: resolver nie oddzielił stabilnej strony od czasowego adresu audio.");
+    using var reader = FfmpegRadioWaveProvider.TryOpenAsync(
+            resolved.StreamUrl,
+            cancellation.Token,
+            forceLiveHls: resolved.IsHls)
+        .GetAwaiter()
+        .GetResult();
+    if (reader is null)
+        throw new InvalidOperationException("YouTube: FFmpeg nie otworzył rozwiązanego strumienia audio.");
+    var bytes = new byte[32_768];
+    Assert(reader.Read(bytes, 0, bytes.Length) > 0, "YouTube: strumień nie zwrócił próbek audio.");
+    Console.WriteLine($"OK: publiczna transmisja YouTube, {resolved.Title}, przez izolowany resolver i FFmpeg");
 }
 
 static void TestPodcastChapterClient()

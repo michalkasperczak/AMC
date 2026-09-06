@@ -154,26 +154,39 @@ public partial class App : Application
     private void StartComponentUpdates(PersistedState state)
     {
         if (!state.Settings.Updates.CheckAutomatically) return;
-        var status = FfmpegComponentManager.GetStatus();
-        if (status.CheckedAtUtc is { } checkedAt
-            && checkedAt >= DateTimeOffset.UtcNow.Subtract(TimeSpan.FromHours(24)))
-        {
-            return;
-        }
+        var threshold = DateTimeOffset.UtcNow.Subtract(TimeSpan.FromHours(24));
+        var ffmpegStatus = FfmpegComponentManager.GetStatus();
+        var ytDlpStatus = YtDlpComponentManager.GetStatus();
+        var updateFfmpeg = ffmpegStatus.CheckedAtUtc is not { } ffmpegCheckedAt
+                            || ffmpegCheckedAt < threshold;
+        var updateYtDlp = ytDlpStatus.CheckedAtUtc is not { } ytDlpCheckedAt
+                          || ytDlpCheckedAt < threshold;
+        if (!updateFfmpeg && !updateYtDlp) return;
 
         _ = Task.Run(async () =>
         {
             try
             {
-                var result = await FfmpegComponentManager.CheckAndUpdateAsync(
-                    state.Settings.Updates.DownloadAutomatically,
-                    cancellationToken: _componentUpdateCancellation.Token).ConfigureAwait(false);
-                if (result.Success) DiagnosticLog.Info("component-update", result.Message);
-                else DiagnosticLog.Warning("component-update", result.Message);
+                if (updateFfmpeg)
+                {
+                    var ffmpegResult = await FfmpegComponentManager.CheckAndUpdateAsync(
+                        state.Settings.Updates.DownloadAutomatically,
+                        cancellationToken: _componentUpdateCancellation.Token).ConfigureAwait(false);
+                    if (ffmpegResult.Success) DiagnosticLog.Info("component-update", ffmpegResult.Message);
+                    else DiagnosticLog.Warning("component-update", ffmpegResult.Message);
+                }
+                if (updateYtDlp)
+                {
+                    var ytDlpResult = await YtDlpComponentManager.CheckAndUpdateAsync(
+                        state.Settings.Updates.DownloadAutomatically,
+                        cancellationToken: _componentUpdateCancellation.Token).ConfigureAwait(false);
+                    if (ytDlpResult.Success) DiagnosticLog.Info("component-update", ytDlpResult.Message);
+                    else DiagnosticLog.Warning("component-update", ytDlpResult.Message);
+                }
             }
             catch (OperationCanceledException)
             {
-                DiagnosticLog.Info("component-update", "Sprawdzanie FFmpeg przerwane przy zamykaniu AMC.");
+                DiagnosticLog.Info("component-update", "Sprawdzanie składników przerwane przy zamykaniu AMC.");
             }
         });
     }

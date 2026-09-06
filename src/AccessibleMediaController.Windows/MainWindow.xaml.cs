@@ -19610,24 +19610,39 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private async void Updates_Click(object sender, RoutedEventArgs e)
     {
-        Announce("Sprawdzanie aktualizacji składnika FFmpeg");
-        var progress = new Progress<double>(value =>
+        Announce("Sprawdzanie aktualizacji składników FFmpeg i yt-dlp");
+        var ffmpegProgress = new Progress<double>(value =>
         {
             if (value is > 0.05d and < 0.98d)
             {
-                var percent = Math.Round(value * 100d);
+                var percent = Math.Round(value * 50d);
                 var status = $"Aktualizacja FFmpeg: {percent:0}%";
                 _playbackStatusBar.SpokenText = status;
                 _playbackStatusLabel.Text = status;
                 _playbackStatusLabel.AccessibleName = status;
             }
         });
-        var result = await FfmpegComponentManager.CheckAndUpdateAsync(
+        var ffmpegResult = await FfmpegComponentManager.CheckAndUpdateAsync(
             installAvailable: true,
-            progress,
+            ffmpegProgress,
+            CancellationToken.None);
+        var ytDlpProgress = new Progress<double>(value =>
+        {
+            if (value is > 0.05d and < 0.98d)
+            {
+                var percent = 50d + Math.Round(value * 50d);
+                var status = $"Aktualizacja yt-dlp: {percent:0}%";
+                _playbackStatusBar.SpokenText = status;
+                _playbackStatusLabel.Text = status;
+                _playbackStatusLabel.AccessibleName = status;
+            }
+        });
+        var ytDlpResult = await YtDlpComponentManager.CheckAndUpdateAsync(
+            installAvailable: true,
+            ytDlpProgress,
             CancellationToken.None);
         UpdatePlaybackStatusBar();
-        Announce(result.Message);
+        Announce($"FFmpeg: {ffmpegResult.Message} yt-dlp: {ytDlpResult.Message}");
     }
 
     private sealed class MediaItemRow(

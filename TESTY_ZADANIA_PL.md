@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-266`
-- Tytuł zestawu: Swobodna nawigacja i automatyczne pomijanie rozdziałów
-- Wersja programu: `0.1.0-alpha.266`
-- Utworzono: 2026-09-05, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.266.md`
+- Numer zestawu: `AMC-TEST-293`
+- Tytuł zestawu: Publiczna transmisja YouTube jako źródło Radia
+- Wersja programu: `0.1.0-alpha.293`
+- Utworzono: 2026-09-06, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.293.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,77 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Nowości alpha 293
+
+### AMC-293-01 — bezpieczna instalacja składników
+
+Wybierz **Pomoc > Sprawdź aktualizacje i składniki**, a po zakończeniu otwórz
+zakładkę Aktualizacje w Ustawieniach.
+
+Oczekiwane: polecenie sprawdza FFmpeg i `yt-dlp`, podaje końcowy wynik obu
+składników, nie otwiera konsoli i nie przenosi fokusu poza AMC. Zakładka ma dwa
+osobno nazwane, czytelne stany; żaden z nich nie ujawnia obiektu, klasy ani
+identyfikatora technicznego.
+
+### AMC-293-02 — dodanie trwającej transmisji
+
+W sesji Radio, w Bibliotece, naciśnij `Insert`. Wpisz własną nazwę oraz
+publiczny adres aktualnie trwającej transmisji YouTube i zapisz. Uruchom ją
+Enterem.
+
+Oczekiwane: formularz mówi „Adres strumienia lub transmisji YouTube”. Po
+chwili przygotowania otwiera się zwykły odtwarzacz Radia i słychać transmisję.
+Lista zachowuje nazwę nadaną w AMC, a nie czasowy adres audio. NVDA nie traci
+fokusu podczas przygotowania.
+
+### AMC-293-03 — ponowne połączenie
+
+Zatrzymaj transmisję Escape, odczekaj chwilę i uruchom tę samą stację ponownie.
+Jeżeli źródło na moment przerwie odbiór, pozostaw odtwarzacz do automatycznej
+próby połączenia.
+
+Oczekiwane: AMC za każdym nowym połączeniem ponownie rozwiązuje stabilny adres
+strony. Nie wymaga poprawiania wpisu w Bibliotece i nie odczytuje podpisanego
+adresu technicznego.
+
+### AMC-293-04 — nagranie ręczne w tle
+
+Na wpisie transmisji naciśnij `Ctrl+Alt+R`, pozostaw nagranie na kilkadziesiąt
+sekund, następnie zakończ je tym samym poleceniem. Powtórz próbę dla MP3 i,
+jeżeli używasz tej opcji, dla formatu Oryginalnego.
+
+Oczekiwane: nagranie korzysta z tego samego publicznego źródła i powstaje jako
+poprawnie zamknięty plik. Tymczasowy adres YouTube nie pojawia się w nazwie,
+Bibliotece, oknie właściwości ani komunikacie NVDA.
+
+### AMC-293-05 — harmonogram
+
+Utwórz krótki harmonogram dla wpisu YouTube rozpoczynający się kilka minut
+później. Przed terminem możesz zatrzymać zwykły odsłuch tej stacji.
+
+Oczekiwane: harmonogram sam rozwiązuje stabilny adres strony w chwili startu i
+nagrywa bez otwierania słyszalnego odtwarzacza. Nie zależy od wcześniej
+uzyskanego, wygasającego adresu audio.
+
+### AMC-293-06 — zwykły lub zakończony film
+
+Dodaj jako stację adres zwykłego filmu albo zakończonej transmisji YouTube i
+spróbuj go odtworzyć.
+
+Oczekiwane: AMC nie próbuje przedstawiać go jako radia i podaje, że adres nie
+jest obecnie transmisją na żywo. Program i fokus pozostają sprawne.
+
+### AMC-293-07 — regresja zwykłego radia
+
+Odtwórz po jednym bezpośrednim MP3, HLS oraz wpisie z playlisty PLS lub M3U8,
+a następnie szybko przełączaj je Page Up i Page Down.
+
+Oczekiwane: dotychczasowe stacje nie uruchamiają resolvera YouTube, odtwarzanie
+i automatyczne ponowne połączenie działają jak w alpha.292, a NVDA nie czyta
+dodatkowych komunikatów technicznych.
+
+## Poprzedni zestaw regresyjny alpha 266
 
 ## Nowości alpha 266
 
