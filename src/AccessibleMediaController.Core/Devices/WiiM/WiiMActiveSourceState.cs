@@ -9,6 +9,18 @@ public static class WiiMActiveSourceState
         IEnumerable<string> availableStreamIds)
     {
         ArgumentNullException.ThrowIfNull(availableStreamIds);
+        // The same station URL may exist both in AMC's stream list and in a
+        // native WiiM preset. If the URI still matches the stream explicitly
+        // launched from AMC, that explicit user action remains authoritative.
+        // A preset activated through AMC clears rememberedStreamId beforehand.
+        if (!string.IsNullOrWhiteSpace(rememberedStreamId)
+            && string.Equals(
+                rememberedStreamId,
+                streamIdMatchedFromSnapshot,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return rememberedStreamId;
+        }
         if (nativePresetResolved) return null;
         if (!string.IsNullOrWhiteSpace(streamIdMatchedFromSnapshot))
             return streamIdMatchedFromSnapshot;

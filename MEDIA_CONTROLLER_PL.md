@@ -2294,6 +2294,16 @@ zwłaszcza działań wykonanych z menu kontekstowego odtwarzanego podcastu.
 Otwarte menu jest pozostawiane czytnikowi ekranu, a po jego zamknięciu fokus
 wraca na widoczny główny przycisk odtwarzacza.
 
+Od `alpha.283` ta reguła rozróżnia faktycznie otwarte menu od nieaktywnego
+elementu menu, na którym WPF pozostawił techniczny fokus po zamknięciu okna
+kontekstowego. Zamknięte menu nie blokuje przywrócenia fokusa odtwarzacza ani
+listy. Migracja wersji obejmuje również strumienie WiiM zaimportowane przed
+`alpha.282`: poprawiona kolejność jest zapisywana w SQLite i nie znika po
+ponownym uruchomieniu. Jeżeli identyczny URL występuje na liście Strumieni
+sieciowych AMC i w natywnym presecie, decyduje ostatnia jawna akcja użytkownika.
+Uruchomienie strumienia pozostawia `Alt+Page Up/Down` na strumieniach, a jawne
+uruchomienie presetu przełącza te klawisze na presety.
+
 Szczegółowa mapa stabilnych i eksperymentalnych etapów, oparta także na
 porównaniu aktywnych bibliotek społecznościowych LinkPlay/WiiM, znajduje się w
 `PROJEKT_WIIM_PL.md`. W szczególności natywne presety nadal są tylko do odczytu

@@ -9397,7 +9397,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var restoreListFocus = MainWindowNavigationPolicy.ShouldRestoreBrowserListFocus(
             _playerViewActive,
             MediaList.IsKeyboardFocusWithin,
-            Keyboard.FocusedElement is MenuItem);
+            IsMenuInteractionActive(Keyboard.FocusedElement));
         var navigatesSession = commandId is CommandIds.SessionPrevious or CommandIds.SessionNext
             || commandId.StartsWith("session.slot.", StringComparison.Ordinal);
         var mergeSessionAnnouncementWithFocus = navigatesSession;
@@ -11043,9 +11043,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_isClosing || !IsLoaded || !IsVisible) return;
 
         var focused = Keyboard.FocusedElement;
-        var menuFocus = MainMenu.IsKeyboardFocusWithin
-            || focused is MenuItem { IsVisible: true }
-            || focused is ContextMenu { IsOpen: true };
+        var menuFocus = IsMenuInteractionActive(focused);
         var ownedWindowActive = OwnedWindows.Cast<Window>().Any(window => window.IsActive);
         var listItemFocusValid = focused is DependencyObject focusedObject
             && ItemsControl.ContainerFromElement(MediaList, focusedObject) is ListBoxItem;
@@ -11085,6 +11083,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         FocusMediaList();
+    }
+
+    private bool IsMenuInteractionActive(IInputElement? focused)
+    {
+        if (MainMenu.IsKeyboardFocusWithin) return true;
+        if (focused is ContextMenu contextMenu) return contextMenu.IsOpen;
+        if (focused is not MenuItem menuItem) return false;
+
+        ItemsControl? owner = ItemsControl.ItemsControlFromItemContainer(menuItem);
+        while (owner is MenuItem parentItem)
+        {
+            owner = ItemsControl.ItemsControlFromItemContainer(parentItem);
+        }
+
+        return owner switch
+        {
+            ContextMenu popup => popup.IsOpen,
+            Menu menu => menu.IsKeyboardFocusWithin,
+            _ => false
+        };
     }
 
     private static string DescribeKeyboardFocus(IInputElement? focused)
@@ -14946,6 +14964,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             stream.Id,
             device.LastActivatedNetworkStreamId,
             StringComparison.OrdinalIgnoreCase));
+        DiagnosticLog.Info(
+            "wiim-navigation",
+            $"Alt+Page {(direction > 0 ? "Down" : "Up")}; urządzenie: {device.Id}; "
+            + $"zapamiętany strumień: {device.LastActivatedNetworkStreamId ?? "brak"}; "
+            + $"indeks strumienia: {currentStreamIndex}; liczba strumieni: {streams.Length}; "
+            + $"zapamiętany preset: {device.LastActivatedPresetNumber}.");
         if (currentStreamIndex >= 0)
         {
             if (streams.Length < 2)
@@ -14955,6 +14979,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             var nextStreamIndex =
                 (currentStreamIndex + (direction > 0 ? 1 : -1) + streams.Length) % streams.Length;
+            DiagnosticLog.Info(
+                "wiim-navigation",
+                $"Przejście do strumienia AMC: {streams[nextStreamIndex].Id}; indeks: {nextStreamIndex}.");
             await OpenCurrentItemOnWiiMAsync(BuildWiiMNetworkStreamMediaItem(streams[nextStreamIndex]));
             return;
         }
@@ -15295,9 +15322,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ApplyWiiMSnapshot(WiiMDeviceSettings device, WiiMDeviceSnapshot snapshot)
     {
         UpdateWiiMRegistration(device, snapshot);
+        var matchedNetworkStream = FindWiiMNetworkStreamByUri(snapshot.Playback.ContentUri);
         var resolvedPreset = WiiMPresetStateResolver.ResolveCurrentPreset(
             snapshot,
             _lastActivatedWiiMPresets.GetValueOrDefault(device.Id, device.LastActivatedPresetNumber));
+        if (matchedNetworkStream is not null
+            && string.Equals(
+                matchedNetworkStream.Id,
+                device.LastActivatedNetworkStreamId,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            // A station can have the same URI in an AMC stream and a native
+            // preset. The source explicitly opened in AMC wins until the user
+            // activates a native preset; otherwise the next poll silently
+            // changes Alt+Page Up/Down back to preset navigation.
+            resolvedPreset = null;
+        }
         if (resolvedPreset is { } presetNumber)
         {
             _lastActivatedWiiMPresets[device.Id] = presetNumber;
@@ -15305,8 +15345,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else
         {
-            var activeNetworkStream = FindWiiMNetworkStreamByUri(snapshot.Playback.ContentUri);
-            if (activeNetworkStream is not null)
+            if (matchedNetworkStream is not null)
             {
                 _lastActivatedWiiMPresets.Remove(device.Id);
                 device.LastActivatedPresetNumber = 0;
@@ -15314,7 +15353,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         device.LastActivatedNetworkStreamId = WiiMActiveSourceState.ResolveNetworkStreamId(
             device.LastActivatedNetworkStreamId,
-            FindWiiMNetworkStreamByUri(snapshot.Playback.ContentUri)?.Id,
+            matchedNetworkStream?.Id,
             resolvedPreset is not null,
             _state.WiiM.NetworkStreams.Select(stream => stream.Id));
         _wiiMSnapshots[device.Id] = snapshot;
@@ -15567,7 +15606,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 DispatcherPriority.Input);
             return IntPtr.Zero;
         }
-        var menuActive = MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem;
+        var menuActive = IsMenuInteractionActive(Keyboard.FocusedElement);
         var playerVolumeCommand = MainWindowShortcutRouter.ResolvePlayerVolumeFromVirtualKey(
             virtualKey,
             modifiers,
@@ -15737,7 +15776,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     || Keyboard.FocusedElement is PasswordBox),
             textEditing: Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase
                 or PasswordBox,
-            menuActive: MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem);
+            menuActive: IsMenuInteractionActive(Keyboard.FocusedElement));
         if (chapterListCommand is not null)
         {
             var chapterItem = ActionItem;
@@ -15753,7 +15792,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             windowKey,
             effectiveModifiers,
             _playerViewActive,
-            MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem);
+            IsMenuInteractionActive(Keyboard.FocusedElement));
         if (chapterNavigationCommand is not null)
         {
             ExecuteCommand(chapterNavigationCommand);
@@ -15775,8 +15814,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && windowKey == Key.Space
             && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
             && (_playerViewActive || MediaList.IsKeyboardFocusWithin)
-            && !MainMenu.IsKeyboardFocusWithin
-            && Keyboard.FocusedElement is not MenuItem)
+            && !IsMenuInteractionActive(Keyboard.FocusedElement))
         {
             ToggleSelectedRadioRecordingPause();
             e.Handled = true;
@@ -15790,8 +15828,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 && (_playerViewActive
                     || MediaList.IsKeyboardFocusWithin
                     && string.Equals(_currentView, ActiveRadioRecordingsViewName, StringComparison.Ordinal))
-                && !MainMenu.IsKeyboardFocusWithin
-                && Keyboard.FocusedElement is not MenuItem);
+                && !IsMenuInteractionActive(Keyboard.FocusedElement));
         if (radioRecordingBookmarkCommand is not null)
         {
             ExecuteCommand(radioRecordingBookmarkCommand);
@@ -15875,7 +15912,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             // Menus retain their standard hierarchical Escape behavior: close
             // one submenu level at a time and restore the previous focus.
-            if (MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem)
+            if (IsMenuInteractionActive(Keyboard.FocusedElement))
             {
                 return;
             }
@@ -15904,7 +15941,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && e.Key == Key.Back
             && Keyboard.FocusedElement is not System.Windows.Controls.TextBox)
         {
-            if (MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem)
+            if (IsMenuInteractionActive(Keyboard.FocusedElement))
             {
                 return;
             }
@@ -16014,8 +16051,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         if (Keyboard.Modifiers == ModifierKeys.Alt
-            && Keyboard.FocusedElement is not MenuItem
-            && !MainMenu.IsKeyboardFocusWithin
+            && !IsMenuInteractionActive(Keyboard.FocusedElement)
             && e.SystemKey is Key.Left or Key.Right)
         {
             if (e.SystemKey == Key.Left) NavigateBack();
@@ -16268,7 +16304,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             key,
             modifiers,
             _playerViewActive,
-            MainMenu.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem);
+            IsMenuInteractionActive(Keyboard.FocusedElement));
         if (chapterNavigationCommand is not null)
         {
             commandId = chapterNavigationCommand;
@@ -17073,9 +17109,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool TryHandlePlayerTransportShortcut(KeyEventArgs e)
     {
         if (!_playerViewActive || PlayerPanel.Visibility != Visibility.Visible) return false;
-        if (MainMenu.IsKeyboardFocusWithin
-            || Keyboard.FocusedElement is MenuItem
-                or System.Windows.Controls.Primitives.TextBoxBase
+        if (IsMenuInteractionActive(Keyboard.FocusedElement)
+            || Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase
                 or PasswordBox)
         {
             return false;

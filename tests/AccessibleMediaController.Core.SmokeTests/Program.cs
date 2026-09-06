@@ -26,6 +26,7 @@ var tests = new (string Name, Action Test)[]
     ("Trwałe ustawienia i historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Bezpieczny klient i parser urządzeń WiiM", TestWiiMApiParsing),
+    ("Migracja kolejności strumieni WiiM", TestWiiMLegacyStreamOrderMigration),
     ("Bezpieczne parsowanie kanałów podcastów", TestPodcastFeedParsing),
     ("Rozdziały dostawcy podcastu", TestPodcastProviderChapters),
     ("Zwięzłe autorstwo podcastów", TestPodcastMetadataPresentation),
@@ -336,6 +337,11 @@ static void TestWiiMApiParsing()
             streamIdMatchedFromSnapshot: null,
             nativePresetResolved: true,
             ["wiim:stream:1"]));
+        Equal("wiim:stream:1", WiiMActiveSourceState.ResolveNetworkStreamId(
+            "wiim:stream:1",
+            streamIdMatchedFromSnapshot: "wiim:stream:1",
+            nativePresetResolved: true,
+            ["wiim:stream:1"]));
         Equal("wiim:stream:2", WiiMActiveSourceState.ResolveNetworkStreamId(
             "wiim:stream:1",
             "wiim:stream:2",
@@ -404,6 +410,60 @@ static void TestWiiMApiParsing()
     finally
     {
         Directory.Delete(directory, true);
+    }
+}
+
+static void TestWiiMLegacyStreamOrderMigration()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-wiim-order-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var statePath = Path.Combine(directory, "state.json");
+        var store = new ConfigurationStore(
+            statePath,
+            Path.Combine(directory, "library.db"),
+            Path.Combine(directory, "podcasts.db"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.SchemaVersion = 48;
+        state.WiiM.NetworkStreams =
+        [
+            new WiiMNetworkStreamSettings
+            {
+                Id = "stream-first",
+                Name = "Pierwszy",
+                StreamUrl = "https://example.test/first"
+            },
+            new WiiMNetworkStreamSettings
+            {
+                Id = "stream-second",
+                Name = "Drugi",
+                StreamUrl = "https://example.test/second"
+            }
+        ];
+        store.Save(state);
+
+        var migrated = store.LoadOrCreate();
+        Equal(ConfigurationStore.CurrentSchemaVersion, migrated.SchemaVersion);
+        True(migrated.CollectionOrders.LibraryAddedItemIdsBySession["wiim"]
+                .SequenceEqual(["stream-second", "stream-first"]),
+            "Migracja powinna odwrócić techniczny magazyn starej partii, aby widok zachował kolejność playlisty.");
+        var displayed = WiiMNetworkStreamOrdering.OrderForDisplay(
+            migrated.WiiM.NetworkStreams,
+            CollectionSortMode.AddedNewest,
+            migrated.CollectionOrders.LibraryAddedItemIdsBySession["wiim"]);
+        True(displayed.Streams.Select(stream => stream.Id)
+                .SequenceEqual(["stream-first", "stream-second"]),
+            "Po migracji pierwszy wpis źródłowej playlisty powinien pozostać pierwszy na ekranie.");
+
+        var reloaded = store.LoadOrCreate();
+        True(reloaded.CollectionOrders.LibraryAddedItemIdsBySession["wiim"]
+                .SequenceEqual(["stream-second", "stream-first"]),
+            "Zmigrowana kolejność powinna przetrwać ponowne wczytanie z SQLite.");
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
     }
 }
 

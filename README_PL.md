@@ -565,6 +565,14 @@ wpis AMC; nie usuwa strumienia z WiiM Home. Odtwarzacz dodatkowo chroni fokus
 przed przeniesieniem na ukrytą listę, między innymi po działaniach na podcaście
 wykonanych z menu kontekstowego.
 
+`alpha.283` obejmuje migracją także listę strumieni zaimportowaną przed tą
+poprawką. Kolejność jest naprawiana w jej właściwym magazynie SQLite i zostaje
+zachowana po kolejnym uruchomieniu. Jeżeli ten sam adres istnieje jako strumień
+AMC i natywny preset WiiM, ostatnie jawne polecenie użytkownika rozstrzyga, po
+której liście działa `Alt+Page Up/Down`. Zamknięte menu kontekstowe nie jest już
+uznawane za aktywne tylko dlatego, że Windows pozostawił na jego elemencie
+techniczny fokus; odtwarzacz może od razu odzyskać prawidłowy fokus.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

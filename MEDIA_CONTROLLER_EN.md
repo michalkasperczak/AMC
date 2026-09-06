@@ -789,6 +789,16 @@ open context menu retains focus while it is open; closing it returns focus to a
 visible player control. This specifically covers asynchronous podcast playback
 and membership actions invoked from the player menu.
 
+As of `alpha.283`, this rule distinguishes a genuinely open menu from a stale
+menu item that WPF may leave as its technical focused element after the popup
+has closed. A closed menu no longer blocks player or list focus recovery. The
+migration also repairs the stored order of WiiM streams imported before
+`alpha.282`; the repaired order is written to SQLite and survives another
+restart. If the same URL belongs both to an AMC Network Stream and to a native
+WiiM preset, the user's latest explicit action selects the navigation context:
+starting the stream keeps `Alt+Page Up/Down` on streams, while explicitly
+starting a preset switches those keys back to presets.
+
 The **source is authoritative** principle applies. Whenever an official device or service API can read and modify presets, history, queue, Favorites, playlists, streams or configuration, AMC operates on those source-owned data instead of creating a parallel collection that must be configured again on a phone and computer. Device data are authoritative for device resources and settings, while the service account is authoritative for the user's catalogue. AMC retains only a safe cache and local information not exposed by the source. The cache preserves native identifiers and never overwrites the source after reconnecting without first checking its current state.
 
 An adapter declares read and write support separately for every category. With read-only access, AMC presents source state without pretending to synchronise it. With full access, a change made in AMC is written to the device or service and becomes visible in the official app as well. A clearly labelled local layer and portable import/export are used only when no supported API exists. If WiiM later exposes the Open Network Stream collection, that collection becomes authoritative and M3U remains an interchange and backup mechanism.

@@ -14,7 +14,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 48;
+    public const int CurrentSchemaVersion = 49;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -58,6 +58,8 @@ public sealed class ConfigurationStore
             ? JsonSerializer.Deserialize<PersistedState>(File.ReadAllText(statePath), JsonOptions)
                 ?? throw new InvalidDataException("Nie udało się odczytać konfiguracji.")
             : CreateDefaultState();
+        var sourceSchemaVersion = state.SchemaVersion;
+        var migratedLegacyWiiMOrderAfterDatabaseLoad = false;
 
         // Load the archived podcast records before applying state-version
         // migrations. Otherwise an installation upgraded from an older schema
@@ -107,6 +109,11 @@ public sealed class ConfigurationStore
             else
             {
                 libraryDatabase.LoadInto(state);
+                // Collection orders live in SQLite. A migration performed on the
+                // compact JSON shell above is therefore replaced when the database
+                // is loaded and must be applied once more to the authoritative data.
+                migratedLegacyWiiMOrderAfterDatabaseLoad =
+                    MigrateLegacyWiiMNetworkStreamOrder(state, sourceSchemaVersion);
             }
         }
         catch (SqliteException exception)
@@ -144,6 +151,21 @@ public sealed class ConfigurationStore
         catch (SqliteException exception)
         {
             throw new InvalidDataException("Nie udało się odczytać bazy Podcastów SQLite.", exception);
+        }
+
+        if (migratedLegacyWiiMOrderAfterDatabaseLoad)
+        {
+            try
+            {
+                libraryDatabase.Save(state);
+                WriteStateAtomically(CreateSettingsOnlyState(state));
+            }
+            catch (SqliteException exception)
+            {
+                throw new InvalidDataException(
+                    "Nie udało się zapisać migracji kolejności strumieni WiiM.",
+                    exception);
+            }
         }
 
         NormalizeLocalMedia(state, state.SchemaVersion);
@@ -466,6 +488,7 @@ public sealed class ConfigurationStore
         NormalizeRadio(state);
         NormalizePodcasts(state);
         NormalizeWiiM(state);
+        MigrateLegacyWiiMNetworkStreamOrder(state, sourceSchemaVersion);
         MigrateLegacyPodcastInbox(state, sourceSchemaVersion);
         MigrateLegacyRadioPresets(state, sourceSchemaVersion);
         NormalizeSessionPresets(state);
@@ -541,6 +564,30 @@ public sealed class ConfigurationStore
         {
             state.WiiM.SelectedDeviceId = state.WiiM.Devices.FirstOrDefault()?.Id;
         }
+    }
+
+    private static bool MigrateLegacyWiiMNetworkStreamOrder(
+        PersistedState state,
+        int sourceSchemaVersion)
+    {
+        if (sourceSchemaVersion >= 49 || state.WiiM.NetworkStreams.Count == 0) return false;
+
+        // Before alpha.283 a playlist imported as one batch was stored in its
+        // source order, but the default AddedNewest view reversed every entry.
+        // Remember the old batch backwards so that the view's intentional
+        // newest-first projection presents that imported batch exactly as it
+        // appeared in M3U/PLS. Do not replace an order the user already edited.
+        if (state.CollectionOrders.LibraryAddedItemIdsBySession.TryGetValue("wiim", out var stored)
+            && stored.Count > 0)
+        {
+            return false;
+        }
+
+        state.CollectionOrders.LibraryAddedItemIdsBySession["wiim"] = state.WiiM.NetworkStreams
+            .Select(stream => stream.Id)
+            .Reverse()
+            .ToList();
+        return true;
     }
 
     private static void MigrateLegacyPodcastInbox(PersistedState state, int sourceSchemaVersion)
