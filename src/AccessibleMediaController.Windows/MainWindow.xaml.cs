@@ -13018,10 +13018,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         .Where(item => item.Kind == MediaItemKind.Station)
         .ToArray();
 
-    private IReadOnlyList<MediaItem> CurrentViewRadioScheduleStations(MediaItem selectedStation) =>
-        RadioScheduleStationSelection.ForCurrentView(
+    private IReadOnlyList<MediaItem> CurrentViewRadioScheduleStations(MediaItem selectedStation)
+    {
+        if (string.Equals(_currentView, ActiveRadioRecordingsViewName, StringComparison.Ordinal))
+        {
+            return RadioScheduleStationSelection.ForActiveRecordingsView(
+                _sessions.FindSession("radio")?.Items ?? [],
+                selectedStation);
+        }
+
+        return RadioScheduleStationSelection.ForCurrentView(
             VisibleRadioStations(),
             selectedStation);
+    }
 
     private IReadOnlyList<MediaItem> AvailableRadioScheduleStations(MediaItem? additionalStation = null)
     {

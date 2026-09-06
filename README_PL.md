@@ -1,5 +1,10 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.289` poprawia `Shift+R` w radiowym widoku **Nagrywane**. Edytor
+harmonogramu zachowuje wskazaną nagrywaną stację jako początkowy wybór, ale
+lista stacji obejmuje całą Bibliotekę Radia. Tymczasowa lista aktywnych nagrań
+nie ogranicza już zakresu harmonogramu.
+
 Wersja `alpha.288` pozwala ustawić granice fragmentu również od końca.
 W odtwarzaczu można najpierw nacisnąć `O` w późniejszym miejscu, cofnąć się i
 dopiero nacisnąć `I`. Oba punkty są zapisywane niezależnie dla danego pliku i

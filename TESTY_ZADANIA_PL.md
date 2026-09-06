@@ -6436,3 +6436,16 @@ wcześniejszy koniec.
 Oczekiwane: AMC odrzuca tylko błędny punkt i wyjaśnia wymaganą kolejność.
 Poprzednio prawidłowa granica pozostaje dostępna. `X` i `Ctrl+X` nie wykonują
 operacji na niekompletnym albo nieprawidłowym przedziale.
+
+## Test ręczny harmonogramu z widoku Nagrywane — alpha 289
+
+### AMC-289-01 — Shift+R nie zawęża stacji do aktywnych nagrań
+
+Uruchom nagrywanie jednej stacji w tle, przejdź w Radiu do widoku **Nagrywane**
+klawiszem `Alt+2`, ustaw fokus na tym nagraniu i naciśnij `Shift+R`. Rozwiń pole
+wyboru stacji w edytorze harmonogramu.
+
+Oczekiwane: początkowo wybrana jest stacja wskazana w widoku **Nagrywane**, ale
+lista zawiera również pozostałe stacje z Biblioteki Radia. Nie zawiera ukrytych,
+niezapisanych wyników katalogu Radio Browser. Anulowanie przywraca fokus do
+tego samego nagrania.

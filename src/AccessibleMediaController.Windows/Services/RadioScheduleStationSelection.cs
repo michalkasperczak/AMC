@@ -15,6 +15,21 @@ internal static class RadioScheduleStationSelection
         MediaItem selectedStation) =>
         DistinctStations(visibleItems.Append(selectedStation));
 
+    /// <summary>
+    /// The active-recordings list is a transient status view, not a station
+    /// collection.  A schedule opened there keeps the focused recording as
+    /// the initial choice, but offers the complete Radio Library instead of
+    /// accidentally limiting the picker to stations that happen to be
+    /// recording at that moment.
+    /// </summary>
+    public static IReadOnlyList<MediaItem> ForActiveRecordingsView(
+        IEnumerable<MediaItem> sessionItems,
+        MediaItem selectedStation) =>
+        DistinctStations(
+            sessionItems
+                .Where(item => item.IsInLibrary)
+                .Prepend(selectedStation));
+
     public static IReadOnlyList<MediaItem> ForScheduleManager(
         IEnumerable<MediaItem> sessionItems,
         IEnumerable<MediaItem> visibleItems,

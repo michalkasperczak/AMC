@@ -3163,6 +3163,14 @@ static void TestRadioScheduleStationScope()
     Assert(direct.All(item => item.Id != hiddenCatalog.Id),
         "Shift+R wpuścił niewidoczny wynik katalogu Radio Browser.");
 
+    var activeRecordings = RadioScheduleStationSelection.ForActiveRecordingsView(
+        [selected, secondVisible, hiddenCatalog, library],
+        selected);
+    Assert(activeRecordings.Select(item => item.Id).SequenceEqual([selected.Id, library.Id]),
+        "Shift+R w widoku Nagrywane nie zachował bieżącej stacji i całej Biblioteki Radia.");
+    Assert(activeRecordings.All(item => item.Id != secondVisible.Id && item.Id != hiddenCatalog.Id),
+        "Shift+R w widoku Nagrywane pokazał stację spoza Biblioteki Radia.");
+
     var manager = RadioScheduleStationSelection.ForScheduleManager(
         [selected, secondVisible, hiddenCatalog, library],
         [selected],
@@ -3173,7 +3181,7 @@ static void TestRadioScheduleStationScope()
     Assert(manager.Any(item => item.Id == scheduledOnly.StationId), "Menedżer zgubił stację istniejącego planu.");
     Assert(manager.All(item => item.Id != hiddenCatalog.Id),
         "Menedżer pokazał nieużywany, ukryty wynik katalogu Radio Browser.");
-    Console.WriteLine("OK: Shift+R używa stacji z bieżącego widoku, nie całego katalogu sesji");
+    Console.WriteLine("OK: Shift+R używa właściwego zakresu bieżącego widoku i całej Biblioteki w widoku Nagrywane");
 
     static MediaItem Station(
         string id,

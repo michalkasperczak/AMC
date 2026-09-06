@@ -1,5 +1,10 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.289` fixes `Shift+R` in Radio's **Active recordings** view. The
+schedule editor keeps the focused recording's station selected, while its
+station picker contains the complete Radio Library. The transient recording
+status list no longer restricts the schedule scope.
+
 Version `alpha.288` allows a clip to be marked from its end. In the player,
 `O` may be pressed at the later position first, followed by rewinding and
 pressing `I`. Each boundary persists independently for that file and survives
