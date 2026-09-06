@@ -633,12 +633,12 @@
                               automation:AutomationProperties.Name="Presety urządzenia WiiM, Ctrl+Alt+P"
                               automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+P"
                               Visibility="Collapsed" Click="WiiMDevicePresets_Click" />
-                    <MenuItem x:Name="PlayerWiiMPreviousPresetMenuItem" Header="Poprzedni zajęty preset" InputGestureText="Alt+Page Up"
-                              automation:AutomationProperties.Name="Poprzedni zajęty preset urządzenia WiiM, Alt+Page Up"
+                    <MenuItem x:Name="PlayerWiiMPreviousPresetMenuItem" Header="Poprzedni strumień lub preset" InputGestureText="Alt+Page Up"
+                              automation:AutomationProperties.Name="Poprzedni strumień albo zajęty preset urządzenia WiiM, zależnie od aktywnego źródła, Alt+Page Up"
                               automation:AutomationProperties.AcceleratorKey="Alt+Page Up"
                               Visibility="Collapsed" Click="WiiMPreviousPreset_Click" />
-                    <MenuItem x:Name="PlayerWiiMNextPresetMenuItem" Header="Następny zajęty preset" InputGestureText="Alt+Page Down"
-                              automation:AutomationProperties.Name="Następny zajęty preset urządzenia WiiM, Alt+Page Down"
+                    <MenuItem x:Name="PlayerWiiMNextPresetMenuItem" Header="Następny strumień lub preset" InputGestureText="Alt+Page Down"
+                              automation:AutomationProperties.Name="Następny strumień albo zajęty preset urządzenia WiiM, zależnie od aktywnego źródła, Alt+Page Down"
                               automation:AutomationProperties.AcceleratorKey="Alt+Page Down"
                               Visibility="Collapsed" Click="WiiMNextPreset_Click" />
                     <MenuItem x:Name="PlayerWiiMInputMenuItem" Header="Wybierz wejście…" InputGestureText="I"

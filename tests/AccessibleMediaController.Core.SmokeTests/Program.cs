@@ -320,11 +320,27 @@ static void TestWiiMApiParsing()
             "Eksport strumieni WiiM nie tworzy rozszerzonej playlisty M3U.");
         True(playlist.Contains("#EXTINF:-1,Radio Drugie\r\nhttps://example.test/live", StringComparison.Ordinal),
             "Eksport nie oczyścił nazwy albo fragmentu adresu strumienia.");
-        True(playlist.IndexOf("Radio Drugie", StringComparison.Ordinal)
-                < playlist.IndexOf("Radio testowe", StringComparison.Ordinal),
-            "Eksport dla WiiM Home musi kompensować dodawanie importowanych wpisów na początek listy.");
+        True(playlist.IndexOf("Radio testowe", StringComparison.Ordinal)
+                < playlist.IndexOf("Radio Drugie", StringComparison.Ordinal),
+            "Eksport dla WiiM Home musi zachowywać kolejność widoczną w AMC.");
         True(!playlist.Contains("haslo", StringComparison.Ordinal),
             "Eksport nie może zapisać adresu z osadzonymi danymi logowania.");
+
+        Equal("wiim:stream:1", WiiMActiveSourceState.ResolveNetworkStreamId(
+            "wiim:stream:1",
+            streamIdMatchedFromSnapshot: null,
+            nativePresetResolved: false,
+            ["wiim:stream:1"]));
+        Equal(null, WiiMActiveSourceState.ResolveNetworkStreamId(
+            "wiim:stream:1",
+            streamIdMatchedFromSnapshot: null,
+            nativePresetResolved: true,
+            ["wiim:stream:1"]));
+        Equal("wiim:stream:2", WiiMActiveSourceState.ResolveNetworkStreamId(
+            "wiim:stream:1",
+            "wiim:stream:2",
+            nativePresetResolved: false,
+            ["wiim:stream:1", "wiim:stream:2"]));
 
         var streamA = new WiiMNetworkStreamSettings
         {
@@ -370,6 +386,20 @@ static void TestWiiMApiParsing()
                 "stream-a"
             ]),
             "Widok według dodania powinien przekazywać do WiiM dokładnie kolejność widoczną w AMC.");
+        var importedOrder = WiiMNetworkStreamOrdering.RememberImportedBatch(
+            [streamA, streamB, streamC],
+            ["stream-a"],
+            ["stream-b", "stream-c"]);
+        var importedNewest = WiiMNetworkStreamOrdering.OrderForDisplay(
+            [streamA, streamB, streamC],
+            CollectionSortMode.AddedNewest,
+            importedOrder);
+        True(importedNewest.Streams.Select(stream => stream.Id).SequenceEqual([
+                "stream-b",
+                "stream-c",
+                "stream-a"
+            ]),
+            "Importowana playlista WiiM musi zachować kolejność wpisów wewnątrz nowej partii.");
     }
     finally
     {

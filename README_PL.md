@@ -557,6 +557,14 @@ używają tego samego widocznego porządku. `Ctrl+C` kopiuje zaznaczone nazwy,
 `Ctrl+Shift+C` nazwy wraz z adresami, a `F2` zachowuje fokus na edytowanym
 strumieniu.
 
+Od `alpha.282` import M3U/PLS zachowuje kolejność wpisów wewnątrz nowej partii,
+a eksport M3U nie odwraca ponownie porządku widocznego w AMC. Po uruchomieniu
+strumienia `Alt+Page Up/Down` pozostaje na liście strumieni także wtedy, gdy
+WiiM zwróci przekierowany albo chwilowo stary adres. Delete usuwa tylko lokalny
+wpis AMC; nie usuwa strumienia z WiiM Home. Odtwarzacz dodatkowo chroni fokus
+przed przeniesieniem na ukrytą listę, między innymi po działaniach na podcaście
+wykonanych z menu kontekstowego.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

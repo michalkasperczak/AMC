@@ -830,6 +830,18 @@ static void TestMainWindowFocusRecoveryPolicy()
             listHasItems: true,
             aListItemContainsKeyboardFocus: true),
         "fokus konkretnego wiersza listy pozostaje prawidłowy");
+    Assert(
+        MainWindowNavigationPolicy.ShouldRestoreBrowserListFocus(
+            playerViewActive: false,
+            mediaListFocus: false,
+            menuFocus: true),
+        "Polecenie listy wybrane z menu powinno wracać do przeglądanej listy.");
+    Assert(
+        !MainWindowNavigationPolicy.ShouldRestoreBrowserListFocus(
+            playerViewActive: true,
+            mediaListFocus: false,
+            menuFocus: true),
+        "Menu odtwarzacza nie może przenosić fokusa do ukrytej listy multimediów.");
 
     Assert(
         MainWindowNavigationPolicy.CanRefreshPodcastBrowserAfterAsyncOperation(

@@ -13,7 +13,7 @@ eksperymentalne, po sprawdzeniu możliwości konkretnego modelu i z bezpiecznym
 wycofaniem operacji. Polecenia administracyjne, konfiguracja sieci, restart i
 przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 
-## Stan po alpha 281
+## Stan po alpha 282
 
 - wykrywanie UPnP/SSDP i ręczne dodanie lokalnego adresu IP;
 - wybór i zapamiętanie aktywnego urządzenia;
@@ -62,9 +62,9 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   bezpiecznie M3U, M3U8 lub PLS. `Ctrl+Shift+O` eksportuje całą listę AMC do
   rozszerzonego M3U. Enter albo `Ctrl+Alt+W` wysyła wskazany strumień do
   aktywnego urządzenia, `F2` edytuje nazwę i adres, a Delete usuwa wpis wyłącznie
-  z AMC. Eksport zapisuje wpisy od końca, kompensując sposób, w jaki WiiM Home
-  dokłada importowane pozycje na początek; po imporcie kolejność widoczna w WiiM
-  odpowiada kolejności AMC. Lista jest zachowywana po zamknięciu programu i nie
+  z AMC. Eksport zapisuje dokładnie bieżącą kolejność widoczną w AMC. Test na
+  rzeczywistym urządzeniu wykazał, że dodatkowe odwracanie pliku odwracało listę
+  ponownie. Lista jest zachowywana po zamknięciu programu i nie
   modyfikuje danych aplikacji WiiM Home poza świadomym importem pliku przez
   użytkownika.
 - Strumienie korzystają ze wspólnych reguł porządkowania Biblioteki:
@@ -76,6 +76,15 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   wszystkich zaznaczonych strumieni, a `Ctrl+Shift+C` każdą nazwę wraz z
   adresem. Po `F2`, anulowaniu okna i przeniesieniu fokus wraca do właściwego
   wpisu.
+- Import M3U/PLS zachowuje kolejność pozycji wewnątrz importowanej partii w
+  widoku `Alt+1`. Po uruchomieniu strumienia AMC zapamiętuje ten wybór także
+  wtedy, gdy firmware zwraca adres przekierowany, wewnętrzny lub chwilowo
+  jeszcze poprzedni. Dzięki temu `Alt+Page Up/Down` nie przełącza się bez
+  ostrzeżenia na presety. Rozpoznanie rzeczywistego presetu sprzętowego nadal
+  ma pierwszeństwo i przełącza nawigację na presety.
+- Delete usuwa wyłącznie lokalny wpis z AMC. Nie istnieje wspierane publiczne
+  API do usuwania pozycji z listy Open Network Stream w WiiM Home, więc program
+  nie może zgłaszać ani sugerować takiej operacji.
 
 Lokalne API nie udostępnia zapisu ani zmiany kolejności natywnych presetów.
 AMC nie zgłasza więc pozornego powodzenia; takie ustawienie nadal wykonuje się

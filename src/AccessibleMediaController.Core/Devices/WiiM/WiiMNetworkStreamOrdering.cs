@@ -8,6 +8,38 @@ public sealed record WiiMNetworkStreamOrderResult(
 
 public static class WiiMNetworkStreamOrdering
 {
+    public static IReadOnlyList<string> RememberImportedBatch(
+        IEnumerable<WiiMNetworkStreamSettings> allStreams,
+        IEnumerable<string>? storedItemIds,
+        IEnumerable<string> importedItemIds)
+    {
+        ArgumentNullException.ThrowIfNull(allStreams);
+        ArgumentNullException.ThrowIfNull(importedItemIds);
+        var availableIds = allStreams
+            .Select(stream => stream.Id)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var available = availableIds.ToHashSet(StringComparer.Ordinal);
+        var imported = importedItemIds
+            .Where(available.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var importedSet = imported.ToHashSet(StringComparer.Ordinal);
+        var result = (storedItemIds ?? [])
+            .Where(id => available.Contains(id) && !importedSet.Contains(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var known = result.ToHashSet(StringComparer.Ordinal);
+        result.AddRange(availableIds.Where(id => !known.Contains(id) && !importedSet.Contains(id)));
+
+        // The AddedNewest view reverses this durable oldest-to-newest order.
+        // Store a newly imported batch backwards so the playlist's first entry
+        // remains the first entry of that batch on screen.
+        result.AddRange(imported.Reverse());
+        return result;
+    }
+
     public static WiiMNetworkStreamOrderResult OrderForDisplay(
         IEnumerable<WiiMNetworkStreamSettings> streams,
         CollectionSortMode mode,

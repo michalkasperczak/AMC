@@ -20,10 +20,10 @@ public static class WiiMNetworkStreamPlaylistWriter
             normalizedStreams.Add((NormalizeName(stream.Name, normalizedUrl), normalizedUrl));
         }
 
-        // WiiM Home inserts each imported Open Network Stream at the beginning
-        // of its list. Writing the portable playlist from bottom to top therefore
-        // preserves the order the user sees in AMC after WiiM Home imports it.
-        for (var index = normalizedStreams.Count - 1; index >= 0; index--)
+        // Preserve the exact user-visible order supplied by AMC. Real-device
+        // testing showed that importing an M3U in WiiM Home keeps the file order;
+        // reversing it here therefore reversed the list a second time.
+        for (var index = 0; index < normalizedStreams.Count; index++)
         {
             var stream = normalizedStreams[index];
             builder.Append("#EXTINF:-1,")

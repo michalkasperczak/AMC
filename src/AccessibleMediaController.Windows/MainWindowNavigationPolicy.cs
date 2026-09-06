@@ -66,6 +66,12 @@ internal static class MainWindowNavigationPolicy
         listContainsKeyboardFocus
         && (!listHasItems || aListItemContainsKeyboardFocus);
 
+    public static bool ShouldRestoreBrowserListFocus(
+        bool playerViewActive,
+        bool mediaListFocus,
+        bool menuFocus) =>
+        !playerViewActive && (mediaListFocus || menuFocus);
+
     public static int ResolveListSelectionIndex(
         IReadOnlyList<(string ItemId, string ActionItemId)> rows,
         string? preferredItemId,

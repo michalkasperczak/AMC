@@ -773,6 +773,22 @@ WiiM Home also provides **Open Network Stream**: individual direct radio or podc
 
 The WiiM adapter consequently separates four surfaces: **device presets**, **WiiM Recently Played** only to the extent confirmed by an API, **service Favorites** owned by their respective accounts, and **AMC Network Streams**. If WiiM Home Recently Played is not programmatically available, AMC shows its own history of playback it initiated on WiiM without presenting that as the manufacturer's complete app history.
 
+As of `alpha.282`, an imported network-stream playlist preserves the order of
+entries within the new batch even in the newest-first view, while the batch as
+a whole remains newer than existing entries. M3U export writes the exact
+visible AMC order without a second reversal. After AMC explicitly starts a
+network stream, a redirected, internal or temporarily stale content URI from
+the device no longer erases that source context: `Alt+Page Up/Down` stays on
+AMC Network Streams until a native preset is positively identified. Delete
+removes only AMC's local record and explicitly states that WiiM Home is
+unchanged.
+
+The same release enforces a focus invariant across all sessions: a browser list
+hidden by the player can never become a temporary keyboard-focus target. An
+open context menu retains focus while it is open; closing it returns focus to a
+visible player control. This specifically covers asynchronous podcast playback
+and membership actions invoked from the player menu.
+
 The **source is authoritative** principle applies. Whenever an official device or service API can read and modify presets, history, queue, Favorites, playlists, streams or configuration, AMC operates on those source-owned data instead of creating a parallel collection that must be configured again on a phone and computer. Device data are authoritative for device resources and settings, while the service account is authoritative for the user's catalogue. AMC retains only a safe cache and local information not exposed by the source. The cache preserves native identifiers and never overwrites the source after reconnecting without first checking its current state.
 
 An adapter declares read and write support separately for every category. With read-only access, AMC presents source state without pretending to synchronise it. With full access, a change made in AMC is written to the device or service and becomes visible in the official app as well. A clearly labelled local layer and portable import/export are used only when no supported API exists. If WiiM later exposes the Open Network Stream collection, that collection becomes authoritative and M3U remains an interchange and backup mechanism.

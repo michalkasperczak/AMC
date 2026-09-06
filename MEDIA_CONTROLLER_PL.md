@@ -2279,6 +2279,21 @@ Home oraz nawigacją `Alt+Page Up/Alt+Page Down`; nie istnieje druga ukryta
 kolejność techniczna. `Ctrl+C` kopiuje wiele nazw, `Ctrl+Shift+C` nazwy z
 adresami, a edycja `F2` i przenoszenie zachowują fokus na zmienianym strumieniu.
 
+Od `alpha.282` importowana playlista zachowuje kolejność swoich wpisów również
+w widoku `Alt+1`; cała nowa partia nadal znajduje się przed starszymi wpisami.
+Eksport M3U zapisuje dokładnie aktualny porządek widoczny w AMC, bez ponownego
+odwracania. Po świadomym otwarciu strumienia przez AMC odczyt przekierowanego
+albo chwilowo starego adresu z urządzenia nie kasuje już kontekstu źródła, więc
+`Alt+Page Up/Alt+Page Down` przechodzi po strumieniach. Dopiero rozpoznany preset
+sprzętowy przełącza te klawisze z powrotem na presety. Delete usuwa wpis tylko z
+lokalnej listy AMC i wprost informuje, że WiiM Home pozostał bez zmian.
+
+Ta sama wersja wzmacnia niezmiennik fokusa: lista przeglądarki, gdy jest ukryta
+pod odtwarzaczem, nie może zostać użyta jako tymczasowy cel fokusa. Dotyczy to
+zwłaszcza działań wykonanych z menu kontekstowego odtwarzanego podcastu.
+Otwarte menu jest pozostawiane czytnikowi ekranu, a po jego zamknięciu fokus
+wraca na widoczny główny przycisk odtwarzacza.
+
 Szczegółowa mapa stabilnych i eksperymentalnych etapów, oparta także na
 porównaniu aktywnych bibliotek społecznościowych LinkPlay/WiiM, znajduje się w
 `PROJEKT_WIIM_PL.md`. W szczególności natywne presety nadal są tylko do odczytu

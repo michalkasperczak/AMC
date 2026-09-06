@@ -2291,7 +2291,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             return "Spacja odtwarza lub wstrzymuje na urządzeniu. Page Up i Page Down wybierają poprzedni lub następny element. "
                 + "Strzałki w lewo i w prawo przewijają, a strzałki w górę i w dół regulują głośność urządzenia. "
-                + "Ctrl+M wycisza lub przywraca dźwięk. Ctrl+Alt+P otwiera presety zapisane w urządzeniu, a Alt+Page Up i Alt+Page Down przechodzą po zajętych presetach. "
+                + "Ctrl+M wycisza lub przywraca dźwięk. Ctrl+Alt+P otwiera presety zapisane w urządzeniu, a Alt+Page Up i Alt+Page Down przechodzą po strumieniach AMC albo zajętych presetach, zależnie od aktywnego źródła. "
                 + "Alt+D odczytuje bieżącą audycję lub utwór udostępniony przez urządzenie. "
                 + "I wybiera wejście, O wyjście, E korektor, R tryb powtarzania, S losowanie, T timer uśpienia, a Shift+A aktywne urządzenie WiiM. "
                 + "Escape wraca do listy urządzeń i nie zatrzymuje odtwarzania WiiM.";
@@ -4581,7 +4581,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             try
             {
                 snapshot = await _wiiMClient.ReadSnapshotAsync(device.Address, _wiiMCancellation.Token);
-                if (!_isClosing) ApplyWiiMSnapshot(device, snapshot);
+                if (!_isClosing)
+                {
+                    ApplyWiiMSnapshot(device, snapshot);
+                    // The first snapshot may still describe the source that was
+                    // active immediately before Play URL. The explicit AMC
+                    // selection remains authoritative for adjacent-stream
+                    // navigation until a later identifiable source replaces it.
+                    if (IsWiiMNetworkStream(item)) RememberActivatedWiiMNetworkStream(device, item.Id);
+                }
             }
             catch (Exception exception) when (IsWiiMConnectionFailure(exception))
             {
@@ -5068,6 +5076,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RestoreItemActionFocus();
             return;
         }
+
+        _state.CollectionOrders.LibraryAddedItemIdsBySession["wiim"] =
+            WiiMNetworkStreamOrdering.RememberImportedBatch(
+                _state.WiiM.NetworkStreams,
+                _state.CollectionOrders.LibraryAddedItemIdsBySession.GetValueOrDefault("wiim"),
+                added.Select(stream => stream.Id)).ToList();
 
         ShowWiiMNetworkStreams(
             added[0].Id,
@@ -9380,7 +9394,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var oldSession = sessionBeforeCommand.Id;
         CaptureCurrentSessionNavigationState();
         var previousIndex = MediaList.SelectedIndex;
-        var restoreListFocus = MediaList.IsKeyboardFocusWithin || Keyboard.FocusedElement is MenuItem;
+        var restoreListFocus = MainWindowNavigationPolicy.ShouldRestoreBrowserListFocus(
+            _playerViewActive,
+            MediaList.IsKeyboardFocusWithin,
+            Keyboard.FocusedElement is MenuItem);
         var navigatesSession = commandId is CommandIds.SessionPrevious or CommandIds.SessionNext
             || commandId.StartsWith("session.slot.", StringComparison.Ordinal);
         var mergeSessionAnnouncementWithFocus = navigatesSession;
@@ -10946,6 +10963,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void AnchorMediaListFocus()
     {
+        if (_playerViewActive)
+        {
+            FocusPlayerView();
+            return;
+        }
         // A focused ListBoxItem is destroyed when ItemsSource is replaced. Moving focus
         // to the parent first prevents WPF from falling through to the filter TextBox.
         MediaList.Focus();
@@ -11022,7 +11044,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var focused = Keyboard.FocusedElement;
         var menuFocus = MainMenu.IsKeyboardFocusWithin
-            || focused is MenuItem { IsVisible: true };
+            || focused is MenuItem { IsVisible: true }
+            || focused is ContextMenu { IsOpen: true };
         var ownedWindowActive = OwnedWindows.Cast<Window>().Any(window => window.IsActive);
         var listItemFocusValid = focused is DependencyObject focusedObject
             && ItemsControl.ContainerFromElement(MediaList, focusedObject) is ListBoxItem;
@@ -11042,7 +11065,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ownedWindowActive,
             menuFocus,
             _playerViewActive,
-            PlayerPanel.IsKeyboardFocusWithin && focused is Control,
+            PlayerPanel.IsKeyboardFocusWithin
+                && focused is Control { IsVisible: true, IsEnabled: true },
             browserFocusValid,
             nativeFocusValid);
         if (recoveryTarget == MainWindowFocusRecoveryTarget.None) return;
@@ -12418,8 +12442,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreMediaListFocusAfterRefresh();
         Dispatcher.BeginInvoke(
             () => Announce(items.Count == 1
-                ? $"Usunięto strumień WiiM: {items[0].Title}"
-                : $"Usunięto strumienie WiiM: {items.Count}"),
+                ? $"Usunięto z AMC strumień WiiM: {items[0].Title}. WiiM Home pozostał bez zmian"
+                : $"Usunięto z AMC strumienie WiiM: {items.Count}. WiiM Home pozostał bez zmian"),
             DispatcherPriority.ContextIdle);
     }
 
@@ -14911,8 +14935,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private async Task NavigateWiiMNativePresetAsync(int direction)
     {
         if (!_playerViewActive
-            || !_sessions.Current.HasCurrentItem
-            || !TryGetWiiMDevice(_sessions.Current.CurrentItem.Id, out var device))
+            || !string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
+            || ResolveWiiMPlaybackTarget() is not { } device)
         {
             Announce("Przechodzenie po presetach WiiM jest dostępne w odtwarzaczu urządzenia");
             return;
@@ -15278,7 +15302,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             _lastActivatedWiiMPresets[device.Id] = presetNumber;
             device.LastActivatedPresetNumber = presetNumber;
-            device.LastActivatedNetworkStreamId = null;
         }
         else
         {
@@ -15287,13 +15310,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 _lastActivatedWiiMPresets.Remove(device.Id);
                 device.LastActivatedPresetNumber = 0;
-                device.LastActivatedNetworkStreamId = activeNetworkStream.Id;
-            }
-            else if (!string.IsNullOrWhiteSpace(snapshot.Playback.ContentUri))
-            {
-                device.LastActivatedNetworkStreamId = null;
             }
         }
+        device.LastActivatedNetworkStreamId = WiiMActiveSourceState.ResolveNetworkStreamId(
+            device.LastActivatedNetworkStreamId,
+            FindWiiMNetworkStreamByUri(snapshot.Playback.ContentUri)?.Id,
+            resolvedPreset is not null,
+            _state.WiiM.NetworkStreams.Select(stream => stream.Id));
         _wiiMSnapshots[device.Id] = snapshot;
         _state.WiiM.SelectedDeviceId = device.Id;
         RefreshWiiMSessionItems(device.Id);
