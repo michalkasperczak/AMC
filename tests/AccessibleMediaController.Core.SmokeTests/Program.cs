@@ -325,6 +325,51 @@ static void TestWiiMApiParsing()
             "Eksport dla WiiM Home musi kompensować dodawanie importowanych wpisów na początek listy.");
         True(!playlist.Contains("haslo", StringComparison.Ordinal),
             "Eksport nie może zapisać adresu z osadzonymi danymi logowania.");
+
+        var streamA = new WiiMNetworkStreamSettings
+        {
+            Id = "stream-a",
+            Name = "Alfa",
+            StreamUrl = "https://example.test/a"
+        };
+        var streamB = new WiiMNetworkStreamSettings
+        {
+            Id = "stream-b",
+            Name = "Beta",
+            StreamUrl = "https://example.test/b"
+        };
+        var streamC = new WiiMNetworkStreamSettings
+        {
+            Id = "stream-c",
+            Name = "Charlie",
+            StreamUrl = "https://example.test/c"
+        };
+        var customOrder = WiiMNetworkStreamOrdering.OrderForDisplay(
+            [streamA, streamB, streamC],
+            CollectionSortMode.Custom,
+            ["stream-c", "brak", "stream-a", "stream-c"]);
+        True(customOrder.Streams.Select(stream => stream.Id).SequenceEqual([
+                "stream-c",
+                "stream-a",
+                "stream-b"
+            ]),
+            "Eksport i nawigacja WiiM powinny respektować kolejność własną widoczną w AMC.");
+        True(customOrder.NormalizedItemIds.SequenceEqual([
+                "stream-c",
+                "stream-a",
+                "stream-b"
+            ]),
+            "Kolejność WiiM powinna usuwać nieaktualne identyfikatory i dopisywać nowe wpisy.");
+        var newestOrder = WiiMNetworkStreamOrdering.OrderForDisplay(
+            [streamA, streamB, streamC],
+            CollectionSortMode.AddedNewest,
+            ["stream-a", "stream-b", "stream-c"]);
+        True(newestOrder.Streams.Select(stream => stream.Id).SequenceEqual([
+                "stream-c",
+                "stream-b",
+                "stream-a"
+            ]),
+            "Widok według dodania powinien przekazywać do WiiM dokładnie kolejność widoczną w AMC.");
     }
     finally
     {

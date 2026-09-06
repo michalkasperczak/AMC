@@ -549,6 +549,14 @@ Od `alpha.138` na liście presetów pojedyncze klawisze `1–0`, minus i znak r�
 
 Od `alpha.139` presety są wspólną funkcją wszystkich sesji AMC. Każda sesja ma własne dwanaście miejsc, więc preset TIDAL, Apple Music, WiiM, Radia albo Plików lokalnych nie nadpisuje miejsca innej usługi i nigdy nie przełącza sesji po cichu. Można przypisać zwykły element, folder, lokalny album albo playlistę AMC; element odtwarzalny uruchamia się w kontekście innych zajętych presetów tej sesji, a kontener otwiera swoją zawartość. Mechanizm działa również z pojedynczego wyniku wyszukiwania. Stare presety radia są jednorazowo, bezkolizyjnie przenoszone do wspólnego magazynu. Reguły bezpiecznego aktualizowania FFmpeg, bibliotek i dodatków zapisano w [`AKTUALIZACJE_KOMPONENTOW.md`](AKTUALIZACJE_KOMPONENTOW.md).
 
+Od `alpha.281` Strumienie sieciowe WiiM można porządkować tak jak inne
+Biblioteki: `Alt+1` według dodania, `Alt+2` alfabetycznie i `Alt+3` w kolejności
+własnej. W tym ostatnim widoku `Alt+strzałka w górę/w dół` przenosi zaznaczone
+wpisy. Eksport do WiiM Home oraz przechodzenie po strumieniach w odtwarzaczu
+używają tego samego widocznego porządku. `Ctrl+C` kopiuje zaznaczone nazwy,
+`Ctrl+Shift+C` nazwy wraz z adresami, a `F2` zachowuje fokus na edytowanym
+strumieniu.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

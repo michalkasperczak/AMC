@@ -5076,9 +5076,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ExportWiiMNetworkStreams()
     {
-        var streams = _state.WiiM.NetworkStreams
-            .Where(stream => WiiMPlaybackUriPolicy.TryNormalize(stream.StreamUrl, out _))
-            .ToArray();
+        var streams = GetOrderedWiiMNetworkStreams();
         if (streams.Length == 0)
         {
             AnnounceEssential("Lista strumieni WiiM w AMC jest pusta");
@@ -5171,6 +5169,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         QueueStateSave(announceFailure: true);
         if (!string.IsNullOrWhiteSpace(announcement)) PrepareViewFocusContext(announcement);
         RestoreMediaListFocusAfterRefresh();
+    }
+
+    private WiiMNetworkStreamSettings[] GetOrderedWiiMNetworkStreams()
+    {
+        var validStreams = _state.WiiM.NetworkStreams
+            .Where(stream => WiiMPlaybackUriPolicy.TryNormalize(stream.StreamUrl, out _))
+            .ToArray();
+        var navigation = GetSessionNavigationState("wiim");
+        var mode = navigation.CollectionSortModes.GetValueOrDefault(
+            "Biblioteka",
+            CollectionSortMode.AddedNewest);
+        var orderStore = mode == CollectionSortMode.Custom
+            ? _state.CollectionOrders.LibraryItemIdsBySession
+            : _state.CollectionOrders.LibraryAddedItemIdsBySession;
+        var result = WiiMNetworkStreamOrdering.OrderForDisplay(
+            validStreams,
+            mode,
+            orderStore.GetValueOrDefault("wiim"));
+        orderStore["wiim"] = result.NormalizedItemIds.ToList();
+        return result.Streams.ToArray();
     }
 
     private void UpdateFileMenuForCurrentSession()
@@ -5358,7 +5376,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ? "Edytuj nazwę i adres stacji…"
                 : podcasts
                     ? "Zmień nazwę podcastu…"
-                    : "Zmień nazwę w Bibliotece…");
+                    : wiiM
+                        ? "Edytuj nazwę i adres strumienia WiiM…"
+                        : "Zmień nazwę w Bibliotece…");
         var movableView = !_playerViewActive
             && (CurrentViewUsesCustomCollectionOrder()
                 || !radio && string.Equals(_currentView, "Kolejka", StringComparison.Ordinal)
@@ -14897,9 +14917,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce("Przechodzenie po presetach WiiM jest dostępne w odtwarzaczu urządzenia");
             return;
         }
-        var streams = _state.WiiM.NetworkStreams
-            .Where(stream => WiiMPlaybackUriPolicy.TryNormalize(stream.StreamUrl, out _))
-            .ToArray();
+        var streams = GetOrderedWiiMNetworkStreams();
         var currentStreamIndex = Array.FindIndex(streams, stream => string.Equals(
             stream.Id,
             device.LastActivatedNetworkStreamId,

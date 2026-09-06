@@ -2271,6 +2271,14 @@ ostatnio uruchomiony rodzaj źródła i przechodzi odpowiednio po lokalnych
 strumieniach AMC albo natywnych presetach. Listy pozostają rozdzielone, a
 `Ctrl+Shift+1–0/-/=` nadal oznacza wyłącznie skróty do presetów sprzętowych.
 
+Od `alpha.281` lista Strumieni sieciowych WiiM dziedziczy pełne porządkowanie
+Biblioteki: `Alt+1` według dodania, `Alt+2` alfabetycznie, `Alt+3` w kolejności
+własnej, a w tym ostatnim trybie `Alt+strzałka w górę/w dół` przenosi wpis lub
+ciągły blok zaznaczenia. Ta sama wybrana kolejność steruje eksportem do WiiM
+Home oraz nawigacją `Alt+Page Up/Alt+Page Down`; nie istnieje druga ukryta
+kolejność techniczna. `Ctrl+C` kopiuje wiele nazw, `Ctrl+Shift+C` nazwy z
+adresami, a edycja `F2` i przenoszenie zachowują fokus na zmienianym strumieniu.
+
 Szczegółowa mapa stabilnych i eksperymentalnych etapów, oparta także na
 porównaniu aktywnych bibliotek społecznościowych LinkPlay/WiiM, znajduje się w
 `PROJEKT_WIIM_PL.md`. W szczególności natywne presety nadal są tylko do odczytu

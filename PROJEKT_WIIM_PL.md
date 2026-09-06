@@ -13,7 +13,7 @@ eksperymentalne, po sprawdzeniu możliwości konkretnego modelu i z bezpiecznym
 wycofaniem operacji. Polecenia administracyjne, konfiguracja sieci, restart i
 przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 
-## Stan po alpha 280
+## Stan po alpha 281
 
 - wykrywanie UPnP/SSDP i ręczne dodanie lokalnego adresu IP;
 - wybór i zapamiętanie aktywnego urządzenia;
@@ -67,6 +67,15 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   odpowiada kolejności AMC. Lista jest zachowywana po zamknięciu programu i nie
   modyfikuje danych aplikacji WiiM Home poza świadomym importem pliku przez
   użytkownika.
+- Strumienie korzystają ze wspólnych reguł porządkowania Biblioteki:
+  `Alt+1` pokazuje najnowsze wpisy najpierw, `Alt+2` porządek alfabetyczny,
+  a `Alt+3` kolejność własną. W kolejności własnej `Alt+strzałka w górę/w dół`
+  przenosi pojedynczy wpis albo ciągły zaznaczony blok. Eksport do WiiM Home
+  oraz `Alt+Page Up/Alt+Page Down` respektują aktualnie wybrany porządek,
+  zamiast wracać do technicznej kolejności zapisu. `Ctrl+C` kopiuje nazwy
+  wszystkich zaznaczonych strumieni, a `Ctrl+Shift+C` każdą nazwę wraz z
+  adresem. Po `F2`, anulowaniu okna i przeniesieniu fokus wraca do właściwego
+  wpisu.
 
 Lokalne API nie udostępnia zapisu ani zmiany kolejności natywnych presetów.
 AMC nie zgłasza więc pozornego powodzenia; takie ustawienie nadal wykonuje się
