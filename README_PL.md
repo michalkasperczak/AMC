@@ -565,7 +565,7 @@ wpis AMC; nie usuwa strumienia z WiiM Home. Odtwarzacz dodatkowo chroni fokus
 przed przeniesieniem na ukrytą listę, między innymi po działaniach na podcaście
 wykonanych z menu kontekstowego.
 
-`alpha.283` obejmuje migracją także listę strumieni zaimportowaną przed tą
+`alpha.284` obejmuje migracją także listę strumieni zaimportowaną przed tą
 poprawką. Kolejność jest naprawiana w jej właściwym magazynie SQLite i zostaje
 zachowana po kolejnym uruchomieniu. Jeżeli ten sam adres istnieje jako strumień
 AMC i natywny preset WiiM, ostatnie jawne polecenie użytkownika rozstrzyga, po

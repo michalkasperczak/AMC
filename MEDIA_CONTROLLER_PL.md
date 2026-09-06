@@ -2294,7 +2294,7 @@ zwłaszcza działań wykonanych z menu kontekstowego odtwarzanego podcastu.
 Otwarte menu jest pozostawiane czytnikowi ekranu, a po jego zamknięciu fokus
 wraca na widoczny główny przycisk odtwarzacza.
 
-Od `alpha.283` ta reguła rozróżnia faktycznie otwarte menu od nieaktywnego
+Od `alpha.284` ta reguła rozróżnia faktycznie otwarte menu od nieaktywnego
 elementu menu, na którym WPF pozostawił techniczny fokus po zamknięciu okna
 kontekstowego. Zamknięte menu nie blokuje przywrócenia fokusa odtwarzacza ani
 listy. Migracja wersji obejmuje również strumienie WiiM zaimportowane przed

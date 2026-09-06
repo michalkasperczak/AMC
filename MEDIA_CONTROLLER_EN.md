@@ -789,7 +789,7 @@ open context menu retains focus while it is open; closing it returns focus to a
 visible player control. This specifically covers asynchronous podcast playback
 and membership actions invoked from the player menu.
 
-As of `alpha.283`, this rule distinguishes a genuinely open menu from a stale
+As of `alpha.284`, this rule distinguishes a genuinely open menu from a stale
 menu item that WPF may leave as its technical focused element after the popup
 has closed. A closed menu no longer blocks player or list focus recovery. The
 migration also repairs the stored order of WiiM streams imported before

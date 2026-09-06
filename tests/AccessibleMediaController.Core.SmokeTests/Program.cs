@@ -425,7 +425,7 @@ static void TestWiiMLegacyStreamOrderMigration()
             Path.Combine(directory, "library.db"),
             Path.Combine(directory, "podcasts.db"));
         var state = ConfigurationStore.CreateDefaultState();
-        state.SchemaVersion = 48;
+        state.SchemaVersion = 49;
         state.WiiM.NetworkStreams =
         [
             new WiiMNetworkStreamSettings
@@ -441,6 +441,8 @@ static void TestWiiMLegacyStreamOrderMigration()
                 StreamUrl = "https://example.test/second"
             }
         ];
+        state.CollectionOrders.LibraryAddedItemIdsBySession["wiim"] =
+            ["stream-first", "stream-second"];
         store.Save(state);
 
         var migrated = store.LoadOrCreate();

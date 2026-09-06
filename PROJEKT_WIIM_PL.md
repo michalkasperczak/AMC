@@ -13,7 +13,7 @@ eksperymentalne, po sprawdzeniu możliwości konkretnego modelu i z bezpiecznym
 wycofaniem operacji. Polecenia administracyjne, konfiguracja sieci, restart i
 przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 
-## Stan po alpha 283
+## Stan po alpha 284
 
 - wykrywanie UPnP/SSDP i ręczne dodanie lokalnego adresu IP;
 - wybór i zapamiętanie aktywnego urządzenia;
@@ -46,7 +46,7 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 - nazwy `unknown`, `unknow` oraz techniczne nazwy playlist M3U/PLS nie są
   przedstawiane jako tytuł audycji. Zgodny adres może zostać powiązany z
   użytkową nazwą stacji w Bibliotece Radia AMC.
-- migracja `alpha.283` naprawia również kolejność istniejącej listy Strumieni
+- migracja `alpha.284` naprawia również kolejność istniejącej listy Strumieni
   sieciowych, zapisując ją w autorytatywnym magazynie SQLite. Jeżeli URL
   uruchomionego strumienia jest identyczny z adresem presetu, jawnie uruchomiony
   strumień nadal steruje `Alt+Page Up/Down`; dopiero jawne uruchomienie presetu

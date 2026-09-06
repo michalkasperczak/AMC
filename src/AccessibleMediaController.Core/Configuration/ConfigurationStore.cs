@@ -14,7 +14,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 49;
+    public const int CurrentSchemaVersion = 50;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -570,21 +570,32 @@ public sealed class ConfigurationStore
         PersistedState state,
         int sourceSchemaVersion)
     {
-        if (sourceSchemaVersion >= 49 || state.WiiM.NetworkStreams.Count == 0) return false;
+        if (sourceSchemaVersion >= 50 || state.WiiM.NetworkStreams.Count == 0) return false;
 
-        // Before alpha.283 a playlist imported as one batch was stored in its
+        // Before alpha.284 a playlist imported as one batch was stored in its
         // source order, but the default AddedNewest view reversed every entry.
         // Remember the old batch backwards so that the view's intentional
         // newest-first projection presents that imported batch exactly as it
-        // appeared in M3U/PLS. Do not replace an order the user already edited.
+        // appeared in M3U/PLS. Alpha.281 may already have copied the raw stream
+        // order into SQLite; that exact technical order is legacy data, not a
+        // user's custom order. Preserve every genuinely different stored order.
+        var sourceOrder = state.WiiM.NetworkStreams
+            .Select(stream => stream.Id)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
         if (state.CollectionOrders.LibraryAddedItemIdsBySession.TryGetValue("wiim", out var stored)
             && stored.Count > 0)
         {
-            return false;
+            var available = sourceOrder.ToHashSet(StringComparer.Ordinal);
+            var normalizedStored = stored
+                .Where(available.Contains)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (!normalizedStored.SequenceEqual(sourceOrder)) return false;
         }
 
-        state.CollectionOrders.LibraryAddedItemIdsBySession["wiim"] = state.WiiM.NetworkStreams
-            .Select(stream => stream.Id)
+        state.CollectionOrders.LibraryAddedItemIdsBySession["wiim"] = sourceOrder
             .Reverse()
             .ToList();
         return true;

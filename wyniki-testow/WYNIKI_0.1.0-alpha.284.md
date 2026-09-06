@@ -1,6 +1,6 @@
-# AMC 0.1.0-alpha.283 — istniejąca lista WiiM i fokus
+# AMC 0.1.0-alpha.284 — istniejąca lista WiiM i fokus
 
-1. Uruchom wersję 283 ze swoją obecną, wcześniej zaimportowaną listą Strumieni
+1. Uruchom wersję 284 ze swoją obecną, wcześniej zaimportowaną listą Strumieni
    sieciowych WiiM i wybierz `Alt+1`. Oczekiwane: pierwszy wpis źródłowej
    playlisty jest pierwszy, a ostatni jest ostatni. Zamknij i uruchom AMC
    ponownie; kolejność ma pozostać taka sama.
