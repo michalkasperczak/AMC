@@ -13,7 +13,7 @@ eksperymentalne, po sprawdzeniu możliwości konkretnego modelu i z bezpiecznym
 wycofaniem operacji. Polecenia administracyjne, konfiguracja sieci, restart i
 przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 
-## Stan po alpha 284
+## Stan po alpha 285
 
 - wykrywanie UPnP/SSDP i ręczne dodanie lokalnego adresu IP;
 - wybór i zapamiętanie aktywnego urządzenia;
@@ -51,6 +51,9 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   uruchomionego strumienia jest identyczny z adresem presetu, jawnie uruchomiony
   strumień nadal steruje `Alt+Page Up/Down`; dopiero jawne uruchomienie presetu
   przełącza nawigację na presety.
+- `alpha.285` zachowuje podczas tej nawigacji nazwę wpisu z listy AMC. Adres
+  przekierowany, wewnętrzny lub podpisany może służyć urządzeniu do odtwarzania,
+  ale nie zastępuje użytkowej nazwy i nie jest ogłaszany jako tytuł.
 - `Ctrl+Alt+Shift+P` nie próbuje zapisywać presetu w urządzeniu. Pozwala
   przypisać jeden z gotowych presetów WiiM do dwunastu lokalnych skrótów AMC
   `Ctrl+Shift+1–0/-/=`. Mapowanie jest zapisywane osobno dla każdego urządzenia,

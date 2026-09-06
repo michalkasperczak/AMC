@@ -2208,7 +2208,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         bool includeAudio)
     {
         var parts = new List<string>();
-        var station = ResolveWiiMStationName(snapshot);
+        var station = ResolveWiiMStationName(deviceItem, snapshot);
         AddDistinctSpokenPart(parts, station);
         AddDistinctSpokenPart(parts, UsefulWiiMTrackText(snapshot.Track.Title));
         AddDistinctSpokenPart(parts, UsefulWiiMTrackText(snapshot.Track.Subtitle));
@@ -2223,8 +2223,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return parts;
     }
 
-    private string? ResolveWiiMStationName(WiiMDeviceSnapshot snapshot)
+    private string? ResolveWiiMStationName(MediaItem deviceItem, WiiMDeviceSnapshot snapshot)
     {
+        var device = _state.WiiM.Devices.FirstOrDefault(candidate => string.Equals(
+            candidate.Id,
+            deviceItem.Id,
+            StringComparison.OrdinalIgnoreCase));
+        var networkStreamName = WiiMNetworkStreamPresentation.ResolveDisplayName(
+            _state.WiiM.NetworkStreams,
+            device?.LastActivatedNetworkStreamId,
+            snapshot.Playback.ContentUri);
+        if (!string.IsNullOrWhiteSpace(networkStreamName)) return networkStreamName;
         if (snapshot.Playback.ContentUri is not { Length: > 0 } uri) return null;
         var radioItem = _radioItems.FirstOrDefault(item =>
             item.Source is { Length: > 0 } source && SameNetworkAddress(source, uri));
@@ -2239,20 +2248,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         && Uri.TryCreate(second, UriKind.Absolute, out var secondUri)
         && string.Equals(firstUri.AbsoluteUri, secondUri.AbsoluteUri, StringComparison.Ordinal);
 
-    private static string? UsefulWiiMTrackText(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return null;
-        var text = value.Trim();
-        var path = text.Split(['?', '#'], 2)[0];
-        var extension = Path.GetExtension(path);
-        if (extension.Equals(".m3u", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".m3u8", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".pls", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-        return text;
-    }
+    private static string? UsefulWiiMTrackText(string? value) =>
+        WiiMNetworkStreamPresentation.UsefulMetadataText(value);
 
     private static string? FormatWiiMAudioParameters(WiiMTrackInformation track)
     {

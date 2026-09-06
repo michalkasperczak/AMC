@@ -573,6 +573,11 @@ której liście działa `Alt+Page Up/Down`. Zamknięte menu kontekstowe nie jest
 uznawane za aktywne tylko dlatego, że Windows pozostawił na jego elemencie
 techniczny fokus; odtwarzacz może od razu odzyskać prawidłowy fokus.
 
+Od `alpha.285` przechodzenie `Alt+Page Up/Down` zawsze przedstawia użytkową
+nazwę zapisaną na liście Strumieni sieciowych AMC, także gdy WiiM zwróci adres
+przekierowany albo podpisany URL zamiast nazwy. Adres internetowy zwrócony w
+polu metadanych nigdy nie jest czytany jako tytuł stacji lub audycji.
+
 ## Najprostsze uruchomienie gotowej wersji
 
 1. Otwórz folder `publish`.

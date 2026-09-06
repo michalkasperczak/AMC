@@ -2304,6 +2304,13 @@ sieciowych AMC i w natywnym presecie, decyduje ostatnia jawna akcja użytkownika
 Uruchomienie strumienia pozostawia `Alt+Page Up/Down` na strumieniach, a jawne
 uruchomienie presetu przełącza te klawisze na presety.
 
+Od `alpha.285` nazwa bieżącego Strumienia sieciowego jest rozwiązywana najpierw
+według stabilnego identyfikatora ostatnio uruchomionego wpisu AMC, następnie
+według zgodnego adresu, a dopiero później z metadanych urządzenia. Dzięki temu
+przekierowania i podpisane adresy nie zastępują nazw takich jak „1”, „3” czy
+„357”. Wartości wyglądające jak bezwzględny URL albo adres `www` są odrzucane
+jako tytuł, lecz nadal pozostają dostępne w danych technicznych strumienia.
+
 Szczegółowa mapa stabilnych i eksperymentalnych etapów, oparta także na
 porównaniu aktywnych bibliotek społecznościowych LinkPlay/WiiM, znajduje się w
 `PROJEKT_WIIM_PL.md`. W szczególności natywne presety nadal są tylko do odczytu

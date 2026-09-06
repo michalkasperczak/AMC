@@ -799,6 +799,13 @@ WiiM preset, the user's latest explicit action selects the navigation context:
 starting the stream keeps `Alt+Page Up/Down` on streams, while explicitly
 starting a preset switches those keys back to presets.
 
+As of `alpha.285`, adjacent-stream navigation always presents the user-facing
+name stored in AMC, even when the WiiM reports a redirected or signed URL as
+track metadata. Resolution prefers the stable identifier of the last explicitly
+started AMC stream, then an exact content-URI match, and only then device
+metadata. Absolute URLs and `www` addresses are never spoken as station or
+programme titles.
+
 The **source is authoritative** principle applies. Whenever an official device or service API can read and modify presets, history, queue, Favorites, playlists, streams or configuration, AMC operates on those source-owned data instead of creating a parallel collection that must be configured again on a phone and computer. Device data are authoritative for device resources and settings, while the service account is authoritative for the user's catalogue. AMC retains only a safe cache and local information not exposed by the source. The cache preserves native identifiers and never overwrites the source after reconnecting without first checking its current state.
 
 An adapter declares read and write support separately for every category. With read-only access, AMC presents source state without pretending to synchronise it. With full access, a change made in AMC is written to the device or service and becomes visible in the official app as well. A clearly labelled local layer and portable import/export are used only when no supported API exists. If WiiM later exposes the Open Network Stream collection, that collection becomes authoritative and M3U remains an interchange and backup mechanism.

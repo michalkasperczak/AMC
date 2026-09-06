@@ -342,11 +342,42 @@ static void TestWiiMApiParsing()
             streamIdMatchedFromSnapshot: "wiim:stream:1",
             nativePresetResolved: true,
             ["wiim:stream:1"]));
-        Equal("wiim:stream:2", WiiMActiveSourceState.ResolveNetworkStreamId(
-            "wiim:stream:1",
-            "wiim:stream:2",
-            nativePresetResolved: false,
-            ["wiim:stream:1", "wiim:stream:2"]));
+    Equal("wiim:stream:2", WiiMActiveSourceState.ResolveNetworkStreamId(
+        "wiim:stream:1",
+        "wiim:stream:2",
+        nativePresetResolved: false,
+        ["wiim:stream:1", "wiim:stream:2"]));
+    var namedStreams = new[]
+    {
+        new WiiMNetworkStreamSettings
+        {
+            Id = "stream-one",
+            Name = "1",
+            StreamUrl = "https://example.test/one"
+        },
+        new WiiMNetworkStreamSettings
+        {
+            Id = "stream-357",
+            Name = "357",
+            StreamUrl = "https://stream.example.test/signed"
+        }
+    };
+    Equal("357", WiiMNetworkStreamPresentation.ResolveDisplayName(
+        namedStreams,
+        "stream-357",
+        "https://device-internal.test/redirected"));
+    Equal("1", WiiMNetworkStreamPresentation.ResolveDisplayName(
+        namedStreams,
+        rememberedStreamId: null,
+        "https://example.test/one"));
+    Equal<string?>(null, WiiMNetworkStreamPresentation.UsefulMetadataText(
+        "https://stream.example.test/signed?token=private"));
+    Equal<string?>(null, WiiMNetworkStreamPresentation.UsefulMetadataText(
+        "www.example.test/live"));
+    Equal("Właściwy tytuł", WiiMNetworkStreamPresentation.UsefulMetadataText(
+        "Właściwy tytuł"));
+    Equal("Radio: Poranek", WiiMNetworkStreamPresentation.UsefulMetadataText(
+        "Radio: Poranek"));
 
         var streamA = new WiiMNetworkStreamSettings
         {
