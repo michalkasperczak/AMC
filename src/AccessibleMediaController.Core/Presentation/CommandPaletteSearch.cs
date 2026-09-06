@@ -264,7 +264,7 @@ public static class CommandPaletteSearch
             CommandIds.OpenLocalFiles => "Ctrl+O",
             CommandIds.OpenLocalFolder => "Ctrl+Shift+O",
             CommandIds.ImportRadioPlaylist => "Ctrl+O (Radio internetowe)",
-            CommandIds.ExportRadioFavorites => "Ctrl+Shift+O (Radio internetowe)",
+            CommandIds.ExportRadioFavorites => "Ctrl+E (Radio internetowe)",
             CommandIds.AddPodcast => "Ctrl+N (Podcasty)",
             CommandIds.ImportPodcastOpml => "Ctrl+O (Podcasty)",
             CommandIds.RefreshPodcast => "F5 (Podcasty)",

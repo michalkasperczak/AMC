@@ -8,7 +8,8 @@ AMC, dlatego może zachowywać lokalne identyfikatory oraz pełne ścieżki fold
 
 Osobne eksporty służą innemu celowi: wybraniu danych, przesłaniu ich innej
 osobie i bezpiecznemu scaleniu z jej stanem. Alpha 149 ustaliła poniższe
-zasady. Od `alpha.294` działa pierwszy szybki eksport: Ulubione do przenośnej
+zasady. Od `alpha.294` działa pierwszy szybki eksport, a od `alpha.296` ma
+skrót `Ctrl+E`: Ulubione do przenośnej
 playlisty M3U.
 
 ## Zakresy

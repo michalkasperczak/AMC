@@ -4795,7 +4795,7 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+H (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ManageRadioSchedules).LocalShortcut);
     Equal("Ctrl+N (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.AddPodcast).LocalShortcut);
     Equal("Ctrl+O (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.ImportPodcastOpml).LocalShortcut);
-    Equal("Ctrl+Shift+O (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ExportRadioFavorites).LocalShortcut);
+    Equal("Ctrl+E (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ExportRadioFavorites).LocalShortcut);
     Equal("Ctrl+Alt+W", entries.Single(entry => entry.CommandId == CommandIds.OpenOnWiiM).LocalShortcut);
     Equal("Ctrl+N (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.AddWiiMNetworkStream).LocalShortcut);
     Equal("Ctrl+O (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ImportWiiMNetworkStreams).LocalShortcut);

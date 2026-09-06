@@ -62,9 +62,9 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+O"
                           Visibility="Collapsed"
                           Click="ImportRadioPlaylist_Click" />
-                <MenuItem x:Name="ExportRadioFavoritesMenuItem" Header="_Eksportuj ulubione stacje do playlisty…" InputGestureText="Ctrl+Shift+O"
-                          automation:AutomationProperties.Name="Eksportuj ulubione stacje radiowe do playlisty M3U, Ctrl+Shift+O"
-                          automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+O"
+                <MenuItem x:Name="ExportRadioFavoritesMenuItem" Header="_Eksportuj ulubione stacje do playlisty…" InputGestureText="Ctrl+E"
+                          automation:AutomationProperties.Name="Eksportuj ulubione stacje radiowe do playlisty M3U, Ctrl+E"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+E"
                           Visibility="Collapsed"
                           Click="ExportRadioFavorites_Click" />
                 <MenuItem x:Name="AddRadioStationMenuItem" Header="Dodaj _stację radiową…" InputGestureText="Insert"

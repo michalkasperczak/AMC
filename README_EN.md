@@ -1,5 +1,10 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.296` simplifies the Radio Favorites export shortcut. In the
+Radio session, `Ctrl+E` now exports an M3U playlist, while `Ctrl+O` continues
+to import one. `Ctrl+Shift+O` keeps its separate meanings in Local Files and
+WiiM.
+
 Version `alpha.295` lets `T` start a new part of either a manual recording or
 one started by a schedule. The command works in the recorded station's player
 and in the **Active recordings** view. It does not disable the schedule or
@@ -7,7 +12,7 @@ change future occurrences; it finalises the current file and continues the
 current capture in the next one. A manual split immediately before an automatic
 part boundary cannot terminate the schedule.
 
-Version `alpha.294` adds two portable workflows. In Radio, `Ctrl+Shift+O`
+Version `alpha.294` adds two portable workflows. In Radio, `Ctrl+E`
 exports Favorites as an extended M3U in their current order; the file can be
 imported again with `Ctrl+O` or used by another player. It contains only the
 user-facing name and stable public address, never tokens, local identifiers,

@@ -16334,11 +16334,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (Keyboard.Modifiers == ModifierKeys.Control
+            && e.Key == Key.E
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            ExportRadioFavorites();
+            e.Handled = true;
+            return;
+        }
+
         if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.O)
         {
             if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)) OpenLocalFolder();
             else if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)) ExportWiiMNetworkStreams();
-            else if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)) ExportRadioFavorites();
             else Announce("To polecenie nie jest dostępne w bieżącej sesji");
             e.Handled = true;
             return;
@@ -16800,7 +16808,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             commandId = CommandIds.ExportWiiMNetworkStreams;
             return true;
         }
-        if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key == Key.O
+        if (modifiers == ModifierKeys.Control && key == Key.E
             && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
             commandId = CommandIds.ExportRadioFavorites;
@@ -16957,6 +16965,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control | ModifierKeys.Shift, Key.B) => CommandIds.AddNamedBookmark,
             (ModifierKeys.Control, Key.K) => CommandIds.FilterCurrent,
             (ModifierKeys.Control, Key.F) => CommandIds.SearchCurrent,
+            (ModifierKeys.Control, Key.E)
+                when string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal) =>
+                    CommandIds.ExportRadioFavorites,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.A) => CommandIds.ViewAlbums,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.F) => CommandIds.SearchAll,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.G) => CommandIds.SettingsToggleSeekMessages,

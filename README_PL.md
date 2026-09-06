@@ -1,5 +1,10 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.296` upraszcza skrót eksportu Ulubionych Radia do playlisty M3U.
+W sesji Radio eksport uruchamia teraz `Ctrl+E`; `Ctrl+O` nadal importuje
+playlistę. `Ctrl+Shift+O` zachowuje swoje odrębne znaczenia w sesjach Pliki
+lokalne i WiiM.
+
 Wersja `alpha.295` pozwala klawiszem `T` rozpocząć nową część zarówno nagrania
 ręcznego, jak i nagrania uruchomionego przez harmonogram. Polecenie działa w
 odtwarzaczu nagrywanej stacji i w widoku **Nagrywane**. Nie wyłącza planu ani
@@ -8,7 +13,7 @@ aktualne nagranie w następnym. Podział wykonany tuż przed automatyczną grani
 części nie może zatrzymać harmonogramu.
 
 Wersja `alpha.294` dodaje dwa przenośne przepływy. W sesji Radio
-`Ctrl+Shift+O` zapisuje Ulubione jako rozszerzone M3U w aktualnej kolejności;
+`Ctrl+E` zapisuje Ulubione jako rozszerzone M3U w aktualnej kolejności;
 plik można ponownie wczytać przez `Ctrl+O` w AMC albo w innym odtwarzaczu.
 Eksport zawiera tylko nazwę użytkową i trwały publiczny adres, bez tokenów,
 lokalnych identyfikatorów i tymczasowych adresów odtwarzania.
@@ -1311,7 +1316,7 @@ ponownym importem `Ctrl+O`; nie kopiuje plików audio, postępu słuchania,
 rozdziałów ani playlist odcinków. Te dane nadal obejmuje pełna kopia AMC.
 
 Od `alpha.294` menu **Plik** sesji Radio zawiera **Eksportuj ulubione stacje do
-playlisty…**, również pod `Ctrl+Shift+O`. Powstaje rozszerzone M3U w UTF-8 z
+playlisty…**; od `alpha.296` skrótem jest `Ctrl+E`. Powstaje rozszerzone M3U w UTF-8 z
 nazwami i trwałymi publicznymi adresami w bieżącej kolejności Ulubionych.
 Ponowny import przez `Ctrl+O` nie tworzy drugiej kopii tego samego adresu.
 W przypadku publicznej transmisji YouTube eksportowana jest strona transmisji,
