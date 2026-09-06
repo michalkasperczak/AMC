@@ -365,6 +365,7 @@ public sealed record WiiMDeviceRow(
                     parts.Add($"Częstotliwość próbkowania: {sampleRate / 1000d:0.#} kHz.");
                 if (Snapshot.Track.BitDepth is { } bitDepth) parts.Add($"Głębia: {bitDepth} bit.");
                 parts.Add($"Zajęte presety urządzenia: {Snapshot.Presets.Count} z 12.");
+                parts.Add($"Multiroom: {WiiMGroupPresentation.Summary(Snapshot.Group)}.");
             }
             else if (!string.IsNullOrWhiteSpace(Error)) parts.Add($"Stan: {Error}.");
             return string.Join(' ', parts);

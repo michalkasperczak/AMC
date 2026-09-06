@@ -13,7 +13,7 @@ eksperymentalne, po sprawdzeniu możliwości konkretnego modelu i z bezpiecznym
 wycofaniem operacji. Polecenia administracyjne, konfiguracja sieci, restart i
 przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 
-## Stan po alpha 285
+## Stan po alpha 287
 
 - wykrywanie UPnP/SSDP i ręczne dodanie lokalnego adresu IP;
 - wybór i zapamiętanie aktywnego urządzenia;
@@ -93,6 +93,14 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 - Delete usuwa wyłącznie lokalny wpis z AMC. Nie istnieje wspierane publiczne
   API do usuwania pozycji z listy Open Network Stream w WiiM Home, więc program
   nie może zgłaszać ani sugerować takiej operacji.
+- `alpha.287` rozpoczyna obsługę multiroom od bezpiecznego odczytu. Właściwości
+  urządzenia oraz jego szczegóły w menedżerze podają rolę: urządzenie
+  samodzielne, główne albo podrzędne, a także nazwę grupy. Jeżeli firmware
+  udostępnia tylko do odczytu `multiroom:getSlaveList`, urządzenie główne pokazuje
+  nazwy, głośność, wyciszenie i lokalne adresy urządzeń podrzędnych. Brak lub
+  nietypowa odpowiedź tego opcjonalnego polecenia nie unieważnia całego
+  odświeżenia i nie usuwa zapamiętanego urządzenia. Na tym etapie AMC nie tworzy,
+  nie rozłącza ani nie zmienia grup.
 
 Lokalne API nie udostępnia zapisu ani zmiany kolejności natywnych presetów.
 AMC nie zgłasza więc pozornego powodzenia; takie ustawienie nadal wykonuje się
@@ -110,8 +118,8 @@ adres, album, playlistę lub inną treść niezależnie od sprzętowych miejsc W
    mogą szybciej aktualizować tytuł, pozycję i głośność. Okresowe HTTP pozostaje
    mechanizmem awaryjnym, ponieważ zdarzenia bywają blokowane przez router,
    zaporę lub firmware.
-3. **Grupy i multiroom.** Najpierw tylko odczyt ról oraz członków. Dołączanie i
-   opuszczanie grupy dopiero po testach na co najmniej dwóch prawdziwych
+3. **Grupy i multiroom.** Odczyt ról oraz członków rozpoczął się w `alpha.287`.
+   Dołączanie i opuszczanie grupy dopiero po testach na co najmniej dwóch prawdziwych
    urządzeniach, z osobnym sterowaniem głośnością każdego pokoju. Nie wolno
    opierać stanu grupy na jednym polu, którego znaczenie różni się między
    generacjami firmware.

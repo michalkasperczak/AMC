@@ -162,6 +162,36 @@ static void TestWiiMApiParsing()
     Equal("WiiM Pro", device.Model);
     Equal(12, device.PresetButtonCount);
 
+    var followerGroup = WiiMApiParser.ParseGroupInformation(
+        "{\"group\":\"1\",\"GroupName\":\"Całe mieszkanie\",\"master_ip\":\"192.168.1.20\"}",
+        null);
+    Equal(WiiMGroupRole.Follower, followerGroup.Role);
+    Equal("Całe mieszkanie", followerGroup.GroupName);
+    Equal("192.168.1.20", followerGroup.LeaderAddress);
+    Equal("urządzenie podrzędne w grupie, grupa Całe mieszkanie", WiiMGroupPresentation.Summary(followerGroup));
+
+    var leaderGroup = WiiMApiParser.ParseGroupInformation(
+        "{\"group\":\"0\",\"GroupName\":\"Parter\"}",
+        "{\"slaves\":\"2\",\"slave_list\":["
+        + "{\"name\":\"Kuchnia\",\"uuid\":\"wiim-2\",\"ip\":\"192.168.1.21\",\"volume\":\"35\",\"mute\":\"0\"},"
+        + "{\"name\":\"Jadalnia\",\"uuid\":\"wiim-3\",\"ip\":\"192.168.1.22\",\"volume\":\"20\",\"mute\":\"1\"}]}");
+    Equal(WiiMGroupRole.Leader, leaderGroup.Role);
+    Equal(2, leaderGroup.Members.Count);
+    Equal(35, leaderGroup.Members[0].Volume);
+    Equal(true, leaderGroup.Members[1].Muted);
+    Equal("urządzenie główne grupy, grupa Parter, urządzenia podrzędne: 2", WiiMGroupPresentation.Summary(leaderGroup));
+
+    var standaloneGroup = WiiMApiParser.ParseGroupInformation(
+        "{\"group\":\"0\",\"GroupName\":\"Salon\"}",
+        "{\"slaves\":\"0\",\"slave_list\":[]}");
+    Equal(WiiMGroupRole.Standalone, standaloneGroup.Role);
+    Equal("urządzenie samodzielne, grupa Salon", WiiMGroupPresentation.Summary(standaloneGroup));
+
+    var compatibleFallbackGroup = WiiMApiParser.ParseGroupInformation(
+        "{\"group\":\"0\",\"GroupName\":\"Salon\"}",
+        "unknown command");
+    Equal(WiiMGroupRole.StandaloneOrLeader, compatibleFallbackGroup.Role);
+
     var playback = WiiMApiParser.ParsePlaybackInformation(
         "{\"status\":\"play\",\"mode\":\"32\",\"curpos\":\"184919\",\"totlen\":\"300000\",\"vol\":\"39\",\"mute\":\"0\",\"loop\":\"2\",\"eq\":\"7\",\"uri\":\"https://example.test/current\"}");
     Equal("odtwarzanie", playback.State);

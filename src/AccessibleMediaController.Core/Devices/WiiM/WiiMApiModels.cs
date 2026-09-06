@@ -46,12 +46,40 @@ public sealed record WiiMPresetInformation(
     string Source,
     string? Uri);
 
+public enum WiiMGroupRole
+{
+    Unknown,
+    Standalone,
+    StandaloneOrLeader,
+    Leader,
+    Follower
+}
+
+public sealed record WiiMGroupMemberInformation(
+    string Name,
+    string Address,
+    int? Volume,
+    bool? Muted);
+
+public sealed record WiiMGroupInformation(
+    WiiMGroupRole Role,
+    string GroupName,
+    string LeaderAddress,
+    IReadOnlyList<WiiMGroupMemberInformation> Members,
+    bool MemberListAvailable)
+{
+    public static WiiMGroupInformation Unknown { get; } =
+        new(WiiMGroupRole.Unknown, string.Empty, string.Empty, [], false);
+}
+
 public sealed record WiiMDeviceSnapshot(
     WiiMDeviceInformation Device,
     WiiMPlaybackInformation Playback,
     WiiMTrackInformation Track,
     IReadOnlyList<WiiMPresetInformation> Presets)
 {
+    public WiiMGroupInformation Group { get; init; } = WiiMGroupInformation.Unknown;
+
     public string PlaybackSummary
     {
         get
@@ -280,6 +308,80 @@ public static class WiiMApiParser
             .ToArray();
     }
 
+    public static WiiMGroupInformation ParseGroupInformation(
+        string? deviceJson,
+        string? groupMembersJson)
+    {
+        int? groupFlag = null;
+        var groupName = string.Empty;
+        var leaderAddress = string.Empty;
+        if (!string.IsNullOrWhiteSpace(deviceJson))
+        {
+            try
+            {
+                using var status = ParseObject(deviceJson, "odpowiedź o urządzeniu");
+                groupFlag = Integer(status.RootElement, "group");
+                groupName = CleanTrackText(Text(status.RootElement, "GroupName", "group_name"));
+                var rawLeaderAddress = Text(status.RootElement, "master_ip", "masterIp");
+                if (WiiMAddressPolicy.TryNormalize(rawLeaderAddress, out var normalizedLeaderAddress))
+                    leaderAddress = normalizedLeaderAddress;
+            }
+            catch (FormatException)
+            {
+                // Informacja o grupie jest opcjonalna. Błąd głównej odpowiedzi
+                // urządzenia obsługuje osobno parser obowiązkowych danych.
+            }
+        }
+
+        var members = Array.Empty<WiiMGroupMemberInformation>();
+        var memberListAvailable = false;
+        if (!string.IsNullOrWhiteSpace(groupMembersJson))
+        {
+            try
+            {
+                using var document = ParseObject(groupMembersJson, "lista urządzeń grupy");
+                if (TryProperty(document.RootElement, "slave_list", out var list)
+                    && list.ValueKind == JsonValueKind.Array)
+                {
+                    memberListAvailable = true;
+                    members = list.EnumerateArray()
+                        .Where(item => item.ValueKind == JsonValueKind.Object)
+                        .Select(ParseGroupMember)
+                        .Where(member => member is not null)
+                        .Select(member => member!)
+                        .GroupBy(member => string.IsNullOrWhiteSpace(member.Address)
+                                ? member.Name
+                                : member.Address,
+                            StringComparer.OrdinalIgnoreCase)
+                        .Select(group => group.First())
+                        .Take(32)
+                        .ToArray();
+                }
+            }
+            catch (FormatException)
+            {
+                // Starszy firmware może zwrócić tekst „unknown command” z
+                // kodem HTTP 200. Brak tej listy nie unieważnia całego odczytu.
+            }
+        }
+
+        var role = groupFlag switch
+        {
+            1 => WiiMGroupRole.Follower,
+            0 when memberListAvailable && members.Length > 0 => WiiMGroupRole.Leader,
+            0 when memberListAvailable => WiiMGroupRole.Standalone,
+            0 => WiiMGroupRole.StandaloneOrLeader,
+            _ when memberListAvailable && members.Length > 0 => WiiMGroupRole.Leader,
+            _ => WiiMGroupRole.Unknown
+        };
+        return new WiiMGroupInformation(
+            role,
+            groupName,
+            leaderAddress,
+            members,
+            memberListAvailable);
+    }
+
     public static bool ParseEqualizerEnabled(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return false;
@@ -452,6 +554,27 @@ public static class WiiMApiParser
     private static string PreferTrackText(string preferred, string fallback) =>
         string.IsNullOrWhiteSpace(preferred) ? fallback : preferred;
 
+    private static WiiMGroupMemberInformation? ParseGroupMember(JsonElement item)
+    {
+        var rawAddress = Text(item, "ip", "address");
+        var address = WiiMAddressPolicy.TryNormalize(rawAddress, out var normalizedAddress)
+            ? normalizedAddress
+            : string.Empty;
+        var name = CleanTrackText(Text(item, "name", "DeviceName", "ssid"));
+        if (string.IsNullOrWhiteSpace(name)) name = address;
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        var rawVolume = Integer(item, "volume", "vol");
+        var volume = rawVolume is >= 0 and <= 100 ? rawVolume : null;
+        var rawMute = Integer(item, "mute");
+        bool? muted = rawMute switch
+        {
+            0 => false,
+            1 => true,
+            _ => null
+        };
+        return new WiiMGroupMemberInformation(name, address, volume, muted);
+    }
+
     private static XDocument ParseXml(string xml)
     {
         using var textReader = new StringReader(xml);
@@ -476,6 +599,35 @@ public static class WiiMApiParser
         Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"
             ? uri.AbsoluteUri
             : null;
+}
+
+public static class WiiMGroupPresentation
+{
+    public static string RoleLabel(WiiMGroupRole role) => role switch
+    {
+        WiiMGroupRole.Standalone => "urządzenie samodzielne",
+        WiiMGroupRole.StandaloneOrLeader => "urządzenie samodzielne albo główne grupy",
+        WiiMGroupRole.Leader => "urządzenie główne grupy",
+        WiiMGroupRole.Follower => "urządzenie podrzędne w grupie",
+        _ => "stan grupy nieudostępniony"
+    };
+
+    public static string Summary(WiiMGroupInformation group)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        var parts = new List<string> { RoleLabel(group.Role) };
+        if (!string.IsNullOrWhiteSpace(group.GroupName)) parts.Add($"grupa {group.GroupName}");
+        if (group.Role == WiiMGroupRole.Leader && group.MemberListAvailable)
+        {
+            parts.Add(group.Members.Count switch
+            {
+                0 => "bez urządzeń podrzędnych",
+                1 => "jedno urządzenie podrzędne",
+                _ => $"urządzenia podrzędne: {group.Members.Count}"
+            });
+        }
+        return string.Join(", ", parts);
+    }
 }
 
 public static class WiiMPresetStateResolver

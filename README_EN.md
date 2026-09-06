@@ -823,6 +823,13 @@ The next capability-gated stages—direct URL/M3U playback, UPnP events,
 multi-room groups, and the device-dependent hardware queue—are specified in
 `PROJEKT_WIIM_PL.md`.
 
+Starting with `alpha.287`, WiiM device details also expose the current
+multi-room role and group name. If a leader's firmware provides its read-only
+member list, AMC shows each follower's friendly name, volume, mute state, and
+local IP address. This stage is strictly informational: AMC does not create or
+dissolve groups, and an unsupported optional member-list call cannot block the
+rest of WiiM control.
+
 In `alpha.272`, the Podcasts File menu also offers **Export podcast library to
 OPML…**. This portable subscription backup round-trips through `Ctrl+O` but
 does not contain media files, listening progress, chapters, or episode

@@ -47,8 +47,9 @@ public sealed class WiiMDeviceClient : IDisposable
         var playbackTask = TryReadPlayerStatusAsync(normalized, cancellationToken);
         var metadataTask = TryReadTextAsync(normalized, "getMetaInfo", cancellationToken);
         var presetsTask = TryReadTextAsync(normalized, "getPresetInfo", cancellationToken);
+        var groupMembersTask = TryReadTextAsync(normalized, WiiMCommands.GetGroupMembers, cancellationToken);
         var upnpTask = TryReadUpnpPlaybackInformationAsync(normalized, cancellationToken);
-        await Task.WhenAll(playbackTask, metadataTask, presetsTask, upnpTask).ConfigureAwait(false);
+        await Task.WhenAll(playbackTask, metadataTask, presetsTask, groupMembersTask, upnpTask).ConfigureAwait(false);
         var metadataTrack = WiiMApiParser.ParseTrackInformation(metadataTask.Result);
         var statusTrack = WiiMApiParser.ParsePlayerTrackInformation(playbackTask.Result);
         var upnp = upnpTask.Result;
@@ -61,7 +62,10 @@ public sealed class WiiMDeviceClient : IDisposable
             device,
             playback,
             track,
-            WiiMApiParser.ParsePresets(presetsTask.Result));
+            WiiMApiParser.ParsePresets(presetsTask.Result))
+        {
+            Group = WiiMApiParser.ParseGroupInformation(deviceJson, groupMembersTask.Result)
+        };
     }
 
     public Task TogglePlayPauseAsync(string address, CancellationToken cancellationToken = default) =>
@@ -289,6 +293,7 @@ public static class WiiMCommands
     public const string GetEqualizerPresets = "EQGetList";
     public const string EqualizerOn = "EQOn";
     public const string EqualizerOff = "EQOff";
+    public const string GetGroupMembers = "multiroom:getSlaveList";
 
     public static string SetVolume(int volume) =>
         $"setPlayerCmd:vol:{Math.Clamp(volume, 0, 100)}";

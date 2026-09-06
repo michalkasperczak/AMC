@@ -2277,7 +2277,15 @@ static void TestWiiMDeviceManagerAccessibility()
                 [
                     new WiiMPresetInformation(1, "Radio", "TuneIn", "https://example.test/radio"),
                     new WiiMPresetInformation(6, "Podcast", "WiiM", "https://example.test/podcast")
-                ]);
+                ])
+            {
+                Group = new WiiMGroupInformation(
+                    WiiMGroupRole.Leader,
+                    "Całe mieszkanie",
+                    string.Empty,
+                    [new WiiMGroupMemberInformation("Kuchnia", "192.168.1.26", 25, false)],
+                    true)
+            };
             using var client = new WiiMDeviceClient();
             var window = new WiiMDevicesWindow(
                 settings,
@@ -2299,6 +2307,11 @@ static void TestWiiMDeviceManagerAccessibility()
                     "Lista WiiM ujawnia techniczną reprezentację obiektu zamiast etykiety użytkowej.");
                 Assert(list.SelectedIndex == 0,
                     "Menedżer WiiM nie wybiera zapamiętanego urządzenia przy otwarciu.");
+                var details = row.GetType().GetProperty("Details")?.GetValue(row)?.ToString() ?? string.Empty;
+                Assert(details.Contains("Multiroom: urządzenie główne grupy", StringComparison.Ordinal)
+                       && details.Contains("grupa Całe mieszkanie", StringComparison.Ordinal)
+                       && !details.Contains("WiiMGroup", StringComparison.Ordinal),
+                    "Szczegóły WiiM nie mają użytkowej informacji o grupie multiroom.");
 
                 var presetWindow = new WiiMDevicePresetsWindow(
                     "Salon",

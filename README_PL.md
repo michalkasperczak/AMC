@@ -1225,6 +1225,12 @@ ostatnio uruchomiono pozycję z listy Strumienie sieciowe, albo sąsiedni zajęt
 preset, jeśli uruchomiono preset sprzętowy. `Ctrl+Shift+1–0/-/=` pozostaje
 jednoznacznie przypisane do presetów; strumienie nie przejmują tych klawiszy.
 
+Od `alpha.287` szczegóły urządzenia WiiM pokazują również jego rolę multiroom
+oraz nazwę grupy. Dla urządzenia głównego, którego firmware udostępnia listę
+członków, widoczne są nazwy urządzeń podrzędnych, ich głośność, wyciszenie i
+lokalne adresy IP. Jest to wyłącznie odczyt: AMC nie tworzy ani nie rozłącza
+grupy. Brak opcjonalnej listy członków nie blokuje pozostałego sterowania WiiM.
+
 W `alpha.272` menu **Plik** sesji Podcasty zawiera także **Eksportuj bibliotekę
 podcastów do OPML…**. Jest to przenośna kopia obserwowanych kanałów, zgodna z
 ponownym importem `Ctrl+O`; nie kopiuje plików audio, postępu słuchania,

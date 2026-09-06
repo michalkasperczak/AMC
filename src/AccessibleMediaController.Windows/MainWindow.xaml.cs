@@ -4129,6 +4129,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 lines.Add($"Częstotliwość próbkowania: {(sampleRate / 1000d).ToString("0.#", CultureInfo.CurrentCulture)} kHz");
             if (snapshot.Track.BitDepth is { } bitDepth) lines.Add($"Głębia: {bitDepth} bit");
             lines.Add($"Zajęte presety urządzenia: {snapshot.Presets.Count} z 12");
+            lines.Add("Multiroom");
+            lines.Add($"Rola: {WiiMGroupPresentation.RoleLabel(snapshot.Group.Role)}");
+            if (!string.IsNullOrWhiteSpace(snapshot.Group.GroupName))
+                lines.Add($"Nazwa grupy: {snapshot.Group.GroupName}");
+            if (!string.IsNullOrWhiteSpace(snapshot.Group.LeaderAddress))
+                lines.Add($"Adres urządzenia głównego: {snapshot.Group.LeaderAddress}");
+            if (snapshot.Group.Role == WiiMGroupRole.Leader && snapshot.Group.MemberListAvailable)
+            {
+                lines.Add($"Urządzenia podrzędne: {snapshot.Group.Members.Count}");
+                foreach (var member in snapshot.Group.Members)
+                {
+                    var memberParts = new List<string> { member.Name };
+                    if (member.Volume is { } volume) memberParts.Add($"głośność {volume}%");
+                    if (member.Muted is true) memberParts.Add("wyciszone");
+                    if (!string.IsNullOrWhiteSpace(member.Address)) memberParts.Add(member.Address);
+                    lines.Add(string.Join(", ", memberParts));
+                }
+            }
         }
         return string.Join(Environment.NewLine, lines.Where(line => line.Length > 0));
     }

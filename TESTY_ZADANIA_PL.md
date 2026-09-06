@@ -6374,3 +6374,36 @@ pusty, natomiast ten sam natywny preset nadal znajduje się na liście
 3. Sprawdź, czy głośność urządzenia zmienia się odpowiednio o 5%, również przy szybkich naciśnięciach.
 4. Sprawdź Shift+strzałka w górę i Shift+strzałka w dół — zmiana powinna wynosić 1%.
 5. Jeżeli wyjście WiiM ma włączoną stałą głośność, AMC powinien jednoznacznie poinformować, że urządzenie nie potwierdziło zmiany, zamiast milczeć.
+
+## Test ręczny multiroom WiiM — alpha 287
+
+### AMC-287-01 — urządzenie działające samodzielnie
+
+Włącz WiiM bez grupy, otwórz `Ctrl+F5`, odśwież urządzenie i przeczytaj jego
+szczegóły. Następnie zamknij menedżer i otwórz właściwości urządzenia przez
+`Alt+Enter`.
+
+Oczekiwane: pojawia się użytkowa sekcja Multiroom z rolą urządzenia
+samodzielnego i ewentualną nazwą grupy urządzenia. NVDA nie czyta nazw klas,
+rekordów, właściwości ani surowego JSON. Odczyt nie zmienia odtwarzania ani
+ustawień w WiiM Home.
+
+### AMC-287-02 — bezpieczny brak opcjonalnych danych
+
+Powtórz test po krótkim odłączeniu WiiM od sieci albo na modelu, który nie
+udostępnia listy członków grupy.
+
+Oczekiwane: AMC może powiedzieć, że stan grupy lub lista członków nie są
+udostępnione, ale nadal zachowuje urządzenie, presety i strumienie. Menedżer nie
+zawiesza się i nie przejmuje fokusa po zamknięciu.
+
+### AMC-287-03 — grupa co najmniej dwóch urządzeń
+
+Ten test wykonaj dopiero wtedy, gdy dostępne będą co najmniej dwa urządzenia.
+Utwórz grupę w WiiM Home, odśwież osobno urządzenie główne i podrzędne, a potem
+przeczytaj szczegóły obu.
+
+Oczekiwane: urządzenie główne pokazuje rolę i dostępnych członków wraz z
+głośnością oraz wyciszeniem; urządzenie podrzędne pokazuje rolę i — jeśli
+firmware ją poda — nazwę grupy oraz adres urządzenia głównego. AMC nie oferuje
+jeszcze przycisków tworzenia ani rozłączania grupy.
