@@ -1,5 +1,10 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.297` adds `Ctrl+N` in the Radio session. It opens the accessible
+**New radio station** form with **Station name** and **Stream or YouTube live
+URL** fields. Saving adds the station to the Radio Library and selects it. The
+existing `Insert` shortcut on the Library list remains available as an alias.
+
 Version `alpha.296` simplifies the Radio Favorites export shortcut. In the
 Radio session, `Ctrl+E` now exports an M3U playlist, while `Ctrl+O` continues
 to import one. `Ctrl+Shift+O` keeps its separate meanings in Local Files and

@@ -132,7 +132,7 @@ public static class CommandCatalog
             CommandIds.ViewAlbums => "Pokaż albumy",
             CommandIds.ViewRadio => "Pokaż radio internetowe",
             CommandIds.StartRadio => "Uruchom radio na podstawie elementu",
-            CommandIds.AddRadioStation => "Dodaj stację radiową",
+            CommandIds.AddRadioStation => "Nowa stacja radiowa",
             CommandIds.ImportRadioPlaylist => "Importuj stacje radiowe z playlisty",
             CommandIds.ExportRadioFavorites => "Eksportuj ulubione stacje do playlisty",
             CommandIds.AddPodcast => "Dodaj podcast przez RSS lub Atom albo publiczne medium internetowe",

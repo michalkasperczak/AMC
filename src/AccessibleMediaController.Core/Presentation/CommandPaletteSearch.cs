@@ -273,7 +273,7 @@ public static class CommandPaletteSearch
             CommandIds.ViewPodcastInProgress => "Ctrl+Shift+I (Podcasty)",
             CommandIds.DownloadInService => "Ctrl+D (odcinki Podcastów)",
             CommandIds.SavePodcastAs => "Ctrl+S (jeden odcinek Podcastów)",
-            CommandIds.AddRadioStation => "Insert (Biblioteka radia)",
+            CommandIds.AddRadioStation => "Ctrl+N (Radio internetowe)",
             CommandIds.ToggleRadioRecording => "R (odtwarzacz radia) lub Ctrl+Alt+R (lista radia)",
             CommandIds.ToggleRadioRecordingPause => "Shift+Spacja (Radio internetowe)",
             CommandIds.SplitRadioRecording => "T (odtwarzacz radia lub widok Nagrywane)",

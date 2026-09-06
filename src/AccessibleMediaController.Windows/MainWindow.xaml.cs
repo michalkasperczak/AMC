@@ -16310,10 +16310,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.N)
         {
-            if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
-                ExecuteCommand(CommandIds.AddPodcast);
-            else if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
-                ExecuteCommand(CommandIds.AddWiiMNetworkStream);
+            var commandId = MainWindowShortcutRouter.ResolveNewItem(
+                e.Key,
+                Keyboard.Modifiers,
+                _sessions.Current.Id);
+            if (commandId is not null)
+                ExecuteCommand(commandId);
             else
                 Announce("Nowy element przez Ctrl+N nie jest dostępny w bieżącej sesji");
             e.Handled = true;
@@ -16769,18 +16771,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     : CommandIds.OpenLocalFiles;
             return true;
         }
-        if (modifiers == ModifierKeys.Control
-            && key == Key.N
-            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+        var newItemCommand = MainWindowShortcutRouter.ResolveNewItem(
+            key,
+            modifiers,
+            _sessions.Current.Id);
+        if (newItemCommand is not null)
         {
-            commandId = CommandIds.AddPodcast;
-            return true;
-        }
-        if (modifiers == ModifierKeys.Control
-            && key == Key.N
-            && string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
-        {
-            commandId = CommandIds.AddWiiMNetworkStream;
+            commandId = newItemCommand;
             return true;
         }
         if (modifiers == (ModifierKeys.Control | ModifierKeys.Alt) && key == Key.W)
@@ -17377,6 +17374,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool TryHandleLocalNavigationShortcut(KeyEventArgs e)
     {
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var newItemCommand = MainWindowShortcutRouter.ResolveNewItem(
+            key,
+            Keyboard.Modifiers,
+            _sessions.Current.Id);
+        if (newItemCommand is not null)
+        {
+            ExecuteCommand(newItemCommand);
+            return true;
+        }
         var commandId = (Keyboard.Modifiers, key) switch
         {
             (ModifierKeys.Control | ModifierKeys.Alt, Key.P)

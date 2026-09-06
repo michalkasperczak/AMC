@@ -121,6 +121,21 @@ internal static class MainWindowShortcutRouter
             ? CommandIds.SelectAudioOutput
             : null;
 
+    public static string? ResolveNewItem(
+        Key key,
+        ModifierKeys modifiers,
+        string sessionId)
+    {
+        if (key != Key.N || modifiers != ModifierKeys.Control) return null;
+        return sessionId switch
+        {
+            "radio" => CommandIds.AddRadioStation,
+            "podcasts" => CommandIds.AddPodcast,
+            "wiim" => CommandIds.AddWiiMNetworkStream,
+            _ => null
+        };
+    }
+
     public static string? ResolveChapterList(
         Key key,
         ModifierKeys modifiers,

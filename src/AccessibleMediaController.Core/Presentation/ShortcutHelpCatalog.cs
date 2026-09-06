@@ -194,7 +194,7 @@ public static class ShortcutHelpCatalog
         yield return Info("collections", "Utwórz playlistę", "Insert", "lista playlist");
         yield return Info("collections", "Zmień nazwę playlisty", "F2", "lista playlist");
 
-        yield return Info("radio", "Dodaj własną stację", "Insert", "Biblioteka radia internetowego");
+        yield return Info("radio", "Nowa stacja: nazwa i adres URL", "Ctrl+N", "Radio internetowe");
         yield return Info("radio", "Edytuj nazwę i adres strumienia", "F2", "lista stacji radia internetowego");
         yield return Info("radio", "Zaznacz stacje do przeniesienia", "Ctrl+X", "Ulubione radia internetowego");
         yield return Info("radio", "Przenieś zaznaczone stacje przed bieżącą", "Ctrl+V", "Ulubione radia internetowego");

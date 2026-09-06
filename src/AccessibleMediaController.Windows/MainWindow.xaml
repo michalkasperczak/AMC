@@ -67,8 +67,9 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+E"
                           Visibility="Collapsed"
                           Click="ExportRadioFavorites_Click" />
-                <MenuItem x:Name="AddRadioStationMenuItem" Header="Dodaj _stację radiową…" InputGestureText="Insert"
-                          automation:AutomationProperties.Name="Dodaj stację radiową do Biblioteki, Insert w Bibliotece radia"
+                <MenuItem x:Name="AddRadioStationMenuItem" Header="_Nowa stacja radiowa…" InputGestureText="Ctrl+N"
+                          automation:AutomationProperties.Name="Nowa stacja radiowa, Ctrl+N"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+N"
                           Visibility="Collapsed"
                           Click="AddRadioStation_Click" />
                 <MenuItem x:Name="AddPodcastMenuItem" Header="_Nowy podcast lub medium internetowe…" InputGestureText="Ctrl+N"

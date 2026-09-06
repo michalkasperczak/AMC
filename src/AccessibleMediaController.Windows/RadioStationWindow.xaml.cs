@@ -16,7 +16,7 @@ public partial class RadioStationWindow : Window
         var editing = !string.IsNullOrWhiteSpace(currentName) || !string.IsNullOrWhiteSpace(currentStreamUrl);
         Title = wiiMNetworkStream
             ? editing ? "Edytuj strumień WiiM" : "Dodaj strumień WiiM"
-            : editing ? "Edytuj stację radiową" : "Dodaj stację radiową";
+            : editing ? "Edytuj stację radiową" : "Nowa stacja radiowa";
         HeadingText.Text = Title;
         HelpText.Text = wiiMNetworkStream
             ? "Nazwa i adres zostaną zapisane na lokalnej liście AMC. Enter lub Ctrl+Alt+W wyśle wybrany strumień do aktywnego urządzenia WiiM."

@@ -1507,6 +1507,13 @@ static void TestRadioYouTubeAddressAccessibility()
         try
         {
             var radioWindow = new RadioStationWindow();
+            Assert(
+                radioWindow.Title == "Nowa stacja radiowa",
+                "Formularz Ctrl+N w Radiu nie ma czytelnego tytułu Nowa stacja radiowa.");
+            var radioName = (TextBox)radioWindow.FindName("NameBox");
+            Assert(
+                AutomationProperties.GetName(radioName) == "Nazwa stacji",
+                "Formularz Ctrl+N w Radiu nie opisuje pola nazwy stacji.");
             var radioAddress = (TextBox)radioWindow.FindName("StreamBox");
             Assert(
                 AutomationProperties.GetName(radioAddress) == "Adres strumienia lub transmisji YouTube",
@@ -2830,6 +2837,19 @@ static void TestMainWindowDigitShortcutRouting()
 
 static void TestPlayerAudioProcessingKeyboardMap()
 {
+    Assert(
+        MainWindowShortcutRouter.ResolveNewItem(Key.N, ModifierKeys.Control, "radio")
+            == CommandIds.AddRadioStation
+        && MainWindowShortcutRouter.ResolveNewItem(Key.N, ModifierKeys.Control, "podcasts")
+            == CommandIds.AddPodcast
+        && MainWindowShortcutRouter.ResolveNewItem(Key.N, ModifierKeys.Control, "wiim")
+            == CommandIds.AddWiiMNetworkStream,
+        "Ctrl+N nie wybiera nowego elementu właściwego dla aktywnej sesji.");
+    Assert(
+        MainWindowShortcutRouter.ResolveNewItem(Key.N, ModifierKeys.Control, "local") is null
+        && MainWindowShortcutRouter.ResolveNewItem(Key.N, ModifierKeys.None, "radio") is null,
+        "Nowy element przejmuje Ctrl+N w nieobsługiwanej sesji albo samą literę N.");
+
     Assert(
         MainWindowShortcutRouter.ResolvePlayerAudioProcessing(
             Key.N,
