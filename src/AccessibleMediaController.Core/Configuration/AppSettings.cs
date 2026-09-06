@@ -596,6 +596,9 @@ public sealed class RadioRecordingScheduleSettings
     public int? RecordingBitrateKbps { get; set; }
     public bool? WakeComputer { get; set; }
     public bool Enabled { get; set; } = true;
+    public long? LastFailureUtcTicks { get; set; }
+    public string LastFailureMessage { get; set; } = string.Empty;
+    public bool LastFailureAcknowledged { get; set; } = true;
 }
 
 public sealed class RadioPresetSettings

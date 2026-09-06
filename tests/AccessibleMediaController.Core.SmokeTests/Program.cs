@@ -2055,7 +2055,10 @@ static void TestRadioRecordingSchedule()
                 FileNameTemplate = "Audycja - {data-polska}",
                 RecordingFormat = RadioRecordingFormat.Aac,
                 RecordingBitrateKbps = 222,
-                WakeComputer = true
+                WakeComputer = true,
+                LastFailureUtcTicks = start.AddMinutes(-10).Ticks,
+                LastFailureMessage = "Przekroczono czas łączenia ze stacją",
+                LastFailureAcknowledged = false
             },
             new RadioRecordingScheduleSettings
             {
@@ -2081,6 +2084,9 @@ static void TestRadioRecordingSchedule()
         Equal(RadioRecordingFormat.Aac, normalized.RecordingFormat);
         Equal(192, normalized.RecordingBitrateKbps);
         Equal(true, normalized.WakeComputer);
+        Equal(start.AddMinutes(-10).Ticks, normalized.LastFailureUtcTicks);
+        Equal("Przekroczono czas łączenia ze stacją", normalized.LastFailureMessage);
+        Equal(false, normalized.LastFailureAcknowledged);
         var segmented = loaded.Radio.RecordingSchedules.Single(item => item.Id == "schedule-segmented");
         Equal(120, segmented.DurationMinutes);
         Equal(30, segmented.SegmentMinutes);

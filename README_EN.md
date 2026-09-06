@@ -1,5 +1,12 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.298` makes scheduled recording failures persistent. A failed
+connection is logged and announced immediately; if it happened while AMC was
+not active, it is announced again when the user returns. The latest dated
+failure remains available on the schedule under `Ctrl+Shift+H`. Recurring
+schedules keep their next occurrence, while a failed one-time schedule remains
+in the manager in a disabled state for inspection or correction.
+
 Version `alpha.297` adds `Ctrl+N` in the Radio session. It opens the accessible
 **New radio station** form with **Station name** and **Stream or YouTube live
 URL** fields. Saving adds the station to the Radio Library and selects it. The

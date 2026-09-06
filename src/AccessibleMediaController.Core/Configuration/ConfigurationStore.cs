@@ -835,6 +835,16 @@ public sealed class ConfigurationStore
                         start,
                         RadioScheduleCalculator.ResolveTimeZone(schedule.TimeZoneId)).DayOfWeek);
                 }
+                schedule.LastFailureMessage = (schedule.LastFailureMessage ?? string.Empty).Trim();
+                if (schedule.LastFailureMessage.Length > 500)
+                    schedule.LastFailureMessage = schedule.LastFailureMessage[..500];
+                if (schedule.LastFailureUtcTicks is <= 0
+                    || string.IsNullOrWhiteSpace(schedule.LastFailureMessage))
+                {
+                    schedule.LastFailureUtcTicks = null;
+                    schedule.LastFailureMessage = string.Empty;
+                    schedule.LastFailureAcknowledged = true;
+                }
                 return schedule;
             })
             .GroupBy(schedule => schedule.Id, StringComparer.Ordinal)

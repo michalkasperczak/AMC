@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.298` nie pozwala zginąć błędowi nagrania z harmonogramu. Nieudane
+połączenie jest nadal zapisywane w logu i oznajmiane od razu, a gdy wydarzyło
+się poza aktywnym oknem AMC — zostaje ponownie podane po powrocie do programu.
+Ostatni błąd wraz z datą pozostaje widoczny przy planie pod `Ctrl+Shift+H`.
+Plan cykliczny zachowuje następny termin. Nieudany plan jednorazowy nie znika:
+pozostaje wyłączony w Harmonogramie, aby można go było sprawdzić lub poprawić.
+
 Wersja `alpha.297` dodaje w sesji Radio skrót `Ctrl+N`. Otwiera on dostępny
 formularz **Nowa stacja radiowa** z polami **Nazwa stacji** oraz **Adres
 strumienia lub transmisji YouTube**. Po zapisaniu stacja trafia do Biblioteki

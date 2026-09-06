@@ -1822,6 +1822,10 @@ static void TestRadioScheduleAccessibility()
                 newScheduleEditor.Close();
             }
 
+            schedule.LastFailureUtcTicks = DateTime.UtcNow.AddMinutes(-5).Ticks;
+            schedule.LastFailureMessage = "Przekroczono czas łączenia ze stacją";
+            schedule.LastFailureAcknowledged = false;
+
             manager = new RadioSchedulesWindow(
                 [station],
                 [schedule],
@@ -1839,6 +1843,8 @@ static void TestRadioScheduleAccessibility()
             var accessibleLabel = selected?.GetType().GetProperty("AccessibleLabel")?.GetValue(selected)?.ToString();
             Assert(!string.IsNullOrWhiteSpace(accessibleLabel)
                    && accessibleLabel.StartsWith("Stacja testowa, włączone,", StringComparison.Ordinal)
+                   && accessibleLabel.Contains("ostatnie nagranie nieudane", StringComparison.Ordinal)
+                   && accessibleLabel.Contains("Przekroczono czas łączenia ze stacją", StringComparison.Ordinal)
                    && !accessibleLabel.Contains("pole wyboru", StringComparison.OrdinalIgnoreCase)
                    && IsUserFacingChoice(selected!),
                 "Pierwszy harmonogram nie ma stabilnej, użytkowej etykiety dostępnościowej.");

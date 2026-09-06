@@ -73,6 +73,7 @@ public partial class RadioSchedulesWindow : Window
             : !schedule.Enabled && active
                 ? ", nagrywanie zostanie zatrzymane po zapisaniu"
                 : string.Empty;
+        var lastFailure = BuildLastFailureLabel(schedule, zone);
         var fileDivision = schedule.SegmentMinutes > 0
             ? $"części co {schedule.SegmentMinutes} min"
             : "jeden plik";
@@ -81,7 +82,21 @@ public partial class RadioSchedulesWindow : Window
             schedule.StationName,
             local,
             partNumber: 1);
-        return $"{schedule.StationName}, {state}, {local:dd.MM.yyyy HH:mm}, {schedule.DurationMinutes} min, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}{activity}";
+        return $"{schedule.StationName}, {state}, {local:dd.MM.yyyy HH:mm}, {schedule.DurationMinutes} min, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}{activity}{lastFailure}";
+    }
+
+    private static string BuildLastFailureLabel(
+        RadioRecordingScheduleSettings schedule,
+        TimeZoneInfo zone)
+    {
+        if (schedule.LastFailureUtcTicks is not > 0
+            || string.IsNullOrWhiteSpace(schedule.LastFailureMessage))
+        {
+            return string.Empty;
+        }
+        var failedUtc = new DateTime(schedule.LastFailureUtcTicks.Value, DateTimeKind.Utc);
+        var failedLocal = TimeZoneInfo.ConvertTimeFromUtc(failedUtc, zone);
+        return $", ostatnie nagranie nieudane {failedLocal:dd.MM.yyyy HH:mm}: {schedule.LastFailureMessage}";
     }
 
     private void New_Click(object sender, RoutedEventArgs e)
@@ -242,7 +257,10 @@ public partial class RadioSchedulesWindow : Window
         RecordingFormat = schedule.RecordingFormat,
         RecordingBitrateKbps = schedule.RecordingBitrateKbps,
         WakeComputer = schedule.WakeComputer,
-        Enabled = schedule.Enabled
+        Enabled = schedule.Enabled,
+        LastFailureUtcTicks = schedule.LastFailureUtcTicks,
+        LastFailureMessage = schedule.LastFailureMessage,
+        LastFailureAcknowledged = schedule.LastFailureAcknowledged
     };
 
     private sealed class ScheduleRow(

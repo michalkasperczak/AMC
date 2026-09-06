@@ -11262,6 +11262,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             PrepareViewFocusContext(context);
         }
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.ContextIdle);
+        Dispatcher.BeginInvoke(AnnouncePendingRadioScheduleFailures, DispatcherPriority.ContextIdle);
     }
 
     private void Window_Activated(object? sender, EventArgs e)
@@ -11269,6 +11270,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ReconcileCompletedExternalMoves();
         if (!_initialFocusApplied) return;
         ScheduleMainWindowFocusRecovery("ponowne uaktywnienie okna");
+        Dispatcher.BeginInvoke(AnnouncePendingRadioScheduleFailures, DispatcherPriority.ContextIdle);
+    }
+
+    private void AnnouncePendingRadioScheduleFailures()
+    {
+        if (_isClosing || !IsActive) return;
+        var pending = _state.Radio.RecordingSchedules
+            .Where(schedule => schedule.LastFailureUtcTicks is > 0
+                && !schedule.LastFailureAcknowledged
+                && !string.IsNullOrWhiteSpace(schedule.LastFailureMessage))
+            .OrderByDescending(schedule => schedule.LastFailureUtcTicks)
+            .ToArray();
+        if (pending.Length == 0) return;
+
+        foreach (var schedule in pending)
+            schedule.LastFailureAcknowledged = true;
+        var latest = pending[0];
+        var message = pending.Length == 1
+            ? $"Nieudane nagranie z harmonogramu: {latest.StationName}. {latest.LastFailureMessage}. Szczegóły: Ctrl+Shift+H"
+            : $"Nieudane nagrania z harmonogramu: {pending.Length}. Ostatnie: {latest.StationName}. {latest.LastFailureMessage}. Szczegóły: Ctrl+Shift+H";
+        AnnounceEssential(message);
+        QueueStateSave();
     }
 
     private void Window_IsKeyboardFocusWithinChanged(
@@ -13441,7 +13464,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (!schedule.Enabled) continue;
             if (RadioScheduleCalculator.Evaluate(schedule, now).Kind != RadioScheduleDueKind.Missed) continue;
-            changed |= AdvanceOrRemoveRadioSchedule(schedule, now, "pominięte podczas zamknięcia programu");
+            changed |= HandleMissedRadioSchedule(
+                schedule,
+                now,
+                "Program nie był uruchomiony przez cały zaplanowany czas nagrania");
         }
         if (changed) QueueStateSave();
     }
@@ -13463,7 +13489,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (decision.Kind == RadioScheduleDueKind.Future) continue;
             if (decision.Kind == RadioScheduleDueKind.Missed)
             {
-                changed |= AdvanceOrRemoveRadioSchedule(schedule, now, "pominięte po upływie całego czasu");
+                changed |= HandleMissedRadioSchedule(
+                    schedule,
+                    now,
+                    "Nagranie nie rozpoczęło się przed końcem zaplanowanego czasu");
                 continue;
             }
             StartScheduledRadioRecording(schedule);
@@ -13562,7 +13591,33 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && schedule.NextStartUtcTicks == snapshot.NextStartUtcTicks);
         if (current is not null && !result.Cancelled)
         {
-            _ = AdvanceOrRemoveRadioSchedule(current, DateTime.UtcNow, "zakończone");
+            if (result.Success)
+            {
+                if (current.LastFailureAcknowledged)
+                    ClearRadioScheduleFailure(current);
+                _ = AdvanceOrRemoveRadioSchedule(current, DateTime.UtcNow, "zakończone");
+            }
+            else
+            {
+                var error = string.IsNullOrWhiteSpace(result.Error)
+                    ? "Nie utworzono nagrania"
+                    : result.Error.Trim();
+                RememberRadioScheduleFailure(current, error, DateTime.UtcNow, IsActive);
+                if (current.Recurrence == RadioScheduleRecurrence.Once)
+                {
+                    current.Enabled = false;
+                    DiagnosticLog.Warning(
+                        "radio-schedule",
+                        $"Zachowano wyłączony plan jednorazowy {current.StationName} po nieudanej próbie.");
+                }
+                else
+                {
+                    _ = AdvanceOrRemoveRadioSchedule(
+                        current,
+                        DateTime.UtcNow,
+                        "nieudane; wyznaczono następną próbę");
+                }
+            }
             QueueStateSave();
         }
         RearmRadioWakeTimer();
@@ -13596,6 +13651,44 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ? $"Zaplanowane nagrywanie {snapshot.StationName} zostało przerwane. Zapisano plików: {savedFileCount}. {result.Error}"
                 : $"Nie udało się nagrać {snapshot.StationName}: {result.Error}");
         }
+    }
+
+    private bool HandleMissedRadioSchedule(
+        RadioRecordingScheduleSettings schedule,
+        DateTime nowUtc,
+        string message)
+    {
+        RememberRadioScheduleFailure(schedule, message, nowUtc, acknowledged: false);
+        if (schedule.Recurrence == RadioScheduleRecurrence.Once)
+        {
+            schedule.Enabled = false;
+            DiagnosticLog.Warning(
+                "radio-schedule",
+                $"Zachowano wyłączony, pominięty plan jednorazowy {schedule.StationName}.");
+            return true;
+        }
+        return AdvanceOrRemoveRadioSchedule(
+            schedule,
+            nowUtc,
+            "pominięte; wyznaczono następną próbę");
+    }
+
+    private static void RememberRadioScheduleFailure(
+        RadioRecordingScheduleSettings schedule,
+        string message,
+        DateTime failureUtc,
+        bool acknowledged)
+    {
+        schedule.LastFailureUtcTicks = failureUtc.ToUniversalTime().Ticks;
+        schedule.LastFailureMessage = message.Length <= 500 ? message : message[..500];
+        schedule.LastFailureAcknowledged = acknowledged;
+    }
+
+    private static void ClearRadioScheduleFailure(RadioRecordingScheduleSettings schedule)
+    {
+        schedule.LastFailureUtcTicks = null;
+        schedule.LastFailureMessage = string.Empty;
+        schedule.LastFailureAcknowledged = true;
     }
 
     private bool AdvanceOrRemoveRadioSchedule(
@@ -13660,7 +13753,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RecordingFormat = schedule.RecordingFormat,
         RecordingBitrateKbps = schedule.RecordingBitrateKbps,
         WakeComputer = schedule.WakeComputer,
-        Enabled = schedule.Enabled
+        Enabled = schedule.Enabled,
+        LastFailureUtcTicks = schedule.LastFailureUtcTicks,
+        LastFailureMessage = schedule.LastFailureMessage,
+        LastFailureAcknowledged = schedule.LastFailureAcknowledged
     };
 
     public void RenameLocalFile()
