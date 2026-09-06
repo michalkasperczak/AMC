@@ -1287,3 +1287,10 @@ udostępniony przez adapter, zamiast pozorować wybór karty dźwiękowej Window
 - `tests/AccessibleMediaController.Core.SmokeTests` — proste testy logiki bez zewnętrznych pakietów;
 - `tests/accessibility/nvda` — opcjonalny, chroniony klient smoke testu NVDA;
 - `MEDIA_CONTROLLER_PL.md` i `MEDIA_CONTROLLER_EN.md` — pełna specyfikacja koncepcji.
+
+## Zwięzły widok aktywnych nagrań
+
+Od `alpha.286` widok `Nagrywane` w Radiu nie powtarza przy każdym wejściu
+oczywistej nazwy sesji „Radio internetowe”. Po przełączeniu sesji NVDA czyta
+numer sesji, nazwę widoku, stację i stan nagrywania. Pełna nazwa sesji pozostaje
+w pozostałych widokach, gdzie pomaga rozpoznać bieżący kontekst.

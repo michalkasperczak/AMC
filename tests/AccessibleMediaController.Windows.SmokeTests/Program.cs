@@ -89,6 +89,7 @@ try
     TestRadioPresetKeyboardMap();
     TestMainWindowDigitShortcutRouting();
     TestPlayerDeparturePlaybackPolicy();
+    TestActiveRadioRecordingFocusContext();
     TestSearchNavigation();
     TestPodcastDirectorySearchMerge();
     TestCanonicalMembershipResolution();
@@ -583,6 +584,38 @@ static void TestPlayerDeparturePlaybackPolicy()
             new MediaItem { Kind = MediaItemKind.Podcast, ExternalId = "audycja-1" }) is null,
         "Nagłówek podcastu nie powinien udawać odcinka z podcastem nadrzędnym.");
     Console.WriteLine("OK: tylko jawny powrót z odtwarzacza stosuje regułę wstrzymania");
+}
+
+static void TestActiveRadioRecordingFocusContext()
+{
+    Assert(
+        MainWindowNavigationPolicy.FormatSessionSwitchFocusContext(
+            "2, Radio internetowe",
+            "radio",
+            2,
+            sessionMuted: false,
+            "Nagrywane",
+            "Multimedia") == "2, Nagrywane",
+        "Widok aktywnych nagrań powtarza nazwę sesji Radio internetowe.");
+    Assert(
+        MainWindowNavigationPolicy.FormatSessionSwitchFocusContext(
+            "2, Radio internetowe, wyciszono",
+            "radio",
+            2,
+            sessionMuted: true,
+            "Nagrywane",
+            "Multimedia") == "2, Nagrywane, wyciszono",
+        "Skrócona etykieta aktywnych nagrań zgubiła stan wyciszenia.");
+    Assert(
+        MainWindowNavigationPolicy.FormatSessionSwitchFocusContext(
+            "1, Pliki lokalne",
+            "local",
+            1,
+            sessionMuted: false,
+            "Ulubione",
+            "Multimedia") == "1, Pliki lokalne, Ulubione",
+        "Skrócenie aktywnych nagrań zmieniło inne sesje albo widoki.");
+    Console.WriteLine("OK: zwięzły kontekst widoku aktywnych nagrań radia");
 }
 
 static void TestSearchNavigation()

@@ -872,3 +872,10 @@ target instead of pretending that the external streamer is a Windows sound card.
 - `tests/AccessibleMediaController.Core.SmokeTests` — dependency-free logic checks;
 - `tests/accessibility/nvda` — optional guarded NVDA smoke-test client;
 - `MEDIA_CONTROLLER_PL.md` and `MEDIA_CONTROLLER_EN.md` — complete concept specification.
+
+## Concise active-recordings view
+
+Starting with `alpha.286`, the Radio `Recording` view no longer repeats the
+obvious “Internet Radio” session name whenever focus enters the list. A session
+switch announces the slot, view, station and recording state. Other Radio views
+retain the full session name where it remains useful context.

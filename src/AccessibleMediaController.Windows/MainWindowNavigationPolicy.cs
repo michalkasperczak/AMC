@@ -40,6 +40,31 @@ internal static class MainWindowNavigationPolicy
         string.Equals(sessionId, "radio", StringComparison.Ordinal)
         && string.Equals(viewName, "Nagrywane", StringComparison.Ordinal);
 
+    public static string FormatSessionSwitchFocusContext(
+        string sessionContext,
+        string sessionId,
+        int? sessionSlot,
+        bool sessionMuted,
+        string viewName,
+        string defaultViewName)
+    {
+        if (IsTransientRadioView(sessionId, viewName))
+        {
+            return string.Join(
+                ", ",
+                new[]
+                {
+                    sessionSlot is > 0 ? sessionSlot.Value.ToString() : null,
+                    viewName,
+                    sessionMuted ? "wyciszono" : null
+                }.Where(part => !string.IsNullOrWhiteSpace(part)));
+        }
+
+        return string.Equals(viewName, defaultViewName, StringComparison.Ordinal)
+            ? sessionContext
+            : $"{sessionContext}, {viewName}";
+    }
+
     public static bool ShouldPreservePlaybackContext(bool playerViewActive, string viewName) =>
         playerViewActive
         || string.Equals(viewName, "Zakładki", StringComparison.Ordinal);

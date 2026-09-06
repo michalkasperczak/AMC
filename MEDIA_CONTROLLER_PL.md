@@ -2360,3 +2360,11 @@ otrzymany z RSS, Atom lub katalogu podcastów pozostaje oryginalny w interfejsie
 wyszukiwaniu, opisach i eksporcie. Nie wolno automatycznie przemianowywać
 wcześniej pobranych plików, ponieważ ich ścieżki mogą być używane przez inne
 programy.
+
+### 7.27. Zwięzły kontekst aktywnych nagrań Radia
+
+Widok `Nagrywane` jest jednoznacznie związany z sesją Radio, dlatego jego
+komunikat nie powtarza nazwy „Radio internetowe”. Bezpośrednie wejście podaje
+„Nagrywane” i element, a powrót skrótem sesji składa numer sesji, „Nagrywane”,
+nazwę stacji oraz stan nagrania. Stan wyciszenia pozostaje podawany. Pozostałe
+widoki zachowują pełną nazwę sesji.

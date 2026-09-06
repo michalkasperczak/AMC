@@ -9275,7 +9275,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return new CommandExecutionResult(false);
             }
             NavigateTo(ActiveRadioRecordingsViewName);
-            PrepareViewFocusContext("Nagrywane, Radio internetowe. Escape wraca do wcześniejszego widoku");
+            PrepareViewFocusContext(ActiveRadioRecordingsViewName);
             RestoreMediaListFocusAfterRefresh();
             return new CommandExecutionResult(true);
         }
@@ -9566,9 +9566,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 else
                 {
                     PrepareSelectedItemFocusContext(
-                        string.Equals(_currentView, DefaultBrowserView, StringComparison.Ordinal)
-                            ? sessionContext
-                            : $"{sessionContext}, {_currentView}");
+                        MainWindowNavigationPolicy.FormatSessionSwitchFocusContext(
+                            sessionContext,
+                            _sessions.Current.Id,
+                            _sessions.FindSlot(_sessions.Current.Id),
+                            _sessions.Current.IsMuted,
+                            _currentView,
+                            DefaultBrowserView));
                 }
                 _deferredAnnouncement = null;
             }

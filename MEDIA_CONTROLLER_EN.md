@@ -1657,6 +1657,14 @@ uses modifiers that are physically down rather than a cached hook state, so a
 missed Alt key-up after focus movement cannot turn a later plain digit into a
 view command or a session change.
 
+### 7.27. Concise Internet Radio recording context
+
+The `Recording` view unambiguously belongs to Internet Radio, so its accessible
+focus context does not repeat the session name. Direct entry announces the view
+and item. Returning through a session shortcut combines the session slot, view,
+station and recording state, retaining mute state when applicable. Other views
+continue to expose the full session name.
+
 ### 7.23. First real WiiM adapter
 
 Starting with `alpha.267`, the WiiM session no longer contains a mock media
