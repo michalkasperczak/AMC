@@ -1182,6 +1182,12 @@ listy „Open Network Stream” z WiiM Home, dlatego AMC jej nie udaje ani nie
 nadpisuje. Istniejącą kolekcję można przenieść do AMC przez eksport playlisty
 z WiiM Home i `Ctrl+O`.
 
+Od `alpha.279` `Ctrl+Shift+O` eksportuje lokalne **Strumienie sieciowe** AMC do
+rozszerzonego M3U w UTF-8. Eksport działa także przy wyłączonym urządzeniu,
+ponownie sprawdza każdy URL i nie zapisuje adresów zawierających dane logowania.
+Plik jest publikowany dopiero po pełnym bezpiecznym zapisie, a jego ponowny
+import przez `Ctrl+O` nie tworzy duplikatów.
+
 W `alpha.272` menu **Plik** sesji Podcasty zawiera także **Eksportuj bibliotekę
 podcastów do OPML…**. Jest to przenośna kopia obserwowanych kanałów, zgodna z
 ponownym importem `Ctrl+O`; nie kopiuje plików audio, postępu słuchania,

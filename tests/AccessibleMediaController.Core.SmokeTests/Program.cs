@@ -295,6 +295,25 @@ static void TestWiiMApiParsing()
         Equal(1, loaded.WiiM.NetworkStreams.Count);
         Equal("Radio testowe", loaded.WiiM.NetworkStreams[0].Name);
         Equal("https://radio.example/live.m3u8", loaded.WiiM.NetworkStreams[0].StreamUrl);
+        var playlist = Encoding.UTF8.GetString(WiiMNetworkStreamPlaylistWriter.Write([
+            loaded.WiiM.NetworkStreams[0],
+            new WiiMNetworkStreamSettings
+            {
+                Name = "Radio\r\nDrugie",
+                StreamUrl = "https://example.test/live#fragment"
+            },
+            new WiiMNetworkStreamSettings
+            {
+                Name = "Prywatny adres",
+                StreamUrl = "https://login:haslo@example.test/live"
+            }
+        ]));
+        True(playlist.StartsWith("#EXTM3U\r\n", StringComparison.Ordinal),
+            "Eksport strumieni WiiM nie tworzy rozszerzonej playlisty M3U.");
+        True(playlist.Contains("#EXTINF:-1,Radio Drugie\r\nhttps://example.test/live", StringComparison.Ordinal),
+            "Eksport nie oczyścił nazwy albo fragmentu adresu strumienia.");
+        True(!playlist.Contains("haslo", StringComparison.Ordinal),
+            "Eksport nie może zapisać adresu z osadzonymi danymi logowania.");
     }
     finally
     {
@@ -1579,6 +1598,7 @@ static void TestCommandCatalog()
     Equal("Otwórz element w WiiM", CommandCatalog.GetDisplayName(CommandIds.OpenOnWiiM));
     Equal("Dodaj strumień sieciowy WiiM", CommandCatalog.GetDisplayName(CommandIds.AddWiiMNetworkStream));
     Equal("Importuj strumienie WiiM z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportWiiMNetworkStreams));
+    Equal("Eksportuj strumienie WiiM do playlisty", CommandCatalog.GetDisplayName(CommandIds.ExportWiiMNetworkStreams));
     Equal("Zmień nazwę w Bibliotece", CommandCatalog.GetDisplayName(CommandIds.RenameLibraryItem));
     Equal("Zmień nazwę pliku na dysku", CommandCatalog.GetDisplayName(CommandIds.RenameLocalFile));
     Equal("Przenieś wyżej na bieżącej liście", CommandCatalog.GetDisplayName(CommandIds.MoveLocalLibraryItemUp));
@@ -4490,6 +4510,7 @@ static void TestCommandPalette()
     Equal("Ctrl+Alt+W", entries.Single(entry => entry.CommandId == CommandIds.OpenOnWiiM).LocalShortcut);
     Equal("Ctrl+N (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.AddWiiMNetworkStream).LocalShortcut);
     Equal("Ctrl+O (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ImportWiiMNetworkStreams).LocalShortcut);
+    Equal("Ctrl+Shift+O (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ExportWiiMNetworkStreams).LocalShortcut);
     Equal("F5 (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcast).LocalShortcut);
     Equal("Ctrl+F5 (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcastLibrary).LocalShortcut);
     Equal("Ctrl+I (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.ViewPodcastInbox).LocalShortcut);

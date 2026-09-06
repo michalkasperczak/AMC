@@ -2241,9 +2241,8 @@ wysyłane. Lokalne pliki będą wymagały osobnego, kontrolowanego serwera HTTP 
 DLNA. Statyczne listy M3U i PLS korzystają z udokumentowanego polecenia
 playlisty; M3U8 jest traktowane jako bezpośredni strumień HLS. WiiM Home
 przechowuje własną listę „Open Network Stream”, lecz publiczne API nie pozwala
-jej obecnie wyliczać ani edytować. Dlatego późniejsza wymiana tej listy będzie
-odbywać się jawnie przez import i eksport M3U, a nie przez pozorną
-synchronizację.
+jej obecnie wyliczać ani edytować. Dlatego wymiana tej listy odbywa się jawnie
+przez import i eksport M3U, a nie przez pozorną synchronizację.
 
 Od `alpha.278` sesja WiiM ma lokalną, trwałą listę **Strumienie sieciowe**.
 `Ctrl+L` ją otwiera, `Ctrl+N` dodaje nazwany adres, a `Ctrl+O` importuje M3U,
@@ -2254,6 +2253,14 @@ aktywnego urządzenia, `F2` edytuje nazwę i URL, a Delete usuwa wpis tylko z
 lokalnych danych AMC. Funkcja nie odczytuje automatycznie prywatnej kolekcji
 WiiM Home, ponieważ wspierane API jej nie udostępnia; istniejącą listę można
 przenieść jawnie przez wyeksportowany plik playlisty.
+
+Od `alpha.279` `Ctrl+Shift+O` eksportuje całą lokalną listę strumieni WiiM do
+rozszerzonego M3U w UTF-8. Nazwy są oczyszczane ze znaków sterujących, adresy
+ponownie przechodzą tę samą walidację HTTP/HTTPS, fragment URL jest usuwany, a
+adres z osadzonym loginem lub hasłem nie trafia do pliku. Zapis powstaje
+najpierw jako plik tymczasowy w folderze docelowym i dopiero po pełnym
+ukończeniu atomowo zastępuje wskazany plik. Funkcja działa bez włączonego
+urządzenia, ponieważ operuje wyłącznie na lokalnej kolekcji AMC.
 
 Szczegółowa mapa stabilnych i eksperymentalnych etapów, oparta także na
 porównaniu aktywnych bibliotek społecznościowych LinkPlay/WiiM, znajduje się w

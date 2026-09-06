@@ -13,7 +13,7 @@ eksperymentalne, po sprawdzeniu możliwości konkretnego modelu i z bezpiecznym
 wycofaniem operacji. Polecenia administracyjne, konfiguracja sieci, restart i
 przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 
-## Stan po alpha 278
+## Stan po alpha 279
 
 - wykrywanie UPnP/SSDP i ręczne dodanie lokalnego adresu IP;
 - wybór i zapamiętanie aktywnego urządzenia;
@@ -57,10 +57,11 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   strumieniem HLS.
 - AMC ma własną, przenośną listę **Strumienie sieciowe** dla sesji WiiM.
   `Ctrl+L` otwiera listę, `Ctrl+N` zapisuje nazwę i adres, a `Ctrl+O` importuje
-  bezpiecznie M3U, M3U8 lub PLS. Enter albo `Ctrl+Alt+W` wysyła wskazany
-  strumień do aktywnego urządzenia, `F2` edytuje nazwę i adres, a Delete usuwa
-  wpis wyłącznie z AMC. Lista jest zachowywana po zamknięciu programu i nie
-  modyfikuje danych aplikacji WiiM Home.
+  bezpiecznie M3U, M3U8 lub PLS. `Ctrl+Shift+O` eksportuje całą listę AMC do
+  rozszerzonego M3U. Enter albo `Ctrl+Alt+W` wysyła wskazany strumień do
+  aktywnego urządzenia, `F2` edytuje nazwę i adres, a Delete usuwa wpis wyłącznie
+  z AMC. Lista jest zachowywana po zamknięciu programu i nie modyfikuje danych
+  aplikacji WiiM Home.
 
 Lokalne API nie udostępnia zapisu ani zmiany kolejności natywnych presetów.
 AMC nie zgłasza więc pozornego powodzenia; takie ustawienie nadal wykonuje się
@@ -69,11 +70,11 @@ adres, album, playlistę lub inną treść niezależnie od sprzętowych miejsc W
 
 ## Kolejność dalszej integracji
 
-1. **Eksport zapisanych strumieni.** Import M3U, M3U8 i PLS oraz lokalna lista
-   AMC działają od `alpha.278`. Następnym krokiem jest eksport tej kolekcji do
-   M3U. Publiczne API nadal nie udostępnia odczytu ani zapisu całej listy
-   „Open Network Stream” z WiiM Home, dlatego wymiana pozostaje jawną operacją
-   plikową, bez udawania automatycznej synchronizacji.
+1. **Synchronizacja zapisanych strumieni.** Lokalna lista, import M3U, M3U8 i
+   PLS oraz eksport M3U działają od `alpha.279`. Publiczne API nadal nie
+   udostępnia odczytu ani zapisu całej listy „Open Network Stream” z WiiM Home,
+   dlatego wymiana pozostaje jawną operacją plikową. Automatyczna synchronizacja
+   może powstać dopiero po udostępnieniu wspieranego interfejsu przez producenta.
 2. **Aktualizacja stanu przez UPnP z odpytywaniem awaryjnym.** Zdarzenia UPnP
    mogą szybciej aktualizować tytuł, pozycję i głośność. Okresowe HTTP pozostaje
    mechanizmem awaryjnym, ponieważ zdarzenia bywają blokowane przez router,

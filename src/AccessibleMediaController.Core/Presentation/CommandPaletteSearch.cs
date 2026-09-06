@@ -221,6 +221,7 @@ public static class CommandPaletteSearch
             CommandIds.OpenOnWiiM => "Ctrl+Alt+W",
             CommandIds.AddWiiMNetworkStream => "Ctrl+N (WiiM)",
             CommandIds.ImportWiiMNetworkStreams => "Ctrl+O (WiiM)",
+            CommandIds.ExportWiiMNetworkStreams => "Ctrl+Shift+O (WiiM)",
             CommandIds.ViewWiiMDevicePresets => "Ctrl+Alt+P (WiiM)",
             CommandIds.PreviousWiiMDevicePreset => "Alt+PageUp (odtwarzacz WiiM)",
             CommandIds.NextWiiMDevicePreset => "Alt+PageDown (odtwarzacz WiiM)",
