@@ -1872,7 +1872,7 @@ static void TestCommandCatalog()
     Equal("Pokaż nowe odcinki podcastów", CommandCatalog.GetDisplayName(CommandIds.ViewPodcastInbox));
     Equal("Pokaż rozpoczęte odcinki podcastów", CommandCatalog.GetDisplayName(CommandIds.ViewPodcastInProgress));
     Equal("Pokaż aktualnie nagrywane stacje", CommandCatalog.GetDisplayName(CommandIds.ViewActiveRadioRecordings));
-    Equal("Rozpocznij nową część ręcznego nagrania radia", CommandCatalog.GetDisplayName(CommandIds.SplitRadioRecording));
+    Equal("Rozpocznij nową część nagrania radia", CommandCatalog.GetDisplayName(CommandIds.SplitRadioRecording));
     Equal("Zatrzymaj wszystkie trwające nagrania", CommandCatalog.GetDisplayName(CommandIds.StopAllRadioRecordings));
     Equal("Pokaż presety aktywnej sesji", CommandCatalog.GetDisplayName(CommandIds.ViewRadioPresets));
     Equal("Utwórz preset lub przypisz skrót aktywnej sesji", CommandCatalog.GetDisplayName(CommandIds.AssignRadioPreset));

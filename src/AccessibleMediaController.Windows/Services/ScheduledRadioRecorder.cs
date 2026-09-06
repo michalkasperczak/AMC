@@ -161,6 +161,14 @@ internal static class ScheduledRadioRecorder
                     if (ShouldStartNextSegment(wait, timeLeft, schedule.SegmentMinutes))
                     {
                         var split = control.SplitRecording();
+                        if (split.Kind == RadioRecordingSplitChangeKind.TooSoon)
+                        {
+                            // The user may have pressed T just before the automatic
+                            // boundary.  The new part is already running, so keep the
+                            // schedule alive and start measuring the next interval.
+                            path = control.CurrentPath ?? path;
+                            continue;
+                        }
                         if (split.Kind != RadioRecordingSplitChangeKind.Split)
                         {
                             var lastPath = control.StopCurrentSegment(output);
@@ -198,12 +206,17 @@ internal static class ScheduledRadioRecorder
                 or TimeoutException
                 or COMException)
             {
+                string? savedPath = null;
                 try
                 {
-                    _ = control.StopCurrentSegment(output);
+                    savedPath = control.StopCurrentSegment(output);
                 }
                 catch (Exception) { }
-                return new ScheduledRadioRecordingResult(false, false, path, exception.Message);
+                return new ScheduledRadioRecordingResult(
+                    false,
+                    false,
+                    savedPath ?? control.CompletedPaths.LastOrDefault() ?? path,
+                    exception.Message);
             }
             finally
             {

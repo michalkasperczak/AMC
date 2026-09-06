@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.295` pozwala klawiszem `T` rozpocząć nową część zarówno nagrania
+ręcznego, jak i nagrania uruchomionego przez harmonogram. Polecenie działa w
+odtwarzaczu nagrywanej stacji i w widoku **Nagrywane**. Nie wyłącza planu ani
+nie zmienia jego przyszłych terminów; finalizuje bieżący plik i kontynuuje
+aktualne nagranie w następnym. Podział wykonany tuż przed automatyczną granicą
+części nie może zatrzymać harmonogramu.
+
 Wersja `alpha.294` dodaje dwa przenośne przepływy. W sesji Radio
 `Ctrl+Shift+O` zapisuje Ulubione jako rozszerzone M3U w aktualnej kolejności;
 plik można ponownie wczytać przez `Ctrl+O` w AMC albo w innym odtwarzaczu.
@@ -466,7 +473,7 @@ Eksploratorze Windows. Dla zdalnego podcastu i odcinka osobna pozycja otwiera
 jego publiczną stronę w przeglądarce; AMC nie używa już niejednoznacznego
 polecenia „Otwórz w domyślnej aplikacji”. `Ctrl+I` otwiera **Nowe odcinki**.
 
-Wersja `alpha.201` zabezpiecza ręczny podział nagrania radia przed szybkim podwójnym naciśnięciem `T`. Pierwsze `T` finalizuje bieżącą część i natychmiast kontynuuje zapis w nowym pliku; ponowne `T` w ciągu pierwszych pięciu sekund nowej części jest bezpiecznie pomijane zamiast zatrzymywać nagranie. Każda zamknięta część jest od razu dodawana do lokalnej Biblioteki, choć kolejna część nadal się nagrywa. `Shift+T` zachowuje dotychczasowe znaczenie i nie jest drugim poleceniem podziału.
+Wersja `alpha.201` zabezpiecza podział nagrania radia przed szybkim podwójnym naciśnięciem `T`. Pierwsze `T` finalizuje bieżącą część i natychmiast kontynuuje zapis w nowym pliku; ponowne `T` w ciągu pierwszych pięciu sekund nowej części jest bezpiecznie pomijane zamiast zatrzymywać nagranie. Każda zamknięta część jest od razu dodawana do lokalnej Biblioteki, choć kolejna część nadal się nagrywa. Od `alpha.295` dotyczy to również nagrania uruchomionego przez harmonogram. `Shift+T` zachowuje dotychczasowe znaczenie i nie jest drugim poleceniem podziału.
 
 Wersja `alpha.200` dodaje świadome usuwanie zaznaczonego przedziału z oryginalnego pliku audio przez `Ctrl+X` w odtwarzaczu. Operacja wymaga potwierdzenia domyślnie ustawionego na „Nie”, zatrzymuje odtwarzanie, nie kompresuje dźwięku ponownie, sprawdza gotowy wynik i dopiero wtedy podmienia źródło. Pełna, bitowo identyczna kopia otrzymuje końcówkę `.amc-backup`; błąd pozostawia oryginał bez zmian. Pliki wymagające pobrania z chmury i pliki wideo są bezpiecznie odrzucane.
 

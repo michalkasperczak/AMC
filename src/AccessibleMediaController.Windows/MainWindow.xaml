@@ -212,8 +212,8 @@
                           automation:AutomationProperties.Name="Wstrzymaj lub wznów wybrane nagranie radia, Shift+Spacja"
                           automation:AutomationProperties.AcceleratorKey="Shift+Spacja"
                           Click="PauseRadioRecording_Click" />
-                <MenuItem x:Name="SplitRadioRecordingMenuItem" Header="Rozpocznij nową _część ręcznego nagrania" InputGestureText="T"
-                          automation:AutomationProperties.Name="Rozpocznij nową część ręcznego nagrania radia, T"
+                <MenuItem x:Name="SplitRadioRecordingMenuItem" Header="Rozpocznij nową _część nagrania" InputGestureText="T"
+                          automation:AutomationProperties.Name="Rozpocznij nową część nagrania radia, T"
                           automation:AutomationProperties.AcceleratorKey="T"
                           Click="SplitRadioRecording_Click" />
                 <MenuItem x:Name="StopAllRadioRecordingsMenuItem" Header="Zatrzymaj _wszystkie nagrania" InputGestureText="Ctrl+Alt+Shift+R"
@@ -515,8 +515,8 @@
                               automation:AutomationProperties.Name="Dodaj nazwaną zakładkę w nagrywanym pliku, Shift+B"
                               automation:AutomationProperties.AcceleratorKey="Shift+B"
                               Visibility="Collapsed" Click="AddNamedRadioRecordingBookmark_Click" />
-                    <MenuItem x:Name="SelectedRadioSplitRecordingMenuItem" Header="Rozpocznij nową część ręcznego nagrania tej stacji" InputGestureText="T"
-                              automation:AutomationProperties.Name="Rozpocznij nową część ręcznego nagrania tej stacji, T"
+                    <MenuItem x:Name="SelectedRadioSplitRecordingMenuItem" Header="Rozpocznij nową część nagrania tej stacji" InputGestureText="T"
+                              automation:AutomationProperties.Name="Rozpocznij nową część nagrania tej stacji, T"
                               automation:AutomationProperties.AcceleratorKey="T"
                               Visibility="Collapsed" Click="SplitRadioRecording_Click" />
                     <MenuItem x:Name="SelectedRadioSchedulesMenuItem" Header="Harmonogram nagrywania…" InputGestureText="Ctrl+Shift+H"
@@ -805,8 +805,8 @@
                     <MenuItem x:Name="PlayerRadioPauseRecordingMenuItem" Header="Wstrzymaj lub wznów nagrywanie radia" InputGestureText="Shift+Spacja"
                               automation:AutomationProperties.Name="Wstrzymaj lub wznów nagrywanie radia, Shift+Spacja"
                               Click="PauseRadioRecording_Click" />
-                    <MenuItem x:Name="PlayerRadioSplitRecordingMenuItem" Header="Rozpocznij nową część ręcznego nagrania radia" InputGestureText="T"
-                              automation:AutomationProperties.Name="Rozpocznij nową część ręcznego nagrania radia, T"
+                    <MenuItem x:Name="PlayerRadioSplitRecordingMenuItem" Header="Rozpocznij nową część nagrania radia" InputGestureText="T"
+                              automation:AutomationProperties.Name="Rozpocznij nową część nagrania radia, T"
                               automation:AutomationProperties.AcceleratorKey="T"
                               Click="SplitRadioRecording_Click" />
                     <MenuItem x:Name="PlayerRadioAddScheduleMenuItem" Header="Zaplanuj nagranie tej stacji…" InputGestureText="Shift+R"
