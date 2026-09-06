@@ -1188,6 +1188,14 @@ ponownie sprawdza każdy URL i nie zapisuje adresów zawierających dane logowan
 Plik jest publikowany dopiero po pełnym bezpiecznym zapisie, a jego ponowny
 import przez `Ctrl+O` nie tworzy duplikatów.
 
+Od `alpha.280` eksport kompensuje zachowanie WiiM Home, które kolejne
+importowane wpisy umieszcza na początku: po imporcie kolejność odpowiada liście
+AMC. Enter i `Ctrl+Alt+W` od razu wykonują świadome polecenie bez dodatkowego
+pytania. W odtwarzaczu `Alt+Page Up/Down` przełącza sąsiedni strumień, jeśli
+ostatnio uruchomiono pozycję z listy Strumienie sieciowe, albo sąsiedni zajęty
+preset, jeśli uruchomiono preset sprzętowy. `Ctrl+Shift+1–0/-/=` pozostaje
+jednoznacznie przypisane do presetów; strumienie nie przejmują tych klawiszy.
+
 W `alpha.272` menu **Plik** sesji Podcasty zawiera także **Eksportuj bibliotekę
 podcastów do OPML…**. Jest to przenośna kopia obserwowanych kanałów, zgodna z
 ponownym importem `Ctrl+O`; nie kopiuje plików audio, postępu słuchania,

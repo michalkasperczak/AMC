@@ -4551,10 +4551,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return selected ?? (_state.WiiM.Devices.Count == 1 ? _state.WiiM.Devices[0] : null);
     }
 
-    private async Task OpenCurrentItemOnWiiMAsync()
+    private async Task OpenCurrentItemOnWiiMAsync(MediaItem? requestedItem = null)
     {
-        var item = ActionItems.Count == 1 ? ActionItem : null;
-        if (!TryGetWiiMPlayableUri(item, out var mediaUrl))
+        var item = requestedItem ?? (ActionItems.Count == 1 ? ActionItem : null);
+        if (item is null || !TryGetWiiMPlayableUri(item, out var mediaUrl))
         {
             Announce("Ten element nie ma publicznego adresu, który można otworzyć w WiiM");
             return;
@@ -4568,20 +4568,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var confirmation = MessageBox.Show(
-            this,
-            $"Otworzyć „{item!.Title}” na urządzeniu {device.DisplayName}? "
-                + "Bieżące źródło odtwarzania tego urządzenia zostanie zastąpione.",
-            "Otwórz w WiiM",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-        if (confirmation != MessageBoxResult.Yes)
-        {
-            RestoreWiiMFocusAfterExternalCommand();
-            return;
-        }
-
         var gateEntered = false;
         WiiMDeviceSnapshot? snapshot = null;
         try
@@ -4589,7 +4575,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             await _wiiMDeviceOperationGate.WaitAsync(_wiiMCancellation.Token);
             gateEntered = true;
             await _wiiMClient.PlayNetworkStreamAsync(device.Address, mediaUrl, _wiiMCancellation.Token);
-            ForgetActivatedWiiMPreset(device);
+            if (IsWiiMNetworkStream(item)) RememberActivatedWiiMNetworkStream(device, item.Id);
+            else ForgetActivatedWiiMPreset(device);
             await Task.Delay(450, _wiiMCancellation.Token);
             try
             {
@@ -5101,7 +5088,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var dialog = new SaveFileDialog
         {
-            Title = "Eksportuj strumienie WiiM do playlisty",
+            Title = "Eksportuj strumienie do WiiM Home",
             FileName = "Strumienie WiiM AMC.m3u",
             DefaultExt = ".m3u",
             AddExtension = true,
@@ -6397,23 +6384,35 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         foreach (var stream in _state.WiiM.NetworkStreams)
         {
             if (!WiiMPlaybackUriPolicy.TryNormalize(stream.StreamUrl, out var normalizedUrl)) continue;
-            _wiiMItems.Add(new MediaItem
-            {
-                Id = stream.Id,
-                Title = stream.Name,
-                Kind = MediaItemKind.Station,
-                Source = normalizedUrl,
-                PublicUri = normalizedUrl,
-                ExternalId = WiiMNetworkStreamExternalId,
-                IsInLibrary = true,
-                IsAvailable = true
-            });
+            _wiiMItems.Add(BuildWiiMNetworkStreamMediaItem(stream, normalizedUrl));
         }
     }
+
+    private static MediaItem BuildWiiMNetworkStreamMediaItem(
+        WiiMNetworkStreamSettings stream,
+        string? normalizedUrl = null) => new()
+    {
+        Id = stream.Id,
+        Title = stream.Name,
+        Kind = MediaItemKind.Station,
+        Source = normalizedUrl ?? stream.StreamUrl,
+        PublicUri = normalizedUrl ?? stream.StreamUrl,
+        ExternalId = WiiMNetworkStreamExternalId,
+        IsInLibrary = true,
+        IsAvailable = true
+    };
 
     private static bool IsWiiMNetworkStream(MediaItem? item) =>
         item?.Kind == MediaItemKind.Station
         && string.Equals(item.ExternalId, WiiMNetworkStreamExternalId, StringComparison.Ordinal);
+
+    private WiiMNetworkStreamSettings? FindWiiMNetworkStreamByUri(string? value)
+    {
+        if (!WiiMPlaybackUriPolicy.TryNormalize(value, out var normalizedUrl)) return null;
+        return _state.WiiM.NetworkStreams.FirstOrDefault(stream =>
+            WiiMPlaybackUriPolicy.TryNormalize(stream.StreamUrl, out var candidateUrl)
+            && string.Equals(candidateUrl, normalizedUrl, StringComparison.OrdinalIgnoreCase));
+    }
 
     private static MediaItem BuildWiiMMediaItem(
         WiiMDeviceSettings device,
@@ -12386,6 +12385,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var previousIndex = MediaList.SelectedIndex;
         _state.WiiM.NetworkStreams.RemoveAll(stream => ids.Contains(stream.Id));
+        foreach (var device in _state.WiiM.Devices.Where(device =>
+                     device.LastActivatedNetworkStreamId is not null
+                     && ids.Contains(device.LastActivatedNetworkStreamId)))
+        {
+            device.LastActivatedNetworkStreamId = null;
+        }
         LoadPersistedWiiM();
         _sessions.FindSession("wiim")?.ReplaceItems(_wiiMItems);
         RefreshCurrentView(fallbackIndex: previousIndex);
@@ -14892,6 +14897,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce("Przechodzenie po presetach WiiM jest dostępne w odtwarzaczu urządzenia");
             return;
         }
+        var streams = _state.WiiM.NetworkStreams
+            .Where(stream => WiiMPlaybackUriPolicy.TryNormalize(stream.StreamUrl, out _))
+            .ToArray();
+        var currentStreamIndex = Array.FindIndex(streams, stream => string.Equals(
+            stream.Id,
+            device.LastActivatedNetworkStreamId,
+            StringComparison.OrdinalIgnoreCase));
+        if (currentStreamIndex >= 0)
+        {
+            if (streams.Length < 2)
+            {
+                Announce("Lista zawiera tylko jeden strumień WiiM");
+                return;
+            }
+            var nextStreamIndex =
+                (currentStreamIndex + (direction > 0 ? 1 : -1) + streams.Length) % streams.Length;
+            await OpenCurrentItemOnWiiMAsync(BuildWiiMNetworkStreamMediaItem(streams[nextStreamIndex]));
+            return;
+        }
         var gateEntered = false;
         try
         {
@@ -15236,6 +15260,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             _lastActivatedWiiMPresets[device.Id] = presetNumber;
             device.LastActivatedPresetNumber = presetNumber;
+            device.LastActivatedNetworkStreamId = null;
+        }
+        else
+        {
+            var activeNetworkStream = FindWiiMNetworkStreamByUri(snapshot.Playback.ContentUri);
+            if (activeNetworkStream is not null)
+            {
+                _lastActivatedWiiMPresets.Remove(device.Id);
+                device.LastActivatedPresetNumber = 0;
+                device.LastActivatedNetworkStreamId = activeNetworkStream.Id;
+            }
+            else if (!string.IsNullOrWhiteSpace(snapshot.Playback.ContentUri))
+            {
+                device.LastActivatedNetworkStreamId = null;
+            }
         }
         _wiiMSnapshots[device.Id] = snapshot;
         _state.WiiM.SelectedDeviceId = device.Id;
@@ -15257,6 +15296,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         _lastActivatedWiiMPresets[device.Id] = number;
         device.LastActivatedPresetNumber = number;
+        device.LastActivatedNetworkStreamId = null;
+        QueueStateSave(announceFailure: true);
+    }
+
+    private void RememberActivatedWiiMNetworkStream(WiiMDeviceSettings device, string streamId)
+    {
+        _lastActivatedWiiMPresets.Remove(device.Id);
+        device.LastActivatedPresetNumber = 0;
+        device.LastActivatedNetworkStreamId = streamId;
         QueueStateSave(announceFailure: true);
     }
 
@@ -15264,6 +15312,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         _lastActivatedWiiMPresets.Remove(device.Id);
         device.LastActivatedPresetNumber = 0;
+        device.LastActivatedNetworkStreamId = null;
         QueueStateSave(announceFailure: true);
     }
 

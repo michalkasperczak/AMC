@@ -292,9 +292,17 @@ static void TestWiiMApiParsing()
         Equal("Salon", loaded.WiiM.Devices[0].DisplayName);
         Equal("wiim-1", loaded.WiiM.SelectedDeviceId);
         Equal(2, loaded.WiiM.Devices[0].LastActivatedPresetNumber);
+        True(loaded.WiiM.Devices[0].LastActivatedNetworkStreamId is null,
+            "Preset urządzenia nie może jednocześnie wskazywać lokalnego strumienia WiiM.");
         Equal(1, loaded.WiiM.NetworkStreams.Count);
         Equal("Radio testowe", loaded.WiiM.NetworkStreams[0].Name);
         Equal("https://radio.example/live.m3u8", loaded.WiiM.NetworkStreams[0].StreamUrl);
+        loaded.WiiM.Devices[0].LastActivatedNetworkStreamId = "wiim:stream:1";
+        loaded.WiiM.Devices[0].LastActivatedPresetNumber = 2;
+        store.Save(loaded);
+        loaded = store.LoadOrCreate();
+        Equal("wiim:stream:1", loaded.WiiM.Devices[0].LastActivatedNetworkStreamId);
+        Equal(0, loaded.WiiM.Devices[0].LastActivatedPresetNumber);
         var playlist = Encoding.UTF8.GetString(WiiMNetworkStreamPlaylistWriter.Write([
             loaded.WiiM.NetworkStreams[0],
             new WiiMNetworkStreamSettings
@@ -312,6 +320,9 @@ static void TestWiiMApiParsing()
             "Eksport strumieni WiiM nie tworzy rozszerzonej playlisty M3U.");
         True(playlist.Contains("#EXTINF:-1,Radio Drugie\r\nhttps://example.test/live", StringComparison.Ordinal),
             "Eksport nie oczyścił nazwy albo fragmentu adresu strumienia.");
+        True(playlist.IndexOf("Radio Drugie", StringComparison.Ordinal)
+                < playlist.IndexOf("Radio testowe", StringComparison.Ordinal),
+            "Eksport dla WiiM Home musi kompensować dodawanie importowanych wpisów na początek listy.");
         True(!playlist.Contains("haslo", StringComparison.Ordinal),
             "Eksport nie może zapisać adresu z osadzonymi danymi logowania.");
     }
@@ -1598,7 +1609,9 @@ static void TestCommandCatalog()
     Equal("Otwórz element w WiiM", CommandCatalog.GetDisplayName(CommandIds.OpenOnWiiM));
     Equal("Dodaj strumień sieciowy WiiM", CommandCatalog.GetDisplayName(CommandIds.AddWiiMNetworkStream));
     Equal("Importuj strumienie WiiM z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportWiiMNetworkStreams));
-    Equal("Eksportuj strumienie WiiM do playlisty", CommandCatalog.GetDisplayName(CommandIds.ExportWiiMNetworkStreams));
+    Equal("Eksportuj strumienie do WiiM Home", CommandCatalog.GetDisplayName(CommandIds.ExportWiiMNetworkStreams));
+    Equal("Poprzedni strumień lub zajęty preset urządzenia WiiM", CommandCatalog.GetDisplayName(CommandIds.PreviousWiiMDevicePreset));
+    Equal("Następny strumień lub zajęty preset urządzenia WiiM", CommandCatalog.GetDisplayName(CommandIds.NextWiiMDevicePreset));
     Equal("Zmień nazwę w Bibliotece", CommandCatalog.GetDisplayName(CommandIds.RenameLibraryItem));
     Equal("Zmień nazwę pliku na dysku", CommandCatalog.GetDisplayName(CommandIds.RenameLocalFile));
     Equal("Przenieś wyżej na bieżącej liście", CommandCatalog.GetDisplayName(CommandIds.MoveLocalLibraryItemUp));

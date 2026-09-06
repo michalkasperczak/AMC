@@ -52,8 +52,8 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+O"
                           Visibility="Collapsed"
                           Click="ImportWiiMNetworkStreams_Click" />
-                <MenuItem x:Name="ExportWiiMNetworkStreamsMenuItem" Header="_Eksportuj strumienie WiiM do playlisty…" InputGestureText="Ctrl+Shift+O"
-                          automation:AutomationProperties.Name="Eksportuj strumienie WiiM do playlisty, Ctrl+Shift+O"
+                <MenuItem x:Name="ExportWiiMNetworkStreamsMenuItem" Header="_Eksportuj strumienie do WiiM Home…" InputGestureText="Ctrl+Shift+O"
+                          automation:AutomationProperties.Name="Eksportuj strumienie do WiiM Home, Ctrl+Shift+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+O"
                           Visibility="Collapsed"
                           Click="ExportWiiMNetworkStreams_Click" />

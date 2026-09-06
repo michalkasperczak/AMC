@@ -518,6 +518,21 @@ public sealed class ConfigurationStore
             })
             .DistinctBy(stream => stream.StreamUrl, StringComparer.OrdinalIgnoreCase)
             .ToList();
+        var networkStreamIds = state.WiiM.NetworkStreams
+            .Select(stream => stream.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var device in state.WiiM.Devices)
+        {
+            device.LastActivatedNetworkStreamId =
+                !string.IsNullOrWhiteSpace(device.LastActivatedNetworkStreamId)
+                && networkStreamIds.Contains(device.LastActivatedNetworkStreamId.Trim())
+                    ? device.LastActivatedNetworkStreamId.Trim()
+                    : null;
+            if (device.LastActivatedNetworkStreamId is not null)
+            {
+                device.LastActivatedPresetNumber = 0;
+            }
+        }
         if (string.IsNullOrWhiteSpace(state.WiiM.SelectedDeviceId)
             || state.WiiM.Devices.All(device => !string.Equals(
                 device.Id,

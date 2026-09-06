@@ -12,18 +12,25 @@ public static class WiiMNetworkStreamPlaylistWriter
     {
         ArgumentNullException.ThrowIfNull(streams);
         var builder = new StringBuilder("#EXTM3U\r\n");
-        var written = 0;
+        var normalizedStreams = new List<(string Name, string Url)>();
         foreach (var stream in streams)
         {
-            if (written >= MaximumEntries) break;
+            if (normalizedStreams.Count >= MaximumEntries) break;
             if (!WiiMPlaybackUriPolicy.TryNormalize(stream.StreamUrl, out var normalizedUrl)) continue;
+            normalizedStreams.Add((NormalizeName(stream.Name, normalizedUrl), normalizedUrl));
+        }
 
+        // WiiM Home inserts each imported Open Network Stream at the beginning
+        // of its list. Writing the portable playlist from bottom to top therefore
+        // preserves the order the user sees in AMC after WiiM Home imports it.
+        for (var index = normalizedStreams.Count - 1; index >= 0; index--)
+        {
+            var stream = normalizedStreams[index];
             builder.Append("#EXTINF:-1,")
-                .Append(NormalizeName(stream.Name, normalizedUrl))
+                .Append(stream.Name)
                 .Append("\r\n")
-                .Append(normalizedUrl)
+                .Append(stream.Url)
                 .Append("\r\n");
-            written++;
         }
 
         return new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(builder.ToString());

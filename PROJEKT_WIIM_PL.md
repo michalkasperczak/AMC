@@ -13,7 +13,7 @@ eksperymentalne, po sprawdzeniu możliwości konkretnego modelu i z bezpiecznym
 wycofaniem operacji. Polecenia administracyjne, konfiguracja sieci, restart i
 przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
 
-## Stan po alpha 279
+## Stan po alpha 280
 
 - wykrywanie UPnP/SSDP i ręczne dodanie lokalnego adresu IP;
 - wybór i zapamiętanie aktywnego urządzenia;
@@ -27,8 +27,10 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   Shift+strzałkami o 1% w otwartym odtwarzaczu, odporna na chwilową utratę
   fokusa i szybkie kolejne naciśnięcia; kombinacje z klawiszem NVDA pozostają
   przeznaczone dla czytnika ekranu;
-- skróty `Ctrl+Shift+1–0/-/=` do miejsc 1–12 i
-  `Alt+Page Up/Alt+Page Down` do sąsiedniego zajętego miejsca;
+- skróty `Ctrl+Shift+1–0/-/=` do sprzętowych miejsc 1–12. Strumienie AMC nie
+  przejmują tych samych klawiszy. `Alt+Page Up/Alt+Page Down` przechodzi po
+  strumieniach AMC, jeśli taki strumień uruchomiono ostatnio, albo po sąsiednich
+  zajętych presetach, jeśli źródłem był preset;
 - po ponownym uruchomieniu AMC ustala bieżący preset przez zgodność adresu
   strumienia, a gdy urządzenie nie podaje adresu — przez ostatni preset
   uruchomiony w AMC. Aktywne zapisane urządzenie jest bezgłośnie odświeżane po
@@ -50,9 +52,9 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   a jego usunięcie nie usuwa ani nie zmienia presetu sprzętowego.
 - **Otwórz w WiiM** w menu kontekstowym, menu Odtwarzanie i palecie poleceń
   wysyła do aktywnego urządzenia publiczny adres stacji, odcinka podcastu,
-  zdalnego utworu albo publicznej playlisty. Przed operacją podaje nazwę
-  urządzenia i wymaga potwierdzenia, ponieważ zastępuje bieżące źródło WiiM.
-  Po powodzeniu przechodzi do odtwarzacza urządzenia. Lista M3U albo PLS jest
+  zdalnego utworu albo publicznej playlisty. Enter lub `Ctrl+Alt+W` jest
+  świadomym poleceniem, dlatego nie otwiera dodatkowego pytania; po powodzeniu
+  przechodzi do odtwarzacza urządzenia. Lista M3U albo PLS jest
   przekazywana poleceniem playlisty, natomiast M3U8 pozostaje bezpośrednim
   strumieniem HLS.
 - AMC ma własną, przenośną listę **Strumienie sieciowe** dla sesji WiiM.
@@ -60,8 +62,11 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   bezpiecznie M3U, M3U8 lub PLS. `Ctrl+Shift+O` eksportuje całą listę AMC do
   rozszerzonego M3U. Enter albo `Ctrl+Alt+W` wysyła wskazany strumień do
   aktywnego urządzenia, `F2` edytuje nazwę i adres, a Delete usuwa wpis wyłącznie
-  z AMC. Lista jest zachowywana po zamknięciu programu i nie modyfikuje danych
-  aplikacji WiiM Home.
+  z AMC. Eksport zapisuje wpisy od końca, kompensując sposób, w jaki WiiM Home
+  dokłada importowane pozycje na początek; po imporcie kolejność widoczna w WiiM
+  odpowiada kolejności AMC. Lista jest zachowywana po zamknięciu programu i nie
+  modyfikuje danych aplikacji WiiM Home poza świadomym importem pliku przez
+  użytkownika.
 
 Lokalne API nie udostępnia zapisu ani zmiany kolejności natywnych presetów.
 AMC nie zgłasza więc pozornego powodzenia; takie ustawienie nadal wykonuje się

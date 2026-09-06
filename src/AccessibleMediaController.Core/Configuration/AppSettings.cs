@@ -270,6 +270,7 @@ public sealed class WiiMDeviceSettings
     public string Firmware { get; set; } = string.Empty;
     public long LastSeenUtcTicks { get; set; }
     public int LastActivatedPresetNumber { get; set; }
+    public string? LastActivatedNetworkStreamId { get; set; }
 }
 
 public sealed class PlaybackVolumeMemorySettings

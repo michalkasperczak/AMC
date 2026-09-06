@@ -2262,6 +2262,15 @@ najpierw jako plik tymczasowy w folderze docelowym i dopiero po pełnym
 ukończeniu atomowo zastępuje wskazany plik. Funkcja działa bez włączonego
 urządzenia, ponieważ operuje wyłącznie na lokalnej kolekcji AMC.
 
+Od `alpha.280` plik eksportowy ma odwróconą kolejność techniczną, ponieważ WiiM
+Home podczas importu dokłada każdy kolejny wpis na początek. Efektem widocznym
+dla użytkownika jest ta sama kolejność w AMC i WiiM Home. Enter oraz
+`Ctrl+Alt+W` nie wymagają drugiego potwierdzenia: samo wywołanie jest świadomą
+zgodą na zastąpienie bieżącego źródła urządzenia. `Alt+Page Up/Down` rozpoznaje
+ostatnio uruchomiony rodzaj źródła i przechodzi odpowiednio po lokalnych
+strumieniach AMC albo natywnych presetach. Listy pozostają rozdzielone, a
+`Ctrl+Shift+1–0/-/=` nadal oznacza wyłącznie skróty do presetów sprzętowych.
+
 Szczegółowa mapa stabilnych i eksperymentalnych etapów, oparta także na
 porównaniu aktywnych bibliotek społecznościowych LinkPlay/WiiM, znajduje się w
 `PROJEKT_WIIM_PL.md`. W szczególności natywne presety nadal są tylko do odczytu
