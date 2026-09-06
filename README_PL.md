@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.291` skraca komunikat przy przełączaniu strumieni i presetów w
+odtwarzaczu WiiM. Przycisk odtwarzania podaje teraz przede wszystkim nazwę
+materiału oraz działanie, np. „357. Odtwórz”, bez powtarzania rodzaju
+odtwarzacza, pełnej nazwy urządzenia, nieznanego stanu i głośności. Zachowane
+zostaje istotne wyciszenie, a wywołanie presetu nadal podaje jego numer. Pełne
+dane pozostają widoczne w odtwarzaczu i dostępne na żądanie.
+
 Wersja `alpha.290` uzupełnia dostępne ustawianie daty harmonogramu. Strzałki
 góra i dół podają teraz nie tylko zmienioną liczbę, lecz zwięzłą datę oraz dzień
 tygodnia. Dla dnia jest to na przykład „23.09, środa”, dla miesiąca „4

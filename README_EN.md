@@ -1,5 +1,12 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.291` shortens the announcement made when WiiM streams and
+presets are changed. The focused playback button now primarily exposes the
+content name and action, for example “357. Play”, without repeating the player
+type, full device name, unknown state and volume. Muting remains explicit and
+a preset invocation still includes its preset number. Full details remain in
+the player and in on-demand information.
+
 Version `alpha.290` improves accessible schedule-date editing. Up and Down now
 announce a concise date together with its weekday: day changes use a numeric
 day and month, month changes use the full month name, and year changes include

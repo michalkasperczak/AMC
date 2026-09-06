@@ -2194,11 +2194,32 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!updateAccessibleName) return;
         var focusContext = _playerFocusContextPrefix;
         _playerFocusContextPrefix = null;
-        var name = $"Odtwarzacz WiiM, {deviceItem.Title}, {title}, {artist}, {state}. {action}";
+        var name = FormatWiiMPlayerControlName(
+            title,
+            action,
+            playback?.Muted == true,
+            focusContext);
         AutomationProperties.SetName(
             PlayerPlayPauseButton,
-            focusContext is null ? name : $"{focusContext}, {name}");
+            name);
         AutomationProperties.SetHelpText(PlayerPlayPauseButton, PlayerKeyboardHelpText());
+    }
+
+    internal static string FormatWiiMPlayerControlName(
+        string? title,
+        string action,
+        bool muted,
+        string? focusContext = null)
+    {
+        var usefulTitle = string.IsNullOrWhiteSpace(title) ? "WiiM" : title.Trim();
+        var presetContext = !string.IsNullOrWhiteSpace(focusContext)
+            && focusContext.Contains("preset", StringComparison.CurrentCultureIgnoreCase)
+                ? focusContext.Trim().TrimEnd('.', ',', ' ')
+                : null;
+        var subject = presetContext ?? usefulTitle;
+        return muted
+            ? $"{subject}, wyciszone. {action}"
+            : $"{subject}. {action}";
     }
 
     private List<string> BuildWiiMNowPlayingParts(

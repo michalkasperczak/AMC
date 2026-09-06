@@ -6462,3 +6462,23 @@ Oczekiwane: dzień jest czytany np. „23.09, środa”, miesiąc np. „4 wrze�
 piątek”, a rok jako pełna data z rokiem i dniem tygodnia. Lewo i prawo nadal
 podaje nazwę wybranego segmentu. Każde naciśnięcie powoduje tylko jeden
 komunikat.
+
+## Test ręczny zwięzłego odczytu WiiM — alpha 291
+
+### AMC-291-01 — przełączanie strumieni
+
+Otwórz odtwarzacz WiiM i przechodź po zapisanych strumieniach przez `Alt+Page
+Up` oraz `Alt+Page Down`.
+
+Oczekiwane: po zmianie NVDA podaje zwięźle nazwę strumienia i działanie
+przycisku, np. „357. Odtwórz” albo „357. Wstrzymaj”. Nie czyta automatycznie
+„Odtwarzacz WiiM”, pełnej nazwy urządzenia, „stan nieznany” ani głośności.
+Wyciszenie jest podawane, jeżeli rzeczywiście jest aktywne.
+
+### AMC-291-02 — preset zachowuje numer
+
+Uruchom preset z listy oraz bezpośrednim skrótem `Ctrl+Shift+cyfra`.
+
+Oczekiwane: komunikat nadal zawiera numer presetu i jego nazwę, ale nie dokleja
+pełnego opisu urządzenia. Szczegółowe dane można nadal odczytać w odtwarzaczu
+i poleceniem informacji na żądanie.
