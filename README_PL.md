@@ -1,5 +1,18 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.299` dodaje widok **Nagrane pliki** pod skrótem `Alt+Shift+R`.
+Można go otworzyć z sesji Radio internetowe albo Pliki lokalne. Widok przechodzi
+do sesji Pliki lokalne i pokazuje w jednym miejscu zakończone nagrania ze
+wszystkich skonfigurowanych folderów, od najnowszego. Są to zwykłe elementy
+Biblioteki, dlatego działają na nich te same polecenia co na pozostałych
+plikach: odtwarzanie, kolejka, Ulubione, playlisty, kopiowanie, właściwości,
+zakładki, zmiana nazwy i usuwanie. Rejestr jest trwały i nie wymaga skanowania
+ani pobierania całych folderów chmurowych. Przy pierwszym uruchomieniu program
+rozpoznaje też starsze pliki już zaindeksowane w osobnym folderze nagrań albo
+w folderach przypisanych harmonogramom. Współdzielonego folderu podcastów nie
+klasyfikuje wstecz automatycznie, aby nie uznać pobranych odcinków za nagrania
+radia. `Alt+R` nadal pokazuje wyłącznie nagrania trwające.
+
 Wersja `alpha.298` nie pozwala zginąć błędowi nagrania z harmonogramu. Nieudane
 połączenie jest nadal zapisywane w logu i oznajmiane od razu, a gdy wydarzyło
 się poza aktywnym oknem AMC — zostaje ponownie podane po powrocie do programu.

@@ -50,6 +50,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const string PlayerViewName = "Teraz odtwarzane";
     private const string BookmarkViewName = "Zakładki";
     private const string ActiveRadioRecordingsViewName = "Nagrywane";
+    private const string RecordedRadioFilesViewName = "Nagrane pliki";
     private const string PodcastInboxViewName = "Nowe odcinki";
     private const string PodcastInProgressViewName = "W trakcie słuchania";
     private const string PodcastDownloadsViewName = "Pobrane";
@@ -294,6 +295,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _bookmarkIndex = new BookmarkIndex(_state.Bookmarks);
         _chapterIndex = new ChapterIndex(_state.Bookmarks);
         LoadPersistedLocalMedia();
+        if (BackfillRecordedRadioFileIndex()) QueueStateSave();
         LoadPersistedRadio();
         LoadPersistedPodcasts();
         LoadPersistedWiiM();
@@ -3461,6 +3463,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var local = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
         var podcasts = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
         var wiiM = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
+        if (commandId == CommandIds.ViewRecordedRadioFiles) return radio || local;
         if (commandId == CommandIds.OpenOnWiiM)
             return ActionItems.Count == 1 && TryGetWiiMPlayableUri(ActionItem, out _);
         if (commandId is CommandIds.ManageWiiMDevices
@@ -5499,6 +5502,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CollectionSortCustomMenuItem.IsChecked = collectionSorting
             && collectionSortMode == CollectionSortMode.Custom;
         ActiveRadioRecordingsViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        RecordedRadioFilesViewMenuItem.Visibility = radio || local ? Visibility.Visible : Visibility.Collapsed;
         RadioRecognitionHistoryViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         PodcastInboxViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         PodcastInProgressViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
@@ -6761,7 +6765,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ClipStartTicks = previous?.ClipStartTicks,
                 ClipEndTicks = previous?.ClipEndTicks,
                 FileLength = fileLength,
-                LastWriteUtcTicks = lastWriteUtcTicks
+                LastWriteUtcTicks = lastWriteUtcTicks,
+                IsRadioRecording = previous?.IsRadioRecording == true,
+                RadioRecordingCompletedUtcTicks = previous?.RadioRecordingCompletedUtcTicks ?? 0
             };
         }).ToList();
 
@@ -9542,6 +9548,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RestoreMediaListFocusAfterRefresh();
             return new CommandExecutionResult(true);
         }
+        if (commandId == CommandIds.ViewRecordedRadioFiles)
+        {
+            ShowRecordedRadioFiles();
+            return new CommandExecutionResult(true);
+        }
         if (commandId == CommandIds.RadioJumpLive)
         {
             if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
@@ -10129,6 +10140,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (string.Equals(_currentView, RecordedRadioFilesViewName, StringComparison.Ordinal))
+        {
+            if (!string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
+            {
+                _currentView = _state.LocalMedia.LibraryView;
+                currentNavigation.CurrentView = _currentView;
+                RefreshCurrentView(fallbackIndex, preferredItemId);
+                return;
+            }
+            ViewHeading.Text = RecordedRadioFilesViewName;
+            _unfilteredItems = CreateRecordedRadioFileRows();
+            ApplyFilter(preferredItemId, fallbackIndex);
+            return;
+        }
+
         if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
             && string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal))
         {
@@ -10412,6 +10438,44 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 };
             return new MediaItemRow(item, FormatListItem(item), item.PrimaryText);
         }).ToList();
+    }
+
+    private List<MediaItemRow> CreateRecordedRadioFileRows()
+    {
+        var recordedById = _state.LocalMedia.Items
+            .Where(item => item.IsRadioRecording)
+            .GroupBy(item => item.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        return ActiveLocalItems()
+            .Where(item => recordedById.ContainsKey(item.Id))
+            .OrderByDescending(item => recordedById[item.Id].RadioRecordingCompletedUtcTicks)
+            .ThenBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => item.Source ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
+            .ToList();
+    }
+
+    private void ShowRecordedRadioFiles()
+    {
+        var local = _sessions.FindSession("local");
+        if (local is null)
+        {
+            Announce("Sesja Pliki lokalne nie jest dostępna");
+            return;
+        }
+
+        CaptureCurrentSessionNavigationState();
+        HidePlayerForBrowserNavigation();
+        _sessions.SelectSession(local.Id);
+        var navigation = GetSessionNavigationState(local.Id);
+        _currentView = RecordedRadioFilesViewName;
+        navigation.CurrentView = _currentView;
+        navigation.PlayerActive = false;
+        RestoreFilterForCurrentView(navigation);
+        RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
+        PrepareViewFocusContext($"{RecordedRadioFilesViewName}, Pliki lokalne");
+        RestoreMediaListFocusAfterRefresh();
+        QueueStateSave();
     }
 
     private List<MediaItemRow> CreateFolderRows()
@@ -11719,6 +11783,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         or "Historia odtwarzania"
         or BookmarkViewName
         or ActiveRadioRecordingsViewName
+        or RecordedRadioFilesViewName
         or "Radio i rekomendacje"
         or "Miksy"
         or "Wyjścia i urządzenia"
@@ -11859,7 +11924,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        if (_currentView is not ("Ulubione" or "Biblioteka" or "Kolejka" or FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName))
+        if (_currentView is not ("Ulubione" or "Biblioteka" or "Kolejka" or FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName or RecordedRadioFilesViewName))
         {
             RestoreMediaListFocusAfterRefresh();
             Dispatcher.BeginInvoke(
@@ -11868,7 +11933,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        if (_currentView is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName)
+        if (_currentView is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName or RecordedRadioFilesViewName)
         {
             items = items.Where(item => item.IsInLibrary).ToArray();
             if (items.Length == 0)
@@ -11896,7 +11961,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 item.IsFavorite = false;
             }
-            else if (_currentView is "Biblioteka" or FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName)
+            else if (_currentView is "Biblioteka" or FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName or RecordedRadioFilesViewName)
             {
                 item.IsInLibrary = false;
                 if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
@@ -11924,6 +11989,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 AllLocalFilesViewName => $"Przywrócono w bibliotece: {items[0].Title}",
                 CustomLocalOrderViewName => $"Przywrócono w bibliotece: {items[0].Title}",
                 LocalAlbumContentsViewName => $"Przywrócono w bibliotece: {items[0].Title}",
+                RecordedRadioFilesViewName => $"Przywrócono w nagranych plikach: {items[0].Title}",
                 "Kolejka" => $"Przywrócono w kolejce: {items[0].Title}",
                 _ => throw new InvalidOperationException($"Nieobsługiwany widok usuwania: {_currentView}")
             }
@@ -11936,7 +12002,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             orderSnapshot);
         if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
-            if (_currentView is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName)
+            if (_currentView is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName or RecordedRadioFilesViewName)
             {
                 AddLocalExclusions(items);
                 RefreshLocalSessionItems();
@@ -11956,7 +12022,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RefreshCurrentView(previousIndex);
         RestoreMediaListFocusAfterRefresh();
         var removedLabel = items.Length == 1 ? items[0].Title : FormatItemCount(items.Length);
-        var announcement = _currentView is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName
+        var announcement = _currentView is FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName or RecordedRadioFilesViewName
             ? items.Length == 1
                 ? $"Usunięto z biblioteki: {removedLabel}. Plik pozostaje w folderze"
                 : $"Usunięto z biblioteki: {removedLabel}. Pliki pozostają w folderach"
@@ -12197,7 +12263,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             "Ulubione" => CaptureFavoriteOrder(session, items),
             "Kolejka" => CaptureQueueOrder(session, items),
-            "Biblioteka" or FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName
+            "Biblioteka" or FolderViewName or AllLocalFilesViewName or CustomLocalOrderViewName or LocalAlbumContentsViewName or RecordedRadioFilesViewName
                 when string.Equals(session.Id, "local", StringComparison.Ordinal) =>
                 CaptureLocalCustomOrder(items),
             _ => null
@@ -16881,6 +16947,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             commandId = CommandIds.OpenOnWiiM;
             return true;
         }
+        var recordedFilesCommand = MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
+            key,
+            modifiers,
+            _sessions.Current.Id);
+        if (recordedFilesCommand is not null)
+        {
+            commandId = recordedFilesCommand;
+            return true;
+        }
         if (modifiers == ModifierKeys.Control
             && key == Key.I
             && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
@@ -17879,6 +17954,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!changed) return;
         RefreshLocalSessionItems();
         TrySaveLocalMediaState(false);
+        RefreshRecordedRadioFilesViewIfVisible();
     }
 
     private bool ImportCompletedRadioRecording(string path, bool refreshAndSave = true)
@@ -17889,11 +17965,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var normalizedPath = Path.GetFullPath(path);
             RemoveLocalExclusions([normalizedPath]);
             var import = LocalLibraryImporter.Import(_localItems, [normalizedPath]);
-            var changed = import.AddedItems.Count > 0 || import.RestoredItems.Count > 0;
+            var item = import.ImportedItems.FirstOrDefault();
+            var indexed = item is not null && MarkAsCompletedRadioRecording(item);
+            var changed = import.AddedItems.Count > 0 || import.RestoredItems.Count > 0 || indexed;
             if (refreshAndSave && changed)
             {
                 RefreshLocalSessionItems();
                 TrySaveLocalMediaState(false);
+                RefreshRecordedRadioFilesViewIfVisible();
             }
             if (changed)
             {
@@ -17914,6 +17993,86 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 exception);
             return false;
         }
+    }
+
+    private bool MarkAsCompletedRadioRecording(MediaItem item)
+    {
+        var saved = FindLocalItemSettings(item);
+        if (saved is null)
+        {
+            CaptureLocalMediaState();
+            saved = FindLocalItemSettings(item);
+        }
+        if (saved is null) return false;
+
+        var changed = !saved.IsRadioRecording;
+        saved.IsRadioRecording = true;
+        if (saved.RadioRecordingCompletedUtcTicks <= 0)
+        {
+            saved.RadioRecordingCompletedUtcTicks = DateTime.UtcNow.Ticks;
+            changed = true;
+        }
+        return changed;
+    }
+
+    private bool BackfillRecordedRadioFileIndex()
+    {
+        var folders = new List<string>
+        {
+            ResolveSystemRadioRecordingsFolder()
+        };
+        if (!string.IsNullOrWhiteSpace(_state.Radio.RecordingsFolder))
+            folders.Add(_state.Radio.RecordingsFolder);
+        // Nie indeksujemy wstecz całego współdzielonego folderu podcastów:
+        // nie da się w nim wiarygodnie odróżnić starszych nagrań radia od
+        // pobranych odcinków. Nowe nagrania są oznaczane jednoznacznie po
+        // zakończeniu zapisu, niezależnie od wybranego folderu.
+        folders.AddRange(_state.Radio.RecordingSchedules
+            .Select(schedule => schedule.OutputFolder)
+            .Where(folder => !string.IsNullOrWhiteSpace(folder)));
+
+        var normalizedFolders = folders
+            .Select(NormalizeLocalFilePath)
+            .Where(folder => folder.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (normalizedFolders.Length == 0) return false;
+
+        var changed = false;
+        foreach (var item in _state.LocalMedia.Items.Where(item => !item.IsRadioRecording))
+        {
+            var path = NormalizeLocalFilePath(item.Path);
+            if (path.Length == 0
+                || !normalizedFolders.Any(folder => IsSameOrDescendantPath(path, folder)))
+            {
+                continue;
+            }
+            item.IsRadioRecording = true;
+            item.RadioRecordingCompletedUtcTicks = item.LastWriteUtcTicks.GetValueOrDefault(1);
+            changed = true;
+        }
+        if (changed)
+        {
+            DiagnosticLog.Info(
+                "radio-recording",
+                "Utworzono indeks wcześniejszych nagrań na podstawie zapisanych folderów nagrywania.");
+        }
+        return changed;
+    }
+
+    private void RefreshRecordedRadioFilesViewIfVisible()
+    {
+        if (_playerViewActive
+            || !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
+            || !string.Equals(_currentView, RecordedRadioFilesViewName, StringComparison.Ordinal))
+        {
+            return;
+        }
+        var selectedId = SelectedItem?.Id;
+        var hadFocus = MediaList.IsKeyboardFocusWithin;
+        if (hadFocus) AnchorMediaListFocus();
+        RefreshCurrentView(preferredItemId: selectedId);
+        if (hadFocus) RestoreMediaListFocusAfterRefresh();
     }
 
     private bool TryReturnFromTransientRadioView()
@@ -18613,6 +18772,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ShowRadioRecognitionHistory();
     private void ActiveRadioRecordingsView_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.ViewActiveRadioRecordings);
+    private void RecordedRadioFilesView_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.ViewRecordedRadioFiles);
     private void Sessions_Click(object sender, RoutedEventArgs e) => ShowSessionList();
     private void MediaContextMenu_Opened(object sender, RoutedEventArgs e)
     {

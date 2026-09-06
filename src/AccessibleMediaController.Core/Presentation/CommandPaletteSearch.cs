@@ -281,6 +281,7 @@ public static class CommandPaletteSearch
             CommandIds.AddRadioSchedule => "Shift+R (Radio internetowe)",
             CommandIds.ManageRadioSchedules => "Ctrl+Shift+H (Radio internetowe)",
             CommandIds.ViewActiveRadioRecordings => "Alt+R (Radio internetowe)",
+            CommandIds.ViewRecordedRadioFiles => "Alt+Shift+R",
             CommandIds.RadioJumpLive => "End (odtwarzacz radia)",
             CommandIds.RecognizeRadioTrack => "S (odtwarzacz radia)",
             CommandIds.ToggleRadioRecognitionMonitoring => "Shift+S (odtwarzacz radia)",

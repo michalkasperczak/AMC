@@ -528,6 +528,8 @@ public sealed class LocalMediaItemSettings
     public long? ClipEndTicks { get; set; }
     public long? FileLength { get; set; }
     public long? LastWriteUtcTicks { get; set; }
+    public bool IsRadioRecording { get; set; }
+    public long RadioRecordingCompletedUtcTicks { get; set; }
 }
 
 public sealed class RadioSettings

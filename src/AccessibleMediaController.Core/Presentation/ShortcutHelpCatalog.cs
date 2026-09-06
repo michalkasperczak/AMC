@@ -203,6 +203,7 @@ public static class ShortcutHelpCatalog
         yield return Info("radio", "Rozpocznij lub zakończ nagrywanie", "Ctrl+Alt+R", "lista lub odtwarzacz radia");
         yield return Info("radio", "Wstrzymaj lub wznów wybrane nagranie", "Shift+Spacja", "nagrywana stacja na liście lub w odtwarzaczu radia");
         yield return Info("radio", "Pokaż aktualnie nagrywane stacje; Escape wraca do wcześniejszego widoku", "Alt+R", "lista radia internetowego");
+        yield return Info("radio", "Pokaż zakończone nagrania jako zwykłe pliki multimedialne", "Alt+Shift+R", "Pliki lokalne lub Radio internetowe");
         yield return Info("collections", "Pokaż presety aktywnej sesji", "Ctrl+Alt+P", "Pliki lokalne lub Radio; skrót zarezerwowany także dla przyszłych usług");
         yield return Info("collections", "Utwórz albo przypisz preset; w WiiM przypisz lokalny skrót do gotowego presetu urządzenia", "Ctrl+Alt+Shift+P", "Sesja obsługująca presety");
     }

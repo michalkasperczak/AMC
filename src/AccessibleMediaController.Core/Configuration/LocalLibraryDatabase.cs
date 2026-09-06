@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 /// </summary>
 internal sealed class LocalLibraryDatabase(string databasePath)
 {
-    private const int DatabaseSchemaVersion = 7;
+    private const int DatabaseSchemaVersion = 8;
     private readonly object _gate = new();
 
     public string Path { get; } = databasePath;
@@ -76,7 +76,8 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                            last_write_utc_ticks, loudness_normalization_override,
                            smooth_track_transitions_override,
                            inter_track_silence_ms_override, clip_start_ticks,
-                           clip_end_ticks
+                           clip_end_ticks, is_radio_recording,
+                           radio_recording_completed_utc_ticks
                     FROM local_items
                     ORDER BY rowid;
                     """;
@@ -108,7 +109,9 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                         SmoothTrackTransitionsOverride = NullableBool(reader, 20),
                         InterTrackSilenceMillisecondsOverride = NullableInt32(reader, 21),
                         ClipStartTicks = NullableInt64(reader, 22),
-                        ClipEndTicks = NullableInt64(reader, 23)
+                        ClipEndTicks = NullableInt64(reader, 23),
+                        IsRadioRecording = reader.GetInt64(24) != 0,
+                        RadioRecordingCompletedUtcTicks = reader.GetInt64(25)
                     });
                 }
             }
@@ -362,7 +365,9 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 smooth_track_transitions_override INTEGER NULL,
                 inter_track_silence_ms_override INTEGER NULL,
                 clip_start_ticks INTEGER NULL,
-                clip_end_ticks INTEGER NULL
+                clip_end_ticks INTEGER NULL,
+                is_radio_recording INTEGER NOT NULL DEFAULT 0,
+                radio_recording_completed_utc_ticks INTEGER NOT NULL DEFAULT 0
             );
             CREATE INDEX IF NOT EXISTS ix_local_items_title ON local_items(title COLLATE AMC_PL);
             CREATE INDEX IF NOT EXISTS ix_local_items_path ON local_items(path COLLATE NOCASE);
@@ -478,6 +483,8 @@ internal sealed class LocalLibraryDatabase(string databasePath)
         EnsureColumn(connection, "local_items", "inter_track_silence_ms_override", "INTEGER NULL");
         EnsureColumn(connection, "local_items", "clip_start_ticks", "INTEGER NULL");
         EnsureColumn(connection, "local_items", "clip_end_ticks", "INTEGER NULL");
+        EnsureColumn(connection, "local_items", "is_radio_recording", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "local_items", "radio_recording_completed_utc_ticks", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, "bookmarks", "purpose", "INTEGER NOT NULL DEFAULT 1");
         EnsureColumn(connection, "bookmarks", "chapter_origin", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, "bookmarks", "chapter_source_id", "TEXT NULL");
@@ -527,12 +534,14 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                     playback_rate_override, output_device_id, resume_position_ticks,
                     file_length, last_write_utc_ticks, loudness_normalization_override,
                     smooth_track_transitions_override, inter_track_silence_ms_override,
-                    clip_start_ticks, clip_end_ticks)
+                    clip_start_ticks, clip_end_ticks, is_radio_recording,
+                    radio_recording_completed_utc_ticks)
                 VALUES(
                     $id, $title, $custom, $path, $duration, $bitrate, $estimated,
                     $sampleRate, $favorite, $library, $available, $queue, $playNext,
                     $resumeMode, $rate, $device, $resumePosition, $fileLength, $lastWrite,
-                    $normalize, $transitions, $silence, $clipStart, $clipEnd);
+                    $normalize, $transitions, $silence, $clipStart, $clipEnd,
+                    $radioRecording, $radioRecordingCompleted);
                 """,
                 ("$id", item.Id), ("$title", item.Title), ("$custom", item.HasCustomTitle),
                 ("$path", item.Path), ("$duration", item.DurationTicks),
@@ -548,7 +557,9 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 ("$transitions", item.SmoothTrackTransitionsOverride),
                 ("$silence", item.InterTrackSilenceMillisecondsOverride),
                 ("$clipStart", item.ClipStartTicks),
-                ("$clipEnd", item.ClipEndTicks));
+                ("$clipEnd", item.ClipEndTicks),
+                ("$radioRecording", item.IsRadioRecording),
+                ("$radioRecordingCompleted", item.RadioRecordingCompletedUtcTicks));
         }
 
         for (var index = 0; index < state.LocalMedia.FolderSources.Count; index++)

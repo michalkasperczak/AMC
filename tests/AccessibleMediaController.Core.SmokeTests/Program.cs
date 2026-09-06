@@ -1872,6 +1872,7 @@ static void TestCommandCatalog()
     Equal("Pokaż nowe odcinki podcastów", CommandCatalog.GetDisplayName(CommandIds.ViewPodcastInbox));
     Equal("Pokaż rozpoczęte odcinki podcastów", CommandCatalog.GetDisplayName(CommandIds.ViewPodcastInProgress));
     Equal("Pokaż aktualnie nagrywane stacje", CommandCatalog.GetDisplayName(CommandIds.ViewActiveRadioRecordings));
+    Equal("Pokaż nagrane pliki", CommandCatalog.GetDisplayName(CommandIds.ViewRecordedRadioFiles));
     Equal("Rozpocznij nową część nagrania radia", CommandCatalog.GetDisplayName(CommandIds.SplitRadioRecording));
     Equal("Zatrzymaj wszystkie trwające nagrania", CommandCatalog.GetDisplayName(CommandIds.StopAllRadioRecordings));
     Equal("Pokaż presety aktywnej sesji", CommandCatalog.GetDisplayName(CommandIds.ViewRadioPresets));
@@ -2618,6 +2619,8 @@ static void TestSqliteLibraryMigration()
         state.LocalMedia.CurrentItemId = "item-1499";
         state.LocalMedia.Items[1498].IsInQueue = true;
         state.LocalMedia.Items[1499].IsInQueue = true;
+        state.LocalMedia.Items[1499].IsRadioRecording = true;
+        state.LocalMedia.Items[1499].RadioRecordingCompletedUtcTicks = 987654321;
         state.CollectionOrders.QueueItemIdsBySession["local"] = ["item-1499", "item-1498"];
         state.PlaybackHistory.ItemIdsBySession["local"] = ["item-1499", "item-1498"];
         state.Bookmarks.Entries.Add(new BookmarkEntry
@@ -2649,6 +2652,8 @@ static void TestSqliteLibraryMigration()
         Equal(1500, reloaded.LocalMedia.Items.Count);
         Equal("Zmieniony tytuł", reloaded.LocalMedia.Items.Single(item => item.Id == "item-1499").Title);
         Equal(true, reloaded.LocalMedia.Items.Single(item => item.Id == "item-1499").HasCustomTitle);
+        Equal(true, reloaded.LocalMedia.Items.Single(item => item.Id == "item-1499").IsRadioRecording);
+        Equal(987654321L, reloaded.LocalMedia.Items.Single(item => item.Id == "item-1499").RadioRecordingCompletedUtcTicks);
         True(reloaded.CollectionOrders.QueueItemIdsBySession["local"].SequenceEqual(
                 ["item-1499", "item-1498"]),
             "Ponowny odczyt SQLite powinien zachować ręczny porządek Kolejki.");

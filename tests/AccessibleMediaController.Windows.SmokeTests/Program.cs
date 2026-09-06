@@ -2776,6 +2776,20 @@ static void TestMainWindowDigitShortcutRouting()
         && MainWindowShortcutRouter.ResolveTransientRadioView(Key.R, ModifierKeys.None, "radio") is null,
         "Alt+R nie otwiera tymczasowego widoku Nagrywane wyłącznie w Radiu.");
     Assert(
+        MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
+            Key.R,
+            ModifierKeys.Alt | ModifierKeys.Shift,
+            "radio") == CommandIds.ViewRecordedRadioFiles
+        && MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
+            Key.R,
+            ModifierKeys.Alt | ModifierKeys.Shift,
+            "local") == CommandIds.ViewRecordedRadioFiles
+        && MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
+            Key.R,
+            ModifierKeys.Alt | ModifierKeys.Shift,
+            "podcasts") is null,
+        "Alt+Shift+R nie otwiera listy zakończonych nagrań wyłącznie z Radia i Plików lokalnych.");
+    Assert(
         MainWindowShortcutRouter.ResolveNumberedView(Key.D3, ModifierKeys.Alt, "radio", "Biblioteka")
             == CommandIds.SortCollectionCustom,
         "Alt+3 nie wybiera kolejności własnej w Bibliotece radia.");

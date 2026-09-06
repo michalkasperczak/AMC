@@ -1,5 +1,18 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.299` adds a **Recorded files** view under `Alt+Shift+R`. It can
+be opened from Internet Radio or Local Files and switches to the Local Files
+session, where it aggregates completed recordings from every configured
+recording folder, newest first. These entries are ordinary Library files, so
+playback, queue, favorites, playlists, copying, properties, bookmarks,
+renaming, and deletion use the same commands as elsewhere. The index persists
+without scanning or hydrating entire cloud folders. On first run AMC also
+recognizes older files already indexed under a dedicated recording folder or
+a schedule-specific folder. It deliberately does not backfill a shared podcast
+download folder, because downloaded episodes cannot be distinguished reliably
+from old radio recordings there. `Alt+R` continues to show active recordings
+only.
+
 Version `alpha.298` makes scheduled recording failures persistent. A failed
 connection is logged and announced immediately; if it happened while AMC was
 not active, it is announced again when the user returns. The latest dated

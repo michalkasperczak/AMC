@@ -116,6 +116,7 @@ public static class CommandIds
     public const string AddRadioSchedule = "radio.recording.schedule.add";
     public const string ManageRadioSchedules = "radio.recording.schedules";
     public const string ViewActiveRadioRecordings = "radio.recording.active";
+    public const string ViewRecordedRadioFiles = "radio.recording.completed";
     public const string RadioJumpLive = "radio.timeshift.live";
     public const string RecognizeRadioTrack = "radio.recognition.now";
     public const string ToggleRadioRecognitionMonitoring = "radio.recognition.monitor.toggle";

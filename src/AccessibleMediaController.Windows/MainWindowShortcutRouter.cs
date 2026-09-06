@@ -58,6 +58,16 @@ internal static class MainWindowShortcutRouter
             ? CommandIds.ViewActiveRadioRecordings
             : null;
 
+    public static string? ResolveRecordedRadioFilesView(
+        Key key,
+        ModifierKeys modifiers,
+        string sessionId) =>
+        modifiers == (ModifierKeys.Alt | ModifierKeys.Shift)
+        && key == Key.R
+        && sessionId is "local" or "radio"
+            ? CommandIds.ViewRecordedRadioFiles
+            : null;
+
     public static string? ResolvePlayerAudioProcessing(
         Key key,
         ModifierKeys modifiers,
