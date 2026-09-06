@@ -106,10 +106,13 @@ Nieudana kontrola nie podmienia działającego składnika.
 
 `yt-dlp` jest uruchamiany w osobnym procesie z `--ignore-config`, bez cookies,
 bez profilu przeglądarki i bez przetwarzania playlisty. AMC przekazuje mu tylko
-jawnie dodany przez użytkownika adres publicznej transmisji YouTube. Zwrócony
+jawnie dodany przez użytkownika adres publicznego materiału YouTube. Zwrócony
 podpisany adres audio ma krótki czas życia, nie trafia do ustawień, SQLite,
-eksportu ani dziennika i jest odtwarzany przez istniejący tor FFmpeg. Zwykły
-film, transmisja zakończona albo materiał wymagający logowania są odrzucane.
+eksportu ani dziennika i jest odtwarzany przez istniejący tor FFmpeg. W Radiu
+akceptowana jest tylko trwająca transmisja. Od `alpha.294` w Podcastach zwykły
+publiczny film albo transmisja trafia do **Mediów internetowych**; skończony
+materiał może być również jawnie zapisany do MP3. Materiał wymagający logowania
+pozostaje niedostępny.
 
 Ten etap nie jest jeszcze aktualizatorem całej aplikacji ani docelowym
 podpisanym manifestem wszystkich bibliotek. Użytkownik może sprawdzić oba

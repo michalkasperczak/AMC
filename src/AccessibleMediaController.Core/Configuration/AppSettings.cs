@@ -296,6 +296,12 @@ public sealed class PodcastSettings
     public double PlaybackRate { get; set; } = 1d;
 }
 
+public enum PodcastSourceKind
+{
+    Rss,
+    PublicInternetMedia
+}
+
 public sealed class PodcastSubscriptionSettings
 {
     public string Id { get; set; } = string.Empty;
@@ -304,6 +310,7 @@ public sealed class PodcastSubscriptionSettings
     public string Author { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string FeedUrl { get; set; } = string.Empty;
+    public PodcastSourceKind SourceKind { get; set; }
     public string? HomepageUrl { get; set; }
     public long LastRefreshUtcTicks { get; set; }
     public int RefreshIntervalMinutes { get; set; }

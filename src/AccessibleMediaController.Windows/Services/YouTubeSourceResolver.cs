@@ -10,6 +10,8 @@ internal sealed record ResolvedYouTubeAudioSource(
     string PageUrl,
     string StreamUrl,
     string Title,
+    string Channel,
+    TimeSpan Duration,
     bool IsLive,
     bool IsHls,
     string? Codec,
@@ -46,6 +48,17 @@ internal static class YouTubeSourceResolver
 
     internal static async Task<ResolvedYouTubeAudioSource> ResolveLiveAudioAsync(
         string pageUrl,
+        CancellationToken cancellationToken) =>
+        await ResolveAudioCoreAsync(pageUrl, requireLive: true, cancellationToken).ConfigureAwait(false);
+
+    internal static async Task<ResolvedYouTubeAudioSource> ResolveAudioAsync(
+        string pageUrl,
+        CancellationToken cancellationToken) =>
+        await ResolveAudioCoreAsync(pageUrl, requireLive: false, cancellationToken).ConfigureAwait(false);
+
+    private static async Task<ResolvedYouTubeAudioSource> ResolveAudioCoreAsync(
+        string pageUrl,
+        bool requireLive,
         CancellationToken cancellationToken)
     {
         if (!IsYouTubeUrl(pageUrl))
@@ -55,7 +68,7 @@ internal static class YouTubeSourceResolver
         if (executable is null)
         {
             throw new NotSupportedException(
-                "Odtwarzanie transmisji YouTube wymaga składnika yt-dlp. Wybierz Pomoc, Sprawdź aktualizacje i składniki.");
+                "Odtwarzanie publicznego materiału YouTube wymaga składnika yt-dlp. Wybierz Pomoc, Sprawdź aktualizacje i składniki.");
         }
 
         var start = new ProcessStartInfo
@@ -119,7 +132,7 @@ internal static class YouTubeSourceResolver
                 throw new InvalidDataException("YouTube nie udostępnił obecnie publicznego strumienia audio.");
             if (output.Length == 0 || output.Length > MaximumJsonCharacters)
                 throw new InvalidDataException("YouTube zwrócił nieprawidłowe dane źródła.");
-            return ParseResult(pageUrl.Trim(), output, requireLive: true);
+            return ParseResult(pageUrl.Trim(), output, requireLive);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -155,7 +168,7 @@ internal static class YouTubeSourceResolver
             if (requireLive && !isLive)
             {
                 throw new InvalidDataException(
-                    "Ten adres YouTube nie jest obecnie transmisją na żywo. Zwykłe filmy będą obsługiwane w module Media internetowe.");
+                    "Ten adres YouTube nie jest obecnie transmisją na żywo. Zwykły film dodaj w sesji Podcasty jako medium internetowe.");
             }
 
             var selected = SelectAudio(root);
@@ -176,8 +189,15 @@ internal static class YouTubeSourceResolver
                         || streamUri.Host.Equals("manifest.googlevideo.com", StringComparison.OrdinalIgnoreCase)
                         || streamUri.AbsolutePath.Contains("/manifest/hls_", StringComparison.OrdinalIgnoreCase);
             var title = ReadString(root, "title").Trim();
-            if (title.Length == 0) title = "YouTube na żywo";
+            if (title.Length == 0) title = isLive ? "YouTube na żywo" : "Materiał YouTube";
             if (title.Length > 500) title = title[..500].Trim();
+            var channel = ReadString(root, "channel").Trim();
+            if (channel.Length == 0) channel = ReadString(root, "uploader").Trim();
+            if (channel.Length > 300) channel = channel[..300].Trim();
+            var durationSeconds = ReadNumber(root, "duration");
+            var duration = durationSeconds is > 0 and < 365 * 24 * 60 * 60
+                ? TimeSpan.FromSeconds(durationSeconds.Value)
+                : TimeSpan.Zero;
             var codec = ReadString(selected.Value, "acodec");
             if (codec.Equals("none", StringComparison.OrdinalIgnoreCase)) codec = string.Empty;
             var bitrate = ReadNumber(selected.Value, "abr");
@@ -188,6 +208,8 @@ internal static class YouTubeSourceResolver
                 pageUrl,
                 streamUri.AbsoluteUri,
                 title,
+                channel,
+                duration,
                 isLive,
                 isHls,
                 codec.Length == 0 ? null : codec,

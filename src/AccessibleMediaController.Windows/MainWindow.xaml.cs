@@ -21,6 +21,7 @@ using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Presentation;
+using AccessibleMediaController.Core.Radio;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Updates;
 using AccessibleMediaController.Windows.Controls;
@@ -3508,7 +3509,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.ManageLocalSources
             or CommandIds.RenameLocalFile
             or CommandIds.AddRadioStation
-            or CommandIds.ImportRadioPlaylist)
+            or CommandIds.ImportRadioPlaylist
+            or CommandIds.ExportRadioFavorites)
         {
             return false;
         }
@@ -3520,6 +3522,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (commandId is CommandIds.AddRadioStation
                 or CommandIds.ImportRadioPlaylist
+                or CommandIds.ExportRadioFavorites
                 or CommandIds.ToggleRadioRecording
                 or CommandIds.ToggleRadioRecordingPause
                 or CommandIds.SplitRadioRecording
@@ -4169,23 +4172,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var subscription = _state.Podcasts.Subscriptions.FirstOrDefault(candidate =>
                 string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
             if (subscription is null) return $"Podcast{Environment.NewLine}Nazwa: {item.Title}";
+            var internetMedia = subscription.SourceKind == PodcastSourceKind.PublicInternetMedia;
             var refreshed = subscription.LastRefreshUtcTicks > 0
                 ? new DateTime(subscription.LastRefreshUtcTicks, DateTimeKind.Utc).ToLocalTime().ToString("g", CultureInfo.CurrentCulture)
                 : "jeszcze nie";
             return string.Join(Environment.NewLine,
                 new string?[]
                 {
-                    "Podcast",
+                    internetMedia ? "Media internetowe" : "Podcast",
                     $"Nazwa: {subscription.Title}",
                     PodcastMetadataPresentation.FormatAuthor(subscription.Author) is { Length: > 0 } author
                         ? $"Autor: {author}"
                         : null,
                     !includeDescription || string.IsNullOrWhiteSpace(subscription.Description) ? null : $"Opis: {subscription.Description}",
-                    $"Odcinki: {_state.Podcasts.Episodes.Count(episode => string.Equals(episode.SubscriptionId, subscription.Id, StringComparison.Ordinal))}",
-                    $"Ostatnie odświeżenie: {refreshed}",
+                    $"{(internetMedia ? "Materiały" : "Odcinki")}: {_state.Podcasts.Episodes.Count(episode => string.Equals(episode.SubscriptionId, subscription.Id, StringComparison.Ordinal))}",
+                    internetMedia ? null : $"Ostatnie odświeżenie: {refreshed}",
                     $"Ulubiony: {(subscription.IsFavorite ? "tak" : "nie")}",
                     $"W Bibliotece: {(subscription.IsInLibrary ? "tak" : "nie")}",
-                    $"Kanał RSS lub Atom: {subscription.FeedUrl}",
+                    internetMedia ? null : $"Kanał RSS lub Atom: {subscription.FeedUrl}",
                     string.IsNullOrWhiteSpace(subscription.HomepageUrl) ? null : $"Strona: {subscription.HomepageUrl}"
                 }.Where(value => value is not null).Select(value => value!));
         }
@@ -4195,25 +4199,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (episodeSettings is null) return $"Odcinek podcastu{Environment.NewLine}Tytuł: {item.Title}";
         var podcast = _state.Podcasts.Subscriptions.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, episodeSettings.SubscriptionId, StringComparison.Ordinal));
+        var internetMediaEpisode = podcast?.SourceKind == PodcastSourceKind.PublicInternetMedia;
         var published = episodeSettings.PublishedUtcTicks > 0
             ? new DateTime(episodeSettings.PublishedUtcTicks, DateTimeKind.Utc).ToLocalTime().ToString("g", CultureInfo.CurrentCulture)
             : "nieznana";
         return string.Join(Environment.NewLine,
             new string?[]
             {
-                "Odcinek podcastu",
+                internetMediaEpisode ? "Medium internetowe" : "Odcinek podcastu",
                 $"Tytuł: {episodeSettings.Title}",
-                podcast is null ? null : $"Podcast: {podcast.Title}",
-                string.IsNullOrWhiteSpace(episodeSettings.Author) ? null : $"Autor: {episodeSettings.Author}",
-                $"Data publikacji: {published}",
+                podcast is null ? null : $"{(internetMediaEpisode ? "Kolekcja" : "Podcast")}: {podcast.Title}",
+                string.IsNullOrWhiteSpace(episodeSettings.Author) ? null : $"{(internetMediaEpisode ? "Kanał" : "Autor")}: {episodeSettings.Author}",
+                internetMediaEpisode ? null : $"Data publikacji: {published}",
                 episodeSettings.DurationTicks > 0 ? $"Czas: {CommandRouter.FormatTime(TimeSpan.FromTicks(episodeSettings.DurationTicks))}" : null,
                 !includeDescription || string.IsNullOrWhiteSpace(episodeSettings.Description) ? null : $"Opis: {episodeSettings.Description}",
                 $"Stan odsłuchania: {PodcastEpisodeProgress.GetLabel(episodeSettings)}",
                 $"Pobrany: {(string.IsNullOrWhiteSpace(episodeSettings.DownloadPath) ? "nie" : "tak")}",
-                $"Źródło audio: {episodeSettings.MediaUrl}",
-                string.IsNullOrWhiteSpace(episodeSettings.PageUrl) ? null : $"Strona odcinka: {episodeSettings.PageUrl}",
-                podcast is null || string.IsNullOrWhiteSpace(podcast.FeedUrl) ? null : $"Kanał RSS lub Atom: {podcast.FeedUrl}",
-                podcast is null || string.IsNullOrWhiteSpace(podcast.HomepageUrl) ? null : $"Strona podcastu: {podcast.HomepageUrl}"
+                internetMediaEpisode ? $"Adres strony: {episodeSettings.PageUrl ?? episodeSettings.MediaUrl}" : $"Źródło audio: {episodeSettings.MediaUrl}",
+                internetMediaEpisode || string.IsNullOrWhiteSpace(episodeSettings.PageUrl) ? null : $"Strona odcinka: {episodeSettings.PageUrl}",
+                internetMediaEpisode || podcast is null || string.IsNullOrWhiteSpace(podcast.FeedUrl) ? null : $"Kanał RSS lub Atom: {podcast.FeedUrl}",
+                internetMediaEpisode || podcast is null || string.IsNullOrWhiteSpace(podcast.HomepageUrl) ? null : $"Strona podcastu: {podcast.HomepageUrl}"
             }.Where(value => value is not null).Select(value => value!));
     }
 
@@ -5005,6 +5010,131 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _ = Dispatcher.BeginInvoke(() => AnnounceEssential(message), DispatcherPriority.ContextIdle);
     }
 
+    public void ExportRadioFavorites()
+    {
+        if (!string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            Announce("Eksport ulubionych stacji jest dostępny w sesji Radio internetowe");
+            return;
+        }
+
+        var favorites = GetOrderedRadioFavorites();
+        if (favorites.Length == 0)
+        {
+            AnnounceEssential("Ulubione nie zawierają stacji, które można wyeksportować");
+            RestoreItemActionFocus();
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Eksportuj ulubione stacje do playlisty",
+            FileName = "Ulubione stacje AMC.m3u",
+            DefaultExt = ".m3u",
+            AddExtension = true,
+            OverwritePrompt = true,
+            Filter = "Playlisty M3U (*.m3u)|*.m3u|Wszystkie pliki (*.*)|*.*"
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+
+        string? temporaryPath = null;
+        try
+        {
+            var destinationPath = Path.GetFullPath(dialog.FileName);
+            var directory = Path.GetDirectoryName(destinationPath)
+                ?? throw new InvalidDataException("Nie można ustalić folderu docelowego.");
+            temporaryPath = Path.Combine(
+                directory,
+                $".{Path.GetFileName(destinationPath)}.{Guid.NewGuid():N}.tmp");
+            var bytes = RadioFavoritesPlaylistWriter.Write(favorites.Select(item =>
+                new RadioFavoritePlaylistEntry(item.Title, StableRadioExportAddress(item))));
+            using (var output = new FileStream(
+                       temporaryPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None,
+                       bufferSize: 16_384,
+                       FileOptions.WriteThrough))
+            {
+                output.Write(bytes);
+                output.Flush(flushToDisk: true);
+            }
+            File.Move(temporaryPath, destinationPath, overwrite: true);
+            temporaryPath = null;
+            AnnounceEssential($"Wyeksportowano ulubione stacje: {favorites.Length}");
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or InvalidDataException
+            or NotSupportedException)
+        {
+            DiagnosticLog.Warning(
+                "radio-favorites-export",
+                $"Nie udało się wyeksportować ulubionych stacji; błąd {exception.GetType().Name}.");
+            AnnounceEssential($"Nie można zapisać playlisty: {exception.Message}");
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(temporaryPath))
+            {
+                try
+                {
+                    File.Delete(temporaryPath);
+                }
+                catch (Exception cleanupException) when (cleanupException is IOException
+                    or UnauthorizedAccessException)
+                {
+                    DiagnosticLog.Warning(
+                        "radio-favorites-export-cleanup",
+                        $"Nie udało się usunąć pliku tymczasowego; błąd {cleanupException.GetType().Name}.");
+                }
+            }
+            RestoreItemActionFocus();
+        }
+    }
+
+    private MediaItem[] GetOrderedRadioFavorites()
+    {
+        var radio = _sessions.FindSession("radio");
+        if (radio is null) return [];
+        var favorites = _radioItems
+            .Where(item => item.Kind == MediaItemKind.Station
+                && item.IsFavorite
+                && Uri.TryCreate(StableRadioExportAddress(item), UriKind.Absolute, out var address)
+                && address.Scheme is "http" or "https"
+                && string.IsNullOrWhiteSpace(address.UserInfo))
+            .ToArray();
+        var mode = GetSessionNavigationState("radio")
+            .CollectionSortModes
+            .GetValueOrDefault("Ulubione", CollectionSortMode.AddedNewest);
+        return mode switch
+        {
+            CollectionSortMode.Alphabetical => favorites
+                .OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(item => item.Id, StringComparer.Ordinal)
+                .ToArray(),
+            CollectionSortMode.Custom => LocalLibraryManualOrder.Order(
+                    favorites,
+                    EnsureCollectionOrder(radio, "Ulubione", favorites, custom: true))
+                .ToArray(),
+            _ => LocalLibraryManualOrder.Order(
+                    favorites,
+                    EnsureCollectionOrder(radio, "Ulubione", favorites, custom: false))
+                .Reverse()
+                .ToArray()
+        };
+    }
+
+    private static string StableRadioExportAddress(MediaItem item) =>
+        YouTubeSourceResolver.IsYouTubeUrl(item.PublicUri)
+            ? item.PublicUri!
+            : item.Source ?? item.PublicUri ?? string.Empty;
+
     private void AddWiiMNetworkStream()
     {
         var dialog = new RadioStationWindow(wiiMNetworkStream: true) { Owner = this };
@@ -5327,6 +5457,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ImportWiiMNetworkStreamsMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         ExportWiiMNetworkStreamsMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         ImportRadioPlaylistMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
+        ExportRadioFavoritesMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         AddRadioStationMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         AddPodcastMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         ImportPodcastOpmlMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
@@ -6694,7 +6825,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 HasCustomTitle = subscription.HasCustomTitle,
                 Artist = PodcastMetadataPresentation.FormatAuthor(subscription.Author),
                 Kind = MediaItemKind.Podcast,
-                Source = subscription.FeedUrl,
+                Source = subscription.SourceKind == PodcastSourceKind.Rss
+                    ? subscription.FeedUrl
+                    : null,
                 PublicUri = subscription.HomepageUrl,
                 IsFavorite = subscription.IsFavorite,
                 IsInLibrary = subscription.IsInLibrary,
@@ -6985,17 +7118,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var dialog = new PodcastSourceWindow(_podcastFeedClient.FetchAsync) { Owner = this };
-        if (dialog.ShowDialog() != true || dialog.Feed is null)
+        var dialog = new PodcastSourceWindow(
+            _podcastFeedClient.FetchAsync,
+            YouTubeSourceResolver.ResolveAudioAsync) { Owner = this };
+        if (dialog.ShowDialog() != true
+            || dialog.Feed is null && dialog.InternetMedia is null)
         {
             RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        if (dialog.InternetMedia is { } internetMedia)
+        {
+            AddPublicInternetMedia(internetMedia, dialog.CustomTitle);
             return;
         }
 
         CapturePodcastState();
         var result = PodcastLibraryUpdater.Apply(
             _state.Podcasts,
-            dialog.Feed,
+            dialog.Feed!,
             dialog.CustomTitle,
             DateTime.UtcNow,
             _state.Bookmarks);
@@ -7007,8 +7149,79 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : result.RestoredSubscription
                 ? "Ponownie dodano podcast"
                 : "Zaktualizowano podcast";
-        PrepareViewFocusContext($"{change}: {result.Subscription.Title}. Odcinki: {dialog.Feed.Episodes.Count}");
+        PrepareViewFocusContext($"{change}: {result.Subscription.Title}. Odcinki: {dialog.Feed!.Episodes.Count}");
         RestoreMediaListFocusAfterRefresh();
+    }
+
+    private void AddPublicInternetMedia(ResolvedYouTubeAudioSource media, string? titleOverride)
+    {
+        const string collectionId = "internet-media:public";
+        const string collectionAddress = "https://amc.invalid/public-internet-media";
+        CapturePodcastState();
+        var collection = _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+            string.Equals(subscription.Id, collectionId, StringComparison.Ordinal));
+        if (collection is null)
+        {
+            collection = new PodcastSubscriptionSettings
+            {
+                Id = collectionId,
+                Title = "Media internetowe",
+                Description = "Publiczne materiały internetowe dodane bez logowania do usług.",
+                FeedUrl = collectionAddress,
+                SourceKind = PodcastSourceKind.PublicInternetMedia,
+                RefreshIntervalMinutes = 0,
+                IsInLibrary = true
+            };
+            _state.Podcasts.Subscriptions.Add(collection);
+        }
+        collection.IsInLibrary = true;
+        collection.SourceKind = PodcastSourceKind.PublicInternetMedia;
+
+        var stableAddress = media.PageUrl.Trim();
+        var episodeId = $"internet-media:{StableInternetMediaId(stableAddress)}";
+        var episode = _state.Podcasts.Episodes.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, episodeId, StringComparison.Ordinal)
+            || string.Equals(candidate.MediaUrl, stableAddress, StringComparison.OrdinalIgnoreCase));
+        var added = episode is null;
+        if (episode is null)
+        {
+            episode = new PodcastEpisodeSettings
+            {
+                Id = episodeId,
+                SubscriptionId = collectionId,
+                SourceIdentifier = stableAddress,
+                IsNew = false
+            };
+            _state.Podcasts.Episodes.Add(episode);
+        }
+        episode.SubscriptionId = collectionId;
+        episode.SourceIdentifier = stableAddress;
+        episode.Title = string.IsNullOrWhiteSpace(titleOverride)
+            ? media.Title
+            : titleOverride.Trim();
+        episode.Author = media.Channel;
+        episode.Description = media.IsLive
+            ? "Publiczna transmisja YouTube. Adres audio jest sprawdzany ponownie przy każdym odtwarzaniu."
+            : "Publiczny materiał YouTube. Adres audio jest sprawdzany ponownie przy każdym odtwarzaniu.";
+        episode.MediaUrl = stableAddress;
+        episode.PageUrl = stableAddress;
+        episode.MediaType = "video/youtube";
+        episode.DurationTicks = Math.Max(0, media.Duration.Ticks);
+
+        ReloadPodcastSessionItems();
+        QueueStateSave(announceFailure: true);
+        OpenPodcast(collection.Id, collection.Title, preferredEpisodeId: episode.Id);
+        PrepareViewFocusContext(added
+            ? $"Dodano medium internetowe: {episode.Title}"
+            : $"Zaktualizowano medium internetowe: {episode.Title}");
+        RestoreMediaListFocusAfterRefresh();
+    }
+
+    private static string StableInternetMediaId(string address)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(address.Trim());
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes))
+            .ToLowerInvariant();
     }
 
     private async void ImportPodcastOpml()
@@ -7119,6 +7332,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var subscriptions = _state.Podcasts.Subscriptions
             .Where(subscription => subscription.IsInLibrary)
+            .Where(subscription => subscription.SourceKind == PodcastSourceKind.Rss)
             .Where(subscription => Uri.TryCreate(subscription.FeedUrl, UriKind.Absolute, out var feed)
                 && feed.Scheme is "http" or "https")
             .Select(subscription => new PodcastOpmlEntry(
@@ -7174,13 +7388,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce("Zaznacz podcast albo otwórz jego listę odcinków");
             return;
         }
+        if (subscription.SourceKind != PodcastSourceKind.Rss)
+        {
+            Announce("Publiczne medium internetowe jest sprawdzane ponownie przy każdym odtwarzaniu");
+            return;
+        }
         await RefreshPodcastSubscriptionsAsync([subscription], returnToLibrary: false);
     }
 
     private Task RefreshAllPodcastsAsync()
     {
         var subscriptions = _state.Podcasts.Subscriptions
-            .Where(subscription => subscription.IsInLibrary)
+            .Where(subscription => subscription.IsInLibrary
+                && subscription.SourceKind == PodcastSourceKind.Rss)
             .ToArray();
         return RefreshPodcastSubscriptionsAsync(subscriptions, returnToLibrary: false);
     }
@@ -7190,7 +7410,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_isClosing || _podcastRefreshInProgress) return;
         var now = DateTime.UtcNow;
         var due = _state.Podcasts.Subscriptions
-            .Where(subscription => subscription.IsInLibrary && subscription.RefreshIntervalMinutes > 0)
+            .Where(subscription => subscription.IsInLibrary
+                && subscription.SourceKind == PodcastSourceKind.Rss
+                && subscription.RefreshIntervalMinutes > 0)
             .Where(subscription => subscription.LastRefreshUtcTicks <= 0
                 || now - new DateTime(subscription.LastRefreshUtcTicks, DateTimeKind.Utc)
                     >= TimeSpan.FromMinutes(subscription.RefreshIntervalMinutes))
@@ -7473,12 +7695,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                         ? $"Pobieranie {index + 1} z {episodes.Length}: {Math.Clamp(value.BytesReceived * 100 / value.TotalBytes.Value, 0, 100)}%"
                         : $"Pobieranie {index + 1} z {episodes.Length}: {FormatFileSize(value.BytesReceived)}";
                 });
-                var result = await _podcastDownloader.DownloadAsync(
-                    source,
-                    destinationPath,
-                    progress,
-                    _podcastCancellation.Token,
-                    overwrite: saveAs);
+                var result = YouTubeSourceResolver.IsYouTubeUrl(episode.MediaUrl)
+                    ? await YouTubeMediaDownloader.DownloadMp3Async(
+                        episode.MediaUrl,
+                        destinationPath,
+                        _podcastCancellation.Token,
+                        overwrite: saveAs)
+                    : await _podcastDownloader.DownloadAsync(
+                        source,
+                        destinationPath,
+                        progress,
+                        _podcastCancellation.Token,
+                        overwrite: saveAs);
                 if (!saveAs)
                 {
                     episode.DownloadPath = result.Path;
@@ -8974,6 +9202,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.ExportWiiMNetworkStreams)
         {
             ExportWiiMNetworkStreams();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ExportRadioFavorites)
+        {
+            ExportRadioFavorites();
             return new CommandExecutionResult(true);
         }
         if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
@@ -14192,7 +14425,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : TryGetPodcastIdFromView(_currentView, out var podcastId)
                 ? _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
                     string.Equals(subscription.Id, podcastId, StringComparison.Ordinal)) is { } podcast
-                    ? $"Podcast — {podcast.Title}"
+                    ? podcast.SourceKind == PodcastSourceKind.PublicInternetMedia
+                        ? $"Media internetowe — {podcast.Title}"
+                        : $"Podcast — {podcast.Title}"
                     : "Podcast"
             : _currentView;
 
@@ -14204,7 +14439,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             GetSessionNavigationState("podcasts").SelectedItemIds[viewName] = preferredEpisodeId;
         }
         NavigateTo(viewName);
-        PrepareViewFocusContext($"Podcast, {podcastTitle}");
+        var sourceKind = _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+            string.Equals(subscription.Id, podcastId, StringComparison.Ordinal))?.SourceKind;
+        PrepareViewFocusContext(sourceKind == PodcastSourceKind.PublicInternetMedia
+            ? $"Media internetowe, {podcastTitle}"
+            : $"Podcast, {podcastTitle}");
         RestoreMediaListFocusAfterRefresh();
     }
 
@@ -16064,6 +16303,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)) OpenLocalFolder();
             else if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)) ExportWiiMNetworkStreams();
+            else if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)) ExportRadioFavorites();
             else Announce("To polecenie nie jest dostępne w bieżącej sesji");
             e.Handled = true;
             return;
@@ -16523,6 +16763,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
         {
             commandId = CommandIds.ExportWiiMNetworkStreams;
+            return true;
+        }
+        if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key == Key.O
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+        {
+            commandId = CommandIds.ExportRadioFavorites;
             return true;
         }
         if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key == Key.O
@@ -18183,6 +18429,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void OpenLocalFiles_Click(object sender, RoutedEventArgs e) => OpenLocalFiles();
     private void OpenLocalFolder_Click(object sender, RoutedEventArgs e) => OpenLocalFolder();
     private void ImportRadioPlaylist_Click(object sender, RoutedEventArgs e) => ImportRadioPlaylist();
+    private void ExportRadioFavorites_Click(object sender, RoutedEventArgs e) => ExportRadioFavorites();
     private void AddPodcast_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddPodcast);
     private void ImportPodcastOpml_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ImportPodcastOpml);
     private void ExportPodcastOpml_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ExportPodcastOpml);
@@ -19226,7 +19473,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             item.Title,
             podcast?.Description,
             FirstNonEmpty(HttpLocation(podcast?.HomepageUrl), HttpLocation(item.PublicUri)),
-            FirstNonEmpty(HttpLocation(podcast?.FeedUrl), HttpLocation(item.Source)));
+            podcast?.SourceKind == PodcastSourceKind.PublicInternetMedia
+                ? null
+                : FirstNonEmpty(HttpLocation(podcast?.FeedUrl), HttpLocation(item.Source)));
     }
 
     private static string? HttpLocation(string? value) =>

@@ -101,6 +101,7 @@ public static class CommandIds
     public const string StartRadio = "action.radio.start";
     public const string AddRadioStation = "radio.station.add";
     public const string ImportRadioPlaylist = "radio.playlist.import";
+    public const string ExportRadioFavorites = "radio.playlist.exportFavorites";
     public const string AddPodcast = "podcast.subscription.add";
     public const string ImportPodcastOpml = "podcast.opml.import";
     public const string ExportPodcastOpml = "podcast.opml.export";

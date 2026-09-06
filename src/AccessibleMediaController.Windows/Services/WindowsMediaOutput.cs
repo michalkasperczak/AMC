@@ -696,6 +696,18 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         bool allowManagedMp3Fallback,
         bool mayRequireRemoteAccess)
     {
+        if (YouTubeSourceResolver.IsYouTubeUrl(path))
+        {
+            var stablePageAddress = path;
+            var resolved = YouTubeSourceResolver
+                .ResolveAudioAsync(stablePageAddress, CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+            path = resolved.StreamUrl;
+            DiagnosticLog.Info(
+                "internet-media",
+                $"Rozwiązano publiczny adres YouTube na czas odtwarzania: {stablePageAddress}; transmisja: {resolved.IsLive}.");
+        }
         if (IsSupportedNetworkMediaSource(path))
         {
             // SoundTouch accepts IEEE-float samples. Local AudioFileReader and

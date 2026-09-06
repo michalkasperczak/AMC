@@ -34,6 +34,7 @@ public interface IApplicationActions
     void OpenLocalFiles();
     void OpenLocalFolder();
     void ImportRadioPlaylist();
+    void ExportRadioFavorites();
     void RefreshLocalLibrary();
     void ShowLocalSourceManager();
     void ShowWiiMDeviceManager();
@@ -117,6 +118,9 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.ImportRadioPlaylist:
                 application.ImportRadioPlaylist();
+                return new(true);
+            case CommandIds.ExportRadioFavorites:
+                application.ExportRadioFavorites();
                 return new(true);
             case CommandIds.RefreshLocalLibrary:
                 application.RefreshLocalLibrary();

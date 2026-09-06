@@ -12,6 +12,7 @@ using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Presentation;
+using AccessibleMediaController.Core.Radio;
 using AccessibleMediaController.Core.Sessions;
 
 var tests = new (string Name, Action Test)[]
@@ -356,6 +357,24 @@ static void TestWiiMApiParsing()
             "Eksport dla WiiM Home musi zachowywać kolejność widoczną w AMC.");
         True(!playlist.Contains("haslo", StringComparison.Ordinal),
             "Eksport nie może zapisać adresu z osadzonymi danymi logowania.");
+
+        var favoritePlaylist = Encoding.UTF8.GetString(RadioFavoritesPlaylistWriter.Write([
+            new RadioFavoritePlaylistEntry("Radio\r\nPierwsze", "https://radio.example/live#player"),
+            new RadioFavoritePlaylistEntry("Duplikat", "https://radio.example/live"),
+            new RadioFavoritePlaylistEntry("Transmisja", "https://www.youtube.com/watch?v=abc123"),
+            new RadioFavoritePlaylistEntry("Prywatny", "https://login:haslo@example.test/live")
+        ]));
+        True(favoritePlaylist.StartsWith("#EXTM3U\r\n", StringComparison.Ordinal),
+            "Eksport ulubionych radia nie tworzy rozszerzonej playlisty M3U.");
+        True(favoritePlaylist.Contains(
+                "#EXTINF:-1,Radio Pierwsze\r\nhttps://radio.example/live\r\n",
+                StringComparison.Ordinal),
+            "Eksport ulubionych nie oczyścił nazwy albo fragmentu adresu.");
+        Equal(1, favoritePlaylist.Split("https://radio.example/live", StringSplitOptions.None).Length - 1);
+        True(favoritePlaylist.Contains("https://www.youtube.com/watch?v=abc123", StringComparison.Ordinal),
+            "Eksport powinien zachować stabilny publiczny adres transmisji YouTube.");
+        True(!favoritePlaylist.Contains("haslo", StringComparison.Ordinal),
+            "Eksport ulubionych nie może zapisać adresu z osadzonymi danymi logowania.");
 
         Equal("wiim:stream:1", WiiMActiveSourceState.ResolveNetworkStreamId(
             "wiim:stream:1",
@@ -887,6 +906,7 @@ static void TestPodcastStatePersistence()
             Id = "podcast-a",
             Title = "Podcast A",
             FeedUrl = "https://example.test/feed.xml",
+            SourceKind = PodcastSourceKind.PublicInternetMedia,
             HomepageUrl = "javascript:alert(1)",
             LastRefreshUtcTicks = DateTime.UtcNow.Ticks,
             RefreshIntervalMinutes = 60,
@@ -924,6 +944,7 @@ static void TestPodcastStatePersistence()
         Equal(1.25d, loaded.Podcasts.PlaybackRate);
         Equal(Path.Combine(directory, "pobrane"), loaded.Podcasts.DownloadsFolder);
         Equal(1, loaded.Podcasts.Subscriptions.Count);
+        Equal(PodcastSourceKind.PublicInternetMedia, loaded.Podcasts.Subscriptions[0].SourceKind);
         Equal(null, loaded.Podcasts.Subscriptions[0].HomepageUrl);
         Equal(60, loaded.Podcasts.Subscriptions[0].RefreshIntervalMinutes);
         Equal(Path.Combine(directory, "podcast-a"), loaded.Podcasts.Subscriptions[0].DownloadsFolder);
@@ -1847,6 +1868,7 @@ static void TestCommandCatalog()
     Equal("Otwórz lokalne pliki multimedialne", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFiles));
     Equal("Otwórz folder z plikami multimedialnymi", CommandCatalog.GetDisplayName(CommandIds.OpenLocalFolder));
     Equal("Importuj stacje radiowe z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportRadioPlaylist));
+    Equal("Eksportuj ulubione stacje do playlisty", CommandCatalog.GetDisplayName(CommandIds.ExportRadioFavorites));
     Equal("Pokaż nowe odcinki podcastów", CommandCatalog.GetDisplayName(CommandIds.ViewPodcastInbox));
     Equal("Pokaż rozpoczęte odcinki podcastów", CommandCatalog.GetDisplayName(CommandIds.ViewPodcastInProgress));
     Equal("Pokaż aktualnie nagrywane stacje", CommandCatalog.GetDisplayName(CommandIds.ViewActiveRadioRecordings));
@@ -4773,6 +4795,7 @@ static void TestCommandPalette()
     Equal("Ctrl+Shift+H (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ManageRadioSchedules).LocalShortcut);
     Equal("Ctrl+N (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.AddPodcast).LocalShortcut);
     Equal("Ctrl+O (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.ImportPodcastOpml).LocalShortcut);
+    Equal("Ctrl+Shift+O (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ExportRadioFavorites).LocalShortcut);
     Equal("Ctrl+Alt+W", entries.Single(entry => entry.CommandId == CommandIds.OpenOnWiiM).LocalShortcut);
     Equal("Ctrl+N (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.AddWiiMNetworkStream).LocalShortcut);
     Equal("Ctrl+O (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ImportWiiMNetworkStreams).LocalShortcut);
@@ -5890,6 +5913,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void OpenLocalFiles() { }
     public void OpenLocalFolder() { }
     public void ImportRadioPlaylist() { }
+    public void ExportRadioFavorites() { }
     public void RefreshLocalLibrary() => LocalLibraryRefreshed = true;
     public void ShowLocalSourceManager() => LocalSourceManagerShown = true;
     public void ShowWiiMDeviceManager() { }

@@ -8,6 +8,14 @@ dostępny import OPML, odświeżanie metadanych, przejście z audycji do jej
 odcinków oraz odtwarzanie skończonych materiałów HTTP/HTTPS we wspólnym
 odtwarzaczu AMC.
 
+Od `alpha.294` `Ctrl+N` przyjmuje także publiczny adres filmu albo transmisji
+YouTube. Taki wpis nie udaje kanału RSS: trafia do jawnej kolekcji **Media
+internetowe** z trwałym adresem strony. AMC nie loguje się do konta, nie czyta
+cookies i nie synchronizuje biblioteki YouTube. Tymczasowy adres audio jest
+wyznaczany dopiero w tle przy każdym odtwarzaniu i nie trafia do ustawień,
+SQLite, eksportu ani dziennika. Skończony materiał można przewijać, przyspieszać
+i świadomie zapisać jako MP3 przez `Ctrl+D` lub `Ctrl+S`.
+
 Od `alpha.252` odcinki korzystają również z rozdziałów dostawcy. Obsługiwane są
 Podcasting 2.0 JSON Chapters, Podlove Simple Chapters, czytelne znaczniki czasu
 w opisie oraz osadzone rozdziały ID3/MP4 pobranego pliku. Sieciowy plik
@@ -184,6 +192,13 @@ ponieważ oficjalne API wymaga zarejestrowania aplikacji i tokenu. Nie należy
 zastępować go nietrwałym parsowaniem strony ani prywatnym kluczem wbudowanym w
 program.
 
+Publiczny YouTube jest pierwszym działającym adapterem pojedynczego medium ze
+strony. Jest celowo oddzielony od RSS/Atom i od przyszłego kontowego adaptera
+YouTube. Obejmuje zwykłe filmy i transmisje bez logowania; transmisje dodane do
+Radia nadal zachowują radiowe nagrywanie i harmonogram. Kolejne serwisy będą
+dodawane jako jawne, testowane adaptery albo jako bezpośrednie publiczne pliki,
+nie przez nieograniczone parsowanie dowolnej strony.
+
 ## 6. Kolejność wdrożenia
 
 1. `alpha.203` — prawdziwa, pusta sesja Podcasty bez danych demonstracyjnych,
@@ -261,10 +276,12 @@ koncepcyjnego.
 
 ## 7. Dodawanie, import i wyszukiwanie
 
-- `Ctrl+N` otwiera **Nowy podcast**. W `alpha.205` formularz przyjmuje
+- `Ctrl+N` otwiera **Nowy podcast lub medium internetowe**. Formularz przyjmuje
   bezpośredni adres kanału RSS/Atom i opcjonalną nazwę użytkownika. Przycisk
   **Sprawdź** pobiera wyłącznie ograniczone metadane kanału; dopiero aktywny po
-  pomyślnej weryfikacji przycisk **Dodaj** zapisuje podcast w Bibliotece.
+  pomyślnej weryfikacji przycisk **Dodaj** zapisuje podcast w Bibliotece. Od
+  `alpha.294` ten sam formularz rozpoznaje publiczną stronę YouTube i zapisuje
+  ją jako pojedynczy wpis kolekcji **Media internetowe**.
 - `Ctrl+O` otwiera plik OPML i pokazuje listę znalezionych kanałów z
   niezależnymi polami wyboru. Strzałki przesuwają fokus bez zmiany wyboru,
   Spacja zaznacza lub odznacza bieżący kanał, a `Ctrl+A` zaznacza wszystkie.
@@ -275,7 +292,8 @@ koncepcyjnego.
   Plik zapisuje obserwowane kanały RSS/Atom, ich nazwy oraz dostępne strony.
   Wynik można ponownie wczytać `Ctrl+O` w AMC lub innym czytniku podcastów.
   OPML nie zawiera plików audio, pozycji odsłuchu, zakładek, rozdziałów ani
-  playlist odcinków; pełna kopia AMC zachowuje te dane osobno.
+  playlist odcinków. Nie zawiera też pojedynczych wpisów **Media internetowe**;
+  pełna kopia AMC zachowuje te dane osobno.
 - Dalszy eksport playlist odcinków ma dwa poziomy: standardowy M3U8 z nazwami i
   publicznymi adresami audio oraz format AMC JSON dla pełnej tożsamości,
   wybranych rozdziałów i ustawień. OPML pozostaje formatem subskrypcji, a nie

@@ -1,11 +1,26 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.294` dodaje dwa przenośne przepływy. W sesji Radio
+`Ctrl+Shift+O` zapisuje Ulubione jako rozszerzone M3U w aktualnej kolejności;
+plik można ponownie wczytać przez `Ctrl+O` w AMC albo w innym odtwarzaczu.
+Eksport zawiera tylko nazwę użytkową i trwały publiczny adres, bez tokenów,
+lokalnych identyfikatorów i tymczasowych adresów odtwarzania.
+
+W sesji Podcasty `Ctrl+N` przyjmuje teraz również publiczny adres filmu albo
+transmisji YouTube. Materiał trafia do kolekcji **Media internetowe**, bez
+logowania, synchronizacji konta i cookies przeglądarki. AMC przechowuje trwały
+adres strony, a bezpośredni adres audio wyznacza ponownie dopiero podczas
+odtwarzania. Skończony materiał korzysta ze wspólnego przewijania, prędkości,
+Historii, Kolejki i playlist; `Ctrl+D` oraz `Ctrl+S` zapisują dźwięk jako MP3
+przez odseparowane, aktualizowane składniki `yt-dlp` i FFmpeg. RSS/Atom nadal
+działa niezależnie i nie wymaga tych składników.
+
 Wersja `alpha.293` przyjmuje w module Radia publiczny adres trwającej
 transmisji YouTube. Stabilny adres strony można dodać jak zwykłą stację, a
 AMC rozwiązuje go dopiero przy odtwarzaniu lub nagrywaniu, bez logowania,
 ciasteczek przeglądarki i zapisywania czasowego adresu audio. Dotyczy to
-odsłuchu, nagrania ręcznego w tle oraz harmonogramu; zwykłe filmy są świadomie
-odrzucane i pozostają zakresem przyszłego modułu Media internetowe.
+odsłuchu, nagrania ręcznego w tle oraz harmonogramu; zwykły film należy dodać
+w sesji Podcasty, gdzie od `alpha.294` działa jako **Medium internetowe**.
 
 Potrzebny `yt-dlp` jest osobnym, wymiennym składnikiem w danych lokalnych AMC.
 Aktualizator pobiera oficjalny program Windows i opublikowaną dla niego sumę
@@ -887,7 +902,15 @@ Od `alpha.89` `Delete` jest jedynym klawiszem usuwania. `Backspace` nigdy nie us
 
 Obecny katalog demonstracyjny może pokazywać wspólne wyniki testowe. Prawdziwy adapter TIDAL będzie modułem izolowanym: `Ctrl+Shift+F` może uruchomić jego zapytanie, ale treści TIDAL nie zostaną wymieszane na jednej liście z treściami podobnych usług. AMC otworzy osobny, oznaczony widok wyników TIDAL i zachowa działanie wszystkich wspólnych skrótów.
 
-Planowany moduł YouTube zacznie od publicznego wyszukiwania i oficjalnego, widocznego odtwarzacza bez synchronizacji konta. Jego lokalna Biblioteka obejmie wyłącznie materiały świadomie dodane do Ulubionych, własne playlisty AMC i lokalną historię odtwarzania; nie kopiujemy całego konta ani pełnego interfejsu YouTube. Logowanie OAuth pozostaje nieobowiązkowym późniejszym rozszerzeniem, jeżeli pojawi się realna potrzeba subskrypcji, playlist lub polubień z konta. Oficjalny adapter nie będzie pobierać, wyodrębniać dźwięku ani nagrywać materiałów odtwarzanych z YouTube. Ewentualne eksperymentalne narzędzia zapisu pozostaną osobnym, izolowanym i niezależnie aktualizowanym modułem dla źródeł, które na zapis pozwalają; nie staną się częścią rdzenia ani warunkiem działania YouTube. Interfejs może być podobny do podcastów, lecz źródłem pozostaje oficjalny odtwarzacz YouTube.
+Pierwszy etap obsługi YouTube działa bez synchronizacji konta. W Podcastach
+`Ctrl+N` dodaje świadomie wskazany publiczny film albo transmisję do **Mediów
+internetowych**; Radio przyjmuje publiczną transmisję trwającą. Nie kopiujemy
+całego konta ani pełnego interfejsu YouTube. Logowanie OAuth pozostaje
+nieobowiązkowym późniejszym rozszerzeniem, jeżeli pojawi się realna potrzeba
+subskrypcji, playlist lub polubień z konta. Resolver i zapis MP3 są osobnym,
+izolowanym mechanizmem opartym na aktualizowanych składnikach, działają bez
+cookies i nie są warunkiem zwykłego RSS. Publiczne wyszukiwanie YouTube i
+oficjalny widoczny odtwarzacz pozostają dalszymi możliwymi adapterami.
 
 `Ctrl+Z` cofa kolejno zmiany przynależności do Ulubionych, Biblioteki i Kolejki oraz stan „Odtwórz jako następne”; przywrócony element jest ponownie zaznaczany, jeśli znajduje się w bieżącym widoku. W polu filtra `Ctrl+Z` zachowuje standardowe znaczenie cofania edycji tekstu. Polecenie jest także dostępne w menu **Edycja**. Dodatkowe angielskie „Undo” zostało przypisane funkcji **Clipboard command announcement** dodatku NVDA Global Commands Extension, a nie mechanizmowi AMC. `Ctrl+N` i `Ctrl+A` pozostają zarezerwowane dla standardowych działań Nowy oraz Zaznacz wszystko. Wpisywanie pojedynczych i kolejnych liter bez modyfikatorów na liście przechodzi do głównej nazwy pasującego elementu i nie uruchamia poleceń. Dla utworu jest nią tytuł, dla wykonawcy jego nazwa, dla albumu tytuł albumu, a dla playlisty, stacji lub urządzenia ich nazwa. Kryterium pozostaje niezależne od skonfigurowanej kolejności odczytu pól. Nowa sekwencja zaczyna się po krótkiej przerwie albo od razu wtedy, gdy dotychczasowy ciąg z następną literą nie daje dopasowania; ponawianie jednej litery przechodzi przez kolejne pasujące pozycje.
 
@@ -1279,6 +1302,13 @@ W `alpha.272` menu **Plik** sesji Podcasty zawiera także **Eksportuj bibliotek�
 podcastów do OPML…**. Jest to przenośna kopia obserwowanych kanałów, zgodna z
 ponownym importem `Ctrl+O`; nie kopiuje plików audio, postępu słuchania,
 rozdziałów ani playlist odcinków. Te dane nadal obejmuje pełna kopia AMC.
+
+Od `alpha.294` menu **Plik** sesji Radio zawiera **Eksportuj ulubione stacje do
+playlisty…**, również pod `Ctrl+Shift+O`. Powstaje rozszerzone M3U w UTF-8 z
+nazwami i trwałymi publicznymi adresami w bieżącej kolejności Ulubionych.
+Ponowny import przez `Ctrl+O` nie tworzy drugiej kopii tego samego adresu.
+W przypadku publicznej transmisji YouTube eksportowana jest strona transmisji,
+a nie wygasający adres audio wyznaczony na czas odtwarzania.
 
 ## Urządzenie audio osobno dla sesji w alpha 204
 

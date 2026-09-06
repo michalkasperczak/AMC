@@ -4,21 +4,27 @@ using System.Net.Http;
 using System.Windows;
 using System.Windows.Input;
 using AccessibleMediaController.Core.Podcasts;
+using AccessibleMediaController.Windows.Services;
 
 namespace AccessibleMediaController.Windows;
 
 public partial class PodcastSourceWindow : Window
 {
     private readonly Func<Uri, CancellationToken, Task<PodcastFeedDocument>> _fetch;
+    private readonly Func<string, CancellationToken, Task<ResolvedYouTubeAudioSource>> _resolveInternetMedia;
     private CancellationTokenSource? _checkCancellation;
     private string? _checkedAddress;
 
-    public PodcastSourceWindow(Func<Uri, CancellationToken, Task<PodcastFeedDocument>> fetch)
+    internal PodcastSourceWindow(
+        Func<Uri, CancellationToken, Task<PodcastFeedDocument>> fetch,
+        Func<string, CancellationToken, Task<ResolvedYouTubeAudioSource>> resolveInternetMedia)
     {
         ArgumentNullException.ThrowIfNull(fetch);
+        ArgumentNullException.ThrowIfNull(resolveInternetMedia);
         _fetch = fetch;
+        _resolveInternetMedia = resolveInternetMedia;
         InitializeComponent();
-        Title = "Nowy podcast";
+        Title = "Nowy podcast lub medium internetowe";
         FeedBox.TextChanged += (_, _) => InvalidateCheckedFeed();
         Loaded += (_, _) =>
         {
@@ -28,6 +34,7 @@ public partial class PodcastSourceWindow : Window
     }
 
     public PodcastFeedDocument? Feed { get; private set; }
+    internal ResolvedYouTubeAudioSource? InternetMedia { get; private set; }
     public string CustomTitle => NameBox.Text.Trim();
 
     private async void Check_Click(object sender, RoutedEventArgs e)
@@ -37,11 +44,28 @@ public partial class PodcastSourceWindow : Window
         _checkCancellation?.Dispose();
         _checkCancellation = new CancellationTokenSource();
         SetBusy(true);
-        StatusText.Text = "Sprawdzanie kanału…";
+        StatusText.Text = "Sprawdzanie adresu…";
         try
         {
+            if (YouTubeSourceResolver.IsYouTubeUrl(address.AbsoluteUri))
+            {
+                var media = await _resolveInternetMedia(address.AbsoluteUri, _checkCancellation.Token);
+                InternetMedia = media;
+                Feed = null;
+                _checkedAddress = FeedBox.Text.Trim();
+                AddButton.IsEnabled = true;
+                var kind = media.IsLive ? "transmisja na żywo" : "materiał";
+                var channel = string.IsNullOrWhiteSpace(media.Channel)
+                    ? string.Empty
+                    : $", kanał: {media.Channel}";
+                StatusText.Text = $"Publiczny {kind} działa. {media.Title}{channel}.";
+                AddButton.Focus();
+                Keyboard.Focus(AddButton);
+                return;
+            }
             var feed = await _fetch(address, _checkCancellation.Token);
             Feed = feed;
+            InternetMedia = null;
             _checkedAddress = FeedBox.Text.Trim();
             var author = string.IsNullOrWhiteSpace(feed.Author) ? string.Empty : $", autor: {feed.Author}";
             if (feed.Episodes.Count == 0)
@@ -67,7 +91,9 @@ public partial class PodcastSourceWindow : Window
         catch (Exception exception) when (exception is HttpRequestException
             or InvalidDataException
             or System.Xml.XmlException
-            or ArgumentException)
+            or ArgumentException
+            or NotSupportedException
+            or TimeoutException)
         {
             StatusText.Text = $"Nie można odczytać kanału: {exception.Message}";
             FeedBox.Focus();
@@ -82,7 +108,7 @@ public partial class PodcastSourceWindow : Window
 
     private void Add_Click(object sender, RoutedEventArgs e)
     {
-        if (Feed is null
+        if (Feed is null && InternetMedia is null
             || !string.Equals(_checkedAddress, FeedBox.Text.Trim(), StringComparison.Ordinal))
         {
             StatusText.Text = "Najpierw sprawdź aktualny adres kanału.";
@@ -112,6 +138,7 @@ public partial class PodcastSourceWindow : Window
     {
         if (string.Equals(_checkedAddress, FeedBox.Text.Trim(), StringComparison.Ordinal)) return;
         Feed = null;
+        InternetMedia = null;
         _checkedAddress = null;
         AddButton.IsEnabled = false;
     }

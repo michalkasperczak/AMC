@@ -1463,6 +1463,8 @@ static void TestYouTubeSourceResolver()
     const string recordedJson = """
         {
           "title": "Zwykły film",
+          "channel": "Kanał testowy",
+          "duration": 3723.5,
           "is_live": false,
           "live_status": "was_live",
           "url": "https://example.googlevideo.com/audio",
@@ -1470,6 +1472,16 @@ static void TestYouTubeSourceResolver()
           "vcodec": "none"
         }
         """;
+    var recorded = YouTubeSourceResolver.ParseResult(
+        "https://www.youtube.com/watch?v=recorded",
+        recordedJson,
+        requireLive: false);
+    Assert(
+        !recorded.IsLive
+        && recorded.Title == "Zwykły film"
+        && recorded.Channel == "Kanał testowy"
+        && Math.Abs(recorded.Duration.TotalSeconds - 3723.5) < 0.01,
+        "Resolver nie zachowuje metadanych zwykłego publicznego materiału YouTube.");
     try
     {
         _ = YouTubeSourceResolver.ParseResult(

@@ -6,12 +6,15 @@ Pełna kopia `*.amcbackup.json` już obejmuje całą Bibliotekę Radia, stan Ulu
 playlisty, presety i harmonogramy nagrywania. Służy do wiernego odtworzenia własnego
 AMC, dlatego może zachowywać lokalne identyfikatory oraz pełne ścieżki folderów.
 
-Planowane osobne eksporty służą innemu celowi: wybraniu danych, przesłaniu ich
-innej osobie i bezpiecznemu scaleniu z jej stanem. Alpha 149 ustala poniższe zasady,
-ale nie udostępnia jeszcze osobnych poleceń w interfejsie.
+Osobne eksporty służą innemu celowi: wybraniu danych, przesłaniu ich innej
+osobie i bezpiecznemu scaleniu z jej stanem. Alpha 149 ustaliła poniższe
+zasady. Od `alpha.294` działa pierwszy szybki eksport: Ulubione do przenośnej
+playlisty M3U.
 
 ## Zakresy
 
+- `*.m3u` — szybka, standardowa lista Ulubionych zawierająca wyłącznie nazwę
+  użytkową i trwały publiczny adres stacji w aktualnej kolejności widoku;
 - `*.amcradio.json` — wybrane albo wszystkie własne stacje, ich przyjazne nazwy,
   publiczne adresy, stan Ulubionych i opcjonalnie przynależność do playlist Radia;
 - `*.amcschedules.json` — wybrane albo wszystkie harmonogramy nagrywania;
@@ -63,8 +66,13 @@ wybudza komputera.
 
 ## Interfejs docelowy
 
-Polecenia **Eksportuj dane Radia…** i **Importuj dane Radia…** będą dostępne tylko
-w sesji Radio internetowe. Eksport pozwoli zaznaczyć Ulubione, playlisty, presety
-i harmonogramy. Import pokaże dostępne składniki, konflikty oraz podsumowanie przed
-Zapisz. Osobne szybkie polecenie **Eksportuj harmonogramy…** pozwoli przekazać sam
-plan nagrań bez Biblioteki i Ulubionych.
+Polecenie **Eksportuj ulubione stacje do playlisty…** jest dostępne tylko w
+sesji Radio internetowe, w menu Plik i pod `Ctrl+Shift+O`. Zapisuje rozszerzone
+M3U w UTF-8 i publikuje plik dopiero po ukończeniu zapisu. `Ctrl+O` importuje
+go ponownie bez dublowania identycznych adresów. Dla publicznego YouTube
+zapisywany jest stabilny adres strony, nigdy krótkotrwały podpisany adres audio.
+
+Docelowe polecenia **Eksportuj dane Radia…** i **Importuj dane Radia…** pozwolą
+wybrać Ulubione, playlisty, presety i harmonogramy oraz pokażą konflikty przed
+zapisem. Osobne **Eksportuj harmonogramy…** przekaże sam plan nagrań bez
+Biblioteki i Ulubionych.

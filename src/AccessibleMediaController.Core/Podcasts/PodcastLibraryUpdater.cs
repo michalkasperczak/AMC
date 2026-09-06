@@ -50,6 +50,7 @@ public static class PodcastLibraryUpdater
         subscription.Author = feed.Author;
         subscription.Description = feed.Description;
         subscription.FeedUrl = feed.FeedUri.AbsoluteUri;
+        subscription.SourceKind = PodcastSourceKind.Rss;
         subscription.HomepageUrl = feed.HomepageUri?.AbsoluteUri;
         subscription.LastRefreshUtcTicks = refreshUtc.ToUniversalTime().Ticks;
         subscription.IsInLibrary = true;

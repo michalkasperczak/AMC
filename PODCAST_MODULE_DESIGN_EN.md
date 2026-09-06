@@ -8,6 +8,14 @@ durable session, safe direct RSS/Atom subscription, accessible OPML import,
 metadata refresh, show-to-episode navigation and finite HTTP/HTTPS episode
 playback through AMC's shared player are in place.
 
+Starting with `alpha.294`, Ctrl+N also accepts a public YouTube video or live
+page. The item is placed in an explicit **Internet media** collection rather
+than pretending to be an RSS show. AMC uses no account login or browser
+cookies, persists only the stable page URL, and resolves a temporary audio URL
+in the background for each playback. Finite items support shared seeking,
+speed, History, Queue, playlists, and explicit MP3 saving through Ctrl+D or
+Ctrl+S.
+
 Since `alpha.247`, each show may define inheritable resume, playback-rate and
 audio-processing preferences, a refresh interval, and a download folder.
 Episodes can override playback preferences but not feed refresh scheduling.
@@ -173,6 +181,8 @@ followed feeds, their names, and available home pages as a UTF-8 OPML file that
 can be imported back through Ctrl+O. OPML is a subscription interchange format:
 it intentionally excludes downloaded audio, listening progress, bookmarks,
 chapters, and episode playlists. Those records remain in the full AMC backup.
+Standalone **Internet media** items are excluded as well because OPML is a feed
+subscription interchange format, not a general media playlist.
 Enter opens a show's episodes newest first and Backspace returns to the Library.
 Delete unfollows the show without destroying retained episode state. Ctrl+C
 copies the title, description and public page when the feed supplies them,

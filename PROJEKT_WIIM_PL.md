@@ -162,3 +162,11 @@ adres, album, playlistę lub inną treść niezależnie od sprzętowych miejsc W
   Home Assistant `mjcumming/wiim` oraz `gthibo/wiim-universal-remote`.
   Projekty te są źródłem testów i rozpoznania różnic firmware, nie powodem do
   automatycznego włączenia nieudokumentowanych poleceń.
+- Projekt [Caster](https://github.com/serrebidev/Caster) jest dodatkowym,
+  licencjonowanym na MIT materiałem porównawczym dla przyszłych adapterów Sonos
+  i Yamaha MusicCast. Do AMC przenosimy wzorce: asynchroniczne wykrywanie,
+  osobne flagi możliwości, anulowanie i krótkie limity czasu oraz rozdzielenie
+  sterowania urządzeniem od przesyłania medium. Nie dołączamy środowiska Python
+  ani samego Castera. Ewentualny adapter .NET będzie używał właściwego protokołu
+  danego urządzenia i bezpiecznie wyłączy tylko funkcję, której ono nie
+  obsługuje.

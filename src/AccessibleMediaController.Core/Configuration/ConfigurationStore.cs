@@ -14,7 +14,7 @@ namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 50;
+    public const int CurrentSchemaVersion = 51;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -318,6 +318,7 @@ public sealed class ConfigurationStore
         Author = item.Author,
         Description = item.Description,
         FeedUrl = item.FeedUrl,
+        SourceKind = item.SourceKind,
         HomepageUrl = item.HomepageUrl,
         LastRefreshUtcTicks = item.LastRefreshUtcTicks,
         RefreshIntervalMinutes = item.RefreshIntervalMinutes,
@@ -1419,6 +1420,9 @@ public sealed class ConfigurationStore
                 subscription.Author = subscription.Author?.Trim() ?? string.Empty;
                 subscription.Description = subscription.Description?.Trim() ?? string.Empty;
                 subscription.FeedUrl = subscription.FeedUrl.Trim();
+                subscription.SourceKind = Enum.IsDefined(subscription.SourceKind)
+                    ? subscription.SourceKind
+                    : PodcastSourceKind.Rss;
                 subscription.HomepageUrl = IsHttpAddress(subscription.HomepageUrl)
                     ? subscription.HomepageUrl!.Trim()
                     : null;

@@ -1,11 +1,25 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.294` adds two portable workflows. In Radio, `Ctrl+Shift+O`
+exports Favorites as an extended M3U in their current order; the file can be
+imported again with `Ctrl+O` or used by another player. It contains only the
+user-facing name and stable public address, never tokens, local identifiers,
+or temporary playback URLs.
+
+In Podcasts, `Ctrl+N` now also accepts a public YouTube video or live page.
+The item is stored under **Internet media** without account sign-in, account
+synchronisation, or browser cookies. AMC persists the stable page URL and
+resolves a temporary audio URL only when playback starts. A finite item uses
+the shared seeking, speed, History, Queue, and playlist features; `Ctrl+D` and
+`Ctrl+S` save its audio as MP3 through isolated, updateable `yt-dlp` and FFmpeg
+components. RSS/Atom remains independent and does not require either component.
+
 Version `alpha.293` accepts a public URL of a currently live YouTube broadcast
 in the Radio session. The stable page URL is stored like a station, while AMC
 resolves it only for playback or recording, without signing in, reading browser
 cookies, or persisting the temporary audio URL. This applies to listening,
-manual background recording, and schedules. Ordinary videos are deliberately
-rejected and remain in scope for the future Internet media module.
+manual background recording, and schedules. An ordinary video belongs in
+Podcasts, where `alpha.294` stores it explicitly as **Internet media**.
 
 The required `yt-dlp` executable is an isolated, replaceable component in
 AMC's local application data. The updater retrieves the official Windows
@@ -647,7 +661,14 @@ From `alpha.89`, `Delete` is the only removal key. `Backspace` never deletes an 
 
 The current demonstration catalogue may present combined test results. A real TIDAL adapter will be an isolated module: `Ctrl+Shift+F` may initiate its query, but TIDAL content will not be mixed into one list with content from similar services. AMC opens a separate, attributed TIDAL results view while retaining the shared commands.
 
-The planned YouTube module starts with public search and the official visible player, without account synchronisation. Its local Library contains only items deliberately added to Favorites, AMC-owned playlists and local playback history; it does not copy the whole account or the full YouTube interface. OAuth remains an optional later extension if there is a real need for account subscriptions, playlists or likes. The official adapter will not download, isolate audio from, or record content played from YouTube. Any experimental media-saving tools remain a separate, isolated and independently updated module for sources that permit saving; they are neither part of the core nor a requirement for YouTube. The browsing experience may resemble podcasts, but playback remains in the official YouTube player.
+The first YouTube stage works without account synchronisation. In Podcasts,
+Ctrl+N deliberately adds one public video or live page to **Internet media**;
+Radio accepts a currently live public broadcast. AMC does not copy the account
+or the full YouTube interface. OAuth remains an optional later extension if
+account subscriptions, playlists, or likes become necessary. Resolution and
+explicit MP3 saving are isolated behind updateable components, use no browser
+cookies, and never become a dependency of ordinary RSS. Public YouTube search
+and an official visible-player adapter remain possible later additions.
 
 `Ctrl+Z` successively undoes membership changes in Favorites, Library and Queue as well as the Play Next state; a restored item is selected again when it belongs to the current view. Inside the filter box, `Ctrl+Z` retains the standard text-editing Undo behavior. The command is also available from the **Edit** menu. The extra English “Undo” has been traced to the NVDA Global Commands Extension's Clipboard command announcement feature rather than AMC. `Ctrl+N` and `Ctrl+A` remain reserved for the standard New and Select All actions. Typing one or more unmodified letters on the list jumps to the semantic primary name and never runs a command: the track title, artist name, album title, or playlist, station or device name. Matching remains independent of the configured field-reading order. Empty lists contain directional navigation and announce that they are empty instead of moving focus to action buttons or the menu. The Now Playing view contains 17 fixed items for type-ahead tests; the demonstration Library intentionally contains only its two member tracks.
 
