@@ -547,10 +547,12 @@ public partial class RadioScheduleEditorWindow : Window
                 segmentCount: 3,
                 e.KeyCode);
             var includeSegmentName = IsSegmentSelectionKey(e.KeyCode);
-            AnnounceHostedValueAfterKey(() => FormatDateSegment(
-                _datePicker.Value,
-                _dateSegmentIndex,
-                includeSegmentName));
+            AnnounceHostedValueAfterKey(() => includeSegmentName
+                ? FormatDateSegment(
+                    _datePicker.Value,
+                    _dateSegmentIndex,
+                    includeSegmentName: true)
+                : FormatAdjustedDate(_datePicker.Value, _dateSegmentIndex));
             return;
         }
 
@@ -684,6 +686,18 @@ public partial class RadioScheduleEditorWindow : Window
         };
     }
 
+    internal static string FormatAdjustedDate(DateTime value, int segmentIndex)
+    {
+        var culture = CultureInfo.GetCultureInfo("pl-PL");
+        var date = segmentIndex switch
+        {
+            0 => value.ToString("dd.MM", CultureInfo.InvariantCulture),
+            1 => value.ToString("d MMMM", culture),
+            _ => value.ToString("d MMMM yyyy", culture)
+        };
+        return $"{date}, {value.ToString("dddd", culture)}";
+    }
+
     private static string FormatTimeSegment(DateTime value, int segmentIndex, bool includeSegmentName)
     {
         if (!includeSegmentName)
@@ -702,7 +716,7 @@ public partial class RadioScheduleEditorWindow : Window
     private static System.Windows.Forms.DateTimePicker CreateDatePicker() => new()
     {
         AccessibleName = "Data pierwszego nagrania",
-        AccessibleDescription = "Wpisz kolejno dwie cyfry dnia, dwie miesiąca i cztery roku. Po ukończeniu części program przechodzi dalej. Lewo i prawo wybiera część. Góra i dół zmienia jej wartość.",
+        AccessibleDescription = "Wpisz kolejno dwie cyfry dnia, dwie miesiąca i cztery roku. Po ukończeniu części program przechodzi dalej. Lewo i prawo wybiera część. Góra i dół zmienia jej wartość oraz podaje wybraną datę i dzień tygodnia.",
         AccessibleRole = System.Windows.Forms.AccessibleRole.SpinButton,
         CustomFormat = "dd.MM.yyyy",
         Format = System.Windows.Forms.DateTimePickerFormat.Custom,

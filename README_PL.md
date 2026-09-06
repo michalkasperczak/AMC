@@ -1,5 +1,11 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.290` uzupełnia dostępne ustawianie daty harmonogramu. Strzałki
+góra i dół podają teraz nie tylko zmienioną liczbę, lecz zwięzłą datę oraz dzień
+tygodnia. Dla dnia jest to na przykład „23.09, środa”, dla miesiąca „4
+września, piątek”, a dla roku pełna data z rokiem i dniem tygodnia. Lewo i
+prawo nadal wybiera segment i podaje jego nazwę.
+
 Wersja `alpha.289` poprawia `Shift+R` w radiowym widoku **Nagrywane**. Edytor
 harmonogramu zachowuje wskazaną nagrywaną stację jako początkowy wybór, ale
 lista stacji obejmuje całą Bibliotekę Radia. Tymczasowa lista aktywnych nagrań

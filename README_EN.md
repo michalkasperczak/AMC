@@ -1,5 +1,10 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.290` improves accessible schedule-date editing. Up and Down now
+announce a concise date together with its weekday: day changes use a numeric
+day and month, month changes use the full month name, and year changes include
+the full year. Left and Right still select and identify the edited segment.
+
 Version `alpha.289` fixes `Shift+R` in Radio's **Active recordings** view. The
 schedule editor keeps the focused recording's station selected, while its
 station picker contains the complete Radio Library. The transient recording

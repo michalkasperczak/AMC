@@ -6449,3 +6449,16 @@ Oczekiwane: początkowo wybrana jest stacja wskazana w widoku **Nagrywane**, ale
 lista zawiera również pozostałe stacje z Biblioteki Radia. Nie zawiera ukrytych,
 niezapisanych wyników katalogu Radio Browser. Anulowanie przywraca fokus do
 tego samego nagrania.
+
+## Test ręczny odczytu daty harmonogramu — alpha 290
+
+### AMC-290-01 — dzień tygodnia przy zmianie daty
+
+Otwórz edytor harmonogramu przez `Shift+R`, wybierz rozpoczęcie **Później** i
+ustaw datę 23.09.2026. Na segmencie dnia zmieniaj wartość strzałkami góra i dół,
+potem przejdź w prawo do miesiąca i zmień miesiąc. Powtórz na segmencie roku.
+
+Oczekiwane: dzień jest czytany np. „23.09, środa”, miesiąc np. „4 września,
+piątek”, a rok jako pełna data z rokiem i dniem tygodnia. Lewo i prawo nadal
+podaje nazwę wybranego segmentu. Każde naciśnięcie powoduje tylko jeden
+komunikat.

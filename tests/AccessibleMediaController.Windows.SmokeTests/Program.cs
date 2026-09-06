@@ -1846,7 +1846,15 @@ static void TestSegmentedDateTimeDigitEntry()
            && padDigit == 7,
         "Cyfry z górnego rzędu albo klawiatury numerycznej nie są rozpoznawane jednakowo.");
 
-    Console.WriteLine("OK: ciągłe wpisywanie segmentów daty i czasu");
+    Assert(RadioScheduleEditorWindow.FormatAdjustedDate(new DateTime(2026, 9, 23), 0)
+           == "23.09, środa"
+           && RadioScheduleEditorWindow.FormatAdjustedDate(new DateTime(2026, 9, 4), 1)
+           == "4 września, piątek"
+           && RadioScheduleEditorWindow.FormatAdjustedDate(new DateTime(2027, 9, 4), 2)
+           == "4 września 2027, sobota",
+        "Zmiana dnia, miesiąca albo roku nie podaje zwięzłej daty i dnia tygodnia.");
+
+    Console.WriteLine("OK: ciągłe wpisywanie segmentów daty i czasu oraz dzień tygodnia przy zmianie daty");
 }
 
 static void TestStatePersistenceQueue()
