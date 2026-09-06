@@ -1492,14 +1492,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        var previousEnd = _audioClipSelection.Matches(item.Id, path)
-            ? _audioClipSelection.End
-            : null;
-        _audioClipSelection.SetStart(item.Id, path, session.Position, item.Duration);
+        if (!_audioClipSelection.SetStart(item.Id, path, session.Position, item.Duration))
+        {
+            Announce("Początek fragmentu musi znajdować się przed jego końcem");
+            return;
+        }
         PersistClipSelection(item);
         var time = FormatClipTime(_audioClipSelection.Start!.Value);
-        Announce(previousEnd is not null && _audioClipSelection.End is null
-            ? $"Początek fragmentu: {time}. Wcześniejszy koniec usunięty"
+        Announce(_audioClipSelection.End is { } end
+            ? $"Początek fragmentu: {time}. Długość: {FormatClipTime(end - _audioClipSelection.Start.Value)}"
             : $"Początek fragmentu: {time}");
     }
 
@@ -1510,19 +1511,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce(error);
             return;
         }
-        if (!_audioClipSelection.Matches(item.Id, path) || _audioClipSelection.Start is null)
-        {
-            Announce("Najpierw ustaw początek fragmentu klawiszem I");
-            return;
-        }
         if (!_audioClipSelection.TrySetEnd(item.Id, path, session.Position, item.Duration))
         {
             Announce("Koniec fragmentu musi znajdować się po jego początku");
             return;
         }
         PersistClipSelection(item);
-        Announce($"Koniec fragmentu: {FormatClipTime(_audioClipSelection.End!.Value)}. "
-            + $"Długość: {FormatClipTime(_audioClipSelection.End.Value - _audioClipSelection.Start.Value)}");
+        var time = FormatClipTime(_audioClipSelection.End!.Value);
+        Announce(_audioClipSelection.Start is { } start
+            ? $"Koniec fragmentu: {time}. Długość: {FormatClipTime(_audioClipSelection.End.Value - start)}"
+            : $"Koniec fragmentu: {time}. Ustaw początek klawiszem I");
     }
 
     private void ClearClipSelection()
@@ -1547,12 +1545,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_audioClipSelection.Matches(item.Id, path)) return;
         _audioClipSelection.Clear();
         var (startTicks, endTicks) = FindClipSelectionTicks(item);
-        if (startTicks is not long savedStartTicks) return;
-        _audioClipSelection.SetStart(
-            item.Id,
-            path,
-            TimeSpan.FromTicks(savedStartTicks),
-            item.Duration);
+        if (startTicks is not null)
+        {
+            _audioClipSelection.SetStart(
+                item.Id,
+                path,
+                TimeSpan.FromTicks(startTicks.Value),
+                item.Duration);
+        }
         if (endTicks.HasValue)
         {
             _audioClipSelection.TrySetEnd(

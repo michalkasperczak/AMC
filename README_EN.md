@@ -1,5 +1,12 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.288` allows a clip to be marked from its end. In the player,
+`O` may be pressed at the later position first, followed by rewinding and
+pressing `I`. Each boundary persists independently for that file and survives
+an AMC restart. Export or removal remains available only when the start is
+actually earlier than the end; an invalid attempt does not discard a valid
+boundary.
+
 Version `alpha.247` adds contextual `Alt+Shift+Enter` options for a podcast
 show and an individual episode: resume policy, speed, normalization,
 transitions, and silence. A show can also use its own refresh interval and

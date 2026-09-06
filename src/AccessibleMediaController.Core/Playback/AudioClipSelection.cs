@@ -13,15 +13,17 @@ public sealed class AudioClipSelection
 
     public bool IsComplete => Start is not null && End is not null && End > Start;
 
-    public void SetStart(
+    public bool SetStart(
         string itemId,
         string sourcePath,
         TimeSpan position,
         TimeSpan duration)
     {
         BeginItem(itemId, sourcePath);
-        Start = Clamp(position, duration);
-        if (End is not null && End <= Start) End = null;
+        var candidate = Clamp(position, duration);
+        if (End is not null && candidate >= End) return false;
+        Start = candidate;
+        return true;
     }
 
     public bool TrySetEnd(
@@ -30,9 +32,9 @@ public sealed class AudioClipSelection
         TimeSpan position,
         TimeSpan duration)
     {
-        if (!Matches(itemId, sourcePath) || Start is null) return false;
+        BeginItem(itemId, sourcePath);
         var candidate = Clamp(position, duration);
-        if (candidate <= Start) return false;
+        if (Start is not null && candidate <= Start) return false;
         End = candidate;
         return true;
     }

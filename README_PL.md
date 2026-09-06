@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.288` pozwala ustawić granice fragmentu również od końca.
+W odtwarzaczu można najpierw nacisnąć `O` w późniejszym miejscu, cofnąć się i
+dopiero nacisnąć `I`. Oba punkty są zapisywane niezależnie dla danego pliku i
+przetrwają ponowne uruchomienie AMC. Eksport lub usuwanie fragmentu pozostają
+dostępne dopiero wtedy, gdy początek rzeczywiście leży przed końcem; błędna
+próba nie kasuje prawidłowo ustawionej granicy.
+
 Wersja `alpha.256` naprawia rzeczywistą obsługę `Ctrl+Alt+B` na liście
 multimediów. Skrót był opisany w profilu i menu, lecz poza odtwarzaczem nie
 docierał do wykonania polecenia. Teraz działa na zaznaczonym materiale zarówno

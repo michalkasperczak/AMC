@@ -6407,3 +6407,32 @@ Oczekiwane: urządzenie główne pokazuje rolę i dostępnych członków wraz z
 głośnością oraz wyciszeniem; urządzenie podrzędne pokazuje rolę i — jeśli
 firmware ją poda — nazwę grupy oraz adres urządzenia głównego. AMC nie oferuje
 jeszcze przycisków tworzenia ani rozłączania grupy.
+
+## Test ręczny zaznaczania fragmentu od końca — alpha 288
+
+### AMC-288-01 — koniec przed początkiem
+
+Otwórz lokalny plik lub pobrany odcinek podcastu. Przejdź do późniejszego
+miejsca i naciśnij `O`. Następnie cofnij się i naciśnij `I`, po czym użyj `X`.
+
+Oczekiwane: po `O` program podaje czas końca i prosi o ustawienie początku.
+Po `I` podaje początek oraz długość kompletnego fragmentu. Okno eksportu pokazuje
+te same granice; zapisany fragment odpowiada przedziałowi od `I` do `O`.
+
+### AMC-288-02 — trwałość pojedynczej granicy
+
+Ustaw tylko koniec klawiszem `O`, zamknij AMC, uruchom je ponownie i wróć do
+tego samego pliku. Naciśnij `Shift+O`, a następnie ustaw wcześniejszy początek.
+
+Oczekiwane: `Shift+O` wraca do zapamiętanego końca. Późniejsze `I` kompletuje
+zaznaczenie; ponowne uruchomienie nie usunęło pojedynczej granicy.
+
+### AMC-288-03 — błędna kolejność nie niszczy punktów
+
+Mając zapisany koniec, spróbuj ustawić początek później niż ten koniec. Potem
+wróć przez `Shift+O`. Powtórz odwrotnie: ustaw początek i spróbuj wskazać
+wcześniejszy koniec.
+
+Oczekiwane: AMC odrzuca tylko błędny punkt i wyjaśnia wymaganą kolejność.
+Poprzednio prawidłowa granica pozostaje dostępna. `X` i `Ctrl+X` nie wykonują
+operacji na niekompletnym albo nieprawidłowym przedziale.

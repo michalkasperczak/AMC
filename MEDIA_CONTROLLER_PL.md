@@ -1596,7 +1596,13 @@ otwiera okno zapisu, `Shift+I` i `Shift+O` wracają bezpośrednio do zaznaczonyc
 punktów, `Alt+Page Up` i `Alt+Page Down` przechodzą do poprzedniej lub następnej
 granicy, a `Shift+X` czyści zaznaczenie. Nawigacja kierunkowa nie zapętla się na
 drugą stronę fragmentu. Koniec musi leżeć po
-początku i oba punkty muszą należeć do tego samego pliku. Od `alpha.199` każda
+początku i oba punkty muszą należeć do tego samego pliku. Od `alpha.288`
+granice można ustawiać w dowolnej kolejności: użytkownik może najpierw wskazać
+koniec klawiszem `O`, cofnąć się i dopiero ustawić początek klawiszem `I`.
+Niepełne zaznaczenie jest zapisywane, ale nie może zostać wyeksportowane ani
+usunięte, dopóki obie granice nie tworzą prawidłowego przedziału. Próba
+ustawienia początku za końcem albo końca przed początkiem zachowuje wcześniej
+prawidłową granicę i kończy się jednoznacznym komunikatem. Od `alpha.199` każda
 pozycja lokalnej Biblioteki ma własną parę granic w SQLite. Granice wracają po
 zmianie pliku i ponownym uruchomieniu programu, a `Shift+X` usuwa tylko parę
 bieżącego pliku. Zaznaczenie nie zmienia źródła, zakładek ani pozycji wznowienia.

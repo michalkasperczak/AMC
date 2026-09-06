@@ -1356,14 +1356,69 @@ static void TestAudioClipSelection()
     Equal(null, selection.FindRelativeBoundary(TimeSpan.FromSeconds(20), -1));
     Equal(null, selection.FindRelativeBoundary(TimeSpan.FromSeconds(45), 1));
 
-    selection.SetStart("item-1", @"D:\Audio\plik.mp3", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(3));
-    Equal(null, selection.End);
+    Equal(false, selection.SetStart(
+        "item-1",
+        @"D:\Audio\plik.mp3",
+        TimeSpan.FromMinutes(1),
+        TimeSpan.FromMinutes(3)));
+    Equal(TimeSpan.FromSeconds(20), selection.Start);
+    Equal(TimeSpan.FromSeconds(45), selection.End);
+
+    selection.Clear();
+    Equal(true, selection.TrySetEnd(
+        "item-1",
+        @"D:\Audio\plik.mp3",
+        TimeSpan.FromSeconds(90),
+        TimeSpan.FromMinutes(3)));
+    Equal(null, selection.Start);
+    Equal(TimeSpan.FromSeconds(90), selection.End);
+    Equal(true, selection.SetStart(
+        "item-1",
+        @"D:\Audio\plik.mp3",
+        TimeSpan.FromSeconds(30),
+        TimeSpan.FromMinutes(3)));
+    Equal(TimeSpan.FromSeconds(30), selection.Start);
+    Equal(true, selection.IsComplete);
+    Equal(false, selection.SetStart(
+        "item-1",
+        @"D:\Audio\plik.mp3",
+        TimeSpan.FromSeconds(100),
+        TimeSpan.FromMinutes(3)));
+    Equal(TimeSpan.FromSeconds(30), selection.Start);
+    Equal(TimeSpan.FromSeconds(90), selection.End);
+
     selection.SetStart("item-2", @"D:\Audio\inny.mp3", TimeSpan.FromSeconds(-2), TimeSpan.FromMinutes(1));
     Equal(TimeSpan.Zero, selection.Start);
     Equal("item-2", selection.ItemId);
     selection.Clear();
     Equal(null, selection.ItemId);
     Equal(false, selection.IsComplete);
+
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-clip-end-first-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(
+            Path.Combine(directory, "state.json"),
+            Path.Combine(directory, "library.db"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.LocalMedia.Items.Add(new LocalMediaItemSettings
+        {
+            Id = "clip-end-first",
+            Title = "Koniec ustawiony jako pierwszy",
+            Path = Path.Combine(directory, "plik.mp3"),
+            DurationTicks = TimeSpan.FromMinutes(3).Ticks,
+            ClipEndTicks = TimeSpan.FromSeconds(90).Ticks
+        });
+        store.Save(state);
+        var restored = store.LoadOrCreate().LocalMedia.Items.Single(item => item.Id == "clip-end-first");
+        Equal(null, restored.ClipStartTicks);
+        Equal(TimeSpan.FromSeconds(90).Ticks, restored.ClipEndTicks);
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
 }
 
 static void TestPlaybackAudioSettingsPersistence()

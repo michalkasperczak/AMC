@@ -1001,10 +1001,15 @@ public sealed class ConfigurationStore
             {
                 item.ClipStartTicks = null;
             }
-            if (!item.ClipStartTicks.HasValue
-                || !item.ClipEndTicks.HasValue
-                || item.ClipEndTicks.Value <= item.ClipStartTicks.Value
-                || item.DurationTicks > 0 && item.ClipEndTicks.Value > item.DurationTicks)
+            if (item.ClipEndTicks.HasValue
+                && (item.ClipEndTicks.Value < 0
+                    || item.DurationTicks > 0 && item.ClipEndTicks.Value > item.DurationTicks))
+            {
+                item.ClipEndTicks = null;
+            }
+            if (item.ClipStartTicks.HasValue
+                && item.ClipEndTicks.HasValue
+                && item.ClipEndTicks.Value <= item.ClipStartTicks.Value)
             {
                 item.ClipEndTicks = null;
             }
