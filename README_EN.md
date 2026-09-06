@@ -1,5 +1,12 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.301` prevents transactional audio-editing parts from leaking
+into the Library. `.amc-cut-*` files are never indexed as ordinary recordings,
+even when iCloud, OneDrive, Google Drive, or antivirus software briefly locks
+their deletion. AMC retries cleanup after the handle is released and records a
+persistent failure in its diagnostic log instead of silently ignoring it. The
+complete `.amc-backup` safety copy remains intentionally preserved.
+
 Version `alpha.300` makes manual control of an active scheduled recording
 consistent. `T` keeps the schedule's folder, format, bitrate, and naming rule
 when starting the next part. The first `R` stops and finalizes the current part

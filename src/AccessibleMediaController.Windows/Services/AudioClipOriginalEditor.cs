@@ -147,10 +147,7 @@ internal static class AudioClipOriginalEditor
         }
         finally
         {
-            foreach (var path in temporaryPaths)
-            {
-                TryDelete(path);
-            }
+            await DeleteTemporaryFilesAsync(temporaryPaths).ConfigureAwait(false);
         }
     }
 
@@ -494,17 +491,38 @@ internal static class AudioClipOriginalEditor
             .LastOrDefault()
         ?? "nieznany błąd";
 
-    private static void TryDelete(string path)
+    private static async Task DeleteTemporaryFilesAsync(IEnumerable<string> paths)
     {
-        try
+        var pending = paths
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        for (var attempt = 1; pending.Count > 0 && attempt <= 12; attempt++)
         {
-            if (File.Exists(path)) File.Delete(path);
+            for (var index = pending.Count - 1; index >= 0; index--)
+            {
+                try
+                {
+                    if (File.Exists(pending[index])) File.Delete(pending[index]);
+                    pending.RemoveAt(index);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+            if (pending.Count == 0) break;
+            await Task.Delay(Math.Min(100 * attempt, 500)).ConfigureAwait(false);
         }
-        catch (IOException)
+
+        foreach (var path in pending)
         {
-        }
-        catch (UnauthorizedAccessException)
-        {
+            DiagnosticLog.Warning(
+                "audio-clip",
+                $"Nie udało się usunąć technicznego pliku po cięciu: {path}. "
+                + "Plik nie zostanie pokazany w Bibliotece.");
         }
     }
 }

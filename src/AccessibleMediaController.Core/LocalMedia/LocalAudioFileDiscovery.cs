@@ -32,7 +32,21 @@ public static class LocalAudioFileDiscovery
         "Pliki multimedialne|*.mp3;*.mp2;*.wav;*.wave;*.rf64;*.bwf;*.m4a;*.aac;*.adts;*.flac;*.wma;*.asf;*.ogg;*.oga;*.opus;*.aif;*.aiff;*.aifc;*.mka;*.mkv;*.webm;*.mp4;*.m4v;*.mov;*.ogv;*.3g2;*.3gp;*.3gp2;*.3gpp;*.avi;*.wmv;*.mpeg;*.mpg;*.mpe;*.ts;*.mts;*.m2ts;*.vob;*.flv;*.ac3;*.eac3;*.ec3;*.amr|Niedokończone nagrania do odzyskania|*.part;*.partial;*.amc-partial|Wszystkie pliki|*.*";
 
     public static bool IsAudioFile(string path) =>
-        AudioExtensions.Contains(Path.GetExtension(path));
+        !IsInternalWorkingFile(path)
+        && AudioExtensions.Contains(Path.GetExtension(path));
+
+    /// <summary>
+    /// Files created beside source media while AMC performs a transactional
+    /// edit are implementation details, even though they retain an audio
+    /// extension. A cloud provider can keep such a file locked briefly after
+    /// FFmpeg exits, so discovery must never expose it as library content.
+    /// </summary>
+    public static bool IsInternalWorkingFile(string path)
+    {
+        var fileName = Path.GetFileName(path);
+        return fileName.StartsWith(".", StringComparison.Ordinal)
+            && fileName.Contains(".amc-cut-", StringComparison.OrdinalIgnoreCase);
+    }
 
     public static bool IsVideoFile(string path) =>
         VideoExtensions.Contains(Path.GetExtension(path));

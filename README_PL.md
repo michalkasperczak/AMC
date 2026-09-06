@@ -1,5 +1,13 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.301` zabezpiecza Bibliotekę przed technicznymi częściami plików
+tworzonymi podczas usuwania fragmentu audio. Pliki `.amc-cut-*` nie są już
+indeksowane ani pokazywane jako zwykłe nagrania, nawet gdy iCloud, OneDrive,
+Google Drive albo program antywirusowy chwilowo blokuje ich usunięcie. AMC
+ponawia sprzątanie po zwolnieniu pliku, a trwałe niepowodzenie zapisuje w logu
+zamiast je przemilczeć. Pełna kopia bezpieczeństwa `.amc-backup` pozostaje
+celowo zachowana.
+
 Wersja `alpha.300` ujednolica ręczne sterowanie nagraniem uruchomionym przez
 harmonogram. `T` nadal zapisuje bieżącą część i rozpoczyna następną w tym samym
 folderze, formacie, bitrate i schemacie nazwy harmonogramu. Pierwsze `R`

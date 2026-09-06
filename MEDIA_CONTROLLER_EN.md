@@ -1671,6 +1671,17 @@ uses modifiers that are physically down rather than a cached hook state, so a
 missed Alt key-up after focus movement cannot turn a later plain digit into a
 view command or a session change.
 
+### 7.14. Transactional audio-editing files
+
+Starting with `alpha.301`, internal `.amc-cut-*` before, after, and result
+parts are never treated as Library media, even while a folder watcher can see
+them during an FFmpeg operation. Cleanup retries for several seconds to handle
+delayed file-handle release by cloud providers and antivirus software, and any
+persistent failure is logged. Startup must not blindly delete a leftover when
+the intended source file is absent, because that part may be the only
+recoverable audio. The full `.amc-backup` safety copy is intentional and is not
+temporary cleanup material.
+
 ### 7.27. Concise Internet Radio recording context
 
 The `Recording` view unambiguously belongs to Internet Radio, so its accessible

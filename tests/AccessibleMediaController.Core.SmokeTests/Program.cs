@@ -3647,6 +3647,12 @@ static void TestLocalAudioFileDiscovery()
         True(LocalAudioFileDiscovery.IsRecoverablePartialFile("nagranie.PART"), "PART powinien być dostępny do ręcznego odzyskania.");
         True(LocalAudioFileDiscovery.IsRecoverablePartialFile("nagranie.mp3.amc-partial"), "AMC-PARTIAL powinien być dostępny do ręcznego odzyskania.");
         True(!LocalAudioFileDiscovery.IsAudioFile("nagranie.part"), "Aktywne PART nie może automatycznie trafiać do Biblioteki.");
+        True(
+            !LocalAudioFileDiscovery.IsAudioFile(".nagranie.amc-cut-123-before.mp3"),
+            "Techniczna część cięcia nie może trafiać do Biblioteki.");
+        True(
+            !LocalAudioFileDiscovery.IsAudioFile(".nagranie.amc-cut-123-result.flac"),
+            "Techniczny wynik cięcia nie może trafiać do Biblioteki.");
         True(LocalAudioFileDiscovery.DialogFilter.Contains("*.amc-partial", StringComparison.Ordinal), "Okno Otwórz nie udostępnia niedokończonych nagrań.");
         True(!LocalAudioFileDiscovery.IsAudioFile("okładka.jpg"), "Obraz nie może trafić na listę audio.");
         Equal(320, LocalAudioFileDiscovery.EstimateBitrateKbps(4_000_000, TimeSpan.FromSeconds(100)));
