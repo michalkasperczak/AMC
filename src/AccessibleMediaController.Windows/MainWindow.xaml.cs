@@ -2192,13 +2192,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerPlayPauseButton.Content = action;
 
         if (!updateAccessibleName) return;
-        var focusContext = _playerFocusContextPrefix;
         _playerFocusContextPrefix = null;
         var name = FormatWiiMPlayerControlName(
             title,
-            action,
-            playback?.Muted == true,
-            focusContext);
+            playback?.Muted == true);
         AutomationProperties.SetName(
             PlayerPlayPauseButton,
             name);
@@ -2207,19 +2204,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     internal static string FormatWiiMPlayerControlName(
         string? title,
-        string action,
-        bool muted,
-        string? focusContext = null)
+        bool muted)
     {
         var usefulTitle = string.IsNullOrWhiteSpace(title) ? "WiiM" : title.Trim();
-        var presetContext = !string.IsNullOrWhiteSpace(focusContext)
-            && focusContext.Contains("preset", StringComparison.CurrentCultureIgnoreCase)
-                ? focusContext.Trim().TrimEnd('.', ',', ' ')
-                : null;
-        var subject = presetContext ?? usefulTitle;
         return muted
-            ? $"{subject}, wyciszone. {action}"
-            : $"{subject}. {action}";
+            ? $"{usefulTitle}, wyciszone"
+            : usefulTitle;
     }
 
     private List<string> BuildWiiMNowPlayingParts(

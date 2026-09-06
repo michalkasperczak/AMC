@@ -2260,24 +2260,19 @@ static void TestWiiMDeviceManagerAccessibility()
 {
     Assert(MainWindow.FormatWiiMPlayerControlName(
                "357",
-               "Odtwórz",
-               muted: false,
-               focusContext: "Otwarto 357 na WiiM Pro Plus-8B96")
-           == "357. Odtwórz",
+               muted: false)
+           == "357",
         "Zmiana strumienia ujawnia w nazwie przycisku pełną nazwę urządzenia albo zbędny kontekst WiiM.");
     Assert(MainWindow.FormatWiiMPlayerControlName(
                "357",
-               "Wstrzymaj",
                muted: true)
-           == "357, wyciszone. Wstrzymaj",
+           == "357, wyciszone",
         "Zwięzła nazwa odtwarzacza WiiM zgubiła istotny stan wyciszenia.");
     Assert(MainWindow.FormatWiiMPlayerControlName(
-               "357",
-               "Wstrzymaj",
-               muted: false,
-               focusContext: "Ctrl+Shift+3, preset 3, 357")
-           == "Ctrl+Shift+3, preset 3, 357. Wstrzymaj",
-        "Zwięzła nazwa odtwarzacza WiiM zgubiła numer uruchomionego presetu.");
+               "Lublin",
+               muted: false)
+           == "Lublin",
+        "Wywołanie presetu dokleja jego numer albo działanie odtwarzacza zamiast samej nazwy.");
 
     Exception? failure = null;
     var thread = new Thread(() =>

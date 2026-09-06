@@ -1,5 +1,11 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.292` makes automatic WiiM announcements even shorter. Changing
+a stream or invoking a preset now announces only its name, for example
+“Lublin”. It no longer adds the preset number or the obvious Play/Pause action.
+The only automatically retained state is meaningful muting, for example
+“Lublin, muted”. Full player information remains available on demand.
+
 Version `alpha.291` shortens the announcement made when WiiM streams and
 presets are changed. The focused playback button now primarily exposes the
 content name and action, for example “357. Play”, without repeating the player

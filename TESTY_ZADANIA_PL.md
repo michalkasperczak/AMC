@@ -6482,3 +6482,15 @@ Uruchom preset z listy oraz bezpośrednim skrótem `Ctrl+Shift+cyfra`.
 Oczekiwane: komunikat nadal zawiera numer presetu i jego nazwę, ale nie dokleja
 pełnego opisu urządzenia. Szczegółowe dane można nadal odczytać w odtwarzaczu
 i poleceniem informacji na żądanie.
+
+## Test ręczny minimalnego odczytu WiiM — alpha 292
+
+### AMC-292-01 — tylko nazwa celu
+
+W odtwarzaczu WiiM zmień strumień przez `Alt+Page Up` lub `Alt+Page Down`, a
+następnie uruchom preset ze skrótu albo listy.
+
+Oczekiwane: NVDA podaje wyłącznie nazwę, np. „357” albo „Lublin”. Nie dodaje
+„Preset 3”, „Odtwórz”, „Wstrzymaj”, rodzaju odtwarzacza, nazwy urządzenia,
+głośności ani nieznanego stanu. Po wyciszeniu podaje zwięźle „Lublin,
+wyciszone”. Pełny odczyt na żądanie nadal zawiera szczegóły.

@@ -1,5 +1,11 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.292` skraca automatyczny odczyt WiiM jeszcze bardziej. Po zmianie
+strumienia albo wywołaniu presetu NVDA podaje tylko nazwę, np. „Lublin”. Nie
+dodaje numeru presetu ani oczywistego działania „Odtwórz” lub „Wstrzymaj”.
+Jedynym automatycznie zachowanym stanem jest istotne wyciszenie, np. „Lublin,
+wyciszone”. Pełny odczyt odtwarzacza nadal pozostaje dostępny na żądanie.
+
 Wersja `alpha.291` skraca komunikat przy przełączaniu strumieni i presetów w
 odtwarzaczu WiiM. Przycisk odtwarzania podaje teraz przede wszystkim nazwę
 materiału oraz działanie, np. „357. Odtwórz”, bez powtarzania rodzaju
