@@ -205,6 +205,14 @@ internal sealed class RadioRecordingControl
         }
     }
 
+    public bool StopRequested
+    {
+        get
+        {
+            lock (_gate) return _stopRequested;
+        }
+    }
+
     public bool TryGetRecentAudio(TimeSpan duration, out RadioAudioSnapshot? snapshot)
     {
         lock (_gate)

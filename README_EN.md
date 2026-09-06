@@ -1,5 +1,15 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.300` makes manual control of an active scheduled recording
+consistent. `T` keeps the schedule's folder, format, bitrate, and naming rule
+when starting the next part. The first `R` stops and finalizes the current part
+but remembers that occurrence until its planned end. A second `R` on the same
+station resumes the schedule instead of starting a manual recording in the
+global folder. This also handles a very quick double `R` while the first file
+is still being finalized. If it is not resumed, the schedule advances when the
+current occurrence ends. Every completed scheduled part is now also added to
+the persistent **Recorded files** view.
+
 Version `alpha.299` adds a **Recorded files** view under `Alt+Shift+R`. It can
 be opened from Internet Radio or Local Files and switches to the Local Files
 session, where it aggregates completed recordings from every configured

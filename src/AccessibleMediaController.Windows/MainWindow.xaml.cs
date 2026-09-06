@@ -144,6 +144,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         new(StringComparer.Ordinal);
     private readonly HashSet<string> _bulkStoppedManualRadioRecordings = new(StringComparer.Ordinal);
     private readonly HashSet<string> _bulkStoppedScheduledRadioRecordings = new(StringComparer.Ordinal);
+    private readonly ScheduledRadioRecordingInterruptionTracker _scheduledRecordingInterruptions = new();
     private readonly SystemWakeTimer _radioWakeTimer = new();
     private readonly Dictionary<string, FileSystemWatcher> _localSourceWatchers =
         new(StringComparer.OrdinalIgnoreCase);
@@ -12842,6 +12843,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var scheduled = _activeScheduledRadioRecordings.Values
             .Where(active => SameRadioStation(station, active.StationId, active.StreamUrl))
             .ToArray();
+        var scheduledBeingStopped = scheduled
+            .Where(active => active.Control.StopRequested
+                && _scheduledRecordingInterruptions.IsSuspended(
+                    active.ScheduleId,
+                    active.ExpectedStartUtcTicks))
+            .ToArray();
+        if (manual.All(active => active.Control.StopRequested)
+            && scheduled.Length > 0
+            && scheduledBeingStopped.Length == scheduled.Length)
+        {
+            foreach (var active in scheduledBeingStopped)
+            {
+                _scheduledRecordingInterruptions.RequestResume(
+                    active.ScheduleId,
+                    active.ExpectedStartUtcTicks);
+            }
+            AnnounceEssential($"Wznawiam zaplanowane nagrywanie po zapisaniu bieżącej części: {station.Title}");
+            return;
+        }
         if (manual.Length + scheduled.Length > 0)
         {
             foreach (var active in manual)
@@ -12851,19 +12871,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             foreach (var active in scheduled)
             {
+                _scheduledRecordingInterruptions.Suspend(
+                    active.ScheduleId,
+                    active.ExpectedStartUtcTicks);
                 active.Control.RequestStop();
-                AdvanceStoppedScheduledOccurrence(active, "zatrzymane dla wybranej stacji");
                 active.Cancellation.Cancel();
-            }
-            if (scheduled.Length > 0)
-            {
-                QueueStateSave();
-                RearmRadioWakeTimer();
             }
             AnnounceEssential($"Zatrzymuję nagrywanie: {station.Title}");
             return;
         }
 
+        if (TryResumeSuspendedScheduledRadioRecording(station)) return;
         StartManualRadioRecording(station);
     }
 
@@ -13235,11 +13253,34 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void AdvanceStoppedScheduledOccurrence(ActiveScheduledRadioRecording active, string reason)
     {
+        _scheduledRecordingInterruptions.Clear(active.ScheduleId);
         var schedule = _state.Radio.RecordingSchedules.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, active.ScheduleId, StringComparison.Ordinal)
             && candidate.NextStartUtcTicks == active.ExpectedStartUtcTicks);
         if (schedule is not null)
             _ = AdvanceOrRemoveRadioSchedule(schedule, DateTime.UtcNow, reason);
+    }
+
+    private bool TryResumeSuspendedScheduledRadioRecording(MediaItem station)
+    {
+        var now = DateTime.UtcNow;
+        var schedule = _state.Radio.RecordingSchedules
+            .Where(candidate => candidate.Enabled
+                && SameRadioStation(station, candidate.StationId, candidate.StreamUrl)
+                && _scheduledRecordingInterruptions.IsSuspended(
+                    candidate.Id,
+                    candidate.NextStartUtcTicks)
+                && RadioScheduleCalculator.Evaluate(candidate, now).Kind
+                    == RadioScheduleDueKind.StartRemaining)
+            .OrderBy(candidate => candidate.NextStartUtcTicks)
+            .FirstOrDefault();
+        if (schedule is null) return false;
+
+        _scheduledRecordingInterruptions.TakeForResume(
+            schedule.Id,
+            schedule.NextStartUtcTicks);
+        StartScheduledRadioRecording(schedule);
+        return true;
     }
 
     private async Task CompleteManualRadioRecordingAsync(ActiveManualRadioRecording active)
@@ -13512,6 +13553,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
         }
         _state.Radio.RecordingSchedules = replacements;
+        _scheduledRecordingInterruptions.RetainMatching(replacements);
         _state.Radio.WakeScheduledRecordings = dialog.ResultWakeScheduledRecordings;
         QueueStateSave();
         RearmRadioWakeTimer();
@@ -13552,6 +13594,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (_activeScheduledRadioRecordings.ContainsKey(schedule.Id)) continue;
             var decision = RadioScheduleCalculator.Evaluate(schedule, now);
+            if (_scheduledRecordingInterruptions.IsSuspended(
+                    schedule.Id,
+                    schedule.NextStartUtcTicks))
+            {
+                if (decision.Kind != RadioScheduleDueKind.Missed) continue;
+                _scheduledRecordingInterruptions.Clear(schedule.Id);
+                changed |= AdvanceOrRemoveRadioSchedule(
+                    schedule,
+                    now,
+                    "ręcznie zatrzymane do końca bieżącego wystąpienia");
+                continue;
+            }
             if (decision.Kind == RadioScheduleDueKind.Future) continue;
             if (decision.Kind == RadioScheduleDueKind.Missed)
             {
@@ -13647,7 +13701,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         RefreshRadioRecognitionScheduleAfterSourceChange();
         if (completedActive is not null)
+        {
+            ImportCompletedRadioRecordings(completedActive.Control.CompletedPaths);
             PersistRadioRecordingBookmarks(completedActive.Control);
+        }
         var suppressAnnouncement = _bulkStoppedScheduledRadioRecordings.Remove(snapshot.Id);
         if (_isClosing) return;
         RefreshRadioRecordingPresentation();
@@ -13655,6 +13712,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var current = _state.Radio.RecordingSchedules.FirstOrDefault(schedule =>
             schedule.Id == snapshot.Id
             && schedule.NextStartUtcTicks == snapshot.NextStartUtcTicks);
+        if (result.Cancelled
+            && current is not null
+            && RadioScheduleCalculator.Evaluate(current, DateTime.UtcNow).Kind
+                == RadioScheduleDueKind.StartRemaining
+            && _scheduledRecordingInterruptions.ConsumeResumeRequest(
+                current.Id,
+                current.NextStartUtcTicks))
+        {
+            StartScheduledRadioRecording(current);
+            return;
+        }
         if (current is not null && !result.Cancelled)
         {
             if (result.Success)

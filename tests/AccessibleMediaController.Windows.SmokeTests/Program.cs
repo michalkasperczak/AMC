@@ -131,6 +131,7 @@ try
     TestRadioRecordingSplitPipeline();
     TestRadioRecordingStagingPublication();
     TestScheduledRadioSegmentation();
+    TestScheduledRadioRecordingInterruptionTracker();
     TestShazamFingerprint();
     TestRecognitionSearchLinks();
     TestRadioMp3Recording();
@@ -4139,6 +4140,40 @@ static void TestScheduledRadioSegmentation()
                15),
         "Ostatnia krótsza część próbowała uruchomić dodatkowy plik.");
     Console.WriteLine("OK: harmonogram wyznacza pełne i ostatnią krótszą część nagrania");
+}
+
+static void TestScheduledRadioRecordingInterruptionTracker()
+{
+    var tracker = new ScheduledRadioRecordingInterruptionTracker();
+    var start = DateTime.UtcNow.AddMinutes(-5).Ticks;
+    tracker.Suspend("plan-1", start);
+    Assert(tracker.IsSuspended("plan-1", start),
+        "Zatrzymane wystąpienie harmonogramu nie zostało zapamiętane.");
+    Assert(tracker.RequestResume("plan-1", start)
+           && tracker.ConsumeResumeRequest("plan-1", start)
+           && !tracker.IsSuspended("plan-1", start),
+        "Szybkie drugie R nie wznowiło tego samego wystąpienia harmonogramu.");
+
+    tracker.Suspend("plan-2", start);
+    var matching = new RadioRecordingScheduleSettings
+    {
+        Id = "plan-2",
+        NextStartUtcTicks = start,
+        Enabled = true
+    };
+    tracker.RetainMatching([matching]);
+    Assert(tracker.IsSuspended("plan-2", start),
+        "Niezmieniony harmonogram zgubił stan ręcznego zatrzymania.");
+    matching.NextStartUtcTicks++;
+    tracker.RetainMatching([matching]);
+    Assert(!tracker.IsSuspended("plan-2", start),
+        "Zmienione wystąpienie odziedziczyło zatrzymanie poprzedniego terminu.");
+
+    tracker.Suspend("plan-3", start);
+    Assert(tracker.TakeForResume("plan-3", start)
+           && !tracker.IsSuspended("plan-3", start),
+        "Ponowne R po finalizacji pliku nie podjęło zaplanowanego wystąpienia.");
+    Console.WriteLine("OK: zatrzymanie i wznowienie zachowuje to samo wystąpienie harmonogramu");
 }
 
 static void TestLegacyIcyMp3Stream()

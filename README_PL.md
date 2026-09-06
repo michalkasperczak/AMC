@@ -1,5 +1,16 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.300` ujednolica ręczne sterowanie nagraniem uruchomionym przez
+harmonogram. `T` nadal zapisuje bieżącą część i rozpoczyna następną w tym samym
+folderze, formacie, bitrate i schemacie nazwy harmonogramu. Pierwsze `R`
+zatrzymuje i finalizuje bieżącą część, ale do końca zaplanowanego czasu pamięta
+to wystąpienie. Drugie `R` na tej samej stacji wznawia właśnie harmonogram,
+a nie nowe nagranie ręczne w ogólnym folderze. Działa także przy bardzo szybkim
+dwukrotnym `R`, gdy pierwszy plik jest jeszcze finalizowany. Jeżeli nagranie
+nie zostanie wznowione, po końcu jego okna harmonogram przechodzi do następnego
+terminu. Wszystkie zakończone części harmonogramu są teraz również dodawane do
+trwałego widoku **Nagrane pliki**.
+
 Wersja `alpha.299` dodaje widok **Nagrane pliki** pod skrótem `Alt+Shift+R`.
 Można go otworzyć z sesji Radio internetowe albo Pliki lokalne. Widok przechodzi
 do sesji Pliki lokalne i pokazuje w jednym miejscu zakończone nagrania ze
