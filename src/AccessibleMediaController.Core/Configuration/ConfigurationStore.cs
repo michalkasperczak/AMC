@@ -349,6 +349,7 @@ public sealed class ConfigurationStore
         EmbeddedChaptersSignature = item.EmbeddedChaptersSignature,
         HasFeedChapters = item.HasFeedChapters,
         PublishedUtcTicks = item.PublishedUtcTicks,
+        FeedOrdinal = item.FeedOrdinal,
         DurationTicks = item.DurationTicks,
         ResumePositionTicks = item.ResumePositionTicks,
         ResumePositionMode = item.ResumePositionMode,
@@ -1512,6 +1513,7 @@ public sealed class ConfigurationStore
                     ? null
                     : episode.EmbeddedChaptersSignature.Trim();
                 episode.PublishedUtcTicks = NormalizeOptionalUtcTicks(episode.PublishedUtcTicks);
+                episode.FeedOrdinal = episode.FeedOrdinal is >= 0 ? episode.FeedOrdinal : null;
                 episode.DurationTicks = Math.Max(0, episode.DurationTicks);
                 episode.ResumePositionTicks = Math.Max(0, episode.ResumePositionTicks);
                 episode.ResumePositionMode = Enum.IsDefined(episode.ResumePositionMode)

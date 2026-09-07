@@ -315,6 +315,7 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         hash.Add(item.EmbeddedChaptersSignature);
         hash.Add(item.HasFeedChapters);
         hash.Add(item.PublishedUtcTicks);
+        hash.Add(item.FeedOrdinal);
         hash.Add(item.DurationTicks);
         hash.Add(item.ResumePositionTicks);
         hash.Add((int)item.ResumePositionMode);

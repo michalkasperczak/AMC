@@ -1,5 +1,12 @@
 # Projekt modułu podcastów AMC
 
+Od `alpha.312` kolejność materiałów kanału YouTube pochodzi z bieżącej karty
+**Filmy**, a nie z tytułów. Uproszczona odpowiedź YouTube często nie zawiera dat
+publikacji, dlatego AMC zapisuje również pozycję materiału w zwróconym oknie.
+Aktualne pozycje są wyświetlane najpierw, w kolejności najnowsze–najstarsze, a
+zachowane archiwalne materiały spoza bieżących 100 pozycji pozostają za nimi.
+Playlista YouTube zachowuje natomiast kolejność ustaloną przez jej wydawcę.
+
 Od `alpha.311` zakończone materiały YouTube mają osobny, seekowalny tor FFmpeg.
 Każdy skok uruchamia dekoder od żądanego czasu i korzysta z zakresów HTTP,
 zamiast liniowo doczytywać plik od początku. Transmisja na żywo nadal nie udaje

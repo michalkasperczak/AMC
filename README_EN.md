@@ -1,5 +1,11 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.312` preserves the actual order returned by a YouTube channel.
+Its Videos view is shown newest first even when YouTube's flat response omits
+publication dates; missing dates can no longer trigger an accidental
+alphabetical title order. Every manual or automatic refresh stores the current
+channel order and keeps AMC's older retained archive after that current window.
+
 Version `alpha.305` removes hidden seconds from schedule times entered in the
 editor. Since the control exposes only hours and minutes, `22:00` now always
 means exactly `22:00:00`. An explicitly immediate first run still begins

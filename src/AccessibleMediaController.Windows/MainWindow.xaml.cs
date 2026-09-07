@@ -10491,11 +10491,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return;
             }
             ViewHeading.Text = $"{PodcastContainerLabel(subscription.SourceKind)} — {subscription.Title}";
-            var podcastEpisodes = _state.Podcasts.Episodes
-                .Where(episode => string.Equals(episode.SubscriptionId, podcastId, StringComparison.Ordinal))
-                .OrderByDescending(episode => episode.PublishedUtcTicks)
-                .ThenBy(episode => episode.Title, StringComparer.CurrentCultureIgnoreCase)
-                .ToArray();
+            var podcastEpisodes = PodcastEpisodeOrdering.Order(
+                _state.Podcasts.Episodes.Where(episode => string.Equals(
+                    episode.SubscriptionId,
+                    podcastId,
+                    StringComparison.Ordinal)),
+                subscription.SourceKind);
             _unfilteredItems = CreatePagedPodcastEpisodeRows(
                 podcastEpisodes,
                 preferredItemId,

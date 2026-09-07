@@ -343,6 +343,7 @@ public sealed class PodcastEpisodeSettings
     public string? EmbeddedChaptersSignature { get; set; }
     public bool HasFeedChapters { get; set; }
     public long PublishedUtcTicks { get; set; }
+    public int? FeedOrdinal { get; set; }
     public long DurationTicks { get; set; }
     public long ResumePositionTicks { get; set; }
     public ResumePositionMode ResumePositionMode { get; set; } = ResumePositionMode.Inherit;

@@ -32,6 +32,7 @@ var tests = new (string Name, Action Test)[]
     ("Rozdziały dostawcy podcastu", TestPodcastProviderChapters),
     ("Zwięzłe autorstwo podcastów", TestPodcastMetadataPresentation),
     ("Sortowanie skrzynki Podcastów", TestPodcastInboxOrdering),
+    ("Kolejność materiałów kanałów YouTube", TestYouTubeCollectionOrdering),
     ("Stronicowanie dużych list Podcastów", TestPodcastEpisodePaging),
     ("Kopiowanie opisów i adresów Podcastów", TestPodcastClipboardPresentation),
     ("Bezpieczne nazwy pobranych odcinków Podcastów", TestPodcastDownloadNaming),
@@ -1251,6 +1252,69 @@ static void TestPodcastLibraryUpdate()
         sourceKind: PodcastSourceKind.YouTubeChannel);
     Equal(PodcastSourceKind.YouTubeChannel, youtubeSettings.Subscriptions.Single().SourceKind);
     Equal("AbCdEf12345", youtubeSettings.Episodes.Single().SourceIdentifier);
+}
+
+static void TestYouTubeCollectionOrdering()
+{
+    var settings = new PodcastSettings();
+    var feedUri = new Uri("https://www.youtube.com/@test/videos");
+    PodcastFeedEpisode Episode(string id, string title) => new(
+        $"youtube-channel:test:{id}",
+        id,
+        title,
+        "Kanał",
+        string.Empty,
+        null,
+        TimeSpan.FromMinutes(5),
+        new Uri($"https://www.youtube.com/watch?v={id}"),
+        new Uri($"https://www.youtube.com/watch?v={id}"),
+        "video/youtube",
+        null);
+    var first = new PodcastFeedDocument(
+        "youtube-channel:test",
+        "Kanał testowy",
+        "Kanał testowy",
+        string.Empty,
+        feedUri,
+        new Uri("https://www.youtube.com/@test"),
+        [
+            Episode("Newest00001", "Zulu — najnowszy"),
+            Episode("Middle00002", "Alfa — środkowy"),
+            Episode("Older000003", "Beta — starszy")
+        ]);
+
+    PodcastLibraryUpdater.Apply(
+        settings,
+        first,
+        null,
+        DateTime.UtcNow,
+        sourceKind: PodcastSourceKind.YouTubeChannel);
+    var subscription = settings.Subscriptions.Single();
+    var ordered = PodcastEpisodeOrdering.Order(settings.Episodes, subscription.SourceKind);
+    Equal("Zulu — najnowszy", ordered[0].Title);
+    Equal("Alfa — środkowy", ordered[1].Title);
+    Equal("Beta — starszy", ordered[2].Title);
+
+    var refreshed = first with
+    {
+        Episodes =
+        [
+            Episode("Latest00004", "Omega — jeszcze nowszy"),
+            first.Episodes[0],
+            first.Episodes[1]
+        ]
+    };
+    PodcastLibraryUpdater.Apply(
+        settings,
+        refreshed,
+        null,
+        DateTime.UtcNow.AddHours(1),
+        sourceKind: PodcastSourceKind.YouTubeChannel);
+    ordered = PodcastEpisodeOrdering.Order(settings.Episodes, subscription.SourceKind);
+    Equal("Omega — jeszcze nowszy", ordered[0].Title);
+    Equal("Zulu — najnowszy", ordered[1].Title);
+    Equal("Alfa — środkowy", ordered[2].Title);
+    Equal("Beta — starszy", ordered[3].Title);
 }
 
 static void TestPodcastLegacyInboxMigration()

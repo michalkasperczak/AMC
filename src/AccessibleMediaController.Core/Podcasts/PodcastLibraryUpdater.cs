@@ -77,6 +77,8 @@ public static class PodcastLibraryUpdater
         var matchedKnownEpisodeIds = new HashSet<string>(StringComparer.Ordinal);
         var addedEpisodes = 0;
         var updatedEpisodes = 0;
+        var recordsInCurrentFeedOrder = new List<PodcastEpisodeSettings>();
+        var sourceOrdinal = 0;
         foreach (var source in feed.Episodes)
         {
             var episode = settings.Episodes.FirstOrDefault(candidate =>
@@ -132,6 +134,12 @@ public static class PodcastLibraryUpdater
                 episode.ProviderChaptersLoadedUrl = null;
             }
             episode.PublishedUtcTicks = source.Published?.UtcDateTime.Ticks ?? 0;
+            episode.FeedOrdinal = sourceKind is PodcastSourceKind.YouTubeChannel
+                or PodcastSourceKind.YouTubePlaylist
+                    ? sourceOrdinal
+                    : null;
+            recordsInCurrentFeedOrder.Add(episode);
+            sourceOrdinal++;
             if (source.Duration > TimeSpan.Zero)
             {
                 episode.DurationTicks = source.Duration.Ticks;
@@ -150,6 +158,37 @@ public static class PodcastLibraryUpdater
                     refreshUtc);
             }
             if (feedChapters.Count > 0) episode.HasFeedChapters = true;
+        }
+
+        if (sourceKind is PodcastSourceKind.YouTubeChannel or PodcastSourceKind.YouTubePlaylist)
+        {
+            // A flat YouTube response often contains no publication dates. Its
+            // entry order is nevertheless meaningful: /videos is newest first,
+            // while a playlist follows the order selected by its publisher.
+            // Keep that order durably and append archived entries which are no
+            // longer present in YouTube's bounded current window.
+            var currentIds = recordsInCurrentFeedOrder
+                .Select(episode => episode.Id)
+                .ToHashSet(StringComparer.Ordinal);
+            var retainedArchive = settings.Episodes
+                .Where(episode => string.Equals(
+                        episode.SubscriptionId,
+                        subscription.Id,
+                        StringComparison.Ordinal)
+                    && !currentIds.Contains(episode.Id))
+                .ToArray();
+            foreach (var archivedEpisode in retainedArchive) archivedEpisode.FeedOrdinal = null;
+
+            var firstSubscriptionIndex = settings.Episodes.FindIndex(episode =>
+                string.Equals(episode.SubscriptionId, subscription.Id, StringComparison.Ordinal));
+            if (firstSubscriptionIndex < 0) firstSubscriptionIndex = settings.Episodes.Count;
+            settings.Episodes.RemoveAll(episode => string.Equals(
+                episode.SubscriptionId,
+                subscription.Id,
+                StringComparison.Ordinal));
+            settings.Episodes.InsertRange(
+                firstSubscriptionIndex,
+                recordsInCurrentFeedOrder.Concat(retainedArchive));
         }
 
         return new PodcastLibraryUpdateResult(

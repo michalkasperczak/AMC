@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.312` zachowuje rzeczywistą kolejność materiałów kanału YouTube.
+Kanał jest wyświetlany tak jak jego karta **Filmy**: najnowszy materiał znajduje
+się na początku. Brak dat publikacji w uproszczonych danych YouTube nie powoduje
+już przypadkowego sortowania tytułów alfabetycznie. Kolejność jest zapisywana w
+bazie i aktualizowana przy każdym ręcznym lub automatycznym odświeżeniu; starsze
+materiały zachowane przez AMC pozostają za aktualnym oknem kanału.
+
 Wersja `alpha.311` naprawia pierwszy rzeczywisty przebieg wyszukiwania,
 odtwarzania i pobierania YouTube. Działanie wykonane bezpośrednio na wyniku nie
 może już zakończyć programu, nawet gdy materiał nie należał jeszcze do roboczego
