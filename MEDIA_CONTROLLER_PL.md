@@ -2281,7 +2281,8 @@ jej obecnie wyliczać ani edytować. Dlatego wymiana tej listy odbywa się jawni
 przez import i eksport M3U, a nie przez pozorną synchronizację.
 
 Od `alpha.278` sesja WiiM ma lokalną, trwałą listę **Strumienie sieciowe**.
-`Ctrl+L` ją otwiera, `Ctrl+N` dodaje nazwany adres, a `Ctrl+O` importuje M3U,
+Od `alpha.306` `Ctrl+O` ją otwiera, `Ctrl+N` dodaje nazwany adres, a
+`Ctrl+Shift+O` importuje M3U,
 M3U8 lub PLS z limitami rozmiaru, liczby wpisów i długości adresów. Manifest
 jednej transmisji HLS nie jest mylony z listą wielu strumieni. Duplikaty URL
 nie są dodawane ponownie. Enter i `Ctrl+Alt+W` wysyłają wybrany adres do
@@ -2290,13 +2291,17 @@ lokalnych danych AMC. Funkcja nie odczytuje automatycznie prywatnej kolekcji
 WiiM Home, ponieważ wspierane API jej nie udostępnia; istniejącą listę można
 przenieść jawnie przez wyeksportowany plik playlisty.
 
-Od `alpha.279` `Ctrl+Shift+O` eksportuje całą lokalną listę strumieni WiiM do
+Od `alpha.306` `Ctrl+E` eksportuje całą lokalną listę strumieni WiiM do
 rozszerzonego M3U w UTF-8. Nazwy są oczyszczane ze znaków sterujących, adresy
 ponownie przechodzą tę samą walidację HTTP/HTTPS, fragment URL jest usuwany, a
 adres z osadzonym loginem lub hasłem nie trafia do pliku. Zapis powstaje
 najpierw jako plik tymczasowy w folderze docelowym i dopiero po pełnym
 ukończeniu atomowo zastępuje wskazany plik. Funkcja działa bez włączonego
 urządzenia, ponieważ operuje wyłącznie na lokalnej kolekcji AMC.
+
+`Ctrl+L` nie otwiera w WiiM listy strumieni i nie tworzy pozornej Biblioteki.
+Obecny adapter urządzenia nie ma dostępu do Biblioteki, ostatnio odtwarzanych
+ani katalogów usług z WiiM Home, więc ten wspólny skrót pozostaje niedostępny.
 
 Od `alpha.280` plik eksportowy ma odwróconą kolejność techniczną, ponieważ WiiM
 Home podczas importu dokłada każdy kolejny wpis na początek. Efektem widocznym
@@ -2404,3 +2409,17 @@ komunikat nie powtarza nazwy „Radio internetowe”. Bezpośrednie wejście pod
 „Nagrywane” i element, a powrót skrótem sesji składa numer sesji, „Nagrywane”,
 nazwę stacji oraz stan nagrania. Stan wyciszenia pozostaje podawany. Pozostałe
 widoki zachowują pełną nazwę sesji.
+
+### 7.28. Stabilny fokus odtwarzacza i Biblioteka Podcastów
+
+Od `alpha.306` ręczne i automatyczne odświeżenie dużej Biblioteki Podcastów
+jest wzajemnie wykluczające. Zakończenie pracy sieciowej podczas używania
+odtwarzacza nie podmienia ukrytej listy ani tysięcy obiektów odcinków; zmiana
+jest stosowana dopiero po powrocie do widocznej przeglądarki Podcastów. Przy
+przywracaniu sesji bezpośrednio do odtwarzacza AMC również pomija niepotrzebną
+przebudowę listy. Chroni to fokus NVDA oraz bieżący kontekst odtwarzania.
+
+W Podcastach `Ctrl+Shift+L` działa na poziomie subskrypcji. Użycie go na
+podcaście albo na jego odcinku dodaje lub usuwa cały podcast z Biblioteki.
+Odcinek nie ma niezależnego znacznika Biblioteki; jego kolejka, Ulubione,
+historia, pobranie i pozycja pozostają osobnymi stanami.

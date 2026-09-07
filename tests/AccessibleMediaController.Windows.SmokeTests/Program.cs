@@ -2730,6 +2730,26 @@ static void TestMainWindowDigitShortcutRouting()
             ModifierKeys.Control | ModifierKeys.Shift) is null,
         "Shift+A nie wybiera urządzenia audio bieżącej sesji albo przejmuje błędny skrót.");
     Assert(
+        MainWindowShortcutRouter.ResolveOpenData(Key.O, ModifierKeys.Control, "wiim")
+            == CommandIds.ViewWiiMNetworkStreams
+        && MainWindowShortcutRouter.ResolveOpenData(
+            Key.O,
+            ModifierKeys.Control | ModifierKeys.Shift,
+            "wiim") == CommandIds.ImportWiiMNetworkStreams,
+        "Ctrl+O i Ctrl+Shift+O nie otwierają odpowiednio zapisanych strumieni WiiM i importu playlisty.");
+    Assert(
+        MainWindowShortcutRouter.ResolveOpenData(Key.O, ModifierKeys.Control, "local")
+            == CommandIds.OpenLocalFiles
+        && MainWindowShortcutRouter.ResolveOpenData(
+            Key.O,
+            ModifierKeys.Control | ModifierKeys.Shift,
+            "local") == CommandIds.OpenLocalFolder
+        && MainWindowShortcutRouter.ResolveOpenData(Key.O, ModifierKeys.Control, "radio")
+            == CommandIds.ImportRadioPlaylist
+        && MainWindowShortcutRouter.ResolveOpenData(Key.O, ModifierKeys.Control, "podcasts")
+            == CommandIds.ImportPodcastOpml,
+        "Skróty Ctrl+O pozostałych sesji zmieniły znaczenie po korekcie WiiM.");
+    Assert(
         MainWindowShortcutRouter.ResolveChapterList(
             Key.B,
             ModifierKeys.Control | ModifierKeys.Alt,

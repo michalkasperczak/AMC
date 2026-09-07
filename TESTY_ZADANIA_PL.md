@@ -6625,3 +6625,42 @@ otwórz. Pozostaw program uruchomiony przed terminem.
 Oczekiwane: harmonogram rozpoczyna nagrywanie dokładnie o `22:00:00`, a nie
 kilkanaście lub kilkadziesiąt sekund później. Kolejne wystąpienia planu
 cyklicznego również zachowują pełną minutę.
+
+## Testy ręczne — alpha 306
+
+### AMC-306-01 — odświeżanie Podcastów nie odbiera fokusa
+
+Otwórz odcinek w odtwarzaczu Podcastów. Rozpocznij ręczne odświeżanie całej
+Biblioteki i spróbuj uruchomić je ponownie, zanim pierwsza operacja się skończy.
+W czasie pracy używaj strzałek, czasu, pauzy i przełączania sesji.
+
+Oczekiwane: druga próba mówi, że odświeżanie już trwa. Fokus pozostaje na
+odtwarzaczu i wszystkie skróty reagują bez dodatkowego Escape. Nowa lista
+odcinków jest zastosowana dopiero po powrocie do widocznej listy Podcastów.
+
+### AMC-306-02 — Biblioteka dotyczy całego podcastu
+
+Wejdź do audycji, ustaw fokus na jej odcinku i naciśnij `Ctrl+Shift+L`.
+Powtórz próbę po zaznaczeniu kilku odcinków tego samego podcastu. Sprawdź także
+polecenie na samej nazwie podcastu i `Ctrl+Z`.
+
+Oczekiwane: program zawsze dodaje albo usuwa jeden podcast nadrzędny, a nie
+pojedynczy odcinek. Po usunięciu wraca do nadrzędnej Biblioteki. Nie pozostaje
+odłączona lista odcinków, a cofnięcie przywraca subskrypcję.
+
+### AMC-306-03 — skróty Strumieni sieciowych WiiM
+
+W sesji WiiM naciśnij kolejno `Ctrl+O`, `Ctrl+Shift+O`, `Ctrl+E` i `Ctrl+L`.
+
+Oczekiwane: `Ctrl+O` otwiera zapisane Strumienie sieciowe, `Ctrl+Shift+O`
+otwiera import playlisty, a `Ctrl+E` eksport. `Ctrl+L` nie przełącza do
+pozornej Biblioteki i wyjaśnia, że WiiM jej nie udostępnia.
+
+### AMC-306-04 — Afera bez jednorazowego duplikatu
+
+Otwórz Harmonogram i sprawdź wpis Afera. Poruszaj się strzałkami po liście,
+otwórz wpis do edycji i anuluj.
+
+Oczekiwane: istnieje jeden aktywny plan cykliczny: niedziela, `22:00`, długość
+4 godziny. Nie ma kopii jednorazowej. Nawigacja podaje ten wpis jeden raz i po
+anulowaniu zachowuje na nim fokus.

@@ -1351,6 +1351,30 @@ static void TestPodcastMembershipToggle()
     Equal(true, PodcastMembershipToggle.Apply(subscriptions, PodcastMembershipCollection.Library));
     True(subscriptions.All(subscription => subscription.IsInLibrary),
         "Kolejne użycie Biblioteki musi przywrócić podcast.");
+
+    var podcasts = new PodcastSettings
+    {
+        Subscriptions =
+        [
+            new PodcastSubscriptionSettings { Id = "podcast-a", Title = "Podcast A" },
+            new PodcastSubscriptionSettings { Id = "podcast-b", Title = "Podcast B" }
+        ],
+        Episodes =
+        [
+            new PodcastEpisodeSettings { Id = "episode-a", SubscriptionId = "podcast-a" }
+        ]
+    };
+    MediaItem[] actionItems =
+    [
+        new() { Id = "episode-a", Kind = MediaItemKind.Episode },
+        new() { Id = "episode-search-b", ExternalId = "podcast-b", Kind = MediaItemKind.Episode },
+        new() { Id = "episode-a", Kind = MediaItemKind.Episode },
+        new() { Id = "track", Kind = MediaItemKind.Track }
+    ];
+    var resolved = PodcastMembershipToggle.ResolveSubscriptions(podcasts, actionItems);
+    Equal(2, resolved.Count);
+    True(resolved.Select(subscription => subscription.Id).SequenceEqual(["podcast-a", "podcast-b"]),
+        "Ctrl+Shift+L na odcinku musi wskazywać podcast nadrzędny i usuwać duplikaty zaznaczenia.");
 }
 
 static void TestAudioClipSelection()
@@ -1884,6 +1908,7 @@ static void TestCommandCatalog()
     Equal("Foldery Biblioteki", CommandCatalog.GetDisplayName(CommandIds.ManageLocalSources));
     Equal("Otwórz element w WiiM", CommandCatalog.GetDisplayName(CommandIds.OpenOnWiiM));
     Equal("Dodaj strumień sieciowy WiiM", CommandCatalog.GetDisplayName(CommandIds.AddWiiMNetworkStream));
+    Equal("Otwórz zapisane strumienie WiiM", CommandCatalog.GetDisplayName(CommandIds.ViewWiiMNetworkStreams));
     Equal("Importuj strumienie WiiM z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportWiiMNetworkStreams));
     Equal("Eksportuj strumienie do WiiM Home", CommandCatalog.GetDisplayName(CommandIds.ExportWiiMNetworkStreams));
     Equal("Poprzedni strumień lub zajęty preset urządzenia WiiM", CommandCatalog.GetDisplayName(CommandIds.PreviousWiiMDevicePreset));
@@ -4816,8 +4841,9 @@ static void TestCommandPalette()
     Equal("Ctrl+E (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ExportRadioFavorites).LocalShortcut);
     Equal("Ctrl+Alt+W", entries.Single(entry => entry.CommandId == CommandIds.OpenOnWiiM).LocalShortcut);
     Equal("Ctrl+N (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.AddWiiMNetworkStream).LocalShortcut);
-    Equal("Ctrl+O (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ImportWiiMNetworkStreams).LocalShortcut);
-    Equal("Ctrl+Shift+O (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ExportWiiMNetworkStreams).LocalShortcut);
+    Equal("Ctrl+O (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ViewWiiMNetworkStreams).LocalShortcut);
+    Equal("Ctrl+Shift+O (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ImportWiiMNetworkStreams).LocalShortcut);
+    Equal("Ctrl+E (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ExportWiiMNetworkStreams).LocalShortcut);
     Equal("F5 (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcast).LocalShortcut);
     Equal("Ctrl+F5 (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcastLibrary).LocalShortcut);
     Equal("Ctrl+I (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.ViewPodcastInbox).LocalShortcut);

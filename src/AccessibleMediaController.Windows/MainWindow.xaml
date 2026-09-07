@@ -47,14 +47,19 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+N"
                           Visibility="Collapsed"
                           Click="AddWiiMNetworkStream_Click" />
-                <MenuItem x:Name="ImportWiiMNetworkStreamsMenuItem" Header="Importuj strumienie WiiM z _playlisty…" InputGestureText="Ctrl+O"
-                          automation:AutomationProperties.Name="Importuj strumienie WiiM z playlisty, Ctrl+O"
+                <MenuItem x:Name="ViewWiiMNetworkStreamsMenuItem" Header="_Otwórz zapisane strumienie WiiM" InputGestureText="Ctrl+O"
+                          automation:AutomationProperties.Name="Otwórz zapisane strumienie WiiM, Ctrl+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+O"
                           Visibility="Collapsed"
-                          Click="ImportWiiMNetworkStreams_Click" />
-                <MenuItem x:Name="ExportWiiMNetworkStreamsMenuItem" Header="_Eksportuj strumienie do WiiM Home…" InputGestureText="Ctrl+Shift+O"
-                          automation:AutomationProperties.Name="Eksportuj strumienie do WiiM Home, Ctrl+Shift+O"
+                          Click="ViewWiiMNetworkStreams_Click" />
+                <MenuItem x:Name="ImportWiiMNetworkStreamsMenuItem" Header="Importuj strumienie WiiM z _playlisty…" InputGestureText="Ctrl+Shift+O"
+                          automation:AutomationProperties.Name="Importuj strumienie WiiM z playlisty, Ctrl+Shift+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+O"
+                          Visibility="Collapsed"
+                          Click="ImportWiiMNetworkStreams_Click" />
+                <MenuItem x:Name="ExportWiiMNetworkStreamsMenuItem" Header="_Eksportuj strumienie do WiiM Home…" InputGestureText="Ctrl+E"
+                          automation:AutomationProperties.Name="Eksportuj strumienie do WiiM Home, Ctrl+E"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+E"
                           Visibility="Collapsed"
                           Click="ExportWiiMNetworkStreams_Click" />
                 <MenuItem x:Name="ImportRadioPlaylistMenuItem" Header="_Importuj stacje z playlisty…" InputGestureText="Ctrl+O"

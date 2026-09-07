@@ -151,7 +151,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private long _localSourceWatcherBuildVersion;
     private bool _localSourceSyncInProgress;
     private bool _localSourceSyncPending;
-    private bool _podcastRefreshInProgress;
+    private int _podcastRefreshInProgress;
+    private bool _podcastReloadPending;
     private bool _isClosing;
     private bool _recordingCloseConfirmed;
     private bool _playerViewActive;
@@ -1971,6 +1972,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var navigation = GetSessionNavigationState(_sessions.Current.Id);
         navigation.PlayerActive = false;
         _currentView = navigation.CurrentView;
+        ApplyPendingPodcastReloadIfSafe();
         RestoreFilterForCurrentView(navigation);
         var preferredItemId = navigation.SelectedItemIds.GetValueOrDefault(_currentView);
         string? followedPlaybackItemId = null;
@@ -2013,6 +2015,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         BrowserActionPanel.Visibility = Visibility.Visible;
         MediaList.Visibility = Visibility.Visible;
         GetSessionNavigationState(_sessions.Current.Id).PlayerActive = false;
+        ApplyPendingPodcastReloadIfSafe();
         if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
             TrySaveLocalMediaState(false);
@@ -2043,6 +2046,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdatePlayerView(true);
         PlayerPlayPauseButton.Focus();
         Keyboard.Focus(PlayerPlayPauseButton);
+    }
+
+    private void ApplyPendingPodcastReloadIfSafe()
+    {
+        if (!_podcastReloadPending
+            || _playerViewActive
+            || !string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        ReloadPodcastSessionItems();
+        _podcastReloadPending = false;
     }
 
     private void UpdatePlayerView(bool updateAccessibleName = false)
@@ -3470,6 +3486,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId is CommandIds.ManageWiiMDevices
             or CommandIds.RefreshWiiMDevices
             or CommandIds.AddWiiMNetworkStream
+            or CommandIds.ViewWiiMNetworkStreams
             or CommandIds.ImportWiiMNetworkStreams
             or CommandIds.ExportWiiMNetworkStreams)
             return wiiM;
@@ -5458,6 +5475,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ManageLocalSourcesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageWiiMDevicesMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         AddWiiMNetworkStreamMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
+        ViewWiiMNetworkStreamsMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         ImportWiiMNetworkStreamsMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         ExportWiiMNetworkStreamsMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         ImportRadioPlaylistMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
@@ -5541,11 +5559,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : Visibility.Collapsed;
         MenuAccessibility.SetPresentation(
             LibraryViewMenuItem,
-            radio ? "Wszystkie stacje" : wiiM ? "Urządzenia" : "Biblioteka");
+            radio ? "Wszystkie stacje" : "Biblioteka");
         LibraryViewMenuItem.InputGestureText = "Ctrl+L";
         AutomationProperties.SetAcceleratorKey(
             LibraryViewMenuItem,
             "Ctrl+L");
+        LibraryViewMenuItem.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
         MenuAccessibility.SetPresentation(
             RenameLibraryItemMainMenuItem,
             radio
@@ -7415,7 +7434,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private async void PodcastRefreshTimer_Tick(object? sender, EventArgs e)
     {
-        if (_isClosing || _podcastRefreshInProgress) return;
+        if (_isClosing || Volatile.Read(ref _podcastRefreshInProgress) != 0) return;
         var now = DateTime.UtcNow;
         var due = _state.Podcasts.Subscriptions
             .Where(subscription => subscription.IsInLibrary
@@ -7427,15 +7446,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .ToArray();
         if (due.Length == 0) return;
 
-        _podcastRefreshInProgress = true;
-        try
-        {
-            await RefreshPodcastSubscriptionsAsync(due, returnToLibrary: false, automatic: true);
-        }
-        finally
-        {
-            _podcastRefreshInProgress = false;
-        }
+        await RefreshPodcastSubscriptionsAsync(due, returnToLibrary: false, automatic: true);
     }
 
     private async Task RefreshPodcastSubscriptionsAsync(
@@ -7443,108 +7454,134 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         bool returnToLibrary,
         bool automatic = false)
     {
-        var podcastSessionActiveAtStart = string.Equals(
-            _sessions.Current.Id,
-            "podcasts",
-            StringComparison.Ordinal);
-        if (!podcastSessionActiveAtStart && !automatic)
+        if (Interlocked.CompareExchange(ref _podcastRefreshInProgress, 1, 0) != 0)
         {
-            Announce("Odświeżanie podcastów jest dostępne w sesji Podcasty");
-            return;
-        }
-        if (subscriptions.Count == 0)
-        {
-            Announce("Brak podcastów do odświeżenia");
+            if (!automatic) Announce("Odświeżanie podcastów już trwa");
             return;
         }
 
-        if (!automatic)
+        try
         {
-            StatusText.Text = subscriptions.Count == 1
-                ? $"Odświeżanie podcastu: {subscriptions[0].Title}"
-                : $"Odświeżanie podcastów: {subscriptions.Count}";
-        }
-        CapturePodcastState();
-        var success = 0;
-        var addedEpisodes = 0;
-        var retainedArchivedEpisodes = 0;
-        var failed = 0;
-        foreach (var subscription in subscriptions)
-        {
-            try
-            {
-                if (!Uri.TryCreate(subscription.FeedUrl, UriKind.Absolute, out var address))
-                    throw new InvalidDataException("Zapisany adres kanału jest nieprawidłowy.");
-                var feed = await _podcastFeedClient.FetchAsync(address, _podcastCancellation.Token);
-                var result = PodcastLibraryUpdater.Apply(
-                    _state.Podcasts,
-                    feed,
-                    subscription.HasCustomTitle ? subscription.Title : null,
-                    DateTime.UtcNow,
-                    _state.Bookmarks);
-                addedEpisodes += result.AddedEpisodes;
-                retainedArchivedEpisodes += result.RetainedEpisodesAbsentFromFeed;
-                success++;
-            }
-            catch (Exception exception) when (exception is HttpRequestException
-                or InvalidDataException
-                or System.Xml.XmlException
-                or ArgumentException
-                or OperationCanceledException)
-            {
-                failed++;
-                DiagnosticLog.Warning(
-                    "podcasts",
-                    $"Nie udało się odświeżyć podcastu „{subscription.Title}”; błąd {exception.GetType().Name}.");
-            }
-        }
-
-        // Network refresh may take several minutes for a large library. Do not
-        // move focus away from the selected ListBoxItem before awaiting it, and
-        // do not reuse the session/focus snapshot from before the await. The user
-        // may have navigated to another item, opened the player or switched the
-        // session in the meantime.
-        var refreshPodcastBrowser = MainWindowNavigationPolicy.CanRefreshPodcastBrowserAfterAsyncOperation(
-            _sessions.Current.Id,
-            _playerViewActive);
-        var browserViewAtCompletion = refreshPodcastBrowser ? _currentView : null;
-        var preferredItemIdAtCompletion = refreshPodcastBrowser ? SelectedItem?.Id : null;
-        var restoreFocusedList = refreshPodcastBrowser && MediaList.IsKeyboardFocusWithin;
-        if (restoreFocusedList) AnchorMediaListFocus();
-        ReloadPodcastSessionItems();
-        if (_isClosing) return;
-        var browserContextStillCurrent = refreshPodcastBrowser
-            && MainWindowNavigationPolicy.CanRefreshPodcastBrowserAfterAsyncOperation(
+            var podcastSessionActiveAtStart = string.Equals(
                 _sessions.Current.Id,
-                _playerViewActive)
-            && string.Equals(_currentView, browserViewAtCompletion, StringComparison.Ordinal);
-        if (browserContextStillCurrent)
-        {
-            if (returnToLibrary) _currentView = "Biblioteka";
-            RefreshCurrentView(preferredItemId: preferredItemIdAtCompletion);
+                "podcasts",
+                StringComparison.Ordinal);
+            if (!podcastSessionActiveAtStart && !automatic)
+            {
+                Announce("Odświeżanie podcastów jest dostępne w sesji Podcasty");
+                return;
+            }
+            if (subscriptions.Count == 0)
+            {
+                Announce("Brak podcastów do odświeżenia");
+                return;
+            }
+
+            if (!automatic)
+            {
+                StatusText.Text = subscriptions.Count == 1
+                    ? $"Odświeżanie podcastu: {subscriptions[0].Title}"
+                    : $"Odświeżanie podcastów: {subscriptions.Count}";
+            }
+            CapturePodcastState();
+            var success = 0;
+            var addedEpisodes = 0;
+            var retainedArchivedEpisodes = 0;
+            var failed = 0;
+            foreach (var subscription in subscriptions)
+            {
+                try
+                {
+                    if (!Uri.TryCreate(subscription.FeedUrl, UriKind.Absolute, out var address))
+                        throw new InvalidDataException("Zapisany adres kanału jest nieprawidłowy.");
+                    var feed = await _podcastFeedClient.FetchAsync(address, _podcastCancellation.Token);
+                    var result = PodcastLibraryUpdater.Apply(
+                        _state.Podcasts,
+                        feed,
+                        subscription.HasCustomTitle ? subscription.Title : null,
+                        DateTime.UtcNow,
+                        _state.Bookmarks);
+                    addedEpisodes += result.AddedEpisodes;
+                    retainedArchivedEpisodes += result.RetainedEpisodesAbsentFromFeed;
+                    success++;
+                }
+                catch (Exception exception) when (exception is HttpRequestException
+                    or InvalidDataException
+                    or System.Xml.XmlException
+                    or ArgumentException
+                    or OperationCanceledException)
+                {
+                    failed++;
+                    DiagnosticLog.Warning(
+                        "podcasts",
+                        $"Nie udało się odświeżyć podcastu „{subscription.Title}”; błąd {exception.GetType().Name}.");
+                }
+            }
+
+            // Network refresh may take several minutes for a large library. Do not
+            // move focus away from the selected ListBoxItem before awaiting it, and
+            // do not reuse the session/focus snapshot from before the await. The user
+            // may have navigated to another item, opened the player or switched the
+            // session in the meantime.
+            var refreshPodcastBrowser = MainWindowNavigationPolicy.CanRefreshPodcastBrowserAfterAsyncOperation(
+                _sessions.Current.Id,
+                _playerViewActive);
+            var browserViewAtCompletion = refreshPodcastBrowser ? _currentView : null;
+            var preferredItemIdAtCompletion = refreshPodcastBrowser ? SelectedItem?.Id : null;
+            var restoreFocusedList = refreshPodcastBrowser && MediaList.IsKeyboardFocusWithin;
+            if (refreshPodcastBrowser)
+            {
+                if (restoreFocusedList) AnchorMediaListFocus();
+                ReloadPodcastSessionItems();
+                _podcastReloadPending = false;
+            }
+            else
+            {
+                // Replacing tens of thousands of episode objects while the user
+                // is inside the player can stall UI Automation and destroy the
+                // playback context under NVDA. Keep the refreshed persistent
+                // model and apply its browser snapshot only after a podcast list
+                // is visible again.
+                _podcastReloadPending = true;
+            }
+            if (_isClosing) return;
+            var browserContextStillCurrent = refreshPodcastBrowser
+                && MainWindowNavigationPolicy.CanRefreshPodcastBrowserAfterAsyncOperation(
+                    _sessions.Current.Id,
+                    _playerViewActive)
+                && string.Equals(_currentView, browserViewAtCompletion, StringComparison.Ordinal);
+            if (browserContextStillCurrent)
+            {
+                if (returnToLibrary) _currentView = "Biblioteka";
+                RefreshCurrentView(preferredItemId: preferredItemIdAtCompletion);
+            }
+            QueueStateSave(announceFailure: true);
+            var inboxCount = _state.Podcasts.Episodes.Count(episode =>
+                episode.IsNew
+                && !episode.IsPlayed
+                && _state.Podcasts.Subscriptions.Any(subscription =>
+                    subscription.IsInLibrary
+                    && string.Equals(subscription.Id, episode.SubscriptionId, StringComparison.Ordinal)));
+            DiagnosticLog.Info(
+                "podcasts",
+                $"Odświeżanie zakończone: poprawne {success}, nieudane {failed}, "
+                + $"dodane odcinki {addedEpisodes}, zachowane poza bieżącym RSS "
+                + $"{retainedArchivedEpisodes}, w skrzynce {inboxCount}.");
+            if (!automatic && browserContextStillCurrent)
+            {
+                PrepareViewFocusContext(
+                    $"Odświeżono podcasty: {success} z {subscriptions.Count}. "
+                    + $"Nowe teraz: {addedEpisodes}. W skrzynce: {inboxCount}");
+                RestoreMediaListFocusAfterRefresh();
+            }
+            else if (automatic && browserContextStillCurrent && restoreFocusedList)
+            {
+                RestoreMediaListFocusAfterRefresh();
+            }
         }
-        QueueStateSave(announceFailure: true);
-        var inboxCount = _state.Podcasts.Episodes.Count(episode =>
-            episode.IsNew
-            && !episode.IsPlayed
-            && _state.Podcasts.Subscriptions.Any(subscription =>
-                subscription.IsInLibrary
-                && string.Equals(subscription.Id, episode.SubscriptionId, StringComparison.Ordinal)));
-        DiagnosticLog.Info(
-            "podcasts",
-            $"Odświeżanie zakończone: poprawne {success}, nieudane {failed}, "
-            + $"dodane odcinki {addedEpisodes}, zachowane poza bieżącym RSS "
-            + $"{retainedArchivedEpisodes}, w skrzynce {inboxCount}.");
-        if (!automatic && browserContextStillCurrent)
+        finally
         {
-            PrepareViewFocusContext(
-                $"Odświeżono podcasty: {success} z {subscriptions.Count}. "
-                + $"Nowe teraz: {addedEpisodes}. W skrzynce: {inboxCount}");
-            RestoreMediaListFocusAfterRefresh();
-        }
-        else if (automatic && browserContextStillCurrent && restoreFocusedList)
-        {
-            RestoreMediaListFocusAfterRefresh();
+            Volatile.Write(ref _podcastRefreshInProgress, 0);
         }
     }
 
@@ -8525,9 +8562,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? DefaultBrowserView
             : navigation.CurrentView;
         RememberPodcastLibraryLocation(navigation, _sessions.Current.Id, _currentView);
-        RestoreFilterForCurrentView(navigation);
-        RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
         _playerViewActive = navigation.PlayerActive;
+        RestoreFilterForCurrentView(navigation);
+        if (!_playerViewActive)
+        {
+            ApplyPendingPodcastReloadIfSafe();
+            RefreshCurrentView(preferredItemId: navigation.SelectedItemIds.GetValueOrDefault(_currentView));
+        }
         BrowserHeaderPanel.Visibility = _playerViewActive ? Visibility.Collapsed : Visibility.Visible;
         BrowserActionPanel.Visibility = _playerViewActive ? Visibility.Collapsed : Visibility.Visible;
         MediaList.Visibility = _playerViewActive ? Visibility.Collapsed : Visibility.Visible;
@@ -8856,6 +8897,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 StringComparison.OrdinalIgnoreCase));
     }
 
+    private bool TryResolvePodcastLibraryActionItems(out IReadOnlyList<MediaItem> items)
+    {
+        var subscriptions = PodcastMembershipToggle.ResolveSubscriptions(
+            _state.Podcasts,
+            ActionItems);
+        if (subscriptions.Count == 0)
+        {
+            items = [];
+            return false;
+        }
+
+        var subscriptionIds = subscriptions
+            .Select(subscription => subscription.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        items = _podcastItems
+            .Where(item => item.Kind == MediaItemKind.Podcast
+                && subscriptionIds.Contains(item.Id))
+            .DistinctBy(item => item.Id, StringComparer.Ordinal)
+            .ToArray();
+        return items.Count > 0;
+    }
+
     private string TogglePodcastDirectoryMembership(
         IReadOnlyList<PodcastSubscriptionSettings> subscriptions,
         SearchResultAction action)
@@ -9172,6 +9235,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce("Folder jest już częścią Biblioteki. Otwórz go Enterem, aby zmieniać przynależność pojedynczych plików");
             return new CommandExecutionResult(true);
         }
+        else if (commandId == CommandIds.ToggleLibrary
+            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && ActionItems.Any(item => item.Kind is MediaItemKind.Podcast or MediaItemKind.Episode))
+        {
+            if (!TryResolvePodcastLibraryActionItems(out var podcastItems))
+            {
+                Announce("Nie można odnaleźć podcastu nadrzędnego dla zaznaczonego odcinka");
+                return new CommandExecutionResult(true);
+            }
+            // Odcinek nie ma niezależnego członkostwa w Bibliotece. Skrót na
+            // odcinku zawsze dotyczy podcastu nadrzędnego, a więc używa tego
+            // samego kanonicznego elementu co skrót na liście podcastów.
+            _actionItemsOverride = podcastItems;
+        }
 
         try
         {
@@ -9200,6 +9277,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId == CommandIds.AddWiiMNetworkStream)
         {
             AddWiiMNetworkStream();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.ViewWiiMNetworkStreams)
+        {
+            ShowWiiMNetworkStreams();
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.ImportWiiMNetworkStreams)
@@ -9760,6 +9842,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 }
             }
             CaptureRadioState();
+        }
+        if (commandId == CommandIds.ToggleLibrary
+            && string.Equals(changedSession?.Id, "podcasts", StringComparison.Ordinal))
+        {
+            // RefreshCurrentView reads subscription membership from the
+            // persistent podcast model, so synchronize it before rebuilding
+            // an episode list.  If its parent has just been removed, return to
+            // the list of subscribed podcasts instead of leaving a detached
+            // episode view on screen.
+            CapturePodcastState();
+            if (!_playerViewActive
+                && TryGetPodcastIdFromView(_currentView, out var openPodcastId)
+                && changedItems.Any(item => item.Kind == MediaItemKind.Podcast
+                    && string.Equals(item.Id, openPodcastId, StringComparison.Ordinal)
+                    && !item.IsInLibrary))
+            {
+                _currentView = "Biblioteka";
+                var podcastNavigation = GetSessionNavigationState("podcasts");
+                podcastNavigation.CurrentView = _currentView;
+                podcastNavigation.LastLibraryView = _currentView;
+                RestoreFilterForCurrentView(podcastNavigation);
+            }
         }
         if (result.Handled && changedSession is not null)
         {
@@ -10631,7 +10735,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.TimeTotal
             or CommandIds.ItemProperties
             or CommandIds.CurrentBroadcastInformation
-            or CommandIds.ViewLibrary
+            or CommandIds.ViewWiiMNetworkStreams
             or CommandIds.FilterCurrent
             or CommandIds.SearchCurrent
             or CommandIds.SearchAll
@@ -16568,29 +16672,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (Keyboard.Modifiers == ModifierKeys.Control
             && e.Key == Key.E
-            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+            && _sessions.Current.Id is "radio" or "wiim")
         {
-            ExportRadioFavorites();
+            ExecuteCommand(string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                ? CommandIds.ExportRadioFavorites
+                : CommandIds.ExportWiiMNetworkStreams);
             e.Handled = true;
             return;
         }
 
-        if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.O)
+        var openDataCommand = MainWindowShortcutRouter.ResolveOpenData(
+            e.Key,
+            Keyboard.Modifiers,
+            _sessions.Current.Id);
+        if (openDataCommand is not null)
         {
-            if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)) OpenLocalFolder();
-            else if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)) ExportWiiMNetworkStreams();
-            else Announce("To polecenie nie jest dostępne w bieżącej sesji");
-            e.Handled = true;
-            return;
-        }
-
-        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.O)
-        {
-            if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)) ImportRadioPlaylist();
-            else if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)) ImportPodcastOpml();
-            else if (string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)) ImportWiiMNetworkStreams();
-            else if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)) OpenLocalFiles();
-            else Announce("To polecenie nie jest dostępne w bieżącej sesji");
+            ExecuteCommand(openDataCommand);
             e.Handled = true;
             return;
         }
@@ -16990,15 +17087,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return true;
         }
 
-        if (modifiers == ModifierKeys.Control && key == Key.O)
+        var openDataCommand = MainWindowShortcutRouter.ResolveOpenData(
+            key,
+            modifiers,
+            _sessions.Current.Id);
+        if (openDataCommand is not null)
         {
-            commandId = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-                ? CommandIds.ImportRadioPlaylist
-                : string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
-                    ? CommandIds.ImportPodcastOpml
-                    : string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
-                        ? CommandIds.ImportWiiMNetworkStreams
-                    : CommandIds.OpenLocalFiles;
+            commandId = openDataCommand;
             return true;
         }
         var newItemCommand = MainWindowShortcutRouter.ResolveNewItem(
@@ -17038,16 +17133,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             commandId = CommandIds.ViewPodcastInProgress;
             return true;
         }
-        if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key == Key.O
-            && string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
-        {
-            commandId = CommandIds.ExportWiiMNetworkStreams;
-            return true;
-        }
         if (modifiers == ModifierKeys.Control && key == Key.E
-            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+            && _sessions.Current.Id is "radio" or "wiim")
         {
-            commandId = CommandIds.ExportRadioFavorites;
+            commandId = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                ? CommandIds.ExportRadioFavorites
+                : CommandIds.ExportWiiMNetworkStreams;
             return true;
         }
         if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key == Key.O
@@ -17193,7 +17284,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control | ModifierKeys.Shift, Key.S) => CommandIds.SessionList,
             (ModifierKeys.Control, Key.U) => CommandIds.ViewFavorites,
             (ModifierKeys.Control, Key.P) => CommandIds.ViewPlaylists,
-            (ModifierKeys.Control, Key.L) => CommandIds.ViewLibrary,
+            (ModifierKeys.Control, Key.L)
+                when !string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal) =>
+                    CommandIds.ViewLibrary,
             (ModifierKeys.Control, Key.Q) => CommandIds.ViewQueue,
             (ModifierKeys.Control, Key.H) => CommandIds.ViewHistory,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.H) => CommandIds.ManageRadioSchedules,
@@ -17204,6 +17297,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control, Key.E)
                 when string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal) =>
                     CommandIds.ExportRadioFavorites,
+            (ModifierKeys.Control, Key.E)
+                when string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal) =>
+                    CommandIds.ExportWiiMNetworkStreams,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.A) => CommandIds.ViewAlbums,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.F) => CommandIds.SearchAll,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.G) => CommandIds.SettingsToggleSeekMessages,
@@ -17620,6 +17716,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (newItemCommand is not null)
         {
             ExecuteCommand(newItemCommand);
+            return true;
+        }
+        if (Keyboard.Modifiers == ModifierKeys.Control
+            && key == Key.L
+            && string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal))
+        {
+            Announce("WiiM nie udostępnia Biblioteki. Ctrl+O otwiera zapisane strumienie");
             return true;
         }
         var commandId = (Keyboard.Modifiers, key) switch
@@ -18818,6 +18921,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdateFileMenuForCurrentSession();
     private void AddRadioStation_Click(object sender, RoutedEventArgs e) => AddRadioStation();
     private void AddWiiMNetworkStream_Click(object sender, RoutedEventArgs e) => AddWiiMNetworkStream();
+    private void ViewWiiMNetworkStreams_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.ViewWiiMNetworkStreams);
     private void ImportWiiMNetworkStreams_Click(object sender, RoutedEventArgs e) => ImportWiiMNetworkStreams();
     private void ExportWiiMNetworkStreams_Click(object sender, RoutedEventArgs e) => ExportWiiMNetworkStreams();
     private void RadioRecording_Click(object sender, RoutedEventArgs e) => ToggleRadioRecording();

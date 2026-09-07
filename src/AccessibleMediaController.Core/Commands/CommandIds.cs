@@ -77,6 +77,7 @@ public static class CommandIds
     public const string RefreshWiiMDevices = "wiim.devices.refresh";
     public const string OpenOnWiiM = "wiim.playUrl";
     public const string AddWiiMNetworkStream = "wiim.networkStreams.add";
+    public const string ViewWiiMNetworkStreams = "wiim.networkStreams.view";
     public const string ImportWiiMNetworkStreams = "wiim.networkStreams.import";
     public const string ExportWiiMNetworkStreams = "wiim.networkStreams.export";
     public const string ViewWiiMDevicePresets = "wiim.devicePresets.view";

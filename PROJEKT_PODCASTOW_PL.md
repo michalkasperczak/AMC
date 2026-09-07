@@ -36,6 +36,20 @@ folder systemowy. `Ctrl+S` nadal zawsze pyta o nazwę i miejsce jednego pliku.
 Radio może wskazać ogólny folder Podcastów, lecz domyślnie zachowuje oddzielny
 folder nagrań.
 
+Od `alpha.306` przynależność do Biblioteki jest cechą subskrypcji, a nie
+pojedynczego odcinka. `Ctrl+Shift+L` na nazwie podcastu oraz na dowolnym jego
+odcinku wskazuje ten sam podcast nadrzędny. Usunięcie podczas przeglądania
+odcinków wraca do nadrzędnej listy Podcastów; nie zostawia odłączonego widoku
+ani pozornego stanu odcinka. Wielokrotne zaznaczenie odcinków tej samej audycji
+zmienia subskrypcję tylko raz. Kolejka, Ulubione odcinków, historia, pobrania i
+pozycje wznowienia pozostają oddzielnymi danymi i nie są fizycznie kasowane.
+
+Ta sama wersja serializuje odświeżanie całej Biblioteki Podcastów. Automatyczna
+i ręczna operacja nie mogą przebudowywać jej równocześnie. Jeżeli pobieranie
+metadanych kończy się podczas używania odtwarzacza albo innej sesji, ciężka
+podmiana listy odcinków jest odraczana do powrotu na widoczną listę Podcastów;
+nie może odbierać fokusa przyciskowi odtwarzacza.
+
 ## 1. Osobna sesja Podcasty
 
 Podcasty będą osobną sesją korzystającą ze wspólnego odtwarzacza AMC. Zachowają

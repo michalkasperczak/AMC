@@ -66,8 +66,8 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   przekazywana poleceniem playlisty, natomiast M3U8 pozostaje bezpośrednim
   strumieniem HLS.
 - AMC ma własną, przenośną listę **Strumienie sieciowe** dla sesji WiiM.
-  `Ctrl+L` otwiera listę, `Ctrl+N` zapisuje nazwę i adres, a `Ctrl+O` importuje
-  bezpiecznie M3U, M3U8 lub PLS. `Ctrl+Shift+O` eksportuje całą listę AMC do
+  `Ctrl+O` otwiera listę, `Ctrl+N` zapisuje nazwę i adres, a `Ctrl+Shift+O`
+  importuje bezpiecznie M3U, M3U8 lub PLS. `Ctrl+E` eksportuje całą listę AMC do
   rozszerzonego M3U. Enter albo `Ctrl+Alt+W` wysyła wskazany strumień do
   aktywnego urządzenia, `F2` edytuje nazwę i adres, a Delete usuwa wpis wyłącznie
   z AMC. Eksport zapisuje dokładnie bieżącą kolejność widoczną w AMC. Test na
@@ -75,6 +75,10 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   ponownie. Lista jest zachowywana po zamknięciu programu i nie
   modyfikuje danych aplikacji WiiM Home poza świadomym importem pliku przez
   użytkownika.
+- `Ctrl+L` jest w sesji WiiM świadomie nieaktywne. Litera L pozostaje wspólnym
+  skrótem Biblioteki, a obecne lokalne API urządzenia nie udostępnia Biblioteki,
+  ostatnio odtwarzanych ani katalogów usług znanych z WiiM Home. AMC nie tworzy
+  pod tym skrótem pozornej Biblioteki z samych strumieni.
 - Strumienie korzystają ze wspólnych reguł porządkowania Biblioteki:
   `Alt+1` pokazuje najnowsze wpisy najpierw, `Alt+2` porządek alfabetyczny,
   a `Alt+3` kolejność własną. W kolejności własnej `Alt+strzałka w górę/w dół`

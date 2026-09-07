@@ -146,6 +146,24 @@ internal static class MainWindowShortcutRouter
         };
     }
 
+    public static string? ResolveOpenData(
+        Key key,
+        ModifierKeys modifiers,
+        string sessionId)
+    {
+        if (key != Key.O) return null;
+        return (modifiers, sessionId) switch
+        {
+            (ModifierKeys.Control, "local") => CommandIds.OpenLocalFiles,
+            (ModifierKeys.Control | ModifierKeys.Shift, "local") => CommandIds.OpenLocalFolder,
+            (ModifierKeys.Control, "radio") => CommandIds.ImportRadioPlaylist,
+            (ModifierKeys.Control, "podcasts") => CommandIds.ImportPodcastOpml,
+            (ModifierKeys.Control, "wiim") => CommandIds.ViewWiiMNetworkStreams,
+            (ModifierKeys.Control | ModifierKeys.Shift, "wiim") => CommandIds.ImportWiiMNetworkStreams,
+            _ => null
+        };
+    }
+
     public static string? ResolveChapterList(
         Key key,
         ModifierKeys modifiers,

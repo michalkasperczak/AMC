@@ -1,5 +1,16 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.306` stabilizuje fokus podczas odświeżania dużej Biblioteki
+Podcastów: automatyczne i ręczne odświeżenie nie uruchamiają się równocześnie,
+a ciężka przebudowa listy czeka, gdy użytkownik pozostaje w odtwarzaczu.
+`Ctrl+Shift+L` na odcinku dodaje lub usuwa jego podcast nadrzędny, ponieważ
+pojedynczy odcinek nie ma osobnej przynależności do Biblioteki.
+
+W sesji WiiM `Ctrl+O` otwiera zapisane Strumienie sieciowe, `Ctrl+Shift+O`
+importuje M3U, M3U8 albo PLS, a `Ctrl+E` eksportuje listę. `Ctrl+L` pozostaje
+skrótom Biblioteki i nie działa w WiiM, którego lokalne API nie udostępnia
+Biblioteki znanej z WiiM Home.
+
 Wersja `alpha.305` usuwa niewidoczne sekundy z terminów ustawianych w edytorze
 harmonogramu. Pole czasu pokazuje godziny i minuty, dlatego zapis `22:00` zawsze
 oznacza odtąd dokładnie `22:00:00`, niezależnie od sekund chwili, w której

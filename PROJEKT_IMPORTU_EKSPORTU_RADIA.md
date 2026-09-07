@@ -39,6 +39,33 @@ wyłączony. Użytkownik musi sprawdzić strefę czasową, datę, folder oraz wy
 i dopiero potem go włączyć. Import nigdy sam nie rozpoczyna nagrania ani nie
 wybudza komputera.
 
+W pliku wymiany czas trwania ma jedno kanoniczne pole wyrażone w pełnych
+minutach. Pola **Godziny** i **Minuty** należą wyłącznie do interfejsu: przy
+zapisie są przeliczane według wzoru `godziny × 60 + minuty`. Puste pole oznacza
+zero, nigdy poprzednią wartość ani domyślną godzinę. Przykładowo cztery godziny
+i zero minut są zapisywane jako 240 minut. Import odtwarza z tej wartości oba
+pola i odrzuca czas równy zero lub przekraczający udokumentowany limit.
+
+Termin cykliczny przechowuje lokalną godzinę z dokładnością do minuty, strefę
+czasową oraz semantyczny rodzaj powtarzania: jednorazowo, codziennie albo w
+wybrane dni tygodnia. Sekundy nie są przenoszone i zawsze wynoszą zero. Następne
+wykonanie jest obliczane ponownie na urządzeniu odbiorcy z lokalnej godziny,
+strefy i dni tygodnia; nie wolno kopiować starego technicznego znacznika
+„następne uruchomienie”. Zmiana czasu letniego zachowuje umówioną godzinę
+lokalną.
+
+Jeden plan cykliczny pozostaje jednym rekordem. Eksport nie dodaje osobnego
+planu jednorazowego odpowiadającego najbliższemu wykonaniu. Wzorcowy przypadek
+regresyjny to **Afera**: niedziela, 22:00, Europe/Warsaw, 240 minut, powtarzanie
+w wybrane dni z zaznaczoną wyłącznie niedzielą. W stanie nie może równocześnie
+pozostać jednorazowa kopia tej samej audycji.
+
+Rekord powinien ponadto przenosić stabilną tożsamość stacji i zapasowy publiczny
+adres, nazwę użytkową, format, bitrate albo zapis oryginalny, sposób podziału,
+szablon nazwy i ustawienie wybudzania. Lokalny identyfikator procesu, aktywne
+nagranie, chwilowy adres CDN, stan błędu i wyliczony następny termin nie są
+częścią semantyki przenośnej.
+
 ## Scalanie
 
 1. Stację porównuje się po znormalizowanym adresie kanonicznym, nie po samej nazwie.
