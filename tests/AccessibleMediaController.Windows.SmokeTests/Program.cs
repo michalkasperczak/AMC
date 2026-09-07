@@ -1776,6 +1776,22 @@ static void TestRadioScheduleAccessibility()
                    && (timePicker.AccessibleDescription ?? string.Empty)
                        .Contains("na przykład 2310", StringComparison.Ordinal),
                 "Pole czasu nie objaśnia NVDA wpisywania czterech cyfr bez dwukropka.");
+            var durationHoursHost = (System.Windows.Forms.Integration.WindowsFormsHost)
+                editor.FindName("DurationHoursPickerHost");
+            var durationMinutesHost = (System.Windows.Forms.Integration.WindowsFormsHost)
+                editor.FindName("DurationMinutesPickerHost");
+            var durationHours = (System.Windows.Forms.NumericUpDown)durationHoursHost.Child;
+            var durationMinutes = (System.Windows.Forms.NumericUpDown)durationMinutesHost.Child;
+            Assert(durationHours.AccessibleName == "Długość nagrania, godziny"
+                   && durationMinutes.AccessibleName == "Długość nagrania, minuty"
+                   && durationHours.Value == 0
+                   && durationMinutes.Value == 30,
+                "Długość harmonogramu nie jest dostępnie rozdzielona na godziny i minuty.");
+            Assert(RadioScheduleEditorWindow.SplitDurationMinutes(260) == (4, 20)
+                   && RadioScheduleEditorWindow.CombineDurationMinutes(4, 20) == 260
+                   && RadioSchedulesWindow.FormatDurationMinutes(260) == "4 godz. 20 min"
+                   && RadioSchedulesWindow.FormatDurationMinutes(20) == "20 min",
+                "Przeliczanie albo odczyt czasu harmonogramu jest nieprawidłowy.");
 
             var newScheduleEditor = new RadioScheduleEditorWindow(
                 [station],

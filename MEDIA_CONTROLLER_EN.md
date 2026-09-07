@@ -1682,6 +1682,16 @@ the intended source file is absent, because that part may be the only
 recoverable audio. The full `.amc-backup` safety copy is intentional and is not
 temporary cleanup material.
 
+### 7.15. Accessible schedule duration
+
+Starting with `alpha.302`, total Radio recording duration uses two native
+numeric controls: **Hours** from 0 to 168 and **Minutes** from 0 to 59. Each has
+an explicit accessible name, accepts direct numeric input, and responds to the
+up and down arrows. Zero hours is valid, but the combined duration cannot be
+zero. Persistence retains the existing `DurationMinutes` value, so old
+schedules need no migration and reopen without losing precision. Schedule rows
+format the value as minutes, full hours, or hours plus remaining minutes.
+
 ### 7.27. Concise Internet Radio recording context
 
 The `Recording` view unambiguously belongs to Internet Radio, so its accessible

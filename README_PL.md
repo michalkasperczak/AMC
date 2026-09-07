@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.302` zastępuje niewygodne pole całkowitej liczby minut w
+harmonogramie Radia dwoma dostępnymi polami: **Godziny** oraz **Minuty**.
+Istniejące plany są automatycznie rozkładane na obie wartości, a zapis nadal
+korzysta z tego samego zgodnego modelu danych. Zero godzin jest prawidłowe;
+łączny czas musi wynosić co najmniej minutę. Lista harmonogramów podaje dłuższy
+czas naturalnie, na przykład „4 godz. 20 min”, zamiast „260 min”.
+
 Wersja `alpha.301` zabezpiecza Bibliotekę przed technicznymi częściami plików
 tworzonymi podczas usuwania fragmentu audio. Pliki `.amc-cut-*` nie są już
 indeksowane ani pokazywane jako zwykłe nagrania, nawet gdy iCloud, OneDrive,

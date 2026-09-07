@@ -55,9 +55,24 @@
                                                 automation:AutomationProperties.LiveSetting="Assertive" />
         </StackPanel>
 
-        <Label Grid.Row="6" Target="{Binding ElementName=DurationPickerHost}">_Długość w minutach:</Label>
-        <wfi:WindowsFormsHost x:Name="DurationPickerHost" Grid.Row="7" Height="28" Margin="0,0,0,10"
-                             automation:AutomationProperties.Name="Długość nagrania w minutach" />
+        <TextBlock Grid.Row="6" Text="Długość nagrania:" Margin="0,0,0,4"/>
+        <Grid Grid.Row="7" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <Label Target="{Binding ElementName=DurationHoursPickerHost}">_Godziny:</Label>
+                <wfi:WindowsFormsHost x:Name="DurationHoursPickerHost" Height="28"
+                                     automation:AutomationProperties.Name="Długość nagrania, godziny" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <Label Target="{Binding ElementName=DurationMinutesPickerHost}">_Minuty:</Label>
+                <wfi:WindowsFormsHost x:Name="DurationMinutesPickerHost" Height="28"
+                                     automation:AutomationProperties.Name="Długość nagrania, minuty" />
+            </StackPanel>
+        </Grid>
 
         <StackPanel Grid.Row="8" Margin="0,0,0,10">
             <Label Target="{Binding ElementName=SplitModeCombo}">Sposób _zapisu:</Label>

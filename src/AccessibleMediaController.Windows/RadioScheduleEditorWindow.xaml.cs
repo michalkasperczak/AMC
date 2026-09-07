@@ -20,7 +20,8 @@ public partial class RadioScheduleEditorWindow : Window
     private readonly IReadOnlyList<DayChoice> _dayChoices;
     private readonly System.Windows.Forms.DateTimePicker _datePicker;
     private readonly System.Windows.Forms.DateTimePicker _timePicker;
-    private readonly System.Windows.Forms.NumericUpDown _durationPicker;
+    private readonly System.Windows.Forms.NumericUpDown _durationHoursPicker;
+    private readonly System.Windows.Forms.NumericUpDown _durationMinutesPicker;
     private readonly System.Windows.Forms.NumericUpDown _splitMinutesPicker;
     private readonly SegmentedDateTimeDigitEditor _dateDigitEditor =
         new(SegmentedDateTimeField.Date);
@@ -50,19 +51,23 @@ public partial class RadioScheduleEditorWindow : Window
         InitializeComponent();
         _datePicker = CreateDatePicker();
         _timePicker = CreateTimePicker();
-        _durationPicker = CreateDurationPicker();
+        _durationHoursPicker = CreateDurationHoursPicker();
+        _durationMinutesPicker = CreateDurationMinutesPicker();
         _splitMinutesPicker = CreateSplitMinutesPicker();
         DatePickerHost.Child = _datePicker;
         TimePickerHost.Child = _timePicker;
-        DurationPickerHost.Child = _durationPicker;
+        DurationHoursPickerHost.Child = _durationHoursPicker;
+        DurationMinutesPickerHost.Child = _durationMinutesPicker;
         SplitMinutesPickerHost.Child = _splitMinutesPicker;
         _datePicker.KeyDown += HostedInput_KeyDown;
         _timePicker.KeyDown += HostedInput_KeyDown;
-        _durationPicker.KeyDown += HostedInput_KeyDown;
+        _durationHoursPicker.KeyDown += HostedInput_KeyDown;
+        _durationMinutesPicker.KeyDown += HostedInput_KeyDown;
         _splitMinutesPicker.KeyDown += HostedInput_KeyDown;
         _datePicker.Leave += (_, _) => _dateDigitEditor.Reset();
         _timePicker.Leave += (_, _) => _timeDigitEditor.Reset();
-        EditableFieldSelection.Attach(_durationPicker);
+        EditableFieldSelection.Attach(_durationHoursPicker);
+        EditableFieldSelection.Attach(_durationMinutesPicker);
         EditableFieldSelection.Attach(_splitMinutesPicker);
         _datePicker.ValueChanged += DatePicker_ValueChanged;
         _timePicker.ValueChanged += (_, _) => UpdateFileNamePreview();
@@ -107,7 +112,9 @@ public partial class RadioScheduleEditorWindow : Window
         var local = TimeZoneInfo.ConvertTimeFromUtc(initialUtc, zone);
         _datePicker.Value = local.Date;
         _timePicker.Value = DateTime.Today + local.TimeOfDay;
-        _durationPicker.Value = Math.Clamp(existing?.DurationMinutes ?? 60, 1, 10_080);
+        var duration = SplitDurationMinutes(existing?.DurationMinutes ?? 60);
+        _durationHoursPicker.Value = duration.Hours;
+        _durationMinutesPicker.Value = duration.Minutes;
         var segmentMinutes = existing?.SegmentMinutes ?? 0;
         _splitMinutesPicker.Value = Math.Clamp(segmentMinutes > 0 ? segmentMinutes : 30, 1, 10_080);
         SplitModeCombo.SelectedItem = SplitModeChoice.All.First(choice =>
@@ -178,7 +185,16 @@ public partial class RadioScheduleEditorWindow : Window
         var immediateStart = IsImmediateStart;
         var date = _datePicker.Value.Date;
         var time = _timePicker.Value.TimeOfDay;
-        var duration = decimal.ToInt32(_durationPicker.Value);
+        var duration = CombineDurationMinutes(
+            decimal.ToInt32(_durationHoursPicker.Value),
+            decimal.ToInt32(_durationMinutesPicker.Value));
+        if (duration <= 0)
+        {
+            ShowHostedError(
+                "Długość nagrania musi wynosić co najmniej jedną minutę",
+                _durationMinutesPicker);
+            return;
+        }
         var segmentMinutes = UsesSplit
             ? decimal.ToInt32(_splitMinutesPicker.Value)
             : 0;
@@ -740,18 +756,44 @@ public partial class RadioScheduleEditorWindow : Window
     [DllImport("user32.dll")]
     private static extern nint SendMessage(nint window, uint message, nint wordParameter, nint longParameter);
 
-    private static System.Windows.Forms.NumericUpDown CreateDurationPicker() => new()
+    private static System.Windows.Forms.NumericUpDown CreateDurationHoursPicker() => new()
     {
-        AccessibleName = "Długość nagrania w minutach",
-        AccessibleDescription = "Wpisz liczbę albo zmień ją strzałkami w górę i w dół.",
+        AccessibleName = "Długość nagrania, godziny",
+        AccessibleDescription = "Wpisz liczbę pełnych godzin albo zmień ją strzałkami w górę i w dół. Dla nagrania krótszego niż godzina pozostaw zero.",
         AccessibleRole = System.Windows.Forms.AccessibleRole.SpinButton,
-        Minimum = 1,
-        Maximum = 10_080,
-        Value = 60,
+        Minimum = 0,
+        Maximum = 168,
+        Value = 1,
         Dock = System.Windows.Forms.DockStyle.Fill,
         TabStop = true,
         ThousandsSeparator = false
     };
+
+    private static System.Windows.Forms.NumericUpDown CreateDurationMinutesPicker() => new()
+    {
+        AccessibleName = "Długość nagrania, minuty",
+        AccessibleDescription = "Wpisz minuty od zera do pięćdziesięciu dziewięciu albo zmień je strzałkami w górę i w dół.",
+        AccessibleRole = System.Windows.Forms.AccessibleRole.SpinButton,
+        Minimum = 0,
+        Maximum = 59,
+        Value = 0,
+        Dock = System.Windows.Forms.DockStyle.Fill,
+        TabStop = true,
+        ThousandsSeparator = false
+    };
+
+    internal static (int Hours, int Minutes) SplitDurationMinutes(int totalMinutes)
+    {
+        var normalized = Math.Clamp(totalMinutes, 1, 10_080);
+        return (normalized / 60, normalized % 60);
+    }
+
+    internal static int CombineDurationMinutes(int hours, int minutes)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(hours);
+        if (minutes is < 0 or > 59) throw new ArgumentOutOfRangeException(nameof(minutes));
+        return checked(hours * 60 + minutes);
+    }
 
     private static System.Windows.Forms.NumericUpDown CreateSplitMinutesPicker() => new()
     {

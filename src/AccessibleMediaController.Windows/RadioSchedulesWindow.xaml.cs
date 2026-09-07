@@ -82,7 +82,17 @@ public partial class RadioSchedulesWindow : Window
             schedule.StationName,
             local,
             partNumber: 1);
-        return $"{schedule.StationName}, {state}, {local:dd.MM.yyyy HH:mm}, {schedule.DurationMinutes} min, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}{activity}{lastFailure}";
+        return $"{schedule.StationName}, {state}, {local:dd.MM.yyyy HH:mm}, {FormatDurationMinutes(schedule.DurationMinutes)}, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}{activity}{lastFailure}";
+    }
+
+    internal static string FormatDurationMinutes(int totalMinutes)
+    {
+        var normalized = Math.Max(0, totalMinutes);
+        var hours = normalized / 60;
+        var minutes = normalized % 60;
+        if (hours == 0) return $"{minutes} min";
+        if (minutes == 0) return $"{hours} godz.";
+        return $"{hours} godz. {minutes} min";
     }
 
     private static string BuildLastFailureLabel(

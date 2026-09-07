@@ -1,5 +1,12 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.302` replaces the Radio schedule's inconvenient total-minute
+field with two accessible controls: **Hours** and **Minutes**. Existing plans
+are split between these values automatically while persistence keeps the same
+compatible data model. Zero hours is valid, but total duration must be at least
+one minute. The schedule list now speaks long durations naturally, for example
+“4 h 20 min” rather than “260 min”.
+
 Version `alpha.301` prevents transactional audio-editing parts from leaking
 into the Library. `.amc-cut-*` files are never indexed as ordinary recordings,
 even when iCloud, OneDrive, Google Drive, or antivirus software briefly locks
