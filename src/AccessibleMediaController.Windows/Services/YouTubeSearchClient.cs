@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sessions;
 
 namespace AccessibleMediaController.Windows.Services;
@@ -16,8 +17,10 @@ internal sealed class YouTubeSearchClient
 {
     private const int MaximumQueryLength = 300;
     private const int MaximumResultCount = 25;
+    private const int MaximumChannelResultCount = 10;
     private const int MaximumJsonCharacters = 8 * 1024 * 1024;
     private const string SearchResultPrefix = "internet-media-search:youtube:";
+    private const string ChannelSearchResultPrefix = "podcast-directory:youtube:";
     private readonly object _cacheGate = new();
     private readonly Dictionary<string, (DateTime StoredUtc, IReadOnlyList<MediaItem> Items)> _cache =
         new(StringComparer.OrdinalIgnoreCase);
@@ -62,8 +65,8 @@ internal sealed class YouTubeSearchClient
             "--flat-playlist",
             "--no-warnings",
             "--force-ipv4",
-            "--socket-timeout", "15",
-            "--extractor-retries", "2",
+            "--socket-timeout", "8",
+            "--extractor-retries", "1",
             "--playlist-end", MaximumResultCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "--dump-single-json",
             "--",
@@ -80,7 +83,9 @@ internal sealed class YouTubeSearchClient
                 ?? throw new InvalidDataException("Nie udało się uruchomić składnika yt-dlp.");
             process.StandardInput.Close();
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(TimeSpan.FromSeconds(45));
+            // Search is an interactive operation. An unavailable YouTube must
+            // not hold the entire combined podcast search for nearly a minute.
+            timeout.CancelAfter(TimeSpan.FromSeconds(18));
             using var termination = timeout.Token.Register(
                 static state =>
                 {
@@ -143,17 +148,24 @@ internal sealed class YouTubeSearchClient
                 throw new InvalidDataException("YouTube zwrócił nieprawidłowe dane wyszukiwania.");
             }
 
-            var results = new List<MediaItem>();
+            var channelResults = new List<MediaItem>();
+            var videoResults = new List<MediaItem>();
             var knownIds = new HashSet<string>(StringComparer.Ordinal);
+            var knownChannelAddresses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var entry in entries.EnumerateArray())
             {
-                if (results.Count >= MaximumResultCount || entry.ValueKind != JsonValueKind.Object) break;
+                if (videoResults.Count >= MaximumResultCount || entry.ValueKind != JsonValueKind.Object) break;
                 var id = ReadString(entry, "id").Trim();
                 if (!IsSafeVideoId(id) || !knownIds.Add(id)) continue;
                 var title = CleanText(ReadString(entry, "title"), 500);
                 if (title.Length == 0) title = "Materiał YouTube";
                 var channel = CleanText(ReadString(entry, "channel"), 300);
                 if (channel.Length == 0) channel = CleanText(ReadString(entry, "uploader"), 300);
+                if (channelResults.Count < MaximumChannelResultCount
+                    && TryCreateChannelResult(entry, channel, knownChannelAddresses, out var channelResult))
+                {
+                    channelResults.Add(channelResult);
+                }
                 var durationSeconds = ReadNumber(entry, "duration");
                 var duration = durationSeconds is > 0 and < 365 * 24 * 60 * 60
                     ? TimeSpan.FromSeconds(durationSeconds.Value)
@@ -162,7 +174,7 @@ internal sealed class YouTubeSearchClient
                 var isLive = ReadBoolean(entry, "is_live")
                              || liveStatus.Equals("is_live", StringComparison.OrdinalIgnoreCase);
                 var pageUrl = $"https://www.youtube.com/watch?v={id}";
-                results.Add(new MediaItem
+                videoResults.Add(new MediaItem
                 {
                     Id = $"{SearchResultPrefix}{id}",
                     Title = title,
@@ -177,7 +189,10 @@ internal sealed class YouTubeSearchClient
                     IsInLibrary = false
                 });
             }
-            return results;
+            // A person looking for a named publisher normally wants to subscribe
+            // to the channel first. Search videos are still retained below the
+            // deduplicated channels for immediate playback.
+            return channelResults.Concat(videoResults).ToArray();
         }
         catch (JsonException exception)
         {
@@ -188,12 +203,64 @@ internal sealed class YouTubeSearchClient
     internal static bool IsSearchResult(MediaItem? item) =>
         item?.Id.StartsWith(SearchResultPrefix, StringComparison.Ordinal) == true;
 
+    internal static bool IsChannelSearchResult(MediaItem? item) =>
+        item?.Id.StartsWith(ChannelSearchResultPrefix, StringComparison.Ordinal) == true;
+
     internal static bool IsLiveSearchResult(MediaItem item) =>
         IsSearchResult(item)
         && item.Tags?.Contains("transmisja na żywo", StringComparison.OrdinalIgnoreCase) == true;
 
     private static bool IsSafeVideoId(string value) =>
         value.Length is >= 6 and <= 64
+        && value.All(character => char.IsAsciiLetterOrDigit(character) || character is '_' or '-');
+
+    private static bool TryCreateChannelResult(
+        JsonElement entry,
+        string channelName,
+        ISet<string> knownChannelAddresses,
+        out MediaItem result)
+    {
+        result = null!;
+        if (channelName.Length == 0) return false;
+
+        var channelAddress = ReadString(entry, "channel_url").Trim();
+        if (channelAddress.Length == 0) channelAddress = ReadString(entry, "uploader_url").Trim();
+        if (!Uri.TryCreate(channelAddress, UriKind.Absolute, out var parsedAddress)
+            || !YouTubeCollectionClient.TryNormalizeCollectionAddress(
+                parsedAddress,
+                out var normalizedAddress,
+                out var sourceKind)
+            || sourceKind != PodcastSourceKind.YouTubeChannel
+            || !knownChannelAddresses.Add(normalizedAddress.AbsoluteUri))
+        {
+            return false;
+        }
+
+        var channelId = ReadString(entry, "channel_id").Trim();
+        if (!IsSafeChannelId(channelId))
+        {
+            channelId = Convert.ToHexString(
+                    System.Security.Cryptography.SHA256.HashData(
+                        Encoding.UTF8.GetBytes(normalizedAddress.AbsoluteUri)))
+                .ToLowerInvariant();
+        }
+        result = new MediaItem
+        {
+            Id = $"{ChannelSearchResultPrefix}{channelId}",
+            Title = channelName,
+            Kind = MediaItemKind.Podcast,
+            Source = normalizedAddress.AbsoluteUri,
+            PublicUri = channelAddress,
+            ExternalId = $"youtube:{channelId}",
+            Tags = "YouTube",
+            IsAvailable = true,
+            IsInLibrary = false
+        };
+        return true;
+    }
+
+    private static bool IsSafeChannelId(string value) =>
+        value.Length is >= 6 and <= 160
         && value.All(character => char.IsAsciiLetterOrDigit(character) || character is '_' or '-');
 
     private static string CleanText(string value, int maximumLength)

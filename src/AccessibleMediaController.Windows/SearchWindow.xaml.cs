@@ -202,11 +202,14 @@ public partial class SearchWindow : Window
         if (!podcastOnly) return combined;
 
         return combined
-            .OrderBy(result => result.Item.Kind switch
+            .OrderBy(result => YouTubeSearchClient.IsChannelSearchResult(result.Item)
+                ? 0
+                : result.Item.Kind switch
             {
-                MediaItemKind.Podcast => 0,
-                MediaItemKind.Episode => 1,
-                _ => 2
+                MediaItemKind.Podcast => 1,
+                MediaItemKind.Episode when YouTubeSearchClient.IsSearchResult(result.Item) => 2,
+                MediaItemKind.Episode => 3,
+                _ => 4
             })
             .ThenBy(result => result.Item.Title, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(result => result.Item.Id, StringComparer.Ordinal)

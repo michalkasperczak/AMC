@@ -1,5 +1,11 @@
 # Projekt modułu podcastów AMC
 
+Od `alpha.310` wspólne wyszukiwanie pokazuje także publiczne kanały YouTube.
+Kanał jest osobnym wynikiem typu **Kanał YouTube**, pojawia się przed
+pojedynczymi filmami i może zostać od razu dodany do Biblioteki. AMC tworzy
+wynik kanału wyłącznie ze stabilnego publicznego adresu zwróconego przez
+YouTube; nie zapisuje tymczasowych adresów odtwarzania ani danych konta.
+
 Od `alpha.309` nazwa wspólnej sesji brzmi **Podcasty i YouTube**. Publiczny
 kanał lub playlistę YouTube dodaje się przez `Ctrl+N`, podając jej zwykły
 adres. AMC nie loguje się, nie czyta cookies i nie kopiuje konta YouTube.

@@ -8976,6 +8976,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .ToArray();
         var directoryCount = resolvedResults.Count(candidate =>
             MainWindowNavigationPolicy.TryGetPodcastDirectoryLabel(candidate, out _));
+        var youtubeChannelCount = resolvedResults.Count(YouTubeSearchClient.IsChannelSearchResult);
         var youtubeCount = resolvedResults.Count(YouTubeSearchClient.IsSearchResult);
         foreach (var result in searchResults)
         {
@@ -8987,7 +8988,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         DiagnosticLog.Info(
             "podcast-search",
             $"Po połączeniu katalogów: nowe {directoryCount}; "
-            + $"YouTube {youtubeCount}; "
+            + $"kanały YouTube {youtubeChannelCount}; materiały YouTube {youtubeCount}; "
             + $"rozpoznane w Bibliotece: {resolvedResults.Length - directoryCount - youtubeCount}.");
         return resolvedResults;
     }
@@ -9087,10 +9088,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
-        StatusText.Text = $"Dodawanie podcastu: {item.Title}";
+        var youtubeChannel = YouTubeSearchClient.IsChannelSearchResult(item);
+        StatusText.Text = youtubeChannel
+            ? $"Dodawanie kanału YouTube: {item.Title}"
+            : $"Dodawanie podcastu: {item.Title}";
         try
         {
-            var feed = await _podcastFeedClient.FetchAsync(feedUri, _podcastCancellation.Token);
+            var youtubeCollection = youtubeChannel
+                ? await _youTubeCollections.FetchAsync(feedUri, _podcastCancellation.Token)
+                : null;
+            var feed = youtubeCollection?.Feed
+                ?? await _podcastFeedClient.FetchAsync(feedUri, _podcastCancellation.Token);
             if (_isClosing) return;
             if (feed.Episodes.Count == 0)
                 throw new InvalidDataException(
@@ -9101,7 +9109,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 feed,
                 null,
                 DateTime.UtcNow,
-                _state.Bookmarks);
+                _state.Bookmarks,
+                youtubeCollection?.SourceKind ?? PodcastSourceKind.Rss);
+            if (result.AddedSubscription && youtubeCollection is not null)
+                result.Subscription.RefreshIntervalMinutes = 60;
             if (markFavorite) result.Subscription.IsFavorite = true;
             ReloadPodcastSessionItems();
             QueueStateSave(announceFailure: true);
@@ -9113,15 +9124,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 RefreshCurrentView(preferredItemId: result.Subscription.Id);
             }
+            var itemLabel = youtubeChannel ? "kanał YouTube" : "podcast";
             AnnounceEssential(markFavorite
-                ? $"Dodano podcast do ulubionych: {result.Subscription.Title}"
-                : $"Dodano podcast do Biblioteki: {result.Subscription.Title}");
+                ? $"Dodano {itemLabel} do ulubionych: {result.Subscription.Title}"
+                : $"Dodano {itemLabel} do Biblioteki: {result.Subscription.Title}");
         }
         catch (Exception exception) when (exception is HttpRequestException
             or InvalidDataException
             or System.Xml.XmlException
             or ArgumentException
-            or OperationCanceledException)
+            or OperationCanceledException
+            or NotSupportedException
+            or TimeoutException)
         {
             if (exception is OperationCanceledException && _isClosing) return;
             DiagnosticLog.Warning("podcast-directory", $"Nie udało się dodać podcastu {item.Title}: {exception.Message}");

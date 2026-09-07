@@ -471,7 +471,36 @@ static void TestPodcastDirectorySearchMerge()
             == "podcast-directory:apple:123",
         "Wynik katalogu zniknął, gdy Biblioteka nie zawiera lokalnego dopasowania.");
 
-    Console.WriteLine("OK: katalog Apple jest osobną, widoczną częścią wyszukiwania Podcastów");
+    var youtubeChannel = new MediaItem
+    {
+        Id = "podcast-directory:youtube:TestChannel123",
+        Title = "Kanał YouTube",
+        Kind = MediaItemKind.Podcast,
+        Source = "https://www.youtube.com/channel/TestChannel123/videos"
+    };
+    var youtubeVideo = new MediaItem
+    {
+        Id = "internet-media-search:youtube:AbCdEf12345",
+        Title = "Materiał YouTube",
+        Kind = MediaItemKind.Episode,
+        Source = "https://www.youtube.com/watch?v=AbCdEf12345"
+    };
+    var withYouTube = SearchWindow.MergeSearchResults(
+        localResults,
+        [
+            new SearchWindow.SearchResult("podcasts", youtubeVideo),
+            new SearchWindow.SearchResult("podcasts", youtubeChannel),
+            new SearchWindow.SearchResult("podcasts", directoryPodcast)
+        ],
+        [session],
+        podcastOnly: true);
+    Assert(
+        withYouTube[0].Item.Id == youtubeChannel.Id
+        && Array.FindIndex(withYouTube.ToArray(), result => result.Item.Id == youtubeVideo.Id)
+            < Array.FindIndex(withYouTube.ToArray(), result => result.Item.Id == episode.Id),
+        "Kanał YouTube nie trafia na początek, a materiały YouTube przed archiwalne odcinki.");
+
+    Console.WriteLine("OK: katalogi podcastów i kanały YouTube są widoczną częścią wyszukiwania");
 }
 
 static void TestPodcastNetworkSourcePolicy()
@@ -1520,6 +1549,8 @@ static void TestYouTubeSearchResults()
           "id": "AbCdEf12345",
           "title": "  Przykładowy   materiał  ",
           "channel": "Kanał testowy",
+          "channel_id": "TestChannel123",
+          "channel_url": "https://www.youtube.com/channel/TestChannel123",
           "duration": 125.5,
           "live_status": "not_live"
         },
@@ -1527,6 +1558,8 @@ static void TestYouTubeSearchResults()
           "id": "LiveId_9876",
           "title": "Transmisja testowa",
           "uploader": "Nadawca",
+          "channel_id": "TestChannel123",
+          "channel_url": "https://www.youtube.com/channel/TestChannel123",
           "is_live": true
         },
         {
@@ -1541,8 +1574,18 @@ static void TestYouTubeSearchResults()
     }
     """;
     var results = YouTubeSearchClient.ParseResults(json);
-    Assert(results.Count == 2, "Wyszukiwanie YouTube nie odrzuca duplikatów albo nieprawidłowych identyfikatorów.");
-    var first = results[0];
+    Assert(results.Count == 3, "Wyszukiwanie YouTube nie odrzuca duplikatów albo nie zachowuje kanału.");
+    var channel = results[0];
+    Assert(
+        YouTubeSearchClient.IsChannelSearchResult(channel)
+        && channel.Title == "Kanał testowy"
+        && channel.Kind == MediaItemKind.Podcast
+        && channel.Source == "https://www.youtube.com/channel/TestChannel123/videos"
+        && channel.PublicUri == "https://www.youtube.com/channel/TestChannel123"
+        && channel.ExternalId == "youtube:TestChannel123"
+        && !channel.IsInLibrary,
+        "Kanał pochodzący z wyszukiwania YouTube nie ma stabilnej tożsamości albo adresu.");
+    var first = results[1];
     Assert(
         YouTubeSearchClient.IsSearchResult(first)
         && first.Title == "Przykładowy materiał"
@@ -1555,7 +1598,7 @@ static void TestYouTubeSearchResults()
         && !first.IsInLibrary,
         "Wynik YouTube nie ma stabilnego adresu albo czytelnych metadanych.");
     Assert(
-        YouTubeSearchClient.IsLiveSearchResult(results[1]),
+        YouTubeSearchClient.IsLiveSearchResult(results[2]),
         "Transmisja YouTube nie została odróżniona od zakończonego materiału.");
     Console.WriteLine("OK: ograniczone wyszukiwanie publicznego YouTube");
 }
@@ -1569,10 +1612,12 @@ static void TestLiveYouTubeSearch(string query)
         .GetResult();
     Assert(results.Count > 0, "YouTube nie zwrócił żadnego wyniku na żywo.");
     Assert(
-        results.All(item => YouTubeSearchClient.IsSearchResult(item)
-            && YouTubeSourceResolver.IsYouTubeUrl(item.PublicUri)
-            && item.Kind == MediaItemKind.Episode),
+        results.All(item => YouTubeSourceResolver.IsYouTubeUrl(item.PublicUri)
+            && (YouTubeSearchClient.IsChannelSearchResult(item) && item.Kind == MediaItemKind.Podcast
+                || YouTubeSearchClient.IsSearchResult(item) && item.Kind == MediaItemKind.Episode)),
         "Wyniki wyszukiwania YouTube na żywo mają nieprawidłową tożsamość albo adres.");
+    Assert(results.Any(YouTubeSearchClient.IsChannelSearchResult),
+        "Wyszukiwanie YouTube na żywo nie zwróciło kanału powiązanego z wynikami.");
     Console.WriteLine($"OK: wyszukiwanie YouTube na żywo — wyniki: {results.Count}");
 }
 

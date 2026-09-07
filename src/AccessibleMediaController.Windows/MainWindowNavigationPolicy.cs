@@ -265,6 +265,7 @@ internal static class MainWindowNavigationPolicy
             "apple" => "Apple Podcasts",
             "spreaker" => "Spreaker",
             "soundcloud" => "SoundCloud",
+            "youtube" => "YouTube",
             _ => "podcastów"
         };
         return true;

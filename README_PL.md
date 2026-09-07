@@ -1,5 +1,14 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.310` uzupełnia wyszukiwanie YouTube o publiczne **kanały**.
+AMC wykorzystuje dane kanału zwrócone razem z wynikami filmów, usuwa duplikaty
+i pokazuje kanały przed pojedynczymi materiałami. Dzięki temu zapytania takie
+jak „Dominikanie.pl”, „Dominikanie Poznań” i „TVP Info” pozwalają Enterem
+dodać właściwy kanał do Biblioteki, zamiast pokazywać wyłącznie filmy.
+Interaktywne oczekiwanie na niedostępny YouTube jest ograniczone do 18 sekund;
+wyniki Apple Podcasts i Spreakera nadal pozostają dostępne niezależnie od
+awarii YouTube.
+
 Wersja `alpha.309` rozszerza dotychczasową sesję do **Podcasty i YouTube**,
 bez zmiany jej identyfikatora ani skrótu `Ctrl+6`. `Ctrl+N` przyjmuje teraz
 publiczny adres kanału albo playlisty YouTube i zapisuje go w Bibliotece jako
