@@ -6678,3 +6678,52 @@ otwórz wpis do edycji i anuluj.
 Oczekiwane: istnieje jeden aktywny plan cykliczny: niedziela, `22:00`, długość
 4 godziny. Nie ma kopii jednorazowej. Nawigacja podaje ten wpis jeden raz i po
 anulowaniu zachowuje na nim fokus.
+
+## Testy ręczne — alpha 308
+
+### AMC-308-01 — wyszukiwanie publicznego YouTube
+
+W sesji Podcasty naciśnij `Ctrl+F`, wpisz `TyfloPodcast` i rozpocznij
+wyszukiwanie. Powtórz próbę przez `Ctrl+Shift+F`.
+
+Oczekiwane: obok Podcastów pojawiają się wyniki jawnie nazwane **YouTube**.
+Każdy ma czytelny tytuł i kanał; transmisja na żywo jest tak nazwana. Lista ma
+najwyżej 25 wyników YouTube i nie ujawnia adresu technicznego ani obiektu klasy.
+
+### AMC-308-02 — otwarcie i odtwarzanie wyniku
+
+Na nowym wyniku YouTube naciśnij Enter. Następnie uruchom materiał i sprawdź
+przewijanie, cyfry procentowe, zmianę prędkości oraz Escape.
+
+Oczekiwane: Enter dodaje jeden element do kolekcji **Media internetowe** i
+otwiera go. Odtwarzanie korzysta ze wspólnego odtwarzacza; po Escape fokus
+wraca do właściwego materiału. Powtórne wyszukanie tego samego adresu nie
+tworzy duplikatu i informuje, że element jest w Mediach internetowych.
+
+### AMC-308-03 — działania bezpośrednio z wyników
+
+Na nowym wyniku sprawdź `Ctrl+Enter`, `Shift+Enter`, `Ctrl+Shift+Enter`,
+`Ctrl+Shift+U`, `Ctrl+Shift+P`, `Ctrl+Alt+Shift+P`, `Ctrl+D` i `Ctrl+S`.
+
+Oczekiwane: wynik zostaje najpierw bezpiecznie zapisany w Mediach internetowych,
+a potem wykonuje wybrane działanie. Historia, Kolejka, Ulubione, playlista i
+preset odwołują się do tego samego elementu. Pobieranie tworzy ukończony plik
+MP3 i nie zapisuje pliku częściowego jako gotowego.
+
+### AMC-308-04 — kopiowanie i informacje
+
+Na jednym oraz kilku zaznaczonych wynikach użyj `Ctrl+C` i `Ctrl+Shift+C`.
+Na pojedynczym wyniku otwórz `Alt+Enter`.
+
+Oczekiwane: `Ctrl+C` kopiuje tytuł i publiczną stronę YouTube,
+`Ctrl+Shift+C` — wyłącznie stabilny adres strony. Nie jest kopiowany czasowy
+adres audio. Informacje podają najpierw tytuł, kanał, rodzaj i czas, a link
+**Otwórz w YouTube** jest dostępny. Po zamknięciu fokus wraca na wynik.
+
+### AMC-308-05 — brak albo awaria składnika
+
+Jeżeli `yt-dlp` nie jest zainstalowany lub wyszukiwanie YouTube chwilowo nie
+odpowiada, wykonaj zwykłe wyszukiwanie Podcastów.
+
+Oczekiwane: Apple Podcasts, Spreaker i lokalne archiwum nadal zwracają wyniki.
+Awaria jednego dostawcy nie blokuje całego wyszukiwania ani interfejsu.

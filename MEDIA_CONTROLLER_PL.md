@@ -1152,6 +1152,18 @@ wyszukiwanie, pobieranie i obsługa wielu stron należą do osobnego przyszłego
 modułu Media internetowe. Kanały i playlisty publikujące regularne materiały
 mogą później stać się źródłami w sesji Podcasty, ale nie są częścią tej zmiany.
 
+Od `alpha.308` zwykłe materiały i transmisje YouTube można również odnaleźć
+przez `Ctrl+F` w Podcastach oraz `Ctrl+Shift+F` globalnie. Wyszukiwanie jest
+częścią kolekcji **Media internetowe** i zwraca najwyżej 25 publicznych wyników.
+Odizolowany proces `yt-dlp` otrzymuje wyłącznie tekst jawnego zapytania; działa
+z wyłączoną konfiguracją użytkownika, bez cookies i bez sesji konta. Wyniki
+przechowują stabilny adres `youtube.com/watch`, nigdy czasowy podpisany adres
+audio. Enter dodaje element do Mediów internetowych, a działania bezpośrednie
+z wyników korzystają z tego samego modelu odtwarzania, Kolejki, Ulubionych,
+playlist, presetów, historii i pobierania co wcześniej ręcznie dodany adres.
+`Ctrl+C` kopiuje tytuł i stronę YouTube, a `Ctrl+Shift+C` sam stabilny adres
+strony; technicznego, wygasającego adresu audio nie wystawiamy do schowka.
+
 Przenośne dane Radia są dwiema warstwami. Pełna kopia zachowuje dokładny stan tego użytkownika, natomiast osobne eksporty Ulubionych i harmonogramów służą do bezpiecznego przesyłania oraz scalania. Ich plan i reguły prywatności określa `PROJEKT_IMPORTU_EKSPORTU_RADIA.md`.
 
 Korekta języka interfejsu `alpha.150`: nazwa pola opisuje zamiar **Nagrywaj**, a jego wartości to **Natychmiast** i **Później**. Szczegół, że rozpoczęcie natychmiastowe następuje po zatwierdzeniu przyciskiem Zapisz, należy do opisu pomocniczego, nie do nazwy wartości. Cały moduł używa rzeczownika „harmonogram”, dlatego dostępna nazwa reguły zasilania brzmi **Wybudzanie komputera dla tego harmonogramu**. Nie stosujemy naprzemiennie słów „plan” i „nagranie” dla tego samego rekordu.

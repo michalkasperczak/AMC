@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Input;
+using AccessibleMediaController.Windows.Services;
 using System.Windows.Threading;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sessions;
@@ -538,6 +539,12 @@ public partial class SearchWindow : Window
             string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase));
         var podcastEpisodesOnly = podcastsOnly
             && selected.All(result => result.Item.Kind == MediaItemKind.Episode);
+        var youtubeOnly = selected.Length > 0
+            && selected.All(result => YouTubeSearchClient.IsSearchResult(result.Item)
+                || string.Equals(
+                    result.Item.ExternalId,
+                    "internet-media:public",
+                    StringComparison.Ordinal));
         SearchDownloadPodcastMenuItem.Visibility = podcastEpisodesOnly
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -545,18 +552,30 @@ public partial class SearchWindow : Window
             ? Visibility.Visible
             : Visibility.Collapsed;
         MenuAccessibility.SetPresentation(
+            SearchLibraryMenuItem,
+            youtubeOnly
+                ? "Dodaj do Mediów internetowych"
+                : "Dodaj lub usuń z Biblioteki");
+        SearchLibraryMenuItem.InputGestureText = "Ctrl+Shift+L";
+        AutomationProperties.SetAcceleratorKey(SearchLibraryMenuItem, "Ctrl+Shift+L");
+        MenuAccessibility.SetPresentation(
             SearchCopyNameMenuItem,
-            podcastsOnly ? "Kopiuj opisy i strony odcinków" : "Kopiuj nazwy");
+            youtubeOnly
+                ? "Kopiuj nazwy i strony YouTube"
+                : podcastsOnly ? "Kopiuj opisy i strony odcinków" : "Kopiuj nazwy");
         SearchCopyNameMenuItem.InputGestureText = "Ctrl+C";
         AutomationProperties.SetAcceleratorKey(SearchCopyNameMenuItem, "Ctrl+C");
         MenuAccessibility.SetPresentation(
             SearchCopyLocationMenuItem,
-            podcastsOnly ? "Kopiuj bezpośrednie adresy audio" : "Kopiuj ścieżki lub łącza");
+            youtubeOnly
+                ? "Kopiuj adresy YouTube"
+                : podcastsOnly ? "Kopiuj bezpośrednie adresy audio" : "Kopiuj ścieżki lub łącza");
         SearchCopyLocationMenuItem.InputGestureText = "Ctrl+Shift+C";
         AutomationProperties.SetAcceleratorKey(SearchCopyLocationMenuItem, "Ctrl+Shift+C");
         SearchGoToPodcastMenuItem.Visibility = selected.Length == 1
             && string.Equals(selected[0].SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)
             && selected[0].Item.Kind == MediaItemKind.Episode
+            && !youtubeOnly
             && !string.IsNullOrWhiteSpace(selected[0].Item.ExternalId)
                 ? Visibility.Visible
                 : Visibility.Collapsed;

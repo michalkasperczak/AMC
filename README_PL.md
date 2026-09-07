@@ -1,5 +1,16 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.308` domyka pierwszy etap publicznego YouTube bez logowania.
+`Ctrl+F` w Podcastach oraz `Ctrl+Shift+F` globalnie przeszukują teraz także
+YouTube przez odizolowany, aktualizowalny składnik `yt-dlp`. Jedno wyszukiwanie
+zwraca najwyżej 25 wyników i nie korzysta z cookies ani danych konta. Wynik
+podaje tytuł, kanał, czas oraz informację o transmisji na żywo. Enter dodaje go
+do kolekcji **Media internetowe**, a `Ctrl+Enter`, Kolejka, Ulubione, playlisty,
+presety, historia, `Ctrl+D`, `Ctrl+S`, `Ctrl+C`, `Ctrl+Shift+C` i `Alt+Enter`
+korzystają z istniejących mechanizmów AMC. W stanie programu zostaje wyłącznie
+stabilny adres strony; czasowy adres audio jest rozwiązywany dopiero przy
+odtwarzaniu.
+
 Wersja `alpha.307` utrwala ręczne zatrzymanie bieżącego wystąpienia
 harmonogramu. Ponowne uruchomienie AMC wciąż mieszczące się w jego przedziale
 czasowym nie może już samoczynnie wznowić nagrywania. Następny termin planu

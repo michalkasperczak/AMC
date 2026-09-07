@@ -55,7 +55,8 @@
                     <MenuItem Header="Dodaj lub usuń z _ulubionych" InputGestureText="Ctrl+Shift+U"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+U"
                               Click="Favorite_Click" />
-                    <MenuItem Header="Dodaj lub usuń z _Biblioteki" InputGestureText="Ctrl+Shift+L"
+                    <MenuItem x:Name="SearchLibraryMenuItem"
+                              Header="Dodaj lub usuń z _Biblioteki" InputGestureText="Ctrl+Shift+L"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+L"
                               Click="Library_Click" />
                     <MenuItem x:Name="SearchPlaylistMenuItem" Header="Zarządzaj _playlistami" InputGestureText="Ctrl+Shift+P"

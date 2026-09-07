@@ -8,6 +8,17 @@ dostępny import OPML, odświeżanie metadanych, przejście z audycji do jej
 odcinków oraz odtwarzanie skończonych materiałów HTTP/HTTPS we wspólnym
 odtwarzaczu AMC.
 
+Od `alpha.308` `Ctrl+F` przeszukuje obok Apple Podcasts i Spreaker także
+publiczny YouTube, a wyszukiwanie globalne `Ctrl+Shift+F` łączy te wyniki z
+pozostałymi sesjami. Jest to ograniczony adapter **Mediów internetowych**, nie
+pozorna subskrypcja podcastu ani kopia konta YouTube. Zwraca najwyżej 25 filmów
+lub transmisji, nie czyta cookies i nie loguje użytkownika. Enter świadomie
+zapisuje wybrany wynik w kolekcji Media internetowe. Działania bezpośrednie z
+wyników najpierw utrwalają stabilny adres strony, a następnie korzystają ze
+wspólnych Ulubionych, Kolejki, playlist, presetów, historii, odtwarzania i
+pobierania. Wynik już zapisany w AMC jest rozpoznawany po adresie strony i nie
+powstaje ponownie jako duplikat.
+
 Od `alpha.294` `Ctrl+N` przyjmuje także publiczny adres filmu albo transmisji
 YouTube. Taki wpis nie udaje kanału RSS: trafia do jawnej kolekcji **Media
 internetowe** z trwałym adresem strony. AMC nie loguje się do konta, nie czyta

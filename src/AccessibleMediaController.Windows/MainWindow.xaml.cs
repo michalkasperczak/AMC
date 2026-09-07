@@ -98,6 +98,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly PodcastChapterClient _podcastChapterClient = new();
     private readonly ApplePodcastDirectoryClient _applePodcastDirectory = new();
     private readonly SpreakerPodcastDirectoryClient _spreakerPodcastDirectory = new();
+    private readonly YouTubeSearchClient _youTubeSearch = new();
     private readonly PodcastEpisodeDownloader _podcastDownloader = new();
     private readonly CancellationTokenSource _podcastCancellation = new();
     private readonly HashSet<string> _podcastDownloadsInProgress = new(StringComparer.Ordinal);
@@ -583,23 +584,41 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ? (query, cancellationToken) => PrepareRemoteSearchAsync(query, allServices, cancellationToken)
                 : null,
             allServices
-                ? "katalogach radia i podcastów"
+                ? "katalogach radia, podcastów i YouTube"
                 : string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
-                    ? "katalogach Apple Podcasts i Spreaker"
+                    ? "katalogach Apple Podcasts, Spreaker i YouTube"
                     : "katalogu radia")
         {
             Owner = this
         };
         if (dialog.ShowDialog() == true && dialog.SelectedResult is { } result)
         {
+            if (IsYouTubeSearchResult(result)
+                && dialog.SelectedAction == SearchResultAction.Open)
+            {
+                AddPublicInternetMedia(
+                    CreateResolvedYouTubeSearchResult(result.Item),
+                    titleOverride: null);
+                return;
+            }
             if (IsPodcastDirectoryResult(result)
                 && dialog.SelectedAction == SearchResultAction.Open)
             {
                 _ = AddPodcastDirectoryResultAsync(result.Item, openAfterImport: true, markFavorite: false);
                 return;
             }
-            var selectedSession = SelectSearchResultBrowserItem(result);
-            PrepareSearchReturnContext(result.Item.Id);
+            var originalSelectedResults = dialog.SelectedResults.ToArray();
+            var effectiveResults = originalSelectedResults
+                .Select(MaterializeYouTubeSearchResult)
+                .ToArray();
+            var selectedIndex = Array.FindIndex(
+                originalSelectedResults,
+                selected => string.Equals(selected.Item.Id, result.Item.Id, StringComparison.Ordinal));
+            var effectiveResult = selectedIndex >= 0
+                ? effectiveResults[selectedIndex]
+                : MaterializeYouTubeSearchResult(result);
+            var selectedSession = SelectSearchResultBrowserItem(effectiveResult);
+            PrepareSearchReturnContext(effectiveResult.Item.Id);
             if (dialog.SelectedAction == SearchResultAction.Preset)
             {
                 ShowPresetAssignment();
@@ -607,12 +626,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             if (dialog.SelectedAction == SearchResultAction.GoToPodcast)
             {
-                GoToRelatedPodcast(result.Item);
+                GoToRelatedPodcast(effectiveResult.Item);
                 return;
             }
             if (dialog.SelectedAction == SearchResultAction.Playlist && selectedSession is not null)
             {
-                var items = dialog.SelectedResults
+                var items = effectiveResults
                     .Where(selected => string.Equals(
                         selected.SessionId,
                         selectedSession.Id,
@@ -7180,7 +7199,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreMediaListFocusAfterRefresh();
     }
 
-    private void AddPublicInternetMedia(ResolvedYouTubeAudioSource media, string? titleOverride)
+    private MediaItem AddPublicInternetMedia(
+        ResolvedYouTubeAudioSource media,
+        string? titleOverride,
+        bool openAfterImport = true)
     {
         const string collectionId = "internet-media:public";
         const string collectionAddress = "https://amc.invalid/public-internet-media";
@@ -7237,11 +7259,33 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         ReloadPodcastSessionItems();
         QueueStateSave(announceFailure: true);
-        OpenPodcast(collection.Id, collection.Title, preferredEpisodeId: episode.Id);
-        PrepareViewFocusContext(added
-            ? $"Dodano medium internetowe: {episode.Title}"
-            : $"Zaktualizowano medium internetowe: {episode.Title}");
-        RestoreMediaListFocusAfterRefresh();
+        var item = _podcastItems.First(candidate =>
+            string.Equals(candidate.Id, episode.Id, StringComparison.Ordinal));
+        if (openAfterImport)
+        {
+            OpenPodcast(collection.Id, collection.Title, preferredEpisodeId: episode.Id);
+            PrepareViewFocusContext(added
+                ? $"Dodano medium internetowe: {episode.Title}"
+                : $"Zaktualizowano medium internetowe: {episode.Title}");
+            RestoreMediaListFocusAfterRefresh();
+        }
+        return item;
+    }
+
+    private static ResolvedYouTubeAudioSource CreateResolvedYouTubeSearchResult(MediaItem item)
+    {
+        var pageUrl = item.PublicUri ?? item.Source
+            ?? throw new InvalidDataException("Wynik YouTube nie ma prawidłowego adresu strony.");
+        return new ResolvedYouTubeAudioSource(
+            pageUrl,
+            string.Empty,
+            item.Title,
+            item.Artist,
+            item.Duration,
+            YouTubeSearchClient.IsLiveSearchResult(item),
+            false,
+            null,
+            null);
     }
 
     private static string StableInternetMediaId(string address)
@@ -8818,7 +8862,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 () => _applePodcastDirectory.SearchAsync(query, cancellationToken)),
             SearchAsync(
                 "Spreaker",
-                () => _spreakerPodcastDirectory.SearchAsync(query, cancellationToken))
+                () => _spreakerPodcastDirectory.SearchAsync(query, cancellationToken)),
+            SearchAsync(
+                "YouTube",
+                () => _youTubeSearch.SearchAsync(query, cancellationToken))
         };
         var searchResults = await Task.WhenAll(searches);
         cancellationToken.ThrowIfCancellationRequested();
@@ -8841,11 +8888,36 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var libraryItemsById = _podcastItems
-            .Where(item => item.Kind == MediaItemKind.Podcast)
+            .Where(item => item.Kind is MediaItemKind.Podcast or MediaItemKind.Episode)
             .ToDictionary(item => item.Id, StringComparer.Ordinal);
+        var savedInternetMediaByAddress = _state.Podcasts.Episodes
+            .Where(episode => string.Equals(
+                    episode.SubscriptionId,
+                    "internet-media:public",
+                    StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(episode.PageUrl ?? episode.MediaUrl))
+            .GroupBy(
+                episode => NormalizePodcastFeedAddress(episode.PageUrl ?? episode.MediaUrl),
+                StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var resolvedResults = found
             .Select(candidate =>
             {
+                if (YouTubeSearchClient.IsSearchResult(candidate)
+                    && candidate.Source is { Length: > 0 } pageAddress
+                    && savedInternetMediaByAddress.TryGetValue(
+                        NormalizePodcastFeedAddress(pageAddress),
+                        out var savedInternetMedia))
+                {
+                    if (libraryItemsById.TryGetValue(savedInternetMedia.Id, out var savedInternetMediaItem))
+                        return savedInternetMediaItem;
+                    var collection = _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+                        string.Equals(
+                            subscription.Id,
+                            savedInternetMedia.SubscriptionId,
+                            StringComparison.Ordinal));
+                    return CreatePodcastEpisodeItem(savedInternetMedia, collection);
+                }
                 if (candidate.Source is not { Length: > 0 } source
                     || !savedByFeed.TryGetValue(NormalizePodcastFeedAddress(source), out var saved)
                     || !libraryItemsById.TryGetValue(saved.Id, out var libraryItem))
@@ -8858,6 +8930,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .ToArray();
         var directoryCount = resolvedResults.Count(candidate =>
             MainWindowNavigationPolicy.TryGetPodcastDirectoryLabel(candidate, out _));
+        var youtubeCount = resolvedResults.Count(YouTubeSearchClient.IsSearchResult);
         foreach (var result in searchResults)
         {
             DiagnosticLog.Info(
@@ -8868,7 +8941,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         DiagnosticLog.Info(
             "podcast-search",
             $"Po połączeniu katalogów: nowe {directoryCount}; "
-            + $"rozpoznane w Bibliotece: {resolvedResults.Length - directoryCount}.");
+            + $"YouTube {youtubeCount}; "
+            + $"rozpoznane w Bibliotece: {resolvedResults.Length - directoryCount - youtubeCount}.");
         return resolvedResults;
     }
 
@@ -8885,6 +8959,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private static bool IsPodcastDirectoryResult(SearchWindow.SearchResult result) =>
         string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)
         && MainWindowNavigationPolicy.TryGetPodcastDirectoryLabel(result.Item, out _);
+
+    private static bool IsYouTubeSearchResult(SearchWindow.SearchResult result) =>
+        string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)
+        && YouTubeSearchClient.IsSearchResult(result.Item);
+
+    private SearchWindow.SearchResult MaterializeYouTubeSearchResult(
+        SearchWindow.SearchResult result) =>
+        !IsYouTubeSearchResult(result)
+            ? result
+            : new SearchWindow.SearchResult(
+                "podcasts",
+                AddPublicInternetMedia(
+                    CreateResolvedYouTubeSearchResult(result.Item),
+                    titleOverride: null,
+                    openAfterImport: false));
 
     private PodcastSubscriptionSettings? FindPodcastSubscriptionByFeed(string? feedAddress)
     {
@@ -14525,11 +14614,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (item.Kind is not (MediaItemKind.Podcast or MediaItemKind.Episode))
             return formattedItem;
 
+        if (YouTubeSearchClient.IsSearchResult(item))
+        {
+            return YouTubeSearchClient.IsLiveSearchResult(item)
+                ? $"{formattedItem}, YouTube, transmisja na żywo"
+                : $"{formattedItem}, YouTube";
+        }
+
         var parent = item.Kind == MediaItemKind.Podcast
             ? _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
                 string.Equals(subscription.Id, item.Id, StringComparison.Ordinal))
             : _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
                 string.Equals(subscription.Id, item.ExternalId, StringComparison.Ordinal));
+        if (parent?.SourceKind == PodcastSourceKind.PublicInternetMedia)
+            return $"{formattedItem}, Media internetowe";
         return MainWindowNavigationPolicy.FormatPodcastSearchResult(
             item,
             formattedItem,
@@ -18372,6 +18470,53 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             return CopySearchResultLocations(results);
         }
+
+        if (results.Any(IsPublicInternetMediaSearchResult)
+            && results.Any(result => !IsPublicInternetMediaSearchResult(result)))
+        {
+            return "Dla jednego działania wybierz wyłącznie wyniki YouTube albo inne wyniki";
+        }
+        if (results.Count == 1
+            && IsYouTubeSearchResult(results[0])
+            && action == SearchResultAction.Information)
+        {
+            ShowYouTubeSearchResultInformation(results[0].Item);
+            return null;
+        }
+        if (results.All(IsPublicInternetMediaSearchResult)
+            && action == SearchResultAction.Library)
+        {
+            var newResults = results.Where(IsYouTubeSearchResult).ToArray();
+            foreach (var selected in newResults)
+            {
+                AddPublicInternetMedia(
+                    CreateResolvedYouTubeSearchResult(selected.Item),
+                    titleOverride: null,
+                    openAfterImport: false);
+            }
+            if (newResults.Length == 0)
+            {
+                return results.Count == 1
+                    ? $"Materiał jest już w Mediach internetowych: {results[0].Item.Title}"
+                    : "Wybrane materiały są już w Mediach internetowych";
+            }
+            return newResults.Length == 1
+                ? $"Dodano do Mediów internetowych: {newResults[0].Item.Title}"
+                : $"Dodano do Mediów internetowych: {FormatItemCount(newResults.Length)}";
+        }
+        if (results.All(IsPublicInternetMediaSearchResult)
+            && action is SearchResultAction.TogglePlayback
+                or SearchResultAction.PlayNext
+                or SearchResultAction.Queue
+                or SearchResultAction.Favorite
+                or SearchResultAction.Download
+                or SearchResultAction.SaveAs)
+        {
+            results = results
+                .Select(MaterializeYouTubeSearchResult)
+                .ToArray();
+            visibleResults = results;
+        }
         if (action is SearchResultAction.Download or SearchResultAction.SaveAs)
         {
             var episodes = results
@@ -18516,6 +18661,58 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             announcement = $"{announcement}, {session.DisplayName}";
         }
         return announcement;
+    }
+
+    private bool IsPublicInternetMediaSearchResult(SearchWindow.SearchResult result)
+    {
+        if (!string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase)
+            || result.Item.Kind != MediaItemKind.Episode)
+        {
+            return false;
+        }
+        if (IsYouTubeSearchResult(result))
+        {
+            return true;
+        }
+
+        var episode = _state.Podcasts.Episodes.FirstOrDefault(item =>
+            string.Equals(item.Id, result.Item.Id, StringComparison.Ordinal));
+        if (episode is null)
+        {
+            return false;
+        }
+        var subscription = _state.Podcasts.Subscriptions.FirstOrDefault(item =>
+            string.Equals(item.Id, episode.SubscriptionId, StringComparison.Ordinal));
+        return subscription?.SourceKind == PodcastSourceKind.PublicInternetMedia;
+    }
+
+    private void ShowYouTubeSearchResultInformation(MediaItem item)
+    {
+        var pageUrl = item.PublicUri ?? item.Source;
+        var text = string.Join(
+            Environment.NewLine,
+            new string?[]
+            {
+                "Medium internetowe",
+                $"Tytuł: {item.Title}",
+                string.IsNullOrWhiteSpace(item.Artist) ? null : $"Kanał: {item.Artist}",
+                "Źródło: YouTube",
+                YouTubeSearchClient.IsLiveSearchResult(item)
+                    ? "Rodzaj: transmisja na żywo"
+                    : "Rodzaj: materiał wideo odtwarzany jako audio",
+                item.Duration > TimeSpan.Zero
+                    ? $"Czas: {CommandRouter.FormatTime(item.Duration)}"
+                    : null,
+                "W Mediach internetowych: nie",
+                string.IsNullOrWhiteSpace(pageUrl) ? null : $"Adres strony: {pageUrl}"
+            }.Where(value => value is not null).Select(value => value!));
+        var links = string.IsNullOrWhiteSpace(pageUrl)
+            ? Array.Empty<InformationLink>()
+            : new[] { new InformationLink("Otwórz w YouTube", pageUrl) };
+        var owner = Application.Current.Windows
+            .OfType<Window>()
+            .FirstOrDefault(window => window.IsActive) ?? this;
+        new InformationWindow(text, links) { Owner = owner }.ShowDialog();
     }
 
     private async Task AddPodcastDirectoryResultsAsync(

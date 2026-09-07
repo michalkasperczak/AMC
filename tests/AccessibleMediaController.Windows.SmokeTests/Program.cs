@@ -113,6 +113,7 @@ try
     TestFfmpegComponentSecurity();
     TestYtDlpComponentSecurity();
     TestYouTubeSourceResolver();
+    TestYouTubeSearchResults();
     TestRadioYouTubeAddressAccessibility();
     TestWaveMetadataAndDamagedContainers();
     TestLocalVideoAudioExtraction();
@@ -159,6 +160,10 @@ try
         else if (mediaPath.StartsWith("--youtube-live-url=", StringComparison.OrdinalIgnoreCase))
         {
             TestLiveYouTubeRadio(mediaPath["--youtube-live-url=".Length..]);
+        }
+        else if (mediaPath.StartsWith("--youtube-search-query=", StringComparison.OrdinalIgnoreCase))
+        {
+            TestLiveYouTubeSearch(mediaPath["--youtube-search-query=".Length..]);
         }
         else if (mediaPath.StartsWith("--radio-metadata-url=", StringComparison.OrdinalIgnoreCase))
         {
@@ -1498,6 +1503,72 @@ static void TestYouTubeSourceResolver()
             "Resolver odrzuca zwykły film bez czytelnego wyjaśnienia.");
     }
     Console.WriteLine("OK: bezpieczne rozpoznawanie publicznych transmisji YouTube");
+}
+
+static void TestYouTubeSearchResults()
+{
+    const string json = """
+    {
+      "_type": "playlist",
+      "entries": [
+        {
+          "id": "AbCdEf12345",
+          "title": "  Przykładowy   materiał  ",
+          "channel": "Kanał testowy",
+          "duration": 125.5,
+          "live_status": "not_live"
+        },
+        {
+          "id": "LiveId_9876",
+          "title": "Transmisja testowa",
+          "uploader": "Nadawca",
+          "is_live": true
+        },
+        {
+          "id": "../niebezpieczny",
+          "title": "Nieprawidłowy"
+        },
+        {
+          "id": "AbCdEf12345",
+          "title": "Duplikat"
+        }
+      ]
+    }
+    """;
+    var results = YouTubeSearchClient.ParseResults(json);
+    Assert(results.Count == 2, "Wyszukiwanie YouTube nie odrzuca duplikatów albo nieprawidłowych identyfikatorów.");
+    var first = results[0];
+    Assert(
+        YouTubeSearchClient.IsSearchResult(first)
+        && first.Title == "Przykładowy materiał"
+        && first.Artist == "Kanał testowy"
+        && first.Kind == MediaItemKind.Episode
+        && first.Duration == TimeSpan.FromSeconds(125.5)
+        && first.PublicUri == "https://www.youtube.com/watch?v=AbCdEf12345"
+        && first.Source == first.PublicUri
+        && first.ExternalId == "internet-media:public"
+        && !first.IsInLibrary,
+        "Wynik YouTube nie ma stabilnego adresu albo czytelnych metadanych.");
+    Assert(
+        YouTubeSearchClient.IsLiveSearchResult(results[1]),
+        "Transmisja YouTube nie została odróżniona od zakończonego materiału.");
+    Console.WriteLine("OK: ograniczone wyszukiwanie publicznego YouTube");
+}
+
+static void TestLiveYouTubeSearch(string query)
+{
+    using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+    var results = new YouTubeSearchClient()
+        .SearchAsync(query, cancellation.Token)
+        .GetAwaiter()
+        .GetResult();
+    Assert(results.Count > 0, "YouTube nie zwrócił żadnego wyniku na żywo.");
+    Assert(
+        results.All(item => YouTubeSearchClient.IsSearchResult(item)
+            && YouTubeSourceResolver.IsYouTubeUrl(item.PublicUri)
+            && item.Kind == MediaItemKind.Episode),
+        "Wyniki wyszukiwania YouTube na żywo mają nieprawidłową tożsamość albo adres.");
+    Console.WriteLine($"OK: wyszukiwanie YouTube na żywo — wyniki: {results.Count}");
 }
 
 static void TestRadioYouTubeAddressAccessibility()
