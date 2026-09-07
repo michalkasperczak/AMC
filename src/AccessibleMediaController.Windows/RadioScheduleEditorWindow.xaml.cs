@@ -184,7 +184,7 @@ public partial class RadioScheduleEditorWindow : Window
         }
         var immediateStart = IsImmediateStart;
         var date = _datePicker.Value.Date;
-        var time = _timePicker.Value.TimeOfDay;
+        var time = ScheduleTimeWithoutHiddenSeconds(_timePicker.Value);
         var duration = CombineDurationMinutes(
             ReadDurationPickerValue(_durationHoursPicker),
             ReadDurationPickerValue(_durationMinutesPicker));
@@ -794,6 +794,9 @@ public partial class RadioScheduleEditorWindow : Window
         if (minutes is < 0 or > 59) throw new ArgumentOutOfRangeException(nameof(minutes));
         return checked(hours * 60 + minutes);
     }
+
+    internal static TimeSpan ScheduleTimeWithoutHiddenSeconds(DateTime pickerValue) =>
+        new(pickerValue.Hour, pickerValue.Minute, 0);
 
     internal static int ReadDurationPickerValue(System.Windows.Forms.NumericUpDown picker)
     {

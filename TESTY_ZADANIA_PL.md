@@ -6614,3 +6614,14 @@ naciśnij Enter.
 
 Oczekiwane: formularz pozostaje otwarty i mówi, że długość musi wynosić co
 najmniej jedną minutę. Nie zapisuje dawnej ani domyślnej wartości.
+
+## Test ręczny dokładnego terminu harmonogramu — alpha 305
+
+### AMC-305-01 — brak niewidocznych sekund
+
+Utwórz albo edytuj plan rozpoczynający się o `22:00`, zapisz go i ponownie
+otwórz. Pozostaw program uruchomiony przed terminem.
+
+Oczekiwane: harmonogram rozpoczyna nagrywanie dokładnie o `22:00:00`, a nie
+kilkanaście lub kilkadziesiąt sekund później. Kolejne wystąpienia planu
+cyklicznego również zachowują pełną minutę.

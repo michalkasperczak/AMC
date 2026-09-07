@@ -1,5 +1,10 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.305` removes hidden seconds from schedule times entered in the
+editor. Since the control exposes only hours and minutes, `22:00` now always
+means exactly `22:00:00`. An explicitly immediate first run still begins
+immediately instead of waiting for a whole-minute boundary.
+
 Version `alpha.304` makes an empty Radio-schedule hour or minute field mean a
 real zero. Clearing the selected value with Backspace can no longer leave the
 previous numeric value behind invisibly when Enter saves the form. A zero total

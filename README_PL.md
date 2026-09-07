@@ -1,5 +1,11 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.305` usuwa niewidoczne sekundy z terminów ustawianych w edytorze
+harmonogramu. Pole czasu pokazuje godziny i minuty, dlatego zapis `22:00` zawsze
+oznacza odtąd dokładnie `22:00:00`, niezależnie od sekund chwili, w której
+formularz został utworzony. Nie dotyczy to świadomej opcji natychmiastowego
+rozpoczęcia, która nadal startuje bez sztucznego oczekiwania do pełnej minuty.
+
 Wersja `alpha.304` poprawia zapis pustego pola godzin albo minut w harmonogramie
 Radia. Wyczyszczenie zaznaczonej wartości Backspace'em oznacza teraz rzeczywiste
 zero, także gdy Enter zostanie naciśnięty od razu w osadzonym polu liczbowym;

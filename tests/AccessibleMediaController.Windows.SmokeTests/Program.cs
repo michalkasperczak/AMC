@@ -1793,6 +1793,8 @@ static void TestRadioScheduleAccessibility()
                 "Puste pole godzin zachowuje poprzednią wartość zamiast oznaczać zero.");
             Assert(RadioScheduleEditorWindow.SplitDurationMinutes(260) == (4, 20)
                    && RadioScheduleEditorWindow.CombineDurationMinutes(4, 20) == 260
+                   && RadioScheduleEditorWindow.ScheduleTimeWithoutHiddenSeconds(
+                       new DateTime(2026, 9, 13, 22, 0, 42, 122)) == new TimeSpan(22, 0, 0)
                    && RadioSchedulesWindow.FormatDurationMinutes(260) == "4 godziny 20 minut"
                    && RadioSchedulesWindow.FormatDurationMinutes(180) == "3 godziny"
                    && RadioSchedulesWindow.FormatDurationMinutes(61) == "1 godzina 1 minuta"
