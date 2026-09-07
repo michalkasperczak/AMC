@@ -2115,6 +2115,8 @@ static void TestRadioScheduleAccessibility()
             manager.Show();
             DrainDispatcher(manager.Dispatcher);
             var schedulesList = (ListBox)manager.FindName("SchedulesList");
+            var committedChanges = 0;
+            manager.CommittedChanges += (_, _) => committedChanges++;
             Assert(schedulesList.SelectedItem is not null,
                 "Lista harmonogramów nie wybiera pierwszego planu.");
             var selected = schedulesList.SelectedItem;
@@ -2154,6 +2156,10 @@ static void TestRadioScheduleAccessibility()
                    && scheduleStatus.Text.StartsWith("Stacja testowa, wyłączone,", StringComparison.Ordinal)
                    && !scheduleStatus.Text.Contains("Wybierz Zapisz", StringComparison.OrdinalIgnoreCase),
                 "Wyłączenie nie tworzy krótkiego komunikatu zaczynającego się od stanu i nazwy stacji.");
+            Assert(committedChanges == 1
+                   && manager.HasCommittedChanges
+                   && manager.ResultSchedules.Single().Enabled == false,
+                "Zmiana planu nie jest utrwalana natychmiast po przełączeniu stanu.");
             Assert(manager.ToggleSelectedEnabled(),
                 "Ponowna Spacja nie włącza wybranego harmonogramu.");
             DrainDispatcher(manager.Dispatcher);
@@ -2161,6 +2167,18 @@ static void TestRadioScheduleAccessibility()
                    && !scheduleStatus.Text.Contains("harmonogram", StringComparison.OrdinalIgnoreCase)
                    && !scheduleStatus.Text.Contains("pole wyboru", StringComparison.OrdinalIgnoreCase),
                 "Włączenie nie tworzy krótkiego komunikatu zaczynającego się od stanu i nazwy stacji.");
+            Assert(committedChanges == 2
+                   && manager.ResultSchedules.Single().Enabled,
+                "Ponowne włączenie planu nie jest utrwalane od razu.");
+
+            var selectedDaysSchedule = new RadioRecordingScheduleSettings
+            {
+                Recurrence = RadioScheduleRecurrence.SelectedDays,
+                ActiveDays = [DayOfWeek.Sunday]
+            };
+            Assert(RadioSchedulesWindow.BuildRecurrenceLabel(selectedDaysSchedule)
+                   == "wybrane dni: niedziela",
+                "Lista harmonogramów nie podaje konkretnych wybranych dni.");
         }
         catch (Exception exception)
         {

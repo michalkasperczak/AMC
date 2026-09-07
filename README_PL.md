@@ -1,5 +1,13 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.313` usuwa pułapkę podwójnego zapisu harmonogramu Radia. Dodanie,
+edycja, usunięcie oraz przełączenie planu Spacją są utrwalane natychmiast po
+zakończeniu danej czynności; główne okno harmonogramów nie wymaga już drugiego
+przycisku **Zapisz** i zamyka się przyciskiem **Zamknij**. Dotyczy to również
+ogólnego ustawienia wybudzania. Lista podaje konkretne wybrane dni, na przykład
+**wybrane dni: niedziela**, zamiast samego niejednoznacznego tekstu „wybrane
+dni”.
+
 Wersja `alpha.312` zachowuje rzeczywistą kolejność materiałów kanału YouTube.
 Kanał jest wyświetlany tak jak jego karta **Filmy**: najnowszy materiał znajduje
 się na początku. Brak dat publikacji w uproszczonych danych YouTube nie powoduje

@@ -13798,13 +13798,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             Owner = this
         };
-        if (dialog.ShowDialog() != true)
-        {
-            RestoreItemActionFocus();
-            return;
-        }
+        dialog.CommittedChanges += (_, _) => ApplyRadioScheduleManagerChanges(
+            dialog.ResultSchedules,
+            dialog.ResultWakeScheduledRecordings);
+        dialog.ShowDialog();
+        RestoreItemActionFocus();
+        if (!dialog.HasCommittedChanges) return;
 
-        var replacements = dialog.ResultSchedules.Select(CloneRadioSchedule).ToList();
+        Dispatcher.BeginInvoke(
+            () => Announce("Zapisano harmonogram nagrywania radia"),
+            DispatcherPriority.ContextIdle);
+    }
+
+    private void ApplyRadioScheduleManagerChanges(
+        IEnumerable<RadioRecordingScheduleSettings> schedules,
+        bool wakeScheduledRecordings)
+    {
+        var replacements = schedules.Select(CloneRadioSchedule).ToList();
         foreach (var active in _activeScheduledRadioRecordings.Values.ToArray())
         {
             var replacement = replacements.FirstOrDefault(schedule => schedule.Id == active.ScheduleId);
@@ -13820,14 +13830,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         _state.Radio.RecordingSchedules = replacements;
         _scheduledRecordingInterruptions.RetainMatching(replacements);
-        _state.Radio.WakeScheduledRecordings = dialog.ResultWakeScheduledRecordings;
+        _state.Radio.WakeScheduledRecordings = wakeScheduledRecordings;
         QueueStateSave();
         RearmRadioWakeTimer();
         ProcessDueRadioSchedules();
-        RestoreItemActionFocus();
-        Dispatcher.BeginInvoke(
-            () => Announce("Zapisano harmonogram nagrywania radia"),
-            DispatcherPriority.ContextIdle);
     }
 
     private void NormalizeRadioSchedulesAtStartup()

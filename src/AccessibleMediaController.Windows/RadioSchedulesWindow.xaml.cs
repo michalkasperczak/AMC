@@ -19,6 +19,8 @@ public partial class RadioSchedulesWindow : Window
 
     public IReadOnlyList<RadioRecordingScheduleSettings> ResultSchedules { get; private set; } = [];
     public bool ResultWakeScheduledRecordings { get; private set; }
+    public bool HasCommittedChanges { get; private set; }
+    public event EventHandler? CommittedChanges;
 
     public RadioSchedulesWindow(
         IReadOnlyCollection<MediaItem> stations,
@@ -37,6 +39,7 @@ public partial class RadioSchedulesWindow : Window
         _defaultRecordingFormat = defaultRecordingFormat;
         _defaultRecordingBitrateKbps = defaultRecordingBitrateKbps;
         GlobalWakeCheckBox.IsChecked = wakeScheduledRecordings;
+        UpdateResults();
         RefreshRows();
         Loaded += (_, _) =>
         {
@@ -60,13 +63,7 @@ public partial class RadioSchedulesWindow : Window
         var utc = new DateTime(schedule.NextStartUtcTicks, DateTimeKind.Utc);
         var zone = RadioScheduleCalculator.ResolveTimeZone(schedule.TimeZoneId);
         var local = TimeZoneInfo.ConvertTimeFromUtc(utc, zone);
-        var recurrence = schedule.Recurrence switch
-        {
-            RadioScheduleRecurrence.Once => "jednorazowo",
-            RadioScheduleRecurrence.Daily => "codziennie",
-            RadioScheduleRecurrence.SelectedDays => "wybrane dni",
-            _ => "powtarzanie nieznane"
-        };
+        var recurrence = BuildRecurrenceLabel(schedule);
         var state = schedule.Enabled ? "włączone" : "wyłączone";
         var activity = schedule.Enabled && active
             ? ", nagrywanie trwa"
@@ -87,6 +84,36 @@ public partial class RadioSchedulesWindow : Window
             partNumber: 1);
         return $"{schedule.StationName}, {state}, {local:dd.MM.yyyy HH:mm}, długość nagrania: {FormatDurationMinutes(schedule.DurationMinutes)}, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}{activity}{lastFailure}";
     }
+
+    internal static string BuildRecurrenceLabel(RadioRecordingScheduleSettings schedule)
+    {
+        if (schedule.Recurrence == RadioScheduleRecurrence.Once) return "jednorazowo";
+        if (schedule.Recurrence == RadioScheduleRecurrence.Daily) return "codziennie";
+        if (schedule.Recurrence != RadioScheduleRecurrence.SelectedDays) return "powtarzanie nieznane";
+
+        var dayLabels = schedule.ActiveDays
+            .Distinct()
+            .OrderBy(DayOrder)
+            .Select(PolishDayName)
+            .ToArray();
+        return dayLabels.Length == 0
+            ? "wybrane dni: brak"
+            : $"wybrane dni: {string.Join(", ", dayLabels)}";
+    }
+
+    private static int DayOrder(DayOfWeek day) => day == DayOfWeek.Sunday ? 7 : (int)day;
+
+    private static string PolishDayName(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Monday => "poniedziałek",
+        DayOfWeek.Tuesday => "wtorek",
+        DayOfWeek.Wednesday => "środa",
+        DayOfWeek.Thursday => "czwartek",
+        DayOfWeek.Friday => "piątek",
+        DayOfWeek.Saturday => "sobota",
+        DayOfWeek.Sunday => "niedziela",
+        _ => day.ToString()
+    };
 
     internal static string FormatDurationMinutes(int totalMinutes)
     {
@@ -140,6 +167,7 @@ public partial class RadioSchedulesWindow : Window
             defaultRecordingBitrateKbps: _defaultRecordingBitrateKbps) { Owner = this };
         if (editor.ShowDialog() != true || editor.ResultSchedule is null) return;
         _schedules.Add(editor.ResultSchedule);
+        CommitChanges();
         RefreshRows(editor.ResultSchedule.Id);
         FocusSchedulesList();
     }
@@ -154,6 +182,7 @@ public partial class RadioSchedulesWindow : Window
         var listHadKeyboardFocus = SchedulesList.IsKeyboardFocusWithin;
         row.Schedule.Enabled = !row.Schedule.Enabled;
         row.UpdateLabel(BuildLabel(row.Schedule, _activeIds.Contains(row.Schedule.Id)));
+        CommitChanges();
         var message = row.AccessibleLabel;
         Dispatcher.BeginInvoke(
             () =>
@@ -190,6 +219,7 @@ public partial class RadioSchedulesWindow : Window
         if (editor.ShowDialog() != true || editor.ResultSchedule is null) return;
         var index = _schedules.FindIndex(schedule => schedule.Id == row.Schedule.Id);
         if (index >= 0) _schedules[index] = editor.ResultSchedule;
+        CommitChanges();
         RefreshRows(editor.ResultSchedule.Id);
         FocusSchedulesList();
     }
@@ -210,15 +240,29 @@ public partial class RadioSchedulesWindow : Window
             MessageBoxResult.No);
         if (result != MessageBoxResult.Yes) return;
         _schedules.RemoveAll(schedule => schedule.Id == row.Schedule.Id);
+        CommitChanges();
         RefreshRows();
         FocusSchedulesList();
     }
 
-    private void Save_Click(object sender, RoutedEventArgs e)
+    private void GlobalWakeCheckBox_Click(object sender, RoutedEventArgs e) => CommitChanges();
+
+    private void Close_Click(object sender, RoutedEventArgs e)
+    {
+        DialogResult = true;
+    }
+
+    private void CommitChanges()
+    {
+        UpdateResults();
+        HasCommittedChanges = true;
+        CommittedChanges?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void UpdateResults()
     {
         ResultSchedules = _schedules.Select(Clone).ToList();
         ResultWakeScheduledRecordings = GlobalWakeCheckBox.IsChecked == true;
-        DialogResult = true;
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
