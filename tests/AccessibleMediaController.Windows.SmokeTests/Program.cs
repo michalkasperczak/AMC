@@ -114,6 +114,7 @@ try
     TestYtDlpComponentSecurity();
     TestYouTubeSourceResolver();
     TestYouTubeSearchResults();
+    TestYouTubeCollectionResults();
     TestRadioYouTubeAddressAccessibility();
     TestWaveMetadataAndDamagedContainers();
     TestLocalVideoAudioExtraction();
@@ -164,6 +165,10 @@ try
         else if (mediaPath.StartsWith("--youtube-search-query=", StringComparison.OrdinalIgnoreCase))
         {
             TestLiveYouTubeSearch(mediaPath["--youtube-search-query=".Length..]);
+        }
+        else if (mediaPath.StartsWith("--youtube-collection-url=", StringComparison.OrdinalIgnoreCase))
+        {
+            TestLiveYouTubeCollection(mediaPath["--youtube-collection-url=".Length..]);
         }
         else if (mediaPath.StartsWith("--radio-metadata-url=", StringComparison.OrdinalIgnoreCase))
         {
@@ -1569,6 +1574,101 @@ static void TestLiveYouTubeSearch(string query)
             && item.Kind == MediaItemKind.Episode),
         "Wyniki wyszukiwania YouTube na żywo mają nieprawidłową tożsamość albo adres.");
     Console.WriteLine($"OK: wyszukiwanie YouTube na żywo — wyniki: {results.Count}");
+}
+
+static void TestYouTubeCollectionResults()
+{
+    Assert(
+        YouTubeCollectionClient.TryNormalizeCollectionAddress(
+            new Uri("https://www.youtube.com/@TyfloPodcast"),
+            out var channelAddress,
+            out var channelKind)
+        && channelKind == PodcastSourceKind.YouTubeChannel
+        && channelAddress.AbsoluteUri == "https://www.youtube.com/%40TyfloPodcast/videos",
+        "Publiczny kanał YouTube nie jest normalizowany do listy filmów.");
+    Assert(
+        YouTubeCollectionClient.TryNormalizeCollectionAddress(
+            new Uri("https://www.youtube.com/watch?v=AbCdEf12345&list=PL_test-123"),
+            out var playlistAddress,
+            out var playlistKind)
+        && playlistKind == PodcastSourceKind.YouTubePlaylist
+        && playlistAddress.AbsoluteUri == "https://www.youtube.com/playlist?list=PL_test-123",
+        "Publiczna playlista YouTube nie ma stabilnego adresu.");
+    Assert(
+        !YouTubeCollectionClient.TryNormalizeCollectionAddress(
+            new Uri("https://www.youtube.com/watch?v=AbCdEf12345"),
+            out _,
+            out _),
+        "Pojedynczy film został błędnie rozpoznany jako kolekcja YouTube.");
+
+    const string json = """
+    {
+      "_type": "playlist",
+      "id": "UCTDeBXfyjT_O5xjF_H14V3A",
+      "title": "TyfloPodcast - Videos",
+      "channel": "TyfloPodcast",
+      "channel_url": "https://www.youtube.com/channel/UCTDeBXfyjT_O5xjF_H14V3A",
+      "entries": [
+        {
+          "id": "AbCdEf12345",
+          "title": " Pierwszy   materiał ",
+          "duration": 125,
+          "timestamp": 1788739200,
+          "url": "https://www.youtube.com/watch?v=AbCdEf12345"
+        },
+        {
+          "id": "LiveId_9876",
+          "title": "Drugi materiał",
+          "duration": 60,
+          "url": "https://www.youtube.com/watch?v=LiveId_9876"
+        },
+        { "id": "../bad", "title": "Odrzucony" },
+        { "id": "AbCdEf12345", "title": "Duplikat" }
+      ]
+    }
+    """;
+    var collection = YouTubeCollectionClient.ParseResult(
+        channelAddress,
+        PodcastSourceKind.YouTubeChannel,
+        json);
+    Assert(
+        collection.SourceKind == PodcastSourceKind.YouTubeChannel
+        && collection.Feed.Title == "TyfloPodcast"
+        && collection.Feed.Author == "TyfloPodcast"
+        && collection.Feed.Episodes.Count == 2,
+        "Kanał YouTube nie ma czytelnej nazwy albo ograniczonej listy materiałów.");
+    Assert(
+        collection.Feed.Episodes[0].Title == "Pierwszy materiał"
+        && collection.Feed.Episodes[0].MediaUri.AbsoluteUri == "https://www.youtube.com/watch?v=AbCdEf12345"
+        && collection.Feed.Episodes[0].MediaType == "video/youtube"
+        && collection.Feed.Episodes[0].Published is not null
+        && collection.Feed.Episodes.Select(episode => episode.Id).Distinct(StringComparer.Ordinal).Count() == 2,
+        "Materiały kanału YouTube nie mają stabilnych adresów, dat albo identyfikatorów.");
+    var playlist = YouTubeCollectionClient.ParseResult(
+        playlistAddress,
+        PodcastSourceKind.YouTubePlaylist,
+        json);
+    Assert(
+        playlist.Feed.Title == "TyfloPodcast - Videos"
+        && playlist.Feed.HomepageUri == playlistAddress,
+        "Playlista YouTube nie zachowuje własnego stabilnego adresu strony.");
+    Console.WriteLine("OK: ograniczone kanały i playlisty publicznego YouTube");
+}
+
+static void TestLiveYouTubeCollection(string address)
+{
+    using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(75));
+    var result = new YouTubeCollectionClient()
+        .FetchAsync(new Uri(address, UriKind.Absolute), cancellation.Token)
+        .GetAwaiter()
+        .GetResult();
+    Assert(result.Feed.Episodes.Count is > 0 and <= YouTubeCollectionClient.MaximumItems,
+        "Publiczna kolekcja YouTube ma nieprawidłową liczbę materiałów.");
+    Assert(result.Feed.Episodes.All(episode =>
+            YouTubeSourceResolver.IsYouTubeUrl(episode.MediaUri.AbsoluteUri)),
+        "Publiczna kolekcja YouTube zawiera niestabilny adres materiału.");
+    Console.WriteLine(
+        $"OK: kolekcja YouTube na żywo — {result.Feed.Title}, materiały: {result.Feed.Episodes.Count}");
 }
 
 static void TestRadioYouTubeAddressAccessibility()

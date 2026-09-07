@@ -1,5 +1,20 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.309` rozszerza dotychczasową sesję do **Podcasty i YouTube**,
+bez zmiany jej identyfikatora ani skrótu `Ctrl+6`. `Ctrl+N` przyjmuje teraz
+publiczny adres kanału albo playlisty YouTube i zapisuje go w Bibliotece jako
+trwale odświeżane źródło. Pierwsze wczytanie obejmuje najwyżej 100 najnowszych
+materiałów, nie używa logowania, cookies ani danych konta. Późniejsze
+odświeżenie scala nowe materiały z bazą AMC i nie usuwa starszych tylko dlatego,
+że nie mieszczą się już w bieżącym oknie YouTube.
+
+Kanały i playlisty YouTube są domyślnie sprawdzane co 60 minut. Automatyczny
+przebieg bierze najwyżej cztery zaległe źródła, a resztę pozostawia kolejnym
+przebiegom, aby duża Biblioteka nie zamroziła interfejsu. `F5` odświeża
+wybrane źródło, a `Ctrl+F5` świadomie odświeża wszystkie. Zapisane materiały
+dziedziczą od Podcastów Nowe materiały, Ulubione, Kolejkę, playlisty, Historię,
+presety, odtwarzanie, przewijanie i jawne pobieranie.
+
 Wersja `alpha.308` domyka pierwszy etap publicznego YouTube bez logowania.
 `Ctrl+F` w Podcastach oraz `Ctrl+Shift+F` globalnie przeszukują teraz także
 YouTube przez odizolowany, aktualizowalny składnik `yt-dlp`. Jedno wyszukiwanie

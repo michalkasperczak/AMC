@@ -1,5 +1,19 @@
 # Projekt modułu podcastów AMC
 
+Od `alpha.309` nazwa wspólnej sesji brzmi **Podcasty i YouTube**. Publiczny
+kanał lub playlistę YouTube dodaje się przez `Ctrl+N`, podając jej zwykły
+adres. AMC nie loguje się, nie czyta cookies i nie kopiuje konta YouTube.
+Wczytuje najwyżej 100 najnowszych materiałów jednego źródła, zachowuje je w
+trwałej bazie i przy kolejnych odświeżeniach tylko scala zmiany — starszy wpis
+nie znika wyłącznie dlatego, że wypadł z aktualnego okna serwisu.
+
+Kanał i playlista mają domyślny interwał 60 minut. Timer wybiera maksymalnie
+cztery najdawniej odświeżane zaległe źródła na przebieg; pozostałe obsługuje
+później. Zapobiega to tworzeniu długiej kolejki procesów `yt-dlp` i blokowaniu
+NVDA. `F5` pozostaje odświeżeniem bieżącego źródła, a `Ctrl+F5` jest świadomym
+odświeżeniem całej Biblioteki. Każde wywołanie ma limit 60 sekund, 16 MB danych
+opisowych i 100 pozycji.
+
 Status: etap subskrypcji, odtwarzania i jawnego pobierania jest ukończony.
 `alpha.229` rozdziela szybkie pobieranie `Ctrl+D` od interaktywnego
 `Ctrl+S`, udostępnia trwały domyślny folder i zasila widok **Pobrane**.
@@ -61,18 +75,18 @@ metadanych kończy się podczas używania odtwarzacza albo innej sesji, ciężka
 podmiana listy odcinków jest odraczana do powrotu na widoczną listę Podcastów;
 nie może odbierać fokusa przyciskowi odtwarzacza.
 
-## 1. Osobna sesja Podcasty
+## 1. Wspólna sesja Podcasty i YouTube
 
 Podcasty będą osobną sesją korzystającą ze wspólnego odtwarzacza AMC. Zachowają
 pozycję, prędkość, zakładki, historię, urządzenie audio i dostępne komunikaty,
 ale nie będą udawały Radia ani Plików lokalnych. Każda operacja w menu, palecie
 i menu kontekstowym ma być widoczna wyłącznie tam, gdzie ma znaczenie.
 
-Nazwa sesji pozostaje krótka: **Podcasty**. Zakres wejściowy będzie jednak
-szerszy i obejmie także audycje oraz pojedyncze materiały audio znalezione na
-stronach. W interfejsie rodzaj elementu będzie jawny: podcast, audycja, odcinek
-albo materiał ze strony. Dzięki temu rozszerzenie funkcji nie zmieni sesji w
-nieczytelny zbiór wszystkich możliwych multimediów.
+Nazwa sesji brzmi **Podcasty i YouTube**, ale jej trwały identyfikator nadal
+wynosi `podcasts`, więc dotychczasowe dane i `Ctrl+6` pozostają zgodne. Zakres
+obejmuje audycje RSS, publiczne kanały i playlisty YouTube oraz pojedyncze
+materiały internetowe. Rodzaj elementu jest jawny: podcast, kanał YouTube,
+playlista YouTube, odcinek albo materiał YouTube.
 
 ## 2. Kontenery użytkownika
 

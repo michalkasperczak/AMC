@@ -117,7 +117,7 @@ public static class SessionSlotOrder
         ("tidal", "TIDAL"),
         ("appleMusic", "Apple Music"),
         ("radio", "Radio internetowe"),
-        ("podcasts", "Podcasty")
+        ("podcasts", "Podcasty i YouTube")
     ];
 
     public static IReadOnlyList<string> DefaultSessionIds =>
@@ -299,7 +299,9 @@ public sealed class PodcastSettings
 public enum PodcastSourceKind
 {
     Rss,
-    PublicInternetMedia
+    PublicInternetMedia,
+    YouTubeChannel,
+    YouTubePlaylist
 }
 
 public sealed class PodcastSubscriptionSettings

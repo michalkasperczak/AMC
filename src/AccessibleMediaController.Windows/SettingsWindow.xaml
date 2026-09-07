@@ -210,7 +210,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem x:Name="PodcastsTab" Header="_Podcasty">
+            <TabItem x:Name="PodcastsTab" Header="_Podcasty i YouTube">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="12">
                         <TextBlock Margin="0,0,0,12" TextWrapping="Wrap"

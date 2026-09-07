@@ -6727,3 +6727,59 @@ odpowiada, wykonaj zwykłe wyszukiwanie Podcastów.
 
 Oczekiwane: Apple Podcasts, Spreaker i lokalne archiwum nadal zwracają wyniki.
 Awaria jednego dostawcy nie blokuje całego wyszukiwania ani interfejsu.
+
+## Testy ręczne — alpha 309
+
+### AMC-309-01 — wspólna sesja i zgodność danych
+
+Uruchom AMC po aktualizacji, przejdź do szóstej sesji przez `Ctrl+6` i sprawdź
+Bibliotekę, Historię, Ulubione oraz dotychczasowe podcasty.
+
+Oczekiwane: program mówi **Podcasty i YouTube**, ale zachowuje wszystkie
+wcześniejsze dane i pozycje. Nie powstaje nowa, pusta sesja.
+
+### AMC-309-02 — dodanie publicznego kanału YouTube
+
+Naciśnij `Ctrl+N`, wpisz adres publicznego kanału YouTube, wybierz **Sprawdź**,
+a następnie **Dodaj**.
+
+Oczekiwane: formularz mówi nazwę kanału i liczbę materiałów. Biblioteka pokazuje
+**Kanał YouTube**, a po otwarciu najwyżej 100 najnowszych pozycji. Lista nie
+ujawnia klas, identyfikatorów ani czasowych adresów audio.
+
+### AMC-309-03 — playlista, duplikat i działania
+
+Dodaj publiczną playlistę przez `Ctrl+N`, po czym spróbuj dodać ten sam adres
+ponownie. Otwórz ją i sprawdź Enter, `Ctrl+Enter`, `Ctrl+D`, `Ctrl+S`,
+`Ctrl+C`, `Ctrl+Shift+C`, Ulubione, Kolejkę i playlistę AMC.
+
+Oczekiwane: istnieje jeden wpis **Playlista YouTube**. Materiały korzystają ze
+wspólnego odtwarzacza i istniejących działań; kopiowany jest stabilny adres
+strony, a nie wygasający adres strumienia.
+
+### AMC-309-04 — odświeżanie i trwałość
+
+Na kanale naciśnij `F5`, potem `Ctrl+F5`. W czasie odświeżania przełącz widok
+albo sesję. Zamknij i ponownie uruchom AMC.
+
+Oczekiwane: `F5` odświeża jedno źródło, `Ctrl+F5` wszystkie; fokus nie jest
+odbierany użytkownikowi. Kanały, playlisty i ich materiały pozostają po restarcie.
+Starsze zapisane materiały nie są usuwane, gdy YouTube nie zwróci ich w
+aktualnym oknie 100 pozycji.
+
+### AMC-309-05 — automatyczne odświeżanie bez blokady
+
+Dodaj kilka kanałów albo playlist, ustaw ich odświeżanie na 60 minut i pozostaw
+AMC otwarte podczas zwykłego używania list oraz odtwarzacza.
+
+Oczekiwane: pojedynczy przebieg w tle sprawdza najwyżej cztery zaległe źródła.
+Następne źródła są obsługiwane później; nawigacja, mowa NVDA i odtwarzanie nie
+czekają na zakończenie całej Biblioteki.
+
+### AMC-309-06 — brak logowania i odporność na awarię
+
+Sprawdź kanał prywatny albo niedostępny oraz próbę bez działającego `yt-dlp`.
+
+Oczekiwane: AMC nie otwiera logowania, nie pyta o cookies ani konto. Podaje
+czytelny błąd i przywraca fokus do adresu. RSS, Apple Podcasts i Spreaker nadal
+działają niezależnie.

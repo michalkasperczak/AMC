@@ -17,7 +17,8 @@ public static class PodcastLibraryUpdater
         PodcastFeedDocument feed,
         string? titleOverride,
         DateTime refreshUtc,
-        BookmarkSettings? bookmarks = null)
+        BookmarkSettings? bookmarks = null,
+        PodcastSourceKind sourceKind = PodcastSourceKind.Rss)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(feed);
@@ -50,7 +51,7 @@ public static class PodcastLibraryUpdater
         subscription.Author = feed.Author;
         subscription.Description = feed.Description;
         subscription.FeedUrl = feed.FeedUri.AbsoluteUri;
-        subscription.SourceKind = PodcastSourceKind.Rss;
+        subscription.SourceKind = sourceKind;
         subscription.HomepageUrl = feed.HomepageUri?.AbsoluteUri;
         subscription.LastRefreshUtcTicks = refreshUtc.ToUniversalTime().Ticks;
         subscription.IsInLibrary = true;
@@ -142,7 +143,7 @@ public static class PodcastLibraryUpdater
             {
                 new ChapterIndex(bookmarks).ReplaceProviderChapters(
                     "podcasts",
-                    "Podcasty",
+                    "Podcasty i YouTube",
                     ToMediaItem(episode, subscription.Title),
                     "podcast-feed",
                     feedChapters,

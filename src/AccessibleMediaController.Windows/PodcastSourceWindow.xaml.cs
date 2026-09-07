@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Input;
+using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Windows.Services;
 
@@ -11,20 +12,24 @@ namespace AccessibleMediaController.Windows;
 public partial class PodcastSourceWindow : Window
 {
     private readonly Func<Uri, CancellationToken, Task<PodcastFeedDocument>> _fetch;
+    private readonly Func<Uri, CancellationToken, Task<YouTubeCollectionDocument>> _fetchYouTubeCollection;
     private readonly Func<string, CancellationToken, Task<ResolvedYouTubeAudioSource>> _resolveInternetMedia;
     private CancellationTokenSource? _checkCancellation;
     private string? _checkedAddress;
 
     internal PodcastSourceWindow(
         Func<Uri, CancellationToken, Task<PodcastFeedDocument>> fetch,
+        Func<Uri, CancellationToken, Task<YouTubeCollectionDocument>> fetchYouTubeCollection,
         Func<string, CancellationToken, Task<ResolvedYouTubeAudioSource>> resolveInternetMedia)
     {
         ArgumentNullException.ThrowIfNull(fetch);
+        ArgumentNullException.ThrowIfNull(fetchYouTubeCollection);
         ArgumentNullException.ThrowIfNull(resolveInternetMedia);
         _fetch = fetch;
+        _fetchYouTubeCollection = fetchYouTubeCollection;
         _resolveInternetMedia = resolveInternetMedia;
         InitializeComponent();
-        Title = "Nowy podcast lub medium internetowe";
+        Title = "Nowy podcast, kanał YouTube lub medium internetowe";
         FeedBox.TextChanged += (_, _) => InvalidateCheckedFeed();
         Loaded += (_, _) =>
         {
@@ -34,6 +39,7 @@ public partial class PodcastSourceWindow : Window
     }
 
     public PodcastFeedDocument? Feed { get; private set; }
+    public PodcastSourceKind SourceKind { get; private set; } = PodcastSourceKind.Rss;
     internal ResolvedYouTubeAudioSource? InternetMedia { get; private set; }
     public string CustomTitle => NameBox.Text.Trim();
 
@@ -49,9 +55,31 @@ public partial class PodcastSourceWindow : Window
         {
             if (YouTubeSourceResolver.IsYouTubeUrl(address.AbsoluteUri))
             {
+                if (YouTubeCollectionClient.TryNormalizeCollectionAddress(
+                        address,
+                        out var collectionAddress,
+                        out _))
+                {
+                    var collection = await _fetchYouTubeCollection(
+                        collectionAddress,
+                        _checkCancellation.Token);
+                    Feed = collection.Feed;
+                    SourceKind = collection.SourceKind;
+                    InternetMedia = null;
+                    _checkedAddress = FeedBox.Text.Trim();
+                    AddButton.IsEnabled = true;
+                    var collectionKindLabel = collection.SourceKind == PodcastSourceKind.YouTubeChannel
+                        ? "Kanał YouTube"
+                        : "Playlista YouTube";
+                    StatusText.Text = $"{collectionKindLabel} działa. {collection.Feed.Title}. Materiały: {collection.Feed.Episodes.Count}.";
+                    AddButton.Focus();
+                    Keyboard.Focus(AddButton);
+                    return;
+                }
                 var media = await _resolveInternetMedia(address.AbsoluteUri, _checkCancellation.Token);
                 InternetMedia = media;
                 Feed = null;
+                SourceKind = PodcastSourceKind.PublicInternetMedia;
                 _checkedAddress = FeedBox.Text.Trim();
                 AddButton.IsEnabled = true;
                 var kind = media.IsLive ? "transmisja na żywo" : "materiał";
@@ -65,6 +93,7 @@ public partial class PodcastSourceWindow : Window
             }
             var feed = await _fetch(address, _checkCancellation.Token);
             Feed = feed;
+            SourceKind = PodcastSourceKind.Rss;
             InternetMedia = null;
             _checkedAddress = FeedBox.Text.Trim();
             var author = string.IsNullOrWhiteSpace(feed.Author) ? string.Empty : $", autor: {feed.Author}";
@@ -138,6 +167,7 @@ public partial class PodcastSourceWindow : Window
     {
         if (string.Equals(_checkedAddress, FeedBox.Text.Trim(), StringComparison.Ordinal)) return;
         Feed = null;
+        SourceKind = PodcastSourceKind.Rss;
         InternetMedia = null;
         _checkedAddress = null;
         AddButton.IsEnabled = false;

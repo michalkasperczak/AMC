@@ -5,16 +5,16 @@
         Width="690" Height="390" MinWidth="560" WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False" Closing="Window_Closing">
     <StackPanel Margin="16">
-        <TextBlock Text="Nowy podcast lub medium internetowe" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"
+        <TextBlock Text="Nowy podcast, kanał YouTube lub medium internetowe" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"
                    automation:AutomationProperties.HeadingLevel="Level1" />
         <TextBlock Margin="0,0,0,12" TextWrapping="Wrap"
-                   Text="Wpisz bezpośredni adres kanału RSS lub Atom, także publiczny RSS z SoundCloud albo Spreaker, albo publiczny adres filmu lub transmisji YouTube. AMC nie loguje się do YouTube i nie synchronizuje konta. Nazwa jest opcjonalna." />
+                   Text="Wpisz bezpośredni adres kanału RSS lub Atom, publicznego kanału albo playlisty YouTube, filmu lub transmisji YouTube. AMC wczytuje najwyżej 100 najnowszych materiałów, nie loguje się do YouTube i nie synchronizuje konta. Nazwa jest opcjonalna." />
         <Label Target="{Binding ElementName=NameBox}">_Nazwa własna, opcjonalnie:</Label>
         <TextBox x:Name="NameBox" MaxLength="240" Margin="0,0,0,10"
                  automation:AutomationProperties.Name="Nazwa własna podcastu, opcjonalnie" />
-        <Label Target="{Binding ElementName=FeedBox}">Adres kanału _RSS, Atom lub publicznego medium:</Label>
+        <Label Target="{Binding ElementName=FeedBox}">Adres kanału _RSS, Atom, YouTube lub publicznego medium:</Label>
         <TextBox x:Name="FeedBox" Margin="0,0,0,10"
-                 automation:AutomationProperties.Name="Adres kanału RSS, Atom albo publicznego filmu lub transmisji YouTube"
+                 automation:AutomationProperties.Name="Adres kanału RSS, Atom, kanału lub playlisty YouTube albo publicznego filmu lub transmisji YouTube"
                  automation:AutomationProperties.HelpText="Pełny publiczny adres rozpoczynający się od http:// albo https://; bez logowania i prywatnych materiałów" />
         <TextBlock x:Name="StatusText" MinHeight="48" Margin="0,0,0,12" TextWrapping="Wrap"
                    automation:AutomationProperties.Name="Wynik sprawdzania kanału"

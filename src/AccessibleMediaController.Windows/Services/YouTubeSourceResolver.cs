@@ -168,7 +168,7 @@ internal static class YouTubeSourceResolver
             if (requireLive && !isLive)
             {
                 throw new InvalidDataException(
-                    "Ten adres YouTube nie jest obecnie transmisją na żywo. Zwykły film dodaj w sesji Podcasty jako medium internetowe.");
+                    "Ten adres YouTube nie jest obecnie transmisją na żywo. Zwykły film dodaj w sesji Podcasty i YouTube jako medium internetowe.");
             }
 
             var selected = SelectAudio(root);

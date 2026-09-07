@@ -38,7 +38,7 @@ public static class ShortcutHelpCatalog
         ("player", "Odtwarzacz"),
         ("search", "Wyszukiwanie i filtrowanie"),
         ("library", "Biblioteka lokalna"),
-        ("podcasts", "Podcasty"),
+        ("podcasts", "Podcasty i YouTube"),
         ("radio", "Radio internetowe"),
         ("collections", "Playlisty i Zakładki"),
         ("settings", "Ustawienia i pomoc"),

@@ -140,7 +140,7 @@ public static class CommandCatalog
             CommandIds.ImportPodcastOpml => "Importuj podcasty z OPML",
             CommandIds.ExportPodcastOpml => "Eksportuj bibliotekę podcastów do OPML",
             CommandIds.RefreshPodcast => "Odśwież bieżący podcast",
-            CommandIds.RefreshPodcastLibrary => "Odśwież wszystkie podcasty",
+            CommandIds.RefreshPodcastLibrary => "Odśwież wszystkie podcasty, kanały i playlisty",
             CommandIds.ViewPodcastInbox => "Pokaż nowe odcinki podcastów",
             CommandIds.ViewPodcastInProgress => "Pokaż rozpoczęte odcinki podcastów",
             CommandIds.ToggleRadioRecording => "Rozpocznij lub zakończ nagrywanie radia",

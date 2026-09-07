@@ -4,6 +4,16 @@ Wersja dokumentu: 0.7, aktualny plan projektu
 
 Data aktualizacji: 29 sierpnia 2026 r.
 
+Od `alpha.309` szósta sesja ma nazwę **Podcasty i YouTube**, zachowując
+identyfikator `podcasts` i skrót `Ctrl+6`. `Ctrl+N` rozpoznaje RSS/Atom,
+pojedynczy publiczny materiał YouTube oraz publiczny kanał albo playlistę.
+Kanały i playlisty są trwałymi źródłami Biblioteki, mają limit 100 pozycji na
+odświeżenie i domyślny interwał 60 minut. Automatyczny przebieg odświeża
+najwyżej cztery zaległe źródła, aby praca sieciowa i `yt-dlp` nie blokowały
+interfejsu ani fokusa NVDA. Brak logowania i cookies jest świadomą granicą:
+AMC buduje własną Bibliotekę, Nowe materiały i Historię, ale nie synchronizuje
+konta YouTube.
+
 Od `alpha.247` `Alt+Shift+Enter` otwiera opcje adekwatne do poziomu audycji
 lub odcinka. Ustawienia odcinka dziedziczą z podcastu, a podcast z ustawień
 globalnych. Hierarchia folderu pobierania jest jawna: własny folder podcastu,

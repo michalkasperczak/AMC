@@ -77,8 +77,8 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+N"
                           Visibility="Collapsed"
                           Click="AddRadioStation_Click" />
-                <MenuItem x:Name="AddPodcastMenuItem" Header="_Nowy podcast lub medium internetowe…" InputGestureText="Ctrl+N"
-                          automation:AutomationProperties.Name="Nowy podcast przez RSS lub Atom albo publiczne medium internetowe, Ctrl+N"
+                <MenuItem x:Name="AddPodcastMenuItem" Header="_Nowy podcast, kanał, playlista lub materiał…" InputGestureText="Ctrl+N"
+                          automation:AutomationProperties.Name="Nowy podcast, publiczny kanał lub playlista YouTube albo pojedynczy materiał, Ctrl+N"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+N"
                           Visibility="Collapsed" Click="AddPodcast_Click" />
                 <MenuItem x:Name="ImportPodcastOpmlMenuItem" Header="Importuj podcasty z _OPML…" InputGestureText="Ctrl+O"
@@ -88,8 +88,8 @@
                 <MenuItem x:Name="ExportPodcastOpmlMenuItem" Header="_Eksportuj bibliotekę podcastów do OPML…"
                           automation:AutomationProperties.Name="Eksportuj bibliotekę podcastów do OPML"
                           Visibility="Collapsed" Click="ExportPodcastOpml_Click" />
-                <MenuItem x:Name="RefreshAllPodcastsMenuItem" Header="Odśwież _wszystkie podcasty" InputGestureText="Ctrl+F5"
-                          automation:AutomationProperties.Name="Odśwież wszystkie podcasty, Ctrl+F5"
+                <MenuItem x:Name="RefreshAllPodcastsMenuItem" Header="Odśwież _wszystkie źródła" InputGestureText="Ctrl+F5"
+                          automation:AutomationProperties.Name="Odśwież wszystkie podcasty, kanały i playlisty, Ctrl+F5"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
                            Visibility="Collapsed" Click="RefreshAllPodcasts_Click" />
                 <MenuItem x:Name="DownloadPodcastEpisodeMainMenuItem" Header="_Pobierz odcinek" InputGestureText="Ctrl+D"
@@ -371,8 +371,8 @@
                           Visibility="Collapsed" Click="RadioAssignPreset_Click" />
                 <MenuItem x:Name="LibraryViewMenuItem" Header="_Biblioteka" InputGestureText="Ctrl+L"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+L" Click="LibraryView_Click" />
-                <MenuItem x:Name="PodcastInboxViewMenuItem" Header="_Nowe odcinki" InputGestureText="Ctrl+I"
-                          automation:AutomationProperties.Name="Nowe odcinki Podcastów, Ctrl+I"
+                <MenuItem x:Name="PodcastInboxViewMenuItem" Header="_Nowe odcinki i materiały" InputGestureText="Ctrl+I"
+                          automation:AutomationProperties.Name="Nowe odcinki i materiały, Ctrl+I"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+I"
                           Visibility="Collapsed" Click="PodcastInboxView_Click" />
                 <MenuItem x:Name="PodcastInProgressViewMenuItem" Header="W _trakcie słuchania" InputGestureText="Ctrl+Shift+I"

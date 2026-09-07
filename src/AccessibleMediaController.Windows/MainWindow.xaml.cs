@@ -52,6 +52,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const string ActiveRadioRecordingsViewName = "Nagrywane";
     private const string RecordedRadioFilesViewName = "Nagrane pliki";
     private const string PodcastInboxViewName = "Nowe odcinki";
+    private const string PodcastInboxDisplayName = "Nowe odcinki i materiały";
     private const string PodcastInProgressViewName = "W trakcie słuchania";
     private const string PodcastDownloadsViewName = "Pobrane";
     private const string PodcastContentsViewPrefix = "Podcast:";
@@ -99,6 +100,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly ApplePodcastDirectoryClient _applePodcastDirectory = new();
     private readonly SpreakerPodcastDirectoryClient _spreakerPodcastDirectory = new();
     private readonly YouTubeSearchClient _youTubeSearch = new();
+    private readonly YouTubeCollectionClient _youTubeCollections = new();
     private readonly PodcastEpisodeDownloader _podcastDownloader = new();
     private readonly CancellationTokenSource _podcastCancellation = new();
     private readonly HashSet<string> _podcastDownloadsInProgress = new(StringComparer.Ordinal);
@@ -1009,7 +1011,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 _chapterIndex.ReplaceProviderChapters(
                     "podcasts",
-                    "Podcasty",
+                    "Podcasty i YouTube",
                     item,
                     "podcast-json",
                     chapters,
@@ -1148,7 +1150,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 _chapterIndex.ReplaceProviderChapters(
                     "podcasts",
-                    "Podcasty",
+                    "Podcasty i YouTube",
                     item,
                     "podcast-page",
                     chapters,
@@ -4213,23 +4215,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 string.Equals(candidate.Id, item.Id, StringComparison.Ordinal));
             if (subscription is null) return $"Podcast{Environment.NewLine}Nazwa: {item.Title}";
             var internetMedia = subscription.SourceKind == PodcastSourceKind.PublicInternetMedia;
+            var youtube = subscription.SourceKind is PodcastSourceKind.YouTubeChannel
+                or PodcastSourceKind.YouTubePlaylist;
             var refreshed = subscription.LastRefreshUtcTicks > 0
                 ? new DateTime(subscription.LastRefreshUtcTicks, DateTimeKind.Utc).ToLocalTime().ToString("g", CultureInfo.CurrentCulture)
                 : "jeszcze nie";
             return string.Join(Environment.NewLine,
                 new string?[]
                 {
-                    internetMedia ? "Media internetowe" : "Podcast",
+                    PodcastContainerLabel(subscription.SourceKind),
                     $"Nazwa: {subscription.Title}",
                     PodcastMetadataPresentation.FormatAuthor(subscription.Author) is { Length: > 0 } author
                         ? $"Autor: {author}"
                         : null,
                     !includeDescription || string.IsNullOrWhiteSpace(subscription.Description) ? null : $"Opis: {subscription.Description}",
-                    $"{(internetMedia ? "Materiały" : "Odcinki")}: {_state.Podcasts.Episodes.Count(episode => string.Equals(episode.SubscriptionId, subscription.Id, StringComparison.Ordinal))}",
+                    $"{(internetMedia || youtube ? "Materiały" : "Odcinki")}: {_state.Podcasts.Episodes.Count(episode => string.Equals(episode.SubscriptionId, subscription.Id, StringComparison.Ordinal))}",
                     internetMedia ? null : $"Ostatnie odświeżenie: {refreshed}",
                     $"Ulubiony: {(subscription.IsFavorite ? "tak" : "nie")}",
                     $"W Bibliotece: {(subscription.IsInLibrary ? "tak" : "nie")}",
-                    internetMedia ? null : $"Kanał RSS lub Atom: {subscription.FeedUrl}",
+                    internetMedia ? null : youtube
+                        ? $"Adres YouTube: {subscription.FeedUrl}"
+                        : $"Kanał RSS lub Atom: {subscription.FeedUrl}",
                     string.IsNullOrWhiteSpace(subscription.HomepageUrl) ? null : $"Strona: {subscription.HomepageUrl}"
                 }.Where(value => value is not null).Select(value => value!));
         }
@@ -4240,27 +4246,41 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var podcast = _state.Podcasts.Subscriptions.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, episodeSettings.SubscriptionId, StringComparison.Ordinal));
         var internetMediaEpisode = podcast?.SourceKind == PodcastSourceKind.PublicInternetMedia;
+        var youtubeEpisode = podcast?.SourceKind is PodcastSourceKind.YouTubeChannel
+            or PodcastSourceKind.YouTubePlaylist;
         var published = episodeSettings.PublishedUtcTicks > 0
             ? new DateTime(episodeSettings.PublishedUtcTicks, DateTimeKind.Utc).ToLocalTime().ToString("g", CultureInfo.CurrentCulture)
             : "nieznana";
         return string.Join(Environment.NewLine,
             new string?[]
             {
-                internetMediaEpisode ? "Medium internetowe" : "Odcinek podcastu",
+                internetMediaEpisode ? "Medium internetowe" : youtubeEpisode ? "Materiał YouTube" : "Odcinek podcastu",
                 $"Tytuł: {episodeSettings.Title}",
-                podcast is null ? null : $"{(internetMediaEpisode ? "Kolekcja" : "Podcast")}: {podcast.Title}",
-                string.IsNullOrWhiteSpace(episodeSettings.Author) ? null : $"{(internetMediaEpisode ? "Kanał" : "Autor")}: {episodeSettings.Author}",
+                podcast is null ? null : $"{(internetMediaEpisode ? "Kolekcja" : youtubeEpisode ? PodcastContainerLabel(podcast.SourceKind) : "Podcast")}: {podcast.Title}",
+                string.IsNullOrWhiteSpace(episodeSettings.Author) ? null : $"{(internetMediaEpisode || youtubeEpisode ? "Kanał" : "Autor")}: {episodeSettings.Author}",
                 internetMediaEpisode ? null : $"Data publikacji: {published}",
                 episodeSettings.DurationTicks > 0 ? $"Czas: {CommandRouter.FormatTime(TimeSpan.FromTicks(episodeSettings.DurationTicks))}" : null,
                 !includeDescription || string.IsNullOrWhiteSpace(episodeSettings.Description) ? null : $"Opis: {episodeSettings.Description}",
                 $"Stan odsłuchania: {PodcastEpisodeProgress.GetLabel(episodeSettings)}",
                 $"Pobrany: {(string.IsNullOrWhiteSpace(episodeSettings.DownloadPath) ? "nie" : "tak")}",
-                internetMediaEpisode ? $"Adres strony: {episodeSettings.PageUrl ?? episodeSettings.MediaUrl}" : $"Źródło audio: {episodeSettings.MediaUrl}",
-                internetMediaEpisode || string.IsNullOrWhiteSpace(episodeSettings.PageUrl) ? null : $"Strona odcinka: {episodeSettings.PageUrl}",
-                internetMediaEpisode || podcast is null || string.IsNullOrWhiteSpace(podcast.FeedUrl) ? null : $"Kanał RSS lub Atom: {podcast.FeedUrl}",
-                internetMediaEpisode || podcast is null || string.IsNullOrWhiteSpace(podcast.HomepageUrl) ? null : $"Strona podcastu: {podcast.HomepageUrl}"
+                internetMediaEpisode || youtubeEpisode
+                    ? $"Adres strony: {episodeSettings.PageUrl ?? episodeSettings.MediaUrl}"
+                    : $"Źródło audio: {episodeSettings.MediaUrl}",
+                internetMediaEpisode || youtubeEpisode || string.IsNullOrWhiteSpace(episodeSettings.PageUrl) ? null : $"Strona odcinka: {episodeSettings.PageUrl}",
+                internetMediaEpisode || youtubeEpisode || podcast is null || string.IsNullOrWhiteSpace(podcast.FeedUrl) ? null : $"Kanał RSS lub Atom: {podcast.FeedUrl}",
+                internetMediaEpisode || podcast is null || string.IsNullOrWhiteSpace(podcast.HomepageUrl)
+                    ? null
+                    : $"{(youtubeEpisode ? "Strona kanału" : "Strona podcastu")}: {podcast.HomepageUrl}"
             }.Where(value => value is not null).Select(value => value!));
     }
+
+    private static string PodcastContainerLabel(PodcastSourceKind sourceKind) => sourceKind switch
+    {
+        PodcastSourceKind.YouTubeChannel => "Kanał YouTube",
+        PodcastSourceKind.YouTubePlaylist => "Playlista YouTube",
+        PodcastSourceKind.PublicInternetMedia => "Media internetowe",
+        _ => "Podcast"
+    };
 
     private string BuildRadioStationPropertiesText(MediaItem item, DemoMediaSession session)
     {
@@ -5562,10 +5582,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             MenuAccessibility.SetPresentation(
                 RefreshLocalLibraryMenuItem,
                 string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal)
-                    ? "Odśwież wszystkie podcasty"
+                    ? "Odśwież wszystkie źródła"
                     : TryResolveCurrentPodcastSubscription(out var podcast)
                     ? $"Odśwież podcast {podcast.Title}"
-                    : "Odśwież wszystkie podcasty");
+                    : "Odśwież wszystkie źródła");
         }
         else
         {
@@ -6871,7 +6891,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 HasCustomTitle = subscription.HasCustomTitle,
                 Artist = PodcastMetadataPresentation.FormatAuthor(subscription.Author),
                 Kind = MediaItemKind.Podcast,
-                Source = subscription.SourceKind == PodcastSourceKind.Rss
+                Source = IsRefreshablePodcastSource(subscription.SourceKind)
                     ? subscription.FeedUrl
                     : null,
                 PublicUri = subscription.HomepageUrl,
@@ -7160,12 +7180,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (!string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
         {
-            Announce("Dodawanie podcastu jest dostępne w sesji Podcasty");
+            Announce("Dodawanie źródła jest dostępne w sesji Podcasty i YouTube");
             return;
         }
 
         var dialog = new PodcastSourceWindow(
             _podcastFeedClient.FetchAsync,
+            _youTubeCollections.FetchAsync,
             YouTubeSourceResolver.ResolveAudioAsync) { Owner = this };
         if (dialog.ShowDialog() != true
             || dialog.Feed is null && dialog.InternetMedia is null)
@@ -7186,16 +7207,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             dialog.Feed!,
             dialog.CustomTitle,
             DateTime.UtcNow,
-            _state.Bookmarks);
+            _state.Bookmarks,
+            dialog.SourceKind);
+        if (result.AddedSubscription
+            && dialog.SourceKind is PodcastSourceKind.YouTubeChannel or PodcastSourceKind.YouTubePlaylist)
+        {
+            result.Subscription.RefreshIntervalMinutes = 60;
+        }
         ReloadPodcastSessionItems();
         QueueStateSave(announceFailure: true);
         OpenPodcast(result.Subscription.Id, result.Subscription.Title);
+        var sourceLabel = PodcastContainerLabel(dialog.SourceKind);
         var change = result.AddedSubscription
-            ? "Dodano podcast"
+            ? $"Dodano: {sourceLabel}"
             : result.RestoredSubscription
-                ? "Ponownie dodano podcast"
-                : "Zaktualizowano podcast";
-        PrepareViewFocusContext($"{change}: {result.Subscription.Title}. Odcinki: {dialog.Feed!.Episodes.Count}");
+                ? $"Ponownie dodano: {sourceLabel}"
+                : $"Zaktualizowano: {sourceLabel}";
+        var itemKindLabel = dialog.SourceKind is PodcastSourceKind.YouTubeChannel or PodcastSourceKind.YouTubePlaylist
+            ? "Materiały"
+            : "Odcinki";
+        PrepareViewFocusContext($"{change}: {result.Subscription.Title}. {itemKindLabel}: {dialog.Feed!.Episodes.Count}");
         RestoreMediaListFocusAfterRefresh();
     }
 
@@ -7299,7 +7330,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (!string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
         {
-            Announce("Import OPML jest dostępny w sesji Podcasty");
+            Announce("Import OPML jest dostępny w sesji Podcasty i YouTube");
             return;
         }
 
@@ -7397,7 +7428,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (!string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
         {
-            Announce("Eksport OPML jest dostępny w sesji Podcasty");
+            Announce("Eksport OPML jest dostępny w sesji Podcasty i YouTube");
             return;
         }
 
@@ -7459,7 +7490,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce("Zaznacz podcast albo otwórz jego listę odcinków");
             return;
         }
-        if (subscription.SourceKind != PodcastSourceKind.Rss)
+        if (!IsRefreshablePodcastSource(subscription.SourceKind))
         {
             Announce("Publiczne medium internetowe jest sprawdzane ponownie przy każdym odtwarzaniu");
             return;
@@ -7467,11 +7498,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         await RefreshPodcastSubscriptionsAsync([subscription], returnToLibrary: false);
     }
 
+    private static bool IsRefreshablePodcastSource(PodcastSourceKind sourceKind) =>
+        sourceKind is PodcastSourceKind.Rss
+            or PodcastSourceKind.YouTubeChannel
+            or PodcastSourceKind.YouTubePlaylist;
+
     private Task RefreshAllPodcastsAsync()
     {
         var subscriptions = _state.Podcasts.Subscriptions
             .Where(subscription => subscription.IsInLibrary
-                && subscription.SourceKind == PodcastSourceKind.Rss)
+                && IsRefreshablePodcastSource(subscription.SourceKind))
             .ToArray();
         return RefreshPodcastSubscriptionsAsync(subscriptions, returnToLibrary: false);
     }
@@ -7482,11 +7518,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var now = DateTime.UtcNow;
         var due = _state.Podcasts.Subscriptions
             .Where(subscription => subscription.IsInLibrary
-                && subscription.SourceKind == PodcastSourceKind.Rss
+                && IsRefreshablePodcastSource(subscription.SourceKind)
                 && subscription.RefreshIntervalMinutes > 0)
             .Where(subscription => subscription.LastRefreshUtcTicks <= 0
                 || now - new DateTime(subscription.LastRefreshUtcTicks, DateTimeKind.Utc)
                     >= TimeSpan.FromMinutes(subscription.RefreshIntervalMinutes))
+            .OrderBy(subscription => subscription.LastRefreshUtcTicks)
+            // A large collection of public YouTube channels must never start a
+            // long yt-dlp queue on the UI timer. Remaining due sources are
+            // picked up by later ticks; Ctrl+F5 still refreshes all now.
+            .Take(4)
             .ToArray();
         if (due.Length == 0) return;
 
@@ -7500,7 +7541,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (Interlocked.CompareExchange(ref _podcastRefreshInProgress, 1, 0) != 0)
         {
-            if (!automatic) Announce("Odświeżanie podcastów już trwa");
+            if (!automatic) Announce("Odświeżanie źródeł już trwa");
             return;
         }
 
@@ -7512,20 +7553,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 StringComparison.Ordinal);
             if (!podcastSessionActiveAtStart && !automatic)
             {
-                Announce("Odświeżanie podcastów jest dostępne w sesji Podcasty");
+                Announce("Odświeżanie źródeł jest dostępne w sesji Podcasty i YouTube");
                 return;
             }
             if (subscriptions.Count == 0)
             {
-                Announce("Brak podcastów do odświeżenia");
+                Announce("Brak podcastów, kanałów lub playlist do odświeżenia");
                 return;
             }
 
             if (!automatic)
             {
                 StatusText.Text = subscriptions.Count == 1
-                    ? $"Odświeżanie podcastu: {subscriptions[0].Title}"
-                    : $"Odświeżanie podcastów: {subscriptions.Count}";
+                    ? $"Odświeżanie źródła: {subscriptions[0].Title}"
+                    : $"Odświeżanie źródeł: {subscriptions.Count}";
             }
             CapturePodcastState();
             var success = 0;
@@ -7538,13 +7579,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 {
                     if (!Uri.TryCreate(subscription.FeedUrl, UriKind.Absolute, out var address))
                         throw new InvalidDataException("Zapisany adres kanału jest nieprawidłowy.");
-                    var feed = await _podcastFeedClient.FetchAsync(address, _podcastCancellation.Token);
+                    var feed = subscription.SourceKind == PodcastSourceKind.Rss
+                        ? await _podcastFeedClient.FetchAsync(address, _podcastCancellation.Token)
+                        : (await _youTubeCollections.FetchAsync(address, _podcastCancellation.Token)).Feed;
                     var result = PodcastLibraryUpdater.Apply(
                         _state.Podcasts,
                         feed,
                         subscription.HasCustomTitle ? subscription.Title : null,
                         DateTime.UtcNow,
-                        _state.Bookmarks);
+                        _state.Bookmarks,
+                        subscription.SourceKind);
                     addedEpisodes += result.AddedEpisodes;
                     retainedArchivedEpisodes += result.RetainedEpisodesAbsentFromFeed;
                     success++;
@@ -7553,12 +7597,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     or InvalidDataException
                     or System.Xml.XmlException
                     or ArgumentException
-                    or OperationCanceledException)
+                    or OperationCanceledException
+                    or NotSupportedException
+                    or TimeoutException)
                 {
                     failed++;
                     DiagnosticLog.Warning(
                         "podcasts",
-                        $"Nie udało się odświeżyć podcastu „{subscription.Title}”; błąd {exception.GetType().Name}.");
+                        $"Nie udało się odświeżyć źródła „{subscription.Title}”; błąd {exception.GetType().Name}.");
                 }
             }
 
@@ -7609,12 +7655,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             DiagnosticLog.Info(
                 "podcasts",
                 $"Odświeżanie zakończone: poprawne {success}, nieudane {failed}, "
-                + $"dodane odcinki {addedEpisodes}, zachowane poza bieżącym RSS "
+                + $"dodane materiały {addedEpisodes}, zachowane poza bieżącym źródłem "
                 + $"{retainedArchivedEpisodes}, w skrzynce {inboxCount}.");
             if (!automatic && browserContextStillCurrent)
             {
                 PrepareViewFocusContext(
-                    $"Odświeżono podcasty: {success} z {subscriptions.Count}. "
+                    $"Odświeżono źródła: {success} z {subscriptions.Count}. "
                     + $"Nowe teraz: {addedEpisodes}. W skrzynce: {inboxCount}");
                 RestoreMediaListFocusAfterRefresh();
             }
@@ -8448,7 +8494,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (previousRadioWasPlaying && radio.HasCurrentItem) radio.Play(radio.CurrentItem);
         var (podcasts, _) = _sessions.AddOrUpdateTransientSession(
             "podcasts",
-            "Podcasty",
+            "Podcasty i YouTube",
             _podcastItems,
             _podcastOutput,
             6,
@@ -9598,7 +9644,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (!string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
             {
-                Announce("Nowe odcinki są dostępne w sesji Podcasty");
+                Announce("Nowe odcinki i materiały są dostępne w sesji Podcasty i YouTube");
                 return new CommandExecutionResult(false);
             }
             // A background refresh can update persisted episode flags while
@@ -9606,13 +9652,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ReloadPodcastSessionItems();
             NavigateTo(PodcastInboxViewName);
             PrepareViewFocusContext(MediaList.Items.Count == 0
-                ? "Nowe odcinki, brak nowych odcinków"
-                : PodcastInboxViewName);
+                ? $"{PodcastInboxDisplayName}, brak nowych materiałów"
+                : PodcastInboxDisplayName);
             RestoreMediaListFocusAfterRefresh();
             if (MediaList.Items.Count == 0)
             {
                 Dispatcher.BeginInvoke(
-                    () => Announce("Brak nowych odcinków. F5 odświeża wszystkie podcasty z Biblioteki"),
+                    () => Announce("Brak nowych odcinków i materiałów. F5 odświeża wszystkie źródła z Biblioteki"),
                     DispatcherPriority.ContextIdle);
             }
             return new CommandExecutionResult(true);
@@ -9621,7 +9667,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (!string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
             {
-                Announce("Odcinki w trakcie słuchania są dostępne w sesji Podcasty");
+                Announce("Materiały w trakcie słuchania są dostępne w sesji Podcasty i YouTube");
                 return new CommandExecutionResult(false);
             }
             NavigateTo(PodcastInProgressViewName);
@@ -10352,7 +10398,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
             && string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal))
         {
-            ViewHeading.Text = PodcastInboxViewName;
+            ViewHeading.Text = PodcastInboxDisplayName;
             var inboxEpisodes = _state.Podcasts.Episodes
                 .Where(episode => episode.IsNew
                     && !episode.IsPlayed
@@ -10426,7 +10472,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 RefreshCurrentView(fallbackIndex: fallbackIndex);
                 return;
             }
-            ViewHeading.Text = $"Podcast — {subscription.Title}";
+            ViewHeading.Text = $"{PodcastContainerLabel(subscription.SourceKind)} — {subscription.Title}";
             var podcastEpisodes = _state.Podcasts.Episodes
                 .Where(episode => string.Equals(episode.SubscriptionId, podcastId, StringComparison.Ordinal))
                 .OrderByDescending(episode => episode.PublishedUtcTicks)
@@ -14626,6 +14672,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 string.Equals(subscription.Id, item.Id, StringComparison.Ordinal))
             : _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
                 string.Equals(subscription.Id, item.ExternalId, StringComparison.Ordinal));
+        if (parent?.SourceKind is PodcastSourceKind.YouTubeChannel or PodcastSourceKind.YouTubePlaylist)
+        {
+            return item.Kind == MediaItemKind.Podcast
+                ? $"{FormatItem(item, includeKind: false)}, {PodcastContainerLabel(parent.SourceKind).ToLower(CultureInfo.CurrentCulture)}"
+                : $"{FormatItem(item, includeKind: false)}, {parent.Title}, materiał YouTube";
+        }
         if (parent?.SourceKind == PodcastSourceKind.PublicInternetMedia)
             return $"{formattedItem}, Media internetowe";
         return MainWindowNavigationPolicy.FormatPodcastSearchResult(
@@ -14829,15 +14881,25 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ? $"{item.Title}, strumień sieciowy"
                 : FormatItem(item, !homogeneousView);
         if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && item.Kind == MediaItemKind.Podcast)
+        {
+            var sourceKind = _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+                string.Equals(subscription.Id, item.Id, StringComparison.Ordinal))?.SourceKind
+                ?? PodcastSourceKind.Rss;
+            label = $"{FormatItem(item, includeKind: false)}, {PodcastContainerLabel(sourceKind).ToLower(CultureInfo.CurrentCulture)}";
+        }
+        else if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
             && item.Kind == MediaItemKind.Episode
             && !TryGetPodcastIdFromView(_currentView, out _))
         {
-            var parentTitle = _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
-                string.Equals(subscription.Id, item.ExternalId, StringComparison.Ordinal))?.Title;
-            label = MainWindowNavigationPolicy.FormatPodcastAggregateEpisodeLabel(
-                item,
-                label,
-                parentTitle);
+            var parent = _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
+                string.Equals(subscription.Id, item.ExternalId, StringComparison.Ordinal));
+            label = parent?.SourceKind is PodcastSourceKind.YouTubeChannel or PodcastSourceKind.YouTubePlaylist
+                ? $"{FormatItem(item, includeKind: false)}, {parent.Title}, materiał YouTube"
+                : MainWindowNavigationPolicy.FormatPodcastAggregateEpisodeLabel(
+                    item,
+                    label,
+                    parent?.Title);
         }
         if (string.Equals(_currentView, "Kolejka", StringComparison.Ordinal) && item.IsPlayNext)
         {
@@ -14902,6 +14964,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
               && string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal)
                 ? "Strumienie sieciowe"
+            : string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+              && string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal)
+                ? PodcastInboxDisplayName
             : string.Equals(_currentView, LocalAlbumContentsViewName, StringComparison.Ordinal)
             ? string.IsNullOrWhiteSpace(_currentLocalAlbumTitle)
                 ? "Album"
@@ -14913,9 +14978,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : TryGetPodcastIdFromView(_currentView, out var podcastId)
                 ? _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
                     string.Equals(subscription.Id, podcastId, StringComparison.Ordinal)) is { } podcast
-                    ? podcast.SourceKind == PodcastSourceKind.PublicInternetMedia
-                        ? $"Media internetowe — {podcast.Title}"
-                        : $"Podcast — {podcast.Title}"
+                    ? $"{PodcastContainerLabel(podcast.SourceKind)} — {podcast.Title}"
                     : "Podcast"
             : _currentView;
 
@@ -14929,9 +14992,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         NavigateTo(viewName);
         var sourceKind = _state.Podcasts.Subscriptions.FirstOrDefault(subscription =>
             string.Equals(subscription.Id, podcastId, StringComparison.Ordinal))?.SourceKind;
-        PrepareViewFocusContext(sourceKind == PodcastSourceKind.PublicInternetMedia
-            ? $"Media internetowe, {podcastTitle}"
-            : $"Podcast, {podcastTitle}");
+        PrepareViewFocusContext(
+            $"{PodcastContainerLabel(sourceKind ?? PodcastSourceKind.Rss)}, {podcastTitle}");
         RestoreMediaListFocusAfterRefresh();
     }
 

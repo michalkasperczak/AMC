@@ -1224,6 +1224,33 @@ static void TestPodcastLibraryUpdate()
     Equal("Zmieniony starszy odcinek", settings.Episodes.Single(item => item.Id == "episode-1").Title);
     Equal(TimeSpan.FromMinutes(5).Ticks, settings.Episodes.Single(item => item.Id == "episode-1").ResumePositionTicks);
     Equal(true, settings.Episodes.Single(item => item.Id == "episode-1").IsPlayed);
+
+    var youtubeSettings = new PodcastSettings();
+    var youtubeFeed = first with
+    {
+        Id = "youtube-channel:test",
+        FeedUri = new Uri("https://www.youtube.com/@test/videos"),
+        HomepageUri = new Uri("https://www.youtube.com/@test"),
+        Episodes =
+        [
+            first.Episodes[0] with
+            {
+                Id = "youtube-channel:test:AbCdEf12345",
+                SourceIdentifier = "AbCdEf12345",
+                MediaUri = new Uri("https://www.youtube.com/watch?v=AbCdEf12345"),
+                PageUri = new Uri("https://www.youtube.com/watch?v=AbCdEf12345"),
+                MediaType = "video/youtube"
+            }
+        ]
+    };
+    PodcastLibraryUpdater.Apply(
+        youtubeSettings,
+        youtubeFeed,
+        null,
+        DateTime.UtcNow,
+        sourceKind: PodcastSourceKind.YouTubeChannel);
+    Equal(PodcastSourceKind.YouTubeChannel, youtubeSettings.Subscriptions.Single().SourceKind);
+    Equal("AbCdEf12345", youtubeSettings.Episodes.Single().SourceIdentifier);
 }
 
 static void TestPodcastLegacyInboxMigration()
@@ -4839,19 +4866,19 @@ static void TestCommandPalette()
     Equal("T (odtwarzacz radia lub widok Nagrywane)", entries.Single(entry => entry.CommandId == CommandIds.SplitRadioRecording).LocalShortcut);
     Equal("Ctrl+Alt+Shift+R", entries.Single(entry => entry.CommandId == CommandIds.StopAllRadioRecordings).LocalShortcut);
     Equal("Ctrl+Shift+H (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ManageRadioSchedules).LocalShortcut);
-    Equal("Ctrl+N (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.AddPodcast).LocalShortcut);
+    Equal("Ctrl+N (Podcasty i YouTube)", entries.Single(entry => entry.CommandId == CommandIds.AddPodcast).LocalShortcut);
     Equal("Ctrl+N (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.AddRadioStation).LocalShortcut);
-    Equal("Ctrl+O (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.ImportPodcastOpml).LocalShortcut);
+    Equal("Ctrl+O (Podcasty i YouTube)", entries.Single(entry => entry.CommandId == CommandIds.ImportPodcastOpml).LocalShortcut);
     Equal("Ctrl+E (Radio internetowe)", entries.Single(entry => entry.CommandId == CommandIds.ExportRadioFavorites).LocalShortcut);
     Equal("Ctrl+Alt+W", entries.Single(entry => entry.CommandId == CommandIds.OpenOnWiiM).LocalShortcut);
     Equal("Ctrl+N (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.AddWiiMNetworkStream).LocalShortcut);
     Equal("Ctrl+O (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ViewWiiMNetworkStreams).LocalShortcut);
     Equal("Ctrl+Shift+O (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ImportWiiMNetworkStreams).LocalShortcut);
     Equal("Ctrl+E (WiiM)", entries.Single(entry => entry.CommandId == CommandIds.ExportWiiMNetworkStreams).LocalShortcut);
-    Equal("F5 (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcast).LocalShortcut);
-    Equal("Ctrl+F5 (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcastLibrary).LocalShortcut);
-    Equal("Ctrl+I (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.ViewPodcastInbox).LocalShortcut);
-    Equal("Ctrl+Shift+I (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.ViewPodcastInProgress).LocalShortcut);
+    Equal("F5 (Podcasty i YouTube)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcast).LocalShortcut);
+    Equal("Ctrl+F5 (Podcasty i YouTube)", entries.Single(entry => entry.CommandId == CommandIds.RefreshPodcastLibrary).LocalShortcut);
+    Equal("Ctrl+I (Podcasty i YouTube)", entries.Single(entry => entry.CommandId == CommandIds.ViewPodcastInbox).LocalShortcut);
+    Equal("Ctrl+Shift+I (Podcasty i YouTube)", entries.Single(entry => entry.CommandId == CommandIds.ViewPodcastInProgress).LocalShortcut);
     True(entries.Any(entry => entry.CommandId == CommandIds.ViewFolders), "Paleta powinna zawierać widok folderów.");
     True(entries.Any(entry => entry.CommandId == CommandIds.SettingsSessionOrder), "Paleta powinna zawierać ustawienia kolejności sesji.");
     Equal(
@@ -4875,7 +4902,7 @@ static void TestCommandPalette()
     var itemProperties = entries.Single(entry => entry.CommandId == CommandIds.ItemProperties);
     Equal("Alt+Enter", itemProperties.LocalShortcut);
     True(itemProperties.PrefixShortcut is null, "Właściwości nie mają skrótu prefiksowego.");
-    Equal("Alt+D (Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.PodcastDescription).LocalShortcut);
+    Equal("Alt+D (Podcasty i YouTube)", entries.Single(entry => entry.CommandId == CommandIds.PodcastDescription).LocalShortcut);
     Equal("Alt+D (Radio internetowe i WiiM)", entries.Single(entry => entry.CommandId == CommandIds.CurrentBroadcastInformation).LocalShortcut);
     var goToPodcast = entries.Single(entry => entry.CommandId == CommandIds.GoToPodcast);
     Equal("Przejdź do podcastu tego odcinka", goToPodcast.DisplayName);
@@ -4917,7 +4944,7 @@ static void TestCommandPalette()
     Equal("Alt+Down (kolejność własna lub Ulubione)", entries.Single(entry => entry.CommandId == CommandIds.MoveLocalLibraryItemDown).LocalShortcut);
     Equal("F5 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RefreshLocalLibrary).LocalShortcut);
     Equal("Ctrl+F5", entries.Single(entry => entry.CommandId == CommandIds.ManageLocalSources).LocalShortcut);
-    Equal("F2 (Biblioteka lokalna, Radio lub Podcasty)", entries.Single(entry => entry.CommandId == CommandIds.RenameLibraryItem).LocalShortcut);
+    Equal("F2 (Biblioteka lokalna, Radio lub Podcasty i YouTube)", entries.Single(entry => entry.CommandId == CommandIds.RenameLibraryItem).LocalShortcut);
     Equal("Shift+F2 (lista lokalna)", entries.Single(entry => entry.CommandId == CommandIds.RenameLocalFile).LocalShortcut);
     Equal("Ctrl+F1", entries.Single(entry => entry.CommandId == CommandIds.KeyboardHelp).LocalShortcut);
 

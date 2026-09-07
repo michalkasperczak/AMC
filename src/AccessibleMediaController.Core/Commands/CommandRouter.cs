@@ -331,7 +331,7 @@ public sealed class CommandRouter(
                 announcements.Announce("Pobieranie wewnątrz usługi nie jest jeszcze dostępne w tym prototypie");
                 return new(true);
             case CommandIds.SavePodcastAs:
-                announcements.Announce("Zapisywanie odcinka jest dostępne w sesji Podcasty");
+                announcements.Announce("Zapisywanie materiału jest dostępne w sesji Podcasty i YouTube");
                 return new(true);
             case CommandIds.DownloadToDisk:
                 announcements.Announce("Pobieranie na dysk nie jest jeszcze dostępne w tym prototypie");
