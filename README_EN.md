@@ -1,5 +1,10 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.304` makes an empty Radio-schedule hour or minute field mean a
+real zero. Clearing the selected value with Backspace can no longer leave the
+previous numeric value behind invisibly when Enter saves the form. A zero total
+is still rejected, while zero hours plus positive minutes is valid.
+
 Version `alpha.303` keeps every stored recording-schedule duration unchanged,
 but gives it an explicit duration label and full, naturally inflected Polish
 hour/minute units in the Polish interface. Older minute values are still

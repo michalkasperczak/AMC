@@ -1787,6 +1787,10 @@ static void TestRadioScheduleAccessibility()
                    && durationHours.Value == 0
                    && durationMinutes.Value == 30,
                 "Długość harmonogramu nie jest dostępnie rozdzielona na godziny i minuty.");
+            durationHours.Value = 1;
+            durationHours.Text = string.Empty;
+            Assert(RadioScheduleEditorWindow.ReadDurationPickerValue(durationHours) == 0,
+                "Puste pole godzin zachowuje poprzednią wartość zamiast oznaczać zero.");
             Assert(RadioScheduleEditorWindow.SplitDurationMinutes(260) == (4, 20)
                    && RadioScheduleEditorWindow.CombineDurationMinutes(4, 20) == 260
                    && RadioSchedulesWindow.FormatDurationMinutes(260) == "4 godziny 20 minut"

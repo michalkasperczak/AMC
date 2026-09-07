@@ -186,8 +186,8 @@ public partial class RadioScheduleEditorWindow : Window
         var date = _datePicker.Value.Date;
         var time = _timePicker.Value.TimeOfDay;
         var duration = CombineDurationMinutes(
-            decimal.ToInt32(_durationHoursPicker.Value),
-            decimal.ToInt32(_durationMinutesPicker.Value));
+            ReadDurationPickerValue(_durationHoursPicker),
+            ReadDurationPickerValue(_durationMinutesPicker));
         if (duration <= 0)
         {
             ShowHostedError(
@@ -756,7 +756,7 @@ public partial class RadioScheduleEditorWindow : Window
     [DllImport("user32.dll")]
     private static extern nint SendMessage(nint window, uint message, nint wordParameter, nint longParameter);
 
-    private static System.Windows.Forms.NumericUpDown CreateDurationHoursPicker() => new()
+    private static System.Windows.Forms.NumericUpDown CreateDurationHoursPicker() => new EmptyMeansZeroNumericUpDown
     {
         AccessibleName = "Długość nagrania, godziny",
         AccessibleDescription = "Wpisz liczbę pełnych godzin albo zmień ją strzałkami w górę i w dół. Dla nagrania krótszego niż godzina pozostaw zero.",
@@ -769,7 +769,7 @@ public partial class RadioScheduleEditorWindow : Window
         ThousandsSeparator = false
     };
 
-    private static System.Windows.Forms.NumericUpDown CreateDurationMinutesPicker() => new()
+    private static System.Windows.Forms.NumericUpDown CreateDurationMinutesPicker() => new EmptyMeansZeroNumericUpDown
     {
         AccessibleName = "Długość nagrania, minuty",
         AccessibleDescription = "Wpisz minuty od zera do pięćdziesięciu dziewięciu albo zmień je strzałkami w górę i w dół.",
@@ -795,6 +795,14 @@ public partial class RadioScheduleEditorWindow : Window
         return checked(hours * 60 + minutes);
     }
 
+    internal static int ReadDurationPickerValue(System.Windows.Forms.NumericUpDown picker)
+    {
+        ArgumentNullException.ThrowIfNull(picker);
+        return string.IsNullOrWhiteSpace(picker.Text)
+            ? 0
+            : decimal.ToInt32(picker.Value);
+    }
+
     private static System.Windows.Forms.NumericUpDown CreateSplitMinutesPicker() => new()
     {
         AccessibleName = "Długość jednej części w minutach",
@@ -807,6 +815,20 @@ public partial class RadioScheduleEditorWindow : Window
         TabStop = true,
         ThousandsSeparator = false
     };
+
+    private sealed class EmptyMeansZeroNumericUpDown : System.Windows.Forms.NumericUpDown
+    {
+        protected override void ValidateEditText()
+        {
+            if (string.IsNullOrWhiteSpace(Text))
+            {
+                Value = 0;
+                return;
+            }
+
+            base.ValidateEditText();
+        }
+    }
 
     private sealed record StationChoice(string Id, string Label, string StreamUrl)
     {

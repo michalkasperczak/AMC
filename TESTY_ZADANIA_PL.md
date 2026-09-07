@@ -6594,3 +6594,23 @@ Oczekiwane: pierwsza wpisana cyfra zastępuje wartość wybranego pola, oba pola
 zostają zapisane niezależnie, a ponowne otwarcie pokazuje dokładnie tę samą
 długość. Enter zapisuje tylko bieżące wartości; nie dopisuje ani nie przelicza
 samodzielnie dodatkowych minut.
+
+## Test ręczny pustego pola godzin — alpha 304
+
+### AMC-304-01 — nagranie krótsze niż godzina
+
+Utwórz nowy harmonogram. W polu **Godziny** zaznacz wartość, usuń ją
+Backspace'em i pozostaw pole puste. W polu **Minuty** wpisz `24`, a następnie
+naciśnij Enter.
+
+Oczekiwane: plan zapisuje się jako **długość nagrania: 24 minuty**, nie jako
+1 godzina 24 minuty. Po ponownym otwarciu edytora pola pokazują zero godzin i
+24 minuty.
+
+### AMC-304-02 — oba pola puste
+
+W nowym planie wyczyść Backspace'em zarówno godziny, jak i minuty, po czym
+naciśnij Enter.
+
+Oczekiwane: formularz pozostaje otwarty i mówi, że długość musi wynosić co
+najmniej jedną minutę. Nie zapisuje dawnej ani domyślnej wartości.

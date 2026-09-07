@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.304` poprawia zapis pustego pola godzin albo minut w harmonogramie
+Radia. Wyczyszczenie zaznaczonej wartości Backspace'em oznacza teraz rzeczywiste
+zero, także gdy Enter zostanie naciśnięty od razu w osadzonym polu liczbowym;
+poprzednia wartość nie może wrócić niewidocznie. Łączna długość równa zero nadal
+jest odrzucana, ale `0 godzin` i dodatnia liczba minut zapisują dokładnie nagranie
+krótsze niż godzina.
+
 Wersja `alpha.303` nie zmienia zapisanych długości harmonogramów, lecz podaje je
 na liście oraz po zapisaniu z jednoznacznym początkiem **długość nagrania** i
 pełnymi polskimi jednostkami, na przykład **3 godziny** albo **4 godziny 4
