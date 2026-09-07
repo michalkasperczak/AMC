@@ -6666,7 +6666,8 @@ odłączona lista odcinków, a cofnięcie przywraca subskrypcję.
 W sesji WiiM naciśnij kolejno `Ctrl+O`, `Ctrl+Shift+O`, `Ctrl+E` i `Ctrl+L`.
 
 Oczekiwane: `Ctrl+O` otwiera zapisane Strumienie sieciowe, `Ctrl+Shift+O`
-otwiera import playlisty, a `Ctrl+E` eksport. `Ctrl+L` nie przełącza do
+otwiera polecenie „Importuj strumienie z playlisty do WiiM”, a `Ctrl+E` eksport.
+`Ctrl+L` nie przełącza do
 pozornej Biblioteki i wyjaśnia, że WiiM jej nie udostępnia.
 
 ### AMC-306-04 — Afera bez jednorazowego duplikatu

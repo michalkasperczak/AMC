@@ -111,7 +111,7 @@ public static class CommandCatalog
             CommandIds.OpenOnWiiM => "Otwórz element w WiiM",
             CommandIds.AddWiiMNetworkStream => "Dodaj strumień sieciowy WiiM",
             CommandIds.ViewWiiMNetworkStreams => "Otwórz zapisane strumienie WiiM",
-            CommandIds.ImportWiiMNetworkStreams => "Importuj strumienie WiiM z playlisty",
+            CommandIds.ImportWiiMNetworkStreams => "Importuj strumienie z playlisty do WiiM",
             CommandIds.ExportWiiMNetworkStreams => "Eksportuj strumienie do WiiM Home",
             CommandIds.ViewWiiMDevicePresets => "Presety urządzenia WiiM",
             CommandIds.PreviousWiiMDevicePreset => "Poprzedni strumień lub zajęty preset urządzenia WiiM",

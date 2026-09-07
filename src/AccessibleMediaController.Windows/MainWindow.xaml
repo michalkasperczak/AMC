@@ -52,8 +52,8 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+O"
                           Visibility="Collapsed"
                           Click="ViewWiiMNetworkStreams_Click" />
-                <MenuItem x:Name="ImportWiiMNetworkStreamsMenuItem" Header="Importuj strumienie WiiM z _playlisty…" InputGestureText="Ctrl+Shift+O"
-                          automation:AutomationProperties.Name="Importuj strumienie WiiM z playlisty, Ctrl+Shift+O"
+                <MenuItem x:Name="ImportWiiMNetworkStreamsMenuItem" Header="Importuj strumienie z _playlisty do WiiM…" InputGestureText="Ctrl+Shift+O"
+                          automation:AutomationProperties.Name="Importuj strumienie z playlisty do WiiM, Ctrl+Shift+O"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+O"
                           Visibility="Collapsed"
                           Click="ImportWiiMNetworkStreams_Click" />

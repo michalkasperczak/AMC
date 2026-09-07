@@ -67,7 +67,8 @@ przywracanie ustawień fabrycznych nie należą do adaptera multimedialnego.
   strumieniem HLS.
 - AMC ma własną, przenośną listę **Strumienie sieciowe** dla sesji WiiM.
   `Ctrl+O` otwiera listę, `Ctrl+N` zapisuje nazwę i adres, a `Ctrl+Shift+O`
-  importuje bezpiecznie M3U, M3U8 lub PLS. `Ctrl+E` eksportuje całą listę AMC do
+  wykonuje polecenie **Importuj strumienie z playlisty do WiiM** i bezpiecznie
+  przyjmuje M3U, M3U8 lub PLS. `Ctrl+E` eksportuje całą listę AMC do
   rozszerzonego M3U. Enter albo `Ctrl+Alt+W` wysyła wskazany strumień do
   aktywnego urządzenia, `F2` edytuje nazwę i adres, a Delete usuwa wpis wyłącznie
   z AMC. Eksport zapisuje dokładnie bieżącą kolejność widoczną w AMC. Test na

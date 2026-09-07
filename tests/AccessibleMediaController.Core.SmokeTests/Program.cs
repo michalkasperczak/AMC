@@ -1909,7 +1909,7 @@ static void TestCommandCatalog()
     Equal("Otwórz element w WiiM", CommandCatalog.GetDisplayName(CommandIds.OpenOnWiiM));
     Equal("Dodaj strumień sieciowy WiiM", CommandCatalog.GetDisplayName(CommandIds.AddWiiMNetworkStream));
     Equal("Otwórz zapisane strumienie WiiM", CommandCatalog.GetDisplayName(CommandIds.ViewWiiMNetworkStreams));
-    Equal("Importuj strumienie WiiM z playlisty", CommandCatalog.GetDisplayName(CommandIds.ImportWiiMNetworkStreams));
+    Equal("Importuj strumienie z playlisty do WiiM", CommandCatalog.GetDisplayName(CommandIds.ImportWiiMNetworkStreams));
     Equal("Eksportuj strumienie do WiiM Home", CommandCatalog.GetDisplayName(CommandIds.ExportWiiMNetworkStreams));
     Equal("Poprzedni strumień lub zajęty preset urządzenia WiiM", CommandCatalog.GetDisplayName(CommandIds.PreviousWiiMDevicePreset));
     Equal("Następny strumień lub zajęty preset urządzenia WiiM", CommandCatalog.GetDisplayName(CommandIds.NextWiiMDevicePreset));

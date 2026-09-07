@@ -2282,7 +2282,8 @@ przez import i eksport M3U, a nie przez pozorną synchronizację.
 
 Od `alpha.278` sesja WiiM ma lokalną, trwałą listę **Strumienie sieciowe**.
 Od `alpha.306` `Ctrl+O` ją otwiera, `Ctrl+N` dodaje nazwany adres, a
-`Ctrl+Shift+O` importuje M3U,
+`Ctrl+Shift+O` wykonuje polecenie **Importuj strumienie z playlisty do WiiM**
+i importuje M3U,
 M3U8 lub PLS z limitami rozmiaru, liczby wpisów i długości adresów. Manifest
 jednej transmisji HLS nie jest mylony z listą wielu strumieni. Duplikaty URL
 nie są dodawane ponownie. Enter i `Ctrl+Alt+W` wysyłają wybrany adres do

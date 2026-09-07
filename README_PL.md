@@ -6,7 +6,8 @@ czasowym nie może już samoczynnie wznowić nagrywania. Następny termin planu
 cyklicznego pozostaje aktywny, a lista harmonogramów jawnie nazywa zatrzymane
 bieżące wystąpienie. Wyczyszczenie pola godzin w edytorze od razu
 ustawia rzeczywiste zero, dzięki czemu wpisanie czterech minut nie może zachować
-niewidocznych czterech godzin.
+niewidocznych czterech godzin. Polecenie WiiM pod `Ctrl+Shift+O` ma użytkową
+nazwę **Importuj strumienie z playlisty do WiiM**.
 
 Wersja `alpha.306` stabilizuje fokus podczas odświeżania dużej Biblioteki
 Podcastów: automatyczne i ręczne odświeżenie nie uruchamiają się równocześnie,

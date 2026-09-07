@@ -5196,7 +5196,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Importuj strumienie WiiM z playlisty",
+            Title = "Importuj strumienie z playlisty do WiiM",
             Filter = "Playlisty (*.m3u;*.m3u8;*.pls)|*.m3u;*.m3u8;*.pls|Wszystkie pliki (*.*)|*.*",
             Multiselect = false,
             CheckFileExists = true
@@ -5262,7 +5262,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         ShowWiiMNetworkStreams(
             added[0].Id,
-            $"Zaimportowano strumienie WiiM: {added.Count}");
+            $"Zaimportowano strumienie do WiiM: {added.Count}");
     }
 
     private void ExportWiiMNetworkStreams()
