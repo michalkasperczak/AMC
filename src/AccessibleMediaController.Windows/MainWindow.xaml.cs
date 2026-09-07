@@ -12975,12 +12975,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             foreach (var active in scheduled)
             {
+                var schedule = _state.Radio.RecordingSchedules.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Id, active.ScheduleId, StringComparison.Ordinal)
+                    && candidate.NextStartUtcTicks == active.ExpectedStartUtcTicks);
+                if (schedule is not null)
+                    schedule.SuppressedOccurrenceStartUtcTicks = active.ExpectedStartUtcTicks;
                 _scheduledRecordingInterruptions.Suspend(
                     active.ScheduleId,
                     active.ExpectedStartUtcTicks);
                 active.Control.RequestStop();
                 active.Cancellation.Cancel();
             }
+            if (scheduled.Length > 0) QueueStateSave();
             AnnounceEssential($"Zatrzymuję nagrywanie: {station.Title}");
             return;
         }
@@ -13383,6 +13389,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _scheduledRecordingInterruptions.TakeForResume(
             schedule.Id,
             schedule.NextStartUtcTicks);
+        schedule.SuppressedOccurrenceStartUtcTicks = null;
+        QueueStateSave();
         StartScheduledRadioRecording(schedule);
         return true;
     }
@@ -13698,6 +13706,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (_activeScheduledRadioRecordings.ContainsKey(schedule.Id)) continue;
             var decision = RadioScheduleCalculator.Evaluate(schedule, now);
+            if (schedule.SuppressedOccurrenceStartUtcTicks == schedule.NextStartUtcTicks)
+            {
+                if (decision.Kind != RadioScheduleDueKind.Missed) continue;
+                schedule.SuppressedOccurrenceStartUtcTicks = null;
+                _scheduledRecordingInterruptions.Clear(schedule.Id);
+                changed |= AdvanceOrRemoveRadioSchedule(
+                    schedule,
+                    now,
+                    "ręcznie zatrzymane do końca bieżącego wystąpienia");
+                continue;
+            }
             if (_scheduledRecordingInterruptions.IsSuspended(
                     schedule.Id,
                     schedule.NextStartUtcTicks))
@@ -13942,6 +13961,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return true;
         }
         schedule.NextStartUtcTicks = next.Value.Ticks;
+        schedule.SuppressedOccurrenceStartUtcTicks = null;
         DiagnosticLog.Info(
             "radio-schedule",
             $"Przeniesiono plan {schedule.StationName} na {next.Value:O}: {reason}.");
@@ -13992,6 +14012,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RecordingBitrateKbps = schedule.RecordingBitrateKbps,
         WakeComputer = schedule.WakeComputer,
         Enabled = schedule.Enabled,
+        SuppressedOccurrenceStartUtcTicks = schedule.SuppressedOccurrenceStartUtcTicks,
         LastFailureUtcTicks = schedule.LastFailureUtcTicks,
         LastFailureMessage = schedule.LastFailureMessage,
         LastFailureAcknowledged = schedule.LastFailureAcknowledged

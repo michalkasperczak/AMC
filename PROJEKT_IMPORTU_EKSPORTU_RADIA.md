@@ -60,6 +60,13 @@ regresyjny to **Afera**: niedziela, 22:00, Europe/Warsaw, 240 minut, powtarzanie
 w wybrane dni z zaznaczoną wyłącznie niedzielą. W stanie nie może równocześnie
 pozostać jednorazowa kopia tej samej audycji.
 
+Ręczne zatrzymanie trwającego wystąpienia jest trwałym stanem wykonawczym planu.
+Po ponownym uruchomieniu aplikacja nie może samoczynnie wznowić tego samego
+wystąpienia. Znacznik zawiera czas rozpoczęcia konkretnego wystąpienia, nie jest
+przenoszony na kolejny termin i nie wchodzi do pliku służącego do wymiany samej
+definicji harmonogramu. Zmiana długości ręcznie zatrzymanego wystąpienia nie
+usuwa znacznika zatrzymania, jeżeli data i godzina rozpoczęcia pozostają te same.
+
 Rekord powinien ponadto przenosić stabilną tożsamość stacji i zapasowy publiczny
 adres, nazwę użytkową, format, bitrate albo zapis oryginalny, sposób podziału,
 szablon nazwy i ustawienie wybudzania. Lokalny identyfikator procesu, aktywne

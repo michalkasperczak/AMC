@@ -3,10 +3,10 @@ using AccessibleMediaController.Core.Configuration;
 namespace AccessibleMediaController.Windows.Services;
 
 /// <summary>
-/// Remembers a scheduled occurrence stopped temporarily with R. This state is
-/// intentionally limited to the current application run: after a restart the
-/// ordinary scheduler remains the source of truth and resumes a still-current
-/// occurrence on its own.
+/// Coordinates an optional same-run resume of an occurrence stopped with R.
+/// The durable suppression marker belongs to RadioRecordingScheduleSettings;
+/// this helper only remembers whether a second R requested a resume before the
+/// current process ends.
 /// </summary>
 internal sealed class ScheduledRadioRecordingInterruptionTracker
 {

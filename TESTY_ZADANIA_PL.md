@@ -16,6 +16,19 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
 
+## Alfa 307 — trwałe zatrzymanie harmonogramu i zerowanie godzin
+
+1. Otwórz harmonogram mający długość 4 godziny, przejdź do pola godzin, usuń
+   jego zawartość, w polu minut wpisz 4 i zapisz. Na liście musi zostać odczytane
+   „długość nagrania: 4 minuty”, a nie „4 godziny 4 minuty”.
+2. Podczas trwającego nagrania z harmonogramu naciśnij `R`, zaczekaj na zapisanie
+   pliku i zamknij AMC. Po ponownym uruchomieniu to samo wystąpienie nie może
+   rozpocząć się ponownie.
+3. Po ręcznym zatrzymaniu edytuj długość tego samego wystąpienia bez zmiany daty
+   ani godziny. Nagranie nadal nie może zostać wznowione samoistnie.
+4. Przy kolejnym terminie cyklicznego harmonogramu nagrywanie powinno uruchomić
+   się normalnie; zatrzymanie poprzedniego terminu nie może przejść na następny.
+
 ## Nowości alpha 293
 
 ### AMC-293-01 — bezpieczna instalacja składników

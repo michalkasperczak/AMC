@@ -2082,6 +2082,7 @@ static void TestRadioRecordingSchedule()
                 RecordingFormat = RadioRecordingFormat.Aac,
                 RecordingBitrateKbps = 222,
                 WakeComputer = true,
+                SuppressedOccurrenceStartUtcTicks = start.Ticks,
                 LastFailureUtcTicks = start.AddMinutes(-10).Ticks,
                 LastFailureMessage = "Przekroczono czas łączenia ze stacją",
                 LastFailureAcknowledged = false
@@ -2096,7 +2097,8 @@ static void TestRadioRecordingSchedule()
                 TimeZoneId = "UTC",
                 DurationMinutes = 120,
                 SegmentMinutes = 30,
-                Recurrence = RadioScheduleRecurrence.Once
+                Recurrence = RadioScheduleRecurrence.Once,
+                SuppressedOccurrenceStartUtcTicks = start.Ticks
             }
         ];
         store.Save(state);
@@ -2110,12 +2112,14 @@ static void TestRadioRecordingSchedule()
         Equal(RadioRecordingFormat.Aac, normalized.RecordingFormat);
         Equal(192, normalized.RecordingBitrateKbps);
         Equal(true, normalized.WakeComputer);
+        Equal(start.Ticks, normalized.SuppressedOccurrenceStartUtcTicks);
         Equal(start.AddMinutes(-10).Ticks, normalized.LastFailureUtcTicks);
         Equal("Przekroczono czas łączenia ze stacją", normalized.LastFailureMessage);
         Equal(false, normalized.LastFailureAcknowledged);
         var segmented = loaded.Radio.RecordingSchedules.Single(item => item.Id == "schedule-segmented");
         Equal(120, segmented.DurationMinutes);
         Equal(30, segmented.SegmentMinutes);
+        Equal(null, segmented.SuppressedOccurrenceStartUtcTicks);
         Equal(RadioRecordingFileNameTemplate.DefaultTemplate, segmented.FileNameTemplate);
         Equal(@"D:\Nagrania radia", loaded.Radio.RecordingsFolder);
         Equal(true, loaded.Radio.UsePodcastDownloadsFolderForRecordings);

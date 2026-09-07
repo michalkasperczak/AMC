@@ -72,7 +72,10 @@ public partial class RadioSchedulesWindow : Window
             ? ", nagrywanie trwa"
             : !schedule.Enabled && active
                 ? ", nagrywanie zostanie zatrzymane po zapisaniu"
-                : string.Empty;
+                : schedule.Enabled
+                    && schedule.SuppressedOccurrenceStartUtcTicks == schedule.NextStartUtcTicks
+                        ? ", bieżące wystąpienie zatrzymane"
+                        : string.Empty;
         var lastFailure = BuildLastFailureLabel(schedule, zone);
         var fileDivision = schedule.SegmentMinutes > 0
             ? $"części co {schedule.SegmentMinutes} min"
@@ -285,6 +288,7 @@ public partial class RadioSchedulesWindow : Window
         RecordingBitrateKbps = schedule.RecordingBitrateKbps,
         WakeComputer = schedule.WakeComputer,
         Enabled = schedule.Enabled,
+        SuppressedOccurrenceStartUtcTicks = schedule.SuppressedOccurrenceStartUtcTicks,
         LastFailureUtcTicks = schedule.LastFailureUtcTicks,
         LastFailureMessage = schedule.LastFailureMessage,
         LastFailureAcknowledged = schedule.LastFailureAcknowledged

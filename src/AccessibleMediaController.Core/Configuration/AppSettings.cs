@@ -598,6 +598,12 @@ public sealed class RadioRecordingScheduleSettings
     public int? RecordingBitrateKbps { get; set; }
     public bool? WakeComputer { get; set; }
     public bool Enabled { get; set; } = true;
+    /// <summary>
+    /// Start bieżącego wystąpienia, które użytkownik zatrzymał ręcznie.
+    /// Wartość jest zapisywana, aby po ponownym uruchomieniu AMC nagranie
+    /// nie rozpoczęło się ponownie w tym samym oknie czasowym.
+    /// </summary>
+    public long? SuppressedOccurrenceStartUtcTicks { get; set; }
     public long? LastFailureUtcTicks { get; set; }
     public string LastFailureMessage { get; set; } = string.Empty;
     public bool LastFailureAcknowledged { get; set; } = true;

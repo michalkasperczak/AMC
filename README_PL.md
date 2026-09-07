@@ -1,5 +1,13 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.307` utrwala ręczne zatrzymanie bieżącego wystąpienia
+harmonogramu. Ponowne uruchomienie AMC wciąż mieszczące się w jego przedziale
+czasowym nie może już samoczynnie wznowić nagrywania. Następny termin planu
+cyklicznego pozostaje aktywny, a lista harmonogramów jawnie nazywa zatrzymane
+bieżące wystąpienie. Wyczyszczenie pola godzin w edytorze od razu
+ustawia rzeczywiste zero, dzięki czemu wpisanie czterech minut nie może zachować
+niewidocznych czterech godzin.
+
 Wersja `alpha.306` stabilizuje fokus podczas odświeżania dużej Biblioteki
 Podcastów: automatyczne i ręczne odświeżenie nie uruchamiają się równocześnie,
 a ciężka przebudowa listy czeka, gdy użytkownik pozostaje w odtwarzaczu.

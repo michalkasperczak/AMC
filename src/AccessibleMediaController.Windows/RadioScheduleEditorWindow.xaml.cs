@@ -259,7 +259,11 @@ public partial class RadioScheduleEditorWindow : Window
             RecordingFormat = recordingFormat.Value,
             RecordingBitrateKbps = recordingBitrate.Value,
             WakeComputer = (WakeCombo.SelectedItem as WakeChoice)?.Value,
-            Enabled = EnabledCheckBox.IsChecked == true
+            Enabled = EnabledCheckBox.IsChecked == true,
+            SuppressedOccurrenceStartUtcTicks = _existing?.SuppressedOccurrenceStartUtcTicks
+                == startUtc.Ticks
+                    ? startUtc.Ticks
+                    : null
         };
         if (!immediateStart && startUtc <= DateTime.UtcNow)
         {
@@ -276,6 +280,8 @@ public partial class RadioScheduleEditorWindow : Window
             }
             schedule.NextStartUtcTicks = next.Value.Ticks;
         }
+        if (schedule.SuppressedOccurrenceStartUtcTicks != schedule.NextStartUtcTicks)
+            schedule.SuppressedOccurrenceStartUtcTicks = null;
         if (UsesCustomOutputFolder
             && (string.IsNullOrWhiteSpace(schedule.OutputFolder)
                 || !Path.IsPathFullyQualified(schedule.OutputFolder)))
@@ -821,6 +827,13 @@ public partial class RadioScheduleEditorWindow : Window
 
     private sealed class EmptyMeansZeroNumericUpDown : System.Windows.Forms.NumericUpDown
     {
+        protected override void OnTextChanged(EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(Text) && Value != 0)
+                Value = 0;
+            base.OnTextChanged(e);
+        }
+
         protected override void ValidateEditText()
         {
             if (string.IsNullOrWhiteSpace(Text))
