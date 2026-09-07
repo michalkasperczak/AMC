@@ -13502,7 +13502,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? $"podział co {dialog.ResultSchedule.SegmentMinutes} min"
             : "jeden plik";
         Dispatcher.BeginInvoke(
-            () => Announce($"Zaplanowano nagranie: {dialog.ResultSchedule.StationName}, {local:dd.MM.yyyy HH:mm}, {dialog.ResultSchedule.DurationMinutes} min, {fileDivision}"),
+            () => Announce($"Zaplanowano nagranie: {dialog.ResultSchedule.StationName}, {local:dd.MM.yyyy HH:mm}, długość nagrania: {RadioSchedulesWindow.FormatDurationMinutes(dialog.ResultSchedule.DurationMinutes)}, {fileDivision}"),
             DispatcherPriority.ContextIdle);
     }
 

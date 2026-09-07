@@ -1789,8 +1789,10 @@ static void TestRadioScheduleAccessibility()
                 "Długość harmonogramu nie jest dostępnie rozdzielona na godziny i minuty.");
             Assert(RadioScheduleEditorWindow.SplitDurationMinutes(260) == (4, 20)
                    && RadioScheduleEditorWindow.CombineDurationMinutes(4, 20) == 260
-                   && RadioSchedulesWindow.FormatDurationMinutes(260) == "4 godz. 20 min"
-                   && RadioSchedulesWindow.FormatDurationMinutes(20) == "20 min",
+                   && RadioSchedulesWindow.FormatDurationMinutes(260) == "4 godziny 20 minut"
+                   && RadioSchedulesWindow.FormatDurationMinutes(180) == "3 godziny"
+                   && RadioSchedulesWindow.FormatDurationMinutes(61) == "1 godzina 1 minuta"
+                   && RadioSchedulesWindow.FormatDurationMinutes(20) == "20 minut",
                 "Przeliczanie albo odczyt czasu harmonogramu jest nieprawidłowy.");
 
             var newScheduleEditor = new RadioScheduleEditorWindow(

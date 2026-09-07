@@ -1,5 +1,11 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.303` nie zmienia zapisanych długości harmonogramów, lecz podaje je
+na liście oraz po zapisaniu z jednoznacznym początkiem **długość nagrania** i
+pełnymi polskimi jednostkami, na przykład **3 godziny** albo **4 godziny 4
+minuty**. Dawne wartości nadal są dokładnie przeliczane z minut; przykładowe
+`183 min` oznacza więc `3 godziny 3 minuty`, a nie uszkodzony czas.
+
 Wersja `alpha.302` zastępuje niewygodne pole całkowitej liczby minut w
 harmonogramie Radia dwoma dostępnymi polami: **Godziny** oraz **Minuty**.
 Istniejące plany są automatycznie rozkładane na obie wartości, a zapis nadal

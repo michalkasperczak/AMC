@@ -1,5 +1,10 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.303` keeps every stored recording-schedule duration unchanged,
+but gives it an explicit duration label and full, naturally inflected Polish
+hour/minute units in the Polish interface. Older minute values are still
+converted exactly.
+
 Version `alpha.302` replaces the Radio schedule's inconvenient total-minute
 field with two accessible controls: **Hours** and **Minutes**. Existing plans
 are split between these values automatically while persistence keeps the same

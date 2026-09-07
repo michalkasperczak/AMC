@@ -82,7 +82,7 @@ public partial class RadioSchedulesWindow : Window
             schedule.StationName,
             local,
             partNumber: 1);
-        return $"{schedule.StationName}, {state}, {local:dd.MM.yyyy HH:mm}, {FormatDurationMinutes(schedule.DurationMinutes)}, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}{activity}{lastFailure}";
+        return $"{schedule.StationName}, {state}, {local:dd.MM.yyyy HH:mm}, długość nagrania: {FormatDurationMinutes(schedule.DurationMinutes)}, {fileDivision}, nazwa pliku: {exampleFileName}, {recurrence}{activity}{lastFailure}";
     }
 
     internal static string FormatDurationMinutes(int totalMinutes)
@@ -90,9 +90,26 @@ public partial class RadioSchedulesWindow : Window
         var normalized = Math.Max(0, totalMinutes);
         var hours = normalized / 60;
         var minutes = normalized % 60;
-        if (hours == 0) return $"{minutes} min";
-        if (minutes == 0) return $"{hours} godz.";
-        return $"{hours} godz. {minutes} min";
+        if (hours == 0) return FormatPolishUnit(minutes, "minuta", "minuty", "minut");
+        if (minutes == 0) return FormatPolishUnit(hours, "godzina", "godziny", "godzin");
+        return $"{FormatPolishUnit(hours, "godzina", "godziny", "godzin")} "
+            + FormatPolishUnit(minutes, "minuta", "minuty", "minut");
+    }
+
+    private static string FormatPolishUnit(
+        int value,
+        string singular,
+        string paucal,
+        string plural)
+    {
+        var absolute = Math.Abs(value);
+        var lastTwoDigits = absolute % 100;
+        var unit = absolute == 1
+            ? singular
+            : absolute % 10 is >= 2 and <= 4 && lastTwoDigits is not (>= 12 and <= 14)
+                ? paucal
+                : plural;
+        return $"{value} {unit}";
     }
 
     private static string BuildLastFailureLabel(

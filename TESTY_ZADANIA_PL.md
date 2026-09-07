@@ -6565,3 +6565,32 @@ Oczekiwane: NVDA podaje wyłącznie nazwę, np. „357” albo „Lublin”. Nie
 „Preset 3”, „Odtwórz”, „Wstrzymaj”, rodzaju odtwarzacza, nazwy urządzenia,
 głośności ani nieznanego stanu. Po wyciszeniu podaje zwięźle „Lublin,
 wyciszone”. Pełny odczyt na żądanie nadal zawiera szczegóły.
+
+## Test ręczny długości harmonogramu — alpha 303
+
+### AMC-303-01 — pełne godziny
+
+Utwórz próbny harmonogram, ustaw **Godziny: 3** oraz **Minuty: 0** i zapisz
+Enterem. Otwórz listę harmonogramów przez `Ctrl+Shift+H`.
+
+Oczekiwane: po zapisaniu oraz na liście NVDA mówi **długość nagrania: 3
+godziny**. Nie podaje `180 minut`, skrótu `godz.` ani samej nieopisanej liczby.
+
+### AMC-303-02 — dawne niepełne godziny
+
+Na liście odszukaj istniejące plany, które wcześniej miały na przykład 183,
+244 albo 64 minuty. Nie zapisuj ich ponownie.
+
+Oczekiwane: wartości nie zostały zmienione. NVDA czyta odpowiednio **3 godziny
+3 minuty**, **4 godziny 4 minuty** i **1 godzina 4 minuty**, zawsze po
+jednoznacznym tekście **długość nagrania**.
+
+### AMC-303-03 — edycja obu pól
+
+Edytuj dawny plan mający godziny i pozostałe minuty. Ustaw najpierw godziny,
+a potem jawnie ustaw minuty na zero. Zapisz, zamknij listę i otwórz ją ponownie.
+
+Oczekiwane: pierwsza wpisana cyfra zastępuje wartość wybranego pola, oba pola
+zostają zapisane niezależnie, a ponowne otwarcie pokazuje dokładnie tę samą
+długość. Enter zapisuje tylko bieżące wartości; nie dopisuje ani nie przelicza
+samodzielnie dodatkowych minut.
