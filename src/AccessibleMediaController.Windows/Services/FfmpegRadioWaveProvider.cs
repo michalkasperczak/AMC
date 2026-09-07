@@ -115,25 +115,46 @@ internal sealed class FfmpegRadioWaveProvider : IWaveProvider, IDisposable
         _cancellation.Dispose();
     }
 
-    internal static string? FindExecutable()
+    internal static string? FindExecutable() => EnumerateExecutableCandidates().FirstOrDefault();
+
+    internal static IEnumerable<string> EnumerateExecutableCandidates()
     {
         var fileName = OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
+        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        static bool TryAddExisting(string? candidate, ISet<string> known, out string path)
+        {
+            path = string.Empty;
+            if (string.IsNullOrWhiteSpace(candidate) || !File.Exists(candidate)) return false;
+            try
+            {
+                path = Path.GetFullPath(candidate);
+                return known.Add(path);
+            }
+            catch (Exception exception) when (exception is ArgumentException
+                or NotSupportedException
+                or PathTooLongException)
+            {
+                return false;
+            }
+        }
+
         var managed = FfmpegComponentManager.FindInstalledExecutable();
-        if (managed is not null) return managed;
+        if (TryAddExisting(managed, known, out var managedPath)) yield return managedPath;
 
         var bundled = Path.Combine(AppContext.BaseDirectory, fileName);
-        if (File.Exists(bundled)) return bundled;
+        if (TryAddExisting(bundled, known, out var bundledPath)) yield return bundledPath;
 
         var configured = Environment.GetEnvironmentVariable("FFMPEG_PATH");
-        if (!string.IsNullOrWhiteSpace(configured) && File.Exists(configured)) return configured;
+        if (TryAddExisting(configured, known, out var configuredPath)) yield return configuredPath;
 
         foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
                      .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
+            string? candidate = null;
             try
             {
-                var candidate = Path.Combine(directory, fileName);
-                if (File.Exists(candidate)) return candidate;
+                candidate = Path.Combine(directory, fileName);
             }
             catch (Exception exception) when (exception is ArgumentException
                 or NotSupportedException
@@ -141,8 +162,8 @@ internal sealed class FfmpegRadioWaveProvider : IWaveProvider, IDisposable
             {
                 // Ignore malformed PATH entries and continue with the others.
             }
+            if (TryAddExisting(candidate, known, out var candidatePath)) yield return candidatePath;
         }
-        return null;
     }
 }
 

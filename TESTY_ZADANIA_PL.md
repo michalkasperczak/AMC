@@ -6783,3 +6783,45 @@ Sprawdź kanał prywatny albo niedostępny oraz próbę bez działającego `yt-d
 Oczekiwane: AMC nie otwiera logowania, nie pyta o cookies ani konto. Podaje
 czytelny błąd i przywraca fokus do adresu. RSS, Apple Podcasts i Spreaker nadal
 działają niezależnie.
+
+## Testy ręczne — alpha 311
+
+### AMC-311-01 — wyszukiwanie i działanie bezpośrednie
+
+W sesji **Podcasty i YouTube** naciśnij `Ctrl+F`, wyszukaj `Dominikanie Poznań`
+i wykonaj Enter albo `Ctrl+Enter` na nowym filmie YouTube.
+
+Oczekiwane: lista zawiera kanały i filmy YouTube. Polecenie zapisuje materiał w
+Mediach internetowych i wykonuje wybrane działanie; program nie zamyka się i
+fokus nie trafia do menu ani ukrytego elementu.
+
+### AMC-311-02 — szybkie przewijanie skończonego filmu
+
+Otwórz co najmniej dwudziestominutowy, zakończony film YouTube. Po rozpoczęciu
+odtwarzania naciśnij kolejno `5`, `9` i `1`, a potem użyj zwykłych skrótów
+przewijania.
+
+Oczekiwane: każdy skok zaczyna odtwarzanie w żądanym miejscu po kilku sekundach,
+a nie po liniowym doczytaniu znacznej części filmu. Szybka seria poleceń kończy
+się na ostatnim żądanym miejscu. Transmisja na żywo zachowuje mechanikę radia i
+nie udaje skończonego pliku.
+
+### AMC-311-03 — polskie metadane
+
+Wyszukaj polski kanał, którego tytuły YouTube mają także wersje językowe, po czym
+dodaj kanał i otwórz jego listę.
+
+Oczekiwane: AMC preferuje polskie tytuły i opis kanału. Gdy YouTube nie
+udostępnia polskiego wariantu konkretnego pola, program zachowuje dostępny
+wariant i nie tłumaczy go samodzielnie.
+
+### AMC-311-04 — pobieranie do folderu synchronizowanego
+
+Zaznacz kilka filmów i naciśnij `Ctrl+D`, gdy folder pobierania znajduje się w
+iCloud, OneDrive albo Google Drive. Podczas pobierania nawiguj po Bibliotece.
+
+Oczekiwane: konwersja działa poza obserwowanym folderem. Biblioteka nie pokazuje
+plików `.part`, `.amc-youtube-*` ani `.amc-download-*`; po ukończeniu pojawiają
+się wyłącznie kompletne MP3, a krótka blokada chmury jest automatycznie
+ponawiana. Każde niepowodzenie jest policzone i nie zostawia pozornego gotowego
+odcinka.

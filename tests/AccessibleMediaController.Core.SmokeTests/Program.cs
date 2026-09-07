@@ -3709,6 +3709,12 @@ static void TestLocalAudioFileDiscovery()
         True(
             !LocalAudioFileDiscovery.IsAudioFile(".nagranie.amc-cut-123-result.flac"),
             "Techniczny wynik cięcia nie może trafiać do Biblioteki.");
+        True(
+            !LocalAudioFileDiscovery.IsAudioFile(".amc-youtube-123.mp3"),
+            "Techniczny plik pobierania YouTube nie może trafiać do Biblioteki.");
+        True(
+            !LocalAudioFileDiscovery.IsAudioFile(".amc-download-123.mp3"),
+            "Techniczny plik publikowania pobrania nie może trafiać do Biblioteki.");
         True(LocalAudioFileDiscovery.DialogFilter.Contains("*.amc-partial", StringComparison.Ordinal), "Okno Otwórz nie udostępnia niedokończonych nagrań.");
         True(!LocalAudioFileDiscovery.IsAudioFile("okładka.jpg"), "Obraz nie może trafić na listę audio.");
         Equal(320, LocalAudioFileDiscovery.EstimateBitrateKbps(4_000_000, TimeSpan.FromSeconds(100)));

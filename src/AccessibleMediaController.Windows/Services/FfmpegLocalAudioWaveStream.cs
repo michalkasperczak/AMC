@@ -8,10 +8,12 @@ using NAudio.Wave;
 namespace AccessibleMediaController.Windows.Services;
 
 /// <summary>
-/// Tolerant, seekable audio-only view of a local container. It is used for
-/// transport streams and explicitly opened recovery files that Windows Media
-/// Foundation may reject because recording started between video key frames or
-/// the container was never finalised. FFmpeg decodes only the audio track.
+/// Tolerant, seekable audio-only view of a local container or a finite HTTP
+/// resource. It is used for transport streams and explicitly opened recovery
+/// files that Windows Media Foundation may reject, and for range-capable
+/// YouTube audio where restarting FFmpeg at the requested timestamp is much
+/// faster than linearly buffering through Media Foundation. FFmpeg decodes only
+/// the audio track.
 /// </summary>
 internal sealed class FfmpegLocalAudioWaveStream : WaveStream
 {
@@ -32,10 +34,13 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
     private readonly object _gate = new();
     private readonly string _executable;
     private readonly string _path;
+    private readonly string _diagnosticSource;
     private readonly long _length;
     private Process? _process;
     private Stream? _audio;
     private StringBuilder? _decoderError;
+    private byte[] _prefetchedAudio = [];
+    private int _prefetchedAudioOffset;
     private long _decoderBytesRead;
     private long _position;
     private bool _disposed;
@@ -47,6 +52,10 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
     {
         _executable = executable;
         _path = path;
+        _diagnosticSource = Uri.TryCreate(path, UriKind.Absolute, out var networkUri)
+            && networkUri.Scheme is "http" or "https"
+                ? networkUri.Host
+                : path;
         WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(OutputSampleRate, OutputChannels);
         _length = Math.Max(
             WaveFormat.BlockAlign,
@@ -117,6 +126,44 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
         }
     }
 
+    internal static bool TryOpenNetwork(
+        string address,
+        TimeSpan duration,
+        out FfmpegLocalAudioWaveStream reader)
+    {
+        reader = null!;
+        if (duration <= TimeSpan.Zero
+            || !Uri.TryCreate(address, UriKind.Absolute, out var uri)
+            || uri.Scheme is not ("http" or "https")
+            || !string.IsNullOrWhiteSpace(uri.UserInfo))
+        {
+            return false;
+        }
+
+        foreach (var executable in FfmpegRadioWaveProvider.EnumerateExecutableCandidates())
+        {
+            try
+            {
+                reader = new FfmpegLocalAudioWaveStream(executable, uri.AbsoluteUri, duration);
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException
+                or InvalidDataException
+                or InvalidOperationException
+                or NotSupportedException
+                or System.ComponentModel.Win32Exception)
+            {
+                DiagnosticLog.Warning(
+                    "ffmpeg-network",
+                    $"Dekoder sieciowy {Path.GetFileName(executable)} nie otworzył "
+                    + $"skończonego materiału z hosta {uri.Host}; {exception.Message}");
+                reader?.Dispose();
+                reader = null!;
+            }
+        }
+        return false;
+    }
+
     public override int Read(byte[] buffer, int offset, int count)
     {
         lock (_gate)
@@ -126,6 +173,31 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
             var alignedCount = Math.Min(count, (int)Math.Min(int.MaxValue, _length - _position));
             alignedCount -= alignedCount % WaveFormat.BlockAlign;
             if (alignedCount <= 0) return 0;
+
+            if (_prefetchedAudioOffset < _prefetchedAudio.Length)
+            {
+                var prefetched = Math.Min(
+                    alignedCount,
+                    _prefetchedAudio.Length - _prefetchedAudioOffset);
+                prefetched -= prefetched % WaveFormat.BlockAlign;
+                if (prefetched > 0)
+                {
+                    Buffer.BlockCopy(
+                        _prefetchedAudio,
+                        _prefetchedAudioOffset,
+                        buffer,
+                        offset,
+                        prefetched);
+                    _prefetchedAudioOffset += prefetched;
+                    _position = Math.Min(_length, _position + prefetched);
+                    if (_prefetchedAudioOffset >= _prefetchedAudio.Length)
+                    {
+                        _prefetchedAudio = [];
+                        _prefetchedAudioOffset = 0;
+                    }
+                    return prefetched;
+                }
+            }
 
             var read = _audio.Read(buffer, offset, alignedCount);
             if (read > 0)
@@ -142,11 +214,19 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
                 {
                     lock (decoderError) detail = decoderError.ToString().Trim();
                 }
+                if (!string.IsNullOrWhiteSpace(detail)
+                    && !string.Equals(_diagnosticSource, _path, StringComparison.Ordinal))
+                {
+                    detail = detail.Replace(
+                        _path,
+                        _diagnosticSource,
+                        StringComparison.OrdinalIgnoreCase);
+                }
                 if (_decoderBytesRead > 0)
                 {
                     DiagnosticLog.Warning(
                         "ffmpeg-local",
-                        $"Odtworzono dostępną część niepełnego pliku: {_path}; {detail}");
+                        $"Odtworzono dostępną część niepełnego źródła: {_diagnosticSource}; {detail}");
                     return 0;
                 }
                 throw new InvalidDataException(string.IsNullOrWhiteSpace(detail)
@@ -173,6 +253,38 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
 
     private void StartDecoderLocked(TimeSpan position)
     {
+        var networkSource = Uri.TryCreate(_path, UriKind.Absolute, out var networkUri)
+            && networkUri.Scheme is "http" or "https";
+        var attempts = networkSource ? 3 : 1;
+        Exception? lastFailure = null;
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            try
+            {
+                StartDecoderProcessLocked(position, networkSource);
+                if (networkSource) PrimeNetworkDecoderLocked();
+                return;
+            }
+            catch (Exception exception) when (
+                networkSource
+                && exception is IOException
+                    or InvalidDataException
+                    or InvalidOperationException
+                    or System.ComponentModel.Win32Exception)
+            {
+                lastFailure = exception;
+                DisposeDecoderLocked();
+                if (attempt < attempts)
+                {
+                    Thread.Sleep(TimeSpan.FromMilliseconds(200 * attempt));
+                }
+            }
+        }
+        throw lastFailure ?? new InvalidDataException("Nie udało się otworzyć strumienia sieciowego.");
+    }
+
+    private void StartDecoderProcessLocked(TimeSpan position, bool networkSource)
+    {
         var start = new ProcessStartInfo
         {
             FileName = _executable,
@@ -193,6 +305,19 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
         {
             start.ArgumentList.Add("-ss");
             start.ArgumentList.Add(position.TotalSeconds.ToString("0.######", CultureInfo.InvariantCulture));
+        }
+        if (networkSource)
+        {
+            foreach (var argument in new[]
+            {
+                "-rw_timeout", "20000000",
+                "-reconnect", "1",
+                "-reconnect_streamed", "1",
+                "-reconnect_delay_max", "2"
+            })
+            {
+                start.ArgumentList.Add(argument);
+            }
         }
         foreach (var argument in new[]
         {
@@ -226,10 +351,42 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
         _process.BeginErrorReadLine();
     }
 
+    private void PrimeNetworkDecoderLocked()
+    {
+        var buffer = new byte[16 * 1024];
+        var read = _audio?.Read(buffer, 0, buffer.Length) ?? 0;
+        read -= read % WaveFormat.BlockAlign;
+        if (read > 0)
+        {
+            _prefetchedAudio = read == buffer.Length ? buffer : buffer[..read];
+            _prefetchedAudioOffset = 0;
+            _decoderBytesRead = read;
+            return;
+        }
+
+        string? detail = null;
+        if (_decoderError is { } decoderError)
+        {
+            lock (decoderError) detail = decoderError.ToString().Trim();
+        }
+        if (!string.IsNullOrWhiteSpace(detail))
+        {
+            detail = detail.Replace(
+                _path,
+                _diagnosticSource,
+                StringComparison.OrdinalIgnoreCase);
+        }
+        throw new InvalidDataException(string.IsNullOrWhiteSpace(detail)
+            ? "Dekoder sieciowy nie zwrócił dźwięku."
+            : $"Dekoder sieciowy nie zwrócił dźwięku. {detail}");
+    }
+
     private void DisposeDecoderLocked()
     {
         try { _audio?.Dispose(); } catch (Exception) { }
         _audio = null;
+        _prefetchedAudio = [];
+        _prefetchedAudioOffset = 0;
         try
         {
             if (_process is { HasExited: false }) _process.Kill(true);

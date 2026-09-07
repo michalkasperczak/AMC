@@ -1,5 +1,18 @@
 # Projekt modułu podcastów AMC
 
+Od `alpha.311` zakończone materiały YouTube mają osobny, seekowalny tor FFmpeg.
+Każdy skok uruchamia dekoder od żądanego czasu i korzysta z zakresów HTTP,
+zamiast liniowo doczytywać plik od początku. Transmisja na żywo nadal nie udaje
+pliku o trwałej osi czasu. Wszystkie wywołania `yt-dlp` proszą o polskie
+metadane; bez logowania YouTube może mimo to zwrócić język oryginalny, gdy nie
+ma polskiego wariantu.
+
+Konwersja pobieranego filmu odbywa się w `%LocalAppData%`, poza obserwowanym
+folderem Biblioteki. Gotowy MP3 jest kopiowany do technicznego pliku o
+nierozpoznawanym rozszerzeniu i dopiero po pełnym zapisie otrzymuje nazwę
+docelową. Zapobiega to indeksowaniu częściowego pliku i blokadom zmiany nazwy
+przez chmurę. Nieudana publikacja nie tworzy pozornego pobranego odcinka.
+
 Od `alpha.310` wspólne wyszukiwanie pokazuje także publiczne kanały YouTube.
 Kanał jest osobnym wynikiem typu **Kanał YouTube**, pojawia się przed
 pojedynczymi filmami i może zostać od razu dodany do Biblioteki. AMC tworzy

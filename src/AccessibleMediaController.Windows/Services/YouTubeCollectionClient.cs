@@ -55,6 +55,7 @@ internal sealed class YouTubeCollectionClient
             "--socket-timeout", "15",
             "--extractor-retries", "2",
             "--playlist-end", MaximumItems.ToString(CultureInfo.InvariantCulture),
+            "--extractor-args", "youtube:lang=pl",
             "--extractor-args", "youtubetab:approximate_date",
             "--dump-single-json",
             "--",

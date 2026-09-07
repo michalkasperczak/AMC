@@ -696,6 +696,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         bool allowManagedMp3Fallback,
         bool mayRequireRemoteAccess)
     {
+        var diagnosticSource = path;
         if (YouTubeSourceResolver.IsYouTubeUrl(path))
         {
             var stablePageAddress = path;
@@ -707,6 +708,23 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             DiagnosticLog.Info(
                 "internet-media",
                 $"Rozwiązano publiczny adres YouTube na czas odtwarzania: {stablePageAddress}; transmisja: {resolved.IsLive}.");
+            if (!resolved.IsLive
+                && resolved.Duration > TimeSpan.Zero
+                && FfmpegLocalAudioWaveStream.TryOpenNetwork(
+                    resolved.StreamUrl,
+                    resolved.Duration,
+                    out var youtubeReader))
+            {
+                DiagnosticLog.Info(
+                    "ffmpeg-network",
+                    $"Użyto szybkiego przewijania skończonego materiału YouTube: {stablePageAddress}.");
+                return new ReaderSelection(
+                    new GuardedWaveStream(youtubeReader, stablePageAddress),
+                    DecoderKind.FfmpegLocal);
+            }
+            // Never retain or log the temporary signed googlevideo address.
+            // The stable public page is sufficient for watchdog diagnostics.
+            diagnosticSource = stablePageAddress;
         }
         if (IsSupportedNetworkMediaSource(path))
         {
@@ -721,9 +739,14 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
                 CreateNetworkMediaFoundationReaderSettings());
             try
             {
-                DiagnosticLog.Info("podcast-playback", $"Otwarto skończony materiał HTTP: {path}.");
+                var sourceLabel = Uri.TryCreate(path, UriKind.Absolute, out var sourceUri)
+                    ? sourceUri.IdnHost
+                    : "źródło HTTP";
+                DiagnosticLog.Info(
+                    "podcast-playback",
+                    $"Otwarto skończony materiał HTTP z hosta: {sourceLabel}.");
                 return new ReaderSelection(
-                    new GuardedWaveStream(networkReader, path),
+                    new GuardedWaveStream(networkReader, diagnosticSource),
                     DecoderKind.System);
             }
             catch

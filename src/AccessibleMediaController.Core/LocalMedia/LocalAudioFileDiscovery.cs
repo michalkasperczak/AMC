@@ -44,8 +44,10 @@ public static class LocalAudioFileDiscovery
     public static bool IsInternalWorkingFile(string path)
     {
         var fileName = Path.GetFileName(path);
-        return fileName.StartsWith(".", StringComparison.Ordinal)
-            && fileName.Contains(".amc-cut-", StringComparison.OrdinalIgnoreCase);
+        if (!fileName.StartsWith(".", StringComparison.Ordinal)) return false;
+        return fileName.Contains(".amc-cut-", StringComparison.OrdinalIgnoreCase)
+            || fileName.StartsWith(".amc-youtube-", StringComparison.OrdinalIgnoreCase)
+            || fileName.StartsWith(".amc-download-", StringComparison.OrdinalIgnoreCase);
     }
 
     public static bool IsVideoFile(string path) =>

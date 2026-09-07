@@ -68,6 +68,7 @@ internal sealed class YouTubeSearchClient
             "--socket-timeout", "8",
             "--extractor-retries", "1",
             "--playlist-end", MaximumResultCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "--extractor-args", "youtube:lang=pl",
             "--dump-single-json",
             "--",
             $"ytsearch{MaximumResultCount}:{normalized}"

@@ -7289,9 +7289,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         episode.DurationTicks = Math.Max(0, media.Duration.Ticks);
 
         ReloadPodcastSessionItems();
+        EnsurePodcastEpisodeItems([episode]);
         QueueStateSave(announceFailure: true);
-        var item = _podcastItems.First(candidate =>
-            string.Equals(candidate.Id, episode.Id, StringComparison.Ordinal));
+        var item = _podcastItems.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, episode.Id, StringComparison.Ordinal))
+            ?? throw new InvalidDataException("Nie udało się przygotować materiału YouTube do wykonania polecenia.");
         if (openAfterImport)
         {
             OpenPodcast(collection.Id, collection.Title, preferredEpisodeId: episode.Id);
@@ -8880,13 +8882,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string query,
         CancellationToken cancellationToken)
     {
-        async Task<(string Name, IReadOnlyList<MediaItem> Items, Exception? Error)> SearchAsync(
+        async Task<(string Name, IReadOnlyList<MediaItem> Items, Exception? Error, TimeSpan Duration)> SearchAsync(
             string name,
             Func<Task<IReadOnlyList<MediaItem>>> search)
         {
+            var stopwatch = Stopwatch.StartNew();
             try
             {
-                return (name, await search(), null);
+                return (name, await search(), null, stopwatch.Elapsed);
             }
             catch (OperationCanceledException)
             {
@@ -8897,7 +8900,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 DiagnosticLog.Warning(
                     "podcast-search",
                     $"Wyszukiwanie katalogu {name} nie powiodło się; błąd {exception.GetType().Name}.");
-                return (name, [], exception);
+                return (name, [], exception, stopwatch.Elapsed);
             }
         }
 
@@ -8982,7 +8985,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             DiagnosticLog.Info(
                 "podcast-search",
-                $"Katalog {result.Name} zwrócił {result.Items.Count} wyników."
+                $"Katalog {result.Name} zwrócił {result.Items.Count} wyników w "
+                + $"{result.Duration.TotalSeconds:0.0} s."
                 + (result.Error is null ? string.Empty : " Katalog był chwilowo niedostępny."));
         }
         DiagnosticLog.Info(

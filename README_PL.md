@@ -1,5 +1,24 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.311` naprawia pierwszy rzeczywisty przebieg wyszukiwania,
+odtwarzania i pobierania YouTube. Działanie wykonane bezpośrednio na wyniku nie
+może już zakończyć programu, nawet gdy materiał nie należał jeszcze do roboczego
+zestawu odcinków. Zakończony film korzysta z dekodera FFmpeg uruchamianego od
+żądanego czasu; dzięki obsłudze zakresów HTTP skok procentowy nie doczytuje
+materiału od początku. Transmisje na żywo pozostają na torze strumieniowym.
+
+YouTube otrzymuje jawne ustawienie polskich metadanych. Ogranicza to angielskie
+warianty tytułów i opisów, które serwis potrafi zwrócić niezalogowanemu klientowi
+zamiast oryginalnego polskiego tekstu. Jest to preferencja języka, nie
+automatyczne tłumaczenie AMC; jeżeli wydawca nie udostępnia polskiej wersji,
+program zachowuje dane dostępne w YouTube.
+
+Pobieranie `Ctrl+D` wykonuje konwersję w lokalnym katalogu roboczym poza
+Biblioteką i folderem synchronizowanym. Dopiero kompletny MP3 jest publikowany
+atomowo pod nazwą użytkownika, z ponowieniami na krótkie blokady iCloud,
+OneDrive, Google Drive lub programu antywirusowego. Pliki `.amc-youtube-*` i
+`.amc-download-*` nigdy nie są elementami Biblioteki.
+
 Wersja `alpha.310` uzupełnia wyszukiwanie YouTube o publiczne **kanały**.
 AMC wykorzystuje dane kanału zwrócone razem z wynikami filmów, usuwa duplikaty
 i pokazuje kanały przed pojedynczymi materiałami. Dzięki temu zapytania takie

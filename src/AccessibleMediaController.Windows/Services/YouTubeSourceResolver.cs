@@ -94,6 +94,7 @@ internal static class YouTubeSourceResolver
             "--fragment-retries", "3",
             "--extractor-retries", "2",
             "--format", "bestaudio[ext=m4a]/bestaudio/best[acodec!=none]",
+            "--extractor-args", "youtube:lang=pl",
             "--dump-single-json",
             "--",
             pageUrl.Trim()

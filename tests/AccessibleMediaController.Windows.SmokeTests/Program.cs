@@ -170,6 +170,10 @@ try
         {
             TestLiveYouTubeCollection(mediaPath["--youtube-collection-url=".Length..]);
         }
+        else if (mediaPath.StartsWith("--youtube-seek-url=", StringComparison.OrdinalIgnoreCase))
+        {
+            TestLiveYouTubeSeek(mediaPath["--youtube-seek-url=".Length..]);
+        }
         else if (mediaPath.StartsWith("--radio-metadata-url=", StringComparison.OrdinalIgnoreCase))
         {
             TestLiveRadioMetadata(mediaPath["--radio-metadata-url=".Length..]);
@@ -1714,6 +1718,38 @@ static void TestLiveYouTubeCollection(string address)
         "Publiczna kolekcja YouTube zawiera niestabilny adres materiału.");
     Console.WriteLine(
         $"OK: kolekcja YouTube na żywo — {result.Feed.Title}, materiały: {result.Feed.Episodes.Count}");
+}
+
+static void TestLiveYouTubeSeek(string address)
+{
+    using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+    var resolved = YouTubeSourceResolver
+        .ResolveAudioAsync(address, cancellation.Token)
+        .GetAwaiter()
+        .GetResult();
+    Assert(!resolved.IsLive && resolved.Duration > TimeSpan.FromSeconds(10),
+        "Próba szybkiego przewijania wymaga zakończonego materiału YouTube.");
+    Assert(
+        FfmpegLocalAudioWaveStream.TryOpenNetwork(
+            resolved.StreamUrl,
+            resolved.Duration,
+            out var reader),
+        "Nie otwarto seekowalnego toru FFmpeg dla YouTube.");
+    using (reader)
+    {
+        var target = TimeSpan.FromTicks(resolved.Duration.Ticks / 2);
+        var stopwatch = Stopwatch.StartNew();
+        reader.CurrentTime = target;
+        var buffer = new byte[32_768];
+        var read = reader.Read(buffer, 0, buffer.Length);
+        stopwatch.Stop();
+        Assert(read > 0, "Przewinięty materiał YouTube nie zwrócił dźwięku.");
+        Assert(stopwatch.Elapsed < TimeSpan.FromSeconds(15),
+            $"Przewijanie YouTube trwało zbyt długo: {stopwatch.Elapsed}.");
+        Assert(Math.Abs((reader.CurrentTime - target).TotalSeconds) < 2,
+            "Tor YouTube nie zachował żądanego miejsca przewinięcia.");
+        Console.WriteLine($"OK: szybkie przewijanie YouTube — {stopwatch.Elapsed.TotalSeconds:0.00} s");
+    }
 }
 
 static void TestRadioYouTubeAddressAccessibility()
