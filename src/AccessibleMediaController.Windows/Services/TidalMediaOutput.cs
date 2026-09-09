@@ -1,6 +1,7 @@
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows.Threading;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
@@ -36,6 +37,8 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
     private TimeSpan position;
     private bool isPreparing;
     private bool wasPlaying;
+    private bool playbackStarted;
+    private bool isPreview;
     private bool disposed;
     private int playbackRequestVersion;
 
@@ -89,29 +92,23 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
         {
             ObjectDisposedException.ThrowIf(disposed, this);
             version = ++playbackRequestVersion;
-            resumeLoadedItem = string.Equals(loadedItemId, item.Id, StringComparison.Ordinal);
+            resumeLoadedItem = !isPreparing
+                && string.Equals(loadedItemId, item.Id, StringComparison.Ordinal);
             currentItem = item;
             loadedItemId = item.Id;
             this.position = position < TimeSpan.Zero ? TimeSpan.Zero : position;
             isPreparing = !resumeLoadedItem;
+            playbackStarted = false;
+            if (!resumeLoadedItem) isPreview = false;
         }
 
         if (resumeLoadedItem)
         {
             PostCommand(new
             {
-                type = "volume",
-                volume = NormalizeVolume(volume)
+                type = "resume", requestVersion = version,
+                volume = NormalizeVolume(volume), position = Math.Max(0, position.TotalSeconds)
             });
-            if (position > TimeSpan.Zero)
-            {
-                PostCommand(new
-                {
-                    type = "seek",
-                    position = position.TotalSeconds
-                });
-            }
-            PostCommand(new { type = "resume" });
             return;
         }
 
@@ -121,31 +118,35 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
 
     public void Pause()
     {
+        int version;
         lock (stateGate)
         {
+            version = ++playbackRequestVersion;
             if (isPreparing)
             {
-                playbackRequestVersion++;
                 loadedItemId = null;
                 isPreparing = false;
             }
             wasPlaying = false;
+            playbackStarted = false;
         }
-        PostCommand(new { type = "pause" });
+        PostCommand(new { type = "pause", requestVersion = version });
     }
 
     public void Stop()
     {
+        int version;
         lock (stateGate)
         {
-            playbackRequestVersion++;
+            version = ++playbackRequestVersion;
             loadedItemId = null;
             currentItem = null;
             position = TimeSpan.Zero;
             isPreparing = false;
             wasPlaying = false;
+            playbackStarted = false;
         }
-        PostCommand(new { type = "stop" });
+        PostCommand(new { type = "stop", requestVersion = version });
     }
 
     public void Seek(TimeSpan position)
@@ -189,7 +190,8 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
                 "Tidal");
             Directory.CreateDirectory(userDataFolder);
             var environment = await CoreWebView2Environment.CreateAsync(
-                userDataFolder: userDataFolder);
+                userDataFolder: userDataFolder,
+                options: TidalWebViewPolicy.CreateOptions());
             await webView.EnsureCoreWebView2Async(environment);
             if (disposed) return;
 
@@ -245,6 +247,7 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
             var command = new
             {
                 type = "play",
+                requestVersion = version,
                 productId = PlaybackProductId(item),
                 productType = item.Kind == MediaItemKind.Video ? "video" : "track",
                 sourceId = PlaybackProductId(item),
@@ -262,7 +265,11 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
                 }
             };
             await webView.Dispatcher.InvokeAsync(
-                () => webView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(command)),
+                () =>
+                {
+                    if (IsCurrentRequest(version, item.Id))
+                        webView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(command));
+                },
                 DispatcherPriority.Send,
                 cancellationToken);
         }
@@ -271,7 +278,11 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
         }
         catch (Exception exception)
         {
-            HandleFailure(item, FriendlyFailure(exception.Message));
+            RaiseOnUi(() =>
+            {
+                if (IsCurrentRequest(version, item.Id))
+                    HandleFailure(item, FriendlyFailure(exception.Message));
+            });
         }
     }
 
@@ -323,12 +334,19 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
     }
 
     private void Core_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+        => ProcessBridgeMessage(e.WebMessageAsJson);
+
+    internal void ProcessBridgeMessage(string message)
     {
         try
         {
-            using var document = JsonDocument.Parse(e.WebMessageAsJson);
+            using var document = JsonDocument.Parse(message);
             var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return;
             var type = Text(root, "type");
+            // Product ID alone is insufficient when the same track was
+            // reopened. A previous SDK request must never affect a new one.
+            if (type != "ready" && !MatchesBridgeRequest(root)) return;
             switch (type)
             {
                 case "ready":
@@ -347,7 +365,7 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
                         Text(root, "productId"));
                     break;
                 case "ended":
-                    ApplyEnded(Text(root, "productId"));
+                    ApplyEnded(root);
                     break;
                 case "error":
                     var failedItem = CurrentItemMatching(Text(root, "productId"));
@@ -426,6 +444,7 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
                 item.SampleRateHz ?? 0));
 
         var presentation = Text(root, "assetPresentation");
+        isPreview = string.Equals(presentation, "PREVIEW", StringComparison.OrdinalIgnoreCase);
         if (string.Equals(presentation, "PREVIEW", StringComparison.OrdinalIgnoreCase)
             && announcedPreviews.Add(item.Id))
         {
@@ -448,6 +467,7 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
             if (playing)
             {
                 isPreparing = false;
+                playbackStarted = true;
                 raiseStarted = !wasPlaying;
             }
             wasPlaying = playing;
@@ -456,18 +476,42 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
             PlaybackStarted?.Invoke(this, new MediaPlaybackStartedEventArgs(item));
     }
 
-    private void ApplyEnded(string productId)
+    private void ApplyEnded(JsonElement root)
     {
-        if (CurrentItemMatching(productId) is null) return;
+        if (CurrentItemMatching(Text(root, "productId")) is null) return;
         MediaItem? item;
         lock (stateGate)
         {
+            // The official SDK also emits ended(reason=error/skip).
+            if (!playbackStarted || isPreparing
+                || Text(root, "reason") != "completed") return;
             item = currentItem;
             isPreparing = false;
             wasPlaying = false;
+            playbackStarted = false;
         }
+        if (isPreview)
+        {
+            HandleFailure(item, "Koniec próbki TIDAL. Pełny utwór nie został udostępniony tej aplikacji; kolejka pozostaje bez zmian.");
+            return;
+        }
+        lock (stateGate) loadedItemId = null;
         if (item is not null)
+        {
+            DiagnosticLog.Info("tidal-player", $"Potwierdzony koniec utworu: {item.ExternalId}.");
             PlaybackEnded?.Invoke(this, new MediaPlaybackEndedEventArgs(item));
+        }
+    }
+
+    private bool MatchesBridgeRequest(JsonElement root)
+    {
+        lock (stateGate)
+            return !disposed
+                && root.TryGetProperty("requestVersion", out var version)
+                && version.ValueKind == JsonValueKind.Number
+                && version.TryGetInt32(out var serial)
+                && serial == playbackRequestVersion
+                && CurrentItemMatching(Text(root, "productId")) is not null;
     }
 
     private MediaItem? CurrentItem()
@@ -486,8 +530,8 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
                 return null;
             }
 
-            return string.IsNullOrWhiteSpace(productId)
-                || string.Equals(PlaybackProductId(currentItem), productId, StringComparison.Ordinal)
+            return !string.IsNullOrWhiteSpace(productId)
+                && string.Equals(PlaybackProductId(currentItem), productId, StringComparison.Ordinal)
                     ? currentItem
                     : null;
         }
@@ -508,9 +552,12 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
     {
         lock (stateGate)
         {
+            if (item is null || loadedItemId is null
+                || !string.Equals(currentItem?.Id, item.Id, StringComparison.Ordinal)) return;
             loadedItemId = null;
             isPreparing = false;
             wasPlaying = false;
+            playbackStarted = false;
         }
         DiagnosticLog.Warning(
             "tidal-player",
@@ -532,12 +579,19 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
             : string.Empty;
 
     private static double Number(JsonElement element, string propertyName) =>
-        element.TryGetProperty(propertyName, out var value) && value.TryGetDouble(out var number)
+        element.TryGetProperty(propertyName, out var value)
+            && value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number)
+            && double.IsFinite(number)
             ? number
             : 0;
 
-    private static string FriendlyFailure(string rawMessage)
+    internal static string FriendlyFailure(string rawMessage)
     {
+        if (rawMessage.Contains("NotAllowedError", StringComparison.OrdinalIgnoreCase)
+            || rawMessage.Contains("user didn't interact", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Wbudowany odtwarzacz zablokował rozpoczęcie dźwięku. To problem integracji AMC, nie logowania TIDAL. Kolejka pozostaje bez zmian.";
+        }
         if (rawMessage.Contains("FULL_REQUIRES_HIGHER_ACCESS_TIER", StringComparison.OrdinalIgnoreCase)
             || rawMessage.Contains("S3016", StringComparison.OrdinalIgnoreCase))
         {
@@ -594,9 +648,13 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
         return "Oficjalny odtwarzacz TIDAL zgłosił błąd tego materiału. Spróbuj ponownie albo wybierz inny utwór.";
     }
 
-    private static string SafeDiagnostic(string rawMessage)
+    internal static string SafeDiagnostic(string rawMessage)
     {
-        var singleLine = rawMessage
+        var safe = Regex.Replace(rawMessage, @"https?://[^\s""<>]+", "[adres pominięty]", RegexOptions.IgnoreCase);
+        safe = Regex.Replace(safe, @"\bBearer\s+\S+", "Bearer [pominięto]", RegexOptions.IgnoreCase);
+        safe = Regex.Replace(safe, @"\b(?:access_token|refresh_token|token|client_secret)\b[\s""':=]+[^\s,}""']+", "[poświadczenie pominięte]", RegexOptions.IgnoreCase);
+        safe = Regex.Replace(safe, @"\beyJ[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+){1,2}", "[token pominięty]");
+        var singleLine = safe
             .Replace('\r', ' ')
             .Replace('\n', ' ')
             .Trim();

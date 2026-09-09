@@ -5,6 +5,53 @@ w pliku [`INSTRUKCJA_LOGOWANIA_TIDAL_PL.md`](INSTRUKCJA_LOGOWANIA_TIDAL_PL.md).
 
 ## Cel i granice
 
+### Diagnostyka alpha.333 i poprawka alpha.334 (2026-09-09)
+
+Zdiagnozowano dwa konkretne błędy AMC, niezależne od synchronizacji katalogu:
+
+- Log `tidal-player-detail` zawierał `NotAllowedError` oraz informację,
+  że użytkownik nie wykonał interakcji z dokumentem. Klawiaturę obsługuje WPF,
+  a `PostWebMessageAsJson` nie przenosi gestu użytkownika do strony SDK.
+  Dedykowane środowisko WebView2 otrzymuje teraz
+  `--autoplay-policy=no-user-gesture-required`. Nie modyfikujemy rejestru,
+  profilu Chrome, globalnych preferencji przeglądarki ani zasad DRM/CORS.
+- W oficjalnym SDK 0.20.1 `EndedEvent` zawiera `mediaProduct` i `reason`:
+  `completed`, `error`, `skip`. Obsługiwanie każdego `ended` jako ukończonego
+  utworu powodowało przejście do następnego także po odmowie odtwarzania.
+  Mostek i część C# wymagają teraz `completed`, potwierdzonego startu oraz
+  aktualnego identyfikatora i numeru próby. Odrzucają stare zakończenia,
+  podwójne zakończenia, błędy starych zadań oraz zdarzenia po Stop/Pauza.
+
+Koniec próbki `PREVIEW` zatrzymuje próbę bez usuwania pełnego utworu z Kolejki.
+Ogólny błąd nie jest powodem ponownego logowania. Komunikat o blokadzie gestu
+wskazuje integrację AMC; ograniczenia konta, materiału i aplikacji są osobne.
+Surowe adresy, Bearer i pola poświadczeń są redagowane przed zapisem logu.
+
+Weryfikacja obejmuje siedem wykonywalnych testów JS z kontrolowanym SDK,
+testy rzeczywistego mostka C# i sesji/Kolejki oraz izolowany test WebView2:
+`PostWebMessage` bez poprawki kończy się `NotAllowedError`, a z poprawką
+odtwarza wygenerowany WAV. Test nie loguje się do TIDAL, nie zastępuje testu
+pełnego utworu, DRM ani uprawnień konkretnego Client ID. Przygotowanie 334
+nie zamyka uruchomionego AMC ani trwającego nagrywania użytkownika.
+
+Źródła i granice:
+
+- [Flagi WebView2 — Microsoft](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/webview-features-flags)
+- [Polityka autoplay — Chromium](https://developer.chrome.com/blog/autoplay/)
+- [Typ EndedEvent w oficjalnym SDK TIDAL](https://github.com/tidal-music/tidal-sdk-web/blob/main/packages/player/src/api/event/ended.ts)
+- [Publiczny quick start TIDAL demonstruje próbki](https://developer.tidal.com/documentation/api-sdk/api-sdk-quick-start)
+- [Warunki platformy TIDAL](https://developer.tidal.com/documentation/guidelines/guidelines-developer-terms)
+
+Synchronizacja kolekcji i abonament użytkownika nie stanowią potwierdzenia
+prawa aplikacji do pełnego odtwarzania. Publiczna dokumentacja opisuje SDK
+próbek, a warunki pełnego odsłuchu wskazują Embed Player dla abonentów.
+Pełnego odtwarzania we własnym interfejsie nie należy obiecywać bez potwierdzenia
+przez TIDAL uprawnień tego klienta. Nie wydobywamy chronionych adresów ani nie
+podszywamy się pod inną autoryzowaną aplikację. Dalsze warianty (Embed,
+zewnętrzny odtwarzacz lub dostęp partnerski) wymagają osobnej decyzji.
+
+### Zakres funkcji
+
 TIDAL jest osobną sesją AMC. Demonstracyjne elementy pozostają dostępne do
 chwili pierwszej udanej synchronizacji, po odłączeniu konta oraz wtedy, gdy
 integracja nie została jeszcze skonfigurowana. Dane demonstracyjne nigdy nie

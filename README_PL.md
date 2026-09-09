@@ -1,5 +1,17 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.334` naprawia potwierdzoną w logach blokadę dźwięku TIDAL
+(`NotAllowedError`): gest Enter/Spacja wykonany w WPF nie był uznawany za
+interakcję ze stroną SDK. Tylko izolowany WebView2 odtwarzacza otrzymuje
+politykę pozwalającą na odtwarzanie poleceniem hosta; Chrome i Windows nie są
+przestawiane, a fokus pozostaje w dostępnym interfejsie AMC. Druga poprawka
+rozróżnia `ended` z przyczyną `completed`, `error` i `skip`: tylko rzeczywisty
+koniec uruchamia kolejny utwór. Zdarzenia mają numer próby i identyfikator
+materiału, a błędy, anulowanie oraz koniec próbki nie zużywają Kolejki.
+Test WebView2 odtwarza wygenerowany lokalnie, bezgłośny WAV bez konta TIDAL.
+Pełne odtwarzanie TIDAL na koncie wymaga jeszcze testu użytkownika; nie należy
+mylić tej poprawki z przyznaniem aplikacji uprawnień do pełnych utworów.
+
 Wersja `alpha.333` naprawia poświadczenia oficjalnego odtwarzacza TIDAL.
 Oprócz ważnego tokenu przekazuje on teraz identyfikator zalogowanego
 użytkownika wymagany przez SDK do rozpoznania sesji abonenta. Synchronizacja

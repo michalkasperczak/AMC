@@ -2633,10 +2633,10 @@ var init_output_devices_DLDX8cVL = __esm({
           for (var i5 = t8.length, a6 = n4.length; i5 > 0 && t8.charCodeAt(i5 - 1) === n4.charCodeAt(a6 - 1); ) i5--, a6--;
           for (var o7 = 0; o7 < i5 && t8.charCodeAt(o7) === n4.charCodeAt(o7); ) o7++;
           if (i5 -= o7, a6 -= o7, i5 === 0 || a6 < 3) return a6;
-          var s6 = 0, c6, l5, u6, d4, f3, p4, m4, h5, g5, _4, v6, y4, b3 = [];
-          for (c6 = 0; c6 < i5; c6++) b3.push(c6 + 1), b3.push(t8.charCodeAt(o7 + c6));
-          for (var x3 = b3.length - 1; s6 < a6 - 3; ) for (g5 = n4.charCodeAt(o7 + (l5 = s6)), _4 = n4.charCodeAt(o7 + (u6 = s6 + 1)), v6 = n4.charCodeAt(o7 + (d4 = s6 + 2)), y4 = n4.charCodeAt(o7 + (f3 = s6 + 3)), p4 = s6 += 4, c6 = 0; c6 < x3; c6 += 2) m4 = b3[c6], h5 = b3[c6 + 1], l5 = e8(m4, l5, u6, g5, h5), u6 = e8(l5, u6, d4, _4, h5), d4 = e8(u6, d4, f3, v6, h5), p4 = e8(d4, f3, p4, y4, h5), b3[c6] = p4, f3 = d4, d4 = u6, u6 = l5, l5 = m4;
-          for (; s6 < a6; ) for (g5 = n4.charCodeAt(o7 + (l5 = s6)), p4 = ++s6, c6 = 0; c6 < x3; c6 += 2) m4 = b3[c6], b3[c6] = p4 = e8(m4, l5, p4, g5, b3[c6 + 1]), l5 = m4;
+          var s6 = 0, c6, l5, u6, d4, f3, p4, m4, h5, g5, _4, v6, y5, b4 = [];
+          for (c6 = 0; c6 < i5; c6++) b4.push(c6 + 1), b4.push(t8.charCodeAt(o7 + c6));
+          for (var x4 = b4.length - 1; s6 < a6 - 3; ) for (g5 = n4.charCodeAt(o7 + (l5 = s6)), _4 = n4.charCodeAt(o7 + (u6 = s6 + 1)), v6 = n4.charCodeAt(o7 + (d4 = s6 + 2)), y5 = n4.charCodeAt(o7 + (f3 = s6 + 3)), p4 = s6 += 4, c6 = 0; c6 < x4; c6 += 2) m4 = b4[c6], h5 = b4[c6 + 1], l5 = e8(m4, l5, u6, g5, h5), u6 = e8(l5, u6, d4, _4, h5), d4 = e8(u6, d4, f3, v6, h5), p4 = e8(d4, f3, p4, y5, h5), b4[c6] = p4, f3 = d4, d4 = u6, u6 = l5, l5 = m4;
+          for (; s6 < a6; ) for (g5 = n4.charCodeAt(o7 + (l5 = s6)), p4 = ++s6, c6 = 0; c6 < x4; c6 += 2) m4 = b4[c6], b4[c6] = p4 = e8(m4, l5, p4, g5, b4[c6 + 1]), l5 = m4;
           return p4;
         };
       })();
@@ -4658,6 +4658,9 @@ var init_shakaPlayer_Bw3312R3 = __esm({
 });
 
 // node_modules/.pnpm/@tidal-music+player@0.20.1/node_modules/@tidal-music/player/dist/load-uTL4eiru.js
+function y3(e7) {
+  _3 = e7;
+}
 async function b2() {
   await Promise.all(_3.map((e7) => {
     let t7 = v4[e7.player];
@@ -4667,8 +4670,19 @@ async function b2() {
 function x2(e7) {
   e7.name !== "nativePlayer" && v4.native && v4.native.abandon(), y.activePlayer = e7;
 }
+async function S2(e7) {
+  x2(e7), await Promise.all(_3.filter((e8) => v4[e8.player] !== y.activePlayer).map(async (e8) => {
+    let t7 = v4[e8.player];
+    return t7 && await t7.reset(), Promise.resolve();
+  })), await y.activePlayer?.skipToPreloadedMediaProduct(), await y.activePlayer?.play();
+}
 function C3() {
   _.removeEventListener("ended", g4);
+}
+function w3(e7) {
+  !e7 || e7.name === y.activePlayer?.name || (g4 = () => {
+    S2(e7).then().catch(console.error);
+  }, _.addEventListener("ended", g4, { once: true }));
 }
 async function T3() {
   let { default: e7 } = await init_nativePlayer_DMrEsBbX().then(() => nativePlayer_DMrEsBbX_exports);
@@ -4700,6 +4714,12 @@ async function k3(e7, t7, n4) {
     default:
       throw Error("No player found.");
   }
+}
+async function A2() {
+  await Promise.all(_3.map((e7) => {
+    let t7 = v4[e7.player];
+    return t7 ? t7.unloadPreloadedMediaProduct() : Promise.resolve();
+  }));
 }
 async function M2(e7, t7) {
   if (!t("gatherEvents")) return (e8) => Promise.resolve(void 0);
@@ -4972,45 +4992,45 @@ function B2(e7) {
   c6 = Se() ? c6 : void 0, t7 = je(t7);
   let u6 = [];
   async function d4(e8, d5) {
-    let { baseUrl: f3, fetch: p4 = r5, Request: m4 = n4, headers: h5, params: g5 = {}, parseAs: _4 = "json", querySerializer: v6, bodySerializer: y4 = a6 ?? ke, pathSerializer: b3, body: x3, middleware: S2 = [], ...C4 } = d5 || {}, w4 = t7;
-    f3 && (w4 = je(f3) ?? t7);
-    let T4 = typeof i5 == "function" ? i5 : De(i5);
-    v6 && (T4 = typeof v6 == "function" ? v6 : De({
+    let { baseUrl: f3, fetch: p4 = r5, Request: m4 = n4, headers: h5, params: g5 = {}, parseAs: _4 = "json", querySerializer: v6, bodySerializer: y5 = a6 ?? ke, pathSerializer: b4, body: x4, middleware: S4 = [], ...C5 } = d5 || {}, w5 = t7;
+    f3 && (w5 = je(f3) ?? t7);
+    let T5 = typeof i5 == "function" ? i5 : De(i5);
+    v6 && (T5 = typeof v6 == "function" ? v6 : De({
       ...typeof i5 == "object" ? i5 : {},
       ...v6
     }));
-    let E4 = b3 || o7 || Oe, D4 = x3 === void 0 ? void 0 : y4(x3, Ae(s6, h5, g5.header)), O4 = Ae(D4 === void 0 || D4 instanceof FormData ? {} : { "Content-Type": "application/json" }, s6, h5, g5.header), k4 = [...u6, ...S2], A3 = {
+    let E5 = b4 || o7 || Oe, D5 = x4 === void 0 ? void 0 : y5(x4, Ae(s6, h5, g5.header)), O5 = Ae(D5 === void 0 || D5 instanceof FormData ? {} : { "Content-Type": "application/json" }, s6, h5, g5.header), k5 = [...u6, ...S4], A4 = {
       redirect: "follow",
       ...l5,
-      ...C4,
-      body: D4,
-      headers: O4
-    }, j4, M4, N3 = new m4(V2(e8, {
-      baseUrl: w4,
+      ...C5,
+      body: D5,
+      headers: O5
+    }, j4, M4, N4 = new m4(V2(e8, {
+      baseUrl: w5,
       params: g5,
-      querySerializer: T4,
-      pathSerializer: E4
-    }), A3), P4;
-    for (let e9 in C4) e9 in N3 || (N3[e9] = C4[e9]);
-    if (k4.length) {
+      querySerializer: T5,
+      pathSerializer: E5
+    }), A4), P4;
+    for (let e9 in C5) e9 in N4 || (N4[e9] = C5[e9]);
+    if (k5.length) {
       j4 = Ce(), M4 = Object.freeze({
-        baseUrl: w4,
+        baseUrl: w5,
         fetch: p4,
         parseAs: _4,
-        querySerializer: T4,
-        bodySerializer: y4,
-        pathSerializer: E4
+        querySerializer: T5,
+        bodySerializer: y5,
+        pathSerializer: E5
       });
-      for (let t8 of k4) if (t8 && typeof t8 == "object" && typeof t8.onRequest == "function") {
+      for (let t8 of k5) if (t8 && typeof t8 == "object" && typeof t8.onRequest == "function") {
         let n5 = await t8.onRequest({
-          request: N3,
+          request: N4,
           schemaPath: e8,
           params: g5,
           options: M4,
           id: j4
         });
         if (n5) {
-          if (n5 instanceof m4) N3 = n5;
+          if (n5 instanceof m4) N4 = n5;
           else if (n5 instanceof Response) {
             P4 = n5;
             break;
@@ -5020,14 +5040,14 @@ function B2(e7) {
     }
     if (!P4) {
       try {
-        P4 = await p4(N3, c6);
+        P4 = await p4(N4, c6);
       } catch (t8) {
         let n5 = t8;
-        if (k4.length) for (let t9 = k4.length - 1; t9 >= 0; t9--) {
-          let r6 = k4[t9];
+        if (k5.length) for (let t9 = k5.length - 1; t9 >= 0; t9--) {
+          let r6 = k5[t9];
           if (r6 && typeof r6 == "object" && typeof r6.onError == "function") {
             let t10 = await r6.onError({
-              request: N3,
+              request: N4,
               error: n5,
               schemaPath: e8,
               params: g5,
@@ -5049,11 +5069,11 @@ function B2(e7) {
         }
         if (n5) throw n5;
       }
-      if (k4.length) for (let t8 = k4.length - 1; t8 >= 0; t8--) {
-        let n5 = k4[t8];
+      if (k5.length) for (let t8 = k5.length - 1; t8 >= 0; t8--) {
+        let n5 = k5[t8];
         if (n5 && typeof n5 == "object" && typeof n5.onResponse == "function") {
           let t9 = await n5.onResponse({
-            request: N3,
+            request: N4,
             response: P4,
             schemaPath: e8,
             params: g5,
@@ -5068,7 +5088,7 @@ function B2(e7) {
       }
     }
     let F4 = P4.headers.get("Content-Length");
-    if (P4.status === 204 || N3.method === "HEAD" || F4 === "0" && !P4.headers.get("Transfer-Encoding")?.includes("chunked")) return P4.ok ? {
+    if (P4.status === 204 || N4.method === "HEAD" || F4 === "0" && !P4.headers.get("Transfer-Encoding")?.includes("chunked")) return P4.ok ? {
       data: void 0,
       response: P4
     } : {
@@ -5663,6 +5683,83 @@ async function gt(e7) {
     });
   }
 }
+async function yt(e7, t7 = []) {
+  if (!p.hasEventSender()) throw Error("Playback not allowed without an event sender.");
+  if (C3(), !e7) return A2();
+  let n4 = u3();
+  y.preloadedStreamingSessionId && y.preloadedMediaProduct?.productId === e7.productId && v.hasStartedStreamInfo(y.preloadedStreamingSessionId) && v.clone(y.preloadedStreamingSessionId, n4);
+  let a6 = a.now();
+  R([oe({
+    sessionTags: t7,
+    startReason: "IMPLICIT",
+    streamingSessionId: n4,
+    timestamp: a6
+  })]).catch(console.error);
+  let { clientId: s6, token: c6 } = await f.credentialsProvider.getCredentials(), d4 = t("audioAdaptiveBitrateStreaming"), m4 = t("streamingWifiAudioQuality"), h5;
+  if (v.hasPlaybackInfo(n4)) {
+    let e8 = v.getPlaybackInfo(n4);
+    e8 && e8.expires > a.now() && (h5 = e8);
+  }
+  if (h5 === void 0) {
+    let t8 = O3(e7.productType, m4);
+    try {
+      h5 = await ct({
+        accessToken: c6,
+        audioAdaptiveBitrateStreaming: d4,
+        audioQuality: m4,
+        clientId: s6,
+        mediaProduct: e7,
+        playerType: t8,
+        prefetch: false,
+        streamingSessionId: n4
+      }), v.savePlaybackInfo(n4, h5);
+    } catch (e8) {
+      throw console.error("Fetching playback info for preloaded item failed. Try again or do a load when playback ends.", e8), e8;
+    }
+  }
+  let g5 = h5.manifestMimeType;
+  y.preloadPlayer = await k3(e7.productType, "trackId" in h5 ? h5.audioQuality : void 0, g5);
+  let _4 = be(h5);
+  v.saveStreamInfo(_4.streamingSessionId, _4), pt({
+    actualAssetPresentation: h5.assetPresentation,
+    actualAudioMode: "audioMode" in h5 ? h5.audioMode : null,
+    actualProductId: String("videoId" in h5 ? h5.videoId : h5.trackId),
+    actualQuality: _4.quality,
+    extras: e7.extras,
+    isPostPaywall: dt(h5.assetPresentation, e7),
+    playbackSessionId: n4,
+    productType: ht(e7.productType),
+    requestedProductId: e7.productId,
+    sourceId: e7.sourceId,
+    sourceType: e7.sourceType,
+    startAssetPosition: 0,
+    startTimestamp: a6,
+    streamingSessionId: n4
+  }).catch(console.error), R([oe({ streamingSessionId: n4 }), I2({ streamingSessionId: n4 })]).catch(console.error);
+  let { activePlayer: v6 } = y;
+  v6 && y.preloadPlayer && v6.name === y.preloadPlayer.name ? await v6.next({
+    assetPosition: 0,
+    mediaProduct: e7,
+    playbackInfo: h5,
+    streamInfo: _4
+  }) : v6 && await y.preloadPlayer.next({
+    assetPosition: 0,
+    mediaProduct: e7,
+    playbackInfo: h5,
+    streamInfo: _4
+  }), w3(y.preloadPlayer);
+}
+function bt(e7, t7 = []) {
+  if (e7 !== void 0 && vt && vt.mediaProduct?.productId === e7.productId && _t && !_t.signal.aborted) return vt.promise;
+  _t = new AbortController();
+  let n4 = yt(e7, t7).then(() => {
+    _t.abort("done");
+  });
+  return vt = {
+    mediaProduct: e7,
+    promise: n4
+  }, n4;
+}
 async function xt(e7, t7 = 0, n4 = false) {
   if (!p.hasEventSender()) throw Error("Playback not allowed without an event sender.");
   if (await a.synchronize(), d2.ensure().catch(console.error), vt && vt.mediaProduct?.productId === e7.productId && await vt.promise, y.activePlayer?.nextItem?.mediaProduct.productId === e7.productId) {
@@ -5678,33 +5775,33 @@ async function xt(e7, t7 = 0, n4 = false) {
     streamingSessionId: c6,
     timestamp: a.now()
   })]).catch(console.error), Qe.mark("streaming_metrics:playback_statistics:idealStartTimestamp", c6);
-  let { clientId: h5, token: g5 } = await f.credentialsProvider.getCredentials(), _4 = t("audioAdaptiveBitrateStreaming"), v6 = t("streamingWifiAudioQuality"), y4 = null, b3 = O3(e7.productType, v6);
+  let { clientId: h5, token: g5 } = await f.credentialsProvider.getCredentials(), _4 = t("audioAdaptiveBitrateStreaming"), v6 = t("streamingWifiAudioQuality"), y5 = null, b4 = O3(e7.productType, v6);
   try {
-    y4 = await ct({
+    y5 = await ct({
       accessToken: g5,
       audioAdaptiveBitrateStreaming: _4,
       audioQuality: v6,
       clientId: h5,
       mediaProduct: e7,
-      playerType: b3,
+      playerType: b4,
       prefetch: n4,
       streamingSessionId: c6
     });
   } catch (e8) {
     e8 instanceof u2 && _.dispatchError(e8), (document.location.hostname === "localhost" || document.location.hostname === "dev.tidal.com") && console.error(e8);
   }
-  if (!y4) return;
-  let S2 = be(y4);
-  v.saveStreamInfo(S2.streamingSessionId, S2), await a6, lt.enable();
-  let C4 = "trackId" in y4 ? y4.audioQuality : void 0, w4 = y4.manifestMimeType, T4 = await k3(e7.productType, C4, w4);
-  return x2(T4), T4.load({
+  if (!y5) return;
+  let S4 = be(y5);
+  v.saveStreamInfo(S4.streamingSessionId, S4), await a6, lt.enable();
+  let C5 = "trackId" in y5 ? y5.audioQuality : void 0, w5 = y5.manifestMimeType, T5 = await k3(e7.productType, C5, w5);
+  return x2(T5), T5.load({
     assetPosition: t7,
     mediaProduct: e7,
-    playbackInfo: y4,
-    streamInfo: S2
+    playbackInfo: y5,
+    streamInfo: S4
   }, "explicit");
 }
-var h4, g4, _3, v4, j2, N2, F2, te, re, ie, ae, xe, Se, Me, H2, Ne, Pe, Ge, Ke, qe, Qe, $e, et, lt, ft, vt;
+var h4, g4, _3, v4, j2, N2, F2, te, re, ie, ae, xe, Se, Me, H2, Ne, Pe, Ge, Ke, qe, Qe, $e, et, lt, ft, _t, vt;
 var init_load_uTL4eiru = __esm({
   async "node_modules/.pnpm/@tidal-music+player@0.20.1/node_modules/@tidal-music/player/dist/load-uTL4eiru.js"() {
     init_generate_guid_C7EoYu64();
@@ -5927,119 +6024,119 @@ var init_load_uTL4eiru = __esm({
               } : { done: true };
             };
           }
-          function y4(e9) {
+          function y5(e9) {
             var t9 = typeof Symbol < "u" && Symbol.iterator && e9[Symbol.iterator];
             if (t9) return t9.call(e9);
             if (typeof e9.length == "number") return { next: v6(e9) };
             throw Error(String(e9) + " is not an iterable or ArrayLike");
           }
-          function b3(e9) {
+          function b4(e9) {
             if (!(e9 instanceof Array)) {
-              e9 = y4(e9);
+              e9 = y5(e9);
               for (var t9, n6 = []; !(t9 = e9.next()).done; ) n6.push(t9.value);
               e9 = n6;
             }
             return e9;
           }
-          function x3(e9, t9) {
+          function x4(e9, t9) {
             return Object.prototype.hasOwnProperty.call(e9, t9);
           }
-          var S2 = typeof Object.assign == "function" ? Object.assign : function(e9, t9) {
+          var S4 = typeof Object.assign == "function" ? Object.assign : function(e9, t9) {
             if (e9 == null) throw TypeError("No nullish arg");
             e9 = Object(e9);
             for (var n6 = 1; n6 < arguments.length; n6++) {
               var r7 = arguments[n6];
-              if (r7) for (var i6 in r7) x3(r7, i6) && (e9[i6] = r7[i6]);
+              if (r7) for (var i6 in r7) x4(r7, i6) && (e9[i6] = r7[i6]);
             }
             return e9;
           };
           u6("Object.assign", function(e9) {
-            return e9 || S2;
+            return e9 || S4;
           });
-          function C4(e9) {
+          function C5(e9) {
             if (!(e9 instanceof Object)) throw TypeError("Iterator result " + e9 + " is not an object");
           }
-          function w4() {
+          function w5() {
             this.J = false, this.H = null, this.i = void 0, this.h = 1, this.F = this.I = 0, this.L = this.C = null;
           }
-          function T4(e9) {
+          function T5(e9) {
             if (e9.J) throw TypeError("Generator is already running");
             e9.J = true;
           }
-          w4.prototype.K = function(e9) {
+          w5.prototype.K = function(e9) {
             this.i = e9;
           };
-          function E4(e9, t9) {
+          function E5(e9, t9) {
             e9.C = {
               $i: t9,
               rj: true
             }, e9.h = e9.I || e9.F;
           }
-          w4.prototype.getNextAddressJsc = function() {
+          w5.prototype.getNextAddressJsc = function() {
             return this.h;
-          }, w4.prototype.getYieldResultJsc = function() {
+          }, w5.prototype.getYieldResultJsc = function() {
             return this.i;
-          }, w4.prototype.return = function(e9) {
+          }, w5.prototype.return = function(e9) {
             this.C = { return: e9 }, this.h = this.F;
-          }, w4.prototype.return = w4.prototype.return, w4.prototype.O = function(e9) {
+          }, w5.prototype.return = w5.prototype.return, w5.prototype.O = function(e9) {
             this.C = { A: e9 }, this.h = this.F;
-          }, w4.prototype.jumpThroughFinallyBlocks = w4.prototype.O, w4.prototype.g = function(e9, t9) {
+          }, w5.prototype.jumpThroughFinallyBlocks = w5.prototype.O, w5.prototype.g = function(e9, t9) {
             return this.h = t9, { value: e9 };
-          }, w4.prototype.yield = w4.prototype.g, w4.prototype.P = function(e9, t9) {
-            e9 = y4(e9);
+          }, w5.prototype.yield = w5.prototype.g, w5.prototype.P = function(e9, t9) {
+            e9 = y5(e9);
             var n6 = e9.next();
-            if (C4(n6), n6.done) this.i = n6.value, this.h = t9;
+            if (C5(n6), n6.done) this.i = n6.value, this.h = t9;
             else return this.H = e9, this.g(n6.value, t9);
-          }, w4.prototype.yieldAll = w4.prototype.P, w4.prototype.A = function(e9) {
+          }, w5.prototype.yieldAll = w5.prototype.P, w5.prototype.A = function(e9) {
             this.h = e9;
-          }, w4.prototype.jumpTo = w4.prototype.A, w4.prototype.j = function() {
+          }, w5.prototype.jumpTo = w5.prototype.A, w5.prototype.j = function() {
             this.h = 0;
-          }, w4.prototype.jumpToEnd = w4.prototype.j, w4.prototype.m = function(e9, t9) {
+          }, w5.prototype.jumpToEnd = w5.prototype.j, w5.prototype.m = function(e9, t9) {
             this.I = e9, t9 != null && (this.F = t9);
-          }, w4.prototype.setCatchFinallyBlocks = w4.prototype.m, w4.prototype.D = function(e9) {
+          }, w5.prototype.setCatchFinallyBlocks = w5.prototype.m, w5.prototype.D = function(e9) {
             this.I = 0, this.F = e9 || 0;
-          }, w4.prototype.setFinallyBlock = w4.prototype.D, w4.prototype.o = function(e9, t9) {
+          }, w5.prototype.setFinallyBlock = w5.prototype.D, w5.prototype.o = function(e9, t9) {
             this.h = e9, this.I = t9 || 0;
-          }, w4.prototype.leaveTryBlock = w4.prototype.o, w4.prototype.l = function(e9) {
+          }, w5.prototype.leaveTryBlock = w5.prototype.o, w5.prototype.l = function(e9) {
             return this.I = e9 || 0, e9 = this.C.$i, this.C = null, e9;
-          }, w4.prototype.enterCatchBlock = w4.prototype.l, w4.prototype.u = function(e9, t9, n6) {
+          }, w5.prototype.enterCatchBlock = w5.prototype.l, w5.prototype.u = function(e9, t9, n6) {
             n6 ? this.L[n6] = this.C : this.L = [this.C], this.I = e9 || 0, this.F = t9 || 0;
-          }, w4.prototype.enterFinallyBlock = w4.prototype.u, w4.prototype.B = function(e9, t9) {
+          }, w5.prototype.enterFinallyBlock = w5.prototype.u, w5.prototype.B = function(e9, t9) {
             t9 = this.L.splice(t9 || 0)[0], (t9 = this.C = this.C || t9) ? t9.rj ? this.h = this.I || this.F : t9.A != null && this.F < t9.A ? (this.h = t9.A, this.C = null) : this.h = this.F : this.h = e9;
-          }, w4.prototype.leaveFinallyBlock = w4.prototype.B, w4.prototype.M = function(e9) {
-            return new D4(e9);
-          }, w4.prototype.forIn = w4.prototype.M;
-          function D4(e9) {
+          }, w5.prototype.leaveFinallyBlock = w5.prototype.B, w5.prototype.M = function(e9) {
+            return new D5(e9);
+          }, w5.prototype.forIn = w5.prototype.M;
+          function D5(e9) {
             for (var t9 in this.i = e9, this.g = [], e9) this.g.push(t9);
             this.g.reverse();
           }
-          D4.prototype.h = function() {
+          D5.prototype.h = function() {
             for (; this.g.length > 0; ) {
               var e9 = this.g.pop();
               if (e9 in this.i) return e9;
             }
             return null;
-          }, D4.prototype.getNext = D4.prototype.h;
-          function O4(e9) {
-            this.g = new w4(), this.h = e9;
+          }, D5.prototype.getNext = D5.prototype.h;
+          function O5(e9) {
+            this.g = new w5(), this.h = e9;
           }
-          function k4(e9, t9) {
-            T4(e9.g);
+          function k5(e9, t9) {
+            T5(e9.g);
             var n6 = e9.g.H;
-            return n6 ? A3(e9, "return" in n6 ? n6.return : function(e10) {
+            return n6 ? A4(e9, "return" in n6 ? n6.return : function(e10) {
               return {
                 value: e10,
                 done: true
               };
             }, t9, e9.g.return) : (e9.g.return(t9), j4(e9));
           }
-          function A3(e9, t9, n6, r7) {
+          function A4(e9, t9, n6, r7) {
             try {
               var i6 = t9.call(e9.g.H, n6);
-              if (C4(i6), !i6.done) return e9.g.J = false, i6;
+              if (C5(i6), !i6.done) return e9.g.J = false, i6;
               var a7 = i6.value;
             } catch (t10) {
-              return e9.g.H = null, E4(e9.g, t10), j4(e9);
+              return e9.g.H = null, E5(e9.g, t10), j4(e9);
             }
             return e9.g.H = null, r7.call(e9.g, a7), j4(e9);
           }
@@ -6051,7 +6148,7 @@ var init_load_uTL4eiru = __esm({
                 done: false
               };
             } catch (t10) {
-              e9.g.i = void 0, E4(e9.g, t10);
+              e9.g.i = void 0, E5(e9.g, t10);
             }
             if (e9.g.J = false, e9.g.C) {
               if (t9 = e9.g.C, e9.g.C = null, t9.rj) throw t9.$i;
@@ -6067,16 +6164,16 @@ var init_load_uTL4eiru = __esm({
           }
           function M4(e9) {
             this.next = function(t9) {
-              return T4(e9.g), e9.g.H ? t9 = A3(e9, e9.g.H.next, t9, e9.g.K) : (e9.g.K(t9), t9 = j4(e9)), t9;
+              return T5(e9.g), e9.g.H ? t9 = A4(e9, e9.g.H.next, t9, e9.g.K) : (e9.g.K(t9), t9 = j4(e9)), t9;
             }, this.throw = function(t9) {
-              return T4(e9.g), e9.g.H ? t9 = A3(e9, e9.g.H.throw, t9, e9.g.K) : (E4(e9.g, t9), t9 = j4(e9)), t9;
+              return T5(e9.g), e9.g.H ? t9 = A4(e9, e9.g.H.throw, t9, e9.g.K) : (E5(e9.g, t9), t9 = j4(e9)), t9;
             }, this.return = function(t9) {
-              return k4(e9, t9);
+              return k5(e9, t9);
             }, this[Symbol.iterator] = function() {
               return this;
             };
           }
-          function N3(e9) {
+          function N4(e9) {
             function t9(t10) {
               return e9.next(t10);
             }
@@ -6091,7 +6188,7 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function P4(e9) {
-            return N3(new M4(new O4(e9)));
+            return N4(new M4(new O5(e9)));
           }
           function F4() {
             for (var e9 = Number(this), t9 = [], n6 = e9; n6 < arguments.length; n6++) t9[n6 - e9] = arguments[n6];
@@ -6289,10 +6386,10 @@ var init_load_uTL4eiru = __esm({
               });
             }, t9.race = function(e10) {
               return new t9(function(t10, n7) {
-                for (var i7 = y4(e10), a8 = i7.next(); !a8.done; a8 = i7.next()) r7(a8.value).hf(t10, n7);
+                for (var i7 = y5(e10), a8 = i7.next(); !a8.done; a8 = i7.next()) r7(a8.value).hf(t10, n7);
               });
             }, t9.all = function(e10) {
-              var n7 = y4(e10), i7 = n7.next();
+              var n7 = y5(e10), i7 = n7.next();
               return i7.done ? r7([]) : new t9(function(e11, t10) {
                 function a8(t11) {
                   return function(n8) {
@@ -6308,7 +6405,7 @@ var init_load_uTL4eiru = __esm({
           }), u6("WeakMap", function(e9) {
             function t9(e10) {
               if (this.g = (c7 += Math.random() + 1).toString(), e10) {
-                e10 = y4(e10);
+                e10 = y5(e10);
                 for (var t10; !(t10 = e10.next()).done; ) t10 = t10.value, this.set(t10[0], t10[1]);
               }
             }
@@ -6319,7 +6416,7 @@ var init_load_uTL4eiru = __esm({
               return t10 === "object" && e10 !== null || t10 === "function";
             }
             function i6(e10) {
-              x3(e10, s7) || a6(e10, s7, { value: new n6() });
+              x4(e10, s7) || a6(e10, s7, { value: new n6() });
             }
             function o8(e10) {
               var t10 = Object[e10];
@@ -6341,14 +6438,14 @@ var init_load_uTL4eiru = __esm({
             var c7 = 0;
             return t9.prototype.set = function(e10, t10) {
               if (!r7(e10)) throw Error("Invalid WeakMap key");
-              if (i6(e10), !x3(e10, s7)) throw Error("WeakMap key fail: " + e10);
+              if (i6(e10), !x4(e10, s7)) throw Error("WeakMap key fail: " + e10);
               return e10[s7][this.g] = t10, this;
             }, t9.prototype.get = function(e10) {
-              return r7(e10) && x3(e10, s7) ? e10[s7][this.g] : void 0;
+              return r7(e10) && x4(e10, s7) ? e10[s7][this.g] : void 0;
             }, t9.prototype.has = function(e10) {
-              return r7(e10) && x3(e10, s7) && x3(e10[s7], this.g);
+              return r7(e10) && x4(e10, s7) && x4(e10[s7], this.g);
             }, t9.prototype.delete = function(e10) {
-              return r7(e10) && x3(e10, s7) && x3(e10[s7], this.g) ? delete e10[s7][this.g] : false;
+              return r7(e10) && x4(e10, s7) && x4(e10[s7], this.g) ? delete e10[s7][this.g] : false;
             }, t9;
           }), u6("Map", function(e9) {
             function t9() {
@@ -6376,7 +6473,7 @@ var init_load_uTL4eiru = __esm({
               var n7 = t10 && typeof t10;
               n7 == "object" || n7 == "function" ? a7.has(t10) ? n7 = a7.get(t10) : (n7 = "" + ++o8, a7.set(t10, n7)) : n7 = "p_" + t10;
               var r8 = e10[0][n7];
-              if (r8 && x3(e10[0], n7)) for (e10 = 0; e10 < r8.length; e10++) {
+              if (r8 && x4(e10[0], n7)) for (e10 = 0; e10 < r8.length; e10++) {
                 var i7 = r8[e10];
                 if (t10 !== t10 && i7.key !== i7.key || t10 === i7.key) return {
                   id: n7,
@@ -6394,14 +6491,14 @@ var init_load_uTL4eiru = __esm({
             }
             function i6(e10) {
               if (this[0] = {}, this[1] = t9(), this.size = 0, e10) {
-                e10 = y4(e10);
+                e10 = y5(e10);
                 for (var n7; !(n7 = e10.next()).done; ) n7 = n7.value, this.set(n7[0], n7[1]);
               }
             }
             if ((function() {
               if (!e9 || typeof e9 != "function" || !e9.prototype.entries || typeof Object.seal != "function") return false;
               try {
-                var t10 = Object.seal({ x: 4 }), n7 = new e9(y4([[t10, "s"]]));
+                var t10 = Object.seal({ x: 4 }), n7 = new e9(y5([[t10, "s"]]));
                 if (n7.get(t10) != "s" || n7.size != 1 || n7.get({ x: 4 }) || n7.set({ x: 4 }, "t") != n7 || n7.size != 2) return false;
                 var r8 = n7.entries(), i7 = r8.next();
                 return i7.done || i7.value[0] != t10 || i7.value[1] != "s" ? false : (i7 = r8.next(), !(i7.done || i7.value[0].x != 4 || i7.value[1] != "t" || !r8.next().done));
@@ -6448,7 +6545,7 @@ var init_load_uTL4eiru = __esm({
           }), u6("Set", function(e9) {
             function t9(e10) {
               if (this.g = /* @__PURE__ */ new Map(), e10) {
-                e10 = y4(e10);
+                e10 = y5(e10);
                 for (var t10; !(t10 = e10.next()).done; ) this.add(t10.value);
               }
               this.size = this.g.size;
@@ -6456,7 +6553,7 @@ var init_load_uTL4eiru = __esm({
             return (function() {
               if (!e9 || typeof e9 != "function" || !e9.prototype.entries || typeof Object.seal != "function") return false;
               try {
-                var t10 = Object.seal({ x: 4 }), n6 = new e9(y4([t10]));
+                var t10 = Object.seal({ x: 4 }), n6 = new e9(y5([t10]));
                 if (!n6.has(t10) || n6.size != 1 || n6.add(t10) != n6 || n6.size != 1 || n6.add({ x: 4 }) != n6 || n6.size != 2) return false;
                 var r7 = n6.entries(), i6 = r7.next();
                 return i6.done || i6.value[0] != t10 || i6.value[1] != t10 ? false : (i6 = r7.next(), i6.done || i6.value[0] == t10 || i6.value[0].x != 4 || i6.value[1] != i6.value[0] ? false : r7.next().done);
@@ -6588,7 +6685,7 @@ var init_load_uTL4eiru = __esm({
           }), u6("WeakSet", function(e9) {
             function t9(e10) {
               if (this.g = /* @__PURE__ */ new WeakMap(), e10) {
-                e10 = y4(e10);
+                e10 = y5(e10);
                 for (var t10; !(t10 = e10.next()).done; ) this.add(t10.value);
               }
             }
@@ -6614,7 +6711,7 @@ var init_load_uTL4eiru = __esm({
           }), u6("Object.entries", function(e9) {
             return e9 || function(e10) {
               var t9 = [], n6;
-              for (n6 in e10) x3(e10, n6) && t9.push([n6, e10[n6]]);
+              for (n6 in e10) x4(e10, n6) && t9.push([n6, e10[n6]]);
               return t9;
             };
           }), u6("Promise.withResolvers", function(e9) {
@@ -6694,7 +6791,7 @@ var init_load_uTL4eiru = __esm({
           }), u6("Object.values", function(e9) {
             return e9 || function(e10) {
               var t9 = [], n6;
-              for (n6 in e10) x3(e10, n6) && t9.push(e10[n6]);
+              for (n6 in e10) x4(e10, n6) && t9.push(e10[n6]);
               return t9;
             };
           }), u6("Math.log2", function(e9) {
@@ -6716,7 +6813,7 @@ var init_load_uTL4eiru = __esm({
             };
           });
           var re2 = this || self;
-          function L3(e9, t9) {
+          function L4(e9, t9) {
             e9 = e9.split(".");
             var n6 = re2;
             e9[0] in n6 || n6.execScript === void 0 || n6.execScript("var " + e9[0]);
@@ -6751,31 +6848,31 @@ var init_load_uTL4eiru = __esm({
           }
           function ce2() {
           }
-          function R3() {
+          function R4() {
           }
           function le2(e9) {
             var t9 = F4.apply(1, arguments);
-            de2.has(e9) || (de2.add(e9), R3.apply(se2, b3(t9)));
+            de2.has(e9) || (de2.add(e9), R4.apply(se2, b4(t9)));
           }
           function ue2() {
           }
           var de2 = /* @__PURE__ */ new Set();
           self.console && ((/* @__PURE__ */ new Map()).set(1, function() {
-            return console.error.apply(console, b3(F4.apply(0, arguments)));
+            return console.error.apply(console, b4(F4.apply(0, arguments)));
           }).set(2, function() {
-            return console.warn.apply(console, b3(F4.apply(0, arguments)));
+            return console.warn.apply(console, b4(F4.apply(0, arguments)));
           }).set(3, function() {
-            return console.info.apply(console, b3(F4.apply(0, arguments)));
+            return console.info.apply(console, b4(F4.apply(0, arguments)));
           }).set(4, function() {
-            return console.log.apply(console, b3(F4.apply(0, arguments)));
+            return console.log.apply(console, b4(F4.apply(0, arguments)));
           }).set(5, function() {
-            return console.debug.apply(console, b3(F4.apply(0, arguments)));
+            return console.debug.apply(console, b4(F4.apply(0, arguments)));
           }).set(6, function() {
-            return console.debug.apply(console, b3(F4.apply(0, arguments)));
-          }), R3 = function() {
-            return console.warn.apply(console, b3(F4.apply(0, arguments)));
+            return console.debug.apply(console, b4(F4.apply(0, arguments)));
+          }), R4 = function() {
+            return console.warn.apply(console, b4(F4.apply(0, arguments)));
           }, ce2 = function() {
-            console.error.apply(console, b3(F4.apply(0, arguments)));
+            console.error.apply(console, b4(F4.apply(0, arguments)));
           });
           function fe2(e9, t9) {
             return typeof e9 == "number" && typeof t9 == "number" && isNaN(e9) && isNaN(t9) ? true : e9 === t9;
@@ -6785,7 +6882,7 @@ var init_load_uTL4eiru = __esm({
           }
           function me2(e9, t9, n6) {
             if (n6 ||= fe2, e9.length != t9.length) return false;
-            t9 = t9.slice(), e9 = y4(e9);
+            t9 = t9.slice(), e9 = y5(e9);
             for (var r7 = e9.next(), i6 = {}; !r7.done; i6 = { vj: void 0 }, r7 = e9.next()) {
               if (i6.vj = r7.value, r7 = t9.findIndex(/* @__PURE__ */ (function(e10) {
                 return function(t10) {
@@ -6798,7 +6895,7 @@ var init_load_uTL4eiru = __esm({
           }
           function he2(e9, t9) {
             var n6 = [], r7 = [];
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var i6 = e9.next(); !i6.done; i6 = e9.next()) i6 = i6.value, t9(i6) ? n6.push(i6) : r7.push(i6);
             return [n6, r7];
           }
@@ -6841,10 +6938,10 @@ var init_load_uTL4eiru = __esm({
           }, r6.keys = function() {
             return Array.from(this.g.keys());
           };
-          function z3() {
+          function z4() {
             this.g = new ve2();
           }
-          r6 = z3.prototype, r6.release = function() {
+          r6 = z4.prototype, r6.release = function() {
             this.Ea(), this.g = null;
           }, r6.G = function(e9, t9, n6, r7) {
             this.g && (e9 = new ye2(e9, t9, n6, r7), this.g.push(t9, e9));
@@ -6856,7 +6953,7 @@ var init_load_uTL4eiru = __esm({
             this.G(e9, t9, i6, r7);
           }, r6.Hb = function(e9, t9, n6, r7) {
             if (this.g) {
-              t9 = y4(t9);
+              t9 = y5(t9);
               for (var i6 = t9.next(); !i6.done; i6 = t9.next()) this.G(e9, i6.value, n6, r7);
             }
           }, r6.Sl = function(e9, t9, n6, r7) {
@@ -6864,28 +6961,28 @@ var init_load_uTL4eiru = __esm({
             if (this.g) for (var a7 = false, o8 = function(r8) {
               if (!a7) {
                 a7 = true;
-                for (var s8 = y4(t9), c8 = s8.next(); !c8.done; c8 = s8.next()) i6.Ua(e9, c8.value, o8);
+                for (var s8 = y5(t9), c8 = s8.next(); !c8.done; c8 = s8.next()) i6.Ua(e9, c8.value, o8);
                 n6(r8);
               }
-            }, s7 = y4(t9), c7 = s7.next(); !c7.done; c7 = s7.next()) this.G(e9, c7.value, o8, r7);
+            }, s7 = y5(t9), c7 = s7.next(); !c7.done; c7 = s7.next()) this.G(e9, c7.value, o8, r7);
           }, r6.Ua = function(e9, t9, n6) {
             if (this.g) {
               var r7 = this.g.get(t9) || [];
-              r7 = y4(r7);
+              r7 = y5(r7);
               for (var i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, i6.target != e9 || n6 != i6.listener && n6 || (i6.Ua(), this.g.remove(t9, i6));
             }
           }, r6.Nm = function(e9, t9, n6) {
             if (this.g) {
-              t9 = y4(t9);
+              t9 = y5(t9);
               for (var r7 = t9.next(); !r7.done; r7 = t9.next()) this.Ua(e9, r7.value, n6);
             }
           }, r6.Ea = function() {
             if (this.g) {
-              for (var e9 = [], t9 = y4(this.g.g.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) e9.push.apply(e9, b3(n6.value));
-              for (e9 = y4(e9), t9 = e9.next(); !t9.done; t9 = e9.next()) t9.value.Ua();
+              for (var e9 = [], t9 = y5(this.g.g.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) e9.push.apply(e9, b4(n6.value));
+              for (e9 = y5(e9), t9 = e9.next(); !t9.done; t9 = e9.next()) t9.value.Ua();
               this.g.g.clear();
             }
-          }, L3("shaka.util.EventManager", z3), z3.prototype.removeAll = z3.prototype.Ea, z3.prototype.unlistenMulti = z3.prototype.Nm, z3.prototype.unlisten = z3.prototype.Ua, z3.prototype.listenOnceMulti = z3.prototype.Sl, z3.prototype.listenMulti = z3.prototype.Hb, z3.prototype.listenOnce = z3.prototype.oa, z3.prototype.listen = z3.prototype.G, z3.prototype.release = z3.prototype.release;
+          }, L4("shaka.util.EventManager", z4), z4.prototype.removeAll = z4.prototype.Ea, z4.prototype.unlistenMulti = z4.prototype.Nm, z4.prototype.unlisten = z4.prototype.Ua, z4.prototype.listenOnceMulti = z4.prototype.Sl, z4.prototype.listenMulti = z4.prototype.Hb, z4.prototype.listenOnce = z4.prototype.oa, z4.prototype.listen = z4.prototype.G, z4.prototype.release = z4.prototype.release;
           function ye2(e9, t9, n6, r7) {
             this.target = e9, this.type = t9, this.listener = n6, this.g = be2(e9, r7), this.target.addEventListener(t9, n6, this.g);
           }
@@ -6924,7 +7021,7 @@ var init_load_uTL4eiru = __esm({
           Ce2.prototype.value = function() {
             return this.g === void 0 && (this.g = this.h()), this.g;
           };
-          function B3() {
+          function B4() {
             return Ee2.value();
           }
           var we2 = null, Te2 = null, Ee2 = new Ce2(function() {
@@ -6937,15 +7034,15 @@ var init_load_uTL4eiru = __esm({
             if (!e9 && !t9) return true;
             if (!e9 || !t9 || e9.byteLength != t9.byteLength) return false;
             if ((ArrayBuffer.isView(e9) ? e9.buffer : e9) == (ArrayBuffer.isView(t9) ? t9.buffer : t9) && (e9.byteOffset || 0) == (t9.byteOffset || 0)) return true;
-            var n6 = V3(e9);
-            t9 = V3(t9);
+            var n6 = V4(e9);
+            t9 = V4(t9);
             for (var r7 = 0; r7 < e9.byteLength; r7++) if (n6[r7] != t9[r7]) return false;
             return true;
           }
           function ke2(e9) {
             return ArrayBuffer.isView(e9) ? e9.byteOffset == 0 && e9.byteLength == e9.buffer.byteLength ? e9.buffer : new Uint8Array(e9).buffer : e9;
           }
-          function V3(e9, t9, n6) {
+          function V4(e9, t9, n6) {
             return n6 = n6 === void 0 ? Infinity : n6, Me2(e9, t9 === void 0 ? 0 : t9, n6, Uint8Array);
           }
           function Ae2(e9, t9, n6) {
@@ -6960,7 +7057,7 @@ var init_load_uTL4eiru = __esm({
             var o8 = ((e9.byteOffset || 0) + e9.byteLength) / a7;
             return e9 = Math.floor(Math.max(0, Math.min(((e9.byteOffset || 0) + t9) / a7, o8))), new r7(i6, e9, Math.floor(Math.min(e9 + Math.max(n6, 0), o8)) - e9);
           }
-          L3("shaka.util.BufferUtils", De2), De2.toDataView = je2, De2.toUint16 = Ae2, De2.toUint8 = V3, De2.toArrayBuffer = ke2, De2.equal = Oe2;
+          L4("shaka.util.BufferUtils", De2), De2.toDataView = je2, De2.toUint16 = Ae2, De2.toUint8 = V4, De2.toArrayBuffer = ke2, De2.equal = Oe2;
           function H4(e9, t9, n6) {
             var r7 = F4.apply(3, arguments);
             if (this.severity = e9, this.category = t9, this.code = n6, this.data = r7, this.handled = false, this.message = "Shaka Error " + this.code, Pe2) try {
@@ -6980,7 +7077,7 @@ var init_load_uTL4eiru = __esm({
               message: e9.message
             };
           }
-          L3("shaka.util.Error", H4);
+          L4("shaka.util.Error", H4);
           var Pe2 = true;
           H4.Severity = {
             RECOVERABLE: 1,
@@ -7157,7 +7254,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Ie2(e9) {
             if (!e9) return "";
-            if (e9 = V3(e9), e9[0] == 239 && e9[1] == 187 && e9[2] == 191 && (e9 = e9.subarray(3)), self.TextDecoder && !B3().mi()) return e9 = new TextDecoder().decode(e9), e9.includes("\uFFFD") && ce2('Decoded string contains an "unknown character" codepoint.  That probably means the UTF8 encoding was incorrect!'), e9;
+            if (e9 = V4(e9), e9[0] == 239 && e9[1] == 187 && e9[2] == 191 && (e9 = e9.subarray(3)), self.TextDecoder && !B4().mi()) return e9 = new TextDecoder().decode(e9), e9.includes("\uFFFD") && ce2('Decoded string contains an "unknown character" codepoint.  That probably means the UTF8 encoding was incorrect!'), e9;
             for (var t9 = "", n6 = 0; n6 < e9.length; ++n6) {
               var r7 = 65533;
               if (e9[n6] & 128 ? e9.length >= n6 + 2 && (e9[n6] & 224) == 192 && (e9[n6 + 1] & 192) == 128 ? (r7 = (e9[n6] & 31) << 6 | e9[n6 + 1] & 63, n6 += 1) : e9.length >= n6 + 3 && (e9[n6] & 240) == 224 && (e9[n6 + 1] & 192) == 128 && (e9[n6 + 2] & 192) == 128 ? (r7 = (e9[n6] & 15) << 12 | (e9[n6 + 1] & 63) << 6 | e9[n6 + 2] & 63, n6 += 2) : e9.length >= n6 + 4 && (e9[n6] & 241) == 240 && (e9[n6 + 1] & 192) == 128 && (e9[n6 + 2] & 192) == 128 && (e9[n6 + 3] & 192) == 128 && (r7 = (e9[n6] & 7) << 18 | (e9[n6 + 1] & 63) << 12 | (e9[n6 + 2] & 63) << 6 | e9[n6 + 3] & 63, n6 += 3) : r7 = e9[n6], r7 <= 65535) t9 += String.fromCharCode(r7);
@@ -7183,7 +7280,7 @@ var init_load_uTL4eiru = __esm({
               return n6.byteLength <= e10 || n6[e10] >= 9 && n6[e10] <= 126;
             }
             if (!e9) return "";
-            var n6 = V3(e9);
+            var n6 = V4(e9);
             if (n6[0] == 239 && n6[1] == 187 && n6[2] == 191) return Ie2(n6);
             if (n6[0] == 254 && n6[1] == 255) return Le2(n6.subarray(2), false);
             if (n6[0] == 255 && n6[1] == 254) return Le2(n6.subarray(2), true);
@@ -7193,7 +7290,7 @@ var init_load_uTL4eiru = __esm({
             throw new H4(2, 2, 2003);
           }
           function ze2(e9) {
-            if (self.TextEncoder && !B3().mi()) {
+            if (self.TextEncoder && !B4().mi()) {
               var t9 = new TextEncoder();
               return ke2(t9.encode(e9));
             }
@@ -7220,7 +7317,7 @@ var init_load_uTL4eiru = __esm({
               return e10[1] == "#" ? (e10 = e10[2] == "x" || e10[2] == "X" ? parseInt(e10.substring(3), 16) : parseInt(e10.substring(2), 10), e10 >= 0 && e10 <= 1114111 ? String.fromCodePoint(e10) : "") : t9[e10] || "'";
             }) : e9 || "";
           }
-          L3("shaka.util.StringUtils", Fe2), Fe2.resetFromCharCode = function() {
+          L4("shaka.util.StringUtils", Fe2), Fe2.resetFromCharCode = function() {
             He2.g = void 0;
           }, Fe2.toUTF16 = Be2, Fe2.toUTF8 = ze2, Fe2.fromBytesAutoDetect = Re2, Fe2.fromUTF16 = Le2, Fe2.fromUTF8 = Ie2;
           var He2 = new Ce2(function() {
@@ -7243,13 +7340,13 @@ var init_load_uTL4eiru = __esm({
           function Ue2() {
           }
           function We2(e9) {
-            return e9 = V3(e9), Uint8Array.prototype.toBase64 ? e9.toBase64({
+            return e9 = V4(e9), Uint8Array.prototype.toBase64 ? e9.toBase64({
               alphabet: "base64",
               omitPadding: false
             }) : (e9 = He2.value()(e9), btoa(e9));
           }
           function Ge2(e9, t9) {
-            return t9 ??= true, Uint8Array.prototype.toBase64 ? V3(e9).toBase64({
+            return t9 ??= true, Uint8Array.prototype.toBase64 ? V4(e9).toBase64({
               alphabet: "base64url",
               omitPadding: !t9
             }) : (e9 = We2(e9).replace(/\+/g, "-").replace(/\//g, "_"), t9 ? e9 : e9.replace(/[=]*$/, ""));
@@ -7270,9 +7367,9 @@ var init_load_uTL4eiru = __esm({
             return Uint8Array.fromHex(e9);
           }
           function Je2(e9) {
-            var t9 = V3(e9);
+            var t9 = V4(e9);
             if (!Uint8Array.prototype.toHex) {
-              e9 = "", t9 = y4(t9);
+              e9 = "", t9 = y5(t9);
               for (var n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, n6 = n6.toString(16), n6.length == 1 && (n6 = "0" + n6), e9 += n6;
               return e9;
             }
@@ -7287,7 +7384,7 @@ var init_load_uTL4eiru = __esm({
             for (var r7 = 0, i6 = t9; i6 < n6; ++i6) r7 += e9[i6].byteLength;
             for (r7 = new Uint8Array(r7), i6 = 0; t9 < n6; ++t9) {
               var a7 = e9[t9];
-              ArrayBuffer.isView(a7) && a7.BYTES_PER_ELEMENT === 1 ? r7.set(a7, i6) : r7.set(V3(a7), i6), i6 += a7.byteLength;
+              ArrayBuffer.isView(a7) && a7.BYTES_PER_ELEMENT === 1 ? r7.set(a7, i6) : r7.set(V4(a7), i6), i6 += a7.byteLength;
             }
             return r7;
           }
@@ -7298,13 +7395,13 @@ var init_load_uTL4eiru = __esm({
             }
             return t9.subarray(0, r7);
           }
-          L3("shaka.util.Uint8ArrayUtils", Ue2), Ue2.concat = Ye2, Ue2.toHex = Je2, Ue2.fromHex = qe2, Ue2.fromBase64 = Ke2, Ue2.toBase64 = Ge2, Ue2.toStandardBase64 = We2;
+          L4("shaka.util.Uint8ArrayUtils", Ue2), Ue2.concat = Ye2, Ue2.toHex = Je2, Ue2.fromHex = qe2, Ue2.fromBase64 = Ke2, Ue2.toBase64 = Ge2, Ue2.toStandardBase64 = We2;
           function Qe2(e9, t9) {
             if (e9 === t9 || !e9.length || !t9.length) return true;
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) {
               if (n6 = n6.value, at2(n6)) return true;
-              for (var r7 = y4(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) if (i6 = i6.value, n6.keySystem === i6.keySystem || at2(i6)) return true;
+              for (var r7 = y5(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) if (i6 = i6.value, n6.keySystem === i6.keySystem || at2(i6)) return true;
             }
             return false;
           }
@@ -7312,13 +7409,13 @@ var init_load_uTL4eiru = __esm({
             if (!e9.length) return t9;
             if (!t9.length) return e9;
             var n6 = [];
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) {
               r7 = r7.value;
-              for (var i6 = y4(t9), a7 = i6.next(); !a7.done; a7 = i6.next()) if (a7 = a7.value, r7.keySystem == a7.keySystem) {
+              for (var i6 = y5(t9), a7 = i6.next(); !a7.done; a7 = i6.next()) if (a7 = a7.value, r7.keySystem == a7.keySystem) {
                 i6 = /* @__PURE__ */ new Map();
-                for (var o8 = y4((r7.initData || []).concat(a7.initData || [])), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = s7.value, i6.set(s7.keyId, s7);
-                i6 = Array.from(i6.values()), o8 = r7.keyIds && a7.keyIds ? new Set([].concat(b3(r7.keyIds), b3(a7.keyIds))) : r7.keyIds || a7.keyIds, n6.push({
+                for (var o8 = y5((r7.initData || []).concat(a7.initData || [])), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = s7.value, i6.set(s7.keyId, s7);
+                i6 = Array.from(i6.values()), o8 = r7.keyIds && a7.keyIds ? new Set([].concat(b4(r7.keyIds), b4(a7.keyIds))) : r7.keyIds || a7.keyIds, n6.push({
                   keySystem: r7.keySystem,
                   licenseServerUri: r7.licenseServerUri || a7.licenseServerUri,
                   distinctiveIdentifierRequired: r7.distinctiveIdentifierRequired || a7.distinctiveIdentifierRequired,
@@ -7354,7 +7451,7 @@ var init_load_uTL4eiru = __esm({
             return (e9 = e9.licenseServerUri) ? e9.startsWith("data:application/json;base64,") : false;
           }
           function ot2(e9, t9, n6, r7) {
-            return r7 = [].concat(b3(new Set(r7))).sort().join("#"), e9 + "#" + t9 + "#" + n6 + "#" + r7;
+            return r7 = [].concat(b4(new Set(r7))).sort().join("#"), e9 + "#" + t9 + "#" + n6 + "#" + r7;
           }
           function st2(e9, t9) {
             e9 = e9 !== void 0 && e9, t9 = t9 !== void 0 && t9;
@@ -7393,37 +7490,37 @@ var init_load_uTL4eiru = __esm({
             return e9 = ht2(e9), t9 = ht2(t9), e9 = e9.split("-"), t9 = t9.split("-"), e9.length == 2 && t9.length == 2 && e9[0] == t9[0];
           }
           function ht2(e9) {
-            e9 = y4(e9.split("-x-"));
+            e9 = y5(e9.split("-x-"));
             var t9 = e9.next().value;
             t9 = t9 === void 0 ? "" : t9, e9 = e9.next().value, e9 = e9 === void 0 ? "" : e9;
-            var n6 = y4(t9.split("-"));
+            var n6 = y5(t9.split("-"));
             return t9 = n6.next().value, t9 = t9 === void 0 ? "" : t9, n6 = n6.next().value, n6 = n6 === void 0 ? "" : n6, e9 = e9 ? "x-" + e9 : "", t9 = t9.toLowerCase(), t9 = bt2.get(t9) || t9, n6 = n6.toUpperCase(), (n6 ? t9 + "-" + n6 : t9) + (e9 ? "-" + e9 : "");
           }
           function gt2(e9, t9) {
             return e9 = ht2(e9), t9 = ht2(t9), t9 == e9 ? 4 : pt2(t9, e9) ? 3 : mt2(t9, e9) ? 2 : +!!pt2(e9, t9);
           }
-          function _t(e9) {
+          function _t2(e9) {
             var t9 = e9.indexOf("-");
             return e9 = t9 >= 0 ? e9.substring(0, t9) : e9, e9 = e9.toLowerCase(), e9 = bt2.get(e9) || e9;
           }
           function vt2(e9) {
             return e9.language ? ht2(e9.language) : e9.audio && e9.audio.language ? ht2(e9.audio.language) : e9.video && e9.video.language ? ht2(e9.video.language) : "und";
           }
-          function yt(e9, t9) {
+          function yt2(e9, t9) {
             e9 = ht2(e9);
             var n6 = /* @__PURE__ */ new Set();
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var r7 = t9.next(); !r7.done; r7 = t9.next()) n6.add(ht2(r7.value));
-            for (t9 = y4(n6), r7 = t9.next(); !r7.done; r7 = t9.next()) if (r7 = r7.value, r7 == e9) return r7;
-            for (t9 = y4(n6), r7 = t9.next(); !r7.done; r7 = t9.next()) if (r7 = r7.value, pt2(r7, e9)) return r7;
-            for (t9 = y4(n6), r7 = t9.next(); !r7.done; r7 = t9.next()) if (r7 = r7.value, mt2(r7, e9)) return r7;
-            for (n6 = y4(n6), t9 = n6.next(); !t9.done; t9 = n6.next()) if (t9 = t9.value, pt2(e9, t9)) return t9;
+            for (t9 = y5(n6), r7 = t9.next(); !r7.done; r7 = t9.next()) if (r7 = r7.value, r7 == e9) return r7;
+            for (t9 = y5(n6), r7 = t9.next(); !r7.done; r7 = t9.next()) if (r7 = r7.value, pt2(r7, e9)) return r7;
+            for (t9 = y5(n6), r7 = t9.next(); !r7.done; r7 = t9.next()) if (r7 = r7.value, mt2(r7, e9)) return r7;
+            for (n6 = y5(n6), t9 = n6.next(); !t9.done; t9 = n6.next()) if (t9 = t9.value, pt2(e9, t9)) return t9;
             return null;
           }
-          L3("shaka.util.LanguageUtils", dt2), dt2.findClosestLocale = yt, dt2.getLocaleForVariant = vt2, dt2.getLocaleForText = function(e9) {
+          L4("shaka.util.LanguageUtils", dt2), dt2.findClosestLocale = yt2, dt2.getLocaleForVariant = vt2, dt2.getLocaleForText = function(e9) {
             return ht2(e9.language || "und");
-          }, dt2.getBase = _t, dt2.relatedness = gt2, dt2.areSiblings = function(e9, t9) {
-            var n6 = _t(e9), r7 = _t(t9);
+          }, dt2.getBase = _t2, dt2.relatedness = gt2, dt2.areSiblings = function(e9, t9) {
+            var n6 = _t2(e9), r7 = _t2(t9);
             return e9 != n6 && t9 != r7 && n6 == r7;
           }, dt2.normalize = ht2, dt2.isSiblingOf = mt2, dt2.isParentOf = pt2, dt2.areLanguageCompatible = ft2, dt2.areLocaleCompatible = function(e9, t9) {
             return e9 = ht2(e9), t9 = ht2(t9), e9 == t9;
@@ -7670,7 +7767,7 @@ var init_load_uTL4eiru = __esm({
             }), t9 = JSON.stringify({ keys: r7 });
             var s7 = JSON.stringify({ kids: i6 });
             return s7 = [{
-              initData: V3(ze2(s7)),
+              initData: V4(ze2(s7)),
               initDataType: "keyids"
             }], {
               keySystem: "org.w3.clearkey",
@@ -7695,18 +7792,18 @@ var init_load_uTL4eiru = __esm({
           }
           function wt(e9, t9) {
             var n6 = At.get(e9);
-            n6 = y4(n6);
+            n6 = y5(n6);
             for (var r7 = n6.next(); !r7.done; r7 = n6.next()) {
               r7 = r7.value;
-              for (var i6 = y4(t9), a7 = i6.next(); !a7.done; a7 = i6.next()) if (a7 = a7.value, r7.test(a7.trim())) return a7.trim();
+              for (var i6 = y5(t9), a7 = i6.next(); !a7.done; a7 = i6.next()) if (a7 = a7.value, r7.test(a7.trim())) return a7.trim();
             }
-            return e9 == U2 ? "" : null;
+            return e9 == U3 ? "" : null;
           }
           function Tt(e9, t9) {
             if (e9) {
               var n6 = 1;
               e9 = e9.split(";");
-              for (var r7 = y4(e9), i6 = r7.next(); !i6.done; i6 = r7.next()) {
+              for (var r7 = y5(e9), i6 = r7.next(); !i6.done; i6 = r7.next()) {
                 var a7 = i6.value;
                 a7.includes("=") ? (a7 = a7.split("="), i6 = a7[0].startsWith("CC") ? a7[0] : "CC" + a7[0], a7 = a7[1] || "und") : (i6 = "CC" + n6, n6 += e9.length == 2 ? 2 : 1), t9.set(i6, ht2(a7));
               }
@@ -7715,7 +7812,7 @@ var init_load_uTL4eiru = __esm({
           function Et(e9, t9) {
             if (e9) {
               var n6 = 1;
-              e9 = y4(e9.split(";"));
+              e9 = y5(e9.split(";"));
               for (var r7 = e9.next(); !r7.done; r7 = e9.next()) {
                 var i6 = r7.value;
                 i6.includes("=") ? (i6 = i6.split("="), r7 = "svc" + i6[0], i6 = i6[1].split(",")[0].split(":").pop()) : (r7 = "svc" + n6, n6++), t9.set(r7, ht2(i6));
@@ -7724,17 +7821,17 @@ var init_load_uTL4eiru = __esm({
           }
           function Dt(e9, t9) {
             var n6 = [];
-            e9 = At.get(e9), e9 = y4(e9);
+            e9 = At.get(e9), e9 = y5(e9);
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) {
               r7 = r7.value;
-              for (var i6 = y4(t9), a7 = i6.next(); !a7.done; a7 = i6.next()) a7 = a7.value, r7.test(a7.trim()) && n6.push(a7.trim());
+              for (var i6 = y5(t9), a7 = i6.next(); !a7.done; a7 = i6.next()) a7 = a7.value, r7.test(a7.trim()) && n6.push(a7.trim());
             }
             return n6;
           }
-          var U2 = "text", Ot = {
+          var U3 = "text", Ot = {
             za: "video",
             $: "audio",
-            Xa: U2,
+            Xa: U3,
             wg: "image",
             Xm: "application",
             zk: "chapter"
@@ -7771,7 +7868,7 @@ var init_load_uTL4eiru = __esm({
             /^stpp/
           ]);
           function jt(e9, t9, n6, r7) {
-            this.g = null, this.l = e9, this.i = t9, this.m = n6, this.j = r7, typeof libDPIModule > "u" && R3("Could not find LCEVC Library dependencies on this page"), typeof LCEVCdec < "u" ? (this.h = LCEVCdec, this.h.SupportObject === void 0 ? (R3("Could not find LCEVC Library on this page"), e9 = false) : (this.h.SupportObject.SupportStatus || R3(this.h.SupportObject.SupportError), e9 = this.h !== void 0 && typeof libDPIModule < "u" && this.i instanceof HTMLCanvasElement && this.h.SupportObject.SupportStatus)) : (R3("Could not find LCEVC Library on this page"), e9 = false), e9 && !this.g && this.h.SupportObject.webGLSupport(this.i) && (this.i.classList.remove("shaka-hidden"), this.g = new this.h.LCEVCdec(this.l, this.i, this.m));
+            this.g = null, this.l = e9, this.i = t9, this.m = n6, this.j = r7, typeof libDPIModule > "u" && R4("Could not find LCEVC Library dependencies on this page"), typeof LCEVCdec < "u" ? (this.h = LCEVCdec, this.h.SupportObject === void 0 ? (R4("Could not find LCEVC Library on this page"), e9 = false) : (this.h.SupportObject.SupportStatus || R4(this.h.SupportObject.SupportError), e9 = this.h !== void 0 && typeof libDPIModule < "u" && this.i instanceof HTMLCanvasElement && this.h.SupportObject.SupportStatus)) : (R4("Could not find LCEVC Library on this page"), e9 = false), e9 && !this.g && this.h.SupportObject.webGLSupport(this.i) && (this.i.classList.remove("shaka-hidden"), this.g = new this.h.LCEVCdec(this.l, this.i, this.m));
           }
           function Mt(e9, t9, n6, r7) {
             r7.type !== "video" || e9.j && !Pt(r7) || e9.g && e9.g.appendBuffer(t9, "video", r7.id, -n6, !e9.j);
@@ -7785,7 +7882,7 @@ var init_load_uTL4eiru = __esm({
           function Pt(e9) {
             return e9 && typeof LCEVCdec < "u" ? e9.codecs == "lvc1" : false;
           }
-          L3("shaka.lcevc.Dec", jt), jt.prototype.release = jt.prototype.release;
+          L4("shaka.lcevc.Dec", jt), jt.prototype.release = jt.prototype.release;
           function Ft() {
           }
           function It(e9, t9) {
@@ -7793,8 +7890,8 @@ var init_load_uTL4eiru = __esm({
           }
           function Lt() {
             var e9 = {};
-            if (B3(), HT()) for (var t9 = y4(zt.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) e9[n6.value] = true;
-            for (t9 = y4([
+            if (B4(), HT()) for (var t9 = y5(zt.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) e9[n6.value] = true;
+            for (t9 = y5([
               "application/dash+xml",
               "application/x-mpegurl",
               "application/vnd.apple.mpegurl",
@@ -7809,7 +7906,7 @@ var init_load_uTL4eiru = __esm({
             }
             throw new H4(2, 4, 4e3, e9, t9);
           }
-          L3("shaka.media.ManifestParser", Ft), Ft.unregisterParserByMime = function(e9) {
+          L4("shaka.media.ManifestParser", Ft), Ft.unregisterParserByMime = function(e9) {
             zt.delete(e9);
           }, Ft.registerParserByMime = It, Ft.AccessibilityPurpose = {
             Gn: "visually impaired",
@@ -7840,10 +7937,10 @@ var init_load_uTL4eiru = __esm({
             t9 = t9 !== void 0 && t9, n6 = n6 === void 0 ? -1 : n6, n6 != -1 && this.i != n6 ? Wt(this, n6) : t9 || this.g.clear(), this.j.init(e9), n6 != -1 && (this.i = n6);
           };
           function Ut(e9, t9) {
-            t9 = e9.j.parse(t9), t9 = y4(t9);
+            t9 = e9.j.parse(t9), t9 = y5(t9);
             for (var n6 = t9.next(); !n6.done; n6 = t9.next()) {
               n6 = n6.value;
-              var r7 = V3(n6.packet);
+              var r7 = V4(n6.packet);
               if (r7.length > 0) switch (n6.format) {
                 case Yt:
                   e9.g.extract(r7, n6.pts);
@@ -7862,7 +7959,7 @@ var init_load_uTL4eiru = __esm({
           }
           Ht.prototype.remove = function(e9) {
             e9 = e9 === void 0 ? [] : e9, e9 = new Set(e9);
-            for (var t9 = y4(this.h.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) if (n6 = n6.value, !e9.has(n6)) {
+            for (var t9 = y5(this.h.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) if (n6 = n6.value, !e9.has(n6)) {
               var r7 = this.h.get(n6);
               r7 && r7.clear(), this.h.delete(n6);
             }
@@ -7873,7 +7970,7 @@ var init_load_uTL4eiru = __esm({
           function Kt(e9) {
             return qt.get(e9);
           }
-          L3("shaka.media.ClosedCaptionParser", Ht), Ht.findDecoder = function() {
+          L4("shaka.media.ClosedCaptionParser", Ht), Ht.findDecoder = function() {
             return Jt;
           }, Ht.unregisterDecoder = function() {
             Jt = null;
@@ -7889,7 +7986,7 @@ var init_load_uTL4eiru = __esm({
           Zt.prototype.clone = function() {
             var e9 = new Zt();
             return e9.id = this.id, e9.viewportAnchorX = this.viewportAnchorX, e9.viewportAnchorY = this.viewportAnchorY, e9.regionAnchorX = this.regionAnchorX, e9.regionAnchorY = this.regionAnchorY, e9.width = this.width, e9.height = this.height, e9.heightUnits = this.heightUnits, e9.widthUnits = this.widthUnits, e9.viewportAnchorUnits = this.viewportAnchorUnits, e9.scroll = this.scroll, e9;
-          }, L3("shaka.text.CueRegion", Zt), Zt.prototype.clone = Zt.prototype.clone;
+          }, L4("shaka.text.CueRegion", Zt), Zt.prototype.clone = Zt.prototype.clone;
           var Qt = 1;
           Zt.units = {
             PX: 0,
@@ -7966,12 +8063,12 @@ var init_load_uTL4eiru = __esm({
               e9 = "[" + t9.join(",") + "]";
             } else if (typeof e9 == "function") e9 = "";
             else if (e9 instanceof Object) {
-              for (n6 = Object.keys(e9), n6.sort(), t9 = [], n6 = y4(n6), r7 = n6.next(); !r7.done; r7 = n6.next()) i6 = r7.value, r7 = JSON.stringify(i6), i6 = e9[i6], i6 !== void 0 && (i6 = dn(i6)) && t9.push(r7 + ":" + i6);
+              for (n6 = Object.keys(e9), n6.sort(), t9 = [], n6 = y5(n6), r7 = n6.next(); !r7.done; r7 = n6.next()) i6 = r7.value, r7 = JSON.stringify(i6), i6 = e9[i6], i6 !== void 0 && (i6 = dn(i6)) && t9.push(r7 + ":" + i6);
               e9 = "{" + t9.join(",") + "}";
             } else e9 = JSON.stringify(e9);
             return e9;
           }
-          L3("shaka.util.ObjectUtils", cn), cn.alphabeticalKeyOrderStringify = dn, cn.shallowCloneObject = un, cn.cloneObject = ln;
+          L4("shaka.util.ObjectUtils", cn), cn.alphabeticalKeyOrderStringify = dn, cn.shallowCloneObject = un, cn.cloneObject = ln;
           function fn(e9, t9) {
             var n6 = n6 !== void 0 && n6;
             return e9 = Re2(e9), pn(e9, t9, n6);
@@ -8053,7 +8150,7 @@ var init_load_uTL4eiru = __esm({
                   l6 = u7;
                 }
                 if (a7--, c7.push(l6), typeof l6 == "string") break;
-                l6.tagName[0] === "?" && l6.children && (c7.push.apply(c7, b3(l6.children)), l6.children = []);
+                l6.tagName[0] === "?" && l6.children && (c7.push.apply(c7, b4(l6.children)), l6.children = []);
               } else l6 = i6, i6 = e9.indexOf("<", i6) - 1, i6 === -2 && (i6 = e9.length), l6 = (" " + e9.slice(l6, i6 + 1)).slice(1), s7 ? l6.length > 0 && c7.push(l6) : (c7.length && l6.length == 1 && l6[0] == "\n" || l6.trim().length > 0) && c7.push(l6), i6++;
               return c7;
             }
@@ -8070,31 +8167,31 @@ var init_load_uTL4eiru = __esm({
           function _n(e9) {
             var t9 = [];
             if (!e9.children) return [];
-            e9 = y4(e9.children);
+            e9 = y5(e9.children);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) n6 = n6.value, typeof n6 != "string" && t9.push(n6);
             return t9;
           }
           function vn(e9, t9) {
             var n6 = [];
             if (!e9.children) return [];
-            e9 = y4(e9.children);
+            e9 = y5(e9.children);
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) r7 = r7.value, r7.tagName === t9 && n6.push(r7);
             return n6;
           }
           function yn(e9) {
             if (typeof e9 == "string") return Ve2(e9);
             var t9 = [];
-            e9 = y4(e9.children);
+            e9 = y5(e9.children);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) n6 = n6.value, typeof n6 == "string" && t9.push(n6);
             return t9 = t9.join(""), t9 === "" ? null : Ve2(t9);
           }
           function bn(e9) {
-            for (var t9 = y4(e9.children), n6 = t9.next(); !n6.done; n6 = t9.next()) if (typeof n6.value != "string") return null;
+            for (var t9 = y5(e9.children), n6 = t9.next(); !n6.done; n6 = t9.next()) if (typeof n6.value != "string") return null;
             return (e9 = yn(e9)) && (e9 = e9.trim()), e9;
           }
           function xn(e9, t9, n6) {
             if (n6 = n6 === void 0 ? [] : n6, e9.tagName === t9 && n6.push(e9), e9.children) {
-              e9 = y4(e9.children);
+              e9 = y5(e9.children);
               for (var r7 = e9.next(); !r7.done; r7 = e9.next()) xn(r7.value, t9, n6);
             }
             return n6;
@@ -8105,7 +8202,7 @@ var init_load_uTL4eiru = __esm({
           function Cn(e9, t9, n6) {
             return e9 = Tn(e9, t9, n6), e9.length == 1 ? e9[0] : null;
           }
-          function W(e9, t9, n6, r7) {
+          function W2(e9, t9, n6, r7) {
             r7 = r7 === void 0 ? null : r7;
             var i6 = null;
             return e9 = e9.attributes[t9], e9 == null || e9 === "" && r7 !== null || (i6 = n6(e9)), i6 ?? r7;
@@ -8115,11 +8212,11 @@ var init_load_uTL4eiru = __esm({
           }
           function Tn(e9, t9, n6) {
             var r7 = mn(t9);
-            if (t9 = [], e9.children) for (n6 = r7 ? r7 + ":" + n6 : n6, e9 = y4(e9.children), r7 = e9.next(); !r7.done; r7 = e9.next()) (r7 = r7.value) && r7.tagName === n6 && t9.push(r7);
+            if (t9 = [], e9.children) for (n6 = r7 ? r7 + ":" + n6 : n6, e9 = y5(e9.children), r7 = e9.next(); !r7.done; r7 = e9.next()) (r7 = r7.value) && r7.tagName === n6 && t9.push(r7);
             return t9;
           }
           function En(e9, t9, n6) {
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var r7 = t9.next(); !r7.done; r7 = t9.next()) if (r7 = wn(e9, r7.value, n6)) return r7;
             return null;
           }
@@ -8157,7 +8254,7 @@ var init_load_uTL4eiru = __esm({
           }
           function In(e9) {
             var t9 = [];
-            e9 = Ve2(e9).split(/\/+(?=(?:[^'"]*['"][^'"]*['"])*[^'"]*$)/), e9 = y4(e9);
+            e9 = Ve2(e9).split(/\/+(?=(?:[^'"]*['"][^'"]*['"])*[^'"]*$)/), e9 = y5(e9);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) {
               n6 = n6.value;
               var r7 = n6.match(/^([\w]+)/);
@@ -8179,12 +8276,12 @@ var init_load_uTL4eiru = __esm({
             var n6 = In(t9.attributes.sel || "");
             if (n6.length) {
               var r7 = n6[n6.length - 1], i6 = t9.attributes.pos || null;
-              n6 = r7.position, n6 ?? (r7.t !== null && (n6 = Rn(e9, "t", r7.t)), r7.n !== null && (n6 = Rn(e9, "n", r7.n))), n6 === null ? n6 = i6 === "prepend" ? 0 : e9.length : i6 === "prepend" ? --n6 : i6 === "after" && ++n6, i6 = t9.tagName, (r7 = r7.Hc) && e9[n6] ? zn(e9[n6], i6, r7, bn(t9) || "") : (i6 !== "remove" && i6 !== "replace" || e9.splice(n6, 1), i6 !== "add" && i6 !== "replace" || e9.splice.apply(e9, [n6, 0].concat(b3(t9.children))));
+              n6 = r7.position, n6 ?? (r7.t !== null && (n6 = Rn(e9, "t", r7.t)), r7.n !== null && (n6 = Rn(e9, "n", r7.n))), n6 === null ? n6 = i6 === "prepend" ? 0 : e9.length : i6 === "prepend" ? --n6 : i6 === "after" && ++n6, i6 = t9.tagName, (r7 = r7.Hc) && e9[n6] ? zn(e9[n6], i6, r7, bn(t9) || "") : (i6 !== "remove" && i6 !== "replace" || e9.splice(n6, 1), i6 !== "add" && i6 !== "replace" || e9.splice.apply(e9, [n6, 0].concat(b4(t9.children))));
             }
           }
           function Rn(e9, t9, n6) {
             var r7 = 0;
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var i6 = e9.next(); !i6.done; i6 = e9.next()) {
               if (Number(i6.value.attributes[t9]) === n6) return r7;
               r7++;
@@ -8202,7 +8299,7 @@ var init_load_uTL4eiru = __esm({
               children: [],
               parent: null
             };
-            e9 = y4(e9.children);
+            e9 = y5(e9.children);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) n6 = n6.value, typeof n6 == "string" ? t9.children.push(n6) : (n6 = Bn(n6), n6.parent = t9, t9.children.push(n6));
             return t9;
           }
@@ -8250,7 +8347,7 @@ var init_load_uTL4eiru = __esm({
               var r7 = n6;
               n6 = [];
               for (var i6 = -1, a7 = 0; a7 < r7.length; a7++) r7[a7] === "<" ? i6 = a7 + 1 : r7[a7] === ">" && i6 > 0 && (i6 = r7.substr(i6, a7 - i6), i6.match(mr) && n6.push(i6), i6 = -1);
-              for (n6 = y4(n6), a7 = n6.next(); !a7.done; a7 = n6.next()) a7 = a7.value, r7 = r7.replace("<" + a7 + ">", '<div time="' + a7 + '">'), r7 += "</div>";
+              for (n6 = y5(n6), a7 = n6.next(); !a7.done; a7 = n6.next()) a7 = a7.value, r7 = r7.replace("<" + a7 + ">", '<div time="' + a7 + '">'), r7 += "</div>";
               a: {
                 a7 = r7, i6 = [];
                 var o8 = -1;
@@ -8277,7 +8374,7 @@ var init_load_uTL4eiru = __esm({
                     } else n6 += a7[s7];
                   } else n6 += a7[s7];
                 } else a7[s7] === "<" ? (o8 = s7 + 1, a7[o8] != "v" && (o8 = -1)) : a7[s7] === ">" && o8 > 0 && (i6.push(a7.substr(o8, s7 - o8)), o8 = -1), n6 += a7[s7];
-                for (a7 = y4(i6), i6 = a7.next(); !i6.done; i6 = a7.next()) i6 = i6.value, o8 = i6.replace(" ", ".voice-"), n6 = n6.replace("<" + i6 + ">", "<" + o8 + ">"), n6 = n6.replace("</" + i6 + ">", "</" + o8 + ">"), r7 || (n6 += "</" + o8 + ">");
+                for (a7 = y5(i6), i6 = a7.next(); !i6.done; i6 = a7.next()) i6 = i6.value, o8 = i6.replace(" ", ".voice-"), n6 = n6.replace("<" + i6 + ">", "<" + o8 + ">"), n6 = n6.replace("</" + i6 + ">", "</" + o8 + ">"), r7 || (n6 += "</" + o8 + ">");
               }
               n6 = Jn(n6), e9.payload = "", r7 = "<span>" + n6.replace(/\n/g, "<br />") + "</span>";
               try {
@@ -8285,19 +8382,19 @@ var init_load_uTL4eiru = __esm({
               } catch {
               }
               if (u7) {
-                if (u7 = u7.children, u7.length != 1 || u7[0].tagName) for (u7 = y4(u7), n6 = u7.next(); !n6.done; n6 = u7.next()) Yn(n6.value, e9, t9);
+                if (u7 = u7.children, u7.length != 1 || u7[0].tagName) for (u7 = y5(u7), n6 = u7.next(); !n6.done; n6 = u7.next()) Yn(n6.value, e9, t9);
                 else e9.payload = Ve2(n6);
               } else e9.payload = Ve2(n6);
             } else e9.payload = Ve2(n6);
           }
           function qn(e9) {
-            for (var t9 = y4(Object.entries(or)), n6 = t9.next(); !n6.done; n6 = t9.next()) {
-              var r7 = y4(n6.value);
+            for (var t9 = y5(Object.entries(or)), n6 = t9.next(); !n6.done; n6 = t9.next()) {
+              var r7 = y5(n6.value);
               n6 = r7.next().value, r7 = r7.next().value;
               var i6 = new Un(0, 0, "");
               i6.color = r7, e9.set("." + n6, i6);
             }
-            for (t9 = y4(Object.entries(sr)), n6 = t9.next(); !n6.done; n6 = t9.next()) r7 = y4(n6.value), n6 = r7.next().value, r7 = r7.next().value, i6 = new Un(0, 0, ""), i6.backgroundColor = r7, e9.set("." + n6, i6);
+            for (t9 = y5(Object.entries(sr)), n6 = t9.next(); !n6.done; n6 = t9.next()) r7 = y5(n6.value), n6 = r7.next().value, r7 = r7.next().value, i6 = new Un(0, 0, ""), i6.backgroundColor = r7, e9.set("." + n6, i6);
           }
           function Jn(e9) {
             var t9 = {
@@ -8310,7 +8407,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Yn(e9, t9, n6) {
             var r7 = t9.clone();
-            if (r7.nestedCues = [], r7.payload = "", r7.rubyTag = "", r7.line = null, r7.region = new Zt(), r7.position = null, r7.size = 0, r7.textAlign = Zn, e9.tagName) for (var i6 = y4(e9.tagName.split(/(?=[ .])+/g)), a7 = i6.next(); !a7.done; a7 = i6.next()) {
+            if (r7.nestedCues = [], r7.payload = "", r7.rubyTag = "", r7.line = null, r7.region = new Zt(), r7.position = null, r7.size = 0, r7.textAlign = Zn, e9.tagName) for (var i6 = y5(e9.tagName.split(/(?=[ .])+/g)), a7 = i6.next(); !a7.done; a7 = i6.next()) {
               var o8 = a7 = a7.value;
               if (o8.startsWith(".voice-")) {
                 var s7 = o8.split("-").pop();
@@ -8342,10 +8439,10 @@ var init_load_uTL4eiru = __esm({
                   r7.rubyTag = a7;
               }
             }
-            if (i6 = e9.children, gn(e9) || i6.length == 1 && gn(i6[0])) for (n6 = yn(e9).split("\n"), e9 = true, n6 = y4(n6), i6 = n6.next(); !i6.done; i6 = n6.next()) i6 = i6.value, e9 || (e9 = Wn(r7.startTime, r7.endTime), t9.nestedCues.push(e9)), i6.length > 0 && (e9 = r7.clone(), e9.payload = Ve2(i6), t9.nestedCues.push(e9)), e9 = false;
-            else for (t9.nestedCues.push(r7), t9 = y4(i6), e9 = t9.next(); !e9.done; e9 = t9.next()) Yn(e9.value, r7, n6);
+            if (i6 = e9.children, gn(e9) || i6.length == 1 && gn(i6[0])) for (n6 = yn(e9).split("\n"), e9 = true, n6 = y5(n6), i6 = n6.next(); !i6.done; i6 = n6.next()) i6 = i6.value, e9 || (e9 = Wn(r7.startTime, r7.endTime), t9.nestedCues.push(e9)), i6.length > 0 && (e9 = r7.clone(), e9.payload = Ve2(i6), t9.nestedCues.push(e9)), e9 = false;
+            else for (t9.nestedCues.push(r7), t9 = y5(i6), e9 = t9.next(); !e9.done; e9 = t9.next()) Yn(e9.value, r7, n6);
           }
-          L3("shaka.text.Cue", Un), Un.parseCuePayload = Kn, Un.equal = Gn, Un.prototype.clone = Un.prototype.clone;
+          L4("shaka.text.Cue", Un), Un.parseCuePayload = Kn, Un.equal = Gn, Un.prototype.clone = Un.prototype.clone;
           var Xn = "auto";
           Un.positionAlign = {
             LEFT: "line-left",
@@ -8440,10 +8537,10 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function _r(e9, t9) {
-            for (var n6 = y4(yr), r7 = n6.next(); !r7.done; r7 = n6.next()) {
+            for (var n6 = y5(yr), r7 = n6.next(); !r7.done; r7 = n6.next()) {
               a: {
                 var i6 = e9;
-                r7 = r7.value, r7 = r7 === void 0 ? null : r7, i6 = i6.toLowerCase().split(";")[0], r7 = y4(r7 === null ? yr : [r7]);
+                r7 = r7.value, r7 = r7 === void 0 ? null : r7, i6 = i6.toLowerCase().split(";")[0], r7 = y5(r7 === null ? yr : [r7]);
                 for (var a7 = r7.next(); !a7.done; a7 = r7.next()) if (a7 = vr.get(i6 + "-" + a7.value)) {
                   i6 = a7.Qh;
                   break a;
@@ -8454,7 +8551,7 @@ var init_load_uTL4eiru = __esm({
             }
             return null;
           }
-          L3("shaka.transmuxer.TransmuxerEngine", hr), hr.findTransmuxer = _r, hr.unregisterTransmuxer = function(e9, t9) {
+          L4("shaka.transmuxer.TransmuxerEngine", hr), hr.findTransmuxer = _r, hr.unregisterTransmuxer = function(e9, t9) {
             vr.delete(e9.toLowerCase().split(";")[0] + "-" + t9);
           }, hr.registerTransmuxer = gr, hr.prototype.destroy = hr.prototype.destroy;
           var vr = /* @__PURE__ */ new Map();
@@ -8547,7 +8644,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Er(e9) {
             var t9 = [];
-            e9 = y4(e9.split(","));
+            e9 = y5(e9.split(","));
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) n6 = Mr(n6.value), t9.push(n6[0]);
             return t9.sort().join(",");
           }
@@ -8563,7 +8660,7 @@ var init_load_uTL4eiru = __esm({
             return e9 === "application/x-mpegurl" || e9 === "application/vnd.apple.mpegurl" || e9 === "audio/x-mpegurl";
           }
           function Ar(e9, t9) {
-            var n6 = B3(), r7 = e9.toLowerCase();
+            var n6 = B4(), r7 = e9.toLowerCase();
             return r7 == "flac" ? n6.Qa() == "WEBKIT" ? "fLaC" : "flac" : r7 === "opus" ? n6.Qa() == "WEBKIT" && wr(t9) == "mp4" ? "Opus" : "opus" : r7 == "ac-3" && n6.Ie() ? "ec-3" : e9;
           }
           function jr(e9) {
@@ -8578,7 +8675,7 @@ var init_load_uTL4eiru = __esm({
             var t9 = e9[0];
             return e9.shift(), [t9, e9.join(".")];
           }
-          L3("shaka.util.MimeUtils", br), br.getFullTypeWithAllCodecs = Sr, br.getFullType = xr, (/* @__PURE__ */ new Map()).set("codecs", "codecs").set("frameRate", "framerate").set("bandwidth", "bitrate").set("width", "width").set("height", "height").set("channelsCount", "channels");
+          L4("shaka.util.MimeUtils", br), br.getFullTypeWithAllCodecs = Sr, br.getFullType = xr, (/* @__PURE__ */ new Map()).set("codecs", "codecs").set("frameRate", "framerate").set("bandwidth", "bitrate").set("width", "width").set("height", "height").set("channelsCount", "channels");
           var Nr = [
             "audio/aac",
             "audio/ac3",
@@ -8613,14 +8710,14 @@ var init_load_uTL4eiru = __esm({
                 Rk: a7
               }), e9.i.set(a7, o8), h6.return());
               if (!e9.l || !e9.j) return h6.return();
-              if (n6 == null || r7 == null) return e9.l.parseInit(V3(t9)), h6.return();
+              if (n6 == null || r7 == null) return e9.l.parseInit(V4(t9)), h6.return();
               for (s7 = e9.C ? 0 : e9.o.get(a7), c7 = e9.I || e9.C ? n6 : e9.o.get(a7), l6 = {
                 periodStart: s7,
                 segmentStart: n6,
                 segmentEnd: r7,
                 vttOffset: c7,
                 isMpegTs: e9.J
-              }, u7 = e9.l.parseMedia(V3(t9), l6, i6, []), d5 = y4(u7), f4 = d5.next(); !f4.done; f4 = d5.next()) p5 = f4.value, e9.F(p5, i6 || null, l6);
+              }, u7 = e9.l.parseMedia(V4(t9), l6, i6, []), d5 = y5(u7), f4 = d5.next(); !f4.done; f4 = d5.next()) p5 = f4.value, e9.F(p5, i6 || null, l6);
               m5 = u7.filter(function(t10) {
                 return t10.startTime >= e9.u && t10.startTime < e9.B;
               }), e9.j.append(m5), e9.g ??= Math.max(n6, e9.u), e9.h = Math.min(r7, e9.B), h6.j();
@@ -8634,7 +8731,7 @@ var init_load_uTL4eiru = __esm({
               if (e9 >= t9 || n6 && (Gr(r7, e9, t9), r7.H === "")) return f4.return();
               for (i6 = function(n7) {
                 return n7.startTime < t9 && n7.endTime > e9;
-              }, a7 = y4(r7.i.keys()), o8 = a7.next(); !o8.done; o8 = a7.next()) {
+              }, a7 = y5(r7.i.keys()), o8 = a7.next(); !o8.done; o8 = a7.next()) {
                 for (s7 = o8.value, c7 = r7.i.get(s7), l6 = [], u7 = 0; u7 < c7.length; u7++) d5 = c7[u7], i6(d5) || l6.push(d5);
                 r7.i.set(s7, l6);
               }
@@ -8661,23 +8758,23 @@ var init_load_uTL4eiru = __esm({
             }), t9.length && e9.j.append(t9));
           }
           function Ur(e9, t9, n6) {
-            t9.startTime += n6, t9.endTime += n6, t9 = y4(t9.nestedCues);
+            t9.startTime += n6, t9.endTime += n6, t9 = y5(t9.nestedCues);
             for (var r7 = t9.next(); !r7.done; r7 = t9.next()) Ur(e9, r7.value, n6);
           }
           function Wr(e9, t9, n6) {
             var r7 = /* @__PURE__ */ new Map();
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var i6 = t9.next(); !i6.done; i6 = t9.next()) {
               var a7 = i6.value;
               i6 = a7.stream, a7 = a7.cue, r7.getOrInsert(i6, []), Ur(e9, a7, n6), a7.startTime >= e9.u && a7.startTime < e9.B && (r7.get(i6).push(a7), i6 == e9.H && e9.j.append([a7]));
             }
-            for (n6 = y4(r7.keys()), t9 = n6.next(); !t9.done; t9 = n6.next()) for (i6 = t9.value, t9 = e9.m.getOrInsertComputed(i6, function() {
+            for (n6 = y5(r7.keys()), t9 = n6.next(); !t9.done; t9 = n6.next()) for (i6 = t9.value, t9 = e9.m.getOrInsertComputed(i6, function() {
               return [];
-            }), i6 = y4(r7.get(i6)), a7 = i6.next(); !a7.done; a7 = i6.next()) t9.push(a7.value);
+            }), i6 = y5(r7.get(i6)), a7 = i6.next(); !a7.done; a7 = i6.next()) t9.push(a7.value);
             Kr(e9);
           }
           function Gr(e9, t9, n6) {
-            for (var r7 = y4(e9.m.keys()), i6 = r7.next(); !i6.done; i6 = r7.next()) {
+            for (var r7 = y5(e9.m.keys()), i6 = r7.next(); !i6.done; i6 = r7.next()) {
               i6 = i6.value;
               var a7 = e9.m.get(i6);
               a7 = a7.filter(function(e10) {
@@ -8686,29 +8783,29 @@ var init_load_uTL4eiru = __esm({
             }
           }
           function Kr(e9) {
-            for (var t9 = Infinity, n6 = -Infinity, r7 = y4(e9.m.values()), i6 = r7.next(); !i6.done; i6 = r7.next()) {
-              i6 = y4(i6.value);
+            for (var t9 = Infinity, n6 = -Infinity, r7 = y5(e9.m.values()), i6 = r7.next(); !i6.done; i6 = r7.next()) {
+              i6 = y5(i6.value);
               for (var a7 = i6.next(); !a7.done; a7 = i6.next()) a7 = a7.value, t9 = Math.min(t9, a7.startTime), n6 = Math.max(n6, a7.endTime);
             }
             t9 !== Infinity && n6 !== -Infinity && (e9.g = e9.g == null ? Math.max(t9, e9.u) : Math.min(e9.g, Math.max(t9, e9.u)), e9.h = Math.max(e9.h, Math.min(n6, e9.B)));
           }
-          L3("shaka.text.TextEngine", Pr), Pr.prototype.destroy = Pr.prototype.destroy, Pr.findParser = Ir, Pr.unregisterParser = function(e9) {
+          L4("shaka.text.TextEngine", Pr), Pr.prototype.destroy = Pr.prototype.destroy, Pr.findParser = Ir, Pr.unregisterParser = function(e9) {
             qr.delete(e9);
           }, Pr.registerParser = Fr;
           var qr = /* @__PURE__ */ new Map();
-          function G(e9) {
+          function G2(e9) {
             this.h = e9, this.g = null;
           }
-          G.prototype.Va = function() {
+          G2.prototype.Va = function() {
             return this.stop(), this.h(), this;
-          }, G.prototype.ba = function(e9) {
+          }, G2.prototype.ba = function(e9) {
             var t9 = this;
             return this.stop(), Jr(this, function() {
               t9.h();
             }, e9), this;
-          }, G.prototype.Ka = function(e9) {
+          }, G2.prototype.Ka = function(e9) {
             return this.stop(), Yr(this, e9), this;
-          }, G.prototype.stop = function() {
+          }, G2.prototype.stop = function() {
             var e9;
             (e9 = this.g) == null || e9.call(this), this.g = null;
           };
@@ -8725,18 +8822,18 @@ var init_load_uTL4eiru = __esm({
               Yr(e9, t9), e9.h();
             }, t9);
           }
-          L3("shaka.util.Timer", G), G.prototype.stop = G.prototype.stop, G.prototype.tickEvery = G.prototype.Ka, G.prototype.tickAfter = G.prototype.ba, G.prototype.tickNow = G.prototype.Va;
+          L4("shaka.util.Timer", G2), G2.prototype.stop = G2.prototype.stop, G2.prototype.tickEvery = G2.prototype.Ka, G2.prototype.tickAfter = G2.prototype.ba, G2.prototype.tickNow = G2.prototype.Va;
           function Xr(e9) {
             return e9 != null;
           }
           function Zr(e9, t9) {
             return Promise.race([t9, new Promise(function(t10, n6) {
-              new G(n6).ba(e9);
+              new G2(n6).ba(e9);
             })]);
           }
           function Qr(e9) {
             return new Promise(function(t9) {
-              new G(t9).ba(e9);
+              new G2(t9).ba(e9);
             });
           }
           function $r() {
@@ -8744,7 +8841,7 @@ var init_load_uTL4eiru = __esm({
           function ei(e9, t9, n6, r7, i6) {
             if (i6.length) {
               var a7 = e9.textStreams;
-              i6 = y4(i6);
+              i6 = y5(i6);
               for (var o8 = i6.next(), s7 = {}; !o8.done; s7 = { ui: void 0 }, o8 = i6.next()) if (s7.ui = o8.value, o8 = a7.filter(/* @__PURE__ */ (function(e10) {
                 return function(t10) {
                   return !!(t10.codecs.startsWith(e10.ui) || t10.mimeType.startsWith(e10.ui));
@@ -8756,21 +8853,21 @@ var init_load_uTL4eiru = __esm({
               e9.textStreams = a7;
             }
             if (a7 = e9.variants, (t9.length || n6.length) && (a7 = ti(a7, t9, n6)), r7.length) {
-              for (t9 = new ve2(), a7 = y4(a7), n6 = a7.next(); !n6.done; n6 = a7.next()) n6 = n6.value, t9.push(String(n6.video.width || 0), n6);
+              for (t9 = new ve2(), a7 = y5(a7), n6 = a7.next(); !n6.done; n6 = a7.next()) n6 = n6.value, t9.push(String(n6.video.width || 0), n6);
               var c7 = [];
               t9.forEach(function(e10, t10) {
                 e10 = 0;
                 var n7 = [];
-                t10 = y4(t10);
+                t10 = y5(t10);
                 for (var i7 = t10.next(), a8 = {}; !i7.done; a8 = { vg: void 0 }, i7 = t10.next()) a8.vg = i7.value, i7 = r7.filter(/* @__PURE__ */ (function(e11) {
                   return function(t11) {
                     return e11.vg.decodingInfos[0][t11];
                   };
                 })(a8)).length, i7 > e10 ? (e10 = i7, n7 = [a8.vg]) : i7 == e10 && n7.push(a8.vg);
-                c7.push.apply(c7, b3(n7));
+                c7.push.apply(c7, b4(n7));
               }), a7 = c7;
             }
-            for (t9 = /* @__PURE__ */ new Set(), n6 = y4(a7), i6 = n6.next(); !i6.done; i6 = n6.next()) i6 = i6.value, i6.video && t9.add(i6.video);
+            for (t9 = /* @__PURE__ */ new Set(), n6 = y5(a7), i6 = n6.next(); !i6.done; i6 = n6.next()) i6 = i6.value, i6.video && t9.add(i6.video);
             if (t9.size) {
               var l6 = {
                 vp8: 1,
@@ -8798,7 +8895,7 @@ var init_load_uTL4eiru = __esm({
                   e10.fastSwitching
                 ];
                 return e10.dependencyStream && t10.push(e10.dependencyStream.baseOriginalId || ""), e10.roles && t10.push(e10.roles.sort().join("_")), t10.join(";");
-              }, i6 = y4(i6), o8 = i6.next(); !o8.done; o8 = i6.next()) {
+              }, i6 = y5(i6), o8 = i6.next(); !o8.done; o8 = i6.next()) {
                 o8 = o8.value, s7 = n6(o8);
                 var d5 = t9.get(s7) || [];
                 d5.length ? Tr(d5[d5.length - 1].codecs) == Tr(o8.codecs) && (d5.push(o8), u7.push(o8.id)) : (d5.push(o8), u7.push(o8.id)), t9.set(s7, d5);
@@ -8809,7 +8906,7 @@ var init_load_uTL4eiru = __esm({
             } else e9.variants = a7;
           }
           function ti(e9, t9, n6) {
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var r7 = t9.next(), i6 = {}; !r7.done; i6 = { vk: void 0 }, r7 = t9.next()) if (i6.vk = r7.value, r7 = e9.filter(/* @__PURE__ */ (function(e10) {
               return function(t10) {
                 return t10.video && t10.video.codecs.startsWith(e10.vk);
@@ -8818,7 +8915,7 @@ var init_load_uTL4eiru = __esm({
               e9 = r7;
               break;
             }
-            for (n6 = y4(n6), t9 = n6.next(), r7 = {}; !t9.done; r7 = { Li: void 0 }, t9 = n6.next()) if (r7.Li = t9.value, t9 = e9.filter(/* @__PURE__ */ (function(e10) {
+            for (n6 = y5(n6), t9 = n6.next(), r7 = {}; !t9.done; r7 = { Li: void 0 }, t9 = n6.next()) if (r7.Li = t9.value, t9 = e9.filter(/* @__PURE__ */ (function(e10) {
               return function(t10) {
                 return t10.audio && t10.audio.codecs.startsWith(e10.Li);
               };
@@ -8839,7 +8936,7 @@ var init_load_uTL4eiru = __esm({
             }
             if (e9 && e9.video && e9.video.width && e9.video.height) {
               var i6 = e9.video.width, a7 = e9.video.height;
-              if (a7 > i6 && (a7 = y4([a7, i6]), i6 = a7.next().value, a7 = a7.next().value), !r7(i6, t9.minWidth, Math.min(t9.maxWidth, n6.width)) || !r7(a7, t9.minHeight, Math.min(t9.maxHeight, n6.height)) || !r7(i6 * a7, t9.minPixels, t9.maxPixels)) return false;
+              if (a7 > i6 && (a7 = y5([a7, i6]), i6 = a7.next().value, a7 = a7.next().value), !r7(i6, t9.minWidth, Math.min(t9.maxWidth, n6.width)) || !r7(a7, t9.minHeight, Math.min(t9.maxHeight, n6.height)) || !r7(i6 * a7, t9.minPixels, t9.maxPixels)) return false;
             }
             return !(e9 && e9.video && e9.video.frameRate && !r7(e9.video.frameRate, t9.minFrameRate, t9.maxFrameRate) || e9 && e9.audio && e9.audio.channelsCount && !r7(e9.audio.channelsCount, t9.minChannelsCount, t9.maxChannelsCount) || !r7(e9.bandwidth, t9.minBandwidth, t9.maxBandwidth));
           }
@@ -8851,7 +8948,7 @@ var init_load_uTL4eiru = __esm({
           function ai(e9, t9, n6, r7, i6) {
             var a7, o8;
             return P4(function(s7) {
-              if (s7.h == 1) return B3().dk() && oi(t9.variants), s7.g(ui(t9.variants, n6, false, r7), 2);
+              if (s7.h == 1) return B4().dk() && oi(t9.variants), s7.g(ui(t9.variants, n6, false, r7), 2);
               a7 = null, e9 && (o8 = e9.Xb()) && (a7 = o8.keySystem), t9.variants = t9.variants.filter(function(e10) {
                 var t10 = si(e10, a7, i6);
                 if (!t10) {
@@ -8864,12 +8961,12 @@ var init_load_uTL4eiru = __esm({
           }
           function oi(e9) {
             var t9 = (/* @__PURE__ */ new Map()).set("dvav", "avc3").set("dva1", "avc1").set("dvhe", "hev1").set("dvh1", "hvc1").set("dvc1", "vvc1").set("dvi1", "vvi1"), n6 = /* @__PURE__ */ new Set();
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) r7 = r7.value, r7.video && n6.add(r7.video);
-            for (n6 = y4(n6), e9 = n6.next(); !e9.done; e9 = n6.next()) {
-              e9 = e9.value, r7 = y4(t9);
+            for (n6 = y5(n6), e9 = n6.next(); !e9.done; e9 = n6.next()) {
+              e9 = e9.value, r7 = y5(t9);
               for (var i6 = r7.next(); !i6.done; i6 = r7.next()) {
-                var a7 = y4(i6.value);
+                var a7 = y5(i6.value);
                 if (i6 = a7.next().value, a7 = a7.next().value, e9.codecs.includes(i6)) {
                   e9.codecs = e9.codecs.replace(i6, a7);
                   break;
@@ -8881,7 +8978,7 @@ var init_load_uTL4eiru = __esm({
             if (!e9.decodingInfos.some(function(e10) {
               return !(!e10.supported || t9 && (e10 = e10.keySystemAccess) && (n6[e10.keySystem] || e10.keySystem) != t9);
             })) return false;
-            var r7 = B3(), i6 = r7.Cb() === "Xbox";
+            var r7 = B4(), i6 = r7.Cb() === "Xbox";
             r7 = r7.Ra() === "MOBILE" && r7.Qa() === "GECKO";
             var a7 = e9.video, o8 = a7 && a7.width || 0, s7 = a7 && a7.height || 0;
             return i6 && a7 && (o8 > 1920 || s7 > 1080) && (a7.codecs.includes("avc1.") || a7.codecs.includes("avc3.")) || (i6 = a7 && a7.dependencyStream) && !Pt(i6) ? false : (e9 = e9.audio, !(r7 && e9 && e9.encrypted && e9.codecs.toLowerCase().includes("opus") || e9 && e9.dependencyStream));
@@ -8896,13 +8993,13 @@ var init_load_uTL4eiru = __esm({
                     return n7.supported = e10.supported && t10.supported, n7.powerEfficient = e10.powerEfficient && t10.powerEfficient, n7.smooth = e10.smooth && t10.smooth, t10.keySystemAccess && !n7.keySystemAccess && (n7.keySystemAccess = t10.keySystemAccess), n7;
                   }
                   return t10;
-                }, r7 = null, i6 = [], a7 = y4(t9), o8 = a7.next(), s7 = {}; !o8.done; s7 = {
+                }, r7 = null, i6 = [], a7 = y5(t9), o8 = a7.next(), s7 = {}; !o8.done; s7 = {
                   cache: void 0,
                   gf: void 0
                 }, o8 = a7.next()) c7 = o8.value, s7.gf = dn(c7), s7.cache = ji, s7.cache.has(s7.gf) ? r7 = n6(r7, s7.cache.get(s7.gf)) : i6.push(li(c7).then(/* @__PURE__ */ (function(e10) {
                   return function(t10) {
                     var i7 = null;
-                    t10 = y4(t10 || []);
+                    t10 = y5(t10 || []);
                     for (var a8 = t10.next(); !a8.done; a8 = t10.next()) i7 = n6(i7, a8.value);
                     i7 && (e10.cache.set(e10.gf, i7), r7 = n6(r7, i7));
                   };
@@ -8918,12 +9015,12 @@ var init_load_uTL4eiru = __esm({
             var n6 = [""];
             e9.audio && (n6 = Or(e9.audio.contentType).split(","));
             var r7 = [];
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var i6 = t9.next(); !i6.done; i6 = t9.next()) {
               i6 = i6.value;
-              for (var a7 = y4(n6), o8 = a7.next(), s7 = {}; !o8.done; s7 = { Yc: void 0 }, o8 = a7.next()) o8 = o8.value, s7.Yc = ln(e9), e9.video && (s7.Yc.video.contentType = xr(Dr(s7.Yc.video.contentType), i6)), e9.audio && (s7.Yc.audio.contentType = xr(Dr(s7.Yc.audio.contentType), o8)), r7.push(new Promise(/* @__PURE__ */ (function(e10) {
+              for (var a7 = y5(n6), o8 = a7.next(), s7 = {}; !o8.done; s7 = { Yc: void 0 }, o8 = a7.next()) o8 = o8.value, s7.Yc = ln(e9), e9.video && (s7.Yc.video.contentType = xr(Dr(s7.Yc.video.contentType), i6)), e9.audio && (s7.Yc.audio.contentType = xr(Dr(s7.Yc.audio.contentType), o8)), r7.push(new Promise(/* @__PURE__ */ (function(e10) {
                 return function(t10, n7) {
-                  (B3().Ra() == "MOBILE" ? Zr(5, navigator.mediaCapabilities.decodingInfo(e10.Yc)) : navigator.mediaCapabilities.decodingInfo(e10.Yc)).then(function(e11) {
+                  (B4().Ra() == "MOBILE" ? Zr(5, navigator.mediaCapabilities.decodingInfo(e10.Yc)) : navigator.mediaCapabilities.decodingInfo(e10.Yc)).then(function(e11) {
                     t10(e11);
                   }).catch(n7);
                 };
@@ -8934,72 +9031,72 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function ui(e9, t9, n6, r7) {
-            var i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3;
-            return P4(function(C5) {
-              switch (C5.h) {
+            var i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5;
+            return P4(function(C6) {
+              switch (C6.h) {
                 case 1:
                   if (e9.some(function(e10) {
                     return e10.decodingInfos.length;
-                  })) return C5.return();
-                  i6 = y4(r7), a7 = i6.next(), o8 = {};
+                  })) return C6.return();
+                  i6 = y5(r7), a7 = i6.next(), o8 = {};
                 case 2:
                   if (a7.done) {
-                    C5.A(4);
+                    C6.A(4);
                     break;
                   }
-                  o8.Jj = a7.value, s7 = false, c7 = y4(e9), l6 = c7.next();
+                  o8.Jj = a7.value, s7 = false, c7 = y5(e9), l6 = c7.next();
                 case 5:
                   if (l6.done) {
-                    C5.A(7);
+                    C6.A(7);
                     break;
                   }
                   u7 = l6.value, d5 = di(u7, t9, n6).filter(/* @__PURE__ */ (function(e10) {
                     return function(t10) {
                       return t10 = t10[0], t10 = t10.keySystemConfiguration && t10.keySystemConfiguration.keySystem, !t10 || t10 === e10.Jj;
                     };
-                  })(o8)), f4 = y4(d5), p5 = f4.next();
+                  })(o8)), f4 = y5(d5), p5 = f4.next();
                 case 8:
                   if (p5.done) {
-                    C5.A(10);
+                    C6.A(10);
                     break;
                   }
-                  return m5 = p5.value, C5.g(ci(u7, m5), 9);
+                  return m5 = p5.value, C6.g(ci(u7, m5), 9);
                 case 9:
-                  p5 = f4.next(), C5.A(8);
+                  p5 = f4.next(), C6.A(8);
                   break;
                 case 10:
                   u7.decodingInfos.some(function(e10) {
                     return e10.supported;
-                  }) && (s7 = true), l6 = c7.next(), C5.A(5);
+                  }) && (s7 = true), l6 = c7.next(), C6.A(5);
                   break;
                 case 7:
-                  if (s7) return C5.return();
-                  o8 = { Jj: void 0 }, a7 = i6.next(), C5.A(2);
+                  if (s7) return C6.return();
+                  o8 = { Jj: void 0 }, a7 = i6.next(), C6.A(2);
                   break;
                 case 4:
-                  h6 = y4(e9), g6 = h6.next();
+                  h6 = y5(e9), g6 = h6.next();
                 case 12:
                   if (g6.done) {
-                    C5.A(0);
+                    C6.A(0);
                     break;
                   }
                   _5 = g6.value, v7 = di(_5, t9, n6).filter(function(e10) {
                     return e10 = e10[0], e10 = e10.keySystemConfiguration && e10.keySystemConfiguration.keySystem, !e10 || !r7.includes(e10);
-                  }), b4 = y4(v7), x4 = b4.next();
+                  }), b5 = y5(v7), x5 = b5.next();
                 case 15:
-                  if (x4.done) {
-                    g6 = h6.next(), C5.A(12);
+                  if (x5.done) {
+                    g6 = h6.next(), C6.A(12);
                     break;
                   }
-                  return S3 = x4.value, C5.g(ci(_5, S3), 16);
+                  return S5 = x5.value, C6.g(ci(_5, S5), 16);
                 case 16:
-                  x4 = b4.next(), C5.A(15);
+                  x5 = b5.next(), C6.A(15);
               }
             });
           }
           function di(e9, t9, n6) {
             var r7 = e9.audio, i6 = e9.video, a7 = [], o8 = [];
-            if (i6) for (var s7 = y4(i6.fullMimeTypes), c7 = s7.next(); !c7.done; c7 = s7.next()) {
+            if (i6) for (var s7 = y5(i6.fullMimeTypes), c7 = s7.next(); !c7.done; c7 = s7.next()) {
               c7 = c7.value;
               var l6 = Or(c7);
               if (l6.includes(",") && !r7) {
@@ -9027,24 +9124,24 @@ var init_load_uTL4eiru = __esm({
               }
               i6.colorGamut && (c7.colorGamut = i6.colorGamut), a7.push(c7);
             }
-            if (r7) for (s7 = y4(r7.fullMimeTypes), c7 = s7.next(); !c7.done; c7 = s7.next()) l6 = c7.value, c7 = Dr(l6), l6 = Ar(Or(l6), c7), c7 = Cr(c7, l6, "audio"), o8.push({
+            if (r7) for (s7 = y5(r7.fullMimeTypes), c7 = s7.next(); !c7.done; c7 = s7.next()) l6 = c7.value, c7 = Dr(l6), l6 = Ar(Or(l6), c7), c7 = Cr(c7, l6, "audio"), o8.push({
               contentType: c7,
               channels: r7.channelsCount || 2,
               bitrate: r7.bandwidth || e9.bandwidth || 1,
               samplerate: r7.audioSamplingRate || 1,
               spatialRendering: r7.spatialAudio
             });
-            for (s7 = [], a7.length == 0 && a7.push(null), o8.length == 0 && o8.push(null), a7 = y4(a7), c7 = a7.next(); !c7.done; c7 = a7.next()) for (c7 = c7.value, l6 = y4(o8), d5 = l6.next(); !d5.done; d5 = l6.next()) d5 = d5.value, u7 = { type: n6 ? "file" : "media-source" }, c7 && (u7.video = c7), d5 && (u7.audio = d5), s7.push(u7);
+            for (s7 = [], a7.length == 0 && a7.push(null), o8.length == 0 && o8.push(null), a7 = y5(a7), c7 = a7.next(); !c7.done; c7 = a7.next()) for (c7 = c7.value, l6 = y5(o8), d5 = l6.next(); !d5.done; d5 = l6.next()) d5 = d5.value, u7 = { type: n6 ? "file" : "media-source" }, c7 && (u7.video = c7), d5 && (u7.audio = d5), s7.push(u7);
             if (o8 = (e9.video ? e9.video.drmInfos : []).concat(e9.audio ? e9.audio.drmInfos : []), !o8.length) return [s7];
-            for (e9 = [], n6 = /* @__PURE__ */ new Map(), o8 = y4(o8), a7 = o8.next(); !a7.done; a7 = o8.next()) a7 = a7.value, n6.get(a7.keySystem) || n6.set(a7.keySystem, []), n6.get(a7.keySystem).push(a7);
-            for (o8 = t9 ? "required" : "optional", t9 = t9 ? ["persistent-license"] : ["temporary"], a7 = y4(n6.keys()), c7 = a7.next(); !c7.done; c7 = a7.next()) {
-              for (c7 = c7.value, d5 = n6.get(c7), l6 = /* @__PURE__ */ new Map(), d5 = y4(d5), u7 = d5.next(); !u7.done; u7 = d5.next()) {
+            for (e9 = [], n6 = /* @__PURE__ */ new Map(), o8 = y5(o8), a7 = o8.next(); !a7.done; a7 = o8.next()) a7 = a7.value, n6.get(a7.keySystem) || n6.set(a7.keySystem, []), n6.get(a7.keySystem).push(a7);
+            for (o8 = t9 ? "required" : "optional", t9 = t9 ? ["persistent-license"] : ["temporary"], a7 = y5(n6.keys()), c7 = a7.next(); !c7.done; c7 = a7.next()) {
+              for (c7 = c7.value, d5 = n6.get(c7), l6 = /* @__PURE__ */ new Map(), d5 = y5(d5), u7 = d5.next(); !u7.done; u7 = d5.next()) {
                 u7 = u7.value;
                 var f4 = u7.videoRobustness + "," + u7.audioRobustness;
                 l6.get(f4) || l6.set(f4, []), l6.get(f4).push(u7);
               }
-              for (l6 = y4(l6.values()), d5 = l6.next(); !d5.done; d5 = l6.next()) {
-                d5 = d5.value, u7 = [], f4 = y4(s7);
+              for (l6 = y5(l6.values()), d5 = l6.next(); !d5.done; d5 = l6.next()) {
+                d5 = d5.value, u7 = [], f4 = y5(s7);
                 for (var p5 = f4.next(); !p5.done; p5 = f4.next()) {
                   p5 = Object.assign({}, p5.value);
                   for (var m5 = {
@@ -9053,9 +9150,9 @@ var init_load_uTL4eiru = __esm({
                     persistentState: o8,
                     distinctiveIdentifier: "optional",
                     sessionTypes: t9
-                  }, h6 = y4(d5), g6 = h6.next(); !g6.done; g6 = h6.next()) {
+                  }, h6 = y5(d5), g6 = h6.next(); !g6.done; g6 = h6.next()) {
                     if (g6 = g6.value, g6.initData && g6.initData.length) {
-                      for (var _5 = /* @__PURE__ */ new Set(), v7 = y4(g6.initData), b4 = v7.next(); !b4.done; b4 = v7.next()) _5.add(b4.value.initDataType);
+                      for (var _5 = /* @__PURE__ */ new Set(), v7 = y5(g6.initData), b5 = v7.next(); !b5.done; b5 = v7.next()) _5.add(b5.value.initDataType);
                       m5.initDataType = g6.initData[0].initDataType;
                     }
                     g6.distinctiveIdentifierRequired && (m5.distinctiveIdentifier = "required"), g6.persistentStateRequired && (m5.persistentState = "required"), g6.sessionType && (m5.sessionTypes = [g6.sessionType]), r7 && (m5.audio ? (g6.encryptionScheme && (m5.audio.encryptionScheme = m5.audio.encryptionScheme || g6.encryptionScheme), m5.audio.robustness = m5.audio.robustness || g6.audioRobustness) : (m5.audio = { robustness: g6.audioRobustness }, g6.encryptionScheme && (m5.audio.encryptionScheme = g6.encryptionScheme)), m5.audio.robustness == "" && delete m5.audio.robustness), i6 && (m5.video ? (g6.encryptionScheme && (m5.video.encryptionScheme = m5.video.encryptionScheme || g6.encryptionScheme), m5.video.robustness = m5.video.robustness || g6.videoRobustness) : (m5.video = { robustness: g6.videoRobustness }, g6.encryptionScheme && (m5.video.encryptionScheme = g6.encryptionScheme)), m5.video.robustness == "" && delete m5.video.robustness);
@@ -9077,7 +9174,7 @@ var init_load_uTL4eiru = __esm({
             return P4(function(c7) {
               switch (c7.h) {
                 case 1:
-                  t9 = [], n6 = y4(e9.imageStreams), r7 = n6.next();
+                  t9 = [], n6 = y5(e9.imageStreams), r7 = n6.next();
                 case 2:
                   if (r7.done) {
                     c7.A(4);
@@ -9120,8 +9217,8 @@ var init_load_uTL4eiru = __esm({
             var l6 = [];
             t9 && l6.push(t9.kind), n6 && l6.push(n6.kind), l6 = l6[0] || null;
             var u7 = /* @__PURE__ */ new Set();
-            if (t9) for (var d5 = y4(t9.roles), f4 = d5.next(); !f4.done; f4 = d5.next()) u7.add(f4.value);
-            if (n6) for (d5 = y4(n6.roles), f4 = d5.next(); !f4.done; f4 = d5.next()) u7.add(f4.value);
+            if (t9) for (var d5 = y5(t9.roles), f4 = d5.next(); !f4.done; f4 = d5.next()) u7.add(f4.value);
+            if (n6) for (d5 = y5(n6.roles), f4 = d5.next(); !f4.done; f4 = d5.next()) u7.add(f4.value);
             if (e9 = {
               id: e9.id,
               active: false,
@@ -9179,7 +9276,7 @@ var init_load_uTL4eiru = __esm({
             return {
               id: e9.id,
               active: false,
-              type: U2,
+              type: U3,
               bandwidth: e9.bandwidth || 0,
               language: e9.language,
               label: e9.label,
@@ -9225,7 +9322,7 @@ var init_load_uTL4eiru = __esm({
             return t9 = t9 !== void 0 && t9, t9 = {
               id: yi(e9),
               active: t9 && e9.mode != "disabled",
-              type: U2,
+              type: U3,
               bandwidth: 0,
               language: ht2(e9.language || "und"),
               label: e9.label,
@@ -9316,7 +9413,7 @@ var init_load_uTL4eiru = __esm({
             if (i6 = i6.filter(function(e10) {
               return e10.language == o8;
             }), t9) {
-              var s7 = yt(ht2(t9), e9.map(function(e10) {
+              var s7 = yt2(ht2(t9), e9.map(function(e10) {
                 return e10.language;
               }));
               if (s7) i6 = e9.filter(function(e10) {
@@ -9410,7 +9507,7 @@ var init_load_uTL4eiru = __esm({
               allowedByKeySystem: true,
               decodingInfos: []
             };
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) {
               n6 = n6.value;
               var r7 = ki({
@@ -9424,13 +9521,13 @@ var init_load_uTL4eiru = __esm({
             }
             return t9;
           }
-          L3("shaka.util.StreamUtils", $r), $r.meetsRestrictions = ri;
+          L4("shaka.util.StreamUtils", $r), $r.meetsRestrictions = ri;
           var ji = /* @__PURE__ */ new Map(), Mi = 0, Ni = (/* @__PURE__ */ new Map()).set("image/svg+xml", true).set("image/png", true).set("image/jpeg", true).set("image/jpg", true), Pi = (/* @__PURE__ */ new Map()).set("image/webp", "data:image/webp;base64,UklGRjoAAABXRUJQVlA4IC4AAACyAgCdASoCAAIALmk0mk0iIiIiIgBoSygABc6WWgAA/veff/0PP8bA//LwYAAA").set("image/avif", "data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUIAAADybWV0YQAAAAAAAAAoaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAGxpYmF2aWYAAAAADnBpdG0AAAAAAAEAAAAeaWxvYwAAAABEAAABAAEAAAABAAABGgAAAB0AAAAoaWluZgAAAAAAAQAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAamlwcnAAAABLaXBjbwAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAAAxhdjFDgQ0MAAAAABNjb2xybmNseAACAAIAAYAAAAAXaXBtYQAAAAAAAAABAAEEAQKDBAAAACVtZGF0EgAKCBgANogQEAwgMg8f8D///8WfhwB8+ErK42A=");
           function Fi() {
             var t9 = this;
-            this.L = this.H = null, this.o = false, this.u = new oe2(), this.i = new z3(), navigator.connection && navigator.connection.addEventListener && this.i.G(navigator.connection, "change", function() {
+            this.L = this.H = null, this.o = false, this.u = new oe2(), this.i = new z4(), navigator.connection && navigator.connection.addEventListener && this.i.G(navigator.connection, "change", function() {
               t9.g.useNetworkInformation && navigator.onLine && (t9.u = new oe2(), t9.g && t9.u.configure(t9.g.advanced), t9.trySuggestStreams());
-            }), this.m = [], this.I = 1, this.O = false, this.l = this.h = this.g = this.B = null, this.C = new G(function() {
+            }), this.m = [], this.I = 1, this.O = false, this.l = this.h = this.g = this.B = null, this.C = new G2(function() {
               if (t9.o && (t9.g.restrictToElementSize || t9.g.restrictToScreenSize)) {
                 var e9 = t9.chooseVariant();
                 e9 && t9.H && t9.H(e9, t9.g.clearBufferSwitch, t9.g.safeMarginSwitch);
@@ -9463,7 +9560,7 @@ var init_load_uTL4eiru = __esm({
             }), i6.length || (i6 = this.m), r7 = i6, e9 && i6.length != this.m.length && (r7 = this.m.filter(function(e10) {
               return e10 && !!(e10.audio && e10.audio.fastSwitching || e10.video && e10.video.fastSwitching);
             })), e9 = Li(this, this.g.restrictions, r7, Infinity, Infinity), t9 != Infinity || n6 != Infinity) {
-              for (e9 = Ri(e9), e9 = y4(e9), i6 = e9.next(); !i6.done; i6 = e9.next()) if (i6 = i6.value, i6.height >= t9 && i6.width >= n6) {
+              for (e9 = Ri(e9), e9 = y5(e9), i6 = e9.next(); !i6.done; i6 = e9.next()) if (i6 = i6.value, i6.height >= t9 && i6.width >= n6) {
                 t9 = i6.height, n6 = i6.width;
                 break;
               }
@@ -9538,7 +9635,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Ri(e9) {
             var t9 = [];
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) (n6 = n6.value) && (n6 = n6.video) && n6.height && n6.width && t9.push({
               height: n6.height,
               width: n6.width
@@ -9550,7 +9647,7 @@ var init_load_uTL4eiru = __esm({
           function zi(e9) {
             Bi(e9);
             var t9 = e9.h;
-            e9.g.droppedFrames && t9 != null && t9.getVideoPlaybackQuality && (Vi(e9), Hi(e9), e9.M = new G(function() {
+            e9.g.droppedFrames && t9 != null && t9.getVideoPlaybackQuality && (Vi(e9), Hi(e9), e9.M = new G2(function() {
               if (!e9.h.paused && e9.o && e9.g.droppedFrames) {
                 var t10 = e9.h.getVideoPlaybackQuality(), n6 = t10.droppedVideoFrames;
                 if (t10 = t10.totalVideoFrames, (isNaN(e9.I) ? 1 : Math.abs(e9.I)) > 1 || !t10) e9.J = n6, e9.K = t10;
@@ -9575,7 +9672,7 @@ var init_load_uTL4eiru = __esm({
               Vi(e9);
             });
           }
-          L3("shaka.abr.SimpleAbrManager", Fi), Fi.prototype.configure = Fi.prototype.configure, Fi.prototype.setCmsdManager = Fi.prototype.setCmsdManager, Fi.prototype.setMediaElement = Fi.prototype.setMediaElement, Fi.prototype.playbackRateChanged = Fi.prototype.playbackRateChanged, Fi.prototype.setVariants = Fi.prototype.setVariants, Fi.prototype.getBandwidthEstimate = Fi.prototype.getBandwidthEstimate, Fi.prototype.trySuggestStreams = Fi.prototype.trySuggestStreams, Fi.prototype.segmentDownloaded = Fi.prototype.segmentDownloaded, Fi.prototype.disable = Fi.prototype.disable, Fi.prototype.enable = Fi.prototype.enable, Fi.prototype.chooseVariant = Fi.prototype.chooseVariant, Fi.prototype.init = Fi.prototype.init, Fi.prototype.release = Fi.prototype.release, Fi.prototype.stop = Fi.prototype.stop;
+          L4("shaka.abr.SimpleAbrManager", Fi), Fi.prototype.configure = Fi.prototype.configure, Fi.prototype.setCmsdManager = Fi.prototype.setCmsdManager, Fi.prototype.setMediaElement = Fi.prototype.setMediaElement, Fi.prototype.playbackRateChanged = Fi.prototype.playbackRateChanged, Fi.prototype.setVariants = Fi.prototype.setVariants, Fi.prototype.getBandwidthEstimate = Fi.prototype.getBandwidthEstimate, Fi.prototype.trySuggestStreams = Fi.prototype.trySuggestStreams, Fi.prototype.segmentDownloaded = Fi.prototype.segmentDownloaded, Fi.prototype.disable = Fi.prototype.disable, Fi.prototype.enable = Fi.prototype.enable, Fi.prototype.chooseVariant = Fi.prototype.chooseVariant, Fi.prototype.init = Fi.prototype.init, Fi.prototype.release = Fi.prototype.release, Fi.prototype.stop = Fi.prototype.stop;
           var Ui = 1;
           function Wi(e9) {
             this.video = e9 === void 0 ? null : e9;
@@ -9648,7 +9745,7 @@ var init_load_uTL4eiru = __esm({
             return 0;
           }, r6.release = function() {
             this.video = null;
-          }, L3("shaka.ads.AbstractAd", Wi);
+          }, L4("shaka.ads.AbstractAd", Wi);
           function Gi(e9, t9) {
             this.g = e9, this.h = t9;
           }
@@ -9660,7 +9757,7 @@ var init_load_uTL4eiru = __esm({
             ((n6.g - i6.g || a7) > 0 ? r7.i : r7.h)(r7.g, n6, e9, t9);
           }
           function qi(e9, t9, n6, r7) {
-            R3([
+            R4([
               n6,
               "has been deprecated and will be removed in",
               t9,
@@ -9695,7 +9792,7 @@ var init_load_uTL4eiru = __esm({
                   else throw new H4(2, 7, 1010);
                 }
                 return t9 = e9.g, e9.g++, t9 == 0 ? r7.return() : (n6 = e9.h * (1 + (Math.random() * 2 - 1) * e9.o), r7.g(new Promise(function(e10) {
-                  new G(e10).ba(n6 / 1e3);
+                  new G2(e10).ba(n6 / 1e3);
                 }), 2));
               }
               e9.h *= e9.m, r7.j();
@@ -9799,10 +9896,10 @@ var init_load_uTL4eiru = __esm({
             get: function() {
               return this.g !== null;
             }
-          } }), L3("shaka.util.AbortableOperation", Qi), Qi.prototype.chain = Qi.prototype.Ya, Qi.prototype.finally = Qi.prototype.finally, Qi.all = ra, Qi.prototype.abort = Qi.prototype.abort, Qi.notAbortable = na, Qi.completed = ta, Qi.aborted = ea, Qi.failed = $i;
+          } }), L4("shaka.util.AbortableOperation", Qi), Qi.prototype.chain = Qi.prototype.Ya, Qi.prototype.finally = Qi.prototype.finally, Qi.all = ra, Qi.prototype.abort = Qi.prototype.abort, Qi.notAbortable = na, Qi.completed = ta, Qi.aborted = ea, Qi.failed = $i;
           function K2(t9, n6) {
             if (n6) {
-              if (n6 instanceof Map) for (var r7 = y4(n6.keys()), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, Object.defineProperty(this, i6, {
+              if (n6 instanceof Map) for (var r7 = y5(n6.keys()), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, Object.defineProperty(this, i6, {
                 value: n6.get(i6),
                 writable: true,
                 enumerable: true
@@ -9829,7 +9926,7 @@ var init_load_uTL4eiru = __esm({
           }, K2.prototype.stopImmediatePropagation = function() {
             this.g = true;
           }, K2.prototype.stopPropagation = function() {
-          }, L3("shaka.util.FakeEvent", K2);
+          }, L4("shaka.util.FakeEvent", K2);
           function oa() {
             this.mb = new ve2(), this.be = this;
           }
@@ -9840,7 +9937,7 @@ var init_load_uTL4eiru = __esm({
           }, oa.prototype.dispatchEvent = function(e9) {
             if (!this.mb) return true;
             var t9 = this.mb.get(e9.type) || [], n6 = this.mb.get("__shaka_all_events__");
-            for (n6 && (t9 = t9.concat(n6)), t9 = y4(t9), n6 = t9.next(); !n6.done; n6 = t9.next()) {
+            for (n6 && (t9 = t9.concat(n6)), t9 = y5(t9), n6 = t9.next(); !n6.done; n6 = t9.next()) {
               n6 = n6.value, e9.target = this.be, e9.currentTarget = this.be;
               try {
                 n6.handleEvent ? n6.handleEvent(e9) : n6.call(this, e9);
@@ -9861,7 +9958,7 @@ var init_load_uTL4eiru = __esm({
             }));
           }
           sa.prototype.destroy = function() {
-            for (var e9 = [], t9 = y4(this.g), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, n6.promise.catch(function() {
+            for (var e9 = [], t9 = y5(this.g), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, n6.promise.catch(function() {
             }), e9.push(n6.abort());
             return this.g = [], Promise.all(e9);
           };
@@ -9871,10 +9968,10 @@ var init_load_uTL4eiru = __esm({
           function ua(e9, t9, n6) {
             if (n6 = n6 === void 0 ? "" : n6, t9.length == 0) return e9;
             var r7 = [];
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var i6 = e9.next(); !i6.done; i6 = e9.next()) {
               i6 = i6.value;
-              for (var a7 = y4(t9), o8 = a7.next(); !o8.done; o8 = a7.next()) {
+              for (var a7 = y5(t9), o8 = a7.next(); !o8.done; o8 = a7.next()) {
                 if (o8 = new URL(o8.value, i6), n6) {
                   var s7 = n6.replace(/^[?&]/, ""), c7 = o8.search.replace(/^\?/, "");
                   o8.search = c7 ? c7 + "&" + s7 : s7;
@@ -9920,9 +10017,9 @@ var init_load_uTL4eiru = __esm({
             if (!t9.size) return e9;
             e9 = new URL(e9);
             var n6 = [];
-            t9 = y4(t9.entries());
+            t9 = y5(t9.entries());
             for (var r7 = t9.next(); !r7.done; r7 = t9.next()) {
-              var i6 = y4(r7.value);
+              var i6 = y5(r7.value);
               r7 = i6.next().value, i6 = i6.next().value, n6.push(encodeURIComponent(r7) + "=" + encodeURIComponent(i6));
             }
             return _a(e9, n6), e9.toString();
@@ -9952,8 +10049,8 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function ba(e9, t9) {
-            for (var n6 = y4(e9.g), r7 = n6.next(); !r7.done; r7 = n6.next()) t9.g.add(r7.value);
-            for (e9 = y4(e9.h), n6 = e9.next(); !n6.done; n6 = e9.next()) t9.h.add(n6.value);
+            for (var n6 = y5(e9.g), r7 = n6.next(); !r7.done; r7 = n6.next()) t9.g.add(r7.value);
+            for (e9 = y5(e9.h), n6 = e9.next(); !n6.done; n6 = e9.next()) t9.h.add(n6.value);
           }
           r6.nm = function(e9) {
             this.g.add(e9);
@@ -10023,7 +10120,7 @@ var init_load_uTL4eiru = __esm({
               });
             }
             var a7 = ta(void 0);
-            e9.D && i6(e9.D), e9 = y4(e9.g);
+            e9.D && i6(e9.D), e9 = y5(e9.g);
             for (var o8 = e9.next(); !o8.done; o8 = e9.next()) i6(o8.value);
             return a7.Ya(void 0, function(e10) {
               throw e10 instanceof H4 && e10.code == 7001 ? e10 : new H4(2, 1, 1006, e10);
@@ -10043,35 +10140,35 @@ var init_load_uTL4eiru = __esm({
             if (!m5) return $i(new H4(2, 1, 1e3, n6.uris[c7]));
             var h6 = f4.im;
             (f4 = e9.l.get(pa(n6.uris[c7]))) && (n6.headers[e9.i.commonAccessTokenHeaderName] = f4);
-            var g6 = null, _5 = null, v7 = false, y5 = false, b4;
+            var g6 = null, _5 = null, v7 = false, y6 = false, b5;
             return l6.Ya(function() {
               return na(i6.attempt());
             }).Ya(function() {
               if (e9.j) return ea();
-              b4 = Date.now();
+              b5 = Date.now();
               var i7 = 0;
               n6.requestStartTime = Date.now();
               var a8 = m5(n6.uris[c7], n6, t9, function(a9, s9, c8) {
                 g6 && g6.stop(), _5 && _5.ba(l7 / 1e3), e9.o && t9 == Oa && (i7++, n6.packetNumber = i7, e9.o(a9, s9, Ta(r7), n6, r7), p5 = true, o8.g = c8);
               }, function(r8) {
-                y5 = true, n6.timeToFirstByte = Date.now() - n6.requestStartTime, e9.m && e9.m(r8, n6, t9);
+                y6 = true, n6.timeToFirstByte = Date.now() - n6.requestStartTime, e9.m && e9.m(r8, n6, t9);
               }, { minBytesForProgressEvents: e9.i.minBytesForProgressEvents });
               if (!h6) return a8;
               var s8 = n6.retryParameters.connectionTimeout;
-              s8 && (g6 = new G(function() {
+              s8 && (g6 = new G2(function() {
                 v7 = true, a8.abort();
               }), g6.ba(s8 / 1e3));
               var l7 = n6.retryParameters.stallTimeout;
-              return l7 && (_5 = new G(function() {
+              return l7 && (_5 = new G2(function() {
                 v7 = true, a8.abort();
               })), a8;
             }).Ya(function(i7) {
-              g6 && g6.stop(), _5 && _5.stop(), i7.timeMs ?? (i7.timeMs = Date.now() - b4, i7.timeMs += d5);
+              g6 && g6.stop(), _5 && _5.stop(), i7.timeMs ?? (i7.timeMs = Date.now() - b5, i7.timeMs += d5);
               var a8 = i7.headers[e9.i.commonAccessTokenHeaderName];
               return a8 && e9.l.set(pa(i7.uri), a8), a8 = {
                 response: i7,
                 Jl: p5
-              }, !y5 && e9.m && e9.m(i7.headers, n6, t9), e9.B && e9.B(t9, n6, r7, i7), a8;
+              }, !y6 && e9.m && e9.m(i7.headers, n6, t9), e9.B && e9.B(t9, n6, r7, i7), a8;
             }, function(l7) {
               if (g6 && g6.stop(), _5 && _5.stop(), e9.C) {
                 var u8 = null, d6 = 0;
@@ -10091,7 +10188,7 @@ var init_load_uTL4eiru = __esm({
           }
           function wa(e9, t9, n6, r7) {
             var i6 = ta(void 0);
-            e9 = y4(e9.h);
+            e9 = y5(e9.h);
             for (var a7 = e9.next(), o8 = {}; !a7.done; o8 = { Qj: void 0 }, a7 = e9.next()) o8.Qj = a7.value, i6 = i6.Ya(/* @__PURE__ */ (function(e10) {
               return function() {
                 var i7 = n6.response;
@@ -10116,7 +10213,7 @@ var init_load_uTL4eiru = __esm({
             }
             return true;
           }
-          L3("shaka.net.NetworkingEngine", va), va.prototype.request = va.prototype.request, va.prototype.destroy = va.prototype.destroy, va.makeRequest = xa, va.defaultRetryParameters = function() {
+          L4("shaka.net.NetworkingEngine", va), va.prototype.request = va.prototype.request, va.prototype.destroy = va.prototype.destroy, va.makeRequest = xa, va.defaultRetryParameters = function() {
             return Zi();
           }, va.prototype.clearCommonAccessTokenMap = va.prototype.Ri, va.prototype.clearAllResponseFilters = va.prototype.Kk, va.prototype.unregisterResponseFilter = va.prototype.Pm, va.prototype.registerResponseFilter = va.prototype.om, va.prototype.clearAllRequestFilters = va.prototype.Jk, va.prototype.unregisterRequestFilter = va.prototype.Om, va.prototype.registerRequestFilter = va.prototype.nm, va.unregisterScheme = function(e9) {
             ja.delete(e9);
@@ -10183,17 +10280,17 @@ var init_load_uTL4eiru = __esm({
           }
           function Pa(e9, t9) {
             var n6 = [];
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) n6.push(t9(r7.value));
             return n6;
           }
           function Fa(e9, t9) {
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) if (!t9(n6.value)) return false;
             return true;
           }
           function Ia(e9) {
-            for (var t9 = /* @__PURE__ */ new Map(), n6 = y4(Object.keys(e9)), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, t9.set(r7, e9[r7]);
+            for (var t9 = /* @__PURE__ */ new Map(), n6 = y5(Object.keys(e9)), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, t9.set(r7, e9[r7]);
             return t9;
           }
           function La(e9) {
@@ -10250,7 +10347,7 @@ var init_load_uTL4eiru = __esm({
             return this.g += 8, t9 * 4294967296 + e9;
           }, r6.Ja = function(e9, t9) {
             if (this.g + e9 > this.h.byteLength) throw za();
-            var n6 = V3(this.h, this.g, e9);
+            var n6 = V4(this.h, this.g, e9);
             return this.g += e9, t9 ? new Uint8Array(n6) : n6;
           }, r6.skip = function(e9) {
             if (this.g + e9 > this.h.byteLength) throw za();
@@ -10263,30 +10360,30 @@ var init_load_uTL4eiru = __esm({
             this.g = e9;
           }, r6.Rd = function() {
             for (var e9 = this.g; this.La() && this.h.getUint8(this.g) != 0; ) this.g += 1;
-            return e9 = V3(this.h, e9, this.g - e9), this.g += 1, Ie2(e9);
+            return e9 = V4(this.h, e9, this.g - e9), this.g += 1, Ie2(e9);
           };
           function za() {
             return new H4(2, 3, 3e3);
           }
-          L3("shaka.util.DataViewReader", Ra), Ra.prototype.readTerminatedString = Ra.prototype.Rd, Ra.prototype.seek = Ra.prototype.seek, Ra.prototype.rewind = Ra.prototype.Rj, Ra.prototype.skip = Ra.prototype.skip, Ra.prototype.readBytes = Ra.prototype.Ja, Ra.prototype.readUint64 = Ra.prototype.Sd, Ra.prototype.readInt32 = Ra.prototype.Sh, Ra.prototype.readUint32 = Ra.prototype.S, Ra.prototype.readUint16 = Ra.prototype.Da, Ra.prototype.readUint8 = Ra.prototype.Z, Ra.prototype.getLength = Ra.prototype.$a, Ra.prototype.getPosition = Ra.prototype.Ia, Ra.prototype.hasMoreData = Ra.prototype.La;
+          L4("shaka.util.DataViewReader", Ra), Ra.prototype.readTerminatedString = Ra.prototype.Rd, Ra.prototype.seek = Ra.prototype.seek, Ra.prototype.rewind = Ra.prototype.Rj, Ra.prototype.skip = Ra.prototype.skip, Ra.prototype.readBytes = Ra.prototype.Ja, Ra.prototype.readUint64 = Ra.prototype.Sd, Ra.prototype.readInt32 = Ra.prototype.Sh, Ra.prototype.readUint32 = Ra.prototype.S, Ra.prototype.readUint16 = Ra.prototype.Da, Ra.prototype.readUint8 = Ra.prototype.Z, Ra.prototype.getLength = Ra.prototype.$a, Ra.prototype.getPosition = Ra.prototype.Ia, Ra.prototype.hasMoreData = Ra.prototype.La;
           var Ba = 1;
           Ra.Endianness = {
             BIG_ENDIAN: 0,
             LITTLE_ENDIAN: Ba
           };
-          function q() {
+          function q2() {
             this.i = /* @__PURE__ */ new Map(), this.h = /* @__PURE__ */ new Map(), this.g = false;
           }
-          r6 = q.prototype, r6.box = function(e9, t9) {
+          r6 = q2.prototype, r6.box = function(e9, t9) {
             return e9 = Ka(e9), this.i.set(e9, Ya), this.h.set(e9, t9), this;
           }, r6.ua = function(e9, t9) {
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) this.box(n6.value, t9);
             return this;
           }, r6.T = function(e9, t9) {
             return e9 = Ka(e9), this.i.set(e9, Xa), this.h.set(e9, t9), this;
           }, r6.bj = function(e9, t9) {
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) this.T(n6.value, t9);
             return this;
           }, r6.stop = function() {
@@ -10357,7 +10454,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Ka(e9) {
             var t9 = 0;
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) t9 = t9 << 8 | n6.value.charCodeAt(0);
             return t9;
           }
@@ -10367,24 +10464,24 @@ var init_load_uTL4eiru = __esm({
           function Ja(e9) {
             return 8 + (e9.has64BitSize ? 8 : 0) + (e9.flags == null ? 0 : 4);
           }
-          L3("shaka.util.Mp4Parser", q), q.headerSize = Ja, q.typeToString = qa, q.allData = Ga, q.audioSampleEntry = Wa, q.visualSampleEntry = Ua, q.sampleDescription = Ha, q.children = Va, q.prototype.parseNext = q.prototype.Od, q.prototype.parse = q.prototype.parse, q.prototype.stop = q.prototype.stop, q.prototype.fullBoxes = q.prototype.bj, q.prototype.fullBox = q.prototype.T, q.prototype.boxes = q.prototype.ua, q.prototype.box = q.prototype.box;
+          L4("shaka.util.Mp4Parser", q2), q2.headerSize = Ja, q2.typeToString = qa, q2.allData = Ga, q2.audioSampleEntry = Wa, q2.visualSampleEntry = Ua, q2.sampleDescription = Ha, q2.children = Va, q2.prototype.parseNext = q2.prototype.Od, q2.prototype.parse = q2.prototype.parse, q2.prototype.stop = q2.prototype.stop, q2.prototype.fullBoxes = q2.prototype.bj, q2.prototype.fullBox = q2.prototype.T, q2.prototype.boxes = q2.prototype.ua, q2.prototype.box = q2.prototype.box;
           var Ya = 0, Xa = 1, Za = [
             "moov",
             "trak",
             "mdia",
             "minf",
             "stbl"
-          ], Qa = ["moof", "traf"], $a = [].concat(b3([
+          ], Qa = ["moof", "traf"], $a = [].concat(b4([
             "avc1",
             "avc3",
             "dvav",
             "dva1"
-          ]), b3([
+          ]), b4([
             "hev1",
             "hvc1",
             "dvh1",
             "dvhe"
-          ])), eo = [].concat(b3($a), b3([
+          ])), eo = [].concat(b4($a), b4([
             "vvc1",
             "vvi1",
             "dvc1",
@@ -10392,9 +10489,9 @@ var init_load_uTL4eiru = __esm({
           ])), to = "ac-3 ec-3 ac-4 Opus fLaC apac".split(" ");
           function no(e9) {
             var t9 = this;
-            this.g = [], this.data = [], new q().ua(["moov", "moof"], Va).T("pssh", function(e10) {
+            this.g = [], this.data = [], new q2().ua(["moov", "moof"], Va).T("pssh", function(e10) {
               if (!(e10.version > 1)) {
-                var n6 = V3(e10.reader.h, -12, e10.size);
+                var n6 = V4(e10.reader.h, -12, e10.size);
                 t9.data.push(n6), e10 = e10.reader.Ja(16, false), t9.g.push(Je2(e10));
               }
             }).parse(e9);
@@ -10403,16 +10500,16 @@ var init_load_uTL4eiru = __esm({
             var i6 = e9.length, a7 = 12 + t9.length + 4 + i6;
             r7 > 0 && (a7 += 4 + 16 * n6.size);
             var o8 = new Uint8Array(a7), s7 = je2(o8), c7 = 0;
-            if (s7.setUint32(c7, a7), c7 += 4, s7.setUint32(c7, 1886614376), c7 += 4, r7 < 1 ? s7.setUint32(c7, 0) : s7.setUint32(c7, 16777216), c7 += 4, o8.set(t9, c7), c7 += t9.length, r7 > 0) for (s7.setUint32(c7, n6.size), c7 += 4, t9 = y4(n6), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = qe2(n6.value), o8.set(n6, c7), c7 += n6.length;
+            if (s7.setUint32(c7, a7), c7 += 4, s7.setUint32(c7, 1886614376), c7 += 4, r7 < 1 ? s7.setUint32(c7, 0) : s7.setUint32(c7, 16777216), c7 += 4, o8.set(t9, c7), c7 += t9.length, r7 > 0) for (s7.setUint32(c7, n6.size), c7 += 4, t9 = y5(n6), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = qe2(n6.value), o8.set(n6, c7), c7 += n6.length;
             return s7.setUint32(c7, i6), o8.set(e9, c7 + 4), o8;
           }
           function io(e9) {
             var t9 = this;
-            this.D = e9, this.o = this.u = null, this.Y = this.R = false, this.J = 0, this.g = null, this.C = new z3(), this.i = /* @__PURE__ */ new Map(), this.W = [], this.B = /* @__PURE__ */ new Map(), this.K = false, this.l = Promise.withResolvers(), this.h = null, this.m = function(n6) {
+            this.D = e9, this.o = this.u = null, this.Y = this.R = false, this.J = 0, this.g = null, this.C = new z4(), this.i = /* @__PURE__ */ new Map(), this.W = [], this.B = /* @__PURE__ */ new Map(), this.K = false, this.l = Promise.withResolvers(), this.h = null, this.m = function(n6) {
               n6.severity == 2 && t9.l.reject(n6), e9.onError(n6);
-            }, this.aa = /* @__PURE__ */ new Map(), this.ha = /* @__PURE__ */ new Map(), this.L = new G(function() {
+            }, this.aa = /* @__PURE__ */ new Map(), this.ha = /* @__PURE__ */ new Map(), this.L = new G2(function() {
               return Ao(t9);
-            }), this.P = false, this.M = [], this.ma = false, this.F = new G(function() {
+            }), this.P = false, this.M = [], this.ma = false, this.F = new G2(function() {
               Io(t9);
             }), this.l.promise.catch(function() {
             }), this.j = new Ma(function() {
@@ -10440,7 +10537,7 @@ var init_load_uTL4eiru = __esm({
                   n6.o(5);
                   break;
                 case 4:
-                  t9 = n6.l(), R3("DrmEngine.destroyNow_ exception", t9);
+                  t9 = n6.l(), R4("DrmEngine.destroyNow_ exception", t9);
                 case 5:
                   e9.o = null;
                 case 3:
@@ -10456,12 +10553,12 @@ var init_load_uTL4eiru = __esm({
             return e9.Y = true, e9.B = /* @__PURE__ */ new Map(), e9.P = n6, lo(e9, t9, false);
           }
           function so(e9, t9, n6, r7) {
-            r7 = r7 === void 0 || r7, e9.B = /* @__PURE__ */ new Map(), n6 = y4(n6);
+            r7 = r7 === void 0 || r7, e9.B = /* @__PURE__ */ new Map(), n6 = y5(n6);
             for (var i6 = n6.next(); !i6.done; i6 = n6.next()) e9.B.set(i6.value, {
               initData: null,
               initDataType: null
             });
-            for (n6 = y4(e9.h.persistentSessionsMetadata), i6 = n6.next(); !i6.done; i6 = n6.next()) i6 = i6.value, e9.B.set(i6.sessionId, {
+            for (n6 = y5(e9.h.persistentSessionsMetadata), i6 = n6.next(); !i6.done; i6 = n6.next()) i6 = i6.value, e9.B.set(i6.sessionId, {
               initData: i6.initData,
               initDataType: i6.initDataType
             });
@@ -10476,21 +10573,21 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function lo(e9, t9, n6) {
-            var r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4;
-            return P4(function(S3) {
-              if (S3.h == 1) {
+            var r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5;
+            return P4(function(S5) {
+              if (S5.h == 1) {
                 for (Go(e9.h.clearKeys, t9), r7 = t9.some(function(e10) {
                   return !!(e10.video && e10.video.drmInfos.length || e10.audio && e10.audio.drmInfos.length);
-                }), i6 = Ia(e9.h.servers), a7 = Ia(e9.h.advanced || {}), !r7 && n6 && Vo(t9, i6), o8 = /* @__PURE__ */ new WeakSet(), s7 = y4(t9), c7 = s7.next(); !c7.done; c7 = s7.next()) for (l6 = c7.value, u7 = Fo(l6), d5 = y4(u7), f4 = d5.next(); !f4.done; f4 = d5.next()) p5 = f4.value, o8.has(p5) || (o8.add(p5), Wo(p5, i6, a7, e9.h.keySystemsMapping));
+                }), i6 = Ia(e9.h.servers), a7 = Ia(e9.h.advanced || {}), !r7 && n6 && Vo(t9, i6), o8 = /* @__PURE__ */ new WeakSet(), s7 = y5(t9), c7 = s7.next(); !c7.done; c7 = s7.next()) for (l6 = c7.value, u7 = Fo(l6), d5 = y5(u7), f4 = d5.next(); !f4.done; f4 = d5.next()) p5 = f4.value, o8.has(p5) || (o8.add(p5), Wo(p5, i6, a7, e9.h.keySystemsMapping));
                 for (m5 = function(t10, n7) {
                   var r8 = [];
-                  t10 = y4(t10);
+                  t10 = y5(t10);
                   for (var i7 = t10.next(); !i7.done; i7 = t10.next()) {
                     i7 = i7.value;
                     var o9 = i7[n7] || a7.has(i7.keySystem) && a7.get(i7.keySystem)[n7] || "";
                     if (o9 == "" && nt2(i7.keySystem) && (n7 == "audioRobustness" ? o9 = [e9.h.defaultAudioRobustnessForWidevine] : n7 == "videoRobustness" && (o9 = [e9.h.defaultVideoRobustnessForWidevine])), typeof o9 == "string") r8.push(i7);
                     else if (Array.isArray(o9)) {
-                      o9.length === 0 && (o9 = [""]), o9 = y4(o9);
+                      o9.length === 0 && (o9 = [""]), o9 = y5(o9);
                       for (var s8 = o9.next(); !s8.done; s8 = o9.next()) {
                         var c8 = {};
                         r8.push(Object.assign({}, i7, (c8[n7] = s8.value, c8)));
@@ -10498,11 +10595,11 @@ var init_load_uTL4eiru = __esm({
                     }
                   }
                   return r8;
-                }, h6 = /* @__PURE__ */ new WeakSet(), g6 = y4(t9), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, v7.video && !h6.has(v7.video) && (v7.video.drmInfos = m5(v7.video.drmInfos, "videoRobustness"), v7.video.drmInfos = m5(v7.video.drmInfos, "audioRobustness"), h6.add(v7.video)), v7.audio && !h6.has(v7.audio) && (v7.audio.drmInfos = m5(v7.audio.drmInfos, "videoRobustness"), v7.audio.drmInfos = m5(v7.audio.drmInfos, "audioRobustness"), h6.add(v7.audio));
-                return S3.g(ui(t9, e9.P, e9.O, e9.h.preferredKeySystems), 2);
+                }, h6 = /* @__PURE__ */ new WeakSet(), g6 = y5(t9), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, v7.video && !h6.has(v7.video) && (v7.video.drmInfos = m5(v7.video.drmInfos, "videoRobustness"), v7.video.drmInfos = m5(v7.video.drmInfos, "audioRobustness"), h6.add(v7.video)), v7.audio && !h6.has(v7.audio) && (v7.audio.drmInfos = m5(v7.audio.drmInfos, "videoRobustness"), v7.audio.drmInfos = m5(v7.audio.drmInfos, "audioRobustness"), h6.add(v7.audio));
+                return S5.g(ui(t9, e9.P, e9.O, e9.h.preferredKeySystems), 2);
               }
-              return Na(e9.j), b4 = r7 || i6.size > 0, b4 ? (x4 = yo(e9, t9), S3.return(r7 ? x4 : x4.catch(function() {
-              }))) : (e9.R = true, S3.return(Promise.resolve()));
+              return Na(e9.j), b5 = r7 || i6.size > 0, b5 ? (x5 = yo(e9, t9), S5.return(r7 ? x5 : x5.catch(function() {
+              }))) : (e9.R = true, S5.return(Promise.resolve()));
             });
           }
           function uo(e9) {
@@ -10533,14 +10630,14 @@ var init_load_uTL4eiru = __esm({
           function fo(e9, t9) {
             return P4(function(n6) {
               if (n6.h == 1) return n6.g(uo(e9), 2);
-              go(e9, t9.initDataType, V3(t9.initData)), n6.j();
+              go(e9, t9.initDataType, V4(t9.initData)), n6.j();
             });
           }
           r6.Ub = function(e9) {
             var t9 = this, n6, r7, i6, a7;
             return P4(function(o8) {
-              if (o8.h == 1) return t9.o === e9 ? o8.return() : t9.u ? (n6 = B3(), t9.o = e9, t9.h.delayLicenseRequestUntilPlayed && t9.C.oa(t9.o, "play", function() {
-                for (var e10 = y4(t9.M), n7 = e10.next(); !n7.done; n7 = e10.next()) Do(t9, n7.value);
+              if (o8.h == 1) return t9.o === e9 ? o8.return() : t9.u ? (n6 = B4(), t9.o = e9, t9.h.delayLicenseRequestUntilPlayed && t9.C.oa(t9.o, "play", function() {
+                for (var e10 = y5(t9.M), n7 = e10.next(); !n7.done; n7 = e10.next()) Do(t9, n7.value);
                 t9.ma = true, t9.M = [];
               }), (r7 = UT(n6, t9.o)) ? t9.C.Hb(r7, [
                 "connect",
@@ -10573,7 +10670,7 @@ var init_load_uTL4eiru = __esm({
                   }
                   return t9 = xa([e9.g.serverCertificateUri], e9.h.retryParameters), o8.m(3), n6 = e9.D.xc.request(5, t9, { isPreload: e9.V() }), o8.g(n6.promise, 5);
                 case 5:
-                  r7 = o8.i, e9.g.serverCertificate = V3(r7.data), o8.o(4);
+                  r7 = o8.i, e9.g.serverCertificate = V4(r7.data), o8.o(4);
                   break;
                 case 3:
                   throw i6 = o8.l(), new H4(2, 6, 6017, i6);
@@ -10611,7 +10708,7 @@ var init_load_uTL4eiru = __esm({
                 e9.K = false, e9.l = Promise.withResolvers(), e9.l.promise.catch(function() {
                 });
               }
-              for (n6 = (e9.g ? e9.g.initData : []) || [], r7 = y4(n6), i6 = r7.next(); !i6.done; i6 = r7.next()) a7 = i6.value, go(e9, a7.initDataType, a7.initData);
+              for (n6 = (e9.g ? e9.g.initData : []) || [], r7 = y5(n6), i6 = r7.next(); !i6.done; i6 = r7.next()) a7 = i6.value, go(e9, a7.initDataType, a7.initData);
               return zo(e9) && e9.l.resolve(), o8.return(e9.l.promise);
             });
           }
@@ -10625,7 +10722,7 @@ var init_load_uTL4eiru = __esm({
               }
               if (e9.h.ignoreDuplicateInitData) {
                 var r7 = e9.i.values();
-                r7 = y4(r7);
+                r7 = y5(r7);
                 for (var i6 = r7.next(); !i6.done; i6 = r7.next()) if (Oe2(n6, i6.value.initData)) return;
                 var a7 = false;
                 if (e9.B.forEach(function(e10) {
@@ -10682,7 +10779,7 @@ var init_load_uTL4eiru = __esm({
             });
           }, r6.re = function() {
             var e9 = Infinity, t9 = this.i.keys();
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, isNaN(n6.expiration) || (e9 = Math.min(e9, n6.expiration));
             return e9;
           };
@@ -10725,30 +10822,30 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function bo(e9, t9, n6) {
-            for (var r7 = y4(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) {
-              i6 = y4(Fo(i6.value));
+            for (var r7 = y5(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) {
+              i6 = y5(Fo(i6.value));
               for (var a7 = i6.next(); !a7.done; a7 = i6.next()) a7 = a7.value, n6.getOrInsertComputed(a7.keySystem, function() {
                 return [];
               }).push(a7);
             }
             if (n6.size == 1 && n6.has("")) throw new H4(2, 6, 6e3);
-            r7 = e9.h.preferredKeySystems, r7.length || (i6 = Ia(e9.h.servers), i6.size == 1 && (r7 = Array.from(i6.keys()))), i6 = y4(r7);
+            r7 = e9.h.preferredKeySystems, r7.length || (i6 = Ia(e9.h.servers), i6.size == 1 && (r7 = Array.from(i6.keys()))), i6 = y5(r7);
             var o8 = i6.next();
             for (a7 = {}; !o8.done; a7 = { Kj: void 0 }, o8 = i6.next()) {
-              a7.Kj = o8.value, o8 = y4(t9);
+              a7.Kj = o8.value, o8 = y5(t9);
               for (var s7 = o8.next(); !s7.done; s7 = o8.next()) if (s7 = s7.value.decodingInfos.find(/* @__PURE__ */ (function(e10) {
                 return function(t10) {
                   return t10.supported && t10.keySystemAccess != null && t10.keySystemAccess.keySystem == e10.Kj;
                 };
               })(a7))) return s7.keySystemAccess;
             }
-            for (i6 = y4([true, false]), a7 = i6.next(); !a7.done; a7 = i6.next()) for (a7 = a7.value, o8 = y4(t9), s7 = o8.next(); !s7.done; s7 = o8.next()) {
-              s7 = y4(s7.value.decodingInfos);
+            for (i6 = y5([true, false]), a7 = i6.next(); !a7.done; a7 = i6.next()) for (a7 = a7.value, o8 = y5(t9), s7 = o8.next(); !s7.done; s7 = o8.next()) {
+              s7 = y5(s7.value.decodingInfos);
               for (var c7 = s7.next(); !c7.done; c7 = s7.next()) if (c7 = c7.value, c7.supported && c7.keySystemAccess) {
                 var l6 = c7.keySystemAccess.keySystem;
                 if (!r7.includes(l6)) {
                   var u7 = n6.get(l6);
-                  for (!u7 && e9.h.keySystemsMapping[l6] && (u7 = n6.get(e9.h.keySystemsMapping[l6])), l6 = y4(u7), u7 = l6.next(); !u7.done; u7 = l6.next()) if (!!u7.value.licenseServerUri == a7) return c7.keySystemAccess;
+                  for (!u7 && e9.h.keySystemsMapping[l6] && (u7 = n6.get(e9.h.keySystemsMapping[l6])), l6 = y5(u7), u7 = l6.next(); !u7.done; u7 = l6.next()) if (!!u7.value.licenseServerUri == a7) return c7.keySystemAccess;
                 }
               }
             }
@@ -10758,7 +10855,7 @@ var init_load_uTL4eiru = __esm({
             zo(e9) && e9.l.resolve();
           }
           function So(e9, t9) {
-            new G(function() {
+            new G2(function() {
               t9.loaded = true, xo(e9);
             }).ba(qo);
           }
@@ -10848,33 +10945,33 @@ var init_load_uTL4eiru = __esm({
           }
           function Do(e9, t9) {
             var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7;
-            P4(function(b4) {
-              switch (b4.h) {
+            P4(function(b5) {
+              switch (b5.h) {
                 case 1:
                   if (n6 = t9.target, e9.h.logLicenseExchange && Ge2(t9.message), r7 = e9.i.get(n6), i6 = e9.g.licenseServerUri, a7 = e9.h.advanced[e9.g.keySystem], t9.messageType == "individualization-request" && a7 && a7.individualizationServer && (i6 = a7.individualizationServer), o8 = xa([i6], e9.h.retryParameters), o8.body = t9.message, o8.method = "POST", o8.licenseRequestType = t9.messageType, o8.sessionId = n6.sessionId, o8.drmInfo = e9.g, r7 && (o8.initData = r7.initData, o8.initDataType = r7.initDataType, r7.tj && (o8.licenseRequestType = "license-renewal")), a7 && a7.headers) for (s7 in a7.headers) o8.headers[s7] = a7.headers[s7];
                   if (c7 = tt2(e9.g.keySystem)) {
-                    var x4 = o8, S3 = e9.g;
+                    var x5 = o8, S5 = e9.g;
                     try {
-                      var C5 = Re2(x4.body);
-                      if (C5) {
-                        var w5 = JSON.parse(C5);
-                        w5.type || (w5.type = S3.sessionType, x4.body = ze2(JSON.stringify(w5)));
+                      var C6 = Re2(x5.body);
+                      if (C6) {
+                        var w6 = JSON.parse(C6);
+                        w6.type || (w6.type = S5.sessionType, x5.body = ze2(JSON.stringify(w6)));
                       }
                     } catch {
                     }
                   }
                   if (rt2(e9.g.keySystem)) {
-                    if (x4 = Le2(o8.body, true, true), x4.includes("PlayReadyKeyMessage")) {
-                      for (x4 = pn(x4, "PlayReadyKeyMessage"), S3 = xn(x4, "HttpHeader"), S3 = y4(S3), C5 = S3.next(); !C5.done; C5 = S3.next()) w5 = C5.value, C5 = xn(w5, "name")[0], w5 = xn(w5, "value")[0], o8.headers[yn(C5)] = yn(w5);
-                      x4 = xn(x4, "Challenge")[0], o8.body = Ke2(yn(x4));
+                    if (x5 = Le2(o8.body, true, true), x5.includes("PlayReadyKeyMessage")) {
+                      for (x5 = pn(x5, "PlayReadyKeyMessage"), S5 = xn(x5, "HttpHeader"), S5 = y5(S5), C6 = S5.next(); !C6.done; C6 = S5.next()) w6 = C6.value, C6 = xn(w6, "name")[0], w6 = xn(w6, "value")[0], o8.headers[yn(C6)] = yn(w6);
+                      x5 = xn(x5, "Challenge")[0], o8.body = Ke2(yn(x5));
                     } else o8.headers["Content-Type"] = "text/xml; charset=utf-8";
                   }
-                  return l6 = Date.now(), b4.m(2), d5 = e9.D.xc.request(2, o8, { isPreload: e9.V() }), e9.W.push(d5), b4.g(d5.promise, 4);
+                  return l6 = Date.now(), b5.m(2), d5 = e9.D.xc.request(2, o8, { isPreload: e9.V() }), e9.W.push(d5), b5.g(d5.promise, 4);
                 case 4:
-                  u7 = b4.i, pe2(e9.W, d5), b4.o(3);
+                  u7 = b5.i, pe2(e9.W, d5), b5.o(3);
                   break;
                 case 2:
-                  if (f4 = b4.l(), e9.j.g) return b4.return();
+                  if (f4 = b5.l(), e9.j.g) return b5.return();
                   if (p5 = {
                     sessionId: n6.sessionId,
                     sessionType: r7.type,
@@ -10884,17 +10981,17 @@ var init_load_uTL4eiru = __esm({
                     e9.h.failureCallback(m5);
                   } catch {
                   }
-                  return m5.handled ? (r7 && r7.wb && r7.wb.reject(m5), b4.return()) : (e9.i.size == 1 ? (e9.m(m5), r7 && r7.wb && r7.wb.reject(m5)) : (r7 && r7.wb && r7.wb.reject(m5), e9.i.delete(n6), zo(e9) && (e9.l.resolve(), e9.L.ba(0.1))), b4.return());
+                  return m5.handled ? (r7 && r7.wb && r7.wb.reject(m5), b5.return()) : (e9.i.size == 1 ? (e9.m(m5), r7 && r7.wb && r7.wb.reject(m5)) : (r7 && r7.wb && r7.wb.reject(m5), e9.i.delete(n6), zo(e9) && (e9.l.resolve(), e9.L.ba(0.1))), b5.return());
                 case 3:
-                  return e9.j.g ? b4.return() : (e9.J += (Date.now() - l6) / 1e3, e9.h.logLicenseExchange && Ge2(u7.data), c7 && Oo(e9, u7), b4.m(5), b4.g(n6.update(u7.data), 7));
+                  return e9.j.g ? b5.return() : (e9.J += (Date.now() - l6) / 1e3, e9.h.logLicenseExchange && Ge2(u7.data), c7 && Oo(e9, u7), b5.m(5), b5.g(n6.update(u7.data), 7));
                 case 7:
-                  r7 && (r7.Ae = Date.now() / 1e3), b4.o(6);
+                  r7 && (r7.Ae = Date.now() / 1e3), b5.o(6);
                   break;
                 case 5:
-                  return g6 = (h6 = b4.l()) && h6.message || String(h6), _5 = new H4(2, 6, 6008, g6), e9.m(_5), r7 && r7.wb && r7.wb.reject(_5), b4.return();
+                  return g6 = (h6 = b5.l()) && h6.message || String(h6), _5 = new H4(2, 6, 6008, g6), e9.m(_5), r7 && r7.wb && r7.wb.reject(_5), b5.return();
                 case 6:
-                  if (e9.j.g) return b4.return();
-                  v7 = new K2("drmsessionupdate"), e9.D.onEvent(v7), r7 && (r7.wb && r7.wb.resolve(), So(e9, r7)), b4.j();
+                  if (e9.j.g) return b5.return();
+                  v7 = new K2("drmsessionupdate"), e9.D.onEvent(v7), r7 && (r7.wb && r7.wb.resolve(), So(e9, r7)), b5.j();
               }
             });
           }
@@ -10905,8 +11002,8 @@ var init_load_uTL4eiru = __esm({
                 var t10 = e10.kid;
                 return e10 = e10.k, [ct2(t10), ct2(e10)];
               }));
-              if (e9.g.clearKeys) for (var i6 = y4(r7), a7 = i6.next(); !a7.done; a7 = i6.next()) {
-                var o8 = y4(a7.value), s7 = o8.next().value, c7 = o8.next().value;
+              if (e9.g.clearKeys) for (var i6 = y5(r7), a7 = i6.next(); !a7.done; a7 = i6.next()) {
+                var o8 = y5(a7.value), s7 = o8.next().value, c7 = o8.next().value;
                 e9.g.clearKeys.set(s7, c7);
               }
               else e9.g.clearKeys = r7;
@@ -10921,7 +11018,7 @@ var init_load_uTL4eiru = __esm({
                 var a7 = i7;
                 i7 = t10, t10 = a7;
               }
-              if (a7 = B3(), rt2(e9.g.keySystem) && i7.byteLength == 16 && a7.cg()) {
+              if (a7 = B4(), rt2(e9.g.keySystem) && i7.byteLength == 16 && a7.cg()) {
                 a7 = je2(i7);
                 var o8 = a7.getUint32(0, true), s7 = a7.getUint16(4, true), c7 = a7.getUint16(6, true);
                 a7.setUint32(0, o8, false), a7.setUint16(4, s7, false), a7.setUint16(6, c7, false);
@@ -10940,12 +11037,12 @@ var init_load_uTL4eiru = __esm({
             }) && e9.m(new H4(2, 6, 6014)), e9.D.Wf(La(n6));
           }
           function jo() {
-            var t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3, C5, w5, T5, E5, D5, O5, k5;
-            return P4(function(A4) {
-              if (A4.h == 1) {
+            var t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5, C6, w6, T6, E6, D6, O6, k6;
+            return P4(function(A5) {
+              if (A5.h == 1) {
                 if (t9 = "org.w3.clearkey com.widevine.alpha com.microsoft.playready com.microsoft.playready.hardware com.microsoft.playready.recommendation com.microsoft.playready.recommendation.3000 com.microsoft.playready.recommendation.3000.clearlead com.chromecast.playready com.apple.fps.1_0 com.apple.fps com.huawei.wiseplay".split(" "), !(e8.MediaKeys && e8.navigator && e8.navigator.requestMediaKeySystemAccess && e8.MediaKeySystemAccess && e8.MediaKeySystemAccess.prototype.getConfiguration)) {
-                  for (n6 = {}, r7 = y4(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) a7 = i6.value, n6[a7] = null;
-                  return A4.return(n6);
+                  for (n6 = {}, r7 = y5(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) a7 = i6.value, n6[a7] = null;
+                  return A5.return(n6);
                 }
                 for (o8 = "1.0 1.1 1.2 1.3 1.4 2.0 2.1 2.2 2.3".split(" "), s7 = [
                   "SW_SECURE_CRYPTO",
@@ -10974,19 +11071,19 @@ var init_load_uTL4eiru = __esm({
                   null,
                   "cenc",
                   "cbcs"
-                ], m5 = /* @__PURE__ */ new Map(), h6 = B3(), g6 = function(e9, t10, n7) {
+                ], m5 = /* @__PURE__ */ new Map(), h6 = B4(), g6 = function(e9, t10, n7) {
                   var r8, i7, a8, s8, c8, l7, u8, d6, f5, p6, g7, _6, v8;
-                  return P4(function(b5) {
-                    switch (b5.h) {
+                  return P4(function(b6) {
+                    switch (b6.h) {
                       case 1:
-                        return b5.m(2), b5.g(t10.createMediaKeys(), 5);
+                        return b6.m(2), b6.g(t10.createMediaKeys(), 5);
                       case 5:
-                        r8 = b5.i;
+                        r8 = b6.i;
                       case 4:
-                        b5.o(3);
+                        b6.o(3);
                         break;
                       case 2:
-                        return b5.l(), b5.return();
+                        return b6.l(), b6.return();
                       case 3:
                         if (a8 = (i7 = t10.getConfiguration().sessionTypes) ? i7.includes("persistent-license") : false, h6.Bj() && (a8 = false), s8 = t10.getConfiguration().videoCapabilities, c8 = t10.getConfiguration().audioCapabilities, l7 = {
                           persistentState: a8,
@@ -10995,28 +11092,28 @@ var init_load_uTL4eiru = __esm({
                           audioRobustnessLevels: [],
                           minHdcpVersions: []
                         }, m5.get(e9) ? l7 = m5.get(e9) : m5.set(e9, l7), (u8 = s8[0].encryptionScheme) && !l7.encryptionSchemes.includes(u8) && l7.encryptionSchemes.push(u8), (d6 = s8[0].robustness) && !l7.videoRobustnessLevels.includes(d6) && l7.videoRobustnessLevels.push(d6), (f5 = c8[0].robustness) && !l7.audioRobustnessLevels.includes(f5) && l7.audioRobustnessLevels.push(f5), !(n7 && "getStatusForPolicy" in r8)) {
-                          b5.A(0);
+                          b6.A(0);
                           break;
                         }
-                        p6 = y4(o8), g7 = p6.next();
+                        p6 = y5(o8), g7 = p6.next();
                       case 7:
                         if (g7.done) {
-                          b5.A(0);
+                          b6.A(0);
                           break;
                         }
                         if (_6 = g7.value, l7.minHdcpVersions.includes(_6)) {
-                          b5.A(8);
+                          b6.A(8);
                           break;
                         }
-                        return b5.g(r8.getStatusForPolicy({ minHdcpVersion: _6 }), 10);
+                        return b6.g(r8.getStatusForPolicy({ minHdcpVersion: _6 }), 10);
                       case 10:
-                        if (v8 = b5.i, v8 == "usable") l7.minHdcpVersions.includes(_6) || l7.minHdcpVersions.push(_6);
+                        if (v8 = b6.i, v8 == "usable") l7.minHdcpVersions.includes(_6) || l7.minHdcpVersions.push(_6);
                         else {
-                          b5.A(0);
+                          b6.A(0);
                           break;
                         }
                       case 8:
-                        g7 = p6.next(), b5.A(7);
+                        g7 = p6.next(), b6.A(7);
                     }
                   });
                 }, _5 = function(e9, t10, n7, r8, i7) {
@@ -11025,9 +11122,9 @@ var init_load_uTL4eiru = __esm({
                   return P4(function(v8) {
                     switch (v8.h) {
                       case 1:
-                        for (v8.m(2), a8 = ln(f4), o9 = y4(a8.videoCapabilities), s8 = o9.next(); !s8.done; s8 = o9.next()) c8 = s8.value, c8.encryptionScheme = t10, c8.robustness = n7;
-                        for (l7 = y4(a8.audioCapabilities), u8 = l7.next(); !u8.done; u8 = l7.next()) d6 = u8.value, d6.encryptionScheme = t10, d6.robustness = r8;
-                        return p6 = ln(a8), p6.persistentState = "required", p6.sessionTypes = ["persistent-license"], m6 = [p6, a8], _6 = B3(), _6.Ra() == "MOBILE" ? v8.g(Zr(5, navigator.requestMediaKeySystemAccess(e9, m6)), 7) : v8.g(navigator.requestMediaKeySystemAccess(e9, m6), 6);
+                        for (v8.m(2), a8 = ln(f4), o9 = y5(a8.videoCapabilities), s8 = o9.next(); !s8.done; s8 = o9.next()) c8 = s8.value, c8.encryptionScheme = t10, c8.robustness = n7;
+                        for (l7 = y5(a8.audioCapabilities), u8 = l7.next(); !u8.done; u8 = l7.next()) d6 = u8.value, d6.encryptionScheme = t10, d6.robustness = r8;
+                        return p6 = ln(a8), p6.persistentState = "required", p6.sessionTypes = ["persistent-license"], m6 = [p6, a8], _6 = B4(), _6.Ra() == "MOBILE" ? v8.g(Zr(5, navigator.requestMediaKeySystemAccess(e9, m6)), 7) : v8.g(navigator.requestMediaKeySystemAccess(e9, m6), 6);
                       case 6:
                         h7 = v8.i, v8.A(5);
                         break;
@@ -11042,13 +11139,13 @@ var init_load_uTL4eiru = __esm({
                         v8.l(), v8.j();
                     }
                   });
-                }, v7 = [], b4 = y4(t9), x4 = b4.next(); !x4.done; x4 = b4.next()) {
-                  for (S3 = x4.value, m5.set(S3, null), C5 = true, w5 = y4(p5), T5 = w5.next(); !T5.done; T5 = w5.next()) E5 = T5.value, v7.push(_5(S3, E5, "", "", C5)), C5 = false;
-                  for (D5 = y4(l6[S3] || []), O5 = D5.next(); !O5.done; O5 = D5.next()) k5 = O5.value, v7.push(_5(S3, null, k5, "")), v7.push(_5(S3, null, "", k5));
+                }, v7 = [], b5 = y5(t9), x5 = b5.next(); !x5.done; x5 = b5.next()) {
+                  for (S5 = x5.value, m5.set(S5, null), C6 = true, w6 = y5(p5), T6 = w6.next(); !T6.done; T6 = w6.next()) E6 = T6.value, v7.push(_5(S5, E6, "", "", C6)), C6 = false;
+                  for (D6 = y5(l6[S5] || []), O6 = D6.next(); !O6.done; O6 = D6.next()) k6 = O6.value, v7.push(_5(S5, null, k6, "")), v7.push(_5(S5, null, "", k6));
                 }
-                return A4.g(Promise.all(v7), 2);
+                return A5.g(Promise.all(v7), 2);
               }
-              return A4.return(La(m5));
+              return A5.return(La(m5));
             });
           }
           function Mo(e9, t9) {
@@ -11083,7 +11180,7 @@ var init_load_uTL4eiru = __esm({
             var t9;
             return P4(function(n6) {
               return t9 = Array.from(e9.i.entries()), e9.i.clear(), n6.g(Promise.all(t9.map(function(t10) {
-                t10 = y4(t10);
+                t10 = y5(t10);
                 var n7 = t10.next().value, r7 = t10.next().value;
                 return P4(function(t11) {
                   if (t11.h == 1) return t11.m(2), e9.Y || e9.B.has(n7.sessionId) || r7.type !== "persistent-license" || e9.h.persistentSessionOnlinePlayback ? t11.g(Mo(e9, n7), 5) : t11.g(n7.remove(), 5);
@@ -11113,7 +11210,7 @@ var init_load_uTL4eiru = __esm({
                     sessionType: e9.g.sessionType,
                     initData: n6 ? n6.initData : null,
                     initDataType: n6 ? n6.initDataType : null
-                  }, u7.m(2), it2(r7) ? (o8 = ze2("renew"), u7.g(t9.update(o8), 5)) : rt2(r7) && n6 && n6.initData && n6.initDataType ? u7.g(Ro(e9, t9, n6), 7) : (R3("Manual license renewal is not supported for " + r7), u7.return())) : u7.return();
+                  }, u7.m(2), it2(r7) ? (o8 = ze2("renew"), u7.g(t9.update(o8), 5)) : rt2(r7) && n6 && n6.initData && n6.initDataType ? u7.g(Ro(e9, t9, n6), 7) : (R4("Manual license renewal is not supported for " + r7), u7.return())) : u7.return();
                 case 7:
                   i6 = u7.i, u7.A(5);
                   break;
@@ -11146,7 +11243,7 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function Bo(e9) {
-            for (var t9 = y4(e9.g && e9.g.keyIds || /* @__PURE__ */ new Set([])), n6 = t9.next(); !n6.done; n6 = t9.next()) if (e9.aa.get(n6.value) !== "usable") return false;
+            for (var t9 = y5(e9.g && e9.g.keyIds || /* @__PURE__ */ new Set([])), n6 = t9.next(); !n6.done; n6 = t9.next()) if (e9.aa.get(n6.value) !== "usable") return false;
             return true;
           }
           function Vo(e9, t9) {
@@ -11164,7 +11261,7 @@ var init_load_uTL4eiru = __esm({
                 initData: [],
                 keyIds: /* @__PURE__ */ new Set()
               });
-            }), e9 = y4(e9), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, t9.video && (t9.video.drmInfos = n6), t9.audio && (t9.audio.drmInfos = n6);
+            }), e9 = y5(e9), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, t9.video && (t9.video.drmInfos = n6), t9.audio && (t9.audio.drmInfos = n6);
           }
           function Ho(e9, t9, n6) {
             var r7 = [], i6 = [], a7 = [], o8 = [], s7 = [], c7 = /* @__PURE__ */ new Set(), l6 = /* @__PURE__ */ new Set();
@@ -11182,19 +11279,19 @@ var init_load_uTL4eiru = __esm({
               initData: s7,
               keyIds: c7,
               mediaTypes: n6[0].mediaTypes
-            }, l6.size > 0 && (t9.keySystemUris = l6), n6 = y4(n6), l6 = n6.next(); !l6.done; l6 = n6.next()) l6 = l6.value, l6.distinctiveIdentifierRequired && (t9.distinctiveIdentifierRequired = l6.distinctiveIdentifierRequired), l6.persistentStateRequired && (t9.persistentStateRequired = l6.persistentStateRequired);
+            }, l6.size > 0 && (t9.keySystemUris = l6), n6 = y5(n6), l6 = n6.next(); !l6.done; l6 = n6.next()) l6 = l6.value, l6.distinctiveIdentifierRequired && (t9.distinctiveIdentifierRequired = l6.distinctiveIdentifierRequired), l6.persistentStateRequired && (t9.persistentStateRequired = l6.persistentStateRequired);
             return t9;
           }
           function Uo(t9, n6, r7, i6, a7, o8, s7, c7) {
             var l6 = [];
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var u7 = t9.next(), d5 = {}; !u7.done; d5 = { Wa: void 0 }, u7 = t9.next()) {
               if (d5.Wa = u7.value, n6.includes(d5.Wa.encryptionScheme) || n6.push(d5.Wa.encryptionScheme), tt2(d5.Wa.keySystem) && d5.Wa.licenseServerUri.startsWith("data:application/json;base64,") ? l6.includes(d5.Wa.licenseServerUri) || l6.push(d5.Wa.licenseServerUri) : r7.includes(d5.Wa.licenseServerUri) || r7.push(d5.Wa.licenseServerUri), a7.includes(d5.Wa.serverCertificateUri) || a7.push(d5.Wa.serverCertificateUri), d5.Wa.serverCertificate && (i6.some(/* @__PURE__ */ (function(e9) {
                 return function(t10) {
                   return Oe2(t10, e9.Wa.serverCertificate);
                 };
               })(d5)) || i6.push(d5.Wa.serverCertificate)), d5.Wa.initData) {
-                u7 = y4(d5.Wa.initData);
+                u7 = y5(d5.Wa.initData);
                 for (var f4 = u7.next(), p5 = {}; !f4.done; p5 = { sh: void 0 }, f4 = u7.next()) p5.sh = f4.value, o8.some(/* @__PURE__ */ (function(e9) {
                   return function(t10) {
                     var n7 = e9.sh;
@@ -11202,12 +11299,12 @@ var init_load_uTL4eiru = __esm({
                   };
                 })(p5)) || o8.push(p5.sh);
               }
-              if (d5.Wa.keyIds) for (u7 = y4(d5.Wa.keyIds), f4 = u7.next(); !f4.done; f4 = u7.next()) s7.add(f4.value);
-              if (d5.Wa.keySystemUris && c7) for (d5 = y4(d5.Wa.keySystemUris), u7 = d5.next(); !u7.done; u7 = d5.next()) c7.add(u7.value);
+              if (d5.Wa.keyIds) for (u7 = y5(d5.Wa.keyIds), f4 = u7.next(); !f4.done; f4 = u7.next()) s7.add(f4.value);
+              if (d5.Wa.keySystemUris && c7) for (d5 = y5(d5.Wa.keySystemUris), u7 = d5.next(); !u7.done; u7 = d5.next()) c7.add(u7.value);
             }
             if (l6.length == 1) r7.push(l6[0]);
             else if (l6.length > 0) {
-              for (n6 = [], l6 = y4(l6), i6 = l6.next(); !i6.done; i6 = l6.next()) i6 = e8.atob(i6.value.split("data:application/json;base64,").pop()), i6 = JSON.parse(i6), n6.push.apply(n6, b3(i6.keys));
+              for (n6 = [], l6 = y5(l6), i6 = l6.next(); !i6.done; i6 = l6.next()) i6 = e8.atob(i6.value.split("data:application/json;base64,").pop()), i6 = JSON.parse(i6), n6.push.apply(n6, b4(i6.keys));
               l6 = JSON.stringify({ keys: n6 }), r7.push("data:application/json;base64," + e8.btoa(l6));
             }
           }
@@ -11217,7 +11314,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Go(e9, t9) {
             if (e9 = Ia(e9), e9.size != 0) {
-              e9 = St(e9), t9 = y4(t9);
+              e9 = St(e9), t9 = y5(t9);
               for (var n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, n6.video && (n6.video.drmInfos = [e9]), n6.audio && (n6.audio.drmInfos = [e9]);
             }
           }
@@ -11251,7 +11348,7 @@ var init_load_uTL4eiru = __esm({
             var n6 = e9.h.restrictions;
             e9 = e9.i;
             var r7 = false;
-            t9 = y4(t9.variants);
+            t9 = y5(t9.variants);
             for (var i6 = t9.next(); !i6.done; i6 = t9.next()) {
               i6 = i6.value;
               var a7 = i6.allowedByApplication;
@@ -11264,24 +11361,24 @@ var init_load_uTL4eiru = __esm({
             if (t9) {
               var r7 = e9.g ? e9.g.Xb() : null;
               if (r7 && e9.g.u) {
-                for (var i6 = /* @__PURE__ */ new Set(), a7 = y4(t9.variants), o8 = a7.next(); !o8.done; o8 = a7.next()) o8 = o8.value, o8.audio && i6.add(o8.audio), o8.video && i6.add(o8.video);
-                for (i6 = y4(i6), a7 = i6.next(); !a7.done; a7 = i6.next()) rs(e9, r7.keySystem, a7.value);
+                for (var i6 = /* @__PURE__ */ new Set(), a7 = y5(t9.variants), o8 = a7.next(); !o8.done; o8 = a7.next()) o8 = o8.value, o8.audio && i6.add(o8.audio), o8.video && i6.add(o8.video);
+                for (i6 = y5(i6), a7 = i6.next(); !a7.done; a7 = i6.next()) rs(e9, r7.keySystem, a7.value);
               }
               is(e9, t9);
             }
             return n6;
           }
           function rs(e9, t9, n6) {
-            n6 = y4(n6.drmInfos);
+            n6 = y5(n6.drmInfos);
             for (var r7 = n6.next(); !r7.done; r7 = n6.next()) if (r7 = r7.value, r7.keySystem == t9) {
-              for (var i6 = y4(r7.initData || []), a7 = i6.next(); !a7.done; a7 = i6.next()) a7 = a7.value, go(e9.g, a7.initDataType, a7.initData);
+              for (var i6 = y5(r7.initData || []), a7 = i6.next(); !a7.done; a7 = i6.next()) a7 = a7.value, go(e9.g, a7.initDataType, a7.initData);
               i6 = e9.g, i6.g && (i6.g.mediaTypes !== r7.mediaTypes && (i6.g.mediaTypes = r7.mediaTypes), at2(r7) && (i6.g = Ho(i6, i6.g.keySystem, [i6.g, r7])));
             }
           }
           function is(e9, t9) {
             function n6(e10) {
               if (e10 && !s7.has(e10) && (s7.add(e10), e10.keyIds.size)) {
-                e10 = y4(e10.keyIds);
+                e10 = y5(e10.keyIds);
                 for (var t10 = e10.next(); !t10.done; t10 = e10.next()) {
                   t10 = t10.value;
                   var n7 = r7[i6 ? "00" : t10];
@@ -11294,7 +11391,7 @@ var init_load_uTL4eiru = __esm({
             var i6 = e9.length && e9[0] == "00";
             e9 = false;
             var a7 = /* @__PURE__ */ new Set(), o8 = /* @__PURE__ */ new Set(), s7 = /* @__PURE__ */ new WeakSet();
-            t9 = y4(t9.variants);
+            t9 = y5(t9.variants);
             for (var c7 = t9.next(); !c7.done; c7 = t9.next()) {
               if (c7 = c7.value, !c7.allowedByApplication) e9 = true;
               else if (c7.allowedByKeySystem) return;
@@ -11307,7 +11404,7 @@ var init_load_uTL4eiru = __esm({
             }, new H4(2, 4, 4012, e9);
           }
           var as = ["output-restricted", "internal-error"];
-          L3("shaka.config.CodecSwitchingStrategy", {
+          L4("shaka.config.CodecSwitchingStrategy", {
             RELOAD: "reload",
             SMOOTH: "smooth"
           });
@@ -11455,7 +11552,7 @@ var init_load_uTL4eiru = __esm({
           function ys(e9, t9, n6, r7) {
             var i6;
             return P4(function(a7) {
-              return a7.h == 1 ? (i6 = V3(t9), n6 ? (e9.i = i6, a7.return(Ss(i6))) : e9.i ? e9.h === r7 ? a7.A(2) : (e9.h = r7, e9.g = bs(e9.h), a7.g(e9.g, 3)) : a7.return(i6)) : (a7.h != 2 && (e9.j = a7.i, e9.g = null), a7.return(xs(e9, i6, e9.i)));
+              return a7.h == 1 ? (i6 = V4(t9), n6 ? (e9.i = i6, a7.return(Ss(i6))) : e9.i ? e9.h === r7 ? a7.A(2) : (e9.h = r7, e9.g = bs(e9.h), a7.g(e9.g, 3)) : a7.return(i6)) : (a7.h != 2 && (e9.j = a7.i, e9.g = null), a7.return(xs(e9, i6, e9.i)));
             });
           }
           vs.prototype.destroy = function() {
@@ -11481,12 +11578,12 @@ var init_load_uTL4eiru = __esm({
           function bs(e9) {
             var t9, n6, r7, i6, a7, o8, s7, c7;
             return P4(function(l6) {
-              if (l6.h == 1) return t9 = /* @__PURE__ */ new Map(), e9.clearKeys ? l6.g(Promise.all([].concat(b3(e9.clearKeys.entries())).map(function(e10) {
-                var t10 = y4(e10);
+              if (l6.h == 1) return t9 = /* @__PURE__ */ new Map(), e9.clearKeys ? l6.g(Promise.all([].concat(b4(e9.clearKeys.entries())).map(function(e10) {
+                var t10 = y5(e10);
                 e10 = t10.next().value, t10 = t10.next().value, t10 = Ke2(t10);
                 var n7 = Ke2(e10);
                 return Promise.all([crypto.subtle.importKey("raw", t10, { name: "AES-CBC" }, false, ["decrypt", "encrypt"]), crypto.subtle.importKey("raw", t10, { name: "AES-CTR" }, false, ["decrypt"])]).then(function(e11) {
-                  var t11 = y4(e11);
+                  var t11 = y5(e11);
                   return e11 = t11.next().value, t11 = t11.next().value, {
                     Rl: Je2(n7),
                     Kg: e11,
@@ -11494,7 +11591,7 @@ var init_load_uTL4eiru = __esm({
                   };
                 });
               })), 2) : l6.return(t9);
-              for (n6 = l6.i, r7 = y4(n6), i6 = r7.next(); !i6.done; i6 = r7.next()) a7 = i6.value, o8 = a7.Rl, s7 = a7.Kg, c7 = a7.qf, t9.set(o8, {
+              for (n6 = l6.i, r7 = y5(n6), i6 = r7.next(); !i6.done; i6 = r7.next()) a7 = i6.value, o8 = a7.Rl, s7 = a7.Kg, c7 = a7.qf, t9.set(o8, {
                 Kg: s7,
                 qf: c7
               });
@@ -11506,7 +11603,7 @@ var init_load_uTL4eiru = __esm({
             return P4(function(c7) {
               return c7.h == 1 ? (r7 = Cs(n6), i6 = ws(t9, r7), a7 = i6.Wk.map(function(n7) {
                 return Ts(e9, n7, t9, r7.get(n7.trackId) || r7.values().next().value);
-              }), c7.g(Promise.all(a7), 2)) : (o8 = c7.i, s7 = [t9.slice(0, i6.Uk)].concat(b3(o8)), c7.return(Ye2.apply(Ue2, b3(s7))));
+              }), c7.g(Promise.all(a7), 2)) : (o8 = c7.i, s7 = [t9.slice(0, i6.Uk)].concat(b4(o8)), c7.return(Ye2.apply(Ue2, b4(s7))));
             });
           }
           function Ss(e9) {
@@ -11515,8 +11612,8 @@ var init_load_uTL4eiru = __esm({
                 r7.setUint32(e10.start + 4, 1718773093, false), n6.fill(0, e10.start + 8, e10.start + e10.size);
               });
             }
-            var n6 = V3(e9).slice(), r7 = je2(n6), i6 = [], a7 = -1;
-            new q().ua(Za, Va).T("stsd", Ha).box("encv", function(e10) {
+            var n6 = V4(e9).slice(), r7 = je2(n6), i6 = [], a7 = -1;
+            new q2().ua(Za, Va).T("stsd", Ha).box("encv", function(e10) {
               a7 = e10.start, Ua(e10);
             }).box("enca", function(e10) {
               a7 = e10.start, Wa(e10);
@@ -11527,13 +11624,13 @@ var init_load_uTL4eiru = __esm({
               n7 !== -1 && t10 && i6.push(function() {
                 for (var e11 = 0; e11 < 4; ++e11) r7.setUint8(n7 + 4 + e11, t10.charCodeAt(e11));
               });
-            }).T("sgpd", t9).box("pssh", t9).parse(n6, true), e9 = y4(i6);
+            }).T("sgpd", t9).box("pssh", t9).parse(n6, true), e9 = y5(i6);
             for (var o8 = e9.next(); !o8.done; o8 = e9.next()) o8 = o8.value, o8();
             return n6;
           }
           function Cs(e9) {
             var t9 = /* @__PURE__ */ new Map(), n6 = 0;
-            return new q().ua([
+            return new q2().ua([
               "moov",
               "mdia",
               "minf",
@@ -11567,7 +11664,7 @@ var init_load_uTL4eiru = __esm({
               });
             }
             var r7 = [], i6 = 0, a7 = null;
-            return new q().box("moof", function(e10) {
+            return new q2().box("moof", function(e10) {
               r7.length || (i6 = e10.start), a7 = {
                 Md: e10.start,
                 Cj: e10.size,
@@ -11583,7 +11680,7 @@ var init_load_uTL4eiru = __esm({
               a7 && (e10 = os(e10.reader, e10.flags), a7.trackId = e10.trackId, a7.lk = e10.Kc || 0);
             }).T("trun", function(e10) {
               if (a7) {
-                e10 = ls(e10.reader, e10.version, e10.flags), e10 = y4(e10.Vc);
+                e10 = ls(e10.reader, e10.version, e10.flags), e10 = y5(e10.Vc);
                 for (var t10 = e10.next(); !t10.done; t10 = e10.next()) a7.qk.push({ size: t10.value.sampleSize || a7.lk });
               }
             }).T("senc", function(e10) {
@@ -11604,20 +11701,20 @@ var init_load_uTL4eiru = __esm({
             };
           }
           function Ts(e9, t9, n6, r7) {
-            var i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4;
-            return P4(function(x4) {
-              if (x4.h == 1) return i6 = r7.defaultKID, a7 = e9.j.get(i6), a7 ? (o8 = r7.encryptionScheme, (s7 = t9.Uj) && r7.me !== 8 && (c7 = n6.subarray(t9.Md, t9.Md + t9.Cj), new q().ua(Qa, Va).T("senc", function(e10) {
+            var i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5;
+            return P4(function(x5) {
+              if (x5.h == 1) return i6 = r7.defaultKID, a7 = e9.j.get(i6), a7 ? (o8 = r7.encryptionScheme, (s7 = t9.Uj) && r7.me !== 8 && (c7 = n6.subarray(t9.Md, t9.Md + t9.Cj), new q2().ua(Qa, Va).T("senc", function(e10) {
                 s7 = _s(e10.reader, e10.flags, r7.me, r7.Jc);
-              }).parse(c7, false)), l6 = t9.Gh + 8, u7 = n6.subarray(l6, l6 + t9.Be - 8), x4.g(Es(u7, t9.qk.map(function(e10) {
+              }).parse(c7, false)), l6 = t9.Gh + 8, u7 = n6.subarray(l6, l6 + t9.Be - 8), x5.g(Es(u7, t9.qk.map(function(e10) {
                 return e10.size;
-              }), s7, r7, a7, o8), 2)) : x4.return(n6.slice(t9.Md, t9.Gh + t9.Be));
-              if (d5 = x4.i, f4 = n6.slice(t9.Md, t9.Md + t9.Cj), p5 = je2(f4), t9.Jg) for (m5 = y4(t9.Jg), h6 = m5.next(); !h6.done; h6 = m5.next()) g6 = h6.value, _5 = g6.start - t9.Md, _5 >= 0 && _5 + g6.size <= f4.byteLength && (p5.setUint32(_5 + 4, 1718773093, false), f4.fill(0, _5 + 8, _5 + g6.size));
-              return v7 = 8 + d5.byteLength, b4 = new Uint8Array(v7), je2(b4).setUint32(0, v7, false), b4.set([
+              }), s7, r7, a7, o8), 2)) : x5.return(n6.slice(t9.Md, t9.Gh + t9.Be));
+              if (d5 = x5.i, f4 = n6.slice(t9.Md, t9.Md + t9.Cj), p5 = je2(f4), t9.Jg) for (m5 = y5(t9.Jg), h6 = m5.next(); !h6.done; h6 = m5.next()) g6 = h6.value, _5 = g6.start - t9.Md, _5 >= 0 && _5 + g6.size <= f4.byteLength && (p5.setUint32(_5 + 4, 1718773093, false), f4.fill(0, _5 + 8, _5 + g6.size));
+              return v7 = 8 + d5.byteLength, b5 = new Uint8Array(v7), je2(b5).setUint32(0, v7, false), b5.set([
                 109,
                 100,
                 97,
                 116
-              ], 4), b4.set(d5, 8), x4.return(Ye2(f4, b4));
+              ], 4), b5.set(d5, 8), x5.return(Ye2(f4, b5));
             });
           }
           function Es(e9, t9, n6, r7, i6, a7) {
@@ -11650,7 +11747,7 @@ var init_load_uTL4eiru = __esm({
                   rf: t10
                 });
               }), h6.g(Promise.all(c7), 2);
-              for (l6 = h6.i, u7 = y4(l6), d5 = u7.next(); !d5.done; d5 = u7.next()) f4 = d5.value, p5 = f4.offset, m5 = f4.rf, o8.set(m5, p5);
+              for (l6 = h6.i, u7 = y5(l6), d5 = u7.next(); !d5.done; d5 = u7.next()) f4 = d5.value, p5 = f4.offset, m5 = f4.rf, o8.set(m5, p5);
               return h6.return(o8);
             });
           }
@@ -11663,7 +11760,7 @@ var init_load_uTL4eiru = __esm({
                     m5.A(2);
                     break;
                   }
-                  return i6 = De2, a7 = V3, m5.g(crypto.subtle.decrypt({
+                  return i6 = De2, a7 = V4, m5.g(crypto.subtle.decrypt({
                     name: "AES-CTR",
                     counter: t9,
                     length: 64
@@ -11693,12 +11790,12 @@ var init_load_uTL4eiru = __esm({
                         Si: n7.ke,
                         Zi: o9,
                         Sk: n7.Mc,
-                        Rg: V3(e10)
+                        Rg: V4(e10)
                       };
                     });
                   }), m5.g(Promise.all(l6), 4);
                 case 4:
-                  for (u7 = m5.i, d5 = y4(u7), f4 = d5.next(); !f4.done; f4 = d5.next()) p5 = f4.value, o8.set(e9.subarray(p5.nf, p5.nf + p5.Si), p5.nf), p5.Rg && o8.set(p5.Rg, p5.Zi);
+                  for (u7 = m5.i, d5 = y5(u7), f4 = d5.next(); !f4.done; f4 = d5.next()) p5 = f4.value, o8.set(e9.subarray(p5.nf, p5.nf + p5.Si), p5.nf), p5.Rg && o8.set(p5.Rg, p5.Zi);
                   return m5.return(o8);
               }
             });
@@ -11725,7 +11822,7 @@ var init_load_uTL4eiru = __esm({
                     } else s7.set(e9.subarray(r8, r8 + u8), r8), r8 += u8;
                     n7 = Math.min(o8 * 16, t10 - r8), n7 > 0 && (s7.set(e9.subarray(r8, r8 + n7), r8), r8 += n7);
                   }
-                }, n6 && n6.length) for (d5 = 0, f4 = y4(n6), p5 = f4.next(); !p5.done; p5 = f4.next()) m5 = p5.value, h6 = d5, d5 += m5.ke, s7.set(e9.subarray(h6, h6 + m5.ke), h6), m5.Mc > 0 && (g6 = d5, d5 += m5.Mc, u7(g6, m5.Mc));
+                }, n6 && n6.length) for (d5 = 0, f4 = y5(n6), p5 = f4.next(); !p5.done; p5 = f4.next()) m5 = p5.value, h6 = d5, d5 += m5.ke, s7.set(e9.subarray(h6, h6 + m5.ke), h6), m5.Mc > 0 && (g6 = d5, d5 += m5.Mc, u7(g6, m5.Mc));
                 else u7(0, e9.byteLength);
                 return _5.g(Promise.all(c7), 2);
               }
@@ -11740,7 +11837,7 @@ var init_load_uTL4eiru = __esm({
               }), o8 = /* @__PURE__ */ new Uint8Array(16), d5.g(crypto.subtle.encrypt({
                 name: "AES-CBC",
                 iv: o8
-              }, n6, a7), 2)) : d5.h == 3 ? (u7 = d5.i, d5.return(V3(u7))) : (s7 = d5.i, c7 = new Uint8Array(s7, 0, 16), l6 = new Uint8Array(e9.byteLength + 16), l6.set(e9, 0), l6.set(c7, e9.byteLength), d5.g(crypto.subtle.decrypt({
+              }, n6, a7), 2)) : d5.h == 3 ? (u7 = d5.i, d5.return(V4(u7))) : (s7 = d5.i, c7 = new Uint8Array(s7, 0, 16), l6 = new Uint8Array(e9.byteLength + 16), l6.set(e9, 0), l6.set(c7, e9.byteLength), d5.g(crypto.subtle.decrypt({
                 name: "AES-CBC",
                 iv: t9
               }, n6, l6), 3));
@@ -11752,7 +11849,7 @@ var init_load_uTL4eiru = __esm({
           function js(t9) {
             if (!t9) return false;
             var n6;
-            return (n6 = e8.crypto) != null && n6.subtle && tt2(t9.keySystem) ? !B3().lj() : false;
+            return (n6 = e8.crypto) != null && n6.subtle && tt2(t9.keySystem) ? !B4().lj() : false;
           }
           function Ms(e9) {
             return Ps.getOrInsertComputed(e9, function() {
@@ -11769,7 +11866,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Is(e9) {
             var t9 = Gs, n6 = "aac";
-            e9.codecs.includes("mp3") ? n6 = "mp3" : e9.codecs.includes("ac-3") ? n6 = B3().Ie() ? "ec-3" : "ac-3" : e9.codecs.includes("ec-3") ? n6 = "ec-3" : e9.codecs.includes("opus") && (n6 = "opus");
+            e9.codecs.includes("mp3") ? n6 = "mp3" : e9.codecs.includes("ac-3") ? n6 = B4().Ie() ? "ec-3" : "ac-3" : e9.codecs.includes("ec-3") ? n6 = "ec-3" : e9.codecs.includes("opus") && (n6 = "opus");
             var r7 = new Uint8Array([]);
             switch (e9.type) {
               case "video":
@@ -11828,12 +11925,12 @@ var init_load_uTL4eiru = __esm({
           function zs(e9) {
             var t9 = [];
             if (!qs(e9)) return new Uint8Array([]);
-            e9 = y4(e9.drmInfos);
+            e9 = y5(e9.drmInfos);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) if (n6 = n6.value, n6.initData) {
-              n6 = y4(n6.initData);
+              n6 = y5(n6.initData);
               for (var r7 = n6.next(); !r7.done; r7 = n6.next()) t9.push(r7.value.initData);
             }
-            return Ye2.apply(Ue2, b3(t9));
+            return Ye2.apply(Ue2, b4(t9));
           }
           function Bs(e9, t9) {
             var n6 = Gs, r7 = t9.split(".")[0];
@@ -11858,9 +11955,9 @@ var init_load_uTL4eiru = __esm({
               0,
               0
             ]);
-            e9 = y4(e9.drmInfos);
+            e9 = y5(e9.drmInfos);
             for (var o8 = e9.next(); !o8.done; o8 = e9.next()) if ((o8 = o8.value) && o8.keyIds && o8.keyIds.size) {
-              o8 = y4(o8.keyIds);
+              o8 = y5(o8.keyIds);
               for (var s7 = o8.next(); !s7.done; s7 = o8.next()) {
                 a7 = s7.value, s7 = new Uint8Array(a7.length / 2);
                 for (var c7 = 0; c7 < a7.length / 2; c7 += 1) s7[c7] = parseInt(String(a7[c7 * 2] + a7[c7 * 2 + 1]), 16);
@@ -11871,7 +11968,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Vs(e9) {
             var t9 = [], n6 = 0;
-            e9 = y4(e9.g);
+            e9 = y5(e9.g);
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) {
               r7 = r7.value;
               var i6 = Gs, a7 = r7.data ? r7.data.sequenceNumber : 0, o8 = Ks("mfhd", 8);
@@ -11893,14 +11990,14 @@ var init_load_uTL4eiru = __esm({
                 var h6 = m5.flags, g6 = 20 + 16 * p5;
                 Hs(f4, m5.duration, g6), Hs(f4, m5.size, g6 + 4), f4[g6 + 8] = h6.yh << 2 | h6.wf, f4[g6 + 9] = h6.If << 6 | h6.Ef << 4 | h6.Ah, f4[g6 + 10] = h6.vf & 61440, f4[g6 + 11] = h6.vf & 15, Hs(f4, m5.zb, g6 + 12);
               }
-              for (o8 = c7("traf", s7, l6, f4, o8), i6 = i6("moof", a7, o8), r7 = r7.data ? r7.data.bb : [], a7 = 0, o8 = y4(r7), c7 = o8.next(); !c7.done; c7 = o8.next()) a7 += c7.value.data.byteLength;
+              for (o8 = c7("traf", s7, l6, f4, o8), i6 = i6("moof", a7, o8), r7 = r7.data ? r7.data.bb : [], a7 = 0, o8 = y5(r7), c7 = o8.next(); !c7.done; c7 = o8.next()) a7 += c7.value.data.byteLength;
               a7 = 8 + a7, t9.push({
                 Zl: i6,
                 bb: r7,
                 Be: a7
               }), n6 += i6.byteLength + a7;
             }
-            for (n6 = V3(new ArrayBuffer(n6)), e9 = 0, t9 = y4(t9), r7 = t9.next(); !r7.done; r7 = t9.next()) for (a7 = r7.value, r7 = a7.Zl, i6 = a7.bb, a7 = a7.Be, n6.set(r7, e9), e9 += r7.byteLength, Hs(n6, a7, e9), n6.set(Xs.value(), e9 + 4), e9 += 8, r7 = y4(i6), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, n6.set(i6.data, e9), e9 += i6.data.byteLength;
+            for (n6 = V4(new ArrayBuffer(n6)), e9 = 0, t9 = y5(t9), r7 = t9.next(); !r7.done; r7 = t9.next()) for (a7 = r7.value, r7 = a7.Zl, i6 = a7.bb, a7 = a7.Be, n6.set(r7, e9), e9 += r7.byteLength, Hs(n6, a7, e9), n6.set(Xs.value(), e9 + 4), e9 += 8, r7 = y5(i6), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, n6.set(i6.data, e9), e9 += i6.data.byteLength;
             return n6;
           }
           function Hs(e9, t9, n6) {
@@ -11914,7 +12011,7 @@ var init_load_uTL4eiru = __esm({
             return t9;
           }
           function Gs(e9) {
-            for (var t9 = F4.apply(1, arguments), n6 = 0, r7 = y4(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) n6 += i6.value.byteLength;
+            for (var t9 = F4.apply(1, arguments), n6 = 0, r7 = y5(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) n6 += i6.value.byteLength;
             for (n6 = Ks(e9, n6), r7 = 8, i6 = 0; i6 < t9.length; i6++) n6.set(t9[i6], r7), r7 += t9[i6].byteLength;
             return n6;
           }
@@ -12585,26 +12682,26 @@ var init_load_uTL4eiru = __esm({
             return Ks("stco", 8);
           });
           function vc(e9) {
-            e9 = V3(e9);
+            e9 = V4(e9);
             var t9 = null;
-            return new q().ua(Za, Va).T("stsd", Ha).box("enca", function(e10) {
+            return new q2().ua(Za, Va).T("stsd", Ha).box("enca", function(e10) {
               return t9 = e10.reader.h, Wa(e10);
             }).box("sinf", Va).box("frma", function(e10) {
               e10.parser.stop(), fs(e10.reader).codec === "ec-3" && t9 && t9.getUint16(16) !== 2 && t9.setUint16(16, 2);
             }).parse(e9), e9;
           }
           function yc(e9) {
-            e9 = V3(e9);
+            e9 = V4(e9);
             var t9 = null, n6 = -1;
-            return new q().ua(Za, Va).T("stsd", Ha).box("hvc1", function(e10) {
+            return new q2().ua(Za, Va).T("stsd", Ha).box("hvc1", function(e10) {
               return t9 = e10.reader.h, n6 = e10.start, Ua(e10);
             }).box("dvvC", function(e10) {
               e10.parser.stop(), t9.setUint32(e10.start - n6 - 4, 1718773093);
             }).parse(e9), e9;
           }
           function bc(e9, t9, n6, r7) {
-            var i6 = t9 = V3(t9), a7 = false, o8, s7 = [], c7 = [];
-            if (new q().ua(Za, function(e10) {
+            var i6 = t9 = V4(t9), a7 = false, o8, s7 = [], c7 = [];
+            if (new q2().ua(Za, function(e10) {
               s7.push(e10), Va(e10);
             }).T("stsd", function(e10) {
               o8 = e10, s7.push(e10), Ha(e10);
@@ -12615,32 +12712,32 @@ var init_load_uTL4eiru = __esm({
                 box: e10,
                 Dj: 1701733238
               });
-            }).ua([].concat(b3(to), ["mp4a"]), function(e10) {
+            }).ua([].concat(b4(to), ["mp4a"]), function(e10) {
               c7.push({
                 box: e10,
                 Dj: 1701733217
               });
             }).parse(t9), a7) return t9;
             if (c7.length == 0 || !o8) throw Je2(t9), new H4(2, 3, 3019, n6);
-            c7.reverse(), n6 = y4(c7);
+            c7.reverse(), n6 = y5(c7);
             for (var l6 = n6.next(); !l6.done; l6 = n6.next()) l6 = l6.value, i6 = Cc(e9, i6, o8, l6.box, s7, l6.Dj, r7);
-            return i6 = wc(e9, i6), B3().$h(r7) ? (e9 = new Uint8Array(t9.byteLength + i6.byteLength), e9.set(i6), e9.set(t9, i6.byteLength), e9) : i6;
+            return i6 = wc(e9, i6), B4().$h(r7) ? (e9 = new Uint8Array(t9.byteLength + i6.byteLength), e9.set(i6), e9.set(t9, i6.byteLength), e9) : i6;
           }
           function xc(e9) {
-            e9 = V3(e9);
+            e9 = V4(e9);
             var t9 = [];
-            new q().box("mdat", function(e10) {
+            new q2().box("mdat", function(e10) {
               t9.push(e10);
             }).parse(e9);
             for (var n6 = [], r7 = 0; r7 < t9.length; r7++) {
               var i6 = t9[r7 - 1], a7 = t9[r7];
               n6.push(Sc(e9.subarray(i6 ? i6.start + i6.size : 0, a7.start + a7.size)));
             }
-            return Ye2.apply(Ue2, b3(n6));
+            return Ye2.apply(Ue2, b4(n6));
           }
           function Sc(e9) {
             var t9, n6, r7, i6, a7 = [];
-            if (new q().ua(Qa, function(e10) {
+            if (new q2().ua(Qa, function(e10) {
               a7.push(e10), Va(e10);
             }).T("tfhd", function(e10) {
               t9 = e10, r7 = os(e10.reader, e10.flags);
@@ -12654,20 +12751,20 @@ var init_load_uTL4eiru = __esm({
                 var c7 = s7.getUint32(t9.start + 8);
                 s7.setUint32(t9.start + 8, c7 | 2), i6 && i6.Ic !== null && s7.setInt32(n6.start + Ja(n6) + 4, i6.Ic + 4), c7 = e9.subarray(0, o8), s7 = e9.subarray(o8), e9 = new Uint8Array(e9.byteLength + 4), e9.set(c7), c7 = [];
                 for (var l6 = 3; l6 >= 0; l6--) c7.push(2 >> 8 * l6 & 255);
-                for (e9.set(new Uint8Array(c7), o8), e9.set(s7, o8 + 4), o8 = y4(a7), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = s7.value, Tc(e9, s7.start, s7.size + 4);
+                for (e9.set(new Uint8Array(c7), o8), e9.set(s7, o8 + 4), o8 = y5(a7), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = s7.value, Tc(e9, s7.start, s7.size + 4);
               }
             }
             return e9;
           }
           function Cc(e9, t9, n6, r7, i6, a7, o8) {
             var s7 = Bs(e9, r7.name), c7 = t9.subarray(r7.start, r7.start + r7.size);
-            for (e9 = new Uint8Array(r7.size + s7.byteLength), e9.set(c7, 0), je2(e9).setUint32(4, a7), e9.set(s7, r7.size), Tc(e9, 0, e9.byteLength), a7 = new Uint8Array(t9.byteLength + e9.byteLength), r7 = B3().Hf(o8) ? r7.start : r7.start + r7.size, o8 = t9.subarray(r7), a7.set(t9.subarray(0, r7)), a7.set(e9, r7), a7.set(o8, r7 + e9.byteLength), t9 = y4(i6), i6 = t9.next(); !i6.done; i6 = t9.next()) i6 = i6.value, Tc(a7, i6.start, i6.size + e9.byteLength);
+            for (e9 = new Uint8Array(r7.size + s7.byteLength), e9.set(c7, 0), je2(e9).setUint32(4, a7), e9.set(s7, r7.size), Tc(e9, 0, e9.byteLength), a7 = new Uint8Array(t9.byteLength + e9.byteLength), r7 = B4().Hf(o8) ? r7.start : r7.start + r7.size, o8 = t9.subarray(r7), a7.set(t9.subarray(0, r7)), a7.set(e9, r7), a7.set(o8, r7 + e9.byteLength), t9 = y5(i6), i6 = t9.next(); !i6.done; i6 = t9.next()) i6 = i6.value, Tc(a7, i6.start, i6.size + e9.byteLength);
             return e9 = je2(a7, n6.start), n6 = Ja(n6), t9 = e9.getUint32(n6), e9.setUint32(n6, t9 + 1), a7;
           }
           function wc(e9, t9) {
             if (e9 = zs(e9), e9.byteLength === 0) return t9;
             var n6 = 0, r7 = 0;
-            new q().box("moov", function(e10) {
+            new q2().box("moov", function(e10) {
               n6 = e10.start, r7 = e10.size, e10.parser.stop();
             }).parse(t9);
             var i6 = n6 + r7;
@@ -12679,8 +12776,8 @@ var init_load_uTL4eiru = __esm({
             e9 = je2(e9, t9), t9 = e9.getUint32(0), t9 != 0 && (t9 == 1 ? (e9.setUint32(8, n6 >> 32), e9.setUint32(12, n6 & 4294967295)) : e9.setUint32(0, n6));
           }
           function Ec(e9) {
-            var t9 = V3(e9), n6 = [];
-            return new q().ua(Za, function(e10) {
+            var t9 = V4(e9), n6 = [];
+            return new q2().ua(Za, function(e10) {
               n6.push({
                 start: e10.start,
                 size: e10.size
@@ -12697,9 +12794,9 @@ var init_load_uTL4eiru = __esm({
             }).parse(t9), t9;
           }
           function Dc(e9) {
-            e9 = V3(e9);
+            e9 = V4(e9);
             var t9 = [], n6 = [], r7 = [], i6 = [], a7 = false;
-            if (new q().box("moof", function(e10) {
+            if (new q2().box("moof", function(e10) {
               t9.push(e10), Va(e10);
             }).box("traf", function(e10) {
               n6.push(e10), Va(e10);
@@ -12721,23 +12818,23 @@ var init_load_uTL4eiru = __esm({
             m5 == 0 && (m5 = e9.byteLength - p5);
             var h6 = e9.byteLength - (p5 + 8);
             if (h6 >= m5 - 8) return e9;
-            for (var g6 = m5 = 0, _5 = y4(f4.Vc), v7 = _5.next(); !v7.done; v7 = _5.next()) {
+            for (var g6 = m5 = 0, _5 = y5(f4.Vc), v7 = _5.next(); !v7.done; v7 = _5.next()) {
               if (v7 = v7.value, v7 = v7.sampleSize == null ? d5.Kc : v7.sampleSize, v7 == null) return e9;
               if (m5 + v7 > h6) break;
               m5 += v7, g6++;
             }
             if (g6 != 1 || g6 >= f4.Sj) return e9;
-            _5 = !!(u7 & 256), h6 = 0, v7 = y4(f4.Vc);
-            for (var b4 = v7.next(); !b4.done; b4 = v7.next()) {
-              if (b4 = b4.value, b4 = _5 ? b4.Ud : d5.nc, b4 == null) return e9;
-              h6 += b4;
+            _5 = !!(u7 & 256), h6 = 0, v7 = y5(f4.Vc);
+            for (var b5 = v7.next(); !b5.done; b5 = v7.next()) {
+              if (b5 = b5.value, b5 = _5 ? b5.Ud : d5.nc, b5 == null) return e9;
+              h6 += b5;
             }
-            v7 = Ja(l6), b4 = l6.start + v7 + 4, b4 += 4, u7 & 4 && (b4 += 4);
-            var x4 = 0;
-            if (u7 & 256 && (x4 += 4), u7 & 512 && (x4 += 4), u7 & 1024 && (x4 += 4), u7 & 2048 && (x4 += 4), u7 = (f4.Sj - g6) * x4, x4 = b4 + g6 * x4, x4 + u7 != p5) return e9;
-            x4 = e9.slice(0, x4);
-            var S3 = je2(x4);
-            return S3.setUint32(l6.start + v7, g6), S3.setInt32(l6.start + v7 + 4, f4.Ic - u7), _5 ? S3.setUint32(b4, h6) : (c7 = c7.start + Ja(c7) + 4, d5.ei != null && (c7 += 4), S3.setUint32(c7, h6)), Tc(x4, l6.start, l6.size - u7), Tc(x4, s7.start, s7.size - u7), Tc(x4, o8.start, o8.size - u7), o8 = e9.slice(p5, p5 + 8), Tc(o8, 0, 8 + m5), Ye2(x4, o8, e9.subarray(p5 + 8, p5 + 8 + m5));
+            v7 = Ja(l6), b5 = l6.start + v7 + 4, b5 += 4, u7 & 4 && (b5 += 4);
+            var x5 = 0;
+            if (u7 & 256 && (x5 += 4), u7 & 512 && (x5 += 4), u7 & 1024 && (x5 += 4), u7 & 2048 && (x5 += 4), u7 = (f4.Sj - g6) * x5, x5 = b5 + g6 * x5, x5 + u7 != p5) return e9;
+            x5 = e9.slice(0, x5);
+            var S5 = je2(x5);
+            return S5.setUint32(l6.start + v7, g6), S5.setInt32(l6.start + v7 + 4, f4.Ic - u7), _5 ? S5.setUint32(b5, h6) : (c7 = c7.start + Ja(c7) + 4, d5.ei != null && (c7 += 4), S5.setUint32(c7, h6)), Tc(x5, l6.start, l6.size - u7), Tc(x5, s7.start, s7.size - u7), Tc(x5, o8.start, o8.size - u7), o8 = e9.slice(p5, p5 + 8), Tc(o8, 0, 8 + m5), Ye2(x5, o8, e9.subarray(p5 + 8, p5 + 8 + m5));
           }
           function Oc(e9, t9, n6, r7, i6, a7, o8, s7) {
             this.U = e9, this.startByte = t9, this.endByte = n6, this.Jd = r7 === void 0 ? null : r7, this.timescale = i6 === void 0 ? null : i6, this.h = a7 === void 0 ? null : a7, this.aesKey = o8 === void 0 ? null : o8, this.g = this.mimeType = this.codecs = null, this.encrypted = s7 !== void 0 && s7;
@@ -12754,12 +12851,12 @@ var init_load_uTL4eiru = __esm({
           function kc(e9, t9) {
             return e9 === t9 ? true : e9 && t9 ? e9.Rc() == t9.Rc() && e9.Oc() == t9.Oc() && _e2(e9.U().sort(), t9.U().sort()) && Oe2(e9.$b(), t9.$b()) : e9 == t9;
           }
-          L3("shaka.media.InitSegmentReference", Oc), Oc.prototype.getEndByte = Oc.prototype.Oc, Oc.prototype.getStartByte = Oc.prototype.Rc;
-          function J(e9, t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6) {
-            for (l6 = l6 === void 0 ? [] : l6, p5 = p5 === void 0 ? Mc : p5, this.startTime = e9, this.j = this.endTime = t9, this.D = n6, this.startByte = r7, this.endByte = i6, this.ia = a7, this.timestampOffset = o8, this.appendWindowStart = s7, this.appendWindowEnd = c7, this.h = l6, this.tilesLayout = u7 === void 0 ? "" : u7, this.B = d5 === void 0 ? null : d5, this.g = f4 === void 0 ? null : f4, this.status = p5, this.preload = false, this.l = true, this.o = false, this.aesKey = m5 === void 0 ? null : m5, this.thumbnailSprite = null, this.i = -1, this.m = h6 !== void 0 && h6, this.ze = this.gd = false, e9 = y4(this.h), t9 = e9.next(); !t9.done; t9 = e9.next()) t9.value.zj();
+          L4("shaka.media.InitSegmentReference", Oc), Oc.prototype.getEndByte = Oc.prototype.Oc, Oc.prototype.getStartByte = Oc.prototype.Rc;
+          function J2(e9, t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6) {
+            for (l6 = l6 === void 0 ? [] : l6, p5 = p5 === void 0 ? Mc : p5, this.startTime = e9, this.j = this.endTime = t9, this.D = n6, this.startByte = r7, this.endByte = i6, this.ia = a7, this.timestampOffset = o8, this.appendWindowStart = s7, this.appendWindowEnd = c7, this.h = l6, this.tilesLayout = u7 === void 0 ? "" : u7, this.B = d5 === void 0 ? null : d5, this.g = f4 === void 0 ? null : f4, this.status = p5, this.preload = false, this.l = true, this.o = false, this.aesKey = m5 === void 0 ? null : m5, this.thumbnailSprite = null, this.i = -1, this.m = h6 !== void 0 && h6, this.ze = this.gd = false, e9 = y5(this.h), t9 = e9.next(); !t9.done; t9 = e9.next()) t9.value.zj();
             this.m && this.h.length && this.h[this.h.length - 1].yj(), this.u = this.bandwidth = this.mimeType = this.codecs = null, this.F = false, this.C = null;
           }
-          r6 = J.prototype, r6.U = function() {
+          r6 = J2.prototype, r6.U = function() {
             return this.D();
           }, r6.getStartTime = function() {
             return this.startTime;
@@ -12776,7 +12873,7 @@ var init_load_uTL4eiru = __esm({
               var t9 = e9.bandwidth * (e9.endTime - e9.startTime);
               if (!isNaN(t9) && t9 > 0) return t9;
             }
-            if (e9.h.length > 0 && e9.m) for (e9 = y4(e9.h), e9 = e9.next(); !e9.done; e9 = e9.next()) {
+            if (e9.h.length > 0 && e9.m) for (e9 = y5(e9.h), e9 = e9.next(); !e9.done; e9 = e9.next()) {
               Ac(e9.value);
               break;
             }
@@ -12816,7 +12913,7 @@ var init_load_uTL4eiru = __esm({
             return this.thumbnailSprite;
           }, r6.offset = function(e9) {
             this.startTime += e9, this.endTime += e9, this.j += e9;
-            for (var t9 = y4(this.h), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, n6.startTime += e9, n6.endTime += e9, n6.j += e9;
+            for (var t9 = y5(this.h), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, n6.startTime += e9, n6.endTime += e9, n6.j += e9;
           }, r6.si = function(e9) {
             this.g == null ? ce2("Sync attempted without sync time!") : (e9 = this.g - e9 - this.startTime, Math.abs(e9) >= 1e-3 && this.offset(e9));
           }, r6.Je = function(e9, t9) {
@@ -12826,16 +12923,16 @@ var init_load_uTL4eiru = __esm({
             return (e9 === void 0 || e9) && this.F && (this.u = null), t9;
           };
           function jc(e9, t9) {
-            e9.ia = t9, e9 = y4(e9.h);
+            e9.ia = t9, e9 = y5(e9.h);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) jc(n6.value, t9);
           }
           r6.hg = function(e9) {
             this.C = e9;
           }, r6.getMetadata = function() {
             return this.C;
-          }, L3("shaka.media.SegmentReference", J), J.prototype.getMetadata = J.prototype.getMetadata, J.prototype.setMetadata = J.prototype.hg, J.prototype.getSegmentData = J.prototype.$b, J.prototype.setSegmentData = J.prototype.Je, J.prototype.syncAgainst = J.prototype.si, J.prototype.offset = J.prototype.offset, J.prototype.getThumbnailSprite = J.prototype.Cl, J.prototype.setThumbnailSprite = J.prototype.ig, J.prototype.hasByterangeOptimization = J.prototype.Kl, J.prototype.markAsByterangeOptimization = J.prototype.xj, J.prototype.isLastPartial = J.prototype.Nl, J.prototype.markAsLastPartial = J.prototype.yj, J.prototype.isPartial = J.prototype.Ol, J.prototype.markAsPartial = J.prototype.zj, J.prototype.isIndependent = J.prototype.Ml, J.prototype.markAsNonIndependent = J.prototype.Id, J.prototype.isPreload = J.prototype.isPreload, J.prototype.markAsPreload = J.prototype.Fh, J.prototype.markAsUnavailable = J.prototype.Wl, J.prototype.getStatus = J.prototype.tc, J.prototype.getTileDuration = J.prototype.El, J.prototype.getTilesLayout = J.prototype.Fl, J.prototype.getEndByte = J.prototype.Oc, J.prototype.getStartByte = J.prototype.Rc, J.prototype.getEndTime = J.prototype.jl, J.prototype.getStartTime = J.prototype.getStartTime, J.prototype.getUris = J.prototype.U;
+          }, L4("shaka.media.SegmentReference", J2), J2.prototype.getMetadata = J2.prototype.getMetadata, J2.prototype.setMetadata = J2.prototype.hg, J2.prototype.getSegmentData = J2.prototype.$b, J2.prototype.setSegmentData = J2.prototype.Je, J2.prototype.syncAgainst = J2.prototype.si, J2.prototype.offset = J2.prototype.offset, J2.prototype.getThumbnailSprite = J2.prototype.Cl, J2.prototype.setThumbnailSprite = J2.prototype.ig, J2.prototype.hasByterangeOptimization = J2.prototype.Kl, J2.prototype.markAsByterangeOptimization = J2.prototype.xj, J2.prototype.isLastPartial = J2.prototype.Nl, J2.prototype.markAsLastPartial = J2.prototype.yj, J2.prototype.isPartial = J2.prototype.Ol, J2.prototype.markAsPartial = J2.prototype.zj, J2.prototype.isIndependent = J2.prototype.Ml, J2.prototype.markAsNonIndependent = J2.prototype.Id, J2.prototype.isPreload = J2.prototype.isPreload, J2.prototype.markAsPreload = J2.prototype.Fh, J2.prototype.markAsUnavailable = J2.prototype.Wl, J2.prototype.getStatus = J2.prototype.tc, J2.prototype.getTileDuration = J2.prototype.El, J2.prototype.getTilesLayout = J2.prototype.Fl, J2.prototype.getEndByte = J2.prototype.Oc, J2.prototype.getStartByte = J2.prototype.Rc, J2.prototype.getEndTime = J2.prototype.jl, J2.prototype.getStartTime = J2.prototype.getStartTime, J2.prototype.getUris = J2.prototype.U;
           var Mc = 0, Nc = 1;
-          J.Status = {
+          J2.Status = {
             Ym: Mc,
             En: Nc,
             ln: 2
@@ -12855,7 +12952,7 @@ var init_load_uTL4eiru = __esm({
           function Rc(e9, t9) {
             if (!e9 || !e9.length || Pc(e9)) return 0;
             var n6 = 0;
-            e9 = y4(Vc(e9));
+            e9 = y5(Vc(e9));
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) {
               var i6 = r7.value;
               r7 = i6.start, i6 = i6.end, i6 > t9 && (n6 += i6 - Math.max(r7, t9));
@@ -12865,7 +12962,7 @@ var init_load_uTL4eiru = __esm({
           function zc(e9, t9) {
             if (!e9 || !e9.length || Pc(e9)) return 0;
             var n6 = 0;
-            e9 = y4(Vc(e9));
+            e9 = y5(Vc(e9));
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) {
               var i6 = r7.value;
               r7 = i6.start, i6 = i6.end, r7 < t9 && (n6 += Math.min(i6, t9) - r7);
@@ -12889,9 +12986,9 @@ var init_load_uTL4eiru = __esm({
           }
           function Uc(e9, t9) {
             var n6 = Kc.get(t9) || [];
-            t9 = [], n6 = y4(n6);
-            for (var r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, t9.push.apply(t9, b3(r7().parse(e9)));
-            for (e9 = /* @__PURE__ */ new Set(), n6 = [], t9 = y4(t9), r7 = t9.next(); !r7.done; r7 = t9.next()) r7 = r7.value, e9.has(r7.key) || (e9.add(r7.key), n6.push(r7));
+            t9 = [], n6 = y5(n6);
+            for (var r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, t9.push.apply(t9, b4(r7().parse(e9)));
+            for (e9 = /* @__PURE__ */ new Set(), n6 = [], t9 = y5(t9), r7 = t9.next(); !r7.done; r7 = t9.next()) r7 = r7.value, e9.has(r7.key) || (e9.add(r7.key), n6.push(r7));
             return n6;
           }
           function Wc(e9) {
@@ -12900,7 +12997,7 @@ var init_load_uTL4eiru = __esm({
           function Gc(e9, t9) {
             Kc.has(e9) || Kc.set(e9, []), Kc.get(e9).push(t9);
           }
-          L3("shaka.metadata.Metadata", Hc), Hc.unregisterParserByMime = function(e9) {
+          L4("shaka.metadata.Metadata", Hc), Hc.unregisterParserByMime = function(e9) {
             Kc.delete(e9);
           }, Hc.registerParserByMime = Gc, Hc.supports = Wc, Hc.getMetadataFrames = Uc;
           var Kc = /* @__PURE__ */ new Map();
@@ -12954,13 +13051,13 @@ var init_load_uTL4eiru = __esm({
               if (e9.size < 2) return null;
               var n6 = e9.data[0], r7 = e9.data.subarray(1).indexOf(0);
               if (r7 === -1) return null;
-              var i6 = Ie2(V3(e9.data, 1, r7)), a7 = e9.data[2 + r7], o8 = 3 + r7;
+              var i6 = Ie2(V4(e9.data, 1, r7)), a7 = e9.data[2 + r7], o8 = 3 + r7;
               if (r7 = $c(e9.data, n6, o8), r7 === -1) return null;
               o8 = Zc(e9.data.subarray(o8, r7), n6), n6 = r7 + Qc(n6);
               var s7 = i6 === "-->" ? Ie2(e9.data.subarray(n6)) : ke2(e9.data.subarray(n6));
               return t9.mimeType = i6, t9.pictureType = a7, t9.description = o8, t9.data = s7, t9;
             }
-            return e9.type === "COMM" ? e9.size < 5 || (s7 = e9.data[0], i6 = Ie2(e9.data.subarray(1, 4)).replace(/\0/g, ""), n6 = $c(e9.data, s7, 4), n6 === -1) ? null : (a7 = Zc(e9.data.subarray(4, n6), s7), e9 = Zc(e9.data.subarray(n6 + Qc(s7)), s7).replace(/\0*$/, ""), t9.description = a7 || i6, t9.data = e9, t9) : e9.type === "TXXX" ? e9.size < 2 || (a7 = e9.data[0], s7 = $c(e9.data, a7, 1), s7 === -1) ? null : (i6 = Zc(e9.data.subarray(1, s7), a7), e9 = Zc(e9.data.subarray(s7 + Qc(a7)), a7).replace(/^\ufeff/, "").replace(/\0*$/, ""), t9.description = i6, t9.data = e9, t9) : e9.type === "WXXX" ? e9.size < 2 || (a7 = e9.data[0], s7 = $c(e9.data, a7, 1), s7 === -1) ? null : (i6 = Zc(e9.data.subarray(1, s7), a7), e9 = Ie2(e9.data.subarray(s7 + Qc(a7))).replace(/\0*$/, ""), t9.description = i6, t9.data = e9, t9) : e9.type === "PRIV" ? e9.size < 2 || (i6 = e9.data.indexOf(0), i6 === -1) ? null : (i6 = Ie2(V3(e9.data, 0, i6)), t9.description = i6, i6 == "com.apple.streaming.transportStreamTimestamp" ? (i6 = e9.data.subarray(i6.length + 1), e9 = i6[3] & 1, i6 = (i6[4] << 23) + (i6[5] << 15) + (i6[6] << 7) + i6[7], i6 /= 45, e9 && (i6 += 4772185884e-2), t9.data = i6) : (e9 = ke2(e9.data.subarray(i6.length + 1)), t9.data = e9), t9) : e9.type === "UFID" ? (i6 = e9.data.indexOf(0), i6 === -1 ? null : (a7 = Ie2(V3(e9.data, 0, i6)), t9.description = a7, t9.data = ke2(e9.data.subarray(i6 + 1)), t9)) : e9.type[0] === "T" ? e9.size < 2 ? null : (e9 = Zc(e9.data.subarray(1), e9.data[0]).replace(/\0+$/, "").split("\0").map(function(e10) {
+            return e9.type === "COMM" ? e9.size < 5 || (s7 = e9.data[0], i6 = Ie2(e9.data.subarray(1, 4)).replace(/\0/g, ""), n6 = $c(e9.data, s7, 4), n6 === -1) ? null : (a7 = Zc(e9.data.subarray(4, n6), s7), e9 = Zc(e9.data.subarray(n6 + Qc(s7)), s7).replace(/\0*$/, ""), t9.description = a7 || i6, t9.data = e9, t9) : e9.type === "TXXX" ? e9.size < 2 || (a7 = e9.data[0], s7 = $c(e9.data, a7, 1), s7 === -1) ? null : (i6 = Zc(e9.data.subarray(1, s7), a7), e9 = Zc(e9.data.subarray(s7 + Qc(a7)), a7).replace(/^\ufeff/, "").replace(/\0*$/, ""), t9.description = i6, t9.data = e9, t9) : e9.type === "WXXX" ? e9.size < 2 || (a7 = e9.data[0], s7 = $c(e9.data, a7, 1), s7 === -1) ? null : (i6 = Zc(e9.data.subarray(1, s7), a7), e9 = Ie2(e9.data.subarray(s7 + Qc(a7))).replace(/\0*$/, ""), t9.description = i6, t9.data = e9, t9) : e9.type === "PRIV" ? e9.size < 2 || (i6 = e9.data.indexOf(0), i6 === -1) ? null : (i6 = Ie2(V4(e9.data, 0, i6)), t9.description = i6, i6 == "com.apple.streaming.transportStreamTimestamp" ? (i6 = e9.data.subarray(i6.length + 1), e9 = i6[3] & 1, i6 = (i6[4] << 23) + (i6[5] << 15) + (i6[6] << 7) + i6[7], i6 /= 45, e9 && (i6 += 4772185884e-2), t9.data = i6) : (e9 = ke2(e9.data.subarray(i6.length + 1)), t9.data = e9), t9) : e9.type === "UFID" ? (i6 = e9.data.indexOf(0), i6 === -1 ? null : (a7 = Ie2(V4(e9.data, 0, i6)), t9.description = a7, t9.data = ke2(e9.data.subarray(i6 + 1)), t9)) : e9.type[0] === "T" ? e9.size < 2 ? null : (e9 = Zc(e9.data.subarray(1), e9.data[0]).replace(/\0+$/, "").split("\0").map(function(e10) {
               return e10.replace(/^\ufeff/, "");
             }).filter(function(e10) {
               return e10.length > 0;
@@ -12989,15 +13086,15 @@ var init_load_uTL4eiru = __esm({
           }
           qc.prototype.parse = function(e9) {
             return tl(e9);
-          }, L3("shaka.metadata.Id3Utils", qc), qc.prototype.parse = qc.prototype.parse, qc.getID3Data = nl, qc.getID3Frames = tl;
-          for (var rl = y4(Nr), il = rl.next(); !il.done; il = rl.next()) Gc(il.value, function() {
+          }, L4("shaka.metadata.Id3Utils", qc), qc.prototype.parse = qc.prototype.parse, qc.getID3Data = nl, qc.getID3Frames = tl;
+          for (var rl = y5(Nr), il = rl.next(); !il.done; il = rl.next()) Gc(il.value, function() {
             return new qc();
           });
           function al(e9, t9) {
             this.g = e9, this.u = t9 === void 0 ? "" : t9, this.j = false, this.o = 0, this.h = /* @__PURE__ */ new Map(), this.i = ol++, this.l = this.m = false;
           }
           r6 = al.prototype, r6.destroy = function() {
-            for (var e9 = y4(this.h.values()), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, t9.wi.stop(), t9.reject(new H4(2, 3, 3018, "Worker transmuxer destroyed"));
+            for (var e9 = y5(this.h.values()), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, t9.wi.stop(), t9.reject(new H4(2, 3, 3018, "Worker transmuxer destroyed"));
             this.h.clear(), this.l && (sl && sl.postMessage({
               cmd: "destroy",
               id: this.i
@@ -13009,15 +13106,15 @@ var init_load_uTL4eiru = __esm({
           }, r6.getOriginalMimeType = function() {
             return this.g.getOriginalMimeType();
           }, r6.transmux = function(e9, t9, n6, r7, i6) {
-            var a7 = this, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3, C5, w5, T5;
-            return P4(function(E5) {
-              if (E5.h == 1) {
-                if (a7.j) return E5.return(a7.g.transmux(e9, t9, n6, r7, i6));
+            var a7 = this, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5, C6, w6, T6;
+            return P4(function(E6) {
+              if (E6.h == 1) {
+                if (a7.j) return E6.return(a7.g.transmux(e9, t9, n6, r7, i6));
                 if (!a7.l) {
-                  if (o8 = ll(a7.u), !o8) return a7.j = true, E5.return(a7.g.transmux(e9, t9, n6, r7, i6));
+                  if (o8 = ll(a7.u), !o8) return a7.j = true, E6.return(a7.g.transmux(e9, t9, n6, r7, i6));
                   cl.set(a7.i, a7), a7.l = true;
                 }
-                if (s7 = sl, !s7) return a7.j = true, E5.return(a7.g.transmux(e9, t9, n6, r7, i6));
+                if (s7 = sl, !s7) return a7.j = true, E6.return(a7.g.transmux(e9, t9, n6, r7, i6));
                 a7.m ||= (c7 = a7.g.getOriginalMimeType(), s7.postMessage({
                   cmd: "init",
                   id: a7.i,
@@ -13035,7 +13132,7 @@ var init_load_uTL4eiru = __esm({
                   startTime: n6.startTime,
                   endTime: n6.endTime,
                   uris: n6.U()
-                } : null, f4 = ke2(Ye2(e9)), p5 = Promise.withResolvers(), m5 = p5.promise, h6 = p5.resolve, g6 = p5.reject, _5 = false, v7 = new G(function() {
+                } : null, f4 = ke2(Ye2(e9)), p5 = Promise.withResolvers(), m5 = p5.promise, h6 = p5.resolve, g6 = p5.reject, _5 = false, v7 = new G2(function() {
                   a7.h.has(l6) && (a7.h.delete(l6), _5 = a7.j = true, h6(null));
                 }), v7.ba(30), a7.h.set(l6, {
                   resolve: h6,
@@ -13054,22 +13151,22 @@ var init_load_uTL4eiru = __esm({
                     contentType: i6
                   }, [f4]);
                 } catch {
-                  return v7.stop(), a7.h.delete(l6), ul(), E5.return(a7.g.transmux(e9, t9, n6, r7, i6));
+                  return v7.stop(), a7.h.delete(l6), ul(), E6.return(a7.g.transmux(e9, t9, n6, r7, i6));
                 }
-                return E5.g(m5, 2);
+                return E6.g(m5, 2);
               }
-              if (b4 = E5.i, _5 || b4 === null) return R3("Worker transmux unavailable; falling back to main-thread transmuxing"), E5.return(a7.g.transmux(e9, t9, n6, r7, i6));
-              if ((x4 = b4.streamMutations) && Object.keys(x4).length > 0) for (S3 = y4(Object.keys(x4)), C5 = S3.next(); !C5.done; C5 = S3.next()) w5 = C5.value, t9[w5] = x4[w5];
-              return T5 = b4.output, T5.type === "raw" ? E5.return(V3(T5.data)) : E5.return({
-                data: V3(T5.data),
-                init: T5.init ? V3(T5.init) : null
+              if (b5 = E6.i, _5 || b5 === null) return R4("Worker transmux unavailable; falling back to main-thread transmuxing"), E6.return(a7.g.transmux(e9, t9, n6, r7, i6));
+              if ((x5 = b5.streamMutations) && Object.keys(x5).length > 0) for (S5 = y5(Object.keys(x5)), C6 = S5.next(); !C6.done; C6 = S5.next()) w6 = C6.value, t9[w6] = x5[w6];
+              return T6 = b5.output, T6.type === "raw" ? E6.return(V4(T6.data)) : E6.return({
+                data: V4(T6.data),
+                init: T6.init ? V4(T6.init) : null
               });
             });
-          }, L3("shaka.transmuxer.TransmuxerProxy", al), al.prototype.transmux = al.prototype.transmux, al.prototype.getOriginalMimeType = al.prototype.getOriginalMimeType, al.prototype.convertCodecs = al.prototype.convertCodecs, al.prototype.isSupported = al.prototype.isSupported, al.prototype.destroy = al.prototype.destroy;
+          }, L4("shaka.transmuxer.TransmuxerProxy", al), al.prototype.transmux = al.prototype.transmux, al.prototype.getOriginalMimeType = al.prototype.getOriginalMimeType, al.prototype.convertCodecs = al.prototype.convertCodecs, al.prototype.isSupported = al.prototype.isSupported, al.prototype.destroy = al.prototype.destroy;
           var ol = 0, sl = null, cl = /* @__PURE__ */ new Map();
           function ll(e9) {
             if (sl) return sl;
-            if (!B3().Zd() || !e9) return null;
+            if (!B4().Zd() || !e9) return null;
             try {
               var t9 = new Worker(e9);
               return t9.addEventListener("message", function(e10) {
@@ -13086,7 +13183,7 @@ var init_load_uTL4eiru = __esm({
                         e10.severity,
                         e10.category,
                         e10.code
-                      ].concat(b3(e10.data))))())) : t10.resolve(e10));
+                      ].concat(b4(e10.data))))())) : t10.resolve(e10));
                     }
                   }
                 }
@@ -13098,9 +13195,9 @@ var init_load_uTL4eiru = __esm({
             }
           }
           function ul() {
-            for (var e9 = y4(cl.values()), t9 = e9.next(); !t9.done; t9 = e9.next()) {
+            for (var e9 = y5(cl.values()), t9 = e9.next(); !t9.done; t9 = e9.next()) {
               t9 = t9.value, t9.j = true;
-              for (var n6 = y4(t9.h.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, r7.wi.stop(), r7.resolve(null);
+              for (var n6 = y5(t9.h.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, r7.wi.stop(), r7.resolve(null);
               t9.h.clear();
             }
             sl = null, cl.clear();
@@ -13119,7 +13216,7 @@ var init_load_uTL4eiru = __esm({
             for (; e9.firstChild; ) e9.removeChild(e9.firstChild);
           }
           function hl() {
-            return vl || (_l ||= new G(function() {
+            return vl || (_l ||= new G2(function() {
               vl = null;
             }), (vl = document.getElementsByTagName("video")[0] || document.getElementsByTagName("audio")[0]) || (vl = document.createElement("video")), _l.ba(1), vl);
           }
@@ -13132,11 +13229,11 @@ var init_load_uTL4eiru = __esm({
                 e9 = e9.entries();
                 for (var t10 = [], n7 = e9.next(); n7.done === false; ) t10.push(n7.value), n7 = e9.next();
                 return t10;
-              }, i6 = y4(r7(document.fonts)), a7 = i6.next(); !a7.done; a7 = i6.next()) if (o8 = a7.value, o8.family === t9 && o8.display === "swap") return c7.return();
+              }, i6 = y5(r7(document.fonts)), a7 = i6.next(); !a7.done; a7 = i6.next()) if (o8 = a7.value, o8.family === t9 && o8.display === "swap") return c7.return();
               s7 = new FontFace(t9, "url(" + n6 + ")", { display: "swap" }), document.fonts.add(s7), c7.j();
             });
           }
-          L3("shaka.util.Dom", dl), dl.removeAllChildren = ml, dl.clearSourceFromVideo = pl;
+          L4("shaka.util.Dom", dl), dl.removeAllChildren = ml, dl.clearSourceFromVideo = pl;
           var _l = null, vl = null;
           function yl(e9, t9, n6) {
             return n6 = n6 === void 0 ? 2 ** -52 : n6, e9 === t9 || (e9 = Math.abs(e9 - t9), e9 <= n6 || n6 !== 2 ** -52 && Math.abs(e9 - n6) <= 2 ** -52);
@@ -13181,11 +13278,11 @@ var init_load_uTL4eiru = __esm({
           function El(e9) {
             Cl(e9, 1 + Tl(e9));
           }
-          function Y(e9) {
+          function Y2(e9) {
             return wl(e9, Tl(e9) + 1) - 1;
           }
           function Dl(e9) {
-            return e9 = Y(e9), 1 & e9 ? 1 + e9 >>> 1 : -1 * (e9 >>> 1);
+            return e9 = Y2(e9), 1 & e9 ? 1 + e9 >>> 1 : -1 * (e9 >>> 1);
           }
           function X2(e9) {
             return wl(e9, 1) === 1;
@@ -13197,9 +13294,9 @@ var init_load_uTL4eiru = __esm({
             for (var n6 = 8, r7 = 8, i6 = 0; i6 < t9; i6++) r7 !== 0 && (r7 = Dl(e9), r7 = (n6 + r7 + 256) % 256), n6 = r7 === 0 ? n6 : r7;
           }
           function Al(e9) {
-            return Ol(e9), Y(e9), Y(e9);
+            return Ol(e9), Y2(e9), Y2(e9);
           }
-          L3("shaka.util.ExpGolomb", xl);
+          L4("shaka.util.ExpGolomb", xl);
           function jl() {
             this.K = null, this.L = false, this.C = this.M = null, this.m = [], this.j = [], this.g = [], this.F = this.H = null, this.l = [], this.i = [], this.h = [], this.I = null, this.u = [], this.o = [], this.D = this.J = this.B = null;
           }
@@ -13387,7 +13484,7 @@ var init_load_uTL4eiru = __esm({
                 for (t9 = {
                   Sf: null,
                   state: null
-                }, i6 = [], n6 = y4(this.g), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, r7.nalus = this.Ij(r7, t9), r7.nalus.length && (i6.push(r7), t9.Sf = r7.nalus[r7.nalus.length - 1]);
+                }, i6 = [], n6 = y5(this.g), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, r7.nalus = this.Ij(r7, t9), r7.nalus.length && (i6.push(r7), t9.Sf = r7.nalus[r7.nalus.length - 1]);
                 this.g = i6;
               }
             }
@@ -13425,7 +13522,7 @@ var init_load_uTL4eiru = __esm({
               video: this.C
             };
           }, r6.Cf = function() {
-            for (var e9 = [], t9 = y4(this.Dd()), n6 = t9.next(); !n6.done; n6 = t9.next()) e9.push.apply(e9, b3(n6.value.nalus));
+            for (var e9 = [], t9 = y5(this.Dd()), n6 = t9.next(); !n6.done; n6 = t9.next()) e9.push.apply(e9, b4(n6.value.nalus));
             return e9;
           }, r6.kj = function() {
             return this.C == "hvc" ? Bl(this) : zl(this);
@@ -13447,19 +13544,19 @@ var init_load_uTL4eiru = __esm({
             n6 = new xl(n6.data);
             var r7 = Ol(n6), i6 = Ol(n6), a7 = Ol(n6);
             if (El(n6), Wl.includes(r7)) {
-              var o8 = Y(n6);
+              var o8 = Y2(n6);
               if (o8 === 3 && Cl(n6, 1), El(n6), El(n6), Cl(n6, 1), X2(n6)) {
                 o8 = o8 === 3 ? 12 : 8;
                 for (var s7 = 0; s7 < o8; s7++) X2(n6) && (s7 < 6 ? kl(n6, 16) : kl(n6, 64));
               }
             }
-            if (El(n6), o8 = Y(n6), o8 === 0) Y(n6);
-            else if (o8 === 1) for (Cl(n6, 1), El(n6), El(n6), o8 = Y(n6), s7 = 0; s7 < o8; s7++) El(n6);
-            El(n6), Cl(n6, 1), o8 = Y(n6), s7 = Y(n6);
+            if (El(n6), o8 = Y2(n6), o8 === 0) Y2(n6);
+            else if (o8 === 1) for (Cl(n6, 1), El(n6), El(n6), o8 = Y2(n6), s7 = 0; s7 < o8; s7++) El(n6);
+            El(n6), Cl(n6, 1), o8 = Y2(n6), s7 = Y2(n6);
             var c7 = wl(n6, 1);
             c7 === 0 && Cl(n6, 1), Cl(n6, 1);
             var l6 = 0, u7 = 0, d5 = 0, f4 = 0;
-            return X2(n6) && (l6 = Y(n6), u7 = Y(n6), d5 = Y(n6), f4 = Y(n6)), t9.height = String((2 - c7) * (s7 + 1) * 16 - d5 * 2 - f4 * 2), t9.width = String((o8 + 1) * 16 - l6 * 2 - u7 * 2), t9.codec = "avc1." + ("0" + r7.toString(16).toUpperCase()).slice(-2) + ("0" + i6.toString(16).toUpperCase()).slice(-2) + ("0" + a7.toString(16).toUpperCase()).slice(-2), t9.frameRate = Rl(e9), t9;
+            return X2(n6) && (l6 = Y2(n6), u7 = Y2(n6), d5 = Y2(n6), f4 = Y2(n6)), t9.height = String((2 - c7) * (s7 + 1) * 16 - d5 * 2 - f4 * 2), t9.width = String((o8 + 1) * 16 - l6 * 2 - u7 * 2), t9.codec = "avc1." + ("0" + r7.toString(16).toUpperCase()).slice(-2) + ("0" + i6.toString(16).toUpperCase()).slice(-2) + ("0" + a7.toString(16).toUpperCase()).slice(-2), t9.frameRate = Rl(e9), t9;
           }
           function Bl(e9) {
             var t9 = {
@@ -13480,9 +13577,9 @@ var init_load_uTL4eiru = __esm({
             for (var l6 = Ol(r7), u7 = Ol(r7), d5 = Ol(r7), f4 = Ol(r7), p5 = Ol(r7), m5 = Ol(r7), h6 = [], g6 = [], _5 = 0; _5 < i6; _5++) h6.push(X2(r7)), g6.push(X2(r7));
             if (i6 > 0) for (_5 = i6; _5 < 8; _5++) wl(r7, 2);
             for (_5 = 0; _5 < i6; _5++) h6[_5] && wl(r7, 88), g6[_5] && Ol(r7);
-            Y(r7), i6 = Y(r7), i6 == 3 && wl(r7, 1), h6 = Y(r7), g6 = Y(r7);
-            var v7 = _5 = 0, y5 = 0, b4 = 0;
-            return X2(r7) && (_5 += Y(r7), v7 += Y(r7), y5 += Y(r7), b4 += Y(r7)), t9.width = String(h6 - (_5 + v7) * (i6 === 1 || i6 === 2 ? 2 : 1)), t9.height = String(g6 - (y5 + b4) * (i6 === 1 ? 2 : 1)), r7 = (function(e10) {
+            Y2(r7), i6 = Y2(r7), i6 == 3 && wl(r7, 1), h6 = Y2(r7), g6 = Y2(r7);
+            var v7 = _5 = 0, y6 = 0, b5 = 0;
+            return X2(r7) && (_5 += Y2(r7), v7 += Y2(r7), y6 += Y2(r7), b5 += Y2(r7)), t9.width = String(h6 - (_5 + v7) * (i6 === 1 || i6 === 2 ? 2 : 1)), t9.height = String(g6 - (y6 + b5) * (i6 === 1 ? 2 : 1)), r7 = (function(e10) {
               for (var t10 = 0, n7 = 0; n7 < 32; n7++) t10 |= (e10 >> n7 & 1) << 31 - n7;
               return t10 >>> 0;
             })(c7), o8 = o8 == 1 ? "H" : "L", a7 = "hvc1" + ("." + [
@@ -13508,7 +13605,7 @@ var init_load_uTL4eiru = __esm({
             }
             return -1;
           }
-          L3("shaka.util.TsParser", jl), jl.syncOffset = Ul, jl.probe = Hl, jl.prototype.getVideoInfo = jl.prototype.kj, jl.prototype.getVideoNalus = jl.prototype.Cf, jl.prototype.getCodecs = jl.prototype.qe, jl.prototype.getStartTime = jl.prototype.getStartTime, jl.prototype.getVideoData = jl.prototype.Dd, jl.prototype.getAudioData = jl.prototype.Bb, jl.prototype.getMetadata = jl.prototype.getMetadata, jl.prototype.parseNalus = jl.prototype.Ij, jl.prototype.parse = jl.prototype.parse, jl.prototype.setDiscontinuitySequence = jl.prototype.gg, jl.prototype.clearData = jl.prototype.clearData, jl.Timescale = 9e4;
+          L4("shaka.util.TsParser", jl), jl.syncOffset = Ul, jl.probe = Hl, jl.prototype.getVideoInfo = jl.prototype.kj, jl.prototype.getVideoNalus = jl.prototype.Cf, jl.prototype.getCodecs = jl.prototype.qe, jl.prototype.getStartTime = jl.prototype.getStartTime, jl.prototype.getVideoData = jl.prototype.Dd, jl.prototype.getAudioData = jl.prototype.Bb, jl.prototype.getMetadata = jl.prototype.getMetadata, jl.prototype.parseNalus = jl.prototype.Ij, jl.prototype.parse = jl.prototype.parse, jl.prototype.setDiscontinuitySequence = jl.prototype.gg, jl.prototype.clearData = jl.prototype.clearData, jl.Timescale = 9e4;
           var Wl = [
             100,
             110,
@@ -13525,10 +13622,10 @@ var init_load_uTL4eiru = __esm({
           ];
           function Gl(e9, t9, n6, r7, i6) {
             var a7 = this;
-            this.g = e9, this.C = n6, this.u = r7, this.ha = t9, this.j = /* @__PURE__ */ new Map(), this.D = /* @__PURE__ */ new Map(), this.Fa = /* @__PURE__ */ new Map(), this.h = null, this.Ba = false, this.H = i6 || null, this.o = /* @__PURE__ */ new Map(), this.B = new z3(), this.l = /* @__PURE__ */ new Map(), this.I = null, this.M = Promise.withResolvers(), this.Aa = "", this.sb = false, this.xa = true, this.aa = false, this.K = this.Y = null, this.i = Kl(this, this.M), this.Ha = this.J = false, this.F = new Ma(function() {
+            this.g = e9, this.C = n6, this.u = r7, this.ha = t9, this.j = /* @__PURE__ */ new Map(), this.D = /* @__PURE__ */ new Map(), this.Fa = /* @__PURE__ */ new Map(), this.h = null, this.Ba = false, this.H = i6 || null, this.o = /* @__PURE__ */ new Map(), this.B = new z4(), this.l = /* @__PURE__ */ new Map(), this.I = null, this.M = Promise.withResolvers(), this.Aa = "", this.sb = false, this.xa = true, this.aa = false, this.K = this.Y = null, this.i = Kl(this, this.M), this.Ha = this.J = false, this.F = new Ma(function() {
               return Yl(a7);
             }), this.O = false, this.V = "UNKNOWN", this.m = this.kb = this.mb = false, this.wa = null, this.Pa = /* @__PURE__ */ new Map(), this.ma = this.R = this.ra = this.P = null, this.W = Promise.withResolvers();
-            var o8 = UT(B3(), this.g);
+            var o8 = UT(B4(), this.g);
             o8 && (this.aa = o8.state != "disconnected", this.B.Hb(o8, [
               "connect",
               "connecting",
@@ -13557,8 +13654,8 @@ var init_load_uTL4eiru = __esm({
             t9.g && e8.ManagedMediaSource && t9.i && t9.u.useSourceElements && (t9.K?.parentElement === t9.g && t9.g.removeChild(t9.K), t9.K = fl(n6, r7), t9.g.appendChild(t9.K), t9.g.disableRemotePlayback = false);
           }
           function Jl() {
-            var e9 = 'video/mp4; codecs="avc1.42E01E",video/mp4; codecs="avc3.42E01E",video/mp4; codecs="hev1.1.6.L93.90",video/mp4; codecs="hvc1.1.6.L93.90",video/mp4; codecs="hev1.2.4.L153.B0"; eotf="smpte2084",video/mp4; codecs="hvc1.2.4.L153.B0"; eotf="smpte2084",video/mp4; codecs="hvc1.2.20000000.L153.B0",video/mp4; codecs="hvc1.2.4.L120.b0",video/mp4; codecs="hvc1.2.4.L123.b0",video/mp4; codecs="vp9",video/mp4; codecs="vp09.00.10.08",video/mp4; codecs="av01.0.01M.08",video/mp4; codecs="av01.0.31M.10.0.111.09.16.09.0",video/mp4; codecs="av01.0.31M.10.0.112.09.18.09.0",video/mp4; codecs="dvh1.05.01",video/mp4; codecs="dvh1.08.01",video/mp4; codecs="dav1.10.01",video/mp4; codecs="dvh1.20.01",audio/mp4; codecs="mp4a.40.2",audio/mp4; codecs="ac-3",audio/mp4; codecs="ec-3",audio/mp4; codecs="ac-4.02.01.03",audio/mp4; codecs="opus",audio/mp4; codecs="flac",audio/mp4; codecs="dtsc",audio/mp4; codecs="dtse",audio/mp4; codecs="dtsx",audio/mp4; codecs="apac.31.00",video/webm; codecs="vp8",video/webm; codecs="vp9",video/webm; codecs="vp09.00.10.08",audio/webm; codecs="vorbis",audio/webm; codecs="opus",video/mp2t; codecs="avc1.42E01E",video/mp2t; codecs="avc3.42E01E",video/mp2t; codecs="hvc1.1.6.L93.90",video/mp2t; codecs="mp4a.40.2",video/mp2t; codecs="ac-3",video/mp2t; codecs="ec-3",text/vtt,application/mp4; codecs="wvtt",application/ttml+xml,application/mp4; codecs="stpp"'.split(",").concat(b3(Nr)), t9 = {};
-            B3(), e9 = y4(e9);
+            var e9 = 'video/mp4; codecs="avc1.42E01E",video/mp4; codecs="avc3.42E01E",video/mp4; codecs="hev1.1.6.L93.90",video/mp4; codecs="hvc1.1.6.L93.90",video/mp4; codecs="hev1.2.4.L153.B0"; eotf="smpte2084",video/mp4; codecs="hvc1.2.4.L153.B0"; eotf="smpte2084",video/mp4; codecs="hvc1.2.20000000.L153.B0",video/mp4; codecs="hvc1.2.4.L120.b0",video/mp4; codecs="hvc1.2.4.L123.b0",video/mp4; codecs="vp9",video/mp4; codecs="vp09.00.10.08",video/mp4; codecs="av01.0.01M.08",video/mp4; codecs="av01.0.31M.10.0.111.09.16.09.0",video/mp4; codecs="av01.0.31M.10.0.112.09.18.09.0",video/mp4; codecs="dvh1.05.01",video/mp4; codecs="dvh1.08.01",video/mp4; codecs="dav1.10.01",video/mp4; codecs="dvh1.20.01",audio/mp4; codecs="mp4a.40.2",audio/mp4; codecs="ac-3",audio/mp4; codecs="ec-3",audio/mp4; codecs="ac-4.02.01.03",audio/mp4; codecs="opus",audio/mp4; codecs="flac",audio/mp4; codecs="dtsc",audio/mp4; codecs="dtse",audio/mp4; codecs="dtsx",audio/mp4; codecs="apac.31.00",video/webm; codecs="vp8",video/webm; codecs="vp9",video/webm; codecs="vp09.00.10.08",audio/webm; codecs="vorbis",audio/webm; codecs="opus",video/mp2t; codecs="avc1.42E01E",video/mp2t; codecs="avc3.42E01E",video/mp2t; codecs="hvc1.1.6.L93.90",video/mp2t; codecs="mp4a.40.2",video/mp2t; codecs="ac-3",video/mp2t; codecs="ec-3",text/vtt,application/mp4; codecs="wvtt",application/ttml+xml,application/mp4; codecs="stpp"'.split(",").concat(b4(Nr)), t9 = {};
+            B4(), e9 = y5(e9);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) {
               if (n6 = n6.value, Lr(n6)) t9[n6] = true;
               else if (HT()) {
@@ -13574,15 +13671,15 @@ var init_load_uTL4eiru = __esm({
           };
           function Yl(e9) {
             var t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7;
-            return P4(function(b4) {
-              if (b4.h == 1) {
-                for (t9 = [], n6 = y4(e9.o), r7 = n6.next(); !r7.done; r7 = n6.next()) for (i6 = r7.value, a7 = y4(i6), o8 = a7.next().value, s7 = a7.next().value, c7 = s7[0], l6 = o8, e9.o.set(l6, s7.slice(0, 1)), c7 && t9.push(c7.p.promise.catch(function() {
-                })), u7 = y4(s7.slice(1)), d5 = u7.next(); !d5.done; d5 = u7.next()) f4 = d5.value, f4.p.reject(new H4(2, 7, 7003, void 0));
-                return e9.h && t9.push(e9.h.destroy()), b4.g(Promise.all(t9), 2);
+            return P4(function(b5) {
+              if (b5.h == 1) {
+                for (t9 = [], n6 = y5(e9.o), r7 = n6.next(); !r7.done; r7 = n6.next()) for (i6 = r7.value, a7 = y5(i6), o8 = a7.next().value, s7 = a7.next().value, c7 = s7[0], l6 = o8, e9.o.set(l6, s7.slice(0, 1)), c7 && t9.push(c7.p.promise.catch(function() {
+                })), u7 = y5(s7.slice(1)), d5 = u7.next(); !d5.done; d5 = u7.next()) f4 = d5.value, f4.p.reject(new H4(2, 7, 7003, void 0));
+                return e9.h && t9.push(e9.h.destroy()), b5.g(Promise.all(t9), 2);
               }
-              for (t9 = [], p5 = y4(e9.l.values()), m5 = p5.next(); !m5.done; m5 = p5.next()) h6 = m5.value, h6.destroy();
-              for (g6 = y4(e9.L.values()), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, t9.push(v7.destroy());
-              return e9.B &&= (e9.B.release(), null), e9.g && (Xl(e9), e9.g.load(), e9.g.disableRemotePlayback = false), e9.g = null, e9.Y = null, e9.K = null, e9.u = null, e9.i = null, e9.h = null, e9.ha = null, e9.j.clear(), e9.Fa.clear(), e9.L.clear(), e9.l.clear(), e9.I = null, e9.o.clear(), e9.H = null, e9.Pa.clear(), e9.C = null, b4.g(Promise.all(t9), 0);
+              for (t9 = [], p5 = y5(e9.l.values()), m5 = p5.next(); !m5.done; m5 = p5.next()) h6 = m5.value, h6.destroy();
+              for (g6 = y5(e9.L.values()), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, t9.push(v7.destroy());
+              return e9.B &&= (e9.B.release(), null), e9.g && (Xl(e9), e9.g.load(), e9.g.disableRemotePlayback = false), e9.g = null, e9.Y = null, e9.K = null, e9.u = null, e9.i = null, e9.h = null, e9.ha = null, e9.j.clear(), e9.Fa.clear(), e9.L.clear(), e9.l.clear(), e9.I = null, e9.o.clear(), e9.H = null, e9.Pa.clear(), e9.C = null, b5.g(Promise.all(t9), 0);
             });
           }
           function Xl(e9) {
@@ -13594,14 +13691,14 @@ var init_load_uTL4eiru = __esm({
             return P4(function(d5) {
               if (d5.h == 1) return a7 = Ot, d5.g(i6.M.promise, 2);
               if (d5.h != 3) return !eu(i6) && !tu(i6) ? d5.A(3) : (ce2("Expected MediaSource to be open during init(); reopening the media source."), i6.M = Promise.withResolvers(), i6.i = Kl(i6, i6.M), d5.g(i6.M.promise, 3));
-              for (i6.O = t9, i6.V = n6, i6.mb = r7, i6.kb = !i6.O && i6.V == "HLS" && !i6.mb, i6.Pa.clear(), i6.P = null, i6.ra = null, i6.R = null, i6.ma = null, i6.W = Promise.withResolvers(), o8 = y4(e9.keys()), s7 = o8.next(); !s7.done; s7 = o8.next()) c7 = s7.value, l6 = e9.get(c7), Zl(i6, c7, l6, l6.codecs), i6.m ? (i6.o.set(a7.$, []), i6.o.set(a7.za, [])) : i6.o.set(c7, []);
+              for (i6.O = t9, i6.V = n6, i6.mb = r7, i6.kb = !i6.O && i6.V == "HLS" && !i6.mb, i6.Pa.clear(), i6.P = null, i6.ra = null, i6.R = null, i6.ma = null, i6.W = Promise.withResolvers(), o8 = y5(e9.keys()), s7 = o8.next(); !s7.done; s7 = o8.next()) c7 = s7.value, l6 = e9.get(c7), Zl(i6, c7, l6, l6.codecs), i6.m ? (i6.o.set(a7.$, []), i6.o.set(a7.za, [])) : i6.o.set(c7, []);
               (u7 = e9.get(a7.$)) && u7.isAudioMuxedInVideo && (i6.m = true), d5.j();
             });
           };
           function Zl(e9, t9, n6, r7) {
             t9 == "audio" && r7 && (r7 = Ar(r7, n6.mimeType)), t9 == "video" && r7 && n6.mimeType == "video/mp4" && (r7 = jr(r7));
             var i6 = xr(n6.mimeType, r7);
-            if (t9 == U2) $l(e9, i6, n6.external);
+            if (t9 == U3) $l(e9, i6, n6.external);
             else {
               var a7 = e9.u.forceTransmux;
               (!Ms(i6) || !e9.O && Nr.includes(i6)) && (a7 = true);
@@ -13649,16 +13746,16 @@ var init_load_uTL4eiru = __esm({
             return e9.J ? false : !e9.i || e9.i.readyState == "closed";
           }
           function nu(e9, t9) {
-            return e9.j.size ? t9 == U2 ? e9.h.g : Fc(ou(e9, t9)) : null;
+            return e9.j.size ? t9 == U3 ? e9.h.g : Fc(ou(e9, t9)) : null;
           }
           function ru(e9, t9) {
-            return e9.j.size ? t9 == U2 ? e9.h.h : Ic(ou(e9, t9)) : null;
+            return e9.j.size ? t9 == U3 ? e9.h.h : Ic(ou(e9, t9)) : null;
           }
           function iu(e9, t9, n6) {
-            return t9 == U2 ? (e9 = e9.h, e9.h == null || e9.h < n6 ? 0 : e9.h - Math.max(n6, e9.g)) : (e9 = ou(e9, t9), Rc(e9, n6));
+            return t9 == U3 ? (e9 = e9.h, e9.h == null || e9.h < n6 ? 0 : e9.h - Math.max(n6, e9.g)) : (e9 = ou(e9, t9), Rc(e9, n6));
           }
           function au(e9, t9, n6) {
-            return t9 == U2 ? (e9 = e9.h, e9.g == null || e9.g > n6 ? 0 : Math.min(n6, e9.h) - e9.g) : (e9 = ou(e9, t9), zc(e9, n6));
+            return t9 == U3 ? (e9 = e9.h, e9.g == null || e9.g > n6 ? 0 : Math.min(n6, e9.h) - e9.g) : (e9 = ou(e9, t9), zc(e9, n6));
           }
           r6.Nc = function() {
             var e9 = {
@@ -13686,7 +13783,7 @@ var init_load_uTL4eiru = __esm({
           }
           function su(e9, t9, n6, r7, i6, a7, o8) {
             o8 = o8 !== void 0 && o8;
-            var s7 = null, c7 = [], l6 = V3(n6);
+            var s7 = null, c7 = [], l6 = V4(n6);
             if (Nr.includes(a7)) n6 = tl(l6), n6.length && r7 && ((o8 = n6.find(function(e10) {
               return e10.description === "com.apple.streaming.transportStreamTimestamp";
             })) && typeof o8.data == "number" && (s7 = Math.round(o8.data) / 1e3), e9.C.onMetadata([{
@@ -13697,7 +13794,7 @@ var init_load_uTL4eiru = __esm({
               pts: r7.startTime
             }], 0, r7.endTime));
             else if (a7.includes("/mp4") && r7 && r7.ia) {
-              l6 = new q();
+              l6 = new q2();
               var u7 = i6.emsgSchemeIdUris != null && i6.emsgSchemeIdUris.length > 0 || e9.u.dispatchAllEmsgBoxes, d5 = [];
               u7 && l6.T("emsg", function(t10) {
                 a: {
@@ -13738,7 +13835,7 @@ var init_load_uTL4eiru = __esm({
                 }), n7 = new K2("prft", n7), e9.C.onEvent(n7);
               }).ua(Qa, Va).T("tfdt", function(e10) {
                 m5 || (p5 = ss(e10.reader, e10.version).Oa / f4, m5 = true, u7 || e10.parser.stop());
-              }), (u7 || t9) && l6.parse(n6, false, o8), m5 && r7.timestampOffset == 0 && (s7 = p5), l6 = y4(d5), n6 = l6.next(); !n6.done; n6 = l6.next()) cu(e9, n6.value, r7, s7);
+              }), (u7 || t9) && l6.parse(n6, false, o8), m5 && r7.timestampOffset == 0 && (s7 = p5), l6 = y5(d5), n6 = l6.next(); !n6.done; n6 = l6.next()) cu(e9, n6.value, r7, s7);
             } else a7.includes("/mp4") || a7.includes("/webm") || !Hl(l6) || (c7 = e9.Pa.getOrInsertComputed(t9, function() {
               return new jl();
             }), c7.clearData(), c7.gg(r7.i), c7.parse(l6), l6 = Fl(c7, t9), l6 != null && (s7 = l6), c7 = c7.getMetadata());
@@ -13759,7 +13856,7 @@ var init_load_uTL4eiru = __esm({
           }
           function lu(e9, t9, n6, r7, i6, a7, o8, s7, c7, l6, u7) {
             o8 = o8 !== void 0 && o8, s7 = s7 !== void 0 && s7, c7 = c7 !== void 0 && c7, l6 = l6 !== void 0 && l6;
-            var d5, f4, p5, m5, h6, g6, _5, v7, y5, b4, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4, F5, I5, ee3, te3, ne3, re3, L4;
+            var d5, f4, p5, m5, h6, g6, _5, v7, y6, b5, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5, F5, I5, ee3, te3, ne3, re3, L5;
             return P4(function(P5) {
               switch (P5.h) {
                 case 1:
@@ -13792,35 +13889,35 @@ var init_load_uTL4eiru = __esm({
                     P5.A(7);
                     break;
                   }
-                  if (_5 = su(e9, t9, n6, r7, i6, g6, c7), v7 = _5.timestamp, y5 = _5.metadata, v7 == null) {
+                  if (_5 = su(e9, t9, n6, r7, i6, g6, c7), v7 = _5.timestamp, y6 = _5.metadata, v7 == null) {
                     P5.A(8);
                     break;
                   }
-                  if (h6 = v7, e9.P == null && t9 == d5.za && (e9.P = v7, e9.ra = r7.startTime, e9.R != null && (b4 = 0, e9.ra == e9.ma && (b4 = e9.P - e9.R), e9.W.resolve(b4))), e9.R == null && t9 == d5.$ && (e9.R = v7, e9.ma = r7.startTime, e9.P != null && (x4 = 0, e9.ra == e9.ma && (x4 = e9.P - e9.R), e9.W.resolve(x4))), C5 = zu, w5 = t9 == d5.$ && e9.m && !e9.O && e9.P != null && e9.j.has(d5.za) && e9.j.get(d5.$).mode == C5.Bk, !w5) {
-                    T5 = v7, E5 = Nr, !e9.O && E5.includes(e9.D.get(t9)) && (T5 = 0), S3 = r7.startTime - T5, P5.A(9);
+                  if (h6 = v7, e9.P == null && t9 == d5.za && (e9.P = v7, e9.ra = r7.startTime, e9.R != null && (b5 = 0, e9.ra == e9.ma && (b5 = e9.P - e9.R), e9.W.resolve(b5))), e9.R == null && t9 == d5.$ && (e9.R = v7, e9.ma = r7.startTime, e9.P != null && (x5 = 0, e9.ra == e9.ma && (x5 = e9.P - e9.R), e9.W.resolve(x5))), C6 = zu, w6 = t9 == d5.$ && e9.m && !e9.O && e9.P != null && e9.j.has(d5.za) && e9.j.get(d5.$).mode == C6.Bk, !w6) {
+                    T6 = v7, E6 = Nr, !e9.O && E6.includes(e9.D.get(t9)) && (T6 = 0), S5 = r7.startTime - T6, P5.A(9);
                     break;
                   }
-                  return D5 = e9.j.get(d5.za).timestampOffset, P5.g(e9.W.promise, 10);
+                  return D6 = e9.j.get(d5.za).timestampOffset, P5.g(e9.W.promise, 10);
                 case 10:
-                  O5 = P5.i, S3 = D5 + O5;
+                  O6 = P5.i, S5 = D6 + O6;
                 case 9:
-                  k5 = Math.abs(m5 - S3), (k5 >= 1e-3 || o8 || s7) && (!c7 || S3 > 0 || !m5) && (m5 = S3, e9.kb && (Cu(e9, t9, function() {
+                  k6 = Math.abs(m5 - S5), (k6 >= 1e-3 || o8 || s7) && (!c7 || S5 > 0 || !m5) && (m5 = S5, e9.kb && (Cu(e9, t9, function() {
                     return yu(e9, t9);
                   }, null), Cu(e9, t9, function() {
                     return bu(e9, t9, m5);
                   }, null))), (t9 == d5.za || !e9.j.has(d5.za)) && e9.h && (zr(e9.h, m5, r7.i), Br(e9.h, (g6 || "").includes("mp2t")));
                 case 8:
-                  y5.length && e9.C.onMetadata(y5, m5, r7 ? r7.endTime : null);
+                  y6.length && e9.C.onMetadata(y6, m5, r7 ? r7.endTime : null);
                 case 7:
-                  if (a7 && t9 == d5.za && (e9.h || $l(e9, "application/cea-608", false), e9.I ||= (A4 = g6.split(";", 1)[0], new Ht(A4)), r7 ? (j5 = Ut(e9.I, n6), j5.length && Wr(e9.h, j5, m5)) : e9.I.init(n6, s7, u7)), !e9.l.has(t9)) {
+                  if (a7 && t9 == d5.za && (e9.h || $l(e9, "application/cea-608", false), e9.I ||= (A5 = g6.split(";", 1)[0], new Ht(A5)), r7 ? (j5 = Ut(e9.I, n6), j5.length && Wr(e9.h, j5, m5)) : e9.I.init(n6, s7, u7)), !e9.l.has(t9)) {
                     P5.A(11);
                     break;
                   }
                   return P5.g(e9.l.get(t9).transmux(n6, i6, r7, e9.i.duration, t9), 12);
                 case 12:
-                  M5 = P5.i, ArrayBuffer.isView(M5) ? n6 = M5 : (N4 = M5, N4.init != null && (F5 = N4.init, Cu(e9, t9, function() {
+                  M5 = P5.i, ArrayBuffer.isView(M5) ? n6 = M5 : (N5 = M5, N5.init != null && (F5 = N5.init, Cu(e9, t9, function() {
                     _u(e9, t9, F5, m5, i6, true);
-                  }, r7 ? r7.U()[0] : null)), n6 = N4.data);
+                  }, r7 ? r7.U()[0] : null)), n6 = N5.data);
                 case 11:
                   if (n6 = Ou(e9, i6, n6, r7, t9), !e9.L.has(t9)) {
                     P5.A(13);
@@ -13848,7 +13945,7 @@ var init_load_uTL4eiru = __esm({
                   }
                   return P5.g(e9.W.promise, 19);
                 case 19:
-                  L4 = P5.i, Math.abs(L4) > 0.15 && (re3 -= L4);
+                  L5 = P5.i, Math.abs(L5) > 0.15 && (re3 -= L5);
                 case 18:
                   Cu(e9, t9, function() {
                     return yu(e9, t9);
@@ -13945,7 +14042,7 @@ var init_load_uTL4eiru = __esm({
             var t9 = this;
             return P4(function(n6) {
               return n6.g(wu(t9, function() {
-                if (t9.u.durationReductionEmitsUpdateEnd && e9 < t9.i.duration) for (var n7 = y4(t9.j.keys()), r7 = n7.next(); !r7.done; r7 = n7.next()) {
+                if (t9.u.durationReductionEmitsUpdateEnd && e9 < t9.i.duration) for (var n7 = y5(t9.j.keys()), r7 = n7.next(); !r7.done; r7 = n7.next()) {
                   r7 = r7.value;
                   var i6 = {
                     start: function() {
@@ -14013,11 +14110,11 @@ var init_load_uTL4eiru = __esm({
             }, e9.o.get(t9).push(n6), e9.o.get(t9).length == 1 && Eu(e9, t9), n6.p.promise;
           }
           function wu(e9, t9) {
-            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4;
-            return P4(function(S3) {
-              switch (S3.h) {
+            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5;
+            return P4(function(S5) {
+              switch (S5.h) {
                 case 1:
-                  for (Na(e9.F), n6 = [], r7 = Array.from(e9.j.keys()), i6 = /* @__PURE__ */ new Map(), a7 = y4(r7), o8 = a7.next(), s7 = {}; !o8.done; s7 = { ready: void 0 }, o8 = a7.next()) c7 = o8.value, s7.ready = Promise.withResolvers(), l6 = {
+                  for (Na(e9.F), n6 = [], r7 = Array.from(e9.j.keys()), i6 = /* @__PURE__ */ new Map(), a7 = y5(r7), o8 = a7.next(), s7 = {}; !o8.done; s7 = { ready: void 0 }, o8 = a7.next()) c7 = o8.value, s7.ready = Promise.withResolvers(), l6 = {
                     start: /* @__PURE__ */ (function(e10) {
                       return function() {
                         return e10.ready.resolve();
@@ -14026,24 +14123,24 @@ var init_load_uTL4eiru = __esm({
                     p: s7.ready,
                     uri: null
                   }, u7 = e9.o.get(c7), u7.push(l6), n6.push(s7.ready.promise), i6.set(c7, l6), u7.length == 1 && l6.start();
-                  return S3.m(2), S3.g(Promise.all(n6), 4);
+                  return S5.m(2), S5.g(Promise.all(n6), 4);
                 case 4:
-                  S3.o(3);
+                  S5.o(3);
                   break;
                 case 2:
-                  if (d5 = S3.l(), e9.F.g) {
-                    for (f4 = y4(r7), p5 = f4.next(); !p5.done; p5 = f4.next()) m5 = p5.value, h6 = e9.o.get(m5), i6.has(m5) && pe2(h6, i6.get(m5));
-                    return S3.return();
+                  if (d5 = S5.l(), e9.F.g) {
+                    for (f4 = y5(r7), p5 = f4.next(); !p5.done; p5 = f4.next()) m5 = p5.value, h6 = e9.o.get(m5), i6.has(m5) && pe2(h6, i6.get(m5));
+                    return S5.return();
                   }
                   throw d5;
                 case 3:
-                  return S3.m(5, 6), S3.g(t9(), 6);
+                  return S5.m(5, 6), S5.g(t9(), 6);
                 case 6:
-                  for (S3.u(), g6 = y4(r7), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, Tu(e9, v7);
-                  S3.B(0);
+                  for (S5.u(), g6 = y5(r7), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, Tu(e9, v7);
+                  S5.B(0);
                   break;
                 case 5:
-                  throw b4 = S3.l(), x4 = e9.g.error ? Ne2(e9.g.error) : "No error in the media element", new H4(2, 3, 3015, b4, x4, null);
+                  throw b5 = S5.l(), x5 = e9.g.error ? Ne2(e9.g.error) : "No error in the media element", new H4(2, 3, 3015, b5, x5, null);
               }
             });
           }
@@ -14070,7 +14167,7 @@ var init_load_uTL4eiru = __esm({
             if (wr(e9.D.get(i6)) != "mp4") return n6;
             var a7 = r7 === null, o8 = e9.Fa.get(i6), s7 = e9.C.se(), c7 = false;
             r7 && r7.ia && (c7 = r7.ia.encrypted), r7 = r7 ? r7.U()[0] : null;
-            var l6 = B3();
+            var l6 = B4();
             e9.u.correctEc3Enca && a7 && i6 === "audio" && (n6 = vc(n6));
             var u7;
             if (u7 = a7) {
@@ -14085,40 +14182,40 @@ var init_load_uTL4eiru = __esm({
           }
           function ku(e9, t9, n6, r7) {
             return Cu(e9, t9, function() {
-              if (t9 !== U2) {
+              if (t9 !== U3) {
                 e9.D.get(t9);
-                var i6 = B3(), a7 = e9.C.se();
+                var i6 = B4(), a7 = e9.C.se();
                 i6.ub(a7) && (e9.l.has(t9) && (e9.l.get(t9).destroy(), e9.l.delete(t9)), r7 && e9.l.set(t9, r7), i6 = n6 + e9.u.addExtraFeaturesToSourceBuffer(n6), e9.j.get(t9).changeType(i6), e9.D.set(t9, n6)), Su(e9, t9);
               }
             }, null);
           }
           function Au(e9, t9) {
-            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3, C5, w5, T5;
-            return P4(function(E5) {
-              if (E5.h == 1) {
-                if (e9.J || e9.aa) return E5.return();
-                for (n6 = Ot, e9.J = true, e9.m = false, r7 = e9.g.currentTime, i6 = e9.g.autoplay, e9.g.paused || (e9.Ha = true), e9.sb && (e9.g.autoplay = false), E5.D(2), e9.B.Ea(), a7 = y4(e9.l.values()), o8 = a7.next(); !o8.done; o8 = a7.next()) s7 = o8.value, s7.destroy();
-                for (c7 = y4(e9.L.values()), l6 = c7.next(); !l6.done; l6 = c7.next()) u7 = l6.value, u7.destroy();
-                for (d5 = y4(e9.j.values()), f4 = d5.next(); !f4.done; f4 = d5.next()) {
+            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5, C6, w6, T6;
+            return P4(function(E6) {
+              if (E6.h == 1) {
+                if (e9.J || e9.aa) return E6.return();
+                for (n6 = Ot, e9.J = true, e9.m = false, r7 = e9.g.currentTime, i6 = e9.g.autoplay, e9.g.paused || (e9.Ha = true), e9.sb && (e9.g.autoplay = false), E6.D(2), e9.B.Ea(), a7 = y5(e9.l.values()), o8 = a7.next(); !o8.done; o8 = a7.next()) s7 = o8.value, s7.destroy();
+                for (c7 = y5(e9.L.values()), l6 = c7.next(); !l6.done; l6 = c7.next()) u7 = l6.value, u7.destroy();
+                for (d5 = y5(e9.j.values()), f4 = d5.next(); !f4.done; f4 = d5.next()) {
                   p5 = f4.value;
                   try {
                     e9.i.removeSourceBuffer(p5);
                   } catch {
                   }
                 }
-                return e9.l.clear(), e9.j.clear(), e9.L.clear(), m5 = e9.i.duration, e9.M = Promise.withResolvers(), e9.i = Kl(e9, e9.M), E5.g(e9.M.promise, 4);
+                return e9.l.clear(), e9.j.clear(), e9.L.clear(), m5 = e9.i.duration, e9.M = Promise.withResolvers(), e9.i = Kl(e9, e9.M), E6.g(e9.M.promise, 4);
               }
-              if (E5.h != 2) {
-                for (!isNaN(m5) && m5 ? e9.i.duration = m5 : !isNaN(e9.wa) && e9.wa && (e9.i.duration = e9.wa), h6 = Promise.withResolvers(), g6 = e9.i.sourceBuffers, _5 = t9.size, v7 = 0, b4 = function() {
-                  v7++, v7 === _5 && (h6.resolve(), e9.B.Ua(g6, "addsourcebuffer", b4));
-                }, e9.B.G(g6, "addsourcebuffer", b4), x4 = y4(t9.keys()), S3 = x4.next(); !S3.done; S3 = x4.next()) C5 = S3.value, w5 = t9.get(C5), Zl(e9, C5, w5, w5.codecs);
-                return (T5 = t9.get(n6.$)) && T5.isAudioMuxedInVideo && (e9.m = true), e9.m && !e9.o.has(n6.$) && e9.o.set(n6.$, []), E5.g(h6.promise, 2);
+              if (E6.h != 2) {
+                for (!isNaN(m5) && m5 ? e9.i.duration = m5 : !isNaN(e9.wa) && e9.wa && (e9.i.duration = e9.wa), h6 = Promise.withResolvers(), g6 = e9.i.sourceBuffers, _5 = t9.size, v7 = 0, b5 = function() {
+                  v7++, v7 === _5 && (h6.resolve(), e9.B.Ua(g6, "addsourcebuffer", b5));
+                }, e9.B.G(g6, "addsourcebuffer", b5), x5 = y5(t9.keys()), S5 = x5.next(); !S5.done; S5 = x5.next()) C6 = S5.value, w6 = t9.get(C6), Zl(e9, C6, w6, w6.codecs);
+                return (T6 = t9.get(n6.$)) && T6.isAudioMuxedInVideo && (e9.m = true), e9.m && !e9.o.has(n6.$) && e9.o.set(n6.$, []), E6.g(h6.promise, 2);
               }
-              return E5.u(), e9.J = false, Na(e9.F), e9.B.oa(e9.g, "loadedmetadata", function() {
+              return E6.u(), e9.J = false, Na(e9.F), e9.B.oa(e9.g, "loadedmetadata", function() {
                 e9.F.g || (e9.g.currentTime = r7);
               }), e9.B.oa(e9.g, "canplaythrough", function() {
                 e9.F.g || (e9.g.autoplay = i6, e9.Ha && (e9.Ha = false, e9.g.play()));
-              }), E5.B(0);
+              }), E6.B(0);
             });
           }
           function ju(e9, t9) {
@@ -14130,7 +14227,7 @@ var init_load_uTL4eiru = __esm({
             var i6 = false, a7 = wt("audio", (r7 || "").split(",")), o8 = wt("video", (r7 || "").split(",")), s7 = o8;
             t9 == "audio" && (s7 = a7), s7 ||= r7;
             var c7 = xr(n6, s7), l6 = Dr(e9.D.get(t9)), u7 = e9.u.forceTransmux;
-            if (!Ms(c7) || !e9.O && Nr.includes(c7) ? u7 = true : u7 || n6 == l6 || (u7 = !B3().kg() && Nr.includes(n6)), u7 && (s7 = Sr(n6, s7), l6 = _r(s7))) {
+            if (!Ms(c7) || !e9.O && Nr.includes(c7) ? u7 = true : u7 || n6 == l6 || (u7 = !B4().kg() && Nr.includes(n6)), u7 && (s7 = Sr(n6, s7), l6 = _r(s7))) {
               var d5 = new al(l6(), e9.u.transmuxWorkerUrl);
               a7 && o8 && (i6 = true), c7 = d5.convertCodecs(t9, s7);
             }
@@ -14143,7 +14240,7 @@ var init_load_uTL4eiru = __esm({
             };
           }
           function Nu(e9, t9, n6, r7, i6) {
-            if (t9 == U2) return {
+            if (t9 == U3) return {
               type: Bu,
               Tf: n6,
               jc: null
@@ -14155,7 +14252,7 @@ var init_load_uTL4eiru = __esm({
               type: Bu,
               Tf: s7,
               jc: c7
-            } : (a7 = true, (e9.m && !i6.has("audio") || l6 && c7 && !e9.l.has(t9)) && (a7 = false), t9 = B3(), i6 = e9.C.se(), a7 && e9.u.codecSwitchingStrategy === "smooth" && t9.ub(i6) ? {
+            } : (a7 = true, (e9.m && !i6.has("audio") || l6 && c7 && !e9.l.has(t9)) && (a7 = false), t9 = B4(), i6 = e9.C.se(), a7 && e9.u.codecSwitchingStrategy === "smooth" && t9.ub(i6) ? {
               type: Hu,
               Tf: s7,
               jc: c7
@@ -14221,7 +14318,7 @@ var init_load_uTL4eiru = __esm({
           }, r6.De = function(e9) {
             if (e9.length != 0) {
               var t9 = e9[0].startTime, n6 = e9[0].endTime, r7 = (Date.now() + this.C) / 1e3;
-              e9 = y4(e9);
+              e9 = y5(e9);
               for (var i6 = e9.next(); !i6.done; i6 = e9.next()) i6 = i6.value, r7 < i6.startTime || (t9 = Math.min(t9, i6.startTime), n6 = Math.max(n6, i6.endTime), this.i = Math.max(this.i, i6.endTime - i6.startTime));
               this.Uf(t9), this.g = Math.max(this.g, n6), this.h != null && this.H && !this.o && (this.h = r7 - this.g - this.i);
             }
@@ -14241,7 +14338,7 @@ var init_load_uTL4eiru = __esm({
             this.D = e9;
           }, r6.oh = function(e9) {
             if (!this.D.length) return null;
-            for (var t9 = this.D[0], n6 = y4(this.D), r7 = n6.next(); !r7.done && (r7 = r7.value, r7.start <= e9); r7 = n6.next()) t9 = r7;
+            for (var t9 = this.D[0], n6 = y5(this.D), r7 = n6.next(); !r7.done && (r7 = r7.value, r7.start <= e9); r7 = n6.next()) t9 = r7;
             return t9;
           }, r6.ij = function(e9) {
             var t9 = this.oh(e9);
@@ -14281,14 +14378,14 @@ var init_load_uTL4eiru = __esm({
             this.I = e9;
           }, r6.al = function() {
             return this.I;
-          }, L3("shaka.media.PresentationTimeline", Z), Z.prototype.getAvailabilityTimeOffset = Z.prototype.al, Z.prototype.setAvailabilityTimeOffset = Z.prototype.Vj, Z.prototype.usingPresentationStartTime = Z.prototype.tk, Z.prototype.getSeekRangeEnd = Z.prototype.Eb, Z.prototype.getSeekRangeStart = Z.prototype.Kb, Z.prototype.getSafeSeekRangeStart = Z.prototype.ue, Z.prototype.getSegmentAvailabilityEnd = Z.prototype.Qc, Z.prototype.setUserSeekStart = Z.prototype.bk, Z.prototype.getSegmentAvailabilityStart = Z.prototype.Fb, Z.prototype.isDynamic = Z.prototype.ya, Z.prototype.isInProgress = Z.prototype.Hd, Z.prototype.isLive = Z.prototype.isLive, Z.prototype.offset = Z.prototype.offset, Z.prototype.notifyMaxSegmentDuration = Z.prototype.Ih, Z.prototype.notifyMinSegmentStartTime = Z.prototype.Uf, Z.prototype.getProgramDateTimeForTime = Z.prototype.ij, Z.prototype.getProgramDateTimeRegionForTime = Z.prototype.oh, Z.prototype.setProgramDateTimeRegions = Z.prototype.Yj, Z.prototype.getInitialProgramDateTime = Z.prototype.ql, Z.prototype.setInitialProgramDateTime = Z.prototype.ki, Z.prototype.isStartTimeLocked = Z.prototype.Pl, Z.prototype.lockStartTime = Z.prototype.Eh, Z.prototype.getMaxSegmentEndTime = Z.prototype.vl, Z.prototype.notifyPeriodDuration = Z.prototype.Fj, Z.prototype.notifySegments = Z.prototype.De, Z.prototype.notifyTimeRange = Z.prototype.Gj, Z.prototype.getDelay = Z.prototype.il, Z.prototype.setDelay = Z.prototype.ji, Z.prototype.getSegmentAvailabilityDuration = Z.prototype.Bf, Z.prototype.setSegmentAvailabilityDuration = Z.prototype.li, Z.prototype.setStatic = Z.prototype.Yd, Z.prototype.setClockOffset = Z.prototype.Wj, Z.prototype.getPresentationStartTime = Z.prototype.zl, Z.prototype.setDuration = Z.prototype.Sb, Z.prototype.setPresentationStartTime = Z.prototype.Xj, Z.prototype.getMaxSegmentDuration = Z.prototype.ul, Z.prototype.getDuration = Z.prototype.getDuration;
+          }, L4("shaka.media.PresentationTimeline", Z), Z.prototype.getAvailabilityTimeOffset = Z.prototype.al, Z.prototype.setAvailabilityTimeOffset = Z.prototype.Vj, Z.prototype.usingPresentationStartTime = Z.prototype.tk, Z.prototype.getSeekRangeEnd = Z.prototype.Eb, Z.prototype.getSeekRangeStart = Z.prototype.Kb, Z.prototype.getSafeSeekRangeStart = Z.prototype.ue, Z.prototype.getSegmentAvailabilityEnd = Z.prototype.Qc, Z.prototype.setUserSeekStart = Z.prototype.bk, Z.prototype.getSegmentAvailabilityStart = Z.prototype.Fb, Z.prototype.isDynamic = Z.prototype.ya, Z.prototype.isInProgress = Z.prototype.Hd, Z.prototype.isLive = Z.prototype.isLive, Z.prototype.offset = Z.prototype.offset, Z.prototype.notifyMaxSegmentDuration = Z.prototype.Ih, Z.prototype.notifyMinSegmentStartTime = Z.prototype.Uf, Z.prototype.getProgramDateTimeForTime = Z.prototype.ij, Z.prototype.getProgramDateTimeRegionForTime = Z.prototype.oh, Z.prototype.setProgramDateTimeRegions = Z.prototype.Yj, Z.prototype.getInitialProgramDateTime = Z.prototype.ql, Z.prototype.setInitialProgramDateTime = Z.prototype.ki, Z.prototype.isStartTimeLocked = Z.prototype.Pl, Z.prototype.lockStartTime = Z.prototype.Eh, Z.prototype.getMaxSegmentEndTime = Z.prototype.vl, Z.prototype.notifyPeriodDuration = Z.prototype.Fj, Z.prototype.notifySegments = Z.prototype.De, Z.prototype.notifyTimeRange = Z.prototype.Gj, Z.prototype.getDelay = Z.prototype.il, Z.prototype.setDelay = Z.prototype.ji, Z.prototype.getSegmentAvailabilityDuration = Z.prototype.Bf, Z.prototype.setSegmentAvailabilityDuration = Z.prototype.li, Z.prototype.setStatic = Z.prototype.Yd, Z.prototype.setClockOffset = Z.prototype.Wj, Z.prototype.getPresentationStartTime = Z.prototype.zl, Z.prototype.setDuration = Z.prototype.Sb, Z.prototype.setPresentationStartTime = Z.prototype.Xj, Z.prototype.getMaxSegmentDuration = Z.prototype.ul, Z.prototype.getDuration = Z.prototype.getDuration;
           function Uu(e9, t9, n6, r7, i6) {
             var a7 = this;
             this.u = r7, this.I = i6 || function() {
               return e9.playbackRate;
-            }, this.g = e9, this.D = t9, this.h = n6, this.l = new z3(), this.o = false, this.m = 0, this.C = false, this.H = this.F = 0, this.j = Ku(this), this.B = false, this.l.G(e9, "waiting", function() {
+            }, this.g = e9, this.D = t9, this.h = n6, this.l = new z4(), this.o = false, this.m = 0, this.C = false, this.H = this.F = 0, this.j = Ku(this), this.B = false, this.l.G(e9, "waiting", function() {
               return Wu(a7);
-            }), this.i = new G(function() {
+            }), this.i = new G2(function() {
               Wu(a7);
             }).Ka(this.h.gapJumpTimerTime);
           }
@@ -14348,7 +14445,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Yu(e9) {
             var t9 = this;
-            this.g = e9, this.h = new z3(), this.i = false, this.h.G(this.g, "audiofocuspaused", function() {
+            this.g = e9, this.h = new z4(), this.i = false, this.h.G(this.g, "audiofocuspaused", function() {
               t9.i = true;
             }), this.h.G(this.g, "audiofocusgranted", function() {
               t9.i = false;
@@ -14359,7 +14456,7 @@ var init_load_uTL4eiru = __esm({
           function Xu(e9) {
             if (e9.g.paused || e9.g.playbackRate == 0 || e9.i || e9.g.buffered.length == 0) var t9 = false;
             else a: {
-              t9 = e9.g.currentTime, e9 = y4(Vc(e9.g.buffered));
+              t9 = e9.g.currentTime, e9 = y5(Vc(e9.g.buffered));
               for (var n6 = e9.next(); !n6.done; n6 = e9.next()) if (n6 = n6.value, !(t9 < n6.start - 0.1 || t9 > n6.end - 0.5)) {
                 t9 = true;
                 break a;
@@ -14386,7 +14483,7 @@ var init_load_uTL4eiru = __esm({
             var i6 = this;
             this.g = e9, this.m = t9, this.u = n6, this.j = null, this.l = function() {
               return i6.j ??= r7(), i6.j;
-            }, this.o = false, this.h = new z3(), this.i = new id(e9), Zu(this.g, HTMLMediaElement.HAVE_METADATA, this.h, function() {
+            }, this.o = false, this.h = new z4(), this.i = new id(e9), Zu(this.g, HTMLMediaElement.HAVE_METADATA, this.h, function() {
               nd(i6, i6.l());
             });
           }
@@ -14414,7 +14511,7 @@ var init_load_uTL4eiru = __esm({
           }
           function id(e9) {
             var t9 = this;
-            this.g = e9, this.m = 10, this.j = this.l = this.i = 0, this.h = new G(function() {
+            this.g = e9, this.m = 10, this.j = this.l = this.i = 0, this.h = new G2(function() {
               t9.i <= 0 || t9.g.currentTime != t9.l || t9.g.currentTime === t9.j ? t9.h.stop() : (t9.g.currentTime = t9.j, t9.i--);
             });
           }
@@ -14425,7 +14522,7 @@ var init_load_uTL4eiru = __esm({
             e9.l = e9.g.currentTime, e9.j = t9, e9.i = e9.m, e9.g.currentTime = t9, e9.h.Ka(0.1);
           }
           function od(e9) {
-            this.g = e9, this.i = false, this.h = null, this.j = new z3();
+            this.g = e9, this.i = false, this.h = null, this.j = new z4();
           }
           r6 = od.prototype, r6.ready = function() {
             function e9() {
@@ -14479,7 +14576,7 @@ var init_load_uTL4eiru = __esm({
                 var t10 = ed(s7.j);
                 if (e10 = fd(s7, t10), !Ns() && Math.abs(e10 - t10) > 1e-3) {
                   t10 = false;
-                  var n7 = B3().Tj();
+                  var n7 = B4().Tj();
                   if (n7) {
                     var r8 = Date.now() / 1e3;
                     (!s7.o || s7.o < r8 - n7) && (s7.o = r8, t10 = true);
@@ -14497,7 +14594,7 @@ var init_load_uTL4eiru = __esm({
               t10.g.seeking && !t10.o && (t10.o = true, t10.m = e10), t10.i && t10.i.Ka(t10.h.gapJumpTimerTime), Wu(t10);
             }, function() {
               return ud(s7, r7);
-            }), this.m = new G(function() {
+            }), this.m = new G2(function() {
               if (s7.h.readyState != 0 && !s7.h.paused) {
                 var e10 = ed(s7.j), t10 = s7.g.Kb(), n7 = s7.g.Eb();
                 n7 - t10 < 3 && (t10 = n7 - 3), e10 < t10 && (e10 = fd(s7, e10), s7.h.currentTime = e10);
@@ -14559,7 +14656,7 @@ var init_load_uTL4eiru = __esm({
           }, r6.Xl = function() {
             this.o = true;
           }, r6.Jb = function(e9) {
-            for (var t9 = y4(this.g), n6 = t9.next(); !n6.done; n6 = t9.next()) e9(n6.value);
+            for (var t9 = y5(this.g), n6 = t9.next(); !n6.done; n6 = t9.next()) e9(n6.value);
           }, r6.Ib = function() {
             return this.g[0] || null;
           }, r6.find = function(e9) {
@@ -14575,13 +14672,13 @@ var init_load_uTL4eiru = __esm({
           }, r6.get = function(e9) {
             return this.g.length == 0 ? null : (e9 -= this.i, e9 < 0 || e9 >= this.g.length ? null : this.g[e9]);
           }, r6.offset = function(e9) {
-            if (!this.o) for (var t9 = y4(this.g), n6 = t9.next(); !n6.done; n6 = t9.next()) n6.value.offset(e9);
+            if (!this.o) for (var t9 = y5(this.g), n6 = t9.next(); !n6.done; n6 = t9.next()) n6.value.offset(e9);
           }, r6.Pf = function(e9) {
             if (!this.o && e9.length) {
               var t9 = Math.round(e9[0].startTime * 1e3) / 1e3, n6 = ge2(this.g, function(e10) {
                 return Math.round(e10.startTime * 1e3) / 1e3 < t9;
               });
-              this.g.length = n6, this.g.push.apply(this.g, b3(e9));
+              this.g.length = n6, this.g.push.apply(this.g, b4(e9));
             }
           }, r6.Ld = function(e9, t9) {
             for (var n6 = Math.max(t9, this.g.length > 0 ? this.g[0].startTime : -Infinity), r7 = 0; r7 < e9.length && e9[r7].endTime <= n6; ) r7++;
@@ -14599,13 +14696,13 @@ var init_load_uTL4eiru = __esm({
               var r7 = ge2(this.g, function(t10) {
                 return t10.endTime <= e9;
               });
-              r7 > 0 && (n6 || (this.i += r7), this.g = this.g.slice(r7)), this.g.length != 0 && (n6 = this.g[this.g.length - 1], t9 = new J(n6.startTime, t9, n6.D, n6.startByte, n6.endByte, n6.ia, n6.timestampOffset, n6.appendWindowStart, n6.appendWindowEnd, n6.h, n6.tilesLayout, n6.B, n6.g, n6.status, n6.aesKey), t9.mimeType = n6.mimeType, t9.codecs = n6.codecs, t9.i = n6.i, this.g[this.g.length - 1] = t9);
+              r7 > 0 && (n6 || (this.i += r7), this.g = this.g.slice(r7)), this.g.length != 0 && (n6 = this.g[this.g.length - 1], t9 = new J2(n6.startTime, t9, n6.D, n6.startByte, n6.endByte, n6.ia, n6.timestampOffset, n6.appendWindowStart, n6.appendWindowEnd, n6.h, n6.tilesLayout, n6.B, n6.g, n6.status, n6.aesKey), t9.mimeType = n6.mimeType, t9.codecs = n6.codecs, t9.i = n6.i, this.g[this.g.length - 1] = t9);
             }
           }, r6.og = function(e9, t9) {
             var n6 = this;
-            this.o || (this.m && this.m.stop(), this.m = new G(function() {
+            this.o || (this.m && this.m.stop(), this.m = new G2(function() {
               var e10 = t9();
-              e10 ? n6.g.push.apply(n6.g, b3(e10)) : (n6.m.stop(), n6.m = null);
+              e10 ? n6.g.push.apply(n6.g, b4(e10)) : (n6.m.stop(), n6.m = null);
             }), this.m.Ka(e9));
           }, md.prototype[Symbol.iterator] = function() {
             return this.Yb(0);
@@ -14632,11 +14729,11 @@ var init_load_uTL4eiru = __esm({
             return -1;
           };
           function hd(e9, t9, n6) {
-            return e9 = new J(e9, e9 + t9, function() {
+            return e9 = new J2(e9, e9 + t9, function() {
               return n6;
             }, 0, null, null, e9, e9, e9 + t9), new md([e9]);
           }
-          L3("shaka.media.SegmentIndex", md), md.forSingleSegment = hd, md.prototype.getIteratorForTime = md.prototype.Yb, md.prototype.updateEvery = md.prototype.og, md.prototype.fit = md.prototype.xd, md.prototype.evict = md.prototype.Za, md.prototype.mergeAndEvict = md.prototype.Ld, md.prototype.offset = md.prototype.offset, md.prototype.get = md.prototype.get, md.prototype.find = md.prototype.find, md.prototype.markImmutable = md.prototype.Xl, md.prototype.release = md.prototype.release, md.prototype.getNumEvicted = md.prototype.getNumEvicted, md.prototype.getNumReferences = md.prototype.getNumReferences;
+          L4("shaka.media.SegmentIndex", md), md.forSingleSegment = hd, md.prototype.getIteratorForTime = md.prototype.Yb, md.prototype.updateEvery = md.prototype.og, md.prototype.fit = md.prototype.xd, md.prototype.evict = md.prototype.Za, md.prototype.mergeAndEvict = md.prototype.Ld, md.prototype.offset = md.prototype.offset, md.prototype.get = md.prototype.get, md.prototype.find = md.prototype.find, md.prototype.markImmutable = md.prototype.Xl, md.prototype.release = md.prototype.release, md.prototype.getNumEvicted = md.prototype.getNumEvicted, md.prototype.getNumReferences = md.prototype.getNumReferences;
           function gd(e9, t9, n6, r7) {
             this.i = e9, this.h = t9, this.g = n6, this.reverse = r7;
           }
@@ -14656,7 +14753,7 @@ var init_load_uTL4eiru = __esm({
           }, r6.ai = function() {
             var e9 = this.current();
             if (e9 && e9.gd && !e9.l && (e9 = this.i.get(this.h)) && e9.h.length > 0) for (var t9 = e9.h[this.g]; t9.l && !(this.g <= 0); ) this.g--, t9 = e9.h[this.g];
-          }, L3("shaka.media.SegmentIterator", gd), gd.prototype.resetToLastIndependent = gd.prototype.ai, gd.prototype.next = gd.prototype.next, gd.prototype.current = gd.prototype.current, gd.prototype.currentPosition = gd.prototype.Ok, gd.prototype.setReverse = gd.prototype.Xd;
+          }, L4("shaka.media.SegmentIterator", gd), gd.prototype.resetToLastIndependent = gd.prototype.ai, gd.prototype.next = gd.prototype.next, gd.prototype.current = gd.prototype.current, gd.prototype.currentPosition = gd.prototype.Ok, gd.prototype.setReverse = gd.prototype.Xd;
           function _d() {
             md.call(this, []), this.h = [];
           }
@@ -14666,14 +14763,14 @@ var init_load_uTL4eiru = __esm({
           }, r6.release = function() {
             this.h = [];
           }, r6.Jb = function(e9) {
-            for (var t9 = y4(this.h), n6 = t9.next(); !n6.done; n6 = t9.next()) n6.value.Jb(e9);
+            for (var t9 = y5(this.h), n6 = t9.next(); !n6.done; n6 = t9.next()) n6.value.Jb(e9);
           };
           function vd(e9, t9) {
-            e9 = y4(e9.h);
+            e9 = y5(e9.h);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) t9(n6.value);
           }
           r6.find = function(e9) {
-            for (var t9 = this.i, n6 = y4(this.h), r7 = n6.next(); !r7.done; r7 = n6.next()) {
+            for (var t9 = this.i, n6 = y5(this.h), r7 = n6.next(); !r7.done; r7 = n6.next()) {
               r7 = r7.value;
               var i6 = r7.find(e9);
               if (i6 != null) return i6 + t9;
@@ -14682,12 +14779,12 @@ var init_load_uTL4eiru = __esm({
             return null;
           };
           function yd(e9, t9) {
-            e9 = y4(e9.h);
+            e9 = y5(e9.h);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) if (n6 = n6.value, n6.find(t9) != null) return n6.pf();
             return -1;
           }
           r6.get = function(e9) {
-            for (var t9 = this.i, n6 = y4(this.h), r7 = n6.next(); !r7.done; r7 = n6.next()) {
+            for (var t9 = this.i, n6 = y5(this.h), r7 = n6.next(); !r7.done; r7 = n6.next()) {
               r7 = r7.value;
               var i6 = r7.get(e9 - t9);
               if (i6) return i6;
@@ -14704,10 +14801,10 @@ var init_load_uTL4eiru = __esm({
           }, r6.Ld = function() {
           }, r6.xd = function() {
           }, r6.og = function() {
-          }, L3("shaka.media.MetaSegmentIndex", _d), _d.prototype.updateEvery = _d.prototype.og, _d.prototype.fit = _d.prototype.xd, _d.prototype.mergeAndEvict = _d.prototype.Ld, _d.prototype.evict = _d.prototype.Za, _d.prototype.merge = _d.prototype.Pf, _d.prototype.offset = _d.prototype.offset, _d.prototype.get = _d.prototype.get, _d.prototype.find = _d.prototype.find, _d.prototype.forEachTopLevelReference = _d.prototype.Jb, _d.prototype.release = _d.prototype.release;
+          }, L4("shaka.media.MetaSegmentIndex", _d), _d.prototype.updateEvery = _d.prototype.og, _d.prototype.fit = _d.prototype.xd, _d.prototype.mergeAndEvict = _d.prototype.Ld, _d.prototype.evict = _d.prototype.Za, _d.prototype.merge = _d.prototype.Pf, _d.prototype.offset = _d.prototype.offset, _d.prototype.get = _d.prototype.get, _d.prototype.find = _d.prototype.find, _d.prototype.forEachTopLevelReference = _d.prototype.Jb, _d.prototype.release = _d.prototype.release;
           function bd(e9) {
             var t9 = this;
-            this.g = e9, this.j = false, this.h = this.g.ph(), this.i = new G(function() {
+            this.g = e9, this.j = false, this.h = this.g.ph(), this.i = new G2(function() {
               t9.g.isPaused() || t9.g.$l(t9.h * 0.25);
             });
           }
@@ -14730,7 +14827,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Sd(e9) {
             var t9 = this;
-            this.j = e9, this.h = new z3(), this.g = /* @__PURE__ */ new Set(), this.i = new G(function() {
+            this.j = e9, this.h = new z4(), this.g = /* @__PURE__ */ new Set(), this.i = new G2(function() {
               Cd(t9, false);
             }).Va(), e9.paused || this.i.Ka(0.25), this.h.G(e9, "playing", function() {
               t9.i.Va().Ka(0.25);
@@ -14742,12 +14839,12 @@ var init_load_uTL4eiru = __esm({
           }
           Sd.prototype.release = function() {
             this.h &&= (this.h.release(), null), this.i.stop();
-            for (var e9 = y4(this.g), t9 = e9.next(); !t9.done; t9 = e9.next()) t9.value.release();
+            for (var e9 = y5(this.g), t9 = e9.next(); !t9.done; t9 = e9.next()) t9.value.release();
             this.g.clear();
           };
           function Cd(e9, t9) {
             var n6 = e9.j.currentTime;
-            e9 = y4(e9.g);
+            e9 = y5(e9.g);
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) r7.value.j(n6, t9);
           }
           function wd(e9) {
@@ -14774,7 +14871,7 @@ var init_load_uTL4eiru = __esm({
             }), t9 >= 0 ? r7.splice(t9, +(r7[t9].position == n6), e9) : r7.push(e9);
           }
           wd.prototype.j = function(e9) {
-            for (var t9 = y4(this.g.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) {
+            for (var t9 = y5(this.g.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) {
               n6 = n6.value;
               var r7 = n6.Qg;
               a: {
@@ -14832,9 +14929,9 @@ var init_load_uTL4eiru = __esm({
             e9.g.has(n6) || (e9.g.set(n6, t9), t9 = new K2("regionadd", /* @__PURE__ */ new Map([["region", t9]])), e9.dispatchEvent(t9), Md(e9));
           }
           function Md(e9) {
-            e9.h ||= new G(function() {
-              for (var t9 = e9.i(), n6 = y4(e9.g), r7 = n6.next(); !r7.done; r7 = n6.next()) {
-                var i6 = y4(r7.value);
+            e9.h ||= new G2(function() {
+              for (var t9 = e9.i(), n6 = y5(e9.g), r7 = n6.next(); !r7.done; r7 = n6.next()) {
+                var i6 = y5(r7.value);
                 r7 = i6.next().value, i6 = i6.next().value, i6.endTime < t9.start && (e9.g.delete(r7), r7 = new K2("regionremove", /* @__PURE__ */ new Map([["region", i6]])), e9.dispatchEvent(r7));
               }
               !e9.g.size && e9.h && (e9.h.stop(), e9.h = null);
@@ -14849,7 +14946,7 @@ var init_load_uTL4eiru = __esm({
             };
           }
           function Pd(e9, t9) {
-            e9.l = t9, e9 = y4(e9.g.values());
+            e9.l = t9, e9 = y5(e9.g.values());
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) n6.value.g = t9;
           }
           function Fd(e9, t9, n6) {
@@ -14870,7 +14967,7 @@ var init_load_uTL4eiru = __esm({
             return e9.j.set(t9, n6), r7;
           }
           function Ld(e9, t9) {
-            t9 = y4(t9.keys());
+            t9 = y5(t9.keys());
             for (var n6 = t9.next(); !n6.done; n6 = t9.next()) (n6 = n6.value) && Hd(e9, n6);
           }
           function Rd(e9) {
@@ -14878,13 +14975,13 @@ var init_load_uTL4eiru = __esm({
           }
           Nd.prototype.Za = function(e9, t9) {
             t9 = t9 !== void 0 && t9;
-            for (var n6 = y4(this.g.keys()), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, e9 > r7.endTime && Hd(this, r7);
+            for (var n6 = y5(this.g.keys()), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, e9 > r7.endTime && Hd(this, r7);
             t9 && zd(this);
           }, Nd.prototype.Xd = function(e9) {
             this.o = e9, this.h && this.h.Xd(e9);
           };
           function zd(e9) {
-            if (e9.g.size) for (var t9 = Array.from(e9.g.keys()), n6 = y4(e9.j.keys()), r7 = n6.next(), i6 = {}; !r7.done; i6 = { uh: void 0 }, r7 = n6.next()) i6.uh = r7.value, t9.some(/* @__PURE__ */ (function(e10) {
+            if (e9.g.size) for (var t9 = Array.from(e9.g.keys()), n6 = y5(e9.j.keys()), r7 = n6.next(), i6 = {}; !r7.done; i6 = { uh: void 0 }, r7 = n6.next()) i6.uh = r7.value, t9.some(/* @__PURE__ */ (function(e10) {
               return function(t10) {
                 return kc(t10.ia, e10.uh);
               };
@@ -14921,7 +15018,7 @@ var init_load_uTL4eiru = __esm({
           }
           Ud.prototype.abort = function() {
             this.Ee && this.Ee.abort();
-          }, L3("shaka.config.CrossBoundaryStrategy", {
+          }, L4("shaka.config.CrossBoundaryStrategy", {
             KEEP: "keep",
             RESET: "reset",
             RESET_TO_ENCRYPTED: "reset_to_encrypted",
@@ -14938,7 +15035,7 @@ var init_load_uTL4eiru = __esm({
                   n6 = [];
                   break a;
                 }
-                var a7 = V3(n6, e9, i6);
+                var a7 = V4(n6, e9, i6);
                 t9.push({
                   type: r7,
                   value: a7
@@ -14960,15 +15057,15 @@ var init_load_uTL4eiru = __esm({
             var t9 = 8;
             e9 = je2(e9);
             var n6 = e9.getUint8(t9);
-            return t9 += 20, n6 > 0 && (t9 += 4 + 16 * e9.getUint32(t9)), t9 = V3(e9, t9 + 4), Yd(t9);
+            return t9 += 20, n6 > 0 && (t9 += 4 + 16 * e9.getUint32(t9)), t9 = V4(e9, t9 + 4), Yd(t9);
           }
           function Yd(e9) {
             try {
               var t9 = Kd(e9);
               if (t9) a: {
-                for (var n6 = y4(xn(t9, "DATA")), r7 = n6.next(); !r7.done; r7 = n6.next()) {
+                for (var n6 = y5(xn(t9, "DATA")), r7 = n6.next(); !r7.done; r7 = n6.next()) {
                   var i6 = r7.value;
-                  if (i6.children) for (var a7 = y4(i6.children), o8 = a7.next(); !o8.done; o8 = a7.next()) {
+                  if (i6.children) for (var a7 = y5(i6.children), o8 = a7.next(); !o8.done; o8 = a7.next()) {
                     var s7 = o8.value;
                     if (s7.tagName == "LA_URL") {
                       var c7 = yn(s7);
@@ -15006,7 +15103,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Qd(e9, t9, n6) {
             function r7(e10) {
-              D5 = e10.name;
+              D6 = e10.name;
               var t10 = e10.reader;
               t10.skip(24);
               var n7 = t10.Da(), r8 = t10.Da();
@@ -15050,21 +15147,21 @@ var init_load_uTL4eiru = __esm({
                   o8.push("apac.31.00"), l6 = true;
               }
             }
-            var o8 = [], s7 = [], c7 = [], l6 = false, u7 = false, d5 = false, f4 = null, p5 = null, m5 = null, h6 = null, g6 = null, _5 = null, v7 = null, x4 = null, S3 = null, C5 = /* @__PURE__ */ new Map(), w5 = /* @__PURE__ */ new Set(), T5 = null, E5 = null, D5, O5 = 0, k5 = [], A4 = /* @__PURE__ */ new Map(), j5 = null, M5 = /* @__PURE__ */ new Map();
+            var o8 = [], s7 = [], c7 = [], l6 = false, u7 = false, d5 = false, f4 = null, p5 = null, m5 = null, h6 = null, g6 = null, _5 = null, v7 = null, x5 = null, S5 = null, C6 = /* @__PURE__ */ new Map(), w6 = /* @__PURE__ */ new Set(), T6 = null, E6 = null, D6, O6 = 0, k6 = [], A5 = /* @__PURE__ */ new Map(), j5 = null, M5 = /* @__PURE__ */ new Map();
             if (e9 && t9) {
-              S3 = V3(e9);
-              var N4 = V3(t9);
-              N4 = Ye2(S3, N4);
-            } else t9 ? N4 = V3(t9) : e9 && (N4 = V3(e9));
+              S5 = V4(e9);
+              var N5 = V4(t9);
+              N5 = Ye2(S5, N5);
+            } else t9 ? N5 = V4(t9) : e9 && (N5 = V4(e9));
             var P5;
-            if (new q().ua([].concat(b3(Za), b3(Qa)), Va).T("tkhd", function(e10) {
+            if (new q2().ua([].concat(b4(Za), b4(Qa)), Va).T("tkhd", function(e10) {
               j5 = us(e10.reader, e10.version).trackId;
             }).T("mdhd", function(e10) {
-              e10 = cs(e10.reader, e10.version), f4 = e10.language, j5 !== null && A4.set(j5, e10.timescale);
+              e10 = cs(e10.reader, e10.version), f4 = e10.language, j5 !== null && A5.set(j5, e10.timescale);
             }).T("stsd", Ha).T("tfhd", function(e10) {
-              e10 = os(e10.reader, e10.flags), e10.nc && (O5 = e10.nc);
+              e10 = os(e10.reader, e10.flags), e10.nc && (O6 = e10.nc);
             }).T("trun", function(e10) {
-              k5 = ls(e10.reader, e10.version, e10.flags).Vc;
+              k6 = ls(e10.reader, e10.version, e10.flags).Vc;
             }).box("mp4a", function(e10) {
               var t10 = ds(e10.reader);
               h6 = t10.channelCount, g6 = t10.sampleRate, e10.reader.La() ? Va(e10) : a7(e10.name);
@@ -15078,9 +15175,9 @@ var init_load_uTL4eiru = __esm({
                 else if (n7 == 5) break;
               }
               r8 && (t10 += "." + hs(r8), n7 == 5 && e10.La() && (n7 = e10.Z(), r8 = (n7 & 248) >> 3, r8 === 31 && e10.La() && (r8 = 32 + ((n7 & 7) << 3) + ((e10.Z() & 224) >> 5)), t10 += "." + r8)), o8.push(t10), l6 = true;
-            }).ua(to, i6).ua([].concat(b3($a), ["vp09", "av01"]), r7).box("avcC", function(e10) {
-              var t10 = D5 || "";
-              switch (D5) {
+            }).ua(to, i6).ua([].concat(b4($a), ["vp09", "av01"]), r7).box("avcC", function(e10) {
+              var t10 = D6 || "";
+              switch (D6) {
                 case "dvav":
                   t10 = "avc3";
                   break;
@@ -15089,8 +15186,8 @@ var init_load_uTL4eiru = __esm({
               }
               e10 = e10.reader, e10.skip(1), e10 = t10 + "." + hs(e10.Z()) + hs(e10.Z()) + hs(e10.Z()), s7.push(e10), u7 = true;
             }).box("hvcC", function(e10) {
-              var t10 = D5 || "";
-              switch (D5) {
+              var t10 = D6 || "";
+              switch (D6) {
                 case "dvh1":
                   t10 = "hvc1";
                   break;
@@ -15117,8 +15214,8 @@ var init_load_uTL4eiru = __esm({
               for (t10 = t10 + ("." + r8 + i7) + ("." + hs(c8, true)), t10 += "." + o9 + n7, r8 = "", i7 = e10.length; i7--; ) ((o9 = e10[i7]) || r8) && (r8 = "." + o9.toString(16).toUpperCase() + r8);
               t10 += r8, s7.push(t10), u7 = true;
             }).box("dvcC", function(e10) {
-              var t10 = D5 || "";
-              switch (D5) {
+              var t10 = D6 || "";
+              switch (D6) {
                 case "hvc1":
                   t10 = "dvh1";
                   break;
@@ -15137,8 +15234,8 @@ var init_load_uTL4eiru = __esm({
               var n7 = e10.reader;
               n7.skip(2), e10 = n7.Z(), n7 = n7.Z(), s7.push(t10 + "." + gs(e10 >> 1 & 127) + "." + gs(e10 << 5 & 32 | n7 >> 3 & 31)), u7 = true;
             }).box("dvvC", function(e10) {
-              var t10 = D5 || "";
-              switch (D5) {
+              var t10 = D6 || "";
+              switch (D6) {
                 case "hvc1":
                   t10 = "dvh1";
                   break;
@@ -15157,13 +15254,13 @@ var init_load_uTL4eiru = __esm({
               var n7 = e10.reader;
               n7.skip(2), e10 = n7.Z(), n7 = n7.Z(), s7.push(t10 + "." + gs(e10 >> 1 & 127) + "." + gs(e10 << 5 & 32 | n7 >> 3 & 31)), u7 = true;
             }).T("vpcC", function(e10) {
-              var t10 = D5 || "", n7 = e10.reader;
+              var t10 = D6 || "", n7 = e10.reader;
               e10 = n7.Z();
               var r8 = n7.Z();
               n7 = n7.Z() >> 4 & 15, s7.push(t10 + "." + gs(e10) + "." + gs(r8) + "." + gs(n7)), u7 = true;
             }).box("av1C", function(e10) {
-              var t10 = D5 || "";
-              D5 === "dav1" && (t10 = "av01");
+              var t10 = D6 || "";
+              D6 === "dav1" && (t10 = "av01");
               var n7 = e10.reader;
               n7.skip(1), e10 = n7.Z(), n7 = n7.Z();
               var r8 = e10 >>> 5, i7 = (n7 & 64) >> 6;
@@ -15171,7 +15268,7 @@ var init_load_uTL4eiru = __esm({
             }).ua(["wvtt", "stpp"], function(e10) {
               c7.push(e10.name), d5 = true;
             }).box("c608", function() {
-              M5.set("CC1", "CC1"), j5 !== null && A4.delete(j5);
+              M5.set("CC1", "CC1"), j5 !== null && A5.delete(j5);
             }).box("enca", i6).box("encv", r7).box("sinf", Va).box("frma", function(e10) {
               e10 = fs(e10.reader).codec, a7(e10);
             }).box("colr", function(e10) {
@@ -15190,12 +15287,12 @@ var init_load_uTL4eiru = __esm({
               var t10 = ms(e10.reader), n7 = t10.colorGamut;
               _5 = t10.Ne, v7 = n7;
             }).T("schm", function(e10) {
-              T5 = qa(e10.reader.S());
+              T6 = qa(e10.reader.S());
             }).box("schi", Va).T("tenc", function(e10) {
-              E5 = ps(e10.reader, e10.version).defaultKID;
+              E6 = ps(e10.reader, e10.version).defaultKID;
             }).T("pssh", function(e10) {
-              var t10 = V3(e10.reader.h, -12, e10.size), n7 = Je2(t10);
-              if (!w5.has(n7) && (w5.add(n7), n7 = e10.reader.Ja(16, false), n7 = Je2(n7), P5 ||= st2(true), n7 = P5[n7.toLowerCase()])) {
+              var t10 = V4(e10.reader.h, -12, e10.size), n7 = Je2(t10);
+              if (!w6.has(n7) && (w6.add(n7), n7 = e10.reader.Ja(16, false), n7 = Je2(n7), P5 ||= st2(true), n7 = P5[n7.toLowerCase()])) {
                 var r8 = xt2(n7, "cenc", [{
                   initDataType: "cenc",
                   initData: t10
@@ -15207,14 +15304,14 @@ var init_load_uTL4eiru = __esm({
                     r8.keyIds.add(Je2(a8));
                   }
                 }
-                C5.set(n7, r8);
+                C6.set(n7, r8);
               }
-            }).parse(N4, true, true), !o8.length && !s7.length && !c7.length) return null;
-            if (S3 = A4.values().next().value, N4 = l6 && !u7, u7 && !n6 && t9 && !M5.size) {
+            }).parse(N5, true, true), !o8.length && !s7.length && !c7.length) return null;
+            if (S5 = A5.values().next().value, N5 = l6 && !u7, u7 && !n6 && t9 && !M5.size) {
               n6 = new Ht("video/mp4"), e9 && n6.init(e9);
               try {
                 Ut(n6, t9);
-                for (var F5 = y4(n6.g.getStreams()), I5 = F5.next(); !I5.done; I5 = F5.next()) {
+                for (var F5 = y5(n6.g.getStreams()), I5 = F5.next(); !I5.done; I5 = F5.next()) {
                   var ee3 = I5.value;
                   M5.set(ee3, ee3);
                 }
@@ -15222,10 +15319,10 @@ var init_load_uTL4eiru = __esm({
               }
               n6.g.clear();
             }
-            for (e9 = o8.concat(s7).concat(c7), T5 === "cbcs" && E5 && !C5.has("com.apple.fps") && C5.set("com.apple.fps", xt2("com.apple.fps", T5, null)), t9 = y4(C5.values()), F5 = t9.next(); !F5.done; F5 = t9.next()) F5 = F5.value, T5 && (F5.encryptionScheme = T5), E5 && F5.keyIds.add(E5);
-            if (t9 = "video", F5 = "video/mp4", d5 ? (t9 = "text", F5 = "application/mp4") : N4 && (t9 = "audio", F5 = "audio/mp4"), t9 === "video" && S3 != null && k5.length) {
-              for (N4 = S3, I5 = 0, ee3 = y4(k5), n6 = ee3.next(); !n6.done; n6 = ee3.next()) I5 += n6.value.Ud ?? O5;
-              I5 > 0 && (x4 = N4 * k5.length / I5);
+            for (e9 = o8.concat(s7).concat(c7), T6 === "cbcs" && E6 && !C6.has("com.apple.fps") && C6.set("com.apple.fps", xt2("com.apple.fps", T6, null)), t9 = y5(C6.values()), F5 = t9.next(); !F5.done; F5 = t9.next()) F5 = F5.value, T6 && (F5.encryptionScheme = T6), E6 && F5.keyIds.add(E6);
+            if (t9 = "video", F5 = "video/mp4", d5 ? (t9 = "text", F5 = "application/mp4") : N5 && (t9 = "audio", F5 = "audio/mp4"), t9 === "video" && S5 != null && k6.length) {
+              for (N5 = S5, I5 = 0, ee3 = y5(k6), n6 = ee3.next(); !n6.done; n6 = ee3.next()) I5 += n6.value.Ud ?? O6;
+              I5 > 0 && (x5 = N5 * k6.length / I5);
             }
             return {
               type: t9,
@@ -15239,20 +15336,20 @@ var init_load_uTL4eiru = __esm({
               closedCaptions: M5,
               Ne: _5,
               colorGamut: v7,
-              frameRate: x4,
-              timescale: S3,
-              drmInfos: Array.from(C5.values())
+              frameRate: x5,
+              timescale: S5,
+              drmInfos: Array.from(C6.values())
             };
           }
           function $d(e9) {
             var t9 = /* @__PURE__ */ new Set(), n6 = [];
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) {
               r7 = r7.value;
               var i6 = Er(r7);
               t9.has(i6) || (n6.push(r7), t9.add(i6));
             }
-            return t9 = Dt("audio", n6), r7 = Dt("video", n6), e9 = Dt(U2, n6), r7 = ef(r7), t9 = t9.concat(r7).concat(e9), n6.length && !t9.length ? n6 : t9;
+            return t9 = Dt("audio", n6), r7 = Dt("video", n6), e9 = Dt(U3, n6), r7 = ef(r7), t9 = t9.concat(r7).concat(e9), n6.length && !t9.length ? n6 : t9;
           }
           function ef(e9) {
             if (e9.length <= 1) return e9;
@@ -15265,7 +15362,7 @@ var init_load_uTL4eiru = __esm({
           }
           function tf(e9) {
             var t9 = null;
-            return new q().ua([].concat(b3(Za), ["sinf", "schi"]), Va).T("stsd", Ha).box("encv", Ua).box("enca", Wa).T("tenc", function(e10) {
+            return new q2().ua([].concat(b4(Za), ["sinf", "schi"]), Va).T("stsd", Ha).box("encv", Ua).box("enca", Wa).T("tenc", function(e10) {
               t9 = ps(e10.reader, e10.version).defaultKID;
             }).parse(e9, true), t9;
           }
@@ -15274,14 +15371,14 @@ var init_load_uTL4eiru = __esm({
             return P4(function(p5) {
               if (p5.h == 1) return i6 = n6, i6.cryptoKey ? p5.A(2) : p5.g(i6.fetchKey(), 3);
               if (n6.blockCipherMode == "GCM" && n6.bitsKey == 256) {
-                if (a7 = V3(t9), a7.byteLength < 32) throw new H4(2, 4, 4060);
+                if (a7 = V4(t9), a7.byteLength < 32) throw new H4(2, 4, 4060);
                 return o8 = a7.slice(0, 16), s7 = a7.slice(16), c7 = {
                   name: "AES-GCM",
                   iv: o8,
                   tagLength: 128
                 }, p5.return(e8.crypto.subtle.decrypt(c7, i6.cryptoKey, s7));
               }
-              if (l6 = i6.iv, !l6) for (l6 = V3(/* @__PURE__ */ new ArrayBuffer(16)), u7 = i6.firstMediaSequenceNumber + r7, d5 = l6.byteLength - 1; d5 >= 0; d5--) l6[d5] = u7 & 255, u7 >>= 8;
+              if (l6 = i6.iv, !l6) for (l6 = V4(/* @__PURE__ */ new ArrayBuffer(16)), u7 = i6.firstMediaSequenceNumber + r7, d5 = l6.byteLength - 1; d5 >= 0; d5--) l6[d5] = u7 & 255, u7 >>= 8;
               return f4 = n6.blockCipherMode == "CBC" ? {
                 name: "AES-CBC",
                 iv: l6
@@ -15342,17 +15439,17 @@ var init_load_uTL4eiru = __esm({
             }), this.R = Date.now() / 1e3, this.m = /* @__PURE__ */ new Map(), this.V = {
               projection: null,
               hfov: null
-            }, this.ha = 0, this.aa = Infinity, this.F = null, this.O = [], this.M = new z3(), this.u = new G(function() {
+            }, this.ha = 0, this.aa = Infinity, this.F = null, this.O = [], this.M = new z4(), this.u = new G2(function() {
               if (n6.j && n6.g) {
                 if (n6.j.presentationTimeline.ya()) {
                   var e10 = n6.j.presentationTimeline.Kb(), t10 = n6.j.presentationTimeline.Eb();
                   t10 - e10 > 1 ? hu(n6.g.X, e10, t10) : gu(n6.g.X);
                 } else gu(n6.g.X), n6.u && n6.u.stop();
               } else n6.u && n6.u.stop();
-            }), this.H = null, this.I = false, this.L = new G(function() {
+            }), this.H = null, this.I = false, this.L = new G2(function() {
               var e10 = n6.g.video;
               !e10.ended && n6.H && (n6.I = true, e10.currentTime = n6.H, n6.H = null);
-            }), this.K = new z3();
+            }), this.K = new z4();
           }
           r6 = cf.prototype, r6.destroy = function() {
             return this.l.destroy();
@@ -15361,8 +15458,8 @@ var init_load_uTL4eiru = __esm({
             var t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5;
             return P4(function(f4) {
               if (f4.h == 1) {
-                for ((t9 = e9.u) == null || t9.stop(), e9.u = null, (n6 = e9.M) == null || n6.release(), e9.M = null, (r7 = e9.L) == null || r7.stop(), e9.L = null, (i6 = e9.K) == null || i6.release(), e9.K = null, a7 = [], o8 = y4(e9.h.values()), s7 = o8.next(); !s7.done; s7 = o8.next()) c7 = s7.value, Vf(c7), a7.push(Hf(c7)), c7.ka && (Rd(c7.ka), c7.ka = null);
-                for (l6 = y4(e9.m.values()), u7 = l6.next(); !u7.done; u7 = l6.next()) d5 = u7.value, Rd(d5);
+                for ((t9 = e9.u) == null || t9.stop(), e9.u = null, (n6 = e9.M) == null || n6.release(), e9.M = null, (r7 = e9.L) == null || r7.stop(), e9.L = null, (i6 = e9.K) == null || i6.release(), e9.K = null, a7 = [], o8 = y5(e9.h.values()), s7 = o8.next(); !s7.done; s7 = o8.next()) c7 = s7.value, Vf(c7), a7.push(Hf(c7)), c7.ka && (Rd(c7.ka), c7.ka = null);
+                for (l6 = y5(e9.m.values()), u7 = l6.next(); !u7.done; u7 = l6.next()) d5 = u7.value, Rd(d5);
                 return f4.g(Promise.all(a7), 2);
               }
               e9.h.clear(), e9.m.clear(), e9.g = null, e9.j = null, e9.i = null, e9.H = null, f4.j();
@@ -15379,10 +15476,10 @@ var init_load_uTL4eiru = __esm({
               connectionTimeout: 0
             }, true), e9.disableAudioPrefetch) {
               var t9 = this.h.get("audio");
-              t9 && t9.ka && (Rd(t9.ka), t9.ka = null), t9 = y4(this.m.keys());
+              t9 && t9.ka && (Rd(t9.ka), t9.ka = null), t9 = y5(this.m.keys());
               for (var n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, Rd(this.m.get(n6)), this.m.delete(n6);
             }
-            for (e9.disableTextPrefetch && (t9 = this.h.get(U2)) && t9.ka && (Rd(t9.ka), t9.ka = null), e9.disableVideoPrefetch && (t9 = this.h.get("video")) && t9.ka && (Rd(t9.ka), t9.ka = null), t9 = y4(this.h.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = this.h.get(n6.value), n6.ka ? (Bd(n6.ka, e9.segmentPrefetchLimit), e9.segmentPrefetchLimit > 0 || (Rd(n6.ka), n6.ka = null)) : e9.segmentPrefetchLimit > 0 && (n6.ka = Cf(this, n6.stream));
+            for (e9.disableTextPrefetch && (t9 = this.h.get(U3)) && t9.ka && (Rd(t9.ka), t9.ka = null), e9.disableVideoPrefetch && (t9 = this.h.get("video")) && t9.ka && (Rd(t9.ka), t9.ka = null), t9 = y5(this.h.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = this.h.get(n6.value), n6.ka ? (Bd(n6.ka, e9.segmentPrefetchLimit), e9.segmentPrefetchLimit > 0 || (Rd(n6.ka), n6.ka = null)) : e9.segmentPrefetchLimit > 0 && (n6.ka = Cf(this, n6.stream));
             e9.disableAudioPrefetch || wf(this);
           };
           function uf(e9, t9, n6) {
@@ -15412,13 +15509,13 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function ff(e9) {
-            var t9 = e9.h.get(U2);
+            var t9 = e9.h.get(U3);
             t9 && (Vf(t9), Hf(t9).catch(function() {
-            }), e9.F = e9.h.get(U2), e9.h.delete(U2), t9.stream && t9.stream.closeSegmentIndex && t9.stream.closeSegmentIndex()), e9.C = null;
+            }), e9.F = e9.h.get(U3), e9.h.delete(U3), t9.stream && t9.stream.closeSegmentIndex && t9.stream.closeSegmentIndex()), e9.C = null;
           }
           function pf(e9, t9) {
-            for (var n6 = e9.g.eb() < 0, r7 = y4(e9.h.values()), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, i6.va && i6.va.Xd(n6), i6.ka && i6.ka.Xd(n6), n6 && (i6.va = null, i6.endOfStream = false, i6.Ma || i6.pb || i6.Nb || i6.Mb || Bf(e9, i6, 0));
-            for (r7 = y4(e9.m.values()), i6 = r7.next(); !i6.done; i6 = r7.next()) i6.value.Xd(n6);
+            for (var n6 = e9.g.eb() < 0, r7 = y5(e9.h.values()), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, i6.va && i6.va.Xd(n6), i6.ka && i6.ka.Xd(n6), n6 && (i6.va = null, i6.endOfStream = false, i6.Ma || i6.pb || i6.Nb || i6.Mb || Bf(e9, i6, 0));
+            for (r7 = y5(e9.m.values()), i6 = r7.next(); !i6.done; i6 = r7.next()) i6.value.Xd(n6);
             (n6 = e9.h.get("video")) && (r7 = n6.stream) && (t9 ? (t9 = r7.trickModeVideo) && !n6.Uc && (vf(e9, t9, false, 0, false), n6.Uc = r7) : (t9 = n6.Uc) && (n6.Uc = null, vf(e9, t9, true, 0, false)));
           }
           function mf(e9, t9, n6, r7, i6, a7) {
@@ -15431,18 +15528,18 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function gf(e9) {
-            var t9 = e9.h.get(U2);
+            var t9 = e9.h.get(U3);
             t9 && vf(e9, t9.stream, true, 0, true);
           }
           function _f(e9, t9) {
-            for (var n6 = y4(e9.P.entries()), r7 = n6.next(); !r7.done; r7 = n6.next()) {
-              var i6 = y4(r7.value);
+            for (var n6 = y5(e9.P.entries()), r7 = n6.next(); !r7.done; r7 = n6.next()) {
+              var i6 = y5(r7.value);
               r7 = i6.next().value, i6 = i6.next().value, r7.includes(t9.type) && (i6(), e9.P.delete(r7));
             }
           }
           function vf(e9, t9, n6, r7, i6, a7) {
             var o8 = e9.h.get(t9.type);
-            o8 || t9.type != U2 ? o8 && (o8.Uc && (t9.trickModeVideo ? (o8.Uc = t9, t9 = t9.trickModeVideo) : o8.Uc = null), o8.stream != t9 || i6) && (e9.m.has(t9) ? o8.ka = e9.m.get(t9) : o8.ka && Vd(o8.ka, t9), t9.type == U2 && o8.stream != t9 && (i6 = xr(t9.mimeType, t9.codecs), $l(e9.g.X, i6, t9.external)), e9.m.has(o8.stream) || o8.stream.closeSegmentIndex && (o8.Ma ? e9.P.getOrInsert("(" + o8.type + ":" + o8.stream.id + ")", o8.stream.closeSegmentIndex) : o8.stream.closeSegmentIndex()), i6 = o8.stream.isAudioMuxedInVideo != t9.isAudioMuxedInVideo, o8.stream = t9, o8.va = null, o8.Fg = !!a7, o8.Lc = t9.dependencyStream ? Sf(e9, t9.dependencyStream) : null, Jf(e9), i6 && (o8.rb = null, o8.vc = null, o8.uc = null, t9.isAudioMuxedInVideo && (t9 = null, o8.type === "video" ? t9 = e9.h.get("audio") : o8.type === "audio" && (t9 = e9.h.get("video")), t9 && (Hf(t9).catch(function() {
+            o8 || t9.type != U3 ? o8 && (o8.Uc && (t9.trickModeVideo ? (o8.Uc = t9, t9 = t9.trickModeVideo) : o8.Uc = null), o8.stream != t9 || i6) && (e9.m.has(t9) ? o8.ka = e9.m.get(t9) : o8.ka && Vd(o8.ka, t9), t9.type == U3 && o8.stream != t9 && (i6 = xr(t9.mimeType, t9.codecs), $l(e9.g.X, i6, t9.external)), e9.m.has(o8.stream) || o8.stream.closeSegmentIndex && (o8.Ma ? e9.P.getOrInsert("(" + o8.type + ":" + o8.stream.id + ")", o8.stream.closeSegmentIndex) : o8.stream.closeSegmentIndex()), i6 = o8.stream.isAudioMuxedInVideo != t9.isAudioMuxedInVideo, o8.stream = t9, o8.va = null, o8.Fg = !!a7, o8.Lc = t9.dependencyStream ? Sf(e9, t9.dependencyStream) : null, Jf(e9), i6 && (o8.rb = null, o8.vc = null, o8.uc = null, t9.isAudioMuxedInVideo && (t9 = null, o8.type === "video" ? t9 = e9.h.get("audio") : o8.type === "audio" && (t9 = e9.h.get("video")), t9 && (Hf(t9).catch(function() {
             }), t9.rb = null, t9.vc = null, t9.uc = null, bf(e9, t9), yf(e9, t9).catch(function(t10) {
               e9.g && e9.g.onError(t10);
             })))), n6 ? o8.Nb ? o8.ae = true : o8.Ma ? (o8.Mb = true, o8.rd = r7, o8.ae = true) : (Vf(o8), zf(e9, o8, true, r7).catch(function(t10) {
@@ -15463,16 +15560,16 @@ var init_load_uTL4eiru = __esm({
           }
           r6.kd = function() {
             if (this.g) {
-              for (var e9 = this.g.Zb(), t9 = y4(this.h.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) {
+              for (var e9 = this.g.Zb(), t9 = y5(this.h.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) {
                 var r7 = n6.value;
                 n6 = this.h.get(r7);
                 var i6;
-                if ((i6 = !this.I) && (i6 = this.g.X, r7 == U2 ? (i6 = i6.h, i6 = i6.g == null || i6.h == null ? false : e9 >= i6.g && e9 < i6.h) : (i6 = ou(i6, r7), i6 = Lc(i6, e9)), i6 = !i6), i6) {
+                if ((i6 = !this.I) && (i6 = this.g.X, r7 == U3 ? (i6 = i6.h, i6 = i6.g == null || i6.h == null ? false : e9 >= i6.g && e9 < i6.h) : (i6 = ou(i6, r7), i6 = Lc(i6, e9)), i6 = !i6), i6) {
                   if (this.R = 0, n6.ka && (n6.ka.h = null), n6.type === "audio") {
-                    i6 = y4(this.m.values());
+                    i6 = y5(this.m.values());
                     for (var a7 = i6.next(); !a7.done; a7 = i6.next()) a7.value.h = null;
                   }
-                  n6.va = null, (ru(this.g.X, r7) != null || n6.Ma) && bf(this, n6), n6.ab && (n6.ab.abort(), n6.ab = null), r7 === U2 && (r7 = this.g.X, r7.I && r7.I.g.clear()), n6.kd = true;
+                  n6.va = null, (ru(this.g.X, r7) != null || n6.Ma) && bf(this, n6), n6.ab && (n6.ab.abort(), n6.ab = null), r7 === U3 && (r7 = this.g.X, r7.I && r7.I.g.clear()), n6.kd = true;
                 }
                 !this.I || n6.Nb || n6.Ma || n6.pb || Bf(this, n6, 0);
               }
@@ -15492,7 +15589,7 @@ var init_load_uTL4eiru = __esm({
                 return n6 = Zf(e9, true), r7 = e9.g.X, u7.g(r7.init(n6, e9.j.sequenceMode, e9.j.type, e9.j.ignoreManifestTimestampsInSegmentsMode), 2);
               }
               for (Na(e9.l), e9.updateDuration().catch(function() {
-              }), i6 = y4(n6.keys()), a7 = i6.next(); !a7.done; a7 = i6.next()) o8 = a7.value, s7 = n6.get(o8), !e9.h.has(o8) && (c7 = Sf(e9, s7), (l6 = t9.get(s7.id)) && (Pd(l6, function(t10, n7, r8) {
+              }), i6 = y5(n6.keys()), a7 = i6.next(); !a7.done; a7 = i6.next()) o8 = a7.value, s7 = n6.get(o8), !e9.h.has(o8) && (c7 = Sf(e9, s7), (l6 = t9.get(s7.id)) && (Pd(l6, function(t10, n7, r8) {
                 return Rf(t10, n7, r8 || null, e9.i.retryParameters, e9.g.xc);
               }), c7.ka = l6), e9.h.set(o8, c7), Bf(e9, c7, 0));
               Jf(e9), u7.j();
@@ -15529,7 +15626,7 @@ var init_load_uTL4eiru = __esm({
             return t9.dependencyStream && (n6.Lc = Sf(e9, t9.dependencyStream)), n6;
           }
           function Cf(e9, t9) {
-            if (e9.j.type == "MSF" || t9.type === "video" && e9.i.disableVideoPrefetch || t9.type === "audio" && e9.i.disableAudioPrefetch || t9.type === U2 && (t9.mimeType == "application/cea-608" || t9.mimeType == "application/cea-708") || t9.type === U2 && e9.i.disableTextPrefetch) return null;
+            if (e9.j.type == "MSF" || t9.type === "video" && e9.i.disableVideoPrefetch || t9.type === "audio" && e9.i.disableAudioPrefetch || t9.type === U3 && (t9.mimeType == "application/cea-608" || t9.mimeType == "application/cea-708") || t9.type === U3 && e9.i.disableTextPrefetch) return null;
             if (e9.m.has(t9)) return e9.m.get(t9);
             var n6 = e9.h.get(t9.type);
             return (n6 &&= n6.ka) && t9 === n6.i ? n6 : e9.i.segmentPrefetchLimit > 0 ? new Nd(e9.i.segmentPrefetchLimit, t9, function(t10, n7, r7) {
@@ -15537,7 +15634,7 @@ var init_load_uTL4eiru = __esm({
             }, e9.g.eb() < 0, e9.g.Im, e9.g.eb) : null;
           }
           function wf(e9) {
-            for (var t9 = e9.i.segmentPrefetchLimit, n6 = e9.i.prefetchAudioLanguages, r7 = y4(e9.j.variants), i6 = r7.next(), a7 = {}; !i6.done; a7 = { Lb: void 0 }, i6 = r7.next()) if (a7.Lb = i6.value, a7.Lb.audio) {
+            for (var t9 = e9.i.segmentPrefetchLimit, n6 = e9.i.prefetchAudioLanguages, r7 = y5(e9.j.variants), i6 = r7.next(), a7 = {}; !i6.done; a7 = { Lb: void 0 }, i6 = r7.next()) if (a7.Lb = i6.value, a7.Lb.audio) {
               if (e9.m.has(a7.Lb.audio)) {
                 if (i6 = e9.m.get(a7.Lb.audio), Bd(i6, t9), !(t9 > 0 && n6.some(/* @__PURE__ */ (function(e10) {
                   return function(t10) {
@@ -15628,25 +15725,25 @@ var init_load_uTL4eiru = __esm({
           }
           function Ef(e9, t9) {
             if (If(t9)) return uu(e9.g.X, t9.stream.originalId || ""), null;
-            if (t9.type == U2 && du(e9.g.X), t9.stream.isAudioMuxedInVideo && t9.type == "audio") return null;
-            if (t9.type != U2 && tu(e9.g.X)) return Gf(e9, true), null;
+            if (t9.type == U3 && du(e9.g.X), t9.stream.isAudioMuxedInVideo && t9.type == "audio") return null;
+            if (t9.type != U3 && tu(e9.g.X)) return Gf(e9, true), null;
             var n6 = e9.i.updateIntervalSeconds / Math.max(1, Math.abs(e9.g.eb()));
-            if (!Ql(e9.g.X) && t9.type != U2) return n6 / 2;
+            if (!Ql(e9.g.X) && t9.type != U3) return n6 / 2;
             var r7 = e9.g.Zb(), i6 = e9.g.eb() < 0;
-            if (t9.type === "audio") for (var a7 = y4(e9.m.keys()), o8 = a7.next(); !o8.done; o8 = a7.next()) o8 = e9.m.get(o8.value), o8.Za(r7, true), Fd(o8, r7);
+            if (t9.type === "audio") for (var a7 = y5(e9.m.keys()), o8 = a7.next(); !o8.done; o8 = a7.next()) o8 = e9.m.get(o8.value), o8.Za(r7, true), Fd(o8, r7);
             a7 = Df(e9, t9, r7);
             var s7 = i6 ? au(e9.g.X, t9.type, r7) : iu(e9.g.X, t9.type, r7);
             o8 = Math.max(1, Math.max(e9.i.rebufferingGoal, e9.i.bufferingGoal) * e9.B);
             var c7 = e9.j.presentationTimeline.ya() ? Infinity : e9.j.presentationTimeline.getDuration() - a7, l6 = ru(e9.g.X, t9.type);
-            if (!i6 && c7 < 1e-6 && l6) return t9.endOfStream = true, t9.type == "video" && ((n6 = e9.h.get(U2)) && If(n6) && (n6.endOfStream = true), (n6 = e9.h.get("audio")) && n6.stream.isAudioMuxedInVideo && (n6.endOfStream = true)), null;
+            if (!i6 && c7 < 1e-6 && l6) return t9.endOfStream = true, t9.type == "video" && ((n6 = e9.h.get(U3)) && If(n6) && (n6.endOfStream = true), (n6 = e9.h.get("audio")) && n6.stream.isAudioMuxedInVideo && (n6.endOfStream = true)), null;
             if (t9.endOfStream = false, i6) {
               var u7 = e9.j.presentationTimeline.Kb();
               if (l6 != null && a7 <= u7 + 1e-6) return null;
             }
             if (s7 > 0 && e9.i.stopFetchingOnPause && e9.g.video.paused || s7 >= o8) return n6 / 2;
-            if (s7 = !t9.va, l6 = Of(e9, t9, r7, l6), !l6) return !e9.j.presentationTimeline.ya() && c7 < 1e-6 ? (t9.endOfStream = true, t9.type == "video" && (n6 = e9.h.get(U2)) && If(n6) && (n6.endOfStream = true), null) : (e9 = Infinity, (t9 = t9.Sa) && (e9 = t9.endTime - t9.startTime), Math.min(e9 / 2, n6));
+            if (s7 = !t9.va, l6 = Of(e9, t9, r7, l6), !l6) return !e9.j.presentationTimeline.ya() && c7 < 1e-6 ? (t9.endOfStream = true, t9.type == "video" && (n6 = e9.h.get(U3)) && If(n6) && (n6.endOfStream = true), null) : (e9 = Infinity, (t9 = t9.Sa) && (e9 = t9.endTime - t9.startTime), Math.min(e9 / 2, n6));
             c7 = t9.rb, u7 = l6.ia, c7 && u7 && kc(u7, c7) && (c7.g = u7.g), c7 = false, s7 && t9.Fg && (c7 = true, t9.Fg = false), s7 = Infinity, u7 = -Infinity;
-            for (var d5 = y4(e9.h.values()), f4 = d5.next(); !f4.done; f4 = d5.next()) f4 = f4.value, If(f4) || f4.stream.isAudioMuxedInVideo || f4.va && !f4.va.current() || (f4 = Df(e9, f4, r7), s7 = Math.min(s7, f4), u7 = Math.max(u7, f4));
+            for (var d5 = y5(e9.h.values()), f4 = d5.next(); !f4.done; f4 = d5.next()) f4 = f4.value, If(f4) || f4.stream.isAudioMuxedInVideo || f4.va && !f4.va.current() || (f4 = Df(e9, f4, r7), s7 = Math.min(s7, f4), u7 = Math.max(u7, f4));
             return (i6 ? u7 - a7 : a7 - s7) >= e9.j.presentationTimeline.i ? n6 : (t9.ka && t9.va && !e9.m.has(t9.stream) && (t9.ka.Za(l6.startTime + 1e-3), Fd(t9.ka, l6.startTime).catch(function() {
             })), qf(e9) && Xf(e9, t9, l6) ? null : (kf(e9, t9, r7, l6, c7).catch(function() {
             }), t9.Lc && Af(e9, t9.Lc, r7, o8), null));
@@ -15666,20 +15763,20 @@ var init_load_uTL4eiru = __esm({
             return e9;
           }
           function kf(t9, n6, r7, i6, a7) {
-            var o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y5, b4, x4, S3, C5, w5;
-            return P4(function(T5) {
-              switch (T5.h) {
+            var o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y6, b5, x5, S5, C6, w6;
+            return P4(function(T6) {
+              switch (T6.h) {
                 case 1:
-                  if (o8 = Ot, s7 = n6.stream, c7 = n6.va, n6.Ma = true, T5.m(2), i6.tc() == 2) throw new H4(1, 1, 1011);
-                  return T5.g(Mf(t9, n6, i6, a7), 4);
+                  if (o8 = Ot, s7 = n6.stream, c7 = n6.va, n6.Ma = true, T6.m(2), i6.tc() == 2) throw new H4(1, 1, 1011);
+                  return T6.g(Mf(t9, n6, i6, a7), 4);
                 case 4:
-                  return Na(t9.l), t9.D ? T5.return() : (l6 = s7.mimeType == "video/mp4" || s7.mimeType == "audio/mp4", u7 = e8.ReadableStream, d5 = t9.i.lowLatencyMode && t9.j.isLowLatency, f4 = { ed: null }, d5 && u7 && l6 && (t9.j.type != "HLS" || i6.o) ? (h6 = /* @__PURE__ */ new Uint8Array(), _5 = g6 = false, y5 = function(e9) {
+                  return Na(t9.l), t9.D ? T6.return() : (l6 = s7.mimeType == "video/mp4" || s7.mimeType == "audio/mp4", u7 = e8.ReadableStream, d5 = t9.i.lowLatencyMode && t9.j.isLowLatency, f4 = { ed: null }, d5 && u7 && l6 && (t9.j.type != "HLS" || i6.o) ? (h6 = /* @__PURE__ */ new Uint8Array(), _5 = g6 = false, y6 = function(e9) {
                     var o9, c8, l7, u8;
                     return P4(function(d6) {
                       switch (d6.h) {
                         case 1:
                           if (g6 || (_5 = true, Na(t9.l), t9.D)) return d6.return();
-                          if (d6.m(2), h6 = Ye2(h6, e9), o9 = false, c8 = 0, new q().box("mdat", function(e10) {
+                          if (d6.m(2), h6 = Ye2(h6, e9), o9 = false, c8 = 0, new q2().box("mdat", function(e10) {
                             c8 = e10.size + e10.start, o9 = true;
                           }).parse(h6, false, true), !o9) {
                             d6.A(4);
@@ -15695,32 +15792,32 @@ var init_load_uTL4eiru = __esm({
                           v7 = d6.l(), d6.j();
                       }
                     });
-                  }, T5.g(Lf(t9, n6, i6, y5), 9)) : (p5 = Lf(t9, n6, i6), T5.g(p5, 7)));
+                  }, T6.g(Lf(t9, n6, i6, y6), 9)) : (p5 = Lf(t9, n6, i6), T6.g(p5, 7)));
                 case 7:
-                  return m5 = T5.i, Na(t9.l), t9.D ? T5.return() : (Na(t9.l), n6.Mb ? (n6.Ma = false, Bf(t9, n6, 0), T5.return()) : T5.g(Pf(t9, n6, r7, s7, i6, m5, false, a7), 8));
+                  return m5 = T6.i, Na(t9.l), t9.D ? T6.return() : (Na(t9.l), n6.Mb ? (n6.Ma = false, Bf(t9, n6, 0), T6.return()) : T6.g(Pf(t9, n6, r7, s7, i6, m5, false, a7), 8));
                 case 8:
-                  f4 = T5.i, T5.A(6);
+                  f4 = T6.i, T6.A(6);
                   break;
                 case 9:
-                  if (b4 = T5.i, v7) throw v7;
+                  if (b5 = T6.i, v7) throw v7;
                   if (_5) {
-                    T5.A(10);
+                    T6.A(10);
                     break;
                   }
-                  return g6 = true, Na(t9.l), t9.D ? T5.return() : n6.Mb ? (n6.Ma = false, Bf(t9, n6, 0), T5.return()) : T5.g(Pf(t9, n6, r7, s7, i6, b4, false, a7), 11);
+                  return g6 = true, Na(t9.l), t9.D ? T6.return() : n6.Mb ? (n6.Ma = false, Bf(t9, n6, 0), T6.return()) : T6.g(Pf(t9, n6, r7, s7, i6, b5, false, a7), 11);
                 case 11:
-                  f4 = T5.i;
+                  f4 = T6.i;
                 case 10:
                   n6.ka && n6.va && Fd(n6.ka, i6.startTime, true);
                 case 6:
-                  if (Na(t9.l), t9.D) return T5.return();
-                  n6.Sa = i6, c7.next(), n6.Ma = false, n6.Uh = false, x4 = t9.g.X.Nc(), S3 = x4[n6.type], JSON.stringify(S3), n6.Mb || (C5 = null, n6.type === o8.za ? C5 = t9.h.get(o8.$) : n6.type === o8.$ && (C5 = t9.h.get(o8.za)), C5 && C5.type == o8.$ ? t9.g.Nd(i6, n6.stream, C5.stream.isAudioMuxedInVideo, false, f4.ed) : t9.g.Nd(i6, n6.stream, n6.stream.codecs.includes(","), false, f4.ed)), Vf(n6), Bf(t9, n6, 0), T5.o(0);
+                  if (Na(t9.l), t9.D) return T6.return();
+                  n6.Sa = i6, c7.next(), n6.Ma = false, n6.Uh = false, x5 = t9.g.X.Nc(), S5 = x5[n6.type], JSON.stringify(S5), n6.Mb || (C6 = null, n6.type === o8.za ? C6 = t9.h.get(o8.$) : n6.type === o8.$ && (C6 = t9.h.get(o8.za)), C6 && C6.type == o8.$ ? t9.g.Nd(i6, n6.stream, C6.stream.isAudioMuxedInVideo, false, f4.ed) : t9.g.Nd(i6, n6.stream, n6.stream.codecs.includes(","), false, f4.ed)), Vf(n6), Bf(t9, n6, 0), T6.o(0);
                   break;
                 case 2:
-                  if (w5 = T5.l(), Na(t9.l, w5), t9.D) return T5.return();
-                  if (n6.Ma = false, w5.code == 7001) n6.Ma = false, Vf(n6), Bf(t9, n6, 0), T5.A(0);
-                  else if (n6.type == o8.Xa && t9.i.ignoreTextStreamFailures) t9.h.delete(o8.Xa), T5.A(0);
-                  else return w5.code == 3017 ? T5.g(jf(t9, n6, w5), 0) : (n6.Ed = true, w5.category == 1 && n6.ka && Hd(n6.ka, i6), w5.severity = 2, T5.g(Uf(t9, n6, w5), 0));
+                  if (w6 = T6.l(), Na(t9.l, w6), t9.D) return T6.return();
+                  if (n6.Ma = false, w6.code == 7001) n6.Ma = false, Vf(n6), Bf(t9, n6, 0), T6.A(0);
+                  else if (n6.type == o8.Xa && t9.i.ignoreTextStreamFailures) t9.h.delete(o8.Xa), T6.A(0);
+                  else return w6.code == 3017 ? T6.g(jf(t9, n6, w6), 0) : (n6.Ed = true, w6.category == 1 && n6.ka && Hd(n6.ka, i6), w6.severity = 2, T6.g(Uf(t9, n6, w6), 0));
               }
             });
           }
@@ -15760,7 +15857,7 @@ var init_load_uTL4eiru = __esm({
                   throw p5 = _5.l(), t9.Sa = null, p5;
                 case 9:
                   if (!e9.g) return _5.return();
-                  if (t9.Mb || (m5 = null, t9.type === i6.za ? m5 = e9.h.get(i6.$) : t9.type === i6.$ && (m5 = e9.h.get(i6.za)), m5 && m5.type == i6.$ ? e9.g.Nd(c7, t9.stream, m5.stream.isAudioMuxedInVideo, true, null) : e9.g.Nd(c7, t9.stream, t9.stream.codecs.includes(","), true, null)), h6 = Math.max.apply(Math, [0].concat(b3(e9.O))), g6 = e9.g.Zb(), g6 + r7 > h6) return _5.g(Af(e9, t9, c7.startTime, r7), 0);
+                  if (t9.Mb || (m5 = null, t9.type === i6.za ? m5 = e9.h.get(i6.$) : t9.type === i6.$ && (m5 = e9.h.get(i6.za)), m5 && m5.type == i6.$ ? e9.g.Nd(c7, t9.stream, m5.stream.isAudioMuxedInVideo, true, null) : e9.g.Nd(c7, t9.stream, t9.stream.codecs.includes(","), true, null)), h6 = Math.max.apply(Math, [0].concat(b4(e9.O))), g6 = e9.g.Zb(), g6 + r7 > h6) return _5.g(Af(e9, t9, c7.startTime, r7), 0);
                   _5.A(0);
               }
             });
@@ -15770,7 +15867,7 @@ var init_load_uTL4eiru = __esm({
             return P4(function(p5) {
               switch (p5.h) {
                 case 1:
-                  for (r7 = false, i6 = y4(e9.h.values()), a7 = i6.next(); !a7.done; a7 = i6.next()) if (o8 = a7.value, o8 != t9 && o8.Uh) {
+                  for (r7 = false, i6 = y5(e9.h.values()), a7 = i6.next(); !a7.done; a7 = i6.next()) if (o8 = a7.value, o8 != t9 && o8.Uh) {
                     r7 = true;
                     break;
                   }
@@ -15802,28 +15899,28 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function Mf(e9, t9, n6, r7) {
-            var i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y5, x4;
-            return P4(function(S3) {
-              switch (S3.h) {
+            var i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y6, x5;
+            return P4(function(S5) {
+              switch (S5.h) {
                 case 1:
                   if (i6 = Ot, a7 = t9.Sa == null, o8 = [], s7 = Math.max(0, Math.max(n6.appendWindowStart, e9.ha) - 0.1), c7 = Math.min(n6.appendWindowEnd, e9.aa) + 0.1, e9.i.clampAppendWindowToDuration && (l6 = e9.j.presentationTimeline.getDuration(), l6 < Infinity && (c7 = Math.min(c7, l6))), u7 = n6.codecs || t9.stream.codecs, d5 = Er(u7), f4 = Dr(n6.mimeType || t9.stream.mimeType), p5 = n6.timestampOffset, p5 == t9.Nf && s7 == t9.vc && c7 == t9.uc && d5 == t9.Lf && f4 == t9.Mf) {
-                    S3.A(2);
+                    S5.A(2);
                     break;
                   }
                   if (m5 = t9.Lf && t9.Mf && Fu(e9.g.X, t9.type, f4, u7, Zf(e9)), !m5) {
-                    S3.A(3);
+                    S5.A(3);
                     break;
                   }
                   if (h6 = null, t9.type === i6.za ? h6 = e9.h.get(i6.$) : t9.type === i6.$ && (h6 = e9.h.get(i6.za)), !h6) {
-                    S3.A(3);
+                    S5.A(3);
                     break;
                   }
-                  return S3.g(Hf(h6).catch(function() {
+                  return S5.g(Hf(h6).catch(function() {
                   }), 5);
                 case 5:
                   h6.rb = null, h6.vc = null, h6.uc = null, bf(e9, h6);
                 case 3:
-                  return S3.g(Nf(e9, t9, p5, s7, c7, n6, d5, f4), 2);
+                  return S5.g(Nf(e9, t9, p5, s7, c7, n6, d5, f4), 2);
                 case 2:
                   return kc(n6.ia, t9.rb) || (t9.rb = n6.ia, n6.l && n6.ia && (g6 = Lf(e9, t9, n6.ia), _5 = function() {
                     var a8, o9, s8, c8, l7, u8, d6, f5, p6, m6, h7;
@@ -15835,7 +15932,7 @@ var init_load_uTL4eiru = __esm({
                           return a8 = _6.i, Na(e9.l), o9 = null, s8 = /* @__PURE__ */ new Map(), c8 = {
                             projection: null,
                             hfov: null
-                          }, t9.stream && (l7 = t9.stream.videoLayout) && (u8 = l7.split("/"), u8.includes("PROJ-RECT") ? c8.projection = "rect" : u8.includes("PROJ-EQUI") ? c8.projection = "equi" : u8.includes("PROJ-HEQU") ? c8.projection = "hequ" : u8.includes("PROJ-PRIM") ? c8.projection = "prim" : u8.includes("PROJ-AIV") && (c8.projection = "aiv")), d6 = new q(), d6.ua([
+                          }, t9.stream && (l7 = t9.stream.videoLayout) && (u8 = l7.split("/"), u8.includes("PROJ-RECT") ? c8.projection = "rect" : u8.includes("PROJ-EQUI") ? c8.projection = "equi" : u8.includes("PROJ-HEQU") ? c8.projection = "hequ" : u8.includes("PROJ-PRIM") ? c8.projection = "prim" : u8.includes("PROJ-AIV") && (c8.projection = "aiv")), d6 = new q2(), d6.ua([
                             "moov",
                             "trak",
                             "mdia"
@@ -15850,7 +15947,7 @@ var init_load_uTL4eiru = __esm({
                                 s8.set(i6.za, o9);
                             }
                             o9 = null;
-                          }), t9.type !== i6.za || c8.projection || d6.ua(["minf", "stbl"], Va).T("stsd", Ha).ua([].concat(b3(eo), ["encv"]), Ua).ua(["vexu", "proj"], Va).T("prji", function(e10) {
+                          }), t9.type !== i6.za || c8.projection || d6.ua(["minf", "stbl"], Va).T("stsd", Ha).ua([].concat(b4(eo), ["encv"]), Ua).ua(["vexu", "proj"], Va).T("prji", function(e10) {
                             e10 = e10.reader.Rd(), c8.projection = e10;
                           }).box("hfov", function(e10) {
                             e10 = e10.reader.S() / 1e3, c8.hfov = e10;
@@ -15864,7 +15961,7 @@ var init_load_uTL4eiru = __esm({
                           throw h7 = _6.l(), t9.rb = null, h7;
                       }
                     });
-                  }, v7 = n6.startTime, a7 && (y5 = ru(e9.g.X, t9.type), y5 != null && (v7 = y5)), e9.g.fm(v7, n6.ia), o8.push(_5()))), x4 = t9.Sa ? t9.Sa.i : -1, n6.i != x4 && o8.push(mu(e9.g.X, t9.type, n6.startTime)), S3.g(Promise.all(o8), 0);
+                  }, v7 = n6.startTime, a7 && (y6 = ru(e9.g.X, t9.type), y6 != null && (v7 = y6)), e9.g.fm(v7, n6.ia), o8.push(_5()))), x5 = t9.Sa ? t9.Sa.i : -1, n6.i != x5 && o8.push(mu(e9.g.X, t9.type, n6.startTime)), S5.g(Promise.all(o8), 0);
               }
             });
           }
@@ -15894,7 +15991,7 @@ var init_load_uTL4eiru = __esm({
             return P4(function(p5) {
               switch (p5.h) {
                 case 1:
-                  return c7 = r7.closedCaptions && r7.closedCaptions.size > 0, e9.i.shouldFixTimestampOffset && (l6 = r7.mimeType == "video/mp4" || r7.mimeType == "audio/mp4", u7 = null, i6.ia && (u7 = i6.ia.timescale), l6 && u7 && r7.type === "video" && e9.j.type == "DASH" && new q().ua(Qa, Va).T("tfdt", function(n7) {
+                  return c7 = r7.closedCaptions && r7.closedCaptions.size > 0, e9.i.shouldFixTimestampOffset && (l6 = r7.mimeType == "video/mp4" || r7.mimeType == "audio/mp4", u7 = null, i6.ia && (u7 = i6.ia.timescale), l6 && u7 && r7.type === "video" && e9.j.type == "DASH" && new q2().ua(Qa, Va).T("tfdt", function(n7) {
                     var r8, a8, o9, s8, c8, l7;
                     return P4(function(d6) {
                       return r8 = ss(n7.reader, n7.version), a8 = r8.Oa, a8 ? (o9 = -a8 / u7, s8 = Number(t9.Nf) || 0, s8 < o9 ? (c8 = t9.vc, l7 = t9.uc, d6.g(Nf(e9, t9, o9, c8, l7, i6), 0)) : d6.A(0)) : d6.return();
@@ -15920,7 +16017,7 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function If(e9) {
-            return e9 && e9.type == U2 && (e9.stream.mimeType == "application/cea-608" || e9.stream.mimeType == "application/cea-708");
+            return e9 && e9.type == U3 && (e9.stream.mimeType == "application/cea-608" || e9.stream.mimeType == "application/cea-708");
           }
           function Lf(e9, t9, n6, r7) {
             var i6, a7, o8, s7, c7;
@@ -15948,7 +16045,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Rf(e9, t9, n6, r7, i6, a7) {
             a7 = a7 !== void 0 && a7;
-            var o8 = e9 instanceof J ? e9 : void 0, s7 = +!!o8;
+            var o8 = e9 instanceof J2 ? e9 : void 0, s7 = +!!o8;
             return e9 = of(e9.U(), e9.startByte, e9.endByte, r7, n6), e9.contentType = t9.type, i6.request(Oa, e9, {
               type: s7,
               stream: t9,
@@ -15966,7 +16063,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Bf(e9, t9, n6) {
             var r7 = t9.type;
-            (r7 != U2 || e9.h.has(r7)) && (t9.pb = new G(function() {
+            (r7 != U3 || e9.h.has(r7)) && (t9.pb = new G2(function() {
               var n7;
               return P4(function(r8) {
                 if (r8.h == 1) return r8.m(2), r8.g(Tf(e9, t9), 4);
@@ -16001,7 +16098,7 @@ var init_load_uTL4eiru = __esm({
                   }
                   return f4.g(Gf(e9, true), 5);
                 case 5:
-                  for (r7 = f4.i, i6 = y4(e9.h.values()), a7 = i6.next(); !a7.done; a7 = i6.next()) o8 = a7.value, Vf(o8);
+                  for (r7 = f4.i, i6 = y5(e9.h.values()), a7 = i6.next(); !a7.done; a7 = i6.next()) o8 = a7.value, Vf(o8);
                   Na(e9.l);
                 case 4:
                   s7 = Wf(e9, n6), c7 = e9.g.disableStream(t9.stream, s7), n6.handled = c7 || r7, c7 && (n6.severity = 1);
@@ -16044,12 +16141,12 @@ var init_load_uTL4eiru = __esm({
           }
           function qf(e9) {
             if (e9.i.crossBoundaryStrategy !== "keep") return true;
-            var t9 = B3(), n6 = e9.g.se();
+            var t9 = B4(), n6 = e9.g.se();
             if (!t9.ub(n6)) {
-              for (t9 = y4(e9.h.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) if (n6 = e9.h.get(n6.value), n6.type !== Ot.Xa && (n6 = n6.stream) && n6.fullMimeTypes && n6.fullMimeTypes.size > 1) return true;
+              for (t9 = y5(e9.h.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) if (n6 = e9.h.get(n6.value), n6.type !== Ot.Xa && (n6 = n6.stream) && n6.fullMimeTypes && n6.fullMimeTypes.size > 1) return true;
             } else if (!t9.kg()) {
-              for (t9 = y4(e9.h.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) if (n6 = e9.h.get(n6.value), n6.type !== Ot.Xa && (n6 = n6.stream) && n6.fullMimeTypes && n6.fullMimeTypes.size > 1) {
-                for (e9 = /* @__PURE__ */ new Set(), t9 = y4(n6.fullMimeTypes), n6 = t9.next(); !n6.done; n6 = t9.next()) e9.add(wr(n6.value));
+              for (t9 = y5(e9.h.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) if (n6 = e9.h.get(n6.value), n6.type !== Ot.Xa && (n6 = n6.stream) && n6.fullMimeTypes && n6.fullMimeTypes.size > 1) {
+                for (e9 = /* @__PURE__ */ new Set(), t9 = y5(n6.fullMimeTypes), n6 = t9.next(); !n6.done; n6 = t9.next()) e9.add(wr(n6.value));
                 return e9.size > 1;
               }
             }
@@ -16068,7 +16165,7 @@ var init_load_uTL4eiru = __esm({
             }
           }
           function Xf(e9, t9, n6) {
-            if (t9.type === U2) return false;
+            if (t9.type === U3) return false;
             var r7 = t9.rb;
             if (!r7) return false;
             var i6 = n6.ia;
@@ -16090,7 +16187,7 @@ var init_load_uTL4eiru = __esm({
             }
             t9 = t9 !== void 0 && t9;
             var r7 = /* @__PURE__ */ new Map(), i6 = e9.o.audio;
-            return i6 && (n6(i6), r7.set("audio", i6)), (i6 = e9.o.video) && (n6(i6), r7.set("video", i6)), t9 && e9.C && r7.set(U2, e9.C), r7;
+            return i6 && (n6(i6), r7.set("audio", i6)), (i6 = e9.o.video) && (n6(i6), r7.set("video", i6)), t9 && e9.C && r7.set(U3, e9.C), r7;
           }
           function Qf() {
           }
@@ -16099,10 +16196,10 @@ var init_load_uTL4eiru = __esm({
               "__proto__",
               "constructor",
               "prototype"
-            ]), s7 = a7 ? n6.constructor == Object && Object.keys(r7).length == 0 : n6.constructor == Object && Object.keys(n6).length == 0, c7 = a7 || s7, l6 = true, u7 = y4(Object.keys(t9)), d5 = u7.next(); !d5.done; d5 = u7.next()) {
+            ]), s7 = a7 ? n6.constructor == Object && Object.keys(r7).length == 0 : n6.constructor == Object && Object.keys(n6).length == 0, c7 = a7 || s7, l6 = true, u7 = y5(Object.keys(t9)), d5 = u7.next(); !d5.done; d5 = u7.next()) {
               d5 = d5.value;
               var f4 = i6 + "." + d5, p5 = a7 ? r7[i6] : n6[d5];
-              o8.has(d5) ? (ce2("Invalid config, dangerous key " + f4), l6 = false) : c7 || d5 in n6 ? t9[d5] === void 0 ? p5 === void 0 || c7 ? delete e9[d5] : e9[d5] = ln(p5) : s7 ? e9[d5] = t9[d5] : p5.constructor == Object && t9[d5] && t9[d5].constructor == Object ? (e9[d5] || (e9[d5] = ln(p5)), d5 = $f(e9[d5], t9[d5], p5, r7, f4), l6 &&= d5) : typeof t9[d5] != typeof p5 || t9[d5] == null || typeof t9[d5] != "function" && t9[d5].constructor != p5.constructor ? (ce2("Invalid config, wrong type for " + f4), l6 = false) : typeof n6[d5] == "function" && n6[d5].length != t9[d5].length ? (R3("Unexpected number of arguments for " + f4), e9[d5] = t9[d5]) : e9[d5] = Array.isArray(e9[d5]) ? t9[d5].slice() : t9[d5] : (ce2("Invalid config, unrecognized key " + f4), l6 = false);
+              o8.has(d5) ? (ce2("Invalid config, dangerous key " + f4), l6 = false) : c7 || d5 in n6 ? t9[d5] === void 0 ? p5 === void 0 || c7 ? delete e9[d5] : e9[d5] = ln(p5) : s7 ? e9[d5] = t9[d5] : p5.constructor == Object && t9[d5] && t9[d5].constructor == Object ? (e9[d5] || (e9[d5] = ln(p5)), d5 = $f(e9[d5], t9[d5], p5, r7, f4), l6 &&= d5) : typeof t9[d5] != typeof p5 || t9[d5] == null || typeof t9[d5] != "function" && t9[d5].constructor != p5.constructor ? (ce2("Invalid config, wrong type for " + f4), l6 = false) : typeof n6[d5] == "function" && n6[d5].length != t9[d5].length ? (R4("Unexpected number of arguments for " + f4), e9[d5] = t9[d5]) : e9[d5] = Array.isArray(e9[d5]) ? t9[d5].slice() : t9[d5] : (ce2("Invalid config, unrecognized key " + f4), l6 = false);
             }
             return l6;
           }
@@ -16115,7 +16212,7 @@ var init_load_uTL4eiru = __esm({
           }
           function np(e9, t9) {
             function n6(e10) {
-              for (var t10 = y4(Object.keys(e10)), r8 = t10.next(); !r8.done; r8 = t10.next()) r8 = r8.value, e10[r8] instanceof HTMLElement || (i6(e10[r8]) && Object.keys(e10[r8]).length === 0 || typeof e10[r8] == "function" ? delete e10[r8] : i6(e10[r8]) && (n6(e10[r8]), Object.keys(e10[r8]).length === 0 && delete e10[r8]));
+              for (var t10 = y5(Object.keys(e10)), r8 = t10.next(); !r8.done; r8 = t10.next()) r8 = r8.value, e10[r8] instanceof HTMLElement || (i6(e10[r8]) && Object.keys(e10[r8]).length === 0 || typeof e10[r8] == "function" ? delete e10[r8] : i6(e10[r8]) && (n6(e10[r8]), Object.keys(e10[r8]).length === 0 && delete e10[r8]));
             }
             function r7(e10, t10) {
               return Object.keys(e10).reduce(function(n7, a7) {
@@ -16128,17 +16225,17 @@ var init_load_uTL4eiru = __esm({
             }
             return e9 = r7(e9, t9), n6(e9), e9;
           }
-          L3("shaka.util.ConfigUtils", Qf), Qf.getDifferenceFromConfigObjects = np, Qf.convertToConfigObject = ep, Qf.mergeConfigObjects = $f, L3("shaka.config.MsfFilterType", {
+          L4("shaka.util.ConfigUtils", Qf), Qf.getDifferenceFromConfigObjects = np, Qf.convertToConfigObject = ep, Qf.mergeConfigObjects = $f, L4("shaka.config.MsfFilterType", {
             NONE: 0,
             NEXT_GROUP_START: 1,
             LARGEST_OBJECT: 2,
             ABSOLUTE_START: 3,
             ABSOLUTE_RANGE: 4
-          }), L3("shaka.config.MsfVersion", {
+          }), L4("shaka.config.MsfVersion", {
             AUTO: "auto",
             DRAFT_14: "draft-14",
             DRAFT_16: "draft-16"
-          }), L3("shaka.config.PositionArea", {
+          }), L4("shaka.config.PositionArea", {
             DEFAULT: 0,
             TOP_LEFT: 1,
             TOP_CENTER: 2,
@@ -16149,7 +16246,7 @@ var init_load_uTL4eiru = __esm({
             BOTTOM_LEFT: 7,
             BOTTOM_CENTER: 8,
             BOTTOM_RIGHT: 9
-          }), L3("shaka.config.RepeatMode", {
+          }), L4("shaka.config.RepeatMode", {
             OFF: 0,
             ALL: 1,
             SINGLE: 2
@@ -16161,7 +16258,7 @@ var init_load_uTL4eiru = __esm({
           }
           function ap(e9, t9, n6) {
             function r7(e10) {
-              je2(a7).setUint32(o8, e10.byteLength, true), o8 += 4, a7.set(V3(e10), o8), o8 += e10.byteLength;
+              je2(a7).setUint32(o8, e10.byteLength, true), o8 += 4, a7.set(V4(e10), o8), o8 += e10.byteLength;
             }
             if (!n6 || !n6.byteLength) throw new H4(2, 6, 6015);
             var i6 = typeof t9 == "string" ? Be2(t9, true) : t9;
@@ -16175,7 +16272,7 @@ var init_load_uTL4eiru = __esm({
           function sp(e9, t9) {
             e9 !== 2 || t9.attempt > 0 || (e9 = t9.drmInfo) && it2(e9.keySystem) && (t9.headers["Content-Type"] = "application/octet-stream");
           }
-          L3("shaka.drm.FairPlay", rp), rp.commonFairPlayResponse = function(e9, t9) {
+          L4("shaka.drm.FairPlay", rp), rp.commonFairPlayResponse = function(e9, t9) {
             if (e9 === 2 && (e9 = t9.originalRequest.drmInfo) && it2(e9.keySystem)) {
               try {
                 var n6 = Ie2(t9.data);
@@ -16190,7 +16287,7 @@ var init_load_uTL4eiru = __esm({
               e9 && (t9.data = ke2(Ke2(n6)));
             }
           }, rp.gumletFairPlayRequest = function(e9, t9) {
-            e9 !== 2 || t9.attempt > 0 || (e9 = t9.drmInfo) && it2(e9.keySystem) && t9.body && (e9 = V3(t9.body), e9 = Ge2(e9), t9.body = ze2(JSON.stringify({ ao: e9 })), t9.headers["Content-Type"] = "application/json");
+            e9 !== 2 || t9.attempt > 0 || (e9 = t9.drmInfo) && it2(e9.keySystem) && t9.body && (e9 = V4(t9.body), e9 = Ge2(e9), t9.body = ze2(JSON.stringify({ ao: e9 })), t9.headers["Content-Type"] = "application/json");
           }, rp.muxFairPlayRequest = function(e9, t9) {
             sp(e9, t9);
           }, rp.expressplayFairPlayRequest = function(e9, t9) {
@@ -16200,7 +16297,7 @@ var init_load_uTL4eiru = __esm({
           }, rp.ezdrmFairPlayRequest = function(e9, t9) {
             sp(e9, t9);
           }, rp.verimatrixFairPlayRequest = function(e9, t9) {
-            e9 !== 2 || t9.attempt > 0 || (e9 = t9.drmInfo) && it2(e9.keySystem) && (e9 = V3(t9.body), e9 = Ge2(e9), t9.headers["Content-Type"] = "application/x-www-form-urlencoded", t9.body = ze2("spc=" + e9));
+            e9 !== 2 || t9.attempt > 0 || (e9 = t9.drmInfo) && it2(e9.keySystem) && (e9 = V4(t9.body), e9 = Ge2(e9), t9.headers["Content-Type"] = "application/x-www-form-urlencoded", t9.body = ze2("spc=" + e9));
           }, rp.muxInitDataTransform = function(e9, t9, n6) {
             return op(e9, t9, n6);
           }, rp.expressplayInitDataTransform = function(e9, t9, n6) {
@@ -16230,7 +16327,7 @@ var init_load_uTL4eiru = __esm({
             });
           };
           function cp(e9, t9, n6) {
-            for (n6 = n6 === void 0 || n6, this.h = e9, this.g = /* @__PURE__ */ new Set([e9]), t9 ||= [], e9 = y4(t9), t9 = e9.next(); !t9.done; t9 = e9.next()) this.add(t9.value, n6);
+            for (n6 = n6 === void 0 || n6, this.h = e9, this.g = /* @__PURE__ */ new Set([e9]), t9 ||= [], e9 = y5(t9), t9 = e9.next(); !t9.done; t9 = e9.next()) this.add(t9.value, n6);
           }
           cp.prototype.add = function(e9, t9) {
             var n6 = this.h;
@@ -16252,7 +16349,7 @@ var init_load_uTL4eiru = __esm({
               return Er(e10);
             }), me2(e9, t9));
           }
-          L3("shaka.media.AdaptationSet", cp);
+          L4("shaka.media.AdaptationSet", cp);
           function up() {
             this.h = this.g = null;
           }
@@ -16262,7 +16359,7 @@ var init_load_uTL4eiru = __esm({
             return this.g;
           }, up.prototype.create = function(e9) {
             e9 = dp(e9, this.g.preferredAudio, this.g.audioCodec, this.g.activeAudioCodec);
-            a: for (var t9 = y4(this.g.preferredVideo), n6 = t9.next(); !n6.done; n6 = t9.next()) {
+            a: for (var t9 = y5(this.g.preferredVideo), n6 = t9.next(); !n6.done; n6 = t9.next()) {
               n6 = n6.value;
               var r7 = e9;
               if (!(n6.role && (r7 = mp(r7, n6.role), !r7.length)) && !(n6.language && (r7 = hp(r7, n6.language), !r7.length)) && !(n6.label && (r7 = _p(r7, n6.label), !r7.length)) && !(n6.hdrLevel && (r7 = yp(r7, n6.hdrLevel), !r7.length)) && !(n6.layout && (r7 = bp(r7, n6.layout), !r7.length))) {
@@ -16276,12 +16373,12 @@ var init_load_uTL4eiru = __esm({
                 }
               }
             }
-            return t9 = B3(), n6 = this.g.keySystem, t9 = this.g.codecSwitchingStrategy == "smooth" && t9.ub(n6), this.h = new cp(e9[0], e9, !t9);
+            return t9 = B4(), n6 = this.g.keySystem, t9 = this.g.codecSwitchingStrategy == "smooth" && t9.ub(n6), this.h = new cp(e9[0], e9, !t9);
           }, up.prototype.getLastAdaptationSet = function() {
             return this.h;
           };
           function dp(e9, t9, n6, r7) {
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var i6 = t9.next(), a7 = {}; !i6.done; a7 = { sd: void 0 }, i6 = t9.next()) {
               i6 = i6.value;
               var o8 = e9;
@@ -16293,7 +16390,7 @@ var init_load_uTL4eiru = __esm({
                   };
                 })(a7));
                 if (s7.length) {
-                  a7 = false, s7 = y4(s7);
+                  a7 = false, s7 = y5(s7);
                   for (var c7 = s7.next(); !c7.done; c7 = s7.next()) if (c7 = Sp(o8, c7.value), c7.length) {
                     o8 = c7, a7 = true;
                     break;
@@ -16311,7 +16408,7 @@ var init_load_uTL4eiru = __esm({
             if (n6 && l6.push(n6), r7 && l6.push(r7), n6 = l6.filter(function(e10, t10) {
               return l6.indexOf(e10) === t10;
             }), n6.length) {
-              for (n6 = y4(n6), r7 = n6.next(); !r7.done; r7 = n6.next()) if (r7 = Sp(e9, r7.value), r7.length) {
+              for (n6 = y5(n6), r7 = n6.next(); !r7.done; r7 = n6.next()) if (r7 = Sp(e9, r7.value), r7.length) {
                 e9 = r7;
                 break;
               }
@@ -16322,7 +16419,7 @@ var init_load_uTL4eiru = __esm({
           }
           function fp(e9, t9) {
             t9 = ht2(t9);
-            var n6 = yt(t9, e9.map(function(e10) {
+            var n6 = yt2(t9, e9.map(function(e10) {
               return vt2(e10);
             }));
             return n6 ? e9.filter(function(e10) {
@@ -16367,7 +16464,7 @@ var init_load_uTL4eiru = __esm({
               var n6 = e9.some(function(e10) {
                 return !!(e10.video && e10.video.hdr && e10.video.hdr == "HLG");
               });
-              t9 = B3().Pc(n6);
+              t9 = B4().Pc(n6);
             }
             return e9.filter(function(e10) {
               return !(e10.video && e10.video.hdr && e10.video.hdr != t9);
@@ -16396,7 +16493,7 @@ var init_load_uTL4eiru = __esm({
           function wp() {
           }
           function Tp() {
-            var t9 = Infinity, n6 = B3();
+            var t9 = Infinity, n6 = B4();
             navigator.connection && navigator.connection.saveData && (t9 = 360);
             var r7 = {
               retryParameters: Zi(),
@@ -16601,7 +16698,7 @@ var init_load_uTL4eiru = __esm({
                 return new Fi();
               },
               adaptationSetCriteriaFactory: function() {
-                return new (Function.prototype.bind.apply(up, [null].concat(b3(F4.apply(0, arguments)))))();
+                return new (Function.prototype.bind.apply(up, [null].concat(b4(F4.apply(0, arguments)))))();
               },
               abr: {
                 enabled: true,
@@ -16791,7 +16888,7 @@ var init_load_uTL4eiru = __esm({
             var r7 = n6;
             r7 == "AUTO" && (n6 = e9.some(function(e10) {
               return !!(e10.hdr && e10.hdr == "HLG");
-            }), r7 = B3().Pc(n6));
+            }), r7 = B4().Pc(n6));
             var i6 = e9.filter(function(e10) {
               return !(e10.type != "variant" || e10.hdr && e10.hdr != r7);
             });
@@ -16799,8 +16896,8 @@ var init_load_uTL4eiru = __esm({
             var a7 = i6.map(function(e10) {
               return e10.language;
             }), o8 = null;
-            t9 = y4(t9);
-            for (var s7 = t9.next(); !s7.done && !(o8 = yt(s7.value, a7)); s7 = t9.next()) ;
+            t9 = y5(t9);
+            for (var s7 = t9.next(); !s7.done && !(o8 = yt2(s7.value, a7)); s7 = t9.next()) ;
             o8 && (n6 = i6.filter(function(e10) {
               return ht2(e10.language) == o8;
             })), n6.length == 0 && (n6 = i6.filter(function(e10) {
@@ -16817,7 +16914,7 @@ var init_load_uTL4eiru = __esm({
               return e10.height == c7[0].height;
             })), t9 = [], n6.length && (i6 = Math.floor(n6.length / 2), n6.sort(function(e10, t10) {
               return e10.bandwidth - t10.bandwidth;
-            }), t9.push(n6[i6])), e9 = y4(e9), n6 = e9.next(); !n6.done; n6 = e9.next()) n6 = n6.value, n6.type != U2 && n6.type != "image" && n6.type != "chapter" || t9.push(n6);
+            }), t9.push(n6[i6])), e9 = y5(e9), n6 = e9.next(); !n6.done; n6 = e9.next()) n6 = n6.value, n6.type != U3 && n6.type != "image" && n6.type != "chapter" || t9.push(n6);
             return t9;
           }
           function Ap(e9) {
@@ -16826,13 +16923,13 @@ var init_load_uTL4eiru = __esm({
           function jp(e9) {
             return tp([e9], e9);
           }
-          L3("shaka.util.PlayerConfiguration", wp), wp.mergeConfigObjects = Dp, wp.createDefaultForLL = Ep, wp.createDefault = Tp;
+          L4("shaka.util.PlayerConfiguration", wp), wp.mergeConfigObjects = Dp, wp.createDefaultForLL = Ep, wp.createDefault = Tp;
           function Mp() {
             this.g = null, this.h = [];
           }
           function Np(e9, t9) {
             var n6 = 0;
-            e9.g && e9.g.state == t9 && (n6 += e9.g.duration), e9 = y4(e9.h);
+            e9.g && e9.g.state == t9 && (n6 += e9.g.duration), e9 = y5(e9.h);
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) r7 = r7.value, n6 += r7.state == t9 ? r7.duration : 0;
             return n6;
           }
@@ -16844,7 +16941,7 @@ var init_load_uTL4eiru = __esm({
                 duration: e10.duration
               };
             }
-            for (var n6 = [], r7 = y4(e9.h), i6 = r7.next(); !i6.done; i6 = r7.next()) n6.push(t9(i6.value));
+            for (var n6 = [], r7 = y5(e9.h), i6 = r7.next(); !i6.done; i6 = r7.next()) n6.push(t9(i6.value));
             return e9.g && n6.push(t9(e9.g)), n6;
           }
           function Fp() {
@@ -16884,14 +16981,14 @@ var init_load_uTL4eiru = __esm({
             e9.i = isNaN(e9.i) ? t9 : e9.i + t9;
           }
           function Gp(e9) {
-            var t9 = e9.Y, n6 = e9.D, r7 = e9.l, i6 = e9.C, a7 = e9.P, o8 = e9.R, s7 = e9.O, c7 = e9.W, l6 = e9.V, u7 = e9.B, d5 = e9.h, f4 = e9.H, p5 = e9.o, m5 = e9.K, h6 = e9.m, g6 = Np(e9.g, "playing"), _5 = Np(e9.g, "paused"), v7 = Np(e9.g, "buffering"), b4 = e9.u, x4 = e9.F, S3 = e9.L, C5 = e9.wj, w5 = e9.i, T5 = e9.M, E5 = e9.J, D5 = e9.I, O5 = Pp(e9.g), k5 = [];
-            e9 = y4(e9.j.g);
-            for (var A4 = e9.next(); !A4.done; A4 = e9.next()) A4 = A4.value, k5.push({
-              timestamp: A4.timestamp,
-              id: A4.id,
-              type: A4.type,
-              fromAdaptation: A4.fromAdaptation,
-              bandwidth: A4.bandwidth
+            var t9 = e9.Y, n6 = e9.D, r7 = e9.l, i6 = e9.C, a7 = e9.P, o8 = e9.R, s7 = e9.O, c7 = e9.W, l6 = e9.V, u7 = e9.B, d5 = e9.h, f4 = e9.H, p5 = e9.o, m5 = e9.K, h6 = e9.m, g6 = Np(e9.g, "playing"), _5 = Np(e9.g, "paused"), v7 = Np(e9.g, "buffering"), b5 = e9.u, x5 = e9.F, S5 = e9.L, C6 = e9.wj, w6 = e9.i, T6 = e9.M, E6 = e9.J, D6 = e9.I, O6 = Pp(e9.g), k6 = [];
+            e9 = y5(e9.j.g);
+            for (var A5 = e9.next(); !A5.done; A5 = e9.next()) A5 = A5.value, k6.push({
+              timestamp: A5.timestamp,
+              id: A5.id,
+              type: A5.type,
+              fromAdaptation: A5.fromAdaptation,
+              bandwidth: A5.bandwidth
             });
             return {
               width: t9,
@@ -16912,16 +17009,16 @@ var init_load_uTL4eiru = __esm({
               playTime: g6,
               pauseTime: _5,
               bufferingTime: v7,
-              licenseTime: b4,
-              liveLatency: x4,
-              maxSegmentDuration: S3,
-              manifestSizeBytes: C5,
-              bytesDownloaded: w5,
-              nonFatalErrorCount: T5,
-              manifestPeriodCount: E5,
-              manifestGapCount: D5,
-              stateHistory: O5,
-              switchHistory: k5
+              licenseTime: b5,
+              liveLatency: x5,
+              maxSegmentDuration: S5,
+              manifestSizeBytes: C6,
+              bytesDownloaded: w6,
+              nonFatalErrorCount: T6,
+              manifestPeriodCount: E6,
+              manifestGapCount: D6,
+              stateHistory: O6,
+              switchHistory: k6
             };
           }
           function Kp(e9, t9, n6, r7) {
@@ -16932,12 +17029,12 @@ var init_load_uTL4eiru = __esm({
             (e9 = t9 ? e9.L : e9.M) ? e9.push(n6) : n6();
           }
           function Jp(e9) {
-            if (e9.L) for (var t9 = y4(e9.L), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, n6();
+            if (e9.L) for (var t9 = y5(e9.L), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, n6();
             e9.L = null;
           }
           function Yp(e9, t9) {
             if (e9.P = t9, e9.R = true, e9.M) {
-              t9 = y4(e9.M);
+              t9 = y5(e9.M);
               for (var n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, n6();
             }
             e9.M = null;
@@ -17135,7 +17232,7 @@ var init_load_uTL4eiru = __esm({
             return n6 = e9.m.create(n6), e9.C.setVariants(Array.from(n6.values()), t9), e9.C.chooseVariant(true);
           }
           function sm(e9, t9) {
-            for (var n6 = null, r7 = y4(e9.i.preferredText), i6 = r7.next(); !i6.done; i6 = r7.next()) if (i6 = i6.value, i6.language && (i6 = wi(e9.g.textStreams, i6.language, i6.role, i6.forced), i6.length)) {
+            for (var n6 = null, r7 = y5(e9.i.preferredText), i6 = r7.next(); !i6.done; i6 = r7.next()) if (i6 = i6.value, i6.language && (i6 = wi(e9.g.textStreams, i6.language, i6.role, i6.forced), i6.length)) {
               n6 = i6[0];
               break;
             }
@@ -17156,7 +17253,7 @@ var init_load_uTL4eiru = __esm({
                 t10 && (e9.D.has(t10.id) && (Rd(e9.D.get(t10.id)), e9.D.delete(t10.id)), t10.segmentIndex && t10.closeSegmentIndex && n6.push(t10.closeSegmentIndex()));
               }, i6 = function() {
                 var t10 = e9.h;
-                t10 = y4([t10.video, t10.audio]);
+                t10 = y5([t10.video, t10.audio]);
                 for (var n7 = t10.next(); !n7.done; n7 = t10.next()) r7(n7.value);
                 e9.u = null;
               }, a7 = function() {
@@ -17182,7 +17279,7 @@ var init_load_uTL4eiru = __esm({
                 keySystem: fm(e9)
               }, Op(s7), dn(o8) != dn(s7) && (e9.m.configure(s7), i6(), e9.h = om(e9)), e9.h && (c7 = sm(e9, e9.h)) ? c7 != e9.u && (a7(), e9.u = c7) : a7(), m5.g(Promise.all(n6), 2)) : m5.return();
               if (l6 = [], e9.h) {
-                for (u7 = e9.h, d5 = y4([u7.video, u7.audio]), f4 = d5.next(); !f4.done; f4 = d5.next()) p5 = f4.value, l6.push(cm(e9, p5, t9));
+                for (u7 = e9.h, d5 = y5([u7.video, u7.audio]), f4 = d5.next(); !f4.done; f4 = d5.next()) p5 = f4.value, l6.push(cm(e9, p5, t9));
                 e9.u && l6.push(cm(e9, e9.u, t9));
               }
               return m5.g(Promise.all(l6), 0);
@@ -17191,14 +17288,14 @@ var init_load_uTL4eiru = __esm({
           function um(e9) {
             var t9, n6, r7, i6;
             return P4(function(a7) {
-              for (t9 = [], n6 = y4([e9.video, e9.audio]), r7 = n6.next(); !r7.done; r7 = n6.next()) (i6 = r7.value) && !i6.segmentIndex && t9.push(i6.createSegmentIndex());
+              for (t9 = [], n6 = y5([e9.video, e9.audio]), r7 = n6.next(); !r7.done; r7 = n6.next()) (i6 = r7.value) && !i6.segmentIndex && t9.push(i6.createSegmentIndex());
               return t9.length > 0 ? a7.g(Promise.all(t9), 0) : a7.A(0);
             });
           }
           function dm(e9) {
             var t9, n6, r7, i6;
             return P4(function(a7) {
-              for (t9 = [], n6 = y4([e9.video, e9.audio]), r7 = n6.next(); !r7.done; r7 = n6.next()) (i6 = r7.value) && i6.segmentIndex && i6.closeSegmentIndex && t9.push(i6.closeSegmentIndex());
+              for (t9 = [], n6 = y5([e9.video, e9.audio]), r7 = n6.next(); !r7.done; r7 = n6.next()) (i6 = r7.value) && i6.segmentIndex && i6.closeSegmentIndex && t9.push(i6.closeSegmentIndex());
               return t9.length > 0 ? a7.g(Promise.all(t9), 0) : a7.A(0);
             });
           }
@@ -17209,7 +17306,7 @@ var init_load_uTL4eiru = __esm({
             return P4(function(i6) {
               if (i6.h == 1) return e9.l = true, !e9.o || e9.ma ? i6.A(2) : i6.g(e9.o.stop(), 2);
               if (i6.h != 4) return e9.C && e9.C.release(), e9.K && !e9.ra && e9.K.release(), !e9.j || e9.aa ? i6.A(4) : i6.g(e9.j.destroy(), 4);
-              if (e9.D.size > 0 && !e9.wa) for (t9 = y4(e9.D.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) r7 = n6.value, Rd(r7);
+              if (e9.D.size > 0 && !e9.wa) for (t9 = y5(e9.D.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) r7 = n6.value, Rd(r7);
               i6.j();
             });
           };
@@ -17222,7 +17319,7 @@ var init_load_uTL4eiru = __esm({
             }
             e9.variants.some(t9) && (e9.variants = e9.variants.filter(t9));
           }
-          L3("shaka.media.PreloadManager", Kp), Kp.prototype.destroy = Kp.prototype.destroy, Kp.prototype.waitForFinish = Kp.prototype.Sm, Kp.prototype.getPrefetchedTextTrack = Kp.prototype.xl, Kp.prototype.getPrefetchedVariantTrack = Kp.prototype.yl;
+          L4("shaka.media.PreloadManager", Kp), Kp.prototype.destroy = Kp.prototype.destroy, Kp.prototype.waitForFinish = Kp.prototype.Sm, Kp.prototype.getPrefetchedTextTrack = Kp.prototype.xl, Kp.prototype.getPrefetchedVariantTrack = Kp.prototype.yl;
           function mm(e9) {
             oa.call(this), this.g = e9, this.h = null;
           }
@@ -17287,7 +17384,7 @@ var init_load_uTL4eiru = __esm({
                   return gm(n6, "skip", e10, t10);
                 }
               }
-            ], this.h = new z3(), this.h.G(this.i, "regionremove", function(e10) {
+            ], this.h = new z4(), this.h.G(this.i, "regionremove", function(e10) {
               n6.g.delete(e10.region);
             });
           }
@@ -17296,11 +17393,11 @@ var init_load_uTL4eiru = __esm({
           }, hm.prototype.j = function(e9, t9) {
             if (!this.l || e9 != 0) {
               this.l = false;
-              for (var n6 = y4(this.i.g.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) {
+              for (var n6 = y5(this.i.g.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) {
                 r7 = r7.value;
                 var i6 = this.g.get(r7), a7 = e9 < r7.startTime ? _m : e9 > r7.endTime ? ym : vm;
                 this.g.set(r7, a7);
-                for (var o8 = y4(this.m), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = s7.value, s7.pd == i6 && s7.od == a7 && s7.dd(r7, t9);
+                for (var o8 = y5(this.m), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = s7.value, s7.pd == i6 && s7.od == a7 && s7.dd(r7, t9);
               }
             }
           };
@@ -17544,7 +17641,7 @@ var init_load_uTL4eiru = __esm({
             ssp: "Spanish Sign Language",
             swl: "Swedish Sign Language",
             vgt: "Flemish Sign Language"
-          }, xm = y4(Object.keys(bm)), Sm = xm.next(); !Sm.done; Sm = xm.next()) {
+          }, xm = y5(Object.keys(bm)), Sm = xm.next(); !Sm.done; Sm = xm.next()) {
             var Cm = Sm.value;
             bm[Cm.toLowerCase()] = bm[Cm];
           }
@@ -17556,7 +17653,7 @@ var init_load_uTL4eiru = __esm({
             if (!e9.payload) return e9.payload;
             var n6 = [], r7 = e9.fontWeight >= lr, i6 = e9.fontStyle == dr, a7 = e9.textDecoration.includes(pr);
             return r7 && n6.push(["b"]), i6 && n6.push(["i"]), a7 && n6.push(["u"]), i6 = e9.color, i6 == "" && t9 && (i6 = t9.color), r7 = "", (i6 = Tm(i6)) && (r7 += "." + i6), i6 = e9.backgroundColor, i6 == "" && t9 && (i6 = t9.backgroundColor), (t9 = Tm(i6)) && (r7 += ".bg_" + t9), r7 && n6.push(["c", r7]), n6.reduceRight(function(e10, t10) {
-              var n7 = y4(t10);
+              var n7 = y5(t10);
               return t10 = n7.next().value, n7 = n7.next().value, "<" + t10 + (n7 === void 0 ? "" : n7) + ">" + e10 + "</" + t10 + ">";
             }, e9.payload);
           }
@@ -17601,8 +17698,8 @@ var init_load_uTL4eiru = __esm({
           }
           function Em(e9, t9) {
             var n6 = [];
-            e9 = y4(Dm(e9));
-            for (var r7 = e9.next(); !r7.done; r7 = e9.next()) if (r7 = r7.value, r7.isContainer) n6.push.apply(n6, b3(Em(r7.nestedCues, r7)));
+            e9 = y5(Dm(e9));
+            for (var r7 = e9.next(); !r7.done; r7 = e9.next()) if (r7 = r7.value, r7.isContainer) n6.push.apply(n6, b4(Em(r7.nestedCues, r7)));
             else {
               var i6 = r7.clone();
               i6.nestedCues = [], i6.payload = wm(r7, t9), n6.push(i6);
@@ -17611,7 +17708,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Dm(e9) {
             var t9 = [];
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var n6 = e9.next(), r7 = {}; !n6.done; r7 = { Ng: void 0 }, n6 = e9.next()) r7.Ng = n6.value, t9.some(/* @__PURE__ */ (function(e10) {
               return function(t10) {
                 return Gn(e10.Ng, t10);
@@ -17635,7 +17732,7 @@ var init_load_uTL4eiru = __esm({
           }
           function km(e9, t9) {
             var n6 = Em(t9), r7 = [];
-            t9 = e9.cues ? Array.from(e9.cues) : [], n6 = y4(n6);
+            t9 = e9.cues ? Array.from(e9.cues) : [], n6 = y5(n6);
             for (var i6 = n6.next(), a7 = {}; !i6.done; a7 = { Fd: void 0 }, i6 = n6.next()) a7.Fd = i6.value, !t9.some(/* @__PURE__ */ (function(e10) {
               return function(t10) {
                 return t10.startTime == e10.Fd.startTime && t10.endTime == e10.Fd.endTime && t10.text == e10.Fd.payload;
@@ -17643,7 +17740,7 @@ var init_load_uTL4eiru = __esm({
             })(a7)) && a7.Fd.payload && (i6 = Om(a7.Fd)) && r7.push(i6);
             for (t9 = r7.slice().sort(function(e10, t10) {
               return e10.startTime == t10.startTime ? e10.endTime == t10.endTime ? "line" in VTTCue.prototype ? r7.indexOf(t10) - r7.indexOf(e10) : r7.indexOf(e10) - r7.indexOf(t10) : e10.endTime - t10.startTime : e10.startTime - t10.startTime;
-            }), t9 = y4(t9), n6 = t9.next(); !n6.done; n6 = t9.next()) e9.addCue(n6.value);
+            }), t9 = y5(t9), n6 = t9.next(); !n6.done; n6 = t9.next()) e9.addCue(n6.value);
           }
           function Am(e9, t9) {
             var n6 = false;
@@ -17656,7 +17753,7 @@ var init_load_uTL4eiru = __esm({
           }
           function jm(e9) {
             function t9(e10) {
-              e10.line = n6.line, e10.lineAlign = n6.lineAlign, e10.position = n6.position, e10.positionAlign = n6.positionAlign, e10.size = n6.size, e10.displayAlign = n6.displayAlign, e10.region = n6.region, e10 = y4(e10.nestedCues);
+              e10.line = n6.line, e10.lineAlign = n6.lineAlign, e10.position = n6.position, e10.positionAlign = n6.positionAlign, e10.size = n6.size, e10.displayAlign = n6.displayAlign, e10.region = n6.region, e10 = y5(e10.nestedCues);
               for (var r7 = e10.next(); !r7.done; r7 = e10.next()) t9(r7.value);
             }
             var n6 = new Un(0, 0, "");
@@ -17664,7 +17761,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Mm(e9) {
             var t9 = this;
-            this.h = e9, this.o = new z3(), this.m = new z3(), this.j = this.B = null, this.g = /* @__PURE__ */ new Map(), this.i = -1, this.u = false, this.l = null, this.o.G(e9, "loaded", function() {
+            this.h = e9, this.o = new z4(), this.m = new z4(), this.j = this.B = null, this.g = /* @__PURE__ */ new Map(), this.i = -1, this.u = false, this.l = null, this.o.G(e9, "loaded", function() {
               return zm(t9);
             }), zm(this);
           }
@@ -17704,30 +17801,30 @@ var init_load_uTL4eiru = __esm({
             var t9;
             (t9 = e9.l) == null || t9.stop(), e9.l = null;
             var n6;
-            for ((n6 = e9.m) == null || n6.Ea(), t9 = y4(e9.g.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) n6.value.remove();
+            for ((n6 = e9.m) == null || n6.Ea(), t9 = y5(e9.g.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) n6.value.remove();
             e9.g.clear(), e9.i = -1, e9.j = null;
           }
           function Pm(e9) {
             var t9 = /* @__PURE__ */ new Map(), n6 = e9.h.Gb();
-            n6 = y4(n6);
+            n6 = y5(n6);
             for (var r7 = n6.next(); !r7.done; r7 = n6.next()) {
               if (r7 = r7.value, e9.g.has(r7.id)) {
                 var i6 = e9, a7 = i6.g.get(r7.id);
                 r7.active || a7.track.mode === "disabled" || (a7.track.mode = "disabled"), i6.g.delete(r7.id), i6 = a7;
               } else {
                 i6 = e9, a7 = i6.j.ownerDocument.createElement("track");
-                var o8 = B3();
-                o8 = r7.forced && o8.Qa() === "WEBKIT" ? "forced" : r7.kind === "caption" ? "captions" : "subtitles", a7.kind = o8, a7.label = Bm(r7), o8 = r7.language ? r7.language in bm ? r7.language : _t(r7.language) ?? "und" : "und", a7.srclang = o8, a7.src = "data:,WEBVTT", a7.track.mode = "disabled", i6.j.appendChild(a7), i6 = a7;
+                var o8 = B4();
+                o8 = r7.forced && o8.Qa() === "WEBKIT" ? "forced" : r7.kind === "caption" ? "captions" : "subtitles", a7.kind = o8, a7.label = Bm(r7), o8 = r7.language ? r7.language in bm ? r7.language : _t2(r7.language) ?? "und" : "und", a7.srclang = o8, a7.src = "data:,WEBVTT", a7.track.mode = "disabled", i6.j.appendChild(a7), i6 = a7;
               }
               t9.set(r7.id, i6), r7.active && (e9.i = r7.id);
             }
-            for (n6 = y4(e9.g.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) r7.value.remove();
+            for (n6 = y5(e9.g.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) r7.value.remove();
             e9.g = t9, e9.i <= -1 || (e9.g.has(e9.i) ? (t9 = e9.g.get(e9.i).track, t9.mode === "disabled" && (t9.mode = e9.u ? "showing" : "hidden")) : e9.i = -1);
           }
           function Fm(e9) {
             if (!e9.l) {
               var t9 = e9.j;
-              e9.l = new G(function() {
+              e9.l = new G2(function() {
                 if (e9.l = null, e9.j === t9) {
                   a: {
                     var n6 = -1;
@@ -17739,7 +17836,7 @@ var init_load_uTL4eiru = __esm({
                       }
                       r7 === "hidden" && (n6 = e9.i);
                     }
-                    r7 = y4(e9.g.keys());
+                    r7 = y5(e9.g.keys());
                     for (var i6 = r7.next(); !i6.done; i6 = r7.next()) {
                       i6 = i6.value;
                       var a7 = e9.g.get(i6);
@@ -17750,7 +17847,7 @@ var init_load_uTL4eiru = __esm({
                       n6 < 0 && a7.track.mode === "hidden" && (n6 = i6);
                     }
                   }
-                  for (r7 = e9.g.get(n6), i6 = y4(e9.g.values()), a7 = i6.next(); !a7.done; a7 = i6.next()) a7 = a7.value, a7 !== r7 && a7.track.mode !== "disabled" && (a7.track.mode = "disabled");
+                  for (r7 = e9.g.get(n6), i6 = y5(e9.g.values()), a7 = i6.next(); !a7.done; a7 = i6.next()) a7 = a7.value, a7 !== r7 && a7.track.mode !== "disabled" && (a7.track.mode = "disabled");
                   e9.i !== n6 && (e9.i = n6, Rm(e9, n6));
                 }
               }).ba(0);
@@ -17771,7 +17868,7 @@ var init_load_uTL4eiru = __esm({
             }) && (t9 = e9.find(function(e10) {
               return e10.mode === "hidden";
             })) && (t9.mode = "showing");
-            else for (t9 = y4(e9), e9 = t9.next(); !e9.done; e9 = t9.next()) e9 = e9.value, e9.mode === "showing" && (e9.mode = "hidden");
+            else for (t9 = y5(e9), e9 = t9.next(); !e9.done; e9 = t9.next()) e9 = e9.value, e9.mode === "showing" && (e9.mode = "hidden");
           }
           function Rm(e9, t9) {
             if (t9 > -1) {
@@ -17797,7 +17894,7 @@ var init_load_uTL4eiru = __esm({
           function Bm(t9) {
             if (t9.label) return t9.label;
             if (t9.language) {
-              var n6 = _t(t9.language);
+              var n6 = _t2(t9.language);
               if (e8.Intl && "DisplayNames" in Intl) try {
                 var r7 = new Intl.DisplayNames(t9.language, {
                   type: "language",
@@ -17811,11 +17908,11 @@ var init_load_uTL4eiru = __esm({
             }
             return n6 = String(t9.originalTextId ?? ""), t9.language && t9.language !== t9.originalTextId ? n6 + " (" + t9.language + ")" : n6;
           }
-          L3("shaka.text.NativeTextDisplayer", Mm), Mm.prototype.setTextLanguage = Mm.prototype.setTextLanguage, Mm.prototype.setTextVisibility = Mm.prototype.setTextVisibility, Mm.prototype.isTextVisible = Mm.prototype.isTextVisible, Mm.prototype.destroy = Mm.prototype.destroy, Mm.prototype.append = Mm.prototype.append, Mm.prototype.remove = Mm.prototype.remove, Mm.prototype.configure = Mm.prototype.configure;
+          L4("shaka.text.NativeTextDisplayer", Mm), Mm.prototype.setTextLanguage = Mm.prototype.setTextLanguage, Mm.prototype.setTextVisibility = Mm.prototype.setTextVisibility, Mm.prototype.isTextVisible = Mm.prototype.isTextVisible, Mm.prototype.destroy = Mm.prototype.destroy, Mm.prototype.append = Mm.prototype.append, Mm.prototype.remove = Mm.prototype.remove, Mm.prototype.configure = Mm.prototype.configure;
           var Vm = 2, Hm = 3;
           function Um(e9) {
             var t9 = this;
-            this.l = e9, this.o = null, this.j = new z3(), this.I = Zm.value(), this.g = null, this.u = false, this.B = new eh(), this.K = new G(function() {
+            this.l = e9, this.o = null, this.j = new z4(), this.I = Zm.value(), this.g = null, this.u = false, this.B = new eh(), this.K = new G2(function() {
               Wm(t9);
             }), this.J = 1e15, this.F = Ym(this), this.i = [this.F], this.D = this.H = this.h = this.m = null, this.C = new $m(this.B, this.K, function(e10) {
               if (t9.u && t9.g) {
@@ -17859,7 +17956,7 @@ var init_load_uTL4eiru = __esm({
             return this.I ? (this.g ||= qm(this), !!this.g) : false;
           }, r6.Gb = function() {
             if (!this.isSupported()) return [];
-            for (var e9 = y4(this.i), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, t9.active = t9.id == this.m;
+            for (var e9 = y5(this.i), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, t9.active = t9.id == this.m;
             return this.i;
           };
           function Wm(e9) {
@@ -17922,7 +18019,7 @@ var init_load_uTL4eiru = __esm({
             if (!me2(t9.o.languagesToTranslate, n6) && "Translator" in e8) {
               t9.i = t9.i.filter(function(e9) {
                 return e9.id == t9.F.id || t9.o.languagesToTranslate.includes(e9.language) ? true : (e9.id == t9.m && t9.disable(), false);
-              }), n6 = y4(t9.o.languagesToTranslate);
+              }), n6 = y5(t9.o.languagesToTranslate);
               for (var r7 = n6.next(), i6 = {}; !r7.done; i6 = { Dh: void 0 }, r7 = n6.next()) i6.Dh = r7.value, r7 = t9.i.find(/* @__PURE__ */ (function(e9) {
                 return function(t10) {
                   return t10.language == e9.Dh;
@@ -17935,7 +18032,7 @@ var init_load_uTL4eiru = __esm({
             return {
               id: e9.J++,
               active: false,
-              type: U2,
+              type: U3,
               bandwidth: 0,
               language: "",
               label: null,
@@ -17967,7 +18064,7 @@ var init_load_uTL4eiru = __esm({
             this.h && ml(this.h), this.g = null;
           };
           function $m(e9, t9, n6, r7) {
-            this.m = e9, this.i = t9, this.u = n6, this.o = r7, this.h = new z3(), this.l = null, this.g = 0, this.j = false;
+            this.m = e9, this.i = t9, this.u = n6, this.o = r7, this.h = new z4(), this.l = null, this.g = 0, this.j = false;
           }
           $m.prototype.start = function(t9, n6, r7) {
             var i6 = this, a7, o8, s7, c7, l6;
@@ -18075,14 +18172,14 @@ var init_load_uTL4eiru = __esm({
             return false;
           }, r6.setTextVisibility = function() {
           }, r6.setTextLanguage = function() {
-          }, L3("shaka.text.StubTextDisplayer", rh), rh.prototype.setTextLanguage = rh.prototype.setTextLanguage, rh.prototype.setTextVisibility = rh.prototype.setTextVisibility, rh.prototype.isTextVisible = rh.prototype.isTextVisible, rh.prototype.destroy = rh.prototype.destroy, rh.prototype.append = rh.prototype.append, rh.prototype.remove = rh.prototype.remove, rh.prototype.configure = rh.prototype.configure;
+          }, L4("shaka.text.StubTextDisplayer", rh), rh.prototype.setTextLanguage = rh.prototype.setTextLanguage, rh.prototype.setTextVisibility = rh.prototype.setTextVisibility, rh.prototype.isTextVisible = rh.prototype.isTextVisible, rh.prototype.destroy = rh.prototype.destroy, rh.prototype.append = rh.prototype.append, rh.prototype.remove = rh.prototype.remove, rh.prototype.configure = rh.prototype.configure;
           function ih(t9) {
             var n6 = this;
-            this.C = false, this.i = [], this.P = t9, this.l = t9.Db(), this.j = t9.Gc, this.H = null, this.I = false, this.R = true, this.F = this.o = this.B = null, this.L = false, this.g = document.createElement("div"), this.g.classList.add("shaka-text-container"), this.g.style.textAlign = "center", this.g.style.display = "flex", this.g.style.flexDirection = "column", this.g.style.alignItems = "center", this.g.style.justifyContent = "flex-end", this.D = new G(function() {
+            this.C = false, this.i = [], this.P = t9, this.l = t9.Db(), this.j = t9.Gc, this.H = null, this.I = false, this.R = true, this.F = this.o = this.B = null, this.L = false, this.g = document.createElement("div"), this.g.classList.add("shaka-text-container"), this.g.style.textAlign = "center", this.g.style.display = "flex", this.g.style.flexDirection = "column", this.g.style.alignItems = "center", this.g.style.justifyContent = "flex-end", this.D = new G2(function() {
               ph(n6), ah(n6);
-            }), ah(this), this.m = new G(function() {
+            }), ah(this), this.m = new G2(function() {
               sh(n6);
-            }), this.u = /* @__PURE__ */ new Map(), this.h = new z3(), this.h.G(document, "fullscreenchange", function() {
+            }), this.u = /* @__PURE__ */ new Map(), this.h = new z4(), this.h.G(document, "fullscreenchange", function() {
               ph(n6, true);
             }), this.h.G(this.l, "seeking", function() {
               ph(n6, true), ah(n6);
@@ -18128,8 +18225,8 @@ var init_load_uTL4eiru = __esm({
           }, r6.Mk = function() {
             (this.o || this.F) && (this.F = this.o = null, this.L = false, ph(this, true));
           }, r6.append = function(e9) {
-            var t9 = [].concat(b3(this.i));
-            e9 = y4(Dm(e9));
+            var t9 = [].concat(b4(this.i));
+            e9 = y5(Dm(e9));
             for (var n6 = e9.next(), r7 = {}; !n6.done; r7 = { Og: void 0 }, n6 = e9.next()) r7.Og = n6.value, t9.some(/* @__PURE__ */ (function(e10) {
               return function(t10) {
                 return Gn(t10, e10.Og);
@@ -18176,7 +18273,7 @@ var init_load_uTL4eiru = __esm({
               e10 > n6 && (i6 == null || e10 < i6) && (i6 = e10);
             }
             var i6 = null;
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var a7 = t9.next(); !a7.done; a7 = t9.next()) a7 = a7.value, r7(a7.startTime), r7(a7.endTime), a7.nestedCues.length && (a7 = oh(e9, a7.nestedCues, n6), a7 != null && r7(a7));
             return i6;
           }
@@ -18200,7 +18297,7 @@ var init_load_uTL4eiru = __esm({
           function lh(e9, t9, n6) {
             var r7 = t9, i6 = e9.u.get(t9) || null;
             if (!i6 && n6 && n6.positionArea != 0) {
-              n6 = y4(e9.u.keys());
+              n6 = y5(e9.u.keys());
               for (var a7 = n6.next(); !a7.done; a7 = n6.next()) a7 = a7.value, Gn(t9, a7) && (r7 = a7, i6 = e9.u.get(a7));
             }
             return {
@@ -18210,7 +18307,7 @@ var init_load_uTL4eiru = __esm({
           }
           function uh(e9, t9, n6, r7, i6) {
             var a7 = e9.o || e9.B, o8 = false, s7 = [], c7 = [];
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var l6 = t9.next(); !l6.done; l6 = t9.next()) {
               l6 = l6.value, i6.push(l6);
               var u7 = lh(e9, l6, a7), d5 = u7.key;
@@ -18219,10 +18316,10 @@ var init_load_uTL4eiru = __esm({
               u7 && (s7.push(u7.Pg), u7.jd && s7.push(u7.jd), f4 || (o8 = true, e9.u.delete(d5), u7 = null)), f4 && (c7.push(l6), u7 ? ch(e9, p5) || (o8 = true) : (mh(e9, l6, i6), u7 = e9.u.get(d5), p5 = u7.yk, o8 = true)), l6.nestedCues.length > 0 && p5 && uh(e9, l6.nestedCues, p5, r7, i6), i6.pop();
             }
             if (o8) {
-              for (r7 = y4(s7), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, i6.parentElement && i6.parentElement.removeChild(i6);
+              for (r7 = y5(s7), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, i6.parentElement && i6.parentElement.removeChild(i6);
               for (c7.sort(function(e10, t10) {
                 return e10.startTime == t10.startTime ? e10.endTime - t10.endTime : e10.startTime - t10.startTime;
-              }), c7 = y4(c7), r7 = c7.next(); !r7.done; r7 = c7.next()) r7 = lh(e9, r7.value, a7).Lj, r7.jd ? (r7.jd.contains(n6) && r7.jd.removeChild(n6), n6.appendChild(r7.jd), r7.jd.appendChild(r7.Pg)) : n6.appendChild(r7.Pg);
+              }), c7 = y5(c7), r7 = c7.next(); !r7.done; r7 = c7.next()) r7 = lh(e9, r7.value, a7).Lj, r7.jd ? (r7.jd.contains(n6) && r7.jd.removeChild(n6), n6.appendChild(r7.jd), r7.jd.appendChild(r7.Pg)) : n6.appendChild(r7.Pg);
             }
           }
           function dh(e9, t9, n6) {
@@ -18241,7 +18338,7 @@ var init_load_uTL4eiru = __esm({
               r7 = e9.l.currentTime - i6, i6 = !!e9.F && !dh(e9, e9.i, r7), i6 != e9.L && (t9 = true, e9.L = i6), i6 && (t9 = true);
               var a7 = e9.C || i6;
               if (a7 ? e9.g.parentElement || e9.j.appendChild(e9.g) : e9.g.parentElement && e9.j.removeChild(e9.g), !a7 || t9) {
-                t9 = y4(e9.J.values());
+                t9 = y5(e9.J.values());
                 for (var o8 = t9.next(); !o8.done; o8 = t9.next()) ml(o8.value);
                 ml(e9.g), e9.u.clear(), e9.J.clear();
               }
@@ -18353,7 +18450,7 @@ var init_load_uTL4eiru = __esm({
                 return "flex-end";
             }
           }
-          L3("shaka.text.UITextDisplayer", ih), ih.prototype.setTextLanguage = ih.prototype.setTextLanguage, ih.prototype.setTextVisibility = ih.prototype.setTextVisibility, ih.prototype.isTextVisible = ih.prototype.isTextVisible, ih.prototype.remove = ih.prototype.remove, ih.prototype.destroy = ih.prototype.destroy, ih.prototype.append = ih.prototype.append, ih.prototype.clearTextStylePreview = ih.prototype.Mk, ih.prototype.setTextStylePreview = ih.prototype.Hm, ih.prototype.configure = ih.prototype.configure;
+          L4("shaka.text.UITextDisplayer", ih), ih.prototype.setTextLanguage = ih.prototype.setTextLanguage, ih.prototype.setTextVisibility = ih.prototype.setTextVisibility, ih.prototype.isTextVisible = ih.prototype.isTextVisible, ih.prototype.remove = ih.prototype.remove, ih.prototype.destroy = ih.prototype.destroy, ih.prototype.append = ih.prototype.append, ih.prototype.clearTextStylePreview = ih.prototype.Mk, ih.prototype.setTextStylePreview = ih.prototype.Hm, ih.prototype.configure = ih.prototype.configure;
           var bh = 1 / 60, xh = new Ce2(function() {
             var e9 = new Zt();
             return e9.id = "shaka-custom-region", e9.height = 90, e9.width = 90, e9.viewportAnchorX = 5, e9.viewportAnchorY = 5, e9;
@@ -18387,15 +18484,15 @@ var init_load_uTL4eiru = __esm({
               return t10.length ? " " + t10.join(" ") : "";
             }
             function r7(e10) {
-              for (var n7 = e10, r8 = y4(t9), i7 = r8.next(); !i7.done; i7 = r8.next()) i7 = i7.value, i7.end && i7.start < e10 && (n7 += i7.end - i7.start);
+              for (var n7 = e10, r8 = y5(t9), i7 = r8.next(); !i7.done; i7 = r8.next()) i7 = i7.value, i7.end && i7.start < e10 && (n7 += i7.end - i7.start);
               return e10 = Math.floor(n7 / 3600), r8 = Math.floor(n7 / 60 % 60), i7 = Math.floor(n7 % 60), n7 = Math.floor(n7 * 1e3 % 1e3), (e10 < 10 ? "0" : "") + e10 + ":" + (r8 < 10 ? "0" : "") + r8 + ":" + (i7 < 10 ? "0" : "") + i7 + "." + (n7 < 100 ? n7 < 10 ? "00" : "0" : "") + n7;
             }
             var i6 = Em(e9);
-            e9 = "WEBVTT\n\n", i6 = y4(i6);
+            e9 = "WEBVTT\n\n", i6 = y5(i6);
             for (var a7 = i6.next(); !a7.done; a7 = i6.next()) a7 = a7.value, e9 += r7(a7.startTime) + " --> " + r7(a7.endTime) + n6(a7) + "\n", e9 += a7.payload + "\n\n";
             return e9;
           }
-          L3("shaka.text.WebVttGenerator", function() {
+          L4("shaka.text.WebVttGenerator", function() {
           });
           var Ch = [
             "cen",
@@ -18456,7 +18553,7 @@ var init_load_uTL4eiru = __esm({
                 if (e9 instanceof Date) return "@" + Mh(e9.getTime() / 1e3);
                 if (e9 instanceof Uint8Array) {
                   if (ArrayBuffer.isView(e9) === false) throw Ah(e9, "Byte Sequence");
-                  return ":" + btoa(String.fromCharCode.apply(String, b3(e9))) + ":";
+                  return ":" + btoa(String.fromCharCode.apply(String, b4(e9))) + ":";
                 }
                 if (e9 instanceof kh) return Ph(e9);
               default:
@@ -18469,7 +18566,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Lh(e9) {
             return e9 == null ? "" : Object.entries(e9).map(function(e10) {
-              var t9 = y4(e10);
+              var t9 = y5(e10);
               return e10 = t9.next().value, t9 = t9.next().value, t9 === true ? ";" + Ih(e10) : ";" + Ih(e10) + "=" + Fh(t9);
             }).join("");
           }
@@ -18480,7 +18577,7 @@ var init_load_uTL4eiru = __esm({
             var t9 = { xk: false };
             if (t9 = t9 === void 0 ? { xk: true } : t9, typeof e9 != "object" || !e9) throw Ah(e9, "Dict");
             return e9 = e9 instanceof Map ? e9.entries() : Object.entries(e9), t9 = t9.xk ? " " : "", Array.from(e9).map(function(e10) {
-              e10 = y4(e10);
+              e10 = y5(e10);
               var t10 = e10.next().value;
               return e10 = e10.next().value, !(e10 instanceof Oh) && (e10 = new Oh(e10)), t10 = Ih(t10), e10.value === true ? t10 += Lh(e10.yc) : (t10 += "=", Array.isArray(e10.value) ? (e10 = "(" + e10.value.map(Rh).join(" ") + ")" + Lh(e10.yc), e10 = t10 + e10) : e10 = t10 + Rh(e10), t10 = e10), t10;
             }).join("," + t9);
@@ -18560,8 +18657,8 @@ var init_load_uTL4eiru = __esm({
             return e9 instanceof Oh ? e9.value : e9;
           }
           function sg(e9) {
-            for (var t9 = {}, n6 = y4(Object.entries(e9)), r7 = n6.next(); !r7.done; r7 = n6.next()) {
-              var i6 = y4(r7.value);
+            for (var t9 = {}, n6 = y5(Object.entries(e9)), r7 = n6.next(); !r7.done; r7 = n6.next()) {
+              var i6 = y5(r7.value);
               r7 = i6.next().value, i6 = i6.next().value, i6 == null ? t9[r7] = i6 : r7 === "nor" ? (r7 = (Array.isArray(i6) ? i6 : [i6])[0], r7 instanceof Oh ? (t9.nor = r7.value, (r7 = r7.yc) && r7.r && (t9.nrr = r7.r)) : t9.nor = r7) : Jh.has(r7) ? t9[r7] = og(i6, e9.ot) : t9[r7] = i6;
             }
             return t9;
@@ -18584,7 +18681,7 @@ var init_load_uTL4eiru = __esm({
               version: r7,
               Xh: i6,
               ge: t9.ge
-            }, o8.sort(), o8 = y4(o8), s7 = o8.next(); !s7.done; s7 = o8.next()) {
+            }, o8.sort(), o8 = y5(o8), s7 = o8.next(); !s7.done; s7 = o8.next()) {
               s7 = s7.value;
               var c7 = e9[s7], l6 = t9.Vk && t9.Vk[s7] || qh[s7];
               if (typeof l6 == "function" && (c7 = l6(c7, i6)), s7 === "v") {
@@ -18693,14 +18790,14 @@ var init_load_uTL4eiru = __esm({
                 ek: pg
               });
             }), e9;
-          })(), hg = /* @__PURE__ */ new Map(), gg = y4(mg), _g = gg.next(); !_g.done; _g = gg.next()) {
+          })(), hg = /* @__PURE__ */ new Map(), gg = y5(mg), _g = gg.next(); !_g.done; _g = gg.next()) {
             var vg = _g.value;
             hg.set(vg.event, vg);
           }
           function yg(e9, t9) {
             this.u = performance.timeOrigin || performance.timing && performance.timing.fetchStart || Date.now() - performance.now(), this.g = {};
             var n6 = e9.version || 2, r7 = e9.eventTargets || [], i6 = e9.sid || crypto.randomUUID(), a7 = e9.zi || "query", o8 = [];
-            r7 = y4(r7);
+            r7 = y5(r7);
             for (var s7 = r7.next(); !s7.done; s7 = r7.next()) (s7 = s7.value) && s7.url && s7.events && s7.events.length && o8.push({
               version: s7.version || 2,
               sc: s7.sc ? [].concat(s7.sc) : [],
@@ -18723,7 +18820,7 @@ var init_load_uTL4eiru = __esm({
               cid: this.h.cid,
               sid: this.h.sid,
               v: this.h.version
-            }, e9 = y4(this.h.eventTargets || []), t9 = e9.next(); !t9.done; t9 = e9.next()) this.i.set(t9.value, {
+            }, e9 = y5(this.h.eventTargets || []), t9 = e9.next(); !t9.done; t9 = e9.next()) this.i.set(t9.value, {
               wh: void 0,
               sn: 0,
               Ce: false,
@@ -18749,7 +18846,7 @@ var init_load_uTL4eiru = __esm({
           };
           function bg(e9, t9) {
             t9.sid && t9.sid !== e9.g.sid && Og(e9), t9.msd && !isNaN(t9.msd) && (e9.j = t9.msd), e9.g = Object.assign({}, e9.g, t9, { msd: void 0 });
-            for (var n6 = y4(mg), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, r7.oe in t9 && !r7.Tg(e9.g[r7.oe], e9.l[r7.oe]) && xg(e9, r7.event);
+            for (var n6 = y5(mg), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, r7.oe in t9 && !r7.Tg(e9.g[r7.oe], e9.l[r7.oe]) && xg(e9, r7.event);
           }
           function xg(e9, t9, n6) {
             var r7 = n6 || {};
@@ -18788,14 +18885,14 @@ var init_load_uTL4eiru = __esm({
                 var o8 = {}, s7 = i6.Pn;
                 if (i6 = {}, a7) {
                   var c7 = Object.keys(a7);
-                  s7 = s7 ? ug(s7) : {}, c7 = y4(c7);
+                  s7 = s7 ? ug(s7) : {}, c7 = y5(c7);
                   for (var l6 = c7.next(); !l6.done; l6 = c7.next()) {
                     l6 = l6.value;
                     var u7 = lg[l6] || s7[l6] || "CMCD-Request";
                     (i6[u7] || (i6[u7] = {}))[l6] = a7[l6];
                   }
                 }
-                for (a7 = y4(Object.entries(i6)), i6 = a7.next(); !i6.done; i6 = a7.next()) s7 = y4(i6.value), i6 = s7.next().value, s7 = s7.next().value, (s7 = zh(s7)) && (o8[i6] = s7);
+                for (a7 = y5(Object.entries(i6)), i6 = a7.next(); !i6.done; i6 = a7.next()) s7 = y5(i6.value), i6 = s7.next().value, s7 = s7.next().value, (s7 = zh(s7)) && (o8[i6] = s7);
                 r7.call(e9, n6, o8);
             }
             return t9;
@@ -18808,7 +18905,7 @@ var init_load_uTL4eiru = __esm({
               if (a7.length && (!(a7.length < i6.batchSize) || t9)) {
                 var o8 = a7.splice(0, t9 ? a7.length : i6.batchSize);
                 Tg(e9, i6, o8).catch(function() {
-                  r7.queue.unshift.apply(r7.queue, b3(o8));
+                  r7.queue.unshift.apply(r7.queue, b4(o8));
                 }), n6 ||= a7.length > 0;
               }
             }), n6 && wg(e9);
@@ -18846,7 +18943,7 @@ var init_load_uTL4eiru = __esm({
             return t9 ? (t9 ? (t9 ? (t9 = cg(t9, n6), t9 = zh(t9)) : t9 = "", t9 = encodeURIComponent(t9)) : t9 = "", t9 = "CMCD=" + t9) : t9 = "", t9 ? kg.test(e9) ? e9.replace(kg, t9) : (n6 = e9.includes("?") ? "&" : "?", e9 + n6 + t9) : e9;
           }
           function jg(e9, t9) {
-            this.j = e9, this.l = t9, this.m = this.g = this.h = null, this.B = void 0, this.o = /* @__PURE__ */ new Map(), this.i = new z3(), this.u = 0;
+            this.j = e9, this.l = t9, this.m = this.g = this.h = null, this.B = void 0, this.o = /* @__PURE__ */ new Map(), this.i = new z4(), this.u = 0;
           }
           jg.prototype.setMediaElement = function(e9) {
             this.h = e9, Fg(this);
@@ -18954,7 +19051,7 @@ var init_load_uTL4eiru = __esm({
               }, i6 = Cg(e9.g, r7, n6), a7 = i6.headers || {}, o8 = Object.keys(r7.headers).length;
               if (Object.keys(a7).length > o8) {
                 t9.headers ||= {};
-                for (var s7 = y4(Object.keys(a7)), c7 = s7.next(); !c7.done; c7 = s7.next()) {
+                for (var s7 = y5(Object.keys(a7)), c7 = s7.next(); !c7.done; c7 = s7.next()) {
                   var l6 = c7.value;
                   l6 in r7.headers || (t9.headers[l6] = a7[l6]);
                 }
@@ -19076,7 +19173,7 @@ var init_load_uTL4eiru = __esm({
           function Jg(e9, t9) {
             var n6 = e9.j.Sc();
             if (!n6.length) return NaN;
-            e9 = n6[0], n6 = y4(n6);
+            e9 = n6[0], n6 = y5(n6);
             for (var r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, r7.type === "variant" && r7.bandwidth > e9.bandwidth && (e9 = r7);
             switch (t9) {
               case "v":
@@ -19087,12 +19184,12 @@ var init_load_uTL4eiru = __esm({
                 return e9.bandwidth;
             }
           }
-          L3("shaka.util.CmcdManager.StreamingFormat", {
+          L4("shaka.util.CmcdManager.StreamingFormat", {
             DASH: "d",
             HLS: "h",
             An: "s",
             OTHER: "o"
-          }), L3("shaka.util.CmcdManager.EventType", {
+          }), L4("shaka.util.CmcdManager.EventType", {
             $m: "bc",
             rn: "ps",
             nn: "pr",
@@ -19111,7 +19208,7 @@ var init_load_uTL4eiru = __esm({
             Tm: "abe",
             zn: "sk",
             dn: "ce"
-          }), L3("shaka.util.CmcdManager.PlayerState", {
+          }), L4("shaka.util.CmcdManager.PlayerState", {
             Cn: "s",
             qn: "p",
             xn: "k",
@@ -19145,7 +19242,7 @@ var init_load_uTL4eiru = __esm({
           function Xg(e9) {
             return e9 ? e9.toLowerCase() === "false" ? false : /^[-0-9]/.test(e9) ? parseInt(e9, 10) : e9.replace(/["]+/g, "") : true;
           }
-          L3("shaka.util.CmsdManager", Yg), Yg.prototype.getBandwidthEstimate = Yg.prototype.getBandwidthEstimate, Yg.prototype.getRoundTripTime = Yg.prototype.Bl, Yg.prototype.getResponseDelay = Yg.prototype.Al, Yg.prototype.getEstimatedThroughput = Yg.prototype.dj, Yg.prototype.getMaxBitrate = Yg.prototype.fj;
+          L4("shaka.util.CmsdManager", Yg), Yg.prototype.getBandwidthEstimate = Yg.prototype.getBandwidthEstimate, Yg.prototype.getRoundTripTime = Yg.prototype.Bl, Yg.prototype.getResponseDelay = Yg.prototype.Al, Yg.prototype.getEstimatedThroughput = Yg.prototype.dj, Yg.prototype.getMaxBitrate = Yg.prototype.fj;
           var Zg = "etp", Qg = "mb", $g = "rd", e_ = "rtt";
           function t_() {
             this.g = null, this.h = [];
@@ -19183,7 +19280,7 @@ var init_load_uTL4eiru = __esm({
           function Q(t9, n6, r7) {
             n6 = n6 === void 0 ? null : n6, oa.call(this);
             var i6 = this;
-            this.l = Iv, this.h = null, this.Gc = n6, this.Fa = false, this.$e = new z3(), this.Qe = new z3(), this.m = new z3(), this.ec = new z3(), this.$d = new z3(), this.F = this.H = this.B = this.L = null, this.bf = 0, this.wa = new t_(), this.P = this.R = this.aa = this.i = this.Bc = this.I = this.j = this.Pe = this.W = this.Ji = this.Ba = this.K = this.kb = this.ra = this.Ec = this.V = this.ib = this.M = this.bc = null, this.ha = false, this.Ue = this.u = null, this.Te = 1e9, this.Ze = [], this.Ac = /* @__PURE__ */ new Map(), this.Ye = [], this.yg = -1, this.g = ev(this), this.Cg = Ep(), this.Y = null, this.df = -1, this.cc = null, this.Ha = {
+            this.l = Iv, this.h = null, this.Gc = n6, this.Fa = false, this.$e = new z4(), this.Qe = new z4(), this.m = new z4(), this.ec = new z4(), this.$d = new z4(), this.F = this.H = this.B = this.L = null, this.bf = 0, this.wa = new t_(), this.P = this.R = this.aa = this.i = this.Bc = this.I = this.j = this.Pe = this.W = this.Ji = this.Ba = this.K = this.kb = this.ra = this.Ec = this.V = this.ib = this.M = this.bc = null, this.ha = false, this.Ue = this.u = null, this.Te = 1e9, this.Ze = [], this.Ac = /* @__PURE__ */ new Map(), this.Ye = [], this.yg = -1, this.g = ev(this), this.Cg = Ep(), this.Y = null, this.df = -1, this.cc = null, this.Ha = {
               width: Infinity,
               height: Infinity
             }, this.Se = new $o(this.g, this.Ha, null), this.We = [], this.o = null, this.O = this.g.adaptationSetCriteriaFactory(), n6 = {
@@ -19205,7 +19302,7 @@ var init_load_uTL4eiru = __esm({
               activeAudioCodec: "",
               activeAudioChannelCount: 0,
               keySystem: this.keySystem()
-            }, Op(n6), this.O.configure(n6), this.Xe = this.g.preferredText[0]?.language || "", this.Ag = this.g.preferredText[0]?.role || "", this.zg = this.g.preferredText[0]?.forced || false, this.Re = [], r7 && r7(this), this.K = new jg(this, this.g.cmcd), this.Ba = new Yg(this.g.cmsd), this.L = A_(this), this.xa = this.Aa = this.Pa = this.C = null, this.Eg = false, this.Bg = [], this.Dg = new G(function() {
+            }, Op(n6), this.O.configure(n6), this.Xe = this.g.preferredText[0]?.language || "", this.Ag = this.g.preferredText[0]?.role || "", this.zg = this.g.preferredText[0]?.forced || false, this.Re = [], r7 && r7(this), this.K = new jg(this, this.g.cmcd), this.Ba = new Yg(this.g.cmsd), this.L = A_(this), this.xa = this.Aa = this.Pa = this.C = null, this.Eg = false, this.Bg = [], this.Dg = new G2(function() {
               return P4(function(e9) {
                 if (e9.h == 1) return i6.Aa ? e9.g(i6.Ub(i6.xa, true), 3) : e9.A(0);
                 if (e9.h != 4) return e9.g(i6.load(i6.Aa), 4);
@@ -19230,10 +19327,10 @@ var init_load_uTL4eiru = __esm({
               });
             })), Hv && (this.Pa = Hv(this), this.Pa.configure(this.g.queue)), this.$e.G(e8, "online", function() {
               Cv(i6), i6.di();
-            }), this.Ve = new G(function() {
-              for (var e9 = Date.now() / 1e3, t10 = false, n7 = true, r8 = y4(i6.i.variants), a7 = r8.next(); !a7.done; a7 = r8.next()) a7 = a7.value, a7.disabledUntilTime > 0 && a7.disabledUntilTime <= e9 && (a7.disabledUntilTime = 0, t10 = true), a7.disabledUntilTime > 0 && (n7 = false);
+            }), this.Ve = new G2(function() {
+              for (var e9 = Date.now() / 1e3, t10 = false, n7 = true, r8 = y5(i6.i.variants), a7 = r8.next(); !a7.done; a7 = r8.next()) a7 = a7.value, a7.disabledUntilTime > 0 && a7.disabledUntilTime <= e9 && (a7.disabledUntilTime = 0, t10 = true), a7.disabledUntilTime > 0 && (n7 = false);
               n7 && i6.Ve.stop(), t10 && fv(i6, false, void 0, false, false);
-            }), this.J = this.D = this.sb = null, this.ce = /* @__PURE__ */ new Set(), this.ma = null, this.Hi = new sa(), this.cf = null, t9 && (R3("Please migrate from initializing Player with a mediaElement; use the attach method instead."), this.Ub(t9, true));
+            }), this.J = this.D = this.sb = null, this.ce = /* @__PURE__ */ new Set(), this.ma = null, this.Hi = new sa(), this.cf = null, t9 && (R4("Please migrate from initializing Player with a mediaElement; use the attach method instead."), this.Ub(t9, true));
           }
           _4(Q, oa);
           function a_(e9) {
@@ -19291,7 +19388,7 @@ var init_load_uTL4eiru = __esm({
                   if (o8.m(5, 6), r7 || (l_(n6, "attach"), i6 = function() {
                     var e10 = Ov(n6, false);
                     e10 && wv(n6, e10);
-                  }, n6.Qe.G(e9, "error", i6), n6.h = e9, n6.K && n6.K.setMediaElement(e9)), B3(), !t9 || !HT() || n6.H) {
+                  }, n6.Qe.G(e9, "error", i6), n6.h = e9, n6.K && n6.K.setMediaElement(e9)), B4(), !t9 || !HT() || n6.H) {
                     o8.A(6);
                     break;
                   }
@@ -19333,82 +19430,82 @@ var init_load_uTL4eiru = __esm({
           }
           r6.Fc = function(t9, n6, r7) {
             t9 = t9 === void 0 || t9, n6 = n6 !== void 0 && n6, r7 = r7 !== void 0 && r7;
-            var i6 = this, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3;
-            return P4(function(C5) {
-              switch (C5.h) {
+            var i6 = this, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5;
+            return P4(function(C6) {
+              switch (C6.h) {
                 case 1:
-                  return i6.l != Fv && (i6.l = Iv), C5.g(u_(i6, "unload"), 2);
+                  return i6.l != Fv && (i6.l = Iv), C6.g(u_(i6, "unload"), 2);
                 case 2:
-                  return C5.i ? C5.return() : (C5.D(3), i6.ha = false, l_(i6, "unload"), a_(i6), a7 = i6.Re.map(function(e9) {
+                  return C6.i ? C6.return() : (C6.D(3), i6.ha = false, l_(i6, "unload"), a_(i6), a7 = i6.Re.map(function(e9) {
                     return e9();
-                  }), i6.Re = [], C5.g(Promise.all(a7), 5));
+                  }), i6.Re = [], C6.g(Promise.all(a7), 5));
                 case 5:
                   if (o8 = (/* @__PURE__ */ new Map()).set("isSwitchingContent", r7), i6.dispatchEvent(s_("unloading", o8)), i6.Ec &&= (i6.Ec.release(), null), i6.ra &&= (i6.ra.release(), null), i6.kb &&= (i6.kb.release(), null), i6.h && (i6.m.Ea(), i6.ec.Ea()), i6.Ve.stop(), i6.bc &&= (i6.bc.release(), null), i6.ib &&= (i6.ib.stop(), null), !i6.I) {
-                    C5.A(6);
+                    C6.A(6);
                     break;
                   }
-                  return C5.g(i6.I.stop(), 7);
+                  return C6.g(i6.I.stop(), 7);
                 case 7:
                   i6.I = null, i6.Bc = null;
                 case 6:
                   if (i6.u && i6.u.stop(), !i6.j) {
-                    C5.A(8);
+                    C6.A(8);
                     break;
                   }
-                  return C5.g(i6.j.destroy(), 9);
+                  return C6.g(i6.j.destroy(), 9);
                 case 9:
                   i6.j = null;
                 case 8:
                   if (i6.M &&= (i6.M.release(), null), i6.F &&= (i6.F.release(), null), e8.shakaMediaKeysPolyfill !== "webkit" || !i6.B) {
-                    C5.A(10);
+                    C6.A(10);
                     break;
                   }
-                  return C5.g(i6.B.destroy(), 11);
+                  return C6.g(i6.B.destroy(), 11);
                 case 11:
                   i6.B = null;
                 case 10:
                   if (!i6.H) {
-                    C5.A(12);
+                    C6.A(12);
                     break;
                   }
-                  return C5.g(i6.H.destroy(), 13);
+                  return C6.g(i6.H.destroy(), 13);
                 case 13:
                   i6.H = null;
                 case 12:
                   if (i6.C && !n6 && i6.C.onAssetUnload(), i6.Aa && !n6 && (i6.Aa.destroy(), i6.Aa = null), n6 || i6.Dg.stop(), i6.K && Mg(i6.K), i6.Ba && (i6.Ba.g = null), !i6.D) {
-                    C5.A(14);
+                    C6.A(14);
                     break;
                   }
-                  return C5.g(i6.D.destroy(), 15);
+                  return C6.g(i6.D.destroy(), 15);
                 case 15:
                   i6.D = null;
                 case 14:
-                  return i6.Fa = false, i6.J && i6.J.disable(), i6.ce.clear(), i6.ma &&= (i6.ma.release(), null), C5.g(i6.Hi.destroy(), 16);
+                  return i6.Fa = false, i6.J && i6.J.disable(), i6.ce.clear(), i6.ma &&= (i6.ma.release(), null), C6.g(i6.Hi.destroy(), 16);
                 case 16:
                   if (i6.h) {
-                    for (s7 = y4(i6.Bg), c7 = s7.next(); !c7.done; c7 = s7.next()) l6 = c7.value, l6.src.startsWith("blob:") && URL.revokeObjectURL(l6.src), l6.remove();
+                    for (s7 = y5(i6.Bg), c7 = s7.next(); !c7.done; c7 = s7.next()) l6 = c7.value, l6.src.startsWith("blob:") && URL.revokeObjectURL(l6.src), l6.remove();
                     i6.Bg = [], pl(i6.h) && i6.h.load();
                   }
                   if (!i6.B) {
-                    C5.A(17);
+                    C6.A(17);
                     break;
                   }
-                  return C5.g(i6.B.destroy(), 18);
+                  return C6.g(i6.B.destroy(), 18);
                 case 18:
                   i6.B = null;
                 case 17:
                   if (i6.sb && i6.aa != i6.sb.$c() && (i6.sb.l || i6.sb.destroy(), i6.sb = null), i6.aa = null, i6.R = null, i6.V = null, i6.i) {
-                    for (u7 = y4(i6.i.variants), d5 = u7.next(); !d5.done; d5 = u7.next()) for (f4 = d5.value, p5 = y4([f4.audio, f4.video]), m5 = p5.next(); !m5.done; m5 = p5.next()) (h6 = m5.value) && h6.segmentIndex && h6.segmentIndex.release();
-                    for (g6 = y4(i6.i.textStreams), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, v7.segmentIndex && v7.segmentIndex.release();
+                    for (u7 = y5(i6.i.variants), d5 = u7.next(); !d5.done; d5 = u7.next()) for (f4 = d5.value, p5 = y5([f4.audio, f4.video]), m5 = p5.next(); !m5.done; m5 = p5.next()) (h6 = m5.value) && h6.segmentIndex && h6.segmentIndex.release();
+                    for (g6 = y5(i6.i.textStreams), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, v7.segmentIndex && v7.segmentIndex.release();
                   }
-                  for (i6.g && i6.g.streaming.clearDecodingCache && (ji.clear(), ut2.clear()), i6.i = null, i6.o = new Lp(), i6.Ii = null, i6.cc = null, i6.Y = null, i6.df = -1, i6.Ze = [], b4 = y4(i6.Ac.values()), x4 = b4.next(); !x4.done; x4 = b4.next()) S3 = x4.value, S3.stop();
+                  for (i6.g && i6.g.streaming.clearDecodingCache && (ji.clear(), ut2.clear()), i6.i = null, i6.o = new Lp(), i6.Ii = null, i6.cc = null, i6.Y = null, i6.df = -1, i6.Ze = [], b5 = y5(i6.Ac.values()), x5 = b5.next(); !x5.done; x5 = b5.next()) S5 = x5.value, S5.stop();
                   i6.Ac.clear(), i6.Ye = [], i6.yg = -1, i6.L && i6.L.Ri(), i6.cf &&= (URL.revokeObjectURL(i6.cf), null), nv(i6);
                 case 3:
-                  C5.u(), i6.wa.release(), C5.B(4);
+                  C6.u(), i6.wa.release(), C6.B(4);
                   break;
                 case 4:
-                  if (B3(), t9 && HT() && !i6.H && i6.h) return C5.g(v_(i6), 0);
-                  C5.A(0);
+                  if (B4(), t9 && HT() && !i6.H && i6.h) return C6.g(v_(i6), 0);
+                  C6.A(0);
               }
             });
           }, r6.Rm = function(e9) {
@@ -19416,15 +19513,15 @@ var init_load_uTL4eiru = __esm({
           }, r6.load = function(e9, t9, n6) {
             t9 = t9 === void 0 ? null : t9;
             var r7 = this, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7;
-            return P4(function(y5) {
-              switch (y5.h) {
+            return P4(function(y6) {
+              switch (y6.h) {
                 case 1:
                   if (r7.l == Fv) throw new H4(2, 7, 7e3);
                   if (r7.h || !r7.xa) {
-                    y5.A(2);
+                    y6.A(2);
                     break;
                   }
-                  return y5.g(r7.Ub(r7.xa, true), 3);
+                  return y6.g(r7.Ub(r7.xa, true), 3);
                 case 3:
                   r7.xa = null;
                 case 2:
@@ -19432,14 +19529,14 @@ var init_load_uTL4eiru = __esm({
                     if (e9.l) throw new H4(2, 7, 7006);
                     i6 = e9, a7 = i6.$c() || "";
                   } else a7 = e9 || "";
-                  return y5.g(n_(r7.wa, "load"), 4);
+                  return y6.g(n_(r7.wa, "load"), 4);
                 case 4:
                   if (r7.wa.release(), !r7.h) throw new H4(2, 7, 7002);
                   if (!r7.aa) {
-                    y5.A(5);
+                    y6.A(5);
                     break;
                   }
-                  return r7.aa = a7, y5.g(r7.Fc(false, false, true), 5);
+                  return r7.aa = a7, y6.g(r7.Fc(false, false, true), 5);
                 case 5:
                   if (r7.K && Fg(r7.K), o8 = ++r7.bf, s7 = function() {
                     return P4(function(e10) {
@@ -19463,15 +19560,15 @@ var init_load_uTL4eiru = __esm({
                           n7.u(), r7.wa.release(), n7.B(0);
                       }
                     });
-                  }, y5.m(7, 8), t9 == null && i6 && (t9 = i6.getStartTime()), r7.P = t9, r7.ha = false, r7.dispatchEvent(s_("loading")), i6) {
-                    n6 = i6.Af(), y5.A(10);
+                  }, y6.m(7, 8), t9 == null && i6 && (t9 = i6.getStartTime()), r7.P = t9, r7.ha = false, r7.dispatchEvent(s_("loading")), i6) {
+                    n6 = i6.Af(), y6.A(10);
                     break;
                   }
                   if (n6) {
-                    y5.A(10);
+                    y6.A(10);
                     break;
                   }
-                  return y5.g(c7(function() {
+                  return y6.g(c7(function() {
                     return P4(function(e10) {
                       if (e10.h == 1) return e10.g(h_(r7, a7), 2);
                       n6 = e10.i, e10.j();
@@ -19479,12 +19576,12 @@ var init_load_uTL4eiru = __esm({
                   }, "guessMimeType_"), 10);
                 case 10:
                   if (l6 = !!i6, i6) {
-                    Yp(i6, r7), r7.o = i6.getStats(), y5.A(13);
+                    Yp(i6, r7), r7.o = i6.getStats(), y6.A(13);
                     break;
                   }
-                  return y5.g(p_(r7, a7, t9, n6, true, r7.g), 14);
+                  return y6.g(p_(r7, a7, t9, n6, true, r7.g), 14);
                 case 14:
-                  (i6 = y5.i) ? (i6.H = false, Yp(i6, r7), r7.o = i6.getStats(), i6.start(), i6.F.promise.catch(function() {
+                  (i6 = y6.i) ? (i6.H = false, Yp(i6, r7), r7.o = i6.getStats(), i6.start(), i6.F.promise.catch(function() {
                   })) : r7.o = new Lp();
                 case 13:
                   return u7 = !i6, d5 = Date.now() / 1e3, r7.o = i6 ? i6.getStats() : new Lp(), r7.aa = a7, r7.R = n6 || null, nv(r7), f4 = function() {
@@ -19495,11 +19592,11 @@ var init_load_uTL4eiru = __esm({
                     };
                   }, r7.ra = new Ad(f4), r7.ra.addEventListener("regionadd", function(e10) {
                     D_(r7, e10.region, "metadataadded");
-                  }), u7 ? y5.g(c7(function() {
+                  }), u7 ? y6.g(c7(function() {
                     return P4(function(e10) {
                       return e10.g(S_(r7, n6), 0);
                     });
-                  }, "initializeSrcEqualsDrmInner_"), 25) : (r7.kb = new Ad(f4), y5.g(c7(function() {
+                  }, "initializeSrcEqualsDrmInner_"), 25) : (r7.kb = new Ad(f4), y6.g(c7(function() {
                     return P4(function(e10) {
                       if (e10.h == 1) return e10.g(Promise.race([i6.ha.promise, i6.F.promise]), 2);
                       r7.Bc = i6.J;
@@ -19509,47 +19606,47 @@ var init_load_uTL4eiru = __esm({
                   }, "waitForFinish"), 17));
                 case 17:
                   if (r7.H) {
-                    y5.A(18);
+                    y6.A(18);
                     break;
                   }
-                  return y5.g(c7(function() {
+                  return y6.g(c7(function() {
                     return P4(function(e10) {
                       return e10.g(v_(r7), 0);
                     });
                   }, "initializeMediaSourceEngineInner_"), 18);
                 case 18:
-                  return y5.g(c7(function() {
+                  return y6.g(c7(function() {
                     return P4(function(e10) {
                       return e10.g(i6.F.promise, 0);
                     });
                   }, "waitForFinish"), 20);
                 case 20:
                   if (r7.g = i6.getConfiguration(), r7.Se = i6.I, r7.I && r7.I.setMediaElement && r7.h && r7.I.setMediaElement(r7.h), r7.Ec = Xp(i6), r7.Pe = i6.Ba, (p5 = i6.m) && (r7.O = p5), l6 && r7.h && r7.h.nodeName === "AUDIO" && (d_(r7), r7.configure("manifest.disableVideo", true)), i6.j) {
-                    y5.A(21);
+                    y6.A(21);
                     break;
                   }
-                  return y5.g(c7(function() {
+                  return y6.g(c7(function() {
                     return P4(function(e10) {
                       return e10.g(nm(i6, r7.h), 0);
                     });
                   }, "drmEngine_.init"), 21);
                 case 21:
-                  return r7.B = Zp(i6), y5.g(c7(function() {
+                  return r7.B = Zp(i6), y6.g(c7(function() {
                     return P4(function(e10) {
                       return e10.g(r7.B.Ub(r7.h), 0);
                     });
                   }, "drmEngine_.attach"), 23);
                 case 23:
-                  return r7.O && (m5 = r7.O.getConfiguration(), m5.keySystem = r7.keySystem(), r7.O.configure(m5)), h6 = r7.g.abrFactory, r7.u && r7.Ue == h6 || (r7.Ue = h6, r7.u && r7.u.release(), r7.u = h6(), r7.u.configure(r7.g.abr)), g6 = Qp(i6), _5 = i6.h, y5.g(c7(function() {
+                  return r7.O && (m5 = r7.O.getConfiguration(), m5.keySystem = r7.keySystem(), r7.O.configure(m5)), h6 = r7.g.abrFactory, r7.u && r7.Ue == h6 || (r7.Ue = h6, r7.u && r7.u.release(), r7.u = h6(), r7.u.configure(r7.g.abr)), g6 = Qp(i6), _5 = i6.h, y6.g(c7(function() {
                     return P4(function(e10) {
                       return e10.g(x_(r7, d5, _5, g6), 0);
                     });
                   }, "loadInner_"), 24);
                 case 24:
-                  Jp(i6), r7.R && B3().jk() && kr(r7.R) && ql(r7.H, r7.aa, r7.R), y5.A(16);
+                  Jp(i6), r7.R && B4().jk() && kr(r7.R) && ql(r7.H, r7.aa, r7.R), y6.A(16);
                   break;
                 case 25:
-                  return y5.g(c7(function() {
+                  return y6.g(c7(function() {
                     return P4(function(e10) {
                       return e10.g(C_(r7, d5, n6), 0);
                     });
@@ -19557,27 +19654,27 @@ var init_load_uTL4eiru = __esm({
                 case 16:
                   r7.dispatchEvent(s_("loaded"));
                 case 8:
-                  if (y5.u(), !i6) {
-                    y5.A(27);
+                  if (y6.u(), !i6) {
+                    y6.A(27);
                     break;
                   }
-                  return y5.g(i6.destroy(), 27);
+                  return y6.g(i6.destroy(), 27);
                 case 27:
-                  r7.sb = null, y5.B(0);
+                  r7.sb = null, y6.B(0);
                   break;
                 case 7:
-                  if (v7 = y5.l(), !v7 || v7.code == 7e3) {
-                    y5.A(29);
+                  if (v7 = y6.l(), !v7 || v7.code == 7e3) {
+                    y6.A(29);
                     break;
                   }
-                  return y5.g(r7.Fc(false), 29);
+                  return y6.g(r7.Fc(false), 29);
                 case 29:
                   throw v7;
               }
             });
           };
           function d_(e9) {
-            for (var t9 = y4(e9.i.variants), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, n6.video && (n6.video.closeSegmentIndex(), n6.video = null), n6.bandwidth = n6.audio && n6.audio.bandwidth ? n6.audio.bandwidth : 0;
+            for (var t9 = y5(e9.i.variants), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, n6.video && (n6.video.closeSegmentIndex(), n6.video = null), n6.bandwidth = n6.audio && n6.audio.bandwidth ? n6.audio.bandwidth : 0;
             e9.i.variants = e9.i.variants.filter(function(e10) {
               return e10.audio;
             });
@@ -19623,7 +19720,7 @@ var init_load_uTL4eiru = __esm({
           }, r6.Sg = function() {
             var e9 = this, t9, n6, r7, i6;
             return P4(function(a7) {
-              for (t9 = [], n6 = y4(e9.We), r7 = n6.next(); !r7.done; r7 = n6.next()) i6 = r7.value, i6.l || t9.push(i6.destroy());
+              for (t9 = [], n6 = y5(e9.We), r7 = n6.next(); !r7.done; r7 = n6.next()) i6 = r7.value, i6.l || t9.push(i6.destroy());
               return e9.We = [], a7.g(Promise.all(t9), 0);
             });
           };
@@ -19640,13 +19737,13 @@ var init_load_uTL4eiru = __esm({
           }
           function m_(e9, t9, n6, r7, i6, a7, o8) {
             a7 = a7 === void 0 || a7, o8 = o8 !== void 0 && o8;
-            var s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3;
-            return P4(function(C5) {
-              return C5.h == 1 ? (s7 = null, c7 = ln(i6), o8 && (c7.manifest.disableVideo = true), l6 = function() {
+            var s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5;
+            return P4(function(C6) {
+              return C6.h == 1 ? (s7 = null, c7 = ln(i6), o8 && (c7.manifest.disableVideo = true), l6 = function() {
                 return s7.R && s7.l ? null : s7;
               }, u7 = function() {
                 return l6() ? l6().getConfiguration() : e9.g;
-              }, e9.Ha.width != Infinity || e9.Ha.height != Infinity || e9.g.ignoreHardwareResolution ? C5.A(2) : (d5 = B3(), C5.g(d5.Wb(), 3))) : (C5.h != 2 && (f4 = C5.i, e9.Ha.width = f4.width, e9.Ha.height = f4.height), p5 = new $o(c7, e9.Ha, null), m5 = {
+              }, e9.Ha.width != Infinity || e9.Ha.height != Infinity || e9.g.ignoreHardwareResolution ? C6.A(2) : (d5 = B4(), C6.g(d5.Wb(), 3))) : (C6.h != 2 && (f4 = C6.i, e9.Ha.width = f4.width, e9.Ha.height = f4.height), p5 = new $o(c7, e9.Ha, null), m5 = {
                 networkingEngine: e9.L,
                 filter: function(e10) {
                   var t10, n7;
@@ -19657,9 +19754,9 @@ var init_load_uTL4eiru = __esm({
                   });
                 },
                 makeTextStreamsForClosedCaptions: function(t10) {
-                  for (var n7 = /* @__PURE__ */ new Set(), r8 = y4(t10.textStreams), i7 = r8.next(); !i7.done; i7 = r8.next()) i7 = i7.value, i7.mimeType != "application/cea-608" && i7.mimeType != "application/cea-708" || n7.add(i7.originalId);
-                  for (r8 = y4(t10.variants), i7 = r8.next(); !i7.done; i7 = r8.next()) if ((i7 = i7.value.video) && i7.closedCaptions) {
-                    for (var a8 = y4(i7.closedCaptions.keys()), o9 = a8.next(); !o9.done; o9 = a8.next()) if (o9 = o9.value, !n7.has(o9)) {
+                  for (var n7 = /* @__PURE__ */ new Set(), r8 = y5(t10.textStreams), i7 = r8.next(); !i7.done; i7 = r8.next()) i7 = i7.value, i7.mimeType != "application/cea-608" && i7.mimeType != "application/cea-708" || n7.add(i7.originalId);
+                  for (r8 = y5(t10.variants), i7 = r8.next(); !i7.done; i7 = r8.next()) if ((i7 = i7.value.video) && i7.closedCaptions) {
+                    for (var a8 = y5(i7.closedCaptions.keys()), o9 = a8.next(); !o9.done; o9 = a8.next()) if (o9 = o9.value, !n7.has(o9)) {
                       var s8 = o9.startsWith("CC") ? "application/cea-608" : "application/cea-708", c8 = new _d(), l7 = i7.closedCaptions.get(o9);
                       s8 = ki({
                         id: e9.Te++,
@@ -19669,7 +19766,7 @@ var init_load_uTL4eiru = __esm({
                         kind: "caption",
                         language: l7,
                         originalLanguage: l7,
-                        type: U2,
+                        type: U3,
                         roles: i7.roles
                       }), t10.textStreams.push(s8), n7.add(o9);
                     }
@@ -19736,7 +19833,7 @@ var init_load_uTL4eiru = __esm({
                         }
                       });
                     });
-                  }), i7 = y4(i7);
+                  }), i7 = y5(i7);
                   for (var c8 = i7.next(), l7 = {}; !c8.done; l7 = { Oh: void 0 }, c8 = i7.next()) l7.Oh = c8.value, l7.Oh.name != "ID" && qp(s7, false, /* @__PURE__ */ (function(t11) {
                     return function() {
                       O_(e9, n7, r8, a8, t11.Oh);
@@ -19793,32 +19890,32 @@ var init_load_uTL4eiru = __esm({
                     t10 >= 0 && (n7.m = t10), e9.W && Nt(e9.W);
                   }
                 }
-              }, b4 = A_(e9, l6), ba(e9.L, b4), x4 = function() {
+              }, b5 = A_(e9, l6), ba(e9.L, b5), x5 = function() {
                 return e9.td(v7);
-              }, S3 = {
+              }, S5 = {
                 config: c7,
                 Vl: m5,
                 lm: h6,
                 jm: g6,
-                td: x4,
+                td: x5,
                 Ul: p5,
-                networkingEngine: b4,
+                networkingEngine: b5,
                 Ck: a7
-              }, s7 = new Kp(t9, r7, n6, S3), C5.return(s7));
+              }, s7 = new Kp(t9, r7, n6, S5), C6.return(s7));
             });
           }
           function h_(e9, t9) {
             var n6, r7, i6, a7;
             return P4(function(o8) {
-              return o8.h == 1 ? (n6 = e9.g.manifest.retryParameters, o8.g(rf(t9, e9.L, n6), 2)) : (r7 = o8.i, kr(r7) ? (i6 = B3(), i6.Qa() === "WEBKIT" && (r7 = "application/vnd.apple.mpegurl")) : r7 === "video/quicktime" && (a7 = B3(), a7.Qa() === "CHROMIUM" && (r7 = "video/mp4")), o8.return(r7));
+              return o8.h == 1 ? (n6 = e9.g.manifest.retryParameters, o8.g(rf(t9, e9.L, n6), 2)) : (r7 = o8.i, kr(r7) ? (i6 = B4(), i6.Qa() === "WEBKIT" && (r7 = "application/vnd.apple.mpegurl")) : r7 === "video/quicktime" && (a7 = B4(), a7.Qa() === "CHROMIUM" && (r7 = "video/mp4")), o8.return(r7));
             });
           }
           function g_(e9, t9) {
-            if (!HT(B3())) return true;
+            if (!HT(B4())) return true;
             if (t9) {
               if ((e9.h || hl()).canPlayType(t9) == "") return false;
-              if (!HT(B3()) || !zt.has(t9)) return true;
-              if (kr(t9)) return B3().Qa() === "WEBKIT" && (e9.g.drm.servers["com.apple.fps"] || e9.g.drm.servers["com.apple.fps.1_0"]) ? e9.g.streaming.useNativeHlsForFairPlay : e9.g.streaming.preferNativeHls;
+              if (!HT(B4()) || !zt.has(t9)) return true;
+              if (kr(t9)) return B4().Qa() === "WEBKIT" && (e9.g.drm.servers["com.apple.fps"] || e9.g.drm.servers["com.apple.fps.1_0"]) ? e9.g.streaming.useNativeHlsForFairPlay : e9.g.streaming.preferNativeHls;
               if (t9 === "application/dash+xml" || t9 === "video/vnd.mpeg.dash.mpd") return e9.g.streaming.preferNativeDash;
             }
             return false;
@@ -19831,16 +19928,16 @@ var init_load_uTL4eiru = __esm({
           function v_(e9) {
             var t9, n6, r7;
             return P4(function(i6) {
-              if (i6.h == 1) return B3(), l_(e9, "media-source"), e9.g.mediaSource.useSourceElements && pl(e9.h), __(e9), t9 = L_(e9.h, e9.D, {
+              if (i6.h == 1) return B4(), l_(e9, "media-source"), e9.g.mediaSource.useSourceElements && pl(e9.h), __(e9), t9 = L_(e9.h, e9.D, {
                 se: function() {
                   return e9.keySystem();
                 },
                 onMetadata: function(t10, n7, r8) {
-                  t10 = y4(t10);
+                  t10 = y5(t10);
                   for (var i7 = t10.next(); !i7.done; i7 = t10.next()) if (i7 = i7.value, i7.data && typeof i7.cueTime == "number" && i7.frames) {
                     var a7 = i7.cueTime + n7, o8 = r8;
                     o8 && a7 > o8 && (o8 = a7);
-                    for (var s7 = y4(i7.frames), c7 = s7.next(); !c7.done; c7 = s7.next()) O_(e9, a7, o8, "org.id3", c7.value);
+                    for (var s7 = y5(i7.frames), c7 = s7.next(); !c7.done; c7 = s7.next()) O_(e9, a7, o8, "org.id3", c7.value);
                     e9.C && e9.C.onHlsTimedMetadata(i7, a7);
                   }
                 },
@@ -19909,7 +20006,7 @@ var init_load_uTL4eiru = __esm({
             }), e9.m.G(t9, "ratechange", function() {
               rv(e9);
             });
-            var r7 = UT(B3(), t9);
+            var r7 = UT(B4(), t9);
             if (r7 && (e9.m.G(r7, "connect", function() {
               e9.j && r7.state == "connected" && bv(e9), gv(e9);
             }), e9.m.G(r7, "connecting", function() {
@@ -19963,7 +20060,7 @@ var init_load_uTL4eiru = __esm({
             })));
           }
           function x_(t9, n6, r7, i6) {
-            var a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4, F5;
+            var a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5, F5;
             return P4(function(I5) {
               switch (I5.h) {
                 case 1:
@@ -19976,7 +20073,7 @@ var init_load_uTL4eiru = __esm({
                         return e10.hdrLevel == "AUTO";
                       }) && t9.g.abr.enabled && (e9.preferredVideo = t9.g.preferredVideo, Op(e9), t9.O.configure(e9), lv(t9));
                     }
-                  }), o8 = false, s7 = y4(t9.i.variants), c7 = s7.next(); !c7.done; c7 = s7.next()) l6 = c7.value, (u7 = l6.video && l6.video.dependencyStream) && (o8 = Pt(u7));
+                  }), o8 = false, s7 = y5(t9.i.variants), c7 = s7.next(); !c7.done; c7 = s7.next()) l6 = c7.value, (u7 = l6.video && l6.video.dependencyStream) && (o8 = Pt(u7));
                   o_(t9, t9.g, o8), t9.Xe = t9.g.preferredText[0] && t9.g.preferredText[0].language || "", t9.Ag = t9.g.preferredText[0] && t9.g.preferredText[0].role || "", t9.zg = t9.g.preferredText[0]?.forced || false, Av(t9.i.presentationTimeline, t9.g.playRangeStart, t9.g.playRangeEnd), t9.u.init(function(e9, n7, r8) {
                     t9.i && t9.j && e9 != t9.j.o && pv(t9, e9, true, n7 !== void 0 && n7, r8 === void 0 ? 0 : r8);
                   }, function(e9, n7) {
@@ -19984,7 +20081,7 @@ var init_load_uTL4eiru = __esm({
                     (e9 = r8 && r8[e9]) && t9.disableStream(e9, n7);
                   }), t9.u.setMediaElement(a7), t9.u.setCmsdManager(t9.Ba), t9.j = R_(t9), t9.j.configure(t9.g.streaming), t9.l = Lv, t9.dispatchEvent(s_("streaming")), d5 = r7;
                 case 2:
-                  for (p5 = t9.j.o, p5 || (m5 = uv(t9, true), r7 || (d5 = m5)), h6 = [], f4 = p5 || d5, g6 = y4([f4.video, f4.audio]), _5 = g6.next(); !_5.done; _5 = g6.next()) (v7 = _5.value) && !v7.segmentIndex && (h6.push(v7.createSegmentIndex()), v7.dependencyStream && h6.push(v7.dependencyStream.createSegmentIndex()));
+                  for (p5 = t9.j.o, p5 || (m5 = uv(t9, true), r7 || (d5 = m5)), h6 = [], f4 = p5 || d5, g6 = y5([f4.video, f4.audio]), _5 = g6.next(); !_5.done; _5 = g6.next()) (v7 = _5.value) && !v7.segmentIndex && (h6.push(v7.createSegmentIndex()), v7.dependencyStream && h6.push(v7.dependencyStream.createSegmentIndex()));
                   if (!(h6.length > 0)) {
                     I5.A(4);
                     break;
@@ -19995,11 +20092,11 @@ var init_load_uTL4eiru = __esm({
                     I5.A(2);
                     break;
                   }
-                  return lv(t9), t9.I && t9.I.onInitialVariantChosen && t9.I.onInitialVariantChosen(f4), t9.i.isLowLatency && (t9.g.streaming.lowLatencyMode ? t9.configure(t9.Cg) : R3("Low-latency live stream detected, but low-latency streaming mode is not enabled in Shaka Player. Set streaming.lowLatencyMode configuration to true, and see https://bit.ly/3clctcj for details.")), t9.K && Ng(t9.K, n6 * 1e3), Av(t9.i.presentationTimeline, t9.g.playRangeStart, t9.g.playRangeEnd), uf(t9.j, t9.g.playRangeStart, t9.g.playRangeEnd), I5.g(Pv(t9), 7);
+                  return lv(t9), t9.I && t9.I.onInitialVariantChosen && t9.I.onInitialVariantChosen(f4), t9.i.isLowLatency && (t9.g.streaming.lowLatencyMode ? t9.configure(t9.Cg) : R4("Low-latency live stream detected, but low-latency streaming mode is not enabled in Shaka Player. Set streaming.lowLatencyMode configuration to true, and see https://bit.ly/3clctcj for details.")), t9.K && Ng(t9.K, n6 * 1e3), Av(t9.i.presentationTimeline, t9.g.playRangeStart, t9.g.playRangeEnd), uf(t9.j, t9.g.playRangeStart, t9.g.playRangeEnd), I5.g(Pv(t9), 7);
                 case 7:
-                  if (t9.ha = true, t9.dispatchEvent(s_("canupdatestarttime")), b4 = function(e9) {
+                  if (t9.ha = true, t9.dispatchEvent(s_("canupdatestarttime")), b5 = function(e9) {
                     t9.F = j_(t9, e9), t9.bc = M_(t9, e9), P_(t9, a7, false);
-                  }, t9.g.streaming.startAtSegmentBoundary || (x4 = t9.P, x4 == null && t9.i.startTime && (x4 = t9.i.startTime), b4(x4)), p5) {
+                  }, t9.g.streaming.startAtSegmentBoundary || (x5 = t9.P, x5 == null && t9.i.startTime && (x5 = t9.i.startTime), b5(x5)), p5) {
                     I5.A(8);
                     break;
                   }
@@ -20007,23 +20104,23 @@ var init_load_uTL4eiru = __esm({
                     I5.A(9);
                     break;
                   }
-                  return S3 = t9.i.presentationTimeline, t9.P instanceof Date && (w5 = S3.j || S3.h, T5 = t9.P.getTime() / 1e3 - w5, T5 != null && (C5 = T5)), C5 ??= typeof t9.P == "number" ? t9.P : t9.isLive() ? Infinity : t9.h.currentTime, t9.P == null && t9.i.startTime && (C5 = t9.i.startTime), E5 = S3.Kb(), D5 = S3.Eb(), C5 < E5 ? C5 = E5 : C5 > D5 && (C5 = D5), I5.g(tv(d5, C5), 10);
+                  return S5 = t9.i.presentationTimeline, t9.P instanceof Date && (w6 = S5.j || S5.h, T6 = t9.P.getTime() / 1e3 - w6, T6 != null && (C6 = T6)), C6 ??= typeof t9.P == "number" ? t9.P : t9.isLive() ? Infinity : t9.h.currentTime, t9.P == null && t9.i.startTime && (C6 = t9.i.startTime), E6 = S5.Kb(), D6 = S5.Eb(), C6 < E6 ? C6 = E6 : C6 > D6 && (C6 = D6), I5.g(tv(d5, C6), 10);
                 case 10:
-                  O5 = I5.i, b4(O5);
+                  O6 = I5.i, b5(O6);
                 case 9:
                   pv(t9, d5, true, false, 0);
                 case 8:
-                  return t9.F.ready(), k5 = t9.Gb().find(function(e9) {
+                  return t9.F.ready(), k6 = t9.Gb().find(function(e9) {
                     return e9.active;
-                  }), k5 || ((A4 = dv(t9, d5)) && (Ip(t9.o.j, A4, true), A4 ? (t9.Fa = true, t9.D.setTextVisibility(true)) : (t9.Fa = false, t9.D.setTextVisibility(false))), A4 && t9.Fa && (hf(t9.j, A4), Sv(t9))), I5.g(t9.j.start(i6), 11);
+                  }), k6 || ((A5 = dv(t9, d5)) && (Ip(t9.o.j, A5, true), A5 ? (t9.Fa = true, t9.D.setTextVisibility(true)) : (t9.Fa = false, t9.D.setTextVisibility(false))), A5 && t9.Fa && (hf(t9.j, A5), Sv(t9))), I5.g(t9.j.start(i6), 11);
                 case 11:
                   t9.g.abr.enabled && (t9.u.enable(), xv(t9)), gv(t9), t9.i.variants.some(function(e9) {
                     return e9.primary;
                   }), ((j5 = t9.ya()) && (t9.g.streaming.liveSync && t9.g.streaming.liveSync.enabled || t9.i.serviceDescription || t9.g.streaming.liveSync.panicMode) || t9.g.streaming.vodDynamicPlaybackRate) && (M5 = function() {
                     return ov(t9);
-                  }, t9.m.G(a7, "timeupdate", M5)), j5 || (N4 = function() {
+                  }, t9.m.G(a7, "timeupdate", M5)), j5 || (N5 = function() {
                     return cv(t9);
-                  }, t9.m.G(a7, "timeupdate", N4), cv(t9), t9.i.nextUrl && (t9.g.streaming.preloadNextUrlWindow > 0 && (F5 = function() {
+                  }, t9.m.G(a7, "timeupdate", N5), cv(t9), t9.i.nextUrl && (t9.g.streaming.preloadNextUrlWindow > 0 && (F5 = function() {
                     var e9;
                     return P4(function(n7) {
                       if (n7.h == 1) return e9 = t9.Na().end - t9.h.currentTime, isNaN(e9) || !(e9 <= t9.g.streaming.preloadNextUrlWindow) ? n7.A(0) : (t9.m.Ua(a7, "timeupdate", F5), n7.g(t9.preload(t9.i.nextUrl), 4));
@@ -20060,7 +20157,7 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function C_(e9, t9, n6) {
-            var r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5;
+            var r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5;
             return P4(function(M5) {
               switch (M5.h) {
                 case 1:
@@ -20077,7 +20174,7 @@ var init_load_uTL4eiru = __esm({
                     return a7(true);
                   }), e9.m.G(r7, "leavepictureinpicture", function() {
                     return a7(false);
-                  }), o8 = B3(), (s7 = UT(o8, r7)) ? e9.m.Hb(s7, [
+                  }), o8 = B4(), (s7 = UT(o8, r7)) ? e9.m.Hb(s7, [
                     "connect",
                     "connecting",
                     "disconnect"
@@ -20095,7 +20192,7 @@ var init_load_uTL4eiru = __esm({
                     e10.request === p5 && (e10 = e10.headers, !e10["content-length"] || e10["icy-br"] || e10["icy-description"] || e10["icy-genre"] || e10["icy-name"] || e10["icy-url"]) && (d5 = true, m5.abort());
                   }, e9.addEventListener("downloadheadersreceived", h6), M5.m(3, 4), M5.g(m5.promise, 6);
                 case 6:
-                  g6 = M5.i, u7 = V3(g6.data), _5 = new Blob([g6.data], { type: e9.R }), l6 = URL.createObjectURL(_5), e9.cf = l6;
+                  g6 = M5.i, u7 = V4(g6.data), _5 = new Blob([g6.data], { type: e9.R }), l6 = URL.createObjectURL(_5), e9.cf = l6;
                 case 4:
                   M5.u(), e9.removeEventListener("downloadheadersreceived", h6), M5.B(2);
                   break;
@@ -20112,40 +20209,40 @@ var init_load_uTL4eiru = __esm({
                 case 8:
                   e9.H = null;
                 case 7:
-                  return pl(r7), r7.src = l6, b4 = B3(), b4.Ra() == "TV" && r7.load(), r7.preload != "none" && !r7.autoplay && kr(n6) && b4.Qa() === "WEBKIT" && r7.load(), e9.l = Rv, e9.dispatchEvent(s_("streaming")), x4 = function() {
+                  return pl(r7), r7.src = l6, b5 = B4(), b5.Ra() == "TV" && r7.load(), r7.preload != "none" && !r7.autoplay && kr(n6) && b5.Qa() === "WEBKIT" && r7.load(), e9.l = Rv, e9.dispatchEvent(s_("streaming")), x5 = function() {
                     return new Promise(function(t10) {
-                      var n7 = new G(t10);
+                      var n7 = new G2(t10);
                       e9.m.G(r7.textTracks, "change", function() {
                         return n7.ba(0.5);
                       }), n7.ba(0.5);
                     });
-                  }, S3 = Promise.withResolvers(), Zu(r7, HTMLMediaElement.HAVE_METADATA, e9.m, function() {
+                  }, S5 = Promise.withResolvers(), Zu(r7, HTMLMediaElement.HAVE_METADATA, e9.m, function() {
                     return P4(function(t10) {
-                      if (t10.h == 1) return e9.F.ready(), e9.R && kr(e9.R) ? t10.g(x4(), 3) : (S3.resolve(), t10.A(0));
-                      S3.resolve(), t10.j();
+                      if (t10.h == 1) return e9.F.ready(), e9.R && kr(e9.R) ? t10.g(x5(), 3) : (S5.resolve(), t10.A(0));
+                      S5.resolve(), t10.j();
                     });
                   }), Zu(r7, HTMLMediaElement.HAVE_CURRENT_DATA, e9.m, function() {
                     var t10, n7, r8, a8, o9;
                     return P4(function(s8) {
-                      if (s8.h == 1) return s8.g(x4(), 2);
+                      if (s8.h == 1) return s8.g(x5(), 2);
                       if (i6) return s8.return();
                       if (w_(e9), t10 = G_(e9), t10.some(function(e10) {
                         return e10.mode === "showing";
-                      }) && (e9.Fa = true, e9.D.setTextVisibility(true)), !(e9.D instanceof Mm)) for (n7 = false, r8 = y4(t10), a8 = r8.next(); !a8.done; a8 = r8.next()) o9 = a8.value, o9.mode !== "disabled" && (n7 ? (o9.mode = "disabled", R3("Found more than one enabled text track, disabling it", o9)) : (U_(e9, o9), n7 = true));
+                      }) && (e9.Fa = true, e9.D.setTextVisibility(true)), !(e9.D instanceof Mm)) for (n7 = false, r8 = y5(t10), a8 = r8.next(); !a8.done; a8 = r8.next()) o9 = a8.value, o9.mode !== "disabled" && (n7 ? (o9.mode = "disabled", R4("Found more than one enabled text track, disabling it", o9)) : (U_(e9, o9), n7 = true));
                       T_(e9), s8.j();
                     });
-                  }), r7.error ? S3.reject(Ov(e9)) : r7.preload == "none" && (R3('With <video preload="none">, the browser will not load anything until play() is called. We are unable to measure load latency in a meaningful way, and we cannot provide track info yet. Please do not use preload="none" with Shaka Player.'), S3.resolve()), e9.m.oa(r7, "error", function() {
-                    S3.reject(Ov(e9));
-                  }), M5.g(Zr(e9.g.streaming.loadTimeout, S3.promise), 9);
+                  }), r7.error ? S5.reject(Ov(e9)) : r7.preload == "none" && (R4('With <video preload="none">, the browser will not load anything until play() is called. We are unable to measure load latency in a meaningful way, and we cannot provide track info yet. Please do not use preload="none" with Shaka Player.'), S5.resolve()), e9.m.oa(r7, "error", function() {
+                    S5.reject(Ov(e9));
+                  }), M5.g(Zr(e9.g.streaming.loadTimeout, S5.promise), 9);
                 case 9:
-                  if (((C5 = e9.ya()) && (e9.g.streaming.liveSync && e9.g.streaming.liveSync.enabled || e9.g.streaming.liveSync.panicMode) || e9.g.streaming.vodDynamicPlaybackRate) && (w5 = function() {
+                  if (((C6 = e9.ya()) && (e9.g.streaming.liveSync && e9.g.streaming.liveSync.enabled || e9.g.streaming.liveSync.panicMode) || e9.g.streaming.vodDynamicPlaybackRate) && (w6 = function() {
                     return ov(e9);
-                  }, e9.m.G(r7, "timeupdate", w5)), C5 || (T5 = function() {
+                  }, e9.m.G(r7, "timeupdate", w6)), C6 || (T6 = function() {
                     return cv(e9);
-                  }, e9.m.G(r7, "timeupdate", T5), cv(e9)), e9.C && (e9.C.onManifestUpdated(C5), C5 && (E5 = e9.Na().end, e9.m.G(r7, "progress", function() {
+                  }, e9.m.G(r7, "timeupdate", T6), cv(e9)), e9.C && (e9.C.onManifestUpdated(C6), C6 && (E6 = e9.Na().end, e9.m.G(r7, "progress", function() {
                     var t10 = e9.Na().end;
-                    E5 != t10 && (e9.C.onManifestUpdated(e9.ya()), E5 = t10);
-                  }))), e9.R && u7 && (D5 = Uc(u7, e9.R), D5.length)) for (O5 = e9.h.duration, k5 = y4(D5), A4 = k5.next(); !A4.done; A4 = k5.next()) j5 = A4.value, O_(e9, 0, O5, "org.id3", j5);
+                    E6 != t10 && (e9.C.onManifestUpdated(e9.ya()), E6 = t10);
+                  }))), e9.R && u7 && (D6 = Uc(u7, e9.R), D6.length)) for (O6 = e9.h.duration, k6 = y5(D6), A5 = k6.next(); !A5.done; A5 = k6.next()) j5 = A5.value, O_(e9, 0, O6, "org.id3", j5);
                   return M5.g(Pv(e9), 10);
                 case 10:
                   e9.ha = true, M5.j();
@@ -20156,7 +20253,7 @@ var init_load_uTL4eiru = __esm({
             var t9 = e9.g.preferredAudio;
             if (t9.length && e9.h && e9.h.audioTracks) {
               var n6 = e9.Sc();
-              t9 = y4(t9);
+              t9 = y5(t9);
               for (var r7 = t9.next(); !r7.done; r7 = t9.next()) if (r7 = r7.value, r7.language && (r7 = wi(n6, r7.language, r7.role, false)[0])) {
                 e9.gi(r7);
                 break;
@@ -20168,7 +20265,7 @@ var init_load_uTL4eiru = __esm({
             if (!t9.some(function(e10) {
               return e10.active;
             })) {
-              for (var n6 = y4(e9.g.preferredText), r7 = n6.next(); !r7.done; r7 = n6.next()) if (r7 = r7.value, r7.language && (r7 = wi(t9, r7.language, r7.role, r7.forced), r7.length)) {
+              for (var n6 = y5(e9.g.preferredText), r7 = n6.next(); !r7.done; r7 = n6.next()) if (r7 = r7.value, r7.language && (r7 = wi(t9, r7.language, r7.role, r7.forced), r7.length)) {
                 e9.Dc(r7[0]);
                 return;
               }
@@ -20186,7 +20283,7 @@ var init_load_uTL4eiru = __esm({
               t9.mode = "hidden";
               var n6 = function() {
                 if (t9.cues) {
-                  for (var n7 = [], r8 = y4(t9.cues), i6 = r8.next(), a7 = {}; !i6.done; a7 = { Ob: void 0 }, i6 = r8.next()) a7.Ob = i6.value, a7.Ob.startTime != null && "type" in a7.Ob && (i6 = n7.find(/* @__PURE__ */ (function(e10) {
+                  for (var n7 = [], r8 = y5(t9.cues), i6 = r8.next(), a7 = {}; !i6.done; a7 = { Ob: void 0 }, i6 = r8.next()) a7.Ob = i6.value, a7.Ob.startTime != null && "type" in a7.Ob && (i6 = n7.find(/* @__PURE__ */ (function(e10) {
                     return function(t10) {
                       return t10.startTime == e10.Ob.startTime && t10.endTime == e10.Ob.endTime;
                     };
@@ -20196,7 +20293,7 @@ var init_load_uTL4eiru = __esm({
                     endTime: a7.Ob.endTime,
                     values: []
                   }, n7.push(i6)), a7.Ob.value && a7.Ob.value.key == "X-AD-CREATIVE-SIGNALING" && (i6.type = "urn:svta:advertising-wg:ad-creative-signaling"), i6.values.push(a7.Ob.value));
-                  for (n7 = y4(n7), r8 = n7.next(); !r8.done; r8 = n7.next()) r8 = r8.value, e9.C && (r8.values.some(function(e10) {
+                  for (n7 = y5(n7), r8 = n7.next(); !r8.done; r8 = n7.next()) r8 = r8.value, e9.C && (r8.values.some(function(e10) {
                     return e10.key == "X-ASSET-URI" || e10.key == "X-ASSET-LIST";
                   }) && (a7 = r8.startTime == 0 && !e9.ya(), r8.values.push({
                     key: "CUE",
@@ -20208,12 +20305,12 @@ var init_load_uTL4eiru = __esm({
                 }
               };
               e9.m.G(t9, "cuechange", function() {
-                if (t9.activeCues) for (var r8 = y4(t9.activeCues), i6 = r8.next(); !i6.done; i6 = r8.next()) i6 = i6.value, O_(e9, i6.startTime, i6.endTime, i6.type, i6.value), e9.C && e9.C.onCueMetadataChange(i6.value);
+                if (t9.activeCues) for (var r8 = y5(t9.activeCues), i6 = r8.next(); !i6.done; i6 = r8.next()) i6 = i6.value, O_(e9, i6.startTime, i6.endTime, i6.type, i6.value), e9.C && e9.C.onCueMetadataChange(i6.value);
                 n6();
               }), n6();
-              var r7 = new G(function() {
+              var r7 = new G2(function() {
                 var t10 = K_(e9);
-                t10 = y4(t10);
+                t10 = y5(t10);
                 for (var n7 = t10.next(); !n7.done; n7 = t10.next()) n7.value.mode = "hidden";
               }).Va().ba(0.5);
               e9.Re.push(function() {
@@ -20236,7 +20333,7 @@ var init_load_uTL4eiru = __esm({
           function k_(e9, t9) {
             if (t9 && t9.kind == "chapters") {
               t9.mode = "hidden";
-              var n6 = new G(function() {
+              var n6 = new G2(function() {
                 t9.mode = "hidden";
               }).Va().ba(0.5);
               e9.Re.push(function() {
@@ -20438,7 +20535,7 @@ var init_load_uTL4eiru = __esm({
             return n6.g.add(t9), n6;
           }
           function P_(e9, t9, n6) {
-            e9.V = new Yo(), Xo(e9.V, Zo), F_(e9), nv(e9), e9.ib = new G(function() {
+            e9.V = new Yo(), Xo(e9.V, Zo), F_(e9), nv(e9), e9.ib = new G2(function() {
               I_(e9);
             }), e9.g.streaming.rebufferingGoal && e9.ib.Ka(0.25), e9.m.G(t9, "waiting", function() {
               return I_(e9, "waiting");
@@ -20509,7 +20606,7 @@ var init_load_uTL4eiru = __esm({
               },
               Nd: function(t9, n6, r7, i6, a7) {
                 var o8 = t9.startTime, s7 = t9.endTime, c7 = n6.type;
-                if (c7 != U2) {
+                if (c7 != U3) {
                   if (e9.F) {
                     e9.F.Ej();
                     var l6 = nu(e9.H, c7);
@@ -20525,11 +20622,11 @@ var init_load_uTL4eiru = __esm({
               Pi: function(t9, n6) {
                 var r7 = e9.B;
                 if (r7.h.parseInbandPsshEnabled && !r7.H && ["audio", "video"].includes(t9)) {
-                  t9 = new no(V3(n6)), n6 = 0;
-                  for (var i6 = y4(t9.data), a7 = i6.next(); !a7.done; a7 = i6.next()) n6 += a7.value.length;
+                  t9 = new no(V4(n6)), n6 = 0;
+                  for (var i6 = y5(t9.data), a7 = i6.next(); !a7.done; a7 = i6.next()) n6 += a7.value.length;
                   if (n6 == 0) r7 = Promise.resolve();
                   else {
-                    for (n6 = new Uint8Array(n6), i6 = 0, t9 = y4(t9.data), a7 = t9.next(); !a7.done; a7 = t9.next()) a7 = a7.value, n6.set(a7, i6), i6 += a7.length;
+                    for (n6 = new Uint8Array(n6), i6 = 0, t9 = y5(t9.data), a7 = t9.next(); !a7.done; a7 = t9.next()) a7 = a7.value, n6.set(a7, i6), i6 += a7.length;
                     go(r7, "cenc", n6), r7 = r7.l.promise;
                   }
                 } else r7 = Promise.resolve();
@@ -20688,7 +20785,7 @@ var init_load_uTL4eiru = __esm({
           }, r6.Ci = function(e9) {
             this.l == Lv && this.j && pf(this.j, e9);
           }, r6.Me = function(e9, t9) {
-            if (t9 = t9 === void 0 || t9, e9 == 0) R3("A trick play rate of 0 is unsupported!");
+            if (t9 = t9 === void 0 || t9, e9 == 0) R4("A trick play rate of 0 is unsupported!");
             else {
               var n6 = this.h.playbackRate, r7 = this.M.h;
               this.M.set(e9), this.l == Lv && (this.u.playbackRateChanged(e9), this.Ci(t9 && e9 != 1)), iv(this, e9), n6 === 0 && this.h.playbackRate === 0 && e9 != r7 && rv(this);
@@ -20698,7 +20795,7 @@ var init_load_uTL4eiru = __esm({
             this.l == Rv && this.M.set(e9), this.l == Lv && (this.M.set(e9), this.u.playbackRateChanged(e9), this.Ci(false)), this.ec.Ea();
           }, r6.Sc = function() {
             if (this.i && !this.Ga()) {
-              for (var e9 = this.j ? this.j.o : null, t9 = [], n6 = 0, r7 = y4(this.i.variants), i6 = r7.next(); !i6.done; i6 = r7.next()) if (i6 = i6.value, Si(i6)) {
+              for (var e9 = this.j ? this.j.o : null, t9 = [], n6 = 0, r7 = y5(this.i.variants), i6 = r7.next(); !i6.done; i6 = r7.next()) if (i6 = i6.value, Si(i6)) {
                 var a7 = hi(i6);
                 a7.active = i6 == e9, a7.active || n6 == 1 || e9 == null || i6.video != e9.video || i6.audio != e9.audio || (a7.active = true), a7.active && n6++, t9.push(a7);
               }
@@ -20714,19 +20811,19 @@ var init_load_uTL4eiru = __esm({
           }, r6.Gb = function() {
             if (this.i) {
               if (this.Ga()) return [];
-              for (var e9 = this.j ? this.j.C : null, t9 = [], n6 = y4(this.i.textStreams), r7 = n6.next(); !r7.done; r7 = n6.next()) {
+              for (var e9 = this.j ? this.j.C : null, t9 = [], n6 = y5(this.i.textStreams), r7 = n6.next(); !r7.done; r7 = n6.next()) {
                 r7 = r7.value;
                 var i6 = gi(r7);
                 i6.active = r7 == e9, t9.push(i6);
               }
-              return this.J && t9.push.apply(t9, b3(this.J.Gb())), t9;
+              return this.J && t9.push.apply(t9, b4(this.J.Gb())), t9;
             }
             if (this.h && this.h.src && this.h.textTracks) {
               e9 = G_(this);
               var a7 = this.D.isTextVisible();
               return e9 = e9.map(function(e10) {
                 return bi(e10, a7);
-              }), this.J && e9.push.apply(e9, b3(this.J.Gb())), e9;
+              }), this.J && e9.push.apply(e9, b4(this.J.Gb())), e9;
             }
             return [];
           }, r6.ol = function() {
@@ -20764,7 +20861,7 @@ var init_load_uTL4eiru = __esm({
             return P4(function(a7) {
               return a7.h == 1 ? e9.l != Lv && e9.l != Rv || (n6 = e9.Ze, e9.i && (n6 = e9.i.imageStreams), r7 = n6[0], !r7) ? a7.return(null) : (t9 != null && (r7 = n6.find(function(e10) {
                 return e10.id == t9;
-              })), r7 ? r7.segmentIndex ? a7.A(2) : a7.g(r7.createSegmentIndex(), 2) : a7.return(null)) : (r7.closeSegmentIndex && (e9.Ac.has(r7) || (i6 = new G(function() {
+              })), r7 ? r7.segmentIndex ? a7.A(2) : a7.g(r7.createSegmentIndex(), 2) : a7.return(null)) : (r7.closeSegmentIndex && (e9.Ac.has(r7) || (i6 = new G2(function() {
                 r7 && (r7.closeSegmentIndex(), e9.Ac.delete(r7));
               }), e9.Ac.set(r7, i6)), e9.Ac.get(r7).ba(5)), a7.return(r7));
             });
@@ -20810,7 +20907,7 @@ var init_load_uTL4eiru = __esm({
                   });
                   if (r7) {
                     if (t9.D instanceof Mm) {
-                      n7 = y4(n7);
+                      n7 = y5(n7);
                       for (var i6 = n7.next(); !i6.done; i6 = n7.next()) {
                         i6 = i6.value;
                         var a7 = i6 === r7 ? t9.Fa ? "showing" : "hidden" : "disabled";
@@ -20835,7 +20932,7 @@ var init_load_uTL4eiru = __esm({
                 vttOffset: 0,
                 isMpegTs: false
               }, r7 = [], i6 = Array.from(t9.activeCues || []);
-              i6 = y4(i6);
+              i6 = y5(i6);
               for (var a7 = i6.next(); !a7.done; a7 = i6.next()) {
                 if (a7 = a7.value, a7.endTime === Infinity || a7.endTime < a7.startTime) a7 = null;
                 else {
@@ -20855,7 +20952,7 @@ var init_load_uTL4eiru = __esm({
               if (r8) {
                 if (Si(r8)) {
                   var a7 = i6.j.o;
-                  i6.g.abr.enabled && (a7.video != r8.video || a7.audio && r8.audio && a7.audio.language == r8.audio.language && a7.audio.channelsCount == r8.audio.channelsCount && a7.audio.label == r8.audio.label) && R3("Changing tracks while abr manager is enabled will likely result in the selected track being overridden. Consider disabling abr before calling selectVariantTrack()."), i6.Ga() ? pv(i6, r8, false, false, 0) : pv(i6, r8, false, t9 || false, n6 || 0), r8 = {
+                  i6.g.abr.enabled && (a7.video != r8.video || a7.audio && r8.audio && a7.audio.language == r8.audio.language && a7.audio.channelsCount == r8.audio.channelsCount && a7.audio.label == r8.audio.label) && R4("Changing tracks while abr manager is enabled will likely result in the selected track being overridden. Consider disabling abr before calling selectVariantTrack()."), i6.Ga() ? pv(i6, r8, false, false, 0) : pv(i6, r8, false, t9 || false, n6 || 0), r8 = {
                     preferredAudio: [{
                       language: r8.language || "",
                       role: r8.audio && r8.audio.roles && r8.audio.roles[0] || "",
@@ -20896,7 +20993,7 @@ var init_load_uTL4eiru = __esm({
             t9 = t9 !== void 0 && t9, n6 = n6 === void 0 ? 0 : n6, !(this.i && this.F && (r7(), !this.Ga())) && (function() {
               if (e9.originalAudioId && i6.h && i6.h.audioTracks) {
                 var t10 = Array.from(i6.h.audioTracks);
-                t10 = y4(t10);
+                t10 = y5(t10);
                 for (var n7 = t10.next(); !n7.done; n7 = t10.next()) if (n7 = n7.value, yi(n7) == e9.id) {
                   mv(i6, n7);
                   break;
@@ -20929,7 +21026,7 @@ var init_load_uTL4eiru = __esm({
             t9 = t9 === void 0 ? 0 : t9, !(this.i && this.F && (n6(), !this.Ga())) && (function() {
               if (i6.h && i6.h.audioTracks) {
                 var t10 = ht2(e9.language), n7 = Array.from(i6.h.audioTracks), a7 = null, o8 = null;
-                n7 = y4(n7);
+                n7 = y5(n7);
                 for (var s7 = n7.next(); !s7.done; s7 = n7.next()) {
                   s7 = s7.value;
                   var c7 = s7.language || "und";
@@ -20950,7 +21047,7 @@ var init_load_uTL4eiru = __esm({
               if (this.l != Lv || this.Ga() || (n6 = e9.filter(function(e10) {
                 return e10.originalVideoId === t9.originalVideoId && (e10.audioCodec || Nr.includes(e10.audioMimeType || ""));
               })), !n6.length) return [];
-              e9 = /* @__PURE__ */ new Map(), n6 = y4(n6);
+              e9 = /* @__PURE__ */ new Map(), n6 = y5(n6);
               for (var r7 = n6.next(); !r7.done; r7 = n6.next()) {
                 var i6 = r7.value;
                 r7 = [
@@ -21027,7 +21124,7 @@ var init_load_uTL4eiru = __esm({
             if (this.uj() || (n6 = e9.filter(function(e10) {
               return e10.videoCodec && e10.audioGroupId === t9.audioGroupId && e10.originalAudioId === t9.originalAudioId ? e10.audioId === t9.audioId || e10.language === t9.language && e10.label === t9.label && e10.channelsCount === t9.channelsCount && e10.spatialAudio === t9.spatialAudio && e10.audioMimeType === t9.audioMimeType && Tr(e10.audioCodec || "") === Tr(t9.audioCodec || "") && _e2(e10.audioRoles, t9.audioRoles) : false;
             })), !n6.length) return [];
-            e9 = /* @__PURE__ */ new Map(), n6 = y4(n6);
+            e9 = /* @__PURE__ */ new Map(), n6 = y5(n6);
             for (var r7 = n6.next(); !r7.done; r7 = n6.next()) {
               r7 = r7.value;
               var i6 = r7.originalVideoId;
@@ -21055,7 +21152,7 @@ var init_load_uTL4eiru = __esm({
               return vi(e10);
             });
             var t9 = q_(this);
-            return t9.length && e9.push.apply(e9, b3(t9.map(function(e10) {
+            return t9.length && e9.push.apply(e9, b4(t9.map(function(e10) {
               return {
                 id: yi(e10),
                 type: "chapter",
@@ -21072,7 +21169,7 @@ var init_load_uTL4eiru = __esm({
                   if (r7 = t9.Ye, t9.i && (r7 = t9.i.chapterStreams), !r7.length || (i6 = ht2(e9), a7 = r7.filter(function(e10) {
                     return ht2(e10.language) == i6;
                   }), !a7.length)) return p5.return([]);
-                  o8 = [], s7 = /* @__PURE__ */ new Set(), c7 = y4(a7), l6 = c7.next(), u7 = {};
+                  o8 = [], s7 = /* @__PURE__ */ new Set(), c7 = y5(a7), l6 = c7.next(), u7 = {};
                 case 2:
                   if (l6.done) {
                     p5.A(4);
@@ -21111,9 +21208,9 @@ var init_load_uTL4eiru = __esm({
               return ht2(e10.language) == n6;
             });
             if (!r7 || !r7.length) return [];
-            t9 = [], e9 = /* @__PURE__ */ new Set(), r7 = y4(r7);
+            t9 = [], e9 = /* @__PURE__ */ new Set(), r7 = y5(r7);
             for (var i6 = r7.next(); !i6.done; i6 = r7.next()) if ((i6 = i6.value) && i6.cues) {
-              i6 = y4(i6.cues);
+              i6 = y5(i6.cues);
               for (var a7 = i6.next(); !a7.done; a7 = i6.next()) {
                 var o8 = a7.value;
                 (a7 = o8.id) && a7 != "" || (a7 = o8.startTime + "-" + o8.endTime + "-" + o8.text), o8 = {
@@ -21231,36 +21328,36 @@ var init_load_uTL4eiru = __esm({
             var s7 = this;
             o8 = o8 !== void 0 && o8;
             var c7 = (function() {
-              var c8, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y5;
-              return P4(function(b4) {
-                switch (b4.h) {
+              var c8, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y6;
+              return P4(function(b5) {
+                switch (b5.h) {
                   case 1:
                     if (s7.l != Lv && s7.l != Rv) throw new H4(1, 7, 7004);
-                    if (n6 != "subtitles" && n6 != "captions" && R3("Using a kind value different of `subtitles` or `captions` can cause unwanted issues."), r7) {
-                      b4.A(2);
+                    if (n6 != "subtitles" && n6 != "captions" && R4("Using a kind value different of `subtitles` or `captions` can cause unwanted issues."), r7) {
+                      b5.A(2);
                       break;
                     }
-                    return b4.g(X_(s7, e9), 3);
+                    return b5.g(X_(s7, e9), 3);
                   case 3:
-                    r7 = b4.i;
+                    r7 = b5.i;
                   case 2:
                     if (c8 = [], s7.C && (c8 = s7.C.getCuePoints()), s7.l != Rv) {
-                      b4.A(4);
+                      b5.A(4);
                       break;
                     }
-                    return l6 = B3(), o8 && l6.Qa() === "WEBKIT" && (n6 = "forced"), b4.g(Z_(s7, e9, t9, n6, r7, a7 || "", c8), 5);
+                    return l6 = B4(), o8 && l6.Qa() === "WEBKIT" && (n6 = "forced"), b5.g(Z_(s7, e9, t9, n6, r7, a7 || "", c8), 5);
                   case 5:
-                    if (u7 = b4.i, u7.track) return gv(s7), bv(s7), b4.return(bi(u7.track, s7.D.isTextVisible()));
+                    if (u7 = b5.i, u7.track) return gv(s7), bv(s7), b5.return(bi(u7.track, s7.D.isTextVisible()));
                     throw new H4(1, 2, 2012);
                   case 4:
                     if (d5 = Ot, f4 = s7.Na(), p5 = f4.end - f4.start, s7.i && (p5 = s7.i.presentationTimeline.getDuration()), p5 == Infinity) throw new H4(1, 4, 4033);
                     if (!c8.length) {
-                      b4.A(6);
+                      b5.A(6);
                       break;
                     }
-                    return b4.g(Q_(s7, e9), 7);
+                    return b5.g(Q_(s7, e9), 7);
                   case 7:
-                    m5 = b4.i, h6 = $_(s7, m5, r7, c8), g6 = new Blob([h6], { type: "text/vtt" }), e9 = Lu(g6), r7 = "text/vtt";
+                    m5 = b5.i, h6 = $_(s7, m5, r7, c8), g6 = new Blob([h6], { type: "text/vtt" }), e9 = Lu(g6), r7 = "text/vtt";
                   case 6:
                     if (_5 = ki({
                       id: s7.Te++,
@@ -21274,105 +21371,105 @@ var init_load_uTL4eiru = __esm({
                       type: d5.Xa,
                       forced: !!o8,
                       external: true
-                    }), v7 = xr(_5.mimeType, _5.codecs), y5 = Lr(v7), !y5) throw new H4(2, 2, 2014, r7);
-                    return s7.i.textStreams.push(_5), gv(s7), bv(s7), b4.return(gi(_5));
+                    }), v7 = xr(_5.mimeType, _5.codecs), y6 = Lr(v7), !y6) throw new H4(2, 2, 2014, r7);
+                    return s7.i.textStreams.push(_5), gv(s7), bv(s7), b5.return(gi(_5));
                 }
               });
             })();
             return this.ha || Nv(this, c7), c7;
           }, r6.lc = function(e9, t9) {
             var n6 = this, r7 = (function() {
-              var r8, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4;
-              return P4(function(S3) {
-                switch (S3.h) {
+              var r8, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5;
+              return P4(function(S5) {
+                switch (S5.h) {
                   case 1:
                     if (n6.l != Lv && n6.l != Rv) throw new H4(1, 7, 7004);
                     if (t9) {
-                      S3.A(2);
+                      S5.A(2);
                       break;
                     }
-                    return S3.g(X_(n6, e9), 3);
+                    return S5.g(X_(n6, e9), 3);
                   case 3:
-                    t9 = S3.i;
+                    t9 = S5.i;
                   case 2:
                     if (t9 != "text/vtt") throw new H4(1, 2, 2017, e9);
                     if (r8 = Ot, i6 = n6.Na(), a7 = i6.end - i6.start, n6.i && (a7 = n6.i.presentationTimeline.getDuration()), a7 == Infinity) throw new H4(1, 4, 4045);
-                    return S3.g(Q_(n6, e9), 4);
+                    return S5.g(Q_(n6, e9), 4);
                   case 4:
-                    if (o8 = S3.i, s7 = Ir(t9), !s7) throw new H4(2, 2, 2014, t9);
+                    if (o8 = S5.i, s7 = Ir(t9), !s7) throw new H4(2, 2, 2014, t9);
                     for (c7 = s7(), l6 = {
                       periodStart: 0,
                       segmentStart: 0,
                       segmentEnd: a7,
                       vttOffset: 0,
                       isMpegTs: false
-                    }, u7 = V3(o8), d5 = c7.parseMedia(u7, l6, e9, []), f4 = [], p5 = y4(d5), m5 = p5.next(), h6 = {}; !m5.done; h6 = {
+                    }, u7 = V4(o8), d5 = c7.parseMedia(u7, l6, e9, []), f4 = [], p5 = y5(d5), m5 = p5.next(), h6 = {}; !m5.done; h6 = {
                       ug: void 0,
                       ud: void 0
                     }, m5 = p5.next()) h6.ud = m5.value, h6.ug = null, g6 = /* @__PURE__ */ (function(t10) {
                       return function() {
                         return t10.ug ??= ua([e9], [t10.ud.payload]), t10.ug || [];
                       };
-                    })(h6), _5 = new J(h6.ud.startTime, h6.ud.endTime, g6, 0, null, null, 0, 0, Infinity), h6.ud.payload.includes("#xywh") && (v7 = h6.ud.payload.split("#xywh=")[1].split(","), v7.length === 4 && _5.ig({
+                    })(h6), _5 = new J2(h6.ud.startTime, h6.ud.endTime, g6, 0, null, null, 0, 0, Infinity), h6.ud.payload.includes("#xywh") && (v7 = h6.ud.payload.split("#xywh=")[1].split(","), v7.length === 4 && _5.ig({
                       height: parseInt(v7[3], 10),
                       positionX: parseInt(v7[0], 10),
                       positionY: parseInt(v7[1], 10),
                       width: parseInt(v7[2], 10)
                     })), f4.push(_5);
-                    if (b4 = t9, !f4.length) {
-                      S3.A(5);
+                    if (b5 = t9, !f4.length) {
+                      S5.A(5);
                       break;
                     }
-                    return S3.g(X_(n6, f4[0].U()[0]), 6);
+                    return S5.g(X_(n6, f4[0].U()[0]), 6);
                   case 6:
-                    b4 = S3.i;
+                    b5 = S5.i;
                   case 5:
-                    return x4 = ki({
+                    return x5 = ki({
                       id: n6.Te++,
                       segmentIndex: new md(f4),
-                      mimeType: b4 || "",
+                      mimeType: b5 || "",
                       kind: "",
                       language: "und",
                       type: r8.wg,
                       tilesLayout: "1x1",
                       external: true
-                    }), n6.l == Rv ? n6.Ze.push(x4) : n6.i.imageStreams.push(x4), gv(n6), S3.return(_i(x4));
+                    }), n6.l == Rv ? n6.Ze.push(x5) : n6.i.imageStreams.push(x5), gv(n6), S5.return(_i(x5));
                 }
               });
             })();
             return this.ha || Nv(this, r7), r7;
           }, r6.kc = function(e9, t9, n6) {
             var r7 = this, i6 = (function() {
-              var i7, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4;
-              return P4(function(x4) {
-                switch (x4.h) {
+              var i7, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5;
+              return P4(function(x5) {
+                switch (x5.h) {
                   case 1:
                     if (r7.l != Lv && r7.l != Rv) throw new H4(1, 7, 7004);
                     if (n6) {
-                      x4.A(2);
+                      x5.A(2);
                       break;
                     }
-                    return x4.g(X_(r7, e9), 3);
+                    return x5.g(X_(r7, e9), 3);
                   case 3:
-                    n6 = x4.i;
+                    n6 = x5.i;
                   case 2:
                     if (i7 = Ot, a7 = r7.Na(), o8 = a7.end - a7.start, r7.i && (o8 = r7.i.presentationTimeline.getDuration()), o8 == Infinity) throw new H4(1, 4, 4055);
                     if (s7 = Ir(n6), !s7) throw new H4(2, 2, 2014, n6);
-                    return x4.g(Q_(r7, e9), 4);
+                    return x5.g(Q_(r7, e9), 4);
                   case 4:
-                    for (c7 = x4.i, l6 = s7(), u7 = {
+                    for (c7 = x5.i, l6 = s7(), u7 = {
                       periodStart: 0,
                       segmentStart: 0,
                       segmentEnd: o8,
                       vttOffset: 0,
                       isMpegTs: false
-                    }, d5 = V3(c7), f4 = l6.parseMedia(d5, u7, e9, []), p5 = [], m5 = y4(f4), h6 = m5.next(); !h6.done; h6 = m5.next()) g6 = h6.value, _5 = new J(g6.startTime, g6.endTime, function() {
+                    }, d5 = V4(c7), f4 = l6.parseMedia(d5, u7, e9, []), p5 = [], m5 = y5(f4), h6 = m5.next(); !h6.done; h6 = m5.next()) g6 = h6.value, _5 = new J2(g6.startTime, g6.endTime, function() {
                       return [];
                     }, 0, null, null, 0, 0, Infinity), v7 = {
                       title: g6.payload,
                       images: []
                     }, _5.hg(v7), p5.push(_5);
-                    return b4 = ki({
+                    return b5 = ki({
                       id: r7.Te++,
                       segmentIndex: new md(p5),
                       mimeType: "text/plain",
@@ -21381,7 +21478,7 @@ var init_load_uTL4eiru = __esm({
                       originalLanguage: t9,
                       type: i7.zk,
                       external: true
-                    }), r7.l == Lv ? r7.i.chapterStreams.push(b4) : r7.Ye.push(b4), gv(r7), x4.return(vi(b4));
+                    }), r7.l == Lv ? r7.i.chapterStreams.push(b5) : r7.Ye.push(b5), gv(r7), x5.return(vi(b5));
                 }
               });
             })();
@@ -21443,7 +21540,7 @@ var init_load_uTL4eiru = __esm({
               segmentEnd: e9.h.duration,
               vttOffset: 0,
               isMpegTs: false
-            }, t9 = V3(t9), t9 = n6.parseMedia(t9, e9, null, []), Sh(t9, r7);
+            }, t9 = V4(t9), t9 = n6.parseMedia(t9, e9, null, []), Sh(t9, r7);
             throw new H4(2, 2, 2014, n6);
           }
           r6.Gm = function(e9, t9) {
@@ -21454,13 +21551,13 @@ var init_load_uTL4eiru = __esm({
               if (e9 = e9 === void 0 ? 0.1 : e9, t9.l.g) t9 = false;
               else if (t9.D) t9 = false;
               else {
-                for (var n6 = y4(t9.h.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, !r7.Ed || r7.Ma || r7.pb || (r7.Ed = false, Bf(t9, r7, e9));
+                for (var n6 = y5(t9.h.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, !r7.Ed || r7.Ma || r7.pb || (r7.Ed = false, Bf(t9, r7, e9));
                 t9 = true;
               }
             } else t9 = false;
             return t9;
           }, r6.nh = function() {
-            return R3("Shaka Player's internal Manifest structure is NOT covered by semantic versioning compatibility guarantees.  It may change at any time!  Please consider filing a feature request for whatever you use getManifest() for."), this.i;
+            return R4("Shaka Player's internal Manifest structure is NOT covered by semantic versioning compatibility guarantees.  It may change at any time!  Please consider filing a feature request for whatever you use getManifest() for."), this.i;
           }, r6.rl = function() {
             return this.Bc;
           }, r6.kl = function() {
@@ -21471,7 +21568,7 @@ var init_load_uTL4eiru = __esm({
             };
             if (this.l != Lv) return e9;
             var t9 = this.j.o, n6 = this.h.currentTime;
-            t9 = y4([
+            t9 = y5([
               t9.video,
               t9.audio,
               this.j.C
@@ -21484,7 +21581,7 @@ var init_load_uTL4eiru = __esm({
                 mimeType: i6?.mimeType ?? r7.mimeType,
                 bandwidth: i6?.bandwidth ?? r7.bandwidth
               };
-              r7.type == "video" ? (a7.width = r7.width, a7.height = r7.height, e9.video = a7) : r7.type == "audio" ? e9.audio = a7 : r7.type == U2 && (e9.text = a7);
+              r7.type == "video" ? (a7.width = r7.width, a7.height = r7.height, e9.video = a7) : r7.type == "audio" ? e9.audio = a7 : r7.type == U3 && (e9.text = a7);
             }
             return e9;
           };
@@ -21700,7 +21797,7 @@ var init_load_uTL4eiru = __esm({
           function Cv(e9, t9) {
             if (t9 = t9 === void 0 || t9, e9.l == Lv) {
               e9.Ve.stop();
-              for (var n6 = y4(e9.i.variants), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, isFinite(r7.disabledUntilTime) && (r7.disabledUntilTime = 0);
+              for (var n6 = y5(e9.i.variants), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, isFinite(r7.disabledUntilTime) && (r7.disabledUntilTime = 0);
               t9 && lv(e9);
             }
           }
@@ -21710,7 +21807,7 @@ var init_load_uTL4eiru = __esm({
               var n7 = t10[e9.type];
               return n7 && n7.id !== e9.id && !t10.disabledUntilTime ? e9.type != "audio" || e9.language === n7.language : false;
             })) {
-              for (var n6 = false, r7 = false, i6 = y4(this.i.variants), a7 = i6.next(); !a7.done; a7 = i6.next()) {
+              for (var n6 = false, r7 = false, i6 = y5(this.i.variants), a7 = i6.next(); !a7.done; a7 = i6.next()) {
                 a7 = a7.value;
                 var o8 = a7[e9.type];
                 o8 && (o8.id === e9.id ? (a7.disabledUntilTime = Date.now() / 1e3 + t9, n6 = true) : o8.trickModeVideo && o8.trickModeVideo.id == e9.id && (r7 = true));
@@ -21735,7 +21832,7 @@ var init_load_uTL4eiru = __esm({
                     o8.A(2);
                     break;
                   }
-                  return r7 = B3(), r7.Qa() === "WEBKIT" && t9.code == 3016 ? o8.return() : (o8.m(4), o8.g(Gf(e9.j), 6));
+                  return r7 = B4(), r7.Qa() === "WEBKIT" && t9.code == 3016 ? o8.return() : (o8.m(4), o8.g(Gf(e9.j), 6));
                 case 6:
                   if (o8.i) return i6 = s_("mediasourcerecovered"), e9.dispatchEvent(i6), o8.return();
                   o8.o(2);
@@ -21803,17 +21900,17 @@ var init_load_uTL4eiru = __esm({
               if (n6 = false, r7.length) {
                 r7 = e9.keySystem();
                 for (var a7 = Ia(e9.g.drm.clearKeys), o8 = function(n7, r8) {
-                  n7.allowedByKeySystem = true, r8 = y4(r8);
+                  n7.allowedByKeySystem = true, r8 = y5(r8);
                   for (var a8 = r8.next(); !a8.done; a8 = r8.next()) a8 = a8.value, ((a8 = t9[i6 ? "00" : a8]) || e9.B.H) && (n7.allowedByKeySystem = n7.allowedByKeySystem && !!a8 && !as.includes(a8));
-                }, s7 = y4(e9.i.variants), c7 = s7.next(); !c7.done; c7 = s7.next()) {
+                }, s7 = y5(e9.i.variants), c7 = s7.next(); !c7.done; c7 = s7.next()) {
                   c7 = c7.value;
                   var l6 = Ei(c7);
-                  l6 = y4(l6);
+                  l6 = y5(l6);
                   for (var u7 = l6.next(); !u7.done; u7 = l6.next()) {
                     u7 = u7.value;
                     var d5 = c7.allowedByKeySystem;
                     if (u7.keyIds.size) {
-                      if (u7.drmInfos.length && !a7.size && e9.i.type == "HLS") for (var f4 = y4(u7.drmInfos), p5 = f4.next(); !p5.done; p5 = f4.next()) p5 = p5.value, p5.keySystem == r7 && (p5.keyIds.size ? o8(c7, p5.keyIds) : o8(c7, u7.keyIds));
+                      if (u7.drmInfos.length && !a7.size && e9.i.type == "HLS") for (var f4 = y5(u7.drmInfos), p5 = f4.next(); !p5.done; p5 = f4.next()) p5 = p5.value, p5.keySystem == r7 && (p5.keyIds.size ? o8(c7, p5.keyIds) : o8(c7, u7.keyIds));
                       else o8(c7, u7.keyIds);
                     }
                     d5 != c7.allowedByKeySystem && (n6 = true);
@@ -21834,14 +21931,14 @@ var init_load_uTL4eiru = __esm({
           }
           r6.Ga = function() {
             if (!this.h) return false;
-            var e9 = UT(B3(), this.h);
+            var e9 = UT(B4(), this.h);
             return e9 ? e9.state != "disconnected" : false;
           }, r6.Gd = function() {
             return !this.h || this.h.ended ? true : this.ha && !this.ya() && this.h.currentTime >= this.Na().end;
           };
           function Mv(e9) {
             function t9(e10, t10) {
-              R3(e10, "has been deprecated. Please use", t10, "instead.");
+              R4(e10, "has been deprecated. Please use", t10, "instead.");
             }
             var n6 = {
               preferredAudioLanguage: "language",
@@ -21860,9 +21957,9 @@ var init_load_uTL4eiru = __esm({
                 channelCount: 0,
                 codec: ""
               };
-              n6 = y4(Object.entries(n6));
+              n6 = y5(Object.entries(n6));
               for (var i6 = n6.next(); !i6.done; i6 = n6.next()) {
-                var a7 = y4(i6.value);
+                var a7 = y5(i6.value);
                 i6 = a7.next().value, a7 = a7.next().value, i6 in e9 && (t9(i6, "preferredAudio"), r7[a7] = e9[i6], delete e9[i6]);
               }
               e9.preferredAudio ||= [r7];
@@ -21886,7 +21983,7 @@ var init_load_uTL4eiru = __esm({
                 language: "",
                 role: "",
                 format: ""
-              }, n6 = y4(Object.entries(n6)), i6 = n6.next(); !i6.done; i6 = n6.next()) a7 = y4(i6.value), i6 = a7.next().value, a7 = a7.next().value, i6 in e9 && (t9(i6, "preferredText"), r7[a7] = e9[i6], delete e9[i6]);
+              }, n6 = y5(Object.entries(n6)), i6 = n6.next(); !i6.done; i6 = n6.next()) a7 = y5(i6.value), i6 = a7.next().value, a7 = a7.next().value, i6 in e9 && (t9(i6, "preferredText"), r7[a7] = e9[i6], delete e9[i6]);
               e9.preferredText ||= [r7];
             }
             if ("preferredTextFormats" in e9 && (t9("preferredTextFormats", "preferredText"), r7 = e9.preferredTextFormats, Array.isArray(r7) && r7.length && (e9.preferredText ||= r7.map(function(e10) {
@@ -21910,7 +22007,7 @@ var init_load_uTL4eiru = __esm({
                 codec: "",
                 hdrLevel: "",
                 layout: ""
-              }, n6 = y4(Object.entries(n6)), i6 = n6.next(); !i6.done; i6 = n6.next()) a7 = y4(i6.value), i6 = a7.next().value, a7 = a7.next().value, i6 in e9 && (t9(i6, "preferredVideo"), r7[a7] = e9[i6], delete e9[i6]);
+              }, n6 = y5(Object.entries(n6)), i6 = n6.next(); !i6.done; i6 = n6.next()) a7 = y5(i6.value), i6 = a7.next().value, a7 = a7.next().value, i6 in e9 && (t9(i6, "preferredVideo"), r7[a7] = e9[i6], delete e9[i6]);
               e9.preferredVideo ||= [r7];
             }
             "preferredVideoCodecs" in e9 && (t9("preferredVideoCodecs", "preferredVideo"), r7 = e9.preferredVideoCodecs, Array.isArray(r7) && r7.length && (e9.preferredVideo ||= r7.map(function(e10) {
@@ -21931,10 +22028,10 @@ var init_load_uTL4eiru = __esm({
           }
           function Pv(e9) {
             return P4(function(t9) {
-              return e9.ce.size ? t9.g(Promise.all([].concat(b3(e9.ce))), 0) : t9.return();
+              return e9.ce.size ? t9.g(Promise.all([].concat(b4(e9.ce))), 0) : t9.return();
             });
           }
-          L3("shaka.Player", Q), Q.prototype.isEnded = Q.prototype.Gd, Q.prototype.isRemotePlayback = Q.prototype.Ga, Q.prototype.addFont = Q.prototype.addFont, Q.prototype.setVideoContainer = Q.prototype.ck, Q.prototype.getFetchedPlaybackInfo = Q.prototype.kl, Q.prototype.getManifestParserFactory = Q.prototype.rl, Q.prototype.getManifest = Q.prototype.nh, Q.prototype.retryStreaming = Q.prototype.di, Q.prototype.setMaxHardwareResolution = Q.prototype.Gm, Q.prototype.addChaptersTrack = Q.prototype.kc, Q.prototype.addThumbnailsTrack = Q.prototype.lc, Q.prototype.addTextTrackAsync = Q.prototype.Tb, Q.prototype.getStats = Q.prototype.getStats, Q.prototype.getBufferedInfo = Q.prototype.Nc, Q.prototype.getSegmentAvailabilityDuration = Q.prototype.Bf, Q.prototype.getPresentationStartTimeAsDate = Q.prototype.hj, Q.prototype.getPlayheadTimeAsDate = Q.prototype.wl, Q.prototype.getChaptersAsync = Q.prototype.cl, Q.prototype.getChaptersTracks = Q.prototype.fl, Q.prototype.getVideoTracks = Q.prototype.getVideoTracks, Q.prototype.selectVideoTrack = Q.prototype.Am, Q.prototype.getAudioTracks = Q.prototype.getAudioTracks, Q.prototype.selectAudioTrack = Q.prototype.zm, Q.prototype.selectVariantTrack = Q.prototype.gi, Q.prototype.selectTextTrack = Q.prototype.Dc, Q.prototype.getThumbnails = Q.prototype.Dl, Q.prototype.getAllThumbnails = Q.prototype.Zk, Q.prototype.getImageTracks = Q.prototype.ol, Q.prototype.getTextTracks = Q.prototype.Gb, Q.prototype.getVariantTracks = Q.prototype.Sc, Q.prototype.cancelTrickPlay = Q.prototype.ie, Q.prototype.trickPlay = Q.prototype.Me, Q.prototype.useTrickPlayTrackIfAvailable = Q.prototype.Ci, Q.prototype.getPlaybackRate = Q.prototype.eb, Q.prototype.isBuffering = Q.prototype.xh, Q.prototype.getKeyStatuses = Q.prototype.zf, Q.prototype.retryLicensing = Q.prototype.ci, Q.prototype.renewLicense = Q.prototype.Wh, Q.prototype.getActiveSessionsMetadata = Q.prototype.mh, Q.prototype.getExpiration = Q.prototype.re, Q.prototype.drmInfo = Q.prototype.drmInfo, Q.prototype.keySystem = Q.prototype.keySystem, Q.prototype.isFullyLoaded = Q.prototype.sj, Q.prototype.goToLive = Q.prototype.Il, Q.prototype.seekRange = Q.prototype.Na, Q.prototype.isVideoOnly = Q.prototype.uj, Q.prototype.isAudioOnly = Q.prototype.pj, Q.prototype.isDynamic = Q.prototype.ya, Q.prototype.isInProgress = Q.prototype.Hd, Q.prototype.isLive = Q.prototype.isLive, Q.prototype.getQueueManager = Q.prototype.jj, Q.prototype.getAdManager = Q.prototype.pe, Q.prototype.getAllTimelineRegions = Q.prototype.$k, Q.prototype.getAllEmsgRegions = Q.prototype.Xk, Q.prototype.getAllMetadataRegions = Q.prototype.Yk, Q.prototype.getMimeType = Q.prototype.Af, Q.prototype.getAssetUri = Q.prototype.$c, Q.prototype.getNetworkingEngine = Q.prototype.hb, Q.prototype.getMediaElement = Q.prototype.Db, Q.prototype.getManifestType = Q.prototype.ej, Q.prototype.getLoadMode = Q.prototype.Bd, Q.prototype.resetConfiguration = Q.prototype.Pj, Q.prototype.getBufferFullness = Q.prototype.cj, Q.prototype.getNonDefaultConfiguration = Q.prototype.gj, Q.prototype.getConfigurationForLowLatency = Q.prototype.hl, Q.prototype.getConfiguration = Q.prototype.getConfiguration, Q.prototype.configurationForLowLatency = Q.prototype.Nk, Q.prototype.configure = Q.prototype.configure, Q.prototype.releaseAllMutexes = Q.prototype.qm, Q.prototype.destroyAllPreloads = Q.prototype.Sg, Q.prototype.preload = Q.prototype.preload, Q.prototype.detachAndSavePreload = Q.prototype.Xi, Q.prototype.unloadAndSavePreload = Q.prototype.rk, Q.prototype.load = Q.prototype.load, Q.prototype.updateStartTime = Q.prototype.Rm, Q.prototype.unload = Q.prototype.Fc, Q.prototype.detach = Q.prototype.detach, Q.prototype.attachCanvas = Q.prototype.Ek, Q.prototype.attach = Q.prototype.Ub, Q.probeSupport = function(e9) {
+          L4("shaka.Player", Q), Q.prototype.isEnded = Q.prototype.Gd, Q.prototype.isRemotePlayback = Q.prototype.Ga, Q.prototype.addFont = Q.prototype.addFont, Q.prototype.setVideoContainer = Q.prototype.ck, Q.prototype.getFetchedPlaybackInfo = Q.prototype.kl, Q.prototype.getManifestParserFactory = Q.prototype.rl, Q.prototype.getManifest = Q.prototype.nh, Q.prototype.retryStreaming = Q.prototype.di, Q.prototype.setMaxHardwareResolution = Q.prototype.Gm, Q.prototype.addChaptersTrack = Q.prototype.kc, Q.prototype.addThumbnailsTrack = Q.prototype.lc, Q.prototype.addTextTrackAsync = Q.prototype.Tb, Q.prototype.getStats = Q.prototype.getStats, Q.prototype.getBufferedInfo = Q.prototype.Nc, Q.prototype.getSegmentAvailabilityDuration = Q.prototype.Bf, Q.prototype.getPresentationStartTimeAsDate = Q.prototype.hj, Q.prototype.getPlayheadTimeAsDate = Q.prototype.wl, Q.prototype.getChaptersAsync = Q.prototype.cl, Q.prototype.getChaptersTracks = Q.prototype.fl, Q.prototype.getVideoTracks = Q.prototype.getVideoTracks, Q.prototype.selectVideoTrack = Q.prototype.Am, Q.prototype.getAudioTracks = Q.prototype.getAudioTracks, Q.prototype.selectAudioTrack = Q.prototype.zm, Q.prototype.selectVariantTrack = Q.prototype.gi, Q.prototype.selectTextTrack = Q.prototype.Dc, Q.prototype.getThumbnails = Q.prototype.Dl, Q.prototype.getAllThumbnails = Q.prototype.Zk, Q.prototype.getImageTracks = Q.prototype.ol, Q.prototype.getTextTracks = Q.prototype.Gb, Q.prototype.getVariantTracks = Q.prototype.Sc, Q.prototype.cancelTrickPlay = Q.prototype.ie, Q.prototype.trickPlay = Q.prototype.Me, Q.prototype.useTrickPlayTrackIfAvailable = Q.prototype.Ci, Q.prototype.getPlaybackRate = Q.prototype.eb, Q.prototype.isBuffering = Q.prototype.xh, Q.prototype.getKeyStatuses = Q.prototype.zf, Q.prototype.retryLicensing = Q.prototype.ci, Q.prototype.renewLicense = Q.prototype.Wh, Q.prototype.getActiveSessionsMetadata = Q.prototype.mh, Q.prototype.getExpiration = Q.prototype.re, Q.prototype.drmInfo = Q.prototype.drmInfo, Q.prototype.keySystem = Q.prototype.keySystem, Q.prototype.isFullyLoaded = Q.prototype.sj, Q.prototype.goToLive = Q.prototype.Il, Q.prototype.seekRange = Q.prototype.Na, Q.prototype.isVideoOnly = Q.prototype.uj, Q.prototype.isAudioOnly = Q.prototype.pj, Q.prototype.isDynamic = Q.prototype.ya, Q.prototype.isInProgress = Q.prototype.Hd, Q.prototype.isLive = Q.prototype.isLive, Q.prototype.getQueueManager = Q.prototype.jj, Q.prototype.getAdManager = Q.prototype.pe, Q.prototype.getAllTimelineRegions = Q.prototype.$k, Q.prototype.getAllEmsgRegions = Q.prototype.Xk, Q.prototype.getAllMetadataRegions = Q.prototype.Yk, Q.prototype.getMimeType = Q.prototype.Af, Q.prototype.getAssetUri = Q.prototype.$c, Q.prototype.getNetworkingEngine = Q.prototype.hb, Q.prototype.getMediaElement = Q.prototype.Db, Q.prototype.getManifestType = Q.prototype.ej, Q.prototype.getLoadMode = Q.prototype.Bd, Q.prototype.resetConfiguration = Q.prototype.Pj, Q.prototype.getBufferFullness = Q.prototype.cj, Q.prototype.getNonDefaultConfiguration = Q.prototype.gj, Q.prototype.getConfigurationForLowLatency = Q.prototype.hl, Q.prototype.getConfiguration = Q.prototype.getConfiguration, Q.prototype.configurationForLowLatency = Q.prototype.Nk, Q.prototype.configure = Q.prototype.configure, Q.prototype.releaseAllMutexes = Q.prototype.qm, Q.prototype.destroyAllPreloads = Q.prototype.Sg, Q.prototype.preload = Q.prototype.preload, Q.prototype.detachAndSavePreload = Q.prototype.Xi, Q.prototype.unloadAndSavePreload = Q.prototype.rk, Q.prototype.load = Q.prototype.load, Q.prototype.updateStartTime = Q.prototype.Rm, Q.prototype.unload = Q.prototype.Fc, Q.prototype.detach = Q.prototype.detach, Q.prototype.attachCanvas = Q.prototype.Ek, Q.prototype.attach = Q.prototype.Ub, Q.probeSupport = function(e9) {
             e9 = e9 === void 0 || e9;
             var t9, n6, r7, i6, a7, o8, s7;
             return P4(function(c7) {
@@ -21948,7 +22045,7 @@ var init_load_uTL4eiru = __esm({
                 case 3:
                   t9 = c7.i;
                 case 2:
-                  return n6 = Lt(), r7 = Jl(), i6 = B3(), c7.g(i6.Wb(), 4);
+                  return n6 = Lt(), r7 = Jl(), i6 = B4(), c7.g(i6.Wb(), 4);
                 case 4:
                   return a7 = c7.i, o8 = {
                     manifest: n6,
@@ -21961,7 +22058,7 @@ var init_load_uTL4eiru = __esm({
               }
             });
           }, Q.isBrowserSupported = function() {
-            return e8.Promise || R3("A Promise implementation or polyfill is required"), !(e8.Promise && e8.Uint8Array && Array.prototype.forEach) || (navigator.userAgent || "").includes("Trident/") ? false : (B3(), HT() ? true : hl().canPlayType("application/x-mpegurl") != "");
+            return e8.Promise || R4("A Promise implementation or polyfill is required"), !(e8.Promise && e8.Uint8Array && Array.prototype.forEach) || (navigator.userAgent || "").includes("Trident/") ? false : (B4(), HT() ? true : hl().canPlayType("application/x-mpegurl") != "");
           }, Q.setQueueManagerFactory = function(e9) {
             Hv = e9;
           }, Q.setAdManagerFactory = function(e9) {
@@ -21990,7 +22087,7 @@ var init_load_uTL4eiru = __esm({
           function Gv(e9, t9, n6) {
             Wi.call(this, n6);
             var r7 = this;
-            this.g = e9, this.h = t9, this.i = false, this.j = this.h.getVolume(), this.l = new z3(), this.l.G(this.h, google.ima.AdEvent.Type.PAUSED, function() {
+            this.g = e9, this.h = t9, this.i = false, this.j = this.h.getVolume(), this.l = new z4(), this.l.G(this.h, google.ima.AdEvent.Type.PAUSED, function() {
               r7.i = true;
             }), this.l.G(this.h, google.ima.AdEvent.Type.RESUMED, function() {
               r7.i = false;
@@ -22067,7 +22164,7 @@ var init_load_uTL4eiru = __esm({
             return e9 == null ? 0 : e9.getPodIndex();
           }, r6.release = function() {
             this.h = this.g = null;
-          }, L3("shaka.ads.ClientSideAd", Gv);
+          }, L4("shaka.ads.ClientSideAd", Gv);
           function Kv() {
           }
           function qv() {
@@ -22088,18 +22185,18 @@ var init_load_uTL4eiru = __esm({
             };
           }
           function Jv(e9) {
-            for (var t9 = qv(), n6 = y4(vn(e9, "Error")), r7 = n6.next(); !r7.done; r7 = n6.next()) (r7 = yn(r7.value)) && (t9.error ||= [], t9.error.push(r7));
-            for (e9 = y4(vn(e9, "Impression")), n6 = e9.next(); !n6.done; n6 = e9.next()) (n6 = yn(n6.value)) && (t9.impression ||= [], t9.impression.push(n6));
+            for (var t9 = qv(), n6 = y5(vn(e9, "Error")), r7 = n6.next(); !r7.done; r7 = n6.next()) (r7 = yn(r7.value)) && (t9.error ||= [], t9.error.push(r7));
+            for (e9 = y5(vn(e9, "Impression")), n6 = e9.next(); !n6.done; n6 = e9.next()) (n6 = yn(n6.value)) && (t9.impression ||= [], t9.impression.push(n6));
             return t9;
           }
           function Yv(e9) {
             var t9 = qv();
-            e9 = y4(e9);
-            for (var n6 = e9.next(); !n6.done; n6 = e9.next()) n6 = n6.value, n6.type in t9 && (t9[n6.type] ? t9[n6.type].push.apply(t9[n6.type], b3(n6.urls)) : t9[n6.type] = n6.urls);
+            e9 = y5(e9);
+            for (var n6 = e9.next(); !n6.done; n6 = e9.next()) n6 = n6.value, n6.type in t9 && (t9[n6.type] ? t9[n6.type].push.apply(t9[n6.type], b4(n6.urls)) : t9[n6.type] = n6.urls);
             return t9;
           }
           function Xv(e9, t9) {
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) {
               var r7 = n6.value;
               n6 = r7.attributes.event, n6 in t9 && (r7 = yn(r7)) && (t9[n6] || (t9[n6] = []), t9[n6].push(r7));
@@ -22147,13 +22244,13 @@ var init_load_uTL4eiru = __esm({
                 case "ad-volume-changed":
                   r7 = e9.unmute;
               }
-              if (r7) for (e9 = { type: 13 }, r7 = y4(r7), t9 = r7.next(); !t9.done; t9 = r7.next()) t9 = xa([t9.value], Zi()), t9.method = "POST", n6.request(7, t9, e9);
+              if (r7) for (e9 = { type: 13 }, r7 = y5(r7), t9 = r7.next(); !t9.done; t9 = r7.next()) t9 = xa([t9.value], Zi()), t9.method = "POST", n6.request(7, t9, e9);
             }
           }
-          L3("shaka.ads.Utils", Kv), Kv.ADS_LOADED = "ads-loaded", Kv.AD_STARTED = "ad-started", Kv.AD_PLAYING = "ad-playing", Kv.AD_FIRST_QUARTILE = "ad-first-quartile", Kv.AD_MIDPOINT = "ad-midpoint", Kv.AD_THIRD_QUARTILE = "ad-third-quartile", Kv.AD_COMPLETE = "ad-complete", Kv.AD_STOPPED = "ad-stopped", Kv.AD_SKIPPED = "ad-skipped", Kv.AD_VOLUME_CHANGED = "ad-volume-changed", Kv.AD_MUTED = "ad-muted", Kv.AD_PAUSED = "ad-paused", Kv.AD_RESUMED = "ad-resumed", Kv.AD_SKIP_STATE_CHANGED = "ad-skip-state-changed", Kv.CUEPOINTS_CHANGED = "ad-cue-points-changed", Kv.IMA_AD_MANAGER_LOADED = "ima-ad-manager-loaded", Kv.IMA_STREAM_MANAGER_LOADED = "ima-stream-manager-loaded", Kv.AD_CLICKED = "ad-clicked", Kv.AD_PROGRESS = "ad-progress", Kv.AD_BUFFERING = "ad-buffering", Kv.AD_IMPRESSION = "ad-impression", Kv.AD_DURATION_CHANGED = "ad-duration-changed", Kv.AD_CLOSED = "ad-closed", Kv.AD_LOADED = "ad-loaded", Kv.ALL_ADS_COMPLETED = "all-ads-completed", Kv.AD_LINEAR_CHANGED = "ad-linear-changed", Kv.AD_METADATA = "ad-metadata", Kv.AD_RECOVERABLE_ERROR = "ad-recoverable-error", Kv.AD_ERROR = "ad-error", Kv.AD_BREAK_READY = "ad-break-ready", Kv.AD_BREAK_STARTED = "ad-break-started", Kv.AD_BREAK_ENDED = "ad-break-ended", Kv.AD_INTERSTITIAL_PRELOAD = "ad-interstitial-preload", Kv.AD_INTERSTITIAL_PRELOADED = "ad-interstitial-preloaded", Kv.AD_INTERACTION = "ad-interaction", Kv.AD_CONTENT_PAUSE_REQUESTED = "ad-content-pause-requested", Kv.AD_CONTENT_RESUME_REQUESTED = "ad-content-resume-requested", Kv.AD_CONTENT_ATTACH_REQUESTED = "ad-content-attach-requested";
+          L4("shaka.ads.Utils", Kv), Kv.ADS_LOADED = "ads-loaded", Kv.AD_STARTED = "ad-started", Kv.AD_PLAYING = "ad-playing", Kv.AD_FIRST_QUARTILE = "ad-first-quartile", Kv.AD_MIDPOINT = "ad-midpoint", Kv.AD_THIRD_QUARTILE = "ad-third-quartile", Kv.AD_COMPLETE = "ad-complete", Kv.AD_STOPPED = "ad-stopped", Kv.AD_SKIPPED = "ad-skipped", Kv.AD_VOLUME_CHANGED = "ad-volume-changed", Kv.AD_MUTED = "ad-muted", Kv.AD_PAUSED = "ad-paused", Kv.AD_RESUMED = "ad-resumed", Kv.AD_SKIP_STATE_CHANGED = "ad-skip-state-changed", Kv.CUEPOINTS_CHANGED = "ad-cue-points-changed", Kv.IMA_AD_MANAGER_LOADED = "ima-ad-manager-loaded", Kv.IMA_STREAM_MANAGER_LOADED = "ima-stream-manager-loaded", Kv.AD_CLICKED = "ad-clicked", Kv.AD_PROGRESS = "ad-progress", Kv.AD_BUFFERING = "ad-buffering", Kv.AD_IMPRESSION = "ad-impression", Kv.AD_DURATION_CHANGED = "ad-duration-changed", Kv.AD_CLOSED = "ad-closed", Kv.AD_LOADED = "ad-loaded", Kv.ALL_ADS_COMPLETED = "all-ads-completed", Kv.AD_LINEAR_CHANGED = "ad-linear-changed", Kv.AD_METADATA = "ad-metadata", Kv.AD_RECOVERABLE_ERROR = "ad-recoverable-error", Kv.AD_ERROR = "ad-error", Kv.AD_BREAK_READY = "ad-break-ready", Kv.AD_BREAK_STARTED = "ad-break-started", Kv.AD_BREAK_ENDED = "ad-break-ended", Kv.AD_INTERSTITIAL_PRELOAD = "ad-interstitial-preload", Kv.AD_INTERSTITIAL_PRELOADED = "ad-interstitial-preloaded", Kv.AD_INTERACTION = "ad-interaction", Kv.AD_CONTENT_PAUSE_REQUESTED = "ad-content-pause-requested", Kv.AD_CONTENT_RESUME_REQUESTED = "ad-content-resume-requested", Kv.AD_CONTENT_ATTACH_REQUESTED = "ad-content-attach-requested";
           function Qv(e9, t9, n6, r7, i6) {
             var a7 = this;
-            this.u = e9, this.i = t9, this.F = false, this.B = this.o = null, this.H = NaN, this.l = i6, this.j = null, this.h = new z3(), google.ima.settings.setLocale(n6), google.ima.settings.setDisableCustomPlaybackForIOS10Plus(true), this.D = new google.ima.AdDisplayContainer(this.u, this.i), this.D.initialize(), this.m = new google.ima.AdsLoader(this.D), this.m.getSettings().setPlayerType("shaka-player"), this.m.getSettings().setPlayerVersion("v5.2.5"), this.g = null, this.C = r7 || new google.ima.AdsRenderingSettings(), this.h.G(this.m, google.ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED, function(e10) {
+            this.u = e9, this.i = t9, this.F = false, this.B = this.o = null, this.H = NaN, this.l = i6, this.j = null, this.h = new z4(), google.ima.settings.setLocale(n6), google.ima.settings.setDisableCustomPlaybackForIOS10Plus(true), this.D = new google.ima.AdDisplayContainer(this.u, this.i), this.D.initialize(), this.m = new google.ima.AdsLoader(this.D), this.m.getSettings().setPlayerType("shaka-player"), this.m.getSettings().setPlayerVersion("v5.2.5"), this.g = null, this.C = r7 || new google.ima.AdsRenderingSettings(), this.h.G(this.m, google.ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED, function(e10) {
               ey(a7, e10);
             }), this.h.G(this.m, google.ima.AdErrorEvent.Type.AD_ERROR, function(e10) {
               $v(a7, e10);
@@ -22185,7 +22282,7 @@ var init_load_uTL4eiru = __esm({
             t9.l(new K2("ima-ad-manager-loaded", (/* @__PURE__ */ new Map()).set("imaAdManager", t9.g)));
             var i6 = t9.g.getCuePoints();
             if (i6.length) {
-              n6 = [], i6 = y4(i6);
+              n6 = [], i6 = y5(i6);
               for (var a7 = i6.next(); !a7.done; a7 = i6.next()) n6.push({
                 start: a7.value,
                 end: null
@@ -22215,7 +22312,7 @@ var init_load_uTL4eiru = __esm({
               $v(e9, t10);
             }), e9.h.Hb(e9.g, [google.ima.AdEvent.Type.CONTENT_PAUSE_REQUESTED, google.ima.AdEvent.Type.STARTED], function(t10) {
               var n6 = t10.getAd();
-              n6 ? (e9.j = new Gv(n6, e9.g, e9.i), t10.type != google.ima.AdEvent.Type.CONTENT_PAUSE_REQUESTED || e9.o.supportsMultipleMediaElements || e9.l(new K2("ad-content-pause-requested")), t10 = (/* @__PURE__ */ new Map()).set("ad", e9.j).set("sdkAdObject", n6).set("originalEvent", t10), e9.l(new K2("ad-started", t10)), e9.j.isLinear() && (e9.u.setAttribute("ad-active", "true"), e9.o.customPlayheadTracker || e9.i.pause(), e9.i.muted ? (t10 = e9.j, t10.j = e9.i.volume, t10.h.setVolume(0)) : e9.j.setVolume(e9.i.volume))) : R3("The IMA SDK fired a " + t10.type + " event with no associated ad. Unable to play ad!");
+              n6 ? (e9.j = new Gv(n6, e9.g, e9.i), t10.type != google.ima.AdEvent.Type.CONTENT_PAUSE_REQUESTED || e9.o.supportsMultipleMediaElements || e9.l(new K2("ad-content-pause-requested")), t10 = (/* @__PURE__ */ new Map()).set("ad", e9.j).set("sdkAdObject", n6).set("originalEvent", t10), e9.l(new K2("ad-started", t10)), e9.j.isLinear() && (e9.u.setAttribute("ad-active", "true"), e9.o.customPlayheadTracker || e9.i.pause(), e9.i.muted ? (t10 = e9.j, t10.j = e9.i.volume, t10.h.setVolume(0)) : e9.j.setVolume(e9.i.volume))) : R4("The IMA SDK fired a " + t10.type + " event with no associated ad. Unable to play ad!");
             }), e9.h.G(e9.g, google.ima.AdEvent.Type.FIRST_QUARTILE, function(e10) {
               t9(e10, "ad-first-quartile");
             }), e9.h.G(e9.g, google.ima.AdEvent.Type.MIDPOINT, function(e10) {
@@ -22273,7 +22370,7 @@ var init_load_uTL4eiru = __esm({
             return e9.schemeIdUri == "urn:mpeg:dash:event:alternativeMPD:insert:2025" || e9.schemeIdUri == "urn:mpeg:dash:event:alternativeMPD:replace:2025";
           }
           function iy(e9) {
-            var t9 = Sn(e9.eventNode, "OverlayEvent"), n6 = t9.attributes.uri, r7 = t9.attributes.mimeType, i6 = t9.attributes.loop == "true", a7 = W(t9, "z", An);
+            var t9 = Sn(e9.eventNode, "OverlayEvent"), n6 = t9.attributes.uri, r7 = t9.attributes.mimeType, i6 = t9.attributes.loop == "true", a7 = W2(t9, "z", An);
             if (!n6 || a7 == 0) return null;
             var o8 = null, s7 = Sn(t9, "Background");
             if (s7) {
@@ -22282,7 +22379,7 @@ var init_load_uTL4eiru = __esm({
             }
             s7 = 1920, c7 = 1080;
             var l6 = Sn(t9, "Viewport");
-            if (l6 && (s7 = W(l6, "x", An), s7 == null || (c7 = W(l6, "y", An), c7 == null))) return null;
+            if (l6 && (s7 = W2(l6, "x", An), s7 == null || (c7 = W2(l6, "y", An), c7 == null))) return null;
             var u7 = {
               viewport: {
                 x: s7,
@@ -22342,10 +22439,10 @@ var init_load_uTL4eiru = __esm({
             };
           }
           function ay(e9, t9) {
-            var n6 = W(e9, "x", An);
-            e9 = W(e9, "y", An);
-            var r7 = W(t9, "x", An);
-            return t9 = W(t9, "y", An), n6 == null || e9 == null || r7 == null || t9 == null ? null : {
+            var n6 = W2(e9, "x", An);
+            e9 = W2(e9, "y", An);
+            var r7 = W2(t9, "x", An);
+            return t9 = W2(t9, "y", An), n6 == null || e9 == null || r7 == null || t9 == null ? null : {
               topLeft: {
                 x: n6,
                 y: e9
@@ -22393,7 +22490,7 @@ var init_load_uTL4eiru = __esm({
             return this.g.uri;
           }, r6.getTimeOffset = function() {
             return this.g.pre ? 0 : this.g.post ? -1 : this.g.startTime;
-          }, L3("shaka.ads.InterstitialAd", oy);
+          }, L4("shaka.ads.InterstitialAd", oy);
           function sy(e9, t9, n6) {
             Wi.call(this), this.g = e9, this.j = t9, this.h = n6, this.i = e9.overlay == null;
           }
@@ -22411,16 +22508,16 @@ var init_load_uTL4eiru = __esm({
             return this.g.uri;
           }, r6.getTimeOffset = function() {
             return this.g.pre ? 0 : this.g.post ? -1 : this.g.startTime;
-          }, L3("shaka.ads.InterstitialStaticAd", sy);
+          }, L4("shaka.ads.InterstitialStaticAd", sy);
           function cy(e9, t9) {
             var n6 = [];
-            e9 = y4(vn(e9, "Ad"));
+            e9 = y5(vn(e9, "Ad"));
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) {
               var i6 = r7.value;
               if (r7 = i6.attributes.id || null, i6 = Sn(i6, "InLine")) {
                 var a7 = Sn(i6, "Creatives");
                 if (a7) {
-                  a7 = y4(vn(a7, "Creative"));
+                  a7 = y5(vn(a7, "Creative"));
                   for (var o8 = a7.next(); !o8.done; o8 = a7.next()) {
                     o8 = o8.value;
                     var s7 = Sn(o8, "Linear");
@@ -22428,7 +22525,7 @@ var init_load_uTL4eiru = __esm({
                       var c7 = Jv(i6);
                       ly(n6, t9, s7, c7, r7);
                     }
-                    if (o8 = Sn(o8, "NonLinearAds")) for (s7 = vn(o8, "NonLinear"), s7 = y4(s7), c7 = s7.next(); !c7.done; c7 = s7.next()) {
+                    if (o8 = Sn(o8, "NonLinearAds")) for (s7 = vn(o8, "NonLinear"), s7 = y5(s7), c7 = s7.next(); !c7.done; c7 = s7.next()) {
                       var l6 = c7.value;
                       c7 = Jv(i6);
                       var u7 = Sn(o8, "TrackingEvents");
@@ -22443,10 +22540,10 @@ var init_load_uTL4eiru = __esm({
                         }
                         if (f4 = bn(f4)) {
                           p5 === "text/html" && (f4 = "data:text/html;charset=UTF-8," + encodeURIComponent(f4));
-                          var m5 = W(l6, "width", An) || W(l6, "expandedWidth", An), h6 = W(l6, "height", An) || W(l6, "expandedHeight", An);
+                          var m5 = W2(l6, "width", An) || W2(l6, "expandedWidth", An), h6 = W2(l6, "height", An) || W2(l6, "expandedHeight", An);
                           if (m5 || h6) {
                             var g6 = null, _5 = Sn(l6, "NonLinearClickThrough");
-                            (_5 &&= bn(_5)) && (g6 = _5), _5 = y4(vn(l6, "NonLinearClickTracking"));
+                            (_5 &&= bn(_5)) && (g6 = _5), _5 = y5(vn(l6, "NonLinearClickTracking"));
                             for (var v7 = _5.next(); !v7.done; v7 = _5.next()) (v7 = yn(v7.value)) && (c7.clickTracking || (c7.clickTracking = []), c7.clickTracking.push(v7));
                             _5 = null, (l6 = l6.attributes.minSuggestedDuration) && (_5 = on(l6)), l6 = 0, d5 != null && (l6 = d5), u7.push({
                               id: r7,
@@ -22506,13 +22603,13 @@ var init_load_uTL4eiru = __esm({
               var c7 = null, l6 = Sn(n6, "VideoClicks");
               if (l6) {
                 var u7 = Sn(l6, "ClickThrough");
-                for ((u7 &&= bn(u7)) && (c7 = u7), l6 = y4(vn(l6, "ClickTracking")), u7 = l6.next(); !u7.done; u7 = l6.next()) (u7 = yn(u7.value)) && (r7.clickTracking ||= [], r7.clickTracking.push(u7));
+                for ((u7 &&= bn(u7)) && (c7 = u7), l6 = y5(vn(l6, "ClickTracking")), u7 = l6.next(); !u7.done; u7 = l6.next()) (u7 = yn(u7.value)) && (r7.clickTracking ||= [], r7.clickTracking.push(u7));
               }
               for ((n6 = Sn(n6, "TrackingEvents")) && Xv(_n(n6), r7), s7 = n6 = vn(s7, "MediaFile"), n6 = n6.filter(function(e10) {
                 return e10.attributes.delivery == "streaming";
               }), n6.length && (s7 = n6), s7 = s7.sort(function(e10, t10) {
                 return (parseInt(t10.attributes.height, 10) || 0) - (parseInt(e10.attributes.height, 10) || 0);
-              }), s7 = y4(s7), n6 = s7.next(); !n6.done; n6 = s7.next()) if (n6 = n6.value, !n6.attributes.apiFramework && (l6 = bn(n6))) {
+              }), s7 = y5(s7), n6 = s7.next(); !n6.done; n6 = s7.next()) if (n6 = n6.value, !n6.attributes.apiFramework && (l6 = bn(n6))) {
                 e9.push({
                   id: i6,
                   groupId: null,
@@ -22544,7 +22641,7 @@ var init_load_uTL4eiru = __esm({
           }
           function uy(e9) {
             var t9 = [];
-            e9 = y4(vn(e9, "vmap:AdBreak"));
+            e9 = y5(vn(e9, "vmap:AdBreak"));
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) {
               var r7 = n6.value, i6 = r7.attributes.timeOffset;
               i6 && (n6 = null, n6 = i6 == "start" ? null : i6 == "end" ? Infinity : on(i6), (r7 = Sn(r7, "vmap:AdSource")) && (r7 = Sn(r7, "vmap:AdTagURI")) && (r7 = yn(r7)) && t9.push({
@@ -22559,7 +22656,7 @@ var init_load_uTL4eiru = __esm({
               return e10 ? e10.overlay ? true : i6.M ? e10.post : !i6.g.paused : false;
             }
             var i6 = this;
-            this.H = null, this.B = e9, this.o = t9, this.g = t9.Db(), this.F = null, this.C = true, this.h = this.g, this.Pa = n6, this.aa = /* @__PURE__ */ new Set(), this.xa = /* @__PURE__ */ new Set(), this.I = /* @__PURE__ */ new Set(), this.R = null, this.K = /* @__PURE__ */ new Set(), this.W = /* @__PURE__ */ new Map(), this.J = /* @__PURE__ */ new Map(), this.P = /* @__PURE__ */ new Map(), this.i = new Q(), Iy(this), this.L = new z3(), this.m = new z3(), this.D = this.M = false, this.O = this.l = this.ha = this.u = this.j = null, this.Ba = false, this.Aa = this.ra = null, this.Y = /* @__PURE__ */ new Map(), this.wa = function() {
+            this.H = null, this.B = e9, this.o = t9, this.g = t9.Db(), this.F = null, this.C = true, this.h = this.g, this.Pa = n6, this.aa = /* @__PURE__ */ new Set(), this.xa = /* @__PURE__ */ new Set(), this.I = /* @__PURE__ */ new Set(), this.R = null, this.K = /* @__PURE__ */ new Set(), this.W = /* @__PURE__ */ new Map(), this.J = /* @__PURE__ */ new Map(), this.P = /* @__PURE__ */ new Map(), this.i = new Q(), Iy(this), this.L = new z4(), this.m = new z4(), this.D = this.M = false, this.O = this.l = this.ha = this.u = this.j = null, this.Ba = false, this.Aa = this.ra = null, this.Y = /* @__PURE__ */ new Map(), this.wa = function() {
               if (!i6.D && i6.j && !i6.o.Ga()) {
                 i6.M = i6.g.ended, i6.j = i6.g.currentTime;
                 var e10 = by(i6);
@@ -22575,18 +22672,18 @@ var init_load_uTL4eiru = __esm({
               if (!i6.D && i6.j && !i6.o.Ga()) {
                 i6.M = i6.g.ended;
                 var e10 = i6.g.currentTime;
-                if (i6.u && !i6.u.pre && !i6.u.post && e10 < i6.u.startTime && (i6.u = null), i6.H && i6.H.allowStartInMiddleOfInterstitial && i6.o.isLive()) for (var t10 = y4(i6.K), n7 = t10.next(); !n7.done; n7 = t10.next()) {
+                if (i6.u && !i6.u.pre && !i6.u.post && e10 < i6.u.startTime && (i6.u = null), i6.H && i6.H.allowStartInMiddleOfInterstitial && i6.o.isLive()) for (var t10 = y5(i6.K), n7 = t10.next(); !n7.done; n7 = t10.next()) {
                   var r8 = n7.value;
-                  if (r8.ag && (n7 = r8.endTime, e10 >= r8.startTime && (n7 == null || n7 == Infinity || e10 < n7) && (r8.ag = false, n7 = i6, r8 = r8.id, r8 != null))) for (var a7 = y4(Array.from(n7.I)), o8 = a7.next(); !o8.done; o8 = a7.next()) o8 = o8.value, o8.groupId === r8 && jy(n7, o8);
+                  if (r8.ag && (n7 = r8.endTime, e10 >= r8.startTime && (n7 == null || n7 == Infinity || e10 < n7) && (r8.ag = false, n7 = i6, r8 = r8.id, r8 != null))) for (var a7 = y5(Array.from(n7.I)), o8 = a7.next(); !o8.done; o8 = a7.next()) o8 = o8.value, o8.groupId === r8 && jy(n7, o8);
                 }
               }
-            }, this.ma = new G(this.wa), this.V = new G(function() {
+            }, this.ma = new G2(this.wa), this.V = new G2(function() {
               if (!i6.D && i6.j != null && (i6.I.size || i6.K.size)) {
                 var e10 = i6.o.Bd();
                 if (e10 != Fv && e10 != Iv) {
                   e10 = false;
-                  for (var t10 = i6.o.Na(), n7 = y4(Array.from(i6.K)), r8 = n7.next(); !r8.done; r8 = n7.next()) r8 = r8.value, t10.start - (r8.endTime || r8.startTime) >= 1 ? (i6.K.delete(r8), py(i6), e10 = true) : r8.bi || r8.ag || !My(i6, r8) || (r8.bi = true, ky(i6, r8));
-                  for (n7 = Array.from(i6.I), n7 = y4(n7), r8 = n7.next(); !r8.done; r8 = n7.next()) if (r8 = r8.value, r8 != i6.u) {
+                  for (var t10 = i6.o.Na(), n7 = y5(Array.from(i6.K)), r8 = n7.next(); !r8.done; r8 = n7.next()) r8 = r8.value, t10.start - (r8.endTime || r8.startTime) >= 1 ? (i6.K.delete(r8), py(i6), e10 = true) : r8.bi || r8.ag || !My(i6, r8) || (r8.bi = true, ky(i6, r8));
+                  for (n7 = Array.from(i6.I), n7 = y5(n7), r8 = n7.next(); !r8.done; r8 = n7.next()) if (r8 = r8.value, r8 != i6.u) {
                     if (t10.start - (r8.endTime || r8.startTime) >= 1) jy(i6, r8), py(i6), r8.overlay || (e10 = true);
                     else if (Gy(i6, r8)) {
                       if (!i6.J.has(r8) && By(r8)) {
@@ -22639,9 +22736,9 @@ var init_load_uTL4eiru = __esm({
           r6.stop = function() {
             this.m && this.m.Ea(), this.aa.clear(), this.xa.clear(), this.I.clear(), this.R = null, this.K.clear(), this.W.clear(), this.i.Sg();
             var e9 = Array.from(this.J.values());
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var t9 = e9.next(); !t9.done; t9 = e9.next()) t9.value.release();
-            if (this.J.clear(), this.P.size) for (e9 = Array.from(this.P.keys()), e9 = y4(e9), t9 = e9.next(); !t9.done; t9 = e9.next()) Uy(this, t9.value);
+            if (this.J.clear(), this.P.size) for (e9 = Array.from(this.P.keys()), e9 = y5(e9), t9 = e9.next(); !t9.done; t9 = e9.next()) Uy(this, t9.value);
             this.P.clear(), this.Y.clear(), this.i.detach(), this.D = this.M = false, this.ha = this.u = this.j = null, this.C = true, this.h = this.g, this.Aa = this.F = null, Ey(this), py(this), this.B && ml(this.B), this.l &&= (this.l.stop(), null);
           }, r6.release = function() {
             this.stop(), this.L && this.L.release(), this.m && this.m.release(), this.ma &&= (this.ma.stop(), null), this.V &&= (this.V.stop(), null), this.i.destroy();
@@ -22656,8 +22753,8 @@ var init_load_uTL4eiru = __esm({
                   if (e9.aa.has(n6)) {
                     var a7 = Ly(t9, "X-PLAYOUT-LIMIT");
                     if (a7 != null && (a7 = parseFloat(a7), !isNaN(a7))) {
-                      for (var o8 = y4(e9.I), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = s7.value, s7.id !== n6 && s7.groupId !== n6 || gy(e9, s7, a7);
-                      for (o8 = y4(e9.K), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = s7.value, s7.id === n6 && s7.playoutLimit == null && (s7.playoutLimit = a7);
+                      for (var o8 = y5(e9.I), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = s7.value, s7.id !== n6 && s7.groupId !== n6 || gy(e9, s7, a7);
+                      for (o8 = y5(e9.K), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = s7.value, s7.id === n6 && s7.playoutLimit == null && (s7.playoutLimit = a7);
                     }
                     return i6.return();
                   }
@@ -22675,7 +22772,7 @@ var init_load_uTL4eiru = __esm({
               if (e9.D && e9.u != null && (e9.u === t9 || t9.groupId != null && e9.u.groupId === t9.groupId) && r7 && e9.ha != null) {
                 t9 = n6 - (Date.now() - e9.ha) / 1e3;
                 var i6;
-                (i6 = e9.l) == null || i6.stop(), e9.l = null, t9 <= 0 ? e9.O && e9.O() : (e9.l = new G(function() {
+                (i6 = e9.l) == null || i6.stop(), e9.l = null, t9 <= 0 ? e9.O && e9.O() : (e9.l = new G2(function() {
                   e9.O && e9.O();
                 }).ba(t9), e9.i.configure("playRangeEnd", n6));
               }
@@ -22698,9 +22795,9 @@ var init_load_uTL4eiru = __esm({
                   return P4(function(o9) {
                     if (o9.h == 1) return o9.g(t9.o.hb().request(7, xa([e10.uri], Zi()), n6).promise, 2);
                     if (r8 = o9.i, i7 = fn(r8.data, "VAST"), !i7) throw new H4(2, 10, 10007);
-                    a7.push.apply(a7, b3(cy(i7, e10.time))), o9.j();
+                    a7.push.apply(a7, b4(cy(i7, e10.time))), o9.j();
                   });
-                }, s7 = [], c7 = y4(uy(i6)), l6 = c7.next(); !l6.done; l6 = c7.next()) u7 = l6.value, s7.push(o8(u7));
+                }, s7 = [], c7 = y5(uy(i6)), l6 = c7.next(); !l6.done; l6 = c7.next()) u7 = l6.value, s7.push(o8(u7));
                 return s7.length ? d5.g(Promise.all(s7), 3) : d5.A(3);
               }
               vy(t9, a7), d5.j();
@@ -22711,14 +22808,14 @@ var init_load_uTL4eiru = __esm({
             return P4(function(l6) {
               switch (l6.h) {
                 case 1:
-                  n6 = false, r7 = y4(t9), i6 = r7.next();
+                  n6 = false, r7 = y5(t9), i6 = r7.next();
                 case 2:
                   if (i6.done) {
                     l6.A(4);
                     break;
                   }
                   if (a7 = i6.value, !a7.uri) {
-                    R3("Missing URL in interstitial", a7), l6.A(3);
+                    R4("Missing URL in interstitial", a7), l6.A(3);
                     break;
                   }
                   if (a7.mimeType) {
@@ -22736,7 +22833,7 @@ var init_load_uTL4eiru = __esm({
                     l6.A(3);
                     break;
                   }
-                  a7.loop && !a7.overlay && R3("Loop is only supported in overlay interstitials", a7), a7.overlay || (n6 = true), e9.xa.add(s7), e9.I.add(a7), e9.R = null, _y(e9, a7), Gy(e9, a7) && (!e9.J.has(a7) && By(a7) && (c7 = new qy(e9.i, a7, function(t10, n7) {
+                  a7.loop && !a7.overlay && R4("Loop is only supported in overlay interstitials", a7), a7.overlay || (n6 = true), e9.xa.add(s7), e9.I.add(a7), e9.R = null, _y(e9, a7), Gy(e9, a7) && (!e9.J.has(a7) && By(a7) && (c7 = new qy(e9.i, a7, function(t10, n7) {
                     Wy(e9, t10, n7);
                   }), e9.J.set(a7, c7)), Hy(e9, a7));
                 case 3:
@@ -22763,7 +22860,7 @@ var init_load_uTL4eiru = __esm({
                 return e10.post;
               }) : a7.filter(function(e10) {
                 return !e10.pre && !e10.post;
-              }), a7 = y4(o8), o8 = a7.next(); !o8.done; o8 = a7.next()) {
+              }), a7 = y5(o8), o8 = a7.next(); !o8.done; o8 = a7.next()) {
                 o8 = o8.value;
                 var s7 = false;
                 if (t9) s7 = o8.pre;
@@ -22780,7 +22877,7 @@ var init_load_uTL4eiru = __esm({
           function xy(e9, t9, n6, r7, i6, a7) {
             a7 = a7 === void 0 ? 0 : a7, e9.u = t9, my(e9), e9.C || !e9.B || e9.h.parentElement || e9.B.appendChild(e9.h), r7 == 1 && n6 == 1 && (n6 = Array.from(e9.I).filter(function(e10) {
               return t9.pre ? e10.pre == t9.pre : t9.post ? e10.post == t9.post : Math.abs(e10.startTime - t9.startTime) < 1e-3;
-            }).length), t9.once && (a7++, e9.I.delete(t9), e9.R = null, py(e9), t9.overlay || Fy(e9)), t9.mimeType && (t9.mimeType.startsWith("image/") || t9.mimeType === "text/html") ? t9.overlay ? Sy(e9, t9, n6, r7, a7) : R3("Unsupported interstitial", t9) : e9.C && t9.overlay ? R3("Unsupported interstitial", t9) : Cy(e9, t9, n6, r7, i6, a7);
+            }).length), t9.once && (a7++, e9.I.delete(t9), e9.R = null, py(e9), t9.overlay || Fy(e9)), t9.mimeType && (t9.mimeType.startsWith("image/") || t9.mimeType === "text/html") ? t9.overlay ? Sy(e9, t9, n6, r7, a7) : R4("Unsupported interstitial", t9) : e9.C && t9.overlay ? R4("Unsupported interstitial", t9) : Cy(e9, t9, n6, r7, i6, a7);
           }
           function Sy(t9, n6, r7, i6, a7) {
             function o8() {
@@ -22802,7 +22899,7 @@ var init_load_uTL4eiru = __esm({
               Wy(t9, "ad-error", (/* @__PURE__ */ new Map()).set("originalEvent", e9)), o8();
             }), c7.viewport.x == 0 && c7.viewport.y == 0 ? (u7.width = c7.size.x, u7.height = c7.size.y, u7.style.bottom = "10%", u7.style.left = "0", u7.style.right = "0", u7.style.width = "100%", c7.size.y || l6 != "iframe" || (u7.style.height = "auto")) : wy(u7, c7), t9.B.appendChild(u7);
             var f4 = Date.now();
-            t9.l && t9.l.stop(), t9.l = new G(function() {
+            t9.l && t9.l.stop(), t9.l = new G2(function() {
               n6.playoutLimit && (Date.now() - f4) / 1e3 > n6.playoutLimit || n6.endTime && t9.g.currentTime > n6.endTime ? (Wy(t9, "ad-complete"), o8()) : t9.g.currentTime < n6.startTime && (Wy(t9, "ad-skipped"), o8());
             }), n6.playoutLimit && !n6.endTime ? t9.l.ba(n6.playoutLimit) : n6.endTime && t9.l.Ka(0.025), t9.m.G(t9.g, "seeked", function() {
               var e9 = t9.g.currentTime;
@@ -22812,7 +22909,7 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function Cy(t9, n6, r7, i6, a7, o8) {
-            var s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y5, b4, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4, F5;
+            var s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y6, b5, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5, F5;
             P4(function(I5) {
               switch (I5.h) {
                 case 1:
@@ -22877,44 +22974,44 @@ var init_load_uTL4eiru = __esm({
                     d5(), Wy(t9, "ad-midpoint");
                   }), t9.m.oa(t9.i, "thirdquartile", function() {
                     d5(), Wy(t9, "ad-third-quartile");
-                  }), t9.m.oa(t9.i, "complete", m5), y5 = false, t9.m.G(t9.h, "play", function() {
-                    y5 ? Wy(t9, "ad-resumed") : (y5 = true, Wy(t9, "ad-playing", (/* @__PURE__ */ new Map()).set("ad", h6)));
+                  }), t9.m.oa(t9.i, "complete", m5), y6 = false, t9.m.G(t9.h, "play", function() {
+                    y6 ? Wy(t9, "ad-resumed") : (y6 = true, Wy(t9, "ad-playing", (/* @__PURE__ */ new Map()).set("ad", h6)));
                   }), t9.m.G(t9.h, "pause", function() {
                     var e9 = t9.i.getConfiguration();
                     t9.h.currentTime >= e9.playRangeEnd ? m5() : Wy(t9, "ad-paused");
                   }), t9.m.G(t9.h, "volumechange", function() {
                     t9.h.muted ? Wy(t9, "ad-muted") : Wy(t9, "ad-volume-changed"), t9.C || (t9.g.volume = t9.h.volume, t9.g.muted = t9.h.muted);
-                  }), n6.clickThroughUrl && (b4 = t9.B || t9.h, t9.m.G(b4, "click", function() {
+                  }), n6.clickThroughUrl && (b5 = t9.B || t9.h, t9.m.G(b5, "click", function() {
                     n6.clickThroughUrl && (h6.isPaused() || h6.pause(), Ky(n6.clickThroughUrl) && e8.open(n6.clickThroughUrl, "_blank"));
                   })), !t9.C || i6 != 1) {
                     I5.A(2);
                     break;
                   }
-                  return Wy(t9, "ad-content-pause-requested", (/* @__PURE__ */ new Map()).set("saveLivePosition", true)), x4 = Promise.withResolvers(), S3 = function(e9) {
+                  return Wy(t9, "ad-content-pause-requested", (/* @__PURE__ */ new Map()).set("saveLivePosition", true)), x5 = Promise.withResolvers(), S5 = function(e9) {
                     return P4(function(n7) {
                       if (n7.h == 1) return e9.state == "detach" ? Vy() ? n7.g(Qr(0.1), 3) : n7.A(3) : n7.A(0);
-                      x4.resolve(), t9.m.Ua(t9.o, "onstatechange", S3), n7.j();
+                      x5.resolve(), t9.m.Ua(t9.o, "onstatechange", S5), n7.j();
                     });
-                  }, t9.m.G(t9.o, "onstatechange", S3), I5.g(x4.promise, 2);
+                  }, t9.m.G(t9.o, "onstatechange", S5), I5.g(x5.promise, 2);
                 case 2:
-                  if (Ty(t9, n6), t9.C || (t9.h.style.display = "", n6.overlay ? (t9.h.loop = n6.loop, wy(t9.h, n6.overlay)) : (t9.g.pause(), t9.o.isLive() || n6.resumeOffset == null || n6.resumeOffset == 0 || (t9.g.currentTime += n6.resumeOffset), t9.h.loop = false, t9.h.style.height = "100%", t9.h.style.left = "0", t9.h.style.top = "0", t9.h.style.width = "100%")), I5.m(4), Iy(t9), n6.startTime && n6.endTime && n6.endTime != Infinity && n6.startTime != n6.endTime && (C5 = n6.endTime - n6.startTime, C5 > 0 && t9.i.configure("playRangeEnd", C5)), w5 = null, i6 == 1 && !n6.pre && !n6.post && t9.H.allowStartInMiddleOfInterstitial && t9.j != null && n6.startTime <= t9.j && (!n6.endTime || n6.endTime > t9.j) && (n6.id && t9.Y.has(n6.id) ? (T5 = t9.Y.get(n6.id), t9.Y.delete(n6.id), Math.abs(T5) > 0.25 && (w5 = T5)) : (E5 = t9.j - n6.startTime, Math.abs(E5) > 0.25 && (w5 = E5))), i6 == 1 && ((D5 = t9.l) == null || D5.stop(), t9.l = null), (O5 = n6.playoutLimit) && !t9.l && (w5 && (O5 -= w5), t9.l = new G(function() {
+                  if (Ty(t9, n6), t9.C || (t9.h.style.display = "", n6.overlay ? (t9.h.loop = n6.loop, wy(t9.h, n6.overlay)) : (t9.g.pause(), t9.o.isLive() || n6.resumeOffset == null || n6.resumeOffset == 0 || (t9.g.currentTime += n6.resumeOffset), t9.h.loop = false, t9.h.style.height = "100%", t9.h.style.left = "0", t9.h.style.top = "0", t9.h.style.width = "100%")), I5.m(4), Iy(t9), n6.startTime && n6.endTime && n6.endTime != Infinity && n6.startTime != n6.endTime && (C6 = n6.endTime - n6.startTime, C6 > 0 && t9.i.configure("playRangeEnd", C6)), w6 = null, i6 == 1 && !n6.pre && !n6.post && t9.H.allowStartInMiddleOfInterstitial && t9.j != null && n6.startTime <= t9.j && (!n6.endTime || n6.endTime > t9.j) && (n6.id && t9.Y.has(n6.id) ? (T6 = t9.Y.get(n6.id), t9.Y.delete(n6.id), Math.abs(T6) > 0.25 && (w6 = T6)) : (E6 = t9.j - n6.startTime, Math.abs(E6) > 0.25 && (w6 = E6))), i6 == 1 && ((D6 = t9.l) == null || D6.stop(), t9.l = null), (O6 = n6.playoutLimit) && !t9.l && (w6 && (O6 -= w6), t9.l = new G2(function() {
                     t9.O();
-                  }).ba(O5), t9.i.configure("playRangeEnd", O5)), t9.i.Db() === t9.h) {
+                  }).ba(O6), t9.i.configure("playRangeEnd", O6)), t9.i.Db() === t9.h) {
                     I5.A(6);
                     break;
                   }
                   return I5.g(t9.i.Ub(t9.h), 6);
                 case 6:
                   if (t9.J.has(n6)) {
-                    if (k5 = t9.J.get(n6), t9.J.delete(n6), A4 = k5.i) throw A4;
-                    return (j5 = k5.g) ? I5.g(t9.i.load(j5, w5), 9) : I5.g(t9.i.load(n6.uri, w5, n6.mimeType || void 0), 9);
+                    if (k6 = t9.J.get(n6), t9.J.delete(n6), A5 = k6.i) throw A5;
+                    return (j5 = k6.g) ? I5.g(t9.i.load(j5, w6), 9) : I5.g(t9.i.load(n6.uri, w6, n6.mimeType || void 0), 9);
                   }
-                  return I5.g(t9.i.load(n6.uri, w5, n6.mimeType || void 0), 9);
+                  return I5.g(t9.i.load(n6.uri, w6, n6.mimeType || void 0), 9);
                 case 9:
-                  n6.overlay && t9.g.paused ? t9.h.pause() : t9.h.play(), M5 = (Date.now() - s7) / 1e3, Wy(t9, "ads-loaded", (/* @__PURE__ */ new Map()).set("loadTime", M5)), t9.C && t9.g.play(), n6.overlay && (n6.pre || n6.post || t9.o.isLive() && !(n6.startTime > 0) || (N4 = function() {
+                  n6.overlay && t9.g.paused ? t9.h.pause() : t9.h.play(), M5 = (Date.now() - s7) / 1e3, Wy(t9, "ads-loaded", (/* @__PURE__ */ new Map()).set("loadTime", M5)), t9.C && t9.g.play(), n6.overlay && (n6.pre || n6.post || t9.o.isLive() && !(n6.startTime > 0) || (N5 = function() {
                     var e9 = t9.g.currentTime - n6.startTime;
                     Math.abs(e9 - t9.h.currentTime) > 0.1 && (t9.h.currentTime = e9);
-                  }, t9.m.oa(t9.h, "playing", N4), t9.m.G(t9.g, "seeking", N4)), t9.m.G(t9.g, "seeked", function() {
+                  }, t9.m.oa(t9.h, "playing", N5), t9.m.G(t9.g, "seeking", N5)), t9.m.G(t9.g, "seeked", function() {
                     var e9 = t9.g.currentTime;
                     (e9 < n6.startTime || n6.endTime && e9 > n6.endTime) && t9.O();
                   })), I5.o(0);
@@ -22942,13 +23039,13 @@ var init_load_uTL4eiru = __esm({
             (!t9 || t9.displayOnBackground) && (e9.g.style.zIndex = ""), t9 && t9.currentVideo == null || (e9.g.style.transformOrigin = "", e9.g.style.transition = "", e9.g.style.transform = ""), e9.B && (e9.B.removeAttribute("ad-active"), e9.B.style.pointerEvents = "", !t9 || t9.background) && (e9.B.style.background = ""), e9.F && (e9.F.style.background = "");
           }
           function Dy(e9, t9) {
-            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y5, b4, x4, S3, C5, w5, T5, E5, D5;
-            return P4(function(O5) {
-              switch (O5.h) {
+            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y6, b5, x5, S5, C6, w6, T6, E6, D6;
+            return P4(function(O6) {
+              switch (O6.h) {
                 case 1:
-                  if (n6 = [], !t9 || (r7 = Ly(t9, "X-ASSET-URI"), i6 = Ly(t9, "X-ASSET-LIST"), !r7 && !i6)) return O5.return(n6);
-                  if (a7 = Ly(t9, "ID"), o8 = Ry(t9, a7), s7 = o8.startTime, c7 = o8.endTime, l6 = Ly(t9, "X-RESTRICT"), d5 = u7 = true, l6 != null && (u7 = !l6.includes("SKIP"), d5 = !l6.includes("JUMP")), f4 = u7 ? 0 : null, p5 = Ly(t9, "X-SKIP-CONTROL-OFFSET"), p5 != null && (f4 = parseFloat(p5), isNaN(f4) && (f4 = u7 ? 0 : null)), m5 = null, h6 = Ly(t9, "X-SKIP-CONTROL-DURATION"), h6 != null && (m5 = parseFloat(h6), isNaN(f4) && (m5 = null)), g6 = null, _5 = Ly(t9, "X-RESUME-OFFSET"), _5 != null && (g6 = parseFloat(_5), isNaN(g6) && (g6 = null)), g6 != null && g6 != 0 && c7 && c7 != Infinity && yl(s7 + g6, c7) && (g6 = null), v7 = null, y5 = Ly(t9, "X-PLAYOUT-LIMIT"), y5 != null && (v7 = parseFloat(y5), isNaN(v7) && (v7 = null)), b4 = zy(t9), x4 = b4.once, S3 = b4.pre, C5 = b4.post, w5 = false, T5 = Ly(t9, "X-TIMELINE-OCCUPIES"), T5 == null ? _5 == null && e9.o.isLive() && (w5 = !S3 && !C5) : w5 = T5.includes("RANGE"), r7 != null) {
-                    if (!r7) return O5.return(n6);
+                  if (n6 = [], !t9 || (r7 = Ly(t9, "X-ASSET-URI"), i6 = Ly(t9, "X-ASSET-LIST"), !r7 && !i6)) return O6.return(n6);
+                  if (a7 = Ly(t9, "ID"), o8 = Ry(t9, a7), s7 = o8.startTime, c7 = o8.endTime, l6 = Ly(t9, "X-RESTRICT"), d5 = u7 = true, l6 != null && (u7 = !l6.includes("SKIP"), d5 = !l6.includes("JUMP")), f4 = u7 ? 0 : null, p5 = Ly(t9, "X-SKIP-CONTROL-OFFSET"), p5 != null && (f4 = parseFloat(p5), isNaN(f4) && (f4 = u7 ? 0 : null)), m5 = null, h6 = Ly(t9, "X-SKIP-CONTROL-DURATION"), h6 != null && (m5 = parseFloat(h6), isNaN(f4) && (m5 = null)), g6 = null, _5 = Ly(t9, "X-RESUME-OFFSET"), _5 != null && (g6 = parseFloat(_5), isNaN(g6) && (g6 = null)), g6 != null && g6 != 0 && c7 && c7 != Infinity && yl(s7 + g6, c7) && (g6 = null), v7 = null, y6 = Ly(t9, "X-PLAYOUT-LIMIT"), y6 != null && (v7 = parseFloat(y6), isNaN(v7) && (v7 = null)), b5 = zy(t9), x5 = b5.once, S5 = b5.pre, C6 = b5.post, w6 = false, T6 = Ly(t9, "X-TIMELINE-OCCUPIES"), T6 == null ? _5 == null && e9.o.isLive() && (w6 = !S5 && !C6) : w6 = T6.includes("RANGE"), r7 != null) {
+                    if (!r7) return O6.return(n6);
                     n6.push({
                       id: a7,
                       groupId: null,
@@ -22962,10 +23059,10 @@ var init_load_uTL4eiru = __esm({
                       canJump: d5,
                       resumeOffset: g6,
                       playoutLimit: v7,
-                      once: x4,
-                      pre: S3,
-                      post: C5,
-                      timelineRange: w5,
+                      once: x5,
+                      pre: S5,
+                      post: C6,
+                      timelineRange: w6,
                       loop: false,
                       overlay: null,
                       displayOnBackground: false,
@@ -22973,15 +23070,15 @@ var init_load_uTL4eiru = __esm({
                       background: null,
                       clickThroughUrl: null,
                       tracking: null
-                    }), O5.A(2);
+                    }), O6.A(2);
                     break;
                   }
                   if (i6 == null) {
-                    O5.A(2);
+                    O6.A(2);
                     break;
                   }
-                  if (!i6) return O5.return(n6);
-                  if (E5 = {
+                  if (!i6) return O6.return(n6);
+                  if (E6 = {
                     id: a7,
                     groupId: null,
                     startTime: s7,
@@ -22993,44 +23090,44 @@ var init_load_uTL4eiru = __esm({
                     canJump: d5,
                     resumeOffset: g6,
                     playoutLimit: v7,
-                    once: x4,
-                    pre: S3,
-                    post: C5,
-                    timelineRange: w5,
+                    once: x5,
+                    pre: S5,
+                    post: C6,
+                    timelineRange: w6,
                     bi: false,
                     ag: false
-                  }, _y(e9, E5), !My(e9, E5)) {
-                    O5.A(4);
+                  }, _y(e9, E6), !My(e9, E6)) {
+                    O6.A(4);
                     break;
                   }
-                  return O5.g(Oy(e9, E5), 5);
+                  return O6.g(Oy(e9, E6), 5);
                 case 5:
-                  return D5 = O5.i, D5.length && Ay(e9, E5), O5.return(D5);
+                  return D6 = O6.i, D6.length && Ay(e9, E6), O6.return(D6);
                 case 4:
-                  e9.K.add(E5), Fy(e9), fy(e9);
+                  e9.K.add(E6), Fy(e9), fy(e9);
                 case 2:
-                  return O5.return(n6);
+                  return O6.return(n6);
               }
             });
           }
           function Oy(e9, t9) {
-            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y5, b4, x4, S3, C5, w5, T5;
-            return P4(function(E5) {
-              switch (E5.h) {
+            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y6, b5, x5, S5, C6, w6, T6;
+            return P4(function(E6) {
+              switch (E6.h) {
                 case 1:
-                  return n6 = [], r7 = t9.skipOffset, i6 = t9.skipFor, E5.m(2), a7 = { type: 11 }, o8 = 0, !t9.pre && !t9.post && e9.H.allowStartInMiddleOfInterstitial && e9.o.isLive() && (s7 = e9.j ?? e9.g.currentTime, o8 = s7 - t9.startTime), c7 = Py(e9, t9.Dk, o8), E5.g(e9.o.hb().request(7, xa([c7], Zi()), a7).promise, 4);
+                  return n6 = [], r7 = t9.skipOffset, i6 = t9.skipFor, E6.m(2), a7 = { type: 11 }, o8 = 0, !t9.pre && !t9.post && e9.H.allowStartInMiddleOfInterstitial && e9.o.isLive() && (s7 = e9.j ?? e9.g.currentTime, o8 = s7 - t9.startTime), c7 = Py(e9, t9.Dk, o8), E6.g(e9.o.hb().request(7, xa([c7], Zi()), a7).promise, 4);
                 case 4:
-                  for (l6 = E5.i, u7 = Ie2(l6.data), d5 = JSON.parse(u7), (f4 = d5["SKIP-CONTROL"]) && (p5 = f4.OFFSET, typeof p5 == "number" && (r7 = parseFloat(p5), isNaN(p5) && (r7 = t9.isSkippable ? 0 : null)), m5 = f4.DURATION, typeof m5 == "number" && (i6 = parseFloat(m5), isNaN(i6) && (i6 = null))), g6 = h6 = 0; g6 < d5.ASSETS.length; g6++) {
-                    if (_5 = d5.ASSETS[g6], v7 = _5.URI, y5 = parseFloat(_5.DURATION) || 0, o8 > 0 && y5 > 0 && (b4 = h6 + y5, b4 <= o8)) {
-                      h6 = b4;
+                  for (l6 = E6.i, u7 = Ie2(l6.data), d5 = JSON.parse(u7), (f4 = d5["SKIP-CONTROL"]) && (p5 = f4.OFFSET, typeof p5 == "number" && (r7 = parseFloat(p5), isNaN(p5) && (r7 = t9.isSkippable ? 0 : null)), m5 = f4.DURATION, typeof m5 == "number" && (i6 = parseFloat(m5), isNaN(i6) && (i6 = null))), g6 = h6 = 0; g6 < d5.ASSETS.length; g6++) {
+                    if (_5 = d5.ASSETS[g6], v7 = _5.URI, y6 = parseFloat(_5.DURATION) || 0, o8 > 0 && y6 > 0 && (b5 = h6 + y6, b5 <= o8)) {
+                      h6 = b5;
                       continue;
                     }
-                    v7 && (x4 = la(l6.uri, v7), S3 = {
+                    v7 && (x5 = la(l6.uri, v7), S5 = {
                       id: t9.id + "_shaka_asset_" + g6,
                       groupId: t9.id,
                       startTime: t9.startTime,
                       endTime: t9.endTime,
-                      uri: Py(e9, x4),
+                      uri: Py(e9, x5),
                       mimeType: null,
                       isSkippable: t9.isSkippable,
                       skipOffset: r7,
@@ -23049,14 +23146,14 @@ var init_load_uTL4eiru = __esm({
                       background: null,
                       clickThroughUrl: null,
                       tracking: null
-                    }, (C5 = _5["X-AD-CREATIVE-SIGNALING"]) && (w5 = C5.payload && C5.payload[0]) && (S3.clickThroughUrl = w5.clickThrough, w5.tracking && (S3.tracking = Yv(w5.tracking))), o8 > 0 && h6 < o8 && (T5 = o8 - h6, e9.Y.set(S3.id, T5)), n6.push(S3)), h6 += y5;
+                    }, (C6 = _5["X-AD-CREATIVE-SIGNALING"]) && (w6 = C6.payload && C6.payload[0]) && (S5.clickThroughUrl = w6.clickThrough, w6.tracking && (S5.tracking = Yv(w6.tracking))), o8 > 0 && h6 < o8 && (T6 = o8 - h6, e9.Y.set(S5.id, T6)), n6.push(S5)), h6 += y6;
                   }
-                  E5.o(3);
+                  E6.o(3);
                   break;
                 case 2:
-                  E5.l();
+                  E6.l();
                 case 3:
-                  return E5.return(n6);
+                  return E6.return(n6);
               }
             });
           }
@@ -23174,8 +23271,8 @@ var init_load_uTL4eiru = __esm({
                 end: t10
               });
             }
-            for (var n6 = [], r7 = y4(e9.I), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, i6.overlay || (i6.pre ? t9(0, null) : i6.post ? t9(-1, null) : i6.timelineRange ? t9(i6.startTime, i6.endTime) : t9(i6.startTime, null));
-            for (r7 = y4(e9.K), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, i6.pre ? t9(0, null) : i6.post ? t9(-1, null) : i6.timelineRange ? t9(i6.startTime, i6.endTime) : t9(i6.startTime, null);
+            for (var n6 = [], r7 = y5(e9.I), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, i6.overlay || (i6.pre ? t9(0, null) : i6.post ? t9(-1, null) : i6.timelineRange ? t9(i6.startTime, i6.endTime) : t9(i6.startTime, null));
+            for (r7 = y5(e9.K), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, i6.pre ? t9(0, null) : i6.post ? t9(-1, null) : i6.timelineRange ? t9(i6.startTime, i6.endTime) : t9(i6.startTime, null);
             Wy(e9, "ad-cue-points-changed", (/* @__PURE__ */ new Map()).set("cuepoints", n6));
           }
           function Iy(e9) {
@@ -23204,7 +23301,7 @@ var init_load_uTL4eiru = __esm({
             return !(e9 = e9.mimeType) || !e9.startsWith("image/") && e9 !== "text/html";
           }
           function Vy() {
-            var e9 = B3().Ra();
+            var e9 = B4().Ra();
             return e9 == "TV" || e9 == "CONSOLE" || e9 == "CAST";
           }
           function Hy(e9, t9) {
@@ -23223,7 +23320,7 @@ var init_load_uTL4eiru = __esm({
           function Uy(e9, t9) {
             if (e9.P.has(t9)) {
               var n6 = e9.P.get(t9);
-              n6 = y4(n6);
+              n6 = y5(n6);
               for (var r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, r7.parentNode.removeChild(r7);
               e9.P.delete(t9);
             }
@@ -23316,22 +23413,22 @@ var init_load_uTL4eiru = __esm({
             return this.g.startTimeInSeconds;
           }, r6.release = function() {
             this.j = this.h = this.g = null;
-          }, L3("shaka.ads.MediaTailorAd", Yy);
+          }, L4("shaka.ads.MediaTailorAd", Yy);
           function Xy(e9, t9, n6, r7) {
-            this.o = e9, this.O = t9, this.u = null, this.i = n6, this.l = null, this.V = NaN, this.h = r7, this.M = false, this.F = null, this.j = [], this.J = /* @__PURE__ */ new Set(), this.I = this.m = this.g = null, this.H = /* @__PURE__ */ new Map(), this.C = [], this.D = /* @__PURE__ */ new Set(), this.K = "", this.R = true, this.L = "", this.B = new z3(), this.P = false;
+            this.o = e9, this.O = t9, this.u = null, this.i = n6, this.l = null, this.V = NaN, this.h = r7, this.M = false, this.F = null, this.j = [], this.J = /* @__PURE__ */ new Set(), this.I = this.m = this.g = null, this.H = /* @__PURE__ */ new Map(), this.C = [], this.D = /* @__PURE__ */ new Set(), this.K = "", this.R = true, this.L = "", this.B = new z4(), this.P = false;
           }
           r6 = Xy.prototype, r6.configure = function(e9) {
             this.u = e9;
           }, r6.stop = function() {
-            for (var e9 = y4(this.C), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, this.B.Ua(t9.target, t9.type, t9.listener);
+            for (var e9 = y5(this.C), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, this.B.Ua(t9.target, t9.type, t9.listener);
             ib(this), this.C = [], this.D.clear(), this.K = "", this.R = true, this.L = "", this.F = null, this.j = [], this.J.clear(), this.H.clear(), this.l = null, this.P = false;
           }, r6.release = function() {
             this.stop(), this.B && this.B.release();
           }, r6.onManifestUpdated = function(e9) {
             this.M = e9, this.K != "" && (Qy(this, this.K, this.R), this.R = false);
           }, r6.getCuePoints = function() {
-            for (var e9 = /* @__PURE__ */ new Map(), t9 = y4(this.j), n6 = t9.next(); !n6.done; n6 = t9.next()) {
-              n6 = y4(n6.value.ads);
+            for (var e9 = /* @__PURE__ */ new Map(), t9 = y5(this.j), n6 = t9.next(); !n6.done; n6 = t9.next()) {
+              n6 = y5(n6.value.ads);
               for (var r7 = n6.next(); !r7.done; r7 = n6.next()) {
                 var i6 = r7.value;
                 if (r7 = i6.startTimeInSeconds, i6 = r7 + i6.durationInSeconds, isFinite(r7) && isFinite(i6) && !(i6 <= r7)) {
@@ -23362,18 +23459,18 @@ var init_load_uTL4eiru = __esm({
           }
           function Qy(e9, t9, n6) {
             var r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7;
-            P4(function(b4) {
-              if (b4.h == 1) return r7 = { type: 8 }, i6 = xa([t9], Zi()), a7 = e9.O.request(7, i6, r7), b4.m(2), b4.g(a7.promise, 4);
-              if (b4.h != 2) {
-                if (o8 = b4.i, s7 = [], c7 = Ie2(o8.data), l6 = JSON.parse(c7), l6.avails.length > 0) {
+            P4(function(b5) {
+              if (b5.h == 1) return r7 = { type: 8 }, i6 = xa([t9], Zi()), a7 = e9.O.request(7, i6, r7), b5.m(2), b5.g(a7.promise, 4);
+              if (b5.h != 2) {
+                if (o8 = b5.i, s7 = [], c7 = Ie2(o8.data), l6 = JSON.parse(c7), l6.avails.length > 0) {
                   if (dn(e9.j) != dn(l6.avails)) {
-                    for (e9.j = l6.avails, u7 = y4(e9.j), d5 = u7.next(); !d5.done; d5 = u7.next()) for (f4 = d5.value, p5 = y4(f4.nonLinearAdsList), m5 = p5.next(); !m5.done; m5 = p5.next()) for (h6 = m5.value, g6 = y4(h6.nonLinearAdList), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, $y(e9, v7);
+                    for (e9.j = l6.avails, u7 = y5(e9.j), d5 = u7.next(); !d5.done; d5 = u7.next()) for (f4 = d5.value, p5 = y5(f4.nonLinearAdsList), m5 = p5.next(); !m5.done; m5 = p5.next()) for (h6 = m5.value, g6 = y5(h6.nonLinearAdList), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, $y(e9, v7);
                     s7 = e9.getCuePoints(), e9.h(new K2("ad-cue-points-changed", (/* @__PURE__ */ new Map()).set("cuepoints", s7)));
                   }
                 } else e9.j.length && e9.h(new K2("ad-cue-points-changed", (/* @__PURE__ */ new Map()).set("cuepoints", s7))), ib(e9), e9.j = [];
-                return n6 && (e9.M || s7.length > 0) && tb(e9), b4.o(0);
+                return n6 && (e9.M || s7.length > 0) && tb(e9), b5.o(0);
               }
-              b4.l(), b4.j();
+              b5.l(), b5.j();
             });
           }
           function $y(e9, t9) {
@@ -23410,9 +23507,9 @@ var init_load_uTL4eiru = __esm({
           function nb(e9) {
             var t9 = e9.i.currentTime;
             if (!(e9.u && e9.u.disableSnapback || t9 == 0 || e9.F != null)) {
-              for (var n6, r7, i6 = y4(e9.j), a7 = i6.next(); !a7.done; a7 = i6.next()) {
+              for (var n6, r7, i6 = y5(e9.j), a7 = i6.next(); !a7.done; a7 = i6.next()) {
                 a7 = a7.value;
-                for (var o8 = y4(a7.ads), s7 = o8.next(); !s7.done; s7 = o8.next()) if (s7 = s7.value, !r7) s7.startTimeInSeconds < t9 && (r7 = s7, n6 = a7);
+                for (var o8 = y5(a7.ads), s7 = o8.next(); !s7.done; s7 = o8.next()) if (s7 = s7.value, !r7) s7.startTimeInSeconds < t9 && (r7 = s7, n6 = a7);
                 else if (r7.durationInSeconds > 0 && s7.startTimeInSeconds < t9 && s7.startTimeInSeconds > r7.startTimeInSeconds + r7.durationInSeconds) {
                   r7 = s7, n6 = a7;
                   break;
@@ -23430,7 +23527,7 @@ var init_load_uTL4eiru = __esm({
                 t9 >= r7.startTimeInSeconds + 0.25 * r7.durationInSeconds && !e9.D.has("firstQuartile") ? (e9.D.add("firstQuartile"), ob(e9, "firstQuartile")) : t9 >= i6 && !e9.D.has("midpoint") ? (e9.D.add("midpoint"), ob(e9, "midpoint")) : t9 >= a7 && !e9.D.has("thirdQuartile") && (e9.D.add("thirdQuartile"), ob(e9, "thirdQuartile")), r7 = e9.g.getRemainingTime(), i6 = e9.g.getDuration(), e9.g.canSkipNow() && r7 > 0 && i6 > 0 && ob(e9, "skipStateChanged"), i6 > 0 && (r7 <= 0 || r7 > i6) && ib(e9);
               }
               if (!e9.g || !e9.g.isLinear()) {
-                a: for (r7 = y4(e9.j), i6 = r7.next(); !i6.done && (i6 = i6.value, !(e9.g && e9.g.isLinear())); i6 = r7.next()) for (a7 = 0; a7 < i6.ads.length; a7++) {
+                a: for (r7 = y5(e9.j), i6 = r7.next(); !i6.done && (i6 = i6.value, !(e9.g && e9.g.isLinear())); i6 = r7.next()) for (a7 = 0; a7 < i6.ads.length; a7++) {
                   var o8 = i6.ads[a7], s7 = o8.startTimeInSeconds + o8.durationInSeconds;
                   if (o8.startTimeInSeconds <= t9 && s7 > t9) {
                     if ((!e9.u || !e9.u.disablePlayedLinearAdSkip) && e9.J.has(o8.adId)) {
@@ -23443,11 +23540,11 @@ var init_load_uTL4eiru = __esm({
                   }
                 }
                 if (!e9.g && e9.o) {
-                  for (r7 = y4(e9.j), i6 = r7.next(); !i6.done && (i6 = i6.value, !e9.g); i6 = r7.next()) for (a7 = 0; a7 < i6.nonLinearAdsList.length; a7++) if (o8 = i6.nonLinearAdsList[a7], o8.nonLinearAdList.length) {
+                  for (r7 = y5(e9.j), i6 = r7.next(); !i6.done && (i6 = i6.value, !e9.g); i6 = r7.next()) for (a7 = 0; a7 < i6.nonLinearAdsList.length; a7++) if (o8 = i6.nonLinearAdsList[a7], o8.nonLinearAdList.length) {
                     s7 = i6.startTimeInSeconds;
                     var c7 = e9.H.get(eb(o8.nonLinearAdList[0]));
                     if (s7 <= t9 && c7 && c7.length) {
-                      ib(e9), s7 = e9, c7 = y4(c7);
+                      ib(e9), s7 = e9, c7 = y5(c7);
                       for (var l6 = c7.next(); !l6.done; l6 = c7.next()) if (l6 = l6.value, l6.data.source.length) {
                         var u7 = document.createElement("img");
                         u7.src = l6.data.source[0].url, u7.style.top = (l6.placeholder.top || 0) + "%", u7.style.height = 100 - (l6.placeholder.top || 0) + "%", u7.style.left = (l6.placeholder.left || 0) + "%", u7.style.maxWidth = 100 - (l6.placeholder.left || 0) + "%", u7.style.objectFit = "contain", u7.style.position = "absolute", s7.o.appendChild(u7);
@@ -23465,7 +23562,7 @@ var init_load_uTL4eiru = __esm({
             if (e9.g && e9.m) {
               e9.o && ml(e9.o), e9.M || e9.J.add(e9.m.adId);
               var t9 = e9.g.l;
-              t9 !== void 0 && t9 ? ob(e9, "skip") : ob(e9, "complete"), t9 = y4(e9.C);
+              t9 !== void 0 && t9 ? ob(e9, "skip") : ob(e9, "complete"), t9 = y5(e9.C);
               for (var n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, e9.B.Ua(n6.target, n6.type, n6.listener);
               e9.C = [], e9.D.clear(), t9 = e9.g.getPositionInSequence(), n6 = e9.g.getSequenceLength(), t9 === n6 && ob(e9, "breakEnd"), e9.g = null, e9.m = null, e9.I = null;
             }
@@ -23491,7 +23588,7 @@ var init_load_uTL4eiru = __esm({
                 ob(e9, "pause");
               }
             });
-            for (var n6 = y4(e9.C), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, e9.B.G(r7.target, r7.type, r7.listener);
+            for (var n6 = y5(e9.C), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, e9.B.G(r7.target, r7.type, r7.listener);
           }
           function ob(e9, t9) {
             if (e9.m && e9.I) {
@@ -23502,7 +23599,7 @@ var init_load_uTL4eiru = __esm({
                 return e10.eventType == t9;
               }), n6 && e9.u && !e9.u.disableTrackingEvents && !(e9.u.disableTrackingForPlayedLinearAds && e9.m && e9.J.has(e9.m.adId))) {
                 var r7 = { type: 10 };
-                n6 = y4(n6.beaconUrls);
+                n6 = y5(n6.beaconUrls);
                 for (var i6 = n6.next(); !i6.done; i6 = n6.next()) (i6 = i6.value) && i6 != "" && (i6 = xa([i6], Zi()), i6.method = "POST", e9.O.request(7, i6, r7));
               }
               switch (t9) {
@@ -23598,10 +23695,10 @@ var init_load_uTL4eiru = __esm({
             return e9 == null ? 0 : e9.getPodIndex();
           }, r6.release = function() {
             this.h = this.g = null;
-          }, L3("shaka.ads.ServerSideAd", sb);
+          }, L4("shaka.ads.ServerSideAd", sb);
           function cb(e9, t9, n6, r7) {
             var i6 = this;
-            this.u = e9, this.l = t9, this.j = this.D = null, this.H = NaN, this.i = r7, this.I = false, this.B = this.m = this.o = null, this.C = "", this.F = [], this.h = new z3(), e9 = new google.ima.dai.api.UiSettings(), e9.setLocale(n6), this.g = new google.ima.dai.api.StreamManager(this.l, this.u, e9), this.i(new K2("ima-stream-manager-loaded", (/* @__PURE__ */ new Map()).set("imaStreamManager", this.g))), this.h.G(this.g, google.ima.dai.api.StreamEvent.Type.LOADED, function(e10) {
+            this.u = e9, this.l = t9, this.j = this.D = null, this.H = NaN, this.i = r7, this.I = false, this.B = this.m = this.o = null, this.C = "", this.F = [], this.h = new z4(), e9 = new google.ima.dai.api.UiSettings(), e9.setLocale(n6), this.g = new google.ima.dai.api.StreamManager(this.l, this.u, e9), this.i(new K2("ima-stream-manager-loaded", (/* @__PURE__ */ new Map()).set("imaStreamManager", this.g))), this.h.G(this.g, google.ima.dai.api.StreamEvent.Type.LOADED, function(e10) {
               lb(i6, e10);
             }), this.h.G(this.g, google.ima.dai.api.StreamEvent.Type.ERROR, function() {
               i6.C.length ? i6.j.resolve(i6.C) : i6.j.reject("IMA Stream request returned an error and there was no backup asset uri provided."), i6.j = null;
@@ -23626,7 +23723,7 @@ var init_load_uTL4eiru = __esm({
               i6.i(new K2("ad-skipped")), i6.i(new K2("ad-stopped"));
             }), this.h.G(this.g, google.ima.dai.api.StreamEvent.Type.CUEPOINTS_CHANGED, function(e10) {
               var t10 = e10.getStreamData();
-              e10 = [], t10 = y4(t10.cuepoints);
+              e10 = [], t10 = y5(t10.cuepoints);
               for (var n7 = t10.next(); !n7.done; n7 = t10.next()) n7 = n7.value, e10.push({
                 start: n7.start,
                 end: n7.end
@@ -23673,19 +23770,19 @@ var init_load_uTL4eiru = __esm({
             return this.g.position;
           }, r6.getTimeOffset = function() {
             return this.g.startTime;
-          }, L3("shaka.ads.SvtaAd", ub);
+          }, L4("shaka.ads.SvtaAd", ub);
           function db(e9, t9) {
             var n6 = this;
-            this.C = null, this.g = e9, this.D = t9, this.j = null, this.o = false, this.l = /* @__PURE__ */ new Map(), this.h = null, this.B = new z3(), this.u = new z3(), this.i = new z3(), this.B.G(this.g, "loading", function() {
+            this.C = null, this.g = e9, this.D = t9, this.j = null, this.o = false, this.l = /* @__PURE__ */ new Map(), this.h = null, this.B = new z4(), this.u = new z4(), this.i = new z4(), this.B.G(this.g, "loading", function() {
               mb(n6);
             }), this.B.G(this.g, "unloading", function() {
               hb(n6);
-            }), this.m = new G(function() {
+            }), this.m = new G2(function() {
               if (n6.l.size) {
                 var e10 = n6.g.Bd();
                 if (e10 != Fv && e10 != Iv) {
                   var t10 = false, r7 = Array.from(n6.l.values());
-                  e10 = n6.g.Na(), r7 = y4(r7);
+                  e10 = n6.g.Na(), r7 = y5(r7);
                   for (var i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, i6 != n6.h && e10.start - (i6.endTime || i6.startTime) >= 1 && (t10 = JSON.stringify(i6), n6.l.delete(t10), t10 = true);
                   t10 && Sb(n6);
                 }
@@ -23731,7 +23828,7 @@ var init_load_uTL4eiru = __esm({
           function pb(e9, t9) {
             if (e9.o && t9.length) {
               if (e9.g.sj()) {
-                for (var n6 = false, r7 = y4(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) {
+                for (var n6 = false, r7 = y5(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) {
                   i6 = i6.value;
                   var a7 = JSON.stringify(i6);
                   e9.l.getOrInsert(a7, i6) === i6 && (n6 = true);
@@ -23752,7 +23849,7 @@ var init_load_uTL4eiru = __esm({
           }
           function gb(e9) {
             if (e9.l.size && !e9.h && e9.j.duration) {
-              for (var t9 = e9.j.currentTime, n6 = y4(e9.l.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) if (r7 = r7.value, r7.startTime <= t9 && r7.endTime && t9 <= r7.endTime && !e9.g.Gd()) {
+              for (var t9 = e9.j.currentTime, n6 = y5(e9.l.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) if (r7 = r7.value, r7.startTime <= t9 && r7.endTime && t9 <= r7.endTime && !e9.g.Gd()) {
                 e9.h = r7;
                 break;
               }
@@ -23802,7 +23899,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Sb(e9) {
             var t9 = [];
-            if (e9.l.size) for (var n6 = y4(e9.l.values()), r7 = n6.next(), i6 = {}; !r7.done; i6 = { jg: void 0 }, r7 = n6.next()) r7 = r7.value, i6.jg = {
+            if (e9.l.size) for (var n6 = y5(e9.l.values()), r7 = n6.next(), i6 = {}; !r7.done; i6 = { jg: void 0 }, r7 = n6.next()) r7 = r7.value, i6.jg = {
               start: r7.startTime,
               end: r7.endTime
             }, t9.find(/* @__PURE__ */ (function(e10) {
@@ -23851,9 +23948,9 @@ var init_load_uTL4eiru = __esm({
           r6.requestServerSideStream = function(e9, t9) {
             t9 = t9 === void 0 ? "" : t9, this.h || Eb(this), e9.adTagParameters || (e9.adTagParameters = {});
             var n6 = e9.adTagParameters;
-            return (n6.mpt || n6.mpv) && R3('You have attempted to set "mpt" and/or "mpv" parameters of the ad tag. Please note that those parameters are used for Shaka adoption tracking and will be overridden.'), e9.adTagParameters.mpt = "shaka-player", e9.adTagParameters.mpv = "v5.2.5", n6 = this.h, n6.j ? e9 = Promise.reject(new H4(1, 10, 10004)) : (e9 instanceof google.ima.dai.api.LiveStreamRequest && (n6.I = true), n6.j = Promise.withResolvers(), n6.g.requestStream(e9), n6.C = t9 || "", n6.H = Date.now() / 1e3, e9 = n6.j.promise), e9;
+            return (n6.mpt || n6.mpv) && R4('You have attempted to set "mpt" and/or "mpv" parameters of the ad tag. Please note that those parameters are used for Shaka adoption tracking and will be overridden.'), e9.adTagParameters.mpt = "shaka-player", e9.adTagParameters.mpv = "v5.2.5", n6 = this.h, n6.j ? e9 = Promise.reject(new H4(1, 10, 10004)) : (e9 instanceof google.ima.dai.api.LiveStreamRequest && (n6.I = true), n6.j = Promise.withResolvers(), n6.g.requestStream(e9), n6.C = t9 || "", n6.H = Date.now() / 1e3, e9 = n6.j.promise), e9;
           }, r6.replaceServerSideAdTagParameters = function(e9) {
-            this.h || Eb(this), (e9.mpt || e9.mpv) && R3('You have attempted to set "mpt" and/or "mpv" parameters of the ad tag. Please note that those parameters are used for Shaka adoption tracking and will be overridden.'), e9.mpt = "Shaka Player", e9.mpv = "v5.2.5", this.h.g.replaceAdTagParameters(e9);
+            this.h || Eb(this), (e9.mpt || e9.mpv) && R4('You have attempted to set "mpt" and/or "mpv" parameters of the ad tag. Please note that those parameters are used for Shaka adoption tracking and will be overridden.'), e9.mpt = "Shaka Player", e9.mpv = "v5.2.5", this.h.g.replaceAdTagParameters(e9);
           };
           function Db(e9) {
             e9.i && e9.i.release(), e9.i = new Xy(e9.D, e9.B.hb(), e9.B.Db(), function(t9) {
@@ -23920,9 +24017,9 @@ var init_load_uTL4eiru = __esm({
                       r7.aa.add(i6);
                     }
                     if (i6 = Ly(e9, "X-TARGET-ID")) {
-                      r7.W.set(i6, e9.startTime), i6 = y4(r7.I);
+                      r7.W.set(i6, e9.startTime), i6 = y5(r7.I);
                       for (var a7 = i6.next(); !a7.done; a7 = i6.next()) _y(r7, a7.value);
-                      for (i6 = y4(r7.K), a7 = i6.next(); !a7.done; a7 = i6.next()) _y(r7, a7.value);
+                      for (i6 = y5(r7.K), a7 = i6.next(); !a7.done; a7 = i6.next()) _y(r7, a7.value);
                     }
                   }
                 } else Cb.has(e9.type) && (t9.m || kb(t9), fb(t9.m, e9));
@@ -23941,7 +24038,7 @@ var init_load_uTL4eiru = __esm({
                     t9 = e9.schemeIdUri == "urn:mpeg:dash:event:alternativeMPD:replace:2025";
                     var n6 = e9.schemeIdUri == "urn:mpeg:dash:event:alternativeMPD:insert:2025";
                     if (t9 || n6) {
-                      for (var r7 = e9.startTime, i6 = e9.endTime, a7 = null, o8 = 0, s7, c7 = true, l6 = null, u7 = null, d5 = y4(e9.eventNode.children), f4 = d5.next(); !f4.done; f4 = d5.next()) if (f4 = f4.value, f4.tagName == "AlternativeMPD") {
+                      for (var r7 = e9.startTime, i6 = e9.endTime, a7 = null, o8 = 0, s7, c7 = true, l6 = null, u7 = null, d5 = y5(e9.eventNode.children), f4 = d5.next(); !f4.done; f4 = d5.next()) if (f4 = f4.value, f4.tagName == "AlternativeMPD") {
                         if (f4 = f4.attributes.uri) {
                           s7 = f4;
                           break;
@@ -23949,7 +24046,7 @@ var init_load_uTL4eiru = __esm({
                       } else if (f4.tagName == "InsertPresentation" || f4.tagName == "ReplacePresentation") {
                         var p5 = f4.attributes.uri || f4.attributes.url;
                         if (p5) {
-                          s7 = Ve2(p5), (d5 = W(f4, "maxDuration", An)) && (a7 = d5 / e9.timescale), (d5 = W(f4, "returnOffset", An)) && (o8 = d5 / e9.timescale), t9 && o8 && (i6 = r7 + o8), W(f4, "noJump", An) && (c7 = false), d5 = W(f4, "skipAfter", On), typeof d5 == "number" && (l6 = d5), (f4 = W(f4, "earliestResolutionTimeOffset", Nn)) && (u7 = f4 / e9.timescale);
+                          s7 = Ve2(p5), (d5 = W2(f4, "maxDuration", An)) && (a7 = d5 / e9.timescale), (d5 = W2(f4, "returnOffset", An)) && (o8 = d5 / e9.timescale), t9 && o8 && (i6 = r7 + o8), W2(f4, "noJump", An) && (c7 = false), d5 = W2(f4, "skipAfter", On), typeof d5 == "number" && (l6 = d5), (f4 = W2(f4, "earliestResolutionTimeOffset", Nn)) && (u7 = f4 / e9.timescale);
                           break;
                         }
                       }
@@ -24027,7 +24124,7 @@ var init_load_uTL4eiru = __esm({
             }
             e9.dispatchEvent(t9);
           }
-          L3("shaka.ads.AdManager", wb), wb.prototype.getCurrentAd = wb.prototype.getCurrentAd, wb.prototype.onDASHMetadata = wb.prototype.onDASHMetadata, wb.prototype.onHLSMetadata = wb.prototype.onHLSMetadata, wb.prototype.onCueMetadataChange = wb.prototype.onCueMetadataChange, wb.prototype.onHlsTimedMetadata = wb.prototype.onHlsTimedMetadata, wb.prototype.onManifestUpdated = wb.prototype.onManifestUpdated, wb.prototype.getStats = wb.prototype.getStats, wb.prototype.getCuePoints = wb.prototype.getCuePoints, wb.prototype.getInterstitialPlayer = wb.prototype.getInterstitialPlayer, wb.prototype.addAdUrlInterstitial = wb.prototype.addAdUrlInterstitial, wb.prototype.addCustomInterstitial = wb.prototype.addCustomInterstitial, wb.prototype.addMediaTailorTrackingUrl = wb.prototype.addMediaTailorTrackingUrl, wb.prototype.requestMediaTailorStream = wb.prototype.requestMediaTailorStream, wb.prototype.replaceServerSideAdTagParameters = wb.prototype.replaceServerSideAdTagParameters, wb.prototype.requestServerSideStream = wb.prototype.requestServerSideStream, wb.prototype.updateClientSideAdsRenderingSettings = wb.prototype.updateClientSideAdsRenderingSettings, wb.prototype.requestClientSideAds = wb.prototype.requestClientSideAds, wb.prototype.onAssetUnload = wb.prototype.onAssetUnload, wb.prototype.release = wb.prototype.release, wb.prototype.configure = wb.prototype.configure, wb.prototype.setContainers = wb.prototype.setContainers, wb.prototype.setLocale = wb.prototype.setLocale, Vv = function(e9) {
+          L4("shaka.ads.AdManager", wb), wb.prototype.getCurrentAd = wb.prototype.getCurrentAd, wb.prototype.onDASHMetadata = wb.prototype.onDASHMetadata, wb.prototype.onHLSMetadata = wb.prototype.onHLSMetadata, wb.prototype.onCueMetadataChange = wb.prototype.onCueMetadataChange, wb.prototype.onHlsTimedMetadata = wb.prototype.onHlsTimedMetadata, wb.prototype.onManifestUpdated = wb.prototype.onManifestUpdated, wb.prototype.getStats = wb.prototype.getStats, wb.prototype.getCuePoints = wb.prototype.getCuePoints, wb.prototype.getInterstitialPlayer = wb.prototype.getInterstitialPlayer, wb.prototype.addAdUrlInterstitial = wb.prototype.addAdUrlInterstitial, wb.prototype.addCustomInterstitial = wb.prototype.addCustomInterstitial, wb.prototype.addMediaTailorTrackingUrl = wb.prototype.addMediaTailorTrackingUrl, wb.prototype.requestMediaTailorStream = wb.prototype.requestMediaTailorStream, wb.prototype.replaceServerSideAdTagParameters = wb.prototype.replaceServerSideAdTagParameters, wb.prototype.requestServerSideStream = wb.prototype.requestServerSideStream, wb.prototype.updateClientSideAdsRenderingSettings = wb.prototype.updateClientSideAdsRenderingSettings, wb.prototype.requestClientSideAds = wb.prototype.requestClientSideAds, wb.prototype.onAssetUnload = wb.prototype.onAssetUnload, wb.prototype.release = wb.prototype.release, wb.prototype.configure = wb.prototype.configure, wb.prototype.setContainers = wb.prototype.setContainers, wb.prototype.setLocale = wb.prototype.setLocale, Vv = function(e9) {
             return new wb(e9);
           };
           function jb(e9) {
@@ -24051,8 +24148,8 @@ var init_load_uTL4eiru = __esm({
                     "stack"
                   ]);
                   for (n6 in t9) i6.add(n6);
-                  for (e10 = y4(Object.getOwnPropertyNames(t9)), n6 = e10.next(); !n6.done; n6 = e10.next()) i6.add(n6.value);
-                  for (e10 = {}, i6 = y4(i6), n6 = i6.next(); !n6.done; n6 = i6.next()) n6 = n6.value, e10[n6] = t9[n6];
+                  for (e10 = y5(Object.getOwnPropertyNames(t9)), n6 = e10.next(); !n6.done; n6 = e10.next()) i6.add(n6.value);
+                  for (e10 = {}, i6 = y5(i6), n6 = i6.next(); !n6.done; n6 = i6.next()) n6 = n6.value, e10[n6] = t9[n6];
                   t9 = {
                     __type__: "Error",
                     contents: e10
@@ -24063,7 +24160,7 @@ var init_load_uTL4eiru = __esm({
                     length: t9.length,
                     start: [],
                     end: []
-                  }, t9 = y4(Vc(t9)), e10 = t9.next(); !e10.done; e10 = t9.next()) e10 = e10.value, n6 = e10.end, i6.start.push(e10.start), i6.end.push(n6);
+                  }, t9 = y5(Vc(t9)), e10 = t9.next(); !e10.done; e10 = t9.next()) e10 = e10.value, n6 = e10.end, i6.start.push(e10.start), i6.end.push(n6);
                   t9 = i6;
                 } else t9 = ArrayBuffer.isView(t9) && t9.BYTES_PER_ELEMENT === 1 ? {
                   __type__: "Uint8Array",
@@ -24110,7 +24207,7 @@ var init_load_uTL4eiru = __esm({
           ], qb = (/* @__PURE__ */ new Map()).set("needsSkipUI", 20).set("isClientRendering", 20).set("hasCustomClick", 20).set("isUsingAnotherMediaElement", 20).set("getDuration", 1).set("getMinSuggestedDuration", 1).set("getRemainingTime", 1).set("getTimeUntilSkippable", 1).set("isPaused", 1).set("isSkippable", 1).set("canSkipNow", 1).set("getVolume", 1).set("isMuted", 1).set("isLinear", 20).set("getSequenceLength", 20).set("getPositionInSequence", 20).set("getTitle", 20).set("getDescription", 20).set("getVastMediaBitrate", 20).set("getVastMediaHeight", 20).set("getVastMediaWidth", 20).set("getVastAdId", 20).set("getAdId", 20).set("getCreativeAdId", 20).set("getAdvertiserName", 20).set("getMediaUrl", 20).set("getTimeOffset", 20).set("getPodIndex", 20), Jb = "skip play pause setVolume setMuted resize".split(" ");
           function Yb(e9, t9, n6, r7, i6, a7, o8) {
             var s7 = this;
-            this.H = e9, this.K = o8, this.l = new G(t9), this.L = n6, this.u = false, this.B = r7, this.F = i6, this.M = a7, this.i = this.m = false, this.J = "", this.o = null, this.C = function() {
+            this.H = e9, this.K = o8, this.l = new G2(t9), this.L = n6, this.u = false, this.B = r7, this.F = i6, this.M = a7, this.i = this.m = false, this.J = "", this.o = null, this.C = function() {
               return ex(s7);
             }, this.D = function(e10, t10) {
               switch (e10 = Mb(t10), e10.type) {
@@ -24149,13 +24246,13 @@ var init_load_uTL4eiru = __esm({
                 this.m = true, this.l.Va();
                 var t9 = new chrome.cast.SessionRequest(this.H, [], null, this.K, null);
                 t9 = new chrome.cast.ApiConfig(t9, function(e9) {
-                  for (var t10 = y4(sx), n6 = t10.next(); !n6.done; n6 = t10.next()) {
+                  for (var t10 = y5(sx), n6 = t10.next(); !n6.done; n6 = t10.next()) {
                     n6 = n6.value;
                     var r7 = e9;
                     n6.j = Promise.withResolvers(), n6.u = true, Zb(n6, r7);
                   }
                 }, function(e9) {
-                  for (var t10 = y4(sx), n6 = t10.next(); !n6.done; n6 = t10.next()) n6 = n6.value, ix = e9 == "available", n6.l.Va();
+                  for (var t10 = y5(sx), n6 = t10.next(); !n6.done; n6 = t10.next()) n6 = n6.value, ix = e9 == "available", n6.l.Va();
                 }, "origin_scoped"), chrome.cast.initialize(t9, function() {
                 }, function() {
                 }), ix && this.l.ba(rx), (t9 = ax) && t9.status != chrome.cast.SessionStatus.STOPPED ? (this.j = Promise.withResolvers(), this.u = true, Zb(this, t9)) : ax = null;
@@ -24221,9 +24318,9 @@ var init_load_uTL4eiru = __esm({
             }[e9];
             return r7.Nj && r7.Nj.has(t9) && !this.get("player", "isLive")() ? function() {
             } : r7.Oe && r7.Oe.includes(t9) ? function() {
-              return n6.sm.apply(n6, [e9, t9].concat(b3(F4.apply(0, arguments))));
+              return n6.sm.apply(n6, [e9, t9].concat(b4(F4.apply(0, arguments))));
             } : r7.Rh && r7.Rh.includes(t9) ? function() {
-              return n6.rm.apply(n6, [e9, t9].concat(b3(F4.apply(0, arguments))));
+              return n6.rm.apply(n6, [e9, t9].concat(b4(F4.apply(0, arguments))));
             } : r7.Df && r7.Df.some(function(e10) {
               return e10.has(t9);
             }) ? function() {
@@ -24295,7 +24392,7 @@ var init_load_uTL4eiru = __esm({
             e9.i = t9, e9.J = t9 ? ax.receiver.friendlyName : "", e9.l.Va();
           }
           function tx(e9) {
-            if (e9.h) for (var t9 = y4(e9.h.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) {
+            if (e9.h) for (var t9 = y5(e9.h.keys()), n6 = t9.next(); !n6.done; n6 = t9.next()) {
               n6 = n6.value;
               var r7 = e9.h.get(n6);
               e9.h.delete(n6), r7.reject(new H4(1, 7, 7e3));
@@ -24313,7 +24410,7 @@ var init_load_uTL4eiru = __esm({
           }
           var rx = 0.02, ix = false, ax = null, ox = null, sx = /* @__PURE__ */ new Set();
           function cx(t9) {
-            if (ox ? e8.__onGCastApiAvailable = ox : delete e8.__onGCastApiAvailable, ox = null, t9) for (var n6 = y4(sx), r7 = n6.next(); !r7.done; r7 = n6.next()) r7.value.init();
+            if (ox ? e8.__onGCastApiAvailable = ox : delete e8.__onGCastApiAvailable, ox = null, t9) for (var n6 = y5(sx), r7 = n6.next(); !r7.done; r7 = n6.next()) r7.value.init();
             typeof e8.__onGCastApiAvailable == "function" && e8.__onGCastApiAvailable(t9);
           }
           function lx(t9, n6, r7, i6) {
@@ -24323,7 +24420,7 @@ var init_load_uTL4eiru = __esm({
               lc: [],
               Tb: [],
               kc: []
-            }, this.J = /* @__PURE__ */ new Map(), this.I = /* @__PURE__ */ new Map(), this.g = null, e8.chrome && typeof Proxy < "u" && B3().Ra() != "CAST" ? (this.g = new Yb(r7, function() {
+            }, this.J = /* @__PURE__ */ new Map(), this.I = /* @__PURE__ */ new Map(), this.g = null, e8.chrome && typeof Proxy < "u" && B4().Ra() != "CAST" ? (this.g = new Yb(r7, function() {
               return mx(a7);
             }, function() {
               return hx(a7);
@@ -24379,8 +24476,8 @@ var init_load_uTL4eiru = __esm({
             });
           };
           function ux(e9) {
-            e9.g.init(), e9.l = new z3();
-            for (var t9 = y4(Pb), n6 = t9.next(); !n6.done; n6 = t9.next()) e9.l.G(e9.i, n6.value, function(t10) {
+            e9.g.init(), e9.l = new z4();
+            for (var t9 = y5(Pb), n6 = t9.next(); !n6.done; n6 = t9.next()) e9.l.G(e9.i, n6.value, function(t10) {
               e9.g.qb() || (t10 = aa(t10), e9.o.dispatchEvent(t10));
             });
             e9.l.G(e9.h, "__shaka_all_events__", function(t10) {
@@ -24419,7 +24516,7 @@ var init_load_uTL4eiru = __esm({
             var r7 = /* @__PURE__ */ new Set();
             for (i6 in t9) n6(i6) && (r7.add(i6), e9(i6, t9[i6]));
             for (var i6 = Object.getPrototypeOf(t9), a7 = Object.getPrototypeOf({}); i6 && i6 != a7; ) {
-              for (var o8 = y4(Object.getOwnPropertyNames(i6)), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = s7.value, n6(s7) && (r7.add(s7), e9(s7, t9[s7]));
+              for (var o8 = y5(Object.getOwnPropertyNames(i6)), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = s7.value, n6(s7) && (r7.add(s7), e9(s7, t9[s7]));
               i6 = Object.getPrototypeOf(i6);
             }
           }
@@ -24435,8 +24532,8 @@ var init_load_uTL4eiru = __esm({
               addChaptersTrackCalls: e9.j.kc
             };
             e9.i.pause();
-            for (var n6 = y4(Ib), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, t9.video[r7] = e9.i[r7];
-            for (e9.i.ended || (t9.startTime = e9.i.currentTime), n6 = y4(Vb), r7 = n6.next(); !r7.done; r7 = n6.next()) {
+            for (var n6 = y5(Ib), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, t9.video[r7] = e9.i[r7];
+            for (e9.i.ended || (t9.startTime = e9.i.currentTime), n6 = y5(Vb), r7 = n6.next(); !r7.done; r7 = n6.next()) {
               var i6 = r7.value;
               r7 = i6[1], i6 = e9.h[i6[0]](), t9.player[r7] = i6;
             }
@@ -24451,7 +24548,7 @@ var init_load_uTL4eiru = __esm({
             e9.o.dispatchEvent(t9);
           }
           function gx(e9) {
-            for (var t9 = y4(Vb), n6 = t9.next(); !n6.done; n6 = t9.next()) {
+            for (var t9 = y5(Vb), n6 = t9.next(); !n6.done; n6 = t9.next()) {
               var r7 = n6.value;
               n6 = r7[1], r7 = e9.g.get("player", r7[0])(), e9.h[n6](r7);
             }
@@ -24466,25 +24563,25 @@ var init_load_uTL4eiru = __esm({
               return e10.active;
             })), s7 && (e9.i.autoplay = false, t9 = e9.h.load(s7, n6));
             var u7 = {};
-            for (n6 = y4(Ib), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, u7[r7] = e9.g.get("video", r7);
+            for (n6 = y5(Ib), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, u7[r7] = e9.g.get("video", r7);
             t9.then(function() {
               if (e9.i) {
-                for (var t10 = y4(i6), n7 = t10.next(); !n7.done; n7 = t10.next()) {
+                for (var t10 = y5(i6), n7 = t10.next(); !n7.done; n7 = t10.next()) {
                   n7 = n7.value;
                   var r8;
-                  (r8 = e9.Cd()).lc.apply(r8, b3(n7));
+                  (r8 = e9.Cd()).lc.apply(r8, b4(n7));
                 }
-                for (t10 = y4(a7), r8 = t10.next(); !r8.done; r8 = t10.next()) {
+                for (t10 = y5(a7), r8 = t10.next(); !r8.done; r8 = t10.next()) {
                   r8 = r8.value;
                   var d5;
-                  (d5 = e9.Cd()).Tb.apply(d5, b3(r8));
+                  (d5 = e9.Cd()).Tb.apply(d5, b4(r8));
                 }
-                for (d5 = y4(o8), t10 = d5.next(); !t10.done; t10 = d5.next()) {
+                for (d5 = y5(o8), t10 = d5.next(); !t10.done; t10 = d5.next()) {
                   t10 = t10.value;
                   var f4;
-                  (f4 = e9.Cd()).kc.apply(f4, b3(t10));
+                  (f4 = e9.Cd()).kc.apply(f4, b4(t10));
                 }
-                for (f4 = y4(Ib), d5 = f4.next(); !d5.done; d5 = f4.next()) d5 = d5.value, e9.i[d5] = u7[d5];
+                for (f4 = y5(Ib), d5 = f4.next(); !d5.done; d5 = f4.next()) d5 = d5.value, e9.i[d5] = u7[d5];
                 l6 ? (f4 = e9.h.Gb().find(function(e10) {
                   return e10.language == l6.language && _e2(e10.roles, l6.roles) && e10.forced == l6.forced;
                 }), e9.h.Dc(f4)) : e9.h.Dc(), e9.i.autoplay = c7, s7 && e9.i.play();
@@ -24540,23 +24637,23 @@ var init_load_uTL4eiru = __esm({
             if (!n6) {
               if (t9 == "addThumbnailsTrack") return function() {
                 var n7 = F4.apply(0, arguments);
-                return e9.j.lc.push(n7), yx(e9, t9, true).apply(null, b3(n7));
+                return e9.j.lc.push(n7), yx(e9, t9, true).apply(null, b4(n7));
               };
               if (t9 == "addTextTrackAsync") return function() {
                 var n7 = F4.apply(0, arguments);
-                return e9.j.Tb.push(n7), yx(e9, t9, true).apply(null, b3(n7));
+                return e9.j.Tb.push(n7), yx(e9, t9, true).apply(null, b4(n7));
               };
               if (t9 == "addChaptersTrack") return function() {
                 var n7 = F4.apply(0, arguments);
-                return e9.j.kc.push(n7), yx(e9, t9, true).apply(null, b3(n7));
+                return e9.j.kc.push(n7), yx(e9, t9, true).apply(null, b4(n7));
               };
             }
             if (e9.g.qb()) {
               if (t9 == "getManifest" || t9 == "drmInfo") return function() {
-                return R3(t9 + "() does not work while casting!"), null;
+                return R4(t9 + "() does not work while casting!"), null;
               };
               if (t9 == "attach" || t9 == "detach") return function() {
-                return R3(t9 + "() does not work while casting!"), Promise.resolve();
+                return R4(t9 + "() does not work while casting!"), Promise.resolve();
               };
             }
             return e9.g.qb() && Object.keys(e9.g.g.video).length == 0 && (Rb.has(t9) || zb.has(t9)) ? (n6 = e9.h[t9], typeof n6 == "function" ? n6.bind(e9.h) : n6) : _x(e9, e9.h, "player", t9);
@@ -24576,7 +24673,7 @@ var init_load_uTL4eiru = __esm({
           function Sx(e9) {
             e9.j.lc = [], e9.j.Tb = [], e9.j.kc = [];
           }
-          L3("shaka.cast.CastProxy", lx), lx.prototype.changeReceiverId = lx.prototype.Hk, lx.prototype.forceDisconnect = lx.prototype.yd, lx.prototype.suggestDisconnect = lx.prototype.Km, lx.prototype.setAppData = lx.prototype.ii, lx.prototype.cast = lx.prototype.cast, lx.prototype.receiverName = lx.prototype.Th, lx.prototype.isCasting = lx.prototype.qb, lx.prototype.canCast = lx.prototype.Gk, lx.prototype.getAdManager = lx.prototype.pe, lx.prototype.getPlayer = lx.prototype.Cd, lx.prototype.getVideo = lx.prototype.Hl, lx.prototype.destroy = lx.prototype.destroy;
+          L4("shaka.cast.CastProxy", lx), lx.prototype.changeReceiverId = lx.prototype.Hk, lx.prototype.forceDisconnect = lx.prototype.yd, lx.prototype.suggestDisconnect = lx.prototype.Km, lx.prototype.setAppData = lx.prototype.ii, lx.prototype.cast = lx.prototype.cast, lx.prototype.receiverName = lx.prototype.Th, lx.prototype.isCasting = lx.prototype.qb, lx.prototype.canCast = lx.prototype.Gk, lx.prototype.getAdManager = lx.prototype.pe, lx.prototype.getPlayer = lx.prototype.Cd, lx.prototype.getVideo = lx.prototype.Hl, lx.prototype.destroy = lx.prototype.destroy;
           function Cx() {
             Wi.apply(this, arguments);
           }
@@ -24584,7 +24681,7 @@ var init_load_uTL4eiru = __esm({
           function wx(e9, t9, n6, r7) {
             oa.call(this);
             var i6 = this;
-            this.h = e9, this.g = t9, this.o = t9.pe(), this.u = null, this.i = new z3(), this.C = {
+            this.h = e9, this.g = t9, this.o = t9.pe(), this.u = null, this.i = new z4(), this.C = {
               video: e9,
               player: t9,
               adManager: this.o,
@@ -24592,7 +24689,7 @@ var init_load_uTL4eiru = __esm({
             }, this.J = n6 || function() {
             }, this.L = r7 || function(e10) {
               return e10;
-            }, this.j = null, this.K = false, this.B = true, this.l = 0, this.H = false, this.F = true, this.D = this.m = null, this.I = new G(function() {
+            }, this.j = null, this.K = false, this.B = true, this.l = 0, this.H = false, this.F = true, this.D = this.m = null, this.I = new G2(function() {
               jx(i6);
             }), Ex(this);
           }
@@ -24646,7 +24743,7 @@ var init_load_uTL4eiru = __esm({
               return Fx(e9, t10);
             }, e9.m = t9.getCastMessageBus("urn:x-cast:com.google.shaka.v2"), e9.m.onMessage = function(t10) {
               return Px(e9, t10);
-            }, t9.start(), t9 = y4(Pb);
+            }, t9.start(), t9 = y5(Pb);
             for (var n6 = t9.next(); !n6.done; n6 = t9.next()) e9.i.G(e9.h, n6.value, function(t10) {
               return Ax(e9, "video", t10);
             });
@@ -24665,7 +24762,7 @@ var init_load_uTL4eiru = __esm({
             }), e9.i.G(e9.g, "unloading", function() {
               e9.B = true, Ox(e9);
             }), e9.i.G(e9.h, "ended", function() {
-              new G(function() {
+              new G2(function() {
                 e9.h && e9.h.ended && (e9.B = true, Ox(e9));
               }).ba(Bx);
             });
@@ -24682,24 +24779,24 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function kx(e9, t9, n6) {
-            var r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, x4;
-            P4(function(S3) {
-              switch (S3.h) {
+            var r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, x5;
+            P4(function(S5) {
+              switch (S5.h) {
                 case 1:
                   for (r7 in t9.player) i6 = t9.player[r7], e9.g[r7](i6);
-                  return e9.J(n6), a7 = e9.h.autoplay, t9.manifest ? (e9.h.autoplay = false, S3.m(5), S3.g(e9.g.load(t9.manifest, t9.startTime, t9.mimeType), 7)) : S3.g(Promise.resolve(), 3);
+                  return e9.J(n6), a7 = e9.h.autoplay, t9.manifest ? (e9.h.autoplay = false, S5.m(5), S5.g(e9.g.load(t9.manifest, t9.startTime, t9.mimeType), 7)) : S5.g(Promise.resolve(), 3);
                 case 7:
-                  if (t9.addThumbnailsTrackCalls) for (o8 = y4(t9.addThumbnailsTrackCalls), s7 = o8.next(); !s7.done; s7 = o8.next()) c7 = s7.value, e9.g.lc.apply(e9.g, b3(c7));
-                  if (t9.addTextTrackAsyncCalls) for (l6 = y4(t9.addTextTrackAsyncCalls), u7 = l6.next(); !u7.done; u7 = l6.next()) d5 = u7.value, e9.g.Tb.apply(e9.g, b3(d5));
-                  if (t9.addChaptersTrackCalls) for (f4 = y4(t9.addChaptersTrackCalls), p5 = f4.next(); !p5.done; p5 = f4.next()) m5 = p5.value, e9.g.kc.apply(e9.g, b3(m5));
-                  S3.o(3);
+                  if (t9.addThumbnailsTrackCalls) for (o8 = y5(t9.addThumbnailsTrackCalls), s7 = o8.next(); !s7.done; s7 = o8.next()) c7 = s7.value, e9.g.lc.apply(e9.g, b4(c7));
+                  if (t9.addTextTrackAsyncCalls) for (l6 = y5(t9.addTextTrackAsyncCalls), u7 = l6.next(); !u7.done; u7 = l6.next()) d5 = u7.value, e9.g.Tb.apply(e9.g, b4(d5));
+                  if (t9.addChaptersTrackCalls) for (f4 = y5(t9.addChaptersTrackCalls), p5 = f4.next(); !p5.done; p5 = f4.next()) m5 = p5.value, e9.g.kc.apply(e9.g, b4(m5));
+                  S5.o(3);
                   break;
                 case 5:
-                  return h6 = S3.l(), g6 = (/* @__PURE__ */ new Map()).set("detail", h6), _5 = new K2("error", g6), e9.g && e9.g.dispatchEvent(_5), S3.return();
+                  return h6 = S5.l(), g6 = (/* @__PURE__ */ new Map()).set("detail", h6), _5 = new K2("error", g6), e9.g && e9.g.dispatchEvent(_5), S5.return();
                 case 3:
-                  if (!e9.g) return S3.return();
-                  for (v7 in t9.video) x4 = t9.video[v7], e9.h[v7] = x4;
-                  e9.h.autoplay = a7, t9.manifest && (e9.h.play(), Rx(e9)), S3.j();
+                  if (!e9.g) return S5.return();
+                  for (v7 in t9.video) x5 = t9.video[v7], e9.h[v7] = x5;
+                  e9.h.autoplay = a7, t9.manifest && (e9.h.play(), Rx(e9)), S5.j();
               }
             });
           }
@@ -24716,7 +24813,7 @@ var init_load_uTL4eiru = __esm({
               video: {},
               player: {},
               currentAd: {}
-            }, n6 = y4(Fb), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, t9.video[r7] = e9.h[r7];
+            }, n6 = y5(Fb), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, t9.video[r7] = e9.h[r7];
             e9.g.isLive() && Bb.forEach(function(n7, r8) {
               e9.l % n7 == 0 && (t9.player[r8] = e9.g[r8]());
             }), Rb.forEach(function(n7, r8) {
@@ -24864,7 +24961,7 @@ var init_load_uTL4eiru = __esm({
               status: [r7]
             }, e9.D);
           }
-          L3("shaka.cast.CastReceiver", wx), wx.prototype.destroy = wx.prototype.destroy, wx.prototype.setContentAlbumName = wx.prototype.Bm, wx.prototype.setContentArtist = wx.prototype.Cm, wx.prototype.setContentImage = wx.prototype.Dm, wx.prototype.setContentTitle = wx.prototype.Fm, wx.prototype.clearContentMetadata = wx.prototype.Lk, wx.prototype.setContentMetadata = wx.prototype.Em, wx.prototype.isIdle = wx.prototype.Ll, wx.prototype.isConnected = wx.prototype.isConnected;
+          L4("shaka.cast.CastReceiver", wx), wx.prototype.destroy = wx.prototype.destroy, wx.prototype.setContentAlbumName = wx.prototype.Bm, wx.prototype.setContentArtist = wx.prototype.Cm, wx.prototype.setContentImage = wx.prototype.Dm, wx.prototype.setContentTitle = wx.prototype.Fm, wx.prototype.clearContentMetadata = wx.prototype.Lk, wx.prototype.setContentMetadata = wx.prototype.Em, wx.prototype.isIdle = wx.prototype.Ll, wx.prototype.isConnected = wx.prototype.isConnected;
           var zx = 0.5, Bx = 5, Vx = "IDLE", Hx = "PLAYING", Ux = "BUFFERING", Wx = "PAUSED";
           function Gx(e9, t9, n6, r7, i6, a7) {
             if (a7 = a7 !== void 0 && a7, r7 >= i6) return null;
@@ -24877,8 +24974,8 @@ var init_load_uTL4eiru = __esm({
               if (h6 === -1 || g6 === -1) m5 = qx(r7, i6), e9.nestedCues.push(m5);
               else {
                 for (; h6 <= g6; h6++) if (_5 = m5[h6]) {
-                  var v7 = _5.l, y5 = _5.i, b4 = _5.j, x4 = _5.h, S3 = _5.m;
-                  S3 = a7 && S3 != null && S3 > r7 ? S3 : r7, (v7 != c7 || y5 != l6 || b4 != u7 || x4 != d5 || S3 != f4) && (p5.payload && e9.nestedCues.push(p5), p5 = Kx(S3, i6, v7, y5, b4, x4), c7 = v7, l6 = y5, u7 = b4, d5 = x4, f4 = S3), p5.payload += _5.g;
+                  var v7 = _5.l, y6 = _5.i, b5 = _5.j, x5 = _5.h, S5 = _5.m;
+                  S5 = a7 && S5 != null && S5 > r7 ? S5 : r7, (v7 != c7 || y6 != l6 || b5 != u7 || x5 != d5 || S5 != f4) && (p5.payload && e9.nestedCues.push(p5), p5 = Kx(S5, i6, v7, y6, b5, x5), c7 = v7, l6 = y6, u7 = b5, d5 = x5, f4 = S5), p5.payload += _5.g;
                 } else p5.payload += " ";
                 p5.payload && e9.nestedCues.push(p5), o8 !== s7 && (f4 = qx(r7, i6), e9.nestedCues.push(f4)), f4 = r7, p5 = Kx(r7, i6, c7, l6, u7, d5);
               }
@@ -25217,7 +25314,7 @@ var init_load_uTL4eiru = __esm({
             if (n6 >= 128 && n6 <= 135) r7 = n6 & 7, e9.h[r7] && (e9.g = e9.h[r7]);
             else {
               if (n6 === 136) {
-                n6 = TS(t9).value, t9 = [], n6 = y4(kS(e9, n6));
+                n6 = TS(t9).value, t9 = [], n6 = y5(kS(e9, n6));
                 for (var i6 = n6.next(); !i6.done; i6 = n6.next()) {
                   if (i6 = e9.h[i6.value], i6.isVisible()) {
                     var a7 = xS(i6, r7, e9.i);
@@ -25227,14 +25324,14 @@ var init_load_uTL4eiru = __esm({
                 }
                 return t9;
               }
-              if (n6 === 137) for (t9 = TS(t9).value, t9 = y4(kS(e9, t9)), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = e9.h[n6.value], n6.isVisible() || (n6.j = r7), n6.display();
+              if (n6 === 137) for (t9 = TS(t9).value, t9 = y5(kS(e9, t9)), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = e9.h[n6.value], n6.isVisible() || (n6.j = r7), n6.display();
               else {
                 if (n6 === 138) {
-                  for (n6 = TS(t9).value, t9 = null, n6 = y4(kS(e9, n6)), i6 = n6.next(); !i6.done; i6 = n6.next()) i6 = e9.h[i6.value], i6.isVisible() && (t9 = xS(i6, r7, e9.i)), i6.l = false;
+                  for (n6 = TS(t9).value, t9 = null, n6 = y5(kS(e9, n6)), i6 = n6.next(); !i6.done; i6 = n6.next()) i6 = e9.h[i6.value], i6.isVisible() && (t9 = xS(i6, r7, e9.i)), i6.l = false;
                   return t9 ? [t9] : [];
                 }
                 if (n6 === 139) {
-                  for (n6 = TS(t9).value, t9 = null, n6 = y4(kS(e9, n6)), i6 = n6.next(); !i6.done; i6 = n6.next()) i6 = e9.h[i6.value], i6.isVisible() ? t9 = xS(i6, r7, e9.i) : i6.j = r7, i6.l = !i6.l;
+                  for (n6 = TS(t9).value, t9 = null, n6 = y5(kS(e9, n6)), i6 = n6.next(); !i6.done; i6 = n6.next()) i6 = e9.h[i6.value], i6.isVisible() ? t9 = xS(i6, r7, e9.i) : i6.j = r7, i6.l = !i6.l;
                   return t9 ? [t9] : [];
                 }
                 if (n6 === 140) return t9 = TS(t9).value, AS(e9, t9, r7);
@@ -25258,7 +25355,7 @@ var init_load_uTL4eiru = __esm({
           }
           function AS(e9, t9, n6) {
             var r7 = [];
-            t9 = y4(kS(e9, t9));
+            t9 = y5(kS(e9, t9));
             for (var i6 = t9.next(); !i6.done; i6 = t9.next()) {
               i6 = i6.value;
               var a7 = e9.h[i6];
@@ -25317,17 +25414,17 @@ var init_load_uTL4eiru = __esm({
           r6 = PS.prototype, r6.clear = function() {
             this.j = 0, this.g = [], this.h = [];
             var e9 = this.i;
-            e9.i = [], e9.h = null, e9.g = 0, FS(this), e9 = y4(this.C.values());
+            e9.i = [], e9.h = null, e9.g = 0, FS(this), e9 = y5(this.C.values());
             for (var t9 = e9.next(); !t9.done; t9 = e9.next()) jS(t9.value);
           };
           function FS(e9) {
             e9.m = 0, e9.o = 0;
-            for (var t9 = y4(e9.l.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, n6.h = 0, n6.g = n6.j, n6.m = null, tS(n6.i), tS(n6.j), tS(n6.o);
+            for (var t9 = y5(e9.l.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, n6.h = 0, n6.g = n6.j, n6.m = null, tS(n6.i), tS(n6.j), tS(n6.o);
             e9.B = true;
           }
           r6.extract = function(e9, t9) {
             if (this.B) {
-              for (var n6 = y4(this.l.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) r7.value.l = t9;
+              for (var n6 = y5(this.l.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) r7.value.l = t9;
               this.B = false;
             }
             if (e9 = new Ra(e9, 0), !(e9.$a() < 8) && e9.Z() === 181 && e9.Da() === 49 && e9.S() === 1195456820 && e9.Z() === 3 && (n6 = e9.Z(), n6 & 64)) for (n6 &= 31, e9.skip(1), r7 = 0; r7 < n6; r7++) {
@@ -25364,9 +25461,9 @@ var init_load_uTL4eiru = __esm({
             }
             var t9 = [];
             this.g.sort(e9), this.h.sort(e9);
-            for (var n6 = y4(this.g), r7 = n6.next(); !r7.done; r7 = n6.next()) (r7 = IS(this, r7.value)) && t9.push(r7);
-            for (n6 = y4(this.h), r7 = n6.next(); !r7.done; r7 = n6.next()) CS(this.i, r7.value);
-            for (n6 = y4(this.i.i), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = LS(this, r7.value), t9.push.apply(t9, b3(r7));
+            for (var n6 = y5(this.g), r7 = n6.next(); !r7.done; r7 = n6.next()) (r7 = IS(this, r7.value)) && t9.push(r7);
+            for (n6 = y5(this.h), r7 = n6.next(); !r7.done; r7 = n6.next()) CS(this.i, r7.value);
+            for (n6 = y5(this.i.i), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = LS(this, r7.value), t9.push.apply(t9, b4(r7));
             return this.i.i = [], this.g = [], this.h = [], t9;
           };
           function IS(e9, t9) {
@@ -25467,7 +25564,7 @@ var init_load_uTL4eiru = __esm({
                     return new ES(e10);
                   }), s7 = t9.Ia(); t9.Ia() - s7 < a7; ) {
                     var c7 = DS(o8, t9);
-                    n6.push.apply(n6, b3(c7));
+                    n6.push.apply(n6, b4(c7));
                   }
                 }
               }
@@ -25483,7 +25580,7 @@ var init_load_uTL4eiru = __esm({
           }
           r6.getStreams = function() {
             return Array.from(this.u);
-          }, L3("shaka.cea.CeaDecoder", PS), Jt = function() {
+          }, L4("shaka.cea.CeaDecoder", PS), Jt = function() {
             return new PS();
           };
           function zS(e9) {
@@ -25502,7 +25599,7 @@ var init_load_uTL4eiru = __esm({
           }
           BS.prototype.init = function(e9) {
             var t9 = this, n6 = [], r7 = [], i6 = null;
-            if (new q().ua([].concat(b3(Za), ["mvex"]), Va).T("trex", function(e10) {
+            if (new q2().ua([].concat(b4(Za), ["mvex"]), Va).T("trex", function(e10) {
               var n7 = e10.reader;
               n7.skip(4), n7.skip(4), e10 = n7.S(), n7 = n7.S(), t9.h = e10, t9.i = n7;
             }).T("tkhd", function(e10) {
@@ -25516,14 +25613,14 @@ var init_load_uTL4eiru = __esm({
             }).box("c608", function() {
               t9.g = GS, t9.l = i6;
             }).parse(e9, true, true), !n6.length || !r7.length || n6.length != r7.length) throw new H4(2, 2, 2010);
-            this.g == VS && R3("Unable to determine bitstream format for CEA parsing!"), n6.forEach(function(e10, n7) {
+            this.g == VS && R4("Unable to determine bitstream format for CEA parsing!"), n6.forEach(function(e10, n7) {
               t9.j.set(e10, r7[n7]);
             });
           }, BS.prototype.parse = function(e9) {
             var t9 = this;
             if (this.g == VS) return [];
             var n6 = [], r7 = 0, i6 = [];
-            return new q().box("moof", function(e10) {
+            return new q2().box("moof", function(e10) {
               r7 = e10.start, i6 = [], Va(e10);
             }).box("traf", function(e10) {
               i6.push({
@@ -25544,15 +25641,15 @@ var init_load_uTL4eiru = __esm({
               var t10 = i6[i6.length - 1];
               e10 = ss(e10.reader, e10.version), t10.Oa = e10.Oa;
             }).box("mdat", function(e10) {
-              for (var a7 = r7 - e10.start - 8, o8 = e10.reader.Ia(), s7 = y4(i6), c7 = s7.next(); !c7.done; c7 = s7.next()) {
+              for (var a7 = r7 - e10.start - 8, o8 = e10.reader.Ia(), s7 = y5(i6), c7 = s7.next(); !c7.done; c7 = s7.next()) {
                 var l6 = c7.value;
                 if (t9.g != GS || l6.trackId === t9.l) {
-                  if (l6.Oa === null) R3("Unable to find base media decode time for CEA captions!");
+                  if (l6.Oa === null) R4("Unable to find base media decode time for CEA captions!");
                   else if (e10.reader.seek(o8), t9.g === GS) {
                     c7 = e10.reader;
-                    var u7 = l6.timescale, d5 = l6.nc, f4 = l6.Kc, p5 = l6.Oa, m5 = y4(l6.Mh);
+                    var u7 = l6.timescale, d5 = l6.nc, f4 = l6.Kc, p5 = l6.Oa, m5 = y5(l6.Mh);
                     for (l6 = m5.next(); !l6.done; l6 = m5.next()) {
-                      l6 = l6.value, l6.Ic != null && c7.seek(a7 + l6.Ic), l6 = y4(l6.Vc);
+                      l6 = l6.value, l6.Ic != null && c7.seek(a7 + l6.Ic), l6 = y5(l6.Vc);
                       for (var h6 = l6.next(); !h6.done; h6 = l6.next()) {
                         h6 = h6.value;
                         var g6 = p5 / u7, _5 = c7.Ja(h6.sampleSize || f4, false);
@@ -25563,39 +25660,39 @@ var init_load_uTL4eiru = __esm({
                         }), p5 += h6.Ud || d5;
                       }
                     }
-                  } else a: for (c7 = t9, u7 = e10.reader, d5 = l6.timescale, f4 = l6.nc, p5 = l6.Kc, m5 = l6.Oa, l6 = y4(l6.Mh), h6 = l6.next(); !h6.done; h6 = l6.next()) for (h6 = h6.value, h6.Ic != null && u7.seek(a7 + h6.Ic), h6 = y4(h6.Vc), g6 = h6.next(); !g6.done; g6 = h6.next()) {
+                  } else a: for (c7 = t9, u7 = e10.reader, d5 = l6.timescale, f4 = l6.nc, p5 = l6.Kc, m5 = l6.Oa, l6 = y5(l6.Mh), h6 = l6.next(); !h6.done; h6 = l6.next()) for (h6 = h6.value, h6.Ic != null && u7.seek(a7 + h6.Ic), h6 = y5(h6.Vc), g6 = h6.next(); !g6.done; g6 = h6.next()) {
                     g6 = g6.value, _5 = (m5 + (g6.dg || 0)) / d5;
                     for (var v7 = g6.sampleSize || p5; v7 > 0 && u7.La(); ) {
-                      var b4 = u7.S(), x4 = u7.Z(), S3 = 1;
+                      var b5 = u7.S(), x5 = u7.Z(), S5 = 1;
                       switch (c7.g) {
                         case HS:
-                          x4 &= 31, x4 = Jx(Yx, x4);
+                          x5 &= 31, x5 = Jx(Yx, x5);
                           break;
                         case US:
                         case WS:
-                          S3 = 2, u7.skip(1), x4 = x4 >> 1 & 63, x4 = Jx(c7.g === US ? Xx : Zx, x4);
+                          S5 = 2, u7.skip(1), x5 = x5 >> 1 & 63, x5 = Jx(c7.g === US ? Xx : Zx, x5);
                           break;
                         default:
                           break a;
                       }
-                      if (x4) for (S3 = u7.Ja(b4 - S3, false), S3 = y4(zS(S3)), x4 = S3.next(); !x4.done; x4 = S3.next()) n6.push({
-                        packet: x4.value,
+                      if (x5) for (S5 = u7.Ja(b5 - S5, false), S5 = y5(zS(S5)), x5 = S5.next(); !x5.done; x5 = S5.next()) n6.push({
+                        packet: x5.value,
                         pts: _5,
                         format: Yt
                       });
                       else try {
-                        u7.skip(b4 - S3);
+                        u7.skip(b5 - S5);
                       } catch {
                         break a;
                       }
-                      v7 -= b4 + 4;
+                      v7 -= b5 + 4;
                     }
                     m5 += g6.Ud || f4;
                   }
                 }
               }
             }).parse(e9, false, true), n6;
-          }, L3("shaka.cea.Mp4CeaParser", BS);
+          }, L4("shaka.cea.Mp4CeaParser", BS);
           var VS = 0, HS = 1, US = 2, WS = 3, GS = 4, KS = (/* @__PURE__ */ new Map()).set("avc1", HS).set("avc3", HS).set("dvav", HS).set("dva1", HS).set("hev1", US).set("hvc1", US).set("dvh1", US).set("dvhe", US).set("vvc1", WS).set("vvi1", WS).set("dvc1", WS).set("dvi1", WS);
           Gt("video/mp4", function() {
             return new BS();
@@ -25607,7 +25704,7 @@ var init_load_uTL4eiru = __esm({
           }, qS.prototype.parse = function(e9) {
             this.g ? this.g.clearData() : this.g = new jl();
             var t9 = [];
-            if (e9 = V3(e9), !Hl(e9)) return t9;
+            if (e9 = V4(e9), !Hl(e9)) return t9;
             e9 = this.g.parse(e9);
             var n6 = e9.qe(), r7 = e9.Cf();
             switch (e9 = null, n6.video) {
@@ -25618,13 +25715,13 @@ var init_load_uTL4eiru = __esm({
                 e9 = Xx;
             }
             if (e9 == null) return t9;
-            for (n6 = y4(r7), r7 = n6.next(); !r7.done; r7 = n6.next()) if (r7 = r7.value, r7.time != null && Jx(e9, r7.type)) for (var i6 = y4(zS(r7.data)), a7 = i6.next(); !a7.done; a7 = i6.next()) t9.push({
+            for (n6 = y5(r7), r7 = n6.next(); !r7.done; r7 = n6.next()) if (r7 = r7.value, r7.time != null && Jx(e9, r7.type)) for (var i6 = y5(zS(r7.data)), a7 = i6.next(); !a7.done; a7 = i6.next()) t9.push({
               packet: a7.value,
               pts: r7.time,
               format: Yt
             });
             return t9;
-          }, L3("shaka.cea.TsCeaParser", qS), Gt("video/mp2t", function() {
+          }, L4("shaka.cea.TsCeaParser", qS), Gt("video/mp2t", function() {
             return new qS();
           });
           function JS() {
@@ -25654,8 +25751,8 @@ var init_load_uTL4eiru = __esm({
                 return e10.Vd == "urn:mpeg:dash:mp4protection:2011" ? (a7 = e10.init || a7, false) : e10.Vd != "urn:mpeg:dash:sea:2012";
               }), o8.length && (e9 = QS(a7, c7, o8, r7, s7), e9.length == 0 && (e9 = [xt2("", c7, a7)]));
             }
-            if (i6.length && !t9 && (n6 || !o8.length)) for (e9 = [], n6 = y4(Object.values(r7)), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, tt2(r7) || (r7 = xt2(r7, c7, a7), e9.push(r7));
-            if (s7 = Array.from(s7)[0] || null) for (c7 = y4(e9), n6 = c7.next(); !n6.done; n6 = c7.next()) for (n6 = y4(n6.value.initData), r7 = n6.next(); !r7.done; r7 = n6.next()) r7.value.keyId = s7;
+            if (i6.length && !t9 && (n6 || !o8.length)) for (e9 = [], n6 = y5(Object.values(r7)), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, tt2(r7) || (r7 = xt2(r7, c7, a7), e9.push(r7));
+            if (s7 = Array.from(s7)[0] || null) for (c7 = y5(e9), n6 = c7.next(); !n6.done; n6 = c7.next()) for (n6 = y5(n6.value.initData), r7 = n6.next(); !r7.done; r7 = n6.next()) r7.value.keyId = s7;
             return {
               Vi: s7,
               Qn: a7,
@@ -25680,7 +25777,7 @@ var init_load_uTL4eiru = __esm({
           }
           function QS(e9, t9, n6, r7, i6) {
             var a7 = [];
-            n6 = y4(n6);
+            n6 = y5(n6);
             for (var o8 = n6.next(); !o8.done; o8 = n6.next()) {
               o8 = o8.value;
               var s7 = r7[o8.Vd];
@@ -25754,7 +25851,7 @@ var init_load_uTL4eiru = __esm({
           }
           function $S(e9, t9) {
             var n6 = [];
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var r7 = t9.next(); !r7.done; r7 = t9.next()) (r7 = eC(e9, r7.value)) && n6.push(r7);
             return n6;
           }
@@ -25785,7 +25882,7 @@ var init_load_uTL4eiru = __esm({
             };
           }
           function tC(t9) {
-            if (!e8.crypto || !e8.crypto.subtle) throw R3("Web Crypto API is not available to decrypt AES-128. (Web Crypto only exists in secure origins like https)"), new H4(2, 4, 4042);
+            if (!e8.crypto || !e8.crypto.subtle) throw R4("Web Crypto API is not available to decrypt AES-128. (Web Crypto only exists in secure origins like https)"), new H4(2, 4, 4042);
             var n6 = Cn(t9.node, "urn:mpeg:dash:schema:sea:2012", "SegmentEncryption");
             if (!n6 || n6.attributes.schemeIdUri != "urn:mpeg:dash:sea:aes128-cbc:2013" || (n6 = Cn(t9.node, "urn:mpeg:dash:schema:sea:2012", "CryptoPeriod"), !n6) || (t9 = n6.attributes.IV, n6 = Ve2(n6.attributes.keyUriTemplate), !t9 || !n6)) throw new H4(2, 4, 4051);
             if (t9 = qe2(t9.substr(2)), t9.byteLength != 16) throw new H4(2, 4, 4048);
@@ -25810,7 +25907,7 @@ var init_load_uTL4eiru = __esm({
               if (t10 == "$$") return "$";
               var a8 = s7.get(n7);
               if (a8 == null) return t10;
-              switch (n7 == "RepresentationID" && r8 && (r8 = void 0), n7 == "Time" && typeof a8 != "bigint" && (Math.abs(a8 - Math.round(a8)) >= 0.2 && R3("Calculated $Time$ values must be close to integers"), a8 = Math.round(a8)), i7) {
+              switch (n7 == "RepresentationID" && r8 && (r8 = void 0), n7 == "Time" && typeof a8 != "bigint" && (Math.abs(a8 - Math.round(a8)) >= 0.2 && R4("Calculated $Time$ values must be close to integers"), a8 = Math.round(a8)), i7) {
                 case void 0:
                 case "d":
                 case "i":
@@ -25841,24 +25938,24 @@ var init_load_uTL4eiru = __esm({
             if (c7) {
               t9 = [], a7 = /* @__PURE__ */ new Map();
               var l6 = vn(c7, "Pattern");
-              l6 = y4(l6);
+              l6 = y5(l6);
               for (var u7 = l6.next(); !u7.done; u7 = l6.next()) {
                 u7 = u7.value;
                 var d5 = u7.attributes.id;
                 d5 && a7.set(d5, u7);
               }
-              if (c7 = vn(c7, "S"), a7.size) for (c7 = y4(c7), l6 = c7.next(); !l6.done; l6 = c7.next()) l6 = aC(l6.value, a7), t9.push.apply(t9, b3(l6));
+              if (c7 = vn(c7, "S"), a7.size) for (c7 = y5(c7), l6 = c7.next(); !l6.done; l6 = c7.next()) l6 = aC(l6.value, a7), t9.push.apply(t9, b4(l6));
               else t9 = c7;
               a7 = r7, e9 = e9.qa.duration || Infinity, c7 = s7, l6 = [];
               var f4 = -o8;
               for (u7 = 0; u7 < t9.length; ++u7) {
-                var p5 = t9[u7], m5 = t9[u7 + 1], h6 = W(p5, "t", Mn);
-                d5 = W(p5, "d", Mn);
-                var g6 = W(p5, "r", An);
-                if (p5 = W(p5, "k", An) || 0, h6 != null && (h6 -= o8), d5) {
+                var p5 = t9[u7], m5 = t9[u7 + 1], h6 = W2(p5, "t", Mn);
+                d5 = W2(p5, "d", Mn);
+                var g6 = W2(p5, "r", An);
+                if (p5 = W2(p5, "k", An) || 0, h6 != null && (h6 -= o8), d5) {
                   if (h6 ??= f4, g6 ||= 0, g6 < 0) {
                     if (m5) {
-                      if (m5 = W(m5, "t", Mn), m5 == null || h6 >= m5) break;
+                      if (m5 = W2(m5, "t", Mn), m5 == null || h6 >= m5) break;
                       g6 = Math.ceil((m5 - h6) / d5) - 1;
                     } else {
                       if (e9 == Infinity || h6 / a7 >= e9) break;
@@ -25891,7 +25988,7 @@ var init_load_uTL4eiru = __esm({
             var n6 = e9.attributes.p;
             if (!n6) return [e9];
             if (!t9.has(n6) || (t9 = t9.get(n6), n6 = vn(t9, "P"), !n6.length)) return [];
-            t9 = [], n6 = y4(n6);
+            t9 = [], n6 = y5(n6);
             for (var r7 = n6.next(); !r7.done; r7 = n6.next()) {
               var i6 = r7.value;
               if (r7 = Number(i6.attributes.d), i6 = Number(i6.attributes.r || 0), Number.isFinite(r7) && !(r7 <= 0)) for (var a7 = 0; a7 <= i6; a7++) t9.push(r7);
@@ -25920,17 +26017,17 @@ var init_load_uTL4eiru = __esm({
             ].filter(Xr);
           }
           function sC(e9, t9, n6) {
-            t9 = oC(e9, t9), e9 = null, t9 = y4(t9);
+            t9 = oC(e9, t9), e9 = null, t9 = y5(t9);
             for (var r7 = t9.next(); !r7.done && !(e9 = r7.value.attributes[n6]); r7 = t9.next()) ;
             return e9;
           }
           function cC(e9, t9, n6) {
-            t9 = oC(e9, t9), e9 = null, t9 = y4(t9);
+            t9 = oC(e9, t9), e9 = null, t9 = y5(t9);
             for (var r7 = t9.next(); !r7.done && !(e9 = Sn(r7.value, n6)); r7 = t9.next()) ;
             return e9;
           }
           function lC(e9, t9, n6, r7) {
-            for (var i6 = [], a7 = y4(vn(e9, "Period")), o8 = a7.next(), s7 = {}; !o8.done; s7 = {
+            for (var i6 = [], a7 = y5(vn(e9, "Period")), o8 = a7.next(), s7 = {}; !o8.done; s7 = {
               Qd: void 0,
               xe: void 0
             }, o8 = a7.next()) if (s7.Qd = o8.value, o8 = Sn(s7.Qd, "ImportedMPD")) {
@@ -25971,7 +26068,7 @@ var init_load_uTL4eiru = __esm({
               "id",
               "start",
               "duration"
-            ]), a7 = y4(Object.keys(e9.attributes)), o8 = a7.next(); !o8.done; o8 = a7.next()) o8 = o8.value, i6.has(o8) || o8.includes(":") || delete e9.attributes[o8];
+            ]), a7 = y5(Object.keys(e9.attributes)), o8 = a7.next(); !o8.done; o8 = a7.next()) o8 = o8.value, i6.has(o8) || o8.includes(":") || delete e9.attributes[o8];
             var s7 = /* @__PURE__ */ new Set([
               "ServiceDescription",
               "SupplementalProperty",
@@ -25985,7 +26082,7 @@ var init_load_uTL4eiru = __esm({
               return e10.tagName !== "BaseURL";
             }).concat(vn(t9, "SupplementalProperty"), vn(t9, "EssentialProperty"));
             var c7 = /* @__PURE__ */ new Set();
-            o8 = y4(i6);
+            o8 = y5(i6);
             for (var l6 = o8.next(); !l6.done; l6 = o8.next()) l6 = pC(l6.value), l6 != null && c7.add(l6);
             for (a7 = a7.filter(function(e10) {
               return e10 = pC(e10), e10 == null || !c7.has(e10);
@@ -25996,7 +26093,7 @@ var init_load_uTL4eiru = __esm({
                 children: [t10],
                 parent: e9
               };
-            }), r7 = y4(i6), o8 = r7.next(); !o8.done; o8 = r7.next()) o8.value.parent = e9;
+            }), r7 = y5(i6), o8 = r7.next(); !o8.done; o8 = r7.next()) o8.value.parent = e9;
             e9.children = t9.concat(i6, a7), (n6 = n6.attributes.duration) && ((t9 = e9.attributes.duration) ? (t9 = On(t9), r7 = On(n6), t9 != null && r7 != null && r7 < t9 && (e9.attributes.duration = n6)) : e9.attributes.duration = n6);
           }
           function pC(e9) {
@@ -26014,14 +26111,14 @@ var init_load_uTL4eiru = __esm({
           function mC(e9, t9, n6) {
             function r7(e10) {
               var t10 = [];
-              e10 = y4(vn(e10, "BaseURL"));
+              e10 = y5(vn(e10, "BaseURL"));
               for (var n7 = e10.next(); !n7.done; n7 = e10.next()) (n7 = bn(n7.value)) && t10.push(n7);
               return t10;
             }
             return n6 = [n6], e9 = r7(e9), e9.length && (n6 = ua(n6, e9)), t9 = r7(t9), t9.length && (n6 = ua(n6, t9)), n6;
           }
           function hC(e9, t9, n6, r7, i6, a7) {
-            for (var o8 = wn(e9, "http://www.w3.org/1999/xlink", "href"), s7 = wn(e9, "http://www.w3.org/1999/xlink", "actuate") || "onRequest", c7 = y4(Object.keys(e9.attributes)), l6 = c7.next(); !l6.done; l6 = c7.next()) {
+            for (var o8 = wn(e9, "http://www.w3.org/1999/xlink", "href"), s7 = wn(e9, "http://www.w3.org/1999/xlink", "actuate") || "onRequest", c7 = y5(Object.keys(e9.attributes)), l6 = c7.next(); !l6.done; l6 = c7.next()) {
               l6 = l6.value;
               var u7 = l6.split(":"), d5 = mn("http://www.w3.org/1999/xlink");
               u7[0] == d5 && delete e9.attributes[l6];
@@ -26035,7 +26132,7 @@ var init_load_uTL4eiru = __esm({
                 var s8 = r8.children.shift();
                 e9.children.push(s8);
               }
-              s8 = y4(Object.keys(r8.attributes));
+              s8 = y5(Object.keys(r8.attributes));
               for (var c8 = s8.next(); !c8.done; c8 = s8.next()) c8 = c8.value, e9.attributes[c8] = r8.attributes[c8];
               return gC(e9, t9, n6, f4[0], i6, a7 + 1);
             });
@@ -26052,7 +26149,7 @@ var init_load_uTL4eiru = __esm({
             if (wn(e9, "http://www.w3.org/1999/xlink", "href")) return o8 = hC(e9, t9, n6, r7, i6, a7), n6 && (o8 = o8.Ya(void 0, function() {
               return gC(e9, t9, n6, r7, i6, a7);
             })), o8;
-            for (var s7 = [], c7 = y4(_n(e9)), l6 = c7.next(), u7 = {}; !l6.done; u7 = { je: void 0 }, l6 = c7.next()) u7.je = l6.value, wn(u7.je, "http://www.w3.org/1999/xlink", "href") == "urn:mpeg:dash:resolve-to-zero:2013" ? e9.children = e9.children.filter(/* @__PURE__ */ (function(e10) {
+            for (var s7 = [], c7 = y5(_n(e9)), l6 = c7.next(), u7 = {}; !l6.done; u7 = { je: void 0 }, l6 = c7.next()) u7.je = l6.value, wn(u7.je, "http://www.w3.org/1999/xlink", "href") == "urn:mpeg:dash:resolve-to-zero:2013" ? e9.children = e9.children.filter(/* @__PURE__ */ (function(e10) {
               return function(t10) {
                 return t10 !== e10.je;
               };
@@ -26081,7 +26178,7 @@ var init_load_uTL4eiru = __esm({
             };
           }
           function xC(e9, t9, n6, r7, i6, a7, o8, s7) {
-            var c7, l6 = new q().T("sidx", function(e10) {
+            var c7, l6 = new q2().T("sidx", function(e10) {
               c7 = SC(t9, r7, i6, a7, o8, n6, e10, s7);
             });
             if (e9 && l6.parse(e9), c7) return c7;
@@ -26102,7 +26199,7 @@ var init_load_uTL4eiru = __esm({
               d5 = (p5 & 2147483648) >>> 31, p5 &= 2147483647;
               var m5 = o8.reader.S();
               if (o8.reader.skip(4), d5 == 1) throw new H4(2, 3, 3006);
-              c7.push(new J(u7 / l6 + n6, (u7 + m5) / l6 + n6, function() {
+              c7.push(new J2(u7 / l6 + n6, (u7 + m5) / l6 + n6, function() {
                 return a7;
               }, e9, e9 + p5 - 1, t9, n6, r7, i6)), u7 += m5, e9 += p5;
             }
@@ -26118,11 +26215,11 @@ var init_load_uTL4eiru = __esm({
             var t9 = TC(e9);
             if (t9.length > 7) throw new H4(2, 3, 3002);
             var n6 = 0;
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var r7 = t9.next(); !r7.done; r7 = t9.next()) n6 = 256 * n6 + r7.value;
             t9 = TC(e9);
             a: {
-              r7 = y4(EC);
+              r7 = y5(EC);
               for (var i6 = r7.next(); !i6.done; i6 = r7.next()) if (Oe2(t9, new Uint8Array(i6.value))) {
                 r7 = true;
                 break a;
@@ -26143,7 +26240,7 @@ var init_load_uTL4eiru = __esm({
           function TC(e9) {
             var t9 = e9.g.Ia(), n6 = e9.g.Z();
             if (n6 == 0) throw new H4(2, 3, 3002);
-            return n6 = 8 - Math.floor(Math.log2(n6)), e9.g.skip(n6 - 1), V3(e9.h, t9, n6);
+            return n6 = 8 - Math.floor(Math.log2(n6)), e9.g.skip(n6 - 1), V4(e9.h, t9, n6);
           }
           var EC = [
             [255],
@@ -26242,10 +26339,10 @@ var init_load_uTL4eiru = __esm({
               var p5 = wC(e9);
               if (p5.id == 187) {
                 var m5 = jC(p5);
-                m5 && (p5 = n6 * m5.Qm, m5 = t9 + m5.pm, d5 != null && u7.push(new J(d5 + o8, p5 + o8, l6, f4, m5 - 1, a7, o8, s7, c7)), d5 = p5, f4 = m5);
+                m5 && (p5 = n6 * m5.Qm, m5 = t9 + m5.pm, d5 != null && u7.push(new J2(d5 + o8, p5 + o8, l6, f4, m5 - 1, a7, o8, s7, c7)), d5 = p5, f4 = m5);
               }
             }
-            return d5 != null && u7.push(new J(d5 + o8, r7 + o8, l6, f4, null, a7, o8, s7, c7)), u7;
+            return d5 != null && u7.push(new J2(d5 + o8, r7 + o8, l6, f4, null, a7, o8, s7, c7)), u7;
           }
           function jC(e9) {
             var t9 = new CC(e9.g);
@@ -26269,7 +26366,7 @@ var init_load_uTL4eiru = __esm({
             var r7 = e9.N.gb(), i6 = t9.attributes.sourceURL;
             i6 && (r7 = ua(r7, [Ve2(i6)], e9.urlParams())), i6 = 0;
             var a7 = null;
-            return (t9 = W(t9, "range", kn)) && (i6 = t9.start, a7 = t9.end), n6 = new Oc(function() {
+            return (t9 = W2(t9, "range", kn)) && (i6 = t9.start, a7 = t9.end), n6 = new Oc(function() {
               return r7;
             }, i6, a7, zC(e9), null, null, n6, e9.sa.encrypted), n6.codecs = e9.N.codecs, n6.mimeType = e9.N.mimeType, e9.qa && !e9.qa.Jf && (n6.g = e9.qa.start + e9.qa.duration), n6;
           }
@@ -26290,13 +26387,13 @@ var init_load_uTL4eiru = __esm({
             };
           }
           function PC(e9, t9, n6, r7, i6, a7, o8) {
-            var s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3, C5, w5, T5, E5, D5;
-            return P4(function(O5) {
-              if (O5.h == 1) return s7 = e9.presentationTimeline, c7 = !e9.Ab || !e9.qa.Jf, l6 = e9.qa.start, u7 = e9.qa.duration, d5 = e9.N.mimeType.split("/")[1], f4 = t9, p5 = null, m5 = [f4(r7, i6, a7, false), d5 == "webm" ? f4(n6.U(), n6.startByte, n6.endByte, true) : null], f4 = null, O5.g(Promise.all(m5), 2);
-              for (h6 = O5.i, g6 = h6[0], _5 = h6[1] || null, v7 = null, b4 = l6 - o8, x4 = l6, S3 = u7 ? l6 + u7 : Infinity, C5 = e9.N.gb(), w5 = C5.length != r7.length || C5.some(function(e10, t10) {
+            var s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5, C6, w6, T6, E6, D6;
+            return P4(function(O6) {
+              if (O6.h == 1) return s7 = e9.presentationTimeline, c7 = !e9.Ab || !e9.qa.Jf, l6 = e9.qa.start, u7 = e9.qa.duration, d5 = e9.N.mimeType.split("/")[1], f4 = t9, p5 = null, m5 = [f4(r7, i6, a7, false), d5 == "webm" ? f4(n6.U(), n6.startByte, n6.endByte, true) : null], f4 = null, O6.g(Promise.all(m5), 2);
+              for (h6 = O6.i, g6 = h6[0], _5 = h6[1] || null, v7 = null, b5 = l6 - o8, x5 = l6, S5 = u7 ? l6 + u7 : Infinity, C6 = e9.N.gb(), w6 = C6.length != r7.length || C6.some(function(e10, t10) {
                 return e10 != r7[t10];
-              }), v7 = d5 == "mp4" ? xC(g6, i6, C5, n6, b4, x4, S3, w5) : kC(g6, _5, C5, n6, b4, x4, S3), T5 = y4(v7), E5 = T5.next(); !E5.done; E5 = T5.next()) D5 = E5.value, D5.codecs = e9.N.codecs, D5.mimeType = e9.N.mimeType, D5.bandwidth = e9.bandwidth;
-              return s7.De(v7), p5 = new md(v7), c7 && p5.xd(x4, S3, true), O5.return(p5);
+              }), v7 = d5 == "mp4" ? xC(g6, i6, C6, n6, b5, x5, S5, w6) : kC(g6, _5, C6, n6, b5, x5, S5), T6 = y5(v7), E6 = T6.next(); !E6.done; E6 = T6.next()) D6 = E6.value, D6.codecs = e9.N.codecs, D6.mimeType = e9.N.mimeType, D6.bandwidth = e9.bandwidth;
+              return s7.De(v7), p5 = new md(v7), c7 && p5.xd(x5, S5, true), O6.return(p5);
             });
           }
           function FC(e9) {
@@ -26304,14 +26401,14 @@ var init_load_uTL4eiru = __esm({
           }
           function IC(e9) {
             var t9 = cC(e9, FC, "RepresentationIndex");
-            return e9 = sC(e9, FC, "indexRange"), e9 = kn(e9 || ""), t9 && (e9 = W(t9, "range", kn, e9)), e9;
+            return e9 = sC(e9, FC, "indexRange"), e9 = kn(e9 || ""), t9 && (e9 = W2(t9, "range", kn, e9)), e9;
           }
           function LC(e9, t9) {
             if (RC(e9, t9), !IC(e9)) throw new H4(2, 4, 4002);
           }
           function RC(e9, t9) {
             var n6 = e9.N.mimeType.split("/")[1];
-            if (e9.N.contentType != U2 && n6 != "mp4" && n6 != "webm") throw new H4(2, 4, 4006);
+            if (e9.N.contentType != U3 && n6 != "mp4" && n6 != "webm") throw new H4(2, 4, 4006);
             if (n6 == "webm" && !t9) throw new H4(2, 4, 4005);
           }
           function zC(e9) {
@@ -26375,7 +26472,7 @@ var init_load_uTL4eiru = __esm({
             }, g6++) {
               h6.eg = r7.Kd[g6];
               var _5 = m5;
-              m5 = void 0, m5 = r7.ob == null ? r7.timeline ? r7.timeline[g6].end : _5 + t9 : _5 + r7.ob, h6.pg = null, h6 = new J(e9 + _5, e9 + m5, /* @__PURE__ */ (function(e10) {
+              m5 = void 0, m5 = r7.ob == null ? r7.timeline ? r7.timeline[g6].end : _5 + t9 : _5 + r7.ob, h6.pg = null, h6 = new J2(e9 + _5, e9 + m5, /* @__PURE__ */ (function(e10) {
                 return function() {
                   return e10.pg ??= ua(n6(), [e10.eg.Yl], l6()), e10.pg;
                 };
@@ -26395,7 +26492,7 @@ var init_load_uTL4eiru = __esm({
             }).map(function(t9) {
               t9.attributes.indexRange && !e9.rh && (e9.rh = true);
               var n6 = Ve2(t9.attributes.media);
-              return t9 = W(t9, "mediaRange", kn, {
+              return t9 = W2(t9, "mediaRange", kn, {
                 start: 0,
                 end: null
               }), {
@@ -26435,7 +26532,7 @@ var init_load_uTL4eiru = __esm({
               if (n6 = 0, c7 = -1, e9.Ta.id != null && e9.N.id != null) {
                 var g6 = l6.get(e9.Ta.id);
                 if (g6) c7 = g6.timeline;
-                else for (l6 = y4(l6.values()), g6 = l6.next(); !g6.done; g6 = l6.next()) if (g6 = g6.value, Math.abs(d5.fc - g6.endTime) <= kt && g6.Yh.includes(e9.N.id)) {
+                else for (l6 = y5(l6.values()), g6 = l6.next(); !g6.done; g6 = l6.next()) if (g6 = g6.value, Math.abs(d5.fc - g6.endTime) <= kt && g6.Yh.includes(e9.N.id)) {
                   c7 = g6.timeline;
                   break;
                 } else g6.timeline >= n6 && (n6 = g6.timeline + 1);
@@ -26481,20 +26578,20 @@ var init_load_uTL4eiru = __esm({
               var a8 = r8 - _5, s8 = a8 * g6, l7 = n6.mg, u8 = a8 * l7;
               "BigInt" in e8 && u8 > 2 ** 53 - 1 && (u8 = BigInt(a8) * BigInt(l7)), s8 += p5, a8 = s8 + g6, l7 = Math.min(a8, d5());
               var f5 = [], m6 = n6.bm;
-              if (m6) for (var h7 = (l7 - s8) / m6, y5 = {}, T6 = 0; T6 < m6; y5 = { fk: void 0 }, T6++) {
-                var E6 = s8 + h7 * T6, D6 = E6 + h7;
-                y5.fk = T6, y5 = new J(E6, D6, /* @__PURE__ */ (function(e9) {
+              if (m6) for (var h7 = (l7 - s8) / m6, y6 = {}, T7 = 0; T7 < m6; y6 = { fk: void 0 }, T7++) {
+                var E7 = s8 + h7 * T7, D7 = E7 + h7;
+                y6.fk = T7, y6 = new J2(E7, D7, /* @__PURE__ */ (function(e9) {
                   return function() {
-                    var t10 = rC(v7, x4, r8, e9.fk, b4, u8);
-                    return ua(S3(), [t10], C5());
+                    var t10 = rC(v7, x5, r8, e9.fk, b5, u8);
+                    return ua(S5(), [t10], C6());
                   };
-                })(y5), 0, null, i6, w5, p5, d5(), [], "", null, null, Mc, o8), y5.codecs = t9.N.codecs, y5.mimeType = t9.N.mimeType, c7 == 0 ? T6 > 0 && y5.Id() : T6 % c7 != 0 && y5.Id(), f5.push(y5);
+                })(y6), 0, null, i6, w6, p5, d5(), [], "", null, null, Mc, o8), y6.codecs = t9.N.codecs, y6.mimeType = t9.N.mimeType, c7 == 0 ? T7 > 0 && y6.Id() : T7 % c7 != 0 && y6.Id(), f5.push(y6);
               }
-              return s8 = new J(s8, l7, function() {
+              return s8 = new J2(s8, l7, function() {
                 if (m6) return [];
-                var e9 = rC(v7, x4, r8, null, b4, u8);
-                return ua(S3(), [e9], C5());
-              }, 0, null, i6, w5, p5, d5(), f5, "", null, null, Mc, o8, f5.length > 0), s8.codecs = t9.N.codecs, s8.mimeType = t9.N.mimeType, s8.bandwidth = t9.bandwidth, s8.j = a8, s8;
+                var e9 = rC(v7, x5, r8, null, b5, u8);
+                return ua(S5(), [e9], C6());
+              }, 0, null, i6, w6, p5, d5(), f5, "", null, null, Mc, o8, f5.length > 0), s8.codecs = t9.N.codecs, s8.mimeType = t9.N.mimeType, s8.bandwidth = t9.bandwidth, s8.j = a8, s8;
             }
             function u7() {
               var e9 = [Math.max(f4.Fb(), p5), Math.min(f4.Qc(), d5())].map(function(e10) {
@@ -26508,26 +26605,26 @@ var init_load_uTL4eiru = __esm({
               var e9 = m5 != null && a7.get(m5) || h6;
               return e9 ? p5 + e9 : Infinity;
             }
-            var f4 = t9.presentationTimeline, p5 = t9.qa.start, m5 = t9.Ta.id, h6 = t9.qa.duration, g6 = n6.ob, _5 = n6.Ke, v7 = n6.ac, b4 = t9.bandwidth || null, x4 = t9.N.originalId, S3 = t9.N.gb, C5 = t9.urlParams, w5 = p5 - n6.fc, T5 = u7();
-            r7 = t9.Ab ? Math.max(T5[0], T5[1] - r7 + 1) : T5[0], s7 ||= T5[1];
-            var E5 = new ZC(r7, s7, _5, p5, g6, l6);
-            T5 = f4.Qc() < d5();
-            var D5 = f4.isLive();
-            if (T5 || D5) {
-              var O5 = Math.max(r7, s7 + 1);
-              r7 = g6, t9.N.xb && (r7 = 0.1), E5.og(r7, function() {
+            var f4 = t9.presentationTimeline, p5 = t9.qa.start, m5 = t9.Ta.id, h6 = t9.qa.duration, g6 = n6.ob, _5 = n6.Ke, v7 = n6.ac, b5 = t9.bandwidth || null, x5 = t9.N.originalId, S5 = t9.N.gb, C6 = t9.urlParams, w6 = p5 - n6.fc, T6 = u7();
+            r7 = t9.Ab ? Math.max(T6[0], T6[1] - r7 + 1) : T6[0], s7 ||= T6[1];
+            var E6 = new ZC(r7, s7, _5, p5, g6, l6);
+            T6 = f4.Qc() < d5();
+            var D6 = f4.isLive();
+            if (T6 || D6) {
+              var O6 = Math.max(r7, s7 + 1);
+              r7 = g6, t9.N.xb && (r7 = 0.1), E6.og(r7, function() {
                 var e9 = f4.Fb();
-                E5.Za(e9);
-                var t10 = y4(u7());
+                E6.Za(e9);
+                var t10 = y5(u7());
                 t10.next(), t10 = t10.next().value;
-                for (var n7 = []; O5 <= t10; ) {
-                  var r8 = l6(O5);
-                  n7.push(r8), O5++;
+                for (var n7 = []; O6 <= t10; ) {
+                  var r8 = l6(O6);
+                  n7.push(r8), O6++;
                 }
                 return e9 > d5() && !n7.length ? null : n7;
               });
             }
-            return Promise.resolve(E5);
+            return Promise.resolve(E6);
           }
           function XC(e9, t9) {
             var n6 = e9.N.Gf;
@@ -26597,19 +26694,19 @@ var init_load_uTL4eiru = __esm({
                   return e10.end > o8.end;
                 });
               } else t9 = t9.timeline.slice();
-              t9.length > 0 && e9.h.timeline.push.apply(e9.h.timeline, b3(t9)), e9.l !== r7 && (e9.l = r7);
+              t9.length > 0 && e9.h.timeline.push.apply(e9.h.timeline, b4(t9)), e9.l !== r7 && (e9.l = r7);
             } else e9.h = t9, e9.j = n6, e9.l = r7;
             tw(e9);
           }
           function ew(e9, t9) {
             if (e9.u !== t9) {
-              e9.u = t9, e9 = y4(e9.g);
+              e9.u = t9, e9 = y5(e9.g);
               for (var n6 = e9.next(); !n6.done; n6 = e9.next()) (n6 = n6.value) && jc(n6, t9);
             }
           }
           function tw(e9) {
             if (e9.h && !e9.o) {
-              for (var t9 = [], n6 = y4(e9.h.timeline), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, r7.start >= e9.l || r7.end <= 0 || t9.push(r7);
+              for (var t9 = [], n6 = y5(e9.h.timeline), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, r7.start >= e9.l || r7.end <= 0 || t9.push(r7);
               e9.h.timeline = t9, e9.Za(e9.j);
             }
           }
@@ -26641,7 +26738,7 @@ var init_load_uTL4eiru = __esm({
                   gk: void 0
                 }, m5++) {
                   var h6 = n6.start + f4 * m5, g6 = h6 + f4;
-                  p5.gk = m5, p5.qg = null, p5 = new J(this.j + h6, this.j + g6, /* @__PURE__ */ (function(e10) {
+                  p5.gk = m5, p5.qg = null, p5 = new J2(this.j + h6, this.j + g6, /* @__PURE__ */ (function(e10) {
                     return function() {
                       if (!t9.h) return [];
                       if (e10.qg == null) {
@@ -26653,7 +26750,7 @@ var init_load_uTL4eiru = __esm({
                   })(p5), 0, null, this.u, a7, this.j, this.l, [], "", null, null, Mc, this.B), p5.codecs = c7, p5.mimeType = l6, p5.bandwidth = u7, this.I == 0 ? m5 > 0 && p5.Id() : m5 % this.I != 0 && p5.Id(), d5.push(p5);
                 }
               }
-              n6 = new J(this.j + n6.start, s7, function() {
+              n6 = new J2(this.j + n6.start, s7, function() {
                 if (d5.length > 0 || !t9.h) var e10 = [];
                 else {
                   e10 = t9.F;
@@ -26689,7 +26786,7 @@ var init_load_uTL4eiru = __esm({
               if (l6.h == 1) return n6 = ua(e9.i, [iw(e9, t9)]), r7 = xa(n6, e9.o.retryParameters), i6 = e9.B.networkingEngine.request(8, r7), ca(e9.H, i6), l6.m(2), l6.g(i6.promise, 4);
               if (l6.h != 2) return a7 = l6.i, o8 = Ie2(a7.data), s7 = JSON.parse(o8), s7.VERSION == 1 && aw(e9, s7, a7.uri), l6.o(0);
               if ((c7 = l6.l()) && c7.code == 7001) return l6.return();
-              e9.g != null && (e9.g.stop(), e9.g = null), e9.g = new G(function() {
+              e9.g != null && (e9.g.stop(), e9.g = null), e9.g = new G2(function() {
                 rw(e9, t9);
               }), e9.g.ba(e9.D), l6.j();
             });
@@ -26702,7 +26799,7 @@ var init_load_uTL4eiru = __esm({
           function aw(e9, t9, n6) {
             e9.g != null && (e9.g.stop(), e9.g = null);
             var r7 = t9["RELOAD-URI"] || n6;
-            e9.g = new G(function() {
+            e9.g = new G2(function() {
               rw(e9, r7);
             }), (n6 = t9.TTL) && (e9.D = n6), e9.g.ba(e9.D), e9.m = t9["PATHWAY-PRIORITY"] || [], e9.F = t9["PATHWAY-CLONES"] || [];
           }
@@ -26715,7 +26812,7 @@ var init_load_uTL4eiru = __esm({
           };
           function sw(e9, t9, n6) {
             n6 = n6 !== void 0 && n6, t9 = e9.l.get(t9) || /* @__PURE__ */ new Map();
-            for (var r7 = [], i6 = y4(e9.m), a7 = i6.next(), o8 = {}; !a7.done; o8 = { Pd: void 0 }, a7 = i6.next()) if (o8.Pd = a7.value, a7 = t9.get(o8.Pd)) r7.push({
+            for (var r7 = [], i6 = y5(e9.m), a7 = i6.next(), o8 = {}; !a7.done; o8 = { Pd: void 0 }, a7 = i6.next()) if (o8.Pd = a7.value, a7 = t9.get(o8.Pd)) r7.push({
               Nh: o8.Pd,
               location: a7
             });
@@ -26733,22 +26830,22 @@ var init_load_uTL4eiru = __esm({
                 location: s7
               }));
             }
-            for (i6 = Date.now(), o8 = y4(e9.j.keys()), a7 = o8.next(); !a7.done; a7 = o8.next()) a7 = a7.value, s7 = e9.j.get(a7), i6 > s7 && e9.j.delete(a7);
+            for (i6 = Date.now(), o8 = y5(e9.j.keys()), a7 = o8.next(); !a7.done; a7 = o8.next()) a7 = a7.value, s7 = e9.j.get(a7), i6 > s7 && e9.j.delete(a7);
             if (r7 = r7.filter(function(t10) {
               t10 = pa(t10.location);
-              for (var n7 = y4(e9.j.keys()), r8 = n7.next(); !r8.done; r8 = n7.next()) if (r8.value.includes(t10)) return false;
+              for (var n7 = y5(e9.j.keys()), r8 = n7.next(); !r8.done; r8 = n7.next()) if (r8.value.includes(t10)) return false;
               return true;
             }), r7.length && (e9.C = r7[0].Nh), r7 = r7.map(function(e10) {
               return e10.location;
-            }), !r7.length && e9.h) for (i6 = y4(e9.h.split(",")), o8 = i6.next(); !o8.done; o8 = i6.next()) (o8 = t9.get(o8.value)) && (e9.C = e9.h, r7.push(o8));
-            if (!r7.length) for (t9 = y4(t9.values()), i6 = t9.next(); !i6.done; i6 = t9.next()) r7.push(i6.value);
+            }), !r7.length && e9.h) for (i6 = y5(e9.h.split(",")), o8 = i6.next(); !o8.done; o8 = i6.next()) (o8 = t9.get(o8.value)) && (e9.C = e9.h, r7.push(o8));
+            if (!r7.length) for (t9 = y5(t9.values()), i6 = t9.next(); !i6.done; i6 = t9.next()) r7.push(i6.value);
             return n6 ? r7 : ua(e9.i, r7);
           }
           function cw() {
-            this.l = [], this.h = [], this.g = [], this.j = [], this.i = [], this.o = false, this.m = /* @__PURE__ */ new Set(), this.u = (/* @__PURE__ */ new Map()).set("audio", this.h).set("video", this.g).set(U2, this.j).set("image", this.i);
+            this.l = [], this.h = [], this.g = [], this.j = [], this.i = [], this.o = false, this.m = /* @__PURE__ */ new Set(), this.u = (/* @__PURE__ */ new Map()).set("audio", this.h).set("video", this.g).set(U3, this.j).set("image", this.i);
           }
           r6 = cw.prototype, r6.release = function() {
-            for (var e9 = y4(this.h.concat(this.g, this.j, this.i)), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, t9.segmentIndex && t9.segmentIndex.release();
+            for (var e9 = y5(this.h.concat(this.g, this.j, this.i)), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, t9.segmentIndex && t9.segmentIndex.release();
             this.h = [], this.g = [], this.j = [], this.i = [], this.l = [], this.o = false, this.m.clear(), this.u.clear();
           }, r6.Gl = function() {
             return this.l;
@@ -26759,9 +26856,9 @@ var init_load_uTL4eiru = __esm({
           }, r6.Wi = function(e9, t9) {
             if (e9) {
               var n6 = this.u.get(e9.type) || [];
-              n6 = y4(n6);
+              n6 = y5(n6);
               for (var r7 = n6.next(); !r7.done; r7 = n6.next()) {
-                r7 = r7.value, lw(r7, e9), r7 = Kw(r7), r7 = y4(r7);
+                r7 = r7.value, lw(r7, e9), r7 = Kw(r7), r7 = y5(r7);
                 for (var i6 = r7.next(); !i6.done; i6 = r7.next()) lw(i6.value, e9);
               }
               e9.segmentIndex && e9.closeSegmentIndex(), this.m.delete(t9);
@@ -26779,13 +26876,13 @@ var init_load_uTL4eiru = __esm({
           }
           function dw(e9, t9) {
             var n6 = [], r7 = [], i6 = [], a7 = [];
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var o8 = e9.next(); !o8.done; o8 = e9.next()) {
               var s7 = o8.value;
               o8 = uw(s7.audioStreams, Vw);
               var c7 = uw(s7.videoStreams, Bw), l6 = uw(s7.textStreams, Hw);
               if (s7 = uw(s7.imageStreams, Uw), t9) {
-                var u7 = Fw(U2);
+                var u7 = Fw(U3);
                 l6.set(Hw(u7), u7), u7 = Fw("image"), s7.set(Uw(u7), u7);
               }
               n6.push(o8), r7.push(c7), i6.push(l6), a7.push(s7);
@@ -26799,7 +26896,7 @@ var init_load_uTL4eiru = __esm({
           }
           r6.Mg = function(e9, t9, n6) {
             n6 = n6 !== void 0 && n6;
-            var r7 = this, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4, F5, I5, ee3;
+            var r7 = this, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5, F5, I5, ee3;
             return P4(function(P5) {
               if (P5.h == 1) {
                 if (i6 = Ot, !t9 && e9.length == 1) return a7 = dw(e9, false), o8 = a7.Mi, s7 = a7.wk, c7 = a7.kk, l6 = a7.oj, r7.h = Array.from(o8[0].values()), r7.g = Array.from(s7[0].values()), r7.j = Array.from(c7[0].values()), r7.i = Array.from(l6[0].values()), P5.A(2);
@@ -26811,37 +26908,37 @@ var init_load_uTL4eiru = __esm({
                   pw(r7, r7.i, v7, d5, vw, xw, u7)
                 ]), 2));
               }
-              if (b4 = 0, x4 = [], r7.g.length && r7.h.length) for (O5 = y4(r7.h), k5 = O5.next(); !k5.done; k5 = O5.next()) for (A4 = k5.value, j5 = y4(r7.g), M5 = j5.next(); !M5.done; M5 = j5.next()) N4 = M5.value, F5 = $e2(A4.drmInfos, N4.drmInfos), A4.drmInfos.length && N4.drmInfos.length && !F5.length || (I5 = (A4.bandwidth || 0) + (N4.bandwidth || 0), A4.dependencyStream && (I5 += A4.dependencyStream.bandwidth || 0), N4.dependencyStream && (I5 += N4.dependencyStream.bandwidth || 0), ee3 = b4++, x4.push({
+              if (b5 = 0, x5 = [], r7.g.length && r7.h.length) for (O6 = y5(r7.h), k6 = O6.next(); !k6.done; k6 = O6.next()) for (A5 = k6.value, j5 = y5(r7.g), M5 = j5.next(); !M5.done; M5 = j5.next()) N5 = M5.value, F5 = $e2(A5.drmInfos, N5.drmInfos), A5.drmInfos.length && N5.drmInfos.length && !F5.length || (I5 = (A5.bandwidth || 0) + (N5.bandwidth || 0), A5.dependencyStream && (I5 += A5.dependencyStream.bandwidth || 0), N5.dependencyStream && (I5 += N5.dependencyStream.bandwidth || 0), ee3 = b5++, x5.push({
                 id: ee3,
-                language: A4.language,
+                language: A5.language,
                 disabledUntilTime: 0,
-                primary: A4.primary,
-                audio: A4,
-                video: N4,
+                primary: A5.primary,
+                audio: A5,
+                video: N5,
                 bandwidth: I5,
                 drmInfos: F5,
                 allowedByApplication: true,
                 allowedByKeySystem: true,
                 decodingInfos: []
               }));
-              else for (S3 = r7.g.length ? r7.g : r7.h, C5 = y4(S3), w5 = C5.next(); !w5.done; w5 = C5.next()) T5 = w5.value, E5 = b4++, D5 = T5.bandwidth || 0, T5.dependencyStream && (D5 += T5.dependencyStream.bandwidth || 0), x4.push({
-                id: E5,
-                language: T5.language,
+              else for (S5 = r7.g.length ? r7.g : r7.h, C6 = y5(S5), w6 = C6.next(); !w6.done; w6 = C6.next()) T6 = w6.value, E6 = b5++, D6 = T6.bandwidth || 0, T6.dependencyStream && (D6 += T6.dependencyStream.bandwidth || 0), x5.push({
+                id: E6,
+                language: T6.language,
                 disabledUntilTime: 0,
-                primary: T5.primary,
-                audio: T5.type == i6.$ ? T5 : null,
-                video: T5.type == i6.za ? T5 : null,
-                bandwidth: D5,
-                drmInfos: T5.drmInfos,
+                primary: T6.primary,
+                audio: T6.type == i6.$ ? T6 : null,
+                video: T6.type == i6.za ? T6 : null,
+                bandwidth: D6,
+                drmInfos: T6.drmInfos,
                 allowedByApplication: true,
                 allowedByKeySystem: true,
                 decodingInfos: []
               });
-              r7.l = x4, P5.j();
+              r7.l = x5, P5.j();
             });
           };
           function fw(e9) {
-            var t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4;
+            var t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5;
             return P4(function(P5) {
               if (P5.h == 1) {
                 if (t9 = Ot, e9.length == 1) return P5.return(e9[0]);
@@ -26869,9 +26966,9 @@ var init_load_uTL4eiru = __esm({
                   }).map(function(e11) {
                     return [Uw(e11), e11];
                   }));
-                }), o8 = y4(i6), s7 = o8.next(); !s7.done; s7 = o8.next()) c7 = s7.value, l6 = Pw(t9.Xa), c7.set(Hw(l6), l6);
-                for (u7 = y4(a7), d5 = u7.next(); !d5.done; d5 = u7.next()) f4 = d5.value, p5 = Pw(t9.wg), f4.set(Uw(p5), p5);
-                return m5 = new cw(), h6 = y4, P5.g(Promise.all([
+                }), o8 = y5(i6), s7 = o8.next(); !s7.done; s7 = o8.next()) c7 = s7.value, l6 = Pw(t9.Xa), c7.set(Hw(l6), l6);
+                for (u7 = y5(a7), d5 = u7.next(); !d5.done; d5 = u7.next()) f4 = d5.value, p5 = Pw(t9.wg), f4.set(Uw(p5), p5);
+                return m5 = new cw(), h6 = y5, P5.g(Promise.all([
                   n6,
                   r7,
                   i6,
@@ -26880,36 +26977,36 @@ var init_load_uTL4eiru = __esm({
                   return pw(m5, [], e10, 0, yw, Cw, 0);
                 })), 2);
               }
-              if (g6 = h6(P5.i), _5 = g6.next().value, v7 = g6.next().value, b4 = g6.next().value, x4 = g6.next().value, S3 = 0, v7.length && _5.length) for (D5 = y4(_5), O5 = D5.next(); !O5.done; O5 = D5.next()) for (k5 = O5.value, A4 = y4(v7), j5 = A4.next(); !j5.done; j5 = A4.next()) M5 = j5.value, N4 = S3++, M5.variantIds.push(N4), k5.variantIds.push(N4);
-              else for (C5 = v7.concat(_5), w5 = y4(C5), T5 = w5.next(); !T5.done; T5 = w5.next()) E5 = T5.value, E5.variantIds = [S3++];
-              return P5.return(v7.concat(_5).concat(b4).concat(x4));
+              if (g6 = h6(P5.i), _5 = g6.next().value, v7 = g6.next().value, b5 = g6.next().value, x5 = g6.next().value, S5 = 0, v7.length && _5.length) for (D6 = y5(_5), O6 = D6.next(); !O6.done; O6 = D6.next()) for (k6 = O6.value, A5 = y5(v7), j5 = A5.next(); !j5.done; j5 = A5.next()) M5 = j5.value, N5 = S5++, M5.variantIds.push(N5), k6.variantIds.push(N5);
+              else for (C6 = v7.concat(_5), w6 = y5(C6), T6 = w6.next(); !T6.done; T6 = w6.next()) E6 = T6.value, E6.variantIds = [S5++];
+              return P5.return(v7.concat(_5).concat(b5).concat(x5));
             });
           }
           function pw(e9, t9, n6, r7, i6, a7, o8) {
-            var s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3, C5, w5, T5, E5;
-            return P4(function(D5) {
-              switch (D5.h) {
+            var s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5, C6, w6, T6, E6;
+            return P4(function(D6) {
+              switch (D6.h) {
                 case 1:
                   for (s7 = [], c7 = 0; c7 < n6.length; c7++) c7 >= r7 ? s7.push(new Set(n6[c7].values())) : s7.push(/* @__PURE__ */ new Set());
-                  l6 = y4(t9), u7 = l6.next();
+                  l6 = y5(t9), u7 = l6.next();
                 case 2:
                   if (u7.done) {
-                    D5.A(4);
+                    D6.A(4);
                     break;
                   }
-                  return d5 = u7.value, D5.g(mw(e9, d5, n6, r7, a7, s7, o8), 5);
+                  return d5 = u7.value, D6.g(mw(e9, d5, n6, r7, a7, s7, o8), 5);
                 case 5:
-                  if (f4 = D5.i, !f4) throw new H4(2, 4, 4037);
-                  u7 = l6.next(), D5.A(2);
+                  if (f4 = D6.i, !f4) throw new H4(2, 4, 4037);
+                  u7 = l6.next(), D6.A(2);
                   break;
                 case 4:
-                  for (p5 = y4(s7), m5 = p5.next(); !m5.done; m5 = p5.next()) for (h6 = m5.value, g6 = y4(h6), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, (b4 = gw(e9, t9, v7, n6, i6, a7, s7)) && t9.push(b4);
-                  for (x4 = y4(s7), S3 = x4.next(); !S3.done; S3 = x4.next()) for (C5 = S3.value, w5 = y4(C5), T5 = w5.next(), E5 = {}; !T5.done; E5 = { ni: void 0 }, T5 = w5.next()) if (E5.ni = T5.value, !zw(E5.ni) && t9.some(/* @__PURE__ */ (function(e10) {
+                  for (p5 = y5(s7), m5 = p5.next(); !m5.done; m5 = p5.next()) for (h6 = m5.value, g6 = y5(h6), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, (b5 = gw(e9, t9, v7, n6, i6, a7, s7)) && t9.push(b5);
+                  for (x5 = y5(s7), S5 = x5.next(); !S5.done; S5 = x5.next()) for (C6 = S5.value, w6 = y5(C6), T6 = w6.next(), E6 = {}; !T6.done; E6 = { ni: void 0 }, T6 = w6.next()) if (E6.ni = T6.value, !zw(E6.ni) && t9.some(/* @__PURE__ */ (function(e10) {
                     return function(t10) {
                       return Dw(e10.ni, t10);
                     };
-                  })(E5))) throw new H4(2, 4, 4037);
-                  return D5.return(t9);
+                  })(E6))) throw new H4(2, 4, 4037);
+                  return D6.return(t9);
               }
             });
           }
@@ -26922,7 +27019,7 @@ var init_load_uTL4eiru = __esm({
             var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5;
             return P4(function(f4) {
               if (f4.h == 1) {
-                for (n6 = [], r7 = e9.matchedStreams, i6 = t9; i6 < r7.length; i6++) for (a7 = r7[i6], n6.push(a7.createSegmentIndex()), o8 = Kw(a7), s7 = y4(o8), c7 = s7.next(); !c7.done; c7 = s7.next()) l6 = c7.value, l6.segmentIndex || n6.push(l6.createSegmentIndex());
+                for (n6 = [], r7 = e9.matchedStreams, i6 = t9; i6 < r7.length; i6++) for (a7 = r7[i6], n6.push(a7.createSegmentIndex()), o8 = Kw(a7), s7 = y5(o8), c7 = s7.next(); !c7.done; c7 = s7.next()) l6 = c7.value, l6.segmentIndex || n6.push(l6.createSegmentIndex());
                 return f4.g(Promise.all(n6), 2);
               }
               if (e9.segmentIndex instanceof _d) for (u7 = t9; u7 < r7.length; u7++) d5 = r7[u7], d5.segmentIndex && e9.segmentIndex.h.push(d5.segmentIndex);
@@ -26937,12 +27034,12 @@ var init_load_uTL4eiru = __esm({
                 return s7.segmentIndex ? e10.A(0) : (s7.segmentIndex = new _d(), e10.g(hw(s7, 0), 0));
               });
             }, s7.closeSegmentIndex = function() {
-              if (s7.segmentIndex &&= (s7.segmentIndex.release(), null), s7.matchedStreams) for (var e10 = y4(s7.matchedStreams), n7 = e10.next(); !n7.done; n7 = e10.next()) {
+              if (s7.segmentIndex &&= (s7.segmentIndex.release(), null), s7.matchedStreams) for (var e10 = y5(s7.matchedStreams), n7 = e10.next(); !n7.done; n7 = e10.next()) {
                 n7 = n7.value;
                 var r8;
                 if (r8 = n7.segmentIndex) {
                   a: {
-                    r8 = y4(t9);
+                    r8 = y5(t9);
                     for (var i7 = r8.next(); !i7.done; i7 = r8.next()) if (i7 = i7.value, i7 !== s7 && i7.segmentIndex && i7.matchedStreams && i7.matchedStreams.includes(n7)) {
                       r8 = true;
                       break a;
@@ -26961,7 +27058,7 @@ var init_load_uTL4eiru = __esm({
               var o8 = a7[t9];
               n6(e9, o8);
               var s7 = true;
-              if (e9.type == "audio" && gt2(e9.language, o8.language) == 0 && (s7 = false), s7 && ((s7 = r7[t9 - i6]) && s7.delete(o8), o8.fullMimeTypes)) for (o8 = y4(o8.fullMimeTypes.values()), s7 = o8.next(); !s7.done; s7 = o8.next()) e9.fullMimeTypes.add(s7.value);
+              if (e9.type == "audio" && gt2(e9.language, o8.language) == 0 && (s7 = false), s7 && ((s7 = r7[t9 - i6]) && s7.delete(o8), o8.fullMimeTypes)) for (o8 = y5(o8.fullMimeTypes.values()), s7 = o8.next(); !s7.done; s7 = o8.next()) e9.fullMimeTypes.add(s7.value);
             }
           }
           function vw(e9) {
@@ -26976,19 +27073,19 @@ var init_load_uTL4eiru = __esm({
             return t9.roles = t9.roles.slice(), t9.keyIds = new Set(e9.keyIds), t9.segments = [], t9.variantIds = [], t9.closedCaptions = e9.closedCaptions ? new Map(e9.closedCaptions) : null, t9;
           }
           function bw(e9, t9) {
-            e9 ||= [], t9 = y4(t9);
+            e9 ||= [], t9 = y5(t9);
             for (var n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, e9.includes(n6) || e9.push(n6);
             return e9;
           }
           function xw(e9, t9) {
             e9.roles = bw(e9.roles, t9.roles), t9.emsgSchemeIdUris && (e9.emsgSchemeIdUris = bw(e9.emsgSchemeIdUris, t9.emsgSchemeIdUris));
-            for (var n6 = y4(t9.keyIds), r7 = n6.next(); !r7.done; r7 = n6.next()) e9.keyIds.add(r7.value);
+            for (var n6 = y5(t9.keyIds), r7 = n6.next(); !r7.done; r7 = n6.next()) e9.keyIds.add(r7.value);
             if (e9.originalId == null ? e9.originalId = t9.originalId : (n6 = t9.originalId || "") && !e9.originalId.endsWith(n6) && (e9.originalId += "," + n6), n6 = $e2(e9.drmInfos, t9.drmInfos), t9.drmInfos.length && e9.drmInfos.length && !n6.length) throw new H4(2, 4, 4038);
-            if (e9.drmInfos = n6, e9.encrypted = e9.encrypted || t9.encrypted, t9.closedCaptions) for (e9.closedCaptions ||= /* @__PURE__ */ new Map(), n6 = y4(t9.closedCaptions), r7 = n6.next(); !r7.done; r7 = n6.next()) {
-              var i6 = y4(r7.value);
+            if (e9.drmInfos = n6, e9.encrypted = e9.encrypted || t9.encrypted, t9.closedCaptions) for (e9.closedCaptions ||= /* @__PURE__ */ new Map(), n6 = y5(t9.closedCaptions), r7 = n6.next(); !r7.done; r7 = n6.next()) {
+              var i6 = y5(r7.value);
               r7 = i6.next().value, i6 = i6.next().value, e9.closedCaptions.set(r7, i6);
             }
-            for (e9.bandwidth && t9.bandwidth && (e9.bandwidth = Math.max(e9.bandwidth, t9.bandwidth)), n6 = y4(qw), r7 = n6.next(); !r7.done; r7 = n6.next()) Sw(e9, t9, r7.value);
+            for (e9.bandwidth && t9.bandwidth && (e9.bandwidth = Math.max(e9.bandwidth, t9.bandwidth)), n6 = y5(qw), r7 = n6.next(); !r7.done; r7 = n6.next()) Sw(e9, t9, r7.value);
           }
           function Sw(e9, t9, n6) {
             var r7 = t9[n6] || null, i6 = e9[n6] || null;
@@ -26998,7 +27095,7 @@ var init_load_uTL4eiru = __esm({
                 switch (a7.h) {
                   case 1:
                     if (i6.segmentIndex) return a7.return();
-                    e10 = new _d(), t10 = y4(i6.matchedStreams), n7 = t10.next();
+                    e10 = new _d(), t10 = y5(i6.matchedStreams), n7 = t10.next();
                   case 2:
                     if (n7.done) {
                       a7.A(4);
@@ -27020,11 +27117,11 @@ var init_load_uTL4eiru = __esm({
           }
           function Cw(e9, t9) {
             e9.roles = bw(e9.roles, t9.roles);
-            for (var n6 = y4(t9.keyIds), r7 = n6.next(); !r7.done; r7 = n6.next()) e9.keyIds.add(r7.value);
-            if (e9.encrypted = e9.encrypted && t9.encrypted, e9.segments.push.apply(e9.segments, b3(t9.segments)), t9.closedCaptions) for (e9.closedCaptions ||= /* @__PURE__ */ new Map(), t9 = y4(t9.closedCaptions), n6 = t9.next(); !n6.done; n6 = t9.next()) r7 = y4(n6.value), n6 = r7.next().value, r7 = r7.next().value, e9.closedCaptions.set(n6, r7);
+            for (var n6 = y5(t9.keyIds), r7 = n6.next(); !r7.done; r7 = n6.next()) e9.keyIds.add(r7.value);
+            if (e9.encrypted = e9.encrypted && t9.encrypted, e9.segments.push.apply(e9.segments, b4(t9.segments)), t9.closedCaptions) for (e9.closedCaptions ||= /* @__PURE__ */ new Map(), t9 = y5(t9.closedCaptions), n6 = t9.next(); !n6.done; n6 = t9.next()) r7 = y5(n6.value), n6 = r7.next().value, r7 = r7.next().value, e9.closedCaptions.set(n6, r7);
           }
           function ww(e9, t9, n6, r7) {
-            r7 = r7 !== void 0 && r7 ? n6.matchedStreams : [], t9 = y4(t9);
+            r7 = r7 !== void 0 && r7 ? n6.matchedStreams : [], t9 = y5(t9);
             for (var i6 = t9.next(); !i6.done; i6 = t9.next()) {
               if (i6 = Tw(e9, i6.value, n6), !i6) return;
               r7.push(i6);
@@ -27055,7 +27152,7 @@ var init_load_uTL4eiru = __esm({
                 video: jw,
                 text: Mw,
                 image: Nw
-              }[n6.type], s7 = y4(t9.values()), c7 = s7.next(); !c7.done; c7 = s7.next()) c7 = c7.value, !a7(n6, c7) || n6.fastSwitching != c7.fastSwitching || i6 && !o8(n6, i6, c7) || (i6 = c7);
+              }[n6.type], s7 = y5(t9.values()), c7 = s7.next(); !c7.done; c7 = s7.next()) c7 = c7.value, !a7(n6, c7) || n6.fastSwitching != c7.fastSwitching || i6 && !o8(n6, i6, c7) || (i6 = c7);
             }
             return e9.o && !zw(i6) && t9.delete(r7(i6)), i6;
           }
@@ -27199,7 +27296,7 @@ var init_load_uTL4eiru = __esm({
           }
           function zw(e9) {
             switch (e9.type) {
-              case U2:
+              case U3:
                 return !e9.language;
               case "image":
                 return !e9.tilesLayout;
@@ -27264,10 +27361,10 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function Kw(e9) {
-            for (var t9 = [], n6 = y4(qw), r7 = n6.next(); !r7.done; r7 = n6.next()) (r7 = e9[r7.value]) && t9.push(r7);
+            for (var t9 = [], n6 = y5(qw), r7 = n6.next(); !r7.done; r7 = n6.next()) (r7 = e9[r7.value]) && t9.push(r7);
             return t9;
           }
-          L3("shaka.util.PeriodCombiner", cw), cw.prototype.setUseStreamOnce = cw.prototype.$j, cw.prototype.combinePeriods = cw.prototype.Mg, cw.prototype.deleteStream = cw.prototype.Wi, cw.prototype.getImageStreams = cw.prototype.ll, cw.prototype.getTextStreams = cw.prototype.qh, cw.prototype.getVariants = cw.prototype.Gl;
+          L4("shaka.util.PeriodCombiner", cw), cw.prototype.setUseStreamOnce = cw.prototype.$j, cw.prototype.combinePeriods = cw.prototype.Mg, cw.prototype.deleteStream = cw.prototype.Wi, cw.prototype.getImageStreams = cw.prototype.ll, cw.prototype.getTextStreams = cw.prototype.qh, cw.prototype.getVariants = cw.prototype.Gl;
           var qw = ["trickModeVideo", "dependencyStream"], Jw = 1, Yw = 0, Xw = -1, Zw = /* @__PURE__ */ new Map();
           function Qw() {
             var e9 = this;
@@ -27279,7 +27376,7 @@ var init_load_uTL4eiru = __esm({
               xb: 0,
               gb: null,
               Ge: 0
-            }, this.u = /* @__PURE__ */ new Map(), this.C = /* @__PURE__ */ new Map(), this.F = /* @__PURE__ */ new Map(), this.o = /* @__PURE__ */ new Map(), this.O = /* @__PURE__ */ new Map(), this.Ba = /* @__PURE__ */ new Map(), this.m = new cw(), this.R = 0, this.Fa = new ie2(5), this.L = new G(function() {
+            }, this.u = /* @__PURE__ */ new Map(), this.C = /* @__PURE__ */ new Map(), this.F = /* @__PURE__ */ new Map(), this.o = /* @__PURE__ */ new Map(), this.O = /* @__PURE__ */ new Map(), this.Ba = /* @__PURE__ */ new Map(), this.m = new cw(), this.R = 0, this.Fa = new ie2(5), this.L = new G2(function() {
               if (e9.J && !e9.g.continueLoadingWhenPaused && (e9.I.Ua(e9.J, "timeupdate"), e9.J.paused)) {
                 e9.I.oa(e9.J, "timeupdate", function() {
                   return wT(e9);
@@ -27287,7 +27384,7 @@ var init_load_uTL4eiru = __esm({
                 return;
               }
               wT(e9);
-            }), this.K = new sa(), this.P = null, this.D = [], this.aa = Infinity, this.ra = false, this.i = null, this.M = 0, this.V = false, this.I = new z3(), this.J = null, this.W = false, this.xa = "", this.Aa = this.Pa = null, this.ma = function() {
+            }), this.K = new sa(), this.P = null, this.D = [], this.aa = Infinity, this.ra = false, this.i = null, this.M = 0, this.V = false, this.I = new z4(), this.J = null, this.W = false, this.xa = "", this.Aa = this.Pa = null, this.ma = function() {
               return false;
             }, this.Y = [], this.ha = /* @__PURE__ */ new Set(), this.wa = new JS();
           }
@@ -27302,7 +27399,7 @@ var init_load_uTL4eiru = __esm({
               return i6.return(n6.h);
             });
           }, r6.stop = function() {
-            for (var e9 = y4(this.o.values()), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, t9.segmentIndex && t9.segmentIndex.release();
+            for (var e9 = y5(this.o.values()), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, t9.segmentIndex && t9.segmentIndex.release();
             return this.m && this.m.release(), this.g = this.j = null, this.B = [], this.h = null, this.o.clear(), this.O.clear(), this.u.clear(), this.C.clear(), this.F.clear(), this.l = {
               Rf: "",
               type: "",
@@ -27357,7 +27454,7 @@ var init_load_uTL4eiru = __esm({
                   if (i6 = e9.g.dash.manifestPreprocessorTXml, a7 = Ap, i6 != a7 && i6(t9), r7 === "Patch") return d5.return(iT(e9, t9));
                   o8 = t9;
                   a: {
-                    for (var f4 = y4(vn(o8, "Period")), p5 = f4.next(); !p5.done; p5 = f4.next()) if (Sn(p5.value, "ImportedMPD")) {
+                    for (var f4 = y5(vn(o8, "Period")), p5 = f4.next(); !p5.done; p5 = f4.next()) if (Sn(p5.value, "ImportedMPD")) {
                       f4 = true;
                       break a;
                     }
@@ -27390,7 +27487,7 @@ var init_load_uTL4eiru = __esm({
                           f4 = true;
                           break a;
                         }
-                        h6 = y4(_n(h6));
+                        h6 = y5(_n(h6));
                         for (var g6 = h6.next(); !g6.done; g6 = h6.next()) g6 = g6.value, p5.has(g6.tagName) && m5.push(g6);
                       }
                     }
@@ -27403,15 +27500,15 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function nT(e9, t9, n6) {
-            var r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4, F5, I5, ee3, te3, ne3, re3, L4, ie3, ae3, oe3, se3, ce3, R4, le3, ue3, de3, fe3, pe3, me3, he3, ge3, _e3, ve3, z4, ye3, be3, xe3, Se3, Ce3, B4, we3, Te3, Ee3, De3, Oe3, ke3;
+            var r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5, F5, I5, ee3, te3, ne3, re3, L5, ie3, ae3, oe3, se3, ce3, R5, le3, ue3, de3, fe3, pe3, me3, he3, ge3, _e3, ve3, z5, ye3, be3, xe3, Se3, Ce3, B5, we3, Te3, Ee3, De3, Oe3, ke3;
             return P4(function(P5) {
               switch (P5.h) {
                 case 1:
-                  for (e9.i && e9.i.l.clear(), lT(t9), r7 = [n6], i6 = [], a7 = /* @__PURE__ */ new Map(), o8 = vn(t9, "Location"), s7 = y4(o8), c7 = s7.next(); !c7.done; c7 = s7.next()) l6 = c7.value, u7 = l6.attributes.serviceLocation, (d5 = bn(l6)) && (f4 = ua(r7, [d5])[0], u7 && (e9.i ? ow(e9.i, "Location", u7, f4) : a7.set(u7, f4)), i6.push(f4));
-                  if (e9.i ? (p5 = sw(e9.i, "Location", true), p5.length > 0 && (r7 = e9.B = p5)) : i6.length && (r7 = e9.B = i6), e9.l.Rf = t9.attributes.id || "", e9.l.Ge = W(t9, "publishTime", Dn) || 0, e9.H = vn(t9, "PatchLocation"), e9.Pa = yT(e9, t9, "mpdpatch") || null, e9.Aa = yT(e9, t9, "mpd") || null, m5 = Promise.resolve(), (h6 = Sn(t9, "ContentSteering")) && e9.j) for (g6 = h6.attributes.defaultServiceLocation, e9.i ? (e9.i.i = r7, e9.i.h = g6) : (e9.i = new nw(e9.j), e9.i.configure(e9.g), e9.i.setManifestType("DASH"), e9.i.i = r7, e9.i.h = g6, (_5 = bn(h6)) && (_5 = ha(_5, yT(e9, t9, "steering")), W(h6, "queryBeforeStart", Pn, false) ? m5 = rw(e9.i, _5) : rw(e9.i, _5))), v7 = y4(a7.keys()), x4 = v7.next(); !x4.done; x4 = v7.next()) S3 = x4.value, C5 = a7.get(S3), ow(e9.i, "Location", S3, C5);
-                  if (w5 = vn(t9, "BaseURL"), T5 = false, e9.i) for (E5 = y4(w5), D5 = E5.next(); !D5.done; D5 = E5.next()) O5 = D5.value, k5 = O5.attributes.serviceLocation, A4 = bn(O5), k5 && A4 && (ow(e9.i, "BaseURL", k5, A4), T5 = true);
-                  if (e9.Y.splice(0), T5 && e9.i || (j5 = w5.map(bn), e9.Y.push.apply(e9.Y, b3(ua(r7, j5)))), M5 = e9.i, N4 = e9.Y, F5 = RT, I5 = F5.call(Qw, M5, T5, N4), e9.l.gb = I5, ee3 = 0, w5 && w5.length && (ee3 = W(w5[0], "availabilityTimeOffset", Nn) || 0), e9.l.xb = ee3, e9.R = W(t9, "minimumUpdatePeriod", On, -1), te3 = W(t9, "availabilityStartTime", Dn), ne3 = W(t9, "timeShiftBufferDepth", On), re3 = e9.g.dash.ignoreSuggestedPresentationDelay, L4 = null, re3 || (L4 = W(t9, "suggestedPresentationDelay", On)), ie3 = e9.g.dash.ignoreMaxSegmentDuration, ae3 = null, ie3 || (ae3 = W(t9, "maxSegmentDuration", On)), oe3 = t9.attributes.type || "static", se3 = oe3 == "static" || oe3 == "list", e9.h && e9.h.presentationTimeline && (e9.W = e9.h.presentationTimeline.isLive() && se3), e9.l.type = oe3, e9.h) for (ce3 = e9.h.presentationTimeline, R4 = ce3.Fb(), le3 = y4(e9.o.values()), ue3 = le3.next(); !ue3.done; ue3 = le3.next()) de3 = ue3.value, de3.segmentIndex && de3.segmentIndex.Za(R4);
-                  else fe3 = e9.g.dash.ignoreMinBufferTime, pe3 = 0, fe3 || (pe3 = W(t9, "minBufferTime", On) || 0), me3 = 0, me3 = L4 == null ? e9.g.defaultPresentationDelay > 0 ? e9.g.defaultPresentationDelay : Math.min(pe3 * 1.5, ne3 || Infinity) : Math.min(L4, ne3 || Infinity), ce3 = new Z(te3, me3, e9.g.dash.autoCorrectDrift);
+                  for (e9.i && e9.i.l.clear(), lT(t9), r7 = [n6], i6 = [], a7 = /* @__PURE__ */ new Map(), o8 = vn(t9, "Location"), s7 = y5(o8), c7 = s7.next(); !c7.done; c7 = s7.next()) l6 = c7.value, u7 = l6.attributes.serviceLocation, (d5 = bn(l6)) && (f4 = ua(r7, [d5])[0], u7 && (e9.i ? ow(e9.i, "Location", u7, f4) : a7.set(u7, f4)), i6.push(f4));
+                  if (e9.i ? (p5 = sw(e9.i, "Location", true), p5.length > 0 && (r7 = e9.B = p5)) : i6.length && (r7 = e9.B = i6), e9.l.Rf = t9.attributes.id || "", e9.l.Ge = W2(t9, "publishTime", Dn) || 0, e9.H = vn(t9, "PatchLocation"), e9.Pa = yT(e9, t9, "mpdpatch") || null, e9.Aa = yT(e9, t9, "mpd") || null, m5 = Promise.resolve(), (h6 = Sn(t9, "ContentSteering")) && e9.j) for (g6 = h6.attributes.defaultServiceLocation, e9.i ? (e9.i.i = r7, e9.i.h = g6) : (e9.i = new nw(e9.j), e9.i.configure(e9.g), e9.i.setManifestType("DASH"), e9.i.i = r7, e9.i.h = g6, (_5 = bn(h6)) && (_5 = ha(_5, yT(e9, t9, "steering")), W2(h6, "queryBeforeStart", Pn, false) ? m5 = rw(e9.i, _5) : rw(e9.i, _5))), v7 = y5(a7.keys()), x5 = v7.next(); !x5.done; x5 = v7.next()) S5 = x5.value, C6 = a7.get(S5), ow(e9.i, "Location", S5, C6);
+                  if (w6 = vn(t9, "BaseURL"), T6 = false, e9.i) for (E6 = y5(w6), D6 = E6.next(); !D6.done; D6 = E6.next()) O6 = D6.value, k6 = O6.attributes.serviceLocation, A5 = bn(O6), k6 && A5 && (ow(e9.i, "BaseURL", k6, A5), T6 = true);
+                  if (e9.Y.splice(0), T6 && e9.i || (j5 = w6.map(bn), e9.Y.push.apply(e9.Y, b4(ua(r7, j5)))), M5 = e9.i, N5 = e9.Y, F5 = RT, I5 = F5.call(Qw, M5, T6, N5), e9.l.gb = I5, ee3 = 0, w6 && w6.length && (ee3 = W2(w6[0], "availabilityTimeOffset", Nn) || 0), e9.l.xb = ee3, e9.R = W2(t9, "minimumUpdatePeriod", On, -1), te3 = W2(t9, "availabilityStartTime", Dn), ne3 = W2(t9, "timeShiftBufferDepth", On), re3 = e9.g.dash.ignoreSuggestedPresentationDelay, L5 = null, re3 || (L5 = W2(t9, "suggestedPresentationDelay", On)), ie3 = e9.g.dash.ignoreMaxSegmentDuration, ae3 = null, ie3 || (ae3 = W2(t9, "maxSegmentDuration", On)), oe3 = t9.attributes.type || "static", se3 = oe3 == "static" || oe3 == "list", e9.h && e9.h.presentationTimeline && (e9.W = e9.h.presentationTimeline.isLive() && se3), e9.l.type = oe3, e9.h) for (ce3 = e9.h.presentationTimeline, R5 = ce3.Fb(), le3 = y5(e9.o.values()), ue3 = le3.next(); !ue3.done; ue3 = le3.next()) de3 = ue3.value, de3.segmentIndex && de3.segmentIndex.Za(R5);
+                  else fe3 = e9.g.dash.ignoreMinBufferTime, pe3 = 0, fe3 || (pe3 = W2(t9, "minBufferTime", On) || 0), me3 = 0, me3 = L5 == null ? e9.g.defaultPresentationDelay > 0 ? e9.g.defaultPresentationDelay : Math.min(pe3 * 1.5, ne3 || Infinity) : Math.min(L5, ne3 || Infinity), ce3 = new Z(te3, me3, e9.g.dash.autoCorrectDrift);
                   return ce3.Yd(se3), ce3.isLive() && !isNaN(e9.g.availabilityWindowOverride) && (ne3 = e9.g.availabilityWindowOverride), ne3 ??= Infinity, ce3.li(ne3), he3 = t9.attributes.profiles || "", e9.l.profiles = he3.split(","), ge3 = {
                     Ab: !se3,
                     presentationTimeline: ce3,
@@ -27429,9 +27526,9 @@ var init_load_uTL4eiru = __esm({
                     name: ""
                   }, P5.g(m5, 2);
                 case 2:
-                  return _e3 = _C(t9), ve3 = vC(t9), z4 = function(e10) {
+                  return _e3 = _C(t9), ve3 = vC(t9), z5 = function(e10) {
                     return zT.has(e10.schemeIdUri);
-                  }, (ye3 = _e3.find(z4) || ve3.find(z4)) && (be3 = vT(e9, ye3.element)) && (ge3.urlParams = be3), (xe3 = yT(e9, t9, "segment")) && (ge3.urlParams = xe3), e9.M = 0, Se3 = dT(e9, ge3, I5, t9, false), Ce3 = Se3.duration, B4 = Se3.periods, (se3 && !e9.W || !Se3.Yi) && ce3.Sb(Ce3 || Infinity), e9.V && e9.ra && ce3.Vj(e9.aa), ce3.Ih(ae3 || 1), e9.V && e9.ra && (we3 = L4 ?? e9.g.defaultPresentationDelay, ce3.ji(we3)), e9.h ? (e9.h.periodCount = B4.length, e9.h.gapCount = e9.M, P5.g(rT(e9, B4, false), 4)) : P5.g(e9.m.Mg(B4, ge3.Ab), 6);
+                  }, (ye3 = _e3.find(z5) || ve3.find(z5)) && (be3 = vT(e9, ye3.element)) && (ge3.urlParams = be3), (xe3 = yT(e9, t9, "segment")) && (ge3.urlParams = xe3), e9.M = 0, Se3 = dT(e9, ge3, I5, t9, false), Ce3 = Se3.duration, B5 = Se3.periods, (se3 && !e9.W || !Se3.Yi) && ce3.Sb(Ce3 || Infinity), e9.V && e9.ra && ce3.Vj(e9.aa), ce3.Ih(ae3 || 1), e9.V && e9.ra && (we3 = L5 ?? e9.g.defaultPresentationDelay, ce3.ji(we3)), e9.h ? (e9.h.periodCount = B5.length, e9.h.gapCount = e9.M, P5.g(rT(e9, B5, false), 4)) : P5.g(e9.m.Mg(B5, ge3.Ab), 6);
                 case 6:
                   if (e9.h = {
                     presentationTimeline: ce3,
@@ -27445,7 +27542,7 @@ var init_load_uTL4eiru = __esm({
                     type: "DASH",
                     serviceDescription: cT(t9),
                     nextUrl: uT(e9, t9),
-                    periodCount: B4.length,
+                    periodCount: B5.length,
                     gapCount: e9.M,
                     isLowLatency: e9.V,
                     startTime: null
@@ -27460,7 +27557,7 @@ var init_load_uTL4eiru = __esm({
                 case 7:
                   ce3.Eh(), e9.m && !e9.h.presentationTimeline.isLive() && e9.m.release(), (De3 = Sn(t9, "ProgramInformation")) && (Oe3 = (/* @__PURE__ */ new Map()).set("detail", De3), ke3 = new K2("programinformation", Oe3), e9.j.onEvent(ke3));
                 case 4:
-                  e9.j.makeTextStreamsForClosedCaptions(e9.h), pT(e9), mT(e9, B4), P5.j();
+                  e9.j.makeTextStreamsForClosedCaptions(e9.h), pT(e9), mT(e9, B5), P5.j();
               }
             });
           }
@@ -27472,37 +27569,37 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function iT(e9, t9) {
-            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4;
+            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5;
             return P4(function(j5) {
               if (j5.h == 1) {
-                if (n6 = t9.attributes.mpdId, r7 = W(t9, "originalPublishTime", Dn), !n6 || n6 !== e9.l.Rf || r7 !== e9.l.Ge) throw e9.H = [], new H4(1, 4, 4052);
-                for (i6 = [], a7 = [], o8 = /* @__PURE__ */ new Set(), s7 = y4(_n(t9)), c7 = s7.next(); !c7.done; c7 = s7.next()) if (l6 = c7.value, u7 = In(l6.attributes.sel || ""), d5 = u7[u7.length - 1], f4 = bn(l6) || "", d5.name === "MPD") {
+                if (n6 = t9.attributes.mpdId, r7 = W2(t9, "originalPublishTime", Dn), !n6 || n6 !== e9.l.Rf || r7 !== e9.l.Ge) throw e9.H = [], new H4(1, 4, 4052);
+                for (i6 = [], a7 = [], o8 = /* @__PURE__ */ new Set(), s7 = y5(_n(t9)), c7 = s7.next(); !c7.done; c7 = s7.next()) if (l6 = c7.value, u7 = In(l6.attributes.sel || ""), d5 = u7[u7.length - 1], f4 = bn(l6) || "", d5.name === "MPD") {
                   if (d5.Hc === "mediaPresentationDuration") {
                     p5 = bn(l6) || "";
                     var M5 = On(p5);
                     if (M5 != null) {
                       e9.l.wc = M5;
-                      for (var N4 = y4(e9.u.values()), P5 = N4.next(); !P5.done; P5 = N4.next()) P5.value.wc = M5;
+                      for (var N5 = y5(e9.u.values()), P5 = N5.next(); !P5.done; P5 = N5.next()) P5.value.wc = M5;
                     }
                   } else if (d5.Hc === "type") {
-                    for (e9.h.presentationTimeline.Yd(f4 == "static"), e9.l.type = f4, M5 = y4(e9.u.values()), N4 = M5.next(); !N4.done; N4 = M5.next()) N4.value.Ab = f4 == "dynamic";
+                    for (e9.h.presentationTimeline.Yd(f4 == "static"), e9.l.type = f4, M5 = y5(e9.u.values()), N5 = M5.next(); !N5.done; N5 = M5.next()) N5.value.Ab = f4 == "dynamic";
                     f4 == "static" && (e9.R = -1);
                   } else d5.Hc === "publishTime" ? e9.l.Ge = Dn(f4) || 0 : d5.Hc === null && l6.tagName === "add" && a7.push(l6);
                 } else if (d5.name === "PatchLocation") Ln(e9.H, l6);
                 else if (d5.name === "Period") l6.tagName === "add" ? a7.push(l6) : l6.tagName === "remove" && d5.id && aT(e9, d5.id);
                 else if (d5.name === "SegmentTemplate") {
-                  if (N4 = In(l6.attributes.sel || ""), M5 = N4[N4.length - 1], M5.Hc) {
-                    N4 = oT(e9, N4), P5 = bn(l6) || "";
-                    for (var F5 = y4(N4), I5 = F5.next(); !I5.done; I5 = F5.next()) I5 = e9.u.get(I5.value), zn(I5.N.Wc, l6.tagName, M5.Hc, P5);
-                    M5 = N4;
+                  if (N5 = In(l6.attributes.sel || ""), M5 = N5[N5.length - 1], M5.Hc) {
+                    N5 = oT(e9, N5), P5 = bn(l6) || "";
+                    for (var F5 = y5(N5), I5 = F5.next(); !I5.done; I5 = F5.next()) I5 = e9.u.get(I5.value), zn(I5.N.Wc, l6.tagName, M5.Hc, P5);
+                    M5 = N5;
                   } else M5 = [];
-                  for (m5 = M5, h6 = y4(m5), g6 = h6.next(); !g6.done; g6 = h6.next()) _5 = g6.value, o8.add(_5);
+                  for (m5 = M5, h6 = y5(m5), g6 = h6.next(); !g6.done; g6 = h6.next()) _5 = g6.value, o8.add(_5);
                 } else if (d5.name === "SegmentTimeline" || d5.name === "S") {
-                  for (M5 = In(l6.attributes.sel || ""), M5 = oT(e9, M5), N4 = y4(M5), P5 = N4.next(); !P5.done; P5 = N4.next()) P5 = e9.u.get(P5.value), P5 = cC(P5, KC, "SegmentTimeline"), F5 = vn(P5, "S"), Ln(F5, l6), P5.children = F5;
-                  for (v7 = M5, x4 = y4(v7), S3 = x4.next(); !S3.done; S3 = x4.next()) C5 = S3.value, o8.add(C5);
+                  for (M5 = In(l6.attributes.sel || ""), M5 = oT(e9, M5), N5 = y5(M5), P5 = N5.next(); !P5.done; P5 = N5.next()) P5 = e9.u.get(P5.value), P5 = cC(P5, KC, "SegmentTimeline"), F5 = vn(P5, "S"), Ln(F5, l6), P5.children = F5;
+                  for (v7 = M5, x5 = y5(v7), S5 = x5.next(); !S5.done; S5 = x5.next()) C6 = S5.value, o8.add(C6);
                 }
-                for (w5 = y4(o8), T5 = w5.next(); !T5.done; T5 = w5.next()) E5 = T5.value, sT(e9, E5);
-                for (D5 = y4(a7), O5 = D5.next(); !O5.done; O5 = D5.next()) k5 = O5.value, i6.push.apply(i6, b3(dT(e9, {
+                for (w6 = y5(o8), T6 = w6.next(); !T6.done; T6 = w6.next()) E6 = T6.value, sT(e9, E6);
+                for (D6 = y5(a7), O6 = D6.next(); !O6.done; O6 = D6.next()) k6 = O6.value, i6.push.apply(i6, b4(dT(e9, {
                   Ab: e9.l.type == "dynamic",
                   presentationTimeline: e9.h.presentationTimeline,
                   Ta: null,
@@ -27517,15 +27614,15 @@ var init_load_uTL4eiru = __esm({
                   roles: null,
                   urlParams: LT,
                   name: ""
-                }, e9.l.gb, k5, true).periods));
+                }, e9.l.gb, k6, true).periods));
                 return i6.length ? (e9.h.periodCount += i6.length, e9.h.gapCount = e9.M, j5.g(rT(e9, i6, true), 2)) : j5.A(2);
               }
-              e9.l.type == "static" && (A4 = e9.l.wc, e9.h.presentationTimeline.Sb(A4 || Infinity)), j5.j();
+              e9.l.type == "static" && (A5 = e9.l.wc, e9.h.presentationTimeline.Sb(A5 || Infinity)), j5.j();
             });
           }
           function aT(e9, t9) {
             e9.h.periodCount--;
-            for (var n6 = y4(e9.u.keys()), r7 = n6.next(); !r7.done; r7 = n6.next()) if (r7 = r7.value, r7.startsWith(t9)) {
+            for (var n6 = y5(e9.u.keys()), r7 = n6.next(); !r7.done; r7 = n6.next()) if (r7 = r7.value, r7.startsWith(t9)) {
               var i6 = e9.u.get(r7);
               cC(i6, KC, "SegmentTimeline").children = [], sT(e9, r7), e9.u.delete(r7);
             }
@@ -27535,11 +27632,11 @@ var init_load_uTL4eiru = __esm({
           }
           function oT(e9, t9) {
             var n6 = "", r7 = "", i6 = -1, a7 = "";
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var o8 = t9.next(); !o8.done; o8 = t9.next()) o8 = o8.value, o8.name === "Period" ? n6 = o8.id : o8.name === "AdaptationSet" ? (r7 = o8.id, o8.position !== null && (i6 = o8.position)) : o8.name === "Representation" && (a7 = o8.id);
             if (t9 = [], a7) t9.push(n6 + "," + a7);
-            else if (r7) for (i6 = y4(e9.u.values()), e9 = i6.next(); !e9.done; e9 = i6.next()) e9 = e9.value, e9.Ta.id === n6 && e9.sa.id === r7 && e9.N.id && t9.push(n6 + "," + e9.N.id);
-            else if (i6 > -1) for (r7 = y4(e9.u.values()), e9 = r7.next(); !e9.done; e9 = r7.next()) e9 = e9.value, e9.Ta.id === n6 && e9.sa.position === i6 && e9.N.id && t9.push(n6 + "," + e9.N.id);
+            else if (r7) for (i6 = y5(e9.u.values()), e9 = i6.next(); !e9.done; e9 = i6.next()) e9 = e9.value, e9.Ta.id === n6 && e9.sa.id === r7 && e9.N.id && t9.push(n6 + "," + e9.N.id);
+            else if (i6 > -1) for (r7 = y5(e9.u.values()), e9 = r7.next(); !e9.done; e9 = r7.next()) e9 = e9.value, e9.Ta.id === n6 && e9.sa.position === i6 && e9.N.id && t9.push(n6 + "," + e9.N.id);
             return t9;
           }
           function sT(e9, t9) {
@@ -27556,7 +27653,7 @@ var init_load_uTL4eiru = __esm({
                 });
               };
             } catch (e10) {
-              if (t9 = n6.N.contentType, t9 != U2 && t9 != "application" && t9 != "image" || e10.code != 4002) throw e10;
+              if (t9 = n6.N.contentType, t9 != U3 && t9 != "application" && t9 != "image" || e10.code != 4002) throw e10;
             }
           }
           function cT(e9) {
@@ -27570,13 +27667,13 @@ var init_load_uTL4eiru = __esm({
             if (t9.length) {
               e9 = /* @__PURE__ */ new Map();
               var n6 = 0;
-              t9 = y4(t9);
+              t9 = y5(t9);
               for (var r7 = t9.next(); !r7.done; r7 = t9.next()) {
                 r7 = r7.value;
                 var i6 = r7.id == null ? "no-id:" + n6++ : "id:" + r7.id;
                 e9.getOrInsert(i6, []).push(r7);
               }
-              for (e9 = y4(e9.values()), n6 = e9.next(); !n6.done; n6 = e9.next()) if (n6 = n6.value, !n6.some(function(e10) {
+              for (e9 = y5(e9.values()), n6 = e9.next(); !n6.done; n6 = e9.next()) if (n6 = n6.value, !n6.some(function(e10) {
                 return BT.has(e10.schemeIdUri);
               })) throw new H4(2, 4, 4063, n6.map(function(e10) {
                 return e10.schemeIdUri;
@@ -27589,7 +27686,7 @@ var init_load_uTL4eiru = __esm({
           }
           function dT(e9, t9, n6, r7, i6) {
             var a7 = t9.wc;
-            a7 || (a7 = W(r7, "mediaPresentationDuration", On), e9.l.wc = a7);
+            a7 || (a7 = W2(r7, "mediaPresentationDuration", On), e9.l.wc = a7);
             var o8 = 0;
             e9.h && e9.h.presentationTimeline && e9.W && (o8 = e9.h.presentationTimeline.Kb());
             var s7 = [], c7 = o8;
@@ -27597,11 +27694,11 @@ var init_load_uTL4eiru = __esm({
             var l6 = t9.Ab;
             l6 || e9.F.clear();
             for (var u7 = l6 && !i6 ? new Set(e9.D.slice(1, -1)) : null, d5 = 0; d5 < r7.length; d5++) {
-              var f4 = r7[d5], p5 = r7[d5 + 1], m5 = W(f4, "start", On, c7), h6 = f4.attributes.id, g6 = W(f4, "duration", On);
+              var f4 = r7[d5], p5 = r7[d5 + 1], m5 = W2(f4, "start", On, c7), h6 = f4.attributes.id, g6 = W2(f4, "duration", On);
               m5 = d5 == 0 && m5 == 0 && e9.W ? o8 : m5;
               var _5 = null;
               if (p5) {
-                var v7 = W(p5, "start", On);
+                var v7 = W2(p5, "start", On);
                 v7 != null && (_5 = v7 - m5 + o8);
               } else a7 != null && (_5 = a7 - m5 + o8);
               if (v7 = kt, _5 && g6 && Math.abs(_5 - g6) > v7 && _5 > g6 && e9.M++, _5 ??= g6, !(e9.P !== null && h6 != null && m5 !== null && m5 < e9.P) || e9.D.includes(h6) || d5 + 1 == r7.length) {
@@ -27617,7 +27714,7 @@ var init_load_uTL4eiru = __esm({
                 c7 = m5 + _5;
               }
             }
-            if (l6 && !i6 && fT(e9, s7), i6) for (t9 = y4(s7), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value.id, e9.D.includes(n6) || e9.D.push(n6);
+            if (l6 && !i6 && fT(e9, s7), i6) for (t9 = y5(s7), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value.id, e9.D.includes(n6) || e9.D.push(n6);
             else e9.D = s7.map(function(e10) {
               return e10.id;
             });
@@ -27635,16 +27732,16 @@ var init_load_uTL4eiru = __esm({
             t9 = new Set(t9.map(function(e10) {
               return e10.id;
             }));
-            for (var n6 = y4(Array.from(e9.F.keys())), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, t9.has(r7) || e9.F.delete(r7);
+            for (var n6 = y5(Array.from(e9.F.keys())), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, t9.has(r7) || e9.F.delete(r7);
           }
           function pT(e9) {
             var t9 = Array.from(e9.O.keys()).filter(function(t10) {
               return !e9.D.includes(t10);
             });
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var n6 = t9.next(); !n6.done; n6 = t9.next()) {
               n6 = n6.value;
-              for (var r7 = true, i6 = y4(e9.O.get(n6)), a7 = i6.next(); !a7.done; a7 = i6.next()) {
+              for (var r7 = true, i6 = y5(e9.O.get(n6)), a7 = i6.next(); !a7.done; a7 = i6.next()) {
                 a7 = a7.value;
                 var o8 = e9.o.get(a7);
                 o8 && (o8.segmentIndex && o8.segmentIndex.getNumReferences() != 0 ? r7 = false : (e9.m && e9.m.Wi(o8, n6), e9.o.delete(a7)));
@@ -27656,14 +27753,14 @@ var init_load_uTL4eiru = __esm({
             t9 = new Set(t9.map(function(e10) {
               return e10.id;
             }));
-            for (var n6 = y4(e9.C.keys()), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, t9.has(r7) || e9.C.delete(r7);
+            for (var n6 = y5(e9.C.keys()), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, t9.has(r7) || e9.C.delete(r7);
           }
           function hT(e9, t9, n6, r7) {
             t9.Ta = ET(e9, r7.node, null, n6), t9.qa = r7, t9.Ta.xb = t9.xb, t9.Ta.id || (t9.Ta.id = "__shaka_period_" + r7.start);
             var i6 = vn(r7.node, "EventStream");
-            n6 = t9.presentationTimeline.Fb(), i6 = y4(i6);
+            n6 = t9.presentationTimeline.Fb(), i6 = y5(i6);
             for (var a7 = i6.next(); !a7.done; a7 = i6.next()) MT(e9, r7.start, r7.duration, a7.value, n6);
-            for (n6 = vC(r7.node), n6 = y4(n6), i6 = n6.next(); !i6.done; i6 = n6.next()) i6 = i6.value, zT.has(i6.schemeIdUri) && (i6 = vT(e9, i6.element)) && (t9.urlParams = i6);
+            for (n6 = vC(r7.node), n6 = y5(n6), i6 = n6.next(); !i6.done; i6 = n6.next()) i6 = i6.value, zT.has(i6.schemeIdUri) && (i6 = vT(e9, i6.element)) && (t9.urlParams = i6);
             (n6 = yT(e9, r7.node, "segment")) && (t9.urlParams = n6);
             var o8 = vn(r7.node, "AdaptationSet").map(function(n7, r8) {
               return _T(e9, t9, r8, n7);
@@ -27673,7 +27770,7 @@ var init_load_uTL4eiru = __esm({
               if (i6 != n6.size) throw new H4(2, 4, 4018);
             }
             var l6 = /* @__PURE__ */ new Map();
-            for (n6 = y4(o8), i6 = n6.next(); !i6.done; i6 = n6.next()) for (i6 = y4(i6.value.Qk), a7 = i6.next(); !a7.done; a7 = i6.next()) s7 = y4(a7.value), a7 = s7.next().value, s7 = s7.next().value, l6.set(a7, s7);
+            for (n6 = y5(o8), i6 = n6.next(); !i6.done; i6 = n6.next()) for (i6 = y5(i6.value.Qk), a7 = i6.next(); !a7.done; a7 = i6.next()) s7 = y5(a7.value), a7 = s7.next().value, s7 = s7.next().value, l6.set(a7, s7);
             if (l6.size) {
               for (n6 = /* @__PURE__ */ new Map(), i6 = 0; i6 < o8.length; i6++) for (a7 = o8[i6].streams, s7 = 0; s7 < a7.length; s7++) l6.has(a7[s7].originalId) && (n6.has(i6) || n6.set(i6, []), n6.get(i6).push(a7[s7].originalId));
               if (n6.size) {
@@ -27689,21 +27786,21 @@ var init_load_uTL4eiru = __esm({
                       var d6 = l6.get(s8.originalId || "");
                       s8.dependencyStream = d6, s8.originalId += d6.originalId, s8.baseOriginalId = d6.baseOriginalId, a8.push(s8);
                     }
-                    a8.length && o8[r8].streams.push.apply(o8[r8].streams, b3(a8));
+                    a8.length && o8[r8].streams.push.apply(o8[r8].streams, b4(a8));
                   }
                 }), t9.name = r7;
               }
             }
-            for (r7 = y4(he2(o8, function(e10) {
+            for (r7 = y5(he2(o8, function(e10) {
               return !!e10.pk;
-            })), n6 = r7.next().value, r7 = r7.next().value, i6 = y4(n6), a7 = i6.next(); !a7.done; a7 = i6.next()) for (a7 = y4(a7.value.streams), s7 = a7.next(); !s7.done; s7 = a7.next()) s7.value.isIframe = true;
+            })), n6 = r7.next().value, r7 = r7.next().value, i6 = y5(n6), a7 = i6.next(); !a7.done; a7 = i6.next()) for (a7 = y5(a7.value.streams), s7 = a7.next(); !s7.done; s7 = a7.next()) s7.value.isIframe = true;
             if (!e9.g.disableIFrames) {
-              for (n6 = y4(n6), i6 = n6.next(); !i6.done; i6 = n6.next()) for (i6 = i6.value, a7 = i6.pk.split(" "), s7 = y4(r7), c7 = s7.next(); !c7.done; c7 = s7.next()) if (c7 = c7.value, a7.includes(c7.id)) {
-                c7 = y4(c7.streams);
+              for (n6 = y5(n6), i6 = n6.next(); !i6.done; i6 = n6.next()) for (i6 = i6.value, a7 = i6.pk.split(" "), s7 = y5(r7), c7 = s7.next(); !c7.done; c7 = s7.next()) if (c7 = c7.value, a7.includes(c7.id)) {
+                c7 = y5(c7.streams);
                 for (var d5 = c7.next(); !d5.done; d5 = c7.next()) Di(d5.value, i6.streams);
               }
             }
-            if (n6 = gT(e9.g.disableAudio, r7, "audio"), i6 = gT(e9.g.disableVideo, r7, "video"), a7 = gT(e9.g.disableText, r7, U2), r7 = gT(e9.g.disableThumbnails, r7, "image"), i6.length === 0 && n6.length === 0) throw new H4(2, 4, 4004);
+            if (n6 = gT(e9.g.disableAudio, r7, "audio"), i6 = gT(e9.g.disableVideo, r7, "video"), a7 = gT(e9.g.disableText, r7, U3), r7 = gT(e9.g.disableThumbnails, r7, "image"), i6.length === 0 && n6.length === 0) throw new H4(2, 4, 4004);
             return {
               id: t9.Ta.id,
               audioStreams: n6,
@@ -27714,7 +27811,7 @@ var init_load_uTL4eiru = __esm({
           }
           function gT(e9, t9, n6) {
             return e9 || !t9.length ? [] : t9.reduce(function(e10, t10) {
-              return t10.contentType == n6 && e10.push.apply(e10, b3(t10.streams)), e10;
+              return t10.contentType == n6 && e10.push.apply(e10, b4(t10.streams)), e10;
             }, []);
           }
           function _T(e9, t9, n6, r7) {
@@ -27755,8 +27852,8 @@ var init_load_uTL4eiru = __esm({
             n6 = vn(r7, "Role");
             var c7 = n6.map(function(e10) {
               return e10.attributes.value;
-            }).filter(Xr), l6 = void 0, u7 = t9.sa.contentType == U2;
-            u7 && (l6 = "subtitle"), n6 = y4(n6);
+            }).filter(Xr), l6 = void 0, u7 = t9.sa.contentType == U3;
+            u7 && (l6 = "subtitle"), n6 = y5(n6);
             for (var d5 = n6.next(); !d5.done; d5 = n6.next()) {
               d5 = d5.value;
               var f4 = d5.attributes.schemeIdUri;
@@ -27774,43 +27871,43 @@ var init_load_uTL4eiru = __esm({
             var m5 = false;
             d5 = null;
             var h6 = false;
-            p5 = y4(p5);
+            p5 = y5(p5);
             for (var g6 = p5.next(); !g6.done; g6 = p5.next()) {
               g6 = g6.value;
               var _5 = g6.schemeIdUri;
               if (BT.has(_5)) {
                 if (_5 == "http://dashif.org/guidelines/trickmode") n6 = g6.value;
                 else if (_5 == "urn:mpeg:mpegB:cicp:TransferCharacteristics") var v7 = o8(parseInt(g6.value, 10));
-                else if (_5 == "urn:mpeg:mpegB:cicp:ColourPrimaries") var x4 = a7(parseInt(g6.value, 10));
+                else if (_5 == "urn:mpeg:mpegB:cicp:ColourPrimaries") var x5 = a7(parseInt(g6.value, 10));
                 else _5 == "urn:mpeg:dash:ssr:2023" ? e9.g.dash.enableFastSwitching ? m5 = true : h6 = true : _5 == "urn:dvb:dash:fontdownload:2014" ? i6(g6.element) : zT.has(_5) && ((d5 = vT(e9, g6.element)) || (h6 = true));
               } else h6 = true;
             }
             if (h6) return null;
-            var S3 = null;
-            for (f4 = y4(f4), h6 = f4.next(); !h6.done; h6 = f4.next()) h6 = h6.value, p5 = h6.schemeIdUri, p5 == "http://dashif.org/guidelines/last-segment-number" ? S3 = parseInt(h6.value, 10) - 1 : p5 == "urn:mpeg:mpegB:cicp:TransferCharacteristics" ? v7 = o8(parseInt(h6.value, 10)) : p5 == "urn:mpeg:mpegB:cicp:ColourPrimaries" ? x4 = a7(parseInt(h6.value, 10)) : p5 == "urn:dvb:dash:fontdownload:2014" ? i6(h6.element) : zT.has(p5) && (d5 = vT(e9, h6.element));
+            var S5 = null;
+            for (f4 = y5(f4), h6 = f4.next(); !h6.done; h6 = f4.next()) h6 = h6.value, p5 = h6.schemeIdUri, p5 == "http://dashif.org/guidelines/last-segment-number" ? S5 = parseInt(h6.value, 10) - 1 : p5 == "urn:mpeg:mpegB:cicp:TransferCharacteristics" ? v7 = o8(parseInt(h6.value, 10)) : p5 == "urn:mpeg:mpegB:cicp:ColourPrimaries" ? x5 = a7(parseInt(h6.value, 10)) : p5 == "urn:dvb:dash:fontdownload:2014" ? i6(h6.element) : zT.has(p5) && (d5 = vT(e9, h6.element));
             (f4 = yT(e9, r7, "segment")) && (d5 = f4), d5 && (t9.urlParams = d5), d5 = vn(r7, "Accessibility");
-            var C5 = /* @__PURE__ */ new Map(), w5;
-            for (d5 = y4(d5), f4 = d5.next(); !f4.done; f4 = d5.next()) h6 = f4.value, f4 = h6.attributes.schemeIdUri, h6 = h6.attributes.value, f4 != "urn:scte:dash:cc:cea-608:2015" || e9.g.disableText ? f4 != "urn:scte:dash:cc:cea-708:2015" || e9.g.disableText ? f4 == "urn:mpeg:dash:role:2011" ? h6 != null && (c7.push(h6), h6 == "captions" && (l6 = "caption")) : f4 == "urn:tva:metadata:cs:AudioPurposeCS:2007" && (h6 == "1" ? w5 = "visually impaired" : h6 == "2" ? w5 = "hard of hearing" : h6 == "9" && (w5 = "spoken subtitles")) : Et(h6, C5) : Tt(h6, C5);
+            var C6 = /* @__PURE__ */ new Map(), w6;
+            for (d5 = y5(d5), f4 = d5.next(); !f4.done; f4 = d5.next()) h6 = f4.value, f4 = h6.attributes.schemeIdUri, h6 = h6.attributes.value, f4 != "urn:scte:dash:cc:cea-608:2015" || e9.g.disableText ? f4 != "urn:scte:dash:cc:cea-708:2015" || e9.g.disableText ? f4 == "urn:mpeg:dash:role:2011" ? h6 != null && (c7.push(h6), h6 == "captions" && (l6 = "caption")) : f4 == "urn:tva:metadata:cs:AudioPurposeCS:2007" && (h6 == "1" ? w6 = "visually impaired" : h6 == "2" ? w6 = "hard of hearing" : h6 == "9" && (w6 = "spoken subtitles")) : Et(h6, C6) : Tt(h6, C6);
             d5 = vn(r7, "ContentProtection");
-            var T5 = YS(e9.wa, d5, e9.g.ignoreDrmInfo, e9.g.dash.keySystemsByURI);
+            var T6 = YS(e9.wa, d5, e9.g.ignoreDrmInfo, e9.g.dash.keySystemsByURI);
             t9.sa.encrypted = d5.length > 0;
-            var E5 = ht2(t9.sa.language || "und"), D5 = t9.sa.label, O5 = /* @__PURE__ */ new Map();
+            var E6 = ht2(t9.sa.language || "und"), D6 = t9.sa.label, O6 = /* @__PURE__ */ new Map();
             if (r7 = vn(r7, "Representation"), !e9.g.ignoreSupplementalCodecs) {
-              for (d5 = [], f4 = y4(r7), h6 = f4.next(); !h6.done; h6 = f4.next()) p5 = h6.value, (h6 = wn(p5, "urn:scte:dash:scte214-extensions", "supplementalCodecs")) && (p5 = ln(p5), p5.attributes.codecs = h6.split(" ").join(","), p5.attributes.id && (p5.attributes.supplementalId = p5.attributes.id + "_supplementalCodecs"), d5.push(p5));
-              r7.push.apply(r7, b3(d5));
+              for (d5 = [], f4 = y5(r7), h6 = f4.next(); !h6.done; h6 = f4.next()) p5 = h6.value, (h6 = wn(p5, "urn:scte:dash:scte214-extensions", "supplementalCodecs")) && (p5 = ln(p5), p5.attributes.codecs = h6.split(" ").join(","), p5.attributes.id && (p5.attributes.supplementalId = p5.attributes.id + "_supplementalCodecs"), d5.push(p5));
+              r7.push.apply(r7, b4(d5));
             }
             if (d5 = r7.map(function(n7) {
-              var r8 = xT(e9, t9, T5, l6, E5, D5, s7, c7, C5, n7, w5, S3);
-              return r8 && (r8.hdr = r8.hdr || v7, r8.colorGamut = r8.colorGamut || x4, r8.fastSwitching = m5, n7 = n7.attributes.dependencyId) ? (r8.baseOriginalId = n7, O5.set(n7, r8), null) : r8;
+              var r8 = xT(e9, t9, T6, l6, E6, D6, s7, c7, C6, n7, w6, S5);
+              return r8 && (r8.hdr = r8.hdr || v7, r8.colorGamut = r8.colorGamut || x5, r8.fastSwitching = m5, n7 = n7.attributes.dependencyId) ? (r8.baseOriginalId = n7, O6.set(n7, r8), null) : r8;
             }).filter(function(e10) {
               return !!e10;
-            }), d5.length == 0 && O5.size == 0) {
+            }), d5.length == 0 && O6.size == 0) {
               if (n6 = t9.sa.contentType == "image", e9.g.dash.ignoreEmptyAdaptationSet || u7 || n6) return null;
               throw new H4(2, 4, 4003);
             }
-            if (!t9.sa.contentType || t9.sa.contentType == "application") for (t9.sa.contentType = PT(d5[0].mimeType, d5[0].codecs), u7 = y4(d5), f4 = u7.next(); !f4.done; f4 = u7.next()) f4.value.type = t9.sa.contentType;
-            for (u7 = t9.sa.id || "__fake__" + e9.Ha++, f4 = y4(d5), h6 = f4.next(); !h6.done; h6 = f4.next()) {
-              for (h6 = h6.value, p5 = y4(T5.drmInfos), g6 = p5.next(); !g6.done; g6 = p5.next()) g6 = g6.value, g6.keyIds = g6.keyIds && h6.keyIds ? new Set([].concat(b3(g6.keyIds), b3(h6.keyIds))) : g6.keyIds || h6.keyIds;
+            if (!t9.sa.contentType || t9.sa.contentType == "application") for (t9.sa.contentType = PT(d5[0].mimeType, d5[0].codecs), u7 = y5(d5), f4 = u7.next(); !f4.done; f4 = u7.next()) f4.value.type = t9.sa.contentType;
+            for (u7 = t9.sa.id || "__fake__" + e9.Ha++, f4 = y5(d5), h6 = f4.next(); !h6.done; h6 = f4.next()) {
+              for (h6 = h6.value, p5 = y5(T6.drmInfos), g6 = p5.next(); !g6.done; g6 = p5.next()) g6 = g6.value, g6.keyIds = g6.keyIds && h6.keyIds ? new Set([].concat(b4(g6.keyIds), b4(h6.keyIds))) : g6.keyIds || h6.keyIds;
               e9.g.enableAudioGroups && (h6.groupId = u7);
             }
             return r7 = r7.map(function(e10) {
@@ -27818,13 +27915,13 @@ var init_load_uTL4eiru = __esm({
             }).filter(Xr), {
               id: u7,
               contentType: t9.sa.contentType,
-              language: E5,
+              language: E6,
               Xn: s7,
               streams: d5,
-              drmInfos: T5.drmInfos,
+              drmInfos: T6.drmInfos,
               pk: n6,
               um: r7,
-              Qk: O5
+              Qk: O6
             };
           }
           function vT(e9, t9) {
@@ -27832,7 +27929,7 @@ var init_load_uTL4eiru = __esm({
           }
           function yT(e9, t9, n6) {
             var r7;
-            t9 = y4(vn(t9, "RequestParam"));
+            t9 = y5(vn(t9, "RequestParam"));
             for (var i6 = t9.next(); !i6.done; i6 = t9.next()) {
               i6 = i6.value;
               var a7 = (i6.attributes.includeInRequests || "segment").split(/\s+/);
@@ -27841,7 +27938,7 @@ var init_load_uTL4eiru = __esm({
             return r7;
           }
           function bT(e9, t9) {
-            var n6 = W(t9, "useMPDUrlQuery", Pn, false), r7 = Ve2(t9.attributes.queryString || ""), i6 = Ve2(t9.attributes.queryTemplate || "");
+            var n6 = W2(t9, "useMPDUrlQuery", Pn, false), r7 = Ve2(t9.attributes.queryString || ""), i6 = Ve2(t9.attributes.queryTemplate || "");
             return i6 && (n6 || r7) ? function() {
               var t10 = [];
               n6 && e9.xa && t10.push(e9.xa), r7 && t10.push(r7);
@@ -27866,14 +27963,14 @@ var init_load_uTL4eiru = __esm({
             var h6 = n6.N.id;
             if (t9.aa = Math.min(t9.aa, n6.N.xb), t9.V = t9.aa > 0, !kT(n6.N)) return null;
             var g6 = n6.qa.start;
-            n6.bandwidth = W(u7, "bandwidth", jn) || 0, n6.roles = c7;
-            var _5 = _C(u7), v7 = vC(u7), y5 = vn(u7, "ContentProtection"), b4 = null, x4 = _5.find(p5) || v7.find(p5);
-            x4 && (b4 = vT(t9, x4.element)), (u7 = yT(t9, u7, "segment")) && (b4 = u7), b4 && (n6.urlParams = b4), u7 = n6.N.contentType, b4 = u7 == U2 || u7 == "application", u7 = u7 == "image", y5.length && (n6.sa.encrypted = true);
+            n6.bandwidth = W2(u7, "bandwidth", jn) || 0, n6.roles = c7;
+            var _5 = _C(u7), v7 = vC(u7), y6 = vn(u7, "ContentProtection"), b5 = null, x5 = _5.find(p5) || v7.find(p5);
+            x5 && (b5 = vT(t9, x5.element)), (u7 = yT(t9, u7, "segment")) && (b5 = u7), b5 && (n6.urlParams = b5), u7 = n6.N.contentType, b5 = u7 == U3 || u7 == "application", u7 = u7 == "image", y6.length && (n6.sa.encrypted = true);
             try {
-              var S3 = void 0;
+              var S5 = void 0;
               if (r7.Gg) {
-                var C5 = n6.N.gb, w5 = n6.urlParams, T5 = xa(ua(C5(), [r7.Gg.Ql], w5()), t9.g.retryParameters);
-                S3 = {
+                var C6 = n6.N.gb, w6 = n6.urlParams, T6 = xa(ua(C6(), [r7.Gg.Ql], w6()), t9.g.retryParameters);
+                S5 = {
                   bitsKey: 128,
                   blockCipherMode: "CBC",
                   iv: r7.Gg.iv,
@@ -27881,53 +27978,53 @@ var init_load_uTL4eiru = __esm({
                   fetchKey: function() {
                     var n7, r8, i7;
                     return P4(function(a8) {
-                      if (a8.h == 1) return a8.g(FT(t9, T5, 6), 2);
+                      if (a8.h == 1) return a8.g(FT(t9, T6, 6), 2);
                       if (a8.h != 3) {
                         if (n7 = a8.i, !n7.data || n7.data.byteLength != 16) throw new H4(2, 4, 4049);
-                        return r8 = { name: "AES-CBC" }, i7 = S3, a8.g(e8.crypto.subtle.importKey("raw", n7.data, r8, true, ["decrypt"]), 3);
+                        return r8 = { name: "AES-CBC" }, i7 = S5, a8.g(e8.crypto.subtle.importKey("raw", n7.data, r8, true, ["decrypt"]), 3);
                       }
-                      i7.cryptoKey = a8.i, S3.fetchKey = void 0, a8.j();
+                      i7.cryptoKey = a8.i, S5.fetchKey = void 0, a8.j();
                     });
                   }
                 };
               }
-              if (n6.N.aesKey = S3, C5 = function(e9, n7, r8, i7) {
+              if (n6.N.aesKey = S5, C6 = function(e9, n7, r8, i7) {
                 return NT(t9, e9, n7, r8, i7);
-              }, n6.N.Wd) var E5 = NC(n6, C5, S3);
-              else if (n6.N.Cc) E5 = BC(n6, t9.o, S3);
-              else if (n6.N.Wc) E5 = GC(n6, C5, t9.o, !!t9.h, t9.g.dash.initialSegmentLimit, t9.Ba, S3, f4, false, t9.C);
+              }, n6.N.Wd) var E6 = NC(n6, C6, S5);
+              else if (n6.N.Cc) E6 = BC(n6, t9.o, S5);
+              else if (n6.N.Wc) E6 = GC(n6, C6, t9.o, !!t9.h, t9.g.dash.initialSegmentLimit, t9.Ba, S5, f4, false, t9.C);
               else {
-                var D5 = n6.qa.duration || 0, O5 = n6.N.gb, k5 = n6.N.mimeType, A4 = n6.N.codecs;
-                E5 = {
+                var D6 = n6.qa.duration || 0, O6 = n6.N.gb, k6 = n6.N.mimeType, A5 = n6.N.codecs;
+                E6 = {
                   endTime: -1,
                   timeline: -1,
                   Zc: function() {
-                    var e9 = hd(g6, D5, O5());
+                    var e9 = hd(g6, D6, O6());
                     return e9.Jb(function(e10) {
-                      e10.mimeType = k5, e10.codecs = A4;
+                      e10.mimeType = k6, e10.codecs = A5;
                     }), Promise.resolve(e9);
                   },
                   timescale: 1
                 };
               }
             } catch (e9) {
-              if ((b4 || u7) && e9.code == 4002) return null;
+              if ((b5 || u7) && e9.code == 4002) return null;
               throw e9;
             }
-            if (f4 = XS(t9.wa, y5, r7, t9.g.ignoreDrmInfo, t9.g.dash.keySystemsByURI), f4 = new Set(f4 ? [f4] : []), y5 = yC(v7, "tag:dolby.com,2018:dash:EC3_ExtensionType:2018", "JOC") != null, v7 = yC(v7, "tag:dolby.com,2016:dash:virtualized_content:2016", "1") != null, v7 = y5 || v7, y5 = false, b4 && (y5 = c7.includes("forced_subtitle") || c7.includes("forced-subtitle")), u7) {
+            if (f4 = XS(t9.wa, y6, r7, t9.g.ignoreDrmInfo, t9.g.dash.keySystemsByURI), f4 = new Set(f4 ? [f4] : []), y6 = yC(v7, "tag:dolby.com,2018:dash:EC3_ExtensionType:2018", "JOC") != null, v7 = yC(v7, "tag:dolby.com,2016:dash:virtualized_content:2016", "1") != null, v7 = y6 || v7, y6 = false, b5 && (y6 = c7.includes("forced_subtitle") || c7.includes("forced-subtitle")), u7) {
               var j5 = ["http://dashif.org/thumbnail_tile", "http://dashif.org/guidelines/thumbnail_tile"];
               if (_5 = _5.find(function(e9) {
                 return j5.includes(e9.schemeIdUri);
               })) var M5 = _5.value;
               if (!M5) return null;
             }
-            var N4;
-            _5 = n6.N.codecs, n6.profiles.includes("http://dashif.org/guidelines/dash-if-uhd#hevc-hdr-pq10") && (_5.includes("hvc1.2.4.L153.B0") || _5.includes("hev1.2.4.L153.B0")) && (N4 = "PQ"), (b4 = h6 ? m5 + "," + h6 : "") && n6.name && (b4 += n6.name), t9.H.length && b4 && t9.u.set(b4, CT(n6)), n6.N.Yf && ST(t9, n6.N.Yf, E5, n6.presentationTimeline), E5.endTime != -1 && m5 != null && h6 != null && ((u7 = t9.C.get(m5)) ? (u7.endTime = E5.endTime, u7.Yh.includes(h6) || u7.Yh.push(h6), t9.C.set(m5, u7)) : t9.C.set(m5, {
-              endTime: E5.endTime,
-              timeline: E5.timeline,
+            var N5;
+            _5 = n6.N.codecs, n6.profiles.includes("http://dashif.org/guidelines/dash-if-uhd#hevc-hdr-pq10") && (_5.includes("hvc1.2.4.L153.B0") || _5.includes("hev1.2.4.L153.B0")) && (N5 = "PQ"), (b5 = h6 ? m5 + "," + h6 : "") && n6.name && (b5 += n6.name), t9.H.length && b5 && t9.u.set(b5, CT(n6)), n6.N.Yf && ST(t9, n6.N.Yf, E6, n6.presentationTimeline), E6.endTime != -1 && m5 != null && h6 != null && ((u7 = t9.C.get(m5)) ? (u7.endTime = E6.endTime, u7.Yh.includes(h6) || u7.Yh.push(h6), t9.C.set(m5, u7)) : t9.C.set(m5, {
+              endTime: E6.endTime,
+              timeline: E6.timeline,
               Yh: [h6]
             }));
-            var F5 = b4 && t9.o.has(b4) ? t9.o.get(b4) : {
+            var F5 = b5 && t9.o.has(b5) ? t9.o.get(b5) : {
               id: t9.Ha++,
               originalId: h6,
               groupId: null,
@@ -27959,12 +28056,12 @@ var init_load_uTL4eiru = __esm({
               dependencyStream: null,
               emsgSchemeIdUris: n6.N.emsgSchemeIdUris,
               roles: c7,
-              forced: y5,
+              forced: y6,
               channelsCount: n6.N.Vf,
               audioSamplingRate: n6.N.audioSamplingRate,
               spatialAudio: v7,
               closedCaptions: l6,
-              hdr: N4,
+              hdr: N5,
               colorGamut: void 0,
               videoLayout: void 0,
               tilesLayout: M5,
@@ -27979,18 +28076,18 @@ var init_load_uTL4eiru = __esm({
             return F5.createSegmentIndex = function() {
               var e9;
               return P4(function(t10) {
-                if (t10.h == 1) return F5.segmentIndex ? t10.A(0) : (e9 = F5, t10.g(E5.Zc(), 3));
+                if (t10.h == 1) return F5.segmentIndex ? t10.A(0) : (e9 = F5, t10.g(E6.Zc(), 3));
                 e9.segmentIndex = t10.i, t10.j();
               });
-            }, b4 && n6.Ab && !t9.o.has(b4) && (t9.o.set(b4, F5), t9.O.getOrInsertComputed(m5 || "", function() {
+            }, b5 && n6.Ab && !t9.o.has(b5) && (t9.o.set(b5, F5), t9.O.getOrInsertComputed(m5 || "", function() {
               return [];
-            }).push(b4)), F5;
+            }).push(b5)), F5;
           }
           function ST(e9, t9, n6, r7) {
             if (!e9.ha.has(t9)) {
               e9.ha.add(t9);
-              var i6 = W(t9, "presentationTime", Mn) || 0, a7 = Sn(t9, "UTCTiming"), o8;
-              (o8 = a7 && a7.attributes.schemeIdUri) && (a7 = a7.attributes.schemeIdUri, o8 = a7 !== "urn:mpeg:dash:utc:http-ntp:2014" && a7 !== "urn:mpeg:dash:utc:ntp:2014" && a7 !== "urn:mpeg:dash:utc:sntp:2014"), o8 ? t9 = (W(t9, "wallClockTime", Dn) || 0) * 1e3 : (t9 = W(t9, "wallClockTime", Mn) || 0, t9 = bl(t9)), n6 = /* @__PURE__ */ new Date(t9 - i6 / n6.timescale * 1e3), i6 = n6.getTime() / 1e3, isNaN(i6) || (r7.o || r7.ki(i6), r7 = (/* @__PURE__ */ new Map()).set("detail", {
+              var i6 = W2(t9, "presentationTime", Mn) || 0, a7 = Sn(t9, "UTCTiming"), o8;
+              (o8 = a7 && a7.attributes.schemeIdUri) && (a7 = a7.attributes.schemeIdUri, o8 = a7 !== "urn:mpeg:dash:utc:http-ntp:2014" && a7 !== "urn:mpeg:dash:utc:ntp:2014" && a7 !== "urn:mpeg:dash:utc:sntp:2014"), o8 ? t9 = (W2(t9, "wallClockTime", Dn) || 0) * 1e3 : (t9 = W2(t9, "wallClockTime", Mn) || 0, t9 = bl(t9)), n6 = /* @__PURE__ */ new Date(t9 - i6 / n6.timescale * 1e3), i6 = n6.getTime() / 1e3, isNaN(i6) || (r7.o || r7.ki(i6), r7 = (/* @__PURE__ */ new Map()).set("detail", {
                 wallClockTime: t9,
                 programStartDate: n6
               }), r7 = new K2("prft", r7), e9.j.onEvent(r7));
@@ -28044,30 +28141,30 @@ var init_load_uTL4eiru = __esm({
               encrypted: false
             }, r7 ||= n6.gb;
             var i6 = t9.attributes.id, a7 = t9.attributes.supplementalId, o8 = vn(t9, "BaseURL"), s7, c7 = false;
-            if (e9.i) for (var l6 = y4(o8), u7 = l6.next(); !u7.done; u7 = l6.next()) {
+            if (e9.i) for (var l6 = y5(o8), u7 = l6.next(); !u7.done; u7 = l6.next()) {
               var d5 = u7.value;
               u7 = d5.attributes.serviceLocation, d5 = bn(d5), u7 && d5 && (ow(e9.i, i6, u7, d5), c7 = true);
             }
             c7 && e9.i || (s7 = o8.map(bn));
             var f4 = e9.i;
             e9 = t9.attributes.contentType || n6.contentType, l6 = t9.attributes.mimeType || n6.mimeType, u7 = $d([t9.attributes.codecs || n6.codecs]).join(","), d5 = [wn(t9, "urn:scte:dash:scte214-extensions", "supplementalCodecs") || n6.supplementalCodecs], d5 = $d(d5).join(",");
-            var p5 = W(t9, "frameRate", Fn) || n6.frameRate, m5 = t9.attributes.sar || n6.pixelAspectRatio, h6 = DT(vn(t9, "InbandEventStream"), n6.emsgSchemeIdUris), g6 = vn(t9, "AudioChannelConfiguration");
+            var p5 = W2(t9, "frameRate", Fn) || n6.frameRate, m5 = t9.attributes.sar || n6.pixelAspectRatio, h6 = DT(vn(t9, "InbandEventStream"), n6.emsgSchemeIdUris), g6 = vn(t9, "AudioChannelConfiguration");
             g6 = OT(g6) || n6.Vf;
-            var _5 = W(t9, "audioSamplingRate", Mn) || n6.audioSamplingRate;
+            var _5 = W2(t9, "audioSamplingRate", Mn) || n6.audioSamplingRate;
             e9 ||= PT(l6, u7);
-            var v7 = Sn(t9, "SegmentBase"), b4 = Sn(t9, "SegmentTemplate"), x4 = v7 && W(v7, "availabilityTimeOffset", Nn) || 0, S3 = b4 && W(b4, "availabilityTimeOffset", Nn) || 0, C5 = o8 && o8.length && W(o8[0], "availabilityTimeOffset", Nn) || 0;
-            x4 = n6.xb + C5 + x4 + S3, S3 = null, (C5 = Sn(t9, "SegmentSequenceProperties")) && (C5 = W(C5, "cadence", jn)) && (S3 = C5), C5 = t9.attributes.label;
-            var w5 = vn(t9, "Label");
-            return w5 && w5.length && (w5 = w5[0], yn(w5) && (C5 = yn(w5))), {
+            var v7 = Sn(t9, "SegmentBase"), b5 = Sn(t9, "SegmentTemplate"), x5 = v7 && W2(v7, "availabilityTimeOffset", Nn) || 0, S5 = b5 && W2(b5, "availabilityTimeOffset", Nn) || 0, C6 = o8 && o8.length && W2(o8[0], "availabilityTimeOffset", Nn) || 0;
+            x5 = n6.xb + C6 + x5 + S5, S5 = null, (C6 = Sn(t9, "SegmentSequenceProperties")) && (C6 = W2(C6, "cadence", jn)) && (S5 = C6), C6 = t9.attributes.label;
+            var w6 = vn(t9, "Label");
+            return w6 && w6.length && (w6 = w6[0], yn(w6) && (C6 = yn(w6))), {
               gb: function() {
                 return ua(r7(), o8.length ? f4 && c7 ? sw(f4, i6) : s7 || [] : []);
               },
               Wd: v7 || n6.Wd,
               Cc: Sn(t9, "SegmentList") || n6.Cc,
-              Wc: b4 || n6.Wc,
+              Wc: b5 || n6.Wc,
               Yf: Sn(t9, "ProducerReferenceTime") || n6.Yf,
-              width: W(t9, "width", Mn) || n6.width,
-              height: W(t9, "height", Mn) || n6.height,
+              width: W2(t9, "width", Mn) || n6.width,
+              height: W2(t9, "height", Mn) || n6.height,
               contentType: e9,
               mimeType: l6,
               codecs: u7,
@@ -28080,20 +28177,20 @@ var init_load_uTL4eiru = __esm({
               language: t9.attributes.lang,
               Vf: g6,
               audioSamplingRate: _5,
-              xb: x4,
+              xb: x5,
               Gf: null,
-              fg: S3 || n6.fg,
-              label: C5 || null,
+              fg: S5 || n6.fg,
+              label: C6 || null,
               encrypted: false
             };
           }
           function DT(e9, t9) {
-            t9 = t9.slice(), e9 = y4(e9);
+            t9 = t9.slice(), e9 = y5(e9);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) n6 = n6.value.attributes.schemeIdUri, t9.includes(n6) || t9.push(n6);
             return t9;
           }
           function OT(e9) {
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var t9 = e9.next(); !t9.done; t9 = e9.next()) {
               t9 = t9.value;
               var n6 = t9.attributes.schemeIdUri;
@@ -28181,7 +28278,7 @@ var init_load_uTL4eiru = __esm({
           }
           function kT(e9) {
             var t9 = +!!e9.Wd;
-            return t9 += +!!e9.Cc, t9 += +!!e9.Wc, t9 == 0 ? e9.contentType == U2 || e9.contentType == "application" : (t9 != 1 && (e9.Wd && (e9.Cc = null), e9.Wc = null), true);
+            return t9 += +!!e9.Cc, t9 += +!!e9.Wc, t9 == 0 ? e9.contentType == U3 || e9.contentType == "application" : (t9 != 1 && (e9.Wd && (e9.Cc = null), e9.Wc = null), true);
           }
           function AT(e9, t9, n6, r7) {
             var i6, a7, o8, s7, c7, l6, u7;
@@ -28207,7 +28304,7 @@ var init_load_uTL4eiru = __esm({
                   }), i6 = e9.g.dash.clockSyncUri, !r7.length && i6 && r7.push({
                     scheme: "urn:mpeg:dash:utc:http-head:2014",
                     value: i6
-                  }), a7 = y4(r7), o8 = a7.next();
+                  }), a7 = y5(r7), o8 = a7.next();
                 case 2:
                   if (o8.done) {
                     d5.A(4);
@@ -28228,10 +28325,10 @@ var init_load_uTL4eiru = __esm({
                     case "urn:mpeg:dash:utc:http-ntp:2014":
                     case "urn:mpeg:dash:utc:ntp:2014":
                     case "urn:mpeg:dash:utc:sntp:2014":
-                      R3("NTP UTCTiming scheme is not supported");
+                      R4("NTP UTCTiming scheme is not supported");
                       break;
                     default:
-                      R3("Unrecognized scheme in UTCTiming element", c7);
+                      R4("Unrecognized scheme in UTCTiming element", c7);
                   }
                   d5.A(9);
                   break;
@@ -28252,16 +28349,16 @@ var init_load_uTL4eiru = __esm({
                   o8 = a7.next(), d5.A(2);
                   break;
                 case 4:
-                  return R3("A UTCTiming element should always be given in live manifests! This content may not play on clients with bad clocks!"), d5.return(0);
+                  return R4("A UTCTiming element should always be given in live manifests! This content may not play on clients with bad clocks!"), d5.return(0);
               }
             });
           }
           function MT(e9, t9, n6, r7, i6) {
-            var a7 = r7.attributes.schemeIdUri || "", o8 = r7.attributes.value || "", s7 = W(r7, "timescale", Mn) || 1, c7 = W(r7, "presentationTimeOffset", Mn) || 0, l6;
-            a7 === "urn:mpeg:dash:event:alternativeMPD:insert:2025" || a7 === "urn:mpeg:dash:event:alternativeMPD:replace:2025" ? l6 = "altmpd" : a7 === "urn:mpeg:dash:event:callback:2015" && (l6 = "callback"), l6 = l6 ? yT(e9, r7, l6) : void 0, r7 = y4(vn(r7, "Event"));
+            var a7 = r7.attributes.schemeIdUri || "", o8 = r7.attributes.value || "", s7 = W2(r7, "timescale", Mn) || 1, c7 = W2(r7, "presentationTimeOffset", Mn) || 0, l6;
+            a7 === "urn:mpeg:dash:event:alternativeMPD:insert:2025" || a7 === "urn:mpeg:dash:event:alternativeMPD:replace:2025" ? l6 = "altmpd" : a7 === "urn:mpeg:dash:event:callback:2015" && (l6 = "callback"), l6 = l6 ? yT(e9, r7, l6) : void 0, r7 = y5(vn(r7, "Event"));
             for (var u7 = r7.next(); !u7.done; u7 = r7.next()) {
               u7 = u7.value;
-              var d5 = W(u7, "presentationTime", Mn) || 0, f4 = W(u7, "duration", Mn) || 0;
+              var d5 = W2(u7, "presentationTime", Mn) || 0, f4 = W2(u7, "duration", Mn) || 0;
               d5 = Math.max((d5 - c7) / s7 + t9, t9), f4 = d5 + f4 / s7, n6 != null && (d5 = Math.min(d5, t9 + n6), f4 = Math.min(f4, t9 + n6)), f4 < i6 || (u7 = {
                 schemeIdUri: a7,
                 value: o8,
@@ -28281,7 +28378,7 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function PT(e9, t9) {
-            return t9 = xr(e9, t9), Lr(t9) ? U2 : e9.split("/")[0];
+            return t9 = xr(e9, t9), Lr(t9) ? U3 : e9.split("/")[0];
           }
           function FT(e9, t9, n6, r7) {
             return r7 ||= {}, r7.isPreload = e9.ma(), t9 = e9.j.networkingEngine.request(n6, t9, r7), ca(e9.K, t9), t9.promise;
@@ -28302,7 +28399,7 @@ var init_load_uTL4eiru = __esm({
               return e9 && t9 ? sw(e9, "BaseURL") : n6.slice();
             };
           }
-          L3("shaka.dash.DashParser", Qw);
+          L4("shaka.dash.DashParser", Qw);
           var zT = /* @__PURE__ */ new Set(["urn:mpeg:dash:urlparam:2014", "urn:mpeg:dash:urlparam:2016"]), BT = new Set("http://dashif.org/guidelines/trickmode http://dashif.org/thumbnail_tile http://dashif.org/guidelines/thumbnail_tile urn:mpeg:mpegB:cicp:TransferCharacteristics urn:mpeg:mpegB:cicp:ColourPrimaries urn:mpeg:mpegB:cicp:MatrixCoefficients urn:mpeg:dash:ssr:2023 urn:dvb:dash:fontdownload:2014 urn:mpeg:dash:urlparam:2014 urn:mpeg:dash:urlparam:2016 urn:mpeg:dash:urlparam:2025 urn:mpeg:dash:pattern:2024".split(" "));
           It("application/dash+xml", function() {
             return new Qw();
@@ -28311,7 +28408,7 @@ var init_load_uTL4eiru = __esm({
           });
           function VT() {
             this.j = new Ce2(function() {
-              for (var e9 = navigator.userAgent.toLowerCase(), t9 = y4([
+              for (var e9 = navigator.userAgent.toLowerCase(), t9 = y5([
                 {
                   type: "VR",
                   Vh: /oculus|quest/
@@ -28655,7 +28752,7 @@ var init_load_uTL4eiru = __esm({
                   i6 = o8.i, n6 = i6.resolution === "4K", o8.o(3);
                   break;
                 case 5:
-                  a7 = o8.l(), R3("PlayStation: Failed to get the display info:", a7);
+                  a7 = o8.l(), R4("PlayStation: Failed to get the display info:", a7);
                 case 3:
                   return n6 && (t9.width = 3840, t9.height = 2160), o8.return(t9);
               }
@@ -28686,14 +28783,14 @@ var init_load_uTL4eiru = __esm({
             try {
               SmartTvA_API.hasCapability("UHD") ? (e9.width = 3840, e9.height = 2160) : SmartTvA_API.hasCapability("FHD") ? (e9.width = 1920, e9.height = 1080) : (e9.width = 1280, e9.height = 720);
             } catch (e10) {
-              R3("Titan OS: Error detecting screen size, default screen size 1920x1080.", e10);
+              R4("Titan OS: Error detecting screen size, default screen size 1920x1080.", e10);
             }
             return Promise.resolve(e9);
           }, r6.Pc = function(e9) {
             try {
               if (SmartTvA_API.hasCapability("HDR", "HDR10") || SmartTvA_API.hasCapability("HDR", "DV")) return e9 ? "HLG" : "PQ";
             } catch (t9) {
-              return R3("Titan OS: Error checking HDR support", t9), VT.prototype.Pc.call(this, e9);
+              return R4("Titan OS: Error checking HDR support", t9), VT.prototype.Pc.call(this, e9);
             }
             return "SDR";
           }, navigator.userAgent.includes("TitanOS") && (we2 = function() {
@@ -28750,7 +28847,7 @@ var init_load_uTL4eiru = __esm({
                 t9.width = n6.width, t9.height = n6.height;
               } else webapis.productinfo.is8KPanelSupported && webapis.productinfo.is8KPanelSupported() ? (t9.width = 7680, t9.height = 4320) : webapis.productinfo.isUdPanelSupported && webapis.productinfo.isUdPanelSupported() && (t9.width = 3840, t9.height = 2160);
             } catch {
-              R3("Tizen: Error detecting screen size, default screen size 1920x1080.");
+              R4("Tizen: Error detecting screen size, default screen size 1920x1080.");
             }
             return Promise.resolve(t9);
           }, r6.cb = function(e9) {
@@ -28834,7 +28931,7 @@ var init_load_uTL4eiru = __esm({
                 t10 = JSON.parse(t10), e9.g = t10.configs?.["tv.model.supportHDR"] ?? t10.configs?.["tv.config.supportDolbyHDRContents"] ?? false;
               }, t9.call("luna://com.webos.service.config/getConfigs", JSON.stringify({ configNames: ["tv.model.supportHDR", "tv.config.supportDolbyHDRContents"] }));
             } catch (e10) {
-              R3("WebOS: getConfigs call failed", e10);
+              R4("WebOS: getConfigs call failed", e10);
             }
           }
           _4(aE, VT), r6 = aE.prototype, r6.Ca = function() {
@@ -28861,13 +28958,13 @@ var init_load_uTL4eiru = __esm({
               var n6 = JSON.parse(e8.PalmSystem.deviceInfo);
               t9.width = Math.max(1920, n6.screenWidth), t9.height = Math.max(1080, n6.screenHeight);
             } catch {
-              R3("WebOS: Error detecting screen size, default screen size 1920x1080.");
+              R4("WebOS: Error detecting screen size, default screen size 1920x1080.");
             }
             return Promise.resolve(t9);
           }, r6.cb = function(e9) {
             return VT.prototype.cb.call(this, e9), this.Ca() === 3 && (e9.streaming.crossBoundaryStrategy = "reset"), e9.streaming.shouldFixTimestampOffset = true, e9.streaming.stallSkip = 0, e9;
           }, r6.Pc = function(e9) {
-            return this.g == null ? (R3("WebOS: getConfigs call haven't finished"), VT.prototype.Pc.call(this, e9)) : this.g ? e9 ? "HLG" : "PQ" : "SDR";
+            return this.g == null ? (R4("WebOS: getConfigs call haven't finished"), VT.prototype.Pc.call(this, e9)) : this.g ? e9 ? "HLG" : "PQ" : "SDR";
           };
           function oE() {
             var e9 = null, t9 = navigator.userAgent.match(/Chrome\/(\d+)/);
@@ -28942,7 +29039,7 @@ var init_load_uTL4eiru = __esm({
               while (t9 === r7.maybe);
               t9 === r7.probably && (e9.width = 3840, e9.height = 2160);
             } catch {
-              R3("Xbox: Error detecting screen size, default screen size 1920x1080.");
+              R4("Xbox: Error detecting screen size, default screen size 1920x1080.");
             }
             return Promise.resolve(e9);
           }, r6.cb = function(e9) {
@@ -29007,7 +29104,7 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function vE(e9, t9) {
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) if (n6 = n6.value, n6.name === t9) return n6;
             return null;
           }
@@ -29029,7 +29126,7 @@ var init_load_uTL4eiru = __esm({
             e9 = String(e9).replace(/%7B/g, "{").replace(/%7D/g, "}");
             var n6 = e9.match(/{\$\w*}/g);
             if (n6) {
-              n6 = y4(n6);
+              n6 = y5(n6);
               for (var r7 = n6.next(); !r7.done; r7 = n6.next()) {
                 r7 = r7.value;
                 var i6 = r7.slice(2, r7.length - 1), a7 = t9.get(i6);
@@ -29127,10 +29224,10 @@ var init_load_uTL4eiru = __esm({
               Ai: n6
             };
           }
-          L3("shaka.net.DataUriPlugin", AE), AE.parse = jE, ya("data", jE);
+          L4("shaka.net.DataUriPlugin", AE), AE.parse = jE, ya("data", jE);
           function NE() {
             var e9 = this;
-            this.g = this.i = null, this.F = 1, this.O = /* @__PURE__ */ new Map(), this.P = /* @__PURE__ */ new Map(), this.o = /* @__PURE__ */ new Map(), this.o.set("video", /* @__PURE__ */ new Map()), this.o.set("audio", /* @__PURE__ */ new Map()), this.o.set(U2, /* @__PURE__ */ new Map()), this.o.set("image", /* @__PURE__ */ new Map()), this.Ac = (/* @__PURE__ */ new Map()).set("com.apple.streamingkeydelivery", function(t9, n6, r7) {
+            this.g = this.i = null, this.F = 1, this.O = /* @__PURE__ */ new Map(), this.P = /* @__PURE__ */ new Map(), this.o = /* @__PURE__ */ new Map(), this.o.set("video", /* @__PURE__ */ new Map()), this.o.set("audio", /* @__PURE__ */ new Map()), this.o.set(U3, /* @__PURE__ */ new Map()), this.o.set("image", /* @__PURE__ */ new Map()), this.Ac = (/* @__PURE__ */ new Map()).set("com.apple.streamingkeydelivery", function(t9, n6, r7) {
               return $D(e9, t9, n6, r7);
             }).set("urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed", function(t9) {
               return eO(e9, t9);
@@ -29138,7 +29235,7 @@ var init_load_uTL4eiru = __esm({
               var t9 = pE(e10, "METHOD");
               if (["SAMPLE-AES", "SAMPLE-AES-CTR"].includes(t9)) {
                 var n6 = "cenc";
-                t9 == "SAMPLE-AES" && (n6 = "cbcs"), e10 = pE(e10, "URI"), t9 = ME(e10.split("?")[0]), e10 = V3(t9.data);
+                t9 == "SAMPLE-AES" && (n6 = "cbcs"), e10 = pE(e10, "URI"), t9 = ME(e10.split("?")[0]), e10 = V4(t9.data);
                 var r7 = new Uint8Array([
                   154,
                   4,
@@ -29169,7 +29266,7 @@ var init_load_uTL4eiru = __esm({
               return n6;
             }).set("urn:uuid:3d5e6d35-9b9a-41e8-b843-dd3c6e72c42c", function(t9) {
               return tO(e9, t9);
-            }), this.mb = /* @__PURE__ */ new Set(), this.j = /* @__PURE__ */ new Map(), this.l = null, this.H = "", this.Ha = new TE(), this.K = -1, this.ma = Infinity, this.ib = /* @__PURE__ */ new WeakMap(), this.M = this.Gc = this.kb = false, this.D = new G(function() {
+            }), this.mb = /* @__PURE__ */ new Set(), this.j = /* @__PURE__ */ new Map(), this.l = null, this.H = "", this.Ha = new TE(), this.K = -1, this.ma = Infinity, this.ib = /* @__PURE__ */ new WeakMap(), this.M = this.Gc = this.kb = false, this.D = new G2(function() {
               if (e9.aa && !e9.g.continueLoadingWhenPaused && (e9.W.Ua(e9.aa, "timeupdate"), e9.aa.paused)) {
                 e9.W.oa(e9.aa, "timeupdate", function() {
                   return JD(e9);
@@ -29177,7 +29274,7 @@ var init_load_uTL4eiru = __esm({
                 return;
               }
               JD(e9);
-            }), this.u = fO, this.h = null, this.Pa = 0, this.C = Infinity, this.Fa = this.wa = this.V = 0, this.ha = new sa(), this.I = /* @__PURE__ */ new Map(), this.J = /* @__PURE__ */ new Map(), this.Ec = /* @__PURE__ */ new Map(), this.cc = /* @__PURE__ */ new Map(), this.Aa = /* @__PURE__ */ new Map(), this.ec = /* @__PURE__ */ new Map(), this.ra = /* @__PURE__ */ new Map(), this.Bc = this.Y = false, this.sb = new ie2(5), this.m = null, this.R = true, this.W = new z3(), this.B = this.aa = null, this.bc = function() {
+            }), this.u = fO, this.h = null, this.Pa = 0, this.C = Infinity, this.Fa = this.wa = this.V = 0, this.ha = new sa(), this.I = /* @__PURE__ */ new Map(), this.J = /* @__PURE__ */ new Map(), this.Ec = /* @__PURE__ */ new Map(), this.cc = /* @__PURE__ */ new Map(), this.Aa = /* @__PURE__ */ new Map(), this.ec = /* @__PURE__ */ new Map(), this.ra = /* @__PURE__ */ new Map(), this.Bc = this.Y = false, this.sb = new ie2(5), this.m = null, this.R = true, this.W = new z4(), this.B = this.aa = null, this.bc = function() {
               return false;
             }, this.xa = /* @__PURE__ */ new Map(), this.L = [], this.Ba = /* @__PURE__ */ new Map();
           }
@@ -29200,15 +29297,15 @@ var init_load_uTL4eiru = __esm({
                 if (!YD(e9) || (t9 = [], n6 = Array.from(e9.j.values()), r7 = n6.filter(function(e10) {
                   return !e10.stream.isAudioMuxedInVideo && e10.stream.segmentIndex;
                 }), r7.length === 0)) return h6.return();
-                for (e9.C = Infinity, e9.h.gapCount = 0, i6 = y4(r7), a7 = i6.next(); !a7.done; a7 = i6.next()) o8 = a7.value, t9.push(FE(e9, o8));
+                for (e9.C = Infinity, e9.h.gapCount = 0, i6 = y5(r7), a7 = i6.next(); !a7.done; a7 = i6.next()) o8 = a7.value, t9.push(FE(e9, o8));
                 return t9.push($E(e9)), h6.g(Promise.all(t9), 2);
               }
-              for (s7 = Array.from(e9.Ba.values()), c7 = y4(s7), l6 = c7.next(); !l6.done; l6 = c7.next()) u7 = l6.value, e9.h.chapterStreams.includes(u7) || e9.h.chapterStreams.push(u7);
+              for (s7 = Array.from(e9.Ba.values()), c7 = y5(s7), l6 = c7.next(); !l6.done; l6 = c7.next()) u7 = l6.value, e9.h.chapterStreams.includes(u7) || e9.h.chapterStreams.push(u7);
               for (xD(e9, r7.map(function(e10) {
                 return e10.stream;
               })), d5 = r7.some(function(e10) {
                 return e10.ve == 0;
-              }), r7.length && !d5 && (XD(e9, fO), HE(e9)), d5 && HE(e9), f4 = y4(r7), p5 = f4.next(); !p5.done; p5 = f4.next()) m5 = p5.value, m5.stream.isAudioMuxedInVideo || !m5.stream.segmentIndex || m5.stream.segmentIndex.Ib() || e9.i.disableStream(m5.stream);
+              }), r7.length && !d5 && (XD(e9, fO), HE(e9)), d5 && HE(e9), f4 = y5(r7), p5 = f4.next(); !p5.done; p5 = f4.next()) m5 = p5.value, m5.stream.isAudioMuxedInVideo || !m5.stream.segmentIndex || m5.stream.segmentIndex.Ib() || e9.i.disableStream(m5.stream);
               h6.j();
             });
           };
@@ -29216,12 +29313,12 @@ var init_load_uTL4eiru = __esm({
             return e9.u == mO ? e9.o.get(t9.type) : t9.Of;
           }
           function FE(e9, t9) {
-            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4, F5, I5, ee3, te3, ne3, re3;
+            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5, F5, I5, ee3, te3, ne3, re3;
             return P4(function(P5) {
               switch (P5.h) {
                 case 1:
                   if (t9.stream.isAudioMuxedInVideo) return P5.return();
-                  for (n6 = [], r7 = y4(t9.U()), i6 = r7.next(); !i6.done; i6 = r7.next()) a7 = i6.value, o8 = /* @__PURE__ */ new Map(), t9.jf && (t9.Qb >= 0 && o8.set("_HLS_msn", String(t9.Qb)), t9.Rb >= 0 && o8.set("_HLS_part", String(t9.Rb))), t9.kf ? o8.set("_HLS_skip", "v2") : t9.lf && o8.set("_HLS_skip", "YES"), n6.push(ga(a7, o8));
+                  for (n6 = [], r7 = y5(t9.U()), i6 = r7.next(); !i6.done; i6 = r7.next()) a7 = i6.value, o8 = /* @__PURE__ */ new Map(), t9.jf && (t9.Qb >= 0 && o8.set("_HLS_msn", String(t9.Qb)), t9.Rb >= 0 && o8.set("_HLS_part", String(t9.Rb))), t9.kf ? o8.set("_HLS_skip", "v2") : t9.lf && o8.set("_HLS_skip", "YES"), n6.push(ga(a7, o8));
                   return P5.m(2), P5.g(qD(e9, n6, true).promise, 4);
                 case 4:
                   s7 = P5.i, P5.o(3);
@@ -29233,12 +29330,12 @@ var init_load_uTL4eiru = __esm({
                   if (l6 = EE(e9.Ha, s7.data), l6.type != 1) throw new H4(2, 4, 4017);
                   return u7 = s7.uri, u7 == s7.originalUri || t9.U().includes(u7) || t9.Zf.push(u7), d5 = gE(l6.ea, "EXT-X-DEFINE"), f4 = UE(e9, d5, u7), p5 = t9.stream, m5 = PE(e9, t9), P5.g(kD(e9, l6, p5.mimeType, t9.U, f4), 5);
                 case 5:
-                  for (h6 = P5.i, g6 = h6.keyIds, _5 = h6.drmInfos, v7 = h6.encrypted, x4 = h6.Ki, p5.encrypted || !v7 || x4 || (p5.encrypted = true), S3 = function(e10, t10) {
-                    return e10.size === t10.size && [].concat(b3(e10)).every(function(e11) {
+                  for (h6 = P5.i, g6 = h6.keyIds, _5 = h6.drmInfos, v7 = h6.encrypted, x5 = h6.Ki, p5.encrypted || !v7 || x5 || (p5.encrypted = true), S5 = function(e10, t10) {
+                    return e10.size === t10.size && [].concat(b4(e10)).every(function(e11) {
                       return t10.has(e11);
                     });
-                  }, S3(p5.keyIds, g6) || (p5.keyIds = g6, p5.drmInfos = _5, e9.i.newDrmInfo(p5)), C5 = s7.uri !== s7.originalUri, w5 = BD(e9, l6, m5, f4, t9.U, t9.type, C5, p5.segmentIndex), T5 = w5.segments, E5 = w5.Lm, (D5 = w5.bandwidth) && (p5.bandwidth = D5), O5 = kd(p5), k5 = y4(T5), A4 = k5.next(); !A4.done; A4 = k5.next()) j5 = A4.value, j5.ia && (j5.ia.Jd = O5);
-                  T5.length && p5.segmentIndex.Ld(T5, e9.l.Fb()), E5 && (M5 = yE(l6.ea, "EXT-X-MEDIA-SEQUENCE", 0), F5 = (N4 = vE(l6.ea, "EXT-X-SKIP")) ? Number($(N4, "SKIPPED-SEGMENTS")) : 0, I5 = ED(M5, T5, E5), ee3 = I5.Qb, te3 = I5.Rb, t9.Qb = ee3 + F5, t9.Rb = te3, ne3 = m5.get(M5), p5.segmentIndex.Za(ne3)), VD(e9, p5, t9.type), (re3 = p5.segmentIndex.Ib()) && (t9.fd = re3.startTime, T5.length && (t9.Tc = T5[T5.length - 1].endTime)), vE(l6.ea, "EXT-X-ENDLIST") && (t9.ve = true), ND(e9, l6), zD(e9, l6.ea, p5.type, f4, t9.U), P5.j();
+                  }, S5(p5.keyIds, g6) || (p5.keyIds = g6, p5.drmInfos = _5, e9.i.newDrmInfo(p5)), C6 = s7.uri !== s7.originalUri, w6 = BD(e9, l6, m5, f4, t9.U, t9.type, C6, p5.segmentIndex), T6 = w6.segments, E6 = w6.Lm, (D6 = w6.bandwidth) && (p5.bandwidth = D6), O6 = kd(p5), k6 = y5(T6), A5 = k6.next(); !A5.done; A5 = k6.next()) j5 = A5.value, j5.ia && (j5.ia.Jd = O6);
+                  T6.length && p5.segmentIndex.Ld(T6, e9.l.Fb()), E6 && (M5 = yE(l6.ea, "EXT-X-MEDIA-SEQUENCE", 0), F5 = (N5 = vE(l6.ea, "EXT-X-SKIP")) ? Number($(N5, "SKIPPED-SEGMENTS")) : 0, I5 = ED(M5, T6, E6), ee3 = I5.Qb, te3 = I5.Rb, t9.Qb = ee3 + F5, t9.Rb = te3, ne3 = m5.get(M5), p5.segmentIndex.Za(ne3)), VD(e9, p5, t9.type), (re3 = p5.segmentIndex.Ib()) && (t9.fd = re3.startTime, T6.length && (t9.Tc = T6[T6.length - 1].endTime)), vE(l6.ea, "EXT-X-ENDLIST") && (t9.ve = true), ND(e9, l6), zD(e9, l6.ea, p5.type, f4, t9.U), P5.j();
               }
             });
           }
@@ -29251,13 +29348,13 @@ var init_load_uTL4eiru = __esm({
           };
           function IE(e9, t9, n6) {
             n6 = n6 !== void 0 && n6;
-            for (var r7 = e9.K == -1, i6 = y4(t9), a7 = i6.next(); !a7.done; a7 = i6.next()) {
+            for (var r7 = e9.K == -1, i6 = y5(t9), a7 = i6.next(); !a7.done; a7 = i6.next()) {
               a7 = a7.value;
               var o8 = a7.stream.segmentIndex, s7 = PE(e9, a7);
               if (o8 = o8.Ib()) {
-                s7 = y4(s7);
+                s7 = y5(s7);
                 for (var c7 = s7.next(); !c7.done; c7 = s7.next()) {
-                  c7 = y4(c7.value);
+                  c7 = y5(c7.value);
                   var l6 = c7.next().value;
                   if (c7.next().value == o8.startTime) {
                     r7 && (e9.K = Math.max(e9.K, l6)), a7.Ug = l6;
@@ -29266,22 +29363,22 @@ var init_load_uTL4eiru = __esm({
                 }
               }
             }
-            if (!(e9.K < 0)) for (t9 = y4(t9), r7 = t9.next(); !r7.done; r7 = t9.next()) r7 = r7.value, (CD(e9, r7.type) || n6) && (i6 = r7.stream.segmentIndex) && (a7 = e9.K - r7.Ug, a7 > 0 && (i6.g.splice(0, a7), i6 = i6.Ib()) && (i6 = -i6.startTime, r7.stream.segmentIndex.offset(i6), RE(e9, r7, i6)));
+            if (!(e9.K < 0)) for (t9 = y5(t9), r7 = t9.next(); !r7.done; r7 = t9.next()) r7 = r7.value, (CD(e9, r7.type) || n6) && (i6 = r7.stream.segmentIndex) && (a7 = e9.K - r7.Ug, a7 > 0 && (i6.g.splice(0, a7), i6 = i6.Ib()) && (i6 = -i6.startTime, r7.stream.segmentIndex.offset(i6), RE(e9, r7, i6)));
           }
           function LE(e9, t9) {
             if (e9.ma == Infinity) {
-              t9 = y4(t9);
+              t9 = y5(t9);
               for (var n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value.stream.segmentIndex.Ib(), n6 != null && n6.g != null && (e9.ma = Math.min(e9.ma, n6.g));
             }
             if (t9 = e9.ma, t9 != Infinity) {
-              n6 = y4(e9.j.values());
+              n6 = y5(e9.j.values());
               for (var r7 = n6.next(); !r7.done; r7 = n6.next()) if (r7 = r7.value, !CD(e9, r7.type)) {
                 var i6 = r7.stream.segmentIndex;
                 if (i6 != null) {
                   var a7 = i6.Ib();
                   if (a7) {
                     if (a7.g == null) ce2("Missing EXT-X-PROGRAM-DATE-TIME for stream", r7.U(), "Expect AV sync issues!");
-                    else for (RE(e9, r7, a7.g - t9 - a7.startTime), r7 = y4(i6), i6 = r7.next(); !i6.done; i6 = r7.next()) i6.value.si(t9);
+                    else for (RE(e9, r7, a7.g - t9 - a7.startTime), r7 = y5(i6), i6 = r7.next(); !i6.done; i6 = r7.next()) i6.value.si(t9);
                   }
                 }
               }
@@ -29290,15 +29387,15 @@ var init_load_uTL4eiru = __esm({
           function RE(e9, t9, n6) {
             if (!(Math.abs(n6) < 1e-3)) {
               t9.fd += n6, t9.Tc += n6, e9 = PE(e9, t9);
-              for (var r7 = y4(e9), i6 = r7.next(); !i6.done; i6 = r7.next()) {
-                var a7 = y4(i6.value);
+              for (var r7 = y5(e9), i6 = r7.next(); !i6.done; i6 = r7.next()) {
+                var a7 = y5(i6.value);
                 i6 = a7.next().value, a7 = a7.next().value, e9.set(i6, a7 + n6);
               }
               t9.U();
             }
           }
           function zE(e9, t9) {
-            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4, F5, I5;
+            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5, F5, I5;
             return P4(function(P5) {
               switch (P5.h) {
                 case 1:
@@ -29320,25 +29417,25 @@ var init_load_uTL4eiru = __esm({
                     gapCount: 0,
                     isLowLatency: false,
                     startTime: e9.B
-                  }, r7.type == 1 ? (e9.R = false, C5 = gE(r7.ea, "EXT-X-DEFINE"), u7 = UE(e9, C5, e9.H), l6 = n6.za, w5 = "", T5 = /* @__PURE__ */ new Map(), E5 = e9.H, P5.g(TD(e9, e9.F++, u7, r7, c7, "", l6, w5, true, "Media Playlist", null, T5, null, false, null, false, "", E5), 7)) : (WE(e9, i6, e9.O, e9.H), d5 = gE(r7.ea, "EXT-X-MEDIA"), f4 = gE(r7.ea, "EXT-X-STREAM-INF"), p5 = gE(r7.ea, "EXT-X-IMAGE-STREAM-INF"), m5 = gE(r7.ea, "EXT-X-I-FRAME-STREAM-INF"), h6 = gE(r7.ea, "EXT-X-SESSION-KEY"), g6 = gE(r7.ea, "EXT-X-SESSION-DATA"), _5 = gE(r7.ea, "EXT-X-CONTENT-STEERING"), e9.L = JE(e9, g6), e9.g.hls.chaptersUri && !e9.L.includes(e9.g.hls.chaptersUri) && e9.L.push(e9.g.hls.chaptersUri), P5.g(YE(e9, _5), 4));
+                  }, r7.type == 1 ? (e9.R = false, C6 = gE(r7.ea, "EXT-X-DEFINE"), u7 = UE(e9, C6, e9.H), l6 = n6.za, w6 = "", T6 = /* @__PURE__ */ new Map(), E6 = e9.H, P5.g(TD(e9, e9.F++, u7, r7, c7, "", l6, w6, true, "Media Playlist", null, T6, null, false, null, false, "", E6), 7)) : (WE(e9, i6, e9.O, e9.H), d5 = gE(r7.ea, "EXT-X-MEDIA"), f4 = gE(r7.ea, "EXT-X-STREAM-INF"), p5 = gE(r7.ea, "EXT-X-IMAGE-STREAM-INF"), m5 = gE(r7.ea, "EXT-X-I-FRAME-STREAM-INF"), h6 = gE(r7.ea, "EXT-X-SESSION-KEY"), g6 = gE(r7.ea, "EXT-X-SESSION-DATA"), _5 = gE(r7.ea, "EXT-X-CONTENT-STEERING"), e9.L = JE(e9, g6), e9.g.hls.chaptersUri && !e9.L.includes(e9.g.hls.chaptersUri) && e9.L.push(e9.g.hls.chaptersUri), P5.g(YE(e9, _5), 4));
                 case 4:
-                  return e9.g.ignoreSupplementalCodecs || (f4.push.apply(f4, b3(KE(f4, true))), m5.push.apply(m5, b3(KE(m5, false)))), qE(e9, f4), pD(e9, d5), v7 = nD(e9, m5), P5.g(rD(e9, f4, h6, d5, c7, e9.O, v7), 5);
+                  return e9.g.ignoreSupplementalCodecs || (f4.push.apply(f4, b4(KE(f4, true))), m5.push.apply(m5, b4(KE(m5, false)))), qE(e9, f4), pD(e9, d5), v7 = nD(e9, m5), P5.g(rD(e9, f4, h6, d5, c7, e9.O, v7), 5);
                 case 5:
-                  return a7 = P5.i, o8 = XE(e9, d5), x4 = y4, P5.g(Promise.all([QE(e9, p5, m5), $E(e9)]), 6);
+                  return a7 = P5.i, o8 = XE(e9, d5), x5 = y5, P5.g(Promise.all([QE(e9, p5, m5), $E(e9)]), 6);
                 case 6:
-                  S3 = x4(P5.i), s7 = S3.next().value, P5.A(3);
+                  S5 = x5(P5.i), s7 = S5.next().value, P5.A(3);
                   break;
                 case 7:
-                  return D5 = P5.i, e9.j.set(e9.H, D5), D5.stream && (O5 = kd(D5.stream), D5.stream.segmentIndex.Jb(function(e10) {
-                    e10.ia && (e10.ia.Jd = O5);
-                  })), l6 = D5.stream.type, k5 = true, (e9.g.disableAudio && D5.type == "audio" || e9.g.disableVideo && D5.type == "video" && !D5.stream.codecs.includes(",")) && (k5 = false), k5 && a7.push({
+                  return D6 = P5.i, e9.j.set(e9.H, D6), D6.stream && (O6 = kd(D6.stream), D6.stream.segmentIndex.Jb(function(e10) {
+                    e10.ia && (e10.ia.Jd = O6);
+                  })), l6 = D6.stream.type, k6 = true, (e9.g.disableAudio && D6.type == "audio" || e9.g.disableVideo && D6.type == "video" && !D6.stream.codecs.includes(",")) && (k6 = false), k6 && a7.push({
                     id: 0,
-                    language: ht2(w5 || "und"),
+                    language: ht2(w6 || "und"),
                     disabledUntilTime: 0,
                     primary: true,
-                    audio: D5.type == "audio" ? D5.stream : null,
-                    video: D5.type == "video" ? D5.stream : null,
-                    bandwidth: D5.stream.bandwidth || 0,
+                    audio: D6.type == "audio" ? D6.stream : null,
+                    video: D6.type == "video" ? D6.stream : null,
+                    bandwidth: D6.stream.bandwidth || 0,
                     allowedByApplication: true,
                     allowedByKeySystem: true,
                     decodingInfos: []
@@ -29349,13 +29446,13 @@ var init_load_uTL4eiru = __esm({
                     P5.A(9);
                     break;
                   }
-                  return YD(e9) && (PD(e9, r7), A4 = e9.C, e9.D.ba(A4)), j5 = Array.from(e9.j.values()), SD(e9, j5), HE(e9), P5.g(zD(e9, r7.ea, l6, u7, c7), 9);
+                  return YD(e9) && (PD(e9, r7), A5 = e9.C, e9.D.ba(A5)), j5 = Array.from(e9.j.values()), SD(e9, j5), HE(e9), P5.g(zD(e9, r7.ea, l6, u7, c7), 9);
                 case 9:
                   if (e9.h.variants = a7, e9.h.textStreams = o8, e9.h.imageStreams = s7, e9.h.chapterStreams = Array.from(e9.Ba.values()), e9.h.startTime = e9.B, e9.M || !e9.g.hls.disableCodecGuessing) {
                     P5.A(11);
                     break;
                   }
-                  for (M5 = [], N4 = y4(e9.h.variants), F5 = N4.next(); !F5.done; F5 = N4.next()) I5 = F5.value, I5.audio && I5.audio.codecs === "" && M5.push(I5.audio.createSegmentIndex()), I5.video && I5.video.codecs === "" && M5.push(I5.video.createSegmentIndex());
+                  for (M5 = [], N5 = y5(e9.h.variants), F5 = N5.next(); !F5.done; F5 = N5.next()) I5 = F5.value, I5.audio && I5.audio.codecs === "" && M5.push(I5.audio.createSegmentIndex()), I5.video && I5.video.codecs === "" && M5.push(I5.video.createSegmentIndex());
                   return P5.g(Promise.all(M5), 11);
                 case 11:
                   e9.i.makeTextStreamsForClosedCaptions(e9.h), P5.j();
@@ -29370,60 +29467,60 @@ var init_load_uTL4eiru = __esm({
                 "audio/mp4",
                 "video/mp4",
                 "video/iso.segment"
-              ], h6 = i6.ia || m5.includes(u7), !h6 && Hl(V3(f4))) {
-                var b4 = f4, x4 = e9.g.disableAudio, S3 = e9.g.disableVideo, C5 = e9.g.disableText, w5 = V3(b4), T5 = new jl().parse(w5), E5 = T5.qe();
-                w5 = T5.kj();
-                var D5 = [], O5 = false, k5 = false;
-                if (!x4) switch (E5.audio) {
+              ], h6 = i6.ia || m5.includes(u7), !h6 && Hl(V4(f4))) {
+                var b5 = f4, x5 = e9.g.disableAudio, S5 = e9.g.disableVideo, C6 = e9.g.disableText, w6 = V4(b5), T6 = new jl().parse(w6), E6 = T6.qe();
+                w6 = T6.kj();
+                var D6 = [], O6 = false, k6 = false;
+                if (!x5) switch (E6.audio) {
                   case "aac":
                   case "aac-loas":
-                    T5.Bb().length && (D5.push("mp4a.40.2"), O5 = true);
+                    T6.Bb().length && (D6.push("mp4a.40.2"), O6 = true);
                     break;
                   case "mp3":
-                    T5.Bb().length && (D5.push("mp4a.40.34"), O5 = true);
+                    T6.Bb().length && (D6.push("mp4a.40.34"), O6 = true);
                     break;
                   case "ac3":
-                    T5.Bb().length && (D5.push("ac-3"), O5 = true);
+                    T6.Bb().length && (D6.push("ac-3"), O6 = true);
                     break;
                   case "ec3":
-                    T5.Bb().length && (D5.push("ec-3"), O5 = true);
+                    T6.Bb().length && (D6.push("ec-3"), O6 = true);
                     break;
                   case "opus":
-                    T5.Bb().length && (D5.push("opus"), O5 = true);
+                    T6.Bb().length && (D6.push("opus"), O6 = true);
                 }
-                if (!S3) switch (E5.video) {
+                if (!S5) switch (E6.video) {
                   case "avc":
-                    w5.codec ? D5.push(w5.codec) : D5.push("avc1.42E01E"), k5 = true;
+                    w6.codec ? D6.push(w6.codec) : D6.push("avc1.42E01E"), k6 = true;
                     break;
                   case "hvc":
-                    w5.codec ? D5.push(w5.codec) : D5.push("hvc1.1.6.L93.90"), k5 = true;
+                    w6.codec ? D6.push(w6.codec) : D6.push("hvc1.1.6.L93.90"), k6 = true;
                     break;
                   case "av1":
-                    D5.push("av01.0.01M.08"), k5 = true;
+                    D6.push("av01.0.01M.08"), k6 = true;
                 }
-                if (D5.length) {
-                  if (x4 = O5 && !k5, S3 = /* @__PURE__ */ new Map(), k5 && !C5) {
-                    for (C5 = new Ht("video/mp2t"), Ut(C5, b4), b4 = y4(C5.g.getStreams()), k5 = b4.next(); !k5.done; k5 = b4.next()) k5 = k5.value, S3.set(k5, k5);
-                    C5.g.clear();
+                if (D6.length) {
+                  if (x5 = O6 && !k6, S5 = /* @__PURE__ */ new Map(), k6 && !C6) {
+                    for (C6 = new Ht("video/mp2t"), Ut(C6, b5), b5 = y5(C6.g.getStreams()), k6 = b5.next(); !k6.done; k6 = b5.next()) k6 = k6.value, S5.set(k6, k6);
+                    C6.g.clear();
                   }
-                  w5 = {
-                    type: x4 ? "audio" : "video",
+                  w6 = {
+                    type: x5 ? "audio" : "video",
                     mimeType: "video/mp2t",
-                    codecs: D5.join(", "),
+                    codecs: D6.join(", "),
                     language: null,
-                    height: w5.height,
-                    width: w5.width,
+                    height: w6.height,
+                    width: w6.width,
                     channelCount: null,
                     sampleRate: null,
-                    closedCaptions: S3,
+                    closedCaptions: S5,
                     Ne: null,
                     colorGamut: null,
-                    frameRate: w5.frameRate,
+                    frameRate: w6.frameRate,
                     timescale: null,
                     drmInfos: []
                   };
-                } else w5 = null;
-                if (g6 = w5) return v7.return(g6);
+                } else w6 = null;
+                if (g6 = w6) return v7.return(g6);
               } else if ((h6 || p5.includes(s7)) && (_5 = Qd(d5, f4, e9.g.disableText))) return v7.return(_5);
               return u7 ? v7.return(Zd(u7)) : v7.return(n6);
             });
@@ -29433,7 +29530,7 @@ var init_load_uTL4eiru = __esm({
             return P4(function(l6) {
               switch (l6.h) {
                 case 1:
-                  return t9 ? (r7 = Oa, i6 = of(t9.U(), t9.Rc(), t9.Oc(), e9.i.getStreamingRetryParameters()), a7 = +(t9 instanceof J), l6.g(ZD(e9, i6, r7, { type: a7 }).promise, 2)) : l6.return({
+                  return t9 ? (r7 = Oa, i6 = of(t9.U(), t9.Rc(), t9.Oc(), e9.i.getStreamingRetryParameters()), a7 = +(t9 instanceof J2), l6.g(ZD(e9, i6, r7, { type: a7 }).promise, 2)) : l6.return({
                     mimeType: null,
                     data: null
                   });
@@ -29446,7 +29543,7 @@ var init_load_uTL4eiru = __esm({
                 case 4:
                   s7 = l6.i;
                 case 3:
-                  return t9 instanceof J ? t9.Je(s7, true) : t9.Je(s7), (c7 = o8.headers["content-type"]) && (c7 = c7.split(";")[0].toLowerCase()), l6.return({
+                  return t9 instanceof J2 ? t9.Je(s7, true) : t9.Je(s7), (c7 = o8.headers["content-type"]) && (c7 = c7.split(";")[0].toLowerCase()), l6.return({
                     mimeType: c7,
                     data: s7
                   });
@@ -29455,10 +29552,10 @@ var init_load_uTL4eiru = __esm({
           }
           function HE(e9) {
             if (e9.u == mO) {
-              for (var t9 = Infinity, n6 = Infinity, r7 = y4(e9.j.values()), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, i6.stream.segmentIndex && i6.stream.type != "text" && !i6.stream.isAudioMuxedInVideo && (t9 = Math.min(t9, i6.Tc), n6 = Math.min(n6, i6.fd));
+              for (var t9 = Infinity, n6 = Infinity, r7 = y5(e9.j.values()), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, i6.stream.segmentIndex && i6.stream.type != "text" && !i6.stream.isAudioMuxedInVideo && (t9 = Math.min(t9, i6.Tc), n6 = Math.min(n6, i6.fd));
               t9 = t9 - n6 || 0, isNaN(e9.g.availabilityWindowOverride) || (t9 = e9.g.availabilityWindowOverride), e9.l.li(t9);
             } else e9.l.Sb(bD(e9));
-            if (!e9.l.o) for (t9 = y4(e9.j.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, !n6.stream.segmentIndex || n6.type != "audio" && n6.type != "video" || (n6 = n6.stream.segmentIndex.Ib()) && n6.g != null && e9.l.ki(n6.g);
+            if (!e9.l.o) for (t9 = y5(e9.j.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, !n6.stream.segmentIndex || n6.type != "audio" && n6.type != "video" || (n6 = n6.stream.segmentIndex.Ib()) && n6.g != null && e9.l.ki(n6.g);
             e9.l.Eh();
           }
           function UE(e9, t9, n6) {
@@ -29466,7 +29563,7 @@ var init_load_uTL4eiru = __esm({
             return WE(e9, t9, r7, n6, true), r7;
           }
           function WE(e9, t9, n6, r7, i6) {
-            i6 = i6 !== void 0 && i6, t9 = y4(t9);
+            i6 = i6 !== void 0 && i6, t9 = y5(t9);
             for (var a7 = t9.next(); !a7.done; a7 = t9.next()) {
               a7 = a7.value;
               var o8 = $(a7, "NAME"), s7 = $(a7, "VALUE"), c7 = $(a7, "QUERYPARAM");
@@ -29479,7 +29576,7 @@ var init_load_uTL4eiru = __esm({
           }
           function GE(e9, t9) {
             var n6 = {};
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var r7 = t9.next(); !r7.done; r7 = t9.next()) {
               if (r7 = r7.value, e9.m) {
                 var i6 = (/* @__PURE__ */ new Set()).add("AUDIO").add("VIDEO").add("SUBTITLES").add("PATHWAY-ID").add("GROUP-ID").add("URI");
@@ -29491,7 +29588,7 @@ var init_load_uTL4eiru = __esm({
           }
           function KE(e9, t9) {
             var n6 = [];
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var r7 = e9.next(), i6 = {}; !r7.done; i6 = { pi: void 0 }, r7 = e9.next()) r7 = r7.value, i6.pi = wE(r7), i6.pi && (i6 = r7.attributes.map(/* @__PURE__ */ (function(e10) {
               return function(n7) {
                 var r8 = n7.name, i7 = n7.value;
@@ -29501,13 +29598,13 @@ var init_load_uTL4eiru = __esm({
             return n6;
           }
           function qE(e9, t9) {
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var n6 = t9.next(); !n6.done; n6 = t9.next()) {
               var r7 = n6.value, i6 = $(r7, "AUDIO");
               n6 = $(r7, "VIDEO");
               var a7 = $(r7, "SUBTITLES");
               if (r7 = oD(e9, r7), a7) {
-                var o8 = wt(U2, r7);
+                var o8 = wt(U3, r7);
                 e9.J.set(a7, o8), pe2(r7, o8);
               }
               i6 && (a7 = wt("audio", r7), a7 ||= e9.g.hls.defaultAudioCodec, e9.J.set(i6, a7)), n6 && (i6 = wt("video", r7), i6 ||= e9.g.hls.defaultVideoCodec, e9.J.set(n6, i6));
@@ -29515,7 +29612,7 @@ var init_load_uTL4eiru = __esm({
           }
           function JE(e9, t9) {
             var n6 = [];
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var r7 = t9.next(); !r7.done; r7 = t9.next()) {
               var i6 = r7.value;
               r7 = $(i6, "DATA-ID");
@@ -29530,7 +29627,7 @@ var init_load_uTL4eiru = __esm({
             var n6, r7, i6, a7, o8, s7;
             return P4(function(c7) {
               if (!e9.i || !e9.g) return c7.return();
-              for (r7 = y4(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) if (a7 = i6.value, o8 = $(a7, "PATHWAY-ID"), s7 = $(a7, "SERVER-URI"), o8 && s7) {
+              for (r7 = y5(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) if (a7 = i6.value, o8 = $(a7, "PATHWAY-ID"), s7 = $(a7, "SERVER-URI"), o8 && s7) {
                 e9.m = new nw(e9.i), e9.m.configure(e9.g), e9.m.i = [e9.H], e9.m.setManifestType("HLS"), e9.m.h = o8, n6 = rw(e9.m, s7);
                 break;
               }
@@ -29544,9 +29641,9 @@ var init_load_uTL4eiru = __esm({
             } catch (t10) {
               if (!e9.g.hls.ignoreTextStreamFailures) throw t10;
             }
-            for (i6 = y4(n6), n6 = i6.next(); !n6.done; n6 = i6.next()) if (r7 = pE(n6.value, "GROUP-ID"), (n6 = e9.J.get(r7)) && (r7 = e9.P.get(r7))) {
-              r7 = y4(r7);
-              for (var a7 = r7.next(); !a7.done; a7 = r7.next()) a7 = a7.value, a7.stream.codecs = n6, a7.stream.mimeType = HD(U2, n6) || UD(U2), ZE(a7.stream);
+            for (i6 = y5(n6), n6 = i6.next(); !n6.done; n6 = i6.next()) if (r7 = pE(n6.value, "GROUP-ID"), (n6 = e9.J.get(r7)) && (r7 = e9.P.get(r7))) {
+              r7 = y5(r7);
+              for (var a7 = r7.next(); !a7.done; a7 = r7.next()) a7 = a7.value, a7.stream.codecs = n6, a7.stream.mimeType = HD(U3, n6) || UD(U3), ZE(a7.stream);
             }
             return t9.filter(function(e10) {
               return e10;
@@ -29587,39 +29684,39 @@ var init_load_uTL4eiru = __esm({
             var t9, n6, r7, i6;
             return P4(function(a7) {
               if (e9.g.disableChapters) return a7.return();
-              for (t9 = [], n6 = y4(e9.L), r7 = n6.next(); !r7.done; r7 = n6.next()) i6 = r7.value, t9.push(eD(e9, i6));
+              for (t9 = [], n6 = y5(e9.L), r7 = n6.next(); !r7.done; r7 = n6.next()) i6 = r7.value, t9.push(eD(e9, i6));
               return a7.g(Promise.all(t9), 0);
             });
           }
           function eD(e9, t9) {
-            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3;
-            return P4(function(C5) {
-              if (C5.h == 1) return n6 = xa([t9], e9.g.retryParameters), C5.g(ZD(e9, n6, 10).promise, 2);
-              for (r7 = C5.i, i6 = Ie2(r7.data), a7 = JSON.parse(i6), o8 = /* @__PURE__ */ new Map(), s7 = 0; s7 < a7.length; s7++) if (c7 = a7[s7], c7.titles) {
+            var n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5;
+            return P4(function(C6) {
+              if (C6.h == 1) return n6 = xa([t9], e9.g.retryParameters), C6.g(ZD(e9, n6, 10).promise, 2);
+              for (r7 = C6.i, i6 = Ie2(r7.data), a7 = JSON.parse(i6), o8 = /* @__PURE__ */ new Map(), s7 = 0; s7 < a7.length; s7++) if (c7 = a7[s7], c7.titles) {
                 if (l6 = [], c7.images) {
-                  for (u7 = y4(c7.images), d5 = u7.next(); !d5.done; d5 = u7.next()) if (f4 = d5.value, f4.url) for (p5 = bE([r7.uri], f4.url), m5 = y4(p5), h6 = m5.next(); !h6.done; h6 = m5.next()) g6 = h6.value, _5 = {
+                  for (u7 = y5(c7.images), d5 = u7.next(); !d5.done; d5 = u7.next()) if (f4 = d5.value, f4.url) for (p5 = bE([r7.uri], f4.url), m5 = y5(p5), h6 = m5.next(); !h6.done; h6 = m5.next()) g6 = h6.value, _5 = {
                     type: f4["image-category"],
                     width: f4["pixel-width"],
                     height: f4["pixel-height"],
                     url: g6
                   }, l6.push(_5);
                 }
-                for (v7 = y4(c7.titles), b4 = v7.next(); !b4.done; b4 = v7.next()) x4 = b4.value, S3 = {
+                for (v7 = y5(c7.titles), b5 = v7.next(); !b5.done; b5 = v7.next()) x5 = b5.value, S5 = {
                   id: "",
-                  title: x4.title,
+                  title: x5.title,
                   startTime: c7["start-time"],
                   endTime: c7["start-time"],
                   images: l6
-                }, c7.duration ? S3.endTime += c7.duration : s7 + 1 < a7.length && (S3.endTime = a7[s7 + 1]["start-time"]), o8.getOrInsertComputed(x4.language, function() {
+                }, c7.duration ? S5.endTime += c7.duration : s7 + 1 < a7.length && (S5.endTime = a7[s7 + 1]["start-time"]), o8.getOrInsertComputed(x5.language, function() {
                   return [];
-                }).push(S3);
+                }).push(S5);
               }
               o8.forEach(function(t10, n7) {
                 var r8 = [];
-                t10 = y4(t10);
+                t10 = y5(t10);
                 for (var i7 = t10.next(); !i7.done; i7 = t10.next()) {
                   i7 = i7.value;
-                  var a8 = new J(i7.startTime, i7.endTime, function() {
+                  var a8 = new J2(i7.startTime, i7.endTime, function() {
                     return [];
                   }, 0, null, null, 0, 0, Infinity);
                   a8.hg({
@@ -29638,7 +29735,7 @@ var init_load_uTL4eiru = __esm({
                     external: true
                   });
                 }), t10.segmentIndex ? t10.segmentIndex.Ld(r8, e9.l.Fb()) : t10.segmentIndex = new md(r8);
-              }), C5.j();
+              }), C6.j();
             });
           }
           function tD(e9, t9, n6) {
@@ -29655,7 +29752,7 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function rD(e9, t9, n6, r7, i6, a7, o8) {
-            var s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4, F5, I5, ee3, te3, ne3;
+            var s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5, F5, I5, ee3, te3, ne3;
             return P4(function(P5) {
               switch (P5.h) {
                 case 1:
@@ -29663,7 +29760,7 @@ var init_load_uTL4eiru = __esm({
                     P5.A(2);
                     break;
                   }
-                  l6 = y4(n6), u7 = l6.next(), d5 = {};
+                  l6 = y5(n6), u7 = l6.next(), d5 = {};
                 case 3:
                   if (u7.done) {
                     P5.A(2);
@@ -29696,17 +29793,17 @@ var init_load_uTL4eiru = __esm({
                   h6 = P5.i;
                 case 6:
                   if (h6) {
-                    if (h6.keyIds) for (x4 = y4(h6.keyIds), S3 = x4.next(); !S3.done; S3 = x4.next()) C5 = S3.value, c7.add(C5);
+                    if (h6.keyIds) for (x5 = y5(h6.keyIds), S5 = x5.next(); !S5.done; S5 = x5.next()) C6 = S5.value, c7.add(C6);
                     s7.push(h6);
                   }
                 case 4:
                   d5 = { Ch: void 0 }, u7 = l6.next(), P5.A(3);
                   break;
                 case 2:
-                  for (E5 in w5 = GE(e9, t9), T5 = [], w5) D5 = w5[E5], O5 = D5[0], k5 = lD(O5), A4 = Number(pE(O5, "BANDWIDTH")) || Number($(O5, "AVERAGE-BANDWIDTH")), j5 = $(O5, "RESOLUTION"), M5 = y4(j5 ? j5.split("x") : [null, null]), N4 = M5.next().value, F5 = M5.next().value, I5 = $(O5, "VIDEO-RANGE"), (ee3 = $(O5, "REQ-VIDEO-LAYOUT")) && ee3.includes(",") && (te3 = ee3.split(",").filter(function(e10) {
+                  for (E6 in w6 = GE(e9, t9), T6 = [], w6) D6 = w6[E6], O6 = D6[0], k6 = lD(O6), A5 = Number(pE(O6, "BANDWIDTH")) || Number($(O6, "AVERAGE-BANDWIDTH")), j5 = $(O6, "RESOLUTION"), M5 = y5(j5 ? j5.split("x") : [null, null]), N5 = M5.next().value, F5 = M5.next().value, I5 = $(O6, "VIDEO-RANGE"), (ee3 = $(O6, "REQ-VIDEO-LAYOUT")) && ee3.includes(",") && (te3 = ee3.split(",").filter(function(e10) {
                     return e10 == "CH-STEREO" || e10 == "CH-MONO";
-                  }), ee3 = te3[0]), ee3 ||= "CH-MONO", ne3 = iD(e9, D5, r7), T5.push.apply(T5, b3(fD(e9, ne3.audio, ne3.video, A4, N4, F5, k5, I5, ee3, s7, c7, o8)));
-                  return P5.return(T5.filter(function(e10) {
+                  }), ee3 = te3[0]), ee3 ||= "CH-MONO", ne3 = iD(e9, D6, r7), T6.push.apply(T6, b4(fD(e9, ne3.audio, ne3.video, A5, N5, F5, k6, I5, ee3, s7, c7, o8)));
+                  return P5.return(T6.filter(function(e10) {
                     return e10 != null;
                   }));
               }
@@ -29716,16 +29813,16 @@ var init_load_uTL4eiru = __esm({
             for (var r7 = {
               audio: [],
               video: []
-            }, i6 = /* @__PURE__ */ new Map(), a7 = /* @__PURE__ */ new Set(), o8 = /* @__PURE__ */ new Set(), s7 = y4(t9), c7 = s7.next(); !c7.done; c7 = s7.next()) {
+            }, i6 = /* @__PURE__ */ new Map(), a7 = /* @__PURE__ */ new Set(), o8 = /* @__PURE__ */ new Set(), s7 = y5(t9), c7 = s7.next(); !c7.done; c7 = s7.next()) {
               var l6 = c7.value;
               c7 = $(l6, "AUDIO");
               var u7 = $(l6, "VIDEO");
               (c7 || u7) && (l6 = $(l6, "PATHWAY-ID"), c7 && !a7.has(c7) && (a7.add(c7), l6 && i6.set(c7, l6)), u7 && !o8.has(u7) && (o8.add(u7), l6 && i6.set(u7, l6)));
             }
-            var d5 = [].concat(b3(a7), b3(o8));
+            var d5 = [].concat(b4(a7), b4(o8));
             d5.length && n6.length && (n6 = n6.filter(function(e10) {
               return d5.includes(pE(e10, "GROUP-ID"));
-            }), tD(e9, n6, i6)), r7.audio.push.apply(r7.audio, b3(aD(e9, a7))), r7.video.push.apply(r7.video, b3(aD(e9, o8))), i6 = r7.video.find(function(e10) {
+            }), tD(e9, n6, i6)), r7.audio.push.apply(r7.audio, b4(aD(e9, a7))), r7.video.push.apply(r7.video, b4(aD(e9, o8))), i6 = r7.video.find(function(e10) {
               return e10.stream.isAudioMuxedInVideo;
             }), a7 = false;
             var f4 = t9.map(function(e10) {
@@ -29744,7 +29841,7 @@ var init_load_uTL4eiru = __esm({
             }), r7;
           }
           function aD(e9, t9) {
-            return t9.size ? (t9 = [].concat(b3(t9)).sort().join(","), e9.P.get(t9) || []) : [];
+            return t9.size ? (t9 = [].concat(b4(t9)).sort().join(","), e9.P.get(t9) || []) : [];
           }
           function oD(e9, t9) {
             return t9 = $(t9, "CODECS") || "", e9.M = t9.length > 0, e9.M || e9.g.hls.disableCodecGuessing || (t9 = [], e9.g.disableVideo || t9.push(e9.g.hls.defaultVideoCodec), e9.g.disableAudio || t9.push(e9.g.hls.defaultAudioCodec), t9 = t9.join(",")), $d(t9.split(/\s*,\s*/));
@@ -29762,13 +29859,13 @@ var init_load_uTL4eiru = __esm({
             return e9 = $(e9, "CHANNELS"), e9 ? (e9 = e9.split("/"), e9.length == 2 ? e9[1] === "JOC" || e9[1].includes("ATMOS") || e9[1].includes("IMSA") : false) : false;
           }
           function dD(e9) {
-            return e9 = pE(e9, "TYPE").toLowerCase(), e9 == "subtitles" && (e9 = U2), e9;
+            return e9 = pE(e9, "TYPE").toLowerCase(), e9 == "subtitles" && (e9 = U3), e9;
           }
           function fD(e9, t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5) {
-            for (var f4 = y4(n6), p5 = f4.next(); !p5.done; p5 = f4.next()) KD(p5.value.stream, i6, a7, o8, s7, c7, null);
+            for (var f4 = y5(n6), p5 = f4.next(); !p5.done; p5 = f4.next()) KD(p5.value.stream, i6, a7, o8, s7, c7, null);
             for (i6 = e9.g.disableVideo, (!n6.length || i6) && (n6 = [null]), i6 && (t9 = t9.filter(function(e10) {
               return !e10.stream.isAudioMuxedInVideo;
-            })), i6 = e9.g.disableAudio, (!t9.length || i6) && (t9 = [null]), i6 = [], t9 = y4(t9), a7 = t9.next(); !a7.done; a7 = t9.next()) for (a7 = a7.value, o8 = y4(n6), s7 = o8.next(); !s7.done; s7 = o8.next()) {
+            })), i6 = e9.g.disableAudio, (!t9.length || i6) && (t9 = [null]), i6 = [], t9 = y5(t9), a7 = t9.next(); !a7.done; a7 = t9.next()) for (a7 = a7.value, o8 = y5(n6), s7 = o8.next(); !s7.done; s7 = o8.next()) {
               var m5 = s7.value;
               (s7 = a7 ? a7.stream : null) && (s7.drmInfos = l6, s7.keyIds = u7), (c7 = m5 ? m5.stream : null) && (c7.drmInfos = l6, c7.keyIds = u7, e9.g.disableIFrames || Di(c7, d5)), c7 && !s7 && (c7.bandwidth = r7), !c7 && s7 && (s7.bandwidth = r7), f4 = a7 ? a7.stream.drmInfos : null, p5 = m5 ? m5.stream.drmInfos : null, m5 = m5 ? m5.U().sort().join(",") : "";
               var h6 = a7 ? a7.U().sort().join(",") : "", g6 = [];
@@ -29792,7 +29889,7 @@ var init_load_uTL4eiru = __esm({
             return i6;
           }
           function pD(e9, t9) {
-            t9 = _E(t9, "CLOSED-CAPTIONS"), e9.R = t9.length == 0, t9 = y4(t9);
+            t9 = _E(t9, "CLOSED-CAPTIONS"), e9.R = t9.length == 0, t9 = y5(t9);
             for (var n6 = t9.next(); !n6.done; n6 = t9.next()) {
               var r7 = n6.value, i6 = $(r7, "LANGUAGE");
               n6 = ht2(i6 || "und"), i6 || (i6 = $(r7, "NAME")) && (n6 = i6), i6 = pE(r7, "GROUP-ID"), r7 = pE(r7, "INSTREAM-ID").replace("SERVICE", "svc"), e9.I.get(i6) || e9.I.set(i6, /* @__PURE__ */ new Map()), e9.I.get(i6).set(r7, n6);
@@ -29800,7 +29897,7 @@ var init_load_uTL4eiru = __esm({
           }
           function mD(e9, t9, n6, r7) {
             r7 = r7 === void 0 || r7;
-            for (var i6 = [], a7 = [], o8 = /* @__PURE__ */ new Map(), s7 = y4(t9), c7 = s7.next(), l6 = {}; !c7.done; l6 = { nj: void 0 }, c7 = s7.next()) {
+            for (var i6 = [], a7 = [], o8 = /* @__PURE__ */ new Map(), s7 = y5(t9), c7 = s7.next(), l6 = {}; !c7.done; l6 = { nj: void 0 }, c7 = s7.next()) {
               c7 = c7.value, l6.nj = ++e9.F, l6 = /* @__PURE__ */ (function(e10) {
                 return function() {
                   return "shaka://hls-muxed" + e10.nj;
@@ -29809,8 +29906,8 @@ var init_load_uTL4eiru = __esm({
               var u7 = r7 ? pE(c7, "URI") : $(c7, "URI") || l6();
               l6 = pE(c7, "GROUP-ID"), i6.push(u7), a7.push(l6), o8.set(l6, u7), (c7 = $(c7, "PATHWAY-ID")) && n6.set(l6, c7);
             }
-            if (r7 = a7.sort().join(","), c7 = t9[0], t9 = "", s7 = dD(c7), s7 == U2 && (t9 = $(c7, "CODECS") || ""), !t9) {
-              for (a7 = y4(a7), l6 = a7.next(); !l6.done; l6 = a7.next()) if (l6 = l6.value, e9.J.has(l6)) {
+            if (r7 = a7.sort().join(","), c7 = t9[0], t9 = "", s7 = dD(c7), s7 == U3 && (t9 = $(c7, "CODECS") || ""), !t9) {
+              for (a7 = y5(a7), l6 = a7.next(); !l6.done; l6 = a7.next()) if (l6 = l6.value, e9.J.has(l6)) {
                 t9 = e9.J.get(l6);
                 break;
               }
@@ -29818,9 +29915,9 @@ var init_load_uTL4eiru = __esm({
             if (l6 = wE(c7), a7 = u7 = i6.sort().join(","), s7 == "audio" && r7 && (a7 += r7), e9.j.has(a7)) return e9.j.get(a7);
             var d5 = e9.F++;
             if (e9.m) {
-              o8 = y4(o8);
+              o8 = y5(o8);
               for (var f4 = o8.next(); !f4.done; f4 = o8.next()) {
-                var p5 = y4(f4.value);
+                var p5 = y5(f4.value);
                 f4 = p5.next().value, p5 = p5.next().value, (f4 = n6.get(f4)) && ow(e9.m, d5, f4, p5);
               }
             }
@@ -29838,10 +29935,10 @@ var init_load_uTL4eiru = __esm({
             var n6 = "video", r7 = pE(t9, "URI"), i6 = $(t9, "CODECS") || "", a7 = wE(t9);
             if (i6 == "mjpg" && (n6 = "image"), e9.j.has(r7)) return e9.j.get(r7);
             var o8 = $(t9, "LANGUAGE"), s7 = $(t9, "NAME"), c7 = $(t9, "CHARACTERISTICS");
-            return n6 = vD(e9, e9.F++, [r7], i6, n6, o8, false, s7, null, null, c7, false, null, false, a7, r7), n6.stream.isIframe = true, i6 = $(t9, "RESOLUTION"), a7 = y4(i6 ? i6.split("x") : [null, null]), i6 = a7.next().value, a7 = a7.next().value, n6.stream.width = Number(i6) || void 0, n6.stream.height = Number(a7) || void 0, (t9 = $(t9, "BANDWIDTH")) && (n6.stream.bandwidth = Number(t9)), e9.j.set(r7, n6), n6;
+            return n6 = vD(e9, e9.F++, [r7], i6, n6, o8, false, s7, null, null, c7, false, null, false, a7, r7), n6.stream.isIframe = true, i6 = $(t9, "RESOLUTION"), a7 = y5(i6 ? i6.split("x") : [null, null]), i6 = a7.next().value, a7 = a7.next().value, n6.stream.width = Number(i6) || void 0, n6.stream.height = Number(a7) || void 0, (t9 = $(t9, "BANDWIDTH")) && (n6.stream.bandwidth = Number(t9)), e9.j.set(r7, n6), n6;
           }
           function _D(e9, t9, n6, r7, i6) {
-            for (var a7 = e9.F++, o8 = [], s7 = y4(t9), c7 = s7.next(); !c7.done; c7 = s7.next()) {
+            for (var a7 = e9.F++, o8 = [], s7 = y5(t9), c7 = s7.next(); !c7.done; c7 = s7.next()) {
               var l6 = c7.value;
               c7 = pE(l6, "URI"), l6 = $(l6, "PATHWAY-ID"), e9.m && l6 && ow(e9.m, a7, l6, c7), o8.push(c7);
             }
@@ -29859,7 +29956,7 @@ var init_load_uTL4eiru = __esm({
                     break a;
                   }
                   e9.R = false;
-                } else if (!t9 && e9.I.size) for (t9 = y4(e9.I.keys()), t9 = t9.next(); !t9.done; t9 = t9.next()) {
+                } else if (!t9 && e9.I.size) for (t9 = y5(e9.I.keys()), t9 = t9.next(); !t9.done; t9 = t9.next()) {
                   t9 = e9.I.get(t9.value);
                   break a;
                 }
@@ -29870,21 +29967,21 @@ var init_load_uTL4eiru = __esm({
           }
           function vD(e9, t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6) {
             function g6(t10) {
-              var n7, g7, b5, x5, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4, F5, I5, ee3, te3;
+              var n7, g7, b6, x6, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5, F5, I5, ee3, te3;
               return P4(function(P5) {
                 switch (P5.h) {
                   case 1:
                     return n7 = Ot, P5.m(2), P5.g(t10.promise, 4);
                   case 4:
                     if (g7 = P5.i, t10.aborted) return P5.return();
-                    if (b5 = g7.uri, b5 != g7.originalUri && (x5 = y5.U(), x5.includes(b5) || y5.Zf.push(b5)), S3 = EE(e9.Ha, g7.data), S3.type != 1) throw new H4(2, 4, 4017);
-                    return C5 = gE(S3.ea, "EXT-X-DEFINE"), w5 = UE(e9, C5, b5), T5 = false, (!e9.M && e9.g.hls.disableCodecGuessing || e9.R && i6 == n7.za && !e9.g.hls.disableClosedCaptionsDetection) && S3.segments.length > 0 && (e9.R = false, T5 = true), E5 = !e9.M && e9.g.hls.disableCodecGuessing, D5 = YD(e9), P5.g(TD(e9, 0, w5, S3, _5, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, void 0, T5, E5), 5);
+                    if (b6 = g7.uri, b6 != g7.originalUri && (x6 = y6.U(), x6.includes(b6) || y6.Zf.push(b6)), S5 = EE(e9.Ha, g7.data), S5.type != 1) throw new H4(2, 4, 4017);
+                    return C6 = gE(S5.ea, "EXT-X-DEFINE"), w6 = UE(e9, C6, b6), T6 = false, (!e9.M && e9.g.hls.disableCodecGuessing || e9.R && i6 == n7.za && !e9.g.hls.disableClosedCaptionsDetection) && S5.segments.length > 0 && (e9.R = false, T6 = true), E6 = !e9.M && e9.g.hls.disableCodecGuessing, D6 = YD(e9), P5.g(TD(e9, 0, w6, S5, _5, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, void 0, T6, E6), 5);
                   case 5:
-                    return O5 = P5.i, t10.aborted ? P5.return() : (k5 = O5.stream, jD(e9, S3), YD(e9) && !D5 && PD(e9, S3), y5.fd = O5.fd, y5.Tc = O5.Tc, y5.lf = O5.lf, y5.kf = O5.kf, y5.jf = O5.jf, y5.ve = O5.ve, y5.Of = O5.Of, y5.Qb = O5.Qb, y5.Rb = O5.Rb, v7.segmentIndex = k5.segmentIndex, v7.encrypted = k5.encrypted, v7.drmInfos = k5.drmInfos, v7.keyIds = k5.keyIds, v7.mimeType = k5.mimeType, v7.bandwidth = v7.bandwidth || k5.bandwidth, v7.codecs = v7.codecs || k5.codecs, v7.closedCaptions = v7.closedCaptions || k5.closedCaptions, v7.width = v7.width || k5.width, v7.height = v7.height || k5.height, v7.hdr = v7.hdr || k5.hdr, v7.colorGamut = v7.colorGamut || k5.colorGamut, v7.frameRate = v7.frameRate || k5.frameRate, v7.language == "und" && k5.language != "und" && (v7.language = k5.language), v7.language = v7.language || k5.language, v7.channelsCount = v7.channelsCount || k5.channelsCount, v7.audioSamplingRate = v7.audioSamplingRate || k5.audioSamplingRate, ZE(v7), y5.type != n7.za || O5.type != n7.$ || e9.M && !Nr.includes(v7.mimeType) || yD(e9, y5, k5), v7.drmInfos.length && e9.i.newDrmInfo(v7), A4 = false, (!l6 && v7.closedCaptions || l6 && v7.closedCaptions && l6.size != v7.closedCaptions.size) && (A4 = true), e9.h && A4 && e9.i.makeTextStreamsForClosedCaptions(e9.h), i6 == n7.Xa && (j5 = k5.segmentIndex.Ib()) && j5.ia && (v7.mimeType = "application/mp4", ZE(v7)), M5 = kd(v7), v7.segmentIndex.Jb(function(e10) {
+                    return O6 = P5.i, t10.aborted ? P5.return() : (k6 = O6.stream, jD(e9, S5), YD(e9) && !D6 && PD(e9, S5), y6.fd = O6.fd, y6.Tc = O6.Tc, y6.lf = O6.lf, y6.kf = O6.kf, y6.jf = O6.jf, y6.ve = O6.ve, y6.Of = O6.Of, y6.Qb = O6.Qb, y6.Rb = O6.Rb, v7.segmentIndex = k6.segmentIndex, v7.encrypted = k6.encrypted, v7.drmInfos = k6.drmInfos, v7.keyIds = k6.keyIds, v7.mimeType = k6.mimeType, v7.bandwidth = v7.bandwidth || k6.bandwidth, v7.codecs = v7.codecs || k6.codecs, v7.closedCaptions = v7.closedCaptions || k6.closedCaptions, v7.width = v7.width || k6.width, v7.height = v7.height || k6.height, v7.hdr = v7.hdr || k6.hdr, v7.colorGamut = v7.colorGamut || k6.colorGamut, v7.frameRate = v7.frameRate || k6.frameRate, v7.language == "und" && k6.language != "und" && (v7.language = k6.language), v7.language = v7.language || k6.language, v7.channelsCount = v7.channelsCount || k6.channelsCount, v7.audioSamplingRate = v7.audioSamplingRate || k6.audioSamplingRate, ZE(v7), y6.type != n7.za || O6.type != n7.$ || e9.M && !Nr.includes(v7.mimeType) || yD(e9, y6, k6), v7.drmInfos.length && e9.i.newDrmInfo(v7), A5 = false, (!l6 && v7.closedCaptions || l6 && v7.closedCaptions && l6.size != v7.closedCaptions.size) && (A5 = true), e9.h && A5 && e9.i.makeTextStreamsForClosedCaptions(e9.h), i6 == n7.Xa && (j5 = k6.segmentIndex.Ib()) && j5.ia && (v7.mimeType = "application/mp4", ZE(v7)), M5 = kd(v7), v7.segmentIndex.Jb(function(e10) {
                       e10.ia && (e10.ia.Jd = M5);
-                    }), wD(e9) && (e9.Gc ? SD(e9, [y5]) : (e9.Gc = true, N4 = Array.from(e9.j.values()), F5 = N4.filter(function(e10) {
+                    }), wD(e9) && (e9.Gc ? SD(e9, [y6]) : (e9.Gc = true, N5 = Array.from(e9.j.values()), F5 = N5.filter(function(e10) {
                       return e10.stream.segmentIndex;
-                    }), SD(e9, F5), HE(e9), I5 = e9.C, I5 > 0 && e9.D.ba(I5))), e9.h && (e9.h.startTime = e9.B), P5.g(zD(e9, S3.ea, v7.type, w5, _5), 6));
+                    }), SD(e9, F5), HE(e9), I5 = e9.C, I5 > 0 && e9.D.ba(I5))), e9.h && (e9.h.startTime = e9.B), P5.g(zD(e9, S5.ea, v7.type, w6, _5), 6));
                   case 6:
                     P5.o(0);
                     break;
@@ -29896,13 +29993,13 @@ var init_load_uTL4eiru = __esm({
               });
             }
             function _5() {
-              return e9.m && n6.length > 1 ? sw(e9.m, t9) : y5.Zf.concat(xE([e9.H], n6, e9.O));
+              return e9.m && n6.length > 1 ? sw(e9.m, t9) : y6.Zf.concat(xE([e9.H], n6, e9.O));
             }
             var v7 = OD(e9, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6);
             n6.some(function(e10) {
               return e10.startsWith("shaka://hls-muxed");
             }) && (v7.isAudioMuxedInVideo = true, i6 == "audio" && (v7.mimeType = "video/mp2t", ZE(v7)));
-            var y5 = {
+            var y6 = {
               stream: v7,
               type: i6,
               Zf: [],
@@ -29917,19 +30014,19 @@ var init_load_uTL4eiru = __esm({
               Qb: -1,
               Rb: -1,
               U: _5
-            }, b4 = null, x4;
+            }, b5 = null, x5;
             return v7.createSegmentIndex = function() {
-              return b4 || (v7.isAudioMuxedInVideo ? (v7.segmentIndex = new md([]), Promise.resolve()) : (x4 = qD(e9, y5.U(), true), b4 = new Promise(function(e10) {
-                e10(g6(x4));
+              return b5 || (v7.isAudioMuxedInVideo ? (v7.segmentIndex = new md([]), Promise.resolve()) : (x5 = qD(e9, y6.U(), true), b5 = new Promise(function(e10) {
+                e10(g6(x5));
               })));
             }, v7.closeSegmentIndex = function() {
-              b4 && !v7.segmentIndex && x4.abort(), v7.segmentIndex &&= (v7.segmentIndex.release(), null), b4 = null;
-            }, y5;
+              b5 && !v7.segmentIndex && x5.abort(), v7.segmentIndex &&= (v7.segmentIndex.release(), null), b5 = null;
+            }, y6;
           }
           function yD(e9, t9, n6) {
             var r7 = t9.stream, i6 = n6.type, a7 = t9.type;
             if (e9.u == mO && (e9.o.set(i6, e9.o.get(a7)), e9.o.set(a7, /* @__PURE__ */ new Map())), t9.type = i6, r7.type = i6, r7.codecs = wt(i6, n6.codecs.split(/\s*,\s*/)) || "", ZE(r7), e9.h) {
-              for (t9 = y4(e9.h.variants), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, i6 == "audio" && n6.video == r7 && (n6.video = null, n6.audio || (n6.audio = r7, n6.language = r7.language));
+              for (t9 = y5(e9.h.variants), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, i6 == "audio" && n6.video == r7 && (n6.video = null, n6.audio || (n6.audio = r7, n6.language = r7.language));
               e9.h.variants = e9.h.variants.filter(function(e10) {
                 return e10.audio || e10.video;
               });
@@ -29937,20 +30034,20 @@ var init_load_uTL4eiru = __esm({
           }
           function bD(e9) {
             var t9 = Infinity;
-            e9 = y4(e9.j.values());
+            e9 = y5(e9.j.values());
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) n6 = n6.value, n6.stream.segmentIndex && n6.stream.type != "text" && !n6.stream.isAudioMuxedInVideo && (t9 = Math.min(t9, n6.Tc));
             return t9;
           }
           function xD(e9, t9) {
             var n6 = [];
-            t9 = y4(t9);
+            t9 = y5(t9);
             for (var r7 = t9.next(); !r7.done; r7 = t9.next()) r7 = r7.value, r7.segmentIndex && r7.segmentIndex.Jb(function(e10) {
               n6.push(e10);
             });
             e9.l.De(n6);
           }
           function SD(e9, t9) {
-            if (!YD(e9)) for (var n6 = bD(e9), r7 = y4(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) i6.value.stream.segmentIndex.xd(0, n6);
+            if (!YD(e9)) for (var n6 = bD(e9), r7 = y5(t9), i6 = r7.next(); !i6.done; i6 = r7.next()) i6.value.stream.segmentIndex.xd(0, n6);
             xD(e9, t9.map(function(e10) {
               return e10.stream;
             })), r7 = Array.from(e9.j.values()).filter(function(e10) {
@@ -29967,7 +30064,7 @@ var init_load_uTL4eiru = __esm({
           function wD(e9) {
             if (!e9.h || !e9.h.variants.length) return false;
             var t9 = [], n6 = [];
-            e9 = y4(e9.h.variants);
+            e9 = y5(e9.h.variants);
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) r7 = r7.value, r7.video && t9.push(r7.video), r7.audio && n6.push(r7.audio);
             return !(t9.length > 0 && !t9.some(function(e10) {
               return e10.segmentIndex;
@@ -29975,57 +30072,57 @@ var init_load_uTL4eiru = __esm({
               return e10.segmentIndex;
             }));
           }
-          function TD(e9, t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y5, b4) {
-            y5 = y5 === void 0 || y5, b4 = b4 === void 0 || b4;
-            var x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4, F5, I5, ee3, te3, ne3, re3, L4, ie3, ae3, oe3, se3, ce3, R4, le3, ue3, de3, fe3, pe3;
+          function TD(e9, t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y6, b5) {
+            y6 = y6 === void 0 || y6, b5 = b5 === void 0 || b5;
+            var x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5, F5, I5, ee3, te3, ne3, re3, L5, ie3, ae3, oe3, se3, ce3, R5, le3, ue3, de3, fe3, pe3;
             return P4(function(t10) {
               switch (t10.h) {
                 case 1:
-                  if (x4 = o8, S3 = r7.segments || [], C5 = S3.every(function(e10) {
+                  if (x5 = o8, S5 = r7.segments || [], C6 = S5.every(function(e10) {
                     return !!vE(e10.ea, "EXT-X-GAP");
-                  }), !S3.length || C5) throw new H4(2, 4, 4053);
-                  if (MD(e9, r7), YD(e9) && ND(e9, r7), w5 = e9.u == mO ? e9.o.get(o8) : /* @__PURE__ */ new Map(), T5 = BD(e9, r7, w5, n6, i6, o8, true, null), E5 = T5.segments, D5 = T5.bandwidth, v7 || o8 != U2) {
+                  }), !S5.length || C6) throw new H4(2, 4, 4053);
+                  if (MD(e9, r7), YD(e9) && ND(e9, r7), w6 = e9.u == mO ? e9.o.get(o8) : /* @__PURE__ */ new Map(), T6 = BD(e9, r7, w6, n6, i6, o8, true, null), E6 = T6.segments, D6 = T6.bandwidth, v7 || o8 != U3) {
                     t10.A(2);
                     break;
                   }
-                  return t10.g(GD(e9, o8, a7, E5), 3);
+                  return t10.g(GD(e9, o8, a7, E6), 3);
                 case 3:
-                  v7 = t10.i, a7 || v7 != "application/mp4" || !E5[0] || E5[0].ia || (v7 = "text/vtt"), a7 || v7 != "application/mp4" || (b4 = y5 = true);
+                  v7 = t10.i, a7 || v7 != "application/mp4" || !E6[0] || E6[0].ia || (v7 = "text/vtt"), a7 || v7 != "application/mp4" || (b5 = y6 = true);
                 case 2:
-                  if (M5 = j5 = A4 = k5 = O5 = null, !(E5.length > 0 && y5)) {
+                  if (M5 = j5 = A5 = k6 = O6 = null, !(E6.length > 0 && y6)) {
                     t10.A(4);
                     break;
                   }
-                  return t10.g(BE(e9, E5), 5);
+                  return t10.g(BE(e9, E6), 5);
                 case 5:
-                  N4 = t10.i, o8 != N4.type && e9.u == mO && (e9.o.set(N4.type, e9.o.get(o8)), e9.o.set(o8, /* @__PURE__ */ new Map())), o8 = N4.type, N4.type != "video" && (s7 = N4.language), u7 = N4.channelCount, m5 = N4.sampleRate, e9.g.disableText || (d5 = N4.closedCaptions), k5 = N4.height, O5 = N4.width, A4 = N4.Ne, j5 = N4.colorGamut, M5 = N4.frameRate, b4 && (v7 = N4.mimeType, a7 = N4.codecs);
+                  N5 = t10.i, o8 != N5.type && e9.u == mO && (e9.o.set(N5.type, e9.o.get(o8)), e9.o.set(o8, /* @__PURE__ */ new Map())), o8 = N5.type, N5.type != "video" && (s7 = N5.language), u7 = N5.channelCount, m5 = N5.sampleRate, e9.g.disableText || (d5 = N5.closedCaptions), k6 = N5.height, O6 = N5.width, A5 = N5.Ne, j5 = N5.colorGamut, M5 = N5.frameRate, b5 && (v7 = N5.mimeType, a7 = N5.codecs);
                 case 4:
                   if (v7) {
                     t10.A(6);
                     break;
                   }
-                  return t10.g(GD(e9, o8, a7, E5), 7);
+                  return t10.g(GD(e9, o8, a7, E6), 7);
                 case 7:
                   v7 = t10.i;
                 case 6:
-                  return x4 == "video" && Nr.includes(v7) && (o8 = "audio"), t10.g(kD(e9, r7, v7, i6, n6), 8);
+                  return x5 == "video" && Nr.includes(v7) && (o8 = "audio"), t10.g(kD(e9, r7, v7, i6, n6), 8);
                 case 8:
                   if (F5 = t10.i, I5 = F5.drmInfos, ee3 = F5.keyIds, te3 = F5.encrypted, ne3 = F5.Ki, te3 && !I5.length && !ne3) throw new H4(2, 4, 4026);
-                  return re3 = OD(e9, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5), re3.encrypted = te3 && !ne3, re3.drmInfos = I5, re3.keyIds = ee3, re3.mimeType = v7, D5 && (re3.bandwidth = D5), vE(r7.ea, "EXT-X-I-FRAMES-ONLY") && (re3.isIframe = true), ZE(re3), o8 == "video" && (O5 || k5 || A4 || j5) && KD(re3, O5, k5, M5, A4, null, j5), YD(e9) && ND(e9, r7), L4 = E5[0].startTime, ie3 = E5[E5.length - 1], ae3 = ie3.endTime, oe3 = new md(E5), re3.segmentIndex = oe3, VD(e9, re3, o8), ce3 = (se3 = vE(r7.ea, "EXT-X-SERVER-CONTROL")) ? fE(se3, "CAN-SKIP-UNTIL") != null : false, R4 = false, ce3 && (R4 = se3 ? fE(se3, "CAN-SKIP-DATERANGES") != null : false), le3 = se3 ? fE(se3, "CAN-BLOCK-RELOAD") != null : false, ue3 = yE(r7.ea, "EXT-X-MEDIA-SEQUENCE", 0), de3 = ED(ue3, E5), fe3 = de3.Qb, pe3 = de3.Rb, t10.return({
+                  return re3 = OD(e9, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5), re3.encrypted = te3 && !ne3, re3.drmInfos = I5, re3.keyIds = ee3, re3.mimeType = v7, D6 && (re3.bandwidth = D6), vE(r7.ea, "EXT-X-I-FRAMES-ONLY") && (re3.isIframe = true), ZE(re3), o8 == "video" && (O6 || k6 || A5 || j5) && KD(re3, O6, k6, M5, A5, null, j5), YD(e9) && ND(e9, r7), L5 = E6[0].startTime, ie3 = E6[E6.length - 1], ae3 = ie3.endTime, oe3 = new md(E6), re3.segmentIndex = oe3, VD(e9, re3, o8), ce3 = (se3 = vE(r7.ea, "EXT-X-SERVER-CONTROL")) ? fE(se3, "CAN-SKIP-UNTIL") != null : false, R5 = false, ce3 && (R5 = se3 ? fE(se3, "CAN-SKIP-DATERANGES") != null : false), le3 = se3 ? fE(se3, "CAN-BLOCK-RELOAD") != null : false, ue3 = yE(r7.ea, "EXT-X-MEDIA-SEQUENCE", 0), de3 = ED(ue3, E6), fe3 = de3.Qb, pe3 = de3.Rb, t10.return({
                     stream: re3,
                     type: o8,
                     Zf: [],
                     U: i6,
-                    fd: L4,
+                    fd: L5,
                     Tc: ae3,
                     lf: ce3,
-                    kf: R4,
+                    kf: R5,
                     jf: le3,
                     ve: false,
                     Ug: -1,
                     Qb: fe3,
                     Rb: pe3,
-                    Of: w5
+                    Of: w6
                   });
               }
             });
@@ -30051,10 +30148,10 @@ var init_load_uTL4eiru = __esm({
           function OD(e9, t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5) {
             var m5 = HD(n6, t9) || UD(n6), h6 = [];
             if (c7) {
-              c7 = y4(c7.split(","));
+              c7 = y5(c7.split(","));
               for (var g6 = c7.next(); !g6.done; g6 = c7.next()) h6.push(g6.value);
             }
-            return c7 = void 0, g6 = null, n6 == U2 ? c7 = h6.includes("public.accessibility.transcribes-spoken-dialog") && h6.includes("public.accessibility.describes-music-and-sound") ? "caption" : "subtitle" : h6.includes("public.accessibility.describes-video") && (g6 = "visually impaired"), h6.length || c7 !== "subtitle" || h6.push("subtitle"), e9 = {
+            return c7 = void 0, g6 = null, n6 == U3 ? c7 = h6.includes("public.accessibility.transcribes-spoken-dialog") && h6.includes("public.accessibility.describes-music-and-sound") ? "caption" : "subtitle" : h6.includes("public.accessibility.describes-video") && (g6 = "visually impaired"), h6.length || c7 !== "subtitle" || h6.push("subtitle"), e9 = {
               id: e9.F++,
               originalId: p5,
               groupId: null,
@@ -30065,7 +30162,7 @@ var init_load_uTL4eiru = __esm({
               mimeType: m5,
               codecs: t9,
               supplementalCodecs: f4,
-              kind: n6 == U2 ? "subtitle" : void 0,
+              kind: n6 == U3 ? "subtitle" : void 0,
               encrypted: false,
               drmInfos: [],
               keyIds: /* @__PURE__ */ new Set(),
@@ -30102,47 +30199,47 @@ var init_load_uTL4eiru = __esm({
             }, ZE(e9), e9;
           }
           function kD(e9, t9, n6, r7, i6) {
-            var a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4, F5;
+            var a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5, F5;
             return P4(function(P5) {
               switch (P5.h) {
                 case 1:
                   if (a7 = /* @__PURE__ */ new Map(), !e9.g.ignoreDrmInfo && t9.segments) {
-                    for (o8 = y4(t9.segments), s7 = o8.next(); !s7.done; s7 = o8.next()) if (c7 = s7.value, l6 = gE(c7.ea, "EXT-X-KEY"), u7 = null, l6.length) for (u7 = FD(e9, t9, c7.ea, r7, i6), d5 = y4(l6), f4 = d5.next(); !f4.done; f4 = d5.next()) p5 = f4.value, a7.set(p5, u7);
+                    for (o8 = y5(t9.segments), s7 = o8.next(); !s7.done; s7 = o8.next()) if (c7 = s7.value, l6 = gE(c7.ea, "EXT-X-KEY"), u7 = null, l6.length) for (u7 = FD(e9, t9, c7.ea, r7, i6), d5 = y5(l6), f4 = d5.next(); !f4.done; f4 = d5.next()) p5 = f4.value, a7.set(p5, u7);
                   }
-                  h6 = m5 = false, g6 = [], _5 = /* @__PURE__ */ new Set(), v7 = y4(a7), b4 = v7.next();
+                  h6 = m5 = false, g6 = [], _5 = /* @__PURE__ */ new Set(), v7 = y5(a7), b5 = v7.next();
                 case 2:
-                  if (b4.done) {
+                  if (b5.done) {
                     P5.A(4);
                     break;
                   }
-                  if (x4 = b4.value, S3 = y4(x4), C5 = S3.next().value, w5 = S3.next().value, T5 = C5, E5 = w5, D5 = pE(T5, "METHOD"), D5 == "NONE") {
+                  if (x5 = b5.value, S5 = y5(x5), C6 = S5.next().value, w6 = S5.next().value, T6 = C6, E6 = w6, D6 = pE(T6, "METHOD"), D6 == "NONE") {
                     P5.A(3);
                     break;
                   }
-                  if (m5 = true, O5 = $(T5, "KEYFORMAT") || "identity", k5 = null, QD(D5)) {
+                  if (m5 = true, O6 = $(T6, "KEYFORMAT") || "identity", k6 = null, QD(D6)) {
                     h6 = true, P5.A(3);
                     break;
                   }
-                  if (O5 == "identity") return P5.g(nO(e9, T5, n6, r7, E5, i6), 11);
-                  if (A4 = e9.Ac.get(O5), !A4) {
+                  if (O6 == "identity") return P5.g(nO(e9, T6, n6, r7, E6, i6), 11);
+                  if (A5 = e9.Ac.get(O6), !A5) {
                     j5 = null, P5.A(9);
                     break;
                   }
-                  return P5.g(A4(T5, n6, E5), 10);
+                  return P5.g(A5(T6, n6, E6), 10);
                 case 10:
                   j5 = P5.i;
                 case 9:
-                  k5 = j5, P5.A(6);
+                  k6 = j5, P5.A(6);
                   break;
                 case 11:
-                  k5 = P5.i;
+                  k6 = P5.i;
                 case 6:
-                  if (k5) {
-                    if (k5.keyIds) for (M5 = y4(k5.keyIds), N4 = M5.next(); !N4.done; N4 = M5.next()) F5 = N4.value, _5.add(F5);
-                    g6.push(k5);
+                  if (k6) {
+                    if (k6.keyIds) for (M5 = y5(k6.keyIds), N5 = M5.next(); !N5.done; N5 = M5.next()) F5 = N5.value, _5.add(F5);
+                    g6.push(k6);
                   }
                 case 3:
-                  b4 = v7.next(), P5.A(2);
+                  b5 = v7.next(), P5.A(2);
                   break;
                 case 4:
                   return P5.return({
@@ -30155,7 +30252,7 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function AD(t9, n6, r7, i6, a7) {
-            if (!e8.crypto || !e8.crypto.subtle) throw R3("Web Crypto API is not available to decrypt AES. (Web Crypto only exists in secure origins like https)"), new H4(2, 4, 4042);
+            if (!e8.crypto || !e8.crypto.subtle) throw R4("Web Crypto API is not available to decrypt AES. (Web Crypto only exists in secure origins like https)"), new H4(2, 4, 4042);
             var o8 = pE(n6, "METHOD"), s7 = 0, c7 = $(n6, "IV", "");
             if (o8 === "AES-256-GCM") {
               if (c7) throw new H4(2, 4, 4059);
@@ -30235,7 +30332,7 @@ var init_load_uTL4eiru = __esm({
             if (!a7) return null;
             var o8 = pE(a7, "URI"), s7 = bE(r7(), o8, i6);
             return o8 = [s7.toString(), $(a7, "BYTERANGE", "")].join("-"), e9.Ec.getOrInsertComputed(o8, function() {
-              for (var o9 = void 0, c7 = void 0, l6 = false, u7 = y4(n6), d5 = u7.next(); !d5.done; d5 = u7.next()) d5 = d5.value, d5.name == "EXT-X-KEY" ? (l6 = pE(d5, "METHOD"), QD(l6) && d5.id < a7.id ? (l6 = false, o9 = AD(e9, d5, t9, r7, i6)) : l6 = l6 != "NONE") : d5.name == "EXT-X-BYTERANGE" && d5.id < a7.id && (c7 = d5);
+              for (var o9 = void 0, c7 = void 0, l6 = false, u7 = y5(n6), d5 = u7.next(); !d5.done; d5 = u7.next()) d5 = d5.value, d5.name == "EXT-X-KEY" ? (l6 = pE(d5, "METHOD"), QD(l6) && d5.id < a7.id ? (l6 = false, o9 = AD(e9, d5, t9, r7, i6)) : l6 = l6 != "NONE") : d5.name == "EXT-X-BYTERANGE" && d5.id < a7.id && (c7 = d5);
               return ID(s7, a7, c7, o9, l6);
             });
           }
@@ -30258,26 +30355,26 @@ var init_load_uTL4eiru = __esm({
               if (i6.dc.length == 0) throw new H4(2, 4, 4024, "EXTINF");
               if (!t9.Y) return null;
             }
-            var b4 = [];
+            var b5 = [];
             _5 = false;
-            var x4 = null, S3 = false, C5 = false;
+            var x5 = null, S5 = false, C6 = false;
             if (t9.Y && i6.dc.length) {
               p5 = n6 && e8.ReadableStream && t9.g.hls.allowLowLatencyByteRangeOptimization;
-              for (var w5 = g6, T5 = {}, E5 = 0; E5 < i6.dc.length; T5 = {
+              for (var w6 = g6, T6 = {}, E6 = 0; E6 < i6.dc.length; T6 = {
                 rg: void 0,
                 Fe: void 0
-              }, E5++) {
-                var D5 = i6.dc[E5], O5 = E5 == 0 ? r7 : b4[b4.length - 1], k5 = E5 == 0 ? a7 : O5.endTime, A4 = Number($(D5, "DURATION")) || t9.V;
-                if (A4) {
-                  var j5 = k5 + A4, M5 = 0, N4 = null;
-                  if (D5.name == "EXT-X-PRELOAD-HINT" ? (M5 = (M5 = $(D5, "BYTERANGE-START")) ? Number(M5) : 0, (O5 = $(D5, "BYTERANGE-LENGTH")) ? N4 = M5 + Number(O5) - 1 : M5 && (N4 = 2 ** 53 - 1)) : (M5 = $(D5, "BYTERANGE"), N4 = y4(RD(O5, M5)), M5 = N4.next().value, N4 = N4.next().value), T5.Fe = $(D5, "URI"), T5.Fe) {
-                    O5 = Mc, $(D5, "GAP") == "YES" && (t9.h.gapCount++, O5 = 2, S3 = true), T5.rg = null;
+              }, E6++) {
+                var D6 = i6.dc[E6], O6 = E6 == 0 ? r7 : b5[b5.length - 1], k6 = E6 == 0 ? a7 : O6.endTime, A5 = Number($(D6, "DURATION")) || t9.V;
+                if (A5) {
+                  var j5 = k6 + A5, M5 = 0, N5 = null;
+                  if (D6.name == "EXT-X-PRELOAD-HINT" ? (M5 = (M5 = $(D6, "BYTERANGE-START")) ? Number(M5) : 0, (O6 = $(D6, "BYTERANGE-LENGTH")) ? N5 = M5 + Number(O6) - 1 : M5 && (N5 = 2 ** 53 - 1)) : (M5 = $(D6, "BYTERANGE"), N5 = y5(RD(O6, M5)), M5 = N5.next().value, N5 = N5.next().value), T6.Fe = $(D6, "URI"), T6.Fe) {
+                    O6 = Mc, $(D6, "GAP") == "YES" && (t9.h.gapCount++, O6 = 2, S5 = true), T6.rg = null;
                     var P5 = /* @__PURE__ */ (function(e9) {
                       return function() {
                         return e9.rg ??= bE(c7(), e9.Fe, o8), e9.rg;
                       };
-                    })(T5);
-                    p5 && M5 >= 0 && N4 != null && (x4 = P5, _5 = true), k5 = new J(k5, j5, P5, M5, N4, n6, 0, 0, Infinity, [], "", null, w5, O5, u7), D5.name == "EXT-X-PRELOAD-HINT" && (k5.Fh(), C5 = true), $(D5, "INDEPENDENT") != "YES" && E5 > 0 && k5.Id(), D5 = l6, D5 || (b4.length && b4[0].mimeType ? D5 = b4[0].mimeType : T5.Fe && (T5 = af(T5.Fe), D5 = lO.get(s7).get(T5) || null)), D5 && (k5.mimeType = D5, uO.has(D5) && (k5.ia = null)), b4.push(k5), w5 && (w5 += A4);
+                    })(T6);
+                    p5 && M5 >= 0 && N5 != null && (x5 = P5, _5 = true), k6 = new J2(k6, j5, P5, M5, N5, n6, 0, 0, Infinity, [], "", null, w6, O6, u7), D6.name == "EXT-X-PRELOAD-HINT" && (k6.Fh(), C6 = true), $(D6, "INDEPENDENT") != "YES" && E6 > 0 && k6.Id(), D6 = l6, D6 || (b5.length && b5[0].mimeType ? D6 = b5[0].mimeType : T6.Fe && (T6 = af(T6.Fe), D6 = lO.get(s7).get(T6) || null)), D6 && (k6.mimeType = D6, uO.has(D6) && (k6.ia = null)), b5.push(k6), w6 && (w6 += A5);
                   }
                 }
               }
@@ -30285,20 +30382,20 @@ var init_load_uTL4eiru = __esm({
             if (f4) {
               if (f4 = CE(f4), f4 == 0) return null;
               p5 = a7 + f4;
-            } else if (b4.length) p5 = b4[b4.length - 1].endTime;
+            } else if (b5.length) p5 = b5[b5.length - 1].endTime;
             else return null;
-            _5 && (S3 || b4[0].startByte != 0 ? (_5 = false, x4 = null) : b4 = []), (f4 = vE(d5, "EXT-X-BYTERANGE")) ? (h6 = y4(RD(r7, f4.value)), m5 = h6.next().value, h6 = h6.next().value) : b4.length && (m5 = b4[0].startByte, h6 = b4[b4.length - 1].endByte), r7 = "", f4 = null, s7 == "image" && (r7 = "1x1", s7 = vE(d5, "EXT-X-TILES")) && (r7 = pE(s7, "LAYOUT"), (s7 = $(s7, "DURATION")) && (f4 = Number(s7)));
+            _5 && (S5 || b5[0].startByte != 0 ? (_5 = false, x5 = null) : b5 = []), (f4 = vE(d5, "EXT-X-BYTERANGE")) ? (h6 = y5(RD(r7, f4.value)), m5 = h6.next().value, h6 = h6.next().value) : b5.length && (m5 = b5[0].startByte, h6 = b5[b5.length - 1].endByte), r7 = "", f4 = null, s7 == "image" && (r7 = "1x1", s7 = vE(d5, "EXT-X-TILES")) && (r7 = pE(s7, "LAYOUT"), (s7 = $(s7, "DURATION")) && (f4 = Number(s7)));
             var F5 = null;
-            return n6 = new J(a7, p5, function() {
-              return x4 ? x4() : (F5 ??= bE(c7(), i6.g, o8), F5 || []);
-            }, m5, h6, n6, 0, 0, Infinity, b4, r7, f4, g6, v7, u7, b4.length > 0 && !!i6.g), l6 && (n6.mimeType = l6, uO.has(l6) && (n6.ia = null)), _5 && (t9.Bc = true, n6.xj(), C5 && n6.Fh()), n6;
+            return n6 = new J2(a7, p5, function() {
+              return x5 ? x5() : (F5 ??= bE(c7(), i6.g, o8), F5 || []);
+            }, m5, h6, n6, 0, 0, Infinity, b5, r7, f4, g6, v7, u7, b5.length > 0 && !!i6.g), l6 && (n6.mimeType = l6, uO.has(l6) && (n6.ia = null)), _5 && (t9.Bc = true, n6.xj(), C6 && n6.Fh()), n6;
           }
           function RD(e9, t9) {
             var n6 = 0, r7 = null;
             return t9 && (n6 = t9.split("@"), t9 = Number(n6[0]), n6 = n6[1] ? Number(n6[1]) : e9.endByte + 1, r7 = n6 + t9 - 1), [n6, r7];
           }
           function zD(e9, t9, n6, r7, i6) {
-            var a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4, F5, I5, ee3, te3, ne3, re3;
+            var a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5, F5, I5, ee3, te3, ne3, re3;
             return P4(function(P5) {
               if (a7 = Ot, n6 != a7.za && n6 != a7.$ || (o8 = e9.l.j, o8 == null || CD(e9, n6))) return P5.return();
               for (s7 = gE(t9, "EXT-X-DATERANGE"), s7 = s7.filter(function(e10) {
@@ -30309,29 +30406,29 @@ var init_load_uTL4eiru = __esm({
                 u7 = s7[l6];
                 try {
                   if (d5 = pE(u7, "START-DATE"), f4 = Dn(d5), !isNaN(f4)) {
-                    if (p5 = Math.max(0, f4 - o8), m5 = null, (h6 = $(u7, "END-DATE")) && (g6 = Dn(h6), !isNaN(g6) && (m5 = g6 - o8, m5 < 0)) || m5 == null && (_5 = $(u7, "DURATION") || $(u7, "PLANNED-DURATION")) && (v7 = parseFloat(_5), isNaN(v7) || (m5 = p5 + v7), b4 = f4 - o8 + v7, b4 < 0)) continue;
-                    if (x4 = $(u7, "CLASS") || "com.apple.quicktime.HLS", S3 = $(u7, "END-ON-NEXT") == "YES", m5 == null && S3) {
-                      for (C5 = l6 + 1; C5 < s7.length; C5++) if (w5 = $(s7[C5], "CLASS") || "com.apple.quicktime.HLS", x4 == w5 && (T5 = pE(s7[C5], "START-DATE"), E5 = Dn(T5), !isNaN(E5) && E5 && E5 > f4)) {
-                        m5 = Math.max(0, E5 - o8);
+                    if (p5 = Math.max(0, f4 - o8), m5 = null, (h6 = $(u7, "END-DATE")) && (g6 = Dn(h6), !isNaN(g6) && (m5 = g6 - o8, m5 < 0)) || m5 == null && (_5 = $(u7, "DURATION") || $(u7, "PLANNED-DURATION")) && (v7 = parseFloat(_5), isNaN(v7) || (m5 = p5 + v7), b5 = f4 - o8 + v7, b5 < 0)) continue;
+                    if (x5 = $(u7, "CLASS") || "com.apple.quicktime.HLS", S5 = $(u7, "END-ON-NEXT") == "YES", m5 == null && S5) {
+                      for (C6 = l6 + 1; C6 < s7.length; C6++) if (w6 = $(s7[C6], "CLASS") || "com.apple.quicktime.HLS", x5 == w6 && (T6 = pE(s7[C6], "START-DATE"), E6 = Dn(T6), !isNaN(E6) && E6 && E6 > f4)) {
+                        m5 = Math.max(0, E6 - o8);
                         break;
                       }
                       if (m5 == null) continue;
                     }
-                    for (D5 = [
+                    for (D6 = [
                       "CLASS",
                       "START-DATE",
                       "END-DATE",
                       "DURATION",
                       "END-ON-NEXT"
-                    ], O5 = [], k5 = y4(u7.attributes), A4 = k5.next(); !A4.done; A4 = k5.next()) j5 = A4.value, !D5.includes(j5.name) && (M5 = SE(j5.value, r7), (j5.name == "X-ASSET-URI" || j5.name == "X-ASSET-LIST") && (M5 = bE(i6(), j5.value, r7)[0]), N4 = {
+                    ], O6 = [], k6 = y5(u7.attributes), A5 = k6.next(); !A5.done; A5 = k6.next()) j5 = A5.value, !D6.includes(j5.name) && (M5 = SE(j5.value, r7), (j5.name == "X-ASSET-URI" || j5.name == "X-ASSET-LIST") && (M5 = bE(i6(), j5.value, r7)[0]), N5 = {
                       key: j5.name,
                       description: "",
                       data: M5,
                       mimeType: null,
                       pictureType: null
-                    }, O5.push(N4));
+                    }, O6.push(N5));
                     F5 = {
-                      schemeIdUri: x4,
+                      schemeIdUri: x5,
                       value: "",
                       startTime: p5,
                       endTime: m5 ?? Infinity,
@@ -30339,8 +30436,8 @@ var init_load_uTL4eiru = __esm({
                       timescale: 1,
                       eventNode: null,
                       urlParams: void 0,
-                      values: O5
-                    }, e9.i.onTimelineRegionAdded(F5), O5.length > 1 && (I5 = e9.i.onMetadata(x4, p5, m5, O5), ee3 = false, (te3 = O5.find(function(e10) {
+                      values: O6
+                    }, e9.i.onTimelineRegionAdded(F5), O6.length > 1 && (I5 = e9.i.onMetadata(x5, p5, m5, O6), ee3 = false, (te3 = O6.find(function(e10) {
                       return e10.key == "CUE";
                     })) && (ne3 = te3.data, ne3.includes("PRE") && (ee3 = true)), m5 == null || ee3 || (re3 = void 0, re3 = e9.h.startTime == null ? YD(e9) ? e9.h.presentationTimeline.Eb() : e9.h.presentationTimeline.Kb() : e9.h.startTime, ee3 = p5 <= re3 && m5 >= re3), ee3 && c7.push(I5));
                   }
@@ -30356,67 +30453,67 @@ var init_load_uTL4eiru = __esm({
               var t10 = lO.get(a7).get(e10);
               return t10 ||= iO.get(e10), t10;
             }
-            var l6 = t9.segments, u7 = null, d5 = null, f4 = null, p5 = null, m5 = void 0, h6 = yE(t9.ea, "EXT-X-DISCONTINUITY-SEQUENCE", -1), g6 = yE(t9.ea, "EXT-X-MEDIA-SEQUENCE", 0), _5 = vE(t9.ea, "EXT-X-SKIP"), v7 = _5 ? Number($(_5, "SKIPPED-SEGMENTS")) : 0, b4 = g6 + v7, x4 = 0;
-            e9.u == mO && n6.has(b4) && (x4 = n6.get(b4)), x4 === 0 && e9.u == mO && n6.size > 0 && !n6.has(b4) && e9.l.h != null && (x4 = e9.l.Fb());
-            var S3 = [];
+            var l6 = t9.segments, u7 = null, d5 = null, f4 = null, p5 = null, m5 = void 0, h6 = yE(t9.ea, "EXT-X-DISCONTINUITY-SEQUENCE", -1), g6 = yE(t9.ea, "EXT-X-MEDIA-SEQUENCE", 0), _5 = vE(t9.ea, "EXT-X-SKIP"), v7 = _5 ? Number($(_5, "SKIPPED-SEGMENTS")) : 0, b5 = g6 + v7, x5 = 0;
+            e9.u == mO && n6.has(b5) && (x5 = n6.get(b5)), x5 === 0 && e9.u == mO && n6.size > 0 && !n6.has(b5) && e9.l.h != null && (x5 = e9.l.Fb());
+            var S5 = [];
             _5 = [];
-            var C5 = null, w5 = null, T5 = [], E5 = 0;
+            var C6 = null, w6 = null, T6 = [], E6 = 0;
             if (!o8 && s7) {
-              E5 = l6.length;
-              for (var D5 = 0; D5 < l6.length; D5++) {
-                if (b4 = g6 + v7 + D5, !n6.has(b4)) {
-                  E5 = D5;
+              E6 = l6.length;
+              for (var D6 = 0; D6 < l6.length; D6++) {
+                if (b5 = g6 + v7 + D6, !n6.has(b5)) {
+                  E6 = D6;
                   break;
                 }
-                if (l6[D5].dc.length) {
-                  E5 = D5;
+                if (l6[D6].dc.length) {
+                  E6 = D6;
                   break;
                 }
                 if (e9.Y) {
-                  var O5 = vE(l6[D5].ea, "EXTINF");
-                  if (O5 && (O5 = CE(O5), (b4 = DD(s7, n6, b4)) && Math.abs(b4.endTime - b4.startTime - O5) > 1e-3)) {
-                    E5 = D5;
+                  var O6 = vE(l6[D6].ea, "EXTINF");
+                  if (O6 && (O6 = CE(O6), (b5 = DD(s7, n6, b5)) && Math.abs(b5.endTime - b5.startTime - O6) > 1e-3)) {
+                    E6 = D6;
                     break;
                   }
                 }
               }
-              E5 > 0 && ((C5 = DD(s7, n6, g6 + v7 + E5 - 1)) ? w5 = C5 : E5 = 0);
+              E6 > 0 && ((C6 = DD(s7, n6, g6 + v7 + E6 - 1)) ? w6 = C6 : E6 = 0);
             }
-            for (D5 = w5, !D5 && s7 && (D5 = DD(s7, n6, g6 + v7) || s7.get(s7.getNumEvicted() + s7.getNumReferences() - 1)), s7 = 0; s7 < l6.length; s7++) {
-              var k5 = l6[s7];
-              (b4 = vE(k5.ea, "EXT-X-MAP")) && b4.id !== d5 && (u7 = FD(e9, t9, k5.ea, i6, r7), d5 = b4.id), b4 = k5.g, O5 = "", b4 && (O5 = af(b4)), O5 !== p5 && (f4 = c7(b4), p5 = O5);
-              var A4 = s7 == 0 ? x4 : C5.endTime;
-              b4 = g6 + v7 + s7, vE(k5.ea, "EXT-X-DISCONTINUITY") && (h6++, s7 >= E5 && C5 && C5.ia && (C5.ia.g = A4)), O5 = y4(k5.ea);
-              for (var j5 = O5.next(); !j5.done; j5 = O5.next()) j5 = j5.value, j5.name == "EXT-X-KEY" && (m5 = QD(pE(j5, "METHOD")) ? AD(e9, j5, t9, i6, r7) : void 0);
-              if (!(s7 < E5) && (O5 = o8 || !n6.has(b4), n6.set(b4, A4), A4 = LD(e9, u7, C5, k5, A4, r7, a7, i6, f4, m5))) {
-                if ((C5 = yE(k5.ea, "EXT-X-BITRATE")) ? (T5.push({
-                  bitrate: C5,
-                  duration: A4.endTime - A4.startTime
-                }), A4.bandwidth = C5) : A4.endByte ? (k5 = Ac(A4)) && (C5 = A4.endTime - A4.startTime, k5 = k5 * 8 / C5 / 1e3, T5.push({
-                  bitrate: k5,
-                  duration: C5
-                }), A4.bandwidth = k5) : T5.length && (C5 = T5[T5.length - 1], C5.duration += A4.endTime - A4.startTime, A4.bandwidth = C5.bitrate), A4.bandwidth) for (C5 = y4(A4.h), k5 = C5.next(); !k5.done; k5 = C5.next()) k5.value.bandwidth = A4.bandwidth;
-                C5 = A4, A4.i = h6, CD(e9, a7) && e9.K != null && b4 < e9.K || (S3.push(A4), !O5 && o8 || _5.push(A4));
+            for (D6 = w6, !D6 && s7 && (D6 = DD(s7, n6, g6 + v7) || s7.get(s7.getNumEvicted() + s7.getNumReferences() - 1)), s7 = 0; s7 < l6.length; s7++) {
+              var k6 = l6[s7];
+              (b5 = vE(k6.ea, "EXT-X-MAP")) && b5.id !== d5 && (u7 = FD(e9, t9, k6.ea, i6, r7), d5 = b5.id), b5 = k6.g, O6 = "", b5 && (O6 = af(b5)), O6 !== p5 && (f4 = c7(b5), p5 = O6);
+              var A5 = s7 == 0 ? x5 : C6.endTime;
+              b5 = g6 + v7 + s7, vE(k6.ea, "EXT-X-DISCONTINUITY") && (h6++, s7 >= E6 && C6 && C6.ia && (C6.ia.g = A5)), O6 = y5(k6.ea);
+              for (var j5 = O6.next(); !j5.done; j5 = O6.next()) j5 = j5.value, j5.name == "EXT-X-KEY" && (m5 = QD(pE(j5, "METHOD")) ? AD(e9, j5, t9, i6, r7) : void 0);
+              if (!(s7 < E6) && (O6 = o8 || !n6.has(b5), n6.set(b5, A5), A5 = LD(e9, u7, C6, k6, A5, r7, a7, i6, f4, m5))) {
+                if ((C6 = yE(k6.ea, "EXT-X-BITRATE")) ? (T6.push({
+                  bitrate: C6,
+                  duration: A5.endTime - A5.startTime
+                }), A5.bandwidth = C6) : A5.endByte ? (k6 = Ac(A5)) && (C6 = A5.endTime - A5.startTime, k6 = k6 * 8 / C6 / 1e3, T6.push({
+                  bitrate: k6,
+                  duration: C6
+                }), A5.bandwidth = k6) : T6.length && (C6 = T6[T6.length - 1], C6.duration += A5.endTime - A5.startTime, A5.bandwidth = C6.bitrate), A5.bandwidth) for (C6 = y5(A5.h), k6 = C6.next(); !k6.done; k6 = C6.next()) k6.value.bandwidth = A5.bandwidth;
+                C6 = A5, A5.i = h6, CD(e9, a7) && e9.K != null && b5 < e9.K || (S5.push(A5), !O6 && o8 || _5.push(A5));
               }
             }
-            t9 = void 0, T5.length && (t9 = T5.reduce(function(e10, t10) {
+            t9 = void 0, T6.length && (t9 = T6.reduce(function(e10, t10) {
               return e10 + t10.duration;
-            }, 0), t9 = Math.round(T5.reduce(function(e10, t10) {
+            }, 0), t9 = Math.round(T6.reduce(function(e10, t10) {
               return e10 + t10.bitrate * t10.duration;
             }, 0) / t9 * 1e3));
             var M5;
-            if (T5 = !((M5 = w5) == null || !M5.g) || S3.some(function(e10) {
+            if (T6 = !((M5 = w6) == null || !M5.g) || S5.some(function(e10) {
               return e10.g != null;
             })) {
-              for (M5 = {}, n6 = 0; n6 < S3.length; M5 = {
+              for (M5 = {}, n6 = 0; n6 < S5.length; M5 = {
                 yf: void 0,
                 xf: void 0,
                 ef: void 0,
                 hd: void 0,
                 fe: void 0
-              }, n6++) if (M5.hd = S3[n6], M5.hd.g == null) for (M5.xf = 0, M5.yf = n6, r7 = /* @__PURE__ */ (function(e10) {
+              }, n6++) if (M5.hd = S5[n6], M5.hd.g == null) for (M5.xf = 0, M5.yf = n6, r7 = /* @__PURE__ */ (function(e10) {
                 return function() {
-                  var t10 = S3[e10.yf];
+                  var t10 = S5[e10.yf];
                   if (t10) {
                     if (t10.g != null) return t10.g + e10.xf;
                     e10.xf -= t10.endTime - t10.startTime, e10.yf += 1;
@@ -30425,23 +30522,23 @@ var init_load_uTL4eiru = __esm({
                 };
               })(M5), M5.fe = 0, M5.ef = n6, i6 = /* @__PURE__ */ (function(e10) {
                 return function() {
-                  var t10 = S3[e10.ef];
+                  var t10 = S5[e10.ef];
                   if (t10) {
                     if (t10 != e10.hd && (e10.fe += t10.endTime - t10.startTime), t10.g != null) return t10.g + e10.fe;
                     --e10.ef;
-                  } else if (w5 && w5.g != null) return w5.g + (w5.endTime - w5.startTime) + e10.fe;
+                  } else if (w6 && w6.g != null) return w6.g + (w6.endTime - w6.startTime) + e10.fe;
                   return null;
                 };
               })(M5); M5.hd.g == null; ) M5.hd.g = i6(), M5.hd.g ?? (M5.hd.g = r7());
             }
-            if (T5) for (M5 = 0, r7 = w5, D5 && D5.g != null && (n6 = e9.ib.get(D5), n6 != null && (M5 = n6 - D5.g)), D5 = y4(S3), n6 = D5.next(); !n6.done; n6 = D5.next()) {
-              for (n6 = n6.value, n6.g != null && (e9.ib.set(n6, n6.g), r7 && r7.g != null && r7.i != n6.i && (r7 = n6.g - (r7.g + (r7.endTime - r7.startTime)) - M5, Math.abs(r7) > 1 && (M5 += r7)), n6.g -= M5), r7 = n6.g, i6 = y4(n6.h), l6 = i6.next(); !l6.done; l6 = i6.next()) l6 = l6.value, l6.g = r7, r7 += l6.endTime - l6.startTime;
+            if (T6) for (M5 = 0, r7 = w6, D6 && D6.g != null && (n6 = e9.ib.get(D6), n6 != null && (M5 = n6 - D6.g)), D6 = y5(S5), n6 = D6.next(); !n6.done; n6 = D6.next()) {
+              for (n6 = n6.value, n6.g != null && (e9.ib.set(n6, n6.g), r7 && r7.g != null && r7.i != n6.i && (r7 = n6.g - (r7.g + (r7.endTime - r7.startTime)) - M5, Math.abs(r7) > 1 && (M5 += r7)), n6.g -= M5), r7 = n6.g, i6 = y5(n6.h), l6 = i6.next(); !l6.done; l6 = i6.next()) l6 = l6.value, l6.g = r7, r7 += l6.endTime - l6.startTime;
               r7 = n6;
             }
-            if (D5 = e9.ma, T5 && D5 != Infinity && !CD(e9, a7)) for (e9 = y4(S3), M5 = e9.next(); !M5.done; M5 = e9.next()) M5.value.si(D5);
+            if (D6 = e9.ma, T6 && D6 != Infinity && !CD(e9, a7)) for (e9 = y5(S5), M5 = e9.next(); !M5.done; M5 = e9.next()) M5.value.si(D6);
             return {
-              segments: o8 ? S3 : _5,
-              Lm: E5 + S3.length,
+              segments: o8 ? S5 : _5,
+              Lm: E6 + S5.length,
               bandwidth: t9
             };
           }
@@ -30449,7 +30546,7 @@ var init_load_uTL4eiru = __esm({
             if (n6 == "video" && !CD(e9, n6) && t9.segmentIndex) {
               n6 = [];
               var r7 = null;
-              t9 = y4(t9.segmentIndex);
+              t9 = y5(t9.segmentIndex);
               for (var i6 = t9.next(); !i6.done; i6 = t9.next()) if ((i6 = i6.value) && i6.g != null) {
                 var a7 = e9.ib.get(i6);
                 if (a7 != null) {
@@ -30464,14 +30561,14 @@ var init_load_uTL4eiru = __esm({
             }
           }
           function HD(e9, t9) {
-            if (e9 == U2) {
+            if (e9 == U3) {
               if (t9 == "vtt" || t9 == "wvtt") return "text/vtt";
               if (t9 && t9 !== "") return "application/mp4";
             }
             return e9 != "image" || t9 && t9 != "jpeg" ? e9 == "audio" && t9 == "mp4a.40.34" ? "audio/mpeg" : t9 == "mjpg" ? "application/mp4" : null : "image/jpeg";
           }
           function UD(e9) {
-            return e9 == U2 ? "text/vtt" : lO.get(e9).get("mp4");
+            return e9 == U3 ? "text/vtt" : lO.get(e9).get("mp4");
           }
           function WD(e9, t9) {
             e9 = e9.u == mO ? Math.trunc((t9.length - 1) / 2) : 0;
@@ -30515,7 +30612,7 @@ var init_load_uTL4eiru = __esm({
                 case 10:
                   h6 = _5.i;
                 case 9:
-                  Hl(V3(h6.data)) && (s7 = "video/mp2t");
+                  Hl(V4(h6.data)) && (s7 = "video/mp2t");
                 case 8:
                   if (!dO.includes(s7)) return _5.return(s7);
                 case 7:
@@ -30582,7 +30679,7 @@ var init_load_uTL4eiru = __esm({
             n6 == "SAMPLE-AES" && (r7 = "cbcs"), n6 = pE(t9, "URI");
             var i6 = ME(n6.split("?")[0]);
             return e9 = e9.xa.getOrInsertComputed(n6.split("?")[0], function() {
-              return V3(i6.data);
+              return V4(i6.data);
             }), r7 = xt2("com.widevine.alpha", r7, [{
               initDataType: "cenc",
               initData: e9
@@ -30595,7 +30692,7 @@ var init_load_uTL4eiru = __esm({
             n6 == "SAMPLE-AES" && (r7 = "cbcs"), n6 = pE(t9, "URI");
             var i6 = ME(n6.split("?")[0]);
             return e9 = e9.xa.getOrInsertComputed(n6.split("?")[0], function() {
-              return V3(i6.data);
+              return V4(i6.data);
             }), r7 = xt2("com.huawei.wiseplay", r7, [{
               initDataType: "cenc",
               initData: e9
@@ -30636,8 +30733,8 @@ var init_load_uTL4eiru = __esm({
               return o8.h == 1 ? (n6 = null, e9.ra.has(t9) ? (n6 = e9.ra.get(t9), o8.A(2)) : (r7 = of(t9.U(), t9.Rc(), t9.Oc(), e9.i.getStreamingRetryParameters()), i6 = Oa, o8.g(ZD(e9, r7, i6, { type: 0 }).promise, 3))) : (o8.h != 2 && (a7 = o8.i, t9.Je(a7.data), n6 = tf(a7.data), e9.ra.set(t9, n6)), o8.return(n6));
             });
           }
-          L3("shaka.hls.HlsParser", NE);
-          var iO = (/* @__PURE__ */ new Map()).set("aac", "audio/aac").set("ac3", "audio/ac3").set("ec3", "audio/ec3").set("mp3", "audio/mpeg"), aO = (/* @__PURE__ */ new Map()).set("mp4", "audio/mp4").set("mp4a", "audio/mp4").set("m4s", "audio/mp4").set("m4i", "audio/mp4").set("m4a", "audio/mp4").set("m4f", "audio/mp4").set("cmfa", "audio/mp4").set("ts", "video/mp2t").set("tsa", "video/mp2t"), oO = (/* @__PURE__ */ new Map()).set("mp4", "video/mp4").set("mp4v", "video/mp4").set("m4s", "video/mp4").set("m4i", "video/mp4").set("m4v", "video/mp4").set("m4f", "video/mp4").set("cmfv", "video/mp4").set("ts", "video/mp2t").set("tsv", "video/mp2t"), sO = (/* @__PURE__ */ new Map()).set("mp4", "application/mp4").set("m4s", "application/mp4").set("m4i", "application/mp4").set("m4f", "application/mp4").set("cmft", "application/mp4").set("vtt", "text/vtt").set("webvtt", "text/vtt").set("ttml", "application/ttml+xml"), cO = (/* @__PURE__ */ new Map()).set("jpg", "image/jpeg").set("png", "image/png").set("svg", "image/svg+xml").set("webp", "image/webp").set("avif", "image/avif"), lO = (/* @__PURE__ */ new Map()).set("audio", aO).set("video", oO).set("text", sO).set("image", cO), uO = new Set(["video/mp2t"].concat(b3(Nr))), dO = ["application/octet-stream", "binary/octet-stream"], fO = "VOD", pO = "EVENT", mO = "LIVE";
+          L4("shaka.hls.HlsParser", NE);
+          var iO = (/* @__PURE__ */ new Map()).set("aac", "audio/aac").set("ac3", "audio/ac3").set("ec3", "audio/ec3").set("mp3", "audio/mpeg"), aO = (/* @__PURE__ */ new Map()).set("mp4", "audio/mp4").set("mp4a", "audio/mp4").set("m4s", "audio/mp4").set("m4i", "audio/mp4").set("m4a", "audio/mp4").set("m4f", "audio/mp4").set("cmfa", "audio/mp4").set("ts", "video/mp2t").set("tsa", "video/mp2t"), oO = (/* @__PURE__ */ new Map()).set("mp4", "video/mp4").set("mp4v", "video/mp4").set("m4s", "video/mp4").set("m4i", "video/mp4").set("m4v", "video/mp4").set("m4f", "video/mp4").set("cmfv", "video/mp4").set("ts", "video/mp2t").set("tsv", "video/mp2t"), sO = (/* @__PURE__ */ new Map()).set("mp4", "application/mp4").set("m4s", "application/mp4").set("m4i", "application/mp4").set("m4f", "application/mp4").set("cmft", "application/mp4").set("vtt", "text/vtt").set("webvtt", "text/vtt").set("ttml", "application/ttml+xml"), cO = (/* @__PURE__ */ new Map()).set("jpg", "image/jpeg").set("png", "image/png").set("svg", "image/svg+xml").set("webp", "image/webp").set("avif", "image/avif"), lO = (/* @__PURE__ */ new Map()).set("audio", aO).set("video", oO).set("text", sO).set("image", cO), uO = new Set(["video/mp2t"].concat(b4(Nr))), dO = ["application/octet-stream", "binary/octet-stream"], fO = "VOD", pO = "EVENT", mO = "LIVE";
           It("application/x-mpegurl", function() {
             return new NE();
           }), It("application/vnd.apple.mpegurl", function() {
@@ -30665,15 +30762,15 @@ var init_load_uTL4eiru = __esm({
             t9("TIT2", n6(3, 30)), t9("TPE1", n6(33, 30)), t9("TALB", n6(63, 30)), t9("TYER", n6(93, 4));
             var a7 = "", o8 = null;
             return e9[i6 + 125] === 0 ? (a7 = n6(97, 28), o8 = e9[i6 + 126]) : a7 = n6(97, 30), t9("COMM", a7), o8 !== null && t9("TRCK", String(o8)), t9("TCON", String(e9[i6 + 127])), r7;
-          }, L3("shaka.metadata.Id3V1Utils", hO), hO.prototype.parse = hO.prototype.parse;
-          for (var gO = y4(Nr), _O = gO.next(); !_O.done; _O = gO.next()) Gc(_O.value, function() {
+          }, L4("shaka.metadata.Id3V1Utils", hO), hO.prototype.parse = hO.prototype.parse;
+          for (var gO = y5(Nr), _O = gO.next(); !_O.done; _O = gO.next()) Gc(_O.value, function() {
             return new hO();
           });
           function vO() {
           }
           vO.prototype.parse = function(e9) {
             var t9 = [];
-            return new q().ua(["moov", "udta"], Va).T("meta", Va).box("ilst", function(e10) {
+            return new q2().ua(["moov", "udta"], Va).T("meta", Va).box("ilst", function(e10) {
               for (; e10.reader.La() && !(e10.reader.$a() - e10.reader.Ia() < 8); ) {
                 var n6 = e10.reader.S(), r7 = qa(e10.reader.S());
                 if (n6 < 8) break;
@@ -30683,7 +30780,7 @@ var init_load_uTL4eiru = __esm({
           };
           function yO(e9) {
             var t9 = "", n6 = "", r7 = null;
-            return new q().T("mean", function(e10) {
+            return new q2().T("mean", function(e10) {
               t9 = Ie2(e10.reader.Ja(e10.reader.$a() - e10.reader.Ia(), false));
             }).T("name", function(e10) {
               n6 = Ie2(e10.reader.Ja(e10.reader.$a() - e10.reader.Ia(), false));
@@ -30699,7 +30796,7 @@ var init_load_uTL4eiru = __esm({
           }
           function bO(e9, t9) {
             var n6 = SO.get(e9) || e9, r7 = null;
-            return new q().T("data", function(t10) {
+            return new q2().T("data", function(t10) {
               t10 = xO(t10, e9), r7 = {
                 key: n6,
                 data: t10.data,
@@ -30745,7 +30842,7 @@ var init_load_uTL4eiru = __esm({
                     e9 = e9.getInt32(0, false);
                     break;
                   default:
-                    for (e9 = 0, n6 = y4(n6), t9 = n6.next(); !t9.done; t9 = n6.next()) e9 = e9 << 8 | t9.value;
+                    for (e9 = 0, n6 = y5(n6), t9 = n6.next(); !t9.done; t9 = n6.next()) e9 = e9 << 8 | t9.value;
                 }
                 return {
                   data: e9,
@@ -30760,7 +30857,7 @@ var init_load_uTL4eiru = __esm({
                 };
             }
           }
-          L3("shaka.metadata.IlstUtils", vO), vO.prototype.parse = vO.prototype.parse;
+          L4("shaka.metadata.IlstUtils", vO), vO.prototype.parse = vO.prototype.parse;
           var SO = (/* @__PURE__ */ new Map()).set("\xA9nam", "TIT2").set("\xA9ART", "TPE1").set("aART", "TPE2").set("\xA9alb", "TALB").set("\xA9gen", "TCON").set("\xA9day", "TDRC").set("\xA9wrt", "TEXT").set("trkn", "TRCK").set("disk", "TPOS").set("\xA9cmt", "COMM").set("covr", "APIC").set("cprt", "TCOP").set("\xA9too", "TENC").set("tmpo", "TBPM").set("cpil", "TCMP");
           Gc("audio/mp4", function() {
             return new vO();
@@ -30773,7 +30870,7 @@ var init_load_uTL4eiru = __esm({
                 var r7 = e9[n6], i6 = !!(r7 & 128), a7 = r7 & 127;
                 if (r7 = e9[n6 + 1] << 16 | e9[n6 + 2] << 8 | e9[n6 + 3], n6 += 4, n6 + r7 > e9.length) break;
                 var o8 = e9.subarray(n6, n6 + r7);
-                if (a7 == 4 && t9.push.apply(t9, b3(wO(o8))), a7 == 6) {
+                if (a7 == 4 && t9.push.apply(t9, b4(wO(o8))), a7 == 6) {
                   try {
                     var s7 = new Ra(o8, 0), c7 = s7.S(), l6 = s7.S(), u7 = Ie2(s7.Ja(l6, true)), d5 = s7.S(), f4 = Ie2(s7.Ja(d5, true));
                     s7.skip(16);
@@ -30818,7 +30915,7 @@ var init_load_uTL4eiru = __esm({
             }
             return t9;
           }
-          L3("shaka.metadata.VorbisUtils", CO), CO.prototype.parse = CO.prototype.parse;
+          L4("shaka.metadata.VorbisUtils", CO), CO.prototype.parse = CO.prototype.parse;
           var TO = {
             TITLE: "TIT2",
             ARTIST: "TPE1",
@@ -30885,7 +30982,7 @@ var init_load_uTL4eiru = __esm({
             }, c7, r7, i6, t9.streamDataCallback, a7.minBytesForProgressEvents || 0), e9 = new Qi(e9, function() {
               return c7.Qi = true, s7.abort(), Promise.resolve();
             }), t9 = t9.retryParameters.timeout) {
-              var l6 = new G(function() {
+              var l6 = new G2(function() {
                 c7.nk = true, s7.abort();
               });
               l6.ba(t9 / 1e3), e9.finally(function() {
@@ -30895,23 +30992,23 @@ var init_load_uTL4eiru = __esm({
             return e9;
           }
           function kO(e9, t9, n6, r7, i6, a7, o8, s7, c7) {
-            var l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y5, b4, x4, S3, C5;
-            return P4(function(w5) {
-              switch (w5.h) {
+            var l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, y6, b5, x5, S5, C6;
+            return P4(function(w6) {
+              switch (w6.h) {
                 case 1:
-                  return l6 = MO, u7 = PO, f4 = /* @__PURE__ */ new ArrayBuffer(0), m5 = p5 = 0, h6 = {}, g6 = Date.now(), w5.m(2), w5.g(l6(e9, r7), 4);
+                  return l6 = MO, u7 = PO, f4 = /* @__PURE__ */ new ArrayBuffer(0), m5 = p5 = 0, h6 = {}, g6 = Date.now(), w6.m(2), w6.g(l6(e9, r7), 4);
                 case 4:
-                  if (d5 = w5.i, h6 = AO(d5.headers), o8(h6), r7.method == "HEAD") {
-                    w5.A(5);
+                  if (d5 = w6.i, h6 = AO(d5.headers), o8(h6), r7.method == "HEAD") {
+                    w6.A(5);
                     break;
                   }
-                  return v7 = (_5 = d5.headers.get("Content-Length")) ? parseInt(_5, 10) : 0, d5.body ? (y5 = d5.clone().body.getReader(), b4 = function(e10) {
+                  return v7 = (_5 = d5.headers.get("Content-Length")) ? parseInt(_5, 10) : 0, d5.body ? (y6 = d5.clone().body.getReader(), b5 = function(e10) {
                     function t10() {
                       var n7, r8, i7, o9;
                       return P4(function(l7) {
                         switch (l7.h) {
                           case 1:
-                            return l7.m(2), l7.g(y5.read(), 4);
+                            return l7.m(2), l7.g(y6.read(), 4);
                           case 4:
                             n7 = l7.i, l7.o(3);
                             break;
@@ -30933,23 +31030,23 @@ var init_load_uTL4eiru = __esm({
                       });
                     }
                     t10();
-                  }, new u7({ start: b4 }), w5.g(d5.arrayBuffer(), 8)) : w5.g(d5.arrayBuffer(), 9);
+                  }, new u7({ start: b5 }), w6.g(d5.arrayBuffer(), 8)) : w6.g(d5.arrayBuffer(), 9);
                 case 8:
-                  f4 = w5.i, w5.A(5);
+                  f4 = w6.i, w6.A(5);
                   break;
                 case 9:
-                  f4 = w5.i, x4 = Date.now(), a7(x4 - g6, f4.byteLength, 0);
+                  f4 = w6.i, x5 = Date.now(), a7(x5 - g6, f4.byteLength, 0);
                 case 5:
-                  t9.headers.Range && (S3 = t9.headers.Range.replace("bytes=", "").split("-").filter(function(e10) {
+                  t9.headers.Range && (S5 = t9.headers.Range.replace("bytes=", "").split("-").filter(function(e10) {
                     return e10;
                   }).map(function(e10) {
                     return parseInt(e10, 10);
-                  }), S3.length == 2 && f4.byteLength != S3[1] - S3[0] + 1 && R3("Payload length does not match range requested bytes", t9, d5)), w5.o(3);
+                  }), S5.length == 2 && f4.byteLength != S5[1] - S5[0] + 1 && R4("Payload length does not match range requested bytes", t9, d5)), w6.o(3);
                   break;
                 case 2:
-                  throw C5 = w5.l(), i6.Qi ? new H4(1, 1, 7001, e9, n6) : i6.nk ? new H4(1, 1, 1003, e9, n6) : new H4(1, 1, 1002, e9, C5, n6);
+                  throw C6 = w6.l(), i6.Qi ? new H4(1, 1, 7001, e9, n6) : i6.nk ? new H4(1, 1, 1003, e9, n6) : new H4(1, 1, 1002, e9, C6, n6);
                 case 3:
-                  return w5.return(EO(h6, f4, d5.status, e9, d5.url, t9, n6));
+                  return w6.return(EO(h6, f4, d5.status, e9, d5.url, t9, n6));
               }
             });
           }
@@ -30971,7 +31068,7 @@ var init_load_uTL4eiru = __esm({
             } else return false;
             return !(!e8.fetch || "polyfill" in e8.fetch || !e8.AbortController);
           }
-          L3("shaka.net.HttpFetchPlugin", DO), DO.isSupported = jO, DO.parse = OO;
+          L4("shaka.net.HttpFetchPlugin", DO), DO.isSupported = jO, DO.parse = OO;
           var MO = e8.fetch, NO = e8.AbortController, PO = e8.ReadableStream, FO = e8.Headers;
           jO() && (ya("http", OO, 2, true), ya("https", OO, 2, true), ya("blob", OO, 2, true));
           function IO() {
@@ -30986,7 +31083,7 @@ var init_load_uTL4eiru = __esm({
               }, o8.onreadystatechange = function() {
                 if (o8.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
                   var e10 = o8.getAllResponseHeaders().trim().split("\r\n"), t10 = {};
-                  e10 = y4(e10);
+                  e10 = y5(e10);
                   for (var n7 = e10.next(); !n7.done; n7 = e10.next()) {
                     n7 = n7.value;
                     var r8 = n7.indexOf(": ");
@@ -31018,7 +31115,7 @@ var init_load_uTL4eiru = __esm({
               return o8.abort(), Promise.resolve();
             });
           }
-          L3("shaka.net.HttpXHRPlugin", IO), IO.parse = LO;
+          L4("shaka.net.HttpXHRPlugin", IO), IO.parse = LO;
           var RO = e8.XMLHttpRequest;
           ya("http", LO, 1, true), ya("https", LO, 1, true), ya("blob", LO, 1, true);
           function zO(e9, t9, n6, r7, i6) {
@@ -31080,7 +31177,7 @@ var init_load_uTL4eiru = __esm({
               return P4(function(f4) {
                 if (f4.h == 1) return f4.g(XO(a7, t9), 2);
                 if (e10 = f4.i, a7.h.g) throw new H4(2, 9, 7001);
-                if (r7) for (c7 in o9 = V3(e10), s7 = new no(o9), s7.data) l6 = Number(c7), u7 = s7.data[l6], d5 = s7.g[l6], a7.m(u7, d5);
+                if (r7) for (c7 in o9 = V4(e10), s7 = new no(o9), s7.data) l6 = Number(c7), u7 = s7.data[l6], d5 = s7.g[l6], a7.m(u7, d5);
                 return a7.g.close(n6, e10.byteLength), a7.o(WO(a7.g), a7.g.g), f4.return(i6(e10));
               });
             });
@@ -31091,7 +31188,7 @@ var init_load_uTL4eiru = __esm({
             var o8 = (e9.i.get(t9) || Promise.resolve()).then(function() {
               if (e9.h.g) throw new H4(2, 9, 7001);
               if (i6) {
-                var t10 = V3(n6);
+                var t10 = V4(n6);
                 for (var o9 in t10 = new no(t10), t10.data) {
                   var s7 = Number(o9);
                   e9.m(t10.data[s7], t10.g[s7]);
@@ -31242,7 +31339,7 @@ var init_load_uTL4eiru = __esm({
             var n6 = this, r7, i6, a7, o8, s7, c7, l6;
             return P4(function(u7) {
               if (u7.h == 1) {
-                for (r7 = ek(n6.h, e9), i6 = r7.store(), a7 = [], o8 = y4(t9), s7 = o8.next(), c7 = {}; !s7.done; c7 = { Zh: void 0 }, s7 = o8.next()) l6 = s7.value, c7.Zh = i6.add(l6), c7.Zh.onsuccess = /* @__PURE__ */ (function(e10) {
+                for (r7 = ek(n6.h, e9), i6 = r7.store(), a7 = [], o8 = y5(t9), s7 = o8.next(), c7 = {}; !s7.done; c7 = { Zh: void 0 }, s7 = o8.next()) l6 = s7.value, c7.Zh = i6.add(l6), c7.Zh.onsuccess = /* @__PURE__ */ (function(e10) {
                   return function() {
                     a7.push(e10.Zh.result);
                   };
@@ -31253,7 +31350,7 @@ var init_load_uTL4eiru = __esm({
             });
           };
           function ak(e9, t9, n6, r7) {
-            e9 = ek(e9.h, t9), t9 = e9.store(), n6 = y4(n6);
+            e9 = ek(e9.h, t9), t9 = e9.store(), n6 = y5(n6);
             for (var i6 = n6.next(), a7 = {}; !i6.done; a7 = { Bh: void 0 }, i6 = n6.next()) a7.Bh = i6.value, t9.delete(a7.Bh).onsuccess = /* @__PURE__ */ (function(e10) {
               return function() {
                 return r7(e10.Bh);
@@ -31265,7 +31362,7 @@ var init_load_uTL4eiru = __esm({
             var r7, i6, a7, o8, s7, c7, l6;
             return P4(function(u7) {
               if (u7.h == 1) {
-                for (r7 = tk(e9.h, t9, "readonly"), i6 = r7.store(), a7 = {}, o8 = [], s7 = y4(n6), c7 = s7.next(), l6 = {}; !c7.done; l6 = {
+                for (r7 = tk(e9.h, t9, "readonly"), i6 = r7.store(), a7 = {}, o8 = [], s7 = y5(n6), c7 = s7.next(), l6 = {}; !c7.done; l6 = {
                   $f: void 0,
                   Kf: void 0
                 }, c7 = s7.next()) l6.Kf = c7.value, l6.$f = i6.get(l6.Kf), l6.$f.onsuccess = /* @__PURE__ */ (function(e10) {
@@ -31295,7 +31392,7 @@ var init_load_uTL4eiru = __esm({
             });
           }, sk.prototype.add = function(e9) {
             var t9 = ek(this.g, "session-ids"), n6 = t9.store();
-            e9 = y4(e9);
+            e9 = y5(e9);
             for (var r7 = e9.next(); !r7.done; r7 = e9.next()) n6.add(r7.value);
             return t9.promise();
           }, sk.prototype.remove = function(e9) {
@@ -31310,14 +31407,14 @@ var init_load_uTL4eiru = __esm({
             this.g = /* @__PURE__ */ new Map();
           }
           ck.prototype.destroy = function() {
-            for (var e9 = [], t9 = y4(this.g.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) e9.push(n6.value.destroy());
+            for (var e9 = [], t9 = y5(this.g.values()), n6 = t9.next(); !n6.done; n6 = t9.next()) e9.push(n6.value.destroy());
             return this.g.clear(), Promise.all(e9);
           }, ck.prototype.init = function() {
             var e9 = this;
             gk.forEach(function(t10, n7) {
               (t10 = t10()) && e9.g.set(n7, t10);
             });
-            for (var t9 = [], n6 = y4(this.g.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) t9.push(r7.value.init());
+            for (var t9 = [], n6 = y5(this.g.values()), r7 = n6.next(); !r7.done; r7 = n6.next()) t9.push(r7.value.init());
             return Promise.all(t9);
           };
           function lk(e9) {
@@ -31375,7 +31472,7 @@ var init_load_uTL4eiru = __esm({
           function hk(e9, t9) {
             gk.set(e9, t9);
           }
-          L3("shaka.offline.StorageMuxer", ck), ck.unregister = function(e9) {
+          L4("shaka.offline.StorageMuxer", ck), ck.unregister = function(e9) {
             gk.delete(e9);
           }, ck.register = hk, ck.prototype.destroy = ck.prototype.destroy;
           var gk = /* @__PURE__ */ new Map();
@@ -31412,7 +31509,7 @@ var init_load_uTL4eiru = __esm({
           };
           function vk(e9, t9) {
             xk(e9);
-            for (var n6 = y4(e9.streams), r7 = n6.next(); !r7.done; r7 = n6.next()) ;
+            for (var n6 = y5(e9.streams), r7 = n6.next(); !r7.done; r7 = n6.next()) ;
             return e9.streams.map(function(n7) {
               return yk(n7, e9.startTime, t9);
             });
@@ -31491,14 +31588,14 @@ var init_load_uTL4eiru = __esm({
             }) || !e9.every(function(e10) {
               return e10.variantIds;
             })) {
-              for (var n6 = y4(t9), r7 = n6.next(); !r7.done; r7 = n6.next()) r7.value.variantIds = [];
-              for (n6 = y4(e9), r7 = n6.next(); !r7.done; r7 = n6.next()) r7.value.variantIds = [];
+              for (var n6 = y5(t9), r7 = n6.next(); !r7.done; r7 = n6.next()) r7.value.variantIds = [];
+              for (n6 = y5(e9), r7 = n6.next(); !r7.done; r7 = n6.next()) r7.value.variantIds = [];
               if (n6 = 0, e9.length && !t9.length) {
                 r7 = n6++;
-                for (var i6 = y4(e9), a7 = i6.next(); !a7.done; a7 = i6.next()) a7.value.variantIds.push(r7);
+                for (var i6 = y5(e9), a7 = i6.next(); !a7.done; a7 = i6.next()) a7.value.variantIds.push(r7);
               }
-              if (!e9.length && t9.length) for (r7 = n6++, i6 = y4(t9), a7 = i6.next(); !a7.done; a7 = i6.next()) a7.value.variantIds.push(r7);
-              if (e9.length && t9.length) for (t9 = y4(t9), r7 = t9.next(); !r7.done; r7 = t9.next()) for (r7 = r7.value, i6 = y4(e9), a7 = i6.next(); !a7.done; a7 = i6.next()) {
+              if (!e9.length && t9.length) for (r7 = n6++, i6 = y5(t9), a7 = i6.next(); !a7.done; a7 = i6.next()) a7.value.variantIds.push(r7);
+              if (e9.length && t9.length) for (t9 = y5(t9), r7 = t9.next(); !r7.done; r7 = t9.next()) for (r7 = r7.value, i6 = y5(e9), a7 = i6.next(); !a7.done; a7 = i6.next()) {
                 a7 = a7.value;
                 var o8 = n6++;
                 r7.variantIds.push(o8), a7.variantIds.push(o8);
@@ -31514,7 +31611,7 @@ var init_load_uTL4eiru = __esm({
               if (s7.h == 1) {
                 for (t9 = [], n6 = 0; n6 < e9.periods.length; ++n6) {
                   r7 = n6 == e9.periods.length - 1 ? e9.duration : e9.periods[n6 + 1].startTime, i6 = r7 - e9.periods[n6].startTime;
-                  for (var c7 = e9.periods[n6], l6 = [], u7 = y4(c7.streams), d5 = u7.next(); !d5.done; d5 = u7.next()) d5 = d5.value, d5.variantIds.length != 0 && l6.push(Ck(d5, c7.startTime, c7.startTime + i6));
+                  for (var c7 = e9.periods[n6], l6 = [], u7 = y5(c7.streams), d5 = u7.next(); !d5.done; d5 = u7.next()) d5 = d5.value, d5.variantIds.length != 0 && l6.push(Ck(d5, c7.startTime, c7.startTime + i6));
                   a7 = l6, t9.push(a7);
                 }
                 return s7.g(fw(t9), 2);
@@ -31603,7 +31700,7 @@ var init_load_uTL4eiru = __esm({
             this.m = this.j = this.i = this.h = this.g = this.l = null;
           }
           r6 = Tk.prototype, r6.init = function() {
-            var t9 = this, n6 = Promise.withResolvers(), r7 = false, i6 = new G(function() {
+            var t9 = this, n6 = Promise.withResolvers(), r7 = false, i6 = new G2(function() {
               r7 = true, n6.reject(new H4(2, 9, 9017));
             });
             typeof Dk == "number" && Dk > 0 && i6.ba(Dk);
@@ -31617,7 +31714,7 @@ var init_load_uTL4eiru = __esm({
                 o8 = o8.contains("manifest") && o8.contains("segment") ? new _k(e9, "segment", "manifest") : null, t9.g = o8, o8 = e9.objectStoreNames, o8 = o8.contains("manifest-v2") && o8.contains("segment-v2") ? new Sk(e9, "segment-v2", "manifest-v2") : null, t9.h = o8, o8 = e9.objectStoreNames, o8 = o8.contains("manifest-v3") && o8.contains("segment-v3") ? new Sk(e9, "segment-v3", "manifest-v3") : null, t9.i = o8, o8 = e9.objectStoreNames, o8 = o8.contains("manifest-v5") && o8.contains("segment-v5") ? new wk(e9, "segment-v5", "manifest-v5") : null, t9.j = o8, e9 = e9.objectStoreNames.contains("session-ids") ? new sk(e9) : null, t9.m = e9, n6.resolve();
               }
             }, a7.onupgradeneeded = function() {
-              for (var e9 = a7.result, t10 = y4([
+              for (var e9 = a7.result, t10 = y5([
                 "segment-v5",
                 "manifest-v5",
                 "session-ids"
@@ -31713,8 +31810,8 @@ var init_load_uTL4eiru = __esm({
             }, t9.promise;
           }
           var Dk = 5;
-          L3("shaka.offline.indexeddb.StorageMechanismOpenTimeout", Dk), hk("idb", function() {
-            return B3().ri() ? new Tk() : null;
+          L4("shaka.offline.indexeddb.StorageMechanismOpenTimeout", Dk), hk("idb", function() {
+            return B4().ri() ? new Tk() : null;
           });
           function Ok(e9, t9, n6, r7) {
             this.g = e9, this.i = t9, this.h = n6, this.l = r7, this.j = [
@@ -31758,7 +31855,7 @@ var init_load_uTL4eiru = __esm({
               return e10.type == "video";
             });
             r7 = Mk(e9, r7, i6, n6), i6 = t9.streams.filter(function(e10) {
-              return e10.type == U2;
+              return e10.type == U3;
             }).map(function(t10) {
               return Nk(e9, t10, n6);
             });
@@ -31771,7 +31868,7 @@ var init_load_uTL4eiru = __esm({
             }).map(function(t10) {
               return Nk(e9, t10, n6);
             }), s7 = t9.drmInfo ? [t9.drmInfo] : [];
-            if (t9.drmInfo) for (var c7 = y4(r7.values()), l6 = c7.next(); !l6.done; l6 = c7.next()) l6 = l6.value, l6.audio && l6.audio.encrypted && (l6.audio.drmInfos = s7), l6.video && l6.video.encrypted && (l6.video.drmInfos = s7);
+            if (t9.drmInfo) for (var c7 = y5(r7.values()), l6 = c7.next(); !l6.done; l6 = c7.next()) l6 = l6.value, l6.audio && l6.audio.encrypted && (l6.audio.drmInfos = s7), l6.video && l6.video.encrypted && (l6.video.drmInfos = s7);
             return {
               presentationTimeline: n6,
               offlineSessionIds: t9.sessionIds,
@@ -31791,12 +31888,12 @@ var init_load_uTL4eiru = __esm({
             };
           }
           function Mk(e9, t9, n6, r7) {
-            for (var i6 = /* @__PURE__ */ new Set(), a7 = y4(t9), o8 = a7.next(); !o8.done; o8 = a7.next()) {
-              o8 = y4(o8.value.variantIds);
+            for (var i6 = /* @__PURE__ */ new Set(), a7 = y5(t9), o8 = a7.next(); !o8.done; o8 = a7.next()) {
+              o8 = y5(o8.value.variantIds);
               for (var s7 = o8.next(); !s7.done; s7 = o8.next()) i6.add(s7.value);
             }
-            for (a7 = y4(n6), o8 = a7.next(); !o8.done; o8 = a7.next()) for (o8 = y4(o8.value.variantIds), s7 = o8.next(); !s7.done; s7 = o8.next()) i6.add(s7.value);
-            for (a7 = /* @__PURE__ */ new Map(), i6 = y4(i6), o8 = i6.next(); !o8.done; o8 = i6.next()) o8 = o8.value, a7.set(o8, {
+            for (a7 = y5(n6), o8 = a7.next(); !o8.done; o8 = a7.next()) for (o8 = y5(o8.value.variantIds), s7 = o8.next(); !s7.done; s7 = o8.next()) i6.add(s7.value);
+            for (a7 = /* @__PURE__ */ new Map(), i6 = y5(i6), o8 = i6.next(); !o8.done; o8 = i6.next()) o8 = o8.value, a7.set(o8, {
               id: o8,
               language: "",
               disabledUntilTime: 0,
@@ -31808,8 +31905,8 @@ var init_load_uTL4eiru = __esm({
               allowedByKeySystem: true,
               decodingInfos: []
             });
-            for (t9 = y4(t9), i6 = t9.next(); !i6.done; i6 = t9.next()) for (o8 = i6.value, i6 = Nk(e9, o8, r7), o8 = y4(o8.variantIds), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = a7.get(s7.value), s7.language = i6.language, s7.primary = s7.primary || i6.primary, s7.audio = i6;
-            for (n6 = y4(n6), t9 = n6.next(); !t9.done; t9 = n6.next()) for (i6 = t9.value, t9 = Nk(e9, i6, r7), i6 = y4(i6.variantIds), o8 = i6.next(); !o8.done; o8 = i6.next()) o8 = a7.get(o8.value), o8.primary = o8.primary || t9.primary, o8.video = t9;
+            for (t9 = y5(t9), i6 = t9.next(); !i6.done; i6 = t9.next()) for (o8 = i6.value, i6 = Nk(e9, o8, r7), o8 = y5(o8.variantIds), s7 = o8.next(); !s7.done; s7 = o8.next()) s7 = a7.get(s7.value), s7.language = i6.language, s7.primary = s7.primary || i6.primary, s7.audio = i6;
+            for (n6 = y5(n6), t9 = n6.next(); !t9.done; t9 = n6.next()) for (i6 = t9.value, t9 = Nk(e9, i6, r7), i6 = y5(i6.variantIds), o8 = i6.next(); !o8.done; o8 = i6.next()) o8 = a7.get(o8.value), o8.primary = o8.primary || t9.primary, o8.video = t9;
             return a7;
           }
           function Nk(e9, t9, n6) {
@@ -31864,7 +31961,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Pk(e9, t9, n6) {
             var r7 = n6.type == "chapter" ? "" : new Ok("segment", e9.h, e9.g, t9.dataKey);
-            return e9 = new J(t9.startTime, t9.endTime, function() {
+            return e9 = new J2(t9.startTime, t9.endTime, function() {
               return [r7.toString()];
             }, 0, null, t9.initSegmentKey == null ? null : Fk(e9, t9.initSegmentKey), t9.timestampOffset, t9.appendWindowStart, t9.appendWindowEnd, [], t9.tilesLayout || ""), e9.mimeType = t9.mimeType || n6.mimeType || "", e9.codecs = t9.codecs || n6.codecs || "", t9.thumbnailSprite && e9.ig(t9.thumbnailSprite), t9.chapterTitle && e9.hg({
               title: t9.chapterTitle,
@@ -31965,16 +32062,16 @@ var init_load_uTL4eiru = __esm({
               return r7.destroy();
             });
           }
-          L3("shaka.offline.OfflineScheme", Lk), Lk.plugin = Rk, ya("offline", Rk);
+          L4("shaka.offline.OfflineScheme", Lk), Lk.plugin = Rk, ya("offline", Rk);
           function Bk(e9, t9, n6) {
             var r7, i6, a7, o8, s7, c7;
             return P4(function(l6) {
               switch (l6.h) {
                 case 1:
                   r7 = [];
-                  for (var u7 = [], d5 = y4(n6), f4 = d5.next(); !f4.done; f4 = d5.next()) {
+                  for (var u7 = [], d5 = y5(n6), f4 = d5.next(); !f4.done; f4 = d5.next()) {
                     f4 = f4.value;
-                    for (var p5 = false, m5 = y4(u7), h6 = m5.next(); !h6.done; h6 = m5.next()) if (h6 = h6.value, Hk(h6.info, f4)) {
+                    for (var p5 = false, m5 = y5(u7), h6 = m5.next(); !h6.done; h6 = m5.next()) if (h6 = h6.value, Hk(h6.info, f4)) {
                       h6.sessionIds.push(f4.sessionId), p5 = true;
                       break;
                     }
@@ -31983,7 +32080,7 @@ var init_load_uTL4eiru = __esm({
                       sessionIds: [f4.sessionId]
                     });
                   }
-                  i6 = y4(u7), a7 = i6.next();
+                  i6 = y5(u7), a7 = i6.next();
                 case 2:
                   if (a7.done) {
                     l6.A(4);
@@ -32070,9 +32167,9 @@ var init_load_uTL4eiru = __esm({
           }
           function Gk(e9) {
             var t9 = [], n6 = Ci(e9.variants);
-            n6 = y4(n6);
+            n6 = y5(n6);
             for (var r7 = n6.next(); !r7.done; r7 = n6.next()) t9.push(hi(r7.value));
-            for (e9 = y4(e9.textStreams), n6 = e9.next(); !n6.done; n6 = e9.next()) t9.push(gi(n6.value));
+            for (e9 = y5(e9.textStreams), n6 = e9.next(); !n6.done; n6 = e9.next()) t9.push(gi(n6.value));
             return t9;
           }
           function Kk() {
@@ -32106,7 +32203,7 @@ var init_load_uTL4eiru = __esm({
                     })), 2);
                   case 2:
                     for (e10 = function() {
-                    }, r7 = [], i6 = y4(t9.i), a7 = i6.next(); !a7.done; a7 = i6.next()) o8 = a7.value, r7.push(o8.then(e10, e10));
+                    }, r7 = [], i6 = y5(t9.i), a7 = i6.next(); !a7.done; a7 = i6.next()) o8 = a7.value, r7.push(o8.then(e10, e10));
                     return s7.g(Promise.all(r7), 3);
                   case 3:
                     if (!n6) {
@@ -32121,8 +32218,8 @@ var init_load_uTL4eiru = __esm({
             }), this.m = 1e9;
           }
           function Zk() {
-            if (HT(B3())) a: {
-              for (var e9 = y4(gk.values()), t9 = e9.next(); !t9.done; t9 = e9.next()) if (t9 = t9.value, t9 = t9()) {
+            if (HT(B4())) a: {
+              for (var e9 = y5(gk.values()), t9 = e9.next(); !t9.done; t9 = e9.next()) if (t9 = t9.value, t9 = t9()) {
                 t9.destroy(), e9 = true;
                 break a;
               }
@@ -32154,98 +32251,98 @@ var init_load_uTL4eiru = __esm({
             }), wA(this, t9);
           };
           function Qk(e9, t9, n6, r7, i6, a7, o8, s7) {
-            var c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5;
-            return P4(function(N4) {
-              switch (N4.h) {
+            var c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5;
+            return P4(function(N5) {
+              switch (N5.h) {
                 case 1:
-                  return SA(), l6 = c7 = null, u7 = new ck(), p5 = f4 = d5 = null, N4.m(2, 3), N4.g(a7(), 5);
+                  return SA(), l6 = c7 = null, u7 = new ck(), p5 = f4 = d5 = null, N5.m(2, 3), N5.g(a7(), 5);
                 case 5:
-                  return c7 = N4.i, N4.g(pA(e9, t9, c7, o8), 6);
+                  return c7 = N5.i, N5.g(pA(e9, t9, c7, o8), 6);
                 case 6:
-                  if (m5 = N4.i, xA(e9), h6 = !m5.presentationTimeline.ya(), !h6) throw new H4(2, 9, 9005, t9);
-                  g6 = y4(r7), _5 = g6.next();
+                  if (m5 = N5.i, xA(e9), h6 = !m5.presentationTimeline.ya(), !h6) throw new H4(2, 9, 9005, t9);
+                  g6 = y5(r7), _5 = g6.next();
                 case 7:
                   if (_5.done) {
-                    N4.A(9);
+                    N5.A(9);
                     break;
                   }
-                  return v7 = _5.value, N4.g(mA(e9, v7, m5), 10);
+                  return v7 = _5.value, N5.g(mA(e9, v7, m5), 10);
                 case 10:
-                  b4 = N4.i, m5.imageStreams.push(b4), xA(e9), _5 = g6.next(), N4.A(7);
+                  b5 = N5.i, m5.imageStreams.push(b5), xA(e9), _5 = g6.next(), N5.A(7);
                   break;
                 case 9:
-                  x4 = y4(i6), S3 = x4.next();
+                  x5 = y5(i6), S5 = x5.next();
                 case 11:
-                  return S3.done ? (Go(o8.drm.clearKeys, m5.variants), T5 = m5.variants.some(function(e10) {
+                  return S5.done ? (Go(o8.drm.clearKeys, m5.variants), T6 = m5.variants.some(function(e10) {
                     if (e10.audio) {
-                      for (var t10 = y4(e10.audio.drmInfos), n7 = t10.next(); !n7.done; n7 = t10.next()) if (n7.value.licenseServerUri.startsWith("data:")) return true;
+                      for (var t10 = y5(e10.audio.drmInfos), n7 = t10.next(); !n7.done; n7 = t10.next()) if (n7.value.licenseServerUri.startsWith("data:")) return true;
                     }
                     if (e10.video) {
-                      for (e10 = y4(e10.video.drmInfos), t10 = e10.next(); !t10.done; t10 = e10.next()) if (t10.value.licenseServerUri.startsWith("data:")) return true;
+                      for (e10 = y5(e10.video.drmInfos), t10 = e10.next(); !t10.done; t10 = e10.next()) if (t10.value.licenseServerUri.startsWith("data:")) return true;
                     }
                     return false;
-                  }), E5 = o8.offline.usePersistentLicense, T5 && (E5 = false), N4.g(e9.td(m5, function(e10) {
+                  }), E6 = o8.offline.usePersistentLicense, T6 && (E6 = false), N5.g(e9.td(m5, function(e10) {
                     p5 ||= e10;
-                  }, o8, E5), 15)) : (C5 = S3.value, N4.g(hA(e9, m5, C5.uri, C5.language, C5.kind, C5.mime, C5.codecs), 14));
+                  }, o8, E6), 15)) : (C6 = S5.value, N5.g(hA(e9, m5, C6.uri, C6.language, C6.kind, C6.mime, C6.codecs), 14));
                 case 14:
-                  w5 = N4.i, m5.textStreams.push(w5), xA(e9), S3 = x4.next(), N4.A(11);
+                  w6 = N5.i, m5.textStreams.push(w6), xA(e9), S5 = x5.next(), N5.A(11);
                   break;
                 case 15:
-                  if (l6 = N4.i, xA(e9), p5) throw p5;
-                  return N4.g(nA(m5, l6, o8, E5), 16);
+                  if (l6 = N5.i, xA(e9), p5) throw p5;
+                  return N5.g(nA(m5, l6, o8, E6), 16);
                 case 16:
-                  return N4.g(u7.init(), 17);
+                  return N5.g(u7.init(), 17);
                 case 17:
-                  return xA(e9), N4.g(lk(u7), 18);
+                  return xA(e9), N5.g(lk(u7), 18);
                 case 18:
-                  return d5 = N4.i, xA(e9), D5 = rA(l6, m5, t9, n6, o8, s7, E5), O5 = D5.Tl, k5 = D5.xi, N4.g(d5.jb.addManifests([O5]), 19);
+                  return d5 = N5.i, xA(e9), D6 = rA(l6, m5, t9, n6, o8, s7, E6), O6 = D6.Tl, k6 = D6.xi, N5.g(d5.jb.addManifests([O6]), 19);
                 case 19:
-                  if (A4 = N4.i, xA(e9), f4 = A4[0], xA(e9), p5) throw p5;
-                  return N4.g($k(e9, k5, f4, O5, s7, o8, d5.jb, m5, l6, E5), 20);
+                  if (A5 = N5.i, xA(e9), f4 = A5[0], xA(e9), p5) throw p5;
+                  return N5.g($k(e9, k6, f4, O6, s7, o8, d5.jb, m5, l6, E6), 20);
                 case 20:
-                  return xA(e9), oA(m5, O5, l6, E5), N4.g(d5.jb.updateManifest(f4, O5), 21);
+                  return xA(e9), oA(m5, O6, l6, E6), N5.g(d5.jb.updateManifest(f4, O6), 21);
                 case 21:
-                  return xA(e9), j5 = new Ok("manifest", d5.path.Pb, d5.path.jb, f4), N4.return(Wk(j5, O5));
+                  return xA(e9), j5 = new Ok("manifest", d5.path.Pb, d5.path.jb, f4), N5.return(Wk(j5, O6));
                 case 3:
-                  return N4.u(), N4.g(u7.destroy(), 22);
+                  return N5.u(), N5.g(u7.destroy(), 22);
                 case 22:
                   if (!c7) {
-                    N4.A(23);
+                    N5.A(23);
                     break;
                   }
-                  return N4.g(c7.stop(), 23);
+                  return N5.g(c7.stop(), 23);
                 case 23:
                   if (!l6) {
-                    N4.A(25);
+                    N5.A(25);
                     break;
                   }
-                  return N4.g(l6.destroy(), 25);
+                  return N5.g(l6.destroy(), 25);
                 case 25:
-                  N4.B(0);
+                  N5.B(0);
                   break;
                 case 2:
-                  if (M5 = N4.l(), f4 == null) {
-                    N4.A(27);
+                  if (M5 = N5.l(), f4 == null) {
+                    N5.A(27);
                     break;
                   }
-                  return N4.g(eA(f4), 27);
+                  return N5.g(eA(f4), 27);
                 case 27:
                   throw p5 || M5;
               }
             });
           }
           function $k(e9, t9, n6, r7, i6, a7, o8, s7, c7, l6) {
-            var u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4;
-            return P4(function(S3) {
-              switch (S3.h) {
+            var u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5;
+            return P4(function(S5) {
+              switch (S5.h) {
                 case 1:
                   if (u7 = {}, d5 = 0, f4 = function() {
                     if (e9.j.g || i6.l) throw new H4(2, 9, 7001);
                   }, p5 = function(e10, t10) {
-                    var p6, m6, h7, g7, _6, v8, b5, x5, S4;
-                    return P4(function(C5) {
-                      if (C5.h == 1) {
-                        for (p6 = y4(e10), m6 = p6.next(), h7 = {}; !m6.done; h7 = { qc: void 0 }, m6 = p6.next()) h7.qc = m6.value, f4(), g7 = VO(h7.qc, a7), _6 = h7.qc.i, v8 = h7.qc.h, b5 = /* @__PURE__ */ (function(e11) {
+                    var p6, m6, h7, g7, _6, v8, b6, x6, S6;
+                    return P4(function(C6) {
+                      if (C6.h == 1) {
+                        for (p6 = y5(e10), m6 = p6.next(), h7 = {}; !m6.done; h7 = { qc: void 0 }, m6 = p6.next()) h7.qc = m6.value, f4(), g7 = VO(h7.qc, a7), _6 = h7.qc.i, v8 = h7.qc.h, b6 = /* @__PURE__ */ (function(e11) {
                           return function(t11) {
                             var n7, r8, i7, a8;
                             return P4(function(s8) {
@@ -32265,46 +32362,46 @@ var init_load_uTL4eiru = __esm({
                               }
                             });
                           };
-                        })(h7), x5 = h7.qc.g, (S4 = x5.$b(false)) ? JO(i6, h7.qc.groupId, S4, _6, v8, b5) : i6.queue(h7.qc.groupId, g7, _6, v8, b5);
-                        return C5.g(YO(i6), 2);
+                        })(h7), x6 = h7.qc.g, (S6 = x6.$b(false)) ? JO(i6, h7.qc.groupId, S6, _6, v8, b6) : i6.queue(h7.qc.groupId, g7, _6, v8, b6);
+                        return C6.g(YO(i6), 2);
                       }
-                      return f4(), !t10 || i6.l ? C5.A(0) : (oA(s7, r7, c7, l6), C5.g(o8.updateManifest(n6, r7), 0));
+                      return f4(), !t10 || i6.l ? C6.A(0) : (oA(s7, r7, c7, l6), C6.g(o8.updateManifest(n6, r7), 0));
                     });
-                  }, m5 = false, S3.m(2), !iA(s7) || !m5 || aA(s7)) {
-                    S3.A(4);
+                  }, m5 = false, S5.m(2), !iA(s7) || !m5 || aA(s7)) {
+                    S5.A(4);
                     break;
                   }
-                  return S3.g(p5(t9.filter(function(e10) {
+                  return S5.g(p5(t9.filter(function(e10) {
                     return e10.h;
                   }), true), 5);
                 case 5:
                   return f4(), t9 = t9.filter(function(e10) {
                     return !e10.h;
-                  }), h6 = u7, g6 = d5, u7 = {}, d5 = 0, S3.g(tA(o8, n6, r7, h6, g6, function() {
+                  }), h6 = u7, g6 = d5, u7 = {}, d5 = 0, S5.g(tA(o8, n6, r7, h6, g6, function() {
                     return xA(e9);
                   }), 6);
                 case 6:
                   f4();
                 case 4:
                   if (m5) {
-                    S3.A(7);
+                    S5.A(7);
                     break;
                   }
-                  return S3.g(p5(t9, false), 8);
+                  return S5.g(p5(t9, false), 8);
                 case 8:
-                  return f4(), _5 = u7, v7 = d5, u7 = {}, d5 = 0, S3.g(tA(o8, n6, r7, _5, v7, function() {
+                  return f4(), _5 = u7, v7 = d5, u7 = {}, d5 = 0, S5.g(tA(o8, n6, r7, _5, v7, function() {
                     return f4();
                   }), 9);
                 case 9:
                   f4();
                 case 7:
-                  S3.o(0);
+                  S5.o(0);
                   break;
                 case 2:
-                  return b4 = S3.l(), x4 = Object.values(u7), S3.g(o8.removeSegments(x4, function() {
+                  return b5 = S5.l(), x5 = Object.values(u7), S5.g(o8.removeSegments(x5, function() {
                   }), 10);
                 case 10:
-                  throw b4;
+                  throw b5;
               }
             });
           }
@@ -32328,7 +32425,7 @@ var init_load_uTL4eiru = __esm({
             return P4(function(_5) {
               switch (_5.h) {
                 case 1:
-                  for (o8 = false, _5.m(2), s7 = true, c7 = y4(n6.streams), l6 = c7.next(); !l6.done; l6 = c7.next()) if (u7 = l6.value, u7.type != "chapter") for (d5 = y4(u7.segments), f4 = d5.next(); !f4.done; f4 = d5.next()) p5 = f4.value, m5 = p5.pendingSegmentRefId ? r7[p5.pendingSegmentRefId] : null, m5 != null && (p5.dataKey = m5, p5.pendingSegmentRefId = void 0), m5 = p5.pendingInitSegmentRefId ? r7[p5.pendingInitSegmentRefId] : null, m5 != null && (p5.initSegmentKey = m5, p5.pendingInitSegmentRefId = void 0), p5.pendingSegmentRefId && (s7 = false), p5.pendingInitSegmentRefId && (s7 = false);
+                  for (o8 = false, _5.m(2), s7 = true, c7 = y5(n6.streams), l6 = c7.next(); !l6.done; l6 = c7.next()) if (u7 = l6.value, u7.type != "chapter") for (d5 = y5(u7.segments), f4 = d5.next(); !f4.done; f4 = d5.next()) p5 = f4.value, m5 = p5.pendingSegmentRefId ? r7[p5.pendingSegmentRefId] : null, m5 != null && (p5.dataKey = m5, p5.pendingSegmentRefId = void 0), m5 = p5.pendingInitSegmentRefId ? r7[p5.pendingInitSegmentRefId] : null, m5 != null && (p5.initSegmentKey = m5, p5.pendingInitSegmentRefId = void 0), p5.pendingSegmentRefId && (s7 = false), p5.pendingInitSegmentRefId && (s7 = false);
                   return n6.size += i6, s7 && (n6.isIncomplete = false), _5.g(e9.updateManifest(t9, n6), 4);
                 case 4:
                   o8 = true, a7(), _5.o(0);
@@ -32348,7 +32445,7 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function nA(e9, t9, n6, r7) {
-            var i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b4, x4, S3, C5, w5, T5, E5, D5, O5, k5, A4, j5, M5, N4, F5, I5, ee3, te3, ne3;
+            var i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5, h6, g6, _5, v7, b5, x5, S5, C6, w6, T6, E6, D6, O6, k6, A5, j5, M5, N5, F5, I5, ee3, te3, ne3;
             return P4(function(P5) {
               switch (P5.h) {
                 case 1:
@@ -32363,26 +32460,26 @@ var init_load_uTL4eiru = __esm({
                     return e10.codec;
                   }).filter(Boolean), l6 = n6.preferredText.map(function(e10) {
                     return e10.format;
-                  }).filter(Boolean), ei(e9, s7, c7, o8, l6), u7 = y4(e9.variants), d5 = u7.next(); !d5.done; d5 = u7.next()) f4 = d5.value, a7.push(hi(f4));
-                  for (p5 = y4(e9.textStreams), m5 = p5.next(); !m5.done; m5 = p5.next()) h6 = m5.value, a7.push(gi(h6));
-                  for (g6 = y4(e9.imageStreams), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, a7.push(_i(v7));
-                  for (b4 = y4(e9.chapterStreams), x4 = b4.next(); !x4.done; x4 = b4.next()) S3 = x4.value, a7.push(vi(S3));
+                  }).filter(Boolean), ei(e9, s7, c7, o8, l6), u7 = y5(e9.variants), d5 = u7.next(); !d5.done; d5 = u7.next()) f4 = d5.value, a7.push(hi(f4));
+                  for (p5 = y5(e9.textStreams), m5 = p5.next(); !m5.done; m5 = p5.next()) h6 = m5.value, a7.push(gi(h6));
+                  for (g6 = y5(e9.imageStreams), _5 = g6.next(); !_5.done; _5 = g6.next()) v7 = _5.value, a7.push(_i(v7));
+                  for (b5 = y5(e9.chapterStreams), x5 = b5.next(); !x5.done; x5 = b5.next()) S5 = x5.value, a7.push(vi(S5));
                   return P5.g(n6.offline.trackSelectionCallback(a7), 3);
                 case 3:
-                  for (C5 = P5.i, w5 = e9.presentationTimeline.getDuration(), T5 = 0, E5 = y4(C5), D5 = E5.next(); !D5.done; D5 = E5.next()) O5 = D5.value, k5 = O5.bandwidth * w5 / 8, T5 += k5;
-                  return P5.m(4), P5.g(n6.offline.downloadSizeCallback(T5), 6);
+                  for (C6 = P5.i, w6 = e9.presentationTimeline.getDuration(), T6 = 0, E6 = y5(C6), D6 = E6.next(); !D6.done; D6 = E6.next()) O6 = D6.value, k6 = O6.bandwidth * w6 / 8, T6 += k6;
+                  return P5.m(4), P5.g(n6.offline.downloadSizeCallback(T6), 6);
                 case 6:
-                  if (A4 = P5.i, !A4) throw new H4(2, 9, 9014);
+                  if (A5 = P5.i, !A5) throw new H4(2, 9, 9014);
                   P5.o(5);
                   break;
                 case 4:
                   throw j5 = P5.l(), j5 instanceof H4 ? j5 : new H4(2, 9, 9015);
                 case 5:
-                  for (M5 = /* @__PURE__ */ new Set(), N4 = /* @__PURE__ */ new Set(), F5 = /* @__PURE__ */ new Set(), I5 = /* @__PURE__ */ new Set(), ee3 = y4(C5), te3 = ee3.next(); !te3.done; te3 = ee3.next()) ne3 = te3.value, ne3.type == "variant" && M5.add(ne3.id), ne3.type == "text" && N4.add(ne3.id), ne3.type == "image" && F5.add(ne3.id), ne3.type == "chapter" && I5.add(ne3.id);
+                  for (M5 = /* @__PURE__ */ new Set(), N5 = /* @__PURE__ */ new Set(), F5 = /* @__PURE__ */ new Set(), I5 = /* @__PURE__ */ new Set(), ee3 = y5(C6), te3 = ee3.next(); !te3.done; te3 = ee3.next()) ne3 = te3.value, ne3.type == "variant" && M5.add(ne3.id), ne3.type == "text" && N5.add(ne3.id), ne3.type == "image" && F5.add(ne3.id), ne3.type == "chapter" && I5.add(ne3.id);
                   e9.variants = e9.variants.filter(function(e10) {
                     return M5.has(e10.id);
                   }), e9.textStreams = e9.textStreams.filter(function(e10) {
-                    return N4.has(e10.id);
+                    return N5.has(e10.id);
                   }), e9.imageStreams = e9.imageStreams.filter(function(e10) {
                     return F5.has(e10.id);
                   }), e9.chapterStreams = e9.chapterStreams.filter(function(e10) {
@@ -32404,10 +32501,10 @@ var init_load_uTL4eiru = __esm({
               u7 = kA.get(d5.keySystem);
             }
             d5 = new Kk();
-            for (var f4 = y4(t9.textStreams), p5 = f4.next(); !p5.done; p5 = f4.next()) d5.g.set(p5.value.id, 52);
-            for (f4 = y4(t9.imageStreams), p5 = f4.next(); !p5.done; p5 = f4.next()) Jk(d5, p5.value);
-            for (f4 = y4(t9.chapterStreams), p5 = f4.next(); !p5.done; p5 = f4.next()) Jk(d5, p5.value);
-            for (f4 = y4(t9.variants), p5 = f4.next(); !p5.done; p5 = f4.next()) qk(d5, p5.value);
+            for (var f4 = y5(t9.textStreams), p5 = f4.next(); !p5.done; p5 = f4.next()) d5.g.set(p5.value.id, 52);
+            for (f4 = y5(t9.imageStreams), p5 = f4.next(); !p5.done; p5 = f4.next()) Jk(d5, p5.value);
+            for (f4 = y5(t9.chapterStreams), p5 = f4.next(); !p5.done; p5 = f4.next()) Jk(d5, p5.value);
+            for (f4 = y5(t9.variants), p5 = f4.next(); !p5.done; p5 = f4.next()) qk(d5, p5.value);
             return a7 = vA(a7, d5, t9, i6), i6 = a7.streams, a7 = a7.xi, (d5 = e9.Xb()) && o8 && (d5.initData = []), {
               Tl: {
                 creationTime: Date.now(),
@@ -32466,7 +32563,7 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function cA(e9, t9) {
-            for (var n6 = [], r7 = y4(e9.streams), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, t9 && i6.type == "video" ? n6.push({
+            for (var n6 = [], r7 = y5(e9.streams), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, t9 && i6.type == "video" ? n6.push({
               contentType: xr(i6.mimeType, i6.codecs),
               robustness: e9.drmInfo.videoRobustness
             }) : t9 || i6.type != "audio" || n6.push({
@@ -32498,7 +32595,7 @@ var init_load_uTL4eiru = __esm({
                 case 4:
                   a7 = [], fk(r7, function(e10) {
                     return a7.push(e10);
-                  }), o8 = y4(a7), s7 = o8.next();
+                  }), o8 = y5(a7), s7 = o8.next();
                 case 5:
                   if (s7.done) {
                     d5.A(2);
@@ -32619,14 +32716,14 @@ var init_load_uTL4eiru = __esm({
                     segmentEnd: n6.presentationTimeline.getDuration(),
                     vttOffset: 0,
                     isMpegTs: false
-                  }, c7 = V3(i6), l6 = o8.parseMedia(c7, s7, t9, []), u7 = [], d5 = y4(l6), f4 = d5.next(), p5 = {}; !f4.done; p5 = {
+                  }, c7 = V4(i6), l6 = o8.parseMedia(c7, s7, t9, []), u7 = [], d5 = y5(l6), f4 = d5.next(), p5 = {}; !f4.done; p5 = {
                     sg: void 0,
                     vd: void 0
                   }, f4 = d5.next()) p5.vd = f4.value, p5.sg = null, m5 = /* @__PURE__ */ (function(e10) {
                     return function() {
                       return e10.sg ??= ua([t9], [e10.vd.payload]), e10.sg || [];
                     };
-                  })(p5), h6 = new J(p5.vd.startTime, p5.vd.endTime, m5, 0, null, null, 0, 0, Infinity), p5.vd.payload.includes("#xywh") && (g6 = p5.vd.payload.split("#xywh=")[1].split(","), g6.length === 4 && h6.ig({
+                  })(p5), h6 = new J2(p5.vd.startTime, p5.vd.endTime, m5, 0, null, null, 0, 0, Infinity), p5.vd.payload.includes("#xywh") && (g6 = p5.vd.payload.split("#xywh=")[1].split(","), g6.length === 4 && h6.ig({
                     height: parseInt(g6[3], 10),
                     positionX: parseInt(g6[0], 10),
                     positionY: parseInt(g6[1], 10),
@@ -32665,7 +32762,7 @@ var init_load_uTL4eiru = __esm({
                 kind: i6,
                 language: r7,
                 originalLanguage: r7,
-                type: U2,
+                type: U3,
                 external: true
               }), c7 = xr(s7.mimeType, s7.codecs), l6 = Lr(c7), !l6) throw new H4(2, 2, 2014, a7);
               return u7.return(s7);
@@ -32711,13 +32808,13 @@ var init_load_uTL4eiru = __esm({
           };
           function vA(e9, t9, n6, r7) {
             var i6 = /* @__PURE__ */ new Map(), a7 = DA(n6), o8 = /* @__PURE__ */ new Map();
-            a7 = y4(a7);
+            a7 = y5(a7);
             for (var s7 = a7.next(); !s7.done; s7 = a7.next()) {
               s7 = s7.value;
               var c7 = yA(e9, t9, n6, s7, r7, i6);
               o8.set(s7.id, c7);
             }
-            for (e9 = y4(n6.variants), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, t9.audio && o8.get(t9.audio.id).variantIds.push(t9.id), t9.video && o8.get(t9.video.id).variantIds.push(t9.id);
+            for (e9 = y5(n6.variants), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, t9.audio && o8.get(t9.audio.id).variantIds.push(t9.id), t9.video && o8.get(t9.video.id).variantIds.push(t9.id);
             return {
               streams: Array.from(o8.values()),
               xi: Array.from(i6.values())
@@ -32808,9 +32905,9 @@ var init_load_uTL4eiru = __esm({
           }
           function TA(e9) {
             var t9 = /* @__PURE__ */ new Set();
-            e9 = y4(e9.streams);
+            e9 = y5(e9.streams);
             for (var n6 = e9.next(); !n6.done; n6 = e9.next()) {
-              n6 = y4(n6.value.segments);
+              n6 = y5(n6.value.segments);
               for (var r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, r7.initSegmentKey != null && t9.add(r7.initSegmentKey), t9.add(r7.dataKey);
             }
             return Array.from(t9);
@@ -32833,10 +32930,10 @@ var init_load_uTL4eiru = __esm({
             });
           }
           function DA(e9) {
-            for (var t9 = /* @__PURE__ */ new Set(), n6 = y4(e9.variants), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, r7.audio && t9.add(r7.audio), r7.video && t9.add(r7.video);
-            for (n6 = y4(e9.textStreams), r7 = n6.next(); !r7.done; r7 = n6.next()) t9.add(r7.value);
-            for (n6 = y4(e9.imageStreams), r7 = n6.next(); !r7.done; r7 = n6.next()) t9.add(r7.value);
-            for (e9 = y4(e9.chapterStreams), n6 = e9.next(); !n6.done; n6 = e9.next()) t9.add(n6.value);
+            for (var t9 = /* @__PURE__ */ new Set(), n6 = y5(e9.variants), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, r7.audio && t9.add(r7.audio), r7.video && t9.add(r7.video);
+            for (n6 = y5(e9.textStreams), r7 = n6.next(); !r7.done; r7 = n6.next()) t9.add(r7.value);
+            for (n6 = y5(e9.imageStreams), r7 = n6.next(); !r7.done; r7 = n6.next()) t9.add(r7.value);
+            for (e9 = y5(e9.chapterStreams), n6 = e9.next(); !n6.done; n6 = e9.next()) t9.add(n6.value);
             return t9;
           }
           function OA(e9) {
@@ -32847,13 +32944,13 @@ var init_load_uTL4eiru = __esm({
               return e10.audio;
             }));
             e9 = e9.textStreams;
-            for (var n6 = y4(t9), r7 = n6.next(); !r7.done; r7 = n6.next()) {
-              r7 = y4(t9);
+            for (var n6 = y5(t9), r7 = n6.next(); !r7.done; r7 = n6.next()) {
+              r7 = y5(t9);
               for (var i6 = r7.next(); !i6.done; i6 = r7.next()) ;
             }
-            for (t9 = y4(e9), n6 = t9.next(); !n6.done; n6 = t9.next()) for (n6 = y4(e9), r7 = n6.next(); !r7.done; r7 = n6.next()) ;
+            for (t9 = y5(e9), n6 = t9.next(); !n6.done; n6 = t9.next()) for (n6 = y5(e9), r7 = n6.next(); !r7.done; r7 = n6.next()) ;
           }
-          L3("shaka.offline.Storage", Xk), Xk.deleteAll = function() {
+          L4("shaka.offline.Storage", Xk), Xk.deleteAll = function() {
             var e9;
             return P4(function(t9) {
               return t9.h == 1 ? (e9 = new ck(), t9.D(2), t9.g(mk(e9), 2)) : t9.h == 5 ? t9.B(0) : (t9.u(), t9.g(e9.destroy(), 5));
@@ -32873,13 +32970,13 @@ var init_load_uTL4eiru = __esm({
             }
             MA.push(e9);
           }
-          L3("shaka.polyfill", AA), AA.register = jA, AA.installAll = function() {
-            for (var e9 = y4(MA), t9 = e9.next(); !t9.done; t9 = e9.next()) {
+          L4("shaka.polyfill", AA), AA.register = jA, AA.installAll = function() {
+            for (var e9 = y5(MA), t9 = e9.next(); !t9.done; t9 = e9.next()) {
               t9 = t9.value;
               try {
                 t9.callback();
               } catch (e10) {
-                R3("Error installing polyfill!", e10);
+                R4("Error installing polyfill!", e10);
               }
             }
           };
@@ -32889,14 +32986,14 @@ var init_load_uTL4eiru = __esm({
           }
           NA.prototype.getConfiguration = function() {
             var e9 = this.g.getConfiguration();
-            if (e9.videoCapabilities) for (var t9 = y4(e9.videoCapabilities), n6 = t9.next(); !n6.done; n6 = t9.next()) n6.value.encryptionScheme = this.i;
-            if (e9.audioCapabilities) for (t9 = y4(e9.audioCapabilities), n6 = t9.next(); !n6.done; n6 = t9.next()) n6.value.encryptionScheme = this.h;
+            if (e9.videoCapabilities) for (var t9 = y5(e9.videoCapabilities), n6 = t9.next(); !n6.done; n6 = t9.next()) n6.value.encryptionScheme = this.i;
+            if (e9.audioCapabilities) for (t9 = y5(e9.audioCapabilities), n6 = t9.next(); !n6.done; n6 = t9.next()) n6.value.encryptionScheme = this.h;
             return e9;
           }, NA.prototype.createMediaKeys = function() {
             return this.g.createMediaKeys();
           };
           function PA(e9) {
-            return it2(e9) ? "cbcs" : nt2(e9) || rt2(e9) || tt2(e9) || e9 === "com.huawei.wiseplay" ? "cenc" : (R3("EmeEncryptionSchemePolyfill: Unknown key system:", e9, "Please contribute!"), null);
+            return it2(e9) ? "cbcs" : nt2(e9) || rt2(e9) || tt2(e9) || e9 === "com.huawei.wiseplay" ? "cenc" : (R4("EmeEncryptionSchemePolyfill: Unknown key system:", e9, "Please contribute!"), null);
           }
           function FA(e9) {
             if (!e9) return false;
@@ -32905,13 +33002,13 @@ var init_load_uTL4eiru = __esm({
             return !!((e9 = e9.videoCapabilities && e9.videoCapabilities[0] || t9) && e9.encryptionScheme !== void 0);
           }
           function IA(e9, t9) {
-            return !!(!e9 || e9 == t9 || (e9 == "cbcs" || e9 == "cbcs-1-9") && B3().ld());
+            return !!(!e9 || e9 == t9 || (e9 == "cbcs" || e9 == "cbcs-1-9") && B4().ld());
           }
           function LA() {
           }
           var RA;
           function zA() {
-            B3().lg() && !RA && !navigator.emeEncryptionSchemePolyfilled && navigator.requestMediaKeySystemAccess && MediaKeySystemAccess.prototype.getConfiguration && (RA = navigator.requestMediaKeySystemAccess, navigator.requestMediaKeySystemAccess = BA, navigator.emeEncryptionSchemePolyfilled = true);
+            B4().lg() && !RA && !navigator.emeEncryptionSchemePolyfilled && navigator.requestMediaKeySystemAccess && MediaKeySystemAccess.prototype.getConfiguration && (RA = navigator.requestMediaKeySystemAccess, navigator.requestMediaKeySystemAccess = BA, navigator.emeEncryptionSchemePolyfilled = true);
           }
           function BA(e9, t9) {
             var n6 = this, r7;
@@ -32923,7 +33020,7 @@ var init_load_uTL4eiru = __esm({
             var n6 = this, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5, m5;
             return P4(function(h6) {
               if (h6.h == 1) {
-                for (r7 = PA(e9), i6 = [], a7 = y4(t9), o8 = a7.next(); !o8.done; o8 = a7.next()) s7 = o8.value, c7 = HA(s7.videoCapabilities, r7), l6 = HA(s7.audioCapabilities, r7), s7.videoCapabilities && s7.videoCapabilities.length && !c7.length || s7.audioCapabilities && s7.audioCapabilities.length && !l6.length || (u7 = Object.assign({}, s7), u7.videoCapabilities = c7, u7.audioCapabilities = l6, i6.push(u7));
+                for (r7 = PA(e9), i6 = [], a7 = y5(t9), o8 = a7.next(); !o8.done; o8 = a7.next()) s7 = o8.value, c7 = HA(s7.videoCapabilities, r7), l6 = HA(s7.audioCapabilities, r7), s7.videoCapabilities && s7.videoCapabilities.length && !c7.length || s7.audioCapabilities && s7.audioCapabilities.length && !l6.length || (u7 = Object.assign({}, s7), u7.videoCapabilities = c7, u7.audioCapabilities = l6, i6.push(u7));
                 if (!i6.length) throw d5 = Error("Unsupported keySystem or supportedConfigurations."), d5.name = "NotSupportedError", d5.code = DOMException.NOT_SUPPORTED_ERR, d5;
                 return h6.g(RA.call(n6, e9, i6), 2);
               }
@@ -32952,7 +33049,7 @@ var init_load_uTL4eiru = __esm({
           }
           var JA;
           function YA() {
-            B3().lg() && !JA && !navigator.mediaCapabilitiesEncryptionSchemePolyfilled && navigator.mediaCapabilities && (JA = navigator.mediaCapabilities.decodingInfo, navigator.mediaCapabilities.decodingInfo = XA, navigator.mediaCapabilitiesEncryptionSchemePolyfilled = true);
+            B4().lg() && !JA && !navigator.mediaCapabilitiesEncryptionSchemePolyfilled && navigator.mediaCapabilities && (JA = navigator.mediaCapabilities.decodingInfo, navigator.mediaCapabilities.decodingInfo = XA, navigator.mediaCapabilitiesEncryptionSchemePolyfilled = true);
           }
           function XA(e9) {
             var t9 = this, n6, r7;
@@ -33031,7 +33128,7 @@ var init_load_uTL4eiru = __esm({
           function $A() {
           }
           function ej() {
-            B3().hc() || (navigator.mediaCapabilities || (navigator.mediaCapabilities = {}), $A.originalMcap = navigator.mediaCapabilities, navigator.mediaCapabilities.decodingInfo = tj);
+            B4().hc() || (navigator.mediaCapabilities || (navigator.mediaCapabilities = {}), $A.originalMcap = navigator.mediaCapabilities, navigator.mediaCapabilities.decodingInfo = tj);
           }
           function tj(e9) {
             var t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5;
@@ -33044,7 +33141,7 @@ var init_load_uTL4eiru = __esm({
                     smooth: true,
                     keySystemAccess: null,
                     configuration: e9
-                  }, B3(), n6 = e9.video, r7 = e9.audio, e9.type != "media-source") {
+                  }, B4(), n6 = e9.video, r7 = e9.audio, e9.type != "media-source") {
                     if (e9.type == "file") {
                       if (n6 && (i6 = n6.contentType, a7 = hl().canPlayType(i6) != "", !a7) || r7 && (o8 = r7.contentType, s7 = hl().canPlayType(o8) != "", !s7)) return f4.return(t9);
                     } else return f4.return(t9);
@@ -33079,7 +33176,7 @@ var init_load_uTL4eiru = __esm({
           function nj(e9) {
             var t9, n6, r7;
             return P4(function(i6) {
-              return i6.h == 1 ? (t9 = B3(), n6 = t9.Ra(), n6 === "CAST" ? i6.g(aj(e9), 3) : i6.A(2)) : i6.h == 2 ? i6.return(Ms(e9.contentType)) : (r7 = i6.i, i6.return(r7));
+              return i6.h == 1 ? (t9 = B4(), n6 = t9.Ra(), n6 === "CAST" ? i6.g(aj(e9), 3) : i6.A(2)) : i6.h == 2 ? i6.return(Ms(e9.contentType)) : (r7 = i6.i, i6.return(r7));
             });
           }
           function rj(t9) {
@@ -33087,7 +33184,7 @@ var init_load_uTL4eiru = __esm({
             return P4(function(s7) {
               switch (s7.h) {
                 case 1:
-                  if (n6 = B3(), r7 = n6.Ra(), i6 = t9.contentType, r7 !== "CAST" || !t9.spatialRendering) {
+                  if (n6 = B4(), r7 = n6.Ra(), i6 = t9.contentType, r7 !== "CAST" || !t9.spatialRendering) {
                     s7.A(2);
                     break;
                   }
@@ -33117,7 +33214,7 @@ var init_load_uTL4eiru = __esm({
                   r7 = [], i6 = [], a7 = [], n6.audio && (o8 = {
                     robustness: n6.audio.robustness || "",
                     contentType: t9.contentType
-                  }, B3().Aj() && t9.contentType.includes('codecs="ac-3"') && (o8.contentType = 'audio/mp4; codecs="ec-3"'), n6.audio.encryptionScheme && (o8.encryptionScheme = n6.audio.encryptionScheme, a7.push(n6.audio.encryptionScheme)), r7.push(o8)), n6.video && (s7 = {
+                  }, B4().Aj() && t9.contentType.includes('codecs="ac-3"') && (o8.contentType = 'audio/mp4; codecs="ec-3"'), n6.audio.encryptionScheme && (o8.encryptionScheme = n6.audio.encryptionScheme, a7.push(n6.audio.encryptionScheme)), r7.push(o8)), n6.video && (s7 = {
                     robustness: n6.video.robustness || "",
                     contentType: e9.contentType
                   }, n6.video.encryptionScheme && (s7.encryptionScheme = n6.video.encryptionScheme, a7.push(n6.video.encryptionScheme)), i6.push(s7)), c7 = {
@@ -33191,8 +33288,8 @@ var init_load_uTL4eiru = __esm({
           function cj() {
           }
           function lj() {
-            var t9 = B3(), n6 = t9.Qa() === "WEBKIT" ? t9.Ca() : null;
-            for ((e8.MediaSource || e8.ManagedMediaSource) && n6 && e8.MediaSource && (n6 <= 12 ? (uj(), dj()) : n6 <= 15 && uj()), t9 = y4(t9.Mj()), n6 = t9.next(); !n6.done; n6 = t9.next()) pj(n6.value);
+            var t9 = B4(), n6 = t9.Qa() === "WEBKIT" ? t9.Ca() : null;
+            for ((e8.MediaSource || e8.ManagedMediaSource) && n6 && e8.MediaSource && (n6 <= 12 ? (uj(), dj()) : n6 <= 15 && uj()), t9 = y5(t9.Mj()), n6 = t9.next(); !n6.done; n6 = t9.next()) pj(n6.value);
             (e8.MediaSource || e8.ManagedMediaSource) && fj(), e8.MediaSource && MediaSource.isTypeSupported('video/webm; codecs="vp9"') && !MediaSource.isTypeSupported('video/webm; codecs="vp09.00.10.08"') && mj();
           }
           function uj() {
@@ -33236,7 +33333,7 @@ var init_load_uTL4eiru = __esm({
           }
           function mj() {
             var e9 = MediaSource.isTypeSupported;
-            B3().ik() && (MediaSource.isTypeSupported = function(t9) {
+            B4().ik() && (MediaSource.isTypeSupported = function(t9) {
               var n6 = t9.split(/ *; */), r7 = n6.findIndex(function(e10) {
                 return e10.startsWith("codecs=");
               });
@@ -33267,7 +33364,7 @@ var init_load_uTL4eiru = __esm({
             return t9 && t9 != e9 && Oj(t9, null), delete this.mediaKeys, (this.mediaKeys = e9) ? Oj(e9, this) : Promise.resolve();
           }
           function Tj(e9) {
-            if (e9 = V3(e9.initData), je2(e9).getUint32(0, true) + 4 != e9.byteLength) throw RangeError("Malformed FairPlay init data");
+            if (e9 = V4(e9.initData), je2(e9).getUint32(0, true) + 4 != e9.byteLength) throw RangeError("Malformed FairPlay init data");
             e9 = Le2(e9.subarray(4), true), e9 = ze2(e9);
             var t9 = new Event("encrypted");
             t9.initDataType = "skd", t9.initData = ke2(e9), this.dispatchEvent(t9);
@@ -33276,7 +33373,7 @@ var init_load_uTL4eiru = __esm({
             e8.shakaMediaKeysPolyfill == jj && gj && (gj = false, Object.defineProperty(HTMLMediaElement.prototype, "mediaKeys", _j), HTMLMediaElement.prototype.setMediaKeys = vj, e8.MediaKeys = yj, e8.MediaKeySystemAccess = bj, navigator.requestMediaKeySystemAccess = xj, _j = xj = vj = bj = yj = null, e8.shakaMediaKeysPolyfill = "", ji.clear(), ut2.clear());
           }, hj.install = Sj;
           function Ej(e9, t9) {
-            if (this.keySystem = e9, e9.startsWith("com.apple.fps")) for (e9 = y4(t9), t9 = e9.next(); !t9.done; t9 = e9.next()) {
+            if (this.keySystem = e9, e9.startsWith("com.apple.fps")) for (e9 = y5(t9), t9 = e9.next(); !t9.done; t9 = e9.next()) {
               var n6 = t9.value;
               if (n6.persistentState == "required") t9 = null;
               else {
@@ -33290,8 +33387,8 @@ var init_load_uTL4eiru = __esm({
                   label: n6.label
                 };
                 var r7 = false, i6 = false;
-                if (n6.audioCapabilities) for (var a7 = y4(n6.audioCapabilities), o8 = a7.next(); !o8.done; o8 = a7.next()) o8 = o8.value, o8.contentType && (r7 = true, WebKitMediaKeys.isTypeSupported(this.keySystem, o8.contentType.split(";")[0]) && (t9.audioCapabilities.push(o8), i6 = true));
-                if (n6.videoCapabilities) for (n6 = y4(n6.videoCapabilities), a7 = n6.next(); !a7.done; a7 = n6.next()) a7 = a7.value, a7.contentType && (r7 = true, WebKitMediaKeys.isTypeSupported(this.keySystem, a7.contentType.split(";")[0]) && (t9.videoCapabilities.push(a7), i6 = true));
+                if (n6.audioCapabilities) for (var a7 = y5(n6.audioCapabilities), o8 = a7.next(); !o8.done; o8 = a7.next()) o8 = o8.value, o8.contentType && (r7 = true, WebKitMediaKeys.isTypeSupported(this.keySystem, o8.contentType.split(";")[0]) && (t9.audioCapabilities.push(o8), i6 = true));
+                if (n6.videoCapabilities) for (n6 = y5(n6.videoCapabilities), a7 = n6.next(); !a7.done; a7 = n6.next()) a7 = a7.value, a7.contentType && (r7 = true, WebKitMediaKeys.isTypeSupported(this.keySystem, a7.contentType.split(";")[0]) && (t9.videoCapabilities.push(a7), i6 = true));
                 r7 || (i6 = WebKitMediaKeys.isTypeSupported(this.keySystem, "video/mp4")), t9 = i6 ? t9 : null;
               }
               if (t9) {
@@ -33308,7 +33405,7 @@ var init_load_uTL4eiru = __esm({
             return this.g;
           };
           function Dj(e9) {
-            this.h = new WebKitMediaKeys(e9), this.g = new z3();
+            this.h = new WebKitMediaKeys(e9), this.g = new z4();
           }
           Dj.prototype.createSession = function(e9) {
             if (e9 ||= "temporary", e9 != "temporary") throw TypeError("Session type " + e9 + " is unsupported on this platform.");
@@ -33331,13 +33428,13 @@ var init_load_uTL4eiru = __esm({
             return Promise.resolve("usable");
           };
           function kj(e9) {
-            oa.call(this), this.i = null, this.m = e9, this.g = this.h = null, this.j = new z3(), this.l = Promise.withResolvers(), this.sessionId = "", this.expiration = NaN, this.keyStatuses = new sj(), this.onkeystatuseschange = null;
+            oa.call(this), this.i = null, this.m = e9, this.g = this.h = null, this.j = new z4(), this.l = Promise.withResolvers(), this.sessionId = "", this.expiration = NaN, this.keyStatuses = new sj(), this.onkeystatuseschange = null;
           }
           _4(kj, oa), r6 = kj.prototype, r6.generateRequest = function(e9, t9) {
             var n6 = this;
             this.h = Promise.withResolvers();
             try {
-              var r7 = this.m.createSession("video/mp4", V3(t9));
+              var r7 = this.m.createSession("video/mp4", V4(t9));
               this.i = r7, this.sessionId = r7.sessionId || "", this.j.G(this.i, "webkitkeymessage", function(e10) {
                 n6.h &&= (n6.h.resolve(), null), e10 = (/* @__PURE__ */ new Map()).set("messageType", n6.keyStatuses.tc() == null ? "license-request" : "license-renewal").set("message", ke2(e10.message)), e10 = new K2("message", e10), n6.dispatchEvent(e10);
               }), this.j.G(r7, "webkitkeyadded", function() {
@@ -33364,7 +33461,7 @@ var init_load_uTL4eiru = __esm({
           }, r6.update = function(e9) {
             this.g = Promise.withResolvers();
             try {
-              this.i.update(V3(e9));
+              this.i.update(V4(e9));
             } catch (e10) {
               this.g.reject(e10);
             }
@@ -33398,7 +33495,7 @@ var init_load_uTL4eiru = __esm({
           }
           function Nj() {
             if (e8.MediaKeys) {
-              var t9 = B3();
+              var t9 = B4();
               MediaKeys.prototype.setServerCertificate && t9.Le() || (MediaKeys.prototype.setServerCertificate = Pj);
             }
           }
@@ -33437,7 +33534,7 @@ var init_load_uTL4eiru = __esm({
             var n6 = false;
             e9 == "org.w3.clearkey" && (this.g = "webkit-org.w3.clearkey", n6 = false);
             var r7 = false, i6 = document.getElementsByTagName("video");
-            i6 = i6.length ? i6[0] : document.createElement("video"), t9 = y4(t9);
+            i6 = i6.length ? i6[0] : document.createElement("video"), t9 = y5(t9);
             for (var a7 = t9.next(); !a7.done; a7 = t9.next()) {
               a7 = a7.value;
               var o8 = {
@@ -33449,8 +33546,8 @@ var init_load_uTL4eiru = __esm({
                 sessionTypes: ["temporary"],
                 label: a7.label
               }, s7 = false;
-              if (a7.audioCapabilities) for (var c7 = y4(a7.audioCapabilities), l6 = c7.next(); !l6.done; l6 = c7.next()) l6 = l6.value, l6.contentType && (s7 = true, i6.canPlayType(l6.contentType.split(";")[0], this.g) && (o8.audioCapabilities.push(l6), r7 = true));
-              if (a7.videoCapabilities) for (c7 = y4(a7.videoCapabilities), l6 = c7.next(); !l6.done; l6 = c7.next()) l6 = l6.value, l6.contentType && (s7 = true, i6.canPlayType(l6.contentType, this.g) && (o8.videoCapabilities.push(l6), r7 = true));
+              if (a7.audioCapabilities) for (var c7 = y5(a7.audioCapabilities), l6 = c7.next(); !l6.done; l6 = c7.next()) l6 = l6.value, l6.contentType && (s7 = true, i6.canPlayType(l6.contentType.split(";")[0], this.g) && (o8.audioCapabilities.push(l6), r7 = true));
+              if (a7.videoCapabilities) for (c7 = y5(a7.videoCapabilities), l6 = c7.next(); !l6.done; l6 = c7.next()) l6 = l6.value, l6.contentType && (s7 = true, i6.canPlayType(l6.contentType, this.g) && (o8.videoCapabilities.push(l6), r7 = true));
               if (s7 || (r7 = i6.canPlayType("video/mp4", this.g) || i6.canPlayType("video/webm", this.g)), a7.persistentState == "required" && (n6 ? (o8.persistentState = "required", o8.sessionTypes = ["persistent-license"]) : r7 = false), r7) {
                 this.h = o8;
                 return;
@@ -33465,7 +33562,7 @@ var init_load_uTL4eiru = __esm({
             return this.h;
           };
           function Vj(e9) {
-            this.l = e9, this.h = null, this.g = new z3(), this.i = [], this.j = /* @__PURE__ */ new Map();
+            this.l = e9, this.h = null, this.g = new z4(), this.i = [], this.j = /* @__PURE__ */ new Map();
           }
           function Hj(e9, t9) {
             e9.h = t9, e9.g.Ea();
@@ -33510,9 +33607,9 @@ var init_load_uTL4eiru = __esm({
             e9.o = true;
             try {
               if (e9.m == "persistent-license") {
-                if (n6) var r7 = V3(ze2("LOAD_SESSION|" + n6));
+                if (n6) var r7 = V4(ze2("LOAD_SESSION|" + n6));
                 else r7 = Ye2(ze2("PERSISTENT|"), t9);
-              } else r7 = V3(t9);
+              } else r7 = V4(t9);
             } catch (e10) {
               return Promise.reject(e10);
             }
@@ -33522,7 +33619,7 @@ var init_load_uTL4eiru = __esm({
               e9.l[i6](e9.j, r7);
             } catch (t10) {
               if (t10.name != "InvalidStateError") return e9.h = null, Promise.reject(t10);
-              new G(function() {
+              new G2(function() {
                 try {
                   e9.l[i6](e9.j, r7);
                 } catch (t11) {
@@ -33542,7 +33639,7 @@ var init_load_uTL4eiru = __esm({
               if (e9.g = t9, e9.j == "webkit-org.w3.clearkey") {
                 var r7 = Ie2(n6), i6 = JSON.parse(r7);
                 i6.keys[0].kty != "oct" && (e9.g.reject(Error("Response is not a valid JSON Web Key Set.")), e9.g = null), r7 = Ke2(i6.keys[0].k), i6 = Ke2(i6.keys[0].kid);
-              } else r7 = V3(n6), i6 = null;
+              } else r7 = V4(n6), i6 = null;
               var a7 = Lj("addKey");
               try {
                 e9.l[a7](e9.j, r7, i6, e9.sessionId);
@@ -33607,7 +33704,7 @@ var init_load_uTL4eiru = __esm({
           function nM() {
           }
           function rM() {
-            for (var e9 = y4([
+            for (var e9 = y5([
               Uint8Array,
               Uint8ClampedArray,
               Uint16Array,
@@ -33660,20 +33757,20 @@ var init_load_uTL4eiru = __esm({
           function cM(e9) {
             if (this.g = [], typeof e9 == "string") {
               if (e9.startsWith("?") && (e9 = e9.substring(1)), e9) {
-                e9 = y4(e9.split("&"));
+                e9 = y5(e9.split("&"));
                 for (var t9 = e9.next(); !t9.done; t9 = e9.next()) {
                   var n6 = t9.value.split("=");
                   t9 = decodeURIComponent(n6[0].replace(/\+/g, " ")), n6 = n6.length > 1 ? decodeURIComponent(n6[1].replace(/\+/g, " ")) : "", this.append(t9, n6);
                 }
               }
-            } else if (Array.isArray(e9)) for (e9 = y4(e9), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, this.append(t9[0], t9[1]);
+            } else if (Array.isArray(e9)) for (e9 = y5(e9), t9 = e9.next(); !t9.done; t9 = e9.next()) t9 = t9.value, this.append(t9[0], t9[1]);
             else if (e9) for (t9 in e9) this.append(t9, e9[t9]);
           }
           r6 = cM.prototype, r6.append = function(e9, t9) {
             this.g.push([String(e9), String(t9)]);
           }, r6.get = function(e9) {
             e9 = String(e9);
-            for (var t9 = y4(this.g), n6 = t9.next(); !n6.done; n6 = t9.next()) if (n6 = n6.value, n6[0] === e9) return n6[1];
+            for (var t9 = y5(this.g), n6 = t9.next(); !n6.done; n6 = t9.next()) if (n6 = n6.value, n6[0] === e9) return n6[1];
             return null;
           }, r6.has = function(e9) {
             var t9 = String(e9);
@@ -33730,7 +33827,7 @@ var init_load_uTL4eiru = __esm({
               return n6;
             }, n6;
           }, r6.forEach = function(e9) {
-            for (var t9 = y4(this.g), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, e9(n6[1], n6[0], this);
+            for (var t9 = y5(this.g), n6 = t9.next(); !n6.done; n6 = t9.next()) n6 = n6.value, e9(n6[1], n6[0], this);
           }, cM.prototype[Symbol.iterator] = function() {
             return this.entries();
           }, jA(aM);
@@ -33837,7 +33934,7 @@ var init_load_uTL4eiru = __esm({
           }
           AA.VTTCue = bM, bM.install = xM, jA(xM);
           function wM(e9) {
-            oa.call(this), this.g = e9, this.u = null, this.h = [], this.j = -1, this.i = this.l = null, this.m = new z3(), this.o = null;
+            oa.call(this), this.g = e9, this.u = null, this.h = [], this.j = -1, this.i = this.l = null, this.m = new z4(), this.o = null;
           }
           _4(wM, oa), r6 = wM.prototype, r6.destroy = function() {
             var e9 = this;
@@ -33858,7 +33955,7 @@ var init_load_uTL4eiru = __esm({
           }, r6.getItems = function() {
             return this.h.slice();
           }, r6.insertItems = function(e9) {
-            this.h.push.apply(this.h, b3(e9)), this.dispatchEvent(new K2("itemsinserted"));
+            this.h.push.apply(this.h, b4(e9)), this.dispatchEvent(new K2("itemsinserted"));
           }, r6.removeAllItems = function() {
             var e9 = this, t9, n6, r7, i6, a7, o8;
             return P4(function(s7) {
@@ -33875,7 +33972,7 @@ var init_load_uTL4eiru = __esm({
                 case 3:
                   s7.l();
                 case 2:
-                  for (t9 = [], (n6 = e9.i) != null && n6.preloadManager && !e9.i.preloadManager.l && t9.push(e9.i.preloadManager.destroy()), e9.i = null, (r7 = e9.l) != null && r7.preloadManager && !e9.l.preloadManager.l && t9.push(e9.l.preloadManager.destroy()), e9.l = null, i6 = y4(e9.h), a7 = i6.next(); !a7.done; a7 = i6.next()) o8 = a7.value, o8.preloadManager && !o8.preloadManager.l && t9.push(o8.preloadManager.destroy());
+                  for (t9 = [], (n6 = e9.i) != null && n6.preloadManager && !e9.i.preloadManager.l && t9.push(e9.i.preloadManager.destroy()), e9.i = null, (r7 = e9.l) != null && r7.preloadManager && !e9.l.preloadManager.l && t9.push(e9.l.preloadManager.destroy()), e9.l = null, i6 = y5(e9.h), a7 = i6.next(); !a7.done; a7 = i6.next()) o8 = a7.value, o8.preloadManager && !o8.preloadManager.l && t9.push(o8.preloadManager.destroy());
                   if (!t9.length) {
                     s7.A(6);
                     break;
@@ -33946,7 +34043,7 @@ var init_load_uTL4eiru = __esm({
               else {
                 n6 = e9.j + 1;
                 var i6 = null;
-                n6 < e9.h.length ? i6 = n6 : r7 === 1 && (i6 = e9.h.length > 1 ? 0 : e9.j), i6 !== null && (i6 === e9.j ? EM(e9, t9) : (e9.o &&= (e9.o.stop(), null), e9.o = new G(function() {
+                n6 < e9.h.length ? i6 = n6 : r7 === 1 && (i6 = e9.h.length > 1 ? 0 : e9.j), i6 !== null && (i6 === e9.j ? EM(e9, t9) : (e9.o &&= (e9.o.stop(), null), e9.o = new G2(function() {
                   e9.playItem(i6).catch(function() {
                   });
                 }).ba(0)));
@@ -34002,7 +34099,7 @@ var init_load_uTL4eiru = __esm({
                 return P4(function(n7) {
                   return n7.g(e9.g.kc(t10.uri, t10.language, t10.mime), 0);
                 });
-              }) || [], a7.g(Promise.all([].concat(b3(n6), b3(r7), b3(i6))), 0);
+              }) || [], a7.g(Promise.all([].concat(b4(n6), b4(r7), b4(i6))), 0);
             });
           }
           r6.loadFromM3uPlaylist = function(e9, t9) {
@@ -34011,7 +34108,7 @@ var init_load_uTL4eiru = __esm({
             return P4(function(l6) {
               if (l6.h == 1) return r7 = n6.g.hb(), i6 = n6.g.getConfiguration().manifest.retryParameters, a7 = xa([e9], i6), l6.g(r7.request(12, a7).promise, 2);
               o8 = l6.i, s7 = Ie2(o8.data);
-              for (var u7 = [], d5 = /* @__PURE__ */ new Set(), f4 = null, p5 = y4(s7.split(/\r?\n/)), m5 = p5.next(); !m5.done; m5 = p5.next()) if ((m5 = m5.value.trim()) && m5 !== "#EXTM3U") {
+              for (var u7 = [], d5 = /* @__PURE__ */ new Set(), f4 = null, p5 = y5(s7.split(/\r?\n/)), m5 = p5.next(); !m5.done; m5 = p5.next()) if ((m5 = m5.value.trim()) && m5 !== "#EXTM3U") {
                 if (m5.startsWith("#EXTINF:")) {
                   var h6 = m5.lastIndexOf(",");
                   f4 = h6 >= 0 ? m5.substring(0, h6) : m5, m5 = h6 >= 0 ? m5.substring(h6 + 1).trim() : "";
@@ -34034,7 +34131,7 @@ var init_load_uTL4eiru = __esm({
               }
               return c7 = u7, c7.length === 0 ? l6.return() : (n6.insertItems(c7), t9 ? l6.g(n6.playItem(0), 0) : l6.A(0));
             });
-          }, L3("shaka.queue.QueueManager", wM), wM.prototype.loadFromM3uPlaylist = wM.prototype.loadFromM3uPlaylist, wM.prototype.playItem = wM.prototype.playItem, wM.prototype.removeAllItems = wM.prototype.removeAllItems, wM.prototype.insertItems = wM.prototype.insertItems, wM.prototype.getItems = wM.prototype.getItems, wM.prototype.getCurrentItemIndex = wM.prototype.getCurrentItemIndex, wM.prototype.getCurrentItem = wM.prototype.getCurrentItem, wM.prototype.setCustomPlayer = wM.prototype.setCustomPlayer, wM.prototype.getConfiguration = wM.prototype.getConfiguration, wM.prototype.configure = wM.prototype.configure, wM.prototype.destroy = wM.prototype.destroy, Hv = function(e9) {
+          }, L4("shaka.queue.QueueManager", wM), wM.prototype.loadFromM3uPlaylist = wM.prototype.loadFromM3uPlaylist, wM.prototype.playItem = wM.prototype.playItem, wM.prototype.removeAllItems = wM.prototype.removeAllItems, wM.prototype.insertItems = wM.prototype.insertItems, wM.prototype.getItems = wM.prototype.getItems, wM.prototype.getCurrentItemIndex = wM.prototype.getCurrentItemIndex, wM.prototype.getCurrentItem = wM.prototype.getCurrentItem, wM.prototype.setCustomPlayer = wM.prototype.setCustomPlayer, wM.prototype.getConfiguration = wM.prototype.getConfiguration, wM.prototype.configure = wM.prototype.configure, wM.prototype.destroy = wM.prototype.destroy, Hv = function(e9) {
             return new wM(e9);
           };
           function jM() {
@@ -34054,9 +34151,9 @@ var init_load_uTL4eiru = __esm({
             d5 = d5 == "default", o8 = new qM(o8, s7, c7, l6), u7 = KM(u7), s7 = xn(a7, "metadata")[0], s7 = (s7 ? s7.children : []).filter(function(e10) {
               return e10 != "\n";
             }), c7 = xn(a7, "style"), a7 = xn(a7, "region"), l6 = [];
-            for (var p5 = y4(a7), m5 = p5.next(); !m5.done; m5 = p5.next()) (m5 = NM(this, m5.value, c7, f4)) && l6.push(m5);
+            for (var p5 = y5(a7), m5 = p5.next(); !m5.done; m5 = p5.next()) (m5 = NM(this, m5.value, c7, f4)) && l6.push(m5);
             if (vn(i6, "p").length) throw new H4(2, 2, 2001, "<p> can only be inside <div> in TTML");
-            for (f4 = y4(vn(i6, "div")), p5 = f4.next(); !p5.done; p5 = f4.next()) if (vn(p5.value, "span").length) throw new H4(2, 2, 2001, "<span> can only be inside <p> in TTML");
+            for (f4 = y5(vn(i6, "div")), p5 = f4.next(); !p5.done; p5 = f4.next()) if (vn(p5.value, "span").length) throw new H4(2, 2, 2001, "<span> can only be inside <p> in TTML");
             return (t9 = MM(this, i6, t9, o8, s7, c7, a7, l6, d5, u7, null, false, n6, r7)) && (t9.backgroundColor || (t9.backgroundColor = "transparent"), e9.push(t9)), e9;
           };
           function MM(e9, t9, n6, r7, i6, a7, o8, s7, c7, l6, u7, d5, f4, p5) {
@@ -34070,22 +34167,22 @@ var init_load_uTL4eiru = __esm({
                 parent: null
               };
             } else h6 = t9;
-            for (var g6 = null, _5 = y4(cN), v7 = _5.next(); !v7.done && !(g6 = VM(h6, "backgroundImage", i6, "#", v7.value)[0]); v7 = _5.next()) ;
+            for (var g6 = null, _5 = y5(cN), v7 = _5.next(); !v7.done && !(g6 = VM(h6, "backgroundImage", i6, "#", v7.value)[0]); v7 = _5.next()) ;
             _5 = null, v7 = En(h6, cN, "backgroundImage");
-            var b4 = /^(urn:)(mpeg:[a-z0-9][a-z0-9-]{0,31}:)(subs:)([0-9]+)$/;
-            if (v7 && b4.test(v7)) {
+            var b5 = /^(urn:)(mpeg:[a-z0-9][a-z0-9-]{0,31}:)(subs:)([0-9]+)$/;
+            if (v7 && b5.test(v7)) {
               if (_5 = parseInt(v7.split(":").pop(), 10) - 1, _5 >= p5.length) return null;
               _5 = p5[_5];
             } else f4 && v7 && !v7.startsWith("#") && (v7 = la(f4, v7)) && (_5 = v7);
-            if ((t9.tagName == "p" || g6 || _5) && (d5 = true), t9 = d5, v7 = (h6.attributes["xml:space"] || (c7 ? "default" : "preserve")) == "default", b4 = h6.children.every(gn), c7 = [], !b4) for (var x4 = y4(h6.children), S3 = x4.next(); !S3.done; S3 = x4.next()) (S3 = MM(e9, S3.value, n6, r7, i6, a7, o8, s7, v7, l6, h6, d5, f4, p5)) && c7.push(S3);
-            if (i6 = u7 != null, f4 = yn(h6), f4 = h6.children.length && f4 && /\S/.test(f4), x4 = h6.attributes.begin || h6.attributes.end || h6.attributes.dur, !(x4 || f4 || h6.tagName == "br" || c7.length != 0 || i6 && !v7)) return null;
+            if ((t9.tagName == "p" || g6 || _5) && (d5 = true), t9 = d5, v7 = (h6.attributes["xml:space"] || (c7 ? "default" : "preserve")) == "default", b5 = h6.children.every(gn), c7 = [], !b5) for (var x5 = y5(h6.children), S5 = x5.next(); !S5.done; S5 = x5.next()) (S5 = MM(e9, S5.value, n6, r7, i6, a7, o8, s7, v7, l6, h6, d5, f4, p5)) && c7.push(S5);
+            if (i6 = u7 != null, f4 = yn(h6), f4 = h6.children.length && f4 && /\S/.test(f4), x5 = h6.attributes.begin || h6.attributes.end || h6.attributes.dur, !(x5 || f4 || h6.tagName == "br" || c7.length != 0 || i6 && !v7)) return null;
             for (p5 = UM(h6, r7), f4 = p5.start, p5 = p5.end; m5 && m5.tagName && m5.tagName != "tt"; ) p5 = HM(m5, r7, f4, p5), f4 = p5.start, p5 = p5.end, m5 = m5.parent;
-            if (f4 ??= 0, f4 += n6.periodStart, p5 = p5 == null ? Infinity : p5 + n6.periodStart, e9.g !== "HLS" && (f4 = Math.max(f4, n6.segmentStart), p5 = Math.min(p5, n6.segmentEnd)), !x4 && c7.length > 0) for (f4 = Infinity, p5 = 0, n6 = y4(c7), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, f4 = Math.min(f4, r7.startTime), p5 = Math.max(p5, r7.endTime);
+            if (f4 ??= 0, f4 += n6.periodStart, p5 = p5 == null ? Infinity : p5 + n6.periodStart, e9.g !== "HLS" && (f4 = Math.max(f4, n6.segmentStart), p5 = Math.min(p5, n6.segmentEnd)), !x5 && c7.length > 0) for (f4 = Infinity, p5 = 0, n6 = y5(c7), r7 = n6.next(); !r7.done; r7 = n6.next()) r7 = r7.value, f4 = Math.min(f4, r7.startTime), p5 = Math.max(p5, r7.endTime);
             if (h6.tagName == "br") return e9 = new Un(f4, p5, ""), e9.lineBreak = true, e9;
-            if (n6 = "", b4 && (n6 = Ve2(yn(h6) || ""), v7 && (n6 = n6.replace(/\s+/g, " "))), n6 = new Un(f4, p5, n6), n6.nestedCues = c7, d5 || (n6.isContainer = true), l6 && (n6.cellResolution = l6), l6 = VM(h6, "region", o8, "")[0], h6.attributes.region && l6 && l6.attributes["xml:id"]) {
-              var C5 = l6.attributes["xml:id"];
+            if (n6 = "", b5 && (n6 = Ve2(yn(h6) || ""), v7 && (n6 = n6.replace(/\s+/g, " "))), n6 = new Un(f4, p5, n6), n6.nestedCues = c7, d5 || (n6.isContainer = true), l6 && (n6.cellResolution = l6), l6 = VM(h6, "region", o8, "")[0], h6.attributes.region && l6 && l6.attributes["xml:id"]) {
+              var C6 = l6.attributes["xml:id"];
               n6.region = s7.filter(function(e10) {
-                return e10.id == C5;
+                return e10.id == C6;
               })[0];
             }
             return s7 = l6, u7 && i6 && !h6.attributes.region && !h6.attributes.style && (s7 = VM(u7, "region", o8, "")[0]), FM(e9, n6, h6, s7, g6, _5, a7, t9, c7.length == 0), n6;
@@ -34140,7 +34237,7 @@ var init_load_uTL4eiru = __esm({
               var r8 = e9.textDecoration.includes(t10);
               n7 && !r8 ? e9.textDecoration.push(t10) : !n7 && r8 && pe2(e9.textDecoration, t10);
             }
-            t9 = y4(t9.split(" "));
+            t9 = y5(t9.split(" "));
             for (var r7 = t9.next(); !r7.done; r7 = t9.next()) switch (r7.value) {
               case "underline":
                 n6(pr, true);
@@ -34184,7 +34281,7 @@ var init_load_uTL4eiru = __esm({
             var o8 = e9;
             for (e9 = null; !e9 && !(e9 = i6 ? wn(o8, i6, t9) : o8.attributes[t9]) && (o8 = o8.parent, o8); ) ;
             if (t9 = e9) {
-              for (t9 = y4(t9.split(" ")), i6 = t9.next(); !i6.done; i6 = t9.next()) for (i6 = i6.value, e9 = y4(n6), o8 = e9.next(); !o8.done; o8 = e9.next()) if (o8 = o8.value, r7 + o8.attributes["xml:id"] == i6) {
+              for (t9 = y5(t9.split(" ")), i6 = t9.next(); !i6.done; i6 = t9.next()) for (i6 = i6.value, e9 = y5(n6), o8 = e9.next(); !o8.done; o8 = e9.next()) if (o8 = o8.value, r7 + o8.attributes["xml:id"] == i6) {
                 a7.push(o8);
                 break;
               }
@@ -34227,7 +34324,7 @@ var init_load_uTL4eiru = __esm({
               rows: parseInt(e9[2], 10)
             } : null;
           }
-          L3("shaka.text.TtmlTextParser", jM), jM.prototype.parseMedia = jM.prototype.parseMedia, jM.prototype.setManifestType = jM.prototype.setManifestType, jM.prototype.parseInit = jM.prototype.parseInit;
+          L4("shaka.text.TtmlTextParser", jM), jM.prototype.parseMedia = jM.prototype.parseMedia, jM.prototype.setManifestType = jM.prototype.setManifestType, jM.prototype.parseInit = jM.prototype.parseInit;
           function qM(e9, t9, n6, r7) {
             this.frameRate = Number(e9) || 30, this.h = Number(t9) || 1, this.g = Number(r7), this.g == 0 && (this.g = e9 ? this.frameRate * this.h : 1), n6 && (e9 = /^(\d+) (\d+)$/g.exec(n6)) && (this.frameRate *= Number(e9[1]) / Number(e9[2]));
           }
@@ -34240,17 +34337,17 @@ var init_load_uTL4eiru = __esm({
           }
           lN.prototype.parseInit = function(e9) {
             var t9 = false;
-            if (new q().ua(Za, Va).T("stsd", Ha).box("stpp", function(e10) {
+            if (new q2().ua(Za, Va).T("stsd", Ha).box("stpp", function(e10) {
               t9 = true, e10.parser.stop();
             }).parse(e9), !t9) throw new H4(2, 2, 2007);
           }, lN.prototype.setManifestType = function(e9) {
             this.g.setManifestType(e9);
           }, lN.prototype.parseMedia = function(e9, t9, n6) {
             var r7 = [], i6 = null, a7 = [], o8 = /* @__PURE__ */ new Map(), s7 = [];
-            if (new q().ua(Qa, Va).T("tfhd", function(e10) {
+            if (new q2().ua(Qa, Va).T("tfhd", function(e10) {
               i6 = os(e10.reader, e10.flags).Kc;
             }).T("trun", function(e10) {
-              e10 = ls(e10.reader, e10.version, e10.flags), e10 = y4(e10.Vc);
+              e10 = ls(e10.reader, e10.version, e10.flags), e10 = y5(e10.Vc);
               for (var t10 = e10.next(); !t10.done; t10 = e10.next()) s7.push(t10.value.sampleSize || i6 || 0);
             }).T("subs", function(e10) {
               for (var t10 = e10.reader, n7 = t10.S(), r8 = -1, i7 = 0; i7 < n7; i7++) {
@@ -34262,14 +34359,14 @@ var init_load_uTL4eiru = __esm({
             }).box("mdat", Ga(function(e10) {
               a7.push(e10);
             }, false)).parse(e9, false), a7.length == 0) throw new H4(2, 2, 2007);
-            e9 = Ye2.apply(Ue2, b3(a7));
+            e9 = Ye2.apply(Ue2, b4(a7));
             for (var c7 = 0, l6 = 0; l6 < s7.length; l6++) {
-              var u7 = V3(e9, c7, s7[l6]);
+              var u7 = V4(e9, c7, s7[l6]);
               c7 += s7[l6];
               var d5 = o8.get(l6), f4 = [];
               if (d5 && d5.length) {
-                for (var p5 = V3(u7, 0, d5[0]), m5 = d5[0], h6 = 1; h6 < d5.length; h6++) {
-                  var g6 = V3(u7, m5, d5[h6]);
+                for (var p5 = V4(u7, 0, d5[0]), m5 = d5[0], h6 = 1; h6 < d5.length; h6++) {
+                  var g6 = V4(u7, m5, d5[h6]);
                   g6 = We2(g6), f4.push("data:image/png;base64," + g6), m5 += d5[h6];
                 }
                 u7 = p5;
@@ -34277,7 +34374,7 @@ var init_load_uTL4eiru = __esm({
               r7 = r7.concat(this.g.parseMedia(u7, t9, n6, f4));
             }
             return r7;
-          }, L3("shaka.text.Mp4TtmlParser", lN), lN.prototype.parseMedia = lN.prototype.parseMedia, lN.prototype.setManifestType = lN.prototype.setManifestType, lN.prototype.parseInit = lN.prototype.parseInit, Fr('application/mp4; codecs="stpp"', function() {
+          }, L4("shaka.text.Mp4TtmlParser", lN), lN.prototype.parseMedia = lN.prototype.parseMedia, lN.prototype.setManifestType = lN.prototype.setManifestType, lN.prototype.parseInit = lN.prototype.parseInit, Fr('application/mp4; codecs="stpp"', function() {
             return new lN();
           }), Fr('application/mp4; codecs="stpp.ttml"', function() {
             return new lN();
@@ -34314,12 +34411,12 @@ var init_load_uTL4eiru = __esm({
               if (r7 = Number(r7[1]), t9.isMpegTs) for (var i6 = t9.segmentStart - t9.periodStart; i6 >= 95443.7176888889; ) i6 -= 95443.7176888889, r7 += 8589934592;
               e9 = t9.periodStart + r7 / 9e4 - e9;
             }
-            for (t9 = [], r7 = y4(n6[0].split("\n")), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, /^Region:/.test(i6) && (i6 = dN(i6), t9.push(i6));
-            r7 = /* @__PURE__ */ new Map(), qn(r7), i6 = [], n6 = y4(n6.slice(1));
+            for (t9 = [], r7 = y5(n6[0].split("\n")), i6 = r7.next(); !i6.done; i6 = r7.next()) i6 = i6.value, /^Region:/.test(i6) && (i6 = dN(i6), t9.push(i6));
+            r7 = /* @__PURE__ */ new Map(), qn(r7), i6 = [], n6 = y5(n6.slice(1));
             for (var a7 = n6.next(); !a7.done; a7 = n6.next()) {
               if (a7 = a7.value.split("\n"), (a7.length != 1 || a7[0]) && !hN.test(a7[0]) && a7[0] == "STYLE") {
                 for (var o8 = [], s7 = -1, c7 = 1; c7 < a7.length; c7++) a7[c7].includes("::cue") && (o8.push([]), s7 = o8.length - 1), s7 != -1 && (o8[s7].push(a7[c7]), a7[c7].includes("}") && (s7 = -1));
-                for (o8 = y4(o8), s7 = o8.next(); !s7.done; s7 = o8.next()) {
+                for (o8 = y5(o8), s7 = o8.next(); !s7.done; s7 = o8.next()) {
                   var l6 = s7.value;
                   s7 = "global", (c7 = l6[0].match(/\((.*)\)/)) && (s7 = c7.pop()), c7 = l6.slice(1, -1), l6[0].includes("}") && (l6 = /\{(.*?)\}/.exec(l6[0])) && (c7 = l6[1].split(";")), (l6 = r7.get(s7)) || (l6 = new Un(0, 0, ""));
                   for (var u7 = false, d5 = 0; d5 < c7.length; d5++) {
@@ -34389,7 +34486,7 @@ var init_load_uTL4eiru = __esm({
             var i6 = null, a7 = 0;
             e9[0].includes("-->") || (i6 = e9[0], a7 = 1);
             var o8 = new en(e9[a7]), s7 = an(o8), c7 = nn(o8, /[ \t]+--\x3e[ \t]+/g), l6 = an(o8);
-            if (s7 == null || c7 == null || l6 == null) return R3("Failed to parse VTT time code. Cue skipped:", i6, e9), null;
+            if (s7 == null || c7 == null || l6 == null) return R4("Failed to parse VTT time code. Cue skipped:", i6, e9), null;
             for (s7 += t9, l6 += t9, s7 < 0 && (s7 = 0), t9 = "", c7 = a7 + 1; c7 < e9.length; c7++) c7 > a7 + 1 && (t9 += "\n"), t9 += e9[c7];
             if (t9 = t9.trim(), r7.has("global")) {
               var u7 = r7.get("global").clone();
@@ -34418,7 +34515,7 @@ var init_load_uTL4eiru = __esm({
               return e10.id == t9;
             })) ? e9 : null;
           }
-          L3("shaka.text.VttTextParser", uN), uN.prototype.parseMedia = uN.prototype.parseMedia, uN.prototype.setManifestType = uN.prototype.setManifestType, uN.prototype.parseInit = uN.prototype.parseInit;
+          L4("shaka.text.VttTextParser", uN), uN.prototype.parseMedia = uN.prototype.parseMedia, uN.prototype.setManifestType = uN.prototype.setManifestType, uN.prototype.parseInit = uN.prototype.parseInit;
           var hN = /^NOTE($|[ \t])/, gN = /^align:(start|middle|center|end|left|right)$/, _N = /^vertical:(lr|rl)$/, vN = /^size:([\d.]+)%$/, yN = /^position:([\d.]+)%(?:,(line-left|line-right|middle|center|start|end|auto))?$/, bN = /^region:(.*)$/, xN = /^line:([\d.]+)%(?:,(start|end|center))?$/, SN = /^line:(-?\d+)(?:,(start|end|center))?$/;
           Fr("text/vtt", function() {
             return new uN();
@@ -34432,7 +34529,7 @@ var init_load_uTL4eiru = __esm({
           }
           CN.prototype.parseInit = function(e9) {
             var t9 = this, n6 = false;
-            if (new q().ua(Za, Va).T("mdhd", function(e10) {
+            if (new q2().ua(Za, Va).T("mdhd", function(e10) {
               e10 = cs(e10.reader, e10.version), t9.g = e10.timescale;
             }).T("stsd", Ha).box("wvtt", function() {
               n6 = true;
@@ -34442,7 +34539,7 @@ var init_load_uTL4eiru = __esm({
             if (!e9.length) return [];
             if (!this.g) throw new H4(2, 2, 2008);
             var n6 = 0, r7 = [], i6, a7 = [], o8 = false, s7 = false, c7 = false, l6 = null;
-            if (new q().ua(Qa, Va).T("tfdt", function(e10) {
+            if (new q2().ua(Qa, Va).T("tfdt", function(e10) {
               o8 = true, n6 = ss(e10.reader, e10.version).Oa;
             }).T("tfhd", function(e10) {
               l6 = os(e10.reader, e10.flags).nc;
@@ -34452,7 +34549,7 @@ var init_load_uTL4eiru = __esm({
               c7 = true, i6 = e10;
             }, false)).parse(e9, false), !c7 && !o8 && !s7) throw new H4(2, 2, 2008);
             e9 = n6;
-            for (var u7 = new Ra(i6, 0), d5 = y4(r7), f4 = d5.next(); !f4.done; f4 = d5.next()) {
+            for (var u7 = new Ra(i6, 0), d5 = y5(r7), f4 = d5.next(); !f4.done; f4 = d5.next()) {
               f4 = f4.value;
               var p5 = f4.Ud || l6, m5 = f4.dg ? n6 + f4.dg : e9;
               e9 = m5 + (p5 || 0);
@@ -34468,7 +34565,7 @@ var init_load_uTL4eiru = __esm({
           };
           function wN(e9, t9, n6) {
             var r7, i6, a7;
-            return new q().box("payl", Ga(function(e10) {
+            return new q2().box("payl", Ga(function(e10) {
               r7 = Ie2(e10);
             }, false)).box("iden", Ga(function(e10) {
               i6 = Ie2(e10);
@@ -34482,7 +34579,7 @@ var init_load_uTL4eiru = __esm({
               pN(a7, e10, []);
             }), a7;
           }
-          L3("shaka.text.Mp4VttParser", CN), CN.prototype.parseMedia = CN.prototype.parseMedia, CN.prototype.setManifestType = CN.prototype.setManifestType, CN.prototype.parseInit = CN.prototype.parseInit, Fr('application/mp4; codecs="wvtt"', function() {
+          L4("shaka.text.Mp4VttParser", CN), CN.prototype.parseMedia = CN.prototype.parseMedia, CN.prototype.setManifestType = CN.prototype.setManifestType, CN.prototype.parseInit = CN.prototype.parseInit, Fr('application/mp4; codecs="wvtt"', function() {
             return new CN();
           });
           function EN() {
@@ -34491,10 +34588,10 @@ var init_load_uTL4eiru = __esm({
           _4(EN, uN), EN.prototype.parseMedia = function(e9, t9, n6, r7) {
             var i6 = Ie2(e9);
             if (e9 = "WEBVTT\n\n", i6 != "") {
-              i6 = i6.replace(/\r+/g, ""), i6 = i6.trim(), i6 = y4(i6.split("\n\n"));
+              i6 = i6.replace(/\r+/g, ""), i6 = i6.trim(), i6 = y5(i6.split("\n\n"));
               for (var a7 = i6.next(); !a7.done; a7 = i6.next()) e9 += DN(a7.value);
             }
-            return e9 = V3(ze2(e9)), uN.prototype.parseMedia.call(this, e9, t9, n6, r7);
+            return e9 = V4(ze2(e9)), uN.prototype.parseMedia.call(this, e9, t9, n6, r7);
           };
           function DN(e9) {
             var t9 = e9.split("\n").map(function(e10) {
@@ -34531,7 +34628,7 @@ var init_load_uTL4eiru = __esm({
               return t9.length ? (t9.pop(), "</c>") : "";
             });
           }
-          L3("shaka.text.SrtTextParser", EN), EN.prototype.parseMedia = EN.prototype.parseMedia, Fr("text/srt", function() {
+          L4("shaka.text.SrtTextParser", EN), EN.prototype.parseMedia = EN.prototype.parseMedia, Fr("text/srt", function() {
             return new EN();
           });
           function AN(e9, t9) {
@@ -34825,7 +34922,7 @@ var init_load_uTL4eiru = __esm({
           function IN(e9, t9, n6, r7) {
             n6 = e9.i.getOrInsertComputed(n6.id + "_" + r7.i, function() {
               if (t9.g.length === 0) throw Error("StreamInfos must have elements");
-              for (var e10 = [], n7 = y4(t9.g), r8 = n7.next(); !r8.done; r8 = n7.next()) {
+              for (var e10 = [], n7 = y5(t9.g), r8 = n7.next(); !r8.done; r8 = n7.next()) {
                 var i7 = e10, a7 = i7.push, o8 = r8.value;
                 r8 = Gs;
                 var s7 = o8.id + 1, c7 = o8.stream.width || 0, l6 = o8.stream.height || 0;
@@ -34854,8 +34951,8 @@ var init_load_uTL4eiru = __esm({
                 }
                 o8 = o8("mdia", l6, d5, c7), r8 = r8("trak", s7, o8), a7.call(i7, r8);
               }
-              for (n7 = t9.g[0], i7 = Gs, a7 = i7.apply, s7 = n7.duration * n7.timescale, r8 = Math.floor(s7 / (Js + 1)), s7 = Math.floor(s7 % (Js + 1)), o8 = Zs.value(), Hs(o8, n7.timescale, 20), Hs(o8, r8, 24), Hs(o8, s7, 28), r8 = ["moov", Gs("mvhd", o8)], s7 = r8.concat, e10 = b3(e10), o8 = [], c7 = y4(t9.g), u7 = c7.next(); !u7.done; u7 = c7.next()) l6 = o8, d5 = l6.push, u7 = u7.value.id + 1, f4 = ec.value(), Hs(f4, u7, 4), u7 = Gs("trex", f4), d5.call(l6, u7);
-              return o8 = Gs.apply(Fs, ["mvex"].concat(b3(o8))), e10 = a7.call(i7, Fs, s7.call(r8, e10, [o8, zs(n7.stream)])), n7 = fc.value(), i7 = new Uint8Array(n7.byteLength + e10.byteLength), i7.set(n7), i7.set(e10, n7.byteLength), i7;
+              for (n7 = t9.g[0], i7 = Gs, a7 = i7.apply, s7 = n7.duration * n7.timescale, r8 = Math.floor(s7 / (Js + 1)), s7 = Math.floor(s7 % (Js + 1)), o8 = Zs.value(), Hs(o8, n7.timescale, 20), Hs(o8, r8, 24), Hs(o8, s7, 28), r8 = ["moov", Gs("mvhd", o8)], s7 = r8.concat, e10 = b4(e10), o8 = [], c7 = y5(t9.g), u7 = c7.next(); !u7.done; u7 = c7.next()) l6 = o8, d5 = l6.push, u7 = u7.value.id + 1, f4 = ec.value(), Hs(f4, u7, 4), u7 = Gs("trex", f4), d5.call(l6, u7);
+              return o8 = Gs.apply(Fs, ["mvex"].concat(b4(o8))), e10 = a7.call(i7, Fs, s7.call(r8, e10, [o8, zs(n7.stream)])), n7 = fc.value(), i7 = new Uint8Array(n7.byteLength + e10.byteLength), i7.set(n7), i7.set(e10, n7.byteLength), i7;
             }), r7 = e9.j !== n6;
             var i6 = Vs(t9);
             return e9.j = n6, e9.frameIndex++, {
@@ -34863,7 +34960,7 @@ var init_load_uTL4eiru = __esm({
               init: r7 ? n6 : null
             };
           }
-          L3("shaka.transmuxer.BaseTransmuxer", PN), PN.prototype.getOriginalMimeType = PN.prototype.getOriginalMimeType, PN.prototype.destroy = PN.prototype.destroy;
+          L4("shaka.transmuxer.BaseTransmuxer", PN), PN.prototype.getOriginalMimeType = PN.prototype.getOriginalMimeType, PN.prototype.destroy = PN.prototype.destroy;
           var LN = Object.freeze({
             yh: 0,
             If: 0,
@@ -34894,7 +34991,7 @@ var init_load_uTL4eiru = __esm({
           }, BN.prototype.convertCodecs = function(e9, t9) {
             return t9.toLowerCase().split(";")[0] == "audio/aac" ? 'audio/mp4; codecs="' + (Or(t9) || "mp4a.40.2") + '"' : t9;
           }, BN.prototype.transmux = function(e9, t9, n6, r7) {
-            var i6 = V3(e9);
+            var i6 = V4(e9);
             e9 = nl(i6);
             for (var a7 = e9.length; a7 < i6.length && !MN(i6, a7); a7++) ;
             var o8 = FN(e9, n6.endTime * 1e3);
@@ -34926,7 +35023,7 @@ var init_load_uTL4eiru = __esm({
               },
               stream: t9
             }, Promise.resolve(IN(this, new Fs([r7]), t9, n6));
-          }, L3("shaka.transmuxer.AacTransmuxer", BN), BN.prototype.transmux = BN.prototype.transmux, BN.prototype.convertCodecs = BN.prototype.convertCodecs, BN.prototype.isSupported = BN.prototype.isSupported, gr("audio/aac", function() {
+          }, L4("shaka.transmuxer.AacTransmuxer", BN), BN.prototype.transmux = BN.prototype.transmux, BN.prototype.convertCodecs = BN.prototype.convertCodecs, BN.prototype.isSupported = BN.prototype.isSupported, gr("audio/aac", function() {
             return new BN("audio/aac");
           }, 1);
           function VN(e9, t9, n6) {
@@ -35078,9 +35175,9 @@ var init_load_uTL4eiru = __esm({
           _4(HN, PN), HN.prototype.isSupported = function(e9) {
             return e9.toLowerCase().split(";")[0] == "audio/ac3" && Ms(this.convertCodecs("audio", e9));
           }, HN.prototype.convertCodecs = function(e9, t9) {
-            return t9.toLowerCase().split(";")[0] == "audio/ac3" ? B3().Ie() ? 'audio/mp4; codecs="ec-3"' : 'audio/mp4; codecs="ac-3"' : t9;
+            return t9.toLowerCase().split(";")[0] == "audio/ac3" ? B4().Ie() ? 'audio/mp4; codecs="ec-3"' : 'audio/mp4; codecs="ac-3"' : t9;
           }, HN.prototype.transmux = function(e9, t9, n6, r7) {
-            e9 = V3(e9);
+            e9 = V4(e9);
             for (var i6 = nl(e9), a7 = i6.length; a7 < e9.length; a7++) {
               a: {
                 var o8 = e9, s7 = a7;
@@ -35130,7 +35227,7 @@ var init_load_uTL4eiru = __esm({
               },
               stream: t9
             }]), t9, n6));
-          }, L3("shaka.transmuxer.Ac3Transmuxer", HN), HN.prototype.transmux = HN.prototype.transmux, HN.prototype.convertCodecs = HN.prototype.convertCodecs, HN.prototype.isSupported = HN.prototype.isSupported, gr("audio/ac3", function() {
+          }, L4("shaka.transmuxer.Ac3Transmuxer", HN), HN.prototype.transmux = HN.prototype.transmux, HN.prototype.convertCodecs = HN.prototype.convertCodecs, HN.prototype.isSupported = HN.prototype.isSupported, gr("audio/ac3", function() {
             return new HN("audio/ac3");
           }, 1);
           function UN(e9, t9, n6) {
@@ -35181,7 +35278,7 @@ var init_load_uTL4eiru = __esm({
           }, WN.prototype.convertCodecs = function(e9, t9) {
             return t9.toLowerCase().split(";")[0] == "audio/ec3" ? 'audio/mp4; codecs="ec-3"' : t9;
           }, WN.prototype.transmux = function(e9, t9, n6, r7) {
-            e9 = V3(e9);
+            e9 = V4(e9);
             for (var i6 = nl(e9), a7 = i6.length; a7 < e9.length && (e9[a7] << 8 | e9[a7 + 1] << 0) != 2935; a7++) ;
             i6 = FN(i6, n6.endTime * 1e3);
             for (var o8 = 0, s7 = new Uint8Array([]), c7 = [], l6 = {
@@ -35213,7 +35310,7 @@ var init_load_uTL4eiru = __esm({
               },
               stream: t9
             }]), t9, n6));
-          }, L3("shaka.transmuxer.Ec3Transmuxer", WN), WN.prototype.transmux = WN.prototype.transmux, WN.prototype.convertCodecs = WN.prototype.convertCodecs, WN.prototype.isSupported = WN.prototype.isSupported, gr("audio/ec3", function() {
+          }, L4("shaka.transmuxer.Ec3Transmuxer", WN), WN.prototype.transmux = WN.prototype.transmux, WN.prototype.convertCodecs = WN.prototype.convertCodecs, WN.prototype.isSupported = WN.prototype.isSupported, gr("audio/ec3", function() {
             return new WN("audio/ec3");
           }, 1);
           function GN(e9) {
@@ -35225,17 +35322,17 @@ var init_load_uTL4eiru = __esm({
               return e10.type == 8;
             }), !t9 || !e9) return null;
             var n6 = new xl(t9.data), r7 = Ol(n6);
-            if (Ol(n6), Ol(n6), El(n6), qN.includes(r7) && (r7 = Y(n6), r7 === 3 && Cl(n6, 1), El(n6), El(n6), Cl(n6, 1), X2(n6))) {
+            if (Ol(n6), Ol(n6), El(n6), qN.includes(r7) && (r7 = Y2(n6), r7 === 3 && Cl(n6, 1), El(n6), El(n6), Cl(n6, 1), X2(n6))) {
               r7 = r7 === 3 ? 12 : 8;
               for (var i6 = 0; i6 < r7; i6++) X2(n6) && (i6 < 6 ? kl(n6, 16) : kl(n6, 64));
             }
-            if (El(n6), r7 = Y(n6), r7 === 0) Y(n6);
-            else if (r7 === 1) for (Cl(n6, 1), El(n6), El(n6), r7 = Y(n6), i6 = 0; i6 < r7; i6++) El(n6);
+            if (El(n6), r7 = Y2(n6), r7 === 0) Y2(n6);
+            else if (r7 === 1) for (Cl(n6, 1), El(n6), El(n6), r7 = Y2(n6), i6 = 0; i6 < r7; i6++) El(n6);
             El(n6), Cl(n6, 1);
-            var a7 = Y(n6), o8 = Y(n6), s7 = wl(n6, 1);
+            var a7 = Y2(n6), o8 = Y2(n6), s7 = wl(n6, 1);
             s7 === 0 && Cl(n6, 1), Cl(n6, 1);
             var c7 = 0, l6 = 0, u7 = 0, d5 = 0;
-            if (X2(n6) && (c7 = Y(n6), l6 = Y(n6), u7 = Y(n6), d5 = Y(n6)), i6 = r7 = 1, X2(n6) && X2(n6)) {
+            if (X2(n6) && (c7 = Y2(n6), l6 = Y2(n6), u7 = Y2(n6), d5 = Y2(n6)), i6 = r7 = 1, X2(n6) && X2(n6)) {
               var f4 = Ol(n6);
               f4 > 0 && f4 <= 16 ? (r7 = [
                 1,
@@ -35294,8 +35391,8 @@ var init_load_uTL4eiru = __esm({
             }
             function n6() {
               if (i6 && i6.nalus.length && i6.frame) {
-                for (var e10 = i6.nalus.length * 4, t10 = y4(i6.nalus), n7 = t10.next(); !n7.done; n7 = t10.next()) e10 += n7.value.fullData.byteLength;
-                e10 = new Uint8Array(e10), t10 = 0, n7 = y4(i6.nalus);
+                for (var e10 = i6.nalus.length * 4, t10 = y5(i6.nalus), n7 = t10.next(); !n7.done; n7 = t10.next()) e10 += n7.value.fullData.byteLength;
+                e10 = new Uint8Array(e10), t10 = 0, n7 = y5(i6.nalus);
                 for (var a8 = n7.next(); !a8.done; a8 = n7.next()) {
                   a8 = a8.value;
                   var o9 = a8.fullData.byteLength;
@@ -35306,7 +35403,7 @@ var init_load_uTL4eiru = __esm({
             }
             for (var r7 = [], i6 = null, a7 = false, o8 = /* @__PURE__ */ new Uint8Array(), s7 = 0; s7 < e9.length; s7++) {
               var c7 = e9[s7], l6 = c7.nalus, u7 = false;
-              i6 && l6.length && !a7 && (n6(), t9(c7)), l6 = y4(c7.nalus);
+              i6 && l6.length && !a7 && (n6(), t9(c7)), l6 = y5(c7.nalus);
               for (var d5 = l6.next(); !d5.done; d5 = l6.next()) {
                 d5 = d5.value;
                 var f4 = false;
@@ -35415,34 +35512,34 @@ var init_load_uTL4eiru = __esm({
             wl(e9, 4);
             var a7 = wl(e9, 3);
             X2(e9);
-            for (var o8 = wl(e9, 2), s7 = wl(e9, 1), c7 = wl(e9, 5), l6 = Ol(e9), u7 = Ol(e9), d5 = Ol(e9), f4 = Ol(e9), p5 = Ol(e9), m5 = Ol(e9), h6 = Ol(e9), g6 = Ol(e9), _5 = Ol(e9), v7 = Ol(e9), y5 = Ol(e9), b4 = [], x4 = [], S3 = 0; S3 < a7; S3++) b4.push(X2(e9)), x4.push(X2(e9));
-            if (a7 > 0) for (S3 = a7; S3 < 8; S3++) wl(e9, 2);
-            for (S3 = 0; S3 < a7; S3++) b4[S3] && wl(e9, 88), x4[S3] && Ol(e9);
-            Y(e9), b4 = Y(e9), b4 == 3 && wl(e9, 1), x4 = Y(e9), S3 = Y(e9), X2(e9) && (t9 += Y(e9), n6 += Y(e9), r7 += Y(e9), i6 += Y(e9));
-            var C5 = Y(e9), w5 = Y(e9), T5 = Y(e9);
-            if (X2(e9)) for (var E5 = 0; E5 <= a7; E5++) Y(e9), Y(e9), Y(e9);
-            else Y(e9), Y(e9), Y(e9);
-            if (Y(e9), Y(e9), Y(e9), Y(e9), Y(e9), Y(e9), X2(e9) && X2(e9)) for (E5 = 0; E5 < 4; E5++) for (var D5 = 0; D5 < (E5 === 3 ? 2 : 6); D5++) if (X2(e9)) {
-              var O5 = Math.min(64, 1 << 4 + (E5 << 1));
-              E5 > 1 && Dl(e9);
-              for (var k5 = 0; k5 < O5; k5++) Dl(e9);
-            } else Y(e9);
-            for (X2(e9), X2(e9), X2(e9) && (Ol(e9), Y(e9), Y(e9), X2(e9)), E5 = Y(e9), O5 = D5 = 0; O5 < E5; O5++) if (k5 = false, O5 !== 0 && (k5 = X2(e9)), k5) {
-              O5 === E5 && Y(e9), X2(e9), Y(e9);
-              for (var A4 = k5 = 0; A4 <= D5; A4++) {
+            for (var o8 = wl(e9, 2), s7 = wl(e9, 1), c7 = wl(e9, 5), l6 = Ol(e9), u7 = Ol(e9), d5 = Ol(e9), f4 = Ol(e9), p5 = Ol(e9), m5 = Ol(e9), h6 = Ol(e9), g6 = Ol(e9), _5 = Ol(e9), v7 = Ol(e9), y6 = Ol(e9), b5 = [], x5 = [], S5 = 0; S5 < a7; S5++) b5.push(X2(e9)), x5.push(X2(e9));
+            if (a7 > 0) for (S5 = a7; S5 < 8; S5++) wl(e9, 2);
+            for (S5 = 0; S5 < a7; S5++) b5[S5] && wl(e9, 88), x5[S5] && Ol(e9);
+            Y2(e9), b5 = Y2(e9), b5 == 3 && wl(e9, 1), x5 = Y2(e9), S5 = Y2(e9), X2(e9) && (t9 += Y2(e9), n6 += Y2(e9), r7 += Y2(e9), i6 += Y2(e9));
+            var C6 = Y2(e9), w6 = Y2(e9), T6 = Y2(e9);
+            if (X2(e9)) for (var E6 = 0; E6 <= a7; E6++) Y2(e9), Y2(e9), Y2(e9);
+            else Y2(e9), Y2(e9), Y2(e9);
+            if (Y2(e9), Y2(e9), Y2(e9), Y2(e9), Y2(e9), Y2(e9), X2(e9) && X2(e9)) for (E6 = 0; E6 < 4; E6++) for (var D6 = 0; D6 < (E6 === 3 ? 2 : 6); D6++) if (X2(e9)) {
+              var O6 = Math.min(64, 1 << 4 + (E6 << 1));
+              E6 > 1 && Dl(e9);
+              for (var k6 = 0; k6 < O6; k6++) Dl(e9);
+            } else Y2(e9);
+            for (X2(e9), X2(e9), X2(e9) && (Ol(e9), Y2(e9), Y2(e9), X2(e9)), E6 = Y2(e9), O6 = D6 = 0; O6 < E6; O6++) if (k6 = false, O6 !== 0 && (k6 = X2(e9)), k6) {
+              O6 === E6 && Y2(e9), X2(e9), Y2(e9);
+              for (var A5 = k6 = 0; A5 <= D6; A5++) {
                 var j5 = X2(e9), M5 = false;
-                j5 || (M5 = X2(e9)), (j5 || M5) && k5++;
+                j5 || (M5 = X2(e9)), (j5 || M5) && k6++;
               }
-              D5 = k5;
+              D6 = k6;
             } else {
-              for (A4 = Y(e9), k5 = Y(e9), D5 = A4 + k5, j5 = 0; j5 < A4; j5++) Y(e9), X2(e9);
-              for (A4 = 0; A4 < k5; A4++) Y(e9), X2(e9);
+              for (A5 = Y2(e9), k6 = Y2(e9), D6 = A5 + k6, j5 = 0; j5 < A5; j5++) Y2(e9), X2(e9);
+              for (A5 = 0; A5 < k6; A5++) Y2(e9), X2(e9);
             }
-            if (X2(e9)) for (E5 = Y(e9), D5 = 0; D5 < E5; D5++) {
-              for (O5 = 0; O5 < T5 + 4; O5++) wl(e9, 1);
+            if (X2(e9)) for (E6 = Y2(e9), D6 = 0; D6 < E6; D6++) {
+              for (O6 = 0; O6 < T6 + 4; O6++) wl(e9, 1);
               wl(e9, 1);
             }
-            if (E5 = T5 = 1, D5 = true, O5 = 1, A4 = k5 = 0, X2(e9), X2(e9), X2(e9)) {
+            if (E6 = T6 = 1, D6 = true, O6 = 1, A5 = k6 = 0, X2(e9), X2(e9), X2(e9)) {
               if (X2(e9)) {
                 j5 = Ol(e9), M5 = [
                   1,
@@ -35462,7 +35559,7 @@ var init_load_uTL4eiru = __esm({
                   3,
                   2
                 ];
-                var N4 = [
+                var N5 = [
                   1,
                   11,
                   11,
@@ -35480,29 +35577,29 @@ var init_load_uTL4eiru = __esm({
                   2,
                   1
                 ];
-                j5 > 0 && j5 <= 16 ? (T5 = M5[j5 - 1], E5 = N4[j5 - 1]) : j5 === 255 && (T5 = wl(e9, 16), E5 = wl(e9, 16));
+                j5 > 0 && j5 <= 16 ? (T6 = M5[j5 - 1], E6 = N5[j5 - 1]) : j5 === 255 && (T6 = wl(e9, 16), E6 = wl(e9, 16));
               }
-              if (X2(e9) && X2(e9), X2(e9) && (wl(e9, 3), X2(e9), X2(e9) && (Ol(e9), Ol(e9), Ol(e9))), X2(e9) && (Y(e9), Y(e9)), X2(e9), X2(e9), X2(e9), (j5 = X2(e9)) && (El(e9), El(e9), El(e9), El(e9)), X2(e9) && (O5 = wl(e9, 32), k5 = wl(e9, 32), X2(e9) && Y(e9), X2(e9))) {
-                N4 = false, j5 = X2(e9), M5 = X2(e9), (j5 || M5) && ((N4 = X2(e9)) && (Ol(e9), wl(e9, 5), X2(e9), wl(e9, 5)), wl(e9, 4), wl(e9, 4), N4 && wl(e9, 4), wl(e9, 5), wl(e9, 5), wl(e9, 5));
+              if (X2(e9) && X2(e9), X2(e9) && (wl(e9, 3), X2(e9), X2(e9) && (Ol(e9), Ol(e9), Ol(e9))), X2(e9) && (Y2(e9), Y2(e9)), X2(e9), X2(e9), X2(e9), (j5 = X2(e9)) && (El(e9), El(e9), El(e9), El(e9)), X2(e9) && (O6 = wl(e9, 32), k6 = wl(e9, 32), X2(e9) && Y2(e9), X2(e9))) {
+                N5 = false, j5 = X2(e9), M5 = X2(e9), (j5 || M5) && ((N5 = X2(e9)) && (Ol(e9), wl(e9, 5), X2(e9), wl(e9, 5)), wl(e9, 4), wl(e9, 4), N5 && wl(e9, 4), wl(e9, 5), wl(e9, 5), wl(e9, 5));
                 for (var P5 = 0; P5 <= a7; P5++) {
-                  D5 = X2(e9);
+                  D6 = X2(e9);
                   var F5 = true, I5 = 1;
-                  D5 || (F5 = X2(e9));
+                  D6 || (F5 = X2(e9));
                   var ee3 = false;
-                  if (F5 ? Y(e9) : ee3 = X2(e9), ee3 || (I5 = Y(e9) + 1), j5) {
-                    for (F5 = 0; F5 < I5; F5++) Y(e9), Y(e9), N4 && (Y(e9), Y(e9));
+                  if (F5 ? Y2(e9) : ee3 = X2(e9), ee3 || (I5 = Y2(e9) + 1), j5) {
+                    for (F5 = 0; F5 < I5; F5++) Y2(e9), Y2(e9), N5 && (Y2(e9), Y2(e9));
                     X2(e9);
                   }
                   if (M5) {
-                    for (F5 = 0; F5 < I5; F5++) Y(e9), Y(e9), N4 && (Y(e9), Y(e9));
+                    for (F5 = 0; F5 < I5; F5++) Y2(e9), Y2(e9), N5 && (Y2(e9), Y2(e9));
                     X2(e9);
                   }
                 }
               }
-              X2(e9) && (X2(e9), X2(e9), X2(e9), A4 = Y(e9), Y(e9), Y(e9), Y(e9), Y(e9));
+              X2(e9) && (X2(e9), X2(e9), X2(e9), A5 = Y2(e9), Y2(e9), Y2(e9), Y2(e9), Y2(e9));
             }
             return {
-              dh: y5,
+              dh: y6,
               jh: o8,
               kh: s7,
               ih: c7,
@@ -35516,21 +35613,21 @@ var init_load_uTL4eiru = __esm({
               $g: g6,
               ah: _5,
               bh: v7,
-              Qf: A4,
-              Lg: b4,
-              Ig: C5,
-              Hg: w5,
-              width: x4 - (t9 + n6) * (b4 === 1 || b4 === 2 ? 2 : 1),
-              height: S3 - (r7 + i6) * (b4 === 1 ? 2 : 1),
-              xm: T5,
-              wm: E5,
-              Wg: k5 / O5,
-              Vg: D5
+              Qf: A5,
+              Lg: b5,
+              Ig: C6,
+              Hg: w6,
+              width: x5 - (t9 + n6) * (b5 === 1 || b5 === 2 ? 2 : 1),
+              height: S5 - (r7 + i6) * (b5 === 1 ? 2 : 1),
+              xm: T6,
+              wm: E6,
+              Wg: k6 / O6,
+              Vg: D6
             };
           }
           function ZN(e9) {
             var t9 = new xl(e9, true);
-            Ol(t9), Ol(t9), Y(t9), Y(t9), X2(t9), X2(t9), wl(t9, 3), X2(t9), X2(t9), Y(t9), Y(t9), Dl(t9), X2(t9), X2(t9), X2(t9) && Y(t9), Dl(t9), Dl(t9), X2(t9), X2(t9), X2(t9), X2(t9), e9 = X2(t9), t9 = X2(t9);
+            Ol(t9), Ol(t9), Y2(t9), Y2(t9), X2(t9), X2(t9), wl(t9, 3), X2(t9), X2(t9), Y2(t9), Y2(t9), Dl(t9), X2(t9), X2(t9), X2(t9) && Y2(t9), Dl(t9), Dl(t9), X2(t9), X2(t9), X2(t9), X2(t9), e9 = X2(t9), t9 = X2(t9);
             var n6 = 1;
             return t9 && e9 ? n6 = 0 : t9 ? n6 = 3 : e9 && (n6 = 2), { Lh: n6 };
           }
@@ -35694,7 +35791,7 @@ var init_load_uTL4eiru = __esm({
           }, oP.prototype.convertCodecs = function(e9, t9) {
             return t9.toLowerCase().split(";")[0] == "audio/mpeg" ? 'audio/mp4; codecs="mp3"' : t9;
           }, oP.prototype.transmux = function(e9, t9, n6, r7) {
-            for (var i6 = V3(e9), a7 = nl(i6).length; a7 < i6.length && !tP(i6, a7); a7++) ;
+            for (var i6 = V4(e9), a7 = nl(i6).length; a7 < i6.length && !tP(i6, a7); a7++) ;
             var o8;
             for (e9 = []; a7 < i6.length; ) {
               var s7 = $N(i6, a7);
@@ -35721,7 +35818,7 @@ var init_load_uTL4eiru = __esm({
               },
               stream: t9
             }, Promise.resolve(IN(this, new Fs([r7]), t9, n6))) : Promise.reject(new H4(2, 3, 3018, n6 ? n6.U()[0] : null));
-          }, L3("shaka.transmuxer.Mp3Transmuxer", oP), oP.prototype.transmux = oP.prototype.transmux, oP.prototype.convertCodecs = oP.prototype.convertCodecs, oP.prototype.isSupported = oP.prototype.isSupported, gr("audio/mpeg", function() {
+          }, L4("shaka.transmuxer.Mp3Transmuxer", oP), oP.prototype.transmux = oP.prototype.transmux, oP.prototype.convertCodecs = oP.prototype.convertCodecs, oP.prototype.isSupported = oP.prototype.isSupported, gr("audio/mpeg", function() {
             return new oP("audio/mpeg");
           }, 1);
           function sP(e9) {
@@ -35737,10 +35834,10 @@ var init_load_uTL4eiru = __esm({
           }, r6.getOriginalMimeType = function() {
             return this.h;
           }, r6.transmux = function(e9, t9, n6, r7, i6) {
-            if (this.g ? this.g.clearData() : this.g = new jl(), this.g.gg(n6.i), e9 = V3(e9), e9 = this.g.parse(e9), e9.qe().audio != "mp3" || i6 != "audio") return Promise.reject(new H4(2, 3, 3018, n6 ? n6.U()[0] : null));
-            for (n6 = new Uint8Array([]), i6 = y4(e9.Bb()), e9 = i6.next(); !e9.done; e9 = i6.next()) if (e9 = e9.value.data) for (t9 = 0; t9 < e9.length; ) (r7 = $N(e9, t9)) ? (t9 + r7.na <= e9.length && (n6 = Ye2(n6, e9.subarray(t9, t9 + r7.na))), t9 += r7.na) : t9++;
+            if (this.g ? this.g.clearData() : this.g = new jl(), this.g.gg(n6.i), e9 = V4(e9), e9 = this.g.parse(e9), e9.qe().audio != "mp3" || i6 != "audio") return Promise.reject(new H4(2, 3, 3018, n6 ? n6.U()[0] : null));
+            for (n6 = new Uint8Array([]), i6 = y5(e9.Bb()), e9 = i6.next(); !e9.done; e9 = i6.next()) if (e9 = e9.value.data) for (t9 = 0; t9 < e9.length; ) (r7 = $N(e9, t9)) ? (t9 + r7.na <= e9.length && (n6 = Ye2(n6, e9.subarray(t9, t9 + r7.na))), t9 += r7.na) : t9++;
             return Promise.resolve(n6);
-          }, L3("shaka.transmuxer.MpegTsTransmuxer", sP), sP.prototype.transmux = sP.prototype.transmux, sP.prototype.getOriginalMimeType = sP.prototype.getOriginalMimeType, sP.prototype.convertCodecs = sP.prototype.convertCodecs, sP.prototype.isSupported = sP.prototype.isSupported, sP.prototype.destroy = sP.prototype.destroy, gr("video/mp2t", function() {
+          }, L4("shaka.transmuxer.MpegTsTransmuxer", sP), sP.prototype.transmux = sP.prototype.transmux, sP.prototype.getOriginalMimeType = sP.prototype.getOriginalMimeType, sP.prototype.convertCodecs = sP.prototype.convertCodecs, sP.prototype.isSupported = sP.prototype.isSupported, sP.prototype.destroy = sP.prototype.destroy, gr("video/mp2t", function() {
             return new sP("video/mp2t");
           }, 2);
           function cP(e9) {
@@ -35801,7 +35898,7 @@ var init_load_uTL4eiru = __esm({
               return Ar(e10, "audio/mp4");
             }).map(jr).join(","), e9 == "audio" ? 'audio/mp4; codecs="' + t9 + '"' : 'video/mp4; codecs="' + t9 + '"') : t9;
           }, uP.prototype.transmux = function(e9, t9, n6, r7, i6) {
-            var a7 = V3(e9);
+            var a7 = V4(e9);
             if (i6 == "audio" && !Hl(a7)) {
               for (var o8 = nl(a7), s7 = o8.length; s7 < a7.length; s7++) if (tP(a7, s7)) return Promise.reject(new H4(2, 3, 3018, n6 ? n6.U()[0] : null));
               for (s7 = o8.length; s7 < a7.length; s7++) if (MN(a7, s7)) return this.h ||= new BN("audio/aac"), this.h.transmux(e9, t9, n6, r7, i6);
@@ -35828,18 +35925,18 @@ var init_load_uTL4eiru = __esm({
                         flags: _5.isKeyframe ? RN : zN
                       });
                     }
-                    for (var x4 = [], S3 = y4(m5), C5 = S3.next(); !C5.done; C5 = S3.next()) x4.push.apply(x4, b3(C5.value.nalus));
-                    var w5 = GN(x4);
-                    if (!w5 || p5 == null) throw new H4(2, 3, 3018, n6 ? n6.U()[0] : null);
-                    t9.height = t9.height || w5.height, t9.width = t9.width || w5.width, d5 = {
+                    for (var x5 = [], S5 = y5(m5), C6 = S5.next(); !C6.done; C6 = S5.next()) x5.push.apply(x5, b4(C6.value.nalus));
+                    var w6 = GN(x5);
+                    if (!w6 || p5 == null) throw new H4(2, 3, 3018, n6 ? n6.U()[0] : null);
+                    t9.height = t9.height || w6.height, t9.width = t9.width || w6.width, d5 = {
                       id: t9.id,
                       type: "video",
                       codecs: "avc1",
                       timescale: 9e4,
                       duration: r7,
-                      fb: w5.Di,
-                      bd: w5.bd,
-                      nd: w5.nd,
+                      fb: w6.Di,
+                      bd: w6.bd,
+                      nd: w6.nd,
                       data: {
                         sequenceNumber: this.frameIndex,
                         Oa: p5,
@@ -35849,63 +35946,63 @@ var init_load_uTL4eiru = __esm({
                     };
                     break;
                   case "hvc":
-                    var T5 = [], E5 = null, D5 = [], O5 = c7.Dd(), k5 = /* @__PURE__ */ new Uint8Array(), A4 = false;
-                    if (!O5.length) throw new H4(2, 3, 3023, n6 ? n6.U()[0] : null);
-                    for (var j5 = 0; j5 < O5.length; j5++) {
-                      var M5 = O5[j5], N4 = M5.nalus;
-                      D5.push.apply(D5, b3(N4));
-                      for (var P5 = false, F5 = [], I5 = 0, ee3 = false, te3 = y4(N4), ne3 = te3.next(); !ne3.done; ne3 = te3.next()) {
+                    var T6 = [], E6 = null, D6 = [], O6 = c7.Dd(), k6 = /* @__PURE__ */ new Uint8Array(), A5 = false;
+                    if (!O6.length) throw new H4(2, 3, 3023, n6 ? n6.U()[0] : null);
+                    for (var j5 = 0; j5 < O6.length; j5++) {
+                      var M5 = O6[j5], N5 = M5.nalus;
+                      D6.push.apply(D6, b4(N5));
+                      for (var P5 = false, F5 = [], I5 = 0, ee3 = false, te3 = y5(N5), ne3 = te3.next(); !ne3.done; ne3 = te3.next()) {
                         var re3 = ne3.value;
                         switch (re3.type) {
                           case 1:
                           case 0:
-                            var L4 = ee3 = true;
+                            var L5 = ee3 = true;
                             break;
                           case 19:
                           case 20:
                           case 21:
-                            P5 = L4 = ee3 = true;
+                            P5 = L5 = ee3 = true;
                             break;
                           case 32:
                           case 33:
                           case 34:
-                            L4 = true;
+                            L5 = true;
                             break;
                           case 35:
-                            ee3 = L4 = true;
+                            ee3 = L5 = true;
                             break;
                           case 39:
                           case 40:
-                            L4 = true;
+                            L5 = true;
                             break;
                           default:
-                            L4 = false;
+                            L5 = false;
                         }
-                        ee3 && L4 && (F5.push(re3.fullData), I5 += re3.fullData.byteLength);
+                        ee3 && L5 && (F5.push(re3.fullData), I5 += re3.fullData.byteLength);
                       }
                       if (F5.length) {
                         I5 += 4 * F5.length;
-                        for (var ie3 = new Uint8Array(I5), ae3 = 0, oe3 = y4(F5), se3 = oe3.next(); !se3.done; se3 = oe3.next()) {
-                          var ce3 = se3.value, R4 = ce3.byteLength;
-                          ie3[ae3] = R4 >> 24 & 255, ie3[ae3 + 1] = R4 >> 16 & 255, ie3[ae3 + 2] = R4 >> 8 & 255, ie3[ae3 + 3] = R4 & 255, ie3.set(ce3, ae3 + 4), ae3 += R4 + 4;
+                        for (var ie3 = new Uint8Array(I5), ae3 = 0, oe3 = y5(F5), se3 = oe3.next(); !se3.done; se3 = oe3.next()) {
+                          var ce3 = se3.value, R5 = ce3.byteLength;
+                          ie3[ae3] = R5 >> 24 & 255, ie3[ae3 + 1] = R5 >> 16 & 255, ie3[ae3 + 2] = R5 >> 8 & 255, ie3[ae3 + 3] = R5 & 255, ie3.set(ce3, ae3 + 4), ae3 += R5 + 4;
                         }
-                        k5 = ie3, A4 = P5;
+                        k6 = ie3, A5 = P5;
                         var le3 = true;
                       } else le3 = false;
                       if (le3) {
-                        E5 == null && M5.dts != null && (E5 = M5.dts);
+                        E6 == null && M5.dts != null && (E6 = M5.dts);
                         var ue3 = void 0;
-                        ue3 = j5 + 1 < O5.length ? (O5[j5 + 1].dts || 0) - (M5.dts || 0) : O5.length > 1 ? (M5.dts || 0) - (O5[j5 - 1].dts || 0) : (n6.endTime - n6.startTime) * 9e4, T5.push({
-                          data: k5,
-                          size: k5.byteLength,
+                        ue3 = j5 + 1 < O6.length ? (O6[j5 + 1].dts || 0) - (M5.dts || 0) : O6.length > 1 ? (M5.dts || 0) - (O6[j5 - 1].dts || 0) : (n6.endTime - n6.startTime) * 9e4, T6.push({
+                          data: k6,
+                          size: k6.byteLength,
                           duration: ue3,
                           zb: Math.round((M5.pts || 0) - (M5.dts || 0)),
-                          flags: A4 ? RN : zN
+                          flags: A5 ? RN : zN
                         });
                       }
                     }
-                    var de3 = JN(D5);
-                    if (!de3 || E5 == null) throw new H4(2, 3, 3018, n6 ? n6.U()[0] : null);
+                    var de3 = JN(D6);
+                    if (!de3 || E6 == null) throw new H4(2, 3, 3018, n6 ? n6.U()[0] : null);
                     t9.height = t9.height || de3.height, t9.width = t9.width || de3.width, d5 = {
                       id: t9.id,
                       type: "video",
@@ -35917,8 +36014,8 @@ var init_load_uTL4eiru = __esm({
                       nd: de3.nd,
                       data: {
                         sequenceNumber: this.frameIndex,
-                        Oa: E5,
-                        bb: T5
+                        Oa: E6,
+                        bb: T6
                       },
                       stream: t9
                     };
@@ -35928,11 +36025,11 @@ var init_load_uTL4eiru = __esm({
               if (i6 == "audio") {
                 switch (u7.audio) {
                   case "aac":
-                    for (var fe3 = [], pe3, me3 = null, he3 = null, ge3 = null, _e3 = y4(c7.Bb()), ve3 = _e3.next(); !ve3.done; ve3 = _e3.next()) {
-                      var z4 = ve3.value, ye3 = z4.data;
+                    for (var fe3 = [], pe3, me3 = null, he3 = null, ge3 = null, _e3 = y5(c7.Bb()), ve3 = _e3.next(); !ve3.done; ve3 = _e3.next()) {
+                      var z5 = ve3.value, ye3 = z5.data;
                       if (ye3) {
                         var be3 = 0;
-                        if (he3 == -1 && ge3) ye3 = Ye2(ge3, z4.data), he3 = null;
+                        if (he3 == -1 && ge3) ye3 = Ye2(ge3, z5.data), he3 = null;
                         else if (he3 != null && ge3) {
                           be3 = Math.max(0, he3);
                           var xe3 = Ye2(ge3, ye3.subarray(0, be3));
@@ -35945,7 +36042,7 @@ var init_load_uTL4eiru = __esm({
                           }), he3 = ge3 = null;
                         }
                         if (pe3 = jN(ye3, be3), !pe3) throw new H4(2, 3, 3018, n6 ? n6.U()[0] : null);
-                        for (t9.audioSamplingRate = pe3.sampleRate, t9.channelsCount = pe3.channelCount, me3 == null && z4.pts !== null && (me3 = z4.pts); be3 < ye3.length; ) {
+                        for (t9.audioSamplingRate = pe3.sampleRate, t9.channelsCount = pe3.channelCount, me3 == null && z5.pts !== null && (me3 = z5.pts); be3 < ye3.length; ) {
                           var Se3 = AN(ye3, be3);
                           if (!Se3) {
                             ge3 = ye3.subarray(be3, ye3.length), he3 = -1;
@@ -35964,14 +36061,14 @@ var init_load_uTL4eiru = __esm({
                     }
                     if (!pe3 || me3 == null) {
                       me3 = n6.startTime * 9e4;
-                      var B4 = wt("audio", t9.codecs.split(","));
-                      if (!B4 || !t9.channelsCount || !t9.audioSamplingRate) throw new H4(2, 3, 3018, n6 ? n6.U()[0] : null);
+                      var B5 = wt("audio", t9.codecs.split(","));
+                      if (!B5 || !t9.channelsCount || !t9.audioSamplingRate) throw new H4(2, 3, 3018, n6 ? n6.U()[0] : null);
                       pe3 = {
                         sampleRate: t9.audioSamplingRate,
                         channelCount: t9.channelsCount,
-                        codec: B4
+                        codec: B5
                       };
-                      var we3 = NN(B4, t9.channelsCount);
+                      var we3 = NN(B5, t9.channelsCount);
                       if (!we3) throw new H4(2, 3, 3018, n6 ? n6.U()[0] : null);
                       for (var Te3 = me3 + (n6.endTime - n6.startTime) * 9e4, Ee3 = me3; Ee3 < Te3; ) fe3.push({
                         data: we3,
@@ -36003,7 +36100,7 @@ var init_load_uTL4eiru = __esm({
                       channelCount: 0,
                       mc: /* @__PURE__ */ new Uint8Array(),
                       na: 0
-                    }, Pe3 = y4(c7.Bb()), Fe3 = Pe3.next(); !Fe3.done; Fe3 = Pe3.next()) {
+                    }, Pe3 = y5(c7.Bb()), Fe3 = Pe3.next(); !Fe3.done; Fe3 = Pe3.next()) {
                       var Ie3 = Fe3.value, Le3 = Ie3.data;
                       Me3 == null && Ie3.pts !== null && (Me3 = Ie3.pts);
                       for (var Re3 = 0; Re3 < Le3.length; ) VN(Le3, Re3, Ne3) ? (t9.audioSamplingRate = Ne3.sampleRate, t9.channelsCount = Ne3.channelCount, Ae3 = Ne3.sampleRate, je3 = Ne3.mc, ke3.push({
@@ -36036,7 +36133,7 @@ var init_load_uTL4eiru = __esm({
                       channelCount: 0,
                       mc: /* @__PURE__ */ new Uint8Array(),
                       na: 0
-                    }, We3 = y4(c7.Bb()), Ge3 = We3.next(); !Ge3.done; Ge3 = We3.next()) {
+                    }, We3 = y5(c7.Bb()), Ge3 = We3.next(); !Ge3.done; Ge3 = We3.next()) {
                       var Ke3 = Ge3.value, qe3 = Ke3.data;
                       He3 == null && Ke3.pts !== null && (He3 = Ke3.pts);
                       for (var Je3 = 0; Je3 < qe3.length; ) UN(qe3, Je3, Ue3) ? (t9.audioSamplingRate = Ue3.sampleRate, t9.channelsCount = Ue3.channelCount, Be3 = Ue3.sampleRate, Ve3 = Ue3.mc, ze3.push({
@@ -36064,7 +36161,7 @@ var init_load_uTL4eiru = __esm({
                     };
                     break;
                   case "mp3":
-                    for (var Xe3 = [], Ze3, Qe3 = null, $e3 = y4(c7.Bb()), et3 = $e3.next(); !et3.done; et3 = $e3.next()) {
+                    for (var Xe3 = [], Ze3, Qe3 = null, $e3 = y5(c7.Bb()), et3 = $e3.next(); !et3.done; et3 = $e3.next()) {
                       var tt3 = et3.value, nt3 = tt3.data;
                       if (nt3) {
                         Qe3 == null && tt3.pts !== null && (Qe3 = tt3.pts);
@@ -36294,12 +36391,12 @@ var init_load_uTL4eiru = __esm({
                       lt3.sampleRate >>> 0 & 255,
                       0,
                       0
-                    ].concat(b3(ut3))), ft3 = lt3.sampleRate, pt3 = y4(c7.Bb()), mt3 = pt3.next(); !mt3.done; mt3 = pt3.next()) {
+                    ].concat(b4(ut3))), ft3 = lt3.sampleRate, pt3 = y5(c7.Bb()), mt3 = pt3.next(); !mt3.done; mt3 = pt3.next()) {
                       var ht3 = mt3.value, gt3 = ht3.data;
                       ct3 == null && ht3.pts !== null && (ct3 = ht3.pts);
-                      for (var _t2 = 0; _t2 < gt3.length; ) {
-                        for (var vt3 = !!(gt3[_t2 + 1] & 16), yt2 = !!(gt3[_t2 + 1] & 8), bt3 = _t2 + 2, xt3 = 0; gt3[bt3] === 255; ) xt3 += 255, bt3 += 1;
-                        xt3 += gt3[bt3], bt3 += 1, bt3 += vt3 ? 2 : 0, bt3 += yt2 ? 2 : 0;
+                      for (var _t3 = 0; _t3 < gt3.length; ) {
+                        for (var vt3 = !!(gt3[_t3 + 1] & 16), yt3 = !!(gt3[_t3 + 1] & 8), bt3 = _t3 + 2, xt3 = 0; gt3[bt3] === 255; ) xt3 += 255, bt3 += 1;
+                        xt3 += gt3[bt3], bt3 += 1, bt3 += vt3 ? 2 : 0, bt3 += yt3 ? 2 : 0;
                         var St2 = gt3.slice(bt3, bt3 + xt3);
                         st3.push({
                           data: St2,
@@ -36307,7 +36404,7 @@ var init_load_uTL4eiru = __esm({
                           duration: cP(St2),
                           zb: 0,
                           flags: LN
-                        }), _t2 = bt3 + xt3;
+                        }), _t3 = bt3 + xt3;
                       }
                     }
                     if (dt3.byteLength == 0 || ct3 == null) throw new H4(2, 3, 3018, n6 ? n6.U()[0] : null);
@@ -36332,7 +36429,7 @@ var init_load_uTL4eiru = __esm({
               return e10 && e10.code == 3023 ? Promise.resolve(new Uint8Array([])) : Promise.reject(e10);
             }
             return l6.length ? Promise.resolve(IN(this, new Fs(l6), t9, n6)) : Promise.reject(new H4(2, 3, 3018, n6 ? n6.U()[0] : null));
-          }, L3("shaka.transmuxer.TsTransmuxer", uP), uP.prototype.transmux = uP.prototype.transmux, uP.prototype.convertCodecs = uP.prototype.convertCodecs, uP.prototype.isSupported = uP.prototype.isSupported, uP.prototype.destroy = uP.prototype.destroy;
+          }, L4("shaka.transmuxer.TsTransmuxer", uP), uP.prototype.transmux = uP.prototype.transmux, uP.prototype.convertCodecs = uP.prototype.convertCodecs, uP.prototype.isSupported = uP.prototype.isSupported, uP.prototype.destroy = uP.prototype.destroy;
           var dP = [
             "aac",
             "ac-3",
@@ -36356,7 +36453,7 @@ var init_load_uTL4eiru = __esm({
           }, pP.prototype.skip = function(e9) {
             var t9 = this.h + e9;
             t9 <= this.g.length || (t9 = new Uint8Array(Math.max(this.g.length * 2, t9)), t9.set(this.g), this.g = t9, je2(this.g)), this.h += e9;
-          }, L3("shaka.util.DataViewWriter", pP), pP.Endianness = {
+          }, L4("shaka.util.DataViewWriter", pP), pP.Endianness = {
             BIG_ENDIAN: 0,
             LITTLE_ENDIAN: 1
           }, [].concat(Eh, wh, Th, Ch).filter(function(e9, t9, n6) {
@@ -36452,6 +36549,42 @@ var init_load_uTL4eiru = __esm({
 });
 
 // node_modules/.pnpm/@tidal-music+player@0.20.1/node_modules/@tidal-music/player/dist/index.js
+var dist_exports = {};
+__export(dist_exports, {
+  bootstrap: () => Y,
+  events: () => _,
+  getAssetPosition: () => v5,
+  getAudioAdaptiveBitrateStreaming: () => y4,
+  getLoudnessNormalizationMode: () => b3,
+  getMediaElement: () => J,
+  getMediaProduct: () => x3,
+  getNextMediaProduct: () => S3,
+  getOutputDevices: () => C4,
+  getPlaybackContext: () => w4,
+  getPlaybackState: () => T4,
+  getPlayerVersion: () => E4,
+  getStreamingWifiAudioQuality: () => D4,
+  getTransitionMode: () => O4,
+  getVolumeLevel: () => k4,
+  load: () => xt,
+  pause: () => A3,
+  play: () => j3,
+  reset: () => ut,
+  seek: () => M3,
+  setApiUrl: () => N3,
+  setAudioAdaptiveBitrateStreaming: () => P3,
+  setCredentialsProvider: () => F3,
+  setEventSender: () => I3,
+  setLegacyApiUrl: () => L3,
+  setLoudnessNormalizationMode: () => R3,
+  setNext: () => bt,
+  setOutputDevice: () => V3,
+  setOutputDeviceMode: () => B3,
+  setStreamingWifiAudioQuality: () => H3,
+  setTransitionMode: () => G,
+  setVolumeLevel: () => K,
+  startNativePlayer: () => q
+});
 init_state_BujoNwcN();
 init_pushkin_C5TU0Pwc();
 init_audio_context_store_Bf50rcqa();
@@ -36461,14 +36594,45 @@ init_active_device_changed_BDbOSq7P();
 function v5() {
   return y.activePlayer?.getPosition() ?? 0;
 }
-function w3() {
+function y4() {
+  return t("audioAdaptiveBitrateStreaming");
+}
+function b3() {
+  return t("loudnessNormalizationMode");
+}
+function x3() {
+  return y.activePlayer?.currentMediaProduct ?? null;
+}
+function S3() {
+  return y.preloadedMediaProduct ?? null;
+}
+async function C4() {
+  let { outputDevices: e7 } = await Promise.resolve().then(() => (init_output_devices_DLDX8cVL(), output_devices_DLDX8cVL_exports));
+  return [...e7.outputDevices];
+}
+function w4() {
   let e7 = y.activePlayer;
   if (e7) {
     let t7 = v.getMediaProductTransition(e7.currentStreamingSessionId);
     if (t7) return t7.playbackContext;
   }
 }
-function A2() {
+function T4() {
+  return y.activePlayer?.playbackState ?? "IDLE";
+}
+function E4() {
+  return "0.20.1";
+}
+function D4() {
+  return t("streamingWifiAudioQuality");
+}
+function O4() {
+  return t("crossfadeInMs");
+}
+function k4() {
+  return t("desiredVolumeLevel");
+}
+function A3() {
   return y.activePlayer?.pause();
 }
 async function j3() {
@@ -36480,6 +36644,14 @@ async function M3(e7) {
   let { activePlayer: t7 } = y;
   return t7?.seek(e7);
 }
+function N3(e7) {
+  try {
+    new URL(e7);
+  } catch (e8) {
+    throw e8;
+  }
+  n({ apiUrl: e7 });
+}
 function P3(e7) {
   n({ audioAdaptiveBitrateStreaming: e7 });
 }
@@ -36489,13 +36661,68 @@ function F3(t7) {
 function I3(e7) {
   p.eventSender = e7;
 }
+function L3(e7) {
+  try {
+    new URL(e7);
+  } catch (e8) {
+    throw e8;
+  }
+  n({ legacyApiUrl: e7 });
+}
+function R3(e7) {
+  n({ loudnessNormalizationMode: e7 }), y.activePlayer?.updateVolumeLevel();
+}
+function z3(e7, t7) {
+  return new Promise((n4) => {
+    e7.addEventListener(t7, (e8) => n4(e8), { once: true });
+  });
+}
+async function B3(e7 = "shared") {
+  let { outputDevices: t7 } = await Promise.resolve().then(() => (init_output_devices_DLDX8cVL(), output_devices_DLDX8cVL_exports)), n4 = z3(_, e4);
+  t7.deviceMode = e7;
+  let r5 = await n4;
+  if (r5 instanceof CustomEvent && r5.detail === e7) return e7;
+  throw Error("Could not set new device mode.");
+}
+async function V3(e7) {
+  let { outputDevices: t7 } = await Promise.resolve().then(() => (init_output_devices_DLDX8cVL(), output_devices_DLDX8cVL_exports)), n4 = z3(_, e5), r5 = [...t7.outputDevices].find((t8) => t8.id === e7);
+  if (!r5) throw ReferenceError("Output device does not exist: " + e7);
+  t7.activeDevice = r5;
+  let i5 = await n4;
+  if (i5 instanceof CustomEvent && i5.detail === e7) return e7;
+  throw Error("Could not set new device.");
+}
 function H3(e7) {
   n({ streamingWifiAudioQuality: e7 });
+}
+var U2 = 0;
+var W = 15e3;
+function G(e7) {
+  n({ crossfadeInMs: Math.max(U2, Math.min(W, Math.round(Number.isFinite(e7) ? e7 : 0))) });
 }
 function K(e7) {
   n({ desiredVolumeLevel: e7 });
 }
+async function q() {
+  let e7 = await T3();
+  x2(e7);
+}
 a.synchronize().then().catch(console.error);
+function J() {
+  let { activePlayer: e7 } = y;
+  if (!e7) return null;
+  switch (e7.name) {
+    case "browserPlayer":
+      return e7.mediaElement;
+    case "shakaPlayer":
+      return e7.mediaElement;
+    default:
+      return null;
+  }
+}
+function Y(e7) {
+  y.activePlayer = void 0, e7.outputDevices === true && n({ outputDevicesEnabled: true }), y3(e7.players);
+}
 function X() {
   let e7 = localStorage.getItem("ssuid");
   try {
@@ -36506,30 +36733,169 @@ function X() {
 }
 o3().then().catch(console.error), c3().then().catch(console.error), X();
 
-// src/index.js
-var credentials;
-var loadedProductId;
-var commandQueue = Promise.resolve();
-var latestControlSerial = 0;
-var credentialsListeners = /* @__PURE__ */ new Set();
-var credentialsProvider = {
-  bus(callback) {
-    credentialsListeners.add(callback);
-    return () => credentialsListeners.delete(callback);
-  },
-  async getCredentials() {
-    if (!credentials?.clientId || !credentials?.token) {
-      throw new Error("Brak aktywnego logowania TIDAL.");
+// src/bridge.js
+function startBridge(Player, host, schedule = setInterval) {
+  let credentials;
+  let active;
+  let commandQueue = Promise.resolve();
+  let latestControlSerial = 0;
+  const credentialsListeners = /* @__PURE__ */ new Set();
+  const send = (message) => host.chrome.webview.postMessage(message);
+  const sendFor = (request, message) => send({
+    ...message,
+    productId: request.productId,
+    requestVersion: request.version
+  });
+  const isCurrent = (request) => request && active === request && request.serial === latestControlSerial && !request.terminal;
+  const sdkMatches = (request) => isCurrent(request) && Player.getMediaProduct()?.productId === request.productId;
+  function reportFailure(error, request = active) {
+    if (!request || request.serial !== latestControlSerial || request.terminal) return;
+    request.terminal = true;
+    request.confirmed = false;
+    sendFor(request, { type: "error", ...usefulError(error) });
+  }
+  Player.setCredentialsProvider({
+    bus(callback) {
+      credentialsListeners.add(callback);
+      return () => credentialsListeners.delete(callback);
+    },
+    async getCredentials() {
+      if (!credentials?.clientId || !credentials?.token || !credentials?.userId)
+        throw new Error("Brak aktywnego logowania TIDAL.");
+      return credentials;
     }
-    return credentials;
+  });
+  Player.setEventSender({ sendEvent() {
+  } });
+  Player.setStreamingWifiAudioQuality("HI_RES_LOSSLESS");
+  Player.setAudioAdaptiveBitrateStreaming(true);
+  Player.events.addEventListener("playback-state-change", (event) => {
+    if (!sdkMatches(active) || !active.confirmed) return;
+    sendFor(active, { type: "state", state: event.detail?.state ?? "NOT_PLAYING" });
+  });
+  Player.events.addEventListener("media-product-transition", (event) => {
+    if (!isCurrent(active) || event.detail?.mediaProduct?.productId !== active.productId) return;
+    const context = event.detail?.playbackContext;
+    sendFor(active, {
+      type: "transition",
+      duration: Number(context?.actualDuration ?? 0),
+      position: Number(context?.assetPosition ?? 0),
+      assetPresentation: context?.actualAssetPresentation ?? "",
+      previewReason: context?.previewReason ?? "",
+      quality: context?.actualAudioQuality ?? "",
+      codec: context?.codec ?? "",
+      sampleRate: Number(context?.sampleRate ?? 0),
+      bitDepth: Number(context?.bitDepth ?? 0),
+      bandwidth: Number(context?.bandwidth ?? 0)
+    });
+  });
+  Player.events.addEventListener("ended", (event) => {
+    if (!isCurrent(active) || !active.confirmed || event.detail?.reason !== "completed" || event.detail?.mediaProduct?.productId !== active.productId) return;
+    const duration = Number(Player.getPlaybackContext()?.actualDuration ?? 0);
+    const position = Number(Player.getAssetPosition() ?? 0);
+    active.terminal = true;
+    sendFor(active, { type: "ended", reason: "completed", duration, position });
+  });
+  Player.events.addEventListener("error", (event) => reportFailure(event));
+  host.addEventListener("error", (event) => reportFailure(event.error ?? event));
+  host.addEventListener("unhandledrejection", (event) => reportFailure(event.reason));
+  async function handleCommand(command, serial) {
+    if (serial !== latestControlSerial) return;
+    let request = active;
+    if (command.type === "play" || command.type === "resume") {
+      request = {
+        productId: command.productId ?? active?.productId,
+        version: command.requestVersion,
+        serial,
+        confirmed: false,
+        terminal: false
+      };
+    }
+    try {
+      switch (command.type) {
+        case "play": {
+          active = void 0;
+          await Player.reset();
+          if (serial !== latestControlSerial) return;
+          active = request;
+          credentials = {
+            clientId: command.credentials.clientId,
+            clientUniqueKey: "amc-tidal-player",
+            expires: command.credentials.expires,
+            grantedScopes: command.credentials.scopes,
+            requestedScopes: command.credentials.scopes,
+            token: command.credentials.token,
+            userId: command.credentials.userId
+          };
+          for (const listener of credentialsListeners) {
+            listener(new CustomEvent("credentials", {
+              detail: { type: "CredentialsUpdatedMessage", payload: credentials }
+            }));
+          }
+          Player.setVolumeLevel(command.volume);
+          await Player.load({
+            productId: command.productId,
+            productType: command.productType,
+            sourceId: command.sourceId,
+            sourceType: command.sourceType,
+            referenceId: command.referenceId
+          }, command.position);
+          if (!isCurrent(request)) return;
+          await Player.play();
+          if (!isCurrent(request)) return;
+          request.confirmed = true;
+          sendFor(request, { type: "state", state: Player.getPlaybackState() });
+          break;
+        }
+        case "resume":
+          active = request;
+          Player.setVolumeLevel(command.volume);
+          await Player.seek(command.position);
+          if (!isCurrent(request)) return;
+          await Player.play();
+          if (!isCurrent(request)) return;
+          request.confirmed = true;
+          sendFor(request, { type: "state", state: Player.getPlaybackState() });
+          break;
+        case "pause":
+          if (active) {
+            active.confirmed = false;
+            active.serial = serial;
+            active.version = command.requestVersion;
+          }
+          await Player.pause();
+          break;
+        case "stop":
+          active = void 0;
+          await Player.reset();
+          break;
+        case "seek":
+          if (isCurrent(active)) await Player.seek(command.position);
+          break;
+        case "volume":
+          Player.setVolumeLevel(command.volume);
+          break;
+      }
+    } catch (error) {
+      reportFailure(error, request);
+    }
   }
-};
-var eventSender = {
-  sendEvent() {
-  }
-};
-function send(message) {
-  window.chrome.webview.postMessage(message);
+  host.chrome.webview.addEventListener("message", (event) => {
+    const command = event.data;
+    const control = ["play", "resume", "pause", "stop"].includes(command.type);
+    const serial = control ? ++latestControlSerial : latestControlSerial;
+    commandQueue = commandQueue.then(() => handleCommand(command, serial));
+  });
+  schedule(() => {
+    if (!sdkMatches(active) || !active.confirmed) return;
+    sendFor(active, {
+      type: "progress",
+      position: Number(Player.getAssetPosition() ?? 0),
+      duration: Number(Player.getPlaybackContext()?.actualDuration ?? 0)
+    });
+  }, 500);
+  send({ type: "ready" });
+  return { settled: () => commandQueue };
 }
 function usefulError(error) {
   const candidates = [
@@ -36540,127 +36906,21 @@ function usefulError(error) {
     error?.cause,
     error
   ].filter(Boolean);
-  const first = (...selectors) => {
+  const first = (...keys) => {
     for (const candidate of candidates) {
-      for (const selector of selectors) {
-        const value = selector(candidate);
-        if (value !== void 0 && value !== null && String(value).trim()) {
-          return String(value).trim();
-        }
+      for (const key of keys) {
+        const value = candidate[key];
+        if (value !== void 0 && value !== null && String(value).trim()) return String(value).trim();
       }
     }
     return "";
   };
   return {
-    message: first((value) => value.userMessage, (value) => value.message) || "Nieznany b\u0142\u0105d odtwarzacza TIDAL.",
-    code: first((value) => value.errorCode, (value) => value.code),
-    id: first((value) => value.errorId, (value) => value.name)
+    message: first("userMessage", "message") || "Nieznany b\u0142\u0105d odtwarzacza TIDAL.",
+    code: first("errorCode", "code"),
+    id: first("errorId", "name")
   };
 }
-function reportFailure(error) {
-  const failure = usefulError(error);
-  send({ type: "error", ...failure, productId: loadedProductId ?? "" });
-}
-F3(credentialsProvider);
-I3(eventSender);
-H3("HI_RES_LOSSLESS");
-P3(true);
-_.addEventListener("playback-state-change", (event) => {
-  send({
-    type: "state",
-    state: event.detail?.state ?? "NOT_PLAYING",
-    productId: loadedProductId ?? ""
-  });
-});
-_.addEventListener("media-product-transition", (event) => {
-  const context = event.detail?.playbackContext;
-  send({
-    type: "transition",
-    productId: event.detail?.mediaProduct?.productId ?? loadedProductId ?? "",
-    duration: Number(context?.actualDuration ?? 0),
-    position: Number(context?.assetPosition ?? 0),
-    assetPresentation: context?.actualAssetPresentation ?? "",
-    previewReason: context?.previewReason ?? "",
-    quality: context?.actualAudioQuality ?? "",
-    codec: context?.codec ?? "",
-    sampleRate: Number(context?.sampleRate ?? 0),
-    bitDepth: Number(context?.bitDepth ?? 0),
-    bandwidth: Number(context?.bandwidth ?? 0)
-  });
-});
-_.addEventListener("ended", () => {
-  send({ type: "ended", productId: loadedProductId ?? "" });
-});
-_.addEventListener("error", reportFailure);
-window.addEventListener("error", (event) => reportFailure(event.error ?? event));
-window.addEventListener("unhandledrejection", (event) => reportFailure(event.reason));
-async function handleCommand(command, controlSerial) {
-  switch (command.type) {
-    case "play": {
-      credentials = {
-        clientId: command.credentials.clientId,
-        clientUniqueKey: "amc-tidal-player",
-        expires: command.credentials.expires,
-        grantedScopes: command.credentials.scopes,
-        requestedScopes: command.credentials.scopes,
-        token: command.credentials.token,
-        userId: command.credentials.userId
-      };
-      for (const listener of credentialsListeners) {
-        listener(
-          new CustomEvent("credentials", {
-            detail: { type: "CredentialsUpdatedMessage", payload: credentials }
-          })
-        );
-      }
-      loadedProductId = command.productId;
-      K(command.volume);
-      await xt(
-        {
-          productId: command.productId,
-          productType: command.productType,
-          sourceId: command.sourceId,
-          sourceType: command.sourceType,
-          referenceId: command.referenceId
-        },
-        command.position
-      );
-      if (controlSerial !== latestControlSerial) break;
-      await j3();
-      break;
-    }
-    case "resume":
-      await j3();
-      break;
-    case "pause":
-      await A2();
-      break;
-    case "stop":
-      await ut();
-      loadedProductId = void 0;
-      break;
-    case "seek":
-      await M3(command.position);
-      break;
-    case "volume":
-      K(command.volume);
-      break;
-  }
-}
-window.chrome.webview.addEventListener("message", (event) => {
-  const command = event.data;
-  const controlsTimeline = ["play", "resume", "pause", "stop"].includes(command.type);
-  const controlSerial = controlsTimeline ? ++latestControlSerial : latestControlSerial;
-  commandQueue = commandQueue.then(() => handleCommand(command, controlSerial)).catch(reportFailure);
-});
-setInterval(() => {
-  if (!loadedProductId) return;
-  const context = w3();
-  send({
-    type: "progress",
-    productId: loadedProductId,
-    position: Number(v5() ?? 0),
-    duration: Number(context?.actualDuration ?? 0)
-  });
-}, 500);
-send({ type: "ready" });
+
+// src/index.js
+startBridge(dist_exports, window);
