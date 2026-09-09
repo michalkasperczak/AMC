@@ -21,7 +21,9 @@ ani obietnica pełnego odtwarzania po dodaniu Nostr.
 
 Źródła przypięte do commita, wyniki, granice jakości i warunki dalszego testu:
 [`TIDAL_WERYFIKACJA_PELNEGO_ODTWARZANIA_2026-09-09.md`](TIDAL_WERYFIKACJA_PELNEGO_ODTWARZANIA_2026-09-09.md).
-Pytanie do dostawcy jest przygotowane, ale **nie zostało wysłane**:
+Po osobnej zgodzie użytkownika pytanie opublikowano 9 września 2026 r. na
+oficjalnym forum deweloperskim TIDAL: [dyskusja nr 384](https://github.com/orgs/tidal-music/discussions/384).
+Publikacja nie oznacza uzyskania zgody ani rozwiązania problemu. Zapis treści:
 [`TIDAL_PYTANIE_DO_DOSTAWCY_EN.md`](TIDAL_PYTANIE_DO_DOSTAWCY_EN.md).
 
 ### Pełne utwory — ustalenia i następny test (2026-09-09)

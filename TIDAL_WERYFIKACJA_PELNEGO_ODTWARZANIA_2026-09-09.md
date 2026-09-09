@@ -81,7 +81,10 @@ Najpierw wymagane jest potwierdzone pełne odtwarzanie.
    nie jest ukończoną integracją w natywnym interfejsie AMC.
 
 Nie zmieniono uruchomionego odtwarzacza ani konfiguracji konta. Nie ma nowego
-wydania aplikacji z pełnym TIDAL. Pytanie do dostawcy pozostaje szkicem.
+wydania aplikacji z pełnym TIDAL. Po osobnej zgodzie użytkownika pytanie
+opublikowano 9 września 2026 r. na oficjalnym forum:
+[dyskusja TIDAL nr 384](https://github.com/orgs/tidal-music/discussions/384).
+Potwierdzono stronę opublikowanego pytania, nie odpowiedź ani przyznanie dostępu.
 
 ## Testy zabezpieczenia programu testowego
 

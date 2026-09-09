@@ -15,8 +15,9 @@
   jako pełnych utworów. Ustalenia i granice: `PROJEKT_TIDAL_PL.md`.
 - Wynik zwykłego logowania do Embed i analiza jego kodu:
   `TIDAL_WERYFIKACJA_PELNEGO_ODTWARZANIA_2026-09-09.md`. Nie prosić ponownie
-  o identyczne logowanie bez nowego dowodu. Szkic pytania do TIDAL nie oznacza
-  zgody na jego wysłanie ani na podłączanie nowej tożsamości Nostr.
+  o identyczne logowanie bez nowego dowodu. Za osobną zgodą użytkownika pytanie
+  wysłano do TIDAL: https://github.com/orgs/tidal-music/discussions/384.
+  Nie dublować zgłoszenia. Zgoda nie obejmuje podłączania tożsamości Nostr.
 - Testy muszą kończyć się niezerowym kodem i diagnostyką po niepowodzeniu,
   nie pozostawionym oknem awarii CLR. Test negatywny nie jest zaliczeniem
   funkcji. Profile WebView2 testów są odizolowane od konta i stanu AMC.

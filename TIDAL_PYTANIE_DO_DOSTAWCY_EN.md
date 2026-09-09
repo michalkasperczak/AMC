@@ -1,11 +1,16 @@
-# Draft: supported full-track playback and subscriber authentication in TIDAL Embed
+# Sent: supported full-track playback and subscriber authentication in TIDAL Embed
 
-Status: DRAFT — NOT SENT. Posting or contacting TIDAL requires the user's
-separate approval. This document contains no account identifiers, credentials,
-private collections, or raw logs.
+Status: SENT on 9 September 2026, with the user's explicit approval.
+Official developer forum, Q&A, posted by michalkasperczak:
+https://github.com/orgs/tidal-music/discussions/384
+Title: Supported full-track playback and subscriber login in Embed — accessible Windows client (AMC)
+The published page and body were verified after submission. No account
+credentials, private TIDAL identifiers, private collections, or raw logs were sent.
+This file records the submitted question; do not post it again as a new discussion.
 
 We are developing Accessible Multimedia Controller (AMC), a Windows
 keyboard-first player for blind users, with an NVDA-accessible native UI.
+Project: https://github.com/michalkasperczak/AMC
 We use our own registered client and the official TIDAL SDK for metadata,
 collections and playback. Playback currently yields previews.
 
@@ -51,6 +56,13 @@ References:
 - https://developer.tidal.com/documentation/embeds/embeds-overview
 - https://github.com/tidal-music/embed-player/tree/0f4fb0fe60981189e5150632a8df6168f3247dc6
 
+Related discussion found before posting:
+https://github.com/orgs/tidal-music/discussions/342. This question adds a
+reproducible ordinary-Embed login comparison and an accessibility-specific
+host-control question.
+
 Requested outcome: a documented integration route or a clear statement of the
 current limitation, rather than instructions to reuse another application's
 credentials or bypass playback restrictions.
+
+Thank you.
