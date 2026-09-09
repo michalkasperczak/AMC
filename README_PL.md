@@ -1,5 +1,16 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.335` usuwa podwójny reset przy zmianie utworu TIDAL i przygotowuje
+poświadczenia równolegle ze startem silnika. Log mierzy przygotowanie AMC,
+oczekiwanie polecenia w mostku, wczytanie SDK i potwierdzenie startu. Nie jest
+to gwarancja krótkiego czasu odpowiedzi usługi. Powód próbki jest teraz
+rozpoznawany osobno dla dostępu aplikacji, subskrypcji i zakupu; nieznana
+przyczyna nie jest zgadywana. Użytkownik potwierdził odtwarzanie i przewijanie
+około 30-sekundowych próbek w 334, nie pełnych utworów. TIDAL Connect nie jest
+w tej wersji wdrożony: oficjalna integracja wymaga dostępu partnerskiego.
+Szczegóły i rozdzielenie od wyjść Windows oraz sterowania WiiM:
+[`PROJEKT_TIDAL_PL.md`](PROJEKT_TIDAL_PL.md).
+
 Wersja `alpha.334` naprawia potwierdzoną w logach blokadę dźwięku TIDAL
 (`NotAllowedError`): gest Enter/Spacja wykonany w WPF nie był uznawany za
 interakcję ze stroną SDK. Tylko izolowany WebView2 odtwarzacza otrzymuje

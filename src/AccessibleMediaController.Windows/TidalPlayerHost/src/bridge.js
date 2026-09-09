@@ -1,6 +1,6 @@
 // Dependency injection keeps ordering/error tests independent of a TIDAL
 // account. Only the official Player module handles protected audio.
-export function startBridge(Player, host, schedule = setInterval) {
+export function startBridge(Player, host, schedule = setInterval, now = () => performance.now()) {
   let credentials;
   let active;
   let commandQueue = Promise.resolve();
@@ -73,7 +73,7 @@ export function startBridge(Player, host, schedule = setInterval) {
   host.addEventListener('error', event => reportFailure(event.error ?? event));
   host.addEventListener('unhandledrejection', event => reportFailure(event.reason));
 
-  async function handleCommand(command, serial) {
+  async function handleCommand(command, serial, queuedAt) {
     if (serial !== latestControlSerial) return;
     let request = active;
     if (command.type === 'play' || command.type === 'resume') {
@@ -86,10 +86,10 @@ export function startBridge(Player, host, schedule = setInterval) {
     try {
       switch (command.type) {
         case 'play': {
-          // reset can emit ended/state events for the PREVIOUS media product.
-          active = undefined;
-          await Player.reset();
-          if (serial !== latestControlSerial) return;
+          const queueMs = Math.max(0, now() - queuedAt);
+          // Official load() already resets the player, in parallel with its
+          // playback-info request. An extra awaited reset delays every switch.
+          // Old ended/state events remain gated by product and confirmation.
           active = request;
           credentials = {
             clientId: command.credentials.clientId,
@@ -106,15 +106,19 @@ export function startBridge(Player, host, schedule = setInterval) {
             }));
           }
           Player.setVolumeLevel(command.volume);
+          const loadAt = now();
           await Player.load({
             productId: command.productId, productType: command.productType,
             sourceId: command.sourceId, sourceType: command.sourceType,
             referenceId: command.referenceId,
           }, command.position);
           if (!isCurrent(request)) return;
+          const loadMs = Math.max(0, now() - loadAt);
+          const playAt = now();
           await Player.play();
           if (!isCurrent(request)) return;
           request.confirmed = true;
+          sendFor(request, { type: 'timing', queueMs, loadMs, playMs: Math.max(0, now() - playAt) });
           sendFor(request, { type: 'state', state: Player.getPlaybackState() });
           break;
         }
@@ -151,7 +155,8 @@ export function startBridge(Player, host, schedule = setInterval) {
     const command = event.data;
     const control = ['play', 'resume', 'pause', 'stop'].includes(command.type);
     const serial = control ? ++latestControlSerial : latestControlSerial;
-    commandQueue = commandQueue.then(() => handleCommand(command, serial));
+    const queuedAt = now();
+    commandQueue = commandQueue.then(() => handleCommand(command, serial, queuedAt));
   });
   schedule(() => {
     if (!sdkMatches(active) || !active.confirmed) return;

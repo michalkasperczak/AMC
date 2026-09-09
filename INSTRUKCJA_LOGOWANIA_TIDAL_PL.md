@@ -1,16 +1,17 @@
 # TIDAL w AMC — instrukcja pierwszego połączenia i testu
 
-Instrukcja dotyczy wersji `0.1.0-alpha.329`. Integracja służy do bezpiecznego
+Instrukcja dotyczy wersji `0.1.0-alpha.335`. Integracja służy do bezpiecznego
 logowania, odczytu i zmiany kolekcji, otwierania albumów, playlist oraz
-wykonawców i wyszukiwania na prawdziwym koncie. Nie odtwarza jeszcze
-chronionych utworów.
+wykonawców i wyszukiwania na prawdziwym koncie. Oficjalny Player SDK jest
+już dołączony. Potwierdzono odtwarzanie próbek, nie pełnych utworów.
+Ponowne logowanie do kolekcji nie jest rozwiązaniem ograniczenia do próbek.
 
 ## Co będzie potrzebne
 
 - zwykłe konto TIDAL;
 - dostęp do Internetu;
 - zwykła przeglądarka internetowa;
-- AMC `alpha.320`;
+- AMC `alpha.335`;
 - jednorazowo utworzona aplikacja testowa w panelu TIDAL Developer.
 
 Portal deweloperski i ekran zgody użytkownika pełnią dwie różne funkcje:
@@ -63,7 +64,7 @@ logowanie OAuth 2.1 Authorization Code z PKCE i potrzebuje tylko Client ID.
    logowania.
 2. Uruchom:
 
-   `D:\Projekty Codex\Accessible Multimedia Controller\publish\AccessibleMediaController-0.1.0-alpha.320\AccessibleMediaController-0.1.0-alpha.320.exe`
+   `D:\Projekty Codex\Accessible Multimedia Controller\publish\AccessibleMediaController-0.1.0-alpha.335\AccessibleMediaController-0.1.0-alpha.335.exe`
 
 3. Przejdź do sesji TIDAL. Przy domyślnej kolejności jest to `Ctrl+3`. Jeżeli
    kolejność sesji została zmieniona, użyj `Ctrl+Shift+S` i wybierz TIDAL z
@@ -117,8 +118,8 @@ pozostają lokalnymi danymi AMC. Nie są wysyłane do TIDAL.
    danymi konta.
 3. Otwórz Albumy przez `Ctrl+Shift+A` i porównaj kilka pozycji z aplikacją
    TIDAL.
-4. Otwórz Ulubione przez `Ctrl+U` i sprawdź kilka utworów, albumów,
-   wykonawców oraz playlist.
+4. Otwórz Ulubione przez `Ctrl+U` i sprawdź zapisane utwory. Porównaj zakres
+   listy z Biblioteką, która obejmuje także pozostałe rodzaje kolekcji.
 5. Naciśnij `Ctrl+F`, wpisz znanego wykonawcę albo album spoza własnej
    kolekcji i wykonaj wyszukiwanie.
 6. Sprawdź także wynik, który już znajduje się w kolekcji. AMC powinien
@@ -126,9 +127,11 @@ pozostają lokalnymi danymi AMC. Nie są wysyłane do TIDAL.
 7. Naciśnij Enter na albumie, playliście i wykonawcy. Powinny otworzyć się
    odpowiednio utwory albumu, pozycje playlisty i albumy wykonawcy. Escape
    powinien wrócić do poprzedniej listy i elementu.
-8. Naciśnij Enter na znalezionym utworze. Powinien pojawić się jednoznaczny
-   komunikat, że oficjalny Player TIDAL zostanie dołączony w następnym etapie.
-   Brak odtwarzania w tej wersji nie jest błędem logowania.
+8. Naciśnij Enter na znalezionym utworze. Jeżeli TIDAL udostępni próbkę,
+   AMC powinien odczytać jej powód i rzeczywisty czas, około 30 sekund.
+   Po końcu próbki nie powinien usuwać pełnego utworu z Kolejki ani przeskakiwać
+   po kolejnych utworach. Logowanie ponawiaj tylko po błędzie autoryzacji,
+   nie z powodu samej próbki. Pełne odtwarzanie pozostaje niezweryfikowane.
 9. Poleceniem `Ctrl+Shift+U` albo `Ctrl+Shift+L` dodaj element spoza kolekcji,
    porównaj go z aplikacją TIDAL, a następnie usuń i porównaj ponownie. W sesji
    TIDAL oba skróty zmieniają tę samą zdalną kolekcję.
@@ -143,7 +146,7 @@ pozostają lokalnymi danymi AMC. Nie są wysyłane do TIDAL.
 
 ## 6. Test dostępności menu
 
-W `alpha.320` zachowane jest poprawne liczenie widocznych pozycji dynamicznego menu.
+Sprawdź liczenie widocznych pozycji dynamicznego menu również w bieżącej wersji.
 
 1. W sesji TIDAL otwórz menu **Plik**.
 2. Przejdź po wszystkich pozycjach strzałkami.
@@ -169,7 +172,7 @@ starszej wersji nie otrzyma nowego zakresu samoczynnie: wybierz w AMC
 
 ### Port lokalny jest zajęty
 
-Zamknij wszystkie kopie AMC i uruchom tylko `alpha.320`. Nie zmieniaj portu w
+Po zakończeniu nagrywania zamknij starsze kopie AMC i uruchom jedną bieżącą wersję. Nie zmieniaj portu w
 jednym miejscu bez identycznej zmiany adresu w panelu TIDAL.
 
 ### Synchronizacja jest częściowa
@@ -178,7 +181,7 @@ AMC zachowuje poprzedni poprawny stan kategorii, której nie udało się pobrać
 Odczekaj chwilę i użyj **Synchronizuj teraz**. API może czasowo ograniczyć
 liczbę zapytań.
 
-### Po aktualizacji pojawia się ostatnia prośba o logowanie
+### Po aktualizacji pojawia się prośba o logowanie
 
 Wersje wcześniejsze niż `alpha.330` nie wysyłały kompletnego kontekstu podczas
 odświeżania tokenu. Jeżeli TIDAL odrzuci zapisane wcześniej poświadczenie,
@@ -200,8 +203,8 @@ testów, nie wykonuj tej części.
 
 1. W sesji TIDAL naciśnij `Ctrl+F5`.
 2. Wybierz **Odłącz konto** i potwierdź.
-3. AMC usunie tokeny TIDAL z Menedżera poświadczeń Windows i przywróci dane
-   demonstracyjne.
+3. AMC usunie tokeny TIDAL z Menedżera poświadczeń Windows. Nie należy
+   zastępować lokalnych kolejek elementami demonstracyjnymi.
 4. Lokalne kolejki, historia, zakładki, presety i ustawienia pozostaną.
 
 ## Oficjalne materiały

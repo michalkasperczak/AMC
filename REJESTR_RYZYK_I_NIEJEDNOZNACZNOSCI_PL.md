@@ -13,6 +13,27 @@ wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
 
 ## Zasady prowadzenia rejestru
 
+### TIDAL alpha.335 — próbki, opóźnienia i urządzenia (otwarte)
+
+- Fakt: użytkownik potwierdził dźwięk i przewijanie próbek około 30 sekund
+  w alpha.334. Pełnego odtwarzania nie uzyskano. Log nie zachowywał powodu
+  próbki; 335 dodaje ścisłą listę rozpoznawanych powodów SDK.
+- Fakt: AMC resetował SDK osobno, a SDK load robił reset ponownie.
+  335 usuwa ten zbędny etap. To nie dowodzi, że całe opóźnienie usunięto.
+- Do pomiaru na koncie: czas przygotowania AMC, kolejki mostka, load/play
+  SDK i potwierdzenia startu; 10 kolejnych zmian i seria szybkich zmian,
+  ponowne otwarcie tego samego utworu, utrata sieci, błąd i koniec próbki.
+- Regresje obowiązkowe: brak samoczynnego skakania po błędzie/próbce,
+  zachowanie Kolejki, brak logowania w pętli, fokus w odtwarzaczu, brak
+  przypadkowego uruchamiania poprzedniego utworu po anulowaniu.
+- TIDAL Connect: oficjalna dokumentacja ogranicza integrację do partnerów
+  sprzętowych. Do uzyskania: potwierdzone API i uprawnienia kontrolera.
+  Wybór głośników Windows, DLNA lub podstawowe sterowanie WiiM nie zamykają
+  tego zadania. Nie deklarować Connect jako działającego po wykryciu urządzenia.
+- Po przyszłym podłączeniu: osobno testować wybór materiału i celu, zmianę
+  urządzenia, wybudzenie, utratę urządzenia, wyciszenia i odtwarzanie przez
+  inne aplikacje. Lokalne próbki nie mogą zmieniać stanu kolejki na urządzeniu.
+
 - Każdy wpis rozdziela **fakt zaobserwowany** od hipotezy i interpretacji.
 - Brak drugiego odtworzenia nie zamyka sprawy; wpis otrzymuje stan
   **do ponownego testu**.

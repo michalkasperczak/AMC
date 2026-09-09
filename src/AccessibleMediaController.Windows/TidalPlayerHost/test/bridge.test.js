@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startBridge, usefulError } from '../src/bridge.js';
 
-function fixture() {
+function fixture(now) {
   const messages = [], calls = [];
   const events = new EventTarget();
   const webview = new EventTarget();
@@ -18,13 +18,13 @@ function fixture() {
     getAssetPosition: () => position,
     getPlaybackContext: () => ({ actualDuration: 60 }),
     setVolumeLevel: volume => calls.push(['volume', volume]),
-    async reset() { emit('ended', { mediaProduct: product, reason: 'skip' }); product = undefined; position = 0; },
-    async load(value, offset) { calls.push(['load', value.productId]); product = value; position = offset; emit('ended', { mediaProduct: product, reason: 'error' }); },
+    async reset() { calls.push(['reset']); emit('ended', { mediaProduct: product, reason: 'skip' }); product = undefined; position = 0; },
+    async load(value, offset) { calls.push(['load', value.productId]); emit('ended', { mediaProduct: product, reason: 'skip' }); product = value; position = offset; emit('ended', { mediaProduct: product, reason: 'error' }); },
     async play() { calls.push(['play']); state = 'PLAYING'; emit('playback-state-change', { state }); },
     async pause() { state = 'NOT_PLAYING'; emit('ended', { mediaProduct: product, reason: 'skip' }); },
     async seek(value) { calls.push(['seek', value]); position = value; },
   };
-  const bridge = startBridge(player, host, callback => { tick = callback; });
+  const bridge = startBridge(player, host, callback => { tick = callback; }, now);
   const post = command => webview.dispatchEvent(new MessageEvent('message', { data: command }));
   const play = (id = 'one', version = 1) => post({
     type: 'play', productId: id, requestVersion: version, position: 0, volume: 0.2,
@@ -98,4 +98,36 @@ test('reopening the same product uses a new version; old product transitions are
 test('SDK nested errors retain access-tier code rather than suggesting a new login', () => {
   assert.deepEqual(usefulError({ detail: { error: { errorCode: 'S3016', message: 'FULL_REQUIRES_HIGHER_ACCESS_TIER' } } }),
     { message: 'FULL_REQUIRES_HIGHER_ACCESS_TIER', code: 'S3016', id: '' });
+});
+
+test('track changes rely on SDK load reset, while explicit stop still resets', async () => {
+  const f = fixture(); f.play('one', 1); await f.settle(); f.play('two', 2); await f.settle();
+  assert.equal(f.calls.filter(c => c[0] === 'reset').length, 0);
+  assert.equal(f.calls.filter(c => c[0] === 'load').length, 2);
+  assert.equal(f.messages.filter(m => m.type === 'ended').length, 0);
+  f.post({ type: 'stop', requestVersion: 3 }); await f.settle();
+  assert.equal(f.calls.filter(c => c[0] === 'reset').length, 1);
+});
+
+test('timing identifies queue, load and play without credentials; obsolete commands are dropped', async () => {
+  let time = 0;
+  const f = fixture(() => { time += 10; return time; });
+  f.play('one', 1); f.play('two', 2); f.play('three', 3); await f.settle();
+  const timings = f.messages.filter(m => m.type === 'timing');
+  assert.equal(timings.length, 1);
+  assert.deepEqual(timings[0], { type: 'timing', queueMs: 10, loadMs: 10, playMs: 10, productId: 'three', requestVersion: 3 });
+  assert.deepEqual(f.calls.filter(c => c[0] === 'load'), [['load', 'three']]);
+  assert.ok(!JSON.stringify(f.messages).includes('test-token'));
+});
+
+test('preview access reason and actual sample duration reach the host, never stale transitions', async () => {
+  const f = fixture(); f.play('one', 1); await f.settle();
+  const playbackContext = { actualAssetPresentation: 'PREVIEW', actualDuration: 29.953, previewReason: 'FULL_REQUIRES_HIGHER_ACCESS_TIER' };
+  f.emit('media-product-transition', { mediaProduct: { productId: 'old' }, playbackContext });
+  f.emit('media-product-transition', { mediaProduct: { productId: 'one' }, playbackContext });
+  const transitions = f.messages.filter(m => m.type === 'transition');
+  assert.equal(transitions.length, 1);
+  assert.equal(transitions[0].previewReason, 'FULL_REQUIRES_HIGHER_ACCESS_TIER');
+  assert.equal(transitions[0].duration, 29.953);
+  assert.equal(transitions[0].assetPresentation, 'PREVIEW');
 });

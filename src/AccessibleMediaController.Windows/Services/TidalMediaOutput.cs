@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -41,6 +42,7 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
     private bool isPreview;
     private bool disposed;
     private int playbackRequestVersion;
+    private long preparationTimestamp;
 
     public TidalMediaOutput(TidalIntegrationService integration, WebView2 webView)
     {
@@ -92,6 +94,7 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
         {
             ObjectDisposedException.ThrowIf(disposed, this);
             version = ++playbackRequestVersion;
+            preparationTimestamp = Stopwatch.GetTimestamp();
             resumeLoadedItem = !isPreparing
                 && string.Equals(loadedItemId, item.Id, StringComparison.Ordinal);
             currentItem = item;
@@ -238,11 +241,16 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
     {
         try
         {
-            await EnsureInitialization().ConfigureAwait(false);
-            await bridgeReady.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
-            var credentials = await integration.GetPlaybackCredentialsAsync(cancellationToken)
-                .ConfigureAwait(false);
+            // Prepare credentials while the isolated browser is starting.
+            // Observe both tasks, including errors, without touching UI focus.
+            var startedAt = Stopwatch.GetTimestamp();
+            var readyTask = PrepareBridgeAsync(cancellationToken);
+            var credentialsTask = integration.GetPlaybackCredentialsAsync(cancellationToken);
+            await Task.WhenAll(readyTask, credentialsTask).ConfigureAwait(false);
+            var credentials = await credentialsTask.ConfigureAwait(false);
             if (!IsCurrentRequest(version, item.Id)) return;
+            DiagnosticLog.Info("tidal-player-timing",
+                $"Przygotowanie hosta i poświadczeń; próba: {version}; czas: {Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:F0} ms.");
 
             var command = new
             {
@@ -284,6 +292,12 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
                     HandleFailure(item, FriendlyFailure(exception.Message));
             });
         }
+    }
+
+    private async Task PrepareBridgeAsync(CancellationToken cancellationToken)
+    {
+        await EnsureInitialization().ConfigureAwait(false);
+        await bridgeReady.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private Task EnsureInitialization()
@@ -363,6 +377,10 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
                     ApplyPlaybackState(
                         Text(root, "state"),
                         Text(root, "productId"));
+                    break;
+                case "timing":
+                    DiagnosticLog.Info("tidal-player-timing",
+                        $"SDK; próba: {playbackRequestVersion}; oczekiwanie na poprzednie polecenie: {TimingMilliseconds(root, "queueMs")} ms; wczytanie: {TimingMilliseconds(root, "loadMs")} ms; start: {TimingMilliseconds(root, "playMs")} ms.");
                     break;
                 case "ended":
                     ApplyEnded(root);
@@ -445,13 +463,18 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
 
         var presentation = Text(root, "assetPresentation");
         isPreview = string.Equals(presentation, "PREVIEW", StringComparison.OrdinalIgnoreCase);
+        // The reason comes from the SDK/server. Keep an allowlist: diagnostics
+        // must not accept arbitrary URLs, tokens or control characters here.
+        var previewReason = NormalizePreviewReason(Text(root, "previewReason"));
+        DiagnosticLog.Info("tidal-player-access",
+            $"Próba: {playbackRequestVersion}; materiał: {(isPreview ? "PREVIEW" : presentation == "FULL" ? "FULL" : "UNKNOWN")}; powód próbki: {previewReason}; czas: {Math.Clamp(durationSeconds, 0, 604800):F3} s.");
         if (string.Equals(presentation, "PREVIEW", StringComparison.OrdinalIgnoreCase)
             && announcedPreviews.Add(item.Id))
         {
             PlaybackNotice?.Invoke(
                 this,
                 new TidalPlaybackNoticeEventArgs(
-                    "TIDAL udostępnił temu klientowi próbkę utworu. Pełne odtwarzanie zależy od poziomu dostępu przyznanego aplikacji przez TIDAL."));
+                    PreviewNotice(previewReason)));
         }
     }
 
@@ -473,7 +496,12 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
             wasPlaying = playing;
         }
         if (raiseStarted && item is not null)
+        {
+            if (preparationTimestamp != 0)
+                DiagnosticLog.Info("tidal-player-timing",
+                    $"Potwierdzony start; próba: {playbackRequestVersion}; od polecenia AMC: {Stopwatch.GetElapsedTime(preparationTimestamp).TotalMilliseconds:F0} ms.");
             PlaybackStarted?.Invoke(this, new MediaPlaybackStartedEventArgs(item));
+        }
     }
 
     private void ApplyEnded(JsonElement root)
@@ -585,6 +613,28 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
             ? number
             : 0;
 
+    private static long TimingMilliseconds(JsonElement root, string property) =>
+        (long)Math.Clamp(Number(root, property), 0, 86400000);
+
+    internal static string NormalizePreviewReason(string reason) => reason switch
+    {
+        "FULL_REQUIRES_HIGHER_ACCESS_TIER" or "FULL_REQUIRES_PURCHASE" or
+            "FULL_REQUIRES_SUBSCRIPTION" => reason,
+        "" => "NOT_PROVIDED",
+        _ => "UNKNOWN"
+    };
+
+    internal static string PreviewNotice(string reason) => reason switch
+    {
+        "FULL_REQUIRES_HIGHER_ACCESS_TIER" =>
+            "Próbka utworu. TIDAL wymaga wyższego poziomu dostępu aplikacji do pełnego odtwarzania.",
+        "FULL_REQUIRES_SUBSCRIPTION" =>
+            "Próbka utworu. TIDAL wymaga odpowiedniej subskrypcji do pełnego odtwarzania tego materiału.",
+        "FULL_REQUIRES_PURCHASE" =>
+            "Próbka utworu. TIDAL wymaga zakupu tego materiału do pełnego odtwarzania.",
+        _ => "Próbka utworu. TIDAL nie podał rozpoznanego powodu ograniczenia pełnego odtwarzania."
+    };
+
     internal static string FriendlyFailure(string rawMessage)
     {
         if (rawMessage.Contains("NotAllowedError", StringComparison.OrdinalIgnoreCase)
@@ -592,8 +642,7 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
         {
             return "Wbudowany odtwarzacz zablokował rozpoczęcie dźwięku. To problem integracji AMC, nie logowania TIDAL. Kolejka pozostaje bez zmian.";
         }
-        if (rawMessage.Contains("FULL_REQUIRES_HIGHER_ACCESS_TIER", StringComparison.OrdinalIgnoreCase)
-            || rawMessage.Contains("S3016", StringComparison.OrdinalIgnoreCase))
+        if (rawMessage.Contains("FULL_REQUIRES_HIGHER_ACCESS_TIER", StringComparison.OrdinalIgnoreCase))
         {
             return "TIDAL udostępnia tej aplikacji tylko próbkę. Pełne odtwarzanie wymaga wyższego poziomu dostępu przyznanego aplikacji przez TIDAL.";
         }

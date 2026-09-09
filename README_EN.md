@@ -1,5 +1,14 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.335` removes a redundant TIDAL reset before SDK load, prepares
+credentials alongside browser initialization, and logs bounded startup timings
+and the SDK preview reason. App access, subscription and purchase limitations
+are distinguished instead of inferred from a generic error. The user confirmed
+playback and seeking of approximately 30-second previews in 334; full tracks
+remain unverified/unavailable to this integration. TIDAL Connect is not
+implemented: the documented integration is restricted to device partners.
+Windows audio output selection and existing WiiM control are not Connect.
+
 Version `alpha.312` preserves the actual order returned by a YouTube channel.
 Its Videos view is shown newest first even when YouTube's flat response omits
 publication dates; missing dates can no longer trigger an accidental

@@ -29,6 +29,8 @@ internal static class TidalPlaybackSmokeTests
         var item = new MediaItem { Id = "tidal-one", ExternalId = "tracks:one", Title = "One", Kind = MediaItemKind.Track, IsInQueue = true };
         var session = new DemoMediaSession("tidal", "TIDAL", [item]);
         int ended = 0, failed = 0, started = 0;
+        string? lastNotice = null;
+        output.PlaybackNotice += (_, args) => lastNotice = args.Message;
         output.PlaybackEnded += (_, args) => { ended++; session.ContinueAfterPlaybackEnded(args.Item); };
         output.PlaybackFailed += (_, _) => { failed++; session.MarkPlaybackFailed(); };
         output.PlaybackStarted += (_, _) => started++;
@@ -61,7 +63,9 @@ internal static class TidalPlaybackSmokeTests
         output.Pause(); Message("ended", 3);
         Check(ended == 0, "Pauza uruchomiła następny utwór.");
         Seed(5);
-        output.ProcessBridgeMessage("{\"type\":\"transition\",\"requestVersion\":5,\"productId\":\"one\",\"assetPresentation\":\"PREVIEW\",\"duration\":60}");
+        output.ProcessBridgeMessage("{\"type\":\"transition\",\"requestVersion\":5,\"productId\":\"one\",\"assetPresentation\":\"PREVIEW\",\"previewReason\":\"FULL_REQUIRES_HIGHER_ACCESS_TIER\",\"duration\":29.953}");
+        Check(lastNotice?.Contains("dostępu aplikacji") == true && Math.Abs(item.Duration.TotalSeconds - 29.953) < 0.001,
+            "Mostek nie przekazał użytkowego powodu lub rzeczywistego czasu próbki.");
         Message("state", 5); Message("ended", 5);
         Check(ended == 0 && failed == 2 && item.IsInQueue, "Próbka zużyła pełny utwór z kolejki.");
         Seed(6); Message("state", 6); Message("ended", 6); Message("ended", 6);
@@ -73,6 +77,18 @@ internal static class TidalPlaybackSmokeTests
         Check(friendly.Contains("integracji AMC") && !friendly.Contains("zaloguj"), "Błąd gestu mylony z autoryzacją.");
         var safe = TidalMediaOutput.SafeDiagnostic("https://private.test/media?token=secret Bearer abc access_token=def eyJabc.xyz.sig");
         Check(!safe.Contains("secret") && !safe.Contains("abc") && !safe.Contains("def") && !safe.Contains("xyz"), "Log ujawnia dane wrażliwe.");
+        Check(TidalMediaOutput.NormalizePreviewReason("FULL_REQUIRES_HIGHER_ACCESS_TIER") == "FULL_REQUIRES_HIGHER_ACCESS_TIER",
+            "Zgubiono rzeczywisty powód próbki.");
+        Check(TidalMediaOutput.NormalizePreviewReason("") == "NOT_PROVIDED"
+              && TidalMediaOutput.NormalizePreviewReason("https://private.test/?token=secret\nInjected") == "UNKNOWN",
+            "Diagnostyka powodu próbki przyjęła dowolne dane.");
+        Check(!TidalMediaOutput.PreviewNotice("UNKNOWN").Contains("wyższego poziomu")
+              && TidalMediaOutput.PreviewNotice("FULL_REQUIRES_HIGHER_ACCESS_TIER").Contains("dostępu aplikacji")
+              && TidalMediaOutput.PreviewNotice("FULL_REQUIRES_SUBSCRIPTION").Contains("subskrypcji")
+              && TidalMediaOutput.PreviewNotice("FULL_REQUIRES_PURCHASE").Contains("zakupu"),
+            "Komunikat zgaduje przyczynę próbki lub myli konto z aplikacją.");
+        Check(!TidalMediaOutput.FriendlyFailure("S3016 EUnexpected").Contains("wyższego poziomu"),
+            "Ogólny błąd SDK fałszywie diagnozuje poziom dostępu.");
     }
 
     private static void Check(bool condition, string message)

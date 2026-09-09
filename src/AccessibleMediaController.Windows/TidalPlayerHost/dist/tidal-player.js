@@ -36734,7 +36734,7 @@ function X() {
 o3().then().catch(console.error), c3().then().catch(console.error), X();
 
 // src/bridge.js
-function startBridge(Player, host, schedule = setInterval) {
+function startBridge(Player, host, schedule = setInterval, now = () => performance.now()) {
   let credentials;
   let active;
   let commandQueue = Promise.resolve();
@@ -36799,7 +36799,7 @@ function startBridge(Player, host, schedule = setInterval) {
   Player.events.addEventListener("error", (event) => reportFailure(event));
   host.addEventListener("error", (event) => reportFailure(event.error ?? event));
   host.addEventListener("unhandledrejection", (event) => reportFailure(event.reason));
-  async function handleCommand(command, serial) {
+  async function handleCommand(command, serial, queuedAt) {
     if (serial !== latestControlSerial) return;
     let request = active;
     if (command.type === "play" || command.type === "resume") {
@@ -36814,9 +36814,7 @@ function startBridge(Player, host, schedule = setInterval) {
     try {
       switch (command.type) {
         case "play": {
-          active = void 0;
-          await Player.reset();
-          if (serial !== latestControlSerial) return;
+          const queueMs = Math.max(0, now() - queuedAt);
           active = request;
           credentials = {
             clientId: command.credentials.clientId,
@@ -36833,6 +36831,7 @@ function startBridge(Player, host, schedule = setInterval) {
             }));
           }
           Player.setVolumeLevel(command.volume);
+          const loadAt = now();
           await Player.load({
             productId: command.productId,
             productType: command.productType,
@@ -36841,9 +36840,12 @@ function startBridge(Player, host, schedule = setInterval) {
             referenceId: command.referenceId
           }, command.position);
           if (!isCurrent(request)) return;
+          const loadMs = Math.max(0, now() - loadAt);
+          const playAt = now();
           await Player.play();
           if (!isCurrent(request)) return;
           request.confirmed = true;
+          sendFor(request, { type: "timing", queueMs, loadMs, playMs: Math.max(0, now() - playAt) });
           sendFor(request, { type: "state", state: Player.getPlaybackState() });
           break;
         }
@@ -36884,7 +36886,8 @@ function startBridge(Player, host, schedule = setInterval) {
     const command = event.data;
     const control = ["play", "resume", "pause", "stop"].includes(command.type);
     const serial = control ? ++latestControlSerial : latestControlSerial;
-    commandQueue = commandQueue.then(() => handleCommand(command, serial));
+    const queuedAt = now();
+    commandQueue = commandQueue.then(() => handleCommand(command, serial, queuedAt));
   });
   schedule(() => {
     if (!sdkMatches(active) || !active.confirmed) return;

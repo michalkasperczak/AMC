@@ -5,6 +5,98 @@ w pliku [`INSTRUKCJA_LOGOWANIA_TIDAL_PL.md`](INSTRUKCJA_LOGOWANIA_TIDAL_PL.md).
 
 ## Cel i granice
 
+### Pełne utwory — ustalenia i następny test (2026-09-09)
+
+Priorytet użytkownika to pełne odtwarzanie. Nie uzyskano go w AMC; nie należy
+traktować działających próbek jako zakończenia integracji.
+
+- W zainstalowanym SDK `@tidal-music/player` 0.20.1 żądanie manifestu ma
+  `usage: PLAYBACK`. AMC przekazuje poświadczenie użytkownika, jego ID oraz
+  własny Client ID; nie wymusza trybu próbki. SDK odczytuje `trackPresentation`
+  i `previewReason` z odpowiedzi serwera. Sama podmiana etykiety PREVIEW na
+  FULL nie dostarczy pełnego materiału.
+- Dokumentacja rozróżnia publiczny Player SDK od gotowego TIDAL Embed Player.
+  Warunki platformy opisują pełne utwory dla abonentów przez Embed, a poza nim
+  próbki. Działająca autoryzacja kolekcji nie potwierdza praw do pełnego audio.
+  [Warunki platformy](https://developer.tidal.com/documentation/guidelines/guidelines-developer-terms),
+  [wytyczne odtwarzania](https://developer.tidal.com/documentation/guidelines/guidelines-design-guidelines).
+- Jest to podstawa do sprawdzenia Embed, nie dowód, że zadziała w desktopowym
+  WebView2 ani że udostępnia API do sterowania z natywnego interfejsu AMC.
+  Nie potwierdzono też możliwości uzyskania szerszego dostępu dla klienta AMC.
+- Logi z wersji 334 nie zawierają szczegółowej przyczyny próbek. Dopiero
+  uruchomienie 335 i próba odtworzenia pozwolą sprawdzić `tidal-player-access`.
+  Nie przypisywać kontu konkretnego powodu bez odpowiedzi SDK.
+
+Kolejność dalszej weryfikacji:
+
+1. Odczytać rzeczywisty powód ograniczenia w 335; rozróżnić uprawnienia
+   aplikacji od abonamentu. Nie kierować użytkownika do logowania w pętli.
+2. Sprawdzić oficjalny Embed na jednym utworze i prawdziwym koncie abonenta.
+   Logowanie odbywa się wyłącznie po stronie TIDAL; AMC nie przejmuje haseł
+   ani sesji Chrome. Test przeglądarkowy podczas tych prac został zablokowany
+   przez uprawnienia narzędzia przed otwarciem strony. Nie wykonano odsłuchu.
+3. Jeśli pełny utwór zadziała, osobno zweryfikować zgodność osadzenia w AMC,
+   dostępne sterowanie, trwałość logowania, NVDA, Escape/Spację, brak kradzieży
+   fokusa i błędnych przejść Kolejki. Nie zastępować obecnego silnika przed
+   tym testem; interfejs Embed może wymagać widocznego okna.
+4. Jeśli potrzebny jest dostęp partnerski lub nieudokumentowany interfejs,
+   przygotować pytanie do TIDAL o wspieraną integrację dostępnej aplikacji
+   desktopowej. Wysłanie pytania wymaga osobnej zgody, nie zgody na publikację
+   AMC. Nie używać identyfikatorów cudzych aplikacji ani wydobywania audio.
+
+### Alpha.335 — przełączanie, diagnostyka i TIDAL Connect (2026-09-09)
+
+Użytkownik potwierdził w 334 słyszalne próbki około 30 sekund, przewijanie
+i powrót do początku. Zmiana utworów subiektywnie trwa długo. Nie ma jeszcze
+porównawczego pomiaru ani potwierdzenia pełnych utworów.
+
+- Oficjalne `load()` w zainstalowanym SDK 0.20.1 samo rozpoczyna reset
+  równolegle z pobraniem informacji o odtwarzaniu. AMC nie wykonuje już
+  dodatkowego, wcześniej oczekiwanego `reset()` przed każdym `load()`.
+  Jawne Stop nadal wywołuje reset. Identyfikatory prób, tłumienie błędnych
+  zakończeń i zachowanie Kolejki po próbce pozostają obowiązujące.
+- Poświadczenia są przygotowywane równolegle z inicjalizacją WebView2;
+  obie operacje kończą się przed poleceniem odtwarzania. Bez dodatkowego
+  logowania, otwierania okien lub pobierania kolejnych utworów na zapas.
+- Log `tidal-player-timing` rozdziela czas przygotowania hosta/poświadczeń,
+  oczekiwania w kolejce poleceń JS, `load()`, `play()` i potwierdzenia startu.
+  Są to czasy operacji, nie czysty pomiar sieci TIDAL ani gwarancja odsłuchu.
+  Nie ma okresowych komunikatów głosowych z tymi pomiarami.
+- `tidal-player-access` zapisuje rzeczywiste `PREVIEW`/`FULL`, czas materiału
+  oraz rozpoznany `previewReason`: wyższy poziom dostępu aplikacji,
+  subskrypcja albo zakup. Nieznane/brakujące wartości mają osobny stan;
+  dowolny tekst, adres ani token nie trafiają do tego pola logu.
+  Sam ogólny kod błędu `S3016` nie jest dowodem ograniczenia dostępu.
+
+**TIDAL Connect: blokada integracyjna, nie ukończona funkcja.**
+[Oficjalna dokumentacja Connect](https://developer.tidal.com/documentation/connect)
+podaje, że wspierane są integracje partnerów sprzętowych. Nie znaleziono
+publicznego interfejsu kontrolera pozwalającego AMC wyświetlić urządzenia
+Connect i przekazać na nie wskazany utwór. Abonament, synchronizacja kolekcji,
+wykrycie WiiM ani API `getOutputDevices` odtwarzacza nie są potwierdzeniem
+takiego dostępu. Nie dodajemy pozornego wyboru urządzenia, który w rzeczywistości
+zmienia tylko głośniki Windows lub wysyła samą próbkę jako pełny utwór.
+
+Docelowy podział przy integracji urządzeń:
+
+1. Wyjście Windows: głośniki/interfejs USB obsługiwane przez dany silnik.
+2. Urządzenie sieciowe i jego sterowanie: osobny adapter, np. obecny WiiM.
+3. TIDAL Connect: wybór celu, rozpoczęcie wskazanego materiału i potwierdzony
+   stan urządzenia dopiero po uzyskaniu dokumentacji/uprawnień kontrolera.
+   Przy braku dostępu nie zmieniać sesji ani urządzenia bez wiedzy użytkownika.
+   Odtwarzanie ma być przypisane do urządzenia/konta, nie do ostatniej
+   lokalnej próbki; nie wolno używać lokalnego końca próbki do sterowania
+   kolejką Connect. Odłączenie urządzenia nie może samoczynnie uruchamiać
+   odsłuchu na głośnikach ani znosić wyciszenia sesji.
+
+Obecna droga do sprawdzenia: uruchomić Connect na WiiM z oryginalnej aplikacji
+TIDAL, a następnie sprawdzić podstawowe sterowanie i metadane w sesji WiiM
+AMC. To nie oznacza uruchomienia dowolnego utworu z biblioteki AMC na WiiM.
+[Instrukcja producenta WiiM](https://faq.wiimhome.com/en/support/solutions/articles/72000608942-how-to-stream-music-to-your-wiim-device-via-tidal-connect).
+Nie przetestowano tej drogi na urządzeniu użytkownika podczas prac nad 335.
+
+[Semantyka SDK load()](https://github.com/tidal-music/tidal-sdk-web/blob/main/packages/player/src/internal/handlers/load.ts).
+
 ### Diagnostyka alpha.333 i poprawka alpha.334 (2026-09-09)
 
 Zdiagnozowano dwa konkretne błędy AMC, niezależne od synchronizacji katalogu:
