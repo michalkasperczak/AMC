@@ -14,6 +14,7 @@ using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Radio;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Tidal;
 
 var tests = new (string Name, Action Test)[]
 {
@@ -26,6 +27,8 @@ var tests = new (string Name, Action Test)[]
     ("Szablony nazw zaplanowanych nagrań", TestRadioRecordingFileNameTemplate),
     ("Trwałe ustawienia i historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
+    ("Bezpieczne ustawienia i PKCE TIDAL", TestTidalIntegrationFoundation),
+    ("Oddzielony tor oficjalnego odtwarzania TIDAL", TestTidalPlaybackBoundary),
     ("Bezpieczny klient i parser urządzeń WiiM", TestWiiMApiParsing),
     ("Migracja kolejności strumieni WiiM", TestWiiMLegacyStreamOrderMigration),
     ("Bezpieczne parsowanie kanałów podcastów", TestPodcastFeedParsing),
@@ -46,6 +49,7 @@ var tests = new (string Name, Action Test)[]
     ("Bezpieczna migracja Podcastów do SQLite", TestPodcastSqliteMigration),
     ("Konfigurowana kolejność odczytu", TestMediaItemFormatting),
     ("Zwięzłe parametry audio", TestAudioParametersFormatting),
+    ("Uzupełniające informacje o multimediach", TestQuickMediaInformationFormatting),
     ("Trwałe opcje przetwarzania dźwięku", TestPlaybackAudioSettingsPersistence),
     ("Głośność materiału zależna od wyjścia audio", TestPlaybackVolumeMemory),
     ("Trwałe wyciszenia sesji", TestSessionMutePersistence),
@@ -67,6 +71,8 @@ var tests = new (string Name, Action Test)[]
     ("Kontekst listy odtwarzania", TestPlaybackContext),
     ("Pamięć domyślnej prędkości po ponownym otwarciu", TestPlaybackRateDefaultPersistence),
     ("Trwała kolejność Kolejki", TestQueueOrder),
+    ("Kolejka zachowana po odświeżeniu katalogu usługi", TestTransientQueuePersistence),
+    ("Trwały zapis zdalnej Kolejki bez danych demonstracyjnych", TestRemoteQueueCachePersistence),
     ("Nawigacja Page Up i Page Down w Kolejce", TestQueuePlaybackNavigation),
     ("Zniknięcie bieżącego pliku zachowuje kontekst odtwarzania", TestMissingCurrentItemRecovery),
     ("Polityka pamiętania pozycji", TestResumePositionPolicy),
@@ -105,6 +111,307 @@ var tests = new (string Name, Action Test)[]
     ("Niedestrukcyjne zaznaczanie fragmentu audio", TestAudioClipSelection),
     ("Trzy rodzaje eksportu", TestExports)
 };
+
+static void TestTidalIntegrationFoundation()
+{
+    Equal(
+        "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+        TidalPkce.CreateChallenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"));
+    var pair = TidalPkce.Create();
+    True(pair.Verifier.Length >= 43, "Weryfikator PKCE powinien mieć bezpieczną długość.");
+    True(pair.Challenge.Length == 43, "Wyzwanie SHA-256 PKCE powinno mieć 43 znaki Base64URL.");
+
+    var state = ConfigurationStore.CreateDefaultState();
+    Equal("http://127.0.0.1:43821/tidal/callback/", state.Tidal.RedirectUri);
+    Equal("PL", state.Tidal.CountryCode);
+    state.Tidal.ClientId = "test-client-id";
+    state.Tidal.CountryCode = "DE";
+    state.Tidal.AccountDisplayName = "Konto testowe";
+    state.Tidal.LastPlaylistExternalId = "playlists:last-used";
+    state.Tidal.LastSuccessfulSyncUtcTicks = 123456789;
+    state.Tidal.CachedCollectionItems.Add(
+        TidalCachedCollectionItemSettings.FromMediaItem(new MediaItem
+        {
+            Id = "tidal:albums:cached",
+            ExternalId = "albums:cached",
+            Title = "Album zapisany lokalnie",
+            Artist = "Wykonawca",
+            Kind = MediaItemKind.Album,
+            Duration = TimeSpan.FromMinutes(42),
+            CollectionAddedUtcTicks = 987654321,
+            IsInLibrary = true
+        }));
+    var cloned = new ConfigurationStore(
+        Path.Combine(Path.GetTempPath(), $"amc-tidal-{Guid.NewGuid():N}", "state.json"))
+        .CloneState(state);
+    Equal("test-client-id", cloned.Tidal.ClientId);
+    Equal("DE", cloned.Tidal.CountryCode);
+    Equal("Konto testowe", cloned.Tidal.AccountDisplayName);
+    Equal("playlists:last-used", cloned.Tidal.LastPlaylistExternalId);
+    Equal(123456789L, cloned.Tidal.LastSuccessfulSyncUtcTicks);
+    Equal(1, cloned.Tidal.CachedCollectionItems.Count);
+    var cachedTidalItem = cloned.Tidal.CachedCollectionItems[0].ToMediaItem();
+    Equal("albums:cached", cachedTidalItem.ExternalId);
+    Equal("Album zapisany lokalnie", cachedTidalItem.Title);
+    Equal(TimeSpan.FromMinutes(42), cachedTidalItem.Duration);
+    Equal(987654321L, cachedTidalItem.CollectionAddedUtcTicks);
+    True(cachedTidalItem.IsInLibrary,
+        "Lokalna kopia kolekcji TIDAL musi zachować przynależność i kolejność bez przechowywania tokenów.");
+
+    var handler = new TidalApiRequestHandler();
+    using var http = new HttpClient(handler)
+    {
+        BaseAddress = new Uri("https://openapi.tidal.com/v2/")
+    };
+    using var api = new TidalApiClient(http);
+    var synchronized = api.SynchronizeCollectionAsync("token", CancellationToken.None)
+        .GetAwaiter().GetResult();
+    Equal(5, synchronized.UpdatedKinds.Count);
+    var synchronizedAlbums = synchronized.Items
+        .Where(item => item.Kind == MediaItemKind.Album)
+        .ToArray();
+    Equal(2, synchronizedAlbums.Length);
+    Equal("Album starszy", synchronizedAlbums[0].Title);
+    Equal(
+        new DateTime(2024, 1, 2, 10, 0, 0, DateTimeKind.Utc).Ticks,
+        synchronizedAlbums[0].CollectionAddedUtcTicks);
+    Equal("Album nowszy", synchronizedAlbums[1].Title);
+    Equal(
+        new DateTime(2025, 5, 6, 12, 30, 0, DateTimeKind.Utc).Ticks,
+        synchronizedAlbums[1].CollectionAddedUtcTicks);
+    var rebuiltTidalOrder = TidalCollectionAddedOrder.Rebuild(
+        synchronizedAlbums.Reverse().ToArray(),
+        [synchronizedAlbums[1].Id, synchronizedAlbums[0].Id]);
+    True(
+        rebuiltTidalOrder?.SequenceEqual(synchronizedAlbums.Select(item => item.Id)) == true,
+        "Kolejność TIDAL według dodania musi wynikać z meta.addedAt, a nie z kolejności technicznej odpowiedzi.");
+    True(
+        TidalCollectionAddedOrder.Rebuild(
+            [new MediaItem { Id = "bez-daty", Title = "Brak daty" }],
+            ["stary-porzadek"]) is null,
+        "Niepełne metadane TIDAL nie mogą nadpisywać zapisanej kolejności.");
+    True(synchronized.Items
+            .Where(item => item.Kind is MediaItemKind.Track or MediaItemKind.Video)
+            .All(item => item.IsFavorite && !item.IsInLibrary),
+        "Pojedyncze materiały TIDAL powinny należeć do Ulubionych, a nie dublować Biblioteki.");
+    True(synchronized.Items
+            .Where(item => item.Kind is MediaItemKind.Album or MediaItemKind.Artist or MediaItemKind.Playlist)
+            .All(item => item.IsInLibrary && !item.IsFavorite),
+        "Kontenery TIDAL powinny należeć do Biblioteki, a nie dublować Ulubionych.");
+    True(handler.Requests.Count == 6
+         && handler.Requests.All(uri => !uri.Query.Contains("countryCode", StringComparison.OrdinalIgnoreCase)),
+        "Endpointy kolekcji TIDAL nie mogą otrzymywać nieobsługiwanego parametru countryCode.");
+    True(handler.Requests.Any(uri =>
+            string.Equals(
+                uri.AbsolutePath,
+                "/v2/userCollectionTracks/me/relationships/items",
+                StringComparison.Ordinal)
+            && uri.Query.Contains("page%5Bcursor%5D=20", StringComparison.OrdinalIgnoreCase)),
+        "Względny link następnej strony TIDAL musi zachować prefiks /v2.");
+
+    _ = api.SearchAsync("token", "PL", "Anna Maria", null, CancellationToken.None)
+        .GetAwaiter().GetResult();
+    var searchUri = handler.Requests[^1];
+    True(searchUri.AbsolutePath.EndsWith("/v2/searchResults", StringComparison.Ordinal)
+         && searchUri.Query.Contains("filter%5Bquery%5D=Anna%20Maria", StringComparison.OrdinalIgnoreCase)
+         && searchUri.Query.Contains("countryCode=PL", StringComparison.Ordinal),
+        "Wyszukiwanie TIDAL musi używać aktualnego endpointu filter[query].");
+
+    var album = new MediaItem
+    {
+        Id = "tidal:albums:album-1",
+        ExternalId = "albums:album-1",
+        Title = "Album testowy",
+        Kind = MediaItemKind.Album
+    };
+    var albumItems = api.GetContainerItemsAsync(
+            "token",
+            "PL",
+            album,
+            new HashSet<string>(["tracks:track-b"], StringComparer.Ordinal),
+            CancellationToken.None)
+        .GetAwaiter().GetResult();
+    Equal(2, albumItems.Count);
+    Equal("tracks:track-b", albumItems[0].ExternalId);
+    Equal("album-entry-b", albumItems[0].ContainerEntryId);
+    Equal("Utwór drugi", albumItems[0].Title);
+    Equal("Artysta testowy", albumItems[0].Artist);
+    Equal("albums:album-1", albumItems[0].RelatedAlbumExternalId);
+    Equal("Album testowy", albumItems[0].RelatedAlbumTitle);
+    Equal("artists:artist-1", albumItems[0].RelatedArtistExternalId);
+    Equal("Artysta testowy", albumItems[0].RelatedArtistName);
+    True(TidalNavigationPolicy.CanOpenRelatedAlbum(albumItems[0]),
+        "Utwór albumu powinien udostępniać przejście do właściwego albumu.");
+    True(TidalNavigationPolicy.CanOpenRelatedArtist(albumItems[0]),
+        "Utwór albumu powinien udostępniać przejście do właściwego wykonawcy.");
+    True(!TidalNavigationPolicy.CanOpenRelatedAlbum(album),
+        "Album nie może sugerować pojedynczego albumu nadrzędnego.");
+    var artist = new MediaItem
+    {
+        Id = "tidal:artists:artist-1",
+        ExternalId = "artists:artist-1",
+        Title = "Artysta testowy",
+        Kind = MediaItemKind.Artist
+    };
+    True(TidalNavigationPolicy.CanShowArtistAlbums(artist),
+        "Wykonawca powinien udostępniać listę swoich albumów.");
+    var transientSearchTrack = new MediaItem
+    {
+        Id = "tidal-search:tracks:track-transient",
+        ExternalId = "tracks:track-transient",
+        Title = "Wynik tymczasowy",
+        Kind = MediaItemKind.Track
+    };
+    TidalCollectionSemantics.ApplyMembership(transientSearchTrack, true);
+    True(transientSearchTrack.IsFavorite && !transientSearchTrack.IsInLibrary,
+        "Dodany wynik wyszukiwania TIDAL musi od razu przełączyć się na stan Ulubionych.");
+    TidalCollectionSemantics.ApplyMembership(transientSearchTrack, false);
+    True(!transientSearchTrack.IsFavorite && !transientSearchTrack.IsInLibrary,
+        "Usunięty wynik wyszukiwania TIDAL nie może zachować nieaktualnego stanu kolekcji.");
+    var albumTrackFields = TidalNavigationPolicy.OrderFieldsForContainer(
+        MediaItemKind.Album,
+        MediaItemKind.Track,
+        [MediaItemField.Artist, MediaItemField.Title, MediaItemField.Duration, MediaItemField.Kind]);
+    Equal(MediaItemField.Title, albumTrackFields[0]);
+    Equal("Utwór drugi", MediaItemFormatter.GetNavigationText(albumItems[0], albumTrackFields));
+    Equal(
+        "Utwór drugi, Artysta testowy, 4:00, utwór",
+        MediaItemFormatter.Format(albumItems[0], albumTrackFields));
+    var artistAlbumFields = TidalNavigationPolicy.OrderFieldsForContainer(
+        MediaItemKind.Artist,
+        MediaItemKind.Album,
+        [MediaItemField.Artist, MediaItemField.Title, MediaItemField.Kind]);
+    Equal(MediaItemField.Title, artistAlbumFields[0]);
+    True(!albumItems[0].IsInLibrary && albumItems[0].IsFavorite,
+        "Zapisany utwór z albumu powinien odzwierciedlać Ulubione TIDAL bez dublowania Biblioteki.");
+    Equal("tracks:track-a", albumItems[1].ExternalId);
+    True(!albumItems[1].IsInLibrary,
+        "Element spoza kolekcji nie może zostać oznaczony jako zapisany.");
+
+    var playlist = new MediaItem
+    {
+        Id = "tidal:playlists:playlist-1",
+        ExternalId = "playlists:playlist-1",
+        Title = "Playlista testowa",
+        Kind = MediaItemKind.Playlist
+    };
+    var playlistItems = api.GetContainerItemsAsync(
+            "token",
+            "PL",
+            playlist,
+            null,
+            CancellationToken.None)
+        .GetAwaiter().GetResult();
+    Equal(3, playlistItems.Count);
+    Equal("playlist-entry-a-1", playlistItems[0].ContainerEntryId);
+    Equal("playlist-entry-a-2", playlistItems[2].ContainerEntryId);
+    True(playlistItems[0].Id != playlistItems[2].Id,
+        "Dwa wystąpienia tego samego utworu na playliście muszą mieć odrębne identyfikatory wierszy.");
+    api.ReorderPlaylistItemsAsync(
+            "token",
+            playlist,
+            [playlistItems[2]],
+            playlistItems[0].ContainerEntryId!,
+            CancellationToken.None)
+        .GetAwaiter().GetResult();
+    var playlistMutation = handler.RequestDetails.Last(detail => detail.Method == "PATCH");
+    Equal("/v2/playlists/playlist-1/relationships/items", playlistMutation.Uri.AbsolutePath);
+    Equal("application/vnd.api+json", playlistMutation.ContentType);
+    True(!string.IsNullOrWhiteSpace(playlistMutation.IdempotencyKey),
+        "Zmiana kolejności playlisty TIDAL musi mieć klucz idempotencji.");
+    using (var payload = JsonDocument.Parse(playlistMutation.Body))
+    {
+        Equal("playlist-entry-a-1", payload.RootElement.GetProperty("meta").GetProperty("positionBefore").GetString());
+        var resource = payload.RootElement.GetProperty("data")[0];
+        Equal("track-a", resource.GetProperty("id").GetString());
+        Equal("playlist-entry-a-2", resource.GetProperty("meta").GetProperty("itemId").GetString());
+    }
+
+    api.ChangeCollectionMembershipAsync("token", [album], true, CancellationToken.None)
+        .GetAwaiter().GetResult();
+    api.ChangeCollectionMembershipAsync("token", [album], false, CancellationToken.None)
+        .GetAwaiter().GetResult();
+    var mutations = handler.RequestDetails
+        .Where(detail => detail.Method is "POST" or "DELETE")
+        .ToArray();
+    Equal(2, mutations.Length);
+    Equal("/v2/userCollectionAlbums/me/relationships/items", mutations[0].Uri.AbsolutePath);
+    Equal("application/vnd.api+json", mutations[0].ContentType);
+    True(!string.IsNullOrWhiteSpace(mutations[0].IdempotencyKey),
+        "Zapis kolekcji TIDAL musi mieć klucz idempotencji.");
+    using (var payload = JsonDocument.Parse(mutations[0].Body))
+    {
+        var resource = payload.RootElement.GetProperty("data")[0];
+        Equal("albums", resource.GetProperty("type").GetString());
+        Equal("album-1", resource.GetProperty("id").GetString());
+    }
+
+    api.AddPlaylistItemsAsync("token", playlist, [playlistItems[1]], CancellationToken.None)
+        .GetAwaiter().GetResult();
+    var playlistAdd = handler.RequestDetails.Last(detail =>
+        detail.Method == "POST"
+        && detail.Uri.AbsolutePath.EndsWith("/playlists/playlist-1/relationships/items", StringComparison.Ordinal));
+    Equal("application/vnd.api+json", playlistAdd.ContentType);
+    True(!string.IsNullOrWhiteSpace(playlistAdd.IdempotencyKey),
+        "Dodawanie do playlisty TIDAL musi mieć klucz idempotencji.");
+    using (var payload = JsonDocument.Parse(playlistAdd.Body))
+    {
+        var resource = payload.RootElement.GetProperty("data")[0];
+        Equal("tracks", resource.GetProperty("type").GetString());
+        Equal("track-b", resource.GetProperty("id").GetString());
+    }
+
+    api.RemovePlaylistItemsAsync("token", playlist, [playlistItems[2]], CancellationToken.None)
+        .GetAwaiter().GetResult();
+    var playlistRemove = handler.RequestDetails.Last(detail =>
+        detail.Method == "DELETE"
+        && detail.Uri.AbsolutePath.EndsWith("/playlists/playlist-1/relationships/items", StringComparison.Ordinal));
+    Equal("application/vnd.api+json", playlistRemove.ContentType);
+    True(!string.IsNullOrWhiteSpace(playlistRemove.IdempotencyKey),
+        "Usuwanie z playlisty TIDAL musi mieć klucz idempotencji.");
+    using (var payload = JsonDocument.Parse(playlistRemove.Body))
+    {
+        var resource = payload.RootElement.GetProperty("data")[0];
+        Equal("track-a", resource.GetProperty("id").GetString());
+        Equal("playlist-entry-a-2", resource.GetProperty("meta").GetProperty("itemId").GetString());
+    }
+
+    var createdPlaylist = api.CreatePlaylistAsync("token", "Nowa playlista", CancellationToken.None)
+        .GetAwaiter().GetResult();
+    Equal("playlists:playlist-created", createdPlaylist.ExternalId);
+    Equal("Nowa playlista", createdPlaylist.Title);
+    True(createdPlaylist.IsInLibrary,
+        "Nowo utworzona playlista TIDAL musi od razu należeć do Biblioteki.");
+    var playlistCreate = handler.RequestDetails.Last(detail =>
+        detail.Method == "POST"
+        && detail.Uri.AbsolutePath.EndsWith("/playlists", StringComparison.Ordinal));
+    Equal("application/vnd.api+json", playlistCreate.ContentType);
+    True(!string.IsNullOrWhiteSpace(playlistCreate.IdempotencyKey),
+        "Tworzenie playlisty TIDAL musi mieć klucz idempotencji.");
+    using (var payload = JsonDocument.Parse(playlistCreate.Body))
+    {
+        var resource = payload.RootElement.GetProperty("data");
+        Equal("playlists", resource.GetProperty("type").GetString());
+        Equal("Nowa playlista", resource.GetProperty("attributes").GetProperty("name").GetString());
+    }
+
+    Equal(
+        "Artysta testowy",
+        MediaItemFormatter.GetNavigationText(
+            playlistItems[0],
+            [MediaItemField.Kind, MediaItemField.Duration, MediaItemField.Artist, MediaItemField.Title]));
+    Equal(
+        "Utwór pierwszy",
+        MediaItemFormatter.GetNavigationText(
+            playlistItems[0],
+            [MediaItemField.Title, MediaItemField.Artist]));
+    var json = JsonSerializer.Serialize(state);
+    True(!json.Contains("accessToken", StringComparison.OrdinalIgnoreCase)
+         && !json.Contains("refreshToken", StringComparison.OrdinalIgnoreCase)
+         && !json.Contains("clientSecret", StringComparison.OrdinalIgnoreCase),
+        "Stan i jego eksport nie mogą zawierać tokenów ani sekretu TIDAL.");
+    Equal("Konto i synchronizacja TIDAL", CommandCatalog.GetDisplayName(CommandIds.ManageTidalConnection));
+}
 
 static void TestWiiMApiParsing()
 {
@@ -839,6 +1146,30 @@ static void TestPodcastEpisodePaging()
     catch (ArgumentOutOfRangeException)
     {
     }
+}
+
+static void TestTidalPlaybackBoundary()
+{
+    var output = new FakeMediaOutput();
+    var manager = new SessionManager(new AppSettings(), output);
+    var tidal = manager.FindSession("tidal")
+        ?? throw new InvalidOperationException("Brak sesji TIDAL.");
+    var track = new MediaItem
+    {
+        Id = "tidal:tracks:123",
+        ExternalId = "123",
+        Title = "Utwór testowy",
+        Kind = MediaItemKind.Track
+    };
+    tidal.ReplaceItems([track]);
+
+    True(tidal.Play(track), "Utwór TIDAL nie został przekazany do jego własnego toru odtwarzania.");
+    Equal(1, output.PlayCount);
+    Equal(track.Id, output.LoadedItemId);
+    tidal.SetPosition(TimeSpan.FromSeconds(37));
+    Equal(TimeSpan.FromSeconds(37), output.Position);
+    tidal.TogglePlayback();
+    Equal(1, output.PauseCount);
 }
 
 static void TestSessionAddItemsById()
@@ -3032,7 +3363,8 @@ static void TestSessions()
     Equal(2, manager.Current.Items.Count(item => item.IsInLibrary));
     True(manager.Current.Items.Count(item => item.Title.StartsWith('B')) >= 2, "Dane demonstracyjne powinny umożliwiać powtarzanie litery B.");
     True(manager.Current.Items.Count(item => item.Title.StartsWith('C')) >= 2, "Dane demonstracyjne powinny umożliwiać powtarzanie litery C.");
-    True(manager.Current.Items.Any(item => item.IsInQueue), "Kolejka demonstracyjna nie powinna być pusta.");
+    True(!manager.Current.Items.Any(item => item.IsInQueue || item.IsPlayNext),
+        "Dane demonstracyjne nie mogą same wypełniać Kolejki.");
     var tidalQueueIds = manager.Current.Items
         .Where(item => item.IsInQueue || item.IsPlayNext)
         .Select(item => item.Id)
@@ -3096,6 +3428,20 @@ static void TestSessionOrder()
     Equal("TIDAL", manager.Current.DisplayName);
     Equal("Apple Music", manager.MoveSession(-1).DisplayName);
     Equal("TIDAL", manager.MoveSession(1).DisplayName);
+
+    var moved = manager.MoveSessionSlot(2, 1);
+    True(moved.Moved, "Nie można przenieść sesji bezpośrednio na liście sesji.");
+    Equal(3, moved.Slot);
+    Equal("tidal", moved.SessionId);
+    Equal("TIDAL", moved.SessionName);
+    Equal("WiiM", moved.NeighborName);
+    Equal("wiim", manager.SessionSlots[2]);
+    Equal("tidal", manager.SessionSlots[3]);
+    Equal("wiim", settings.SessionSlots[2]);
+    Equal("tidal", settings.SessionSlots[3]);
+    Equal(3, manager.FindSlot("tidal"));
+    Equal("TIDAL", manager.Current.DisplayName);
+    Equal(false, manager.MoveSessionSlot(1, -1).Moved);
 
     var local = new MediaItem { Id = "local-order", Title = "Lokalny", Source = @"C:\Muzyka\lokalny.mp3" };
     var (localSession, slot) = manager.AddOrUpdateTransientSession(
@@ -3348,6 +3694,44 @@ static void TestPlaybackContext()
     Equal(1.25d, session.PlaybackRate);
 }
 
+static void TestQuickMediaInformationFormatting()
+{
+    var polish = CultureInfo.GetCultureInfo("pl-PL");
+    var localFlac = new MediaItem
+    {
+        Title = "Tytuł, którego nie należy powtarzać",
+        Artist = "Wykonawca",
+        Codec = "FLAC",
+        BitrateKbps = 842,
+        SampleRateHz = 44_100,
+        Duration = TimeSpan.FromMinutes(3)
+    };
+    Equal(
+        "FLAC, 842 kb/s, 44,1 kHz, 10 MB, 3:00, Wykonawca",
+        QuickMediaInformationFormatter.Format(
+            localFlac,
+            ".flac",
+            10 * 1024 * 1024,
+            culture: polish));
+
+    var videoWithAudio = new MediaItem { Codec = "AAC", Duration = TimeSpan.FromSeconds(90) };
+    Equal(
+        "MP4, AAC, 1:30",
+        QuickMediaInformationFormatter.Format(videoWithAudio, "mp4", culture: polish));
+
+    var tidalTrack = new MediaItem { Duration = TimeSpan.FromSeconds(245), Artist = "Sting" };
+    Equal(
+        "format nieudostępniony przez katalog TIDAL, 4:05, Sting",
+        QuickMediaInformationFormatter.Format(
+            tidalTrack,
+            unavailableFormatMessage: "format nieudostępniony przez katalog TIDAL",
+            culture: polish));
+    True(
+        !QuickMediaInformationFormatter.Format(localFlac, "flac", culture: polish)
+            .Contains(localFlac.Title, StringComparison.Ordinal),
+        "Lewa strzałka nie powinna powtarzać tytułu przeczytanego już przez wiersz listy.");
+}
+
 static void TestPlaybackRateDefaultPersistence()
 {
     var output = new FakeMediaOutput();
@@ -3403,6 +3787,127 @@ static void TestQueueOrder()
     True(session.ContinueAfterPlaybackEnded(firstQueued) is null,
         "Po wykorzystaniu uporządkowanej kolejki odtwarzanie nie może powtarzać jej elementów.");
     Equal(0, session.QueueItemIds.Count);
+}
+
+static void TestTransientQueuePersistence()
+{
+    var queuedCanonical = new MediaItem
+    {
+        Id = "tidal:tracks:track-a",
+        ExternalId = "tracks:track-a",
+        Title = "Pierwszy",
+        Kind = MediaItemKind.Track,
+        IsInQueue = true
+    };
+    var nextOccurrence = new MediaItem
+    {
+        Id = "tidal:tracks:track-b:entry:playlist-7",
+        ExternalId = "tracks:track-b",
+        Title = "Drugi",
+        Kind = MediaItemKind.Track,
+        IsPlayNext = true
+    };
+    var captured = TransientQueuePersistence.Capture(
+        "tidal",
+        [queuedCanonical, nextOccurrence],
+        [nextOccurrence.Id, queuedCanonical.Id]);
+    True(captured.StorageOrder.SequenceEqual(
+            ["tidal:tracks:track-b", "tidal:tracks:track-a"]),
+        "Kolejka TIDAL musi przechowywać stabilne identyfikatory, a nie wystąpienia z playlisty.");
+    Equal("tidal:tracks:track-a", captured.RegularItemIds.Single());
+    Equal("tidal:tracks:track-b", captured.PlayNextItemIds.Single());
+
+    var refreshedCanonical = new MediaItem
+    {
+        Id = "tidal:tracks:track-a",
+        ExternalId = "tracks:track-a",
+        Title = "Pierwszy po synchronizacji",
+        Kind = MediaItemKind.Track
+    };
+    var refreshedOccurrence = new MediaItem
+    {
+        Id = "tidal:tracks:track-b:entry:playlist-9",
+        ExternalId = "tracks:track-b",
+        Title = "Drugi po synchronizacji",
+        Kind = MediaItemKind.Track
+    };
+    TransientQueuePersistence.Restore(
+        "tidal",
+        [refreshedCanonical, refreshedOccurrence],
+        captured.StorageOrder,
+        captured.RegularItemIds,
+        captured.PlayNextItemIds);
+    True(refreshedCanonical.IsInQueue && !refreshedCanonical.IsPlayNext,
+        "Zwykła pozycja Kolejki musi przetrwać wymianę obiektów katalogu.");
+    True(!refreshedOccurrence.IsInQueue && refreshedOccurrence.IsPlayNext,
+        "Stan Odtwórz jako następne musi przetrwać zmianę identyfikatora wystąpienia.");
+
+    var cached = RemoteQueueItemSettings.FromMediaItem("tidal", nextOccurrence);
+    True(cached.IsPlayNext && !cached.IsInQueue,
+        "Kopia zdalnej Kolejki musi zachować rodzaj wpisu.");
+    var restoredFromCache = cached.ToMediaItem();
+    True(restoredFromCache.IsPlayNext && !restoredFromCache.IsInQueue,
+        "Rodzaj wpisu musi przetrwać odtworzenie z kopii zdalnej Kolejki.");
+    True(TransientQueuePersistence.IsLegacyDemonstrationItemId("tidal", "tidal-13"),
+        "Stary element demonstracyjny TIDAL powinien być rozpoznawany jednoznacznie.");
+    True(!TransientQueuePersistence.IsLegacyDemonstrationItemId("tidal", "tidal:tracks:13"),
+        "Prawdziwy identyfikator katalogowy TIDAL nie może zostać uznany za demonstracyjny.");
+}
+
+static void TestRemoteQueueCachePersistence()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-remote-queue-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
+        var state = ConfigurationStore.CreateDefaultState();
+        state.CollectionOrders.QueueItemIdsBySession["tidal"] =
+            ["tidal-13", "tidal:tracks:42", "tidal:tracks:43"];
+        state.CollectionOrders.QueueRegularItemIdsBySession["tidal"] =
+            ["tidal-13", "tidal:tracks:42", "tidal:tracks:43"];
+        state.CollectionOrders.QueuePlayNextItemIdsBySession["tidal"] =
+            ["tidal:tracks:42"];
+        state.RemoteQueues.ItemsBySession["tidal"] =
+        [
+            new RemoteQueueItemSettings
+            {
+                Id = "tidal-13",
+                Title = "Nocny pociąg",
+                IsInQueue = true
+            },
+            new RemoteQueueItemSettings
+            {
+                Id = "tidal:tracks:42",
+                ExternalId = "tracks:42",
+                Title = "Prawdziwy utwór",
+                IsPlayNext = true
+            },
+            new RemoteQueueItemSettings
+            {
+                Id = "tidal:tracks:43",
+                ExternalId = "tracks:43",
+                Title = "Wpis zapisany przez starszą wersję"
+            }
+        ];
+
+        store.Save(state);
+        var loaded = store.LoadOrCreate();
+        var queue = loaded.RemoteQueues.ItemsBySession["tidal"];
+        Equal(2, queue.Count);
+        Equal("tidal:tracks:42", queue[0].Id);
+        True(queue[0].IsPlayNext, "Zdalna Kolejka musi pamiętać Odtwórz jako następne.");
+        Equal("tidal:tracks:43", queue[1].Id);
+        True(queue[1].IsInQueue,
+            "Wpis z kopii starszej wersji musi zostać zachowany jako zwykła pozycja Kolejki.");
+        True(loaded.CollectionOrders.QueueItemIdsBySession["tidal"]
+                .SequenceEqual(["tidal:tracks:42", "tidal:tracks:43"]),
+            "Stary element demonstracyjny nie może wrócić z bazy SQLite.");
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
 }
 
 static void TestQueuePlaybackNavigation()
@@ -4469,7 +4974,7 @@ static void TestSessionNavigationPersistence()
             PlayerActive = true,
             SelectedItemIds = new Dictionary<string, string?>
             {
-                ["Ulubione"] = "tidal-14"
+                ["Ulubione"] = "tidal:tracks:14"
             },
             Filters = new Dictionary<string, string>
             {
@@ -4480,7 +4985,7 @@ static void TestSessionNavigationPersistence()
                 ["Ulubione"] = CollectionSortMode.Alphabetical
             },
             PlaybackContextView = "Ulubione",
-            PlaybackContextItemIds = ["tidal-1", "tidal-14"]
+            PlaybackContextItemIds = ["tidal:tracks:1", "tidal:tracks:14"]
         };
         state.SessionNavigation.Sessions["appleMusic"] = new SessionNavigationState
         {
@@ -4502,11 +5007,11 @@ static void TestSessionNavigationPersistence()
         var tidal = loaded.SessionNavigation.Sessions["TIDAL"];
         Equal("Ulubione", tidal.CurrentView);
         Equal(true, tidal.PlayerActive);
-        Equal("tidal-14", tidal.SelectedItemIds["ulubione"]);
+        Equal("tidal:tracks:14", tidal.SelectedItemIds["ulubione"]);
         Equal("północ", tidal.Filters["ULUBIONE"]);
         Equal(CollectionSortMode.Alphabetical, tidal.CollectionSortModes["ULUBIONE"]);
         Equal("Ulubione", tidal.PlaybackContextView);
-        True(tidal.PlaybackContextItemIds.SequenceEqual(["tidal-1", "tidal-14"]),
+        True(tidal.PlaybackContextItemIds.SequenceEqual(["tidal:tracks:1", "tidal:tracks:14"]),
             "Kontekst odtwarzania powinien przetrwać ponowne uruchomienie.");
         Equal("Albumy", loaded.SessionNavigation.Sessions["appleMusic"].CurrentView);
         Equal(false, loaded.SessionNavigation.Sessions["appleMusic"].PlayerActive);
@@ -4556,6 +5061,23 @@ static void TestLocalMediaPersistence()
         state.CollectionOrders.LibraryAddedItemIdsBySession["radio"] = ["radio-2", "radio-1"];
         state.CollectionOrders.LibraryItemIdsBySession["radio"] = ["radio-1", "radio-2"];
         state.CollectionOrders.QueueItemIdsBySession["local"] = ["local-1"];
+        state.CollectionOrders.QueueRegularItemIdsBySession["tidal"] = ["tidal:tracks:track-1"];
+        state.CollectionOrders.QueuePlayNextItemIdsBySession["tidal"] = ["tidal:tracks:track-2"];
+        state.RemoteQueues.ItemsBySession["tidal"] =
+        [
+            new RemoteQueueItemSettings
+            {
+                Id = "tidal:tracks:search-only",
+                ExternalId = "tracks:search-only",
+                Title = "Utwór tylko z wyszukiwania",
+                Artist = "Wykonawca",
+                Kind = MediaItemKind.Track,
+                DurationTicks = TimeSpan.FromMinutes(4).Ticks,
+                PublicUri = "https://tidal.com/browse/track/search-only",
+                RelatedAlbumExternalId = "albums:album-1",
+                RelatedArtistExternalId = "artists:artist-1"
+            }
+        ];
         state.LocalMedia.Items.Add(new LocalMediaItemSettings
         {
             Id = "local-1",
@@ -4642,6 +5164,13 @@ static void TestLocalMediaPersistence()
             loaded.CollectionOrders.LibraryItemIdsBySession["RADIO"].SequenceEqual(["radio-1", "radio-2"]),
             "Kolejność własna biblioteki powinna przetrwać zapis w lokalnej bazie.");
         Equal("local-1", loaded.CollectionOrders.QueueItemIdsBySession["LOCAL"].Single());
+        Equal("tidal:tracks:track-1", loaded.CollectionOrders.QueueRegularItemIdsBySession["TIDAL"].Single());
+        Equal("tidal:tracks:track-2", loaded.CollectionOrders.QueuePlayNextItemIdsBySession["TIDAL"].Single());
+        var remoteQueueItem = loaded.RemoteQueues.ItemsBySession["TIDAL"].Single();
+        Equal("tidal:tracks:search-only", remoteQueueItem.Id);
+        Equal("Utwór tylko z wyszukiwania", remoteQueueItem.Title);
+        Equal("tracks:search-only", remoteQueueItem.ExternalId);
+        Equal("albums:album-1", remoteQueueItem.RelatedAlbumExternalId);
 
         var output = new FakeMediaOutput();
         var media = new MediaItem { Id = item.Id, Title = item.Title, Source = item.Path };
@@ -4777,6 +5306,14 @@ static void TestLocalLibraryManualOrder()
             .Select(item => item.Id)
             .SequenceEqual(["c", "a", "b", "d"]),
         "Widok powinien respektować zapisaną kolejność.");
+
+    var preservedDuringPartialRemoteSync = LocalLibraryManualOrder.Normalize(
+        ["c", "jeszcze-nie-pobrany", "a"],
+        [alpha],
+        preserveUnknownItems: true);
+    True(
+        preservedDuringPartialRemoteSync.SequenceEqual(["c", "jeszcze-nie-pobrany", "a"]),
+        "Niepełny katalog zdalny nie może usuwać pozycji z trwałego porządku.");
 
     var singleMove = new List<string> { "a", "b", "c", "d" };
     Equal(
@@ -6003,6 +6540,160 @@ sealed class VirtualLargeReadStream(long length) : Stream
     public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 }
 
+sealed class TidalApiRequestHandler : HttpMessageHandler
+{
+    public List<Uri> Requests { get; } = [];
+    public List<TidalApiRequestDetail> RequestDetails { get; } = [];
+    private bool trackNextPageReturned;
+
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        var address = request.RequestUri ?? throw new InvalidOperationException("Brak adresu żądania TIDAL.");
+        Requests.Add(address);
+        var body = request.Content is null
+            ? string.Empty
+            : request.Content.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult();
+        RequestDetails.Add(new TidalApiRequestDetail(
+            request.Method.Method,
+            address,
+            body,
+            request.Headers.TryGetValues("Idempotency-Key", out var idempotencyValues)
+                ? idempotencyValues.FirstOrDefault()
+                : null,
+            request.Content?.Headers.ContentType?.MediaType));
+        var createPlaylist = address.AbsolutePath.EndsWith("/playlists", StringComparison.Ordinal)
+            && request.Method == HttpMethod.Post;
+        var json = address.AbsolutePath.EndsWith("/searchResults", StringComparison.Ordinal)
+            ? """{"data":[],"included":[]}"""
+            : createPlaylist
+              ? """{"data":{"type":"playlists","id":"playlist-created","attributes":{"name":"Nowa playlista"}},"links":{}}"""
+            : address.AbsolutePath.EndsWith("/albums/album-1/relationships/items", StringComparison.Ordinal)
+              ? AlbumItems()
+            : address.AbsolutePath.EndsWith("/playlists/playlist-1/relationships/items", StringComparison.Ordinal)
+              && request.Method == HttpMethod.Get
+              ? PlaylistItems()
+            : address.AbsolutePath.EndsWith(
+                    "/userCollectionTracks/me/relationships/items",
+                    StringComparison.Ordinal)
+                && !trackNextPageReturned
+              ? NextTrackPage()
+            : address.AbsolutePath.EndsWith(
+                    "/userCollectionAlbums/me/relationships/items",
+                    StringComparison.Ordinal)
+              ? AlbumCollection()
+              : """{"data":[],"included":[],"links":{}}""";
+        return Task.FromResult(new HttpResponseMessage(
+            createPlaylist ? System.Net.HttpStatusCode.Created : System.Net.HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/vnd.api+json"),
+            RequestMessage = request
+        });
+    }
+
+    private string NextTrackPage()
+    {
+        trackNextPageReturned = true;
+        return """{"data":[],"included":[],"links":{"next":"/userCollectionTracks/me/relationships/items?include=items.artists&page%5Bcursor%5D=20"}}""";
+    }
+
+    private static string AlbumItems() =>
+        """
+        {
+          "data": [
+            { "type": "tracks", "id": "track-b", "meta": { "itemId": "album-entry-b" } },
+            { "type": "tracks", "id": "track-a", "meta": { "itemId": "album-entry-a" } }
+          ],
+          "included": [
+            {
+              "type": "tracks",
+              "id": "track-a",
+              "attributes": { "title": "Utwór pierwszy", "duration": "PT3M" },
+              "relationships": {
+                "artists": { "data": [{ "type": "artists", "id": "artist-1" }] },
+                "albums": { "data": [{ "type": "albums", "id": "album-1" }] }
+              }
+            },
+            {
+              "type": "tracks",
+              "id": "track-b",
+              "attributes": { "title": "Utwór drugi", "duration": "PT4M" },
+              "relationships": {
+                "artists": { "data": [{ "type": "artists", "id": "artist-1" }] },
+                "albums": { "data": [{ "type": "albums", "id": "album-1" }] }
+              }
+            },
+            {
+              "type": "albums",
+              "id": "album-1",
+              "attributes": { "title": "Album testowy" },
+              "relationships": { "artists": { "data": [{ "type": "artists", "id": "artist-1" }] } }
+            },
+            {
+              "type": "artists",
+              "id": "artist-1",
+              "attributes": { "name": "Artysta testowy" }
+            }
+          ],
+          "links": {}
+        }
+        """;
+
+    private static string AlbumCollection() =>
+        """
+        {
+          "data": [
+            { "type": "albums", "id": "album-old", "meta": { "addedAt": "2024-01-02T10:00:00Z" } },
+            { "type": "albums", "id": "album-new", "meta": { "addedAt": "2025-05-06T12:30:00Z" } }
+          ],
+          "included": [
+            { "type": "albums", "id": "album-new", "attributes": { "title": "Album nowszy" } },
+            { "type": "albums", "id": "album-old", "attributes": { "title": "Album starszy" } }
+          ],
+          "links": {}
+        }
+        """;
+
+    private static string PlaylistItems() =>
+        """
+        {
+          "data": [
+            { "type": "tracks", "id": "track-a", "meta": { "itemId": "playlist-entry-a-1" } },
+            { "type": "tracks", "id": "track-b", "meta": { "itemId": "playlist-entry-b" } },
+            { "type": "tracks", "id": "track-a", "meta": { "itemId": "playlist-entry-a-2" } }
+          ],
+          "included": [
+            {
+              "type": "tracks",
+              "id": "track-a",
+              "attributes": { "title": "Utwór pierwszy", "duration": "PT3M" },
+              "relationships": { "artists": { "data": [{ "type": "artists", "id": "artist-1" }] } }
+            },
+            {
+              "type": "tracks",
+              "id": "track-b",
+              "attributes": { "title": "Utwór drugi", "duration": "PT4M" },
+              "relationships": { "artists": { "data": [{ "type": "artists", "id": "artist-1" }] } }
+            },
+            {
+              "type": "artists",
+              "id": "artist-1",
+              "attributes": { "name": "Artysta testowy" }
+            }
+          ],
+          "links": {}
+        }
+        """;
+}
+
+sealed record TidalApiRequestDetail(
+    string Method,
+    Uri Uri,
+    string Body,
+    string? IdempotencyKey,
+    string? ContentType);
+
 sealed class FakeSink : IAnnouncementSink
 {
     public string LastMessage { get; private set; } = string.Empty;
@@ -6026,6 +6717,8 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public bool PodcastDescriptionShown { get; private set; }
     public bool CurrentBroadcastInformationAnnounced { get; private set; }
     public bool RelatedPodcastShown { get; private set; }
+    public bool RelatedAlbumShown { get; private set; }
+    public bool RelatedArtistShown { get; private set; }
     public bool ItemPlaybackOptionsShown { get; private set; }
     public bool BookmarkAdded { get; private set; }
     public bool NamedBookmarkAdded { get; private set; }
@@ -6047,6 +6740,8 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ShowPodcastDescription() => PodcastDescriptionShown = true;
     public void AnnounceCurrentBroadcastInformation() => CurrentBroadcastInformationAnnounced = true;
     public void GoToRelatedPodcast() => RelatedPodcastShown = true;
+    public void GoToRelatedAlbum() => RelatedAlbumShown = true;
+    public void GoToRelatedArtist() => RelatedArtistShown = true;
     public void ShowItemPlaybackOptions() => ItemPlaybackOptionsShown = true;
     public void OpenOfficialApplication() { }
     public void ShowHelp() { }
@@ -6062,6 +6757,7 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void RefreshLocalLibrary() => LocalLibraryRefreshed = true;
     public void ShowLocalSourceManager() => LocalSourceManagerShown = true;
     public void ShowWiiMDeviceManager() { }
+    public void ShowTidalAccountManager() { }
     public void RefreshWiiMDevices() { }
     public void RenameLibraryItem() => LibraryItemRenameShown = true;
     public void RenameLocalFile() => LocalFileRenameShown = true;

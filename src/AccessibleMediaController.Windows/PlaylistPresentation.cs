@@ -4,6 +4,16 @@ namespace AccessibleMediaController.Windows;
 
 internal static class PlaylistPresentation
 {
+    public static string BuildQueueLabel(IReadOnlyCollection<MediaItem> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        var label = BuildLabel("Kolejka", items.Count, items.Count, items);
+        var playNextCount = items.Count(item => item.IsPlayNext);
+        return playNextCount == 0
+            ? label
+            : $"{label}, jako następne {FormatItemCount(playNextCount)}";
+    }
+
     public static string BuildLabel(
         string name,
         int storedItemCount,

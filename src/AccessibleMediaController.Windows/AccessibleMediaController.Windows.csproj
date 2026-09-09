@@ -17,6 +17,7 @@
     <PackageReference Include="NLayer.NAudioSupport" Version="2.0.1" GeneratePathProperty="true" />
     <PackageReference Include="SoundTouch.Net" Version="2.3.2" GeneratePathProperty="true" />
     <PackageReference Include="SoundTouch.Net.NAudioSupport.Core" Version="2.3.2" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" GeneratePathProperty="true" />
     <Using Remove="System.Drawing" />
     <Using Remove="System.Windows.Forms" />
   </ItemGroup>
@@ -51,6 +52,21 @@
           CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest"
           ExcludeFromSingleFile="true" />
+    <None Include="..\..\licenses\SQLitePCLRaw-Apache-2.0.txt"
+          Link="licenses\TIDAL-SDK-Web-Apache-2.0.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+    <None Include="$(PkgMicrosoft_Web_WebView2)\LICENSE.txt"
+          Link="licenses\Microsoft-WebView2-LICENSE.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+    <None Include="$(PkgMicrosoft_Web_WebView2)\NOTICE.txt"
+          Link="licenses\Microsoft-WebView2-NOTICE.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
     <None Include="..\..\licenses\SQLite-public-domain.txt"
           Link="licenses\SQLite-public-domain.txt"
           CopyToOutputDirectory="PreserveNewest"
@@ -76,12 +92,22 @@
           CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest"
           ExcludeFromSingleFile="true" />
+    <None Include="TidalPlayerHost\index.html"
+          Link="tidal-player\index.html"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+    <None Include="TidalPlayerHost\dist\tidal-player.js"
+          Link="tidal-player\tidal-player.js"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
   </ItemGroup>
   <Target Name="ExcludeReplaceableSoundTouchAssembliesFromSingleFile"
           BeforeTargets="_ComputeFilesToBundle">
     <ItemGroup>
       <ResolvedFileToPublish Update="@(ResolvedFileToPublish)"
-                             Condition="'%(Filename)' == 'SoundTouch.Net' Or '%(Filename)' == 'SoundTouch.Net.NAudioSupport' Or '%(Filename)' == 'bass'">
+                             Condition="'%(Filename)' == 'SoundTouch.Net' Or '%(Filename)' == 'SoundTouch.Net.NAudioSupport' Or '%(Filename)' == 'bass' Or '%(Filename)' == 'Microsoft.Web.WebView2.Core' Or '%(Filename)' == 'Microsoft.Web.WebView2.Wpf' Or '%(Filename)' == 'WebView2Loader'">
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       </ResolvedFileToPublish>
     </ItemGroup>

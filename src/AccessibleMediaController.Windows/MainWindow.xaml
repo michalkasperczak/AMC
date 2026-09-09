@@ -4,6 +4,7 @@
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
         xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
         xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="Dostępny kontroler multimedialny — prototyp"
         Width="820" Height="560" MinWidth="640" MinHeight="420"
         WindowStartupLocation="CenterScreen"
@@ -19,6 +20,11 @@
         <wfi:WindowsFormsHost x:Name="PlaybackStatusHost" DockPanel.Dock="Bottom"
                               Height="24" Focusable="False"
                               KeyboardNavigation.IsTabStop="False" />
+        <wv2:WebView2 x:Name="TidalPlayerWebView" DockPanel.Dock="Top"
+                      Width="1" Height="1"
+                      Focusable="False" IsHitTestVisible="False"
+                      KeyboardNavigation.IsTabStop="False"
+                      automation:AutomationProperties.Name="" />
 
         <DockPanel Margin="12">
         <Menu x:Name="MainMenu" DockPanel.Dock="Top" Margin="0,0,0,8"
@@ -42,6 +48,11 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
                           Visibility="Collapsed"
                           Click="ManageWiiMDevices_Click" />
+                <MenuItem x:Name="ManageTidalConnectionMenuItem" Header="_Konto i synchronizacja TIDAL…" InputGestureText="Ctrl+F5"
+                          automation:AutomationProperties.Name="Konto i synchronizacja TIDAL, Ctrl+F5"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
+                          Visibility="Collapsed"
+                          Click="ManageTidalConnection_Click" />
                 <MenuItem x:Name="AddWiiMNetworkStreamMenuItem" Header="_Nowy strumień WiiM…" InputGestureText="Ctrl+N"
                           automation:AutomationProperties.Name="Nowy strumień WiiM, Ctrl+N"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+N"
@@ -588,8 +599,10 @@
                               automation:AutomationProperties.Name="Opcje odtwarzania elementu, Alt+Shift+Enter"
                               Click="ItemPlaybackOptions_Click" />
                     <MenuItem x:Name="GoToAlbumMenuItem" Header="Przejdź do albumu"
+                              automation:AutomationProperties.Name="Przejdź do albumu"
                               Click="GoToAlbum_Click" />
                     <MenuItem x:Name="GoToArtistMenuItem" Header="Przejdź do wykonawcy"
+                              automation:AutomationProperties.Name="Przejdź do wykonawcy"
                               Click="GoToArtist_Click" />
                     <MenuItem x:Name="CopyNameMenuItem" Header="Kopiuj nazwę" InputGestureText="Ctrl+C"
                               automation:AutomationProperties.Name="Kopiuj nazwę, Ctrl+C"
@@ -879,8 +892,10 @@
                               automation:AutomationProperties.AcceleratorKey="Ctrl+S"
                               Visibility="Collapsed" Click="SavePodcastEpisodeAs_Click" />
                     <MenuItem x:Name="PlayerGoToAlbumMenuItem" Header="Przejdź do albumu"
+                              automation:AutomationProperties.Name="Przejdź do albumu"
                               Click="GoToAlbum_Click" />
                     <MenuItem x:Name="PlayerGoToArtistMenuItem" Header="Przejdź do wykonawcy"
+                              automation:AutomationProperties.Name="Przejdź do wykonawcy"
                               Click="GoToArtist_Click" />
                     <MenuItem x:Name="PlayerCopyNameMenuItem" Header="Kopiuj nazwę" InputGestureText="Ctrl+C"
                               automation:AutomationProperties.Name="Kopiuj nazwę, Ctrl+C"

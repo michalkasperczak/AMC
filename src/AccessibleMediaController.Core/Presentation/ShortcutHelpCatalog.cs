@@ -173,6 +173,7 @@ public static class ShortcutHelpCatalog
         yield return Info("general", "Wróć lub zamknij bieżący poziom", "Escape", "okno, menu, filtr lub odtwarzacz");
         yield return Info("general", "Otwórz spis skrótów", "?", "poza polem tekstowym");
         yield return Info("lists", "Poprzedni lub następny element", "Strzałka w górę lub w dół", "lista");
+        yield return Info("lists", "Odczytaj format, bitrate, wielkość i inne dostępne parametry", "Strzałka w lewo", "lista multimediów lub wyników wyszukiwania");
         yield return Info("lists", "Zaznacz ciąg elementów", "Shift+strzałka w górę lub w dół", "lista wielokrotnego wyboru");
         yield return Info("lists", "Szybkie przejście według początku nazwy", "litery", "lista multimediów");
         yield return Info("lists", "Otwórz element albo rozpocznij odtwarzanie", "Enter", "lista multimediów");
@@ -185,7 +186,6 @@ public static class ShortcutHelpCatalog
         yield return Info("lists", "Usuń z bieżącego widoku", "Delete", "lista; plik na dysku pozostaje bez zmian");
         yield return Info("lists", "Przenieś pliki do Kosza", "Shift+Delete", "lokalna lista po potwierdzeniu");
         yield return Info("lists", "Wróć poziom wyżej", "Backspace", "folder, album, playlista lub Zakładki");
-        yield return Info("lists", "Oznajmij wielkość, bitrate i dostępne parametry elementu", "Strzałka w lewo", "lista multimediów lub wyniki wyszukiwania");
         yield return Info("lists", "Poprzedni lub następny widok", "Alt+strzałka w lewo lub w prawo", "lista multimediów");
         yield return Info("lists", "Kolejność dodania, najnowsze na początku", "Alt+1", "Biblioteka lub Ulubione; lokalnie Alt+1 pokazuje foldery");
         yield return Info("lists", "Kolejność alfabetyczna", "Alt+2", "Biblioteka lub Ulubione; lokalnie płaska lista plików");

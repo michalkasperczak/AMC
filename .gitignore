@@ -5,6 +5,8 @@ obj/
 *.suo
 artifacts/
 publish/
+node_modules/
+.pnpm-store/
 *.amckeys.json
 *.amcsettings.json
 *.amcbackup.json

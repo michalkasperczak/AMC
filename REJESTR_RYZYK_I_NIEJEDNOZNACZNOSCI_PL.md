@@ -207,6 +207,43 @@ wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
   odcinkami, wielokrotne **Załaduj więcej**, `Ctrl+K`, powrót fokusa, pełny
   eksport i odtworzenie kopii zapasowej.
 
+### AMC-RYZYKO-012 — prawdziwa synchronizacja TIDAL
+
+- Stan: odczyt, pięć kolekcji, tworzenie i edycja zawartości playlist, rozdzielone
+  widoki `Ctrl+U` i `Ctrl+L`, trwała Kolejka oraz awaryjny katalog kolekcji
+  wdrożone do `alpha.330`; nadal wymaga testów z
+  aplikacją deweloperską i prawdziwym kontem.
+- Granica: TIDAL jest źródłem prawdy dla pięciu zdalnych kolekcji, a AMC dla
+  kolejki, historii, zakładek, presetów i ustawień. Dane demonstracyjne nigdy
+  nie mogą zostać wysłane na konto.
+- Zabezpieczenie: tokeny są w Menedżerze poświadczeń Windows, synchronizacja
+  jest sekwencyjna i stronicowana, `429` respektuje `Retry-After`, a błąd jednej
+  kategorii nie czyści jej ostatniego poprawnego stanu. Od `alpha.329` pusty
+  katalog startowy ani synchronizacja częściowa nie mogą przycinać trwałego
+  porządku kolekcji. Pełna synchronizacja odbudowuje tryb **według dodania** z
+  udokumentowanego pola `meta.addedAt` każdego związku kolekcji TIDAL, zamiast
+  utrwalać techniczną kolejność obiektów `included`.
+- Ryzyka: poziom dostępu aplikacji, cofnięty zakres, wygaśnięcie tokenu,
+  regionalna niedostępność, zamienniki wydań, bardzo duże kolekcje, opóźniona
+  spójność, prawo zapisu tylko do części playlist, duplikaty tego samego utworu
+  na playliście, wymiana obiektów cache podczas synchronizacji oraz fokus po
+  powrocie z przeglądarki i okien wyboru. Kolejka i **Odtwórz jako następne**
+  muszą być przywracane po stabilnym identyfikatorze usługi i nigdy nie mogą
+  być zerowane tylko dlatego, że katalog jest jeszcze pusty albo nowy obiekt
+  katalogowy nie ma lokalnej flagi. `alpha.328` przechowuje lokalną kopię
+  Kolejki i usuwa stare rekordy demonstracyjne. Dopiero `alpha.330` zapisuje
+  bezpieczną kopię całej ostatniej kolekcji. Ta wersja uzupełnia też żądanie
+  odświeżenia tokenu o `client_id` i zakres wymagany przez oficjalny moduł
+  TIDAL; pierwsze logowanie po aktualizacji może być potrzebne do zastąpienia
+  tokenu wystawionego dla wcześniejszego, wadliwego przepływu.
+- Odtwarzanie: wyłącznie oficjalny moduł Player TIDAL. Bez wydobywania adresów,
+  pobierania chronionych utworów i bez udawania TIDAL Connect.
+- Następny test: wykonać logowanie PKCE, pełne i częściowe odświeżenie, restart,
+  odświeżenie tokenu, wyszukiwanie, `429`, odłączenie konta, trwałość Kolejki
+  po synchronizacji i restarcie oraz kontrolę logów i eksportów pod kątem
+  danych uwierzytelniających. Te same testy trwałości są obowiązkowe dla
+  przyszłych adapterów Spotify i Apple Music.
+
 ## Stałe, globalne obszary regresji przed publikacją
 
 Poniższe obszary dotyczą całego AMC, a nie wyłącznie modułu rozwijanego w

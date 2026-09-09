@@ -1,5 +1,140 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.333` naprawia poświadczenia oficjalnego odtwarzacza TIDAL.
+Oprócz ważnego tokenu przekazuje on teraz identyfikator zalogowanego
+użytkownika wymagany przez SDK do rozpoznania sesji abonenta. Synchronizacja
+katalogu nie jest już mylona z gotowością do odtwarzania. Błąd jednego utworu
+nie może też uruchomić kolejnych pozycji z albumu lub Kolejki. Komunikat zaleca
+ponowne logowanie wyłącznie przy rozpoznanym błędzie autoryzacji, a bezpieczny
+log diagnostyczny zachowuje kod błędu Playera bez tokenu i chronionych adresów.
+
+Wersja `alpha.332` dodaje rzeczywiste odtwarzanie utworów i materiałów wideo
+TIDAL przez oficjalny `@tidal-music/player`. Enter otwiera ten sam dostępny
+odtwarzacz AMC co pozostałe sesje; działają pauza i wznowienie, przewijanie,
+skoki do czasu i procentu, głośność, Kolejka oraz następny i poprzedni element.
+Ukryty WebView2 nie przyjmuje fokusu ani klawiatury, a token i chronione adresy
+mediów nie trafiają do logu, schowka ani stanu programu. Format, częstotliwość
+i bitrate pojawiają się dopiero po załadowaniu ich przez Player. Regulacja
+prędkości jest ukryta, ponieważ oficjalny moduł jej nie udostępnia. To, czy
+Player zwróci pełny utwór, czy próbkę, zależy od poziomu dostępu przyznanego
+aplikacji przez TIDAL; AMC informuje o próbce i nie obchodzi tego ograniczenia.
+
+Wersja `alpha.329` naprawia kolejność **według dodania** w Bibliotece i
+Ulubionych TIDAL. AMC korzysta z rzeczywistych dat `addedAt` przekazanych przez
+usługę, dlatego nie grupuje już przypadkowo albumów, wykonawców i playlist
+według technicznego układu odpowiedzi. Pusty katalog podczas uruchamiania ani
+częściowa synchronizacja nie mogą nadpisać ostatniej pełnej kolejności.
+
+Wersja `alpha.328` naprawia trwałość Kolejki przy ponownym uruchomieniu.
+Zalogowana sesja TIDAL jest od początku budowana z lokalnej kopii prawdziwej
+Kolejki, a nie z dawnych elementów demonstracyjnych. Synchronizacja katalogu
+nie może już wcześniej wyzerować zapisanej kolejności. Każdy zdalny wpis
+zachowuje również rodzaj: zwykła Kolejka albo **Odtwórz jako następne**.
+Jednoznaczne identyfikatory dawnych danych demonstracyjnych są usuwane ze
+stanu, lecz prawdziwe identyfikatory katalogowe TIDAL pozostają nietknięte.
+
+Wersja `alpha.327` domyka zmianę Biblioteki TIDAL bez opuszczania wyników
+wyszukiwania. Odpowiedź o dodaniu lub usunięciu trafia teraz do aktywnego
+okna wyszukiwania, a odświeżenie listy głównej nie może w tym czasie odebrać
+mu fokusa. Po potwierdzeniu usunięcia ponowne `Ctrl+Shift+L` dodaje ten sam
+album i od razu podaje jednoznaczny komunikat. Klasyfikacja albumu i singla
+pozostaje zgodna z rodzajem zasobu zwracanym przez TIDAL; pojedynczy utwór
+wydany jako singiel może więc być kontenerem albumowym z jednym utworem.
+
+Wersja `alpha.326` naprawia przechodzenie do albumu i wykonawcy z wyników
+wyszukiwania TIDAL. Wybór relacji prawą strzałką zamyka teraz wyszukiwanie i
+otwiera dokładnie wskazany kontener. Na wykonawcy pojawia się osobne,
+jednoznaczne polecenie **Pokaż albumy wykonawcy**, a na albumie tylko dostępne
+przejście do wykonawcy. Utwory wewnątrz albumu zachowują kolejność wydania
+TIDAL, lecz ich wiersze oraz nawigacja literowa zawsze zaczynają się od tytułu,
+a dopiero potem podają wykonawcę. Tak samo tytuł albumu prowadzi na liście
+albumów jednego wykonawcy.
+
+`Ctrl+Shift+L` i `Ctrl+Shift+U` nie wypowiadają już dwóch etapów tej samej
+operacji. Po odpowiedzi API pada jeden końcowy komunikat, odpowiednio o
+Bibliotece TIDAL albo Ulubionych TIDAL; ogólne i mylące określenie „kolekcja”
+nie jest używane w tym potwierdzeniu.
+
+Wersja `alpha.325` rozdziela dwie kolekcje TIDAL widoczne w AMC. `Ctrl+U`
+pokazuje pojedyncze polubione utwory i materiały wideo, natomiast `Ctrl+L`
+pokazuje zapisane albumy, wykonawców i playlisty. `Ctrl+Shift+U` zmienia stan
+tylko pierwszej grupy, a `Ctrl+Shift+L` — tylko drugiej; niezgodny rodzaj
+elementu otrzymuje jasny komunikat i nie powoduje żądania sieciowego.
+
+Prawa strzałka na elemencie TIDAL, również w wynikach wyszukiwania, otwiera
+krótkie menu dostępnych relacji: **Przejdź do albumu** i **Przejdź do
+wykonawcy**. Zastępuje to konfliktujące skróty z literą `G`. Odświeżenie
+katalogu nie może już wyczyścić lokalnej Kolejki ani stanu **Odtwórz jako
+następne**: są one zapisywane według stabilnego identyfikatora usługi i
+odtwarzane po wymianie obiektów katalogu oraz po ponownym uruchomieniu AMC.
+
+Wersja `alpha.324` ujednolica krótkie informacje wywoływane lewą strzałką na
+listach multimediów i w wynikach wyszukiwania. Wiersz listy podaje już nazwę,
+więc komunikat jej nie powtarza. Zaczyna się od formatu lub rozszerzenia,
+następnie podaje bitrate i częstotliwość, rozmiar, czas oraz pozostałe dostępne
+metadane. To pozwala od razu odróżnić na przykład MP3 od FLAC. Rozszerzenie i
+kodek nie są dublowane, ale kontener wideo z innym kodekiem audio może zostać
+opisany jako `MP4, AAC`.
+
+W TIDAL-u i innych usługach zdalnych AMC nadal nie wymyśla bitrate'u, rozmiaru
+ani formatu pliku. Przed otwarciem utworu TIDAL podaje, że sam katalog nie
+udostępnił formatu, po czym odczytuje czas, wykonawcę i inne rzeczywiście
+dostępne dane. Po rozpoczęciu odtwarzania oficjalny Player może uzupełnić
+kodek, częstotliwość i bitrate faktycznie wybranego wariantu.
+
+Wersja `alpha.323` przyspiesza zapisywanie i usuwanie w kolekcji TIDAL.
+Po potwierdzeniu operacji przez API AMC natychmiast aktualizuje bieżący widok,
+zamiast po każdej zmianie ponownie pobierać kilkaset elementów konta. Pełna
+synchronizacja pod `Ctrl+F5` nadal kontroluje stan serwera. `Delete` obejmuje
+teraz również główny widok **Albumy**.
+
+Kolejka podaje liczbę elementów i ich łączny czas, jeżeli TIDAL przekazał czasy
+utworów. Informacja **jako następne** pojawia się tylko wtedy, gdy przynajmniej
+jeden element naprawdę został tak ustawiony; zwykły element Kolejki nie jest
+błędnie oznajmiany jako następny. Od `alpha.325` powiązany album lub wykonawcę
+otwiera się z krótkiego menu wywołanego prawą strzałką; te same polecenia są
+dostępne w menu kontekstowym oraz palecie i pojawiają się tylko przy
+istniejącej relacji.
+
+Wersja `alpha.322` porządkuje komunikaty zmiany kolejności. Po `Alt+1`,
+`Alt+2` albo `Alt+3` NVDA najpierw podaje właśnie wybrany porządek, na przykład
+**Alfabetycznie** albo **Kolejność własna**, a dopiero potem nazwę widoku, sesji
+i bieżącego elementu. `Alt+strzałka w górę/w dół` nadal podaje kierunek,
+relację **nad/pod** oraz nazwę sąsiedniego elementu; dotyczy to także
+edytowalnych playlist TIDAL. Przenoszenie sesji w Ustawieniach podaje nazwę
+sesji, relację **nad/pod** i jej nowy skrót `Ctrl+cyfra`.
+
+Wersja `alpha.321` rozdziela playlisty konta TIDAL od lokalnych playlist AMC.
+W sesji TIDAL `Ctrl+P` pokazuje wyłącznie playlisty zsynchronizowane z konta,
+a `Ctrl+Shift+P` dodaje wybrane utwory, materiały wideo lub utwory wybranego
+albumu do jednej albo kilku z tych playlist. `Delete` wewnątrz otwartej
+playlisty usuwa dokładne wystąpienie utworu z playlisty na koncie; na liście
+kolekcji usuwa element z kolekcji TIDAL. Program ponownie pobiera zmienioną
+playlistę przed ogłoszeniem sukcesu i nie pozostawia pozornego stanu po błędzie
+sieci albo braku uprawnień.
+
+Nawigacja literowa i sortowanie alfabetyczne korzystają teraz z pierwszej
+czytanej informacji identyfikującej element. Jeśli ustawiona kolejność brzmi
+„wykonawca, tytuł”, litera `B` szuka wykonawcy na `B`; jeśli najpierw czytany
+jest tytuł, ta sama litera szuka tytułu. Rodzaj, usługa, czas, stan i pozycja na
+liście nigdy nie stają się przypadkowym kluczem nawigacji. Kontenery, takie jak
+album, playlista i podcast, nadal są wyszukiwane po swojej nazwie.
+
+Wersja `alpha.320` porządkuje albumy i playlisty TIDAL. `Ctrl+P` pokazuje
+playlisty zsynchronizowane z konta. W otwartym albumie lub playliście `Alt+1`
+przywraca kolejność TIDAL, a `Alt+2` włącza widok alfabetyczny. Albumu nie można
+przestawiać, ponieważ obowiązuje kolejność wydania. We własnej, edytowalnej
+playliście `Alt+3` włącza kolejność własną; `Alt+strzałka w górę/w dół` oraz
+`Ctrl+X`, `Ctrl+V` zapisują zmianę na koncie. Operacja wymaga zakresu
+`playlists.write`, dlatego po aktualizacji potrzebne jest jednorazowe ponowne
+logowanie w `Ctrl+F5`.
+
+Otwieranie albumu, playlisty albo wykonawcy nie generuje już natychmiastowego,
+zbędnego komunikatu. Dopiero odpowiedź trwająca ponad około sekundę jest
+sygnalizowana jako wczytywanie. `Ctrl+X` i `Ctrl+V` działają również w lokalnych
+playlistach AMC. Zmiana kolejności sesji w Ustawieniach podaje nazwę sesji,
+relację „nad” albo „pod” oraz nowy skrót `Ctrl+cyfra`.
+
 Wersja `alpha.313` usuwa pułapkę podwójnego zapisu harmonogramu Radia. Dodanie,
 edycja, usunięcie oraz przełączenie planu Spacją są utrwalane natychmiast po
 zakończeniu danej czynności; główne okno harmonogramów nie wymaga już drugiego
@@ -654,7 +789,7 @@ Korekta `alpha.195` rozdziela dwa sposoby korzystania z Historii odtwarzania. Ś
 
 Korekta `alpha.194` oddziela pozycję odsłuchu radia od zapisu na żywo. Spacja może teraz pauzować i wznawiać odsłuch z timeshiftu także podczas nagrywania tej samej stacji, podczas gdy rejestrator nadal zapisuje transmisję na żywo; `End` pozostaje jawnym powrotem na żywo. Przygotowanie podpisu Shazam zostało przeniesione poza wątek okna, a bufory FFT są ponownie używane zamiast tworzenia tysięcy dużych tablic przy każdym rozpoznaniu. Ogranicza to krótkie przerwy odsłuchu i przycięcia interfejsu podczas automatycznego rozpoznawania.
 
-To pierwszy demonstracyjny prototyp aplikacji sterowanej globalnym prefiksem. Sprawdza architekturę klawiatury, sesji, list, komunikatów dostępności, profili oraz importu i eksportu. Nie łączy się jeszcze z prawdziwymi kontami TIDAL, Apple Music ani WiiM.
+To rozwijany prototyp dostępnego kontrolera multimediów. Sprawdza architekturę klawiatury, sesji, list, komunikatów dostępności, profili oraz importu i eksportu. Łączy się z urządzeniami WiiM, a pierwszy bezpieczny etap prawdziwej integracji TIDAL obsługuje logowanie i odczyt kolekcji; Apple Music pozostaje jeszcze demonstracją.
 
 Ten README opisuje zachowanie bieżącego prototypu. Wspólny numer wersji jest zapisany w `Directory.Build.props`, dzięki czemu rdzeń, okno i publikowany program zawsze otrzymują ten sam numer. Zatwierdzony kierunek dalszego rozwoju, docelowa architektura oraz pełna mapa skrótów znajdują się w [`MEDIA_CONTROLLER_PL.md`](MEDIA_CONTROLLER_PL.md), a następny moduł opisuje [`PROJEKT_PODCASTOW_PL.md`](PROJEKT_PODCASTOW_PL.md). Trwałe reguły następstwa po zniknięciu pliku i komunikatów ręcznego przenoszenia są dodatkowo zebrane jako niezmienniki w punkcie 7.8 tej specyfikacji; przyszłe adaptery i przebudowy interfejsu nie mogą ich omijać.
 
@@ -886,7 +1021,7 @@ W odtwarzaczu lewo/prawo przewija o 10 sekund, Shift+lewo/prawo o 30 sekund, Ctr
 
 W sesji **Pliki lokalne** `Ctrl+O` albo menu **Plik → Otwórz pliki audio** otwiera jeden lub wiele lokalnych plików. `Ctrl+Shift+O` albo **Plik → Otwórz folder z plikami audio** rejestruje trwałe źródło, wczytuje rozpoznane pliki również z podfolderów i otwiera standardowy widok **Foldery**. Enter wchodzi do zaznaczonego folderu albo otwiera plik, Backspace wraca o poziom wyżej, wpisywanie liter działa w bieżącym poziomie, `Ctrl+K` go filtruje, a `Ctrl+F` nadal przeszukuje całą lokalną sesję. Płaska **Biblioteka** pozostaje dostępna równolegle. Żadne z tych poleceń nie uruchamia dźwięku automatycznie, a ponowne wczytanie tej samej ścieżki nie tworzy duplikatu.
 
-Od `alpha.77` kolejność sesji można zmieniać w **Ustawienia → Ogólne** przyciskami albo `Alt+strzałka w górę/w dół`. Pozycja określa jednocześnie `Ctrl+1–9`, listę sesji oraz kolejność `Ctrl+Page Up/Page Down`. Od `alpha.115` domyślnie jest to: Pliki lokalne, WiiM, TIDAL, Apple Music, Radio internetowe. Dawna karta **Listy i odczyt** została połączona z kartą **Komunikaty** jako sekcja **Odczytywanie elementów list**; wszystkie ustawienia i wejścia z palety poleceń pozostały dostępne.
+Od `alpha.77` kolejność sesji można zmieniać w **Ustawienia → Ogólne** przyciskami albo `Alt+strzałka w górę/w dół`. Od `alpha.331` to samo działa bezpośrednio na liście otwieranej przez `Ctrl+Shift+S`: fokus pozostaje na przeniesionej sesji, a NVDA podaje sąsiada oraz nowy skrót `Ctrl+cyfra`. Zmiana jest od razu trwała, także po anulowaniu samego wyboru sesji. Pozycja określa jednocześnie `Ctrl+1–9`, listę sesji oraz kolejność `Ctrl+Page Up/Page Down`. Od `alpha.115` domyślnie jest to: Pliki lokalne, WiiM, TIDAL, Apple Music, Radio internetowe. Dawna karta **Listy i odczyt** została połączona z kartą **Komunikaty** jako sekcja **Odczytywanie elementów list**; wszystkie ustawienia i wejścia z palety poleceń pozostały dostępne.
 
 Od `alpha.78` sesja **Pliki lokalne** istnieje od uruchomienia także wtedy, gdy biblioteka jest pusta, dlatego `Ctrl+1` nigdy nie prowadzi już do „nieprzypisanej” sesji. Po wybraniu katalogu przez `Ctrl+Shift+O` AMC natychmiast przechodzi do lokalnego widoku Foldery i pozostaje w nim podczas skanowania, zamiast pokazywać demonstracyjną listę innej usługi.
 
@@ -1072,7 +1207,24 @@ Od `alpha.114` stan pliku chmurowego jest ustalany także przez systemowe Cloud 
 
 Od `alpha.89` `Delete` jest jedynym klawiszem usuwania. `Backspace` nigdy nie usuwa elementu: w Folderach otwiera folder nadrzędny, wewnątrz albumu lub innego kontenera wraca o jeden poziom, a w odtwarzaczu wraca do listy z zastosowaniem zwykłej reguły pauzy. W polach tekstowych zachowuje standardowe kasowanie znaku, a na najwyższym poziomie listy podaje, że nie ma poziomu nadrzędnego. `Alt+strzałka w lewo/prawo` pozostaje historią odwiedzonych widoków i nie zastępuje semantyki rodzica.
 
-Obecny katalog demonstracyjny może pokazywać wspólne wyniki testowe. Prawdziwy adapter TIDAL będzie modułem izolowanym: `Ctrl+Shift+F` może uruchomić jego zapytanie, ale treści TIDAL nie zostaną wymieszane na jednej liście z treściami podobnych usług. AMC otworzy osobny, oznaczony widok wyników TIDAL i zachowa działanie wszystkich wspólnych skrótów.
+Od `alpha.314` sesja TIDAL ma izolowany, oficjalny adapter OAuth 2.1 PKCE i JSON:API. `Ctrl+F5` otwiera dostępne okno **Konto i synchronizacja TIDAL**, a `Ctrl+F` przeszukuje zdalny katalog bieżącej sesji. Po zalogowaniu AMC pobiera osobno ulubione utwory, albumy, wykonawców i playlisty. Kolejka, historia, zakładki, presety, własna kolejność oraz ustawienia odtwarzania pozostają lokalne. Tokeny są przechowywane wyłącznie w Menedżerze poświadczeń Windows i nie trafiają do pliku stanu, kopii ani logów. Demonstracja pozostaje do czasu pierwszej udanej synchronizacji oraz wraca po odłączeniu konta. Etap `alpha.314` był tylko do odczytu; od `alpha.332` chronione nagrania obsługuje osobny oficjalny moduł Player. Pełne zasady i macierz testów opisuje [`PROJEKT_TIDAL_PL.md`](PROJEKT_TIDAL_PL.md), a procedurę pierwszego połączenia — [`INSTRUKCJA_LOGOWANIA_TIDAL_PL.md`](INSTRUKCJA_LOGOWANIA_TIDAL_PL.md).
+
+Od `alpha.315` dynamiczne menu podaje technologii asystującej pozycję i rozmiar zestawu wyliczone wyłącznie z widocznych poleceń. Ukryte funkcje innych sesji oraz separatory nie są wliczane do komunikatu „x z y”. Dotyczy to wszystkich sesji, a nie tylko TIDAL.
+
+Od `alpha.318` paginacja kolekcji TIDAL zachowuje prefiks API `/v2`, także gdy
+serwer zwróci w `links.next` adres zaczynający się od ukośnika. Dzięki temu
+kolekcje mające więcej niż 20 utworów, albumów, wykonawców albo playlist nie
+kończą synchronizacji błędem po poprawnym pobraniu pierwszej strony.
+
+Od `alpha.319` Enter otwiera prawdziwą zawartość albumu i playlisty TIDAL, a
+na wykonawcy otwiera jego albumy. Kolejność pozycji pochodzi z relacji TIDAL;
+Escape wraca do poprzedniej listy i elementu. `Ctrl+Shift+U` oraz
+`Ctrl+Shift+L` są w tej sesji dwiema drogami do tej samej zdalnej kolekcji:
+wysyłają zmianę przez oficjalne API, ponownie odczytują konto i dopiero po
+potwierdzeniu mówią o sukcesie. Wymaga to zakresu `collection.write` i
+jednorazowego ponownego logowania po przejściu ze starszej wersji. W tej wersji
+odtwarzanie nie było jeszcze dostępne; dodaje je `alpha.332` przez oficjalny
+moduł Player TIDAL.
 
 Pierwszy etap obsługi YouTube działa bez synchronizacji konta. W Podcastach
 `Ctrl+N` dodaje świadomie wskazany publiczny film albo transmisję do **Mediów
@@ -1524,13 +1676,29 @@ udostępniony przez adapter, zamiast pozorować wybór karty dźwiękowej Window
 
 ## Zakres i ograniczenia
 
-- TIDAL i Apple Music są obecnie sesjami demonstracyjnymi. WiiM ma rzeczywisty adapter wykrywania, stanu, transportu, głośności, wyciszenia i presetów urządzenia. Pliki lokalne odtwarzają prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje własną Bibliotekę oraz Ulubione.
+- TIDAL ma prawdziwy adapter konta, kolekcji, wyszukiwania, playlist i
+  oficjalnego odtwarzania. Pełny utwór albo próbka zależą od poziomu dostępu
+  aplikacji TIDAL. Apple Music pozostaje sesją
+  demonstracyjną. WiiM ma rzeczywisty adapter wykrywania, stanu, transportu,
+  głośności, wyciszenia i presetów urządzenia. Pliki lokalne odtwarzają
+  prawdziwe multimedia i trwale zapisują katalog, a Radio internetowe
+  wyszukuje oraz odtwarza prawdziwe publiczne strumienie i trwale zapisuje
+  własną Bibliotekę oraz Ulubione.
 - Publiczne strony stacji, podcastów i odcinków można otwierać w przeglądarce;
   integracje z oficjalnymi aplikacjami kontowymi pozostają etapem późniejszym.
 - Pobieranie muzyki i obsługa DRM nie są jeszcze zaimplementowane; skróty `D` i `Shift+D` tylko podają komunikaty.
 - Aktualizator nie pobiera jeszcze pakietów.
 - Pierwszym celem jest Windows. macOS, VoiceOver i Siri pozostają etapem późniejszym.
 - `Ctrl+Alt+Windows+F12` jest prefiksem prototypu; został pomyślnie zarejestrowany na komputerze testowym, ale kombinacje z Windows należy sprawdzać na każdym docelowym komputerze.
+
+## Trwałość sesji TIDAL w alpha 330
+
+AMC odświeża wygasłe logowanie TIDAL zgodnie z oficjalnym przepływem klienta
+desktopowego, z identyfikatorem aplikacji i pełnym zakresem uprawnień. Ostatnia
+poprawna Biblioteka TIDAL jest dodatkowo przechowywana lokalnie bez tokenów.
+Awaria sieci albo autoryzacji nie daje więc pustej listy i nie narusza lokalnej
+Kolejki. Po przejściu z wcześniejszej wersji może być potrzebne ostatnie
+logowanie, aby utworzyć nowy token i pierwszą kopię katalogu.
 
 ## Struktura
 

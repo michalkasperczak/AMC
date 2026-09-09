@@ -28,6 +28,9 @@ internal static class MainWindowShortcutRouter
         if (string.Equals(viewName, "Ulubione", StringComparison.Ordinal)
             || string.Equals(sessionId, "podcasts", StringComparison.Ordinal)
                && string.Equals(viewName, "Nowe odcinki", StringComparison.Ordinal)
+            || string.Equals(sessionId, "tidal", StringComparison.Ordinal)
+               && (string.Equals(viewName, "Playlisty", StringComparison.Ordinal)
+                   || viewName.StartsWith("TIDAL:", StringComparison.Ordinal))
             || string.Equals(viewName, "Biblioteka", StringComparison.Ordinal)
                && !string.Equals(sessionId, "local", StringComparison.Ordinal))
         {

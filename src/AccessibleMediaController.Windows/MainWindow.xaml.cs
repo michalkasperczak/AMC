@@ -23,6 +23,7 @@ using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Radio;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Tidal;
 using AccessibleMediaController.Core.Updates;
 using AccessibleMediaController.Windows.Controls;
 using AccessibleMediaController.Windows.Services;
@@ -57,6 +58,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const string PodcastDownloadsViewName = "Pobrane";
     private const string PodcastContentsViewPrefix = "Podcast:";
     private const string PodcastLoadMoreRowPrefix = "podcast-load-more:";
+    private const string TidalContentsViewPrefix = "TIDAL:";
     private const string FolderViewName = "Foldery";
     private const string AllLocalFilesViewName = "Wszystkie pliki";
     private const string CustomLocalOrderViewName = "Kolejność własna";
@@ -83,6 +85,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private string? _deferredAnnouncement;
     private bool _captureAnnouncements;
     private string? _capturedAnnouncement;
+    private SearchWindow? _activeSearchWindow;
     private bool _preservePreparedPlaybackContext;
     private IReadOnlyList<MediaItem>? _actionItemsOverride;
     private HwndSource? _windowSource;
@@ -117,6 +120,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly List<MediaItem> _radioItems = [];
     private readonly List<MediaItem> _podcastItems = [];
     private readonly List<MediaItem> _wiiMItems = [];
+    private readonly List<MediaItem> _tidalItems = [];
+    private readonly Dictionary<string, TidalContainerViewState> _tidalContainerViews =
+        new(StringComparer.Ordinal);
+    private readonly TidalIntegrationService _tidalIntegration;
+    private readonly TidalMediaOutput _tidalOutput;
+    private readonly CancellationTokenSource _tidalCancellation = new();
+    private bool _tidalCatalogSynchronized;
+    private bool _tidalCollectionOrderSnapshotComplete;
     private readonly Dictionary<string, WiiMDeviceSnapshot> _wiiMSnapshots =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> _lastActivatedWiiMPresets =
@@ -181,6 +192,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string SessionId,
         string ViewName,
         IReadOnlyList<string> ItemIds);
+
+    private sealed record TidalContainerViewState(
+        MediaItem Container,
+        IReadOnlyList<MediaItem> Items);
 
     private const int WmKeyDown = 0x0100;
     private const int WmKeyUp = 0x0101;
@@ -271,6 +286,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _podcastRefreshTimer.Tick += PodcastRefreshTimer_Tick;
         _state = state;
         _store = store;
+        _tidalIntegration = new TidalIntegrationService(_state.Tidal);
+        _tidalOutput = new TidalMediaOutput(_tidalIntegration, TidalPlayerWebView);
+        _tidalOutput.DurationAvailable += TidalOutput_DurationAvailable;
+        _tidalOutput.PlaybackFailed += TidalOutput_PlaybackFailed;
+        _tidalOutput.PlaybackEnded += TidalOutput_PlaybackEnded;
+        _tidalOutput.PlaybackPreparing += TidalOutput_PlaybackPreparing;
+        _tidalOutput.PlaybackStarted += TidalOutput_PlaybackStarted;
+        _tidalOutput.PlaybackNotice += TidalOutput_PlaybackNotice;
+        LoadPersistedTidalCatalog();
         _statePersistence = new StatePersistenceQueue(store, BackgroundStateSaveFailed);
         _radioRecognitionMonitoring = _state.Radio.AutomaticTrackRecognitionEnabled;
         _localOutput.ConfigureAudioProcessing(_state.Settings.Audio);
@@ -328,6 +352,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 () => _ = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
                     ? RefreshActiveWiiMDeviceOnEntryAsync()
                     : RefreshWiiMDevicesAsync(announceResult: false),
+                DispatcherPriority.Background);
+        }
+        if (_tidalIntegration.IsConfigured && _tidalIntegration.HasStoredLogin)
+        {
+            Dispatcher.BeginInvoke(
+                () => _ = RefreshTidalSessionAsync(announceResult: false),
                 DispatcherPriority.Background);
         }
         DiagnosticLog.Info("startup", "Główne okno jest gotowe do pokazania.");
@@ -575,6 +605,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _sessions,
             allServices,
             FormatSearchResultItem,
+            item => NavigationTextForItem(item),
             BuildQuickMediaInformation,
             ExecuteSearchResultAction,
             searchHistory,
@@ -583,17 +614,33 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _state.Settings.Messages.DetailedHints,
             allServices || string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
                 || string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+                || string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
                 ? (query, cancellationToken) => PrepareRemoteSearchAsync(query, allServices, cancellationToken)
                 : null,
             allServices
                 ? "katalogach radia, podcastów i YouTube"
                 : string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
                     ? "katalogach Apple Podcasts, Spreaker i YouTube"
+                    : string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+                        ? "katalogu TIDAL"
                     : "katalogu radia")
         {
             Owner = this
         };
-        if (dialog.ShowDialog() == true && dialog.SelectedResult is { } result)
+        bool? dialogResult;
+        _activeSearchWindow = dialog;
+        try
+        {
+            dialogResult = dialog.ShowDialog();
+        }
+        finally
+        {
+            if (ReferenceEquals(_activeSearchWindow, dialog))
+            {
+                _activeSearchWindow = null;
+            }
+        }
+        if (dialogResult == true && dialog.SelectedResult is { } result)
         {
             if (IsYouTubeSearchResult(result)
                 && dialog.SelectedAction == SearchResultAction.Open)
@@ -631,6 +678,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 GoToRelatedPodcast(effectiveResult.Item);
                 return;
             }
+            if (dialog.SelectedAction == SearchResultAction.GoToAlbum)
+            {
+                GoToRelatedAlbum();
+                return;
+            }
+            if (dialog.SelectedAction == SearchResultAction.GoToArtist)
+            {
+                GoToRelatedArtist();
+                return;
+            }
             if (dialog.SelectedAction == SearchResultAction.Playlist && selectedSession is not null)
             {
                 var items = effectiveResults
@@ -664,8 +721,36 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return SelectSessionBrowserItem(sessionId, itemId, targetViewOverride: null);
     }
 
+    private void LoadPersistedTidalCatalog()
+    {
+        _tidalItems.Clear();
+        _tidalItems.AddRange(_state.Tidal.CachedCollectionItems
+            .Select(item => item.ToMediaItem())
+            .Where(item => TidalCollectionSemantics.IsCollectionKind(item.Kind))
+            .DistinctBy(item => item.ExternalId ?? item.Id, StringComparer.Ordinal));
+        _tidalCatalogSynchronized = _tidalItems.Count > 0;
+        _tidalCollectionOrderSnapshotComplete = _tidalItems.Count > 0
+            && _tidalItems.All(item => item.CollectionAddedUtcTicks is not null);
+        _tidalIntegration.RestoreCachedCollection(_tidalItems);
+        if (_tidalItems.Count > 0)
+        {
+            DiagnosticLog.Info(
+                "tidal-cache",
+                $"Odtworzono ostatnią poprawną Bibliotekę TIDAL: {_tidalItems.Count} elementów.");
+        }
+    }
+
     private DemoMediaSession? SelectSearchResultBrowserItem(SearchWindow.SearchResult result)
     {
+        if (string.Equals(result.SessionId, "tidal", StringComparison.OrdinalIgnoreCase)
+            && _sessions.FindSession("tidal") is { } tidal
+            && tidal.Items.All(item => !string.Equals(item.Id, result.Item.Id, StringComparison.Ordinal)))
+        {
+            // A remote search result is transient. Add only the selected item
+            // to the in-memory surface so focus can return to it; it is not
+            // persisted as part of the user's TIDAL collection.
+            tidal.AddItems([result.Item]);
+        }
         string? targetView = null;
         if (string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase))
         {
@@ -2099,7 +2184,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? _localOutput.IsPreparing
             : string.Equals(session.Id, "podcasts", StringComparison.Ordinal)
                 ? _podcastOutput.IsPreparing
-                : isRadio && _radioOutput.IsPreparing;
+                : string.Equals(session.Id, "tidal", StringComparison.Ordinal)
+                    ? _tidalOutput.IsPreparing
+                    : isRadio && _radioOutput.IsPreparing;
         var state = preparing
             ? (_cloudPreparingItemId is null ? "Otwieranie" : "Pobieranie z chmury")
             : session.IsPlaying ? "Odtwarzanie" : "Pauza";
@@ -2118,7 +2205,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ?? (string.IsNullOrWhiteSpace(item.Artist) ? item.KindLabel : item.Artist);
         PlayerSessionText.Text = session.DisplayName;
         PlayerStateText.Text = state;
-        PlayerSpeedText.Visibility = isRadio ? Visibility.Collapsed : Visibility.Visible;
+        PlayerSpeedText.Visibility = session.SupportsPlaybackRate
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         PlayerSpeedText.Text = $"Prędkość: {FormatPlaybackRateMultiplier(session.PlaybackRate)}";
         PlayerPreviousButton.Content = isRadio
             ? "Poprzednia stacja"
@@ -2134,7 +2223,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                  {
                      PlayerRateDownButton,
                      PlayerRateUpButton,
-                     PlayerRateResetButton,
                      PlayerSeekTimeButton,
                      PlayerSeekPercentButton,
                      PlayerAddBookmarkButton,
@@ -2143,6 +2231,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                  })
         {
             control.Visibility = isRadio ? Visibility.Collapsed : Visibility.Visible;
+        }
+        foreach (var control in new FrameworkElement[]
+                 {
+                     PlayerRateDownButton,
+                     PlayerRateUpButton,
+                     PlayerRateResetButton
+                 })
+        {
+            control.Visibility = session.SupportsPlaybackRate
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         }
         PlayerTimeText.Text = isRadio
             ? _radioOutput.BehindLive < TimeSpan.FromSeconds(1)
@@ -2169,10 +2268,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             focusContext is null
                 ? isRadio
                     ? $"Odtwarzacz, {item.Title}, {session.DisplayName}, {state}. {action}"
-                    : $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}"
+                    : session.SupportsPlaybackRate
+                        ? $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}"
+                        : $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}. {action}"
                 : isRadio
                     ? $"{focusContext}, Odtwarzacz, {item.Title}, {state}. {action}"
-                    : $"{focusContext}, Odtwarzacz, {item.Title}, {artist}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}");
+                    : session.SupportsPlaybackRate
+                        ? $"{focusContext}, Odtwarzacz, {item.Title}, {artist}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}"
+                        : $"{focusContext}, Odtwarzacz, {item.Title}, {artist}, {state}. {action}");
         AutomationProperties.SetHelpText(
             PlayerPlayPauseButton,
             PlayerKeyboardHelpText());
@@ -2345,10 +2448,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 + "I wybiera wejście, O wyjście, E korektor, R tryb powtarzania, S losowanie, T timer uśpienia, a Shift+A aktywne urządzenie WiiM. "
                 + "Escape wraca do listy urządzeń i nie zatrzymuje odtwarzania WiiM.";
         }
+        var speedHelp = _sessions?.Current.SupportsPlaybackRate == true
+            ? "Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. "
+            : string.Empty;
         return "Strzałki sterują czasem i głośnością. Page Up i Page Down wybierają poprzedni lub następny utwór. "
             + "B dodaje szybką zakładkę, Ctrl+Shift+B dodaje nazwaną, a Shift+Page Up i Shift+Page Down przechodzą po zakładkach. "
             + "I ustawia początek fragmentu, O koniec, Shift+I i Shift+O wracają bezpośrednio do tych punktów, a Alt+Page Up i Alt+Page Down przechodzą do poprzedniej lub następnej granicy. X zapisuje fragment do nowego pliku, Ctrl+X usuwa go z oryginału po potwierdzeniu i z kopią bezpieczeństwa, a Shift+X czyści zaznaczenie. "
-            + "Shift+przecinek zwalnia, Shift+kropka przyspiesza, Ctrl+kropka przywraca normalną prędkość. "
+            + speedHelp
             + exit;
     }
 
@@ -2729,7 +2835,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? _localOutput.IsPreparing
             : string.Equals(session.Id, "podcasts", StringComparison.Ordinal)
                 ? _podcastOutput.IsPreparing
-                : isRadio && _radioOutput.IsPreparing;
+                : string.Equals(session.Id, "tidal", StringComparison.Ordinal)
+                    ? _tidalOutput.IsPreparing
+                    : isRadio && _radioOutput.IsPreparing;
         var state = preparing
             ? (_cloudPreparingItemId is null ? "Otwieranie" : "Pobieranie z chmury")
             : session.IsPlaying ? "Odtwarzanie" : "Pauza";
@@ -2753,7 +2861,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var audioParameters = AudioParametersFormatter.FormatCompact(item);
         if (!string.IsNullOrWhiteSpace(audioParameters)) parts.Add(audioParameters);
         var playbackState = state.ToLowerInvariant();
-        if (Math.Abs(session.PlaybackRate - 1d) >= 0.001d)
+        if (session.SupportsPlaybackRate && Math.Abs(session.PlaybackRate - 1d) >= 0.001d)
         {
             playbackState += $", {CommandRouter.FormatPlaybackRate(session.PlaybackRate).ToLowerInvariant()}";
         }
@@ -2852,6 +2960,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     public void ShowSessionList()
     {
         var dialog = new SessionSelectionWindow(_sessions) { Owner = this };
+        dialog.OrderChangedCommitted += (_, _) => QueueStateSave(announceFailure: true);
         if (dialog.ShowDialog() == true && dialog.SelectedSlot is int slot)
         {
             ExecuteCommand(CommandIds.SessionSlot(slot));
@@ -3232,6 +3341,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IReadOnlyList<MediaItem> items,
         DemoMediaSession session)
     {
+        if (string.Equals(session.Id, "tidal", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = ShowTidalPlaylistManagerAsync(items);
+            return;
+        }
         if (items.Any(item => item.Kind is not (MediaItemKind.Track or MediaItemKind.Station or MediaItemKind.Episode)))
         {
             Announce("Do playlisty wybierz utwory, odcinki albo stacje. Zawartość albumu lub folderu otwórz Enterem");
@@ -3334,6 +3448,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void CreatePlaylist()
     {
+        if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+        {
+            Announce("Tworzenie playlist TIDAL nie jest jeszcze dostępne w AMC. Utwórz playlistę w TIDAL i odśwież konto przez Ctrl+F5");
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
         var index = new PlaylistIndex(_state.Playlists);
         while (true)
         {
@@ -3479,6 +3599,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 _state.Settings,
                 radioSettings: _state.Radio)
             .Where(entry => CommandVisibleInPalette(entry.CommandId))
+            .Select(entry => entry.CommandId == CommandIds.GoToAlbum
+                    && ActionItem?.Kind == MediaItemKind.Artist
+                ? entry with { DisplayName = "Pokaż albumy wykonawcy" }
+                : entry)
             .ToArray();
         var dialog = new CommandPaletteWindow(entries) { Owner = this };
         if (dialog.ShowDialog() == true && dialog.SelectedCommandId is { } commandId)
@@ -3501,6 +3625,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var local = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
         var podcasts = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
         var wiiM = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
+        var tidal = string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal);
+        if (commandId == CommandIds.ManageTidalConnection) return tidal;
+        if (!tidal && commandId.StartsWith("tidal.", StringComparison.Ordinal)) return false;
         if (commandId == CommandIds.ViewRecordedRadioFiles) return radio || local;
         if (commandId == CommandIds.OpenOnWiiM)
             return ActionItems.Count == 1 && TryGetWiiMPlayableUri(ActionItem, out _);
@@ -3545,6 +3672,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             return false;
         }
+        if (commandId == CommandIds.GoToAlbum && !CanGoToRelatedAlbum(ActionItem)) return false;
+        if (commandId == CommandIds.GoToArtist && !CanGoToRelatedArtist(ActionItem)) return false;
         if (podcasts && commandId is CommandIds.OpenLocalFiles
             or CommandIds.OpenLocalFolder
             or CommandIds.RefreshLocalLibrary
@@ -3711,6 +3840,175 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         Activate();
         if (_playerViewActive) FocusPlayerView();
         else RestoreMediaListFocusAfterRefresh();
+    }
+
+    private async Task ShowTidalPlaylistManagerAsync(IReadOnlyList<MediaItem> sourceItems)
+    {
+        var items = sourceItems
+            .Where(item => item.ExternalId is { Length: > 0 })
+            .DistinctBy(item => item.Id, StringComparer.Ordinal)
+            .ToArray();
+        if (items.Length == 0)
+        {
+            Announce("Brak elementów TIDAL możliwych do dodania do playlisty");
+            RestoreItemActionFocus();
+            return;
+        }
+        if (items.Any(item => item.Kind is not (MediaItemKind.Track or MediaItemKind.Video or MediaItemKind.Album)))
+        {
+            Announce("Do playlisty TIDAL można dodać utwory, materiały wideo albo zawartość albumu");
+            RestoreItemActionFocus();
+            return;
+        }
+
+        var playlists = _tidalItems
+            .Where(item => item.Kind == MediaItemKind.Playlist
+                && item.IsInLibrary
+                && item.ExternalId is { Length: > 0 })
+            .ToArray();
+        var dialog = new TidalPlaylistPickerWindow(
+            playlists,
+            items,
+            _state.Tidal.LastPlaylistExternalId) { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+
+        IReadOnlyList<MediaItem> playableItems;
+        try
+        {
+            var expanded = new List<MediaItem>();
+            foreach (var item in items)
+            {
+                if (item.Kind == MediaItemKind.Album)
+                {
+                    if (_state.Settings.Messages.LoadingMessages)
+                        Announce($"Wczytywanie utworów albumu: {item.Title}");
+                    expanded.AddRange(await _tidalIntegration.GetContainerItemsAsync(
+                        item,
+                        _tidalCancellation.Token));
+                }
+                else
+                {
+                    expanded.Add(item);
+                }
+            }
+            playableItems = expanded
+                .Where(item => item.Kind is MediaItemKind.Track or MediaItemKind.Video
+                    && item.ExternalId is { Length: > 0 })
+                .DistinctBy(item => item.ExternalId, StringComparer.Ordinal)
+                .ToArray();
+            if (playableItems.Count == 0)
+                throw new InvalidOperationException("Wybrane elementy nie zawierają utworów możliwych do dodania.");
+        }
+        catch (OperationCanceledException) when (_tidalCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error("tidal-playlist-add", "Nie przygotowano elementów playlisty TIDAL.", exception);
+            Announce($"Nie udało się przygotować elementów playlisty TIDAL. {exception.Message}");
+            RestoreItemActionFocus();
+            return;
+        }
+
+        MediaItem? createdPlaylist = null;
+        IReadOnlyList<MediaItem> targetPlaylists = dialog.SelectedPlaylists;
+        if (!string.IsNullOrWhiteSpace(dialog.RequestedNewPlaylistName))
+        {
+            try
+            {
+                if (_state.Settings.Messages.LoadingMessages)
+                    Announce($"Tworzenie playlisty TIDAL: {dialog.RequestedNewPlaylistName}");
+                createdPlaylist = await _tidalIntegration.CreatePlaylistAsync(
+                    dialog.RequestedNewPlaylistName,
+                    _tidalCancellation.Token);
+                if (_isClosing) return;
+                var updatedItems = _tidalItems
+                    .Where(item => !string.Equals(
+                        item.ExternalId,
+                        createdPlaylist.ExternalId,
+                        StringComparison.Ordinal))
+                    .Append(createdPlaylist)
+                    .ToArray();
+                ApplyTidalItems(
+                    updatedItems,
+                    _tidalCollectionOrderSnapshotComplete
+                    && updatedItems.All(item => item.CollectionAddedUtcTicks is not null));
+                QueueStateSave(announceFailure: true);
+                targetPlaylists = [createdPlaylist];
+            }
+            catch (OperationCanceledException) when (_tidalCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception exception)
+            {
+                DiagnosticLog.Error("tidal-playlist-create", "Nie utworzono playlisty TIDAL.", exception);
+                Announce($"Nie udało się utworzyć playlisty TIDAL. {exception.Message}");
+                RestoreItemActionFocus();
+                return;
+            }
+        }
+
+        var successfulPlaylists = new List<string>();
+        var successfulPlaylistIds = new List<string>();
+        var failures = new List<string>();
+        foreach (var playlist in targetPlaylists)
+        {
+            try
+            {
+                var refreshed = await _tidalIntegration.AddPlaylistItemsAsync(
+                    playlist,
+                    playableItems,
+                    _tidalCancellation.Token);
+                if (_isClosing) return;
+                UpdateTidalContainerCache(playlist, refreshed);
+                successfulPlaylists.Add(playlist.Title);
+                if (!string.IsNullOrWhiteSpace(playlist.ExternalId))
+                    successfulPlaylistIds.Add(playlist.ExternalId);
+            }
+            catch (OperationCanceledException) when (_tidalCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception exception)
+            {
+                DiagnosticLog.Error(
+                    "tidal-playlist-add",
+                    $"Nie dodano elementów do playlisty {playlist.ExternalId}.",
+                    exception);
+                failures.Add($"{playlist.Title}: {exception.Message}");
+            }
+        }
+
+        if (successfulPlaylists.Count > 0)
+        {
+            var preferredPlaylistId = createdPlaylist?.ExternalId
+                ?? dialog.LastSelectedPlaylistExternalId;
+            _state.Tidal.LastPlaylistExternalId = preferredPlaylistId is not null
+                && successfulPlaylistIds.Contains(preferredPlaylistId, StringComparer.Ordinal)
+                    ? preferredPlaylistId
+                    : successfulPlaylistIds[0];
+            QueueStateSave(announceFailure: true);
+            var target = successfulPlaylists.Count == 1
+                ? successfulPlaylists[0]
+                : $"{successfulPlaylists.Count} playlist";
+            var subject = playableItems.Count == 1
+                ? playableItems[0].Title
+                : FormatItemCount(playableItems.Count);
+            Announce(failures.Count == 0
+                ? $"Dodano do playlisty TIDAL {target}: {subject}"
+                : $"Dodano do playlisty TIDAL {target}: {subject}. Niepowodzenia: {string.Join("; ", failures)}");
+        }
+        else
+        {
+            Announce($"Nie dodano do playlisty TIDAL. {string.Join("; ", failures)}");
+        }
+        RestoreItemActionFocus();
     }
 
     public void AnnounceCurrentBroadcastInformation()
@@ -4482,21 +4780,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : null;
         var metadataChanged = false;
 
-        var details = new List<string>();
+        string? containerFormat = null;
+        long? sizeBytes = null;
+        var mayRequireCloudDownload = false;
         if (isLocal)
         {
             var extension = Path.GetExtension(localPath).TrimStart('.');
-            if (!string.IsNullOrWhiteSpace(extension)) details.Add(extension.ToUpperInvariant());
-            if (CloudFileAvailability.MayRequireRemoteAccess(localPath))
-            {
-                details.Add("plik w chmurze, pobierany przy odtwarzaniu");
-            }
+            if (!string.IsNullOrWhiteSpace(extension)) containerFormat = extension;
+            mayRequireCloudDownload = CloudFileAvailability.MayRequireRemoteAccess(localPath);
         }
-        if (!string.IsNullOrWhiteSpace(item.Artist)) details.Add(item.Artist);
-        if (!string.IsNullOrWhiteSpace(item.Country)) details.Add(item.Country);
-        if (!string.IsNullOrWhiteSpace(item.Language)) details.Add(item.Language);
-        if (!string.IsNullOrWhiteSpace(item.Codec)) details.Add(item.Codec);
-        if (item.Duration > TimeSpan.Zero) details.Add(CommandRouter.FormatTime(item.Duration));
         if (isLocal)
         {
             try
@@ -4514,7 +4806,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                         item.IsBitrateEstimated = item.BitrateKbps.HasValue;
                         metadataChanged |= item.BitrateKbps.HasValue;
                     }
-                    details.Add(FormatFileSize(file.Length));
+                    sizeBytes = file.Length;
                 }
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -4524,22 +4816,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else if (podcastEpisode?.MediaLength is > 0)
         {
-            details.Add(FormatFileSize(podcastEpisode.MediaLength.Value));
-        }
-
-        var audio = AudioParametersFormatter.FormatCompact(item, CultureInfo.CurrentCulture);
-        if (!string.IsNullOrWhiteSpace(audio))
-        {
-            var sizeIndex = details.Count > 0 && details[^1].EndsWith("B", StringComparison.Ordinal)
-                ? details.Count - 1
-                : details.Count;
-            details.Insert(sizeIndex, audio);
+            sizeBytes = podcastEpisode.MediaLength.Value;
         }
         if (metadataChanged) TrySaveLocalMediaState(false);
 
-        return details.Count == 0
-            ? $"{item.Title}: brak zapisanych informacji technicznych"
-            : $"{item.Title}: {string.Join(", ", details)}";
+        var isTidalPlayableItem = item.Source?.StartsWith("tidal:", StringComparison.OrdinalIgnoreCase) == true
+            && item.Kind is MediaItemKind.Track or MediaItemKind.Video;
+        return QuickMediaInformationFormatter.Format(
+            item,
+            containerFormat,
+            sizeBytes,
+            mayRequireCloudDownload,
+            isTidalPlayableItem ? "format nieudostępniony przez katalog TIDAL" : null,
+            CultureInfo.CurrentCulture);
     }
 
     private async void AnnounceQuickMediaInformation(MediaItem item)
@@ -5427,6 +5716,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var radio = string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal);
         var podcasts = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
         var wiiM = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
+        var tidal = string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal);
         CurrentSessionMuteMenuItem.IsChecked = _sessions.Current.IsSessionMuted;
         AllSessionsMuteMenuItem.IsChecked = _sessions.AllSessionsMuted;
         AudioOutputDeviceMenuItem.Visibility = CurrentSessionSupportsAudioOutputSelection()
@@ -5513,6 +5803,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         OpenLocalFolderMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageLocalSourcesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageWiiMDevicesMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
+        ManageTidalConnectionMenuItem.Visibility = tidal ? Visibility.Visible : Visibility.Collapsed;
         AddWiiMNetworkStreamMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         ViewWiiMNetworkStreamsMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         ImportWiiMNetworkStreamsMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
@@ -5534,7 +5825,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && ActionItems.Count == 1
                 ? Visibility.Visible
                 : Visibility.Collapsed;
-        FileActionsSeparator.Visibility = local || radio || podcasts || wiiM ? Visibility.Visible : Visibility.Collapsed;
+        FileActionsSeparator.Visibility = local || radio || podcasts || wiiM || tidal ? Visibility.Visible : Visibility.Collapsed;
         var collectionSorting = CurrentViewSupportsCollectionSorting();
         var localLibraryLayouts = local && !collectionSorting;
         FoldersViewMenuItem.Visibility = localLibraryLayouts ? Visibility.Visible : Visibility.Collapsed;
@@ -5544,9 +5835,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CollectionSortSeparator.Visibility = collectionSortVisibility;
         CollectionSortAddedMenuItem.Visibility = collectionSortVisibility;
         CollectionSortAlphabeticalMenuItem.Visibility = collectionSortVisibility;
-        CollectionSortCustomMenuItem.Visibility = collectionSortVisibility;
+        TidalContainerViewState? sortedTidalContainer = null;
+        var tidalContainerSorting = string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+            && _tidalContainerViews.TryGetValue(_currentView, out sortedTidalContainer);
+        CollectionSortCustomMenuItem.Visibility = collectionSorting
+            && (!tidalContainerSorting || sortedTidalContainer!.Container.Kind == MediaItemKind.Playlist)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         var podcastInboxSorting = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
             && string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal);
+        MenuAccessibility.SetPresentation(
+            CollectionSortAddedMenuItem,
+            tidalContainerSorting
+                ? sortedTidalContainer!.Container.Kind == MediaItemKind.Album
+                    ? "Kolejność albumu"
+                    : sortedTidalContainer.Container.Kind == MediaItemKind.Playlist
+                        ? "Kolejność playlisty TIDAL"
+                        : "Kolejność TIDAL"
+                : "Według dodania, najnowsze na początku");
+        CollectionSortAddedMenuItem.InputGestureText = "Alt+1";
+        AutomationProperties.SetAcceleratorKey(CollectionSortAddedMenuItem, "Alt+1");
         MenuAccessibility.SetPresentation(
             CollectionSortCustomMenuItem,
             podcastInboxSorting ? "Według podcastu" : "Kolejność własna");
@@ -5657,10 +5965,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             wiiM ? "Wybierz urządzenie WiiM i otwórz sterowanie, Enter" : "Odtwórz lub wstrzymaj");
         BrowserFavoriteButton.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
         BrowserPlaylistsButton.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
-        BrowserPlaylistsButton.Content = "Zmień _playlisty…";
+        BrowserPlaylistsButton.Content = tidal ? "Dodaj do _playlisty TIDAL…" : "Zmień _playlisty…";
         AutomationProperties.SetName(
             BrowserPlaylistsButton,
-            "Zmień przynależność do playlist, Ctrl+Shift+P");
+            tidal
+                ? "Dodaj do playlisty TIDAL, Ctrl+Shift+P"
+                : "Zmień przynależność do playlist, Ctrl+Shift+P");
 
         RadioRecordingMenuItem.Visibility = radio && _playerViewActive ? Visibility.Visible : Visibility.Collapsed;
         PauseRadioRecordingMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
@@ -5740,12 +6050,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlaybackBeforeSeekSeparator.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         PlaybackSeekTimeMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         PlaybackSeekPercentageMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
-        PlaybackBeforeRateSeparator.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
-        PlaybackRateDownMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
-        PlaybackRateUpMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
-        PlaybackRateResetMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        var playbackRateVisibility = _sessions.Current.SupportsPlaybackRate
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        PlaybackBeforeRateSeparator.Visibility = playbackRateVisibility;
+        PlaybackRateDownMenuItem.Visibility = playbackRateVisibility;
+        PlaybackRateUpMenuItem.Visibility = playbackRateVisibility;
+        PlaybackRateResetMenuItem.Visibility = playbackRateVisibility;
         PlaybackBeforeInformationSeparator.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
         PlaybackItemOptionsMenuItem.Visibility = radio ? Visibility.Collapsed : Visibility.Visible;
+        MenuAccessibility.UpdateVisibleItemSetMetadata(MainMenu);
     }
 
     private void UpdatePlaybackAudioMenuPresentation(
@@ -5908,7 +6222,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         return string.Equals(sessionId, "podcasts", StringComparison.Ordinal)
             ? _state.Podcasts.Volume
-            : _state.LocalMedia.Volume;
+            : string.Equals(sessionId, "tidal", StringComparison.Ordinal)
+                ? _state.Tidal.Volume
+                : _state.LocalMedia.Volume;
     }
 
     private int GetPlaybackVolumeForOutput(
@@ -5957,6 +6273,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 break;
             case "local":
                 _state.LocalMedia.Volume = session.Volume;
+                break;
+            case "tidal":
+                _state.Tidal.Volume = session.Volume;
                 break;
         }
     }
@@ -8427,13 +8746,60 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var previousWiiMItemId = previousWiiM?.HasCurrentItem == true
             ? previousWiiM.CurrentItem.Id
             : null;
+        var previousTidal = _sessions?.FindSession("tidal");
+        var previousTidalItemId = previousTidal?.HasCurrentItem == true
+            ? previousTidal.CurrentItem.Id
+            : null;
+        var previousTidalPosition = previousTidal?.Position ?? TimeSpan.Zero;
+        var previousTidalWasPlaying = previousTidal?.IsPlaying == true;
         _membershipHistory.Clear();
         _localCatalogHistory.Clear();
         _playlistHistory.Clear();
         _queueOrderHistory.Clear();
         _playbackHistoryCursors.Clear();
         _undoSequence = 0;
-        _sessions = new SessionManager(_state.Settings);
+        _sessions = new SessionManager(_state.Settings, _tidalOutput);
+        if (_sessions.FindSession("tidal") is { } tidalSession
+            && _tidalIntegration.IsConfigured
+            && (_tidalIntegration.HasStoredLogin || _tidalItems.Count > 0))
+        {
+            var cachedQueueItems = _state.RemoteQueues.ItemsBySession
+                .GetValueOrDefault("tidal")?
+                .Where(item => !TransientQueuePersistence.IsLegacyDemonstrationItemId(
+                    "tidal",
+                    item.Id))
+                .Select(item => item.ToMediaItem())
+                .ToArray() ?? [];
+            var initialTidalItems = (_tidalCatalogSynchronized
+                    ? _tidalItems.Concat(cachedQueueItems)
+                    : cachedQueueItems)
+                .DistinctBy(
+                    item => TransientQueuePersistence.StorageItemId("tidal", item),
+                    StringComparer.Ordinal)
+                .ToArray();
+            RestorePersistedQueueMembership("tidal", initialTidalItems);
+            tidalSession.ReplaceItems(initialTidalItems);
+            DiagnosticLog.Info(
+                "queue",
+                $"Przygotowano kolejkę TIDAL przed synchronizacją: {initialTidalItems.Count(item => item.IsInQueue || item.IsPlayNext)} elementów.");
+        }
+        if (_sessions.FindSession("tidal") is { } restoredTidal)
+        {
+            var restoredTidalItem = restoredTidal.Items.FirstOrDefault(item =>
+                string.Equals(item.Id, previousTidalItemId, StringComparison.Ordinal));
+            if (restoredTidalItem is not null)
+            {
+                restoredTidal.SelectItem(restoredTidalItem);
+                restoredTidal.SetPosition(previousTidalPosition);
+            }
+            restoredTidal.SetVolume(restoredTidal.HasCurrentItem
+                ? PlaybackVolumeOverride("tidal", restoredTidal.CurrentItem)
+                    ?? previousTidal?.Volume
+                    ?? _state.Tidal.Volume
+                : previousTidal?.Volume ?? _state.Tidal.Volume);
+            if (previousTidalWasPlaying && restoredTidalItem is not null)
+                restoredTidal.Play(restoredTidalItem);
+        }
         var (local, _) = _sessions.AddOrUpdateTransientSession(
             "local",
             "Pliki lokalne",
@@ -8558,9 +8924,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                      !string.Equals(session.Id, "local", StringComparison.Ordinal)))
         {
             RestorePlaybackContext(session);
+            if (ShouldDeferQueueNormalization(session)) continue;
             EnsureQueueOrder(session);
         }
     }
+
+    private bool ShouldDeferQueueNormalization(DemoMediaSession session) =>
+        string.Equals(session.Id, "tidal", StringComparison.OrdinalIgnoreCase)
+        && _tidalIntegration.IsConfigured
+        && _tidalIntegration.HasStoredLogin
+        && !_tidalCatalogSynchronized
+        && !session.HasItems;
 
     private void RestorePlaybackContext(DemoMediaSession session)
     {
@@ -8820,6 +9194,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CancellationToken cancellationToken)
     {
         var currentId = _sessions.Current.Id;
+        if (!allServices && string.Equals(currentId, "tidal", StringComparison.Ordinal))
+        {
+            var tidalResults = await _tidalIntegration.SearchAsync(query, cancellationToken);
+            return tidalResults
+                .Select(item => new SearchWindow.SearchResult("tidal", item))
+                .ToArray();
+        }
         Task radioSearch = Task.CompletedTask;
         Task<IReadOnlyList<MediaItem>> podcastSearch = Task.FromResult<IReadOnlyList<MediaItem>>([]);
         if (allServices || string.Equals(currentId, "radio", StringComparison.Ordinal))
@@ -9243,6 +9624,100 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : $"Następny odcinek: {nextItem.Title}");
     }
 
+    private void TidalOutput_DurationAvailable(object? sender, MediaDurationAvailableEventArgs e)
+    {
+        if (_playerViewActive
+            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+        {
+            UpdatePlayerView();
+        }
+        UpdatePlaybackStatusBar();
+    }
+
+    private void TidalOutput_PlaybackFailed(object? sender, MediaOutputFailedEventArgs e)
+    {
+        _sessions.FindSession("tidal")?.MarkPlaybackFailed(_tidalOutput.Position);
+        RefreshPlaybackIndicators();
+        if (_playerViewActive
+            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+        {
+            UpdatePlayerView(true);
+        }
+        UpdatePlaybackStatusBar();
+        UpdateWindowTitle();
+        QueueStateSave();
+        AnnounceEssential($"Nie można odtworzyć z TIDAL: {e.Item?.Title ?? "utwór"}. {e.Message}");
+    }
+
+    private void TidalOutput_PlaybackPreparing(object? sender, MediaPlaybackPreparingEventArgs e)
+    {
+        if (_playerViewActive
+            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+        {
+            UpdatePlayerView(true);
+        }
+        UpdatePlaybackStatusBar();
+        if (_state.Settings.Messages.LoadingMessages
+            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+        {
+            Announce(e.Item.Title);
+        }
+    }
+
+    private void TidalOutput_PlaybackStarted(object? sender, MediaPlaybackStartedEventArgs e)
+    {
+        var tidal = _sessions.FindSession("tidal");
+        if (tidal is not null
+            && string.Equals(tidal.CurrentItem.Id, e.Item.Id, StringComparison.Ordinal))
+        {
+            RecordPlayback(tidal, e.Item);
+        }
+        RefreshPlaybackIndicators();
+        if (_playerViewActive
+            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+        {
+            UpdatePlayerView(true);
+        }
+        UpdatePlaybackStatusBar();
+        UpdateWindowTitle();
+        QueueStateSave();
+    }
+
+    private void TidalOutput_PlaybackEnded(object? sender, MediaPlaybackEndedEventArgs e)
+    {
+        var tidal = _sessions.FindSession("tidal");
+        var nextItem = tidal?.ContinueAfterPlaybackEnded(e.Item);
+        if (tidal is not null) EnsureQueueOrder(tidal);
+        if (tidal is not null && nextItem is not null) RecordPlayback(tidal, nextItem);
+        if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+            && string.Equals(_currentView, "Kolejka", StringComparison.Ordinal))
+        {
+            var restoreListFocus = !_playerViewActive && MediaList.IsKeyboardFocusWithin;
+            var previousIndex = MediaList.SelectedIndex;
+            if (restoreListFocus) AnchorMediaListFocus();
+            RefreshCurrentView(previousIndex);
+            if (restoreListFocus) RestoreMediaListFocusAfterRefresh();
+        }
+        else
+        {
+            RefreshPlaybackIndicators();
+        }
+        if (_playerViewActive
+            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+        {
+            UpdatePlayerView(true);
+        }
+        UpdatePlaybackStatusBar();
+        UpdateWindowTitle();
+        QueueStateSave();
+        Announce(nextItem is null
+            ? $"Koniec: {e.Item.Title}"
+            : $"Następny utwór: {nextItem.Title}");
+    }
+
+    private void TidalOutput_PlaybackNotice(object? sender, TidalPlaybackNoticeEventArgs e) =>
+        AnnounceEssential(e.Message);
+
     private void RadioOutput_PlaybackPreparing(object? sender, MediaPlaybackPreparingEventArgs e)
     {
         if (_state.Settings.Messages.LoadingMessages)
@@ -9422,6 +9897,51 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string commandId,
         FolderContentsActionContext? folderContext)
     {
+        if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+            && commandId == CommandIds.ActivateSelected
+            && ActionItem?.ExternalId is { Length: > 0 })
+        {
+            if (ActionItem.Kind is MediaItemKind.Album or MediaItemKind.Playlist or MediaItemKind.Artist)
+            {
+                _ = OpenTidalContainerAsync(ActionItem);
+                return new CommandExecutionResult(true);
+            }
+        }
+        if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+            && commandId is CommandIds.ToggleFavorite or CommandIds.ToggleLibrary
+            && ActionItems.Any(item => item.ExternalId is { Length: > 0 }))
+        {
+            var items = ActionItems
+                .Where(item => item.ExternalId is { Length: > 0 })
+                .DistinctBy(item => item.Id, StringComparer.Ordinal)
+                .ToArray();
+            var favoritesCommand = commandId == CommandIds.ToggleFavorite;
+            var compatible = favoritesCommand
+                ? items.All(item => TidalCollectionSemantics.UsesFavorites(item.Kind))
+                : items.All(item => TidalCollectionSemantics.UsesLibrary(item.Kind));
+            if (!compatible)
+            {
+                Announce(favoritesCommand
+                    ? "Ctrl+Shift+U zmienia Ulubione dla pojedynczych utworów i materiałów wideo TIDAL"
+                    : "Ctrl+Shift+L zmienia Bibliotekę dla albumów, wykonawców i playlist TIDAL");
+                return new CommandExecutionResult(true);
+            }
+            var add = favoritesCommand
+                ? !items.All(item => item.IsFavorite)
+                : !items.All(item => item.IsInLibrary);
+            _ = ChangeTidalCollectionMembershipAsync(items, add);
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.GoToAlbum)
+        {
+            GoToRelatedAlbum();
+            return new CommandExecutionResult(true);
+        }
+        if (commandId == CommandIds.GoToArtist)
+        {
+            GoToRelatedArtist();
+            return new CommandExecutionResult(true);
+        }
         if (commandId == CommandIds.OpenOnWiiM)
         {
             _ = OpenCurrentItemOnWiiMAsync();
@@ -10366,6 +10886,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             currentNavigation.CurrentView = safeView;
             RestoreFilterForCurrentView(currentNavigation);
         }
+        if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+            && IsTidalContentsView(_currentView)
+            && !_tidalContainerViews.ContainsKey(_currentView))
+        {
+            // Container contents are an online cache. A persisted navigation
+            // location must not expose the raw technical view key after a new
+            // launch, before that cache has been fetched again.
+            _currentView = "Biblioteka";
+            currentNavigation.CurrentView = _currentView;
+            RestoreFilterForCurrentView(currentNavigation);
+        }
         preferredItemId ??= SelectedItem?.Id;
         UpdateFileMenuForCurrentSession();
         SessionHeading.Text = string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal)
@@ -10373,6 +10904,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : _sessions.Current.DisplayName;
         ViewHeading.Text = CurrentViewDisplayName();
         UpdateWindowTitle();
+        if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+            && _tidalContainerViews.TryGetValue(_currentView, out var tidalContainer))
+        {
+            IEnumerable<MediaItem> tidalItems = CurrentCollectionSortMode() == CollectionSortMode.Alphabetical
+                ? tidalContainer.Items
+                    .OrderBy(item => NavigationTextForItem(item), StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(item => item.Artist, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(item => item.Id, StringComparer.Ordinal)
+                : tidalContainer.Items;
+            _unfilteredItems = tidalItems
+                .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
+                .ToList();
+            ApplyFilter(preferredItemId, fallbackIndex);
+            return;
+        }
         if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
         {
             _unfilteredItems = _bookmarkIndex.GetForDisplay(
@@ -10549,7 +11096,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (string.Equals(_currentView, "Playlisty", StringComparison.Ordinal))
         {
-            _unfilteredItems = CreatePlaylistRows();
+            if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+            {
+                var playlists = _sessions.Current.Items
+                    .Where(item => item.Kind == MediaItemKind.Playlist && item.IsInLibrary)
+                    .DistinctBy(item => item.ExternalId ?? item.Id, StringComparer.Ordinal)
+                    .ToArray();
+                _unfilteredItems = OrderCurrentCollection(_sessions.Current, _currentView, playlists)
+                    .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
+                    .ToList();
+            }
+            else
+            {
+                _unfilteredItems = CreatePlaylistRows();
+            }
             ApplyFilter(preferredItemId, fallbackIndex);
             return;
         }
@@ -10619,13 +11179,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IEnumerable<MediaItem> items = _sessions.Current.Items;
         if (_currentView == "Ulubione")
         {
-            var favoriteItems = items.Where(item => item.IsFavorite).ToArray();
+            var favoriteItems = items.Where(item => item.IsFavorite
+                && (!string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+                    || TidalCollectionSemantics.UsesFavorites(item.Kind))).ToArray();
             items = OrderCurrentCollection(_sessions.Current, _currentView, favoriteItems);
         }
         if (_currentView == "Playlisty") items = items.Where(item => item.Kind == MediaItemKind.Playlist);
         if (_currentView == "Biblioteka")
         {
-            items = items.Where(item => item.IsInLibrary);
+            items = items.Where(item => item.IsInLibrary
+                && (!string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+                    || TidalCollectionSemantics.UsesLibrary(item.Kind)));
             if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
             {
                 items = items
@@ -10916,6 +11480,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private bool CurrentViewSupportsCollectionSorting() =>
         string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
+        || string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+           && (string.Equals(_currentView, "Playlisty", StringComparison.Ordinal)
+               || _tidalContainerViews.ContainsKey(_currentView))
         || string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
            && string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal)
         || string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal)
@@ -10924,6 +11491,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool CurrentViewUsesCustomCollectionOrder() =>
         CurrentViewSupportsCollectionSorting()
         && !string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal)
+        && (!_tidalContainerViews.TryGetValue(_currentView, out var tidalContainer)
+            || tidalContainer.Container.Kind == MediaItemKind.Playlist)
         && CurrentCollectionSortMode() == CollectionSortMode.Custom;
 
     private CollectionSortMode CurrentCollectionSortMode()
@@ -10942,6 +11511,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        if (mode == CollectionSortMode.Custom
+            && _tidalContainerViews.TryGetValue(_currentView, out var tidalContainer)
+            && tidalContainer.Container.Kind != MediaItemKind.Playlist)
+        {
+            Announce(tidalContainer.Container.Kind == MediaItemKind.Album
+                ? "Album zachowuje kolejność utworów wydania. Użyj Alt+1 albo Alt+2"
+                : "Ten widok TIDAL nie ma kolejności własnej. Użyj Alt+1 albo Alt+2");
+            return;
+        }
+
         var selectedId = SelectedItem?.Id;
         GetSessionNavigationState(_sessions.Current.Id).CollectionSortModes[_currentView] = mode;
         RefreshCurrentView(preferredItemId: selectedId);
@@ -10951,9 +11530,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             CollectionSortMode.Custom when string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal) =>
                 "Według podcastu",
             CollectionSortMode.Custom => "Kolejność własna",
+            _ when _tidalContainerViews.TryGetValue(_currentView, out var container) =>
+                container.Container.Kind == MediaItemKind.Album
+                    ? "Kolejność albumu"
+                    : container.Container.Kind == MediaItemKind.Playlist
+                        ? "Kolejność playlisty TIDAL"
+                        : "Kolejność TIDAL",
             _ => "Według dodania, najnowsze na początku"
         };
-        PrepareViewFocusContext($"{_currentView}, {label}, {_sessions.Current.DisplayName}");
+        // The changed property is the most useful part of this one-shot focus
+        // announcement.  Put it first so a screen reader does not make the user
+        // wait through the already known view and session before naming the new
+        // order selected with Alt+1, Alt+2 or Alt+3.
+        PrepareViewFocusContext($"{label}, {CurrentViewDisplayName()}, {_sessions.Current.DisplayName}");
         RestoreMediaListFocusAfterRefresh();
         if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
             TrySaveLocalMediaState(false);
@@ -10970,7 +11559,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return CurrentCollectionSortMode() switch
         {
             CollectionSortMode.Alphabetical => items
-                .OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
+                .OrderBy(item => NavigationTextForItem(item), StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(item => item.Artist, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(item => item.Id, StringComparer.Ordinal)
                 .ToArray(),
@@ -11005,12 +11595,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 : _state.CollectionOrders.LibraryAddedItemIdsBySession;
         }
 
+        var storageKey = CollectionOrderStorageKey(session.Id, viewName);
+        var preserveStoredOrder = string.Equals(session.Id, "tidal", StringComparison.OrdinalIgnoreCase)
+            && !_tidalCollectionOrderSnapshotComplete;
         var normalized = LocalLibraryManualOrder.Normalize(
-            orders.GetValueOrDefault(session.Id),
-            items);
-        orders[session.Id] = normalized;
+            orders.GetValueOrDefault(storageKey),
+            items,
+            preserveUnknownItems: preserveStoredOrder);
+        // A cached queue or a partly synchronized remote catalogue is not a
+        // complete collection snapshot. Never let it prune the durable order.
+        if (!preserveStoredOrder) orders[storageKey] = normalized;
         return normalized;
     }
+
+    private static string CollectionOrderStorageKey(string sessionId, string viewName) =>
+        viewName is "Biblioteka" or "Ulubione"
+            ? sessionId
+            : $"{sessionId}|{viewName}";
 
     private void UpdateCollectionAddedOrders(
         DemoMediaSession session,
@@ -11133,10 +11734,43 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var items = (queueItems ?? session.Items.Where(item => item.IsInQueue || item.IsPlayNext)).ToArray();
         var stored = _state.CollectionOrders.QueueItemIdsBySession.GetValueOrDefault(session.Id);
-        var normalized = LocalLibraryManualOrder.Normalize(stored, items);
-        _state.CollectionOrders.QueueItemIdsBySession[session.Id] = normalized;
-        session.SetQueueOrder(normalized);
-        return normalized;
+        var snapshot = TransientQueuePersistence.Capture(session.Id, items, stored);
+        _state.CollectionOrders.QueueItemIdsBySession[session.Id] = snapshot.StorageOrder.ToList();
+        _state.CollectionOrders.QueueRegularItemIdsBySession[session.Id] = snapshot.RegularItemIds.ToList();
+        _state.CollectionOrders.QueuePlayNextItemIdsBySession[session.Id] = snapshot.PlayNextItemIds.ToList();
+        if (string.Equals(session.Id, "tidal", StringComparison.OrdinalIgnoreCase))
+        {
+            var queuedItems = items
+                .Where(item => item.IsInQueue || item.IsPlayNext)
+                .GroupBy(
+                    item => TransientQueuePersistence.StorageItemId(session.Id, item),
+                    StringComparer.Ordinal)
+                .Select(group => group.FirstOrDefault(item =>
+                        string.Equals(item.Id, group.Key, StringComparison.Ordinal))
+                    ?? group.First())
+                .Select(item => RemoteQueueItemSettings.FromMediaItem(session.Id, item))
+                .ToList();
+            if (queuedItems.Count == 0)
+            {
+                _state.RemoteQueues.ItemsBySession.Remove(session.Id);
+            }
+            else
+            {
+                _state.RemoteQueues.ItemsBySession[session.Id] = queuedItems;
+            }
+        }
+        session.SetQueueOrder(snapshot.RuntimeOrder);
+        return snapshot.RuntimeOrder.ToList();
+    }
+
+    private void RestorePersistedQueueMembership(string sessionId, IReadOnlyList<MediaItem> items)
+    {
+        TransientQueuePersistence.Restore(
+            sessionId,
+            items,
+            _state.CollectionOrders.QueueItemIdsBySession.GetValueOrDefault(sessionId),
+            _state.CollectionOrders.QueueRegularItemIdsBySession.GetValueOrDefault(sessionId),
+            _state.CollectionOrders.QueuePlayNextItemIdsBySession.GetValueOrDefault(sessionId));
     }
 
     private IReadOnlyList<MediaItem> OrderedQueueItems(DemoMediaSession session)
@@ -11175,6 +11809,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void MoveLocalLibrarySelection(int direction)
     {
+        if (!_playerViewActive
+            && CurrentCollectionSortMode() == CollectionSortMode.Custom
+            && _tidalContainerViews.TryGetValue(_currentView, out var tidalPlaylist)
+            && tidalPlaylist.Container.Kind == MediaItemKind.Playlist)
+        {
+            _ = MoveTidalPlaylistSelectionAsync(direction, tidalPlaylist);
+            return;
+        }
+
         var isCustomLocalOrder = !_playerViewActive
             && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
             && string.Equals(_currentView, CustomLocalOrderViewName, StringComparison.Ordinal);
@@ -11182,9 +11825,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
             && CurrentCollectionSortMode() == CollectionSortMode.Custom;
         var isCustomLibraryOrder = !_playerViewActive
-            && string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal)
-            && !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
-            && CurrentCollectionSortMode() == CollectionSortMode.Custom;
+            && !isFavoriteOrder
+            && CurrentViewUsesCustomCollectionOrder()
+            && !_tidalContainerViews.ContainsKey(_currentView);
         var isQueueOrder = !_playerViewActive
             && string.Equals(_currentView, "Kolejka", StringComparison.Ordinal);
         var playlistId = string.Empty;
@@ -11780,6 +12423,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ExecuteCommand(CommandIds.OpenOnWiiM);
             return;
         }
+        if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+            && item.ExternalId is { Length: > 0 })
+        {
+            if (item.Kind is MediaItemKind.Album or MediaItemKind.Playlist or MediaItemKind.Artist)
+            {
+                _ = OpenTidalContainerAsync(item);
+                return;
+            }
+        }
         if (item.Kind == MediaItemKind.Podcast)
         {
             OpenPodcast(item.Id, item.Title);
@@ -11843,6 +12495,342 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PrepareViewFocusContext($"Playlista, {playlistName}");
         RestoreMediaListFocusAfterRefresh();
     }
+
+    private async Task MoveTidalPlaylistSelectionAsync(
+        int direction,
+        TidalContainerViewState playlistView)
+    {
+        if (!string.IsNullOrWhiteSpace(FilterBox.Text))
+        {
+            Announce("Wyczyść filtr klawiszem Escape przed zmianą kolejności playlisty");
+            return;
+        }
+        var selectedIds = MediaList.SelectedItems
+            .OfType<MediaItemRow>()
+            .Select(row => row.ActionItem.Id)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (selectedIds.Length == 0)
+        {
+            Announce("Wybierz element playlisty do przeniesienia");
+            return;
+        }
+        if (selectedIds.Length > 20)
+        {
+            Announce("Jednocześnie można przenieść najwyżej 20 elementów playlisty TIDAL");
+            return;
+        }
+
+        var selectedSet = selectedIds.ToHashSet(StringComparer.Ordinal);
+        var indices = playlistView.Items
+            .Select((item, index) => (item, index))
+            .Where(entry => selectedSet.Contains(entry.item.Id))
+            .Select(entry => entry.index)
+            .ToArray();
+        if (indices.Length != selectedIds.Length
+            || indices.Zip(indices.Skip(1), (left, right) => right == left + 1).Any(contiguous => !contiguous))
+        {
+            Announce("Do wspólnego przeniesienia zaznacz ciągły blok elementów");
+            return;
+        }
+        if (direction < 0 && indices[0] == 0
+            || direction > 0 && indices[^1] == playlistView.Items.Count - 1)
+        {
+            Announce(direction < 0 ? "To początek tej playlisty" : "To koniec tej playlisty");
+            return;
+        }
+
+        var originalView = _currentView;
+        IReadOnlyList<MediaItem> itemsToMove;
+        MediaItem adjacentItem;
+        string? positionBefore;
+        if (direction < 0)
+        {
+            itemsToMove = indices.Select(index => playlistView.Items[index]).ToArray();
+            adjacentItem = playlistView.Items[indices[0] - 1];
+            positionBefore = adjacentItem.ContainerEntryId;
+        }
+        else if (indices[^1] + 2 < playlistView.Items.Count)
+        {
+            itemsToMove = indices.Select(index => playlistView.Items[index]).ToArray();
+            adjacentItem = playlistView.Items[indices[^1] + 1];
+            positionBefore = playlistView.Items[indices[^1] + 2].ContainerEntryId;
+        }
+        else
+        {
+            // JSON:API moves resources before another occurrence. Moving the
+            // following item before this block is the stable way to move a
+            // block down when it should become the end of the playlist.
+            adjacentItem = playlistView.Items[indices[^1] + 1];
+            itemsToMove = [adjacentItem];
+            positionBefore = playlistView.Items[indices[0]].ContainerEntryId;
+        }
+        if (string.IsNullOrWhiteSpace(positionBefore))
+        {
+            Announce("TIDAL nie przekazał danych potrzebnych do zmiany kolejności tej playlisty");
+            return;
+        }
+
+        try
+        {
+            var refreshed = await _tidalIntegration.ReorderPlaylistItemsAsync(
+                playlistView.Container,
+                itemsToMove,
+                positionBefore,
+                _tidalCancellation.Token);
+            if (_isClosing) return;
+            _tidalContainerViews[originalView] = new TidalContainerViewState(
+                playlistView.Container,
+                refreshed);
+            if (!string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+                || !string.Equals(_currentView, originalView, StringComparison.Ordinal))
+            {
+                return;
+            }
+            RefreshCurrentView(preferredItemId: selectedIds[0]);
+            SelectMediaItems(selectedIds);
+            var movedLabel = selectedIds.Length == 1
+                ? "Przeniesiono"
+                : $"Przeniesiono {FormatItemCount(selectedIds.Length)}";
+            PrepareSelectedItemFocusContext(
+                $"{movedLabel} {(direction < 0 ? "w górę, nad" : "w dół, pod")} {adjacentItem.Title}");
+            RestoreMediaListFocusAfterRefresh();
+        }
+        catch (OperationCanceledException) when (_tidalCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error("tidal-playlist-order", "Nie zmieniono kolejności playlisty TIDAL.", exception);
+            if (!_isClosing)
+            {
+                Announce($"Nie zmieniono kolejności playlisty TIDAL. {exception.Message}");
+                RestoreMediaListFocusAfterRefresh();
+            }
+        }
+    }
+
+    private async Task OpenTidalContainerAsync(MediaItem container)
+    {
+        if (container.ExternalId is not { Length: > 0 }) return;
+        var sourceView = _currentView;
+        var sourceItemId = SelectedItem?.Id;
+        var label = TidalContainerLabel(container.Kind);
+        try
+        {
+            var loadTask = _tidalIntegration.GetContainerItemsAsync(
+                container,
+                _tidalCancellation.Token);
+            var progressDelay = Task.Delay(TimeSpan.FromMilliseconds(1400), _tidalCancellation.Token);
+            if (await Task.WhenAny(loadTask, progressDelay) == progressDelay
+                && !_tidalCancellation.IsCancellationRequested
+                && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+                && string.Equals(_currentView, sourceView, StringComparison.Ordinal)
+                && (sourceItemId is null
+                    || string.Equals(SelectedItem?.Id, sourceItemId, StringComparison.Ordinal)))
+            {
+                Announce($"Wczytywanie {label.ToLower(CultureInfo.CurrentCulture)}: {container.Title}");
+            }
+            var items = await loadTask;
+            if (_isClosing) return;
+
+            foreach (var item in items)
+            {
+                if (container.Kind == MediaItemKind.Album
+                    && item.Kind is MediaItemKind.Track or MediaItemKind.Video)
+                {
+                    item.RelatedAlbumExternalId = container.ExternalId;
+                    item.RelatedAlbumTitle = container.Title;
+                }
+                if (container.Kind == MediaItemKind.Artist
+                    && item.Kind == MediaItemKind.Album)
+                {
+                    item.RelatedArtistExternalId = container.ExternalId;
+                    item.RelatedArtistName = container.Title;
+                }
+            }
+
+            var viewName = TidalContentsView(container);
+            _tidalContainerViews[viewName] = new TidalContainerViewState(container, items);
+            _sessions.FindSession("tidal")?.AddItemsById(items);
+
+            // A slow network response must not pull the focus away after the
+            // user has meanwhile changed the session, view or selection.
+            if (!string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+                || !string.Equals(_currentView, sourceView, StringComparison.Ordinal)
+                || sourceItemId is not null
+                    && !string.Equals(SelectedItem?.Id, sourceItemId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (items.Count == 0)
+            {
+                Announce($"{label} {container.Title} nie zawiera dostępnych elementów");
+                return;
+            }
+
+            NavigateTo(viewName);
+            PrepareViewFocusContext($"{label}, {container.Title}");
+            RestoreMediaListFocusAfterRefresh();
+        }
+        catch (OperationCanceledException) when (_tidalCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error("tidal-container", $"Nie otwarto elementu {container.ExternalId}.", exception);
+            if (!_isClosing)
+            {
+                Announce($"Nie udało się otworzyć: {label}, {container.Title}. {exception.Message}");
+                RestoreMediaListFocusAfterRefresh();
+            }
+        }
+    }
+
+    private async Task ChangeTidalCollectionMembershipAsync(
+        IReadOnlyList<MediaItem> items,
+        bool add)
+    {
+        try
+        {
+            var result = await _tidalIntegration.ChangeCollectionMembershipAsync(
+                items,
+                add,
+                _tidalCancellation.Token);
+            if (_isClosing) return;
+            ApplyTidalItems(result.Items);
+            QueueStateSave();
+            var subject = items.Count == 1
+                ? items[0].Title
+                : FormatItemCount(items.Count);
+            var warning = result.Warnings.Count == 0
+                ? string.Empty
+                : $". {string.Join("; ", result.Warnings)}";
+            var collectionName = items.All(item => TidalCollectionSemantics.UsesFavorites(item.Kind))
+                ? "Ulubionych TIDAL"
+                : "Biblioteki TIDAL";
+            var announcement = add
+                ? $"Dodano do {collectionName}: {subject}{warning}"
+                : $"Usunięto z {collectionName}: {subject}{warning}";
+            if (_activeSearchWindow is { IsVisible: true } searchWindow)
+            {
+                searchWindow.AnnounceActionCompletion(announcement);
+            }
+            else
+            {
+                Announce(announcement);
+            }
+        }
+        catch (OperationCanceledException) when (_tidalCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error("tidal-collection", "Nie zmieniono kolekcji TIDAL.", exception);
+            if (!_isClosing)
+            {
+                Announce($"Nie zmieniono kolekcji TIDAL. {exception.Message}");
+                RestoreMediaListFocusAfterRefresh();
+            }
+        }
+    }
+
+    private async Task RemoveSelectedTidalPlaylistItemsAsync()
+    {
+        if (!_tidalContainerViews.TryGetValue(_currentView, out var playlistView)
+            || playlistView.Container.Kind != MediaItemKind.Playlist)
+        {
+            return;
+        }
+        var selected = MediaList.SelectedItems
+            .OfType<MediaItemRow>()
+            .Select(row => row.ActionItem)
+            .Where(item => item.ContainerEntryId is { Length: > 0 })
+            .DistinctBy(item => item.Id, StringComparer.Ordinal)
+            .ToArray();
+        if (selected.Length == 0)
+        {
+            Announce("Brak elementu do usunięcia z playlisty TIDAL");
+            return;
+        }
+
+        var originalView = _currentView;
+        var previousIndex = MediaList.SelectedIndex;
+        try
+        {
+            var refreshed = await _tidalIntegration.RemovePlaylistItemsAsync(
+                playlistView.Container,
+                selected,
+                _tidalCancellation.Token);
+            if (_isClosing) return;
+            UpdateTidalContainerCache(playlistView.Container, refreshed);
+            if (!string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+                || !string.Equals(_currentView, originalView, StringComparison.Ordinal))
+            {
+                return;
+            }
+            RefreshCurrentView(previousIndex);
+            PrepareViewFocusContext(selected.Length == 1
+                ? "Usunięto element z playlisty TIDAL"
+                : $"Usunięto z playlisty TIDAL: {FormatItemCount(selected.Length)}");
+            RestoreMediaListFocusAfterRefresh();
+        }
+        catch (OperationCanceledException) when (_tidalCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error("tidal-playlist-remove", "Nie usunięto elementów playlisty TIDAL.", exception);
+            if (!_isClosing)
+            {
+                Announce($"Nie usunięto z playlisty TIDAL. {exception.Message}");
+                RestoreMediaListFocusAfterRefresh();
+            }
+        }
+    }
+
+    private void UpdateTidalContainerCache(
+        MediaItem container,
+        IReadOnlyList<MediaItem> items)
+    {
+        var matchingViews = _tidalContainerViews
+            .Where(entry => string.Equals(
+                entry.Value.Container.ExternalId,
+                container.ExternalId,
+                StringComparison.Ordinal))
+            .Select(entry => entry.Key)
+            .ToArray();
+        foreach (var viewName in matchingViews)
+        {
+            _tidalContainerViews[viewName] = new TidalContainerViewState(container, items);
+        }
+
+        if (_sessions.FindSession("tidal") is { } tidalSession)
+        {
+            var replacementItems = _tidalItems.Concat(
+                    _tidalContainerViews.Values.SelectMany(view => view.Items))
+                .DistinctBy(item => item.Id, StringComparer.Ordinal)
+                .ToArray();
+            RestorePersistedQueueMembership(tidalSession.Id, replacementItems);
+            tidalSession.ReplaceItems(replacementItems);
+            EnsureQueueOrder(tidalSession);
+        }
+    }
+
+    private static string TidalContentsView(MediaItem container) =>
+        $"{TidalContentsViewPrefix}{container.ExternalId}";
+
+    private static bool IsTidalContentsView(string viewName) =>
+        viewName.StartsWith(TidalContentsViewPrefix, StringComparison.Ordinal);
+
+    private static string TidalContainerLabel(MediaItemKind kind) => kind switch
+    {
+        MediaItemKind.Album => "Album TIDAL",
+        MediaItemKind.Playlist => "Playlista TIDAL",
+        MediaItemKind.Artist => "Wykonawca TIDAL",
+        _ => "Element TIDAL"
+    };
 
     private bool TryResolveSelectedPlaylistContents(out PlaylistContentsActionContext context)
     {
@@ -11945,8 +12933,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             album.Tracks.Any(track => string.Equals(track.Id, item.Id, StringComparison.Ordinal)));
     }
 
-    private void GoToRelatedAlbum()
+    public void GoToRelatedAlbum()
     {
+        if (string.Equals(ActionSession.Id, "tidal", StringComparison.Ordinal))
+        {
+            if (ActionItem is { Kind: MediaItemKind.Artist, ExternalId: { Length: > 0 } } artist)
+            {
+                _ = OpenTidalContainerAsync(artist);
+                return;
+            }
+            if (CreateRelatedTidalContainer(ActionItem, MediaItemKind.Album) is { } tidalAlbum)
+            {
+                _ = OpenTidalContainerAsync(tidalAlbum);
+                return;
+            }
+            Announce("Dla tego elementu TIDAL nie znaleziono powiązanego albumu");
+            return;
+        }
         var album = FindRelatedLocalAlbum(ActionItem);
         if (album is null)
         {
@@ -11956,8 +12959,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         OpenLocalAlbum(album.FolderPath, album.Title);
     }
 
-    private void GoToRelatedArtist()
+    public void GoToRelatedArtist()
     {
+        if (string.Equals(ActionSession.Id, "tidal", StringComparison.Ordinal))
+        {
+            if (CreateRelatedTidalContainer(ActionItem, MediaItemKind.Artist) is { } tidalArtist)
+            {
+                _ = OpenTidalContainerAsync(tidalArtist);
+                return;
+            }
+            Announce("Dla tego elementu TIDAL nie znaleziono powiązanego wykonawcy");
+            return;
+        }
         var album = FindRelatedLocalAlbum(ActionItem);
         var artistFolder = album is null || string.IsNullOrWhiteSpace(album.Artist)
             ? null
@@ -12119,6 +13132,30 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(_currentView, BookmarkViewName, StringComparison.Ordinal))
         {
             RemoveSelectedBookmarks();
+            return;
+        }
+        if (IsTidalPlaylistContentsView())
+        {
+            _ = RemoveSelectedTidalPlaylistItemsAsync();
+            return;
+        }
+        if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+            && (_currentView is "Biblioteka" or "Ulubione" or "Albumy" or "Playlisty"
+                || IsTidalContentsView(_currentView)))
+        {
+            var tidalItems = MediaList.SelectedItems
+                .OfType<MediaItemRow>()
+                .Select(row => row.ActionItem)
+                .Where(item => item.ExternalId is { Length: > 0 }
+                    && TidalCollectionSemantics.IsMember(item))
+                .DistinctBy(item => item.ExternalId, StringComparer.Ordinal)
+                .ToArray();
+            if (tidalItems.Length == 0)
+            {
+                Announce("Wybrany element nie należy do kolekcji TIDAL");
+                return;
+            }
+            _ = ChangeTidalCollectionMembershipAsync(tidalItems, add: false);
             return;
         }
         if (string.Equals(_currentView, "Playlisty", StringComparison.Ordinal)
@@ -14714,18 +15751,43 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private string FormatItem(MediaItem item, bool includeKind)
     {
-        var configuredFields = (includeKind
-            ? _state.Settings.Lists.FieldOrder
-            : _state.Settings.Lists.FieldOrder.Where(field => field != MediaItemField.Kind))
-            .ToArray();
-        var fields = item.Kind is MediaItemKind.Podcast or MediaItemKind.Episode
-            ? new[] { MediaItemField.Title }
-                .Concat(configuredFields.Where(field => field != MediaItemField.Title))
-            : configuredFields;
+        var fields = ConfiguredFieldsForItem(item, includeKind);
         var label = MediaItemFormatter.Format(item, fields);
         return RadioRecordingStateLabel(item) is { } recordingState
             ? $"{label}, {recordingState}"
             : label;
+    }
+
+    private IReadOnlyList<MediaItemField> ConfiguredFieldsForItem(MediaItem item, bool includeKind)
+    {
+        var configuredFields = (includeKind
+            ? _state.Settings.Lists.FieldOrder
+            : _state.Settings.Lists.FieldOrder.Where(field => field != MediaItemField.Kind))
+            .ToArray();
+        if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+            && _tidalContainerViews.TryGetValue(_currentView, out var tidalContainer))
+        {
+            configuredFields = TidalNavigationPolicy.OrderFieldsForContainer(
+                    tidalContainer.Container.Kind,
+                    item.Kind,
+                    configuredFields)
+                .ToArray();
+        }
+        return item.Kind is MediaItemKind.Podcast or MediaItemKind.Episode
+            ? new[] { MediaItemField.Title }
+                .Concat(configuredFields.Where(field => field != MediaItemField.Title))
+                .ToArray()
+            : configuredFields;
+    }
+
+    private string NavigationTextForItem(MediaItem item, bool includeKind = true)
+    {
+        var configuredFields = ConfiguredFieldsForItem(item, includeKind);
+        // Nawigacja literowa podąża za pierwszą czytaną informacją
+        // identyfikującą element, ale nigdy za rodzajem, usługą, czasem ani
+        // stanem. Układ „wykonawca, tytuł” szuka więc po wykonawcy, a układ
+        // „tytuł, wykonawca” po tytule.
+        return MediaItemFormatter.GetNavigationText(item, configuredFields);
     }
 
     private string? RadioRecordingStateLabel(MediaItem item)
@@ -14891,9 +15953,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var items = _sessions.Current.Items
             .Where(item => item.IsInQueue || item.IsPlayNext)
             .ToArray();
-        var playNextCount = items.Count(item => item.IsPlayNext);
-        var regularCount = items.Length - playNextCount;
-        return $"Kolejka, jako następne {playNextCount}, pozostałe {regularCount}";
+        return PlaylistPresentation.BuildQueueLabel(items);
     }
 
     private string FormatListItem(MediaItem item)
@@ -14982,7 +16042,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AutomationProperties.SetName(this, Title);
     }
 
-    private string CurrentViewDisplayName() =>
+    private string CurrentViewDisplayName()
+    {
+        if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+            && _tidalContainerViews.TryGetValue(_currentView, out var tidalView))
+        {
+            return $"{TidalContainerLabel(tidalView.Container.Kind)} — {tidalView.Container.Title}";
+        }
+        return BaseCurrentViewDisplayName();
+    }
+
+    private string BaseCurrentViewDisplayName() =>
         string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
         && string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal)
             ? "Wszystkie stacje"
@@ -15022,6 +16092,47 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreMediaListFocusAfterRefresh();
     }
 
+    private static MediaItem? CreateRelatedTidalContainer(MediaItem? item, MediaItemKind kind)
+    {
+        if (item is null || kind is not (MediaItemKind.Album or MediaItemKind.Artist)) return null;
+        var externalId = kind == MediaItemKind.Album
+            ? item.RelatedAlbumExternalId
+            : item.RelatedArtistExternalId;
+        if (string.IsNullOrWhiteSpace(externalId) || item.Kind == kind) return null;
+        var title = kind == MediaItemKind.Album
+            ? item.RelatedAlbumTitle
+            : item.RelatedArtistName;
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            title = kind == MediaItemKind.Album ? "Powiązany album" : item.Artist;
+        }
+        return new MediaItem
+        {
+            Id = $"tidal:{externalId}",
+            ExternalId = externalId,
+            Title = string.IsNullOrWhiteSpace(title)
+                ? kind == MediaItemKind.Album ? "Powiązany album" : "Powiązany wykonawca"
+                : title,
+            Artist = kind == MediaItemKind.Artist ? string.Empty : item.Artist,
+            Kind = kind,
+            Source = $"tidal:{externalId}"
+        };
+    }
+
+    private bool CanGoToRelatedAlbum(MediaItem? item) =>
+        FindRelatedLocalAlbum(item) is not null
+        || item is not null
+           && (TidalNavigationPolicy.CanOpenRelatedAlbum(item)
+               || TidalNavigationPolicy.CanShowArtistAlbums(item));
+
+    private bool CanGoToRelatedArtist(MediaItem? item)
+    {
+        var localAlbum = FindRelatedLocalAlbum(item);
+        return localAlbum is not null && !string.IsNullOrWhiteSpace(localAlbum.Artist)
+            || item is not null
+               && TidalNavigationPolicy.CanOpenRelatedArtist(item);
+    }
+
     public void ShowWiiMDeviceManager()
     {
         var returnToPlayer = _playerViewActive
@@ -15051,6 +16162,152 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             RestoreMediaListFocusAfterRefresh();
         }
+    }
+
+    public void ShowTidalAccountManager()
+    {
+        var dialog = new TidalAccountWindow(_state.Tidal, _tidalIntegration)
+        {
+            Owner = this
+        };
+        dialog.SettingsApplied += (_, _) => QueueStateSave(announceFailure: true);
+        dialog.ShowDialog();
+        if (dialog.SynchronizedItems is { } synchronizedItems)
+        {
+            ApplyTidalItems(synchronizedItems, dialog.SynchronizedCatalogComplete);
+        }
+        else if (dialog.Disconnected)
+        {
+            _tidalCatalogSynchronized = false;
+            _tidalCollectionOrderSnapshotComplete = false;
+            _tidalItems.Clear();
+            _state.Tidal.CachedCollectionItems.Clear();
+            _sessions.FindSession("tidal")?.ReplaceItems(
+                SessionManager.CreateDemonstrationItems("tidal"));
+            if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+                RefreshCurrentView();
+        }
+        if (dialog.Changed) QueueStateSave(announceFailure: true);
+        RestoreMediaListFocusAfterRefresh();
+        if (!string.IsNullOrWhiteSpace(dialog.CompletionAnnouncement))
+        {
+            Dispatcher.BeginInvoke(
+                () => Announce(dialog.CompletionAnnouncement),
+                DispatcherPriority.ContextIdle);
+        }
+    }
+
+    private async Task RefreshTidalSessionAsync(bool announceResult)
+    {
+        try
+        {
+            var result = await _tidalIntegration.SynchronizeAsync(_tidalCancellation.Token);
+            if (_isClosing) return;
+            ApplyTidalItems(result.Items, result.IsComplete);
+            QueueStateSave();
+            if (announceResult)
+            {
+                Announce(result.Warnings.Count == 0
+                    ? $"Zsynchronizowano TIDAL: {result.Items.Count} elementów"
+                    : $"Zsynchronizowano TIDAL częściowo: {result.Items.Count} elementów. {string.Join("; ", result.Warnings)}");
+            }
+        }
+        catch (OperationCanceledException) when (_tidalCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error("tidal-sync", "Automatyczna synchronizacja TIDAL nie powiodła się.", exception);
+            if (announceResult) Announce(exception.Message);
+        }
+    }
+
+    private void ApplyTidalItems(
+        IReadOnlyList<MediaItem> items,
+        bool? collectionOrderSnapshotComplete = null)
+    {
+        var session = _sessions.FindSession("tidal");
+        var retainedQueuedItems = _tidalCatalogSynchronized && session is not null
+            ? session.Items
+            .Where(item => item.IsInQueue || item.IsPlayNext)
+            .ToArray()
+            : [];
+        var persistedQueuedItems = _state.RemoteQueues.ItemsBySession
+            .GetValueOrDefault("tidal")?
+            .Select(item => item.ToMediaItem())
+            .ToArray() ?? [];
+        _tidalItems.Clear();
+        _tidalItems.AddRange(items.DistinctBy(item => item.Id, StringComparer.Ordinal));
+        _state.Tidal.CachedCollectionItems = _tidalItems
+            .Where(item => TidalCollectionSemantics.IsCollectionKind(item.Kind))
+            .Select(TidalCachedCollectionItemSettings.FromMediaItem)
+            .ToList();
+        if (collectionOrderSnapshotComplete is { } complete)
+            _tidalCollectionOrderSnapshotComplete = complete;
+        if (_tidalCollectionOrderSnapshotComplete)
+            RestoreTidalAddedOrdersFromServiceMetadata(_tidalItems);
+        var collectionExternalIds = _tidalItems
+            .Where(item => item.ExternalId is { Length: > 0 })
+            .Select(item => item.ExternalId!)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var cachedItem in _tidalContainerViews.Values.SelectMany(view => view.Items))
+        {
+            var isInCollection = cachedItem.ExternalId is { Length: > 0 } externalId
+                && collectionExternalIds.Contains(externalId);
+            TidalCollectionSemantics.ApplyMembership(cachedItem, isInCollection);
+        }
+        foreach (var queuedItem in retainedQueuedItems)
+        {
+            var isInCollection = queuedItem.ExternalId is { Length: > 0 } externalId
+                && collectionExternalIds.Contains(externalId);
+            TidalCollectionSemantics.ApplyMembership(queuedItem, isInCollection);
+        }
+        _tidalCatalogSynchronized = true;
+        if (session is null) return;
+        var selectedId = string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+            ? SelectedItem?.Id
+            : null;
+        var liveItems = _tidalItems.Concat(
+                _tidalContainerViews.Values.SelectMany(view => view.Items))
+            .Concat(retainedQueuedItems)
+            .DistinctBy(item => item.Id, StringComparer.Ordinal)
+            .ToArray();
+        var liveStorageIds = liveItems
+            .Select(item => TransientQueuePersistence.StorageItemId(session.Id, item))
+            .ToHashSet(StringComparer.Ordinal);
+        var replacementItems = liveItems.Concat(persistedQueuedItems.Where(item =>
+                !liveStorageIds.Contains(TransientQueuePersistence.StorageItemId(session.Id, item))))
+            .DistinctBy(item => item.Id, StringComparer.Ordinal)
+            .ToArray();
+        RestorePersistedQueueMembership(session.Id, replacementItems);
+        session.ReplaceItems(replacementItems);
+        EnsureQueueOrder(session);
+        if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+            && _activeSearchWindow is not { IsVisible: true })
+        {
+            RefreshCurrentView(preferredItemId: selectedId);
+        }
+    }
+
+    private void RestoreTidalAddedOrdersFromServiceMetadata(IReadOnlyList<MediaItem> items)
+    {
+        RestoreTidalAddedOrder(
+            _state.CollectionOrders.LibraryAddedItemIdsBySession,
+            items.Where(item => item.IsInLibrary).ToArray());
+        RestoreTidalAddedOrder(
+            _state.CollectionOrders.FavoriteAddedItemIdsBySession,
+            items.Where(item => item.IsFavorite).ToArray());
+    }
+
+    private static void RestoreTidalAddedOrder(
+        IDictionary<string, List<string>> orders,
+        IReadOnlyList<MediaItem> items)
+    {
+        orders.TryGetValue("tidal", out var priorOrder);
+        var restored = TidalCollectionAddedOrder.Rebuild(
+            items,
+            priorOrder);
+        if (restored is not null) orders["tidal"] = restored.ToList();
     }
 
     public async void RefreshWiiMDevices()
@@ -17583,9 +18840,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.None && key == Key.Delete)
             description = "usuń zaznaczone elementy tylko z bieżącego widoku";
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.None && key == Key.Left)
-            description = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
-                ? "oznajmia wielkość i bitrate pliku"
-                : "oznajmia bitrate i inne dostępne parametry elementu";
+            description = "oznajmia format, bitrate, wielkość i inne dostępne parametry elementu";
+        else if (MediaList.IsKeyboardFocusWithin
+                 && modifiers == ModifierKeys.None
+                 && key == Key.Right
+                 && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+            description = "otwiera menu przejścia do albumu lub wykonawcy TIDAL";
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.None && key is Key.Up or Key.Down)
             description = "przejdź do poprzedniego lub następnego elementu listy";
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.Shift && key is Key.Up or Key.Down)
@@ -17595,7 +18855,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (MediaList.IsKeyboardFocusWithin
                  && modifiers == ModifierKeys.None
                  && key == Key.Insert
-                 && string.Equals(_currentView, "Playlisty", StringComparison.Ordinal))
+                 && string.Equals(_currentView, "Playlisty", StringComparison.Ordinal)
+                 && !string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
             description = "utwórz playlistę";
         else if (MediaList.IsKeyboardFocusWithin
                  && modifiers == ModifierKeys.None
@@ -17631,6 +18892,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var needsItem = commandId is CommandIds.ActivateSelected or CommandIds.ToggleFavorite
             or CommandIds.ToggleLibrary or CommandIds.AddQueue or CommandIds.TogglePlayNext
             or CommandIds.ItemProperties or CommandIds.ItemPlaybackOptions
+            or CommandIds.GoToAlbum or CommandIds.GoToArtist
             or CommandIds.AddRadioSchedule
             or CommandIds.AddBookmark or CommandIds.AddNamedBookmark
             or CommandIds.PreviousBookmark or CommandIds.NextBookmark;
@@ -17724,6 +18986,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ExecuteCommand(CommandIds.ManageWiiMDevices);
             else if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
                 ExecuteCommand(CommandIds.RefreshPodcastLibrary);
+            else if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+                ExecuteCommand(CommandIds.ManageTidalConnection);
             else
                 Announce("Ctrl+F5 nie ma polecenia w bieżącej sesji");
             return true;
@@ -17787,7 +19051,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (MediaList.IsKeyboardFocusWithin
             && Keyboard.Modifiers == ModifierKeys.None
             && key == Key.Insert
-            && string.Equals(_currentView, "Playlisty", StringComparison.Ordinal))
+            && string.Equals(_currentView, "Playlisty", StringComparison.Ordinal)
+            && !string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
         {
             CreatePlaylist();
             return true;
@@ -18837,6 +20102,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             e.Handled = true;
             return;
         }
+        if (Keyboard.Modifiers == ModifierKeys.None
+            && key == Key.Right
+            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+            && SelectedItem is { } tidalItem)
+        {
+            ShowTidalRelationsMenu(tidalItem);
+            e.Handled = true;
+            return;
+        }
 
         if (Keyboard.Modifiers is not (ModifierKeys.None or ModifierKeys.Shift)) return;
 
@@ -18850,6 +20124,51 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         RunTypeAhead(text);
         e.Handled = true;
+    }
+
+    private void ShowTidalRelationsMenu(MediaItem item)
+    {
+        var actions = new List<(string Label, string CommandId)>();
+        if (TidalNavigationPolicy.CanOpenRelatedAlbum(item))
+            actions.Add(("Przejdź do albumu", CommandIds.GoToAlbum));
+        if (TidalNavigationPolicy.CanShowArtistAlbums(item))
+            actions.Add(("Pokaż albumy wykonawcy", CommandIds.GoToAlbum));
+        if (TidalNavigationPolicy.CanOpenRelatedArtist(item))
+            actions.Add(("Przejdź do wykonawcy", CommandIds.GoToArtist));
+        if (actions.Count == 0)
+        {
+            Announce("Ten element nie ma dostępnego albumu ani wykonawcy nadrzędnego");
+            return;
+        }
+
+        var menu = new ContextMenu
+        {
+            PlacementTarget = MediaList,
+            Placement = System.Windows.Controls.Primitives.PlacementMode.Relative,
+            HorizontalOffset = 24,
+            VerticalOffset = Math.Max(0, MediaList.ActualHeight / 3)
+        };
+        AutomationProperties.SetName(menu, "Powiązania TIDAL");
+        foreach (var (label, commandId) in actions)
+        {
+            var menuItem = new MenuItem { Header = label };
+            AutomationProperties.SetName(menuItem, label);
+            menuItem.Click += (_, _) => ExecuteCommand(commandId);
+            menu.Items.Add(menuItem);
+        }
+        menu.Opened += (_, _) =>
+        {
+            if (menu.Items[0] is MenuItem first)
+            {
+                first.Focus();
+                Keyboard.Focus(first);
+            }
+        };
+        menu.Closed += (_, _) => Dispatcher.BeginInvoke(
+            RestoreMediaListFocusAfterRefresh,
+            DispatcherPriority.ContextIdle);
+        MenuAccessibility.UpdateVisibleItemSetMetadata(menu);
+        menu.IsOpen = true;
     }
 
     private static string? TypeAheadTextFromKey(Key key)
@@ -18917,8 +20236,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             var index = (firstIndex + offset) % MediaList.Items.Count;
             if (MediaList.Items[index] is not MediaItemRow row) continue;
+            var navigationText = row.Bookmark is not null
+                || row.FolderPath is not null
+                || row.AlbumFolderPath is not null
+                || row.PlaylistId is not null
+                || row.LoadMorePodcastViewName is not null
+                    ? row.NavigationText
+                    : NavigationTextForItem(
+                        row.Item,
+                        includeKind: _currentView is not ("Albumy" or "Playlisty")
+                            && !(string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
+                                 && row.Item.Kind == MediaItemKind.Station));
             if (compareInfo.IsPrefix(
-                    row.NavigationText.TrimStart(),
+                    navigationText.TrimStart(),
                     query,
                     CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace))
             {
@@ -18960,6 +20290,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _trackRecognitionCancellation.Cancel();
         _podcastCancellation.Cancel();
         _wiiMCancellation.Cancel();
+        _tidalCancellation.Cancel();
+        foreach (var session in _sessions.Sessions)
+        {
+            if (!ShouldDeferQueueNormalization(session)) EnsureQueueOrder(session);
+        }
         CaptureCurrentSessionNavigationState();
         CaptureLocalMediaState();
         CapturePodcastState();
@@ -19036,8 +20371,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _localOutput.Dispose();
         _podcastOutput.Dispose();
         _radioOutput.Dispose();
+        _tidalOutput.Dispose();
         _wiiMClient.Dispose();
         _wiiMCancellation.Dispose();
+        _tidalIntegration.Dispose();
+        _tidalCancellation.Dispose();
         _radioCatalog.Dispose();
         _applePodcastDirectory.Dispose();
         _spreakerPodcastDirectory.Dispose();
@@ -19180,8 +20518,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void GoToPodcast_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.GoToPodcast);
     private void ItemPlaybackOptions_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemPlaybackOptions);
-    private void GoToAlbum_Click(object sender, RoutedEventArgs e) => GoToRelatedAlbum();
-    private void GoToArtist_Click(object sender, RoutedEventArgs e) => GoToRelatedArtist();
+    private void GoToAlbum_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.GoToAlbum);
+    private void GoToArtist_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.GoToArtist);
     private void CopyName_Click(object sender, RoutedEventArgs e) => CopyActionItemName();
     private void CopyLocation_Click(object sender, RoutedEventArgs e) => CopyActionItemLocation();
     private void CutFiles_Click(object sender, RoutedEventArgs e)
@@ -19267,6 +20605,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var localSession = string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal);
         var podcastSession = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
         var wiiMSession = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
+        var tidalSession = string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal);
         WiiMDevicePresetsMenuItem.Visibility = wiiMSession ? Visibility.Visible : Visibility.Collapsed;
         var openOnWiiMAvailable = !wiiMSession
             && items.Count == 1
@@ -19472,6 +20811,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     : "Kopiuj łącze do elementu";
         SetContextMenuItemPresentation(CopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
         NewPlaylistMenuItem.Visibility = string.Equals(_currentView, "Playlisty", StringComparison.Ordinal)
+            && !string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
             ? Visibility.Visible
             : Visibility.Collapsed;
         RenamePlaylistMenuItem.Visibility = playlistContainer ? Visibility.Visible : Visibility.Collapsed;
@@ -19496,6 +20836,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             || localAlbumContainer
             || (playlistContainer && membershipItems.Count == 0)
             || (folderNavigationRow && membershipItems.Count == 0)
+            || tidalSession && (membershipItems.Count == 0
+                || membershipItems.Any(item => !TidalCollectionSemantics.UsesFavorites(item.Kind)))
             ? Visibility.Collapsed
             : Visibility.Visible;
         LibraryMenuItem.Visibility = wiiMSession
@@ -19503,6 +20845,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             || folderNavigationRow
             || podcastEpisode
             || (playlistContainer && membershipItems.Count == 0)
+            || tidalSession && (membershipItems.Count == 0
+                || membershipItems.Any(item => !TidalCollectionSemantics.UsesLibrary(item.Kind)))
             ? Visibility.Collapsed
             : Visibility.Visible;
         PlaylistMembershipMenuItem.Visibility = wiiMSession
@@ -19514,7 +20858,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : Visibility.Visible;
         SetContextMenuItemPresentation(
             PlaylistMembershipMenuItem,
-            "Zmień przynależność do playlist",
+            string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+                ? "Dodaj do playlisty TIDAL"
+                : "Zmień przynależność do playlist",
             "Ctrl+Shift+P");
         var presetTargetAvailable = CurrentSessionSupportsPresets()
             && TryGetSessionPresetTarget(out _, out _, out _, out _);
@@ -19544,24 +20890,32 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                         : "Opcje odtwarzania elementu",
                 "Alt+Shift+Enter");
         }
-        var relatedAlbum = FindRelatedLocalAlbum(actionItem);
-        GoToAlbumMenuItem.Visibility = relatedAlbum is null ? Visibility.Collapsed : Visibility.Visible;
-        GoToArtistMenuItem.Visibility = relatedAlbum is not null
-            && !string.IsNullOrWhiteSpace(relatedAlbum.Artist)
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+        GoToAlbumMenuItem.Visibility = CanGoToRelatedAlbum(actionItem)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        if (GoToAlbumMenuItem.Visibility == Visibility.Visible)
+        {
+            MenuAccessibility.SetPresentation(
+                GoToAlbumMenuItem,
+                actionItem?.Kind == MediaItemKind.Artist
+                    ? "Pokaż albumy wykonawcy"
+                    : "Przejdź do albumu");
+        }
+        GoToArtistMenuItem.Visibility = CanGoToRelatedArtist(actionItem)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         var localItems = SelectedBookmark is null
             && items.Count > 0
             && items.All(item => TryGetLocalPath(item.Source, out var path) && File.Exists(path));
-        var internalRadioMove = IsInternalRadioFavoriteMoveView();
-        CutFilesMenuItem.Visibility = localItems || internalRadioMove ? Visibility.Visible : Visibility.Collapsed;
-        PasteFilesMenuItem.Visibility = CanPasteFilesIntoCurrentView() || internalRadioMove
+        var internalListMove = IsInternalListMoveView();
+        CutFilesMenuItem.Visibility = localItems || internalListMove ? Visibility.Visible : Visibility.Collapsed;
+        PasteFilesMenuItem.Visibility = CanPasteFilesIntoCurrentView() || internalListMove
             ? Visibility.Visible
             : Visibility.Collapsed;
-        if (internalRadioMove)
+        if (internalListMove)
         {
             SetContextMenuItemPresentation(CutFilesMenuItem, "Zaznacz do przeniesienia", "Ctrl+X");
-            SetContextMenuItemPresentation(PasteFilesMenuItem, "Przenieś przed wybraną stację", "Ctrl+V");
+            SetContextMenuItemPresentation(PasteFilesMenuItem, "Przenieś przed wybrany element", "Ctrl+V");
             PasteFilesMenuItem.IsEnabled = _pendingInternalListMove is not null;
         }
         else
@@ -19634,7 +20988,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                             : "Otwórz stronę elementu");
         }
         RecycleMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
-        var removeLabel = folderNavigationRow
+        var removeLabel = IsTidalPlaylistContentsView()
+            ? "Usuń z playlisty TIDAL"
+            : string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+              && _currentView is "Biblioteka" or "Ulubione" or "Playlisty"
+                ? "Usuń z kolekcji TIDAL"
+            : folderNavigationRow
             ? "Folder nawigacyjny — użyj Enter"
             : playlistContents
                 ? "Usuń z playlisty"
@@ -19677,6 +21036,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ItemPlaybackOptionsMenuItem.Visibility = Visibility.Collapsed;
             RemoveMenuItem.Visibility = Visibility.Collapsed;
         }
+        if (sender is ContextMenu openedMenu)
+            MenuAccessibility.UpdateVisibleItemSetMetadata(openedMenu);
     }
     private void MediaContextMenu_Closed(object sender, RoutedEventArgs e) =>
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.Loaded);
@@ -19801,7 +21162,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerPlaylistMembershipMenuItem.Visibility = Visibility.Visible;
         SetContextMenuItemPresentation(
             PlayerPlaylistMembershipMenuItem,
-            "Zmień przynależność do playlist",
+            string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+                ? "Dodaj do playlisty TIDAL"
+                : "Zmień przynależność do playlist",
             "Ctrl+Shift+P");
         PlayerRadioPresetMembershipMenuItem.Visibility = CurrentSessionSupportsPresets()
             && _sessions.Current.HasCurrentItem
@@ -19967,12 +21330,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 "Zmień opcje bieżącego odcinka podcastu",
                 "Alt+Shift+Enter");
         }
-        var relatedAlbum = FindRelatedLocalAlbum(item);
-        PlayerGoToAlbumMenuItem.Visibility = relatedAlbum is null ? Visibility.Collapsed : Visibility.Visible;
-        PlayerGoToArtistMenuItem.Visibility = relatedAlbum is not null
-            && !string.IsNullOrWhiteSpace(relatedAlbum.Artist)
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+        PlayerGoToAlbumMenuItem.Visibility = CanGoToRelatedAlbum(item)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        if (PlayerGoToAlbumMenuItem.Visibility == Visibility.Visible)
+        {
+            MenuAccessibility.SetPresentation(
+                PlayerGoToAlbumMenuItem,
+                item.Kind == MediaItemKind.Artist
+                    ? "Pokaż albumy wykonawcy"
+                    : "Przejdź do albumu");
+        }
+        PlayerGoToArtistMenuItem.Visibility = CanGoToRelatedArtist(item)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         PlayerLibraryMenuItem.Visibility = item.Kind == MediaItemKind.Episode
             ? Visibility.Collapsed
             : Visibility.Visible;
@@ -19995,6 +21366,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        if (sender is ContextMenu contextMenu)
+            MenuAccessibility.UpdateVisibleItemSetMetadata(contextMenu);
     }
 
     private static void SetContextMenuItemPresentation(
@@ -20278,12 +21651,31 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         && string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
         && CurrentCollectionSortMode() == CollectionSortMode.Custom;
 
+    private bool IsTidalPlaylistContentsView() =>
+        !_playerViewActive
+        && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+        && _tidalContainerViews.TryGetValue(_currentView, out var view)
+        && view.Container.Kind == MediaItemKind.Playlist;
+
+    private bool IsInternalListMoveView() =>
+        !_playerViewActive
+        && (IsInternalRadioFavoriteMoveView()
+            || CurrentViewUsesCustomCollectionOrder()
+            || TryGetPlaylistIdFromView(_currentView, out _)
+            || IsTidalPlaylistContentsView());
+
     private bool TryStartInternalListMove()
     {
-        if (!IsInternalRadioFavoriteMoveView()) return false;
+        if (!IsInternalListMoveView()) return false;
+        if (IsTidalPlaylistContentsView()
+            && CurrentCollectionSortMode() != CollectionSortMode.Custom)
+        {
+            Announce("Wybierz Alt+3, aby przenosić elementy playlisty TIDAL");
+            return true;
+        }
         if (!string.IsNullOrWhiteSpace(FilterBox.Text))
         {
-            Announce("Wyczyść filtr klawiszem Escape przed przenoszeniem stacji");
+            Announce("Wyczyść filtr klawiszem Escape przed przenoszeniem elementów");
             return true;
         }
 
@@ -20295,7 +21687,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .ToArray();
         if (itemIds.Length == 0)
         {
-            Announce("Wybierz stację do przeniesienia");
+            Announce("Wybierz element do przeniesienia");
+            return true;
+        }
+        if (IsTidalPlaylistContentsView() && itemIds.Length > 20)
+        {
+            Announce("Jednocześnie można przenieść najwyżej 20 elementów playlisty TIDAL");
             return true;
         }
 
@@ -20304,57 +21701,159 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _currentView,
             itemIds);
         Announce(itemIds.Length == 1
-            ? "Zaznaczono stację do przeniesienia. Wybierz miejsce i naciśnij Ctrl+V"
-            : $"Zaznaczono do przeniesienia: {itemIds.Length} stacji. Wybierz miejsce i naciśnij Ctrl+V");
+            ? "Zaznaczono element do przeniesienia. Wybierz miejsce i naciśnij Ctrl+V"
+            : $"Zaznaczono do przeniesienia: {FormatItemCount(itemIds.Length)}. Wybierz miejsce i naciśnij Ctrl+V");
         return true;
     }
 
     private bool TryPasteInternalListMove()
     {
-        if (!IsInternalRadioFavoriteMoveView()) return false;
+        if (!IsInternalListMoveView()) return false;
         if (!string.IsNullOrWhiteSpace(FilterBox.Text))
         {
-            Announce("Wyczyść filtr klawiszem Escape przed przenoszeniem stacji");
+            Announce("Wyczyść filtr klawiszem Escape przed przenoszeniem elementów");
             return true;
         }
         if (_pendingInternalListMove is not { } pending
             || !string.Equals(pending.SessionId, _sessions.Current.Id, StringComparison.Ordinal)
             || !string.Equals(pending.ViewName, _currentView, StringComparison.Ordinal))
         {
-            Announce("Najpierw zaznacz stację lub grupę skrótem Ctrl+X");
+            Announce("Najpierw zaznacz element lub grupę skrótem Ctrl+X");
             return true;
         }
         if (SelectedItem is not { } target)
         {
-            Announce("Wybierz stację, przed którą chcesz przenieść zaznaczenie");
+            Announce("Wybierz element, przed którym chcesz przenieść zaznaczenie");
             return true;
         }
 
-        var order = EnsureFavoriteOrder(_sessions.Current);
+        if (IsTidalPlaylistContentsView())
+        {
+            _ = PasteTidalPlaylistSelectionAsync(pending, target);
+            return true;
+        }
+
+        IList<string> order;
+        PlaylistSettings? previousPlaylists = null;
+        var localPlaylist = TryGetPlaylistIdFromView(_currentView, out var playlistId);
+        if (localPlaylist)
+        {
+            var playlists = new PlaylistIndex(_state.Playlists);
+            var playlist = playlists.Find(playlistId);
+            if (playlist is null)
+            {
+                Announce("Nie znaleziono otwartej playlisty");
+                return true;
+            }
+            previousPlaylists = playlists.CloneSettings();
+            order = playlist.ItemIds;
+        }
+        else if (string.Equals(_currentView, "Ulubione", StringComparison.Ordinal))
+        {
+            order = EnsureFavoriteOrder(_sessions.Current);
+        }
+        else
+        {
+            order = EnsureCollectionOrder(
+                _sessions.Current,
+                _currentView,
+                _unfilteredItems.Select(row => row.ActionItem).ToArray(),
+                custom: true);
+        }
         var result = LocalLibraryManualOrder.PlaceItemsBefore(order, pending.ItemIds, target.Id);
         if (result != ManualOrderPlacementResult.Moved)
         {
             Announce(result switch
             {
                 ManualOrderPlacementResult.TargetInSelection =>
-                    "Wybierz inną stację jako miejsce docelowe",
+                    "Wybierz inny element jako miejsce docelowe",
                 ManualOrderPlacementResult.Unchanged =>
-                    "Stacje są już w tym miejscu",
-                _ => "Nie można przenieść zaznaczonych stacji"
+                    "Elementy są już w tym miejscu",
+                _ => "Nie można przenieść zaznaczonych elementów"
             });
             return true;
         }
 
         _pendingInternalListMove = null;
-        CaptureRadioState();
-        QueueStateSave();
+        if (localPlaylist)
+        {
+            RecordPlaylistUndo(previousPlaylists!, "Cofnięto przeniesienie elementów playlisty");
+            SavePlaylistState();
+        }
+        else
+        {
+            if (string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
+                CaptureRadioState();
+            QueueStateSave();
+        }
         RefreshCurrentView(preferredItemId: pending.ItemIds[0]);
         SelectMediaItems(pending.ItemIds);
         PrepareSelectedItemFocusContext(pending.ItemIds.Count == 1
             ? $"Przeniesiono przed {target.Title}"
-            : $"Przeniesiono {pending.ItemIds.Count} stacji przed {target.Title}");
+            : $"Przeniesiono {FormatItemCount(pending.ItemIds.Count)} przed {target.Title}");
         RestoreMediaListFocusAfterRefresh();
         return true;
+    }
+
+    private async Task PasteTidalPlaylistSelectionAsync(
+        PendingInternalListMove pending,
+        MediaItem target)
+    {
+        if (!_tidalContainerViews.TryGetValue(_currentView, out var playlistView)) return;
+        if (pending.ItemIds.Contains(target.Id, StringComparer.Ordinal))
+        {
+            Announce("Wybierz inny element jako miejsce docelowe");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(target.ContainerEntryId))
+        {
+            Announce("TIDAL nie przekazał danych potrzebnych do wskazania miejsca docelowego");
+            return;
+        }
+        var selectedSet = pending.ItemIds.ToHashSet(StringComparer.Ordinal);
+        var selected = playlistView.Items.Where(item => selectedSet.Contains(item.Id)).ToArray();
+        if (selected.Length != pending.ItemIds.Count)
+        {
+            Announce("Nie można odnaleźć wszystkich zaznaczonych elementów playlisty");
+            return;
+        }
+        var originalView = _currentView;
+        try
+        {
+            var refreshed = await _tidalIntegration.ReorderPlaylistItemsAsync(
+                playlistView.Container,
+                selected,
+                target.ContainerEntryId,
+                _tidalCancellation.Token);
+            if (_isClosing) return;
+            _tidalContainerViews[originalView] = new TidalContainerViewState(
+                playlistView.Container,
+                refreshed);
+            _pendingInternalListMove = null;
+            if (!string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+                || !string.Equals(_currentView, originalView, StringComparison.Ordinal))
+            {
+                return;
+            }
+            RefreshCurrentView(preferredItemId: pending.ItemIds[0]);
+            SelectMediaItems(pending.ItemIds);
+            PrepareSelectedItemFocusContext(pending.ItemIds.Count == 1
+                ? $"Przeniesiono przed {target.Title}"
+                : $"Przeniesiono {FormatItemCount(pending.ItemIds.Count)} przed {target.Title}");
+            RestoreMediaListFocusAfterRefresh();
+        }
+        catch (OperationCanceledException) when (_tidalCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error("tidal-playlist-paste", "Nie przeniesiono elementów playlisty TIDAL.", exception);
+            if (!_isClosing)
+            {
+                Announce($"Nie przeniesiono elementów playlisty TIDAL. {exception.Message}");
+                RestoreMediaListFocusAfterRefresh();
+            }
+        }
     }
 
     private bool CanPasteFilesIntoCurrentView() =>
@@ -20621,6 +22120,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : CommandIds.RefreshLocalLibrary);
     private void ManageLocalSources_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageLocalSources);
     private void ManageWiiMDevices_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageWiiMDevices);
+    private void ManageTidalConnection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageTidalConnection);
     private void QueueView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewQueue);
     private void HistoryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewHistory);
     private void BookmarksViewMenu_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewBookmarks);

@@ -2,7 +2,58 @@
 
 Wersja dokumentu: 0.7, aktualny plan projektu
 
-Data aktualizacji: 29 sierpnia 2026 r.
+Data aktualizacji: 9 września 2026 r.
+
+Od `alpha.328` Kolejka każdej sesji jest częścią trwałego stanu AMC. Dla
+zdalnej sesji TIDAL lokalna kopia przechowuje stabilny identyfikator elementu,
+kolejność oraz rozróżnienie zwykłej Kolejki i **Odtwórz jako następne**.
+Podczas startu kopia jest odtwarzana przed synchronizacją katalogu; chwilowo
+pusty lub demonstracyjny katalog nie może jej wyzerować. Po synchronizacji
+elementy są scalane według identyfikatora usługi. Dawne rekordy demonstracyjne
+`tidal-1`–`tidal-17` są traktowane wyłącznie jako dane prototypu i usuwane ze
+stanu użytkownika.
+
+Od `alpha.327` asynchroniczna zmiana kolekcji rozpoczęta w wynikach
+wyszukiwania kończy się w tym samym oknie. Lista główna nie jest przebudowywana
+pod aktywnym oknem modalnym i nie może przejąć fokusa; po zamknięciu
+wyszukiwania zostaje odtworzona z aktualnego modelu sesji. Tymczasowy wynik
+otrzymuje potwierdzony stan członkostwa, dlatego kolejne użycie skrótu wykonuje
+operację przeciwną. Singiel TIDAL jest nadal traktowany jako album, jeżeli API
+zwraca go jako zasób albumowy — liczba utworów nie służy do zgadywania rodzaju.
+
+Od `alpha.326` hierarchia relacji TIDAL jest zależna od rodzaju elementu.
+Utwór i materiał wideo mogą prowadzić do albumu oraz wykonawcy, album do
+wykonawcy, a wykonawca otwiera listę swoich albumów. Wybór relacji z wyników
+wyszukiwania jest pełnoprawną nawigacją: zamyka okno wyszukiwania, przechodzi
+do właściwego kontenera i nie pozostawia fokusa na wyniku. W otwartym albumie
+kolejność utworów pozostaje kolejnością wydania, ale tytuł jest zawsze
+pierwszym czytanym polem i kluczem nawigacji literowej; nazwisko wykonawcy jest
+drugie. Ta sama reguła tytułu obowiązuje albumy pokazane wewnątrz wykonawcy.
+Operacja zmiany Biblioteki lub Ulubionych TIDAL ma jeden komunikat końcowy po
+potwierdzeniu API, bez dublowania etapu rozpoczęcia i ogólnej „kolekcji”.
+
+Od `alpha.325` TIDAL ma dwa rozłączne wejścia do kolekcji konta. `Ctrl+U`
+pokazuje pojedyncze utwory i materiały wideo, a `Ctrl+L` — albumy, wykonawców i
+playlisty. Odpowiednio `Ctrl+Shift+U` oraz `Ctrl+Shift+L` modyfikują tylko swój
+rodzaj zasobu. Prawa strzałka otwiera na zwykłej liście i w wynikach
+wyszukiwania małe menu istniejących relacji albumu i wykonawcy. Dawne skróty z
+literą `G` zostały usunięte z powodu konfliktów systemowych. Lokalna Kolejka i
+warstwa **Odtwórz jako następne** są zapisywane osobno według stabilnych
+identyfikatorów usługowych; pełna synchronizacja ani wymiana obiektów cache nie
+może ich skasować.
+
+Od `alpha.324` lewa strzałka jest wspólnym poleceniem informacji
+uzupełniających na liście głównej i w wynikach wyszukiwania. Nie powtarza
+tytułu przeczytanego już przez wiersz. Kolejność to: format lub rozszerzenie,
+kodek audio, bitrate i częstotliwość, rozmiar, czas oraz pozostałe dostępne
+metadane. Nieznane parametry usługi zdalnej są pomijane, a nie szacowane.
+
+Od `alpha.323` zapis i usuwanie w kolekcji TIDAL aktualizują widok od razu po
+potwierdzeniu operacji przez API; pełne pobranie dużej kolekcji nie jest już
+powtarzane po każdym elemencie. Kolejka podaje łączny znany czas i mówi
+**jako następne** wyłącznie o pozycjach rzeczywiście tak oznaczonych.
+Od `alpha.325` relacje albumu i wykonawcy są dostępne w krótkim menu pod prawą
+strzałką; brak relacji ukrywa polecenie zamiast wyświetlać niedziałającą opcję.
 
 Od `alpha.309` szósta sesja ma nazwę **Podcasty i YouTube**, zachowując
 identyfikator `podcasts` i skrót `Ctrl+6`. `Ctrl+N` rozpoznaje RSS/Atom,
@@ -723,7 +774,12 @@ Warstwa przypominająca dostępnego klienta WhatsApp, która opakowuje TIDAL Web
 
 AMC ujednolica polecenia i sposób nawigacji, ale nie ujednolica na siłę znaczenia danych dostawców. Polecenia `favorites.open` i `favorites.toggle` trafiają do adaptera bieżącej usługi, który zachowuje jej natywną semantykę oraz identyfikatory. Ewentualny widok zbiorczy jest wyłącznie prezentacją elementów z wyraźnym wskazaniem źródła; nie tworzy wspólnego stanu Ulubionych i nie kopiuje automatycznie elementów między kontami.
 
-- **TIDAL** przedstawia Ulubione jako typowane kolekcje użytkownika: osobno utwory, albumy, wykonawcy, playlisty i obsługiwane materiały wideo. Dodanie lub usunięcie elementu modyfikuje odpowiednią kolekcję konta TIDAL. Semantycznie jest to bliższe zapisanej kolekcji lub Bibliotece Apple Music niż dodatkowemu znacznikowi „lubię”. [TIDAL API Reference](https://tidal-music.github.io/tidal-api-reference/).
+- **TIDAL** przedstawia zapisane zasoby jako typowane kolekcje użytkownika:
+  osobno utwory, albumy, wykonawcy, playlisty i obsługiwane materiały wideo.
+  Interfejs AMC dzieli je ergonomicznie: `Ctrl+U` pokazuje pojedyncze utwory i
+  wideo, a `Ctrl+L` kontenery — albumy, wykonawców i playlisty. Dodanie lub
+  usunięcie elementu nadal modyfikuje właściwą natywną kolekcję konta TIDAL.
+  [TIDAL API Reference](https://tidal-music.github.io/tidal-api-reference/).
 - **Apple Music** rozdziela Bibliotekę i stan Ulubionych. Element może znajdować się w Bibliotece i nie być Ulubiony. Oznaczenie utworu jako Ulubionego dodaje go także do systemowej playlisty Favorite Songs, natomiast albumy i playlisty mogą być filtrowane według stanu Ulubionych. Nie utożsamiamy Ulubionych z ocenami ani z samym dodaniem do Biblioteki. [Add Resource to Favorites](https://developer.apple.com/documentation/applemusicapi/add-resource-to-favorites), [Library Albums attributes](https://developer.apple.com/documentation/applemusicapi/libraryalbums/attributes-data.dictionary).
 - **Pliki lokalne** zachowują osobne Ulubione AMC. Nie są one wysyłane do TIDAL ani Apple Music.
 
@@ -734,9 +790,20 @@ Historia ma dwa jawnie rozdzielone źródła:
 
 Widoki nie mieszają tych historii bez oznaczenia pochodzenia i nie zastępują jednej drugą. Brak historii usługi nie blokuje lokalnej historii AMC.
 
-Widok **Ulubione TIDAL** nie jest jedną płaską listą. Pierwszy poziom zawiera kategorie **Utwory**, **Albumy**, **Wykonawcy**, **Playlisty** i, jeśli konto oraz API je udostępniają, **Wideo**. Enter otwiera kategorię, Escape wraca o jeden poziom, a nawigacja literami i filtrowanie dotyczą wyłącznie widocznego poziomu. `favorites.toggle` sam wybiera właściwą kolekcję na podstawie rodzaju zaznaczonego zasobu. Własne playlisty użytkownika i playlisty tylko dodane do Ulubionych zachowują informację o właścicielu i nie stają się tym samym stanem.
+Widok **Ulubione TIDAL** jest płaską listą pojedynczych polubionych utworów i
+materiałów wideo. Widok **Biblioteka TIDAL** jest płaską listą zapisanych
+albumów, wykonawców i playlist. Enter otwiera kontener, Escape wraca o jeden
+poziom, a nawigacja literami i filtrowanie dotyczą wyłącznie widocznego
+poziomu. `favorites.toggle` działa tylko dla utworu lub wideo, a
+`library.toggle` tylko dla albumu, wykonawcy lub playlisty. Własne playlisty
+użytkownika i playlisty tylko zapisane w kolekcji zachowują informację o
+właścicielu i nie stają się tym samym stanem.
 
-Wspólny model rdzenia rozdziela **zapisaną kolekcję**, **przynależność do Biblioteki** i **znacznik Ulubionego**. TIDAL może odwzorować zapisaną kolekcję i Ulubione na tę samą natywną operację, natomiast Apple Music zachowuje Bibliotekę i Ulubione oddzielnie. `library.open` nie tworzy w TIDAL drugiej, fikcyjnej kopii tych samych danych: po teście prawdziwego konta otworzy natywny nadrzędny widok kolekcji albo jednoznacznie skieruje do Ulubionych TIDAL.
+Wspólny model rdzenia rozdziela **zapisaną kolekcję**, **przynależność do
+Biblioteki** i **znacznik Ulubionego**. Podział dwóch widoków TIDAL jest
+prezentacją jego pięciu natywnych kolekcji, a nie utworzeniem drugiej kopii
+danych. Apple Music zachowuje własne, odrębne znaczenie Biblioteki i Ulubionych
+i nie dziedziczy automatycznie tego podziału.
 
 Kolejność najbliższych rzeczywistych integracji po ustabilizowaniu lokalnego interfejsu to: **WiiM** jako adapter urządzenia i presetów, następnie **TIDAL**, a potem **Apple Music** jako adaptery katalogów i kont. **BluOS/Bluesound** pozostaje w planie, lecz jego wdrożenie odkładamy do czasu dostępu do prawdziwego urządzenia, na którym można przeprowadzić testy. WiiM nie zastępuje API TIDAL ani Apple Music; sesja może później połączyć źródło z celem odtwarzania tylko przez oficjalnie dostępną drogę.
 
@@ -1877,6 +1944,17 @@ przypisywać `Alt+1–3` listom, które mają własną semantykę:
   ten sam zapisany porządek; filtr nie zmienia go i nie jest jego czwartym
   wariantem.
 
+W kolekcjach zdalnych porządek **według dodania** musi pochodzić z semantycznej
+daty dostawcy, jeżeli API ją udostępnia, a nie z kolejności stronicowania lub
+obiektów technicznych odpowiedzi. Dla TIDAL od `alpha.329` źródłem jest
+`meta.addedAt` elementu relacji kolekcji. AMC zachowuje listę od najstarszego do
+najnowszego w magazynie i odwraca ją wyłącznie na potrzeby widoku, dzięki czemu
+najnowsze elementy są pierwsze. Pusty katalog przed zakończeniem logowania oraz
+częściowe odświeżenie nie mają prawa usuwać ani przebudowywać zapisanego
+porządku. Dopiero kompletna odpowiedź wszystkich rodzin kolekcji może usunąć
+nieistniejące odwołania i odtworzyć kolejność z dat dostawcy. Reguła ma być
+powtórzona w przyszłych adapterach Apple Music i Spotify.
+
 ### 7.14. Opisy i publiczne wyszukiwanie Podcastów
 
 Od `alpha.217` `Alt+D` na podcaście lub odcinku otwiera pełny opis w
@@ -2446,3 +2524,60 @@ W Podcastach `Ctrl+Shift+L` działa na poziomie subskrypcji. Użycie go na
 podcaście albo na jego odcinku dodaje lub usuwa cały podcast z Biblioteki.
 Odcinek nie ma niezależnego znacznika Biblioteki; jego kolejka, Ulubione,
 historia, pobranie i pozycja pozostają osobnymi stanami.
+
+### 7.29. Trwałe logowanie i awaryjna kopia Biblioteki TIDAL
+
+Od `alpha.330` odświeżenie wygasłego tokenu TIDAL wysyła ten sam kompletny
+kontekst aplikacji co oficjalny moduł autoryzacji TIDAL: `client_id`, żądany
+zakres, rodzaj operacji i token odświeżający. Nowy token dostępu oraz ewentualnie
+obrócony token odświeżający są atomowo zastępowane w Menedżerze poświadczeń
+Windows. Tokeny nie trafiają do konfiguracji, kopii zapasowej ani logu.
+
+Ostatnia poprawnie zsynchronizowana lub bezpiecznie scalona kolekcja jest
+zapisywana lokalnie bez danych uwierzytelniających. Przy braku sieci, czasowej
+odpowiedzi błędu albo odrzuceniu odświeżenia AMC pokazuje tę kopię zamiast
+pustej Biblioteki. Niepełna synchronizacja może zastąpić tylko kategorie,
+które usługa rzeczywiście zwróciła; pozostałe pozycje zachowuje z kopii.
+Kolejka nadal jest oddzielnym lokalnym stanem i nie zależy od powodzenia
+synchronizacji kolekcji. Jawne **Odłącz konto** usuwa zarówno poświadczenie,
+jak i kopię katalogu, lecz nie usuwa Kolejki, Historii ani ustawień AMC.
+
+### 7.30. Kolejność bezpośrednio na liście sesji
+
+Od `alpha.331` lista **Wybierz sesję**, otwierana przez `Ctrl+Shift+S` lub
+zgodny alias `Ctrl+0`, jest równocześnie dostępnym miejscem zmiany kolejności.
+`Alt+strzałka w górę/w dół` przesuwa wskazaną sesję o jedno miejsce. Fokus
+pozostaje na przeniesionym wierszu, a komunikat podaje nazwę sesji, „nad” albo
+„pod”, nazwę sąsiada i nowy skrót `Ctrl+cyfra`. Na początku i końcu listy
+operacja nie zawija kolejności i podaje jednoznaczną granicę.
+
+Zmiana jest natychmiast stosowana do `Ctrl+1–9`, `Ctrl+Page Up/Page Down` oraz
+następnego otwarcia listy i jest zapisywana niezależnie od późniejszego wyboru
+przycisku **Wybierz** albo **Anuluj**. Enter nadal tylko uaktywnia zaznaczoną
+sesję; sama nawigacja strzałkami nie przełącza sesji i nie zmienia kolejności.
+Każdy wiersz ma jawną nazwę użytkową dla UI Automation, bez identyfikatorów
+technicznych i reprezentacji obiektów.
+
+### 7.31. Oficjalny tor odtwarzania TIDAL
+
+Od `alpha.332` utwory i materiały wideo TIDAL są przekazywane do oficjalnego
+`@tidal-music/player` osadzonego w WebView2. Adapter katalogowy nadal odpowiada
+za OAuth, wyszukiwanie i kolekcje, natomiast osobny tor Player obsługuje
+chronione media bez przekazywania AMC ich adresów. Token jest pobierany z
+Menedżera poświadczeń Windows tylko na czas załadowania materiału i nie trafia
+do konfiguracji, kopii zapasowej, schowka ani logu.
+
+Użytkownik pozostaje w natywnym odtwarzaczu AMC. Powierzchnia WebView2 nie jest
+dostępna tabulatorem, nie odbiera skrótów ani fokusu NVDA i nie ma użytkowej
+nazwy dostępnościowej. Dostępne są pauza, wznowienie, przewijanie, skok do
+czasu i procentu, głośność, przechodzenie po kontekście listy oraz lokalna
+Kolejka. Odtwarzanie zakończone naturalnie stosuje tę samą regułę następnego
+elementu co inne sesje. Oficjalny Player nie udostępnia zmiany prędkości, więc
+AMC ukrywa te polecenia i nie zapowiada ich w pomocy TIDAL.
+
+AMC żąda jakości `HI_RES_LOSSLESS` z adaptacyjnym doborem wariantu, ale
+rzeczywisty kodek, częstotliwość, bitrate i pełna długość zależą od materiału,
+konta i poziomu dostępu aplikacji. Player może zwrócić próbkę mimo aktywnej
+subskrypcji użytkownika. Program wtedy podaje jeden jasny komunikat i nie próbuje
+obchodzić ograniczenia przez wydobywanie chronionego adresu. Pierwszy etap
+korzysta z domyślnego urządzenia Windows obsługiwanego przez WebView2.

@@ -11,7 +11,7 @@ namespace AccessibleMediaController.Core.Configuration;
 /// </summary>
 internal sealed class LocalLibraryDatabase(string databasePath)
 {
-    private const int DatabaseSchemaVersion = 8;
+    private const int DatabaseSchemaVersion = 9;
     private readonly object _gate = new();
 
     public string Path { get; } = databasePath;
@@ -270,6 +270,15 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 }
             }
 
+            ReadSessionOrders(
+                connection,
+                "queue_play_next_order",
+                state.CollectionOrders.QueuePlayNextItemIdsBySession);
+            ReadSessionOrders(
+                connection,
+                "queue_regular_order",
+                state.CollectionOrders.QueueRegularItemIdsBySession);
+
             state.Playlists = new PlaylistSettings();
             var playlistsById = new Dictionary<string, PlaylistEntry>(StringComparer.Ordinal);
             using (var command = connection.CreateCommand())
@@ -457,6 +466,18 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                 item_id TEXT NOT NULL,
                 PRIMARY KEY(session_id, ordinal)
             );
+            CREATE TABLE IF NOT EXISTS queue_play_next_order (
+                session_id TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                item_id TEXT NOT NULL,
+                PRIMARY KEY(session_id, ordinal)
+            );
+            CREATE TABLE IF NOT EXISTS queue_regular_order (
+                session_id TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                item_id TEXT NOT NULL,
+                PRIMARY KEY(session_id, ordinal)
+            );
             CREATE TABLE IF NOT EXISTS playlists (
                 id TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL,
@@ -514,7 +535,7 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                      "local_items", "folder_sources", "folder_playback_options",
                      "excluded_paths", "custom_order", "local_state", "bookmarks",
                      "playback_history", "favorite_added_order", "favorite_order",
-                     "library_added_order", "library_custom_order", "queue_order",
+                     "library_added_order", "library_custom_order", "queue_order", "queue_play_next_order", "queue_regular_order",
                      "playlist_items", "playlists"
                  })
         {
@@ -662,6 +683,17 @@ internal sealed class LocalLibraryDatabase(string databasePath)
                     ("$session", pair.Key), ("$ordinal", index), ("$item", pair.Value[index]));
             }
         }
+
+        InsertSessionOrders(
+            connection,
+            transaction,
+            "queue_play_next_order",
+            state.CollectionOrders.QueuePlayNextItemIdsBySession);
+        InsertSessionOrders(
+            connection,
+            transaction,
+            "queue_regular_order",
+            state.CollectionOrders.QueueRegularItemIdsBySession);
 
         var playlistOrdinals = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var playlist in state.Playlists.Entries)

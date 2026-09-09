@@ -319,6 +319,7 @@ public partial class SettingsWindow : Window
         }
 
         var moved = _sessionOrderRows[index];
+        var neighbor = _sessionOrderRows[newIndex];
         SessionOrderList.Focus();
         Keyboard.Focus(SessionOrderList);
         _sessionOrderRows.Move(index, newIndex);
@@ -326,7 +327,8 @@ public partial class SettingsWindow : Window
         SessionOrderList.SelectedIndex = newIndex;
         SessionOrderList.ScrollIntoView(moved);
         FocusSelectedSessionOrderItem();
-        SessionOrderStatus.Announce($"{moved.DisplayName}: Ctrl+{moved.Slot}");
+        SessionOrderStatus.Announce(
+            $"Przeniesiono {moved.DisplayName} {(direction < 0 ? "nad" : "pod")} {neighbor.DisplayName}. Ctrl+{moved.Slot}");
     }
 
     private void UpdateSessionOrderSlots()

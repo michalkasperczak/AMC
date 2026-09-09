@@ -12,6 +12,20 @@ public enum MediaItemField
 
 public static class MediaItemFormatter
 {
+    public static string GetNavigationText(MediaItem item, IEnumerable<MediaItemField> fieldOrder)
+    {
+        var fields = fieldOrder.ToArray();
+        var identifyingFields = fields
+            .Where(field => field is MediaItemField.Title or MediaItemField.Artist)
+            .ToArray();
+        foreach (var field in identifyingFields.Length > 0 ? identifyingFields : fields)
+        {
+            var value = FieldValue(item, field)?.Trim();
+            if (!string.IsNullOrWhiteSpace(value)) return value;
+        }
+        return item.Title;
+    }
+
     public static string Format(MediaItem item, IEnumerable<MediaItemField> fieldOrder)
     {
         var values = new List<string>();

@@ -50,6 +50,8 @@ public static class CommandIds
     public const string PodcastDescription = "information.podcastDescription";
     public const string CurrentBroadcastInformation = "information.currentBroadcast";
     public const string GoToPodcast = "navigation.podcast.parent";
+    public const string GoToAlbum = "navigation.album.related";
+    public const string GoToArtist = "navigation.artist.related";
     public const string ItemPlaybackOptions = "settings.itemPlaybackOptions";
 
     public const string SessionList = "session.list";
@@ -74,6 +76,7 @@ public static class CommandIds
     public const string RefreshLocalLibrary = "local.library.refresh";
     public const string ManageLocalSources = "local.library.manageSources";
     public const string ManageWiiMDevices = "wiim.devices.manage";
+    public const string ManageTidalConnection = "tidal.connection.manage";
     public const string RefreshWiiMDevices = "wiim.devices.refresh";
     public const string OpenOnWiiM = "wiim.playUrl";
     public const string AddWiiMNetworkStream = "wiim.networkStreams.add";

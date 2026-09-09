@@ -64,13 +64,14 @@ public static class LocalLibraryManualOrder
     public static List<string> Normalize(
         IEnumerable<string>? storedOrder,
         IEnumerable<MediaItem> catalog,
-        bool initializeAlphabetically = false)
+        bool initializeAlphabetically = false,
+        bool preserveUnknownItems = false)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         var items = catalog.ToArray();
         var knownIds = items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
         var result = (storedOrder ?? [])
-            .Where(knownIds.Contains)
+            .Where(itemId => preserveUnknownItems || knownIds.Contains(itemId))
             .Distinct(StringComparer.Ordinal)
             .ToList();
         var resultIds = result.ToHashSet(StringComparer.Ordinal);

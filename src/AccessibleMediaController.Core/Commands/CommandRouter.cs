@@ -23,6 +23,8 @@ public interface IApplicationActions
     void ShowPodcastDescription();
     void AnnounceCurrentBroadcastInformation();
     void GoToRelatedPodcast();
+    void GoToRelatedAlbum();
+    void GoToRelatedArtist();
     void ShowItemPlaybackOptions();
     void OpenOfficialApplication();
     void ShowHelp();
@@ -38,6 +40,7 @@ public interface IApplicationActions
     void RefreshLocalLibrary();
     void ShowLocalSourceManager();
     void ShowWiiMDeviceManager();
+    void ShowTidalAccountManager();
     void RefreshWiiMDevices();
     void RenameLibraryItem();
     void RenameLocalFile();
@@ -131,6 +134,9 @@ public sealed class CommandRouter(
             case CommandIds.ManageWiiMDevices:
                 application.ShowWiiMDeviceManager();
                 return new(true);
+            case CommandIds.ManageTidalConnection:
+                application.ShowTidalAccountManager();
+                return new(true);
             case CommandIds.RefreshWiiMDevices:
                 application.RefreshWiiMDevices();
                 return new(true);
@@ -187,6 +193,12 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.GoToPodcast:
                 application.GoToRelatedPodcast();
+                return new(true);
+            case CommandIds.GoToAlbum:
+                application.GoToRelatedAlbum();
+                return new(true);
+            case CommandIds.GoToArtist:
+                application.GoToRelatedArtist();
                 return new(true);
             case CommandIds.ItemPlaybackOptions:
                 application.ShowItemPlaybackOptions();
@@ -576,6 +588,7 @@ public sealed class CommandRouter(
         or CommandIds.TimeElapsed or CommandIds.TimeRemaining or CommandIds.TimeTotal
         or CommandIds.ItemProperties or CommandIds.PodcastDescription
         or CommandIds.CurrentBroadcastInformation or CommandIds.GoToPodcast
+        or CommandIds.GoToAlbum or CommandIds.GoToArtist
         or CommandIds.ItemPlaybackOptions
         or CommandIds.ToggleFavorite or CommandIds.ToggleLibrary
         or CommandIds.AddQueue or CommandIds.TogglePlayNext

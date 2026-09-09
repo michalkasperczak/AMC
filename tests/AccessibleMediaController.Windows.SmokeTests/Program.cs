@@ -64,6 +64,7 @@ try
     TestEditableFieldReplacement();
     TestGlobalPrefixCapture();
     TestMenuAccessibility();
+    TestSessionSelectionAccessibility();
     TestSegmentedDateTimeDigitEntry();
     TestRadioScheduleAccessibility();
     TestStatePersistenceQueue();
@@ -83,6 +84,8 @@ try
     TestApplePodcastDirectoryClient();
     TestSpreakerPodcastDirectoryClient();
     TestPodcastOpmlImportSelectionAccessibility();
+    TestTidalRefreshRequest();
+    TestTidalPlaylistPickerAccessibility();
     TestPodcastDownloadSettingsAccessibility();
     TestPodcastDescriptionTextOrder();
     TestRadioPresetAccessibleLabels();
@@ -267,6 +270,12 @@ static void TestMenuAccessibility()
             };
             AutomationProperties.SetAcceleratorKey(globalAudioMenu, "po prefiksie C");
             topLevel.Items.Add(globalAudioMenu);
+            var hiddenCommand = new MenuItem
+            {
+                Header = "Ukryte polecenie innej sesji",
+                Visibility = System.Windows.Visibility.Collapsed
+            };
+            topLevel.Items.Add(hiddenCommand);
             mainMenu.Items.Add(topLevel);
 
             MenuAccessibility.NormalizeMainMenu(mainMenu);
@@ -286,6 +295,18 @@ static void TestMenuAccessibility()
                 "Globalne menu ciszy nie ma jednoznacznej nazwy.");
             Assert(AutomationProperties.GetAcceleratorKey(globalAudioMenu) == "po prefiksie C",
                 "Globalne menu ciszy utraciło informację o prefiksie.");
+            Assert(AutomationProperties.GetPositionInSet(command) == 1,
+                "Pierwsza widoczna pozycja menu ma błędny numer w zestawie.");
+            Assert(AutomationProperties.GetPositionInSet(sessionsCommand) == 2,
+                "Druga widoczna pozycja menu ma błędny numer w zestawie.");
+            Assert(AutomationProperties.GetPositionInSet(globalAudioMenu) == 3,
+                "Trzecia widoczna pozycja menu ma błędny numer w zestawie.");
+            Assert(AutomationProperties.GetSizeOfSet(command) == 3
+                && AutomationProperties.GetSizeOfSet(globalAudioMenu) == 3,
+                "Ukryte polecenie jest wliczane do rozmiaru dostępnego menu.");
+            Assert(AutomationProperties.GetPositionInSet(hiddenCommand) == -1
+                && AutomationProperties.GetSizeOfSet(hiddenCommand) == -1,
+                "Ukryte polecenie zachowało metadane widocznego zestawu.");
 
             var contextMenu = new ContextMenu();
             var contextCommand = new MenuItem
@@ -309,6 +330,12 @@ static void TestMenuAccessibility()
             };
             audioMenu.Items.Add(noSilenceChoice);
             contextMenu.Items.Add(audioMenu);
+            var hiddenContextCommand = new MenuItem
+            {
+                Header = "Ukryte polecenie innej sesji",
+                Visibility = System.Windows.Visibility.Collapsed
+            };
+            contextMenu.Items.Add(hiddenContextCommand);
 
             MenuAccessibility.NormalizeContextMenu(contextMenu);
 
@@ -322,6 +349,13 @@ static void TestMenuAccessibility()
             Assert(AutomationProperties.GetName(noSilenceChoice) == "Bez dodatkowej ciszy",
                 "Wybór ciszy nie ma jawnej nazwy użytkowej.");
             Assert(noSilenceChoice.IsChecked, "Normalizacja menu zmieniła zaznaczoną wartość ciszy.");
+            Assert(AutomationProperties.GetPositionInSet(contextCommand) == 1
+                   && AutomationProperties.GetPositionInSet(audioMenu) == 2
+                   && AutomationProperties.GetSizeOfSet(contextCommand) == 2,
+                "Menu kontekstowe wlicza ukryte polecenia do informacji o pozycji.");
+            Assert(AutomationProperties.GetPositionInSet(hiddenContextCommand) == -1
+                   && AutomationProperties.GetSizeOfSet(hiddenContextCommand) == -1,
+                "Ukryte polecenie menu kontekstowego zachowało metadane widocznego zestawu.");
 
             MenuAccessibility.SetPresentation(contextCommand, "Nagrywaj tę stację w tle");
             Assert(AutomationProperties.GetName(contextCommand) == "Nagrywaj tę stację w tle", "Dynamiczna nazwa menu powtarza skrót.");
@@ -389,6 +423,86 @@ static void TestEditableFieldReplacement()
     if (failure is not null)
         throw new InvalidOperationException("Test zastępowania wartości pola nie powiódł się.", failure);
     Console.WriteLine("OK: wpisywanie po wejściu klawiaturą zastępuje całą poprzednią wartość pola");
+}
+
+static void TestSessionSelectionAccessibility()
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        SessionSelectionWindow? window = null;
+        try
+        {
+            var settings = new AppSettings();
+            var sessions = new SessionManager(settings);
+            sessions.AddOrUpdateTransientSession(
+                "local",
+                "Pliki lokalne",
+                [],
+                null,
+                1);
+            window = new SessionSelectionWindow(sessions);
+            var orderChangeCount = 0;
+            window.OrderChangedCommitted += (_, _) => orderChangeCount++;
+            window.Show();
+            window.Dispatcher.Invoke(
+                () => { },
+                System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+            var list = (ListBox)window.FindName("SessionList");
+            var status = (AccessibleStatusTextBlock)window.FindName("SessionOrderStatus");
+            Assert(AutomationProperties.GetName(list) == "Sesje"
+                   && (AutomationProperties.GetHelpText(list) ?? string.Empty)
+                       .Contains("Alt+Strzałka", StringComparison.Ordinal),
+                "Lista sesji nie opisuje dostępnego przenoszenia Alt+strzałkami.");
+            Assert(list.SelectedItem is SessionSelectionWindow.SessionRow selected
+                   && selected.SessionId == sessions.Current.Id,
+                "Lista sesji nie wybiera bieżącej sesji przy otwarciu.");
+
+            list.SelectedIndex = 2;
+            var movedRow = (SessionSelectionWindow.SessionRow)list.SelectedItem;
+            Assert(movedRow.SessionId == "tidal" && window.MoveSelectedSession(1),
+                "Alt+strzałka nie może przenieść wybranej sesji w dół.");
+            window.Dispatcher.Invoke(
+                () => { },
+                System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            Assert(window.OrderChanged
+                   && orderChangeCount == 1
+                   && list.SelectedItem == movedRow
+                   && movedRow.Slot == 4
+                   && sessions.FindSlot("tidal") == 4
+                   && settings.SessionSlots[4] == "tidal",
+                "Przeniesienie nie zachowuje fokusu, numeru skrótu lub ustawień sesji.");
+            Assert(status.Text == "Przeniesiono TIDAL pod Apple Music. Ctrl+4",
+                "Komunikat przeniesienia sesji nie podaje sąsiada i nowego skrótu.");
+            var movedContainer = list.ItemContainerGenerator.ContainerFromItem(movedRow) as ListBoxItem;
+            Assert(movedContainer is not null
+                   && AutomationProperties.GetName(movedContainer) == movedRow.Label
+                   && !AutomationProperties.GetName(movedContainer).Contains('{', StringComparison.Ordinal),
+                "Po przeniesieniu NVDA nie otrzymuje aktualnej, użytkowej etykiety sesji.");
+
+            list.SelectedIndex = list.Items.Count - 1;
+            Assert(!window.MoveSelectedSession(1)
+                   && status.Text == "Ta sesja jest już ostatnia"
+                   && orderChangeCount == 1,
+                "Granica listy sesji zmienia kolejność albo nie ma jasnego komunikatu.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+        finally
+        {
+            window?.Close();
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+
+    if (failure is not null)
+        throw new InvalidOperationException("Test dostępności listy sesji nie powiódł się.", failure);
+    Console.WriteLine("OK: przenoszenie sesji Alt+strzałkami na liście Ctrl+Shift+S");
 }
 
 static void TestPodcastDescriptionTextOrder()
@@ -681,6 +795,12 @@ static void TestActiveRadioRecordingFocusContext()
 
 static void TestSearchNavigation()
 {
+    Assert(SearchWindow.ReturnsSelectedActionToMainWindow(SearchResultAction.GoToAlbum),
+        "Przejście do albumu z wyszukiwania nie może zostać wykonane wewnątrz otwartego dialogu.");
+    Assert(SearchWindow.ReturnsSelectedActionToMainWindow(SearchResultAction.GoToArtist),
+        "Przejście do wykonawcy z wyszukiwania nie może zostać wykonane wewnątrz otwartego dialogu.");
+    Assert(!SearchWindow.ReturnsSelectedActionToMainWindow(SearchResultAction.Library),
+        "Zmiana Biblioteki z wyszukiwania powinna pozostać bezpośrednią operacją listy.");
     var podcast = new MediaItem
     {
         Id = "audycja-1",
@@ -3126,6 +3246,14 @@ static void TestMainWindowDigitShortcutRouting()
             == CommandIds.SortCollectionCustom,
         "Alt+1–3 nie mają wspólnej semantyki w Ulubionych różnych sesji.");
     Assert(
+        MainWindowShortcutRouter.ResolveNumberedView(Key.D1, ModifierKeys.Alt, "tidal", "TIDAL:albums:album-1")
+            == CommandIds.SortCollectionByAdded
+        && MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "tidal", "TIDAL:playlists:playlist-1")
+            == CommandIds.SortCollectionAlphabetically
+        && MainWindowShortcutRouter.ResolveNumberedView(Key.D3, ModifierKeys.Alt, "tidal", "Playlisty")
+            == CommandIds.SortCollectionCustom,
+        "Alt+1–3 nie są dostępne w albumach i playlistach TIDAL.");
+    Assert(
         MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.Alt, "radio", "Nagrywane") is null
         && MainWindowShortcutRouter.ResolveNumberedView(Key.D2, ModifierKeys.None, "radio", "Biblioteka") is null,
         "Sortowanie przeniknęło do list tymczasowych albo zwykłych cyfr.");
@@ -3322,6 +3450,15 @@ static void TestPlaylistPresentation()
         PlaylistPresentation.BuildLabel("Biskup", 2, 2, finite)
             == "Biskup, 2 elementy, łączny czas 45 min 0 s",
         "Playlista plików nie podaje łącznego czasu.");
+    Assert(
+        PlaylistPresentation.BuildQueueLabel(finite)
+            == "Kolejka, 2 elementy, łączny czas 45 min 0 s",
+        "Zwykła Kolejka nie powinna mówić, że zawiera zero elementów jako następne.");
+    finite[1].IsPlayNext = true;
+    Assert(
+        PlaylistPresentation.BuildQueueLabel(finite)
+            == "Kolejka, 2 elementy, łączny czas 45 min 0 s, jako następne 1 element",
+        "Kolejka nie odróżnia rzeczywiście ustawionych elementów jako następne.");
 
     var live = new[]
     {
@@ -5513,6 +5650,144 @@ static void TestPodcastOpmlImportSelectionAccessibility()
     }
 }
 
+static void TestTidalPlaylistPickerAccessibility()
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        TidalPlaylistPickerWindow? window = null;
+        try
+        {
+            var playlists = new[]
+            {
+                new MediaItem
+                {
+                    Id = "tidal:playlists:one",
+                    ExternalId = "playlists:one",
+                    Title = "Kolędy",
+                    Kind = MediaItemKind.Playlist,
+                    IsInLibrary = true
+                },
+                new MediaItem
+                {
+                    Id = "tidal:playlists:two",
+                    ExternalId = "playlists:two",
+                    Title = "Wieczorem",
+                    Kind = MediaItemKind.Playlist,
+                    IsInLibrary = true
+                }
+            };
+            var album = new MediaItem
+            {
+                Id = "tidal:albums:carols",
+                ExternalId = "albums:carols",
+                Title = "Najpiękniejsze kolędy",
+                Kind = MediaItemKind.Album
+            };
+            window = new TidalPlaylistPickerWindow(playlists, [album], "playlists:two");
+            window.Show();
+            DrainTidalDispatcher(window.Dispatcher);
+            var list = (ListBox)window.FindName("PlaylistList");
+            Assert(list.SelectionMode == SelectionMode.Extended
+                   && list.DisplayMemberPath == "Label"
+                   && TextSearch.GetTextPath(list) == "NavigationText"
+                   && AutomationProperties.GetName(list) == "Playlisty TIDAL",
+                "Lista docelowych playlist TIDAL nie ma dostępnego kontraktu wielokrotnego wyboru.");
+            Assert(list.SelectedIndex == 1 && list.Items.Count == 2,
+                "Lista playlist TIDAL nie przywraca ostatnio używanej playlisty.");
+            var newButton = (Button)window.FindName("NewPlaylistButton");
+            Assert(newButton.Content?.ToString() == "_Nowa…"
+                   && AutomationProperties.GetName(newButton) == "Utwórz nową playlistę TIDAL"
+                   && AutomationProperties.GetHelpText(newButton) == "Ctrl+N lub Insert",
+                "Wybór playlist TIDAL nie udostępnia przycisku utworzenia nowej playlisty.");
+            var first = list.ItemContainerGenerator.ContainerFromIndex(0) as ListBoxItem;
+            Assert(first is not null
+                   && AutomationProperties.GetName(first) == "Kolędy"
+                   && first.DataContext?.ToString() == "Kolędy"
+                   && !AutomationProperties.GetName(first).Contains('{', StringComparison.Ordinal),
+                "Wiersz playlisty TIDAL ujawnia obiekt techniczny zamiast nazwy użytkowej.");
+
+            window.Close();
+            window = new TidalPlaylistPickerWindow([], [album], "playlists:missing");
+            window.Show();
+            DrainTidalDispatcher(window.Dispatcher);
+            list = (ListBox)window.FindName("PlaylistList");
+            newButton = (Button)window.FindName("NewPlaylistButton");
+            Assert(list.Items.Count == 0
+                   && list.SelectedIndex == -1
+                   && newButton.IsKeyboardFocused,
+                "Puste konto TIDAL nie przenosi fokusu na dostępne tworzenie pierwszej playlisty.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+        finally
+        {
+            window?.Close();
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    if (failure is not null)
+        throw new InvalidOperationException("Test dostępnego wyboru playlist TIDAL nie powiódł się.", failure);
+
+    Console.WriteLine("OK: dostępny wybór playlist TIDAL");
+
+    static void DrainTidalDispatcher(System.Windows.Threading.Dispatcher dispatcher)
+    {
+        var frame = new System.Windows.Threading.DispatcherFrame();
+        dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.ApplicationIdle,
+            () => frame.Continue = false);
+        System.Windows.Threading.Dispatcher.PushFrame(frame);
+    }
+}
+
+static void TestTidalRefreshRequest()
+{
+    var handler = new TidalOAuthRefreshHandler();
+    using var http = new HttpClient(handler);
+    using var oauth = new TidalOAuthClient(http);
+    var settings = new TidalSettings
+    {
+        ClientId = "desktop-client-id",
+        RedirectUri = "http://127.0.0.1:43821/tidal/callback/"
+    };
+    var current = new TidalTokenSet(
+        "old-access-token",
+        "durable-refresh-token",
+        DateTimeOffset.UtcNow.AddMinutes(-1),
+        "user.read collection.read",
+        settings.ClientId);
+
+    var refreshed = oauth.RefreshAsync(settings, current, CancellationToken.None)
+        .GetAwaiter().GetResult();
+    var form = ParseForm(handler.RequestBody);
+    Assert(form.GetValueOrDefault("client_id") == settings.ClientId,
+        "Odświeżenie TIDAL nie wysyła identyfikatora aplikacji.");
+    Assert(form.GetValueOrDefault("grant_type") == "refresh_token"
+           && form.GetValueOrDefault("refresh_token") == current.RefreshToken,
+        "Odświeżenie TIDAL nie wysyła prawidłowego rodzaju żądania i tokenu.");
+    Assert(form.GetValueOrDefault("scope")?.Contains("collection.read", StringComparison.Ordinal) == true,
+        "Odświeżenie TIDAL nie zachowuje wymaganego zakresu uprawnień.");
+    Assert(refreshed.AccessToken == "new-access-token"
+           && refreshed.RefreshToken == current.RefreshToken,
+        "Odświeżenie TIDAL nie zachowuje starego tokenu odświeżającego, gdy serwer nie obraca go w odpowiedzi.");
+    Console.WriteLine("OK: trwałe odświeżanie logowania TIDAL");
+
+    static Dictionary<string, string> ParseForm(string body) => body
+        .Split('&', StringSplitOptions.RemoveEmptyEntries)
+        .Select(part => part.Split('=', 2))
+        .ToDictionary(
+            pair => Uri.UnescapeDataString(pair[0].Replace('+', ' ')),
+            pair => pair.Length == 2
+                ? Uri.UnescapeDataString(pair[1].Replace('+', ' '))
+                : string.Empty,
+            StringComparer.Ordinal);
+}
+
 sealed class BlockingWaveStream : WaveStream
 {
     private readonly WaveFormat _format = WaveFormat.CreateIeeeFloatWaveFormat(48_000, 2);
@@ -5627,6 +5902,27 @@ sealed class PodcastHttpHandler(Func<HttpRequestMessage, HttpResponseMessage> re
         cancellationToken.ThrowIfCancellationRequested();
         Requests.Add(request.RequestUri!);
         return Task.FromResult(respond(request));
+    }
+}
+
+sealed class TidalOAuthRefreshHandler : HttpMessageHandler
+{
+    public string RequestBody { get; private set; } = string.Empty;
+
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        RequestBody = request.Content is null
+            ? string.Empty
+            : await request.Content.ReadAsStringAsync(cancellationToken);
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                "{\"access_token\":\"new-access-token\",\"expires_in\":86400,\"scope\":\"user.read collection.read\"}",
+                Encoding.UTF8,
+                "application/json")
+        };
     }
 }
 

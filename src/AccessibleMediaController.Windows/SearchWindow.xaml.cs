@@ -5,6 +5,7 @@ using AccessibleMediaController.Windows.Services;
 using System.Windows.Threading;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Tidal;
 
 namespace AccessibleMediaController.Windows;
 
@@ -13,6 +14,7 @@ public partial class SearchWindow : Window
     private readonly IReadOnlyList<DemoMediaSession> _sourceSessions;
     private readonly bool _allServices;
     private readonly Func<MediaItem, string> _formatItem;
+    private readonly Func<MediaItem, string> _formatNavigationText;
     private readonly Func<MediaItem, string> _formatQuickInformation;
     private readonly Func<
         IReadOnlyList<SearchResult>,
@@ -37,6 +39,7 @@ public partial class SearchWindow : Window
         SessionManager sessions,
         bool allServices,
         Func<MediaItem, string> formatItem,
+        Func<MediaItem, string> formatNavigationText,
         Func<MediaItem, string> formatQuickInformation,
         Func<
             IReadOnlyList<SearchResult>,
@@ -67,6 +70,7 @@ public partial class SearchWindow : Window
         _sourceSessions = allServices ? sessions.Sessions : [sessions.Current];
         _allServices = allServices;
         _formatItem = formatItem;
+        _formatNavigationText = formatNavigationText;
         _formatQuickInformation = formatQuickInformation;
         _executeAction = executeAction;
         _searchHistory = searchHistory;
@@ -101,6 +105,20 @@ public partial class SearchWindow : Window
     public IReadOnlyList<SearchResult> SelectedResults { get; private set; } = [];
     public SearchResult? LastDirectActionResult { get; private set; }
     public SearchResultAction SelectedAction { get; private set; } = SearchResultAction.Open;
+
+    internal void AnnounceActionCompletion(string announcement)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            _ = Dispatcher.BeginInvoke(
+                () => AnnounceActionCompletion(announcement),
+                DispatcherPriority.ContextIdle);
+            return;
+        }
+        if (!IsVisible) return;
+        SearchStatus.Announce(announcement);
+        _ = Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
+    }
 
     private async void RunSearch()
     {
@@ -156,7 +174,7 @@ public partial class SearchWindow : Window
             .Select(result => new SearchResultRow(
                 result.Session.Id,
                 result.Item,
-                result.Item.PrimaryText,
+                _formatNavigationText(result.Item),
                 _allServices
                     ? $"{_formatItem(result.Item)}, {result.Session.DisplayName}"
                     : _formatItem(result.Item),
@@ -252,8 +270,7 @@ public partial class SearchWindow : Window
             Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
             return;
         }
-        if (action is not (SearchResultAction.Open or SearchResultAction.Playlist
-                or SearchResultAction.Preset or SearchResultAction.GoToPodcast))
+        if (!ReturnsSelectedActionToMainWindow(action))
         {
             var results = action is SearchResultAction.CopyName
                 or SearchResultAction.CopyLocation
@@ -311,6 +328,14 @@ public partial class SearchWindow : Window
         SelectedAction = action;
         DialogResult = true;
     }
+
+    internal static bool ReturnsSelectedActionToMainWindow(SearchResultAction action) =>
+        action is SearchResultAction.Open
+            or SearchResultAction.Playlist
+            or SearchResultAction.Preset
+            or SearchResultAction.GoToPodcast
+            or SearchResultAction.GoToAlbum
+            or SearchResultAction.GoToArtist;
 
     private void SearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -435,6 +460,15 @@ public partial class SearchWindow : Window
             e.Handled = true;
             return;
         }
+        if (modifiers == ModifierKeys.None
+            && key == Key.Right
+            && ResultsList.SelectedItem is SearchResultRow tidalRow
+            && string.Equals(tidalRow.SessionId, "tidal", StringComparison.OrdinalIgnoreCase))
+        {
+            ShowTidalRelationsMenu(tidalRow);
+            e.Handled = true;
+            return;
+        }
         SearchResultAction? action = null;
 
         if (key == Key.Enter && modifiers == ModifierKeys.None)
@@ -467,6 +501,62 @@ public partial class SearchWindow : Window
         if (action is null) return;
         CompleteSelected(action.Value);
         e.Handled = true;
+    }
+
+    private void ShowTidalRelationsMenu(SearchResultRow row)
+    {
+        var actions = new List<(string Label, SearchResultAction Action)>();
+        if (TidalNavigationPolicy.CanOpenRelatedAlbum(row.Item))
+        {
+            actions.Add(("Przejdź do albumu", SearchResultAction.GoToAlbum));
+        }
+        if (TidalNavigationPolicy.CanShowArtistAlbums(row.Item))
+        {
+            actions.Add(("Pokaż albumy wykonawcy", SearchResultAction.GoToAlbum));
+        }
+        if (TidalNavigationPolicy.CanOpenRelatedArtist(row.Item))
+        {
+            actions.Add(("Przejdź do wykonawcy", SearchResultAction.GoToArtist));
+        }
+        if (actions.Count == 0)
+        {
+            SearchStatus.Announce("Ten wynik nie ma dostępnego albumu ani wykonawcy nadrzędnego");
+            Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
+            return;
+        }
+
+        var menu = new System.Windows.Controls.ContextMenu
+        {
+            PlacementTarget = ResultsList,
+            Placement = System.Windows.Controls.Primitives.PlacementMode.Relative,
+            HorizontalOffset = 24,
+            VerticalOffset = Math.Max(0, ResultsList.ActualHeight / 3)
+        };
+        AutomationProperties.SetName(menu, "Powiązania TIDAL");
+        foreach (var (label, action) in actions)
+        {
+            var menuItem = new System.Windows.Controls.MenuItem { Header = label };
+            AutomationProperties.SetName(menuItem, label);
+            menuItem.Click += (_, _) => CompleteSelected(action);
+            menu.Items.Add(menuItem);
+        }
+        menu.Opened += (_, _) =>
+        {
+            if (menu.Items[0] is System.Windows.Controls.MenuItem first)
+            {
+                first.Focus();
+                Keyboard.Focus(first);
+            }
+        };
+        menu.Closed += (_, _) =>
+        {
+            if (IsVisible)
+            {
+                Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
+            }
+        };
+        MenuAccessibility.UpdateVisibleItemSetMetadata(menu);
+        menu.IsOpen = true;
     }
 
     private SearchResult[] GetSelectedResults()
@@ -538,6 +628,16 @@ public partial class SearchWindow : Window
         SearchQueueSeparator.Visibility = visibility;
         SearchPlaylistMenuItem.Visibility = Visibility.Visible;
         var selected = GetSelectedResults();
+        var tidalOnly = selected.Length > 0 && selected.All(result =>
+            string.Equals(result.SessionId, "tidal", StringComparison.OrdinalIgnoreCase));
+        SearchFavoriteMenuItem.Visibility = !tidalOnly
+            || selected.All(result => TidalCollectionSemantics.UsesFavorites(result.Item.Kind))
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        SearchLibraryMenuItem.Visibility = !tidalOnly
+            || selected.All(result => TidalCollectionSemantics.UsesLibrary(result.Item.Kind))
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         var podcastsOnly = selected.Length > 0 && selected.All(result =>
             string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase));
         var podcastEpisodesOnly = podcastsOnly
@@ -554,6 +654,11 @@ public partial class SearchWindow : Window
         SearchSavePodcastAsMenuItem.Visibility = podcastEpisodesOnly && selected.Length == 1
             ? Visibility.Visible
             : Visibility.Collapsed;
+        MenuAccessibility.SetPresentation(
+            SearchPlaylistMenuItem,
+            tidalOnly ? "Dodaj do playlisty TIDAL" : "Zarządzaj playlistami");
+        SearchPlaylistMenuItem.InputGestureText = "Ctrl+Shift+P";
+        AutomationProperties.SetAcceleratorKey(SearchPlaylistMenuItem, "Ctrl+Shift+P");
         MenuAccessibility.SetPresentation(
             SearchLibraryMenuItem,
             youtubeOnly
@@ -613,6 +718,8 @@ public enum SearchResultAction
     Playlist,
     Preset,
     GoToPodcast,
+    GoToAlbum,
+    GoToArtist,
     Information,
     CopyName,
     CopyLocation,

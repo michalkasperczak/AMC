@@ -1,0 +1,38 @@
+<Window x:Class="AccessibleMediaController.Windows.TidalPlaylistPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        Title="Dodaj do playlisty TIDAL" Width="560" Height="430"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBlock x:Name="DescriptionText" Margin="0,0,0,8" TextWrapping="Wrap"
+                       automation:AutomationProperties.HeadingLevel="Level1" />
+            <TextBlock Text="Wybierz jedną lub więcej playlist. Ctrl+Spacja zaznacza osobno, Shift+strzałki zaznaczają ciągły zakres. Przycisk Nowa tworzy playlistę i od razu dodaje do niej wybrane elementy."
+                       TextWrapping="Wrap" />
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button x:Name="NewPlaylistButton" Width="95" Margin="0,0,18,0"
+                    Content="_Nowa…" Click="New_Click"
+                    automation:AutomationProperties.Name="Utwórz nową playlistę TIDAL"
+                    automation:AutomationProperties.HelpText="Ctrl+N lub Insert" />
+            <Button Width="95" Margin="0,0,8,0" Content="_Dodaj" IsDefault="True" Click="Add_Click" />
+            <Button Width="95" Content="_Anuluj" IsCancel="True" />
+        </StackPanel>
+        <controls:AccessibleStatusTextBlock x:Name="StatusText" DockPanel.Dock="Bottom"
+                                            Margin="0,8,0,0" TextWrapping="Wrap"
+                                            automation:AutomationProperties.LiveSetting="Polite" />
+        <ListBox x:Name="PlaylistList" DisplayMemberPath="Label"
+                 TextSearch.TextPath="NavigationText" SelectionMode="Extended"
+                 automation:AutomationProperties.Name="Playlisty TIDAL">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+    </DockPanel>
+</Window>

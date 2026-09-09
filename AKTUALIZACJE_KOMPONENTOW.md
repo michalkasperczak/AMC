@@ -26,6 +26,8 @@ systemowych. Składniki należą do konkretnej wersji AMC albo konkretnego dodat
 - opcjonalny FFmpeg dla HLS i izolowanych konwerterów;
 - opcjonalny `yt-dlp` wyłącznie jako izolowany resolver publicznych źródeł
   YouTube, bez przejmowania sesji ani ciasteczek przeglądarki;
+- oficjalny `@tidal-music/player` oraz Microsoft Edge WebView2 SDK i Runtime,
+  używane przez osobny tor odtwarzania TIDAL;
 - przyszłe adaptery usług, urządzeń, podcastów i mediów internetowych;
 - cienka wtyczka NVDA oraz osobne dodatki, w tym FreeRadio;
 - dane zgodności stacji i katalogów, które mogą być aktualizowane bez kodu.
@@ -119,7 +121,23 @@ podpisanym manifestem wszystkich bibliotek. Użytkownik może sprawdzić oba
 składniki ręcznie w menu Pomoc, a automatyczna kontrola odbywa się najwyżej raz
 na dobę zgodnie z ustawieniami.
 
+Od `alpha.332` oficjalny TIDAL Player jest przypięty do wersji `0.20.1`, a SDK
+WebView2 do `1.0.4191.47`. Paczka AMC zawiera skompilowany, lokalny most
+JavaScript i wymagane biblioteki SDK, natomiast korzysta z zainstalowanego w
+Windows środowiska WebView2 Runtime. Aktualizacja któregokolwiek z tych dwóch
+składników wymaga testu logowania, próbki i pełnego utworu, pauzy, przewijania,
+końca nagrania, szybkiej zmiany elementu, wygasania tokenu, trybu bez sieci oraz
+fokusa NVDA. Nie wolno wymieniać samego skryptu Playera w działającej paczce;
+jest częścią konkretnego, przetestowanego wydania AMC.
+
 ## 7. Kolejność wdrażania
+
+Oficjalny TIDAL Player jest budowany z przypiętej wersji pakietu npm i
+dołączany jako statyczny moduł JavaScript. Wydanie nie uruchamia Node.js ani
+menedżera pakietów na komputerze użytkownika. Microsoft WebView2 SDK jest
+przypięty w NuGet, natomiast zgodny WebView2 Runtime pozostaje aktualizowanym
+składnikiem systemowym Microsoft Edge. Brak Runtime ma dawać zwięzły błąd
+odtwarzania TIDAL, a nie blokować start AMC ani pozostałe sesje.
 
 - obecne wersje alpha pozostają przenośne i podają wersje komponentów
   diagnostycznie;

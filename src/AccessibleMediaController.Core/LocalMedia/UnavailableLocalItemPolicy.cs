@@ -57,6 +57,8 @@ public static class UnavailableLocalItemPolicy
         }
         RemoveFromOrder(state.CollectionOrders.FavoriteItemIdsBySession, removedIds);
         RemoveFromOrder(state.CollectionOrders.QueueItemIdsBySession, removedIds);
+        RemoveFromOrder(state.CollectionOrders.QueueRegularItemIdsBySession, removedIds);
+        RemoveFromOrder(state.CollectionOrders.QueuePlayNextItemIdsBySession, removedIds);
         foreach (var playlist in state.Playlists.Entries.Where(entry =>
                      string.Equals(entry.SessionId, "local", StringComparison.OrdinalIgnoreCase)))
         {

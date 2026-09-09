@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 
@@ -12,6 +13,28 @@ internal static class MenuAccessibility
             NormalizeItem(item, preserveHeaderMnemonic: true);
             NormalizeChildren(item);
         }
+
+        UpdateVisibleItemSetMetadata(menu);
+    }
+
+    public static void UpdateVisibleItemSetMetadata(Menu menu)
+    {
+        SetVisibleItemPositions(menu.Items.OfType<MenuItem>());
+
+        foreach (var item in menu.Items.OfType<MenuItem>())
+        {
+            UpdateVisibleChildSetMetadata(item);
+        }
+    }
+
+    public static void UpdateVisibleItemSetMetadata(ContextMenu menu)
+    {
+        SetVisibleItemPositions(menu.Items.OfType<MenuItem>());
+
+        foreach (var item in menu.Items.OfType<MenuItem>())
+        {
+            UpdateVisibleChildSetMetadata(item);
+        }
     }
 
     public static void NormalizeContextMenu(ContextMenu? menu)
@@ -23,6 +46,8 @@ internal static class MenuAccessibility
             NormalizeItem(item, preserveHeaderMnemonic: false);
             NormalizeChildren(item);
         }
+
+        UpdateVisibleItemSetMetadata(menu);
     }
 
     public static void SetPresentation(MenuItem menuItem, string label)
@@ -38,6 +63,37 @@ internal static class MenuAccessibility
         {
             NormalizeItem(item, preserveHeaderMnemonic: false);
             NormalizeChildren(item);
+        }
+    }
+
+    private static void UpdateVisibleChildSetMetadata(MenuItem parent)
+    {
+        var children = parent.Items.OfType<MenuItem>().ToArray();
+        SetVisibleItemPositions(children);
+
+        foreach (var child in children)
+        {
+            UpdateVisibleChildSetMetadata(child);
+        }
+    }
+
+    private static void SetVisibleItemPositions(IEnumerable<MenuItem> items)
+    {
+        var allItems = items.ToArray();
+        var visibleItems = allItems
+            .Where(item => item.Visibility == Visibility.Visible)
+            .ToArray();
+
+        for (var index = 0; index < visibleItems.Length; index++)
+        {
+            AutomationProperties.SetPositionInSet(visibleItems[index], index + 1);
+            AutomationProperties.SetSizeOfSet(visibleItems[index], visibleItems.Length);
+        }
+
+        foreach (var hiddenItem in allItems.Except(visibleItems))
+        {
+            AutomationProperties.SetPositionInSet(hiddenItem, -1);
+            AutomationProperties.SetSizeOfSet(hiddenItem, -1);
         }
     }
 

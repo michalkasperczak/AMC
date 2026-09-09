@@ -1,10 +1,10 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-293`
-- Tytuł zestawu: Publiczna transmisja YouTube jako źródło Radia
-- Wersja programu: `0.1.0-alpha.293`
-- Utworzono: 2026-09-06, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.293.md`
+- Numer zestawu: `AMC-TEST-329`
+- Tytuł zestawu: Prawdziwa kolejność dodania kolekcji TIDAL
+- Wersja programu: `0.1.0-alpha.329`
+- Utworzono: 2026-09-09, Europe/Warsaw
+- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.329.md`
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z
@@ -15,6 +15,177 @@ Na początku pliku wyników wystarczy opisać zauważone zachowanie. Nie trzeba 
 
 Zestaw regresji jest globalny: obserwacje należy odnosić do wszystkich sesji
 i wspólnych mechanizmów AMC, nawet jeżeli nowa poprawka dotyczy jednego modułu.
+
+## Do następnej alfy — TIDAL: relacje, liczenie menu i tworzenie playlist
+
+1. Na utworze w Bibliotece, Ulubionych, Kolejce i otwartej playliście TIDAL
+   naciśnij prawą strzałkę, a następnie otwórz menu kontekstowe. Jeżeli TIDAL
+   zwrócił relację wykonawcy, oba miejsca mają zawierać **Przejdź do
+   wykonawcy**. Na albumie ma być dostępne przejście do jego wykonawcy, a na
+   wykonawcy — **Pokaż albumy wykonawcy**.
+2. Porównaj wypowiadane „x z y” w menu na utworze, albumie, wykonawcy i
+   playliście. Liczba ma obejmować wyłącznie widoczne działania bieżącej sesji;
+   ukryte polecenia innych modułów nie mogą być doliczane.
+3. Na utworze naciśnij `Ctrl+Shift+P`, wybierz istniejącą playlistę i dodaj do
+   niej utwór. Otwórz okno ponownie: ta playlista ma być już domyślnie
+   zaznaczona, ale Spacja i Shift+strzałki nadal mają pozwalać wybrać kilka.
+4. W tym samym oknie wybierz **Nowa…** albo naciśnij `Ctrl+N` lub `Insert`,
+   wpisz nazwę i zatwierdź. AMC ma utworzyć prawdziwą playlistę na koncie,
+   dodać do niej wybrane elementy i pokazać ją pod `Ctrl+P`; żaden wiersz nie
+   może wypowiedzieć nazwy klasy, właściwości ani identyfikatora API.
+5. Powtórz tworzenie z albumem. Nowa playlista ma dostać wszystkie możliwe do
+   odtworzenia utwory albumu w jego kolejności. Anulowanie nazwy lub całego
+   wyboru nie może niczego utworzyć i ma przywrócić fokus do źródłowej listy.
+6. Jeżeli konto nie ma jeszcze żadnej playlisty, `Ctrl+Shift+P` nie może
+   kończyć się komunikatem o pustej liście. Fokus ma trafić na **Nowa…**, aby
+   pierwszą playlistę dało się utworzyć samą klawiaturą.
+
+## Alfa 329 — TIDAL: kolejność według dodania
+
+1. Uruchom AMC w sesji TIDAL i od razu, jeszcze podczas synchronizacji, otwórz
+   Bibliotekę oraz wybierz `Alt+1`. Początkowo lista może przedstawiać ostatni
+   pełny zapis, ale nie może samoczynnie zmienić jego kolejności ani go wyzerować.
+2. Po zakończeniu synchronizacji ponownie wybierz `Ctrl+L`, `Alt+1`. Najnowsze
+   albumy, wykonawcy i playlisty mają znaleźć się na początku zgodnie z datami
+   dodania zapisanymi przez TIDAL, a nie blokami według rodzaju elementu.
+3. Zanotuj pierwszych pięć pozycji, zamknij AMC, uruchom ponownie i sprawdź listę
+   przed synchronizacją oraz po niej. W obu chwilach kolejność ma pozostać taka
+   sama.
+4. Usuń album z Biblioteki TIDAL, dodaj go ponownie i zsynchronizuj konto. W
+   `Alt+1` powinien stać się najnowszym elementem; `Alt+2` nadal ma być
+   alfabetyczne, a `Alt+3` zachować niezależną kolejność własną.
+5. Sprawdź analogicznie `Ctrl+U`, aby potwierdzić rzeczywistą datę dodania
+   ulubionych utworów i materiałów wideo. Kolejność Kolejki `Ctrl+Q` nie może
+   ulec żadnej zmianie.
+
+## Alfa 328 — Kolejka po restarcie
+
+1. W TIDAL dodaj do Kolejki kilka utworów z co najmniej dwóch albumów. Jeden
+   inny utwór oznacz jako **Odtwórz jako następne**. Otwórz `Ctrl+Q`, zanotuj
+   kolejność i prawidłowy rodzaj każdej pozycji.
+2. Zamknij AMC zwykłym `Alt+F4`, uruchom wersję 328 i od razu naciśnij
+   `Ctrl+Q`. Jeszcze przed zakończeniem synchronizacji powinny być widoczne
+   prawdziwe zapisane pozycje; nie może pojawić się „Nocny pociąg” ani żaden
+   inny element demonstracyjny.
+3. Poczekaj na synchronizację TIDAL i ponownie sprawdź `Ctrl+Q`. Liczba,
+   kolejność oraz oznaczenie **Odtwórz jako następne** mają pozostać bez zmian.
+4. Usuń jedną pozycję, uruchom AMC ponownie i sprawdź, że wracają wszystkie
+   pozostałe, lecz usunięta nie wraca.
+5. W Plikach lokalnych dodaj dwa pliki do Kolejki, uruchom AMC ponownie i
+   sprawdź ten sam warunek. Test potwierdza wspólną regułę trwałości, nie tylko
+   adapter TIDAL.
+
+## Alfa 327 — TIDAL: usuń i ponownie dodaj z wyszukiwania
+
+1. Wyszukaj album zapisany już w Bibliotece TIDAL. Naciśnij `Ctrl+Shift+L`,
+   poczekaj na potwierdzenie usunięcia i bez zamykania wyszukiwania naciśnij
+   skrót ponownie. Druga operacja ma dodać album; oba komunikaty mają paść w
+   oknie wyszukiwania.
+2. Podczas obu operacji strzałki mają nadal poruszać się po wynikach.
+   Odświeżenie listy głównej nie może przejąć fokusa ani wymagać Escape.
+3. Zamknij wyszukiwanie i sprawdź `Ctrl+L`. Ponownie dodany album ma być
+   widoczny bez ręcznej pełnej synchronizacji konta.
+4. Powtórz próbę z singlem zawierającym jeden utwór. Jeśli TIDAL zwraca go
+   jako album, AMC ma używać `Ctrl+Shift+L` i otwierać go jako album, nie
+   zamieniać samodzielnie w pojedynczy utwór.
+
+## Alfa 326 — TIDAL: relacje, komunikaty i tytuł pierwszy w albumie
+
+1. W wynikach wyszukiwania TIDAL zaznacz utwór, naciśnij prawą strzałkę i
+   wybierz kolejno **Przejdź do albumu** oraz **Przejdź do wykonawcy**. Okno
+   wyszukiwania ma się zamknąć, a AMC ma wejść dokładnie do wybranego albumu
+   lub wykonawcy; fokus nie może zostać w ukrytym dialogu.
+2. Na albumie prawa strzałka ma pokazać **Przejdź do wykonawcy**, ale nie
+   sugerować albumu nadrzędnego. Na wykonawcy ma być **Pokaż albumy
+   wykonawcy**. Otwarta lista musi należeć do właściwego wykonawcy.
+3. Otwórz album, którego utwory mają jednego wykonawcę. Kolejność pozycji ma
+   pozostać kolejnością wydania TIDAL. Każdy wiersz powinien jednak zaczynać
+   się od tytułu, następnie podać wykonawcę; litera ma wyszukiwać po tytule.
+4. Otwórz wykonawcę. Jego albumy mają zaczynać się od tytułów i reagować na
+   litery według tytułu, nawet gdy w Ustawieniach ogólna kolejność pól zaczyna
+   się od wykonawcy.
+5. Na albumie użyj `Ctrl+Shift+L`, a na utworze `Ctrl+Shift+U`. Po sukcesie
+   powinien paść tylko jeden końcowy komunikat: odpowiednio o Bibliotece TIDAL
+   albo Ulubionych TIDAL. Nie powinien doklejać ogólnej „kolekcji” ani
+   komunikatu kolejki.
+6. Usuń tymi samymi skrótami elementy i powtórz próbę dla wyniku wyszukiwania.
+   Stan konta oraz odpowiedni widok mają się zmienić, a fokus po operacji ma
+   pozostać na liście wyników albo wrócić na najbliższy element listy głównej.
+
+## Alfa 325 — TIDAL: kolekcje, relacje i trwała Kolejka
+
+1. Po synchronizacji otwórz `Ctrl+U`. Lista ma zawierać tylko pojedyncze
+   polubione utwory i materiały wideo. Otwórz `Ctrl+L`: mają się tam znaleźć
+   albumy, wykonawcy i playlisty, bez powtórzenia pojedynczych utworów.
+2. Na utworze lub materiale wideo użyj `Ctrl+Shift+U`, a na albumie,
+   wykonawcy i playliście — `Ctrl+Shift+L`. Stan ma zmienić się na koncie i w
+   odpowiednim widoku. Użycie skrótu niezgodnego z rodzajem ma podać jasny
+   komunikat, nie wysłać żądania i nie zmienić drugiej kolekcji.
+3. Sprawdź `Delete` kolejno w Ulubionych i Bibliotece. Ma usuwać dokładnie
+   przynależność widoczną w bieżącym widoku; plik playlisty otwartej przez
+   `Ctrl+P` nadal usuwa tylko wskazane wystąpienie z tej playlisty.
+4. Na utworze TIDAL naciśnij prawą strzałkę na głównej liście oraz w wynikach
+   wyszukiwania. Menu ma zawierać tylko istniejące relacje albumu i wykonawcy.
+   Enter otwiera wybraną relację, a Escape wraca na ten sam wiersz bez
+   technicznego identyfikatora ani reprezentacji obiektu.
+5. Dodaj co najmniej dwa elementy TIDAL do zwykłej Kolejki, a jeden ustaw jako
+   następny. Zapamiętaj kolejność, wykonaj pełną synchronizację przez
+   `Ctrl+F5`, otwórz kilka albumów i playlist, a potem sprawdź `Ctrl+Q`.
+   Zwykła kolejność i warstwa **jako następne** muszą pozostać bez zmian.
+6. Zamknij AMC, uruchom ponownie i ponownie sprawdź Kolejkę. Jeżeli element
+   istnieje w katalogu konta, musi zachować przynależność i właściwą warstwę.
+   Synchronizacja nie może wyzerować Kolejki tylko dlatego, że odtworzyła
+   obiekty katalogu.
+7. Dawne kombinacje `Ctrl+Alt+G` i `Ctrl+Alt+Shift+G` nie mogą wykonywać
+   przejścia. Polecenia **Przejdź do albumu** i **Przejdź do wykonawcy** nadal
+   mają być dostępne w odpowiednim menu kontekstowym oraz palecie poleceń.
+
+## Alfa 324 — format, bitrate i rozmiar pod lewą strzałką
+
+1. W Plikach lokalnych znajdź po jednym pliku MP3 i FLAC. Po odczytaniu wiersza
+   strzałką w górę lub w dół naciśnij lewą strzałkę. Komunikat ma zacząć się
+   odpowiednio od `MP3` albo `FLAC`, potem podać dostępne `kb/s`, `kHz`, rozmiar
+   i czas. Nie może drugi raz zaczynać od tytułu pliku.
+2. Na lokalnym MP4 z dźwiękiem AAC użyj lewej strzałki. Dopuszczalny początek to
+   `MP4, AAC`; rozmiar kontenera nie może zostać przedstawiony jako bitrate.
+3. Powtórz próbę na odcinku Podcastów oraz stacji radiowej. AMC ma podać kodek,
+   bitrate, rozmiar i częstotliwość tylko wtedy, gdy dana wartość została
+   otrzymana albo wiarygodnie rozpoznana. Brak pola nie może tworzyć zmyślonego
+   zera ani domyślnej jakości.
+4. W TIDAL-u zaznacz utwór i naciśnij lewą strzałkę. Przed wdrożeniem Playera
+   komunikat może rozpocząć się od informacji, że katalog nie udostępnił
+   formatu, a następnie podać czas i wykonawcę. Nie może wymyślić rozszerzenia,
+   bitrate'u ani rozmiaru.
+5. Wyszukaj lokalny plik, odcinek i element TIDAL przez `Ctrl+F` lub
+   `Ctrl+Shift+F`, a następnie użyj lewej strzałki na wynikach. Kolejność i
+   zasady mają być identyczne jak na zwykłej liście, a fokus ma pozostać na
+   tym samym wyniku.
+6. Włącz pomoc klawiatury `Ctrl+F1` i naciśnij lewą strzałkę na liście, potem
+   otwórz spis `F1`. Oba opisy mają mówić o formacie, bitrate, wielkości i
+   innych dostępnych parametrach bez nazw klas ani identyfikatorów technicznych.
+
+## Alfa 323 — kolekcja, Kolejka i relacje TIDAL
+
+1. W Bibliotece TIDAL usuń `Delete` pojedynczy utwór, album i wykonawcę.
+   Komunikat końcowy i zniknięcie wiersza powinny nastąpić po odpowiedzi API,
+   bez ponownego kilkudziesięciosekundowego pobierania całej kolekcji.
+2. W wynikach wyszukiwania dodaj album przez `Ctrl+Shift+L`, wróć do
+   Biblioteki i sprawdź jego obecność. Następnie wykonaj ręczną synchronizację
+   pod `Ctrl+F5`; stan nie może się odwrócić.
+3. Otwórz album zawierający utwór zapisany osobno w kolekcji. `Delete` na tym
+   utworze ma usunąć go z kolekcji TIDAL, ale nie może sugerować usunięcia
+   utworu z wydania albumowego. Na utworze spoza kolekcji powinien paść jasny
+   komunikat bez żądania sieciowego.
+4. Dodaj kilka utworów o znanych czasach do Kolejki i otwórz ją `Ctrl+Q`.
+   Nagłówek ma podać liczbę oraz łączny czas. Bez flagi następnego utworu nie
+   może mówić „jako następne zero”. Po `Ctrl+Shift+Enter` ma podać liczbę
+   rzeczywiście ustawionych pozycji jako następne.
+5. Na utworze z otwartego albumu i z wyników wyszukiwania użyj prawej strzałki.
+   Z krótkiego menu otwórz kolejno album i wykonawcę, z poprawnym fokusem i bez
+   odczytania identyfikatorów API.
+6. Sprawdź te same dwa polecenia z menu kontekstowego i palety poleceń.
+   Niedostępna relacja ma ukryć polecenie; żaden element menu nie może ujawnić
+   nazwy klasy, rekordu ani technicznego identyfikatora.
 
 ## Alfa 307 — trwałe zatrzymanie harmonogramu i zerowanie godzin
 
@@ -6825,3 +6996,305 @@ plików `.part`, `.amc-youtube-*` ani `.amc-download-*`; po ukończeniu pojawiaj
 się wyłącznie kompletne MP3, a krótka blokada chmury jest automatycznie
 ponawiana. Każde niepowodzenie jest policzone i nie zostawia pozornego gotowego
 odcinka.
+
+## Testy ręczne — alpha 314
+
+### AMC-314-01 — konfiguracja i dostępność logowania TIDAL
+
+Przejdź do sesji TIDAL, naciśnij `Ctrl+F5` i przejdź Tabem po całym oknie.
+Najpierw sprawdź zachowanie bez Client ID, potem wpisz Client ID aplikacji
+deweloperskiej, kraj `PL` i dokładny zarejestrowany adres powrotu. Uruchom
+logowanie w przeglądarce i wróć do AMC po wyrażeniu zgody.
+
+Oczekiwane: każdy element ma krótką użytkową etykietę, fokus początkowy trafia
+do Client ID albo przycisku synchronizacji i nie pojawia się reprezentacja
+obiektu. Hasło nie jest wpisywane w AMC. Po powrocie program podaje wynik
+logowania i liczbę zsynchronizowanych elementów.
+
+### AMC-314-02 — rozdzielone kolekcje i wyszukiwanie
+
+Porównaj w TIDAL polubione utwory, albumy, wykonawców i playlisty z tymi samymi
+widokami AMC. Następnie użyj `Ctrl+F` dla elementu spoza kolekcji i elementu już
+polubionego.
+
+Oczekiwane: kategorie nie tworzą fałszywych zależności; polubiony album nie
+oznacza wszystkich utworów jako polubionych. Wynik wyszukiwania podaje właściwy
+rodzaj i stan, zachowuje fokus oraz nie miesza demonstracji z prawdziwym
+katalogiem.
+
+### AMC-314-03 — restart, token i odłączenie
+
+Po udanej synchronizacji zamknij AMC, uruchom ponownie i wejdź do TIDAL. Potem
+otwórz `Ctrl+F5`, odłącz konto i ponownie uruchom program.
+
+Oczekiwane: AMC odświeża prawdziwą kolekcję bez ponownego pytania o hasło,
+token nie pojawia się w logach ani kopii konfiguracji. Odłączenie usuwa
+poświadczenie, nie kasuje lokalnej kolejki, historii, zakładek i presetów oraz
+przywraca demonstrację.
+
+### AMC-314-04 — niepełna synchronizacja i limit zapytań
+
+Podczas synchronizacji chwilowo przerwij sieć albo wykonaj ponowne odświeżenie
+po otrzymaniu ograniczenia API, a następnie przywróć połączenie.
+
+Oczekiwane: `429` respektuje czas ponowienia. Niepowodzenie jednej kategorii
+jest oznajmiane jako synchronizacja częściowa i nie czyści poprzednio pobranej
+kategorii. Jeżeli nie uda się żadna kategoria, cała wcześniejsza sesja zostaje
+bez zmian.
+
+### AMC-314-05 — granica odtwarzania pierwszego etapu
+
+Naciśnij Enter i `Ctrl+Enter` na prawdziwym utworze TIDAL przed zainstalowaniem
+oficjalnego modułu Player.
+
+Oczekiwane: AMC mówi wprost, że odtwarzanie wymaga następnego etapu. Nie udaje
+odtwarzania, nie dodaje technicznego adresu audio i nie pobiera chronionego
+pliku. Publiczna strona elementu pozostaje możliwa do otwarcia.
+
+## Testy ręczne — alpha 315
+
+### AMC-315-01 — liczba widocznych pozycji menu
+
+Przejdź kolejno do sesji TIDAL, Radio, Podcasty i YouTube, WiiM oraz Pliki
+lokalne. W każdej sesji otwórz menu **Plik**, a potem pozostałe menu główne i
+przejdź po wszystkich pozycjach strzałkami.
+
+Oczekiwane: NVDA podaje „x z y” wyłącznie dla widocznych poleceń danego menu.
+Ukryte funkcje innych sesji i separatory nie zwiększają wartości `y`. W TIDAL
+nie może ponownie pojawić się informacja o kilkunastu pozycjach, gdy dostępne są
+tylko polecenia konta TIDAL, Ustawień oraz zakończenia programu.
+
+## Testy ręczne — alpha 317
+
+### AMC-317-01 — pierwsza synchronizacja prawdziwego konta
+
+Zamknij starszą wersję, uruchom `alpha.317`, wejdź do sesji TIDAL i otwórz
+`Ctrl+F5`. Jeżeli pole Client ID jest puste, wpisz ponownie ten sam identyfikator
+i zapisz ustawienia. Naciśnij **Synchronizuj**.
+
+Oczekiwane: zapisane wcześniej logowanie zostaje rozpoznane bez ponownego
+podawania hasła. AMC pobiera rozdzielnie polubione utwory, albumy, wykonawców i
+playlisty. Pusta kategoria jest poprawnym wynikiem i nie powoduje błędu całej
+synchronizacji.
+
+### AMC-317-02 — trwałość ustawień i wyszukiwanie
+
+Po udanej synchronizacji zamknij AMC, uruchom ponownie i jeszcze raz otwórz
+`Ctrl+F5`. Następnie użyj `Ctrl+F` i wyszukaj wykonawcę oraz utwór spoza własnej
+Biblioteki.
+
+Oczekiwane: Client ID, kraj i stan ostatniej synchronizacji pozostają zapisane;
+program nie żąda ponownego logowania. Wyszukiwanie zwraca prawdziwe wyniki
+katalogu TIDAL, a nie dane demonstracyjne.
+
+### AMC-317-03 — jednoznaczny błąd częściowej synchronizacji
+
+W razie niepowodzenia ponów synchronizację po przywróceniu sieci.
+
+Oczekiwane: AMC wskazuje, której kolekcji nie odświeżono i jaki rodzaj błędu
+zwrócił TIDAL. Poprzednio poprawnie pobrane kategorie nie są kasowane.
+
+## Testy ręczne — alpha 318
+
+### AMC-318-01 — wielostronicowe kolekcje TIDAL
+
+Uruchom `alpha.318`, przejdź do TIDAL, otwórz `Ctrl+F5` i naciśnij
+**Synchronizuj teraz** na koncie, na którym dowolna kolekcja ma ponad 20
+elementów.
+
+Oczekiwane: AMC pobiera wszystkie strony ulubionych utworów, albumów,
+wykonawców i playlist. Link następnej strony zwrócony przez TIDAL nie traci
+prefiksu `/v2`; nie pojawia się zbiorczy błąd 404 po poprawnym pobraniu
+pierwszych 20 elementów.
+
+## Testy ręczne — alpha 319
+
+### AMC-319-01 — otwieranie kontenerów TIDAL
+
+W Bibliotece TIDAL naciśnij Enter kolejno na albumie, playliście i wykonawcy.
+Przejdź po całej otwartej liście, a następnie użyj Escape i historii widoków.
+
+Oczekiwane: album pokazuje utwory w kolejności TIDAL, playlista swoje utwory i
+materiały wideo, a wykonawca albumy. Nie pojawiają się identyfikatory techniczne.
+Escape wraca do poprzedniego widoku i zaznaczonego kontenera. Wolna odpowiedź
+sieci nie odbiera fokusa po ręcznej zmianie sesji lub widoku.
+
+### AMC-319-02 — otwieranie wyniku wyszukiwania
+
+Użyj `Ctrl+F` i wyszukaj album spoza kolekcji. Pierwszym Enterem zakończ
+wyszukiwanie i przejdź do wyniku na głównej liście, a drugim otwórz album.
+W jego zawartości spróbuj Entera na utworze.
+
+Oczekiwane: album otwiera prawdziwą listę utworów. Enter na utworze podaje
+jednoznacznie, że odtwarzanie wymaga jeszcze oficjalnego Playera; AMC nie udaje
+odtwarzania i nie wydobywa prywatnego adresu audio.
+
+### AMC-319-03 — ponowne logowanie z prawem zapisu
+
+Na koncie połączonym w `alpha.318` spróbuj `Ctrl+Shift+U` albo
+`Ctrl+Shift+L`. Następnie otwórz `Ctrl+F5`, zaloguj się ponownie i zaakceptuj
+zakres `collection.write`.
+
+Oczekiwane: starszy token powoduje czytelną prośbę o ponowne logowanie, bez
+fałszywej zmiany w interfejsie. Po ponownym logowaniu operacja działa.
+
+### AMC-319-04 — dodawanie i usuwanie z kolekcji
+
+Wynajdź utwór, album, wykonawcę i playlistę spoza kolekcji. Dodaj je kolejno,
+porównaj stan z aplikacją TIDAL, a następnie usuń i porównaj ponownie. Powtórz
+jedną operację na zaznaczonym bloku.
+
+Oczekiwane od `alpha.325`: `Ctrl+Shift+U` obsługuje utwory i materiały wideo,
+a `Ctrl+Shift+L` albumy, wykonawców i playlisty. Oba trafiają do właściwej
+typowanej kolekcji TIDAL, ale nie działają zamiennie. AMC ogłasza sukces dopiero
+po potwierdzeniu serwera. Błąd sieci lub uprawnień nie pozostawia pozornego
+polubienia ani usunięcia, a kolejka, historia, zakładki i presety pozostają
+lokalne.
+
+## Testy ręczne — alpha 320
+
+### AMC-320-01 — ciche otwieranie i powrót
+
+Otwórz po kolei mały album, dużą playlistę i wykonawcę TIDAL. W czasie wolnego
+otwierania przejdź do innej sesji, a następnie wróć.
+
+Oczekiwane: szybkie otwarcie nie mówi osobnego „otwieranie”. Dopiero po około
+1,4 sekundy pojawia się pojedyncze „wczytywanie” z nazwą kontenera. Zakończenie
+spóźnionego żądania nie odbiera fokusa po zmianie sesji. Escape wraca do
+kontenera i zachowuje zaznaczenie.
+
+### AMC-320-02 — playlisty TIDAL i sortowanie
+
+Naciśnij `Ctrl+P`, otwórz playlistę i sprawdź `Alt+1`, `Alt+2` oraz `Alt+3`.
+Powtórz `Alt+1`, `Alt+2` i `Alt+3` w albumie.
+
+Oczekiwane: `Ctrl+P` pokazuje playlisty zsynchronizowane z konta. `Alt+1`
+przywraca kolejność TIDAL, `Alt+2` sortuje bieżący widok alfabetycznie, a
+`Alt+3` włącza edytowalną kolejność tylko w playliście. Album odrzuca `Alt+3`
+czytelnym komunikatem i nigdy nie zmienia kolejności wydania na koncie.
+
+### AMC-320-03 — zdalna zmiana kolejności playlisty
+
+Po ponownym zalogowaniu z `playlists.write` otwórz własną playlistę, wybierz
+`Alt+3` i przenieś pojedynczą pozycję oraz ciągły blok przez `Alt+strzałki`.
+Następnie zaznacz blok, naciśnij `Ctrl+X`, wybierz miejsce i naciśnij `Ctrl+V`.
+
+Oczekiwane: NVDA mówi „przeniesiono nad” albo „przeniesiono pod” wraz z nazwą
+sąsiada. `Ctrl+V` umieszcza blok przed wskazanym elementem. Po każdym sukcesie
+AMC pobiera playlistę ponownie, zachowuje fokus na przeniesionym bloku, a nowy
+porządek jest taki sam w aplikacji TIDAL. Brak prawa edycji albo starszy token
+nie pozostawia fałszywego stanu.
+
+### AMC-320-04 — przenoszenie w lokalnej playliście i kolejność sesji
+
+Otwórz lokalną playlistę, zaznacz kilka sąsiednich pozycji, użyj `Ctrl+X`,
+wskaż cel i użyj `Ctrl+V`. Następnie w Ustawieniach przejdź do kolejności sesji
+i użyj `Alt+strzałki w górę` oraz `Alt+strzałki w dół`.
+
+Oczekiwane: pozycje playlisty są przenoszone jako blok i operację można cofnąć.
+Przy zmianie sesji NVDA podaje nazwę przeniesionej sesji, „nad” albo „pod”, nazwę
+sąsiada oraz nowy skrót `Ctrl+cyfra`; nie odczytuje technicznego obiektu.
+
+## Testy ręczne — alpha 321
+
+### AMC-321-01 — granica playlist TIDAL i AMC
+
+W sesji TIDAL naciśnij `Ctrl+P`, a potem Insert oraz `Ctrl+Shift+P` na utworze.
+Powtórz próbę w sesji Pliki lokalne.
+
+Oczekiwane: w TIDAL `Ctrl+P` pokazuje wyłącznie playlisty konta i Insert nie
+tworzy lokalnego kontenera. `Ctrl+Shift+P` otwiera listę docelowych playlist
+TIDAL. W Plikach lokalnych oba skróty nadal obsługują lokalne playlisty AMC;
+dane obu mechanizmów nigdy się nie mieszają.
+
+### AMC-321-02 — dodanie utworu i albumu „Kolędy”
+
+Wyszukaj w TIDAL pojedynczy utwór oraz album „Kolędy”. Na każdym wyniku użyj
+`Ctrl+Shift+P`, wybierz jedną albo kilka playlist przez `Ctrl+Spacja` lub
+Shift+strzałki i zatwierdź Enterem. Otwórz każdą playlistę również w aplikacji
+TIDAL.
+
+Oczekiwane: utwór zostaje dopisany raz, a album zostaje rozwinięty do swoich
+utworów w kolejności wydania. Okno nie wypowiada nazw klas ani identyfikatorów,
+fokus zaczyna się na pierwszej playliście i po sukcesie wraca do właściwego
+widoku. Brak `playlists.write` prosi o ponowne logowanie, a playlista tylko do
+odczytu zgłasza brak prawa bez pozornej zmiany.
+
+### AMC-321-03 — Delete i dwa wystąpienia tego samego utworu
+
+Otwórz edytowalną playlistę zawierającą dwie kopie tego samego utworu. Usuń
+jedną z nich klawiszem `Delete`, a potem zaznacz Shiftem kilka innych pozycji i
+usuń je zbiorczo. Osobno naciśnij `Delete` na playliście w widoku `Ctrl+P`.
+
+Oczekiwane: z otwartej playlisty znika tylko dokładnie wybrane wystąpienie lub
+zaznaczony blok, bez usunięcia utworu z Biblioteki TIDAL. Na poziomie `Ctrl+P`
+playlista zostaje usunięta z kolekcji konta, ale AMC nie obiecuje skasowania
+całego zdalnego kontenera. Po każdej operacji następuje ponowny odczyt serwera i
+fokus pozostaje przy najbliższym elemencie.
+
+### AMC-321-04 — litery zgodne z kolejnością czytania
+
+W Ustawieniach ustaw kolejność „wykonawca, tytuł”, otwórz playlistę TIDAL i
+naciśnij kilka liter nazw wykonawców. Następnie zmień kolejność na „tytuł,
+wykonawca” i powtórz litery tytułów. Sprawdź też `Alt+2`, Bibliotekę, Ulubione i
+wyniki `Ctrl+F`.
+
+Oczekiwane: nawigacja literowa i sortowanie alfabetyczne używają tego samego
+pierwszego czytanego pola identyfikującego. Rodzaj, usługa, czas, stan i numer
+pozycji nie przejmują liter. Album, playlista i podcast są znajdowane po nazwie
+kontenera.
+
+## Testy ręczne — alpha 330
+
+### AMC-330-01 — ostatnie logowanie i automatyczne odświeżenie
+
+Uruchom `alpha.330`, przejdź do TIDAL i w razie prośby zaloguj się jeden raz
+przez `Ctrl+F5`. Wykonaj **Synchronizuj teraz**, zamknij AMC i uruchom ponownie.
+Powtórz restart także po upływie ważności bieżącego tokenu.
+
+Oczekiwane: po pierwszym ewentualnym logowaniu kolejne uruchomienia nie proszą
+o hasło. W logu pojawia się „Odświeżono logowanie TIDAL”, ale nigdy token,
+Client Secret ani kod logowania. Biblioteka i Ulubione są dostępne, a Kolejka
+zachowuje dokładnie poprzedni stan.
+
+### AMC-330-02 — katalog awaryjny bez pustej Biblioteki
+
+Po udanej synchronizacji zamknij AMC, chwilowo odłącz internet i uruchom je
+ponownie. Otwórz `Ctrl+L`, `Ctrl+U`, albumy i playlisty. Następnie przywróć
+internet i wybierz **Synchronizuj teraz**.
+
+Oczekiwane: bez sieci AMC pokazuje ostatnią poprawną kolekcję zamiast pustej
+listy. Elementy, kolejność według dodania oraz lokalna Kolejka nie znikają.
+Operacje wymagające serwera zgłaszają brak połączenia. Po powrocie sieci dane
+są odświeżane bez duplikatów i bez zmiany fokusa na przypadkowy element.
+
+### AMC-330-03 — odłączenie świadome
+
+W `Ctrl+F5` wybierz **Odłącz konto** tylko wtedy, gdy chcesz zakończyć testową
+sesję. Zamknij i ponownie uruchom AMC.
+
+Oczekiwane: poświadczenie i awaryjna kopia kolekcji są usunięte, ale Kolejka,
+Historia, presety oraz ustawienia AMC pozostają. Sam błąd sieci lub tokenu nie
+może zachowywać się jak świadome odłączenie.
+
+## Testy ręczne — alpha 331
+
+### AMC-331-01 — przenoszenie na liście sesji
+
+Naciśnij `Ctrl+Shift+S`, wybierz środkową sesję i użyj kolejno
+`Alt+strzałka w dół` oraz `Alt+strzałka w górę`. Po jednym ruchu wybierz
+**Anuluj**, otwórz listę ponownie i sprawdź odpowiedni skrót `Ctrl+cyfra`.
+
+Oczekiwane: sesja przesuwa się od razu, fokus pozostaje na niej, a NVDA mówi
+„Przeniesiono [sesję] pod/nad [sąsiada]. Ctrl+[nowy numer]”. Anulowanie wyboru
+nie cofa świadomej zmiany kolejności. `Ctrl+cyfra` i `Ctrl+Page Up/Page Down`
+używają nowego układu także po ponownym uruchomieniu AMC.
+
+### AMC-331-02 — granice i dostępność listy
+
+Na liście `Ctrl+Shift+S` spróbuj przenieść pierwszą sesję wyżej i ostatnią
+niżej. Następnie przejdź zwykłymi strzałkami przez wszystkie wiersze.
+
+Oczekiwane: kolejność nie zawija się; AMC mówi odpowiednio „Ta sesja jest już
+pierwsza” albo „Ta sesja jest już ostatnia”. Każdy wiersz ma tylko czytelną
+nazwę i numer, bez nazwy klasy, nawiasów klamrowych lub identyfikatora.

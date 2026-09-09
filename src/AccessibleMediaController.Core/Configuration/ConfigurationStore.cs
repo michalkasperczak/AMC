@@ -8,13 +8,14 @@ using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Tidal;
 using Microsoft.Data.Sqlite;
 
 namespace AccessibleMediaController.Core.Configuration;
 
 public sealed class ConfigurationStore
 {
-    public const int CurrentSchemaVersion = 51;
+    public const int CurrentSchemaVersion = 54;
     private const string Version1DefaultPrefix = "Ctrl+Alt+Space";
     private const string Version2DefaultPrefix = "Ctrl+Alt+Windows+Enter";
     private const string CurrentDefaultPrefix = "Ctrl+Alt+Windows+F12";
@@ -177,6 +178,7 @@ public sealed class ConfigurationStore
         NormalizeRadio(state);
         NormalizePodcasts(state);
         NormalizeWiiM(state);
+        NormalizeTidal(state);
         ValidateState(state);
         return state;
     }
@@ -285,6 +287,8 @@ public sealed class ConfigurationStore
             LocalMedia = state.LocalMedia,
             Radio = state.Radio,
             WiiM = state.WiiM,
+            Tidal = state.Tidal,
+            RemoteQueues = state.RemoteQueues,
             Podcasts = new PodcastSettings
             {
                 DownloadsFolder = state.Podcasts.DownloadsFolder,
@@ -420,6 +424,8 @@ public sealed class ConfigurationStore
         || state.PlaybackHistory.ItemIdsBySession.Count > 0
         || state.CollectionOrders.FavoriteItemIdsBySession.Count > 0
         || state.CollectionOrders.QueueItemIdsBySession.Count > 0
+        || state.CollectionOrders.QueueRegularItemIdsBySession.Count > 0
+        || state.CollectionOrders.QueuePlayNextItemIdsBySession.Count > 0
         || state.Playlists.Entries.Count > 0;
 
     private static void CopyLibraryPayload(PersistedState source, PersistedState destination)
@@ -566,6 +572,95 @@ public sealed class ConfigurationStore
         {
             state.WiiM.SelectedDeviceId = state.WiiM.Devices.FirstOrDefault()?.Id;
         }
+    }
+
+    private static void NormalizeTidal(PersistedState state)
+    {
+        state.Tidal ??= new TidalSettings();
+        state.Tidal.ClientId = state.Tidal.ClientId?.Trim() ?? string.Empty;
+        state.Tidal.RedirectUri = NormalizeTidalRedirectUri(state.Tidal.RedirectUri);
+        state.Tidal.CountryCode = NormalizeCountryCode(state.Tidal.CountryCode);
+        state.Tidal.AccountDisplayName = state.Tidal.AccountDisplayName?.Trim() ?? string.Empty;
+        state.Tidal.LastPlaylistExternalId = string.IsNullOrWhiteSpace(state.Tidal.LastPlaylistExternalId)
+            ? null
+            : state.Tidal.LastPlaylistExternalId.Trim();
+        state.Tidal.LastSuccessfulSyncUtcTicks = NormalizeOptionalUtcTicks(
+            state.Tidal.LastSuccessfulSyncUtcTicks);
+        state.Tidal.CachedCollectionItems = (state.Tidal.CachedCollectionItems ?? [])
+            .Where(item => !string.IsNullOrWhiteSpace(item.Id)
+                && !string.IsNullOrWhiteSpace(item.Title)
+                && TidalCollectionSemantics.IsCollectionKind(item.Kind))
+            .DistinctBy(item => item.ExternalId ?? item.Id, StringComparer.Ordinal)
+            .ToList();
+        NormalizeRemoteQueues(state);
+        // Collection orders are loaded from SQLite after the first migration
+        // pass. Clean legacy prototype rows again here, against the final
+        // authoritative state, so they cannot reappear in the live queue.
+        RemoveLegacyTidalDemonstrationState(state);
+    }
+
+    private static void NormalizeRemoteQueues(PersistedState state)
+    {
+        state.RemoteQueues ??= new RemoteQueueCacheSettings();
+        state.RemoteQueues.ItemsBySession = new Dictionary<string, List<RemoteQueueItemSettings>>(
+            (state.RemoteQueues.ItemsBySession
+                ?? new Dictionary<string, List<RemoteQueueItemSettings>>())
+            .Where(pair => !string.IsNullOrWhiteSpace(pair.Key))
+            .ToDictionary(
+                pair => pair.Key.Trim(),
+                pair => (pair.Value ?? [])
+                    .Where(item => !string.IsNullOrWhiteSpace(item.Id)
+                        && !string.IsNullOrWhiteSpace(item.Title)
+                        && !TransientQueuePersistence.IsLegacyDemonstrationItemId(
+                            pair.Key,
+                            item.Id))
+                    .Select(item =>
+                    {
+                        // Before alpha.328 the cache itself did not store the
+                        // regular/play-next distinction. Every object present
+                        // here was nevertheless a queue entry, so migrate an
+                        // unmarked legacy object to the regular queue instead
+                        // of silently losing it during the first new startup.
+                        if (!item.IsInQueue && !item.IsPlayNext)
+                        {
+                            item.IsInQueue = true;
+                        }
+
+                        return item;
+                    })
+                    .DistinctBy(item => item.Id, StringComparer.Ordinal)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeTidalRedirectUri(string? value)
+    {
+        const string fallback = "http://127.0.0.1:43821/tidal/callback/";
+        if (!Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var uri)
+            || !string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+            || !uri.IsLoopback
+            || uri.Port is <= 0 or > 65535)
+        {
+            return fallback;
+        }
+
+        var builder = new UriBuilder(uri)
+        {
+            Query = string.Empty,
+            Fragment = string.Empty
+        };
+        if (!builder.Path.EndsWith("/", StringComparison.Ordinal)) builder.Path += "/";
+        return builder.Uri.AbsoluteUri;
+    }
+
+    private static string NormalizeCountryCode(string? value)
+    {
+        var countryCode = value?.Trim().ToUpperInvariant() ?? string.Empty;
+        return countryCode.Length == 2
+            && countryCode.All(character => character is >= 'A' and <= 'Z')
+                ? countryCode
+                : "PL";
     }
 
     private static bool MigrateLegacyWiiMNetworkStreamOrder(
@@ -961,6 +1056,29 @@ public sealed class ConfigurationStore
                     .ToList(),
                 StringComparer.OrdinalIgnoreCase),
             StringComparer.OrdinalIgnoreCase);
+        state.CollectionOrders.QueuePlayNextItemIdsBySession = new Dictionary<string, List<string>>(
+            (state.CollectionOrders.QueuePlayNextItemIdsBySession
+                ?? new Dictionary<string, List<string>>())
+            .ToDictionary(
+                pair => pair.Key,
+                pair => (pair.Value ?? [])
+                    .Where(itemId => !string.IsNullOrWhiteSpace(itemId))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase),
+            StringComparer.OrdinalIgnoreCase);
+        state.CollectionOrders.QueueRegularItemIdsBySession = new Dictionary<string, List<string>>(
+            (state.CollectionOrders.QueueRegularItemIdsBySession
+                ?? new Dictionary<string, List<string>>())
+            .ToDictionary(
+                pair => pair.Key,
+                pair => (pair.Value ?? [])
+                    .Where(itemId => !string.IsNullOrWhiteSpace(itemId))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase),
+            StringComparer.OrdinalIgnoreCase);
+        RemoveLegacyTidalDemonstrationState(state);
     }
 
     private static void NormalizePlaybackVolumes(PersistedState state)
@@ -981,6 +1099,40 @@ public sealed class ConfigurationStore
                     .ToList(),
                 StringComparer.OrdinalIgnoreCase),
             StringComparer.OrdinalIgnoreCase);
+
+    private static void RemoveLegacyTidalDemonstrationState(PersistedState state)
+    {
+        Dictionary<string, List<string>>[] orderMaps =
+        [
+            state.CollectionOrders.FavoriteAddedItemIdsBySession,
+            state.CollectionOrders.FavoriteItemIdsBySession,
+            state.CollectionOrders.LibraryAddedItemIdsBySession,
+            state.CollectionOrders.LibraryItemIdsBySession,
+            state.CollectionOrders.QueueItemIdsBySession,
+            state.CollectionOrders.QueueRegularItemIdsBySession,
+            state.CollectionOrders.QueuePlayNextItemIdsBySession
+        ];
+        foreach (var map in orderMaps)
+        {
+            if (!map.TryGetValue("tidal", out var itemIds)) continue;
+            itemIds.RemoveAll(itemId =>
+                TransientQueuePersistence.IsLegacyDemonstrationItemId("tidal", itemId));
+            if (itemIds.Count == 0) map.Remove("tidal");
+        }
+
+        if (!state.SessionNavigation.Sessions.TryGetValue("tidal", out var navigation)) return;
+        foreach (var viewName in navigation.SelectedItemIds.Keys.ToArray())
+        {
+            if (TransientQueuePersistence.IsLegacyDemonstrationItemId(
+                    "tidal",
+                    navigation.SelectedItemIds[viewName]))
+            {
+                navigation.SelectedItemIds[viewName] = null;
+            }
+        }
+        navigation.PlaybackContextItemIds.RemoveAll(itemId =>
+            TransientQueuePersistence.IsLegacyDemonstrationItemId("tidal", itemId));
+    }
 
     private static int NormalizeRadioRecordingBitrate(int bitrateKbps)
     {

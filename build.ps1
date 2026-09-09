@@ -66,12 +66,24 @@ if ($Publish) {
         if ($LASTEXITCODE -ne 0) { throw "Nie udało się utworzyć wersji samowystarczalnej." }
         New-Item -ItemType Directory -Path $packageDirectory | Out-Null
         Copy-Item -LiteralPath (Join-Path $staging "AccessibleMediaController.exe") -Destination $program -Force
-        foreach ($fileName in @("SoundTouch.Net.dll", "SoundTouch.Net.NAudioSupport.dll", "bass.dll", "THIRD_PARTY_NOTICES.md")) {
+        foreach ($fileName in @(
+            "SoundTouch.Net.dll",
+            "SoundTouch.Net.NAudioSupport.dll",
+            "bass.dll",
+            "Microsoft.Web.WebView2.Core.dll",
+            "Microsoft.Web.WebView2.Wpf.dll",
+            "WebView2Loader.dll",
+            "THIRD_PARTY_NOTICES.md")) {
             $sourceFile = Join-Path $staging $fileName
             if (-not (Test-Path -LiteralPath $sourceFile)) { throw "Brak składnika publikacji: $fileName" }
             Copy-Item -LiteralPath $sourceFile -Destination (Join-Path $packageDirectory $fileName) -Force
         }
         Copy-Item -LiteralPath (Join-Path $staging "licenses") -Destination (Join-Path $packageDirectory "licenses") -Recurse -Force
+        $tidalPlayerDirectory = Join-Path $staging "tidal-player"
+        if (-not (Test-Path -LiteralPath $tidalPlayerDirectory)) {
+            throw "Brak oficjalnego modułu odtwarzacza TIDAL."
+        }
+        Copy-Item -LiteralPath $tidalPlayerDirectory -Destination (Join-Path $packageDirectory "tidal-player") -Recurse -Force
     }
     finally {
         if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }

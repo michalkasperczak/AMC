@@ -1,5 +1,6 @@
 using System.Globalization;
 using AccessibleMediaController.Core.Presentation;
+using AccessibleMediaController.Core.Sessions;
 
 namespace AccessibleMediaController.Core.Configuration;
 
@@ -243,7 +244,187 @@ public sealed class PersistedState
     public RadioSettings Radio { get; set; } = new();
     public PodcastSettings Podcasts { get; set; } = new();
     public WiiMSettings WiiM { get; set; } = new();
+    public TidalSettings Tidal { get; set; } = new();
+    public RemoteQueueCacheSettings RemoteQueues { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];
+}
+
+public sealed class RemoteQueueCacheSettings
+{
+    public Dictionary<string, List<RemoteQueueItemSettings>> ItemsBySession { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class RemoteQueueItemSettings
+{
+    public string Id { get; set; } = string.Empty;
+    public string? ExternalId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Artist { get; set; } = string.Empty;
+    public MediaItemKind Kind { get; set; } = MediaItemKind.Track;
+    public long DurationTicks { get; set; }
+    public int? BitrateKbps { get; set; }
+    public int? SampleRateHz { get; set; }
+    public string? PublicUri { get; set; }
+    public string? HomepageUri { get; set; }
+    public string? Country { get; set; }
+    public string? Language { get; set; }
+    public string? Tags { get; set; }
+    public string? Codec { get; set; }
+    public string? RelatedAlbumExternalId { get; set; }
+    public string? RelatedAlbumTitle { get; set; }
+    public string? RelatedArtistExternalId { get; set; }
+    public string? RelatedArtistName { get; set; }
+    public bool IsInQueue { get; set; }
+    public bool IsPlayNext { get; set; }
+
+    public static RemoteQueueItemSettings FromMediaItem(string sessionId, MediaItem item) => new()
+    {
+        Id = TransientQueuePersistence.StorageItemId(sessionId, item),
+        ExternalId = item.ExternalId,
+        Title = item.Title,
+        Artist = item.Artist,
+        Kind = item.Kind,
+        DurationTicks = item.Duration.Ticks,
+        BitrateKbps = item.BitrateKbps,
+        SampleRateHz = item.SampleRateHz,
+        PublicUri = item.PublicUri,
+        HomepageUri = item.HomepageUri,
+        Country = item.Country,
+        Language = item.Language,
+        Tags = item.Tags,
+        Codec = item.Codec,
+        RelatedAlbumExternalId = item.RelatedAlbumExternalId,
+        RelatedAlbumTitle = item.RelatedAlbumTitle,
+        RelatedArtistExternalId = item.RelatedArtistExternalId,
+        RelatedArtistName = item.RelatedArtistName,
+        IsInQueue = item.IsInQueue,
+        IsPlayNext = item.IsPlayNext
+    };
+
+    public MediaItem ToMediaItem() => new()
+    {
+        Id = Id,
+        ExternalId = ExternalId,
+        Title = Title,
+        Artist = Artist,
+        Kind = Kind,
+        Duration = TimeSpan.FromTicks(Math.Max(0, DurationTicks)),
+        BitrateKbps = BitrateKbps,
+        SampleRateHz = SampleRateHz,
+        PublicUri = PublicUri,
+        HomepageUri = HomepageUri,
+        Country = Country,
+        Language = Language,
+        Tags = Tags,
+        Codec = Codec,
+        RelatedAlbumExternalId = RelatedAlbumExternalId,
+        RelatedAlbumTitle = RelatedAlbumTitle,
+        RelatedArtistExternalId = RelatedArtistExternalId,
+        RelatedArtistName = RelatedArtistName,
+        IsInQueue = IsInQueue,
+        IsPlayNext = IsPlayNext
+    };
+}
+
+public sealed class TidalSettings
+{
+    // The application secret is deliberately not persisted. Installed desktop
+    // clients use Authorization Code + PKCE and the user's default browser.
+    public string ClientId { get; set; } = string.Empty;
+    public string RedirectUri { get; set; } = "http://127.0.0.1:43821/tidal/callback/";
+    public string CountryCode { get; set; } = "PL";
+    public string AccountDisplayName { get; set; } = string.Empty;
+    // User-interface preference only. The opaque identifier is never exposed
+    // through an accessible label and is harmless when the playlist is later
+    // removed on another device: the picker simply falls back to its first row.
+    public string? LastPlaylistExternalId { get; set; }
+    public int Volume { get; set; } = 35;
+    public long LastSuccessfulSyncUtcTicks { get; set; }
+    // Last complete or safely merged collection snapshot. It deliberately
+    // contains no access or refresh token; those remain in Windows Credential
+    // Manager. Keeping the catalogue here prevents a temporary authentication
+    // or network failure from turning the user's TIDAL Library into an empty
+    // view at the next application start.
+    public List<TidalCachedCollectionItemSettings> CachedCollectionItems { get; set; } = [];
+}
+
+public sealed class TidalCachedCollectionItemSettings
+{
+    public string Id { get; set; } = string.Empty;
+    public string? ExternalId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Artist { get; set; } = string.Empty;
+    public MediaItemKind Kind { get; set; } = MediaItemKind.Track;
+    public long DurationTicks { get; set; }
+    public int? BitrateKbps { get; set; }
+    public int? SampleRateHz { get; set; }
+    public string? PublicUri { get; set; }
+    public string? HomepageUri { get; set; }
+    public string? Country { get; set; }
+    public string? Language { get; set; }
+    public string? Tags { get; set; }
+    public string? Codec { get; set; }
+    public string? RelatedAlbumExternalId { get; set; }
+    public string? RelatedAlbumTitle { get; set; }
+    public string? RelatedArtistExternalId { get; set; }
+    public string? RelatedArtistName { get; set; }
+    public long? CollectionAddedUtcTicks { get; set; }
+    public bool IsFavorite { get; set; }
+    public bool IsInLibrary { get; set; }
+    public bool IsAvailable { get; set; } = true;
+
+    public static TidalCachedCollectionItemSettings FromMediaItem(MediaItem item) => new()
+    {
+        Id = item.Id,
+        ExternalId = item.ExternalId,
+        Title = item.Title,
+        Artist = item.Artist,
+        Kind = item.Kind,
+        DurationTicks = item.Duration.Ticks,
+        BitrateKbps = item.BitrateKbps,
+        SampleRateHz = item.SampleRateHz,
+        PublicUri = item.PublicUri,
+        HomepageUri = item.HomepageUri,
+        Country = item.Country,
+        Language = item.Language,
+        Tags = item.Tags,
+        Codec = item.Codec,
+        RelatedAlbumExternalId = item.RelatedAlbumExternalId,
+        RelatedAlbumTitle = item.RelatedAlbumTitle,
+        RelatedArtistExternalId = item.RelatedArtistExternalId,
+        RelatedArtistName = item.RelatedArtistName,
+        CollectionAddedUtcTicks = item.CollectionAddedUtcTicks,
+        IsFavorite = item.IsFavorite,
+        IsInLibrary = item.IsInLibrary,
+        IsAvailable = item.IsAvailable
+    };
+
+    public MediaItem ToMediaItem() => new()
+    {
+        Id = Id,
+        ExternalId = ExternalId,
+        Title = Title,
+        Artist = Artist,
+        Kind = Kind,
+        Duration = TimeSpan.FromTicks(Math.Max(0, DurationTicks)),
+        BitrateKbps = BitrateKbps,
+        SampleRateHz = SampleRateHz,
+        PublicUri = PublicUri,
+        HomepageUri = HomepageUri,
+        Country = Country,
+        Language = Language,
+        Tags = Tags,
+        Codec = Codec,
+        RelatedAlbumExternalId = RelatedAlbumExternalId,
+        RelatedAlbumTitle = RelatedAlbumTitle,
+        RelatedArtistExternalId = RelatedArtistExternalId,
+        RelatedArtistName = RelatedArtistName,
+        CollectionAddedUtcTicks = CollectionAddedUtcTicks,
+        IsFavorite = IsFavorite,
+        IsInLibrary = IsInLibrary,
+        IsAvailable = IsAvailable
+    };
 }
 
 public sealed class WiiMSettings
@@ -455,6 +636,10 @@ public sealed class CollectionOrderSettings
     public Dictionary<string, List<string>> LibraryItemIdsBySession { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, List<string>> QueueItemIdsBySession { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, List<string>> QueueRegularItemIdsBySession { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, List<string>> QueuePlayNextItemIdsBySession { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
 }
 

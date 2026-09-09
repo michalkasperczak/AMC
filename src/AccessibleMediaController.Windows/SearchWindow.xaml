@@ -52,7 +52,8 @@
                               automation:AutomationProperties.AcceleratorKey="Shift+Enter"
                               Click="Queue_Click" />
                     <Separator x:Name="SearchQueueSeparator" />
-                    <MenuItem Header="Dodaj lub usuń z _ulubionych" InputGestureText="Ctrl+Shift+U"
+                    <MenuItem x:Name="SearchFavoriteMenuItem"
+                              Header="Dodaj lub usuń z _ulubionych" InputGestureText="Ctrl+Shift+U"
                               automation:AutomationProperties.AcceleratorKey="Control+Shift+U"
                               Click="Favorite_Click" />
                     <MenuItem x:Name="SearchLibraryMenuItem"

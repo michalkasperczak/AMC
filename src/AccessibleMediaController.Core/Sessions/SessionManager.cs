@@ -4,6 +4,12 @@ using AccessibleMediaController.Core.Playback;
 namespace AccessibleMediaController.Core.Sessions;
 
 public sealed record RemovedSessionRegistration(DemoMediaSession Session, int Index, bool WasCurrent);
+public sealed record SessionSlotMoveResult(
+    bool Moved,
+    int Slot,
+    string SessionId,
+    string SessionName,
+    string? NeighborName);
 
 public sealed class SessionManager
 {
@@ -11,10 +17,10 @@ public sealed class SessionManager
     private readonly List<DemoMediaSession> _sessions;
     private readonly Dictionary<int, string> _sessionSlots;
 
-    public SessionManager(AppSettings settings)
+    public SessionManager(AppSettings settings, IMediaOutput? tidalOutput = null)
     {
         _settings = settings;
-        _sessions = CreateDemoSessions().ToList();
+        _sessions = CreateDemoSessions(tidalOutput).ToList();
         _sessionSlots = SessionSlotOrder.Normalize(settings.SessionSlots);
         settings.SessionSlots = new Dictionary<int, string>(_sessionSlots);
         ReorderSessionsBySlots();
@@ -83,6 +89,34 @@ public sealed class SessionManager
         var pair = _sessionSlots.FirstOrDefault(pair =>
             string.Equals(pair.Value, sessionId, StringComparison.Ordinal));
         return pair.Key > 0 ? pair.Key : null;
+    }
+
+    public SessionSlotMoveResult MoveSessionSlot(int slot, int direction)
+    {
+        if (direction is not (-1 or 1))
+            throw new ArgumentOutOfRangeException(nameof(direction), "Kierunek musi wynosić -1 albo 1.");
+
+        if (!_sessionSlots.TryGetValue(slot, out var sessionId))
+            return new SessionSlotMoveResult(false, slot, string.Empty, string.Empty, null);
+
+        var sessionName = FindSession(sessionId)?.DisplayName
+            ?? SessionSlotOrder.GetDisplayName(sessionId);
+        var targetSlot = slot + direction;
+        if (!_sessionSlots.TryGetValue(targetSlot, out var neighborId))
+            return new SessionSlotMoveResult(false, slot, sessionId, sessionName, null);
+
+        var neighborName = FindSession(neighborId)?.DisplayName
+            ?? SessionSlotOrder.GetDisplayName(neighborId);
+        _sessionSlots[slot] = neighborId;
+        _sessionSlots[targetSlot] = sessionId;
+        _settings.SessionSlots = new Dictionary<int, string>(_sessionSlots);
+        ReorderSessionsBySlots();
+        return new SessionSlotMoveResult(
+            true,
+            targetSlot,
+            sessionId,
+            sessionName,
+            neighborName);
     }
 
     public (DemoMediaSession Session, int? Slot) AddOrUpdateTransientSession(
@@ -196,9 +230,17 @@ public sealed class SessionManager
         });
     }
 
-    private static IReadOnlyList<DemoMediaSession> CreateDemoSessions()
+    private static IReadOnlyList<DemoMediaSession> CreateDemoSessions(IMediaOutput? tidalOutput)
     {
-        static List<MediaItem> Items(string service) =>
+        return
+        [
+            new DemoMediaSession("tidal", "TIDAL", CreateDemonstrationItems("tidal"), tidalOutput),
+            new DemoMediaSession("appleMusic", "Apple Music", CreateDemonstrationItems("apple")),
+            new DemoMediaSession("wiim", "WiiM", [])
+        ];
+    }
+
+    public static IReadOnlyList<MediaItem> CreateDemonstrationItems(string service) =>
         [
             new() { Id = $"{service}-1", Title = "Pierwszy utwór demonstracyjny", Artist = "Wykonawca A", Duration = TimeSpan.FromMinutes(4.333), IsFavorite = true, IsInLibrary = true },
             new() { Id = $"{service}-2", Title = "Drugi utwór demonstracyjny", Artist = "Wykonawca B", Duration = TimeSpan.FromMinutes(3.75), IsInLibrary = true },
@@ -212,18 +254,10 @@ public sealed class SessionManager
             new() { Id = $"{service}-10", Title = "Echo miasta", Artist = "Ewa Sadowska", Duration = TimeSpan.FromMinutes(4.45) },
             new() { Id = $"{service}-11", Title = "Fala światła", Artist = "Filip Górski", Duration = TimeSpan.FromMinutes(3.35) },
             new() { Id = $"{service}-12", Title = "Jesienny poranek", Artist = "Julia Lis", Duration = TimeSpan.FromMinutes(4.75) },
-            new() { Id = $"{service}-13", Title = "Nocny pociąg", Artist = "Natalia Róża", Duration = TimeSpan.FromMinutes(6.1), IsInQueue = true },
+            new() { Id = $"{service}-13", Title = "Nocny pociąg", Artist = "Natalia Róża", Duration = TimeSpan.FromMinutes(6.1) },
             new() { Id = $"{service}-14", Title = "Północny wiatr", Artist = "Piotr Wilk", Duration = TimeSpan.FromMinutes(3.95), IsFavorite = true },
             new() { Id = $"{service}-15", Title = "Szept fal", Artist = "Sara Klon", Duration = TimeSpan.FromMinutes(4.6) },
             new() { Id = $"{service}-16", Title = "Światło księżyca", Artist = "Świt", Duration = TimeSpan.FromMinutes(5.25) },
             new() { Id = $"{service}-17", Title = "Zielony horyzont", Artist = "Zofia Polna", Duration = TimeSpan.FromMinutes(3.8) }
         ];
-
-        return
-        [
-            new DemoMediaSession("tidal", "TIDAL", Items("tidal")),
-            new DemoMediaSession("appleMusic", "Apple Music", Items("apple")),
-            new DemoMediaSession("wiim", "WiiM", [])
-        ];
-    }
 }

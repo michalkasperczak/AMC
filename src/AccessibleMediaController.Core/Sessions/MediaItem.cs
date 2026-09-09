@@ -10,7 +10,8 @@ public enum MediaItemKind
     Device,
     Folder,
     Podcast,
-    Episode
+    Episode,
+    Video
 }
 
 public sealed class MediaItem
@@ -32,6 +33,22 @@ public sealed class MediaItem
     public string? Tags { get; set; }
     public string? Codec { get; set; }
     public string? ExternalId { get; set; }
+    // Relations supplied by remote catalogues. These identifiers are kept
+    // separate from user-facing labels so a track can open its album or
+    // artist without exposing service internals through UI Automation.
+    public string? RelatedAlbumExternalId { get; set; }
+    public string? RelatedAlbumTitle { get; set; }
+    public string? RelatedArtistExternalId { get; set; }
+    public string? RelatedArtistName { get; set; }
+    // Opaque identifier of one occurrence inside a remote container.  It is
+    // deliberately separate from ExternalId because a playlist may contain
+    // the same track more than once.  It must never be exposed in ordinary
+    // accessible labels.
+    public string? ContainerEntryId { get; set; }
+    // Timestamp supplied by a remote collection relationship (for example
+    // TIDAL's meta.addedAt). It is model data used to rebuild the semantic
+    // "according to addition" order and must not leak into ordinary labels.
+    public long? CollectionAddedUtcTicks { get; set; }
     public bool IsFavorite { get; set; }
     public bool IsInLibrary { get; set; }
     public bool IsAvailable { get; set; } = true;
@@ -60,6 +77,7 @@ public sealed class MediaItem
         MediaItemKind.Folder => "folder",
         MediaItemKind.Podcast => "podcast",
         MediaItemKind.Episode => "odcinek",
+        MediaItemKind.Video => "wideo",
         _ => "element"
     };
 
