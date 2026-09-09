@@ -5,6 +5,25 @@ w pliku [`INSTRUKCJA_LOGOWANIA_TIDAL_PL.md`](INSTRUKCJA_LOGOWANIA_TIDAL_PL.md).
 
 ## Cel i granice
 
+### Wynik testu Embed i logowania (2026-09-09, po przygotowaniu 335)
+
+Pełne odtwarzanie **nadal nie jest potwierdzone w AMC**. W oficjalnym
+odtwarzaczu na tidal.com po zwykłym logowaniu ten sam utwór przekroczył
+granicę próbki (pauza przy 1:09 z 3:35). Embed po odświeżeniu nadal udostępniał
+0:30 i ponownie pokazywał link logowania. Nie powtarzać logowania w pętli.
+
+Odczyt publicznego kodu Embed wskazuje ważną różnicę: zwykła inicjalizacja
+korzysta z dostawcy bez tokenu użytkownika; osobne uwierzytelnienie użytkownika
+dotyczy Nostr. Link po zakończeniu próbki otwiera stronę tidal.com w nowej
+karcie, bez widocznego w tym przepływie powrotu z poświadczeniem do Embed.
+To wyjaśnienie zgodne z testem, a nie dowód identyczności wdrożonego kodu
+ani obietnica pełnego odtwarzania po dodaniu Nostr.
+
+Źródła przypięte do commita, wyniki, granice jakości i warunki dalszego testu:
+[`TIDAL_WERYFIKACJA_PELNEGO_ODTWARZANIA_2026-09-09.md`](TIDAL_WERYFIKACJA_PELNEGO_ODTWARZANIA_2026-09-09.md).
+Pytanie do dostawcy jest przygotowane, ale **nie zostało wysłane**:
+[`TIDAL_PYTANIE_DO_DOSTAWCY_EN.md`](TIDAL_PYTANIE_DO_DOSTAWCY_EN.md).
+
 ### Pełne utwory — ustalenia i następny test (2026-09-09)
 
 Priorytet użytkownika to pełne odtwarzanie. Nie uzyskano go w AMC; nie należy
@@ -33,8 +52,9 @@ Kolejność dalszej weryfikacji:
    aplikacji od abonamentu. Nie kierować użytkownika do logowania w pętli.
 2. Sprawdzić oficjalny Embed na jednym utworze i prawdziwym koncie abonenta.
    Logowanie odbywa się wyłącznie po stronie TIDAL; AMC nie przejmuje haseł
-   ani sesji Chrome. Test przeglądarkowy podczas tych prac został zablokowany
-   przez uprawnienia narzędzia przed otwarciem strony. Nie wykonano odsłuchu.
+   ani sesji Chrome. Początkowo test blokowały uprawnienia narzędzia; po
+   uzyskaniu zgody użytkownika wykonano porównanie opisane powyżej. Embed
+   pozostał przy próbce mimo skutecznego logowania do głównej strony.
 3. Jeśli pełny utwór zadziała, osobno zweryfikować zgodność osadzenia w AMC,
    dostępne sterowanie, trwałość logowania, NVDA, Escape/Spację, brak kradzieży
    fokusa i błędnych przejść Kolejki. Nie zastępować obecnego silnika przed

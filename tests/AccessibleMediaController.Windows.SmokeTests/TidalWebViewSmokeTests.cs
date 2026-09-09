@@ -10,31 +10,49 @@ internal static class TidalWebViewSmokeTests
 {
     internal static void Run()
     {
+        RunOnSta(async () =>
+        {
+            var before = await ProbeAsync(false);
+            var after = await ProbeAsync(true);
+            Console.WriteLine($"WebView2 bez poprawki: {before}; z poprawką: {after}");
+            if (before != "NotAllowedError" || after != "playing")
+                throw new Exception($"Nie potwierdzono regresji autoplay i jej naprawy (bez: {before}; z: {after}).");
+        });
+        Console.WriteLine("OK: rzeczywisty WebView2 odtwarza po poleceniu hosta, bez przenoszenia fokusa i bez konta TIDAL.");
+    }
+
+    internal static void RunOnSta(Func<Task> probe, Action? initialize = null)
+    {
         Exception? failure = null;
         var thread = new Thread(() =>
         {
-            var dispatcher = Dispatcher.CurrentDispatcher;
-            SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(dispatcher));
-            dispatcher.BeginInvoke(new Action(async () =>
+            try
             {
-                try
+                initialize?.Invoke();
+                var dispatcher = Dispatcher.CurrentDispatcher;
+                SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(dispatcher));
+                // An event callback can throw outside the awaited probe. Preserve
+                // that failure and stop this test dispatcher, not the user's AMC.
+                dispatcher.UnhandledException += (_, e) =>
                 {
-                    var before = await ProbeAsync(false);
-                    var after = await ProbeAsync(true);
-                    Console.WriteLine($"WebView2 bez poprawki: {before}; z poprawką: {after}");
-                    if (before != "NotAllowedError" || after != "playing")
-                        throw new Exception("Nie potwierdzono regresji autoplay i jej naprawy.");
-                }
-                catch (Exception exception) { failure = exception; }
-                finally { dispatcher.BeginInvokeShutdown(DispatcherPriority.Send); }
-            }));
-            Dispatcher.Run();
+                    failure ??= e.Exception;
+                    e.Handled = true;
+                    dispatcher.BeginInvokeShutdown(DispatcherPriority.Send);
+                };
+                dispatcher.BeginInvoke(new Action(async () =>
+                {
+                    try { await probe(); }
+                    catch (Exception exception) { failure ??= exception; }
+                    finally { dispatcher.BeginInvokeShutdown(DispatcherPriority.Send); }
+                }));
+                Dispatcher.Run();
+            }
+            catch (Exception exception) { failure ??= exception; }
         }) { IsBackground = true };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
         if (!thread.Join(TimeSpan.FromSeconds(60))) throw new TimeoutException("WebView2 smoke timeout.");
         if (failure is not null) throw new Exception("WebView2 smoke failed.", failure);
-        Console.WriteLine("OK: rzeczywisty WebView2 odtwarza po poleceniu hosta, bez przenoszenia fokusa i bez konta TIDAL.");
     }
 
     private static async Task<string> ProbeAsync(bool enableHostPlayback)

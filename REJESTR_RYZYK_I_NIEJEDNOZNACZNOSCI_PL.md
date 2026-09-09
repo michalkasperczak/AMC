@@ -63,6 +63,36 @@ wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
 
 ## Aktualne wpisy
 
+### TIDAL-EMBED-20260909 — logowanie strony nie odblokowało Embed
+
+- Stan: potwierdzone zachowanie w teście, przyczyna produkcyjna do wyjaśnienia.
+- Embed: próbka 30 sekund także po zwykłym logowaniu i odświeżeniu.
+  Główna strona TIDAL: ten sam utwór przekroczył 30 sekund.
+- Publiczny kod Embed inicjalizuje zwykłe odtwarzanie bez tokenu użytkownika;
+  osobna ścieżka użytkownika dotyczy Nostr. Nie jest to dowód, że produkcja
+  używa identycznego kodu ani potwierdzenie dostępności Nostr dla AMC.
+- Nie ponawiać identycznego logowania, nie ogłaszać pełnego odtwarzania ani
+  maksymalnej jakości w AMC. Bez nowych tożsamości, dodatków i kont bez zgody.
+- Dowody i następny krok:
+  `TIDAL_WERYFIKACJA_PELNEGO_ODTWARZANIA_2026-09-09.md`.
+
+### TEST-RUNNER-20260909 — okno błędu programu testowego
+
+- Windows zarejestrował nieobsłużony wyjątek procesu Windows.SmokeTests
+  podczas wcześniejszego testu WebView2. Powiązanie później zgłoszonego przez
+  użytkownika okna z tym wpisem jest prawdopodobne, nie całkowicie pewne.
+- W źródłach 335 była już osłona dedykowanej komendy testowej. Dodatkowo
+  obejmujemy granicą błędów cały program testowy, w tym sprzątanie, oraz
+  inicjalizację i nieobsłużone callbacki dispatchera testowego STA.
+- Wymagany wynik testu negatywnego: kod wyjścia 1 i czytelny błąd w stderr,
+  bez udawania sukcesu i bez pozostawiania procesu oczekującego na dialog.
+  Testy nie zmieniają obsługi wyjątków działającego AMC.
+- Test regresji: `--smoke-runner-self-test`; osobne procesy dla wyjątków
+  main/probe/STA/dispatcher/cleanup. To nie dowodzi odporności na awarie
+  natywne, przepełnienie stosu ani wszystkie możliwe awarie WebView2.
+- Wynik: pięć przypadków oraz pełne zestawy Core i Windows zaliczone.
+  Wyniki pośrednie i ograniczenia: `wyniki-testow/WERYFIKACJA_TIDAL_I_TESTOW_2026-09-09.md`.
+
 ### AMC-RYZYKO-001 — chwilowa kolizja równoległego zapisu stanu
 
 - Stan: do ponownego testu.

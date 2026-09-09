@@ -13,6 +13,13 @@
   Nie zamykaj programu w trakcie nagrywania.
 - Priorytet TIDAL: zweryfikowane pełne odtwarzanie, nie deklarowanie próbek
   jako pełnych utworów. Ustalenia i granice: `PROJEKT_TIDAL_PL.md`.
+- Wynik zwykłego logowania do Embed i analiza jego kodu:
+  `TIDAL_WERYFIKACJA_PELNEGO_ODTWARZANIA_2026-09-09.md`. Nie prosić ponownie
+  o identyczne logowanie bez nowego dowodu. Szkic pytania do TIDAL nie oznacza
+  zgody na jego wysłanie ani na podłączanie nowej tożsamości Nostr.
+- Testy muszą kończyć się niezerowym kodem i diagnostyką po niepowodzeniu,
+  nie pozostawionym oknem awarii CLR. Test negatywny nie jest zaliczeniem
+  funkcji. Profile WebView2 testów są odizolowane od konta i stanu AMC.
 - Etykiety dostępności list, pól kombi i menu muszą być tekstem użytkowym,
   nigdy domyślną reprezentacją obiektu, enuma ani identyfikatorem komendy.
   Testuj początkowy fokus, strzałki, ponowne otwarcie i powrót po zamknięciu.

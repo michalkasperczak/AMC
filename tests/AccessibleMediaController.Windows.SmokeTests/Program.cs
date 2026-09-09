@@ -23,10 +23,24 @@ using NAudio.Wave;
 using NLayer.NAudioSupport;
 using SoundTouch.Net.NAudioSupport;
 
+return SmokeTestRunner.Run(() => RunTests(args));
+
+static int RunTests(string[] args)
+{
+if (args.Length == 1 && args[0] == "--smoke-runner-self-test")
+{
+    SmokeTestRunnerTests.Run();
+    return 0;
+}
+if (args.Length == 1 && args[0].StartsWith("--smoke-runner-failure=", StringComparison.Ordinal))
+{
+    SmokeTestRunnerTests.SimulateFailure(args[0]["--smoke-runner-failure=".Length..]);
+    throw new InvalidOperationException("Symulowane niepowodzenie nie zostało zgłoszone.");
+}
 if (args.Contains("--tidal-webview-smoke", StringComparer.Ordinal))
 {
-    try { TidalWebViewSmokeTests.Run(); return 0; }
-    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+    TidalWebViewSmokeTests.Run();
+    return 0;
 }
 
 const string FixtureBase64 = """
@@ -66,6 +80,7 @@ try
 
     Console.WriteLine("OK: normalizacja osi czasu fragmentu OGG/Vorbis");
 
+    SmokeTestRunnerTests.Run();
     TestAccessiblePlaybackStatusStrip();
     TestEditableFieldReplacement();
     TestGlobalPrefixCapture();
@@ -244,6 +259,7 @@ catch (Exception exception)
 finally
 {
     if (File.Exists(path)) File.Delete(path);
+}
 }
 
 static void TestMenuAccessibility()
