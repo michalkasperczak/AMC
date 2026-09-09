@@ -7,6 +7,9 @@ Title: Supported full-track playback and subscriber login in Embed — accessibl
 The published page and body were verified after submission. No account
 credentials, private TIDAL identifiers, private collections, or raw logs were sent.
 This file records the submitted question; do not post it again as a new discussion.
+Updated on 9 September 2026 at the user's request to clarify AMC's accessibility
+purpose and free, non-commercial nature. The saved discussion was verified after
+the update. The accessibility rationale below is part of the published question.
 
 We are developing Accessible Multimedia Controller (AMC), a Windows
 keyboard-first player for blind users, with an NVDA-accessible native UI.
@@ -16,6 +19,16 @@ collections and playback. Playback currently yields previews.
 
 We would like to use a supported route for full-track playback for subscribers,
 without extracting audio URLs or using credentials/client IDs from other apps.
+
+## Accessibility purpose
+
+AMC is free of charge, open source and non-commercial. It is being developed around the needs of blind and screen-reader users, with feedback from actual NVDA use. Its design goal is full keyboard-only operation, without requiring a mouse or visual navigation.
+
+The native interface provides keyboard navigation through lists and collections, searchable commands, meaningful screen-reader labels and status announcements. Predictable focus and consistent shortcuts are especially important when browsing music, selecting a track and controlling playback. A supported full-track integration would let subscribers do these tasks in one accessible interface instead of repeatedly switching between the client and a separate web player.
+
+Users would still authenticate with their own eligible TIDAL subscriptions. We are not requesting free access to subscription content or an exemption from playback protections. We are asking for a supported integration route that makes the service practical to use with assistive technology.
+
+If there is an accessibility-team contact or a review process for non-commercial assistive applications, we would appreciate being directed to it.
 
 ## Reproduction, 9 September 2026
 
