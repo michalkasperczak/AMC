@@ -25,14 +25,14 @@ internal static class TidalInteractionSmokeTests
         Exception? failure = null;
         var thread = new Thread(() =>
         {
-            try { TestListFocus(); TestSearch(); }
+            try { TestSelectionRefresh(); TestListFocus(); TestSearch(); }
             catch (Exception exception) { failure = exception; }
         });
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
         if (!thread.Join(TimeSpan.FromSeconds(25))) throw new Exception("TIDAL: przekroczono limit testu interfejsu.");
         if (failure is not null) throw new Exception("TIDAL: test interakcji", failure);
-        Console.WriteLine("OK: TIDAL — seryjne przełączniki, błędy HTTP, kontekst odpowiedzi, fokus i wyszukiwarka");
+        Console.WriteLine("OK: TIDAL — seryjne przełączniki, błędy HTTP, odświeżenie zaznaczenia, kontekst odpowiedzi, fokus i wyszukiwarka");
     }
 
     private static MediaItem Album(string id = "one") => new()
@@ -92,6 +92,67 @@ internal static class TidalInteractionSmokeTests
         Check(SearchWindow.PreservesBrowserLocation([new("tidal", Album())], SearchResultAction.Library), "Dodanie albumu zmienia widok.");
         Check(SearchWindow.PreservesBrowserLocation([new("tidal", Album())], SearchResultAction.Favorite), "Odrzucony skrót też zmienia widok.");
         Check(!SearchWindow.PreservesBrowserLocation([new("tidal", Album())], SearchResultAction.Open), "Enter nie może otworzyć wyniku.");
+    }
+
+    private static void TestSelectionRefresh()
+    {
+        var list = new ListBox { ItemsSource = new[] { Album(), Album("two") }, SelectedIndex = 0 };
+        var refresh = new ListSelectionRefresh();
+        long version = 7;
+        void Invalidate() => version++;
+        string? SelectedId() => (list.SelectedItem as MediaItem)?.Id;
+        TidalInteractionContext Context() => new(version, "tidal", "Album", SelectedId(), false);
+        list.SelectionChanged += (_, _) => refresh.SelectionChanged(Invalidate);
+        void ReplaceRows()
+        {
+            list.ItemsSource = new[] { Album(), Album("two") };
+            list.SelectedIndex = 0;
+        }
+
+        // Reproduce the old path: the same logical row is restored, but WPF
+        // fires selection events and a waiting container response is rejected.
+        var before = Context();
+        ReplaceRows();
+        Check(!before.CanPresent(Context(), true) && before.ItemId == SelectedId(),
+            "Test nie odtworzył anulowania wejścia przez przebudowę tej samej listy.");
+
+        before = Context();
+        refresh.Run(SelectedId, ReplaceRows, Invalidate);
+        Check(before.CanPresent(Context(), true), "Odświeżenie tego samego wiersza anulowało pierwsze otwarcie wykonawcy.");
+        Check(!before.CanPresent(Context() with { NavigationVersion = version + 1 }, true),
+            "Escape lub nowa nawigacja nie unieważnia odpowiedzi po odświeżeniu.");
+        Check(!before.CanPresent(Context(), false), "Odświeżenie pozwala przejąć nieaktywne okno.");
+
+        list.SelectionMode = SelectionMode.Extended;
+        list.SelectedItems.Add(list.Items[1]);
+        before = Context();
+        refresh.Run(SelectedId, () =>
+        {
+            refresh.Run(SelectedId, ReplaceRows, Invalidate);
+            list.SelectedItems.Clear();
+            list.SelectedItems.Add(list.Items[0]);
+            list.SelectedItems.Add(list.Items[1]);
+        }, Invalidate);
+        Check(list.SelectedItems.Count == 2 && before.CanPresent(Context(), true),
+            "Zagnieżdżone odświeżenie lub odtworzenie wielokrotnego zaznaczenia anulowało odpowiedź.");
+
+        before = Context();
+        list.SelectedIndex = 1;
+        list.SelectedIndex = 0;
+        Check(!before.CanPresent(Context(), true), "Ręczne odejście i powrót pozwala spóźnionej odpowiedzi przejąć widok.");
+        before = Context();
+        refresh.Run(SelectedId, () => { list.ItemsSource = new[] { Album("two") }; list.SelectedIndex = 0; }, Invalidate);
+        Check(!before.CanPresent(Context(), true), "Usunięcie wybranego elementu nie anuluje odpowiedzi.");
+        before = Context();
+        try
+        {
+            refresh.Run(SelectedId, () => { list.ItemsSource = Array.Empty<MediaItem>(); throw new InvalidOperationException("test-refresh"); }, Invalidate);
+        }
+        catch (InvalidOperationException exception) when (exception.Message == "test-refresh") { }
+        Check(!before.CanPresent(Context(), true), "Pusta lista po błędzie zachowała nieaktualne żądanie.");
+        before = Context();
+        ReplaceRows();
+        Check(!before.CanPresent(Context(), true), "Wyjątek pozostawił wyłączone śledzenie nawigacji.");
     }
 
     private static void TestListFocus()

@@ -127,6 +127,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly TidalMediaOutput _tidalOutput;
     private readonly CancellationTokenSource _tidalCancellation = new();
     private long _tidalNavigationVersion;
+    private readonly ListSelectionRefresh _mediaSelectionRefresh = new();
     private readonly SemaphoreSlim _tidalMembershipUiGate = new(1, 1);
     private bool _tidalCatalogSynchronized;
     private bool _tidalCollectionOrderSnapshotComplete;
@@ -12037,19 +12038,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ? _unfilteredItems
             : _unfilteredItems.Where(row =>
                 row.Label.Contains(query, StringComparison.CurrentCultureIgnoreCase)).ToList();
-        MediaList.ItemsSource = filteredItems;
-
-        if (filteredItems.Count == 0)
+        _mediaSelectionRefresh.Run(() => SelectedItem?.Id, () =>
         {
-            MediaList.SelectedIndex = -1;
-            return;
-        }
-        MediaList.SelectedIndex = MainWindowNavigationPolicy.ResolveListSelectionIndex(
-            filteredItems
-                .Select(row => (row.Item.Id, row.ActionItem.Id))
-                .ToArray(),
-            preferredItemId,
-            fallbackIndex);
+            MediaList.ItemsSource = filteredItems;
+            MediaList.SelectedIndex = filteredItems.Count == 0 ? -1
+                : MainWindowNavigationPolicy.ResolveListSelectionIndex(
+                    filteredItems.Select(row => (row.Item.Id, row.ActionItem.Id)).ToArray(),
+                    preferredItemId, fallbackIndex);
+        }, () => _tidalNavigationVersion++);
     }
 
     private void FocusMediaList()
@@ -12171,7 +12167,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void MediaList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        _tidalNavigationVersion++;
+        _mediaSelectionRefresh.SelectionChanged(() => _tidalNavigationVersion++);
         var selectedRow = MediaList.SelectedItem as MediaItemRow;
         if (!_restoringSessionNavigation
             && !_playerViewActive
@@ -12631,6 +12627,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (container.ExternalId is not { Length: > 0 }) return;
         _tidalNavigationVersion++;
         var context = CaptureTidalInteractionContext();
+        var started = Stopwatch.StartNew();
+        DiagnosticLog.Info("tidal-navigation", $"Rozpoczęto otwieranie {container.ExternalId}; żądanie: {context.NavigationVersion}.");
         TidalCollectionSemantics.ApplyMembership(container,
             _tidalItems.Any(item => item.ExternalId == container.ExternalId && TidalCollectionSemantics.IsMember(item)));
         var label = TidalContainerLabel(container.Kind);
@@ -12673,6 +12671,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             // user has meanwhile changed the session, view or selection.
             if (!context.CanPresent(CaptureTidalInteractionContext(), CanPresentTidalResponse))
             {
+                var current = CaptureTidalInteractionContext();
+                DiagnosticLog.Info("tidal-navigation",
+                    $"Zachowano dane bez zmiany widoku; żądanie: {context.NavigationVersion}; "
+                    + $"aktualne: {current.NavigationVersion}; czas: {started.ElapsedMilliseconds} ms; "
+                    + $"elementów: {items.Count}; zgodna sesja: {context.SessionId == current.SessionId}; "
+                    + $"zgodny widok: {context.View == current.View}; zgodny element: {context.ItemId == current.ItemId}; "
+                    + $"zgodny odtwarzacz: {context.PlayerActive == current.PlayerActive}; okno dostępne: {CanPresentTidalResponse}.");
                 return;
             }
 
@@ -12685,6 +12690,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             NavigateTo(viewName);
             PrepareViewFocusContext($"{label}, {container.Title}");
             FocusMediaList();
+            DiagnosticLog.Info("tidal-navigation",
+                $"Otwarto {container.ExternalId}; żądanie: {context.NavigationVersion}; "
+                + $"czas: {started.ElapsedMilliseconds} ms; elementów: {items.Count}.");
         }
         catch (OperationCanceledException) when (_tidalCancellation.IsCancellationRequested)
         {
@@ -16327,8 +16335,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 .Select(row => row.Item.Id).ToArray();
             ListRefreshFocus.Run(MediaList, () =>
             {
-                RefreshCurrentView(selectedIndex, preferredItemId: selectedId);
-                if (selectedIds.Length > 1) SelectMediaItems(selectedIds);
+                _mediaSelectionRefresh.Run(() => SelectedItem?.Id, () =>
+                {
+                    RefreshCurrentView(selectedIndex, preferredItemId: selectedId);
+                    if (selectedIds.Length > 1) SelectMediaItems(selectedIds);
+                }, () => _tidalNavigationVersion++);
             }, FocusMediaList);
         }
     }
@@ -20449,6 +20460,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void FilterBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
     {
         if (_restoringSessionNavigation) return;
+        // Editing the filter is deliberate navigation even when the same row
+        // remains selected after filtering. It must still cancel a pending open.
+        _tidalNavigationVersion++;
         GetSessionNavigationState(_sessions.Current.Id).Filters[_currentView] = FilterBox.Text;
         var preferredItemId = SelectedItem?.Id;
         if (string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)

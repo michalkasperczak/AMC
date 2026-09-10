@@ -540,6 +540,31 @@ zdarzenia, brak wycieków i brak zużycia kolejki po błędzie/próbce.
 Nie dowodzą pełnego odsłuchu z prawdziwego konta. Wynik użytkownika jest nadal
 potrzebny; nie prosić o powtarzanie znanego testu Embed bez nowej przesłanki.
 
+## Alfa 338 — odświeżenie listy a oczekujące wejście
+
+W teście WPF odtworzono problem: wymiana ItemsSource zerowała zaznaczenie,
+a jego przywrócenie zwiększało numer nawigacji, mimo że użytkownik nadal
+wybierał ten sam logiczny element. Oczekujący wynik otwierania był odrzucany.
+Przebudowa listy jest teraz synchroniczną transakcją wyboru: unieważnia
+żądanie tylko wtedy, gdy końcowy identyfikator zaznaczenia się zmienił.
+Zagnieżdżone odświeżanie i przywrócenie wielokrotnego zaznaczenia objęto
+wspólną granicą. Wyjątek nie może pozostawić wyłączonego śledzenia zmian.
+
+Nie osłabiono porównania kontekstu: ręczne A–B–A, Escape, zmiana sesji,
+widoku i edycja filtra nadal unieważniają stare żądanie. Transakcja nigdy
+nie obejmuje await ani ręcznego działania. To wzorzec dla innych adapterów.
+Nie udowodniono, że konkretny wcześniejszy przypadek Stevie Wondera miał
+właśnie tę przyczynę. Nowe logi pozwalają ją odróżnić od opóźnienia sieci,
+zmiany kontekstu i niedostępności okna. Test NVDA z prawdziwym kontem pozostaje
+niezależny od regresji syntetycznej.
+
+Wynik użytkownika z 337 (10 września 2026): poświadczenie przygotowane,
+SDK je odczytał, odtwarzanie rozpoczęte, PREVIEW około 30 s, przyczyna
+FULL_REQUIRES_SUBSCRIPTION, bez zgłoszonego błędu. Nie utożsamiać tego kodu
+z potwierdzonym stanem abonamentu ani z FULL_REQUIRES_HIGHER_ACCESS_TIER.
+Pełne odtwarzanie nadal nierozwiązane. Zgłoszenie #384 przy sprawdzeniu
+10 września pozostawało bez odpowiedzi (0 komentarzy).
+
 ## Oficjalne źródła dokumentacji
 
 - https://developer.tidal.com/documentation/api-sdk/api-sdk-authorization

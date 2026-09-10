@@ -295,6 +295,26 @@ wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
   danych uwierzytelniających. Te same testy trwałości są obowiązkowe dla
   przyszłych adapterów Spotify i Apple Music.
 
+## TIDAL, 10 września 2026 — pierwsze wejście do wykonawcy
+
+- Zgłoszenie: wejście do Stevie Wondera udało się dopiero za drugim razem;
+  wcześniej był komunikat wczytywania. Stary log nie wskazuje, czy wynik
+  został pominięty, czy użytkownik ponowił jeszcze trwającą operację.
+- Potwierdzony testem WPF błąd mechanizmu: przebudowa ItemsSource i
+  przywrócenie tego samego logicznego elementu unieważniały żądanie.
+  Poprawka 338 rozdziela techniczne odświeżenie od rzeczywistej nawigacji.
+- Nie utożsamiać wykrytego błędu z udowodnioną przyczyną konkretnej próby.
+  Następny test: jedno wejście z menu powiązań przy wolnej odpowiedzi,
+  także podczas aktualizacji kolekcji. Sprawdzić nowe wpisy tidal-navigation:
+  start, czas, prezentacja lub pominięcie i zgodność kontekstu.
+- Regresja: ręczne A–B–A, zmiana filtra, sesji, Escape, aktywne inne okno,
+  kilka zaznaczonych wierszy, błąd przebudowy i pusta lista. Żadne spóźnione
+  żądanie nie może przejąć nowszego miejsca użytkownika.
+- Osobno: próba odtwarzania w 337 potwierdziła odczyt poświadczeń przez SDK,
+  PREVIEW około 30 s i FULL_REQUIRES_SUBSCRIPTION. Nie potwierdziła braku
+  abonamentu ani wyższego poziomu dostępu aplikacji; pełny odsłuch pozostaje
+  nierozwiązany. Nie ponawiać identycznego logowania bez nowej przesłanki.
+
 ## Stałe, globalne obszary regresji przed publikacją
 
 Poniższe obszary dotyczą całego AMC, a nie wyłącznie modułu rozwijanego w
