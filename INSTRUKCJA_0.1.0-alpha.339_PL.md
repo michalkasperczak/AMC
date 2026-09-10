@@ -4,11 +4,11 @@ Ta wersja dodaje lokalne połączenie z oddzielnym dodatkiem NVDA. Prefiks i dot
 
 Program: `D:\Projekty Codex\Accessible Multimedia Controller\publish\AccessibleMediaController-0.1.0-alpha.339\AccessibleMediaController-0.1.0-alpha.339.exe`
 
-Dodatek: `D:\Projekty Codex\Accessible Multimedia Controller\AMC-NVDA-0.1.0.nvda-addon`
+Dodatek: `D:\Projekty Codex\Accessible Multimedia Controller\AMC-NVDA-0.1.1.nvda-addon`
 
-Po instalacji dodatku w dogodnym momencie wejdź do NVDA > Ustawienia > Zdarzenia wejścia > AMC. Polecenia są opisane po polsku. Nie mają jeszcze domyślnych skrótów: Ctrl+Windows ze strzałkami jest już zajęte przez Free Radio. Możesz przypisać własne kombinacje; nie dawaj tego samego skrótu obu dodatkom. Zmiana akordu korzysta ze standardowego okna NVDA, nie z mechanizmu przechwytywania prefiksu AMC.
+Aktualizacja dodatku 0.1.1 ma już zaakceptowany zestaw Ctrl+Windows. AMC pozostaje w wersji 339, nie trzeba aktualizować samego programu. Jeśli Free Radio jest nadal włączone w NVDA, wyłącz ten dodatek lub zmień jego kolidujące skróty. Własne przypisania możesz zmieniać w NVDA > Ustawienia > Zdarzenia wejścia > AMC. Dodatek nie nadpisuje wcześniejszych przypisań użytkownika. Zmiana akordu korzysta ze standardowego okna NVDA, nie z mechanizmu przechwytywania prefiksu AMC.
 
-Na początek przypisz Odczytaj bieżące nagranie oraz Odtwórz lub wstrzymaj. Otwórz nagranie w AMC, przejdź Alt+Tab do edytora i sprawdź oba polecenia. Następnie przetestuj głośność, odczyt czasu i poprzednią/następną sesję. Fokus ma zostać w edytorze. Testuj najpierw bez ważnego nagrywania.
+Na początek otwórz nagranie w AMC, przejdź Alt+Tab do edytora i sprawdź Ctrl+Windows+I (stan) oraz Ctrl+Windows+P (odtwórz/wstrzymaj). Następnie Ctrl+Windows+góra/dół (głośność), lewo/prawo (poprzedni/następny), J/K (cofnij/przewiń 10 sekund), E/R/T (czas od początku/pozostały/całkowity), M (wyciszenie) i PageUp/PageDown (sesje). Fokus ma zostać w edytorze. Testuj najpierw bez ważnego nagrywania. Ctrl+Windows+lewo/prawo przejmują systemowe przełączanie pulpitów podczas działania dodatku; Ctrl+Windows+Enter i cyfry nie są przypisane.
 
 Pauza i wyciszenie dotyczą odsłuchu aktywnej sesji, a nie rejestracji. Ten dodatek jeszcze nie ma poleceń nagrywania, kasowania, kolekcji ani przeglądania biblioteki. Następny/poprzedni zachowuje kontekst AMC. W WiiM jest to transport urządzenia, nie lista presetów.
 

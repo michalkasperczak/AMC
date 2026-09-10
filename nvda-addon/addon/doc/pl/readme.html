@@ -1,13 +1,24 @@
 <!doctype html>
 <html lang="pl"><head><meta charset="utf-8"><title>AMC — sterowanie przez NVDA</title></head>
-<body><h1>AMC — sterowanie przez NVDA, wersja próbna 0.1.0</h1>
-<p>Wymaga AMC alpha 339 lub nowszego oraz NVDA 2026.1 lub nowszego. Jest to prototyp do testów, a nie dodatek zweryfikowany odsłuchem w NVDA. Nie zastępuje Free Radio ani prefiksu AMC.</p>
+<body><h1>AMC — sterowanie przez NVDA, wersja próbna 0.1.1</h1>
+<p>Wymaga AMC alpha 339 lub nowszego oraz NVDA 2026.1 lub nowszego. Jest to prototyp do testów, a nie dodatek zweryfikowany odsłuchem w NVDA. Dodaje sterowanie AMC podobne do Free Radio. Prefiks AMC pozostaje dostępny.</p>
 <h2>Uruchomienie</h2><ol>
 <li>Uruchom AMC alpha 339. Starsze wersje nie obsługują połączenia z dodatkiem.</li>
-<li>Zainstaluj plik AMC-NVDA-0.1.0.nvda-addon i wykonaj polecenia instalatora NVDA. Zrób to w dogodnym momencie; przeładowanie czytnika może zakłócić pracę innych dodatków.</li>
-<li>Otwórz menu NVDA, Ustawienia, Zdarzenia wejścia. W kategorii AMC wybierz polecenie i dodaj skrót.</li>
+<li>Jeśli dodatek Free Radio jest nadal włączony, wyłącz go w menedżerze dodatków NVDA albo zmień jego kolidujące skróty. Samo nieodtwarzanie przez Free Radio nie zwalnia klawiszy.</li>
+<li>Zainstaluj plik AMC-NVDA-0.1.1.nvda-addon i wykonaj polecenia instalatora NVDA. Zrób to w dogodnym momencie; przeładowanie czytnika może zakłócić pracę innych dodatków.</li>
+<li>Domyślne skróty są już przypisane. Możesz je zmienić w NVDA, Ustawienia, Zdarzenia wejścia, kategoria AMC. Wcześniejsze własne przypisania mogą mieć pierwszeństwo — dodatek ich nie nadpisuje.</li>
 </ol>
-<p>Na początek nie ma domyślnie przypisanych klawiszy. Free Radio używa już Ctrl+Windows ze strzałkami i wieloma literami. Przypisanie tych samych kombinacji obu dodatkom powoduje konflikt. Nie wybieraj Ctrl+Windows+Enter (Narrator) ani skrótów własnych aplikacji. Dla prób można użyć Ctrl+Windows+Alt ze strzałkami, po sprawdzeniu kolizji na swoim komputerze.</p>
+<h2>Domyślne skróty</h2>
+<p>Przytrzymaj Ctrl i Windows, następnie naciśnij:</p><ul>
+<li>Strzałka w górę lub w dół: głośniej albo ciszej o 5 procent.</li>
+<li>Strzałka w lewo lub w prawo: poprzedni albo następny element odtwarzania.</li>
+<li>P: odtwórz lub wstrzymaj. M: wycisz lub przywróć dźwięk sesji.</li>
+<li>I: odczytaj bieżące nagranie, sesję i stan.</li>
+<li>J lub K: cofnij albo przewiń o 10 sekund.</li>
+<li>E: czas od początku. R: czas pozostały. T: czas całkowity.</li>
+<li>Page Up lub Page Down: poprzednia albo następna sesja.</li>
+</ul>
+<p>Te skróty działają bez prefiksu. Ctrl+Windows+lewo/prawo przejmują standardowe przełączanie pulpitów Windows, gdy ten dodatek obsługuje gest. Ctrl+Windows+Enter pozostaje dla Narratora; nie przypisujemy cyfr paska zadań. Inne globalne dodatki nadal mogą powodować konflikt.</p>
 <h2>Polecenia</h2><ul>
 <li>Odtwórz lub wstrzymaj bieżące nagranie.</li>
 <li>Poprzedni i następny element: ten sam kontekst odtwarzania co w AMC; nie przesuwanie zaznaczenia listy.</li>

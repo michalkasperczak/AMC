@@ -4,9 +4,9 @@
 
 Drugi, niezależny sposób sterowania obok zachowanego prefiksu. NVDA jest cienkim klientem poleceń, a AMC nadal przechowuje sesje, kolejki, odtwarzanie, poziomy głośności i nagrywanie. Nie kopiujemy silnika Free Radio. Jego źródła sprawdzono w celu rozpoznania przyzwyczajeń i konfliktów, nie skopiowano implementacji.
 
-Dodatek 0.1.0 udostępnia 14 poleceń w NVDA > Ustawienia > Zdarzenia wejścia > AMC. Początkowo bez przypisań: Free Radio ma już Ctrl+Windows+strzałki (głośność i poprzednia/następna stacja), P (pauza), I (informacja) i inne kombinacje. Wybór docelowego profilu pozostaje do uzgodnienia. Instalacja nie wyłącza Free Radio, nie nadpisuje gestures.ini, nie rejestruje klawisza prefiksu ani nie zmienia skrótów AMC.
+Dodatek 0.1.1 udostępnia 14 poleceń w NVDA > Ustawienia > Zdarzenia wejścia > AMC, z domyślnymi skrótami Ctrl+Windows. Użytkownik 10 września 2026 potwierdził, że nie używa już Free Radio i chce te kombinacje dla AMC. Instalacja nie wyłącza Free Radio, nie nadpisuje gestures.ini, nie rejestruje klawisza prefiksu ani nie zmienia skrótów w samym oknie AMC. Jeżeli Free Radio jest nadal włączone jako dodatek, trzeba je wyłączyć lub rozdzielić jego gesty; nieużywanie odsłuchu nie usuwa rejestracji skrótów. Wersja 0.1.0 początkowo nie miała domyślnych przypisań.
 
-Proponowana mapa po świadomym rozdzieleniu skrótów Free Radio i Windows:
+Zaakceptowana i wdrożona mapa domyślna od dodatku 0.1.1:
 
 | Kombinacja | Działanie |
 | --- | --- |
@@ -19,7 +19,7 @@ Proponowana mapa po świadomym rozdzieleniu skrótów Free Radio i Windows:
 | Ctrl+Windows+E/R/T | Czas od początku/pozostały/całkowity |
 | Ctrl+Windows+PageUp/PageDown | Poprzednia/następna sesja |
 
-To propozycja, nie działający domyślny zestaw. Ctrl+Windows+lewo/prawo jest też używane przez pulpity Windows. Ctrl+Windows+Enter nie przejmujemy (Narrator). Nie zmieniamy też skrótów cyfr paska zadań. Tymczasowy wariant Ctrl+Windows+Alt wymaga sprawdzenia kolizji z pozostałymi dodatkami.
+Ctrl+Windows+lewo/prawo jest też używane przez pulpity Windows i podczas obsługi przez dodatek służy sterowaniu AMC. Ctrl+Windows+Enter nie przejmujemy (Narrator). Nie zmieniamy też skrótów cyfr paska zadań. Własne przypisania w Zdarzeniach wejścia pozostają zachowane i mogą mieć pierwszeństwo przed domyślnymi. Aktualizacja dodatku nie wymaga nowszego AMC niż alpha 339.
 
 ## Granice bezpieczeństwa i wydajności
 

@@ -24,16 +24,34 @@ worker = load("worker")
 
 
 class ControllerTests(unittest.TestCase):
-    def test_scripts_are_labelled_and_do_not_steal_gestures(self):
+    def test_scripts_have_approved_unique_default_gestures(self):
+        expected = {
+            "status": "i", "playPause": "p", "previous": "leftArrow", "next": "rightArrow",
+            "volumeUp": "upArrow", "volumeDown": "downArrow", "mute": "m",
+            "seekBack": "j", "seekForward": "k", "elapsed": "e", "remaining": "r", "total": "t",
+            "sessionPrevious": "pageUp", "sessionNext": "pageDown",
+        }
         tree = ast.parse((PLUGIN / "__init__.py").read_text(encoding="utf-8"))
         scripts = [node for node in ast.walk(tree)
                    if isinstance(node, ast.FunctionDef) and node.name.startswith("script_")]
         self.assertEqual(len(scripts), len(transport.COMMANDS))
+        gestures = set()
         for method in scripts:
             decorator = method.decorator_list[0]
             self.assertEqual(decorator.func.id, "script")
-            self.assertEqual([keyword.arg for keyword in decorator.keywords], ["description"])
-            self.assertGreater(len(decorator.keywords[0].value.value), 12)
+            properties = {keyword.arg: keyword.value.value for keyword in decorator.keywords}
+            self.assertGreater(len(properties["description"]), 12)
+            command = method.name.removeprefix("script_")
+            gesture = properties["gesture"]
+            self.assertEqual(gesture, "kb:control+windows+" + expected[command])
+            self.assertNotIn(gesture.lower(), gestures)
+            gestures.add(gesture.lower())
+            # The public NVDA script must dispatch the matching allow-listed command.
+            call = method.body[0].value
+            self.assertEqual(call.func.attr, "_send")
+            self.assertEqual(call.args[0].value, command)
+        self.assertNotIn("kb:control+windows+enter", gestures)
+        self.assertTrue(all(not gesture[-1].isdigit() for gesture in gestures))
 
     def test_reply_schema_and_labels(self):
         good = {"version": 1, "ok": True, "message": "Żółć 35%"}
