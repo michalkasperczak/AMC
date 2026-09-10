@@ -8,6 +8,14 @@ namespace AccessibleMediaController.Core.Tidal;
 /// </summary>
 public static class TidalCollectionSemantics
 {
+    // Resolve toggles only after acquiring the integration operation gate.
+    // Search/relationship objects may have older flags than the last confirmed write.
+    public static bool ResolveAddition(
+        IReadOnlyList<MediaItem> items,
+        IReadOnlySet<string> confirmedExternalIds,
+        bool? requestedAddition) => requestedAddition
+            ?? !items.All(item => item.ExternalId is { } id && confirmedExternalIds.Contains(id));
+
     public static bool UsesFavorites(MediaItemKind kind) =>
         kind is MediaItemKind.Track or MediaItemKind.Video;
 

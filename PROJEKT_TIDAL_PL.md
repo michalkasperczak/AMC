@@ -477,7 +477,42 @@ czemu częściowa odpowiedź nie usuwa albumów, playlist, wykonawców lub utwor
 których akurat nie udało się pobrać. Ta zasada jest obowiązkowym wzorcem dla
 przyszłych adapterów Spotify i Apple Music.
 
-## Oficjalne źródła
+## Alfa 336 — zapis kolekcji i właściciel fokusa
+
+- Ctrl+Shift+L w wynikach wyszukiwania dotyczy albumów, wykonawców i playlist;
+  Ctrl+Shift+U dotyczy utworów i materiałów wideo. Nieodpowiedni rodzaj daje
+  wyjaśnienie bez zmiany widoku i bez wysłania zapisu. Diagnostyka zapisuje
+  rodzaj działania, rodzaje elementów i wynik walidacji, nie tokeny.
+- Samo dodanie/usunięcie wyniku nie otwiera go, nie zmienia aktywnej sesji,
+  filtra ani listy w tle. Escape wraca do miejsca otwarcia wyszukiwarki.
+  Enter i jawne przejścia do albumu/wykonawcy nadal otwierają wynik.
+- Przełącznik ustala dodanie/usunięcie dopiero wewnątrz kolejki operacji,
+  według ostatniego potwierdzonego zestawu identyfikatorów usługi. Flagi
+  przypadkowego obiektu wyszukiwania nie są źródłem prawdy. Jawne Delete
+  nadal oznacza usunięcie, a nie przełączenie. Błąd nie potwierdza zmiany.
+- Zapis do usługi i zastosowanie odpowiedzi w interfejsie są uporządkowane.
+  Etykiety wyników aktualizują się bez zastępowania ich kontrolek, zaznaczenia
+  lub fokusa. Zmiana obejmuje też kontenery przechowywane w cache.
+- Przy przebudowie listy AMC zachowuje fokus tylko wtedy, gdy lista go
+  posiadała. Nie przejmuje pola filtra, menu, odtwarzacza ani innego okna.
+- Odpowiedź otwierania kontenera (także błąd lub opóźniony komunikat) jest
+  powiązana z generacją nawigacji, sesją, widokiem, elementem i trybem
+  odtwarzacza. Escape, zmiana zaznaczenia, przejście do innego widoku lub
+  nowsze żądanie unieważniają stare prawo do nawigowania. Cache może zostać
+  uzupełniony, ale użytkownik nie jest przenoszony z powrotem.
+- Błąd 404 pozostaje błędem dostępności elementu, nie poleceniem logowania.
+  Log kontenera zawiera kod HTTP, bez adresów z tokenami i treści odpowiedzi.
+
+Te zasady są wzorcem dla kolejnych adapterów; nie oznacza to automatycznej
+zmiany zachowania wszystkich istniejących sesji. Nie zmieniają również
+ograniczenia pełnego odtwarzania po stronie TIDAL.
+
+Test regresyjny: `TidalInteractionSmokeTests`, także osobno przez
+`--tidal-interaction-smoke`. Testy używają sztucznych odpowiedzi HTTP i
+poświadczeń testowych, nie konta użytkownika. Sprawdzenie z rzeczywistym
+NVDA i wolną siecią pozostaje osobną częścią odbioru.
+
+## Oficjalne źródła dokumentacji
 
 - https://developer.tidal.com/documentation/api-sdk/api-sdk-authorization
 - https://developer.tidal.com/documentation/api-sdk/api-sdk-manage-apps

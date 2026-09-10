@@ -1,10 +1,13 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-329`
-- Tytuł zestawu: Prawdziwa kolejność dodania kolekcji TIDAL
-- Wersja programu: `0.1.0-alpha.329`
-- Utworzono: 2026-09-09, Europe/Warsaw
-- Plik wyników: `wyniki-testow/WYNIKI_0.1.0-alpha.329.md`
+- Numer zestawu: `AMC-TEST-336`
+- Tytuł zestawu: TIDAL — kolekcje, wyszukiwarka i fokus
+- Wersja programu: `0.1.0-alpha.336`
+- Utworzono: 2026-09-10, Europe/Warsaw
+- Bieżące scenariusze i miejsce na uwagi: `TESTY_0.1.0-alpha.336_PL.md`
+
+Alfa 336: najpierw wykonaj krótki zestaw z powyższego pliku. Starsze
+scenariusze poniżej pozostają materiałem do szerszej regresji.
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym
 przebiegu, należy dopisać do `REJESTR_RYZYK_I_NIEJEDNOZNACZNOSCI_PL.md` wraz z

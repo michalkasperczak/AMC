@@ -126,6 +126,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly TidalIntegrationService _tidalIntegration;
     private readonly TidalMediaOutput _tidalOutput;
     private readonly CancellationTokenSource _tidalCancellation = new();
+    private long _tidalNavigationVersion;
+    private readonly SemaphoreSlim _tidalMembershipUiGate = new(1, 1);
     private bool _tidalCatalogSynchronized;
     private bool _tidalCollectionOrderSnapshotComplete;
     private readonly Dictionary<string, WiiMDeviceSnapshot> _wiiMSnapshots =
@@ -713,6 +715,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             PrepareSearchReturnContext((SelectedItem ?? _sessions.Current.CurrentItem).Id);
         }
+        if (dialog.TidalCollectionActionRequested
+            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+            RefreshCurrentView(preferredItemId: SelectedItem?.Id);
         RestoreMediaListFocusAfterRefresh();
     }
 
@@ -9023,6 +9028,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void RestoreCurrentSessionNavigationState()
     {
+        _tidalNavigationVersion++;
         var navigation = GetSessionNavigationState(_sessions.Current.Id);
         _currentView = string.IsNullOrWhiteSpace(navigation.CurrentView)
             ? DefaultBrowserView
@@ -9915,21 +9921,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 .Where(item => item.ExternalId is { Length: > 0 })
                 .DistinctBy(item => item.Id, StringComparer.Ordinal)
                 .ToArray();
-            var favoritesCommand = commandId == CommandIds.ToggleFavorite;
-            var compatible = favoritesCommand
-                ? items.All(item => TidalCollectionSemantics.UsesFavorites(item.Kind))
-                : items.All(item => TidalCollectionSemantics.UsesLibrary(item.Kind));
-            if (!compatible)
-            {
-                Announce(favoritesCommand
-                    ? "Ctrl+Shift+U zmienia Ulubione dla pojedynczych utworów i materiałów wideo TIDAL"
-                    : "Ctrl+Shift+L zmienia Bibliotekę dla albumów, wykonawców i playlist TIDAL");
-                return new CommandExecutionResult(true);
-            }
-            var add = favoritesCommand
-                ? !items.All(item => item.IsFavorite)
-                : !items.All(item => item.IsInLibrary);
-            _ = ChangeTidalCollectionMembershipAsync(items, add);
+            var message = BeginTidalCollectionToggle(items, commandId == CommandIds.ToggleFavorite);
+            if (message is not null) Announce(message);
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.GoToAlbum)
@@ -12178,6 +12171,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void MediaList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        _tidalNavigationVersion++;
         var selectedRow = MediaList.SelectedItem as MediaItemRow;
         if (!_restoringSessionNavigation
             && !_playerViewActive
@@ -12610,11 +12604,35 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    private TidalInteractionContext CaptureTidalInteractionContext() => new(
+        _tidalNavigationVersion, _sessions.Current.Id, _currentView, SelectedItem?.Id, _playerViewActive);
+
+    private bool CanPresentTidalResponse => !_isClosing && IsActive
+        && !OwnedWindows.Cast<Window>().Any(window => window.IsActive)
+        && !IsMenuInteractionActive(Keyboard.FocusedElement);
+
+    private string? BeginTidalCollectionToggle(IReadOnlyList<MediaItem> items, bool favorites)
+    {
+        var compatible = items.Count > 0 && items.All(item => item.ExternalId is { Length: > 0 }
+            && (favorites ? TidalCollectionSemantics.UsesFavorites(item.Kind) : TidalCollectionSemantics.UsesLibrary(item.Kind)));
+        DiagnosticLog.Info("tidal-collection-action",
+            $"Polecenie {(favorites ? "Ulubione" : "Biblioteka")}; elementy {items.Count}; "
+            + $"rodzaje: {string.Join(",", items.Select(item => item.Kind).Distinct())}; zgodne: {compatible}.");
+        if (!compatible)
+            return favorites
+                ? "Ctrl+Shift+U zmienia Ulubione dla pojedynczych utworów i materiałów wideo TIDAL"
+                : "Ctrl+Shift+L zmienia Bibliotekę dla albumów, wykonawców i playlist TIDAL";
+        _ = ChangeTidalCollectionMembershipAsync(items, add: null);
+        return null;
+    }
+
     private async Task OpenTidalContainerAsync(MediaItem container)
     {
         if (container.ExternalId is not { Length: > 0 }) return;
-        var sourceView = _currentView;
-        var sourceItemId = SelectedItem?.Id;
+        _tidalNavigationVersion++;
+        var context = CaptureTidalInteractionContext();
+        TidalCollectionSemantics.ApplyMembership(container,
+            _tidalItems.Any(item => item.ExternalId == container.ExternalId && TidalCollectionSemantics.IsMember(item)));
         var label = TidalContainerLabel(container.Kind);
         try
         {
@@ -12624,10 +12642,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var progressDelay = Task.Delay(TimeSpan.FromMilliseconds(1400), _tidalCancellation.Token);
             if (await Task.WhenAny(loadTask, progressDelay) == progressDelay
                 && !_tidalCancellation.IsCancellationRequested
-                && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
-                && string.Equals(_currentView, sourceView, StringComparison.Ordinal)
-                && (sourceItemId is null
-                    || string.Equals(SelectedItem?.Id, sourceItemId, StringComparison.Ordinal)))
+                && context.CanPresent(CaptureTidalInteractionContext(), CanPresentTidalResponse))
             {
                 Announce($"Wczytywanie {label.ToLower(CultureInfo.CurrentCulture)}: {container.Title}");
             }
@@ -12656,10 +12671,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
             // A slow network response must not pull the focus away after the
             // user has meanwhile changed the session, view or selection.
-            if (!string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
-                || !string.Equals(_currentView, sourceView, StringComparison.Ordinal)
-                || sourceItemId is not null
-                    && !string.Equals(SelectedItem?.Id, sourceItemId, StringComparison.Ordinal))
+            if (!context.CanPresent(CaptureTidalInteractionContext(), CanPresentTidalResponse))
             {
                 return;
             }
@@ -12672,33 +12684,41 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
             NavigateTo(viewName);
             PrepareViewFocusContext($"{label}, {container.Title}");
-            RestoreMediaListFocusAfterRefresh();
+            FocusMediaList();
         }
         catch (OperationCanceledException) when (_tidalCancellation.IsCancellationRequested)
         {
         }
         catch (Exception exception)
         {
-            DiagnosticLog.Error("tidal-container", $"Nie otwarto elementu {container.ExternalId}.", exception);
-            if (!_isClosing)
+            var httpStatus = exception is TidalApiException apiException ? $" HTTP {(int)apiException.StatusCode}." : string.Empty;
+            DiagnosticLog.Error("tidal-container", $"Nie otwarto elementu {container.ExternalId}.{httpStatus}", exception);
+            if (context.CanPresent(CaptureTidalInteractionContext(), CanPresentTidalResponse))
             {
                 Announce($"Nie udało się otworzyć: {label}, {container.Title}. {exception.Message}");
-                RestoreMediaListFocusAfterRefresh();
             }
         }
     }
 
     private async Task ChangeTidalCollectionMembershipAsync(
         IReadOnlyList<MediaItem> items,
-        bool add)
+        bool? add)
     {
+        var context = CaptureTidalInteractionContext();
+        var searchWindow = _activeSearchWindow;
+        var ownsGate = false;
         try
         {
+            // Serialize both the service write AND its UI application. Otherwise
+            // the next response could update the UI before the previous one.
+            await _tidalMembershipUiGate.WaitAsync(_tidalCancellation.Token);
+            ownsGate = true;
             var result = await _tidalIntegration.ChangeCollectionMembershipAsync(
                 items,
                 add,
                 _tidalCancellation.Token);
             if (_isClosing) return;
+            var mayAnnounce = context.CanAnnounceCollectionOutcome(CaptureTidalInteractionContext(), CanPresentTidalResponse);
             ApplyTidalItems(result.Items);
             QueueStateSave();
             var subject = items.Count == 1
@@ -12710,14 +12730,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             var collectionName = items.All(item => TidalCollectionSemantics.UsesFavorites(item.Kind))
                 ? "Ulubionych TIDAL"
                 : "Biblioteki TIDAL";
-            var announcement = add
+            var announcement = result.Added
                 ? $"Dodano do {collectionName}: {subject}{warning}"
                 : $"Usunięto z {collectionName}: {subject}{warning}";
-            if (_activeSearchWindow is { IsVisible: true } searchWindow)
+            if (searchWindow is not null)
             {
-                searchWindow.AnnounceActionCompletion(announcement);
+                if (ReferenceEquals(_activeSearchWindow, searchWindow) && searchWindow.IsActive)
+                    searchWindow.AnnounceActionCompletion(announcement, restoreResultFocus: false);
             }
-            else
+            else if (mayAnnounce)
             {
                 Announce(announcement);
             }
@@ -12728,11 +12749,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         catch (Exception exception)
         {
             DiagnosticLog.Error("tidal-collection", "Nie zmieniono kolekcji TIDAL.", exception);
-            if (!_isClosing)
+            if (!_isClosing && searchWindow is not null)
             {
-                Announce($"Nie zmieniono kolekcji TIDAL. {exception.Message}");
-                RestoreMediaListFocusAfterRefresh();
+                if (ReferenceEquals(_activeSearchWindow, searchWindow) && searchWindow.IsActive)
+                    searchWindow.AnnounceActionCompletion($"Nie zmieniono kolekcji TIDAL. {exception.Message}", restoreResultFocus: false);
             }
+            else if (context.CanAnnounceCollectionOutcome(CaptureTidalInteractionContext(), CanPresentTidalResponse))
+                Announce($"Nie zmieniono kolekcji TIDAL. {exception.Message}");
+        }
+        finally
+        {
+            if (ownsGate) _tidalMembershipUiGate.Release();
         }
     }
 
@@ -15842,6 +15869,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void NavigateTo(string viewName)
     {
+        _tidalNavigationVersion++;
         CaptureCurrentSessionNavigationState();
         HidePlayerForBrowserNavigation();
         var navigation = GetSessionNavigationState(_sessions.Current.Id);
@@ -15881,6 +15909,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void NavigateBack()
     {
+        _tidalNavigationVersion++;
         if (_playerViewActive)
         {
             ReturnFromPlayerToList();
@@ -15911,6 +15940,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void NavigateForward()
     {
+        _tidalNavigationVersion++;
         if (_playerViewActive) return;
         var navigation = GetSessionNavigationState(_sessions.Current.Id);
         var history = GetSessionViewHistory(_sessions.Current.Id);
@@ -16250,7 +16280,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .Where(item => item.ExternalId is { Length: > 0 })
             .Select(item => item.ExternalId!)
             .ToHashSet(StringComparer.Ordinal);
-        foreach (var cachedItem in _tidalContainerViews.Values.SelectMany(view => view.Items))
+        foreach (var cachedItem in _tidalContainerViews.Values.SelectMany(view => view.Items.Prepend(view.Container)))
         {
             var isInCollection = cachedItem.ExternalId is { Length: > 0 } externalId
                 && collectionExternalIds.Contains(externalId);
@@ -16263,6 +16293,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             TidalCollectionSemantics.ApplyMembership(queuedItem, isInCollection);
         }
         _tidalCatalogSynchronized = true;
+        _activeSearchWindow?.UpdateTidalMembership(collectionExternalIds);
         if (session is null) return;
         var selectedId = string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
             ? SelectedItem?.Id
@@ -16285,7 +16316,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
             && _activeSearchWindow is not { IsVisible: true })
         {
-            RefreshCurrentView(preferredItemId: selectedId);
+            var selectedIndex = MediaList.SelectedIndex;
+            var selectedIds = MediaList.SelectedItems.OfType<MediaItemRow>()
+                .Select(row => row.Item.Id).ToArray();
+            ListRefreshFocus.Run(MediaList, () =>
+            {
+                RefreshCurrentView(selectedIndex, preferredItemId: selectedId);
+                if (selectedIds.Length > 1) SelectMediaItems(selectedIds);
+            }, FocusMediaList);
         }
     }
 
@@ -19573,6 +19611,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ReturnToMediaListFromEscape()
     {
+        _tidalNavigationVersion++;
         AnchorMediaListFocus();
         if (FilterBox.Text.Length > 0)
         {
@@ -19939,6 +19978,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             return "Dla jednego działania wybierz wyniki z tej samej usługi";
         }
+
+        // A collection mutation does not open its search result. In particular,
+        // do not replace the current album with the flat, transient catalog.
+        if (SearchWindow.PreservesBrowserLocation(results, action))
+            return BeginTidalCollectionToggle(results.Select(result => result.Item)
+                .DistinctBy(item => item.ExternalId, StringComparer.Ordinal).ToArray(),
+                action == SearchResultAction.Favorite);
 
         var result = results[0];
         var session = SelectSearchResultBrowserItem(result);

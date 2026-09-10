@@ -34,6 +34,7 @@
                  MouseDoubleClick="ResultsList_MouseDoubleClick">
             <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">
+                    <Setter Property="automation:AutomationProperties.Name" Value="{Binding Label}" />
                     <Setter Property="automation:AutomationProperties.HelpText" Value="{Binding Hint}" />
                 </Style>
             </ListBox.ItemContainerStyle>

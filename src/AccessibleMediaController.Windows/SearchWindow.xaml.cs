@@ -106,18 +106,39 @@ public partial class SearchWindow : Window
     public SearchResult? LastDirectActionResult { get; private set; }
     public SearchResultAction SelectedAction { get; private set; } = SearchResultAction.Open;
 
-    internal void AnnounceActionCompletion(string announcement)
+    internal bool TidalCollectionActionRequested { get; private set; }
+
+    internal static bool PreservesBrowserLocation(IReadOnlyList<SearchResult> results, SearchResultAction action) =>
+        action is SearchResultAction.Library or SearchResultAction.Favorite
+        && results.Count > 0
+        && results.All(result => string.Equals(result.SessionId, "tidal", StringComparison.OrdinalIgnoreCase));
+
+    internal void UpdateTidalMembership(IReadOnlySet<string> externalIds)
+    {
+        foreach (var row in ResultsList.Items.OfType<SearchResultRow>()
+                     .Where(row => string.Equals(row.SessionId, "tidal", StringComparison.OrdinalIgnoreCase)))
+        {
+            TidalCollectionSemantics.ApplyMembership(row.Item,
+                row.Item.ExternalId is { } id && externalIds.Contains(id));
+            row.UpdateLabel(_allServices
+                ? $"{_formatItem(row.Item)}, {_sourceSessions.FirstOrDefault(session => session.Id == row.SessionId)?.DisplayName ?? "TIDAL"}"
+                : _formatItem(row.Item));
+        }
+    }
+
+    internal void AnnounceActionCompletion(string announcement, bool restoreResultFocus = true)
     {
         if (!Dispatcher.CheckAccess())
         {
             _ = Dispatcher.BeginInvoke(
-                () => AnnounceActionCompletion(announcement),
+                () => AnnounceActionCompletion(announcement, restoreResultFocus),
                 DispatcherPriority.ContextIdle);
             return;
         }
         if (!IsVisible) return;
         SearchStatus.Announce(announcement);
-        _ = Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
+        if (restoreResultFocus)
+            _ = Dispatcher.BeginInvoke(FocusSelectedResult, DispatcherPriority.ContextIdle);
     }
 
     private async void RunSearch()
@@ -300,7 +321,9 @@ public partial class SearchWindow : Window
                 .Select(candidate => new SearchResult(candidate.SessionId, candidate.Item))
                 .ToArray();
             var announcement = _executeAction(results, visibleResults, action, _allServices);
-            if (action is not (SearchResultAction.CopyName
+            if (PreservesBrowserLocation(results, action))
+                TidalCollectionActionRequested = true;
+            else if (action is not (SearchResultAction.CopyName
                 or SearchResultAction.CopyLocation))
             {
                 LastDirectActionResult = result;
@@ -696,13 +719,25 @@ public partial class SearchWindow : Window
 
     public sealed record SearchResult(string SessionId, MediaItem Item);
 
-    private sealed record SearchResultRow(
-        string SessionId,
-        MediaItem Item,
-        string NavigationText,
-        string Label,
-        string Hint)
+    private sealed class SearchResultRow(
+        string sessionId,
+        MediaItem item,
+        string navigationText,
+        string label,
+        string hint) : System.ComponentModel.INotifyPropertyChanged
     {
+        public string SessionId { get; } = sessionId;
+        public MediaItem Item { get; } = item;
+        public string NavigationText { get; } = navigationText;
+        public string Label { get; private set; } = label;
+        public string Hint { get; } = hint;
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+        public void UpdateLabel(string value)
+        {
+            if (Label == value) return;
+            Label = value;
+            PropertyChanged?.Invoke(this, new(nameof(Label)));
+        }
         public override string ToString() => Label;
     }
 }

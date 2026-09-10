@@ -23,10 +23,13 @@ internal sealed record TidalPlaybackCredentials(
     IReadOnlyList<string> Scopes,
     string UserId);
 
-internal sealed class TidalIntegrationService(TidalSettings settings) : IDisposable
+internal sealed class TidalIntegrationService(
+    TidalSettings settings,
+    TidalApiClient? apiClient = null,
+    Func<CancellationToken, Task<TidalTokenSet>>? tokenProvider = null) : IDisposable
 {
     private readonly TidalOAuthClient oauth = new();
-    private readonly TidalApiClient api = new();
+    private readonly TidalApiClient api = apiClient ?? new();
     private readonly SemaphoreSlim operationGate = new(1, 1);
     private readonly Dictionary<MediaItemKind, IReadOnlyList<MediaItem>> synchronizedCollections = [];
     private HashSet<string> collectionExternalIds = new(StringComparer.Ordinal);
@@ -321,7 +324,7 @@ internal sealed class TidalIntegrationService(TidalSettings settings) : IDisposa
 
     public async Task<TidalMembershipChangeResult> ChangeCollectionMembershipAsync(
         IReadOnlyList<MediaItem> items,
-        bool add,
+        bool? requestedAddition,
         CancellationToken cancellationToken)
     {
         await operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -339,6 +342,7 @@ internal sealed class TidalIntegrationService(TidalSettings settings) : IDisposa
                 .ToArray();
             if (uniqueItems.Length == 0)
                 throw new InvalidOperationException("Brak elementów TIDAL możliwych do zapisania.");
+            var add = TidalCollectionSemantics.ResolveAddition(uniqueItems, collectionExternalIds, requestedAddition);
             await api.ChangeCollectionMembershipAsync(
                 tokens.AccessToken,
                 uniqueItems,
@@ -470,6 +474,7 @@ internal sealed class TidalIntegrationService(TidalSettings settings) : IDisposa
 
     private async Task<TidalTokenSet> EnsureValidTokensAsync(CancellationToken cancellationToken)
     {
+        if (tokenProvider is not null) return await tokenProvider(cancellationToken).ConfigureAwait(false);
         if (!IsConfigured)
             throw new InvalidOperationException("Najpierw wpisz identyfikator aplikacji TIDAL.");
         if (!TidalCredentialStore.TryRead(out var tokens) || tokens is null)
