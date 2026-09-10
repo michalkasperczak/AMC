@@ -36734,7 +36734,7 @@ function X() {
 o3().then().catch(console.error), c3().then().catch(console.error), X();
 
 // src/bridge.js
-function startBridge(Player, host, schedule = setInterval, now = () => performance.now()) {
+function startBridge(Player, host, schedule = setInterval, now = () => performance.now(), wallNow = () => Date.now()) {
   let credentials;
   let active;
   let commandQueue = Promise.resolve();
@@ -36748,6 +36748,46 @@ function startBridge(Player, host, schedule = setInterval, now = () => performan
   });
   const isCurrent = (request) => request && active === request && request.serial === latestControlSerial && !request.terminal;
   const sdkMatches = (request) => isCurrent(request) && Player.getMediaProduct()?.productId === request.productId;
+  function replaceCredentials(value) {
+    if (!value?.clientId?.trim() || !value?.token?.trim() || !value?.userId?.trim() || !Number.isFinite(value.expires) || value.expires <= wallNow()) {
+      credentials = void 0;
+      throw new Error("Nieprawid\u0142owe lub wygas\u0142e logowanie u\u017Cytkownika TIDAL (invalid_token).");
+    }
+    credentials = {
+      clientId: value.clientId,
+      clientUniqueKey: "amc-tidal-player",
+      expires: value.expires,
+      grantedScopes: Array.isArray(value.scopes) ? [...value.scopes] : [],
+      requestedScopes: Array.isArray(value.scopes) ? [...value.scopes] : [],
+      token: value.token,
+      userId: value.userId
+    };
+    for (const listener of credentialsListeners) {
+      listener(new CustomEvent("credentials", {
+        detail: { type: "CredentialsUpdatedMessage", payload: credentials }
+      }));
+    }
+  }
+  function reportContext(context) {
+    if (!sdkMatches(active) || !context) return;
+    if (!["PREVIEW", "FULL"].includes(context.actualAssetPresentation)) return;
+    const message = {
+      type: "transition",
+      duration: Number(context.actualDuration ?? 0),
+      position: Number(Player.getAssetPosition() ?? 0),
+      assetPresentation: context.actualAssetPresentation ?? "",
+      previewReason: context.previewReason ?? "",
+      quality: context.actualAudioQuality ?? "",
+      codec: context.codec ?? "",
+      sampleRate: Number(context.sampleRate ?? 0),
+      bitDepth: Number(context.bitDepth ?? 0),
+      bandwidth: Number(context.bandwidth ?? 0)
+    };
+    const signature = JSON.stringify({ ...message, position: 0 });
+    if (active.contextSignature === signature) return;
+    active.contextSignature = signature;
+    sendFor(active, message);
+  }
   function reportFailure(error, request = active) {
     if (!request || request.serial !== latestControlSerial || request.terminal) return;
     request.terminal = true;
@@ -36760,9 +36800,13 @@ function startBridge(Player, host, schedule = setInterval, now = () => performan
       return () => credentialsListeners.delete(callback);
     },
     async getCredentials() {
-      if (!credentials?.clientId || !credentials?.token || !credentials?.userId)
-        throw new Error("Brak aktywnego logowania TIDAL.");
-      return credentials;
+      if (!credentials) throw Object.assign(new Error("Brak aktywnego logowania TIDAL."), { errorCode: "A0001" });
+      if (credentials.expires <= wallNow()) throw new Error("Logowanie TIDAL wygas\u0142o (invalid_token).");
+      if (isCurrent(active) && !active.credentialsRead) {
+        active.credentialsRead = true;
+        sendFor(active, { type: "credentials", authenticatedUser: true });
+      }
+      return { ...credentials, grantedScopes: [...credentials.grantedScopes], requestedScopes: [...credentials.requestedScopes] };
     }
   });
   Player.setEventSender({ sendEvent() {
@@ -36775,19 +36819,7 @@ function startBridge(Player, host, schedule = setInterval, now = () => performan
   });
   Player.events.addEventListener("media-product-transition", (event) => {
     if (!isCurrent(active) || event.detail?.mediaProduct?.productId !== active.productId) return;
-    const context = event.detail?.playbackContext;
-    sendFor(active, {
-      type: "transition",
-      duration: Number(context?.actualDuration ?? 0),
-      position: Number(context?.assetPosition ?? 0),
-      assetPresentation: context?.actualAssetPresentation ?? "",
-      previewReason: context?.previewReason ?? "",
-      quality: context?.actualAudioQuality ?? "",
-      codec: context?.codec ?? "",
-      sampleRate: Number(context?.sampleRate ?? 0),
-      bitDepth: Number(context?.bitDepth ?? 0),
-      bandwidth: Number(context?.bandwidth ?? 0)
-    });
+    reportContext(event.detail?.playbackContext);
   });
   Player.events.addEventListener("ended", (event) => {
     if (!isCurrent(active) || !active.confirmed || event.detail?.reason !== "completed" || event.detail?.mediaProduct?.productId !== active.productId) return;
@@ -36816,20 +36848,7 @@ function startBridge(Player, host, schedule = setInterval, now = () => performan
         case "play": {
           const queueMs = Math.max(0, now() - queuedAt);
           active = request;
-          credentials = {
-            clientId: command.credentials.clientId,
-            clientUniqueKey: "amc-tidal-player",
-            expires: command.credentials.expires,
-            grantedScopes: command.credentials.scopes,
-            requestedScopes: command.credentials.scopes,
-            token: command.credentials.token,
-            userId: command.credentials.userId
-          };
-          for (const listener of credentialsListeners) {
-            listener(new CustomEvent("credentials", {
-              detail: { type: "CredentialsUpdatedMessage", payload: credentials }
-            }));
-          }
+          replaceCredentials(command.credentials);
           Player.setVolumeLevel(command.volume);
           const loadAt = now();
           await Player.load({
@@ -36845,18 +36864,21 @@ function startBridge(Player, host, schedule = setInterval, now = () => performan
           await Player.play();
           if (!isCurrent(request)) return;
           request.confirmed = true;
+          reportContext(Player.getPlaybackContext());
           sendFor(request, { type: "timing", queueMs, loadMs, playMs: Math.max(0, now() - playAt) });
           sendFor(request, { type: "state", state: Player.getPlaybackState() });
           break;
         }
         case "resume":
           active = request;
+          replaceCredentials(command.credentials);
           Player.setVolumeLevel(command.volume);
           await Player.seek(command.position);
           if (!isCurrent(request)) return;
           await Player.play();
           if (!isCurrent(request)) return;
           request.confirmed = true;
+          reportContext(Player.getPlaybackContext());
           sendFor(request, { type: "state", state: Player.getPlaybackState() });
           break;
         case "pause":
@@ -36891,6 +36913,7 @@ function startBridge(Player, host, schedule = setInterval, now = () => performan
   });
   schedule(() => {
     if (!sdkMatches(active) || !active.confirmed) return;
+    reportContext(Player.getPlaybackContext());
     sendFor(active, {
       type: "progress",
       position: Number(Player.getAssetPosition() ?? 0),

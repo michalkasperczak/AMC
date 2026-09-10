@@ -1,12 +1,13 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-336`
-- Tytuł zestawu: TIDAL — kolekcje, wyszukiwarka i fokus
-- Wersja programu: `0.1.0-alpha.336`
+- Numer zestawu: `AMC-TEST-337`
+- Tytuł zestawu: TIDAL — logowanie odtwarzacza i raport próbek
+- Wersja programu: `0.1.0-alpha.337`
 - Utworzono: 2026-09-10, Europe/Warsaw
-- Bieżące scenariusze i miejsce na uwagi: `TESTY_0.1.0-alpha.336_PL.md`
+- Bieżące scenariusze i miejsce na uwagi: `INSTRUKCJA_0.1.0-alpha.337_PL.md`
 
-Alfa 336: najpierw wykonaj krótki zestaw z powyższego pliku. Starsze
+Alfa 337: najpierw wykonaj krótki zestaw z powyższego pliku. Poprawki 336
+można nadal sprawdzać według `TESTY_0.1.0-alpha.336_PL.md`. Starsze
 scenariusze poniżej pozostają materiałem do szerszej regresji.
 
 Obserwacje, których nie uda się jednoznacznie potwierdzić ani odrzucić w tym

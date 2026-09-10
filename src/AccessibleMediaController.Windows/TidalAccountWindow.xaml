@@ -3,15 +3,15 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
         xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
-        Title="Konto i synchronizacja TIDAL" Width="700" Height="500"
-        MinWidth="600" MinHeight="430" WindowStartupLocation="CenterOwner"
+        Title="Konto i synchronizacja TIDAL" Width="740" Height="570"
+        MinWidth="600" MinHeight="500" WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False" Closed="Window_Closed">
     <DockPanel Margin="12">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
             <TextBlock Text="Konto i synchronizacja TIDAL" FontSize="18" FontWeight="SemiBold"
                        automation:AutomationProperties.HeadingLevel="Level1" />
             <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
-                       Text="AMC korzysta z oficjalnego logowania TIDAL. Utwórz własną aplikację w panelu TIDAL, włącz uprawnienia user.read, collection.read, collection.write, playlists.read i playlists.write, a następnie zarejestruj dokładnie podany niżej adres powrotu. Hasło wpisujesz wyłącznie na stronie TIDAL otwartej w zwykłej przeglądarce." />
+                       Text="Zaloguj się swoim zwykłym kontem na oficjalnej stronie TIDAL. Hasło wpisujesz wyłącznie w przeglądarce. Identyfikator poniżej określa aplikację AMC, nie inne konto użytkownika. Jeśli konto już działa, nie zmieniaj identyfikatora ani adresu powrotu. Pierwszą konfigurację opisuje dołączona instrukcja logowania." />
         </StackPanel>
 
         <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
@@ -28,6 +28,10 @@
                         Click="Login_Click" />
                 <Button x:Name="SyncButton" Content="_Synchronizuj teraz" Margin="0,0,8,8"
                         Click="Sync_Click" />
+                <Button x:Name="DiagnosticsButton" Content="_Diagnostyka odtwarzania" Margin="0,0,8,8"
+                        automation:AutomationProperties.Name="Diagnostyka odtwarzania"
+                        automation:AutomationProperties.HelpText="Alt+D. Pokaż raport ostatniej próby, bez ponownego logowania i bez rozpoczynania odtwarzania."
+                        Click="Diagnostics_Click" />
                 <Button x:Name="DisconnectButton" Content="_Odłącz konto…" Margin="0,0,8,8"
                         Click="Disconnect_Click" />
                 <Button Content="Za_mknij" IsCancel="True" Margin="0,0,0,8" />
@@ -67,7 +71,7 @@
                 <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Margin="0,8,0,0" FontWeight="SemiBold"
                            Text="Co jest synchronizowane" automation:AutomationProperties.HeadingLevel="Level2" />
                 <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Margin="0,5,0,0" TextWrapping="Wrap"
-                           Text="Z konta są pobierane osobne kolekcje utworów, albumów, wykonawców, playlist i materiałów wideo. AMC może też dodawać te elementy do kolekcji TIDAL oraz je z niej usuwać. Kolejka, historia, zakładki, presety, własne nazwy i ustawienia odtwarzania pozostają lokalne w AMC. Odtwarzanie chronione zostanie dołączone osobno przez oficjalny moduł Player TIDAL." />
+                           Text="Z konta są pobierane kolekcje utworów, albumów, wykonawców, playlist i materiałów wideo. AMC może dodawać i usuwać ich elementy. Kolejka, historia, zakładki, presety i ustawienia pozostają lokalne. Dźwięk obsługuje oficjalny moduł Player TIDAL. Działająca synchronizacja nie potwierdza prawa aplikacji do pełnych utworów. Przycisk Diagnostyka odtwarzania pokazuje wynik ostatniej próby." />
             </Grid>
         </ScrollViewer>
     </DockPanel>

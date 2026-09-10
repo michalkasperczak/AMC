@@ -512,6 +512,34 @@ Test regresyjny: `TidalInteractionSmokeTests`, także osobno przez
 poświadczeń testowych, nie konta użytkownika. Sprawdzenie z rzeczywistym
 NVDA i wolną siecią pozostaje osobną częścią odbioru.
 
+## Alfa 337 — weryfikacja połączenia logowania z Playerem
+
+W kodzie potwierdzono Authorization Code z PKCE i przekazywanie tokenu
+użytkownika, jego identyfikatora oraz Client ID do dostawcy poświadczeń SDK.
+Nie jest to tryb samego Client Credentials. Zidentyfikowano osobną lukę:
+wznowienie załadowanego utworu pomijało aktualizację poświadczeń. Teraz
+przechodzi przez ten sam mechanizm pobrania/odświeżenia co otwarcie.
+Po nowym logowaniu cache identyfikatora konta jest unieważniany.
+
+Mostek odrzuca brak tokenu, identyfikatora użytkownika, Client ID lub ważnego
+terminu, zamiast uruchamiać tryb anonimowy. Przed pierwszym logowaniem
+dostawca zwraca A0001 oczekiwane przez inicjalizację oficjalnego SDK.
+Nie dopisujemy nieprzyznanych zakresów; przekazywane są zakresy odpowiedzi OAuth.
+
+Raport w Ctrl+F5 rejestruje przygotowanie poświadczenia, rzeczywiste wywołanie
+getCredentials przez SDK, start i odpowiedź PREVIEW/FULL oraz powód próbki.
+Nie zawiera tokenów ani ID konta. Brak odpowiedzi pozostaje brakiem danych.
+Raport jest migawką ostatniej próby z bieżącego procesu, nie dowodem obecnej
+ważności konta. Zdarzenia są filtrowane numerem próby i identyfikatorem materiału.
+Stan dostępu sprawdzany jest także po play/resume i przy postępie; raportowane
+są tylko zmiany znanych danych, nie każdy tick i nie anonimowa diagnoza.
+
+Testy syntetyczne sprawdzają kontrakt poświadczeń, ich zmianę po wygaśnięciu,
+zachowanie pozycji przy resume, błędne/niepełne poświadczenia, nieaktualne
+zdarzenia, brak wycieków i brak zużycia kolejki po błędzie/próbce.
+Nie dowodzą pełnego odsłuchu z prawdziwego konta. Wynik użytkownika jest nadal
+potrzebny; nie prosić o powtarzanie znanego testu Embed bez nowej przesłanki.
+
 ## Oficjalne źródła dokumentacji
 
 - https://developer.tidal.com/documentation/api-sdk/api-sdk-authorization

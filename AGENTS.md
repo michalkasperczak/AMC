@@ -11,6 +11,11 @@
 - Publikacja źródeł, publikacja ZIP w Releases i uruchomienie programu są
   osobnymi czynnościami. Raportuj ich rzeczywiste wyniki, także blokady.
   Nie zamykaj programu w trakcie nagrywania.
+- Po publikacji wydania usuń jego lokalny ZIP z `publish` dopiero po
+  zweryfikowaniu, że odpowiadający mu załącznik GitHub Releases został
+  skutecznie wysłany i jest dostępny (nazwa, rozmiar i, gdy dostępny, SHA-256).
+  Sam push źródeł nie oznacza wysłania ZIP-a. Niewysłane i niezweryfikowane
+  paczki pozostaw; nie usuwaj przy tym rozpakowanej bieżącej wersji programu.
 - Priorytet TIDAL: zweryfikowane pełne odtwarzanie, nie deklarowanie próbek
   jako pełnych utworów. Ustalenia i granice: `PROJEKT_TIDAL_PL.md`.
 - Wynik zwykłego logowania do Embed i analiza jego kodu:

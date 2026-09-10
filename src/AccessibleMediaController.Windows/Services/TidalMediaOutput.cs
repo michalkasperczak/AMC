@@ -43,6 +43,7 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
     private bool disposed;
     private int playbackRequestVersion;
     private long preparationTimestamp;
+    internal TidalPlaybackDiagnostics Diagnostics { get; } = new();
 
     public TidalMediaOutput(TidalIntegrationService integration, WebView2 webView)
     {
@@ -100,23 +101,14 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
             currentItem = item;
             loadedItemId = item.Id;
             this.position = position < TimeSpan.Zero ? TimeSpan.Zero : position;
-            isPreparing = !resumeLoadedItem;
+            isPreparing = true;
             playbackStarted = false;
             if (!resumeLoadedItem) isPreview = false;
         }
 
-        if (resumeLoadedItem)
-        {
-            PostCommand(new
-            {
-                type = "resume", requestVersion = version,
-                volume = NormalizeVolume(volume), position = Math.Max(0, position.TotalSeconds)
-            });
-            return;
-        }
-
+        Diagnostics.Begin(item.Title, resumeLoadedItem);
         PlaybackPreparing?.Invoke(this, new MediaPlaybackPreparingEventArgs(item, false));
-        _ = StartPlaybackAsync(item, position, volume, version, lifetime.Token);
+        _ = StartPlaybackAsync(item, position, volume, version, resumeLoadedItem, lifetime.Token);
     }
 
     public void Pause()
@@ -237,6 +229,7 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
         TimeSpan startPosition,
         int volume,
         int version,
+        bool resume,
         CancellationToken cancellationToken)
     {
         try
@@ -254,7 +247,7 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
 
             var command = new
             {
-                type = "play",
+                type = resume ? "resume" : "play",
                 requestVersion = version,
                 productId = PlaybackProductId(item),
                 productType = item.Kind == MediaItemKind.Video ? "video" : "track",
@@ -276,7 +269,11 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
                 () =>
                 {
                     if (IsCurrentRequest(version, item.Id))
+                    {
+                        Diagnostics.CredentialsPrepared();
+                        DiagnosticLog.Info("tidal-player-auth", $"Próba: {version}; aktualne poświadczenie użytkownika przygotowane; wznowienie: {resume}.");
                         webView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(command));
+                    }
                 },
                 DispatcherPriority.Send,
                 cancellationToken);
@@ -373,6 +370,14 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
                 case "transition":
                     ApplyTransition(root);
                     break;
+                case "credentials":
+                    if (root.TryGetProperty("authenticatedUser", out var authenticated)
+                        && authenticated.ValueKind == JsonValueKind.True)
+                    {
+                        Diagnostics.CredentialsRead();
+                        DiagnosticLog.Info("tidal-player-auth", $"Próba: {playbackRequestVersion}; SDK odczytał logowanie użytkownika.");
+                    }
+                    break;
                 case "state":
                     ApplyPlaybackState(
                         Text(root, "state"),
@@ -466,6 +471,7 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
         // The reason comes from the SDK/server. Keep an allowlist: diagnostics
         // must not accept arbitrary URLs, tokens or control characters here.
         var previewReason = NormalizePreviewReason(Text(root, "previewReason"));
+        Diagnostics.Transition(presentation, previewReason, durationSeconds);
         DiagnosticLog.Info("tidal-player-access",
             $"Próba: {playbackRequestVersion}; materiał: {(isPreview ? "PREVIEW" : presentation == "FULL" ? "FULL" : "UNKNOWN")}; powód próbki: {previewReason}; czas: {Math.Clamp(durationSeconds, 0, 604800):F3} s.");
         if (string.Equals(presentation, "PREVIEW", StringComparison.OrdinalIgnoreCase)
@@ -497,6 +503,7 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
         }
         if (raiseStarted && item is not null)
         {
+            Diagnostics.PlaybackStarted();
             if (preparationTimestamp != 0)
                 DiagnosticLog.Info("tidal-player-timing",
                     $"Potwierdzony start; próba: {playbackRequestVersion}; od polecenia AMC: {Stopwatch.GetElapsedTime(preparationTimestamp).TotalMilliseconds:F0} ms.");
@@ -590,6 +597,7 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
         DiagnosticLog.Warning(
             "tidal-player",
             $"Odtwarzanie nie powiodło się; element: {item?.ExternalId ?? "brak"}; {message}");
+        Diagnostics.Failure(message);
         RaiseOnUi(() => PlaybackFailed?.Invoke(this, new MediaOutputFailedEventArgs(item, message)));
     }
 

@@ -16196,7 +16196,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void ShowTidalAccountManager()
     {
-        var dialog = new TidalAccountWindow(_state.Tidal, _tidalIntegration)
+        var returnToPlayer = _playerViewActive;
+        var dialog = new TidalAccountWindow(_state.Tidal, _tidalIntegration, () => _tidalOutput.Diagnostics.Report)
         {
             Owner = this
         };
@@ -16218,7 +16219,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 RefreshCurrentView();
         }
         if (dialog.Changed) QueueStateSave(announceFailure: true);
-        RestoreMediaListFocusAfterRefresh();
+        if (returnToPlayer && _playerViewActive && _sessions.Current.HasCurrentItem && IsActive)
+        {
+            UpdatePlayerView(true);
+            FocusPlayerView();
+        }
+        else if (IsActive) RestoreMediaListFocusAfterRefresh();
         if (!string.IsNullOrWhiteSpace(dialog.CompletionAnnouncement))
         {
             Dispatcher.BeginInvoke(

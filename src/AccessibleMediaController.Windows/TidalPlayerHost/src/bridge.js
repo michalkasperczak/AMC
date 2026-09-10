@@ -1,6 +1,6 @@
 // Dependency injection keeps ordering/error tests independent of a TIDAL
 // account. Only the official Player module handles protected audio.
-export function startBridge(Player, host, schedule = setInterval, now = () => performance.now()) {
+export function startBridge(Player, host, schedule = setInterval, now = () => performance.now(), wallNow = () => Date.now()) {
   let credentials;
   let active;
   let commandQueue = Promise.resolve();
@@ -15,6 +15,45 @@ export function startBridge(Player, host, schedule = setInterval, now = () => pe
   const sdkMatches = request => isCurrent(request) &&
     Player.getMediaProduct()?.productId === request.productId;
 
+  function replaceCredentials(value) {
+    if (!value?.clientId?.trim() || !value?.token?.trim() || !value?.userId?.trim() ||
+        !Number.isFinite(value.expires) || value.expires <= wallNow()) {
+      credentials = undefined;
+      throw new Error('Nieprawidłowe lub wygasłe logowanie użytkownika TIDAL (invalid_token).');
+    }
+    credentials = {
+      clientId: value.clientId, clientUniqueKey: 'amc-tidal-player',
+      expires: value.expires,
+      grantedScopes: Array.isArray(value.scopes) ? [...value.scopes] : [],
+      requestedScopes: Array.isArray(value.scopes) ? [...value.scopes] : [],
+      token: value.token, userId: value.userId,
+    };
+    for (const listener of credentialsListeners) {
+      listener(new CustomEvent('credentials', {
+        detail: { type: 'CredentialsUpdatedMessage', payload: credentials },
+      }));
+    }
+  }
+
+  function reportContext(context) {
+    if (!sdkMatches(active) || !context) return;
+    if (!['PREVIEW', 'FULL'].includes(context.actualAssetPresentation)) return;
+    const message = {
+      type: 'transition', duration: Number(context.actualDuration ?? 0),
+      position: Number(Player.getAssetPosition() ?? 0),
+      assetPresentation: context.actualAssetPresentation ?? '',
+      previewReason: context.previewReason ?? '', quality: context.actualAudioQuality ?? '',
+      codec: context.codec ?? '', sampleRate: Number(context.sampleRate ?? 0),
+      bitDepth: Number(context.bitDepth ?? 0), bandwidth: Number(context.bandwidth ?? 0),
+    };
+    // Events can precede host readiness. Also sample after play/resume and on
+    // progress, but send only changed metadata, never a log entry every tick.
+    const signature = JSON.stringify({ ...message, position: 0 });
+    if (active.contextSignature === signature) return;
+    active.contextSignature = signature;
+    sendFor(active, message);
+  }
+
   function reportFailure(error, request = active) {
     if (!request || request.serial !== latestControlSerial || request.terminal) return;
     request.terminal = true;
@@ -28,9 +67,15 @@ export function startBridge(Player, host, schedule = setInterval, now = () => pe
       return () => credentialsListeners.delete(callback);
     },
     async getCredentials() {
-      if (!credentials?.clientId || !credentials?.token || !credentials?.userId)
-        throw new Error('Brak aktywnego logowania TIDAL.');
-      return credentials;
+      // The SDK probes immediately when the provider is registered. Its
+      // documented missing-credentials code avoids a startup rejection.
+      if (!credentials) throw Object.assign(new Error('Brak aktywnego logowania TIDAL.'), { errorCode: 'A0001' });
+      if (credentials.expires <= wallNow()) throw new Error('Logowanie TIDAL wygasło (invalid_token).');
+      if (isCurrent(active) && !active.credentialsRead) {
+        active.credentialsRead = true;
+        sendFor(active, { type: 'credentials', authenticatedUser: true });
+      }
+      return { ...credentials, grantedScopes: [...credentials.grantedScopes], requestedScopes: [...credentials.requestedScopes] };
     },
   });
   // Same empty sender as the official manual SDK demo; no media interception.
@@ -44,19 +89,7 @@ export function startBridge(Player, host, schedule = setInterval, now = () => pe
   });
   Player.events.addEventListener('media-product-transition', event => {
     if (!isCurrent(active) || event.detail?.mediaProduct?.productId !== active.productId) return;
-    const context = event.detail?.playbackContext;
-    sendFor(active, {
-      type: 'transition',
-      duration: Number(context?.actualDuration ?? 0),
-      position: Number(context?.assetPosition ?? 0),
-      assetPresentation: context?.actualAssetPresentation ?? '',
-      previewReason: context?.previewReason ?? '',
-      quality: context?.actualAudioQuality ?? '',
-      codec: context?.codec ?? '',
-      sampleRate: Number(context?.sampleRate ?? 0),
-      bitDepth: Number(context?.bitDepth ?? 0),
-      bandwidth: Number(context?.bandwidth ?? 0),
-    });
+    reportContext(event.detail?.playbackContext);
   });
   Player.events.addEventListener('ended', event => {
     // SDK uses this event for completion, failure AND skipping/resetting.
@@ -91,20 +124,7 @@ export function startBridge(Player, host, schedule = setInterval, now = () => pe
           // playback-info request. An extra awaited reset delays every switch.
           // Old ended/state events remain gated by product and confirmation.
           active = request;
-          credentials = {
-            clientId: command.credentials.clientId,
-            clientUniqueKey: 'amc-tidal-player',
-            expires: command.credentials.expires,
-            grantedScopes: command.credentials.scopes,
-            requestedScopes: command.credentials.scopes,
-            token: command.credentials.token,
-            userId: command.credentials.userId,
-          };
-          for (const listener of credentialsListeners) {
-            listener(new CustomEvent('credentials', {
-              detail: { type: 'CredentialsUpdatedMessage', payload: credentials },
-            }));
-          }
+          replaceCredentials(command.credentials);
           Player.setVolumeLevel(command.volume);
           const loadAt = now();
           await Player.load({
@@ -118,18 +138,21 @@ export function startBridge(Player, host, schedule = setInterval, now = () => pe
           await Player.play();
           if (!isCurrent(request)) return;
           request.confirmed = true;
+          reportContext(Player.getPlaybackContext());
           sendFor(request, { type: 'timing', queueMs, loadMs, playMs: Math.max(0, now() - playAt) });
           sendFor(request, { type: 'state', state: Player.getPlaybackState() });
           break;
         }
         case 'resume':
           active = request;
+          replaceCredentials(command.credentials);
           Player.setVolumeLevel(command.volume);
           await Player.seek(command.position);
           if (!isCurrent(request)) return;
           await Player.play();
           if (!isCurrent(request)) return;
           request.confirmed = true;
+          reportContext(Player.getPlaybackContext());
           sendFor(request, { type: 'state', state: Player.getPlaybackState() });
           break;
         case 'pause':
@@ -160,6 +183,7 @@ export function startBridge(Player, host, schedule = setInterval, now = () => pe
   });
   schedule(() => {
     if (!sdkMatches(active) || !active.confirmed) return;
+    reportContext(Player.getPlaybackContext());
     sendFor(active, {
       type: 'progress', position: Number(Player.getAssetPosition() ?? 0),
       duration: Number(Player.getPlaybackContext()?.actualDuration ?? 0),

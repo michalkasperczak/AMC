@@ -13,12 +13,14 @@ public partial class TidalAccountWindow : Controls.AccessibleWindow
     private readonly TidalIntegrationService integration;
     private readonly CancellationTokenSource cancellation = new();
     private bool busy;
+    private readonly Func<string>? playbackReport;
 
-    internal TidalAccountWindow(TidalSettings settings, TidalIntegrationService integration)
+    internal TidalAccountWindow(TidalSettings settings, TidalIntegrationService integration, Func<string>? playbackReport = null)
     {
         InitializeComponent();
         this.settings = settings;
         this.integration = integration;
+        this.playbackReport = playbackReport;
         ClientIdBox.Text = settings.ClientId;
         RedirectUriBox.Text = settings.RedirectUri;
         CountryCodeBox.Text = settings.CountryCode;
@@ -125,6 +127,13 @@ public partial class TidalAccountWindow : Controls.AccessibleWindow
     private void DeveloperPanel_Click(object sender, RoutedEventArgs e)
     {
         Process.Start(new ProcessStartInfo("https://developer.tidal.com/") { UseShellExecute = true });
+    }
+
+    private void Diagnostics_Click(object sender, RoutedEventArgs e)
+    {
+        var report = playbackReport?.Invoke() ?? new TidalPlaybackDiagnostics().Report;
+        new InformationWindow(report, windowTitle: "Diagnostyka odtwarzania TIDAL") { Owner = this }.ShowDialog();
+        if (IsVisible && IsActive) DiagnosticsButton.Focus();
     }
 
     private async Task RunAsync(Func<Task> action)

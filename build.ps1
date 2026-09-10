@@ -97,6 +97,14 @@ if ($Publish) {
             if (-not $resolvedOldPackage.StartsWith($resolvedPublishRoot, [StringComparison]::OrdinalIgnoreCase)) {
                 throw "Nieprawidłowy stary katalog publikacji."
             }
+            $oldProgramDirectory = $resolvedOldPackage.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+            $runningOldVersion = @(Get-Process -Name 'AccessibleMediaController*' -ErrorAction SilentlyContinue | Where-Object {
+                $_.Path -and $_.Path.StartsWith($oldProgramDirectory, [StringComparison]::OrdinalIgnoreCase)
+            })
+            if ($runningOldVersion.Count -gt 0) {
+                Write-Warning "Pozostawiono cały pakiet uruchomionej wersji: $resolvedOldPackage"
+                continue
+            }
             try {
                 Remove-Item -LiteralPath $resolvedOldPackage -Recurse -Force -ErrorAction Stop
             }

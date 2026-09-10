@@ -2,35 +2,36 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startBridge, usefulError } from '../src/bridge.js';
 
-function fixture(now) {
+function fixture(now, wallNow) {
   const messages = [], calls = [];
   const events = new EventTarget();
   const webview = new EventTarget();
   webview.postMessage = message => messages.push(message);
   const host = new EventTarget();
   host.chrome = { webview };
-  let product, position = 0, state = 'NOT_PLAYING', tick;
+  let product, position = 0, state = 'NOT_PLAYING', tick, provider;
+  const credentials = { clientId: 'test-client', token: 'test-token', userId: 'test-user', scopes: ['user.read'], expires: Date.now() + 3600000 };
   const emit = (type, detail) => events.dispatchEvent(new CustomEvent(type, { detail }));
   const player = {
-    events, setCredentialsProvider() {}, setEventSender() {},
+    events, setCredentialsProvider(value) { provider = value; }, setEventSender() {},
     setStreamingWifiAudioQuality() {}, setAudioAdaptiveBitrateStreaming() {},
     getMediaProduct: () => product, getPlaybackState: () => state,
     getAssetPosition: () => position,
     getPlaybackContext: () => ({ actualDuration: 60 }),
     setVolumeLevel: volume => calls.push(['volume', volume]),
     async reset() { calls.push(['reset']); emit('ended', { mediaProduct: product, reason: 'skip' }); product = undefined; position = 0; },
-    async load(value, offset) { calls.push(['load', value.productId]); emit('ended', { mediaProduct: product, reason: 'skip' }); product = value; position = offset; emit('ended', { mediaProduct: product, reason: 'error' }); },
-    async play() { calls.push(['play']); state = 'PLAYING'; emit('playback-state-change', { state }); },
+    async load(value, offset) { await provider.getCredentials(); calls.push(['load', value.productId]); emit('ended', { mediaProduct: product, reason: 'skip' }); product = value; position = offset; emit('ended', { mediaProduct: product, reason: 'error' }); },
+    async play() { await provider.getCredentials(); calls.push(['play']); state = 'PLAYING'; emit('playback-state-change', { state }); },
     async pause() { state = 'NOT_PLAYING'; emit('ended', { mediaProduct: product, reason: 'skip' }); },
     async seek(value) { calls.push(['seek', value]); position = value; },
   };
-  const bridge = startBridge(player, host, callback => { tick = callback; }, now);
+  const bridge = startBridge(player, host, callback => { tick = callback; }, now, wallNow);
   const post = command => webview.dispatchEvent(new MessageEvent('message', { data: command }));
   const play = (id = 'one', version = 1) => post({
     type: 'play', productId: id, requestVersion: version, position: 0, volume: 0.2,
-    credentials: { clientId: 'test-client', token: 'test-token', userId: 'test-user', scopes: [] },
+    credentials,
   });
-  return { messages, calls, emit, player, post, play, settle: bridge.settled, tick: () => tick(), end: (reason = 'completed') => { position = 60; emit('ended', { mediaProduct: product, reason }); } };
+  return { messages, calls, emit, player, post, play, credentials, provider, settle: bridge.settled, tick: () => tick(), end: (reason = 'completed') => { position = 60; emit('ended', { mediaProduct: product, reason }); } };
 }
 
 test('reset/load ended cannot consume a track; confirmed natural end is emitted once', async () => {
@@ -81,7 +82,7 @@ test('pause/stop suppress late ends; resume preserves position and volume', asyn
   const f = fixture(); f.play(); await f.settle();
   f.post({ type: 'pause', requestVersion: 2 }); await f.settle(); f.end();
   assert.equal(f.messages.filter(m => m.type === 'ended').length, 0);
-  f.post({ type: 'resume', requestVersion: 3, position: 12, volume: 0.7 }); await f.settle(); f.tick();
+  f.post({ type: 'resume', requestVersion: 3, position: 12, volume: 0.7, credentials: f.credentials }); await f.settle(); f.tick();
   assert.deepEqual(f.messages.at(-1), { type: 'progress', position: 12, duration: 60, productId: 'one', requestVersion: 3 });
   assert.ok(f.calls.some(c => c[0] === 'volume' && c[1] === 0.7));
   f.post({ type: 'stop', requestVersion: 4 }); await f.settle(); f.end();
@@ -91,7 +92,7 @@ test('pause/stop suppress late ends; resume preserves position and volume', asyn
 test('reopening the same product uses a new version; old product transitions are ignored', async () => {
   const f = fixture(); f.play(); await f.settle(); f.play('one', 2); await f.settle();
   f.emit('media-product-transition', { mediaProduct: { productId: 'old' }, playbackContext: {} });
-  assert.equal(f.messages.filter(m => m.type === 'transition').length, 0);
+  assert.equal(f.messages.filter(m => m.type === 'transition' && m.productId === 'old').length, 0);
   f.tick(); assert.equal(f.messages.at(-1).requestVersion, 2);
 });
 
@@ -125,9 +126,78 @@ test('preview access reason and actual sample duration reach the host, never sta
   const playbackContext = { actualAssetPresentation: 'PREVIEW', actualDuration: 29.953, previewReason: 'FULL_REQUIRES_HIGHER_ACCESS_TIER' };
   f.emit('media-product-transition', { mediaProduct: { productId: 'old' }, playbackContext });
   f.emit('media-product-transition', { mediaProduct: { productId: 'one' }, playbackContext });
-  const transitions = f.messages.filter(m => m.type === 'transition');
+  const transitions = f.messages.filter(m => m.type === 'transition' && m.assetPresentation === 'PREVIEW');
   assert.equal(transitions.length, 1);
   assert.equal(transitions[0].previewReason, 'FULL_REQUIRES_HIGHER_ACCESS_TIER');
   assert.equal(transitions[0].duration, 29.953);
   assert.equal(transitions[0].assetPresentation, 'PREVIEW');
+});
+
+test('provider uses SDK missing-credentials code before login, not an anonymous fallback', async () => {
+  const f = fixture();
+  await assert.rejects(f.provider.getCredentials(), e => e.errorCode === 'A0001');
+  assert.equal(f.messages.filter(m => m.type === 'credentials').length, 0);
+});
+
+test('complete user credentials and expiry reach SDK; acknowledgement contains no secrets', async () => {
+  const f = fixture(); let notification;
+  const unsubscribe = f.provider.bus(event => { notification = event.detail; });
+  f.play(); await f.settle();
+  const value = await f.provider.getCredentials();
+  assert.equal(value.token, 'test-token');
+  assert.equal(value.clientId, 'test-client');
+  assert.equal(value.userId, 'test-user');
+  assert.equal(value.expires, f.credentials.expires);
+  assert.deepEqual(value.grantedScopes, ['user.read']);
+  assert.deepEqual(value.requestedScopes, ['user.read']);
+  assert.equal(notification.type, 'CredentialsUpdatedMessage');
+  value.grantedScopes.push('not-granted');
+  assert.deepEqual((await f.provider.getCredentials()).grantedScopes, ['user.read']);
+  assert.equal(f.messages.filter(m => m.type === 'credentials').length, 1);
+  assert.ok(!/test-token|test-client|test-user|not-granted/.test(JSON.stringify(f.messages)));
+  unsubscribe();
+});
+
+test('resume refreshes an expired credential without reloading or losing position', async () => {
+  let currentTime = Date.now(); const f = fixture(undefined, () => currentTime);
+  f.play(); await f.settle();
+  f.post({ type: 'pause', requestVersion: 2 }); await f.settle();
+  currentTime += 7200000;
+  await assert.rejects(f.provider.getCredentials(), /invalid_token/);
+  f.post({ type: 'resume', requestVersion: 3, position: 18, volume: 0.4,
+    credentials: { ...f.credentials, token: 'refreshed-secret', expires: currentTime + 3600000 } });
+  await f.settle(); f.tick();
+  assert.equal((await f.provider.getCredentials()).token, 'refreshed-secret');
+  assert.equal(f.calls.filter(c => c[0] === 'load').length, 1);
+  assert.equal(f.messages.at(-1).position, 18);
+  assert.equal(f.messages.filter(m => m.type === 'error').length, 0);
+  assert.equal(f.messages.filter(m => m.type === 'credentials' && m.requestVersion === 3).length, 1);
+  assert.ok(!JSON.stringify(f.messages).includes('refreshed-secret'));
+});
+
+test('incomplete and expired credentials fail before load; they cannot consume queue', async () => {
+  for (const bad of [{ token: '' }, { userId: ' ' }, { clientId: '' }, { expires: 0 }, { expires: undefined }]) {
+    const f = fixture(); Object.assign(f.credentials, bad); f.play(); await f.settle(); f.end();
+    assert.equal(f.messages.filter(m => m.type === 'error').length, 1);
+    assert.equal(f.calls.filter(c => c[0] === 'load' || c[0] === 'play').length, 0);
+    assert.equal(f.messages.filter(m => m.type === 'ended').length, 0);
+    await assert.rejects(f.provider.getCredentials());
+  }
+});
+
+test('access report recovers a missed transition and is deduplicated on progress', async () => {
+  const f = fixture();
+  f.player.getPlaybackContext = () => ({ actualAssetPresentation: 'PREVIEW', actualDuration: 30, previewReason: 'FULL_REQUIRES_HIGHER_ACCESS_TIER' });
+  f.play(); await f.settle(); f.tick(); f.tick();
+  assert.equal(f.messages.filter(m => m.type === 'transition').length, 1);
+  assert.equal(f.messages.find(m => m.type === 'transition').previewReason, 'FULL_REQUIRES_HIGHER_ACCESS_TIER');
+  const knownContext = f.player.getPlaybackContext;
+  f.player.getPlaybackContext = () => ({ actualDuration: 60 }); f.tick();
+  assert.equal(f.messages.filter(m => m.type === 'transition').length, 1);
+  f.player.getPlaybackContext = knownContext;
+  f.post({ type: 'pause', requestVersion: 2 }); await f.settle(); f.tick();
+  assert.equal(f.messages.filter(m => m.type === 'transition').length, 1);
+  f.post({ type: 'resume', requestVersion: 3, position: 10, volume: 0.4, credentials: f.credentials });
+  await f.settle(); f.tick();
+  assert.equal(f.messages.filter(m => m.type === 'transition' && m.requestVersion === 3).length, 1);
 });

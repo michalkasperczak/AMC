@@ -75,6 +75,7 @@ internal sealed class TidalIntegrationService(
         {
             var tokens = await oauth.AuthorizeAsync(settings, cancellationToken).ConfigureAwait(false);
             TidalCredentialStore.Write(tokens);
+            accountUserId = null;
             DiagnosticLog.Info("tidal-auth", "Zalogowano konto TIDAL; token zapisano w Menedżerze poświadczeń Windows.");
         }
         finally
@@ -105,6 +106,9 @@ internal sealed class TidalIntegrationService(
         {
             var tokens = await EnsureValidTokensAsync(cancellationToken).ConfigureAwait(false);
             var userId = accountUserId;
+            if (string.IsNullOrWhiteSpace(tokens.ClientId) || string.IsNullOrWhiteSpace(tokens.AccessToken)
+                || tokens.ExpiresAtUtc <= DateTimeOffset.UtcNow)
+                throw new InvalidOperationException("Nieprawidłowe lub wygasłe logowanie TIDAL (invalid_token).");
             if (string.IsNullOrWhiteSpace(userId))
             {
                 var account = await api.GetAccountIdentityAsync(tokens.AccessToken, cancellationToken)

@@ -1,17 +1,21 @@
 # TIDAL w AMC — instrukcja pierwszego połączenia i testu
 
-Instrukcja dotyczy wersji `0.1.0-alpha.335`. Integracja służy do bezpiecznego
+Instrukcja dotyczy wersji `0.1.0-alpha.337`. Integracja służy do bezpiecznego
 logowania, odczytu i zmiany kolekcji, otwierania albumów, playlist oraz
 wykonawców i wyszukiwania na prawdziwym koncie. Oficjalny Player SDK jest
 już dołączony. Potwierdzono odtwarzanie próbek, nie pełnych utworów.
 Ponowne logowanie do kolekcji nie jest rozwiązaniem ograniczenia do próbek.
+
+Jeżeli konto jest już skonfigurowane, pomiń pierwszą konfigurację poniżej.
+Nowy raport: Ctrl+F5 → Diagnostyka odtwarzania (Alt+D w oknie konta).
+Krótki test bez ponownego logowania: `INSTRUKCJA_0.1.0-alpha.337_PL.md`.
 
 ## Co będzie potrzebne
 
 - zwykłe konto TIDAL;
 - dostęp do Internetu;
 - zwykła przeglądarka internetowa;
-- AMC `alpha.335`;
+- AMC `alpha.337`;
 - jednorazowo utworzona aplikacja testowa w panelu TIDAL Developer.
 
 Portal deweloperski i ekran zgody użytkownika pełnią dwie różne funkcje:

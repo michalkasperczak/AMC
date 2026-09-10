@@ -1,5 +1,11 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Net;
+using System.Net.Http;
+using System.Windows.Automation.Peers;
+using System.Windows.Controls;
+using AccessibleMediaController.Windows;
+using AccessibleMediaController.Core.Tidal;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Windows.Services;
@@ -9,6 +15,7 @@ internal static class TidalPlaybackSmokeTests
 {
     internal static void Run()
     {
+        Task.Run(TestPlaybackCredentials).WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult();
         Exception? failure = null;
         var thread = new Thread(() =>
         {
@@ -63,7 +70,16 @@ internal static class TidalPlaybackSmokeTests
         output.Pause(); Message("ended", 3);
         Check(ended == 0, "Pauza uruchomiła następny utwór.");
         Seed(5);
+        output.Diagnostics.Begin(item.Title, false);
+        output.Diagnostics.CredentialsPrepared();
+        output.ProcessBridgeMessage("{\"type\":\"credentials\",\"requestVersion\":4,\"productId\":\"one\",\"authenticatedUser\":true}");
+        Check(output.Diagnostics.Report.Contains("odczytane przez SDK: nie potwierdzono"), "Obcy raport logowania potwierdził nową próbę.");
+        output.ProcessBridgeMessage("{\"type\":\"credentials\",\"requestVersion\":5,\"productId\":\"one\",\"authenticatedUser\":true}");
         output.ProcessBridgeMessage("{\"type\":\"transition\",\"requestVersion\":5,\"productId\":\"one\",\"assetPresentation\":\"PREVIEW\",\"previewReason\":\"FULL_REQUIRES_HIGHER_ACCESS_TIER\",\"duration\":29.953}");
+        Check(output.Diagnostics.Report.Contains("odczytane przez SDK: tak")
+              && output.Diagnostics.Report.Contains("Udostępniony materiał: próbka")
+              && output.Diagnostics.Report.Contains("dostępu aplikacji")
+              && output.Diagnostics.Report.Contains("29,953 s"), "Raport nie rozróżnia logowania i próbki.");
         Check(lastNotice?.Contains("dostępu aplikacji") == true && Math.Abs(item.Duration.TotalSeconds - 29.953) < 0.001,
             "Mostek nie przekazał użytkowego powodu lub rzeczywistego czasu próbki.");
         Message("state", 5); Message("ended", 5);
@@ -89,6 +105,69 @@ internal static class TidalPlaybackSmokeTests
             "Komunikat zgaduje przyczynę próbki lub myli konto z aplikacją.");
         Check(!TidalMediaOutput.FriendlyFailure("S3016 EUnexpected").Contains("wyższego poziomu"),
             "Ogólny błąd SDK fałszywie diagnozuje poziom dostępu.");
+        var diagnostics = new TidalPlaybackDiagnostics();
+        Check(diagnostics.Report.Contains("Nie wykonano jeszcze"), "Pusty raport sugeruje wynik testu.");
+        diagnostics.Begin("Drugi utwór", true);
+        diagnostics.Transition("SECRET_PRESENTATION", "https://private/?token=secret", double.NaN);
+        Check(!diagnostics.Report.Contains("secret") && !diagnostics.Report.Contains("SECRET_PRESENTATION")
+              && diagnostics.Report.Contains("brak potwierdzonej odpowiedzi"), "Raport ujawnia dowolne dane SDK.");
+        diagnostics.Transition("FULL", "", 240);
+        Check(diagnostics.Report.Contains("wymaga sprawdzenia odsłuchem"), "Sam FULL deklaruje potwierdzenie odsłuchu.");
+        diagnostics.Begin("Trzeci utwór", false);
+        Check(!diagnostics.Report.Contains("240 s") && diagnostics.Report.Contains("odczytane przez SDK: nie potwierdzono"),
+            "Raport nowego utworu zachował wynik poprzedniego.");
+        var accountWindow = new TidalAccountWindow(new TidalSettings(), integration, () => diagnostics.Report);
+        var diagnosticsButton = (Button)accountWindow.FindName("DiagnosticsButton");
+        Check(UIElementAutomationPeer.CreatePeerForElement(diagnosticsButton)!.GetName() == "Diagnostyka odtwarzania",
+            "Przycisk diagnostyki nie ma jawnej nazwy dostępnościowej.");
+        accountWindow.Close();
+        var information = new InformationWindow(diagnostics.Report, windowTitle: "Diagnostyka odtwarzania TIDAL");
+        var text = (System.Windows.Forms.RichTextBox)typeof(InformationWindow)
+            .GetField("_informationBox", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(information)!;
+        Check(text.ReadOnly && text.Multiline && text.ShortcutsEnabled && text.Text.Contains("Trzeci utwór")
+              && text.AccessibleName == "Diagnostyka odtwarzania TIDAL", "Raport nie jest czytelnym, zaznaczalnym tekstem.");
+        information.Close();
+        text.Dispose();
+    }
+
+    private static async Task TestPlaybackCredentials()
+    {
+        using var handler = new AccountHandler();
+        using var http = new HttpClient(handler);
+        var reads = 0;
+        var tokens = new TidalTokenSet("first-test-secret", "test-refresh", DateTimeOffset.UtcNow.AddHours(1), "user.read collection.read", "test-client");
+        using var integration = new TidalIntegrationService(new TidalSettings(), new TidalApiClient(http),
+            _ => { reads++; return Task.FromResult(tokens); });
+        var first = await integration.GetPlaybackCredentialsAsync(CancellationToken.None);
+        Check(first.UserId == "test-user" && first.ClientId == "test-client"
+              && first.AccessToken == tokens.AccessToken && first.ExpiresAtUtc == tokens.ExpiresAtUtc
+              && first.Scopes.SequenceEqual(["user.read", "collection.read"]), "Niepełne przekazanie poświadczenia do silnika.");
+        tokens = tokens with { AccessToken = "second-test-secret", ExpiresAtUtc = DateTimeOffset.UtcNow.AddHours(2) };
+        var second = await integration.GetPlaybackCredentialsAsync(CancellationToken.None);
+        Check(reads == 2 && handler.Count == 1 && second.AccessToken == tokens.AccessToken,
+            "Ponowne przygotowanie nie odczytało nowego tokenu albo ponownie pobierało ten sam profil.");
+        tokens = tokens with { ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(-1) };
+        try
+        {
+            await integration.GetPlaybackCredentialsAsync(CancellationToken.None);
+            throw new Exception("Wygasłe poświadczenie przekazano do silnika.");
+        }
+        catch (InvalidOperationException exception) when (exception.Message.Contains("invalid_token")) { }
+    }
+
+    private sealed class AccountHandler : HttpMessageHandler
+    {
+        internal int Count;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Count++;
+            Check(request.RequestUri?.AbsolutePath.EndsWith("/users/me") == true
+                  && request.Headers.Authorization?.Parameter == "first-test-secret", "Żądanie profilu nie używa tokenu użytkownika.");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"data\":{\"type\":\"users\",\"id\":\"test-user\"}}")
+            });
+        }
     }
 
     private static void Check(bool condition, string message)
