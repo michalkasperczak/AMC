@@ -198,7 +198,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private sealed record TidalContainerViewState(
         MediaItem Container,
-        IReadOnlyList<MediaItem> Items);
+        IReadOnlyList<MediaItem> Items,
+        ArtistBrowseSection? ArtistSection = null,
+        bool IsArtistOverview = false);
 
     private const int WmKeyDown = 0x0100;
     private const int WmKeyUp = 0x0101;
@@ -442,8 +444,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         get
         {
             if (_playerViewActive) return _sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null;
+            if (IsTidalArtistOverview) return null;
             var row = MediaList.SelectedItem as MediaItemRow;
-            if (row?.PlaylistId is not null || row?.LoadMorePodcastViewName is not null) return null;
+            if (row?.PlaylistId is not null || row?.LoadMorePodcastViewName is not null
+                || row?.ArtistSection is not null) return null;
             return row?.ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
         }
     }
@@ -459,7 +463,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return _sessions.Current.HasCurrentItem ? [_sessions.Current.CurrentItem] : [];
             var selected = MediaList.SelectedItems
                 .OfType<MediaItemRow>()
-                .Where(row => row.PlaylistId is null && row.LoadMorePodcastViewName is null)
+                .Where(row => row.PlaylistId is null && row.LoadMorePodcastViewName is null
+                    && row.ArtistSection is null)
                 .OrderBy(row => MediaList.Items.IndexOf(row))
                 .Select(row => row.ActionItem)
                 .DistinctBy(item => item.Id, StringComparer.Ordinal)
@@ -2980,7 +2985,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         FocusMediaList();
     }
 
-    public void ShowPlaylistManager() => ShowPlaylistManager(ActionItems, ActionSession);
+    public void ShowPlaylistManager()
+    {
+        if (TryHandleArtistSectionCommand(CommandIds.ManagePlaylists)) return;
+        ShowPlaylistManager(ActionItems, ActionSession);
+    }
 
     private List<SessionPresetEntry> SessionPresetEntries(string sessionId)
     {
@@ -3744,6 +3753,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void ShowItemProperties()
     {
+        if (TryHandleArtistSectionCommand(CommandIds.ItemProperties)) return;
         var item = ActionItem ?? _sessions.Current.CurrentItem;
         var activeOwner = Application.Current.Windows
             .OfType<Window>()
@@ -5892,8 +5902,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlaybackCurrentBroadcastInformationMenuItem.Visibility = radio || wiiM
             ? Visibility.Visible
             : Visibility.Collapsed;
-        RefreshLocalLibraryMenuItem.Visibility = local || podcasts || wiiM ? Visibility.Visible : Visibility.Collapsed;
-        if (wiiM)
+        var tidalRefresh = tidal && _tidalContainerViews.ContainsKey(_currentView);
+        RefreshLocalLibraryMenuItem.Visibility = local || podcasts || wiiM || tidalRefresh ? Visibility.Visible : Visibility.Collapsed;
+        if (tidalRefresh)
+        {
+            MenuAccessibility.SetPresentation(RefreshLocalLibraryMenuItem, "Odśwież zawartość TIDAL");
+        }
+        else if (wiiM)
         {
             MenuAccessibility.SetPresentation(RefreshLocalLibraryMenuItem, "Odśwież urządzenia WiiM");
         }
@@ -9850,6 +9865,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private CommandExecutionResult ExecuteCommand(string commandId)
     {
+        if (TryHandleArtistSectionCommand(commandId)) return new CommandExecutionResult(true);
         var alignChapterPlanAfterCommand = IsChapterPlanPreservingSeekCommand(commandId)
             && _chapterPlaybackPlan is not null
             && _sessions.Current.HasCurrentItem;
@@ -10908,6 +10924,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
             && _tidalContainerViews.TryGetValue(_currentView, out var tidalContainer))
         {
+            if (tidalContainer.IsArtistOverview)
+            {
+                _unfilteredItems = CreateTidalArtistSectionRows(tidalContainer.Container);
+                ApplyFilter(preferredItemId, fallbackIndex);
+                return;
+            }
             IEnumerable<MediaItem> tidalItems = CurrentCollectionSortMode() == CollectionSortMode.Alphabetical
                 ? tidalContainer.Items
                     .OrderBy(item => NavigationTextForItem(item), StringComparer.CurrentCultureIgnoreCase)
@@ -11483,7 +11505,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string.Equals(_currentView, "Ulubione", StringComparison.Ordinal)
         || string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
            && (string.Equals(_currentView, "Playlisty", StringComparison.Ordinal)
-               || _tidalContainerViews.ContainsKey(_currentView))
+               || _tidalContainerViews.TryGetValue(_currentView, out var sortableTidalView)
+                  && !sortableTidalView.IsArtistOverview)
         || string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
            && string.Equals(_currentView, PodcastInboxViewName, StringComparison.Ordinal)
         || string.Equals(_currentView, "Biblioteka", StringComparison.Ordinal)
@@ -12388,6 +12411,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var row = MediaList.SelectedItem as MediaItemRow;
+        if (row?.ArtistSection is { } artistSection
+            && _tidalContainerViews.TryGetValue(_currentView, out var artistView))
+        {
+            _ = OpenTidalContainerAsync(artistView.Container, artistSection);
+            return;
+        }
         if (row?.LoadMorePodcastViewName is { } loadMorePodcastViewName)
         {
             LoadMorePodcastEpisodes(loadMorePodcastViewName);
@@ -12632,21 +12661,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return null;
     }
 
-    private async Task OpenTidalContainerAsync(MediaItem container)
+    private async Task OpenTidalContainerAsync(MediaItem container, ArtistBrowseSection? artistSection = null)
     {
         if (container.ExternalId is not { Length: > 0 }) return;
+        if (container.Kind == MediaItemKind.Artist && artistSection is null)
+        {
+            OpenTidalArtistOverview(container);
+            return;
+        }
         _tidalNavigationVersion++;
         var context = CaptureTidalInteractionContext();
         var started = Stopwatch.StartNew();
         DiagnosticLog.Info("tidal-navigation", $"Rozpoczęto otwieranie {container.ExternalId}; żądanie: {context.NavigationVersion}.");
         TidalCollectionSemantics.ApplyMembership(container,
             _tidalItems.Any(item => item.ExternalId == container.ExternalId && TidalCollectionSemantics.IsMember(item)));
-        var label = TidalContainerLabel(container.Kind);
+        var label = artistSection?.Label() ?? TidalContainerLabel(container.Kind);
         try
         {
             var loadTask = _tidalIntegration.GetContainerItemsAsync(
                 container,
-                _tidalCancellation.Token);
+                _tidalCancellation.Token,
+                artistSection);
             var progressDelay = Task.Delay(TimeSpan.FromMilliseconds(1400), _tidalCancellation.Token);
             if (await Task.WhenAny(loadTask, progressDelay) == progressDelay
                 && !_tidalCancellation.IsCancellationRequested
@@ -12666,15 +12701,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     item.RelatedAlbumTitle = container.Title;
                 }
                 if (container.Kind == MediaItemKind.Artist
-                    && item.Kind == MediaItemKind.Album)
+                    && item.Kind is MediaItemKind.Album or MediaItemKind.Track
+                    && string.IsNullOrWhiteSpace(item.RelatedArtistExternalId))
                 {
                     item.RelatedArtistExternalId = container.ExternalId;
                     item.RelatedArtistName = container.Title;
                 }
             }
 
-            var viewName = TidalContentsView(container);
-            _tidalContainerViews[viewName] = new TidalContainerViewState(container, items);
+            var viewName = TidalSectionView(container, artistSection);
+            _tidalContainerViews[viewName] = new TidalContainerViewState(container, items, artistSection);
             _sessions.FindSession("tidal")?.AddItemsById(items);
 
             // A slow network response must not pull the focus away after the
@@ -12693,6 +12729,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
             if (items.Count == 0)
             {
+                NavigateTo(viewName);
+                FocusMediaList();
                 Announce($"{label} {container.Title} nie zawiera dostępnych elementów");
                 return;
             }
@@ -12848,7 +12886,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .ToArray();
         foreach (var viewName in matchingViews)
         {
-            _tidalContainerViews[viewName] = new TidalContainerViewState(container, items);
+            _tidalContainerViews[viewName] = _tidalContainerViews[viewName] with { Items = items };
         }
 
         if (_sessions.FindSession("tidal") is { } tidalSession)
@@ -12984,7 +13022,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             if (ActionItem is { Kind: MediaItemKind.Artist, ExternalId: { Length: > 0 } } artist)
             {
-                _ = OpenTidalContainerAsync(artist);
+                OpenTidalArtistOverview(artist);
+                SelectMediaItem(TidalArtistSectionRowId(artist, ArtistBrowseSection.Albums));
+                _ = OpenTidalContainerAsync(artist, ArtistBrowseSection.Albums);
                 return;
             }
             if (CreateRelatedTidalContainer(ActionItem, MediaItemKind.Album) is { } tidalAlbum)
@@ -13169,6 +13209,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void RemoveSelected()
     {
+        if (IsTidalArtistOverview)
+        {
+            Announce("To kategoria wykonawcy. Naciśnij Enter, aby otworzyć jej elementy");
+            return;
+        }
         if (string.Equals(_currentView, "Historia odtwarzania", StringComparison.Ordinal))
         {
             RemoveSelectedPlaybackHistoryEntries();
@@ -16058,7 +16103,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         foreach (var row in _unfilteredItems)
         {
-            if (row.Bookmark is not null || row.PlaylistId is not null) continue;
+            if (row.Bookmark is not null || row.PlaylistId is not null || row.ArtistSection is not null) continue;
             row.UpdateLabel(FormatListItem(row.Item));
         }
     }
@@ -16095,7 +16140,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
             && _tidalContainerViews.TryGetValue(_currentView, out var tidalView))
         {
-            return $"{TidalContainerLabel(tidalView.Container.Kind)} — {tidalView.Container.Title}";
+            return $"{tidalView.ArtistSection?.Label() ?? TidalContainerLabel(tidalView.Container.Kind)} — {tidalView.Container.Title}";
         }
         return BaseCurrentViewDisplayName();
     }
@@ -18410,6 +18455,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return $"{spokenShortcut}: włącz warstwę prefiksową. W trybie Pomocy warstwa nie zostanie uruchomiona. Kontekst: {context}";
         }
 
+        if (SelectedArtistSection is { } artistSection
+            && key == Key.Enter && modifiers is ModifierKeys.None or ModifierKeys.Control)
+            return $"{spokenShortcut}: otwórz kategorię {artistSection.Label()}. Kontekst: {context}";
+        if (SelectedArtistSection is not null && key is Key.Left or Key.Right && modifiers == ModifierKeys.None)
+            return $"{spokenShortcut}: podaj nazwę i sposób otwarcia kategorii. Kontekst: {context}";
+        if (key == Key.F5 && modifiers == ModifierKeys.None && _sessions.Current.Id == "tidal"
+            && _tidalContainerViews.ContainsKey(_currentView))
+            return $"{spokenShortcut}: odśwież zawartość TIDAL. Kontekst: {context}";
+
         if (TryDescribeDirectShortcut(key, modifiers, out var directDescription))
         {
             return $"{spokenShortcut}: {directDescription}. Kontekst: {context}";
@@ -20156,6 +20210,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void MediaList_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (SelectedArtistSection is { } artistSection && Keyboard.Modifiers == ModifierKeys.None
+            && key is Key.Left or Key.Right)
+        {
+            Announce($"{artistSection.Label()}. Naciśnij Enter, aby otworzyć");
+            e.Handled = true;
+            return;
+        }
         if ((MediaList.SelectedItem as MediaItemRow)?.LoadMorePodcastViewName is not null
             && Keyboard.Modifiers == ModifierKeys.None
             && key == Key.Left)
@@ -20314,6 +20375,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 || row.AlbumFolderPath is not null
                 || row.PlaylistId is not null
                 || row.LoadMorePodcastViewName is not null
+                || row.ArtistSection is not null
                     ? row.NavigationText
                     : NavigationTextForItem(
                         row.Item,
@@ -20670,6 +20732,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void Sessions_Click(object sender, RoutedEventArgs e) => ShowSessionList();
     private void MediaContextMenu_Opened(object sender, RoutedEventArgs e)
     {
+        if (SelectedArtistSection is { } artistSection)
+        {
+            if (sender is ContextMenu categoryMenu) categoryMenu.IsOpen = false;
+            Announce($"{artistSection.Label()}. Naciśnij Enter, aby otworzyć");
+            return;
+        }
         if ((MediaList.SelectedItem as MediaItemRow)?.LoadMorePodcastViewName is not null)
         {
             if (sender is ContextMenu contextMenu) contextMenu.IsOpen = false;
@@ -22259,7 +22327,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string? folderPath = null,
         string? albumFolderPath = null,
         string? playlistId = null,
-        string? loadMorePodcastViewName = null) : INotifyPropertyChanged
+        string? loadMorePodcastViewName = null,
+        ArtistBrowseSection? artistSection = null) : INotifyPropertyChanged
     {
         public MediaItem Item { get; } = item;
         public MediaItem ActionItem { get; } = actionItem ?? item;
@@ -22268,6 +22337,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         public string? AlbumFolderPath { get; } = albumFolderPath;
         public string? PlaylistId { get; } = playlistId;
         public string? LoadMorePodcastViewName { get; } = loadMorePodcastViewName;
+        public ArtistBrowseSection? ArtistSection { get; } = artistSection;
         public string Label { get; private set; } = label;
         public string NavigationText { get; } = navigationText;
 

@@ -28,6 +28,7 @@ var tests = new (string Name, Action Test)[]
     ("Trwałe ustawienia i historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Bezpieczne ustawienia i PKCE TIDAL", TestTidalIntegrationFoundation),
+    ("Kategorie wykonawcy TIDAL, paginacja i rozdzielenie zasobów", TidalArtistBrowseTests.Run),
     ("Oddzielony tor oficjalnego odtwarzania TIDAL", TestTidalPlaybackBoundary),
     ("Bezpieczny klient i parser urządzeń WiiM", TestWiiMApiParsing),
     ("Migracja kolejności strumieni WiiM", TestWiiMLegacyStreamOrderMigration),

@@ -25,14 +25,14 @@ internal static class TidalInteractionSmokeTests
         Exception? failure = null;
         var thread = new Thread(() =>
         {
-            try { TestSelectionRefresh(); TestListFocus(); TestSearch(); }
+            try { TestSelectionRefresh(); TestListFocus(); TestSearch(); TidalArtistRowsTests.Run(); }
             catch (Exception exception) { failure = exception; }
         });
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
         if (!thread.Join(TimeSpan.FromSeconds(25))) throw new Exception("TIDAL: przekroczono limit testu interfejsu.");
         if (failure is not null) throw new Exception("TIDAL: test interakcji", failure);
-        Console.WriteLine("OK: TIDAL — seryjne przełączniki, błędy HTTP, odświeżenie zaznaczenia, kontekst odpowiedzi, fokus i wyszukiwarka");
+        Console.WriteLine("OK: TIDAL — seryjne przełączniki, błędy HTTP, odświeżenie zaznaczenia, kontekst odpowiedzi, fokus, wyszukiwarka i kategorie wykonawcy");
     }
 
     private static MediaItem Album(string id = "one") => new()

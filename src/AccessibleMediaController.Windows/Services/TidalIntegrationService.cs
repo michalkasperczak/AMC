@@ -156,7 +156,8 @@ internal sealed class TidalIntegrationService(
 
     public async Task<IReadOnlyList<MediaItem>> GetContainerItemsAsync(
         MediaItem container,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AccessibleMediaController.Core.Presentation.ArtistBrowseSection? artistSection = null)
     {
         await operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -167,7 +168,8 @@ internal sealed class TidalIntegrationService(
                 settings.CountryCode,
                 container,
                 collectionExternalIds,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                artistSection).ConfigureAwait(false);
         }
         finally
         {

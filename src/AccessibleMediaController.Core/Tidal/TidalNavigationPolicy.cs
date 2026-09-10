@@ -30,7 +30,7 @@ public static class TidalNavigationPolicy
         var titleIdentifiesRow = containerKind == MediaItemKind.Album
                 && itemKind is MediaItemKind.Track or MediaItemKind.Video
             || containerKind == MediaItemKind.Artist
-                && itemKind == MediaItemKind.Album;
+                && itemKind is MediaItemKind.Album or MediaItemKind.Track or MediaItemKind.Artist;
         return titleIdentifiesRow
             ? new[] { MediaItemField.Title }
                 .Concat(fields.Where(field => field != MediaItemField.Title))

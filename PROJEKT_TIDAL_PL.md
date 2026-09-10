@@ -565,6 +565,44 @@ z potwierdzonym stanem abonamentu ani z FULL_REQUIRES_HIGHER_ACCESS_TIER.
 Pełne odtwarzanie nadal nierozwiązane. Zgłoszenie #384 przy sprawdzeniu
 10 września pozostawało bez odpowiedzi (0 komentarzy).
 
+## Alfa 340 — hierarchia wykonawcy i wzorzec dla usług
+
+Zaakceptowana zasada: wykonawca → kategoria → album lub inny element → utwory.
+Nawigacja używa jednej głównej listy; Enter otwiera, Escape/Backspace wraca
+przez historię z wyborem zapamiętanym osobno dla widoku. Ctrl+Shift+A pozostaje
+skrótem własnych albumów, a Alt+cyfry dotyczą sortowania, nie wyboru kategorii.
+To docelowy wzorzec dla innych usług, nie deklaracja ich obecnej integracji.
+
+W pierwszym wdrożeniu są trzy kategorie: Albumy, Utwory, Podobni wykonawcy.
+Sprawdzono publiczną specyfikację OpenAPI TIDAL 10 września 2026:
+[oficjalny dokument JSON](https://tidal-music.github.io/tidal-api-reference/tidal-api-oas.json).
+Adapter używa relacji `/artists/{id}/relationships/albums`, `tracks` i
+`similarArtists`. Nie przedstawia zwykłej kolejności relacji jako rankingu.
+Biografia i teledyski wymagają osobnego dopracowania prezentacji/obsługi.
+
+Wejście do wykonawcy tworzy jedynie lokalną listę kategorii. Enter pobiera
+tylko wybraną relację z paginacją i istniejącym limitem 200 stron. Cache
+jest rozdzielony według wykonawcy oraz kategorii. Wyniki relacji pochodzą
+wyłącznie z głównych identyfikatorów `data`; dodatkowe obiekty `included`
+służą do uzupełniania metadanych i nie stają się osobnymi wynikami.
+Pusta relacja jest pustym widokiem, HTTP failure — błędem bez zastąpienia
+poprzednich danych pustą kolekcją. Nie ma automatycznego pobierania wszystkich
+trzech kategorii ani globalnego katalogu przy otwarciu wykonawcy.
+
+Kategorie są odrębną rolą wiersza, nie elementami katalogu. Brak ExternalId,
+wykluczenie z ActionItem/ActionItems oraz blokada działań zapobiegają dopisaniu
+kategorii do kolejki czy kolekcji oraz awaryjnemu użyciu CurrentItem zamiast niej.
+Etykiety Name, ToString i tekst do nawigacji są polskie. Zwykłe odświeżenie
+wskaźników odtwarzania nie może zmienić etykiet kategorii.
+
+Zachowano ochronę kontekstu odpowiedzi z alfa 338: zmiana widoku, sesji,
+zaznaczenia lub Escape unieważnia prawo starego żądania do przejęcia fokusa.
+Dane mogą trafić do cache, ale nie zmieniają widoku po odejściu użytkownika.
+F5 odświeża otwarty kontener TIDAL, a nie foldery lokalne. Własny porządek
+Alt+3 pozostaje opcją playlist, nie albumów i dyskografii.
+
+Nie zmieniono OAuth, ograniczenia do próbek ani toru odtwarzania.
+
 ## Oficjalne źródła dokumentacji
 
 - https://developer.tidal.com/documentation/api-sdk/api-sdk-authorization

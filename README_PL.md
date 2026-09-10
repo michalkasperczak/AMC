@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.340` porządkuje widok wykonawcy TIDAL: Albumy, Utwory i Podobni
+wykonawcy są osobnymi kategoriami otwieranymi Enterem w głównej liście.
+Zawartość pobierana jest na żądanie, a Escape wraca do wcześniejszego poziomu
+z zachowanym zaznaczeniem. Ctrl+Shift+A nadal pokazuje własne albumy.
+Instrukcja i krótkie testy: [alfa 340](INSTRUKCJA_0.1.0-alpha.340_PL.md).
+Pełne odtwarzanie TIDAL pozostaje nierozwiązane; ta zmiana dotyczy przeglądania.
+
 Wersja `alpha.335` usuwa podwójny reset przy zmianie utworu TIDAL i przygotowuje
 poświadczenia równolegle ze startem silnika. Log mierzy przygotowanie AMC,
 oczekiwanie polecenia w mostku, wczytanie SDK i potwierdzenie startu. Nie jest

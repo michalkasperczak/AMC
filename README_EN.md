@@ -1,5 +1,10 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.340` groups TIDAL artist pages into Albums, Tracks and Similar
+artists, opened with Enter in the existing main list. Data is fetched per
+category on demand; back navigation preserves selection. Ctrl+Shift+A still
+opens the user's own albums. This does not resolve TIDAL full-track access.
+
 Version `alpha.335` removes a redundant TIDAL reset before SDK load, prepares
 credentials alongside browser initialization, and logs bounded startup timings
 and the SDK preview reason. App access, subscription and purchase limitations

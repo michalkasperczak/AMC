@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Xml;
+using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
 
 namespace AccessibleMediaController.Core.Tidal;
@@ -73,10 +74,14 @@ public sealed class TidalApiClient(HttpClient? httpClient = null) : IDisposable
         string countryCode,
         MediaItem container,
         IReadOnlySet<string>? collectionExternalIds,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ArtistBrowseSection? artistSection = null)
     {
         if (!TryParseExternalId(container.ExternalId, out var type, out var id))
             throw new InvalidOperationException("Element TIDAL nie ma prawidłowego identyfikatora katalogowego.");
+
+        if (artistSection is not null && type != "artists")
+            throw new InvalidOperationException("Kategorie wykonawcy można otwierać tylko dla wykonawcy.");
 
         var request = type switch
         {
@@ -88,7 +93,15 @@ public sealed class TidalApiClient(HttpClient? httpClient = null) : IDisposable
                 "items",
                 "items.tracks:artists,items.tracks:albums",
                 new HashSet<string>(["tracks", "videos"], StringComparer.Ordinal)),
-            "artists" => new ContainerRequest(
+            "artists" when artistSection == ArtistBrowseSection.Tracks => new ContainerRequest(
+                "tracks",
+                "tracks.artists,tracks.albums",
+                new HashSet<string>(["tracks"], StringComparer.Ordinal)),
+            "artists" when artistSection == ArtistBrowseSection.SimilarArtists => new ContainerRequest(
+                "similarArtists",
+                "similarArtists",
+                new HashSet<string>(["artists"], StringComparer.Ordinal)),
+            "artists" when artistSection is null or ArtistBrowseSection.Albums => new ContainerRequest(
                 "albums",
                 "albums.artists",
                 new HashSet<string>(["albums"], StringComparer.Ordinal)),
@@ -106,7 +119,8 @@ public sealed class TidalApiClient(HttpClient? httpClient = null) : IDisposable
             result.AddRange(MapRelationshipResourcesInOrder(
                 document.RootElement,
                 request.ExpectedTypes,
-                collectionExternalIds));
+                collectionExternalIds,
+                directMembersOnly: type == "artists"));
             next = TryGetNextPage(document.RootElement);
             if (next is not null)
                 await Task.Delay(250, cancellationToken).ConfigureAwait(false);
@@ -706,7 +720,8 @@ public sealed class TidalApiClient(HttpClient? httpClient = null) : IDisposable
         JsonElement root,
         IReadOnlySet<string> expectedTypes,
         IReadOnlySet<string>? collectionExternalIds,
-        bool favoriteByDefault = false)
+        bool favoriteByDefault = false,
+        bool directMembersOnly = false)
     {
         var mapped = MapResources(root, expectedTypes, collectionExternalIds, favoriteByDefault);
         var byExternalId = mapped
@@ -727,8 +742,9 @@ public sealed class TidalApiClient(HttpClient? httpClient = null) : IDisposable
                 ordered.Add(CloneContainerItem(item, entryId, addedUtcTicks));
             }
         }
-        ordered.AddRange(mapped.Where(item => ordered.All(existing =>
-            !string.Equals(existing.ExternalId, item.ExternalId, StringComparison.Ordinal))));
+        if (!directMembersOnly)
+            ordered.AddRange(mapped.Where(item => ordered.All(existing =>
+                !string.Equals(existing.ExternalId, item.ExternalId, StringComparison.Ordinal))));
         return ordered;
     }
 
