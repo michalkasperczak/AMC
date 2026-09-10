@@ -27,6 +27,16 @@ return SmokeTestRunner.Run(() => RunTests(args));
 
 static int RunTests(string[] args)
 {
+if (args.Length == 2 && args[0] == "--nvda-interop-host")
+{
+    NvdaBridgeSmokeTests.RunInteropHost(args[1]);
+    return 0;
+}
+if (args.Contains("--nvda-bridge-smoke", StringComparer.Ordinal))
+{
+    NvdaBridgeSmokeTests.Run();
+    return 0;
+}
 if (args.Length == 1 && args[0] == "--smoke-runner-self-test")
 {
     SmokeTestRunnerTests.Run();
@@ -118,6 +128,7 @@ try
     TestTidalRefreshRequest();
     TidalPlaybackSmokeTests.Run();
     TidalInteractionSmokeTests.Run();
+    NvdaBridgeSmokeTests.Run();
     TestTidalPlaylistPickerAccessibility();
     TestPodcastDownloadSettingsAccessibility();
     TestPodcastDescriptionTextOrder();

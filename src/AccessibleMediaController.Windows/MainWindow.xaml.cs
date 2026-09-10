@@ -478,7 +478,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (_captureAnnouncements)
         {
-            if (_state.Settings.Messages.Enabled) _capturedAnnouncement = message;
+            if (_state.Settings.Messages.Enabled || _nvdaRemoteReadRequested) _capturedAnnouncement = message;
             return;
         }
         if (_deferAnnouncements)
@@ -499,6 +499,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!Dispatcher.CheckAccess())
         {
             Dispatcher.Invoke(() => AnnounceEssential(message));
+            return;
+        }
+        if (_nvdaRemoteCommandActive)
+        {
+            _capturedAnnouncement = message;
             return;
         }
         StatusText.Announce(message);
@@ -2155,6 +2160,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void FocusPlayerView()
     {
+        if (_nvdaRemoteCommandActive && !IsActive) return;
         UpdatePlayerView(true);
         PlayerPlayPauseButton.Focus();
         Keyboard.Focus(PlayerPlayPauseButton);
@@ -8710,6 +8716,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
+        _nvdaCommandServer = new NvdaCommandServer(ExecuteNvdaCommandAsync);
         var handle = new WindowInteropHelper(this).Handle;
         try
         {
@@ -10622,7 +10629,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 }
                 _deferredAnnouncement = null;
             }
-            if (sessionChanged)
+            if (sessionChanged && (!_nvdaRemoteCommandActive || IsActive))
             {
                 if (_playerViewActive) Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.Loaded);
                 else RestoreMediaListFocusAfterRefresh();
@@ -12050,6 +12057,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void FocusMediaList()
     {
+        if (_nvdaRemoteCommandActive && !IsActive) return;
         if (_playerViewActive)
         {
             FocusPlayerView();
@@ -12183,6 +12191,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void AnchorMediaListFocus()
     {
+        if (_nvdaRemoteCommandActive && !IsActive) return;
         if (_playerViewActive)
         {
             FocusPlayerView();
@@ -12196,6 +12205,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void RestoreMediaListFocusAfterRefresh()
     {
+        if (_nvdaRemoteCommandActive && !IsActive) return;
         FocusMediaList();
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.Loaded);
     }
@@ -20431,6 +20441,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _windowSource?.RemoveHook(WindowMessageHook);
         _windowSource = null;
         _prefixService?.Dispose();
+        _nvdaCommandServer?.Dispose();
         _localOutput.Dispose();
         _podcastOutput.Dispose();
         _radioOutput.Dispose();

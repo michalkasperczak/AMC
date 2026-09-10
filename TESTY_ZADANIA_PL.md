@@ -1,12 +1,14 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-338`
-- Tytuł zestawu: TIDAL — otwieranie wykonawcy podczas odświeżania listy
-- Wersja programu: `0.1.0-alpha.338`
+- Numer zestawu: `AMC-TEST-339`
+- Tytuł zestawu: próbny dodatek NVDA — globalne sterowanie bez prefiksu
+- Wersja programu: `0.1.0-alpha.339`
 - Utworzono: 2026-09-10, Europe/Warsaw
-- Bieżące scenariusze i miejsce na uwagi: `INSTRUKCJA_0.1.0-alpha.338_PL.md`
+- Bieżące scenariusze i miejsce na uwagi: `INSTRUKCJA_0.1.0-alpha.339_PL.md`
 
-Alfa 338: najpierw wykonaj krótki zestaw z powyższego pliku. Diagnostyka
+Alfa 339: najpierw przypisz dwa niekolidujące klawisze w NVDA i sprawdź odczyt
+stanu oraz pauzę z innego okna. Dodatek jest opcjonalny; prefiks pozostaje.
+Próby z 338 są nadal aktualne. Diagnostyka
 odtwarzania z 337 pozostaje dostępna, ale jej przesłanego wyniku nie trzeba
 ponawiać. Poprawki 336 można nadal sprawdzać według `TESTY_0.1.0-alpha.336_PL.md`. Starsze
 scenariusze poniżej pozostają materiałem do szerszej regresji.

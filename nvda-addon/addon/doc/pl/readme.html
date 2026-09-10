@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><title>AMC — sterowanie przez NVDA</title></head>
+<body><h1>AMC — sterowanie przez NVDA, wersja próbna 0.1.0</h1>
+<p>Wymaga AMC alpha 339 lub nowszego oraz NVDA 2026.1 lub nowszego. Jest to prototyp do testów, a nie dodatek zweryfikowany odsłuchem w NVDA. Nie zastępuje Free Radio ani prefiksu AMC.</p>
+<h2>Uruchomienie</h2><ol>
+<li>Uruchom AMC alpha 339. Starsze wersje nie obsługują połączenia z dodatkiem.</li>
+<li>Zainstaluj plik AMC-NVDA-0.1.0.nvda-addon i wykonaj polecenia instalatora NVDA. Zrób to w dogodnym momencie; przeładowanie czytnika może zakłócić pracę innych dodatków.</li>
+<li>Otwórz menu NVDA, Ustawienia, Zdarzenia wejścia. W kategorii AMC wybierz polecenie i dodaj skrót.</li>
+</ol>
+<p>Na początek nie ma domyślnie przypisanych klawiszy. Free Radio używa już Ctrl+Windows ze strzałkami i wieloma literami. Przypisanie tych samych kombinacji obu dodatkom powoduje konflikt. Nie wybieraj Ctrl+Windows+Enter (Narrator) ani skrótów własnych aplikacji. Dla prób można użyć Ctrl+Windows+Alt ze strzałkami, po sprawdzeniu kolizji na swoim komputerze.</p>
+<h2>Polecenia</h2><ul>
+<li>Odtwórz lub wstrzymaj bieżące nagranie.</li>
+<li>Poprzedni i następny element: ten sam kontekst odtwarzania co w AMC; nie przesuwanie zaznaczenia listy.</li>
+<li>Głośniej/ciszej o 5 procent; wyciszenie bieżącej sesji.</li>
+<li>Cofnięcie lub przewinięcie o 10 sekund; odczyt czasu od początku, pozostałego i całkowitego.</li>
+<li>Odczyt nazwy bieżącego nagrania, sesji i stanu.</li>
+<li>Poprzednia i następna sesja AMC. Zmienia aktywną sesję programu, nie zatrzymuje samodzielnie nagrywania.</li>
+</ul>
+<h2>Zasady</h2>
+<p>Najpierw wybierz i otwórz nagranie w AMC. Globalna pauza dotyczy bieżącego nagrania aktywnej sesji, nie przypadkowego elementu zaznaczonego w innym programie. Pauza odsłuchu nie jest pauzą nagrywania; wyciszenie nie zatrzymuje nagrywania.</p>
+<p>Dodatek nie przełącza okna na pierwszy plan i nie emuluje klawiatury. Odpowiedzi na jego polecenia mogą być słyszane poza oknem AMC — taki jest cel sterowania globalnego. Nie włącza automatycznych komunikatów rozpoznawania utworów w tle. Komunikaty informacyjne na żądanie są dostępne także przy wyłączonych zwykłych komunikatach AMC.</p>
+<p>Przewijanie i następny/poprzedni zależą od możliwości sesji. Nie dodajemy możliwości pełnego odtwarzania TIDAL ani funkcji, których dana usługa nie udostępnia. Dla WiiM są to zwykłe polecenia transportu, nie przełączanie presetów.</p>
+<p>Po utracie odpowiedzi dodatek nie powtarza automatycznie pauzy ani innej komendy. Sprawdź stan osobnym poleceniem. Bardzo szybkie serie są ograniczone: kolejka ma 4 miejsca, polecenia czekające dłużej niż 1,5 sekundy są pomijane. Celem jest uniknięcie wykonywania starych poleceń po odwieszeniu aplikacji.</p>
+<p>Uruchamiaj AMC i NVDA na tym samym koncie Windows, bez ręcznego podnoszenia AMC do administratora. Brak AMC, otwarty dialog lub niezgodna wersja powodują komunikat, a nie uruchamianie programu ani zamknięcie nagrania. Sterowanie i odczyt są zablokowane na ekranie blokady i w trybie bezpiecznym NVDA.</p>
+<h2>Jeszcze nie w tej wersji</h2>
+<p>Osobna niewidzialna przeglądarka biblioteki, wybór presetów, dodawanie do kolekcji, nagrywanie i interfejs konfiguracji zestawów klawiszy. Najpierw sprawdzamy stabilność podstawowego połączenia.</p>
+</body></html>

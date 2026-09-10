@@ -10,3 +10,5 @@ node_modules/
 *.amckeys.json
 *.amcsettings.json
 *.amcbackup.json
+AMC-NVDA-*.nvda-addon
+__pycache__/
