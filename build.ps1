@@ -1,5 +1,6 @@
 param(
-    [switch]$Publish
+    [switch]$Publish,
+    [switch]$KeepPreviousPackages
 )
 
 $ErrorActionPreference = "Stop"
@@ -89,7 +90,7 @@ if ($Publish) {
         if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
         Remove-GeneratedNuGetSyncDuplicates
     }
-    if (Test-Path -LiteralPath $publishRoot) {
+    if ((Test-Path -LiteralPath $publishRoot) -and !$KeepPreviousPackages) {
         $resolvedPublishRoot = [IO.Path]::GetFullPath($publishRoot).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
         foreach ($oldPackage in Get-ChildItem -LiteralPath $publishRoot -Directory -Filter "AccessibleMediaController-*") {
             $resolvedOldPackage = [IO.Path]::GetFullPath($oldPackage.FullName)

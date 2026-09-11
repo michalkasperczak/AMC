@@ -1,5 +1,22 @@
 # Accessible Media Controller — Windows prototype
 
+Version `alpha.342` and **NVDA add-on 0.2.1** provide 65 commands:
+12 per-session direct presets on Ctrl+Windows+Alt+1–9/0/-/=, session switching
+on Tab/Shift+Tab, speed on comma/period and output selection on A (with Ctrl+Windows).
+Playlist and preset lists expose creation buttons; WiiM assigns a local shortcut
+to an existing device preset. The user approved this version for publication on
+September 11, 2026. The current key map, design decisions and further review scope
+are in INSTRUKCJA_NVDA_PL.md, PROJEKT_NVDA_PL.md and
+wyniki-testow/WERYFIKACJA_NVDA_342_2026-09-11.md.
+
+`alpha.341` supports **NVDA add-on 0.2.0** with 53 Ctrl+Windows commands:
+explicit preset navigation, playback context, bookmarks, chapters, recording,
+collection toggles and intentional window opening. Background actions target
+the current recording, never an unrelated hidden selection. Playback navigation
+keeps the main player's semantics, including starting another item after pause.
+See [the Polish key map and manual checks](INSTRUKCJA_NVDA_PL.md).
+The alpha.341 changes are included in alpha.342; no intermediate installation is needed.
+
 Version `alpha.340` groups TIDAL artist pages into Albums, Tracks and Similar
 artists, opened with Enter in the existing main list. Data is fetched per
 category on demand; back navigation preserves selection. Ctrl+Shift+A still

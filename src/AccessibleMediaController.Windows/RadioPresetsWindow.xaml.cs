@@ -9,22 +9,33 @@ namespace AccessibleMediaController.Windows;
 
 public partial class RadioPresetsWindow : AccessibleWindow
 {
-    private readonly IReadOnlyList<RadioPresetChoice> _choices;
+    private IReadOnlyList<RadioPresetChoice> _choices;
     private readonly bool _copyLocalTargets;
+    private readonly Action<RadioPresetsWindow>? _createPreset;
+    private readonly Func<IReadOnlyList<RadioPresetChoice>>? _reloadChoices;
+    private readonly string? _currentTargetId;
 
     public RadioPresetsWindow(
         IReadOnlyList<RadioPresetChoice> choices,
         string? currentTargetId,
         string sessionName = "Radio internetowe",
-        bool copyLocalTargets = false)
+        bool copyLocalTargets = false,
+        Action<RadioPresetsWindow>? createPreset = null,
+        Func<IReadOnlyList<RadioPresetChoice>>? reloadChoices = null,
+        string? targetTitle = null)
     {
         InitializeComponent();
         _choices = choices;
         _copyLocalTargets = copyLocalTargets;
+        _createPreset = createPreset;
+        _reloadChoices = reloadChoices;
+        _currentTargetId = currentTargetId;
+        CreatePresetButton.IsEnabled = createPreset is not null;
         Title = $"Presety — {sessionName}";
         DescriptionText.Text = $"Presety sesji {sessionName}. Cyfry wybierają miejsce. " +
             "Enter lub Spacja uruchamia zajętą pozycję. " +
-            "Ta lista nigdy nie zmienia ani nie nadpisuje presetów.";
+            "Uruchomienie nigdy nie zmienia przypisania. Przycisk Utwórz nowy preset otwiera osobny wybór przypisania."
+            + (string.IsNullOrWhiteSpace(targetTitle) ? "" : $" Element do przypisania: {targetTitle}.");
         System.Windows.Automation.AutomationProperties.SetName(PresetList, $"Presety, {sessionName}");
         PresetList.ItemsSource = choices;
         var selected = choices.ToList().FindIndex(choice =>
@@ -51,6 +62,9 @@ public partial class RadioPresetsWindow : AccessibleWindow
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // Buttons keep their normal Enter/Space action; list shortcuts must not
+        // activate a preset when the user is pressing Create or Close.
+        if (!PresetList.IsKeyboardFocusWithin) return;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var modifiers = Keyboard.Modifiers;
         if (modifiers == ModifierKeys.Control && e.Key == Key.C)
@@ -181,6 +195,24 @@ public partial class RadioPresetsWindow : AccessibleWindow
     }
 
     private void Activate_Click(object sender, RoutedEventArgs e) => ActivateSelected();
+
+    private void CreatePreset_Click(object sender, RoutedEventArgs e)
+    {
+        if (_createPreset is null) return;
+        var previousSlot = PresetList.SelectedIndex;
+        var previousChoices = _choices.ToArray();
+        _createPreset(this);
+        if (_reloadChoices is not null)
+        {
+            _choices = _reloadChoices();
+            PresetList.ItemsSource = _choices;
+            var assigned = _choices.ToList().FindIndex(choice =>
+                _currentTargetId is not null && choice.StationId == _currentTargetId);
+            PresetList.SelectedIndex = assigned >= 0 && !previousChoices.SequenceEqual(_choices) ? assigned
+                : Math.Clamp(previousSlot, 0, Math.Max(0, _choices.Count - 1));
+        }
+        Window_ContentRendered(this, EventArgs.Empty);
+    }
 }
 
 public sealed record RadioPresetChoice(

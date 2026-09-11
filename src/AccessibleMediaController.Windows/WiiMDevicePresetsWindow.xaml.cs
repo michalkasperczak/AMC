@@ -10,16 +10,22 @@ namespace AccessibleMediaController.Windows;
 
 public partial class WiiMDevicePresetsWindow : AccessibleWindow
 {
-    private readonly IReadOnlyList<WiiMDevicePresetRow> rows;
+    private IReadOnlyList<WiiMDevicePresetRow> rows;
+    private readonly Action<WiiMDevicePresetsWindow, int>? _assignShortcut;
+    private readonly Func<IReadOnlyDictionary<int, int>>? _reloadShortcuts;
 
     public WiiMDevicePresetsWindow(
         string deviceName,
         IReadOnlyList<WiiMPresetInformation> presets,
         bool selectForShortcut = false,
         IReadOnlyDictionary<int, int>? shortcutSlotsByNativePreset = null,
-        int? initialPresetNumber = null)
+        int? initialPresetNumber = null,
+        Action<WiiMDevicePresetsWindow, int>? assignShortcut = null,
+        Func<IReadOnlyDictionary<int, int>>? reloadShortcuts = null)
     {
         InitializeComponent();
+        _assignShortcut = assignShortcut;
+        _reloadShortcuts = reloadShortcuts;
         Title = selectForShortcut
             ? $"Wybierz gotowy preset — {deviceName}"
             : $"Presety urządzenia — {deviceName}";
@@ -30,6 +36,7 @@ public partial class WiiMDevicePresetsWindow : AccessibleWindow
               + "Cyfra wybiera miejsce. Page Up i Page Down przechodzą po zajętych miejscach bez ich uruchamiania. Enter lub Spacja uruchamia zajęty preset. "
               + "Ctrl+Alt+Shift+P przypisuje zaznaczony preset do skrótu AMC. Ta lista nie zmienia ustawień urządzenia.";
         ActivateButton.Content = selectForShortcut ? "_Wybierz" : "_Uruchom";
+        AssignShortcutButton.Visibility = selectForShortcut ? Visibility.Collapsed : Visibility.Visible;
         AutomationProperties.SetName(
             ActivateButton,
             selectForShortcut ? "Wybierz preset do przypisania" : "Uruchom preset");
@@ -60,6 +67,7 @@ public partial class WiiMDevicePresetsWindow : AccessibleWindow
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (!PresetList.IsKeyboardFocusWithin) return;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var modifiers = Keyboard.Modifiers;
         if (modifiers == ModifierKeys.Control && key == Key.C)
@@ -100,10 +108,28 @@ public partial class WiiMDevicePresetsWindow : AccessibleWindow
             && modifiers == (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)
             && key == Key.P)
         {
-            ShortcutAssignmentRequested = true;
-            ActivateSelected();
+            AssignShortcut_Click(this, new RoutedEventArgs());
             e.Handled = true;
         }
+    }
+
+    private void AssignShortcut_Click(object sender, RoutedEventArgs e)
+    {
+        if (_assignShortcut is not null && PresetList.SelectedItem is WiiMDevicePresetRow { Preset: not null } row)
+        {
+            _assignShortcut(this, row.Number);
+            if (_reloadShortcuts is not null)
+            {
+                var slots = _reloadShortcuts();
+                rows = rows.Select(item => item with { ShortcutSlot = slots.GetValueOrDefault(item.Number) }).ToArray();
+                PresetList.ItemsSource = rows;
+                PresetList.SelectedIndex = row.Number - 1;
+            }
+            FocusSelectedRow();
+            return;
+        }
+        ShortcutAssignmentRequested = true;
+        ActivateSelected();
     }
 
     internal bool MoveToOccupiedPreset(int direction)

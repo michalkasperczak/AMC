@@ -1,5 +1,21 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+Wersja `alpha.342` i dodatek **NVDA 0.2.1**: 65 poleceń,
+12 bezpośrednich presetów Ctrl+Windows+Alt+1–9/0/-/=, sesje na Tab/Shift+Tab,
+prędkość na przecinku/kropce, urządzenie na A (z Ctrl+Windows).
+Przyciski tworzenia są dostępne na listach playlist i presetów; WiiM przypisuje
+lokalny skrót do gotowego presetu. Instrukcja: INSTRUKCJA_NVDA_PL.md.
+Użytkownik zaakceptował wersję do publikacji 11 września 2026 r.
+Mapa skrótów, decyzje i zakres dalszych testów: INSTRUKCJA_NVDA_PL.md,
+PROJEKT_NVDA_PL.md oraz wyniki-testow/WERYFIKACJA_NVDA_342_2026-09-11.md.
+
+Wersja `alpha.341` współpracuje z dodatkiem **NVDA 0.2.0**: 53 polecenia
+Ctrl+Windows, w tym jawne presety, rozdziały, zakładki, nagrywanie i otwieranie
+widoków. Odsłuch oraz otwieranie okna są rozdzielone; działania na kolekcji
+dotyczą bieżącego nagrania, nie zaznaczenia ukrytej listy. Pauza i następny
+element zachowują reguły głównego odtwarzacza. [Mapa i testy](INSTRUKCJA_NVDA_PL.md).
+Zmiany alpha.341 są zawarte w alpha.342; nie trzeba instalować wersji pośredniej.
+
 Wersja `alpha.340` porządkuje widok wykonawcy TIDAL: Albumy, Utwory i Podobni
 wykonawcy są osobnymi kategoriami otwieranymi Enterem w głównej liście.
 Zawartość pobierana jest na żądanie, a Escape wraca do wcześniejszego poziomu

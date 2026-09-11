@@ -96,10 +96,214 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
     def script_total(self, gesture):
         self._send("total")
 
-    @script(description="Przełącz AMC na poprzednią sesję", gesture="kb:control+windows+pageUp")
+    @script(description="Przełącz AMC na poprzednią sesję", gesture="kb:control+windows+shift+tab")
     def script_sessionPrevious(self, gesture):
         self._send("sessionPrevious")
 
-    @script(description="Przełącz AMC na następną sesję", gesture="kb:control+windows+pageDown")
+    @script(description="Przełącz AMC na następną sesję", gesture="kb:control+windows+tab")
     def script_sessionNext(self, gesture):
         self._send("sessionNext")
+
+    @script(description="Odczytaj listę używaną przez następny i poprzedni element", gesture="kb:control+windows+alt+i")
+    def script_context(self, gesture):
+        self._send("context")
+
+    @script(description="Wycisz lub przywróć dźwięk wszystkich sesji AMC", gesture="kb:control+windows+shift+m")
+    def script_muteAll(self, gesture):
+        self._send("muteAll")
+
+    @script(description="Cofnij odtwarzanie o 30 sekund", gesture="kb:control+windows+shift+j")
+    def script_seekBack30(self, gesture):
+        self._send("seekBack30")
+
+    @script(description="Przewiń odtwarzanie o 30 sekund", gesture="kb:control+windows+shift+k")
+    def script_seekForward30(self, gesture):
+        self._send("seekForward30")
+
+    @script(description="Cofnij odtwarzanie o minutę", gesture="kb:control+windows+alt+j")
+    def script_seekBack60(self, gesture):
+        self._send("seekBack60")
+
+    @script(description="Przewiń odtwarzanie o minutę", gesture="kb:control+windows+alt+k")
+    def script_seekForward60(self, gesture):
+        self._send("seekForward60")
+
+    @script(description="Zmniejsz prędkość odtwarzania bez zmiany wysokości dźwięku", gesture="kb:control+windows+,")
+    def script_rateDown(self, gesture):
+        self._send("rateDown")
+
+    @script(description="Zwiększ prędkość odtwarzania bez zmiany wysokości dźwięku", gesture="kb:control+windows+.")
+    def script_rateUp(self, gesture):
+        self._send("rateUp")
+
+    @script(description="Przywróć normalną prędkość odtwarzania", gesture="kb:control+windows+shift+.")
+    def script_rateReset(self, gesture):
+        self._send("rateReset")
+
+    @script(description="Przejdź do początku nagrania lub bufora radia", gesture="kb:control+windows+home")
+    def script_trackStart(self, gesture):
+        self._send("trackStart")
+
+    @script(description="Przejdź do końca nagrania lub radia na żywo", gesture="kb:control+windows+end")
+    def script_trackEnd(self, gesture):
+        self._send("trackEnd")
+
+    @script(description="Dodaj zakładkę w bieżącym nagraniu", gesture="kb:control+windows+b")
+    def script_addBookmark(self, gesture):
+        self._send("addBookmark")
+
+    @script(description="Przejdź do poprzedniej zakładki bieżącego nagrania", gesture="kb:control+windows+shift+pageUp")
+    def script_previousBookmark(self, gesture):
+        self._send("previousBookmark")
+
+    @script(description="Przejdź do następnej zakładki bieżącego nagrania", gesture="kb:control+windows+shift+pageDown")
+    def script_nextBookmark(self, gesture):
+        self._send("nextBookmark")
+
+    @script(description="Przejdź do poprzedniego rozdziału bieżącego nagrania", gesture="kb:control+windows+alt+shift+pageUp")
+    def script_previousChapter(self, gesture):
+        self._send("previousChapter")
+
+    @script(description="Przejdź do następnego rozdziału bieżącego nagrania", gesture="kb:control+windows+alt+shift+pageDown")
+    def script_nextChapter(self, gesture):
+        self._send("nextChapter")
+
+    @script(description="Odtwórz poprzedni preset; w WiiM preset lub zapisany strumień", gesture="kb:control+windows+alt+pageUp")
+    def script_presetPrevious(self, gesture):
+        self._send("presetPrevious")
+
+    @script(description="Odtwórz następny preset; w WiiM preset lub zapisany strumień", gesture="kb:control+windows+alt+pageDown")
+    def script_presetNext(self, gesture):
+        self._send("presetNext")
+
+    @script(description="Dodaj lub usuń bieżące nagranie z ulubionych", gesture="kb:control+windows+shift+u")
+    def script_favorite(self, gesture):
+        self._send("favorite")
+
+    @script(description="Dodaj lub usuń bieżące nagranie z kolejki", gesture="kb:control+windows+shift+q")
+    def script_queue(self, gesture):
+        self._send("queue")
+
+    @script(description="Rozpocznij lub zakończ nagrywanie bieżącej stacji", gesture="kb:control+windows+alt+r")
+    def script_recordToggle(self, gesture):
+        self._send("recordToggle")
+
+    @script(description="Wstrzymaj lub wznów nagrywanie bieżącej stacji bez zmiany odsłuchu", gesture="kb:control+windows+shift+r")
+    def script_recordPause(self, gesture):
+        self._send("recordPause")
+
+    @script(description="Kontynuuj nagrywanie bieżącej stacji w nowym pliku", gesture="kb:control+windows+shift+t")
+    def script_recordSplit(self, gesture):
+        self._send("recordSplit")
+
+    @script(description="Otwórz okno AMC z bieżącym odtwarzaczem", gesture="kb:control+windows+f6")
+    def script_showPlayer(self, gesture):
+        self._send("showPlayer")
+
+    @script(description="Otwórz bibliotekę bieżącej sesji w oknie AMC", gesture="kb:control+windows+l")
+    def script_showLibrary(self, gesture):
+        self._send("showLibrary")
+
+    @script(description="Otwórz ulubione bieżącej sesji w oknie AMC", gesture="kb:control+windows+u")
+    def script_showFavorites(self, gesture):
+        self._send("showFavorites")
+
+    @script(description="Otwórz kolejkę bieżącej sesji w oknie AMC", gesture="kb:control+windows+alt+q")
+    def script_showQueue(self, gesture):
+        self._send("showQueue")
+
+    @script(description="Otwórz playlisty bieżącej sesji w oknie AMC", gesture="kb:control+windows+shift+p")
+    def script_showPlaylists(self, gesture):
+        self._send("showPlaylists")
+
+    @script(description="Otwórz historię odtwarzania bieżącej sesji w oknie AMC", gesture="kb:control+windows+h")
+    def script_showHistory(self, gesture):
+        self._send("showHistory")
+
+    @script(description="Otwórz presety bieżącej sesji w oknie AMC", gesture="kb:control+windows+alt+p")
+    def script_showPresets(self, gesture):
+        self._send("showPresets")
+
+    @script(description="Otwórz listę zakładek w oknie AMC", gesture="kb:control+windows+alt+b")
+    def script_showBookmarks(self, gesture):
+        self._send("showBookmarks")
+
+    @script(description="Otwórz listę rozdziałów w oknie AMC", gesture="kb:control+windows+alt+c")
+    def script_showChapters(self, gesture):
+        self._send("showChapters")
+
+    @script(description="Otwórz wybór sesji w oknie AMC", gesture="kb:control+windows+shift+s")
+    def script_showSessions(self, gesture):
+        self._send("showSessions")
+
+    @script(description="Otwórz wybór urządzenia audio bieżącej sesji w oknie AMC", gesture="kb:control+windows+a")
+    def script_showAudioOutput(self, gesture):
+        self._send("showAudioOutput")
+
+    @script(description="Otwórz wyszukiwanie bieżącej sesji w oknie AMC", gesture="kb:control+windows+alt+f")
+    def script_showSearch(self, gesture):
+        self._send("showSearch")
+
+    @script(description="Otwórz paletę poleceń w oknie AMC", gesture="kb:control+windows+f2")
+    def script_showCommands(self, gesture):
+        self._send("showCommands")
+
+    @script(description="Otwórz listę nagrywanych stacji w oknie AMC", gesture="kb:control+windows+alt+h")
+    def script_showRecordings(self, gesture):
+        self._send("showRecordings")
+
+    @script(description="Otwórz harmonogramy nagrywania w oknie AMC", gesture="kb:control+windows+shift+h")
+    def script_showSchedules(self, gesture):
+        self._send("showSchedules")
+
+    @script(description="Otwórz listę rozpoznanych utworów w oknie AMC", gesture="kb:control+windows+alt+s")
+    def script_showRecognitions(self, gesture):
+        self._send("showRecognitions")
+
+    @script(description="Uruchom preset 1 bieżącej sesji; nie zmienia przypisania", gesture="kb:control+windows+alt+1")
+    def script_preset1(self, gesture):
+        self._send("preset1")
+
+    @script(description="Uruchom preset 2 bieżącej sesji; nie zmienia przypisania", gesture="kb:control+windows+alt+2")
+    def script_preset2(self, gesture):
+        self._send("preset2")
+
+    @script(description="Uruchom preset 3 bieżącej sesji; nie zmienia przypisania", gesture="kb:control+windows+alt+3")
+    def script_preset3(self, gesture):
+        self._send("preset3")
+
+    @script(description="Uruchom preset 4 bieżącej sesji; nie zmienia przypisania", gesture="kb:control+windows+alt+4")
+    def script_preset4(self, gesture):
+        self._send("preset4")
+
+    @script(description="Uruchom preset 5 bieżącej sesji; nie zmienia przypisania", gesture="kb:control+windows+alt+5")
+    def script_preset5(self, gesture):
+        self._send("preset5")
+
+    @script(description="Uruchom preset 6 bieżącej sesji; nie zmienia przypisania", gesture="kb:control+windows+alt+6")
+    def script_preset6(self, gesture):
+        self._send("preset6")
+
+    @script(description="Uruchom preset 7 bieżącej sesji; nie zmienia przypisania", gesture="kb:control+windows+alt+7")
+    def script_preset7(self, gesture):
+        self._send("preset7")
+
+    @script(description="Uruchom preset 8 bieżącej sesji; nie zmienia przypisania", gesture="kb:control+windows+alt+8")
+    def script_preset8(self, gesture):
+        self._send("preset8")
+
+    @script(description="Uruchom preset 9 bieżącej sesji; nie zmienia przypisania", gesture="kb:control+windows+alt+9")
+    def script_preset9(self, gesture):
+        self._send("preset9")
+
+    @script(description="Uruchom preset 10 bieżącej sesji; nie zmienia przypisania", gesture="kb:control+windows+alt+0")
+    def script_preset10(self, gesture):
+        self._send("preset10")
+
+    @script(description="Uruchom preset 11 bieżącej sesji; nie zmienia przypisania", gesture="kb:control+windows+alt+-")
+    def script_preset11(self, gesture):
+        self._send("preset11")
+
+    @script(description="Uruchom preset 12 bieżącej sesji; nie zmienia przypisania", gesture="kb:control+windows+alt+=")
+    def script_preset12(self, gesture):
+        self._send("preset12")

@@ -6,6 +6,7 @@ import subprocess
 import threading
 import time
 import unittest
+from unittest.mock import patch
 import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,8 +30,49 @@ class ControllerTests(unittest.TestCase):
             "status": "i", "playPause": "p", "previous": "leftArrow", "next": "rightArrow",
             "volumeUp": "upArrow", "volumeDown": "downArrow", "mute": "m",
             "seekBack": "j", "seekForward": "k", "elapsed": "e", "remaining": "r", "total": "t",
-            "sessionPrevious": "pageUp", "sessionNext": "pageDown",
+            "sessionPrevious": "shift+tab", "sessionNext": "tab",
+            "context": "alt+i",
+            "muteAll": "shift+m",
+            "seekBack30": "shift+j",
+            "seekForward30": "shift+k",
+            "seekBack60": "alt+j",
+            "seekForward60": "alt+k",
+            "rateDown": ",",
+            "rateUp": ".",
+            "rateReset": "shift+.",
+            "trackStart": "home",
+            "trackEnd": "end",
+            "addBookmark": "b",
+            "previousBookmark": "shift+pageUp",
+            "nextBookmark": "shift+pageDown",
+            "previousChapter": "alt+shift+pageUp",
+            "nextChapter": "alt+shift+pageDown",
+            "presetPrevious": "alt+pageUp",
+            "presetNext": "alt+pageDown",
+            "favorite": "shift+u",
+            "queue": "shift+q",
+            "recordToggle": "alt+r",
+            "recordPause": "shift+r",
+            "recordSplit": "shift+t",
+            "showPlayer": "f6",
+            "showLibrary": "l",
+            "showFavorites": "u",
+            "showQueue": "alt+q",
+            "showPlaylists": "shift+p",
+            "showHistory": "h",
+            "showPresets": "alt+p",
+            "showBookmarks": "alt+b",
+            "showChapters": "alt+c",
+            "showSessions": "shift+s",
+            "showAudioOutput": "a",
+            "showSearch": "alt+f",
+            "showCommands": "f2",
+            "showRecordings": "alt+h",
+            "showSchedules": "shift+h",
+            "showRecognitions": "alt+s",
         }
+        expected.update({f"preset{slot}": "alt+" + key
+                         for slot, key in enumerate("1234567890-=", 1)})
         tree = ast.parse((PLUGIN / "__init__.py").read_text(encoding="utf-8"))
         scripts = [node for node in ast.walk(tree)
                    if isinstance(node, ast.FunctionDef) and node.name.startswith("script_")]
@@ -51,7 +93,45 @@ class ControllerTests(unittest.TestCase):
             self.assertEqual(call.func.attr, "_send")
             self.assertEqual(call.args[0].value, command)
         self.assertNotIn("kb:control+windows+enter", gestures)
-        self.assertTrue(all(not gesture[-1].isdigit() for gesture in gestures))
+        for reserved in ("c", "d", "f", "n", "o", "q", "s", "v", "space",
+                         "shift+b", "f4", *map(str, range(10))):
+            self.assertNotIn("kb:control+windows+" + reserved, gestures)
+        self.assertEqual(len(gestures), 65)
+        for digit in "0123456789":
+            self.assertNotIn("kb:control+windows+shift+" + digit, gestures)
+
+    def test_foreground_permission_is_only_for_explicit_ui_commands(self):
+        self.assertEqual(transport.FOREGROUND_COMMANDS,
+                         {command for command in transport.COMMANDS if command.startswith("show")}
+                         | transport.PRESET_COMMANDS)
+        granted = []
+
+        class Function:
+            def __init__(self, callback):
+                self.callback = callback
+            def __call__(self, *args):
+                return self.callback(*args)
+
+        class Kernel:
+            pass
+
+        class User:
+            pass
+
+        kernel, user = Kernel(), User()
+        def server_pid(handle, pointer):
+            self.assertEqual(handle, 123)
+            pointer._obj.value = 456
+            return True
+        kernel.GetNamedPipeServerProcessId = Function(server_pid)
+        user.AllowSetForegroundWindow = Function(lambda pid: granted.append(pid) or True)
+        with patch.object(transport.ctypes, "WinDLL", return_value=user):
+            transport.allow_foreground(kernel, 123)
+        self.assertEqual(granted, [456])  # Never ASFW_ANY.
+        kernel.GetNamedPipeServerProcessId = Function(lambda *_: False)
+        transport.allow_foreground(kernel, 123)
+        self.assertEqual(granted, [456])
+        transport.allow_foreground(object(), 123)  # Optional API failure cannot break transport.
 
     def test_reply_schema_and_labels(self):
         good = {"version": 1, "ok": True, "message": "Żółć 35%"}

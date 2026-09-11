@@ -443,7 +443,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         get
         {
-            if (_playerViewActive) return _sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null;
+            if (_playerViewActive || _nvdaCurrentItemTarget) return _sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null;
             if (IsTidalArtistOverview) return null;
             var row = MediaList.SelectedItem as MediaItemRow;
             if (row?.PlaylistId is not null || row?.LoadMorePodcastViewName is not null
@@ -451,7 +451,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return row?.ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
         }
     }
-    private DemoMediaSession ActionSession => !_playerViewActive && SelectedBookmark is { } bookmark
+    private DemoMediaSession ActionSession => !_playerViewActive && !_nvdaCurrentItemTarget && SelectedBookmark is { } bookmark
         ? _sessions.FindSession(bookmark.SessionId) ?? _sessions.Current
         : _sessions.Current;
     public IReadOnlyList<MediaItem> ActionItems
@@ -459,7 +459,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         get
         {
             if (_actionItemsOverride is not null) return _actionItemsOverride;
-            if (_playerViewActive)
+            if (_playerViewActive || _nvdaCurrentItemTarget)
                 return _sessions.Current.HasCurrentItem ? [_sessions.Current.CurrentItem] : [];
             var selected = MediaList.SelectedItems
                 .OfType<MediaItemRow>()
@@ -839,7 +839,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void AddBookmark()
     {
-        if (!_playerViewActive)
+        if (!_playerViewActive && !NvdaBackgroundScope.IsActive)
         {
             Announce("Zakładkę można dodać w otwartym odtwarzaczu");
             return;
@@ -1289,7 +1289,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private async Task NavigateChapterAsync(int direction)
     {
-        if (!_playerViewActive || !_sessions.Current.HasCurrentItem)
+        if ((!_playerViewActive && !NvdaBackgroundScope.IsActive) || !_sessions.Current.HasCurrentItem)
         {
             Announce("Nawigacja po rozdziałach działa w otwartym odtwarzaczu");
             return;
@@ -1340,7 +1340,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 _chapterNavigationLoading = false;
             }
 
-            if (!_playerViewActive
+            if ((!_playerViewActive && !NvdaBackgroundScope.IsActive)
                 || !ReferenceEquals(session, _sessions.Current)
                 || !session.HasCurrentItem
                 || !string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal))
@@ -1999,7 +1999,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void NavigateBookmark(int direction)
     {
-        if (!_playerViewActive)
+        if ((!_playerViewActive && !NvdaBackgroundScope.IsActive) || !_sessions.Current.HasCurrentItem)
         {
             Announce("Nawigacja po zakładkach działa w otwartym odtwarzaczu");
             return;
@@ -2050,6 +2050,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ShowPlayerView()
     {
+        if (NvdaBackgroundScope.IsActive) return;
         if (!_sessions.Current.HasCurrentItem)
         {
             AnnounceEssential($"Brak elementów w sesji {_sessions.Current.DisplayName}");
@@ -2165,7 +2166,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void FocusPlayerView()
     {
-        if (_nvdaRemoteCommandActive && !IsActive) return;
+        if (NvdaBackgroundScope.IsActive || _nvdaRemoteCommandActive && !IsActive) return;
         UpdatePlayerView(true);
         PlayerPlayPauseButton.Focus();
         Keyboard.Focus(PlayerPlayPauseButton);
@@ -3117,12 +3118,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ShowPresets()
     {
         var session = _sessions.Current;
-        _ = TryGetSessionPresetTarget(out var currentTargetId, out _, out _, out _);
+        var canAssign = TryGetSessionPresetTarget(out var currentTargetId, out var targetKind, out var targetTitle, out var targetLocation);
+        // Keep the target shown in this dialog even if playback advances while it is open.
+        var assignmentTarget = new SessionPresetEntry
+        {
+            TargetId = currentTargetId, TargetKind = targetKind,
+            TargetTitle = targetTitle, TargetLocation = targetLocation
+        };
         var dialog = new RadioPresetsWindow(
             SessionPresetChoices(session),
             string.IsNullOrWhiteSpace(currentTargetId) ? null : currentTargetId,
             session.DisplayName,
-            copyLocalTargets: string.Equals(session.Id, "local", StringComparison.Ordinal))
+            copyLocalTargets: string.Equals(session.Id, "local", StringComparison.Ordinal),
+            createPreset: canAssign ? owner => ShowPresetAssignment(owner, assignmentTarget) : null,
+            reloadChoices: () => SessionPresetChoices(session),
+            targetTitle: targetTitle)
         {
             Owner = this
         };
@@ -3134,13 +3144,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreItemActionFocus();
     }
 
-    private void ShowPresetAssignment()
+    private void ShowPresetAssignment(Window? assignmentOwner = null, SessionPresetEntry? initialTarget = null)
     {
-        if (!TryGetSessionPresetTarget(
-                out var targetId,
-                out var targetKind,
-                out var targetTitle,
-                out var targetLocation))
+        var targetId = initialTarget?.TargetId ?? string.Empty;
+        var targetKind = initialTarget?.TargetKind ?? string.Empty;
+        var targetTitle = initialTarget?.TargetTitle ?? string.Empty;
+        var targetLocation = initialTarget?.TargetLocation;
+        if (initialTarget is null && !TryGetSessionPresetTarget(
+                out targetId, out targetKind, out targetTitle, out targetLocation))
         {
             Announce($"Wybierz element sesji {_sessions.Current.DisplayName}, który chcesz przypisać do presetu");
             return;
@@ -3160,11 +3171,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             initialSlot,
             session.DisplayName)
         {
-            Owner = this
+            Owner = assignmentOwner ?? this
         };
         if (dialog.ShowDialog() != true)
         {
-            RestoreItemActionFocus();
+            if (assignmentOwner is null) RestoreItemActionFocus();
             return;
         }
 
@@ -3176,7 +3187,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (existing >= 0) entries.RemoveAt(existing);
             SavePresetState(session.Id);
             Announce($"Usunięto preset {slotLabel}");
-            RestoreItemActionFocus();
+            if (assignmentOwner is null) RestoreItemActionFocus();
             return;
         }
 
@@ -3194,7 +3205,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .OrderBy(entry => entry.Slot)
             .ToList();
         if (string.Equals(session.Id, "radio", StringComparison.Ordinal)
-            && ActionItem is { Kind: MediaItemKind.Station } station)
+            && session.Items.FirstOrDefault(item => item.Id == targetId) is { Kind: MediaItemKind.Station } station)
         {
             station.IsInLibrary = true;
             if (_radioItems.All(item => !string.Equals(item.Id, station.Id, StringComparison.Ordinal)))
@@ -3202,7 +3213,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         SavePresetState(session.Id);
         Announce($"Zapisano preset {slotLabel}: {targetTitle}");
-        RestoreItemActionFocus();
+        if (assignmentOwner is null) RestoreItemActionFocus();
     }
 
     private void SavePresetState(string sessionId)
@@ -3471,8 +3482,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
         {
-            Announce("Tworzenie playlist TIDAL nie jest jeszcze dostępne w AMC. Utwórz playlistę w TIDAL i odśwież konto przez Ctrl+F5");
-            RestoreMediaListFocusAfterRefresh();
+            _ = CreateTidalPlaylistFromListAsync();
             return;
         }
         var index = new PlaylistIndex(_state.Playlists);
@@ -5992,6 +6002,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             wiiM ? "Wybierz urządzenie WiiM i otwórz sterowanie, Enter" : "Odtwórz lub wstrzymaj");
         BrowserFavoriteButton.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
         BrowserPlaylistsButton.Visibility = wiiM ? Visibility.Collapsed : Visibility.Visible;
+        BrowserCreatePlaylistButton.Visibility = !wiiM && _currentView == "Playlisty"
+            ? Visibility.Visible : Visibility.Collapsed;
         BrowserPlaylistsButton.Content = tidal ? "Dodaj do _playlisty TIDAL…" : "Zmień _playlisty…";
         AutomationProperties.SetName(
             BrowserPlaylistsButton,
@@ -9865,7 +9877,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private CommandExecutionResult ExecuteCommand(string commandId)
     {
-        if (TryHandleArtistSectionCommand(commandId)) return new CommandExecutionResult(true);
+        if (!_nvdaCurrentItemTarget && TryHandleArtistSectionCommand(commandId)) return new CommandExecutionResult(true);
         var alignChapterPlanAfterCommand = IsChapterPlanPreservingSeekCommand(commandId)
             && _chapterPlaybackPlan is not null
             && _sessions.Current.HasCurrentItem;
@@ -10645,7 +10657,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 }
                 _deferredAnnouncement = null;
             }
-            if (sessionChanged && (!_nvdaRemoteCommandActive || IsActive))
+            if (sessionChanged && !NvdaBackgroundScope.IsActive && (!_nvdaRemoteCommandActive || IsActive))
             {
                 if (_playerViewActive) Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.Loaded);
                 else RestoreMediaListFocusAfterRefresh();
@@ -10807,7 +10819,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool TryResolveSelectedFolderContents(out FolderContentsActionContext context)
     {
         context = default!;
-        if (_playerViewActive
+        if (_playerViewActive || _nvdaCurrentItemTarget
             || !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
             return false;
@@ -12080,7 +12092,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void FocusMediaList()
     {
-        if (_nvdaRemoteCommandActive && !IsActive) return;
+        if (NvdaBackgroundScope.IsActive || _nvdaRemoteCommandActive && !IsActive) return;
         if (_playerViewActive)
         {
             FocusPlayerView();
@@ -12214,7 +12226,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void AnchorMediaListFocus()
     {
-        if (_nvdaRemoteCommandActive && !IsActive) return;
+        if (NvdaBackgroundScope.IsActive || _nvdaRemoteCommandActive && !IsActive) return;
         if (_playerViewActive)
         {
             FocusPlayerView();
@@ -12228,7 +12240,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void RestoreMediaListFocusAfterRefresh()
     {
-        if (_nvdaRemoteCommandActive && !IsActive) return;
+        if (NvdaBackgroundScope.IsActive || _nvdaRemoteCommandActive && !IsActive) return;
         FocusMediaList();
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.Loaded);
     }
@@ -16640,7 +16652,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string commandId,
         int? requestedVolume = null)
     {
-        if (!_playerViewActive)
+        var backgroundControl = NvdaBackgroundScope.IsActive;
+        if (!_playerViewActive && !backgroundControl)
         {
             Announce("Sterowanie WiiM jest dostępne w odtwarzaczu. Naciśnij Enter na urządzeniu");
             return;
@@ -16788,7 +16801,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 AnnounceWiiMCommandResult(commandId, refreshed, requestedPosition);
             }
-            _ = Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.ContextIdle);
+            if (!backgroundControl) _ = Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.ContextIdle);
         }
         catch (OperationCanceledException) when (_wiiMCancellation.IsCancellationRequested)
         {
@@ -16797,7 +16810,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             DiagnosticLog.Warning("wiim-control", $"Polecenie dla {device.Address} nie powiodło się: {exception.GetType().Name}.");
             Announce($"Nie udało się sterować urządzeniem {device.DisplayName}");
-            _ = Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.ContextIdle);
+            if (!backgroundControl) _ = Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.ContextIdle);
         }
         finally
         {
@@ -16838,7 +16851,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 device.DisplayName,
                 snapshot.Presets,
                 shortcutSlotsByNativePreset: shortcutSlots,
-                initialPresetNumber: currentPreset)
+                initialPresetNumber: currentPreset,
+                assignShortcut: (owner, number) => AssignWiiMPresetShortcut(device, snapshot, number, owner),
+                reloadShortcuts: () => WiiMShortcutSlotsByNativePreset(device, snapshot))
             {
                 Owner = this
             };
@@ -16941,13 +16956,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void AssignWiiMPresetShortcut(
         WiiMDeviceSettings device,
         WiiMDeviceSnapshot snapshot,
-        int nativePresetNumber)
+        int nativePresetNumber,
+        Window? assignmentOwner = null)
     {
         var nativePreset = snapshot.Presets.FirstOrDefault(preset => preset.Number == nativePresetNumber);
         if (nativePreset is null)
         {
             Announce($"Preset {RadioPresetSlots.Label(nativePresetNumber)} urządzenia jest pusty");
-            RestoreWiiMFocus();
+            if (assignmentOwner is null) RestoreWiiMFocus();
             return;
         }
         var entries = WiiMShortcutPresetEntries(device, snapshot);
@@ -16966,11 +16982,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             $"WiiM, {device.DisplayName}",
             shortcutOnly: true)
         {
-            Owner = this
+            Owner = assignmentOwner ?? this
         };
         if (dialog.ShowDialog() != true)
         {
-            RestoreWiiMFocus();
+            if (assignmentOwner is null) RestoreWiiMFocus();
             return;
         }
 
@@ -16981,7 +16997,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (selectedIndex >= 0) entries.RemoveAt(selectedIndex);
             QueueStateSave(announceFailure: true);
             Announce($"Usunięto przypisanie Ctrl+Shift+{shortcutLabel}. Preset urządzenia pozostał bez zmian");
-            RestoreWiiMFocus();
+            if (assignmentOwner is null) RestoreWiiMFocus();
             return;
         }
 
@@ -17000,7 +17016,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         entries.Sort((left, right) => left.Slot.CompareTo(right.Slot));
         QueueStateSave(announceFailure: true);
         Announce($"Ctrl+Shift+{shortcutLabel} uruchamia preset {nativePresetNumber}, {nativePreset.Name}. Ustawienia urządzenia nie zostały zmienione");
-        RestoreWiiMFocus();
+        if (assignmentOwner is null) RestoreWiiMFocus();
     }
 
     private List<SessionPresetEntry> WiiMShortcutPresetEntries(
@@ -17172,7 +17188,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private async Task NavigateWiiMNativePresetAsync(int direction)
     {
-        if (!_playerViewActive
+        if ((!_playerViewActive && !NvdaBackgroundScope.IsActive)
             || !string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
             || ResolveWiiMPlaybackTarget() is not { } device)
         {
@@ -17625,6 +17641,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void RestoreWiiMFocus()
     {
+        if (NvdaBackgroundScope.IsActive) return;
         Activate();
         if (_playerViewActive) FocusPlayerView();
         else RestoreMediaListFocusAfterRefresh();
@@ -19170,8 +19187,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (MediaList.IsKeyboardFocusWithin
             && Keyboard.Modifiers == ModifierKeys.None
             && key == Key.Insert
-            && string.Equals(_currentView, "Playlisty", StringComparison.Ordinal)
-            && !string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+            && string.Equals(_currentView, "Playlisty", StringComparison.Ordinal))
         {
             CreatePlaylist();
             return true;
@@ -20956,7 +20972,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     : "Kopiuj łącze do elementu";
         SetContextMenuItemPresentation(CopyLocationMenuItem, copyLocationLabel, "Ctrl+Shift+C");
         NewPlaylistMenuItem.Visibility = string.Equals(_currentView, "Playlisty", StringComparison.Ordinal)
-            && !string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
             ? Visibility.Visible
             : Visibility.Collapsed;
         RenamePlaylistMenuItem.Visibility = playlistContainer ? Visibility.Visible : Visibility.Collapsed;

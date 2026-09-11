@@ -15,6 +15,10 @@
                                                 TextWrapping="Wrap"
                                                 automation:AutomationProperties.LiveSetting="Assertive" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="AssignShortcutButton" MinWidth="175" Margin="0,0,8,0"
+                        Content="_Przypisz skrót AMC…" Click="AssignShortcut_Click"
+                        automation:AutomationProperties.Name="Przypisz skrót AMC do wybranego presetu"
+                        automation:AutomationProperties.HelpText="Nie zmienia presetów zapisanych w urządzeniu." />
                 <Button x:Name="ActivateButton" Width="115" Margin="0,0,8,0" Content="_Uruchom" IsDefault="True"
                         Click="Activate_Click" />
                 <Button Width="100" Content="_Zamknij" IsCancel="True" />

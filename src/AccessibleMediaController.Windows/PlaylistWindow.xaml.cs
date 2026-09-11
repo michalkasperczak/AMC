@@ -204,6 +204,7 @@ public partial class PlaylistWindow : Window
         }
         if (e.Key == Key.Space
             && Keyboard.Modifiers == ModifierKeys.None
+            && PlaylistList.IsKeyboardFocusWithin
             && selectedItemIds.Length > 0
             && PlaylistList.SelectedItem is PlaylistChoice choice)
         {

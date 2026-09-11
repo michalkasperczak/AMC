@@ -13,6 +13,18 @@ internal static class NvdaCommands
 {
     internal static string? Resolve(string command) => command switch
     {
+        "preset1" => CommandIds.RadioPreset(1),
+        "preset2" => CommandIds.RadioPreset(2),
+        "preset3" => CommandIds.RadioPreset(3),
+        "preset4" => CommandIds.RadioPreset(4),
+        "preset5" => CommandIds.RadioPreset(5),
+        "preset6" => CommandIds.RadioPreset(6),
+        "preset7" => CommandIds.RadioPreset(7),
+        "preset8" => CommandIds.RadioPreset(8),
+        "preset9" => CommandIds.RadioPreset(9),
+        "preset10" => CommandIds.RadioPreset(10),
+        "preset11" => CommandIds.RadioPreset(11),
+        "preset12" => CommandIds.RadioPreset(12),
         "playPause" => CommandIds.PlayPause,
         "previous" => CommandIds.Previous,
         "next" => CommandIds.Next,
@@ -26,10 +38,68 @@ internal static class NvdaCommands
         "total" => CommandIds.TimeTotal,
         "sessionPrevious" => CommandIds.SessionPrevious,
         "sessionNext" => CommandIds.SessionNext,
+        "muteAll" => CommandIds.ToggleMuteAllSessions,
+        "seekBack30" => CommandIds.SeekBackward30,
+        "seekForward30" => CommandIds.SeekForward30,
+        "seekBack60" => CommandIds.SeekBackward60,
+        "seekForward60" => CommandIds.SeekForward60,
+        "rateDown" => CommandIds.PlaybackRateDown,
+        "rateUp" => CommandIds.PlaybackRateUp,
+        "rateReset" => CommandIds.PlaybackRateReset,
+        "trackStart" => CommandIds.TrackStart,
+        "trackEnd" => CommandIds.TrackEnd,
+        "addBookmark" => CommandIds.AddBookmark,
+        "previousBookmark" => CommandIds.PreviousBookmark,
+        "nextBookmark" => CommandIds.NextBookmark,
+        "previousChapter" => CommandIds.PreviousChapter,
+        "nextChapter" => CommandIds.NextChapter,
+        "favorite" => CommandIds.ToggleFavorite,
+        "queue" => CommandIds.AddQueue,
+        "recordToggle" => CommandIds.ToggleRadioRecording,
+        "recordPause" => CommandIds.ToggleRadioRecordingPause,
+        "recordSplit" => CommandIds.SplitRadioRecording,
+        "showPlayer" => CommandIds.ViewNowPlaying,
+        "showLibrary" => CommandIds.ViewLibrary,
+        "showFavorites" => CommandIds.ViewFavorites,
+        "showQueue" => CommandIds.ViewQueue,
+        "showPlaylists" => CommandIds.ViewPlaylists,
+        "showHistory" => CommandIds.ViewHistory,
+        "showPresets" => CommandIds.ViewRadioPresets,
+        "showBookmarks" => CommandIds.ViewBookmarks,
+        "showChapters" => CommandIds.ViewChapters,
+        "showSessions" => CommandIds.SessionList,
+        "showAudioOutput" => CommandIds.SelectAudioOutput,
+        "showSearch" => CommandIds.SearchCurrent,
+        "showCommands" => CommandIds.CommandPalette,
+        "showRecordings" => CommandIds.ViewActiveRadioRecordings,
+        "showSchedules" => CommandIds.ManageRadioSchedules,
+        "showRecognitions" => CommandIds.ViewRadioRecognitionHistory,
         _ => null
     };
 
-    internal static bool IsAllowed(string command) => command == "status" || Resolve(command) is not null;
+    internal static bool IsAllowed(string command) => command is "status" or "context" or "presetPrevious" or "presetNext"
+        || Resolve(command) is not null;
+
+    internal static bool OpensWindow(string command) => command is
+        "showPlayer"
+        or "showLibrary"
+        or "showFavorites"
+        or "showQueue"
+        or "showPlaylists"
+        or "showHistory"
+        or "showPresets"
+        or "showBookmarks"
+        or "showChapters"
+        or "showSessions"
+        or "showAudioOutput"
+        or "showSearch"
+        or "showCommands"
+        or "showRecordings"
+        or "showSchedules"
+        or "showRecognitions";
+
+    internal static bool TargetsCurrentItem(string command) => command is "favorite" or "queue"
+        or "recordToggle" or "recordPause" or "recordSplit" or "addBookmark";
 }
 
 internal sealed record NvdaReply(bool Ok, string Message);

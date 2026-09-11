@@ -3,19 +3,23 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
         xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
-        Title="Presety" Width="560" Height="470"
+        Title="Presety" Width="660" Height="470"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         ContentRendered="Window_ContentRendered"
         PreviewKeyDown="Window_PreviewKeyDown">
     <DockPanel Margin="12">
         <TextBlock x:Name="DescriptionText" DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap"
-                   Text="Presety. Cyfry wybierają miejsce. Enter lub Spacja uruchamia zajętą pozycję. Ta lista nigdy nie zmienia ani nie nadpisuje presetów."
+                   Text="Presety. Cyfry wybierają miejsce. Enter lub Spacja uruchamia zajętą pozycję. Przycisk Utwórz nowy preset otwiera osobny wybór przypisania."
                    automation:AutomationProperties.HeadingLevel="Level1" />
         <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <controls:AccessibleStatusTextBlock x:Name="PresetStatus" Margin="0,0,0,8"
                                                 TextWrapping="Wrap"
                                                 automation:AutomationProperties.LiveSetting="Assertive" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="CreatePresetButton" MinWidth="175" Margin="0,0,8,0"
+                        Content="Utwórz _nowy preset…" Click="CreatePreset_Click"
+                        automation:AutomationProperties.Name="Utwórz nowy preset"
+                        automation:AutomationProperties.HelpText="Przypisz element, dla którego otwarto tę listę; zajęte miejsce wymaga potwierdzenia." />
                 <Button Width="115" Margin="0,0,8,0" Content="_Uruchom" IsDefault="True"
                         Click="Activate_Click" />
                 <Button Width="100" Content="_Zamknij" IsCancel="True" />

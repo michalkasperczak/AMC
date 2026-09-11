@@ -1,38 +1,86 @@
 <!doctype html>
-<html lang="pl"><head><meta charset="utf-8"><title>AMC — sterowanie przez NVDA</title></head>
-<body><h1>AMC — sterowanie przez NVDA, wersja próbna 0.1.1</h1>
-<p>Wymaga AMC alpha 339 lub nowszego oraz NVDA 2026.1 lub nowszego. Jest to prototyp do testów, a nie dodatek zweryfikowany odsłuchem w NVDA. Dodaje sterowanie AMC podobne do Free Radio. Prefiks AMC pozostaje dostępny.</p>
-<h2>Uruchomienie</h2><ol>
-<li>Uruchom AMC alpha 339. Starsze wersje nie obsługują połączenia z dodatkiem.</li>
-<li>Jeśli dodatek Free Radio jest nadal włączony, wyłącz go w menedżerze dodatków NVDA albo zmień jego kolidujące skróty. Samo nieodtwarzanie przez Free Radio nie zwalnia klawiszy.</li>
-<li>Zainstaluj plik AMC-NVDA-0.1.1.nvda-addon i wykonaj polecenia instalatora NVDA. Zrób to w dogodnym momencie; przeładowanie czytnika może zakłócić pracę innych dodatków.</li>
-<li>Domyślne skróty są już przypisane. Możesz je zmienić w NVDA, Ustawienia, Zdarzenia wejścia, kategoria AMC. Wcześniejsze własne przypisania mogą mieć pierwszeństwo — dodatek ich nie nadpisuje.</li>
-</ol>
-<h2>Domyślne skróty</h2>
-<p>Przytrzymaj Ctrl i Windows, następnie naciśnij:</p><ul>
-<li>Strzałka w górę lub w dół: głośniej albo ciszej o 5 procent.</li>
-<li>Strzałka w lewo lub w prawo: poprzedni albo następny element odtwarzania.</li>
-<li>P: odtwórz lub wstrzymaj. M: wycisz lub przywróć dźwięk sesji.</li>
-<li>I: odczytaj bieżące nagranie, sesję i stan.</li>
-<li>J lub K: cofnij albo przewiń o 10 sekund.</li>
-<li>E: czas od początku. R: czas pozostały. T: czas całkowity.</li>
-<li>Page Up lub Page Down: poprzednia albo następna sesja.</li>
+<html lang="pl"><head><meta charset="utf-8"><title>AMC — dodatek NVDA 0.2.1</title></head>
+<body><h1>AMC — dodatek NVDA 0.2.1</h1>
+<p>Wymaga AMC alpha 342 lub nowszego i NVDA 2026.1 lub nowszego. Najpierw uruchom nowy AMC, gdy nic nie nagrywasz. Zainstaluj dodatek według instrukcji NVDA. Własne gesty pozostają zachowane. Free Radio powinno być wyłączone lub mieć inne skróty. Prefiks AMC pozostaje niezależny.</p>
+<h2>Zmiany 0.2.1</h2><p>Ctrl+Windows+A wybiera urządzenie. Ctrl+Windows+Tab i Ctrl+Windows+Shift+Tab zmieniają sesję. Ctrl+Windows+przecinek zwalnia, kropka przyspiesza, Shift+kropka przywraca normalną prędkość 1,00 razy. Własne przypisania NVDA mogą mieć pierwszeństwo.</p>
+<p>Ctrl+Windows+Alt+1–9, 0, minus i równa się uruchamiają odpowiednio presety 1–12 bieżącej sesji. Nigdy nie zapisują ani nie zastępują przypisania. Nagranie/stacja gra w tle; folder, album lub playlista otwiera jawnie swój widok. WiiM używa przypisanych, gotowych presetów urządzenia.</p>
+<p>Na liście presetów jest przycisk Utwórz nowy preset, z osobnym wyborem miejsca i potwierdzeniem zastąpienia. Po zapisie lub anulowaniu wracasz do listy. Dla WiiM przycisk Przypisz skrót AMC nie zmienia urządzenia. Na widoku Playlisty jest Utwórz nową playlistę. Enter/Spacja na przycisku wykonują jego działanie, nie uruchamiają presetu z listy.</p>
+<h2>Mapa</h2><p>Do każdej kombinacji poniżej dodaj Ctrl+Windows. Nie ma prefiksu. Skróty zmienisz w NVDA: Ustawienia, Zdarzenia wejścia, AMC. NVDA+1 włącza pomoc bez wykonywania komend.</p>
+<h2>Odsłuch i informacja</h2><ul>
+<li>I: Bieżące nagranie, sesja i stan.</li>
+<li>P: Odtwórz lub wstrzymaj odsłuch.</li>
+<li>lewo: Odtwórz poprzedni element bieżącej listy odtwarzania.</li>
+<li>prawo: Odtwórz następny element bieżącej listy odtwarzania.</li>
+<li>góra: Głośniej o 5 procent.</li>
+<li>dół: Ciszej o 5 procent.</li>
+<li>M: Wycisz lub przywróć dźwięk sesji.</li>
+<li>J: Cofnij o 10 sekund.</li>
+<li>K: Przewiń o 10 sekund.</li>
+<li>E: Czas od początku / pozycja w buforze radia.</li>
+<li>R: Czas pozostały / opóźnienie względem transmisji radiowej.</li>
+<li>T: Czas całkowity / długość bufora radia.</li>
+<li>Alt+I: Odczytaj listę używaną przez następny i poprzedni element.</li>
+<li>Shift+M: Wycisz lub przywróć dźwięk wszystkich sesji AMC.</li>
+<li>Shift+J: Cofnij odtwarzanie o 30 sekund.</li>
+<li>Shift+K: Przewiń odtwarzanie o 30 sekund.</li>
+<li>Alt+J: Cofnij odtwarzanie o minutę.</li>
+<li>Alt+K: Przewiń odtwarzanie o minutę.</li>
+<li>Przecinek: Zmniejsz prędkość odtwarzania bez zmiany wysokości dźwięku.</li>
+<li>Kropka: Zwiększ prędkość odtwarzania bez zmiany wysokości dźwięku.</li>
+<li>Shift+kropka: Przywróć normalną prędkość odtwarzania.</li>
+<li>Home: Przejdź do początku nagrania lub bufora radia.</li>
+<li>End: Przejdź do końca nagrania lub radia na żywo.</li>
 </ul>
-<p>Te skróty działają bez prefiksu. Ctrl+Windows+lewo/prawo przejmują standardowe przełączanie pulpitów Windows, gdy ten dodatek obsługuje gest. Ctrl+Windows+Enter pozostaje dla Narratora; nie przypisujemy cyfr paska zadań. Inne globalne dodatki nadal mogą powodować konflikt.</p>
-<h2>Polecenia</h2><ul>
-<li>Odtwórz lub wstrzymaj bieżące nagranie.</li>
-<li>Poprzedni i następny element: ten sam kontekst odtwarzania co w AMC; nie przesuwanie zaznaczenia listy.</li>
-<li>Głośniej/ciszej o 5 procent; wyciszenie bieżącej sesji.</li>
-<li>Cofnięcie lub przewinięcie o 10 sekund; odczyt czasu od początku, pozostałego i całkowitego.</li>
-<li>Odczyt nazwy bieżącego nagrania, sesji i stanu.</li>
-<li>Poprzednia i następna sesja AMC. Zmienia aktywną sesję programu, nie zatrzymuje samodzielnie nagrywania.</li>
+<h2>Sesje i presety</h2><ul>
+<li>Shift+Tab: Poprzednia sesja AMC.</li>
+<li>Tab: Następna sesja AMC.</li>
+<li>Alt+Page Up: Odtwórz poprzedni preset; w WiiM preset lub zapisany strumień.</li>
+<li>Alt+Page Down: Odtwórz następny preset; w WiiM preset lub zapisany strumień.</li>
 </ul>
-<h2>Zasady</h2>
-<p>Najpierw wybierz i otwórz nagranie w AMC. Globalna pauza dotyczy bieżącego nagrania aktywnej sesji, nie przypadkowego elementu zaznaczonego w innym programie. Pauza odsłuchu nie jest pauzą nagrywania; wyciszenie nie zatrzymuje nagrywania.</p>
-<p>Dodatek nie przełącza okna na pierwszy plan i nie emuluje klawiatury. Odpowiedzi na jego polecenia mogą być słyszane poza oknem AMC — taki jest cel sterowania globalnego. Nie włącza automatycznych komunikatów rozpoznawania utworów w tle. Komunikaty informacyjne na żądanie są dostępne także przy wyłączonych zwykłych komunikatach AMC.</p>
-<p>Przewijanie i następny/poprzedni zależą od możliwości sesji. Nie dodajemy możliwości pełnego odtwarzania TIDAL ani funkcji, których dana usługa nie udostępnia. Dla WiiM są to zwykłe polecenia transportu, nie przełączanie presetów.</p>
-<p>Po utracie odpowiedzi dodatek nie powtarza automatycznie pauzy ani innej komendy. Sprawdź stan osobnym poleceniem. Bardzo szybkie serie są ograniczone: kolejka ma 4 miejsca, polecenia czekające dłużej niż 1,5 sekundy są pomijane. Celem jest uniknięcie wykonywania starych poleceń po odwieszeniu aplikacji.</p>
-<p>Uruchamiaj AMC i NVDA na tym samym koncie Windows, bez ręcznego podnoszenia AMC do administratora. Brak AMC, otwarty dialog lub niezgodna wersja powodują komunikat, a nie uruchamianie programu ani zamknięcie nagrania. Sterowanie i odczyt są zablokowane na ekranie blokady i w trybie bezpiecznym NVDA.</p>
-<h2>Jeszcze nie w tej wersji</h2>
-<p>Osobna niewidzialna przeglądarka biblioteki, wybór presetów, dodawanie do kolekcji, nagrywanie i interfejs konfiguracji zestawów klawiszy. Najpierw sprawdzamy stabilność podstawowego połączenia.</p>
+<h2>Zakładki, rozdziały i kolekcje</h2><ul>
+<li>B: Dodaj zakładkę w bieżącym nagraniu.</li>
+<li>Shift+Page Up: Przejdź do poprzedniej zakładki bieżącego nagrania.</li>
+<li>Shift+Page Down: Przejdź do następnej zakładki bieżącego nagrania.</li>
+<li>Alt+Shift+Page Up: Przejdź do poprzedniego rozdziału bieżącego nagrania.</li>
+<li>Alt+Shift+Page Down: Przejdź do następnego rozdziału bieżącego nagrania.</li>
+<li>Shift+U: Dodaj lub usuń bieżące nagranie z ulubionych.</li>
+<li>Shift+Q: Dodaj lub usuń bieżące nagranie z kolejki.</li>
+</ul>
+<h2>Nagrywanie</h2><ul>
+<li>Alt+R: Rozpocznij lub zakończ nagrywanie bieżącej stacji.</li>
+<li>Shift+R: Wstrzymaj lub wznów nagrywanie bieżącej stacji bez zmiany odsłuchu.</li>
+<li>Shift+T: Kontynuuj nagrywanie bieżącej stacji w nowym pliku.</li>
+</ul>
+<h2>Otwieranie okna AMC</h2><ul>
+<li>F6: Otwórz okno AMC z bieżącym odtwarzaczem.</li>
+<li>L: Otwórz bibliotekę bieżącej sesji w oknie AMC.</li>
+<li>U: Otwórz ulubione bieżącej sesji w oknie AMC.</li>
+<li>Alt+Q: Otwórz kolejkę bieżącej sesji w oknie AMC.</li>
+<li>Shift+P: Otwórz playlisty bieżącej sesji w oknie AMC.</li>
+<li>H: Otwórz historię odtwarzania bieżącej sesji w oknie AMC.</li>
+<li>Alt+P: Otwórz presety bieżącej sesji w oknie AMC.</li>
+<li>Alt+B: Otwórz listę zakładek w oknie AMC.</li>
+<li>Alt+C: Otwórz listę rozdziałów w oknie AMC.</li>
+<li>Shift+S: Otwórz wybór sesji w oknie AMC.</li>
+<li>A: Otwórz wybór urządzenia audio bieżącej sesji w oknie AMC.</li>
+<li>Alt+F: Otwórz wyszukiwanie bieżącej sesji w oknie AMC.</li>
+<li>F2: Otwórz paletę poleceń w oknie AMC.</li>
+<li>Alt+H: Otwórz listę nagrywanych stacji w oknie AMC.</li>
+<li>Shift+H: Otwórz harmonogramy nagrywania w oknie AMC.</li>
+<li>Alt+S: Otwórz listę rozpoznanych utworów w oknie AMC.</li>
+</ul>
+<h2>Pauza i zakres</h2>
+<p>P pauzuje odsłuch. Lewo/prawo uruchamia poprzedni/następny element tej listy, z której rozpoczęto odtwarzanie, również po pauzie. Uruchomienie z Ulubionych daje nawigację po Ulubionych, z presetu — po presetach. Samo otwarcie innej listy nie zmienia tego zakresu. Alt+I odczytuje zakres i pozycję.</p>
+<p>Alt+Page Up/Page Down jawnie przełącza zapisane presety, zawijając na końcu. Folder lub playlista pod presetem wymaga widocznej listy presetów. W WiiM lewo/prawo to transport urządzenia; Alt+Page Up/Page Down to presety lub zapisane strumienie.</p>
+<h2>Nagrywanie</h2>
+<p>M tylko wycisza odsłuch. P pauzuje odsłuch, w radiu z timeshift. Shift+R pauzuje nagrywanie, niezależnie od odsłuchu; zapis oryginalny bez konwersji może nie obsługiwać pauzy. Alt+R rozpoczyna/kończy nagrywanie bieżącej stacji, także istniejące nagranie z harmonogramu. Shift+T dzieli plik, zachowując folder i czas zakończenia harmonogramu. Nie dotyczy to wszystkich nagrywanych stacji.</p>
+<h2>Fokus i możliwości</h2>
+<p>Polecenia sterujące pozostają w tle i dotyczą bieżącego nagrania aktywnej sesji, nie zaznaczenia ukrytej listy. Tylko grupa otwierająca okno jawnie przywołuje AMC. Potem działają zwykłe skróty okna AMC i Escape. Jeśli Windows nie przekazuje fokusa, przejdź Alt+Tab do AMC i ponów skrót. Nie stosujemy okna zawsze na wierzchu.</p>
+<p>Zakładki i rozdziały dotyczą bieżącego materiału, także z listy pod odtwarzaczem. W radiu B dodaje zakładkę do trwającego nagrania. Funkcje zależą od sesji: radio nie ma kolejki, a ta aktualizacja nie odblokowuje pełnych utworów TIDAL.</p>
+<p>Odpowiedź na jawny globalny skrót może być słyszana poza AMC. Automatyczne Shazam zachowuje ustawienia. Asynchroniczny błąd usługi trafia normalną drogą AMC; przyjęcie polecenia nie potwierdza udanego połączenia.</p>
+<h2>Konflikty i bezpieczeństwo</h2>
+<p>Zachowane Ctrl+Windows+lewo/prawo zastępują przełączanie pulpitów Windows zgodnie z wcześniejszym wyborem użytkownika. Nie przypisujemy Ctrl+Windows+Enter, cyfr, C, D, F, N, O, Q, S, V, Spacji, F4 ani Ctrl+Windows+Shift+B. Inne programy mogą mieć własne skróty.</p>
+<p>Otwarty dialog lub menu AMC blokuje polecenia do zamknięcia. Dodatek nie uruchamia zamkniętego AMC. Po braku odpowiedzi niczego nie ponawia: sprawdź I przed ponownym przełącznikiem. Kolejka ma 4 miejsca; niepodjęte polecenia starsze niż 1,5 sekundy są pomijane. Na ekranie blokady i w trybie bezpiecznym dodatek nic nie wykonuje.</p>
+<h2>Sprawdzenie</h2>
+<p>Sprawdź odsłuch z innego edytora, P i następny element, Alt+I, otwieranie i zamykanie list, pierwszą pozycję, Tab i Escape. Przed ważnym nagraniem wykonaj krótką próbę Shift+R i Shift+T. Sprawdź mowę i brajl oraz opóźnione odpowiedzi urządzenia. Pełna instrukcja jest w INSTRUKCJA_NVDA_PL.md w folderze projektu. Testy automatyczne nie zastępują ręcznej próby NVDA.</p>
 </body></html>

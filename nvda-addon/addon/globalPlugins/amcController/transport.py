@@ -8,6 +8,79 @@ import time
 COMMANDS = frozenset((
     "status", "playPause", "previous", "next", "volumeUp", "volumeDown", "mute",
     "seekBack", "seekForward", "elapsed", "remaining", "total", "sessionPrevious", "sessionNext",
+    "context",
+    "preset1",
+    "preset2",
+    "preset3",
+    "preset4",
+    "preset5",
+    "preset6",
+    "preset7",
+    "preset8",
+    "preset9",
+    "preset10",
+    "preset11",
+    "preset12",
+    "muteAll",
+    "seekBack30",
+    "seekForward30",
+    "seekBack60",
+    "seekForward60",
+    "rateDown",
+    "rateUp",
+    "rateReset",
+    "trackStart",
+    "trackEnd",
+    "addBookmark",
+    "previousBookmark",
+    "nextBookmark",
+    "previousChapter",
+    "nextChapter",
+    "presetPrevious",
+    "presetNext",
+    "favorite",
+    "queue",
+    "recordToggle",
+    "recordPause",
+    "recordSplit",
+    "showPlayer",
+    "showLibrary",
+    "showFavorites",
+    "showQueue",
+    "showPlaylists",
+    "showHistory",
+    "showPresets",
+    "showBookmarks",
+    "showChapters",
+    "showSessions",
+    "showAudioOutput",
+    "showSearch",
+    "showCommands",
+    "showRecordings",
+    "showSchedules",
+    "showRecognitions",
+))
+
+# Explicit view commands and container presets may grant foreground access.
+# Playable presets stay in the background; AMC decides from the saved target.
+PRESET_COMMANDS = frozenset(f"preset{slot}" for slot in range(1, 13))
+FOREGROUND_COMMANDS = PRESET_COMMANDS | frozenset((
+    "showPlayer",
+    "showLibrary",
+    "showFavorites",
+    "showQueue",
+    "showPlaylists",
+    "showHistory",
+    "showPresets",
+    "showBookmarks",
+    "showChapters",
+    "showSessions",
+    "showAudioOutput",
+    "showSearch",
+    "showCommands",
+    "showRecordings",
+    "showSchedules",
+    "showRecognitions",
 ))
 
 
@@ -65,7 +138,7 @@ def exchange(command, pipe_name=None):
             break
         # Retry only opening the pipe, before sending any command bytes.
         if ctypes.get_last_error() not in (2, 231) or time.monotonic() >= connect_deadline:
-            raise BridgeError("Brak połączenia z AMC. Uruchom wersję alpha 339 lub nowszą; jeśli działa, spróbuj za chwilę.")
+            raise BridgeError("Brak połączenia z AMC. Uruchom wersję alpha 342 lub nowszą; jeśli działa, spróbuj za chwilę.")
         time.sleep(.015)
     deadline = time.monotonic() + 2.5
 
@@ -93,6 +166,8 @@ def exchange(command, pipe_name=None):
             k.CloseHandle(event)
 
     try:
+        if command in FOREGROUND_COMMANDS:
+            allow_foreground(k, handle)
         data = (json.dumps({"version": 1, "command": command}) + "\n").encode("utf-8")
         out = ctypes.create_string_buffer(data)
         if transfer("WriteFile", out, len(data)) != len(data):
@@ -109,3 +184,18 @@ def exchange(command, pipe_name=None):
         raise BridgeError("Niepełna odpowiedź AMC. Sprawdź stan odtwarzania.")
     finally:
         k.CloseHandle(handle)
+
+
+def allow_foreground(kernel, handle):
+    """Grant only the connected server, never ASFW_ANY; failure is non-fatal."""
+    try:
+        kernel.GetNamedPipeServerProcessId.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        kernel.GetNamedPipeServerProcessId.restype = wintypes.BOOL
+        server_pid = wintypes.DWORD()
+        if kernel.GetNamedPipeServerProcessId(handle, ctypes.byref(server_pid)) and server_pid.value:
+            user = ctypes.WinDLL("user32", use_last_error=True)
+            user.AllowSetForegroundWindow.argtypes = [wintypes.DWORD]
+            user.AllowSetForegroundWindow.restype = wintypes.BOOL
+            user.AllowSetForegroundWindow(server_pid.value)
+    except (AttributeError, OSError):
+        pass

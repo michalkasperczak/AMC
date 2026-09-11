@@ -78,6 +78,7 @@ public partial class RadioPresetAssignmentWindow : AccessibleWindow
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (!PresetList.IsKeyboardFocusWithin) return;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (Keyboard.Modifiers == ModifierKeys.None && RadioPresetKeyMap.TryGetSlot(key, out var slot))
         {

@@ -11,6 +11,11 @@
 - Publikacja źródeł, publikacja ZIP w Releases i uruchomienie programu są
   osobnymi czynnościami. Raportuj ich rzeczywiste wyniki, także blokady.
   Nie zamykaj programu w trakcie nagrywania.
+- Użytkownik 11 września 2026 r. zezwolił na przyszłe instalowanie aktualizacji
+  dodatku AMC do NVDA oraz uruchamianie/restartowanie NVDA i AMC, z uprzednim
+  zamknięciem poprzednich instancji. Przed takim działaniem sprawdź, czy AMC
+  nie nagrywa (także w tle lub z harmonogramu). Gdy nie da się tego potwierdzić,
+  nie zamykaj programów i zapytaj. Sama publikacja nie wymaga restartu.
 - Po publikacji wydania usuń jego lokalny ZIP z `publish` dopiero po
   zweryfikowaniu, że odpowiadający mu załącznik GitHub Releases został
   skutecznie wysłany i jest dostępny (nazwa, rozmiar i, gdy dostępny, SHA-256).
