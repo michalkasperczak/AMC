@@ -206,6 +206,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const int WmKeyUp = 0x0101;
     private const int WmSysKeyDown = 0x0104;
     private const int WmSysKeyUp = 0x0105;
+    private const int WmSysCommand = 0x0112;
+    private const int ScKeyMenu = 0xF100;
     private const int VirtualKeyControl = 0x11;
     private const int VirtualKeyShift = 0x10;
     private const int VirtualKeyAlt = 0x12;
@@ -17889,6 +17891,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IntPtr lParam,
         ref bool handled)
     {
+        // 2026-09-11: skróty dodatku NVDA zawierają Alt (Ctrl+Windows+Alt+cyfra dla
+        // presetów). Gdy NVDA przepuści taki skrót do okna AMC, Windows widzi samotne
+        // puszczenie Alta i otwiera menu okna — to samo, co Alt+Spacja. Objawiało się
+        // losowo, bo zależy od tego, czy dodatek zdąży przechwycić klawisz.
+        // Menu okna z klawiatury blokujemy tylko wtedy, gdy użytkownik trzyma Ctrl
+        // albo Windows — samotny Alt i Alt+Spacja nadal działają normalnie.
+        if (message == WmSysCommand
+            && (wParam.ToInt32() & 0xFFF0) == ScKeyMenu
+            && (IsNativeKeyDown(VirtualKeyControl)
+                || IsNativeKeyDown(VirtualKeyLeftWindows)
+                || IsNativeKeyDown(VirtualKeyRightWindows)))
+        {
+            handled = true;
+            return IntPtr.Zero;
+        }
+
         if (message is not (WmKeyDown or WmKeyUp or WmSysKeyDown or WmSysKeyUp))
         {
             return IntPtr.Zero;

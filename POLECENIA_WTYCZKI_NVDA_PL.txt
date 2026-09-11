@@ -1,0 +1,181 @@
+POLECENIA WTYCZKI NVDA DLA AMC
+
+Wersja spisu: 11 wrzesnia 2026. Wtyczka: nvda-addon/addon/globalPlugins/amcController.
+Wszystkie skroty dzialaja globalnie, z dowolnego programu - NVDA przechwytuje je i przekazuje do AMC.
+Lacznie 65 polecen. Wszystkie sa obslugiwane przez AMC (sprawdzone w kodzie 11.09.2026).
+
+
+ODTWARZANIE I PRZEWIJANIE
+
+Ctrl+Windows+P
+   Odtwórz lub wstrzymaj bieżące nagranie
+Ctrl+Windows+strzalka w lewo
+   Odtwórz poprzedni element w kontekście odtwarzania
+Ctrl+Windows+strzalka w prawo
+   Odtwórz następny element w kontekście odtwarzania
+Ctrl+Windows+J
+   Cofnij odtwarzanie o 10 sekund
+Ctrl+Windows+K
+   Przewiń odtwarzanie do przodu o 10 sekund
+Ctrl+Windows+Shift+J
+   Cofnij odtwarzanie o 30 sekund
+Ctrl+Windows+Shift+K
+   Przewiń odtwarzanie o 30 sekund
+Ctrl+Windows+Alt+J
+   Cofnij odtwarzanie o minutę
+Ctrl+Windows+Alt+K
+   Przewiń odtwarzanie o minutę
+Ctrl+Windows+Home
+   Przejdź do początku nagrania lub bufora radia
+Ctrl+Windows+End
+   Przejdź do końca nagrania lub radia na żywo
+Ctrl+Windows+kropka
+   Zwiększ prędkość odtwarzania bez zmiany wysokości dźwięku
+Ctrl+Windows+przecinek
+   Zmniejsz prędkość odtwarzania bez zmiany wysokości dźwięku
+Ctrl+Windows+Shift+kropka
+   Przywróć normalną prędkość odtwarzania
+
+GLOSNOSC
+
+Ctrl+Windows+strzalka w gore
+   Zwiększ głośność bieżącej sesji o 5 procent
+Ctrl+Windows+strzalka w dol
+   Zmniejsz głośność bieżącej sesji o 5 procent
+Ctrl+Windows+M
+   Wycisz lub przywróć dźwięk bieżącej sesji
+Ctrl+Windows+Shift+M
+   Wycisz lub przywróć dźwięk wszystkich sesji AMC
+
+ODCZYT CZASU I STANU
+
+Ctrl+Windows+I
+   Odczytaj bieżące nagranie, sesję i stan odtwarzania
+Ctrl+Windows+E
+   Odczytaj czas od początku
+Ctrl+Windows+R
+   Odczytaj czas pozostały
+Ctrl+Windows+T
+   Odczytaj całkowity czas nagrania
+Ctrl+Windows+Alt+I
+   Odczytaj listę używaną przez następny i poprzedni element
+
+SESJE
+
+Ctrl+Windows+Shift+Tab
+   Przełącz AMC na poprzednią sesję
+Ctrl+Windows+Tab
+   Przełącz AMC na następną sesję
+Ctrl+Windows+Shift+S
+   Otwórz wybór sesji w oknie AMC
+
+PRESETY
+
+Ctrl+Windows+Alt+PageUp
+   Odtwórz poprzedni preset; w WiiM preset lub zapisany strumień
+Ctrl+Windows+Alt+PageDown
+   Odtwórz następny preset; w WiiM preset lub zapisany strumień
+Ctrl+Windows+Alt+P
+   Otwórz presety bieżącej sesji w oknie AMC
+Ctrl+Windows+Alt+1
+   Uruchom preset 1 bieżącej sesji; nie zmienia przypisania
+Ctrl+Windows+Alt+2
+   Uruchom preset 2 bieżącej sesji; nie zmienia przypisania
+Ctrl+Windows+Alt+3
+   Uruchom preset 3 bieżącej sesji; nie zmienia przypisania
+Ctrl+Windows+Alt+4
+   Uruchom preset 4 bieżącej sesji; nie zmienia przypisania
+Ctrl+Windows+Alt+5
+   Uruchom preset 5 bieżącej sesji; nie zmienia przypisania
+Ctrl+Windows+Alt+6
+   Uruchom preset 6 bieżącej sesji; nie zmienia przypisania
+Ctrl+Windows+Alt+7
+   Uruchom preset 7 bieżącej sesji; nie zmienia przypisania
+Ctrl+Windows+Alt+8
+   Uruchom preset 8 bieżącej sesji; nie zmienia przypisania
+Ctrl+Windows+Alt+9
+   Uruchom preset 9 bieżącej sesji; nie zmienia przypisania
+Ctrl+Windows+Alt+0
+   Uruchom preset 10 bieżącej sesji; nie zmienia przypisania
+Ctrl+Windows+Alt+minus
+   Uruchom preset 11 bieżącej sesji; nie zmienia przypisania
+Ctrl+Windows+Alt+znak rownosci
+   Uruchom preset 12 bieżącej sesji; nie zmienia przypisania
+
+ZAKLADKI I ROZDZIALY
+
+Ctrl+Windows+B
+   Dodaj zakładkę w bieżącym nagraniu
+Ctrl+Windows+Shift+PageUp
+   Przejdź do poprzedniej zakładki bieżącego nagrania
+Ctrl+Windows+Shift+PageDown
+   Przejdź do następnej zakładki bieżącego nagrania
+Ctrl+Windows+Alt+Shift+PageUp
+   Przejdź do poprzedniego rozdziału bieżącego nagrania
+Ctrl+Windows+Alt+Shift+PageDown
+   Przejdź do następnego rozdziału bieżącego nagrania
+Ctrl+Windows+Alt+B
+   Otwórz listę zakładek w oknie AMC
+Ctrl+Windows+Alt+C
+   Otwórz listę rozdziałów w oknie AMC
+
+ULUBIONE I KOLEJKA
+
+Ctrl+Windows+Shift+U
+   Dodaj lub usuń bieżące nagranie z ulubionych
+Ctrl+Windows+Shift+Q
+   Dodaj lub usuń bieżące nagranie z kolejki
+Ctrl+Windows+U
+   Otwórz ulubione bieżącej sesji w oknie AMC
+Ctrl+Windows+Alt+Q
+   Otwórz kolejkę bieżącej sesji w oknie AMC
+
+NAGRYWANIE RADIA
+
+Ctrl+Windows+Alt+R
+   Rozpocznij lub zakończ nagrywanie bieżącej stacji
+Ctrl+Windows+Shift+R
+   Wstrzymaj lub wznów nagrywanie bieżącej stacji bez zmiany odsłuchu
+Ctrl+Windows+Shift+T
+   Kontynuuj nagrywanie bieżącej stacji w nowym pliku
+Ctrl+Windows+Alt+H
+   Otwórz listę nagrywanych stacji w oknie AMC
+Ctrl+Windows+Shift+H
+   Otwórz harmonogramy nagrywania w oknie AMC
+Ctrl+Windows+Alt+S
+   Otwórz listę rozpoznanych utworów w oknie AMC
+
+WIDOKI I OKNA
+
+Ctrl+Windows+f6
+   Otwórz okno AMC z bieżącym odtwarzaczem
+Ctrl+Windows+L
+   Otwórz bibliotekę bieżącej sesji w oknie AMC
+Ctrl+Windows+Shift+P
+   Otwórz playlisty bieżącej sesji w oknie AMC
+Ctrl+Windows+H
+   Otwórz historię odtwarzania bieżącej sesji w oknie AMC
+Ctrl+Windows+A
+   Otwórz wybór urządzenia audio bieżącej sesji w oknie AMC
+Ctrl+Windows+Alt+F
+   Otwórz wyszukiwanie bieżącej sesji w oknie AMC
+Ctrl+Windows+f2
+   Otwórz paletę poleceń w oknie AMC
+
+UWAGA O POLSKICH LITERACH
+
+Prawy Alt (AltGr) to w Windows to samo co Ctrl+Alt. Ponizsze skroty uzywaja Ctrl+Windows+Alt+litera,
+wiec w praktyce sa to Windows+AltGr+litera. Dwie z tych liter to polskie znaki: C (jak c z kreska) i S (jak s z kreska).
+Nie zmierzono jeszcze, czy przeszkadzaja w pisaniu - NVDA przechwytuje klawisze inaczej niz AMC.
+
+Ctrl+Windows+Alt+I - Odczytaj listę używaną przez następny i poprzedni element
+Ctrl+Windows+Alt+J - Cofnij odtwarzanie o minutę
+Ctrl+Windows+Alt+K - Przewiń odtwarzanie o minutę
+Ctrl+Windows+Alt+R - Rozpocznij lub zakończ nagrywanie bieżącej stacji
+Ctrl+Windows+Alt+Q - Otwórz kolejkę bieżącej sesji w oknie AMC
+Ctrl+Windows+Alt+P - Otwórz presety bieżącej sesji w oknie AMC
+Ctrl+Windows+Alt+B - Otwórz listę zakładek w oknie AMC
+Ctrl+Windows+Alt+C - Otwórz listę rozdziałów w oknie AMC
+Ctrl+Windows+Alt+F - Otwórz wyszukiwanie bieżącej sesji w oknie AMC
+Ctrl+Windows+Alt+H - Otwórz listę nagrywanych stacji w oknie AMC
+Ctrl+Windows+Alt+S - Otwórz listę rozpoznanych utworów w oknie AMC
