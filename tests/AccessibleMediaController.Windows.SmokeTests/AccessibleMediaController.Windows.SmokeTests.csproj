@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <!-- 2026-09-11: musi byc ta sama wersja SDK co w projekcie glownym,
+         ktory uzywa Windows.Media.Control do sterowania TIDALem. -->
     <TargetFramework>net8.0-windows</TargetFramework>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <RootNamespace>AccessibleMediaController.Windows.SmokeTests</RootNamespace>

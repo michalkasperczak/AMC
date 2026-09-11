@@ -119,6 +119,8 @@ try
     TestPodcastEpisodeFileActionKeyboardMap();
     TestAudioOutputPauseRaceGuard();
     TestPodcastNetworkSourcePolicy();
+    TestYouTubeChannelFeedAddresses();
+    TestYouTubeChannelFeedParsing();
     TestPodcastFeedClient();
     TestPodcastChapterClient();
     TestPodcastEpisodeDownloader();
@@ -5199,6 +5201,72 @@ static uint CalculateOggChecksum(ReadOnlySpan<byte> page)
         }
     }
     return checksum;
+}
+
+static void TestYouTubeChannelFeedAddresses()
+{
+    var channelFeed = YouTubeChannelFeedClient.TryBuildFeedAddress("UCrJAuStJc0Hs4PqBir-baOw", true);
+    Assert(channelFeed?.AbsoluteUri
+           == "https://www.youtube.com/feeds/videos.xml?channel_id=UCrJAuStJc0Hs4PqBir-baOw",
+        "Adres kanałowego źródła dat YouTube jest nieprawidłowy.");
+    var playlistFeed = YouTubeChannelFeedClient.TryBuildFeedAddress("PL1234567890", false);
+    Assert(playlistFeed?.AbsoluteUri
+           == "https://www.youtube.com/feeds/videos.xml?playlist_id=PL1234567890",
+        "Adres playlistowego źródła dat YouTube jest nieprawidłowy.");
+    Assert(YouTubeChannelFeedClient.TryBuildFeedAddress(string.Empty, true) is null
+           && YouTubeChannelFeedClient.TryBuildFeedAddress("a", true) is null
+           && YouTubeChannelFeedClient.TryBuildFeedAddress("UC/../etc", true) is null
+           && YouTubeChannelFeedClient.TryBuildFeedAddress("UC?x=1", true) is null
+           && YouTubeChannelFeedClient.TryBuildFeedAddress(new string('U', 200), true) is null,
+        "Niebezpieczny albo pusty identyfikator kolekcji nie został odrzucony.");
+    Console.WriteLine("OK: adresy kanałowego źródła dat YouTube są budowane bezpiecznie");
+}
+
+static void TestYouTubeChannelFeedParsing()
+{
+    const string feed = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+              xmlns="http://www.w3.org/2005/Atom">
+          <title>72.dominikanie</title>
+          <entry>
+            <yt:videoId>sffEm2k2hK0</yt:videoId>
+            <title>Skąd wiem, co dobre, a co złe?</title>
+            <published>2026-09-10T13:00:26+00:00</published>
+          </entry>
+          <entry>
+            <yt:videoId>Z_M-GBTKuzw</yt:videoId>
+            <title>Zrezygnuj z siebie</title>
+            <published>2026-09-04T09:15:00+02:00</published>
+          </entry>
+          <entry>
+            <yt:videoId>bez-daty-01</yt:videoId>
+            <title>Materiał bez daty</title>
+            <published>to nie jest data</published>
+          </entry>
+          <entry>
+            <yt:videoId>zly/znak</yt:videoId>
+            <title>Odrzucony identyfikator</title>
+            <published>2026-09-01T00:00:00+00:00</published>
+          </entry>
+        </feed>
+        """;
+    var entries = YouTubeChannelFeedClient.ParseEntries(feed);
+    Assert(entries.Count == 3,
+        "Kanałowe źródło dat YouTube nie odrzuciło materiału o niebezpiecznym identyfikatorze.");
+    Assert(entries["sffEm2k2hK0"].Published == new DateTimeOffset(2026, 9, 10, 13, 0, 26, TimeSpan.Zero)
+           && entries["sffEm2k2hK0"].Title == "Skąd wiem, co dobre, a co złe?",
+        "Dokładna data publikacji albo tytuł nie zostały odczytane z kanałowego źródła.");
+    Assert(entries["Z_M-GBTKuzw"].Published == new DateTimeOffset(2026, 9, 4, 7, 15, 0, TimeSpan.Zero),
+        "Data publikacji z przesunięciem strefy nie została przeliczona na czas powszechny.");
+    Assert(entries["bez-daty-01"].Published is null
+           && entries["bez-daty-01"].Title == "Materiał bez daty",
+        "Nieprawidłowa data nie została pominięta z zachowaniem tytułu.");
+    Assert(YouTubeChannelFeedClient.ParseEntries("to nie jest XML").Count == 0
+           && YouTubeChannelFeedClient.ParseEntries(
+                  "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body/></html>").Count == 0,
+        "Uszkodzona odpowiedź kanałowego źródła dat nie została odrzucona bez wyjątku.");
+    Console.WriteLine("OK: kanałowe źródło dat YouTube podaje dokładne daty i oryginalne tytuły");
 }
 
 static void TestPodcastFeedClient()

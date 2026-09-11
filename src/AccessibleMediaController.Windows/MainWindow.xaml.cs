@@ -452,7 +452,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         get
         {
-            if (_playerViewActive) return _sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null;
+            if (_playerViewActive || _nvdaCurrentItemTarget) return _sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null;
             if (IsTidalArtistOverview) return null;
             var row = MediaList.SelectedItem as MediaItemRow;
             if (row?.PlaylistId is not null || row?.LoadMorePodcastViewName is not null
@@ -460,7 +460,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return row?.ActionItem ?? (_sessions.Current.HasCurrentItem ? _sessions.Current.CurrentItem : null);
         }
     }
-    private DemoMediaSession ActionSession => !_playerViewActive && SelectedBookmark is { } bookmark
+    private DemoMediaSession ActionSession => !_playerViewActive && !_nvdaCurrentItemTarget && SelectedBookmark is { } bookmark
         ? _sessions.FindSession(bookmark.SessionId) ?? _sessions.Current
         : _sessions.Current;
     public IReadOnlyList<MediaItem> ActionItems
@@ -468,7 +468,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         get
         {
             if (_actionItemsOverride is not null) return _actionItemsOverride;
-            if (_playerViewActive)
+            if (_playerViewActive || _nvdaCurrentItemTarget)
                 return _sessions.Current.HasCurrentItem ? [_sessions.Current.CurrentItem] : [];
             var selected = MediaList.SelectedItems
                 .OfType<MediaItemRow>()
@@ -848,7 +848,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void AddBookmark()
     {
-        if (!_playerViewActive)
+        if (!_playerViewActive && !NvdaBackgroundScope.IsActive)
         {
             Announce("Zakładkę można dodać w otwartym odtwarzaczu");
             return;
@@ -1298,7 +1298,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private async Task NavigateChapterAsync(int direction)
     {
-        if (!_playerViewActive || !_sessions.Current.HasCurrentItem)
+        if ((!_playerViewActive && !NvdaBackgroundScope.IsActive) || !_sessions.Current.HasCurrentItem)
         {
             Announce("Nawigacja po rozdziałach działa w otwartym odtwarzaczu");
             return;
@@ -1349,7 +1349,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 _chapterNavigationLoading = false;
             }
 
-            if (!_playerViewActive
+            if ((!_playerViewActive && !NvdaBackgroundScope.IsActive)
                 || !ReferenceEquals(session, _sessions.Current)
                 || !session.HasCurrentItem
                 || !string.Equals(session.CurrentItem.Id, item.Id, StringComparison.Ordinal))
@@ -2008,7 +2008,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void NavigateBookmark(int direction)
     {
-        if (!_playerViewActive)
+        if ((!_playerViewActive && !NvdaBackgroundScope.IsActive) || !_sessions.Current.HasCurrentItem)
         {
             Announce("Nawigacja po zakładkach działa w otwartym odtwarzaczu");
             return;
@@ -2059,6 +2059,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ShowPlayerView()
     {
+        if (NvdaBackgroundScope.IsActive) return;
         if (!_sessions.Current.HasCurrentItem)
         {
             AnnounceEssential($"Brak elementów w sesji {_sessions.Current.DisplayName}");
@@ -2174,7 +2175,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void FocusPlayerView()
     {
-        if (_nvdaRemoteCommandActive && !IsActive) return;
+        if (NvdaBackgroundScope.IsActive || _nvdaRemoteCommandActive && !IsActive) return;
         UpdatePlayerView(true);
         PlayerPlayPauseButton.Focus();
         Keyboard.Focus(PlayerPlayPauseButton);
@@ -9891,7 +9892,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private CommandExecutionResult ExecuteCommand(string commandId)
     {
-        if (TryHandleArtistSectionCommand(commandId)) return new CommandExecutionResult(true);
+        if (!_nvdaCurrentItemTarget && TryHandleArtistSectionCommand(commandId)) return new CommandExecutionResult(true);
         var alignChapterPlanAfterCommand = IsChapterPlanPreservingSeekCommand(commandId)
             && _chapterPlaybackPlan is not null
             && _sessions.Current.HasCurrentItem;
@@ -10673,7 +10674,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 }
                 _deferredAnnouncement = null;
             }
-            if (sessionChanged && (!_nvdaRemoteCommandActive || IsActive))
+            if (sessionChanged && !NvdaBackgroundScope.IsActive && (!_nvdaRemoteCommandActive || IsActive))
             {
                 if (_playerViewActive) Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.Loaded);
                 else RestoreMediaListFocusAfterRefresh();
@@ -10835,7 +10836,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private bool TryResolveSelectedFolderContents(out FolderContentsActionContext context)
     {
         context = default!;
-        if (_playerViewActive
+        if (_playerViewActive || _nvdaCurrentItemTarget
             || !string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
         {
             return false;
@@ -12108,7 +12109,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void FocusMediaList()
     {
-        if (_nvdaRemoteCommandActive && !IsActive) return;
+        if (NvdaBackgroundScope.IsActive || _nvdaRemoteCommandActive && !IsActive) return;
         if (_playerViewActive)
         {
             FocusPlayerView();
@@ -12242,7 +12243,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void AnchorMediaListFocus()
     {
-        if (_nvdaRemoteCommandActive && !IsActive) return;
+        if (NvdaBackgroundScope.IsActive || _nvdaRemoteCommandActive && !IsActive) return;
         if (_playerViewActive)
         {
             FocusPlayerView();
@@ -12256,7 +12257,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void RestoreMediaListFocusAfterRefresh()
     {
-        if (_nvdaRemoteCommandActive && !IsActive) return;
+        if (NvdaBackgroundScope.IsActive || _nvdaRemoteCommandActive && !IsActive) return;
         FocusMediaList();
         Dispatcher.BeginInvoke(FocusMediaList, DispatcherPriority.Loaded);
     }
@@ -16741,7 +16742,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string commandId,
         int? requestedVolume = null)
     {
-        if (!_playerViewActive)
+        var backgroundControl = NvdaBackgroundScope.IsActive;
+        if (!_playerViewActive && !backgroundControl)
         {
             Announce("Sterowanie WiiM jest dostępne w odtwarzaczu. Naciśnij Enter na urządzeniu");
             return;
@@ -16889,7 +16891,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 AnnounceWiiMCommandResult(commandId, refreshed, requestedPosition);
             }
-            _ = Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.ContextIdle);
+            if (!backgroundControl) _ = Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.ContextIdle);
         }
         catch (OperationCanceledException) when (_wiiMCancellation.IsCancellationRequested)
         {
@@ -16898,7 +16900,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             DiagnosticLog.Warning("wiim-control", $"Polecenie dla {device.Address} nie powiodło się: {exception.GetType().Name}.");
             Announce($"Nie udało się sterować urządzeniem {device.DisplayName}");
-            _ = Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.ContextIdle);
+            if (!backgroundControl) _ = Dispatcher.BeginInvoke(FocusPlayerView, DispatcherPriority.ContextIdle);
         }
         finally
         {
@@ -17273,7 +17275,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private async Task NavigateWiiMNativePresetAsync(int direction)
     {
-        if (!_playerViewActive
+        if ((!_playerViewActive && !NvdaBackgroundScope.IsActive)
             || !string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal)
             || ResolveWiiMPlaybackTarget() is not { } device)
         {
@@ -17726,6 +17728,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void RestoreWiiMFocus()
     {
+        if (NvdaBackgroundScope.IsActive) return;
         Activate();
         if (_playerViewActive) FocusPlayerView();
         else RestoreMediaListFocusAfterRefresh();

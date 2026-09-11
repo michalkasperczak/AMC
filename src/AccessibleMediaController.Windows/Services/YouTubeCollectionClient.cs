@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using AccessibleMediaController.Core.Configuration;
@@ -21,6 +22,21 @@ internal sealed class YouTubeCollectionClient
 {
     internal const int MaximumItems = 100;
     private const int MaximumJsonCharacters = 16 * 1024 * 1024;
+
+    private static readonly HttpClient FeedHttpClient = new()
+    {
+        Timeout = TimeSpan.FromSeconds(20)
+    };
+
+    private readonly YouTubeChannelFeedClient channelFeed;
+
+    internal YouTubeCollectionClient()
+        : this(new YouTubeChannelFeedClient(static () => FeedHttpClient))
+    {
+    }
+
+    internal YouTubeCollectionClient(YouTubeChannelFeedClient channelFeed) =>
+        this.channelFeed = channelFeed ?? throw new ArgumentNullException(nameof(channelFeed));
 
     internal async Task<YouTubeCollectionDocument> FetchAsync(
         Uri address,
@@ -55,8 +71,12 @@ internal sealed class YouTubeCollectionClient
             "--socket-timeout", "15",
             "--extractor-retries", "2",
             "--playlist-end", MaximumItems.ToString(CultureInfo.InvariantCulture),
-            "--extractor-args", "youtube:lang=pl",
-            "--extractor-args", "youtubetab:approximate_date",
+            // 2026-09-11: ZMIERZONE. Dwa osobne "--extractor-args" NIE dzialaja
+            // razem - kolejne uniewaznia poprzednie, wiec "youtube:lang=pl"
+            // zabijalo "youtubetab:approximate_date" i KAZDY material YouTube
+            // trafial do bazy bez daty publikacji (4645 z 4645 odcinkow).
+            // Oba ustawienia musza byc w JEDNYM argumencie, po sredniku.
+            "--extractor-args", "youtubetab:approximate_date;lang=pl",
             "--dump-single-json",
             "--",
             normalizedAddress.AbsoluteUri
@@ -95,7 +115,9 @@ internal sealed class YouTubeCollectionClient
                 throw new InvalidDataException("YouTube nie udostępnił obecnie tej publicznej kolekcji.");
             if (output.Length == 0 || output.Length > MaximumJsonCharacters)
                 throw new InvalidDataException("YouTube zwrócił nieprawidłowe dane kolekcji.");
-            return ParseResult(normalizedAddress, sourceKind, output);
+            var document = ParseResult(normalizedAddress, sourceKind, output);
+            return await CompleteFromChannelFeedAsync(document, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -250,6 +272,54 @@ internal sealed class YouTubeCollectionClient
         {
             throw new InvalidDataException("YouTube zwrócił nieprawidłowe dane kolekcji.", exception);
         }
+    }
+
+    /// <summary>
+    /// Replaces the approximate publication date and the possibly translated
+    /// title with the exact values published in the channel feed. Materials
+    /// missing from the feed, and every feed failure, leave the yt-dlp data
+    /// untouched.
+    /// </summary>
+    private async Task<YouTubeCollectionDocument> CompleteFromChannelFeedAsync(
+        YouTubeCollectionDocument document,
+        CancellationToken cancellationToken)
+    {
+        var separator = document.Feed.Id.IndexOf(':');
+        if (separator < 0 || separator + 1 >= document.Feed.Id.Length) return document;
+        var sourceIdentifier = document.Feed.Id[(separator + 1)..];
+        var feedAddress = YouTubeChannelFeedClient.TryBuildFeedAddress(
+            sourceIdentifier,
+            document.SourceKind == PodcastSourceKind.YouTubeChannel);
+        if (feedAddress is null) return document;
+
+        var feedEntries = await channelFeed
+            .FetchEntriesAsync(feedAddress, cancellationToken)
+            .ConfigureAwait(false);
+        if (feedEntries.Count == 0) return document;
+
+        var completed = new List<PodcastFeedEpisode>(document.Feed.Episodes.Count);
+        foreach (var episode in document.Feed.Episodes)
+        {
+            if (!feedEntries.TryGetValue(episode.SourceIdentifier, out var entry))
+            {
+                completed.Add(episode);
+                continue;
+            }
+
+            var title = entry.Title.Length > 0
+                ? CleanText(entry.Title, 500)
+                : episode.Title;
+            if (title.Length == 0) title = episode.Title;
+            completed.Add(episode with
+            {
+                Title = title,
+                Published = entry.Published ?? episode.Published
+            });
+        }
+
+        return new YouTubeCollectionDocument(
+            document.Feed with { Episodes = completed },
+            document.SourceKind);
     }
 
     private static DateTimeOffset? ReadPublished(JsonElement entry)

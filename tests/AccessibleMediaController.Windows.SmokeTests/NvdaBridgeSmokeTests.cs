@@ -205,8 +205,12 @@ internal static class NvdaBridgeSmokeTests
         session.Play(a);
         session.TogglePlayback();
         Check(!session.IsPlaying, "Paused before relative navigation");
-        Check(session.PlayRelative(1) && session.IsPlaying && session.CurrentItem == b,
-            "Next from pause starts next favorite, not the adjacent catalog station");
+        // 2026-09-12: pauza przetrwa przeskok elementu (poprawka 1 z wersji 345,
+        // zgloszona przez uzytkownika). Przejscie na nastepny ulubiony ustawia go
+        // jako biezacy, ale NIE wznawia grania. Test wczesniej wymagal IsPlaying,
+        // czyli zachowania, ktore uzytkownik kazal zmienic.
+        Check(session.PlayRelative(1) && !session.IsPlaying && session.CurrentItem == b,
+            "Next from pause selects next favorite without leaving pause");
         Check(NvdaPlaybackContext.Describe(session, "Ulubione") == "Ulubione, Radio, 2 z 2.",
             "Playback context has an intentional label and position");
         Check(!session.PlayRelative(1) && session.CurrentItem == b, "End does not leak into the catalog");

@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <!-- 2026-09-11: wersja SDK w TFM daje dostep do Windows.Media.Control
+         (systemowe sterowanie mediami), potrzebnego do sterowania oryginalna
+         aplikacja TIDAL. 10.0.19041 to Windows 10 2004 - minimum dla SMTC. -->
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>

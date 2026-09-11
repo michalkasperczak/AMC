@@ -350,6 +350,15 @@ public sealed class TidalSettings
     // removed on another device: the picker simply falls back to its first row.
     public string? LastPlaylistExternalId { get; set; }
     public int Volume { get; set; } = 35;
+    // 2026-09-11: odtwarzanie przez zainstalowaną aplikację TIDAL zamiast
+    // wbudowanego odtwarzacza. ZMIERZONE i WYŁĄCZONE domyślnie: adres
+    // tidal://track/<id> NIE wybiera wskazanego utworu — aplikacja wznawia to,
+    // co miała zapamiętane, albo otwiera inny utwór tego wykonawcy. Żaden
+    // wariant adresu (tracks/, play/track/, listen.tidal.com) nie działa.
+    // Dopóki nie znajdziemy sposobu wskazania utworu, włączenie tego dawałoby
+    // pełne odtwarzanie NIE TEGO utworu, który wybrał użytkownik — a to gorsze
+    // niż trzydziestosekundowa próbka wbudowanego odtwarzacza.
+    public bool UseDesktopApp { get; set; }
     public long LastSuccessfulSyncUtcTicks { get; set; }
     // Last complete or safely merged collection snapshot. It deliberately
     // contains no access or refresh token; those remain in Windows Credential
