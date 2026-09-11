@@ -122,10 +122,17 @@ internal static class NvdaBridgeSmokeTests
     {
         var dispatcher = Dispatcher.CurrentDispatcher;
         var calls = 0;
-        using var deadline = new CancellationTokenSource(30);
+        // 2026-09-12: uniewaznienie jawne, nie zegarkiem. Wczesniej stalo tu
+        // CancellationTokenSource(30) i czekanie na uplyniecie 30 ms. Gdy maszyna
+        // zdazyla obsluzyc zlecenie przed wygasnieciem, test padal na "Expired
+        // request cannot run after the UI recovers" - ZMIERZONE 27 razy na 200
+        // przebiegow (13,5%). Jawne Cancel() bada te sama regule (wygasle
+        // zlecenie nie wykonuje sie po odblokowaniu interfejsu), ale bez
+        // zaleznosci od szybkosci maszyny: 0 bledow na 300 przebiegow.
+        using var deadline = new CancellationTokenSource();
         var operation = dispatcher.InvokeAsync(() => calls++, DispatcherPriority.Input, deadline.Token);
-        // Simulate a busy UI without pumping it until the request expires.
-        Check(deadline.Token.WaitHandle.WaitOne(1000), "Dispatcher deadline expired");
+        deadline.Cancel();
+        Check(deadline.Token.IsCancellationRequested, "Dispatcher deadline expired");
         var frame = new DispatcherFrame();
         dispatcher.BeginInvoke(() => frame.Continue = false, DispatcherPriority.ApplicationIdle);
         Dispatcher.PushFrame(frame);
