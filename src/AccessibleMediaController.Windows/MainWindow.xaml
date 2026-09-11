@@ -112,6 +112,10 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+S"
                           Visibility="Collapsed" Click="SavePodcastEpisodeAs_Click" />
                 <Separator x:Name="FileActionsSeparator" />
+                <MenuItem Header="Otwórz s_trumień…"
+                          automation:AutomationProperties.Name="Otwórz strumień z adresu"
+                          Click="OpenStream_Click" />
+                <Separator />
                 <MenuItem Header="_Ustawienia…" InputGestureText="Ctrl+," Click="Settings_Click" />
                 <Separator />
                 <MenuItem Header="_Zakończ" InputGestureText="Alt+F4" Click="Exit_Click" />
@@ -473,9 +477,6 @@
                 <Button x:Name="BrowserPlaybackButton" MinWidth="175" Margin="0,0,8,0" Content="Odtwórz lub _wstrzymaj" Click="ToggleSelectedPlayback_Click" />
                 <Button x:Name="BrowserFavoriteButton" MinWidth="175" Margin="0,0,8,0" Content="Zmień stan _ulubionych" Click="Favorite_Click" />
                 <Button x:Name="BrowserPlaylistsButton" MinWidth="145" Margin="0,0,8,0" Content="Zmień _playlisty…" Click="Playlists_Click" />
-                <Button x:Name="BrowserCreatePlaylistButton" MinWidth="175" Margin="0,0,8,0"
-                        Content="Utwórz _nową playlistę…" Click="NewPlaylist_Click" Visibility="Collapsed"
-                        automation:AutomationProperties.Name="Utwórz nową playlistę" />
                 <Button MinWidth="120" Content="U_stawienia…" Click="Settings_Click" />
             </WrapPanel>
             <Border BorderThickness="1" BorderBrush="Gray" Padding="6">

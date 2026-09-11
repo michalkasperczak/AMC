@@ -70,6 +70,16 @@ public sealed class AppSettings
     public bool FollowPlaybackOnPlayerExit { get; set; } = true;
     public bool OpenPlayerWhenActivatingPreset { get; set; }
     public bool RememberLocalPlaybackPositions { get; set; } = true;
+
+    /// <summary>
+    /// Zapamiętywanie pozycji odtwarzania ustawiane OSOBNO dla wybranej sesji
+    /// (radio, podcasty, biblioteka lokalna, TIDAL). Klucz to identyfikator
+    /// sesji. Brak wpisu albo <see cref="ResumePositionMode.Inherit"/> oznacza
+    /// „jak ustawienie globalne" (<see cref="RememberLocalPlaybackPositions"/>),
+    /// więc dotychczasowe konfiguracje działają bez zmian.
+    /// </summary>
+    public Dictionary<string, ResumePositionMode> ResumePositionModeBySession { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
     public PlaybackAudioSettings Audio { get; set; } = new();
     public string LastSessionId { get; set; } = "tidal";
     public Dictionary<int, string> SessionSlots { get; set; } = SessionSlotOrder.CreateDefault();

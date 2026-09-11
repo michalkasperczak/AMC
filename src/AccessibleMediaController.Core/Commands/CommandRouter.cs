@@ -234,9 +234,12 @@ public sealed class CommandRouter(
                     announcements.Announce("To pierwszy element");
                     return new(false);
                 }
+                // Przy pauzie przeskok nie zaczyna grać, więc zapowiedź nie może
+                // mówić „Odtwarzanie" - byłaby nieprawdziwa dla użytkownika,
+                // który słucha wyłącznie komunikatów czytnika ekranu.
                 announcements.Announce(current.Id == "radio"
                     ? current.CurrentItem.Title
-                    : $"Odtwarzanie: {FormatItem(current.CurrentItem)}");
+                    : $"{(current.IsPlaying ? "Odtwarzanie" : "Wstrzymane")}: {FormatItem(current.CurrentItem)}");
                 return new(true);
             case CommandIds.Next:
                 if (!current.HasCurrentItem) return MissingCurrentMediaItem();
@@ -247,7 +250,7 @@ public sealed class CommandRouter(
                 }
                 announcements.Announce(current.Id == "radio"
                     ? current.CurrentItem.Title
-                    : $"Odtwarzanie: {FormatItem(current.CurrentItem)}");
+                    : $"{(current.IsPlaying ? "Odtwarzanie" : "Wstrzymane")}: {FormatItem(current.CurrentItem)}");
                 return new(true);
             case CommandIds.SeekBackward10: return Seek(current, -10);
             case CommandIds.SeekForward10: return Seek(current, 10);

@@ -634,13 +634,18 @@ internal sealed class TidalMediaOutput : IMediaOutput, IDisposable
 
     internal static string PreviewNotice(string reason) => reason switch
     {
+        // Komunikaty muszą wskazywać PRAWDZIWĄ przyczynę. TIDAL zezwala
+        // aplikacjom zewnętrznym korzystającym z oficjalnego modułu odtwarzacza
+        // wyłącznie na próbki, więc „wymaga subskrypcji" wprowadzało w błąd
+        // użytkownika, który subskrypcję ma. Ograniczenie dotyczy rejestracji
+        // aplikacji, nie konta.
         "FULL_REQUIRES_HIGHER_ACCESS_TIER" =>
-            "Próbka utworu. TIDAL wymaga wyższego poziomu dostępu aplikacji do pełnego odtwarzania.",
+            "Próbka utworu, około 30 sekund. TIDAL nie przyznał tej aplikacji dostępu do pełnego odtwarzania. Nie zmieni tego ani subskrypcja, ani ustawienia programu.",
         "FULL_REQUIRES_SUBSCRIPTION" =>
-            "Próbka utworu. TIDAL wymaga odpowiedniej subskrypcji do pełnego odtwarzania tego materiału.",
+            "Próbka utworu, około 30 sekund. TIDAL udostępnia aplikacjom zewnętrznym tylko próbki, niezależnie od Twojej subskrypcji. Pełne odtwarzanie wymaga zgody TIDAL-a dla tej aplikacji.",
         "FULL_REQUIRES_PURCHASE" =>
-            "Próbka utworu. TIDAL wymaga zakupu tego materiału do pełnego odtwarzania.",
-        _ => "Próbka utworu. TIDAL nie podał rozpoznanego powodu ograniczenia pełnego odtwarzania."
+            "Próbka utworu, około 30 sekund. TIDAL wymaga zakupu tego materiału do pełnego odtwarzania.",
+        _ => "Próbka utworu, około 30 sekund. TIDAL nie podał powodu ograniczenia. Aplikacje zewnętrzne mają zwykle dostęp tylko do próbek."
     };
 
     internal static string FriendlyFailure(string rawMessage)

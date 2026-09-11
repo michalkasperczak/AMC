@@ -69,6 +69,8 @@ var tests = new (string Name, Action Test)[]
     ("Konfigurowana kolejność sesji", TestSessionOrder),
     ("Pusta sesja lokalna", TestEmptyLocalSession),
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
+    ("Pauza przetrwa przeskok elementu", TestPauseSurvivesItemSkip),
+    ("Zapamiętywanie pozycji osobno dla sesji", TestResumePositionPerSession),
     ("Kontekst listy odtwarzania", TestPlaybackContext),
     ("Pamięć domyślnej prędkości po ponownym otwarciu", TestPlaybackRateDefaultPersistence),
     ("Trwała kolejność Kolejki", TestQueueOrder),
@@ -3611,6 +3613,97 @@ static void TestLocalPlaybackBoundary()
     True(manager.FindSession("local") is null, "Odłączona sesja nie może pozostać na liście.");
     Equal(session, manager.RestoreTransientSession(detached!, makeCurrent: true));
     Equal(session, manager.Current);
+}
+
+static void TestPauseSurvivesItemSkip()
+{
+    // Przeskok elementu na pauzie NIE może zaczynać odtwarzania. Wcześniej
+    // PlayRelative ustawiał IsPlaying = true bezwarunkowo, więc każde przejście
+    // na następny lub poprzedni element wyrywało program z pauzy.
+    var first = new MediaItem { Id = "a", Title = "Pierwszy" };
+    var second = new MediaItem { Id = "b", Title = "Drugi" };
+    var output = new FakeMediaOutput();
+    var session = new DemoMediaSession("local", "Biblioteka lokalna", [first, second], output);
+
+    True(session.Play(first), "Pierwszy element powinien zagrać.");
+    Equal(true, session.IsPlaying);
+    session.TogglePlayback();
+    Equal(false, session.IsPlaying);
+    Equal(true, session.IsPaused);
+
+    var playsBeforeSkip = output.PlayCount;
+    True(session.PlayRelative(1), "Przeskok na pauzie ma się udać: element się zmienia.");
+    Equal(second, session.CurrentItem);
+    Equal(false, session.IsPlaying);
+    Equal(playsBeforeSkip, output.PlayCount);
+
+    True(session.PlayRelative(-1), "Przeskok wstecz na pauzie też ma się udać.");
+    Equal(first, session.CurrentItem);
+    Equal(false, session.IsPlaying);
+    Equal(playsBeforeSkip, output.PlayCount);
+
+    // Gdy odtwarzanie trwa, przeskok nadal ma grać nowy element.
+    True(session.Play(first), "Wznowienie powinno zagrać ponownie.");
+    Equal(true, session.IsPlaying);
+    Equal(false, session.IsPaused);
+    var playsWhilePlaying = output.PlayCount;
+    True(session.PlayRelative(1), "Przeskok w trakcie grania ma się udać.");
+    Equal(true, session.IsPlaying);
+    True(output.PlayCount > playsWhilePlaying, "Przeskok w trakcie grania musi zagrać nowy element.");
+
+    // Zatrzymanie to nie pauza: po nim przeskok ma znów grać.
+    session.StopPlayback();
+    Equal(false, session.IsPlaying);
+    Equal(false, session.IsPaused);
+    var playsAfterStop = output.PlayCount;
+    True(session.PlayRelative(-1), "Przeskok po zatrzymaniu ma się udać.");
+    Equal(true, session.IsPlaying);
+    True(output.PlayCount > playsAfterStop, "Po zatrzymaniu przeskok musi zagrać, bo to nie była pauza.");
+}
+
+static void TestResumePositionPerSession()
+{
+    // Zapamiętywanie pozycji da się ustawić OSOBNO dla każdej sesji. Sesja bez
+    // własnego ustawienia dziedziczy globalne, więc aktualizacja nie zmienia
+    // zachowania istniejących konfiguracji.
+    var settings = new AppSettings { RememberLocalPlaybackPositions = true };
+
+    Equal(ResumePositionMode.Inherit, ResumePositionPolicy.GetSessionMode(settings, "radio"));
+    Equal(true, ResumePositionPolicy.ShouldRemember(settings, "radio"));
+
+    // Sesja może NIE pamiętać pozycji, choć globalnie pamiętamy.
+    ResumePositionPolicy.SetSessionMode(settings, "radio", ResumePositionMode.StartFromBeginning);
+    Equal(false, ResumePositionPolicy.ShouldRemember(settings, "radio"));
+    Equal(true, ResumePositionPolicy.ShouldRemember(settings, "podcasts"));
+
+    // I odwrotnie: globalnie nie pamiętamy, ale podcasty mają pamiętać.
+    settings.RememberLocalPlaybackPositions = false;
+    Equal(false, ResumePositionPolicy.ShouldRemember(settings, "podcasts"));
+    ResumePositionPolicy.SetSessionMode(settings, "podcasts", ResumePositionMode.Remember);
+    Equal(true, ResumePositionPolicy.ShouldRemember(settings, "podcasts"));
+    Equal(false, ResumePositionPolicy.ShouldRemember(settings, "radio"));
+
+    // Powrót do dziedziczenia usuwa wpis, żeby w zapisie nie zostawał śmieć.
+    ResumePositionPolicy.SetSessionMode(settings, "podcasts", ResumePositionMode.Inherit);
+    True(!settings.ResumePositionModeBySession.ContainsKey("podcasts"),
+        "Powrót do dziedziczenia powinien usunąć wpis sesji.");
+    Equal(false, ResumePositionPolicy.ShouldRemember(settings, "podcasts"));
+
+    // Etykieta dla czytnika ekranu mówi wprost, co wynika z dziedziczenia.
+    Equal("Jak ustawienie ogólne: zawsze od początku",
+        ResumePositionPolicy.DescribeSessionMode(settings, "podcasts"));
+    settings.RememberLocalPlaybackPositions = true;
+    Equal("Jak ustawienie ogólne: pamiętaj pozycję odtwarzania",
+        ResumePositionPolicy.DescribeSessionMode(settings, "podcasts"));
+    Equal("Zawsze od początku", ResumePositionPolicy.DescribeSessionMode(settings, "radio"));
+
+    // Ustawienie sesji przetrwa zapis i odczyt ustawień.
+    var json = JsonSerializer.Serialize(settings);
+    var loaded = JsonSerializer.Deserialize<AppSettings>(json);
+    True(loaded is not null, "Ustawienia powinny dać się odczytać.");
+    Equal(ResumePositionMode.StartFromBeginning,
+        ResumePositionPolicy.GetSessionMode(loaded!, "radio"));
+    Equal(false, ResumePositionPolicy.ShouldRemember(loaded!, "radio"));
 }
 
 static void TestEmptyLocalSession()

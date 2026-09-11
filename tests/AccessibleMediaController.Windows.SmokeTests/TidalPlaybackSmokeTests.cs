@@ -78,9 +78,9 @@ internal static class TidalPlaybackSmokeTests
         output.ProcessBridgeMessage("{\"type\":\"transition\",\"requestVersion\":5,\"productId\":\"one\",\"assetPresentation\":\"PREVIEW\",\"previewReason\":\"FULL_REQUIRES_HIGHER_ACCESS_TIER\",\"duration\":29.953}");
         Check(output.Diagnostics.Report.Contains("odczytane przez SDK: tak")
               && output.Diagnostics.Report.Contains("Udostępniony materiał: próbka")
-              && output.Diagnostics.Report.Contains("dostępu aplikacji")
+              && output.Diagnostics.Report.Contains("dostępu do pełnego odtwarzania")
               && output.Diagnostics.Report.Contains("29,953 s"), "Raport nie rozróżnia logowania i próbki.");
-        Check(lastNotice?.Contains("dostępu aplikacji") == true && Math.Abs(item.Duration.TotalSeconds - 29.953) < 0.001,
+        Check(lastNotice?.Contains("dostępu do pełnego odtwarzania") == true && Math.Abs(item.Duration.TotalSeconds - 29.953) < 0.001,
             "Mostek nie przekazał użytkowego powodu lub rzeczywistego czasu próbki.");
         Message("state", 5); Message("ended", 5);
         Check(ended == 0 && failed == 2 && item.IsInQueue, "Próbka zużyła pełny utwór z kolejki.");
@@ -99,10 +99,22 @@ internal static class TidalPlaybackSmokeTests
               && TidalMediaOutput.NormalizePreviewReason("https://private.test/?token=secret\nInjected") == "UNKNOWN",
             "Diagnostyka powodu próbki przyjęła dowolne dane.");
         Check(!TidalMediaOutput.PreviewNotice("UNKNOWN").Contains("wyższego poziomu")
-              && TidalMediaOutput.PreviewNotice("FULL_REQUIRES_HIGHER_ACCESS_TIER").Contains("dostępu aplikacji")
+              && TidalMediaOutput.PreviewNotice("FULL_REQUIRES_HIGHER_ACCESS_TIER").Contains("dostępu do pełnego odtwarzania")
               && TidalMediaOutput.PreviewNotice("FULL_REQUIRES_SUBSCRIPTION").Contains("subskrypcji")
               && TidalMediaOutput.PreviewNotice("FULL_REQUIRES_PURCHASE").Contains("zakupu"),
             "Komunikat zgaduje przyczynę próbki lub myli konto z aplikacją.");
+        // Komunikat o próbce nie może sugerować, że winna jest subskrypcja
+        // użytkownika: TIDAL udostępnia aplikacjom zewnętrznym tylko próbki.
+        Check(TidalMediaOutput.PreviewNotice("FULL_REQUIRES_SUBSCRIPTION").Contains("aplikacjom zewnętrznym")
+              && TidalMediaOutput.PreviewNotice("FULL_REQUIRES_SUBSCRIPTION").Contains("niezależnie od Twojej subskrypcji"),
+            "Komunikat o próbce zrzuca winę na subskrypcję użytkownika.");
+        // Każdy komunikat o próbce podaje jej długość, żeby użytkownik czytnika
+        // ekranu wiedział, czego się spodziewać, zanim dźwięk się urwie.
+        Check(TidalMediaOutput.PreviewNotice("UNKNOWN").Contains("30 sekund")
+              && TidalMediaOutput.PreviewNotice("FULL_REQUIRES_SUBSCRIPTION").Contains("30 sekund")
+              && TidalMediaOutput.PreviewNotice("FULL_REQUIRES_HIGHER_ACCESS_TIER").Contains("30 sekund")
+              && TidalMediaOutput.PreviewNotice("FULL_REQUIRES_PURCHASE").Contains("30 sekund"),
+            "Komunikat o próbce nie podaje jej długości.");
         Check(!TidalMediaOutput.FriendlyFailure("S3016 EUnexpected").Contains("wyższego poziomu"),
             "Ogólny błąd SDK fałszywie diagnozuje poziom dostępu.");
         var diagnostics = new TidalPlaybackDiagnostics();

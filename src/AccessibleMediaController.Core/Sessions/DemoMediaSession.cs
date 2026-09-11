@@ -59,6 +59,14 @@ public sealed class DemoMediaSession
     public bool HasCurrentItem => HasItems && _hasCurrentItem;
     public MediaItem CurrentItem => HasCurrentItem ? Items[_currentIndex] : _emptyItem;
     public bool IsPlaying { get; private set; }
+
+    /// <summary>
+    /// Prawda tylko wtedy, gdy odtwarzanie zostało WSTRZYMANE przez użytkownika
+    /// (pauza), a nie zatrzymane ani nigdy nierozpoczęte. Przeskok elementu
+    /// sprawdza tę flagę, żeby nie wyrywać programu z pauzy: użytkownik, który
+    /// wstrzymał odtwarzanie, chce przejrzeć listę, a nie zacząć grać.
+    /// </summary>
+    public bool IsPaused { get; private set; }
     public int Volume { get; private set; } = 35;
     public bool IsSessionMuted { get; private set; }
     public bool IsGloballyMuted { get; private set; }
@@ -104,11 +112,13 @@ public sealed class DemoMediaSession
             _position = Position;
             RememberCurrentPosition();
             IsPlaying = false;
+            IsPaused = true;
             _output?.Pause();
             return;
         }
 
         IsPlaying = true;
+        IsPaused = false;
         _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
     }
 
@@ -117,6 +127,8 @@ public sealed class DemoMediaSession
         if (!HasCurrentItem) return;
         RememberCurrentPosition();
         IsPlaying = false;
+        // Zatrzymanie nie jest pauzą: po nim przeskok elementu ma znów grać.
+        IsPaused = false;
         _output?.Stop();
     }
 
@@ -128,6 +140,8 @@ public sealed class DemoMediaSession
         _position = positionOverride ?? Position;
         _output.Stop();
         IsPlaying = true;
+        // Jawne rozpoczęcie odtwarzania kończy stan pauzy.
+        IsPaused = false;
         _output.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
         return true;
     }
@@ -154,6 +168,8 @@ public sealed class DemoMediaSession
         ApplyPlaybackRateForItem(CurrentItem);
         ApplyVolumeForItem(CurrentItem);
         IsPlaying = true;
+        // Jawne rozpoczęcie odtwarzania kończy stan pauzy.
+        IsPaused = false;
         _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
         return true;
     }
@@ -182,6 +198,8 @@ public sealed class DemoMediaSession
         ApplyPlaybackRateForItem(CurrentItem);
         ApplyVolumeForItem(CurrentItem);
         IsPlaying = true;
+        // Jawne rozpoczęcie odtwarzania kończy stan pauzy.
+        IsPaused = false;
         _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
         return true;
     }
@@ -225,6 +243,14 @@ public sealed class DemoMediaSession
         _position = RememberedPosition(CurrentItem);
         ApplyPlaybackRateForItem(CurrentItem);
         ApplyVolumeForItem(CurrentItem);
+        // Przeskok elementu zachowuje pauzę. Gdy użytkownik wstrzymał
+        // odtwarzanie, przejście na następny lub poprzedni element ustawia go
+        // jako bieżący i zapowiada, ale NIE zaczyna grać: pauzy nie cofał.
+        // Wcześniej stało tu bezwarunkowe IsPlaying = true, więc każde
+        // przejście wyrywało program z pauzy. Warunek sprawdza IsPaused, nie
+        // IsPlaying: po zatrzymaniu i przy elemencie tylko zaznaczonym przeskok
+        // ma grać normalnie.
+        if (IsPaused) return true;
         IsPlaying = true;
         _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
         return true;
@@ -711,6 +737,8 @@ public sealed class DemoMediaSession
         ApplyPlaybackRateForItem(CurrentItem);
         ApplyVolumeForItem(CurrentItem);
         IsPlaying = true;
+        // Jawne rozpoczęcie odtwarzania kończy stan pauzy.
+        IsPaused = false;
         _output?.Play(CurrentItem, _position, EffectiveVolume, PlaybackRate);
         return CurrentItem;
     }
