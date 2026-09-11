@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -15,8 +15,14 @@ internal sealed class TidalOAuthClient(HttpClient? httpClient = null) : IDisposa
 {
     private static readonly Uri AuthorizationEndpoint = new("https://login.tidal.com/authorize");
     private static readonly Uri TokenEndpoint = new("https://auth.tidal.com/v1/oauth2/token");
+    // Pelne utwory pobiera starsze API manifestu (api.tidal.com/v1/.../playbackinfo),
+    // ktore autoryzuje sie zakresami r_usr/w_usr, a nie zakresami nowego
+    // openapi.tidal.com/v2. Player SDK wysyla juz assetpresentation=FULL, wiec o
+    // probce 30 s decyduje wylacznie zakres tokenu. Oficjalne przyklady SDK
+    // (web, iOS, Android) uzywaja r_usr/w_usr. Nowe zakresy zostaja, bo na nich
+    // dziala kolekcja i playlisty w API v2.
     private const string RequestedScope =
-        "user.read collection.read collection.write playlists.read playlists.write";
+        "r_usr w_usr user.read collection.read collection.write playlists.read playlists.write";
     private readonly HttpClient http = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     private readonly bool ownsHttpClient = httpClient is null;
 
@@ -71,7 +77,13 @@ internal sealed class TidalOAuthClient(HttpClient? httpClient = null) : IDisposa
                 ["client_id"] = settings.ClientId,
                 ["grant_type"] = "refresh_token",
                 ["refresh_token"] = current.RefreshToken,
-                ["scope"] = RequestedScope
+                // Odswiezenie nie moze rozszerzac uprawnien: serwer odrzuca zakres
+                // szerszy od przyznanego, co wylogowywaloby uzytkownika po zmianie
+                // listy zakresow w nowej wersji AMC. Wysylamy to, co konto faktycznie
+                // przyznalo; nowe zakresy wchodza dopiero przy ponownym logowaniu.
+                ["scope"] = string.IsNullOrWhiteSpace(current.Scope)
+                    ? RequestedScope
+                    : current.Scope
             }),
             cancellationToken).ConfigureAwait(false);
         return await ReadTokensAsync(

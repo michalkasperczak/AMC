@@ -1,4 +1,4 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
@@ -5817,6 +5817,11 @@ static void TestTidalRefreshRequest()
         "Odświeżenie TIDAL nie wysyła prawidłowego rodzaju żądania i tokenu.");
     Assert(form.GetValueOrDefault("scope")?.Contains("collection.read", StringComparison.Ordinal) == true,
         "Odświeżenie TIDAL nie zachowuje wymaganego zakresu uprawnień.");
+    // Odswiezenie nie moze zadac uprawnien szerszych niz przyznane: serwer
+    // odrzucilby takie zadanie i wylogowal uzytkownika po aktualizacji AMC,
+    // w ktorej lista zadanych zakresow rosnie.
+    Assert(form.GetValueOrDefault("scope") == current.Scope,
+        "Odswiezenie TIDAL zada innego zakresu niz przyznany, co grozi wylogowaniem po aktualizacji.");
     Assert(refreshed.AccessToken == "new-access-token"
            && refreshed.RefreshToken == current.RefreshToken,
         "Odświeżenie TIDAL nie zachowuje starego tokenu odświeżającego, gdy serwer nie obraca go w odpowiedzi.");
