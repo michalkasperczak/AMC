@@ -311,6 +311,15 @@ internal sealed class GlobalPrefixService : IDisposable
         if (IsDown(0x12)) modifiers |= KeyModifiers.Alt;
         if (IsDown(0x10)) modifiers |= KeyModifiers.Shift;
         if (IsDown(0x5B) || IsDown(0x5C)) modifiers |= KeyModifiers.Windows;
+        // 2026-09-11: AltGr (prawy Alt) sluzy na polskiej klawiaturze do pisania
+        // liter ogonkowych, a Windows raportuje go jako Ctrl+Alt. Bez tego
+        // globalny hook przechwytywal c z kreska jako Ctrl+Alt+C i litera nie
+        // dochodzila do pola tekstowego. Prawy Ctrl wciazniety osobno oznacza
+        // prawdziwy skrot, wiec wtedy nie zdejmujemy modyfikatorow.
+        if (IsDown(0xA5) && !IsDown(0xA3))
+        {
+            modifiers &= ~(KeyModifiers.Ctrl | KeyModifiers.Alt);
+        }
         return modifiers;
     }
 

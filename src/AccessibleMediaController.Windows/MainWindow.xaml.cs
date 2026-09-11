@@ -209,6 +209,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const int VirtualKeyControl = 0x11;
     private const int VirtualKeyShift = 0x10;
     private const int VirtualKeyAlt = 0x12;
+    // 2026-09-11: prawy Alt (AltGr) na polskiej klawiaturze sluzy do pisania
+    // liter ogonkowych: AltGr+c = c z kreska, AltGr+s = s z kreska, AltGr+l = l z kreska.
+    // Windows raportuje AltGr jako Ctrl+Alt, wiec bez rozroznienia lewego i prawego
+    // Alta kazda polska litera wygladala jak skrot Ctrl+Alt+litera i AMC ja przechwytywalo.
+    private const int VirtualKeyRightAlt = 0xA5;
+    private const int VirtualKeyLeftControl = 0xA2;
+    private const int VirtualKeyRightControl = 0xA3;
     private const int VirtualKeyLeftWindows = 0x5B;
     private const int VirtualKeyRightWindows = 0x5C;
     private const int VirtualKeyC = 0x43;
@@ -3216,7 +3223,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         QueueStateSave();
     }
 
-    private void ActivatePreset(int slot, bool useDirectShortcutLabel = false)
+    private void ActivatePreset(int slot, bool useDirectShortcutLabel = false, bool fromGlobalShortcut = false)
     {
         var announcementSlotLabel = useDirectShortcutLabel
             ? RadioPresetKeyMap.DirectShortcutLabel(slot)
@@ -3325,7 +3332,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RecordPlayback(session, item);
         SavePresetState(session.Id);
         RefreshPlaybackIndicators();
-        if (_playerViewActive || _state.Settings.OpenPlayerWhenActivatingPreset)
+        if (!fromGlobalShortcut
+            && (_playerViewActive || _state.Settings.OpenPlayerWhenActivatingPreset))
         {
             ShowPlayerView();
             return;
@@ -3338,7 +3346,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             Announce(item.Title);
         }
-        RestoreItemActionFocus();
+        RestoreItemActionFocus(activateWindow: !fromGlobalShortcut);
     }
 
     private static bool TryGetPresetPlaylistId(SessionPresetEntry preset, out string playlistId)
@@ -4344,7 +4352,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void RestoreItemActionFocus()
     {
-        Activate();
+        RestoreItemActionFocus(activateWindow: true);
+    }
+
+    // 2026-09-11: preset uruchomiony globalnym skrotem musi grac w tle.
+    // Activate() wyciagalo okno AMC na wierzch i odbieralo fokus aplikacji,
+    // w ktorej uzytkownik pracowal. Przy czytniku ekranu to gubi miejsce
+    // w tekscie, wiec dla presetow przywolanie okna jest pomijane.
+    private void RestoreItemActionFocus(bool activateWindow)
+    {
+        if (activateWindow) Activate();
+        if (!activateWindow && !IsActive) return;
         if (_playerViewActive) FocusPlayerView();
         else RestoreMediaListFocusAfterRefresh();
     }
@@ -10132,7 +10150,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         if (CommandIds.TryParseRadioPreset(commandId, out var radioPresetSlot))
         {
-            ActivatePreset(radioPresetSlot);
+            // Gdy polecenie przyszlo globalnym skrotem przy nieaktywnym oknie AMC,
+            // preset ma tylko zagrac - bez wyciagania okna na wierzch.
+            ActivatePreset(radioPresetSlot, fromGlobalShortcut: !IsActive);
             return new CommandExecutionResult(true);
         }
         if (commandId == CommandIds.ViewRadioPresets)
@@ -17933,7 +17953,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 $"Bezpośredni skrót presetu; klawisz wirtualny: {virtualKey}; slot: {presetSlot}; sesja: {_sessions.Current.Id}.");
             handled = true;
             Dispatcher.BeginInvoke(
-                () => ActivatePreset(presetSlot, useDirectShortcutLabel: true),
+                () => ActivatePreset(presetSlot, useDirectShortcutLabel: true, fromGlobalShortcut: !IsActive),
                 DispatcherPriority.Input);
             return IntPtr.Zero;
         }
@@ -17978,9 +17998,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    // 2026-09-11: AltGr wciśnięty do pisania polskich liter (ć, ś, ł, ż, ź, ó, ę, ą, ń).
+    // Windows syntetyzuje przy nim LEWY Ctrl, więc rozpoznajemy AltGr po tym, że
+    // wciśnięty jest PRAWY Alt, a użytkownik nie trzyma osobno prawego Ctrl.
+    // Prawdziwy skrót Ctrl+Alt użytkownik składa lewym Altem, więc go to nie dotyczy.
+    private static bool IsPolishCharacterAltGrDown() =>
+        IsNativeKeyDown(VirtualKeyRightAlt) && !IsNativeKeyDown(VirtualKeyRightControl);
+
     private ModifierKeys ReadEffectiveModifierKeys()
     {
         var modifiers = Keyboard.Modifiers | ReadNativeModifierKeys();
+        // AltGr to nie skrót, tylko pisanie litery ogonkowej. Zdejmujemy Ctrl i Alt,
+        // żeby AMC nie przechwyciło ć, ś czy ł jako Ctrl+Alt+C/S/L.
+        if (IsPolishCharacterAltGrDown())
+        {
+            modifiers &= ~(ModifierKeys.Control | ModifierKeys.Alt);
+        }
         // Stan zapamiętany przez hook jest tylko diagnostyczny. Po szybkim
         // przełączeniu widoku komunikat KeyUp może trafić już do innego okna;
         // nie wolno wtedy uznać kolejnej zwykłej cyfry za Alt+cyfra.
