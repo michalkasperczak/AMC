@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -15,14 +15,19 @@ internal sealed class TidalOAuthClient(HttpClient? httpClient = null) : IDisposa
 {
     private static readonly Uri AuthorizationEndpoint = new("https://login.tidal.com/authorize");
     private static readonly Uri TokenEndpoint = new("https://auth.tidal.com/v1/oauth2/token");
-    // Pelne utwory pobiera starsze API manifestu (api.tidal.com/v1/.../playbackinfo),
-    // ktore autoryzuje sie zakresami r_usr/w_usr, a nie zakresami nowego
-    // openapi.tidal.com/v2. Player SDK wysyla juz assetpresentation=FULL, wiec o
-    // probce 30 s decyduje wylacznie zakres tokenu. Oficjalne przyklady SDK
-    // (web, iOS, Android) uzywaja r_usr/w_usr. Nowe zakresy zostaja, bo na nich
-    // dziala kolekcja i playlisty w API v2.
+    // NIE DODAWAJ TU r_usr ani w_usr. Sprawdzone 11 września 2026 r.: mimo że
+    // starsze API manifestu (api.tidal.com/v1/.../playbackinfo) autoryzuje się
+    // tymi zakresami i oficjalne dema TIDAL ich używają, ta rejestracja
+    // aplikacji ich nie ma przypisanych. Serwer autoryzacji odrzuca wtedy CAŁE
+    // logowanie błędem 1002 ("Coś poszło nie tak") na stronie login.tidal.com,
+    // przeglądarka nigdy nie wraca do AMC, a logowanie kończy się po pięciu
+    // minutach oczekiwania na odpowiedź. Skutek jest gorszy niż próbka 30 s:
+    // użytkownik nie może się zalogować w ogóle.
+    // Problem próbek (assetPresentation=PREVIEW, FULL_REQUIRES_SUBSCRIPTION)
+    // NIE jest więc do naprawienia zmianą zakresów po naszej stronie - wymaga
+    // uprawnień nadanych tej rejestracji przez TIDAL.
     private const string RequestedScope =
-        "r_usr w_usr user.read collection.read collection.write playlists.read playlists.write";
+        "user.read collection.read collection.write playlists.read playlists.write";
     private readonly HttpClient http = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     private readonly bool ownsHttpClient = httpClient is null;
 
@@ -77,10 +82,11 @@ internal sealed class TidalOAuthClient(HttpClient? httpClient = null) : IDisposa
                 ["client_id"] = settings.ClientId,
                 ["grant_type"] = "refresh_token",
                 ["refresh_token"] = current.RefreshToken,
-                // Odswiezenie nie moze rozszerzac uprawnien: serwer odrzuca zakres
-                // szerszy od przyznanego, co wylogowywaloby uzytkownika po zmianie
-                // listy zakresow w nowej wersji AMC. Wysylamy to, co konto faktycznie
-                // przyznalo; nowe zakresy wchodza dopiero przy ponownym logowaniu.
+                // Odświeżenie nie może rozszerzać uprawnień: serwer odrzuca
+                // zakres szerszy od przyznanego, co wylogowywałoby użytkownika
+                // po zmianie listy zakresów w nowej wersji AMC. Wysyłamy to,
+                // co konto faktycznie przyznało; nowe zakresy wchodzą dopiero
+                // przy ponownym logowaniu.
                 ["scope"] = string.IsNullOrWhiteSpace(current.Scope)
                     ? RequestedScope
                     : current.Scope
@@ -158,6 +164,22 @@ internal sealed class TidalOAuthClient(HttpClient? httpClient = null) : IDisposa
             : returnedScope;
         if (string.IsNullOrWhiteSpace(accessToken) || string.IsNullOrWhiteSpace(refreshToken))
             throw new InvalidDataException("TIDAL zwrócił niepełne dane logowania.");
+        // Logujemy tylko nazwy zakresów: nie ma tu tokenu ani danych konta.
+        // Zakres r_usr obserwujemy, bo starsze API manifestu autoryzuje się
+        // właśnie nim. Nie prosimy o niego (patrz RequestedScope: prośba kończy
+        // się błędem 1002 i uniemożliwia logowanie), ale gdyby TIDAL kiedyś
+        // przypisał go tej rejestracji, dziennik od razu to pokaże.
+        var grantedScopes = scope
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var hasLegacyPlaybackScope = grantedScopes.Contains("r_usr", StringComparer.Ordinal);
+        DiagnosticLog.Info(
+            "tidal-auth",
+            $"Zakresy przyznane przez TIDAL: {(grantedScopes.Length == 0 ? "brak informacji" : string.Join(", ", grantedScopes))}.");
+        DiagnosticLog.Info(
+            "tidal-auth",
+            hasLegacyPlaybackScope
+                ? "Konto przyznało zakres r_usr wymagany przez API manifestu odtwarzania; pełny utwór jest możliwy."
+                : "Konto nie ma zakresu r_usr, którym autoryzuje się API manifestu odtwarzania. Odtwarzanie może zwracać próbkę około 30 sekund niezależnie od abonamentu. AMC nie prosi o ten zakres, bo rejestracja aplikacji go nie ma i prośba blokuje logowanie.");
         return new TidalTokenSet(
             accessToken,
             refreshToken,
