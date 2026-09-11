@@ -133,6 +133,22 @@ internal static class TidalPlaybackSmokeTests
         Check(UIElementAutomationPeer.CreatePeerForElement(diagnosticsButton)!.GetName() == "Diagnostyka odtwarzania",
             "Przycisk diagnostyki nie ma jawnej nazwy dostępnościowej.");
         accountWindow.Close();
+        // Okno konta nie może zamknąć się w trakcie logowania lub synchronizacji:
+        // wcześniej zamknięcie anulowało operację w ciszy, użytkownik zostawał
+        // z pustą Biblioteką TIDAL i bez informacji, że nic nie zostało pobrane.
+        var busyWindow = new TidalAccountWindow(new TidalSettings(), integration, () => diagnostics.Report);
+        var busyField = typeof(TidalAccountWindow).GetField("busy", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var closing = typeof(TidalAccountWindow).GetMethod("Window_Closing", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var wolne = new System.ComponentModel.CancelEventArgs();
+        busyField.SetValue(busyWindow, false);
+        closing.Invoke(busyWindow, [null, wolne]);
+        Check(!wolne.Cancel, "Wolne okno konta TIDAL nie daje się zamknąć.");
+        var zajete = new System.ComponentModel.CancelEventArgs();
+        busyField.SetValue(busyWindow, true);
+        closing.Invoke(busyWindow, [null, zajete]);
+        Check(zajete.Cancel, "Okno konta TIDAL zamyka się w trakcie operacji i po cichu ją przerywa.");
+        busyField.SetValue(busyWindow, false);
+        busyWindow.Close();
         var information = new InformationWindow(diagnostics.Report, windowTitle: "Diagnostyka odtwarzania TIDAL");
         var text = (System.Windows.Forms.RichTextBox)typeof(InformationWindow)
             .GetField("_informationBox", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(information)!;

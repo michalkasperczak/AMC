@@ -103,7 +103,11 @@ public partial class TidalAccountWindow : Controls.AccessibleWindow
     {
         if (MessageBox.Show(
                 this,
-                "Odłączyć konto TIDAL? Bezpiecznie zapisane tokeny zostaną usunięte z Menedżera poświadczeń Windows. Lokalne dane AMC pozostaną bez zmian.",
+                "Odłączyć konto TIDAL? Bezpiecznie zapisane tokeny zostaną usunięte z Menedżera "
+                    + "poświadczeń Windows, a zapamiętana Biblioteka TIDAL zostanie wyczyszczona. "
+                    + "Sesja TIDAL wróci do trybu demonstracyjnego, dopóki nie zalogujesz się "
+                    + "ponownie i nie zakończysz synchronizacji. Pliki lokalne, radio i podcasty "
+                    + "pozostaną bez zmian.",
                 "Odłącz konto TIDAL",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning,
@@ -147,6 +151,18 @@ public partial class TidalAccountWindow : Controls.AccessibleWindow
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
+            // Zamknięcie okna anuluje trwającą operację. Wcześniej przerwanie
+            // ginęło tu bez śladu: po zalogowaniu i zamknięciu okna
+            // synchronizacja przerywała się w ciszy, bez wpisu w dzienniku i bez
+            // komunikatu, a użytkownik widział pustą Bibliotekę TIDAL i nie miał
+            // z czego wywnioskować, że dane po prostu nie zostały pobrane.
+            DiagnosticLog.Warning(
+                "tidal-sync",
+                "Operacja TIDAL przerwana zamknięciem okna konta. Kolekcja mogła nie zostać pobrana; "
+                    + "otwórz okno konta ponownie i wybierz Synchronizuj, nie zamykając okna do końca operacji.");
+            CompletionAnnouncement =
+                "Operacja TIDAL przerwana zamknięciem okna. Biblioteka TIDAL może być niepełna. "
+                    + "Otwórz okno konta TIDAL i wybierz Synchronizuj, a okno zostaw otwarte do końca.";
         }
         catch (Exception exception)
         {
@@ -229,6 +245,24 @@ public partial class TidalAccountWindow : Controls.AccessibleWindow
         SyncButton.IsEnabled = enabled;
         DisconnectButton.IsEnabled = enabled;
         DeveloperPanelButton.IsEnabled = enabled;
+    }
+
+    /// <summary>
+    /// Nie pozwala zamknąć okna w trakcie logowania lub synchronizacji.
+    ///
+    /// Powód: zamknięcie okna anulowało operację, a przerwanie ginęło bez śladu.
+    /// Użytkownik logował się, zamykał okno i widział pustą Bibliotekę TIDAL,
+    /// bo synchronizacja nie zdążyła pobrać kolekcji. Zwykłe ostrzeżenie nie
+    /// wystarczy: przy czytniku ekranu łatwo zamknąć okno klawiszem Escape,
+    /// nie zauważywszy, że coś jeszcze trwa.
+    /// </summary>
+    private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (!busy) return;
+        e.Cancel = true;
+        OperationStatusText.Announce(
+            "Trwa operacja TIDAL. Poczekaj na jej zakończenie; zamknięcie teraz przerwałoby "
+                + "pobieranie kolekcji i Biblioteka TIDAL zostałaby niepełna.");
     }
 
     private void Window_Closed(object? sender, EventArgs e)
