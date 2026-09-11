@@ -10,9 +10,11 @@ ODTWARZANIE I PRZEWIJANIE
 Ctrl+Windows+P
    Odtwórz lub wstrzymaj bieżące nagranie
 Ctrl+Windows+strzalka w lewo
-   Odtwórz poprzedni element w kontekście odtwarzania
+   Poprzedni element w kontekście odtwarzania.
+   W odtwarzaczu WiiM: poprzedni preset lub strumień urządzenia.
 Ctrl+Windows+strzalka w prawo
-   Odtwórz następny element w kontekście odtwarzania
+   Następny element w kontekście odtwarzania.
+   W odtwarzaczu WiiM: następny preset lub strumień urządzenia.
 Ctrl+Windows+J
    Cofnij odtwarzanie o 10 sekund
 Ctrl+Windows+K

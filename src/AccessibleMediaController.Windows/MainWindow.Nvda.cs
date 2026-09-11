@@ -93,6 +93,12 @@ public partial class MainWindow
         {
             if (command is "presetPrevious" or "presetNext")
                 return NavigateNvdaPreset(command == "presetNext" ? 1 : -1);
+            // 2026-09-11: w odtwarzaczu WiiM strzalki przelaczaja presety, tak jak w
+            // oryginalnej aplikacji WiiM, do ktorej uzytkownik jest przyzwyczajony.
+            // W pozostalych sesjach zostaja zmiana nagrania. Ctrl+Windows+Alt+PageUp
+            // i PageDown przelaczaja presety zawsze, niezaleznie od sesji.
+            if ((command is "previous" or "next") && _sessions.Current.Id == "wiim")
+                return NavigateNvdaPreset(command == "next" ? 1 : -1);
             var id = NvdaCommands.Resolve(command)!;
             if (CommandIds.TryParseRadioPreset(id, out var directSlot))
             {
