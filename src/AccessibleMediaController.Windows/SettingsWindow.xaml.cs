@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -168,6 +169,12 @@ public partial class SettingsWindow : Window
         PodcastDownloadsFolderBox.Text = string.IsNullOrWhiteSpace(_workingState.Podcasts.DownloadsFolder)
             ? PodcastDownloadFolderResolver.DefaultFolder()
             : _workingState.Podcasts.DownloadsFolder;
+        RssRefreshIntervalBox.Text = _workingState.Podcasts.RssRefreshIntervalMinutes
+            .ToString(CultureInfo.CurrentCulture);
+        YouTubeRefreshIntervalBox.Text = _workingState.Podcasts.YouTubeRefreshIntervalMinutes
+            .ToString(CultureInfo.CurrentCulture);
+        RefreshBatchSizeBox.Text = _workingState.Podcasts.AutomaticRefreshBatchSize
+            .ToString(CultureInfo.CurrentCulture);
         UpdateRadioRecordingControls();
 
         MessagesEnabledCheck.IsChecked = _workingState.Settings.Messages.Enabled;
@@ -253,6 +260,27 @@ public partial class SettingsWindow : Window
         if (string.IsNullOrWhiteSpace(podcastFolder) || !Path.IsPathFullyQualified(podcastFolder))
             throw new InvalidDataException("Domyślny folder pobierania podcastów musi zawierać pełną ścieżkę.");
         _workingState.Podcasts.DownloadsFolder = Path.GetFullPath(podcastFolder);
+        if (!int.TryParse(RssRefreshIntervalBox.Text.Trim(), out var rssInterval)
+            || rssInterval is < 0 or > 10080)
+        {
+            throw new InvalidDataException(
+                "Odstęp sprawdzania podcastów musi być liczbą minut od 0 do 10080, czyli najwyżej tygodnia. Zero wyłącza sprawdzanie.");
+        }
+        _workingState.Podcasts.RssRefreshIntervalMinutes = rssInterval;
+        if (!int.TryParse(YouTubeRefreshIntervalBox.Text.Trim(), out var youTubeInterval)
+            || youTubeInterval is < 0 or > 10080)
+        {
+            throw new InvalidDataException(
+                "Odstęp sprawdzania kanałów YouTube musi być liczbą minut od 0 do 10080, czyli najwyżej tygodnia. Zero wyłącza sprawdzanie.");
+        }
+        _workingState.Podcasts.YouTubeRefreshIntervalMinutes = youTubeInterval;
+        if (!int.TryParse(RefreshBatchSizeBox.Text.Trim(), out var refreshBatch)
+            || refreshBatch is < 1 or > 50)
+        {
+            throw new InvalidDataException(
+                "Liczba źródeł sprawdzanych jednocześnie musi mieścić się między 1 a 50.");
+        }
+        _workingState.Podcasts.AutomaticRefreshBatchSize = refreshBatch;
         if (!int.TryParse(TimeoutBox.Text, out var timeout) || timeout is < 250 or > 30000)
         {
             throw new InvalidDataException("Czas prefiksu musi mieścić się między 250 a 30000 ms.");

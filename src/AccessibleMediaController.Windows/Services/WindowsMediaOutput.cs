@@ -1761,12 +1761,54 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
 
     private static void QueuePipelineDisposal(
         PlaybackPipeline pipeline,
-        TimeSpan delay = default) =>
+        TimeSpan delay = default)
+    {
+        // CISZA NATYCHMIAST, ZAMYKANIE W TLE - w tej kolejnosci.
+        //
+        // Samo odczepienie strumienia (DetachPipelineLocked) zdejmuje tylko
+        // obsluge zdarzen; karta dzwiekowa NADAL GRA, bo Output.Stop() siedzi
+        // dopiero w DisposePipeline, ktore leci osobnym zadaniem w tle.  Przy
+        // szybkim przechodzeniu po plikach (np. strzalkami z wtyczki NVDA)
+        // nowy plik startuje, zanim tlo zdazy domknac poprzedni - i slychac
+        // dwa naraz, jakby pliki nachodzily na siebie.  Zgloszenie Michala
+        // 13.09.2026: "pliki otwieraja sie z opoznieniem, nachodza troszke na
+        // siebie, slychac jak sie wtyczka szybko chodzi po plikach".
+        //
+        // Wyciszamy wiec SYNCHRONICZNIE, ustawiajac glosnosc na zero.  To
+        // kosztuje jedno przypisanie pola i nie blokuje watku interfejsu, w
+        // przeciwienstwie do Output.Stop(), ktore czeka na zakonczenie watku
+        // renderujacego WASAPI - a Play() wywolujemy wlasnie z watku UI.
+        // Zamykanie zasobow (dekoder, plik) zostaje w tle, bo jest kosztowne.
+        //
+        // Przy delay > 0 NIE wyciszamy: to droga lagodnych przejsc miedzy
+        // utworami, gdzie poprzedni utwor ma sie DOSLYSZEC gasnac przez caly
+        // czas trwania przejscia.  Tam cisza od razu zabilaby caly efekt.
+        if (ShouldSilenceImmediately(delay))
+        {
+            try { pipeline.VolumeProvider.Volume = 0f; }
+            catch (Exception) { }
+        }
+
         _ = Task.Run(async () =>
         {
             if (delay > TimeSpan.Zero) await Task.Delay(delay).ConfigureAwait(false);
             DisposePipeline(pipeline);
         });
+    }
+
+    /// <summary>
+    /// Czy przy zdejmowaniu poprzedniego strumienia wyciszyc go NATYCHMIAST.
+    /// </summary>
+    /// <remarks>
+    /// Wystawione jako <c>internal static</c>, zeby test mogl sprawdzic sama
+    /// regule bez tworzenia strumienia WASAPI i bez karty dzwiekowej.
+    /// Zwraca prawde tylko dla natychmiastowego zdjecia (brak opoznienia):
+    /// wtedy poprzedni plik ma zamilknac, zanim zdazy zagrac nastepny.
+    /// Dla opoznienia dodatniego (lagodne przejscia miedzy utworami) zwraca
+    /// falsz, bo tam poprzedni utwor ma sie doslyszec gasnac.
+    /// </remarks>
+    internal static bool ShouldSilenceImmediately(TimeSpan disposalDelay) =>
+        disposalDelay <= TimeSpan.Zero;
 
     private static void DisposePipeline(PlaybackPipeline pipeline)
     {

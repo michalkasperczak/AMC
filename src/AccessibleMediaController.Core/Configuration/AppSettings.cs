@@ -494,6 +494,54 @@ public sealed class PodcastSettings
     public string? CurrentItemId { get; set; }
     public int Volume { get; set; } = 35;
     public double PlaybackRate { get; set; } = 1d;
+
+    /// <summary>
+    /// Domyslny odstep automatycznego odswiezania nowo dodawanych kanalow RSS,
+    /// w minutach; 0 wylacza automat. Podcasty sa tanie w sprawdzaniu (jedno
+    /// pobranie XML), wiec domyslnie co godzine.
+    /// </summary>
+    public int RssRefreshIntervalMinutes { get; set; } = 60;
+
+    /// <summary>
+    /// To samo dla kanalow i playlist YouTube. Trzymane OSOBNO, bo sprawdzenie
+    /// zrodla YouTube uruchamia yt-dlp i jest wielokrotnie drozsze niz RSS -
+    /// uzytkownik musi moc je rozrzedzic bez rozrzedzania podcastow.
+    /// </summary>
+    public int YouTubeRefreshIntervalMinutes { get; set; } = 60;
+
+    /// <summary>
+    /// Nadaje odstep odswiezania zrodlom w bibliotece, ktore go nie maja.
+    /// Wersje do 353 ustawialy odstep TYLKO kanalom YouTube, wiec kanaly RSS
+    /// dodane wczesniej zostawaly z zerem i automat nigdy ich nie sprawdzal.
+    /// Zwraca liczbe naprawionych zrodel; nie rusza tych, ktorym uzytkownik
+    /// swiadomie ustawil wlasny odstep.
+    /// </summary>
+    public int ApplyDefaultRefreshIntervals()
+    {
+        var repaired = 0;
+        foreach (var subscription in Subscriptions)
+        {
+            if (!subscription.IsInLibrary || subscription.RefreshIntervalMinutes > 0) continue;
+            var interval = subscription.SourceKind switch
+            {
+                PodcastSourceKind.Rss => RssRefreshIntervalMinutes,
+                PodcastSourceKind.YouTubeChannel or PodcastSourceKind.YouTubePlaylist =>
+                    YouTubeRefreshIntervalMinutes,
+                _ => 0
+            };
+            if (interval <= 0) continue;
+            subscription.RefreshIntervalMinutes = interval;
+            repaired++;
+        }
+
+        return repaired;
+    }
+
+    /// <summary>
+    /// Ile zrodel wolno sprawdzic w jednym przebiegu automatu. Chroni interfejs
+    /// przed dluga kolejka yt-dlp; pozostale zrodla biora kolejne przebiegi.
+    /// </summary>
+    public int AutomaticRefreshBatchSize { get; set; } = 4;
 }
 
 public enum PodcastSourceKind

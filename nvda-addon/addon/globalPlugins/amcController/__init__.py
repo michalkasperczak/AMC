@@ -96,11 +96,23 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
     def script_total(self, gesture):
         self._send("total")
 
-    @script(description="Przełącz AMC na poprzednią sesję", gesture="kb:control+windows+shift+tab")
+    # DWA GESTY NA JEDNA KOMENDE, NIE DWIE KOMENDY.  Tab jest historyczny i
+    # zostaje (miesniowa pamiec), a strzalki dochodza jako wariant wygodniejszy
+    # do trafienia jedna reka - obie pary wolaja to samo polecenie mostka.
+    # Ctrl+Windows+Shift+strzalki byly WOLNE: sprawdzone w calym pliku wtyczki
+    # (65 gestow) przed dopisaniem.  Zwykle Ctrl+Windows+strzalki NIE nadaja sie
+    # na sesje, bo lewo/prawo to poprzedni/nastepny element, a gora/dol glosnosc.
+    @script(
+        description="Przełącz AMC na poprzednią sesję",
+        gestures=["kb:control+windows+shift+tab", "kb:control+windows+shift+leftArrow"],
+    )
     def script_sessionPrevious(self, gesture):
         self._send("sessionPrevious")
 
-    @script(description="Przełącz AMC na następną sesję", gesture="kb:control+windows+tab")
+    @script(
+        description="Przełącz AMC na następną sesję",
+        gestures=["kb:control+windows+tab", "kb:control+windows+shift+rightArrow"],
+    )
     def script_sessionNext(self, gesture):
         self._send("sessionNext")
 
@@ -259,6 +271,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
     @script(description="Otwórz listę rozpoznanych utworów w oknie AMC", gesture="kb:control+windows+alt+s")
     def script_showRecognitions(self, gesture):
         self._send("showRecognitions")
+
+    @script(description="Zaktualizuj wszystkie podcasty i kanały YouTube", gesture="kb:control+windows+f5")
+    def script_refreshPodcastLibrary(self, gesture):
+        self._send("refreshPodcastLibrary")
 
     @script(description="Uruchom preset 1 bieżącej sesji; nie zmienia przypisania", gesture="kb:control+windows+alt+1")
     def script_preset1(self, gesture):

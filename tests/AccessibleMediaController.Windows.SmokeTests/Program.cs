@@ -94,6 +94,7 @@ var tests = new (string Name, Action Test)[]
     ("Wii M Device Manager Accessibility", TestWiiMDeviceManagerAccessibility),
     ("Podcast Episode File Action Keyboard Map", TestPodcastEpisodeFileActionKeyboardMap),
     ("Audio Output Pause Race Guard", TestAudioOutputPauseRaceGuard),
+    ("Track Change Silences Previous Pipeline", TestTrackChangeSilencesPreviousPipeline),
     ("Podcast Network Source Policy", TestPodcastNetworkSourcePolicy),
     ("You Tube Channel Feed Addresses", TestYouTubeChannelFeedAddresses),
     ("You Tube Channel Feed Parsing", TestYouTubeChannelFeedParsing),
@@ -715,6 +716,64 @@ static void TestPodcastDirectorySearchMerge()
         "Kanał YouTube nie trafia na początek, a materiały YouTube przed archiwalne odcinki.");
 
     Console.WriteLine("OK: katalogi podcastów i kanały YouTube są widoczną częścią wyszukiwania");
+}
+
+static string ReadRepositoryFile(string relativePath)
+{
+    // Testy uruchamiane sa z katalogu wynikowego (bin/...), wiec szukamy pliku
+    // wchodzac katalogami do gory, az trafimy na korzen repozytorium.  Ta sama
+    // metoda co FindPluginFile w NvdaBridgeSmokeTests - nie zakladamy sztywnej
+    // liczby poziomow, bo ta zmienia sie z konfiguracja kompilacji.
+    var directory = new DirectoryInfo(AppContext.BaseDirectory);
+    while (directory is not null)
+    {
+        var candidate = Path.Combine(directory.FullName, relativePath);
+        if (File.Exists(candidate)) return File.ReadAllText(candidate);
+        directory = directory.Parent;
+    }
+
+    throw new FileNotFoundException(
+        $"Nie znaleziono pliku repozytorium: {relativePath}");
+}
+
+static void TestTrackChangeSilencesPreviousPipeline()
+{
+    // Zgloszenie Michala 13.09.2026: przy szybkim przechodzeniu po plikach
+    // (strzalkami z wtyczki NVDA oraz PageUp/PageDown w oknie) pliki "nachodza
+    // troszke na siebie".  Przyczyna: zdjecie poprzedniego strumienia samo nie
+    // zatrzymywalo dzwieku - Output.Stop() lecial dopiero w zadaniu w tle, wiec
+    // nowy plik startowal, gdy poprzedni jeszcze gral.
+    Assert(WindowsMediaOutput.ShouldSilenceImmediately(TimeSpan.Zero),
+        "Zmiana pliku nie wycisza poprzedniego strumienia - pliki beda nachodzic na siebie.");
+    Assert(WindowsMediaOutput.ShouldSilenceImmediately(TimeSpan.FromMilliseconds(-5)),
+        "Ujemne opoznienie zdjecia strumienia musi zachowywac sie jak natychmiastowe.");
+
+    // Lagodne przejscia miedzy utworami (u Michala wylaczone, ale opcja
+    // istnieje) gasza poprzedni utwor slyszalnie przez caly czas przejscia.
+    // Natychmiastowa cisza zabilaby tam caly efekt, wiec musi byc pominieta.
+    Assert(!WindowsMediaOutput.ShouldSilenceImmediately(TimeSpan.FromSeconds(4)),
+        "Lagodne przejscie miedzy utworami zostalo uciete natychmiastowa cisza.");
+
+    // Wyciszenie musi stac PRZED wrzuceniem zamkniecia w tlo. Gdyby trafilo do
+    // zadania w tle, wrocilby pierwotny blad: nowy plik zaczyna grac, zanim tlo
+    // zdazy sie wykonac.
+    var source = ReadRepositoryFile(
+        Path.Combine("src", "AccessibleMediaController.Windows", "Services", "WindowsMediaOutput.cs"));
+    var disposalStart = source.IndexOf("private static void QueuePipelineDisposal", StringComparison.Ordinal);
+    Assert(disposalStart >= 0, "Nie znaleziono kolejkowania zdjecia strumienia audio.");
+    var body = source[disposalStart..];
+    var bodyEnd = body.IndexOf("internal static bool ShouldSilenceImmediately", StringComparison.Ordinal);
+    Assert(bodyEnd > 0, "Nie znaleziono konca kolejkowania zdjecia strumienia audio.");
+    body = body[..bodyEnd];
+
+    var silenceAt = body.IndexOf("Volume = 0f", StringComparison.Ordinal);
+    var backgroundAt = body.IndexOf("Task.Run", StringComparison.Ordinal);
+    Assert(silenceAt >= 0, "Zdjecie strumienia nie ustawia glosnosci na zero.");
+    Assert(backgroundAt >= 0, "Zdjecie strumienia nie zamyka zasobow w tle.");
+    Assert(silenceAt < backgroundAt,
+        "Wyciszenie poprzedniego pliku wpadlo do tla - nowy plik zdazy zagrac przed cisza.");
+
+    Console.WriteLine("OK: zmiana pliku wycisza poprzedni strumien natychmiast");
 }
 
 static void TestPodcastNetworkSourcePolicy()

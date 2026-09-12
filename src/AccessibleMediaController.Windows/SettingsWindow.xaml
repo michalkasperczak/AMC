@@ -232,6 +232,25 @@
                                            Text="Pobieranie odbywa się najpierw w bezpiecznym lokalnym folderze roboczym. Dopiero kompletny plik otrzymuje nazwę docelową, także gdy wybrany folder znajduje się w chmurze." />
                             </StackPanel>
                         </GroupBox>
+
+                        <GroupBox Header="Automatyczne sprawdzanie nowych odcinków" Margin="0,12,0,0">
+                            <StackPanel Margin="8">
+                                <TextBlock Margin="0,0,0,8" TextWrapping="Wrap"
+                                           Text="Program sam sprawdza źródła w bibliotece. Odstęp podawaj w minutach; zero wyłącza automatyczne sprawdzanie danego rodzaju źródeł. Ctrl+F5 w sesji Podcasty oraz Ctrl+Windows+F5 z dowolnego programu sprawdzają wszystko od razu, niezależnie od tych ustawień." />
+                                <Label Target="{Binding ElementName=RssRefreshIntervalBox}">Odstęp dla _podcastów w minutach:</Label>
+                                <TextBox x:Name="RssRefreshIntervalBox" Width="90" HorizontalAlignment="Left"
+                                         automation:AutomationProperties.Name="Odstęp automatycznego sprawdzania podcastów w minutach"
+                                         automation:AutomationProperties.HelpText="Zero wyłącza automatyczne sprawdzanie podcastów. Sprawdzenie podcastu jest tanie, więc godzina jest bezpieczna nawet przy kilkuset źródłach." />
+                                <Label Margin="0,8,0,0" Target="{Binding ElementName=YouTubeRefreshIntervalBox}">Odstęp dla kanałów _YouTube w minutach:</Label>
+                                <TextBox x:Name="YouTubeRefreshIntervalBox" Width="90" HorizontalAlignment="Left"
+                                         automation:AutomationProperties.Name="Odstęp automatycznego sprawdzania kanałów YouTube w minutach"
+                                         automation:AutomationProperties.HelpText="Zero wyłącza automatyczne sprawdzanie kanałów YouTube. Sprawdzenie kanału YouTube jest znacznie droższe niż podcastu, dlatego ma osobny odstęp." />
+                                <Label Margin="0,8,0,0" Target="{Binding ElementName=RefreshBatchSizeBox}">Liczba źródeł sprawdzanych _jednocześnie:</Label>
+                                <TextBox x:Name="RefreshBatchSizeBox" Width="90" HorizontalAlignment="Left"
+                                         automation:AutomationProperties.Name="Liczba źródeł sprawdzanych w jednym przebiegu"
+                                         automation:AutomationProperties.HelpText="Program sprawdza tyle źródeł na minutę; pozostałe czekają na kolejne przebiegi. Wyższa wartość przyspiesza obieg, ale może na chwilę obciążyć program." />
+                            </StackPanel>
+                        </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

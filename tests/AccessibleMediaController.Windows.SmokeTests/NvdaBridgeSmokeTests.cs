@@ -30,7 +30,61 @@ internal static class NvdaBridgeSmokeTests
         if (!uiThread.Join(TimeSpan.FromSeconds(15))) throw new TimeoutException("NVDA: test przekazania fokusa przekroczył limit.");
         if (failure is not null) throw new InvalidOperationException("NVDA: test izolowanego interfejsu", failure);
         TestPlaybackContext();
+        TestPluginGesturesMatchBridge();
         Console.WriteLine("NVDA interaction smoke: OK (playback context, current item, asynchronous origin, single/expired UI handoff)");
+    }
+
+    private static void TestPluginGesturesMatchBridge()
+    {
+        // Wtyczka NVDA i mostek AMC to dwa zrodla prawdy w dwoch jezykach.
+        // Gdy wtyczka wysyla nazwe, ktorej mostek nie zna, uzytkownik slyszy
+        // CISZE - najgorszy mozliwy objaw przy czytniku ekranu.
+        var pluginFile = FindPluginFile();
+        if (pluginFile is null)
+        {
+            Console.WriteLine("NVDA: pominieto porownanie gestow - brak zrodla wtyczki obok testow.");
+            return;
+        }
+
+        var source = File.ReadAllText(pluginFile);
+        var sent = System.Text.RegularExpressions.Regex
+            .Matches(source, @"self\._send\(""(?<name>[A-Za-z0-9_]+)""\)")
+            .Select(match => match.Groups["name"].Value)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        Check(sent.Length > 0, "Plugin source exposes commands");
+        foreach (var command in sent)
+        {
+            Check(
+                NvdaCommands.IsAllowed(command),
+                $"Bridge understands plugin command '{command}'");
+        }
+
+        Check(
+            sent.Contains("refreshPodcastLibrary", StringComparer.Ordinal),
+            "Plugin offers the global podcast refresh gesture");
+        Check(
+            source.Contains("kb:control+windows+f5", StringComparison.Ordinal),
+            "Global podcast refresh keeps its documented gesture");
+    }
+
+    private static string? FindPluginFile()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(
+                directory.FullName,
+                "nvda-addon",
+                "addon",
+                "globalPlugins",
+                "amcController",
+                "__init__.py");
+            if (File.Exists(candidate)) return candidate;
+            directory = directory.Parent;
+        }
+
+        return null;
     }
 
     private static void TestExpiredDispatcherWork()

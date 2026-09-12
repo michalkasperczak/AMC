@@ -59,6 +59,12 @@ COMMANDS = frozenset((
     "showRecordings",
     "showSchedules",
     "showRecognitions",
+    # Odswiezenie biblioteki podcastow NIE jest komenda "show": nie otwiera
+    # okna i nie przelacza sesji, tylko zleca AMC sprawdzenie zrodel w tle,
+    # a wynik wraca komunikatem mowionym.  Dlatego jest w COMMANDS, ale NIE
+    # w FOREGROUND_COMMANDS ponizej - inaczej wyrwalaby fokus z aplikacji,
+    # w ktorej uzytkownik wlasnie pracuje.
+    "refreshPodcastLibrary",
 ))
 
 # Explicit view commands and container presets may grant foreground access.

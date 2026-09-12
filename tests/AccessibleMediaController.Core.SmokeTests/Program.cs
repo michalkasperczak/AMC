@@ -110,6 +110,7 @@ var tests = new (string Name, Action Test)[]
     ("Folder nie staje się fałszywym elementem kolekcji", TestFolderMembershipGuard),
     ("Częściowy stan folderu w kolekcjach", TestFolderContentsMembership),
     ("Eksport kanałów YouTube do subskrypcji i OPML", TestYouTubeSubscriptionsExport),
+    ("Domyślne odstępy odświeżania obejmują też podcasty RSS", TestDefaultRefreshIntervalsRepairRssSources),
     ("Przeskok wtyczką NVDA nie zapowiada stanu wstrzymania", TestRelativeJumpAnnouncementOmitsPlaybackState),
     ("Odcinek podcastu czytany tytułem przed nazwą kanału", TestPodcastEpisodeReadsTitleBeforeChannel),
     ("Krótkie komunikaty czasu", TestTimeCommands),
@@ -6178,6 +6179,76 @@ static void TestYouTubeSubscriptionsExport()
     Equal(
         1,
         opml.Split("channel_id=UCabc_123", StringSplitOptions.None).Length - 1);
+}
+
+static void TestDefaultRefreshIntervalsRepairRssSources()
+{
+    // Wersje do 353 nadawaly odstep odswiezania TYLKO kanalom YouTube, wiec
+    // podcasty RSS zostawaly z zerem i automat nigdy ich nie sprawdzal.
+    var settings = new PodcastSettings
+    {
+        RssRefreshIntervalMinutes = 60,
+        YouTubeRefreshIntervalMinutes = 120
+    };
+    settings.Subscriptions.Add(new PodcastSubscriptionSettings
+    {
+        Id = "rss-zapomniany",
+        Title = "Podcast bez odstepu",
+        IsInLibrary = true,
+        SourceKind = PodcastSourceKind.Rss,
+        RefreshIntervalMinutes = 0
+    });
+    settings.Subscriptions.Add(new PodcastSubscriptionSettings
+    {
+        Id = "youtube-channel:UCabc",
+        Title = "Kanal YouTube bez odstepu",
+        IsInLibrary = true,
+        SourceKind = PodcastSourceKind.YouTubeChannel,
+        RefreshIntervalMinutes = 0
+    });
+    settings.Subscriptions.Add(new PodcastSubscriptionSettings
+    {
+        Id = "rss-wlasny",
+        Title = "Podcast z wlasnym odstepem",
+        IsInLibrary = true,
+        SourceKind = PodcastSourceKind.Rss,
+        RefreshIntervalMinutes = 15
+    });
+    settings.Subscriptions.Add(new PodcastSubscriptionSettings
+    {
+        Id = "rss-poza-biblioteka",
+        Title = "Podcast poza biblioteka",
+        IsInLibrary = false,
+        SourceKind = PodcastSourceKind.Rss,
+        RefreshIntervalMinutes = 0
+    });
+
+    Equal(2, settings.ApplyDefaultRefreshIntervals());
+    Equal(60, settings.Subscriptions[0].RefreshIntervalMinutes);
+    Equal(120, settings.Subscriptions[1].RefreshIntervalMinutes);
+    True(
+        settings.Subscriptions[2].RefreshIntervalMinutes == 15,
+        "Swiadomie ustawiony odstep uzytkownika nie moze zostac nadpisany.");
+    True(
+        settings.Subscriptions[3].RefreshIntervalMinutes == 0,
+        "Zrodlo poza biblioteka nie jest odswiezane, wiec nie dostaje odstepu.");
+
+    // Powtorne wywolanie nie ma juz nic do naprawy - inaczej kazdy start
+    // programu zapisywalby stan bez powodu.
+    Equal(0, settings.ApplyDefaultRefreshIntervals());
+
+    // Okno Ustawien pracuje na KOPII stanu. Gdy kopiowanie pominie te pola,
+    // zapis ustawien cicho wyzeruje odstepy i automat znowu przestanie dzialac.
+    var state = new PersistedState();
+    state.Podcasts.RssRefreshIntervalMinutes = 90;
+    state.Podcasts.YouTubeRefreshIntervalMinutes = 180;
+    state.Podcasts.AutomaticRefreshBatchSize = 7;
+    var copy = new ConfigurationStore(
+            Path.Combine(Path.GetTempPath(), $"amc-refresh-{Guid.NewGuid():N}", "state.json"))
+        .CloneState(state);
+    Equal(90, copy.Podcasts.RssRefreshIntervalMinutes);
+    Equal(180, copy.Podcasts.YouTubeRefreshIntervalMinutes);
+    Equal(7, copy.Podcasts.AutomaticRefreshBatchSize);
 }
 
 static void TestRelativeJumpAnnouncementOmitsPlaybackState()

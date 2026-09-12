@@ -74,6 +74,7 @@ internal static class NvdaCommands
         "showRecordings" => CommandIds.ViewActiveRadioRecordings,
         "showSchedules" => CommandIds.ManageRadioSchedules,
         "showRecognitions" => CommandIds.ViewRadioRecognitionHistory,
+        "refreshPodcastLibrary" => CommandIds.RefreshPodcastLibrary,
         _ => null
     };
 

@@ -357,6 +357,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdatePlaybackStatusBar();
         _playerUiTimer.Start();
         _radioScheduleTimer.Start();
+        var repairedIntervals = _state.Podcasts.ApplyDefaultRefreshIntervals();
+        if (repairedIntervals > 0)
+        {
+            DiagnosticLog.Info(
+                "podcasts",
+                $"Nadano domyslny odstep odswiezania zrodlom bez odstepu: {repairedIntervals}.");
+            QueueStateSave(announceFailure: false);
+        }
         _podcastRefreshTimer.Start();
         RearmRadioWakeTimer();
         Dispatcher.BeginInvoke(ProcessDueRadioSchedules, DispatcherPriority.Background);
@@ -7594,10 +7602,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             DateTime.UtcNow,
             _state.Bookmarks,
             dialog.SourceKind);
-        if (result.AddedSubscription
-            && dialog.SourceKind is PodcastSourceKind.YouTubeChannel or PodcastSourceKind.YouTubePlaylist)
+        if (result.AddedSubscription)
         {
-            result.Subscription.RefreshIntervalMinutes = 60;
+            // Wczesniej odstep dostawal TYLKO YouTube, wiec kanaly RSS nigdy nie
+            // wchodzily do automatu i odswiezaly sie wylacznie recznie.
+            result.Subscription.RefreshIntervalMinutes =
+                DefaultRefreshIntervalMinutes(dialog.SourceKind);
         }
         ReloadPodcastSessionItems();
         QueueStateSave(announceFailure: true);
@@ -7991,13 +8001,26 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or PodcastSourceKind.YouTubeChannel
             or PodcastSourceKind.YouTubePlaylist;
 
-    private Task RefreshAllPodcastsAsync()
+    private int DefaultRefreshIntervalMinutes(PodcastSourceKind sourceKind) => sourceKind switch
+    {
+        PodcastSourceKind.Rss => _state.Podcasts.RssRefreshIntervalMinutes,
+        PodcastSourceKind.YouTubeChannel or PodcastSourceKind.YouTubePlaylist =>
+            _state.Podcasts.YouTubeRefreshIntervalMinutes,
+        // Publiczne medium internetowe sprawdza sie przy kazdym odtworzeniu,
+        // wiec automatyczne odswiezanie nie ma dla niego sensu.
+        _ => 0
+    };
+
+    private Task RefreshAllPodcastsAsync(bool fromGlobalShortcut = false)
     {
         var subscriptions = _state.Podcasts.Subscriptions
             .Where(subscription => subscription.IsInLibrary
                 && IsRefreshablePodcastSource(subscription.SourceKind))
             .ToArray();
-        return RefreshPodcastSubscriptionsAsync(subscriptions, returnToLibrary: false);
+        return RefreshPodcastSubscriptionsAsync(
+            subscriptions,
+            returnToLibrary: false,
+            allowOutsidePodcastSession: fromGlobalShortcut);
     }
 
     private async void PodcastRefreshTimer_Tick(object? sender, EventArgs e)
@@ -8015,7 +8038,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             // A large collection of public YouTube channels must never start a
             // long yt-dlp queue on the UI timer. Remaining due sources are
             // picked up by later ticks; Ctrl+F5 still refreshes all now.
-            .Take(4)
+            .Take(Math.Max(1, _state.Podcasts.AutomaticRefreshBatchSize))
             .ToArray();
         if (due.Length == 0) return;
 
@@ -8025,7 +8048,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private async Task RefreshPodcastSubscriptionsAsync(
         IReadOnlyList<PodcastSubscriptionSettings> subscriptions,
         bool returnToLibrary,
-        bool automatic = false)
+        bool automatic = false,
+        bool allowOutsidePodcastSession = false)
     {
         if (Interlocked.CompareExchange(ref _podcastRefreshInProgress, 1, 0) != 0)
         {
@@ -8039,7 +8063,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 _sessions.Current.Id,
                 "podcasts",
                 StringComparison.Ordinal);
-            if (!podcastSessionActiveAtStart && !automatic)
+            // Skrot globalny z wtyczki NVDA wolno wywolac z dowolnego programu,
+            // wiec nie wymagamy aktywnej sesji Podcasty - inaczej funkcja
+            // dzialalaby tylko wtedy, gdy okno AMC i tak jest pod reka.
+            if (!podcastSessionActiveAtStart && !automatic && !allowOutsidePodcastSession)
             {
                 Announce("Odświeżanie źródeł jest dostępne w sesji Podcasty i YouTube");
                 return;
@@ -9671,8 +9698,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 DateTime.UtcNow,
                 _state.Bookmarks,
                 youtubeCollection?.SourceKind ?? PodcastSourceKind.Rss);
-            if (result.AddedSubscription && youtubeCollection is not null)
-                result.Subscription.RefreshIntervalMinutes = 60;
+            if (result.AddedSubscription)
+            {
+                // Ten sam blad co przy dodawaniu recznym: importowane kanaly RSS
+                // zostawaly bez odstepu, wiec automat ich nie widzial.
+                result.Subscription.RefreshIntervalMinutes = DefaultRefreshIntervalMinutes(
+                    youtubeCollection?.SourceKind ?? PodcastSourceKind.Rss);
+            }
             if (markFavorite) result.Subscription.IsFavorite = true;
             ReloadPodcastSessionItems();
             QueueStateSave(announceFailure: true);

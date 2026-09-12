@@ -72,7 +72,9 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
             using (var command = connection.CreateCommand())
             {
                 command.CommandText = """
-                    SELECT downloads_folder, current_item_id, volume, playback_rate
+                    SELECT downloads_folder, current_item_id, volume, playback_rate,
+                           rss_refresh_interval_minutes, youtube_refresh_interval_minutes,
+                           automatic_refresh_batch_size
                     FROM podcast_state WHERE singleton = 1;
                     """;
                 using var reader = command.ExecuteReader();
@@ -82,6 +84,9 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                     settings.CurrentItemId = NullableString(reader, 1);
                     settings.Volume = reader.GetInt32(2);
                     settings.PlaybackRate = reader.GetDouble(3);
+                    settings.RssRefreshIntervalMinutes = reader.GetInt32(4);
+                    settings.YouTubeRefreshIntervalMinutes = reader.GetInt32(5);
+                    settings.AutomaticRefreshBatchSize = reader.GetInt32(6);
                 }
             }
 
@@ -123,18 +128,26 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
             transaction,
             """
             INSERT INTO podcast_state(
-                singleton, downloads_folder, current_item_id, volume, playback_rate)
-            VALUES(1, $downloads, $current, $volume, $rate)
+                singleton, downloads_folder, current_item_id, volume, playback_rate,
+                rss_refresh_interval_minutes, youtube_refresh_interval_minutes,
+                automatic_refresh_batch_size)
+            VALUES(1, $downloads, $current, $volume, $rate, $rssInterval, $youTubeInterval, $batch)
             ON CONFLICT(singleton) DO UPDATE SET
                 downloads_folder = excluded.downloads_folder,
                 current_item_id = excluded.current_item_id,
                 volume = excluded.volume,
-                playback_rate = excluded.playback_rate;
+                playback_rate = excluded.playback_rate,
+                rss_refresh_interval_minutes = excluded.rss_refresh_interval_minutes,
+                youtube_refresh_interval_minutes = excluded.youtube_refresh_interval_minutes,
+                automatic_refresh_batch_size = excluded.automatic_refresh_batch_size;
             """,
             ("$downloads", settings.DownloadsFolder),
             ("$current", settings.CurrentItemId),
             ("$volume", settings.Volume),
-            ("$rate", settings.PlaybackRate));
+            ("$rate", settings.PlaybackRate),
+            ("$rssInterval", settings.RssRefreshIntervalMinutes),
+            ("$youTubeInterval", settings.YouTubeRefreshIntervalMinutes),
+            ("$batch", settings.AutomaticRefreshBatchSize));
 
         var subscriptionHashes = ReadHashes(connection, transaction, "podcast_subscriptions");
         for (var ordinal = 0; ordinal < settings.Subscriptions.Count; ordinal++)
@@ -412,6 +425,14 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
             PRAGMA user_version = 1;
             """;
         command.ExecuteNonQuery();
+
+        // Baza Michala powstala przed tymi ustawieniami, wiec CREATE TABLE ich nie
+        // doda - trzeba dolozyc kolumny osobno. ALTER TABLE ADD COLUMN na istniejacej
+        // kolumnie rzuca blad, dlatego najpierw pytamy o uklad tabeli.
+        EnsurePodcastStateColumn(connection, "rss_refresh_interval_minutes", "INTEGER NOT NULL DEFAULT 60");
+        EnsurePodcastStateColumn(connection, "youtube_refresh_interval_minutes", "INTEGER NOT NULL DEFAULT 60");
+        EnsurePodcastStateColumn(connection, "automatic_refresh_batch_size", "INTEGER NOT NULL DEFAULT 4");
+
         using var metadata = connection.CreateCommand();
         metadata.CommandText = """
             INSERT INTO metadata(key, value) VALUES('database_schema_version', $version)
@@ -419,6 +440,23 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
             """;
         metadata.Parameters.AddWithValue("$version", DatabaseSchemaVersion.ToString(CultureInfo.InvariantCulture));
         metadata.ExecuteNonQuery();
+    }
+
+    private static void EnsurePodcastStateColumn(
+        SqliteConnection connection,
+        string columnName,
+        string definition)
+    {
+        using (var probe = connection.CreateCommand())
+        {
+            probe.CommandText = "SELECT 1 FROM pragma_table_info('podcast_state') WHERE name = $name;";
+            probe.Parameters.AddWithValue("$name", columnName);
+            if (probe.ExecuteScalar() is not null) return;
+        }
+
+        using var alter = connection.CreateCommand();
+        alter.CommandText = $"ALTER TABLE podcast_state ADD COLUMN {columnName} {definition};";
+        alter.ExecuteNonQuery();
     }
 
     private static int ReadCount(SqliteConnection connection, string table)

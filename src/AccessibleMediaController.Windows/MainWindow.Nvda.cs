@@ -50,6 +50,14 @@ public partial class MainWindow
             return new(true, $"{session.CurrentItem.Title}, {session.DisplayName}, {state}{mute}, głośność {session.Volume}%.");
         }
 
+        if (command == "refreshPodcastLibrary")
+        {
+            // Wolane z dowolnego programu, wiec nie ruszamy okna ani sesji -
+            // sam wynik przyjdzie komunikatem mowionym.
+            _ = RefreshAllPodcastsAsync(fromGlobalShortcut: true);
+            return new(true, "Aktualizuję wszystkie podcasty i kanały YouTube.");
+        }
+
         // Playable presets stay in the background; containers need a visible browser.
         var presetCommand = NvdaCommands.Resolve(command);
         var presetNeedsWindow = presetCommand is not null

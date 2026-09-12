@@ -30,7 +30,8 @@ class ControllerTests(unittest.TestCase):
             "status": "i", "playPause": "p", "previous": "leftArrow", "next": "rightArrow",
             "volumeUp": "upArrow", "volumeDown": "downArrow", "mute": "m",
             "seekBack": "j", "seekForward": "k", "elapsed": "e", "remaining": "r", "total": "t",
-            "sessionPrevious": "shift+tab", "sessionNext": "tab",
+            "sessionPrevious": ["shift+tab", "shift+leftArrow"],
+            "sessionNext": ["tab", "shift+rightArrow"],
             "context": "alt+i",
             "muteAll": "shift+m",
             "seekBack30": "shift+j",
@@ -70,6 +71,7 @@ class ControllerTests(unittest.TestCase):
             "showRecordings": "alt+h",
             "showSchedules": "shift+h",
             "showRecognitions": "alt+s",
+            "refreshPodcastLibrary": "f5",
         }
         expected.update({f"preset{slot}": "alt+" + key
                          for slot, key in enumerate("1234567890-=", 1)})
@@ -81,13 +83,36 @@ class ControllerTests(unittest.TestCase):
         for method in scripts:
             decorator = method.decorator_list[0]
             self.assertEqual(decorator.func.id, "script")
-            properties = {keyword.arg: keyword.value.value for keyword in decorator.keywords}
+            properties = {}
+            for keyword in decorator.keywords:
+                if isinstance(keyword.value, ast.List):
+                    properties[keyword.arg] = [element.value for element in keyword.value.elts]
+                else:
+                    properties[keyword.arg] = keyword.value.value
             self.assertGreater(len(properties["description"]), 12)
             command = method.name.removeprefix("script_")
-            gesture = properties["gesture"]
-            self.assertEqual(gesture, "kb:control+windows+" + expected[command])
-            self.assertNotIn(gesture.lower(), gestures)
-            gestures.add(gesture.lower())
+            # JEDNA KOMENDA MOZE MIEC KILKA GESTOW.  NVDA przyjmuje albo
+            # gesture= (jeden), albo gestures= (lista) - patrz scriptHandler.py
+            # w zrodlach NVDA.  Przelaczanie sesji ma dwa warianty: historyczny
+            # Tab i wygodniejsze jedna reka strzalki, wiec test musi znac OBA
+            # ksztalty, inaczej kazdy drugi gest bylby niewidoczny dla kontroli
+            # unikalnosci i kolizja przeszlaby niezauwazona.
+            expected_gestures = expected[command]
+            if not isinstance(expected_gestures, list):
+                expected_gestures = [expected_gestures]
+            declared = properties.get("gestures")
+            if declared is None:
+                declared = [properties["gesture"]]
+                self.assertEqual(len(expected_gestures), 1,
+                                 f"{command}: oczekiwano kilku gestow, a wtyczka deklaruje jeden")
+            else:
+                self.assertNotIn("gesture", properties,
+                                 f"{command}: gesture= i gestures= naraz - NVDA wezmie tylko jeden")
+            self.assertEqual(declared,
+                             ["kb:control+windows+" + suffix for suffix in expected_gestures])
+            for gesture in declared:
+                self.assertNotIn(gesture.lower(), gestures)
+                gestures.add(gesture.lower())
             # The public NVDA script must dispatch the matching allow-listed command.
             call = method.body[0].value
             self.assertEqual(call.func.attr, "_send")
@@ -96,7 +121,9 @@ class ControllerTests(unittest.TestCase):
         for reserved in ("c", "d", "f", "n", "o", "q", "s", "v", "space",
                          "shift+b", "f4", *map(str, range(10))):
             self.assertNotIn("kb:control+windows+" + reserved, gestures)
-        self.assertEqual(len(gestures), 65)
+        # 68 = 65 wyjsciowych + 2 drugie gesty przelaczania sesji
+        # (strzalki obok Tab) + 1 odswiezenie biblioteki podcastow (F5).
+        self.assertEqual(len(gestures), 68)
         for digit in "0123456789":
             self.assertNotIn("kb:control+windows+shift+" + digit, gestures)
 

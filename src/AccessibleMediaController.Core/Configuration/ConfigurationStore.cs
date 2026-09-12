@@ -294,7 +294,10 @@ public sealed class ConfigurationStore
                 DownloadsFolder = state.Podcasts.DownloadsFolder,
                 CurrentItemId = state.Podcasts.CurrentItemId,
                 Volume = state.Podcasts.Volume,
-                PlaybackRate = state.Podcasts.PlaybackRate
+                PlaybackRate = state.Podcasts.PlaybackRate,
+                RssRefreshIntervalMinutes = state.Podcasts.RssRefreshIntervalMinutes,
+                YouTubeRefreshIntervalMinutes = state.Podcasts.YouTubeRefreshIntervalMinutes,
+                AutomaticRefreshBatchSize = state.Podcasts.AutomaticRefreshBatchSize
             },
             KeyboardProfiles = state.KeyboardProfiles
         };
