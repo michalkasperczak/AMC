@@ -63,6 +63,42 @@ wyłącznie do tego modułu, jeżeli ten sam mechanizm jest współdzielony.
 
 ## Aktualne wpisy
 
+### BUILD-XAML-20260913 — kompilacja projektu Windows padala na wyszukiwaniu XAML
+
+- Stan: przyczyna ZMIERZONA i usunieta w 0.1.0-alpha.352.
+- Objaw: `dotnet build` konczyl sie bledami BG1002 „Nie mozna odnalezc pliku
+  **/*.xaml" i BG1003, mimo ze wszystkie 35 plikow XAML lezalo na miejscu
+  (sprawdzone: 35 plikow, 238 584 bajtow). Blad NIE zalezal od zmian w kodzie —
+  wystepowal takze na czystym drzewie 351, wiec nie byl regresja zadnego commita.
+- Przyczyna: `src/AccessibleMediaController.Windows/TidalPlayerHost/node_modules`
+  zawiera zalozone przez pnpm zlacza katalogow (junction, np. `esbuild`).
+  Windows odmawia wejscia w nie jako „niezaufany punkt instalacji", a poniewaz
+  wyszukiwanie `**/*.xaml` przechodzi cale drzewo projektu, przewracalo sie na
+  tym zlaczu i konczylo bez ANI JEDNEGO pliku XAML. Komunikat wskazywal na brak
+  plikow, a faktycznym powodem byl brak dostepu do obcego katalogu.
+- Naprawa: `DefaultItemExcludes` w pliku projektu wyklucza
+  `TidalPlayerHost\node_modules\**` z wyszukiwania plikow projektu.
+- Test regresji: `.\build.ps1` przechodzi kompilacje i 89/89 testow Windows.
+- Uwaga na przyszlosc: nie usuwac tego wykluczenia i nie liczyc na to, ze
+  wyczyszczenie `obj`/`bin` pomoze — sprawdzone, nie pomaga.
+
+### TESTY-WINDOWS-20260913 — pierwsza awaria zaslaniala wszystkie pozostale
+
+- Stan: zamkniete w 0.1.0-alpha.352, zgodnie z zaleceniem audytu z 11.09.2026.
+- Objaw: 89 testow Windows stalo w JEDNYM wspolnym bloku try. Pierwsza awaria
+  przerywala caly przebieg, wiec o pozostalych testach nie wiedzielismy nic —
+  jedna usterka ukrywala dowolna liczbe nastepnych, a kolejne uruchomienia
+  odkrywaly je po jednej.
+- Naprawa: tabela `(nazwa, test)` i wlasny blok try na kazdy test, jak w zestawie
+  Core. Na koncu pelna lista awarii i licznik „nie przeszlo N z M".
+- Test negatywny (wymagany dowod, nie zalozenie): wstawione dwie celowe awarie,
+  jedna na poczatku listy i jedna na koncu. Wynik: przebieg doszedl do konca,
+  zgloszone `nie przeszlo 2 z 91`, kod wyjscia 1. Czyli wczesna awaria NIE
+  zatrzymuje juz reszty.
+- Komunikaty: kazdy test wypisuje wlasne „OK: ..." tylko raz (bez powtorzenia
+  nazwy technicznej), a na liste awarii idzie krotki komunikat — pelny slad
+  stosu osobno, zeby czytnik ekranu nie brnal przez slad stosu do nazwy testu.
+
 ### TIDAL-EMBED-20260909 — logowanie strony nie odblokowało Embed
 
 - Stan: potwierdzone zachowanie w teście, przyczyna produkcyjna do wyjaśnienia.

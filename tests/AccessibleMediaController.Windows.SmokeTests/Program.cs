@@ -1,4 +1,4 @@
-﻿using System.Buffers.Binary;
+using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
@@ -63,227 +63,276 @@ if (args.Contains("--tidal-playback-smoke", StringComparer.Ordinal))
     return 0;
 }
 
-const string FixtureBase64 = """
+// Stale na poziomie pliku, zeby byly widoczne w wydzielonych funkcjach testow.
+const string VorbisFixtureBase64 = """
 T2dnUwACAAAAAAAAAAC43PvDAAAAAHCxeIUBHgF2b3JiaXMAAAAAAUAfAAAAAAAAgFcAAAAAAACZAU9nZ1MAAAAAAAAAAAAAuNz7wwEAAABjSiSUCz////////////+1A3ZvcmJpcwwAAABMYXZmNjIuMy4xMDABAAAAHwAAAGVuY29kZXI9TGF2YzYyLjExLjEwMCBsaWJ2b3JiaXMBBXZvcmJpcxJCQ1YBAAABAAxSFCElGVNKYwiVUlIpBR1jUFtHHWPUOUYhZBBTiEkZpXtPKpVYSsgRUlgpRR1TTFNJlVKWKUUdYxRTSCFT1jFloXMUS4ZJCSVsTa50FkvomWOWMUYdY85aSp1j1jFFHWNSUkmhcxg6ZiVkFDpGxehifDA6laJCKL7H3lLpLYWKW4q91xpT6y2EGEtpwQhhc+211dxKasUYY4wxxsXiUyiC0JBVAAABAABABAFCQ1YBAAoAAMJQDEVRgNCQVQBABgCAABRFcRTHcRxHkiTLAkJDVgEAQAAAAgAAKI7hKJIjSZJkWZZlWZameZaouaov+64u667t6roOhIasBADIAAAYhiGH3knMkFOQSSYpVcw5CKH1DjnlFGTSUsaYYoxRzpBTDDEFMYbQKYUQ1E45pQwiCENInWTOIEs96OBi5zgQGrIiAIgCAACMQYwhxpBzDEoGIXKOScggRM45KZ2UTEoorbSWSQktldYi55yUTkompbQWUsuklNZCKwUAAAQ4AAAEWAiFhqwIAKIAABCDkFJIKcSUYk4xh5RSjinHkFLMOcWYcowx6CBUzDHIHIRIKcUYc0455iBkDCrmHIQMMgEAAAEOAAABFkKhISsCgDgBAIMkaZqlaaJoaZooeqaoqqIoqqrleabpmaaqeqKpqqaquq6pqq5seZ5peqaoqp4pqqqpqq5rqqrriqpqy6ar2rbpqrbsyrJuu7Ks256qyrapurJuqq5tu7Js664s27rkearqmabreqbpuqrr2rLqurLtmabriqor26bryrLryratyrKua6bpuqKr2q6purLtyq5tu7Ks+6br6rbqyrquyrLu27au+7KtC7vourauyq6uq7Ks67It67Zs20LJ81TVM03X9UzTdVXXtW3VdW1bM03XNV1XlkXVdWXVlXVddWVb90zTdU1XlWXTVWVZlWXddmVXl0XXtW1Vln1ddWVfl23d92VZ133TdXVblWXbV2VZ92Vd94VZt33dU1VbN11X103X1X1b131htm3fF11X11XZ1oVVlnXf1n1lmHWdMLqurqu27OuqLOu+ruvGMOu6MKy6bfyurQvDq+vGseu+rty+j2rbvvDqtjG8um4cu7Abv+37xrGpqm2brqvrpivrumzrvm/runGMrqvrqiz7uurKvm/ruvDrvi8Mo+vquirLurDasq/Lui4Mu64bw2rbwu7aunDMsi4Mt+8rx68LQ9W2heHVdaOr28ZvC8PSN3a+AACAAQcAgAATykChISsCgDgBAAYhCBVjECrGIIQQUgohpFQxBiFjDkrGHJQQSkkhlNIqxiBkjknIHJMQSmiplNBKKKWlUEpLoZTWUmotptRaDKG0FEpprZTSWmopttRSbBVjEDLnpGSOSSiltFZKaSlzTErGoKQOQiqlpNJKSa1lzknJoKPSOUippNJSSam1UEproZTWSkqxpdJKba3FGkppLaTSWkmptdRSba21WiPGIGSMQcmck1JKSamU0lrmnJQOOiqZg5JKKamVklKsmJPSQSglg4xKSaW1kkoroZTWSkqxhVJaa63VmFJLNZSSWkmpxVBKa621GlMrNYVQUgultBZKaa21VmtqLbZQQmuhpBZLKjG1FmNtrcUYSmmtpBJbKanFFluNrbVYU0s1lpJibK3V2EotOdZaa0ot1tJSjK21mFtMucVYaw0ltBZKaa2U0lpKrcXWWq2hlNZKKrGVklpsrdXYWow1lNJiKSm1kEpsrbVYW2w1ppZibLHVWFKLMcZYc0u11ZRai621WEsrNcYYa2415VIAAMCAAwBAgAlloNCQlQBAFAAAYAxjjEFoFHLMOSmNUs45JyVzDkIIKWXOQQghpc45CKW01DkHoZSUQikppRRbKCWl1losAACgwAEAIMAGTYnFAQoNWQkARAEAIMYoxRiExiClGIPQGKMUYxAqpRhzDkKlFGPOQcgYc85BKRljzkEnJYQQQimlhBBCKKWUAgAAChwAAAJs0JRYHKDQkBUBQBQAAGAMYgwxhiB0UjopEYRMSielkRJaCylllkqKJcbMWomtxNhICa2F1jJrJcbSYkatxFhiKgAA7MABAOzAQig0ZCUAkAcAQBijFGPOOWcQYsw5CCE0CDHmHIQQKsaccw5CCBVjzjkHIYTOOecghBBC55xzEEIIoYMQQgillNJBCCGEUkrpIIQQQimldBBCCKGUUgoAACpwAAAIsFFkc4KRoEJDVgIAeQAAgDFKOSclpUYpxiCkFFujFGMQUmqtYgxCSq3FWDEGIaXWYuwgpNRajLV2EFJqLcZaQ0qtxVhrziGl1mKsNdfUWoy15tx7ai3GWnPOuQAA3AUHALADG0U2JxgJKjRkJQCQBwBAIKQUY4w5h5RijDHnnENKMcaYc84pxhhzzjnnFGOMOeecc4wx55xzzjnGmHPOOeecc84556CDkDnnnHPQQeicc845CCF0zjnnHIQQCgAAKnAAAAiwUWRzgpGgQkNWAgDhAACAMZRSSimllFJKqKOUUkoppZRSAiGllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimVUkoppZRSSimllFJKKaUAIN8KBwD/BxtnWEk6KxwNLjRkJQAQDgAAGMMYhIw5JyWlhjEIpXROSkklNYxBKKVzElJKKYPQWmqlpNJSShmElGILIZWUWgqltFZrKam1lFIoKcUaS0qppdYy5ySkklpLrbaYOQelpNZaaq3FEEJKsbXWUmuxdVJSSa211lptLaSUWmstxtZibCWlllprqcXWWkyptRZbSy3G1mJLrcXYYosxxhoLAOBucACASLBxhpWks8LR4EJDVgIAIQEABDJKOeecgxBCCCFSijHnoIMQQgghREox5pyDEEIIIYSMMecghBBCCKGUkDHmHIQQQgghhFI65yCEUEoJpZRSSucchBBCCKWUUkoJIYQQQiillFJKKSGEEEoppZRSSiklhBBCKKWUUkoppYQQQiillFJKKaWUEEIopZRSSimllBJCCKGUUkoppZRSQgillFJKKaWUUkooIYRSSimllFJKCSWUUkoppZRSSikhlFJKKaWUUkoppQAAgAMHAIAAI+gko8oibDThwgMQAAAAAgACTACBAYKCUQgChBEIAAAAAAAIAPgAAEgKgIiIaOYMDhASFBYYGhweICIkAAAAAAAAAAAAAAAABE9nZ1MABMADAAAAAAAAuNz7wwIAAAA/BbY+BTgUEhQjipUZ81O9AoBfTIZAZUAKGamKVqd3pxvYDz80TdNaaw3cSDfSdV3XdV3XdV2VNVjDYY7oiI7o7wSSlpndjVcA8FQBAAAAhBRyaT6lAJaWmX0brwBAVQAAAICQQioDNJKWmd2NVwDwWQUAAABirIh35xcKhstQWc0rAPSdGQByAGSIhp6Gv12MkxDV2lKimaT3PfLd2wU=
 """;
+const long VorbisLiveStreamSampleOffset = 2_256_060_119_296;
 
-const long LiveStreamSampleOffset = 2_256_060_119_296;
-var path = Path.Combine(Path.GetTempPath(), $"amc-offset-vorbis-{Guid.NewGuid():N}.ogg");
-
-try
+// KAZDY TEST ODDZIELNIE. Wczesniej cala lista stala w jednym wspolnym bloku try i
+// PIERWSZA awaria konczyla caly przebieg - o pozostalych kilkudziesieciu testach nie
+// dowiadywalismy sie niczego, wiec jedna usterka zaslaniala wszystkie nastepne.
+// Teraz kazdy test ma wlasny blok, a na koncu wypisujemy PELNA liste awarii.
+// Tak samo dziala zestaw Core (tests/AccessibleMediaController.Core.SmokeTests).
+var tests = new (string Name, Action Test)[]
 {
-    var bytes = Convert.FromBase64String(FixtureBase64);
-    AddGranuleOffset(bytes, LiveStreamSampleOffset);
-    File.WriteAllBytes(path, bytes);
+    ("Normalizacja osi czasu fragmentu OGG/Vorbis", () => TestNormalizedVorbisTimeline(VorbisFixtureBase64, VorbisLiveStreamSampleOffset)),
+    ("Accessible Playback Status Strip", TestAccessiblePlaybackStatusStrip),
+    ("Editable Field Replacement", TestEditableFieldReplacement),
+    ("Global Prefix Capture", TestGlobalPrefixCapture),
+    ("Menu Accessibility", TestMenuAccessibility),
+    ("Session Selection Accessibility", TestSessionSelectionAccessibility),
+    ("Segmented Date Time Digit Entry", TestSegmentedDateTimeDigitEntry),
+    ("Radio Schedule Accessibility", TestRadioScheduleAccessibility),
+    ("State Persistence Queue", TestStatePersistenceQueue),
+    ("Radio Recognition Announcement Policy", TestRadioRecognitionAnnouncementPolicy),
+    ("Radio Recognition Scheduling Policy", TestRadioRecognitionSchedulingPolicy),
+    ("Radio Recognition Setting Accessibility", TestRadioRecognitionSettingAccessibility),
+    ("Radio Recognition History Filter Accessibility", TestRadioRecognitionHistoryFilterAccessibility),
+    ("Playback Audio Setting Accessibility", TestPlaybackAudioSettingAccessibility),
+    ("Audio Output Device Accessibility", TestAudioOutputDeviceAccessibility),
+    ("Wii M Device Manager Accessibility", TestWiiMDeviceManagerAccessibility),
+    ("Podcast Episode File Action Keyboard Map", TestPodcastEpisodeFileActionKeyboardMap),
+    ("Audio Output Pause Race Guard", TestAudioOutputPauseRaceGuard),
+    ("Podcast Network Source Policy", TestPodcastNetworkSourcePolicy),
+    ("You Tube Channel Feed Addresses", TestYouTubeChannelFeedAddresses),
+    ("You Tube Channel Feed Parsing", TestYouTubeChannelFeedParsing),
+    ("Podcast Feed Client", TestPodcastFeedClient),
+    ("Podcast Chapter Client", TestPodcastChapterClient),
+    ("Podcast Episode Downloader", TestPodcastEpisodeDownloader),
+    ("Apple Podcast Directory Client", TestApplePodcastDirectoryClient),
+    ("Spreaker Podcast Directory Client", TestSpreakerPodcastDirectoryClient),
+    ("Podcast OPML Import Selection Accessibility", TestPodcastOpmlImportSelectionAccessibility),
+    ("TIDAL Refresh Request", TestTidalRefreshRequest),
+    ("TIDAL Playback Smoke Tests", TidalPlaybackSmokeTests.Run),
+    ("TIDAL Interaction Smoke Tests", TidalInteractionSmokeTests.Run),
+    ("NVDA Bridge Smoke Tests", NvdaBridgeSmokeTests.Run),
+    ("TIDAL Playlist Picker Accessibility", TestTidalPlaylistPickerAccessibility),
+    ("Podcast Download Settings Accessibility", TestPodcastDownloadSettingsAccessibility),
+    ("Podcast Description Text Order", TestPodcastDescriptionTextOrder),
+    ("Radio Preset Accessible Labels", TestRadioPresetAccessibleLabels),
+    ("Radio Preset Keyboard Map", TestRadioPresetKeyboardMap),
+    ("Main Window Digit Shortcut Routing", TestMainWindowDigitShortcutRouting),
+    ("Player Departure Playback Policy", TestPlayerDeparturePlaybackPolicy),
+    ("Active Radio Recording Focus Context", TestActiveRadioRecordingFocusContext),
+    ("Search Navigation", TestSearchNavigation),
+    ("Podcast Directory Search Merge", TestPodcastDirectorySearchMerge),
+    ("Canonical Membership Resolution", TestCanonicalMembershipResolution),
+    ("Player List Return Selection", TestPlayerListReturnSelection),
+    ("Main Window Focus Recovery Policy", TestMainWindowFocusRecoveryPolicy),
+    ("Podcast Download Start Announcement", TestPodcastDownloadStartAnnouncement),
+    ("Player Audio Processing Keyboard Map", TestPlayerAudioProcessingKeyboardMap),
+    ("Player Volume Keyboard Map", TestPlayerVolumeKeyboardMap),
+    ("Playlist Presentation", TestPlaylistPresentation),
+    ("Guard Does Not Block Position Reads", TestGuardDoesNotBlockPositionReads),
+    ("Complete Output Chain Monitor", TestCompleteOutputChainMonitor),
+    ("Invalid Samples Are Silenced", TestInvalidSamplesAreSilenced),
+    ("Playback Audio Processors", TestPlaybackAudioProcessors),
+    ("Guard Rejects Absurd Duration", TestGuardRejectsAbsurdDuration),
+    ("Managed MP3 Fallback", TestManagedMp3Fallback),
+    ("Audio Clip Exporter", TestAudioClipExporter),
+    ("Audio Clip Original Editor", TestAudioClipOriginalEditor),
+    ("Audio Clip Export Accessibility", TestAudioClipExportAccessibility),
+    ("Chapter Window Accessibility", TestChapterWindowAccessibility),
+    ("Embedded Media Chapters", TestEmbeddedMediaChapters),
+    ("FFmpeg Component Security", TestFfmpegComponentSecurity),
+    ("Yt-dlp Component Security", TestYtDlpComponentSecurity),
+    ("You Tube Source Resolver", TestYouTubeSourceResolver),
+    ("You Tube Search Results", TestYouTubeSearchResults),
+    ("You Tube Collection Results", TestYouTubeCollectionResults),
+    ("Radio You Tube Address Accessibility", TestRadioYouTubeAddressAccessibility),
+    ("Wave Metadata And Damaged Containers", TestWaveMetadataAndDamagedContainers),
+    ("Local Video Audio Extraction", TestLocalVideoAudioExtraction),
+    ("Local Transport Stream Recovery", TestLocalTransportStreamRecovery),
+    ("Radio Browser Search Mapping", TestRadioBrowserSearchMapping),
+    ("Radio Schedule Station Scope", TestRadioScheduleStationScope),
+    ("Radio Playlist Import", TestRadioPlaylistImport),
+    ("Radio Playlist Resolution", TestRadioPlaylistResolution),
+    ("Radio Audio Metadata Validation", TestRadioAudioMetadataValidation),
+    ("Radio Stream Title Metadata", TestRadioStreamTitleMetadata),
+    ("Legacy Radio Content Types", TestLegacyRadioContentTypes),
+    ("Radio Compatibility Candidates", TestRadioCompatibilityCandidates),
+    ("Radio Reconnect Format Compatibility", TestRadioReconnectFormatCompatibility),
+    ("Radio Recording Folder Fallback", TestRadioRecordingFolderFallback),
+    ("Radio Recording Split Control", TestRadioRecordingSplitControl),
+    ("Radio Recording Split Pipeline", TestRadioRecordingSplitPipeline),
+    ("Radio Recording Staging Publication", TestRadioRecordingStagingPublication),
+    ("Scheduled Radio Segmentation", TestScheduledRadioSegmentation),
+    ("Scheduled Radio Recording Interruption Tracker", TestScheduledRadioRecordingInterruptionTracker),
+    ("Shazam Fingerprint", TestShazamFingerprint),
+    ("Recognition Search Links", TestRecognitionSearchLinks),
+    ("Radio MP3 Recording", TestRadioMp3Recording),
+    ("Legacy ICY MP3 Stream", TestLegacyIcyMp3Stream),
+    ("Legacy ICY Cancellation", TestLegacyIcyCancellation),
+    ("BASS Cancellation", TestBassCancellation),
+};
 
-    using var reader = new NormalizedVorbisWaveReader(path);
-    Assert(reader.HasNormalizedTimeline, "Nie rozpoznano osi czasu fragmentu transmisji.");
-    Assert(
-        Math.Abs(reader.SampleOrigin - LiveStreamSampleOffset) < reader.WaveFormat.SampleRate * 2L,
-        $"Nie odjęto początkowego numeru próbki: {reader.SampleOrigin}.");
-    Assert(reader.TotalTime > TimeSpan.Zero && reader.TotalTime < TimeSpan.FromSeconds(1),
-        $"Nieprawidłowy czas fragmentu: {reader.TotalTime}.");
-
-    reader.CurrentTime = TimeSpan.FromTicks(reader.TotalTime.Ticks / 2);
-    var buffer = new byte[16_384];
-    Assert(reader.Read(buffer, 0, buffer.Length) > 0, "Przewinięty fragment nie zwrócił dźwięku.");
-
-    reader.Position = 0;
-    long totalRead = 0;
-    int read;
-    while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
+var failures = new List<string>();
+foreach (var (name, test) in tests)
+{
+    try
     {
-        totalRead += read;
-        Assert(totalRead <= reader.Length, "Czytnik przekroczył rzeczywisty koniec fragmentu.");
+        // Testy same wypisuja szczegolowe "OK: ..." ze swoim wlasnym opisem, wiec
+        // tutaj NIE powtarzamy - inaczej czytnik ekranu czyta kazdy test dwa razy.
+        test();
     }
-    Assert(totalRead == reader.Length, "Czytnik nie zatrzymał się dokładnie na końcu fragmentu.");
-
-    Console.WriteLine("OK: normalizacja osi czasu fragmentu OGG/Vorbis");
-
-    SmokeTestRunnerTests.Run();
-    TestAccessiblePlaybackStatusStrip();
-    TestEditableFieldReplacement();
-    TestGlobalPrefixCapture();
-    TestMenuAccessibility();
-    TestSessionSelectionAccessibility();
-    TestSegmentedDateTimeDigitEntry();
-    TestRadioScheduleAccessibility();
-    TestStatePersistenceQueue();
-    TestRadioRecognitionAnnouncementPolicy();
-    TestRadioRecognitionSchedulingPolicy();
-    TestRadioRecognitionSettingAccessibility();
-    TestRadioRecognitionHistoryFilterAccessibility();
-    TestPlaybackAudioSettingAccessibility();
-    TestAudioOutputDeviceAccessibility();
-    TestWiiMDeviceManagerAccessibility();
-    TestPodcastEpisodeFileActionKeyboardMap();
-    TestAudioOutputPauseRaceGuard();
-    TestPodcastNetworkSourcePolicy();
-    TestYouTubeChannelFeedAddresses();
-    TestYouTubeChannelFeedParsing();
-    TestPodcastFeedClient();
-    TestPodcastChapterClient();
-    TestPodcastEpisodeDownloader();
-    TestApplePodcastDirectoryClient();
-    TestSpreakerPodcastDirectoryClient();
-    TestPodcastOpmlImportSelectionAccessibility();
-    TestTidalRefreshRequest();
-    TidalPlaybackSmokeTests.Run();
-    TidalInteractionSmokeTests.Run();
-    NvdaBridgeSmokeTests.Run();
-    TestTidalPlaylistPickerAccessibility();
-    TestPodcastDownloadSettingsAccessibility();
-    TestPodcastDescriptionTextOrder();
-    TestRadioPresetAccessibleLabels();
-    TestRadioPresetKeyboardMap();
-    TestMainWindowDigitShortcutRouting();
-    TestPlayerDeparturePlaybackPolicy();
-    TestActiveRadioRecordingFocusContext();
-    TestSearchNavigation();
-    TestPodcastDirectorySearchMerge();
-    TestCanonicalMembershipResolution();
-    TestPlayerListReturnSelection();
-    TestMainWindowFocusRecoveryPolicy();
-    TestPodcastDownloadStartAnnouncement();
-    TestPlayerAudioProcessingKeyboardMap();
-    TestPlayerVolumeKeyboardMap();
-    TestPlaylistPresentation();
-    TestGuardDoesNotBlockPositionReads();
-    TestCompleteOutputChainMonitor();
-    TestInvalidSamplesAreSilenced();
-    TestPlaybackAudioProcessors();
-    TestGuardRejectsAbsurdDuration();
-    TestManagedMp3Fallback();
-    TestAudioClipExporter();
-    TestAudioClipOriginalEditor();
-    TestAudioClipExportAccessibility();
-    TestChapterWindowAccessibility();
-    TestEmbeddedMediaChapters();
-    TestFfmpegComponentSecurity();
-    TestYtDlpComponentSecurity();
-    TestYouTubeSourceResolver();
-    TestYouTubeSearchResults();
-    TestYouTubeCollectionResults();
-    TestRadioYouTubeAddressAccessibility();
-    TestWaveMetadataAndDamagedContainers();
-    TestLocalVideoAudioExtraction();
-    TestLocalTransportStreamRecovery();
-    TestRadioBrowserSearchMapping();
-    TestRadioScheduleStationScope();
-    TestRadioPlaylistImport();
-    TestRadioPlaylistResolution();
-    TestRadioAudioMetadataValidation();
-    TestRadioStreamTitleMetadata();
-    TestLegacyRadioContentTypes();
-    TestRadioCompatibilityCandidates();
-    TestRadioReconnectFormatCompatibility();
-    TestRadioRecordingFolderFallback();
-    TestRadioRecordingSplitControl();
-    TestRadioRecordingSplitPipeline();
-    TestRadioRecordingStagingPublication();
-    TestScheduledRadioSegmentation();
-    TestScheduledRadioRecordingInterruptionTracker();
-    TestShazamFingerprint();
-    TestRecognitionSearchLinks();
-    TestRadioMp3Recording();
-    TestLegacyIcyMp3Stream();
-    TestLegacyIcyCancellation();
-    TestBassCancellation();
-    foreach (var mediaPath in args)
+    catch (Exception exception)
     {
-        if (mediaPath.StartsWith("--bass-radio-url=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestLiveBassRadio(mediaPath["--bass-radio-url=".Length..]);
-        }
-        else if (mediaPath.StartsWith("--system-radio-url=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestLiveSystemRadio(mediaPath["--system-radio-url=".Length..]);
-        }
-        else if (mediaPath.StartsWith("--radio-url=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestLiveLegacyRadio(mediaPath["--radio-url=".Length..]);
-        }
-        else if (mediaPath.StartsWith("--hls-radio-url=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestLiveHlsRadio(mediaPath["--hls-radio-url=".Length..]);
-        }
-        else if (mediaPath.StartsWith("--youtube-live-url=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestLiveYouTubeRadio(mediaPath["--youtube-live-url=".Length..]);
-        }
-        else if (mediaPath.StartsWith("--youtube-search-query=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestLiveYouTubeSearch(mediaPath["--youtube-search-query=".Length..]);
-        }
-        else if (mediaPath.StartsWith("--youtube-collection-url=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestLiveYouTubeCollection(mediaPath["--youtube-collection-url=".Length..]);
-        }
-        else if (mediaPath.StartsWith("--youtube-seek-url=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestLiveYouTubeSeek(mediaPath["--youtube-seek-url=".Length..]);
-        }
-        else if (mediaPath.StartsWith("--radio-metadata-url=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestLiveRadioMetadata(mediaPath["--radio-metadata-url=".Length..]);
-        }
-        else if (mediaPath.StartsWith("--ffmpeg-local-path=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestFfmpegLocalFile(mediaPath["--ffmpeg-local-path=".Length..]);
-        }
-        else if (mediaPath.StartsWith("--podcast-url=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestLivePodcast(mediaPath["--podcast-url=".Length..]);
-        }
-        else if (mediaPath.StartsWith("--podcast-chapter-page-url=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestLivePodcastChapterPage(mediaPath["--podcast-chapter-page-url=".Length..]);
-        }
-        else if (mediaPath.StartsWith("--apple-podcast-query=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestLiveApplePodcastDirectory(mediaPath["--apple-podcast-query=".Length..]);
-        }
-        else if (mediaPath.StartsWith("--spreaker-podcast-query=", StringComparison.OrdinalIgnoreCase))
-        {
-            TestLiveSpreakerPodcastDirectory(mediaPath["--spreaker-podcast-query=".Length..]);
-        }
-        else if (mediaPath.Equals("--install-ffmpeg", StringComparison.OrdinalIgnoreCase))
-        {
-            var result = FfmpegComponentManager.CheckAndUpdateAsync(
-                    installAvailable: true,
-                    cancellationToken: CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
-            Assert(result.Success && result.Status.Installed, result.Message);
-            Console.WriteLine($"OK: {result.Message}");
-        }
-        else if (mediaPath.Equals("--install-yt-dlp", StringComparison.OrdinalIgnoreCase))
-        {
-            var result = YtDlpComponentManager.CheckAndUpdateAsync(
-                    installAvailable: true,
-                    cancellationToken: CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
-            Assert(result.Success && result.Status.Installed, result.Message);
-            Console.WriteLine($"OK: {result.Message}");
-        }
-        else
-        {
-            TestFormatMetadata(mediaPath);
-        }
+        // Krotki komunikat na liste, pelny slad stosu osobno - zeby czytnik ekranu
+        // nie musial brnac przez slad stosu, szukajac nazwy testu.
+        failures.Add($"BLAD: {name}: {exception.Message}");
+        Console.Error.WriteLine($"BLAD: {name}: {exception}");
     }
+}
+
+// Testy zywe (siec, prawdziwe adresy) tylko na zadanie, podane argumentami.
+foreach (var mediaPath in args)
+{
+    var etykieta = $"test zywy {mediaPath}";
+    try
+    {
+        RunLiveTest(mediaPath);
+        Console.WriteLine($"OK: {etykieta}");
+    }
+    catch (Exception exception)
+    {
+        failures.Add($"BLAD: {etykieta}: {exception.Message}");
+        Console.Error.WriteLine($"BLAD: {etykieta}: {exception}");
+    }
+}
+
+if (failures.Count == 0)
+{
+    Console.WriteLine($"WSZYSTKIE TESTY OK: {tests.Length + args.Length}");
     return 0;
 }
 
-catch (Exception exception)
-{
-    Console.Error.WriteLine($"BŁĄD: testy dekoderów Windows: {exception}");
-    return 1;
+Console.Error.WriteLine();
+Console.Error.WriteLine($"PODSUMOWANIE: nie przeszlo {failures.Count} z {tests.Length + args.Length}:");
+foreach (var failure in failures) Console.Error.WriteLine(failure);
+return 1;
 }
-finally
+
+static void TestNormalizedVorbisTimeline(string fixtureBase64, long liveStreamSampleOffset)
 {
-    if (File.Exists(path)) File.Delete(path);
+    var path = Path.Combine(Path.GetTempPath(), $"amc-offset-vorbis-{Guid.NewGuid():N}.ogg");
+    try
+    {
+        var bytes = Convert.FromBase64String(fixtureBase64);
+        AddGranuleOffset(bytes, liveStreamSampleOffset);
+        File.WriteAllBytes(path, bytes);
+
+        using var reader = new NormalizedVorbisWaveReader(path);
+        Assert(reader.HasNormalizedTimeline, "Nie rozpoznano osi czasu fragmentu transmisji.");
+        Assert(
+            Math.Abs(reader.SampleOrigin - liveStreamSampleOffset) < reader.WaveFormat.SampleRate * 2L,
+            $"Nie odjeto poczatkowego numeru probki: {reader.SampleOrigin}.");
+        Assert(reader.TotalTime > TimeSpan.Zero && reader.TotalTime < TimeSpan.FromSeconds(1),
+            $"Nieprawidlowy czas fragmentu: {reader.TotalTime}.");
+
+        reader.CurrentTime = TimeSpan.FromTicks(reader.TotalTime.Ticks / 2);
+        var buffer = new byte[16_384];
+        Assert(reader.Read(buffer, 0, buffer.Length) > 0, "Przewiniety fragment nie zwrocil dzwieku.");
+
+        reader.Position = 0;
+        long totalRead = 0;
+        int read;
+        while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            totalRead += read;
+            Assert(totalRead <= reader.Length, "Czytnik przekroczyl rzeczywisty koniec fragmentu.");
+        }
+        Assert(totalRead == reader.Length, "Czytnik nie zatrzymal sie dokladnie na koncu fragmentu.");
+        Console.WriteLine("OK: normalizacja osi czasu fragmentu OGG/Vorbis");
+    }
+    finally
+    {
+        if (File.Exists(path)) File.Delete(path);
+    }
 }
+
+static void RunLiveTest(string mediaPath)
+{
+    if (mediaPath.StartsWith("--bass-radio-url=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestLiveBassRadio(mediaPath["--bass-radio-url=".Length..]);
+    }
+    else if (mediaPath.StartsWith("--system-radio-url=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestLiveSystemRadio(mediaPath["--system-radio-url=".Length..]);
+    }
+    else if (mediaPath.StartsWith("--radio-url=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestLiveLegacyRadio(mediaPath["--radio-url=".Length..]);
+    }
+    else if (mediaPath.StartsWith("--hls-radio-url=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestLiveHlsRadio(mediaPath["--hls-radio-url=".Length..]);
+    }
+    else if (mediaPath.StartsWith("--youtube-live-url=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestLiveYouTubeRadio(mediaPath["--youtube-live-url=".Length..]);
+    }
+    else if (mediaPath.StartsWith("--youtube-search-query=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestLiveYouTubeSearch(mediaPath["--youtube-search-query=".Length..]);
+    }
+    else if (mediaPath.StartsWith("--youtube-collection-url=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestLiveYouTubeCollection(mediaPath["--youtube-collection-url=".Length..]);
+    }
+    else if (mediaPath.StartsWith("--youtube-seek-url=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestLiveYouTubeSeek(mediaPath["--youtube-seek-url=".Length..]);
+    }
+    else if (mediaPath.StartsWith("--radio-metadata-url=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestLiveRadioMetadata(mediaPath["--radio-metadata-url=".Length..]);
+    }
+    else if (mediaPath.StartsWith("--ffmpeg-local-path=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestFfmpegLocalFile(mediaPath["--ffmpeg-local-path=".Length..]);
+    }
+    else if (mediaPath.StartsWith("--podcast-url=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestLivePodcast(mediaPath["--podcast-url=".Length..]);
+    }
+    else if (mediaPath.StartsWith("--podcast-chapter-page-url=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestLivePodcastChapterPage(mediaPath["--podcast-chapter-page-url=".Length..]);
+    }
+    else if (mediaPath.StartsWith("--apple-podcast-query=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestLiveApplePodcastDirectory(mediaPath["--apple-podcast-query=".Length..]);
+    }
+    else if (mediaPath.StartsWith("--spreaker-podcast-query=", StringComparison.OrdinalIgnoreCase))
+    {
+        TestLiveSpreakerPodcastDirectory(mediaPath["--spreaker-podcast-query=".Length..]);
+    }
+    else if (mediaPath.Equals("--install-ffmpeg", StringComparison.OrdinalIgnoreCase))
+    {
+        var result = FfmpegComponentManager.CheckAndUpdateAsync(
+                installAvailable: true,
+                cancellationToken: CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+        Assert(result.Success && result.Status.Installed, result.Message);
+        Console.WriteLine($"OK: {result.Message}");
+    }
+    else if (mediaPath.Equals("--install-yt-dlp", StringComparison.OrdinalIgnoreCase))
+    {
+        var result = YtDlpComponentManager.CheckAndUpdateAsync(
+                installAvailable: true,
+                cancellationToken: CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+        Assert(result.Success && result.Status.Installed, result.Message);
+        Console.WriteLine($"OK: {result.Message}");
+    }
+    else
+    {
+        TestFormatMetadata(mediaPath);
+    }
 }
 
 static void TestMenuAccessibility()

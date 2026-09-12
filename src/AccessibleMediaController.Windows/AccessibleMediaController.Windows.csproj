@@ -11,6 +11,13 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>AccessibleMediaController.Windows</RootNamespace>
     <AssemblyName>AccessibleMediaController</AssemblyName>
+    <!-- 2026-09-13: node_modules odtwarzacza TIDAL MUSI byc wykluczone z wyszukiwania
+         plikow projektu. pnpm zaklada tam zlacza katalogow (junction), a Windows
+         odmawia wejscia w nie jako "niezaufany punkt instalacji" - wyszukiwanie
+         **/*.xaml przewracalo sie wtedy z bledem BG1002 "Nie mozna odnalezc pliku
+         **/*.xaml", mimo ze wszystkie 35 plikow XAML lezalo na miejscu. Bez tego
+         wykluczenia CALY projekt Windows sie nie kompiluje. Nie usuwac. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);TidalPlayerHost\node_modules\**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AccessibleMediaController.Core\AccessibleMediaController.Core.csproj" />
