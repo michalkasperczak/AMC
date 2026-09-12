@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 
 namespace AccessibleMediaController.Core.Radio;
 
@@ -39,6 +40,53 @@ public static class RadioFavoritesPlaylistWriter
         }
 
         return new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(builder.ToString());
+    }
+
+    /// <summary>
+    /// Writes the VRadio Favorites JSON shape that <c>RadioPlaylistImporter</c>
+    /// already reads, so a list exported from AMC can be imported back by AMC
+    /// and by VRadio itself. Only the user-facing station name and its stable
+    /// public address are written - never AMC identifiers or resolved playback
+    /// URLs, which are temporary and may carry private tokens.
+    /// </summary>
+    public static byte[] WriteVRadioJson(IEnumerable<RadioFavoritePlaylistEntry> stations)
+    {
+        ArgumentNullException.ThrowIfNull(stations);
+        var accepted = new List<RadioFavoritePlaylistEntry>();
+        var seenAddresses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var station in stations)
+        {
+            if (accepted.Count >= MaximumEntries) break;
+            if (!TryNormalizeAddress(station.StreamUrl, out var address)
+                || !seenAddresses.Add(address))
+            {
+                continue;
+            }
+
+            accepted.Add(new RadioFavoritePlaylistEntry(NormalizeName(station.Name, address), address));
+        }
+
+        using var buffer = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true }))
+        {
+            writer.WriteStartObject();
+            writer.WriteStartArray("stations");
+            foreach (var station in accepted)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("name", station.Name);
+                writer.WriteStartArray("streams");
+                writer.WriteStartObject();
+                writer.WriteString("url", station.StreamUrl);
+                writer.WriteEndObject();
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }
+
+        return buffer.ToArray();
     }
 
     private static bool TryNormalizeAddress(string? value, out string normalized)

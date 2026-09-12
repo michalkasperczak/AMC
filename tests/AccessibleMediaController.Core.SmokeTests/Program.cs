@@ -109,6 +109,9 @@ var tests = new (string Name, Action Test)[]
     ("Zbiorowe zmiany przynależności", TestBatchMembershipCommands),
     ("Folder nie staje się fałszywym elementem kolekcji", TestFolderMembershipGuard),
     ("Częściowy stan folderu w kolekcjach", TestFolderContentsMembership),
+    ("Eksport kanałów YouTube do subskrypcji i OPML", TestYouTubeSubscriptionsExport),
+    ("Przeskok wtyczką NVDA nie zapowiada stanu wstrzymania", TestRelativeJumpAnnouncementOmitsPlaybackState),
+    ("Odcinek podcastu czytany tytułem przed nazwą kanału", TestPodcastEpisodeReadsTitleBeforeChannel),
     ("Krótkie komunikaty czasu", TestTimeCommands),
     ("Skok wpisanym czasem i procentem", TestSeekInputParser),
     ("Niedestrukcyjne zaznaczanie fragmentu audio", TestAudioClipSelection),
@@ -686,6 +689,28 @@ static void TestWiiMApiParsing()
             "Eksport powinien zachować stabilny publiczny adres transmisji YouTube.");
         True(!favoritePlaylist.Contains("haslo", StringComparison.Ordinal),
             "Eksport ulubionych nie może zapisać adresu z osadzonymi danymi logowania.");
+
+        // Zapis w ukladzie VRadio musi dawac plik, ktory WLASNY import AMC przyjmuje -
+        // inaczej "eksport do VRadio" jest tylko nazwa opcji, a nie dzialajaca droga.
+        var vradioExport = Encoding.UTF8.GetString(RadioFavoritesPlaylistWriter.WriteVRadioJson([
+            new RadioFavoritePlaylistEntry("Radio\r\nPierwsze", "https://radio.example/live#player"),
+            new RadioFavoritePlaylistEntry("Duplikat", "https://radio.example/live"),
+            new RadioFavoritePlaylistEntry("Prywatny", "https://login:haslo@example.test/live")
+        ]));
+        using (var vradioDocument = JsonDocument.Parse(vradioExport))
+        {
+            var exportedStations = vradioDocument.RootElement.GetProperty("stations");
+            Equal(1, exportedStations.GetArrayLength());
+            var exportedStation = exportedStations[0];
+            Equal("Radio Pierwsze", exportedStation.GetProperty("name").GetString());
+            Equal(
+                "https://radio.example/live",
+                exportedStation.GetProperty("streams")[0].GetProperty("url").GetString());
+        }
+        True(!vradioExport.Contains("haslo", StringComparison.Ordinal),
+            "Eksport VRadio nie może zapisać adresu z osadzonymi danymi logowania.");
+        True(!vradioExport.Contains("#player", StringComparison.Ordinal),
+            "Eksport VRadio powinien usunąć fragment adresu.");
 
         Equal("wiim:stream:1", WiiMActiveSourceState.ResolveNetworkStreamId(
             "wiim:stream:1",
@@ -6105,6 +6130,114 @@ static void TestFolderContentsMembership()
     Equal(true, FolderContentsMembership.ToggleFavorites(items));
     True(items.All(item => item.IsFavorite),
         "Pusty stan powinien dodać całą zawartość folderu do Ulubionych.");
+}
+
+static void TestYouTubeSubscriptionsExport()
+{
+    True(YouTubeSubscriptionsExporter.TryParseSubscriptionId(
+            "youtube-channel:UCabc_123",
+            out var channelIdentifier,
+            out var isChannel),
+        "Identyfikator kanału YouTube musi dać się odczytać.");
+    True(isChannel, "Identyfikator z przedrostkiem kanału musi być rozpoznany jako kanał.");
+    Equal("UCabc_123", channelIdentifier);
+    True(!YouTubeSubscriptionsExporter.TryParseSubscriptionId(
+            "rss:https://example.test/feed.xml",
+            out _,
+            out _),
+        "Zwykły podcast RSS nie może trafić do eksportu YouTube.");
+
+    var collections = new[]
+    {
+        new YouTubeCollectionExportEntry("Kanał\r\n Pierwszy, z przecinkiem", "UCabc_123", true, "https://www.youtube.com/channel/UCabc_123"),
+        new YouTubeCollectionExportEntry("Duplikat", "UCabc_123", true, null),
+        new YouTubeCollectionExportEntry("Playlista", "PLxyz789", false, null)
+    };
+
+    var csv = Encoding.UTF8.GetString(YouTubeSubscriptionsExporter.WriteTakeoutCsv(collections));
+    var csvLines = csv.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+    // Naglowek musi brzmiec dokladnie jak w eksporcie Google Takeout, bo importery
+    // dopasowuja kolumny po nazwie.
+    Equal("Channel Id,Channel Url,Channel Title", csvLines[0]);
+    Equal(2, csvLines.Length);
+    Equal(
+        "UCabc_123,http://www.youtube.com/channel/UCabc_123,\"Kanał Pierwszy, z przecinkiem\"",
+        csvLines[1]);
+    True(!csv.Contains("PLxyz789", StringComparison.Ordinal),
+        "Playlista nie należy do pliku subskrypcji YouTube - importer i tak by ją odrzucił.");
+
+    var opml = Encoding.UTF8.GetString(YouTubeSubscriptionsExporter.WriteFeedOpml(collections));
+    True(opml.Contains(
+            "https://www.youtube.com/feeds/videos.xml?channel_id=UCabc_123",
+            StringComparison.Ordinal),
+        "OPML musi wskazywać adres kanału YouTube czytany przez czytniki kanałów.");
+    True(opml.Contains(
+            "https://www.youtube.com/feeds/videos.xml?playlist_id=PLxyz789",
+            StringComparison.Ordinal),
+        "OPML musi obejmować także playlisty YouTube.");
+    Equal(
+        1,
+        opml.Split("channel_id=UCabc_123", StringSplitOptions.None).Length - 1);
+}
+
+static void TestRelativeJumpAnnouncementOmitsPlaybackState()
+{
+    // Przeskok Ctrl+Windows+strzalki z wtyczki NVDA nie moze poprzedzac tytulu
+    // slowem "Wstrzymane" - uzytkownik sam wywolal przeskok, a stan sie nie zmienil.
+    var settings = new AppSettings();
+    var sessions = new SessionManager(settings);
+    var sink = new FakeSink();
+    var actions = new FakeActions(sessions.Current.CurrentItem);
+    var router = new CommandRouter(sessions, settings, sink, actions);
+
+    router.Execute(CommandIds.Next);
+    var whilePlaying = sink.LastMessage;
+    True(!whilePlaying.Contains("Wstrzymane", StringComparison.OrdinalIgnoreCase),
+        $"Przeskok nie moze zapowiadac stanu wstrzymania. Otrzymano: {whilePlaying}");
+    True(!whilePlaying.StartsWith("Odtwarzanie", StringComparison.OrdinalIgnoreCase),
+        $"Przeskok nie moze zaczynac sie od stanu odtwarzania. Otrzymano: {whilePlaying}");
+
+    if (sessions.Current.IsPlaying) router.Execute(CommandIds.PlayPause);
+    Equal(false, sessions.Current.IsPlaying);
+    router.Execute(CommandIds.Next);
+    var whilePaused = sink.LastMessage;
+    True(!whilePaused.Contains("Wstrzymane", StringComparison.OrdinalIgnoreCase),
+        $"Przeskok przy pauzie tez nie moze mowic o wstrzymaniu. Otrzymano: {whilePaused}");
+    True(whilePaused.Contains(sessions.Current.CurrentItem.Title, StringComparison.Ordinal),
+        $"Przeskok musi zapowiedziec tytul elementu. Otrzymano: {whilePaused}");
+}
+
+static void TestPodcastEpisodeReadsTitleBeforeChannel()
+{
+    // Lista glowna i wtyczka NVDA musza czytac odcinek tak samo: najpierw tytul
+    // odcinka, potem nazwa kanalu - nawet gdy uzytkownik ustawil "wykonawca, tytul".
+    var episode = new MediaItem
+    {
+        Title = "Blok reklamowy (08.03.1998)",
+        Artist = "PiotrexArchiwum2",
+        Kind = MediaItemKind.Episode,
+        Duration = TimeSpan.FromSeconds(172)
+    };
+    var artistFirst = new[]
+    {
+        MediaItemField.Artist,
+        MediaItemField.Title,
+        MediaItemField.Duration
+    };
+
+    var ordered = MediaItemFormatter.OrderFieldsForItem(episode, artistFirst);
+    Equal(MediaItemField.Title, ordered[0]);
+    var spoken = MediaItemFormatter.Format(episode, ordered);
+    True(spoken.StartsWith("Blok reklamowy (08.03.1998)", StringComparison.Ordinal),
+        $"Odcinek musi zaczynac sie tytulem. Otrzymano: {spoken}");
+    True(spoken.IndexOf("Blok reklamowy", StringComparison.Ordinal)
+            < spoken.IndexOf("PiotrexArchiwum2", StringComparison.Ordinal),
+        $"Tytul odcinka musi poprzedzac nazwe kanalu. Otrzymano: {spoken}");
+
+    // Utwor muzyczny ma nadal sluchac ustawienia uzytkownika.
+    var track = new MediaItem { Title = "Brzeg ciszy", Artist = "Anna Kowalska" };
+    var trackOrder = MediaItemFormatter.OrderFieldsForItem(track, artistFirst);
+    Equal(MediaItemField.Artist, trackOrder[0]);
 }
 
 static void TestTimeCommands()

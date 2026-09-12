@@ -26,6 +26,24 @@ public static class MediaItemFormatter
         return item.Title;
     }
 
+    // Podcasty i odcinki czyta sie ZAWSZE tytulem naprzod, nawet gdy uzytkownik
+    // ustawil kolejnosc "wykonawca, tytul". Przy odcinku wykonawca to nazwa kanalu
+    // albo audycji, wiec kolejnosc z ustawien dawalaby "nazwa kanalu, tytul odcinka" -
+    // przy dziesiatkach odcinkow tego samego kanalu czytnik ekranu powtarzalby na
+    // wstepie to samo, a rozstrzygajacy tytul konczylby sie dopiero na koncu.
+    // Reguly trzymamy tu, w jednym miejscu, bo korzysta z niej i lista glowna,
+    // i nawigacja z wtyczki NVDA - rozjezdzaly sie, gdy kazda miala wlasna kopie.
+    public static IReadOnlyList<MediaItemField> OrderFieldsForItem(
+        MediaItem item,
+        IEnumerable<MediaItemField> fieldOrder)
+    {
+        var fields = fieldOrder as IReadOnlyList<MediaItemField> ?? fieldOrder.ToArray();
+        if (item.Kind is not (MediaItemKind.Podcast or MediaItemKind.Episode)) return fields;
+        return new[] { MediaItemField.Title }
+            .Concat(fields.Where(field => field != MediaItemField.Title))
+            .ToArray();
+    }
+
     public static string Format(MediaItem item, IEnumerable<MediaItemField> fieldOrder)
     {
         var values = new List<string>();

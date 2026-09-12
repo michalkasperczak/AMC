@@ -3685,6 +3685,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!podcasts && commandId is CommandIds.AddPodcast
             or CommandIds.ImportPodcastOpml
             or CommandIds.ExportPodcastOpml
+            or CommandIds.ExportYouTubeSubscriptions
             or CommandIds.RefreshPodcast
             or CommandIds.RefreshPodcastLibrary
             or CommandIds.ViewPodcastInbox
@@ -5425,7 +5426,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             DefaultExt = ".m3u",
             AddExtension = true,
             OverwritePrompt = true,
-            Filter = "Playlisty M3U (*.m3u)|*.m3u|Wszystkie pliki (*.*)|*.*"
+            // Drugi filtr zapisuje ten sam uklad JSON, ktory AMC juz UMIE czytac
+            // przy imporcie - dzieki temu lista wyeksportowana tutaj wraca bez strat
+            // i jest przyjmowana takze przez sam program VRadio.
+            Filter = "Playlisty M3U (*.m3u)|*.m3u|Ulubione VRadio (*.json)|*.json|Wszystkie pliki (*.*)|*.*"
         };
         if (dialog.ShowDialog(this) != true)
         {
@@ -5442,8 +5446,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             temporaryPath = Path.Combine(
                 directory,
                 $".{Path.GetFileName(destinationPath)}.{Guid.NewGuid():N}.tmp");
-            var bytes = RadioFavoritesPlaylistWriter.Write(favorites.Select(item =>
-                new RadioFavoritePlaylistEntry(item.Title, StableRadioExportAddress(item))));
+            var isVRadioJson = string.Equals(
+                Path.GetExtension(destinationPath),
+                ".json",
+                StringComparison.OrdinalIgnoreCase);
+            var entries = favorites.Select(item =>
+                new RadioFavoritePlaylistEntry(item.Title, StableRadioExportAddress(item)));
+            var bytes = isVRadioJson
+                ? RadioFavoritesPlaylistWriter.WriteVRadioJson(entries)
+                : RadioFavoritesPlaylistWriter.Write(entries);
             using (var output = new FileStream(
                        temporaryPath,
                        FileMode.CreateNew,
@@ -5857,6 +5868,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AddPodcastMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         ImportPodcastOpmlMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         ExportPodcastOpmlMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
+        // Pozycja pojawia sie TYLKO wtedy, gdy w bibliotece naprawde sa kanaly albo
+        // playlisty YouTube - inaczej Michal wchodzi w opcje konczaca sie komunikatem
+        // "nie ma czego eksportowac", co przy czytniku ekranu jest czysta strata czasu.
+        ExportYouTubeSubscriptionsMenuItem.Visibility =
+            podcasts && GetYouTubeCollectionsForExport().Length > 0
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         RefreshAllPodcastsMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         var selectedPodcastEpisodes = podcasts
             && ActionItems.Count > 0
@@ -7851,6 +7869,107 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         RestoreMediaListFocusAfterRefresh();
     }
+
+    private void ExportYouTubeSubscriptions()
+    {
+        if (!string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal))
+        {
+            Announce("Eksport kanałów YouTube jest dostępny w sesji Podcasty i YouTube");
+            return;
+        }
+
+        var collections = GetYouTubeCollectionsForExport();
+        if (collections.Length == 0)
+        {
+            AnnounceEssential("Biblioteka nie zawiera kanałów ani playlist YouTube, które można wyeksportować");
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        var channelCount = collections.Count(entry => entry.IsChannel);
+        var dialog = new SaveFileDialog
+        {
+            Title = "Eksportuj kanały YouTube",
+            FileName = "Kanaly YouTube AMC.csv",
+            DefaultExt = ".csv",
+            AddExtension = true,
+            OverwritePrompt = true,
+            // CSV to uklad kolumn eksportu Google Takeout - przyjmuje go sam YouTube
+            // i narzedzia przenoszace subskrypcje. OPML jest dla czytnikow kanalow
+            // i obejmuje TAKZE playlisty, ktore w pliku subskrypcji nie istnieja.
+            Filter = "Subskrypcje YouTube (*.csv)|*.csv|Kanały jako OPML (*.opml)|*.opml|Wszystkie pliki (*.*)|*.*"
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            RestoreMediaListFocusAfterRefresh();
+            return;
+        }
+
+        try
+        {
+            var destinationPath = Path.GetFullPath(dialog.FileName);
+            var asOpml = string.Equals(
+                Path.GetExtension(destinationPath),
+                ".opml",
+                StringComparison.OrdinalIgnoreCase);
+            if (asOpml)
+            {
+                File.WriteAllBytes(
+                    destinationPath,
+                    YouTubeSubscriptionsExporter.WriteFeedOpml(collections));
+                AnnounceEssential($"Wyeksportowano kanały i playlisty YouTube: {collections.Length}");
+            }
+            else if (channelCount == 0)
+            {
+                // Plik subskrypcji nie ma miejsca na playlisty, wiec zapis bylby pusty.
+                // Cicho zapisany pusty plik przy czytniku ekranu wyglada jak sukces.
+                AnnounceEssential(
+                    "Plik subskrypcji YouTube obejmuje tylko kanały, a biblioteka zawiera same playlisty. "
+                    + "Wybierz zapis do OPML");
+            }
+            else
+            {
+                File.WriteAllBytes(
+                    destinationPath,
+                    YouTubeSubscriptionsExporter.WriteTakeoutCsv(collections));
+                var skipped = collections.Length - channelCount;
+                AnnounceEssential(skipped == 0
+                    ? $"Wyeksportowano kanały YouTube: {channelCount}"
+                    : $"Wyeksportowano kanały YouTube: {channelCount}; pominięto playlisty: {skipped}");
+            }
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or NotSupportedException)
+        {
+            DiagnosticLog.Warning(
+                "youtube-subscriptions-export",
+                $"Eksport nie powiódł się; błąd {exception.GetType().Name}.");
+            AnnounceEssential($"Nie można zapisać pliku: {exception.Message}");
+        }
+        RestoreMediaListFocusAfterRefresh();
+    }
+
+    private YouTubeCollectionExportEntry[] GetYouTubeCollectionsForExport() =>
+        _state.Podcasts.Subscriptions
+            .Where(subscription => subscription.IsInLibrary)
+            .Where(subscription => subscription.SourceKind
+                is PodcastSourceKind.YouTubeChannel or PodcastSourceKind.YouTubePlaylist)
+            .Select(subscription =>
+                YouTubeSubscriptionsExporter.TryParseSubscriptionId(
+                    subscription.Id,
+                    out var sourceIdentifier,
+                    out var isChannel)
+                    ? new YouTubeCollectionExportEntry(
+                        subscription.Title,
+                        sourceIdentifier,
+                        isChannel,
+                        subscription.HomepageUrl)
+                    : null)
+            .Where(entry => entry is not null)
+            .Select(entry => entry!)
+            .ToArray();
 
     private async Task RefreshCurrentPodcastAsync()
     {
@@ -10203,6 +10322,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ExportPodcastOpml();
             return new CommandExecutionResult(true);
         }
+        if (commandId == CommandIds.ExportYouTubeSubscriptions)
+        {
+            ExportYouTubeSubscriptions();
+            return new CommandExecutionResult(true);
+        }
         if (commandId == CommandIds.RefreshPodcast)
         {
             _ = RefreshCurrentPodcastAsync();
@@ -10496,7 +10620,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 "selection",
                 $"Polecenie {commandId}; sesja: {_sessions.Current.Id}; widok: {_currentView}; " +
                 $"widoczne wiersze: {MediaList.Items.Count}; zaznaczone wiersze: {selectedRows}; " +
-                $"unikatowe elementy działania: {changedItems.Length}.");
+                $"unikatowe elementy działania: {changedItems.Length}; " +
+                // Bez nazw i identyfikatorow nie da sie pozniej dowiesc, czy polecenie
+                // trafilo we WLASCIWY element - a zgloszenie "zadzialalo na czym innym"
+                // jest wtedy niesprawdzalne. Zapisujemy tez element zaznaczony na liscie,
+                // zeby bylo widac rozjazd miedzy zaznaczeniem a elementem dzialania.
+                $"zaznaczony na liście: {DescribeItemForLog(SelectedItem)}; " +
+                $"elementy działania: {string.Join(" | ", changedItems.Select(DescribeItemForLog))}.");
         }
         var previousMemberships = changedItems
             .Select(item => (Item: item, Previous: MediaMembershipState.From(item)))
@@ -13557,7 +13687,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PersistMembershipState(undo.SessionId);
         DiagnosticLog.Info(
             "undo",
-            $"Cofnięto zmianę przynależności; sesja {undo.SessionId}; elementy {undo.Items.Count}.");
+            $"Cofnięto zmianę przynależności; sesja {undo.SessionId}; elementy {undo.Items.Count}; " +
+            $"{string.Join(" | ", undo.Items.Select(entry => DescribeItemForLog(entry.Item)))}.");
         RestoreMediaListFocusAfterRefresh();
 
         Dispatcher.BeginInvoke(
@@ -13950,6 +14081,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             () => Announce($"Zmieniono nazwę w Bibliotece: {newTitle}"),
             DispatcherPriority.ContextIdle);
     }
+
+    private static string DescribeItemForLog(MediaItem? item) =>
+        item is null
+            ? "brak"
+            : $"\"{item.Title}\" [{item.Kind}, id {item.Id}]";
 
     private MediaItem? ResolveCanonicalMembershipItem(string sessionId, string itemId)
     {
@@ -15965,11 +16101,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     configuredFields)
                 .ToArray();
         }
-        return item.Kind is MediaItemKind.Podcast or MediaItemKind.Episode
-            ? new[] { MediaItemField.Title }
-                .Concat(configuredFields.Where(field => field != MediaItemField.Title))
-                .ToArray()
-            : configuredFields;
+        return MediaItemFormatter.OrderFieldsForItem(item, configuredFields);
     }
 
     private string NavigationTextForItem(MediaItem item, bool includeKind = true)
@@ -20826,6 +20958,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void AddPodcast_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.AddPodcast);
     private void ImportPodcastOpml_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ImportPodcastOpml);
     private void ExportPodcastOpml_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ExportPodcastOpml);
+
+    private void ExportYouTubeSubscriptions_Click(object sender, RoutedEventArgs e) =>
+        ExecuteCommand(CommandIds.ExportYouTubeSubscriptions);
     private void RefreshAllPodcasts_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.RefreshPodcastLibrary);
     private void RefreshPodcast_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.RefreshPodcast);
     private void DownloadPodcastEpisode_Click(object sender, RoutedEventArgs e) =>

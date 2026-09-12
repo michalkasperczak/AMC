@@ -234,12 +234,7 @@ public sealed class CommandRouter(
                     announcements.Announce("To pierwszy element");
                     return new(false);
                 }
-                // Przy pauzie przeskok nie zaczyna grać, więc zapowiedź nie może
-                // mówić „Odtwarzanie" - byłaby nieprawdziwa dla użytkownika,
-                // który słucha wyłącznie komunikatów czytnika ekranu.
-                announcements.Announce(current.Id == "radio"
-                    ? current.CurrentItem.Title
-                    : $"{(current.IsPlaying ? "Odtwarzanie" : "Wstrzymane")}: {FormatItem(current.CurrentItem)}");
+                announcements.Announce(FormatRelativeJump(current));
                 return new(true);
             case CommandIds.Next:
                 if (!current.HasCurrentItem) return MissingCurrentMediaItem();
@@ -248,9 +243,7 @@ public sealed class CommandRouter(
                     announcements.Announce("To ostatni element");
                     return new(false);
                 }
-                announcements.Announce(current.Id == "radio"
-                    ? current.CurrentItem.Title
-                    : $"{(current.IsPlaying ? "Odtwarzanie" : "Wstrzymane")}: {FormatItem(current.CurrentItem)}");
+                announcements.Announce(FormatRelativeJump(current));
                 return new(true);
             case CommandIds.SeekBackward10: return Seek(current, -10);
             case CommandIds.SeekForward10: return Seek(current, 10);
@@ -623,7 +616,20 @@ public sealed class CommandRouter(
     }
 
     private string FormatItem(MediaItem item) =>
-        MediaItemFormatter.Format(item, settings.Lists.FieldOrder);
+        MediaItemFormatter.Format(
+            item,
+            MediaItemFormatter.OrderFieldsForItem(item, settings.Lists.FieldOrder));
+
+    // Zapowiedz po przeskoku na poprzedni lub nastepny element (Ctrl+Windows+strzalki
+    // z wtyczki NVDA). Celowo NIE poprzedzamy jej stanem odtwarzania: uzytkownik sam
+    // wywolal przeskok, wiec slowo "Wstrzymane" na wstepie odsuwa tylko tytul, po
+    // ktory siegal, a stan i tak nie zmienil sie od poprzedniego elementu. Radio
+    // dzialalo tak od poczatku i to zachowanie okazalo sie wlasciwe dla wszystkich
+    // sesji. Stan po zmianie odtwarzania nadal zapowiada PlayPause.
+    private string FormatRelativeJump(DemoMediaSession session) =>
+        session.Id == "radio"
+            ? session.CurrentItem.Title
+            : FormatItem(session.CurrentItem);
 
     private void AnnounceTemplate(string key, string fallback, params (string Name, string Value)[] values)
     {

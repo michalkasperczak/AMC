@@ -99,6 +99,9 @@
                 <MenuItem x:Name="ExportPodcastOpmlMenuItem" Header="_Eksportuj bibliotekę podcastów do OPML…"
                           automation:AutomationProperties.Name="Eksportuj bibliotekę podcastów do OPML"
                           Visibility="Collapsed" Click="ExportPodcastOpml_Click" />
+                <MenuItem x:Name="ExportYouTubeSubscriptionsMenuItem" Header="Eksportuj _kanały YouTube do playlisty…"
+                          automation:AutomationProperties.Name="Eksportuj kanały i playlisty YouTube do pliku subskrypcji YouTube albo do OPML"
+                          Visibility="Collapsed" Click="ExportYouTubeSubscriptions_Click" />
                 <MenuItem x:Name="RefreshAllPodcastsMenuItem" Header="Odśwież _wszystkie źródła" InputGestureText="Ctrl+F5"
                           automation:AutomationProperties.Name="Odśwież wszystkie podcasty, kanały i playlisty, Ctrl+F5"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
