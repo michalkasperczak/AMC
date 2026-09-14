@@ -22,7 +22,9 @@
   #define Zrodlo "C:\amc_publish"
 #endif
 #ifndef Wyjscie
-  #define Wyjscie "C:\amc_setup"
+  ; Domyslnie wynik ladzie tam, gdzie Michal odbiera paczki. Bez tego
+  ; instalator zostawal w C:\amc_setup i wygladal, jakby sie nie zbudowal.
+  #define Wyjscie "D:\Projekty Codex\Hermes"
 #endif
 
 [Setup]
