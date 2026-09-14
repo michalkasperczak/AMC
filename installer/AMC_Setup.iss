@@ -145,7 +145,7 @@ function MaRuntime8(): Boolean;
 begin
   result := MaRuntime8W(ExpandConstant('{commonpf64}\dotnet\shared\Microsoft.WindowsDesktop.App'))
          or MaRuntime8W(ExpandConstant('{localappdata}\Microsoft\dotnet\shared\Microsoft.WindowsDesktop.App'))
-         or MaRuntime8W(ExpandConstant('{userprofile}\.dotnet\shared\Microsoft.WindowsDesktop.App'));
+         or MaRuntime8W(ExpandConstant('{%USERPROFILE}\.dotnet\shared\Microsoft.WindowsDesktop.App'));
 end;
 
 function InitializeSetup(): Boolean;
