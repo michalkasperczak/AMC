@@ -146,7 +146,7 @@ end;
 function MaRuntime8(): Boolean;
 begin
   { UWAGA: sprawdzamy WYLACZNIE miejsca, w ktorych Windows SAM szuka
-    srodowiska uruchomieniowego. Katalog {%USERPROFILE}\.dotnet wygladal
+    srodowiska uruchomieniowego. Katalog .dotnet w profilu uzytkownika wygladal
     na dobre miejsce i byl tu wczesniej sprawdzany, ale program go NIE
     widzi - .NET zaglada tam tylko wtedy, gdy ustawiona jest zmienna
     DOTNET_ROOT. Skutek byl taki, ze instalator uznawal srodowisko za
