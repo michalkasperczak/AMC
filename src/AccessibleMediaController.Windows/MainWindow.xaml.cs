@@ -12776,6 +12776,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 _ = OpenTidalContainerAsync(item);
                 return;
             }
+
+            // Utwor TIDALa oddajemy oryginalnemu programowi: wlasny silnik
+            // dostaje z TIDALa tylko 30-sekundowa probke, a TIDAL desktop gra
+            // caly utwor w jakosci ustawionej przez uzytkownika.
+            if (item.Kind == MediaItemKind.Track)
+            {
+                PlayTrackInTidalDesktop(item);
+                return;
+            }
         }
         if (item.Kind == MediaItemKind.Podcast)
         {
@@ -18832,6 +18841,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         else if (e.Key == Key.Enter)
         {
+            // Ctrl+Enter na albumie albo playliscie TIDALa gra calosc w
+            // oryginalnym programie. Sprawdzamy to przed ogolna obsluga
+            // albumow, bo tam Enter z modyfikatorem jest odrzucany.
+            if (modifiers == ModifierKeys.Control
+                && ActionItem is { } tidalContainer
+                && tidalContainer.Kind is MediaItemKind.Album or MediaItemKind.Playlist
+                && CanPlayInTidalDesktop(tidalContainer))
+            {
+                PlayContainerInTidalDesktop(tidalContainer);
+                e.Handled = true;
+                return;
+            }
+
             var selectedRow = MediaList.SelectedItem as MediaItemRow;
             if ((selectedRow?.AlbumFolderPath is not null || selectedRow?.PlaylistId is not null)
                 && modifiers != ModifierKeys.None)
@@ -18887,6 +18909,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (SelectedArtistSection is { } artistSection
             && key == Key.Enter && modifiers is ModifierKeys.None or ModifierKeys.Control)
             return $"{spokenShortcut}: otwórz kategorię {artistSection.Label()}. Kontekst: {context}";
+        if (key == Key.Enter && modifiers == ModifierKeys.Control
+            && ActionItem is { } tidalContainerItem
+            && tidalContainerItem.Kind is MediaItemKind.Album or MediaItemKind.Playlist
+            && CanPlayInTidalDesktop(tidalContainerItem))
+            return $"{spokenShortcut}: odtwórz całość w oryginalnym TIDALu. Kontekst: {context}";
         if (SelectedArtistSection is not null && key is Key.Left or Key.Right && modifiers == ModifierKeys.None)
             return $"{spokenShortcut}: podaj nazwę i sposób otwarcia kategorii. Kontekst: {context}";
         if (key == Key.F5 && modifiers == ModifierKeys.None && _sessions.Current.Id == "tidal"
