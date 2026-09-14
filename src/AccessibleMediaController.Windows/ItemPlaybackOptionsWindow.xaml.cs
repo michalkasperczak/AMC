@@ -73,6 +73,22 @@ public partial class ItemPlaybackOptionsWindow : Window
             AutomationProperties.SetHelpText(
                 ResumeModeBox,
                 "Ustawienie obejmuje całą sesję. Pojedynczy plik i folder mogą je nadpisać.");
+            AutomationProperties.SetHelpText(
+                LoudnessNormalizationBox,
+                "Obejmuje całą sesję. Może dziedziczyć ustawienie globalne albo zostać "
+                + "włączona lub wyłączona dla tej sesji. Plik i folder to nadpisują.");
+            AutomationProperties.SetHelpText(
+                SmoothTransitionsBox,
+                "Obejmuje całą sesję. Może dziedziczyć ustawienie globalne albo zostać "
+                + "włączone lub wyłączone dla tej sesji. Plik i folder to nadpisują.");
+            AutomationProperties.SetHelpText(
+                InterTrackSilenceBox,
+                "Określa dodatkową ciszę między nagraniami w całej tej sesji. "
+                + "Plik i folder to nadpisują.");
+            AutomationProperties.SetHelpText(
+                PlaybackRateBox,
+                "Prędkość dla całej tej sesji. 1,00 razy oznacza normalną prędkość; "
+                + "mniejsze wartości są wolniejsze, a większe szybsze.");
         }
         else if (target is ItemPlaybackOptionsTarget.Podcast or ItemPlaybackOptionsTarget.PodcastEpisode)
         {
@@ -283,6 +299,7 @@ public partial class ItemPlaybackOptionsWindow : Window
         ItemPlaybackOptionsTarget.LocalFolder => "Według folderu nadrzędnego lub prędkości sesji",
         ItemPlaybackOptionsTarget.LocalItem => "Według folderu lub prędkości sesji",
         ItemPlaybackOptionsTarget.PodcastEpisode => "Według podcastu lub prędkości sesji",
+        ItemPlaybackOptionsTarget.Session => "Bez zmiany prędkości",
         _ => "Według prędkości sesji"
     };
 
