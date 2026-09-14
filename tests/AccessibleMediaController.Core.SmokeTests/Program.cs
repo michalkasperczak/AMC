@@ -2157,6 +2157,61 @@ static void TestLocalPlaybackAudioSettingsInheritance()
     Equal(LocalPlaybackAudioSettingSource.Global, globalResolution.LoudnessNormalizationSource);
     Equal(LocalPlaybackAudioSettingSource.Global, globalResolution.SmoothTrackTransitionsSource);
     Equal(LocalPlaybackAudioSettingSource.Global, globalResolution.InterTrackSilenceSource);
+
+    // Poziom SESJI: przegrywa z plikiem i folderem, wygrywa z ustawieniem ogolnym.
+    var sesja = new SessionPlaybackAudioOverrides
+    {
+        LoudnessNormalizationOverride = false,
+        SmoothTrackTransitionsOverride = false,
+        InterTrackSilenceMillisecondsOverride = 1250
+    };
+
+    var sesjaNadOgolnym = LocalPlaybackAudioSettingsResolver.ResolveWithSources(
+        global,
+        itemPath,
+        itemSettings: null,
+        folderSettings: [],
+        sesja);
+    Equal(false, sesjaNadOgolnym.Settings.LoudnessNormalizationEnabled);
+    Equal(false, sesjaNadOgolnym.Settings.SmoothTrackTransitionsEnabled);
+    Equal(1250, sesjaNadOgolnym.Settings.InterTrackSilenceMilliseconds);
+    Equal(LocalPlaybackAudioSettingSource.Session, sesjaNadOgolnym.LoudnessNormalizationSource);
+    Equal(LocalPlaybackAudioSettingSource.Session, sesjaNadOgolnym.SmoothTrackTransitionsSource);
+    Equal(LocalPlaybackAudioSettingSource.Session, sesjaNadOgolnym.InterTrackSilenceSource);
+
+    // Folder MUSI przebic sesje, inaczej ustawienia folderow przestalyby dzialac.
+    var folderNadSesja = LocalPlaybackAudioSettingsResolver.ResolveWithSources(
+        global,
+        itemPath,
+        itemSettings: null,
+        folders,
+        sesja);
+    Equal(true, folderNadSesja.Settings.SmoothTrackTransitionsEnabled);
+    Equal(LocalPlaybackAudioSettingSource.Folder, folderNadSesja.SmoothTrackTransitionsSource);
+    Equal(LocalPlaybackAudioSettingSource.Folder, folderNadSesja.LoudnessNormalizationSource);
+
+    // Plik przebija wszystko.
+    var plikNadSesja = LocalPlaybackAudioSettingsResolver.ResolveWithSources(
+        global,
+        itemPath,
+        item,
+        folderSettings: [],
+        sesja);
+    Equal(500, plikNadSesja.Settings.InterTrackSilenceMilliseconds);
+    Equal(LocalPlaybackAudioSettingSource.Item, plikNadSesja.InterTrackSilenceSource);
+
+    // Pusty wpis sesji nie moze udawac decyzji uzytkownika.
+    var pustaSesja = LocalPlaybackAudioSettingsResolver.ResolveWithSources(
+        global,
+        itemPath,
+        itemSettings: null,
+        folderSettings: [],
+        new SessionPlaybackAudioOverrides());
+    Equal(LocalPlaybackAudioSettingSource.Global, pustaSesja.LoudnessNormalizationSource);
+    Equal(LocalPlaybackAudioSettingSource.Global, pustaSesja.SmoothTrackTransitionsSource);
+    Equal(LocalPlaybackAudioSettingSource.Global, pustaSesja.InterTrackSilenceSource);
+    Equal("ustawienie sesji", LocalPlaybackAudioSettingsPresentation.FormatEffective(
+        sesjaNadOgolnym).Split(", ")[1].Split(";")[0]);
 }
 
 var failures = new List<string>();
@@ -7042,6 +7097,8 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void GoToRelatedAlbum() => RelatedAlbumShown = true;
     public void GoToRelatedArtist() => RelatedArtistShown = true;
     public void ShowItemPlaybackOptions() => ItemPlaybackOptionsShown = true;
+    public bool SessionPlaybackOptionsShown { get; private set; }
+    public void ShowSessionPlaybackOptions() => SessionPlaybackOptionsShown = true;
     public void OpenOfficialApplication() { }
     public void ShowHelp() { }
     public void ToggleKeyboardHelp() => KeyboardHelpToggled = true;

@@ -54,6 +54,9 @@ public static class CommandIds
     public const string GoToArtist = "navigation.artist.related";
     public const string ItemPlaybackOptions = "settings.itemPlaybackOptions";
 
+    /// <summary>Opcje odtwarzania dla CALEJ biezacej sesji.</summary>
+    public const string SessionPlaybackOptions = "settings.sessionPlaybackOptions";
+
     public const string SessionList = "session.list";
     public const string SessionPrevious = "session.previous";
     public const string SessionNext = "session.next";

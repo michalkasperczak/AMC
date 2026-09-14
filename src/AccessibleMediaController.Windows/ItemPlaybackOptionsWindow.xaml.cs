@@ -12,7 +12,13 @@ public enum ItemPlaybackOptionsTarget
     LocalItem,
     LocalFolder,
     Podcast,
-    PodcastEpisode
+    PodcastEpisode,
+
+    /// <summary>
+    /// Ustawienia dla CALEJ sesji (calego TIDAL-a, calego radia, wszystkich
+    /// plikow lokalnych). Poziom miedzy folderem a ustawieniem ogolnym.
+    /// </summary>
+    Session
 }
 
 public partial class ItemPlaybackOptionsWindow : Window
@@ -48,6 +54,25 @@ public partial class ItemPlaybackOptionsWindow : Window
             AutomationProperties.SetName(SmoothTransitionsBox, "Łagodne przejścia plików w folderze");
             AutomationProperties.SetName(InterTrackSilenceBox, "Cisza po plikach w folderze");
             AutomationProperties.SetName(OutputDeviceBox, "Urządzenie audio dla folderu");
+        }
+        else if (target == ItemPlaybackOptionsTarget.Session)
+        {
+            Title = "Opcje odtwarzania sesji";
+            ResumeModeLabel.Content = "_Pozycja odtwarzania w tej sesji:";
+            PlaybackRateLabel.Content = "_Prędkość w tej sesji:";
+            LoudnessNormalizationLabel.Content = "_Normalizacja głośności w tej sesji:";
+            SmoothTransitionsLabel.Content = "_Łagodne przejścia w tej sesji:";
+            InterTrackSilenceLabel.Content = "_Cisza między nagraniami w tej sesji:";
+            OutputDeviceLabel.Content = "_Urządzenie audio dla tej sesji:";
+            AutomationProperties.SetName(ResumeModeBox, "Pozycja odtwarzania w tej sesji");
+            AutomationProperties.SetName(PlaybackRateBox, "Prędkość w tej sesji");
+            AutomationProperties.SetName(LoudnessNormalizationBox, "Normalizacja głośności w tej sesji");
+            AutomationProperties.SetName(SmoothTransitionsBox, "Łagodne przejścia w tej sesji");
+            AutomationProperties.SetName(InterTrackSilenceBox, "Cisza między nagraniami w tej sesji");
+            AutomationProperties.SetName(OutputDeviceBox, "Urządzenie audio dla tej sesji");
+            AutomationProperties.SetHelpText(
+                ResumeModeBox,
+                "Ustawienie obejmuje całą sesję. Pojedynczy plik i folder mogą je nadpisać.");
         }
         else if (target is ItemPlaybackOptionsTarget.Podcast or ItemPlaybackOptionsTarget.PodcastEpisode)
         {
@@ -237,17 +262,19 @@ public partial class ItemPlaybackOptionsWindow : Window
 
     private static string InheritedLabel(ItemPlaybackOptionsTarget target) => target switch
     {
-        ItemPlaybackOptionsTarget.LocalFolder => "Według folderu nadrzędnego lub ustawienia globalnego",
-        ItemPlaybackOptionsTarget.LocalItem => "Według folderu lub ustawienia globalnego",
-        ItemPlaybackOptionsTarget.PodcastEpisode => "Według podcastu lub ustawienia globalnego",
+        ItemPlaybackOptionsTarget.LocalFolder => "Według folderu nadrzędnego, sesji lub ustawienia globalnego",
+        ItemPlaybackOptionsTarget.LocalItem => "Według folderu, sesji lub ustawienia globalnego",
+        ItemPlaybackOptionsTarget.PodcastEpisode => "Według podcastu, sesji lub ustawienia globalnego",
+        ItemPlaybackOptionsTarget.Session => "Według ustawienia globalnego",
         _ => "Według ustawienia globalnego"
     };
 
     private static string ResumeInheritedLabel(ItemPlaybackOptionsTarget target) => target switch
     {
-        ItemPlaybackOptionsTarget.LocalFolder => "Zgodnie z folderem nadrzędnym lub ustawieniem globalnym",
-        ItemPlaybackOptionsTarget.LocalItem => "Zgodnie z ustawieniem folderu lub globalnym",
-        ItemPlaybackOptionsTarget.PodcastEpisode => "Zgodnie z ustawieniem podcastu lub globalnym",
+        ItemPlaybackOptionsTarget.LocalFolder => "Zgodnie z folderem nadrzędnym, sesją lub ustawieniem globalnym",
+        ItemPlaybackOptionsTarget.LocalItem => "Zgodnie z ustawieniem folderu, sesji lub globalnym",
+        ItemPlaybackOptionsTarget.PodcastEpisode => "Zgodnie z ustawieniem podcastu, sesji lub globalnym",
+        ItemPlaybackOptionsTarget.Session => "Zgodnie z ustawieniem globalnym",
         _ => "Zgodnie z ustawieniem globalnym"
     };
 

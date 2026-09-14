@@ -4326,6 +4326,88 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestoreItemActionFocus();
     }
 
+    /// <summary>
+    /// Opcje odtwarzania dla CALEJ biezacej sesji (cale TIDAL, cale radio,
+    /// wszystkie pliki lokalne). Poziom miedzy folderem a ustawieniem ogolnym:
+    /// plik -> folder -> sesja -> ustawienie ogolne.
+    /// </summary>
+    public void ShowSessionPlaybackOptions()
+    {
+        var session = _sessions.Current;
+        if (session is null)
+        {
+            Announce("Nie ma aktywnej sesji");
+            return;
+        }
+
+        var saved = FindSessionPlaybackOverrides(session.Id);
+        var dialog = new ItemPlaybackOptionsWindow(
+            $"Sesja: {session.DisplayName}",
+            ResumePositionPolicy.GetSessionMode(_state.Settings, session.Id),
+            null,
+            saved?.LoudnessNormalizationOverride,
+            saved?.SmoothTrackTransitionsOverride,
+            saved?.InterTrackSilenceMillisecondsOverride,
+            target: ItemPlaybackOptionsTarget.Session)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+
+        ResumePositionPolicy.SetSessionMode(
+            _state.Settings,
+            session.Id,
+            dialog.SelectedResumePositionMode);
+
+        var overrides = new SessionPlaybackAudioOverrides
+        {
+            LoudnessNormalizationOverride = dialog.SelectedLoudnessNormalizationOverride,
+            SmoothTrackTransitionsOverride = dialog.SelectedSmoothTrackTransitionsOverride,
+            InterTrackSilenceMillisecondsOverride =
+                dialog.SelectedInterTrackSilenceMillisecondsOverride
+        };
+
+        // Pusty wpis usuwamy, zeby w zapisanych ustawieniach nie zostawaly
+        // wartosci nieodrozninalne od braku decyzji uzytkownika.
+        if (overrides.IsEmpty)
+        {
+            _state.Settings.Audio.OverridesBySession.Remove(session.Id);
+        }
+        else
+        {
+            _state.Settings.Audio.OverridesBySession[session.Id] = overrides;
+        }
+
+        if (session.HasCurrentItem)
+        {
+            _localOutput.ConfigureAudioProcessing(
+                GetEffectiveLocalAudioSettings(session.CurrentItem));
+        }
+
+        var persisted = QueueStateSave(announceFailure: true);
+        UpdatePlaybackStatusBar();
+        UpdateFileMenuForCurrentSession();
+        if (persisted)
+        {
+            Announce(
+                $"Zapisano opcje sesji: {session.DisplayName}. "
+                + FormatAudioOverrides(
+                    overrides.LoudnessNormalizationOverride,
+                    overrides.SmoothTrackTransitionsOverride,
+                    overrides.InterTrackSilenceMillisecondsOverride));
+        }
+        RestoreItemActionFocus();
+    }
+
+    private SessionPlaybackAudioOverrides? FindSessionPlaybackOverrides(string? sessionId) =>
+        string.IsNullOrWhiteSpace(sessionId)
+            ? null
+            : _state.Settings.Audio.OverridesBySession.GetValueOrDefault(sessionId);
+
     private void ShowPodcastPlaybackOptions(MediaItem item)
     {
         CapturePodcastState();
@@ -8772,7 +8854,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _state.Settings.Audio,
             item.Source,
             FindLocalItemSettings(item),
-            _state.LocalMedia.FolderPlaybackOptions);
+            _state.LocalMedia.FolderPlaybackOptions,
+            FindSessionPlaybackOverrides(_sessions?.Current?.Id));
 
     private string FormatEffectiveLocalAudioSettings(MediaItem item)
         => LocalPlaybackAudioSettingsPresentation.FormatEffective(
@@ -19182,6 +19265,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 (ModifierKeys.Control | ModifierKeys.Alt, Key.B) => CommandIds.ViewChapters,
                 (ModifierKeys.Alt | ModifierKeys.Shift, Key.Enter) => CommandIds.ItemPlaybackOptions,
+                (ModifierKeys.Control | ModifierKeys.Alt, Key.Enter) => CommandIds.SessionPlaybackOptions,
                 (ModifierKeys.Alt, Key.Enter) => CommandIds.ItemProperties,
                 (ModifierKeys.Control | ModifierKeys.Shift, Key.U) => CommandIds.ToggleFavorite,
                 (ModifierKeys.Control | ModifierKeys.Shift, Key.P) => CommandIds.ManagePlaylists,
@@ -21005,6 +21089,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void GoToPodcast_Click(object sender, RoutedEventArgs e) =>
         ExecuteCommand(CommandIds.GoToPodcast);
     private void ItemPlaybackOptions_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ItemPlaybackOptions);
+    private void SessionPlaybackOptions_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.SessionPlaybackOptions);
     private void GoToAlbum_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.GoToAlbum);
     private void GoToArtist_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.GoToArtist);
     private void CopyName_Click(object sender, RoutedEventArgs e) => CopyActionItemName();

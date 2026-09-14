@@ -89,6 +89,7 @@ public static class CommandCatalog
             CommandIds.GoToAlbum => "Przejdź do albumu",
             CommandIds.GoToArtist => "Przejdź do wykonawcy",
             CommandIds.ItemPlaybackOptions => "Opcje odtwarzania elementu",
+            CommandIds.SessionPlaybackOptions => "Opcje odtwarzania całej sesji",
             CommandIds.SessionList => "Lista sesji",
             CommandIds.SessionPrevious => "Poprzednia sesja",
             CommandIds.SessionNext => "Następna sesja",

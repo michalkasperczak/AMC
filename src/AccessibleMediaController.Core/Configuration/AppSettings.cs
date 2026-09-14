@@ -99,6 +99,31 @@ public sealed class PlaybackAudioSettings
         new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, string> OutputDeviceIdsBySession { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Ustawienia odtwarzania osobno dla KAZDEJ sesji (cale TIDAL, cale radio,
+    /// wszystkie pliki lokalne). Poziom sesji lezy MIEDZY folderem a ustawieniem
+    /// ogolnym: plik -> folder -> sesja -> ustawienie ogolne. Brak wpisu oznacza
+    /// "bez odstepstwa", czyli zejscie o poziom nizej.
+    /// </summary>
+    public Dictionary<string, SessionPlaybackAudioOverrides> OverridesBySession { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+}
+
+/// <summary>
+/// Odstepstwa od ustawien ogolnych dla jednej sesji. Kazde pole moze byc puste
+/// (null) - wtedy sesja niczego nie narzuca.
+/// </summary>
+public sealed class SessionPlaybackAudioOverrides
+{
+    public bool? LoudnessNormalizationOverride { get; set; }
+    public bool? SmoothTrackTransitionsOverride { get; set; }
+    public int? InterTrackSilenceMillisecondsOverride { get; set; }
+
+    public bool IsEmpty =>
+        !LoudnessNormalizationOverride.HasValue
+        && !SmoothTrackTransitionsOverride.HasValue
+        && !InterTrackSilenceMillisecondsOverride.HasValue;
 }
 
 public static class PlaybackAudioSettingsRules

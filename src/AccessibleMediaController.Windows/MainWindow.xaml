@@ -373,6 +373,10 @@
                 <MenuItem x:Name="PlaybackItemOptionsMenuItem" Header="_Opcje odtwarzania elementu…" InputGestureText="Alt+Shift+Enter"
                           automation:AutomationProperties.AcceleratorKey="Alt+Shift+Enter"
                           Click="ItemPlaybackOptions_Click" />
+                <MenuItem x:Name="PlaybackSessionOptionsMenuItem" Header="Opcje odtwarzania całej _sesji…" InputGestureText="Ctrl+Alt+Enter"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+Enter"
+                          automation:AutomationProperties.Name="Opcje odtwarzania całej sesji, Ctrl+Alt+Enter"
+                          Click="SessionPlaybackOptions_Click" />
             </MenuItem>
             <MenuItem Header="_Widok">
                 <MenuItem x:Name="NowPlayingViewMenuItem" Header="_Teraz odtwarzane" InputGestureText="F6"

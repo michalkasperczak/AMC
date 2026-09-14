@@ -26,6 +26,7 @@ public interface IApplicationActions
     void GoToRelatedAlbum();
     void GoToRelatedArtist();
     void ShowItemPlaybackOptions();
+    void ShowSessionPlaybackOptions();
     void OpenOfficialApplication();
     void ShowHelp();
     void ToggleKeyboardHelp();
@@ -200,6 +201,10 @@ public sealed class CommandRouter(
             case CommandIds.GoToArtist:
                 application.GoToRelatedArtist();
                 return new(true);
+            case CommandIds.SessionPlaybackOptions:
+                application.ShowSessionPlaybackOptions();
+                return new(true);
+
             case CommandIds.ItemPlaybackOptions:
                 application.ShowItemPlaybackOptions();
                 return new(true);
@@ -586,6 +591,7 @@ public sealed class CommandRouter(
         or CommandIds.CurrentBroadcastInformation or CommandIds.GoToPodcast
         or CommandIds.GoToAlbum or CommandIds.GoToArtist
         or CommandIds.ItemPlaybackOptions
+        or CommandIds.SessionPlaybackOptions
         or CommandIds.ToggleFavorite or CommandIds.ToggleLibrary
         or CommandIds.AddQueue or CommandIds.TogglePlayNext
         or CommandIds.PlaybackRateDown or CommandIds.PlaybackRateUp or CommandIds.PlaybackRateReset;

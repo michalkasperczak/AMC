@@ -21,6 +21,8 @@ public static class LocalPlaybackAudioSettingsPresentation
     {
         LocalPlaybackAudioSettingSource.Item => "ustawienie pliku",
         LocalPlaybackAudioSettingSource.Folder => "ustawienie folderu",
+        LocalPlaybackAudioSettingSource.Session => "ustawienie sesji",
+        LocalPlaybackAudioSettingSource.Global => "ustawienie globalne",
         _ => "ustawienie globalne"
     };
 }
