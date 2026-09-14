@@ -18763,6 +18763,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             OpenSettings();
             e.Handled = true;
         }
+        else if (modifiers == (ModifierKeys.Control | ModifierKeys.Alt) && e.Key == Key.Enter)
+        {
+            // Opcje odtwarzania CALEJ sesji. Musza dzialac z kazdego miejsca
+            // programu, takze gdy nic nie jest zaznaczone na liscie.
+            ShowSessionPlaybackOptions();
+            e.Handled = true;
+        }
         else if (e.Key == Key.F1 && modifiers == ModifierKeys.None)
         {
             ShowHelp();
