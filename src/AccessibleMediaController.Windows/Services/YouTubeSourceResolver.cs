@@ -95,7 +95,14 @@ internal static class YouTubeSourceResolver
             "--fragment-retries", "3",
             "--extractor-retries", "2",
             "--format", "bestaudio[ext=m4a]/bestaudio/best[acodec!=none]",
-            "--extractor-args", "youtube:lang=pl",
+            // 2026-09-14: ZMIERZONE na czterech zywych transmisjach. Czesc kanalow
+            // (np. Dominikanie Ustron, txtC7cxR6m8) oddaje strumien WYLACZNIE
+            // klientowi "android"; domyslny zwraca "This video is not available",
+            // a "web"/"mweb"/"web_safari" - "No video formats found". Kolejnosc ma
+            // znaczenie: "default,android" zostawia sprawnym kanalom lzejszy format
+            // 234 (czysty AAC), a Ustroniowi daje 95. Odwrotna kolejnosc pogarsza
+            // sprawne kanaly. Jeden extractor-args, bo dwa osobne wykluczaja sie.
+            "--extractor-args", "youtube:lang=pl;player_client=default,android",
             "--dump-single-json",
             "--",
             pageUrl.Trim()

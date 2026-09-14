@@ -708,6 +708,25 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             DiagnosticLog.Info(
                 "internet-media",
                 $"Rozwiązano publiczny adres YouTube na czas odtwarzania: {stablePageAddress}; transmisja: {resolved.IsLive}.");
+            // 2026-09-14: ZYWA TRANSMISJA MUSI ISC PRZEZ FFMPEG.
+            // Systemowy MediaFoundationReader traktuje adres HLS jak plik o
+            // znanej dlugosci, a okno segmentow zywej transmisji ciagle sie
+            // przesuwa - odtwarzacz gubil pozycje i cofal dzwiek o kilka
+            // sekund co kilka sekund (zgloszone dla TVP Info i Korbielowa).
+            // Radio internetowe w tej samej aplikacji od dawna gra HLS przez
+            // ffmpeg i nie ma tej wady; transmisje YouTube ida teraz tam samo.
+            if (resolved.IsLive
+                && FfmpegLocalAudioWaveStream.TryOpenLive(
+                    resolved.StreamUrl,
+                    out var youtubeLiveReader))
+            {
+                DiagnosticLog.Info(
+                    "ffmpeg-live",
+                    $"Transmisja na żywo z YouTube otwarta dekoderem ffmpeg: {stablePageAddress}.");
+                return new ReaderSelection(
+                    new GuardedWaveStream(youtubeLiveReader, stablePageAddress),
+                    DecoderKind.FfmpegLocal);
+            }
             if (!resolved.IsLive
                 && resolved.Duration > TimeSpan.Zero
                 && FfmpegLocalAudioWaveStream.TryOpenNetwork(

@@ -168,6 +168,7 @@ var tests = new (string Name, Action Test)[]
     ("Legacy ICY MP3 Stream", TestLegacyIcyMp3Stream),
     ("Legacy ICY Cancellation", TestLegacyIcyCancellation),
     ("BASS Cancellation", TestBassCancellation),
+    ("Zywa transmisja YouTube nie cofa dzwieku", TestLiveYouTubeUsesFfmpegAndDoesNotSeek),
 };
 
 var failures = new List<string>();
@@ -6014,6 +6015,72 @@ static void TestTidalRefreshRequest()
                 ? Uri.UnescapeDataString(pair[1].Replace('+', ' '))
                 : string.Empty,
             StringComparer.Ordinal);
+}
+
+static void TestLiveYouTubeUsesFfmpegAndDoesNotSeek()
+{
+    // 2026-09-14: ZGLOSZENIE. Transmisje na zywo (TVP Info, Korbielow) albo nie
+    // graly, albo dzwiek cofal sie o kilka sekund co kilka sekund, a Rzeszow
+    // gral dobrze. Przyczyny byly dwie i ten test broni obu naraz:
+    //  1) rozwiazywanie adresu musi pytac klienta "android", bo czesc kanalow
+    //     (np. Dominikanie Ustron) NIE oddaje strumienia zadnemu innemu;
+    //  2) zywa transmisja musi isc przez ffmpeg i NIE MOZE udawac pliku o
+    //     znanej dlugosci - inaczej warstwa wyzej przewija i zapetla dzwiek.
+    var resolverZrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("YouTubeSourceResolver.cs"));
+    if (!resolverZrodlo.Contains("player_client=default,android", StringComparison.Ordinal))
+    {
+        throw new InvalidOperationException(
+            "Rozwiazywanie adresu YouTube nie pyta klienta android, wiec czesc "
+            + "transmisji na zywo w ogole nie zwroci strumienia audio.");
+    }
+
+    var wyjscieZrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("WindowsMediaOutput.cs"));
+    var indeksZywej = wyjscieZrodlo.IndexOf("FfmpegLocalAudioWaveStream.TryOpenLive", StringComparison.Ordinal);
+    if (indeksZywej < 0)
+    {
+        throw new InvalidOperationException(
+            "Transmisja na zywo nie idzie przez ffmpeg (brak TryOpenLive), wiec "
+            + "wraca do systemowego odtwarzacza, ktory cofa dzwiek.");
+    }
+    // Szukamy UTWORZENIA systemowego odtwarzacza, a nie samej nazwy - inaczej
+    // trafiamy we wlasny komentarz, ktory te nazwe wymienia.
+    var indeksSystemowego = wyjscieZrodlo.IndexOf("new MediaFoundationReader(", StringComparison.Ordinal);
+    if (indeksSystemowego >= 0 && indeksSystemowego < indeksZywej)
+    {
+        throw new InvalidOperationException(
+            "Systemowy odtwarzacz jest wybierany przed ffmpegiem, wiec zywa "
+            + "transmisja znowu trafi do odtwarzacza, ktory cofa dzwiek.");
+    }
+
+    var dekoderZrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("FfmpegLocalAudioWaveStream.cs"));
+    foreach (var wymagane in new[]
+    {
+        "CanSeek => !_liveStream",
+        "-live_start_index",
+        "if (_liveStream) return;"
+    })
+    {
+        if (!dekoderZrodlo.Contains(wymagane, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Dekoder zywej transmisji stracil zabezpieczenie \"{wymagane}\" - "
+                + "dzwiek moze znowu sie cofac.");
+        }
+    }
+
+    Console.WriteLine("OK: zywa transmisja YouTube idzie przez ffmpeg, bez przewijania i zapetlania");
+}
+
+static string ZnajdzPlikZrodlowy(string nazwa)
+{
+    var katalog = AppContext.BaseDirectory;
+    for (var i = 0; i < 12 && katalog is not null; i++)
+    {
+        var kandydat = Path.Combine(katalog, "src", "AccessibleMediaController.Windows", "Services", nazwa);
+        if (File.Exists(kandydat)) return kandydat;
+        katalog = Path.GetDirectoryName(katalog);
+    }
+    throw new FileNotFoundException($"Nie znaleziono pliku zrodlowego {nazwa} w drzewie projektu.");
 }
 
 sealed class BlockingWaveStream : WaveStream

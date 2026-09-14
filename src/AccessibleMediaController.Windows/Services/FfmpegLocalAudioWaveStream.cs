@@ -36,6 +36,7 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
     private readonly string _path;
     private readonly string _diagnosticSource;
     private readonly long _length;
+    private readonly bool _liveStream;
     private Process? _process;
     private Stream? _audio;
     private StringBuilder? _decoderError;
@@ -48,16 +49,25 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
     private FfmpegLocalAudioWaveStream(
         string executable,
         string path,
-        TimeSpan duration)
+        TimeSpan duration,
+        bool liveStream = false)
     {
         _executable = executable;
         _path = path;
+        _liveStream = liveStream;
         _diagnosticSource = Uri.TryCreate(path, UriKind.Absolute, out var networkUri)
             && networkUri.Scheme is "http" or "https"
                 ? networkUri.Host
                 : path;
         WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(OutputSampleRate, OutputChannels);
-        _length = Math.Max(
+        // 2026-09-14: transmisja na zywo NIE MA konca. Podanie tu prawdziwej
+        // dlugosci sprawia, ze warstwa wyzej traktuje strumien jak plik i po
+        // dojsciu do "konca" wraca na poczatek - dzwiek cofal sie o kilka
+        // sekund co kilka sekund. Dla zywej transmisji zglaszamy dlugosc
+        // maksymalna, wiec nikt nie probuje przewijac ani zapetlac.
+        _length = liveStream
+            ? long.MaxValue - WaveFormat.BlockAlign
+            : Math.Max(
             WaveFormat.BlockAlign,
             (long)Math.Min(
                 duration.TotalSeconds * WaveFormat.AverageBytesPerSecond,
@@ -67,7 +77,7 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
 
     public override WaveFormat WaveFormat { get; }
     public override long Length => _length;
-    public override bool CanSeek => true;
+    public override bool CanSeek => !_liveStream;
 
     public override long Position
     {
@@ -80,6 +90,9 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
             lock (_gate)
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
+                // Zywej transmisji nie da sie przewinac - zignoruj zamiast
+                // restartowac dekoder, bo restart gubi biezaca pozycje.
+                if (_liveStream) return;
                 var normalized = Math.Clamp(value, 0, _length);
                 normalized -= normalized % WaveFormat.BlockAlign;
                 if (normalized == _position) return;
@@ -126,6 +139,51 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
         }
     }
 
+    /// <summary>
+    /// Otwiera ZYWA transmisje (HLS z przesuwajacym sie okienkiem segmentow).
+    /// Nie zna dlugosci, nie pozwala przewijac i startuje od najnowszego
+    /// segmentu - dokladnie tak, jak radio internetowe w tej samej aplikacji.
+    /// </summary>
+    internal static bool TryOpenLive(
+        string address,
+        out FfmpegLocalAudioWaveStream reader)
+    {
+        reader = null!;
+        if (!Uri.TryCreate(address, UriKind.Absolute, out var uri)
+            || uri.Scheme is not ("http" or "https")
+            || !string.IsNullOrWhiteSpace(uri.UserInfo))
+        {
+            return false;
+        }
+
+        foreach (var executable in FfmpegRadioWaveProvider.EnumerateExecutableCandidates())
+        {
+            try
+            {
+                reader = new FfmpegLocalAudioWaveStream(
+                    executable,
+                    uri.AbsoluteUri,
+                    TimeSpan.Zero,
+                    liveStream: true);
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException
+                or InvalidDataException
+                or InvalidOperationException
+                or NotSupportedException
+                or System.ComponentModel.Win32Exception)
+            {
+                DiagnosticLog.Warning(
+                    "ffmpeg-live",
+                    $"Dekoder {Path.GetFileName(executable)} nie otworzyl zywej "
+                    + $"transmisji z hosta {uri.Host}; {exception.Message}");
+                reader?.Dispose();
+                reader = null!;
+            }
+        }
+        return false;
+    }
+
     internal static bool TryOpenNetwork(
         string address,
         TimeSpan duration,
@@ -169,8 +227,10 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (_audio is null || _position >= _length) return 0;
-            var alignedCount = Math.Min(count, (int)Math.Min(int.MaxValue, _length - _position));
+            if (_audio is null || (!_liveStream && _position >= _length)) return 0;
+            var alignedCount = _liveStream
+                ? count
+                : Math.Min(count, (int)Math.Min(int.MaxValue, _length - _position));
             alignedCount -= alignedCount % WaveFormat.BlockAlign;
             if (alignedCount <= 0) return 0;
 
@@ -315,6 +375,21 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
                 "-reconnect", "1",
                 "-reconnect_streamed", "1",
                 "-reconnect_delay_max", "2"
+            })
+            {
+                start.ArgumentList.Add(argument);
+            }
+        }
+        if (_liveStream)
+        {
+            // Te same opcje, ktorych uzywa radio internetowe (FfmpegRadioWaveProvider):
+            // manifest zywej transmisji wystawia kilka juz zakonczonych segmentow,
+            // wiec bez "-live_start_index -1" ffmpeg wyrzuca zalegly material w
+            // paczce, a odtwarzanie zaczyna sie od tego, co bylo wczesniej.
+            foreach (var argument in new[]
+            {
+                "-live_start_index", "-1",
+                "-readrate", "1"
             })
             {
                 start.ArgumentList.Add(argument);
