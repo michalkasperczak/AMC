@@ -5935,8 +5935,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var podcasts = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
         var wiiM = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
         var tidal = string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal);
-        CurrentSessionMuteMenuItem.IsChecked = _sessions.Current.IsSessionMuted;
-        AllSessionsMuteMenuItem.IsChecked = _sessions.AllSessionsMuted;
+        // Pozycja mowi WPROST, co zrobi Enter - a nie "wycisz lub przywroc"
+        // razem ze stanem pola wyboru. Michal 15.09.2026: przy czytniku ekranu
+        // nazwa opisujaca oba kierunki naraz plus "nieoznaczone" nie mowi nic
+        // o skutku. Skrotu NIE doklejamy do nazwy: czytnik czyta go sam
+        // z AcceleratorKey, wiec doklejony wychodzil drugi raz.
+        MenuAccessibility.SetPresentation(
+            CurrentSessionMuteMenuItem,
+            MuteMenuLabels.CurrentSession(_sessions.Current.IsSessionMuted));
+        MenuAccessibility.SetPresentation(
+            AllSessionsMuteMenuItem,
+            MuteMenuLabels.AllSessions(_sessions.AllSessionsMuted));
         AudioOutputDeviceMenuItem.Visibility = CurrentSessionSupportsAudioOutputSelection()
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -22858,6 +22867,33 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // zamknieciu programu" jest niejasny, bo nie wiadomo, kiedy to nastapi.
         if (status.ReadyToInstall && !_state.Settings.Updates.InstallOnExit)
         {
+            // Instalator zamyka AMC przelacznikiem /CLOSEAPPLICATIONS, wiec
+            // OMIJA pytanie z Window_Closing o trwajace nagrania. Bez tego
+            // ostrzezenia aktualizacja urwalaby nagranie bez slowa.
+            var activeRecordings =
+                _activeManualRadioRecordings.Count + _activeScheduledRadioRecordings.Count;
+            if (activeRecordings > 0)
+            {
+                var recordingAnswer = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
+                    this,
+                    $"Aktywne nagrania: {activeRecordings}. Instalacja aktualizacji zamknie AMC, "
+                    + "zakończy nagrywanie i zapisze odebrane fragmenty. Przerwane nagrania nie "
+                    + "zostaną wznowione po ponownym uruchomieniu. Zainstalować teraz?",
+                    "Trwające nagrania",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning,
+                    MessageBoxResult.No);
+                if (recordingAnswer != MessageBoxResult.Yes)
+                {
+                    // Odmowa nie moze znaczyc "zapomnij o aktualizacji" ani
+                    // "zainstaluj po cichu przy zamknieciu bez wiedzy uzytkownika".
+                    Announce("Aktualizacja zaczeka. Zainstaluje się po zakończeniu nagrań "
+                             + "i zamknięciu AMC.");
+                    _installUpdateOnExit = true;
+                    return;
+                }
+            }
+
             var answer = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 $"{status.Message}\n\nZainstalować teraz? AMC zostanie zamknięte, "
                 + "pojawi się okno instalatora, a po instalacji program uruchomi się ponownie.",

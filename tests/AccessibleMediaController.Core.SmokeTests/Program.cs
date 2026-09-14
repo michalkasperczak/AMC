@@ -2440,6 +2440,14 @@ static void TestCommandCatalog()
     Equal("Przywróć normalną prędkość odtwarzania", CommandCatalog.GetDisplayName(CommandIds.PlaybackRateReset));
     Equal("Wycisz lub przywróć dźwięk bieżącej sesji", CommandCatalog.GetDisplayName(CommandIds.ToggleMuteCurrentSession));
     Equal("Wycisz lub przywróć dźwięk wszystkich sesji AMC", CommandCatalog.GetDisplayName(CommandIds.ToggleMuteAllSessions));
+
+    // Nazwa w MENU zalezy od stanu i mowi, co zrobi Enter - inaczej niz nazwa
+    // POLECENIA w palecie i spisie skrotow, ktora opisuje oba kierunki, bo tam
+    // stan wyciszenia nie jest znany. Te dwa brzmienia sa rozne CELOWO.
+    Equal("Wycisz bieżącą sesję", MuteMenuLabels.CurrentSession(muted: false));
+    Equal("Przywróć dźwięk bieżącej sesji", MuteMenuLabels.CurrentSession(muted: true));
+    Equal("Wycisz wszystkie sesje AMC", MuteMenuLabels.AllSessions(muted: false));
+    Equal("Przywróć dźwięk wszystkich sesji AMC", MuteMenuLabels.AllSessions(muted: true));
     Equal("Wybierz sesję 7", CommandCatalog.GetDisplayName(CommandIds.SessionSlot(7)));
     Equal("Przejdź do 50% utworu", CommandCatalog.GetDisplayName(CommandIds.SeekPercent(50)));
     True(CommandIds.TryParseSeekPercent(CommandIds.SeekPercent(90), out var percent), "Identyfikator skoku procentowego powinien być rozpoznawany.");

@@ -154,14 +154,12 @@
             </MenuItem>
             <MenuItem x:Name="PlaybackMainMenu" Header="_Odtwarzanie"
                       SubmenuOpened="PlaybackMenuItem_SubmenuOpened">
-                <MenuItem x:Name="CurrentSessionMuteMenuItem" Header="Wycisz lub przywróć dźwięk _bieżącej sesji" InputGestureText="Ctrl+M"
-                          IsCheckable="True"
-                          automation:AutomationProperties.Name="Wycisz lub przywróć dźwięk bieżącej sesji, Ctrl+M"
+                <MenuItem x:Name="CurrentSessionMuteMenuItem" Header="Wycisz _bieżącą sesję" InputGestureText="Ctrl+M"
+                          automation:AutomationProperties.Name="Wycisz bieżącą sesję"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+M"
                           Click="ToggleCurrentSessionMute_Click" />
-                <MenuItem x:Name="AllSessionsMuteMenuItem" Header="Wycisz lub przywróć dźwięk _wszystkich sesji AMC" InputGestureText="Ctrl+Shift+M"
-                          IsCheckable="True"
-                          automation:AutomationProperties.Name="Wycisz lub przywróć dźwięk wszystkich sesji AMC, Ctrl+Shift+M"
+                <MenuItem x:Name="AllSessionsMuteMenuItem" Header="Wycisz _wszystkie sesje AMC" InputGestureText="Ctrl+Shift+M"
+                          automation:AutomationProperties.Name="Wycisz wszystkie sesje AMC"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+Shift+M"
                           Click="ToggleAllSessionsMute_Click" />
                 <MenuItem x:Name="AudioOutputDeviceMenuItem"
