@@ -37,7 +37,7 @@ public partial class App : Application
 
         try
         {
-            var answer = MessageBox.Show(
+            var answer = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 "W AMC wystąpił nieoczekiwany błąd. Program spróbuje działać dalej.\n\n"
                 + "Czy chcesz zgłosić ten błąd? Opis błędu zostanie dołączony automatycznie.",
                 "Błąd AMC",
@@ -160,7 +160,7 @@ public partial class App : Application
         catch (Exception exception)
         {
             DiagnosticLog.Error("storage", "Nie udało się załadować stanu aplikacji.", exception);
-            MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 $"Nie udało się odczytać konfiguracji. Program uruchomi ustawienia domyślne.\n\n{exception.Message}",
                 "Dostępny kontroler multimedialny",
                 MessageBoxButton.OK,

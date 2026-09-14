@@ -101,7 +101,7 @@ public partial class TidalAccountWindow : Controls.AccessibleWindow
 
     private void Disconnect_Click(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show(
+        if (AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 this,
                 "Odłączyć konto TIDAL? Bezpiecznie zapisane tokeny zostaną usunięte z Menedżera "
                     + "poświadczeń Windows, a zapamiętana Biblioteka TIDAL zostanie wyczyszczona. "

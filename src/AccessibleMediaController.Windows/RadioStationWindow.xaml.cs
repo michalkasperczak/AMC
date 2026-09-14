@@ -49,7 +49,7 @@ public partial class RadioStationWindow : Window
     {
         if (string.IsNullOrWhiteSpace(StationName))
         {
-            MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 _wiiMNetworkStream ? "Nazwa strumienia nie może być pusta." : "Nazwa stacji nie może być pusta.",
                 Title,
                 MessageBoxButton.OK,
@@ -60,7 +60,7 @@ public partial class RadioStationWindow : Window
         if (!Uri.TryCreate(StreamUrl, UriKind.Absolute, out var uri)
             || uri.Scheme is not ("http" or "https"))
         {
-            MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 _wiiMNetworkStream
                     ? "Wpisz pełny adres strumienia rozpoczynający się od http:// lub https://."
                     : "Wpisz pełny adres strumienia lub transmisji YouTube rozpoczynający się od http:// lub https://.",

@@ -185,7 +185,7 @@ public partial class ShortcutCaptureWindow : Window
     {
         if (CapturedChord is null)
         {
-            MessageBox.Show("Najpierw naciśnij nowy skrót.", "Zmiana skrótu", MessageBoxButton.OK, MessageBoxImage.Information);
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show("Najpierw naciśnij nowy skrót.", "Zmiana skrótu", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         DialogResult = true;

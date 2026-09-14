@@ -21,7 +21,7 @@ public partial class ProfileNameWindow : Window
     {
         if (string.IsNullOrWhiteSpace(NameBox.Text))
         {
-            MessageBox.Show("Nazwa profilu nie może być pusta.", "Nazwa profilu", MessageBoxButton.OK, MessageBoxImage.Information);
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show("Nazwa profilu nie może być pusta.", "Nazwa profilu", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         DialogResult = true;

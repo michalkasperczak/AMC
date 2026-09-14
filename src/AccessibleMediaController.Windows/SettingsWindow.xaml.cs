@@ -495,7 +495,7 @@ public partial class SettingsWindow : Window
         catch (Exception exception)
         {
             PrefixStatus.Announce($"Nie zapisano ustawień. {exception.Message}");
-            MessageBox.Show(exception.Message, "Nie można zapisać ustawień", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(exception.Message, "Nie można zapisać ustawień", MessageBoxButton.OK, MessageBoxImage.Warning);
             ChangePrefixButton.Focus();
             Keyboard.Focus(ChangePrefixButton);
         }
@@ -679,7 +679,7 @@ public partial class SettingsWindow : Window
         var profile = SelectedProfile;
         if (profile is null || profile.IsBuiltIn)
         {
-            MessageBox.Show("Najpierw utwórz edytowalną kopię profilu.", "Profile klawiatury", MessageBoxButton.OK, MessageBoxImage.Information);
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show("Najpierw utwórz edytowalną kopię profilu.", "Profile klawiatury", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -694,10 +694,10 @@ public partial class SettingsWindow : Window
         var profile = SelectedProfile;
         if (profile is null || profile.IsBuiltIn)
         {
-            MessageBox.Show("Wbudowanego profilu nie można usunąć.", "Profile klawiatury", MessageBoxButton.OK, MessageBoxImage.Information);
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show("Wbudowanego profilu nie można usunąć.", "Profile klawiatury", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        if (MessageBox.Show($"Usunąć profil „{profile.Name}”?", "Profile klawiatury", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        if (AccessibleMediaController.Windows.Services.AccessibleDialog.Show($"Usunąć profil „{profile.Name}”?", "Profile klawiatury", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         _workingState.KeyboardProfiles.Remove(profile);
         if (_workingState.Settings.ActiveKeyboardProfileId == profile.Id) _workingState.Settings.ActiveKeyboardProfileId = "default";
         RefreshProfiles("default");
@@ -707,7 +707,7 @@ public partial class SettingsWindow : Window
     {
         if (BindingsList.SelectedItem is not BindingRow row)
         {
-            MessageBox.Show("Wybierz przypisanie do zmiany.", "Skróty", MessageBoxButton.OK, MessageBoxImage.Information);
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show("Wybierz przypisanie do zmiany.", "Skróty", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -719,7 +719,7 @@ public partial class SettingsWindow : Window
         var profile = EnsureEditableProfile();
         if (profile.Bindings.TryGetValue(chord.Canonical, out var conflictingCommand) && conflictingCommand != row.CommandId)
         {
-            var replace = MessageBox.Show(
+            var replace = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 $"Skrót {chord.Canonical} jest przypisany do polecenia „{CommandCatalog.GetDisplayName(conflictingCommand)}”. Zastąpić go?",
                 "Konflikt skrótów",
                 MessageBoxButton.YesNo,
@@ -812,7 +812,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(exception.Message, "Import lub eksport", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(exception.Message, "Import lub eksport", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 

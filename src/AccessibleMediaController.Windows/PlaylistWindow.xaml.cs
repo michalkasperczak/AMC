@@ -117,7 +117,7 @@ public partial class PlaylistWindow : Window
             }
             catch (InvalidOperationException exception)
             {
-                MessageBox.Show(this, exception.Message, "Nowa playlista", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AccessibleMediaController.Windows.Services.AccessibleDialog.Show(this, exception.Message, "Nowa playlista", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
     }
@@ -140,7 +140,7 @@ public partial class PlaylistWindow : Window
             }
             catch (InvalidOperationException exception)
             {
-                MessageBox.Show(this, exception.Message, "Zmień nazwę playlisty", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AccessibleMediaController.Windows.Services.AccessibleDialog.Show(this, exception.Message, "Zmień nazwę playlisty", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
     }
@@ -148,7 +148,7 @@ public partial class PlaylistWindow : Window
     private void DeleteSelectedPlaylist()
     {
         if (PlaylistList.SelectedItem is not PlaylistChoice choice) return;
-        if (MessageBox.Show(
+        if (AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 this,
                 $"Usunąć playlistę „{choice.Name}”? Pliki multimedialne pozostaną bez zmian.",
                 "Usuń playlistę",

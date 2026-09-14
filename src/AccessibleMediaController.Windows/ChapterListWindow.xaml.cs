@@ -218,7 +218,7 @@ public partial class ChapterListWindow : Controls.AccessibleWindow
     {
         if (!ChooseFocusedChapterWhenNone())
         {
-            MessageBox.Show(this, "Wybierz co najmniej jeden rozdział.", "Rozdziały", MessageBoxButton.OK, MessageBoxImage.Information);
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(this, "Wybierz co najmniej jeden rozdział.", "Rozdziały", MessageBoxButton.OK, MessageBoxImage.Information);
             ChapterList.Focus();
             return;
         }

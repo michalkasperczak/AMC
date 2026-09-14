@@ -45,7 +45,7 @@ public partial class RenameLocalItemWindow : Window
     {
         if (string.IsNullOrWhiteSpace(NameBox.Text))
         {
-            MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 "Nazwa nie może być pusta.",
                 Title,
                 MessageBoxButton.OK,

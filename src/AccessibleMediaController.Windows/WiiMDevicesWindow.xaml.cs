@@ -137,7 +137,7 @@ public partial class WiiMDevicesWindow : Window
     private void Remove_Click(object sender, RoutedEventArgs e)
     {
         if (SelectedRow is not { } row) return;
-        var answer = MessageBox.Show(
+        var answer = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
             this,
             $"Usunąć urządzenie „{row.Device.DisplayName}” z AMC?\n\nNie zmieni to ustawień samego urządzenia ani aplikacji WiiM Home.",
             "Usuń urządzenie WiiM",

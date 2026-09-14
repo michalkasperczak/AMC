@@ -54,7 +54,7 @@ public partial class UnavailableLocalItemsWindow : Window
         var subject = selected.Length == 1
             ? $"„{selected[0].Title}”"
             : $"{selected.Length} plików";
-        var answer = MessageBox.Show(
+        var answer = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
             this,
             $"Zapomnieć w AMC {subject}?\n\n"
             + "Z AMC zostaną usunięte: rekord Biblioteki, powiązania z Ulubionymi, Kolejką i playlistami, Historia, Zakładki oraz zapamiętana pozycja. "

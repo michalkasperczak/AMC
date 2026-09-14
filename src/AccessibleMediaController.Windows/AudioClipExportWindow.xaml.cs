@@ -126,7 +126,7 @@ public partial class AudioClipExportWindow : AccessibleMediaController.Windows.C
             or ArgumentException)
         {
             ExportStatus.Text = exception.Message;
-            System.Windows.MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 this,
                 exception.Message,
                 _contentKind == "rozdział" ? "Nie udało się zapisać rozdziału" : "Nie udało się zapisać fragmentu",

@@ -86,7 +86,7 @@ public partial class LocalSourcesWindow : Window
     private void DetachSource_Click(object sender, RoutedEventArgs e)
     {
         if (SelectedStatus is not { } status) return;
-        var answer = MessageBox.Show(
+        var answer = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
             this,
             $"Odłączyć folder „{status.DisplayName}” od automatycznej synchronizacji?\n\n"
             + "Pliki na dysku nie zostaną usunięte. AMC zachowa wpisy Biblioteki, Ulubione, kolejkę, historię, zakładki i pozycje odtwarzania.",

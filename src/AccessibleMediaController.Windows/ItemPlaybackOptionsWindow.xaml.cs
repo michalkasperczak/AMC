@@ -232,7 +232,7 @@ public partial class ItemPlaybackOptionsWindow : Window
             && (string.IsNullOrWhiteSpace(PodcastDownloadFolderBox.Text)
                 || !Path.IsPathFullyQualified(PodcastDownloadFolderBox.Text)))
         {
-            MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 this,
                 "Wybierz pełną ścieżkę własnego folderu albo użyj folderu ogólnego Podcastów.",
                 "Folder pobierania podcastu",

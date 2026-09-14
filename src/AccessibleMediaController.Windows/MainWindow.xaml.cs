@@ -1915,7 +1915,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var start = _audioClipSelection.Start!.Value;
         var end = _audioClipSelection.End!.Value;
-        var confirmation = System.Windows.MessageBox.Show(
+        var confirmation = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
             this,
             $"Czy usunąć z oryginalnego pliku fragment od {FormatClipTime(start)} do {FormatClipTime(end)}?\n\n"
             + "AMC zatrzyma odtwarzanie, zachowa jakość bez ponownej kompresji i utworzy kopię bezpieczeństwa. "
@@ -1991,7 +1991,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             DiagnosticLog.Error("audio-clip", "Nie udało się usunąć fragmentu z oryginalnego pliku.", exception);
             UpdatePlaybackStatusBar();
             FocusPlayerView();
-            System.Windows.MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 this,
                 exception.Message,
                 "Nie udało się usunąć fragmentu",
@@ -3562,7 +3562,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             catch (InvalidOperationException exception)
             {
-                MessageBox.Show(this, exception.Message, "Nowa playlista", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AccessibleMediaController.Windows.Services.AccessibleDialog.Show(this, exception.Message, "Nowa playlista", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
     }
@@ -3599,7 +3599,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             }
             catch (InvalidOperationException exception)
             {
-                MessageBox.Show(this, exception.Message, "Zmień nazwę playlisty", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AccessibleMediaController.Windows.Services.AccessibleDialog.Show(this, exception.Message, "Zmień nazwę playlisty", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
     }
@@ -3613,7 +3613,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RestoreMediaListFocusAfterRefresh();
             return;
         }
-        if (MessageBox.Show(
+        if (AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 this,
                 $"Usunąć playlistę „{playlist.Name}”? Pliki multimedialne pozostaną bez zmian.",
                 "Usuń playlistę",
@@ -5305,7 +5305,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ShowLegacyShortcutHelpText()
     {
-        MessageBox.Show(
+        AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
             "Domyślny prefiks: Ctrl+Alt+Windows+F12.\n\n" +
             "Po prefiksie: 1–9 wybiera sesję, 0 otwiera ich listę, Page Up i Page Down zmieniają sesję, " +
             "strzałki sterują czasem i głośnością, Ctrl+E/R/T podaje czas. " +
@@ -14567,7 +14567,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     {
         var ids = items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
         var label = items.Count == 1 ? $"„{items[0].Title}”" : $"{items.Count} strumieni";
-        if (MessageBox.Show(
+        if (AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 this,
                 $"Usunąć {label} z lokalnej listy strumieni WiiM w AMC? Nie zmieni to danych zapisanych w aplikacji WiiM Home.",
                 "Usuń strumień WiiM",
@@ -15000,7 +15000,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (count > 1)
         {
-            var answer = System.Windows.MessageBox.Show(
+            var answer = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 this,
                 $"Trwają {count} nagrania. Zatrzymać i zapisać wszystkie odebrane fragmenty? Harmonogramy cykliczne pozostaną aktywne dla następnych terminów.",
                 "Zatrzymywanie nagrań",
@@ -15974,7 +15974,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var label = items.Length == 1 ? items[0].Title : FormatFileCount(items.Length);
-        var confirmation = MessageBox.Show(
+        var confirmation = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
             $"Przenieść do Kosza: {label}?\n\nPliki zostaną usunięte z AMC. Tej operacji nie można cofnąć skrótem Ctrl+Z; można użyć systemowego Kosza.",
             "Przenieś pliki do Kosza",
             MessageBoxButton.YesNo,
@@ -20835,7 +20835,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _activeManualRadioRecordings.Count + _activeScheduledRadioRecordings.Count;
         if (!_recordingCloseConfirmed && activeRecordingCount > 0)
         {
-            var answer = System.Windows.MessageBox.Show(
+            var answer = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 this,
                 $"Aktywne nagrania: {activeRecordingCount}. Zamknięcie AMC zakończy nagrywanie i zapisze odebrane fragmenty. Przerwane nagrania nie zostaną wznowione po ponownym uruchomieniu. Zamknąć program?",
                 "Trwające nagrania",
@@ -22790,7 +22790,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // aktualizacja sie wydarzy.
         if (status.ReadyToInstall && !_state.Settings.Updates.InstallOnExit)
         {
-            var answer = MessageBox.Show(
+            var answer = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 $"{status.Message}\n\nZamknąć AMC teraz i zainstalować aktualizację?",
                 "Aktualizacja AMC",
                 MessageBoxButton.YesNo,

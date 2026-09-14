@@ -23,7 +23,7 @@ public partial class PlaylistNameWindow : Window
         var name = NameBox.Text.Trim();
         if (name.Length == 0)
         {
-            MessageBox.Show(this, "Wpisz nazwę playlisty.", Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(this, "Wpisz nazwę playlisty.", Title, MessageBoxButton.OK, MessageBoxImage.Warning);
             NameBox.Focus();
             return;
         }

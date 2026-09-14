@@ -101,7 +101,7 @@ public partial class ProblemReportWindow : Window
         if (DialogResult == true) return;
         if (string.IsNullOrWhiteSpace(SubjectBox.Text) && string.IsNullOrWhiteSpace(BodyBox.Text)) return;
 
-        var answer = MessageBox.Show(
+        var answer = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
             "Zgłoszenie nie zostało ani wysłane, ani zapisane. Zamknąć okno i porzucić napisany tekst?",
             "Zgłoś błąd lub uwagę",
             MessageBoxButton.YesNo,
@@ -118,7 +118,7 @@ public partial class ProblemReportWindow : Window
     {
         if (string.IsNullOrWhiteSpace(SubjectBox.Text))
         {
-            MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 "Temat zgłoszenia nie może być pusty.",
                 "Zgłoś błąd lub uwagę",
                 MessageBoxButton.OK,
@@ -129,7 +129,7 @@ public partial class ProblemReportWindow : Window
 
         if (string.IsNullOrWhiteSpace(BodyBox.Text))
         {
-            MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 "Opis zgłoszenia nie może być pusty. Napisz, co robiłeś i co się stało.",
                 "Zgłoś błąd lub uwagę",
                 MessageBoxButton.OK,
@@ -165,7 +165,7 @@ public partial class ProblemReportWindow : Window
             Outcome = saved is null
                 ? ProblemReportOutcome.NothingSaved
                 : ProblemReportOutcome.SavedToDiskOnly;
-            MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 saved is null
                     ? "Nie udało się zapisać zgłoszenia na dysku. Skopiuj treść z okna i wklej ją ręcznie."
                     : $"Zgłoszenie zapisane w pliku:\n{saved}",
@@ -183,7 +183,7 @@ public partial class ProblemReportWindow : Window
             Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
             Outcome = ProblemReportOutcome.OpenedInBrowser;
             DiagnosticLog.Info("zgloszenie", $"Otwarto formularz zgłoszenia; kopia: {saved ?? "brak"}.");
-            MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 saved is null
                     ? "Formularz zgłoszenia otworzył się w przeglądarce. Treść jest już wpisana — zostaje kliknąć przycisk wysyłania na stronie. Dopóki tego nie zrobisz, zgłoszenie NIE jest wysłane."
                     : "Formularz zgłoszenia otworzył się w przeglądarce. Treść jest już wpisana — zostaje kliknąć przycisk wysyłania na stronie. Dopóki tego nie zrobisz, zgłoszenie NIE jest wysłane.\n\n"
@@ -199,7 +199,7 @@ public partial class ProblemReportWindow : Window
                 ? ProblemReportOutcome.NothingSaved
                 : ProblemReportOutcome.SavedToDiskOnly;
             DiagnosticLog.Error("zgloszenie", "Nie udało się otworzyć formularza zgłoszenia.", exception);
-            MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 saved is null
                     ? $"Nie udało się otworzyć przeglądarki ({exception.Message}) i nie udało się zapisać kopii. "
                       + "Skopiuj treść z pola opisu, żeby jej nie stracić."

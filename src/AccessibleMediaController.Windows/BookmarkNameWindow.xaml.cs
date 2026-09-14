@@ -22,7 +22,7 @@ public partial class BookmarkNameWindow : Window
     {
         if (string.IsNullOrWhiteSpace(NameBox.Text))
         {
-            MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 "Nazwa zakładki nie może być pusta.",
                 "Nazwa zakładki",
                 MessageBoxButton.OK,

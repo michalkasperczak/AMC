@@ -23,7 +23,7 @@ public partial class ChapterNameWindow : Controls.AccessibleWindow
     {
         if (string.IsNullOrWhiteSpace(NameBox.Text))
         {
-            MessageBox.Show(
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
                 this,
                 "Nazwa rozdziału nie może być pusta.",
                 "Nowy rozdział",

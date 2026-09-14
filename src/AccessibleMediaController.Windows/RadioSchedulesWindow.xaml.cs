@@ -229,7 +229,7 @@ public partial class RadioSchedulesWindow : Window
     private void DeleteSelected()
     {
         if (SchedulesList.SelectedItem is not ScheduleRow row) return;
-        var result = MessageBox.Show(
+        var result = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
             this,
             _activeIds.Contains(row.Schedule.Id)
                 ? $"Zatrzymać nagrywanie i usunąć plan {row.Schedule.StationName}?"

@@ -30,7 +30,7 @@ public partial class PodcastOpmlImportWindow : Window
     {
         if (SelectedEntries.Count == 0)
         {
-            MessageBox.Show(this, "Zaznacz co najmniej jeden kanał.", Title, MessageBoxButton.OK, MessageBoxImage.Information);
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(this, "Zaznacz co najmniej jeden kanał.", Title, MessageBoxButton.OK, MessageBoxImage.Information);
             FocusFirstEntry();
             return;
         }
