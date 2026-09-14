@@ -30,6 +30,8 @@ var tests = new (string Name, Action Test)[]
     ("Bezpieczne ustawienia i PKCE TIDAL", TestTidalIntegrationFoundation),
     ("Kategorie wykonawcy TIDAL, paginacja i rozdzielenie zasobów", TidalArtistBrowseTests.Run),
     ("Oddzielony tor oficjalnego odtwarzania TIDAL", TestTidalPlaybackBoundary),
+    ("Pokaż w folderze dla plików i folderów", ShowInFolderTests.Run),
+    ("Przeskok o czas ustawiony przez użytkownika", CustomSeekLengthTests.Run),
     ("Przekazywanie utworów i całości oryginalnemu TIDALowi", TidalDesktopPlaybackTests.Run),
     ("Bezpieczny klient i parser urządzeń WiiM", TestWiiMApiParsing),
     ("Migracja kolejności strumieni WiiM", TestWiiMLegacyStreamOrderMigration),

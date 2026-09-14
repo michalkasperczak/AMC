@@ -72,6 +72,14 @@ public sealed class AppSettings
     public bool RememberLocalPlaybackPositions { get; set; } = true;
 
     /// <summary>
+    /// Dlugosc przeskoku pod Alt+Ctrl+strzalka w lewo i w prawo, w sekundach.
+    /// Osobna od stalych krokow 10/30/60 s - sluzy do przechodzenia po dlugich
+    /// nagraniach (audycja, mecz, sluchowisko), dlatego domyslnie 5 minut.
+    /// Dopuszczalny zakres pilnuje <see cref="PlaybackSeekRules"/>.
+    /// </summary>
+    public int CustomSeekSeconds { get; set; } = PlaybackSeekRules.DefaultCustomSeekSeconds;
+
+    /// <summary>
     /// Zapamiętywanie pozycji odtwarzania ustawiane OSOBNO dla wybranej sesji
     /// (radio, podcasty, biblioteka lokalna, TIDAL). Klucz to identyfikator
     /// sesji. Brak wpisu albo <see cref="ResumePositionMode.Inherit"/> oznacza
@@ -124,6 +132,114 @@ public sealed class SessionPlaybackAudioOverrides
         !LoudnessNormalizationOverride.HasValue
         && !SmoothTrackTransitionsOverride.HasValue
         && !InterTrackSilenceMillisecondsOverride.HasValue;
+}
+
+public static class PlaybackSeekRules
+{
+    /// <summary>Domyslny przeskok Alt+Ctrl+strzalki: 5 minut.</summary>
+    public const int DefaultCustomSeekSeconds = 300;
+
+    public const int MinimumCustomSeekSeconds = 5;
+
+    /// <summary>Gorna granica: pol godziny. Wyzej przeskok mija sie z celem.</summary>
+    public const int MaximumCustomSeekSeconds = 1800;
+
+    /// <summary>
+    /// Wartosci proponowane w Ustawieniach. Uzytkownik moze wpisac wlasna
+    /// liczbe - lista jest wygoda, nie ograniczeniem.
+    /// </summary>
+    public static readonly IReadOnlyList<int> SuggestedCustomSeekSeconds =
+        [15, 30, 60, 120, 180, 300, 600, 900, 1800];
+
+    public static int NormalizeCustomSeekSeconds(int seconds) =>
+        Math.Clamp(seconds, MinimumCustomSeekSeconds, MaximumCustomSeekSeconds);
+
+    /// <summary>
+    /// Czyta dlugosc przeskoku z tekstu wpisanego przez uzytkownika.
+    /// Przyjmuje "5 minut", "5 min", "90 s", "90 sekund", "1:30" i samo "300".
+    /// SAMA LICZBA BEZ JEDNOSTKI znaczy MINUTY, bo pole sluzy do dlugich
+    /// przeskokow - "5" ma znaczyc 5 minut, nie 5 sekund. Zwraca false, gdy
+    /// tekstu nie da sie odczytac; wtedy wywolujacy zostawia stara wartosc
+    /// zamiast po cichu ja zerowac.
+    /// </summary>
+    public static bool TryParseSeekLength(string? text, out int seconds)
+    {
+        seconds = 0;
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        var value = text.Trim().ToLowerInvariant().Replace(',', '.');
+
+        var colon = value.IndexOf(':');
+        if (colon > 0)
+        {
+            var minutePart = value[..colon].Trim();
+            var secondPart = value[(colon + 1)..].Trim();
+            if (!int.TryParse(minutePart, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out var mm)
+                || !int.TryParse(secondPart, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out var ss)
+                || mm < 0 || ss is < 0 or > 59)
+            {
+                return false;
+            }
+            seconds = NormalizeCustomSeekSeconds(mm * 60 + ss);
+            return true;
+        }
+
+        var digits = new string(value.TakeWhile(character =>
+            char.IsDigit(character) || character == '.').ToArray());
+        if (digits.Length == 0) return false;
+        if (!double.TryParse(digits, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var number))
+        {
+            return false;
+        }
+
+        var unit = value[digits.Length..].Trim();
+        var inSeconds = unit.StartsWith('s')
+            ? number
+            // Brak jednostki albo cokolwiek zaczynajace sie na "m" = minuty.
+            : unit.Length == 0 || unit.StartsWith('m')
+                ? number * 60
+                : double.NaN;
+        if (double.IsNaN(inSeconds) || inSeconds <= 0) return false;
+        seconds = NormalizeCustomSeekSeconds((int)Math.Round(inSeconds));
+        return true;
+    }
+
+    /// <summary>
+    /// Opis dlugosci przeskoku po polsku, z poprawna odmiana. Uzywany i w
+    /// Ustawieniach, i w opisie skrotow, wiec regula jest w JEDNYM miejscu.
+    /// </summary>
+    public static string DescribeSeekLength(int seconds)
+    {
+        seconds = NormalizeCustomSeekSeconds(seconds);
+        if (seconds % 60 != 0) return $"{seconds} {PluralizeSeconds(seconds)}";
+        var minutes = seconds / 60;
+        return $"{minutes} {PluralizeMinutes(minutes)}";
+    }
+
+    private static string PluralizeSeconds(int value) => value switch
+    {
+        1 => "sekundę",
+        _ when IsFewForm(value) => "sekundy",
+        _ => "sekund"
+    };
+
+    private static string PluralizeMinutes(int value) => value switch
+    {
+        1 => "minutę",
+        _ when IsFewForm(value) => "minuty",
+        _ => "minut"
+    };
+
+    // Polska liczba mnoga: 2-4 (ale nie 12-14) bierze forme "minuty".
+    private static bool IsFewForm(int value)
+    {
+        var lastTwo = value % 100;
+        if (lastTwo is >= 12 and <= 14) return false;
+        var last = value % 10;
+        return last is >= 2 and <= 4;
+    }
 }
 
 public static class PlaybackAudioSettingsRules

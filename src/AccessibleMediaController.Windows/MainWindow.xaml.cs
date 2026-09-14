@@ -4900,6 +4900,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _ => "format nieznany"
     };
 
+    /// <summary>
+    /// Czy pokazac pozycje "Pokaż w folderze" dla tego elementu. Regula wspolna
+    /// dla menu listy i menu odtwarzacza siedzi w Core
+    /// (<see cref="ShowInFolderAvailability"/>), zeby oba miejsca nie liczyly
+    /// jej niezaleznie.
+    /// </summary>
+    private static bool CanShowInFolder(MediaItem? item) =>
+        ShowInFolderAvailability.IsAvailableFor(item);
+
     private static bool TryGetLocalPath(string? source, out string localPath)
     {
         localPath = string.Empty;
@@ -5196,20 +5205,43 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private void ShowLocalFileInFolder()
     {
-        if (ActionItem is not { } item || !TryGetLocalPath(item.Source, out var localPath)) return;
-        if (!File.Exists(localPath))
+        // Zadna sciezka nie moze konczyc sie cisza - przy czytniku ekranu cisza
+        // jest nieodroznialna od sukcesu. Wczesniej dwa wyjscia (brak elementu i
+        // sciezka niebedaca plikiem lokalnym) wracaly bez slowa, a folder byl
+        // odrzucany przez File.Exists jako "niedostepny na dysku", choc istnial.
+        if (ActionItem is not { } item)
+        {
+            AnnounceEssential("Nie wskazano elementu, więc nie ma czego pokazać w folderze");
+            return;
+        }
+        if (!TryGetLocalPath(item.Source, out var localPath))
+        {
+            AnnounceEssential(
+                "Ten element nie jest plikiem na dysku, więc nie da się go pokazać w folderze");
+            return;
+        }
+
+        var isFolder = Directory.Exists(localPath);
+        if (!isFolder && !File.Exists(localPath))
         {
             AnnounceEssential("Nie można pokazać pliku, ponieważ nie jest obecnie dostępny na dysku");
             return;
         }
         try
         {
+            // Folder otwieramy W SRODKU, a plik zaznaczamy w jego folderze
+            // nadrzednym. "/select" na katalogu otwiera katalog nadrzedny i
+            // zaznacza go - dla folderu z nagraniami to nie to, o co prosi
+            // uzytkownik.
             Process.Start(new ProcessStartInfo
             {
                 FileName = "explorer.exe",
-                Arguments = $"/select,\"{localPath}\"",
+                Arguments = isFolder ? $"\"{localPath}\"" : $"/select,\"{localPath}\"",
                 UseShellExecute = true
             });
+            AnnounceEssential(isFolder
+                ? $"Otwarto folder {Path.GetFileName(localPath.TrimEnd(Path.DirectorySeparatorChar))}"
+                : $"Pokazano plik {Path.GetFileName(localPath)} w folderze");
         }
         catch (Exception exception) when (exception is InvalidOperationException or Win32Exception or IOException)
         {
@@ -19263,6 +19295,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 (ModifierKeys.Shift, Key.Right) => CommandIds.SeekForward30,
                 (ModifierKeys.Control, Key.Left) => CommandIds.SeekBackward60,
                 (ModifierKeys.Control, Key.Right) => CommandIds.SeekForward60,
+                (ModifierKeys.Control | ModifierKeys.Alt, Key.Left) => CommandIds.SeekBackwardCustom,
+                (ModifierKeys.Control | ModifierKeys.Alt, Key.Right) => CommandIds.SeekForwardCustom,
                 (ModifierKeys.None, Key.Up) => CommandIds.VolumeUp5,
                 (ModifierKeys.None, Key.Down) => CommandIds.VolumeDown5,
                 (ModifierKeys.Shift, Key.Up) => CommandIds.VolumeUp1,
@@ -19996,6 +20030,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Shift, Key.Right) => CommandIds.SeekForward30,
             (ModifierKeys.Control, Key.Left) => CommandIds.SeekBackward60,
             (ModifierKeys.Control, Key.Right) => CommandIds.SeekForward60,
+            (ModifierKeys.Control | ModifierKeys.Alt, Key.Left) => CommandIds.SeekBackwardCustom,
+            (ModifierKeys.Control | ModifierKeys.Alt, Key.Right) => CommandIds.SeekForwardCustom,
             (ModifierKeys.Shift, Key.OemComma) => CommandIds.PlaybackRateDown,
             (ModifierKeys.Shift, Key.OemPeriod) => CommandIds.PlaybackRateUp,
             (ModifierKeys.Control, Key.OemPeriod) => CommandIds.PlaybackRateReset,
@@ -21586,7 +21622,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : Visibility.Collapsed;
         MoveLocalItemUpMenuItem.IsEnabled = string.IsNullOrWhiteSpace(FilterBox.Text);
         MoveLocalItemDownMenuItem.IsEnabled = string.IsNullOrWhiteSpace(FilterBox.Text);
-        ShowLocalFileInFolderMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
+        ShowLocalFileInFolderMenuItem.Visibility = CanShowInFolder(actionItem)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         var externalPageAvailable = actionItem is not null && TryGetExternalPageUri(actionItem, out _);
         OfficialApplicationMenuItem.Visibility = externalPageAvailable
             ? Visibility.Visible
@@ -21963,7 +22001,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         PlayerLibraryMenuItem.Visibility = item.Kind == MediaItemKind.Episode
             ? Visibility.Collapsed
             : Visibility.Visible;
-        PlayerShowLocalFileInFolderMenuItem.Visibility = localItem ? Visibility.Visible : Visibility.Collapsed;
+        PlayerShowLocalFileInFolderMenuItem.Visibility = CanShowInFolder(item)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         var playerExternalPageAvailable = TryGetExternalPageUri(item, out _);
         PlayerOfficialApplicationMenuItem.Visibility = playerExternalPageAvailable
             ? Visibility.Visible

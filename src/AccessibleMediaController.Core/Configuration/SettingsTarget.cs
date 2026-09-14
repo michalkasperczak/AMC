@@ -10,6 +10,7 @@ public enum SettingsTarget
     FollowPlaybackOnPlayerExit,
     OpenPlayerWhenActivatingPreset,
     RememberLocalPlaybackPositions,
+    CustomSeekLength,
     LoudnessNormalization,
     SmoothTrackTransitions,
     InterTrackSilence,

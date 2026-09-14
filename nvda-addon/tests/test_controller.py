@@ -210,6 +210,78 @@ class ControllerTests(unittest.TestCase):
             release.set()
             controller.close()
 
+    def test_held_volume_key_is_coalesced_instead_of_refused(self):
+        """Trzymany Ctrl+Windows+strzalka w gore nie moze dawac
+        "poczekaj na poprzednie polecenie" ani gubic krokow glosnosci."""
+        entered, release = threading.Event(), threading.Event()
+        calls, results = [], []
+        finished = threading.Event()
+
+        def exchange(command):
+            calls.append(command)
+            entered.set()
+            release.wait(3)
+            return {"message": "Głośność %d%%" % (30 + 5 * len(calls))}
+
+        def deliver(message):
+            results.append(message)
+            finished.set()
+
+        controller = worker.CommandWorker(exchange, deliver)
+        try:
+            self.assertTrue(controller.submit("volumeUp"))
+            self.assertTrue(entered.wait(1))
+            # Pierwsze polecenie wisi w wymianie; kolejnych dwanascie to
+            # autopowtarzanie klawisza.  Kolejka ma miejsce na 4 wpisy, wiec
+            # bez scalania juz piate zwrocilo by False.
+            for _ in range(12):
+                self.assertTrue(controller.submit("volumeUp"))
+            self.assertLessEqual(controller._queue.qsize(), 1)
+            release.set()
+            self.assertTrue(finished.wait(2))
+            for _ in range(20):
+                if len(calls) >= 13:
+                    break
+                time.sleep(.02)
+            # Kazdy krok glosnosci wykonany.  Wypowiedzi jest tyle, ile PARTII
+            # scalonych (tu dwie: polecenie juz w wymianie i zebrane
+            # autopowtorzenia), nigdy tyle, ile nacisniec - i ostatnia podaje
+            # stan koncowy, a nie stan sprzed powtorzen.
+            self.assertEqual(calls, ["volumeUp"] * 13)
+            self.assertLessEqual(len(results), 3)
+            self.assertEqual(results[-1], "Głośność 95%")
+        finally:
+            release.set()
+            controller.close()
+
+    def test_coalescing_has_an_upper_bound_and_spares_other_commands(self):
+        release = threading.Event()
+        calls = []
+
+        def exchange(command):
+            calls.append(command)
+            release.wait(3)
+            return {"message": ""}
+
+        controller = worker.CommandWorker(exchange, lambda message: None)
+        try:
+            for _ in range(worker.MAX_REPEAT + 30):
+                controller.submit("seekForward")
+            with controller._gate:
+                waiting = controller._repeatable.get("seekForward")
+            self.assertIsNotNone(waiting)
+            self.assertLessEqual(waiting.count, worker.MAX_REPEAT)
+            # Polecenia jednorazowe (przelaczniki, widoki) NIE moga sie scalac -
+            # dwa nacisniecia playPause to dwa przelaczenia, nie jedno.
+            self.assertNotIn("playPause", worker.REPEATABLE)
+            self.assertNotIn("recordToggle", worker.REPEATABLE)
+            self.assertNotIn("next", worker.REPEATABLE)
+            for command in worker.REPEATABLE:
+                self.assertIn(command, transport.COMMANDS)
+        finally:
+            release.set()
+            controller.close()
+
     def test_failed_toggle_is_sent_only_once(self):
         calls, responses = [], []
         done = threading.Event()

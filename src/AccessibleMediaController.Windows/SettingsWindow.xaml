@@ -44,6 +44,10 @@
                             <CheckBox x:Name="RememberLocalPlaybackPositionsCheck" Margin="0,0,0,12"
                                       Content="_Pamiętaj pozycję odtwarzania lokalnych plików"
                                       automation:AutomationProperties.HelpText="To ustawienie globalne. Dla każdego Folderu Biblioteki oraz pojedynczego elementu można wybrać inne zachowanie." />
+                            <Label Target="{Binding ElementName=CustomSeekSecondsCombo}">Przeskok pod Alt+Ctrl+strzałka w le_wo i w prawo:</Label>
+                            <ComboBox x:Name="CustomSeekSecondsCombo" Margin="0,0,0,12" IsEditable="True"
+                                      automation:AutomationProperties.Name="Długość przeskoku pod Alt+Ctrl+strzałka w lewo i w prawo"
+                                      automation:AutomationProperties.HelpText="Osobny, dłuższy przeskok do chodzenia po długich nagraniach. Nie zmienia strzałek bez modyfikatorów ani skrótów z Shift i Ctrl, które nadal przewijają o 10, 30 i 60 sekund. Można wybrać wartość z listy albo wpisać własną liczbę minut lub sekund. Dopuszczalny zakres to od 5 sekund do 30 minut." />
                             <TextBlock Margin="0,0,0,8" TextWrapping="Wrap"
                                        Text="Dodatkowe przetwarzanie działa w sesjach, których tor odtwarzania je obsługuje lokalnie albo przez oficjalne API. Obecnie obejmuje Pliki lokalne. Nie zmienia zawartości plików ani zapisanej wartości głośności." />
                             <CheckBox x:Name="LoudnessNormalizationCheck" Margin="0,0,0,8"

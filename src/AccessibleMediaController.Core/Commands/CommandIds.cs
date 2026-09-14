@@ -17,6 +17,14 @@ public static class CommandIds
     public const string SeekForward30 = "transport.seekForward30";
     public const string SeekBackward60 = "transport.seekBackward60";
     public const string SeekForward60 = "transport.seekForward60";
+
+    /// <summary>
+    /// Przeskok o czas USTAWIONY przez uzytkownika (domyslnie 5 minut), a nie
+    /// o staly krok 10/30/60 sekund. Wartosc siedzi w
+    /// <see cref="Configuration.PlaybackSettings.CustomSeekSeconds"/>.
+    /// </summary>
+    public const string SeekBackwardCustom = "transport.seekBackwardCustom";
+    public const string SeekForwardCustom = "transport.seekForwardCustom";
     public const string VolumeUp5 = "transport.volumeUp5";
     public const string VolumeDown5 = "transport.volumeDown5";
     public const string VolumeUp1 = "transport.volumeUp1";
@@ -161,6 +169,7 @@ public static class CommandIds
     public const string SettingsStartupTarget = "settings.startupTarget";
     public const string SettingsSessionOrder = "settings.sessionOrder";
     public const string SettingsPausePlaybackWhenLeavingPlayer = "settings.playback.pauseWhenLeavingPlayer";
+    public const string SettingsCustomSeekLength = "settings.playback.customSeekLength";
     public const string SettingsFollowPlaybackOnPlayerExit = "settings.playback.followOnPlayerExit";
     public const string SettingsOpenPlayerWhenActivatingPreset = "settings.playback.openPlayerForPreset";
     public const string SettingsRememberLocalPlaybackPositions = "settings.playback.rememberLocalPositions";

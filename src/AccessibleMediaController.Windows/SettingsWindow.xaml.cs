@@ -87,6 +87,7 @@ public partial class SettingsWindow : Window
             SettingsTarget.FollowPlaybackOnPlayerExit => (GeneralTab, FollowPlaybackOnPlayerExitCheck),
             SettingsTarget.OpenPlayerWhenActivatingPreset => (GeneralTab, OpenPlayerWhenActivatingPresetCheck),
             SettingsTarget.RememberLocalPlaybackPositions => (GeneralTab, RememberLocalPlaybackPositionsCheck),
+            SettingsTarget.CustomSeekLength => (GeneralTab, CustomSeekSecondsCombo),
             SettingsTarget.LoudnessNormalization => (GeneralTab, LoudnessNormalizationCheck),
             SettingsTarget.SmoothTrackTransitions => (GeneralTab, SmoothTrackTransitionsCheck),
             SettingsTarget.InterTrackSilence => (GeneralTab, InterTrackSilenceCombo),
@@ -142,6 +143,7 @@ public partial class SettingsWindow : Window
         FollowPlaybackOnPlayerExitCheck.IsChecked = _workingState.Settings.FollowPlaybackOnPlayerExit;
         OpenPlayerWhenActivatingPresetCheck.IsChecked = _workingState.Settings.OpenPlayerWhenActivatingPreset;
         RememberLocalPlaybackPositionsCheck.IsChecked = _workingState.Settings.RememberLocalPlaybackPositions;
+        LoadCustomSeekChoices();
         LoudnessNormalizationCheck.IsChecked = _workingState.Settings.Audio.LoudnessNormalizationEnabled;
         SmoothTrackTransitionsCheck.IsChecked = _workingState.Settings.Audio.SmoothTrackTransitionsEnabled;
         SelectComboByTag(
@@ -212,6 +214,47 @@ public partial class SettingsWindow : Window
         LoadMediaFieldOrder();
     }
 
+    private void LoadCustomSeekChoices()
+    {
+        var current = PlaybackSeekRules.NormalizeCustomSeekSeconds(
+            _workingState.Settings.CustomSeekSeconds);
+        CustomSeekSecondsCombo.Items.Clear();
+        foreach (var seconds in PlaybackSeekRules.SuggestedCustomSeekSeconds)
+        {
+            CustomSeekSecondsCombo.Items.Add(new ComboBoxItem
+            {
+                Content = PlaybackSeekRules.DescribeSeekLength(seconds),
+                Tag = seconds.ToString(CultureInfo.InvariantCulture)
+            });
+        }
+        // Wartosc wpisana wczesniej z palca nie musi byc na liscie - wtedy
+        // pokazujemy ja w polu tekstowym, zeby uzytkownik widzial swoj wybor,
+        // a nie najblizsza podpowiedz.
+        var match = PlaybackSeekRules.SuggestedCustomSeekSeconds.Contains(current);
+        if (match) SelectComboByTag(CustomSeekSecondsCombo, current.ToString(CultureInfo.InvariantCulture));
+        else CustomSeekSecondsCombo.Text = PlaybackSeekRules.DescribeSeekLength(current);
+    }
+
+    private int ReadCustomSeekSeconds()
+    {
+        if (CustomSeekSecondsCombo.SelectedItem is ComboBoxItem { Tag: string tag }
+            && int.TryParse(tag, NumberStyles.Integer, CultureInfo.InvariantCulture, out var selected)
+            && string.Equals(
+                CustomSeekSecondsCombo.Text.Trim(),
+                PlaybackSeekRules.DescribeSeekLength(selected),
+                StringComparison.CurrentCultureIgnoreCase))
+        {
+            return PlaybackSeekRules.NormalizeCustomSeekSeconds(selected);
+        }
+        if (PlaybackSeekRules.TryParseSeekLength(CustomSeekSecondsCombo.Text, out var typed))
+        {
+            return typed;
+        }
+        throw new InvalidDataException(
+            "Długość przeskoku pod Alt+Ctrl+strzałki musi być liczbą minut albo sekund, "
+            + "na przykład 5 minut, 90 sekund lub 1:30. Dopuszczalny zakres to od 5 sekund do 30 minut.");
+    }
+
     private void ApplyControls()
     {
         if (Enum.TryParse<StartupTarget>(SelectedTag(StartupTargetCombo, nameof(StartupTarget.MediaList)), out var startupTarget))
@@ -223,6 +266,7 @@ public partial class SettingsWindow : Window
         _workingState.Settings.FollowPlaybackOnPlayerExit = FollowPlaybackOnPlayerExitCheck.IsChecked == true;
         _workingState.Settings.OpenPlayerWhenActivatingPreset = OpenPlayerWhenActivatingPresetCheck.IsChecked == true;
         _workingState.Settings.RememberLocalPlaybackPositions = RememberLocalPlaybackPositionsCheck.IsChecked == true;
+        _workingState.Settings.CustomSeekSeconds = ReadCustomSeekSeconds();
         _workingState.Settings.Audio.LoudnessNormalizationEnabled = LoudnessNormalizationCheck.IsChecked == true;
         _workingState.Settings.Audio.SmoothTrackTransitionsEnabled = SmoothTrackTransitionsCheck.IsChecked == true;
         if (!int.TryParse(SelectedTag(InterTrackSilenceCombo, "0"), out var interTrackSilence)

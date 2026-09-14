@@ -256,6 +256,12 @@ public sealed class CommandRouter(
             case CommandIds.SeekForward30: return Seek(current, 30);
             case CommandIds.SeekBackward60: return Seek(current, -60);
             case CommandIds.SeekForward60: return Seek(current, 60);
+            case CommandIds.SeekBackwardCustom:
+                return Seek(current, -PlaybackSeekRules.NormalizeCustomSeekSeconds(
+                    settings.CustomSeekSeconds));
+            case CommandIds.SeekForwardCustom:
+                return Seek(current, PlaybackSeekRules.NormalizeCustomSeekSeconds(
+                    settings.CustomSeekSeconds));
             case CommandIds.VolumeUp5: return Volume(current, 5);
             case CommandIds.VolumeDown5: return Volume(current, -5);
             case CommandIds.VolumeUp1: return Volume(current, 1);
@@ -417,6 +423,7 @@ public sealed class CommandRouter(
             CommandIds.SettingsStartupTarget => SettingsTarget.StartupTarget,
             CommandIds.SettingsSessionOrder => SettingsTarget.SessionOrder,
             CommandIds.SettingsPausePlaybackWhenLeavingPlayer => SettingsTarget.PausePlaybackWhenLeavingPlayer,
+            CommandIds.SettingsCustomSeekLength => SettingsTarget.CustomSeekLength,
             CommandIds.SettingsFollowPlaybackOnPlayerExit => SettingsTarget.FollowPlaybackOnPlayerExit,
             CommandIds.SettingsOpenPlayerWhenActivatingPreset => SettingsTarget.OpenPlayerWhenActivatingPreset,
             CommandIds.SettingsRememberLocalPlaybackPositions => SettingsTarget.RememberLocalPlaybackPositions,
@@ -585,6 +592,7 @@ public sealed class CommandRouter(
         or CommandIds.SeekBackward10 or CommandIds.SeekForward10
         or CommandIds.SeekBackward30 or CommandIds.SeekForward30
         or CommandIds.SeekBackward60 or CommandIds.SeekForward60
+        or CommandIds.SeekBackwardCustom or CommandIds.SeekForwardCustom
         or CommandIds.TrackStart or CommandIds.TrackEnd
         or CommandIds.TimeElapsed or CommandIds.TimeRemaining or CommandIds.TimeTotal
         or CommandIds.ItemProperties or CommandIds.PodcastDescription

@@ -172,6 +172,8 @@ public static class CommandPaletteSearch
             CommandIds.SeekForward30 => "Shift+Right (odtwarzacz)",
             CommandIds.SeekBackward60 => "Ctrl+Left (odtwarzacz)",
             CommandIds.SeekForward60 => "Ctrl+Right (odtwarzacz)",
+            CommandIds.SeekBackwardCustom => "Ctrl+Alt+Left (odtwarzacz)",
+            CommandIds.SeekForwardCustom => "Ctrl+Alt+Right (odtwarzacz)",
             CommandIds.VolumeUp5 => "Up (odtwarzacz)",
             CommandIds.VolumeDown5 => "Down (odtwarzacz)",
             CommandIds.VolumeUp1 => "Shift+Up (odtwarzacz)",

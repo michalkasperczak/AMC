@@ -191,6 +191,8 @@ public sealed class ConfigurationStore
         lock (saveGate)
         {
             state.Settings.PrefixChord = NormalizePrefixChord(state.Settings.PrefixChord);
+            state.Settings.CustomSeekSeconds = PlaybackSeekRules.NormalizeCustomSeekSeconds(
+                state.Settings.CustomSeekSeconds);
             NormalizeSessionSlots(state.Settings);
             NormalizeSearchHistory(state);
             NormalizeSessionNavigation(state);
