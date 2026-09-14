@@ -19265,7 +19265,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 (ModifierKeys.Control | ModifierKeys.Alt, Key.B) => CommandIds.ViewChapters,
                 (ModifierKeys.Alt | ModifierKeys.Shift, Key.Enter) => CommandIds.ItemPlaybackOptions,
-                (ModifierKeys.Control | ModifierKeys.Alt, Key.Enter) => CommandIds.SessionPlaybackOptions,
                 (ModifierKeys.Alt, Key.Enter) => CommandIds.ItemProperties,
                 (ModifierKeys.Control | ModifierKeys.Shift, Key.U) => CommandIds.ToggleFavorite,
                 (ModifierKeys.Control | ModifierKeys.Shift, Key.P) => CommandIds.ManagePlaylists,
@@ -19316,6 +19315,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             (ModifierKeys.Control | ModifierKeys.Shift, Key.T) => CommandIds.TimeTotal,
             (ModifierKeys.Control | ModifierKeys.Shift, Key.O) => CommandIds.OpenLocalFolder,
             (ModifierKeys.Control, Key.OemComma) => CommandIds.SettingsGeneral,
+            (ModifierKeys.Control | ModifierKeys.Alt, Key.Enter) => CommandIds.SessionPlaybackOptions,
             (ModifierKeys.Control, Key.F5) when string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal) => CommandIds.ManageLocalSources,
             (ModifierKeys.Control, Key.F5) when string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal) => CommandIds.RefreshPodcastLibrary,
             (ModifierKeys.None, Key.F5) when string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
