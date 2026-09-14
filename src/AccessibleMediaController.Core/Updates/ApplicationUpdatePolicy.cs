@@ -30,7 +30,8 @@ public sealed record ApplicationRelease(
     Uri? PackageUri,
     string? PackageName,
     long PackageBytes,
-    bool IsPrerelease);
+    bool IsPrerelease,
+    bool PackageIsInstaller = false);
 
 /// <summary>
 /// Wynik oceny wydania. Zawiera gotowy komunikat po polsku, bo to samo zdanie
@@ -67,6 +68,35 @@ public static class ApplicationUpdatePolicy
     /// tym, ktory naprawde cos znajduje.
     /// </summary>
     public const string PrereleaseChannel = "beta";
+
+    /// <summary>
+    /// Wybiera plik wydania do pobrania. Instalator ma pierwszenstwo nad
+    /// archiwum ZIP: podmiana plikow dzialajacego programu jest krucha (Windows
+    /// blokuje pliki w uzyciu), a instalator sam zamyka AMC, wymienia pliki i
+    /// dociaga srodowisko .NET, gdyby go brakowalo. ZIP zostaje dla wydan
+    /// opublikowanych przed wprowadzeniem instalatora.
+    ///
+    /// Zwraca nazwe wybranego pliku albo null, gdy zadna nie pasuje.
+    /// </summary>
+    public static string? ChoosePackageName(IEnumerable<string>? assetNames)
+    {
+        var names = assetNames?.Where(n => !string.IsNullOrWhiteSpace(n)).ToList() ?? [];
+        return FirstMatching(names, ".exe") ?? FirstMatching(names, ".zip");
+
+        static string? FirstMatching(List<string> candidates, string extension)
+        {
+            foreach (var name in candidates)
+            {
+                if (!name.EndsWith(extension, StringComparison.OrdinalIgnoreCase)) continue;
+                // Dodatek NVDA i pliki zrodlowe to nie paczka programu.
+                if (name.Contains("nvda", StringComparison.OrdinalIgnoreCase)) continue;
+                if (name.Contains("source", StringComparison.OrdinalIgnoreCase)) continue;
+                return name;
+            }
+
+            return null;
+        }
+    }
 
     public static ApplicationUpdatePlan Evaluate(
         string installedVersion,

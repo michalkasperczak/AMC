@@ -160,6 +160,40 @@ internal static class ApplicationUpdateManager
 
             progress?.Report(0.9d);
 
+            // Instalator: nie ma czego rozpakowywac ani podmieniac. Plik
+            // przenosimy poza katalog tymczasowy i uruchamiamy przy zamykaniu
+            // AMC - instalator sam wymienia pliki i dociaga srodowisko .NET.
+            if (release.PackageIsInstaller)
+            {
+                var readyInstaller = Path.Combine(UpdateRoot, release.PackageName ?? "amc-setup.exe");
+                if (File.Exists(readyInstaller)) File.Delete(readyInstaller);
+                File.Move(archive, readyInstaller);
+
+                SavePending(new PendingUpdate
+                {
+                    Version = release.Tag,
+                    Sha256 = actual,
+                    ChecksumVerified = verified,
+                    InstallerPath = readyInstaller,
+                    TargetDirectory = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
+                    PreparedAtUtc = DateTimeOffset.UtcNow
+                });
+
+                progress?.Report(1d);
+                var installerNote = verified
+                    ? "Suma kontrolna zgodna."
+                    : "Wydanie nie podało sumy kontrolnej, więc zgodność pliku nie została sprawdzona.";
+                var installerMessage = $"AMC {release.Tag} jest pobrane i gotowe. {installerNote} "
+                                       + "Instalator uruchomi się po zamknięciu programu.";
+                DiagnosticLog.Info("aktualizacja-amc", $"{installerMessage} SHA-256 {actual}.");
+                return new ApplicationUpdateStatus(
+                    ApplicationUpdateDecision.UpdateAvailable,
+                    installerMessage,
+                    release.Tag,
+                    verified,
+                    ReadyToInstall: true);
+            }
+
             var unpacked = Path.Combine(stagingRoot, "rozpakowane");
             Directory.CreateDirectory(unpacked);
             ExtractSafely(archive, unpacked);
@@ -205,7 +239,10 @@ internal static class ApplicationUpdateManager
     {
         version = null;
         var pending = LoadPending();
-        if (pending is null || !Directory.Exists(pending.SourceDirectory)) return false;
+        if (pending is null) return false;
+        var ready = (pending.InstallerPath.Length > 0 && File.Exists(pending.InstallerPath))
+                    || Directory.Exists(pending.SourceDirectory);
+        if (!ready) return false;
         version = pending.Version;
         return true;
     }
@@ -222,7 +259,51 @@ internal static class ApplicationUpdateManager
         try
         {
             var pending = LoadPending();
-            if (pending is null || !Directory.Exists(pending.SourceDirectory)) return false;
+            if (pending is null) return false;
+
+            // Droga instalatora: nie kopiujemy nic sami. Instalator w trybie
+            // cichym sam zamyka AMC, wymienia pliki i w razie potrzeby dociaga
+            // srodowisko .NET. Uruchamiamy go i konczymy - reszta nalezy do niego.
+            if (pending.InstallerPath.Length > 0 && File.Exists(pending.InstallerPath))
+            {
+                var installer = new ProcessStartInfo
+                {
+                    FileName = pending.InstallerPath,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+                installer.ArgumentList.Add("/VERYSILENT");
+                installer.ArgumentList.Add("/SUPPRESSMSGBOXES");
+                installer.ArgumentList.Add("/NORESTART");
+                // /CLOSEAPPLICATIONS pozwala instalatorowi zamknac AMC, gdyby
+                // proces jeszcze zyl; /RESTARTAPPLICATIONS wraca do programu po
+                // wymianie plikow, gdy uzytkownik chcial ponownego uruchomienia.
+                installer.ArgumentList.Add("/CLOSEAPPLICATIONS");
+                if (relaunch) installer.ArgumentList.Add("/RESTARTAPPLICATIONS");
+                else installer.ArgumentList.Add("/NORESTARTAPPLICATIONS");
+                installer.ArgumentList.Add($"/LOG={Path.Combine(UpdateRoot, "instalator.log")}");
+
+                Process.Start(installer);
+                // Sam wpis "do zrobienia" usuwamy, ale pliku instalatora NIE -
+                // wlasnie go uruchomilismy, a usuniecie wyrwaloby mu plik z rak.
+                try
+                {
+                    if (File.Exists(PendingPath)) File.Delete(PendingPath);
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    DiagnosticLog.Warning(
+                        "aktualizacja-amc",
+                        $"Instalator uruchomiony, ale nie udało się usunąć wpisu o czekającej aktualizacji: {exception.Message}");
+                }
+                DiagnosticLog.Info(
+                    "aktualizacja-amc",
+                    $"Uruchomiono instalator AMC {pending.Version} po zamknięciu programu.");
+                return true;
+            }
+
+            if (!Directory.Exists(pending.SourceDirectory)) return false;
             if (!Directory.Exists(pending.TargetDirectory)) return false;
 
             var script = Path.Combine(UpdateRoot, "instaluj.ps1");
@@ -387,31 +468,49 @@ internal static class ApplicationUpdateManager
             Uri? packageUri = null;
             string? packageName = null;
             long packageBytes = 0;
+            var packageIsInstaller = false;
             if (element.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
             {
+                // Wybor pliku trzyma polityka w Core, zeby dala sie sprawdzic
+                // testem - tutaj tylko odnajdujemy wybrany plik po nazwie.
+                var namesInRelease = new List<string>();
                 foreach (var asset in assets.EnumerateArray())
                 {
                     var name = asset.TryGetProperty("name", out var nameValue) ? nameValue.GetString() : null;
-                    if (string.IsNullOrWhiteSpace(name)) continue;
-                    if (!name!.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) continue;
-                    // Dodatek NVDA i pliki zrodlowe to nie paczka programu.
-                    if (name.Contains("nvda", StringComparison.OrdinalIgnoreCase)) continue;
-                    if (name.Contains("source", StringComparison.OrdinalIgnoreCase)) continue;
-                    var url = asset.TryGetProperty("browser_download_url", out var urlValue)
-                        ? urlValue.GetString()
-                        : null;
-                    if (string.IsNullOrWhiteSpace(url)) continue;
-                    if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed)) continue;
-                    packageUri = parsed;
-                    packageName = name;
-                    packageBytes = asset.TryGetProperty("size", out var size) && size.TryGetInt64(out var bytes)
-                        ? bytes
-                        : 0;
-                    break;
+                    if (!string.IsNullOrWhiteSpace(name)) namesInRelease.Add(name!);
+                }
+
+                var chosen = ApplicationUpdatePolicy.ChoosePackageName(namesInRelease);
+                if (chosen is not null)
+                {
+                    foreach (var asset in assets.EnumerateArray())
+                    {
+                        var name = asset.TryGetProperty("name", out var nameValue) ? nameValue.GetString() : null;
+                        if (!string.Equals(name, chosen, StringComparison.Ordinal)) continue;
+                        var url = asset.TryGetProperty("browser_download_url", out var urlValue)
+                            ? urlValue.GetString()
+                            : null;
+                        if (string.IsNullOrWhiteSpace(url)) break;
+                        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed)) break;
+                        packageUri = parsed;
+                        packageName = chosen;
+                        packageIsInstaller = chosen.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+                        packageBytes = asset.TryGetProperty("size", out var size) && size.TryGetInt64(out var bytes)
+                            ? bytes
+                            : 0;
+                        break;
+                    }
                 }
             }
 
-            var candidate = new ApplicationRelease(tag!, notes, packageUri, packageName, packageBytes, prerelease);
+            var candidate = new ApplicationRelease(
+                tag!,
+                notes,
+                packageUri,
+                packageName,
+                packageBytes,
+                prerelease,
+                packageIsInstaller);
             newestOverall ??= candidate;
 
             if (prerelease && !allowPrerelease) continue;
@@ -571,6 +670,13 @@ internal static class ApplicationUpdateManager
         public bool ChecksumVerified { get; set; }
         public string SourceDirectory { get; set; } = "";
         public string TargetDirectory { get; set; } = "";
+
+        /// <summary>
+        /// Sciezka do pobranego instalatora. Gdy jest ustawiona, aktualizacje
+        /// wykonuje instalator, a nie kopiowanie plikow z SourceDirectory.
+        /// </summary>
+        public string InstallerPath { get; set; } = "";
+
         public DateTimeOffset PreparedAtUtc { get; set; }
     }
 }

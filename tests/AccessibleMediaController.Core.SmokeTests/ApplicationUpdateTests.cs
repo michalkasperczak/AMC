@@ -22,6 +22,9 @@ internal static class ApplicationUpdateTests
         TestReportKeepsUserTextFirst();
         TestReportLogTailIsLimited();
         TestIssueUriIsShortenedWithNotice();
+        TestInstallerWinsOverArchive();
+        TestArchiveIsUsedWhenNoInstaller();
+        TestNvdaAddonIsNotMistakenForProgram();
     }
 
     private static ApplicationRelease Release(
@@ -227,6 +230,35 @@ internal static class ApplicationUpdateTests
 
         var name = ProblemReportComposer.ComposeFileName(new DateTimeOffset(2026, 9, 14, 3, 4, 5, TimeSpan.Zero));
         Assert(name == "zgloszenie-20260914-030405.txt", $"Nazwa pliku kopii jest nieoczekiwana: {name}");
+    }
+
+    private static void TestInstallerWinsOverArchive()
+    {
+        // Kolejnosc na liscie jest odwrotna do oczekiwanej, zeby test lapal
+        // przypadkowe "bierz pierwszy pasujacy plik".
+        var wybrane = ApplicationUpdatePolicy.ChoosePackageName(
+            ["AMC-0.1.0-alpha.356.zip", "AMC-Setup-0.1.0-alpha.356.exe"]);
+        Assert(wybrane == "AMC-Setup-0.1.0-alpha.356.exe",
+            $"Instalator powinien mieć pierwszeństwo nad archiwum, a wybrano: {wybrane}");
+    }
+
+    private static void TestArchiveIsUsedWhenNoInstaller()
+    {
+        var wybrane = ApplicationUpdatePolicy.ChoosePackageName(["AMC-0.1.0-alpha.350.zip"]);
+        Assert(wybrane == "AMC-0.1.0-alpha.350.zip",
+            $"Starsze wydania bez instalatora powinny nadal działać przez ZIP, a wybrano: {wybrane}");
+        Assert(ApplicationUpdatePolicy.ChoosePackageName([]) is null,
+            "Wydanie bez plików nie powinno nic wybrać.");
+        Assert(ApplicationUpdatePolicy.ChoosePackageName(null) is null,
+            "Brak listy plików nie powinien wysadzać wyboru.");
+    }
+
+    private static void TestNvdaAddonIsNotMistakenForProgram()
+    {
+        var wybrane = ApplicationUpdatePolicy.ChoosePackageName(
+            ["amc-nvda-addon.zip", "Source code.zip", "AMC-0.1.0-alpha.356.zip"]);
+        Assert(wybrane == "AMC-0.1.0-alpha.356.zip",
+            $"Dodatek NVDA ani pliki źródłowe nie są paczką programu, a wybrano: {wybrane}");
     }
 
     private static void Assert(bool condition, string message)
