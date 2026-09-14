@@ -25,6 +25,7 @@ internal static class ApplicationUpdateTests
         TestInstallerWinsOverArchive();
         TestArchiveIsUsedWhenNoInstaller();
         TestNvdaAddonIsNotMistakenForProgram();
+        TestRealRelease356IsReadCorrectly();
     }
 
     private static ApplicationRelease Release(
@@ -259,6 +260,46 @@ internal static class ApplicationUpdateTests
             ["amc-nvda-addon.zip", "Source code.zip", "AMC-0.1.0-alpha.356.zip"]);
         Assert(wybrane == "AMC-0.1.0-alpha.356.zip",
             $"Dodatek NVDA ani pliki źródłowe nie są paczką programu, a wybrano: {wybrane}");
+    }
+
+    private static void TestRealRelease356IsReadCorrectly()
+    {
+        // Prawdziwy opis wydania v0.1.0-alpha.356 pobrany z GitHuba 14.09.2026.
+        // Wydanie ma DWA pliki i DWIE sumy, wiec sprawdzamy, ze kazda trafia
+        // do swojego pliku, a nie ze bierzemy pierwsza z brzegu.
+        const string opis = """
+            ## Sumy kontrolne SHA-256
+
+                AMC-Setup-0.1.0-alpha.356.exe  FF76EE1A8041817FFDA42D8C97E6A6B12FFFD52915568F19913C021D26B68192
+                AMC-0.1.0-alpha.356.zip        760F9562695FB9A67C33155EF8E0579505651AB6AFFCDBF336CA19D839A66618
+            """;
+
+        var wybrany = ApplicationUpdatePolicy.ChoosePackageName(
+            ["AMC-0.1.0-alpha.356.zip", "AMC-Setup-0.1.0-alpha.356.exe"]);
+        Assert(
+            wybrany == "AMC-Setup-0.1.0-alpha.356.exe",
+            $"W prawdziwym wydaniu 356 powinien wygrać instalator, a wygrało: {wybrany ?? "nic"}.");
+
+        var sumaInstalatora = ApplicationUpdatePolicy.ReadChecksumFor(opis, wybrany);
+        Assert(
+            sumaInstalatora == "ff76ee1a8041817ffda42d8c97e6a6b12fffd52915568f19913c021d26b68192",
+            $"Suma instalatora z prawdziwego opisu odczytana źle: {sumaInstalatora ?? "brak"}.");
+
+        var sumaPaczki = ApplicationUpdatePolicy.ReadChecksumFor(opis, "AMC-0.1.0-alpha.356.zip");
+        Assert(
+            sumaPaczki == "760f9562695fb9a67c33155ef8e0579505651ab6affcdbf336ca19d839a66618",
+            $"Suma paczki ZIP z prawdziwego opisu odczytana źle: {sumaPaczki ?? "brak"}.");
+
+        Assert(
+            sumaInstalatora != sumaPaczki,
+            "Dwa różne pliki nie mogą dostać tej samej sumy kontrolnej.");
+
+        // Przy dwoch sumach w opisie ogolne czytanie MUSI odmowic - inaczej
+        // program sprawdzalby instalator suma paczki ZIP i zawsze odrzucal go
+        // jako uszkodzony.
+        Assert(
+            ApplicationUpdatePolicy.ReadChecksum(opis) is null,
+            "Przy dwóch sumach w opisie ogólne czytanie powinno odmówić, żeby nie podstawić cudzej sumy.");
     }
 
     private static void Assert(bool condition, string message)

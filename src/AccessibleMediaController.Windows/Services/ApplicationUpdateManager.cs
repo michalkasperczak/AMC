@@ -455,6 +455,7 @@ internal static class ApplicationUpdateManager
         ApplicationRelease? best = null;
         ApplicationVersion? bestVersion = null;
         ApplicationRelease? newestOverall = null;
+        ApplicationVersion? newestOverallVersion = null;
 
         foreach (var element in document.RootElement.EnumerateArray())
         {
@@ -511,10 +512,20 @@ internal static class ApplicationUpdateManager
                 packageBytes,
                 prerelease,
                 packageIsInstaller);
-            newestOverall ??= candidate;
+
+            if (!ApplicationVersion.TryParse(tag, out var version)) continue;
+
+            // Najnowsze wydanie WOGOLE liczymy po numerze wersji, a nie po
+            // kolejnosci z GitHuba: kolejnosc listy nie jest obiecana i zalezy
+            // od daty utworzenia, ktora przy poprawianym wydaniu bywa starsza
+            // niz przy wydaniu wczesniejszym.
+            if (newestOverallVersion is null || version > newestOverallVersion)
+            {
+                newestOverall = candidate;
+                newestOverallVersion = version;
+            }
 
             if (prerelease && !allowPrerelease) continue;
-            if (!ApplicationVersion.TryParse(tag, out var version)) continue;
             if (bestVersion is null || version > bestVersion)
             {
                 best = candidate;
