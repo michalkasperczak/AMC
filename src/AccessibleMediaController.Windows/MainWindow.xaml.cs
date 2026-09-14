@@ -22852,20 +22852,39 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdatePlaybackStatusBar();
         Announce(status.Message);
 
-        // Gdy paczka jest gotowa, a uzytkownik nie chce czekac do zamkniecia,
-        // pytamy wprost. Ciche odlozenie bez slowa kazaloby mu zgadywac, kiedy
-        // aktualizacja sie wydarzy.
+        // Gdy paczka jest gotowa, pytamy wprost, jak w EdSharpie: "czy chcesz
+        // zainstalowac". Po "Tak" instalator ma wejsc OD RAZU i na pierwszym
+        // planie - Michal zglosil 15.09.2026, ze komunikat "zainstaluje sie po
+        // zamknieciu programu" jest niejasny, bo nie wiadomo, kiedy to nastapi.
         if (status.ReadyToInstall && !_state.Settings.Updates.InstallOnExit)
         {
             var answer = AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
-                $"{status.Message}\n\nZamknąć AMC teraz i zainstalować aktualizację?",
+                $"{status.Message}\n\nZainstalować teraz? AMC zostanie zamknięte, "
+                + "pojawi się okno instalatora, a po instalacji program uruchomi się ponownie.",
                 "Aktualizacja AMC",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
             if (answer == MessageBoxResult.Yes)
             {
-                _installUpdateOnExit = true;
-                Close();
+                // Instalator startuje TERAZ, widoczny, z ponownym uruchomieniem
+                // AMC po wymianie plikow. Sam zamyka program przelacznikiem
+                // /CLOSEAPPLICATIONS, wiec nie czekamy na zamkniecie okna.
+                if (ApplicationUpdateManager.TryStartPendingInstall(relaunch: true, visible: true))
+                {
+                    Announce("Instalator aktualizacji został uruchomiony.");
+                }
+                else
+                {
+                    // Start nieudany: NIE zostawiamy ciszy ani falszywej
+                    // obietnicy. Wracamy do drogi odlozonej na zamkniecie.
+                    _installUpdateOnExit = true;
+                    AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
+                        "Nie udało się uruchomić instalatora teraz. Aktualizacja zostanie "
+                        + "zainstalowana po zamknięciu AMC.",
+                        "Aktualizacja AMC",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
             }
         }
     }

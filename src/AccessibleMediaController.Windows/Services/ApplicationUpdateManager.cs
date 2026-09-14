@@ -254,7 +254,14 @@ internal static class ApplicationUpdateManager
     /// AMC z listy procesow, kopiuje pliki i uruchamia nowa wersje. Wlasny proces
     /// nie moze nadpisac swojego .exe, dopoki dziala.
     /// </summary>
-    internal static bool TryStartPendingInstall(bool relaunch)
+    /// <param name="visible">
+    /// Prawda, gdy uzytkownik SAM wybral "zainstaluj teraz". Wtedy instalator ma
+    /// pokazac swoje okno na pierwszym planie - tak jak w EdSharpie - bo po
+    /// kliknieciu "Tak" cisza i ukryte okno sa nieodroznialne od zawieszenia.
+    /// Falsz to instalacja odlozona na zamkniecie programu: tam okno nie ma
+    /// komu sie pokazac, wiec idzie trybem cichym.
+    /// </param>
+    internal static bool TryStartPendingInstall(bool relaunch, bool visible = false)
     {
         try
         {
@@ -269,11 +276,22 @@ internal static class ApplicationUpdateManager
                 var installer = new ProcessStartInfo
                 {
                     FileName = pending.InstallerPath,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
+                    UseShellExecute = true,
+                    CreateNoWindow = !visible,
+                    WindowStyle = visible ? ProcessWindowStyle.Normal : ProcessWindowStyle.Hidden
                 };
-                installer.ArgumentList.Add("/VERYSILENT");
+                if (visible)
+                {
+                    // Instalator widoczny: pasek postepu i okno na wierzchu, bez
+                    // pytan o katalog i skroty (te ustalono przy pierwszej
+                    // instalacji). /SILENT, nie /VERYSILENT - /VERYSILENT ukrywa
+                    // TAKZE pasek postepu, a wtedy nie ma czego pokazac.
+                    installer.ArgumentList.Add("/SILENT");
+                }
+                else
+                {
+                    installer.ArgumentList.Add("/VERYSILENT");
+                }
                 installer.ArgumentList.Add("/SUPPRESSMSGBOXES");
                 installer.ArgumentList.Add("/NORESTART");
                 // /CLOSEAPPLICATIONS pozwala instalatorowi zamknac AMC, gdyby
