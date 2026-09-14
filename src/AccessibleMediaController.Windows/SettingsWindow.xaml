@@ -376,23 +376,27 @@
                                automation:AutomationProperties.Name="Stan składnika yt-dlp" />
                     <StackPanel>
                         <CheckBox x:Name="UpdateCheckAutomatically" Margin="0,0,0,8"
-                                  Content="Automatycznie _sprawdzaj aktualizacje składników w tle" />
+                                  Content="Automatycznie _sprawdzaj aktualizacje w tle" />
                         <CheckBox x:Name="UpdateDownloadAutomatically" Margin="0,0,0,8"
-                                  Content="Automatycznie _pobieraj i instaluj zweryfikowane składniki" />
+                                  Content="Automatycznie _pobieraj zweryfikowane aktualizacje" />
                     </StackPanel>
-                    <StackPanel IsEnabled="False" Margin="0,8,0,0">
+                    <StackPanel Margin="0,8,0,0">
                         <CheckBox x:Name="UpdateInstallOnExit" Margin="0,0,0,8"
-                                  Content="Instaluj aktualizacje całej aplikacji przy _zamykaniu — planowane" />
+                                  automation:AutomationProperties.HelpText="Podmiana plików programu wykonuje się po zamknięciu AMC, bo działającego programu nie da się nadpisać."
+                                  Content="Instaluj aktualizacje całej aplikacji przy _zamykaniu" />
                         <CheckBox x:Name="UpdateMetered" Margin="0,0,0,12"
                                   Content="Zezwalaj na pobieranie przez połączenia _taryfowe" />
                         <Label Target="{Binding ElementName=UpdateChannelCombo}">_Kanał aktualizacji:</Label>
-                        <ComboBox x:Name="UpdateChannelCombo" Width="220" HorizontalAlignment="Left" SelectedIndex="0">
+                        <ComboBox x:Name="UpdateChannelCombo" Width="220" HorizontalAlignment="Left" SelectedIndex="0"
+                                  automation:AutomationProperties.Name="Kanał aktualizacji"
+                                  automation:AutomationProperties.HelpText="AMC jest obecnie wydawany tylko jako wersje testowe. Na kanale stabilnym aktualizacje nie będą się pojawiać.">
                             <ComboBoxItem Tag="stable">Stabilny</ComboBoxItem>
-                            <ComboBoxItem Tag="beta">Beta</ComboBoxItem>
+                            <ComboBoxItem Tag="beta">Testowy, obecnie jedyny z wydaniami</ComboBoxItem>
                         </ComboBox>
                     </StackPanel>
-                    <TextBlock Margin="0,16,0,0" TextWrapping="Wrap"
-                               Text="Aktualizator całej aplikacji pozostaje następnym etapem. Składniki są przechowywane wersjami; nieudane pobranie lub kontrola nie usuwa poprzedniej działającej kopii." />
+                    <TextBlock x:Name="ApplicationUpdateNote" Margin="0,16,0,0" TextWrapping="Wrap"
+                               automation:AutomationProperties.LiveSetting="Polite"
+                               Text="Aktualizacja całej aplikacji pobiera paczkę wydania, sprawdza jej sumę SHA-256, gdy wydanie ją podaje, i podmienia pliki po zamknięciu programu. Poprzednia wersja jest zachowywana obok, a nieudana podmiana jest wycofywana." />
                 </StackPanel>
             </TabItem>
         </TabControl>

@@ -1,0 +1,54 @@
+<Window x:Class="AccessibleMediaController.Windows.ProblemReportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="Zgłoś błąd lub uwagę" Width="640" Height="560"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button x:Name="SendButton" Width="150" Margin="0,0,8,0" Content="_Wyślij zgłoszenie"
+                    IsDefault="True" Click="Send_Click" />
+            <Button Width="150" Margin="0,0,8,0" Content="Zapisz do p_liku" Click="SaveOnly_Click" />
+            <Button Width="95" Content="_Anuluj" IsCancel="True" />
+        </StackPanel>
+
+        <StackPanel>
+            <TextBlock Margin="0,0,0,10" TextWrapping="Wrap"
+                       automation:AutomationProperties.HeadingLevel="Level1"
+                       Text="Zgłoszenie trafia do repozytorium AMC na GitHubie. Kopia zawsze zapisuje się na dysku." />
+
+            <Label Target="{Binding ElementName=KindBox}">_Rodzaj zgłoszenia:</Label>
+            <ComboBox x:Name="KindBox" Margin="0,0,0,10" SelectedIndex="0"
+                      automation:AutomationProperties.Name="Rodzaj zgłoszenia">
+                <ComboBoxItem Content="Coś nie działa" />
+                <ComboBoxItem Content="Prośba o nową funkcję" />
+                <ComboBoxItem Content="Pytanie lub inna uwaga" />
+            </ComboBox>
+
+            <Label Target="{Binding ElementName=SubjectBox}">_Temat:</Label>
+            <TextBox x:Name="SubjectBox" MaxLength="200" Margin="0,0,0,10"
+                     automation:AutomationProperties.Name="Temat zgłoszenia"
+                     automation:AutomationProperties.HelpText="Krótko, jednym zdaniem. Maksymalnie 200 znaków." />
+
+            <Label Target="{Binding ElementName=BodyBox}">_Opis:</Label>
+            <TextBox x:Name="BodyBox" Height="160" Margin="0,0,0,10"
+                     AcceptsReturn="True" TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto" SpellCheck.IsEnabled="True"
+                     automation:AutomationProperties.Name="Opis zgłoszenia"
+                     automation:AutomationProperties.HelpText="Co robiłeś, co się stało i czego oczekiwałeś. Enter tworzy nowy wiersz." />
+
+            <Label Target="{Binding ElementName=EmailBox}">Adres _e-mail do kontaktu, nieobowiązkowy:</Label>
+            <TextBox x:Name="EmailBox" MaxLength="200" Margin="0,0,0,10"
+                     automation:AutomationProperties.Name="Adres e-mail do kontaktu, nieobowiązkowy" />
+
+            <CheckBox x:Name="IncludeLogBox" IsChecked="True" Margin="0,0,0,6"
+                      automation:AutomationProperties.Name="Dołącz dziennik diagnostyczny"
+                      automation:AutomationProperties.HelpText="Dołącza ostatnie 200 wierszy dziennika. Może zawierać nazwy plików i adresy, które odtwarzałeś."
+                      Content="Dołącz _dziennik diagnostyczny, ostatnie 200 wierszy" />
+
+            <TextBlock x:Name="PrivacyNote" TextWrapping="Wrap" Margin="0,0,0,4"
+                       automation:AutomationProperties.LiveSetting="Polite"
+                       Text="Dziennik może zawierać nazwy plików i adresy, które odtwarzałeś. Zgłoszenia na GitHubie są publiczne." />
+        </StackPanel>
+    </DockPanel>
+</Window>

@@ -460,6 +460,9 @@
                           Click="KeyboardHelp_Click" />
                 <Separator />
                 <MenuItem Header="Sprawdź _aktualizacje i składniki" Click="Updates_Click" />
+                <MenuItem Header="Sprawdź aktualizacje _AMC" Click="ApplicationUpdate_Click" />
+                <Separator />
+                <MenuItem Header="_Zgłoś błąd lub uwagę…" Click="ReportProblem_Click" />
             </MenuItem>
         </Menu>
 

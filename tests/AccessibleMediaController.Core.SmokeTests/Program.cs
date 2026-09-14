@@ -56,6 +56,7 @@ var tests = new (string Name, Action Test)[]
     ("Trwałe wyciszenia sesji", TestSessionMutePersistence),
     ("Możliwości przetwarzania dźwięku adaptera", TestPlaybackAudioProcessingCapabilities),
     ("Dziedziczenie przetwarzania dźwięku plików lokalnych", TestLocalPlaybackAudioSettingsInheritance),
+    ("Aktualizacja aplikacji i treść zgłoszenia błędu", ApplicationUpdateTests.Run),
     ("Migracja starszych ustawień", TestLegacyStateMigration),
     ("Migracja ustawień alpha.4", TestVersion2StateMigration),
     ("Migracja komunikatów alpha.5", TestVersion3MessageMigration),

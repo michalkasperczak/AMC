@@ -22,6 +22,52 @@ public partial class App : Application
     private readonly CancellationTokenSource _componentUpdateCancellation = new();
     private long _lastUiHeartbeat;
     private int _uiHangReported;
+    private int _problemReportOffered;
+
+    /// <summary>
+    /// Po awarii proponuje wyslanie zgloszenia z juz wpisanym opisem bledu.
+    ///
+    /// Pytamy, zamiast otwierac okno od razu: awaria moze sie powtarzac w petli,
+    /// a okno wyskakujace bez konca odcieloby uzytkownika od programu. Pytanie
+    /// zadajemy TYLKO raz na uruchomienie z tego samego powodu.
+    /// </summary>
+    private void OfferProblemReport(Exception exception)
+    {
+        if (Interlocked.Exchange(ref _problemReportOffered, 1) != 0) return;
+
+        try
+        {
+            var answer = MessageBox.Show(
+                "W AMC wystąpił nieoczekiwany błąd. Program spróbuje działać dalej.\n\n"
+                + "Czy chcesz zgłosić ten błąd? Opis błędu zostanie dołączony automatycznie.",
+                "Błąd AMC",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Error,
+                MessageBoxResult.Yes);
+            if (answer != MessageBoxResult.Yes) return;
+
+            if (MainWindow is MainWindow main)
+            {
+                main.ShowProblemReport(exception.ToString(), Summarize(exception));
+                return;
+            }
+
+            // Glowne okno moze jeszcze nie istniec albo juz nie zyc - wtedy
+            // okno zgloszenia otwieramy bez wlasciciela, zamiast milczec.
+            new ProblemReportWindow(exception.ToString(), prefilledSubject: Summarize(exception)).ShowDialog();
+        }
+        catch (Exception reportFailure)
+        {
+            DiagnosticLog.Error("zgloszenie", "Nie udało się zaproponować zgłoszenia błędu.", reportFailure);
+        }
+    }
+
+    private static string Summarize(Exception exception)
+    {
+        var message = exception.Message.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        if (message.Length > 120) message = message[..120] + "…";
+        return $"{exception.GetType().Name}: {message}";
+    }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -69,7 +115,10 @@ public partial class App : Application
             TimeSpan.FromSeconds(10),
             TimeSpan.FromSeconds(3));
         DispatcherUnhandledException += (_, args) =>
+        {
             DiagnosticLog.Error("unhandled-ui", "Nieobsłużony wyjątek w interfejsie.", args.Exception);
+            OfferProblemReport(args.Exception);
+        };
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             DiagnosticLog.Error(
                 "unhandled-process",

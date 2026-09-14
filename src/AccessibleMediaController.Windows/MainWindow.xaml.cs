@@ -171,6 +171,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private int _podcastRefreshInProgress;
     private bool _podcastReloadPending;
     private bool _isClosing;
+    private bool _installUpdateOnExit;
     private bool _recordingCloseConfirmed;
     private bool _playerViewActive;
     private bool _keyboardHelpActive;
@@ -382,7 +383,48 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 () => _ = RefreshTidalSessionAsync(announceResult: false),
                 DispatcherPriority.Background);
         }
+        if (_state.Settings.Updates.CheckAutomatically)
+        {
+            Dispatcher.BeginInvoke(
+                () => _ = CheckApplicationUpdateInBackgroundAsync(),
+                DispatcherPriority.ApplicationIdle);
+        }
         DiagnosticLog.Info("startup", "Główne okno jest gotowe do pokazania.");
+    }
+
+    /// <summary>
+    /// Sprawdzenie aktualizacji przy starcie. Cicha - komunikat pojawia sie
+    /// TYLKO wtedy, gdy jest co zainstalowac. Zapowiadanie "brak aktualizacji"
+    /// przy kazdym uruchomieniu zamienialoby czytnik ekranu w budzik.
+    /// </summary>
+    private async Task CheckApplicationUpdateInBackgroundAsync()
+    {
+        try
+        {
+            // Opoznienie, zeby sprawdzanie nie konkurowalo z odczytem
+            // interfejsu w pierwszych sekundach po uruchomieniu.
+            await Task.Delay(TimeSpan.FromSeconds(20)).ConfigureAwait(true);
+            if (_isClosing) return;
+
+            var status = await ApplicationUpdateManager.CheckAsync(
+                _state.Settings.Updates.Channel,
+                _state.Settings.Updates.DownloadAutomatically,
+                progress: null,
+                CancellationToken.None).ConfigureAwait(true);
+
+            if (_isClosing) return;
+            if (status.Decision != ApplicationUpdateDecision.UpdateAvailable) return;
+
+            Announce(status.ReadyToInstall
+                ? $"{status.Message} Aktualizacja zainstaluje się po zamknięciu AMC."
+                : status.Message);
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Warning(
+                "aktualizacja-amc",
+                $"Sprawdzanie aktualizacji w tle nie powiodło się: {exception.Message}");
+        }
     }
 
     private void NormalizeLocalLibraryNavigationAtStartup()
@@ -20825,6 +20867,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 "Końcowy zapis stanu programu nie zakończył się prawidłowo.",
                 saveFailure ?? new IOException("Nieznany błąd końcowego zapisu stanu."));
         }
+
+        // Podmiana plikow programu MUSI byc po koncowym zapisie stanu. Odwrotna
+        // kolejnosc dalaby nowej wersji szanse wystartowac, gdy stara jeszcze
+        // pisze ustawienia - i zapis przepadlby albo uszkodzil plik.
+        if (_installUpdateOnExit || _state.Settings.Updates.InstallOnExit)
+        {
+            if (ApplicationUpdateManager.HasPendingUpdate(out _))
+                ApplicationUpdateManager.TryStartPendingInstall(relaunch: _installUpdateOnExit);
+        }
     }
 
     private void FilterBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -22617,6 +22668,77 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             CancellationToken.None);
         UpdatePlaybackStatusBar();
         Announce($"FFmpeg: {ffmpegResult.Message} yt-dlp: {ytDlpResult.Message}");
+    }
+
+    private async void ApplicationUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        Announce("Sprawdzanie aktualizacji AMC");
+        var progress = new Progress<double>(value =>
+        {
+            if (value is > 0.05d and < 0.98d)
+            {
+                var status = $"Pobieranie AMC: {Math.Round(value * 100d):0}%";
+                _playbackStatusBar.SpokenText = status;
+                _playbackStatusLabel.Text = status;
+                _playbackStatusLabel.AccessibleName = status;
+            }
+        });
+
+        var status = await ApplicationUpdateManager.CheckAsync(
+            _state.Settings.Updates.Channel,
+            _state.Settings.Updates.DownloadAutomatically,
+            progress,
+            CancellationToken.None);
+
+        UpdatePlaybackStatusBar();
+        Announce(status.Message);
+
+        // Gdy paczka jest gotowa, a uzytkownik nie chce czekac do zamkniecia,
+        // pytamy wprost. Ciche odlozenie bez slowa kazaloby mu zgadywac, kiedy
+        // aktualizacja sie wydarzy.
+        if (status.ReadyToInstall && !_state.Settings.Updates.InstallOnExit)
+        {
+            var answer = MessageBox.Show(
+                $"{status.Message}\n\nZamknąć AMC teraz i zainstalować aktualizację?",
+                "Aktualizacja AMC",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (answer == MessageBoxResult.Yes)
+            {
+                _installUpdateOnExit = true;
+                Close();
+            }
+        }
+    }
+
+    private void ReportProblem_Click(object sender, RoutedEventArgs e) => ShowProblemReport();
+
+    internal void ShowProblemReport(string? exceptionTrace = null, string? prefilledSubject = null)
+    {
+        try
+        {
+            var sessionName = _sessions.Current?.DisplayName;
+            var deviceId = sessionName is null ? null : GetEffectiveSessionOutputDeviceId(_sessions.Current!.Id);
+            var deviceName = AudioOutputDeviceCatalog.Enumerate(deviceId)
+                .FirstOrDefault(choice => string.Equals(choice.Id, deviceId, StringComparison.Ordinal))?.Label
+                ?? "urządzenie domyślne";
+            var dialog = new ProblemReportWindow(
+                exceptionTrace,
+                sessionName,
+                deviceName,
+                prefilledSubject)
+            {
+                Owner = this
+            };
+            dialog.ShowDialog();
+            if (dialog.SavedCopyPath is { Length: > 0 })
+                Announce("Zgłoszenie zapisane na dysku");
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.Error("zgloszenie", "Nie udało się otworzyć okna zgłoszenia.", exception);
+            Announce("Nie udało się otworzyć okna zgłoszenia");
+        }
     }
 
     private sealed class MediaItemRow(
