@@ -6,8 +6,9 @@
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <DockPanel Margin="16">
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button x:Name="SendButton" Width="150" Margin="0,0,8,0" Content="_Wyślij zgłoszenie"
-                    IsDefault="True" Click="Send_Click" />
+            <Button x:Name="SendButton" Width="210" Margin="0,0,8,0" Content="_Otwórz formularz i wyślij"
+                    IsDefault="True" Click="Send_Click"
+                    automation:AutomationProperties.HelpText="Otwiera gotowy formularz zgłoszenia w przeglądarce. Wysyłasz go przyciskiem na stronie." />
             <Button Width="150" Margin="0,0,8,0" Content="Zapisz do p_liku" Click="SaveOnly_Click" />
             <Button Width="95" Content="_Anuluj" IsCancel="True" />
         </StackPanel>
@@ -15,7 +16,7 @@
         <StackPanel>
             <TextBlock Margin="0,0,0,10" TextWrapping="Wrap"
                        automation:AutomationProperties.HeadingLevel="Level1"
-                       Text="Zgłoszenie trafia do repozytorium AMC na GitHubie. Kopia zawsze zapisuje się na dysku." />
+                       Text="Zgłoszenie otwiera się jako gotowy formularz na GitHubie w przeglądarce — wysyłasz je jednym przyciskiem na stronie. Kopia zawsze zapisuje się na dysku." />
 
             <Label Target="{Binding ElementName=KindBox}">_Rodzaj zgłoszenia:</Label>
             <ComboBox x:Name="KindBox" Margin="0,0,0,10" SelectedIndex="0"

@@ -108,6 +108,7 @@ var tests = new (string Name, Action Test)[]
     ("TIDAL Playback Smoke Tests", TidalPlaybackSmokeTests.Run),
     ("TIDAL Interaction Smoke Tests", TidalInteractionSmokeTests.Run),
     ("NVDA Bridge Smoke Tests", NvdaBridgeSmokeTests.Run),
+    ("Oczyszczone srodowisko skladnikow zewnetrznych", ExternalToolEnvironmentTests.Run),
     ("TIDAL Playlist Picker Accessibility", TestTidalPlaylistPickerAccessibility),
     ("Podcast Download Settings Accessibility", TestPodcastDownloadSettingsAccessibility),
     ("Podcast Description Text Order", TestPodcastDescriptionTextOrder),

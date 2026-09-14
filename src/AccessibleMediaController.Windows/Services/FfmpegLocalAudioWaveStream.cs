@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -293,6 +293,7 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
+        ExternalToolProcess.ApplySafeEnvironment(start, _executable);
         foreach (var argument in new[]
         {
             "-nostdin", "-hide_banner", "-loglevel", "warning",
@@ -407,6 +408,7 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
             RedirectStandardError = true,
             RedirectStandardOutput = true
         };
+        ExternalToolProcess.ApplySafeEnvironment(start, executable);
         foreach (var argument in new[]
         {
             "-nostdin", "-hide_banner",

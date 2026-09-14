@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -51,6 +51,7 @@ internal static class EmbeddedMediaChapterReader
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
+        ExternalToolProcess.ApplySafeEnvironment(start, ffprobe);
         foreach (var argument in new[]
         {
             "-v", "error",

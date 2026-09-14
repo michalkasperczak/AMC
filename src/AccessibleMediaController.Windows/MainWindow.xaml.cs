@@ -22823,8 +22823,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Owner = this
             };
             dialog.ShowDialog();
-            if (dialog.SavedCopyPath is { Length: > 0 })
-                Announce("Zgłoszenie zapisane na dysku");
+            switch (dialog.Outcome)
+            {
+                case ProblemReportOutcome.OpenedInBrowser:
+                    Announce("Formularz zgłoszenia otwarty w przeglądarce, wyślij go tam");
+                    break;
+                case ProblemReportOutcome.SavedToDiskOnly:
+                    Announce("Zgłoszenie zapisane na dysku, nie zostało wysłane");
+                    break;
+                case ProblemReportOutcome.NothingSaved:
+                    Announce("Zgłoszenia nie udało się ani zapisać, ani wysłać");
+                    break;
+                default:
+                    Announce("Zgłoszenie porzucone");
+                    break;
+            }
         }
         catch (Exception exception)
         {

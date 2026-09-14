@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using NAudio.Wave;
@@ -142,6 +142,7 @@ internal static class AudioClipExporter
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
+        ExternalToolProcess.ApplySafeEnvironment(start, executable);
         AddArguments(start, "-nostdin", "-hide_banner", "-loglevel", "error", "-y");
         if (request.Format == AudioClipExportFormat.OriginalStream)
         {

@@ -428,7 +428,14 @@ internal static class AudioClipOriginalEditor
         }
     }
 
-    private static ProcessStartInfo CreateProcess(string executable) => new()
+    private static ProcessStartInfo CreateProcess(string executable)
+    {
+        var start = CreateProcessCore(executable);
+        ExternalToolProcess.ApplySafeEnvironment(start, executable);
+        return start;
+    }
+
+    private static ProcessStartInfo CreateProcessCore(string executable) => new()
     {
         FileName = executable,
         UseShellExecute = false,

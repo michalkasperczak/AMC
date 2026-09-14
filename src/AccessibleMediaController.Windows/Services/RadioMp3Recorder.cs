@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -332,6 +332,7 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
             RedirectStandardInput = true,
             RedirectStandardError = true
         };
+        ExternalToolProcess.ApplySafeEnvironment(start, executable);
         foreach (var argument in new[]
         {
             "-hide_banner", "-loglevel", "error",

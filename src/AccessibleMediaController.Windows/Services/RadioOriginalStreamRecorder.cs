@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -43,6 +43,7 @@ internal sealed class RadioOriginalStreamRecorder : IRadioRecorder
             RedirectStandardInput = true,
             RedirectStandardError = true
         };
+        ExternalToolProcess.ApplySafeEnvironment(start, executable);
         foreach (var argument in new[]
         {
             "-hide_banner", "-loglevel", "error",

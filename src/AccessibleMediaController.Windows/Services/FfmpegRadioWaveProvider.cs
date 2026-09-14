@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using NAudio.Wave;
 
@@ -47,6 +47,7 @@ internal sealed class FfmpegRadioWaveProvider : IWaveProvider, IDisposable
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
+        ExternalToolProcess.ApplySafeEnvironment(start, executable);
         foreach (var argument in new[]
         {
             "-nostdin", "-hide_banner", "-loglevel", "error",

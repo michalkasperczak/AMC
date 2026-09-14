@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -82,6 +82,7 @@ internal static class YouTubeSourceResolver
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8
         };
+        ExternalToolProcess.ApplySafeEnvironment(start, executable);
         foreach (var argument in new[]
         {
             "--ignore-config",

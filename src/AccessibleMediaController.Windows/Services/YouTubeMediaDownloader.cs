@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -53,6 +53,7 @@ internal static class YouTubeMediaDownloader
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8
         };
+        ExternalToolProcess.ApplySafeEnvironment(start, ytDlp);
         foreach (var argument in new[]
         {
             "--ignore-config",

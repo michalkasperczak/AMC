@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
@@ -362,6 +362,7 @@ internal static class FfmpegComponentManager
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
+        ExternalToolProcess.ApplySafeEnvironment(start, executable);
         start.ArgumentList.Add("-hide_banner");
         start.ArgumentList.Add("-version");
         using var process = Process.Start(start)

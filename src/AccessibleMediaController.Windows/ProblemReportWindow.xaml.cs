@@ -8,6 +8,26 @@ using AccessibleMediaController.Windows.Services;
 namespace AccessibleMediaController.Windows;
 
 /// <summary>
+/// Co sie stalo ze zgloszeniem. Rozdzielone, bo kopia na dysku zapisuje sie
+/// ZAWSZE - takze przy udanej wysylce - wiec sama jej obecnosc nic nie mowi
+/// o tym, czy zgloszenie doszlo gdziekolwiek dalej.
+/// </summary>
+public enum ProblemReportOutcome
+{
+    /// <summary>Okno zamkniete Escape lub Anuluj - nic nie powstalo.</summary>
+    Abandoned,
+
+    /// <summary>Zapisane tylko na dysku, na wlasne zyczenie uzytkownika.</summary>
+    SavedToDiskOnly,
+
+    /// <summary>Formularz otwarty w przegladarce; wysylka jeszcze przed uzytkownikiem.</summary>
+    OpenedInBrowser,
+
+    /// <summary>Nie udalo sie ani zapisac, ani wyslac.</summary>
+    NothingSaved
+}
+
+/// <summary>
 /// Okno zgloszenia bledu lub uwagi.
 ///
 /// Kopia zgloszenia zapisuje sie na dysku ZAWSZE, przed jakakolwiek proba
@@ -51,6 +71,13 @@ public partial class ProblemReportWindow : Window
     /// <summary>Sciezka zapisanej kopii - do odczytania przez okno wywolujace.</summary>
     public string? SavedCopyPath { get; private set; }
 
+    /// <summary>
+    /// Co sie NAPRAWDE stalo ze zgloszeniem. Sama sciezka kopii nie wystarcza:
+    /// kopia zapisuje sie ZAWSZE, takze przy wysylce, wiec okno wywolujace
+    /// mowilo "zapisane na dysku" rowniez wtedy, gdy zgloszenie poszlo dalej.
+    /// </summary>
+    public ProblemReportOutcome Outcome { get; private set; } = ProblemReportOutcome.Abandoned;
+
     private ProblemReportKind SelectedKind => KindBox.SelectedIndex switch
     {
         1 => ProblemReportKind.FeatureRequest,
@@ -61,6 +88,31 @@ public partial class ProblemReportWindow : Window
     private void Send_Click(object sender, RoutedEventArgs e) => Submit(openBrowser: true);
 
     private void SaveOnly_Click(object sender, RoutedEventArgs e) => Submit(openBrowser: false);
+
+    /// <summary>
+    /// Escape i Anuluj nie moga po cichu wyrzucic napisanego tekstu. Gdy w
+    /// oknie cokolwiek jest, pytamy - i domyslna odpowiedzia jest "nie
+    /// zamykaj", zeby przypadkowe Escape nic nie kosztowalo.
+    /// </summary>
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        base.OnClosing(e);
+        if (e.Cancel) return;
+        if (DialogResult == true) return;
+        if (string.IsNullOrWhiteSpace(SubjectBox.Text) && string.IsNullOrWhiteSpace(BodyBox.Text)) return;
+
+        var answer = MessageBox.Show(
+            "Zgłoszenie nie zostało ani wysłane, ani zapisane. Zamknąć okno i porzucić napisany tekst?",
+            "Zgłoś błąd lub uwagę",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (answer == MessageBoxResult.Yes) return;
+
+        e.Cancel = true;
+        if (string.IsNullOrWhiteSpace(BodyBox.Text)) SubjectBox.Focus();
+        else BodyBox.Focus();
+    }
 
     private void Submit(bool openBrowser)
     {
@@ -110,6 +162,9 @@ public partial class ProblemReportWindow : Window
 
         if (!openBrowser)
         {
+            Outcome = saved is null
+                ? ProblemReportOutcome.NothingSaved
+                : ProblemReportOutcome.SavedToDiskOnly;
             MessageBox.Show(
                 saved is null
                     ? "Nie udało się zapisać zgłoszenia na dysku. Skopiuj treść z okna i wklej ją ręcznie."
@@ -126,11 +181,12 @@ public partial class ProblemReportWindow : Window
             var uri = ProblemReportComposer.ComposeIssueUri(
                 ApplicationUpdateManager.RepositoryUri.AbsoluteUri, title, body, saved);
             Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+            Outcome = ProblemReportOutcome.OpenedInBrowser;
             DiagnosticLog.Info("zgloszenie", $"Otwarto formularz zgłoszenia; kopia: {saved ?? "brak"}.");
             MessageBox.Show(
                 saved is null
-                    ? "Formularz zgłoszenia otworzył się w przeglądarce. Sprawdź treść i wyślij ją przyciskiem na stronie."
-                    : "Formularz zgłoszenia otworzył się w przeglądarce. Sprawdź treść i wyślij ją przyciskiem na stronie.\n\n"
+                    ? "Formularz zgłoszenia otworzył się w przeglądarce. Treść jest już wpisana — zostaje kliknąć przycisk wysyłania na stronie. Dopóki tego nie zrobisz, zgłoszenie NIE jest wysłane."
+                    : "Formularz zgłoszenia otworzył się w przeglądarce. Treść jest już wpisana — zostaje kliknąć przycisk wysyłania na stronie. Dopóki tego nie zrobisz, zgłoszenie NIE jest wysłane.\n\n"
                       + $"Kopia zgłoszenia jest w pliku:\n{saved}",
                 "Zgłoś błąd lub uwagę",
                 MessageBoxButton.OK,
@@ -139,6 +195,9 @@ public partial class ProblemReportWindow : Window
         }
         catch (Exception exception)
         {
+            Outcome = saved is null
+                ? ProblemReportOutcome.NothingSaved
+                : ProblemReportOutcome.SavedToDiskOnly;
             DiagnosticLog.Error("zgloszenie", "Nie udało się otworzyć formularza zgłoszenia.", exception);
             MessageBox.Show(
                 saved is null

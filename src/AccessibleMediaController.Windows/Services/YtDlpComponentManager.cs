@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -317,6 +317,7 @@ internal static class YtDlpComponentManager
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
+        ExternalToolProcess.ApplySafeEnvironment(start, executable);
         start.ArgumentList.Add("--ignore-config");
         start.ArgumentList.Add("--version");
         using var process = Process.Start(start)
