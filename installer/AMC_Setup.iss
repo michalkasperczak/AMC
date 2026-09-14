@@ -145,9 +145,15 @@ end;
 
 function MaRuntime8(): Boolean;
 begin
+  { UWAGA: sprawdzamy WYLACZNIE miejsca, w ktorych Windows SAM szuka
+    srodowiska uruchomieniowego. Katalog {%USERPROFILE}\.dotnet wygladal
+    na dobre miejsce i byl tu wczesniej sprawdzany, ale program go NIE
+    widzi - .NET zaglada tam tylko wtedy, gdy ustawiona jest zmienna
+    DOTNET_ROOT. Skutek byl taki, ze instalator uznawal srodowisko za
+    obecne, nic nie dociagal, a AMC po instalacji pokazywal komunikat
+    "You must install .NET Desktop Runtime" zamiast sie uruchomic. }
   result := MaRuntime8W(ExpandConstant('{commonpf64}\dotnet\shared\Microsoft.WindowsDesktop.App'))
-         or MaRuntime8W(ExpandConstant('{localappdata}\Microsoft\dotnet\shared\Microsoft.WindowsDesktop.App'))
-         or MaRuntime8W(ExpandConstant('{%USERPROFILE}\.dotnet\shared\Microsoft.WindowsDesktop.App'));
+         or MaRuntime8W(ExpandConstant('{commonpf32}\dotnet\shared\Microsoft.WindowsDesktop.App'));
 end;
 
 function InitializeSetup(): Boolean;
