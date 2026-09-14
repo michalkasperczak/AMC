@@ -2882,7 +2882,7 @@ static void TestPlaybackAudioSettingAccessibility()
                     string.Equals(choice.ToString(), "1,00 razy — normalna prędkość", StringComparison.Ordinal)),
                 "Neutralna prędkość nie wyjaśnia NVDA, że 1,00 razy jest wartością normalną.");
             Assert(itemNormalization.SelectedItem?.ToString()
-                    == "Według folderu lub ustawienia globalnego",
+                    == "Według folderu, sesji lub ustawienia globalnego",
                 "Dziedziczenie normalizacji nie ma użytkowej etykiety.");
             Assert(itemTransitions.SelectedItem?.ToString() == "Włączone"
                    && itemSilence.SelectedItem?.ToString() == "Cisza: pół sekundy",
