@@ -24,10 +24,10 @@ internal static class YouTubeMediaDownloader
             throw new ArgumentException("Adres nie prowadzi do YouTube.", nameof(pageUrl));
         var ytDlp = YouTubeSourceResolver.FindExecutable()
             ?? throw new NotSupportedException(
-                "Pobieranie z YouTube wymaga składnika yt-dlp. Wybierz Pomoc, Sprawdź aktualizacje i składniki.");
+                "Pobieranie z YouTube wymaga składnika yt-dlp. Wybierz Pomoc, Sprawdź składniki: FFmpeg i yt-dlp.");
         var ffmpeg = FfmpegComponentManager.FindInstalledExecutable()
             ?? throw new NotSupportedException(
-                "Pobieranie dźwięku z YouTube wymaga składnika FFmpeg. Wybierz Pomoc, Sprawdź aktualizacje i składniki.");
+                "Pobieranie dźwięku z YouTube wymaga składnika FFmpeg. Wybierz Pomoc, Sprawdź składniki: FFmpeg i yt-dlp.");
 
         var fullDestination = Path.GetFullPath(destinationPath);
         if (!Path.GetExtension(fullDestination).Equals(".mp3", StringComparison.OrdinalIgnoreCase))

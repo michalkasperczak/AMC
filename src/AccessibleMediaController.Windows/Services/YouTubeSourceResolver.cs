@@ -68,7 +68,7 @@ internal static class YouTubeSourceResolver
         if (executable is null)
         {
             throw new NotSupportedException(
-                "Odtwarzanie publicznego materiału YouTube wymaga składnika yt-dlp. Wybierz Pomoc, Sprawdź aktualizacje i składniki.");
+                "Odtwarzanie publicznego materiału YouTube wymaga składnika yt-dlp. Wybierz Pomoc, Sprawdź składniki: FFmpeg i yt-dlp.");
         }
 
         var start = new ProcessStartInfo

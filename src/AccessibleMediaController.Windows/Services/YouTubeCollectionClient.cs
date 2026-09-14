@@ -50,7 +50,7 @@ internal sealed class YouTubeCollectionClient
 
         var executable = YouTubeSourceResolver.FindExecutable()
             ?? throw new NotSupportedException(
-                "Kanały i playlisty YouTube wymagają składnika yt-dlp. Wybierz Pomoc, Sprawdź aktualizacje i składniki.");
+                "Kanały i playlisty YouTube wymagają składnika yt-dlp. Wybierz Pomoc, Sprawdź składniki: FFmpeg i yt-dlp.");
         var start = new ProcessStartInfo
         {
             FileName = executable,

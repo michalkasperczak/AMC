@@ -810,7 +810,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         }
         if (exception is NotSupportedException)
         {
-            return "Odtwarzanie transmisji YouTube wymaga składnika yt-dlp. Wybierz Pomoc, Sprawdź aktualizacje i składniki.";
+            return "Odtwarzanie transmisji YouTube wymaga składnika yt-dlp. Wybierz Pomoc, Sprawdź składniki: FFmpeg i yt-dlp.";
         }
         if (exception is InvalidDataException
             && (exception.Message.StartsWith("YouTube ", StringComparison.Ordinal)
