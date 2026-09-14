@@ -86,6 +86,7 @@ public sealed class AppSettings
     public ListDisplaySettings Lists { get; set; } = new();
     public MessageSettings Messages { get; set; } = MessageSettings.CreateDefault();
     public UpdateSettings Updates { get; set; } = new();
+    public ShellIntegrationSettings ShellIntegration { get; set; } = new();
 }
 
 public sealed class PlaybackAudioSettings
@@ -194,6 +195,31 @@ public sealed class UpdateSettings
     public bool InstallOnExit { get; set; } = true;
     public bool AllowMeteredConnection { get; set; }
     public string Channel { get; set; } = "stable";
+}
+
+/// <summary>
+/// Wpiecie AMC w system: menu kontekstowe plikow i zgloszenie sie jako
+/// mozliwosc otwarcia. Zapisujemy NAZWY GRUP, nie pojedyncze rozszerzenia -
+/// gdy w nowej wersji dopiszemy do grupy format, uzytkownik dostanie go bez
+/// zagladania w ustawienia.
+///
+/// Programem domyslnym AMC tu NIE zostaje: tego Windows nie pozwala ustawic
+/// z programu (pilnuje wyboru uzytkownika skrotem kontrolnym i cofa zmiany).
+/// Ustawienia tylko prowadza uzytkownika do systemowego okna wyboru.
+/// </summary>
+public sealed class ShellIntegrationSettings
+{
+    /// <summary>Czy pokazywac polecenia AMC w menu po kliknięciu prawym przyciskiem.</summary>
+    public bool ContextMenuEnabled { get; set; }
+
+    /// <summary>Nazwy wlaczonych grup rozszerzen.</summary>
+    public List<string> EnabledGroups { get; set; } = [];
+
+    /// <summary>
+    /// Czy uzytkownik juz widzial pytanie o wpiecie w system. Bez tego pytanie
+    /// wracaloby przy kazdym uruchomieniu, a odmowa nie bylaby szanowana.
+    /// </summary>
+    public bool SetupOffered { get; set; }
 }
 
 public sealed class MessageSettings
