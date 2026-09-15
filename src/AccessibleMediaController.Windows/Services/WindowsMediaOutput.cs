@@ -562,9 +562,18 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             }
 
             var currentRequest = false;
-            var failedRemote = MediaSourceAccessPolicy
-                .Classify(item.Source)
-                .RequiresRemoteAccess;
+            // 15.09.2026, ZGLOSZENIE Michala (nagranie Radia Koszalin na dysku H
+            // Google Drive): program radzil "usluga chmurowa nie odpowiedziala,
+            // ponow za 20 s", a Windows zglaszal 0x80070003 - NIE MA SCIEZKI, bo
+            // dysk chmurowy nie byl wcale podlaczony. Czekanie nic tam nie daje.
+            // Brak katalogu/pliku nie jest wiec przejsciowa awaria chmury i NIE
+            // uruchamia karencji - inaczej kolejna, poprawna proba dostaje odmowe
+            // "ponow za N s" zamiast prawdziwej diagnozy.
+            var brakSciezki = exception is DirectoryNotFoundException or FileNotFoundException;
+            var failedRemote = !brakSciezki
+                && MediaSourceAccessPolicy
+                    .Classify(item.Source)
+                    .RequiresRemoteAccess;
             lock (_gate)
             {
                 if (!_disposed && requestVersion == _requestVersion)
@@ -1859,10 +1868,21 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         _synchronizationContext.Post(_ => action(), null);
     }
 
-    private static string FriendlyPlaybackError(Exception exception)
+    internal static string FriendlyPlaybackError(Exception exception)
     {
         if (exception is FileNotFoundException or DirectoryNotFoundException)
         {
+            // 15.09.2026: rozdzielone dwa rozne przypadki, ktore wczesniej mowily
+            // to samo. DirectoryNotFoundException na dysku chmurowym znaczy, ze
+            // NIE MA CALEGO DYSKU (Google Drive niezalogowany albo niedzialajacy),
+            // a nie ze plik czeka na dociagniecie. Rada "ponow za chwile" byla tam
+            // mylaca - czekanie nie podlaczy dysku.
+            if (exception is DirectoryNotFoundException)
+            {
+                return "Nie ma dostępu do katalogu z tym nagraniem. "
+                    + "Jeśli plik leży na dysku chmurowym, sprawdź, czy usługa "
+                    + "(na przykład Dysk Google) jest uruchomiona i zalogowana.";
+            }
             return "Plik nie jest obecnie dostępny.";
         }
         if (exception is UnauthorizedAccessException)

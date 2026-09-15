@@ -169,6 +169,7 @@ var tests = new (string Name, Action Test)[]
     ("Legacy ICY Cancellation", TestLegacyIcyCancellation),
     ("BASS Cancellation", TestBassCancellation),
     ("Skrot Alt+Shift+R naprawde wywoluje historie nagrywania", TestSkrotHistoriiNagrywaniaJestWywolywany),
+    ("Brak dysku chmurowego mowi prawde, nie radzi czekac", TestBrakDyskuChmurowegoMowiPrawde),
     ("Zywa transmisja YouTube nie cofa dzwieku", TestLiveYouTubeUsesFfmpegAndDoesNotSeek),
 };
 
@@ -3370,6 +3371,9 @@ static void TestMainWindowDigitShortcutRouting()
         && MainWindowShortcutRouter.ResolveTransientRadioView(Key.R, ModifierKeys.Alt, "local") is null
         && MainWindowShortcutRouter.ResolveTransientRadioView(Key.R, ModifierKeys.None, "radio") is null,
         "Alt+R nie otwiera tymczasowego widoku Nagrywane wyłącznie w Radiu.");
+    // DECYZJA Michala 15.09.2026: historia nagrywania dostepna WSZEDZIE, jak Ctrl+I.
+    // Wczesniej test WYMAGAL, by w sesji "podcasts" skrot nie dzialal - dlatego
+    // sprawdzamy teraz odwrotnie, na sesjach spoza radia i plikow lokalnych.
     Assert(
         MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
             Key.R,
@@ -3382,8 +3386,16 @@ static void TestMainWindowDigitShortcutRouting()
         && MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
             Key.R,
             ModifierKeys.Alt | ModifierKeys.Shift,
-            "podcasts") is null,
-        "Alt+Shift+R nie otwiera listy zakończonych nagrań wyłącznie z Radia i Plików lokalnych.");
+            "podcasts") == CommandIds.ViewRecordedRadioFiles
+        && MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
+            Key.R,
+            ModifierKeys.Alt | ModifierKeys.Shift,
+            "tidal") == CommandIds.ViewRecordedRadioFiles
+        && MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
+            Key.R,
+            ModifierKeys.Alt,
+            "radio") is null,
+        "Alt+Shift+R nie otwiera historii nagrywania w KAZDEJ sesji.");
     Assert(
         MainWindowShortcutRouter.ResolveNumberedView(Key.D3, ModifierKeys.Alt, "radio", "Biblioteka")
             == CommandIds.SortCollectionCustom,
@@ -6063,6 +6075,37 @@ static void TestSkrotHistoriiNagrywaniaJestWywolywany()
             + "nie robi. Historia nagrywania musi byc wywolywana takze ze "
             + "zwyklej obslugi klawiszy.");
     }
+}
+
+static void TestBrakDyskuChmurowegoMowiPrawde()
+{
+    // ZGLOSZENIE Michala 15.09.2026: nagranie Radia Koszalin na dysku H (Google
+    // Drive) "nie mozna odtworzyc", a program mowil "usluga chmurowa nie
+    // odpowiedziala, ponow probe za 20 s". Dziennik pokazal cos innego:
+    // DirectoryNotFoundException 0x80070003 - NIE MA CALEJ SCIEZKI, bo dysk
+    // chmurowy nie byl wcale podlaczony. Michal: "jezeli jest problem z
+    // dociagnieciem, to powinien byc inny komunikat".
+    var brakKatalogu = WindowsMediaOutput.FriendlyPlaybackError(
+        new DirectoryNotFoundException("System nie może odnaleźć określonej ścieżki."));
+    Assert(brakKatalogu.Contains("katalogu", StringComparison.OrdinalIgnoreCase),
+        "Brak katalogu na dysku chmurowym nie mowi o katalogu: " + brakKatalogu);
+    Assert(brakKatalogu.Contains("Dysk Google", StringComparison.OrdinalIgnoreCase)
+        || brakKatalogu.Contains("chmurow", StringComparison.OrdinalIgnoreCase),
+        "Komunikat nie podpowiada sprawdzenia uslugi chmurowej: " + brakKatalogu);
+
+    // Najwazniejsze: zadna rada "ponow za N sekund", bo czekanie nie podlaczy dysku.
+    Assert(!brakKatalogu.Contains("Ponów", StringComparison.OrdinalIgnoreCase)
+        && !brakKatalogu.Contains("Ponow", StringComparison.OrdinalIgnoreCase),
+        "Komunikat o braku dysku nadal radzi czekac, a czekanie nic nie da: " + brakKatalogu);
+
+    // Sam brakujacy plik to inna sprawa niz brak calego katalogu - komunikaty
+    // musza sie roznic, inaczej znowu zlewaja sie dwie rozne przyczyny.
+    var brakPliku = WindowsMediaOutput.FriendlyPlaybackError(
+        new FileNotFoundException("nie ma pliku"));
+    Assert(!string.Equals(brakPliku, brakKatalogu, StringComparison.Ordinal),
+        "Brak pliku i brak calego katalogu daja ten sam komunikat.");
+
+    Console.WriteLine("OK: brak dysku chmurowego mowi prawde, bez rady \"ponow za chwile\"");
 }
 
 static void TestLiveYouTubeUsesFfmpegAndDoesNotSeek()

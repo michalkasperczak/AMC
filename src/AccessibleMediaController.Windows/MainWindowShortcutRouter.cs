@@ -61,13 +61,15 @@ internal static class MainWindowShortcutRouter
             ? CommandIds.ViewActiveRadioRecordings
             : null;
 
+    // DECYZJA Michala 15.09.2026: historia nagrywania jest dostepna WSZEDZIE,
+    // jak Ctrl+I - nie tylko w sesjach "radio" i "local".  Sesja nie jest wiec
+    // juz brana pod uwage; parametr zostaje, bo wywolania go podaja.
     public static string? ResolveRecordedRadioFilesView(
         Key key,
         ModifierKeys modifiers,
         string sessionId) =>
         modifiers == (ModifierKeys.Alt | ModifierKeys.Shift)
         && key == Key.R
-        && sessionId is "local" or "radio"
             ? CommandIds.ViewRecordedRadioFiles
             : null;
 

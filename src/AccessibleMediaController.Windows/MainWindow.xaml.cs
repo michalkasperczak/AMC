@@ -6102,7 +6102,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         CollectionSortCustomMenuItem.IsChecked = collectionSorting
             && collectionSortMode == CollectionSortMode.Custom;
         ActiveRadioRecordingsViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
-        RecordedRadioFilesViewMenuItem.Visibility = radio || local ? Visibility.Visible : Visibility.Collapsed;
+        // DECYZJA Michala 15.09.2026: historia nagrywania jest dostepna WSZEDZIE,
+        // jak Ctrl+I - wiec pozycja menu tez musi byc widoczna w kazdej sesji.
+        // Inaczej skrot dziala, a menu go nie pokazuje i program klamie.
+        RecordedRadioFilesViewMenuItem.Visibility = Visibility.Visible;
         RadioRecognitionHistoryViewMenuItem.Visibility = radio ? Visibility.Visible : Visibility.Collapsed;
         PodcastInboxViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
         PodcastInProgressViewMenuItem.Visibility = podcasts ? Visibility.Visible : Visibility.Collapsed;
@@ -18706,6 +18709,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Announce("Harmonogram nagrywania jest dostępny w sesji Radio internetowe");
             e.Handled = true;
             return;
+        }
+
+        // Alt+Shift+R - historia nagrywania. DECYZJA Michala 15.09.2026: dostepna
+        // WSZEDZIE, jak Ctrl+I. Obsluga stoi TUTAJ, przed sprawdzeniami sesji i
+        // przed TryHandleLocalLibraryViewShortcut, bo tamta sciezka odpada przy
+        // aktywnym odtwarzaczu (_playerViewActive) - a skrot ma dzialac takze tam.
+        {
+            var windowKeyForHistory = e.Key == Key.System ? e.SystemKey : e.Key;
+            if (Keyboard.FocusedElement is not System.Windows.Controls.Primitives.TextBoxBase)
+            {
+                var historyCommand = MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
+                    windowKeyForHistory,
+                    ReadEffectiveModifierKeys(),
+                    _sessions.Current.Id);
+                if (historyCommand is not null)
+                {
+                    ExecuteCommand(historyCommand);
+                    e.Handled = true;
+                    return;
+                }
+            }
         }
 
         if (TryHandleDirectRadioPresetShortcut(e))
