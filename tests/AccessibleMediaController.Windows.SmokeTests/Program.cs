@@ -169,6 +169,7 @@ var tests = new (string Name, Action Test)[]
     ("Legacy ICY Cancellation", TestLegacyIcyCancellation),
     ("BASS Cancellation", TestBassCancellation),
     ("Skrot Alt+Shift+R naprawde wywoluje historie nagrywania", TestSkrotHistoriiNagrywaniaJestWywolywany),
+    ("Zywa transmisja ma zapas dzwieku przeciw zacieciom", TestZywaTransmisjaMaZapasDzwieku),
     ("Brak dysku chmurowego mowi prawde, nie radzi czekac", TestBrakDyskuChmurowegoMowiPrawde),
     ("Zywa transmisja YouTube nie cofa dzwieku", TestLiveYouTubeUsesFfmpegAndDoesNotSeek),
 };
@@ -6075,6 +6076,59 @@ static void TestSkrotHistoriiNagrywaniaJestWywolywany()
             + "nie robi. Historia nagrywania musi byc wywolywana takze ze "
             + "zwyklej obslugi klawiszy.");
     }
+}
+
+static void TestZywaTransmisjaMaZapasDzwieku()
+{
+    // ZGLOSZENIE Michala 15.09.2026: "mini zaciecia, mini przerwy" na TVP Info
+    // z YouTube, przy czym radio internetowe nie zacina.
+    //
+    // POMIAR na komputerze Michala (ten sam ffmpeg co w AMC, 90 s): pokrycie
+    // 99,3%, ale 14 przestojow - po rozruchu REGULARNIE co ~7 s po 240-330 ms.
+    // To normalny rytm pobierania segmentow HLS, nie awaria lacza.
+    //
+    // PRZYCZYNA: zywa transmisja czytala WPROST ze strumienia ffmpeg, bez zapasu,
+    // wiec karta dzwiekowa czekala dokladnie te 300 ms. Radio nie zacina, bo ma
+    // osobny watek zbierajacy dzwiek do bufora (CaptureLoopAsync).
+    //
+    // Ten test pilnuje, ze zapas naprawde ISTNIEJE i jest UZYWANY - samo
+    // zadeklarowanie stalej nic nie daje.
+    var zrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("FfmpegLocalAudioWaveStream.cs"));
+
+    Assert(zrodlo.Contains("LiveBufferTarget", StringComparison.Ordinal)
+        && zrodlo.Contains("LivePrerollTarget", StringComparison.Ordinal),
+        "Brak zapasu dzwieku dla zywej transmisji (LiveBufferTarget/LivePrerollTarget).");
+
+    // Zapas musi byc napelniany przez OSOBNY watek, jak w radiu - inaczej nadal
+    // wszystko wisi na watku odtwarzania.
+    Assert(zrodlo.Contains("StartLivePumpLocked", StringComparison.Ordinal)
+        && zrodlo.Contains("new Thread(", StringComparison.Ordinal),
+        "Zapas zywej transmisji nie jest napelniany osobnym watkiem.");
+
+    // NAJWAZNIEJSZE: Read musi brac z zapasu, a nie wprost z ffmpeg. Bez tego
+    // warunku poprawka byla by tylko opisana, tak jak Alt+Shift+R w wersji 371.
+    var czytaZZapasu = zrodlo.Contains("? ReadLiveFromBuffer(buffer, offset, alignedCount)", StringComparison.Ordinal)
+        || (zrodlo.Contains("ReadLiveFromBuffer", StringComparison.Ordinal)
+            && zrodlo.Contains("_liveStream", StringComparison.Ordinal)
+            && zrodlo.IndexOf("ReadLiveFromBuffer(buffer", StringComparison.Ordinal) > 0);
+    Assert(czytaZZapasu,
+        "Odczyt zywej transmisji nie idzie przez zapas - karta nadal czyta wprost z ffmpeg.");
+
+    // Watek musi byc tlowy, inaczej zablokuje zamkniecie programu.
+    Assert(zrodlo.Contains("IsBackground = true", StringComparison.Ordinal),
+        "Watek zapasu nie jest tlowy - moze zablokowac zamkniecie programu.");
+
+    // Zapas musi byc zatrzymywany przy zwalnianiu dekodera, inaczej watek
+    // zostaje po zmianie stacji.
+    Assert(zrodlo.Contains("StopLivePumpLocked", StringComparison.Ordinal)
+        && zrodlo.Contains("if (_liveStream) StopLivePumpLocked();", StringComparison.Ordinal),
+        "Watek zapasu nie jest zatrzymywany razem z dekoderem.");
+
+    // Zapas musi miec gorna granice, inaczej pamiec rosnie bez konca.
+    Assert(zrodlo.Contains("_liveBufferedBytes >= target", StringComparison.Ordinal),
+        "Zapas zywej transmisji nie ma gornej granicy.");
+
+    Console.WriteLine("OK: zywa transmisja ma zapas dzwieku napelniany osobnym watkiem");
 }
 
 static void TestBrakDyskuChmurowegoMowiPrawde()

@@ -31,6 +31,25 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
         ".ts", ".mts", ".m2ts", ".part", ".partial", ".amc-partial"
     };
 
+    /// <summary>
+    /// Ile dzwieku zywej transmisji trzymamy w zapasie. ZMIERZONE 15.09.2026 na
+    /// komputerze Michala (TVP Info z YouTube, 90 s, ten sam ffmpeg co w AMC):
+    /// po rozruchu transmisja przystaje REGULARNIE co okolo 7 sekund na 240-330
+    /// ms - tyle trwa pobranie kolejnego segmentu. To nie jest awaria lacza,
+    /// tylko normalny rytm HLS. Bez zapasu karta dzwiekowa czeka dokladnie te
+    /// 300 ms i slychac zaciecie. Osiem sekund pokrywa z ogromnym marginesem
+    /// zarowno rytm co 7 s, jak i dluzsze przestoje rozruchowe (zmierzone 1,1
+    /// i 1,3 s).
+    /// </summary>
+    private static readonly TimeSpan LiveBufferTarget = TimeSpan.FromSeconds(8);
+
+    /// <summary>
+    /// Ile zapasu zbieramy, ZANIM pojdzie pierwszy dzwiek. Krotkie, zeby
+    /// transmisja nie startowala z odczuwalnym opoznieniem, ale wystarczajace,
+    /// by pokryc pierwsza przerwe miedzy segmentami.
+    /// </summary>
+    private static readonly TimeSpan LivePrerollTarget = TimeSpan.FromSeconds(2.5);
+
     private readonly object _gate = new();
     private readonly string _executable;
     private readonly string _path;
@@ -45,6 +64,18 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
     private long _decoderBytesRead;
     private long _position;
     private bool _disposed;
+
+    // Zapas dzwieku zywej transmisji i watek, ktory go napelnia. Uzywane tylko
+    // gdy _liveStream; dla plikow i skonczonych zrodel nic sie nie zmienia.
+    private readonly object _liveGate = new();
+    private readonly Queue<byte[]> _liveChunks = new();
+    private Thread? _livePump;
+    private CancellationTokenSource? _livePumpCancellation;
+    private byte[] _liveCurrent = [];
+    private int _liveCurrentOffset;
+    private long _liveBufferedBytes;
+    private bool _liveEnded;
+    private Exception? _liveFailure;
 
     private FfmpegLocalAudioWaveStream(
         string executable,
@@ -259,7 +290,9 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
                 }
             }
 
-            var read = _audio.Read(buffer, offset, alignedCount);
+            var read = _liveStream
+                ? ReadLiveFromBuffer(buffer, offset, alignedCount)
+                : _audio.Read(buffer, offset, alignedCount);
             if (read > 0)
             {
                 _decoderBytesRead += read;
@@ -323,6 +356,9 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
             {
                 StartDecoderProcessLocked(position, networkSource);
                 if (networkSource) PrimeNetworkDecoderLocked();
+                // Zywa transmisja: od tej chwili dzwiek zbiera watek do zapasu,
+                // a karta dzwiekowa bierze z zapasu, nie wprost z ffmpeg.
+                if (_liveStream) StartLivePumpLocked();
                 return;
             }
             catch (Exception exception) when (
@@ -457,8 +493,174 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
             : $"Dekoder sieciowy nie zwrócił dźwięku. {detail}");
     }
 
+    private void StartLivePumpLocked()
+    {
+        // Watek zbierajacy dzwiek Z WYPRZEDZENIEM - to samo, co robi radio
+        // internetowe w CaptureLoopAsync (RadioMediaOutput). Bez tego karta
+        // dzwiekowa czyta wprost z ffmpeg i kazda przerwa miedzy segmentami
+        // HLS jest slyszalna. Watek jest tlowy (IsBackground), wiec nie
+        // wstrzymuje zamykania programu.
+        var stream = _audio;
+        if (stream is null) return;
+        var cancellation = new CancellationTokenSource();
+        _livePumpCancellation = cancellation;
+        var target = (long)(LiveBufferTarget.TotalSeconds * WaveFormat.AverageBytesPerSecond);
+        var chunkSize = Math.Max(16 * 1024, WaveFormat.AverageBytesPerSecond / 8);
+        var pump = new Thread(() =>
+        {
+            try
+            {
+                while (!cancellation.IsCancellationRequested)
+                {
+                    // Nie czytamy w nieskonczonosc: gdy zapas jest pelny,
+                    // czekamy. Inaczej ffmpeg z opcja -readrate 1 i tak by nas
+                    // przytrzymal, ale pamiec rosla by bez gornej granicy.
+                    lock (_liveGate)
+                    {
+                        while (_liveBufferedBytes >= target
+                            && !cancellation.IsCancellationRequested)
+                        {
+                            Monitor.Wait(_liveGate, 50);
+                        }
+                    }
+                    if (cancellation.IsCancellationRequested) return;
+
+                    var chunk = new byte[chunkSize];
+                    var read = stream.Read(chunk, 0, chunk.Length);
+                    if (read <= 0)
+                    {
+                        lock (_liveGate)
+                        {
+                            _liveEnded = true;
+                            Monitor.PulseAll(_liveGate);
+                        }
+                        return;
+                    }
+                    lock (_liveGate)
+                    {
+                        _liveChunks.Enqueue(read == chunk.Length ? chunk : chunk[..read]);
+                        _liveBufferedBytes += read;
+                        Monitor.PulseAll(_liveGate);
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException
+                or ObjectDisposedException
+                or InvalidOperationException)
+            {
+                lock (_liveGate)
+                {
+                    _liveFailure = exception;
+                    _liveEnded = true;
+                    Monitor.PulseAll(_liveGate);
+                }
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "AMC zapas zywej transmisji"
+        };
+        _livePump = pump;
+        pump.Start();
+
+        // Rozruch: czekamy na maly zapas, zeby pierwsza przerwa miedzy
+        // segmentami nie trafila w pusty bufor. Czekanie jest ograniczone w
+        // czasie - jesli transmisja jest wolna, ruszamy z tym, co jest.
+        var preroll = (long)(LivePrerollTarget.TotalSeconds * WaveFormat.AverageBytesPerSecond);
+        var deadline = Stopwatch.StartNew();
+        lock (_liveGate)
+        {
+            while (_liveBufferedBytes < preroll
+                && !_liveEnded
+                && deadline.Elapsed < TimeSpan.FromSeconds(6))
+            {
+                Monitor.Wait(_liveGate, 100);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Czyta dzwiek zywej transmisji Z ZAPASU, nie wprost z ffmpeg. Gdy zapas
+    /// chwilowo pustoszeje (dluga przerwa w sieci), czekamy krotko, a potem
+    /// zwracamy CISZE zamiast blokowac karte dzwiekowa - cisza jest mniej
+    /// szkodliwa niz zablokowany watek odtwarzania.
+    /// </summary>
+    private int ReadLiveFromBuffer(byte[] buffer, int offset, int count)
+    {
+        var written = 0;
+        var waited = Stopwatch.StartNew();
+        while (written < count)
+        {
+            if (_liveCurrentOffset >= _liveCurrent.Length)
+            {
+                lock (_liveGate)
+                {
+                    while (_liveChunks.Count == 0 && !_liveEnded)
+                    {
+                        if (written > 0 || waited.Elapsed > TimeSpan.FromSeconds(5)) break;
+                        Monitor.Wait(_liveGate, 100);
+                    }
+                    if (_liveChunks.Count > 0)
+                    {
+                        _liveCurrent = _liveChunks.Dequeue();
+                        _liveCurrentOffset = 0;
+                        _liveBufferedBytes -= _liveCurrent.Length;
+                        Monitor.PulseAll(_liveGate);
+                    }
+                    else
+                    {
+                        if (_liveEnded)
+                        {
+                            if (_liveFailure is { } failure && written == 0 && _decoderBytesRead == 0)
+                            {
+                                throw new InvalidDataException(
+                                    "Zywa transmisja przerwala sie. " + failure.Message);
+                            }
+                            break;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            var available = _liveCurrent.Length - _liveCurrentOffset;
+            if (available <= 0) break;
+            var take = Math.Min(available, count - written);
+            Buffer.BlockCopy(_liveCurrent, _liveCurrentOffset, buffer, offset + written, take);
+            _liveCurrentOffset += take;
+            written += take;
+        }
+        return written;
+    }
+
+    private void StopLivePumpLocked()
+    {
+        try { _livePumpCancellation?.Cancel(); } catch (Exception) { }
+        lock (_liveGate) Monitor.PulseAll(_liveGate);
+        var pump = _livePump;
+        _livePump = null;
+        if (pump is not null && pump.IsAlive)
+        {
+            // Krotkie oczekiwanie - watek jest tlowy, wiec nawet gdyby wisial
+            // na odczycie z ffmpeg, nie zablokuje zamkniecia programu.
+            try { pump.Join(TimeSpan.FromMilliseconds(300)); } catch (Exception) { }
+        }
+        try { _livePumpCancellation?.Dispose(); } catch (Exception) { }
+        _livePumpCancellation = null;
+        lock (_liveGate)
+        {
+            _liveChunks.Clear();
+            _liveBufferedBytes = 0;
+            _liveCurrent = [];
+            _liveCurrentOffset = 0;
+            _liveEnded = false;
+            _liveFailure = null;
+        }
+    }
+
     private void DisposeDecoderLocked()
     {
+        if (_liveStream) StopLivePumpLocked();
         try { _audio?.Dispose(); } catch (Exception) { }
         _audio = null;
         _prefetchedAudio = [];
