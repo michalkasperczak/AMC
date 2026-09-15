@@ -19765,6 +19765,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ExecuteCommand(transientRadioViewCommand);
             return true;
         }
+        // Alt+Shift+R (historia nagrywania). BLAD ZMIERZONY 15.09.2026: ten skrot
+        // byl podpiety WYLACZNIE do TryResolveKeyboardHelpCommand, czyli do trybu
+        // pomocy, ktory tylko OPISUJE, co robi klawisz. Zadna sciezka nie wywolywala
+        // go naprawde, wiec w trybie pomocy skrot mowil "Pokaz historie nagrywania",
+        // a nacisniety zwyczajnie nie robil nic. Menu, paleta polecen i katalog
+        // pomocy caly czas go zapowiadaly.
+        var recordedFilesCommand = MainWindowShortcutRouter.ResolveRecordedRadioFilesView(
+            key,
+            effectiveModifiers,
+            _sessions.Current.Id);
+        if (recordedFilesCommand is not null)
+        {
+            ExecuteCommand(recordedFilesCommand);
+            return true;
+        }
         if (Keyboard.Modifiers == ModifierKeys.Control && key == Key.F5)
         {
             if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))

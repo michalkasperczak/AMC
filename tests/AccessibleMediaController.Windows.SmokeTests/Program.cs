@@ -168,6 +168,7 @@ var tests = new (string Name, Action Test)[]
     ("Legacy ICY MP3 Stream", TestLegacyIcyMp3Stream),
     ("Legacy ICY Cancellation", TestLegacyIcyCancellation),
     ("BASS Cancellation", TestBassCancellation),
+    ("Skrot Alt+Shift+R naprawde wywoluje historie nagrywania", TestSkrotHistoriiNagrywaniaJestWywolywany),
     ("Zywa transmisja YouTube nie cofa dzwieku", TestLiveYouTubeUsesFfmpegAndDoesNotSeek),
 };
 
@@ -6017,6 +6018,53 @@ static void TestTidalRefreshRequest()
             StringComparer.Ordinal);
 }
 
+static void TestSkrotHistoriiNagrywaniaJestWywolywany()
+{
+    // 2026-09-15: ZGLOSZENIE "nie dziala Alt+Shift+R". Skrot byl podpiety
+    // WYLACZNIE do TryResolveKeyboardHelpCommand, czyli do trybu pomocy, ktory
+    // tylko OPISUJE klawisze. Zadna sciezka nie wywolywala polecenia naprawde:
+    // tryb pomocy mowil "Pokaz historie nagrywania", menu i paleta polecen
+    // zapowiadaly skrot, a nacisniety nie robil NIC.
+    //
+    // Istniejacy test ResolveRecordedRadioFilesView przechodzil, bo sprawdzal
+    // sam rozpoznawacz klawisza - a ten byl poprawny. Dlatego tu sprawdzamy co
+    // innego: ze wynik rozpoznawacza jest gdzies PODANY DO WYKONANIA, poza
+    // sciezka pomocy.
+    var zrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
+    var nazwaPomocy = "TryResolveKeyboardHelpCommand";
+    var wywolania = new List<int>();
+    var od = 0;
+    while (true)
+    {
+        var i = zrodlo.IndexOf("ResolveRecordedRadioFilesView", od, StringComparison.Ordinal);
+        if (i < 0) break;
+        wywolania.Add(i);
+        od = i + 1;
+    }
+    if (wywolania.Count == 0)
+    {
+        throw new InvalidOperationException(
+            "Alt+Shift+R nie jest w ogole rozpoznawany w obsludze klawiszy okna.");
+    }
+
+    // Granice metody pomocy: od jej deklaracji do deklaracji nastepnej metody.
+    var poczatekPomocy = zrodlo.IndexOf("private bool " + nazwaPomocy, StringComparison.Ordinal);
+    var koniecPomocy = poczatekPomocy < 0
+        ? -1
+        : zrodlo.IndexOf("\n    private ", poczatekPomocy + 1, StringComparison.Ordinal);
+    if (koniecPomocy < 0) koniecPomocy = poczatekPomocy;
+
+    var pozaPomoca = wywolania.Any(i => i < poczatekPomocy || i > koniecPomocy);
+    if (!pozaPomoca)
+    {
+        throw new InvalidOperationException(
+            "Alt+Shift+R jest rozpoznawany TYLKO w trybie pomocy "
+            + $"({nazwaPomocy}), wiec skrot jest zapowiadany, ale nacisniety nic "
+            + "nie robi. Historia nagrywania musi byc wywolywana takze ze "
+            + "zwyklej obslugi klawiszy.");
+    }
+}
+
 static void TestLiveYouTubeUsesFfmpegAndDoesNotSeek()
 {
     // 2026-09-14: ZGLOSZENIE. Transmisje na zywo (TVP Info, Korbielow) albo nie
@@ -6078,6 +6126,11 @@ static string ZnajdzPlikZrodlowy(string nazwa)
     {
         var kandydat = Path.Combine(katalog, "src", "AccessibleMediaController.Windows", "Services", nazwa);
         if (File.Exists(kandydat)) return kandydat;
+        // 2026-09-15: nie kazdy plik lezy w Services (np. MainWindow.xaml.cs jest
+        // w korzeniu projektu Windows).  Bez tej sciezki test podpiecia skrotu
+        // wywalal sie na "nie znaleziono pliku", zamiast sprawdzic kod.
+        var kandydatKorzen = Path.Combine(katalog, "src", "AccessibleMediaController.Windows", nazwa);
+        if (File.Exists(kandydatKorzen)) return kandydatKorzen;
         katalog = Path.GetDirectoryName(katalog);
     }
     throw new FileNotFoundException($"Nie znaleziono pliku zrodlowego {nazwa} w drzewie projektu.");
