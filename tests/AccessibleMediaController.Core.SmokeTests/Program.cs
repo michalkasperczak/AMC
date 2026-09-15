@@ -2408,7 +2408,10 @@ static void TestCommandCatalog()
     Equal("Pokaż nowe odcinki podcastów", CommandCatalog.GetDisplayName(CommandIds.ViewPodcastInbox));
     Equal("Pokaż rozpoczęte odcinki podcastów", CommandCatalog.GetDisplayName(CommandIds.ViewPodcastInProgress));
     Equal("Pokaż aktualnie nagrywane stacje", CommandCatalog.GetDisplayName(CommandIds.ViewActiveRadioRecordings));
-    Equal("Pokaż nagrane pliki", CommandCatalog.GetDisplayName(CommandIds.ViewRecordedRadioFiles));
+    // Widok pokazuje teraz takze proby nieudane, nie tylko gotowe pliki -
+    // nazwa polecenia idzie za trescia widoku, zeby paleta polecen nie
+    // obiecywala czegos innego, niz uzytkownik tam znajdzie.
+    Equal("Pokaż historię nagrywania", CommandCatalog.GetDisplayName(CommandIds.ViewRecordedRadioFiles));
     Equal("Rozpocznij nową część nagrania radia", CommandCatalog.GetDisplayName(CommandIds.SplitRadioRecording));
     Equal("Zatrzymaj wszystkie trwające nagrania", CommandCatalog.GetDisplayName(CommandIds.StopAllRadioRecordings));
     Equal("Pokaż presety aktywnej sesji", CommandCatalog.GetDisplayName(CommandIds.ViewRadioPresets));

@@ -302,7 +302,22 @@ internal static class ApplicationUpdateManager
                 else installer.ArgumentList.Add("/NORESTARTAPPLICATIONS");
                 installer.ArgumentList.Add($"/LOG={Path.Combine(UpdateRoot, "instalator.log")}");
 
-                Process.Start(installer);
+                // Instalator MUSI wystartowac dopiero, gdy AMC zniknie z pamieci.
+                //
+                // Blad zmierzony 15.09.2026 (instalator.log): instalacja odpalana
+                // stad w trakcie zamykania programu przerywala sie natychmiast.
+                // Powod: plik .iss ma AppMutex, a Inno Setup po wykryciu zywego
+                // uchwytu tylko PYTA o zamkniecie aplikacji - sam jej nie zabija,
+                // bo AppMutex wykrywa, a nie zamyka. W trybie cichym pytania nie
+                // ma komu pokazac, wiec /SUPPRESSMSGBOXES odpowiada "Anuluj"
+                // i aktualizacja pada bez sladu w interfejsie. /CLOSEAPPLICATIONS
+                // tego nie ratuje, bo dotyczy plikow w uzyciu, nie uchwytu.
+                //
+                // Uchwyt zwalnia dopiero App.OnExit, a instalator startowal przed
+                // nim - z wnetrza zamykania okna. Dlatego odpalamy posrednika,
+                // ktory czeka, az proces AMC naprawde zniknie, i dopiero wtedy
+                // uruchamia instalacje.
+                StartInstallerAfterExit(installer);
                 // Sam wpis "do zrobienia" usuwamy, ale pliku instalatora NIE -
                 // wlasnie go uruchomilismy, a usuniecie wyrwaloby mu plik z rak.
                 try
@@ -384,6 +399,115 @@ internal static class ApplicationUpdateManager
             DiagnosticLog.Warning("aktualizacja-amc", $"Nie udało się usunąć paczki: {exception.Message}");
         }
     }
+
+    /// <summary>
+    /// Uruchamia instalator dopiero po tym, jak proces AMC zniknie z pamieci.
+    ///
+    /// Dlaczego posrednik, a nie zwykly Process.Start: plik .iss ma AppMutex,
+    /// wiec Inno Setup przy zywym AMC PYTA o zamkniecie programu. W trybie cichym
+    /// pytania nie ma komu pokazac i /SUPPRESSMSGBOXES odpowiada za uzytkownika
+    /// "Anuluj" - instalacja pada, nie zmieniajac ani jednego pliku, a program
+    /// dalej chodzi w starej wersji, nie mowiac o tym ani slowa. Uchwyt zwalnia
+    /// dopiero App.OnExit, a instalator startowal przed nim.
+    ///
+    /// Skrypt czeka na zniknieciu procesu (nie na samym uchwycie), bo uchwyt
+    /// ginie razem z procesem, a numer procesu da sie sprawdzic z zewnatrz.
+    /// Gdy AMC nie zamknie sie w 30 sekund, instalacja NIE startuje - lepiej nie
+    /// zainstalowac nic, niz podmieniac pliki dzialajacemu programowi.
+    /// </summary>
+    private static void StartInstallerAfterExit(ProcessStartInfo installer)
+    {
+        var script = Path.Combine(UpdateRoot, "uruchom-instalator.ps1");
+        File.WriteAllText(script, BuildInstallerLauncherScript(), new UTF8Encoding(true));
+
+        var launcher = new ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WindowStyle = ProcessWindowStyle.Hidden
+        };
+        launcher.ArgumentList.Add("-NoProfile");
+        launcher.ArgumentList.Add("-ExecutionPolicy");
+        launcher.ArgumentList.Add("Bypass");
+        launcher.ArgumentList.Add("-WindowStyle");
+        launcher.ArgumentList.Add("Hidden");
+        launcher.ArgumentList.Add("-File");
+        launcher.ArgumentList.Add(script);
+        launcher.ArgumentList.Add("-ProcessId");
+        launcher.ArgumentList.Add(Environment.ProcessId.ToString());
+        launcher.ArgumentList.Add("-Installer");
+        launcher.ArgumentList.Add(installer.FileName);
+        launcher.ArgumentList.Add("-Arguments");
+        // Przekazujemy przelaczniki instalatora jako jeden ciag: PowerShell
+        // rozdzieli je sam przy wywolaniu, a my nie tracimy cudzyslowow ze
+        // sciezki dziennika, ktora moze zawierac spacje.
+        launcher.ArgumentList.Add(string.Join(" ", installer.ArgumentList.Select(QuoteIfNeeded)));
+
+        Process.Start(launcher);
+    }
+
+    private static string QuoteIfNeeded(string argument) =>
+        argument.Contains(' ', StringComparison.Ordinal) && !argument.StartsWith('"')
+            ? $"\"{argument}\""
+            : argument;
+
+    /// <summary>
+    /// Posrednik czekajacy na zamkniecie AMC przed uruchomieniem instalatora.
+    /// Pisze do osobnego dziennika, zeby dalo sie potem sprawdzic, czy w ogole
+    /// doszlo do uruchomienia - cicha instalacja nie zostawia sladu w programie.
+    /// </summary>
+    internal static string BuildInstallerLauncherScript() => """
+        param(
+            [Parameter(Mandatory=$true)][int]$ProcessId,
+            [Parameter(Mandatory=$true)][string]$Installer,
+            [string]$Arguments = ''
+        )
+
+        $ErrorActionPreference = 'Stop'
+        $dziennik = Join-Path $env:LOCALAPPDATA 'AccessibleMediaController\updates\uruchomienie-instalatora.log'
+
+        function Zapisz($tekst) {
+            $wiersz = "{0} {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $tekst
+            Add-Content -LiteralPath $dziennik -Value $wiersz -Encoding UTF8
+        }
+
+        try {
+            Zapisz "Czekam na zamkniecie AMC (proces $ProcessId) przed instalacja."
+            for ($proba = 0; $proba -lt 60; $proba++) {
+                if (-not (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) { break }
+                Start-Sleep -Milliseconds 500
+            }
+            if (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue) {
+                Zapisz 'AMC nadal dziala po 30 sekundach. NIE uruchamiam instalatora.'
+                exit 1
+            }
+
+            # Uchwyt jednej kopii ginie razem z procesem, ale system potrzebuje
+            # chwili na zwolnienie plikow programu. Bez tej pauzy instalator
+            # trafia na pliki w uzyciu.
+            Start-Sleep -Milliseconds 1500
+
+            if (-not (Test-Path -LiteralPath $Installer)) {
+                Zapisz "Brak pliku instalatora: $Installer"
+                exit 1
+            }
+
+            Zapisz "Uruchamiam instalator: $Installer $Arguments"
+            if ($Arguments.Trim().Length -gt 0) {
+                $proces = Start-Process -FilePath $Installer -ArgumentList $Arguments -PassThru -Wait
+            }
+            else {
+                $proces = Start-Process -FilePath $Installer -PassThru -Wait
+            }
+            Zapisz ("Instalator zakonczyl sie kodem {0}." -f $proces.ExitCode)
+            exit $proces.ExitCode
+        }
+        catch {
+            Zapisz ("Blad uruchamiania instalatora: {0}" -f $_.Exception.Message)
+            exit 1
+        }
+        """;
 
     /// <summary>
     /// Skrypt podmiany. Kopiuje pliki, ale NIE usuwa katalogu docelowego -

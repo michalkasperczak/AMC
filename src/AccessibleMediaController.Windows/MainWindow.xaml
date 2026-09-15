@@ -462,7 +462,8 @@
                           Click="KeyboardHelp_Click" />
                 <Separator />
                 <MenuItem Header="Sprawdź składniki: FFmpeg i _yt-dlp" Click="Updates_Click" />
-                <MenuItem Header="Sprawdź nową wersję _AMC…" Click="ApplicationUpdate_Click" />
+                <MenuItem Header="Sprawdź _aktualizacje…" Click="ApplicationUpdate_Click"
+                          automation:AutomationProperties.Name="Sprawdź aktualizacje AMC" />
                 <Separator />
                 <MenuItem Header="_Zgłoś błąd lub uwagę…" Click="ReportProblem_Click" />
             </MenuItem>
