@@ -75,11 +75,31 @@ AppMutex=Local\AccessibleMultimediaController.SingleInstance
 [Languages]
 Name: "polski"; MessagesFile: "compiler:Languages\Polish.isl"
 
+[InstallDelete]
+; Starsze kopie z numerem wersji w nazwie. Bez tego katalog programu rosl
+; o kolejne 160 MB przy KAZDEJ aktualizacji, a stare pliki zostawaly na dysku
+; jako martwy balast, ktorego nikt nie uruchamia.
+Type: files; Name: "{app}\AccessibleMediaController-*.exe"
+
 [Files]
-; Cala zawartosc katalogu publish. Wykluczenia: pliki diagnostyczne kompilatora
-; i pakiety dodatku NVDA, ktore instaluje sie osobno.
+; GLOWNY PLIK PROGRAMU. Build nazywa go z numerem wersji
+; (AccessibleMediaController-0.1.0-alpha.370.exe), ale skrot na pulpicie,
+; menu Start, wpis App Paths i aktualizacja w tle szukaja STALEJ nazwy
+; AccessibleMediaController.exe. Dlatego kopiujemy go pod nazwa docelowa.
+;
+; BLAD ZMIERZONY 15.09.2026: bez tego wiersza instalator kopiowal plik pod
+; nazwa z numerem wersji, a AccessibleMediaController.exe zostawal ten stary.
+; Instalacja konczyla sie komunikatem "Installation process succeeded",
+; katalog programu mial obok siebie wersje 367, 368 i 370, a skrot z pulpitu
+; caly czas uruchamial 367. Uzytkownik slyszal stara wersje po udanej
+; aktualizacji i nie mial z czego wyczytac, dlaczego.
+Source: "AccessibleMediaController-{#Wersja}.exe"; DestDir: "{app}"; \
+    DestName: "AccessibleMediaController.exe"; Flags: ignoreversion
+; Pozostala zawartosc katalogu publish. Wykluczenia: pliki diagnostyczne
+; kompilatora, pakiety dodatku NVDA (instaluje sie osobno) oraz glowny plik
+; programu, ktory zostal skopiowany wyzej pod stala nazwa.
 Source: "*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; \
-    Excludes: "*.pdb,*.xml.orig,*.nvda-addon,AMC_Setup.iss"
+    Excludes: "*.pdb,*.xml.orig,*.nvda-addon,AMC_Setup.iss,AccessibleMediaController-*.exe"
 
 [Dirs]
 Name: "{localappdata}\AccessibleMediaController"
