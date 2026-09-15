@@ -266,6 +266,7 @@ public static class CommandPaletteSearch
             CommandIds.CurrentBroadcastInformation => "Alt+D (Radio internetowe i WiiM)",
             CommandIds.ItemPlaybackOptions => "Alt+Shift+Enter",
             CommandIds.Help => "F1",
+            CommandIds.ContextHelp => "Shift+F1",
             CommandIds.KeyboardHelp => "Ctrl+F1",
             CommandIds.OpenLocalFiles => "Ctrl+O",
             CommandIds.OpenLocalFolder => "Ctrl+Shift+O",

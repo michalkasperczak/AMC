@@ -98,6 +98,7 @@ public sealed class KeyboardProfile
         Bind("D", CommandIds.DownloadInService);
         Bind("Shift+D", CommandIds.DownloadToDisk);
         Bind("F1", CommandIds.Help);
+        Bind("Shift+F1", CommandIds.ContextHelp);
 
         return profile;
     }

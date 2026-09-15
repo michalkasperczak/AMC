@@ -166,6 +166,10 @@ public partial class SettingsWindow : Window
         SelectComboByTag(
             RadioRecognitionScopeCombo,
             _workingState.Radio.AutomaticTrackRecognitionScope.ToString());
+        SelectComboByTag(
+            RadioTimeshiftMinutesCombo,
+            _workingState.Radio.TimeshiftMinutes.ToString(CultureInfo.InvariantCulture));
+        UpdateRadioTimeshiftWarning();
         UpdateRadioRecordingControls();
 
         PodcastDownloadsFolderBox.Text = string.IsNullOrWhiteSpace(_workingState.Podcasts.DownloadsFolder)
@@ -300,6 +304,15 @@ public partial class SettingsWindow : Window
         {
             _workingState.Radio.AutomaticTrackRecognitionScope = recognitionScope;
         }
+        if (!int.TryParse(
+                SelectedTag(RadioTimeshiftMinutesCombo, "10"),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var timeshiftMinutes))
+        {
+            timeshiftMinutes = 10;
+        }
+        _workingState.Radio.TimeshiftMinutes = Math.Clamp(timeshiftMinutes, 1, 720);
         var podcastFolder = PodcastDownloadsFolderBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(podcastFolder) || !Path.IsPathFullyQualified(podcastFolder))
             throw new InvalidDataException("Domyślny folder pobierania podcastów musi zawierać pełną ścieżkę.");
@@ -584,6 +597,47 @@ public partial class SettingsWindow : Window
             _radioRecordingsOwnFolder = RadioRecordingsFolderBox.Text;
         }
         UpdateRadioRecordingControls();
+    }
+
+    private void RadioTimeshiftMinutesCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        UpdateRadioTimeshiftWarning();
+
+    /// <summary>
+    /// Mowi wprost, ile miejsca zajmie wybrany bufor i gdzie bedzie lezal.
+    /// ZGLOSZENIE Michala 15.09.2026: "tu moglooby byc ostrzezenie, bo to sporo
+    /// pamieci i dysku chyba".
+    /// </summary>
+    private void UpdateRadioTimeshiftWarning()
+    {
+        if (RadioTimeshiftWarningText is null || RadioTimeshiftMinutesCombo is null) return;
+        if (!int.TryParse(
+                SelectedTag(RadioTimeshiftMinutesCombo, "10"),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var minutes))
+        {
+            minutes = 10;
+        }
+
+        // Dzwiek w buforze jest nieskompresowany: 44,1 kHz, stereo, 16 bitow =
+        // 176 400 bajtow na sekunde. Stad rozmiar liczy sie prosto z czasu.
+        const double BytesPerSecond = 44100d * 2d * 2d;
+        var megabytes = minutes * 60d * BytesPerSecond / (1024d * 1024d);
+        var rozmiar = megabytes >= 1024d
+            ? string.Format(CultureInfo.CurrentCulture, "{0:0.0} GB", megabytes / 1024d)
+            : string.Format(CultureInfo.CurrentCulture, "{0:0} MB", megabytes);
+
+        // Ta granica musi zgadzac sie z TimeshiftRingStorage.InMemoryLimitBytes
+        // (64 MB) - powyzej niej bufor idzie na dysk.
+        var naDysku = megabytes > 64d;
+        RadioTimeshiftWarningText.Text = naDysku
+            ? "Ten bufor zajmie około " + rozmiar
+                + " w jednym pliku tymczasowym na dysku systemowym. Plik krąży w kółko, "
+                + "więc nie rośnie, i jest usuwany przy zamknięciu stacji lub programu. "
+                + "Zapis na dysk to około sześciuset megabajtów na godzinę słuchania, "
+                + "niezależnie od długości bufora."
+            : "Ten bufor zajmie około " + rozmiar
+                + " w pamięci. Dysk nie jest wtedy używany.";
     }
 
     private void UpdateRadioRecordingControls()

@@ -73,6 +73,29 @@
                     </Grid>
                 </StackPanel>
 
+                <StackPanel x:Name="RadioSettingsPanel" Visibility="Collapsed">
+                    <Label Target="{Binding ElementName=BackupStreamUrlBox}">_Zapasowy adres strumienia:</Label>
+                    <TextBox x:Name="BackupStreamUrlBox" Margin="0,0,0,14"
+                             automation:AutomationProperties.Name="Zapasowy adres strumienia tej stacji"
+                             automation:AutomationProperties.HelpText="Gdy główny adres nie odpowiada, program spróbuje tego. Zostaw puste, jeśli stacja ma tylko jeden adres." />
+
+                    <Label Target="{Binding ElementName=RadioRecordingFolderModeBox}">_Folder nagrań tej stacji:</Label>
+                    <ComboBox x:Name="RadioRecordingFolderModeBox" Margin="0,0,0,8"
+                              DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                              SelectionChanged="RadioRecordingFolderModeBox_SelectionChanged"
+                              automation:AutomationProperties.Name="Folder nagrań tej stacji"
+                              automation:AutomationProperties.HelpText="Wybierz folder ogólny z ustawień nagrywania albo osobny folder tylko dla tej stacji." />
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBox x:Name="RadioRecordingFolderBox" Grid.Column="0" IsReadOnly="True"
+                                 automation:AutomationProperties.Name="Własny folder nagrań tej stacji" />
+                        <Button x:Name="BrowseRadioRecordingFolderButton" Grid.Column="1"
+                                Content="W_ybierz…" Margin="8,0,0,0" Padding="10,4"
+                                automation:AutomationProperties.Name="Wybierz własny folder nagrań tej stacji"
+                                Click="BrowseRadioRecordingFolder_Click" />
+                    </Grid>
+                </StackPanel>
+
                 <Label x:Name="OutputDeviceLabel" Target="{Binding ElementName=OutputDeviceBox}">_Urządzenie audio dla elementu:</Label>
                 <ComboBox x:Name="OutputDeviceBox" Margin="0,0,0,6" IsEnabled="False"
                           automation:AutomationProperties.Name="Urządzenie audio dla elementu"

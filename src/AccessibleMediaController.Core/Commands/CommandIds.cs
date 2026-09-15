@@ -160,6 +160,8 @@ public static class CommandIds
     public const string DownloadToDisk = "action.download.toDisk";
     public const string SavePodcastAs = "podcast.episode.saveAs";
     public const string Help = "view.help";
+    // Pomoc kontekstowa: sekcja pasujaca do biezacego widoku idzie pierwsza.
+    public const string ContextHelp = "view.contextHelp";
     public const string KeyboardHelp = "view.keyboardHelp";
     public const string OpenLocalFiles = "local.openFiles";
     public const string OpenLocalFolder = "local.openFolder";

@@ -29,6 +29,8 @@ public interface IApplicationActions
     void ShowSessionPlaybackOptions();
     void OpenOfficialApplication();
     void ShowHelp();
+    // Pomoc kontekstowa pod Shift+F1: sekcja biezacego widoku idzie pierwsza.
+    void ShowContextHelp();
     void ToggleKeyboardHelp();
     void ShowSettings(SettingsTarget target);
     void ToggleAccessibilityMessages();
@@ -336,6 +338,9 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.Help:
                 application.ShowHelp();
+                return new(true);
+            case CommandIds.ContextHelp:
+                application.ShowContextHelp();
                 return new(true);
             case CommandIds.KeyboardHelp:
                 application.ToggleKeyboardHelp();

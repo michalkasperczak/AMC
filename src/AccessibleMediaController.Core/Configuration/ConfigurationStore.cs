@@ -848,7 +848,7 @@ public sealed class ConfigurationStore
     {
         state.Radio ??= new RadioSettings();
         state.Radio.Volume = Math.Clamp(state.Radio.Volume, 0, 100);
-        state.Radio.TimeshiftMinutes = Math.Clamp(state.Radio.TimeshiftMinutes, 1, 60);
+        state.Radio.TimeshiftMinutes = Math.Clamp(state.Radio.TimeshiftMinutes, 1, 720);
         state.Radio.RecordingsFolder = state.Radio.RecordingsFolder?.Trim() ?? string.Empty;
         if (!Enum.IsDefined(state.Radio.AutomaticTrackRecognitionScope))
             state.Radio.AutomaticTrackRecognitionScope = RadioRecognitionScope.CurrentStation;

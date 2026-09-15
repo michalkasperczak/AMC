@@ -14,6 +14,8 @@ public enum ItemPlaybackOptionsTarget
     Podcast,
     PodcastEpisode,
 
+    RadioStation,
+
     /// <summary>
     /// Ustawienia dla CALEJ sesji (calego TIDAL-a, calego radia, wszystkich
     /// plikow lokalnych). Poziom miedzy folderem a ustawieniem ogolnym.
@@ -35,7 +37,9 @@ public partial class ItemPlaybackOptionsWindow : Window
         int? interTrackSilenceMillisecondsOverride,
         ItemPlaybackOptionsTarget target = ItemPlaybackOptionsTarget.LocalItem,
         int podcastRefreshIntervalMinutes = 0,
-        string? podcastDownloadFolder = null)
+        string? podcastDownloadFolder = null,
+        string? radioBackupStreamUrl = null,
+        string? radioRecordingFolder = null)
     {
         InitializeComponent();
         var folderTarget = target == ItemPlaybackOptionsTarget.LocalFolder;
@@ -89,6 +93,43 @@ public partial class ItemPlaybackOptionsWindow : Window
                 PlaybackRateBox,
                 "Prędkość dla całej tej sesji. 1,00 razy oznacza normalną prędkość; "
                 + "mniejsze wartości są wolniejsze, a większe szybsze.");
+        }
+        else if (target == ItemPlaybackOptionsTarget.RadioStation)
+        {
+            // Opcje jednej stacji radiowej. ZGLOSZENIE Michala 15.09.2026:
+            // zapasowy adres strumienia i wlasny folder nagran tej stacji.
+            Title = "Opcje strumienia";
+            RadioSettingsPanel.Visibility = Visibility.Visible;
+            BackupStreamUrlBox.Text = radioBackupStreamUrl ?? string.Empty;
+            var radioFolderChoices = new[]
+            {
+                new FolderChoice(false, "Zgodnie z ustawieniem nagrywania"),
+                new FolderChoice(true, "Własny folder dla tej stacji")
+            };
+            RadioRecordingFolderModeBox.ItemsSource = radioFolderChoices;
+            RadioRecordingFolderModeBox.SelectedItem =
+                radioFolderChoices[string.IsNullOrWhiteSpace(radioRecordingFolder) ? 0 : 1];
+            RadioRecordingFolderBox.Text = radioRecordingFolder ?? string.Empty;
+            UpdateRadioFolderControls();
+
+            // W radiu na zywo nie ma czego wznawiac ani wyciszac miedzy
+            // utworami - te pozycje tylko myliłyby przy czytaniu okna.
+            ResumeModeLabel.Visibility = Visibility.Collapsed;
+            ResumeModeBox.Visibility = Visibility.Collapsed;
+            InterTrackSilenceLabel.Visibility = Visibility.Collapsed;
+            InterTrackSilenceBox.Visibility = Visibility.Collapsed;
+            SmoothTransitionsLabel.Visibility = Visibility.Collapsed;
+            SmoothTransitionsBox.Visibility = Visibility.Collapsed;
+            PlaybackRateLabel.Content = "_Prędkość odtwarzania z buforu:";
+            AutomationProperties.SetName(PlaybackRateBox, "Prędkość odtwarzania z buforu tej stacji");
+            AutomationProperties.SetHelpText(
+                PlaybackRateBox,
+                "Działa po cofnięciu się w buforze transmisji. Na żywo prędkości "
+                + "zmienić nie można.");
+            LoudnessNormalizationLabel.Content = "_Normalizacja głośności tej stacji:";
+            AutomationProperties.SetName(LoudnessNormalizationBox, "Normalizacja głośności tej stacji");
+            OutputDeviceLabel.Content = "_Urządzenie audio dla tej stacji:";
+            AutomationProperties.SetName(OutputDeviceBox, "Urządzenie audio dla tej stacji");
         }
         else if (target is ItemPlaybackOptionsTarget.Podcast or ItemPlaybackOptionsTarget.PodcastEpisode)
         {
@@ -226,8 +267,54 @@ public partial class ItemPlaybackOptionsWindow : Window
             ? PodcastDownloadFolderBox.Text.Trim()
             : null;
 
+    public string? SelectedRadioBackupStreamUrl
+    {
+        get
+        {
+            var wpisane = BackupStreamUrlBox.Text.Trim();
+            return wpisane.Length == 0 ? null : wpisane;
+        }
+    }
+
+    public string? SelectedRadioRecordingFolder =>
+        (RadioRecordingFolderModeBox.SelectedItem as FolderChoice)?.Custom == true
+            ? RadioRecordingFolderBox.Text.Trim()
+            : null;
+
     private void Save_Click(object sender, RoutedEventArgs e)
     {
+        if ((RadioRecordingFolderModeBox.SelectedItem as FolderChoice)?.Custom == true
+            && (string.IsNullOrWhiteSpace(RadioRecordingFolderBox.Text)
+                || !Path.IsPathFullyQualified(RadioRecordingFolderBox.Text)))
+        {
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
+                this,
+                "Wybierz pełną ścieżkę własnego folderu nagrań albo użyj folderu ogólnego.",
+                "Folder nagrań stacji",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            BrowseRadioRecordingFolderButton.Focus();
+            return;
+        }
+        // Zapasowy adres musi byc adresem, inaczej cisza po awarii glownego
+        // byłaby jeszcze trudniejsza do zrozumienia niz sama awaria.
+        var zapasowy = BackupStreamUrlBox.Text.Trim();
+        var adresPoprawny = zapasowy.Length == 0
+            || (Uri.TryCreate(zapasowy, UriKind.Absolute, out var adres)
+                && adres.Scheme is "http" or "https");
+        if (!adresPoprawny)
+        {
+            AccessibleMediaController.Windows.Services.AccessibleDialog.Show(
+                this,
+                "Zapasowy adres strumienia musi zaczynać się od http albo https. "
+                + "Zostaw pole puste, jeśli stacja ma tylko jeden adres.",
+                "Zapasowy adres strumienia",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            BackupStreamUrlBox.Focus();
+            BackupStreamUrlBox.SelectAll();
+            return;
+        }
         if ((PodcastDownloadFolderModeBox.SelectedItem as FolderChoice)?.Custom == true
             && (string.IsNullOrWhiteSpace(PodcastDownloadFolderBox.Text)
                 || !Path.IsPathFullyQualified(PodcastDownloadFolderBox.Text)))
@@ -267,6 +354,31 @@ public partial class ItemPlaybackOptionsWindow : Window
         if (dialog.ShowDialog(this) != true) return;
         PodcastDownloadFolderBox.Text = dialog.FolderName;
         BrowsePodcastDownloadFolderButton.Focus();
+    }
+
+    private void RadioRecordingFolderModeBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) =>
+        UpdateRadioFolderControls();
+
+    private void UpdateRadioFolderControls()
+    {
+        if (RadioRecordingFolderBox is null || BrowseRadioRecordingFolderButton is null) return;
+        var enabled = (RadioRecordingFolderModeBox.SelectedItem as FolderChoice)?.Custom == true;
+        RadioRecordingFolderBox.IsEnabled = enabled;
+        BrowseRadioRecordingFolderButton.IsEnabled = enabled;
+    }
+
+    private void BrowseRadioRecordingFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Wybierz folder nagrań tej stacji",
+            Multiselect = false
+        };
+        if (Directory.Exists(RadioRecordingFolderBox.Text))
+            dialog.InitialDirectory = RadioRecordingFolderBox.Text;
+        if (dialog.ShowDialog(this) != true) return;
+        RadioRecordingFolderBox.Text = dialog.FolderName;
+        BrowseRadioRecordingFolderButton.Focus();
     }
 
     private static BooleanChoice[] BooleanChoices(ItemPlaybackOptionsTarget target) =>

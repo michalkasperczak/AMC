@@ -1139,4 +1139,17 @@ public sealed class RadioStationSettings
     public bool IsInQueue { get; set; }
     public bool IsPlayNext { get; set; }
     public bool IsCustom { get; set; }
+
+    /// <summary>
+    /// Zapasowy adres strumienia. Gdy glowny nie odpowiada, program probuje tego.
+    /// ZGLOSZENIE Michala 15.09.2026 - stacje czasem zmieniaja adres albo maja
+    /// drugi serwer; bez tego trzeba bylo poprawiac stacje recznie.
+    /// </summary>
+    public string? BackupStreamUrl { get; set; }
+
+    /// <summary>
+    /// Wlasny folder nagran tylko dla tej stacji. Puste = folder ogolny
+    /// z ustawien nagrywania. ZGLOSZENIE Michala 15.09.2026.
+    /// </summary>
+    public string? RecordingFolder { get; set; }
 }

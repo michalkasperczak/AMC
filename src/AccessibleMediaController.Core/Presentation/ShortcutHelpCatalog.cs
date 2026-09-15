@@ -68,6 +68,50 @@ public static class ShortcutHelpCatalog
             .ToArray();
     }
 
+    /// <summary>
+    /// Sekcje istotne dla miejsca, w ktorym uzytkownik wlasnie jest. Sluzy
+    /// pomocy KONTEKSTOWEJ pod Shift+F1 (ZGLOSZENIE Michala 15.09.2026: "te
+    /// podpowiedzi powinny byc dostepne w calym programie kontekstowo pod
+    /// klawiszem Shift+F1").
+    ///
+    /// Kolejnosc ma znaczenie: najwazniejsza sekcja idzie pierwsza, zeby po
+    /// otwarciu okna czytnik od razu czytal to, co dotyczy biezacego widoku.
+    /// Sekcje ogolne zostaja na koncu - nie usuwamy ich, bo uzytkownik czasem
+    /// szuka polecenia z innego miejsca programu.
+    /// </summary>
+    public static IReadOnlyList<ShortcutHelpSection> CreateForContext(
+        KeyboardProfile profile,
+        AppSettings settings,
+        string? sessionId,
+        bool inPlayer)
+    {
+        var all = Create(profile, settings);
+        var preferred = new List<string>();
+        if (inPlayer) preferred.Add("player");
+        switch (sessionId)
+        {
+            case "radio":
+                preferred.Add("radio");
+                break;
+            case "podcasts":
+                preferred.Add("podcasts");
+                break;
+            case "local":
+                preferred.Add("library");
+                break;
+        }
+        if (!inPlayer) preferred.Add("lists");
+        if (preferred.Count == 0) return all;
+
+        return all
+            .OrderBy(section =>
+            {
+                var index = preferred.IndexOf(section.Id);
+                return index < 0 ? preferred.Count : index;
+            })
+            .ToArray();
+    }
+
     public static IReadOnlyList<ShortcutHelpEntry> Filter(
         IEnumerable<ShortcutHelpSection> sections,
         string query)
@@ -121,7 +165,7 @@ public static class ShortcutHelpCatalog
     {
         if (prefixOnly) return "prefix";
         if (commandId.StartsWith("settings.", StringComparison.Ordinal)
-            || commandId is CommandIds.Help or CommandIds.KeyboardHelp)
+            || commandId is CommandIds.Help or CommandIds.ContextHelp or CommandIds.KeyboardHelp)
         {
             return "settings";
         }

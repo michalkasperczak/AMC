@@ -170,6 +170,13 @@ var tests = new (string Name, Action Test)[]
     ("BASS Cancellation", TestBassCancellation),
     ("Skrot Alt+Shift+R naprawde wywoluje historie nagrywania", TestSkrotHistoriiNagrywaniaJestWywolywany),
     ("Zywa transmisja ma zapas dzwieku przeciw zacieciom", TestZywaTransmisjaMaZapasDzwieku),
+    ("Opis podcastu: strzalka w prawo i tryb przegladania", TestOpisPodcastuStrzalkaWPrawoIPrzegladanie),
+    ("Opcje strumienia stacji radiowej dzialaja", TestOpcjeStrumieniaStacjiRadiowej),
+    ("Transmisja z obrazem i dzwiekiem daje dzwiek", TestTransmisjaZObrazemDajeDzwiek),
+    ("Duzy bufor transmisji lezy na dysku, maly w pamieci", TestBuforTransmisjiLezyNaDyskuGdyDuzy),
+    ("Bufor transmisji ma regulacje predkosci", TestBuforTransmisjiMaRegulacjePredkosci),
+    ("Pomoc kontekstowa dziala pod Shift+F1", TestPomocKontekstowaPodShiftF1),
+    ("Czytnik i strzalka w gore czytaja co leci", TestCzytnikStrzalkaWGoreCzytaCoLeci),
     ("Brak dysku chmurowego mowi prawde, nie radzi czekac", TestBrakDyskuChmurowegoMowiPrawde),
     ("Zywa transmisja YouTube nie cofa dzwieku", TestLiveYouTubeUsesFfmpegAndDoesNotSeek),
 };
@@ -6078,6 +6085,268 @@ static void TestSkrotHistoriiNagrywaniaJestWywolywany()
     }
 }
 
+static void TestOpisPodcastuStrzalkaWPrawoIPrzegladanie()
+{
+    // ZGLOSZENIE Michala 15.09.2026: strzalka w prawo zamiast Alt+D (tylko na
+    // LISCIE podcastow, nie w odtwarzaczu - tam strzalka przewija dzwiek),
+    // oraz okno nawigowalne jak w HTML, zamykane Escape.
+    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
+
+    // 1. Strzalka w prawo na liscie podcastow otwiera opis.
+    var pozycjaSkrotu = okno.IndexOf("ExecuteCommand(CommandIds.PodcastDescription);\r\n            e.Handled = true;", StringComparison.Ordinal);
+    if (pozycjaSkrotu < 0)
+        pozycjaSkrotu = okno.IndexOf("ExecuteCommand(CommandIds.PodcastDescription);\n            e.Handled = true;", StringComparison.Ordinal);
+    Assert(pozycjaSkrotu > 0, "Strzalka w prawo na liscie musi wywolywac polecenie opisu podcastu.");
+    Assert(okno.Contains("MediaItemKind.Podcast or MediaItemKind.Episode }", StringComparison.Ordinal),
+        "Skrot musi dzialac tylko na podcascie albo odcinku.");
+    Assert(okno.Contains("string.Equals(_sessions.Current.Id, \"podcasts\", StringComparison.Ordinal)\r\n            && SelectedItem is { Kind: MediaItemKind.Podcast", StringComparison.Ordinal)
+        || okno.Contains("string.Equals(_sessions.Current.Id, \"podcasts\", StringComparison.Ordinal)\n            && SelectedItem is { Kind: MediaItemKind.Podcast", StringComparison.Ordinal),
+        "Skrot musi byc ograniczony do sesji podcastow.");
+
+    // 2. Nowa obsluga NIE MOZE ruszac odtwarzacza - tam strzalka w prawo przewija.
+    Assert(okno.Contains("(ModifierKeys.None, Key.Right) => CommandIds.SeekForward10", StringComparison.Ordinal),
+        "W odtwarzaczu strzalka w prawo musi dalej przewijac dzwiek o 10 sekund.");
+
+    // 3. Okno informacji ma tryb przegladania HTML.
+    var dokument = File.ReadAllText(ZnajdzPlikZrodlowy("InformationDocument.cs"));
+    Assert(dokument.Contains("<!DOCTYPE html", StringComparison.Ordinal),
+        "Tresc musi byc skladana jako dokument HTML - inaczej nie ma trybu przegladania.");
+    Assert(dokument.Contains("WebUtility.HtmlEncode", StringComparison.Ordinal),
+        "Tresc musi byc ucieczkowana, inaczej znak mniejszosci w opisie rozwali dokument.");
+
+    // Znak mniejszosci w opisie nie moze stac sie znacznikiem.
+    var zloszliwy = InformationDocument.LinkifyAndEscape("cena <5 zl & wiecej");
+    Assert(!zloszliwy.Contains("<5", StringComparison.Ordinal),
+        "Znak mniejszosci z opisu musi byc ucieczkowany.");
+    Assert(zloszliwy.Contains("&amp;", StringComparison.Ordinal),
+        "Ampersand z opisu musi byc ucieczkowany.");
+
+    // Adres w tresci musi stac sie prawdziwym laczem, a kropka na koncu zdania
+    // nie moze wejsc do adresu.
+    var zLaczem = InformationDocument.LinkifyAndEscape("Wiecej na https://example.com/a.");
+    Assert(zLaczem.Contains("<a href=\"https://example.com/a\">", StringComparison.Ordinal),
+        "Adres w tresci musi byc klikalnym laczem bez kropki koncowej.");
+
+    // Pusta linia dzieli akapity - po nich czytnik skacze w trybie przegladania.
+    var akapity = InformationDocument.Paragraphs("pierwszy\n\ndrugi\nciag dalszy");
+    Assert(akapity.Count == 2, $"Pusta linia musi dzielic akapity, bylo {akapity.Count}.");
+
+    // 4. Escape zamyka okno TAKZE z wnetrza dokumentu - klawisze z WebView2 nie
+    // docieraja do PreviewKeyDown okna, wiec bez tego skryptu Escape by nie dzialal.
+    var oknoInfo = File.ReadAllText(ZnajdzPlikZrodlowy("InformationWindow.xaml.cs"));
+    Assert(oknoInfo.Contains("AddScriptToExecuteOnDocumentCreatedAsync", StringComparison.Ordinal)
+        && oknoInfo.Contains("postMessage('zamknij')", StringComparison.Ordinal),
+        "Escape musi zamykac okno takze wtedy, gdy ognisko jest w dokumencie HTML.");
+    Assert(oknoInfo.Contains("WebView2RuntimeNotFoundException", StringComparison.Ordinal),
+        "Brak WebView2 musi wracac do starego pola tekstowego, nie wywalac okna.");
+    Assert(oknoInfo.Contains("e.Cancel = true;", StringComparison.Ordinal),
+        "Lacza musi otwierac przegladarka systemowa, nie okno wlasciwosci.");
+    Assert(oknoInfo.Contains("if (_links.Count > 0) LinksList.Visibility = Visibility.Visible;", StringComparison.Ordinal),
+        "Gdy tryb przegladania nie wstanie, lista laczy musi wrocic.");
+
+    var xamlInfo = File.ReadAllText(ZnajdzPlikZrodlowy("InformationWindow.xaml"));
+    Assert(xamlInfo.Contains("InformationBrowser", StringComparison.Ordinal),
+        "Okno musi miec widok dokumentu.");
+}
+
+static void TestOpcjeStrumieniaStacjiRadiowej()
+{
+    // ZGLOSZENIE Michala 15.09.2026: Alt+Shift+Enter na stacji ma dawac dwie
+    // rzeczy - zapasowy adres strumienia i wlasny folder nagran tej stacji.
+    //
+    // Ten test oblalby sie przed poprawka, bo ShowItemPlaybackOptions dla sesji
+    // radio wchodzilo w galaz "Opcje elementu zostana udostepnione przez
+    // adapter tej uslugi", a RadioStationSettings nie mialo tych dwoch pol.
+    var ustawienia = File.ReadAllText(ZnajdzPlikZrodlowy("AppSettings.cs"));
+    Assert(ustawienia.Contains("public string? BackupStreamUrl", StringComparison.Ordinal),
+        "Stacja musi pamietac zapasowy adres strumienia.");
+    Assert(ustawienia.Contains("public string? RecordingFolder", StringComparison.Ordinal),
+        "Stacja musi pamietac wlasny folder nagran.");
+
+    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
+
+    // 1. Skrot naprawde prowadzi do nowego okna, a nie do komunikatu o braku obslugi.
+    Assert(okno.Contains("ShowRadioStationOptions(item)", StringComparison.Ordinal),
+        "Alt+Shift+Enter na stacji musi otwierac opcje strumienia.");
+    var pozycjaRadia = okno.IndexOf("ShowRadioStationOptions(item);", StringComparison.Ordinal);
+    var pozycjaOdmowy = okno.IndexOf("Opcje elementu zostaną udostępnione przez adapter", StringComparison.Ordinal);
+    Assert(pozycjaRadia > 0 && pozycjaOdmowy > 0 && pozycjaRadia < pozycjaOdmowy,
+        "Galaz radia musi byc SPRAWDZANA PRZED komunikatem o braku obslugi, inaczej okno sie nie otworzy.");
+
+    // 2. Nowe pola nie moga byc wymazywane przy zapisie stanu - lista stacji
+    // jest w CaptureRadioState budowana od nowa z MediaItem, ktory ich nie ma.
+    Assert(okno.Contains("BackupStreamUrl = saved?.BackupStreamUrl", StringComparison.Ordinal),
+        "CaptureRadioState musi przepisywac zapasowy adres, inaczej zapis stanu go wymaze.");
+    Assert(okno.Contains("RecordingFolder = saved?.RecordingFolder", StringComparison.Ordinal),
+        "CaptureRadioState musi przepisywac folder nagran, inaczej zapis stanu go wymaze.");
+
+    // 3. Folder stacji musi byc UZYWANY przy nagrywaniu, nie tylko zapisany.
+    Assert(okno.Contains("ResolveRadioRecordingsFolder(station)", StringComparison.Ordinal),
+        "Reczne nagrywanie musi pytac o folder TEJ stacji.");
+    Assert(okno.Contains("ResolveScheduledStationRecordingsFolder", StringComparison.Ordinal),
+        "Nagrywanie z harmonogramu musi tez uwzgledniac folder stacji.");
+
+    // 4. Zapasowy adres musi byc UZYWANY po awarii glownego.
+    Assert(okno.Contains("TryPlayRadioBackupStream", StringComparison.Ordinal),
+        "Po bledzie odtwarzania program musi sprobowac zapasowego adresu.");
+    var pozycjaProby = okno.IndexOf("TryPlayRadioBackupStream(radio, radio.CurrentItem))", StringComparison.Ordinal);
+    var pozycjaStopu = okno.IndexOf("if (radio is not null) radio.StopPlayback();", StringComparison.Ordinal);
+    Assert(pozycjaProby > 0 && pozycjaStopu > 0 && pozycjaProby < pozycjaStopu,
+        "Proba zapasowego adresu musi nastapic PRZED zatrzymaniem odtwarzania.");
+
+    // Bez tego czyszczenia zapasowy adres zadzialalby tylko raz na uruchomienie.
+    Assert(okno.Contains("_radioBackupAttempted.Remove(item.Id)", StringComparison.Ordinal),
+        "Reczne wlaczenie stacji musi zerowac licznik prob zapasowego adresu.");
+
+    var oknoOpcji = File.ReadAllText(ZnajdzPlikZrodlowy("ItemPlaybackOptionsWindow.xaml.cs"));
+    Assert(oknoOpcji.Contains("RadioStation", StringComparison.Ordinal),
+        "Okno opcji musi znac tryb stacji radiowej.");
+    Assert(oknoOpcji.Contains("adres.Scheme is \"http\" or \"https\"", StringComparison.Ordinal),
+        "Zapasowy adres musi byc sprawdzany, zeby literowka nie dala ciszy po awarii.");
+
+    var xaml = File.ReadAllText(ZnajdzPlikZrodlowy("ItemPlaybackOptionsWindow.xaml"));
+    Assert(xaml.Contains("BackupStreamUrlBox", StringComparison.Ordinal),
+        "Musi byc pole na zapasowy adres.");
+    Assert(xaml.Contains("RadioRecordingFolderBox", StringComparison.Ordinal),
+        "Musi byc pole na wlasny folder nagran.");
+    // Czytnik ekranu musi wiedziec, co to za pola.
+    Assert(xaml.Contains("Zapasowy adres strumienia tej stacji", StringComparison.Ordinal)
+        && xaml.Contains("Folder nagrań tej stacji", StringComparison.Ordinal),
+        "Oba pola musza miec nazwy dla czytnika ekranu.");
+}
+
+static void TestTransmisjaZObrazemDajeDzwiek()
+{
+    // ZGLOSZENIE Michala: "A linki Hermanice dalej prywatny ze niby nie udostepnia."
+    //
+    // ZMIERZONE 15.09.2026 na transmisji Dominikanow z Ustronia Hermanic
+    // (txtC7cxR6m8): transmisja jest PUBLICZNA i gra, a yt-dlp oddaje z niej
+    // wylacznie formaty 91-95, czyli obraz RAZEM z dzwiekiem. Zadnego formatu
+    // tylko-audio ten kanal nie wystawia.
+    //
+    // PRZYCZYNA BLEDU: SelectAudio przyjmowal tylko formaty, w ktorych nie ma
+    // obrazu (vcodec none), wiec odrzucal wszystko, co przyszlo, i program
+    // klamal komunikatem o braku publicznego strumienia audio.
+    //
+    // Ten test oblalby sie przed poprawka, bo wtedy IsUsableAudio bylo
+    // jednoargumentowe i bezwarunkowo wymagalo braku obrazu.
+    var zrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("Services/YouTubeSourceResolver.cs"));
+
+    Assert(zrodlo.Contains("IsUsableAudio(JsonElement candidate, bool requireAudioOnly)", StringComparison.Ordinal),
+        "SelectAudio musi rozrozniac 'tylko dzwiek' od 'obraz z dzwiekiem', a nie odrzucac drugiego.");
+
+    Assert(zrodlo.Contains("if (!requireAudioOnly) return true;", StringComparison.Ordinal),
+        "Format z obrazem i dzwiekiem musi byc przyjmowany, gdy nie ma sciezki tylko-audio.");
+
+    var pozycjaTylkoAudio = zrodlo.IndexOf("foreach (var audioOnly in new[] { true, false })", StringComparison.Ordinal);
+    Assert(pozycjaTylkoAudio > 0,
+        "Kolejnosc musi byc stala: najpierw sciezka bez obrazu, dopiero potem z obrazem.");
+
+    Assert(zrodlo.Contains("root.TryGetProperty(\"formats\"", StringComparison.Ordinal),
+        "Gdy yt-dlp nie wskazal formatu wprost, trzeba przejrzec pelna liste 'formats'.");
+
+    // Brak dzwieku nadal musi dyskwalifikowac format - inaczej wpadlby nam
+    // strumien z samym obrazem i cisza.
+    Assert(zrodlo.Contains("audioCodec.Equals(\"none\", StringComparison.OrdinalIgnoreCase)", StringComparison.Ordinal),
+        "Format bez dzwieku musi byc odrzucany.");
+
+    // Zapytanie do YouTube tez nie moze zawezac sie do samego audio.
+    Assert(zrodlo.Contains("best[acodec!=none]", StringComparison.Ordinal),
+        "Zapytanie o format musi miec zapas na strumien z obrazem i dzwiekiem.");
+}
+
+static void TestBuforTransmisjiLezyNaDyskuGdyDuzy()
+{
+    // ZGLOSZENIE Michala 15.09.2026: "10 min to za malo".
+    //
+    // PRZYCZYNA: bufor byl tablica w PAMIECI z twardym limitem 256 MB, co przy
+    // 44,1 kHz stereo 16-bit dawalo najwyzej ~24 minuty, niezaleznie od
+    // ustawienia. Dlatego dluzszy czas nie dzialal.
+    //
+    // Duzy bufor schodzi teraz na dysk (plik tymczasowy, kasowany przy
+    // zamknieciu stacji), maly zostaje w pamieci - zeby nie ruszac dysku bez
+    // potrzeby.
+    var zrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("RadioMediaOutput.cs"));
+
+    Assert(zrodlo.Contains("TimeshiftRingStorage", StringComparison.Ordinal)
+        && zrodlo.Contains("MemoryMappedFile", StringComparison.Ordinal),
+        "Brak plikowego magazynu bufora transmisji (TimeshiftRingStorage).");
+
+    // Bufor musi byc KASOWANY, inaczej pliki odkladalyby sie na dysku.
+    Assert(zrodlo.Contains("DeleteOnClose", StringComparison.Ordinal)
+        || zrodlo.Contains("FileOptions.DeleteOnClose", StringComparison.Ordinal),
+        "Plik bufora transmisji nie jest usuwany przy zamknieciu.");
+
+    // Maly bufor NIE MOZE ruszac dysku.
+    Assert(zrodlo.Contains("InMemoryLimitBytes", StringComparison.Ordinal),
+        "Brak progu, ponizej ktorego bufor zostaje w pamieci.");
+
+    // Dawny limit 256 MB nie moze wracac - to on obcinal czas.
+    Assert(!zrodlo.Contains("256 * 1024 * 1024", StringComparison.Ordinal),
+        "Wrocil dawny limit 256 MB, ktory obcinal czas bufora.");
+}
+
+static void TestBuforTransmisjiMaRegulacjePredkosci()
+{
+    // ZGLOSZENIE Michala 15.09.2026: "Regulacja predkosci oczywiscie w time
+    // shift, bo wiadomo w radiu na zywo sie nie da".
+    //
+    // Wczesniej radio zwracalo SupportsPlaybackRate = false i SetPlaybackRate
+    // nic nie robilo. Teraz predkosc dziala na dzwieku wyjmowanym z bufora.
+    var zrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("RadioMediaOutput.cs"));
+
+    Assert(zrodlo.Contains("SupportsPlaybackRate => true", StringComparison.Ordinal),
+        "Radio nadal zglasza brak regulacji predkosci.");
+
+    // Sama flaga nic nie daje - predkosc musi trafiac do przetwarzania dzwieku.
+    Assert(zrodlo.Contains("SoundTouchWaveStream", StringComparison.Ordinal)
+        && zrodlo.Contains("TempoStream", StringComparison.Ordinal),
+        "Brak realnej zmiany tempa dzwieku w buforze transmisji.");
+}
+
+static void TestPomocKontekstowaPodShiftF1()
+{
+    // ZGLOSZENIE Michala 15.09.2026: podpowiedzi maja byc dostepne w calym
+    // programie kontekstowo pod Shift+F1 - czyli sekcja pasujaca do biezacego
+    // widoku ma byc pierwsza, bez szukania.
+    var katalog = File.ReadAllText(ZnajdzPlikZrodlowy("ShortcutHelpCatalog.cs"));
+    Assert(katalog.Contains("CreateForContext", StringComparison.Ordinal),
+        "Brak doboru sekcji skrotow do biezacego widoku.");
+
+    // Skrot musi byc naprawde PODPIETY, nie tylko opisany.
+    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
+    Assert(okno.Contains("(ModifierKeys.Shift, Key.F1) => CommandIds.ContextHelp", StringComparison.Ordinal),
+        "Shift+F1 nie jest podpiete do pomocy kontekstowej.");
+    Assert(okno.Contains("ShowContextHelp", StringComparison.Ordinal),
+        "Brak wywolania pomocy kontekstowej w oknie glownym.");
+}
+
+static void TestCzytnikStrzalkaWGoreCzytaCoLeci()
+{
+    // ZGLOSZENIE Michala 15.09.2026: "NVDA-w gore czyta to co w WiiM, czyli
+    // radio, piosenke odtwarzana, informacje".
+    //
+    // Pulapka: strzalki w gore/dol reguluja glosnosc. Z klawiszem czytnika
+    // musi zadzialac odczyt informacji, a NIE glosnosc - dlatego ten warunek
+    // stoi PRZED obsluga glosnosci.
+    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
+
+    Assert(okno.Contains("IsNativeScreenReaderModifierDown", StringComparison.Ordinal),
+        "Brak rozpoznawania klawisza czytnika ekranu.");
+
+    var pozycjaOdczytu = okno.IndexOf("CommandIds.CurrentBroadcastInformation)", StringComparison.Ordinal);
+    var pozycjaGlosnosci = okno.IndexOf("ResolvePlayerVolumeFromVirtualKey", StringComparison.Ordinal);
+    Assert(pozycjaOdczytu > 0 && pozycjaGlosnosci > 0,
+        "Nie znaleziono obslugi odczytu informacji albo glosnosci.");
+
+    // Odczyt informacji z klawiszem czytnika musi byc rozpatrywany zanim
+    // strzalka w gore zostanie potraktowana jako glosnosc.
+    var fragment = okno.Substring(0, pozycjaGlosnosci);
+    Assert(fragment.Contains("IsNativeScreenReaderModifierDown()", StringComparison.Ordinal)
+        && fragment.Contains("CommandIds.CurrentBroadcastInformation", StringComparison.Ordinal),
+        "Czytnik + strzalka w gore nadal trafia w regulacje glosnosci.");
+}
+
 static void TestZywaTransmisjaMaZapasDzwieku()
 {
     // ZGLOSZENIE Michala 15.09.2026: "mini zaciecia, mini przerwy" na TVP Info
@@ -6228,6 +6497,15 @@ static string ZnajdzPlikZrodlowy(string nazwa)
         // wywalal sie na "nie znaleziono pliku", zamiast sprawdzic kod.
         var kandydatKorzen = Path.Combine(katalog, "src", "AccessibleMediaController.Windows", nazwa);
         if (File.Exists(kandydatKorzen)) return kandydatKorzen;
+        // 2026-09-15: czesc sprawdzanego kodu lezy w projekcie Core (katalog
+        // skrotow, polecenia). Bez tego test pomocy kontekstowej wywalal sie na
+        // braku pliku, zamiast sprawdzic kod.
+        foreach (var podkatalog in new[] { "Presentation", "Commands", "Input", "Configuration" })
+        {
+            var kandydatCore = Path.Combine(
+                katalog, "src", "AccessibleMediaController.Core", podkatalog, nazwa);
+            if (File.Exists(kandydatCore)) return kandydatCore;
+        }
         katalog = Path.GetDirectoryName(katalog);
     }
     throw new FileNotFoundException($"Nie znaleziono pliku zrodlowego {nazwa} w drzewie projektu.");

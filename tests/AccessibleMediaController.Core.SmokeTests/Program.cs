@@ -7237,6 +7237,8 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ShowSessionPlaybackOptions() => SessionPlaybackOptionsShown = true;
     public void OpenOfficialApplication() { }
     public void ShowHelp() { }
+
+    public void ShowContextHelp() { }
     public void ToggleKeyboardHelp() => KeyboardHelpToggled = true;
     public void ShowSettings(SettingsTarget target) => LastSettingsTarget = target;
     public void ToggleAccessibilityMessages() => MessagesToggled = true;

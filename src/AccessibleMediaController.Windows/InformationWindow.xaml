@@ -4,6 +4,7 @@
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
         xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
         xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="Właściwości i informacje"
         Width="650" Height="500" MinWidth="460" MinHeight="320"
         WindowStartupLocation="CenterOwner"
@@ -43,6 +44,14 @@
                 </Style>
             </ListBox.ItemContainerStyle>
         </ListBox>
-        <wfi:WindowsFormsHost x:Name="InformationHost" KeyboardNavigation.TabIndex="0" />
+        <Grid>
+            <wfi:WindowsFormsHost x:Name="InformationHost" KeyboardNavigation.TabIndex="0" />
+            <wv2:WebView2 x:Name="InformationBrowser"
+                          Visibility="Collapsed"
+                          KeyboardNavigation.TabIndex="0"
+                          automation:AutomationProperties.Name="Treść"
+                          automation:AutomationProperties.HelpText="Tryb przeglądania czytnika ekranu. Escape zamyka okno."
+                          NavigationStarting="InformationBrowser_NavigationStarting" />
+        </Grid>
     </DockPanel>
 </controls:AccessibleWindow>

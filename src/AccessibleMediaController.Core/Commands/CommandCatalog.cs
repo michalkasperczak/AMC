@@ -184,6 +184,7 @@ public static class CommandCatalog
             CommandIds.DownloadToDisk => "Pobierz na dysk",
             CommandIds.SavePodcastAs => "Zapisz odcinek podcastu jako",
             CommandIds.Help => "Skróty klawiszowe",
+            CommandIds.ContextHelp => "Skróty klawiszowe tego widoku",
             CommandIds.KeyboardHelp => "Włącz lub wyłącz pomoc klawiatury",
             CommandIds.OpenLocalFiles => "Otwórz lokalne pliki multimedialne",
             CommandIds.OpenLocalFolder => "Otwórz folder z plikami multimedialnymi",

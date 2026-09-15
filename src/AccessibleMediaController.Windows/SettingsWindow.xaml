@@ -148,6 +148,30 @@
                                            Text="Shift+S w odtwarzaczu radia włącza lub wyłącza obserwowanie dla wybranego tutaj zakresu. Ręczne S zawsze rozpoznaje wyłącznie słuchaną stację. Ctrl+Alt+Shift+S niezależnie przełącza oznajmianie wyników; po jego wyłączeniu wyniki nadal trafiają do jednej historii, którą można filtrować według stacji." />
                             </StackPanel>
                         </GroupBox>
+                        <GroupBox Header="Bufor transmisji (TimeShift)" Margin="0,0,0,14">
+                            <StackPanel Margin="8">
+                                <TextBlock Margin="0,0,0,8" TextWrapping="Wrap"
+                                           Text="Bufor transmisji pozwala cofnąć się w słuchanej stacji strzałką w lewo i wrócić na żywo klawiszem End. Buforowany dźwięk do dwudziestu czterech minut trzymany jest w pamięci. Dłuższy bufor zapisuje się w jednym pliku tymczasowym, który krąży w kółko i jest usuwany po zamknięciu stacji, więc nie odkłada się na dysku. Godzina buforu to około sześciuset megabajtów." />
+                                <Label Target="{Binding ElementName=RadioTimeshiftMinutesCombo}">_Długość bufora transmisji:</Label>
+                                <ComboBox x:Name="RadioTimeshiftMinutesCombo" Width="330" HorizontalAlignment="Left"
+                                          SelectionChanged="RadioTimeshiftMinutesCombo_SelectionChanged"
+                                          automation:AutomationProperties.Name="Długość bufora transmisji"
+                                          automation:AutomationProperties.HelpText="Ustawienie działa dla wszystkich stacji, które nie mają własnej długości bufora ustawionej w oknie właściwości stacji. Nowa długość obowiązuje od następnego włączenia stacji.">
+                                    <ComboBoxItem Tag="10" automation:AutomationProperties.Name="10 minut, w pamięci">10 minut (w pamięci)</ComboBoxItem>
+                                    <ComboBoxItem Tag="20" automation:AutomationProperties.Name="20 minut, w pamięci">20 minut (w pamięci)</ComboBoxItem>
+                                    <ComboBoxItem Tag="30" automation:AutomationProperties.Name="30 minut, na dysku">30 minut (na dysku)</ComboBoxItem>
+                                    <ComboBoxItem Tag="60" automation:AutomationProperties.Name="1 godzina, na dysku">1 godzina (na dysku)</ComboBoxItem>
+                                    <ComboBoxItem Tag="120" automation:AutomationProperties.Name="2 godziny, na dysku">2 godziny (na dysku)</ComboBoxItem>
+                                    <ComboBoxItem Tag="180" automation:AutomationProperties.Name="3 godziny, na dysku">3 godziny (na dysku)</ComboBoxItem>
+                                    <ComboBoxItem Tag="360" automation:AutomationProperties.Name="6 godzin, na dysku">6 godzin (na dysku)</ComboBoxItem>
+                                    <ComboBoxItem Tag="720" automation:AutomationProperties.Name="12 godzin, na dysku">12 godzin (na dysku)</ComboBoxItem>
+                                </ComboBox>
+                                <TextBlock x:Name="RadioTimeshiftWarningText" Margin="0,8,0,0" TextWrapping="Wrap"
+                                           automation:AutomationProperties.LiveSetting="Polite" />
+                                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
+                                           Text="Podczas słuchania z buforu działa regulacja prędkości: Ctrl+Shift+strzałka w prawo przyspiesza, w lewo zwalnia, a Ctrl+Shift+strzałka w dół wraca do normalnej prędkości. Szybsze tempo pozwala dogonić transmisję na żywo. Na żywo prędkości zmienić nie można." />
+                            </StackPanel>
+                        </GroupBox>
                         <GroupBox Header="Domyślny folder nagrywania" Margin="0,0,0,14">
                             <StackPanel Margin="8">
                                 <Label Target="{Binding ElementName=RadioRecordingsFolderModeCombo}">_Położenie nagrań Radia:</Label>

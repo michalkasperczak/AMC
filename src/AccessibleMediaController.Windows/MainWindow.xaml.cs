@@ -4177,6 +4177,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var item = ActionItem ?? _sessions.Current.CurrentItem;
+        if (string.Equals(ActionSession.Id, "radio", StringComparison.Ordinal)
+            && item.Kind is MediaItemKind.Station)
+        {
+            ShowRadioStationOptions(item);
+            return;
+        }
         if (string.Equals(ActionSession.Id, "podcasts", StringComparison.Ordinal)
             && item.Kind is MediaItemKind.Podcast or MediaItemKind.Episode)
         {
@@ -4407,6 +4413,54 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string.IsNullOrWhiteSpace(sessionId)
             ? null
             : _state.Settings.Audio.OverridesBySession.GetValueOrDefault(sessionId);
+
+    /// <summary>
+    /// Opcje strumienia jednej stacji radiowej (Alt+Shift+Enter).
+    /// ZGLOSZENIE Michala 15.09.2026: zapasowy adres i wlasny folder nagran.
+    /// </summary>
+    private void ShowRadioStationOptions(MediaItem item)
+    {
+        CaptureRadioState();
+        var saved = FindRadioStationSettings(item);
+        if (saved is null)
+        {
+            Announce("Nie można odnaleźć ustawień tej stacji");
+            return;
+        }
+
+        var dialog = new ItemPlaybackOptionsWindow(
+            item.Title,
+            ResumePositionMode.Inherit,
+            playbackRateOverride: null,
+            loudnessNormalizationOverride: null,
+            smoothTrackTransitionsOverride: null,
+            interTrackSilenceMillisecondsOverride: null,
+            target: ItemPlaybackOptionsTarget.RadioStation,
+            radioBackupStreamUrl: saved.BackupStreamUrl,
+            radioRecordingFolder: saved.RecordingFolder)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            RestoreItemActionFocus();
+            return;
+        }
+
+        saved.BackupStreamUrl = dialog.SelectedRadioBackupStreamUrl;
+        saved.RecordingFolder = dialog.SelectedRadioRecordingFolder is { } wlasnyFolder
+            ? Path.GetFullPath(wlasnyFolder)
+            : null;
+        QueueStateSave(announceFailure: true);
+        var zapasowy = string.IsNullOrWhiteSpace(saved.BackupStreamUrl)
+            ? "bez zapasowego adresu"
+            : "z zapasowym adresem";
+        var folder = string.IsNullOrWhiteSpace(saved.RecordingFolder)
+            ? "folder nagrań ogólny"
+            : $"folder nagrań: {saved.RecordingFolder}";
+        Announce($"Zapisano opcje strumienia: {item.Title}, {zapasowy}, {folder}");
+        RestoreItemActionFocus();
+    }
 
     private void ShowPodcastPlaybackOptions(MediaItem item)
     {
@@ -5268,13 +5322,30 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return false;
     }
 
-    public void ShowHelp()
+    public void ShowHelp() => ShowHelp(contextual: false);
+
+    public void ShowContextHelp() => ShowHelp(contextual: true);
+
+    /// <summary>
+    /// Spis skrotow. F1 pokazuje wszystko w stalej kolejnosci; Shift+F1 stawia
+    /// na poczatku sekcje pasujaca do miejsca, w ktorym uzytkownik wlasnie jest
+    /// (ZGLOSZENIE Michala 15.09.2026 - pomoc kontekstowa pod Shift+F1).
+    /// </summary>
+    public void ShowHelp(bool contextual)
     {
         try
         {
-            DiagnosticLog.Info("shortcut-help", "Otwieranie dostępnego spisu skrótów.");
+            DiagnosticLog.Info("shortcut-help", contextual
+                ? "Otwieranie kontekstowego spisu skrótów (Shift+F1)."
+                : "Otwieranie dostępnego spisu skrótów.");
             ClearFocusContext();
-            var sections = ShortcutHelpCatalog.Create(ActiveKeyboardProfile(), _state.Settings);
+            var sections = contextual
+                ? ShortcutHelpCatalog.CreateForContext(
+                    ActiveKeyboardProfile(),
+                    _state.Settings,
+                    _sessions.Current.Id,
+                    _playerViewActive)
+                : ShortcutHelpCatalog.Create(ActiveKeyboardProfile(), _state.Settings);
             var dialog = new ShortcutHelpWindow(sections) { Owner = this };
             var accepted = dialog.ShowDialog() == true;
             var commandId = accepted ? dialog.SelectedCommandId : null;
@@ -7290,7 +7361,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 IsInLibrary = item.IsInLibrary,
                 IsInQueue = false,
                 IsPlayNext = false,
-                IsCustom = string.IsNullOrWhiteSpace(item.ExternalId)
+                IsCustom = string.IsNullOrWhiteSpace(item.ExternalId),
+                // Te dwa pola zyja tylko w ustawieniach - nie ma ich w MediaItem.
+                // Bez przepisania z 'saved' kazdy zapis stanu by je WYMAZAL,
+                // bo lista stacji jest tu budowana od nowa.
+                BackupStreamUrl = saved?.BackupStreamUrl,
+                RecordingFolder = saved?.RecordingFolder
             };
         }).ToList();
     }
@@ -10168,14 +10244,68 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         UpdatePlaybackStatusBar();
     }
 
+    /// <summary>
+    /// Stacje, na ktorych juz probowalismy adresu zapasowego. Bez tego przy
+    /// dwoch niedzialajacych adresach program krecilby sie w kolko.
+    /// </summary>
+    private readonly HashSet<string> _radioBackupAttempted = new(StringComparer.Ordinal);
+
     private void RadioOutput_PlaybackFailed(object? sender, MediaOutputFailedEventArgs e)
     {
         var radio = _sessions.FindSession("radio");
+        // ZGLOSZENIE Michala 15.09.2026: gdy glowny adres nie odpowiada, sprobuj
+        // zapasowego z Opcji strumienia, zamiast po prostu zamilknac.
+        if (radio is not null
+            && radio.HasCurrentItem
+            && radio.CurrentItem.Kind == MediaItemKind.Station
+            && TryPlayRadioBackupStream(radio, radio.CurrentItem))
+        {
+            return;
+        }
         if (radio is not null) radio.StopPlayback();
         if (_state.Settings.Messages.ErrorMessages) AnnounceEssential(e.Message);
         if (_playerViewActive) UpdatePlayerView();
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();
+    }
+
+    /// <summary>
+    /// Przelacza stacje na zapasowy adres strumienia. Zwraca true, gdy proba
+    /// zostala podjeta - wtedy nie zglaszamy jeszcze bledu uzytkownikowi.
+    /// </summary>
+    private bool TryPlayRadioBackupStream(DemoMediaSession radio, MediaItem station)
+    {
+        var saved = FindRadioStationSettings(station);
+        var zapasowy = saved?.BackupStreamUrl;
+        if (string.IsNullOrWhiteSpace(zapasowy)) return false;
+        // Nie probuj zapasowego, gdy juz na nim jestesmy.
+        if (string.Equals(station.Source, zapasowy, StringComparison.OrdinalIgnoreCase)) return false;
+        if (!_radioBackupAttempted.Add(station.Id)) return false;
+
+        AnnounceEssential($"Główny adres nie odpowiada. Przełączam na zapasowy adres stacji {station.Title}");
+        // MediaItem nie ma metody kopiujacej, wiec podmieniamy sam adres na
+        // kopii elementu - stacja na liscie zostaje z glownym adresem.
+        var zapasowaStacja = new MediaItem
+        {
+            Id = station.Id,
+            Title = station.Title,
+            HasCustomTitle = station.HasCustomTitle,
+            Artist = station.Artist,
+            Kind = station.Kind,
+            Source = zapasowy,
+            PublicUri = station.PublicUri,
+            HomepageUri = station.HomepageUri,
+            Country = station.Country,
+            Language = station.Language,
+            Tags = station.Tags,
+            Codec = station.Codec,
+            ExternalId = station.ExternalId,
+            BitrateKbps = station.BitrateKbps,
+            IsBitrateEstimated = station.IsBitrateEstimated,
+            SampleRateHz = station.SampleRateHz
+        };
+        radio.Play(zapasowaStacja);
+        return true;
     }
 
     private void RegisterConfiguredPrefix()
@@ -11899,6 +12029,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             or CommandIds.SearchAll
             or CommandIds.CommandPalette
             or CommandIds.Help
+            or CommandIds.ContextHelp
             or CommandIds.KeyboardHelp
             or CommandIds.ManageWiiMDevices
             or CommandIds.RefreshWiiMDevices
@@ -14590,6 +14721,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _sessions.SelectSession("radio");
         }
 
+        // Recznie wlaczona stacja zaczyna od zera - zapasowy adres ma byc
+        // dostepny znowu, a nie tylko raz na uruchomienie programu.
+        _radioBackupAttempted.Remove(item.Id);
         radio.Play(item);
         CaptureRadioState();
         QueueStateSave();
@@ -15091,8 +15225,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RefreshRadioRecognitionScheduleAfterSourceChange();
         active.Task = Task.Run(() => ManualRadioRecorder.RecordAsync(
             station,
-            ResolveRadioRecordingsFolder(),
-            ResolveRadioRecordingsFolder(),
+            // Wlasny folder TEJ stacji, gdy ustawiony w Opcjach strumienia.
+            ResolveRadioRecordingsFolder(station),
+            ResolveRadioRecordingsFolder(station),
             ResolveSystemRadioRecordingsFolder(),
             active.RecordingFormat,
             active.RecordingBitrateKbps,
@@ -15402,6 +15537,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private string ResolveRadioRecordingsFolder()
     {
+        return ResolveRadioRecordingsFolder(null);
+    }
+
+    /// <summary>
+    /// Folder nagran dla stacji. Wlasny folder STACJI ma pierwszenstwo nad
+    /// ustawieniem ogolnym. ZGLOSZENIE Michala 15.09.2026 - bez tego wszystkie
+    /// nagrania ladowaly w jednym miejscu.
+    /// </summary>
+    private string ResolveRadioRecordingsFolder(MediaItem? station)
+    {
+        if (station is not null)
+        {
+            var wlasny = FindRadioStationSettings(station)?.RecordingFolder;
+            if (!string.IsNullOrWhiteSpace(wlasny)) return wlasny;
+        }
         if (_state.Radio.UsePodcastDownloadsFolderForRecordings)
         {
             return string.IsNullOrWhiteSpace(_state.Podcasts.DownloadsFolder)
@@ -15414,6 +15564,41 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         var music = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
         return Path.Combine(music, "AMC — Nagrania radia");
+    }
+
+    /// <summary>
+    /// Ustawienia zapisanej stacji dla elementu z listy - najpierw po
+    /// identyfikatorze, potem po adresie strumienia.
+    /// </summary>
+    private RadioStationSettings? FindRadioStationSettings(MediaItem item)
+    {
+        var stations = _state.Radio.Stations ?? [];
+        var saved = stations.FirstOrDefault(station =>
+            string.Equals(station.Id, item.Id, StringComparison.Ordinal));
+        if (saved is not null) return saved;
+        if (string.IsNullOrWhiteSpace(item.Source)) return null;
+        return stations.FirstOrDefault(station =>
+            string.Equals(station.StreamUrl, item.Source, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Folder nagran dla harmonogramu - uwzglednia wlasny folder stacji
+    /// wskazanej w harmonogramie. ZGLOSZENIE Michala 15.09.2026.
+    /// </summary>
+    private string ResolveScheduledStationRecordingsFolder(
+        RadioRecordingScheduleSettings schedule)
+    {
+        var stations = _state.Radio.Stations ?? [];
+        var saved = stations.FirstOrDefault(station =>
+            string.Equals(station.Id, schedule.StationId, StringComparison.Ordinal));
+        if (saved is null && !string.IsNullOrWhiteSpace(schedule.StreamUrl))
+        {
+            saved = stations.FirstOrDefault(station =>
+                string.Equals(station.StreamUrl, schedule.StreamUrl, StringComparison.OrdinalIgnoreCase));
+        }
+        return string.IsNullOrWhiteSpace(saved?.RecordingFolder)
+            ? ResolveRadioRecordingsFolder()
+            : saved!.RecordingFolder!;
     }
 
     private string ResolveSystemRadioRecordingsFolder()
@@ -15651,15 +15836,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var resumingOccurrence = actualStartUtc - startUtc >= TimeSpan.FromSeconds(10);
         var recordingFormat = snapshot.RecordingFormat ?? _state.Radio.RecordingFormat;
         var recordingBitrateKbps = snapshot.RecordingBitrateKbps ?? _state.Radio.RecordingBitrateKbps;
+        // Kolejnosc: folder wpisany w harmonogramie, potem wlasny folder tej
+        // stacji z Opcji strumienia, na koncu ogolny.
+        var folderStacji = ResolveScheduledStationRecordingsFolder(snapshot);
         var requestedOutputFolder = string.IsNullOrWhiteSpace(snapshot.OutputFolder)
-            ? ResolveRadioRecordingsFolder()
+            ? folderStacji
             : snapshot.OutputFolder;
         var cancellation = new CancellationTokenSource();
         var control = new RadioRecordingControl();
         var task = Task.Run(() => ScheduledRadioRecorder.RecordAsync(
             snapshot,
             deadlineUtc,
-            ResolveRadioRecordingsFolder(),
+            folderStacji,
             ResolveSystemRadioRecordingsFolder(),
             recordingFormat,
             recordingBitrateKbps,
@@ -18450,6 +18638,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return IntPtr.Zero;
         }
         var menuActive = IsMenuInteractionActive(Keyboard.FocusedElement);
+        // Czytnik + strzalka w gore = odczyt tego, co leci (jak w WiiM).
+        // ZGLOSZENIE Michala 15.09.2026. Lapiemy to na granicy okna, PRZED
+        // obsluga glosnosci, bo NVDA potrafi zabrac klawisz zanim dojdzie do WPF.
+        if (virtualKey == 0x26 // strzalka w gore
+            && !menuActive
+            && IsNativeScreenReaderModifierDown())
+        {
+            handled = true;
+            Dispatcher.BeginInvoke(
+                () => ExecuteCommand(CommandIds.CurrentBroadcastInformation),
+                DispatcherPriority.Input);
+            return IntPtr.Zero;
+        }
         var playerVolumeCommand = MainWindowShortcutRouter.ResolvePlayerVolumeFromVirtualKey(
             virtualKey,
             modifiers,
@@ -19010,6 +19211,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ShowHelp();
             e.Handled = true;
         }
+        else if (e.Key == Key.F1 && modifiers == ModifierKeys.Shift)
+        {
+            // Pomoc KONTEKSTOWA - sekcja pasujaca do biezacego widoku idzie
+            // pierwsza. ZGLOSZENIE Michala 15.09.2026.
+            ShowHelp(contextual: true);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Up
+                 && modifiers == ModifierKeys.None
+                 && IsNativeScreenReaderModifierDown())
+        {
+            // Czytnik + strzalka w gore = co teraz leci (jak w WiiM).
+            // ZGLOSZENIE Michala 15.09.2026. Dziala takze na liscie stacji,
+            // nie tylko w widoku odtwarzacza.
+            ExecuteCommand(CommandIds.CurrentBroadcastInformation);
+            e.Handled = true;
+        }
         else if (MediaList.IsKeyboardFocusWithin
                  && MediaList.Items.Count == 0
                  && modifiers == ModifierKeys.None
@@ -19550,6 +19768,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         commandId = (modifiers, key) switch
         {
             (ModifierKeys.None, Key.F1) => CommandIds.Help,
+            (ModifierKeys.Shift, Key.F1) => CommandIds.ContextHelp,
             (ModifierKeys.Shift, Key.A) => CommandIds.SelectAudioOutput,
             (ModifierKeys.None, Key.F6) or (ModifierKeys.Shift, Key.F6) => CommandIds.ViewNowPlaying,
             (ModifierKeys.Control, Key.PageUp) => CommandIds.SessionPrevious,
@@ -20205,6 +20424,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (effectiveModifiers == ModifierKeys.None && TryGetDigitKey(key, out var digit))
         {
             ExecuteCommand(CommandIds.SeekPercent(digit * 10));
+            return true;
+        }
+
+        // NVDA (lub inny czytnik) + strzalka w gore = odczyt informacji o tym,
+        // co leci: stacja, utwor, audycja. ZGLOSZENIE Michala 15.09.2026 - ma
+        // dzialac jak w WiiM. Klawisz czytnika NIE steruje wtedy gloscia, wiec
+        // ten warunek musi stac PRZED ResolvePlayerVolume.
+        if (effectiveModifiers == ModifierKeys.None
+            && key == Key.Up
+            && IsNativeScreenReaderModifierDown())
+        {
+            ExecuteCommand(CommandIds.CurrentBroadcastInformation);
             return true;
         }
 
@@ -20953,6 +21184,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && SelectedItem is { } tidalItem)
         {
             ShowTidalRelationsMenu(tidalItem);
+            e.Handled = true;
+            return;
+        }
+        // ZGLOSZENIE Michala 15.09.2026: strzalka w prawo na liscie podcastow
+        // otwiera pelny opis - to samo, co Alt+D, tylko jedna reka.
+        // Dotyczy TYLKO listy; w odtwarzaczu strzalka dalej przewija dzwiek.
+        if (Keyboard.Modifiers == ModifierKeys.None
+            && key == Key.Right
+            && string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
+            && SelectedItem is { Kind: MediaItemKind.Podcast or MediaItemKind.Episode })
+        {
+            ExecuteCommand(CommandIds.PodcastDescription);
             e.Handled = true;
             return;
         }

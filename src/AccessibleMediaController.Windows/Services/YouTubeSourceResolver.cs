@@ -232,22 +232,42 @@ internal static class YouTubeSourceResolver
 
     private static JsonElement? SelectAudio(JsonElement root)
     {
-        foreach (var property in new[] { "requested_downloads", "requested_formats" })
+        // Najpierw szukamy sciezki BEZ obrazu - jest najlzejsza dla sieci.
+        // Gdy jej nie ma, bierzemy strumien z obrazem, bo ffmpeg wyciaga z niego
+        // sam dzwiek. ZMIERZONE 15.09.2026 (Dominikanie Ustron Hermanice,
+        // txtC7cxR6m8): ten kanal oddaje WYLACZNIE formaty 91-95, czyli obraz
+        // razem z dzwiekiem, i zadnego tylko-audio. Wczesniejszy warunek
+        // odrzucal je wszystkie, a program mowil "YouTube nie udostepnil
+        // publicznego strumienia audio" - co bylo nieprawda, transmisja byla
+        // publiczna i grala.
+        foreach (var audioOnly in new[] { true, false })
         {
-            if (!root.TryGetProperty(property, out var container)
-                || container.ValueKind != JsonValueKind.Array)
+            foreach (var property in new[] { "requested_downloads", "requested_formats" })
             {
-                continue;
+                if (!root.TryGetProperty(property, out var container)
+                    || container.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+                foreach (var candidate in container.EnumerateArray())
+                {
+                    if (IsUsableAudio(candidate, audioOnly)) return candidate;
+                }
             }
-            foreach (var candidate in container.EnumerateArray())
+            if (IsUsableAudio(root, audioOnly)) return root;
+            if (root.TryGetProperty("formats", out var formats)
+                && formats.ValueKind == JsonValueKind.Array)
             {
-                if (IsUsableAudio(candidate)) return candidate;
+                foreach (var candidate in formats.EnumerateArray())
+                {
+                    if (IsUsableAudio(candidate, audioOnly)) return candidate;
+                }
             }
         }
-        return IsUsableAudio(root) ? root : null;
+        return null;
     }
 
-    private static bool IsUsableAudio(JsonElement candidate)
+    private static bool IsUsableAudio(JsonElement candidate, bool requireAudioOnly)
     {
         if (candidate.ValueKind != JsonValueKind.Object
             || string.IsNullOrWhiteSpace(ReadString(candidate, "url")))
@@ -255,7 +275,13 @@ internal static class YouTubeSourceResolver
             return false;
         }
         var audioCodec = ReadString(candidate, "acodec");
-        if (audioCodec.Equals("none", StringComparison.OrdinalIgnoreCase)) return false;
+        // Dzwiek musi byc - format bez dzwieku jest bezuzyteczny.
+        if (audioCodec.Length == 0
+            || audioCodec.Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        if (!requireAudioOnly) return true;
         var videoCodec = ReadString(candidate, "vcodec");
         return videoCodec.Length == 0 || videoCodec.Equals("none", StringComparison.OrdinalIgnoreCase);
     }

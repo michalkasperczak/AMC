@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.IO.MemoryMappedFiles;
 using System.Net.Http;
 using System.Security.Authentication;
 using System.Runtime.InteropServices;
@@ -9,6 +10,7 @@ using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Sessions;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
+using SoundTouch.Net.NAudioSupport;
 
 namespace AccessibleMediaController.Windows.Services;
 
@@ -28,7 +30,11 @@ internal sealed record RadioAudioSnapshot(byte[] Audio, WaveFormat Format, TimeS
 /// </summary>
 public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) : IMediaOutput, IDisposable
 {
-    private const int MaximumTimeshiftBytes = 256 * 1024 * 1024;
+    // Gorna granica bufora transmisji. ZGLOSZENIE Michala 15.09.2026: "10 min
+    // to za malo". Dawny limit 256 MB pamieci pozwalal na ~24 minuty i to on,
+    // nie ustawienie, obcinal czas. Teraz duzy bufor idzie na dysk, wiec
+    // granica moze byc znacznie wyzsza: 8 GB to ~13 godzin dzwieku stereo.
+    private const long MaximumTimeshiftBytes = 8L * 1024 * 1024 * 1024;
     private const int MaximumReconnectAttempts = 2;
     private static readonly TimeSpan PreparationTimeout = TimeSpan.FromSeconds(25);
     private static readonly TimeSpan YouTubePreparationTimeout = TimeSpan.FromSeconds(90);
@@ -36,11 +42,14 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
     private static readonly TimeSpan StableReceptionInterval = TimeSpan.FromSeconds(20);
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     private readonly object _gate = new();
-    private readonly int _timeshiftMinutes = Math.Clamp(timeshiftMinutes, 1, 60);
+    // Do 12 godzin bufora (byla godzina). Powyzej 24 minut bufor lezy na dysku.
+    private readonly int _timeshiftMinutes = Math.Clamp(timeshiftMinutes, 1, 720);
     private RadioPipeline? _pipeline;
     private CancellationTokenSource? _preparationCancellation;
     private MediaItem? _requestedItem;
     private int _volume = 35;
+    // Predkosc odsluchu bufora transmisji (1.0 = normalna).
+    private double _playbackRate = 1d;
     private string? _outputDeviceId;
     private long _requestVersion;
     private bool _preparing;
@@ -69,7 +78,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         }
     }
 
-    public bool SupportsPlaybackRate => false;
+    // Predkosc dziala na buforze transmisji (TimeShift), nie na dzwieku na zywo.
+    public bool SupportsPlaybackRate => true;
 
     public void ConfigureOutputDevice(string? deviceId)
     {
@@ -313,7 +323,21 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             }
             ApplyDetectedAudioMetadata(item, openedReader);
             buffer.Write(initialAudio, 0, initialRead);
-            var volume = new VolumeSampleProvider(buffer.ToSampleProvider())
+            // Regulacja predkosci dziala TYLKO na buforze transmisji - na zywo
+            // przyspieszyc sie nie da, bo dzwieku jeszcze nie ma. SoundTouch
+            // zmienia tempo bez zmiany wysokosci glosu (Tempo, nie Rate).
+            // ZGLOSZENIE Michala 15.09.2026: "podczas przewijania w czasie
+            // sluchania dobrze, jakby dzialala regulacja predkosci w TimeShift".
+            var tempoStream = new SoundTouchWaveStream(new TimeshiftWaveStream(buffer))
+            {
+                Tempo = 1d,
+                Pitch = 1d,
+                Rate = 1d
+            };
+            double initialRate;
+            lock (_gate) initialRate = _playbackRate;
+            if (Math.Abs(initialRate - 1d) > 0.001d) tempoStream.Tempo = initialRate;
+            var volume = new VolumeSampleProvider(tempoStream.ToSampleProvider())
             {
                 Volume = Math.Clamp(_volume, 0, 100) / 100f
             };
@@ -335,6 +359,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 openedReader.Source
                     ?? new ResolvedRadioSource(item.Source!, RadioStreamResolver.IsHlsSource(item.Source!), false),
                 buffer,
+                tempoStream,
                 volume,
                 preparedOutputLease,
                 cancellation,
@@ -936,8 +961,35 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
 
     public void SetPlaybackRate(double playbackRate)
     {
-        // Live radio deliberately stays at its original speed. Time-shift is
-        // implemented by moving inside the buffer, not by stretching speech.
+        // ZGLOSZENIE Michala 15.09.2026: regulacja predkosci ma dzialac w
+        // buforze transmisji (TimeShift). Na zywo przyspieszyc sie nie da - tam
+        // dzwieku jeszcze nie ma - ale gdy sluchasz z opoznieniem, szybsze
+        // tempo pozwala dogonic transmisje na zywo.
+        //
+        // SoundTouch zmienia TEMPO, nie wysokosc glosu, wiec mowa nie brzmi jak
+        // myszka Miki.
+        var resolved = Math.Clamp(playbackRate, 0.50d, 2.00d);
+        RadioPipeline? pipeline;
+        lock (_gate)
+        {
+            _playbackRate = resolved;
+            pipeline = _pipeline;
+        }
+        if (pipeline is null) return;
+        try { pipeline.TempoStream.Tempo = resolved; }
+        catch (Exception exception) when (exception is InvalidOperationException
+            or ObjectDisposedException)
+        {
+            DiagnosticLog.Error(
+                "radio-playback",
+                "Nie udało się zmienić prędkości odtwarzania bufora transmisji.",
+                exception);
+        }
+    }
+
+    public double PlaybackRate
+    {
+        get { lock (_gate) return _playbackRate; }
     }
 
     public string StartRecording(
@@ -1149,6 +1201,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         IDisposable readerLifetime,
         ResolvedRadioSource resolvedSource,
         RadioTimeshiftWaveProvider buffer,
+        SoundTouchWaveStream tempoStream,
         VolumeSampleProvider volume,
         AudioOutputDeviceLease? outputLease,
         CancellationTokenSource cancellation,
@@ -1178,6 +1231,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             }
         }
         public RadioTimeshiftWaveProvider Buffer { get; } = buffer;
+        public SoundTouchWaveStream TempoStream { get; } = tempoStream;
         public VolumeSampleProvider Volume { get; } = volume;
         public WasapiOut? Output => outputLease?.Output;
         public CancellationTokenSource Cancellation { get; } = cancellation;
@@ -1257,6 +1311,10 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                     exception);
             }
             try { Output?.Stop(); } catch (Exception) { }
+            // Zwolnienie bufora transmisji USUWA plik na dysku (gdy bufor jest
+            // duzy i lezy w pliku). Bez tego pliki odkladalyby sie przy kazdej
+            // zmianie stacji - dokladnie to, o co pytal Michal 15.09.2026.
+            try { Buffer.Dispose(); } catch (Exception) { }
             try { currentLifetime?.Dispose(); } catch (Exception) { }
             try { outputLease?.Dispose(); } catch (Exception) { }
             Cancellation.Dispose();
@@ -1271,10 +1329,146 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         string? Codec,
         ResolvedRadioSource? Source = null);
 
-    private sealed class RadioTimeshiftWaveProvider : IWaveProvider
+    /// <summary>
+    /// Pierscieniowy magazyn bufora transmisji. ZGLOSZENIE Michala 15.09.2026:
+    /// "TimeShift, znaczne zwiekszenie czasu, 10 min to za malo".
+    ///
+    /// PRZYCZYNA, dla ktorej czas nie dal sie zwiekszyc: bufor byl zwyklou
+    /// tablica w PAMIECI, obcinana twardym limitem 256 MB. Godzina dzwieku
+    /// stereo 44,1 kHz to ~600 MB, wiec limit pamieci pozwalal na najwyzej
+    /// ~24 minuty niezaleznie od ustawienia.
+    ///
+    /// Dlatego duze bufory ida teraz na DYSK, przez plik odwzorowany w pamieci
+    /// (MemoryMappedFile). System sam trzyma w RAM tylko uzywany fragment, wiec
+    /// kilkugodzinny bufor nie zjada pamieci. Male bufory zostaja w tablicy -
+    /// nie ma po co tworzyc pliku dla kilku minut.
+    /// </summary>
+    private sealed class TimeshiftRingStorage : IDisposable
+    {
+        // Do tego rozmiaru trzymamy bufor w pamieci - plik nie oplaca sie.
+        private const long InMemoryLimitBytes = 64L * 1024 * 1024;
+
+        private readonly byte[]? _memory;
+        private readonly MemoryMappedFile? _file;
+        private readonly MemoryMappedViewAccessor? _view;
+        private readonly string? _filePath;
+
+        public TimeshiftRingStorage(long capacity)
+        {
+            Length = capacity;
+            if (capacity <= InMemoryLimitBytes)
+            {
+                _memory = new byte[capacity];
+                OnDisk = false;
+                return;
+            }
+
+            try
+            {
+                // Plik ginie razem z uchwytem (DeleteOnClose), wiec nawet po
+                // zabiciu programu nie zostaje po nim smiec przy nastepnym
+                // starcie systemu.
+                _filePath = Path.Combine(
+                    Path.GetTempPath(),
+                    "AMC-timeshift-" + Guid.NewGuid().ToString("N") + ".buf");
+                var stream = new FileStream(
+                    _filePath,
+                    FileMode.CreateNew,
+                    FileAccess.ReadWrite,
+                    FileShare.None,
+                    4096,
+                    FileOptions.DeleteOnClose);
+                _file = MemoryMappedFile.CreateFromFile(
+                    stream,
+                    mapName: null,
+                    capacity,
+                    MemoryMappedFileAccess.ReadWrite,
+                    HandleInheritability.None,
+                    leaveOpen: false);
+                _view = _file.CreateViewAccessor(0, capacity, MemoryMappedFileAccess.ReadWrite);
+                OnDisk = true;
+            }
+            catch (Exception exception) when (exception is IOException
+                or UnauthorizedAccessException
+                or NotSupportedException)
+            {
+                // Brak miejsca albo brak praw do katalogu tymczasowego nie moze
+                // przerwac sluchania radia - schodzimy do bufora w pamieci.
+                try { _view?.Dispose(); } catch (Exception) { }
+                try { _file?.Dispose(); } catch (Exception) { }
+                _view = null;
+                _file = null;
+                _filePath = null;
+                Length = Math.Min(capacity, InMemoryLimitBytes);
+                _memory = new byte[Length];
+                OnDisk = false;
+            }
+        }
+
+        public long Length { get; }
+
+        public bool OnDisk { get; }
+
+        public void Write(byte[] source, int sourceOffset, long ringOffset, int count)
+        {
+            if (_memory is not null)
+            {
+                Buffer.BlockCopy(source, sourceOffset, _memory, (int)ringOffset, count);
+                return;
+            }
+            _view!.WriteArray(ringOffset, source, sourceOffset, count);
+        }
+
+        public void Read(long ringOffset, byte[] destination, int destinationOffset, int count)
+        {
+            if (_memory is not null)
+            {
+                Buffer.BlockCopy(_memory, (int)ringOffset, destination, destinationOffset, count);
+                return;
+            }
+            _view!.ReadArray(ringOffset, destination, destinationOffset, count);
+        }
+
+        public void Dispose()
+        {
+            try { _view?.Flush(); } catch (Exception) { }
+            try { _view?.Dispose(); } catch (Exception) { }
+            try { _file?.Dispose(); } catch (Exception) { }
+            if (_filePath is not null)
+            {
+                // DeleteOnClose zwykle wystarcza; to tylko zabezpieczenie.
+                try { if (File.Exists(_filePath)) File.Delete(_filePath); } catch (Exception) { }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Przejsciowka, ktora podaje bufor transmisji jako WaveStream. SoundTouch
+    /// (uzywany do regulacji predkosci) wymaga WaveStream, a bufor jest
+    /// IWaveProvider. Strumien jest nieskonczony - dlatego dlugosc jest podana
+    /// jako bardzo duza, a przewijanie samym SoundTouchem jest niedozwolone;
+    /// po buforze przewija sie metoda Seek bufora.
+    /// </summary>
+    private sealed class TimeshiftWaveStream(RadioTimeshiftWaveProvider buffer) : WaveStream
+    {
+        public override WaveFormat WaveFormat => buffer.WaveFormat;
+
+        public override long Length => long.MaxValue;
+
+        public override long Position { get; set; }
+
+        public override int Read(byte[] destination, int offset, int count)
+        {
+            var read = buffer.Read(destination, offset, count);
+            Position += read;
+            return read;
+        }
+    }
+
+    private sealed class RadioTimeshiftWaveProvider : IWaveProvider, IDisposable
     {
         private readonly object _gate = new();
-        private readonly byte[] _ring;
+        private readonly TimeshiftRingStorage _ring;
         private readonly int _blockAlign;
         private readonly Action<Exception> _recordingFailed;
         private long _totalWritten;
@@ -1285,17 +1479,22 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         public RadioTimeshiftWaveProvider(
             WaveFormat waveFormat,
             int minutes,
-            int maximumBytes,
+            long maximumBytes,
             Action<Exception> recordingFailed)
         {
             WaveFormat = waveFormat;
             _recordingFailed = recordingFailed;
             _blockAlign = Math.Max(1, waveFormat.BlockAlign);
             var requested = (long)waveFormat.AverageBytesPerSecond * Math.Max(1, minutes) * 60;
-            var capacity = (int)Math.Min(maximumBytes, Math.Max(waveFormat.AverageBytesPerSecond * 5L, requested));
+            var capacity = Math.Min(maximumBytes, Math.Max(waveFormat.AverageBytesPerSecond * 5L, requested));
             capacity -= capacity % _blockAlign;
-            _ring = new byte[Math.Max(_blockAlign, capacity)];
+            _ring = new TimeshiftRingStorage(Math.Max(_blockAlign, capacity));
         }
+
+        /// <summary>Czy bufor lezy na dysku (duzy) czy w pamieci (maly).</summary>
+        public bool BufferOnDisk => _ring.OnDisk;
+
+        public void Dispose() => _ring.Dispose();
 
         public WaveFormat WaveFormat { get; }
 
@@ -1343,7 +1542,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         {
             get
             {
-                lock (_gate) return BytesToTime(Math.Min(_totalWritten, _ring.LongLength));
+                lock (_gate) return BytesToTime(Math.Min(_totalWritten, _ring.Length));
             }
         }
 
@@ -1361,8 +1560,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             if (count <= 0) return;
             if (count > _ring.Length)
             {
-                offset += count - _ring.Length;
-                count = _ring.Length;
+                offset += (int)(count - _ring.Length);
+                count = (int)_ring.Length;
                 count -= count % _blockAlign;
             }
 
@@ -1383,15 +1582,15 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                     _recording = null;
                     _recordingPath = null;
                 }
-                var writeIndex = (int)(_totalWritten % _ring.Length);
-                var first = Math.Min(count, _ring.Length - writeIndex);
-                Buffer.BlockCopy(buffer, offset, _ring, writeIndex, first);
+                var writeIndex = _totalWritten % _ring.Length;
+                var first = (int)Math.Min(count, _ring.Length - writeIndex);
+                _ring.Write(buffer, offset, writeIndex, first);
                 if (first < count)
                 {
-                    Buffer.BlockCopy(buffer, offset + first, _ring, 0, count - first);
+                    _ring.Write(buffer, offset + first, 0, count - first);
                 }
                 _totalWritten += count;
-                var oldest = Math.Max(0, _totalWritten - _ring.LongLength);
+                var oldest = Math.Max(0, _totalWritten - _ring.Length);
                 if (_readPosition < oldest) _readPosition = oldest;
             }
             if (failedRecording is not null && recordingException is not null)
@@ -1411,12 +1610,12 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 available -= available % _blockAlign;
                 if (available > 0)
                 {
-                    var readIndex = (int)(_readPosition % _ring.Length);
-                    var first = Math.Min(available, _ring.Length - readIndex);
-                    Buffer.BlockCopy(_ring, readIndex, buffer, offset, first);
+                    var readIndex = _readPosition % _ring.Length;
+                    var first = (int)Math.Min(available, _ring.Length - readIndex);
+                    _ring.Read(readIndex, buffer, offset, first);
                     if (first < available)
                     {
-                        Buffer.BlockCopy(_ring, 0, buffer, offset + first, available - first);
+                        _ring.Read(0, buffer, offset + first, available - first);
                     }
                     _readPosition += available;
                 }
@@ -1430,7 +1629,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             lock (_gate)
             {
                 var target = TimeToBytes(position);
-                var oldest = Math.Max(0, _totalWritten - _ring.LongLength);
+                var oldest = Math.Max(0, _totalWritten - _ring.Length);
                 _readPosition = Align(Math.Clamp(target, oldest, _totalWritten));
             }
         }
@@ -1440,7 +1639,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             lock (_gate)
             {
                 var safety = WaveFormat.AverageBytesPerSecond / 4L;
-                var oldest = Math.Max(0, _totalWritten - _ring.LongLength);
+                var oldest = Math.Max(0, _totalWritten - _ring.Length);
                 _readPosition = Align(Math.Max(oldest, _totalWritten - safety));
             }
         }
@@ -1473,7 +1672,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         {
             var requestedBytes = Align((long)Math.Ceiling(
                 Math.Max(0, duration.TotalSeconds) * WaveFormat.AverageBytesPerSecond));
-            var oldest = Math.Max(0, _totalWritten - _ring.LongLength);
+            var oldest = Math.Max(0, _totalWritten - _ring.Length);
             var available = Align(Math.Max(0, Math.Min(end, _totalWritten) - oldest));
             var length = Align(Math.Min(requestedBytes, available));
             if (length < Align(WaveFormat.AverageBytesPerSecond * 3L))
@@ -1484,11 +1683,11 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
 
             var audio = new byte[checked((int)length)];
             var start = Math.Min(end, _totalWritten) - length;
-            var readIndex = (int)(start % _ring.Length);
-            var first = Math.Min(audio.Length, _ring.Length - readIndex);
-            Buffer.BlockCopy(_ring, readIndex, audio, 0, first);
+            var readIndex = start % _ring.Length;
+            var first = (int)Math.Min(audio.Length, _ring.Length - readIndex);
+            _ring.Read(readIndex, audio, 0, first);
             if (first < audio.Length)
-                Buffer.BlockCopy(_ring, 0, audio, first, audio.Length - first);
+                _ring.Read(0, audio, first, audio.Length - first);
             snapshot = new RadioAudioSnapshot(audio, WaveFormat, BytesToTime(length));
             return true;
         }

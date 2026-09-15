@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Input;
 using AccessibleMediaController.Windows.Controls;
 using AccessibleMediaController.Windows.Services;
+using Microsoft.Web.WebView2.Core;
 
 namespace AccessibleMediaController.Windows;
 
@@ -60,10 +61,94 @@ public partial class InformationWindow : AccessibleWindow
             LinksList.SelectedIndex = 0;
             LinksList.Visibility = Visibility.Visible;
         }
+        _document = InformationDocument.Build(_information, _links, accessibleTitle);
     }
 
-    private void Window_ContentRendered(object? sender, EventArgs e)
+    /// <summary>
+    /// Tresc jako dokument HTML. Czytnik ekranu dostaje wtedy tryb przegladania
+    /// (naglowki, akapity, lacza, znajdowanie). ZGLOSZENIE Michala 15.09.2026.
+    /// </summary>
+    private readonly string _document;
+
+    /// <summary>
+    /// Wlacza tryb przegladania. Gdy WebView2 nie jest zainstalowany albo nie
+    /// wstaje, zostaje stare pole tekstowe - okno musi dzialac zawsze.
+    /// </summary>
+    private async Task<bool> TryStartBrowseModeAsync()
     {
+        try
+        {
+            var environment = await CoreWebView2Environment.CreateAsync().ConfigureAwait(true);
+            await InformationBrowser.EnsureCoreWebView2Async(environment).ConfigureAwait(true);
+            var core = InformationBrowser.CoreWebView2;
+            if (core is null) return false;
+
+            // To okno pokazuje WYLACZNIE nasz wlasny tekst - zadnych stron z sieci,
+            // zadnego menu przegladarki, zadnego pobierania.
+            core.Settings.AreDefaultContextMenusEnabled = false;
+            core.Settings.AreDevToolsEnabled = false;
+            core.Settings.IsStatusBarEnabled = false;
+            core.Settings.AreBrowserAcceleratorKeysEnabled = false;
+            core.Settings.IsPasswordAutosaveEnabled = false;
+            core.Settings.IsGeneralAutofillEnabled = false;
+
+            // Escape musi zamykac okno takze wtedy, gdy ognisko jest w dokumencie.
+            // Klawisze z wnetrza WebView2 nie docieraja do PreviewKeyDown okna.
+            core.WebMessageReceived += (_, message) =>
+            {
+                if (string.Equals(message.TryGetWebMessageAsString(), "zamknij", StringComparison.Ordinal))
+                    Dispatcher.BeginInvoke(Close);
+            };
+            await core.AddScriptToExecuteOnDocumentCreatedAsync(
+                "document.addEventListener('keydown', function (event) {"
+                + "if (event.key === 'Escape' && !event.ctrlKey && !event.altKey && !event.shiftKey) {"
+                + "event.preventDefault(); window.chrome.webview.postMessage('zamknij'); } }, true);")
+                .ConfigureAwait(true);
+
+            core.NavigateToString(_document);
+            InformationHost.Visibility = Visibility.Collapsed;
+            InformationBrowser.Visibility = Visibility.Visible;
+            // Lacza sa juz W dokumencie jako prawdziwe lacza HTML - osobna lista
+            // tylko dublowalaby je dla czytnika.
+            LinksList.Visibility = Visibility.Collapsed;
+            InformationBrowser.Focus();
+            return true;
+        }
+        catch (Exception exception) when (exception is WebView2RuntimeNotFoundException
+            or InvalidOperationException
+            or System.ComponentModel.Win32Exception
+            or System.IO.IOException
+            or UnauthorizedAccessException)
+        {
+            InformationBrowser.Visibility = Visibility.Collapsed;
+            InformationHost.Visibility = Visibility.Visible;
+            if (_links.Count > 0) LinksList.Visibility = Visibility.Visible;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Lacza otwiera przegladarka systemowa, nie to okno. Bez tego klikniecie
+    /// wciagnelo by cala strone w okno wlasciwosci.
+    /// </summary>
+    private void InformationBrowser_NavigationStarting(
+        object? sender,
+        CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (e.Uri.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
+            || e.Uri.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+        e.Cancel = true;
+        OpenExternalUri(e.Uri);
+    }
+
+    private async void Window_ContentRendered(object? sender, EventArgs e)
+    {
+        // Najpierw probujemy trybu przegladania. Dopiero gdy sie nie uda,
+        // ognisko idzie do starego pola tekstowego.
+        if (await TryStartBrowseModeAsync().ConfigureAwait(true)) return;
         _informationBox.Select(0, 0);
         _informationBox.Focus();
     }
