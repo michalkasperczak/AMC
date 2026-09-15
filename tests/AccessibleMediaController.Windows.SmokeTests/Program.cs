@@ -174,6 +174,8 @@ var tests = new (string Name, Action Test)[]
     ("Opis podcastu: strzalka w prawo i tryb przegladania", TestOpisPodcastuStrzalkaWPrawoIPrzegladanie),
     ("Historia nagrywania bez pobranych podcastow", TestHistoriaNagrywaniaBezPobranychPodcastow),
     ("Okno stacji bez martwych pol odtwarzania", TestOknoStacjiBezMartwychPolOdtwarzania),
+    ("Stacja gra gdy format nie obsluguje regulacji predkosci", TestStacjaGraGdyFormatBezRegulacjiPredkosci),
+    ("Log radia zapisuje tresc bledu, nie tylko typ", TestLogRadiaZapisujeTrescBledu),
     ("Opcje strumienia stacji radiowej dzialaja", TestOpcjeStrumieniaStacjiRadiowej),
     ("Transmisja z obrazem i dzwiekiem daje dzwiek", TestTransmisjaZObrazemDajeDzwiek),
     ("Duzy bufor transmisji lezy na dysku, maly w pamieci", TestBuforTransmisjiLezyNaDyskuGdyDuzy),
@@ -6327,6 +6329,64 @@ static void TestBuforTransmisjiMaRegulacjePredkosci()
     Assert(zrodlo.Contains("SoundTouchWaveStream", StringComparison.Ordinal)
         && zrodlo.Contains("TempoStream", StringComparison.Ordinal),
         "Brak realnej zmiany tempa dzwieku w buforze transmisji.");
+}
+
+static void TestLogRadiaZapisujeTrescBledu()
+{
+    // ZGLOSZENIE Michala 15.09.2026: "Logi doszczegolowic". Log zapisywal sam
+    // TYP wyjatku ("blad ArgumentException"), bez tresci komunikatu, ktora
+    // wskazywala przyczyne wprost ("Input wave provider must be IEEE float").
+    // Diagnoza usterki radia zajela z tego powodu cala sesje.
+    var radio = File.ReadAllText(ZnajdzPlikZrodlowy("RadioMediaOutput.cs"));
+
+    // Zaden log w obsludze radia nie moze konczyc sie na samym typie wyjatku.
+    Assert(!radio.Contains("GetType().Name}.\"", StringComparison.Ordinal),
+        "Log radia nie moze zapisywac samego typu wyjatku - potrzebna jest tresc komunikatu.");
+
+    // Blad otwierania stacji: typ, tresc, przyczyna wewnetrzna i adres.
+    var indeksOtwierania = radio.IndexOf("Nie udało się otworzyć stacji", StringComparison.Ordinal);
+    Assert(indeksOtwierania > 0, "Nie znaleziono logu bledu otwierania stacji.");
+    var wpis = radio[indeksOtwierania..Math.Min(radio.Length, indeksOtwierania + 600)];
+    Assert(wpis.Contains("exception.Message", StringComparison.Ordinal),
+        "Log bledu otwierania stacji musi zapisywac tresc komunikatu bledu.");
+    Assert(wpis.Contains("InnerException", StringComparison.Ordinal),
+        "Log bledu otwierania stacji musi zapisywac przyczyne wewnetrzna, gdy istnieje.");
+    Assert(wpis.Contains("item.Source", StringComparison.Ordinal),
+        "Log bledu otwierania stacji musi zapisywac adres strumienia.");
+}
+
+static void TestStacjaGraGdyFormatBezRegulacjiPredkosci()
+{
+    // ZGLOSZENIE Michala 15.09.2026: "wiekszosc stacji radiowych sie nie
+    // otwarza, to juz w poprzedniej wersji tak bylo". Log: dziesiatki
+    // "Nie udalo sie otworzyc stacji ...; blad ArgumentException".
+    //
+    // PRZYCZYNA: v375 wpuscila SoundTouch (regulacja predkosci w buforze) na
+    // KAZDA stacje. SoundTouch przyjmuje WYLACZNIE dzwiek 32-bit IEEE float i
+    // przy innym formacie rzuca ArgumentException JUZ W KONSTRUKTORZE
+    // ("Input wave provider must be IEEE float"). Zmierzone u zrodla na
+    // SoundTouch.Net.NAudioSupport 2.3.2: float32 OK, PCM 16-bit i 8-bit
+    // ArgumentException. Czesc dekoderow (starsze radio ICY) daje PCM 16-bit.
+    var radio = File.ReadAllText(ZnajdzPlikZrodlowy("RadioMediaOutput.cs"));
+
+    // 1. SoundTouch tworzony WARUNKOWO, tylko dla IEEE float.
+    var indeksSoundTouch = radio.IndexOf("new SoundTouchWaveStream(", StringComparison.Ordinal);
+    Assert(indeksSoundTouch > 0, "Nie znaleziono tworzenia strumienia regulacji predkosci.");
+    var przedSoundTouchem = radio[Math.Max(0, indeksSoundTouch - 700)..indeksSoundTouch];
+    Assert(przedSoundTouchem.Contains("WaveFormat.Encoding == WaveFormatEncoding.IeeeFloat", StringComparison.Ordinal),
+        "Regulacja predkosci musi byc tworzona TYLKO dla formatu IEEE float - "
+        + "inaczej stacja o formacie PCM pada na ArgumentException przy otwieraniu.");
+
+    // 2. Brak regulacji NIE MOZE przerywac odtwarzania - dzwiek musi isc
+    // prosto z bufora.
+    Assert(radio.Contains("timeshiftStream.ToSampleProvider()", StringComparison.Ordinal),
+        "Gdy regulacji predkosci nie ma, dzwiek musi isc wprost z bufora transmisji.");
+
+    // 3. Zmiana predkosci na takiej stacji nie moze wywalac programu.
+    Assert(radio.Contains("pipeline.TempoStream is null", StringComparison.Ordinal),
+        "Zmiana predkosci musi bezpiecznie odpuscic, gdy stacja nie ma regulacji tempa.");
+    Assert(radio.Contains("SoundTouchWaveStream? TempoStream", StringComparison.Ordinal),
+        "Regulacja tempa musi byc opcjonalna w potoku odtwarzania radia.");
 }
 
 static void TestOknoStacjiBezMartwychPolOdtwarzania()

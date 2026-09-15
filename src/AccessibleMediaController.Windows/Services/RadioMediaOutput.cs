@@ -328,16 +328,39 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             // zmienia tempo bez zmiany wysokosci glosu (Tempo, nie Rate).
             // ZGLOSZENIE Michala 15.09.2026: "podczas przewijania w czasie
             // sluchania dobrze, jakby dzialala regulacja predkosci w TimeShift".
-            var tempoStream = new SoundTouchWaveStream(new TimeshiftWaveStream(buffer))
+            //
+            // BLAD Z v375 (zgloszenie Michala 15.09.2026: "wiekszosc stacji sie
+            // nie otwarza"): SoundTouch przyjmuje WYLACZNIE dzwiek 32-bit IEEE
+            // float i przy innym formacie rzuca ArgumentException JUZ W
+            // KONSTRUKTORZE ("Input wave provider must be IEEE float").
+            // Czesc dekoderow (starsze radio ICY, MediaFoundation) podaje PCM
+            // 16-bit, wiec stacja padala przy samym otwieraniu. Regulacja tempa
+            // jest dodatkiem - brak wsparcia formatu NIE MOZE blokowac sluchania.
+            var timeshiftStream = new TimeshiftWaveStream(buffer);
+            SoundTouchWaveStream? tempoStream = null;
+            if (reader.WaveFormat.Encoding == WaveFormatEncoding.IeeeFloat)
             {
-                Tempo = 1d,
-                Pitch = 1d,
-                Rate = 1d
-            };
-            double initialRate;
-            lock (_gate) initialRate = _playbackRate;
-            if (Math.Abs(initialRate - 1d) > 0.001d) tempoStream.Tempo = initialRate;
-            var volume = new VolumeSampleProvider(tempoStream.ToSampleProvider())
+                tempoStream = new SoundTouchWaveStream(timeshiftStream)
+                {
+                    Tempo = 1d,
+                    Pitch = 1d,
+                    Rate = 1d
+                };
+                double initialRate;
+                lock (_gate) initialRate = _playbackRate;
+                if (Math.Abs(initialRate - 1d) > 0.001d) tempoStream.Tempo = initialRate;
+            }
+            else
+            {
+                DiagnosticLog.Info(
+                    "radio",
+                    $"Format {reader.WaveFormat.Encoding} nie obsługuje regulacji prędkości; "
+                    + "stacja gra bez tej regulacji.");
+            }
+            var volume = new VolumeSampleProvider(
+                tempoStream is not null
+                    ? tempoStream.ToSampleProvider()
+                    : timeshiftStream.ToSampleProvider())
             {
                 Volume = Math.Clamp(_volume, 0, 100) / 100f
             };
@@ -448,7 +471,14 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                     _preparationCancellation = null;
                 }
             }
-            DiagnosticLog.Warning("radio", $"Nie udało się otworzyć stacji {item.Title}; błąd {exception.GetType().Name}.");
+            DiagnosticLog.Warning(
+                "radio",
+                $"Nie udało się otworzyć stacji {item.Title}; "
+                + $"błąd {exception.GetType().Name}: {exception.Message}"
+                + (exception.InnerException is { } wewnetrzny
+                    ? $"; przyczyna {wewnetrzny.GetType().Name}: {wewnetrzny.Message}"
+                    : string.Empty)
+                + $"; adres {item.Source}.");
             if (current) RaisePlaybackFailed(item, InitialPlaybackFailureMessage(item, exception));
         }
         finally
@@ -501,7 +531,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         {
             DiagnosticLog.Info(
                 "radio",
-                $"Dekoder systemowy odrzucił strumień; rozpoznawanie starszego radia ICY ({exception.GetType().Name}).");
+                $"Dekoder systemowy odrzucił strumień; rozpoznawanie starszego radia ICY "
+                + $"({exception.GetType().Name}: {exception.Message}).");
 
             if (isHls)
             {
@@ -565,7 +596,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         {
             DiagnosticLog.Info(
                 "radio",
-                $"Dekoder BASS odrzucił strumień; próba pozostałych dekoderów ({exception.GetType().Name}).");
+                $"Dekoder BASS odrzucił strumień; próba pozostałych dekoderów "
+                + $"({exception.GetType().Name}: {exception.Message}).");
             return null;
         }
     }
@@ -626,7 +658,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                 {
                     DiagnosticLog.Info(
                         "radio",
-                        $"Wariant strumienia nie zadziałał; próba następnego ({exception.GetType().Name}).");
+                        $"Wariant strumienia nie zadziałał; próba następnego "
+                        + $"({exception.GetType().Name}: {exception.Message}).");
                 }
             }
         }
@@ -675,7 +708,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
                     "radio",
                     $"Odbiór stacji został przerwany: {pipeline.Item.Title}; "
                     + $"automatyczna próba ponownego połączenia {reconnectAttempts} z {MaximumReconnectAttempts}; "
-                    + $"błąd {exception.GetType().Name}.");
+                    + $"błąd {exception.GetType().Name}: {exception.Message}.");
                 try
                 {
                     await Task.Delay(ReconnectDelay, pipeline.Cancellation.Token).ConfigureAwait(false);
@@ -750,7 +783,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         DiagnosticLog.Warning(
             "radio",
             $"Nie udało się przywrócić odbioru: {pipeline.Item.Title}; "
-            + $"błąd {finalFailure?.GetType().Name ?? "nieznany"}.");
+            + $"błąd {finalFailure?.GetType().Name ?? "nieznany"}"
+            + (finalFailure is null ? "." : $": {finalFailure.Message}."));
         var detached = false;
         lock (_gate)
         {
@@ -976,6 +1010,15 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             pipeline = _pipeline;
         }
         if (pipeline is null) return;
+        // Brak regulacji tempa dla formatow innych niz IEEE float - stacja gra
+        // normalnie, tylko bez zmiany predkosci.
+        if (pipeline.TempoStream is null)
+        {
+            DiagnosticLog.Info(
+                "radio-playback",
+                "Format dźwięku tej stacji nie obsługuje regulacji prędkości.");
+            return;
+        }
         try { pipeline.TempoStream.Tempo = resolved; }
         catch (Exception exception) when (exception is InvalidOperationException
             or ObjectDisposedException)
@@ -1111,7 +1154,8 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         {
             DiagnosticLog.Warning(
                 "radio-recording",
-                $"Nie można uprzątnąć starego pliku tymczasowego; błąd {exception.GetType().Name}.");
+                $"Nie można uprzątnąć starego pliku tymczasowego; "
+                + $"błąd {exception.GetType().Name}: {exception.Message}.");
         }
     }
 
@@ -1201,7 +1245,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
         IDisposable readerLifetime,
         ResolvedRadioSource resolvedSource,
         RadioTimeshiftWaveProvider buffer,
-        SoundTouchWaveStream tempoStream,
+        SoundTouchWaveStream? tempoStream,
         VolumeSampleProvider volume,
         AudioOutputDeviceLease? outputLease,
         CancellationTokenSource cancellation,
@@ -1231,7 +1275,7 @@ public sealed class RadioMediaOutput(int timeshiftMinutes, bool audible = true) 
             }
         }
         public RadioTimeshiftWaveProvider Buffer { get; } = buffer;
-        public SoundTouchWaveStream TempoStream { get; } = tempoStream;
+        public SoundTouchWaveStream? TempoStream { get; } = tempoStream;
         public VolumeSampleProvider Volume { get; } = volume;
         public WasapiOut? Output => outputLease?.Output;
         public CancellationTokenSource Cancellation { get; } = cancellation;
