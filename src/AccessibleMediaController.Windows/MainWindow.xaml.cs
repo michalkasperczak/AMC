@@ -51,7 +51,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private const string PlayerViewName = "Teraz odtwarzane";
     private const string BookmarkViewName = "Zakładki";
     private const string ActiveRadioRecordingsViewName = "Nagrywane";
-    private const string RecordedRadioFilesViewName = "Nagrane pliki";
+    private const string RecordedRadioFilesViewName = "Historia nagrywania";
     private const string PodcastInboxViewName = "Nowe odcinki";
     private const string PodcastInboxDisplayName = "Nowe odcinki i materiały";
     private const string PodcastInProgressViewName = "W trakcie słuchania";
@@ -11643,19 +11643,76 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }).ToList();
     }
 
+    /// <summary>
+    /// Wiersze widoku historii nagrywania. Scala nagrania, ktore zostawily plik
+    /// w bibliotece, z wpisami historii - w tym NIEUDANYMI, ktore pliku nie maja.
+    /// Bez tej drugiej grupy nagranie przerwane albo niewykonane przepadaloby
+    /// bez sladu i uzytkownik nie wiedzialby, ze proba sie odbyla.
+    /// </summary>
     private List<MediaItemRow> CreateRecordedRadioFileRows()
     {
         var recordedById = _state.LocalMedia.Items
             .Where(item => item.IsRadioRecording)
             .GroupBy(item => item.Id, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-        return ActiveLocalItems()
+        var fileRows = ActiveLocalItems()
             .Where(item => recordedById.ContainsKey(item.Id))
-            .OrderByDescending(item => recordedById[item.Id].RadioRecordingCompletedUtcTicks)
-            .ThenBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
-            .ThenBy(item => item.Source ?? string.Empty, StringComparer.OrdinalIgnoreCase)
-            .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
+            .Select(item => (
+                Item: item,
+                Ticks: recordedById[item.Id].RadioRecordingCompletedUtcTicks,
+                Path: NormalizeLocalFilePath(item.Source ?? string.Empty)))
             .ToList();
+
+        // Wpis historii ze sciezka, ktora mamy juz jako plik w bibliotece, byłby
+        // tym samym nagraniem dwa razy - pokazujemy wtedy pozycje z biblioteki,
+        // bo tylko ona daje sie odtworzyc i ma pelne metadane.
+        var filePaths = fileRows
+            .Select(row => row.Path)
+            .Where(path => path.Length > 0)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var nowUtc = DateTime.UtcNow;
+        var historyRows = _state.Radio.RecordingHistory
+            .Where(entry => entry.Path.Length == 0
+                || !filePaths.Contains(NormalizeLocalFilePath(entry.Path)))
+            .Select(entry => (
+                Entry: entry,
+                Ticks: entry.FinishedUtcTicks))
+            .ToList();
+
+        var rows = new List<(long Ticks, MediaItemRow Row)>();
+        foreach (var (item, ticks, _) in fileRows)
+            rows.Add((ticks, new MediaItemRow(item, FormatListItem(item), item.PrimaryText)));
+        foreach (var (entry, ticks) in historyRows)
+            rows.Add((ticks, CreateRecordingHistoryRow(entry, nowUtc)));
+
+        return rows
+            .OrderByDescending(row => row.Ticks)
+            .ThenBy(row => row.Row.NavigationText, StringComparer.CurrentCultureIgnoreCase)
+            .Select(row => row.Row)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Wiersz dla wpisu historii bez odpowiednika w bibliotece. Skutek jest
+    /// czytany PIERWSZY, zeby czytnik ekranu od razu odroznil nagranie gotowe
+    /// od przerwanego, bez dosluchiwania do konca wiersza.
+    /// </summary>
+    private static MediaItemRow CreateRecordingHistoryRow(
+        RadioRecordingHistorySettings entry,
+        DateTime nowUtc)
+    {
+        var label = RadioRecordingHistoryLabels.Describe(entry, nowUtc);
+        var item = new MediaItem
+        {
+            Id = $"radio-recording-history:{entry.Id}",
+            Title = label,
+            Kind = MediaItemKind.Track,
+            Source = entry.Path,
+            IsAvailable = RadioRecordingHistoryLabels.HasPlayableFile(entry),
+            IsInLibrary = false
+        };
+        return new MediaItemRow(item, label, label, recordingHistoryEntry: entry);
     }
 
     private void ShowRecordedRadioFiles()
@@ -12789,6 +12846,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             OpenLocalAlbum(albumFolderPath, row.Item.Title);
             return;
         }
+        if (row?.RecordingHistoryEntry is { } historyEntry)
+        {
+            // Wpis nieudany nie ma pliku - Enter mowi, co sie stalo, zamiast milczec.
+            if (!RadioRecordingHistoryLabels.HasPlayableFile(historyEntry))
+            {
+                AnnounceEssential(RadioRecordingHistoryLabels.DescribeUnplayable(historyEntry));
+                return;
+            }
+            if (!File.Exists(historyEntry.Path))
+            {
+                AnnounceEssential(
+                    $"Plik nagrania {historyEntry.StationName} nie istnieje już na dysku");
+                return;
+            }
+        }
         if (row?.FolderPath is { } folderPath)
         {
             OpenFolderPath(folderPath);
@@ -13741,7 +13813,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 AllLocalFilesViewName => $"Przywrócono w bibliotece: {items[0].Title}",
                 CustomLocalOrderViewName => $"Przywrócono w bibliotece: {items[0].Title}",
                 LocalAlbumContentsViewName => $"Przywrócono w bibliotece: {items[0].Title}",
-                RecordedRadioFilesViewName => $"Przywrócono w nagranych plikach: {items[0].Title}",
+                RecordedRadioFilesViewName => $"Przywrócono w historii nagrywania: {items[0].Title}",
                 "Kolejka" => $"Przywrócono w kolejce: {items[0].Title}",
                 _ => throw new InvalidOperationException($"Nieobsługiwany widok usuwania: {_currentView}")
             }
@@ -15143,6 +15215,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         active.Cancellation.Dispose();
         ImportCompletedRadioRecordings(active.Control.CompletedPaths);
         PersistRadioRecordingBookmarks(active.Control);
+        RecordRadioRecordingHistory(active, result);
         if (_isClosing) return;
         RefreshRadioRecordingPresentation();
         if (suppressAnnouncement) return;
@@ -15165,6 +15238,93 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AnnounceEssential(savedFileCount > 0
             ? $"Nagrywanie {active.StationName} zostało przerwane. Zapisano plików: {savedFileCount}. {result.Error}"
             : $"Nie udało się nagrać {active.StationName}: {result.Error}");
+    }
+
+    /// <summary>
+    /// Dopisuje wynik nagrania do historii. Bez tego nagranie NIEUDANE nie
+    /// zostawia zadnego sladu: nie ma pliku, wiec nie ma go tez w bibliotece,
+    /// i uzytkownik nie wie, ze proba w ogole byla.
+    /// </summary>
+    private void RecordRadioRecordingHistory(
+        ActiveManualRadioRecording active,
+        ManualRadioRecordingResult result)
+    {
+        var savedPaths = active.Control.CompletedPaths;
+        var savedCount = savedPaths.Count;
+        var outcome = (result.Success, result.Cancelled, savedCount) switch
+        {
+            (true, _, _) => RadioRecordingOutcome.Completed,
+            (false, true, 0) when string.IsNullOrWhiteSpace(result.Error) => RadioRecordingOutcome.Stopped,
+            (false, _, > 0) => RadioRecordingOutcome.Interrupted,
+            _ => RadioRecordingOutcome.Failed
+        };
+        // Zatrzymanie recznie, ktore zdazylo cos zapisac, jest udane, nie przerwane.
+        if (outcome == RadioRecordingOutcome.Interrupted
+            && result.Cancelled
+            && string.IsNullOrWhiteSpace(result.Error))
+        {
+            outcome = RadioRecordingOutcome.Stopped;
+        }
+
+        AppendRadioRecordingHistoryEntry(new RadioRecordingHistorySettings
+        {
+            StationId = active.StationId,
+            StationName = active.StationName,
+            Path = result.Path ?? savedPaths.LastOrDefault() ?? string.Empty,
+            Outcome = outcome,
+            Reason = result.Error?.Trim() ?? string.Empty,
+            StartedUtcTicks = (active.StartedUtc ?? active.RequestedUtc).Ticks,
+            FinishedUtcTicks = DateTime.UtcNow.Ticks,
+            SavedFileCount = savedCount
+        });
+    }
+
+    /// <summary>
+    /// Historia dla nagrania z harmonogramu. Tu niepowodzenia sa najczestsze,
+    /// bo nagranie startuje bez uzytkownika przy komputerze - i wlasnie dlatego
+    /// musi zostawic slad, ktory da sie potem przeczytac.
+    /// </summary>
+    private void RecordScheduledRadioRecordingHistory(
+        RadioRecordingScheduleSettings snapshot,
+        ActiveScheduledRadioRecording? completedActive,
+        ScheduledRadioRecordingResult result)
+    {
+        var savedPaths = completedActive?.Control.CompletedPaths ?? (IReadOnlyList<string>)[];
+        var savedCount = savedPaths.Count;
+        var outcome = (result.Success, result.Cancelled, savedCount) switch
+        {
+            (true, _, _) => RadioRecordingOutcome.Completed,
+            (false, true, > 0) => RadioRecordingOutcome.Stopped,
+            (false, true, 0) when string.IsNullOrWhiteSpace(result.Error) => RadioRecordingOutcome.Stopped,
+            (false, _, > 0) => RadioRecordingOutcome.Interrupted,
+            _ => RadioRecordingOutcome.Failed
+        };
+
+        AppendRadioRecordingHistoryEntry(new RadioRecordingHistorySettings
+        {
+            StationId = snapshot.StationId,
+            StationName = snapshot.StationName,
+            Path = result.Path ?? savedPaths.LastOrDefault() ?? string.Empty,
+            Outcome = outcome,
+            Reason = result.Error?.Trim() ?? string.Empty,
+            ScheduleName = RadioSchedulesWindow.BuildRecurrenceLabel(snapshot),
+            StartedUtcTicks = completedActive?.StartedUtc.Ticks ?? snapshot.NextStartUtcTicks,
+            FinishedUtcTicks = DateTime.UtcNow.Ticks,
+            SavedFileCount = savedCount
+        });
+    }
+
+    private void AppendRadioRecordingHistoryEntry(RadioRecordingHistorySettings entry)
+    {
+        _state.Radio.RecordingHistory.Insert(0, entry);
+        if (_state.Radio.RecordingHistory.Count > 1_000)
+        {
+            _state.Radio.RecordingHistory.RemoveRange(
+                1_000,
+                _state.Radio.RecordingHistory.Count - 1_000);
+        }
+        QueueStateSave();
+        RefreshRecordedRadioFilesViewIfVisible();
     }
 
     private void PersistRadioRecordingBookmarks(RadioRecordingControl control)
@@ -15560,6 +15720,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ImportCompletedRadioRecordings(completedActive.Control.CompletedPaths);
             PersistRadioRecordingBookmarks(completedActive.Control);
         }
+        RecordScheduledRadioRecordingHistory(snapshot, completedActive, result);
         var suppressAnnouncement = _bulkStoppedScheduledRadioRecordings.Remove(snapshot.Id);
         if (_isClosing) return;
         RefreshRadioRecordingPresentation();
@@ -22987,7 +23148,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string? albumFolderPath = null,
         string? playlistId = null,
         string? loadMorePodcastViewName = null,
-        ArtistBrowseSection? artistSection = null) : INotifyPropertyChanged
+        ArtistBrowseSection? artistSection = null,
+        RadioRecordingHistorySettings? recordingHistoryEntry = null) : INotifyPropertyChanged
     {
         public MediaItem Item { get; } = item;
         public MediaItem ActionItem { get; } = actionItem ?? item;
@@ -22997,6 +23159,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         public string? PlaylistId { get; } = playlistId;
         public string? LoadMorePodcastViewName { get; } = loadMorePodcastViewName;
         public ArtistBrowseSection? ArtistSection { get; } = artistSection;
+        /// <summary>
+        /// Wpis historii nagrywania, gdy wiersz pochodzi z widoku historii.
+        /// Dla wpisu bez pliku Enter nie ma czego odtworzyc i musi powiedziec,
+        /// co sie stalo, zamiast milczec.
+        /// </summary>
+        public RadioRecordingHistorySettings? RecordingHistoryEntry { get; } = recordingHistoryEntry;
         public string Label { get; private set; } = label;
         public string NavigationText { get; } = navigationText;
 

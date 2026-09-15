@@ -971,6 +971,42 @@ public sealed class RadioSettings
         RadioRecognitionScope.CurrentStation;
     public List<RadioRecordingScheduleSettings> RecordingSchedules { get; set; } = [];
     public List<RadioRecognizedTrackSettings> RecognizedTracks { get; set; } = [];
+    public List<RadioRecordingHistorySettings> RecordingHistory { get; set; } = [];
+}
+
+/// <summary>
+/// Jeden wpis historii nagrywania. Nagranie nieudane nie zostawia pliku, więc
+/// bez takiego wpisu przepadałoby bez śladu i użytkownik nie wiedziałby, że
+/// próba w ogóle się odbyła. Dlatego historia jest osobna od biblioteki.
+/// </summary>
+public sealed class RadioRecordingHistorySettings
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string StationId { get; set; } = string.Empty;
+    public string StationName { get; set; } = string.Empty;
+    /// <summary>Pusta dla nagrań nieudanych, które nie utworzyły pliku.</summary>
+    public string Path { get; set; } = string.Empty;
+    public RadioRecordingOutcome Outcome { get; set; } = RadioRecordingOutcome.Completed;
+    /// <summary>Powód niepowodzenia albo przerwania; puste dla nagrań udanych.</summary>
+    public string Reason { get; set; } = string.Empty;
+    /// <summary>Nazwa harmonogramu, jeśli nagranie pochodziło z terminarza.</summary>
+    public string ScheduleName { get; set; } = string.Empty;
+    public long StartedUtcTicks { get; set; }
+    public long FinishedUtcTicks { get; set; } = DateTime.UtcNow.Ticks;
+    /// <summary>Liczba plików zapisanych w tej próbie; 0 gdy nic nie powstało.</summary>
+    public int SavedFileCount { get; set; }
+}
+
+public enum RadioRecordingOutcome
+{
+    /// <summary>Nagranie zakończone poprawnie, plik istnieje.</summary>
+    Completed,
+    /// <summary>Użytkownik zatrzymał nagranie; zapisano to, co odebrano.</summary>
+    Stopped,
+    /// <summary>Nagranie przerwane w trakcie, plik może być niepełny.</summary>
+    Interrupted,
+    /// <summary>Nagranie nie powstało w ogóle.</summary>
+    Failed
 }
 
 public sealed class RadioRecognizedTrackSettings

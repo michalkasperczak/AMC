@@ -26,6 +26,7 @@ var tests = new (string Name, Action Test)[]
     ("Trwały i odporny harmonogram radia", TestRadioRecordingSchedule),
     ("Szablony nazw zaplanowanych nagrań", TestRadioRecordingFileNameTemplate),
     ("Trwałe ustawienia i historia rozpoznawania utworów", TestRadioRecognitionHistoryPersistence),
+    ("Historia nagrywania radia z próbami nieudanymi", TestRadioRecordingHistory),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Bezpieczne ustawienia i PKCE TIDAL", TestTidalIntegrationFoundation),
     ("Kategorie wykonawcy TIDAL, paginacja i rozdzielenie zasobów", TidalArtistBrowseTests.Run),
@@ -2675,6 +2676,98 @@ static void TestRadioRecordingFileNameTemplate()
     True(!RadioRecordingFileNameTemplate.TryValidate("Audycja - {data", out error)
          && error.Contains("nawias", StringComparison.Ordinal),
         "Niepełny token nazwy pliku nie został odrzucony.");
+}
+
+/// <summary>
+/// Historia nagrywania radia. Sedno zgloszenia: proba NIEUDANA nie zostawia pliku,
+/// wiec bez wpisu w historii znika bez sladu. Test pilnuje, ze wpis przetrwa zapis
+/// i restart, oraz ze odczyt rozni udane od nieudanych.
+/// </summary>
+static void TestRadioRecordingHistory()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-radio-history-tests-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
+        var state = ConfigurationStore.CreateDefaultState();
+
+        var udane = new RadioRecordingHistorySettings
+        {
+            Id = "wpis-udany",
+            StationName = "Trójka",
+            Outcome = RadioRecordingOutcome.Completed,
+            StartedUtcTicks = new DateTime(2026, 9, 15, 10, 0, 0, DateTimeKind.Utc).Ticks,
+            FinishedUtcTicks = new DateTime(2026, 9, 15, 11, 0, 0, DateTimeKind.Utc).Ticks,
+            Path = Path.Combine(directory, "trojka.mp3"),
+            SavedFileCount = 1,
+        };
+        var nieudane = new RadioRecordingHistorySettings
+        {
+            Id = "wpis-nieudany",
+            StationName = "Dwójka",
+            Outcome = RadioRecordingOutcome.Failed,
+            StartedUtcTicks = new DateTime(2026, 9, 15, 12, 0, 0, DateTimeKind.Utc).Ticks,
+            FinishedUtcTicks = new DateTime(2026, 9, 15, 12, 0, 30, DateTimeKind.Utc).Ticks,
+            Reason = "Zerwane połączenie ze stacją",
+            ScheduleName = "Poranek",
+        };
+        state.Radio.RecordingHistory.Add(udane);
+        state.Radio.RecordingHistory.Add(nieudane);
+        store.Save(state);
+
+        var wczytane = store.LoadOrCreate();
+        Equal(2, wczytane.Radio.RecordingHistory.Count);
+
+        // Nieudane musi przetrwac zapis razem z powodem - inaczej po restarcie
+        // uzytkownik znow nie wie, ze nagranie w ogole probowalo wystartowac.
+        var przywrocone = wczytane.Radio.RecordingHistory
+            .Single(entry => entry.Id == "wpis-nieudany");
+        Equal(RadioRecordingOutcome.Failed, przywrocone.Outcome);
+        Equal("Zerwane połączenie ze stacją", przywrocone.Reason);
+        Equal("Poranek", przywrocone.ScheduleName);
+
+        True(RadioRecordingHistoryLabels.HasPlayableFile(udane),
+            "Nagranie zakończone z plikiem musi być odtwarzalne.");
+        True(!RadioRecordingHistoryLabels.HasPlayableFile(nieudane),
+            "Próba nieudana nie ma pliku, więc nie może udawać odtwarzalnej.");
+
+        // Czytnik ekranu musi USLYSZEC roznice miedzy udanym a nieudanym.
+        var teraz = new DateTime(2026, 9, 15, 14, 0, 0, DateTimeKind.Utc);
+        var opisNieudanego = RadioRecordingHistoryLabels.Describe(nieudane, teraz);
+        True(opisNieudanego.StartsWith("Nieudane", StringComparison.Ordinal),
+            $"Opis nieudanego nagrania musi zaczynać się od stanu, było: {opisNieudanego}");
+        True(opisNieudanego.Contains("Zerwane połączenie ze stacją", StringComparison.Ordinal),
+            "Opis nieudanego nagrania musi podawać powód.");
+        True(opisNieudanego.Contains("Dwójka", StringComparison.Ordinal),
+            "Opis musi podawać stację.");
+
+        var opisUdanego = RadioRecordingHistoryLabels.Describe(udane, teraz);
+        True(opisUdanego.StartsWith("Nagrane", StringComparison.Ordinal),
+            $"Udane nagranie nie może być czytane jako nieudane, było: {opisUdanego}");
+
+        // Enter na nieudanym ma powiedziec co sie stalo, a nie milczec.
+        var komunikat = RadioRecordingHistoryLabels.DescribeUnplayable(nieudane);
+        True(komunikat.Contains("Zerwane połączenie ze stacją", StringComparison.Ordinal),
+            $"Enter na nieudanym nagraniu musi podać powód, było: {komunikat}");
+
+        // Nagranie przerwane przez uzytkownika to co innego niz awaria.
+        var przerwane = new RadioRecordingHistorySettings
+        {
+            Id = "wpis-przerwany",
+            StationName = "Czwórka",
+            Outcome = RadioRecordingOutcome.Interrupted,
+            StartedUtcTicks = new DateTime(2026, 9, 15, 13, 0, 0, DateTimeKind.Utc).Ticks,
+            FinishedUtcTicks = new DateTime(2026, 9, 15, 13, 5, 0, DateTimeKind.Utc).Ticks,
+        };
+        var opisPrzerwanego = RadioRecordingHistoryLabels.Describe(przerwane, teraz);
+        True(opisPrzerwanego.StartsWith("Przerwane", StringComparison.Ordinal),
+            $"Przerwane nagranie musi być czytane inaczej niż awaria, było: {opisPrzerwanego}");
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
 }
 
 static void TestRadioRecognitionHistoryPersistence()

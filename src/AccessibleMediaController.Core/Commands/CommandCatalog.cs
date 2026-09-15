@@ -156,7 +156,7 @@ public static class CommandCatalog
             CommandIds.AddRadioSchedule => "Zaplanuj nagranie wybranej stacji",
             CommandIds.ManageRadioSchedules => "Harmonogram nagrywania radia",
             CommandIds.ViewActiveRadioRecordings => "Pokaż aktualnie nagrywane stacje",
-            CommandIds.ViewRecordedRadioFiles => "Pokaż nagrane pliki",
+            CommandIds.ViewRecordedRadioFiles => "Pokaż historię nagrywania",
             CommandIds.RadioJumpLive => "Radio: wróć na żywo",
             CommandIds.RecognizeRadioTrack => "Rozpoznaj teraz odtwarzany utwór",
             CommandIds.ToggleRadioRecognitionMonitoring => "Włącz lub wyłącz obserwowanie rozpoznawania utworów",

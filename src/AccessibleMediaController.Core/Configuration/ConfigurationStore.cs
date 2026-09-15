@@ -858,6 +858,7 @@ public sealed class ConfigurationStore
             state.Radio.RecordingBitrateKbps);
         state.Radio.RecordingSchedules ??= [];
         state.Radio.RecognizedTracks ??= [];
+        state.Radio.RecordingHistory ??= [];
         state.Radio.Stations = (state.Radio.Stations ?? [])
             .Where(station => Uri.TryCreate(station.StreamUrl, UriKind.Absolute, out var uri)
                 && uri.Scheme is "http" or "https")
@@ -988,6 +989,40 @@ public sealed class ConfigurationStore
             .Select(group => group.First())
             .OrderByDescending(entry => entry.RecognizedUtcTicks)
             .Take(2_000)
+            .ToList();
+        state.Radio.RecordingHistory = state.Radio.RecordingHistory
+            .Where(entry => entry is not null)
+            .Select(entry =>
+            {
+                entry.Id = string.IsNullOrWhiteSpace(entry.Id)
+                    ? Guid.NewGuid().ToString("N")
+                    : entry.Id.Trim();
+                entry.StationId = entry.StationId?.Trim() ?? string.Empty;
+                entry.StationName = string.IsNullOrWhiteSpace(entry.StationName)
+                    ? "Nieznana stacja"
+                    : entry.StationName.Trim();
+                entry.Path = entry.Path?.Trim() ?? string.Empty;
+                entry.Reason = entry.Reason?.Trim() ?? string.Empty;
+                entry.ScheduleName = entry.ScheduleName?.Trim() ?? string.Empty;
+                if (!Enum.IsDefined(entry.Outcome))
+                    entry.Outcome = RadioRecordingOutcome.Completed;
+                if (entry.SavedFileCount < 0) entry.SavedFileCount = 0;
+                if (entry.FinishedUtcTicks <= DateTime.UnixEpoch.Ticks
+                    || entry.FinishedUtcTicks > DateTime.UtcNow.AddDays(1).Ticks)
+                {
+                    entry.FinishedUtcTicks = DateTime.UtcNow.Ticks;
+                }
+                if (entry.StartedUtcTicks < 0
+                    || entry.StartedUtcTicks > entry.FinishedUtcTicks)
+                {
+                    entry.StartedUtcTicks = 0;
+                }
+                return entry;
+            })
+            .GroupBy(entry => entry.Id, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .OrderByDescending(entry => entry.FinishedUtcTicks)
+            .Take(1_000)
             .ToList();
         if (state.Radio.CurrentItemId is not null
             && state.Radio.Stations.All(station => !string.Equals(
