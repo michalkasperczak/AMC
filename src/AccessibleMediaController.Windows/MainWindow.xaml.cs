@@ -18650,7 +18650,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         if (MediaList.IsKeyboardFocusWithin
             && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-            && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt)
+            && Keyboard.Modifiers == ModifierKeys.Control
             && e.Key == Key.R)
         {
             ToggleRadioRecording();
@@ -19075,8 +19075,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             commandId = CommandIds.ToggleRadioRecording;
             return true;
         }
+        // NAGRYWANIE MA Ctrl+R, NIE Ctrl+Alt+R (Kasperczak 15.09.2026: "Control to
+        // nagrywanie, Ctrl+Alt+R usuwamy, nie chce miec zdublowanych skrotow").
+        // Litera R trzyma caly temat: samo R w odtwarzaczu, Ctrl+R takze na liscie
+        // stacji, a Alt+R i Alt+Shift+R pokazuja listy nagrywanych i nagranych.
+        // Ctrl+R w OKNIE bylo wolne - pozostaly czas ma Ctrl+Shift+R. Osobna
+        // przestrzen skrotow globalnych (po prefiksie) ma wlasny Ctrl+R i jej
+        // NIE dotykamy.
         if (key == Key.R
-            && modifiers == (ModifierKeys.Control | ModifierKeys.Alt)
+            && modifiers == ModifierKeys.Control
             && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
             && (_playerViewActive || MediaList.IsKeyboardFocusWithin))
         {
@@ -19975,7 +19982,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ShowRadioRecognitionHistory();
             return true;
         }
-        if (effectiveModifiers == (ModifierKeys.Control | ModifierKeys.Alt) && key == Key.R)
+        if (effectiveModifiers == ModifierKeys.Control
+            && key == Key.R
+            && string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal))
         {
             ToggleRadioRecording();
             return true;
@@ -21369,7 +21378,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 IsRadioStationManuallyRecording(actionItem)
                     ? "Zakończ nagrywanie tej stacji"
                     : "Nagrywaj tę stację w tle",
-                "Ctrl+Alt+R");
+                "Ctrl+R");
             SetContextMenuItemPresentation(
                 SelectedRadioPauseRecordingMenuItem,
                 selectedRecordingControls.Count > 0

@@ -536,9 +536,9 @@
                     <MenuItem x:Name="SelectedRadioAddScheduleMenuItem" Header="Zaplanuj nagranie tej stacji…" InputGestureText="Shift+R"
                               automation:AutomationProperties.Name="Zaplanuj nagranie tej stacji, Shift+R"
                               Visibility="Collapsed" Click="RadioAddSchedule_Click" />
-                    <MenuItem x:Name="SelectedRadioRecordingMenuItem" Header="Nagrywaj tę stację w tle" InputGestureText="Ctrl+Alt+R"
-                              automation:AutomationProperties.Name="Rozpocznij lub zakończ nagrywanie tej stacji w tle, Ctrl+Alt+R"
-                              automation:AutomationProperties.AcceleratorKey="Ctrl+Alt+R"
+                    <MenuItem x:Name="SelectedRadioRecordingMenuItem" Header="Nagrywaj tę stację w tle" InputGestureText="Ctrl+R"
+                              automation:AutomationProperties.Name="Rozpocznij lub zakończ nagrywanie tej stacji w tle"
+                              automation:AutomationProperties.AcceleratorKey="Ctrl+R"
                               Visibility="Collapsed" Click="RadioRecording_Click" />
                     <MenuItem x:Name="SelectedRadioPauseRecordingMenuItem" Header="Wstrzymaj lub wznów nagrywanie tej stacji" InputGestureText="Shift+Spacja"
                               automation:AutomationProperties.Name="Wstrzymaj lub wznów nagrywanie tej stacji, Shift+Spacja"

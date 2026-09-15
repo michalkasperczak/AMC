@@ -5934,6 +5934,34 @@ static void TestShortcutHelpCatalog()
         && !entry.Label.Contains("{", StringComparison.Ordinal)),
         "Dostępne etykiety nie mogą ujawniać technicznego zapisu obiektów.");
 
+    // Nagrywanie radia ma Ctrl+R, a nie Ctrl+Alt+R (ustalenie Kasperczaka 15.09.2026:
+    // "Control to nagrywanie, Ctrl+Alt+R usuwamy, nie chce miec zdublowanych skrotow").
+    // Litera R trzyma caly temat: R w odtwarzaczu, Ctrl+R takze na liscie stacji,
+    // Alt+R lista nagrywanych, Alt+Shift+R lista nagranych, Ctrl+Shift+R pozostaly czas.
+    var recordingHelp = entries
+        .Where(entry => entry.Label.Contains("Rozpocznij lub zakończ nagrywanie", StringComparison.Ordinal))
+        .ToList();
+    True(recordingHelp.Count > 0, "Spis skrótów musi wymieniać nagrywanie radia.");
+    True(recordingHelp.Any(entry => entry.Shortcut == "Ctrl+R"),
+        "Nagrywanie radia musi być pod Ctrl+R.");
+    True(entries.All(entry => entry.Shortcut != "Ctrl+Alt+R"),
+        "Ctrl+Alt+R został usunięty - nagrywanie nie może mieć zdublowanego skrótu.");
+    // Pozostaly czas zyje w palecie polecen, nie w spisie skrotow - sprawdzamy u zrodla,
+    // zeby Ctrl+R nie zjadl sasiada z ta sama litera.
+    var palette = CommandPaletteSearch.CreateEntries(
+        KeyboardProfile.CreateDefault(),
+        new AppSettings(),
+        includeCommandPalette: true);
+    var remaining = palette.Single(entry => entry.CommandId == CommandIds.TimeRemaining);
+    True(remaining.LocalShortcut is not null
+            && remaining.LocalShortcut.Contains("Ctrl+Shift+R", StringComparison.Ordinal),
+        "Ctrl+Shift+R (pozostały czas) musi zostać nietknięty.");
+    var recordingPalette = palette.Single(entry => entry.CommandId == CommandIds.ToggleRadioRecording);
+    True(recordingPalette.LocalShortcut is not null
+            && recordingPalette.LocalShortcut.Contains("Ctrl+R", StringComparison.Ordinal)
+            && !recordingPalette.LocalShortcut.Contains("Ctrl+Alt+R", StringComparison.Ordinal),
+        "Paleta poleceń musi podawać Ctrl+R jako skrót nagrywania, bez Ctrl+Alt+R.");
+
     var filtered = ShortcutHelpCatalog.Filter(sections, "pomoc klawiatury");
     Equal(1, filtered.Count(entry => entry.CommandId == CommandIds.KeyboardHelp));
     True(ShortcutHelpCatalog.Filter(sections, "kosza").Any(entry => entry.Shortcut == "Shift+Delete"),
