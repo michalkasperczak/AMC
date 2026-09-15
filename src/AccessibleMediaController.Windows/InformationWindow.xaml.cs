@@ -88,7 +88,9 @@ public partial class InformationWindow : AccessibleWindow
             core.Settings.AreDefaultContextMenusEnabled = false;
             core.Settings.AreDevToolsEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
-            core.Settings.AreBrowserAcceleratorKeysEnabled = false;
+            // Skroty przegladarki zostaja WLACZONE: to one daja szukanie w
+            // tresci (Ctrl+F) i nawigacje, o ktora chodzilo w zgloszeniu.
+            core.Settings.AreBrowserAcceleratorKeysEnabled = true;
             core.Settings.IsPasswordAutosaveEnabled = false;
             core.Settings.IsGeneralAutofillEnabled = false;
 
@@ -105,13 +107,40 @@ public partial class InformationWindow : AccessibleWindow
                 + "event.preventDefault(); window.chrome.webview.postMessage('zamknij'); } }, true);")
                 .ConfigureAwait(true);
 
+            // Fokus dopiero PO wczytaniu dokumentu. Ustawiony wczesniej trafial
+            // w pusty widok i czytnik nie mial czego czytac - kursor wygladal
+            // na zablokowany (ZGLOSZENIE Michala 15.09.2026).
+            var wczytane = new TaskCompletionSource<bool>();
+            void Wczytany(object? _, CoreWebView2NavigationCompletedEventArgs __)
+            {
+                core.NavigationCompleted -= Wczytany;
+                wczytane.TrySetResult(true);
+            }
+            core.NavigationCompleted += Wczytany;
             core.NavigateToString(_document);
             InformationHost.Visibility = Visibility.Collapsed;
             InformationBrowser.Visibility = Visibility.Visible;
             // Lacza sa juz W dokumencie jako prawdziwe lacza HTML - osobna lista
             // tylko dublowalaby je dla czytnika.
             LinksList.Visibility = Visibility.Collapsed;
+
+            // Gdyby zdarzenie nie przyszlo, nie zawieszamy okna na zawsze.
+            var skonczone = await Task.WhenAny(wczytane.Task, Task.Delay(5000)).ConfigureAwait(true);
+            if (skonczone != wczytane.Task)
+            {
+                core.NavigationCompleted -= Wczytany;
+                InformationBrowser.Visibility = Visibility.Collapsed;
+                InformationHost.Visibility = Visibility.Visible;
+                if (_links.Count > 0) LinksList.Visibility = Visibility.Visible;
+                return false;
+            }
+
             InformationBrowser.Focus();
+            // Kursor czytnika musi wejsc DO dokumentu, nie stanac na ramce okna.
+            await core.ExecuteScriptAsync(
+                "(function(){var c=document.querySelector('main');"
+                + "if(c){c.setAttribute('tabindex','-1');c.focus();}})();")
+                .ConfigureAwait(true);
             return true;
         }
         catch (Exception exception) when (exception is WebView2RuntimeNotFoundException

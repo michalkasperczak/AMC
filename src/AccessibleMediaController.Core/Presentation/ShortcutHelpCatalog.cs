@@ -103,13 +103,30 @@ public static class ShortcutHelpCatalog
         if (!inPlayer) preferred.Add("lists");
         if (preferred.Count == 0) return all;
 
-        return all
+        // ZGLOSZENIE Michala 15.09.2026: Shift+F1 ma pokazywac TO, CO MOZNA
+        // ZROBIC TU I TERAZ. Wczesniej tylko przestawialo kolejnosc sekcji, a
+        // dalej wypisywalo wszystkie - czyli w odtwarzaczu radia byla tez
+        // biblioteka lokalna i podcasty. Teraz sekcje nie na temat wypadaja.
+        // "general" i "settings" zostaja, bo tam jest wyjscie, pomoc i
+        // ustawienia - dzialaja zawsze.
+        var widoczne = new HashSet<string>(preferred, StringComparer.Ordinal)
+        {
+            "general",
+            "settings"
+        };
+
+        var wybrane = all
+            .Where(section => widoczne.Contains(section.Id) && section.Entries.Count > 0)
             .OrderBy(section =>
             {
                 var index = preferred.IndexOf(section.Id);
                 return index < 0 ? preferred.Count : index;
             })
             .ToArray();
+
+        // Gdyby filtr wyciol wszystko (nieznana sesja), lepiej pokazac pelny
+        // spis niz puste okno.
+        return wybrane.Length > 0 ? wybrane : all;
     }
 
     public static IReadOnlyList<ShortcutHelpEntry> Filter(

@@ -50,10 +50,17 @@ internal static class InformationDocument
         }
         builder.Append("</main>");
 
-        if (links.Count > 0)
+        // ZGLOSZENIE Michala 15.09.2026: sekcja "Lacza" DUBLOWALA to, co jest
+        // wyzej w tresci. Adresy z opisu sa juz zamienione na prawdziwe lacza
+        // przez LinkifyAndEscape, wiec na dole zostawiamy TYLKO te, ktorych w
+        // tresci nie ma - inaczej czytnik podaje ten sam adres dwa razy.
+        var brakujace = links
+            .Where(link => !ZawieraAdres(information, link.Uri))
+            .ToArray();
+        if (brakujace.Length > 0)
         {
             builder.Append("<h2>Łącza</h2><ul>");
-            foreach (var link in links)
+            foreach (var link in brakujace)
             {
                 builder.Append("<li><a href=\"")
                     .Append(Escape(link.Uri))
@@ -129,6 +136,18 @@ internal static class InformationDocument
         }
         builder.Append(Escape(text[ostatni..]));
         return builder.ToString();
+    }
+
+    /// <summary>
+    /// Czy adres jest juz w tresci opisu. Porownanie bez ogonka i bez roznicy
+    /// wielkosci liter, bo w opisach ten sam adres pojawia sie z ukosnikiem na
+    /// koncu albo w innej wielkosci liter.
+    /// </summary>
+    internal static bool ZawieraAdres(string information, string uri)
+    {
+        if (string.IsNullOrWhiteSpace(information) || string.IsNullOrWhiteSpace(uri)) return false;
+        var szukany = uri.TrimEnd('/');
+        return information.Contains(szukany, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string Escape(string value) => WebUtility.HtmlEncode(value);

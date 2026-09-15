@@ -4103,6 +4103,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     string.Equals(candidate.Id, _radioOutput.LoadedItemId, StringComparison.Ordinal))
                 ?? _sessions.Current.CurrentItem;
             var parts = new List<string> { item.Title };
+            // ZGLOSZENIE Michala 15.09.2026: kolejnosc jak w jego przykladzie -
+            // "Program Trzeci, 192 kb/s", a dopiero potem utwor/audycja.
+            var audio = AudioParametersFormatter.FormatCompact(item);
+            if (!string.IsNullOrWhiteSpace(audio)) parts.Add(audio);
             if (string.Equals(item.Id, _radioNowPlayingItemId, StringComparison.Ordinal)
                 && !string.IsNullOrWhiteSpace(_radioNowPlayingTitle)
                 && !SameSpokenValue(item.Title, _radioNowPlayingTitle))
@@ -4113,8 +4117,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 parts.Add("brak nazwy bieżącej audycji lub utworu");
             }
-            var audio = AudioParametersFormatter.FormatCompact(item);
-            if (!string.IsNullOrWhiteSpace(audio)) parts.Add(audio);
             Announce(string.Join(", ", parts));
             return;
         }

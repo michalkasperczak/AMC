@@ -15,6 +15,7 @@ using AccessibleMediaController.Core.Input;
 using AccessibleMediaController.Core.LocalMedia;
 using AccessibleMediaController.Core.Playback;
 using AccessibleMediaController.Core.Podcasts;
+using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Windows;
 using AccessibleMediaController.Windows.Controls;
@@ -6131,6 +6132,28 @@ static void TestOpisPodcastuStrzalkaWPrawoIPrzegladanie()
     var akapity = InformationDocument.Paragraphs("pierwszy\n\ndrugi\nciag dalszy");
     Assert(akapity.Count == 2, $"Pusta linia musi dzielic akapity, bylo {akapity.Count}.");
 
+    // BLAD ZGLOSZONY 15.09.2026: na koncu dokumentu byl naglowek "Lacza" z tymi
+    // SAMYMI adresami, ktore sa juz nawigowalne w tresci. Adres obecny w opisie
+    // NIE moze byc powtarzany w sekcji na dole.
+    var zDublem = InformationDocument.Build(
+        "Odcinek: https://example.com/odcinek.mp3 - posluchaj.",
+        new[] { new InformationLink("Odcinek", "https://example.com/odcinek.mp3") },
+        "Opis");
+    Assert(!zDublem.Contains("<h2>Łącza</h2>", StringComparison.Ordinal),
+        "Adres obecny w tresci nie moze byc dublowany sekcja Lacza.");
+    Assert(zDublem.Contains("<a href=\"https://example.com/odcinek.mp3\">", StringComparison.Ordinal),
+        "Adres z tresci musi zostac nawigowalnym laczem.");
+
+    // Adres, ktorego w tresci NIE MA, musi zostac wypisany - inaczej stracilibysmy
+    // odnosnik do strony podcastu.
+    var bezDubla = InformationDocument.Build(
+        "Opis bez adresow.",
+        new[] { new InformationLink("Strona", "https://example.com/strona") },
+        "Opis");
+    Assert(bezDubla.Contains("<h2>Łącza</h2>", StringComparison.Ordinal)
+        && bezDubla.Contains("https://example.com/strona", StringComparison.Ordinal),
+        "Lacze nieobecne w tresci musi zostac pokazane osobno.");
+
     // 4. Escape zamyka okno TAKZE z wnetrza dokumentu - klawisze z WebView2 nie
     // docieraja do PreviewKeyDown okna, wiec bez tego skryptu Escape by nie dzialal.
     var oknoInfo = File.ReadAllText(ZnajdzPlikZrodlowy("InformationWindow.xaml.cs"));
@@ -6319,6 +6342,34 @@ static void TestPomocKontekstowaPodShiftF1()
         "Shift+F1 nie jest podpiete do pomocy kontekstowej.");
     Assert(okno.Contains("ShowContextHelp", StringComparison.Ordinal),
         "Brak wywolania pomocy kontekstowej w oknie glownym.");
+
+    // BLAD ZGLOSZONY 15.09.2026: Shift+F1 tylko PRZESTAWIALO kolejnosc sekcji,
+    // a dalej wypisywalo wszystkie - w odtwarzaczu radia byly tez podcasty i
+    // biblioteka lokalna. Ma pokazywac to, co dziala TU I TERAZ.
+    var profil = KeyboardProfile.CreateDefault();
+    var ustawienia = new AppSettings();
+    var wRadiu = ShortcutHelpCatalog.CreateForContext(profil, ustawienia, "radio", inPlayer: true);
+    var idRadio = wRadiu.Select(s => s.Id).ToArray();
+
+    Assert(!idRadio.Contains("podcasts"),
+        "W odtwarzaczu radia Shift+F1 nie moze wypisywac sekcji podcastow.");
+    Assert(!idRadio.Contains("library"),
+        "W odtwarzaczu radia Shift+F1 nie moze wypisywac biblioteki lokalnej.");
+    Assert(idRadio.Length > 0 && idRadio[0] == "player",
+        "W odtwarzaczu sekcja odtwarzacza musi byc pierwsza.");
+    Assert(idRadio.Contains("radio"),
+        "W sesji radia sekcja radia musi zostac.");
+    Assert(idRadio.Contains("general"),
+        "Skroty ogolne dzialaja zawsze - musza zostac.");
+
+    // Filtr nie moze byc tak ostry, zeby zostawic puste okno.
+    var wNieznanej = ShortcutHelpCatalog.CreateForContext(profil, ustawienia, "cos-nieznanego", inPlayer: false);
+    Assert(wNieznanej.Count > 0, "Pomoc kontekstowa nie moze byc pusta.");
+
+    // Pelny spis (F1) ma dalej zawierac WSZYSTKO - kontekst go nie okroil.
+    var pelny = ShortcutHelpCatalog.Create(profil, ustawienia).Select(s => s.Id).ToArray();
+    Assert(pelny.Contains("podcasts") && pelny.Contains("library"),
+        "Pelny spis skrotow musi dalej zawierac wszystkie sekcje.");
 }
 
 static void TestCzytnikStrzalkaWGoreCzytaCoLeci()
