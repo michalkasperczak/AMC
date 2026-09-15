@@ -120,16 +120,16 @@ public partial class ItemPlaybackOptionsWindow : Window
             InterTrackSilenceBox.Visibility = Visibility.Collapsed;
             SmoothTransitionsLabel.Visibility = Visibility.Collapsed;
             SmoothTransitionsBox.Visibility = Visibility.Collapsed;
-            PlaybackRateLabel.Content = "_Prędkość odtwarzania z buforu:";
-            AutomationProperties.SetName(PlaybackRateBox, "Prędkość odtwarzania z buforu tej stacji");
-            AutomationProperties.SetHelpText(
-                PlaybackRateBox,
-                "Działa po cofnięciu się w buforze transmisji. Na żywo prędkości "
-                + "zmienić nie można.");
-            LoudnessNormalizationLabel.Content = "_Normalizacja głośności tej stacji:";
-            AutomationProperties.SetName(LoudnessNormalizationBox, "Normalizacja głośności tej stacji");
-            OutputDeviceLabel.Content = "_Urządzenie audio dla tej stacji:";
-            AutomationProperties.SetName(OutputDeviceBox, "Urządzenie audio dla tej stacji");
+            // ZGLOSZENIE Michala 15.09.2026: predkosc odtwarzania nie ma sensu
+            // przy transmisji na zywo. Te trzy pola i tak nic nie zapisywaly -
+            // okno stacji zapisuje wylacznie zapasowy adres i folder nagran -
+            // wiec myliłyby tylko przy czytaniu okna czytnikiem.
+            PlaybackRateLabel.Visibility = Visibility.Collapsed;
+            PlaybackRateBox.Visibility = Visibility.Collapsed;
+            LoudnessNormalizationLabel.Visibility = Visibility.Collapsed;
+            LoudnessNormalizationBox.Visibility = Visibility.Collapsed;
+            OutputDeviceLabel.Visibility = Visibility.Collapsed;
+            OutputDeviceBox.Visibility = Visibility.Collapsed;
         }
         else if (target is ItemPlaybackOptionsTarget.Podcast or ItemPlaybackOptionsTarget.PodcastEpisode)
         {

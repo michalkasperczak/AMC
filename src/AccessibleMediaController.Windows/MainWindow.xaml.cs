@@ -20742,9 +20742,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .Where(folder => folder.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        if (normalizedFolders.Length == 0) return false;
 
         var changed = false;
+        // ZGLOSZENIE Michala 15.09.2026: w historii nagrywania pojawialy sie
+        // POBRANE ODCINKI PODCASTOW i pliki tymczasowe rozpoczetych pobran.
+        // Powod: Michal celowo trzyma nagrania radia w tym samym folderze co
+        // pobrane podcasty, a indeks wstecz oznaczal jako nagranie radia
+        // KAZDY plik z tego folderu. Odcinek podcastu ma wlasna sciezke
+        // pobrania w ustawieniach - te pliki musimy pominac.
+        var sciezkiPodcastow = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var odcinek in _state.Podcasts.Episodes)
+        {
+            if (odcinek.DownloadPath is { Length: > 0 } sciezka)
+            {
+                var znormalizowana = NormalizeLocalFilePath(sciezka);
+                if (znormalizowana.Length > 0) sciezkiPodcastow.Add(znormalizowana);
+            }
+        }
+
         foreach (var item in _state.LocalMedia.Items.Where(item => !item.IsRadioRecording))
         {
             var path = NormalizeLocalFilePath(item.Path);
@@ -20753,6 +20768,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             {
                 continue;
             }
+            if (sciezkiPodcastow.Contains(path)) continue;
+            // Plik w trakcie pobierania albo zapisu nie jest gotowym nagraniem.
+            if (JestPlikiemTymczasowym(path)) continue;
             item.IsRadioRecording = true;
             item.RadioRecordingCompletedUtcTicks = item.LastWriteUtcTicks.GetValueOrDefault(1);
             changed = true;
@@ -20763,7 +20781,48 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 "radio-recording",
                 "Utworzono indeks wcześniejszych nagrań na podstawie zapisanych folderów nagrywania.");
         }
+
+        // Wpisy oznaczone BLEDNIE przez wczesniejsze wersje zostaly zapisane w
+        // bibliotece, wiec sam filtr przy dodawaniu ich nie usunie. Zdejmujemy
+        // flage z pobranych odcinkow i plikow tymczasowych.
+        var naprawione = 0;
+        foreach (var item in _state.LocalMedia.Items.Where(item => item.IsRadioRecording))
+        {
+            var path = NormalizeLocalFilePath(item.Path);
+            if (path.Length == 0) continue;
+            if (!sciezkiPodcastow.Contains(path) && !JestPlikiemTymczasowym(path)) continue;
+            item.IsRadioRecording = false;
+            item.RadioRecordingCompletedUtcTicks = 0;
+            naprawione++;
+        }
+        if (naprawione > 0)
+        {
+            changed = true;
+            DiagnosticLog.Info(
+                "radio-recording",
+                $"Usunięto z historii nagrywania {naprawione} wpisów, które są pobranymi odcinkami podcastów albo plikami tymczasowymi.");
+        }
+
         return changed;
+    }
+
+    /// <summary>
+    /// Czy sciezka wskazuje plik w trakcie pobierania albo zapisu. Takie pliki
+    /// nie sa gotowym nagraniem i nie moga trafiac do historii nagrywania
+    /// (ZGLOSZENIE Michala 15.09.2026: byly tam rozpoczete pobrania).
+    /// </summary>
+    internal static bool JestPlikiemTymczasowym(string sciezka)
+    {
+        if (string.IsNullOrWhiteSpace(sciezka)) return false;
+        var nazwa = Path.GetFileName(sciezka);
+        if (nazwa.Length == 0) return false;
+        if (nazwa.StartsWith(".amc-", StringComparison.OrdinalIgnoreCase)) return true;
+        var rozszerzenie = Path.GetExtension(nazwa);
+        return rozszerzenie.Equals(".part", StringComparison.OrdinalIgnoreCase)
+            || rozszerzenie.Equals(".partial", StringComparison.OrdinalIgnoreCase)
+            || rozszerzenie.Equals(".amc-partial", StringComparison.OrdinalIgnoreCase)
+            || rozszerzenie.Equals(".tmp", StringComparison.OrdinalIgnoreCase)
+            || rozszerzenie.Equals(".ytdl", StringComparison.OrdinalIgnoreCase);
     }
 
     private void RefreshRecordedRadioFilesViewIfVisible()

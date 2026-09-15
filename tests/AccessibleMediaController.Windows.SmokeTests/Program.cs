@@ -172,6 +172,8 @@ var tests = new (string Name, Action Test)[]
     ("Skrot Alt+Shift+R naprawde wywoluje historie nagrywania", TestSkrotHistoriiNagrywaniaJestWywolywany),
     ("Zywa transmisja ma zapas dzwieku przeciw zacieciom", TestZywaTransmisjaMaZapasDzwieku),
     ("Opis podcastu: strzalka w prawo i tryb przegladania", TestOpisPodcastuStrzalkaWPrawoIPrzegladanie),
+    ("Historia nagrywania bez pobranych podcastow", TestHistoriaNagrywaniaBezPobranychPodcastow),
+    ("Okno stacji bez martwych pol odtwarzania", TestOknoStacjiBezMartwychPolOdtwarzania),
     ("Opcje strumienia stacji radiowej dzialaja", TestOpcjeStrumieniaStacjiRadiowej),
     ("Transmisja z obrazem i dzwiekiem daje dzwiek", TestTransmisjaZObrazemDajeDzwiek),
     ("Duzy bufor transmisji lezy na dysku, maly w pamieci", TestBuforTransmisjiLezyNaDyskuGdyDuzy),
@@ -6325,6 +6327,77 @@ static void TestBuforTransmisjiMaRegulacjePredkosci()
     Assert(zrodlo.Contains("SoundTouchWaveStream", StringComparison.Ordinal)
         && zrodlo.Contains("TempoStream", StringComparison.Ordinal),
         "Brak realnej zmiany tempa dzwieku w buforze transmisji.");
+}
+
+static void TestOknoStacjiBezMartwychPolOdtwarzania()
+{
+    // ZGLOSZENIE Michala 15.09.2026: pod Alt+Shift+Enter dla stacji radiowej
+    // byla PREDKOSC ODTWARZANIA - bez sensu przy transmisji na zywo.
+    // Przy sprawdzaniu wyszlo wiecej: predkosc, normalizacja i urzadzenie
+    // audio NIE BYLY W OGOLE ZAPISYWANE (ShowRadioStationOptions zapisuje
+    // tylko BackupStreamUrl i RecordingFolder), czyli byly martwe.
+    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("ItemPlaybackOptionsWindow.xaml.cs"));
+    var start = okno.IndexOf("ItemPlaybackOptionsTarget.RadioStation)", StringComparison.Ordinal);
+    Assert(start > 0, "Nie znaleziono galezi okna dla stacji radiowej.");
+    var koniec = okno.IndexOf("ItemPlaybackOptionsTarget.Podcast or", start, StringComparison.Ordinal);
+    Assert(koniec > start, "Nie znaleziono konca galezi stacji radiowej.");
+    var galaz = okno[start..koniec];
+
+    foreach (var pole in new[] { "PlaybackRateBox", "LoudnessNormalizationBox", "OutputDeviceBox" })
+    {
+        Assert(galaz.Contains($"{pole}.Visibility = Visibility.Collapsed;", StringComparison.Ordinal),
+            $"Pole {pole} nic nie zapisuje dla stacji radiowej i musi byc ukryte w tym oknie.");
+    }
+
+    // Zapasowy adres i folder nagran DZIALAJA - musza zostac widoczne.
+    Assert(galaz.Contains("RadioSettingsPanel.Visibility = Visibility.Visible;", StringComparison.Ordinal),
+        "Zapasowy adres i folder nagran stacji musza zostac w oknie.");
+
+    // Zapis stacji nadal obejmuje wylacznie te dwa dzialajace ustawienia.
+    var main = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
+    var zapisStart = main.IndexOf("private void ShowRadioStationOptions", StringComparison.Ordinal);
+    Assert(zapisStart > 0, "Nie znaleziono ShowRadioStationOptions.");
+    var zapis = main[zapisStart..(zapisStart + 2500)];
+    Assert(zapis.Contains("saved.BackupStreamUrl = dialog.SelectedRadioBackupStreamUrl;", StringComparison.Ordinal)
+        && zapis.Contains("saved.RecordingFolder", StringComparison.Ordinal),
+        "Okno stacji musi dalej zapisywac zapasowy adres i folder nagran.");
+}
+
+static void TestHistoriaNagrywaniaBezPobranychPodcastow()
+{
+    // ZGLOSZENIE Michala 15.09.2026: pod Alt+Shift+R (historia nagrywania)
+    // pojawialy sie POBRANE ODCINKI PODCASTOW oraz rozpoczete pobrania.
+    // Powod: Michal celowo trzyma nagrania radia w tym samym folderze co
+    // pobrane podcasty, a indeks wstecz oznaczal jako nagranie radia KAZDY
+    // plik z tego folderu.
+    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
+
+    // 1. Pobrane odcinki musza byc wykluczane po SCIEZCE POBRANIA odcinka -
+    // to jedyny pewny znak, ze plik nie jest nagraniem radia.
+    Assert(okno.Contains("sciezkiPodcastow", StringComparison.Ordinal)
+        && okno.Contains("odcinek.DownloadPath is { Length: > 0 }", StringComparison.Ordinal),
+        "Indeks nagran musi pomijac pliki bedace pobranymi odcinkami podcastow.");
+    Assert(okno.Contains("if (sciezkiPodcastow.Contains(path)) continue;", StringComparison.Ordinal),
+        "Brak realnego pominiecia pobranego odcinka przy oznaczaniu nagran.");
+
+    // 2. Wpisy oznaczone bledem starszych wersji sa JUZ w bibliotece - sam
+    // filtr przy dodawaniu ich nie usunie, musi byc czyszczenie.
+    Assert(okno.Contains("item.IsRadioRecording = false;", StringComparison.Ordinal),
+        "Brak zdejmowania blednej flagi z wpisow zapisanych przez starsze wersje.");
+
+    // 3. Pliki tymczasowe rozpoznawane po nazwie.
+    Assert(MainWindow.JestPlikiemTymczasowym(@"C:\a\odcinek.mp3.part"),
+        "Plik .part to rozpoczete pobranie, nie nagranie.");
+    Assert(MainWindow.JestPlikiemTymczasowym(@"C:\a\.amc-download-abc.tmp"),
+        "Plik tymczasowy AMC nie moze byc nagraniem.");
+    Assert(MainWindow.JestPlikiemTymczasowym(@"C:\a\audycja.partial"),
+        "Plik .partial to niedokonczony zapis.");
+    Assert(!MainWindow.JestPlikiemTymczasowym(@"C:\a\Program Trzeci 2026-09-15.mp3"),
+        "Gotowe nagranie radia NIE moze byc uznane za plik tymczasowy.");
+    Assert(!MainWindow.JestPlikiemTymczasowym(@"C:\a\audycja.flac"),
+        "Nagranie FLAC nie moze byc uznane za plik tymczasowy.");
+    Assert(!MainWindow.JestPlikiemTymczasowym(string.Empty),
+        "Pusta sciezka nie moze wywalac sprawdzenia.");
 }
 
 static void TestPomocKontekstowaPodShiftF1()
