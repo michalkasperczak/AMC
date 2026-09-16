@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.Foundation;
+using AccessibleMediaController.Core.Tidal;
 using Windows.Media.Control;
 
 namespace AccessibleMediaController.Windows.Services;
@@ -13,6 +14,20 @@ public sealed record ExternalPlaybackState
     public string Title { get; init; } = string.Empty;
     public string Artist { get; init; } = string.Empty;
     public TimeSpan Duration { get; init; }
+
+    /// <summary>
+    /// Ile utworu juz minelo. Windows podaje to jako migawke ze znacznikiem
+    /// czasu (LastUpdatedTime) i NIE odliczajac dalej, wiec przy grajacym
+    /// utworze trzeba doliczyc czas, ktory uplynal od tej migawki - inaczej
+    /// czas od poczatku stoi w miejscu.
+    /// </summary>
+    public TimeSpan Position { get; init; }
+
+    /// <summary>
+    /// Czy program w ogole wystawia polozenie na zewnatrz. Gdy nie - lepiej
+    /// powiedziec "nieznany" niz podac zero, ktore brzmi jak poczatek utworu.
+    /// </summary>
+    public bool HasPosition { get; init; }
     public bool IsPlaying { get; init; }
 
     public static ExternalPlaybackState None => new();
@@ -99,14 +114,28 @@ public sealed class ExternalMediaController
             var media = await session.TryGetMediaPropertiesAsync().AsTask(token).ConfigureAwait(false);
             var timeline = session.GetTimelineProperties();
             var playback = session.GetPlaybackInfo();
+            var isPlaying = playback?.PlaybackStatus
+                == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+
+            // Rachunek siedzi w czesci wspolnej (ExternalPlaybackTime), bo tylko
+            // tam da sie go sprawdzic testami bez zywej sesji multimediow.
+            var czas = ExternalPlaybackTime.Compute(
+                position: timeline?.Position ?? TimeSpan.Zero,
+                endTime: timeline?.EndTime ?? TimeSpan.Zero,
+                startTime: timeline?.StartTime ?? TimeSpan.Zero,
+                lastUpdated: timeline?.LastUpdatedTime ?? default,
+                isPlaying: isPlaying,
+                now: DateTimeOffset.UtcNow);
+
             return new ExternalPlaybackState
             {
                 HasSession = true,
                 Title = media?.Title ?? string.Empty,
                 Artist = media?.Artist ?? string.Empty,
-                Duration = timeline?.EndTime ?? TimeSpan.Zero,
-                IsPlaying = playback?.PlaybackStatus
-                    == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing
+                Duration = czas.Duration,
+                Position = czas.Position,
+                HasPosition = czas.HasPosition,
+                IsPlaying = isPlaying
             };
         }
         catch (Exception exception)

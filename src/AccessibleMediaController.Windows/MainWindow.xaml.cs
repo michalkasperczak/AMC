@@ -5452,7 +5452,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Gdy gra oryginalny TIDAL, Spacja wstrzymuje i wznawia, a Page Down i Page Up przechodzą do następnego i poprzedniego utworu Z LISTY W AMC, czyli z tej playlisty, albumu lub Ulubionych, z której odtwarzanie się zaczęło. " +
             "Każda taka zmiana utworu trwa dwie do trzech sekund, bo AMC wskazuje TIDALowi konkretny utwór na stronie jego albumu. " +
             "Shift+Page Down i Shift+Page Up idą natychmiast, ale kolejką samego TIDALa, czyli tam, gdzie prowadzi ona z bieżącego utworu. " +
-            "Przewijanie o sekundy i odtwarzacz pod F6 nie działają dla oryginalnego TIDALa: Windows nie udostępnia przewijania cudzego odtwarzacza.",
+            "Przewijanie o sekundy i odtwarzacz pod F6 nie działają dla oryginalnego TIDALa: Windows nie udostępnia przewijania cudzego odtwarzacza. Czas utworu przez Ctrl+Shift+E, R i T działa, bo ten Windows podaje.",
             "Skróty prototypu",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
@@ -10945,6 +10945,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (commandId is not CommandIds.PreviousBookmark and not CommandIds.NextBookmark)
         {
             _bookmarkNavigationCursor = null;
+        }
+        // Czas utworu przy oddanym transporcie zna TYLKO oryginalny TIDAL -
+        // wlasny silnik nic wtedy nie gra i podalby zero (zgloszenie 16.09.2026).
+        if (commandId is CommandIds.TimeElapsed or CommandIds.TimeRemaining or CommandIds.TimeTotal
+            && ShouldRouteTransportToTidalDesktop)
+        {
+            _ = TryAnnounceTidalDesktopTimeAsync(commandId);
+            return new CommandExecutionResult(true);
         }
         var sessionBeforeCommand = _sessions.Current;
         if (commandId == CommandIds.ActivateSelected

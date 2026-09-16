@@ -402,6 +402,56 @@ public partial class MainWindow
         Announce($"Kolejka TIDALa: {opis}");
     }
 
+    /// <summary>
+    /// Czas utworu granego przez ORYGINALNY TIDAL - Ctrl+Shift+E, R, T.
+    ///
+    /// Zgloszenie uzytkownika 16.09.2026: "Ctrl+Shift+E R i T nie czyta czasu
+    /// utworu, czyta go jako zero". Przyczyna: te skroty pytaly wlasny silnik
+    /// AMC, ktory przy TIDALu NIC nie gra (transport oddany TIDALowi), wiec
+    /// zwracal zero. Windows zna ten czas - trzeba go tylko zapytac.
+    /// </summary>
+    private async Task<bool> TryAnnounceTidalDesktopTimeAsync(string commandId)
+    {
+        if (!ShouldRouteTransportToTidalDesktop) return false;
+
+        var state = await ExternalMedia.GetStateAsync().ConfigureAwait(true);
+        if (!state.HasSession)
+        {
+            // Bez sesji nie wiemy nic - mowimy to wprost, zeby nie zgadywac.
+            Announce("Oryginalny TIDAL nie podaje teraz czasu utworu");
+            return true;
+        }
+
+        if (commandId == CommandIds.TimeElapsed)
+        {
+            Announce(state.HasPosition
+                ? $"Czas od początku: {CommandRouter.FormatTime(state.Position)}"
+                : "Oryginalny TIDAL nie podaje czasu od początku");
+            return true;
+        }
+
+        if (commandId == CommandIds.TimeTotal)
+        {
+            Announce(state.Duration > TimeSpan.Zero
+                ? $"Czas całkowity: {CommandRouter.FormatTime(state.Duration)}"
+                : "Oryginalny TIDAL nie podaje czasu całkowitego");
+            return true;
+        }
+
+        // Czas pozostaly wymaga OBU liczb; brak ktorejkolwiek trzeba powiedziec,
+        // bo inaczej odjęlibyśmy od zera i wyszlaby nieprawda.
+        if (state.Duration <= TimeSpan.Zero || !state.HasPosition)
+        {
+            Announce("Oryginalny TIDAL nie podaje czasu pozostałego");
+            return true;
+        }
+        var pozostalo = state.Position >= state.Duration
+            ? TimeSpan.Zero
+            : state.Duration - state.Position;
+        Announce($"Czas pozostały: {CommandRouter.FormatTime(pozostalo)}");
+        return true;
+    }
+
     /// <summary>Co gra teraz w oryginalnym TIDALu - do odczytania na zadanie.</summary>
     private async Task<bool> TryAnnounceTidalDesktopNowPlayingAsync()
     {
