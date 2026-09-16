@@ -161,7 +161,8 @@ internal static class AudioOutputDeviceCatalog
             selectedDevice?.Dispose();
             DiagnosticLog.Warning(
                 "audio-device",
-                $"Wybrane urządzenie jest niedostępne; użyto domyślnego. Błąd {exception.GetType().Name}.");
+                $"Wybrane urządzenie jest niedostępne; użyto domyślnego. Identyfikator {deviceId}; " +
+                $"błąd {exception.GetType().Name}: {exception.Message}");
             return new AudioOutputDeviceLease(
                 new WasapiOut(AudioClientShareMode.Shared, true, latencyMilliseconds),
                 null,

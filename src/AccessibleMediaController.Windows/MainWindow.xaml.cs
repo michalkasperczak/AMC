@@ -17287,7 +17287,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                     _wiiMSnapshots.Remove(result.Device.Id);
                     DiagnosticLog.Warning(
                         "wiim-refresh",
-                        $"Brak odpowiedzi {result.Device.Address}: {result.Error?.GetType().Name ?? "nieznany błąd"}.");
+                        $"Brak odpowiedzi {result.Device.Address}: {(result.Error is null ? "nieznany błąd" : $"{result.Error.GetType().Name}: {result.Error.Message}")}.");
                     continue;
                 }
                 UpdateWiiMRegistration(result.Device, result.Snapshot);
@@ -17415,7 +17415,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         catch (Exception exception) when (IsWiiMConnectionFailure(exception))
         {
-            DiagnosticLog.Warning("wiim-refresh", $"Brak odpowiedzi {device.Address}: {exception.GetType().Name}.");
+            DiagnosticLog.Warning("wiim-refresh", $"Brak odpowiedzi {device.Address}: {exception.GetType().Name}: {exception.Message}");
             if (announceFailure) Announce($"Brak odpowiedzi urządzenia {device.DisplayName}");
             return null;
         }
@@ -19100,6 +19100,29 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ExecuteCommand(CommandIds.PlayPause);
             e.Handled = true;
             return;
+        }
+
+        // Gdy gra ORYGINALNY TIDAL, wbudowanego odtwarzacza NIE MA - nie ma sesji,
+        // wiec F6 nie otwiera zadnego okna odtwarzacza i _playerViewActive jest
+        // false. Bez tego bloku spacja i strzalki nie mialy jak dojsc do TIDALa:
+        // przechwytywanie w dyspozytorze polecen bylo martwe, bo nikt go nie wolal.
+        // Zgloszenie Michala 16.09.2026: "brak sesji TIDAL, F6 nie ma odtwarzacza,
+        // wiec nie ma sterowania - bo byc nie moze".
+        if (ShouldRouteTransportToTidalDesktop && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            var tidalCommandId = e.Key switch
+            {
+                Key.Space => CommandIds.PlayPause,
+                Key.PageDown => CommandIds.Next,
+                Key.PageUp => CommandIds.Previous,
+                _ => string.Empty,
+            };
+            if (tidalCommandId.Length > 0)
+            {
+                _ = RouteTransportToTidalDesktopAsync(tidalCommandId);
+                e.Handled = true;
+                return;
+            }
         }
 
         if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.N)

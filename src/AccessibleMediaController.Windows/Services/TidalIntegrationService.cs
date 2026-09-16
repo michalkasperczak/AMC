@@ -37,17 +37,42 @@ internal sealed class TidalIntegrationService(
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(settings.ClientId);
 
+    private bool? storedLoginProbe;
+    private string? storedLoginProbeFailure;
+
     public bool HasStoredLogin
     {
         get
         {
-            try { return TidalCredentialStore.TryRead(out _); }
+            // CredRead trafia tutaj z kazdego odswiezenia menu i palety polecen. Bez zapamietania
+            // wyniku jeden blad Menedzera poswiadczen zasypywal dziennik dziesiatkami identycznych
+            // wpisow, a przyczyna i tak nie zmienia sie miedzy probami w tej samej sesji.
+            if (storedLoginProbe is { } cached) return cached;
+            try
+            {
+                var found = TidalCredentialStore.TryRead(out _);
+                storedLoginProbe = found;
+                storedLoginProbeFailure = null;
+                return found;
+            }
             catch (Exception exception)
             {
-                DiagnosticLog.Warning("tidal-auth", $"Nie można odczytać bezpiecznie zapisanego logowania: {exception.GetType().Name}.");
+                var description = $"{exception.GetType().Name}: {exception.Message}";
+                if (storedLoginProbeFailure != description)
+                {
+                    storedLoginProbeFailure = description;
+                    DiagnosticLog.Warning("tidal-auth", $"Nie można odczytać bezpiecznie zapisanego logowania: {description}");
+                }
                 return false;
             }
         }
+    }
+
+    /// <summary>Kasuje zapamietany wynik odczytu poswiadczen po zalogowaniu, wylogowaniu lub na zadanie uzytkownika.</summary>
+    public void InvalidateStoredLoginProbe()
+    {
+        storedLoginProbe = null;
+        storedLoginProbeFailure = null;
     }
 
     public void RestoreCachedCollection(IReadOnlyList<MediaItem> items)
@@ -75,6 +100,7 @@ internal sealed class TidalIntegrationService(
         {
             var tokens = await oauth.AuthorizeAsync(settings, cancellationToken).ConfigureAwait(false);
             TidalCredentialStore.Write(tokens);
+            InvalidateStoredLoginProbe();
             accountUserId = null;
             DiagnosticLog.Info("tidal-auth", "Zalogowano konto TIDAL; token zapisano w Menedżerze poświadczeń Windows.");
         }
@@ -455,6 +481,7 @@ internal sealed class TidalIntegrationService(
     public void Disconnect()
     {
         TidalCredentialStore.Delete();
+        InvalidateStoredLoginProbe();
         settings.AccountDisplayName = string.Empty;
         settings.LastSuccessfulSyncUtcTicks = 0;
         settings.CachedCollectionItems.Clear();
@@ -490,6 +517,7 @@ internal sealed class TidalIntegrationService(
         if (tokens.ExpiresAtUtc > DateTimeOffset.UtcNow.AddMinutes(1)) return tokens;
         var refreshed = await oauth.RefreshAsync(settings, tokens, cancellationToken).ConfigureAwait(false);
         TidalCredentialStore.Write(refreshed);
+        InvalidateStoredLoginProbe();
         DiagnosticLog.Info("tidal-auth", "Odświeżono logowanie TIDAL.");
         return refreshed;
     }
