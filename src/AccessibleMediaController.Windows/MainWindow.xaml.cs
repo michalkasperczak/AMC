@@ -5446,7 +5446,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             "Ctrl+Z cofa ostatnią zmianę Ulubionych, Biblioteki lub Kolejki. " +
             "Alt+F4 zawsze zamyka całe główne okno i aplikację, również z widoku odtwarzacza. " +
             "Escape w filtrze lub na głównym przycisku wraca do listy; aktywny filtr jest wtedy czyszczony. " +
-            "W menu Escape standardowo wychodzi o jeden poziom.",
+            "W menu Escape standardowo wychodzi o jeden poziom.\n\n" +
+            "TIDAL: Enter na utworze oddaje go oryginalnemu programowi TIDAL, bo własny silnik AMC dostaje z TIDALa tylko trzydziestosekundowe próbki. " +
+            "Playlisty i albumy TIDALa są w Bibliotece pod Ctrl+L, a nie w Ulubionych; Enter otwiera ich utwory, Ctrl+Enter gra całość od pierwszego utworu. " +
+            "Gdy gra oryginalny TIDAL, Spacja wstrzymuje i wznawia, a Page Down i Page Up przechodzą do następnego i poprzedniego utworu Z LISTY W AMC, czyli z tej playlisty, albumu lub Ulubionych, z której odtwarzanie się zaczęło. " +
+            "Każda taka zmiana utworu trwa dwie do trzech sekund, bo AMC wskazuje TIDALowi konkretny utwór na stronie jego albumu. " +
+            "Shift+Page Down i Shift+Page Up idą natychmiast, ale kolejką samego TIDALa, czyli tam, gdzie prowadzi ona z bieżącego utworu. " +
+            "Przewijanie o sekundy i odtwarzacz pod F6 nie działają dla oryginalnego TIDALa: Windows nie udostępnia przewijania cudzego odtwarzacza.",
             "Skróty prototypu",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
@@ -12655,6 +12661,22 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }, () => _tidalNavigationVersion++);
     }
 
+    /// <summary>
+    /// Utwory z listy widocznej TERAZ, w kolejnosci ekranu. Sluza jako kolejka
+    /// odtwarzania dla oryginalnego TIDALa - bierzemy ItemsSource, bo to on
+    /// odzwierciedla filtr i sortowanie, ktore widzi uzytkownik.
+    /// </summary>
+    private IReadOnlyList<MediaItem> CurrentTidalTrackListInOrder()
+    {
+        if (MediaList.ItemsSource is not IEnumerable<MediaItemRow> rows)
+            return Array.Empty<MediaItem>();
+
+        return rows
+            .Select(row => row.ActionItem)
+            .Where(item => item.Kind == MediaItemKind.Track)
+            .ToArray();
+    }
+
     private void FocusMediaList()
     {
         if (NvdaBackgroundScope.IsActive || _nvdaRemoteCommandActive && !IsActive) return;
@@ -13058,7 +13080,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             // caly utwor w jakosci ustawionej przez uzytkownika.
             if (item.Kind == MediaItemKind.Track)
             {
-                PlayTrackInTidalDesktop(item);
+                // Podajemy CALA widoczna liste w jej kolejnosci, zeby nastepny
+                // i poprzedni szly po niej, a nie po kolejce TIDALa.
+                PlayTrackInTidalDesktop(item, CurrentTidalTrackListInOrder(), _currentView);
                 return;
             }
         }
@@ -19123,6 +19147,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 e.Handled = true;
                 return;
             }
+        }
+
+        // Shift+PageDown / Shift+PageUp: przeskok KOLEJKA ORYGINALNEGO TIDALA,
+        // z pominieciem listy AMC. Jest natychmiastowy (nie otwiera strony
+        // albumu), wiec zostaje jako szybsza droga dla tego, kto chce isc dalej
+        // tak jak proponuje TIDAL.
+        if (ShouldRouteTransportToTidalDesktop
+            && Keyboard.Modifiers == ModifierKeys.Shift
+            && e.Key is Key.PageDown or Key.PageUp)
+        {
+            _ = SkipUsingTidalOwnQueueAsync(e.Key == Key.PageDown);
+            e.Handled = true;
+            return;
         }
 
         if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.N)

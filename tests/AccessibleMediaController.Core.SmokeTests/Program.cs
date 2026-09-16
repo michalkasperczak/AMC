@@ -35,6 +35,7 @@ var tests = new (string Name, Action Test)[]
     ("Suma kontrolna czytana z opisu wydania", ReleaseNotesChecksumTests.Run),
     ("Przeskok o czas ustawiony przez użytkownika", CustomSeekLengthTests.Run),
     ("Przekazywanie utworów i całości oryginalnemu TIDALowi", TidalDesktopPlaybackTests.Run),
+    ("Kolejka utworów TIDALa prowadzona przez AMC", TidalDesktopTrackQueueTests.Run),
     ("Bezpieczny klient i parser urządzeń WiiM", TestWiiMApiParsing),
     ("Migracja kolejności strumieni WiiM", TestWiiMLegacyStreamOrderMigration),
     ("Bezpieczne parsowanie kanałów podcastów", TestPodcastFeedParsing),

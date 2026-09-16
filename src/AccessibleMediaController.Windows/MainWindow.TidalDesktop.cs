@@ -50,8 +50,15 @@ public partial class MainWindow
 
     /// <summary>
     /// Odtwarza pojedynczy utwor w oryginalnym TIDALu.
+    ///
+    /// Drugi parametr to LISTA, z ktorej utwor pochodzi, w kolejnosci widzianej
+    /// przez uzytkownika. Zapamietujemy ja, zeby nastepny i poprzedni szly PO
+    /// NIEJ, a nie kolejka wymyslona przez TIDALa - zgloszenie z 16.09.2026.
     /// </summary>
-    private void PlayTrackInTidalDesktop(MediaItem track)
+    private void PlayTrackInTidalDesktop(
+        MediaItem track,
+        IReadOnlyList<MediaItem>? listInOrder = null,
+        string? sourceName = null)
     {
         if (!TidalDesktopPlaybackPlan.TryBuildRequest(
                 TidalDesktopPlayKind.Track,
@@ -67,6 +74,19 @@ public partial class MainWindow
                 $"Nie zbudowano żądania dla utworu \"{track.Title}\" (identyfikator {track.ExternalId ?? "brak"}, album {track.RelatedAlbumExternalId ?? "brak"}): {reason}");
             Announce(reason ?? "Nie da się odtworzyć tego utworu w oryginalnym TIDALu");
             return;
+        }
+
+        if (listInOrder is { Count: > 0 })
+        {
+            _tidalTrackQueue.Capture(listInOrder, track, sourceName ?? string.Empty);
+            DiagnosticLog.Info("tidal-desktop",
+                $"Kolejka AMC: {_tidalTrackQueue.Count} utworów z listy \"{_tidalTrackQueue.SourceName}\", grający numer {_tidalTrackQueue.HumanPosition}.");
+        }
+        else
+        {
+            // Bez listy nie ma po czym chodzic - lepiej zapomniec stara kolejke
+            // niz przeskakiwac po liscie, ktorej uzytkownik juz nie slucha.
+            _tidalTrackQueue.Clear();
         }
 
         _ = RunTidalDesktopPlaybackAsync(request!);
@@ -226,6 +246,51 @@ public partial class MainWindow
     private bool _tidalDesktopHasPlayback;
 
     /// <summary>
+    /// Kolejka utworow prowadzona PRZEZ AMC: kolejnosc z listy uzytkownika,
+    /// nie z kolejki oryginalnego TIDALa.
+    /// </summary>
+    private readonly TidalDesktopTrackQueue _tidalTrackQueue = new();
+
+    /// <summary>
+    /// Przesuwa sie po kolejce AMC i WSKAZUJE TIDALowi konkretny utwor.
+    ///
+    /// Kosztuje to otwarcie strony albumu w TIDALu (2-3 sekundy), ale tylko tak
+    /// da sie utrzymac kolejnosc z listy - polecenie "nastepny" przez sesje
+    /// multimediow oddaje wybor TIDALowi i wtedy leci jego kolejnosc.
+    /// </summary>
+    private async Task<bool> TrySkipWithinAmcQueueAsync(bool forward)
+    {
+        if (!_tidalTrackQueue.TryMove(forward, out var track) || track is null)
+        {
+            // Koniec listy MUSI byc powiedziany. Cisza brzmi jak zepsuty klawisz.
+            Announce(_tidalTrackQueue.EndOfQueueMessage(forward));
+            return true;
+        }
+
+        if (!TidalDesktopPlaybackPlan.TryBuildRequest(
+                TidalDesktopPlayKind.Track,
+                track.Title,
+                track.RelatedAlbumExternalId,
+                containerExternalId: null,
+                containerIsPlaylist: false,
+                displayName: track.Title,
+                out var request,
+                out var reason))
+        {
+            DiagnosticLog.Warning("tidal-desktop",
+                $"Kolejka AMC: nie zbudowano żądania dla \"{track.Title}\": {reason}");
+            Announce(reason ?? "Nie da się odtworzyć tego utworu w oryginalnym TIDALu");
+            return true;
+        }
+
+        DiagnosticLog.Info("tidal-desktop",
+            $"Kolejka AMC: {(forward ? "następny" : "poprzedni")} to \"{track.Title}\", numer {_tidalTrackQueue.HumanPosition} z {_tidalTrackQueue.Count}.");
+
+        await RunTidalDesktopPlaybackAsync(request!).ConfigureAwait(true);
+        return true;
+    }
+
+    /// <summary>
     /// Czy klawisze transportu (spacja, nastepny, poprzedni) maja iść do
     /// oryginalnego TIDALa.
     /// </summary>
@@ -257,10 +322,17 @@ public partial class MainWindow
         return true;
     }
 
-    /// <summary>Nastepny albo poprzedni utwor w kolejce oryginalnego TIDALa.</summary>
+    /// <summary>Nastepny albo poprzedni utwor.</summary>
+    ///
+    /// NAJPIERW proba po LISCIE AMC (playlista, album, Ulubione - to, co widzi
+    /// uzytkownik), bo o to bylo zgloszenie z 16.09.2026. Dopiero gdy kolejki
+    /// AMC nie ma, prosimy oryginalny TIDAL o jego wlasny nastepny utwor.
     private async Task<bool> TrySkipInTidalDesktopAsync(bool forward)
     {
         if (!ShouldRouteTransportToTidalDesktop) return false;
+
+        if (_tidalTrackQueue.HasQueue && await TrySkipWithinAmcQueueAsync(forward).ConfigureAwait(true))
+            return true;
 
         if (!await ExternalMedia.IsAvailableAsync().ConfigureAwait(true))
         {
@@ -288,6 +360,46 @@ public partial class MainWindow
             ? (state.Artist.Length > 0 ? $"{state.Title}, {state.Artist}" : state.Title)
             : (forward ? "Następny utwór" : "Poprzedni utwór"));
         return true;
+    }
+
+    /// <summary>
+    /// Przeskok KOLEJKA ORYGINALNEGO TIDALA, celowo z pominieciem listy AMC.
+    /// Pod Shift+PageDown / Shift+PageUp - dla tego, kto chce isc dalej tak,
+    /// jak proponuje TIDAL, i chce tego natychmiast.
+    /// </summary>
+    private async Task SkipUsingTidalOwnQueueAsync(bool forward)
+    {
+        if (!ShouldRouteTransportToTidalDesktop) return;
+
+        if (!await ExternalMedia.IsAvailableAsync().ConfigureAwait(true))
+        {
+            _tidalDesktopHasPlayback = false;
+            Announce("Oryginalny TIDAL nie odpowiada");
+            return;
+        }
+
+        var done = forward
+            ? await ExternalMedia.NextAsync().ConfigureAwait(true)
+            : await ExternalMedia.PreviousAsync().ConfigureAwait(true);
+
+        if (!done)
+        {
+            Announce(forward
+                ? "Oryginalny TIDAL nie ma następnego utworu"
+                : "Oryginalny TIDAL nie ma poprzedniego utworu");
+            return;
+        }
+
+        // Kolejnosc idzie teraz TIDALem, wiec kolejka AMC przestala opisywac
+        // rzeczywistosc - jej dalsze uzycie przeskakiwaloby w zle miejsce.
+        _tidalTrackQueue.Clear();
+
+        await Task.Delay(TimeSpan.FromMilliseconds(700)).ConfigureAwait(true);
+        var state = await ExternalMedia.GetStateAsync().ConfigureAwait(true);
+        var opis = state.HasSession && state.Title.Length > 0
+            ? (state.Artist.Length > 0 ? $"{state.Title}, {state.Artist}" : state.Title)
+            : (forward ? "Następny utwór" : "Poprzedni utwór");
+        Announce($"Kolejka TIDALa: {opis}");
     }
 
     /// <summary>Co gra teraz w oryginalnym TIDALu - do odczytania na zadanie.</summary>
