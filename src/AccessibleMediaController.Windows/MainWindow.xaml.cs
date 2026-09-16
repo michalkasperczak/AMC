@@ -10429,12 +10429,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 _ = RouteTransportToTidalDesktopAsync(commandId);
                 return new CommandExecutionResult(true);
             }
-            if (commandId is CommandIds.TimeTotal or CommandIds.ItemProperties)
+            if (commandId == CommandIds.ItemProperties)
             {
-                // TIDAL zglasza tytul, wykonawce i DLUGOSC, ale nie pozycje
-                // (zawsze zero - zmierzone 11.09.2026). Dlatego czasu, ktory
-                // uplynal, i pozostalego tu nie przechwytujemy: wbudowany
-                // odtwarzacz odpowie na nie sensowniej.
+                // Tylko WLASCIWOSCI czytaja tu pelny opis "co gra teraz".
+                // Czasy (Ctrl+Shift+E/R/T) NIE moga tu trafiac: ta galaz
+                // przechwytywala TimeTotal przed TryAnnounceTidalDesktopTimeAsync,
+                // wiec zamiast samego czasu program mowil caly opis utworu
+                // (zgloszenie 16.09.2026: "niepotrzebnie mowi az tyle").
                 _ = RouteTransportToTidalDesktopAsync(commandId);
                 return new CommandExecutionResult(true);
             }

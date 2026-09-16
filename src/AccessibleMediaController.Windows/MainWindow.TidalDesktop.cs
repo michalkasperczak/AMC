@@ -422,10 +422,14 @@ public partial class MainWindow
             return true;
         }
 
+        // Sam czas, bez nazwy programu i bez slow "minut"/"sekund" - tak jak
+        // czyta wbudowany odtwarzacz (zgloszenie 16.09.2026: "niepotrzebnie
+        // mowi az tyle"). Nazwe podajemy WYLACZNIE gdy czasu nie ma, bo wtedy
+        // trzeba wyjasnic, czego brakuje i dlaczego.
         if (commandId == CommandIds.TimeElapsed)
         {
             Announce(state.HasPosition
-                ? $"Czas od początku: {CommandRouter.FormatTime(state.Position)}"
+                ? CommandRouter.FormatTime(state.Position)
                 : "Oryginalny TIDAL nie podaje czasu od początku");
             return true;
         }
@@ -433,7 +437,7 @@ public partial class MainWindow
         if (commandId == CommandIds.TimeTotal)
         {
             Announce(state.Duration > TimeSpan.Zero
-                ? $"Czas całkowity: {CommandRouter.FormatTime(state.Duration)}"
+                ? CommandRouter.FormatTime(state.Duration)
                 : "Oryginalny TIDAL nie podaje czasu całkowitego");
             return true;
         }
@@ -448,7 +452,7 @@ public partial class MainWindow
         var pozostalo = state.Position >= state.Duration
             ? TimeSpan.Zero
             : state.Duration - state.Position;
-        Announce($"Czas pozostały: {CommandRouter.FormatTime(pozostalo)}");
+        Announce(CommandRouter.FormatTime(pozostalo));
         return true;
     }
 

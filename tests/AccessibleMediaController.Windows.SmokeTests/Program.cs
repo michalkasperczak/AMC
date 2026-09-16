@@ -117,6 +117,7 @@ var tests = new (string Name, Action Test)[]
     ("Radio Preset Accessible Labels", TestRadioPresetAccessibleLabels),
     ("Radio Preset Keyboard Map", TestRadioPresetKeyboardMap),
     ("Main Window Digit Shortcut Routing", TestMainWindowDigitShortcutRouting),
+    ("Czas z oryginalnego TIDALa mowiony sama liczba", TestTidalDesktopCzasMowiSamaLiczbe),
     ("Player Departure Playback Policy", TestPlayerDeparturePlaybackPolicy),
     ("Active Radio Recording Focus Context", TestActiveRadioRecordingFocusContext),
     ("Search Navigation", TestSearchNavigation),
@@ -6667,6 +6668,64 @@ static void TestLiveYouTubeUsesFfmpegAndDoesNotSeek()
     }
 
     Console.WriteLine("OK: zywa transmisja YouTube idzie przez ffmpeg, bez przewijania i zapetlania");
+}
+
+// Zgloszenie 16.09.2026: "Ctrl+Shift+T niepotrzebnie mowi az tyle: Oryginalny
+// TIDAL, odtwarzanie: Luka, Suzanne Vega, dlugosc 3 minut 51 sekund" oraz
+// "Ctrl+E i R tez cos tam za duzo mowi". Sam czas ma wystarczyc.
+//
+// DWIE niezalezne przyczyny, dlatego dwie grupy asercji:
+// 1. TimeTotal byl przechwytywany razem z ItemProperties PRZED sciezka czasu,
+//    wiec mowil caly opis "co gra teraz" z dlugoscia slowami.
+// 2. Pozostale czasy mialy przedrostki "Czas od poczatku:" / "Czas pozostaly:".
+static void TestTidalDesktopCzasMowiSamaLiczbe()
+{
+    var glowneOkno = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
+    var indeksWlasciwosci = glowneOkno.IndexOf(
+        "if (commandId == CommandIds.ItemProperties)", StringComparison.Ordinal);
+    Assert(indeksWlasciwosci >= 0,
+        "Nie znaleziono galezi wlasciwosci oryginalnego TIDALa - test nic nie mierzy.");
+    var galazWlasciwosci = glowneOkno.Substring(
+        indeksWlasciwosci,
+        Math.Min(400, glowneOkno.Length - indeksWlasciwosci));
+    Assert(!galazWlasciwosci.Contains("CommandIds.TimeTotal", StringComparison.Ordinal),
+        "Czas calkowity znowu trafia do galezi wlasciwosci, wiec zamiast liczby "
+        + "program powie caly opis utworu z dlugoscia slowami.");
+
+    var indeksCzasu = glowneOkno.IndexOf(
+        "TryAnnounceTidalDesktopTimeAsync(commandId)", StringComparison.Ordinal);
+    Assert(indeksCzasu >= 0,
+        "Skroty czasu nie wolaja juz sciezki czasu oryginalnego TIDALa.");
+
+    var tidalZrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.TidalDesktop.cs"));
+    foreach (var przedrostek in new[]
+    {
+        "$\"Czas od początku: {CommandRouter.FormatTime",
+        "$\"Czas całkowity: {CommandRouter.FormatTime",
+        "$\"Czas pozostały: {CommandRouter.FormatTime"
+    })
+    {
+        Assert(!tidalZrodlo.Contains(przedrostek, StringComparison.Ordinal),
+            $"Odczyt czasu oryginalnego TIDALa znowu dokleja przedrostek ({przedrostek}) - "
+            + "Michal prosil o sama liczbe.");
+    }
+    // Asercja pozytywna: liczba naprawde jest mowiona, a nie usunieta razem
+    // z przedrostkiem.
+    foreach (var wymagane in new[]
+    {
+        "Announce(state.HasPosition\r\n                ? CommandRouter.FormatTime(state.Position)",
+        "Announce(state.Duration > TimeSpan.Zero\r\n                ? CommandRouter.FormatTime(state.Duration)",
+        "Announce(CommandRouter.FormatTime(pozostalo));"
+    })
+    {
+        var bezCr = wymagane.Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert(
+            tidalZrodlo.Contains(wymagane, StringComparison.Ordinal)
+            || tidalZrodlo.Contains(bezCr, StringComparison.Ordinal),
+            $"Odczyt czasu oryginalnego TIDALa nie mowi juz samej liczby ({bezCr}).");
+    }
+
+    Console.WriteLine("OK: czas utworu z oryginalnego TIDALa mowiony sama liczba");
 }
 
 static string ZnajdzPlikZrodlowy(string nazwa)
