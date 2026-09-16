@@ -3,7 +3,9 @@
     <OutputType>Exe</OutputType>
     <!-- 2026-09-11: musi byc ta sama wersja SDK co w projekcie glownym,
          ktory uzywa Windows.Media.Control do sterowania TIDALem. -->
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- MUSI byc identyczny z projektem Windows (Windows.Media.Control wymaga
+         wersji SDK w TFM). Inny TFM = blad NU1201 przy przywracaniu paczek. -->
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <RootNamespace>AccessibleMediaController.Windows.SmokeTests</RootNamespace>
   </PropertyGroup>

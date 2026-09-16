@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using AccessibleMediaController.Core.Commands;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Tidal;
 using AccessibleMediaController.Windows.Services;
@@ -150,8 +151,12 @@ public partial class MainWindow
 
             if (result.Success)
             {
+                // OD TEJ CHWILI transport idzie do oryginalnego TIDALa. Bez tego
+                // spacja i strzalki trafialyby do wbudowanego odtwarzacza, czyli
+                // do 30-sekundowych probek.
+                _tidalDesktopHasPlayback = true;
                 DiagnosticLog.Info("tidal-desktop",
-                    $"Odtworzono \"{request.DisplayName}\" w oryginalnym TIDALu ({request.PageUri}).");
+                    $"Odtworzono \"{request.DisplayName}\" w oryginalnym TIDALu ({request.PageUri}). Transport przekazany TIDALowi.");
             }
             else
             {
@@ -170,5 +175,143 @@ public partial class MainWindow
                 $"Błąd przekazywania \"{request.DisplayName}\": {ex.GetType().Name}: {ex.Message}");
             Announce("Nie udało się przekazać elementu oryginalnemu TIDALowi");
         }
+    }
+
+    /// <summary>
+    /// Wykonuje polecenie transportu na ORYGINALNYM TIDALu. Gdy sie nie uda
+    /// (TIDAL zamkniety, nic nie gra), oddaje polecenie wbudowanemu odtwarzaczowi,
+    /// zeby klawisz nigdy nie byl "martwy".
+    /// </summary>
+    private async Task RouteTransportToTidalDesktopAsync(string commandId)
+    {
+        var handled = commandId switch
+        {
+            CommandIds.PlayPause => await TryTogglePlayPauseInTidalDesktopAsync().ConfigureAwait(true),
+            CommandIds.Next => await TrySkipInTidalDesktopAsync(true).ConfigureAwait(true),
+            CommandIds.Previous => await TrySkipInTidalDesktopAsync(false).ConfigureAwait(true),
+            _ => await TryAnnounceTidalDesktopNowPlayingAsync().ConfigureAwait(true)
+        };
+
+        if (handled) return;
+
+        // Sesja SMTC zniknela - flaga jest zdjeta w funkcjach powyzej, wiec
+        // to wywolanie NIE wroci tutaj i nie zapetli sie.
+        DiagnosticLog.Info("tidal-smtc",
+            $"Polecenie {commandId} wraca do wbudowanego odtwarzacza: oryginalny TIDAL nie odpowiada.");
+        ExecuteCommand(commandId);
+    }
+
+    // ----------------------------------------------------------------------
+    // STEROWANIE UTWOREM, KTORY JUZ GRA W ORYGINALNYM TIDALU
+    //
+    // Zgloszenie uzytkownika 15.09.2026: "sterowanie generalnie dziala, ale
+    // przekazuje tylko pojedyncze nagranie - nastepny/poprzedni nie dzialaja,
+    // bo AMC tylko wywoluje Tidala i sesja nie ma go w playerze".
+    //
+    // Przyczyna byla dokladnie taka: TidalDesktopController konczyl robote w
+    // chwili, gdy TIDAL zaczynal grac. Od tej sekundy spacja i strzalki szly do
+    // wbudowanego odtwarzacza WebView2 (30-sekundowe probki), a nie do TIDALa.
+    // ----------------------------------------------------------------------
+
+    private ExternalMediaController? _externalMedia;
+
+    private ExternalMediaController ExternalMedia =>
+        _externalMedia ??= new ExternalMediaController(
+            message => DiagnosticLog.Info("tidal-smtc", message));
+
+    /// <summary>
+    /// Ustawiane, gdy oddalismy odtwarzanie oryginalnemu TIDALowi. Dopoki jest
+    /// true, klawisze transportu ida do NIEGO, nie do wbudowanego odtwarzacza.
+    /// </summary>
+    private bool _tidalDesktopHasPlayback;
+
+    /// <summary>
+    /// Czy klawisze transportu (spacja, nastepny, poprzedni) maja iść do
+    /// oryginalnego TIDALa.
+    /// </summary>
+    private bool ShouldRouteTransportToTidalDesktop =>
+        _tidalDesktopHasPlayback
+        && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Gra albo pauza w oryginalnym TIDALu. Zwraca false, gdy nie ma czym
+    /// sterowac - wtedy wolajacy ma zrobic to, co robil dotad.
+    /// </summary>
+    private async Task<bool> TryTogglePlayPauseInTidalDesktopAsync()
+    {
+        if (!ShouldRouteTransportToTidalDesktop) return false;
+
+        var state = await ExternalMedia.GetStateAsync().ConfigureAwait(true);
+        if (!state.HasSession)
+        {
+            // TIDAL zamkniety albo nic nie gra - oddajemy sterowanie z powrotem
+            // wbudowanemu odtwarzaczowi, zeby spacja nie przestala dzialac.
+            _tidalDesktopHasPlayback = false;
+            return false;
+        }
+
+        if (!await ExternalMedia.TogglePlayPauseAsync().ConfigureAwait(true)) return false;
+
+        // Mowimy stan DOCELOWY, nie ten sprzed polecenia.
+        Announce(state.IsPlaying ? "Wstrzymano" : "Odtwarzanie");
+        return true;
+    }
+
+    /// <summary>Nastepny albo poprzedni utwor w kolejce oryginalnego TIDALa.</summary>
+    private async Task<bool> TrySkipInTidalDesktopAsync(bool forward)
+    {
+        if (!ShouldRouteTransportToTidalDesktop) return false;
+
+        if (!await ExternalMedia.IsAvailableAsync().ConfigureAwait(true))
+        {
+            _tidalDesktopHasPlayback = false;
+            return false;
+        }
+
+        var done = forward
+            ? await ExternalMedia.NextAsync().ConfigureAwait(true)
+            : await ExternalMedia.PreviousAsync().ConfigureAwait(true);
+
+        if (!done)
+        {
+            Announce(forward
+                ? "Oryginalny TIDAL nie ma następnego utworu"
+                : "Oryginalny TIDAL nie ma poprzedniego utworu");
+            return true;
+        }
+
+        // TIDAL potrzebuje chwili, zeby zglosic nowy tytul. Bez tego czytnik
+        // przeczytalby jeszcze poprzedni utwor.
+        await Task.Delay(TimeSpan.FromMilliseconds(700)).ConfigureAwait(true);
+        var state = await ExternalMedia.GetStateAsync().ConfigureAwait(true);
+        Announce(state.HasSession && state.Title.Length > 0
+            ? (state.Artist.Length > 0 ? $"{state.Title}, {state.Artist}" : state.Title)
+            : (forward ? "Następny utwór" : "Poprzedni utwór"));
+        return true;
+    }
+
+    /// <summary>Co gra teraz w oryginalnym TIDALu - do odczytania na zadanie.</summary>
+    private async Task<bool> TryAnnounceTidalDesktopNowPlayingAsync()
+    {
+        if (!ShouldRouteTransportToTidalDesktop) return false;
+
+        var state = await ExternalMedia.GetStateAsync().ConfigureAwait(true);
+        if (!state.HasSession)
+        {
+            _tidalDesktopHasPlayback = false;
+            return false;
+        }
+
+        var stan = state.IsPlaying ? "odtwarzanie" : "wstrzymane";
+        var opis = state.Artist.Length > 0
+            ? $"{state.Title}, {state.Artist}"
+            : state.Title;
+        // Dlugosc podajemy, bo TIDAL ja zglasza. POZYCJI nie - zawsze zwraca
+        // zero (zmierzone 11.09.2026), wiec nie ma czego mowic.
+        var dlugosc = state.Duration > TimeSpan.Zero
+            ? $", długość {(int)state.Duration.TotalMinutes} minut {state.Duration.Seconds} sekund"
+            : string.Empty;
+        Announce($"Oryginalny TIDAL, {stan}: {opis}{dlugosc}");
+        return true;
     }
 }

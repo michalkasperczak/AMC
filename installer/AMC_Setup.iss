@@ -1,4 +1,4 @@
-; AMC_Setup.iss -- instalator Accessible Multimedia Controller (Inno Setup 6/7).
+﻿; AMC_Setup.iss -- instalator Accessible Multimedia Controller (Inno Setup 6/7).
 ;
 ; Budowanie: najpierw dotnet publish do katalogu, potem
 ;   ISCC.exe /DZrodlo=<katalog z publish> /DWersja=0.1.0-alpha.355 AMC_Setup.iss
@@ -61,7 +61,7 @@ WizardStyle=classic
 
 ; TRYB CICHY (zlecenie Kasperczaka 14.09.2026: "Cicha instalacja, pobieranie itp.").
 ; Inno Setup obsluguje /SILENT i /VERYSILENT samo z siebie, ale bez ponizszych
-; ustawien cicha instalacja STAWALA, prosząc o zamkniecie dzialajacego AMC -
+; ustawien cicha instalacja STAWALA, proszÄ…c o zamkniecie dzialajacego AMC -
 ; a w trybie cichym nie ma komu tej prosby pokazac.
 ;   CloseApplications=force  - dzialajace AMC jest zamykane samo,
 ;   RestartApplications=no   - i NIE jest wznawiane przez instalator, bo robi to

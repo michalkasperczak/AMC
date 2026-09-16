@@ -1,10 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <!-- 2026-09-11: wersja SDK w TFM daje dostep do Windows.Media.Control
-         (systemowe sterowanie mediami), potrzebnego do sterowania oryginalna
-         aplikacja TIDAL. 10.0.19041 to Windows 10 2004 - minimum dla SMTC. -->
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- 2026-09-16: wersja SDK w TFM daje dostep do Windows.Media.Control
+         (systemowe sterowanie mediami), potrzebnego do sterowania GRAJACA
+         oryginalna aplikacja TIDAL. 10.0.19041 to Windows 10 2004 - minimum
+         dla SMTC.
+         UWAGA: komentarz z 11.09 obiecywal ten TFM, ale w pliku stalo samo
+         "net8.0-windows" - obietnica nie byla dotrzymana i Windows.Media.Control
+         nie bylo dostepne. Numer wersji MUSI tu byc, inaczej using Windows.Media.Control
+         nie kompiluje sie. Ten sam TFM musi miec projekt testow Windows,
+         inaczej blad NU1201. -->
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>

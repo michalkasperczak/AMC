@@ -74,6 +74,10 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
     private byte[] _liveCurrent = [];
     private int _liveCurrentOffset;
     private long _liveBufferedBytes;
+    // Licznik zaciec: ile razy zapas nie nadazyl i ile ciszy z tego wyszlo.
+    // Bez tego nie da sie sprawdzic, czy poprawka bufora dziala.
+    private int _liveUnderruns;
+    private TimeSpan _liveUnderrunSilence;
     private bool _liveEnded;
     private Exception? _liveFailure;
 
@@ -580,15 +584,24 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
     }
 
     /// <summary>
-    /// Czyta dzwiek zywej transmisji Z ZAPASU, nie wprost z ffmpeg. Gdy zapas
-    /// chwilowo pustoszeje (dluga przerwa w sieci), czekamy krotko, a potem
-    /// zwracamy CISZE zamiast blokowac karte dzwiekowa - cisza jest mniej
-    /// szkodliwa niz zablokowany watek odtwarzania.
+    /// Czyta dzwiek zywej transmisji Z ZAPASU, nie wprost z ffmpeg.
+    ///
+    /// BLAD NAPRAWIONY 16.09.2026 (zgloszenie: "zaciecia zostaly"):
+    /// petla przerywala oczekiwanie, gdy tylko cokolwiek zostalo juz zapisane
+    /// ("written > 0"), i oddawala karcie dzwiekowej PORCJE NIEPELNA. Karta
+    /// traktuje krotszy odczyt jak koniec dzwieku i wstawia cisze, wiec zapas
+    /// 8 sekund nie mial jak nikogo uratowac - pierwszy chunk konczyl sie w
+    /// polowie porcji i przerwa bylo slychac tak samo, jak przed dodaniem
+    /// bufora. Teraz czekamy na PELNA porcje, dopoki zapas ma z czego dolac.
     /// </summary>
     private int ReadLiveFromBuffer(byte[] buffer, int offset, int count)
     {
         var written = 0;
         var waited = Stopwatch.StartNew();
+        // Porcja, ktorej zada karta, to zwykle 50-100 ms dzwieku. Na jej
+        // uzupelnienie mozemy poczekac znacznie dluzej niz ona trwa - i tak
+        // pokrywamy to zapasem, a przerwa w sieci to 240-330 ms (zmierzone).
+        var patience = TimeSpan.FromSeconds(3);
         while (written < count)
         {
             if (_liveCurrentOffset >= _liveCurrent.Length)
@@ -597,8 +610,9 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
                 {
                     while (_liveChunks.Count == 0 && !_liveEnded)
                     {
-                        if (written > 0 || waited.Elapsed > TimeSpan.FromSeconds(5)) break;
-                        Monitor.Wait(_liveGate, 100);
+                        // NIE przerywamy przy written > 0 - to byl wlasnie blad.
+                        if (waited.Elapsed > patience) break;
+                        Monitor.Wait(_liveGate, 50);
                     }
                     if (_liveChunks.Count > 0)
                     {
@@ -630,7 +644,41 @@ internal sealed class FfmpegLocalAudioWaveStream : WaveStream
             _liveCurrentOffset += take;
             written += take;
         }
+
+        // Niedomiar zapasu = to, co uzytkownik slyszy jako zaciecie. Do
+        // 16.09.2026 NIC tego nie liczylo, wiec nie bylo jak zobaczyc zaciec
+        // od wewnatrz programu ani udowodnic, ze poprawka pomogla.
+        if (written < count)
+        {
+            _liveUnderruns++;
+            var missing = TimeSpan.FromSeconds(
+                (double)(count - written) / WaveFormat.AverageBytesPerSecond);
+            _liveUnderrunSilence += missing;
+            // Cisze dopelniamy sami: karta i tak wstawilaby swoja, a tak wiemy,
+            // ile jej bylo.
+            Array.Clear(buffer, offset + written, count - written);
+            if (_liveUnderruns <= 20 || _liveUnderruns % 25 == 0)
+            {
+                DiagnosticLog.Warning("ffmpeg-live",
+                    $"Zaciecie {_liveUnderruns}: brakowalo {missing.TotalMilliseconds:F0} ms dzwieku "
+                    + $"(zapas {TimeSpan.FromSeconds((double)_liveBufferedBytes / WaveFormat.AverageBytesPerSecond).TotalMilliseconds:F0} ms, "
+                    + $"czekano {waited.ElapsedMilliseconds} ms). Razem ciszy: {_liveUnderrunSilence.TotalMilliseconds:F0} ms.");
+            }
+            return count;
+        }
         return written;
+    }
+
+    /// <summary>Ile razy zabraklo dzwieku w zapasie - czyli ile bylo zaciec.</summary>
+    internal int LiveUnderruns
+    {
+        get { lock (_liveGate) return _liveUnderruns; }
+    }
+
+    /// <summary>Ile ciszy w sumie wstawilismy z powodu zaciec.</summary>
+    internal TimeSpan LiveUnderrunSilence
+    {
+        get { lock (_liveGate) return _liveUnderrunSilence; }
     }
 
     private void StopLivePumpLocked()

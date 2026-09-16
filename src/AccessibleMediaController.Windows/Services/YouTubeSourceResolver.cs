@@ -102,7 +102,16 @@ internal static class YouTubeSourceResolver
             // znaczenie: "default,android" zostawia sprawnym kanalom lzejszy format
             // 234 (czysty AAC), a Ustroniowi daje 95. Odwrotna kolejnosc pogarsza
             // sprawne kanaly. Jeden extractor-args, bo dwa osobne wykluczaja sie.
-            "--extractor-args", "youtube:lang=pl;player_client=default,android",
+            // 2026-09-16: ZDJETE "lang=pl". Zmierzone na kanalach Michala: z
+            // polskim jezykiem YouTube na KAZDA przyczyne odpowiada tym samym
+            // zdaniem ("Ten film jest niedostepny"), a po angielsku rozroznia
+            // zakonczona transmisje ("This live stream recording is not
+            // available") od nieistniejacego nagrania ("This video is
+            // unavailable"). Program tlumaczy te frazy sam - patrz
+            // YouTubeErrorTranslator - i dzieki temu mowi PRAWDZIWA przyczyne
+            // zamiast sugerowac blokade. Tytuly transmisji sa i tak wlasnymi
+            // nazwami kanalow, wiec nic po polsku nie tracimy.
+            "--extractor-args", "youtube:player_client=default,android",
             "--dump-single-json",
             "--",
             pageUrl.Trim()
@@ -136,9 +145,17 @@ internal static class YouTubeSourceResolver
             var errorTask = process.StandardError.ReadToEndAsync(timeout.Token);
             await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
             var output = await outputTask.ConfigureAwait(false);
-            _ = await errorTask.ConfigureAwait(false);
+            var error = await errorTask.ConfigureAwait(false);
             if (process.ExitCode != 0)
-                throw new InvalidDataException("YouTube nie udostępnił obecnie publicznego strumienia audio.");
+            {
+                // Do 16.09.2026 tresc bledu byla tu WYRZUCANA, a uzytkownik
+                // slyszal jedno zdanie o "braku publicznego strumienia" na
+                // kazda przyczyne - takze na zakonczona transmisje. Teraz blad
+                // idzie do logu w calosci i do komunikatu w wersji zrozumialej.
+                DiagnosticLog.Warning("youtube",
+                    $"yt-dlp zakonczyl sie kodem {process.ExitCode} dla {pageUrl.Trim()}: {error.Trim()}");
+                throw new InvalidDataException(YouTubeErrorTranslator.Describe(error));
+            }
             if (output.Length == 0 || output.Length > MaximumJsonCharacters)
                 throw new InvalidDataException("YouTube zwrócił nieprawidłowe dane źródła.");
             return ParseResult(pageUrl.Trim(), output, requireLive);

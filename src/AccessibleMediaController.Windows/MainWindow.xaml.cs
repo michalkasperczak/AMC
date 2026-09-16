@@ -10406,6 +10406,33 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         string commandId,
         FolderContentsActionContext? folderContext)
     {
+        // Gdy utwor gra w ORYGINALNYM TIDALu, transport musi isc do niego, a nie
+        // do wbudowanego odtwarzacza (ten ma tylko 30-sekundowe probki).
+        // Przechwycenie MUSI byc przed cala reszta dyspozytora - inaczej spacje
+        // zabierze wbudowany odtwarzacz i uzytkownik slyszy probke albo cisze.
+        // Zgloszenie z 15.09.2026: "przekazuje tylko pojedyncze nagranie".
+        if (ShouldRouteTransportToTidalDesktop)
+        {
+            if (commandId == CommandIds.PlayPause)
+            {
+                _ = RouteTransportToTidalDesktopAsync(commandId);
+                return new CommandExecutionResult(true);
+            }
+            if (commandId is CommandIds.Next or CommandIds.Previous)
+            {
+                _ = RouteTransportToTidalDesktopAsync(commandId);
+                return new CommandExecutionResult(true);
+            }
+            if (commandId is CommandIds.TimeTotal or CommandIds.ItemProperties)
+            {
+                // TIDAL zglasza tytul, wykonawce i DLUGOSC, ale nie pozycje
+                // (zawsze zero - zmierzone 11.09.2026). Dlatego czasu, ktory
+                // uplynal, i pozostalego tu nie przechwytujemy: wbudowany
+                // odtwarzacz odpowie na nie sensowniej.
+                _ = RouteTransportToTidalDesktopAsync(commandId);
+                return new CommandExecutionResult(true);
+            }
+        }
         if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
             && commandId == CommandIds.ActivateSelected
             && ActionItem?.ExternalId is { Length: > 0 })
