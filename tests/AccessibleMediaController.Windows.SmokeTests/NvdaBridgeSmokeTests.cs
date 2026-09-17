@@ -320,21 +320,28 @@ internal static class NvdaBridgeSmokeTests
 
     private static void TestNowPlaying()
     {
-        // Skrot "co teraz leci" (Insert plus strzalka w gore w modulze aplikacji)
+        // Skrot "co teraz leci" (NVDA plus strzalka w gore w modulze aplikacji)
         // musi w radiu podac OBA pola: nazwe stacji i rozpoznany tytul utworu.
+        // BEZ stanu odtwarzania - Michal chce dokladnie tego, co mowi WiiM:
+        // "stacja, utwor - wykonawca".
         var stacja = new MediaItem { Id = "s", Title = "Radio Nowy Swiat", Kind = MediaItemKind.Station };
         var radio = new DemoMediaSession("radio", "Radio", [stacja]);
         radio.Play(stacja);
         Check(NvdaNowPlaying.Describe(radio, "Kwartet Jorgi - Kolysanka", true)
-            == "Radio Nowy Swiat, Kwartet Jorgi - Kolysanka, odtwarzanie.",
+            == "Radio Nowy Swiat, Kwartet Jorgi - Kolysanka.",
             "Radio mowi i stacje, i utwor");
+        // Stan odtwarzania NIE moze sie tu doklejac - to nie jest polecenie status.
+        radio.TogglePlayback();
+        Check(!NvdaNowPlaying.Describe(radio, "Kwartet Jorgi - Kolysanka", true).Contains("pauza"),
+            "Skrot nie dokleja stanu odtwarzania");
+        radio.TogglePlayback();
         // Metadane z INNEJ stacji nie moga wyciec do biezacej.
         Check(NvdaNowPlaying.Describe(radio, "Utwor ze starej stacji", false)
-            == "Radio Nowy Swiat, stacja nie podaje tytułu utworu, odtwarzanie.",
+            == "Radio Nowy Swiat, stacja nie podaje tytułu utworu.",
             "Nieaktualne metadane radia nie sa czytane");
         // Powielony tytul (stacja podaje wlasna nazwe jako utwor) tez nie.
         Check(NvdaNowPlaying.Describe(radio, "  radio nowy swiat ", true)
-            == "Radio Nowy Swiat, stacja nie podaje tytułu utworu, odtwarzanie.",
+            == "Radio Nowy Swiat, stacja nie podaje tytułu utworu.",
             "Powtorzona nazwa stacji nie jest czytana dwa razy");
 
         // Album stacji tez ma byc slyszalny, dokladnie jak w sesji WiiM.
@@ -346,7 +353,7 @@ internal static class NvdaBridgeSmokeTests
         var radioPelne = new DemoMediaSession("radio", "Radio", [stacjaZAlbumem]);
         radioPelne.Play(stacjaZAlbumem);
         Check(NvdaNowPlaying.Describe(radioPelne, "So What", true)
-            == "Radio Jazz, So What, Miles Davis, Kind of Blue, odtwarzanie.",
+            == "Radio Jazz, So What, Miles Davis, Kind of Blue.",
             "Radio mowi stacje, utwor, wykonawce i album jak WiiM");
 
         var utwor = new MediaItem { Id = "u", Title = "Kolysanka", Artist = "Kwartet Jorgi" };
@@ -354,8 +361,8 @@ internal static class NvdaBridgeSmokeTests
         lokalna.Play(utwor);
         lokalna.TogglePlayback();
         Check(NvdaNowPlaying.Describe(lokalna, null, false)
-            == "Kolysanka, Kwartet Jorgi, pauza.",
-            "Plik lokalny mowi tytul, wykonawce i stan");
+            == "Kolysanka, Kwartet Jorgi.",
+            "Plik lokalny mowi tytul i wykonawce");
 
         var pusta = new DemoMediaSession("podcasts", "Podcasty", []);
         Check(NvdaNowPlaying.Describe(pusta, null, false) == "Podcasty, nic nie jest otwarte.",

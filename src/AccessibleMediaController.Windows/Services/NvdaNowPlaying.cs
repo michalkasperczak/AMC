@@ -42,7 +42,10 @@ internal static class NvdaNowPlaying
             Dodaj(czesci, item.RelatedAlbumTitle);
         }
 
-        czesci.Add(session.IsPlaying ? "odtwarzanie" : "pauza");
+        // BEZ dopisywania stanu odtwarzania. Michal wskazal wprost, jak to ma
+        // brzmiec: "Poznan Nastolatek - Krzysztof Zalewski", czyli stacja i
+        // utwor - tyle, ile mowi sesja WiiM. Stan jest pod Ctrl+Windows+I,
+        // a "wyciszone" tylko wtedy, gdy naprawde nic nie slychac.
         if (session.IsMuted) czesci.Add("wyciszone");
         return string.Join(", ", czesci) + ".";
     }

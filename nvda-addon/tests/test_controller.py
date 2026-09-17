@@ -148,16 +148,25 @@ class ControllerTests(unittest.TestCase):
         for method in scripts:
             decorator = method.decorator_list[0]
             self.assertEqual(decorator.func.id, "script")
-            properties = {keyword.arg: keyword.value.value for keyword in decorator.keywords}
-            self.assertGreater(len(properties["description"]), 12)
-            gesty.append(properties["gesture"])
-        self.assertEqual(gesty, ["kb:insert+upArrow"])
+            properties = {keyword.arg: keyword.value for keyword in decorator.keywords}
+            self.assertGreater(len(properties["description"].value), 12)
+            # NVDA przyjmuje liste gestow pod kluczem "gestures".
+            gesty.extend(element.value for element in properties["gestures"].elts)
+        # KLUCZOWE: modyfikator NVDA zapisuje sie jako "NVDA". Zapis
+        # "kb:insert+upArrow" NVDA po cichu ignoruje - skrot sie nie przypina
+        # i czytnik dalej czyta biezaca linie zamiast wywolac AMC.
+        self.assertEqual(gesty, ["kb(desktop):NVDA+upArrow", "kb(laptop):NVDA+upArrow"])
+        for gest in gesty:
+            self.assertNotIn("insert+", gest.lower())
         # Nazwa pliku modulu musi odpowiadac nazwie procesu AMC, inaczej NVDA
         # nigdy go nie wczyta i skrot po cichu nie zadziala.
         self.assertEqual(APP_MODULE.stem, "accessiblemediacontroller")
-        # I ten sam gest NIE moze wystepowac w globalPlugin.
-        globalny = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
-        self.assertNotIn("insert+upArrow", globalny)
+        # I ten sam gest NIE moze wystepowac w globalPlugin. Sprawdzamy oba
+        # zapisy: "NVDA+upArrow" i historyczny bledny "insert+upArrow".
+        # Samo "upArrow" wystepuje legalnie w Ctrl+Windows+strzalki (glosnosc).
+        globalny = (PLUGIN / "__init__.py").read_text(encoding="utf-8").lower()
+        self.assertNotIn("nvda+uparrow", globalny)
+        self.assertNotIn("insert+uparrow", globalny)
         self.assertIn("nowPlaying", APP_MODULE.read_text(encoding="utf-8"))
         self.assertIn("nowPlaying", transport.COMMANDS)
 

@@ -56,7 +56,12 @@ class AppModule(appModuleHandler.AppModule):
 
     @script(
         description="Odczytaj źródło i utwór, który teraz leci",
-        gesture="kb:insert+upArrow",
+        # UWAGA: modyfikator NVDA zapisuje sie jako "NVDA", NIE jako "insert".
+        # Zapis "kb:insert+upArrow" NVDA po cichu ignoruje - gest sie nie
+        # przypina i czytnik dalej czyta biezaca linie.
+        # Podajemy oba układy klawiatury: w laptopowym NVDA+strzałka w górę
+        # nie jest gestem czytania linii, ale ma dzialac tak samo.
+        gestures=("kb(desktop):NVDA+upArrow", "kb(laptop):NVDA+upArrow"),
     )
     def script_amcNowPlaying(self, gesture):
         threading.Thread(target=self._zapytaj, name="AMC now playing", daemon=True).start()
