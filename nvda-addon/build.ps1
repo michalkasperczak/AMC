@@ -1,4 +1,4 @@
-param()
+﻿param()
 $ErrorActionPreference = 'Stop'
 $projectDirectory = Split-Path -Parent $PSScriptRoot
 $addonDirectory = Join-Path $PSScriptRoot 'addon'
@@ -8,12 +8,14 @@ if ($addonVersion -notmatch '^\d+\.\d+\.\d+$') { throw 'Nieprawidłowa wersja do
 $output = Join-Path $projectDirectory "AMC-NVDA-$addonVersion.nvda-addon"
 if (Test-Path -LiteralPath $output) { throw "Pakiet już istnieje: $output. Zwiększ wersję zamiast nadpisywać." }
 Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [System.IO.Compression.ZipFile]::Open($output, [System.IO.Compression.ZipArchiveMode]::Create)
 try {
     $files = Get-ChildItem -LiteralPath $addonDirectory -Recurse -File |
         Where-Object { $_.Extension -in '.py', '.ini', '.html', '.txt' -and $_.FullName -notmatch '__pycache__' }
     foreach ($file in $files) {
-        $relative = [System.IO.Path]::GetRelativePath($addonDirectory, $file.FullName).Replace('\', '/')
+        # Stary PowerShell (5.1) nie ma GetRelativePath - liczymy sami.
+        $relative = $file.FullName.Substring($addonDirectory.Length).TrimStart('\', '/').Replace('\', '/')
         [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $relative) | Out-Null
     }
 } finally { $archive.Dispose() }

@@ -1,7 +1,8 @@
 """Modul aplikacji dla AMC: gesty dzialajace TYLKO w okien AMC.
 
-Insert plus strzalka w gore ma czytac zrodlo i utwor - tak jak w odtwarzaczu
-Vim. To jest gest samego NVDA (czytanie biezacej linii), wiec NIE WOLNO go
+Insert plus strzalka w gore ma czytac zrodlo i utwor - w sesji Radio
+internetowe tak samo, jak robi to sesja urzadzenia WiiM. To jest gest samego
+NVDA (czytanie biezacej linii), wiec NIE WOLNO go
 przypisywac w globalPlugin: nadpisalby czytnik w kazdym programie. Modul
 aplikacji obowiazuje wylacznie wtedy, gdy fokus jest w AMC; wszedzie indziej
 NVDA zachowuje sie bez zmian.

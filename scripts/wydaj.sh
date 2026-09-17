@@ -23,7 +23,10 @@ REPO="michalkasperczak/AMC"
 TAG="v${WERSJA}"
 
 cd "$KATALOG"
-mapfile -t PLIKI < <(ls -1 *.exe *.zip 2>/dev/null || true)
+# Zalaczniki: instalator, paczka i dodatek NVDA. Dodatek MUSI tu byc - wydanie
+# 385 dodalo skrot obslugiwany przez dodatek, wiec sam .exe to za malo:
+# uzytkownik zainstalowalby program bez czesci, ktora realizuje nowa funkcje.
+mapfile -t PLIKI < <(ls -1 *.exe *.zip *.nvda-addon 2>/dev/null || true)
 if [ "${#PLIKI[@]}" -eq 0 ]; then
     echo "BLAD: w $KATALOG nie ma zadnego pliku .exe ani .zip" >&2
     exit 1
