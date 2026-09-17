@@ -125,7 +125,8 @@ var tests = new (string Name, Action Test)[]
     ("Krótkie komunikaty czasu", TestTimeCommands),
     ("Skok wpisanym czasem i procentem", TestSeekInputParser),
     ("Niedestrukcyjne zaznaczanie fragmentu audio", TestAudioClipSelection),
-    ("Trzy rodzaje eksportu", TestExports)
+    ("Trzy rodzaje eksportu", TestExports),
+    ("Zapis stanu nie wymazuje zadnej sekcji ustawien", TestZapisNieGubiSekcji)
 };
 
 static void TestTidalIntegrationFoundation()
@@ -6930,6 +6931,63 @@ static void TestUnavailableLocalItemPolicy()
     Equal(null, state.SessionNavigation.Sessions["local"].SelectedItemIds["Biblioteka"]);
     True(state.SessionNavigation.Sessions["local"].PlaybackContextItemIds.SequenceEqual(["available"]),
         "Kontekst odtwarzania nie może przechowywać zapomnianego identyfikatora.");
+}
+
+/// <summary>
+/// Znajduje plik zrodlowy, idac w gore od katalogu uruchomienia. Testy chodza
+/// z katalogu bin, wiec sciezka wzgledna wpisana na sztywno pekala by przy
+/// kazdej zmianie konfiguracji budowania.
+/// </summary>
+static string ZnajdzPlikZrodlowy(string nazwa)
+{
+    var katalog = new DirectoryInfo(AppContext.BaseDirectory);
+    while (katalog is not null)
+    {
+        var src = Path.Combine(katalog.FullName, "src");
+        if (Directory.Exists(src))
+        {
+            var znalezione = Directory.GetFiles(src, nazwa, SearchOption.AllDirectories);
+            if (znalezione.Length > 0) return znalezione[0];
+        }
+        katalog = katalog.Parent;
+    }
+    throw new Exception($"Nie znaleziono pliku zrodlowego {nazwa}.");
+}
+
+static void TestZapisNieGubiSekcji()
+{
+    // BLAD, ktory to wywolal: kopia stanu w ConfigurationStore.Save przepisuje
+    // sekcje po jednej. Sekcja pominieta na tej liscie nie zostaje "domyslna" -
+    // jest WYMAZYWANA przy kazdym zapisie. Tak ginal identyfikator aplikacji
+    // Spotify: Michal wpisywal go ponownie po kazdym uruchomieniu.
+    //
+    // Test porownuje liste wlasciwosci PersistedState z tym, co kopia faktycznie
+    // przepisuje, zeby nastepna dodana sekcja nie zniknela w ten sam sposob.
+    var zrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("ConfigurationStore.cs"));
+    var poczatek = zrodlo.IndexOf("var shell = new PersistedState", StringComparison.Ordinal);
+    if (poczatek < 0)
+        throw new Exception("Nie znaleziono kopii stanu w ConfigurationStore.");
+    var koniec = zrodlo.IndexOf("KeyboardProfiles = state.KeyboardProfiles", poczatek, StringComparison.Ordinal);
+    if (koniec < 0)
+        throw new Exception("Nie znaleziono konca kopii stanu w ConfigurationStore.");
+    var kopia = zrodlo.Substring(poczatek, koniec - poczatek);
+
+    var brakujace = new List<string>();
+    foreach (var wlasciwosc in typeof(PersistedState).GetProperties())
+    {
+        if (!kopia.Contains(wlasciwosc.Name + " =", StringComparison.Ordinal)
+            && !wlasciwosc.Name.Equals("KeyboardProfiles", StringComparison.Ordinal))
+        {
+            brakujace.Add(wlasciwosc.Name);
+        }
+    }
+    if (brakujace.Count > 0)
+    {
+        throw new Exception(
+            "Kopia stanu pomija sekcje, wiec beda WYMAZYWANE przy kazdym zapisie: "
+                + string.Join(", ", brakujace));
+    }
+    Console.WriteLine("OK: zapis stanu przepisuje wszystkie sekcje ustawien");
 }
 
 static void TestExports()

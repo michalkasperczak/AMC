@@ -290,6 +290,11 @@ public sealed class ConfigurationStore
             Radio = state.Radio,
             WiiM = state.WiiM,
             Tidal = state.Tidal,
+            // Spotify MUSI byc tutaj wypisane. Ta kopia stanu przepisuje sekcje
+            // po jednej, wiec sekcja pominieta nie jest "domyslna" - jest
+            // WYMAZYWANA przy kazdym zapisie. Wlasnie tak ginal identyfikator
+            // aplikacji Spotify wpisany przez uzytkownika.
+            Spotify = state.Spotify,
             RemoteQueues = state.RemoteQueues,
             Podcasts = new PodcastSettings
             {
