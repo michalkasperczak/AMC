@@ -102,6 +102,32 @@ internal static class NvdaCommands
 
     internal static bool TargetsCurrentItem(string command) => command is "favorite" or "queue"
         or "recordToggle" or "recordPause" or "recordSplit" or "addBookmark";
+
+    /// <summary>
+    /// Polecenia, ktore wolno wykonac TAKZE gdy w AMC stoi otwarte okno (harmonogram,
+    /// ustawienia, wybor folderu).
+    ///
+    /// ZGLOSZENIE Michala 17.09.2026: przy otwartym oknie harmonogramu Ctrl+Windows
+    /// ze strzalka w gore lub w dol - czyli glosnosc - odpowiadalo "AMC jest zajety.
+    /// Zamknij otwarte okno dialogowe lub spróbuj za chwile". Brzmialo jak zawieszenie
+    /// programu, a bylo zwykla odmowa.
+    ///
+    /// Blokada ma sens tylko dla polecen, ktore RUSZAJA interfejsem - zmieniaja widok,
+    /// fokus albo sesje. Przyciszenie, wyciszenie, pauza czy przewijanie nie dotykaja
+    /// okna, wiec nie ma powodu ich odmawiac. Odmowa w takiej chwili jest gorsza niz
+    /// bezczynnosc, bo uzytkownik czytnika slyszy komunikat o zajetym programie i nie
+    /// wie, ze wystarczy nacisnac ten sam skrot jeszcze raz.
+    /// </summary>
+    internal static bool WorksWithOpenWindow(string command) => command is
+        "volumeUp"
+        or "volumeDown"
+        or "mute"
+        or "playPause"
+        or "seekBack"
+        or "seekForward"
+        or "status"
+        or "context"
+        or "nowPlaying";
 }
 
 internal sealed record NvdaReply(bool Ok, string Message);

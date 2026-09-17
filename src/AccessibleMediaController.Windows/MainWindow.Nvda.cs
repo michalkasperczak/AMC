@@ -26,9 +26,16 @@ public partial class MainWindow
 
     private NvdaReply ExecuteNvdaCommand(string command)
     {
-        if (_isClosing || !_initialFocusApplied || !IsEnabled || _nvdaUiHandoff.Pending
+        // Blokujemy tylko to, co RUSZA interfejsem. Glosnosc, pauza, przewijanie
+        // i pytania o stan dzialaja takze przy otwartym oknie harmonogramu czy
+        // ustawien - patrz NvdaCommands.WorksWithOpenWindow (zgloszenie 17.09.2026).
+        var mozeZOtwartymOknem = NvdaCommands.WorksWithOpenWindow(command);
+        var oknoStoiOtwarte = _nvdaUiHandoff.Pending
             || OwnedWindows.OfType<Window>().Any(window => window.IsVisible)
-            || IsMenuInteractionActive(Keyboard.FocusedElement))
+            || IsMenuInteractionActive(Keyboard.FocusedElement);
+
+        if (_isClosing || !_initialFocusApplied || !IsEnabled
+            || (oknoStoiOtwarte && !mozeZOtwartymOknem))
             return new(false, "AMC jest zajęty. Zamknij otwarte okno dialogowe lub spróbuj za chwilę.");
 
         if (!NvdaCommands.IsAllowed(command)) return new(false, "Nieobsługiwane polecenie dodatku AMC.");

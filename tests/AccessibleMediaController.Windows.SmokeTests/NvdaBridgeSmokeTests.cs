@@ -122,6 +122,7 @@ internal static class NvdaBridgeSmokeTests
 
     private static void TestExpiredDispatcherWork()
     {
+        TestCommandsAllowedWithOpenWindow();
         for (var slot = 1; slot <= 12; slot++)
             Check(NvdaCommands.Resolve($"preset{slot}") == CommandIds.RadioPreset(slot), "All twelve slots use canonical preset routing");
         foreach (var invalid in new[] { "preset0", "preset13", "preset01", "preset-1", "preset1;delete" })
@@ -131,6 +132,34 @@ internal static class NvdaBridgeSmokeTests
         foreach (var kind in new[] { "track", "station", "episode", "wiimNativePreset" })
             Check(!NvdaPresetPolicy.NeedsBrowser(kind), "Playable presets do not steal focus");
         TestDispatcherDeadline();
+    }
+
+    /// <summary>
+    /// ZGLOSZENIE Michala 17.09.2026: przy otwartym oknie harmonogramu skrot glosnosci
+    /// (Ctrl+Windows+strzalka w gore/w dol) odpowiadal "AMC jest zajety. Zamknij otwarte
+    /// okno dialogowe" - brzmialo jak zawieszenie programu.
+    ///
+    /// Glosnosc, wyciszenie, pauza, przewijanie i pytania o stan nie ruszaja interfejsem,
+    /// wiec MUSZA dzialac takze wtedy, gdy w AMC stoi otwarte okno. Blokada zostaje tylko
+    /// dla polecen zmieniajacych widok albo fokus.
+    /// </summary>
+    private static void TestCommandsAllowedWithOpenWindow()
+    {
+        foreach (var command in new[]
+                 { "volumeUp", "volumeDown", "mute", "playPause", "seekBack", "seekForward",
+                   "status", "context", "nowPlaying" })
+        {
+            Check(NvdaCommands.WorksWithOpenWindow(command),
+                $"Polecenie {command} dziala przy otwartym oknie AMC");
+            Check(NvdaCommands.IsAllowed(command) || command is "status" or "context" or "nowPlaying",
+                $"Polecenie {command} jest znane mostkowi");
+        }
+
+        // Polecenia otwierajace widok nadal wymagaja zamkniecia okna - inaczej
+        // wyrwalyby fokus z okna, w ktorym uzytkownik wlasnie pracuje.
+        foreach (var command in new[] { "showPlayer", "showLibrary", "showSchedules", "showSearch" })
+            Check(!NvdaCommands.WorksWithOpenWindow(command),
+                $"Polecenie {command} zmienia widok, wiec czeka na zamkniecie okna");
     }
 
     private static void TestPresetCreationControls()
