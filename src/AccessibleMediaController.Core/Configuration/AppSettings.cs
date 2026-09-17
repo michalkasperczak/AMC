@@ -973,6 +973,14 @@ public sealed class RadioSettings
     public int TimeshiftMinutes { get; set; } = 10;
     public string RecordingsFolder { get; set; } = string.Empty;
     public bool UsePodcastDownloadsFolderForRecordings { get; set; }
+
+    /// <summary>
+    /// Ktory folder podpowiadac w NOWYM harmonogramie, gdy stacja ma wlasny folder:
+    /// <c>true</c> = folder tej stacji, <c>false</c> = folder domyslny.
+    /// DECYZJA Michala 17.09.2026 - o tym ma decydowac uzytkownik w ustawieniach,
+    /// a nie program na sztywno.
+    /// </summary>
+    public bool PreferStationFolderInNewSchedules { get; set; } = true;
     public RadioRecordingFormat RecordingFormat { get; set; } = RadioRecordingFormat.Mp3;
     public int RecordingBitrateKbps { get; set; } = 192;
     public bool WakeScheduledRecordings { get; set; }

@@ -110,6 +110,7 @@ var tests = new (string Name, Action Test)[]
     ("TIDAL Playback Smoke Tests", TidalPlaybackSmokeTests.Run),
     ("TIDAL Interaction Smoke Tests", TidalInteractionSmokeTests.Run),
     ("NVDA Bridge Smoke Tests", NvdaBridgeSmokeTests.Run),
+    ("Folder nagran harmonogramu i preset TIDAL na WiiM", RadioFolderAndWiiMPresetTests.Run),
     ("Oczyszczone srodowisko skladnikow zewnetrznych", ExternalToolEnvironmentTests.Run),
         ("Kolejnosc odczytu w okienkach", AccessibleDialogOrderTests.Run),
     ("TIDAL Playlist Picker Accessibility", TestTidalPlaylistPickerAccessibility),

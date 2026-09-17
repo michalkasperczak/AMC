@@ -16,6 +16,8 @@ public partial class RadioSchedulesWindow : Window
     private readonly List<RadioRecordingScheduleSettings> _schedules;
     private readonly RadioRecordingFormat _defaultRecordingFormat;
     private readonly int _defaultRecordingBitrateKbps;
+    private readonly IReadOnlyDictionary<string, string> _stationRecordingFolders;
+    private readonly bool _preferStationRecordingFolder;
 
     public IReadOnlyList<RadioRecordingScheduleSettings> ResultSchedules { get; private set; } = [];
     public bool ResultWakeScheduledRecordings { get; private set; }
@@ -29,9 +31,16 @@ public partial class RadioSchedulesWindow : Window
         string? preferredStationId,
         bool wakeScheduledRecordings,
         RadioRecordingFormat defaultRecordingFormat,
-        int defaultRecordingBitrateKbps)
+        int defaultRecordingBitrateKbps,
+        // ZGLOSZENIE Michala 17.09.2026: edytor harmonogramu potrzebuje wlasnych
+        // folderow stacji, zeby pokazac trzecia pozycje listy ze sciezka.
+        IReadOnlyDictionary<string, string>? stationRecordingFolders = null,
+        bool preferStationRecordingFolder = false)
     {
         InitializeComponent();
+        _stationRecordingFolders = stationRecordingFolders
+            ?? new Dictionary<string, string>(StringComparer.Ordinal);
+        _preferStationRecordingFolder = preferStationRecordingFolder;
         _stations = stations;
         _preferredStationId = preferredStationId;
         _activeIds = activeIds.ToHashSet(StringComparer.Ordinal);
@@ -164,7 +173,9 @@ public partial class RadioSchedulesWindow : Window
             _preferredStationId,
             globalWakeEnabled: GlobalWakeCheckBox.IsChecked == true,
             defaultRecordingFormat: _defaultRecordingFormat,
-            defaultRecordingBitrateKbps: _defaultRecordingBitrateKbps) { Owner = this };
+            defaultRecordingBitrateKbps: _defaultRecordingBitrateKbps,
+            stationRecordingFolders: _stationRecordingFolders,
+            preferStationRecordingFolder: _preferStationRecordingFolder) { Owner = this };
         if (editor.ShowDialog() != true || editor.ResultSchedule is null) return;
         _schedules.Add(editor.ResultSchedule);
         CommitChanges();
@@ -215,7 +226,9 @@ public partial class RadioSchedulesWindow : Window
             row.Schedule.StationId,
             globalWakeEnabled: GlobalWakeCheckBox.IsChecked == true,
             defaultRecordingFormat: _defaultRecordingFormat,
-            defaultRecordingBitrateKbps: _defaultRecordingBitrateKbps) { Owner = this };
+            defaultRecordingBitrateKbps: _defaultRecordingBitrateKbps,
+            stationRecordingFolders: _stationRecordingFolders,
+            preferStationRecordingFolder: _preferStationRecordingFolder) { Owner = this };
         if (editor.ShowDialog() != true || editor.ResultSchedule is null) return;
         var index = _schedules.FindIndex(schedule => schedule.Id == row.Schedule.Id);
         if (index >= 0) _schedules[index] = editor.ResultSchedule;

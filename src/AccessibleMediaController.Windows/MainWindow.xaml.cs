@@ -237,6 +237,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     internal static readonly TimeSpan RadioRecognitionRetryDelay = TimeSpan.FromSeconds(15);
     internal static readonly TimeSpan RadioRecognitionRegularInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan RadioRecognitionSampleDuration = TimeSpan.FromSeconds(12);
+
+    /// <summary>
+    /// Ponizej tego opoznienia od transmisji uznajemy, ze sluchamy NA ZYWO.
+    /// Ta sama granica sekundy sluzy juz do meldowania "na zywo" w pasku stanu
+    /// i pod Alt+D, wiec predkosc nie moze uzywac innej - inaczej program
+    /// mowilby "na zywo", a jednak pozwalal zmieniac tempo (albo odwrotnie).
+    /// </summary>
+    private static readonly TimeSpan RadioLiveThreshold = TimeSpan.FromSeconds(1);
     private static readonly string AppDisplayVersion =
         typeof(MainWindow).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
@@ -10986,14 +10994,29 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Announce("Ta funkcja nie jest dostępna w Radiu internetowym");
                 return new CommandExecutionResult(true);
             }
-            if (commandId is CommandIds.ViewBookmarks
+            // ZGLOSZENIE Michala 17.09.2026: regulacja predkosci stala tu razem z
+            // funkcjami, ktore na zywo naprawde nie maja sensu - i przez to nie
+            // dzialala TAKZE w buforze transmisji, choc tam jest to zwykle
+            // odtwarzanie zapisanego dzwieku. Silnik radia umie zmieniac tempo
+            // (SoundTouch w RadioMediaOutput), wiec blokada byla tylko tutaj.
+            // W buforze predkosc dziala tymi samymi skrotami co w kazdej innej
+            // sesji: Shift+przecinek, Shift+kropka, Ctrl+kropka.
+            if (commandId is CommandIds.PlaybackRateDown
+                or CommandIds.PlaybackRateUp
+                or CommandIds.PlaybackRateReset)
+            {
+                if (_radioOutput.BehindLive < RadioLiveThreshold)
+                {
+                    Announce("Prędkość można zmieniać tylko w buforze transmisji, nie na żywo");
+                    return new CommandExecutionResult(true);
+                }
+                // Nie przerywamy - komenda idzie dalej, do zwyklej obslugi tempa.
+            }
+            else if (commandId is CommandIds.ViewBookmarks
                 or CommandIds.PreviousBookmark
                 or CommandIds.NextBookmark
                 or CommandIds.SeekToTime
                 or CommandIds.SeekToPercentage
-                or CommandIds.PlaybackRateDown
-                or CommandIds.PlaybackRateUp
-                or CommandIds.PlaybackRateReset
                 || commandId.StartsWith("transport.seekPercent.", StringComparison.Ordinal))
             {
                 Announce("Ta funkcja nie dotyczy transmisji radiowej na żywo");
@@ -15750,6 +15773,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : saved!.RecordingFolder!;
     }
 
+    /// <summary>
+    /// Wlasne foldery nagran stacji, po numerze stacji. Okno harmonogramu pokazuje
+    /// z tego trzecia pozycje listy razem ze sciezka.
+    /// ZGLOSZENIE Michala 17.09.2026.
+    /// </summary>
+    private IReadOnlyDictionary<string, string> RadioStationRecordingFolderMap()
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var station in _state.Radio.Stations ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(station.Id)) continue;
+            if (string.IsNullOrWhiteSpace(station.RecordingFolder)) continue;
+            map[station.Id] = station.RecordingFolder!.Trim();
+        }
+        return map;
+    }
+
     private string ResolveSystemRadioRecordingsFolder()
     {
         var music = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
@@ -15812,7 +15852,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             offerImmediateStart: true,
             globalWakeEnabled: _state.Radio.WakeScheduledRecordings,
             defaultRecordingFormat: _state.Radio.RecordingFormat,
-            defaultRecordingBitrateKbps: _state.Radio.RecordingBitrateKbps)
+            defaultRecordingBitrateKbps: _state.Radio.RecordingBitrateKbps,
+            stationRecordingFolders: RadioStationRecordingFolderMap(),
+            preferStationRecordingFolder: _state.Radio.PreferStationFolderInNewSchedules)
         {
             Owner = this
         };
@@ -15863,7 +15905,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             preferredStationId,
             _state.Radio.WakeScheduledRecordings,
             _state.Radio.RecordingFormat,
-            _state.Radio.RecordingBitrateKbps)
+            _state.Radio.RecordingBitrateKbps,
+            RadioStationRecordingFolderMap(),
+            _state.Radio.PreferStationFolderInNewSchedules)
         {
             Owner = this
         };
@@ -17795,6 +17839,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 AssignWiiMPresetShortcut(device, snapshot, number);
                 return;
             }
+            // ZGLOSZENIE Michala 17.09.2026: preset TIDAL-owy nie zagra, a AMC
+            // dotad milczalo - patrz WiiMPresetPlayability.
+            if (WiiMPresetPlayability.DescribeUnplayableReason(
+                snapshot.Presets.FirstOrDefault(candidate => candidate.Number == number))
+                is { } unplayableReason)
+            {
+                Announce(unplayableReason);
+                RestoreWiiMFocus();
+                return;
+            }
             await _wiiMClient.ActivatePresetAsync(device.Address, number, _wiiMCancellation.Token);
             RememberActivatedWiiMPreset(device, number);
             await Task.Delay(180, _wiiMCancellation.Token);
@@ -18088,6 +18142,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 RestoreWiiMFocus();
                 return;
             }
+            // ZGLOSZENIE Michala 17.09.2026: preset TIDAL-owy nie zagra.
+            if (WiiMPresetPlayability.DescribeUnplayableReason(preset) is { } unplayableReason)
+            {
+                ApplyWiiMSnapshot(device, snapshot);
+                Announce(unplayableReason);
+                RestoreWiiMFocus();
+                return;
+            }
             await _wiiMClient.ActivatePresetAsync(device.Address, number, _wiiMCancellation.Token);
             RememberActivatedWiiMPreset(device, number);
             await Task.Delay(180, _wiiMCancellation.Token);
@@ -18184,7 +18246,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Announce("Urządzenie ma tylko jeden zajęty preset");
                 return;
             }
+            // ZGLOSZENIE Michala 17.09.2026: przy przeskakiwaniu presetow po kolei
+            // presety TIDAL-owe POMIJAMY, zamiast zatrzymywac sie na nich
+            // komunikatem. Inaczej strzalka utykalaby na presecie, ktory nigdy
+            // nie zagra. Gdy grywalny jest tylko biezacy - mowimy to wprost.
+            var playable = occupied.Where(WiiMPresetPlayability.CanActivate).ToArray();
+            if (playable.Length == 0 || (playable.Length == 1 && playable[0].Number == currentNumber))
+            {
+                Announce("Pozostałe presety to źródła, których urządzenie samo nie uruchomi");
+                return;
+            }
             var nextIndex = (currentIndex + (direction > 0 ? 1 : -1) + occupied.Length) % occupied.Length;
+            // Idziemy dalej w tym samym kierunku, dopoki nie trafimy na grywalny.
+            while (!WiiMPresetPlayability.CanActivate(occupied[nextIndex]))
+                nextIndex = (nextIndex + (direction > 0 ? 1 : -1) + occupied.Length) % occupied.Length;
             var target = occupied[nextIndex];
             await _wiiMClient.ActivatePresetAsync(device.Address, target.Number, _wiiMCancellation.Token);
             RememberActivatedWiiMPreset(device, target.Number);

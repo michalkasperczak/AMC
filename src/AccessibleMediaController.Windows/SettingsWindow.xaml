@@ -195,6 +195,13 @@
                                 </Grid>
                                 <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
                                            Text="Wybór jest zapamiętywany. Harmonogram może użyć folderu domyślnego Radia albo wskazać inny folder tylko dla danego planu." />
+                                <!-- DECYZJA Michala 17.09.2026: to uzytkownik decyduje,
+                                     ktory folder ma byc podpowiadany w nowym harmonogramie. -->
+                                <CheckBox x:Name="PreferStationFolderInNewSchedulesCheckBox"
+                                          Margin="0,10,0,0"
+                                          Content="W nowym harmonogramie podpowiadaj _folder stacji, gdy stacja go ma"
+                                          automation:AutomationProperties.Name="W nowym harmonogramie podpowiadaj folder stacji, gdy stacja go ma"
+                                          automation:AutomationProperties.HelpText="Gdy wyłączone, nowy harmonogram zaczyna od domyślnego folderu nagrywania. Folder stacji nadal można wybrać z listy w oknie harmonogramu." />
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Format nagrywania" Margin="0,0,0,14">

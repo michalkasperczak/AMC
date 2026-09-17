@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Windows.Controls;
@@ -31,6 +32,11 @@ public partial class RadioScheduleEditorWindow : Window
     private int _timeSegmentIndex;
     private bool _movingSegmentProgrammatically;
     private bool _followStartDateWithDefaultDay;
+    // ZGLOSZENIE Michala 17.09.2026 - trzy kontekstowe miejsca zapisu.
+    private readonly IReadOnlyDictionary<string, string> _stationRecordingFolders;
+    private readonly bool _preferStationRecordingFolder;
+    private string? _customOutputFolder;
+    private bool _rebuildingFolderChoices;
 
     private const uint WmKeyDown = 0x0100;
     private const uint WmKeyUp = 0x0101;
@@ -46,7 +52,11 @@ public partial class RadioScheduleEditorWindow : Window
         bool offerImmediateStart = false,
         bool globalWakeEnabled = false,
         RadioRecordingFormat defaultRecordingFormat = RadioRecordingFormat.Mp3,
-        int defaultRecordingBitrateKbps = 192)
+        int defaultRecordingBitrateKbps = 192,
+        // ZGLOSZENIE Michala 17.09.2026: okno musi ZNAC wlasne foldery stacji,
+        // zeby pokazac trzecia pozycje listy razem ze sciezka.
+        IReadOnlyDictionary<string, string>? stationRecordingFolders = null,
+        bool preferStationRecordingFolder = false)
     {
         InitializeComponent();
         _datePicker = CreateDatePicker();
@@ -71,7 +81,13 @@ public partial class RadioScheduleEditorWindow : Window
         EditableFieldSelection.Attach(_splitMinutesPicker);
         _datePicker.ValueChanged += DatePicker_ValueChanged;
         _timePicker.ValueChanged += (_, _) => UpdateFileNamePreview();
-        StationCombo.SelectionChanged += (_, _) => UpdateFileNamePreview();
+        StationCombo.SelectionChanged += (_, _) =>
+        {
+            UpdateFileNamePreview();
+            // Zmiana stacji zmienia liste folderow: inna stacja moze miec wlasny
+            // folder albo go nie miec.
+            RebuildOutputFolderChoices();
+        };
         _existing = existing;
         _followStartDateWithDefaultDay = existing is null;
         var choices = stations
@@ -119,9 +135,14 @@ public partial class RadioScheduleEditorWindow : Window
         _splitMinutesPicker.Value = Math.Clamp(segmentMinutes > 0 ? segmentMinutes : 30, 1, 10_080);
         SplitModeCombo.SelectedItem = SplitModeChoice.All.First(choice =>
             choice.Split == (segmentMinutes > 0));
-        OutputFolderTextBox.Text = existing?.OutputFolder ?? string.Empty;
-        var customOutputFolder = !string.IsNullOrWhiteSpace(existing?.OutputFolder);
-        OutputFolderModeCombo.SelectedIndex = customOutputFolder ? 1 : 0;
+        // ZGLOSZENIE Michala 17.09.2026: zamiast dwoch pozycji i osobnego przycisku
+        // lista jest kontekstowa - patrz RadioScheduleFolderChoices.
+        _stationRecordingFolders = stationRecordingFolders
+            ?? new Dictionary<string, string>(StringComparer.Ordinal);
+        _preferStationRecordingFolder = preferStationRecordingFolder;
+        _customOutputFolder = string.IsNullOrWhiteSpace(existing?.OutputFolder)
+            ? null
+            : existing!.OutputFolder;
         EnabledCheckBox.IsChecked = existing?.Enabled ?? true;
         RecurrenceCombo.SelectedItem = RecurrenceChoice.All.First(choice =>
             choice.Value == (existing?.Recurrence ?? RadioScheduleRecurrence.Once));
@@ -158,7 +179,7 @@ public partial class RadioScheduleEditorWindow : Window
         UpdateStartControlsEnabled();
         UpdateSplitControls();
         UpdateRecordingBitrateEnabled();
-        UpdateOutputFolderControls();
+        RebuildOutputFolderChoices();
         UpdateFileNamePreview();
         Loaded += (_, _) =>
         {
@@ -252,9 +273,7 @@ public partial class RadioScheduleEditorWindow : Window
             SegmentMinutes = segmentMinutes,
             Recurrence = recurrence.Value,
             ActiveDays = days,
-            OutputFolder = UsesCustomOutputFolder
-                ? OutputFolderTextBox.Text.Trim()
-                : string.Empty,
+            OutputFolder = ResolvedOutputFolder(),
             FileNameTemplate = fileNameTemplate,
             RecordingFormat = recordingFormat.Value,
             RecordingBitrateKbps = recordingBitrate.Value,
@@ -286,7 +305,7 @@ public partial class RadioScheduleEditorWindow : Window
             && (string.IsNullOrWhiteSpace(schedule.OutputFolder)
                 || !Path.IsPathFullyQualified(schedule.OutputFolder)))
         {
-            ShowError("Folder dla tego planu musi zawierać pełną ścieżkę", OutputFolderTextBox);
+            ShowError("Folder dla tego planu musi zawierać pełną ścieżkę", OutputFolderModeCombo);
             return;
         }
         ResultSchedule = schedule;
@@ -306,19 +325,31 @@ public partial class RadioScheduleEditorWindow : Window
         control.Focus();
     }
 
-    private void BrowseFolder_Click(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Otwiera systemowy wybor folderu. Wolane WYLACZNIE po zatwierdzeniu pozycji
+    /// "Wybierz inny folder", nigdy przy samym przewijaniu listy strzalkami -
+    /// inaczej przejazd strzalka przez liste wyrzucalby okno systemowe bez proszenia.
+    /// </summary>
+    private void BrowseForOutputFolder()
     {
         var dialog = new OpenFolderDialog
         {
             Title = "Wybierz folder nagrań",
             Multiselect = false
         };
-        if (Directory.Exists(OutputFolderTextBox.Text)) dialog.InitialDirectory = OutputFolderTextBox.Text;
-        if (dialog.ShowDialog(this) != true) return;
-        OutputFolderModeCombo.SelectedIndex = 1;
-        OutputFolderTextBox.Text = dialog.FolderName;
-        OutputFolderTextBox.Focus();
-        Keyboard.Focus(OutputFolderTextBox);
+        if (!string.IsNullOrWhiteSpace(_customOutputFolder) && Directory.Exists(_customOutputFolder))
+            dialog.InitialDirectory = _customOutputFolder;
+        if (dialog.ShowDialog(this) != true)
+        {
+            // Rezygnacja nie moze zostawic zaznaczonej pozycji "Wybierz inny
+            // folder" - wracamy do poprzedniego wyboru.
+            RebuildOutputFolderChoices();
+            return;
+        }
+        _customOutputFolder = dialog.FolderName;
+        RebuildOutputFolderChoices();
+        OutputFolderModeCombo.Focus();
+        Keyboard.Focus(OutputFolderModeCombo);
     }
 
     private void RecurrenceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateDaysEnabled();
@@ -440,18 +471,92 @@ public partial class RadioScheduleEditorWindow : Window
         };
     }
 
-    private void OutputFolderMode_Changed(object sender, RoutedEventArgs e) => UpdateOutputFolderControls();
-
-    private void UpdateOutputFolderControls()
+    private void OutputFolderMode_Changed(object sender, RoutedEventArgs e)
     {
-        if (OutputFolderTextBox is null || BrowseOutputFolderButton is null) return;
-        var custom = UsesCustomOutputFolder;
-        OutputFolderTextBox.IsEnabled = custom;
-        BrowseOutputFolderButton.IsEnabled = custom;
+        if (_rebuildingFolderChoices) return;
+        if (OutputFolderModeCombo?.SelectedItem is not RadioScheduleFolderChoice choice) return;
+        if (choice.Kind != RadioScheduleFolderKind.Browse) return;
+
+        // Lista ZWINIETA zmienia wybor przy kazdym ruchu strzalki, wiec okno wyboru
+        // otwieramy dopiero wtedy, gdy uzytkownik ten wybor zatwierdzil - czyli gdy
+        // lista nie jest rozwinieta. Inaczej przejazd strzalka przez pozycje
+        // "Wybierz inny folder" wyrzucalby systemowe okno bez proszenia.
+        // ZGLOSZENIE Michala 17.09.2026 (praca z czytnikiem ekranu).
+        if (OutputFolderModeCombo.IsDropDownOpen) return;
+        Dispatcher.BeginInvoke(BrowseForOutputFolder, DispatcherPriority.Input);
+    }
+
+    /// <summary>
+    /// Przebudowuje liste miejsc zapisu dla WYBRANEJ stacji.
+    /// Zachowuje dotychczasowy wybor, gdy nadal istnieje na liscie.
+    /// </summary>
+    private void RebuildOutputFolderChoices()
+    {
+        if (OutputFolderModeCombo is null) return;
+
+        var previousKind =
+            (OutputFolderModeCombo.SelectedItem as RadioScheduleFolderChoice)?.Kind;
+        var stationFolder = SelectedStationRecordingFolder();
+        var choices = RadioScheduleFolderChoices.Build(stationFolder, _customOutputFolder);
+
+        _rebuildingFolderChoices = true;
+        try
+        {
+            OutputFolderModeCombo.ItemsSource = choices;
+            OutputFolderModeCombo.DisplayMemberPath = nameof(RadioScheduleFolderChoice.Label);
+
+            RadioScheduleFolderChoice? restored = null;
+            // Wlasny folder tego planu jest jawna decyzja uzytkownika, wiec po zmianie
+            // stacji trzymamy go, jesli nadal jest na liscie.
+            if (!string.IsNullOrWhiteSpace(_customOutputFolder))
+            {
+                restored = choices.FirstOrDefault(candidate =>
+                    candidate.Kind == RadioScheduleFolderKind.Custom);
+            }
+            restored ??= previousKind is { } kind && kind != RadioScheduleFolderKind.Browse
+                ? choices.FirstOrDefault(candidate => candidate.Kind == kind)
+                : null;
+            restored ??= RadioScheduleFolderChoices.ResolveInitial(
+                choices,
+                _existing?.OutputFolder,
+                _preferStationRecordingFolder);
+            OutputFolderModeCombo.SelectedItem = restored;
+        }
+        finally
+        {
+            _rebuildingFolderChoices = false;
+        }
+    }
+
+    private string? SelectedStationRecordingFolder()
+    {
+        if (StationCombo?.SelectedItem is not StationChoice station) return null;
+        return _stationRecordingFolders.TryGetValue(station.Id, out var folder)
+            && !string.IsNullOrWhiteSpace(folder)
+            ? folder
+            : null;
+    }
+
+    /// <summary>
+    /// Folder zapisywany w harmonogramie. Puste znaczy "uzyj kolejnosci programu"
+    /// (folder stacji, potem ogolny) - dokladnie jak dotad, wiec stare harmonogramy
+    /// dzialaja bez zmian.
+    /// </summary>
+    private string ResolvedOutputFolder()
+    {
+        if (OutputFolderModeCombo?.SelectedItem is not RadioScheduleFolderChoice choice)
+            return string.Empty;
+        return choice.Kind switch
+        {
+            RadioScheduleFolderKind.Station => choice.Path ?? string.Empty,
+            RadioScheduleFolderKind.Custom => choice.Path ?? string.Empty,
+            _ => string.Empty,
+        };
     }
 
     private bool UsesCustomOutputFolder =>
-        (OutputFolderModeCombo?.SelectedItem as ComboBoxItem)?.Tag?.ToString() == "Custom";
+        (OutputFolderModeCombo?.SelectedItem as RadioScheduleFolderChoice)?.Kind
+            is RadioScheduleFolderKind.Station or RadioScheduleFolderKind.Custom;
 
     private bool UsesSplit =>
         (SplitModeCombo?.SelectedItem as SplitModeChoice)?.Split == true;

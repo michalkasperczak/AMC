@@ -162,6 +162,8 @@ public partial class SettingsWindow : Window
             RadioRecordingBitrateCombo,
             _workingState.Radio.RecordingBitrateKbps.ToString());
         WakeScheduledRadioRecordingsCheck.IsChecked = _workingState.Radio.WakeScheduledRecordings;
+        PreferStationFolderInNewSchedulesCheckBox.IsChecked =
+            _workingState.Radio.PreferStationFolderInNewSchedules;
         AutomaticTrackRecognitionCheck.IsChecked = _workingState.Radio.AutomaticTrackRecognitionEnabled;
         SelectComboByTag(
             RadioRecognitionScopeCombo,
@@ -287,6 +289,8 @@ public partial class SettingsWindow : Window
         _workingState.Radio.RecordingsFolder = Path.GetFullPath(folder);
         _workingState.Radio.UsePodcastDownloadsFolderForRecordings =
             SelectedTag(RadioRecordingsFolderModeCombo, "Radio") == "Podcasts";
+        _workingState.Radio.PreferStationFolderInNewSchedules =
+            PreferStationFolderInNewSchedulesCheckBox.IsChecked == true;
         if (Enum.TryParse<RadioRecordingFormat>(
                 SelectedTag(RadioRecordingFormatCombo, nameof(RadioRecordingFormat.Mp3)),
                 out var recordingFormat))
