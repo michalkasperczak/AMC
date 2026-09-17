@@ -2343,23 +2343,61 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var action = preparing ? "Anuluj otwieranie" : session.IsPlaying ? "Wstrzymaj" : "Odtwórz";
         var focusContext = _playerFocusContextPrefix;
         _playerFocusContextPrefix = null;
+        // ZGLOSZENIE Michala 17.09.2026: w odtwarzaczu radia czytnik ma podawac
+        // to samo, co sesja WiiM - stacje i utwor - a nie slowo "Odtwarzacz",
+        // nazwe sesji i stan. Spis skrotow nalezy do Shift+F1, nie do fokusu.
+        var name = isRadio
+            ? FormatRadioPlayerControlName(
+                item.Title,
+                radioNowPlaying,
+                preparing ? state : null,
+                session.IsMuted,
+                RadioRecordingStateLabel(item))
+            : focusContext is null
+                ? session.SupportsPlaybackRate
+                    ? $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}"
+                    : $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}. {action}"
+                : session.SupportsPlaybackRate
+                    ? $"{focusContext}, Odtwarzacz, {item.Title}, {artist}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}"
+                    : $"{focusContext}, Odtwarzacz, {item.Title}, {artist}, {state}. {action}";
         AutomationProperties.SetName(
             PlayerPlayPauseButton,
-            focusContext is null
-                ? isRadio
-                    ? $"Odtwarzacz, {item.Title}, {session.DisplayName}, {state}. {action}"
-                    : session.SupportsPlaybackRate
-                        ? $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}"
-                        : $"Odtwarzacz, {item.Title}, {artist}, {session.DisplayName}, {state}. {action}"
-                : isRadio
-                    ? $"{focusContext}, Odtwarzacz, {item.Title}, {state}. {action}"
-                    : session.SupportsPlaybackRate
-                        ? $"{focusContext}, Odtwarzacz, {item.Title}, {artist}, {state}, prędkość {FormatPlaybackRateMultiplier(session.PlaybackRate)}. {action}"
-                        : $"{focusContext}, Odtwarzacz, {item.Title}, {artist}, {state}. {action}");
+            isRadio && focusContext is not null ? $"{focusContext}, {name}" : name);
+        ApplyPlayerHelpTextToControl();
+    }
+
+    /// <summary>
+    /// Nazwa przycisku odtwarzania w sesji radia. Wzor ustalil Michal
+    /// 17.09.2026: "stacja, utwor - wykonawca", czyli dokladnie to, co podaje
+    /// sesja WiiM. Stan dokladamy tylko wtedy, gdy jest nowa informacja:
+    /// otwieranie, wyciszenie albo trwajace nagranie.
+    /// </summary>
+    internal static string FormatRadioPlayerControlName(
+        string? station,
+        string? nowPlaying,
+        string? preparingState,
+        bool muted,
+        string? recordingState)
+    {
+        var parts = new List<string>();
+        NowPlayingParts.Add(parts, string.IsNullOrWhiteSpace(station) ? "Radio internetowe" : station);
+        NowPlayingParts.Add(parts, nowPlaying);
+        NowPlayingParts.Add(parts, preparingState);
+        NowPlayingParts.Add(parts, recordingState);
+        if (muted) NowPlayingParts.Add(parts, "wyciszone");
+        return string.Join(", ", parts);
+    }
+
+    /// <summary>
+    /// Spis skrotow odtwarzacza jako opis przycisku czytany przez czytnik
+    /// ekranu - tylko przy wlaczonych szczegolowych podpowiedziach. Domyslnie
+    /// pelna pomoc jest pod Shift+F1, zeby fokus nie uruchamial kilkuzdaniowej
+    /// wypowiedzi przy kazdej zmianie utworu.
+    /// </summary>
+    private void ApplyPlayerHelpTextToControl() =>
         AutomationProperties.SetHelpText(
             PlayerPlayPauseButton,
-            PlayerKeyboardHelpText());
-    }
+            _state.Settings.Messages.DetailedHints ? PlayerKeyboardHelpText() : string.Empty);
 
     private void UpdateWiiMPlayerView(MediaItem deviceItem, bool updateAccessibleName)
     {
@@ -2423,7 +2461,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AutomationProperties.SetName(
             PlayerPlayPauseButton,
             name);
-        AutomationProperties.SetHelpText(PlayerPlayPauseButton, PlayerKeyboardHelpText());
+        ApplyPlayerHelpTextToControl();
     }
 
     internal static string FormatWiiMPlayerControlName(
@@ -2498,17 +2536,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         return parts.Count == 0 ? null : string.Join(", ", parts);
     }
 
-    private static void AddDistinctSpokenPart(List<string> parts, string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value)
-            || parts.Any(existing => SameSpokenValue(existing, value))) return;
-        parts.Add(value.Trim());
-    }
+    private static void AddDistinctSpokenPart(List<string> parts, string? value) =>
+        NowPlayingParts.Add(parts, value);
 
     private static bool SameSpokenValue(string? first, string? second) =>
-        !string.IsNullOrWhiteSpace(first)
-        && !string.IsNullOrWhiteSpace(second)
-        && string.Equals(first.Trim(), second.Trim(), StringComparison.CurrentCultureIgnoreCase);
+        NowPlayingParts.SameValue(first, second);
 
     private string PlayerKeyboardHelpText()
     {
@@ -20748,6 +20780,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : string.Empty;
         System.Windows.Automation.AutomationProperties.SetHelpText(FilterBox, helpText);
         PlayerHelpText.Text = PlayerKeyboardHelpText();
+        ApplyPlayerHelpTextToControl();
     }
 
     private void ReturnToMediaListFromEscape()

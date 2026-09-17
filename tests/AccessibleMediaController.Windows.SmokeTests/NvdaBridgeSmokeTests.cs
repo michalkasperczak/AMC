@@ -335,14 +335,20 @@ internal static class NvdaBridgeSmokeTests
         Check(!NvdaNowPlaying.Describe(radio, "Kwartet Jorgi - Kolysanka", true).Contains("pauza"),
             "Skrot nie dokleja stanu odtwarzania");
         radio.TogglePlayback();
-        // Metadane z INNEJ stacji nie moga wyciec do biezacej.
+        // Metadane z INNEJ stacji nie moga wyciec do biezacej. Gdy nie ma czego
+        // powiedziec poza stacja, zostaje SAMA STACJA - bez dopowiadania
+        // "stacja nie podaje tytulu utworu" (ZGLOSZENIE Michala 17.09.2026:
+        // ten komunikat byl zbedny).
         Check(NvdaNowPlaying.Describe(radio, "Utwor ze starej stacji", false)
-            == "Radio Nowy Swiat, stacja nie podaje tytułu utworu.",
+            == "Radio Nowy Swiat.",
             "Nieaktualne metadane radia nie sa czytane");
         // Powielony tytul (stacja podaje wlasna nazwe jako utwor) tez nie.
         Check(NvdaNowPlaying.Describe(radio, "  radio nowy swiat ", true)
-            == "Radio Nowy Swiat, stacja nie podaje tytułu utworu.",
+            == "Radio Nowy Swiat.",
             "Powtorzona nazwa stacji nie jest czytana dwa razy");
+        Check(!NvdaNowPlaying.Describe(radio, "Utwor ze starej stacji", false)
+            .Contains("nie podaje", StringComparison.CurrentCultureIgnoreCase),
+            "Skrot nie dopowiada, ze stacja nie podaje tytulu");
 
         // Album stacji tez ma byc slyszalny, dokladnie jak w sesji WiiM.
         var stacjaZAlbumem = new MediaItem

@@ -65,12 +65,25 @@ WizardStyle=classic
 ; a w trybie cichym nie ma komu tej prosby pokazac.
 ;   CloseApplications=force  - dzialajace AMC jest zamykane samo,
 ;   RestartApplications=no   - i NIE jest wznawiane przez instalator, bo robi to
-;                              sam program (zeby wrocil do tej samej sesji),
-;   AppMutex                 - po tym instalator poznaje, ze program zniknal
-;                              z pamieci. Nazwa MUSI zgadzac sie z App.xaml.cs.
+;                              sam program (zeby wrocil do tej samej sesji).
+;
+; ZMIERZONE 17.09.2026 - DLACZEGO NIE MA TU `AppMutex`:
+; `AppMutex` NIE pomaga cichej instalacji, tylko ja ZABIJA. Inno sprawdza muteks
+; ZANIM zdazy zadzialac `CloseApplications`, i gdy program jest w pamieci,
+; pokazuje okno "aplikacja jest aktualnie uruchomiona" z wyborem OK/Anuluj.
+; Przy `/VERYSILENT /SUPPRESSMSGBOXES` domyslna odpowiedzia na takie okno jest
+; ANULUJ, wiec instalator konczy `Got EAbort exception` i kodem 1, nie tknawszy
+; ani jednego pliku. W logu widac wtedy tylko "Deinitializing Setup" - zadnego
+; bledu kopiowania, wiec wyglada to jak awaria bez przyczyny.
+;
+; Zamykaniem dzialajacego programu zajmuje sie `CloseApplications=force` przez
+; Restart Managera i to wystarcza. WARUNEK: instalator musi byc uruchomiony
+; w SESJI GRAFICZNEJ uzytkownika. Odpalony z sesji uslugowej (SSH, sesja 0)
+; Restart Manager zwraca "Session Mismatch" i wymiana pliku pada na
+; "DeleteFile; kod 5. Odmowa dostepu" - to nie wada instalatora, tylko brak
+; pulpitu; zdalna instalacja idzie przez `schtasks /IT /RU <uzytkownik>`.
 CloseApplications=force
 RestartApplications=no
-AppMutex=Local\AccessibleMultimediaController.SingleInstance
 
 [Languages]
 Name: "polski"; MessagesFile: "compiler:Languages\Polish.isl"

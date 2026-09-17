@@ -260,7 +260,12 @@ public static class ShortcutHelpCatalog
         yield return Info("radio", "Zaznacz stacje do przeniesienia", "Ctrl+X", "Ulubione radia internetowego");
         yield return Info("radio", "Przenieś zaznaczone stacje przed bieżącą", "Ctrl+V", "Ulubione radia internetowego");
         yield return Info("radio", "Cofnij lub przewiń w buforze transmisji", "Strzałka w lewo lub w prawo", "odtwarzacz radia");
+        yield return Info("radio", "Przejdź do początku bufora transmisji", "Home", "odtwarzacz radia");
         yield return Info("radio", "Wróć do transmisji na żywo", "End", "odtwarzacz radia");
+        yield return Info("radio", "Wycisz sam odsłuch, bez przerywania odbioru ani nagrania", "Ctrl+M", "odtwarzacz radia");
+        yield return Info("radio", "Poprzednia lub następna stacja, bez zatrzymywania nagrań", "Page Up lub Page Down", "odtwarzacz radia");
+        yield return Info("radio", "Dodaj szybką zakładkę do zapisywanego pliku", "B", "odtwarzacz radia w trakcie nagrywania");
+        yield return Info("radio", "Dodaj nazwaną zakładkę do zapisywanego pliku", "Shift+B", "odtwarzacz radia w trakcie nagrywania");
         yield return Info("radio", "Rozpocznij lub zakończ nagrywanie", "Ctrl+R", "lista lub odtwarzacz radia");
         yield return Info("radio", "Wstrzymaj lub wznów wybrane nagranie", "Shift+Spacja", "nagrywana stacja na liście lub w odtwarzaczu radia");
         yield return Info("radio", "Pokaż aktualnie nagrywane stacje; Escape wraca do wcześniejszego widoku", "Alt+R", "lista radia internetowego");

@@ -31,9 +31,10 @@ internal static class NvdaNowPlaying
             Dodaj(czesci, utwor);
             Dodaj(czesci, item.Artist);
             Dodaj(czesci, item.RelatedAlbumTitle);
-            // Gdy poza nazwa stacji nie ma nic, powiedz to wprost, zamiast
-            // zostawic uzytkownika w niepewnosci, czy skrot zadzialal.
-            if (czesci.Count == 1) czesci.Add("stacja nie podaje tytułu utworu");
+            // ZGLOSZENIE Michala 17.09.2026: gdy stacja nie podaje tytulu, NIE
+            // dopowiadaj tego. Sama nazwa stacji jest odpowiedzia; komunikat
+            // "stacja nie podaje tytulu utworu" przy kazdym nacisnieciu skrotu
+            // byl zbedna gadanina.
         }
         else
         {
@@ -50,15 +51,6 @@ internal static class NvdaNowPlaying
         return string.Join(", ", czesci) + ".";
     }
 
-    private static void Dodaj(List<string> czesci, string? wartosc)
-    {
-        if (string.IsNullOrWhiteSpace(wartosc)) return;
-        var tekst = wartosc.Trim();
-        if (czesci.Any(istniejacy =>
-                string.Equals(istniejacy, tekst, StringComparison.CurrentCultureIgnoreCase)))
-        {
-            return;
-        }
-        czesci.Add(tekst);
-    }
+    private static void Dodaj(List<string> czesci, string? wartosc) =>
+        AccessibleMediaController.Core.Presentation.NowPlayingParts.Add(czesci, wartosc);
 }

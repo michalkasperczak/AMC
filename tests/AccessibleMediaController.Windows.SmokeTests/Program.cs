@@ -93,6 +93,7 @@ var tests = new (string Name, Action Test)[]
     ("Playback Audio Setting Accessibility", TestPlaybackAudioSettingAccessibility),
     ("Audio Output Device Accessibility", TestAudioOutputDeviceAccessibility),
     ("Wii M Device Manager Accessibility", TestWiiMDeviceManagerAccessibility),
+    ("Nazwa odtwarzacza radia dla czytnika", TestRadioPlayerControlName),
     ("Podcast Episode File Action Keyboard Map", TestPodcastEpisodeFileActionKeyboardMap),
     ("Audio Output Pause Race Guard", TestAudioOutputPauseRaceGuard),
     ("Track Change Silences Previous Pipeline", TestTrackChangeSilencesPreviousPipeline),
@@ -3006,6 +3007,64 @@ static void TestRecognitionSearchLinks()
     Assert(links.All(link => !link.Contains(' ')),
         "Zapytanie do katalogu nie zostało prawidłowo zakodowane.");
     Console.WriteLine("OK: łącza rozpoznania do usług i katalogów muzycznych");
+}
+
+static void TestRadioPlayerControlName()
+{
+    // ZGLOSZENIE Michala 17.09.2026: Enter otwiera odtwarzacz radia, a NVDA
+    // czytal "Odtwarzacz, 3, Radio internetowe, Odtwarzanie. Wstrzymaj" plus
+    // caly spis skrotow. Ma czytac to samo, co sesja WiiM: stacja i utwor.
+    Assert(MainWindow.FormatRadioPlayerControlName(
+               "Poznań",
+               "Nastolatek - Krzysztof Zalewski",
+               preparingState: null,
+               muted: false,
+               recordingState: null)
+           == "Poznań, Nastolatek - Krzysztof Zalewski",
+        "Odtwarzacz radia nie czyta wzoru „stacja, utwór - wykonawca”.");
+    Assert(!MainWindow.FormatRadioPlayerControlName(
+                "Poznań",
+                "Nastolatek - Krzysztof Zalewski",
+                preparingState: null,
+                muted: false,
+                recordingState: null)
+            .Contains("Odtwarzacz", StringComparison.CurrentCultureIgnoreCase),
+        "Nazwa przycisku znowu zaczyna się słowem „Odtwarzacz”.");
+    Assert(!MainWindow.FormatRadioPlayerControlName(
+                "Poznań",
+                "Nastolatek - Krzysztof Zalewski",
+                preparingState: null,
+                muted: false,
+                recordingState: null)
+            .Contains("Odtwarzanie", StringComparison.CurrentCultureIgnoreCase),
+        "Stan odtwarzania nie jest nową informacją i nie może być doklejany.");
+    // Stacja podajaca wlasna nazwe jako tytul utworu nie moze byc czytana dwa razy.
+    Assert(MainWindow.FormatRadioPlayerControlName(
+               "Radio Nowy Świat",
+               "  radio nowy świat ",
+               preparingState: null,
+               muted: false,
+               recordingState: null)
+           == "Radio Nowy Świat",
+        "Powtórzona nazwa stacji jest czytana dwa razy.");
+    // Stan dokladamy tylko wtedy, gdy jest nowa informacja.
+    Assert(MainWindow.FormatRadioPlayerControlName(
+               "Poznań",
+               "Nastolatek",
+               preparingState: null,
+               muted: true,
+               recordingState: "nagrywanie")
+           == "Poznań, Nastolatek, nagrywanie, wyciszone",
+        "Nagrywanie albo wyciszenie zginęło z nazwy przycisku odtwarzania radia.");
+    Assert(MainWindow.FormatRadioPlayerControlName(
+               "Poznań",
+               null,
+               preparingState: "Otwieranie",
+               muted: false,
+               recordingState: null)
+           == "Poznań, Otwieranie",
+        "Otwieranie stacji nie jest oznajmiane, więc cisza wygląda jak awaria.");
+    Console.WriteLine("OK: nazwa odtwarzacza radia dla czytnika ekranu");
 }
 
 static void TestWiiMDeviceManagerAccessibility()
