@@ -591,7 +591,8 @@ public partial class RadioScheduleEditorWindow : Window
         try
         {
             OutputFolderModeCombo.ItemsSource = choices;
-            OutputFolderModeCombo.DisplayMemberPath = nameof(RadioScheduleFolderChoice.Label);
+            // DisplayMemberPath ustawia XAML - nie tutaj. Ustawianie go po
+            // przypisaniu ItemsSource dawalo czytnikowi ekranu surowy obiekt.
 
             RadioScheduleFolderChoice? restored = null;
             // Wlasny folder tego planu jest jawna decyzja uzytkownika, wiec po zmianie

@@ -223,7 +223,14 @@
                      Pozycje listy powstaja w kodzie, bo "Folder tej stacji"
                      istnieje jedynie wtedy, gdy stacja ma wlasny folder. -->
                 <Label Target="{Binding ElementName=OutputFolderModeCombo}">_Miejsce zapisu:</Label>
+                <!-- DisplayMemberPath i TextSearch.TextPath MUSZA byc tutaj, tak jak
+                     w WakeCombo i StationCombo. Bez nich czytnik ekranu wypowiada
+                     surowy obiekt ("RadioScheduleFolderChoice { Kind = Custom, ... }")
+                     - zgloszenie Michala z 17.09.2026. Ustawianie DisplayMemberPath
+                     w kodzie PO przypisaniu ItemsSource bylo za pozno dla warstwy
+                     dostepnosci, ktora zdazyla juz odczytac ToString() elementu. -->
                 <ComboBox x:Name="OutputFolderModeCombo" Margin="0,0,0,8"
+                          DisplayMemberPath="Label" TextSearch.TextPath="Label"
                           SelectionChanged="OutputFolderMode_Changed"
                           automation:AutomationProperties.Name="Miejsce zapisu tego nagrania"/>
 
