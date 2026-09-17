@@ -572,6 +572,10 @@ public sealed class SpotifySettings
     public string GrantedScope { get; set; } = string.Empty;
     public int Volume { get; set; } = 35;
     public long LastSuccessfulSyncUtcTicks { get; set; }
+    // Zapamietana biblioteka, zeby po ponownym uruchomieniu sesja Spotify nie
+    // byla pusta do czasu ponownego pobrania. Uzyty jest ten sam kszalt zapisu
+    // co dla TIDAL - to swiadome wspoldzielenie formatu, nie pomylka nazwy.
+    public List<TidalCachedCollectionItemSettings> CachedCollectionItems { get; set; } = new();
 }
 
 public sealed class TidalCachedCollectionItemSettings

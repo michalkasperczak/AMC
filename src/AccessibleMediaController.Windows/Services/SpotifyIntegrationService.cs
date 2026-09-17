@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Spotify;
 
 namespace AccessibleMediaController.Windows.Services;
@@ -26,6 +27,13 @@ internal sealed record SpotifyAccountProfile(
 /// Poświadczenia dla wbudowanego odtwarzacza (Web Playback SDK). Token żyje
 /// godzinę, więc odtwarzacz musi umieć poprosić o nowy w trakcie grania.
 /// </summary>
+/// <summary>Wynik pobrania biblioteki: co przyszlo i o czym trzeba powiedziec wprost.</summary>
+internal sealed record SpotifySynchronizationResult(
+    IReadOnlyList<MediaItem> Items,
+    string AccountDisplayName,
+    IReadOnlyList<string> Warnings,
+    bool IsComplete);
+
 internal sealed record SpotifyPlaybackCredentials(
     string AccessToken,
     DateTimeOffset ExpiresAtUtc,
@@ -49,6 +57,7 @@ internal sealed class SpotifyIntegrationService(
 {
     private static readonly TimeSpan RefreshMargin = TimeSpan.FromMinutes(5);
     private readonly SpotifyOAuthClient oauth = new();
+    private readonly SpotifyApiClient api = new();
     private readonly HttpClient http = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     private readonly bool ownsHttpClient = httpClient is null;
     private readonly SemaphoreSlim operationGate = new(1, 1);
@@ -156,6 +165,78 @@ internal sealed class SpotifyIntegrationService(
         }
     }
 
+    /// <summary>
+    /// Pobiera bibliotekę konta. Rzuca wyjątkiem tylko wtedy, gdy NIE UDAŁO SIĘ
+    /// NIC - częściowy wynik wraca normalnie, z ostrzeżeniami. Zwrócenie pustej
+    /// listy jako sukcesu wyglądałoby dla użytkownika jak puste konto.
+    /// </summary>
+    public async Task<SpotifySynchronizationResult> SynchronizeAsync(CancellationToken cancellationToken)
+    {
+        await operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var tokens = await EnsureValidTokensAsync(cancellationToken).ConfigureAwait(false);
+            var profile = await ReadProfileAsync(tokens, cancellationToken).ConfigureAwait(false);
+            settings.AccountDisplayName = profile.DisplayName;
+            settings.AccountProduct = profile.Product;
+
+            api.UseAccessToken(tokens.AccessToken);
+            var collection = await api.SynchronizeCollectionAsync(
+                tokens.AccessToken,
+                tokens.Scope,
+                cancellationToken).ConfigureAwait(false);
+
+            if (collection.UpdatedKinds.Count == 0)
+            {
+                var szczegoly = collection.Warnings.Count == 0
+                    ? string.Empty
+                    : " " + string.Join(" ", collection.Warnings);
+                throw new InvalidOperationException(
+                    "Nie udało się pobrać żadnej części biblioteki Spotify." + szczegoly);
+            }
+
+            settings.LastSuccessfulSyncUtcTicks = DateTime.UtcNow.Ticks;
+            DiagnosticLog.Info(
+                "spotify-sync",
+                $"Pobrano {collection.Items.Count} pozycji biblioteki Spotify; ostrzeżenia: {collection.Warnings.Count}.");
+            return new SpotifySynchronizationResult(
+                collection.Items,
+                profile.DisplayName,
+                collection.Warnings,
+                // Pełne, gdy wszystkie cztery kolekcje przeszły: utwory,
+                // albumy, wykonawcy, playlisty.
+                collection.UpdatedKinds.Count == 4);
+        }
+        finally
+        {
+            operationGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Utwory z playlisty. Zwraca null, gdy Spotify nie udostępnia zawartości -
+    /// tak jest dla playlist redakcyjnych Spotify i playlist innych osób.
+    /// To nie awaria, tylko granica narzucona przez Spotify w 2024 roku.
+    /// </summary>
+    public async Task<IReadOnlyList<MediaItem>?> GetPlaylistTracksAsync(
+        string playlistExternalId,
+        CancellationToken cancellationToken)
+    {
+        await operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var tokens = await EnsureValidTokensAsync(cancellationToken).ConfigureAwait(false);
+            return await api.GetPlaylistTracksAsync(
+                tokens.AccessToken,
+                playlistExternalId,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            operationGate.Release();
+        }
+    }
+
     public void Disconnect()
     {
         SpotifyCredentialStore.Delete();
@@ -232,6 +313,7 @@ internal sealed class SpotifyIntegrationService(
     public void Dispose()
     {
         oauth.Dispose();
+        api.Dispose();
         operationGate.Dispose();
         if (ownsHttpClient) http.Dispose();
     }

@@ -30,6 +30,9 @@
                 <Button x:Name="CheckAccountButton" Content="_Sprawdź konto" Margin="0,0,8,8"
                         automation:AutomationProperties.HelpText="Odczytuje nazwę konta i rodzaj abonamentu, bez ponownego logowania."
                         Click="CheckAccount_Click" />
+                <Button x:Name="SyncButton" Content="_Pobierz bibliotekę" Margin="0,0,8,8"
+                        automation:AutomationProperties.HelpText="Pobiera do AMC Twoje polubione utwory, albumy, obserwowanych wykonawców i playlisty. Przy pierwszym razie może to potrwać kilka minut."
+                        Click="Sync_Click" />
                 <Button x:Name="InstructionsButton" Content="_Instrukcja pierwszego logowania" Margin="0,0,8,8"
                         Click="Instructions_Click" />
                 <Button x:Name="DisconnectButton" Content="_Odłącz konto…" Margin="0,0,8,8"

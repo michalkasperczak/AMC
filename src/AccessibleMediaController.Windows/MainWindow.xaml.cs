@@ -125,6 +125,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         new(StringComparer.Ordinal);
     private readonly TidalIntegrationService _tidalIntegration;
     private readonly SpotifyIntegrationService _spotifyIntegration;
+    private readonly List<MediaItem> _spotifyItems = [];
+    private bool _spotifyCatalogSynchronized;
     private readonly TidalMediaOutput _tidalOutput;
     private readonly CancellationTokenSource _tidalCancellation = new();
     private long _tidalNavigationVersion;
@@ -9341,6 +9343,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 "queue",
                 $"Przygotowano kolejkę TIDAL przed synchronizacją: {initialTidalItems.Count(item => item.IsInQueue || item.IsPlayNext)} elementów.");
         }
+        // Spotify: zapamietana biblioteka wraca do sesji zaraz po utworzeniu
+        // sesji, zeby po uruchomieniu programu nie bylo pustej listy do czasu
+        // ponownego pobrania.
+        RestoreSpotifyCachedItems();
         if (_sessions.FindSession("tidal") is { } restoredTidal)
         {
             var restoredTidalItem = restoredTidal.Items.FirstOrDefault(item =>
@@ -17302,8 +17308,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         };
         dialog.SettingsApplied += (_, _) => QueueStateSave(announceFailure: true);
         dialog.ShowDialog();
-        if (dialog.Disconnected)
+        if (dialog.SynchronizedItems is { } spotifyItems)
         {
+            ApplySpotifyItems(spotifyItems, dialog.SynchronizedCatalogComplete);
+        }
+        else if (dialog.Disconnected)
+        {
+            _spotifyCatalogSynchronized = false;
+            _spotifyItems.Clear();
+            _state.Spotify.CachedCollectionItems.Clear();
             _sessions.FindSession("spotify")?.ReplaceItems(
                 SessionManager.CreateDemonstrationItems("spotify"));
             if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal))
@@ -17347,6 +17360,59 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             DiagnosticLog.Error("tidal-sync", "Automatyczna synchronizacja TIDAL nie powiodła się.", exception);
             if (announceResult) Announce(exception.Message);
         }
+    }
+
+    /// <summary>
+    /// Wstawia pobrana biblioteke Spotify do sesji. Kolejka odtwarzania
+    /// przezywa pobranie: pozycje wstawione do kolejki zostaja, bo utrata
+    /// kolejki przy odswiezeniu biblioteki byla by dla uzytkownika strata
+    /// pracy, nie odswiezeniem.
+    /// </summary>
+    private void ApplySpotifyItems(IReadOnlyList<MediaItem> items, bool catalogComplete)
+    {
+        var session = _sessions.FindSession("spotify");
+        var retainedQueuedItems = _spotifyCatalogSynchronized && session is not null
+            ? session.Items.Where(item => item.IsInQueue || item.IsPlayNext).ToArray()
+            : [];
+        _spotifyItems.Clear();
+        _spotifyItems.AddRange(items.DistinctBy(item => item.Id, StringComparer.Ordinal));
+        _state.Spotify.CachedCollectionItems = _spotifyItems
+            .Select(TidalCachedCollectionItemSettings.FromMediaItem)
+            .ToList();
+        _spotifyCatalogSynchronized = true;
+        if (session is null) return;
+        var replacementItems = _spotifyItems
+            .Concat(retainedQueuedItems)
+            .DistinctBy(item => item.Id, StringComparer.Ordinal)
+            .ToArray();
+        RestorePersistedQueueMembership(session.Id, replacementItems);
+        session.ReplaceItems(replacementItems);
+        EnsureQueueOrder(session);
+        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal))
+            RefreshCurrentView();
+        DiagnosticLog.Info(
+            "spotify-sync",
+            $"Sesja Spotify: {replacementItems.Length} pozycji; katalog kompletny: {catalogComplete}.");
+    }
+
+    /// <summary>
+    /// Odtwarza zapamietana biblioteke Spotify przy starcie, zeby sesja nie
+    /// byla pusta przed pierwszym pobraniem w danym uruchomieniu.
+    /// </summary>
+    private void RestoreSpotifyCachedItems()
+    {
+        if (_state.Spotify.CachedCollectionItems.Count == 0) return;
+        var items = _state.Spotify.CachedCollectionItems
+            .Select(item => item.ToMediaItem())
+            .ToArray();
+        _spotifyItems.Clear();
+        _spotifyItems.AddRange(items);
+        _spotifyCatalogSynchronized = true;
+        var session = _sessions.FindSession("spotify");
+        if (session is null) return;
+        RestorePersistedQueueMembership(session.Id, items);
+        session.ReplaceItems(items);
+        EnsureQueueOrder(session);
     }
 
     private void ApplyTidalItems(

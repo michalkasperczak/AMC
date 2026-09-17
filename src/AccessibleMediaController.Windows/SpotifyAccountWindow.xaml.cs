@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Threading;
 using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Spotify;
 using AccessibleMediaController.Windows.Services;
 
@@ -40,6 +41,11 @@ public partial class SpotifyAccountWindow : Controls.AccessibleWindow
     public bool Changed { get; private set; }
     public bool Disconnected { get; private set; }
     public string? CompletionAnnouncement { get; private set; }
+    // Pobrana biblioteka. Null znaczy "nie pobierano", a nie "pusta" - okno
+    // wywolujace musi te dwa przypadki rozroznic, inaczej zamkniecie okna
+    // wyczyscilo by sesje.
+    internal IReadOnlyList<MediaItem>? SynchronizedItems { get; private set; }
+    public bool SynchronizedCatalogComplete { get; private set; }
     public event EventHandler? SettingsApplied;
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -69,7 +75,41 @@ public partial class SpotifyAccountWindow : Controls.AccessibleWindow
             Changed = true;
             CompletionAnnouncement = DescribeProfile(profile, loggedInNow: true);
             OperationStatusText.Announce(CompletionAnnouncement);
+            // Zaraz po zalogowaniu pobieramy biblioteke od razu. Samo
+            // "zalogowano" przy pustej sesji wyglada jak awaria - i tak
+            // wygladalo, dopoki tego nie bylo.
+            OperationStatusText.Announce("Zalogowano. Pobieranie biblioteki Spotify");
+            await SynchronizeCoreAsync();
         });
+    }
+
+    private async void Sync_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryApplySettings(out var message))
+        {
+            OperationStatusText.Announce(message);
+            return;
+        }
+        MarkSettingsApplied();
+        await RunAsync(SynchronizeCoreAsync);
+    }
+
+    private async Task SynchronizeCoreAsync()
+    {
+        OperationStatusText.Announce(
+            "Pobieranie biblioteki Spotify. Przy pierwszym razie może to potrwać kilka minut; nie zamykaj tego okna.");
+        var result = await integration.SynchronizeAsync(cancellation.Token);
+        SynchronizedItems = result.Items;
+        SynchronizedCatalogComplete = result.IsComplete;
+        Changed = true;
+        var account = string.IsNullOrWhiteSpace(result.AccountDisplayName)
+            ? string.Empty
+            : $" Konto: {result.AccountDisplayName}.";
+        var warnings = result.Warnings.Count == 0
+            ? string.Empty
+            : $" Pobrano niepełnie: {string.Join("; ", result.Warnings)}";
+        CompletionAnnouncement = $"Pobrano bibliotekę Spotify: {result.Items.Count} pozycji.{account}{warnings}";
+        OperationStatusText.Announce(CompletionAnnouncement);
     }
 
     private async void CheckAccount_Click(object sender, RoutedEventArgs e)
