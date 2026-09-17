@@ -30,7 +30,24 @@ public enum RadioScheduleFolderKind
 public sealed record RadioScheduleFolderChoice(
     RadioScheduleFolderKind Kind,
     string Label,
-    string? Path);
+    string? Path)
+{
+    /// <summary>
+    /// ZGLOSZENIE Michala 17.09.2026 (trzecie, po wersji 391): czytnik ekranu NADAL
+    /// wypowiadal "RadioScheduleFolderChoice { Kind = Custom, Label = ..., Path = }",
+    /// mimo DisplayMemberPath="Label" w XAML.
+    ///
+    /// PRZYCZYNA, ktora przegapilem: DisplayMemberPath rzadzi tylko tym, co WIDAC.
+    /// Warstwa dostepnosci (UIA) buduje nazwe pozycji zwinietego pola kombi z samego
+    /// OBIEKTU, wiec siega do ToString(). Rekord C# generuje ToString() wypisujacy
+    /// wszystkie pola - i dokladnie to slyszal uzytkownik.
+    ///
+    /// Dlatego ToString() musi zwracac to samo, co widac. To nie jest kosmetyka ani
+    /// obejscie: dla uzytkownika czytnika ToString() rekordu POKAZYWANEGO w liscie
+    /// jest tekstem interfejsu.
+    /// </summary>
+    public override string ToString() => Label;
+}
 
 /// <summary>
 /// Buduje liste miejsc zapisu dla harmonogramu nagrania radia.
