@@ -338,7 +338,16 @@ class ControllerTests(unittest.TestCase):
             controller.close()
 
     def test_python_dotnet_interop(self):
-        executable = ROOT / "tests/AccessibleMediaController.Windows.SmokeTests/bin/Release/net8.0-windows/AccessibleMediaController.Windows.SmokeTests.exe"
+        # Katalog docelowy zalezy od wersji Windows SDK (net8.0-windows,
+        # net8.0-windows10.0.19041.0...). Sztywna sciezka cicho brala STARY
+        # plik i test klamal o obslugiwanych poleceniach - bierzemy najnowszy.
+        builds = sorted(
+            (ROOT / "tests/AccessibleMediaController.Windows.SmokeTests/bin/Release").glob(
+                "net8.0-windows*/AccessibleMediaController.Windows.SmokeTests.exe"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True)
+        self.assertTrue(builds, "Brak zbudowanego hosta testowego - najpierw dotnet build")
+        executable = builds[0]
         name = "AMC.NVDA.interop." + uuid.uuid4().hex
         host = subprocess.Popen([str(executable), "--nvda-interop-host", name],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
