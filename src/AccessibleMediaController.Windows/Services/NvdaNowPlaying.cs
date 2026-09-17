@@ -4,10 +4,10 @@ namespace AccessibleMediaController.Windows.Services;
 
 /// <summary>
 /// Opis "co teraz leci" dla skrotu czytajacego zrodlo i utwor.
-/// Wzorowane na odtwarzaczu Vim: jedno nacisniecie mowi i stacje, i tytul,
-/// bez wchodzenia w widok odtwarzacza i bez ruszania fokusu.
-/// Radio ma dwa rozne pola: nazwe stacji (Title) oraz rozpoznany
-/// tytul utworu z metadanych strumienia - i oba maja byc slyszalne.
+/// Sesja Radio internetowe ma mowic dokladnie tyle, ile mowi juz sesja
+/// urzadzenia WiiM: najpierw stacja, potem rozpoznany tytul utworu,
+/// bez powtarzania tego samego tekstu dwa razy.
+/// Jedno nacisniecie, bez wchodzenia w widok odtwarzacza i bez ruszania fokusu.
 /// </summary>
 internal static class NvdaNowPlaying
 {
@@ -24,28 +24,38 @@ internal static class NvdaNowPlaying
 
         if (string.Equals(session.Id, "radio", StringComparison.Ordinal))
         {
-            czesci.Add(item.Title);
+            // Kolejnosc i zasada "bez powtorzen" jak w BuildWiiMNowPlayingParts:
+            // stacja, tytul, wykonawca, album.
+            Dodaj(czesci, item.Title);
             var utwor = radioNowPlayingMatchesCurrentItem ? radioNowPlayingTitle : null;
-            // Puste, powtarzajace nazwe stacji albo nieaktualne metadane
-            // pomijamy - lepiej powiedziec mniej niz wprowadzic w blad.
-            if (!string.IsNullOrWhiteSpace(utwor)
-                && !string.Equals(utwor.Trim(), item.Title.Trim(), StringComparison.OrdinalIgnoreCase))
-            {
-                czesci.Add(utwor.Trim());
-            }
-            else
-            {
-                czesci.Add("stacja nie podaje tytułu utworu");
-            }
+            Dodaj(czesci, utwor);
+            Dodaj(czesci, item.Artist);
+            Dodaj(czesci, item.RelatedAlbumTitle);
+            // Gdy poza nazwa stacji nie ma nic, powiedz to wprost, zamiast
+            // zostawic uzytkownika w niepewnosci, czy skrot zadzialal.
+            if (czesci.Count == 1) czesci.Add("stacja nie podaje tytułu utworu");
         }
         else
         {
-            czesci.Add(item.Title);
-            if (!string.IsNullOrWhiteSpace(item.Artist)) czesci.Add(item.Artist.Trim());
+            Dodaj(czesci, item.Title);
+            Dodaj(czesci, item.Artist);
+            Dodaj(czesci, item.RelatedAlbumTitle);
         }
 
         czesci.Add(session.IsPlaying ? "odtwarzanie" : "pauza");
         if (session.IsMuted) czesci.Add("wyciszone");
         return string.Join(", ", czesci) + ".";
+    }
+
+    private static void Dodaj(List<string> czesci, string? wartosc)
+    {
+        if (string.IsNullOrWhiteSpace(wartosc)) return;
+        var tekst = wartosc.Trim();
+        if (czesci.Any(istniejacy =>
+                string.Equals(istniejacy, tekst, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            return;
+        }
+        czesci.Add(tekst);
     }
 }

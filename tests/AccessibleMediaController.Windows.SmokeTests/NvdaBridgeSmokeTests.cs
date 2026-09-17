@@ -337,6 +337,18 @@ internal static class NvdaBridgeSmokeTests
             == "Radio Nowy Swiat, stacja nie podaje tytułu utworu, odtwarzanie.",
             "Powtorzona nazwa stacji nie jest czytana dwa razy");
 
+        // Album stacji tez ma byc slyszalny, dokladnie jak w sesji WiiM.
+        var stacjaZAlbumem = new MediaItem
+        {
+            Id = "s2", Title = "Radio Jazz", Artist = "Miles Davis", RelatedAlbumTitle = "Kind of Blue",
+            Kind = MediaItemKind.Station
+        };
+        var radioPelne = new DemoMediaSession("radio", "Radio", [stacjaZAlbumem]);
+        radioPelne.Play(stacjaZAlbumem);
+        Check(NvdaNowPlaying.Describe(radioPelne, "So What", true)
+            == "Radio Jazz, So What, Miles Davis, Kind of Blue, odtwarzanie.",
+            "Radio mowi stacje, utwor, wykonawce i album jak WiiM");
+
         var utwor = new MediaItem { Id = "u", Title = "Kolysanka", Artist = "Kwartet Jorgi" };
         var lokalna = new DemoMediaSession("local", "Pliki lokalne", [utwor]);
         lokalna.Play(utwor);
