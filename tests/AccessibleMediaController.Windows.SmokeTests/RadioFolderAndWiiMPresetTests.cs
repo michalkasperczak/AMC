@@ -17,7 +17,8 @@ internal static class RadioFolderAndWiiMPresetTests
         TestStationFolderAppearsWithPath();
         TestStationWithoutFolderGivesTwoChoices();
         TestCustomFolderIsListedSeparately();
-        TestCustomFolderEqualToStationFolderIsNotDuplicated();
+        TestCustomChoiceExistsForNewSchedule();
+        TestSavedFolderEqualToStationSelectsStationChoice();
         TestInitialChoiceFollowsUserSetting();
         TestSavedCustomFolderWinsOverSetting();
     }
@@ -71,6 +72,11 @@ internal static class RadioFolderAndWiiMPresetTests
     }
 
     // --- Harmonogram: trzy miejsca zapisu ------------------------------------
+    //
+    // ZGLOSZENIE Michala 17.09.2026 (drugie): pozycja listy NIE otwiera juz okna
+    // wyboru folderu. Sciezke pokazuje osobne pole edycyjne, a dialog otwiera
+    // osobny przycisk. Dlatego pozycje maja krotkie etykiety BEZ sciezki, a rodzaj
+    // "Browse" przestal istniec.
 
     private static void TestStationFolderAppearsWithPath()
     {
@@ -81,11 +87,14 @@ internal static class RadioFolderAndWiiMPresetTests
             station is not null,
             "Gdy stacja ma wlasny folder, harmonogram musi go POKAZAC jako wybor.");
         Assert(
-            station!.Label.Contains(@"D:\Nagrania\Dominikanie", StringComparison.Ordinal),
-            "Pozycja folderu stacji musi podawac sciezke, zeby czytnik ja wypowiedzial.");
+            station!.Path == @"D:\Nagrania\Dominikanie",
+            "Pozycja folderu stacji musi niesc sciezke, bo pole edycyjne ja z niej bierze.");
         Assert(
-            choices[^1].Kind == RadioScheduleFolderKind.Browse,
-            "Ostatnia pozycja musi otwierac wybor folderu (zamiast osobnego przycisku).");
+            !station.Label.Contains('\\', StringComparison.Ordinal),
+            "Etykieta pozycji nie moze zawierac sciezki - czytnik czyta ja z pola obok.");
+        Assert(
+            choices.All(choice => choice.Label.Length <= 40),
+            "Etykiety pozycji musza byc krotkie - dluga litania utrudnia sluchanie listy.");
     }
 
     private static void TestStationWithoutFolderGivesTwoChoices()
@@ -93,7 +102,7 @@ internal static class RadioFolderAndWiiMPresetTests
         var choices = RadioScheduleFolderChoices.Build(null, null);
         Assert(
             choices.Count == 2,
-            "Stacja bez wlasnego folderu daje dwie pozycje: domyslna i wybor folderu.");
+            "Stacja bez wlasnego folderu daje dwie pozycje: domyslna i osobny folder.");
         Assert(
             choices.All(choice => choice.Kind != RadioScheduleFolderKind.Station),
             "Nie wolno pokazywac pustej pozycji folderu stacji.");
@@ -105,22 +114,40 @@ internal static class RadioFolderAndWiiMPresetTests
             @"D:\Nagrania\Dominikanie",
             @"E:\Inny folder");
         Assert(
-            choices.Count == 4,
-            "Stacja z folderem plus wlasny folder planu daje cztery pozycje.");
+            choices.Count == 3,
+            "Stacja z folderem daje trzy pozycje: domyslna, folder stacji, osobny folder.");
         var custom = choices.First(choice => choice.Kind == RadioScheduleFolderKind.Custom);
         Assert(
             custom.Path == @"E:\Inny folder",
             "Folder tego planu musi zachowac wskazana sciezke.");
     }
 
-    private static void TestCustomFolderEqualToStationFolderIsNotDuplicated()
+    private static void TestCustomChoiceExistsForNewSchedule()
+    {
+        // Bez tej pozycji nowy harmonogram nie mialby jak zglosic zamiaru wskazania
+        // wlasnego folderu - wczesniej te role pelnila pozycja otwierajaca dialog.
+        var choices = RadioScheduleFolderChoices.Build(@"D:\Nagrania\Dominikanie", null);
+        var custom = choices.FirstOrDefault(choice =>
+            choice.Kind == RadioScheduleFolderKind.Custom);
+        Assert(
+            custom is not null,
+            "Pozycja osobnego folderu musi istniec takze przy NOWYM harmonogramie.");
+        Assert(
+            custom!.Path is null,
+            "Przy nowym harmonogramie osobny folder nie ma jeszcze sciezki.");
+    }
+
+    private static void TestSavedFolderEqualToStationSelectsStationChoice()
     {
         var choices = RadioScheduleFolderChoices.Build(
             @"D:\Nagrania\Dominikanie",
             @"d:\nagrania\dominikanie");
+        var initial = RadioScheduleFolderChoices.ResolveInitial(
+            choices, savedCustomFolder: @"d:\nagrania\dominikanie", preferStationFolder: false);
         Assert(
-            choices.Count(choice => choice.Path is not null) == 1,
-            "Ta sama sciezka nie moze wystapic dwa razy - nie dalaby sie odroznic sluchem.");
+            initial.Kind == RadioScheduleFolderKind.Station,
+            "Gdy zapisana sciezka to folder stacji, uczciwiej zaznaczyc pozycje stacji - "
+            + "uzytkownik slyszy wtedy, skad ta sciezka sie bierze.");
     }
 
     private static void TestInitialChoiceFollowsUserSetting()

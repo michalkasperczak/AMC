@@ -37,6 +37,10 @@ public partial class RadioScheduleEditorWindow : Window
     private readonly bool _preferStationRecordingFolder;
     private string? _customOutputFolder;
     private bool _rebuildingFolderChoices;
+    // ZGLOSZENIE Michala 17.09.2026 (drugie): pole ze sciezka obok listy. Sciezka
+    // folderu domyslnego jest tu tylko do POKAZANIA - okno jej nie zapisuje.
+    private readonly string? _defaultRecordingsFolder;
+    private bool _updatingFolderPathBox;
 
     private const uint WmKeyDown = 0x0100;
     private const uint WmKeyUp = 0x0101;
@@ -56,8 +60,14 @@ public partial class RadioScheduleEditorWindow : Window
         // ZGLOSZENIE Michala 17.09.2026: okno musi ZNAC wlasne foldery stacji,
         // zeby pokazac trzecia pozycje listy razem ze sciezka.
         IReadOnlyDictionary<string, string>? stationRecordingFolders = null,
-        bool preferStationRecordingFolder = false)
+        bool preferStationRecordingFolder = false,
+        // ZGLOSZENIE Michala 17.09.2026 (drugie): pole ze sciezka ma pokazac takze
+        // sciezke folderu DOMYSLNEGO, zeby uzytkownik slyszal, gdzie plik trafi.
+        string? defaultRecordingsFolder = null)
     {
+        _defaultRecordingsFolder = string.IsNullOrWhiteSpace(defaultRecordingsFolder)
+            ? null
+            : defaultRecordingsFolder.Trim();
         InitializeComponent();
         _datePicker = CreateDatePicker();
         _timePicker = CreateTimePicker();
@@ -305,7 +315,7 @@ public partial class RadioScheduleEditorWindow : Window
             && (string.IsNullOrWhiteSpace(schedule.OutputFolder)
                 || !Path.IsPathFullyQualified(schedule.OutputFolder)))
         {
-            ShowError("Folder dla tego planu musi zawierać pełną ścieżkę", OutputFolderModeCombo);
+            ShowError("Folder dla tego planu musi zawierać pełną ścieżkę", OutputFolderPathBox);
             return;
         }
         ResultSchedule = schedule;
@@ -326,30 +336,61 @@ public partial class RadioScheduleEditorWindow : Window
     }
 
     /// <summary>
-    /// Otwiera systemowy wybor folderu. Wolane WYLACZNIE po zatwierdzeniu pozycji
-    /// "Wybierz inny folder", nigdy przy samym przewijaniu listy strzalkami -
-    /// inaczej przejazd strzalka przez liste wyrzucalby okno systemowe bez proszenia.
+    /// Otwiera systemowy wybor folderu. Wolane WYLACZNIE z przycisku
+    /// "Wybierz folder..." - nigdy z listy i nigdy przy przewijaniu strzalkami.
+    ///
+    /// ZGLOSZENIE Michala 17.09.2026 (drugie): wczesniej dialog otwieral sie sam,
+    /// gdy strzalka zeszla na pozycje "Wybierz inny folder", i okno zdawalo sie
+    /// zawieszac. Zaden ruch po liscie nie moze niczego uruchamiac.
     /// </summary>
-    private void BrowseForOutputFolder()
+    private void BrowseOutputFolder_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFolderDialog
         {
             Title = "Wybierz folder nagrań",
             Multiselect = false
         };
-        if (!string.IsNullOrWhiteSpace(_customOutputFolder) && Directory.Exists(_customOutputFolder))
-            dialog.InitialDirectory = _customOutputFolder;
-        if (dialog.ShowDialog(this) != true)
-        {
-            // Rezygnacja nie moze zostawic zaznaczonej pozycji "Wybierz inny
-            // folder" - wracamy do poprzedniego wyboru.
-            RebuildOutputFolderChoices();
-            return;
-        }
+
+        var start = OutputFolderPathBox?.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(start)) start = _customOutputFolder;
+        if (!string.IsNullOrWhiteSpace(start) && Directory.Exists(start))
+            dialog.InitialDirectory = start;
+
+        if (dialog.ShowDialog(this) != true) return;
+
         _customOutputFolder = dialog.FolderName;
+
+        // Wskazanie folderu z dialogu jest jawna decyzja o WLASNYM folderze tego
+        // harmonogramu, wiec przestawiamy liste na te pozycje. Bez tego uzytkownik
+        // wybralby folder, a program dalej zapisywalby do domyslnego.
+        SelectFolderKind(RadioScheduleFolderKind.Custom);
         RebuildOutputFolderChoices();
-        OutputFolderModeCombo.Focus();
-        Keyboard.Focus(OutputFolderModeCombo);
+
+        // Wracamy fokusem na przycisk, z ktorego dialog wyszedl - czytnik ekranu
+        // czyta wtedy dalej to samo miejsce, a Shift+Tab prowadzi do sciezki.
+        BrowseOutputFolderButton?.Focus();
+    }
+
+    /// <summary>
+    /// Zaznacza na liscie pozycje o danym rodzaju, jesli taka istnieje.
+    /// </summary>
+    private void SelectFolderKind(RadioScheduleFolderKind kind)
+    {
+        if (OutputFolderModeCombo?.ItemsSource is not IEnumerable<RadioScheduleFolderChoice> items)
+            return;
+
+        var target = items.FirstOrDefault(choice => choice.Kind == kind);
+        if (target is null) return;
+
+        _rebuildingFolderChoices = true;
+        try
+        {
+            OutputFolderModeCombo.SelectedItem = target;
+        }
+        finally
+        {
+            _rebuildingFolderChoices = false;
+        }
     }
 
     private void RecurrenceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateDaysEnabled();
@@ -471,19 +512,66 @@ public partial class RadioScheduleEditorWindow : Window
         };
     }
 
+    /// <summary>
+    /// Reakcja na zmiane miejsca zapisu. NIE otwiera zadnego okna - tylko
+    /// uaktualnia pole ze sciezka i dostepnosc przycisku.
+    ///
+    /// ZGLOSZENIE Michala 17.09.2026 (drugie): tu wczesniej otwieral sie systemowy
+    /// wybor folderu, przez co samo przewijanie listy strzalka wyrzucalo dialog.
+    /// </summary>
     private void OutputFolderMode_Changed(object sender, RoutedEventArgs e)
     {
         if (_rebuildingFolderChoices) return;
-        if (OutputFolderModeCombo?.SelectedItem is not RadioScheduleFolderChoice choice) return;
-        if (choice.Kind != RadioScheduleFolderKind.Browse) return;
+        UpdateOutputFolderPathBox();
+    }
 
-        // Lista ZWINIETA zmienia wybor przy kazdym ruchu strzalki, wiec okno wyboru
-        // otwieramy dopiero wtedy, gdy uzytkownik ten wybor zatwierdzil - czyli gdy
-        // lista nie jest rozwinieta. Inaczej przejazd strzalka przez pozycje
-        // "Wybierz inny folder" wyrzucalby systemowe okno bez proszenia.
-        // ZGLOSZENIE Michala 17.09.2026 (praca z czytnikiem ekranu).
-        if (OutputFolderModeCombo.IsDropDownOpen) return;
-        Dispatcher.BeginInvoke(BrowseForOutputFolder, DispatcherPriority.Input);
+    /// <summary>
+    /// Ustawia pole ze sciezka pod wybrane miejsce zapisu.
+    ///
+    /// Dla folderu domyslnego i folderu stacji pole jest tylko do czytania, bo te
+    /// sciezki nalezą do ustawien programu, a nie do tego harmonogramu - zmiana tu
+    /// niczego by nie zapisala i mylilaby. Dla osobnego folderu pole jest zwykle,
+    /// bo sciezke wolno wpisac takze z klawiatury, bez dialogu.
+    /// </summary>
+    private void UpdateOutputFolderPathBox()
+    {
+        if (OutputFolderModeCombo is null || OutputFolderPathBox is null) return;
+        if (OutputFolderModeCombo.SelectedItem is not RadioScheduleFolderChoice choice) return;
+
+        var custom = choice.Kind == RadioScheduleFolderKind.Custom;
+
+        _updatingFolderPathBox = true;
+        try
+        {
+            OutputFolderPathBox.IsReadOnly = !custom;
+            OutputFolderPathBox.Text = choice.Kind switch
+            {
+                RadioScheduleFolderKind.Station => choice.Path ?? string.Empty,
+                RadioScheduleFolderKind.Custom => _customOutputFolder ?? string.Empty,
+                _ => _defaultRecordingsFolder ?? string.Empty,
+            };
+        }
+        finally
+        {
+            _updatingFolderPathBox = false;
+        }
+
+        if (BrowseOutputFolderButton is not null)
+            BrowseOutputFolderButton.IsEnabled = custom;
+    }
+
+    /// <summary>
+    /// Sciezka wpisana z klawiatury w polu edycyjnym. Liczy sie tylko przy osobnym
+    /// folderze tego harmonogramu - pozostale miejsca zapisu sa do czytania.
+    /// </summary>
+    private void OutputFolderPath_Changed(object sender, TextChangedEventArgs e)
+    {
+        if (_updatingFolderPathBox) return;
+        if (OutputFolderModeCombo?.SelectedItem is not RadioScheduleFolderChoice choice) return;
+        if (choice.Kind != RadioScheduleFolderKind.Custom) return;
+
+        var typed = OutputFolderPathBox?.Text?.Trim();
+        _customOutputFolder = string.IsNullOrWhiteSpace(typed) ? null : typed;
     }
 
     /// <summary>
@@ -513,7 +601,7 @@ public partial class RadioScheduleEditorWindow : Window
                 restored = choices.FirstOrDefault(candidate =>
                     candidate.Kind == RadioScheduleFolderKind.Custom);
             }
-            restored ??= previousKind is { } kind && kind != RadioScheduleFolderKind.Browse
+            restored ??= previousKind is { } kind
                 ? choices.FirstOrDefault(candidate => candidate.Kind == kind)
                 : null;
             restored ??= RadioScheduleFolderChoices.ResolveInitial(
@@ -526,6 +614,10 @@ public partial class RadioScheduleEditorWindow : Window
         {
             _rebuildingFolderChoices = false;
         }
+
+        // Pole ze sciezka zawsze idzie za lista - takze gdy liste przebudowala
+        // zmiana stacji, a nie uzytkownik.
+        UpdateOutputFolderPathBox();
     }
 
     private string? SelectedStationRecordingFolder()
@@ -549,7 +641,12 @@ public partial class RadioScheduleEditorWindow : Window
         return choice.Kind switch
         {
             RadioScheduleFolderKind.Station => choice.Path ?? string.Empty,
-            RadioScheduleFolderKind.Custom => choice.Path ?? string.Empty,
+            // Przy osobnym folderze zrodlem prawdy jest to, co stoi w polu
+            // edycyjnym - uzytkownik moze wpisac sciezke z klawiatury, bez dialogu.
+            RadioScheduleFolderKind.Custom =>
+                OutputFolderPathBox?.Text?.Trim() is { Length: > 0 } typed
+                    ? typed
+                    : _customOutputFolder ?? string.Empty,
             _ => string.Empty,
         };
     }

@@ -15854,7 +15854,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             defaultRecordingFormat: _state.Radio.RecordingFormat,
             defaultRecordingBitrateKbps: _state.Radio.RecordingBitrateKbps,
             stationRecordingFolders: RadioStationRecordingFolderMap(),
-            preferStationRecordingFolder: _state.Radio.PreferStationFolderInNewSchedules)
+            preferStationRecordingFolder: _state.Radio.PreferStationFolderInNewSchedules,
+            defaultRecordingsFolder: _state.Radio.RecordingsFolder)
         {
             Owner = this
         };
@@ -15907,7 +15908,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _state.Radio.RecordingFormat,
             _state.Radio.RecordingBitrateKbps,
             RadioStationRecordingFolderMap(),
-            _state.Radio.PreferStationFolderInNewSchedules)
+            _state.Radio.PreferStationFolderInNewSchedules,
+            _state.Radio.RecordingsFolder)
         {
             Owner = this
         };
