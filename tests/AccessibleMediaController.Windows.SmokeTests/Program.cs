@@ -191,6 +191,8 @@ var tests = new (string Name, Action Test)[]
     ("Spotify nie przesuwa numerow istniejacych sesji", TestSpotifyNiePrzesuwaNumerowSesji),
     ("Adres powrotu Spotify nie uzywa nazwy localhost", TestSpotifyAdresPowrotuBezLocalhost),
     ("Okno konta Spotify nie da sie zamknac w trakcie logowania", TestSpotifyOknoNieZamykaSieWTrakcie),
+    ("Pobieranie biblioteki Spotify trafia do sesji", TestSpotifyBibliotekaTrafiaDoSesji),
+    ("Czesciowa awaria pobierania Spotify nie kasuje wyniku", TestSpotifyCzesciowyWynikZachowany),
 };
 
 var failures = new List<string>();
@@ -6790,6 +6792,58 @@ static void TestTidalDesktopCzasMowiSamaLiczbe()
     }
 
     Console.WriteLine("OK: czas utworu z oryginalnego TIDALa mowiony sama liczba");
+}
+
+static void TestSpotifyBibliotekaTrafiaDoSesji()
+{
+    // Michal zglosil: "konto potwierdzone, ale sie nie synchronizuje". Przyczyna
+    // byla, ze zalogowanie istnialo, a pobierania biblioteki nie bylo wcale.
+    // Ten test pilnuje CALEGO lancucha, bo kazdy jego czlon osobno wyglada na
+    // zrobiony, a przerwany daje konto bez muzyki - dokladnie to, co widzial.
+    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyAccountWindow.xaml"));
+    if (!okno.Contains("Sync_Click", StringComparison.Ordinal))
+        throw new Exception("Okno konta Spotify nie ma przycisku pobierania biblioteki.");
+
+    var kod = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyAccountWindow.xaml.cs"));
+    if (!kod.Contains("private async void Sync_Click", StringComparison.Ordinal))
+        throw new Exception("Przycisk pobierania biblioteki Spotify nie ma obslugi.");
+    if (!kod.Contains("integration.SynchronizeAsync", StringComparison.Ordinal))
+        throw new Exception("Obsluga pobierania nie wola SynchronizeAsync.");
+    // Zalogowanie musi pobrac biblioteke od razu: samo "zalogowano" przy pustej
+    // sesji wyglada dla uzytkownika jak awaria.
+    var login = kod.IndexOf("LoginAsync", StringComparison.Ordinal);
+    var syncPoLogowaniu = kod.IndexOf("SynchronizeCoreAsync();", login < 0 ? 0 : login, StringComparison.Ordinal);
+    if (login < 0 || syncPoLogowaniu < 0)
+        throw new Exception("Po zalogowaniu Spotify nie nastepuje pobranie biblioteki.");
+
+    var glowne = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
+    if (!glowne.Contains("dialog.SynchronizedItems is { } spotifyItems", StringComparison.Ordinal))
+        throw new Exception("Okno glowne nie odbiera pobranej biblioteki Spotify.");
+    if (!glowne.Contains("private void ApplySpotifyItems", StringComparison.Ordinal))
+        throw new Exception("Brak ApplySpotifyItems w oknie glownym.");
+    if (!glowne.Contains("RestoreSpotifyCachedItems();", StringComparison.Ordinal))
+        throw new Exception("Zapamietana biblioteka Spotify nie wraca po uruchomieniu programu.");
+    // Odlaczenie konta czysci pamiec, inaczej po wylogowaniu zostalaby lista
+    // cudzej albo nieaktualnej muzyki.
+    if (!glowne.Contains("_state.Spotify.CachedCollectionItems.Clear();", StringComparison.Ordinal))
+        throw new Exception("Odlaczenie konta Spotify nie czysci zapamietanej biblioteki.");
+    Console.WriteLine("OK: pobieranie biblioteki Spotify trafia do sesji i przezywa restart");
+}
+
+static void TestSpotifyCzesciowyWynikZachowany()
+{
+    // Spotify potrafi odmowic jednej kolekcji, dajac reszte. Zwrocenie wtedy
+    // pustej listy wygladalo by jak puste konto, wiec czesciowy wynik MUSI
+    // wracac razem z ostrzezeniem.
+    var api = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyApiClient.cs"));
+    if (!api.Contains("items.AddRange(collected);", StringComparison.Ordinal))
+        throw new Exception("Czesciowo pobrane pozycje Spotify sa odrzucane przy bledzie.");
+    if (!api.Contains("Retry-After", StringComparison.Ordinal) && !api.Contains("RetryAfter", StringComparison.Ordinal))
+        throw new Exception("Brak posluszenstwa wobec Retry-After: grozi blokada calej aplikacji.");
+    var usluga = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyIntegrationService.cs"));
+    if (!usluga.Contains("Nie udało się pobrać żadnej części biblioteki Spotify", StringComparison.Ordinal))
+        throw new Exception("Calkowita awaria pobierania Spotify nie jest zglaszana uzytkownikowi.");
+    Console.WriteLine("OK: czesciowa awaria pobierania Spotify zachowuje wynik i ostrzega");
 }
 
 static void TestSpotifyKontoPodCtrlF5()
