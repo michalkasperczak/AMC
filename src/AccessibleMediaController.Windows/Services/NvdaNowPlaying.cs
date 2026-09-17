@@ -1,3 +1,5 @@
+using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Sessions;
 
 namespace AccessibleMediaController.Windows.Services;
@@ -14,7 +16,9 @@ internal static class NvdaNowPlaying
     internal static string Describe(
         DemoMediaSession session,
         string? radioNowPlayingTitle,
-        bool radioNowPlayingMatchesCurrentItem)
+        bool radioNowPlayingMatchesCurrentItem,
+        IEnumerable<RadioRecognizedTrackSettings>? recognizedTracks = null,
+        DateTime? nowUtc = null)
     {
         if (!session.HasCurrentItem)
             return $"{session.DisplayName}, nic nie jest otwarte.";
@@ -35,6 +39,19 @@ internal static class NvdaNowPlaying
             // dopowiadaj tego. Sama nazwa stacji jest odpowiedzia; komunikat
             // "stacja nie podaje tytulu utworu" przy kazdym nacisnieciu skrotu
             // byl zbedna gadanina.
+            //
+            // Gdy jednak poza stacja nie ma NIC, a program sam rozpoznal utwor
+            // (historia pod Ctrl+Alt+S), podaj to rozpoznanie. Michal sluchal
+            // Radia Poznan, ktore tytulu nie wysyla - a program utwor znal.
+            if (czesci.Count == 1
+                && RecognizedTrackLookup.Find(
+                    recognizedTracks,
+                    item.Id,
+                    item.Title,
+                    nowUtc ?? DateTime.UtcNow) is { } rozpoznany)
+            {
+                Dodaj(czesci, RecognizedTrackLookup.Describe(rozpoznany));
+            }
         }
         else
         {
@@ -52,5 +69,5 @@ internal static class NvdaNowPlaying
     }
 
     private static void Dodaj(List<string> czesci, string? wartosc) =>
-        AccessibleMediaController.Core.Presentation.NowPlayingParts.Add(czesci, wartosc);
+        NowPlayingParts.Add(czesci, wartosc);
 }

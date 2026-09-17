@@ -2487,6 +2487,20 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         AddDistinctSpokenPart(parts, UsefulWiiMTrackText(snapshot.Track.Subtitle));
         AddDistinctSpokenPart(parts, UsefulWiiMTrackText(snapshot.Track.Artist));
         AddDistinctSpokenPart(parts, UsefulWiiMTrackText(snapshot.Track.Album));
+        // ZGLOSZENIE Michala 17.09.2026: gdy urzadzenie nie podaje tytulu, a AMC
+        // ma swieze rozpoznanie TEJ stacji (bo sam jej sluchal albo ja nagrywa),
+        // podaj to rozpoznanie. Dziala tylko wtedy - WiiM gra po swojej stronie,
+        // wiec bez wlasnego odsluchu lub nagrania AMC nie ma czego rozpoznac.
+        if (parts.Count <= 1 && !string.IsNullOrWhiteSpace(station))
+        {
+            var recognized = RecognizedTrackLookup.Find(
+                _state.Radio.RecognizedTracks,
+                stationId: null,
+                stationName: station,
+                DateTime.UtcNow);
+            if (recognized is not null)
+                AddDistinctSpokenPart(parts, RecognizedTrackLookup.Describe(recognized));
+        }
         if (includeDevice || parts.Count == 0) AddDistinctSpokenPart(parts, deviceItem.Title);
         if (includeAudio)
         {
@@ -2857,6 +2871,27 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .Where(value => !string.IsNullOrWhiteSpace(value));
         var label = string.Join(" — ", parts);
         return string.IsNullOrWhiteSpace(label) ? "nieznany utwór" : label;
+    }
+
+    /// <summary>
+    /// Rozpoznany utwor, ktorym mozna zastapic BRAKUJACY tytul z transmisji.
+    /// ZGLOSZENIE Michala 17.09.2026: Radio Poznan nie wysyla tytulu, wiec
+    /// czytnik mowil sama nazwe stacji - choc program utwor SAM rozpoznal i
+    /// mial go w historii pod Ctrl+Alt+S. Zwraca null, gdy tytul z transmisji
+    /// juz jest (ten ma pierwszenstwo) albo gdy nie ma swiezego rozpoznania.
+    /// </summary>
+    private string? ResolveRecognizedRadioTrackText(MediaItem item, string? streamTitle)
+    {
+        if (!string.IsNullOrWhiteSpace(streamTitle)) return null;
+        var entry = RecognizedTrackLookup.Find(
+            _state.Radio.RecognizedTracks,
+            item.Id,
+            item.Title,
+            DateTime.UtcNow);
+        if (entry is null) return null;
+        var text = RecognizedTrackLookup.Describe(entry);
+        // Gdy rozpoznanie powtarza sama nazwe stacji, nie ma czego dodawac.
+        return NowPlayingParts.SameValue(text, item.Title) ? null : text;
     }
 
     internal static bool ShouldAnnounceRadioRecognitionResult(

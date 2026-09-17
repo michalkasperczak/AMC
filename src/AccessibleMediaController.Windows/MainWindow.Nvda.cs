@@ -59,7 +59,12 @@ public partial class MainWindow
                 session.HasCurrentItem ? session.CurrentItem.Id : null,
                 _radioNowPlayingItemId,
                 StringComparison.Ordinal);
-            return new(true, NvdaNowPlaying.Describe(session, _radioNowPlayingTitle, pasuje));
+            return new(true, NvdaNowPlaying.Describe(
+                session,
+                _radioNowPlayingTitle,
+                pasuje,
+                _state.Radio.RecognizedTracks,
+                DateTime.UtcNow));
         }
 
         if (command == "refreshPodcastLibrary")

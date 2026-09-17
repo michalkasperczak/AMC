@@ -350,6 +350,65 @@ internal static class NvdaBridgeSmokeTests
             .Contains("nie podaje", StringComparison.CurrentCultureIgnoreCase),
             "Skrot nie dopowiada, ze stacja nie podaje tytulu");
 
+        // ZGLOSZENIE Michala 17.09.2026 (druga czesc): Radio Poznan NIE wysyla
+        // tytulu w transmisji, ale program sam rozpoznaje utwor i ma go w
+        // historii pod Ctrl+Alt+S. Skoro juz go znamy, skrot ma go powiedziec.
+        var teraz = DateTime.UtcNow;
+        var rozpoznaneTejStacji = new List<RadioRecognizedTrackSettings>
+        {
+            new()
+            {
+                StationId = "s",
+                StationName = "Radio Nowy Swiat",
+                Title = "Nastolatek",
+                Artist = "Krzysztof Zalewski",
+                RecognizedUtcTicks = teraz.AddMinutes(-2).Ticks
+            }
+        };
+        Check(NvdaNowPlaying.Describe(radio, null, false, rozpoznaneTejStacji, teraz)
+            == "Radio Nowy Swiat, Nastolatek, Krzysztof Zalewski.",
+            "Milczaca stacja: skrot podaje utwor rozpoznany przez program");
+
+        // Tytul z SAMEJ transmisji ma pierwszenstwo - rozpoznanie jest tylko
+        // zastepnikiem, nie moze przeslonic prawdziwych metadanych stacji.
+        Check(NvdaNowPlaying.Describe(radio, "Kwartet Jorgi - Kolysanka", true, rozpoznaneTejStacji, teraz)
+            == "Radio Nowy Swiat, Kwartet Jorgi - Kolysanka.",
+            "Tytul z transmisji ma pierwszenstwo nad rozpoznaniem");
+
+        // Rozpoznanie z INNEJ stacji nie moze wyciec do biezacego odsluchu -
+        // rozpoznawanie chodzi tez dla stacji nagrywanych w tle.
+        var rozpoznaneObcej = new List<RadioRecognizedTrackSettings>
+        {
+            new()
+            {
+                StationId = "inna",
+                StationName = "Radio Jazz",
+                Title = "So What",
+                Artist = "Miles Davis",
+                RecognizedUtcTicks = teraz.AddMinutes(-1).Ticks
+            }
+        };
+        Check(NvdaNowPlaying.Describe(radio, null, false, rozpoznaneObcej, teraz)
+            == "Radio Nowy Swiat.",
+            "Rozpoznanie z innej stacji nie wycieka do biezacej");
+
+        // Stare rozpoznanie to juz nie "teraz" - podanie go byloby klamstwem,
+        // ktorego czytnik ekranu nie odsieje.
+        var rozpoznaneStare = new List<RadioRecognizedTrackSettings>
+        {
+            new()
+            {
+                StationId = "s",
+                StationName = "Radio Nowy Swiat",
+                Title = "Utwor sprzed godziny",
+                Artist = "Ktokolwiek",
+                RecognizedUtcTicks = teraz.AddHours(-1).Ticks
+            }
+        };
+        Check(NvdaNowPlaying.Describe(radio, null, false, rozpoznaneStare, teraz)
+            == "Radio Nowy Swiat.",
+            "Przestarzale rozpoznanie nie jest podawane jako biezace");
+
         // Album stacji tez ma byc slyszalny, dokladnie jak w sesji WiiM.
         var stacjaZAlbumem = new MediaItem
         {
