@@ -30,6 +30,7 @@ internal static class NvdaBridgeSmokeTests
         if (!uiThread.Join(TimeSpan.FromSeconds(15))) throw new TimeoutException("NVDA: test przekazania fokusa przekroczył limit.");
         if (failure is not null) throw new InvalidOperationException("NVDA: test izolowanego interfejsu", failure);
         TestPlaybackContext();
+        TestNowPlaying();
         TestPluginGesturesMatchBridge();
         Console.WriteLine("NVDA interaction smoke: OK (playback context, current item, asynchronous origin, single/expired UI handoff)");
     }
@@ -66,20 +67,52 @@ internal static class NvdaBridgeSmokeTests
         Check(
             source.Contains("kb:control+windows+f5", StringComparison.Ordinal),
             "Global podcast refresh keeps its documented gesture");
+
+        // Modul aplikacji (Insert plus strzalka w gore) to trzecie miejsce,
+        // z ktorego wtyczka wola mostek. Bez tego sprawdzenia rozjazd nazw
+        // objawilby sie CISZA po nacisnieciu skrotu.
+        var appModuleFile = FindAddonFile("appModules", "accessiblemediacontroller.py");
+        if (appModuleFile is null)
+        {
+            Console.WriteLine("NVDA: pominieto sprawdzenie modulu aplikacji - brak zrodla obok testow.");
+            return;
+        }
+
+        var appSource = File.ReadAllText(appModuleFile);
+        var appCommands = System.Text.RegularExpressions.Regex
+            .Matches(appSource, @"exchange\(""(?<name>[A-Za-z0-9_]+)""\)")
+            .Select(match => match.Groups["name"].Value)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        Check(appCommands.Length > 0, "App module exposes commands");
+        foreach (var command in appCommands)
+        {
+            Check(
+                NvdaCommands.IsAllowed(command),
+                $"Bridge understands app module command '{command}'");
+        }
+        Check(
+            appCommands.Contains("nowPlaying", StringComparer.Ordinal),
+            "App module offers the now playing shortcut");
+        Check(
+            appSource.Contains("kb:insert+upArrow", StringComparison.Ordinal),
+            "Now playing keeps its documented gesture");
+        // Gest czytnika NIE moze byc przypisany globalnie.
+        Check(
+            !source.Contains("insert+upArrow", StringComparison.OrdinalIgnoreCase),
+            "Reader gesture is not hijacked globally");
     }
 
-    private static string? FindPluginFile()
+    private static string? FindPluginFile() =>
+        FindAddonFile("globalPlugins", "amcController", "__init__.py");
+
+    private static string? FindAddonFile(params string[] parts)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
             var candidate = Path.Combine(
-                directory.FullName,
-                "nvda-addon",
-                "addon",
-                "globalPlugins",
-                "amcController",
-                "__init__.py");
+                new[] { directory.FullName, "nvda-addon", "addon" }.Concat(parts).ToArray());
             if (File.Exists(candidate)) return candidate;
             directory = directory.Parent;
         }
@@ -283,6 +316,38 @@ internal static class NvdaBridgeSmokeTests
         Check(session.PlayRelative(-1) && session.CurrentItem == a, "Previous preserves source context");
         session.SetPlaybackContext([b.Id, a.Id]);
         Check(NvdaPlaybackContext.Describe(session, "Presety") == "Presety, Radio, 2 z 2.", "Presets report their own context");
+    }
+
+    private static void TestNowPlaying()
+    {
+        // Skrot "co teraz leci" (Insert plus strzalka w gore w modulze aplikacji)
+        // musi w radiu podac OBA pola: nazwe stacji i rozpoznany tytul utworu.
+        var stacja = new MediaItem { Id = "s", Title = "Radio Nowy Swiat", Kind = MediaItemKind.Station };
+        var radio = new DemoMediaSession("radio", "Radio", [stacja]);
+        radio.Play(stacja);
+        Check(NvdaNowPlaying.Describe(radio, "Kwartet Jorgi - Kolysanka", true)
+            == "Radio Nowy Swiat, Kwartet Jorgi - Kolysanka, odtwarzanie.",
+            "Radio mowi i stacje, i utwor");
+        // Metadane z INNEJ stacji nie moga wyciec do biezacej.
+        Check(NvdaNowPlaying.Describe(radio, "Utwor ze starej stacji", false)
+            == "Radio Nowy Swiat, stacja nie podaje tytułu utworu, odtwarzanie.",
+            "Nieaktualne metadane radia nie sa czytane");
+        // Powielony tytul (stacja podaje wlasna nazwe jako utwor) tez nie.
+        Check(NvdaNowPlaying.Describe(radio, "  radio nowy swiat ", true)
+            == "Radio Nowy Swiat, stacja nie podaje tytułu utworu, odtwarzanie.",
+            "Powtorzona nazwa stacji nie jest czytana dwa razy");
+
+        var utwor = new MediaItem { Id = "u", Title = "Kolysanka", Artist = "Kwartet Jorgi" };
+        var lokalna = new DemoMediaSession("local", "Pliki lokalne", [utwor]);
+        lokalna.Play(utwor);
+        lokalna.TogglePlayback();
+        Check(NvdaNowPlaying.Describe(lokalna, null, false)
+            == "Kolysanka, Kwartet Jorgi, pauza.",
+            "Plik lokalny mowi tytul, wykonawce i stan");
+
+        var pusta = new DemoMediaSession("podcasts", "Podcasty", []);
+        Check(NvdaNowPlaying.Describe(pusta, null, false) == "Podcasty, nic nie jest otwarte.",
+            "Pusta sesja mowi wprost, ze nic nie leci");
     }
 
     private static async Task TestAsyncOrigin()

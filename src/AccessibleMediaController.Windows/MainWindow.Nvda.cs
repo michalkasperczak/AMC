@@ -50,6 +50,18 @@ public partial class MainWindow
             return new(true, $"{session.CurrentItem.Title}, {session.DisplayName}, {state}{mute}, głośność {session.Volume}%.");
         }
 
+        if (command == "nowPlaying")
+        {
+            // Insert plus strzalka w gore w module aplikacji: zrodlo i utwor
+            // jednym nacisnieciem, bez zmiany widoku i bez ruszania fokusu.
+            var session = _sessions.Current;
+            var pasuje = string.Equals(
+                session.HasCurrentItem ? session.CurrentItem.Id : null,
+                _radioNowPlayingItemId,
+                StringComparison.Ordinal);
+            return new(true, NvdaNowPlaying.Describe(session, _radioNowPlayingTitle, pasuje));
+        }
+
         if (command == "refreshPodcastLibrary")
         {
             // Wolane z dowolnego programu, wiec nie ruszamy okna ani sesji -

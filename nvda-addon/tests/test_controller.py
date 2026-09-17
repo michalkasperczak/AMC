@@ -11,6 +11,11 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / "nvda-addon/addon/globalPlugins/amcController"
+APP_MODULE = ROOT / "nvda-addon/addon/appModules/accessiblemediacontroller.py"
+
+# Polecenia obslugiwane w MODULE APLIKACJI, nie w globalPlugin.  Ich gesty
+# naleza do samego NVDA, wiec moga obowiazywac wylacznie w oknach AMC.
+APP_MODULE_COMMANDS = frozenset(("nowPlaying",))
 
 
 def load(name):
@@ -78,7 +83,11 @@ class ControllerTests(unittest.TestCase):
         tree = ast.parse((PLUGIN / "__init__.py").read_text(encoding="utf-8"))
         scripts = [node for node in ast.walk(tree)
                    if isinstance(node, ast.FunctionDef) and node.name.startswith("script_")]
-        self.assertEqual(len(scripts), len(transport.COMMANDS))
+        # nowPlaying NIE moze byc w globalPlugin: jego gest (Insert plus
+        # strzalka w gore) nalezy do samego NVDA i globalne przypisanie
+        # nadpisaloby czytanie linii w KAZDYM programie.  Ten skrot zyje
+        # w module aplikacji, wiec obowiazuje tylko w oknach AMC.
+        self.assertEqual(len(scripts), len(transport.COMMANDS) - len(APP_MODULE_COMMANDS))
         gestures = set()
         for method in scripts:
             decorator = method.decorator_list[0]
@@ -126,6 +135,31 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(len(gestures), 68)
         for digit in "0123456789":
             self.assertNotIn("kb:control+windows+shift+" + digit, gestures)
+
+    def test_app_module_owns_nvda_reserved_gesture(self):
+        # Insert plus strzalka w gore to gest CZYTNIKA (czytanie biezacej linii).
+        # Musi byc w module aplikacji AMC i nigdzie indziej - inaczej dodatek
+        # zabralby uzytkownikowi podstawowa funkcje NVDA w kazdym programie.
+        tree = ast.parse(APP_MODULE.read_text(encoding="utf-8"))
+        scripts = [node for node in ast.walk(tree)
+                   if isinstance(node, ast.FunctionDef) and node.name.startswith("script_")]
+        self.assertEqual(len(scripts), len(APP_MODULE_COMMANDS))
+        gesty = []
+        for method in scripts:
+            decorator = method.decorator_list[0]
+            self.assertEqual(decorator.func.id, "script")
+            properties = {keyword.arg: keyword.value.value for keyword in decorator.keywords}
+            self.assertGreater(len(properties["description"]), 12)
+            gesty.append(properties["gesture"])
+        self.assertEqual(gesty, ["kb:insert+upArrow"])
+        # Nazwa pliku modulu musi odpowiadac nazwie procesu AMC, inaczej NVDA
+        # nigdy go nie wczyta i skrot po cichu nie zadziala.
+        self.assertEqual(APP_MODULE.stem, "accessiblemediacontroller")
+        # I ten sam gest NIE moze wystepowac w globalPlugin.
+        globalny = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
+        self.assertNotIn("insert+upArrow", globalny)
+        self.assertIn("nowPlaying", APP_MODULE.read_text(encoding="utf-8"))
+        self.assertIn("nowPlaying", transport.COMMANDS)
 
     def test_foreground_permission_is_only_for_explicit_ui_commands(self):
         self.assertEqual(transport.FOREGROUND_COMMANDS,

@@ -9,6 +9,7 @@ COMMANDS = frozenset((
     "status", "playPause", "previous", "next", "volumeUp", "volumeDown", "mute",
     "seekBack", "seekForward", "elapsed", "remaining", "total", "sessionPrevious", "sessionNext",
     "context",
+    "nowPlaying",
     "preset1",
     "preset2",
     "preset3",

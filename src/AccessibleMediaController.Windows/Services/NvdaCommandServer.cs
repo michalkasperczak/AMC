@@ -78,7 +78,8 @@ internal static class NvdaCommands
         _ => null
     };
 
-    internal static bool IsAllowed(string command) => command is "status" or "context" or "presetPrevious" or "presetNext"
+    internal static bool IsAllowed(string command) => command is "status" or "context" or "nowPlaying"
+        or "presetPrevious" or "presetNext"
         || Resolve(command) is not null;
 
     internal static bool OpensWindow(string command) => command is
