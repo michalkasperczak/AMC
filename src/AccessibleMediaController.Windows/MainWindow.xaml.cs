@@ -124,6 +124,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly Dictionary<string, TidalContainerViewState> _tidalContainerViews =
         new(StringComparer.Ordinal);
     private readonly TidalIntegrationService _tidalIntegration;
+    private readonly SpotifyIntegrationService _spotifyIntegration;
     private readonly TidalMediaOutput _tidalOutput;
     private readonly CancellationTokenSource _tidalCancellation = new();
     private long _tidalNavigationVersion;
@@ -310,6 +311,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _state = state;
         _store = store;
         _tidalIntegration = new TidalIntegrationService(_state.Tidal);
+        _spotifyIntegration = new SpotifyIntegrationService(_state.Spotify);
         _tidalOutput = new TidalMediaOutput(_tidalIntegration, TidalPlayerWebView);
         _tidalOutput.DurationAvailable += TidalOutput_DurationAvailable;
         _tidalOutput.PlaybackFailed += TidalOutput_PlaybackFailed;
@@ -3786,8 +3788,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var podcasts = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
         var wiiM = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
         var tidal = string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal);
+        var spotify = string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal);
         if (commandId == CommandIds.ManageTidalConnection) return tidal;
+        if (commandId == CommandIds.ManageSpotifyConnection) return spotify;
         if (!tidal && commandId.StartsWith("tidal.", StringComparison.Ordinal)) return false;
+        if (!spotify && commandId.StartsWith("spotify.", StringComparison.Ordinal)) return false;
         if (commandId == CommandIds.ViewRecordedRadioFiles) return radio || local;
         if (commandId == CommandIds.OpenOnWiiM)
             return ActionItems.Count == 1 && TryGetWiiMPlayableUri(ActionItem, out _);
@@ -6205,6 +6210,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ManageLocalSourcesMenuItem.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         ManageWiiMDevicesMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         ManageTidalConnectionMenuItem.Visibility = tidal ? Visibility.Visible : Visibility.Collapsed;
+        ManageSpotifyConnectionMenuItem.Visibility =
+            string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         AddWiiMNetworkStreamMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         ViewWiiMNetworkStreamsMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         ImportWiiMNetworkStreamsMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
@@ -17284,6 +17293,37 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
     }
 
+    public void ShowSpotifyAccountManager()
+    {
+        var returnToPlayer = _playerViewActive;
+        var dialog = new SpotifyAccountWindow(_state.Spotify, _spotifyIntegration)
+        {
+            Owner = this
+        };
+        dialog.SettingsApplied += (_, _) => QueueStateSave(announceFailure: true);
+        dialog.ShowDialog();
+        if (dialog.Disconnected)
+        {
+            _sessions.FindSession("spotify")?.ReplaceItems(
+                SessionManager.CreateDemonstrationItems("spotify"));
+            if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal))
+                RefreshCurrentView();
+        }
+        if (dialog.Changed) QueueStateSave(announceFailure: true);
+        if (returnToPlayer && _playerViewActive && _sessions.Current.HasCurrentItem && IsActive)
+        {
+            UpdatePlayerView(true);
+            FocusPlayerView();
+        }
+        else if (IsActive) RestoreMediaListFocusAfterRefresh();
+        if (!string.IsNullOrWhiteSpace(dialog.CompletionAnnouncement))
+        {
+            Dispatcher.BeginInvoke(
+                () => Announce(dialog.CompletionAnnouncement),
+                DispatcherPriority.ContextIdle);
+        }
+    }
+
     private async Task RefreshTidalSessionAsync(bool announceResult)
     {
         try
@@ -20295,6 +20335,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ExecuteCommand(CommandIds.RefreshPodcastLibrary);
             else if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
                 ExecuteCommand(CommandIds.ManageTidalConnection);
+            else if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal))
+                ExecuteCommand(CommandIds.ManageSpotifyConnection);
             else
                 Announce("Ctrl+F5 nie ma polecenia w bieżącej sesji");
             return true;
@@ -23560,6 +23602,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void ManageLocalSources_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageLocalSources);
     private void ManageWiiMDevices_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageWiiMDevices);
     private void ManageTidalConnection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageTidalConnection);
+
+    private void ManageSpotifyConnection_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ManageSpotifyConnection);
     private void QueueView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewQueue);
     private void HistoryView_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewHistory);
     private void BookmarksViewMenu_Click(object sender, RoutedEventArgs e) => ExecuteCommand(CommandIds.ViewBookmarks);

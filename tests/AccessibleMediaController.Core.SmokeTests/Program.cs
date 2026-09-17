@@ -3552,7 +3552,11 @@ static void TestSessions()
     var manager = new SessionManager(settings);
     Equal("TIDAL", manager.Current.DisplayName);
     Equal("WiiM", manager.SelectSlot(2)?.DisplayName);
-    Equal("Apple Music", manager.MoveSession(-1).DisplayName);
+    // Spotify, nie Apple Music: doszla sesja Spotify na numerze 7, wiec to
+    // ona jest ostatnia, a cofniecie z pierwszej sesji zawija sie na nia.
+    // Numery 1-6 sa nietkniete, czego pilnuje TestSessionOrder.
+    Equal("Spotify", manager.MoveSession(-1).DisplayName);
+    Equal("WiiM", manager.MoveSession(1).DisplayName);
     Equal("TIDAL", manager.SelectSession("tidal")?.DisplayName);
     Equal("tidal", settings.LastSessionId);
     Equal(17, manager.Current.Items.Count);
@@ -3608,6 +3612,10 @@ static void TestSessionOrder()
     Equal("appleMusic", defaults[4]);
     Equal("radio", defaults[5]);
     Equal("podcasts", defaults[6]);
+    // Spotify dopisany jako 7. Numery 1-6 musza zostac takie, jak byly:
+    // Michal ma je wyuczone jako skroty Alt+cyfra.
+    Equal("spotify", defaults[7]);
+    Equal(7, defaults.Count);
 
     var settings = new AppSettings
     {
@@ -3644,7 +3652,11 @@ static void TestSessionOrder()
         "local", "Pliki lokalne", [local], new FakeMediaOutput(), 1);
     Equal(4, slot);
     Equal(localSession, manager.SelectSlot(4));
-    Equal("Pliki lokalne", manager.Sessions[^1].DisplayName);
+    // Sprawdzamy numer sesji, nie pozycje "ostatnia na liscie". Ostatnia jest
+    // teraz Spotify (numer 7), a numer sesji jest tym, co uzytkownik slyszy
+    // i czego uzywa skrotem Alt+cyfra.
+    Equal(4, manager.FindSlot("local"));
+    Equal("Pliki lokalne", manager.SelectSlot(4)?.DisplayName);
 }
 
 static void TestLocalPlaybackBoundary()
@@ -4973,7 +4985,11 @@ static void TestCatalogSearch()
     Equal("TIDAL", currentResults[0].Session.DisplayName);
 
     var globalResults = MediaCatalogSearch.Search(manager.Sessions, "zielony horyzont");
-    Equal(2, globalResults.Count);
+    // 3, nie 2: sesja Spotify ma wlasne dane demonstracyjne o tych samych
+    // tytulach, dopoki uzytkownik sie nie zaloguje.
+    Equal(3, globalResults.Count);
+    True(globalResults.Any(result => result.Session.DisplayName == "Spotify"),
+        "Wyniki globalne powinny obejmowac sesje Spotify.");
     True(globalResults.Any(result => result.Session.DisplayName == "Apple Music"), "Wyniki globalne powinny zawierać Apple Music.");
     True(globalResults.All(result => result.Session.DisplayName != "WiiM"),
         "Sesja WiiM nie może zawierać fikcyjnego katalogu multimediów.");
@@ -7008,7 +7024,9 @@ static void TestExports()
 
         store.ExportFullBackup(backupPath, state);
         var importedBackup = store.ImportFullBackup(backupPath);
-        Equal(6, importedBackup.Settings.SessionSlots.Count);
+        // 7, nie 6: doszla sesja Spotify na numerze 7. Numery 1-6 zostaly
+        // nietkniete, czego pilnuje osobny test kolejnosci sesji.
+        Equal(7, importedBackup.Settings.SessionSlots.Count);
         Equal(1, importedBackup.KeyboardProfiles.Count);
         Equal(false, importedBackup.Settings.Messages.SeekMessages);
         Equal(false, importedBackup.Settings.Messages.ArrowSeekMessages);
@@ -7315,6 +7333,8 @@ sealed class FakeActions(MediaItem selectedItem, IReadOnlyList<MediaItem>? actio
     public void ShowLocalSourceManager() => LocalSourceManagerShown = true;
     public void ShowWiiMDeviceManager() { }
     public void ShowTidalAccountManager() { }
+
+    public void ShowSpotifyAccountManager() { }
     public void RefreshWiiMDevices() { }
     public void RenameLibraryItem() => LibraryItemRenameShown = true;
     public void RenameLocalFile() => LocalFileRenameShown = true;

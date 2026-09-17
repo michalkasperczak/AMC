@@ -187,6 +187,10 @@ var tests = new (string Name, Action Test)[]
     ("Czytnik i strzalka w gore czytaja co leci", TestCzytnikStrzalkaWGoreCzytaCoLeci),
     ("Brak dysku chmurowego mowi prawde, nie radzi czekac", TestBrakDyskuChmurowegoMowiPrawde),
     ("Zywa transmisja YouTube nie cofa dzwieku", TestLiveYouTubeUsesFfmpegAndDoesNotSeek),
+    ("Sesja Spotify ma konto pod Ctrl+F5", TestSpotifyKontoPodCtrlF5),
+    ("Spotify nie przesuwa numerow istniejacych sesji", TestSpotifyNiePrzesuwaNumerowSesji),
+    ("Adres powrotu Spotify nie uzywa nazwy localhost", TestSpotifyAdresPowrotuBezLocalhost),
+    ("Okno konta Spotify nie da sie zamknac w trakcie logowania", TestSpotifyOknoNieZamykaSieWTrakcie),
 };
 
 var failures = new List<string>();
@@ -6788,6 +6792,126 @@ static void TestTidalDesktopCzasMowiSamaLiczbe()
     Console.WriteLine("OK: czas utworu z oryginalnego TIDALa mowiony sama liczba");
 }
 
+static void TestSpotifyKontoPodCtrlF5()
+{
+    // Michal wskazal, ze konto Spotify ma byc tam, gdzie TIDAL i WiiM: pod
+    // Ctrl+F5 w swojej sesji. Sprawdzamy CALY lancuch, bo kazdy jego czlon
+    // osobno wyglada na zrobiony, a przerwany daje skrot, ktory milczy.
+    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
+    var galazCtrlF5 = okno.IndexOf("Ctrl+F5 nie ma polecenia w bieżącej sesji", StringComparison.Ordinal);
+    if (galazCtrlF5 < 0)
+        throw new Exception("Nie znaleziono galezi obslugi Ctrl+F5 w MainWindow.xaml.cs.");
+    // Rozpoznanie sesji Spotify musi stac PRZED galezia zbiorcza, ktora mowi
+    // "nie ma polecenia" - postawione po niej nigdy sie nie wykona.
+    var wpiecie = okno.IndexOf("CommandIds.ManageSpotifyConnection", StringComparison.Ordinal);
+    if (wpiecie < 0)
+        throw new Exception("Ctrl+F5 nie wywoluje polecenia konta Spotify.");
+    if (wpiecie > galazCtrlF5)
+        throw new Exception(
+            "Sesja Spotify jest sprawdzana PO galezi zbiorczej Ctrl+F5, wiec skrot powie "
+                + "\"nie ma polecenia\" zamiast otworzyc okno konta.");
+    if (!okno.Contains("public void ShowSpotifyAccountManager()", StringComparison.Ordinal))
+        throw new Exception("Brak ShowSpotifyAccountManager w oknie glownym.");
+
+    var router = File.ReadAllText(ZnajdzPlikZrodlowy("CommandRouter.cs"));
+    if (!router.Contains("application.ShowSpotifyAccountManager();", StringComparison.Ordinal))
+        throw new Exception("CommandRouter nie kieruje polecenia Spotify do okna konta.");
+
+    // Pozycja menu musi byc widoczna w sesji Spotify - ukryta klamie o tym,
+    // co program potrafi, a przy czytniku ekranu menu jest droga rownolegla
+    // do skrotu, nie ozdoba.
+    var xaml = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml"));
+    if (!xaml.Contains("ManageSpotifyConnectionMenuItem", StringComparison.Ordinal))
+        throw new Exception("Brak pozycji menu konta Spotify.");
+    if (!okno.Contains("ManageSpotifyConnectionMenuItem.Visibility", StringComparison.Ordinal))
+        throw new Exception("Widocznosc pozycji menu Spotify nie jest ustawiana wedlug sesji.");
+
+    var paleta = File.ReadAllText(ZnajdzPlikZrodlowy("CommandPaletteSearch.cs"));
+    if (!paleta.Contains("Ctrl+F5 (Spotify)", StringComparison.Ordinal))
+        throw new Exception("Paleta polecen nie podaje skrotu Ctrl+F5 dla konta Spotify.");
+}
+
+static void TestSpotifyNiePrzesuwaNumerowSesji()
+{
+    // Numery sesji sa skrotami Alt+cyfra, ktore Michal ma wyuczone. Nowa
+    // sesja nie moze zmienic znaczenia zadnego z nich - stad Spotify na
+    // koncu. Test negatywny: pilnuje, ze nikt nie wsunie sesji w srodek.
+    var ustawienia = File.ReadAllText(ZnajdzPlikZrodlowy("AppSettings.cs"));
+    var oczekiwane = new (int Numer, string Sesja)[]
+    {
+        (1, "local"), (2, "wiim"), (3, "tidal"), (4, "appleMusic"), (5, "radio"), (6, "podcasts")
+    };
+    foreach (var (numer, sesja) in oczekiwane)
+    {
+        var wpis = $"[{numer}] = \"{sesja}\"";
+        if (!ustawienia.Contains(wpis, StringComparison.Ordinal))
+            throw new Exception(
+                $"Domyslny numer sesji sie przesunal: brak {wpis}. Skroty Alt+cyfra zmienily znaczenie.");
+    }
+    if (!ustawienia.Contains("[7] = \"spotify\"", StringComparison.Ordinal))
+        throw new Exception("Sesja Spotify nie ma domyslnego numeru (oczekiwany 7).");
+
+    var sesje = File.ReadAllText(ZnajdzPlikZrodlowy("SessionManager.cs"));
+    if (!sesje.Contains("new DemoMediaSession(\"spotify\"", StringComparison.Ordinal))
+        throw new Exception("SessionManager nie tworzy sesji Spotify.");
+}
+
+static void TestSpotifyAdresPowrotuBezLocalhost()
+{
+    // Spotify odrzuca adres powrotu z nazwa localhost i wymaga 127.0.0.1,
+    // a jego komunikat bledu nie wyjasnia przyczyny. Program musi powiedziec
+    // to sam, ZANIM uzytkownik pojdzie sie logowac.
+    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyAccountWindow.xaml.cs"));
+    if (!okno.Contains("nie przyjmuje adresu z nazwą localhost", StringComparison.Ordinal))
+        throw new Exception("Okno konta Spotify nie ostrzega przed nazwa localhost w adresie powrotu.");
+    if (!okno.Contains("redirect.IsLoopback", StringComparison.Ordinal))
+        throw new Exception("Adres powrotu Spotify nie jest ograniczony do adresu lokalnego.");
+
+    var domyslny = File.ReadAllText(ZnajdzPlikZrodlowy("AppSettings.cs"));
+    var poczatek = domyslny.IndexOf("class SpotifySettings", StringComparison.Ordinal);
+    if (poczatek < 0) throw new Exception("Brak klasy SpotifySettings w ustawieniach.");
+    var koniec = domyslny.IndexOf("class ", poczatek + 10, StringComparison.Ordinal);
+    var sekcja = koniec < 0 ? domyslny[poczatek..] : domyslny[poczatek..koniec];
+    // Komentarze odrzucamy: sekcja WYJASNIA, dlaczego nie uzywamy nazwy
+    // localhost, wiec szukanie tego slowa w calym tekscie pada na wlasnym
+    // opisie poprawki - blad wygladajacy identycznie jak prawdziwa wada.
+    var linieKodu = sekcja
+        .Split('\n')
+        .Where(linia => !linia.TrimStart().StartsWith("//", StringComparison.Ordinal))
+        .ToArray();
+    var kod = string.Join('\n', linieKodu);
+    if (kod.Contains("localhost", StringComparison.OrdinalIgnoreCase))
+        throw new Exception("Domyslny adres powrotu Spotify uzywa nazwy localhost, ktorej Spotify nie przyjmuje.");
+    if (!kod.Contains("127.0.0.1", StringComparison.Ordinal))
+        throw new Exception("Domyslny adres powrotu Spotify nie wskazuje na 127.0.0.1.");
+    // Sekret aplikacji nie moze trafic do ustawien: PKCE go nie potrzebuje,
+    // a zapisany w pliku stanu bylby jawnym haslem na dysku.
+    if (kod.Contains("ClientSecret", StringComparison.Ordinal))
+        throw new Exception("Ustawienia Spotify przechowuja sekret aplikacji - PKCE go nie wymaga.");
+}
+
+static void TestSpotifyOknoNieZamykaSieWTrakcie()
+{
+    // Przy czytniku ekranu Escape naciska sie odruchowo. Zamkniecie okna w
+    // trakcie logowania anuluje je po cichu, a uzytkownik nie ma skad
+    // wiedziec, ze operacja nie doszla do konca.
+    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyAccountWindow.xaml.cs"));
+    var zamykanie = okno.IndexOf("void Window_Closing", StringComparison.Ordinal);
+    if (zamykanie < 0)
+        throw new Exception("Okno konta Spotify nie obsluguje proby zamkniecia.");
+    var ciezar = okno[zamykanie..];
+    if (!ciezar.Contains("e.Cancel = true;", StringComparison.Ordinal))
+        throw new Exception("Okno konta Spotify da sie zamknac w trakcie logowania.");
+    // Anulowanie nie moze byc cicha: pusty catch przy czytniku ekranu jest
+    // nieodroznialny od sukcesu.
+    if (!okno.Contains("Operacja Spotify przerwana zamknięciem okna", StringComparison.Ordinal))
+        throw new Exception("Przerwane logowanie Spotify konczy sie cisza, bez komunikatu.");
+
+    var xaml = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyAccountWindow.xaml"));
+    if (!xaml.Contains("Closing=\"Window_Closing\"", StringComparison.Ordinal))
+        throw new Exception("Okno konta Spotify nie ma podpietej obslugi zamykania.");
+}
+
 static string ZnajdzPlikZrodlowy(string nazwa)
 {
     var katalog = AppContext.BaseDirectory;
@@ -6803,7 +6927,7 @@ static string ZnajdzPlikZrodlowy(string nazwa)
         // 2026-09-15: czesc sprawdzanego kodu lezy w projekcie Core (katalog
         // skrotow, polecenia). Bez tego test pomocy kontekstowej wywalal sie na
         // braku pliku, zamiast sprawdzic kod.
-        foreach (var podkatalog in new[] { "Presentation", "Commands", "Input", "Configuration" })
+        foreach (var podkatalog in new[] { "Presentation", "Commands", "Input", "Configuration", "Sessions", "Spotify" })
         {
             var kandydatCore = Path.Combine(
                 katalog, "src", "AccessibleMediaController.Core", podkatalog, nazwa);

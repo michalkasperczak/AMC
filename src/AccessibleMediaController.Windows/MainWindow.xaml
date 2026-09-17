@@ -53,6 +53,11 @@
                           automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
                           Visibility="Collapsed"
                           Click="ManageTidalConnection_Click" />
+                <MenuItem x:Name="ManageSpotifyConnectionMenuItem" Header="Konto _Spotify…" InputGestureText="Ctrl+F5"
+                          automation:AutomationProperties.Name="Konto Spotify, Ctrl+F5"
+                          automation:AutomationProperties.AcceleratorKey="Ctrl+F5"
+                          Visibility="Collapsed"
+                          Click="ManageSpotifyConnection_Click" />
                 <MenuItem x:Name="AddWiiMNetworkStreamMenuItem" Header="_Nowy strumień WiiM…" InputGestureText="Ctrl+N"
                           automation:AutomationProperties.Name="Nowy strumień WiiM, Ctrl+N"
                           automation:AutomationProperties.AcceleratorKey="Ctrl+N"

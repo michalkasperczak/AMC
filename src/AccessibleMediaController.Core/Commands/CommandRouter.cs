@@ -44,6 +44,7 @@ public interface IApplicationActions
     void ShowLocalSourceManager();
     void ShowWiiMDeviceManager();
     void ShowTidalAccountManager();
+    void ShowSpotifyAccountManager();
     void RefreshWiiMDevices();
     void RenameLibraryItem();
     void RenameLocalFile();
@@ -139,6 +140,9 @@ public sealed class CommandRouter(
                 return new(true);
             case CommandIds.ManageTidalConnection:
                 application.ShowTidalAccountManager();
+                return new(true);
+            case CommandIds.ManageSpotifyConnection:
+                application.ShowSpotifyAccountManager();
                 return new(true);
             case CommandIds.RefreshWiiMDevices:
                 application.RefreshWiiMDevices();

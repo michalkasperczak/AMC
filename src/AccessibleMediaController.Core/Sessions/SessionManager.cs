@@ -236,7 +236,12 @@ public sealed class SessionManager
         [
             new DemoMediaSession("tidal", "TIDAL", CreateDemonstrationItems("tidal"), tidalOutput),
             new DemoMediaSession("appleMusic", "Apple Music", CreateDemonstrationItems("apple")),
-            new DemoMediaSession("wiim", "WiiM", [])
+            new DemoMediaSession("wiim", "WiiM", []),
+            // Spotify na KONCU listy celowo. Kolejnosc tej tablicy wyznacza
+            // porzadek przechodzenia miedzy sesjami (MoveSession), wiec wstawiona
+            // w srodek nowa sesja zmienia to, co uzytkownik uslyszy po znanym
+            // skrocie. Michal ma ten porzadek wyuczony.
+            new DemoMediaSession("spotify", "Spotify", CreateDemonstrationItems("spotify"))
         ];
     }
 

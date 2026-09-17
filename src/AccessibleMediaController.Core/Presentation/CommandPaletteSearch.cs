@@ -220,6 +220,7 @@ public static class CommandPaletteSearch
             CommandIds.ManageLocalSources => "Ctrl+F5",
             CommandIds.ManageWiiMDevices => "Ctrl+F5 (WiiM)",
             CommandIds.ManageTidalConnection => "Ctrl+F5 (TIDAL)",
+            CommandIds.ManageSpotifyConnection => "Ctrl+F5 (Spotify)",
             CommandIds.RefreshWiiMDevices => "F5 (WiiM)",
             CommandIds.OpenOnWiiM => "Ctrl+Alt+W",
             CommandIds.AddWiiMNetworkStream => "Ctrl+N (WiiM)",

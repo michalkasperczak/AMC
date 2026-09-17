@@ -278,6 +278,7 @@ public static class SessionSlotOrder
         ("local", "Pliki lokalne"),
         ("wiim", "WiiM"),
         ("tidal", "TIDAL"),
+        ("spotify", "Spotify"),
         ("appleMusic", "Apple Music"),
         ("radio", "Radio internetowe"),
         ("podcasts", "Podcasty i YouTube")
@@ -286,6 +287,10 @@ public static class SessionSlotOrder
     public static IReadOnlyList<string> DefaultSessionIds =>
         KnownSessions.Select(session => session.Id).ToArray();
 
+    // Spotify dopisany na KOŃCU domyślnej kolejności celowo. Wstawienie go
+    // między istniejące sesje przesunęłoby numery slotów, a te są skrótami
+    // Alt+cyfra, których użytkownik ma już wyuczone. Nowa sesja nie może
+    // zmieniać znaczenia klawiszy, które ktoś zna na pamięć.
     public static Dictionary<int, string> CreateDefault() => new()
     {
         [1] = "local",
@@ -293,7 +298,8 @@ public static class SessionSlotOrder
         [3] = "tidal",
         [4] = "appleMusic",
         [5] = "radio",
-        [6] = "podcasts"
+        [6] = "podcasts",
+        [7] = "spotify"
     };
 
     public static Dictionary<int, string> Normalize(IReadOnlyDictionary<int, string>? slots)
@@ -432,6 +438,7 @@ public sealed class PersistedState
     public PodcastSettings Podcasts { get; set; } = new();
     public WiiMSettings WiiM { get; set; } = new();
     public TidalSettings Tidal { get; set; } = new();
+    public SpotifySettings Spotify { get; set; } = new();
     public RemoteQueueCacheSettings RemoteQueues { get; set; } = new();
     public List<Input.KeyboardProfile> KeyboardProfiles { get; set; } = [Input.KeyboardProfile.CreateDefault()];
 }
@@ -543,6 +550,28 @@ public sealed class TidalSettings
     // or network failure from turning the user's TIDAL Library into an empty
     // view at the next application start.
     public List<TidalCachedCollectionItemSettings> CachedCollectionItems { get; set; } = [];
+}
+
+public sealed class SpotifySettings
+{
+    // Sekret aplikacji celowo NIE jest przechowywany. Klient desktop używa
+    // Authorization Code + PKCE, więc sekret nie jest potrzebny, a zapisany
+    // w pliku ustawień byłby jawny dla każdego, kto ma dostęp do dysku.
+    public string ClientId { get; set; } = string.Empty;
+    // Spotify wymaga, by adres powrotu był wpisany znak w znak w panelu
+    // aplikacji. Pętla zwrotna po HTTP jest dozwolona i wystarcza - patrz
+    // dokumentacja adresów powrotu Spotify. Musi to być 127.0.0.1, NIE
+    // "localhost": Spotify odrzuca "localhost" od 2025 roku.
+    public string RedirectUri { get; set; } = "http://127.0.0.1:43822/spotify/callback/";
+    public string CountryCode { get; set; } = "PL";
+    public string AccountDisplayName { get; set; } = string.Empty;
+    // Rodzaj konta zwrócony przez Spotify ("premium", "free", "open").
+    // Zapamiętany, by po ponownym uruchomieniu od razu wiedzieć, czy
+    // wbudowany odtwarzacz ma sens, bez pytania serwera.
+    public string AccountProduct { get; set; } = string.Empty;
+    public string GrantedScope { get; set; } = string.Empty;
+    public int Volume { get; set; } = 35;
+    public long LastSuccessfulSyncUtcTicks { get; set; }
 }
 
 public sealed class TidalCachedCollectionItemSettings

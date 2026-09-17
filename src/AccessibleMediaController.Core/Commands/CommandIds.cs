@@ -88,6 +88,7 @@ public static class CommandIds
     public const string ManageLocalSources = "local.library.manageSources";
     public const string ManageWiiMDevices = "wiim.devices.manage";
     public const string ManageTidalConnection = "tidal.connection.manage";
+    public const string ManageSpotifyConnection = "spotify.connection.manage";
     public const string RefreshWiiMDevices = "wiim.devices.refresh";
     public const string OpenOnWiiM = "wiim.playUrl";
     public const string AddWiiMNetworkStream = "wiim.networkStreams.add";
