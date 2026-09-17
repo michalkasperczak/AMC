@@ -2212,7 +2212,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // stop music in the room; transport is changed only by an explicit command.
         if (string.Equals(session.Id, "wiim", StringComparison.Ordinal)) return;
         if (!MainWindowNavigationPolicy.ShouldApplyPlaybackExitPolicy(reason)) return;
-        if (!_state.Settings.PausePlaybackWhenLeavingPlayer || !session.HasCurrentItem) return;
+        // Ustawienie sesji ma pierwszenstwo nad ogolnym: radio moze grac dalej
+        // po Escape, a pliki lokalne zatrzymywac sie - ZGLOSZENIE Michala.
+        if (!PlayerExitPausePolicy.ShouldPause(_state.Settings, session.Id)
+            || !session.HasCurrentItem) return;
 
         if (session.IsPlaying) session.TogglePlayback();
         if (string.Equals(session.Id, "local", StringComparison.Ordinal)
@@ -2509,7 +2512,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     private string PlayerKeyboardHelpText()
     {
-        var exit = _state.Settings.PausePlaybackWhenLeavingPlayer
+        var exit = PlayerExitPausePolicy.ShouldPause(_state.Settings, _sessions?.Current.Id)
             ? "Escape wstrzymuje odtwarzanie i wraca do listy."
             : "Escape wraca do listy, a odtwarzanie trwa.";
         if (string.Equals(_sessions?.Current.Id, "radio", StringComparison.Ordinal))
@@ -4356,7 +4359,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             saved?.LoudnessNormalizationOverride,
             saved?.SmoothTrackTransitionsOverride,
             saved?.InterTrackSilenceMillisecondsOverride,
-            target: ItemPlaybackOptionsTarget.Session)
+            target: ItemPlaybackOptionsTarget.Session,
+            pausePlaybackWhenLeavingPlayerOverride:
+                saved?.PausePlaybackWhenLeavingPlayerOverride,
+            globalPausePlaybackWhenLeavingPlayer:
+                _state.Settings.PausePlaybackWhenLeavingPlayer,
+            // WiiM to autonomiczny odtwarzacz sieciowy - wyjscie z jego
+            // kontrolera NIGDY nie zatrzymuje muzyki w pokoju, wiec ta pozycja
+            // bylaby obietnica bez pokrycia.
+            showPlayerExitPauseOption:
+                !string.Equals(session.Id, "wiim", StringComparison.Ordinal))
         {
             Owner = this
         };
@@ -4376,7 +4388,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             LoudnessNormalizationOverride = dialog.SelectedLoudnessNormalizationOverride,
             SmoothTrackTransitionsOverride = dialog.SelectedSmoothTrackTransitionsOverride,
             InterTrackSilenceMillisecondsOverride =
-                dialog.SelectedInterTrackSilenceMillisecondsOverride
+                dialog.SelectedInterTrackSilenceMillisecondsOverride,
+            // Gdy okno nie pokazalo tej pozycji (WiiM), nie wolno zetrzec
+            // wcześniejszego wyboru uzytkownika - zostawiamy zapisany.
+            PausePlaybackWhenLeavingPlayerOverride =
+                string.Equals(session.Id, "wiim", StringComparison.Ordinal)
+                    ? saved?.PausePlaybackWhenLeavingPlayerOverride
+                    : dialog.SelectedPausePlaybackWhenLeavingPlayerOverride
         };
 
         // Pusty wpis usuwamy, zeby w zapisanych ustawieniach nie zostawaly
@@ -4406,7 +4424,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 + FormatAudioOverrides(
                     overrides.LoudnessNormalizationOverride,
                     overrides.SmoothTrackTransitionsOverride,
-                    overrides.InterTrackSilenceMillisecondsOverride));
+                    overrides.InterTrackSilenceMillisecondsOverride)
+                + "; "
+                + PlayerExitPausePolicy.DescribeSessionMode(_state.Settings, session.Id));
         }
         RestoreItemActionFocus();
     }

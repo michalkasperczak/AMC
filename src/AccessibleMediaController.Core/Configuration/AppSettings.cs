@@ -128,10 +128,20 @@ public sealed class SessionPlaybackAudioOverrides
     public bool? SmoothTrackTransitionsOverride { get; set; }
     public int? InterTrackSilenceMillisecondsOverride { get; set; }
 
+    /// <summary>
+    /// Wstrzymywanie odtwarzania po wyjsciu z odtwarzacza USTAWIONE OSOBNO dla
+    /// tej sesji. Puste (null) oznacza "jak ustawienie ogolne"
+    /// (<see cref="AppSettings.PausePlaybackWhenLeavingPlayer"/>), wiec
+    /// dotychczasowe konfiguracje dzialaja bez zmian. ZGLOSZENIE Michala:
+    /// radio ma grac dalej po Escape, a pliki lokalne maja sie zatrzymywac.
+    /// </summary>
+    public bool? PausePlaybackWhenLeavingPlayerOverride { get; set; }
+
     public bool IsEmpty =>
         !LoudnessNormalizationOverride.HasValue
         && !SmoothTrackTransitionsOverride.HasValue
-        && !InterTrackSilenceMillisecondsOverride.HasValue;
+        && !InterTrackSilenceMillisecondsOverride.HasValue
+        && !PausePlaybackWhenLeavingPlayerOverride.HasValue;
 }
 
 public static class PlaybackSeekRules

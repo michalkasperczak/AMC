@@ -79,6 +79,7 @@ var tests = new (string Name, Action Test)[]
     ("Oddzielony tor lokalnego odtwarzania", TestLocalPlaybackBoundary),
     ("Pauza przetrwa przeskok elementu", TestPauseSurvivesItemSkip),
     ("Zapamiętywanie pozycji osobno dla sesji", TestResumePositionPerSession),
+    ("Wstrzymywanie po wyjściu z odtwarzacza osobno dla sesji", TestPlayerExitPausePerSession),
     ("Kontekst listy odtwarzania", TestPlaybackContext),
     ("Pamięć domyślnej prędkości po ponownym otwarciu", TestPlaybackRateDefaultPersistence),
     ("Trwała kolejność Kolejki", TestQueueOrder),
@@ -3896,6 +3897,66 @@ static void TestResumePositionPerSession()
     Equal(ResumePositionMode.StartFromBeginning,
         ResumePositionPolicy.GetSessionMode(loaded!, "radio"));
     Equal(false, ResumePositionPolicy.ShouldRemember(loaded!, "radio"));
+}
+
+static void TestPlayerExitPausePerSession()
+{
+    // Wstrzymywanie po wyjsciu z odtwarzacza da sie ustawic OSOBNO dla kazdej
+    // sesji. ZGLOSZENIE Michala: radio ma grac dalej po Escape, a pliki
+    // lokalne maja sie zatrzymywac - jedno pole globalne tego nie umialo.
+    var settings = new AppSettings { PausePlaybackWhenLeavingPlayer = true };
+
+    // Sesja bez wlasnego ustawienia dziedziczy globalne, wiec aktualizacja nie
+    // zmienia zachowania istniejacych konfiguracji.
+    Equal(null, PlayerExitPausePolicy.GetSessionOverride(settings, "radio"));
+    Equal(true, PlayerExitPausePolicy.ShouldPause(settings, "radio"));
+    Equal(true, PlayerExitPausePolicy.ShouldPause(settings, "local"));
+
+    // Radio gra dalej, choc globalnie wstrzymujemy.
+    PlayerExitPausePolicy.SetSessionOverride(settings, "radio", false);
+    Equal(false, PlayerExitPausePolicy.ShouldPause(settings, "radio"));
+    Equal(true, PlayerExitPausePolicy.ShouldPause(settings, "local"));
+
+    // I odwrotnie: globalnie gramy dalej, ale pliki lokalne maja sie zatrzymac.
+    settings.PausePlaybackWhenLeavingPlayer = false;
+    Equal(false, PlayerExitPausePolicy.ShouldPause(settings, "local"));
+    PlayerExitPausePolicy.SetSessionOverride(settings, "local", true);
+    Equal(true, PlayerExitPausePolicy.ShouldPause(settings, "local"));
+    Equal(false, PlayerExitPausePolicy.ShouldPause(settings, "radio"));
+
+    // Odstepstwo sesji nie kasuje pozostalych ustawien odtwarzania tej sesji.
+    settings.Audio.OverridesBySession["local"].LoudnessNormalizationOverride = true;
+    PlayerExitPausePolicy.SetSessionOverride(settings, "local", null);
+    Equal(null, PlayerExitPausePolicy.GetSessionOverride(settings, "local"));
+    Equal(true, settings.Audio.OverridesBySession["local"].LoudnessNormalizationOverride);
+
+    // Powrot do dziedziczenia usuwa PUSTY wpis, zeby w zapisie nie zostawal
+    // smiec nieodrozninalny od braku decyzji uzytkownika.
+    PlayerExitPausePolicy.SetSessionOverride(settings, "radio", null);
+    True(!settings.Audio.OverridesBySession.ContainsKey("radio"),
+        "Powrót do dziedziczenia powinien usunąć pusty wpis sesji.");
+
+    // Etykieta dla czytnika ekranu mowi wprost, co wynika z dziedziczenia.
+    Equal("Jak ustawienie ogólne: odtwarzaj dalej po wyjściu",
+        PlayerExitPausePolicy.DescribeSessionMode(settings, "radio"));
+    settings.PausePlaybackWhenLeavingPlayer = true;
+    Equal("Jak ustawienie ogólne: wstrzymuj po wyjściu z odtwarzacza",
+        PlayerExitPausePolicy.DescribeSessionMode(settings, "radio"));
+    PlayerExitPausePolicy.SetSessionOverride(settings, "radio", false);
+    Equal("Odtwarzaj dalej po wyjściu z odtwarzacza",
+        PlayerExitPausePolicy.DescribeSessionMode(settings, "radio"));
+    PlayerExitPausePolicy.SetSessionOverride(settings, "radio", true);
+    Equal("Wstrzymuj odtwarzanie po wyjściu z odtwarzacza",
+        PlayerExitPausePolicy.DescribeSessionMode(settings, "radio"));
+
+    // Ustawienie sesji przetrwa zapis i odczyt ustawien.
+    PlayerExitPausePolicy.SetSessionOverride(settings, "radio", false);
+    var zapis = JsonSerializer.Serialize(settings);
+    var odczyt = JsonSerializer.Deserialize<AppSettings>(zapis);
+    True(odczyt is not null, "Ustawienia powinny dać się odczytać.");
+    Equal(false, PlayerExitPausePolicy.GetSessionOverride(odczyt!, "radio"));
+    Equal(false, PlayerExitPausePolicy.ShouldPause(odczyt!, "radio"));
+    Equal(true, PlayerExitPausePolicy.ShouldPause(odczyt!, "podcasts"));
 }
 
 static void TestEmptyLocalSession()

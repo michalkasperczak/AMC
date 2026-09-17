@@ -49,6 +49,14 @@
                           automation:AutomationProperties.Name="Cisza po tym elemencie"
                           automation:AutomationProperties.HelpText="Określa dodatkową ciszę po zakończeniu tego pliku przed automatycznym uruchomieniem następnego." />
 
+                <StackPanel x:Name="SessionSettingsPanel" Visibility="Collapsed">
+                    <Label x:Name="PlayerExitPauseLabel" Target="{Binding ElementName=PlayerExitPauseBox}">_Po wyjściu z odtwarzacza w tej sesji:</Label>
+                    <ComboBox x:Name="PlayerExitPauseBox" Margin="0,0,0,14"
+                              DisplayMemberPath="Label" TextSearch.TextPath="Label"
+                              automation:AutomationProperties.Name="Po wyjściu z odtwarzacza w tej sesji"
+                              automation:AutomationProperties.HelpText="Decyduje, czy Escape i przejście do listy wstrzymują odtwarzanie w tej sesji. Może dziedziczyć ustawienie ogólne albo je nadpisać tylko tutaj." />
+                </StackPanel>
+
                 <StackPanel x:Name="PodcastSettingsPanel" Visibility="Collapsed">
                     <Label Target="{Binding ElementName=PodcastRefreshIntervalBox}">_Automatyczne odświeżanie podcastu:</Label>
                     <ComboBox x:Name="PodcastRefreshIntervalBox" Margin="0,0,0,14"

@@ -39,7 +39,10 @@ public partial class ItemPlaybackOptionsWindow : Window
         int podcastRefreshIntervalMinutes = 0,
         string? podcastDownloadFolder = null,
         string? radioBackupStreamUrl = null,
-        string? radioRecordingFolder = null)
+        string? radioRecordingFolder = null,
+        bool? pausePlaybackWhenLeavingPlayerOverride = null,
+        bool globalPausePlaybackWhenLeavingPlayer = true,
+        bool showPlayerExitPauseOption = true)
     {
         InitializeComponent();
         var folderTarget = target == ItemPlaybackOptionsTarget.LocalFolder;
@@ -93,6 +96,31 @@ public partial class ItemPlaybackOptionsWindow : Window
                 PlaybackRateBox,
                 "Prędkość dla całej tej sesji. 1,00 razy oznacza normalną prędkość; "
                 + "mniejsze wartości są wolniejsze, a większe szybsze.");
+
+            // ZGLOSZENIE Michala: wstrzymywanie po wyjsciu z odtwarzacza OSOBNO
+            // dla kazdej sesji. Radio ma grac dalej po Escape, pliki lokalne
+            // maja sie zatrzymywac - jedno pole globalne nie umialo obsluzyc
+            // obu przypadkow naraz. Sesje, w ktorych wyjscie i tak nigdy nie
+            // zatrzymuje odtwarzania (WiiM - autonomiczny odtwarzacz sieciowy),
+            // tej pozycji nie pokazuja, zeby nie obiecywac dzialania, ktorego
+            // nie ma.
+            if (showPlayerExitPauseOption)
+            {
+                SessionSettingsPanel.Visibility = Visibility.Visible;
+                var exitChoices = new[]
+                {
+                    new BooleanChoice(
+                        null,
+                        globalPausePlaybackWhenLeavingPlayer
+                            ? "Jak ustawienie ogólne — wstrzymuj odtwarzanie"
+                            : "Jak ustawienie ogólne — odtwarzaj dalej"),
+                    new BooleanChoice(true, "Wstrzymuj odtwarzanie"),
+                    new BooleanChoice(false, "Odtwarzaj dalej")
+                };
+                PlayerExitPauseBox.ItemsSource = exitChoices;
+                PlayerExitPauseBox.SelectedItem = exitChoices.First(choice =>
+                    choice.Value == pausePlaybackWhenLeavingPlayerOverride);
+            }
         }
         else if (target == ItemPlaybackOptionsTarget.RadioStation)
         {
@@ -258,6 +286,13 @@ public partial class ItemPlaybackOptionsWindow : Window
 
     public int? SelectedInterTrackSilenceMillisecondsOverride =>
         (InterTrackSilenceBox.SelectedItem as SilenceChoice)?.Value;
+
+    /// <summary>
+    /// Wstrzymywanie po wyjsciu z odtwarzacza wybrane dla sesji. null oznacza
+    /// dziedziczenie ustawienia ogolnego (albo brak tej pozycji w oknie).
+    /// </summary>
+    public bool? SelectedPausePlaybackWhenLeavingPlayerOverride =>
+        (PlayerExitPauseBox.SelectedItem as BooleanChoice)?.Value;
 
     public int SelectedPodcastRefreshIntervalMinutes =>
         (PodcastRefreshIntervalBox.SelectedItem as RefreshChoice)?.Minutes ?? 0;
