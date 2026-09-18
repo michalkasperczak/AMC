@@ -2617,6 +2617,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RecoverMainWindowFocusIfNeeded("cykliczna aktualizacja odtwarzania");
         SaveLocalMediaStateIfDue();
         SavePodcastStateIfDue();
+        // Pozycja Spotify musi trafic na dysk w trakcie odtwarzania, nie tylko
+        // przy zamknieciu - inaczej zerwane polaczenie albo zabity proces
+        // gubilyby miejsce, w ktorym uzytkownik sluchal.
+        SaveSpotifyStateIfDue();
         TryStartScheduledRadioRecognition();
     }
 
@@ -4283,6 +4287,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ShowPodcastPlaybackOptions(item);
             return;
         }
+        if (string.Equals(ActionSession.Id, "spotify", StringComparison.Ordinal)
+            && item.Kind is MediaItemKind.Track
+                or MediaItemKind.Episode
+                or MediaItemKind.Album
+                or MediaItemKind.Podcast
+                or MediaItemKind.Playlist)
+        {
+            // ZGLOSZENIE Michala 18.09.2026: tu Spotify trafial w zaslepke
+            // ponizej i Alt+Shift+Enter nie otwieralo zadnego okna.
+            ShowSpotifyItemPlaybackOptions(item);
+            return;
+        }
         if (!string.Equals(ActionSession.Id, "local", StringComparison.Ordinal)
             || item.Kind != MediaItemKind.Track
             || !TryGetLocalPath(item.Source, out _))
@@ -4441,6 +4457,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
 
         var saved = FindSessionPlaybackOverrides(session.Id);
+        var dspSupported = SessionSupportsAudioProcessing(session.Id);
+        var rateSupported = SessionSupportsPlaybackRate(session.Id);
         var dialog = new ItemPlaybackOptionsWindow(
             $"Sesja: {session.DisplayName}",
             ResumePositionPolicy.GetSessionMode(_state.Settings, session.Id),
@@ -4457,7 +4475,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             // kontrolera NIGDY nie zatrzymuje muzyki w pokoju, wiec ta pozycja
             // bylaby obietnica bez pokrycia.
             showPlayerExitPauseOption:
-                !string.Equals(session.Id, "wiim", StringComparison.Ordinal))
+                !string.Equals(session.Id, "wiim", StringComparison.Ordinal),
+            // ZGLOSZENIE Michala 18.09.2026: sesja, ktorej wyjscie nie
+            // przetwarza dzwieku (Spotify), nie moze obiecywac normalizacji,
+            // lagodnych przejsc ani ciszy miedzy nagraniami.
+            showAudioProcessingOptions: dspSupported,
+            showPlaybackRateOption: rateSupported)
         {
             Owner = this
         };
@@ -4474,10 +4497,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
         var overrides = new SessionPlaybackAudioOverrides
         {
-            LoudnessNormalizationOverride = dialog.SelectedLoudnessNormalizationOverride,
-            SmoothTrackTransitionsOverride = dialog.SelectedSmoothTrackTransitionsOverride,
-            InterTrackSilenceMillisecondsOverride =
-                dialog.SelectedInterTrackSilenceMillisecondsOverride,
+            // Gdy okno nie pokazalo pol DSP (Spotify - wyjscie uslugi nie
+            // przechodzi przez nasz lancuch), zapisane wczesniej wybory zostaja
+            // nietkniete. Inaczej otwarcie i zapisanie opcji sesji wymazalo by
+            // je bez ostrzezenia.
+            LoudnessNormalizationOverride = dspSupported
+                ? dialog.SelectedLoudnessNormalizationOverride
+                : SpotifySessionAudioOverrides(session.Id)?.LoudnessNormalizationOverride,
+            SmoothTrackTransitionsOverride = dspSupported
+                ? dialog.SelectedSmoothTrackTransitionsOverride
+                : SpotifySessionAudioOverrides(session.Id)?.SmoothTrackTransitionsOverride,
+            InterTrackSilenceMillisecondsOverride = dspSupported
+                ? dialog.SelectedInterTrackSilenceMillisecondsOverride
+                : SpotifySessionAudioOverrides(session.Id)?.InterTrackSilenceMillisecondsOverride,
             // Gdy okno nie pokazalo tej pozycji (WiiM), nie wolno zetrzec
             // wcześniejszego wyboru uzytkownika - zostawiamy zapisany.
             PausePlaybackWhenLeavingPlayerOverride =
@@ -17581,6 +17613,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestorePersistedQueueMembership(session.Id, replacementItems);
         session.ReplaceItems(replacementItems);
         EnsureQueueOrder(session);
+        // Odswiezenie biblioteki nadaje pozycjom nowe MediaItem.Id, wiec pamiec
+        // pozycji trzymana w sesji po kluczu Id przepadala. Trwale zapisy maja
+        // stabilny klucz uslugi, wiec wracaja tutaj.
+        RestoreSpotifyRememberedPositions();
         if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal))
             RefreshCurrentView();
         DiagnosticLog.Info(
@@ -17606,6 +17642,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         RestorePersistedQueueMembership(session.Id, items);
         session.ReplaceItems(items);
         EnsureQueueOrder(session);
+        // Pamiec pozycji po restarcie. Bez tego wznowienie po ponownym
+        // uruchomieniu zaczynalo kazdy utwor od zera.
+        RestoreSpotifyRememberedPositions();
     }
 
     private void ApplyTidalItems(
@@ -22123,6 +22162,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _podcastCancellation.Dispose();
         _trackRecognitionCancellation.Dispose();
         CaptureRadioState();
+        // Pozycja Spotify musi trafic do stanu PRZED koncowym zapisem, inaczej
+        // przepadalaby dokladnie przy zamknieciu programu - czyli w najczestszym
+        // momencie przerwania sluchania.
+        CaptureSpotifyPlaybackPosition();
         if (!_statePersistence.Flush(_state, TimeSpan.FromSeconds(15), out var saveFailure))
         {
             DiagnosticLog.Error(

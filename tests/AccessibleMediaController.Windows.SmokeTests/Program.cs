@@ -195,6 +195,7 @@ var tests = new (string Name, Action Test)[]
     ("Czesciowa awaria pobierania Spotify nie kasuje wyniku", TestSpotifyCzesciowyWynikZachowany),
     ("Obsluga listy Spotify jest taka jak w TIDAL", TestSpotifyObslugaListyJakTidal),
     ("Album Spotify pokazuje tytuly utworow", TestSpotifyAlbumPokazujeTytulyUtworow),
+    ("Okno opcji Spotify daje pamiec pozycji bez martwych DSP", TestSpotifyOknoOpcjiBezMartwychDsp),
 };
 
 var failures = new List<string>();
@@ -6794,6 +6795,107 @@ static void TestTidalDesktopCzasMowiSamaLiczbe()
     }
 
     Console.WriteLine("OK: czas utworu z oryginalnego TIDALa mowiony sama liczba");
+}
+
+static void TestSpotifyOknoOpcjiBezMartwychDsp()
+{
+    // ZGLOSZENIE Michala 18.09.2026: "Spotify ALT+SHIFT+ENTER jeszcze nie
+    // podlaczone". Okno musi realnie powstac dla celu Spotify, dac wybor pamieci
+    // pozycji i NIE pokazywac pol, ktorych wyjscie Spotify nie obsluguje
+    // (predkosc, normalizacja, przejscia, cisza) - martwa kontrolka pod NVDA
+    // to obietnica, ktorej program nie dowiezie.
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        ItemPlaybackOptionsWindow? utwor = null;
+        ItemPlaybackOptionsWindow? album = null;
+        ItemPlaybackOptionsWindow? sesja = null;
+        try
+        {
+            utwor = new ItemPlaybackOptionsWindow(
+                "Utwor Spotify",
+                ResumePositionMode.Remember,
+                playbackRateOverride: null,
+                loudnessNormalizationOverride: null,
+                smoothTrackTransitionsOverride: null,
+                interTrackSilenceMillisecondsOverride: null,
+                target: ItemPlaybackOptionsTarget.SpotifyItem);
+
+            var pamiec = (ComboBox)utwor.FindName("ResumeModeBox");
+            Assert(pamiec.IsEnabled && pamiec.Visibility == System.Windows.Visibility.Visible,
+                "Pamiec pozycji Spotify musi byc aktywna - to jedyne realne ustawienie tej sesji.");
+            Assert(pamiec.SelectedItem?.ToString() == "Pamiętaj pozycję odtwarzania",
+                "Okno nie wczytalo zapisanego wyboru pamieci pozycji Spotify.");
+            Assert(AutomationProperties.GetName(pamiec) == "Pozycja odtwarzania",
+                "Lista pamieci pozycji nie ma nazwy dla czytnika ekranu.");
+
+            foreach (var martwa in new[]
+                     {
+                         "PlaybackRateBox",
+                         "LoudnessNormalizationBox",
+                         "SmoothTransitionsBox",
+                         "InterTrackSilenceBox",
+                     })
+            {
+                var pole = (ComboBox)utwor.FindName(martwa);
+                Assert(pole.Visibility == System.Windows.Visibility.Collapsed,
+                    $"Pole {martwa} jest martwe w Spotify i nie moze byc widoczne dla NVDA.");
+            }
+
+            // Dziedziczenie: album ma wlasny poziom miedzy utworem a sesja.
+            album = new ItemPlaybackOptionsWindow(
+                "Album Spotify",
+                ResumePositionMode.Inherit,
+                playbackRateOverride: null,
+                loudnessNormalizationOverride: null,
+                smoothTrackTransitionsOverride: null,
+                interTrackSilenceMillisecondsOverride: null,
+                target: ItemPlaybackOptionsTarget.SpotifyContainer);
+            var pamiecAlbumu = (ComboBox)album.FindName("ResumeModeBox");
+            Assert(pamiecAlbumu.SelectedItem?.ToString() == "Zgodnie z ustawieniem sesji Spotify lub globalnym",
+                "Album Spotify musi jasno mowic, po czym dziedziczy pamiec pozycji.");
+
+            // Opcje sesji Spotify nie moga obiecywac DSP.
+            sesja = new ItemPlaybackOptionsWindow(
+                "Sesja: Spotify",
+                ResumePositionMode.Inherit,
+                playbackRateOverride: null,
+                loudnessNormalizationOverride: null,
+                smoothTrackTransitionsOverride: null,
+                interTrackSilenceMillisecondsOverride: null,
+                target: ItemPlaybackOptionsTarget.Session,
+                showAudioProcessingOptions: false,
+                showPlaybackRateOption: false);
+            Assert(((ComboBox)sesja.FindName("ResumeModeBox")).Visibility == System.Windows.Visibility.Visible,
+                "Sesja Spotify nadal musi pozwalac ustawic pamiec pozycji.");
+            foreach (var martwa in new[]
+                     {
+                         "PlaybackRateBox",
+                         "LoudnessNormalizationBox",
+                         "SmoothTransitionsBox",
+                         "InterTrackSilenceBox",
+                     })
+            {
+                Assert(((ComboBox)sesja.FindName(martwa)).Visibility == System.Windows.Visibility.Collapsed,
+                    $"Opcje sesji Spotify obiecuja nieobslugiwane {martwa}.");
+            }
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+        finally
+        {
+            utwor?.Close();
+            album?.Close();
+            sesja?.Close();
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    if (failure is not null)
+        throw failure;
 }
 
 static void TestSpotifyAlbumPokazujeTytulyUtworow()

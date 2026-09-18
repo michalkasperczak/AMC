@@ -23,7 +23,7 @@ public sealed class SessionManager
         IMediaOutput? spotifyOutput = null)
     {
         _settings = settings;
-        _sessions = CreateDemoSessions(tidalOutput, spotifyOutput).ToList();
+        _sessions = CreateDemoSessions(settings, tidalOutput, spotifyOutput).ToList();
         _sessionSlots = SessionSlotOrder.Normalize(settings.SessionSlots);
         settings.SessionSlots = new Dictionary<int, string>(_sessionSlots);
         ReorderSessionsBySlots();
@@ -234,6 +234,7 @@ public sealed class SessionManager
     }
 
     private static IReadOnlyList<DemoMediaSession> CreateDemoSessions(
+        AppSettings settings,
         IMediaOutput? tidalOutput,
         IMediaOutput? spotifyOutput = null)
     {
@@ -246,7 +247,17 @@ public sealed class SessionManager
             // porzadek przechodzenia miedzy sesjami (MoveSession), wiec wstawiona
             // w srodek nowa sesja zmienia to, co uzytkownik uslyszy po znanym
             // skrocie. Michal ma ten porzadek wyuczony.
-            new DemoMediaSession("spotify", "Spotify", CreateDemonstrationItems("spotify"), spotifyOutput)
+            //
+            // ZGLOSZENIE Michala 18.09.2026: bez tej funkcji sesja Spotify
+            // przyjmowala domyslne "_ => true" i pamietala pozycje ZAWSZE, wiec
+            // wybor "Zawsze od poczatku" w oknie opcji niczego nie zmienial.
+            new DemoMediaSession(
+                "spotify",
+                "Spotify",
+                CreateDemonstrationItems("spotify"),
+                spotifyOutput,
+                rememberPosition: item =>
+                    Spotify.SpotifyPlaybackSettingsResolver.ShouldRemember(settings, item))
         ];
     }
 

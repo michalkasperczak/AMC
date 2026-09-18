@@ -89,6 +89,14 @@ public sealed class AppSettings
     public Dictionary<string, ResumePositionMode> ResumePositionModeBySession { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
     public PlaybackAudioSettings Audio { get; set; } = new();
+
+    /// <summary>
+    /// Ustawienia odtwarzania pozycji Spotify (pamiec pozycji per utwor, album
+    /// i podcast). W AppSettings, a nie w PersistedState.Spotify, bo tamta
+    /// sekcja trzyma konto i cache biblioteki przepisywany przy kazdym
+    /// odswiezeniu, a te wybory maja przezyc odswiezenie.
+    /// </summary>
+    public SpotifyPlaybackSettings SpotifyPlayback { get; set; } = new();
     public string LastSessionId { get; set; } = "tidal";
     public Dictionary<int, string> SessionSlots { get; set; } = SessionSlotOrder.CreateDefault();
     public ListDisplaySettings Lists { get; set; } = new();
@@ -576,6 +584,47 @@ public sealed class SpotifySettings
     // byla pusta do czasu ponownego pobrania. Uzyty jest ten sam kszalt zapisu
     // co dla TIDAL - to swiadome wspoldzielenie formatu, nie pomylka nazwy.
     public List<TidalCachedCollectionItemSettings> CachedCollectionItems { get; set; } = new();
+}
+
+/// <summary>
+/// Rzeczywiste ustawienia odtwarzania pozycji Spotify. Osobna sekcja, nie czesc
+/// <see cref="SpotifySettings"/>, bo SpotifySettings trzyma konto i cache
+/// biblioteki: cache jest przepisywany przy kazdym odswiezeniu i wybory
+/// uzytkownika ginely by razem z nim.
+///
+/// Sekcja NIE zawiera zadnych pol przetwarzania dzwieku. Spotify nie
+/// przechodzi przez nasz lancuch DSP, nie ma zmiany tempa, a polityka uslugi
+/// zabrania crossfade - zapisane "wlaczone", ktorego nikt nie odczyta, byloby
+/// martwa kontrolka.
+/// </summary>
+public sealed class SpotifyPlaybackSettings
+{
+    /// <summary>
+    /// Ustawienia pojedynczych pozycji. Klucz to STABILNY adres uslugi
+    /// (np. "spotify:track:..."), nigdy losowe MediaItem.Id, ktore zmienia sie
+    /// przy kazdym pobraniu biblioteki.
+    /// </summary>
+    public Dictionary<string, SpotifyItemPlaybackSettings> ItemsByKey { get; set; } =
+        new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Ustawienia albumow, podcastow i list. Poziom miedzy pojedyncza pozycja
+    /// a sesja - "caly ten podcast od poczatku" bez klikania kazdego odcinka.
+    /// </summary>
+    public Dictionary<string, ResumePositionMode> ContainersByKey { get; set; } =
+        new(StringComparer.Ordinal);
+}
+
+public sealed class SpotifyItemPlaybackSettings
+{
+    public ResumePositionMode ResumePositionMode { get; set; } = ResumePositionMode.Inherit;
+
+    /// <summary>
+    /// Zapamietana pozycja odtwarzania w tickach. Zero oznacza brak pozycji.
+    /// Zapisywana w tickach, a nie w sekundach, zeby powrot po restarcie
+    /// trafial w to samo miejsce, w ktorym uzytkownik przerwal.
+    /// </summary>
+    public long PositionTicks { get; set; }
 }
 
 public sealed class TidalCachedCollectionItemSettings

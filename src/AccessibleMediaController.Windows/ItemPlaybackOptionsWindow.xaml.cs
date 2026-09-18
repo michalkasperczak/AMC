@@ -17,6 +17,15 @@ public enum ItemPlaybackOptionsTarget
     RadioStation,
 
     /// <summary>
+    /// Pojedynczy utwor albo odcinek Spotify. ZGLOSZENIE Michala 18.09.2026:
+    /// Alt+Shift+Enter w Spotify nie otwieralo okna w ogole.
+    /// </summary>
+    SpotifyItem,
+
+    /// <summary>Album, podcast albo lista Spotify - poziom nad pozycja.</summary>
+    SpotifyContainer,
+
+    /// <summary>
     /// Ustawienia dla CALEJ sesji (calego TIDAL-a, calego radia, wszystkich
     /// plikow lokalnych). Poziom miedzy folderem a ustawieniem ogolnym.
     /// </summary>
@@ -42,7 +51,14 @@ public partial class ItemPlaybackOptionsWindow : Window
         string? radioRecordingFolder = null,
         bool? pausePlaybackWhenLeavingPlayerOverride = null,
         bool globalPausePlaybackWhenLeavingPlayer = true,
-        bool showPlayerExitPauseOption = true)
+        bool showPlayerExitPauseOption = true,
+        // ZGLOSZENIE Michala 18.09.2026: opcje sesji Spotify obiecywaly
+        // normalizacje glosnosci, lagodne przejscia i cisze miedzy nagraniami,
+        // ktorych ta usluga NIE ma - SpotifyMediaOutput nie implementuje
+        // IPlaybackAudioProcessingOutput, wiec zapisane "wlaczone" niczego nie
+        // wlaczalo. Te dwa przelaczniki pozwalaja ukryc pola bez pokrycia.
+        bool showAudioProcessingOptions = true,
+        bool showPlaybackRateOption = true)
     {
         InitializeComponent();
         var folderTarget = target == ItemPlaybackOptionsTarget.LocalFolder;
@@ -159,6 +175,45 @@ public partial class ItemPlaybackOptionsWindow : Window
             OutputDeviceLabel.Visibility = Visibility.Collapsed;
             OutputDeviceBox.Visibility = Visibility.Collapsed;
         }
+        else if (IsSpotifyTarget(target))
+        {
+            // ZGLOSZENIE Michala 18.09.2026: Alt+Shift+Enter w Spotify trafialo
+            // w zaslepke "opcje zostana udostepnione przez adapter tej uslugi".
+            // Okno pokazuje TYLKO to, co Spotify faktycznie potrafi: pamiec
+            // pozycji odtwarzania.
+            var pojemnik = target == ItemPlaybackOptionsTarget.SpotifyContainer;
+            Title = pojemnik ? "Opcje odtwarzania albumu" : "Opcje odtwarzania utworu";
+            ResumeModeLabel.Content = pojemnik
+                ? "_Pozycja odtwarzania w tym albumie lub podcaście:"
+                : "_Pozycja odtwarzania tego utworu lub odcinka:";
+            AutomationProperties.SetName(
+                ResumeModeBox,
+                pojemnik
+                    ? "Pozycja odtwarzania w tym albumie lub podcaście"
+                    : "Pozycja odtwarzania tego utworu lub odcinka");
+            AutomationProperties.SetHelpText(
+                ResumeModeBox,
+                pojemnik
+                    ? "Obejmuje wszystkie utwory lub odcinki z tego albumu, podcastu albo listy. "
+                      + "Pojedynczy utwór może to nadpisać."
+                    : "Dotyczy tylko tego utworu lub odcinka. Bez własnego wyboru obowiązuje "
+                      + "ustawienie albumu lub podcastu, potem sesji Spotify, a na końcu ogólne.");
+
+            // Spotify NIE ma zmiany tempa (Web Playback SDK nie udostepnia
+            // predkosci - SupportsPlaybackRate zwraca false), nie przechodzi
+            // przez nasz lancuch DSP i polityka uslugi zabrania crossfade.
+            // Te pola nic by nie robily, a czytnik i tak by je przeczytal.
+            PlaybackRateLabel.Visibility = Visibility.Collapsed;
+            PlaybackRateBox.Visibility = Visibility.Collapsed;
+            LoudnessNormalizationLabel.Visibility = Visibility.Collapsed;
+            LoudnessNormalizationBox.Visibility = Visibility.Collapsed;
+            SmoothTransitionsLabel.Visibility = Visibility.Collapsed;
+            SmoothTransitionsBox.Visibility = Visibility.Collapsed;
+            InterTrackSilenceLabel.Visibility = Visibility.Collapsed;
+            InterTrackSilenceBox.Visibility = Visibility.Collapsed;
+            OutputDeviceLabel.Visibility = Visibility.Collapsed;
+            OutputDeviceBox.Visibility = Visibility.Collapsed;
+        }
         else if (target is ItemPlaybackOptionsTarget.Podcast or ItemPlaybackOptionsTarget.PodcastEpisode)
         {
             var podcastTarget = target == ItemPlaybackOptionsTarget.Podcast;
@@ -220,6 +275,27 @@ public partial class ItemPlaybackOptionsWindow : Window
             }
         }
         ItemTitleText.Text = itemTitle;
+
+        // Sesja, ktorej wyjscie NIE przetwarza dzwieku (Spotify: brak
+        // IPlaybackAudioProcessingOutput), nie moze wystawiac pol DSP. Zapis
+        // "normalizacja wlaczona" nie mial gdzie zadzialac, wiec okno
+        // obiecywalo dzialanie, ktorego nie ma.
+        if (!showAudioProcessingOptions)
+        {
+            LoudnessNormalizationLabel.Visibility = Visibility.Collapsed;
+            LoudnessNormalizationBox.Visibility = Visibility.Collapsed;
+            SmoothTransitionsLabel.Visibility = Visibility.Collapsed;
+            SmoothTransitionsBox.Visibility = Visibility.Collapsed;
+            InterTrackSilenceLabel.Visibility = Visibility.Collapsed;
+            InterTrackSilenceBox.Visibility = Visibility.Collapsed;
+            OutputDeviceLabel.Visibility = Visibility.Collapsed;
+            OutputDeviceBox.Visibility = Visibility.Collapsed;
+        }
+        if (!showPlaybackRateOption)
+        {
+            PlaybackRateLabel.Visibility = Visibility.Collapsed;
+            PlaybackRateBox.Visibility = Visibility.Collapsed;
+        }
 
         ResumeChoice[] resumeChoices =
         [
@@ -416,6 +492,10 @@ public partial class ItemPlaybackOptionsWindow : Window
         BrowseRadioRecordingFolderButton.Focus();
     }
 
+    private static bool IsSpotifyTarget(ItemPlaybackOptionsTarget target) =>
+        target is ItemPlaybackOptionsTarget.SpotifyItem
+            or ItemPlaybackOptionsTarget.SpotifyContainer;
+
     private static BooleanChoice[] BooleanChoices(ItemPlaybackOptionsTarget target) =>
     [
         new(null, InheritedLabel(target)),
@@ -437,6 +517,8 @@ public partial class ItemPlaybackOptionsWindow : Window
         ItemPlaybackOptionsTarget.LocalFolder => "Zgodnie z folderem nadrzędnym, sesją lub ustawieniem globalnym",
         ItemPlaybackOptionsTarget.LocalItem => "Zgodnie z ustawieniem folderu, sesji lub globalnym",
         ItemPlaybackOptionsTarget.PodcastEpisode => "Zgodnie z ustawieniem podcastu, sesji lub globalnym",
+        ItemPlaybackOptionsTarget.SpotifyItem => "Zgodnie z ustawieniem albumu, podcastu, sesji Spotify lub globalnym",
+        ItemPlaybackOptionsTarget.SpotifyContainer => "Zgodnie z ustawieniem sesji Spotify lub globalnym",
         ItemPlaybackOptionsTarget.Session => "Zgodnie z ustawieniem globalnym",
         _ => "Zgodnie z ustawieniem globalnym"
     };

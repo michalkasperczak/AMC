@@ -14,6 +14,7 @@ using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Radio;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Spotify;
 using AccessibleMediaController.Core.Tidal;
 
 var tests = new (string Name, Action Test)[]
@@ -133,7 +134,11 @@ var tests = new (string Name, Action Test)[]
     ("Odtwarzacz Spotify nie zakleszcza sie na gotowosci", TestOdtwarzaczSpotifyNieZakleszczaSieNaGotowosci),
     ("Paczka zawiera silnik odtwarzania Spotify", TestPaczkaZawieraSilnikSpotify),
     ("Nieznany zakres uprawnien nie blokuje pobierania", TestNieznanyZakresNieBlokuje),
-    ("Odcinek podcastu ma wlasny adres odtwarzania", TestOdcinekMaWlasnyAdres)
+    ("Odcinek podcastu ma wlasny adres odtwarzania", TestOdcinekMaWlasnyAdres),
+    ("Opcje elementu Spotify nie sa zaslepka", TestOpcjeElementuSpotifyNieSaZaslepka),
+    ("Opcje sesji Spotify nie obiecuja DSP", TestOpcjeSesjiSpotifyNieObiecujaDsp),
+    ("Sesja Spotify pyta o pamiec pozycji", TestSesjaSpotifyPytaOPamiecPozycji),
+    ("Pozycja Spotify przezywa restart", TestPozycjaSpotifyPrzezywaRestart)
 };
 
 static void TestTidalIntegrationFoundation()
@@ -7301,6 +7306,231 @@ static void TestExports()
     {
         Directory.Delete(directory, true);
     }
+}
+
+static void TestOpcjeElementuSpotifyNieSaZaslepka()
+{
+    // ZGLOSZENIE Michala 18.09.2026: "Spotify ALT+SHIFT+ENTER jeszcze nie
+    // podlaczone". ZMIERZONA PRZYCZYNA: ShowItemPlaybackOptions przepuszcza
+    // do okna opcji WYLACZNIE sesje "local" (plus osobne galezie radia i
+    // podcastow); kazda inna sesja - w tym Spotify - dostaje komunikat
+    // "Opcje elementu zostana udostepnione przez adapter tej uslugi".
+    // Dla uzytkownika czytnika to martwy skrot: okno sie NIE otwiera.
+    var main = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.SpotifyOptions.cs"));
+
+    // 1. Musi istniec osobna galaz opcji elementu Spotify.
+    True(main.Contains("ShowSpotifyItemPlaybackOptions", StringComparison.Ordinal),
+        "Brak galezi opcji elementu Spotify - Alt+Shift+Enter nadal konczy sie zaslepka.");
+
+    // 2. Okno MUSI wczytac zapisany tryb pamieci pozycji, nie staly Inherit.
+    True(main.Contains("SpotifyPlaybackSettingsResolver.ResolveItemMode", StringComparison.Ordinal),
+        "Okno opcji Spotify nie wczytuje zapisanego trybu pamieci pozycji.");
+
+    // 3. Wybor MUSI byc zapisany do stanu, inaczej kontrolka jest martwa.
+    True(main.Contains("SpotifyPlaybackSettingsResolver.SetItemMode", StringComparison.Ordinal),
+        "Wybor pamieci pozycji Spotify nie jest zapisywany - kontrolka byłaby martwa.");
+
+    // 4. Zapis MUSI trafic do trwalego stanu, nie tylko do pamieci sesji.
+    True(main.Contains("QueueStateSave(", StringComparison.Ordinal),
+        "Opcje Spotify nie zlecaja zapisu stanu - wybor nie przezyje restartu.");
+
+    // 5. Spotify NIE MA predkosci ani naszego DSP (SupportsPlaybackRate =>
+    //    false, brak IPlaybackAudioProcessingOutput), a polityka zabrania
+    //    crossfade. Te pola musza byc UKRYTE, inaczej okno obiecuje dzialanie,
+    //    ktorego nie ma - dokladnie ten sam blad, ktory naprawiono dla stacji
+    //    radiowych.
+    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("ItemPlaybackOptionsWindow.xaml.cs"));
+    True(okno.Contains("SpotifyItem", StringComparison.Ordinal),
+        "Okno opcji nie zna trybu elementu Spotify.");
+    var start = okno.IndexOf("IsSpotifyTarget(target)", StringComparison.Ordinal);
+    True(start > 0, "Brak galezi okna dla Spotify.");
+    foreach (var pole in new[]
+             {
+                 "PlaybackRateLabel", "PlaybackRateBox",
+                 "LoudnessNormalizationLabel", "LoudnessNormalizationBox",
+                 "SmoothTransitionsLabel", "SmoothTransitionsBox",
+                 "InterTrackSilenceLabel", "InterTrackSilenceBox",
+                 "OutputDeviceLabel", "OutputDeviceBox"
+             })
+    {
+        True(okno[start..].Contains($"{pole}.Visibility = Visibility.Collapsed;", StringComparison.Ordinal),
+            $"Pole {pole} nic nie robi w Spotify i musi byc ukryte, zeby okno nie obiecywalo DSP.");
+    }
+    Console.WriteLine("OK: opcje elementu Spotify nie sa zaslepka");
+}
+
+static void TestOpcjeSesjiSpotifyNieObiecujaDsp()
+{
+    // ZGLOSZENIE Michala 18.09.2026: opcje sesji (Ctrl+Alt+Enter) wystawialy
+    // dla Spotify normalizacje glosnosci, lagodne przejscia i cisze miedzy
+    // nagraniami. ZMIERZONE: SpotifyMediaOutput NIE implementuje
+    // IPlaybackAudioProcessingOutput (AudioProcessingCapabilities == None),
+    // a ShowSessionPlaybackOptions i tak stroi te listy i zapisuje wynik do
+    // Audio.OverridesBySession, gdzie nikt go dla Spotify nie odczyta.
+    // Zapisane "wlaczone" niczego nie wlacza - to martwa kontrolka.
+    var main = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.SpotifyOptions.cs"));
+    True(main.Contains("SessionSupportsAudioProcessing", StringComparison.Ordinal),
+        "Opcje sesji nie sprawdzaja, czy wyjscie sesji w ogole umie przetwarzac dzwiek.");
+
+    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("ItemPlaybackOptionsWindow.xaml.cs"));
+    True(okno.Contains("showAudioProcessingOptions", StringComparison.Ordinal),
+        "Okno opcji nie umie ukryc przetwarzania dzwieku dla sesji, ktora go nie ma.");
+
+    // Sesja bez DSP nie moze tez wystawiac predkosci: Spotify Web Playback SDK
+    // nie ma zmiany tempa (SetPlaybackRate jest pusta).
+    True(okno.Contains("showPlaybackRateOption", StringComparison.Ordinal),
+        "Okno opcji nie umie ukryc predkosci dla sesji, ktora jej nie obsluguje.");
+
+    // Zapis dla sesji bez DSP nie moze wymazywac wczesniejszych wyborow
+    // uzytkownika - ten sam bezpiecznik co przy WiiM.
+    var sesja = main.IndexOf("SpotifySessionAudioOverrides", StringComparison.Ordinal);
+    True(sesja > 0,
+        "Brak bezpiecznika zachowujacego zapisane wybory sesji, ktorej okno nie pokazalo pol DSP.");
+    Console.WriteLine("OK: opcje sesji Spotify nie obiecuja nieobslugiwanych DSP");
+}
+
+static void TestSesjaSpotifyPytaOPamiecPozycji()
+{
+    // ZMIERZONA PRZYCZYNA (druga polowa zgloszenia): SessionManager tworzy
+    // sesje Spotify BEZ funkcji rememberPosition, wiec DemoMediaSession
+    // przyjmuje domyslne "_ => true" i pamieta pozycje ZAWSZE - niezaleznie
+    // od tego, co uzytkownik wybral w oknie opcji. Wybor "Zawsze od poczatku"
+    // nie mial zadnego skutku.
+    var settings = new AppSettings();
+
+    // Bez zadnego ustawienia obowiazuje globalne (domyslnie: pamietaj).
+    var pamieta = new SessionManager(settings);
+    var spotify = pamieta.FindSession("spotify");
+    True(spotify is not null, "Brak sesji Spotify.");
+    var utwor = spotify!.Items[0];
+    spotify.Play(utwor);
+    spotify.SetPosition(TimeSpan.FromMinutes(3));
+    Equal(TimeSpan.FromMinutes(3), spotify.RememberedPositions.GetValueOrDefault(utwor.Id));
+
+    // "Zawsze od poczatku" dla calej sesji MUSI wylaczyc pamietanie.
+    var odPoczatku = new AppSettings();
+    SpotifyPlaybackSettingsResolver.SetSessionMode(
+        odPoczatku,
+        ResumePositionMode.StartFromBeginning);
+    var zerowana = new SessionManager(odPoczatku);
+    var sesjaZerowana = zerowana.FindSession("spotify")!;
+    var utworZerowany = sesjaZerowana.Items[0];
+    sesjaZerowana.Play(utworZerowany);
+    sesjaZerowana.SetPosition(TimeSpan.FromMinutes(3));
+    Equal(
+        TimeSpan.Zero,
+        sesjaZerowana.RememberedPositions.GetValueOrDefault(utworZerowany.Id));
+
+    // Wybor dla POJEDYNCZEGO utworu musi wygrac z ustawieniem sesji.
+    var mieszane = new AppSettings();
+    SpotifyPlaybackSettingsResolver.SetSessionMode(
+        mieszane,
+        ResumePositionMode.StartFromBeginning);
+    var wyjatek = new SessionManager(mieszane);
+    var sesjaWyjatku = wyjatek.FindSession("spotify")!;
+    var utworWyjatku = sesjaWyjatku.Items[0];
+    SpotifyPlaybackSettingsResolver.SetItemMode(
+        mieszane,
+        utworWyjatku,
+        ResumePositionMode.Remember);
+    var zWyjatkiem = new SessionManager(mieszane);
+    var finalna = zWyjatkiem.FindSession("spotify")!;
+    var finalnyUtwor = finalna.Items.First(item =>
+        string.Equals(item.Id, utworWyjatku.Id, StringComparison.Ordinal));
+    finalna.Play(finalnyUtwor);
+    finalna.SetPosition(TimeSpan.FromMinutes(4));
+    Equal(
+        TimeSpan.FromMinutes(4),
+        finalna.RememberedPositions.GetValueOrDefault(finalnyUtwor.Id));
+    Console.WriteLine("OK: sesja Spotify respektuje wybrana pamiec pozycji");
+}
+
+static void TestPozycjaSpotifyPrzezywaRestart()
+{
+    // ZMIERZONA PRZYCZYNA (trzecia czesc): SpotifySettings nie mialo GDZIE
+    // zapisac pozycji ani trybu - byl tam tylko cache biblioteki i glosnosc.
+    // Pozycja zyla wylacznie w pamieci DemoMediaSession i przepadala przy
+    // zamknieciu programu oraz przy kazdym odswiezeniu biblioteki.
+    //
+    // Klucz MUSI byc stabilny. Id pozycji Spotify to Guid nadawany przy
+    // czytaniu odpowiedzi API (MediaItem.Id ma domyslnie Guid.NewGuid()),
+    // wiec po ponownym pobraniu biblioteki ten sam utwor ma INNY Id.
+    // Kluczem jest adres uslugi (spotify:track:...) / ExternalId.
+    var utwor = new MediaItem
+    {
+        Id = Guid.NewGuid().ToString("N"),
+        ExternalId = "4cOdK2wGLETKBW3PvgPWqT",
+        Title = "Utwor testowy",
+        Kind = MediaItemKind.Track,
+        Source = "spotify:track:4cOdK2wGLETKBW3PvgPWqT"
+    };
+    var poOdswiezeniu = new MediaItem
+    {
+        Id = Guid.NewGuid().ToString("N"),
+        ExternalId = "4cOdK2wGLETKBW3PvgPWqT",
+        Title = "Utwor testowy",
+        Kind = MediaItemKind.Track,
+        Source = "spotify:track:4cOdK2wGLETKBW3PvgPWqT"
+    };
+    True(!string.Equals(utwor.Id, poOdswiezeniu.Id, StringComparison.Ordinal),
+        "Zalozenie testu: ta sama pozycja Spotify dostaje po odswiezeniu inny Id.");
+
+    var klucz = SpotifyPlaybackSettingsResolver.StorageKey(utwor);
+    Equal(klucz, SpotifyPlaybackSettingsResolver.StorageKey(poOdswiezeniu));
+    True(!klucz.Contains(utwor.Id, StringComparison.Ordinal),
+        "Klucz zapisu Spotify nie moze zawierac losowego Id pozycji.");
+
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-spotify-pozycja-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var store = new ConfigurationStore(Path.Combine(directory, "state.json"));
+        var state = ConfigurationStore.CreateDefaultState();
+        SpotifyPlaybackSettingsResolver.SetItemMode(
+            state.Settings,
+            utwor,
+            ResumePositionMode.Remember);
+        SpotifyPlaybackSettingsResolver.StorePosition(
+            state.Settings,
+            utwor,
+            TimeSpan.FromMinutes(7) + TimeSpan.FromSeconds(42));
+        store.Save(state);
+
+        // RESTART: swiezy odczyt z dysku.
+        var restarted = new ConfigurationStore(Path.Combine(directory, "state.json")).LoadOrCreate();
+        Equal(
+            ResumePositionMode.Remember,
+            SpotifyPlaybackSettingsResolver.ResolveItemMode(restarted.Settings, poOdswiezeniu));
+        Equal(
+            TimeSpan.FromMinutes(7) + TimeSpan.FromSeconds(42),
+            SpotifyPlaybackSettingsResolver.ResolvePosition(restarted.Settings, poOdswiezeniu));
+
+        // Kopia stanu (tej samej, ktora przygotowuje zapis w tle) nie moze
+        // gubic tej sekcji - tak wczesniej ginal identyfikator aplikacji.
+        var cloned = store.CloneState(restarted);
+        Equal(
+            TimeSpan.FromMinutes(7) + TimeSpan.FromSeconds(42),
+            SpotifyPlaybackSettingsResolver.ResolvePosition(cloned.Settings, poOdswiezeniu));
+
+        // "Zawsze od poczatku" MUSI wyczyscic zapisana pozycje, inaczej stara
+        // wartosc wrocilaby po ponownym wlaczeniu pamietania.
+        SpotifyPlaybackSettingsResolver.SetItemMode(
+            restarted.Settings,
+            poOdswiezeniu,
+            ResumePositionMode.StartFromBeginning);
+        SpotifyPlaybackSettingsResolver.StorePosition(
+            restarted.Settings,
+            poOdswiezeniu,
+            TimeSpan.FromMinutes(9));
+        Equal(
+            TimeSpan.Zero,
+            SpotifyPlaybackSettingsResolver.ResolvePosition(restarted.Settings, poOdswiezeniu));
+    }
+    finally
+    {
+        Directory.Delete(directory, true);
+    }
+    Console.WriteLine("OK: pamiec pozycji Spotify przezywa restart i odswiezenie cache");
 }
 
 static void Equal<T>(T expected, T actual)
