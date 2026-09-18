@@ -31,9 +31,30 @@ jobs:
           cargo +stable --version
       - name: Build Windows receiver without any account
         shell: pwsh
+        env:
+          # Statyczny CRT - u Michała dynamiczne exe padało 0xC0000135
+          # (brak VCRUNTIME140.dll). Jawny --target chroni proc-macro hosta.
+          RUSTFLAGS: -C target-feature=+crt-static
         run: |
           cargo +stable build --locked --release --target x86_64-pc-windows-msvc --no-default-features --features native-tls,rodio-backend,with-libmdns
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prove the CLI needs no VC++ runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = 'target/x86_64-pc-windows-msvc/release/librespot.exe'
+          $dumpbin = Get-ChildItem -Path 'C:\Program Files*\Microsoft Visual Studio' -Recurse -Filter dumpbin.exe -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $dumpbin) { Write-Error 'nie znaleziono dumpbin.exe'; exit 1 }
+          $imports = & $dumpbin /imports $exe | Out-String
+          Set-Content -Path imports-librespot.txt -Value $imports -Encoding utf8
+          foreach ($dll in @('VCRUNTIME140', 'MSVCP140', 'api-ms-win-crt')) {
+            if ($imports -match [regex]::Escape($dll)) {
+              Write-Error "librespot.exe wciaz importuje $dll"
+              exit 1
+            }
+          }
+          Write-Host 'librespot.exe: brak importow VC++ runtime.'
       - name: Smoke test CLI and prepare provenance
         shell: pwsh
         run: |
@@ -45,10 +66,12 @@ jobs:
           New-Item -ItemType Directory -Path out | Out-Null
           Copy-Item $exe out/librespot.exe
           Copy-Item LICENSE out/LICENSE-librespot.txt
+          Copy-Item imports-librespot.txt out/imports-librespot.txt -ErrorAction SilentlyContinue
           $receipt=[ordered]@{
             upstream='https://github.com/librespot-org/librespot'
             commit=(git rev-parse HEAD)
             target='x86_64-pc-windows-msvc'
+            crtStatic=$true
             sha256=(Get-FileHash out/librespot.exe -Algorithm SHA256).Hash.ToLowerInvariant()
             version=(& $exe --version | Out-String).Trim()
           }
@@ -86,16 +109,51 @@ jobs:
       - name: Build release binary
         shell: pwsh
         working-directory: native/AmcSpotifyLibrespotHost
+        env:
+          # Statyczny CRT: exe ma działać u użytkownika BEZ instalowania VC++ Redist.
+          # Zmierzone na maszynie Michała: dynamicznie linkowane exe padało
+          # 0xC0000135 (brak VCRUNTIME140.dll/MSVCP140.dll w System32).
+          # Jawny --target jest konieczny, żeby flaga nie dotknęła proc-macro hosta.
+          RUSTFLAGS: -C target-feature=+crt-static
         run: |
           cargo +stable build --release --target x86_64-pc-windows-msvc
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run protocol tests (no Spotify account, no network playback)
         shell: pwsh
         working-directory: native/AmcSpotifyLibrespotHost
+        env:
+          RUSTFLAGS: -C target-feature=+crt-static
         run: |
           # -- nocapture: chcemy widzieć realne wyniki, nie tylko podsumowanie.
           cargo +stable test --release --target x86_64-pc-windows-msvc -- --nocapture --test-threads=2
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prove the exe needs no VC++ runtime (import table, not just a happy run)
+        shell: pwsh
+        working-directory: native/AmcSpotifyLibrespotHost
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = 'target/x86_64-pc-windows-msvc/release/amc_spotify_librespot_host.exe'
+          # Runner MA runtime VC++, więc samo uruchomienie nic nie dowodzi.
+          # Dowodem jest tablica importów.
+          $dumpbin = Get-ChildItem -Path 'C:\Program Files*\Microsoft Visual Studio' -Recurse -Filter dumpbin.exe -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $dumpbin) { Write-Error 'nie znaleziono dumpbin.exe - nie umiem udowodnic importow'; exit 1 }
+          Write-Host "dumpbin: $dumpbin"
+          $imports = & $dumpbin /imports $exe | Out-String
+          Set-Content -Path imports.txt -Value $imports -Encoding utf8
+          $bad = @('VCRUNTIME140', 'MSVCP140', 'VCRUNTIME140_1', 'api-ms-win-crt')
+          $found = @()
+          foreach ($dll in $bad) {
+            if ($imports -match [regex]::Escape($dll)) { $found += $dll }
+          }
+          $dlls = ([regex]::Matches($imports, '(?im)^\s{4}(\S+\.dll)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+          Write-Host '--- importowane biblioteki ---'
+          $dlls | ForEach-Object { Write-Host "  $_" }
+          if ($found.Count -gt 0) {
+            Write-Error "exe wymaga VC++ Redist: $($found -join ', ') - crt-static nie zadzialal"
+            exit 1
+          }
+          Write-Host 'Potwierdzone: brak importow VCRUNTIME140/MSVCP140/api-ms-win-crt.'
       - name: Prove stdout is JSON lines only (live process, PowerShell driver)
         shell: pwsh
         working-directory: native/AmcSpotifyLibrespotHost
@@ -146,6 +204,7 @@ jobs:
           New-Item -ItemType Directory -Path out -Force | Out-Null
           Copy-Item $exe out/amc_spotify_librespot_host.exe
           Copy-Item stdout.txt out/protocol-stdout-sample.jsonl -ErrorAction SilentlyContinue
+          Copy-Item imports.txt out/imports-amc-host.txt -ErrorAction SilentlyContinue
           if (Test-Path Cargo.lock) { Copy-Item Cargo.lock out/Cargo.lock }
           $hash = (Get-FileHash out/amc_spotify_librespot_host.exe -Algorithm SHA256).Hash.ToLowerInvariant()
           $receipt = [ordered]@{
@@ -155,6 +214,8 @@ jobs:
             librespotRev      = 'd36f9f1907e8cc9d68a93f8ebc6b627b1bf7267d'
             librespotVersion  = '0.8.0'
             features          = 'native-tls, rodio-backend (bez discovery/Spirc)'
+            bitrate           = '320 kbps (jawnie)'
+            crtStatic         = $true
             protocolVersion   = 1
             sessionId         = 'spotifyLibrespot'
             amcCommit         = (git rev-parse HEAD)

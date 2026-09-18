@@ -18,7 +18,7 @@ struct Host {
 
 impl Host {
     fn start() -> Self {
-        let child = Command::new(env!("CARGO_BIN_EXE_amc_spotify_librespot_host"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_amc_spotify_librespot_host"))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

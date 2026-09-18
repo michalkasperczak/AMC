@@ -28,7 +28,7 @@ use librespot_core::config::SessionConfig;
 use librespot_core::session::Session;
 use librespot_core::spotify_uri::SpotifyUri;
 use librespot_playback::audio_backend;
-use librespot_playback::config::{AudioFormat, PlayerConfig, VolumeCtrl};
+use librespot_playback::config::{AudioFormat, Bitrate, PlayerConfig, VolumeCtrl};
 use librespot_playback::mixer::{softmixer::SoftMixer, Mixer, MixerConfig};
 use librespot_playback::player::{Player, PlayerEvent};
 
@@ -137,6 +137,8 @@ impl Engine {
         mixer.set_volume(volume_pct_to_raw(volume_pct));
 
         let player_config = PlayerConfig {
+            // Jawnie najwyższa jakość: bez tego Librespot bierze 160 kbps.
+            bitrate: Bitrate::Bitrate320,
             // Jawnie: bez tego nie ma PositionChanged, a AMC potrzebuje pozycji.
             position_update_interval: Some(POSITION_UPDATE_INTERVAL),
             ..PlayerConfig::default()
