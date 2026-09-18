@@ -7009,7 +7009,7 @@ static void TestCacheZachowujeSource()
         Source = "spotify:track:4aBcDeF"
     };
 
-    var zapisany = TidalCachedCollectionItemSettings.From(utwor);
+    var zapisany = TidalCachedCollectionItemSettings.FromMediaItem(utwor);
     var odczytany = zapisany.ToMediaItem();
 
     if (!string.Equals(odczytany.Source, utwor.Source, StringComparison.Ordinal))
