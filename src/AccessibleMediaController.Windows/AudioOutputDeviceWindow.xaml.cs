@@ -12,10 +12,20 @@ public partial class AudioOutputDeviceWindow : Window
     public AudioOutputDeviceWindow(
         string sessionName,
         string? selectedDeviceId)
+        : this(sessionName, selectedDeviceId, AudioOutputDeviceCatalog.Enumerate(selectedDeviceId))
     {
+    }
+
+    internal AudioOutputDeviceWindow(
+        string sessionName,
+        string? selectedDeviceId,
+        IReadOnlyList<AudioOutputDeviceChoice> choices)
+    {
+        ArgumentNullException.ThrowIfNull(choices);
+        if (choices.Count == 0) throw new ArgumentException("Lista urządzeń nie może być pusta.", nameof(choices));
         InitializeComponent();
         HeadingText.Text = $"Urządzenie audio — {sessionName}";
-        _choices = AudioOutputDeviceCatalog.Enumerate(selectedDeviceId);
+        _choices = choices.ToArray();
         DeviceCombo.ItemsSource = _choices;
         DeviceCombo.SelectedItem = _choices.FirstOrDefault(choice => string.Equals(
             choice.Id,

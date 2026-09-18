@@ -2246,6 +2246,29 @@ static void TestLocalPlaybackAudioSettingsInheritance()
         sesjaNadOgolnym).Split(", ")[1].Split(";")[0]);
 }
 
+// Izolowany przebieg JEDNEGO testu: "--only <fragment nazwy>". Sluzy do
+// powtarzania testu wrazliwego na wyscigi bez czekania na caly zestaw. Brak
+// dopasowania jest BLEDEM, nie cichym zaliczeniem zera testow.
+var onlyIndex = Array.IndexOf(args, "--only");
+if (onlyIndex >= 0)
+{
+    if (onlyIndex + 1 >= args.Length)
+    {
+        Console.Error.WriteLine("BŁĄD: --only wymaga fragmentu nazwy testu.");
+        return 2;
+    }
+    var fragment = args[onlyIndex + 1];
+    var wybrane = tests
+        .Where(entry => entry.Name.Contains(fragment, StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+    if (wybrane.Length == 0)
+    {
+        Console.Error.WriteLine($"BŁĄD: żaden test nie pasuje do „{fragment}”.");
+        return 2;
+    }
+    tests = wybrane;
+}
+
 var failures = new List<string>();
 foreach (var (name, test) in tests)
 {

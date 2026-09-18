@@ -48,6 +48,16 @@ if (args.Length == 1 && args[0].StartsWith("--smoke-runner-failure=", StringComp
     SmokeTestRunnerTests.SimulateFailure(args[0]["--smoke-runner-failure=".Length..]);
     throw new InvalidOperationException("Symulowane niepowodzenie nie zostało zgłoszone.");
 }
+if (args.Contains("--spotify-native-collection", StringComparer.Ordinal))
+{
+    try { SpotifyNativeCollectionTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--librespot-preparation-races", StringComparer.Ordinal))
+{
+    try { SpotifyLibrespotPreparationRaceTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--librespot-output-smoke", StringComparer.Ordinal))
 {
     SpotifyLibrespotOutputTests.Run();
@@ -195,6 +205,8 @@ var tests = new (string Name, Action Test)[]
     ("Spotify zachowuje pozycję także poprzedniego utworu", SpotifyOptionsPersistenceTests.Run),
     ("Zdalne wyszukiwanie Spotify jak TIDAL", SpotifySearchTests.Run),
     ("Wyjście sesji Spotify — Librespot", SpotifyLibrespotOutputTests.Run),
+    ("Wspólna kolekcja i oddzielne kolejki Spotify SDK/Librespot", SpotifyNativeCollectionTests.Run),
+    ("Librespot: pauza, stop i nowy utwór podczas ustawiania głośności", SpotifyLibrespotPreparationRaceTests.Run),
     ("Sesja Spotify ma konto pod Ctrl+F5", TestSpotifyKontoPodCtrlF5),
     ("Spotify nie przesuwa numerow istniejacych sesji", TestSpotifyNiePrzesuwaNumerowSesji),
     ("Adres powrotu Spotify nie uzywa nazwy localhost", TestSpotifyAdresPowrotuBezLocalhost),
@@ -6974,8 +6986,8 @@ static void TestSpotifyObslugaListyJakTidal()
         if (start < 0) throw new Exception($"Nie znaleziono metody {metoda}.");
         var koniec = glowne.IndexOf("\n    }", start, StringComparison.Ordinal);
         var trescMetody = glowne[start..(koniec < 0 ? glowne.Length : koniec)];
-        if (!trescMetody.Contains("\"spotify\"", StringComparison.Ordinal))
-            throw new Exception($"Przejscie do {opis} nie obsluguje sesji Spotify.");
+        if (!trescMetody.Contains("SpotifyPlaybackSettingsResolver.IsSpotifySession(ActionSession.Id)", StringComparison.Ordinal))
+            throw new Exception($"Przejscie do {opis} nie obsluguje obu sesji Spotify.");
         if (!trescMetody.Contains("OpenSpotifyContainerAsync", StringComparison.Ordinal))
             throw new Exception($"Przejscie do {opis} w Spotify nie otwiera zawartosci.");
     }

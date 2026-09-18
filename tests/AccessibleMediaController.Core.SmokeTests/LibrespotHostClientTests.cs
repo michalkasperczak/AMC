@@ -839,27 +839,46 @@ internal static class LibrespotHostClientTests
         public void EmitRaw(string text) => channel.Write(text);
 
         /// <summary>
-        /// Bariera: czeka, az transport OBSLUZYL wszystkie dotad wyslane linie.
-        /// Samo wyslanie tylko wstawia linie do kolejki, wiec asercja zrobiona od
-        /// razu po wyslaniu mierzylaby wyscig, a nie zachowanie. Sleep by tego nie
-        /// rozwiazal - dawalby test losowo zielony.
+        /// Bariera oparta o PRAWDZIWE polecenie protokolu, tak samo jak w tescie
+        /// adaptera WPF. Wysylamy „ping” i czekamy na jego potwierdzenie.
         ///
-        /// Dziala tak: wysylamy linie-znacznik i czekamy, az czytelnik ja POBIERZE.
-        /// Czytelnik pobiera nastepna linie dopiero po obsludze poprzedniej, wiec
-        /// pobranie znacznika dowodzi obslugi wszystkiego przed nim.
+        /// Poprzednia wersja wstrzykiwala sztuczne „ready” w srodku sesji i
+        /// czekala, az czytelnik POBIERZE te linie z kolejki. To bylo bledne z
+        /// dwoch powodow: pobranie linii nie jest jeszcze jej obsluzeniem (licznik
+        /// rosnie w chwili zdjecia z kolejki, a zdarzenie leci dopiero po
+        /// skopiowaniu i sparsowaniu znakow), a powitanie w srodku sesji zasmieca
+        /// protokol. Testy wychodzily raz zielone, raz czerwone.
+        ///
+        /// Ping jest dowodem MOCNIEJSZYM: jego potwierdzenie wraca kolejka PO
+        /// wszystkim, co host wyslal wczesniej, a transport konczy zadanie dopiero
+        /// gdy OBSLUZY linie z ackiem - wiec obsluzyl tez wszystko przed nim.
+        ///
+        /// Gdy transport wlasnie padl (test awarii hosta), ping rzuca wyjatkiem.
+        /// To tez dowodzi, ze linia bledu zostala obsluzona, wiec milczymy.
         /// </summary>
         public void Settle()
         {
-            var target = channel.Write(new JsonObject
+            var current = client
+                ?? throw new InvalidOperationException("Brak klienta w atrapie hosta.");
+            var wasAcking = AutoAck;
+            AutoAck = true;
+            try
             {
-                ["type"] = "ready",
-                ["protocolVersion"] = LibrespotHostContract.ProtocolVersion
-            }.ToJsonString());
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-            while (channel.DequeuedCount < target && DateTime.UtcNow < deadline)
-                Thread.Sleep(5);
-            if (channel.DequeuedCount < target)
-                throw new InvalidOperationException("Transport nie obsłużył wysłanych linii hosta.");
+                if (!current.PingAsync().Wait(TimeSpan.FromSeconds(10)))
+                    throw new InvalidOperationException("Transport nie odpowiedział na ping w barierze.");
+            }
+            catch (AggregateException exception)
+                when (exception.InnerException is LibrespotHostException)
+            {
+                // Transport padl - poprzednie linie sa juz obsluzone.
+            }
+            catch (LibrespotHostException)
+            {
+            }
+            finally
+            {
+                AutoAck = wasAcking;
+            }
         }
 
         public string RawInput()

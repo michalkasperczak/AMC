@@ -31,6 +31,7 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
     private string? loadedItemId;
     private TimeSpan position;
     private long currentPlayId;
+    private long preparationVersion;
     private bool isPreparing;
     private bool playbackStarted;
     private bool disposed;
@@ -74,6 +75,8 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
     /// <summary>Host Librespot nie zmienia tempa odtwarzania, tak jak sesja SDK.</summary>
     public bool SupportsPlaybackRate => false;
 
+    internal Task PendingPlaybackStart { get; private set; } = Task.CompletedTask;
+
     public void SetPlaybackRate(double playbackRate)
     {
         // Host Librespot nie ma zmiany tempa odtwarzania. Swiadomie nic nie robimy.
@@ -97,9 +100,11 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
 
         var start = position < TimeSpan.Zero ? TimeSpan.Zero : position;
         long playId;
+        long version;
         lock (stateGate)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
+            version = ++preparationVersion;
             // playId nadaje AMC. Dwa uruchomienia tego samego utworu to dwa
             // rozne playId, wiec zdarzenia pierwszego nie ruszaja drugiego.
             playId = ++currentPlayId;
@@ -112,16 +117,24 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
 
         RaiseOnUi(() => PlaybackPreparing?.Invoke(
             this, new MediaPlaybackPreparingEventArgs(item, false)));
-        _ = StartAsync(item, uri, start, volume, playId);
+        PendingPlaybackStart = StartAsync(item, uri, start, volume, playId, version);
     }
 
     private async Task StartAsync(
-        MediaItem item, string uri, TimeSpan start, int volume, long playId)
+        MediaItem item, string uri, TimeSpan start, int volume, long playId, long version)
     {
         try
         {
             await client.SetVolumeAsync(volume).ConfigureAwait(false);
-            var outcome = await client.PlayAsync(uri, start, playId).ConfigureAwait(false);
+            Task<LibrespotPlayOutcome> play;
+            lock (stateGate)
+            {
+                if (disposed || version != preparationVersion || currentPlayId != playId) return;
+                // Register the attempt before Pause/Stop can interleave. The async
+                // transport yields while waiting for the host, outside this lock.
+                play = client.PlayAsync(uri, start, playId);
+            }
+            var outcome = await play.ConfigureAwait(false);
             if (outcome is LibrespotPlayOutcome.SupersededByPause
                 or LibrespotPlayOutcome.SupersededByStop)
             {
@@ -151,6 +164,7 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
     {
         lock (stateGate)
         {
+            preparationVersion++;
             if (isPreparing) isPreparing = false;
             playbackStarted = false;
         }
@@ -164,6 +178,7 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
     {
         lock (stateGate)
         {
+            preparationVersion++;
             loadedItemId = null;
             currentItem = null;
             position = TimeSpan.Zero;

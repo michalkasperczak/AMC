@@ -26,6 +26,7 @@ internal static class SpotifyLibrespotOutputTests
         TenSamUtworDwaRazyNieDostajeStaregoKonca();
         PauzaWPrzygotowaniuNieWlaczaMuzyki();
         StopWPrzygotowaniuNieWlaczaMuzyki();
+        StanStaregoPlayIdWOknieBezTransportu();
         GlosnoscCzasIPrzewijanieIdaDoHosta();
         TempoOdtwarzaniaNieJestObslugiwane();
         KontenerNieJestOdtwarzany();
@@ -166,8 +167,15 @@ internal static class SpotifyLibrespotOutputTests
         var item = Utwor();
         scena.Output.Play(item, TimeSpan.Zero, 70, 1d);
         scena.Host.WaitForCommand("play");
+        Check(scena.Output.IsPreparing, "Przed pauzą przygotowanie musi trwać, inaczej test nic nie mierzy");
         // Uzytkownik pauzuje, gdy host jeszcze nie potwierdzil grania.
         scena.Output.Pause();
+        // Asercja NATYCHMIAST po pauzie, jeszcze przed potwierdzeniem grania.
+        // Adapter musi zgasic SWOJE przygotowanie sam, a nie liczyc na to, ze
+        // zrobi to za niego spozniona odpowiedz transportu na „graj”. Bez tej
+        // asercji czytnik ekranu mowilby „wczytywanie” po pauzie az do ack-a.
+        Check(!scena.Output.IsPreparing,
+            "Pauza musi zakończyć przygotowanie OD RAZU, nie dopiero po potwierdzeniu grania");
         scena.Host.WaitForCommand("pause");
         scena.Host.WithholdAck.Clear();
         scena.Host.AckAllPending();
@@ -206,6 +214,48 @@ internal static class SpotifyLibrespotOutputTests
         scena.Host.Settle();
         Check(scena.Started.Count == 0,
             "Zatrzymana próba nie może później zgłosić startu odtwarzania");
+    }
+
+    private static void StanStaregoPlayIdWOknieBezTransportu()
+    {
+        using var scena = Scena.Nowa();
+        var pierwszy = Utwor("AAA", id: "pierwszy");
+        scena.Output.Play(pierwszy, TimeSpan.Zero, 70, 1d);
+        scena.Host.Settle();
+        var pierwszePlay = scena.Host.Command("play");
+        scena.Host.EmitState(pierwszePlay.PlayId, pierwszePlay.Uri, 5_000, 180_000, isPlaying: true);
+        scena.Host.Settle();
+        Check(scena.Started.Count == 1, "Pierwszy utwór musi być potwierdzony jako grający");
+
+        // Drugi utwor: host WSTRZYMUJE potwierdzenie glosnosci, wiec adapter JUZ
+        // przelaczyl swoje playId, a transport JESZCZE nie - jego biezaca proba to
+        // wciaz pierwsza. W tym oknie zdarzenie pierwszej proby PRZECHODZI przez
+        // transport i odrzucic je moze WYLACZNIE guard playId w adapterze.
+        // To jest wlasnie regime, w ktorym warstwy NIE sa redundantne.
+        scena.Host.WithholdAck.Add("volume");
+        var drugi = Utwor("BBB", id: "drugi");
+        scena.Output.Play(drugi, TimeSpan.FromSeconds(40), 70, 1d);
+        scena.Host.WaitForCommand("volume");
+        Check(scena.Host.CommandNames().Count(name => name == "play") == 1,
+            "Drugie „graj” nie może jeszcze wyjść: bez tego okna test mierzyłby co innego");
+
+        var startowPrzed = scena.Started.Count;
+        var czasowPrzed = scena.Durations.Count;
+        scena.Host.EmitState(pierwszePlay.PlayId, pierwszePlay.Uri, 170_000, 180_000, isPlaying: true);
+        scena.Host.Settle();
+
+        Check(scena.Started.Count == startowPrzed,
+            "Stan PIERWSZEJ próby nie może zgłosić startu DRUGIEGO utworu, który jeszcze nie zagrał");
+        Check(scena.Durations.Count == czasowPrzed,
+            "Stan PIERWSZEJ próby nie może nadpisać czasu DRUGIEGO utworu");
+        Check(scena.Output.Position == TimeSpan.FromSeconds(40),
+            "Pozycja czytana użytkownikowi musi zostać pozycją DRUGIEGO utworu, nie starą");
+        Check(scena.Output.IsPreparing,
+            "Drugi utwór nadal się przygotowuje: stan starej próby nie może tego zmienić");
+
+        scena.Host.WithholdAck.Clear();
+        scena.Host.AckAllPending();
+        scena.Host.WaitForCommand("play");
     }
 
     private static void GlosnoscCzasIPrzewijanieIdaDoHosta()

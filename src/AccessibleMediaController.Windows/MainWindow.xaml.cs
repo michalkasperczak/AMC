@@ -3810,7 +3810,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         var podcasts = string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal);
         var wiiM = string.Equals(_sessions.Current.Id, "wiim", StringComparison.Ordinal);
         var tidal = string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal);
-        var spotify = string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal);
+        var spotify = SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id);
         if (commandId == CommandIds.ManageTidalConnection) return tidal;
         if (commandId == CommandIds.ManageSpotifyConnection) return spotify;
         if (!tidal && commandId.StartsWith("tidal.", StringComparison.Ordinal)) return false;
@@ -4296,7 +4296,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             ShowPodcastPlaybackOptions(item);
             return;
         }
-        if (string.Equals(ActionSession.Id, "spotify", StringComparison.Ordinal)
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(ActionSession.Id)
             && item.Kind is MediaItemKind.Track
                 or MediaItemKind.Episode
                 or MediaItemKind.Album
@@ -6271,7 +6271,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         ManageWiiMDevicesMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
         ManageTidalConnectionMenuItem.Visibility = tidal ? Visibility.Visible : Visibility.Collapsed;
         ManageSpotifyConnectionMenuItem.Visibility =
-            string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+            SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         AddWiiMNetworkStreamMenuItem.Visibility = wiiM ? Visibility.Visible : Visibility.Collapsed;
@@ -10686,7 +10686,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (message is not null) Announce(message);
             return new CommandExecutionResult(true);
         }
-        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
             && (commandId is CommandIds.ToggleFavorite or CommandIds.ToggleLibrary))
         {
             // Spotify zachowuje sie teraz jak TIDAL: zapis idzie do konta przez
@@ -11695,7 +11695,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         }
         // Zawartosc kontenera Spotify jest cache z sieci - po nowym uruchomieniu
         // nie ma jej jeszcze, wiec zapamietane miejsce musi wrocic do Biblioteki.
-        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
             && IsSpotifyContentsView(_currentView)
             && !_spotifyContainerViews.ContainsKey(_currentView))
         {
@@ -11721,7 +11721,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : _sessions.Current.DisplayName;
         ViewHeading.Text = CurrentViewDisplayName();
         UpdateWindowTitle();
-        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
             && _spotifyContainerViews.TryGetValue(_currentView, out var spotifyContainer))
         {
             // Album zachowuje kolejnosc wydania; sortowanie alfabetyczne tylko
@@ -12515,7 +12515,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     /// </summary>
     private static bool UsesTidalStyleCollections(string sessionId) =>
         string.Equals(sessionId, "tidal", StringComparison.Ordinal)
-        || string.Equals(sessionId, "spotify", StringComparison.Ordinal);
+        || SpotifyPlaybackSettingsResolver.IsSpotifySession(sessionId);
 
     private static string CollectionOrderStorageKey(string sessionId, string viewName) =>
         viewName is "Biblioteka" or "Ulubione"
@@ -13400,7 +13400,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // Obsluga jest teraz taka sama jak w TIDAL: kontener sie otwiera, a utwor
         // i odcinek graja.  Ta galaz MUSI stac PRZED galezia Podcast ponizej,
         // inaczej podcast Spotify znowu poszedlby do bazy lokalnej.
-        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
             && CanOpenSpotifyContainer(item))
         {
             _ = OpenSpotifyContainerAsync(item);
@@ -13983,7 +13983,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // Spotify ma te same powiazania co TIDAL (ustawiane przy otwieraniu
         // albumu i wykonawcy), wiec przejscie dziala tak samo. Bez tej galezi
         // polecenie szukalo albumu w LOKALNEJ bibliotece i mowilo, ze nie ma.
-        if (string.Equals(ActionSession.Id, "spotify", StringComparison.Ordinal))
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(ActionSession.Id))
         {
             if (ActionItem is { Kind: MediaItemKind.Artist, ExternalId: { Length: > 0 } } spotifyArtist)
             {
@@ -14019,7 +14019,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce("Dla tego elementu TIDAL nie znaleziono powiązanego wykonawcy");
             return;
         }
-        if (string.Equals(ActionSession.Id, "spotify", StringComparison.Ordinal))
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(ActionSession.Id))
         {
             if (CreateRelatedSpotifyContainer(ActionItem, MediaItemKind.Artist) is { } spotifyArtist)
             {
@@ -14221,7 +14221,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _ = ChangeTidalCollectionMembershipAsync(tidalItems, add: false);
             return;
         }
-        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
             && (_currentView is "Biblioteka" or "Ulubione" or "Albumy" or "Playlisty"
                 || IsSpotifyContentsView(_currentView)))
         {
@@ -17112,7 +17112,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // kazdym wierszu - czytnik czytal wiec najpierw to samo co wszedzie.
         // Regula jest ta sama co w TIDAL i zalezy od RODZAJU kontenera, nie od
         // nazwy usługi, wiec uzywamy tej samej polityki.
-        else if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+        else if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
             && _spotifyContainerViews.TryGetValue(_currentView, out var spotifyContainer))
         {
             configuredFields = TidalNavigationPolicy.OrderFieldsForContainer(
@@ -17397,7 +17397,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return $"{tidalView.ArtistSection?.Label() ?? TidalContainerLabel(tidalView.Container.Kind)} — {tidalView.Container.Title}";
         }
         // Bez tego czytnik przeczytalby techniczna nazwe widoku ("Spotify:4aBc...").
-        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
             && _spotifyContainerViews.TryGetValue(_currentView, out var spotifyView))
         {
             return $"{SpotifyContainerLabel(spotifyView.Container.Kind)} — {spotifyView.Container.Title}";
@@ -17612,7 +17612,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _state.Spotify.CachedCollectionItems.Clear();
             _sessions.FindSession("spotify")?.ReplaceItems(
                 SessionManager.CreateDemonstrationItems("spotify"));
-            if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal))
+            if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id))
                 RefreshCurrentView();
         }
         if (dialog.Changed) QueueStateSave(announceFailure: true);
@@ -17703,7 +17703,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             // listy przywracaloby stary stan po potwierdzonym zapisie.
             SynchronizeSpotifyCachedMembership(outcome.ConfirmedItems, outcome.Added);
             QueueStateSave();
-            if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal))
+            if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id))
                 RefreshCurrentView();
             var subject = outcome.ConfirmedItems.Count == 1
                 ? outcome.ConfirmedItems[0].Title
@@ -17794,23 +17794,32 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _state.Spotify.CachedCollectionItems = _spotifyItems
             .Select(TidalCachedCollectionItemSettings.FromMediaItem)
             .ToList();
-        var session = _sessions.FindSession("spotify");
-        if (session is null) return;
-        // Zapis kolekcji nie zmienia tego, co gra ani kolejki odtwarzania.
-        // ReplaceItems usuwalo biezacy utwor, gdy nie nalezal juz do Ulubionych.
-        foreach (var candidate in session.Items.Concat(_spotifyContainerViews.Values.SelectMany(view => view.Items)))
+        // Konto ma wspólną kolekcję, ale każda sesja własne obiekty i kolejkę.
+        // Nie przebudowuj sesji: usunięcie polubienia nie zatrzymuje utworu.
+        foreach (var candidate in _spotifyContainerViews.Values.SelectMany(view => view.Items))
         {
             if (confirmed.Any(item => item.Kind == candidate.Kind
                 && string.Equals(item.ExternalId, candidate.ExternalId, StringComparison.Ordinal)))
                 SpotifyCollectionSemantics.ApplyMembership(candidate, added);
         }
-        if (added)
+        foreach (var session in _sessions.Sessions.Where(session =>
+                     SpotifyPlaybackSettingsResolver.IsSpotifySession(session.Id)))
         {
-            var registered = session.Items
-                .Where(item => !string.IsNullOrWhiteSpace(item.ExternalId))
-                .Select(item => (item.Kind, item.ExternalId)).ToHashSet();
-            session.AddItemsById(confirmed.Where(item =>
-                !string.IsNullOrWhiteSpace(item.ExternalId) && registered.Add((item.Kind, item.ExternalId))));
+            foreach (var candidate in session.Items)
+            {
+                if (confirmed.Any(item => item.Kind == candidate.Kind
+                    && string.Equals(item.ExternalId, candidate.ExternalId, StringComparison.Ordinal)))
+                    SpotifyCollectionSemantics.ApplyMembership(candidate, added);
+            }
+            if (added)
+            {
+                var registered = session.Items
+                    .Where(item => !string.IsNullOrWhiteSpace(item.ExternalId))
+                    .Select(item => (item.Kind, item.ExternalId)).ToHashSet();
+                session.AddItemsById(confirmed.Where(item =>
+                        !string.IsNullOrWhiteSpace(item.ExternalId) && registered.Add((item.Kind, item.ExternalId)))
+                    .Select(item => SpotifySessionItemCopies.ForSession(item, session.Id)));
+            }
         }
         RestoreSpotifyRememberedPositions();
     }
@@ -17846,7 +17855,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // pozycji trzymana w sesji po kluczu Id przepadala. Trwale zapisy maja
         // stabilny klucz uslugi, wiec wracaja tutaj.
         RestoreSpotifyRememberedPositions();
-        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal))
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id))
             RefreshCurrentView();
         DiagnosticLog.Info(
             "spotify-sync",
@@ -20708,7 +20717,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         else if (MediaList.IsKeyboardFocusWithin
                  && modifiers == ModifierKeys.None
                  && key == Key.Right
-                 && string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal))
+                 && SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id))
             description = "otwiera zawartość albumu, playlisty lub wykonawcy Spotify";
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.None && key is Key.Up or Key.Down)
             description = "przejdź do poprzedniego lub następnego elementu listy";
@@ -20867,7 +20876,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 ExecuteCommand(CommandIds.RefreshPodcastLibrary);
             else if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
                 ExecuteCommand(CommandIds.ManageTidalConnection);
-            else if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal))
+            else if (SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id))
                 ExecuteCommand(CommandIds.ManageSpotifyConnection);
             else
                 Announce("Ctrl+F5 nie ma polecenia w bieżącej sesji");
@@ -22099,7 +22108,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // dalej i zachowuje sie jak w kazdej innej sesji.
         if (Keyboard.Modifiers == ModifierKeys.None
             && key == Key.Right
-            && string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+            && SpotifyPlaybackSettingsResolver.IsSpotifySession(_sessions.Current.Id)
             && SelectedItem is { } spotifyItem
             && HasSpotifyRelations(spotifyItem))
         {

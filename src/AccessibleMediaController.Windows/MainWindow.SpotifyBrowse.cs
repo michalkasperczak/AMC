@@ -1,5 +1,6 @@
 using System.Globalization;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Spotify;
 using AccessibleMediaController.Windows.Services;
 
 namespace AccessibleMediaController.Windows;
@@ -112,12 +113,7 @@ public partial class MainWindow
                 }
             }
 
-            var viewName = SpotifyContentsView(container);
-            _spotifyContainerViews[viewName] = new SpotifyContainerViewState(container, items);
-            // Bez dopisania do sesji Enter na utworze z tego widoku nie mialby
-            // czego odtworzyc: sesja zna tylko wlasne pozycje.
-            _sessions.FindSession("spotify")?.AddItemsById(items);
-            RestoreSpotifyRememberedPositions();
+            var viewName = StoreSpotifyContainerForSession(sessionAtStart, container, items);
 
             if (!CanPresentSpotifyResponse(requestVersion, sessionAtStart, viewAtStart, itemAtStart))
             {
@@ -152,6 +148,42 @@ public partial class MainWindow
             if (CanPresentSpotifyResponse(requestVersion, sessionAtStart, viewAtStart, itemAtStart))
                 Announce($"Nie udało się otworzyć: {label}, {container.Title}. {exception.Message}");
         }
+    }
+
+    private string StoreSpotifyContainerForSession(
+        string sessionId, MediaItem container, IReadOnlyList<MediaItem> items)
+    {
+        if (!SpotifyPlaybackSettingsResolver.IsSpotifySession(sessionId))
+            throw new ArgumentException("Nieznana sesja Spotify.", nameof(sessionId));
+        var session = _sessions.FindSession(sessionId)
+            ?? throw new InvalidOperationException("Sesja Spotify nie jest zarejestrowana.");
+        var owned = items.Select(item => sessionId == "spotify"
+            ? item : SpotifySessionItemCopies.ForSession(item, sessionId)).ToArray();
+        var existing = session.Items.GroupBy(item => item.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        for (var index = 0; index < owned.Length; index++)
+        {
+            if (!existing.TryGetValue(owned[index].Id, out var registered)) continue;
+            var incoming = owned[index];
+            // Zachowaj obiekt z jego kolejką; dopełnij jedynie pobrane relacje.
+            if (!string.IsNullOrWhiteSpace(incoming.RelatedAlbumExternalId))
+            {
+                registered.RelatedAlbumExternalId = incoming.RelatedAlbumExternalId;
+                registered.RelatedAlbumTitle = incoming.RelatedAlbumTitle;
+            }
+            if (!string.IsNullOrWhiteSpace(incoming.RelatedArtistExternalId))
+            {
+                registered.RelatedArtistExternalId = incoming.RelatedArtistExternalId;
+                registered.RelatedArtistName = incoming.RelatedArtistName;
+            }
+            owned[index] = registered;
+        }
+        session.AddItemsById(owned);
+        var viewName = sessionId == "spotify" ? SpotifyContentsView(container)
+            : $"{SpotifyContentsViewPrefix}{sessionId}:{container.ExternalId}";
+        _spotifyContainerViews[viewName] = new SpotifyContainerViewState(container, owned);
+        RestoreSpotifyRememberedPositions();
+        return viewName;
     }
 
     private async Task<IReadOnlyList<MediaItem>?> LoadSpotifyContainerItemsAsync(MediaItem container)
