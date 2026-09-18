@@ -106,6 +106,12 @@ internal sealed class SpotifyMediaOutput : IMediaOutput, IDisposable
 
         PlaybackPreparing?.Invoke(this, new MediaPlaybackPreparingEventArgs(item, false));
         _ = StartPlaybackAsync(item, position, volume, version, resumeLoadedItem, lifetime.Token);
+        // BEZPIECZNIK z sesji radia i YouTube (WatchPreparationTimeoutAsync):
+        // gdy silnik NIE odpowie wcale - nie wczyta sie SDK, padnie siec, DRM
+        // odmowi - bez tego program stoi w ciszy i NIC nie mowi, a uzytkownik
+        // niewidomy nie ma jak zgadnac, czy trwa wczytywanie, czy zawieszenie.
+        // Radio nauczylo nas, ze cisza bez komunikatu to najgorszy z bledow.
+        _ = WatchPreparationTimeoutAsync(item, version, PreparationTimeout);
     }
 
     public void Pause()
@@ -530,6 +536,39 @@ internal sealed class SpotifyMediaOutput : IMediaOutput, IDisposable
             "spotify-player",
             $"Odtwarzanie nie powiodło się; element: {item?.ExternalId ?? "brak"}; {message}");
         RaiseOnUi(() => PlaybackFailed?.Invoke(this, new MediaOutputFailedEventArgs(item, message)));
+    }
+
+    /// <summary>
+    /// Ile czekamy, zanim powiemy uzytkownikowi, ze silnik nie odpowiada.
+    /// 45 sekund, bo Web Playback SDK musi sciagnac skrypt Spotify, zarejestrowac
+    /// urzadzenie i przejsc uzgodnienie DRM - na wolnym laczu 25 sekund radia
+    /// bylo za malo i dawalo falszywy alarm przy dzialajacym odtwarzaniu.
+    /// </summary>
+    private static readonly TimeSpan PreparationTimeout = TimeSpan.FromSeconds(45);
+
+    /// <summary>
+    /// Bezpiecznik ciszy: jesli po PreparationTimeout nadal przygotowujemy TE
+    /// SAMA probe odtwarzania, mowimy o tym wprost zamiast milczec.
+    /// Sprawdzenie numeru proby jest istotne - bez niego bezpiecznik starej
+    /// proby zabilby komunikatem odtwarzanie juz zmienionego utworu.
+    /// </summary>
+    private async Task WatchPreparationTimeoutAsync(MediaItem item, int requestVersion, TimeSpan timeout)
+    {
+        await Task.Delay(timeout).ConfigureAwait(false);
+        lock (stateGate)
+        {
+            if (disposed) return;
+            if (requestVersion != playbackRequestVersion) return;
+            if (!isPreparing || playbackStarted) return;
+            isPreparing = false;
+        }
+
+        DiagnosticLog.Warning(
+            "spotify-player",
+            $"Przekroczono czas przygotowania odtwarzania ({timeout.TotalSeconds:F0} s); element: {item.ExternalId ?? item.Id}.");
+        HandleFailure(
+            item,
+            "Odtwarzacz Spotify nie odpowiedział w bezpiecznym czasie. Sprawdź połączenie z internetem i spróbuj ponownie.");
     }
 
     private void RaiseOnUi(Action action)
