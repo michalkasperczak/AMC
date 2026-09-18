@@ -60,12 +60,10 @@ public partial class MainWindow
     {
         var settings = _state.Settings;
 
-        // Album, podcast i lista dostaja ustawienie pojemnika, ktore obejmuje
+        // Album i podcast dostaja ustawienie pojemnika, ktore obejmuje
         // wszystkie ich utwory lub odcinki. Utwor i odcinek dostaja ustawienie
         // wlasne, nadrzedne wobec pojemnika.
-        var container = item.Kind is MediaItemKind.Album
-            or MediaItemKind.Podcast
-            or MediaItemKind.Playlist;
+        var container = item.Kind is MediaItemKind.Album or MediaItemKind.Podcast;
         var target = container
             ? ItemPlaybackOptionsTarget.SpotifyContainer
             : ItemPlaybackOptionsTarget.SpotifyItem;
@@ -185,7 +183,13 @@ public partial class MainWindow
     private void CaptureSpotifyPlaybackPosition()
     {
         var session = _sessions.FindSession(SpotifyPlaybackSettingsResolver.SessionId);
-        if (session is null || !session.HasCurrentItem) return;
+        if (session is null) return;
+        foreach (var item in session.Items)
+        {
+            if (session.RememberedPositions.TryGetValue(item.Id, out var remembered))
+                SpotifyPlaybackSettingsResolver.StorePosition(_state.Settings, item, remembered);
+        }
+        if (!session.HasCurrentItem) return;
         SpotifyPlaybackSettingsResolver.StorePosition(
             _state.Settings,
             session.CurrentItem,
@@ -220,15 +224,18 @@ public partial class MainWindow
         var session = _sessions.FindSession(SpotifyPlaybackSettingsResolver.SessionId);
         if (session is null || !session.HasCurrentItem) return;
         var currentTicks = session.Position.Ticks;
-        if (currentTicks == _lastSavedSpotifyPositionTicks) return;
+        if (currentTicks == _lastSavedSpotifyPositionTicks
+            && session.CurrentItem.Id == _lastSavedSpotifyItemId) return;
         if (DateTime.UtcNow - _lastSpotifyStateSaveUtc < TimeSpan.FromSeconds(15)) return;
 
         CaptureSpotifyPlaybackPosition();
         if (!QueueStateSave()) return;
         _lastSavedSpotifyPositionTicks = currentTicks;
+        _lastSavedSpotifyItemId = session.CurrentItem.Id;
         _lastSpotifyStateSaveUtc = DateTime.UtcNow;
     }
 
+    private string? _lastSavedSpotifyItemId;
     private long _lastSavedSpotifyPositionTicks = -1;
     private DateTime _lastSpotifyStateSaveUtc = DateTime.MinValue;
 }

@@ -64,7 +64,7 @@ public static class SpotifyPlaybackSettingsResolver
     public static string? ContainerKey(MediaItem? item)
     {
         if (item is null) return null;
-        if (item.Kind is MediaItemKind.Album or MediaItemKind.Podcast or MediaItemKind.Playlist)
+        if (item.Kind is MediaItemKind.Album or MediaItemKind.Podcast)
         {
             var wlasny = StorageKey(item);
             return wlasny.Length == 0 ? null : wlasny;

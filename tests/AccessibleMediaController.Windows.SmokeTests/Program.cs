@@ -187,6 +187,7 @@ var tests = new (string Name, Action Test)[]
     ("Czytnik i strzalka w gore czytaja co leci", TestCzytnikStrzalkaWGoreCzytaCoLeci),
     ("Brak dysku chmurowego mowi prawde, nie radzi czekac", TestBrakDyskuChmurowegoMowiPrawde),
     ("Zywa transmisja YouTube nie cofa dzwieku", TestLiveYouTubeUsesFfmpegAndDoesNotSeek),
+    ("Spotify zachowuje pozycję także poprzedniego utworu", SpotifyOptionsPersistenceTests.Run),
     ("Sesja Spotify ma konto pod Ctrl+F5", TestSpotifyKontoPodCtrlF5),
     ("Spotify nie przesuwa numerow istniejacych sesji", TestSpotifyNiePrzesuwaNumerowSesji),
     ("Adres powrotu Spotify nie uzywa nazwy localhost", TestSpotifyAdresPowrotuBezLocalhost),
@@ -6826,7 +6827,7 @@ static void TestSpotifyOknoOpcjiBezMartwychDsp()
                 "Pamiec pozycji Spotify musi byc aktywna - to jedyne realne ustawienie tej sesji.");
             Assert(pamiec.SelectedItem?.ToString() == "Pamiętaj pozycję odtwarzania",
                 "Okno nie wczytalo zapisanego wyboru pamieci pozycji Spotify.");
-            Assert(AutomationProperties.GetName(pamiec) == "Pozycja odtwarzania",
+            Assert(AutomationProperties.GetName(pamiec) == "Pozycja odtwarzania tego utworu lub odcinka",
                 "Lista pamieci pozycji nie ma nazwy dla czytnika ekranu.");
 
             foreach (var martwa in new[]
@@ -7108,8 +7109,8 @@ static void TestSpotifyNiePrzesuwaNumerowSesji()
     if (!ustawienia.Contains("[7] = \"spotify\"", StringComparison.Ordinal))
         throw new Exception("Sesja Spotify nie ma domyslnego numeru (oczekiwany 7).");
 
-    var sesje = File.ReadAllText(ZnajdzPlikZrodlowy("SessionManager.cs"));
-    if (!sesje.Contains("new DemoMediaSession(\"spotify\"", StringComparison.Ordinal))
+    var sesje = new SessionManager(new AppSettings());
+    if (sesje.FindSession("spotify") is null || sesje.FindSlot("spotify") != 7)
         throw new Exception("SessionManager nie tworzy sesji Spotify.");
 }
 

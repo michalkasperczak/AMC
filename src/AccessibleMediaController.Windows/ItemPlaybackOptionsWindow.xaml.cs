@@ -22,7 +22,7 @@ public enum ItemPlaybackOptionsTarget
     /// </summary>
     SpotifyItem,
 
-    /// <summary>Album, podcast albo lista Spotify - poziom nad pozycja.</summary>
+    /// <summary>Album albo podcast Spotify - poziom nad pozycja.</summary>
     SpotifyContainer,
 
     /// <summary>
@@ -194,7 +194,7 @@ public partial class ItemPlaybackOptionsWindow : Window
             AutomationProperties.SetHelpText(
                 ResumeModeBox,
                 pojemnik
-                    ? "Obejmuje wszystkie utwory lub odcinki z tego albumu, podcastu albo listy. "
+                    ? "Obejmuje wszystkie utwory lub odcinki z tego albumu albo podcastu. "
                       + "Pojedynczy utwór może to nadpisać."
                     : "Dotyczy tylko tego utworu lub odcinka. Bez własnego wyboru obowiązuje "
                       + "ustawienie albumu lub podcastu, potem sesji Spotify, a na końcu ogólne.");

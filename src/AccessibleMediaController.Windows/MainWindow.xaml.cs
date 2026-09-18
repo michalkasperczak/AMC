@@ -4291,8 +4291,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             && item.Kind is MediaItemKind.Track
                 or MediaItemKind.Episode
                 or MediaItemKind.Album
-                or MediaItemKind.Podcast
-                or MediaItemKind.Playlist)
+                or MediaItemKind.Podcast)
         {
             // ZGLOSZENIE Michala 18.09.2026: tu Spotify trafial w zaslepke
             // ponizej i Alt+Shift+Enter nie otwieralo zadnego okna.
@@ -17595,6 +17594,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     /// </summary>
     private void ApplySpotifyItems(IReadOnlyList<MediaItem> items, bool catalogComplete)
     {
+        CaptureSpotifyPlaybackPosition();
         var session = _sessions.FindSession("spotify");
         var retainedQueuedItems = _spotifyCatalogSynchronized && session is not null
             ? session.Items.Where(item => item.IsInQueue || item.IsPlayNext).ToArray()
