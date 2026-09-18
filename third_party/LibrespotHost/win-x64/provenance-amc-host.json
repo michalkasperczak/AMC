@@ -1,0 +1,17 @@
+{
+  "binary": "amc_spotify_librespot_host.exe",
+  "sha256": "f5b614f01d8943b5872d9a2bb86658761198b763bb25c1647aa79268a2473c8e",
+  "target": "x86_64-pc-windows-msvc",
+  "librespotRev": "d36f9f1907e8cc9d68a93f8ebc6b627b1bf7267d",
+  "librespotVersion": "0.8.0",
+  "features": "native-tls, rodio-backend (bez discovery/Spirc)",
+  "bitrate": "320 kbps (jawne zadanie, nie pomiar realnego codeca)",
+  "audioFormat": "F32 na wyjsciu (WASAPI); to nie jest lossless",
+  "crtStatic": true,
+  "protocolVersion": 1,
+  "sessionId": "spotifyLibrespot",
+  "amcCommit": "791c8dbf2b3279f1bb8fee9220bf95d714168c96",
+  "runUrl": "https://github.com/michalkasperczak/AMC/actions/runs/35381167099",
+  "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "niezmierzone": "Odtwarzanie na koncie Spotify: NIE mierzone (brak konta i tokenu w CI). Przyjecie tokenu AMC przez Librespot: nie sprawdzone. Slyszalny dzwiek i realny poziom glosnosci na urzadzeniu: nie mierzone (runner bez karty dzwiekowej)."
+}

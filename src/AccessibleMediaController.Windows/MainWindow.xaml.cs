@@ -335,6 +335,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _spotifyOutput.PlaybackEnded += SpotifyOutput_PlaybackEnded;
         _spotifyOutput.PlaybackPreparing += SpotifyOutput_PlaybackPreparing;
         _spotifyOutput.PlaybackStarted += SpotifyOutput_PlaybackStarted;
+        // Druga, niezalezna sesja Spotify (Librespot). Powstaje TERAZ, zeby
+        // RebuildCore mial czym ja zarejestrowac, ale host procesu NIE startuje:
+        // adapter tworzy transport leniwie, przy pierwszym uzyciu.
+        _spotifyLibrespotOutput = CreateSpotifyLibrespotOutput();
         LoadPersistedTidalCatalog();
         _statePersistence = new StatePersistenceQueue(store, BackgroundStateSaveFailed);
         _radioRecognitionMonitoring = _state.Radio.AutomaticTrackRecognitionEnabled;
@@ -6775,7 +6779,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     private bool CurrentSessionSupportsAudioOutputSelection() =>
-        _sessions.Current.Id is "local" or "radio" or "podcasts";
+        _sessions.Current.Id is "local" or "radio" or "podcasts" or SpotifyLibrespotSessionId;
 
     private void ConfigureOutputDevice(string sessionId, string? deviceId)
     {
@@ -6799,6 +6803,14 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!CurrentSessionSupportsAudioOutputSelection())
         {
             Announce("Ta sesja nie ma jeszcze własnego toru odtwarzania w AMC");
+            return;
+        }
+
+        // Librespot nie korzysta z naszego toru NAudio: wyjscie wybiera sam
+        // proces hosta, wiec ten sam skrot prowadzi do wlasnego okna wyboru.
+        if (string.Equals(session.Id, SpotifyLibrespotSessionId, StringComparison.Ordinal))
+        {
+            _ = ChooseSpotifyLibrespotDeviceAsync();
             return;
         }
 
@@ -9377,6 +9389,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _playbackHistoryCursors.Clear();
         _undoSequence = 0;
         var previousSpotify = _sessions?.FindSession("spotify");
+        // Grajaca sesja Librespot przezywa zmiane ustawien tak samo jak SDK:
+        // przenosimy ten SAM obiekt sesji, wiec kolejka, biezacy utwor i czas
+        // zostaja, a proces hosta nie jest restartowany.
+        var previousSpotifyLibrespot = _sessions?.FindSession(SpotifyLibrespotSessionId);
         _sessions = new SessionManager(_state.Settings, _tidalOutput, _spotifyOutput, previousSpotify);
         if (_sessions.FindSession("tidal") is { } tidalSession
             && _tidalIntegration.IsConfigured
@@ -9408,6 +9424,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // Przy zmianie ustawien SDK nadal gra. Zachowujemy tozsamosc sesji,
         // biezacy utwor i kolejke bez ponownego Play ani zerowania czasu.
         if (previousSpotify is null) RestoreSpotifyCachedItems();
+        // Druga sesja Spotify dopisuje sie PO zbudowaniu listy, wiec nie rusza
+        // slotow ani kolejnosci sesji, ktore Michal ma wyuczone. Przy zmianie
+        // ustawien wraca ten sam obiekt sesji: grajacy utwor i kolejka zostaja.
+        var librespotSession = _sessions.RegisterSpotifyLibrespotSession(
+            _spotifyLibrespotOutput,
+            previousSpotifyLibrespot);
+        PopulateSpotifyLibrespotCatalog(restoreQueue: previousSpotifyLibrespot is null);
+        if (previousSpotifyLibrespot is null
+            && string.Equals(desiredSessionId, SpotifyLibrespotSessionId, StringComparison.Ordinal))
+        {
+            _sessions.SelectSession(librespotSession.Id);
+        }
         if (_sessions.FindSession("tidal") is { } restoredTidal)
         {
             var restoredTidalItem = restoredTidal.Items.FirstOrDefault(item =>
@@ -17594,6 +17622,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
 
     public void ShowSpotifyAccountManager()
     {
+        if (_sessions.Current.Id == SpotifyLibrespotSessionId)
+        {
+            ShowSpotifyLibrespotAccountManager();
+            return;
+        }
+        ShowSpotifyCatalogAccountManager();
+    }
+
+    private void ShowSpotifyCatalogAccountManager()
+    {
         var returnToPlayer = _playerViewActive;
         var dialog = new SpotifyAccountWindow(_state.Spotify, _spotifyIntegration)
         {
@@ -22466,6 +22504,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _radioOutput.Dispose();
         _tidalOutput.Dispose();
         _spotifyOutput.Dispose();
+        _spotifyLibrespotOutput.Dispose();
+        _spotifyLibrespotAuthentication.Dispose();
         _wiiMClient.Dispose();
         _wiiMCancellation.Dispose();
         _tidalIntegration.Dispose();

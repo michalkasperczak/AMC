@@ -37,6 +37,13 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
     /// <summary>Ile czekamy na PIERWSZY stan z isPlaying po przyjeciu "play".</summary>
     internal static readonly TimeSpan DefaultPreparationTimeout = TimeSpan.FromSeconds(45);
 
+    /// <summary>
+    /// Ile czekamy na kulturalne wyjscie starego procesu przy zmianie wyjscia.
+    /// Nowego procesu nie wolno stawiac wczesniej, wiec ten limit jest zarazem
+    /// gorna granica ciszy przy przelaczaniu urzadzenia.
+    /// </summary>
+    private static readonly TimeSpan HostCloseTimeout = TimeSpan.FromSeconds(6);
+
     private readonly Func<LibrespotHostClient>? clientFactory;
     private readonly Action<Action> uiInvoker;
     private readonly TimeSpan preparationTimeout;
@@ -194,11 +201,10 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
 
         RaiseOnUi(() => PlaybackPreparing?.Invoke(
             this, new MediaPlaybackPreparingEventArgs(item, false)));
-        PendingPlaybackStart = StartAsync(item, uri, start, Math.Clamp(volume, 0, 100), playId, version);
+        PendingPlaybackStart = StartAsync(item, uri, playId, version);
     }
 
-    private async Task StartAsync(
-        MediaItem item, string uri, TimeSpan start, int volume, long playId, long version)
+    private async Task StartAsync(MediaItem item, string uri, long playId, long version)
     {
         try
         {
@@ -208,14 +214,29 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
                 .ConfigureAwait(false);
             if (IsStale(playId, version, lease.Generation)) return;
 
-            await lease.Client.SetVolumeAsync(volume).ConfigureAwait(false);
+            // Logowanie trwa sekundy i uzytkownik w tym czasie steruje dalej:
+            // wycisza, przewija. Glosnosc i pozycja z chwili WYWOLANIA Play sa
+            // wiec przestarzale - bierzemy OSTATNI zamiar, inaczej SetVolume(0)
+            // albo Seek w czasie logowania ginely bez sladu.
+            int wysylanaGlosnosc;
+            TimeSpan wysylanyStart;
+            lock (stateGate)
+            {
+                if (IsStaleLocked(playId, version, lease.Generation)) return;
+                wysylanaGlosnosc = lastVolume;
+                wysylanyStart = position;
+            }
+            await lease.Client.SetVolumeAsync(wysylanaGlosnosc).ConfigureAwait(false);
             Task<LibrespotPlayOutcome> play;
             lock (stateGate)
             {
                 if (IsStaleLocked(playId, version, lease.Generation)) return;
+                // Jeszcze raz TU, a nie wyzej: przewiniecie moglo przyjsc w
+                // czasie oczekiwania na potwierdzenie glosnosci.
+                wysylanyStart = position;
                 // Register the attempt before Pause/Stop can interleave. The async
                 // transport yields while waiting for the host, outside this lock.
-                play = lease.Client.PlayAsync(uri, start, playId);
+                play = lease.Client.PlayAsync(uri, wysylanyStart, playId);
             }
             var outcome = await play.ConfigureAwait(false);
             if (outcome is LibrespotPlayOutcome.SupersededByPause
@@ -248,12 +269,34 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
         {
             HandleFailure(playId, item, FriendlyFailure(exception));
         }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Cisza jest tu najgorszym bledem: uzytkownik nacisnal odtwarzanie.
+            // Nieznany wyjatek z drogi przygotowania (dostawca poswiadczen,
+            // fabryka transportu, cokolwiek) MUSI wyjsc jako powiedziana awaria,
+            // a nie jako martwe zadanie PendingPlaybackStart. Tresci wyjatku nie
+            // pokazujemy - moglaby poniesc token.
+            DiagnosticLog.Warning(
+                "spotify-librespot",
+                $"Nieoczekiwany błąd przygotowania; typ: {exception.GetType().Name}.");
+            HandleFailure(
+                playId,
+                item,
+                "Sesja Spotify — Librespot nie zdołała rozpocząć odtwarzania. "
+                + "Sprawdź logowanie do Spotify i połączenie, potem spróbuj ponownie.");
+        }
     }
 
     /// <summary>
     /// Limit przygotowania. Host potwierdza "play", zanim cokolwiek zagra, wiec
     /// bez tej strazy zerwane logowanie albo zajete wyjscie zostawialy sesje w
     /// ciszy - dla uzytkownika niewidomego to najgorszy z bledow.
+    ///
+    /// Sama wiadomosc NIE WYSTARCZA. Host moze obudzic sie PO limicie i zaczac
+    /// grac: uzytkownik uslyszalby wtedy dzwiek juz po komunikacie o awarii i
+    /// bez wlasnego polecenia. Dlatego straz najpierw UNIEWAZNIA probe
+    /// (nowa preparationVersion odcina spozniony stan) i KONCZY odtwarzanie w
+    /// hoscie, a dopiero potem mowi o bledzie.
     /// </summary>
     private async Task WatchPreparationAsync(
         MediaItem item, long playId, long version, long generation)
@@ -266,13 +309,27 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
         {
             return;
         }
+        LibrespotHostClient? spozniony;
+        long failureId;
         lock (stateGate)
         {
             if (!isPreparing || playbackStarted) return;
             if (IsStaleLocked(playId, version, generation)) return;
+            // Uniewaznienie MUSI byc przed komunikatem. Nowa preparationVersion
+            // odcina starta z StartAsync, a nowy currentPlayId - spozniony stan
+            // "isPlaying" od hosta, ktory inaczej ogłosiłby start utworu JUZ PO
+            // powiedzeniu o awarii.
+            preparationVersion++;
+            failureId = ++currentPlayId;
+            isPreparing = false;
+            playbackStarted = false;
+            spozniony = ReadyClientLocked();
         }
+        // Cisza po "ack" znaczy, ze host wciaz probuje. Zatrzymujemy go, zeby
+        // dzwiek nie wlaczyl sie po tym, jak juz powiedzielismy o awarii.
+        if (spozniony is not null) _ = ForwardAsync(spozniony.StopAsync());
         HandleFailure(
-            playId,
+            failureId,
             item,
             "Sesja Spotify — Librespot przyjęła utwór, ale dźwięk nie zaczął się w bezpiecznym "
             + "czasie. Sprawdź wybrane wyjście dźwięku i połączenie, potem spróbuj ponownie.");
@@ -497,7 +554,7 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
             if (!wasPlaying && item is not null) resumeNeedsReload = true;
         }
 
-        if (old is not null) DetachAndClose(old);
+        if (old is not null) await DetachAndCloseAsync(old).ConfigureAwait(false);
         if (item is null || !wasPlaying)
         {
             // Nic nie gralo: nowy proces wstanie leniwie przy nastepnym Play.
@@ -597,6 +654,11 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
     /// <summary>
     /// Odlacza zdarzenia i KONCZY proces, gdy jest nasz. Cudzego transportu
     /// (podanego w konstruktorze) nie zamykamy.
+    ///
+    /// Wersja synchroniczna jest dla drog, ktore nie moga czekac (zdarzenie
+    /// awarii, Dispose): ubija proces. Gdy host JESZCZE ZYJE i mamy gdzie
+    /// czekac, uzywaj <see cref="DetachAndCloseAsync"/> - tylko ona wysyla
+    /// "shutdown", a ubity host nie oddaje urzadzenia audio po dobremu.
     /// </summary>
     private void DetachAndClose(LibrespotHostClient target)
     {
@@ -608,6 +670,33 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
         }
         catch (LibrespotHostException)
         {
+        }
+    }
+
+    /// <summary>
+    /// Kulturalne zamkniecie naszego procesu: "shutdown" i czekanie na wyjscie.
+    /// Limit jest OBOWIAZKOWY - bez niego zawieszony host (albo niedomknieta
+    /// petla czytania stdout) zablokowalby zmiane wyjscia na zawsze. Po limicie
+    /// schodzimy do ubicia, bo zostawiony proces trzymalby stare wyjscie
+    /// dzwieku i dwa wyjscia gralyby razem.
+    /// </summary>
+    private async Task DetachAndCloseAsync(LibrespotHostClient target)
+    {
+        Detach(target);
+        if (!ownsClient) return;
+        try
+        {
+            await target.DisposeAsync().AsTask().WaitAsync(HostCloseTimeout).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is LibrespotHostException or TimeoutException)
+        {
+            try
+            {
+                target.Dispose();
+            }
+            catch (LibrespotHostException)
+            {
+            }
         }
     }
 
@@ -733,6 +822,11 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
                 clientGeneration++;
                 isPreparing = false;
                 playbackStarted = false;
+                // Generacja dla komunikatu musi byc TA NOWA. Wczesniej szla
+                // stara, a straz generacji w wywolaniu zwrotnym odrzucala wtedy
+                // KAZDY komunikat o padzie hosta bez wczytanego utworu - awaria
+                // konczyla sie cisza.
+                generation = clientGeneration;
             }
         }
         if (dead is not null) DetachAndClose(dead);
@@ -794,6 +888,9 @@ internal sealed class SpotifyLibrespotMediaOutput : IMediaOutput, IDisposable
             "Składnik Librespot przysłał dane niezgodne z protokołem. Sesja została zatrzymana.",
         LibrespotHostErrorCodes.TokenLeakGuard =>
             "Odmówiono uruchomienia składnika Librespot z powodu zabezpieczenia poświadczeń.",
+        LibrespotHostErrorCodes.CredentialsUnavailable =>
+            "Nie udało się pobrać poświadczeń konta Spotify. Otwórz okno konta Spotify "
+            + "i zaloguj się ponownie, potem spróbuj odtworzyć utwór.",
         LibrespotHostErrorCodes.DeviceChangeNeedsNewHost =>
             "Tę sesję Librespot prowadzi transport zewnętrzny, który nie potrafi przełączyć wyjścia. "
             + "Zatrzymaj sesję i uruchom ją ponownie z wybranym wyjściem.",

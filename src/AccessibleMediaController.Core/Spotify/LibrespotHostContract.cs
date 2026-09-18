@@ -56,6 +56,14 @@ public static class LibrespotHostErrorCodes
     public const string TokenLeakGuard = "token_leak_guard";
 
     /// <summary>
+    /// Nie udalo sie zdobyc poswiadczen konta dla "initialize": dostawca tokenu
+    /// rzucil (siec, konto, przerwanie) albo oddal pusty token. Jest to blad
+    /// KONTA, nie procesu hosta - dlatego ma wlasny kod i wlasne zdanie dla
+    /// uzytkownika, a nie ogolna awarie skladnika.
+    /// </summary>
+    public const string CredentialsUnavailable = "credentials_unavailable";
+
+    /// <summary>
     /// Zmiana wyjscia dzwieku wymaga NOWEGO procesu hosta. Host przyjmuje
     /// "initialize" dokladnie raz i tylko z prawdziwym tokenem, wiec transport
     /// nie potrafi przelaczyc wyjscia w dzialajacej sesji - robi to warstwa

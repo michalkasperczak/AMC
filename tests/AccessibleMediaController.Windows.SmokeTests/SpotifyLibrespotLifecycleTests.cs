@@ -21,7 +21,7 @@ using AccessibleMediaController.Windows.Services;
 /// Konta tu nie ma: token jest jawnie fikcyjny, a host to atrapa strumieni.
 /// Ten zestaw NIE dowodzi odsluchu ani logowania do Spotify.
 /// </summary>
-internal static class SpotifyLibrespotLifecycleTests
+internal static partial class SpotifyLibrespotLifecycleTests
 {
     private const string FikcyjnyToken = "FIKCYJNY-TOKEN-TESTOWY-nie-jest-poswiadczeniem";
 
@@ -438,7 +438,8 @@ internal static class SpotifyLibrespotLifecycleTests
             string? device = null,
             bool withholdInitialize = false,
             TimeSpan? preparationTimeout = null,
-            Action<Action>? uiInvoker = null)
+            Action<Action>? uiInvoker = null,
+            Func<CancellationToken, Task<string>>? credentials = null)
         {
             Scena? scena = null;
             var output = new SpotifyLibrespotMediaOutput(
@@ -447,7 +448,9 @@ internal static class SpotifyLibrespotLifecycleTests
                     var host = new AtrapaHosta(DomyslneUrzadzenia());
                     if (withholdInitialize) host.WithholdAck.Add("initialize");
                     var client = new LibrespotHostClient(
-                        () => host, SzybkieOpcje, _ => Task.FromResult(FikcyjnyToken));
+                        () => host,
+                        SzybkieOpcje,
+                        credentials ?? (_ => Task.FromResult(FikcyjnyToken)));
                     host.Attach(client);
                     scena!.Register(host);
                     return client;
@@ -666,12 +669,23 @@ internal static class SpotifyLibrespotLifecycleTests
             }
         }
 
-        public void Ack(JsonObject command) => EmitLine(new JsonObject
+        /// <summary>
+        /// Potwierdzenie polecenia. Dla "initialize" MUSI tez otworzyc sesje:
+        /// prawdziwy host po potwierdzeniu logowania przyjmuje juz polecenia
+        /// sterujace. Bez tego wstrzymane initialize zostawialo atrape w stanie
+        /// notInitialized i kazde pozniejsze volume/play wracalo bledem - test
+        /// przechodzil wtedy z niewlasciwego powodu.
+        /// </summary>
+        public void Ack(JsonObject command)
         {
-            ["type"] = "ack",
-            ["sessionId"] = LibrespotHostContract.SessionId,
-            ["requestId"] = command["requestId"]!.DeepClone()
-        });
+            if (command["command"]?.GetValue<string>() == "initialize") initialized = true;
+            EmitLine(new JsonObject
+            {
+                ["type"] = "ack",
+                ["sessionId"] = LibrespotHostContract.SessionId,
+                ["requestId"] = command["requestId"]!.DeepClone()
+            });
+        }
 
         private void Error(JsonObject command, string code, string message) => EmitLine(new JsonObject
         {

@@ -243,7 +243,27 @@ public sealed class LibrespotHostClient : IAsyncDisposable, IDisposable
                     LibrespotHostErrorCodes.ProtocolViolation,
                     "Brak źródła poświadczeń Spotify dla hosta Librespot.");
             }
-            token = await credentialProvider(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                token = await credentialProvider(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception) when (exception is not LibrespotHostException)
+            {
+                // Dostawca poswiadczen siega po siec i konto: moze rzucic
+                // czymkolwiek (HttpRequestException, InvalidOperationException,
+                // przerwaniem). Bez tego opakowania wyjatek wychodzil poza
+                // znany kontrakt transportu, adapter go nie lapal i sesja
+                // MILCZALA po nacisnieciu odtwarzania. Tresci wyjatku tu NIE
+                // przepisujemy - mogla by poniesc token.
+                throw new LibrespotHostException(
+                    LibrespotHostErrorCodes.CredentialsUnavailable,
+                    "Nie udało się pobrać poświadczeń konta Spotify dla sesji Librespot.",
+                    exception);
+            }
         }
         if (string.IsNullOrWhiteSpace(token))
         {

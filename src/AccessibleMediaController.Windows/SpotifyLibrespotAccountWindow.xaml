@@ -1,0 +1,34 @@
+<controls:AccessibleWindow x:Class="AccessibleMediaController.Windows.SpotifyLibrespotAccountWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:AccessibleMediaController.Windows.Controls"
+        Title="Konto Spotify — Librespot" Width="740" Height="510"
+        MinWidth="560" MinHeight="430" WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <StackPanel Margin="16">
+        <TextBox x:Name="AccountText" IsReadOnly="True" TextWrapping="Wrap"
+                 BorderThickness="0" Background="Transparent" Margin="0,0,0,12"
+                 AutomationProperties.Name="Stan i instrukcja logowania Spotify — Librespot" />
+        <Label Target="{Binding ElementName=PairingCodeBox}">_Kod parowania:</Label>
+        <TextBox x:Name="PairingCodeBox" IsReadOnly="True" Margin="0,0,0,8"
+                 AutomationProperties.Name="Kod parowania Spotify"
+                 AutomationProperties.HelpText="Kod wpisywany wyłącznie na oficjalnej stronie Spotify. Możesz go zaznaczyć i skopiować." />
+        <Label Target="{Binding ElementName=PairingAddressBox}">_Adres strony parowania:</Label>
+        <TextBox x:Name="PairingAddressBox" IsReadOnly="True" Margin="0,0,0,12"
+                 AutomationProperties.Name="Adres oficjalnej strony parowania Spotify" />
+        <WrapPanel>
+            <Button x:Name="PairButton" Content="_Rozpocznij parowanie" Margin="0,0,8,8" Click="Pair_Click" />
+            <Button x:Name="OpenBrowserButton" Content="_Otwórz stronę Spotify" Margin="0,0,8,8" Click="OpenBrowser_Click" IsEnabled="False" />
+            <Button x:Name="CopyCodeButton" Content="Ko_piuj kod" Margin="0,0,8,8" Click="CopyCode_Click" IsEnabled="False" />
+            <Button x:Name="DisconnectButton" Content="O_dłącz tylko Librespot…" Margin="0,0,8,8" Click="Disconnect_Click" />
+            <Button x:Name="CatalogAccountButton" Content="Konto katalogu i _biblioteka…" Margin="0,0,8,8"
+                    AutomationProperties.HelpText="Otwiera wspólne ustawienia biblioteki i wyszukiwania Spotify, bez ponownego parowania Librespot."
+                    Click="CatalogAccount_Click" />
+        </WrapPanel>
+        <controls:AccessibleStatusTextBlock x:Name="OperationStatusText" TextWrapping="Wrap"
+                 Margin="0,8,0,12" AutomationProperties.Name="Stan parowania Spotify — Librespot"
+                 AutomationProperties.LiveSetting="Assertive" />
+        <Button x:Name="CloseButton" Content="Za_mknij" IsCancel="True"
+                HorizontalAlignment="Right" MinWidth="110" Click="Close_Click" />
+    </StackPanel>
+</controls:AccessibleWindow>

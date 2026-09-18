@@ -17,6 +17,10 @@ Poniższy spis rozmiarów pozostaje historycznym pomiarem alfy 387.
 - `Core/Spotify/SpotifyLibraryWriteClient.cs`, `SpotifyCollectionSemantics.cs`: zapis biblioteki, odczyt potwierdzający, uprawnienia i częściowe awarie.
 - `SessionManager` może zachować istniejącą sesję Spotify przy odbudowie ustawień; `DemoMediaSession.ConfigureRememberPositionPolicy` przepina wyłącznie regułę pamięci.
 - `InformationWindow`: właściwości domyślnie z natywnym kursorem, przełącznik tekst/dokument; `nvda-addon/addon/appModules/accessiblemediacontroller.py`: ograniczenie NVDA+góra do okna głównego.
+- `Windows/MainWindow.SpotifyLibrespot.cs`: podłączenie dodatkowego silnika, kolekcji i okna wyjścia; `MainWindow.SpotifyLibrespotAccount.cs`: odrębne parowanie oraz przejście do wspólnego konta katalogu.
+- `Windows/Services/SpotifyLibrespotAuthenticationService.cs` i `SpotifyLibrespotCredentialStore.cs`: device flow, odświeżanie i osobny zapis poświadczeń, bez zastępowania tokenów SDK.
+- `Windows/SpotifyLibrespotAccountWindow.xaml(.cs)`: dostępne okno kodu, adresu, potwierdzenia i anulowania; testy w `SpotifyLibrespotAccountWindowTests.cs`.
+- `Core/Spotify/LibrespotHostClient.cs`, `Windows/Services/SpotifyLibrespotMediaOutput.cs`, `native/AmcSpotifyLibrespotHost`: transport, adapter sesji i proces odtwarzania Rust; scenariusze cyklu życia i regresji są w testach Windows.
 - `SPOTIFY-LOSSLESS-I-MONITORING.md`: źródła, granice Lossless i Librespot; harmonogram i kolejność wdrożenia pozostają w `PLAN-16-09-2026.md`.
 
 ## 1. Rozmiar i podział

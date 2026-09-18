@@ -74,7 +74,7 @@
                 <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Margin="0,8,0,0" FontWeight="SemiBold"
                            Text="Co AMC robi z kontem Spotify" automation:AutomationProperties.HeadingLevel="Level2" />
                 <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Margin="0,5,0,0" TextWrapping="Wrap"
-                           Text="AMC prosi o prawo do odtwarzania na Twoim koncie, czytania Twojej biblioteki i playlist oraz sterowania odtwarzaniem. Nie prosi o prawo do zmieniania czegokolwiek na koncie. Hasło zostaje w przeglądarce, a token logowania w Menedżerze poświadczeń Windows: nie ma go w pliku ustawień, w kopiach zapasowych ani w dzienniku. Uwaga na ograniczenie po stronie Spotify: zawartości playlist redakcyjnych Spotify nie da się pokazać, bo Spotify odciął do nich dostęp w lutym 2026. Twoje własne playlisty są dostępne w całości." />
+                           Text="AMC prosi o prawo do odtwarzania na Twoim koncie, czytania Twojej biblioteki i playlist oraz sterowania odtwarzaniem. Prosi też o możliwość dodawania i usuwania Ulubionych, albumów i obserwowanych wykonawców — zmiany wykonuje na Twoje polecenie. Nie prosi o prawo do tworzenia ani edycji playlist Spotify. Hasło zostaje w przeglądarce, a token logowania w Menedżerze poświadczeń Windows: nie ma go w pliku ustawień, w kopiach zapasowych ani w dzienniku. Uwaga na ograniczenie po stronie Spotify: zawartości playlist redakcyjnych Spotify nie da się pokazać, bo Spotify odciął do nich dostęp w lutym 2026. Twoje własne playlisty są dostępne w całości." />
             </Grid>
         </ScrollViewer>
     </DockPanel>

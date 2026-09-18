@@ -132,7 +132,56 @@
           CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest"
           ExcludeFromSingleFile="true" />
+    <!-- Drugi silnik Spotify: natywny host Librespot. Istnieje OBOK mostka SDK
+         wyzej, nie zamiast niego - uzytkownik wybiera silnik, a paczka musi
+         zawierac oba. Fabryka szuka dokladnie
+         AppContext.BaseDirectory\LibrespotHost\amc_spotify_librespot_host.exe,
+         wiec Link MUSI trzymac ten katalog. Bez tego wpisu plik nie trafia do
+         publikacji i brak silnika wychodzi dopiero u uzytkownika.
+         Plik jest przypiety kopia w repozytorium (jak bass.dll); suma SHA-256
+         jest sprawdzana w celu VerifyPinnedLibrespotHostBinary ponizej. -->
+    <None Include="..\..\third_party\LibrespotHost\win-x64\amc_spotify_librespot_host.exe"
+          Link="LibrespotHost\amc_spotify_librespot_host.exe"
+          CopyToOutputDirectory="Always"
+          CopyToPublishDirectory="Always"
+          ExcludeFromSingleFile="true" />
+    <None Include="..\..\licenses\librespot-dependencies\**\*"
+          Link="licenses\librespot-dependencies\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+    <None Include="..\..\licenses\librespot-MIT.txt"
+          Link="licenses\librespot-MIT.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+    <None Include="..\..\third_party\LibrespotHost\win-x64\provenance-amc-host.json"
+          Link="LibrespotHost\provenance-amc-host.json"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
   </ItemGroup>
+  <PropertyGroup>
+    <!-- Proweniencja: GitHub Actions run 35381167099, librespot 0.8.0
+         (d36f9f1907e8cc9d68a93f8ebc6b627b1bf7267d), AMC 791c8dbf.
+         Zmiana binarki bez zmiany tej sumy jest bledem budowania. -->
+    <LibrespotHostExpectedSha256>f5b614f01d8943b5872d9a2bb86658761198b763bb25c1647aa79268a2473c8e</LibrespotHostExpectedSha256>
+    <LibrespotHostBinaryPath>$(MSBuildThisFileDirectory)..\..\third_party\LibrespotHost\win-x64\amc_spotify_librespot_host.exe</LibrespotHostBinaryPath>
+  </PropertyGroup>
+  <!-- Straznik pakowania. Mierzy REALNY plik, nie deklaracje: brak pliku albo
+       inna suma konczy budowanie bledem, zeby nie wydac paczki z podmieniona
+       lub nieobecna natywna binarka. -->
+  <Target Name="VerifyPinnedLibrespotHostBinary"
+          BeforeTargets="Build;Publish"
+          Condition="'$(OS)' == 'Windows_NT' Or '$(MSBuildRuntimeType)' == 'Core'">
+    <Error Condition="!Exists('$(LibrespotHostBinaryPath)')"
+           Text="Brak przypietej binarki hosta Librespot: $(LibrespotHostBinaryPath). Bez niej silnik Librespot NIE zagra u uzytkownika." />
+    <GetFileHash Files="$(LibrespotHostBinaryPath)" Algorithm="SHA256" HashEncoding="hex">
+      <Output TaskParameter="Items" ItemName="_LibrespotHostHashed" />
+    </GetFileHash>
+    <Error Condition="'%(_LibrespotHostHashed.FileHash)' != '$(LibrespotHostExpectedSha256)'"
+           Text="Suma SHA-256 hosta Librespot niezgodna z przypieta proweniencja. Oczekiwano $(LibrespotHostExpectedSha256), jest %(_LibrespotHostHashed.FileHash)." />
+  </Target>
   <Target Name="ExcludeReplaceableSoundTouchAssembliesFromSingleFile"
           BeforeTargets="_ComputeFilesToBundle">
     <ItemGroup>

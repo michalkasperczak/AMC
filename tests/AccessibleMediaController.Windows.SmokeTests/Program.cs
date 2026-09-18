@@ -48,6 +48,25 @@ if (args.Length == 1 && args[0].StartsWith("--smoke-runner-failure=", StringComp
     SmokeTestRunnerTests.SimulateFailure(args[0]["--smoke-runner-failure=".Length..]);
     throw new InvalidOperationException("Symulowane niepowodzenie nie zostało zgłoszone.");
 }
+if (args.Contains("--librespot-account-window-gui", StringComparer.Ordinal))
+{
+    SpotifyLibrespotAccountWindowTests.ShowForNvda(); return 0;
+}
+if (args.Contains("--librespot-account-window", StringComparer.Ordinal))
+{
+    try { SpotifyLibrespotAccountWindowTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--librespot-review-regressions", StringComparer.Ordinal))
+{
+    try { SpotifyLibrespotLifecycleTests.RunReviewRegressions(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--spotify-native-startup", StringComparer.Ordinal))
+{
+    try { SpotifyNativeStartupTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--spotify-native-collection", StringComparer.Ordinal))
 {
     try { SpotifyNativeCollectionTests.Run(); return 0; }
@@ -56,6 +75,11 @@ if (args.Contains("--spotify-native-collection", StringComparer.Ordinal))
 if (args.Contains("--librespot-preparation-races", StringComparer.Ordinal))
 {
     try { SpotifyLibrespotPreparationRaceTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Contains("--librespot-auth", StringComparer.Ordinal))
+{
+    try { SpotifyLibrespotAuthenticationTests.Run(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
 if (args.Contains("--librespot-lifecycle", StringComparer.Ordinal))
@@ -211,8 +235,12 @@ var tests = new (string Name, Action Test)[]
     ("Zdalne wyszukiwanie Spotify jak TIDAL", SpotifySearchTests.Run),
     ("Wyjście sesji Spotify — Librespot", SpotifyLibrespotOutputTests.Run),
     ("Wspólna kolekcja i oddzielne kolejki Spotify SDK/Librespot", SpotifyNativeCollectionTests.Run),
+    ("Dwie sesje Spotify w rzeczywistym oknie głównym", SpotifyNativeStartupTests.Run),
     ("Librespot: pauza, stop i nowy utwór podczas ustawiania głośności", SpotifyLibrespotPreparationRaceTests.Run),
     ("Librespot: cykl życia hosta, wyjście dźwięku i straż przygotowania", SpotifyLibrespotLifecycleTests.Run),
+    ("Librespot: regresje odbioru cyklu życia", SpotifyLibrespotLifecycleTests.RunReviewRegressions),
+    ("Librespot: oddzielne logowanie natywnej sesji Spotify", SpotifyLibrespotAuthenticationTests.Run),
+    ("Librespot: dostępne okno parowania i anulowanie", SpotifyLibrespotAccountWindowTests.Run),
     ("Sesja Spotify ma konto pod Ctrl+F5", TestSpotifyKontoPodCtrlF5),
     ("Spotify nie przesuwa numerow istniejacych sesji", TestSpotifyNiePrzesuwaNumerowSesji),
     ("Adres powrotu Spotify nie uzywa nazwy localhost", TestSpotifyAdresPowrotuBezLocalhost),

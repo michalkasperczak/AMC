@@ -1,20 +1,45 @@
-# AMC 0.1.0-alpha.394 — Spotify: obsługa i właściwości
+# AMC 0.1.0-alpha.394 — Spotify i Spotify — Librespot
 
-## Co sprawdzić
+## Dwie sesje w jednym programie
 
-- W Spotify otwórz `Ctrl+F`, wpisz wykonawcę lub tytuł spoza biblioteki. Wyniki mają pochodzić z katalogu Spotify; przy braku sieci mają pozostać lokalne wyniki i czytelny komunikat.
-- `Ctrl+Shift+U` i `Ctrl+Shift+L` zapisują na koncie, nie tylko zmieniają lokalną flagę. Stare logowanie może wymagać ponownego zalogowania przez `Ctrl+F5` i przyznania nowych uprawnień. Odmowa nie może wyglądać jak sukces.
-- Usunięcie utworu z Ulubionych nie może zatrzymać tego, co właśnie gra. Dodanie z wyszukiwania nie powinno tworzyć drugiego wiersza tego samego utworu.
-- Strzałka w prawo na wykonawcy prowadzi do albumów; na albumie pokazuje także przejście do wykonawcy, jeżeli dane Spotify zawierają tę relację. Na starszym zapisie biblioteki może być potrzebne odświeżenie danych.
-- `Alt+Shift+Enter`: opcje pamiętania pozycji elementu lub kontenera. Po zatwierdzeniu wraca lista, wybór ma przetrwać ponowne uruchomienie.
-- `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Ctrl+Shift+T`: czas od początku, pozostały i długość. Sprawdź kilka powtórzeń oraz powrót po oknie ustawień.
-- `Alt+Enter`: właściwości otwierają się w polu tekstowym tylko do odczytu. Strzałki i `NVDA+góra` mają czytać kolejne i bieżący wiersz. Przycisk przełączania widoku pozostawia dostęp do dokumentu HTML.
-- W sekcji Techniczne informacja o jakości odróżnia deklarację Spotify od rzeczywistego pomiaru. Program nie ogłasza Lossless bez dowodu.
+Dotychczasowa sesja Spotify nadal używa oficjalnego Web Playback SDK. Nowa sesja Spotify — Librespot jest dopisana na końcu listy sesji. Nie zastępuje starej i nie zmienia jej skrótów.
+
+Obie sesje korzystają ze wspólnego katalogu i biblioteki Spotify, ale mają oddzielne kolejki, bieżący utwór, pamięć pozycji i ustawienia. Odtwarzanie Librespot wymaga osobnego, jednorazowego parowania tego samego konta Premium.
+
+## Co sprawdzić w nowej sesji
+
+1. Otwórz listę sesji i wybierz Spotify — Librespot. Zapamiętana biblioteka Spotify powinna być dostępna również tutaj.
+2. Naciśnij Ctrl+F5. Otwiera się konto Spotify — Librespot. Czytnik ma najpierw odczytać stan i instrukcję. Jeżeli parowanie jest już zapisane, nie trzeba go powtarzać.
+3. Przy pierwszym parowaniu wybierz Rozpocznij parowanie, następnie Otwórz stronę Spotify. Kod i adres są również w polach tylko do odczytu, z kursorem umożliwiającym ich odczytanie i skopiowanie. Przeglądarka nie otwiera się samoczynnie. Zatwierdzenie na stronie kończy oczekiwanie w AMC; Escape anuluje oczekiwanie.
+4. Przycisk Konto katalogu i biblioteka otwiera dotychczasowe ustawienia Spotify. Po zamknięciu wraca okno Librespot. Parowanie odtwarzania nie zastępuje logowania do katalogu.
+5. Odtwórz rzeczywisty utwór. Sprawdź pauzę, wznowienie i przewijanie również podczas pauzy.
+6. Naciśnij Shift+A. Wybierz dostępne urządzenie i zatwierdź Enterem. Zmiana powinna przenieść dźwięk i wznowić utwór od bieżącego miejsca; może wystąpić krótka przerwa. Nie zmienia ustawień miksera Windows.
+7. Zamknij i uruchom program ponownie. W Shift+A ma pozostać wybrane urządzenie. Escape z okna ma przywracać fokus na listę.
+8. Dodaj różne pozycje do kolejek obu sesji. Kolejki nie powinny się wzajemnie zmieniać. Zmiana Biblioteki lub Ulubionych dotyczy natomiast wspólnego konta.
+9. Odłącz tylko Librespot w jego oknie konta. Stare logowanie Spotify i zapamiętana biblioteka mają pozostać. Zwykłe zamknięcie programu nie usuwa parowania.
+
+## Wspólna obsługa Spotify
+
+- Ctrl+F przeszukuje katalog Spotify. Przy błędzie sieci pozostawia dostępne wyniki lokalne i komunikat.
+- Ctrl+Shift+U i Ctrl+Shift+L zapisują zmiany na koncie. Stare logowanie katalogu może wymagać ponownej zgody na zmianę biblioteki. Odmowa nie może wyglądać jak sukces.
+- Usunięcie z Ulubionych nie zatrzymuje odtwarzania. Dodanie z wyszukiwania nie powinno tworzyć duplikatu wiersza.
+- Strzałka w prawo na wykonawcy prowadzi do albumów. Na albumie pokazuje również przejście do wykonawcy, jeżeli katalog zawiera tę relację. Starszy zapis biblioteki może wymagać odświeżenia danych.
+- Alt+Shift+Enter otwiera rzeczywiste opcje pamiętania pozycji. Wybór powinien przetrwać ponowne uruchomienie.
+- Ctrl+Shift+E, Ctrl+Shift+R i Ctrl+Shift+T odczytują czas od początku, czas pozostały i długość.
+- Alt+Enter otwiera właściwości z natywnym kursorem tekstowym. Strzałki i NVDA+góra czytają tekst. Przełącznik zachowuje widok dokumentu HTML.
 
 ## Granice tego etapu
 
-Wydanie nie zawiera jeszcze Librespot ani zewnętrznego trybu Lossless. Odtwarzacz Web Playback SDK pozostaje bez zmian. Wybór wyjścia Spotify przez Shift+A oraz pełne zapisywanie playlist są kolejnymi etapami, nie ukończonymi funkcjami tej wersji.
+Librespot nie obsługuje Spotify Lossless. Nowa sesja daje oddzielny wybór wyjścia, ale nie dźwięk bezstratny ani zmianę tempa.
 
-## Weryfikacja przed wydaniem
+Shift+A wybiera wyjście w sesji Spotify — Librespot. Nie dodaje tej możliwości do dotychczasowego Web Playback SDK.
 
-Testy wykonywane na Windows, a interfejs także żywym NVDA na izolowanym zestawie próbnych albumów i utworów na Hermesie. Próby HTTP nie zmieniają prawdziwego konta Spotify. Zestaw czasu ma symulowane odtwarzanie 1:13 z 4:00: to test skrótów i mowy, nie pomiar przesyłania muzyki.
+Tworzenie i edycja playlist na koncie Spotify oraz zewnętrzny wariant Lossless pozostają osobnymi etapami. Lokalna kolejka AMC nie jest playlistą zapisywaną na koncie.
+
+## Zakres przeprowadzonej weryfikacji
+
+Testy wykonano na Windows. Żywy NVDA sprawdził prawdziwe okno AMC na odrębnych, próbnych danych: konto, wybór urządzenia, zapis i odtworzenie wyboru po ponownym uruchomieniu oraz powrót fokusu.
+
+Osobna próba na koncie potwierdziła rzeczywiste odtwarzanie i przełączenie z Realteka na Denona PMA-1700NE, z pomiarem sygnału przypisanym do procesu odtwarzacza. Pauza, przewijanie na pauzie i wznowienie również przeszły. Próba nie restartowała działającego AMC ani nie zmieniała miksera Windows.
+
+Próby zapisu Biblioteki i Ulubionych opierają się na kontrolowanych odpowiedziach HTTP; nie zmieniały rzeczywistej kolekcji użytkownika.

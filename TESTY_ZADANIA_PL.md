@@ -1,7 +1,7 @@
 # Zadania testowe AMC
 
 - Numer zestawu: `AMC-TEST-394`
-- Tytuł zestawu: Spotify — wyszukiwanie, kolekcja, pozycja i właściwości
+- Tytuł zestawu: Spotify — dwie sesje, wybór wyjścia, kolekcja i właściwości
 - Wersja programu: `0.1.0-alpha.394`
 - Bieżące scenariusze: `TESTY_0.1.0-alpha.394_PL.md`
 

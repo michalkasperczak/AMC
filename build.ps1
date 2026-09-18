@@ -97,6 +97,23 @@ if ($Publish) {
             throw "Brak modułu odtwarzacza Spotify."
         }
         Copy-Item -LiteralPath $spotifyPlayerDirectory -Destination (Join-Path $packageDirectory "spotify-player") -Recurse -Force
+        # Drugi silnik Spotify: natywny host Librespot. Paczka kopiuje wybrane
+        # skladniki, wiec bez tego bloku plik zostaje w katalogu przejsciowym i
+        # wydanie wychodzi bez silnika - dokladnie tak, jak wcześniej wyszlo bez
+        # modulu spotify-player. Fabryka szuka tego pliku pod
+        # <paczka>\LibrespotHost\amc_spotify_librespot_host.exe, wiec nazwa
+        # katalogu i pliku nie moze sie tu zmienic.
+        $librespotHostDirectory = Join-Path $staging "LibrespotHost"
+        $librespotHostBinary = Join-Path $librespotHostDirectory "amc_spotify_librespot_host.exe"
+        if (-not (Test-Path -LiteralPath $librespotHostBinary)) {
+            throw "Brak natywnego hosta Librespot: $librespotHostBinary"
+        }
+        $librespotHostExpectedSha256 = "f5b614f01d8943b5872d9a2bb86658761198b763bb25c1647aa79268a2473c8e"
+        $librespotHostActualSha256 = (Get-FileHash -LiteralPath $librespotHostBinary -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($librespotHostActualSha256 -ne $librespotHostExpectedSha256) {
+            throw "Spakowany host Librespot nie jest binarka z proweniencji. Oczekiwano $librespotHostExpectedSha256, jest $librespotHostActualSha256."
+        }
+        Copy-Item -LiteralPath $librespotHostDirectory -Destination (Join-Path $packageDirectory "LibrespotHost") -Recurse -Force
     }
     finally {
         if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
