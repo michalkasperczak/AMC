@@ -23,6 +23,7 @@ using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.Core.Presentation;
 using AccessibleMediaController.Core.Radio;
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Spotify;
 using AccessibleMediaController.Core.Tidal;
 using AccessibleMediaController.Core.Updates;
 using AccessibleMediaController.Windows.Controls;
