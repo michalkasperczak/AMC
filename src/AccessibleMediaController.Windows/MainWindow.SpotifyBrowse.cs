@@ -42,6 +42,7 @@ public partial class MainWindow
         MediaItemKind.Album => "Album Spotify",
         MediaItemKind.Playlist => "Playlista Spotify",
         MediaItemKind.Artist => "Wykonawca Spotify",
+        MediaItemKind.Podcast => "Podcast Spotify",
         _ => "Spotify"
     };
 
@@ -49,7 +50,8 @@ public partial class MainWindow
     /// Czy strzalka w prawo ma co otworzyc. Utwor i odcinek nie sa kontenerami.
     /// </summary>
     private static bool CanOpenSpotifyContainer(MediaItem? item) =>
-        item is { Kind: MediaItemKind.Album or MediaItemKind.Playlist or MediaItemKind.Artist }
+        item is { Kind: MediaItemKind.Album or MediaItemKind.Playlist or MediaItemKind.Artist
+            or MediaItemKind.Podcast }
         && item.ExternalId is { Length: > 0 };
 
     private async Task OpenSpotifyContainerAsync(MediaItem container)
@@ -57,7 +59,7 @@ public partial class MainWindow
         if (!CanOpenSpotifyContainer(container))
         {
             Announce(container.Kind is MediaItemKind.Track or MediaItemKind.Episode
-                ? "To utwór. Enter go odtwarza"
+                ? "Enter odtwarza tę pozycję"
                 : "Tego elementu Spotify nie można otworzyć");
             return;
         }
@@ -168,6 +170,9 @@ public partial class MainWindow
                 .ConfigureAwait(false),
             MediaItemKind.Artist => await client
                 .GetArtistAlbumsAsync(credentials.AccessToken, id, CancellationToken.None)
+                .ConfigureAwait(false),
+            MediaItemKind.Podcast => await client
+                .GetShowEpisodesAsync(credentials.AccessToken, id, CancellationToken.None)
                 .ConfigureAwait(false),
             _ => null
         };

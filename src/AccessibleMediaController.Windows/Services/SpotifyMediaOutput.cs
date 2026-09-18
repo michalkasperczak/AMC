@@ -493,16 +493,26 @@ internal sealed class SpotifyMediaOutput : IMediaOutput, IDisposable
     }
 
     /// <summary>
-    /// Adres utworu dla SDK. Bierzemy go z Source ("spotify:track:..."), a gdy
-    /// go brakuje - skladamy z identyfikatora katalogowego, zeby pozycje
-    /// zapamietane starsza wersja AMC tez dawaly sie odtworzyc.
+    /// Adres pozycji dla SDK. Bierzemy go z Source ("spotify:track:..." albo
+    /// "spotify:episode:..."), a gdy go brakuje - skladamy z identyfikatora
+    /// katalogowego, zeby pozycje zapamietane starsza wersja AMC tez dawaly sie
+    /// odtworzyc.
+    ///
+    /// ODCINEK PODCASTU MA INNY PRZEDROSTEK niz utwor. Sklejanie wszystkiego jako
+    /// "spotify:track:" dawalo odcinek, ktory wyglada dobrze na liscie i nie gra.
     /// </summary>
     internal static string PlaybackTrackUri(MediaItem item)
     {
         var source = item.Source?.Trim() ?? string.Empty;
-        if (source.StartsWith("spotify:track:", StringComparison.Ordinal)) return source;
+        if (source.StartsWith("spotify:track:", StringComparison.Ordinal)
+            || source.StartsWith("spotify:episode:", StringComparison.Ordinal))
+        {
+            return source;
+        }
         var externalId = item.ExternalId?.Trim() ?? string.Empty;
-        return externalId.Length > 0 ? $"spotify:track:{externalId}" : string.Empty;
+        if (externalId.Length == 0) return string.Empty;
+        var przedrostek = item.Kind == MediaItemKind.Episode ? "episode" : "track";
+        return $"spotify:{przedrostek}:{externalId}";
     }
 
     private void HandleFailure(MediaItem? item, string message)

@@ -53,6 +53,10 @@ export function startSpotifyBridge(Sdk, host, schedule = setInterval, now = () =
         callback(credentials.token);
       },
       volume: 0.35,
+      // Media Session API: system Windows dostaje tytul i przyciski sterowania.
+      // NIE ma zwiazku z podcastami (sprawdzone w dokumentacji SDK) - jest tu,
+      // bo dzieki temu sprzetowe klawisze multimedialne wiedza, co gra.
+      enableMediaSession: true,
     });
 
     player.addListener('initialization_error', event => reportFailure(event));

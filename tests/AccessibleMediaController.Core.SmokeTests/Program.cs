@@ -129,7 +129,9 @@ var tests = new (string Name, Action Test)[]
     ("Zapis stanu nie wymazuje zadnej sekcji ustawien", TestZapisNieGubiSekcji),
     ("Zapamietana biblioteka nie traci adresu odtwarzania", TestCacheZachowujeSource),
     ("Odswiezenie tokenu nie kasuje wiedzy o zakresie", TestOdswiezenieNieKasujeZakresu),
-    ("Skladniki odtwarzacza Spotify sa w paczce", TestSkladnikiOdtwarzaczaSpotify)
+    ("Skladniki odtwarzacza Spotify sa w paczce", TestSkladnikiOdtwarzaczaSpotify),
+    ("Nieznany zakres uprawnien nie blokuje pobierania", TestNieznanyZakresNieBlokuje),
+    ("Odcinek podcastu ma wlasny adres odtwarzania", TestOdcinekMaWlasnyAdres)
 };
 
 static void TestTidalIntegrationFoundation()
@@ -7063,6 +7065,56 @@ static void TestSkladnikiOdtwarzaczaSpotify()
             throw new Exception($"Brak pliku silnika odtwarzania: {plik}.");
     }
     Console.WriteLine("OK: skladniki odtwarzacza Spotify sa wpisane do paczki");
+}
+
+static void TestNieznanyZakresNieBlokuje()
+{
+    // BLAD, ktory to wywolal: zapisany zakres uprawnien Michala byl PUSTY (Spotify
+    // nie powtarza go przy odswiezaniu tokenu). Warunek "brak zakresu = brak
+    // uprawnien" ogloszlby "konto nie przyznalo dostepu do playlist" na koncie,
+    // ktore dostep MA - i pobralby pusta biblioteke bez prawdziwej przyczyny.
+    var zrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyApiClient.cs"));
+    var poczatek = zrodlo.IndexOf("bool SpotifyScopesHave", StringComparison.Ordinal);
+    if (poczatek < 0) throw new Exception("Nie znaleziono SpotifyScopesHave w SpotifyApiClient.cs.");
+    var fragment = zrodlo.Substring(poczatek, Math.Min(400, zrodlo.Length - poczatek));
+
+    if (fragment.Contains("!string.IsNullOrWhiteSpace(granted)", StringComparison.Ordinal))
+    {
+        throw new Exception(
+            "SpotifyScopesHave traktuje PUSTY zakres jako brak uprawnien. Pusty zakres oznacza "
+                + "\"nie wiem\" - odmowa daje falszywe ostrzezenia i pusta biblioteke.");
+    }
+    if (!fragment.Contains("string.IsNullOrWhiteSpace(granted)", StringComparison.Ordinal))
+        throw new Exception("SpotifyScopesHave nie obsluguje nieznanego zakresu uprawnien.");
+    Console.WriteLine("OK: nieznany zakres uprawnien nie blokuje pobierania biblioteki");
+}
+
+static void TestOdcinekMaWlasnyAdres()
+{
+    // BLAD, ktory to wywolal: odcinek podcastu dostawal adres "spotify:track:...".
+    // SDK odmawia takiego adresu - pozycja wygladala dobrze na liscie i nie grala.
+    var zrodlo = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyMediaOutput.cs"));
+    var poczatek = zrodlo.IndexOf("string PlaybackTrackUri", StringComparison.Ordinal);
+    if (poczatek < 0) throw new Exception("Nie znaleziono PlaybackTrackUri w SpotifyMediaOutput.cs.");
+    var fragment = zrodlo.Substring(poczatek, Math.Min(700, zrodlo.Length - poczatek));
+
+    if (!fragment.Contains("spotify:episode:", StringComparison.Ordinal))
+    {
+        throw new Exception(
+            "PlaybackTrackUri nie zna adresu odcinka podcastu (spotify:episode:). "
+                + "Odcinki dostana adres utworu i nie zagraja.");
+    }
+    if (!fragment.Contains("MediaItemKind.Episode", StringComparison.Ordinal))
+        throw new Exception("PlaybackTrackUri nie rozpoznaje rodzaju Episode przy skladaniu adresu.");
+
+    // Czytanie biblioteki musi ustawiac ten adres, nie tylko odtwarzacz go rozumiec.
+    var klient = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyApiClient.cs"));
+    foreach (var czesc in new[] { "/me/shows", "/me/episodes", "spotify:episode:" })
+    {
+        if (!klient.Contains(czesc, StringComparison.Ordinal))
+            throw new Exception($"SpotifyApiClient nie obsluguje podcastow - brak: {czesc}.");
+    }
+    Console.WriteLine("OK: odcinek podcastu ma wlasny adres odtwarzania");
 }
 
 static void TestExports()
