@@ -1,0 +1,60 @@
+name: Librespot Windows probe
+
+on:
+  push:
+    branches: [hermes/librespot-probe]
+    paths: [.github/workflows/librespot-probe.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout pinned upstream v0.8.0
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: librespot-org/librespot
+          ref: d36f9f1907e8cc9d68a93f8ebc6b627b1bf7267d
+          persist-credentials: false
+      - name: Show compiler and exact source
+        shell: pwsh
+        run: |
+          git rev-parse HEAD
+          rustup toolchain list
+          rustc +stable --version
+          cargo +stable --version
+      - name: Build Windows receiver without any account
+        shell: pwsh
+        run: |
+          cargo +stable build --locked --release --target x86_64-pc-windows-msvc --no-default-features --features native-tls,rodio-backend,with-libmdns
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Smoke test CLI and prepare provenance
+        shell: pwsh
+        run: |
+          $exe='target/x86_64-pc-windows-msvc/release/librespot.exe'
+          & $exe --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $exe --help
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Path out | Out-Null
+          Copy-Item $exe out/librespot.exe
+          Copy-Item LICENSE out/LICENSE-librespot.txt
+          $receipt=[ordered]@{
+            upstream='https://github.com/librespot-org/librespot'
+            commit=(git rev-parse HEAD)
+            target='x86_64-pc-windows-msvc'
+            sha256=(Get-FileHash out/librespot.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+            version=(& $exe --version | Out-String).Trim()
+          }
+          $receipt | ConvertTo-Json | Set-Content -Encoding utf8 out/provenance.json
+      - name: Upload executable and provenance
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: librespot-windows-probe
+          path: out/
+          if-no-files-found: error
+          retention-days: 14
