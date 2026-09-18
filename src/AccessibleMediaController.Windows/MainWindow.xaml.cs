@@ -13310,6 +13310,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return;
             }
         }
+        // ZGLOSZENIE Michala 18.09.2026: "enter na albumie srednio dziala, cos mi
+        // strzalka w prawo odtworzyla".  Przyczyna: sesja Spotify NIE MIALA tu
+        // wlasnej galezi, jaka ma TIDAL wyzej.  Album, playlista, wykonawca i
+        // podcast Spotify nie sa utworem, wiec Enter spadal na sam koniec metody
+        // do NavigateTo(item.Title) - a widoku o nazwie rownej tytulowi albumu
+        // nie ma, wiec uzytkownik dostawal pusta liste pod nazwa albumu zamiast
+        // jego utworow.  Podcast Spotify trafial jeszcze gorzej: do OpenPodcast,
+        // czyli do WLASNEJ bazy podcastow AMC, gdzie tego identyfikatora nie ma.
+        //
+        // Obsluga jest teraz taka sama jak w TIDAL: kontener sie otwiera, a utwor
+        // i odcinek graja.  Ta galaz MUSI stac PRZED galezia Podcast ponizej,
+        // inaczej podcast Spotify znowu poszedlby do bazy lokalnej.
+        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+            && CanOpenSpotifyContainer(item))
+        {
+            _ = OpenSpotifyContainerAsync(item);
+            return;
+        }
         if (item.Kind == MediaItemKind.Podcast)
         {
             OpenPodcast(item.Id, item.Title);
@@ -13884,6 +13902,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             Announce("Dla tego elementu TIDAL nie znaleziono powiązanego albumu");
             return;
         }
+        // Spotify ma te same powiazania co TIDAL (ustawiane przy otwieraniu
+        // albumu i wykonawcy), wiec przejscie dziala tak samo. Bez tej galezi
+        // polecenie szukalo albumu w LOKALNEJ bibliotece i mowilo, ze nie ma.
+        if (string.Equals(ActionSession.Id, "spotify", StringComparison.Ordinal))
+        {
+            if (ActionItem is { Kind: MediaItemKind.Artist, ExternalId: { Length: > 0 } } spotifyArtist)
+            {
+                _ = OpenSpotifyContainerAsync(spotifyArtist);
+                return;
+            }
+            if (CreateRelatedSpotifyContainer(ActionItem, MediaItemKind.Album) is { } spotifyAlbum)
+            {
+                _ = OpenSpotifyContainerAsync(spotifyAlbum);
+                return;
+            }
+            Announce("Dla tego elementu Spotify nie znaleziono powiązanego albumu");
+            return;
+        }
         var album = FindRelatedLocalAlbum(ActionItem);
         if (album is null)
         {
@@ -13903,6 +13939,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 return;
             }
             Announce("Dla tego elementu TIDAL nie znaleziono powiązanego wykonawcy");
+            return;
+        }
+        if (string.Equals(ActionSession.Id, "spotify", StringComparison.Ordinal))
+        {
+            if (CreateRelatedSpotifyContainer(ActionItem, MediaItemKind.Artist) is { } spotifyArtist)
+            {
+                _ = OpenSpotifyContainerAsync(spotifyArtist);
+                return;
+            }
+            Announce("Dla tego elementu Spotify nie znaleziono powiązanego wykonawcy");
             return;
         }
         var album = FindRelatedLocalAlbum(ActionItem);
@@ -17311,6 +17357,42 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         };
     }
 
+    /// <summary>
+    /// Powiazany album albo wykonawca elementu Spotify - odpowiednik
+    /// CreateRelatedTidalContainer wyzej. Identyfikator MUSI miec przedrostek
+    /// "spotify:", inaczej sesja Spotify nie rozpoznalaby wlasnej pozycji.
+    /// </summary>
+    private static MediaItem? CreateRelatedSpotifyContainer(MediaItem? item, MediaItemKind kind)
+    {
+        if (item is null || kind is not (MediaItemKind.Album or MediaItemKind.Artist)) return null;
+        var externalId = kind == MediaItemKind.Album
+            ? item.RelatedAlbumExternalId
+            : item.RelatedArtistExternalId;
+        if (string.IsNullOrWhiteSpace(externalId) || item.Kind == kind) return null;
+        var title = kind == MediaItemKind.Album
+            ? item.RelatedAlbumTitle
+            : item.RelatedArtistName;
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            title = kind == MediaItemKind.Album ? "Powiązany album" : item.Artist;
+        }
+        return new MediaItem
+        {
+            Id = $"spotify:{externalId}",
+            ExternalId = externalId,
+            Title = string.IsNullOrWhiteSpace(title)
+                ? kind == MediaItemKind.Album ? "Powiązany album" : "Powiązany wykonawca"
+                : title,
+            Artist = kind == MediaItemKind.Artist ? string.Empty : item.Artist,
+            Kind = kind,
+            Source = $"spotify:{externalId}"
+        };
+    }
+
+    // Spotify uzywa tych samych regul co TIDAL: warunek zalezy od RODZAJU
+    // elementu i pol powiazan, a nie od nazwy serwisu, wiec polityka TIDAL
+    // odpowiada poprawnie takze na pozycje Spotify. Gdyby tego nie sprawdzac,
+    // "Przejdz do albumu" bylo by w menu Spotify ukryte.
     private bool CanGoToRelatedAlbum(MediaItem? item) =>
         FindRelatedLocalAlbum(item) is not null
         || item is not null
@@ -21722,10 +21804,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // tak jak w TIDAL. Album, playlista i wykonawca sie OTWIERAJA (jedno
         // nacisniecie, bez menu wyboru) - w TIDAL menu jest potrzebne, bo tam
         // utwor ma i album, i wykonawce nadrzednego.
+        // ZGLOSZENIE Michala 18.09.2026: "cos mi strzalka w prawo odtworzyla".
+        // Ta galaz brala KAZDY element sesji Spotify - takze utwor i odcinek,
+        // ktore kontenerem nie sa. Warunek CanOpenSpotifyContainer sprawia, ze
+        // strzalka w prawo zajmuje sie tylko tym, co MA co otworzyc; na utworze
+        // zdarzenie idzie dalej i zachowuje sie jak w kazdej innej sesji.
         if (Keyboard.Modifiers == ModifierKeys.None
             && key == Key.Right
             && string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
-            && SelectedItem is { } spotifyItem)
+            && SelectedItem is { } spotifyItem
+            && CanOpenSpotifyContainer(spotifyItem))
         {
             e.Handled = true;
             _ = OpenSpotifyContainerAsync(spotifyItem);

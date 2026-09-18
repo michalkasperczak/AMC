@@ -193,6 +193,7 @@ var tests = new (string Name, Action Test)[]
     ("Okno konta Spotify nie da sie zamknac w trakcie logowania", TestSpotifyOknoNieZamykaSieWTrakcie),
     ("Pobieranie biblioteki Spotify trafia do sesji", TestSpotifyBibliotekaTrafiaDoSesji),
     ("Czesciowa awaria pobierania Spotify nie kasuje wyniku", TestSpotifyCzesciowyWynikZachowany),
+    ("Obsluga listy Spotify jest taka jak w TIDAL", TestSpotifyObslugaListyJakTidal),
 };
 
 var failures = new List<string>();
@@ -6792,6 +6793,85 @@ static void TestTidalDesktopCzasMowiSamaLiczbe()
     }
 
     Console.WriteLine("OK: czas utworu z oryginalnego TIDALa mowiony sama liczba");
+}
+
+static void TestSpotifyObslugaListyJakTidal()
+{
+    // Michal zglosil 18.09.2026: "enter na albumie srednio dziala, cos mi
+    // strzalka w prawo odtworzyla". Sesja Spotify miala obsluge listy zrobiona
+    // tylko w polowie: strzalka w prawo owszem, ale Enter i przejscia do albumu
+    // oraz wykonawcy pomijaly Spotify i wpadaly do galezi dla innych zrodel.
+    // Test pilnuje wszystkich czterech miejsc naraz, bo kazde osobno wyglada
+    // niewinnie, a razem daja "raz dziala, raz nie".
+    var glowne = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
+
+    // 1. Enter na albumie, playliscie, wykonawcy i podcascie Spotify OTWIERA
+    //    zawartosc. Bez tego Enter spadal do NavigateTo(item.Title) i pokazywal
+    //    pusta liste pod tytulem albumu.
+    var enter = glowne.IndexOf("private void ActivateSelected()", StringComparison.Ordinal);
+    if (enter < 0) throw new Exception("Nie znaleziono ActivateSelected w oknie glownym.");
+    var enterSpotify = glowne.IndexOf("CanOpenSpotifyContainer(item)", enter, StringComparison.Ordinal);
+    var enterPodcast = glowne.IndexOf("item.Kind == MediaItemKind.Podcast", enter, StringComparison.Ordinal);
+    if (enterSpotify < 0)
+        throw new Exception("Enter na kontenerze Spotify nie otwiera jego zawartosci.");
+    // Kolejnosc ma znaczenie: galaz podcastu ponizej zabralaby podcast Spotify
+    // do wlasnej bazy podcastow AMC, gdzie tego identyfikatora nie ma.
+    if (enterPodcast >= 0 && enterPodcast < enterSpotify)
+        throw new Exception("Podcast Spotify trafia do bazy podcastow zamiast do Spotify.");
+
+    // 2. Strzalka w prawo dziala TYLKO na tym, co ma co otworzyc. Bez tego
+    //    warunku brala takze utwor i zachowywala sie nieprzewidywalnie.
+    var strzalka = glowne.IndexOf("&& SelectedItem is { } spotifyItem", StringComparison.Ordinal);
+    if (strzalka < 0)
+        throw new Exception("Brak obslugi strzalki w prawo dla Spotify.");
+    if (!glowne.AsSpan(strzalka, Math.Min(220, glowne.Length - strzalka))
+            .Contains("CanOpenSpotifyContainer(spotifyItem)", StringComparison.Ordinal))
+    {
+        throw new Exception(
+            "Strzalka w prawo w Spotify nie sprawdza, czy element ma co otworzyc.");
+    }
+
+    // 3. i 4. Przejscie do albumu i do wykonawcy musi znac Spotify, inaczej
+    //    szuka albumu w LOKALNEJ bibliotece i mowi, ze nie ma.
+    foreach (var (metoda, opis) in new[]
+             {
+                 ("public void GoToRelatedAlbum()", "albumu"),
+                 ("public void GoToRelatedArtist()", "wykonawcy")
+             })
+    {
+        var start = glowne.IndexOf(metoda, StringComparison.Ordinal);
+        if (start < 0) throw new Exception($"Nie znaleziono metody {metoda}.");
+        var koniec = glowne.IndexOf("\n    }", start, StringComparison.Ordinal);
+        var trescMetody = glowne[start..(koniec < 0 ? glowne.Length : koniec)];
+        if (!trescMetody.Contains("\"spotify\"", StringComparison.Ordinal))
+            throw new Exception($"Przejscie do {opis} nie obsluguje sesji Spotify.");
+        if (!trescMetody.Contains("OpenSpotifyContainerAsync", StringComparison.Ordinal))
+            throw new Exception($"Przejscie do {opis} w Spotify nie otwiera zawartosci.");
+    }
+
+    // Powiazany element MUSI miec przedrostek "spotify:", inaczej sesja nie
+    // rozpozna wlasnej pozycji i Enter na utworze nie mialby czego odtworzyc.
+    var fabryka = glowne.IndexOf("CreateRelatedSpotifyContainer(MediaItem? item", StringComparison.Ordinal);
+    if (fabryka < 0)
+        throw new Exception("Brak CreateRelatedSpotifyContainer w oknie glownym.");
+    if (!glowne.AsSpan(fabryka, Math.Min(1200, glowne.Length - fabryka))
+            .Contains("$\"spotify:{externalId}\"", StringComparison.Ordinal))
+    {
+        throw new Exception("Powiazany element Spotify nie ma przedrostka spotify: w identyfikatorze.");
+    }
+
+    // Dane powiazan musza faktycznie przychodzic z Spotify, inaczej przejscia
+    // beda poprawne w kodzie i puste w dzialaniu.
+    var klient = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyApiClient.cs"));
+    foreach (var pole in new[]
+             {
+                 "RelatedAlbumExternalId", "RelatedAlbumTitle",
+                 "RelatedArtistExternalId", "RelatedArtistName"
+             })
+    {
+        if (!klient.Contains(pole, StringComparison.Ordinal))
+            throw new Exception($"SpotifyApiClient nie wypelnia pola {pole}.");
+    }
 }
 
 static void TestSpotifyBibliotekaTrafiaDoSesji()
