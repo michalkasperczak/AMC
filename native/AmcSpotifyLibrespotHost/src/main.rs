@@ -146,7 +146,9 @@ impl Engine {
 
         let sink_builder = audio_backend::find(Some("rodio".to_string()))
             .ok_or_else(|| (code::INTERNAL, "brak backendu audio rodio w tym buildzie".to_string()))?;
-        let format = AudioFormat::default();
+        // Jawny format wyjściowy zamiast domyślnego S16. To dotyczy TYLKO ścieżki
+        // wyjściowej do WASAPI - o kodeku źródłowym ani o "lossless" nic nie mówi.
+        let format = AudioFormat::F32;
         let player = Player::new(
             player_config,
             session.clone(),

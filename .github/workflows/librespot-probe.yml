@@ -214,7 +214,8 @@ jobs:
             librespotRev      = 'd36f9f1907e8cc9d68a93f8ebc6b627b1bf7267d'
             librespotVersion  = '0.8.0'
             features          = 'native-tls, rodio-backend (bez discovery/Spirc)'
-            bitrate           = '320 kbps (jawnie)'
+            bitrate           = '320 kbps (jawne zadanie, nie pomiar realnego codeca)'
+            audioFormat       = 'F32 na wyjsciu (WASAPI); to nie jest lossless'
             crtStatic         = $true
             protocolVersion   = 1
             sessionId         = 'spotifyLibrespot'
