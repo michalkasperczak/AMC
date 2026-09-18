@@ -39,3 +39,13 @@ serde_json = "1"
 log = "0.4"
 env_logger = { version = "0.11", default-features = false, features = ["humantime"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "io-std", "io-util"] }
+
+# Wymuszenie wersji, którą upstream librespot v0.8.0 ma w swoim Cargo.lock.
+# Bez tego (my nie mamy jeszcze locka) resolver wybiera vergen 9.1.0, które
+# ciągnie vergen-lib 9.x, podczas gdy vergen-gitcl 1.0.8 wymaga vergen-lib 0.1.x.
+# Skutek to realny błąd kompilacji skryptu build librespot-core:
+#   error[E0277]: the trait bound `vergen::feature::build::Build: vergen_lib::entries::Add`
+#                 is not satisfied
+# Pin w naszym grafie unifikuje wersję dla całego drzewa.
+[build-dependencies]
+vergen = "=9.0.6"
