@@ -23,6 +23,19 @@ internal static class SpotifySearchTests
     {
         await SprawdzZapytanieIParser();
         SprawdzRouting();
+        Check(MainWindow.SessionHasRemoteSearch("spotifyLibrespot", false)
+            && MainWindow.RemoteSearchLabel("spotifyLibrespot", false) == "katalogu Spotify",
+            "Druga sesja Librespot musi wyszukiwać w tym samym katalogu Spotify.");
+        Check(SearchWindow.PreservesBrowserLocation([new("spotifyLibrespot", new MediaItem())], SearchResultAction.Library),
+            "Zapis z wyszukiwania Librespot nie może zmieniać miejsca przeglądania.");
+        var merge = typeof(MainWindow).GetMethod("MergeSpotifySearchResults", System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic)!;
+        Check(merge.GetParameters().Length == 3, "Scalanie wyników nie rozróżnia sesji odtwarzacza.");
+        var nativeResults = (IReadOnlyList<MediaItem>)merge.Invoke(null, [new[] {new MediaItem { ExternalId="abc", Title="Test" }}, Array.Empty<MediaItem>(), "spotifyLibrespot"])!;
+        Check(nativeResults.Single().Id.StartsWith("spotifyLibrespot:", StringComparison.Ordinal), "Wynik katalogu Librespot dostał identyfikator innej sesji.");
+        Check(SearchWindow.PreservesBrowserLocation([new("spotify", new MediaItem())], SearchResultAction.Library),
+            "Zapis z wyszukiwania Spotify nie może otwierać wyniku ani zmieniać widoku.");
+        Check(!SearchWindow.PreservesBrowserLocation([new("spotify", new MediaItem())], SearchResultAction.Open),
+            "Enter nadal musi otwierać wynik Spotify.");
         SprawdzScalanie();
         await SprawdzBladNieKasujeWynikow();
         Console.WriteLine("OK: zdalne wyszukiwanie Spotify jak TIDAL"

@@ -17,6 +17,9 @@
                                                 MinHeight="1"
                                                 automation:AutomationProperties.LiveSetting="Assertive" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="ViewModeButton" MinWidth="105" Margin="0,0,8,0"
+                        Content="Widok _dokumentu (F6)" Click="ViewMode_Click"
+                        automation:AutomationProperties.HelpText="Przełącza widok tekstowy i dokument HTML. Skrót F6 działa w obu widokach." />
                 <Button MinWidth="105" Margin="0,0,8,0" Content="_Kopiuj wszystko"
                         KeyboardNavigation.TabIndex="2"
                         automation:AutomationProperties.HelpText="Kopiuje pełną treść i pozostawia to okno otwarte"

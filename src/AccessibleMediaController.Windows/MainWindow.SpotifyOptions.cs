@@ -31,7 +31,7 @@ public partial class MainWindow
     /// osadzonej przegladarce), nie przez nasz lancuch DSP.
     /// </summary>
     private bool SessionSupportsAudioProcessing(string? sessionId) =>
-        !string.Equals(sessionId, SpotifyPlaybackSettingsResolver.SessionId, StringComparison.Ordinal);
+        !SpotifyPlaybackSettingsResolver.IsSpotifySession(sessionId);
 
     /// <summary>
     /// Czy sesja obsluguje zmiane predkosci. Spotify: NIE - Web Playback SDK
@@ -39,7 +39,7 @@ public partial class MainWindow
     /// zwraca false i SetPlaybackRate niczego nie zmienia.
     /// </summary>
     private bool SessionSupportsPlaybackRate(string? sessionId) =>
-        !string.Equals(sessionId, SpotifyPlaybackSettingsResolver.SessionId, StringComparison.Ordinal);
+        !SpotifyPlaybackSettingsResolver.IsSpotifySession(sessionId);
 
     /// <summary>
     /// Ustawienia, ktore okno sesji bez DSP musi zachowac nietkniete. Bez tego
@@ -59,6 +59,7 @@ public partial class MainWindow
     private void ShowSpotifyItemPlaybackOptions(MediaItem item)
     {
         var settings = _state.Settings;
+        var sessionId = ActionSession.Id;
 
         // Album i podcast dostaja ustawienie pojemnika, ktore obejmuje
         // wszystkie ich utwory lub odcinki. Utwor i odcinek dostaja ustawienie
@@ -68,8 +69,8 @@ public partial class MainWindow
             ? ItemPlaybackOptionsTarget.SpotifyContainer
             : ItemPlaybackOptionsTarget.SpotifyItem;
         var current = container
-            ? SpotifyPlaybackSettingsResolver.ResolveContainerMode(settings, item)
-            : SpotifyPlaybackSettingsResolver.ResolveItemMode(settings, item);
+            ? SpotifyPlaybackSettingsResolver.ResolveContainerMode(settings, item, sessionId)
+            : SpotifyPlaybackSettingsResolver.ResolveItemMode(settings, item, sessionId);
 
         var dialog = new ItemPlaybackOptionsWindow(
             item.Title,
@@ -93,14 +94,14 @@ public partial class MainWindow
         var chosen = dialog.SelectedResumePositionMode;
         if (container)
         {
-            SpotifyPlaybackSettingsResolver.SetContainerMode(settings, item, chosen);
+            SpotifyPlaybackSettingsResolver.SetContainerMode(settings, item, chosen, sessionId);
         }
         else
         {
-            SpotifyPlaybackSettingsResolver.SetItemMode(settings, item, chosen);
+            SpotifyPlaybackSettingsResolver.SetItemMode(settings, item, chosen, sessionId);
         }
 
-        ApplySpotifyResumePolicyToLivePlayback(item);
+        ApplySpotifyResumePolicyToLivePlayback(item, sessionId);
         var persisted = QueueStateSave(announceFailure: true);
         if (_playerViewActive) UpdatePlayerView(true);
         UpdatePlaybackStatusBar();
@@ -109,18 +110,18 @@ public partial class MainWindow
             Announce(
                 $"Zapisano opcje: {item.Title}. "
                 + (container
-                    ? DescribeSpotifyContainerMode(settings, item)
-                    : SpotifyPlaybackSettingsResolver.DescribeItemMode(settings, item)));
+                    ? DescribeSpotifyContainerMode(settings, item, sessionId)
+                    : SpotifyPlaybackSettingsResolver.DescribeItemMode(settings, item, sessionId)));
         }
         RestoreItemActionFocus();
     }
 
-    private static string DescribeSpotifyContainerMode(AppSettings settings, MediaItem item) =>
-        SpotifyPlaybackSettingsResolver.ResolveContainerMode(settings, item) switch
+    private static string DescribeSpotifyContainerMode(AppSettings settings, MediaItem item, string sessionId) =>
+        SpotifyPlaybackSettingsResolver.ResolveContainerMode(settings, item, sessionId) switch
         {
             ResumePositionMode.Remember => "Pamiętaj pozycję odtwarzania",
             ResumePositionMode.StartFromBeginning => "Zawsze od początku",
-            _ => SpotifyPlaybackSettingsResolver.ShouldRemember(settings, item)
+            _ => SpotifyPlaybackSettingsResolver.ShouldRemember(settings, item, sessionId)
                 ? "Jak ustawienie sesji Spotify: pamiętaj pozycję odtwarzania"
                 : "Jak ustawienie sesji Spotify: zawsze od początku"
         };
@@ -130,9 +131,9 @@ public partial class MainWindow
     /// Wylaczenie pamieci pozycji czysci to, co jest juz zapamietane w sesji i
     /// w trwalym stanie; wlaczenie przywraca zapisana pozycje do sesji.
     /// </summary>
-    private void ApplySpotifyResumePolicyToLivePlayback(MediaItem item)
+    private void ApplySpotifyResumePolicyToLivePlayback(MediaItem item, string sessionId)
     {
-        var session = _sessions.FindSession(SpotifyPlaybackSettingsResolver.SessionId);
+        var session = _sessions.FindSession(sessionId);
         if (session is null) return;
         var settings = _state.Settings;
         var affected = session.Items
@@ -141,15 +142,15 @@ public partial class MainWindow
 
         foreach (var candidate in affected)
         {
-            if (SpotifyPlaybackSettingsResolver.ShouldRemember(settings, candidate))
+            if (SpotifyPlaybackSettingsResolver.ShouldRemember(settings, candidate, sessionId))
             {
-                var stored = SpotifyPlaybackSettingsResolver.ResolvePosition(settings, candidate);
+                var stored = SpotifyPlaybackSettingsResolver.ResolvePosition(settings, candidate, sessionId);
                 if (stored > TimeSpan.Zero) session.SetRememberedPosition(candidate.Id, stored);
             }
             else
             {
                 session.ClearRememberedPosition(candidate.Id);
-                SpotifyPlaybackSettingsResolver.StorePosition(settings, candidate, TimeSpan.Zero);
+                SpotifyPlaybackSettingsResolver.StorePosition(settings, candidate, TimeSpan.Zero, sessionId);
             }
         }
     }
@@ -182,18 +183,18 @@ public partial class MainWindow
     /// </summary>
     private void CaptureSpotifyPlaybackPosition()
     {
-        var session = _sessions.FindSession(SpotifyPlaybackSettingsResolver.SessionId);
-        if (session is null) return;
-        foreach (var item in session.Items)
+        foreach (var session in _sessions.Sessions.Where(session =>
+                     SpotifyPlaybackSettingsResolver.IsSpotifySession(session.Id)))
         {
-            if (session.RememberedPositions.TryGetValue(item.Id, out var remembered))
-                SpotifyPlaybackSettingsResolver.StorePosition(_state.Settings, item, remembered);
+            foreach (var item in session.Items)
+            {
+                if (session.RememberedPositions.TryGetValue(item.Id, out var remembered))
+                    SpotifyPlaybackSettingsResolver.StorePosition(_state.Settings, item, remembered, session.Id);
+            }
+            if (session.HasCurrentItem)
+                SpotifyPlaybackSettingsResolver.StorePosition(
+                    _state.Settings, session.CurrentItem, session.Position, session.Id);
         }
-        if (!session.HasCurrentItem) return;
-        SpotifyPlaybackSettingsResolver.StorePosition(
-            _state.Settings,
-            session.CurrentItem,
-            session.Position);
     }
 
     /// <summary>
@@ -203,14 +204,14 @@ public partial class MainWindow
     /// </summary>
     private void RestoreSpotifyRememberedPositions()
     {
-        var session = _sessions.FindSession(SpotifyPlaybackSettingsResolver.SessionId);
-        if (session is null || session.Items.Count == 0) return;
-        var settings = _state.Settings;
-        if (settings.SpotifyPlayback.ItemsByKey.Count == 0) return;
-        foreach (var item in session.Items)
+        foreach (var session in _sessions.Sessions.Where(session =>
+                     SpotifyPlaybackSettingsResolver.IsSpotifySession(session.Id)))
         {
-            var stored = SpotifyPlaybackSettingsResolver.ResolvePosition(settings, item);
-            if (stored > TimeSpan.Zero) session.SetRememberedPosition(item.Id, stored);
+            foreach (var item in session.Items)
+            {
+                var stored = SpotifyPlaybackSettingsResolver.ResolvePosition(_state.Settings, item, session.Id);
+                if (stored > TimeSpan.Zero) session.SetRememberedPosition(item.Id, stored);
+            }
         }
     }
 
@@ -221,21 +222,20 @@ public partial class MainWindow
     /// </summary>
     private void SaveSpotifyStateIfDue()
     {
-        var session = _sessions.FindSession(SpotifyPlaybackSettingsResolver.SessionId);
-        if (session is null || !session.HasCurrentItem) return;
-        var currentTicks = session.Position.Ticks;
-        if (currentTicks == _lastSavedSpotifyPositionTicks
-            && session.CurrentItem.Id == _lastSavedSpotifyItemId) return;
+        var current = _sessions.Sessions
+            .Where(session => SpotifyPlaybackSettingsResolver.IsSpotifySession(session.Id) && session.HasCurrentItem)
+            .ToDictionary(session => session.Id,
+                session => (ItemId: session.CurrentItem.Id, PositionTicks: session.Position.Ticks), StringComparer.Ordinal);
+        if (current.Count == _lastSavedSpotifyPositions.Count
+            && current.All(pair => _lastSavedSpotifyPositions.TryGetValue(pair.Key, out var old) && old == pair.Value)) return;
         if (DateTime.UtcNow - _lastSpotifyStateSaveUtc < TimeSpan.FromSeconds(15)) return;
 
         CaptureSpotifyPlaybackPosition();
         if (!QueueStateSave()) return;
-        _lastSavedSpotifyPositionTicks = currentTicks;
-        _lastSavedSpotifyItemId = session.CurrentItem.Id;
+        _lastSavedSpotifyPositions = current;
         _lastSpotifyStateSaveUtc = DateTime.UtcNow;
     }
 
-    private string? _lastSavedSpotifyItemId;
-    private long _lastSavedSpotifyPositionTicks = -1;
+    private Dictionary<string, (string ItemId, long PositionTicks)> _lastSavedSpotifyPositions = new(StringComparer.Ordinal);
     private DateTime _lastSpotifyStateSaveUtc = DateTime.MinValue;
 }

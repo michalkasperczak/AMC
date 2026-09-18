@@ -26,6 +26,16 @@ public static class SpotifyPlaybackSettingsResolver
 {
     /// <summary>Identyfikator sesji Spotify w ustawieniach.</summary>
     public const string SessionId = "spotify";
+    public const string LibrespotSessionId = "spotifyLibrespot";
+
+    public static bool IsSpotifySession(string? sessionId) => sessionId is SessionId or LibrespotSessionId;
+
+    private static SpotifyPlaybackSettings Profile(AppSettings settings, string sessionId) => sessionId switch
+    {
+        SessionId => settings.SpotifyPlayback,
+        LibrespotSessionId => settings.SpotifyLibrespotPlayback,
+        _ => throw new ArgumentException("Nieznana sesja Spotify.", nameof(sessionId))
+    };
 
     /// <summary>
     /// Stabilny klucz zapisu dla pozycji Spotify.
@@ -83,36 +93,36 @@ public static class SpotifyPlaybackSettingsResolver
     /// albo ustawienie ogolne. Tej wartosci uzywa okno opcji, zeby pokazac to,
     /// co uzytkownik faktycznie wybral, a nie wynik dziedziczenia.
     /// </summary>
-    public static ResumePositionMode ResolveItemMode(AppSettings? settings, MediaItem? item)
+    public static ResumePositionMode ResolveItemMode(AppSettings? settings, MediaItem? item, string sessionId = SessionId)
     {
         var key = StorageKey(item);
         if (settings is null || key.Length == 0) return ResumePositionMode.Inherit;
-        return settings.SpotifyPlayback.ItemsByKey.TryGetValue(key, out var entry)
+        return Profile(settings, sessionId).ItemsByKey.TryGetValue(key, out var entry)
             ? entry.ResumePositionMode
             : ResumePositionMode.Inherit;
     }
 
     /// <summary>Wybor uzytkownika dla albumu albo podcastu.</summary>
-    public static ResumePositionMode ResolveContainerMode(AppSettings? settings, MediaItem? item)
+    public static ResumePositionMode ResolveContainerMode(AppSettings? settings, MediaItem? item, string sessionId = SessionId)
     {
         var key = ContainerKey(item);
         if (settings is null || string.IsNullOrEmpty(key)) return ResumePositionMode.Inherit;
-        return settings.SpotifyPlayback.ContainersByKey.TryGetValue(key, out var mode)
+        return Profile(settings, sessionId).ContainersByKey.TryGetValue(key, out var mode)
             ? mode
             : ResumePositionMode.Inherit;
     }
 
     /// <summary>Wybor dla calej sesji Spotify (Ctrl+Alt+Enter).</summary>
-    public static ResumePositionMode ResolveSessionMode(AppSettings? settings) =>
+    public static ResumePositionMode ResolveSessionMode(AppSettings? settings, string sessionId = SessionId) =>
         settings is null
             ? ResumePositionMode.Inherit
-            : ResumePositionPolicy.GetSessionMode(settings, SessionId);
+            : ResumePositionPolicy.GetSessionMode(settings, sessionId);
 
-    public static void SetItemMode(AppSettings? settings, MediaItem? item, ResumePositionMode mode)
+    public static void SetItemMode(AppSettings? settings, MediaItem? item, ResumePositionMode mode, string sessionId = SessionId)
     {
         var key = StorageKey(item);
         if (settings is null || key.Length == 0) return;
-        var store = settings.SpotifyPlayback.ItemsByKey;
+        var store = Profile(settings, sessionId).ItemsByKey;
         if (mode == ResumePositionMode.Inherit)
         {
             // Brak decyzji zapisujemy jako BRAK wpisu, zeby w pliku ustawien nie
@@ -136,22 +146,22 @@ public static class SpotifyPlaybackSettingsResolver
         if (mode == ResumePositionMode.StartFromBeginning) entry.PositionTicks = 0;
     }
 
-    public static void SetContainerMode(AppSettings? settings, MediaItem? item, ResumePositionMode mode)
+    public static void SetContainerMode(AppSettings? settings, MediaItem? item, ResumePositionMode mode, string sessionId = SessionId)
     {
         var key = ContainerKey(item);
         if (settings is null || string.IsNullOrEmpty(key)) return;
         if (mode == ResumePositionMode.Inherit)
         {
-            settings.SpotifyPlayback.ContainersByKey.Remove(key);
+            Profile(settings, sessionId).ContainersByKey.Remove(key);
             return;
         }
-        settings.SpotifyPlayback.ContainersByKey[key] = mode;
+        Profile(settings, sessionId).ContainersByKey[key] = mode;
     }
 
-    public static void SetSessionMode(AppSettings? settings, ResumePositionMode mode)
+    public static void SetSessionMode(AppSettings? settings, ResumePositionMode mode, string sessionId = SessionId)
     {
         if (settings is null) return;
-        ResumePositionPolicy.SetSessionMode(settings, SessionId, mode);
+        ResumePositionPolicy.SetSessionMode(settings, sessionId, mode);
     }
 
     /// <summary>
@@ -159,18 +169,18 @@ public static class SpotifyPlaybackSettingsResolver
     /// To jest funkcja, ktorej brakowalo sesji Spotify - bez niej
     /// <see cref="DemoMediaSession"/> pamietal pozycje zawsze.
     /// </summary>
-    public static bool ShouldRemember(AppSettings? settings, MediaItem? item)
+    public static bool ShouldRemember(AppSettings? settings, MediaItem? item, string sessionId = SessionId)
     {
         if (settings is null) return true;
-        return ResolveItemMode(settings, item) switch
+        return ResolveItemMode(settings, item, sessionId) switch
         {
             ResumePositionMode.Remember => true,
             ResumePositionMode.StartFromBeginning => false,
-            _ => ResolveContainerMode(settings, item) switch
+            _ => ResolveContainerMode(settings, item, sessionId) switch
             {
                 ResumePositionMode.Remember => true,
                 ResumePositionMode.StartFromBeginning => false,
-                _ => ResumePositionPolicy.ShouldRemember(settings, SessionId)
+                _ => ResumePositionPolicy.ShouldRemember(settings, sessionId)
             }
         };
     }
@@ -180,12 +190,12 @@ public static class SpotifyPlaybackSettingsResolver
     /// przezywa zamkniecie programu i odswiezenie biblioteki, bo klucz nie
     /// zalezy od losowego <see cref="MediaItem.Id"/>.
     /// </summary>
-    public static void StorePosition(AppSettings? settings, MediaItem? item, TimeSpan position)
+    public static void StorePosition(AppSettings? settings, MediaItem? item, TimeSpan position, string sessionId = SessionId)
     {
         var key = StorageKey(item);
         if (settings is null || key.Length == 0) return;
-        var store = settings.SpotifyPlayback.ItemsByKey;
-        if (!ShouldRemember(settings, item))
+        var store = Profile(settings, sessionId).ItemsByKey;
+        if (!ShouldRemember(settings, item, sessionId))
         {
             if (store.TryGetValue(key, out var wylaczony)) wylaczony.PositionTicks = 0;
             return;
@@ -215,12 +225,12 @@ public static class SpotifyPlaybackSettingsResolver
     /// poziomie. Sprawdzenie polityki tutaj chroni przed sytuacja, w ktorej
     /// wylaczenie pamieci pozycji nie dziala do pierwszego zapisu.
     /// </summary>
-    public static TimeSpan ResolvePosition(AppSettings? settings, MediaItem? item)
+    public static TimeSpan ResolvePosition(AppSettings? settings, MediaItem? item, string sessionId = SessionId)
     {
         var key = StorageKey(item);
         if (settings is null || key.Length == 0) return TimeSpan.Zero;
-        if (!ShouldRemember(settings, item)) return TimeSpan.Zero;
-        return settings.SpotifyPlayback.ItemsByKey.TryGetValue(key, out var entry)
+        if (!ShouldRemember(settings, item, sessionId)) return TimeSpan.Zero;
+        return Profile(settings, sessionId).ItemsByKey.TryGetValue(key, out var entry)
             ? TimeSpan.FromTicks(entry.PositionTicks < 0 ? 0 : entry.PositionTicks)
             : TimeSpan.Zero;
     }
@@ -229,13 +239,13 @@ public static class SpotifyPlaybackSettingsResolver
     /// Etykieta dla czytnika ekranu. Wariant dziedziczony mowi wprost, co z
     /// niego wynika, zeby uzytkownik nie musial otwierac kolejnych okien.
     /// </summary>
-    public static string DescribeItemMode(AppSettings? settings, MediaItem? item)
+    public static string DescribeItemMode(AppSettings? settings, MediaItem? item, string sessionId = SessionId)
     {
-        return ResolveItemMode(settings, item) switch
+        return ResolveItemMode(settings, item, sessionId) switch
         {
             ResumePositionMode.Remember => "Pamiętaj pozycję odtwarzania",
             ResumePositionMode.StartFromBeginning => "Zawsze od początku",
-            _ => ShouldRemember(settings, item)
+            _ => ShouldRemember(settings, item, sessionId)
                 ? "Jak ustawienie nadrzędne: pamiętaj pozycję odtwarzania"
                 : "Jak ustawienie nadrzędne: zawsze od początku"
         };

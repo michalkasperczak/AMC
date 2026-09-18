@@ -30,6 +30,8 @@ var tests = new (string Name, Action Test)[]
     ("Historia nagrywania radia z próbami nieudanymi", TestRadioRecordingHistory),
     ("Trwałe presety wszystkich sesji", TestSessionPresetPersistence),
     ("Bezpieczne ustawienia i PKCE TIDAL", TestTidalIntegrationFoundation),
+    ("Odbudowa zachowuje grające Spotify", SpotifySessionRebuildTests.Run),
+    ("Dwie niezależne sesje Spotify bez zmiany skrótów", SpotifySeparateSessionsTests.Run),
     ("Zapis Ulubionych, Biblioteki i usuwania Spotify na API konta", SpotifyMembershipWriteTests.Run),
     ("Kategorie wykonawcy TIDAL, paginacja i rozdzielenie zasobów", TidalArtistBrowseTests.Run),
     ("Oddzielony tor oficjalnego odtwarzania TIDAL", TestTidalPlaybackBoundary),

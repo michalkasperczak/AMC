@@ -1,10 +1,11 @@
 # Zadania testowe AMC
 
-- Numer zestawu: `AMC-TEST-339`
-- Tytuł zestawu: próbny dodatek NVDA — globalne sterowanie bez prefiksu
-- Wersja programu: `0.1.0-alpha.339`
-- Utworzono: 2026-09-10, Europe/Warsaw
-- Bieżące scenariusze i miejsce na uwagi: `INSTRUKCJA_0.1.0-alpha.339_PL.md`
+- Numer zestawu: `AMC-TEST-394`
+- Tytuł zestawu: Spotify — wyszukiwanie, kolekcja, pozycja i właściwości
+- Wersja programu: `0.1.0-alpha.394`
+- Bieżące scenariusze: `TESTY_0.1.0-alpha.394_PL.md`
+
+## Wcześniejsze zestawy
 
 Alfa 339: najpierw przypisz dwa niekolidujące klawisze w NVDA i sprawdź odczyt
 stanu oraz pauzę z innego okna. Dodatek jest opcjonalny; prefiks pozostaje.

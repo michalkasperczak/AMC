@@ -17,6 +17,7 @@ import api
 import controlTypes
 import ui
 import wx
+import winUser
 from scriptHandler import script
 
 try:
@@ -47,14 +48,16 @@ class AppModule(appModuleHandler.AppModule):
         # reading in properties, HTML documents, editors, menus or settings.
         try:
             focus = api.getFocusObject()
-            foreground = api.getForegroundObject()
-            title = getattr(foreground, "name", "") or ""
+            # getScript also runs on winInputHook. NVDA's cached foreground
+            # can still be the main window while a native dialog is focused.
+            title = winUser.getWindowText(winUser.getForegroundWindow()) or ""
             _, marker, version = title.rpartition(" — AMC ")
             if not marker or not version:
                 return None
             if focus is None or getattr(focus, "treeInterceptor", None) is not None:
                 return None
             if getattr(focus, "role", None) in (
+                None, controlTypes.Role.UNKNOWN,
                 controlTypes.Role.EDITABLETEXT,
                 controlTypes.Role.COMBOBOX,
                 controlTypes.Role.MENUITEM,

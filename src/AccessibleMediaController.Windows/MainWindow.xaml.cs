@@ -710,11 +710,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             searchHistoryScope,
             () => QueueStateSave(),
             _state.Settings.Messages.DetailedHints,
-            allServices || string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
-                || string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
-                || string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
-                || string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
-                ? (query, cancellationToken) => PrepareRemoteSearchAsync(query, allServices, cancellationToken)
+            SessionHasRemoteSearch(sessionBeforeSearch, allServices)
+                ? (query, cancellationToken) => PrepareRemoteSearchAsync(query, allServices, cancellationToken, sessionBeforeSearch)
                 : null,
             RemoteSearchLabel(_sessions.Current.Id, allServices))
         {
@@ -851,8 +848,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // Enter nie mialby czego odtworzyc, a fokus nie mialby gdzie wrocic po
         // zamknieciu okna. Cache biblioteki (CachedCollectionItems) tego NIE
         // dotyczy - pozycja z katalogu nie jest czescia konta.
-        if (string.Equals(result.SessionId, "spotify", StringComparison.OrdinalIgnoreCase)
-            && _sessions.FindSession("spotify") is { } spotify
+        if (SpotifyPlaybackSettingsResolver.IsSpotifySession(result.SessionId)
+            && _sessions.FindSession(result.SessionId) is { } spotify
             && spotify.Items.All(item => !string.Equals(item.Id, result.Item.Id, StringComparison.Ordinal)))
         {
             spotify.AddItems([result.Item]);
@@ -3953,7 +3950,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                             item.Source)
                 }.Where(link => link is not null).Select(link => link!).ToArray()
                 : [];
-        var dialog = new InformationWindow(BuildItemPropertiesText(item), links) { Owner = activeOwner };
+        var dialog = new InformationWindow(BuildItemPropertiesText(item), links, preferTextMode: true) { Owner = activeOwner };
         dialog.ShowDialog();
         if (!ReferenceEquals(activeOwner, this)) return;
         Activate();
@@ -9379,7 +9376,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _queueOrderHistory.Clear();
         _playbackHistoryCursors.Clear();
         _undoSequence = 0;
-        _sessions = new SessionManager(_state.Settings, _tidalOutput, _spotifyOutput);
+        var previousSpotify = _sessions?.FindSession("spotify");
+        _sessions = new SessionManager(_state.Settings, _tidalOutput, _spotifyOutput, previousSpotify);
         if (_sessions.FindSession("tidal") is { } tidalSession
             && _tidalIntegration.IsConfigured
             && (_tidalIntegration.HasStoredLogin || _tidalItems.Count > 0))
@@ -9407,7 +9405,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // Spotify: zapamietana biblioteka wraca do sesji zaraz po utworzeniu
         // sesji, zeby po uruchomieniu programu nie bylo pustej listy do czasu
         // ponownego pobrania.
-        RestoreSpotifyCachedItems();
+        // Przy zmianie ustawien SDK nadal gra. Zachowujemy tozsamosc sesji,
+        // biezacy utwor i kolejke bez ponownego Play ani zerowania czasu.
+        if (previousSpotify is null) RestoreSpotifyCachedItems();
         if (_sessions.FindSession("tidal") is { } restoredTidal)
         {
             var restoredTidalItem = restoredTidal.Items.FirstOrDefault(item =>
@@ -9817,9 +9817,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private async Task<IReadOnlyList<SearchWindow.SearchResult>> PrepareRemoteSearchAsync(
         string query,
         bool allServices,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? sessionId = null)
     {
-        var currentId = _sessions.Current.Id;
+        var currentId = sessionId ?? _sessions.Current.Id;
         if (!allServices && string.Equals(currentId, "tidal", StringComparison.Ordinal))
         {
             var tidalResults = await _tidalIntegration.SearchAsync(query, cancellationToken);
@@ -9831,8 +9832,8 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // Wyszukiwanie "we wszystkich serwisach" (Ctrl+Shift+F) celowo go NIE
         // wola - odpowiedz wymaga waznego logowania konta, wiec wygasly token
         // psulby wynik wspolny dla wszystkich sesji.
-        if (!allServices && string.Equals(currentId, "spotify", StringComparison.Ordinal))
-            return await PrepareSpotifySearchAsync(query, cancellationToken);
+        if (!allServices && SpotifyPlaybackSettingsResolver.IsSpotifySession(currentId))
+            return await PrepareSpotifySearchAsync(currentId, query, cancellationToken);
         Task radioSearch = Task.CompletedTask;
         Task<IReadOnlyList<MediaItem>> podcastSearch = Task.FromResult<IReadOnlyList<MediaItem>>([]);
         if (allServices || string.Equals(currentId, "radio", StringComparison.Ordinal))
@@ -10686,8 +10687,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return new CommandExecutionResult(true);
         }
         if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
-            && commandId is CommandIds.ToggleFavorite or CommandIds.ToggleLibrary
-            && ActionItems.Any(item => item.ExternalId is { Length: > 0 }))
+            && (commandId is CommandIds.ToggleFavorite or CommandIds.ToggleLibrary))
         {
             // Spotify zachowuje sie teraz jak TIDAL: zapis idzie do konta przez
             // API, a flagi lokalne zmieniaja sie DOPIERO po potwierdzeniu.
@@ -17728,15 +17728,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 Announce(announcement);
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
         catch (Exception exception)
         {
-            // Zadnej lokalnej zmiany: odmowa Spotify nie moze wygladac jak sukces.
-            DiagnosticLog.Error("spotify-collection", "Nie zmieniono kolekcji Spotify.", exception);
+            // Brak potwierdzenia nie dowodzi braku zmiany na serwerze.
+            DiagnosticLog.Error("spotify-collection", "Nie zakończono potwierdzania kolekcji Spotify.", exception);
             if (_isClosing) return;
-            var message = $"Nie zmieniono kolekcji Spotify. {exception.Message}";
+            var message = exception is OperationCanceledException
+                ? "Przerwano operację Spotify. Część zmian mogła zostać zapisana na koncie; odśwież bibliotekę."
+                : exception is SpotifyWriteBlockedException
+                    ? exception.Message
+                    : "Nie udało się potwierdzić zmian kolekcji Spotify. Odśwież bibliotekę, żeby sprawdzić stan konta.";
             if (searchWindow is not null)
             {
                 if (ReferenceEquals(_activeSearchWindow, searchWindow) && searchWindow.IsActive)
@@ -17795,15 +17796,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             .ToList();
         var session = _sessions.FindSession("spotify");
         if (session is null) return;
-        var zachowane = session.Items
-            .Where(item => item.IsInQueue || item.IsPlayNext)
-            .ToArray();
-        var replacement = _spotifyItems
-            .Concat(zachowane)
-            .DistinctBy(item => item.Id, StringComparer.Ordinal)
-            .ToArray();
-        session.ReplaceItems(replacement);
-        EnsureQueueOrder(session);
+        // Zapis kolekcji nie zmienia tego, co gra ani kolejki odtwarzania.
+        // ReplaceItems usuwalo biezacy utwor, gdy nie nalezal juz do Ulubionych.
+        foreach (var candidate in session.Items.Concat(_spotifyContainerViews.Values.SelectMany(view => view.Items)))
+        {
+            if (confirmed.Any(item => item.Kind == candidate.Kind
+                && string.Equals(item.ExternalId, candidate.ExternalId, StringComparison.Ordinal)))
+                SpotifyCollectionSemantics.ApplyMembership(candidate, added);
+        }
+        if (added)
+        {
+            var registered = session.Items
+                .Where(item => !string.IsNullOrWhiteSpace(item.ExternalId))
+                .Select(item => (item.Kind, item.ExternalId)).ToHashSet();
+            session.AddItemsById(confirmed.Where(item =>
+                !string.IsNullOrWhiteSpace(item.ExternalId) && registered.Add((item.Kind, item.ExternalId))));
+        }
+        RestoreSpotifyRememberedPositions();
     }
 
     /// <summary>
@@ -21892,9 +21901,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         // A collection mutation does not open its search result. In particular,
         // do not replace the current album with the flat, transient catalog.
         if (SearchWindow.PreservesBrowserLocation(results, action))
-            return BeginTidalCollectionToggle(results.Select(result => result.Item)
-                .DistinctBy(item => item.ExternalId, StringComparer.Ordinal).ToArray(),
-                action == SearchResultAction.Favorite);
+        {
+            var items = results.Select(result => result.Item)
+                .DistinctBy(item => (item.Kind, item.ExternalId)).ToArray();
+            return SpotifyPlaybackSettingsResolver.IsSpotifySession(results[0].SessionId)
+                ? BeginSpotifyCollectionToggle(items, action == SearchResultAction.Favorite)
+                : BeginTidalCollectionToggle(items, action == SearchResultAction.Favorite);
+        }
 
         var result = results[0];
         var session = SelectSearchResultBrowserItem(result);

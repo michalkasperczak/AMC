@@ -7,6 +7,18 @@ Nie opisuje planów ani decyzji projektowych — te są w `MEDIA_CONTROLLER_PL.m
 Stan na wersję `0.1.0-alpha.387` (commit d7ee353).
 Zmierzone na drzewie źródeł, nie przepisane z dokumentacji.
 
+## Uzupełnienie: Spotify, alfa 394
+
+Poniższy spis rozmiarów pozostaje historycznym pomiarem alfy 387.
+
+- `Windows/MainWindow.SpotifyOptions.cs`, `Core/Spotify/SpotifyPlaybackSettingsResolver.cs`: opcje i trwała pamięć pozycji, bez martwych pól DSP.
+- `Windows/MainWindow.SpotifySearch.cs`: zdalne Ctrl+F; `Services/SpotifyApiClient.cs`: odczyt katalogu i relacji wykonawca/album.
+- `Windows/MainWindow.SpotifyBrowse.cs`: zawartości oraz menu relacji pod strzałką w prawo.
+- `Core/Spotify/SpotifyLibraryWriteClient.cs`, `SpotifyCollectionSemantics.cs`: zapis biblioteki, odczyt potwierdzający, uprawnienia i częściowe awarie.
+- `SessionManager` może zachować istniejącą sesję Spotify przy odbudowie ustawień; `DemoMediaSession.ConfigureRememberPositionPolicy` przepina wyłącznie regułę pamięci.
+- `InformationWindow`: właściwości domyślnie z natywnym kursorem, przełącznik tekst/dokument; `nvda-addon/addon/appModules/accessiblemediacontroller.py`: ograniczenie NVDA+góra do okna głównego.
+- `SPOTIFY-LOSSLESS-I-MONITORING.md`: źródła, granice Lossless i Librespot; harmonogram i kolejność wdrożenia pozostają w `PLAN-16-09-2026.md`.
+
 ## 1. Rozmiar i podział
 
 Dwa projekty C# plus dodatek NVDA w Pythonie.

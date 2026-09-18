@@ -23,6 +23,8 @@ internal static class SpotifyMembershipWriteTests
         TestOdmowaTrzySeteNieZmieniaStanu();
         TestBrakPotwierdzeniaToNieSukces();
         TestCzesciowaAwariaZachowujePotwierdzone();
+        TestAwariaTransportuNieGubiCzesciowegoWyniku();
+        TestAwariaPotwierdzeniaNieGubiCzesciowegoWyniku();
         TestPlaylistaPozaZakresem();
         TestSerializacjaStanuPoZapisie();
     }
@@ -244,6 +246,29 @@ internal static class SpotifyMembershipWriteTests
             "w koncie zostaje to, co Spotify przyjął");
     }
 
+    private static void TestAwariaTransportuNieGubiCzesciowegoWyniku()
+    {
+        foreach (var timeout in new[] { false, true })
+        {
+            var uris = Enumerable.Range(0, 45).Select(i => $"spotify:track:t{i:D3}").ToArray();
+            var stub = new SpotifyLibraryHttpStub { FailWriteAfterBatches = 1,
+                WriteFailure = timeout ? new TaskCanceledException("timeout") : new HttpRequestException("network") };
+            using var client = new SpotifyLibraryWriteClient(new HttpClient(stub));
+            var result = client.ChangeMembershipAsync("token", SpotifyScopes.Requested, uris, true, CancellationToken.None).GetAwaiter().GetResult();
+            Assert(result.ConfirmedUris.Count == 40 && result.FailedUris.Count == 5, "transport nie może zgubić pierwszej potwierdzonej partii");
+        }
+    }
+
+    private static void TestAwariaPotwierdzeniaNieGubiCzesciowegoWyniku()
+    {
+        var uris = Enumerable.Range(0, 45).Select(i => $"spotify:track:t{i:D3}").ToArray();
+        var stub = new SpotifyLibraryHttpStub { FailConfirmationAfterBatches = 1 };
+        using var client = new SpotifyLibraryWriteClient(new HttpClient(stub));
+        var result = client.ChangeMembershipAsync("token", SpotifyScopes.Requested, uris, true, CancellationToken.None).GetAwaiter().GetResult();
+        Assert(result.ConfirmedUris.Count == 40 && result.FailedUris.Count == 5, "timeout potwierdzenia nie może zgubić wcześniejszej potwierdzonej partii");
+        Assert(stub.Membership.Count == 45, "test odróżnia stan konta od niepełnego potwierdzenia");
+    }
+
     private static void TestPlaylistaPozaZakresem()
     {
         // Playlisty poza zakresem tej zmiany: brak funkcji i brak zakresu.
@@ -333,6 +358,9 @@ internal static class SpotifyMembershipWriteTests
         public bool IgnoreWrites { get; set; }
         /// <summary>Po ilu udanych partiach zapisu zacząć odrzucać.</summary>
         public int? FailWriteAfterBatches { get; set; }
+        public Exception? WriteFailure { get; set; }
+        public int? FailConfirmationAfterBatches { get; set; }
+        private int confirmations;
 
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
@@ -343,6 +371,8 @@ internal static class SpotifyMembershipWriteTests
             if (request.Method == HttpMethod.Get)
             {
                 Reads.Add(url);
+                if (Writes.Count > 0 && FailConfirmationAfterBatches is { } count && confirmations++ >= count)
+                    throw new TaskCanceledException("confirmation timeout");
                 var tablica = uris.Select(uri => Membership.GetValueOrDefault(uri) ? "true" : "false");
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
@@ -354,7 +384,10 @@ internal static class SpotifyMembershipWriteTests
             if (WriteStatus != HttpStatusCode.OK)
                 return Task.FromResult(new HttpResponseMessage(WriteStatus));
             if (FailWriteAfterBatches is { } limit && Writes.Count > limit)
+            {
+                if (WriteFailure is not null) throw WriteFailure;
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Forbidden));
+            }
             if (!IgnoreWrites)
             {
                 var add = request.Method == HttpMethod.Put;

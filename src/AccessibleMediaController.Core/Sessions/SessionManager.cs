@@ -20,10 +20,15 @@ public sealed class SessionManager
     public SessionManager(
         AppSettings settings,
         IMediaOutput? tidalOutput = null,
-        IMediaOutput? spotifyOutput = null)
+        IMediaOutput? spotifyOutput = null,
+        DemoMediaSession? existingSpotifySession = null)
     {
+        if (existingSpotifySession is not null && existingSpotifySession.Id != "spotify")
+            throw new ArgumentException("Oczekiwano sesji Spotify.", nameof(existingSpotifySession));
         _settings = settings;
-        _sessions = CreateDemoSessions(settings, tidalOutput, spotifyOutput).ToList();
+        existingSpotifySession?.ConfigureRememberPositionPolicy(
+            item => Spotify.SpotifyPlaybackSettingsResolver.ShouldRemember(settings, item));
+        _sessions = CreateDemoSessions(settings, tidalOutput, spotifyOutput, existingSpotifySession).ToList();
         _sessionSlots = SessionSlotOrder.Normalize(settings.SessionSlots);
         settings.SessionSlots = new Dictionary<int, string>(_sessionSlots);
         ReorderSessionsBySlots();
@@ -35,6 +40,32 @@ public sealed class SessionManager
     }
 
     public IReadOnlyList<DemoMediaSession> Sessions => _sessions;
+
+    /// <summary>Adds the independent native Spotify output without rebuilding the SDK session.</summary>
+    public DemoMediaSession RegisterSpotifyLibrespotSession(
+        IMediaOutput output,
+        DemoMediaSession? existingSession = null)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        const string id = "spotifyLibrespot";
+        if (existingSession is not null && existingSession.Id != id)
+            throw new ArgumentException("Oczekiwano sesji Spotify — Librespot.", nameof(existingSession));
+        var session = existingSession ?? FindSession(id) ?? new DemoMediaSession(
+            id, "Spotify — Librespot", [], output,
+            rememberPosition: item => Spotify.SpotifyPlaybackSettingsResolver.ShouldRemember(_settings, item, id));
+        session.ConfigureRememberPositionPolicy(item => Spotify.SpotifyPlaybackSettingsResolver.ShouldRemember(_settings, item, id));
+        var registered = FindSession(id);
+        if (registered is not null && !ReferenceEquals(registered, session))
+            throw new InvalidOperationException("Sesja Spotify — Librespot jest już zarejestrowana.");
+        if (registered is null)
+        {
+            ApplyRememberedMute(session);
+            _sessions.Add(session);
+        }
+        var preferredSlot = Math.Clamp(_sessionSlots.Keys.DefaultIfEmpty(0).Max() + 1, 1, 9);
+        AddOrUpdateTransientSession(id, session.DisplayName, [], output, preferredSlot);
+        return session;
+    }
     public IReadOnlyDictionary<int, string> SessionSlots => _sessionSlots;
     public DemoMediaSession Current { get; private set; }
     public bool AllSessionsMuted { get; private set; }
@@ -236,7 +267,8 @@ public sealed class SessionManager
     private static IReadOnlyList<DemoMediaSession> CreateDemoSessions(
         AppSettings settings,
         IMediaOutput? tidalOutput,
-        IMediaOutput? spotifyOutput = null)
+        IMediaOutput? spotifyOutput = null,
+        DemoMediaSession? existingSpotifySession = null)
     {
         return
         [
@@ -251,7 +283,7 @@ public sealed class SessionManager
             // ZGLOSZENIE Michala 18.09.2026: bez tej funkcji sesja Spotify
             // przyjmowala domyslne "_ => true" i pamietala pozycje ZAWSZE, wiec
             // wybor "Zawsze od poczatku" w oknie opcji niczego nie zmienial.
-            new DemoMediaSession(
+            existingSpotifySession ?? new DemoMediaSession(
                 "spotify",
                 "Spotify",
                 CreateDemonstrationItems("spotify"),

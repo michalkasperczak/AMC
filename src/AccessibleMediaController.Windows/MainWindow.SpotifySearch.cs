@@ -1,4 +1,5 @@
 using AccessibleMediaController.Core.Sessions;
+using AccessibleMediaController.Core.Spotify;
 using AccessibleMediaController.Windows.Services;
 
 namespace AccessibleMediaController.Windows;
@@ -30,7 +31,7 @@ public partial class MainWindow
         || string.Equals(sessionId, "radio", StringComparison.Ordinal)
         || string.Equals(sessionId, "podcasts", StringComparison.Ordinal)
         || string.Equals(sessionId, "tidal", StringComparison.Ordinal)
-        || string.Equals(sessionId, "spotify", StringComparison.Ordinal);
+        || SpotifyPlaybackSettingsResolver.IsSpotifySession(sessionId);
 
     /// <summary>
     /// Nazwa katalogu czytana przez czytnik ekranu ("Wyszukiwanie w ...").
@@ -41,7 +42,7 @@ public partial class MainWindow
         {
             "podcasts" => "katalogach Apple Podcasts, Spreaker i YouTube",
             "tidal" => "katalogu TIDAL",
-            "spotify" => "katalogu Spotify",
+            "spotify" or "spotifyLibrespot" => "katalogu Spotify",
             _ => "katalogu radia"
         };
 
@@ -57,8 +58,11 @@ public partial class MainWindow
     /// </summary>
     internal static IReadOnlyList<MediaItem> MergeSpotifySearchResults(
         IReadOnlyList<MediaItem> remoteItems,
-        IEnumerable<MediaItem> sessionItems)
+        IEnumerable<MediaItem> sessionItems,
+        string sessionId = SpotifyPlaybackSettingsResolver.SessionId)
     {
+        if (!SpotifyPlaybackSettingsResolver.IsSpotifySession(sessionId))
+            throw new ArgumentException("Nieznana sesja Spotify.", nameof(sessionId));
         var znane = new Dictionary<string, MediaItem>(StringComparer.Ordinal);
         foreach (var item in sessionItems)
         {
@@ -80,7 +84,7 @@ public partial class MainWindow
             }
             wynik.Add(new MediaItem
             {
-                Id = $"spotify:{klucz}",
+                Id = $"{sessionId}:{klucz}",
                 Kind = item.Kind,
                 Title = item.Title,
                 Artist = item.Artist,
@@ -107,19 +111,21 @@ public partial class MainWindow
     /// lokalne. Ciche zwrocenie pustej listy ukryloby przyczyne.
     /// </summary>
     private async Task<IReadOnlyList<SearchWindow.SearchResult>> PrepareSpotifySearchAsync(
+        string sessionId,
         string query,
         CancellationToken cancellationToken)
     {
         var remote = await _spotifyIntegration.SearchAsync(query, cancellationToken).ConfigureAwait(true);
-        var session = _sessions.FindSession("spotify");
-        var scalone = MergeSpotifySearchResults(
-            remote,
-            session?.Items ?? (IEnumerable<MediaItem>)_spotifyItems);
+        var session = _sessions.FindSession(sessionId);
+        IEnumerable<MediaItem> known = session?.Items ??
+            (sessionId == SpotifyPlaybackSettingsResolver.SessionId
+                ? (IEnumerable<MediaItem>)_spotifyItems : []);
+        var scalone = MergeSpotifySearchResults(remote, known, sessionId);
         DiagnosticLog.Info(
             "spotify-search",
             $"Katalog Spotify zwrócił {remote.Count} pozycji; po scaleniu z sesją: {scalone.Count}.");
         return scalone
-            .Select(item => new SearchWindow.SearchResult("spotify", item))
+            .Select(item => new SearchWindow.SearchResult(sessionId, item))
             .ToArray();
     }
 }

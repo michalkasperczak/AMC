@@ -97,6 +97,8 @@ public sealed class AppSettings
     /// odswiezeniu, a te wybory maja przezyc odswiezenie.
     /// </summary>
     public SpotifyPlaybackSettings SpotifyPlayback { get; set; } = new();
+    public SpotifyPlaybackSettings SpotifyLibrespotPlayback { get; set; } = new();
+    public string? SpotifyLibrespotDeviceName { get; set; }
     public string LastSessionId { get; set; } = "tidal";
     public Dictionary<int, string> SessionSlots { get; set; } = SessionSlotOrder.CreateDefault();
     public ListDisplaySettings Lists { get; set; } = new();
@@ -335,7 +337,9 @@ public static class SessionSlotOrder
     }
 
     public static string GetDisplayName(string sessionId) =>
-        KnownSessions.FirstOrDefault(session =>
+        string.Equals(sessionId, "spotifyLibrespot", StringComparison.OrdinalIgnoreCase)
+            ? "Spotify — Librespot"
+            : KnownSessions.FirstOrDefault(session =>
             string.Equals(session.Id, sessionId, StringComparison.OrdinalIgnoreCase)).DisplayName
         ?? sessionId;
 }

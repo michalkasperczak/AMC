@@ -111,7 +111,8 @@ public partial class SearchWindow : Window
     internal static bool PreservesBrowserLocation(IReadOnlyList<SearchResult> results, SearchResultAction action) =>
         action is SearchResultAction.Library or SearchResultAction.Favorite
         && results.Count > 0
-        && results.All(result => string.Equals(result.SessionId, "tidal", StringComparison.OrdinalIgnoreCase));
+        && results.All(result => string.Equals(result.SessionId, "tidal", StringComparison.OrdinalIgnoreCase)
+            || AccessibleMediaController.Core.Spotify.SpotifyPlaybackSettingsResolver.IsSpotifySession(result.SessionId));
 
     internal void UpdateTidalMembership(IReadOnlySet<string> externalIds)
     {

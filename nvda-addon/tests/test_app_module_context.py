@@ -14,13 +14,15 @@ class BaseModule:
 
 class ContextTests(unittest.TestCase):
     def setUp(self):
+        self.native_title = None
         self.focus = SimpleNamespace(treeInterceptor=None, role='listitem')
         self.foreground = SimpleNamespace(name='Utwór — Spotify — AMC 0.1.0-alpha.393')
         modules = {
             'appModuleHandler': SimpleNamespace(AppModule=BaseModule),
+            'winUser': SimpleNamespace(getForegroundWindow=lambda: 123, getWindowText=lambda hwnd: self.native_title if self.native_title is not None else getattr(self.foreground, 'name', '')),
             'api': SimpleNamespace(getFocusObject=lambda: self.focus,
                                    getForegroundObject=lambda: self.foreground),
-            'controlTypes': SimpleNamespace(Role=SimpleNamespace(EDITABLETEXT='edit', COMBOBOX='combo', MENUITEM='menuitem', POPUPMENU='popupmenu', MENUBAR='menubar')),
+            'controlTypes': SimpleNamespace(Role=SimpleNamespace(UNKNOWN='unknown', EDITABLETEXT='edit', COMBOBOX='combo', MENUITEM='menuitem', POPUPMENU='popupmenu', MENUBAR='menubar')),
             'ui': SimpleNamespace(message=lambda text: None),
             'wx': SimpleNamespace(CallAfter=lambda *args: None),
             'scriptHandler': SimpleNamespace(script=lambda **kwargs: lambda fn: fn),
@@ -46,6 +48,14 @@ class ContextTests(unittest.TestCase):
 
     def test_search_edit_keeps_reader_keys(self):
         self.focus.role = 'edit'
+        self.assertIsNone(self.app.getScript(object()))
+
+    def test_stale_nvda_foreground_does_not_steal_dialog_key(self):
+        self.native_title = "Właściwości i informacje"
+        self.assertIsNone(self.app.getScript(object()))
+
+    def test_cross_thread_unknown_role_does_not_steal_key(self):
+        self.focus.role = "unknown"
         self.assertIsNone(self.app.getScript(object()))
 
     def test_unknown_context_fails_safe(self):

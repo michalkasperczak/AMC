@@ -12,7 +12,7 @@ public sealed class DemoMediaSession
     private int _currentIndex;
     private TimeSpan _position;
     private readonly IMediaOutput? _output;
-    private readonly Func<MediaItem, bool> _rememberPosition;
+    private Func<MediaItem, bool> _rememberPosition;
     private readonly Dictionary<string, TimeSpan> _rememberedPositions = new(StringComparer.Ordinal);
     private int? _resumeAfterQueueIndex;
     private readonly HashSet<string> _playedQueueItemIds = new(StringComparer.Ordinal);
@@ -51,6 +51,9 @@ public sealed class DemoMediaSession
         _volumeOverride = volumeOverride ?? (_ => null);
         _position = output is null ? TimeSpan.FromSeconds(83) : TimeSpan.Zero;
     }
+
+    internal void ConfigureRememberPositionPolicy(Func<MediaItem, bool> policy) =>
+        _rememberPosition = policy ?? throw new ArgumentNullException(nameof(policy));
 
     public string Id { get; }
     public string DisplayName { get; }

@@ -173,8 +173,8 @@ public sealed class SpotifyLibraryWriteClient(HttpClient? httpClient = null) : I
         var add = SpotifyCollectionSemantics.ResolveAddition(doZapisu, przed, requestedAddition);
 
         var metoda = add ? HttpMethod.Put : HttpMethod.Delete;
-        var wyslane = new List<string>();
-        var nieudane = new List<string>();
+        var doSprawdzenia = new List<string>();
+        var nieudane = new List<string>(bezZakresu);
         SpotifyWriteBlockedException? pierwszyBlad = null;
         foreach (var batch in Batches(doZapisu))
         {
@@ -186,7 +186,7 @@ public sealed class SpotifyLibraryWriteClient(HttpClient? httpClient = null) : I
                     accessToken,
                     cancellationToken).ConfigureAwait(false);
                 EnsureWritable(response);
-                wyslane.AddRange(batch);
+                doSprawdzenia.AddRange(batch);
             }
             catch (SpotifyWriteBlockedException wyjatek)
             {
@@ -198,8 +198,16 @@ public sealed class SpotifyLibraryWriteClient(HttpClient? httpClient = null) : I
                 pierwszyBlad ??= wyjatek;
                 ostrzezenia.Add($"Spotify odrzucił część pozycji: {wyjatek.Message}");
             }
+            catch (Exception exception) when (!cancellationToken.IsCancellationRequested
+                && (exception is HttpRequestException or OperationCanceledException or IOException))
+            {
+                // Brak odpowiedzi nie znaczy, że serwer nie wykonał zapisu.
+                // Stan tej partii też weryfikujemy, bez ponawiania mutacji.
+                doSprawdzenia.AddRange(batch);
+                ostrzezenia.Add("Nie odebrano odpowiedzi na część zapisów Spotify.");
+            }
         }
-        if (wyslane.Count == 0)
+        if (doSprawdzenia.Count == 0)
         {
             throw pierwszyBlad ?? new SpotifyWriteBlockedException(
                 "Spotify nie przyjął żadnej ze wskazanych pozycji.",
@@ -207,11 +215,25 @@ public sealed class SpotifyLibraryWriteClient(HttpClient? httpClient = null) : I
         }
 
         // Odczyt po zapisie. Dopiero to potwierdza, że zmiana jest w koncie.
-        var po = await ReadMembershipAsync(accessToken, wyslane, cancellationToken).ConfigureAwait(false);
-        var potwierdzone = wyslane
+        var po = new Dictionary<string, bool>(StringComparer.Ordinal);
+        foreach (var batch in Batches(doSprawdzenia))
+        {
+            try
+            {
+                var wynikPartii = await ReadMembershipAsync(accessToken, batch, cancellationToken).ConfigureAwait(false);
+                foreach (var pair in wynikPartii) po[pair.Key] = pair.Value;
+            }
+            catch (Exception exception) when (!cancellationToken.IsCancellationRequested
+                && (exception is SpotifyWriteBlockedException or HttpRequestException
+                    or OperationCanceledException or IOException or JsonException))
+            {
+                ostrzezenia.Add("Nie udało się odczytać potwierdzenia części zmian Spotify. Część zmian mogła zostać zapisana na koncie; odśwież bibliotekę.");
+            }
+        }
+        var potwierdzone = doSprawdzenia
             .Where(uri => po.TryGetValue(uri, out var member) && member == add)
             .ToArray();
-        var niepotwierdzone = wyslane.Except(potwierdzone, StringComparer.Ordinal).ToArray();
+        var niepotwierdzone = doSprawdzenia.Except(potwierdzone, StringComparer.Ordinal).ToArray();
         if (niepotwierdzone.Length > 0)
         {
             nieudane.AddRange(niepotwierdzone);
@@ -221,7 +243,8 @@ public sealed class SpotifyLibraryWriteClient(HttpClient? httpClient = null) : I
         if (potwierdzone.Length == 0)
         {
             throw new SpotifyWriteBlockedException(
-                "Spotify przyjął żądanie, ale nie potwierdził zmiany w bibliotece. Nie zmieniono stanu w AMC.",
+                "Spotify nie potwierdził zmiany w bibliotece. Część zmian mogła zostać zapisana na koncie. "
+                    + "Nie zmieniono stanu w AMC; odśwież bibliotekę.",
                 SpotifyWriteBlockReason.Denied);
         }
 

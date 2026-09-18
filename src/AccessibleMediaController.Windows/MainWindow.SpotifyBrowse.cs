@@ -117,6 +117,7 @@ public partial class MainWindow
             // Bez dopisania do sesji Enter na utworze z tego widoku nie mialby
             // czego odtworzyc: sesja zna tylko wlasne pozycje.
             _sessions.FindSession("spotify")?.AddItemsById(items);
+            RestoreSpotifyRememberedPositions();
 
             if (!CanPresentSpotifyResponse(requestVersion, sessionAtStart, viewAtStart, itemAtStart))
             {

@@ -6950,7 +6950,7 @@ static void TestSpotifyObslugaListyJakTidal()
     if (strzalka < 0)
         throw new Exception("Brak obslugi strzalki w prawo dla Spotify.");
     if (!glowne.AsSpan(strzalka, Math.Min(220, glowne.Length - strzalka))
-            .Contains("CanOpenSpotifyContainer(spotifyItem)", StringComparison.Ordinal))
+            .Contains("HasSpotifyRelations(spotifyItem)", StringComparison.Ordinal))
     {
         throw new Exception(
             "Strzalka w prawo w Spotify nie sprawdza, czy element ma co otworzyc.");
