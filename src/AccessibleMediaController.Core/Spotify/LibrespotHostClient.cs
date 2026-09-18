@@ -54,6 +54,11 @@ public sealed class LibrespotHostClient : IAsyncDisposable, IDisposable
     private string? selectedDeviceName;
     private int hostVolume = 100;
     private bool disposed;
+    /// <summary>
+    /// Trwa zamykanie: blokuje powtorne Dispose, ale NIE blokuje ostatniego
+    /// polecenia "shutdown" wysylanego przez SendAsync.
+    /// </summary>
+    private bool disposing;
 
     public LibrespotHostClient(
         Func<ILibrespotHostProcess> processFactory,
@@ -254,8 +259,14 @@ public sealed class LibrespotHostClient : IAsyncDisposable, IDisposable
             ["device"] = deviceName is null ? null : JsonValue.Create(deviceName),
             ["volume"] = clamped
         };
-        await SendAsync(LibrespotHostContract.CommandInitialize, payload, cancellationToken)
-            .ConfigureAwait(false);
+        await SendAsync(
+            LibrespotHostContract.CommandInitialize,
+            payload,
+            cancellationToken,
+            // Logowanie ma WLASNY, dluzszy limit: host czeka na Session::connect
+            // do 30 s, a zwykly limit polecenia (15 s) urwalby poprawne
+            // logowanie i zglosil falszywy blad przekroczenia czasu.
+            options.InitializeTimeout).ConfigureAwait(false);
         lock (stateGate)
         {
             initialized = true;
@@ -265,17 +276,23 @@ public sealed class LibrespotHostClient : IAsyncDisposable, IDisposable
     }
 
     /// <summary>
-    /// Zmienia urzadzenie wyjscia, zachowujac utwor, pozycje i pauze. Gdy host
-    /// odmowi, blad idzie do gory - zadnego cichego powrotu na stare wyjscie.
+    /// UCZCIWA ODMOWA: ten transport nie potrafi przelaczyc wyjscia dzwieku w
+    /// dzialajacej sesji.
+    ///
+    /// Wczesniej wysylalo sie tu drugie "initialize" z accessToken=null i polami
+    /// keepUri/keepPlayId/keepPositionMs/keepPlaying. Host tego NIE obsluguje:
+    /// wymaga niepustego tokenu i odrzuca kazdy kolejny "initialize" kodem
+    /// alreadyInitialized. Byl to kontrakt zmyslony po stronie AMC - dlatego go
+    /// tu nie ma i nie wolno go przywracac.
+    ///
+    /// Wyjscie zmienia warstwa wyzej: konczy STARY proces i stawia NOWY, ktory
+    /// dostaje docelowe urzadzenie w swoim pierwszym "initialize". Jedno zycie
+    /// tego obiektu = jeden proces hosta.
     /// </summary>
-    public async Task SetOutputDeviceAsync(
+    public Task SetOutputDeviceAsync(
         string? deviceName,
         CancellationToken cancellationToken = default)
     {
-        long playId;
-        string uri;
-        TimeSpan position;
-        bool wasPlaying;
         lock (stateGate)
         {
             if (!initialized)
@@ -284,25 +301,11 @@ public sealed class LibrespotHostClient : IAsyncDisposable, IDisposable
                     LibrespotHostErrorCodes.NotStarted,
                     "Host Librespot nie ma jeszcze poświadczeń konta.");
             }
-            playId = currentPlayId;
-            uri = currentUri;
-            position = lastPosition;
-            wasPlaying = playbackStarted && !lastPaused;
         }
-
-        var payload = new JsonObject
-        {
-            ["accessToken"] = null,
-            ["device"] = deviceName is null ? null : JsonValue.Create(deviceName),
-            ["volume"] = HostVolume,
-            ["keepPlayId"] = playId,
-            ["keepUri"] = uri.Length == 0 ? null : JsonValue.Create(uri),
-            ["keepPositionMs"] = (long)Math.Max(0, position.TotalMilliseconds),
-            ["keepPlaying"] = wasPlaying
-        };
-        await SendAsync(LibrespotHostContract.CommandInitialize, payload, cancellationToken)
-            .ConfigureAwait(false);
-        lock (stateGate) selectedDeviceName = deviceName;
+        throw new LibrespotHostException(
+            LibrespotHostErrorCodes.DeviceChangeNeedsNewHost,
+            "Host Librespot przyjmuje wybór wyjścia tylko raz, przy logowaniu. "
+            + "Zmiana wyjścia wymaga nowego procesu hosta.");
     }
 
     /// <summary>
@@ -507,7 +510,8 @@ public sealed class LibrespotHostClient : IAsyncDisposable, IDisposable
     private async Task<JsonObject> SendAsync(
         string command,
         JsonObject? payload,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TimeSpan? timeout = null)
     {
         ThrowIfDisposed();
         var current = Volatile.Read(ref process);
@@ -558,7 +562,7 @@ public sealed class LibrespotHostClient : IAsyncDisposable, IDisposable
             try
             {
                 return await request.Completion.Task
-                    .WaitAsync(options.RequestTimeout, linked.Token)
+                    .WaitAsync(timeout ?? options.RequestTimeout, linked.Token)
                     .ConfigureAwait(false);
             }
             catch (TimeoutException)
@@ -853,8 +857,14 @@ public sealed class LibrespotHostClient : IAsyncDisposable, IDisposable
     {
         lock (stateGate)
         {
-            if (disposed) return;
-            disposed = true;
+            if (disposing || disposed) return;
+            // UWAGA: flagi "disposed" NIE wolno tu ustawic. SendAsync sprawdza ja
+            // pierwsza linia, wiec ShutdownAsync odbilby sie od wlasnego Dispose
+            // i host NIGDY nie dostalby polecenia "shutdown" - konczyl zawsze
+            // Kill(). Ubity host nie zwalnia urzadzenia audio po dobremu.
+            // "disposing" blokuje drugie wejscie w Dispose, ale przepuszcza
+            // pozegnalne polecenie.
+            disposing = true;
         }
         try
         {
@@ -863,6 +873,7 @@ public sealed class LibrespotHostClient : IAsyncDisposable, IDisposable
         catch (LibrespotHostException)
         {
         }
+        lock (stateGate) disposed = true;
         await lifetime.CancelAsync().ConfigureAwait(false);
         var loop = readerLoop;
         if (loop is not null)

@@ -351,6 +351,17 @@ internal static class SpotifyLibrespotOutputTests
         Check(!scena.Output.IsPreparing, "Awaria hosta kończy przygotowanie");
     }
 
+    /// <summary>
+    /// Lista wyjsc musi dojsc bez konta, a nazwy sa DOKLADNE.
+    ///
+    /// Zmiana wyjscia w TEJ scenie musi zostac ODMOWIONA WPROST: adapter dostal
+    /// tu GOTOWY, cudzy transport (stary konstruktor), a host Rust przyjmuje
+    /// "initialize" dokladnie raz - drugiego nie obsluguje. Wczesniej testowany
+    /// byl kontrakt zmyslony po stronie AMC (initialize z accessToken=null i
+    /// polami keepUri/keepPlayId/keepPositionMs/keepPlaying), ktorego host nie
+    /// rozumie. Realna zmiana wyjscia idzie przez ODTWORZENIE procesu i jest
+    /// mierzona w SpotifyLibrespotLifecycleTests.
+    /// </summary>
     private static void WyborUrzadzeniaPrzyjmujeDokladnaNazwe()
     {
         using var scena = Scena.Nowa();
@@ -361,10 +372,9 @@ internal static class SpotifyLibrespotOutputTests
         };
         var urzadzenia = scena.Output.GetOutputDevicesAsync().GetAwaiter().GetResult();
         Check(urzadzenia.Count == 2, "Lista wyjść musi dojść bez konta");
+        Check(urzadzenia[1].Name == "Karta USB (2- Audio)",
+            "Nazwa wyjścia musi być DOKŁADNIE taka, jaką zwrócił host");
 
-        // Zmiana wyjscia wymaga, zeby host mial JUZ poswiadczenia: inaczej
-        // transport slusznie odmawia (kod not_started). Token jest wstrzyknietym
-        // ciagiem testowym - zadnego konta ani sekretu tu nie ma.
         scena.Client.InitializeAsync(null, null, 70).GetAwaiter().GetResult();
 
         var item = Utwor();
@@ -374,16 +384,18 @@ internal static class SpotifyLibrespotOutputTests
         scena.Host.EmitState(play.PlayId, play.Uri, 40_000, 200_000, isPlaying: true);
         scena.Host.Settle();
 
+        var liczbaInitialize = scena.Host.CommandNames().Count(name => name == "initialize");
         var zmiana = scena.Output.TrySetOutputDeviceAsync(urzadzenia[1].Name)
             .GetAwaiter().GetResult();
-        Check(zmiana, "Zmiana wyjścia na nazwę z listy musi się udać");
-        var initialize = scena.Host.Commands("initialize")[^1];
-        Check(initialize.Device == "Karta USB (2- Audio)",
-            "Wybór wyjścia musi przekazać DOKŁADNĄ nazwę zwróconą przez host");
-        Check(initialize.KeepUri == play.Uri, "Zmiana wyjścia musi zachować utwór");
-        Check(initialize.KeepPositionMs == 40_000, "Zmiana wyjścia musi zachować pozycję");
-        Check(initialize.KeepPlaying, "Zmiana wyjścia musi zachować informację, że utwór gra");
-        Check(scena.Failed.Count == 0, "Udana zmiana wyjścia nie może zgłaszać błędu");
+
+        Check(!zmiana,
+            "Na CUDZYM transporcie zmiana wyjścia musi być odmówiona wprost, nie udana pozornie");
+        Check(scena.Host.CommandNames().Count(name => name == "initialize") == liczbaInitialize,
+            "Nie wolno wysłać DRUGIEGO initialize: host Rust odrzuca go jako alreadyInitialized");
+        Check(scena.Failed.Count == 1,
+            "Odmowa nie może przejść w ciszy: użytkownik musi wiedzieć, że wyjście się nie zmieniło");
+        Check(scena.Failed[0].Message.Contains("Karta USB (2- Audio)"),
+            "Komunikat musi nazwać wyjście, którego nie udało się ustawić");
     }
 
     private static void OdmowaZmianyWyjsciaNieCichnie()
@@ -393,9 +405,14 @@ internal static class SpotifyLibrespotOutputTests
         scena.Output.Play(item, TimeSpan.Zero, 70, 1d);
         scena.Host.Settle();
         // Poswiadczenia (token testowy) musza byc wczesniej, inaczej odmowa
-        // wyszlaby z braku logowania, a nie z odmowy hosta - test mierzylby co innego.
+        // wyszlaby z braku logowania, a nie z odmowy - test mierzylby co innego.
         scena.Client.InitializeAsync(null, null, 70).GetAwaiter().GetResult();
-        scena.Host.AutoError = ("audio_device_unavailable", "Nie ma takiego wyjścia.");
+        // Nazwa, ktorej host NIE zglasza. Zla nazwa nie moze skonczyc sie cichym
+        // wyjsciem domyslnym ani zmyslonym powodzeniem.
+        scena.Host.Devices = new JsonArray
+        {
+            new JsonObject { ["name"] = "Wyjście domyślne", ["isDefault"] = true }
+        };
         var zmiana = scena.Output.TrySetOutputDeviceAsync("Nie ma takiego")
             .GetAwaiter().GetResult();
 

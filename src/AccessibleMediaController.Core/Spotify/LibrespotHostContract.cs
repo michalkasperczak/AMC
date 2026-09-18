@@ -54,6 +54,14 @@ public static class LibrespotHostErrorCodes
     public const string HostError = "host_error";
     public const string Disposed = "host_disposed";
     public const string TokenLeakGuard = "token_leak_guard";
+
+    /// <summary>
+    /// Zmiana wyjscia dzwieku wymaga NOWEGO procesu hosta. Host przyjmuje
+    /// "initialize" dokladnie raz i tylko z prawdziwym tokenem, wiec transport
+    /// nie potrafi przelaczyc wyjscia w dzialajacej sesji - robi to warstwa
+    /// wyzej, odtwarzajac proces. Ten kod jest UCZCIWA odmowa, nie awaria.
+    /// </summary>
+    public const string DeviceChangeNeedsNewHost = "device_change_needs_new_host";
 }
 
 /// <summary>
@@ -138,6 +146,13 @@ public sealed class LibrespotHostOptions
 
     /// <summary>Ile czekamy na odpowiedz na jedno polecenie.</summary>
     public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// Ile czekamy na "initialize". MUSI byc dluzsze niz zwykly limit polecenia:
+    /// host czeka na Session::connect do 30 s, wiec 15 s urwaloby poprawne
+    /// logowanie i zglosilo falszywy blad przekroczenia czasu.
+    /// </summary>
+    public TimeSpan InitializeTimeout { get; init; } = TimeSpan.FromSeconds(40);
 
     /// <summary>
     /// Gorna granica dlugosci jednej linii stdout. Bez niej zepsuty host moze

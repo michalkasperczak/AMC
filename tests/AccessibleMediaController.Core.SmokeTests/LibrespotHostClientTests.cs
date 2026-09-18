@@ -29,7 +29,7 @@ internal static class LibrespotHostClientTests
         StopDuringPreparationDoesNotStartMusic();
         TrackErrorClearsPreparationAndReportsCode();
         DeviceListWorksWithoutAccount();
-        DeviceChangeKeepsTrackPositionAndPause();
+        DeviceChangeIsRefusedNotFaked();
         VolumeSeekAndTimeReachTheHost();
         TokenTravelsOnlyThroughStdinInitialize();
         TokenIsRejectedInProcessArguments();
@@ -284,41 +284,40 @@ internal static class LibrespotHostClientTests
         client.Dispose();
     }
 
-    private static void DeviceChangeKeepsTrackPositionAndPause()
+    /// <summary>
+    /// Transport MUSI odmowic zmiany wyjscia WPROST.
+    ///
+    /// Wczesniej wysylal tu drugie "initialize" z accessToken=null i polami
+    /// keepUri/keepPlayId/keepPositionMs/keepPlaying. Host Rust tego NIE
+    /// obsluguje: wymaga niepustego tokenu (badType) i odrzuca kazdy kolejny
+    /// initialize (alreadyInitialized). Tamten test dowodzil wiec tylko tego, ze
+    /// atrapa przyjmuje zmyslony kontrakt - i utrwalal blad.
+    ///
+    /// Realna zmiana wyjscia to ODTWORZENIE procesu; robi to adapter i mierzy
+    /// SpotifyLibrespotLifecycleTests po stronie Windows.
+    /// </summary>
+    private static void DeviceChangeIsRefusedNotFaked()
     {
         using var host = new FakeHost();
         var client = StartedClient(host);
         host.AutoAck = true;
-        client.InitializeAsync(FikcyjnyToken, null, 70).GetAwaiter().GetResult();
+        client.InitializeAsync(FikcyjnyToken, "Karta USB", 70).GetAwaiter().GetResult();
         client.PlayAsync("spotify:track:GGG", TimeSpan.Zero, 60).GetAwaiter().GetResult();
         host.EmitState(60, "spotify:track:GGG", 45_000, 200_000, isPlaying: true);
         host.Settle();
 
-        client.SetOutputDeviceAsync("Karta USB").GetAwaiter().GetResult();
-        var change = host.WrittenCommands().Last();
-        Check(change["command"]!.GetValue<string>() == "initialize",
-            "Zmiana urządzenia idzie poleceniem initialize");
-        Check(change["device"]!.GetValue<string>() == "Karta USB",
-            "Zmiana urządzenia musi przekazać DOKŁADNĄ nazwę z listy");
-        Check(change["keepUri"]!.GetValue<string>() == "spotify:track:GGG",
-            "Zmiana urządzenia musi zachować utwór");
-        Check(change["keepPositionMs"]!.GetValue<long>() == 45_000,
-            "Zmiana urządzenia musi zachować pozycję w utworze");
-        Check(change["keepPlaying"]!.GetValue<bool>(),
-            "Zmiana urządzenia musi zachować informację, że utwór gra");
-        Check(change["accessToken"] is null,
-            "Zmiana urządzenia nie może powtarzać tokenu konta");
-        Check(client.SelectedDeviceName == "Karta USB", "Wybrane urządzenie musi być zapamiętane");
-
-        // Odmowa hosta nie moze cicho wrocic na stare wyjscie.
-        host.AutoAck = false;
-        host.AutoError = ("device_not_found", "Nie znaleziono urządzenia wyjścia.");
+        var before = host.WrittenCommands().Count;
         var refusal = Throws(() =>
-            client.SetOutputDeviceAsync("Nie ma takiego").GetAwaiter().GetResult());
-        Check(refusal?.Code == "device_not_found",
-            "Odmowa zmiany urządzenia musi być zgłoszona, nie zamieniona na ciche wyjście domyślne");
+            client.SetOutputDeviceAsync("Inna karta").GetAwaiter().GetResult());
+
+        Check(refusal?.Code == LibrespotHostErrorCodes.DeviceChangeNeedsNewHost,
+            $"Zmiana wyjścia musi być odmówiona wprost; otrzymano: {refusal?.Code ?? "brak błędu"}");
+        Check(host.WrittenCommands().Count == before,
+            "Odmowa nie może wysłać do hosta ŻADNEGO polecenia, zwłaszcza drugiego initialize");
         Check(client.SelectedDeviceName == "Karta USB",
-            "Po odmowie zostaje poprzednie urządzenie, bez cichego zastępnika");
+            "Po odmowie zostaje poprzednie wyjście, bez cichego zastępnika");
+        Check(refusal!.Message.Contains("nowego procesu"),
+            "Komunikat musi powiedzieć, czego zmiana wyjścia naprawdę wymaga");
         client.Dispose();
     }
 
