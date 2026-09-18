@@ -389,6 +389,167 @@ mod tests {
         assert_eq!(out[0]["code"], json!("trackUnavailable"));
     }
 
+    // --- Wyścig 1: dwa `play` przed pierwszym PlayRequestIdChanged ---
+    //
+    // Upstream (playback/src/player.rs, handle_command_load) wysyła
+    // PlayRequestIdChanged RAZ na każdy `load`, w kolejności komend. Gdy AMC wyda
+    // dwa `play` pod rząd, pierwsze PlayRequestIdChanged NALEŻY do pierwszego
+    // zlecenia i nie wolno go dowiązać do drugiego.
+
+    const URI_B: &str = "spotify:track:1301WleyT98MSxVHPZCA6M";
+
+    #[test]
+    fn first_native_id_is_not_stolen_by_the_second_play() {
+        let mut t = PlayTracker::new();
+        t.begin_play(1, URI, 0);
+        t.begin_play(2, URI_B, 0);
+
+        // To id należy do zlecenia 1, które AMC już porzuciło - nic nie emitujemy.
+        t.handle(Incoming::PlayRequestIdChanged { native_id: 10 });
+        assert!(
+            t.handle(Incoming::Playing {
+                native_id: 10,
+                position_ms: 1000
+            })
+            .is_empty(),
+            "zdarzenia porzuconego zlecenia 1 nie mogą udawać zlecenia 2"
+        );
+        assert!(t.handle(Incoming::EndOfTrack { native_id: 10 }).is_empty());
+
+        // Dopiero drugie id należy do zlecenia 2.
+        t.handle(Incoming::PlayRequestIdChanged { native_id: 11 });
+        let out = t.handle(Incoming::Playing {
+            native_id: 11,
+            position_ms: 20,
+        });
+        assert_eq!(types(&out), ["state"]);
+        assert_eq!(out[0]["playId"], json!(2));
+        assert_eq!(out[0]["uri"], json!(URI_B));
+        assert_eq!(t.current_play_id(), Some(2));
+    }
+
+    #[test]
+    fn stop_between_two_loads_keeps_binding_order() {
+        let mut t = PlayTracker::new();
+        t.begin_play(1, URI, 0);
+        t.request_stop();
+        t.begin_play(2, URI_B, 0);
+
+        // Spóźnione PlayRequestIdChanged zatrzymanego zlecenia 1.
+        t.handle(Incoming::PlayRequestIdChanged { native_id: 10 });
+        assert!(t
+            .handle(Incoming::Playing {
+                native_id: 10,
+                position_ms: 500
+            })
+            .is_empty());
+
+        // Zlecenie 2 musi dostać swoje id i normalnie raportować.
+        t.handle(Incoming::PlayRequestIdChanged { native_id: 11 });
+        let out = t.handle(Incoming::Playing {
+            native_id: 11,
+            position_ms: 30,
+        });
+        assert_eq!(types(&out), ["state"]);
+        assert_eq!(out[0]["playId"], json!(2));
+        let ended = t.handle(Incoming::EndOfTrack { native_id: 11 });
+        assert_eq!(types(&ended), ["ended"]);
+        assert_eq!(ended[0]["playId"], json!(2));
+    }
+
+    #[test]
+    fn two_queued_loads_of_the_same_uri_bind_in_order() {
+        // To samo URI dwa razy: po URI nie da się ich rozróżnić, tylko po kolejności.
+        let mut t = PlayTracker::new();
+        t.begin_play(1, URI, 0);
+        t.begin_play(2, URI, 5_000);
+
+        t.handle(Incoming::PlayRequestIdChanged { native_id: 10 });
+        assert!(t
+            .handle(Incoming::TrackChanged {
+                uri: URI.to_string(),
+                duration_ms: 214_000
+            })
+            .is_empty(),
+            "TrackChanged porzuconego zlecenia nie może opisywać nowego playId"
+        );
+        t.handle(Incoming::PlayRequestIdChanged { native_id: 11 });
+
+        let out = t.handle(Incoming::TrackChanged {
+            uri: URI.to_string(),
+            duration_ms: 214_000,
+        });
+        assert_eq!(out[0]["playId"], json!(2));
+        assert_eq!(out[0]["durationMs"], json!(214_000));
+        assert_eq!(out[0]["positionMs"], json!(5_000));
+    }
+
+    // --- Wyścig 2: Seeked/PositionChanged nie zmieniają pauzy w granie ---
+    //
+    // Upstream wysyła Seeked zarówno ze stanu Playing, JAK I Paused
+    // (player.rs, handle_command_seek: `PlayerState::Playing { .. } | PlayerState::Paused { .. }`),
+    // więc seek na pauzie nie oznacza wznowienia odtwarzania.
+
+    #[test]
+    fn seek_while_paused_does_not_resume_playback() {
+        let mut t = PlayTracker::new();
+        t.begin_play(5, URI, 0);
+        t.handle(Incoming::PlayRequestIdChanged { native_id: 3 });
+        t.handle(Incoming::Playing {
+            native_id: 3,
+            position_ms: 100,
+        });
+        t.handle(Incoming::Paused {
+            native_id: 3,
+            position_ms: 100,
+        });
+
+        let out = t.handle(Incoming::Seeked {
+            native_id: 3,
+            position_ms: 42_000,
+        });
+        assert_eq!(types(&out), ["state"]);
+        assert_eq!(out[0]["positionMs"], json!(42_000));
+        assert_eq!(out[0]["isPaused"], json!(true), "seek na pauzie nie wznawia");
+        assert_eq!(out[0]["isPlaying"], json!(false), "seek na pauzie nie wznawia");
+    }
+
+    #[test]
+    fn position_changed_while_paused_does_not_resume_playback() {
+        let mut t = PlayTracker::new();
+        t.begin_play(6, URI, 0);
+        t.handle(Incoming::PlayRequestIdChanged { native_id: 4 });
+        t.handle(Incoming::Paused {
+            native_id: 4,
+            position_ms: 7_000,
+        });
+        let out = t.handle(Incoming::PositionChanged {
+            native_id: 4,
+            position_ms: 7_100,
+        });
+        assert_eq!(out[0]["positionMs"], json!(7_100));
+        assert_eq!(out[0]["isPlaying"], json!(false));
+        assert_eq!(out[0]["isPaused"], json!(true));
+    }
+
+    #[test]
+    fn seek_while_playing_stays_playing() {
+        let mut t = PlayTracker::new();
+        t.begin_play(7, URI, 0);
+        t.handle(Incoming::PlayRequestIdChanged { native_id: 5 });
+        t.handle(Incoming::Playing {
+            native_id: 5,
+            position_ms: 100,
+        });
+        let out = t.handle(Incoming::Seeked {
+            native_id: 5,
+            position_ms: 90_000,
+        });
+        assert_eq!(out[0]["positionMs"], json!(90_000));
+        assert_eq!(out[0]["isPlaying"], json!(true));
+        assert_eq!(out[0]["isPaused"], json!(false));
+    }
+
     #[test]
     fn events_without_binding_are_ignored() {
         let mut t = PlayTracker::new();

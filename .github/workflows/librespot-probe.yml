@@ -106,6 +106,9 @@ jobs:
             ~/.cargo/git
             native/AmcSpotifyLibrespotHost/target
           key: amchost-${{ runner.os }}-${{ hashFiles('native/AmcSpotifyLibrespotHost/Cargo.toml', 'native/AmcSpotifyLibrespotHost/Cargo.lock') }}
+          # Bez tego samo dopięcie Cargo.lock zmienia klucz i wymusza zimny build.
+          restore-keys: |
+            amchost-${{ runner.os }}-
       - name: Build release binary
         shell: pwsh
         working-directory: native/AmcSpotifyLibrespotHost
@@ -116,7 +119,7 @@ jobs:
           # Jawny --target jest konieczny, żeby flaga nie dotknęła proc-macro hosta.
           RUSTFLAGS: -C target-feature=+crt-static
         run: |
-          cargo +stable build --release --target x86_64-pc-windows-msvc
+          cargo +stable build --locked --release --target x86_64-pc-windows-msvc
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run protocol tests (no Spotify account, no network playback)
         shell: pwsh
@@ -125,7 +128,7 @@ jobs:
           RUSTFLAGS: -C target-feature=+crt-static
         run: |
           # -- nocapture: chcemy widzieć realne wyniki, nie tylko podsumowanie.
-          cargo +stable test --release --target x86_64-pc-windows-msvc -- --nocapture --test-threads=2
+          cargo +stable test --locked --release --target x86_64-pc-windows-msvc -- --nocapture --test-threads=2
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Prove the exe needs no VC++ runtime (import table, not just a happy run)
         shell: pwsh
