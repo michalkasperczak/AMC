@@ -243,6 +243,30 @@ internal sealed class SpotifyIntegrationService(
         }
     }
 
+    /// <summary>
+    /// Wyszukiwanie w katalogu Spotify dla Ctrl+F. Osobne wejscie obok
+    /// synchronizacji: wyszukiwanie NIE dotyka biblioteki ani cache konta.
+    /// </summary>
+    public async Task<IReadOnlyList<MediaItem>> SearchAsync(
+        string query,
+        CancellationToken cancellationToken)
+    {
+        await operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var tokens = await EnsureValidTokensAsync(cancellationToken).ConfigureAwait(false);
+            return await api.SearchAsync(
+                tokens.AccessToken,
+                settings.CountryCode,
+                query,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            operationGate.Release();
+        }
+    }
+
     public void Disconnect()
     {
         SpotifyCredentialStore.Delete();

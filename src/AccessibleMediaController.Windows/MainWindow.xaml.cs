@@ -706,15 +706,10 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             allServices || string.Equals(_sessions.Current.Id, "radio", StringComparison.Ordinal)
                 || string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
                 || string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+                || string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
                 ? (query, cancellationToken) => PrepareRemoteSearchAsync(query, allServices, cancellationToken)
                 : null,
-            allServices
-                ? "katalogach radia, podcastów i YouTube"
-                : string.Equals(_sessions.Current.Id, "podcasts", StringComparison.Ordinal)
-                    ? "katalogach Apple Podcasts, Spreaker i YouTube"
-                    : string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
-                        ? "katalogu TIDAL"
-                    : "katalogu radia")
+            RemoteSearchLabel(_sessions.Current.Id, allServices))
         {
             Owner = this
         };
@@ -844,6 +839,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             // to the in-memory surface so focus can return to it; it is not
             // persisted as part of the user's TIDAL collection.
             tidal.AddItems([result.Item]);
+        }
+        // Ta sama zasada dla Spotify: bez dopisania wybranej pozycji do sesji
+        // Enter nie mialby czego odtworzyc, a fokus nie mialby gdzie wrocic po
+        // zamknieciu okna. Cache biblioteki (CachedCollectionItems) tego NIE
+        // dotyczy - pozycja z katalogu nie jest czescia konta.
+        if (string.Equals(result.SessionId, "spotify", StringComparison.OrdinalIgnoreCase)
+            && _sessions.FindSession("spotify") is { } spotify
+            && spotify.Items.All(item => !string.Equals(item.Id, result.Item.Id, StringComparison.Ordinal)))
+        {
+            spotify.AddItems([result.Item]);
         }
         string? targetView = null;
         if (string.Equals(result.SessionId, "podcasts", StringComparison.OrdinalIgnoreCase))
@@ -9815,6 +9820,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                 .Select(item => new SearchWindow.SearchResult("tidal", item))
                 .ToArray();
         }
+        // Spotify jak TIDAL: katalog serwisu zamiast katalogow publicznych.
+        // Wyszukiwanie "we wszystkich serwisach" (Ctrl+Shift+F) celowo go NIE
+        // wola - odpowiedz wymaga waznego logowania konta, wiec wygasly token
+        // psulby wynik wspolny dla wszystkich sesji.
+        if (!allServices && string.Equals(currentId, "spotify", StringComparison.Ordinal))
+            return await PrepareSpotifySearchAsync(query, cancellationToken);
         Task radioSearch = Task.CompletedTask;
         Task<IReadOnlyList<MediaItem>> podcastSearch = Task.FromResult<IReadOnlyList<MediaItem>>([]);
         if (allServices || string.Equals(currentId, "radio", StringComparison.Ordinal))

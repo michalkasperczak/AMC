@@ -43,6 +43,9 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
     // rzędy tysięcy pozycji, ale nieskończona pętla przy błędzie API zawiesiłaby
     // synchronizację na zawsze.
     private const int MaxPages = 400;
+    // Dokumentacja "Search for Item": limit dotyczy kazdego rodzaju osobno i
+    // konczy sie na 10. Wpisanie wiecej daje blad 400, nie dluzsza liste.
+    private const int SearchLimitPerType = 10;
 
     private readonly HttpClient http = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     private readonly bool ownsHttpClient = httpClient is null;
@@ -353,6 +356,96 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
             }
         }
         return items;
+    }
+
+    /// <summary>
+    /// Wyszukiwanie w katalogu Spotify (Ctrl+F), tak jak w TIDAL: wykonawcy,
+    /// albumy, utwory, playlisty, podcasty i odcinki w JEDNYM zapytaniu.
+    ///
+    /// GRANICE API, sprawdzone w dokumentacji "Search for Item" (wrzesien 2026):
+    /// - "limit" dotyczy KAZDEGO rodzaju osobno i ma zakres 0-10. Nie da sie
+    ///   poprosic o wiecej niz 10 pozycji na rodzaj jednym zapytaniem, wiec nie
+    ///   obiecujemy uzytkownikowi pelnej listy - to wynik podgladowy.
+    /// - Bez "market" (ani kraju konta) Spotify uznaje tresc za niedostepna i
+    ///   zwraca pozycje oznaczone jako nieodtwarzalne, dlatego rynek wysylamy
+    ///   zawsze.
+    /// - Audiobooki pomijamy swiadomie: AMC ich nie odtwarza, a Spotify oddaje
+    ///   je tylko w kilku krajach.
+    /// - Wynik NIE jest biblioteka uzytkownika. Zadna pozycja nie moze wrocic z
+    ///   ustawionym IsInLibrary/IsFavorite, bo wtedy Ctrl+L i Ctrl+U klamalyby
+    ///   o zawartosci konta.
+    /// </summary>
+    public async Task<IReadOnlyList<MediaItem>> SearchAsync(
+        string accessToken,
+        string market,
+        string query,
+        CancellationToken cancellationToken)
+    {
+        var szukane = query?.Trim() ?? string.Empty;
+        if (szukane.Length == 0) return [];
+        var rynek = string.IsNullOrWhiteSpace(market) ? "PL" : market.Trim().ToUpperInvariant();
+        var url = $"{ApiRoot}/search?q={Uri.EscapeDataString(szukane)}"
+            + "&type=artist,album,track,playlist,show,episode"
+            + $"&market={Uri.EscapeDataString(rynek)}"
+            + $"&limit={SearchLimitPerType}";
+        using var document = await GetJsonAsync(accessToken, url, cancellationToken).ConfigureAwait(false);
+        var root = document.RootElement;
+        var wyniki = new List<MediaItem>();
+        // Kolejnosc rodzajow jest stala i celowa: czytnik ekranu czyta liste od
+        // gory, wiec wykonawca i album (punkty wejscia do nawigacji) stoja przed
+        // pojedynczymi utworami.
+        Zbierz(root, "artists", ReadArtist, wyniki);
+        Zbierz(root, "albums", element => ReadAlbum(element), wyniki);
+        Zbierz(root, "tracks", ReadTrack, wyniki);
+        Zbierz(root, "playlists", ReadPlaylist, wyniki);
+        Zbierz(root, "shows", ReadSearchShow, wyniki);
+        Zbierz(root, "episodes", ReadEpisode, wyniki);
+        foreach (var item in wyniki)
+        {
+            // Wynik wyszukiwania to katalog, nie konto. Flagi kolekcji ustawia
+            // dopiero warstwa okna, gdy pozycja jest juz w sesji uzytkownika.
+            item.IsInLibrary = false;
+            item.IsFavorite = false;
+        }
+        return wyniki;
+    }
+
+    private static void Zbierz(
+        JsonElement root,
+        string sekcja,
+        Func<JsonElement, MediaItem?> reader,
+        List<MediaItem> wyniki)
+    {
+        if (!root.TryGetProperty(sekcja, out var grupa) || grupa.ValueKind != JsonValueKind.Object) return;
+        if (!grupa.TryGetProperty("items", out var array) || array.ValueKind != JsonValueKind.Array) return;
+        foreach (var entry in array.EnumerateArray())
+        {
+            // Spotify wstawia w wyniki wyszukiwania playlist wartosci null.
+            // Bez tego warunku parser wywalalby cale wyszukiwanie na jednej
+            // dziurze w odpowiedzi.
+            if (entry.ValueKind != JsonValueKind.Object) continue;
+            var item = reader(entry);
+            if (item is not null) wyniki.Add(item);
+        }
+    }
+
+    /// <summary>
+    /// Podcast z wyszukiwania. Odpowiedz wyszukiwania oddaje obiekt podcastu
+    /// wprost, bez opakowania "show", ktore ma lista zapisanych podcastow.
+    /// </summary>
+    private static MediaItem? ReadSearchShow(JsonElement show)
+    {
+        var id = Tekst(show, "id");
+        var nazwa = Tekst(show, "name");
+        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(nazwa)) return null;
+        return new MediaItem
+        {
+            Kind = MediaItemKind.Podcast,
+            Title = nazwa,
+            ExternalId = id,
+            Artist = Tekst(show, "publisher") ?? string.Empty,
+            PublicUri = $"https://open.spotify.com/show/{id}"
+        };
     }
 
     private async Task CollectAsync(

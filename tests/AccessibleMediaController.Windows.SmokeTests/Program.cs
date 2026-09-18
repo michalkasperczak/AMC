@@ -188,6 +188,7 @@ var tests = new (string Name, Action Test)[]
     ("Brak dysku chmurowego mowi prawde, nie radzi czekac", TestBrakDyskuChmurowegoMowiPrawde),
     ("Zywa transmisja YouTube nie cofa dzwieku", TestLiveYouTubeUsesFfmpegAndDoesNotSeek),
     ("Spotify zachowuje pozycję także poprzedniego utworu", SpotifyOptionsPersistenceTests.Run),
+    ("Zdalne wyszukiwanie Spotify jak TIDAL", SpotifySearchTests.Run),
     ("Sesja Spotify ma konto pod Ctrl+F5", TestSpotifyKontoPodCtrlF5),
     ("Spotify nie przesuwa numerow istniejacych sesji", TestSpotifyNiePrzesuwaNumerowSesji),
     ("Adres powrotu Spotify nie uzywa nazwy localhost", TestSpotifyAdresPowrotuBezLocalhost),
