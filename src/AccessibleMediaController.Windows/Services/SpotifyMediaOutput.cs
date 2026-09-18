@@ -10,11 +10,6 @@ using Microsoft.Web.WebView2.Wpf;
 
 namespace AccessibleMediaController.Windows.Services;
 
-internal sealed class SpotifyPlaybackNoticeEventArgs(string message) : EventArgs
-{
-    public string Message { get; } = message;
-}
-
 /// <summary>
 /// Uruchamia oficjalny Spotify Web Playback SDK w niefokusowalnym WebView2.
 ///
@@ -58,7 +53,6 @@ internal sealed class SpotifyMediaOutput : IMediaOutput, IDisposable
     public event EventHandler<MediaPlaybackEndedEventArgs>? PlaybackEnded;
     public event EventHandler<MediaPlaybackPreparingEventArgs>? PlaybackPreparing;
     public event EventHandler<MediaPlaybackStartedEventArgs>? PlaybackStarted;
-    public event EventHandler<SpotifyPlaybackNoticeEventArgs>? PlaybackNotice;
 
     public string? LoadedItemId
     {

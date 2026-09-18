@@ -170,7 +170,7 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
         CancellationToken cancellationToken)
     {
         string albumArtist;
-        string albumTitle;
+        string? albumTitle;
         try
         {
             using var header = await GetJsonAsync(
@@ -211,7 +211,8 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
                         var item = ReadTrack(entry);
                         if (item is null) continue;
                         if (string.IsNullOrWhiteSpace(item.Artist)) item.Artist = albumArtist;
-                        if (string.IsNullOrWhiteSpace(item.Album)) item.Album = albumTitle;
+                        item.RelatedAlbumExternalId = albumId;
+                        item.RelatedAlbumTitle = albumTitle;
                         items.Add(item);
                     }
                 }

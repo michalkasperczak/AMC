@@ -328,7 +328,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _spotifyOutput.PlaybackEnded += SpotifyOutput_PlaybackEnded;
         _spotifyOutput.PlaybackPreparing += SpotifyOutput_PlaybackPreparing;
         _spotifyOutput.PlaybackStarted += SpotifyOutput_PlaybackStarted;
-        _spotifyOutput.PlaybackNotice += SpotifyOutput_PlaybackNotice;
         LoadPersistedTidalCatalog();
         _statePersistence = new StatePersistenceQueue(store, BackgroundStateSaveFailed);
         _radioRecognitionMonitoring = _state.Radio.AutomaticTrackRecognitionEnabled;
@@ -10341,8 +10340,6 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private void TidalOutput_PlaybackNotice(object? sender, TidalPlaybackNoticeEventArgs e) =>
         AnnounceEssential(e.Message);
 
-    private void SpotifyOutput_PlaybackNotice(object? sender, SpotifyPlaybackNoticeEventArgs e) =>
-        AnnounceEssential(e.Message);
 
     private void RadioOutput_PlaybackPreparing(object? sender, MediaPlaybackPreparingEventArgs e)
     {
