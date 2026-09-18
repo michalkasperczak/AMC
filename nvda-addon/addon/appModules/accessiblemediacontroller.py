@@ -13,6 +13,8 @@ wiec uzytkownik moze go zmienic w Ustawieniach NVDA.
 import threading
 
 import appModuleHandler
+import api
+import controlTypes
 import ui
 import wx
 from scriptHandler import script
@@ -39,6 +41,31 @@ except ImportError:  # pragma: no cover - zalezne od ukladu instalacji dodatku
 
 class AppModule(appModuleHandler.AppModule):
     scriptCategory = "AMC"
+
+    def getScript(self, gesture):
+        # AppModules cover dialogs too. Never replace NVDA's native line
+        # reading in properties, HTML documents, editors, menus or settings.
+        try:
+            focus = api.getFocusObject()
+            foreground = api.getForegroundObject()
+            title = getattr(foreground, "name", "") or ""
+            _, marker, version = title.rpartition(" — AMC ")
+            if not marker or not version:
+                return None
+            if focus is None or getattr(focus, "treeInterceptor", None) is not None:
+                return None
+            if getattr(focus, "role", None) in (
+                controlTypes.Role.EDITABLETEXT,
+                controlTypes.Role.COMBOBOX,
+                controlTypes.Role.MENUITEM,
+                controlTypes.Role.POPUPMENU,
+                controlTypes.Role.MENUBAR,
+            ):
+                return None
+        except Exception:
+            # Unknown accessibility context: let NVDA use its normal gesture.
+            return None
+        return super().getScript(gesture)
 
     def _powiedz(self, tekst):
         if tekst:

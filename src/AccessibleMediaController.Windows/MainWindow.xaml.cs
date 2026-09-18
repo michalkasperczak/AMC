@@ -4764,6 +4764,17 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         sections.Add(string.Join(Environment.NewLine, playbackLines));
 
         var technicalLines = new List<string> { "Techniczne" };
+        if (string.Equals(session.Id, "spotify", StringComparison.Ordinal))
+        {
+            technicalLines.Add("Odtwarzacz w AMC: Spotify Web Playback SDK");
+            technicalLines.Add("Lossless: brak potwierdzenia dla odtwarzania w AMC");
+            technicalLines.Add("Parametry bieżącego strumienia: publiczny SDK nie udostępnia bitrate, kodeka ani głębi bitowej");
+            technicalLines.Add(item.Kind is MediaItemKind.Podcast or MediaItemKind.Episode
+                ? "Jakość według dokumentacji Spotify: podcasty w odtwarzaczu internetowym około 128 kb/s (nie pomiar tego odcinka)"
+                : "Jakość według dokumentacji Spotify: odtwarzacz internetowy Premium — AAC 256 kb/s, kompresja stratna (nie pomiar tego utworu)");
+            technicalLines.Add("Lossless FLAC w aplikacji Spotify lub urządzeniu Connect nie oznacza tej samej jakości w AMC");
+            technicalLines.Add("Źródło informacji o jakości: https://support.spotify.com/us/article/audio-quality/");
+        }
         if (!string.IsNullOrWhiteSpace(item.Codec))
         {
             technicalLines.Add($"Format strumienia: {item.Codec}");
