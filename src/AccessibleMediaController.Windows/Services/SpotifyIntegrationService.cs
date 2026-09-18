@@ -137,10 +137,16 @@ internal sealed class SpotifyIntegrationService(
         try
         {
             var tokens = await EnsureValidTokensAsync(cancellationToken).ConfigureAwait(false);
+            // Zakres bierzemy z tokenu, a gdy Spotify go nie powtorzylo - z tego,
+            // co zapamietano przy logowaniu. Gdy NIE WIEMY nic, pozwalamy probowac:
+            // blokada "na wszelki wypadek" zabralaby odtwarzanie koncie, ktore gra.
+            var scope = !string.IsNullOrWhiteSpace(tokens.Scope)
+                ? tokens.Scope
+                : settings.GrantedScope;
             return new SpotifyPlaybackCredentials(
                 tokens.AccessToken,
                 tokens.ExpiresAtUtc,
-                SpotifyScopes.AllowsPlayback(tokens.Scope));
+                string.IsNullOrWhiteSpace(scope) || SpotifyScopes.AllowsPlayback(scope));
         }
         finally
         {
@@ -264,7 +270,11 @@ internal sealed class SpotifyIntegrationService(
         DiagnosticLog.Info("spotify-auth", "Odświeżanie tokenu Spotify.");
         var refreshed = await oauth.RefreshAsync(settings, stored, cancellationToken).ConfigureAwait(false);
         SpotifyCredentialStore.Write(refreshed);
-        settings.GrantedScope = refreshed.Scope;
+        // Spotify przy odswiezeniu czesto NIE powtarza listy zakresow. Puste
+        // pole nie znaczy "odebrano uprawnienia" - nadpisanie go pustka kasowalo
+        // wiedze o zakresie "streaming" i odtwarzanie zglaszalo nieprawdziwe
+        // "konto bez Premium".
+        if (!string.IsNullOrWhiteSpace(refreshed.Scope)) settings.GrantedScope = refreshed.Scope;
         return refreshed;
     }
 

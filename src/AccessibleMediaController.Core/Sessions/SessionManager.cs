@@ -17,10 +17,13 @@ public sealed class SessionManager
     private readonly List<DemoMediaSession> _sessions;
     private readonly Dictionary<int, string> _sessionSlots;
 
-    public SessionManager(AppSettings settings, IMediaOutput? tidalOutput = null)
+    public SessionManager(
+        AppSettings settings,
+        IMediaOutput? tidalOutput = null,
+        IMediaOutput? spotifyOutput = null)
     {
         _settings = settings;
-        _sessions = CreateDemoSessions(tidalOutput).ToList();
+        _sessions = CreateDemoSessions(tidalOutput, spotifyOutput).ToList();
         _sessionSlots = SessionSlotOrder.Normalize(settings.SessionSlots);
         settings.SessionSlots = new Dictionary<int, string>(_sessionSlots);
         ReorderSessionsBySlots();
@@ -230,7 +233,9 @@ public sealed class SessionManager
         });
     }
 
-    private static IReadOnlyList<DemoMediaSession> CreateDemoSessions(IMediaOutput? tidalOutput)
+    private static IReadOnlyList<DemoMediaSession> CreateDemoSessions(
+        IMediaOutput? tidalOutput,
+        IMediaOutput? spotifyOutput = null)
     {
         return
         [
@@ -241,7 +246,7 @@ public sealed class SessionManager
             // porzadek przechodzenia miedzy sesjami (MoveSession), wiec wstawiona
             // w srodek nowa sesja zmienia to, co uzytkownik uslyszy po znanym
             // skrocie. Michal ma ten porzadek wyuczony.
-            new DemoMediaSession("spotify", "Spotify", CreateDemonstrationItems("spotify"))
+            new DemoMediaSession("spotify", "Spotify", CreateDemonstrationItems("spotify"), spotifyOutput)
         ];
     }
 

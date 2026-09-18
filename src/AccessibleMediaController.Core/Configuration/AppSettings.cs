@@ -585,6 +585,10 @@ public sealed class TidalCachedCollectionItemSettings
     public string Title { get; set; } = string.Empty;
     public string Artist { get; set; } = string.Empty;
     public MediaItemKind Kind { get; set; } = MediaItemKind.Track;
+    // Source trzyma adres dla odtwarzacza (np. "spotify:track:..."). Bez zapisu
+    // tego pola zapamietana biblioteka wraca po restarcie bez tego, czym gra:
+    // pozycje sa widoczne na liscie, ale nie da sie ich odtworzyc.
+    public string? Source { get; set; }
     public long DurationTicks { get; set; }
     public int? BitrateKbps { get; set; }
     public int? SampleRateHz { get; set; }
@@ -610,6 +614,7 @@ public sealed class TidalCachedCollectionItemSettings
         Title = item.Title,
         Artist = item.Artist,
         Kind = item.Kind,
+        Source = item.Source,
         DurationTicks = item.Duration.Ticks,
         BitrateKbps = item.BitrateKbps,
         SampleRateHz = item.SampleRateHz,
@@ -636,6 +641,7 @@ public sealed class TidalCachedCollectionItemSettings
         Title = Title,
         Artist = Artist,
         Kind = Kind,
+        Source = Source,
         Duration = TimeSpan.FromTicks(Math.Max(0, DurationTicks)),
         BitrateKbps = BitrateKbps,
         SampleRateHz = SampleRateHz,

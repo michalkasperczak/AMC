@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Silnik odtwarzania Spotify</title>
+    <!--
+      Spotify Web Playback SDK NIE jest paczka npm - Spotify wymaga wczytania go
+      z wlasnego adresu, bo tam siedzi obsluga ochrony tresci (Widevine).
+      Dlatego nie ma tu zadnego bundlera: mostek to zwykly modul ES.
+    -->
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+  </head>
+  <body>
+    <script type="module">
+      import { startSpotifyBridge } from './bridge.js';
+
+      // SDK wola te funkcje, gdy jest gotowe. Mostek startuje dopiero wtedy,
+      // bo wczesniej window.Spotify nie istnieje.
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        startSpotifyBridge(window.Spotify, window);
+      };
+    </script>
+  </body>
+</html>

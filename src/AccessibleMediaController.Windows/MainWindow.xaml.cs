@@ -128,6 +128,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly List<MediaItem> _spotifyItems = [];
     private bool _spotifyCatalogSynchronized;
     private readonly TidalMediaOutput _tidalOutput;
+    private readonly SpotifyMediaOutput _spotifyOutput;
     private readonly CancellationTokenSource _tidalCancellation = new();
     private long _tidalNavigationVersion;
     private readonly ListSelectionRefresh _mediaSelectionRefresh = new();
@@ -321,6 +322,13 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _tidalOutput.PlaybackPreparing += TidalOutput_PlaybackPreparing;
         _tidalOutput.PlaybackStarted += TidalOutput_PlaybackStarted;
         _tidalOutput.PlaybackNotice += TidalOutput_PlaybackNotice;
+        _spotifyOutput = new SpotifyMediaOutput(_spotifyIntegration, SpotifyPlayerWebView);
+        _spotifyOutput.DurationAvailable += SpotifyOutput_DurationAvailable;
+        _spotifyOutput.PlaybackFailed += SpotifyOutput_PlaybackFailed;
+        _spotifyOutput.PlaybackEnded += SpotifyOutput_PlaybackEnded;
+        _spotifyOutput.PlaybackPreparing += SpotifyOutput_PlaybackPreparing;
+        _spotifyOutput.PlaybackStarted += SpotifyOutput_PlaybackStarted;
+        _spotifyOutput.PlaybackNotice += SpotifyOutput_PlaybackNotice;
         LoadPersistedTidalCatalog();
         _statePersistence = new StatePersistenceQueue(store, BackgroundStateSaveFailed);
         _radioRecognitionMonitoring = _state.Radio.AutomaticTrackRecognitionEnabled;
@@ -9318,7 +9326,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _queueOrderHistory.Clear();
         _playbackHistoryCursors.Clear();
         _undoSequence = 0;
-        _sessions = new SessionManager(_state.Settings, _tidalOutput);
+        _sessions = new SessionManager(_state.Settings, _tidalOutput, _spotifyOutput);
         if (_sessions.FindSession("tidal") is { } tidalSession
             && _tidalIntegration.IsConfigured
             && (_tidalIntegration.HasStoredLogin || _tidalItems.Count > 0))
@@ -10195,9 +10203,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     private void TidalOutput_DurationAvailable(object? sender, MediaDurationAvailableEventArgs e)
+        => StreamingOutput_DurationAvailable("tidal", e);
+
+    private void SpotifyOutput_DurationAvailable(object? sender, MediaDurationAvailableEventArgs e)
+        => StreamingOutput_DurationAvailable("spotify", e);
+
+    // Obsluga zdarzen odtwarzania jest wspolna dla sesji streamingowych. Kazdy
+    // nowy serwis (Spotify, Apple Music) ma zachowywac sie DOKLADNIE tak jak
+    // TIDAL, ktory Michal ma wyuczony - dublowanie tego kodu konczylo sie
+    // rozjechaniem komunikatow czytnika miedzy sesjami.
+    private void StreamingOutput_DurationAvailable(
+        string sessionId,
+        MediaDurationAvailableEventArgs e)
     {
         if (_playerViewActive
-            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+            && string.Equals(_sessions.Current.Id, sessionId, StringComparison.Ordinal))
         {
             UpdatePlayerView();
         }
@@ -10205,46 +10225,73 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     private void TidalOutput_PlaybackFailed(object? sender, MediaOutputFailedEventArgs e)
+        => StreamingOutput_PlaybackFailed("tidal", "TIDAL", _tidalOutput.Position, e);
+
+    private void SpotifyOutput_PlaybackFailed(object? sender, MediaOutputFailedEventArgs e)
+        => StreamingOutput_PlaybackFailed("spotify", "Spotify", _spotifyOutput.Position, e);
+
+    private void StreamingOutput_PlaybackFailed(
+        string sessionId,
+        string serviceName,
+        TimeSpan position,
+        MediaOutputFailedEventArgs e)
     {
-        _sessions.FindSession("tidal")?.MarkPlaybackFailed(_tidalOutput.Position);
+        _sessions.FindSession(sessionId)?.MarkPlaybackFailed(position);
         RefreshPlaybackIndicators();
         if (_playerViewActive
-            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+            && string.Equals(_sessions.Current.Id, sessionId, StringComparison.Ordinal))
         {
             UpdatePlayerView(true);
         }
         UpdatePlaybackStatusBar();
         UpdateWindowTitle();
         QueueStateSave();
-        AnnounceEssential($"Nie można odtworzyć z TIDAL: {e.Item?.Title ?? "utwór"}. {e.Message}");
+        AnnounceEssential(
+            $"Nie można odtworzyć z {serviceName}: {e.Item?.Title ?? "utwór"}. {e.Message}");
     }
 
     private void TidalOutput_PlaybackPreparing(object? sender, MediaPlaybackPreparingEventArgs e)
+        => StreamingOutput_PlaybackPreparing("tidal", e);
+
+    private void SpotifyOutput_PlaybackPreparing(object? sender, MediaPlaybackPreparingEventArgs e)
+        => StreamingOutput_PlaybackPreparing("spotify", e);
+
+    private void StreamingOutput_PlaybackPreparing(
+        string sessionId,
+        MediaPlaybackPreparingEventArgs e)
     {
         if (_playerViewActive
-            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+            && string.Equals(_sessions.Current.Id, sessionId, StringComparison.Ordinal))
         {
             UpdatePlayerView(true);
         }
         UpdatePlaybackStatusBar();
         if (_state.Settings.Messages.LoadingMessages
-            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+            && string.Equals(_sessions.Current.Id, sessionId, StringComparison.Ordinal))
         {
             Announce(e.Item.Title);
         }
     }
 
     private void TidalOutput_PlaybackStarted(object? sender, MediaPlaybackStartedEventArgs e)
+        => StreamingOutput_PlaybackStarted("tidal", e);
+
+    private void SpotifyOutput_PlaybackStarted(object? sender, MediaPlaybackStartedEventArgs e)
+        => StreamingOutput_PlaybackStarted("spotify", e);
+
+    private void StreamingOutput_PlaybackStarted(
+        string sessionId,
+        MediaPlaybackStartedEventArgs e)
     {
-        var tidal = _sessions.FindSession("tidal");
-        if (tidal is not null
-            && string.Equals(tidal.CurrentItem.Id, e.Item.Id, StringComparison.Ordinal))
+        var session = _sessions.FindSession(sessionId);
+        if (session is not null
+            && string.Equals(session.CurrentItem.Id, e.Item.Id, StringComparison.Ordinal))
         {
-            RecordPlayback(tidal, e.Item);
+            RecordPlayback(session, e.Item);
         }
         RefreshPlaybackIndicators();
         if (_playerViewActive
-            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+            && string.Equals(_sessions.Current.Id, sessionId, StringComparison.Ordinal))
         {
             UpdatePlayerView(true);
         }
@@ -10254,12 +10301,18 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     private void TidalOutput_PlaybackEnded(object? sender, MediaPlaybackEndedEventArgs e)
+        => StreamingOutput_PlaybackEnded("tidal", e);
+
+    private void SpotifyOutput_PlaybackEnded(object? sender, MediaPlaybackEndedEventArgs e)
+        => StreamingOutput_PlaybackEnded("spotify", e);
+
+    private void StreamingOutput_PlaybackEnded(string sessionId, MediaPlaybackEndedEventArgs e)
     {
-        var tidal = _sessions.FindSession("tidal");
+        var tidal = _sessions.FindSession(sessionId);
         var nextItem = tidal?.ContinueAfterPlaybackEnded(e.Item);
         if (tidal is not null) EnsureQueueOrder(tidal);
         if (tidal is not null && nextItem is not null) RecordPlayback(tidal, nextItem);
-        if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+        if (string.Equals(_sessions.Current.Id, sessionId, StringComparison.Ordinal)
             && string.Equals(_currentView, "Kolejka", StringComparison.Ordinal))
         {
             var restoreListFocus = !_playerViewActive && MediaList.IsKeyboardFocusWithin;
@@ -10273,7 +10326,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             RefreshPlaybackIndicators();
         }
         if (_playerViewActive
-            && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
+            && string.Equals(_sessions.Current.Id, sessionId, StringComparison.Ordinal))
         {
             UpdatePlayerView(true);
         }
@@ -10286,6 +10339,9 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     }
 
     private void TidalOutput_PlaybackNotice(object? sender, TidalPlaybackNoticeEventArgs e) =>
+        AnnounceEssential(e.Message);
+
+    private void SpotifyOutput_PlaybackNotice(object? sender, SpotifyPlaybackNoticeEventArgs e) =>
         AnnounceEssential(e.Message);
 
     private void RadioOutput_PlaybackPreparing(object? sender, MediaPlaybackPreparingEventArgs e)
@@ -11562,6 +11618,16 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             currentNavigation.CurrentView = safeView;
             RestoreFilterForCurrentView(currentNavigation);
         }
+        // Zawartosc kontenera Spotify jest cache z sieci - po nowym uruchomieniu
+        // nie ma jej jeszcze, wiec zapamietane miejsce musi wrocic do Biblioteki.
+        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+            && IsSpotifyContentsView(_currentView)
+            && !_spotifyContainerViews.ContainsKey(_currentView))
+        {
+            _currentView = "Biblioteka";
+            currentNavigation.CurrentView = _currentView;
+            RestoreFilterForCurrentView(currentNavigation);
+        }
         if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
             && IsTidalContentsView(_currentView)
             && !_tidalContainerViews.ContainsKey(_currentView))
@@ -11580,6 +11646,21 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             : _sessions.Current.DisplayName;
         ViewHeading.Text = CurrentViewDisplayName();
         UpdateWindowTitle();
+        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+            && _spotifyContainerViews.TryGetValue(_currentView, out var spotifyContainer))
+        {
+            // Album zachowuje kolejnosc wydania; sortowanie alfabetyczne tylko
+            // wtedy, gdy uzytkownik sam je wybral (Alt+1).
+            _unfilteredItems = (CurrentCollectionSortMode() == CollectionSortMode.Alphabetical
+                    ? spotifyContainer.Items
+                        .OrderBy(item => NavigationTextForItem(item), StringComparer.CurrentCultureIgnoreCase)
+                        .ToList()
+                    : spotifyContainer.Items.ToList())
+                .Select(item => new MediaItemRow(item, FormatListItem(item), item.PrimaryText))
+                .ToList();
+            ApplyFilter(preferredItemId, fallbackIndex);
+            return;
+        }
         if (string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
             && _tidalContainerViews.TryGetValue(_currentView, out var tidalContainer))
         {
@@ -11861,8 +11942,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         IEnumerable<MediaItem> items = _sessions.Current.Items;
         if (_currentView == "Ulubione")
         {
+            // Spotify dzieli kolekcje tak samo jak TIDAL: Ulubione to utwory,
+            // Biblioteka to albumy, wykonawcy i playlisty. Bez tego Ctrl+U
+            // i Ctrl+L pokazywaly niemal identyczna liste.
             var favoriteItems = items.Where(item => item.IsFavorite
-                && (!string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+                && (!UsesTidalStyleCollections(_sessions.Current.Id)
                     || TidalCollectionSemantics.UsesFavorites(item.Kind))).ToArray();
             items = OrderCurrentCollection(_sessions.Current, _currentView, favoriteItems);
         }
@@ -11870,7 +11954,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (_currentView == "Biblioteka")
         {
             items = items.Where(item => item.IsInLibrary
-                && (!string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal)
+                && (!UsesTidalStyleCollections(_sessions.Current.Id)
                     || TidalCollectionSemantics.UsesLibrary(item.Kind)));
             if (string.Equals(_sessions.Current.Id, "local", StringComparison.Ordinal))
             {
@@ -12348,6 +12432,15 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         if (!preserveStoredOrder) orders[storageKey] = normalized;
         return normalized;
     }
+
+    /// <summary>
+    /// Uslugi, w ktorych Ulubione i Biblioteka znacza co innego: Ulubione to
+    /// utwory, Biblioteka to albumy, wykonawcy i playlisty. Dotyczy TIDAL
+    /// i Spotify, bo oba serwisy tak dziela kolekcje uzytkownika.
+    /// </summary>
+    private static bool UsesTidalStyleCollections(string sessionId) =>
+        string.Equals(sessionId, "tidal", StringComparison.Ordinal)
+        || string.Equals(sessionId, "spotify", StringComparison.Ordinal);
 
     private static string CollectionOrderStorageKey(string sessionId, string viewName) =>
         viewName is "Biblioteka" or "Ulubione"
@@ -17145,6 +17238,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         {
             return $"{tidalView.ArtistSection?.Label() ?? TidalContainerLabel(tidalView.Container.Kind)} — {tidalView.Container.Title}";
         }
+        // Bez tego czytnik przeczytalby techniczna nazwe widoku ("Spotify:4aBc...").
+        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+            && _spotifyContainerViews.TryGetValue(_currentView, out var spotifyView))
+        {
+            return $"{SpotifyContainerLabel(spotifyView.Container.Kind)} — {spotifyView.Container.Title}";
+        }
         return BaseCurrentViewDisplayName();
     }
 
@@ -20244,6 +20343,11 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
                  && key == Key.Right
                  && string.Equals(_sessions.Current.Id, "tidal", StringComparison.Ordinal))
             description = "otwiera menu przejścia do albumu lub wykonawcy TIDAL";
+        else if (MediaList.IsKeyboardFocusWithin
+                 && modifiers == ModifierKeys.None
+                 && key == Key.Right
+                 && string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal))
+            description = "otwiera zawartość albumu, playlisty lub wykonawcy Spotify";
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.None && key is Key.Up or Key.Down)
             description = "przejdź do poprzedniego lub następnego elementu listy";
         else if (MediaList.IsKeyboardFocusWithin && modifiers == ModifierKeys.Shift && key is Key.Up or Key.Down)
@@ -21617,6 +21721,19 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             e.Handled = true;
             return;
         }
+        // ZGLOSZENIE Michala 18.09.2026: strzalka w prawo ma dzialac w Spotify
+        // tak jak w TIDAL. Album, playlista i wykonawca sie OTWIERAJA (jedno
+        // nacisniecie, bez menu wyboru) - w TIDAL menu jest potrzebne, bo tam
+        // utwor ma i album, i wykonawce nadrzednego.
+        if (Keyboard.Modifiers == ModifierKeys.None
+            && key == Key.Right
+            && string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+            && SelectedItem is { } spotifyItem)
+        {
+            e.Handled = true;
+            _ = OpenSpotifyContainerAsync(spotifyItem);
+            return;
+        }
         // ZGLOSZENIE Michala 15.09.2026: strzalka w prawo na liscie podcastow
         // otwiera pelny opis - to samo, co Alt+D, tylko jedna reka.
         // Dotyczy TYLKO listy; w odtwarzaczu strzalka dalej przewija dzwiek.
@@ -21892,6 +22009,7 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
         _podcastOutput.Dispose();
         _radioOutput.Dispose();
         _tidalOutput.Dispose();
+        _spotifyOutput.Dispose();
         _wiiMClient.Dispose();
         _wiiMCancellation.Dispose();
         _tidalIntegration.Dispose();

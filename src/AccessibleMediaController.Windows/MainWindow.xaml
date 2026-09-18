@@ -25,6 +25,14 @@
                       Focusable="False" IsHitTestVisible="False"
                       KeyboardNavigation.IsTabStop="False"
                       automation:AutomationProperties.Name="" />
+        <!-- Silnik Spotify. Osobna powierzchnia, bo oba odtwarzacze moga byc
+             wczytane naraz: przelaczenie sesji nie ma gasic drugiego. Niedostepny
+             dla czytnika i dla tabulatora - to nie element interfejsu. -->
+        <wv2:WebView2 x:Name="SpotifyPlayerWebView" DockPanel.Dock="Top"
+                      Width="1" Height="1"
+                      Focusable="False" IsHitTestVisible="False"
+                      KeyboardNavigation.IsTabStop="False"
+                      automation:AutomationProperties.Name="" />
 
         <DockPanel Margin="12">
         <Menu x:Name="MainMenu" DockPanel.Dock="Top" Margin="0,0,0,8"

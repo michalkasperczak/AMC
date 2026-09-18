@@ -159,6 +159,119 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
         return items;
     }
 
+    /// <summary>
+    /// Utwory z albumu. Album zwracany przez Spotify NIE powtarza wykonawcy przy
+    /// kazdym utworze, wiec uzupelniamy go z naglowka albumu - inaczej lista
+    /// czytalaby "nieznany wykonawca".
+    /// </summary>
+    public async Task<IReadOnlyList<MediaItem>?> GetAlbumTracksAsync(
+        string accessToken,
+        string albumId,
+        CancellationToken cancellationToken)
+    {
+        string albumArtist;
+        string albumTitle;
+        try
+        {
+            using var header = await GetJsonAsync(
+                accessToken,
+                $"{ApiRoot}/albums/{Uri.EscapeDataString(albumId)}",
+                cancellationToken).ConfigureAwait(false);
+            albumArtist = Wykonawcy(header.RootElement);
+            albumTitle = Tekst(header.RootElement, "name");
+        }
+        catch (SpotifyApiException exception) when (exception.StatusCode == HttpStatusCode.NotFound
+            || exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return null;
+        }
+
+        var items = new List<MediaItem>();
+        var next = $"{ApiRoot}/albums/{Uri.EscapeDataString(albumId)}/tracks?limit={PageSize}";
+        var pages = 0;
+        while (!string.IsNullOrEmpty(next) && pages++ < MaxPages)
+        {
+            JsonDocument document;
+            try
+            {
+                document = await GetJsonAsync(accessToken, next, cancellationToken).ConfigureAwait(false);
+            }
+            catch (SpotifyApiException exception) when (exception.StatusCode == HttpStatusCode.NotFound
+                || exception.StatusCode == HttpStatusCode.Forbidden)
+            {
+                return null;
+            }
+            using (document)
+            {
+                var root = document.RootElement;
+                if (root.TryGetProperty("items", out var array) && array.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var entry in array.EnumerateArray())
+                    {
+                        var item = ReadTrack(entry);
+                        if (item is null) continue;
+                        if (string.IsNullOrWhiteSpace(item.Artist)) item.Artist = albumArtist;
+                        if (string.IsNullOrWhiteSpace(item.Album)) item.Album = albumTitle;
+                        items.Add(item);
+                    }
+                }
+                next = root.TryGetProperty("next", out var nextElement)
+                    && nextElement.ValueKind == JsonValueKind.String
+                    ? nextElement.GetString()
+                    : null;
+            }
+        }
+        return items;
+    }
+
+    /// <summary>Albumy wykonawcy. Bez singli-duplikatow z innych rynkow.</summary>
+    public async Task<IReadOnlyList<MediaItem>?> GetArtistAlbumsAsync(
+        string accessToken,
+        string artistId,
+        CancellationToken cancellationToken)
+    {
+        var items = new List<MediaItem>();
+        var widziane = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var next = $"{ApiRoot}/artists/{Uri.EscapeDataString(artistId)}"
+            + $"/albums?include_groups=album,single&limit={PageSize}";
+        var pages = 0;
+        while (!string.IsNullOrEmpty(next) && pages++ < MaxPages)
+        {
+            JsonDocument document;
+            try
+            {
+                document = await GetJsonAsync(accessToken, next, cancellationToken).ConfigureAwait(false);
+            }
+            catch (SpotifyApiException exception) when (exception.StatusCode == HttpStatusCode.NotFound
+                || exception.StatusCode == HttpStatusCode.Forbidden)
+            {
+                return null;
+            }
+            using (document)
+            {
+                var root = document.RootElement;
+                if (root.TryGetProperty("items", out var array) && array.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var entry in array.EnumerateArray())
+                    {
+                        var item = ReadAlbum(entry);
+                        if (item is null) continue;
+                        // Spotify zwraca te same wydania w wielu wersjach rynkowych.
+                        // Bez odsiania lista wykonawcy mialaby ten sam album kilka razy.
+                        var klucz = $"{item.Title}|{item.Artist}";
+                        if (!widziane.Add(klucz)) continue;
+                        items.Add(item);
+                    }
+                }
+                next = root.TryGetProperty("next", out var nextElement)
+                    && nextElement.ValueKind == JsonValueKind.String
+                    ? nextElement.GetString()
+                    : null;
+            }
+        }
+        return items;
+    }
+
     private async Task CollectAsync(
         string opis,
         MediaItemKind kind,
@@ -332,7 +445,10 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
         if (!entry.TryGetProperty("track", out var track) || track.ValueKind != JsonValueKind.Object) return null;
         var item = ReadTrack(track);
         if (item is null) return null;
-        item.IsInLibrary = true;
+        // Polubiony utwor nalezy do Ulubionych (Ctrl+U), NIE do Biblioteki
+        // (Ctrl+L). Ustawienie obu flag sprawialo, ze oba skroty pokazywaly
+        // prawie te sama liste i rozroznienie tracilo sens. Biblioteka to
+        // albumy, wykonawcy i playlisty - tak samo jak w TIDAL.
         item.IsFavorite = true;
         if (entry.TryGetProperty("added_at", out var added)
             && added.ValueKind == JsonValueKind.String
@@ -416,6 +532,15 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
     private static MediaItem? ReadSavedAlbum(JsonElement entry)
     {
         if (!entry.TryGetProperty("album", out var album) || album.ValueKind != JsonValueKind.Object) return null;
+        return ReadAlbum(album, entry);
+    }
+
+    /// <summary>
+    /// Album jako pozycja listy. "entry" jest tu tylko dla albumow z biblioteki
+    /// (nosi date dodania); przy albumach wykonawcy go nie ma.
+    /// </summary>
+    private static MediaItem? ReadAlbum(JsonElement album, JsonElement? entry = null)
+    {
         var id = Tekst(album, "id");
         var nazwa = Tekst(album, "name");
         if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(nazwa)) return null;
@@ -425,11 +550,12 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
             Title = nazwa,
             ExternalId = id,
             Artist = Wykonawcy(album),
-            IsInLibrary = true,
+            IsInLibrary = entry is not null,
             PublicUri = $"https://open.spotify.com/album/{id}",
             Source = $"spotify:album:{id}"
         };
-        if (entry.TryGetProperty("added_at", out var added)
+        if (entry is { } wpis
+            && wpis.TryGetProperty("added_at", out var added)
             && added.ValueKind == JsonValueKind.String
             && DateTimeOffset.TryParse(added.GetString(), out var kiedy))
         {
