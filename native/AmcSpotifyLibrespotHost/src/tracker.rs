@@ -12,6 +12,8 @@
 //!   `play` i muszą zostać odrzucone, także gdy dwa razy pod rząd leci to samo URI;
 //! * pauza i stop NIE mogą wygenerować `ended`.
 
+use std::collections::VecDeque;
+
 use serde_json::{json, Value};
 
 use crate::protocol::SESSION_ID;
@@ -85,8 +87,13 @@ impl Slot {
 /// Mapuje natywne identyfikatory Librespota na `playId` AMC.
 #[derive(Debug, Default)]
 pub struct PlayTracker {
-    /// Ostatnie zlecenie AMC, do którego jeszcze nie dowiązano natywnego id.
-    pending: Option<Slot>,
+    /// Kolejka zleceń AMC, dla których wysłaliśmy `load`, a natywne id jeszcze
+    /// nie dotarło. Musi być KOLEJKĄ, nie jednym polem: `Player::load()` wysyła
+    /// `PlayRequestIdChanged` raz na każdy `load`, w kolejności komend, więc przy
+    /// dwóch `play` pod rząd pierwsze id należy do PIERWSZEGO zlecenia.
+    /// Zlecenia porzucone zostają w kolejce z `stop_requested`, żeby skonsumować
+    /// swoje id, a nie oddać je następnemu `playId`.
+    pending: VecDeque<Slot>,
     /// Zlecenie aktualnie dowiązane do natywnego `play_request_id`.
     current: Option<Slot>,
 }
@@ -99,7 +106,11 @@ impl PlayTracker {
     /// AMC wydało `play`. Poprzednie zlecenie przestaje być bieżące od razu,
     /// żeby jego spóźnione zdarzenia nie udawały nowego odtwarzania.
     pub fn begin_play(&mut self, play_id: i64, uri: &str, position_ms: u32) {
-        self.pending = Some(Slot {
+        // Zlecenia jeszcze niedowiązane zostają porzucone przez nowsze `play`.
+        for slot in self.pending.iter_mut() {
+            slot.stop_requested = true;
+        }
+        self.pending.push_back(Slot {
             play_id,
             uri: uri.to_string(),
             native_id: None,
@@ -124,7 +135,12 @@ impl PlayTracker {
             cur.is_playing = false;
             cur.is_paused = false;
         }
-        self.pending = None;
+        // Zlecenia z kolejki są porzucone, ale ich natywne id wciąż nadejdą -
+        // zostają w kolejce z `stop_requested`, żeby nie dowiązać ich id do
+        // późniejszego `play`.
+        for slot in self.pending.iter_mut() {
+            slot.stop_requested = true;
+        }
     }
 
     /// Czy `native_id` należy do zlecenia, o którym AMC ma jeszcze słuchać.
@@ -141,8 +157,14 @@ impl PlayTracker {
     pub fn handle(&mut self, event: Incoming) -> Vec<Value> {
         match event {
             Incoming::PlayRequestIdChanged { native_id } => {
-                // Dowiązanie: pierwszy taki komunikat po naszym `play` należy do niego.
-                if let Some(mut slot) = self.pending.take() {
+                // Dowiązanie w KOLEJNOŚCI komend `load`. Zlecenie porzucone
+                // (nowsze `play` albo `stop`) zjada swoje id i nic nie emituje -
+                // inaczej jego natywne id trafiłoby do następnego playId.
+                if let Some(mut slot) = self.pending.pop_front() {
+                    if slot.stop_requested {
+                        // Porzucone: id skonsumowane, bieżące zlecenie bez zmian.
+                        return vec![];
+                    }
                     slot.native_id = Some(native_id);
                     self.current = Some(slot);
                 }
@@ -150,9 +172,10 @@ impl PlayTracker {
                 vec![]
             }
             Incoming::TrackChanged { uri, duration_ms } => {
-                // Długość bierzemy z AudioItem; przypisujemy tylko gdy URI się zgadza.
+                // Długość bierzemy z AudioItem; przypisujemy tylko gdy URI się zgadza
+                // i gdy zlecenie nadal jest tym, o które AMC prosiło.
                 match self.current.as_mut() {
-                    Some(cur) if cur.uri == uri => {
+                    Some(cur) if cur.uri == uri && !cur.stop_requested => {
                         cur.duration_ms = Some(duration_ms);
                         vec![cur.state_event()]
                     }
@@ -178,8 +201,24 @@ impl PlayTracker {
             Incoming::Playing {
                 native_id,
                 position_ms,
+            } => {
+                if !self.is_current(native_id) {
+                    return vec![];
+                }
+                let cur = self.current.as_mut().expect("is_current");
+                if cur.stop_requested {
+                    return vec![];
+                }
+                cur.position_ms = position_ms;
+                cur.is_playing = true;
+                cur.is_paused = false;
+                vec![cur.state_event()]
             }
-            | Incoming::Seeked {
+            // Seeked i PositionChanged NIOSĄ TYLKO POZYCJĘ. Upstream wysyła Seeked
+            // także ze stanu Paused (playback/src/player.rs, handle_command_seek
+            // dopasowuje `PlayerState::Playing { .. } | PlayerState::Paused { .. }`),
+            // więc traktowanie ich jak Playing zamieniało pauzę w granie.
+            Incoming::Seeked {
                 native_id,
                 position_ms,
             }
@@ -195,8 +234,6 @@ impl PlayTracker {
                     return vec![];
                 }
                 cur.position_ms = position_ms;
-                cur.is_playing = true;
-                cur.is_paused = false;
                 vec![cur.state_event()]
             }
             Incoming::Paused {
