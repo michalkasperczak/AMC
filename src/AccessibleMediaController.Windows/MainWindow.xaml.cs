@@ -132,6 +132,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
     private readonly CancellationTokenSource _tidalCancellation = new();
     private long _tidalNavigationVersion;
     private readonly ListSelectionRefresh _mediaSelectionRefresh = new();
+    /// <summary>
+    /// Serializuje zapis kolekcji Spotify RAZEM z nalozeniem skutku na
+    /// interfejs. Bez tego odpowiedz na drugie nacisniecie skrotu moglaby
+    /// wyprzedzic pierwsza i lista pokazalaby stan odwrotny do konta.
+    /// </summary>
+    private readonly SemaphoreSlim _spotifyMembershipUiGate = new(1, 1);
     private readonly SemaphoreSlim _tidalMembershipUiGate = new(1, 1);
     private bool _tidalCatalogSynchronized;
     private bool _tidalCollectionOrderSnapshotComplete;
@@ -10678,6 +10684,24 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             if (message is not null) Announce(message);
             return new CommandExecutionResult(true);
         }
+        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+            && commandId is CommandIds.ToggleFavorite or CommandIds.ToggleLibrary
+            && ActionItems.Any(item => item.ExternalId is { Length: > 0 }))
+        {
+            // Spotify zachowuje sie teraz jak TIDAL: zapis idzie do konta przez
+            // API, a flagi lokalne zmieniaja sie DOPIERO po potwierdzeniu.
+            // Wczesniej ta komenda spadala do CommandRouter i przestawiala same
+            // flagi - uzytkownik slyszal "dodano", a w koncie nie bylo nic.
+            var spotifyItems = ActionItems
+                .Where(item => item.ExternalId is { Length: > 0 })
+                .DistinctBy(item => item.Id, StringComparer.Ordinal)
+                .ToArray();
+            var spotifyMessage = BeginSpotifyCollectionToggle(
+                spotifyItems,
+                commandId == CommandIds.ToggleFavorite);
+            if (spotifyMessage is not null) Announce(spotifyMessage);
+            return new CommandExecutionResult(true);
+        }
         if (commandId == CommandIds.GoToAlbum)
         {
             GoToRelatedAlbum();
@@ -14196,6 +14220,28 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             _ = ChangeTidalCollectionMembershipAsync(tidalItems, add: false);
             return;
         }
+        if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
+            && (_currentView is "Biblioteka" or "Ulubione" or "Albumy" or "Playlisty"
+                || IsSpotifyContentsView(_currentView)))
+        {
+            // Delete w sesji Spotify usuwa Z KONTA przez API, tak samo jak w
+            // TIDAL. Wczesniej usuwal tylko wiersz z listy lokalnej.
+            var spotifyRemovals = MediaList.SelectedItems
+                .OfType<MediaItemRow>()
+                .Select(row => row.ActionItem)
+                .Where(item => item.ExternalId is { Length: > 0 }
+                    && SpotifyCollectionSemantics.IsCollectionKind(item.Kind)
+                    && SpotifyCollectionSemantics.IsMember(item))
+                .DistinctBy(item => item.ExternalId, StringComparer.Ordinal)
+                .ToArray();
+            if (spotifyRemovals.Length == 0)
+            {
+                Announce("Wybrany element nie należy do kolekcji Spotify");
+                return;
+            }
+            _ = ChangeSpotifyCollectionMembershipAsync(spotifyRemovals, add: false);
+            return;
+        }
         if (string.Equals(_currentView, "Playlisty", StringComparison.Ordinal)
             && (MediaList.SelectedItem as MediaItemRow)?.PlaylistId is not null)
         {
@@ -17606,6 +17652,157 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             DiagnosticLog.Error("tidal-sync", "Automatyczna synchronizacja TIDAL nie powiodła się.", exception);
             if (announceResult) Announce(exception.Message);
         }
+    }
+
+    /// <summary>
+    /// Wstawia pobrana biblioteke Spotify do sesji. Kolejka odtwarzania
+    /// przezywa pobranie: pozycje wstawione do kolejki zostaja, bo utrata
+    /// kolejki przy odswiezeniu biblioteki byla by dla uzytkownika strata
+    /// pracy, nie odswiezeniem.
+    /// </summary>
+    private string? BeginSpotifyCollectionToggle(IReadOnlyList<MediaItem> items, bool favorites)
+    {
+        var compatible = items.Count > 0 && items.All(item => item.ExternalId is { Length: > 0 }
+            && (favorites
+                ? SpotifyCollectionSemantics.UsesFavorites(item.Kind)
+                : SpotifyCollectionSemantics.UsesLibrary(item.Kind)));
+        DiagnosticLog.Info("spotify-collection-action",
+            $"Polecenie {(favorites ? "Ulubione" : "Biblioteka")}; elementy {items.Count}; "
+            + $"rodzaje: {string.Join(",", items.Select(item => item.Kind).Distinct())}; zgodne: {compatible}.");
+        if (!compatible) return SpotifyCollectionSemantics.IncompatibleMessage(favorites);
+        _ = ChangeSpotifyCollectionMembershipAsync(items, add: null);
+        return null;
+    }
+
+    /// <summary>
+    /// Zapis kolekcji Spotify na prawdziwym API. Flagi lokalne i zapis stanu
+    /// dotykaja WYLACZNIE pozycji potwierdzonych przez Spotify; przy odmowie i
+    /// braku uprawnienia nie zmienia sie nic, a uzytkownik slyszy przyczyne.
+    /// Bramka serializuje zarowno zapis, jak i jego nalozenie na interfejs,
+    /// zeby dwa naciśnięcia skrotu pod rzad nie zamienily kolejnosci skutkow.
+    /// </summary>
+    private async Task ChangeSpotifyCollectionMembershipAsync(
+        IReadOnlyList<MediaItem> items,
+        bool? add)
+    {
+        var searchWindow = _activeSearchWindow;
+        var ownsGate = false;
+        try
+        {
+            await _spotifyMembershipUiGate.WaitAsync();
+            ownsGate = true;
+            var outcome = await _spotifyIntegration.ChangeCollectionMembershipAsync(
+                items,
+                add,
+                CancellationToken.None);
+            if (_isClosing) return;
+            foreach (var item in outcome.ConfirmedItems)
+                SpotifyCollectionSemantics.ApplyMembership(item, outcome.Added);
+            // Cache sesji trzyma wlasne kopie pozycji. Bez tego samo odswiezenie
+            // listy przywracaloby stary stan po potwierdzonym zapisie.
+            SynchronizeSpotifyCachedMembership(outcome.ConfirmedItems, outcome.Added);
+            QueueStateSave();
+            if (string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal))
+                RefreshCurrentView();
+            var subject = outcome.ConfirmedItems.Count == 1
+                ? outcome.ConfirmedItems[0].Title
+                : FormatItemCount(outcome.ConfirmedItems.Count);
+            var warning = outcome.Warnings.Count == 0
+                ? string.Empty
+                : $". {string.Join("; ", outcome.Warnings)}";
+            var collectionName = outcome.ConfirmedItems.All(item =>
+                SpotifyCollectionSemantics.UsesFavorites(item.Kind))
+                ? "Ulubionych Spotify"
+                : "Biblioteki Spotify";
+            var announcement = outcome.Added
+                ? $"Dodano do {collectionName}: {subject}{warning}"
+                : $"Usunięto z {collectionName}: {subject}{warning}";
+            if (searchWindow is not null)
+            {
+                if (ReferenceEquals(_activeSearchWindow, searchWindow) && searchWindow.IsActive)
+                    searchWindow.AnnounceActionCompletion(announcement, restoreResultFocus: false);
+            }
+            else
+            {
+                Announce(announcement);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            // Zadnej lokalnej zmiany: odmowa Spotify nie moze wygladac jak sukces.
+            DiagnosticLog.Error("spotify-collection", "Nie zmieniono kolekcji Spotify.", exception);
+            if (_isClosing) return;
+            var message = $"Nie zmieniono kolekcji Spotify. {exception.Message}";
+            if (searchWindow is not null)
+            {
+                if (ReferenceEquals(_activeSearchWindow, searchWindow) && searchWindow.IsActive)
+                    searchWindow.AnnounceActionCompletion(message, restoreResultFocus: false);
+            }
+            else
+            {
+                Announce(message);
+            }
+        }
+        finally
+        {
+            if (ownsGate) _spotifyMembershipUiGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Nanosi potwierdzony stan na zapamietana biblioteke Spotify. Usunięte
+    /// pozycje wypadaja z cache, dodane doklejaja sie raz - powtorzony skrot nie
+    /// moze zdublowac wiersza na liscie.
+    /// </summary>
+    private void SynchronizeSpotifyCachedMembership(IReadOnlyList<MediaItem> confirmed, bool added)
+    {
+        if (confirmed.Count == 0) return;
+        var externalIds = confirmed
+            .Select(item => item.ExternalId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id!)
+            .ToHashSet(StringComparer.Ordinal);
+        if (externalIds.Count == 0) return;
+        foreach (var cached in _spotifyItems)
+        {
+            if (cached.ExternalId is { Length: > 0 } id && externalIds.Contains(id))
+                SpotifyCollectionSemantics.ApplyMembership(cached, added);
+        }
+        if (!added)
+        {
+            _spotifyItems.RemoveAll(item =>
+                item.ExternalId is { Length: > 0 } id && externalIds.Contains(id));
+        }
+        else
+        {
+            var znane = _spotifyItems
+                .Select(item => item.ExternalId)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id!)
+                .ToHashSet(StringComparer.Ordinal);
+            foreach (var item in confirmed)
+            {
+                if (item.ExternalId is not { Length: > 0 } id || !znane.Add(id)) continue;
+                _spotifyItems.Add(item);
+            }
+        }
+        _state.Spotify.CachedCollectionItems = _spotifyItems
+            .Select(TidalCachedCollectionItemSettings.FromMediaItem)
+            .ToList();
+        var session = _sessions.FindSession("spotify");
+        if (session is null) return;
+        var zachowane = session.Items
+            .Where(item => item.IsInQueue || item.IsPlayNext)
+            .ToArray();
+        var replacement = _spotifyItems
+            .Concat(zachowane)
+            .DistinctBy(item => item.Id, StringComparer.Ordinal)
+            .ToArray();
+        session.ReplaceItems(replacement);
+        EnsureQueueOrder(session);
     }
 
     /// <summary>

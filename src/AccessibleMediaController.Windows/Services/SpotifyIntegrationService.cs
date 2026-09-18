@@ -34,6 +34,13 @@ internal sealed record SpotifySynchronizationResult(
     IReadOnlyList<string> Warnings,
     bool IsComplete);
 
+/// <summary>Wynik zmiany przynależności: co Spotify POTWIERDZIŁ, a co nie.</summary>
+internal sealed record SpotifyMembershipOutcome(
+    bool Added,
+    IReadOnlyList<MediaItem> ConfirmedItems,
+    IReadOnlyList<MediaItem> FailedItems,
+    IReadOnlyList<string> Warnings);
+
 internal sealed record SpotifyPlaybackCredentials(
     string AccessToken,
     DateTimeOffset ExpiresAtUtc,
@@ -58,6 +65,7 @@ internal sealed class SpotifyIntegrationService(
     private static readonly TimeSpan RefreshMargin = TimeSpan.FromMinutes(5);
     private readonly SpotifyOAuthClient oauth = new();
     private readonly SpotifyApiClient api = new();
+    private readonly SpotifyLibraryWriteClient writer = new();
     private readonly HttpClient http = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
     private readonly bool ownsHttpClient = httpClient is null;
     private readonly SemaphoreSlim operationGate = new(1, 1);
@@ -244,6 +252,88 @@ internal sealed class SpotifyIntegrationService(
     }
 
     /// <summary>
+    /// Zmienia Ulubione / Bibliotekę konta Spotify NA PRAWDZIWYM API i zwraca
+    /// tylko to, co Spotify potwierdził odczytem po zapisie. Wołający ustawia
+    /// flagi lokalne WYŁĄCZNIE dla <see cref="SpotifyMembershipOutcome.ConfirmedItems"/>.
+    ///
+    /// Przechodzi przez tę samą bramkę co synchronizacja, żeby odświeżenie
+    /// tokenu i dwa naciśnięcia skrótu pod rząd nie nadpisały się wzajemnie.
+    ///
+    /// NIE prosi o logowanie i NIE otwiera przeglądarki. Przy braku zakresu
+    /// zapisu rzuca <see cref="SpotifyWriteBlockedException"/> z komunikatem
+    /// kierującym do okna konta (Ctrl+F5).
+    /// </summary>
+    public async Task<SpotifyMembershipOutcome> ChangeCollectionMembershipAsync(
+        IReadOnlyList<MediaItem> items,
+        bool? requestedAddition,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        // Mapa adres URI -> pozycje AMC. Dwie różne pozycje listy mogą wskazywać
+        // ten sam zasób Spotify (wynik wyszukiwania i pozycja biblioteki) i obie
+        // muszą dostać potwierdzony stan.
+        var byUri = new Dictionary<string, List<MediaItem>>(StringComparer.Ordinal);
+        var bezAdresu = new List<MediaItem>();
+        foreach (var item in items)
+        {
+            if (SpotifyCollectionSemantics.TryBuildUri(item, out var uri))
+            {
+                if (!byUri.TryGetValue(uri, out var lista)) byUri[uri] = lista = [];
+                lista.Add(item);
+            }
+            else
+            {
+                bezAdresu.Add(item);
+            }
+        }
+        if (byUri.Count == 0)
+        {
+            throw new SpotifyWriteBlockedException(
+                "Żadna z wybranych pozycji nie ma identyfikatora Spotify, który da się zapisać w koncie.",
+                SpotifyWriteBlockReason.UnsupportedKind);
+        }
+
+        await operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var tokens = await EnsureValidTokensAsync(cancellationToken).ConfigureAwait(false);
+            // Zakres bierzemy z tokenu, a przy pustym polu z ustawień: Spotify
+            // przy odświeżeniu często nie powtarza listy zakresów, a puste pole
+            // nie znaczy "odebrano uprawnienia".
+            var scope = string.IsNullOrWhiteSpace(tokens.Scope) ? settings.GrantedScope : tokens.Scope;
+            var result = await writer.ChangeMembershipAsync(
+                tokens.AccessToken,
+                scope,
+                byUri.Keys.ToArray(),
+                requestedAddition,
+                cancellationToken).ConfigureAwait(false);
+
+            var potwierdzone = result.ConfirmedUris
+                .SelectMany(uri => byUri.GetValueOrDefault(uri, []))
+                .ToArray();
+            var nieudane = result.FailedUris
+                .SelectMany(uri => byUri.GetValueOrDefault(uri, []))
+                .Concat(bezAdresu)
+                .ToArray();
+            var ostrzezenia = result.Warnings.ToList();
+            if (bezAdresu.Count > 0)
+            {
+                ostrzezenia.Add(
+                    $"Pominięto {bezAdresu.Count} pozycji bez identyfikatora Spotify.");
+            }
+            DiagnosticLog.Info(
+                "spotify-collection",
+                $"Spotify potwierdził {(result.Added ? "dodanie" : "usunięcie")} "
+                    + $"{potwierdzone.Length} pozycji; bez potwierdzenia {nieudane.Length}.");
+            return new SpotifyMembershipOutcome(result.Added, potwierdzone, nieudane, ostrzezenia);
+        }
+        finally
+        {
+            operationGate.Release();
+        }
+    }
+
+    /// <summary>
     /// Wyszukiwanie w katalogu Spotify dla Ctrl+F. Osobne wejscie obok
     /// synchronizacji: wyszukiwanie NIE dotyka biblioteki ani cache konta.
     /// </summary>
@@ -348,6 +438,7 @@ internal sealed class SpotifyIntegrationService(
     {
         oauth.Dispose();
         api.Dispose();
+        writer.Dispose();
         operationGate.Dispose();
         if (ownsHttpClient) http.Dispose();
     }
