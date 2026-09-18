@@ -138,7 +138,8 @@ var tests = new (string Name, Action Test)[]
     ("Opcje elementu Spotify nie sa zaslepka", TestOpcjeElementuSpotifyNieSaZaslepka),
     ("Opcje sesji Spotify nie obiecuja DSP", TestOpcjeSesjiSpotifyNieObiecujaDsp),
     ("Sesja Spotify pyta o pamiec pozycji", TestSesjaSpotifyPytaOPamiecPozycji),
-    ("Pozycja Spotify przezywa restart", TestPozycjaSpotifyPrzezywaRestart)
+    ("Pozycja Spotify przezywa restart", TestPozycjaSpotifyPrzezywaRestart),
+    ("Strzalka w prawo w Spotify daje menu powiazan jak TIDAL", TestStrzalkaWPrawoSpotifyMenuPowiazan)
 };
 
 static void TestTidalIntegrationFoundation()
@@ -6943,6 +6944,106 @@ static void TestUnavailableLocalItemPolicy()
     Equal(null, state.SessionNavigation.Sessions["local"].SelectedItemIds["Biblioteka"]);
     True(state.SessionNavigation.Sessions["local"].PlaybackContextItemIds.SequenceEqual(["available"]),
         "Kontekst odtwarzania nie może przechowywać zapomnianego identyfikatora.");
+}
+
+/// <summary>
+/// ZGLOSZENIE Michala 18.09.2026: w Spotify strzalka w prawo NIE pokazuje albumow
+/// wykonawcy ani nie przechodzi z albumu do wykonawcy, choc w TIDAL to dziala.
+///
+/// Test pilnuje trzech miejsc naraz, bo kazde z osobna wyglada niewinnie i
+/// dopiero razem tlumacza objaw:
+///
+/// 1. DANE. "Przejdz do wykonawcy" opiera sie na RelatedArtistExternalId.
+///    SpotifyApiClient.ReadTrack wypelnia to pole, ale ReadAlbum NIE - wiec
+///    album Spotify wracal z API bez wykonawcy nadrzednego. Galaz nawigacji
+///    byla poprawna, a funkcja martwa: CanGoToRelatedArtist zwracalo false.
+///
+/// 2. MENU. Strzalka w prawo w Spotify wolala OpenSpotifyContainerAsync, wiec na
+///    WYKONAWCY otwierala jego albumy (dobrze), ale na ALBUMIE wchodzila w liste
+///    utworow i nie dawalo sie z niej przejsc do wykonawcy. TIDAL pokazuje w tym
+///    miejscu menu powiazan; Spotify musi robic to samo.
+///
+/// 3. ENTER. Enter ma dalej OTWIERAC zawartosc (galaz CanOpenSpotifyContainer w
+///    ActivateSelected). Menu powiazan nie moze go przeslonic.
+/// </summary>
+static void TestStrzalkaWPrawoSpotifyMenuPowiazan()
+{
+    // 1. DANE: album Spotify musi nosic wykonawce nadrzednego.
+    var klient = File.ReadAllText(ZnajdzPlikZrodlowy("SpotifyApiClient.cs"));
+    var poczatekAlbumu = klient.IndexOf("MediaItem? ReadAlbum", StringComparison.Ordinal);
+    if (poczatekAlbumu < 0) throw new Exception("Nie znaleziono ReadAlbum w SpotifyApiClient.cs.");
+    var koniecAlbumu = klient.IndexOf("MediaItem? ReadArtist", StringComparison.Ordinal);
+    if (koniecAlbumu < 0) throw new Exception("Nie znaleziono ReadArtist w SpotifyApiClient.cs.");
+    var fragmentAlbumu = klient.Substring(poczatekAlbumu, koniecAlbumu - poczatekAlbumu);
+    if (!fragmentAlbumu.Contains("RelatedArtistExternalId", StringComparison.Ordinal))
+    {
+        throw new Exception(
+            "ReadAlbum nie ustawia RelatedArtistExternalId. Album Spotify wraca bez wykonawcy "
+                + "nadrzednego, wiec \"Przejdz do wykonawcy\" jest martwe niezaleznie od nawigacji.");
+    }
+    if (!fragmentAlbumu.Contains("RelatedArtistName", StringComparison.Ordinal))
+        throw new Exception("ReadAlbum nie ustawia RelatedArtistName - menu pokazaloby pusta nazwe.");
+
+    // Polityka powiazan jest wspolna dla TIDAL i Spotify (zalezy od RODZAJU
+    // elementu, nie od nazwy serwisu), wiec da sie ja sprawdzic bezposrednio.
+    var albumSpotify = new MediaItem
+    {
+        Id = "spotify:album-1",
+        ExternalId = "album-1",
+        Title = "Album Spotify",
+        Artist = "Wykonawca Spotify",
+        Kind = MediaItemKind.Album,
+        RelatedArtistExternalId = "artist-1",
+        RelatedArtistName = "Wykonawca Spotify"
+    };
+    True(TidalNavigationPolicy.CanOpenRelatedArtist(albumSpotify),
+        "Album Spotify z wypelnionym powiazaniem musi udostepniac przejscie do wykonawcy.");
+    var wykonawcaSpotify = new MediaItem
+    {
+        Id = "spotify:artist-1",
+        ExternalId = "artist-1",
+        Title = "Wykonawca Spotify",
+        Kind = MediaItemKind.Artist
+    };
+    True(TidalNavigationPolicy.CanShowArtistAlbums(wykonawcaSpotify),
+        "Wykonawca Spotify musi udostepniac liste swoich albumow.");
+
+    // 2. MENU: strzalka w prawo w sesji Spotify musi pokazywac menu powiazan.
+    var okno = File.ReadAllText(ZnajdzPlikZrodlowy("MainWindow.xaml.cs"));
+    var poczatekKlawiszy = okno.IndexOf(
+        "private void MediaList_PreviewKeyDown", StringComparison.Ordinal);
+    if (poczatekKlawiszy < 0)
+        throw new Exception("Nie znaleziono MediaList_PreviewKeyDown w MainWindow.xaml.cs.");
+    var fragmentKlawiszy = okno.Substring(
+        poczatekKlawiszy,
+        Math.Min(4000, okno.Length - poczatekKlawiszy));
+    if (!fragmentKlawiszy.Contains("ShowSpotifyRelationsMenu", StringComparison.Ordinal))
+    {
+        throw new Exception(
+            "Strzalka w prawo w sesji Spotify nie pokazuje menu powiazan. Na albumie nie da sie "
+                + "wtedy przejsc do wykonawcy - trzeba tego samego, co ShowTidalRelationsMenu.");
+    }
+
+    // Menu musi znac OBA kierunki ze zgloszenia.
+    var poczatekMenu = okno.IndexOf(
+        "private void ShowSpotifyRelationsMenu", StringComparison.Ordinal);
+    if (poczatekMenu < 0)
+        throw new Exception("Brak metody ShowSpotifyRelationsMenu w MainWindow.xaml.cs.");
+    var fragmentMenu = okno.Substring(poczatekMenu, Math.Min(2500, okno.Length - poczatekMenu));
+    if (!fragmentMenu.Contains("CanShowArtistAlbums", StringComparison.Ordinal))
+        throw new Exception("Menu Spotify nie oferuje albumow wykonawcy (CanShowArtistAlbums).");
+    if (!fragmentMenu.Contains("CanOpenRelatedArtist", StringComparison.Ordinal))
+        throw new Exception("Menu Spotify nie oferuje przejscia do wykonawcy (CanOpenRelatedArtist).");
+
+    // 3. ENTER musi dalej otwierac zawartosc kontenera.
+    var poczatekEnter = okno.IndexOf("CanOpenSpotifyContainer(item)", StringComparison.Ordinal);
+    if (poczatekEnter < 0)
+    {
+        throw new Exception(
+            "Enter nie otwiera juz zawartosci Spotify - zniknela galaz CanOpenSpotifyContainer "
+                + "z ActivateSelected. Menu powiazan nie moze zabrac Enterowi otwierania.");
+    }
+    Console.WriteLine("OK: strzalka w prawo w Spotify daje menu powiazan, Enter otwiera zawartosc");
 }
 
 /// <summary>

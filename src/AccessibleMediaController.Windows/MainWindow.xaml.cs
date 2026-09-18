@@ -21866,22 +21866,23 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
         // ZGLOSZENIE Michala 18.09.2026: strzalka w prawo ma dzialac w Spotify
-        // tak jak w TIDAL. Album, playlista i wykonawca sie OTWIERAJA (jedno
-        // nacisniecie, bez menu wyboru) - w TIDAL menu jest potrzebne, bo tam
-        // utwor ma i album, i wykonawce nadrzednego.
+        // tak jak w TIDAL - menu powiazan. Wczesniej wolala wprost otwarcie
+        // kontenera, wiec na WYKONAWCY wchodzila w albumy (dobrze), ale na
+        // ALBUMIE wchodzila w liste utworow i nie bylo jak przejsc do wykonawcy.
+        // Menu daje oba kierunki jednym klawiszem, a Enter dalej OTWIERA
+        // zawartosc (galaz CanOpenSpotifyContainer w ActivateSelected).
         // ZGLOSZENIE Michala 18.09.2026: "cos mi strzalka w prawo odtworzyla".
-        // Ta galaz brala KAZDY element sesji Spotify - takze utwor i odcinek,
-        // ktore kontenerem nie sa. Warunek CanOpenSpotifyContainer sprawia, ze
-        // strzalka w prawo zajmuje sie tylko tym, co MA co otworzyc; na utworze
-        // zdarzenie idzie dalej i zachowuje sie jak w kazdej innej sesji.
+        // Menu pokazuje sie tylko wtedy, gdy element MA jakies powiazanie albo
+        // jest kontenerem; na zwyklym utworze bez powiazan zdarzenie idzie
+        // dalej i zachowuje sie jak w kazdej innej sesji.
         if (Keyboard.Modifiers == ModifierKeys.None
             && key == Key.Right
             && string.Equals(_sessions.Current.Id, "spotify", StringComparison.Ordinal)
             && SelectedItem is { } spotifyItem
-            && CanOpenSpotifyContainer(spotifyItem))
+            && HasSpotifyRelations(spotifyItem))
         {
+            ShowSpotifyRelationsMenu(spotifyItem);
             e.Handled = true;
-            _ = OpenSpotifyContainerAsync(spotifyItem);
             return;
         }
         // ZGLOSZENIE Michala 15.09.2026: strzalka w prawo na liscie podcastow
@@ -21926,6 +21927,80 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             return;
         }
 
+        ShowRelationsMenu(
+            "Powiązania TIDAL",
+            actions.Select<(string Label, string CommandId), (string Label, Action Invoke)>(
+                action => (action.Label, () => ExecuteCommand(action.CommandId))).ToList());
+    }
+
+    /// <summary>
+    /// Czy strzalka w prawo ma w Spotify co pokazac. Kontener liczy sie sam z
+    /// siebie (otwarcie zawartosci), poza tym licza sie powiazania - dokladnie
+    /// te, ktorych pilnuje polityka wspolna z TIDAL.
+    /// </summary>
+    private static bool HasSpotifyRelations(MediaItem? item) =>
+        item is not null
+        && (CanOpenSpotifyContainer(item)
+            || TidalNavigationPolicy.CanOpenRelatedAlbum(item)
+            || TidalNavigationPolicy.CanOpenRelatedArtist(item));
+
+    /// <summary>
+    /// Menu powiazan Spotify - odpowiednik ShowTidalRelationsMenu.
+    ///
+    /// ZGLOSZENIE Michala 18.09.2026: na wykonawcy strzalka ma pokazac albumy, a
+    /// na albumie przejsc do wykonawcy. Wczesniej strzalka otwierala kontener
+    /// wprost, wiec drugi kierunek nie istnial.
+    ///
+    /// Playlista i podcast nie maja powiazan, tylko zawartosc - dla nich menu ma
+    /// jedna pozycje otwarcia, zeby strzalka nie przestala dzialac tam, gdzie
+    /// dzialala (to bylaby regresja).
+    /// </summary>
+    private void ShowSpotifyRelationsMenu(MediaItem item)
+    {
+        var actions = new List<(string Label, Action Invoke)>();
+        if (TidalNavigationPolicy.CanShowArtistAlbums(item))
+            actions.Add(("Pokaż albumy wykonawcy", () => _ = OpenSpotifyContainerAsync(item)));
+        else if (CanOpenSpotifyContainer(item))
+        {
+            var label = item.Kind switch
+            {
+                MediaItemKind.Album => "Pokaż utwory albumu",
+                MediaItemKind.Playlist => "Pokaż zawartość playlisty",
+                MediaItemKind.Podcast => "Pokaż odcinki podcastu",
+                _ => "Pokaż zawartość"
+            };
+            actions.Add((label, () => _ = OpenSpotifyContainerAsync(item)));
+        }
+        if (TidalNavigationPolicy.CanOpenRelatedAlbum(item))
+            actions.Add(("Przejdź do albumu", () => ExecuteCommand(CommandIds.GoToAlbum)));
+        if (TidalNavigationPolicy.CanOpenRelatedArtist(item))
+            actions.Add(("Przejdź do wykonawcy", () => ExecuteCommand(CommandIds.GoToArtist)));
+        if (actions.Count == 0)
+        {
+            Announce("Ten element nie ma dostępnego albumu ani wykonawcy nadrzędnego");
+            return;
+        }
+
+        // Jedna mozliwosc nie potrzebuje menu - czytnik mialby do przejscia okno
+        // wyboru z jedna pozycja zamiast wykonanej czynnosci.
+        if (actions.Count == 1)
+        {
+            actions[0].Invoke();
+            return;
+        }
+
+        ShowRelationsMenu("Powiązania Spotify", actions);
+    }
+
+    /// <summary>
+    /// Wspolna prezentacja menu powiazan (TIDAL i Spotify). Fokus musi wejsc na
+    /// pierwsza pozycje, a po zamknieciu wrocic na liste - inaczej czytnik
+    /// zostaje w pustym miejscu.
+    /// </summary>
+    private void ShowRelationsMenu(
+        string automationName,
+        IReadOnlyList<(string Label, Action Invoke)> actions)
+    {
         var menu = new ContextMenu
         {
             PlacementTarget = MediaList,
@@ -21933,12 +22008,12 @@ public partial class MainWindow : AccessibleWindow, IAnnouncementSink, IApplicat
             HorizontalOffset = 24,
             VerticalOffset = Math.Max(0, MediaList.ActualHeight / 3)
         };
-        AutomationProperties.SetName(menu, "Powiązania TIDAL");
-        foreach (var (label, commandId) in actions)
+        AutomationProperties.SetName(menu, automationName);
+        foreach (var (label, invoke) in actions)
         {
             var menuItem = new MenuItem { Header = label };
             AutomationProperties.SetName(menuItem, label);
-            menuItem.Click += (_, _) => ExecuteCommand(commandId);
+            menuItem.Click += (_, _) => invoke();
             menu.Items.Add(menuItem);
         }
         menu.Opened += (_, _) =>

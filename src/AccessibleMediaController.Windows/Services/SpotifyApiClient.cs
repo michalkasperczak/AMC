@@ -733,6 +733,19 @@ internal sealed class SpotifyApiClient(HttpClient? httpClient = null) : IDisposa
             PublicUri = $"https://open.spotify.com/album/{id}",
             Source = $"spotify:album:{id}"
         };
+        // Wykonawca nadrzedny albumu. ReadTrack wypelnia te pola od dawna, a
+        // ReadAlbum ich NIE ustawial - wiec album Spotify wracal z API bez
+        // wykonawcy i "Przejdz do wykonawcy" bylo martwe (CanOpenRelatedArtist
+        // czyta RelatedArtistExternalId, nie pole Artist, ktore jest tylko
+        // tekstem do czytnika). Bez tego zadna poprawka nawigacji nie pomoze.
+        if (album.TryGetProperty("artists", out var artysci)
+            && artysci.ValueKind == JsonValueKind.Array
+            && artysci.GetArrayLength() > 0)
+        {
+            var pierwszy = artysci[0];
+            item.RelatedArtistExternalId = Tekst(pierwszy, "id");
+            item.RelatedArtistName = Tekst(pierwszy, "name");
+        }
         if (entry is { } wpis
             && wpis.TryGetProperty("added_at", out var added)
             && added.ValueKind == JsonValueKind.String
