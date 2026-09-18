@@ -17,6 +17,12 @@ using AccessibleMediaController.Core.Sessions;
 using AccessibleMediaController.Core.Spotify;
 using AccessibleMediaController.Core.Tidal;
 
+// Ten sam plik wykonywalny sluzy jako proces-atrapa hosta Librespot. Musi to
+// byc PIERWSZE sprawdzenie: w trybie atrapy nie wolno uruchamiac zestawu
+// testow, bo jego wyjscie zepsuloby strumien JSON czytany przez transport.
+if (args.Length > 0 && args[0] == LibrespotHostFixture.ModeArgument)
+    return LibrespotHostFixture.Run(args);
+
 var tests = new (string Name, Action Test)[]
 {
     ("Normalizacja skrótów", TestKeyChords),
@@ -33,6 +39,7 @@ var tests = new (string Name, Action Test)[]
     ("Odbudowa zachowuje grające Spotify", SpotifySessionRebuildTests.Run),
     ("Dwie niezależne sesje Spotify bez zmiany skrótów", SpotifySeparateSessionsTests.Run),
     ("Zapis Ulubionych, Biblioteki i usuwania Spotify na API konta", SpotifyMembershipWriteTests.Run),
+    ("Transport osobnego procesu hosta Librespot", LibrespotHostClientTests.Run),
     ("Kategorie wykonawcy TIDAL, paginacja i rozdzielenie zasobów", TidalArtistBrowseTests.Run),
     ("Oddzielony tor oficjalnego odtwarzania TIDAL", TestTidalPlaybackBoundary),
     ("Pokaż w folderze dla plików i folderów", ShowInFolderTests.Run),

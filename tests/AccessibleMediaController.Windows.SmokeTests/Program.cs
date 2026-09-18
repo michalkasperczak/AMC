@@ -48,6 +48,11 @@ if (args.Length == 1 && args[0].StartsWith("--smoke-runner-failure=", StringComp
     SmokeTestRunnerTests.SimulateFailure(args[0]["--smoke-runner-failure=".Length..]);
     throw new InvalidOperationException("Symulowane niepowodzenie nie zostało zgłoszone.");
 }
+if (args.Contains("--librespot-output-smoke", StringComparer.Ordinal))
+{
+    SpotifyLibrespotOutputTests.Run();
+    return 0;
+}
 if (args.Contains("--tidal-webview-smoke", StringComparer.Ordinal))
 {
     TidalWebViewSmokeTests.Run();
@@ -189,6 +194,7 @@ var tests = new (string Name, Action Test)[]
     ("Zywa transmisja YouTube nie cofa dzwieku", TestLiveYouTubeUsesFfmpegAndDoesNotSeek),
     ("Spotify zachowuje pozycję także poprzedniego utworu", SpotifyOptionsPersistenceTests.Run),
     ("Zdalne wyszukiwanie Spotify jak TIDAL", SpotifySearchTests.Run),
+    ("Wyjście sesji Spotify — Librespot", SpotifyLibrespotOutputTests.Run),
     ("Sesja Spotify ma konto pod Ctrl+F5", TestSpotifyKontoPodCtrlF5),
     ("Spotify nie przesuwa numerow istniejacych sesji", TestSpotifyNiePrzesuwaNumerowSesji),
     ("Adres powrotu Spotify nie uzywa nazwy localhost", TestSpotifyAdresPowrotuBezLocalhost),
